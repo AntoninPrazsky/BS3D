@@ -1,4 +1,5 @@
 ﻿using BepuPhysics;
+using Prazsky.BS3D.GameStructure;
 
 namespace Prazsky.BS3D.Physics
 {
@@ -9,6 +10,8 @@ namespace Prazsky.BS3D.Physics
 		public ConstraintHandles HandlesTop;
 		public ConstraintHandles HandlesMiddle;
 		public ConstraintHandles HandlesBottom;
+
+		public eBallType Type;
 
 		public void SetEmptyConstraints()
 		{

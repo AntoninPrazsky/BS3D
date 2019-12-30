@@ -49,7 +49,11 @@ namespace Prazsky.BS3D.Physics
 							int addedBallReference = simulation.Bodies.Add(bodyDescription);
 							BodyReference bodyReference = new BodyReference(addedBallReference, simulation.Bodies);
 
-							PhysicsBall ball = new PhysicsBall { BallReference = bodyReference };
+							PhysicsBall ball = new PhysicsBall
+							{
+								BallReference = bodyReference,
+								Type = staticBalls[x, z, level].Type
+							};
 							ball.SetEmptyConstraints();
 
 							physicsBalls[x, z, level] = ball;
