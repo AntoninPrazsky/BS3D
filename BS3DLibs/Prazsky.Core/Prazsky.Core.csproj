@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Authors></Authors>
+    <Description></Description>
+    <PackageTags>monogame input event based listeners</PackageTags>
+    <PackageProjectUrl></PackageProjectUrl>
+    <RepositoryUrl></RepositoryUrl>
+    <PackageIconUrl></PackageIconUrl>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <NoWarn>NU1701</NoWarn>
+    <AssemblyName>Prazsky.Core</AssemblyName>
+    <RootNamespace>Prazsky.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MonoGame.Framework.DesktopGL.Core" Version="3.7.0.7" />
+  </ItemGroup>
+</Project>

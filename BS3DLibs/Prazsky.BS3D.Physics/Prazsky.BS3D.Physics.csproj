@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Prazsky.BS3D\Prazsky.BS3D.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="BepuPhysics">
+      <HintPath>..\..\..\..\..\ThirdPartyLibs\Bepu\trunk\BepuPhysics\bin\Release\netstandard2.0\BepuPhysics.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
