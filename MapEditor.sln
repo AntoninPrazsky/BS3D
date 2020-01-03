@@ -1,0 +1,57 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29230.47
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Libs", "Libs", "{E804CD4D-6268-4A01-A2D7-79E5A2AB3F8F}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MapEditor", "MapEditor\MapEditor.csproj", "{3BA9654C-443C-43AB-BFAF-2FF077D0258F}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Prazsky.BS3D", "BS3DLibs\Prazsky.BS3D\Prazsky.BS3D.csproj", "{0CCA8C6C-50C5-443B-A9C6-69B570C58BAD}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Prazsky.Core", "BS3DLibs\Prazsky.Core\Prazsky.Core.csproj", "{BDFAE088-7FB2-4022-B804-91140257EA38}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+		ReleaseStrip|Any CPU = ReleaseStrip|Any CPU
+		ReleaseStripNoProfiling|Any CPU = ReleaseStripNoProfiling|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3BA9654C-443C-43AB-BFAF-2FF077D0258F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3BA9654C-443C-43AB-BFAF-2FF077D0258F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3BA9654C-443C-43AB-BFAF-2FF077D0258F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3BA9654C-443C-43AB-BFAF-2FF077D0258F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3BA9654C-443C-43AB-BFAF-2FF077D0258F}.ReleaseStrip|Any CPU.ActiveCfg = Release|Any CPU
+		{3BA9654C-443C-43AB-BFAF-2FF077D0258F}.ReleaseStrip|Any CPU.Build.0 = Release|Any CPU
+		{3BA9654C-443C-43AB-BFAF-2FF077D0258F}.ReleaseStripNoProfiling|Any CPU.ActiveCfg = Release|Any CPU
+		{3BA9654C-443C-43AB-BFAF-2FF077D0258F}.ReleaseStripNoProfiling|Any CPU.Build.0 = Release|Any CPU
+		{0CCA8C6C-50C5-443B-A9C6-69B570C58BAD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0CCA8C6C-50C5-443B-A9C6-69B570C58BAD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0CCA8C6C-50C5-443B-A9C6-69B570C58BAD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0CCA8C6C-50C5-443B-A9C6-69B570C58BAD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0CCA8C6C-50C5-443B-A9C6-69B570C58BAD}.ReleaseStrip|Any CPU.ActiveCfg = Release|Any CPU
+		{0CCA8C6C-50C5-443B-A9C6-69B570C58BAD}.ReleaseStrip|Any CPU.Build.0 = Release|Any CPU
+		{0CCA8C6C-50C5-443B-A9C6-69B570C58BAD}.ReleaseStripNoProfiling|Any CPU.ActiveCfg = Release|Any CPU
+		{0CCA8C6C-50C5-443B-A9C6-69B570C58BAD}.ReleaseStripNoProfiling|Any CPU.Build.0 = Release|Any CPU
+		{BDFAE088-7FB2-4022-B804-91140257EA38}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BDFAE088-7FB2-4022-B804-91140257EA38}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BDFAE088-7FB2-4022-B804-91140257EA38}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BDFAE088-7FB2-4022-B804-91140257EA38}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BDFAE088-7FB2-4022-B804-91140257EA38}.ReleaseStrip|Any CPU.ActiveCfg = Release|Any CPU
+		{BDFAE088-7FB2-4022-B804-91140257EA38}.ReleaseStrip|Any CPU.Build.0 = Release|Any CPU
+		{BDFAE088-7FB2-4022-B804-91140257EA38}.ReleaseStripNoProfiling|Any CPU.ActiveCfg = Release|Any CPU
+		{BDFAE088-7FB2-4022-B804-91140257EA38}.ReleaseStripNoProfiling|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{0CCA8C6C-50C5-443B-A9C6-69B570C58BAD} = {E804CD4D-6268-4A01-A2D7-79E5A2AB3F8F}
+		{BDFAE088-7FB2-4022-B804-91140257EA38} = {E804CD4D-6268-4A01-A2D7-79E5A2AB3F8F}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {31A81FF6-3891-490A-BA0F-680951054A6F}
+	EndGlobalSection
+EndGlobal
