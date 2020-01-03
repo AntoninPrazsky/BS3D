@@ -5,8 +5,8 @@
     <ApplicationIcon />
     <StartupObject />
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <AssemblyName>Testbed</AssemblyName>
-    <RootNamespace>PyramidGenerator</RootNamespace>
+    <AssemblyName>MapEditor</AssemblyName>
+    <RootNamespace>MapEditor</RootNamespace>
     <Copyright>Antonín Pražský</Copyright>
     <PackageIcon>Icon.ico</PackageIcon>
     <PackageIconUrl />

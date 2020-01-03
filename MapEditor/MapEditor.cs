@@ -3,11 +3,8 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Camera;
-using Prazsky.Render;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using s = System.Numerics;
 
 namespace MapEditor
 {
@@ -99,6 +96,25 @@ namespace MapEditor
 			_hrSphere.CopyAbsoluteBoneTransformsTo(_hrSphereTransformations);
 
 			_hrSphereRed = Content.Load<Model>("HRGeoDome");
+		}
+
+		private void FullMapTest()
+		{
+			byte sizeX = 20;
+			byte sizeZ = 20;
+			byte levels = 20;
+
+			_map = new BallsMap(sizeX, sizeZ, levels, _hrSphere);
+
+			Array ballTypes = Enum.GetValues(typeof(eBallType));
+			Random random = new Random();
+
+			for (byte x = 0; x < sizeX; x++)
+				for (byte z = 0; z < sizeZ; z++)
+					for (byte l = 0; l < levels; l++)
+						_map.PutBallAt(x, z, l, (eBallType)ballTypes.GetValue(random.Next(ballTypes.Length)));
+
+			Info.CustomText = "Balls in map: " + _map.GetBallsCount();
 		}
 
 		private void BallsConstraintsBuilderTest()
@@ -204,7 +220,8 @@ namespace MapEditor
 
 			if (PressedOnce(Keys.F12, Buttons.Start)) Info.Visible = !Info.Visible;
 			if (PressedOnce(Keys.M, Buttons.X)) _draw = !_draw;
-			if (PressedOnce(Keys.B, Buttons.A)) BallsConstraintsBuilderTest();
+			if (PressedOnce(Keys.B, Buttons.B)) BallsConstraintsBuilderTest();
+			if (PressedOnce(Keys.N, Buttons.A)) FullMapTest();
 
 			if (PressedOnce(Keys.F1, Buttons.B))
 			{
@@ -387,11 +404,8 @@ namespace MapEditor
 				e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.Reach;
 		}
 
-
-
 		protected override void UnloadContent()
 		{
-
 		}
 	}
 }
