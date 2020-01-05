@@ -11,21 +11,27 @@ namespace Prazsky.BS3D.GameStructure
 	public class BallsMap
 	{
 		private StaticBall[,,] _balls;
-		private readonly byte _stageSizeX, _stageSizeZ, _levels;
 		private static readonly float SQRTTWO = (float)Math.Sqrt(2);
-
+		private Matrix[] _transformations;
 		private Model _ballModel;
+
+		public byte StageSizeX { get; internal set; }
+		public byte StageSizeZ { get; internal set; }
+		public byte Levels { get; internal set; }
 
 		public BallsMap(byte stageSizeX, byte stageSizeZ, byte levels, Model ballModel)
 		{
 			if (stageSizeX < 2 || stageSizeZ < 2 || levels < 2) throw new ArgumentException($"Minimum BallsMap size is 2×2×2, given arguments: {stageSizeX}, {stageSizeZ}, {levels}");
 
-			_stageSizeX = stageSizeX;
-			_stageSizeZ = stageSizeZ;
-			_levels = levels;
+			StageSizeX = stageSizeX;
+			StageSizeZ = stageSizeZ;
+			Levels = levels;
 			_ballModel = ballModel;
 
-			_balls = new StaticBall[stageSizeX, stageSizeZ, levels];
+			_transformations = new Matrix[ballModel.Bones.Count];
+			ballModel.CopyAbsoluteBoneTransformsTo(_transformations);
+
+			_balls = new StaticBall[StageSizeX, StageSizeZ, Levels];
 		}
 
 		/// <summary>
@@ -38,8 +44,24 @@ namespace Prazsky.BS3D.GameStructure
 		/// <param name="type">Typ.</param>
 		public void PutBallAt(byte stageX, byte stageZ, byte level, eBallType type)
 		{
-			if (stageX > _stageSizeX || stageZ > _stageSizeZ || level > _levels) throw new ArgumentOutOfRangeException($"Invalid requested ball position, array size is: {_stageSizeX} × {_stageSizeZ} × {_levels}");
+			if (stageX > StageSizeX || stageZ > StageSizeZ || level > Levels) throw new ArgumentOutOfRangeException($"Invalid requested ball position, array size is: {StageSizeX} × {StageSizeZ} × {Levels}");
 
+			Vector3 realPos = GetRealPosition(stageX, stageZ, level);
+
+			Console.WriteLine($"Putting ball at stageX: {stageX}; stageZ: {stageZ}; level: {level}; Real position: {realPos}");
+
+			_balls[stageX, stageZ, level] = new StaticBall(realPos, type, _transformations);
+		}
+
+		public void RemoveBallAt(byte stageX, byte stageZ, byte level)
+		{
+			if (stageX > StageSizeX || stageZ > StageSizeZ || level > Levels) throw new ArgumentOutOfRangeException($"Invalid requested ball position, array size is: {StageSizeX} × {StageSizeZ} × {Levels}");
+
+			_balls[stageX, stageZ, level] = null;
+		}
+
+		public static Vector3 GetRealPosition(byte stageX, byte stageZ, byte level)
+		{
 			bool isShifted = (level % 2) > 0;
 
 			float realPosX = stageX;
@@ -48,12 +70,9 @@ namespace Prazsky.BS3D.GameStructure
 			float realPosZ = stageZ;
 			if (isShifted) realPosZ += 0.5f;
 
-			float realPosY = (level - 1) / SQRTTWO;
+			float realPosY = (level) / SQRTTWO;
 
-			_balls[stageX, stageZ, level] = new StaticBall(new Vector3(realPosX, realPosY, realPosZ), type);
-
-			_balls[stageX, stageZ, level].RecomputeTransformations(_ballModel);
-			_balls[stageX, stageZ, level].RecomputeWorldMatrix();
+			return new Vector3(realPosX, realPosY, realPosZ);
 		}
 
 		public StaticBall[,,] GetStaticBallsArray()
@@ -65,9 +84,9 @@ namespace Prazsky.BS3D.GameStructure
 		{
 			int count = 0;
 
-			for (int level = 0; level < _levels; level++)
-				for (int x = 0; x < _stageSizeX; x++)
-					for (int z = 0; z < _stageSizeZ; z++)
+			for (int level = 0; level < Levels; level++)
+				for (int x = 0; x < StageSizeX; x++)
+					for (int z = 0; z < StageSizeZ; z++)
 						if (_balls[x, z, level] != null)
 							count++;
 			return count;
@@ -75,9 +94,9 @@ namespace Prazsky.BS3D.GameStructure
 
 		public void Draw(ICamera camera)
 		{
-			for (int level = 0; level < _levels; level++)
-				for (int x = 0; x < _stageSizeX; x++)
-					for (int z = 0; z < _stageSizeZ; z++)
+			for (int level = 0; level < Levels; level++)
+				for (int x = 0; x < StageSizeX; x++)
+					for (int z = 0; z < StageSizeZ; z++)
 						if (_balls[x, z, level] != null)
 							_balls[x, z, level].Draw(camera, _ballModel);
 		}
@@ -129,17 +148,33 @@ namespace Prazsky.BS3D.GameStructure
 			{
 				ballPositionTypes = (BallPositionTypes)binaryFormatter.Deserialize(stream);
 			}
+
+			//Je otázka, jestli vůbec dělat validaci - ale vypadá to, že nebere moc času, tak je to asi jedno
+
+			if (ballPositionTypes.Balls.Rank != 3) throw new InvalidDataException("Deserialized data invalid");
+
+			int length1 = ballPositionTypes.Balls.GetLength(0);
+			int length2 = ballPositionTypes.Balls.GetLength(1);
+			int length3 = ballPositionTypes.Balls.GetLength(2);
+
+			if (length1 > byte.MaxValue || length2 > byte.MaxValue || length3 > byte.MaxValue) throw new InvalidDataException("Deserialized data invalid");
+
+			StageSizeX = (byte)length1;
+			StageSizeZ = (byte)length2;
+			Levels = (byte)length3;
+
+			BuildMapFromBallPositionTypes(ballPositionTypes);
 		}
 
 		private BallPositionTypes BuildBallPositionTypes()
 		{
 			BallPositionTypes ballPositionTypes = new BallPositionTypes();
 
-			ballPositionTypes.Balls = new BallPositionType[_stageSizeX, _stageSizeZ, _levels];
+			ballPositionTypes.Balls = new BallPositionType[StageSizeX, StageSizeZ, Levels];
 
-			for (int level = 0; level < _levels; level++)
-				for (int x = 0; x < _stageSizeX; x++)
-					for (int z = 0; z < _stageSizeZ; z++)
+			for (byte level = 0; level < Levels; level++)
+				for (byte x = 0; x < StageSizeX; x++)
+					for (byte z = 0; z < StageSizeZ; z++)
 						if (_balls[x, z, level] != null)
 							ballPositionTypes.Balls[x, z, level] = new BallPositionType()
 							{
@@ -150,6 +185,17 @@ namespace Prazsky.BS3D.GameStructure
 							};
 
 			return ballPositionTypes;
+		}
+
+		private void BuildMapFromBallPositionTypes(BallPositionTypes ballPositionTypes)
+		{
+			_balls = new StaticBall[StageSizeX, StageSizeZ, Levels];
+
+			for (byte level = 0; level < Levels; level++)
+				for (byte x = 0; x < StageSizeX; x++)
+					for (byte z = 0; z < StageSizeZ; z++)
+						if (ballPositionTypes.Balls[x, z, level] != null)
+							PutBallAt(x, z, level, ballPositionTypes.Balls[x, z, level].Type);
 		}
 	}
 }

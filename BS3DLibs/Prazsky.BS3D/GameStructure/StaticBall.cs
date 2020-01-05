@@ -8,21 +8,13 @@ namespace Prazsky.BS3D.GameStructure
 	{
 		public eBallType Type { get; }
 
-		public StaticBall(Vector3 position, eBallType type)
+		public StaticBall(Vector3 position, eBallType type, Matrix[] transformations)
 		{
 			Type = type;
 			Position = position;
 			BasicEffectParams = BasicEffectParamsProvider.GetEffectByType(type);
-		}
 
-		public void RecomputeTransformations(Model model)
-		{
-			Transformations = new Matrix[model.Bones.Count];
-			model.CopyAbsoluteBoneTransformsTo(Transformations);
-		}
-
-		public void RecomputeWorldMatrix()
-		{
+			Transformations = transformations;
 			World = Matrix.CreateTranslation(Position);
 		}
 
