@@ -84,7 +84,7 @@ namespace MapEditor
 		private void RenderText(string text, Vector2 position)
 		{
 			_spriteBatch.DrawString(_font, text, new Vector2(position.X + 2, position.Y + 2), Color.Black);
-			_spriteBatch.DrawString(_font, text, position, Color.DarkGray);
+			_spriteBatch.DrawString(_font, text, position, Color.White);
 		}
 
 		private void RenderTextScale(string text, Vector2 position, float scale)
@@ -104,7 +104,7 @@ namespace MapEditor
 				_font,
 				text,
 				position,
-				Color.DarkGoldenrod,
+				Color.White,
 				0f,
 				Vector2.Zero,
 				scale,
