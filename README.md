@@ -1,2 +1,4 @@
 # BS3D
-- Projekt potøebuje referenci na https://github.com/bepu/bepuphysics2 (nechci sem do repozitáøe dávat *BepuPhysics.dll* a *BepuUtilities.dll*, protože se BepuPhysics poøád vyvíjí)
+- Projekt potÅ™ebuje reference na:
+  - https://github.com/bepu/bepuphysics2 (*BepuPhysics.dll*, *BepuUtilities.dll*)
+  - https://github.com/MonoGame/MonoGame
