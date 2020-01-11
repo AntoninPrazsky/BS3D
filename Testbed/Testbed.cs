@@ -104,7 +104,7 @@ namespace Testbed
 
 			GraphicsDevice.RasterizerState = new RasterizerState { CullMode = CullMode.None, MultiSampleAntiAlias = true };
 			GraphicsDevice.BlendState = new BlendState() { AlphaSourceBlend = Blend.SourceAlpha, AlphaDestinationBlend = Blend.InverseSourceColor, ColorSourceBlend = Blend.SourceAlpha, ColorDestinationBlend = Blend.InverseSourceAlpha };
-			GraphicsDevice.PresentationParameters.MultiSampleCount = 4;
+			GraphicsDevice.PresentationParameters.MultiSampleCount = 8;
 			_graphics.ApplyChanges();
 
 			base.Initialize();
@@ -453,20 +453,20 @@ namespace Testbed
 
 		private StaticReference CreateGround(s.Vector3 position, byte size)
 		{
-			float lenght = 0f;
+			float length = 0f;
 
 			switch (size)
 			{
 				case (0):
-					lenght = 10f;
+					length = 10f;
 					break;
 
 				case (1):
-					lenght = 20f;
+					length = 20f;
 					break;
 
 				case (2):
-					lenght = 30f;
+					length = 30f;
 					break;
 
 				default: throw new NotImplementedException("Unknow Ground Size: " + size);
@@ -476,7 +476,7 @@ namespace Testbed
 				new StaticDescription(
 					position, new CollidableDescription(
 						_simulation.Shapes.Add(
-							new Box(lenght, 1f, lenght)), 0.1f))),
+							new Box(length, 1f, length)), 0.1f))),
 							_simulation.Statics);
 		}
 

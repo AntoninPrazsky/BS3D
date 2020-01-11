@@ -77,7 +77,7 @@ namespace Prazsky.BS3D.Physics
 						if (staticBalls[x, z, level] != null) //Je tady vůbec nějaká kulička?
 						{
 							PhysicsBall currentPhysicsBall = physicsBalls[x, z, level];
-							StaticBall currentStaticBall = staticBalls[x, z, level];
+							StaticBall currentStaticBall = staticBalls[x, z, level]; //TODO: Připadá mi, že StaticBall už tady k ničemu nepotřebuju - beru z něj jenom pozici, ale tu můžu vzít už i z PhysicsBall
 
 							#region Spojení na sousedící kuličky ve stejném patře
 

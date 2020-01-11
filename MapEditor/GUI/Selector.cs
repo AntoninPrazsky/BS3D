@@ -132,9 +132,7 @@ namespace MapEditor.GUI
 		public void UpdateBallsBap(BallsMap ballsMap)
 		{
 			_ballsMap = ballsMap;
-			_stageX = 0;
-			_stageZ = 0;
-			_level = 0;
+			_stageX = _stageZ = _level = 0;
 		}
 	}
 }
