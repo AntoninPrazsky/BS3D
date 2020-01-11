@@ -247,22 +247,26 @@ namespace Testbed
 				_simulation.Timestep(timeStep, _simpleThreadDispatcher);
 			}
 
-			_currentKeyboardState = Keyboard.GetState();
-			_currentGamePadState = GamePad.GetState(PlayerIndex.One);
-			_currentMouseState = Mouse.GetState();
+			if (this.IsActive)
+			{
+				_currentKeyboardState = Keyboard.GetState();
+				_currentGamePadState = GamePad.GetState(PlayerIndex.One);
+				_currentMouseState = Mouse.GetState();
 
-			if (PressedOnce(Keys.Escape, Buttons.Back)) Exit();
+				if (PressedOnce(Keys.Escape, Buttons.Back)) Exit();
 
-			CameraMovement(gameTime);
+				CameraMovement(gameTime);
 
-			if (PressedOnce(Keys.F12, Buttons.Start)) Info.Visible = !Info.Visible;
-			if (PressedOnce(Keys.Back, Buttons.B)) _simulate = !_simulate;
-			if (PressedOnce(Keys.M, Buttons.X)) _draw = !_draw;
-			if (PressedOnce(Keys.B, Buttons.A)) BallsConstraintsBuilderTest();
+				if (PressedOnce(Keys.F12, Buttons.Start)) Info.Visible = !Info.Visible;
+				if (PressedOnce(Keys.Back, Buttons.B)) _simulate = !_simulate;
+				if (PressedOnce(Keys.M, Buttons.X)) _draw = !_draw;
+				if (PressedOnce(Keys.B, Buttons.A)) BallsConstraintsBuilderTest();
 
-			_previousKeyboardState = _currentKeyboardState;
-			_previousGamePadState = _currentGamePadState;
-			_previousMouseState = _currentMouseState;
+				_previousKeyboardState = _currentKeyboardState;
+				_previousGamePadState = _currentGamePadState;
+				_previousMouseState = _currentMouseState;
+			}
+
 			base.Update(gameTime);
 		}
 
