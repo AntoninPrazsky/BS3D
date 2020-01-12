@@ -16,3 +16,6 @@
 /MapEditor/Content/obj/DesktopGL
 /MapEditor/obj
 /Testbed/obj
+/BS3DLibs/Prazsky.BS3D.Physics/bin/Debug/netstandard2.1
+/Testbed/bin/netcoreapp3.1
+/Testbed/Content/obj/DesktopGL

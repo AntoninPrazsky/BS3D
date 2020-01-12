@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Prazsky.BS3D.GameStructure;
+using Prazsky.BS3D.Helpers;
 using Prazsky.Core.Camera;
 using System;
 using System.Diagnostics;

@@ -2,13 +2,11 @@
 using Microsoft.Xna.Framework.Input;
 using Prazsky.Core.Camera;
 
-namespace MapEditor
+namespace Prazsky.BS3D.Helpers
 {
 	public class CameraInputHelper
 	{
-		private const float CAMERA_OFFSETT = 15f;
-
-		private BasicCamera3D _editorCamera;
+		private BasicCamera3D _camera;
 		private Game _game;
 
 		#region Ovládání
@@ -21,8 +19,6 @@ namespace MapEditor
 		private KeyboardState _previousKeyboardState = new KeyboardState();
 		private MouseState _previousMouseState = new MouseState();
 
-		private const float _mouseMovementDenominator = 50f;
-
 		private int _heightHalf;
 		private int _widthHalf;
 		private bool _mousePanMode = false;
@@ -30,9 +26,12 @@ namespace MapEditor
 
 		#endregion Ovládání
 
+		public float CameraOffset { get; set; } = 15f;
+		public float MouseMovementDenominator { get; set; } = 50f;
+
 		public CameraInputHelper(BasicCamera3D camera, Game game)
 		{
-			_editorCamera = camera;
+			_camera = camera;
 			_game = game;
 
 			_widthHalf = _game.Window.ClientBounds.Width / 2;
@@ -63,11 +62,11 @@ namespace MapEditor
 				if (_currentGamePadState.Triggers.Right > 0) Z = -_currentGamePadState.Triggers.Right;
 				if (_currentGamePadState.Triggers.Left > 0) Z = _currentGamePadState.Triggers.Left;
 
-				_editorCamera.Move(
+				_camera.Move(
 						_currentGamePadState.ThumbSticks.Left.X,
 						_currentGamePadState.ThumbSticks.Left.Y,
 						Z, gameTime);
-				_editorCamera.Rotate(
+				_camera.Rotate(
 						_currentGamePadState.ThumbSticks.Right.Y,
 						-_currentGamePadState.ThumbSticks.Right.X,
 						gameTime);
@@ -81,17 +80,17 @@ namespace MapEditor
 			if (Keyboard.GetState().IsKeyDown(Keys.LeftShift)) speed = 3f;
 
 			if (Keyboard.GetState().IsKeyDown(Keys.W))
-				_editorCamera.Move(0, 0f, -speed, gameTime);
+				_camera.Move(0, 0f, -speed, gameTime);
 			if (Keyboard.GetState().IsKeyDown(Keys.S))
-				_editorCamera.Move(0, 0f, speed, gameTime);
+				_camera.Move(0, 0f, speed, gameTime);
 			if (Keyboard.GetState().IsKeyDown(Keys.A))
-				_editorCamera.Move(-speed, 0f, 0f, gameTime);
+				_camera.Move(-speed, 0f, 0f, gameTime);
 			if (Keyboard.GetState().IsKeyDown(Keys.D))
-				_editorCamera.Move(speed, 0f, 0f, gameTime);
+				_camera.Move(speed, 0f, 0f, gameTime);
 			if (Keyboard.GetState().IsKeyDown(Keys.E))
-				_editorCamera.Move(0f, speed, 0f, gameTime);
+				_camera.Move(0f, speed, 0f, gameTime);
 			if (Keyboard.GetState().IsKeyDown(Keys.Q))
-				_editorCamera.Move(0f, -speed, 0f, gameTime);
+				_camera.Move(0f, -speed, 0f, gameTime);
 
 			#endregion ovládání kamery klávesnicí
 
@@ -115,20 +114,20 @@ namespace MapEditor
 				float mDeltaB = 0f;
 
 				if (_currentMouseState.X != _widthHalf)
-					mDeltaB = -(_currentMouseState.X - _widthHalf) / _mouseMovementDenominator;
+					mDeltaB = -(_currentMouseState.X - _widthHalf) / MouseMovementDenominator;
 
 				if (_currentMouseState.Y != _heightHalf)
-					mDeltaA = -(_currentMouseState.Y - _heightHalf) / _mouseMovementDenominator;
+					mDeltaA = -(_currentMouseState.Y - _heightHalf) / MouseMovementDenominator;
 
 				CenterMouse();
 
 				if (_mouseRotationMode && !_mousePanMode)
-					_editorCamera.Rotate(mDeltaA, mDeltaB, gameTime);
+					_camera.Rotate(mDeltaA, mDeltaB, gameTime);
 
 				if (_currentMouseState.RightButton == ButtonState.Pressed)
 				{
 					_mousePanMode = true;
-					_editorCamera.Move(-mDeltaB, mDeltaA, 0f, gameTime);
+					_camera.Move(-mDeltaB, mDeltaA, 0f, gameTime);
 				}
 				else
 					_mousePanMode = false;
@@ -173,16 +172,16 @@ namespace MapEditor
 
 		public void CenterCameraToMapCenter(Vector3 mapCenter, Vector3 lookDirection)
 		{
-			_editorCamera.Position = mapCenter + (lookDirection * CAMERA_OFFSETT);
-			_editorCamera.Target = mapCenter;
-			_editorCamera.Recalculate();
+			_camera.Position = mapCenter + (lookDirection * CameraOffset);
+			_camera.Target = mapCenter;
+			_camera.Recalculate();
 		}
 
 		public void RestartCamera()
 		{
-			_editorCamera.Position = new Vector3(0f, 0f, CAMERA_OFFSETT);
-			_editorCamera.Target = Vector3.Zero;
-			_editorCamera.Recalculate();
+			_camera.Position = new Vector3(0f, 0f, CameraOffset);
+			_camera.Target = Vector3.Zero;
+			_camera.Recalculate();
 		}
 	}
 }

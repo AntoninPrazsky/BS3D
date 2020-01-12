@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Prazsky.BS3D.GameStructure;
+using Prazsky.BS3D.Helpers;
 using Prazsky.BS3D.Physics;
 using Prazsky.Core.Camera;
 using Prazsky.Render;
@@ -32,6 +33,8 @@ namespace Testbed
 		private List<StaticBody> _staticBodies;
 		private List<PhysicsBall[]> _balls;
 
+		private CameraInputHelper _cih;
+
 		#region Grafika
 
 		private int _windowWidth;
@@ -45,25 +48,6 @@ namespace Testbed
 		public Info Info { private set; get; }
 
 		#endregion Grafika
-
-		#region Ovládání
-
-		private const float _mouseMovementDenominator = 50f;
-
-		private GamePadState _currentGamePadState = new GamePadState();
-		private KeyboardState _currentKeyboardState = new KeyboardState();
-		private MouseState _currentMouseState = new MouseState();
-
-		private GamePadState _previousGamePadState = new GamePadState();
-		private KeyboardState _previousKeyboardState = new KeyboardState();
-		private MouseState _previousMouseState = new MouseState();
-
-		private int _heightHalf;
-		private int _widthHalf;
-		private bool _mousePanMode = false;
-		private bool _mouseRotationMode = false;
-
-		#endregion Ovládání
 
 		public Testbed(
 			bool windowed = true,
@@ -94,6 +78,8 @@ namespace Testbed
 			Camera3D = new BasicCamera3D(new Vector3(0f, -3f, 30f), GraphicsDevice.Viewport.AspectRatio);
 			Info = new Info(this) { DrawOrder = int.MaxValue };
 			Components.Add(Info);
+
+			_cih = new CameraInputHelper(Camera3D, this);
 
 			_staticBodies = new List<StaticBody>();
 			_balls = new List<PhysicsBall[]>();
@@ -249,22 +235,18 @@ namespace Testbed
 
 			if (this.IsActive)
 			{
-				_currentKeyboardState = Keyboard.GetState();
-				_currentGamePadState = GamePad.GetState(PlayerIndex.One);
-				_currentMouseState = Mouse.GetState();
+				_cih.RegisterCurrentInputState();
 
-				if (PressedOnce(Keys.Escape, Buttons.Back)) Exit();
+				if (_cih.PressedOnce(Keys.Escape, Buttons.Back)) Exit();
 
-				CameraMovement(gameTime);
+				_cih.CameraMovement(gameTime);
 
-				if (PressedOnce(Keys.F12, Buttons.Start)) Info.Visible = !Info.Visible;
-				if (PressedOnce(Keys.Back, Buttons.B)) _simulate = !_simulate;
-				if (PressedOnce(Keys.M, Buttons.X)) _draw = !_draw;
-				if (PressedOnce(Keys.B, Buttons.A)) BallsConstraintsBuilderTest();
+				if (_cih.PressedOnce(Keys.F12, Buttons.Start)) Info.Visible = !Info.Visible;
+				if (_cih.PressedOnce(Keys.Back, Buttons.B)) _simulate = !_simulate;
+				if (_cih.PressedOnce(Keys.M, Buttons.X)) _draw = !_draw;
+				if (_cih.PressedOnce(Keys.B, Buttons.A)) BallsConstraintsBuilderTest();
 
-				_previousKeyboardState = _currentKeyboardState;
-				_previousGamePadState = _currentGamePadState;
-				_previousMouseState = _currentMouseState;
+				_cih.RegisterPreviousInputState();
 			}
 
 			base.Update(gameTime);
@@ -307,113 +289,6 @@ namespace Testbed
 			base.Draw(gameTime);
 		}
 
-		private void CameraMovement(GameTime gameTime)
-		{
-			//Debug.WriteLine(Camera3D.Position.ToString() + " " + Camera3D.Target.ToString());
-
-			#region kompletní ovládání kamery gamepadem
-
-			if (_currentGamePadState.IsConnected)
-			{
-				float Z = 0f;
-				if (_currentGamePadState.Triggers.Right > 0) Z = -_currentGamePadState.Triggers.Right;
-				if (_currentGamePadState.Triggers.Left > 0) Z = _currentGamePadState.Triggers.Left;
-
-				Camera3D.Move(
-						_currentGamePadState.ThumbSticks.Left.X,
-						_currentGamePadState.ThumbSticks.Left.Y,
-						Z, gameTime);
-				Camera3D.Rotate(
-						_currentGamePadState.ThumbSticks.Right.Y,
-						-_currentGamePadState.ThumbSticks.Right.X,
-						gameTime);
-			}
-
-			#endregion kompletní ovládání kamery gamepadem
-
-			#region ovládání kamery klávesnicí
-
-			float speed = 1f;
-			if (Keyboard.GetState().IsKeyDown(Keys.LeftShift)) speed = 3f;
-
-			if (Keyboard.GetState().IsKeyDown(Keys.W))
-				Camera3D.Move(0, 0f, -speed, gameTime);
-			if (Keyboard.GetState().IsKeyDown(Keys.S))
-				Camera3D.Move(0, 0f, speed, gameTime);
-			if (Keyboard.GetState().IsKeyDown(Keys.A))
-				Camera3D.Move(-speed, 0f, 0f, gameTime);
-			if (Keyboard.GetState().IsKeyDown(Keys.D))
-				Camera3D.Move(speed, 0f, 0f, gameTime);
-			if (Keyboard.GetState().IsKeyDown(Keys.E))
-				Camera3D.Move(0f, speed, 0f, gameTime);
-			if (Keyboard.GetState().IsKeyDown(Keys.Q))
-				Camera3D.Move(0f, -speed, 0f, gameTime);
-
-			#endregion ovládání kamery klávesnicí
-
-			#region ovládání kamery myší
-
-			if (PressedOnceMouse(leftButton: false, middleButton: false, rightButton: true))
-			{
-				CenterMouse();
-				_mouseRotationMode = !_mouseRotationMode;
-				return;
-			}
-
-			if (_currentMouseState.RightButton == ButtonState.Pressed)
-				_mousePanMode = true;
-
-			IsMouseVisible = !_mousePanMode && !_mouseRotationMode;
-
-			if (_mouseRotationMode || _mousePanMode)
-			{
-				float mDeltaA = 0f;
-				float mDeltaB = 0f;
-
-				if (_currentMouseState.X != _widthHalf)
-					mDeltaB = -(_currentMouseState.X - _widthHalf) / _mouseMovementDenominator;
-
-				if (_currentMouseState.Y != _heightHalf)
-					mDeltaA = -(_currentMouseState.Y - _heightHalf) / _mouseMovementDenominator;
-
-				CenterMouse();
-
-				if (_mouseRotationMode && !_mousePanMode)
-					Camera3D.Rotate(mDeltaA, mDeltaB, gameTime);
-
-				if (_currentMouseState.RightButton == ButtonState.Pressed)
-				{
-					_mousePanMode = true;
-					Camera3D.Move(-mDeltaB, mDeltaA, 0f, gameTime);
-				}
-				else
-					_mousePanMode = false;
-			}
-
-			#endregion ovládání kamery myší
-		}
-
-		private bool PressedOnce(Keys key, Buttons button)
-		{
-			return InputHelper.PressedOnce(
-					key,
-					button,
-					_currentKeyboardState,
-					_currentGamePadState,
-					_previousKeyboardState,
-					_previousGamePadState);
-		}
-
-		private bool PressedOnceMouse(bool leftButton, bool middleButton, bool rightButton)
-		{
-			return InputHelper.PressedOnce(
-					leftButton,
-					middleButton,
-					rightButton,
-					_currentMouseState,
-					_previousMouseState);
-		}
-
 		private void SetGraphics(bool windowed = false)
 		{
 			_graphics.PreferredBackBufferWidth = windowed ? _windowWidth : 3840; //GraphicsDevice.DisplayMode.Width
@@ -428,16 +303,6 @@ namespace Testbed
 
 			IsMouseVisible = false;
 			IsFixedTimeStep = false;
-
-			_widthHalf = Window.ClientBounds.Width / 2;
-			_heightHalf = Window.ClientBounds.Height / 2;
-
-			CenterMouse();
-		}
-
-		private void CenterMouse()
-		{
-			Mouse.SetPosition(_widthHalf, _heightHalf);
 		}
 
 		private void _graphics_PreparingDeviceSettings(object sender, PreparingDeviceSettingsEventArgs e)
