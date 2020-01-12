@@ -13,6 +13,7 @@ namespace MapEditor.GUI
 	{
 		private byte _stageX = 0, _stageZ = 0, _level = 0;
 		private BallsMap _ballsMap;
+		private eBallType _ActiveBallType = eBallType.Type1;
 
 		public Selector(ContentManager contentManager, BallsMap ballsMap)
 		{
@@ -29,6 +30,17 @@ namespace MapEditor.GUI
 		public void PutBall(eBallType ballType)
 		{
 			_ballsMap.PutBallAt(_stageX, _stageZ, _level, ballType);
+		}
+
+		public void PutBall()
+		{
+			_ballsMap.PutBallAt(_stageX, _stageZ, _level, _ActiveBallType);
+		}
+
+		public void ChangeBallType(eBallType ballType)
+		{
+			_ActiveBallType = ballType;
+			Console.WriteLine($"Ball type set to: {ballType.ToString()}");
 		}
 
 		public void RemoveBall()

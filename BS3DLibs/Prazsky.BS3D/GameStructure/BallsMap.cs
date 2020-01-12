@@ -57,6 +57,8 @@ namespace Prazsky.BS3D.GameStructure
 		{
 			if (stageX > StageSizeX || stageZ > StageSizeZ || level > Levels) throw new ArgumentOutOfRangeException($"Invalid requested ball position, array size is: {StageSizeX} × {StageSizeZ} × {Levels}");
 
+			Console.WriteLine($"Removing ball at stageX: {stageX}; stageZ: {stageZ}; level: {level}");
+
 			_balls[stageX, stageZ, level] = null;
 		}
 
