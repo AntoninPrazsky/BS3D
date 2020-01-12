@@ -26,12 +26,24 @@ namespace Prazsky.BS3D.GameStructure
 			StageSizeX = stageSizeX;
 			StageSizeZ = stageSizeZ;
 			Levels = levels;
-			_ballModel = ballModel;
 
-			_transformations = new Matrix[ballModel.Bones.Count];
-			ballModel.CopyAbsoluteBoneTransformsTo(_transformations);
+			InitializeModel(ballModel);
 
 			_balls = new StaticBall[StageSizeX, StageSizeZ, Levels];
+		}
+
+		public BallsMap(string fileNameForDeserialization, Model ballModel)
+		{
+			DeserializeBinary(fileNameForDeserialization);
+
+			InitializeModel(ballModel);
+		}
+
+		private void InitializeModel(Model ballModel)
+		{
+			_ballModel = ballModel;
+			_transformations = new Matrix[ballModel.Bones.Count];
+			ballModel.CopyAbsoluteBoneTransformsTo(_transformations);
 		}
 
 		/// <summary>

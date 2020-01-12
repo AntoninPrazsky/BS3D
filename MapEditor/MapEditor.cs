@@ -131,7 +131,7 @@ namespace MapEditor
 				{
 					Stopwatch stopwatch = new Stopwatch();
 					stopwatch.Start();
-					_map.SerializeAsBinary("balls.bin");
+					_map.SerializeAsBinary(@"G:\balls.bin");
 					stopwatch.Stop();
 					Console.WriteLine($"Serialize Binary (ms): {stopwatch.ElapsedMilliseconds}");
 				}
@@ -140,7 +140,7 @@ namespace MapEditor
 				{
 					Stopwatch stopwatch = new Stopwatch();
 					stopwatch.Start();
-					_map.DeserializeBinary("balls.bin");
+					_map.DeserializeBinary(@"G:\balls.bin");
 					stopwatch.Stop();
 					Console.WriteLine($"Deserialize Binary (ms): {stopwatch.ElapsedMilliseconds}");
 				}

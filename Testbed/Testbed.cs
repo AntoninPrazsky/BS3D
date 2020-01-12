@@ -123,6 +123,14 @@ namespace Testbed
 			#endregion Ground
 		}
 
+		private void LoadBallsMapTest()
+		{
+			BallsMap map = new BallsMap(@"G:\balls.bin", _hrSphere);
+
+			_balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation));
+			Info.CustomText = "Balls on scene: " + CountActiveBalls();
+		}
+
 		private void BallsConstraintsBuilderTest()
 		{
 			BallsMap map = new BallsMap(10, 10, 10, _hrSphere);
@@ -245,6 +253,15 @@ namespace Testbed
 				if (_cih.PressedOnce(Keys.Back, Buttons.B)) _simulate = !_simulate;
 				if (_cih.PressedOnce(Keys.M, Buttons.X)) _draw = !_draw;
 				if (_cih.PressedOnce(Keys.B, Buttons.A)) BallsConstraintsBuilderTest();
+				if (_cih.PressedOnce(Keys.F2, Buttons.B)) LoadBallsMapTest();
+
+
+				if (_cih.PressedOnce(Keys.D1)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward);
+				if (_cih.PressedOnce(Keys.D2)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward);
+				if (_cih.PressedOnce(Keys.D3)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left);
+				if (_cih.PressedOnce(Keys.D4)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right);
+				if (_cih.PressedOnce(Keys.D5)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up);
+				if (_cih.PressedOnce(Keys.D6)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down);
 
 				_cih.RegisterPreviousInputState();
 			}

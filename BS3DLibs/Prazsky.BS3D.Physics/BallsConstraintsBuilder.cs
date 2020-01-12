@@ -136,7 +136,7 @@ namespace Prazsky.BS3D.Physics
 								}
 							}
 
-							if (x + 1 <= staticBalls.GetLength(0))
+							if (x + 1 < staticBalls.GetLength(0))
 							{
 								if (staticBalls[x + 1, z, level] != null)
 								{
@@ -159,7 +159,7 @@ namespace Prazsky.BS3D.Physics
 								}
 							}
 
-							if (z + 1 <= staticBalls.GetLength(1))
+							if (z + 1 < staticBalls.GetLength(1))
 							{
 								if (staticBalls[x, z + 1, level] != null)
 								{
