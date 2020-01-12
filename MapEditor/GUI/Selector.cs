@@ -54,7 +54,7 @@ namespace MapEditor.GUI
 			{
 				if (_stageZ - 1 < 0)
 				{
-					Console.WriteLine("Selector is at the beggining of the array (stageZ)");
+					Console.WriteLine($"Selector is at the beggining of the array (stageZ = {_stageZ})");
 					BasicEffectParams = BasicEffectParamsProvider.ColorRed;
 					return;
 				}
@@ -68,7 +68,7 @@ namespace MapEditor.GUI
 			{
 				if (_stageZ + 1 >= _ballsMap.StageSizeZ)
 				{
-					Console.WriteLine("Selector is at the end of the array (Z)");
+					Console.WriteLine($"Selector is at the end of the array (stageZ = {_stageZ})");
 					BasicEffectParams = BasicEffectParamsProvider.ColorRed;
 					return;
 				}
@@ -82,7 +82,7 @@ namespace MapEditor.GUI
 			{
 				if (_stageX - 1 < 0)
 				{
-					Console.WriteLine("Selector is at the beggining of the array (stageX)");
+					Console.WriteLine($"Selector is at the beggining of the array (stageX = {_stageX})");
 					BasicEffectParams = BasicEffectParamsProvider.ColorRed;
 					return;
 				}
@@ -96,7 +96,7 @@ namespace MapEditor.GUI
 			{
 				if (_stageX + 1 >= _ballsMap.StageSizeX)
 				{
-					Console.WriteLine("Selector is at the end of the array (stageX)");
+					Console.WriteLine($"Selector is at the end of the array (stageX = {_stageX})");
 					BasicEffectParams = BasicEffectParamsProvider.ColorRed;
 					return;
 				}
@@ -110,7 +110,7 @@ namespace MapEditor.GUI
 			{
 				if (_level + 1 >= _ballsMap.Levels)
 				{
-					Console.WriteLine("Selector is at the end of the array (level)");
+					Console.WriteLine($"Selector is at the end of the array (level = {_level})");
 					BasicEffectParams = BasicEffectParamsProvider.ColorRed;
 					return;
 				}
@@ -124,7 +124,7 @@ namespace MapEditor.GUI
 			{
 				if (_level - 1 < 0)
 				{
-					Console.WriteLine("Selector is at the beggining of the array (level)");
+					Console.WriteLine($"Selector is at the beggining of the array (level = {_level})");
 					BasicEffectParams = BasicEffectParamsProvider.ColorRed;
 					return;
 				}

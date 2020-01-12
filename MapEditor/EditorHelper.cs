@@ -6,6 +6,8 @@ namespace MapEditor
 {
 	public class CameraInputHelper
 	{
+		private const float CAMERA_OFFSETT = 15f;
+
 		private BasicCamera3D _editorCamera;
 		private Game _game;
 
@@ -167,6 +169,20 @@ namespace MapEditor
 		public void CenterMouse()
 		{
 			Mouse.SetPosition(_widthHalf, _heightHalf);
+		}
+
+		public void CenterCameraToMapCenter(Vector3 mapCenter, Vector3 lookDirection)
+		{
+			_editorCamera.Position = mapCenter + (lookDirection * CAMERA_OFFSETT);
+			_editorCamera.Target = mapCenter;
+			_editorCamera.Recalculate();
+		}
+
+		public void RestartCamera()
+		{
+			_editorCamera.Position = new Vector3(0f, 0f, CAMERA_OFFSETT);
+			_editorCamera.Target = Vector3.Zero;
+			_editorCamera.Recalculate();
 		}
 	}
 }

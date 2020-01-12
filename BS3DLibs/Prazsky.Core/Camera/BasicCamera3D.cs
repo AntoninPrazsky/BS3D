@@ -102,7 +102,7 @@ namespace Prazsky.Core.Camera
 			return Matrix.CreateRotationX(_rotationX) * Matrix.CreateRotationY(_rotationY);
 		}
 
-		private void Recalculate()
+		public void Recalculate()
 		{
 			//Rotace kamery okolo osy X a Y
 			Matrix rotation = GetCameraRotation();

@@ -19,7 +19,7 @@ namespace MapEditor
 
 		private bool _draw = true;
 
-		private CameraInputHelper _cameraInputHelper;
+		private CameraInputHelper _cih;
 
 		#region Grafika
 
@@ -70,7 +70,7 @@ namespace MapEditor
 			GraphicsDevice.PresentationParameters.MultiSampleCount = 4;
 			_graphics.ApplyChanges();
 
-			_cameraInputHelper = new CameraInputHelper(Camera3D, this);
+			_cih = new CameraInputHelper(Camera3D, this);
 
 			base.Initialize();
 		}
@@ -85,39 +85,48 @@ namespace MapEditor
 
 		private void SelectorControl()
 		{
-			if (_cameraInputHelper.PressedOnce(Keys.Up, Buttons.DPadUp)) _selector.Move(Vector3.Forward);
-			if (_cameraInputHelper.PressedOnce(Keys.Down, Buttons.DPadDown)) _selector.Move(Vector3.Backward);
-			if (_cameraInputHelper.PressedOnce(Keys.Left, Buttons.DPadLeft)) _selector.Move(Vector3.Left);
-			if (_cameraInputHelper.PressedOnce(Keys.Right, Buttons.DPadRight)) _selector.Move(Vector3.Right);
-			if (_cameraInputHelper.PressedOnce(Keys.PageUp, Buttons.RightShoulder)) _selector.Move(Vector3.Up);
-			if (_cameraInputHelper.PressedOnce(Keys.PageDown, Buttons.LeftShoulder)) _selector.Move(Vector3.Down);
+			if (_cih.PressedOnce(Keys.Up, Buttons.DPadUp)) _selector.Move(Vector3.Forward);
+			if (_cih.PressedOnce(Keys.Down, Buttons.DPadDown)) _selector.Move(Vector3.Backward);
+			if (_cih.PressedOnce(Keys.Left, Buttons.DPadLeft)) _selector.Move(Vector3.Left);
+			if (_cih.PressedOnce(Keys.Right, Buttons.DPadRight)) _selector.Move(Vector3.Right);
+			if (_cih.PressedOnce(Keys.PageUp, Buttons.RightShoulder)) _selector.Move(Vector3.Up);
+			if (_cih.PressedOnce(Keys.PageDown, Buttons.LeftShoulder)) _selector.Move(Vector3.Down);
 
-			if (_cameraInputHelper.PressedOnce(Keys.Space, Buttons.A)) _selector.PutBall();
-			if (_cameraInputHelper.PressedOnce(Keys.Delete, Buttons.B)) _selector.RemoveBall();
+			if (_cih.PressedOnce(Keys.Space, Buttons.A)) _selector.PutBall();
+			if (_cih.PressedOnce(Keys.Delete, Buttons.B)) _selector.RemoveBall();
 
-			if (_cameraInputHelper.PressedOnce(Keys.NumPad1)) _selector.ChangeBallType(eBallType.Type1);
-			if (_cameraInputHelper.PressedOnce(Keys.NumPad2)) _selector.ChangeBallType(eBallType.Type2);
-			if (_cameraInputHelper.PressedOnce(Keys.NumPad3)) _selector.ChangeBallType(eBallType.Type3);
+			if (_cih.PressedOnce(Keys.NumPad1)) _selector.ChangeBallType(eBallType.Type1);
+			if (_cih.PressedOnce(Keys.NumPad2)) _selector.ChangeBallType(eBallType.Type2);
+			if (_cih.PressedOnce(Keys.NumPad3)) _selector.ChangeBallType(eBallType.Type3);
 		}
 
 		protected override void Update(GameTime gameTime)
 		{
 			if (this.IsActive)
 			{
-				_cameraInputHelper.RegisterCurrentInputState();
+				_cih.RegisterCurrentInputState();
 
-				if (_cameraInputHelper.PressedOnce(Keys.Escape, Buttons.Back)) Exit();
+				if (_cih.PressedOnce(Keys.Escape, Buttons.Back)) Exit();
 
 				SelectorControl();
 
-				_cameraInputHelper.CameraMovement(gameTime);
+				_cih.CameraMovement(gameTime);
 
-				if (_cameraInputHelper.PressedOnce(Keys.F12, Buttons.Start)) Info.Visible = !Info.Visible;
-				if (_cameraInputHelper.PressedOnce(Keys.M, Buttons.X)) _draw = !_draw;
+				if (_cih.PressedOnce(Keys.F12, Buttons.Start)) Info.Visible = !Info.Visible;
+				if (_cih.PressedOnce(Keys.M, Buttons.X)) _draw = !_draw;
 
-				if (_cameraInputHelper.PressedOnce(Keys.N)) FullMapTest();
+				if (_cih.PressedOnce(Keys.N)) FullMapTest();
 
-				if (_cameraInputHelper.PressedOnce(Keys.F1))
+				if (_cih.PressedOnce(Keys.D1)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Forward);
+				if (_cih.PressedOnce(Keys.D2)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Backward);
+				if (_cih.PressedOnce(Keys.D3)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Left);
+				if (_cih.PressedOnce(Keys.D4)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Right);
+				if (_cih.PressedOnce(Keys.D5)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Up);
+				if (_cih.PressedOnce(Keys.D6)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Down);
+
+				if (_cih.PressedOnce(Keys.R)) _cih.RestartCamera();
+
+				if (_cih.PressedOnce(Keys.F1))
 				{
 					Stopwatch stopwatch = new Stopwatch();
 					stopwatch.Start();
@@ -126,7 +135,7 @@ namespace MapEditor
 					Console.WriteLine($"Serialize Binary (ms): {stopwatch.ElapsedMilliseconds}");
 				}
 
-				if (_cameraInputHelper.PressedOnce(Keys.F2))
+				if (_cih.PressedOnce(Keys.F2))
 				{
 					Stopwatch stopwatch = new Stopwatch();
 					stopwatch.Start();
@@ -135,7 +144,7 @@ namespace MapEditor
 					Console.WriteLine($"Deserialize Binary (ms): {stopwatch.ElapsedMilliseconds}");
 				}
 
-				_cameraInputHelper.RegisterPreviousInputState();
+				_cih.RegisterPreviousInputState();
 			}
 			base.Update(gameTime);
 		}

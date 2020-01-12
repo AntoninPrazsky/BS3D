@@ -86,9 +86,9 @@ namespace Prazsky.BS3D.GameStructure
 		{
 			int count = 0;
 
-			for (int level = 0; level < Levels; level++)
-				for (int x = 0; x < StageSizeX; x++)
-					for (int z = 0; z < StageSizeZ; z++)
+			for (byte level = 0; level < Levels; level++)
+				for (byte x = 0; x < StageSizeX; x++)
+					for (byte z = 0; z < StageSizeZ; z++)
 						if (_balls[x, z, level] != null)
 							count++;
 			return count;
@@ -96,9 +96,9 @@ namespace Prazsky.BS3D.GameStructure
 
 		public void Draw(ICamera camera)
 		{
-			for (int level = 0; level < Levels; level++)
-				for (int x = 0; x < StageSizeX; x++)
-					for (int z = 0; z < StageSizeZ; z++)
+			for (byte level = 0; level < Levels; level++)
+				for (byte x = 0; x < StageSizeX; x++)
+					for (byte z = 0; z < StageSizeZ; z++)
 						if (_balls[x, z, level] != null)
 							_balls[x, z, level].Draw(camera, _ballModel);
 		}
@@ -198,6 +198,44 @@ namespace Prazsky.BS3D.GameStructure
 					for (byte z = 0; z < StageSizeZ; z++)
 						if (ballPositionTypes.Balls[x, z, level] != null)
 							PutBallAt(x, z, level, ballPositionTypes.Balls[x, z, level].Type);
+		}
+
+		public Vector3 GetStaticBallsMapCenter()
+		{
+			byte minX = StageSizeX;
+			byte maxX = 0;
+
+			byte minZ = StageSizeZ;
+			byte maxZ = 0;
+
+			byte minLevel = Levels;
+			byte maxLevel = 0;
+
+			for (byte level = 0; level < Levels; level++)
+				for (byte x = 0; x < StageSizeX; x++)
+					for (byte z = 0; z < StageSizeZ; z++)
+						if (_balls[x, z, level] != null)
+						{
+							if (x < minX) minX = x;
+							if (z < minZ) minZ = z;
+							if (level < minLevel) minLevel = level;
+
+							if (x > maxX) maxX = x;
+							if (z > maxZ) maxZ = z;
+							if (level > maxLevel) maxLevel = level;
+						}
+
+			Vector3 minPos = GetRealPosition(minX, minZ, minLevel);
+			Vector3 maxPos = GetRealPosition(maxX, maxZ, maxLevel);
+
+			Console.WriteLine($"Min ball: {minPos}");
+			Console.WriteLine($"Max ball: {maxPos}");
+
+			Vector3 result = (maxPos + minPos) / 2f;
+
+			Console.WriteLine($"Balls map center: {result}");
+
+			return result;
 		}
 	}
 }
