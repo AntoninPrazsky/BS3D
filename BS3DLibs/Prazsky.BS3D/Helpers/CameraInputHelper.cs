@@ -1,10 +1,11 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Prazsky.Core.Camera;
+using System;
 
 namespace Prazsky.BS3D.Helpers
 {
-	public class CameraInputHelper
+	public class CameraInputHelper : IUpdateable, IGameComponent
 	{
 		private BasicCamera3D _camera;
 		private Game _game;
@@ -26,8 +27,27 @@ namespace Prazsky.BS3D.Helpers
 
 		#endregion Ovládání
 
+		#region Animace
+
+		private const float PI_COUNT_STEP = 0.015f;
+		private float _piCount = -MathHelper.Pi;
+
+		private bool _animateCamera = false;
+		private bool _animationStarted = false;
+		private Vector3 _startCameraPos, _endCameraPos, _startCameraTarget, _endCameraTarget;
+
+		#endregion
+
+		public event EventHandler<EventArgs> EnabledChanged;
+
+		public event EventHandler<EventArgs> UpdateOrderChanged;
+
 		public float CameraOffset { get; set; } = 15f;
 		public float MouseMovementDenominator { get; set; } = 50f;
+
+		public bool Enabled => true;
+
+		public int UpdateOrder => 0;
 
 		public CameraInputHelper(BasicCamera3D camera, Game game)
 		{
@@ -170,11 +190,28 @@ namespace Prazsky.BS3D.Helpers
 			Mouse.SetPosition(_widthHalf, _heightHalf);
 		}
 
-		public void CenterCameraToMapCenter(Vector3 mapCenter, Vector3 lookDirection)
+		public void CenterCameraToMapCenter(Vector3 mapCenter, Vector3 lookDirection, bool animate = false)
 		{
-			_camera.Position = mapCenter + (lookDirection * CameraOffset);
-			_camera.Target = mapCenter;
-			_camera.Recalculate();
+			Vector3 finalCameraPos = mapCenter + (lookDirection * CameraOffset);
+			Vector3 finalCameraTarget = mapCenter;
+
+			if (!animate)
+			{
+				_camera.Position = finalCameraPos;
+				_camera.Target = finalCameraTarget;
+				_camera.Recalculate();
+
+				_animateCamera = false;
+				return;
+			}
+
+			_startCameraPos = _camera.Position;
+			_endCameraPos = finalCameraPos;
+
+			_startCameraTarget = _camera.Target;
+			_endCameraTarget = finalCameraTarget;
+
+			_animateCamera = true;
 		}
 
 		public void RestartCamera()
@@ -182,6 +219,43 @@ namespace Prazsky.BS3D.Helpers
 			_camera.Position = new Vector3(0f, 0f, CameraOffset);
 			_camera.Target = Vector3.Zero;
 			_camera.Recalculate();
+		}
+
+		public void Update(GameTime gameTime)
+		{
+			if (!_animateCamera) return;
+
+			if (_piCount <= MathHelper.Pi) _piCount += PI_COUNT_STEP;
+			else _piCount = -MathHelper.Pi;
+
+			if (!_animationStarted && _animateCamera)
+			{
+				_piCount = -MathHelper.Pi;
+				_animationStarted = true;
+			}
+
+			float step = (float)(Math.Cos(_piCount) + 1) / 2f;
+
+			Console.WriteLine(step);
+
+			//TODO: Budu chtít, aby se kamera pohybovala při změně pozice po sféře (rotaci kamery stejně budu potřebovat ve hře)
+			_camera.Position = Vector3.Lerp(_startCameraPos, _endCameraPos, step);
+			_camera.Target = Vector3.Lerp(_startCameraTarget, _endCameraTarget, step);
+			_camera.Recalculate();
+
+			if (step > 0.9999f)
+			{
+				_camera.Position = _endCameraPos;
+				_camera.Target = _endCameraTarget;
+				_camera.Recalculate();
+
+				_animateCamera = false;
+				_animationStarted = false;
+			}
+		}
+
+		public void Initialize()
+		{
 		}
 	}
 }

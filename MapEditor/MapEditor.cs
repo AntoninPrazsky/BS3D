@@ -40,8 +40,8 @@ namespace MapEditor
 			bool windowed = true,
 			bool preferHiDef = true,
 			bool preferMultiSampling = true,
-			int windowWidth = 1920,
-			int windowHeight = 1080)
+			int windowWidth = 1280,
+			int windowHeight = 720)
 		{
 			_windowed = windowed;
 			_preferHiDef = preferHiDef;
@@ -72,6 +72,7 @@ namespace MapEditor
 			_graphics.ApplyChanges();
 
 			_cih = new CameraInputHelper(Camera3D, this);
+			this.Components.Add(_cih);
 
 			base.Initialize();
 		}
@@ -118,12 +119,12 @@ namespace MapEditor
 
 				if (_cih.PressedOnce(Keys.N)) FullMapTest();
 
-				if (_cih.PressedOnce(Keys.D1)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Forward);
-				if (_cih.PressedOnce(Keys.D2)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Backward);
-				if (_cih.PressedOnce(Keys.D3)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Left);
-				if (_cih.PressedOnce(Keys.D4)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Right);
-				if (_cih.PressedOnce(Keys.D5)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Up);
-				if (_cih.PressedOnce(Keys.D6)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Down);
+				if (_cih.PressedOnce(Keys.D1)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Forward, true);
+				if (_cih.PressedOnce(Keys.D2)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Backward, true);
+				if (_cih.PressedOnce(Keys.D3)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Left, true);
+				if (_cih.PressedOnce(Keys.D4)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Right, true);
+				if (_cih.PressedOnce(Keys.D5)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Up, true);
+				if (_cih.PressedOnce(Keys.D6)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Down, true);
 
 				if (_cih.PressedOnce(Keys.R)) _cih.RestartCamera();
 
@@ -191,7 +192,7 @@ namespace MapEditor
 		private void _graphics_PreparingDeviceSettings(object sender, PreparingDeviceSettingsEventArgs e)
 		{
 			//Obnovovací frekvence vykreslování
-			e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = PresentInterval.Default; //Default
+			e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = PresentInterval.Default;
 
 			if (_preferHiDef && e.GraphicsDeviceInformation.Adapter.IsProfileSupported(GraphicsProfile.HiDef))
 				e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.HiDef;
