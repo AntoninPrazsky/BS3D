@@ -249,5 +249,46 @@ namespace Prazsky.BS3D.GameStructure
 
 			return result;
 		}
+
+		public void Center()
+		{
+			float minPosX = float.MaxValue, minPosY = float.MaxValue, minPosZ = float.MaxValue;
+			float maxPosX = float.MinValue, maxPosY = float.MinValue, maxPosZ = float.MinValue;
+
+			for (byte level = 0; level < Levels; level++)
+				for (byte x = 0; x < StageSizeX; x++)
+					for (byte z = 0; z < StageSizeZ; z++)
+						if (_balls[x, z, level] != null)
+						{
+							StaticBall currentBall = _balls[x, z, level];
+
+							if (currentBall.Position.X < minPosX) minPosX = currentBall.Position.X;
+							if (currentBall.Position.Y < minPosY) minPosY = currentBall.Position.Y;
+							if (currentBall.Position.Z < minPosZ) minPosZ = currentBall.Position.Z;
+
+							if (currentBall.Position.X > maxPosX) maxPosX = currentBall.Position.X;
+							if (currentBall.Position.Y > maxPosY) maxPosY = currentBall.Position.Y;
+							if (currentBall.Position.Z > maxPosZ) maxPosZ = currentBall.Position.Z;
+						}
+
+			Vector3 minPos = new Vector3(minPosX, minPosY, minPosZ);
+			Vector3 maxPos = new Vector3(maxPosX, maxPosY, maxPosZ);
+
+			Vector3 boundingBoxCenter = (minPos + maxPos) / 2f;
+
+			//Potřebuju bod, který představuje maximum mapy - OTÁZKA: Mám na mysli hranici anebo střed hraniční koule?
+			//Teď vezmu střed hraniční koule, ale možná to bude potřeba opravit
+
+			Vector3 mapMaxBorder = GetRealPosition(StageSizeX, StageSizeZ, Levels);
+
+			Vector3 shift = mapMaxBorder - boundingBoxCenter;
+
+			//Každou kouli posunu tak, aby byl střed AABB všech koulí uprostřed mapy
+			for (byte level = 0; level < Levels; level++)
+				for (byte x = 0; x < StageSizeX; x++)
+					for (byte z = 0; z < StageSizeZ; z++)
+						if (_balls[x, z, level] != null)
+							_balls[x, z, level].Position -= shift;
+		}
 	}
 }

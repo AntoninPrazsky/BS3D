@@ -24,6 +24,7 @@ namespace Testbed
 		private Matrix[] _hrSphereTransformations;
 
 		private Model _groundModel3, _topPlatform;
+		private KinematicBody _ceiling;
 
 		private Simulation _simulation;
 		private SimpleThreadDispatcher _simpleThreadDispatcher;
@@ -108,7 +109,7 @@ namespace Testbed
 
 			BuildGroundAndCeiling();
 
-			#endregion Ground
+			#endregion Ground and ceiling
 		}
 
 		private void BuildGroundAndCeiling()
@@ -127,17 +128,24 @@ namespace Testbed
 			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(-30f, -9f, 30f), groundBox)));
 			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(30f, -9f, -30f), groundBox)));
 
+			Box box = new Box(10f, 1f, 10f);
+			TypedIndex boxShapeIndex = _simulation.Shapes.Add(box);
+			CollidableDescription collidableDescription = new CollidableDescription(boxShapeIndex, 0.1f);
+			BodyDescription bodyDescription = BodyDescription.CreateKinematic(new s.Vector3(0f, 3.5f, 0f), collidableDescription, new BodyActivityDescription(0.01f));
 
-			Box topPlatformBox = new Box(10f, 1f, 10f);
+			BodyHandle topBodyHandle = _simulation.Bodies.Add(in bodyDescription);
+			BodyReference topBodyReference = new BodyReference(topBodyHandle, _simulation.Bodies);
 
-			_staticBodies.Add(new StaticBody(_topPlatform, CreateStatic(new s.Vector3(0f, 10f, 0f), topPlatformBox)));
+			_ceiling = new KinematicBody(_topPlatform, topBodyReference);
 		}
 
 		private void LoadBallsMapTest()
 		{
 			BallsMap map = new BallsMap(@"G:\balls.bin", _hrSphere); //TODO: Okno systému pro otevření? Anebo všechny v adresáři a cyklovat?
 
-			_balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation));
+			map.Center();
+
+			_balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
 			Info.CustomText = "Balls on scene: " + CountActiveBalls();
 		}
 
@@ -147,7 +155,7 @@ namespace Testbed
 			for (int i = 0; i < _balls.Count; i++) result += _balls[i].Length;
 			return result;
 		}
-		
+
 		protected override void Update(GameTime gameTime)
 		{
 			if (_simulate)
@@ -174,9 +182,8 @@ namespace Testbed
 
 				if (_cih.PressedOnce(Keys.Delete, Buttons.Start))
 				{
-					//TODO: Jak odstranit všechny kuličky ze simulace???
+					RemoveAllConstraints();
 				}
-
 
 				if (_cih.PressedOnce(Keys.D1)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward);
 				if (_cih.PressedOnce(Keys.D2)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward);
@@ -200,6 +207,22 @@ namespace Testbed
 			_staticBodies.Clear();
 		}
 
+		private void RemoveAllConstraints()
+		{
+			if (_balls.Count > 0)
+			{
+				int ballsCount = _balls.Count;
+				for (int x = 0; x < ballsCount; x++)
+				{
+					int ballsXLength = _balls[x].Length;
+					for (int i = 0; i < ballsXLength; i++)
+					{
+						_balls[x][i].RemoveAllConstraints(_simulation);
+					}
+				}
+			}
+		}
+
 		protected override void Draw(GameTime gameTime)
 		{
 			GraphicsDevice.Clear(Color.LightSlateGray);
@@ -211,11 +234,15 @@ namespace Testbed
 				for (int i = 0; i < _staticBodies.Count; i++)
 					_staticBodies[i].Draw(Camera3D);
 
+				_ceiling.Draw(Camera3D);
+
 				if (_balls.Count > 0)
 				{
-					for (int x = 0; x < _balls.Count; x++)
+					int ballsCount = _balls.Count;
+					for (int x = 0; x < ballsCount; x++)
 					{
-						for (int i = 0; i < _balls[x].Length; i++)
+						int ballsXLength = _balls[x].Length;
+						for (int i = 0; i < ballsXLength; i++)
 						{
 							Matrix ballWorldMatrix = Matrix.CreateFromQuaternion(
 								new Quaternion(
@@ -246,7 +273,6 @@ namespace Testbed
 
 			int mainScreenWidth = devMode.dmPelsWidth;
 			int mainScreenHeight = devMode.dmPelsHeight;
-			
 
 			_graphics.PreferredBackBufferWidth = windowed ? _windowWidth : mainScreenWidth;
 			_graphics.PreferredBackBufferHeight = windowed ? _windowHeight : mainScreenHeight;

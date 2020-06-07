@@ -37,7 +37,7 @@ namespace MapEditor
 		#endregion Grafika
 
 		public MapEditor(
-			bool windowed = false,
+			bool windowed = true,
 			bool preferHiDef = true,
 			bool preferMultiSampling = true,
 			int windowWidth = 1920,
