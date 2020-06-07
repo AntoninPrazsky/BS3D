@@ -46,8 +46,9 @@ namespace Prazsky.BS3D.Physics
 						if (staticBalls[x, z, level] != null) //Je tady vůbec nějaká kulička?
 						{
 							BodyDescription bodyDescription = BodyDescription.CreateDynamic(staticBalls[x, z, level].GetPosition(), bodyInertia, collidableDescription, bodyActivityDescription);
-							int addedBallReference = simulation.Bodies.Add(bodyDescription);
-							BodyReference bodyReference = new BodyReference(addedBallReference, simulation.Bodies);
+							BodyHandle bodyHandle = simulation.Bodies.Add(in bodyDescription);
+
+							BodyReference bodyReference = new BodyReference(bodyHandle, simulation.Bodies);
 
 							PhysicsBall ball = new PhysicsBall
 							{
@@ -97,7 +98,7 @@ namespace Prazsky.BS3D.Physics
 									//Vpředu je kulička
 									PhysicsBall upBall = physicsBalls[x, z - 1, level];
 
-									if (upBall.HandlesMiddle.Handle4 >= 0) //Má kulička vpředu spojení na aktuální kuličku?
+									if (upBall.HandlesMiddle.Handle4.Value > 0) //Má kulička vpředu spojení na aktuální kuličku?
 									{
 										currentPhysicsBall.HandlesMiddle.Handle1 = upBall.HandlesMiddle.Handle4; //Pro aktuální kuličku zaregistruju spojení s jejím předním sousedem
 									}
@@ -105,7 +106,7 @@ namespace Prazsky.BS3D.Physics
 									{
 										StaticBall upStaticBall = staticBalls[x, z - 1, level];
 
-										int constraintHandle = ConnectBalls(ref currentPhysicsBall, ref upBall, currentStaticBall, upStaticBall, simulation);
+										var constraintHandle = ConnectBalls(ref currentPhysicsBall, ref upBall, currentStaticBall, upStaticBall, simulation);
 
 										currentPhysicsBall.HandlesMiddle.Handle1 = constraintHandle; //Aktuální kulička má vazbu na kuličku před ní
 										upBall.HandlesMiddle.Handle4 = constraintHandle; //Kulička před aktuální kuličkou má vazbu nad kuličku za ní
@@ -120,7 +121,7 @@ namespace Prazsky.BS3D.Physics
 									//Vlevo je kulička
 									PhysicsBall leftBall = physicsBalls[x - 1, z, level];
 
-									if (leftBall.HandlesMiddle.Handle3 >= 0) //Má kulička nalevo spojení na aktuální kuličku?
+									if (leftBall.HandlesMiddle.Handle3.Value > 0) //Má kulička nalevo spojení na aktuální kuličku?
 									{
 										currentPhysicsBall.HandlesMiddle.Handle2 = leftBall.HandlesMiddle.Handle3;
 									}
@@ -128,7 +129,7 @@ namespace Prazsky.BS3D.Physics
 									{
 										StaticBall leftStaticBall = staticBalls[x - 1, z, level];
 
-										int constraintHandle = ConnectBalls(ref currentPhysicsBall, ref leftBall, currentStaticBall, leftStaticBall, simulation);
+										var constraintHandle = ConnectBalls(ref currentPhysicsBall, ref leftBall, currentStaticBall, leftStaticBall, simulation);
 
 										currentPhysicsBall.HandlesMiddle.Handle2 = constraintHandle;
 										leftBall.HandlesMiddle.Handle3 = constraintHandle;
@@ -143,7 +144,7 @@ namespace Prazsky.BS3D.Physics
 									//Vpravo je kulička
 									PhysicsBall rightBall = physicsBalls[x + 1, z, level];
 
-									if (rightBall.HandlesMiddle.Handle2 >= 0) //Má kulička napravo spojení na aktuální kuličku?
+									if (rightBall.HandlesMiddle.Handle2.Value > 0) //Má kulička napravo spojení na aktuální kuličku?
 									{
 										currentPhysicsBall.HandlesMiddle.Handle3 = rightBall.HandlesMiddle.Handle2;
 									}
@@ -151,7 +152,7 @@ namespace Prazsky.BS3D.Physics
 									{
 										StaticBall rightStaticBall = staticBalls[x + 1, z, level];
 
-										int constraintHandle = ConnectBalls(ref currentPhysicsBall, ref rightBall, currentStaticBall, rightStaticBall, simulation);
+										var constraintHandle = ConnectBalls(ref currentPhysicsBall, ref rightBall, currentStaticBall, rightStaticBall, simulation);
 
 										currentPhysicsBall.HandlesMiddle.Handle3 = constraintHandle;
 										rightBall.HandlesMiddle.Handle2 = constraintHandle;
@@ -166,7 +167,7 @@ namespace Prazsky.BS3D.Physics
 									//Dole je kulička
 									PhysicsBall bottomBall = physicsBalls[x, z + 1, level];
 
-									if (bottomBall.HandlesMiddle.Handle1 >= 0) //Má kulička dole spojení na aktuální kuličku?
+									if (bottomBall.HandlesMiddle.Handle1.Value > 0) //Má kulička dole spojení na aktuální kuličku?
 									{
 										currentPhysicsBall.HandlesMiddle.Handle4 = bottomBall.HandlesMiddle.Handle1;
 									}
@@ -174,7 +175,7 @@ namespace Prazsky.BS3D.Physics
 									{
 										StaticBall bottomStaticBall = staticBalls[x, z + 1, level];
 
-										int constraintHandle = ConnectBalls(ref currentPhysicsBall, ref bottomBall, currentStaticBall, bottomStaticBall, simulation);
+										var constraintHandle = ConnectBalls(ref currentPhysicsBall, ref bottomBall, currentStaticBall, bottomStaticBall, simulation);
 
 										currentPhysicsBall.HandlesMiddle.Handle4 = constraintHandle;
 										bottomBall.HandlesMiddle.Handle1 = constraintHandle;
@@ -209,7 +210,7 @@ namespace Prazsky.BS3D.Physics
 										PhysicsBall upRightBall = physicsBalls[x, z - 1, level + 1];
 
 										//TODO: Otestovat, jestli se tohle někdy stane
-										if (upRightBall.HandlesBottom.Handle3 >= 0) //Má kulička vpravo nahoře spojení na aktuální kuličku? (Aktuální kulička je pro ní ta vlevo dole v levelu - 1)
+										if (upRightBall.HandlesBottom.Handle3.Value >= 0) //Má kulička vpravo nahoře spojení na aktuální kuličku? (Aktuální kulička je pro ní ta vlevo dole v levelu - 1)
 										{
 											currentPhysicsBall.HandlesTop.Handle2 = upRightBall.HandlesBottom.Handle3;
 										}
@@ -217,7 +218,7 @@ namespace Prazsky.BS3D.Physics
 										{
 											StaticBall upRightStaticBall = staticBalls[x, z - 1, level + 1];
 
-											int constraintHandle = ConnectBalls(ref currentPhysicsBall, ref upRightBall, currentStaticBall, upRightStaticBall, simulation);
+											var constraintHandle = ConnectBalls(ref currentPhysicsBall, ref upRightBall, currentStaticBall, upRightStaticBall, simulation);
 
 											currentPhysicsBall.HandlesTop.Handle2 = constraintHandle; //Aktuální kulička má vazbu na kuličku v levelu + 1 vpravo nahoře
 											upRightBall.HandlesBottom.Handle3 = constraintHandle; //Kulička v levelu + 1 vpravo nahoře má vazbu na aktuální kuličku (pro ní ta vlevo dole)
@@ -233,7 +234,7 @@ namespace Prazsky.BS3D.Physics
 										PhysicsBall upLeftBall = physicsBalls[x - 1, z - 1, level + 1];
 
 										//TODO: Otestovat, jestli se tohle někdy stane
-										if (upLeftBall.HandlesBottom.Handle4 >= 0) //Má kulička vlevo nahoře spojení na aktuální kuličku? (Aktuální kulička je pro ní ta vpravo dole v levelu - 1)
+										if (upLeftBall.HandlesBottom.Handle4.Value >= 0) //Má kulička vlevo nahoře spojení na aktuální kuličku? (Aktuální kulička je pro ní ta vpravo dole v levelu - 1)
 										{
 											currentPhysicsBall.HandlesTop.Handle1 = upLeftBall.HandlesBottom.Handle4;
 										}
@@ -241,7 +242,7 @@ namespace Prazsky.BS3D.Physics
 										{
 											StaticBall upLeftStaticBall = staticBalls[x - 1, z - 1, level + 1];
 
-											int constraintHandle = ConnectBalls(ref currentPhysicsBall, ref upLeftBall, currentStaticBall, upLeftStaticBall, simulation);
+											var constraintHandle = ConnectBalls(ref currentPhysicsBall, ref upLeftBall, currentStaticBall, upLeftStaticBall, simulation);
 
 											currentPhysicsBall.HandlesTop.Handle1 = constraintHandle;
 											upLeftBall.HandlesBottom.Handle4 = constraintHandle;
@@ -256,7 +257,7 @@ namespace Prazsky.BS3D.Physics
 									PhysicsBall downRightBall = physicsBalls[x, z, level + 1];
 
 									//TODO: Otestovat, jestli se tohle někdy stane
-									if (downRightBall.HandlesBottom.Handle1 >= 0) //Má kulička pravo dole spojení na aktuální kuličku? (Aktuální kulička je pro ní ta vlevo nahoře v levelu - 1)
+									if (downRightBall.HandlesBottom.Handle1.Value >= 0) //Má kulička pravo dole spojení na aktuální kuličku? (Aktuální kulička je pro ní ta vlevo nahoře v levelu - 1)
 									{
 										currentPhysicsBall.HandlesTop.Handle4 = downRightBall.HandlesBottom.Handle1;
 									}
@@ -264,7 +265,7 @@ namespace Prazsky.BS3D.Physics
 									{
 										StaticBall downRightStaticBall = staticBalls[x, z, level + 1];
 
-										int constraintHandle = ConnectBalls(ref currentPhysicsBall, ref downRightBall, currentStaticBall, downRightStaticBall, simulation);
+										var constraintHandle = ConnectBalls(ref currentPhysicsBall, ref downRightBall, currentStaticBall, downRightStaticBall, simulation);
 
 										currentPhysicsBall.HandlesTop.Handle4 = constraintHandle;
 										downRightBall.HandlesBottom.Handle1 = constraintHandle;
@@ -279,7 +280,7 @@ namespace Prazsky.BS3D.Physics
 										PhysicsBall downLeftBall = physicsBalls[x - 1, z, level + 1];
 
 										//TODO: Otestovat, jestli se tohle někdy stane
-										if (downLeftBall.HandlesBottom.Handle2 >= 0) //Má kulička vlevo dole spojení na aktuální kuličku? (Aktuální kulička je pro ní ta vpravo nahoře v levelu - 1)
+										if (downLeftBall.HandlesBottom.Handle2.Value >= 0) //Má kulička vlevo dole spojení na aktuální kuličku? (Aktuální kulička je pro ní ta vpravo nahoře v levelu - 1)
 										{
 											currentPhysicsBall.HandlesTop.Handle3 = downLeftBall.HandlesBottom.Handle2;
 										}
@@ -287,7 +288,7 @@ namespace Prazsky.BS3D.Physics
 										{
 											StaticBall downLeftStaticBall = staticBalls[x - 1, z, level + 1];
 
-											int constraintHandle = ConnectBalls(ref currentPhysicsBall, ref downLeftBall, currentStaticBall, downLeftStaticBall, simulation);
+											var constraintHandle = ConnectBalls(ref currentPhysicsBall, ref downLeftBall, currentStaticBall, downLeftStaticBall, simulation);
 
 											currentPhysicsBall.HandlesTop.Handle3 = constraintHandle;
 											downLeftBall.HandlesBottom.Handle2 = constraintHandle;
@@ -315,7 +316,7 @@ namespace Prazsky.BS3D.Physics
 			return result.ToArray();
 		}
 
-		private static int ConnectBalls(ref PhysicsBall physicsBallA, ref PhysicsBall physicsBallB, StaticBall staticBallA, StaticBall staticBallB, Simulation simulation)
+		private static ConstraintHandle ConnectBalls(ref PhysicsBall physicsBallA, ref PhysicsBall physicsBallB, StaticBall staticBallA, StaticBall staticBallB, Simulation simulation)
 		{
 			Vector3 offsetAB = GetLocalOffset(staticBallA.GetPosition(), staticBallB.GetPosition());
 			Vector3 offsetBA = Vector3.Negate(offsetAB); //Mohl bych znovu použít GetLocalOffset s otočenými parametry, ale stačí změnit polaritu prvního vektoru
@@ -323,6 +324,7 @@ namespace Prazsky.BS3D.Physics
 			BallSocket ballSocket = new BallSocket() { LocalOffsetA = offsetAB, LocalOffsetB = offsetBA, SpringSettings = SPRING_SETTINGS };
 
 			return simulation.Solver.Add(physicsBallA.BallReference.Handle, physicsBallB.BallReference.Handle, ballSocket);
+
 		}
 
 		private static Vector3 GetLocalOffset(Vector3 ballAPosition, Vector3 ballBPosition)

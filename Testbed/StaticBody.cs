@@ -8,9 +8,12 @@ namespace Testbed
 {
 	public class StaticBody : Object3D
 	{
+		public StaticReference StaticReference { get; private set; }
+
 		public StaticBody(Model model, StaticReference staticReference)
 		{
 			Model = model;
+			StaticReference = staticReference;
 			Transformations = new Matrix[Model.Bones.Count];
 			Model.CopyAbsoluteBoneTransformsTo(Transformations);
 

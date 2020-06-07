@@ -9,8 +9,10 @@ using Prazsky.BS3D.Helpers;
 using Prazsky.BS3D.Physics;
 using Prazsky.Core.Camera;
 using Prazsky.Render;
+using PyramidGenerator;
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using s = System.Numerics;
 
 namespace Testbed
@@ -21,7 +23,7 @@ namespace Testbed
 		private Model _hrSphere, _hrSphereRed;
 		private Matrix[] _hrSphereTransformations;
 
-		private Model _groundModel, _groundModel2, _groundModel3;
+		private Model _groundModel3, _topPlatform;
 
 		private Simulation _simulation;
 		private SimpleThreadDispatcher _simpleThreadDispatcher;
@@ -88,11 +90,6 @@ namespace Testbed
 			_simulation = Simulation.Create(_bufferPool, new Simu.NarrowPhaseCallbacks(), new Simu.DemoPoseIntegratorCallbacks(new s.Vector3(0f, -10f, 0f)));
 			_simpleThreadDispatcher = new SimpleThreadDispatcher(Environment.ProcessorCount);
 
-			GraphicsDevice.RasterizerState = new RasterizerState { CullMode = CullMode.None, MultiSampleAntiAlias = true };
-			GraphicsDevice.BlendState = new BlendState() { AlphaSourceBlend = Blend.SourceAlpha, AlphaDestinationBlend = Blend.InverseSourceColor, ColorSourceBlend = Blend.SourceAlpha, ColorDestinationBlend = Blend.InverseSourceAlpha };
-			GraphicsDevice.PresentationParameters.MultiSampleCount = 8;
-			_graphics.ApplyChanges();
-
 			base.Initialize();
 		}
 
@@ -104,123 +101,43 @@ namespace Testbed
 
 			_hrSphereRed = Content.Load<Model>("HRGeoDome");
 
-			#region Ground
+			#region Ground and ceiling
 
 			_groundModel3 = Content.Load<Model>("GroundTripleX");
+			_topPlatform = Content.Load<Model>("TopPlatform");
 
-			_staticBodies.Add(new StaticBody(_groundModel3, CreateGround(new s.Vector3(0f, -10f, 0f), 2)));
-
-			_staticBodies.Add(new StaticBody(_groundModel3, CreateGround(new s.Vector3(-30f, -9f, 0f), 2)));
-			_staticBodies.Add(new StaticBody(_groundModel3, CreateGround(new s.Vector3(30, -9f, 0f), 2)));
-			_staticBodies.Add(new StaticBody(_groundModel3, CreateGround(new s.Vector3(0f, -9f, 30f), 2)));
-			_staticBodies.Add(new StaticBody(_groundModel3, CreateGround(new s.Vector3(0f, -9f, -30f), 2)));
-
-			_staticBodies.Add(new StaticBody(_groundModel3, CreateGround(new s.Vector3(-30f, -9f, -30f), 2)));
-			_staticBodies.Add(new StaticBody(_groundModel3, CreateGround(new s.Vector3(30, -9f, 30f), 2)));
-			_staticBodies.Add(new StaticBody(_groundModel3, CreateGround(new s.Vector3(-30f, -9f, 30f), 2)));
-			_staticBodies.Add(new StaticBody(_groundModel3, CreateGround(new s.Vector3(30f, -9f, -30f), 2)));
+			BuildGroundAndCeiling();
 
 			#endregion Ground
 		}
 
-		private void LoadBallsMapTest()
+		private void BuildGroundAndCeiling()
 		{
-			BallsMap map = new BallsMap(@"G:\balls.bin", _hrSphere);
+			Box groundBox = new Box(30f, 1f, 30f);
 
-			_balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation));
-			Info.CustomText = "Balls on scene: " + CountActiveBalls();
+			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(0f, -10f, 0f), groundBox)));
+
+			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(-30f, -9f, 0f), groundBox)));
+			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(30, -9f, 0f), groundBox)));
+			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(0f, -9f, 30f), groundBox)));
+			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(0f, -9f, -30f), groundBox)));
+
+			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(-30f, -9f, -30f), groundBox)));
+			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(30, -9f, 30f), groundBox)));
+			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(-30f, -9f, 30f), groundBox)));
+			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(30f, -9f, -30f), groundBox)));
+
+
+			Box topPlatformBox = new Box(10f, 1f, 10f);
+
+			_staticBodies.Add(new StaticBody(_topPlatform, CreateStatic(new s.Vector3(0f, 10f, 0f), topPlatformBox)));
 		}
 
-		private void BallsConstraintsBuilderTest()
+		private void LoadBallsMapTest()
 		{
-			BallsMap map = new BallsMap(10, 10, 10, _hrSphere);
-
-			map.PutBallAt(0, 0, 2, eBallType.Type1);
-			map.PutBallAt(0, 1, 2, eBallType.Type2);
-			map.PutBallAt(0, 2, 2, eBallType.Type3);
-			map.PutBallAt(0, 3, 2, eBallType.Type1);
-
-			map.PutBallAt(1, 0, 2, eBallType.Type2);
-			map.PutBallAt(1, 1, 2, eBallType.Type3);
-			map.PutBallAt(1, 2, 2, eBallType.Type1);
-			map.PutBallAt(1, 3, 2, eBallType.Type1);
-
-			map.PutBallAt(2, 0, 2, eBallType.Type2);
-			map.PutBallAt(2, 1, 2, eBallType.Type3);
-			map.PutBallAt(2, 2, 2, eBallType.Type1);
-			map.PutBallAt(2, 3, 2, eBallType.Type1);
-
-			map.PutBallAt(3, 0, 2, eBallType.Type2);
-			map.PutBallAt(3, 1, 2, eBallType.Type3);
-			map.PutBallAt(3, 2, 2, eBallType.Type1);
-			map.PutBallAt(3, 3, 2, eBallType.Type1);
-
-			map.PutBallAt(0, 0, 3, eBallType.Type1);
-			map.PutBallAt(0, 1, 3, eBallType.Type2);
-			map.PutBallAt(0, 2, 3, eBallType.Type3);
-			map.PutBallAt(0, 3, 3, eBallType.Type1);
-
-			map.PutBallAt(1, 0, 3, eBallType.Type2);
-			map.PutBallAt(1, 1, 3, eBallType.Type3);
-			map.PutBallAt(1, 2, 3, eBallType.Type1);
-			map.PutBallAt(1, 3, 3, eBallType.Type1);
-
-			map.PutBallAt(2, 0, 3, eBallType.Type2);
-			map.PutBallAt(2, 1, 3, eBallType.Type3);
-			map.PutBallAt(2, 2, 3, eBallType.Type1);
-			map.PutBallAt(2, 3, 3, eBallType.Type1);
-
-			map.PutBallAt(3, 0, 3, eBallType.Type2);
-			map.PutBallAt(3, 1, 3, eBallType.Type3);
-			map.PutBallAt(3, 2, 3, eBallType.Type1);
-			map.PutBallAt(3, 3, 3, eBallType.Type1);
-
-			map.PutBallAt(3, 0, 4, eBallType.Type2);
-			map.PutBallAt(3, 1, 4, eBallType.Type3);
-			map.PutBallAt(3, 2, 4, eBallType.Type1);
-			map.PutBallAt(3, 3, 4, eBallType.Type1);
-
-			map.PutBallAt(3, 0, 4, eBallType.Type2);
-			map.PutBallAt(3, 1, 4, eBallType.Type3);
-			map.PutBallAt(3, 2, 4, eBallType.Type1);
-			map.PutBallAt(3, 3, 4, eBallType.Type1);
-
-			map.PutBallAt(4, 5, 9, eBallType.Type2);
-			map.PutBallAt(4, 6, 9, eBallType.Type3);
-
-			map.PutBallAt(5, 4, 9, eBallType.Type2);
-			map.PutBallAt(5, 6, 9, eBallType.Type1);
-			map.PutBallAt(5, 7, 9, eBallType.Type1);
-
-			map.PutBallAt(6, 4, 9, eBallType.Type2);
-			map.PutBallAt(6, 5, 9, eBallType.Type3);
-			map.PutBallAt(6, 7, 9, eBallType.Type1);
-
-			map.PutBallAt(7, 5, 9, eBallType.Type3);
-			map.PutBallAt(7, 6, 9, eBallType.Type1);
-
-			map.PutBallAt(4, 4, 5, eBallType.Type1);
-			map.PutBallAt(4, 5, 5, eBallType.Type2);
-			map.PutBallAt(4, 6, 5, eBallType.Type3);
-			map.PutBallAt(4, 7, 5, eBallType.Type1);
-
-			map.PutBallAt(5, 4, 5, eBallType.Type2);
-			map.PutBallAt(5, 5, 5, eBallType.Type3);
-			map.PutBallAt(5, 6, 5, eBallType.Type1);
-			map.PutBallAt(5, 7, 5, eBallType.Type1);
-
-			map.PutBallAt(6, 4, 5, eBallType.Type2);
-			map.PutBallAt(6, 5, 5, eBallType.Type3);
-			map.PutBallAt(6, 6, 5, eBallType.Type1);
-			map.PutBallAt(6, 7, 5, eBallType.Type1);
-
-			map.PutBallAt(7, 4, 5, eBallType.Type1);
-			map.PutBallAt(7, 5, 5, eBallType.Type1);
-			map.PutBallAt(7, 6, 5, eBallType.Type1);
-			map.PutBallAt(7, 7, 5, eBallType.Type1);
+			BallsMap map = new BallsMap(@"G:\balls.bin", _hrSphere); //TODO: Okno systému pro otevření? Anebo všechny v adresáři a cyklovat?
 
 			_balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation));
-
 			Info.CustomText = "Balls on scene: " + CountActiveBalls();
 		}
 
@@ -230,7 +147,7 @@ namespace Testbed
 			for (int i = 0; i < _balls.Count; i++) result += _balls[i].Length;
 			return result;
 		}
-
+		
 		protected override void Update(GameTime gameTime)
 		{
 			if (_simulate)
@@ -249,11 +166,16 @@ namespace Testbed
 
 				_cih.CameraMovement(gameTime);
 
-				if (_cih.PressedOnce(Keys.F12, Buttons.Start)) Info.Visible = !Info.Visible;
+				//if (_cih.PressedOnce(Keys.F12, Buttons.Start)) Info.Visible = !Info.Visible;
 				if (_cih.PressedOnce(Keys.Back, Buttons.B)) _simulate = !_simulate;
 				if (_cih.PressedOnce(Keys.M, Buttons.X)) _draw = !_draw;
-				if (_cih.PressedOnce(Keys.B, Buttons.A)) BallsConstraintsBuilderTest();
-				if (_cih.PressedOnce(Keys.F2, Buttons.B)) LoadBallsMapTest();
+				//if (_cih.PressedOnce(Keys.B, Buttons.DPadRight)) BallsConstraintsBuilderTest();
+				if (_cih.PressedOnce(Keys.F2, Buttons.DPadLeft)) LoadBallsMapTest();
+
+				if (_cih.PressedOnce(Keys.Delete, Buttons.Start))
+				{
+					//TODO: Jak odstranit všechny kuličky ze simulace???
+				}
 
 
 				if (_cih.PressedOnce(Keys.D1)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward);
@@ -269,9 +191,18 @@ namespace Testbed
 			base.Update(gameTime);
 		}
 
+		private void RemoveAllStatics()
+		{
+			foreach (var staticBody in _staticBodies)
+			{
+				_simulation.Statics.Remove(staticBody.StaticReference.Handle);
+			}
+			_staticBodies.Clear();
+		}
+
 		protected override void Draw(GameTime gameTime)
 		{
-			GraphicsDevice.Clear(Color.AliceBlue);
+			GraphicsDevice.Clear(Color.LightSlateGray);
 			GraphicsDevice.BlendState = BlendState.AlphaBlend;
 			GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
@@ -308,14 +239,21 @@ namespace Testbed
 
 		private void SetGraphics(bool windowed = false)
 		{
-			_graphics.PreferredBackBufferWidth = windowed ? _windowWidth : 3840; //GraphicsDevice.DisplayMode.Width
-			_graphics.PreferredBackBufferHeight = windowed ? _windowHeight : 1600; //GraphicsDevice.DisplayMode.Height
+			const int ENUM_CURRENT_SETTINS = -1;
+			DisplaySettings.DEVMODE devMode = default;
+			devMode.dmSize = (short)Marshal.SizeOf(devMode);
+			DisplaySettings.EnumDisplaySettings(null, ENUM_CURRENT_SETTINS, ref devMode);
+
+			int mainScreenWidth = devMode.dmPelsWidth;
+			int mainScreenHeight = devMode.dmPelsHeight;
+			
+
+			_graphics.PreferredBackBufferWidth = windowed ? _windowWidth : mainScreenWidth;
+			_graphics.PreferredBackBufferHeight = windowed ? _windowHeight : mainScreenHeight;
 			_graphics.IsFullScreen = !windowed;
 
 			_graphics.SynchronizeWithVerticalRetrace = true;
-
 			_graphics.PreferMultiSampling = _preferMultiSampling;
-
 			_graphics.ApplyChanges();
 
 			IsMouseVisible = false;
@@ -333,32 +271,12 @@ namespace Testbed
 				e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.Reach;
 		}
 
-		private StaticReference CreateGround(s.Vector3 position, byte size)
+		private StaticReference CreateStatic(s.Vector3 position, Box boundingBox)
 		{
-			float length = 0f;
-
-			switch (size)
-			{
-				case (0):
-					length = 10f;
-					break;
-
-				case (1):
-					length = 20f;
-					break;
-
-				case (2):
-					length = 30f;
-					break;
-
-				default: throw new NotImplementedException("Unknow Ground Size: " + size);
-			}
-
 			return new StaticReference(_simulation.Statics.Add(
 				new StaticDescription(
 					position, new CollidableDescription(
-						_simulation.Shapes.Add(
-							new Box(length, 1f, length)), 0.1f))),
+						_simulation.Shapes.Add(boundingBox), 0.1f))),
 							_simulation.Statics);
 		}
 

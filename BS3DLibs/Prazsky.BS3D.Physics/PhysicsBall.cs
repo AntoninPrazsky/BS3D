@@ -15,20 +15,20 @@ namespace Prazsky.BS3D.Physics
 
 		public void SetEmptyConstraints()
 		{
-			HandlesTop.Handle1 = -1;
-			HandlesTop.Handle2 = -1;
-			HandlesTop.Handle3 = -1;
-			HandlesTop.Handle4 = -1;
+			HandlesTop.Handle1.Value = -1;
+			HandlesTop.Handle2.Value = -1;
+			HandlesTop.Handle3.Value = -1;
+			HandlesTop.Handle4.Value = -1;
 
-			HandlesMiddle.Handle1 = -1;
-			HandlesMiddle.Handle2 = -1;
-			HandlesMiddle.Handle2 = -1;
-			HandlesMiddle.Handle2 = -1;
+			HandlesMiddle.Handle1.Value = -1;
+			HandlesMiddle.Handle2.Value = -1;
+			HandlesMiddle.Handle2.Value = -1;
+			HandlesMiddle.Handle2.Value = -1;
 
-			HandlesBottom.Handle1 = -1;
-			HandlesBottom.Handle2 = -1;
-			HandlesBottom.Handle3 = -1;
-			HandlesBottom.Handle4 = -1;
+			HandlesBottom.Handle1.Value = -1;
+			HandlesBottom.Handle2.Value = -1;
+			HandlesBottom.Handle3.Value = -1;
+			HandlesBottom.Handle4.Value = -1;
 		}
 	}
 
@@ -37,21 +37,21 @@ namespace Prazsky.BS3D.Physics
 		/// <summary>
 		/// ↑ || ↖
 		/// </summary>
-		public int Handle1; // ↑ || ↖
+		public ConstraintHandle Handle1; // ↑ || ↖
 
 		/// <summary>
 		/// ← || ↗
 		/// </summary>
-		public int Handle2; // ← || ↗
+		public ConstraintHandle Handle2; // ← || ↗
 
 		/// <summary>
 		/// → || ↙
 		/// </summary>
-		public int Handle3; // → || ↙
+		public ConstraintHandle Handle3; // → || ↙
 
 		/// <summary>
 		/// ↓ || ↘
 		/// </summary>
-		public int Handle4; // ↓ || ↘
+		public ConstraintHandle Handle4; // ↓ || ↘
 	}
 }
