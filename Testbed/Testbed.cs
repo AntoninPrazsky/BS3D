@@ -12,7 +12,10 @@ using Prazsky.Render;
 using PyramidGenerator;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
+using mg = Microsoft.Xna.Framework.Input.Keys;
 using s = System.Numerics;
 
 namespace Testbed
@@ -131,7 +134,7 @@ namespace Testbed
 			Box box = new Box(10f, 1f, 10f);
 			TypedIndex boxShapeIndex = _simulation.Shapes.Add(box);
 			CollidableDescription collidableDescription = new CollidableDescription(boxShapeIndex, 0.1f);
-			BodyDescription bodyDescription = BodyDescription.CreateKinematic(new s.Vector3(0f, 3.5f, 0f), collidableDescription, new BodyActivityDescription(0.01f));
+			BodyDescription bodyDescription = BodyDescription.CreateKinematic(new s.Vector3(0f, 6.363961f + 1f, 0f), collidableDescription, new BodyActivityDescription(0.01f));
 
 			BodyHandle topBodyHandle = _simulation.Bodies.Add(in bodyDescription);
 			BodyReference topBodyReference = new BodyReference(topBodyHandle, _simulation.Bodies);
@@ -141,12 +144,33 @@ namespace Testbed
 
 		private void LoadBallsMapTest()
 		{
-			BallsMap map = new BallsMap(@"G:\balls.bin", _hrSphere); //TODO: Okno systému pro otevření? Anebo všechny v adresáři a cyklovat?
+			var filePath = string.Empty;
+
+			using (OpenFileDialog openFileDialog = new OpenFileDialog())
+			{
+				openFileDialog.InitialDirectory = Directory.GetCurrentDirectory();
+				openFileDialog.Filter = "Levels (*.bin)|*.bin";
+				openFileDialog.RestoreDirectory = true;
+
+				if (openFileDialog.ShowDialog() == DialogResult.OK)
+				{
+					filePath = openFileDialog.FileName;
+				}
+			}
+
+			BallsMap map = new BallsMap(filePath, _hrSphere);
 
 			map.Center();
 
 			_balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
 			Info.CustomText = "Balls on scene: " + CountActiveBalls();
+		}
+
+		private void CreateBallAt(byte x, byte y, byte z)
+		{
+			BallsMap map = new BallsMap(10, 10, 10, _hrSphere);
+			map.PutBallAt(x, y, z, eBallType.Type1);
+			_balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
 		}
 
 		private int CountActiveBalls()
@@ -170,27 +194,32 @@ namespace Testbed
 			{
 				_cih.RegisterCurrentInputState();
 
-				if (_cih.PressedOnce(Keys.Escape, Buttons.Back)) Exit();
+				if (_cih.PressedOnce(mg.Escape, Buttons.Back)) Exit();
 
 				_cih.CameraMovement(gameTime);
 
 				//if (_cih.PressedOnce(Keys.F12, Buttons.Start)) Info.Visible = !Info.Visible;
-				if (_cih.PressedOnce(Keys.Back, Buttons.B)) _simulate = !_simulate;
-				if (_cih.PressedOnce(Keys.M, Buttons.X)) _draw = !_draw;
+				if (_cih.PressedOnce(mg.Back, Buttons.B)) _simulate = !_simulate;
+				if (_cih.PressedOnce(mg.M, Buttons.X)) _draw = !_draw;
 				//if (_cih.PressedOnce(Keys.B, Buttons.DPadRight)) BallsConstraintsBuilderTest();
-				if (_cih.PressedOnce(Keys.F2, Buttons.DPadLeft)) LoadBallsMapTest();
+				if (_cih.PressedOnce(mg.F2, Buttons.DPadLeft)) LoadBallsMapTest();
 
-				if (_cih.PressedOnce(Keys.Delete, Buttons.Start))
+				if (_cih.PressedOnce(mg.Delete, Buttons.Start))
 				{
 					RemoveAllConstraints();
 				}
 
-				if (_cih.PressedOnce(Keys.D1)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward);
-				if (_cih.PressedOnce(Keys.D2)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward);
-				if (_cih.PressedOnce(Keys.D3)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left);
-				if (_cih.PressedOnce(Keys.D4)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right);
-				if (_cih.PressedOnce(Keys.D5)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up);
-				if (_cih.PressedOnce(Keys.D6)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down);
+				if (_cih.PressedOnce(mg.D1)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward);
+				if (_cih.PressedOnce(mg.D2)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward);
+				if (_cih.PressedOnce(mg.D3)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left);
+				if (_cih.PressedOnce(mg.D4)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right);
+				if (_cih.PressedOnce(mg.D5)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up);
+				if (_cih.PressedOnce(mg.D6)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down);
+
+				if (_cih.PressedOnce(mg.D0))
+				{
+					CreateBallAt(0, 0, 0);
+				}
 
 				_cih.RegisterPreviousInputState();
 			}
