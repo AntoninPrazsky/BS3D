@@ -7,6 +7,9 @@ using Prazsky.BS3D.Helpers;
 using Prazsky.Core.Camera;
 using System;
 using System.Diagnostics;
+using System.IO;
+using System.Windows.Forms;
+using mg = Microsoft.Xna.Framework.Input.Keys;
 
 namespace MapEditor
 {
@@ -86,19 +89,19 @@ namespace MapEditor
 
 		private void SelectorControl()
 		{
-			if (_cih.PressedOnce(Keys.Up, Buttons.DPadUp)) _selector.Move(Vector3.Forward);
-			if (_cih.PressedOnce(Keys.Down, Buttons.DPadDown)) _selector.Move(Vector3.Backward);
-			if (_cih.PressedOnce(Keys.Left, Buttons.DPadLeft)) _selector.Move(Vector3.Left);
-			if (_cih.PressedOnce(Keys.Right, Buttons.DPadRight)) _selector.Move(Vector3.Right);
-			if (_cih.PressedOnce(Keys.PageUp, Buttons.RightShoulder)) _selector.Move(Vector3.Up);
-			if (_cih.PressedOnce(Keys.PageDown, Buttons.LeftShoulder)) _selector.Move(Vector3.Down);
+			if (_cih.PressedOnce(mg.Up, Buttons.DPadUp)) _selector.Move(Vector3.Forward);
+			if (_cih.PressedOnce(mg.Down, Buttons.DPadDown)) _selector.Move(Vector3.Backward);
+			if (_cih.PressedOnce(mg.Left, Buttons.DPadLeft)) _selector.Move(Vector3.Left);
+			if (_cih.PressedOnce(mg.Right, Buttons.DPadRight)) _selector.Move(Vector3.Right);
+			if (_cih.PressedOnce(mg.PageUp, Buttons.RightShoulder)) _selector.Move(Vector3.Up);
+			if (_cih.PressedOnce(mg.PageDown, Buttons.LeftShoulder)) _selector.Move(Vector3.Down);
 
-			if (_cih.PressedOnce(Keys.Space, Buttons.A)) _selector.PutBall();
-			if (_cih.PressedOnce(Keys.Delete, Buttons.B)) _selector.RemoveBall();
+			if (_cih.PressedOnce(mg.Space, Buttons.A)) _selector.PutBall();
+			if (_cih.PressedOnce(mg.Delete, Buttons.B)) _selector.RemoveBall();
 
-			if (_cih.PressedOnce(Keys.NumPad1)) _selector.ChangeBallType(eBallType.Type1);
-			if (_cih.PressedOnce(Keys.NumPad2)) _selector.ChangeBallType(eBallType.Type2);
-			if (_cih.PressedOnce(Keys.NumPad3)) _selector.ChangeBallType(eBallType.Type3);
+			if (_cih.PressedOnce(mg.NumPad1)) _selector.ChangeBallType(eBallType.Type1);
+			if (_cih.PressedOnce(mg.NumPad2)) _selector.ChangeBallType(eBallType.Type2);
+			if (_cih.PressedOnce(mg.NumPad3)) _selector.ChangeBallType(eBallType.Type3);
 		}
 
 		protected override void Update(GameTime gameTime)
@@ -107,42 +110,50 @@ namespace MapEditor
 			{
 				_cih.RegisterCurrentInputState();
 
-				if (_cih.PressedOnce(Keys.Escape, Buttons.Back)) Exit();
+				if (_cih.PressedOnce(mg.Escape, Buttons.Back)) Exit();
 
 				SelectorControl();
 
 				_cih.CameraMovement(gameTime);
 
-				if (_cih.PressedOnce(Keys.F12, Buttons.Start)) Info.Visible = !Info.Visible;
-				if (_cih.PressedOnce(Keys.M, Buttons.X)) _draw = !_draw;
+				if (_cih.PressedOnce(mg.F12, Buttons.Start)) Info.Visible = !Info.Visible;
+				if (_cih.PressedOnce(mg.M, Buttons.X)) _draw = !_draw;
 
-				if (_cih.PressedOnce(Keys.N)) FullMapTest();
+				if (_cih.PressedOnce(mg.N)) FullMapTest();
 
-				if (_cih.PressedOnce(Keys.D1)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Forward);
-				if (_cih.PressedOnce(Keys.D2)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Backward);
-				if (_cih.PressedOnce(Keys.D3)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Left);
-				if (_cih.PressedOnce(Keys.D4)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Right);
-				if (_cih.PressedOnce(Keys.D5)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Up);
-				if (_cih.PressedOnce(Keys.D6)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Down);
+				if (_cih.PressedOnce(mg.D1)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Forward);
+				if (_cih.PressedOnce(mg.D2)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Backward);
+				if (_cih.PressedOnce(mg.D3)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Left);
+				if (_cih.PressedOnce(mg.D4)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Right);
+				if (_cih.PressedOnce(mg.D5)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Up);
+				if (_cih.PressedOnce(mg.D6)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Down);
 
-				if (_cih.PressedOnce(Keys.R)) _cih.RestartCamera();
+				if (_cih.PressedOnce(mg.R)) _cih.RestartCamera();
 
-				if (_cih.PressedOnce(Keys.F1))
+				if (_cih.PressedOnce(mg.F1))
 				{
-					Stopwatch stopwatch = new Stopwatch();
-					stopwatch.Start();
-					_map.SerializeAsBinary(@"G:\balls.bin");
-					stopwatch.Stop();
-					Console.WriteLine($"Serialize Binary (ms): {stopwatch.ElapsedMilliseconds}");
+					string filePath = GetFilePathByDialog();
+					if (!string.IsNullOrEmpty(filePath))
+					{
+						Stopwatch stopwatch = new Stopwatch();
+						stopwatch.Start();
+						_map.SerializeAsBinary(filePath);
+						stopwatch.Stop();
+						Console.WriteLine($"Serialize Binary (ms): {stopwatch.ElapsedMilliseconds}");
+					}
 				}
 
-				if (_cih.PressedOnce(Keys.F2))
+				if (_cih.PressedOnce(mg.F2))
 				{
-					Stopwatch stopwatch = new Stopwatch();
-					stopwatch.Start();
-					_map.DeserializeBinary(@"G:\balls.bin");
-					stopwatch.Stop();
-					Console.WriteLine($"Deserialize Binary (ms): {stopwatch.ElapsedMilliseconds}");
+					string filePath = GetFilePathByDialog();
+					if (!string.IsNullOrEmpty(filePath))
+					{
+						Stopwatch stopwatch = new Stopwatch();
+						stopwatch.Start();
+						_map.DeserializeBinary(filePath);
+						stopwatch.Stop();
+						Console.WriteLine($"Deserialize Binary (ms): {stopwatch.ElapsedMilliseconds}");
+					}
 				}
 
 				_cih.RegisterPreviousInputState();
@@ -170,6 +181,25 @@ namespace MapEditor
 			}
 
 			base.Draw(gameTime);
+		}
+
+		private string GetFilePathByDialog()
+		{
+			string result = string.Empty;
+
+			using (OpenFileDialog openFileDialog = new OpenFileDialog())
+			{
+				openFileDialog.InitialDirectory = Directory.GetCurrentDirectory();
+				openFileDialog.Filter = "Levels (*.bin)|*.bin";
+				openFileDialog.RestoreDirectory = true;
+
+				if (openFileDialog.ShowDialog() == DialogResult.OK)
+				{
+					result = openFileDialog.FileName;
+				}
+			}
+
+			return result;
 		}
 
 		private void SetGraphics(bool windowed = false)
