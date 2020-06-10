@@ -15,6 +15,8 @@ namespace Prazsky.BS3D.GameStructure
 		private Matrix[] _transformations;
 		private Model _ballModel;
 
+		private static readonly float BALL_RADIUS = 0.5f;
+
 		public byte StageSizeX { get; internal set; }
 		public byte StageSizeZ { get; internal set; }
 		public byte Levels { get; internal set; }
@@ -60,7 +62,9 @@ namespace Prazsky.BS3D.GameStructure
 
 			Vector3 realPos = GetRealPosition(stageX, stageZ, level);
 
+#if DEBUG
 			Console.WriteLine($"Putting ball at stageX: {stageX}; stageZ: {stageZ}; level: {level}; Real position: {realPos}");
+#endif
 
 			_balls[stageX, stageZ, level] = new StaticBall(realPos, type, _transformations);
 		}
@@ -69,7 +73,9 @@ namespace Prazsky.BS3D.GameStructure
 		{
 			if (stageX > StageSizeX || stageZ > StageSizeZ || level > Levels) throw new ArgumentOutOfRangeException($"Invalid requested ball position, array size is: {StageSizeX} × {StageSizeZ} × {Levels}");
 
+#if DEBUG
 			Console.WriteLine($"Removing ball at stageX: {stageX}; stageZ: {stageZ}; level: {level}");
+#endif
 
 			_balls[stageX, stageZ, level] = null;
 		}
@@ -113,24 +119,6 @@ namespace Prazsky.BS3D.GameStructure
 					for (byte z = 0; z < StageSizeZ; z++)
 						if (_balls[x, z, level] != null)
 							_balls[x, z, level].Draw(camera, _ballModel);
-		}
-
-		public void SerializeAsXML()
-		{
-			//Proč ne jako XML:
-			// 1) XmlSerializer neumí serializovat multidimenziální pole ([,,]), musel jsem ho ručně předělat na pole polí polí ([][][]).
-			// 2) Výsledné XML je zbytečně velké, protože místa, kde nejsou v mapě kuličky, jsou null - do XML se renderovaly prázdné elementy s atributem xsi:nil="true".
-			// 3) Trvá to dlouho (cca 6× déle než binární serializace a deserializace).
-
-			//Proč ano jako XML:
-			// 1) Výsledek může číst a editovat člověk.
-
-			throw new NotImplementedException();
-		}
-
-		public void DeserializeXML()
-		{
-			throw new NotImplementedException();
 		}
 
 		public void SerializeAsBinary(string fileName)
@@ -240,12 +228,16 @@ namespace Prazsky.BS3D.GameStructure
 			Vector3 minPos = GetRealPosition(minX, minZ, minLevel);
 			Vector3 maxPos = GetRealPosition(maxX, maxZ, maxLevel);
 
+#if DEBUG
 			Console.WriteLine($"Min ball: {minPos}");
 			Console.WriteLine($"Max ball: {maxPos}");
+#endif
 
 			Vector3 result = (maxPos + minPos) / 2f;
 
+#if DEBUG
 			Console.WriteLine($"Balls map center: {result}");
+#endif
 
 			return result;
 		}
@@ -270,22 +262,27 @@ namespace Prazsky.BS3D.GameStructure
 
 			Vector2 minPos = new Vector2(minPosX, minPosZ);
 			Vector2 maxPos = new Vector2(maxPosX, maxPosZ);
+
+#if DEBUG
 			Console.WriteLine("Map minPos: " + minPos);
 			Console.WriteLine("Map maxPos: " + maxPos);
+#endif
 
 			Vector2 boundingBoxCenter = (maxPos - minPos) / 2f;
-			Console.WriteLine("Map AABB center: " + boundingBoxCenter);
 
-			//Každou kouli posunu tak, aby byl střed AABB všech koulí uprostřed mapy
+#if DEBUG
+			Console.WriteLine("Map AABB center: " + boundingBoxCenter);
+#endif
+
 			for (byte level = 0; level < Levels; level++)
 				for (byte x = 0; x < StageSizeX; x++)
 					for (byte z = 0; z < StageSizeZ; z++)
 						if (_balls[x, z, level] != null)
 						{
 							_balls[x, z, level].Position = new Vector3(
-								_balls[x, z, level].Position.X - boundingBoxCenter.X - 0.5f,  //REFACTOR: Tohle je polovina šířky kuličky
+								_balls[x, z, level].Position.X - boundingBoxCenter.X - BALL_RADIUS,
 								_balls[x, z, level].Position.Y,
-								_balls[x, z, level].Position.Z - boundingBoxCenter.Y - 0.5f
+								_balls[x, z, level].Position.Z - boundingBoxCenter.Y - BALL_RADIUS
 								);
 						}
 		}
