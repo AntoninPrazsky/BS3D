@@ -132,7 +132,7 @@ namespace MapEditor
 
 				if (_cih.PressedOnce(mg.F1))
 				{
-					string filePath = GetFilePathByDialog();
+					string filePath = GetFilePathByDialog(true);
 					if (!string.IsNullOrEmpty(filePath))
 					{
 						Stopwatch stopwatch = new Stopwatch();
@@ -145,7 +145,7 @@ namespace MapEditor
 
 				if (_cih.PressedOnce(mg.F2))
 				{
-					string filePath = GetFilePathByDialog();
+					string filePath = GetFilePathByDialog(false);
 					if (!string.IsNullOrEmpty(filePath))
 					{
 						Stopwatch stopwatch = new Stopwatch();
@@ -183,9 +183,26 @@ namespace MapEditor
 			base.Draw(gameTime);
 		}
 
-		private string GetFilePathByDialog()
+		private string GetFilePathByDialog(bool save)
 		{
 			string result = string.Empty;
+
+			if (save)
+			{
+				using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+				{
+					saveFileDialog.InitialDirectory = Directory.GetCurrentDirectory();
+					saveFileDialog.Filter = "Levels (*.bin)|*.bin";
+					saveFileDialog.RestoreDirectory = true;
+
+					if (saveFileDialog.ShowDialog() == DialogResult.OK)
+					{
+						result = saveFileDialog.FileName;
+					}
+				}
+
+				return result;
+			}
 
 			using (OpenFileDialog openFileDialog = new OpenFileDialog())
 			{

@@ -158,6 +158,8 @@ namespace Testbed
 				}
 			}
 
+			if (string.IsNullOrEmpty(filePath)) return;
+
 			BallsMap map = new BallsMap(filePath, _hrSphere);
 
 			map.Center();
@@ -318,7 +320,7 @@ namespace Testbed
 		private void _graphics_PreparingDeviceSettings(object sender, PreparingDeviceSettingsEventArgs e)
 		{
 			//Obnovovací frekvence vykreslování
-			e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = PresentInterval.Default; //Default
+			e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = PresentInterval.Immediate; //Default
 
 			if (_preferHiDef && e.GraphicsDeviceInformation.Adapter.IsProfileSupported(GraphicsProfile.HiDef))
 				e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.HiDef;

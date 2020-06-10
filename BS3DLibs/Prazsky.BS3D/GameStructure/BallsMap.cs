@@ -142,6 +142,8 @@ namespace Prazsky.BS3D.GameStructure
 
 		public void DeserializeBinary(string fileName)
 		{
+			if (string.IsNullOrEmpty(fileName)) return;
+
 			BallPositionTypes ballPositionTypes;
 
 			BinaryFormatter binaryFormatter = new BinaryFormatter();
