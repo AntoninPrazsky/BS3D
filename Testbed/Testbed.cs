@@ -103,7 +103,7 @@ namespace Testbed
 			_hrSphereTransformations = new Matrix[_hrSphere.Bones.Count];
 			_hrSphere.CopyAbsoluteBoneTransformsTo(_hrSphereTransformations);
 
-			_hrSphereRed = Content.Load<Model>("HRGeoDome");
+			_hrSphereRed = Content.Load<Model>("LRGeoDomeWire");
 
 			#region Ground and ceiling
 
@@ -287,7 +287,9 @@ namespace Testbed
 									_balls[x][i].BallReference.Pose.Position.Z);
 
 							ICamera camera = Camera3D; //Tak sem debil nebo jo
-							ModelRenderer.Render(_hrSphere, _hrSphereTransformations, ref camera, ballWorldMatrix, BasicEffectParamsProvider.GetEffectByType(_balls[x][i].Type), true, true);
+							BasicEffectParams basicEffectParams = BasicEffectParamsProvider.GetEffectByType(_balls[x][i].Type);
+
+							ModelRenderer.Render(_hrSphere, _hrSphereTransformations, ref camera, ballWorldMatrix, basicEffectParams, true, true);
 						}
 					}
 				}
