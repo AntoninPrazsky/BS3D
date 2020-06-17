@@ -108,7 +108,7 @@ namespace Testbed
 			#region Ground and ceiling
 
 			_groundModel3 = Content.Load<Model>("GroundTripleX");
-			_topPlatform = Content.Load<Model>("TopPlatform");
+			_topPlatform = Content.Load<Model>("TopGrid");
 
 			BuildGroundAndCeiling();
 
@@ -134,7 +134,7 @@ namespace Testbed
 			Box box = new Box(10f, 1f, 10f);
 			TypedIndex boxShapeIndex = _simulation.Shapes.Add(box);
 			CollidableDescription collidableDescription = new CollidableDescription(boxShapeIndex, 0.1f);
-			BodyDescription bodyDescription = BodyDescription.CreateKinematic(new s.Vector3(0f, 6.363961f + 1f, 0f), collidableDescription, new BodyActivityDescription(0.01f));
+			BodyDescription bodyDescription = BodyDescription.CreateKinematic(new s.Vector3(0f, 8.363961f, 0f), collidableDescription, new BodyActivityDescription(0.01f));
 
 			BodyHandle topBodyHandle = _simulation.Bodies.Add(in bodyDescription);
 			BodyReference topBodyReference = new BodyReference(topBodyHandle, _simulation.Bodies);
@@ -166,6 +166,7 @@ namespace Testbed
 
 			_balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
 			Info.CustomText = "Balls on scene: " + CountActiveBalls();
+			Info.CustomText += "\nConstraints count: " + _simulation.Solver.CountConstraints();
 		}
 
 		private void CreateBallAt(byte x, byte y, byte z)

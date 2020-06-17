@@ -75,8 +75,6 @@ namespace Prazsky.BS3D.Physics
 
 			#endregion Vytvoření fyzikální reprezentace pro každou kuličku (bez spojení kuliček)
 
-			#region Vytvoření spojení mezi dotýkajícími se kuličkami
-
 			List<PhysicsBall> result = new List<PhysicsBall>();
 
 			for (byte level = 0; level < levelSize; level++)
@@ -88,282 +86,86 @@ namespace Prazsky.BS3D.Physics
 						if (staticBalls[x, z, level] != null) //Je tady vůbec nějaká kulička?
 						{
 							PhysicsBall currentPhysicsBall = physicsBalls[x, z, level];
-							StaticBall currentStaticBall = staticBalls[x, z, level]; //TODO: Připadá mi, že StaticBall už tady k ničemu nepotřebuju - beru z něj jenom pozici, ale tu můžu vzít už i z PhysicsBall
 
 							if (level == levelSize - 1) //Nejvyšší patro - přichytit pouze ke stropu
 							{
-								//TODO: Nepotřebuju, aby byly kuličky kinematické, potřebuju, aby se přichytily ke stropu
-
-								ConnectBallToCeiling(currentPhysicsBall, ceilingReference, simulation);
+								currentPhysicsBall.HandlesTop.Handle1 = ConnectBallToCeiling(currentPhysicsBall, ceilingReference, simulation);
 
 								result.Add(currentPhysicsBall); //REFACTOR: To samé se volá nakonci metody
 								continue;
 							}
 
-							#region Spojení na sousedící kuličky ve stejném patře
+							//1
+							//x - 1, y - 1, z - 1
+							if (x - 1 >= 0 && level - 1 >= 0 && z - 1 >= 0)
+								if (staticBalls[x - 1, z - 1, level - 1] != null)
+									EnsureConnected(currentPhysicsBall, physicsBalls[x - 1, z - 1, level - 1], eConstraintType.Type1, simulation);
 
-							//   ○
-							// ○ ○ ○ (aktuální kulička je ta uprostřed)
-							//   ○
+							//2
+							//x - 1, y - 1, z
+							if (x - 1 >= 0 && level - 1 >= 0)
+								if (staticBalls[x - 1, z, level - 1] != null)
+									EnsureConnected(currentPhysicsBall, physicsBalls[x - 1, z, level - 1], eConstraintType.Type2, simulation);
 
-							// | x,     z - 1 | → Vpředu
-							// | x - 1, z     | → Vlevo
-							// | x + 1, z     | → Vpravo
-							// | x,     z + 1 | → Vzadu
+							//3
+							//x,     y - 1, z - 1
+							if (level - 1 >= 0 && z - 1 >= 0)
+								if (staticBalls[x, z - 1, level - 1] != null)
+									EnsureConnected(currentPhysicsBall, physicsBalls[x, z - 1, level - 1], eConstraintType.Type3, simulation);
 
-							if (z - 1 >= 0)
-							{
-								if (staticBalls[x, z - 1, level] != null)
-								{
-									//Vpředu je kulička
-									PhysicsBall upBall = physicsBalls[x, z - 1, level];
+							//4
+							//x,     y - 1, z
+							if (level - 1 >= 0)
+								if (staticBalls[x, z, level - 1] != null)
+									EnsureConnected(currentPhysicsBall, physicsBalls[x, z, level - 1], eConstraintType.Type4, simulation);
 
-									if (upBall.HandlesMiddle.Handle4.Value > 0) //Má kulička vpředu spojení na aktuální kuličku?
-									{
-										currentPhysicsBall.HandlesMiddle.Handle1 = upBall.HandlesMiddle.Handle4; //Pro aktuální kuličku zaregistruju spojení s jejím předním sousedem
-									}
-									else //Budu muset vytvořit nové spojení mezi kuličkami
-									{
-										StaticBall upStaticBall = staticBalls[x, z - 1, level];
-
-										var constraintHandle = ConnectBalls(currentPhysicsBall, upBall, currentStaticBall, upStaticBall, simulation);
-
-										currentPhysicsBall.HandlesMiddle.Handle1 = constraintHandle; //Aktuální kulička má vazbu na kuličku před ní
-										upBall.HandlesMiddle.Handle4 = constraintHandle; //Kulička před aktuální kuličkou má vazbu na kuličku za ní
-									}
-								}
-							}
-
-							if (x - 1 >= 0)
-							{
-								if (staticBalls[x - 1, z, level] != null)
-								{
-									//Vlevo je kulička
-									PhysicsBall leftBall = physicsBalls[x - 1, z, level];
-
-									if (leftBall.HandlesMiddle.Handle3.Value > 0) //Má kulička nalevo spojení na aktuální kuličku?
-									{
-										currentPhysicsBall.HandlesMiddle.Handle2 = leftBall.HandlesMiddle.Handle3;
-									}
-									else
-									{
-										StaticBall leftStaticBall = staticBalls[x - 1, z, level];
-
-										var constraintHandle = ConnectBalls(currentPhysicsBall, leftBall, currentStaticBall, leftStaticBall, simulation);
-
-										currentPhysicsBall.HandlesMiddle.Handle2 = constraintHandle;
-										leftBall.HandlesMiddle.Handle3 = constraintHandle;
-									}
-								}
-							}
-
+							//5
+							//x + 1, y, z
 							if (x + 1 < xSize)
-							{
 								if (staticBalls[x + 1, z, level] != null)
-								{
-									//Vpravo je kulička
-									PhysicsBall rightBall = physicsBalls[x + 1, z, level];
+									EnsureConnected(currentPhysicsBall, physicsBalls[x + 1, z, level], eConstraintType.Type5, simulation);
 
-									if (rightBall.HandlesMiddle.Handle2.Value > 0) //Má kulička napravo spojení na aktuální kuličku?
-									{
-										currentPhysicsBall.HandlesMiddle.Handle3 = rightBall.HandlesMiddle.Handle2;
-									}
-									else
-									{
-										StaticBall rightStaticBall = staticBalls[x + 1, z, level];
+							//6
+							//x,     y, z - 1
+							if (z - 1 >= 0)
+								if (staticBalls[x, z - 1, level] != null)
+									EnsureConnected(currentPhysicsBall, physicsBalls[x, z - 1, level], eConstraintType.Type6, simulation);
 
-										var constraintHandle = ConnectBalls(currentPhysicsBall, rightBall, currentStaticBall, rightStaticBall, simulation);
-
-										currentPhysicsBall.HandlesMiddle.Handle3 = constraintHandle;
-										rightBall.HandlesMiddle.Handle2 = constraintHandle;
-									}
-								}
-							}
-
+							//7
+							//x,     y, z + 1
 							if (z + 1 < zSize)
-							{
 								if (staticBalls[x, z + 1, level] != null)
-								{
-									//Dole je kulička
-									PhysicsBall bottomBall = physicsBalls[x, z + 1, level];
+									EnsureConnected(currentPhysicsBall, physicsBalls[x, z + 1, level], eConstraintType.Type7, simulation);
 
-									if (bottomBall.HandlesMiddle.Handle1.Value > 0) //Má kulička dole spojení na aktuální kuličku?
-									{
-										currentPhysicsBall.HandlesMiddle.Handle4 = bottomBall.HandlesMiddle.Handle1;
-									}
-									else
-									{
-										StaticBall bottomStaticBall = staticBalls[x, z + 1, level];
+							//8
+							//x - 1, y, z
+							if (x - 1 >= 0)
+								if (staticBalls[x - 1, z, level] != null)
+									EnsureConnected(currentPhysicsBall, physicsBalls[x - 1, z, level], eConstraintType.Type8, simulation);
 
-										var constraintHandle = ConnectBalls(currentPhysicsBall, bottomBall, currentStaticBall, bottomStaticBall, simulation);
+							//9
+							//x - 1, y + 1, z - 1
+							if (x - 1 >= 0 && level + 1 < levelSize && z - 1 >= 0)
+								if (staticBalls[x - 1, z - 1, level + 1] != null)
+									EnsureConnected(currentPhysicsBall, physicsBalls[x - 1, z - 1, level + 1], eConstraintType.Type9, simulation);
 
-										currentPhysicsBall.HandlesMiddle.Handle4 = constraintHandle;
-										bottomBall.HandlesMiddle.Handle1 = constraintHandle;
-									}
-								}
-							}
+							//10
+							//x - 1, y + 1, z
+							if (x - 1 >= 0 && level + 1 < levelSize)
+								if (staticBalls[x - 1, z, level + 1] != null)
+									EnsureConnected(currentPhysicsBall, physicsBalls[x - 1, z, level + 1], eConstraintType.Type10, simulation);
 
-							#endregion Spojení na sousedící kuličky ve stejném patře
+							//11
+							//x,     y + 1, z - 1
+							if (level + 1 < levelSize && z - 1 >= 0)
+								if (staticBalls[x, z - 1, level + 1] != null)
+									EnsureConnected(currentPhysicsBall, physicsBalls[x, z - 1, level + 1], eConstraintType.Type11, simulation);
 
-							#region Spojení na dotýkající se kuličky v patře nad aktuální kuličkou
-
-							//  ○ ○
-							//  ○ ○  (aktuální kulička je ve spodním patře uprostřed těchto čtyř)
-
-							//	V levelu + 1 mají kuličky posunutou reálnou pozici x + 0.5 (→), z + 0.5 (↓) - viz BallsMap.PutBallAt()
-							//  Aktuální kuličce tedy v levelu + 1 "odpovídá" kulička "vpravo dole" (v trojrozměrném poli je ale "přímo nad ní")
-							//  Dotýkající se kuličky v levelu + 1 k aktuální kuličce potom hledám relativně k této kuličce, co je "vpravo dole" - od této kuličky jsou souřadnice níže
-							//	(Používám 3D model, abych si tohle uvědomil)
-							// | x,     z - 1, level + 1 | → Vpravo nahoře
-							// | x - 1, z - 1, level + 1 | → Vlevo nahoře
-							// | x,     z,     level + 1 | → Vpravo dole (v trojrozměrném poli stejná pozice v levelu + 1)
-							// | x - 1, z,     level + 1 | → Vlevo dole
-
-							//Existuje vůbec nějaké patro nad aktuálním patrem?
-							//if (level + 1 < levelSize)
-							//{
-							//	if (z - 1 >= 0)
-							//	{
-							//		if (staticBalls[x, z - 1, level + 1] != null)
-							//		{
-							//			//Vpravo nahoře je kulička
-							//			PhysicsBall upRightBall = physicsBalls[x, z - 1, level + 1];
-
-							//			StaticBall upRightStaticBall = staticBalls[x, z - 1, level + 1];
-
-							//			var constraintHandle = ConnectBalls(currentPhysicsBall, upRightBall, currentStaticBall, upRightStaticBall, simulation);
-
-							//			currentPhysicsBall.HandlesTop.Handle2 = constraintHandle; //Aktuální kulička má vazbu na kuličku v levelu + 1 vpravo nahoře
-							//			upRightBall.HandlesBottom.Handle3 = constraintHandle; //Kulička v levelu + 1 vpravo nahoře má vazbu na aktuální kuličku (pro ní ta vlevo dole)
-							//		}
-							//	}
-
-							//	if (x - 1 >= 0)
-							//	{
-							//		if (staticBalls[x - 1, z - 1, level + 1] != null)
-							//		{
-							//			//Vlevo nahoře je kulička
-							//			PhysicsBall upLeftBall = physicsBalls[x - 1, z - 1, level + 1];
-
-							//			StaticBall upLeftStaticBall = staticBalls[x - 1, z - 1, level + 1];
-
-							//			var constraintHandle = ConnectBalls(currentPhysicsBall, upLeftBall, currentStaticBall, upLeftStaticBall, simulation);
-
-							//			currentPhysicsBall.HandlesTop.Handle1 = constraintHandle;
-							//			upLeftBall.HandlesBottom.Handle4 = constraintHandle;
-							//		}
-							//	}
-
-							//	if (z - 1 >= 0)
-							//	{
-							//		if (staticBalls[x, z, level + 1] != null)
-							//		{
-							//			//Vpravo dole je kulička
-							//			PhysicsBall downRightBall = physicsBalls[x, z, level + 1];
-
-							//			StaticBall downRightStaticBall = staticBalls[x, z, level + 1];
-
-							//			var constraintHandle = ConnectBalls(currentPhysicsBall, downRightBall, currentStaticBall, downRightStaticBall, simulation);
-
-							//			currentPhysicsBall.HandlesTop.Handle4 = constraintHandle;
-							//			downRightBall.HandlesBottom.Handle1 = constraintHandle;
-							//		}
-							//	}
-
-							//	if (x - 1 >= 0)
-							//	{
-							//		if (staticBalls[x - 1, z, level + 1] != null)
-							//		{
-							//			//Vlevo dole je kulička
-							//			PhysicsBall downLeftBall = physicsBalls[x - 1, z, level + 1];
-
-							//			StaticBall downLeftStaticBall = staticBalls[x - 1, z, level + 1];
-
-							//			var constraintHandle = ConnectBalls(currentPhysicsBall, downLeftBall, currentStaticBall, downLeftStaticBall, simulation);
-
-							//			currentPhysicsBall.HandlesTop.Handle3 = constraintHandle;
-							//			downLeftBall.HandlesBottom.Handle2 = constraintHandle;
-							//		}
-							//	}
-							//}
-
-							// | x,     z + 1, level + 1 | → Vpravo nahoře
-							// | x + 1, z + 1, level + 1 | → Vlevo nahoře
-							// | x,     z,     level + 1 | → Vpravo dole (v trojrozměrném poli stejná pozice v levelu + 1)
-							// | x + 1, z,     level + 1 | → Vlevo dole
-
-							//Existuje vůbec nějaké patro nad aktuálním patrem?
+							//12
+							//x,     y + 1, z
 							if (level + 1 < levelSize)
-							{
-								if (z + 1 < zSize)
-								{
-									if (staticBalls[x, z + 1, level + 1] != null)
-									{
-										//Vpravo nahoře je kulička
-										PhysicsBall upRightBall = physicsBalls[x, z + 1, level + 1];
-
-										StaticBall upRightStaticBall = staticBalls[x, z + 1, level + 1];
-
-										var constraintHandle = ConnectBalls(currentPhysicsBall, upRightBall, currentStaticBall, upRightStaticBall, simulation);
-
-										currentPhysicsBall.HandlesTop.Handle2 = constraintHandle; //Aktuální kulička má vazbu na kuličku v levelu + 1 vpravo nahoře
-										upRightBall.HandlesBottom.Handle3 = constraintHandle; //Kulička v levelu + 1 vpravo nahoře má vazbu na aktuální kuličku (pro ní ta vlevo dole)
-									}
-								}
-
-								if (x + 1 < xSize && z + 1 < zSize)
-								{
-									if (staticBalls[x + 1, z + 1, level + 1] != null)
-									{
-										//Vlevo nahoře je kulička
-										PhysicsBall upLeftBall = physicsBalls[x + 1, z + 1, level + 1];
-
-										StaticBall upLeftStaticBall = staticBalls[x + 1, z + 1, level + 1];
-
-										var constraintHandle = ConnectBalls(currentPhysicsBall, upLeftBall, currentStaticBall, upLeftStaticBall, simulation);
-
-										currentPhysicsBall.HandlesTop.Handle1 = constraintHandle;
-										upLeftBall.HandlesBottom.Handle4 = constraintHandle;
-									}
-								}
-
 								if (staticBalls[x, z, level + 1] != null)
-								{
-									//Vpravo dole je kulička
-									PhysicsBall downRightBall = physicsBalls[x, z, level + 1];
-
-									StaticBall downRightStaticBall = staticBalls[x, z, level + 1];
-
-									var constraintHandle = ConnectBalls(currentPhysicsBall, downRightBall, currentStaticBall, downRightStaticBall, simulation);
-
-									currentPhysicsBall.HandlesTop.Handle4 = constraintHandle;
-									downRightBall.HandlesBottom.Handle1 = constraintHandle;
-								}
-
-								if (x + 1 < xSize)
-								{
-									if (staticBalls[x + 1, z, level + 1] != null)
-									{
-										//Vlevo dole je kulička
-										PhysicsBall downLeftBall = physicsBalls[x + 1, z, level + 1];
-
-										StaticBall downLeftStaticBall = staticBalls[x + 1, z, level + 1];
-
-										var constraintHandle = ConnectBalls(currentPhysicsBall, downLeftBall, currentStaticBall, downLeftStaticBall, simulation);
-
-										currentPhysicsBall.HandlesTop.Handle3 = constraintHandle;
-										downLeftBall.HandlesBottom.Handle2 = constraintHandle;
-									}
-								}
-							}
-
-							#endregion Spojení na dotýkající se kuličky v patře nad aktuální kuličkou
-
-							#region Spojení na dotýkající se kuličky v patře pod aktuální kuličkou
-
-							//Nevytvořil jsem už náhodou tato spojení, když jsem řešil spojení na kuličky nad aktuální kuličkou? V levelu + 1 se vytvořila spojení na level - 1
-
-							#endregion Spojení na dotýkající se kuličky v patře pod aktuální kuličkou
+									EnsureConnected(currentPhysicsBall, physicsBalls[x, z, level + 1], eConstraintType.Type12, simulation);
 
 							result.Add(currentPhysicsBall);
 						}
@@ -371,14 +173,172 @@ namespace Prazsky.BS3D.Physics
 				}
 			}
 
-			#endregion Vytvoření spojení mezi dotýkajícími se kuličkami
-
 			return result.ToArray();
 		}
 
-		private static ConstraintHandle ConnectBalls(PhysicsBall physicsBallA, PhysicsBall physicsBallB, StaticBall staticBallA, StaticBall staticBallB, Simulation simulation)
+		private static void EnsureConnected(PhysicsBall ballA, PhysicsBall ballB, eConstraintType constraintType, Simulation simulation)
 		{
-			Vector3 offsetAB = GetLocalOffset(staticBallA.GetPosition(), staticBallB.GetPosition());
+			if (constraintType == eConstraintType.None) return;
+
+			//1 4 pod → 1
+			//4 1 pod → 2
+
+			//2 3 pod → 3
+			//3 2 pod → 4
+
+			//1 4 same → 5
+			//4 1 same → 6
+
+			//2 3 same → 7
+			//3 2 same → 8
+
+			//1 4 nad → 9
+			//4 1 nad → 10
+
+			//2 3 nad → 11
+			//3 2 nad → 12
+
+			switch (constraintType)
+			{
+				case eConstraintType.Type1:
+					//1
+					if (ballA.HandlesBottom.Handle1.Value >= 0) { ballA.HandlesBottom.Handle4 = ballB.HandlesBottom.Handle1; }
+					else
+					{
+						ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
+						ballA.HandlesBottom.Handle4 = constraintHandle;
+						ballB.HandlesBottom.Handle1 = constraintHandle;
+					}
+					break;
+
+				case eConstraintType.Type2:
+					//2
+					if (ballA.HandlesBottom.Handle4.Value >= 0) { ballA.HandlesBottom.Handle1 = ballB.HandlesBottom.Handle4; }
+					else
+					{
+						ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
+						ballA.HandlesBottom.Handle1 = constraintHandle;
+						ballB.HandlesBottom.Handle4 = constraintHandle;
+					}
+					break;
+
+				case eConstraintType.Type3:
+					//3
+					if (ballA.HandlesBottom.Handle2.Value >= 0) { ballA.HandlesBottom.Handle3 = ballB.HandlesBottom.Handle2; }
+					else
+					{
+						ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
+						ballA.HandlesBottom.Handle3 = constraintHandle;
+						ballB.HandlesBottom.Handle2 = constraintHandle;
+					}
+					break;
+
+				case eConstraintType.Type4:
+					//4
+					if (ballA.HandlesBottom.Handle3.Value >= 0) { ballA.HandlesBottom.Handle2 = ballB.HandlesBottom.Handle3; }
+					else
+					{
+						ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
+						ballA.HandlesBottom.Handle2 = constraintHandle;
+						ballB.HandlesBottom.Handle3 = constraintHandle;
+					}
+					break;
+
+				case eConstraintType.Type5:
+					//5
+					if (ballA.HandlesMiddle.Handle1.Value >= 0) { ballA.HandlesMiddle.Handle4 = ballB.HandlesMiddle.Handle1; }
+					else
+					{
+						ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
+						ballA.HandlesMiddle.Handle1 = constraintHandle;
+						ballB.HandlesMiddle.Handle4 = constraintHandle;
+					}
+					break;
+
+				case eConstraintType.Type6:
+					//6
+					if (ballA.HandlesMiddle.Handle4.Value >= 0) { ballA.HandlesMiddle.Handle1 = ballB.HandlesMiddle.Handle4; }
+					else
+					{
+						ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
+						ballA.HandlesMiddle.Handle4 = constraintHandle;
+						ballB.HandlesMiddle.Handle1 = constraintHandle;
+					}
+					break;
+
+				case eConstraintType.Type7:
+					//7
+					if (ballA.HandlesMiddle.Handle2.Value >= 0) { ballA.HandlesMiddle.Handle3 = ballB.HandlesMiddle.Handle2; }
+					else
+					{
+						ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
+						ballA.HandlesMiddle.Handle3 = constraintHandle;
+						ballB.HandlesMiddle.Handle2 = constraintHandle;
+					}
+					break;
+
+				case eConstraintType.Type8:
+					//8
+					if (ballA.HandlesMiddle.Handle3.Value >= 0) { ballA.HandlesMiddle.Handle2 = ballB.HandlesMiddle.Handle3; }
+					else
+					{
+						ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
+						ballA.HandlesMiddle.Handle2 = constraintHandle;
+						ballB.HandlesMiddle.Handle3 = constraintHandle;
+					}
+					break;
+
+				case eConstraintType.Type9:
+					//9
+					if (ballA.HandlesTop.Handle1.Value >= 0) { ballA.HandlesTop.Handle4 = ballB.HandlesTop.Handle1; }
+					else
+					{
+						ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
+						ballA.HandlesTop.Handle1 = constraintHandle;
+						ballB.HandlesTop.Handle4 = constraintHandle;
+					}
+					break;
+
+				case eConstraintType.Type10:
+					//10
+					if (ballA.HandlesTop.Handle4.Value >= 0) { ballA.HandlesTop.Handle1 = ballB.HandlesTop.Handle4; }
+					else
+					{
+						ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
+						ballA.HandlesTop.Handle4 = constraintHandle;
+						ballB.HandlesTop.Handle1 = constraintHandle;
+					}
+
+					break;
+
+				case eConstraintType.Type11:
+					//11
+					if (ballA.HandlesTop.Handle2.Value >= 0) { ballA.HandlesTop.Handle3 = ballB.HandlesTop.Handle2; }
+					else
+					{
+						ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
+						ballA.HandlesTop.Handle3 = constraintHandle;
+						ballB.HandlesTop.Handle2 = constraintHandle;
+					}
+
+					break;
+
+				case eConstraintType.Type12:
+					//12
+					if (ballA.HandlesTop.Handle3.Value >= 0) { ballA.HandlesTop.Handle2 = ballB.HandlesTop.Handle3; }
+					else
+					{
+						ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
+						ballA.HandlesTop.Handle2 = constraintHandle;
+						ballB.HandlesTop.Handle3 = constraintHandle;
+					}
+					break;
+			}
+		}
+
+		private static ConstraintHandle ConnectBalls(PhysicsBall physicsBallA, PhysicsBall physicsBallB, Simulation simulation)
+		{
+			Vector3 offsetAB = GetLocalOffset(physicsBallA.BallReference.Pose.Position, physicsBallB.BallReference.Pose.Position);
 			Vector3 offsetBA = Vector3.Negate(offsetAB); //Mohl bych znovu použít GetLocalOffset s otočenými parametry, ale stačí změnit polaritu prvního vektoru
 
 			BallSocket ballSocket = new BallSocket() { LocalOffsetA = offsetAB, LocalOffsetB = offsetBA, SpringSettings = SPRING_SETTINGS };
@@ -388,14 +348,13 @@ namespace Prazsky.BS3D.Physics
 
 		private static ConstraintHandle ConnectBallToCeiling(PhysicsBall physicsBall, BodyReference ceilingReference, Simulation simulation)
 		{
-			//TODO: Každá koule se musí přilepit ke stropu kolmo, ne vůči jeho středu!
-			Vector3 offsetAB = GetLocalOffset(physicsBall.BallReference.Pose.Position, ceilingReference.Pose.Position);
-			Vector3 offsetBA = Vector3.Negate(offsetAB);
+			Vector3 offsetBall = new Vector3(0f, BALL_RADIUS, 0f);
+			Vector3 offsetCeiling = new Vector3(physicsBall.BallReference.Pose.Position.X, -BALL_RADIUS, physicsBall.BallReference.Pose.Position.Z);
 
 			BallSocket ballSocket = new BallSocket()
 			{
-				LocalOffsetA = offsetAB,
-				LocalOffsetB = offsetBA,
+				LocalOffsetA = offsetBall,
+				LocalOffsetB = offsetCeiling,
 				SpringSettings = SPRING_SETTINGS
 			};
 
