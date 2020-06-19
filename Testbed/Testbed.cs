@@ -7,6 +7,7 @@ using Microsoft.Xna.Framework.Input;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Helpers;
 using Prazsky.BS3D.Physics;
+using Prazsky.Core;
 using Prazsky.Core.Camera;
 using Prazsky.Render;
 using PyramidGenerator;
@@ -40,6 +41,9 @@ namespace Testbed
 		private List<PhysicsBall[]> _balls;
 
 		private CameraInputHelper _cih;
+
+		private SkyDome _sky;
+		private Model _skyModel;
 
 		#region Grafika
 
@@ -113,6 +117,9 @@ namespace Testbed
 			BuildGroundAndCeiling();
 
 			#endregion Ground and ceiling
+
+			_skyModel = Content.Load<Model>("Skyes\\SkyDome1");
+			_sky = new SkyDome(_skyModel, GraphicsDevice);
 		}
 
 		private void BuildGroundAndCeiling()
@@ -257,7 +264,10 @@ namespace Testbed
 
 		protected override void Draw(GameTime gameTime)
 		{
-			GraphicsDevice.Clear(Color.LightSlateGray);
+			GraphicsDevice.Clear(Microsoft.Xna.Framework.Color.LightSlateGray);
+
+			_sky.Draw(Camera3D);
+
 			GraphicsDevice.BlendState = BlendState.AlphaBlend;
 			GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
@@ -295,6 +305,7 @@ namespace Testbed
 					}
 				}
 			}
+
 			base.Draw(gameTime);
 		}
 
