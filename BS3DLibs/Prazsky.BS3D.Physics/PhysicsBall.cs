@@ -1,6 +1,5 @@
 ﻿using BepuPhysics;
 using Prazsky.BS3D.GameStructure;
-using System.Collections.Generic;
 
 namespace Prazsky.BS3D.Physics
 {

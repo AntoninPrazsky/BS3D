@@ -118,8 +118,19 @@ namespace Testbed
 
 			#endregion Ground and ceiling
 
-			_skyModel = Content.Load<Model>("Skyes\\SkyDome1");
+			_skyModel = Content.Load<Model>("Skyes\\SkyDome" + _skyModelNumber);
 			_sky = new SkyDome(_skyModel, GraphicsDevice);
+		}
+
+		private byte _skyModelNumber = 1;
+
+		private void SwitchSkyDome()
+		{
+			if (_skyModelNumber == 4) _skyModelNumber = 1;
+
+			_skyModelNumber++;
+			_skyModel = Content.Load<Model>("Skyes\\SkyDome" + _skyModelNumber);
+			_sky.SkyDomeModel = _skyModel;
 		}
 
 		private void BuildGroundAndCeiling()
@@ -214,10 +225,9 @@ namespace Testbed
 				//if (_cih.PressedOnce(Keys.B, Buttons.DPadRight)) BallsConstraintsBuilderTest();
 				if (_cih.PressedOnce(mg.F2, Buttons.DPadLeft)) LoadBallsMapTest();
 
-				if (_cih.PressedOnce(mg.Delete, Buttons.Start))
-				{
-					RemoveAllConstraints();
-				}
+				if (_cih.PressedOnce(mg.Delete, Buttons.Start)) RemoveAllConstraints();
+
+				if (_cih.PressedOnce(mg.NumPad1)) SwitchSkyDome();
 
 				if (_cih.PressedOnce(mg.D1)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward);
 				if (_cih.PressedOnce(mg.D2)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward);
