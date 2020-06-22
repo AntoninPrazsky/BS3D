@@ -63,8 +63,8 @@ namespace Testbed
 			bool windowed = true,
 			bool preferHiDef = true,
 			bool preferMultiSampling = true,
-			int windowWidth = 1920,
-			int windowHeight = 1080)
+			int windowWidth = 1280,
+			int windowHeight = 800)
 		{
 			_windowed = windowed;
 			_preferHiDef = preferHiDef;
@@ -126,7 +126,7 @@ namespace Testbed
 
 		private void SwitchSkyDome()
 		{
-			if (_skyModelNumber == 4) _skyModelNumber = 1;
+			if (_skyModelNumber == 4) _skyModelNumber = default;
 
 			_skyModelNumber++;
 			_skyModel = Content.Load<Model>("Skyes\\SkyDome" + _skyModelNumber);

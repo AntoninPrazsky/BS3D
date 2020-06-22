@@ -20,6 +20,7 @@ namespace MapEditor
 
 		private BallsMap _map;
 		private Selector _selector;
+		private AABB _aabb;
 
 		private bool _draw = true;
 
@@ -85,6 +86,7 @@ namespace MapEditor
 
 			_map = new BallsMap(10, 10, 10, _hrSphere);
 			_selector = new Selector(Content, _map);
+			_aabb = new AABB(Content);
 		}
 
 		private void SelectorControl()
@@ -171,6 +173,8 @@ namespace MapEditor
 			{
 				_map.Draw(Camera3D);
 			}
+
+			_aabb.Draw(Camera3D);
 
 			if (_selector != null)
 			{
