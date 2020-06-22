@@ -24,6 +24,14 @@ namespace Testbed
 
 		public string CustomText { get; set; }
 
+		public int CurrentFPS
+		{
+			get
+			{
+				return _frameRate;
+			}
+		}
+
 		/// <summary>
 		/// Konstruktor třídy Info pro vykreslování snímkové frekvence zobrazení a dalších informací.
 		/// </summary>

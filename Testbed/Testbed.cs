@@ -126,7 +126,7 @@ namespace Testbed
 
 		private void SwitchSkyDome()
 		{
-			if (_skyModelNumber == 4) _skyModelNumber = default;
+			if (_skyModelNumber == 18) _skyModelNumber = default;
 
 			_skyModelNumber++;
 			_skyModel = Content.Load<Model>("Skyes\\SkyDome" + _skyModelNumber);
@@ -244,6 +244,8 @@ namespace Testbed
 				_cih.RegisterPreviousInputState();
 			}
 
+			_cih.MouseMovementDenominator = 5000f / Info.CurrentFPS; //Čím víc FPS, tím musí být menší číslo
+
 			base.Update(gameTime);
 		}
 
@@ -281,6 +283,7 @@ namespace Testbed
 			GraphicsDevice.BlendState = BlendState.AlphaBlend;
 			GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
+			//TODO: Zřetelně nemám nic, co by se staralo o vykreslování kuliček (bude něco jako GameManager)
 			if (_draw)
 			{
 				for (int i = 0; i < _staticBodies.Count; i++)
