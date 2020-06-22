@@ -23,8 +23,10 @@ namespace Testbed
 {
 	public class Testbed : Game
 	{
+		private static readonly float EARTH_GRAVITY = -9.807f;
+
 		private BasicCamera3D Camera3D;
-		private Model _hrSphere, _hrSphereRed;
+		private Model _hrSphere;
 		private Matrix[] _hrSphereTransformations;
 
 		private Model _groundModel3, _topPlatform;
@@ -95,7 +97,7 @@ namespace Testbed
 			_balls = new List<PhysicsBall[]>();
 
 			_bufferPool = new BufferPool();
-			_simulation = Simulation.Create(_bufferPool, new Simu.NarrowPhaseCallbacks(), new Simu.DemoPoseIntegratorCallbacks(new s.Vector3(0f, -10f, 0f)));
+			_simulation = Simulation.Create(_bufferPool, new Simu.NarrowPhaseCallbacks(), new Simu.DemoPoseIntegratorCallbacks(new s.Vector3(0f, EARTH_GRAVITY, 0f)));
 			_simpleThreadDispatcher = new SimpleThreadDispatcher(Environment.ProcessorCount);
 
 			base.Initialize();
@@ -106,8 +108,6 @@ namespace Testbed
 			_hrSphere = Content.Load<Model>("HRGeoDome");
 			_hrSphereTransformations = new Matrix[_hrSphere.Bones.Count];
 			_hrSphere.CopyAbsoluteBoneTransformsTo(_hrSphereTransformations);
-
-			_hrSphereRed = Content.Load<Model>("LRGeoDomeWire");
 
 			#region Ground and ceiling
 
