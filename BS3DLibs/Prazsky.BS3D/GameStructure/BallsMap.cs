@@ -136,9 +136,11 @@ namespace Prazsky.BS3D.GameStructure
 
 			using (Stream stream = new FileStream(fileName, FileMode.OpenOrCreate, FileAccess.Write))
 			{
-				binaryFormatter.Serialize(stream, ballPositionTypes);
-			}
-		}
+#pragma warning disable SYSLIB0011
+                binaryFormatter.Serialize(stream, ballPositionTypes); //TODO: Change to JsonSerializer
+#pragma warning restore SYSLIB0011
+            }
+        }
 
 		public void DeserializeBinary(string fileName)
 		{
@@ -150,12 +152,14 @@ namespace Prazsky.BS3D.GameStructure
 
 			using (Stream stream = new FileStream(fileName, FileMode.Open))
 			{
-				ballPositionTypes = (BallPositionTypes)binaryFormatter.Deserialize(stream);
-			}
+#pragma warning disable SYSLIB0011
+                ballPositionTypes = (BallPositionTypes)binaryFormatter.Deserialize(stream); //TODO: Change to JsonSerializer
+#pragma warning restore SYSLIB0011
+            }
 
-			//Je otázka, jestli vůbec dělat validaci - ale vypadá to, že nebere moc času, tak je to asi jedno
+            //Je otázka, jestli vůbec dělat validaci - ale vypadá to, že nebere moc času, tak je to asi jedno
 
-			if (ballPositionTypes.Balls.Rank != 3) throw new InvalidDataException("Deserialized data invalid");
+            if (ballPositionTypes.Balls.Rank != 3) throw new InvalidDataException("Deserialized data invalid");
 
 			int length1 = ballPositionTypes.Balls.GetLength(0);
 			int length2 = ballPositionTypes.Balls.GetLength(1);
