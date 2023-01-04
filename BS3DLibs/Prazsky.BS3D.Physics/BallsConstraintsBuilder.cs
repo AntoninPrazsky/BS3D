@@ -34,9 +34,9 @@ namespace Prazsky.BS3D.Physics
 			#region Vytvoření fyzikální reprezentace pro každou kuličku (bez spojení kuliček)
 
 			Sphere sphere = new Sphere(BALL_RADIUS);
-			sphere.ComputeInertia(BALL_MASS, out BodyInertia bodyInertia);
+            BodyInertia bodyInertia = sphere.ComputeInertia(BALL_MASS);
 
-			TypedIndex speheShapeIndex = simulation.Shapes.Add(sphere);
+            TypedIndex speheShapeIndex = simulation.Shapes.Add(sphere);
 
 			CollidableDescription collidableDescription = new CollidableDescription(speheShapeIndex, SPECULATIVE_MARGIN);
 

@@ -10,7 +10,7 @@
 
   <ItemGroup>
     <Reference Include="BepuPhysics">
-      <HintPath>..\..\..\..\..\ThirdPartyLibs\Bepu\trunk\BepuPhysics\bin\Release\netstandard2.0\BepuPhysics.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\..\GitHub\bepuphysics2\BepuPhysics\bin\Release\net7.0\BepuPhysics.dll</HintPath>
     </Reference>
   </ItemGroup>
 
