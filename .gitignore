@@ -20,3 +20,5 @@
 /Testbed/bin/netcoreapp3.1
 /Testbed/Content/obj/DesktopGL
 /BS3DLibs/Prazsky.BS3D.Physics/bin/Debug/net7.0
+/MapEditor/bin/net7.0-windows
+/MapEditor/Content/bin/DesktopGL/Content
