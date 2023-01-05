@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.29230.47
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.33205.214
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Libs", "Libs", "{E804CD4D-6268-4A01-A2D7-79E5A2AB3F8F}"
 EndProject
@@ -12,10 +12,6 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Prazsky.BS3D.Physics", "BS3DLibs\Prazsky.BS3D.Physics\Prazsky.BS3D.Physics.csproj", "{7ADFA3BF-19A0-4936-8C68-2A9E40A9A549}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Prazsky.Core", "BS3DLibs\Prazsky.Core\Prazsky.Core.csproj", "{BDFAE088-7FB2-4022-B804-91140257EA38}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BepuPhysics", "..\..\..\ThirdPartyLibs\Bepu\trunk\BepuPhysics\BepuPhysics.csproj", "{22182490-D02D-4245-ADB8-DD8475CF999F}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BepuUtilities", "..\..\..\ThirdPartyLibs\Bepu\trunk\BepuUtilities\BepuUtilities.csproj", "{FB6B89B7-C6A9-465B-9BE8-DD7CBEA7DA34}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -57,22 +53,6 @@ Global
 		{BDFAE088-7FB2-4022-B804-91140257EA38}.ReleaseStrip|Any CPU.Build.0 = Release|Any CPU
 		{BDFAE088-7FB2-4022-B804-91140257EA38}.ReleaseStripNoProfiling|Any CPU.ActiveCfg = Release|Any CPU
 		{BDFAE088-7FB2-4022-B804-91140257EA38}.ReleaseStripNoProfiling|Any CPU.Build.0 = Release|Any CPU
-		{22182490-D02D-4245-ADB8-DD8475CF999F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{22182490-D02D-4245-ADB8-DD8475CF999F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{22182490-D02D-4245-ADB8-DD8475CF999F}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{22182490-D02D-4245-ADB8-DD8475CF999F}.Release|Any CPU.Build.0 = Release|Any CPU
-		{22182490-D02D-4245-ADB8-DD8475CF999F}.ReleaseStrip|Any CPU.ActiveCfg = ReleaseStrip|Any CPU
-		{22182490-D02D-4245-ADB8-DD8475CF999F}.ReleaseStrip|Any CPU.Build.0 = ReleaseStrip|Any CPU
-		{22182490-D02D-4245-ADB8-DD8475CF999F}.ReleaseStripNoProfiling|Any CPU.ActiveCfg = ReleaseStripNoProfiling|Any CPU
-		{22182490-D02D-4245-ADB8-DD8475CF999F}.ReleaseStripNoProfiling|Any CPU.Build.0 = ReleaseStripNoProfiling|Any CPU
-		{FB6B89B7-C6A9-465B-9BE8-DD7CBEA7DA34}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{FB6B89B7-C6A9-465B-9BE8-DD7CBEA7DA34}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{FB6B89B7-C6A9-465B-9BE8-DD7CBEA7DA34}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{FB6B89B7-C6A9-465B-9BE8-DD7CBEA7DA34}.Release|Any CPU.Build.0 = Release|Any CPU
-		{FB6B89B7-C6A9-465B-9BE8-DD7CBEA7DA34}.ReleaseStrip|Any CPU.ActiveCfg = ReleaseStrip|Any CPU
-		{FB6B89B7-C6A9-465B-9BE8-DD7CBEA7DA34}.ReleaseStrip|Any CPU.Build.0 = ReleaseStrip|Any CPU
-		{FB6B89B7-C6A9-465B-9BE8-DD7CBEA7DA34}.ReleaseStripNoProfiling|Any CPU.ActiveCfg = ReleaseStrip|Any CPU
-		{FB6B89B7-C6A9-465B-9BE8-DD7CBEA7DA34}.ReleaseStripNoProfiling|Any CPU.Build.0 = ReleaseStrip|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -81,8 +61,6 @@ Global
 		{0CCA8C6C-50C5-443B-A9C6-69B570C58BAD} = {E804CD4D-6268-4A01-A2D7-79E5A2AB3F8F}
 		{7ADFA3BF-19A0-4936-8C68-2A9E40A9A549} = {E804CD4D-6268-4A01-A2D7-79E5A2AB3F8F}
 		{BDFAE088-7FB2-4022-B804-91140257EA38} = {E804CD4D-6268-4A01-A2D7-79E5A2AB3F8F}
-		{22182490-D02D-4245-ADB8-DD8475CF999F} = {E804CD4D-6268-4A01-A2D7-79E5A2AB3F8F}
-		{FB6B89B7-C6A9-465B-9BE8-DD7CBEA7DA34} = {E804CD4D-6268-4A01-A2D7-79E5A2AB3F8F}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {31A81FF6-3891-490A-BA0F-680951054A6F}
