@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
   <PropertyGroup>
-	<TargetFramework>net7.0</TargetFramework>
+	<TargetFramework>net7.0-windows</TargetFramework>
     <OutputType>WinExe</OutputType>
     <ApplicationIcon>Icon.ico</ApplicationIcon>
     <StartupObject />
@@ -10,6 +10,7 @@
     <Copyright>Antonín Pražský</Copyright>
     <PackageIcon>Icon.ico</PackageIcon>
     <PackageIconUrl />
+    <UseWindowsForms>True</UseWindowsForms>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <DefineConstants>TRACE;RELEASE</DefineConstants>
@@ -33,6 +34,10 @@
       <Pack>True</Pack>
       <PackagePath></PackagePath>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="MonoGame.Content.Builder.BadEchoTask" Version="3.8.2.1-develop" />
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.1.303" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BS3DLibs\Prazsky.BS3D.Physics\Prazsky.BS3D.Physics.csproj" />

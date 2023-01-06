@@ -113,6 +113,10 @@ namespace Testbed
 		{
 			return bufferPools[workerIndex];
 		}
-	}
+
+        public void DispatchWorkers(Action<int> workerBody, int maximumWorkerCount = int.MaxValue)
+        {
+        }
+    }
 
 }

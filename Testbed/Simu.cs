@@ -73,8 +73,8 @@ namespace Testbed
 			/// <param name="pairMaterial">Material properties of the manifold.</param>
 			/// <returns>True if a constraint should be created for the manifold, false otherwise.</returns>
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			public unsafe bool ConfigureContactManifold<TManifold>(int workerIndex, CollidablePair pair, ref TManifold manifold, out PairMaterialProperties pairMaterial) where TManifold : struct, IContactManifold<TManifold>
-			{
+            public unsafe bool ConfigureContactManifold<TManifold>(int workerIndex, CollidablePair pair, ref TManifold manifold, out PairMaterialProperties pairMaterial) where TManifold : unmanaged, IContactManifold<TManifold>
+            {
 				//The IContactManifold parameter includes functions for accessing contact data regardless of what the underlying type of the manifold is.
 				//If you want to have direct access to the underlying type, you can use the manifold.Convex property and a cast like Unsafe.As<TManifold, ConvexContactManifold or NonconvexContactManifold>(ref manifold).
 
@@ -110,7 +110,31 @@ namespace Testbed
 			public void Dispose()
 			{
 			}
-		}
+
+            /// <summary>
+            /// Chooses whether to allow contact generation to proceed for two overlapping collidables.
+            /// </summary>
+            /// <param name="workerIndex">Index of the worker that identified the overlap.</param>
+            /// <param name="a">Reference to the first collidable in the pair.</param>
+            /// <param name="b">Reference to the second collidable in the pair.</param>
+            /// <param name="speculativeMargin">Reference to the speculative margin used by the pair.
+            /// The value was already initialized by the narrowphase by examining the speculative margins of the involved collidables, but it can be modified.</param>
+            /// <returns>True if collision detection should proceed, false otherwise.</returns>
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public bool AllowContactGeneration(int workerIndex, CollidableReference a, CollidableReference b, ref float speculativeMargin)
+            {
+                //Before creating a narrow phase pair, the broad phase asks this callback whether to bother with a given pair of objects.
+                //This can be used to implement arbitrary forms of collision filtering. See the RagdollDemo or NewtDemo for examples.
+                //Here, we'll make sure at least one of the two bodies is dynamic.
+                //The engine won't generate static-static pairs, but it will generate kinematic-kinematic pairs.
+                //That's useful if you're trying to make some sort of sensor/trigger object, but since kinematic-kinematic pairs
+                //can't generate constraints (both bodies have infinite inertia), simple simulations can just ignore such pairs.
+
+                //This function also exposes the speculative margin. It can be validly written to, but that is a very rare use case.
+                //Most of the time, you can ignore this function's speculativeMargin parameter entirely.
+                return a.Mobility == CollidableMobility.Dynamic || b.Mobility == CollidableMobility.Dynamic;
+            }
+        }
 
 		//Note that the engine does not require any particular form of gravity- it, like all the contact callbacks, is managed by a callback.
 		public struct PoseIntegratorCallbacks : IPoseIntegratorCallbacks
@@ -123,7 +147,11 @@ namespace Testbed
 			/// </summary>
 			public AngularIntegrationMode AngularIntegrationMode => AngularIntegrationMode.Nonconserving; //Don't care about fidelity in this demo!
 
-			public PoseIntegratorCallbacks(Vector3 gravity) : this()
+            public bool AllowSubstepsForUnconstrainedBodies => false;
+
+            public bool IntegrateVelocityForKinematics => false;
+
+            public PoseIntegratorCallbacks(Vector3 gravity) : this()
 			{
 				Gravity = gravity;
 			}
@@ -155,7 +183,16 @@ namespace Testbed
 					velocity.Linear = velocity.Linear + gravityDt;
 				}
 			}
-		}
+
+            public void Initialize(Simulation simulation)
+            {
+            }
+
+            public void IntegrateVelocity(Vector<int> bodyIndices, Vector3Wide position, QuaternionWide orientation, BodyInertiaWide localInertia, Vector<int> integrationMask, int workerIndex, Vector<float> dt, ref BodyVelocityWide velocity)
+            {
+                throw new NotImplementedException();
+            }
+        }
 
 		public struct DemoPoseIntegratorCallbacks : IPoseIntegratorCallbacks
 		{
@@ -168,7 +205,11 @@ namespace Testbed
 
 			public AngularIntegrationMode AngularIntegrationMode => AngularIntegrationMode.Nonconserving;
 
-			public DemoPoseIntegratorCallbacks(Vector3 gravity, float linearDamping = .03f, float angularDamping = .03f) : this()
+            public bool AllowSubstepsForUnconstrainedBodies => false;
+
+            public bool IntegrateVelocityForKinematics => false;
+
+            public DemoPoseIntegratorCallbacks(Vector3 gravity, float linearDamping = .03f, float angularDamping = .03f) : this()
 			{
 				Gravity = gravity;
 				LinearDamping = linearDamping;
@@ -205,7 +246,24 @@ namespace Testbed
 				//This is also a handy spot to implement things like position dependent gravity or per-body damping.
 			}
 
-		}
+            public void Initialize(Simulation simulation)
+            {
+            }
+
+            //Note that velocity integration uses "wide" types. These are array-of-struct-of-arrays types that use SIMD accelerated types underneath.
+            //Rather than handling a single body at a time, the callback handles up to Vector<float>.Count bodies simultaneously.
+            Vector3Wide gravityWideDt;
+
+            public void IntegrateVelocity(Vector<int> bodyIndices, Vector3Wide position, QuaternionWide orientation, BodyInertiaWide localInertia, Vector<int> integrationMask, int workerIndex, Vector<float> dt, ref BodyVelocityWide velocity)
+            {
+                //This also is a handy spot to implement things like position dependent gravity or per-body damping.
+                //We don't have to check for kinematics; IntegrateVelocityForKinematics returns false in this type, so we'll never see them in this callback.
+                //Note that these are SIMD operations and "Wide" types. There are Vector<float>.Count lanes of execution being evaluated simultaneously.
+                //The types are laid out in array-of-structures-of-arrays (AOSOA) format. That's because this function is frequently called from vectorized contexts within the solver.
+                //Transforming to "array of structures" (AOS) format for the callback and then back to AOSOA would involve a lot of overhead, so instead the callback works on the AOSOA representation directly.
+                velocity.Linear += gravityWideDt;
+            }
+        }
 
 	}
 }

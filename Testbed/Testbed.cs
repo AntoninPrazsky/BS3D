@@ -16,8 +16,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using static Testbed.Simu;
 using mg = Microsoft.Xna.Framework.Input.Keys;
-using s = System.Numerics;
 
 namespace Testbed
 {
@@ -97,8 +97,10 @@ namespace Testbed
 			_balls = new List<PhysicsBall[]>();
 
 			_bufferPool = new BufferPool();
-			_simulation = Simulation.Create(_bufferPool, new Simu.NarrowPhaseCallbacks(), new Simu.DemoPoseIntegratorCallbacks(new s.Vector3(0f, EARTH_GRAVITY, 0f)));
-			_simpleThreadDispatcher = new SimpleThreadDispatcher(Environment.ProcessorCount);
+
+            _simulation = Simulation.Create(new BufferPool(), new NarrowPhaseCallbacks(), new PoseIntegratorCallbacks(new System.Numerics.Vector3(0, EARTH_GRAVITY, 0)), new SolveDescription(8, 1));
+
+            _simpleThreadDispatcher = new SimpleThreadDispatcher(Environment.ProcessorCount);
 
 			base.Initialize();
 		}
@@ -137,22 +139,22 @@ namespace Testbed
 		{
 			Box groundBox = new Box(30f, 1f, 30f);
 
-			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(0f, -10f, 0f), groundBox)));
+			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new System.Numerics.Vector3(0f, -10f, 0f), groundBox)));
 
-			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(-30f, -9f, 0f), groundBox)));
-			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(30, -9f, 0f), groundBox)));
-			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(0f, -9f, 30f), groundBox)));
-			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(0f, -9f, -30f), groundBox)));
+			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new System.Numerics.Vector3(-30f, -9f, 0f), groundBox)));
+			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new System.Numerics.Vector3(30, -9f, 0f), groundBox)));
+			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new System.Numerics.Vector3(0f, -9f, 30f), groundBox)));
+			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new System.Numerics.Vector3(0f, -9f, -30f), groundBox)));
 
-			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(-30f, -9f, -30f), groundBox)));
-			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(30, -9f, 30f), groundBox)));
-			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(-30f, -9f, 30f), groundBox)));
-			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new s.Vector3(30f, -9f, -30f), groundBox)));
+			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new System.Numerics.Vector3(-30f, -9f, -30f), groundBox)));
+			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new System.Numerics.Vector3(30, -9f, 30f), groundBox)));
+			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new System.Numerics.Vector3(-30f, -9f, 30f), groundBox)));
+			_staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new System.Numerics.Vector3(30f, -9f, -30f), groundBox)));
 
 			Box box = new Box(10f, 1f, 10f);
 			TypedIndex boxShapeIndex = _simulation.Shapes.Add(box);
 			CollidableDescription collidableDescription = new CollidableDescription(boxShapeIndex, 0.1f);
-			BodyDescription bodyDescription = BodyDescription.CreateKinematic(new s.Vector3(0f, 8.363961f, 0f), collidableDescription, new BodyActivityDescription(0.01f));
+			BodyDescription bodyDescription = BodyDescription.CreateKinematic(new System.Numerics.Vector3(0f, 8.363961f, 0f), collidableDescription, new BodyActivityDescription(0.01f));
 
 			BodyHandle topBodyHandle = _simulation.Bodies.Add(in bodyDescription);
 			BodyReference topBodyReference = new BodyReference(topBodyHandle, _simulation.Bodies);
@@ -206,6 +208,8 @@ namespace Testbed
 			if (_simulate)
 			{
 				float timeStep = Math.Min((float)gameTime.ElapsedGameTime.TotalSeconds, 1 / 60f);
+
+				if (timeStep == 0) timeStep = 1 / 60f;
 
 				//timeStep = timeStep / 5f; //Zpomalení simulace
 				_simulation.Timestep(timeStep, _simpleThreadDispatcher);
@@ -355,13 +359,12 @@ namespace Testbed
 				e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.Reach;
 		}
 
-		private StaticReference CreateStatic(s.Vector3 position, Box boundingBox)
+		private StaticReference CreateStatic(System.Numerics.Vector3 position, Box boundingBox)
 		{
+            var shape = new CollidableDescription(_simulation.Shapes.Add(boundingBox), 0.1f).Shape;
+
 			return new StaticReference(_simulation.Statics.Add(
-				new StaticDescription(
-					position, new CollidableDescription(
-						_simulation.Shapes.Add(boundingBox), 0.1f))),
-							_simulation.Statics);
+				new StaticDescription(position, shape)), _simulation.Statics);
 		}
 
 		protected override void UnloadContent()
