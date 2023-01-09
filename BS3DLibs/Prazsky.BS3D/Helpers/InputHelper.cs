@@ -2,80 +2,79 @@
 
 namespace Prazsky.BS3D.Helpers
 {
-	public static class InputHelper
-	{
-		/// <summary>
-		/// Zjištění, zda byla daná klávesa/tlačítko stisknuta pouze jednou.
-		/// </summary>
-		/// <param name="key">Klávesa klávesnice.</param>
-		/// <param name="button">Tlačítko herního ovladače.</param>
-		/// <param name="keyboardState">Aktuální stav klávesnice.</param>
-		/// <param name="gamePadState">Aktuální stav herního ovladače.</param>
-		/// <param name="previousKeyboardState">Předchozí stav klávesnice.</param>
-		/// <param name="previousGamePadState">Předchozí stav herního ovladače.</param>
-		/// <returns>Vrací <code>true</code>, pokud klávesa nebo tlačítko bylo stisknuto pouze jednou a
-		/// <code>false</code>, pokud nebylo.</returns>
-		public static bool PressedOnce(
-				Keys key,
-				Buttons button,
-				KeyboardState keyboardState,
-				GamePadState gamePadState,
-				KeyboardState previousKeyboardState,
-				GamePadState previousGamePadState)
-		{
-			bool keyboardPressed = keyboardState.IsKeyDown(key) && !previousKeyboardState.IsKeyDown(key);
-			bool gamePadPressed = gamePadState.IsButtonDown(button) && !previousGamePadState.IsButtonDown(button);
-			return keyboardPressed || gamePadPressed;
-		}
+    public static class InputHelper
+    {
+        /// <summary>
+        /// Detects if a given key/button has been pressed only once.
+        /// </summary>
+        /// <param name="key">Keyboard key.</param>
+        /// <param name="button">Gamepad button.</param>
+        /// <param name="keyboardState">Current keyboard state.</param>
+        /// <param name="gamePadState">Current gamepsad state.</param>
+        /// <param name="previousKeyboardState">Previous keyboard state.</param>
+        /// <param name="previousGamePadState">Previous gamepsad state.</param>
+        /// <returns>Returns <code>true</code> if the key or button has been pressed only once and <code>false</code> if it wasn't.</returns>
+        public static bool PressedOnce(
+                Keys key,
+                Buttons button,
+                KeyboardState keyboardState,
+                GamePadState gamePadState,
+                KeyboardState previousKeyboardState,
+                GamePadState previousGamePadState)
+        {
+            bool keyboardPressed = keyboardState.IsKeyDown(key) && !previousKeyboardState.IsKeyDown(key);
+            bool gamePadPressed = gamePadState.IsButtonDown(button) && !previousGamePadState.IsButtonDown(button);
+            return keyboardPressed || gamePadPressed;
+        }
 
-		/// <summary>
-		/// Zjištění, zda byla daná klávesa stisknuta pouze jednou.
-		/// </summary>
-		/// <param name="key">Klávesa klávesnice.</param>
-		/// <param name="keyboardState">Aktuální stav klávesnice.</param>
-		/// <param name="previousKeyboardState">Předchozí stav klávesnice.</param>
-		/// <returns>Vrací <code>true</code>, pokud klávesa byla stisknuta pouze jednou a <code>false</code>, pokud
-		/// nebyla.</returns>
-		public static bool PressedOnce(
-				Keys key,
-				KeyboardState keyboardState,
-				KeyboardState previousKeyboardState)
-		{
-			bool keyboardPressed = keyboardState.IsKeyDown(key) && !previousKeyboardState.IsKeyDown(key);
+        /// <summary>
+        /// Detects if a given key has been pressed only once.
+        /// </summary>
+        /// <param name="key">Keyboard key.</param>
+        /// <param name="keyboardState">Current keyboard state.</param>
+        /// <param name="previousKeyboardState">Previous keyboard state.</param>
+        /// <returns>Returns <code>true</code> if the key has been pressed only once and <code>false</code> if it wasn't.</returns>
+        public static bool PressedOnce(
+                Keys key,
+                KeyboardState keyboardState,
+                KeyboardState previousKeyboardState)
+        {
+            bool keyboardPressed = keyboardState.IsKeyDown(key) && !previousKeyboardState.IsKeyDown(key);
 
-			return keyboardPressed;
-		}
+            return keyboardPressed;
+        }
 
-		/// <summary>
-		/// Zjištění, zda bylo dané tlačítko myši stisknuto pouze jednou.
-		/// </summary>
-		/// <param name="leftMouseButton">Levé tlačítko myši.</param>
-		/// <param name="middleMouseButton">Prostřední tlačítko myši.</param>
-		/// <param name="rightMouseButton">Pravé tlačítko myši.</param>
-		/// <param name="mouseState">Aktuální stav myši.</param>
-		/// <param name="previsousMouseState">Předchozí stav myši.</param>
-		/// <returns>Vrací <code>true</code>, pokud dané tlačítko bylo stisknuto pouze jednou a <code>false</code>,
-		/// pokud nebylo.</returns>
-		public static bool PressedOnce(
-				bool leftMouseButton,
-				bool middleMouseButton,
-				bool rightMouseButton,
-				MouseState mouseState,
-				MouseState previsousMouseState)
-		{
-			bool mousePressed = leftMouseButton &&
-					(mouseState.LeftButton == ButtonState.Pressed)
-					&& (previsousMouseState.LeftButton == ButtonState.Released);
+        /// <summary>
+        /// Detects if a given mouse button has been pressed only once.
+        /// </summary>
+        /// <param name="leftMouseButton">Left mouse button.</param>
+        /// <param name="middleMouseButton">Middle mouse button.</param>
+        /// <param name="rightMouseButton">Right mouse button.</param>
+        /// <param name="mouseState">Current mouse state.</param>
+        /// <param name="previsousMouseState">Previous mouse state.</param>
+        /// <returns>Returns <code>true</code> if the given button was pressed only once and <code>false</code>, if it wasn't.</returns>
+        public static bool PressedOnce(
+                bool leftMouseButton,
+                bool middleMouseButton,
+                bool rightMouseButton,
+                MouseState mouseState,
+                MouseState previsousMouseState)
+        {
+            //TODO: Fix this method, code below clearly works wrong.
 
-			mousePressed = middleMouseButton &&
-					(mouseState.MiddleButton == ButtonState.Pressed)
-					&& (previsousMouseState.MiddleButton == ButtonState.Released);
+            bool mousePressed = leftMouseButton &&
+                    (mouseState.LeftButton == ButtonState.Pressed)
+                    && (previsousMouseState.LeftButton == ButtonState.Released);
 
-			mousePressed = rightMouseButton &&
-					(mouseState.RightButton == ButtonState.Pressed)
-					&& (previsousMouseState.RightButton == ButtonState.Released);
+            mousePressed = middleMouseButton &&
+                    (mouseState.MiddleButton == ButtonState.Pressed)
+                    && (previsousMouseState.MiddleButton == ButtonState.Released);
 
-			return mousePressed;
-		}
-	}
+            mousePressed = rightMouseButton &&
+                    (mouseState.RightButton == ButtonState.Pressed)
+                    && (previsousMouseState.RightButton == ButtonState.Released);
+
+            return mousePressed;
+        }
+    }
 }
