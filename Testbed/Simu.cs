@@ -8,7 +8,7 @@ using System.Runtime.CompilerServices;
 
 namespace Testbed
 {
-	//Třída zkopírovaná z Bepu demo projektu
+	//Class copied from BepuPhysics Demo project
 	public static class Simu
 	{
 		//The simulation has a variety of extension points that must be defined.

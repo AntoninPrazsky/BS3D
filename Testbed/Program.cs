@@ -7,8 +7,7 @@ namespace Testbed
         [STAThread]
         private static void Main()
         {
-            using (var game = new Testbed())
-                game.Run();
+            using (var game = new Testbed()) game.Run();
         }
     }
 }
