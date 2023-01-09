@@ -5,3 +5,5 @@
 
 - Content.mgcb needs to be built with MonoGame Pipeline Tool
   - http://www.monogame.org/downloads/
+  
+- Test maps for Testbed project are located in *\Testbed\Maps*

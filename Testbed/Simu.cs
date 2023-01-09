@@ -3,7 +3,6 @@ using BepuPhysics.Collidables;
 using BepuPhysics.CollisionDetection;
 using BepuPhysics.Constraints;
 using BepuUtilities;
-using System;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 
@@ -39,10 +38,17 @@ namespace Testbed
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			public bool AllowContactGeneration(int workerIndex, CollidableReference a, CollidableReference b)
 			{
-				//Before creating a narrow phase pair, the broad phase asks this callback whether to bother with a given pair of objects.
-				//This can be used to implement arbitrary forms of collision filtering. See the RagdollDemo or NewtDemo for examples.
-				return true;
-			}
+                //Before creating a narrow phase pair, the broad phase asks this callback whether to bother with a given pair of objects.
+                //This can be used to implement arbitrary forms of collision filtering. See the RagdollDemo or NewtDemo for examples.
+                //Here, we'll make sure at least one of the two bodies is dynamic.
+                //The engine won't generate static-static pairs, but it will generate kinematic-kinematic pairs.
+                //That's useful if you're trying to make some sort of sensor/trigger object, but since kinematic-kinematic pairs
+                //can't generate constraints (both bodies have infinite inertia), simple simulations can just ignore such pairs.
+
+                //This function also exposes the speculative margin. It can be validly written to, but that is a very rare use case.
+                //Most of the time, you can ignore this function's speculativeMargin parameter entirely.
+                return a.Mobility == CollidableMobility.Dynamic || b.Mobility == CollidableMobility.Dynamic;
+            }
 
 			/// <summary>
 			/// Chooses whether to allow contact generation to proceed for the children of two overlapping collidables in a compound-including pair.
@@ -136,124 +142,75 @@ namespace Testbed
             }
         }
 
-		//Note that the engine does not require any particular form of gravity- it, like all the contact callbacks, is managed by a callback.
-		public struct PoseIntegratorCallbacks : IPoseIntegratorCallbacks
-		{
-			public Vector3 Gravity;
-			private Vector3 gravityDt;
+        //Note that the engine does not require any particular form of gravity- it, like all the contact callbacks, is managed by a callback.
+        public struct PoseIntegratorCallbacks : IPoseIntegratorCallbacks
+        {
+            /// <summary>
+            /// Performs any required initialization logic after the Simulation instance has been constructed.
+            /// </summary>
+            /// <param name="simulation">Simulation that owns these callbacks.</param>
+            public void Initialize(Simulation simulation)
+            {
+                //In this demo, we don't need to initialize anything.
+                //If you had a simulation with per body gravity stored in a CollidableProperty<T> or something similar, having the simulation provided in a callback can be helpful.
+            }
 
-			/// <summary>
-			/// Gets how the pose integrator should handle angular velocity integration.
-			/// </summary>
-			public AngularIntegrationMode AngularIntegrationMode => AngularIntegrationMode.Nonconserving; //Don't care about fidelity in this demo!
+            /// <summary>
+            /// Gets how the pose integrator should handle angular velocity integration.
+            /// </summary>
+            public readonly AngularIntegrationMode AngularIntegrationMode => AngularIntegrationMode.Nonconserving;
 
-            public bool AllowSubstepsForUnconstrainedBodies => false;
+            /// <summary>
+            /// Gets whether the integrator should use substepping for unconstrained bodies when using a substepping solver.
+            /// If true, unconstrained bodies will be integrated with the same number of substeps as the constrained bodies in the solver.
+            /// If false, unconstrained bodies use a single step of length equal to the dt provided to Simulation.Timestep. 
+            /// </summary>
+            public readonly bool AllowSubstepsForUnconstrainedBodies => false;
 
-            public bool IntegrateVelocityForKinematics => false;
+            /// <summary>
+            /// Gets whether the velocity integration callback should be called for kinematic bodies.
+            /// If true, IntegrateVelocity will be called for bundles including kinematic bodies.
+            /// If false, kinematic bodies will just continue using whatever velocity they have set.
+            /// Most use cases should set this to false.
+            /// </summary>
+            public readonly bool IntegrateVelocityForKinematics => false;
+
+            public Vector3 Gravity;
 
             public PoseIntegratorCallbacks(Vector3 gravity) : this()
-			{
-				Gravity = gravity;
-			}
-
-			/// <summary>
-			/// Called prior to integrating the simulation's active bodies. When used with a substepping timestepper, this could be called multiple times per frame with different time step values.
-			/// </summary>
-			/// <param name="dt">Current time step duration.</param>
-			public void PrepareForIntegration(float dt)
-			{
-				//No reason to recalculate gravity * dt for every body; just cache it ahead of time.
-				gravityDt = Gravity * dt;
-			}
-
-			/// <summary>
-			/// Callback called for each active body within the simulation during body integration.
-			/// </summary>
-			/// <param name="bodyIndex">Index of the body being visited.</param>
-			/// <param name="pose">Body's current pose.</param>
-			/// <param name="localInertia">Body's current local inertia.</param>
-			/// <param name="workerIndex">Index of the worker thread processing this body.</param>
-			/// <param name="velocity">Reference to the body's current velocity to integrate.</param>
-			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			public void IntegrateVelocity(int bodyIndex, in RigidPose pose, in BodyInertia localInertia, int workerIndex, ref BodyVelocity velocity)
-			{
-				//Note that we avoid accelerating kinematics. Kinematics are any body with an inverse mass of zero (so a mass of ~infinity). No force can move them.
-				if (localInertia.InverseMass > 0)
-				{
-					velocity.Linear = velocity.Linear + gravityDt;
-				}
-			}
-
-            public void Initialize(Simulation simulation)
             {
-            }
-
-            public void IntegrateVelocity(Vector<int> bodyIndices, Vector3Wide position, QuaternionWide orientation, BodyInertiaWide localInertia, Vector<int> integrationMask, int workerIndex, Vector<float> dt, ref BodyVelocityWide velocity)
-            {
-                throw new NotImplementedException();
-            }
-        }
-
-		public struct DemoPoseIntegratorCallbacks : IPoseIntegratorCallbacks
-		{
-			public Vector3 Gravity;
-			public float LinearDamping;
-			public float AngularDamping;
-			Vector3 gravityDt;
-			float linearDampingDt;
-			float angularDampingDt;
-
-			public AngularIntegrationMode AngularIntegrationMode => AngularIntegrationMode.Nonconserving;
-
-            public bool AllowSubstepsForUnconstrainedBodies => false;
-
-            public bool IntegrateVelocityForKinematics => false;
-
-            public DemoPoseIntegratorCallbacks(Vector3 gravity, float linearDamping = .03f, float angularDamping = .03f) : this()
-			{
-				Gravity = gravity;
-				LinearDamping = linearDamping;
-				AngularDamping = angularDamping;
-			}
-
-			public void PrepareForIntegration(float dt)
-			{
-				//No reason to recalculate gravity * dt for every body; just cache it ahead of time.
-				gravityDt = Gravity * dt;
-				//Since this doesn't use per-body damping, we can precalculate everything.
-				linearDampingDt = MathF.Pow(MathHelper.Clamp(1 - LinearDamping, 0, 1), dt);
-				angularDampingDt = MathF.Pow(MathHelper.Clamp(1 - AngularDamping, 0, 1), dt);
-			}
-			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			public void IntegrateVelocity(int bodyIndex, in RigidPose pose, in BodyInertia localInertia, int workerIndex, ref BodyVelocity velocity)
-			{
-				//Note that we avoid accelerating kinematics. Kinematics are any body with an inverse mass of zero (so a mass of ~infinity). No force can move them.
-				if (localInertia.InverseMass > 0)
-				{
-					velocity.Linear = (velocity.Linear + gravityDt) * linearDampingDt;
-					velocity.Angular = velocity.Angular * angularDampingDt;
-				}
-				//Implementation sidenote: Why aren't kinematics all bundled together separately from dynamics to avoid this per-body condition?
-				//Because kinematics can have a velocity- that is what distinguishes them from a static object. The solver must read velocities of all bodies involved in a constraint.
-				//Under ideal conditions, those bodies will be near in memory to increase the chances of a cache hit. If kinematics are separately bundled, the the number of cache
-				//misses necessarily increases. Slowing down the solver in order to speed up the pose integrator is a really, really bad trade, especially when the benefit is a few ALU ops.
-
-				//Note that you CAN technically modify the pose in IntegrateVelocity by directly accessing it through the Simulation.Bodies.ActiveSet.Poses, it just requires a little care and isn't directly exposed.
-				//If the PositionFirstTimestepper is being used, then the pose integrator has already integrated the pose.
-				//If the PositionLastTimestepper or SubsteppingTimestepper are in use, the pose has not yet been integrated.
-				//If your pose modification depends on the order of integration, you'll want to take this into account.
-
-				//This is also a handy spot to implement things like position dependent gravity or per-body damping.
-			}
-
-            public void Initialize(Simulation simulation)
-            {
+                Gravity = gravity;
             }
 
             //Note that velocity integration uses "wide" types. These are array-of-struct-of-arrays types that use SIMD accelerated types underneath.
             //Rather than handling a single body at a time, the callback handles up to Vector<float>.Count bodies simultaneously.
             Vector3Wide gravityWideDt;
 
+            /// <summary>
+            /// Callback invoked ahead of dispatches that may call into <see cref="IntegrateVelocity"/>.
+            /// It may be called more than once with different values over a frame. For example, when performing bounding box prediction, velocity is integrated with a full frame time step duration.
+            /// During substepped solves, integration is split into substepCount steps, each with fullFrameDuration / substepCount duration.
+            /// The final integration pass for unconstrained bodies may be either fullFrameDuration or fullFrameDuration / substepCount, depending on the value of AllowSubstepsForUnconstrainedBodies. 
+            /// </summary>
+            /// <param name="dt">Current integration time step duration.</param>
+            /// <remarks>This is typically used for precomputing anything expensive that will be used across velocity integration.</remarks>
+            public void PrepareForIntegration(float dt)
+            {
+                //No reason to recalculate gravity * dt for every body; just cache it ahead of time.
+                gravityWideDt = Vector3Wide.Broadcast(Gravity * dt);
+            }
+
+            /// <summary>
+            /// Callback for a bundle of bodies being integrated.
+            /// </summary>
+            /// <param name="bodyIndices">Indices of the bodies being integrated in this bundle.</param>
+            /// <param name="position">Current body positions.</param>
+            /// <param name="orientation">Current body orientations.</param>
+            /// <param name="localInertia">Body's current local inertia.</param>
+            /// <param name="integrationMask">Mask indicating which lanes are active in the bundle. Active lanes will contain 0xFFFFFFFF, inactive lanes will contain 0.</param>
+            /// <param name="workerIndex">Index of the worker thread processing this bundle.</param>
+            /// <param name="dt">Durations to integrate the velocity over. Can vary over lanes.</param>
+            /// <param name="velocity">Velocity of bodies in the bundle. Any changes to lanes which are not active by the integrationMask will be discarded.</param>
             public void IntegrateVelocity(Vector<int> bodyIndices, Vector3Wide position, QuaternionWide orientation, BodyInertiaWide localInertia, Vector<int> integrationMask, int workerIndex, Vector<float> dt, ref BodyVelocityWide velocity)
             {
                 //This also is a handy spot to implement things like position dependent gravity or per-body damping.
@@ -264,6 +221,5 @@ namespace Testbed
                 velocity.Linear += gravityWideDt;
             }
         }
-
 	}
 }

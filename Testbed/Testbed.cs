@@ -1,5 +1,6 @@
 ﻿using BepuPhysics;
 using BepuPhysics.Collidables;
+using BepuUtilities;
 using BepuUtilities.Memory;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -27,13 +28,13 @@ namespace Testbed
 
 		private BasicCamera3D Camera3D;
 		private Model _hrSphere;
-		private Matrix[] _hrSphereTransformations;
+		private Microsoft.Xna.Framework.Matrix[] _hrSphereTransformations;
 
 		private Model _groundModel3, _topPlatform;
 		private KinematicBody _ceiling;
 
 		private Simulation _simulation;
-		private SimpleThreadDispatcher _simpleThreadDispatcher;
+		private ThreadDispatcher _threadDispatcher;
 		private BufferPool _bufferPool;
 
 		private bool _simulate = true;
@@ -47,34 +48,25 @@ namespace Testbed
 		private SkyDome _sky;
 		private Model _skyModel;
 
-		#region Grafika
+		#region Graphics
 
 		private int _windowWidth;
 		private int _windowHeight;
 
 		private GraphicsDeviceManager _graphics;
 		private bool _windowed;
-		private bool _preferHiDef;
-		private bool _preferMultiSampling;
 
 		public Info Info { private set; get; }
 
-		#endregion Grafika
+        #endregion Graphics
 
-		public Testbed(
-			bool windowed = true,
-			bool preferHiDef = true,
-			bool preferMultiSampling = true,
-			int windowWidth = 1280,
-			int windowHeight = 800)
+        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
 		{
 			_windowed = windowed;
-			_preferHiDef = preferHiDef;
-			_preferMultiSampling = preferMultiSampling;
 
 			_graphics = new GraphicsDeviceManager(this);
-
-			_graphics.PreparingDeviceSettings += _graphics_PreparingDeviceSettings;
+            _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;
+		
 			Content.RootDirectory = "Content";
 
 			_windowWidth = windowWidth;
@@ -97,10 +89,13 @@ namespace Testbed
 			_balls = new List<PhysicsBall[]>();
 
 			_bufferPool = new BufferPool();
+            _simulation = Simulation.Create(
+				_bufferPool,
+				new NarrowPhaseCallbacks(),
+				new PoseIntegratorCallbacks(new System.Numerics.Vector3(0, EARTH_GRAVITY, 0)),
+				new SolveDescription(8, 1));
 
-            _simulation = Simulation.Create(new BufferPool(), new NarrowPhaseCallbacks(), new PoseIntegratorCallbacks(new System.Numerics.Vector3(0, EARTH_GRAVITY, 0)), new SolveDescription(8, 1));
-
-            _simpleThreadDispatcher = new SimpleThreadDispatcher(Environment.ProcessorCount);
+            _threadDispatcher = new ThreadDispatcher(Environment.ProcessorCount);
 
 			base.Initialize();
 		}
@@ -108,7 +103,7 @@ namespace Testbed
 		protected override void LoadContent()
 		{
 			_hrSphere = Content.Load<Model>("HRGeoDome");
-			_hrSphereTransformations = new Matrix[_hrSphere.Bones.Count];
+			_hrSphereTransformations = new Microsoft.Xna.Framework.Matrix[_hrSphere.Bones.Count];
 			_hrSphere.CopyAbsoluteBoneTransformsTo(_hrSphereTransformations);
 
 			#region Ground and ceiling
@@ -208,11 +203,10 @@ namespace Testbed
 			if (_simulate)
 			{
 				float timeStep = Math.Min((float)gameTime.ElapsedGameTime.TotalSeconds, 1 / 60f);
-
 				if (timeStep == 0) timeStep = 1 / 60f;
 
 				//timeStep = timeStep / 5f; //Zpomalení simulace
-				_simulation.Timestep(timeStep, _simpleThreadDispatcher);
+				_simulation.Timestep(timeStep, _threadDispatcher);
 			}
 
 			if (this.IsActive)
@@ -224,7 +218,7 @@ namespace Testbed
 				_cih.CameraMovement(gameTime);
 
 				//if (_cih.PressedOnce(Keys.F12, Buttons.Start)) Info.Visible = !Info.Visible;
-				if (_cih.PressedOnce(mg.Back, Buttons.B)) _simulate = !_simulate;
+				if (_cih.PressedOnce(mg.F5, Buttons.B)) _simulate = !_simulate;
 				if (_cih.PressedOnce(mg.M, Buttons.X)) _draw = !_draw;
 				//if (_cih.PressedOnce(Keys.B, Buttons.DPadRight)) BallsConstraintsBuilderTest();
 				if (_cih.PressedOnce(mg.F2, Buttons.DPadLeft)) LoadBallsMapTest();
@@ -303,13 +297,13 @@ namespace Testbed
 						int ballsXLength = _balls[x].Length;
 						for (int i = 0; i < ballsXLength; i++)
 						{
-							Matrix ballWorldMatrix = Matrix.CreateFromQuaternion(
+							Microsoft.Xna.Framework.Matrix ballWorldMatrix = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(
 								new Quaternion(
 									_balls[x][i].BallReference.Pose.Orientation.X,
 									_balls[x][i].BallReference.Pose.Orientation.Y,
 									_balls[x][i].BallReference.Pose.Orientation.Z,
 									_balls[x][i].BallReference.Pose.Orientation.W))
-								* Matrix.CreateTranslation(
+								* Microsoft.Xna.Framework.Matrix.CreateTranslation(
 									_balls[x][i].BallReference.Pose.Position.X,
 									_balls[x][i].BallReference.Pose.Position.Y,
 									_balls[x][i].BallReference.Pose.Position.Z);
@@ -328,10 +322,9 @@ namespace Testbed
 
 		private void SetGraphics(bool windowed = false)
 		{
-			const int ENUM_CURRENT_SETTINS = -1;
 			DisplaySettings.DEVMODE devMode = default;
 			devMode.dmSize = (short)Marshal.SizeOf(devMode);
-			DisplaySettings.EnumDisplaySettings(null, ENUM_CURRENT_SETTINS, ref devMode);
+			DisplaySettings.EnumDisplaySettings(null, -1, ref devMode);
 
 			int mainScreenWidth = devMode.dmPelsWidth;
 			int mainScreenHeight = devMode.dmPelsHeight;
@@ -341,36 +334,31 @@ namespace Testbed
 			_graphics.IsFullScreen = !windowed;
 
 			_graphics.SynchronizeWithVerticalRetrace = true;
-			_graphics.PreferMultiSampling = _preferMultiSampling;
+
 			_graphics.ApplyChanges();
 
 			IsMouseVisible = false;
 			IsFixedTimeStep = false;
 		}
 
-		private void _graphics_PreparingDeviceSettings(object sender, PreparingDeviceSettingsEventArgs e)
+		private void Graphics_PreparingDeviceSettings(object sender, PreparingDeviceSettingsEventArgs e)
 		{
-			//Obnovovací frekvence vykreslování
 			e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = PresentInterval.Immediate; //Default
-
-			if (_preferHiDef && e.GraphicsDeviceInformation.Adapter.IsProfileSupported(GraphicsProfile.HiDef))
-				e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.HiDef;
-			else
-				e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.Reach;
+			e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.HiDef;
+			e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = 16;
 		}
 
 		private StaticReference CreateStatic(System.Numerics.Vector3 position, Box boundingBox)
 		{
             var shape = new CollidableDescription(_simulation.Shapes.Add(boundingBox), 0.1f).Shape;
 
-			return new StaticReference(_simulation.Statics.Add(
-				new StaticDescription(position, shape)), _simulation.Statics);
+			return new StaticReference(_simulation.Statics.Add(new StaticDescription(position, shape)), _simulation.Statics);
 		}
 
 		protected override void UnloadContent()
 		{
 			_simulation.Dispose();
-			_simpleThreadDispatcher.Dispose();
+			_threadDispatcher.Dispose();
 			_bufferPool.Clear();
 		}
 	}
