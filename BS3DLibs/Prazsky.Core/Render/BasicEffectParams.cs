@@ -2,23 +2,23 @@
 
 namespace Prazsky.Render
 {
-	/// <summary>
-	/// Představuje parametry světelných efektů pro třídu <see cref="Microsoft.Xna.Framework.Graphics.BasicEffect"/>.
-	/// </summary>
-	public class BasicEffectParams
+    /// <summary>
+    /// Represents the lighting effects parameters for the <see cref="Microsoft.Xna.Framework.Graphics.BasicEffect"/> class.
+    /// </summary>
+    public class BasicEffectParams
 	{
-		/// <summary>
-		/// Parametry světelného efektu.
-		/// </summary>
-		/// <param name="ambientLightColor">Barva ambientního osvětlení.</param>
-		/// <param name="specularColor">Barva odlesku.</param>
-		/// <param name="specularPower">Intenzita odlesku.</param>
-		/// <param name="emmisiveColor">Barva vyzařovaného světla.</param>
-		/// <param name="directionalLight0">Parametry prvního směrového osvětlení.</param>
-		/// <param name="directionalLight1">Parametry druhého směrového odvětlení.</param>
-		/// <param name="directionalLight2">Parametry třetího směrového osvětlení.</param>
-		/// <param name="fog">Parametry efektu mlhy.</param>
-		public BasicEffectParams(
+        /// <summary>
+        /// Light effect parameters.
+        /// </summary>
+        /// <param name="ambientLightColor">Ambient light color.</param>
+        /// <param name="specularColor">Specular color.</param>
+        /// <param name="specularPower">Specular power.</param>
+        /// <param name="emmisiveColor">The color of the emitted light.</param>
+        /// <param name="directionalLight0">Parameters of the first directional light.</param>
+        /// <param name="directionalLight1">Parameters of the second directional light.</param>
+        /// <param name="directionalLight2">Parameters of the third directional light.</param>
+        /// <param name="fog">Fog effect parameters.</param>
+        public BasicEffectParams(
 				Vector3 ambientLightColor,
 				Vector3 specularColor,
 				float specularPower,
@@ -38,116 +38,116 @@ namespace Prazsky.Render
 			Fog = fog;
 		}
 
-		/// <summary>
-		/// Barva ambientního osvětlení.
-		/// </summary>
-		public Vector3 AmbientLightColor { get; set; }
+        /// <summary>
+        /// Ambient light color.
+        /// </summary>
+        public Vector3 AmbientLightColor { get; set; }
 
-		/// <summary>
-		/// Barva odlesku.
-		/// </summary>
-		public Vector3 SpecularColor { get; set; }
+        /// <summary>
+        /// Specular color.
+        /// </summary>
+        public Vector3 SpecularColor { get; set; }
 
-		/// <summary>
-		/// Intenzita odlesku.
-		/// </summary>
-		public float SpecularPower { get; set; }
+        /// <summary>
+        /// Specular power.
+        /// </summary>
+        public float SpecularPower { get; set; }
 
-		/// <summary>
-		/// Barva vyzařovaného světla.
-		/// </summary>
-		public Vector3 EmmisiveColor { get; set; }
+        /// <summary>
+        /// The color of the emitted light.
+        /// </summary>
+        public Vector3 EmmisiveColor { get; set; }
 
-		/// <summary>
-		/// Parametry prvního směrového osvětlení.
-		/// </summary>
-		public DirectionalLightParams DirectionalLight0 { get; set; }
+        /// <summary>
+        /// Parameters of the first directional light.
+        /// </summary>
+        public DirectionalLightParams DirectionalLight0 { get; set; }
 
-		/// <summary>
-		/// Parametry druhého směrového osvětlení.
-		/// </summary>
-		public DirectionalLightParams DirectionalLight1 { get; set; }
+        /// <summary>
+        /// Parameters of the second directional light.
+        /// </summary>
+        public DirectionalLightParams DirectionalLight1 { get; set; }
 
-		/// <summary>
-		/// Parametry třetího směrového osvětlení.
-		/// </summary>
-		public DirectionalLightParams DirectionalLight2 { get; set; }
+        /// <summary>
+        /// Parameters of the third directional light.
+        /// </summary>
+        public DirectionalLightParams DirectionalLight2 { get; set; }
 
-		/// <summary>
-		/// Parametry efektu mlhy.
-		/// </summary>
-		public FogParams Fog { get; set; }
+        /// <summary>
+        /// Fog effect parameters.
+        /// </summary>
+        public FogParams Fog { get; set; }
 	}
 
-	/// <summary>
-	/// Představuje parametry směrového světla.
-	/// </summary>
-	public class DirectionalLightParams
+    /// <summary>
+    /// Represents directional light parameters.
+    /// </summary>
+    public class DirectionalLightParams
 	{
-		/// <summary>
-		/// Parametry směrového světla.
-		/// </summary>
-		/// <param name="direction">Směr světla.</param>
-		/// <param name="diffuseColor">Barva základní (rozptylové) složky světla.</param>
-		/// <param name="specularColor">Barva odlesku světla.</param>
-		public DirectionalLightParams(Vector3 direction, Vector3 diffuseColor, Vector3 specularColor)
+        /// <summary>
+        /// Directional light parameters.
+        /// </summary>
+        /// <param name="direction">Light direction.</param>
+        /// <param name="diffuseColor">The color of the basic (diffuse) light component.</param>
+        /// <param name="specularColor">The color of the light reflection.</param>
+        public DirectionalLightParams(Vector3 direction, Vector3 diffuseColor, Vector3 specularColor)
 		{
 			Direction = direction;
 			DiffuseColor = diffuseColor;
 			SpecularColor = specularColor;
 		}
 
-		/// <summary>
-		/// Směr světla.
-		/// </summary>
-		public Vector3 Direction { get; set; }
+        /// <summary>
+        /// Light direction.
+        /// </summary>
+        public Vector3 Direction { get; set; }
 
-		/// <summary>
-		/// Barva základní (rozptylové) složky světla.
-		/// </summary>
-		public Vector3 DiffuseColor { get; set; }
+        /// <summary>
+        /// The color of the basic (diffuse) light component.
+        /// </summary>
+        public Vector3 DiffuseColor { get; set; }
 
-		/// <summary>
-		/// Barva odlesku světla.
-		/// </summary>
-		public Vector3 SpecularColor { get; set; }
+        /// <summary>
+        /// The color of the light reflection.
+        /// </summary>
+        public Vector3 SpecularColor { get; set; }
 	}
 
-	/// <summary>
-	/// Představuje parametry efektu mlhy.
-	/// </summary>
-	public class FogParams
+    /// <summary>
+    /// Represents the fog effect parameters.
+    /// </summary>
+    public class FogParams
 	{
-		/// <summary>
-		/// Parametry efektu mlhy.
-		/// </summary>
-		/// <param name="fogColor">Barva mlhy.</param>
-		/// <param name="fogStart">Začátek mlhy v trojrozměrném světě jako vzdálenost od kamery
-		/// (<see cref="Simulation.Camera.ICamera"/>). Objekty před touto vzdáleností jsou plně viditelné.</param>
-		/// <param name="fogEnd">Konec mlhy v trojrozměrném světě jako vzdálenost od kamery
-		/// (<see cref="Simulation.Camera.ICamera"/>). Objekty za touto vzdáleností jsou zcela neviditelné.</param>
-		public FogParams(Vector3 fogColor, float fogStart, float fogEnd)
+        /// <summary>
+        /// Fog effect parameters.
+        /// </summary>
+        /// <param name="fogColor">The color of the fog.</param>
+        /// <param name="fogStart">The beginning of fog in a 3D world as the distance from the camera (<see cref="Simulation.Camera.ICamera"/>).
+        /// Objects in front of this distance are fully visible.</param>
+        /// <param name="fogEnd">The end of the fog in the 3D world as the distance from the camera (<see cref="Simulation.Camera.ICamera"/>).
+        /// Objects beyond this distance are completely invisible.</param>
+        public FogParams(Vector3 fogColor, float fogStart, float fogEnd)
 		{
 			FogColor = fogColor;
 			FogStart = fogStart;
 			FogEnd = fogEnd;
 		}
 
-		/// <summary>
-		/// Barva mlhy.
-		/// </summary>
-		public Vector3 FogColor { get; set; }
+        /// <summary>
+        /// The color of the fog.
+        /// </summary>
+        public Vector3 FogColor { get; set; }
 
-		/// <summary>
-		/// Začátek mlhy v trojrozměrném světě jako vzdálenost od kamery (<see cref="Simulation.Camera.ICamera"/>).
-		/// Objekty před touto vzdáleností jsou plně viditelné.
-		/// </summary>
-		public float FogStart { get; set; }
+        /// <summary>
+        /// The beginning of fog in a 3D world as the distance from the camera (<see cref="Simulation.Camera.ICamera"/>).
+        /// Objects in front of this distance are fully visible.
+        /// </summary>
+        public float FogStart { get; set; }
 
-		/// <summary>
-		/// Konec mlhy v trojrozměrném světě jako vzdálenost od kamery (<see cref="Simulation.Camera.ICamera"/>).
-		/// Objekty za touto vzdáleností jsou zcela neviditelné.
-		/// </summary>
-		public float FogEnd { get; set; }
+        /// <summary>
+        /// The end of the fog in the 3D world as the distance from the camera (<see cref="Simulation.Camera.ICamera"/>).
+        /// Objects beyond this distance are completely invisible.
+        /// </summary>
+        public float FogEnd { get; set; }
 	}
 }

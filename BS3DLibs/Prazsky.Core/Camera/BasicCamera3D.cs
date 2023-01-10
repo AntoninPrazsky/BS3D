@@ -3,10 +3,10 @@ using System;
 
 namespace Prazsky.Core.Camera
 {
-	/// <summary>
-	/// Představuje základní perspektivní kameru. Umožňuje pohyb po osách X, Y a Z a rotaci okolo os X a Y.
-	/// </summary>
-	public class BasicCamera3D : ICamera
+    /// <summary>
+    /// Represents a basic perspective camera. Allows movement along the X, Y and Z axes and rotation around the X and Y axes.
+    /// </summary>
+    public class BasicCamera3D : ICamera
 	{
 		private const float DEFAULT_FAR_PLANE_DISTANCE = 500f;
 		private const float DEFAULT_MOVE_SPEED = 0.01f;
@@ -25,13 +25,13 @@ namespace Prazsky.Core.Camera
 		private float _nearPlane = DEFAULT_NEAR_PLANE_DISTANCE;
 		private Vector3 _up = Vector3.Up;
 
-		/// <summary>
-		/// Konstruktor základní perspektivní kamery.
-		/// </summary>
-		/// <param name="position">Výchozí pozice kamery v trojrozměrném světě.</param>
-		/// <param name="aspectRatio">Poměr stran zobrazení (šířka ÷ délka).</param>
-		/// <param name="fieldOfView">Výchozí úhel zorného pole kamery v radiánech.</param>
-		public BasicCamera3D(Vector3 position, float aspectRatio, float fieldOfView = DEFAULT_FIELD_OF_VIEW)
+        /// <summary>
+        /// Constructor of basic perspective camera.
+        /// </summary>
+        /// <param name="position">Default camera position in the 3D world.</param>
+        /// <param name="aspectRatio">Display aspect ratio (width ÷ length).</param>
+        /// <param name="fieldOfView">Default camera field of view angle in radians (default is π ÷ 4).</param>
+        public BasicCamera3D(Vector3 position, float aspectRatio, float fieldOfView = DEFAULT_FIELD_OF_VIEW)
 		{
 			Position = position;
 			AspectRatio = aspectRatio;
@@ -41,58 +41,56 @@ namespace Prazsky.Core.Camera
 			Recalculate();
 		}
 
-		/// <summary>
-		/// Inkrement nebo dekrement pro pohyb kamery po osách X, Y a Z vyjádřený trojrozměrným vektorem.
-		/// </summary>
-		/// <param name="shift">Složky X, Y a Z vektoru vyjadřují inkrement nebo dekrement pohybu po odpovídajících
-		/// osách (běžně -1f až 1f).</param>
-		/// <param name="gameTime">Herní čas.</param>
-		public void Move(Vector3 shift, GameTime gameTime)
+        /// <summary>
+        /// The increment or decrement for moving the camera along the X, Y, and Z axes expressed as a three-dimensional vector.
+        /// </summary>
+        /// <param name="shift">The X, Y, and Z components of the vector express the increment or decrement of movement along the corresponding axes (typically -1f to 1f).</param>
+        /// <param name="gameTime">Game time.</param>
+        public void Move(Vector3 shift, GameTime gameTime)
 		{
-			//Pohyb kamery ve směru, kterým se dívá
+			//Moving the camera in the direction it is looking
 			Position += MoveSpeed *
 					Vector3.Transform(shift, GetCameraRotation()) *
 					(float)gameTime.ElapsedGameTime.TotalMilliseconds;
 			Recalculate();
 		}
 
-		/// <summary>
-		/// Inkrement nebo dekrement pro pohyb kamery po osách X, Y a Z.
-		/// </summary>
-		/// <param name="X">Inkrement nebo dekrement pohybu po ose X (běžně -1f až 1f).</param>
-		/// <param name="Y">Inkrement nebo dekrement pohybu po ose Y (běžně -1f až 1f).</param>
-		/// <param name="Z">Inkrement nebo dekrement pohybu po ose Z (běžně -1f až 1f).</param>
-		/// <param name="gameTime"></param>
-		public void Move(float X, float Y, float Z, GameTime gameTime)
+        /// <summary>
+        /// Increment or decrement to move the camera along the X, Y, and Z axes.
+        /// </summary>
+        /// <param name="X">Increment or decrement of movement along the X axis (typically -1f to 1f).</param>
+        /// <param name="Y">Increment or decrement of movement along the Y axis (typically -1f to 1f).</param>
+        /// <param name="Z">Increment or decrement of movement along the Z axis (typically -1f to 1f).</param>
+        /// <param name="gameTime">Game time.</param>
+        public void Move(float X, float Y, float Z, GameTime gameTime)
 		{
 			Move(new Vector3(X, Y, Z), gameTime);
 		}
 
-		/// <summary>
-		/// Inkrement nebo dekrement pro rotaci kamery okolo os X a Y vyjádřený dvourozměrným vektorem.
-		/// </summary>
-		/// <param name="rotation">Složky X a Y vektoru vyjadřují inkrement nebo dekrement rotace okolo odpovídajících
-		/// os (běžně -1f až 1f).</param>
-		/// <param name="gameTime">Herní čas.</param>
-		public void Rotate(Vector2 rotation, GameTime gameTime)
+        /// <summary>
+        /// Increment or decrement for rotating the camera around the X and Y axes expressed as a two-dimensional vector.
+        /// </summary>
+        /// <param name="rotation">The X and Y components of the vector express the increment or decrement of the rotation around the corresponding axes (typically -1f to 1f).</param>
+        /// <param name="gameTime">Game time.</param>
+        public void Rotate(Vector2 rotation, GameTime gameTime)
 		{
 			_rotationX += RotationSpeed * rotation.X * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 			_rotationY += RotationSpeed * rotation.Y * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-			//Hodnoty rotace by teoreticky mohly dosáhnout System.Single.MaxValue nebo System.Single.MinValue
-			if (_rotationX >= MathHelper.TwoPi || _rotationX <= -MathHelper.TwoPi) _rotationX = 0f;
+            //Rotation values could theoretically reach System.Single.MaxValue or System.Single.MinValue
+            if (_rotationX >= MathHelper.TwoPi || _rotationX <= -MathHelper.TwoPi) _rotationX = 0f;
 			if (_rotationY >= MathHelper.TwoPi || _rotationY <= -MathHelper.TwoPi) _rotationY = 0f;
 
 			Recalculate();
 		}
 
-		/// <summary>
-		/// Inkrement nebo dekrement pro rotaci kamery okolo os X a Y.
-		/// </summary>
-		/// <param name="X">Inkrement nebo dekrement rotace okolo osy X (běžně -1f až 1f).</param>
-		/// <param name="Y">Inkrement nebo dekrement rotace okolo osy Y (běžně -1f až 1f).</param>
-		/// <param name="gameTime">Herní čas.</param>
-		public void Rotate(float X, float Y, GameTime gameTime)
+        /// <summary>
+        /// Increment or decrement for rotating the camera around the X and Y axes.
+        /// </summary>
+        /// <param name="X">Increment or decrement of rotation around the X axis (typically -1f to 1f).</param>
+        /// <param name="Y">Increment or decrement of rotation around the Y axis (typically -1f to 1f).</param>
+        /// <param name="gameTime">Game time.</param>
+        public void Rotate(float X, float Y, GameTime gameTime)
 		{
 			Rotate(new Vector2(X, Y), gameTime);
 		}
@@ -104,71 +102,68 @@ namespace Prazsky.Core.Camera
 
 		public void Recalculate()
 		{
-			//Rotace kamery okolo osy X a Y
-			Matrix rotation = GetCameraRotation();
+            //Camera rotation around the X and Y axis
+            Matrix rotation = GetCameraRotation();
 
-			//Přepočítání bodu, do kterého se kamera dívá, na základě rotace kamery
-			_target = Position + Vector3.Transform(_defaultTarget, rotation);
+            //Recalculating the point the camera is looking at based on the camera rotation
+            _target = Position + Vector3.Transform(_defaultTarget, rotation);
 
-			//Přepočítání vektoru směřujícího relativně vzhůru od kamery
-			_up = Vector3.Transform(_defaultUp, rotation);
+            //Recalculating the vector pointing relatively up from the camera
+            _up = Vector3.Transform(_defaultUp, rotation);
 
 			RecalculateViewProjection(_up);
 		}
 
 		private void RecalculateViewProjection(Vector3 upVector)
 		{
-			//Přepočítání matice pohledu a projekce
-			View = Matrix.CreateLookAt(Position, _target, upVector);
+            //Recalculation of view matrix and projection matrix
+            View = Matrix.CreateLookAt(Position, _target, upVector);
 			Projection = Matrix.CreatePerspectiveFieldOfView(_fieldOfView, AspectRatio, _nearPlane, _farPlane);
 		}
 
-		#region Členové ICamera
+        #region ICamera members
 
-		/// <summary>
-		/// Vzdálenost zadní ořezové plochy od pozice kamery. Objekty za touto plochou se nezobrazují.
-		/// </summary>
-		public float FarPlane
+        /// <summary>
+        /// The distance of the rear clipping plane from the camera position. Objects behind this plane are not displayed.
+        /// </summary>
+        public float FarPlane
 		{
 			get => _farPlane;
 			set
 			{
-				if (value <= _nearPlane) throw new ArgumentException("Vzdálenost zadní ořezové plochy nemůže být " +
-						"menší nebo rovna vzdálenosti přední ořezové plochy.", "FarPlane");
+				if (value <= _nearPlane) throw new ArgumentException("The distance of the far cutting plane cannot be less than or equal to the distance of the near cutting plane.", "FarPlane");
 				_farPlane = value;
 			}
 		}
 
-		/// <summary>
-		/// Vzdálenost přední ořezové plochy od pozice kamery. Objekty před touto plochou se nezobrazují.
-		/// </summary>
-		public float NearPlane
+        /// <summary>
+        /// The distance of the near clipping plane from the camera position. Objects in front of this plane are not displayed.
+        /// </summary>
+        public float NearPlane
 		{
 			get => _nearPlane;
 			set
 			{
-				if (value >= _farPlane) throw new ArgumentException("Vzdálenost přední ořezové plochy nemůže být " +
-						"větší nebo rovna vzdálenosti zadní ořezové plochy.", "NearPlane");
-				if (value <= 0) throw new ArgumentException("Vzdálenost přední ořezové plochy nemůže být menší nebo " +
-						"rovna nule.", "NearPlane");
+				if (value >= _farPlane) throw new ArgumentException("The distance of the near clipping plane cannot be greater than or equal to the distance of the far clipping plane.", "NearPlane");
+				if (value <= 0) throw new ArgumentException("The distance of the near clipping plane cannot be less than or equal to zero.", "NearPlane");
 				_nearPlane = value;
 			}
 		}
 
-		/// <summary>
-		/// Pozice kamery v trojrozměrném světě.
-		/// </summary>
-		public Vector3 Position { get; set; }
+        /// <summary>
+        /// Camera position in a three-dimensional world.
+        /// </summary>
+        public Vector3 Position { get; set; }
 
 		/// <summary>
-		/// Matice projekce.
+		/// Projection matrix.
 		/// </summary>
 		public Matrix Projection { get; private set; }
 
-		/// <summary>
-		/// Bod v trojrozměrném prostoru, do kterého se kamera dívá.
-		/// </summary>
-		public Vector3 Target
+        /// <summary>
+        /// The point in three-dimensional space that the camera is looking at.
+        /// </summary>
+        public Vector3 Target
 		{
 			get => _target;
 			set
@@ -184,44 +179,43 @@ namespace Prazsky.Core.Camera
 			}
 		}
 
-		/// <summary>
-		/// Vektor udávající směr nahoru relativně ke kameře.
-		/// </summary>
-		public Vector3 Up { get => _up; }
+        /// <summary>
+        /// A vector indicating the upward direction relative to the camera.
+        /// </summary>
+        public Vector3 Up { get => _up; }
 
 		/// <summary>
-		/// Matice pohledu.
+		/// View matrix.
 		/// </summary>
 		public Matrix View { get; private set; }
 
-		#endregion Členové ICamera
+        #endregion ICamera members
 
-		#region Vlastnosti perspektivní a pohyblivé kamery
+        #region Perspective and moving camera features
 
-		/// <summary>
-		/// Poměr stran zobrazení.
-		/// </summary>
-		public float AspectRatio { get; set; }
+        /// <summary>
+        /// Display aspect ratio.
+        /// </summary>
+        public float AspectRatio { get; set; }
 
-		/// <summary>
-		/// Zorné pole kamery. Musí být větší než 0 a menší než π (0° - 180°). Jiné hodnoty jsou oříznuty do tohoto
-		/// intervalu.
-		/// </summary>
-		public float FieldOfView
+        /// <summary>
+        /// Camera field of view. It must be greater than 0 and less than π (0° - 180°). Other values are clipped to this interval.
+        /// </summary>
+        public float FieldOfView
 		{
 			get => _fieldOfView; set => _fieldOfView = MathHelper.Clamp(value, float.Epsilon, MathHelper.Pi);
 		}
 
-		/// <summary>
-		/// Relativní rychlost inkrementálního pohybu kamery.
-		/// </summary>
-		public float MoveSpeed { get; set; } = DEFAULT_MOVE_SPEED;
+        /// <summary>
+        /// Relative speed of incremental camera movement.
+        /// </summary>
+        public float MoveSpeed { get; set; } = DEFAULT_MOVE_SPEED;
 
-		/// <summary>
-		/// Relativní rychlost inkrementální rotace kamery.
-		/// </summary>
-		public float RotationSpeed { get; set; } = DEFAULT_ROTATION_SPEED;
+        /// <summary>
+        /// Relative speed of incremental camera rotation.
+        /// </summary>
+        public float RotationSpeed { get; set; } = DEFAULT_ROTATION_SPEED;
 
-		#endregion Vlastnosti perspektivní a pohyblivé kamery
-	}
+        #endregion Perspective and moving camera features
+    }
 }

@@ -48,8 +48,8 @@ namespace Prazsky.BS3D.Physics
                 {
                     for (int z = 0; z < zSize; z++)
                     {
-                        if (staticBalls[x, z, level] != null) //Je tady vůbec nějaká kulička?
-                        {
+                        if (staticBalls[x, z, level] != null) //Is there even a ball here?
+						{
                             BodyDescription bodyDescription = BodyDescription.CreateDynamic(
                                 staticBalls[x, z, level].GetPosition(),
                                 bodyInertia,

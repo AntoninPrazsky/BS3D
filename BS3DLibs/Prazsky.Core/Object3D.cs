@@ -6,71 +6,65 @@ using Prazsky.Core.Camera;
 namespace Prazsky.Core
 {
 	/// <summary>
-	/// Abstraktní třída představující trojrozměrný objekt.
+	/// An abstract class representing a three-dimensional object.
 	/// </summary>
 	public abstract class Object3D
 	{
 		/// <summary>
-		/// Matice transformací, které mají být aplikovány na model před jeho vykreslením.
+		/// Matrix of transformations to be applied to the model before it is rendered.
 		/// </summary>
 		protected Matrix[] Transformations;
 
 		/// <summary>
-		/// Matice světa.
+		/// World matrix.
 		/// </summary>
 		protected Matrix World { get; set; } = Matrix.Identity;
 
 		/// <summary>
-		/// Trojrozměrný model.
+		/// Three-dimensional model.
 		/// </summary>
 		protected Model Model { get; set; }
 
 		/// <summary>
-		/// Pozice trojrozměrného modelu v trojrozměrném světě.
+		/// The position of the three-dimensional model in the three-dimensional world.
 		/// </summary>
 		public Vector3 Position { get; set; } = Vector3.Zero;
 
 		/// <summary>
-		/// Aktivace nebo deaktivace defaultního tříbodového osvětelní trojrozměrného modelu, které je definováno
-		/// frameworkem MonoGame.
-		/// Skládá se z hlavního, doplňkového a zadního světla.
+		/// Activation or deactivation of the default three-point lighting, which is defined by the MonoGame framework.
+		/// It consists of a main, additional and rear light.
 		/// https://blogs.msdn.microsoft.com/shawnhar/2007/04/09/the-standard-lighting-rig/
 		/// </summary>
 		public bool EnableDefaultLighting { set; get; } = true;
 
 		/// <summary>
-		/// Aktivace nebo deaktivace výpočtu osvětlení pro každý pixel při vykreslování.
-		/// Při deaktivaci nebo pokud grafické zařízení tento způsob nepodporuje, je osvětlení aplikováno na základě
-		/// každého vrcholu modelu (vertex lighting).
+		/// Enable or disable lighting calculation for each pixel when rendering.
+		/// When disabled or if the graphics device does not support this method, lighting is applied based on each vertex of the model (vertex lighting).
 		/// </summary>
 		public bool PreferPerPixelLighting { set; get; } = true;
 
 		/// <summary>
-		/// Parametry třídy (<see cref="BasicEffect"/>) frameworku MonoGame pro vykreslování obsažené ve třídě
-		/// (<see cref="Render.BasicEffectParams"/>).
-		/// Používá se, pokud se nepoužívá defaultní osvětlení aktivované parametrem
-		/// (<see cref="EnableDefaultLighting"/>).
+		/// Parameters for the (<see cref="BasicEffect"/>).
+		/// Used if the default lighting activated by the parameter (<see cref="EnableDefaultLighting"/>) is not used.
 		/// </summary>
 		public BasicEffectParams BasicEffectParams { get; set; }
 
 		/// <summary>
-		/// Opsaná sféra trojrozměrného modelu. Pohybuje se v trojrozměrném světě společně s objektem.
+		/// Bounding sphere of the three-dimensional model. It moves in the three-dimensional world together with the object.
 		/// </summary>
 		public BoundingSphere BoundingSphere { get; set; }
 
 		/// <summary>
-		/// Opsaný kvádr typu AABB (axis-aligned bounding box) trojrozměrného modelu. Nepohybuje se společně s
-		/// objektem.
+		/// Axis-aligned bounding box (AABB) of a three-dimensional model. It does not move with the object.
 		/// </summary>
 		public BoundingBox BoundingBox { get; set; }
 
 		/// <summary>
-		/// Vykreslí jeden snímek trojrozměrného modelu na odpovídající pozici a s odpovídající rotací na základě
-		/// dvourozměrné fyzikální simulace.
-		/// Aplikuje buď vychozí efekt osvětlení, pokud je povolen parametrem <see cref="EnableDefaultLighting"/>, nebo
-		/// efekt definovaný parametrem <see cref="BasicEffectParams"/>, nebo žádný efekt.
+		/// Renders one frame of the three-dimensional model at the corresponding position and with the corresponding rotation.
+		/// Applies either the default lighting effect if enabled by the <see cref="EnableDefaultLighting"/> parameter, the effect defined by the
+		/// <see cref="BasicEffectParams"/> parameter, or no effect at all.
 		/// </summary>
-		/// <param name="camera">Kamera, která má být k vykreslení modelu použita.</param>
+		/// <param name="camera">The camera to be used to render the model.</param>
 		public void Draw(ICamera camera)
 		{
 			ModelRenderer.Render(Model, Transformations, ref camera, World, BasicEffectParams,

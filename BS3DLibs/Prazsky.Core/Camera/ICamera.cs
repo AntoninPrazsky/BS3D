@@ -2,44 +2,44 @@
 
 namespace Prazsky.Core.Camera
 {
-	/// <summary>
-	/// Vlastnosti, které musí mít každá kamera existující v trojrozměrném světě.
-	/// </summary>
-	public interface ICamera
+    /// <summary>
+    /// Properties that every camera existing in the three-dimensional world must have.
+    /// </summary>
+    public interface ICamera
 	{
 		/// <summary>
-		/// Matice pohledu.
+		/// View matrix.
 		/// </summary>
 		Matrix View { get; }
 
 		/// <summary>
-		/// Matice projekce.
+		/// Projection matrix.
 		/// </summary>
 		Matrix Projection { get; }
 
-		/// <summary>
-		/// Pozice kamery v trojrozměrném světě.
-		/// </summary>
-		Vector3 Position { get; }
+        /// <summary>
+        /// Camera position in a three-dimensional world.
+        /// </summary>
+        Vector3 Position { get; }
+
+        /// <summary>
+        /// The direction the camera is looking.
+        /// </summary>
+        Vector3 Target { get; }
+
+        /// <summary>
+        /// A vector representing the up direction of the camera.
+        /// </summary>
+        Vector3 Up { get; }
 
 		/// <summary>
-		/// Směr, kterým se kamera dívá.
-		/// </summary>
-		Vector3 Target { get; }
-
-		/// <summary>
-		/// Vektor představující směr nahoru kamery.
-		/// </summary>
-		Vector3 Up { get; }
-
-		/// <summary>
-		/// Přední ořezová plocha.
+		/// Near clipping plane.
 		/// </summary>
 		float NearPlane { get; set; }
 
-		/// <summary>
-		/// Zadní ořezová plocha.
-		/// </summary>
-		float FarPlane { get; set; }
+        /// <summary>
+        /// Far clipping plane.
+        /// </summary>
+        float FarPlane { get; set; }
 	}
 }
