@@ -7,8 +7,7 @@ namespace MapEditor
         [STAThread]
         private static void Main()
         {
-            using (var game = new MapEditor())
-                game.Run();
+            using (var game = new MapEditor()) game.Run();
         }
     }
 }
