@@ -8,4 +8,4 @@
   
 - Test maps for Testbed project are located in *\Testbed\Maps*
 
-- The font used to render the text is in the *\Font* directory
+- The font used to render the text is https://github.com/microsoft/cascadia-code
