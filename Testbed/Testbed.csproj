@@ -2,7 +2,6 @@
   <PropertyGroup>
 	<TargetFramework>net7.0-windows</TargetFramework>
     <OutputType>Exe</OutputType>
-    <ApplicationIcon>Icon.ico</ApplicationIcon>
     <StartupObject>Testbed.Program</StartupObject>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>Testbed</AssemblyName>
@@ -11,6 +10,7 @@
     <PackageIcon>Icon.ico</PackageIcon>
     <PackageIconUrl />
     <UseWindowsForms>True</UseWindowsForms>
+    <ApplicationIcon>Icon.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <DefineConstants>TRACE;RELEASE</DefineConstants>
@@ -30,6 +30,7 @@
     <MonoGameContentReference Remove="Content\obj\**" />
     <None Remove="Content\bin\**" />
     <None Remove="Content\obj\**" />
+    <Content Include="Icon.ico" />
     <None Include="Icon.ico">
       <Pack>True</Pack>
       <PackagePath></PackagePath>

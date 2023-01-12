@@ -19,7 +19,7 @@ using System.Text;
 using System.Windows.Forms;
 using Testbed.Helpers;
 using static Testbed.Simu;
-using mg = Microsoft.Xna.Framework.Input.Keys;
+using mgKeys = Microsoft.Xna.Framework.Input.Keys;
 
 namespace Testbed
 {
@@ -87,6 +87,7 @@ namespace Testbed
             Components.Add(_info);
 
             _cih = new CameraInputHelper(Camera3D, this);
+            _cih.CameraOffset = -30f;
 
             _staticBodies = new List<StaticBody>();
             _balls = new List<PhysicsBall[]>();
@@ -104,20 +105,20 @@ namespace Testbed
 
             _actions = new ButtonAction[]
             {
-                new ButtonAction(mg.Escape, Buttons.Back, Exit, "Exit"),
-                new ButtonAction(mg.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
-                new ButtonAction(mg.F5, Buttons.B, () => _simulate = !_simulate, "Stop/start simulation"),
-                new ButtonAction(mg.F6, Buttons.X, () => _draw = !_draw, "Hide/show 3D rendering"),
-                new ButtonAction(mg.F2, Buttons.DPadLeft, LoadBallsMapTest, "Load map"),
-                new ButtonAction(mg.Delete, Buttons.Start, RemoveAllConstraints, "Remove all constraints"),
-                new ButtonAction(mg.NumPad1, SwitchSkyDome, "Switch sky dome"),
-                new ButtonAction(mg.D0, PutBallAtZero, "Spawn ball at (0, 0, 0)"),
-                new ButtonAction(mg.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward), "Forward view"),
-				new ButtonAction(mg.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward), "Backward view"),
-				new ButtonAction(mg.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left), "Left view"),
-				new ButtonAction(mg.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right), "Right view"),
-				new ButtonAction(mg.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up), "Up view"),
-				new ButtonAction(mg.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down), "Down view"),
+                new ButtonAction(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
+                new ButtonAction(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
+                new ButtonAction(mgKeys.F5, Buttons.B, () => _simulate = !_simulate, "Stop/start simulation"),
+                new ButtonAction(mgKeys.F6, Buttons.X, () => _draw = !_draw, "Hide/show 3D rendering"),
+                new ButtonAction(mgKeys.F2, Buttons.DPadLeft, LoadBallsMapTest, "Load map"),
+                new ButtonAction(mgKeys.Delete, Buttons.Start, RemoveAllConstraints, "Remove all constraints"),
+                new ButtonAction(mgKeys.NumPad1, SwitchSkyDome, "Switch sky dome"),
+                new ButtonAction(mgKeys.D0, PutBallAtZero, "Spawn ball at (0, 0, 0)"),
+                new ButtonAction(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward), "Forward view"),
+				new ButtonAction(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward), "Backward view"),
+				new ButtonAction(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left), "Left view"),
+				new ButtonAction(mgKeys.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right), "Right view"),
+				new ButtonAction(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up), "Up view"),
+				new ButtonAction(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down), "Down view"),
 			};
 
             #endregion
