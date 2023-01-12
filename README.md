@@ -1,6 +1,6 @@
-# BS3D
-
 ![Screenshot](/Screenshots/screenshot1.png)
+
+# BS3D
 
 - Project needs references to:
   - https://github.com/bepu/bepuphysics2 (*BepuPhysics.dll*, *BepuUtilities.dll*)
