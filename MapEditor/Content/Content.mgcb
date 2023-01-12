@@ -33,12 +33,12 @@
 /processorParam:TextureFormat=Compressed
 /build:AABB.x
 
-#begin Fonts/aileron.spritefont
+#begin Fonts/cascadia.spritefont
 /importer:FontDescriptionImporter
 /processor:FontDescriptionProcessor
 /processorParam:PremultiplyAlpha=True
 /processorParam:TextureFormat=Compressed
-/build:Fonts/aileron.spritefont
+/build:Fonts/cascadia.spritefont
 
 #begin GUI/Selector.x
 /importer:XImporter

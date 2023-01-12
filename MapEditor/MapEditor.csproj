@@ -45,10 +45,7 @@
     <ProjectReference Include="..\BS3DLibs\Prazsky.Core\Prazsky.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <None Update="Content\Fonts\aileron.otf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Content\Fonts\aileron.spritefont">
+    <None Update="Content\Fonts\cascadia.spritefont">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

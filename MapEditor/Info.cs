@@ -36,7 +36,7 @@ namespace MapEditor
         protected override void LoadContent()
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
-            _font = _content.Load<SpriteFont>("Content/Fonts/Aileron");
+            _font = _content.Load<SpriteFont>("Content/Fonts/cascadia");
         }
 
         protected override void UnloadContent()
