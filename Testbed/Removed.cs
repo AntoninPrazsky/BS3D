@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace PyramidGenerator
+namespace Testbed
 {
 	class Removed
 	{

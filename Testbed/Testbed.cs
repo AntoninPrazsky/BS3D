@@ -11,7 +11,6 @@ using Prazsky.BS3D.Physics;
 using Prazsky.Core;
 using Prazsky.Core.Camera;
 using Prazsky.Render;
-using PyramidGenerator;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -96,6 +95,8 @@ namespace Testbed
                 new SolveDescription(8, 1));
 
             _threadDispatcher = new ThreadDispatcher(Environment.ProcessorCount);
+
+            Info.HintText = "This is a hint text\nThis is second line\nThis is third line";
 
             base.Initialize();
         }
@@ -234,10 +235,7 @@ namespace Testbed
                 if (_cih.PressedOnce(mg.D5)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up);
                 if (_cih.PressedOnce(mg.D6)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down);
 
-                if (_cih.PressedOnce(mg.D0))
-                {
-                    CreateBallAt(0, 0, 0);
-                }
+                if (_cih.PressedOnce(mg.D0)) CreateBallAt(0, 0, 0);
 
                 _cih.RegisterPreviousInputState();
             }
@@ -274,7 +272,7 @@ namespace Testbed
 
         protected override void Draw(GameTime gameTime)
         {
-            GraphicsDevice.Clear(Microsoft.Xna.Framework.Color.LightSlateGray);
+            GraphicsDevice.Clear(Color.LightSlateGray);
 
             _sky.Draw(Camera3D);
 

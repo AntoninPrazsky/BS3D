@@ -6,7 +6,7 @@
     <StartupObject>Testbed.Program</StartupObject>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>Testbed</AssemblyName>
-    <RootNamespace>PyramidGenerator</RootNamespace>
+    <RootNamespace>Testbed</RootNamespace>
     <Copyright>Antonín Pražský</Copyright>
     <PackageIcon>Icon.ico</PackageIcon>
     <PackageIconUrl />

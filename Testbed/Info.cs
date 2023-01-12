@@ -20,17 +20,13 @@ namespace Testbed
 
         private Vector2 _fpsPosition = new Vector2(20f, 10f);
         private Vector2 _customTextPosition = new Vector2(20f, 50f);
+        private Vector2 _hintTextPosition = new Vector2(10f, 200f);
         private string _fps;
 
         public string CustomText { get; set; }
+        public string HintText { get; set; }
 
-        public int CurrentFPS
-        {
-            get
-            {
-                return _frameRate;
-            }
-        }
+        public int CurrentFPS { get => _frameRate; }
 
         /// <summary>
         /// Constructor of the Info class for rendering FPS and other text information.
@@ -82,9 +78,10 @@ namespace Testbed
             RenderText(_fps, _fpsPosition);
 
             if (!string.IsNullOrEmpty(CustomText))
-            {
-                RenderTextScale(CustomText, _customTextPosition, 0.7f);
-            }
+                RenderTextScale(CustomText, _customTextPosition, 0.7f, Color.DarkGoldenrod);
+
+            if (!string.IsNullOrEmpty(HintText))
+                RenderTextScale(HintText, _hintTextPosition, 0.5f, Color.DarkBlue);
 
             _spriteBatch.End();
         }
@@ -95,7 +92,7 @@ namespace Testbed
             _spriteBatch.DrawString(_font, text, position, Color.DarkGray);
         }
 
-        private void RenderTextScale(string text, Vector2 position, float scale)
+        private void RenderTextScale(string text, Vector2 position, float scale, Color color)
         {
             _spriteBatch.DrawString(
                 _font,
@@ -112,7 +109,7 @@ namespace Testbed
                 _font,
                 text,
                 position,
-                Color.DarkGoldenrod,
+				color,
                 0f,
                 Vector2.Zero,
                 scale,
