@@ -15,7 +15,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows.Forms;
+using Testbed.Helpers;
 using static Testbed.Simu;
 using mg = Microsoft.Xna.Framework.Input.Keys;
 
@@ -47,6 +49,8 @@ namespace Testbed
         private SkyDome _sky;
         private Model _skyModel;
 
+        private ButtonAction[] _actions;
+
         #region Graphics
 
         private int _windowWidth;
@@ -55,7 +59,7 @@ namespace Testbed
         private GraphicsDeviceManager _graphics;
         private bool _windowed;
 
-        public Info Info { private set; get; }
+        private Info _info;
 
         #endregion Graphics
 
@@ -79,8 +83,8 @@ namespace Testbed
             IsMouseVisible = true;
 
             Camera3D = new BasicCamera3D(new Vector3(0f, -3f, 30f), GraphicsDevice.Viewport.AspectRatio);
-            Info = new Info(this) { DrawOrder = int.MaxValue };
-            Components.Add(Info);
+            _info = new Info(this) { DrawOrder = int.MaxValue };
+            Components.Add(_info);
 
             _cih = new CameraInputHelper(Camera3D, this);
 
@@ -96,7 +100,36 @@ namespace Testbed
 
             _threadDispatcher = new ThreadDispatcher(Environment.ProcessorCount);
 
-            Info.HintText = "This is a hint text\nThis is second line\nThis is third line";
+            #region Controls
+
+            _actions = new ButtonAction[]
+            {
+                new ButtonAction(mg.Escape, Buttons.Back, Exit, "Exit"),
+                new ButtonAction(mg.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
+                new ButtonAction(mg.F5, Buttons.B, () => _simulate = !_simulate, "Stop/start simulation"),
+                new ButtonAction(mg.F6, Buttons.X, () => _draw = !_draw, "Hide/show 3D rendering"),
+                new ButtonAction(mg.F2, Buttons.DPadLeft, LoadBallsMapTest, "Load map"),
+                new ButtonAction(mg.Delete, Buttons.Start, RemoveAllConstraints, "Remove all constraints"),
+                new ButtonAction(mg.NumPad1, SwitchSkyDome, "Switch sky dome"),
+                new ButtonAction(mg.D0, PutBallAtZero, "Spawn ball at (0, 0, 0)"),
+
+                new ButtonAction(mg.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward), "Forward view"),
+				new ButtonAction(mg.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward), "Backward view"),
+				new ButtonAction(mg.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left), "Left view"),
+				new ButtonAction(mg.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right), "Right view"),
+				new ButtonAction(mg.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up), "Up view"),
+				new ButtonAction(mg.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down), "Down view"),
+			};
+
+            #endregion
+
+            StringBuilder builder = new StringBuilder();
+            foreach (var act in _actions)
+            {
+                builder.Append(string.Format("{0,-9} {1}\n", act.Key.ToString(), act.Description));
+            }
+
+			_info.HintText = builder.ToString();
 
             base.Initialize();
         }
@@ -181,14 +214,14 @@ namespace Testbed
             map.Center();
 
             _balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
-            Info.CustomText = "Balls on scene: " + CountActiveBalls();
-            Info.CustomText += "\nConstraints count: " + _simulation.Solver.CountConstraints();
+            _info.CustomText = "Balls on scene: " + CountActiveBalls();
+            _info.CustomText += "\nConstraints count: " + _simulation.Solver.CountConstraints();
         }
 
-        private void CreateBallAt(byte x, byte y, byte z)
+        private void PutBallAtZero()
         {
             BallsMap map = new BallsMap(10, 10, 10, _hrSphere);
-            map.PutBallAt(x, y, z, eBallType.Type1);
+            map.PutBallAt(0, 0, 0, eBallType.Type1);
             _balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
         }
 
@@ -214,33 +247,13 @@ namespace Testbed
             {
                 _cih.RegisterCurrentInputState();
 
-                if (_cih.PressedOnce(mg.Escape, Buttons.Back)) Exit();
+                foreach (var action in _actions) if (_cih.PressedOnce(action.Key, action.Button)) action.Method();
 
                 _cih.CameraMovement(gameTime);
-
-                //if (_cih.PressedOnce(Keys.F12, Buttons.Start)) Info.Visible = !Info.Visible;
-                if (_cih.PressedOnce(mg.F5, Buttons.B)) _simulate = !_simulate;
-                if (_cih.PressedOnce(mg.M, Buttons.X)) _draw = !_draw;
-                //if (_cih.PressedOnce(Keys.B, Buttons.DPadRight)) BallsConstraintsBuilderTest();
-                if (_cih.PressedOnce(mg.F2, Buttons.DPadLeft)) LoadBallsMapTest();
-
-                if (_cih.PressedOnce(mg.Delete, Buttons.Start)) RemoveAllConstraints();
-
-                if (_cih.PressedOnce(mg.NumPad1)) SwitchSkyDome();
-
-                if (_cih.PressedOnce(mg.D1)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward);
-                if (_cih.PressedOnce(mg.D2)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward);
-                if (_cih.PressedOnce(mg.D3)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left);
-                if (_cih.PressedOnce(mg.D4)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right);
-                if (_cih.PressedOnce(mg.D5)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up);
-                if (_cih.PressedOnce(mg.D6)) _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down);
-
-                if (_cih.PressedOnce(mg.D0)) CreateBallAt(0, 0, 0);
-
                 _cih.RegisterPreviousInputState();
             }
 
-            _cih.MouseMovementDenominator = 5000f / Info.CurrentFPS; //Higher FPS → lower number
+            _cih.MouseMovementDenominator = 5000f / _info.CurrentFPS; //Higher FPS → lower number
 
             base.Update(gameTime);
         }
