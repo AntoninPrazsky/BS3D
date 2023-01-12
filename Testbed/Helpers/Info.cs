@@ -20,7 +20,7 @@ namespace Testbed.Helpers
 
         private Vector2 _fpsPosition = new Vector2(20f, 10f);
         private Vector2 _customTextPosition = new Vector2(20f, 50f);
-        private Vector2 _hintTextPosition = new Vector2(10f, 200f);
+        private Vector2 _hintTextPosition = new Vector2(20f, 120f);
         private string _fps;
 
         public string CustomText { get; set; }
@@ -81,7 +81,7 @@ namespace Testbed.Helpers
                 RenderTextScale(CustomText, _customTextPosition, 0.7f, Color.DarkGoldenrod);
 
             if (!string.IsNullOrEmpty(HintText))
-                RenderTextScale(HintText, _hintTextPosition, 0.5f, Color.DarkBlue);
+                RenderTextScale(HintText, _hintTextPosition, 0.5f, Color.Azure);
 
             _spriteBatch.End();
         }

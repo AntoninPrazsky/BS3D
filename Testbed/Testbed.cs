@@ -112,7 +112,6 @@ namespace Testbed
                 new ButtonAction(mg.Delete, Buttons.Start, RemoveAllConstraints, "Remove all constraints"),
                 new ButtonAction(mg.NumPad1, SwitchSkyDome, "Switch sky dome"),
                 new ButtonAction(mg.D0, PutBallAtZero, "Spawn ball at (0, 0, 0)"),
-
                 new ButtonAction(mg.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward), "Forward view"),
 				new ButtonAction(mg.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward), "Backward view"),
 				new ButtonAction(mg.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left), "Left view"),
@@ -124,11 +123,8 @@ namespace Testbed
             #endregion
 
             StringBuilder builder = new StringBuilder();
-            foreach (var act in _actions)
-            {
-                builder.Append(string.Format("{0,-9} {1}\n", act.Key.ToString(), act.Description));
-            }
-
+            foreach (var act in _actions) builder.Append(string.Format("{0,-9} {1}\n", act.Key.ToString(), act.Description));
+            
 			_info.HintText = builder.ToString();
 
             base.Initialize();
