@@ -3,7 +3,6 @@ using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.Core;
-using System.Data;
 
 namespace MapEditor.GUI
 {

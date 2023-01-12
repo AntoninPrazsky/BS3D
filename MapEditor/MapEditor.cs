@@ -64,11 +64,6 @@ namespace MapEditor
             Info = new Info(this) { DrawOrder = int.MaxValue };
             Components.Add(Info);
 
-            GraphicsDevice.RasterizerState = new RasterizerState { CullMode = CullMode.None, MultiSampleAntiAlias = true };
-            GraphicsDevice.BlendState = new BlendState() { AlphaSourceBlend = Blend.SourceAlpha, AlphaDestinationBlend = Blend.InverseSourceColor, ColorSourceBlend = Blend.SourceAlpha, ColorDestinationBlend = Blend.InverseSourceAlpha };
-            GraphicsDevice.PresentationParameters.MultiSampleCount = 4;
-            _graphics.ApplyChanges();
-
             _cih = new CameraInputHelper(Camera3D, this);
 
             base.Initialize();
@@ -224,7 +219,6 @@ namespace MapEditor
             _graphics.IsFullScreen = !windowed;
 
             _graphics.SynchronizeWithVerticalRetrace = true;
-            _graphics.PreferMultiSampling = true;
 
             _graphics.ApplyChanges();
 
