@@ -105,21 +105,21 @@ namespace Testbed
 
             _actions = new ButtonAction[]
             {
-                new ButtonAction(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
-                new ButtonAction(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
-                new ButtonAction(mgKeys.F5, Buttons.B, () => _simulate = !_simulate, "Stop/start simulation"),
-                new ButtonAction(mgKeys.F6, Buttons.X, () => _draw = !_draw, "Hide/show 3D rendering"),
-                new ButtonAction(mgKeys.F2, Buttons.DPadLeft, LoadBallsMapTest, "Load map"),
-                new ButtonAction(mgKeys.Delete, Buttons.Start, RemoveAllConstraints, "Remove all constraints"),
-                new ButtonAction(mgKeys.NumPad1, SwitchSkyDome, "Switch sky dome"),
-                new ButtonAction(mgKeys.D0, PutBallAtZero, "Spawn ball at (0, 0, 0)"),
-                new ButtonAction(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
-				new ButtonAction(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
-				new ButtonAction(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
-				new ButtonAction(mgKeys.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right, true), "Right view"),
-				new ButtonAction(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up, true), "Up view"),
-				new ButtonAction(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
-				new ButtonAction(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
+                new(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
+                new(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
+                new(mgKeys.F5, Buttons.B, () => _simulate = !_simulate, "Stop/start simulation"),
+                new(mgKeys.F6, Buttons.X, () => _draw = !_draw, "Hide/show 3D rendering"),
+                new(mgKeys.F2, Buttons.DPadLeft, LoadBallsMapTest, "Load map"),
+                new(mgKeys.Delete, Buttons.Start, RemoveAllConstraints, "Remove all constraints"),
+                new(mgKeys.NumPad1, SwitchSkyDome, "Switch sky dome"),
+                new(mgKeys.D0, PutBallAtZero, "Spawn ball at (0, 0, 0)"),
+                new(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
+				new(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
+				new(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
+				new(mgKeys.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right, true), "Right view"),
+				new(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up, true), "Up view"),
+				new(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
+				new(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
 			};
 
 			StringBuilder builder = new();
@@ -165,19 +165,19 @@ namespace Testbed
 
         private void BuildGroundAndCeiling()
         {
-            Box groundBox = new Box(30f, 1f, 30f);
+            Box groundBox = new(30f, 1f, 30f);
 
-            _staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new System.Numerics.Vector3(0f, -10f, 0f), groundBox)));
+            _staticBodies.Add(new(_groundModel3, CreateStatic(new(0f, -10f, 0f), groundBox)));
 
-            _staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new System.Numerics.Vector3(-30f, -9f, 0f), groundBox)));
-            _staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new System.Numerics.Vector3(30, -9f, 0f), groundBox)));
-            _staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new System.Numerics.Vector3(0f, -9f, 30f), groundBox)));
-            _staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new System.Numerics.Vector3(0f, -9f, -30f), groundBox)));
+            _staticBodies.Add(new(_groundModel3, CreateStatic(new(-30f, -9f, 0f), groundBox)));
+            _staticBodies.Add(new(_groundModel3, CreateStatic(new(30, -9f, 0f), groundBox)));
+            _staticBodies.Add(new(_groundModel3, CreateStatic(new(0f, -9f, 30f), groundBox)));
+            _staticBodies.Add(new(_groundModel3, CreateStatic(new(0f, -9f, -30f), groundBox)));
 
-            _staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new System.Numerics.Vector3(-30f, -9f, -30f), groundBox)));
-            _staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new System.Numerics.Vector3(30, -9f, 30f), groundBox)));
-            _staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new System.Numerics.Vector3(-30f, -9f, 30f), groundBox)));
-            _staticBodies.Add(new StaticBody(_groundModel3, CreateStatic(new System.Numerics.Vector3(30f, -9f, -30f), groundBox)));
+            _staticBodies.Add(new(_groundModel3, CreateStatic(new(-30f, -9f, -30f), groundBox)));
+            _staticBodies.Add(new(_groundModel3, CreateStatic(new(30, -9f, 30f), groundBox)));
+            _staticBodies.Add(new(_groundModel3, CreateStatic(new(-30f, -9f, 30f), groundBox)));
+            _staticBodies.Add(new(_groundModel3, CreateStatic(new(30f, -9f, -30f), groundBox)));
 
             Box box = new Box(10f, 1f, 10f);
             TypedIndex boxShapeIndex = _simulation.Shapes.Add(box);

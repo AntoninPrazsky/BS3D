@@ -71,36 +71,36 @@ namespace MapEditor
 
             _actions = new ButtonAction[]
             {
-                new ButtonAction(mgKeys.Up, Buttons.DPadUp, () => _selector.Move(Vector3.Forward), "Move selector forward"),
-				new ButtonAction(mgKeys.Down, Buttons.DPadDown, () => _selector.Move(Vector3.Backward), "Move selector backward"),
-				new ButtonAction(mgKeys.Left, Buttons.DPadLeft, () => _selector.Move(Vector3.Left), "Move selector left"),
-				new ButtonAction(mgKeys.Right, Buttons.DPadRight, () => _selector.Move(Vector3.Right), "Move selector right"),
-				new ButtonAction(mgKeys.PageUp, Buttons.RightShoulder, () => _selector.Move(Vector3.Up), "Move selector up"),
-				new ButtonAction(mgKeys.PageDown, Buttons.LeftShoulder, () => _selector.Move(Vector3.Down), "Move selector down"),
+                new(mgKeys.Up, Buttons.DPadUp, () => _selector.Move(Vector3.Forward), "Move selector forward"),
+				new(mgKeys.Down, Buttons.DPadDown,() => _selector.Move(Vector3.Backward), "Move selector backward"),
+				new(mgKeys.Left, Buttons.DPadLeft,() => _selector.Move(Vector3.Left), "Move selector left"),
+				new(mgKeys.Right, Buttons.DPadRight,() => _selector.Move(Vector3.Right), "Move selector right"),
+				new(mgKeys.PageUp, Buttons.RightShoulder,() => _selector.Move(Vector3.Up), "Move selector up"),
+				new(mgKeys.PageDown, Buttons.LeftShoulder,() => _selector.Move(Vector3.Down), "Move selector down"),
 
-				new ButtonAction(mgKeys.Space, Buttons.A, () => _selector.PutBall(), "Put ball"),
-				new ButtonAction(mgKeys.Delete, Buttons.B, () => _selector.RemoveBall(), "Remove ball"),
+				new(mgKeys.Space, Buttons.A,() => _selector.PutBall(), "Put ball"),
+				new(mgKeys.Delete, Buttons.B,() => _selector.RemoveBall(), "Remove ball"),
 
-				new ButtonAction(mgKeys.NumPad1, () => _selector.ChangeBallType(eBallType.Type1), "Change ball type to 1"),
-				new ButtonAction(mgKeys.NumPad2, () => _selector.ChangeBallType(eBallType.Type2), "Change ball type to 2"),
-				new ButtonAction(mgKeys.NumPad3, () => _selector.ChangeBallType(eBallType.Type3), "Change ball type to 3"),
+				new(mgKeys.NumPad1,() => _selector.ChangeBallType(eBallType.Type1), "Change ball type to 1"),
+				new(mgKeys.NumPad2,() => _selector.ChangeBallType(eBallType.Type2), "Change ball type to 2"),
+				new(mgKeys.NumPad3,() => _selector.ChangeBallType(eBallType.Type3), "Change ball type to 3"),
 
-				new ButtonAction(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
-				new ButtonAction(mgKeys.F12, () => Info.Visible = !Info.Visible, "Hide/show text overlay"),
+				new(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
+				new(mgKeys.F12,() => Info.Visible = ! Info.Visible, "Hide/show text overlay"),
 
-				new ButtonAction(mgKeys.N, Buttons.X, FullMapTest, "Fill entire map with balls"),
+				new(mgKeys.N, Buttons.X, FullMapTest, "Fill entire map with balls"),
 
-				new ButtonAction(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
-				new ButtonAction(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
-				new ButtonAction(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
-				new ButtonAction(mgKeys.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right, true), "Right view"),
-				new ButtonAction(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up, true), "Up view"),
-				new ButtonAction(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
+				new(mgKeys.D1,() => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
+				new(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
+				new(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
+				new(mgKeys.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right, true), "Right view"),
+				new(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up, true), "Up view"),
+				new(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
 
-				new ButtonAction(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
+				new(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
 
-				new ButtonAction(mgKeys.F1, Save, "Save map to file"),
-				new ButtonAction(mgKeys.F2, Load, "Load map from file"),
+				new(mgKeys.F1, Save, "Save map to file"),
+				new(mgKeys.F2, Load, "Load map from file"),
 			};
 
 			StringBuilder builder = new();
@@ -143,7 +143,7 @@ namespace MapEditor
 			string filePath = GetFilePathByDialog(true);
 			if (!string.IsNullOrEmpty(filePath))
 			{
-				Stopwatch stopwatch = new Stopwatch();
+				Stopwatch stopwatch = new();
 				stopwatch.Start();
 				_map.SerializeAsBinary(filePath);
 				stopwatch.Stop();
@@ -156,7 +156,7 @@ namespace MapEditor
 			string filePath = GetFilePathByDialog(false);
 			if (!string.IsNullOrEmpty(filePath))
 			{
-				Stopwatch stopwatch = new Stopwatch();
+				Stopwatch stopwatch = new();
 				stopwatch.Start();
 				_map.DeserializeBinary(filePath);
 				stopwatch.Stop();
@@ -191,7 +191,7 @@ namespace MapEditor
 
             if (save)
             {
-                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+                using (SaveFileDialog saveFileDialog = new())
                 {
                     saveFileDialog.InitialDirectory = Directory.GetCurrentDirectory();
                     saveFileDialog.Filter = "Levels (*.bin)|*.bin";
@@ -206,7 +206,7 @@ namespace MapEditor
                 return result;
             }
 
-            using (OpenFileDialog openFileDialog = new OpenFileDialog())
+            using (OpenFileDialog openFileDialog = new())
             {
                 openFileDialog.InitialDirectory = Directory.GetCurrentDirectory();
                 openFileDialog.Filter = "Levels (*.bin)|*.bin";
@@ -254,13 +254,13 @@ namespace MapEditor
             byte sizeZ = 10;
             byte levels = 10;
 
-            Stopwatch stopwatch = new Stopwatch();
+            Stopwatch stopwatch = new();
             stopwatch.Start();
 
             _map = new BallsMap(sizeX, sizeZ, levels, _hrSphere);
 
             Array ballTypes = Enum.GetValues(typeof(eBallType));
-            Random random = new Random();
+            Random random = new();
 			eBallType lastBallType = eBallType.Type1;
 
 			for (byte x = 0; x < sizeX; x++)
