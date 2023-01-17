@@ -238,7 +238,9 @@ namespace Prazsky.BS3D.Input
 
 			float step = (float)(Math.Cos(_piCount) + 1) / 2f;
 
+#if DEBUG
 			Console.WriteLine(step);
+#endif
 
 			//TODO: Camera rotation around sphere
 			_camera.Position = Vector3.Lerp(_startCameraPos, _endCameraPos, step);
