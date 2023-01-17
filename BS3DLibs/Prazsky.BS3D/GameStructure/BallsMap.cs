@@ -137,7 +137,7 @@ namespace Prazsky.BS3D.GameStructure
 
         public void DeserializeBinary(string fileName)
         {
-            if (string.IsNullOrEmpty(fileName)) return;
+            if (string.IsNullOrEmpty(fileName)) throw new ArgumentNullException(nameof(fileName));
 
             BallPositionTypes ballPositionTypes;
 

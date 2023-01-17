@@ -77,9 +77,16 @@ namespace Testbed
 
             Window.AllowUserResizing = true;
 			Window.ClientSizeChanged += Window_ClientSizeChanged;
+			Window.FileDrop += Window_FileDrop;
 
             SetGraphics(_windowed);
         }
+
+		private void Window_FileDrop(object sender, FileDropEventArgs e)
+		{
+			if (e.Files == null || e.Files.Length <= 0 || string.IsNullOrEmpty(e.Files[0])) return;
+			DeserializeMapFromFile(e.Files[0]);
+		}
 
 		private void Window_ClientSizeChanged(object sender, EventArgs e) => Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
 		
@@ -214,14 +221,19 @@ namespace Testbed
 
             if (string.IsNullOrEmpty(filePath)) return;
 
-            BallsMap map = new BallsMap(filePath, _hrSphere);
-
-            map.Center();
-
-            _balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
-            _info.CustomText = "Balls on scene: " + CountActiveBalls();
-            _info.CustomText += "\nConstraints count: " + _simulation.Solver.CountConstraints();
+            DeserializeMapFromFile(filePath);
         }
+
+        private void DeserializeMapFromFile(string filePath)
+        {
+			BallsMap map = new(filePath, _hrSphere);
+
+			map.Center();
+
+			_balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
+			_info.CustomText = "Balls on scene: " + CountActiveBalls();
+			_info.CustomText += "\nConstraints count: " + _simulation.Solver.CountConstraints();
+		}
 
         private void PutBallAtZero()
         {

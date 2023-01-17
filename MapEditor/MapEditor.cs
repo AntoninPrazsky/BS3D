@@ -53,9 +53,16 @@ namespace MapEditor
 
             Window.AllowUserResizing = true;
 			Window.ClientSizeChanged += Window_ClientSizeChanged;
+			Window.FileDrop += Window_FileDrop;
 
             SetGraphics(_windowed);
         }
+
+		private void Window_FileDrop(object sender, FileDropEventArgs e)
+		{
+            if (e.Files == null || e.Files.Length <= 0 || string.IsNullOrEmpty(e.Files[0])) return;
+            DeserializeMapFromFile(e.Files[0]);
+		}
 
 		private void Window_ClientSizeChanged(object sender, EventArgs e) => Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
 
@@ -156,14 +163,16 @@ namespace MapEditor
         private void Load()
         {
 			string filePath = GetFilePathByDialog(false);
-			if (!string.IsNullOrEmpty(filePath))
-			{
-				Stopwatch stopwatch = new();
-				stopwatch.Start();
-				_map.DeserializeBinary(filePath);
-				stopwatch.Stop();
-				Console.WriteLine($"Deserialize Binary (ms): {stopwatch.ElapsedMilliseconds}");
-			}
+            if (!string.IsNullOrEmpty(filePath)) DeserializeMapFromFile(filePath);
+		}
+
+        private void DeserializeMapFromFile(string filePath)
+        {
+			Stopwatch stopwatch = new();
+			stopwatch.Start();
+			_map.DeserializeBinary(filePath);
+			stopwatch.Stop();
+			Console.WriteLine($"Deserialize Binary (ms): {stopwatch.ElapsedMilliseconds}");
 		}
 
         protected override void Draw(GameTime gameTime)
