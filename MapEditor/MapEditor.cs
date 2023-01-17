@@ -24,8 +24,6 @@ namespace MapEditor
         private Selector _selector;
         private AABB _aabb;
 
-        private bool _draw = true;
-
         private CameraInputHelper _cih;
         private ButtonAction[] _actions;
 
@@ -89,7 +87,6 @@ namespace MapEditor
 
 				new ButtonAction(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
 				new ButtonAction(mgKeys.F12, () => Info.Visible = !Info.Visible, "Hide/show text overlay"),
-				new ButtonAction(mgKeys.F6, Buttons.X, () => _draw = !_draw, "Hide/show 3D rendering"),
 
 				new ButtonAction(mgKeys.N, Buttons.X, FullMapTest, "Fill entire map with balls"),
 
@@ -171,10 +168,7 @@ namespace MapEditor
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
-            if (_draw && _map != null)
-            {
-                _map.Draw(Camera3D);
-            }
+            if (_map != null) _map.Draw(Camera3D);
 
             _aabb.Draw(Camera3D);
 
