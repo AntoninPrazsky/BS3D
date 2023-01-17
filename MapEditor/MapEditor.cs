@@ -90,12 +90,12 @@ namespace MapEditor
 
 				new ButtonAction(mgKeys.N, Buttons.X, FullMapTest, "Fill entire map with balls"),
 
-				new ButtonAction(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward), "Forward view"),
-				new ButtonAction(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward), "Backward view"),
-				new ButtonAction(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left), "Left view"),
-				new ButtonAction(mgKeys.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right), "Right view"),
-				new ButtonAction(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up), "Up view"),
-				new ButtonAction(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down), "Down view"),
+				new ButtonAction(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
+				new ButtonAction(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
+				new ButtonAction(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
+				new ButtonAction(mgKeys.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right, true), "Right view"),
+				new ButtonAction(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up, true), "Up view"),
+				new ButtonAction(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
 
 				new ButtonAction(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
 
@@ -124,15 +124,17 @@ namespace MapEditor
 
         protected override void Update(GameTime gameTime)
         {
-            if (IsActive)
-            {
-                _cih.RegisterCurrentInputState();
+            if (!IsActive) return;
 
-				foreach (var action in _actions) if (_cih.PressedOnce(action.Key, action.Button)) action.Method();
+            _cih.RegisterCurrentInputState();
 
-				_cih.CameraMovement(gameTime);
-                _cih.RegisterPreviousInputState();
-            }
+			foreach (var action in _actions) if (_cih.PressedOnce(action.Key, action.Button)) action.Method();
+
+			_cih.CameraMovement(gameTime);
+            _cih.RegisterPreviousInputState();
+            
+            _cih.Update(gameTime);
+
             base.Update(gameTime);
         }
 
