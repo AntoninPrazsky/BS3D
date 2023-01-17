@@ -122,14 +122,15 @@ namespace Testbed
 				new ButtonAction(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
 			};
 
-            #endregion
+			StringBuilder builder = new();
+			foreach (var act in _actions) builder.Append(string.Format("{0,-9} {1}\n", act.Key.ToString(), act.Description));
 
-            StringBuilder builder = new StringBuilder();
-            foreach (var act in _actions) builder.Append(string.Format("{0,-9} {1}\n", act.Key.ToString(), act.Description));
-            
 			_info.HintText = builder.ToString();
 
-            base.Initialize();
+
+			#endregion
+
+			base.Initialize();
         }
 
         protected override void LoadContent()

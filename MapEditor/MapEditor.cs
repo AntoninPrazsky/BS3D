@@ -9,6 +9,7 @@ using Prazsky.Core.Render;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Windows.Forms;
 using mgKeys = Microsoft.Xna.Framework.Input.Keys;
 
@@ -105,9 +106,14 @@ namespace MapEditor
 				new ButtonAction(mgKeys.F2, Load, "Load map from file"),
 			};
 
-            #endregion
+			StringBuilder builder = new();
+			foreach (var act in _actions) builder.Append(string.Format("{0,-9} {1}\n", act.Key.ToString(), act.Description));
 
-            base.Initialize();
+			Info.HintText = builder.ToString();
+
+			#endregion
+
+			base.Initialize();
         }
 
         protected override void LoadContent()
