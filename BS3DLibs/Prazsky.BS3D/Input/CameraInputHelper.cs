@@ -29,7 +29,7 @@ namespace Prazsky.BS3D.Input
 
 		#region Animation
 
-		private const float PI_COUNT_STEP = 0.015f;
+		private const float PI_COUNT_STEP = 0.0015f;
 		private float _piCount = -MathHelper.Pi;
 
 		private bool _animateCamera = false;
@@ -225,7 +225,8 @@ namespace Prazsky.BS3D.Input
 		{
 			if (!_animateCamera) return;
 
-			if (_piCount <= MathHelper.Pi) _piCount += PI_COUNT_STEP;
+			float elapsedTime = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+			if (_piCount <= MathHelper.Pi) _piCount += PI_COUNT_STEP * elapsedTime;
 			else _piCount = -MathHelper.Pi;
 
 			if (!_animationStarted && _animateCamera)
@@ -233,6 +234,7 @@ namespace Prazsky.BS3D.Input
 				_piCount = -MathHelper.Pi;
 				_animationStarted = true;
 			}
+
 
 			float step = (float)(Math.Cos(_piCount) + 1) / 2f;
 
