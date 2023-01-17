@@ -6,10 +6,11 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Prazsky.BS3D.GameStructure;
-using Prazsky.BS3D.Helpers;
+using Prazsky.BS3D.Input;
 using Prazsky.BS3D.Physics;
 using Prazsky.Core;
 using Prazsky.Core.Camera;
+using Prazsky.Core.Render;
 using Prazsky.Render;
 using System;
 using System.Collections.Generic;
@@ -17,7 +18,6 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
-using Testbed.Helpers;
 using static Testbed.Simu;
 using mgKeys = Microsoft.Xna.Framework.Input.Keys;
 
@@ -59,7 +59,7 @@ namespace Testbed
         private GraphicsDeviceManager _graphics;
         private bool _windowed;
 
-        private Info _info;
+        private TextInfoRenderer _info;
 
         #endregion Graphics
 
@@ -83,7 +83,7 @@ namespace Testbed
             IsMouseVisible = true;
 
             Camera3D = new BasicCamera3D(new Vector3(0f, -3f, 30f), GraphicsDevice.Viewport.AspectRatio);
-            _info = new Info(this) { DrawOrder = int.MaxValue };
+            _info = new TextInfoRenderer(this, "Content/Fonts/cascadia") { DrawOrder = int.MaxValue };
             Components.Add(_info);
 
             _cih = new CameraInputHelper(Camera3D, this);
@@ -257,10 +257,7 @@ namespace Testbed
 
         private void RemoveAllStatics()
         {
-            foreach (var staticBody in _staticBodies)
-            {
-                _simulation.Statics.Remove(staticBody.StaticReference.Handle);
-            }
+            foreach (var staticBody in _staticBodies) _simulation.Statics.Remove(staticBody.StaticReference.Handle);
             _staticBodies.Clear();
         }
 

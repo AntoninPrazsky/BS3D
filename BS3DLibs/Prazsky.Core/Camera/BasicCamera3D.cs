@@ -131,7 +131,8 @@ namespace Prazsky.Core.Camera
 			get => _farPlane;
 			set
 			{
-				if (value <= _nearPlane) throw new ArgumentException("The distance of the far cutting plane cannot be less than or equal to the distance of the near cutting plane.", "FarPlane");
+				if (value <= _nearPlane)
+					throw new ArgumentException("The distance of the far cutting plane cannot be less than or equal to the distance of the near cutting plane.", "FarPlane");
 				_farPlane = value;
 			}
 		}
@@ -144,8 +145,10 @@ namespace Prazsky.Core.Camera
 			get => _nearPlane;
 			set
 			{
-				if (value >= _farPlane) throw new ArgumentException("The distance of the near clipping plane cannot be greater than or equal to the distance of the far clipping plane.", "NearPlane");
-				if (value <= 0) throw new ArgumentException("The distance of the near clipping plane cannot be less than or equal to zero.", "NearPlane");
+				if (value >= _farPlane)
+					throw new ArgumentException("The distance of the near clipping plane cannot be greater than or equal to the distance of the far clipping plane.", "NearPlane");
+				if (value <= 0)
+					throw new ArgumentException("The distance of the near clipping plane cannot be less than or equal to zero.", "NearPlane");
 				_nearPlane = value;
 			}
 		}

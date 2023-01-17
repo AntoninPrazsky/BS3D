@@ -1,7 +1,7 @@
 ﻿using Microsoft.Xna.Framework.Input;
 using System;
 
-namespace Testbed.Helpers
+namespace Prazsky.BS3D.Input
 {
 	public class ButtonAction
 	{

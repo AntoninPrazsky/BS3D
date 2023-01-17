@@ -3,8 +3,9 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Prazsky.BS3D.GameStructure;
-using Prazsky.BS3D.Helpers;
+using Prazsky.BS3D.Input;
 using Prazsky.Core.Camera;
+using Prazsky.Core.Render;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -34,7 +35,7 @@ namespace MapEditor
         private GraphicsDeviceManager _graphics;
         private bool _windowed;
 
-        public Info Info { private set; get; }
+        public TextInfoRenderer Info { private set; get; }
 
         #endregion Graphics
 
@@ -61,7 +62,7 @@ namespace MapEditor
             IsMouseVisible = true;
 
             Camera3D = new BasicCamera3D(new Vector3(0f, 0f, 30f), GraphicsDevice.Viewport.AspectRatio);
-            Info = new Info(this) { DrawOrder = int.MaxValue };
+            Info = new TextInfoRenderer(this, "Content/Fonts/cascadia") { DrawOrder = int.MaxValue };
             Components.Add(Info);
 
             _cih = new CameraInputHelper(Camera3D, this);

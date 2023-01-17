@@ -3,7 +3,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net7.0-windows</TargetFramework>
     <ApplicationIcon>Icon.ico</ApplicationIcon>
-    <StartupObject />
+    <StartupObject>MapEditor.Program</StartupObject>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>MapEditor</AssemblyName>
     <RootNamespace>MapEditor</RootNamespace>
