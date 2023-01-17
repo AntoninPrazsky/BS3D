@@ -119,6 +119,7 @@ namespace Testbed
 				new ButtonAction(mgKeys.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right), "Right view"),
 				new ButtonAction(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up), "Up view"),
 				new ButtonAction(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down), "Down view"),
+				new ButtonAction(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
 			};
 
             #endregion
@@ -240,7 +241,7 @@ namespace Testbed
                 _simulation.Timestep(timeStep, _threadDispatcher);
             }
 
-            if (this.IsActive)
+            if (IsActive)
             {
                 _cih.RegisterCurrentInputState();
 

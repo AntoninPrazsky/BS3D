@@ -26,6 +26,7 @@ namespace MapEditor
         private bool _draw = true;
 
         private CameraInputHelper _cih;
+        private ButtonAction[] _actions;
 
         #region Graphics
 
@@ -67,6 +68,45 @@ namespace MapEditor
 
             _cih = new CameraInputHelper(Camera3D, this);
 
+            #region Controls
+
+            _actions = new ButtonAction[]
+            {
+                new ButtonAction(mgKeys.Up, Buttons.DPadUp, () => _selector.Move(Vector3.Forward), "Move selector forward"),
+				new ButtonAction(mgKeys.Down, Buttons.DPadDown, () => _selector.Move(Vector3.Backward), "Move selector backward"),
+				new ButtonAction(mgKeys.Left, Buttons.DPadLeft, () => _selector.Move(Vector3.Left), "Move selector left"),
+				new ButtonAction(mgKeys.Right, Buttons.DPadRight, () => _selector.Move(Vector3.Right), "Move selector right"),
+				new ButtonAction(mgKeys.PageUp, Buttons.RightShoulder, () => _selector.Move(Vector3.Up), "Move selector up"),
+				new ButtonAction(mgKeys.PageDown, Buttons.LeftShoulder, () => _selector.Move(Vector3.Down), "Move selector down"),
+
+				new ButtonAction(mgKeys.Space, Buttons.A, () => _selector.PutBall(), "Put ball"),
+				new ButtonAction(mgKeys.Delete, Buttons.B, () => _selector.RemoveBall(), "Remove ball"),
+
+				new ButtonAction(mgKeys.NumPad1, () => _selector.ChangeBallType(eBallType.Type1), "Change ball type to 1"),
+				new ButtonAction(mgKeys.NumPad2, () => _selector.ChangeBallType(eBallType.Type2), "Change ball type to 2"),
+				new ButtonAction(mgKeys.NumPad3, () => _selector.ChangeBallType(eBallType.Type3), "Change ball type to 3"),
+
+				new ButtonAction(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
+				new ButtonAction(mgKeys.F12, () => Info.Visible = !Info.Visible, "Hide/show text overlay"),
+				new ButtonAction(mgKeys.F6, Buttons.X, () => _draw = !_draw, "Hide/show 3D rendering"),
+
+				new ButtonAction(mgKeys.N, Buttons.X, FullMapTest, "Fill entire map with balls"),
+
+				new ButtonAction(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward), "Forward view"),
+				new ButtonAction(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward), "Backward view"),
+				new ButtonAction(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left), "Left view"),
+				new ButtonAction(mgKeys.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right), "Right view"),
+				new ButtonAction(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up), "Up view"),
+				new ButtonAction(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down), "Down view"),
+
+				new ButtonAction(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
+
+				new ButtonAction(mgKeys.F1, Save, "Save map to file"),
+				new ButtonAction(mgKeys.F2, Load, "Load map from file"),
+			};
+
+            #endregion
+
             base.Initialize();
         }
 
@@ -79,79 +119,45 @@ namespace MapEditor
             _aabb = new AABB(Content);
         }
 
-        private void SelectorControl()
-        {
-            if (_cih.PressedOnce(mgKeys.Up, Buttons.DPadUp)) _selector.Move(Vector3.Forward);
-            if (_cih.PressedOnce(mgKeys.Down, Buttons.DPadDown)) _selector.Move(Vector3.Backward);
-            if (_cih.PressedOnce(mgKeys.Left, Buttons.DPadLeft)) _selector.Move(Vector3.Left);
-            if (_cih.PressedOnce(mgKeys.Right, Buttons.DPadRight)) _selector.Move(Vector3.Right);
-            if (_cih.PressedOnce(mgKeys.PageUp, Buttons.RightShoulder)) _selector.Move(Vector3.Up);
-            if (_cih.PressedOnce(mgKeys.PageDown, Buttons.LeftShoulder)) _selector.Move(Vector3.Down);
-
-            if (_cih.PressedOnce(mgKeys.Space, Buttons.A)) _selector.PutBall();
-            if (_cih.PressedOnce(mgKeys.Delete, Buttons.B)) _selector.RemoveBall();
-
-            if (_cih.PressedOnce(mgKeys.NumPad1)) _selector.ChangeBallType(eBallType.Type1);
-            if (_cih.PressedOnce(mgKeys.NumPad2)) _selector.ChangeBallType(eBallType.Type2);
-            if (_cih.PressedOnce(mgKeys.NumPad3)) _selector.ChangeBallType(eBallType.Type3);
-        }
-
         protected override void Update(GameTime gameTime)
         {
-            if (this.IsActive)
+            if (IsActive)
             {
                 _cih.RegisterCurrentInputState();
 
-                if (_cih.PressedOnce(mgKeys.Escape, Buttons.Back)) Exit();
+				foreach (var action in _actions) if (_cih.PressedOnce(action.Key, action.Button)) action.Method();
 
-                SelectorControl();
-
-                _cih.CameraMovement(gameTime);
-
-                if (_cih.PressedOnce(mgKeys.F12, Buttons.Start)) Info.Visible = !Info.Visible;
-                if (_cih.PressedOnce(mgKeys.M, Buttons.X)) _draw = !_draw;
-
-                if (_cih.PressedOnce(mgKeys.N)) FullMapTest();
-
-                if (_cih.PressedOnce(mgKeys.D1)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Forward);
-                if (_cih.PressedOnce(mgKeys.D2)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Backward);
-                if (_cih.PressedOnce(mgKeys.D3)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Left);
-                if (_cih.PressedOnce(mgKeys.D4)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Right);
-                if (_cih.PressedOnce(mgKeys.D5)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Up);
-                if (_cih.PressedOnce(mgKeys.D6)) _cih.CenterCameraToMapCenter(_map.GetStaticBallsMapCenter(), Vector3.Down);
-
-                if (_cih.PressedOnce(mgKeys.R)) _cih.RestartCamera();
-
-                if (_cih.PressedOnce(mgKeys.F1))
-                {
-                    string filePath = GetFilePathByDialog(true);
-                    if (!string.IsNullOrEmpty(filePath))
-                    {
-                        Stopwatch stopwatch = new Stopwatch();
-                        stopwatch.Start();
-                        _map.SerializeAsBinary(filePath);
-                        stopwatch.Stop();
-                        Console.WriteLine($"Serialize Binary (ms): {stopwatch.ElapsedMilliseconds}");
-                    }
-                }
-
-                if (_cih.PressedOnce(mgKeys.F2))
-                {
-                    string filePath = GetFilePathByDialog(false);
-                    if (!string.IsNullOrEmpty(filePath))
-                    {
-                        Stopwatch stopwatch = new Stopwatch();
-                        stopwatch.Start();
-                        _map.DeserializeBinary(filePath);
-                        stopwatch.Stop();
-                        Console.WriteLine($"Deserialize Binary (ms): {stopwatch.ElapsedMilliseconds}");
-                    }
-                }
-
+				_cih.CameraMovement(gameTime);
                 _cih.RegisterPreviousInputState();
             }
             base.Update(gameTime);
         }
+
+        private void Save()
+        {
+			string filePath = GetFilePathByDialog(true);
+			if (!string.IsNullOrEmpty(filePath))
+			{
+				Stopwatch stopwatch = new Stopwatch();
+				stopwatch.Start();
+				_map.SerializeAsBinary(filePath);
+				stopwatch.Stop();
+				Console.WriteLine($"Serialize Binary (ms): {stopwatch.ElapsedMilliseconds}");
+			}
+		}
+
+        private void Load()
+        {
+			string filePath = GetFilePathByDialog(false);
+			if (!string.IsNullOrEmpty(filePath))
+			{
+				Stopwatch stopwatch = new Stopwatch();
+				stopwatch.Start();
+				_map.DeserializeBinary(filePath);
+				stopwatch.Stop();
+				Console.WriteLine($"Deserialize Binary (ms): {stopwatch.ElapsedMilliseconds}");
+			}
+		}
 
         protected override void Draw(GameTime gameTime)
         {
