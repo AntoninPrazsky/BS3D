@@ -39,10 +39,7 @@ namespace MapEditor
 
         #endregion Graphics
 
-        public MapEditor(
-            bool windowed = true,
-            int windowWidth = 1920,
-            int windowHeight = 1080)
+        public MapEditor(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
         {
             _windowed = windowed;
 
@@ -54,10 +51,15 @@ namespace MapEditor
             _windowWidth = windowWidth;
             _windowHeight = windowHeight;
 
+            Window.AllowUserResizing = true;
+			Window.ClientSizeChanged += Window_ClientSizeChanged;
+
             SetGraphics(_windowed);
         }
 
-        protected override void Initialize()
+		private void Window_ClientSizeChanged(object sender, EventArgs e) => Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
+
+		protected override void Initialize()
         {
             IsMouseVisible = true;
 

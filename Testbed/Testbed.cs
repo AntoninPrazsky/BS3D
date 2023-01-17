@@ -75,10 +75,16 @@ namespace Testbed
             _windowWidth = windowWidth;
             _windowHeight = windowHeight;
 
+            Window.AllowUserResizing = true;
+			Window.ClientSizeChanged += Window_ClientSizeChanged;
+
             SetGraphics(_windowed);
         }
 
-        protected override void Initialize()
+		private void Window_ClientSizeChanged(object sender, EventArgs e) => Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
+		
+
+		protected override void Initialize()
         {
             IsMouseVisible = true;
 

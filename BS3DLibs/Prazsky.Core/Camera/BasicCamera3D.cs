@@ -21,6 +21,7 @@ namespace Prazsky.Core.Camera
 		private Vector3 _target;
 
 		private float _fieldOfView;
+		private float _aspectRatio;
 		private float _farPlane = DEFAULT_FAR_PLANE_DISTANCE;
 		private float _nearPlane = DEFAULT_NEAR_PLANE_DISTANCE;
 		private Vector3 _up = Vector3.Up;
@@ -34,7 +35,7 @@ namespace Prazsky.Core.Camera
         public BasicCamera3D(Vector3 position, float aspectRatio, float fieldOfView = DEFAULT_FIELD_OF_VIEW)
 		{
 			Position = position;
-			AspectRatio = aspectRatio;
+			_aspectRatio = aspectRatio;
 			FieldOfView = fieldOfView;
 			_target = _defaultTarget;
 
@@ -118,7 +119,7 @@ namespace Prazsky.Core.Camera
 		{
             //Recalculation of view matrix and projection matrix
             View = Matrix.CreateLookAt(Position, _target, upVector);
-			Projection = Matrix.CreatePerspectiveFieldOfView(_fieldOfView, AspectRatio, _nearPlane, _farPlane);
+			Projection = Matrix.CreatePerspectiveFieldOfView(_fieldOfView, _aspectRatio, _nearPlane, _farPlane);
 		}
 
         #region ICamera members
@@ -199,7 +200,15 @@ namespace Prazsky.Core.Camera
         /// <summary>
         /// Display aspect ratio.
         /// </summary>
-        public float AspectRatio { get; set; }
+        public float AspectRatio 
+		{
+			get => _aspectRatio;
+			set
+			{
+				_aspectRatio = value;
+				Recalculate();
+			}
+		}
 
         /// <summary>
         /// Camera field of view. It must be greater than 0 and less than π (0° - 180°). Other values are clipped to this interval.
