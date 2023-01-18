@@ -14,7 +14,7 @@ namespace Prazsky.Core.Camera
 		private const float DEFAULT_ROTATION_SPEED = 0.001f;
 		private const float DEFAULT_FIELD_OF_VIEW = MathHelper.PiOver4;
 
-		private Vector3 _defaultTarget = new Vector3(0, 0, -1);
+		private Vector3 _defaultTarget = new(0, 0, -1);
 		private Vector3 _defaultUp = Vector3.Up;
 		private float _rotationX = 0f;
 		private float _rotationY = 0f;
@@ -26,13 +26,17 @@ namespace Prazsky.Core.Camera
 		private float _nearPlane = DEFAULT_NEAR_PLANE_DISTANCE;
 		private Vector3 _up = Vector3.Up;
 
-        /// <summary>
-        /// Constructor of basic perspective camera.
-        /// </summary>
-        /// <param name="position">Default camera position in the 3D world.</param>
-        /// <param name="aspectRatio">Display aspect ratio (width ÷ length).</param>
-        /// <param name="fieldOfView">Default camera field of view angle in radians (default is π ÷ 4).</param>
-        public BasicCamera3D(Vector3 position, float aspectRatio, float fieldOfView = DEFAULT_FIELD_OF_VIEW)
+		private bool _circularMovementEnabled = false;
+		private Vector3 _circleOrigin = Vector3.Zero;
+		private float _circleRadius = 10f;
+
+		/// <summary>
+		/// Constructor of basic perspective camera.
+		/// </summary>
+		/// <param name="position">Default camera position in the 3D world.</param>
+		/// <param name="aspectRatio">Display aspect ratio (width ÷ length).</param>
+		/// <param name="fieldOfView">Default camera field of view angle in radians (default is π ÷ 4).</param>
+		public BasicCamera3D(Vector3 position, float aspectRatio, float fieldOfView = DEFAULT_FIELD_OF_VIEW)
 		{
 			Position = position;
 			_aspectRatio = aspectRatio;

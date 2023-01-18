@@ -242,7 +242,6 @@ namespace Prazsky.BS3D.Input
 			Console.WriteLine(step);
 #endif
 
-			//TODO: Camera rotation around sphere
 			_camera.Position = Vector3.Lerp(_startCameraPos, _endCameraPos, step);
 			_camera.Target = Vector3.Lerp(_startCameraTarget, _endCameraTarget, step);
 			_camera.Recalculate();
