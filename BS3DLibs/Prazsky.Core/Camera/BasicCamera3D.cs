@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using System;
+using System.Globalization;
 
 namespace Prazsky.Core.Camera
 {
@@ -26,9 +27,9 @@ namespace Prazsky.Core.Camera
 		private float _nearPlane = DEFAULT_NEAR_PLANE_DISTANCE;
 		private Vector3 _up = Vector3.Up;
 
-		private bool _circularMovementEnabled = false;
-		private Vector3 _circleOrigin = Vector3.Zero;
-		private float _circleRadius = 10f;
+		private Vector3 _circleOrigin = new(0, 0, -1);
+		private float _circleRadius = 30f;
+		private float _t = MathHelper.Pi / 2f;
 
 		/// <summary>
 		/// Constructor of basic perspective camera.
@@ -57,11 +58,12 @@ namespace Prazsky.Core.Camera
 			Position += MoveSpeed *
 					Vector3.Transform(shift, GetCameraRotation()) *
 					(float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
 			Recalculate();
 		}
 
         /// <summary>
-        /// Increment or decrement to move the camera along the X, Y, and Z axes.
+        /// Increment or decrement for moving the camera along the X, Y, and Z axes.
         /// </summary>
         /// <param name="X">Increment or decrement of movement along the X axis (typically -1f to 1f).</param>
         /// <param name="Y">Increment or decrement of movement along the Y axis (typically -1f to 1f).</param>
@@ -72,12 +74,39 @@ namespace Prazsky.Core.Camera
 			Move(new Vector3(X, Y, Z), gameTime);
 		}
 
-        /// <summary>
-        /// Increment or decrement for rotating the camera around the X and Y axes expressed as a two-dimensional vector.
-        /// </summary>
-        /// <param name="rotation">The X and Y components of the vector express the increment or decrement of the rotation around the corresponding axes (typically -1f to 1f).</param>
-        /// <param name="gameTime">Game time.</param>
-        public void Rotate(Vector2 rotation, GameTime gameTime)
+		public void MoveCircular(float delta, GameTime gameTime)
+		{
+			// x = a + r * cos(t)
+			// y = b + r * sin(t)
+			// t: 0 → 2π
+			// (a, b): origin
+			// r: radius
+
+			// TODO: Compute t from current camera position? I will have to compute new origin based on radius (ray to current camera target)
+
+			_t += MoveSpeed * delta * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+			while (_t > MathHelper.TwoPi) _t -= MathHelper.TwoPi;
+			while (_t < 0f) _t += MathHelper.TwoPi;
+
+			float x = _circleOrigin.X + _circleRadius * (float)Math.Cos(_t);
+			float z = _circleOrigin.Y + _circleRadius * (float)Math.Sin(_t);
+
+			Position = new(x, Position.Y, z);
+			Target = _circleOrigin;
+
+#if DEBUG
+			Console.Write(Target);
+			Console.WriteLine(Position);
+#endif
+		}
+
+		/// <summary>
+		/// Increment or decrement for rotating the camera around the X and Y axes expressed as a two-dimensional vector.
+		/// </summary>
+		/// <param name="rotation">The X and Y components of the vector express the increment or decrement of the rotation around the corresponding axes (typically -1f to 1f).</param>
+		/// <param name="gameTime">Game time.</param>
+		public void Rotate(Vector2 rotation, GameTime gameTime)
 		{
 			_rotationX += RotationSpeed * rotation.X * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 			_rotationY += RotationSpeed * rotation.Y * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
@@ -100,9 +129,19 @@ namespace Prazsky.Core.Camera
 			Rotate(new Vector2(X, Y), gameTime);
 		}
 
-		private Matrix GetCameraRotation()
+		/// <summary>
+		/// Sets properties used for circular camera movement.
+		/// </summary>
+		/// <param name="circleOrigin">Circle origin (the camera will look at this point).</param>
+		/// <param name="circleRadius">Circle radius (the camera will be this far from the circle origin). Must be greater than 0.</param>
+		/// <param name="t">Parametric variable in the range from 0 to 2π (different values are clamped).</param>
+		public void SetCircularMovementProperties(Vector3 circleOrigin, float circleRadius = 30f, float t = MathHelper.Pi / 2f)
 		{
-			return Matrix.CreateRotationX(_rotationX) * Matrix.CreateRotationY(_rotationY);
+			if (circleRadius <= 0f) throw new ArgumentOutOfRangeException(nameof(circleRadius), "Circle radius must be greater than 0.");
+
+			_circleOrigin = circleOrigin;
+			_circleRadius = circleRadius;
+			_t = Math.Clamp(t, 0f, MathHelper.TwoPi);
 		}
 
 		public void Recalculate()
@@ -126,12 +165,17 @@ namespace Prazsky.Core.Camera
 			Projection = Matrix.CreatePerspectiveFieldOfView(_fieldOfView, _aspectRatio, _nearPlane, _farPlane);
 		}
 
-        #region ICamera members
+		private Matrix GetCameraRotation()
+		{
+			return Matrix.CreateRotationX(_rotationX) * Matrix.CreateRotationY(_rotationY);
+		}
 
-        /// <summary>
-        /// The distance of the rear clipping plane from the camera position. Objects behind this plane are not displayed.
-        /// </summary>
-        public float FarPlane
+		#region ICamera members
+
+		/// <summary>
+		/// The distance of the rear clipping plane from the camera position. Objects behind this plane are not displayed.
+		/// </summary>
+		public float FarPlane
 		{
 			get => _farPlane;
 			set

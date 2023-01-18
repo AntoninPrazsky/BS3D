@@ -38,6 +38,9 @@ namespace Prazsky.BS3D.Input
 
 		#endregion Animation
 
+		private Vector3 _initialPosition;
+		private Vector3 _initialTarget;
+
 		public event EventHandler<EventArgs> EnabledChanged;
 
 		public event EventHandler<EventArgs> UpdateOrderChanged;
@@ -56,6 +59,9 @@ namespace Prazsky.BS3D.Input
 
 			_widthHalf = _game.Window.ClientBounds.Width / 2;
 			_heightHalf = _game.Window.ClientBounds.Height / 2;
+
+			_initialPosition = camera.Position;
+			_initialTarget = camera.Target;
 		}
 
 		public void RegisterCurrentInputState()
@@ -111,6 +117,11 @@ namespace Prazsky.BS3D.Input
 				_camera.Move(0f, speed, 0f, gameTime);
 			if (Keyboard.GetState().IsKeyDown(Keys.Q))
 				_camera.Move(0f, -speed, 0f, gameTime);
+
+			if (Keyboard.GetState().IsKeyDown(Keys.Right))
+				_camera.MoveCircular(-speed / 10f, gameTime);
+			if (Keyboard.GetState().IsKeyDown(Keys.Left))
+				_camera.MoveCircular(speed / 10f, gameTime);
 
 			#endregion Keyboard
 
@@ -216,8 +227,10 @@ namespace Prazsky.BS3D.Input
 
 		public void RestartCamera()
 		{
-			_camera.Position = new Vector3(0f, 0f, CameraOffset);
-			_camera.Target = Vector3.Zero;
+			_camera.Position = _initialPosition;
+			_camera.Target = _initialTarget;
+			_camera.SetCircularMovementProperties(new(0, 0, -1f));
+
 			_camera.Recalculate();
 		}
 
@@ -234,7 +247,6 @@ namespace Prazsky.BS3D.Input
 				_piCount = -MathHelper.Pi;
 				_animationStarted = true;
 			}
-
 
 			float step = (float)(Math.Cos(_piCount) + 1) / 2f;
 
