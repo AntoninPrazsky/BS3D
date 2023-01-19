@@ -100,7 +100,6 @@ namespace Testbed
             Components.Add(_info);
 
             _cih = new CameraInputHelper(Camera3D, this);
-            _cih.CameraOffset = -30f;
 
             _staticBodies = new List<StaticBody>();
             _balls = new List<PhysicsBall[]>();
@@ -192,13 +191,13 @@ namespace Testbed
             _staticBodies.Add(new(_groundModel3, CreateStatic(new(-30f, -9f, 30f), groundBox)));
             _staticBodies.Add(new(_groundModel3, CreateStatic(new(30f, -9f, -30f), groundBox)));
 
-            Box box = new Box(10f, 1f, 10f);
+            Box box = new(10f, 1f, 10f);
             TypedIndex boxShapeIndex = _simulation.Shapes.Add(box);
-            CollidableDescription collidableDescription = new CollidableDescription(boxShapeIndex, 0.1f);
+            CollidableDescription collidableDescription = new(boxShapeIndex, 0.1f);
             BodyDescription bodyDescription = BodyDescription.CreateKinematic(new System.Numerics.Vector3(0f, 8.363961f, 0f), collidableDescription, new BodyActivityDescription(0.01f));
 
             BodyHandle topBodyHandle = _simulation.Bodies.Add(in bodyDescription);
-            BodyReference topBodyReference = new BodyReference(topBodyHandle, _simulation.Bodies);
+            BodyReference topBodyReference = new(topBodyHandle, _simulation.Bodies);
 
             _ceiling = new KinematicBody(_topPlatform, topBodyReference);
         }

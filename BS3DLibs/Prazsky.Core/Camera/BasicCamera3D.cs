@@ -15,7 +15,7 @@ namespace Prazsky.Core.Camera
 		private const float DEFAULT_ROTATION_SPEED = 0.001f;
 		private const float DEFAULT_FIELD_OF_VIEW = MathHelper.PiOver4;
 
-		private Vector3 _defaultTarget = new(0, 0, -1);
+		private Vector3 _defaultTarget = Vector3.Forward;
 		private Vector3 _defaultUp = Vector3.Up;
 		private float _rotationX = 0f;
 		private float _rotationY = 0f;
@@ -27,7 +27,6 @@ namespace Prazsky.Core.Camera
 		private float _nearPlane = DEFAULT_NEAR_PLANE_DISTANCE;
 		private Vector3 _up = Vector3.Up;
 
-		private Vector3 _circleOrigin = new(0, 0, -1);
 		private float _circleRadius = 30f;
 		private float _t = MathHelper.Pi / 2f;
 
@@ -78,33 +77,32 @@ namespace Prazsky.Core.Camera
 		{
 			// x = a + r * cos(t)
 			// y = b + r * sin(t)
-			// t: 0 → 2π
-			// (a, b): origin
-			// r: radius
+			// t: 0 → 2π (angle that ray from (a, b) (Origin) to (x, y) (Position) makes with the positive x axis
+			// (a, b): Origin
+			// r: Radius
 
-			// TODO: Compute t from current camera position?
+#if DEBUG
+			Console.WriteLine();
+			Console.WriteLine("Camera position: " + Position);
+			Console.WriteLine("Camera target: " + Target);
+#endif
 
 			Vector3 direction = Position - Target;
-			Vector3 normDirection = direction == Vector3.Zero ? direction : Vector3.Normalize(direction);
-			Vector3 computedOrigin = Position - (normDirection * _circleRadius);
+			Vector3 directionNormalized = direction == Vector3.Zero ? direction : Vector3.Normalize(direction);
+			Vector3 computedOrigin = Position - (directionNormalized * _circleRadius);
 
-			_circleOrigin = computedOrigin;
-
+			//TODO: Recompute t when user changed rotation manually
 			_t += MoveSpeed * delta * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
 			while (_t > MathHelper.TwoPi) _t -= MathHelper.TwoPi;
 			while (_t < 0f) _t += MathHelper.TwoPi;
 
-			float x = _circleOrigin.X + _circleRadius * (float)Math.Cos(_t);
-			float z = _circleOrigin.Y + _circleRadius * (float)Math.Sin(_t);
+			float x = computedOrigin.X + (_circleRadius * (float)Math.Cos(_t));
+			float z = computedOrigin.Z + (_circleRadius * (float)Math.Sin(_t));
 
 			Position = new(x, Position.Y, z);
-			Target = _circleOrigin;
-
-#if DEBUG
-			Console.WriteLine("Camera position: " + Position);
-			Console.WriteLine("Camera target:   " + Target);
-#endif
+			Target = computedOrigin;
+			Recalculate();
 		}
 
 		/// <summary>
@@ -141,11 +139,10 @@ namespace Prazsky.Core.Camera
 		/// <param name="circleOrigin">Circle origin (the camera will look at this point).</param>
 		/// <param name="circleRadius">Circle radius (the camera will be this far from the circle origin). Must be greater than 0.</param>
 		/// <param name="t">Parametric variable in the range from 0 to 2π (different values are clamped).</param>
-		public void SetCircularMovementProperties(Vector3 circleOrigin, float circleRadius = 30f, float t = MathHelper.Pi / 2f)
+		public void SetCircularMovementProperties(float circleRadius = 30f, float t = MathHelper.Pi / 2f)
 		{
 			if (circleRadius <= 0f) throw new ArgumentOutOfRangeException(nameof(circleRadius), "Circle radius must be greater than 0.");
 
-			_circleOrigin = circleOrigin;
 			_circleRadius = circleRadius;
 			_t = Math.Clamp(t, 0f, MathHelper.TwoPi);
 		}
