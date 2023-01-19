@@ -370,7 +370,7 @@ namespace Testbed
         {
             e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = PresentInterval.Immediate;
             e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.HiDef;
-            e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = 16;
+            e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = 8;
         }
 
         private StaticReference CreateStatic(System.Numerics.Vector3 position, Box boundingBox)

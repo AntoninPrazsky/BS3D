@@ -250,7 +250,7 @@ namespace MapEditor
         {
             e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = PresentInterval.Default;
             e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.HiDef;
-            e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = 16;
+            e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = 8;
         }
 
         protected override void UnloadContent()
