@@ -82,7 +82,13 @@ namespace Prazsky.Core.Camera
 			// (a, b): origin
 			// r: radius
 
-			// TODO: Compute t from current camera position? I will have to compute new origin based on radius (ray to current camera target)
+			// TODO: Compute t from current camera position?
+
+			Vector3 direction = Position - Target;
+			Vector3 normDirection = direction == Vector3.Zero ? direction : Vector3.Normalize(direction);
+			Vector3 computedOrigin = Position - (normDirection * _circleRadius);
+
+			_circleOrigin = computedOrigin;
 
 			_t += MoveSpeed * delta * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
@@ -96,8 +102,8 @@ namespace Prazsky.Core.Camera
 			Target = _circleOrigin;
 
 #if DEBUG
-			Console.Write(Target);
-			Console.WriteLine(Position);
+			Console.WriteLine("Camera position: " + Position);
+			Console.WriteLine("Camera target:   " + Target);
 #endif
 		}
 
