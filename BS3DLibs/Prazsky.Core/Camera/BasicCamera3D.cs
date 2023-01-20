@@ -92,7 +92,7 @@ namespace Prazsky.Core.Camera
 			Vector3 computedOrigin = Position - (directionNormalized * _circleRadius);
 
 			//TODO: Recompute t when user changed rotation manually
-			_t += MoveSpeed * delta * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+			_t += RotationSpeed * delta * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
 			while (_t > MathHelper.TwoPi) _t -= MathHelper.TwoPi;
 			while (_t < 0f) _t += MathHelper.TwoPi;
