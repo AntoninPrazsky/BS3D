@@ -1,10 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Newtonsoft.Json;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.Core.Camera;
 using System;
 using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
 
 namespace Prazsky.BS3D.GameStructure
 {
@@ -36,8 +36,7 @@ namespace Prazsky.BS3D.GameStructure
 
         public BallsMap(string fileNameForDeserialization, Model ballModel)
         {
-            DeserializeBinary(fileNameForDeserialization);
-
+            DeserializeJson(fileNameForDeserialization);
             InitializeModel(ballModel);
         }
 
@@ -121,49 +120,44 @@ namespace Prazsky.BS3D.GameStructure
                             _balls[x, z, level].Draw(camera, _ballModel);
         }
 
-        public void SerializeAsBinary(string fileName)
+        public void SerializeAsJson(string fileName)
         {
-            BallPositionTypes ballPositionTypes = BuildBallPositionTypes();
-
-            BinaryFormatter binaryFormatter = new BinaryFormatter();
-
-            using (Stream stream = new FileStream(fileName, FileMode.OpenOrCreate, FileAccess.Write))
-            {
-#pragma warning disable SYSLIB0011
-                binaryFormatter.Serialize(stream, ballPositionTypes); //TODO: Change to JsonSerializer
-#pragma warning restore SYSLIB0011
-            }
+            var ballPositionTypes = BuildBallPositionTypes();
+            var json = JsonConvert.SerializeObject(ballPositionTypes);
+            File.WriteAllText(fileName, json);
+            Console.WriteLine(json);
         }
 
-        public void DeserializeBinary(string fileName)
+        public void DeserializeJson(string fileName)
         {
-            if (string.IsNullOrEmpty(fileName)) throw new ArgumentNullException(nameof(fileName));
+			if (string.IsNullOrEmpty(fileName)) throw new ArgumentNullException(nameof(fileName));
 
-            BallPositionTypes ballPositionTypes;
+			BallPositionTypes ballPositionTypes;
 
-            BinaryFormatter binaryFormatter = new BinaryFormatter();
+			using StreamReader reader = File.OpenText(fileName);
+			var serializer = new JsonSerializer();
+			ballPositionTypes = (BallPositionTypes)serializer.Deserialize(reader, typeof(BallPositionTypes));
 
-            using (Stream stream = new FileStream(fileName, FileMode.Open))
-            {
-#pragma warning disable SYSLIB0011
-                ballPositionTypes = (BallPositionTypes)binaryFormatter.Deserialize(stream); //TODO: Change to JsonSerializer
-#pragma warning restore SYSLIB0011
-            }
+            #region Basic validation
 
-            if (ballPositionTypes.Balls.Rank != 3) throw new InvalidDataException("Deserialized data invalid");
+            if (ballPositionTypes.Balls.Rank != 3)
+                throw new InvalidDataException("Deserialized data invalid");
 
-            int length1 = ballPositionTypes.Balls.GetLength(0);
-            int length2 = ballPositionTypes.Balls.GetLength(1);
-            int length3 = ballPositionTypes.Balls.GetLength(2);
+			int length1 = ballPositionTypes.Balls.GetLength(0);
+			int length2 = ballPositionTypes.Balls.GetLength(1);
+			int length3 = ballPositionTypes.Balls.GetLength(2);
 
-            if (length1 > byte.MaxValue || length2 > byte.MaxValue || length3 > byte.MaxValue) throw new InvalidDataException("Deserialized data invalid");
+			if (length1 > byte.MaxValue || length2 > byte.MaxValue || length3 > byte.MaxValue)
+                throw new InvalidDataException("Deserialized data invalid");
 
-            StageSizeX = (byte)length1;
-            StageSizeZ = (byte)length2;
-            Levels = (byte)length3;
+            #endregion
 
-            BuildMapFromBallPositionTypes(ballPositionTypes);
-        }
+			StageSizeX = (byte)length1;
+			StageSizeZ = (byte)length2;
+			Levels = (byte)length3;
+
+			BuildMapFromBallPositionTypes(ballPositionTypes);
+		}
 
         private BallPositionTypes BuildBallPositionTypes()
         {

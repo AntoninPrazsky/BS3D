@@ -84,7 +84,8 @@ namespace Prazsky.Core.Camera
 #if DEBUG
 			Console.WriteLine();
 			Console.WriteLine("Camera position: " + Position);
-			Console.WriteLine("Camera target: " + Target);
+			Console.WriteLine("Camera target:   " + Target);
+			Console.WriteLine("Camera rotation: " + _rotationX + " " + _rotationY);
 #endif
 
 			Vector3 direction = Position - Target;

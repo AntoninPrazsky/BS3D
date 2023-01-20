@@ -38,6 +38,7 @@ namespace MapEditor
         public TextInfoRenderer Info { private set; get; }
 
 		private static readonly int MSAA_SAMPLES = 8;
+        private static readonly string FILE_FILTER = "Maps (*.json)|*.json";
 
 		#endregion Graphics
 
@@ -63,7 +64,7 @@ namespace MapEditor
 		private void Window_FileDrop(object sender, FileDropEventArgs e)
 		{
             if (e.Files == null || e.Files.Length <= 0 || string.IsNullOrEmpty(e.Files[0])) return;
-            DeserializeMapFromFile(e.Files[0]);
+            DeserializeMapFromJsonFile(e.Files[0]);
 		}
 
 		private void Window_ClientSizeChanged(object sender, EventArgs e) => Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
@@ -110,8 +111,8 @@ namespace MapEditor
 
 				new(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
 
-				new(mgKeys.F1, Save, "Save map to file"),
-				new(mgKeys.F2, Load, "Load map from file"),
+				new(mgKeys.F1, SaveJson, "Save map to file (JSON)"),
+				new(mgKeys.F2, LoadJson, "Load map from file (JSON)"),
 			};
 
 			StringBuilder builder = new();
@@ -149,35 +150,35 @@ namespace MapEditor
             base.Update(gameTime);
         }
 
-        private void Save()
+        private void SaveJson()
         {
 			string filePath = GetFilePathByDialog(true);
 			if (!string.IsNullOrEmpty(filePath))
 			{
 				Stopwatch stopwatch = new();
 				stopwatch.Start();
-				_map.SerializeAsBinary(filePath);
+				_map.SerializeAsJson(filePath);
 				stopwatch.Stop();
-				Console.WriteLine($"Serialize Binary (ms): {stopwatch.ElapsedMilliseconds}");
+				Console.WriteLine($"Serialize JSON (ms): {stopwatch.ElapsedMilliseconds}");
 			}
 		}
 
-        private void Load()
+        private void LoadJson()
         {
 			string filePath = GetFilePathByDialog(false);
-            if (!string.IsNullOrEmpty(filePath)) DeserializeMapFromFile(filePath);
+			if (!string.IsNullOrEmpty(filePath)) DeserializeMapFromJsonFile(filePath);
 		}
 
-        private void DeserializeMapFromFile(string filePath)
-        {
+		private void DeserializeMapFromJsonFile(string filePath)
+		{
 			Stopwatch stopwatch = new();
 			stopwatch.Start();
-			_map.DeserializeBinary(filePath);
+			_map.DeserializeJson(filePath);
 			stopwatch.Stop();
-			Console.WriteLine($"Deserialize Binary (ms): {stopwatch.ElapsedMilliseconds}");
+			Console.WriteLine($"Deserialize JSON (ms): {stopwatch.ElapsedMilliseconds}");
 		}
 
-        protected override void Draw(GameTime gameTime)
+		protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.MidnightBlue);
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
@@ -207,7 +208,7 @@ namespace MapEditor
                 using (SaveFileDialog saveFileDialog = new())
                 {
                     saveFileDialog.InitialDirectory = Directory.GetCurrentDirectory();
-                    saveFileDialog.Filter = "Levels (*.bin)|*.bin";
+                    saveFileDialog.Filter = FILE_FILTER;
                     saveFileDialog.RestoreDirectory = true;
 
                     if (saveFileDialog.ShowDialog() == DialogResult.OK)
@@ -222,7 +223,7 @@ namespace MapEditor
             using (OpenFileDialog openFileDialog = new())
             {
                 openFileDialog.InitialDirectory = Directory.GetCurrentDirectory();
-                openFileDialog.Filter = "Levels (*.bin)|*.bin";
+                openFileDialog.Filter = FILE_FILTER;
                 openFileDialog.RestoreDirectory = true;
 
                 if (openFileDialog.ShowDialog() == DialogResult.OK)

@@ -65,6 +65,8 @@ namespace Testbed
 
 		#endregion Graphics
 
+		private static readonly string FILE_FILTER = "Maps (*.json)|*.json";
+
 		public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
         {
             _windowed = windowed;
@@ -211,7 +213,7 @@ namespace Testbed
             using (OpenFileDialog openFileDialog = new OpenFileDialog())
             {
                 openFileDialog.InitialDirectory = Directory.GetCurrentDirectory();
-                openFileDialog.Filter = "Levels (*.bin)|*.bin";
+                openFileDialog.Filter = FILE_FILTER;
                 openFileDialog.RestoreDirectory = true;
 
                 if (openFileDialog.ShowDialog() == DialogResult.OK)

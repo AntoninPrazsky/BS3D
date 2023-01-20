@@ -1,19 +1,25 @@
-﻿using System;
+﻿using Newtonsoft.Json;
 
 namespace Prazsky.BS3D.GameStructure.DataBags
 {
-    [Serializable]
-    public class BallPositionType
+	public class BallPositionType
     {
+        [JsonProperty("x")]
         public float PositionX;
-        public float PositionY;
-        public float PositionZ;
-        public eBallType Type;
+
+		[JsonProperty("y")]
+		public float PositionY;
+
+		[JsonProperty("z")]
+		public float PositionZ;
+
+		[JsonProperty("t")]
+		public eBallType Type;
     }
 
-    [Serializable]
-    public class BallPositionTypes
+	public class BallPositionTypes
     {
-        public BallPositionType[,,] Balls;
+		[JsonProperty("b")]
+		public BallPositionType[,,] Balls;
     }
 }
