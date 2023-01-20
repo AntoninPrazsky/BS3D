@@ -37,9 +37,11 @@ namespace MapEditor
 
         public TextInfoRenderer Info { private set; get; }
 
-        #endregion Graphics
+		private static readonly int MSAA_SAMPLES = 8;
 
-        public MapEditor(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
+		#endregion Graphics
+
+		public MapEditor(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
         {
             _windowed = windowed;
 
@@ -250,7 +252,7 @@ namespace MapEditor
         {
             e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = PresentInterval.Default;
             e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.HiDef;
-            e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = 8;
+            e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = MSAA_SAMPLES;
         }
 
         protected override void UnloadContent()

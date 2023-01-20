@@ -61,9 +61,11 @@ namespace Testbed
 
         private TextInfoRenderer _info;
 
-        #endregion Graphics
+		private static readonly int MSAA_SAMPLES = 8;
 
-        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
+		#endregion Graphics
+
+		public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
         {
             _windowed = windowed;
 
@@ -370,7 +372,7 @@ namespace Testbed
         {
             e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = PresentInterval.Immediate;
             e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.HiDef;
-            e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = 8;
+            e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = MSAA_SAMPLES;
         }
 
         private StaticReference CreateStatic(System.Numerics.Vector3 position, Box boundingBox)

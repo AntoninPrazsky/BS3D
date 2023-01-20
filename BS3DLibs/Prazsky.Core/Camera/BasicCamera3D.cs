@@ -119,6 +119,8 @@ namespace Prazsky.Core.Camera
             if (_rotationX >= MathHelper.TwoPi || _rotationX <= -MathHelper.TwoPi) _rotationX = 0f;
 			if (_rotationY >= MathHelper.TwoPi || _rotationY <= -MathHelper.TwoPi) _rotationY = 0f;
 
+			_t = MathHelper.Pi / 2f;
+
 			Recalculate();
 		}
 
