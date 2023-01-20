@@ -48,14 +48,14 @@ namespace Prazsky.BS3D.GameStructure
         }
 
         /// <summary>
-        /// Creates new <see cref="StaticBall"/> of given type <see cref="eBallType"/>, computes its real position and places it into internal three-dimensional array.
+        /// Creates new <see cref="StaticBall"/> of given type <see cref="BallType"/>, computes its real position and places it into internal three-dimensional array.
         /// If there is already a <see cref="StaticBall"/> at that position, it is replaced without warning.
         /// </summary>
         /// <param name="stageX">The X coordinate in the given level.</param>
         /// <param name="stageZ">The Z coordinate in the given level.</param>
         /// <param name="level">Level.</param>
         /// <param name="type">Type.</param>
-        public void PutBallAt(byte stageX, byte stageZ, byte level, eBallType type)
+        public void PutBallAt(byte stageX, byte stageZ, byte level, BallType type)
         {
             if (stageX > StageSizeX || stageZ > StageSizeZ || level > Levels) throw new ArgumentOutOfRangeException($"Invalid requested ball position, array size is: {StageSizeX} × {StageSizeZ} × {Levels}");
 

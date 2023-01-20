@@ -93,9 +93,9 @@ namespace MapEditor
                 new(mgKeys.Space, Buttons.A,() => _selector.PutBall(), "Put ball"),
                 new(mgKeys.Delete, Buttons.B,() => _selector.RemoveBall(), "Remove ball"),
 
-                new(mgKeys.NumPad1,() => _selector.ChangeBallType(eBallType.Type1), "Change ball type to 1"),
-                new(mgKeys.NumPad2,() => _selector.ChangeBallType(eBallType.Type2), "Change ball type to 2"),
-                new(mgKeys.NumPad3,() => _selector.ChangeBallType(eBallType.Type3), "Change ball type to 3"),
+                new(mgKeys.NumPad1,() => _selector.ChangeBallType(BallType.Type1), "Change ball type to 1"),
+                new(mgKeys.NumPad2,() => _selector.ChangeBallType(BallType.Type2), "Change ball type to 2"),
+                new(mgKeys.NumPad3,() => _selector.ChangeBallType(BallType.Type3), "Change ball type to 3"),
 
                 new(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
                 new(mgKeys.F12,() => Info.Visible = ! Info.Visible, "Hide/show text overlay"),
@@ -273,18 +273,18 @@ namespace MapEditor
 
             _map = new BallsMap(sizeX, sizeZ, levels, _hrSphere);
 
-            Array ballTypes = Enum.GetValues(typeof(eBallType));
+            Array ballTypes = Enum.GetValues(typeof(BallType));
             Random random = new();
-            eBallType lastBallType = eBallType.Type1;
+            BallType lastBallType = BallType.Type1;
 
             for (byte x = 0; x < sizeX; x++)
                 for (byte z = 0; z < sizeZ; z++)
                     for (byte l = 0; l < levels; l++)
                     {
-                        eBallType currentBallType;
+                        BallType currentBallType;
                         do
                         {
-                            currentBallType = (eBallType)ballTypes.GetValue(random.Next(ballTypes.Length));
+                            currentBallType = (BallType)ballTypes.GetValue(random.Next(ballTypes.Length));
                         } while (currentBallType == lastBallType);
 
                         _map.PutBallAt(x, z, l, currentBallType);

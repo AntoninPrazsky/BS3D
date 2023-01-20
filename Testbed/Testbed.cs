@@ -241,7 +241,7 @@ namespace Testbed
         private void PutBallAtZero()
         {
             BallsMap map = new BallsMap(10, 10, 10, _hrSphere);
-            map.PutBallAt(0, 0, 0, eBallType.Type1);
+            map.PutBallAt(0, 0, 0, BallType.Type1);
             _balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
         }
 

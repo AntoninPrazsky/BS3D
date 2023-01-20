@@ -10,17 +10,17 @@ namespace Prazsky.BS3D.GameStructure
         public static BasicEffectParams ColorBlue = new BasicEffectParams(new Vector3(0f, 0f, 0.3f), new Vector3(0f, 0f, 0.8f), 0.5f, Vector3.Zero);
         public static BasicEffectParams ColorWhite = new BasicEffectParams(new Vector3(0.1f, 0.1f, 0.1f), new Vector3(0.3f, 0.3f, 0.3f), 0.3f, Vector3.Zero);
 
-        public static BasicEffectParams GetEffectByType(eBallType ballType)
+        public static BasicEffectParams GetEffectByType(BallType ballType)
         {
             switch (ballType)
             {
-                case eBallType.Type1:
+                case BallType.Type1:
                     return ColorRed;
 
-                case eBallType.Type2:
+                case BallType.Type2:
                     return ColorGreen;
 
-                case eBallType.Type3:
+                case BallType.Type3:
                     return ColorBlue;
 
                 default:

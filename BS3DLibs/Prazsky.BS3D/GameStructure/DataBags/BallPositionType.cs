@@ -14,7 +14,7 @@ namespace Prazsky.BS3D.GameStructure.DataBags
 		public float PositionZ;
 
 		[JsonProperty("t")]
-		public eBallType Type;
+		public BallType Type;
     }
 
 	public class BallPositionTypes

@@ -5,9 +5,9 @@ namespace Prazsky.BS3D.GameStructure
 {
     public class StaticBall : Object3D
     {
-        public eBallType Type { get; }
+        public BallType Type { get; }
 
-        public StaticBall(Vector3 position, eBallType type, Matrix[] transformations)
+        public StaticBall(Vector3 position, BallType type, Matrix[] transformations)
         {
             Type = type;
             Position = position;

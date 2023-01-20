@@ -11,7 +11,7 @@ namespace MapEditor.GUI
     {
         private byte _stageX = 0, _stageZ = 0, _level = 0;
         private BallsMap _ballsMap;
-        private eBallType _ActiveBallType = eBallType.Type1;
+        private BallType _ActiveBallType = BallType.Type1;
 
         public Selector(ContentManager contentManager, BallsMap ballsMap)
         {
@@ -25,7 +25,7 @@ namespace MapEditor.GUI
             World = Matrix.CreateTranslation(Position);
         }
 
-        public void PutBall(eBallType ballType)
+        public void PutBall(BallType ballType)
         {
             _ballsMap.PutBallAt(_stageX, _stageZ, _level, ballType);
         }
@@ -35,7 +35,7 @@ namespace MapEditor.GUI
             _ballsMap.PutBallAt(_stageX, _stageZ, _level, _ActiveBallType);
         }
 
-        public void ChangeBallType(eBallType ballType)
+        public void ChangeBallType(BallType ballType)
         {
             _ActiveBallType = ballType;
             Console.WriteLine($"Ball type set to: {ballType.ToString()}");

@@ -11,7 +11,7 @@ namespace Prazsky.BS3D.Physics
         public ConstraintHandles HandlesMiddle;
         public ConstraintHandles HandlesBottom;
 
-        public eBallType Type;
+        public BallType Type;
 
         public void SetEmptyConstraints()
         {
