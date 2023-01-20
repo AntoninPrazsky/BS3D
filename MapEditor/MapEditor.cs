@@ -37,12 +37,12 @@ namespace MapEditor
 
         public TextInfoRenderer Info { private set; get; }
 
-		private static readonly int MSAA_SAMPLES = 8;
+        private static readonly int MSAA_SAMPLES = 8;
         private static readonly string FILE_FILTER = "Maps (*.json)|*.json";
 
-		#endregion Graphics
+        #endregion Graphics
 
-		public MapEditor(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
+        public MapEditor(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
         {
             _windowed = windowed;
 
@@ -55,21 +55,21 @@ namespace MapEditor
             _windowHeight = windowHeight;
 
             Window.AllowUserResizing = true;
-			Window.ClientSizeChanged += Window_ClientSizeChanged;
-			Window.FileDrop += Window_FileDrop;
+            Window.ClientSizeChanged += Window_ClientSizeChanged;
+            Window.FileDrop += Window_FileDrop;
 
             SetGraphics(_windowed);
         }
 
-		private void Window_FileDrop(object sender, FileDropEventArgs e)
-		{
+        private void Window_FileDrop(object sender, FileDropEventArgs e)
+        {
             if (e.Files == null || e.Files.Length <= 0 || string.IsNullOrEmpty(e.Files[0])) return;
             DeserializeMapFromJsonFile(e.Files[0]);
-		}
+        }
 
-		private void Window_ClientSizeChanged(object sender, EventArgs e) => Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
+        private void Window_ClientSizeChanged(object sender, EventArgs e) => Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
 
-		protected override void Initialize()
+        protected override void Initialize()
         {
             IsMouseVisible = true;
 
@@ -84,45 +84,45 @@ namespace MapEditor
             _actions = new ButtonAction[]
             {
                 new(mgKeys.Up, Buttons.DPadUp, () => _selector.Move(Vector3.Forward), "Move selector forward"),
-				new(mgKeys.Down, Buttons.DPadDown,() => _selector.Move(Vector3.Backward), "Move selector backward"),
-				new(mgKeys.Left, Buttons.DPadLeft,() => _selector.Move(Vector3.Left), "Move selector left"),
-				new(mgKeys.Right, Buttons.DPadRight,() => _selector.Move(Vector3.Right), "Move selector right"),
-				new(mgKeys.PageUp, Buttons.RightShoulder,() => _selector.Move(Vector3.Up), "Move selector up"),
-				new(mgKeys.PageDown, Buttons.LeftShoulder,() => _selector.Move(Vector3.Down), "Move selector down"),
+                new(mgKeys.Down, Buttons.DPadDown,() => _selector.Move(Vector3.Backward), "Move selector backward"),
+                new(mgKeys.Left, Buttons.DPadLeft,() => _selector.Move(Vector3.Left), "Move selector left"),
+                new(mgKeys.Right, Buttons.DPadRight,() => _selector.Move(Vector3.Right), "Move selector right"),
+                new(mgKeys.PageUp, Buttons.RightShoulder,() => _selector.Move(Vector3.Up), "Move selector up"),
+                new(mgKeys.PageDown, Buttons.LeftShoulder,() => _selector.Move(Vector3.Down), "Move selector down"),
 
-				new(mgKeys.Space, Buttons.A,() => _selector.PutBall(), "Put ball"),
-				new(mgKeys.Delete, Buttons.B,() => _selector.RemoveBall(), "Remove ball"),
+                new(mgKeys.Space, Buttons.A,() => _selector.PutBall(), "Put ball"),
+                new(mgKeys.Delete, Buttons.B,() => _selector.RemoveBall(), "Remove ball"),
 
-				new(mgKeys.NumPad1,() => _selector.ChangeBallType(eBallType.Type1), "Change ball type to 1"),
-				new(mgKeys.NumPad2,() => _selector.ChangeBallType(eBallType.Type2), "Change ball type to 2"),
-				new(mgKeys.NumPad3,() => _selector.ChangeBallType(eBallType.Type3), "Change ball type to 3"),
+                new(mgKeys.NumPad1,() => _selector.ChangeBallType(eBallType.Type1), "Change ball type to 1"),
+                new(mgKeys.NumPad2,() => _selector.ChangeBallType(eBallType.Type2), "Change ball type to 2"),
+                new(mgKeys.NumPad3,() => _selector.ChangeBallType(eBallType.Type3), "Change ball type to 3"),
 
-				new(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
-				new(mgKeys.F12,() => Info.Visible = ! Info.Visible, "Hide/show text overlay"),
+                new(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
+                new(mgKeys.F12,() => Info.Visible = ! Info.Visible, "Hide/show text overlay"),
 
-				new(mgKeys.N, Buttons.X, FullMapTest, "Fill entire map with balls"),
+                new(mgKeys.N, Buttons.X, FullMapTest, "Fill entire map with balls"),
 
-				new(mgKeys.D1,() => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
-				new(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
-				new(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
-				new(mgKeys.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right, true), "Right view"),
-				new(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up, true), "Up view"),
-				new(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
+                new(mgKeys.D1,() => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
+                new(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
+                new(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
+                new(mgKeys.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right, true), "Right view"),
+                new(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up, true), "Up view"),
+                new(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
 
-				new(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
+                new(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
 
-				new(mgKeys.F1, SaveJson, "Save map to file (JSON)"),
-				new(mgKeys.F2, LoadJson, "Load map from file (JSON)"),
-			};
+                new(mgKeys.F1, SaveJson, "Save map to file (JSON)"),
+                new(mgKeys.F2, LoadJson, "Load map from file (JSON)"),
+            };
 
-			StringBuilder builder = new();
-			foreach (var act in _actions) builder.Append(string.Format("{0,-9} {1}\n", act.Key.ToString(), act.Description));
+            StringBuilder builder = new();
+            foreach (var act in _actions) builder.Append(string.Format("{0,-9} {1}\n", act.Key.ToString(), act.Description));
 
-			Info.HintText = builder.ToString();
+            Info.HintText = builder.ToString();
 
-			#endregion
+            #endregion
 
-			base.Initialize();
+            base.Initialize();
         }
 
         protected override void LoadContent()
@@ -140,9 +140,9 @@ namespace MapEditor
 
             _cih.RegisterCurrentInputState();
 
-			foreach (var action in _actions) if (_cih.PressedOnce(action.Key, action.Button)) action.Method();
+            foreach (var action in _actions) if (_cih.PressedOnce(action.Key, action.Button)) action.Method();
 
-			_cih.CameraMovement(gameTime);
+            _cih.CameraMovement(gameTime);
             _cih.RegisterPreviousInputState();
             
             _cih.Update(gameTime);
@@ -152,33 +152,33 @@ namespace MapEditor
 
         private void SaveJson()
         {
-			string filePath = GetFilePathByDialog(true);
-			if (!string.IsNullOrEmpty(filePath))
-			{
-				Stopwatch stopwatch = new();
-				stopwatch.Start();
-				_map.SerializeAsJson(filePath);
-				stopwatch.Stop();
-				Console.WriteLine($"Serialize JSON (ms): {stopwatch.ElapsedMilliseconds}");
-			}
-		}
+            string filePath = GetFilePathByDialog(true);
+            if (!string.IsNullOrEmpty(filePath))
+            {
+                Stopwatch stopwatch = new();
+                stopwatch.Start();
+                _map.SerializeAsJson(filePath);
+                stopwatch.Stop();
+                Console.WriteLine($"Serialize JSON (ms): {stopwatch.ElapsedMilliseconds}");
+            }
+        }
 
         private void LoadJson()
         {
-			string filePath = GetFilePathByDialog(false);
-			if (!string.IsNullOrEmpty(filePath)) DeserializeMapFromJsonFile(filePath);
-		}
+            string filePath = GetFilePathByDialog(false);
+            if (!string.IsNullOrEmpty(filePath)) DeserializeMapFromJsonFile(filePath);
+        }
 
-		private void DeserializeMapFromJsonFile(string filePath)
-		{
-			Stopwatch stopwatch = new();
-			stopwatch.Start();
-			_map.DeserializeJson(filePath);
-			stopwatch.Stop();
-			Console.WriteLine($"Deserialize JSON (ms): {stopwatch.ElapsedMilliseconds}");
-		}
+        private void DeserializeMapFromJsonFile(string filePath)
+        {
+            Stopwatch stopwatch = new();
+            stopwatch.Start();
+            _map.DeserializeJson(filePath);
+            stopwatch.Stop();
+            Console.WriteLine($"Deserialize JSON (ms): {stopwatch.ElapsedMilliseconds}");
+        }
 
-		protected override void Draw(GameTime gameTime)
+        protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.MidnightBlue);
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
@@ -275,19 +275,19 @@ namespace MapEditor
 
             Array ballTypes = Enum.GetValues(typeof(eBallType));
             Random random = new();
-			eBallType lastBallType = eBallType.Type1;
+            eBallType lastBallType = eBallType.Type1;
 
-			for (byte x = 0; x < sizeX; x++)
+            for (byte x = 0; x < sizeX; x++)
                 for (byte z = 0; z < sizeZ; z++)
                     for (byte l = 0; l < levels; l++)
                     {
-						eBallType currentBallType;
-						do
-						{
-							currentBallType = (eBallType)ballTypes.GetValue(random.Next(ballTypes.Length));
-						} while (currentBallType == lastBallType);
+                        eBallType currentBallType;
+                        do
+                        {
+                            currentBallType = (eBallType)ballTypes.GetValue(random.Next(ballTypes.Length));
+                        } while (currentBallType == lastBallType);
 
-						_map.PutBallAt(x, z, l, currentBallType);
+                        _map.PutBallAt(x, z, l, currentBallType);
 
                         lastBallType = currentBallType;
                     }

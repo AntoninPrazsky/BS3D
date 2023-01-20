@@ -61,13 +61,13 @@ namespace Testbed
 
         private TextInfoRenderer _info;
 
-		private static readonly int MSAA_SAMPLES = 8;
+        private static readonly int MSAA_SAMPLES = 8;
 
-		#endregion Graphics
+        #endregion Graphics
 
-		private static readonly string FILE_FILTER = "Maps (*.json)|*.json";
+        private static readonly string FILE_FILTER = "Maps (*.json)|*.json";
 
-		public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
+        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
         {
             _windowed = windowed;
 
@@ -80,22 +80,22 @@ namespace Testbed
             _windowHeight = windowHeight;
 
             Window.AllowUserResizing = true;
-			Window.ClientSizeChanged += Window_ClientSizeChanged;
-			Window.FileDrop += Window_FileDrop;
+            Window.ClientSizeChanged += Window_ClientSizeChanged;
+            Window.FileDrop += Window_FileDrop;
 
             SetGraphics(_windowed);
         }
 
-		private void Window_FileDrop(object sender, FileDropEventArgs e)
-		{
-			if (e.Files == null || e.Files.Length <= 0 || string.IsNullOrEmpty(e.Files[0])) return;
-			DeserializeMapFromFile(e.Files[0]);
-		}
+        private void Window_FileDrop(object sender, FileDropEventArgs e)
+        {
+            if (e.Files == null || e.Files.Length <= 0 || string.IsNullOrEmpty(e.Files[0])) return;
+            DeserializeMapFromFile(e.Files[0]);
+        }
 
-		private void Window_ClientSizeChanged(object sender, EventArgs e) => Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
-		
+        private void Window_ClientSizeChanged(object sender, EventArgs e) => Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
+        
 
-		protected override void Initialize()
+        protected override void Initialize()
         {
             IsMouseVisible = true;
 
@@ -130,23 +130,23 @@ namespace Testbed
                 new(mgKeys.NumPad1, SwitchSkyDome, "Switch sky dome"),
                 new(mgKeys.D0, PutBallAtZero, "Spawn ball at (0, 0, 0)"),
                 new(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
-				new(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
-				new(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
-				new(mgKeys.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right, true), "Right view"),
-				new(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up, true), "Up view"),
-				new(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
-				new(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
-			};
+                new(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
+                new(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
+                new(mgKeys.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right, true), "Right view"),
+                new(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up, true), "Up view"),
+                new(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
+                new(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
+            };
 
-			StringBuilder builder = new();
-			foreach (var act in _actions) builder.Append(string.Format("{0,-9} {1}\n", act.Key.ToString(), act.Description));
+            StringBuilder builder = new();
+            foreach (var act in _actions) builder.Append(string.Format("{0,-9} {1}\n", act.Key.ToString(), act.Description));
 
-			_info.HintText = builder.ToString();
+            _info.HintText = builder.ToString();
 
 
-			#endregion
+            #endregion
 
-			base.Initialize();
+            base.Initialize();
         }
 
         protected override void LoadContent()
@@ -229,14 +229,14 @@ namespace Testbed
 
         private void DeserializeMapFromFile(string filePath)
         {
-			BallsMap map = new(filePath, _hrSphere);
+            BallsMap map = new(filePath, _hrSphere);
 
-			map.Center();
+            map.Center();
 
-			_balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
-			_info.CustomText = "Balls on scene: " + CountActiveBalls();
-			_info.CustomText += "\nConstraints count: " + _simulation.Solver.CountConstraints();
-		}
+            _balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
+            _info.CustomText = "Balls on scene: " + CountActiveBalls();
+            _info.CustomText += "\nConstraints count: " + _simulation.Solver.CountConstraints();
+        }
 
         private void PutBallAtZero()
         {
