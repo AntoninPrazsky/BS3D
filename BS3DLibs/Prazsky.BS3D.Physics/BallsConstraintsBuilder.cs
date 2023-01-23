@@ -14,16 +14,19 @@ namespace Prazsky.BS3D.Physics
         private static readonly float BALL_MASS = 1f;
 
         private static readonly float SPECULATIVE_MARGIN = 0.1f; //TODO: Study what this value does exactly and how can it be optimized
-        private static readonly float SLEEP_TRESHOLD = 0.01f; //TODO: Study and experiment with this value (performance and behaviour)
 
-        private static readonly SpringSettings SPRING_SETTINGS = new SpringSettings(frequency: 15f, dampingRatio: 1f);
+		/// <summary>
+		/// Threshold of squared velocity under which the body is allowed to go to sleep.
+		/// </summary>
+		private static readonly float SLEEP_TRESHOLD = 0.01f;
+
+		private static readonly SpringSettings SPRING_SETTINGS = new(frequency: 15f, dampingRatio: 1f);
 
         public static PhysicsBall[] BuildBallsStructure(StaticBall[,,] staticBalls, ref Simulation simulation, BodyReference ceilingReference)
         {
-            if (staticBalls == null) throw new NullReferenceException("staticBalls cannot be null");
-            if (simulation == null) throw new NullReferenceException("simulation nannot be null");
-
-            //TODO: staticBalls array size validation
+            if (staticBalls == null) throw new NullReferenceException(nameof(staticBalls));
+            if (simulation == null) throw new NullReferenceException(nameof(simulation));
+            if (staticBalls.Rank != 3) throw new ArgumentOutOfRangeException(nameof(staticBalls.Rank));
 
             int levelSize = staticBalls.GetLength(0);
             int xSize = staticBalls.GetLength(1);
@@ -33,14 +36,13 @@ namespace Prazsky.BS3D.Physics
 
             #region Create physical representation for each ball (without connecting them)
 
-            Sphere sphere = new Sphere(BALL_RADIUS);
+            Sphere sphere = new(BALL_RADIUS);
             BodyInertia bodyInertia = sphere.ComputeInertia(BALL_MASS);
 
             TypedIndex speheShapeIndex = simulation.Shapes.Add(sphere);
 
-            CollidableDescription collidableDescription = new CollidableDescription(speheShapeIndex, SPECULATIVE_MARGIN);
-
-            BodyActivityDescription bodyActivityDescription = new BodyActivityDescription(SLEEP_TRESHOLD);
+            CollidableDescription collidableDescription = new(speheShapeIndex, SPECULATIVE_MARGIN);
+            BodyActivityDescription bodyActivityDescription = new(SLEEP_TRESHOLD);
 
             for (byte level = 0; level < levelSize; level++)
             {
@@ -60,8 +62,8 @@ namespace Prazsky.BS3D.Physics
 
                             BodyReference bodyReference = new BodyReference(bodyHandle, simulation.Bodies);
 
-                            PhysicsBall ball = new PhysicsBall
-                            {
+                            PhysicsBall ball = new()
+							{
                                 BallReference = bodyReference,
                                 Type = staticBalls[x, z, level].Type
                             };
