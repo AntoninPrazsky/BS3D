@@ -128,7 +128,6 @@ namespace Prazsky.BS3D.Physics
         // 1 2
         // 3 4
         Type1 = 1,
-
         Type2 = 2,
         Type3 = 3,
         Type4 = 4,
@@ -137,7 +136,6 @@ namespace Prazsky.BS3D.Physics
         // 6   7
         //   8
         Type5 = 5,
-
         Type6 = 6,
         Type7 = 7,
         Type8 = 8,
@@ -145,7 +143,6 @@ namespace Prazsky.BS3D.Physics
         // 9  10
         // 11 12
         Type9 = 9,
-
         Type10 = 10,
         Type11 = 11,
         Type12 = 12,
