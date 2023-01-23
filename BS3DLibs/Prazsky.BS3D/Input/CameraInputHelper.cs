@@ -118,9 +118,9 @@ namespace Prazsky.BS3D.Input
 			if (Keyboard.GetState().IsKeyDown(Keys.Q))
 				_camera.Move(0f, -speed, 0f, gameTime);
 
-			if (Keyboard.GetState().IsKeyDown(Keys.Right))
+			if (Keyboard.GetState().IsKeyDown(Keys.NumPad6))
 				_camera.MoveCircular(-speed, gameTime);
-			if (Keyboard.GetState().IsKeyDown(Keys.Left))
+			if (Keyboard.GetState().IsKeyDown(Keys.NumPad4))
 				_camera.MoveCircular(speed, gameTime);
 
 			#endregion Keyboard

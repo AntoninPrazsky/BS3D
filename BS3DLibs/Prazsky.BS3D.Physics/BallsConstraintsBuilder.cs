@@ -60,7 +60,7 @@ namespace Prazsky.BS3D.Physics
 
                             BodyHandle bodyHandle = simulation.Bodies.Add(in bodyDescription);
 
-                            BodyReference bodyReference = new BodyReference(bodyHandle, simulation.Bodies);
+                            BodyReference bodyReference = new(bodyHandle, simulation.Bodies);
 
                             PhysicsBall ball = new()
 							{
@@ -77,7 +77,7 @@ namespace Prazsky.BS3D.Physics
 
             #endregion Create physical representation for each ball (without connecting them)
 
-            List<PhysicsBall> result = new List<PhysicsBall>();
+            List<PhysicsBall> result = new();
 
             for (byte level = 0; level < levelSize; level++)
             {
@@ -89,17 +89,17 @@ namespace Prazsky.BS3D.Physics
                         {
                             PhysicsBall currentPhysicsBall = physicsBalls[x, z, level];
 
-                            if (level == levelSize - 1) //Highest level - only attach to ceiling
-                            {
-                                currentPhysicsBall.HandlesTop.Handle1 = ConnectBallToCeiling(currentPhysicsBall, ceilingReference, simulation);
+							if (level == levelSize - 1) //Highest level - only attach to ceiling
+							{
+								currentPhysicsBall.HandlesTop.Handle1 = ConnectBallToCeiling(currentPhysicsBall, ceilingReference, simulation);
 
-                                result.Add(currentPhysicsBall); //REFACTOR: The same is called at the end of the method
-                                continue;
-                            }
+								result.Add(currentPhysicsBall);
+								continue;
+							}
 
-                            //1
-                            //x - 1, y - 1, z - 1
-                            if (x - 1 >= 0 && level - 1 >= 0 && z - 1 >= 0)
+							//1
+							//x - 1, y - 1, z - 1
+							if (x - 1 >= 0 && level - 1 >= 0 && z - 1 >= 0)
                                 if (staticBalls[x - 1, z - 1, level - 1] != null)
                                     EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x - 1, z - 1, level - 1], eConstraintType.Type1, simulation);
 
@@ -204,7 +204,7 @@ namespace Prazsky.BS3D.Physics
             {
                 case eConstraintType.Type1:
                     //1
-                    if (ballA.HandlesBottom.Handle1.Value >= 0) { ballA.HandlesBottom.Handle4 = ballB.HandlesBottom.Handle1; }
+                    if (ballA.HandlesBottom.Handle1.Value >= 0) ballA.HandlesBottom.Handle4 = ballB.HandlesBottom.Handle1;
                     else
                     {
                         ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
@@ -215,7 +215,7 @@ namespace Prazsky.BS3D.Physics
 
                 case eConstraintType.Type2:
                     //2
-                    if (ballA.HandlesBottom.Handle4.Value >= 0) { ballA.HandlesBottom.Handle1 = ballB.HandlesBottom.Handle4; }
+                    if (ballA.HandlesBottom.Handle4.Value >= 0) ballA.HandlesBottom.Handle1 = ballB.HandlesBottom.Handle4;
                     else
                     {
                         ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
@@ -226,7 +226,7 @@ namespace Prazsky.BS3D.Physics
 
                 case eConstraintType.Type3:
                     //3
-                    if (ballA.HandlesBottom.Handle2.Value >= 0) { ballA.HandlesBottom.Handle3 = ballB.HandlesBottom.Handle2; }
+                    if (ballA.HandlesBottom.Handle2.Value >= 0) ballA.HandlesBottom.Handle3 = ballB.HandlesBottom.Handle2;
                     else
                     {
                         ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
@@ -237,7 +237,7 @@ namespace Prazsky.BS3D.Physics
 
                 case eConstraintType.Type4:
                     //4
-                    if (ballA.HandlesBottom.Handle3.Value >= 0) { ballA.HandlesBottom.Handle2 = ballB.HandlesBottom.Handle3; }
+                    if (ballA.HandlesBottom.Handle3.Value >= 0) ballA.HandlesBottom.Handle2 = ballB.HandlesBottom.Handle3;
                     else
                     {
                         ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
@@ -248,7 +248,7 @@ namespace Prazsky.BS3D.Physics
 
                 case eConstraintType.Type5:
                     //5
-                    if (ballA.HandlesMiddle.Handle1.Value >= 0) { ballA.HandlesMiddle.Handle4 = ballB.HandlesMiddle.Handle1; }
+                    if (ballA.HandlesMiddle.Handle1.Value >= 0) ballA.HandlesMiddle.Handle4 = ballB.HandlesMiddle.Handle1;
                     else
                     {
                         ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
@@ -259,7 +259,7 @@ namespace Prazsky.BS3D.Physics
 
                 case eConstraintType.Type6:
                     //6
-                    if (ballA.HandlesMiddle.Handle4.Value >= 0) { ballA.HandlesMiddle.Handle1 = ballB.HandlesMiddle.Handle4; }
+                    if (ballA.HandlesMiddle.Handle4.Value >= 0) ballA.HandlesMiddle.Handle1 = ballB.HandlesMiddle.Handle4;
                     else
                     {
                         ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
@@ -270,7 +270,7 @@ namespace Prazsky.BS3D.Physics
 
                 case eConstraintType.Type7:
                     //7
-                    if (ballA.HandlesMiddle.Handle2.Value >= 0) { ballA.HandlesMiddle.Handle3 = ballB.HandlesMiddle.Handle2; }
+                    if (ballA.HandlesMiddle.Handle2.Value >= 0) ballA.HandlesMiddle.Handle3 = ballB.HandlesMiddle.Handle2;
                     else
                     {
                         ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
@@ -281,7 +281,7 @@ namespace Prazsky.BS3D.Physics
 
                 case eConstraintType.Type8:
                     //8
-                    if (ballA.HandlesMiddle.Handle3.Value >= 0) { ballA.HandlesMiddle.Handle2 = ballB.HandlesMiddle.Handle3; }
+                    if (ballA.HandlesMiddle.Handle3.Value >= 0) ballA.HandlesMiddle.Handle2 = ballB.HandlesMiddle.Handle3;
                     else
                     {
                         ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
@@ -292,7 +292,7 @@ namespace Prazsky.BS3D.Physics
 
                 case eConstraintType.Type9:
                     //9
-                    if (ballA.HandlesTop.Handle1.Value >= 0) { ballA.HandlesTop.Handle4 = ballB.HandlesTop.Handle1; }
+                    if (ballA.HandlesTop.Handle1.Value >= 0) ballA.HandlesTop.Handle4 = ballB.HandlesTop.Handle1;
                     else
                     {
                         ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
@@ -303,7 +303,7 @@ namespace Prazsky.BS3D.Physics
 
                 case eConstraintType.Type10:
                     //10
-                    if (ballA.HandlesTop.Handle4.Value >= 0) { ballA.HandlesTop.Handle1 = ballB.HandlesTop.Handle4; }
+                    if (ballA.HandlesTop.Handle4.Value >= 0) ballA.HandlesTop.Handle1 = ballB.HandlesTop.Handle4;
                     else
                     {
                         ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
@@ -315,7 +315,7 @@ namespace Prazsky.BS3D.Physics
 
                 case eConstraintType.Type11:
                     //11
-                    if (ballA.HandlesTop.Handle2.Value >= 0) { ballA.HandlesTop.Handle3 = ballB.HandlesTop.Handle2; }
+                    if (ballA.HandlesTop.Handle2.Value >= 0) ballA.HandlesTop.Handle3 = ballB.HandlesTop.Handle2;
                     else
                     {
                         ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
@@ -327,7 +327,7 @@ namespace Prazsky.BS3D.Physics
 
                 case eConstraintType.Type12:
                     //12
-                    if (ballA.HandlesTop.Handle3.Value >= 0) { ballA.HandlesTop.Handle2 = ballB.HandlesTop.Handle3; }
+                    if (ballA.HandlesTop.Handle3.Value >= 0) ballA.HandlesTop.Handle2 = ballB.HandlesTop.Handle3;
                     else
                     {
                         ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation);
@@ -350,10 +350,10 @@ namespace Prazsky.BS3D.Physics
 
         private static ConstraintHandle ConnectBallToCeiling(PhysicsBall physicsBall, BodyReference ceilingReference, Simulation simulation)
         {
-            Vector3 offsetBall = new Vector3(0f, BALL_RADIUS, 0f);
-            Vector3 offsetCeiling = new Vector3(physicsBall.BallReference.Pose.Position.X, -BALL_RADIUS, physicsBall.BallReference.Pose.Position.Z);
+            Vector3 offsetBall = new(0f, BALL_RADIUS, 0f);
+            Vector3 offsetCeiling = new(physicsBall.BallReference.Pose.Position.X, -BALL_RADIUS, physicsBall.BallReference.Pose.Position.Z);
 
-            BallSocket ballSocket = new BallSocket()
+            BallSocket ballSocket = new()
             {
                 LocalOffsetA = offsetBall,
                 LocalOffsetB = offsetCeiling,
