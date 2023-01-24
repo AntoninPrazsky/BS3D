@@ -17,6 +17,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using static Testbed.Simu;
 using mgKeys = Microsoft.Xna.Framework.Input.Keys;
@@ -122,11 +123,11 @@ namespace Testbed
             _actions = new ButtonAction[]
             {
                 new(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
-                new(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
-                new(mgKeys.F5, Buttons.B, () => _simulate = !_simulate, "Stop/start simulation"),
+				new(mgKeys.F2, Buttons.DPadLeft, () => new Task(LoadBallsMap).Start(), "Load map"),
+				new(mgKeys.F5, Buttons.B, () => _simulate = !_simulate, "Stop/start simulation"),
                 new(mgKeys.F6, Buttons.X, () => _draw = !_draw, "Hide/show 3D rendering"),
-                new(mgKeys.F2, Buttons.DPadLeft, LoadBallsMapTest, "Load map"),
-                new(mgKeys.Delete, Buttons.Start, RemoveAllConstraints, "Remove all constraints"),
+				new(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
+				new(mgKeys.Delete, Buttons.Start, RemoveAllConstraints, "Remove all constraints"),
                 new(mgKeys.NumPad1, SwitchSkyDome, "Switch sky dome"),
                 new(mgKeys.D0, PutBallAtZero, "Spawn ball at (0, 0, 0)"),
                 new(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
@@ -206,7 +207,7 @@ namespace Testbed
             _ceiling = new KinematicBody(_topPlatform, topBodyReference);
         }
 
-        private void LoadBallsMapTest()
+        private void LoadBallsMap()
         {
             var filePath = string.Empty;
 
@@ -310,8 +311,8 @@ namespace Testbed
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
-            //TODO: GameManager for drawing balls
-            if (_draw)
+			//TODO: GameManager for drawing balls and optimize drawing (currently it is very slow)
+			if (_draw)
             {
                 for (int i = 0; i < _staticBodies.Count; i++)
                     _staticBodies[i].Draw(Camera3D);

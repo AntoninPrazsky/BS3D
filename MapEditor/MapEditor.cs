@@ -10,6 +10,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using mgKeys = Microsoft.Xna.Framework.Input.Keys;
 
@@ -64,7 +65,8 @@ namespace MapEditor
         private void Window_FileDrop(object sender, FileDropEventArgs e)
         {
             if (e.Files == null || e.Files.Length <= 0 || string.IsNullOrEmpty(e.Files[0])) return;
-            DeserializeMapFromJsonFile(e.Files[0]);
+			new Task(() => { DeserializeMapFromJsonFile(e.Files[0]); }).Start();
+			
         }
 
         private void Window_ClientSizeChanged(object sender, EventArgs e) => Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
@@ -100,7 +102,8 @@ namespace MapEditor
                 new(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
                 new(mgKeys.F12,() => Info.Visible = ! Info.Visible, "Hide/show text overlay"),
 
-                new(mgKeys.N, Buttons.X, FullMapTest, "Fill entire map with balls"),
+                new(mgKeys.N, Buttons.X, () => new Task(FullMapTest).Start(), "Fill entire map with balls"),
+                new(mgKeys.M, () => _map.Clear(), "Clear entire map"),
 
                 new(mgKeys.D1,() => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
                 new(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
@@ -166,7 +169,10 @@ namespace MapEditor
         private void LoadJson()
         {
             string filePath = GetFilePathByDialog(false);
-            if (!string.IsNullOrEmpty(filePath)) DeserializeMapFromJsonFile(filePath);
+            if (!string.IsNullOrEmpty(filePath))
+            {
+                new Task(() => { DeserializeMapFromJsonFile(filePath); }).Start();                
+            }
         }
 
         private void DeserializeMapFromJsonFile(string filePath)

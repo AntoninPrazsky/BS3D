@@ -89,14 +89,6 @@ namespace Prazsky.BS3D.Physics
                         {
                             PhysicsBall currentPhysicsBall = physicsBalls[x, z, level];
 
-							if (level == levelSize - 1) //Highest level - only attach to ceiling
-							{
-								currentPhysicsBall.HandlesTop.Handle1 = ConnectBallToCeiling(currentPhysicsBall, ceilingReference, simulation);
-
-								result.Add(currentPhysicsBall);
-								continue;
-							}
-
 							//1
 							//x - 1, y - 1, z - 1
 							if (x - 1 >= 0 && level - 1 >= 0 && z - 1 >= 0)
@@ -169,7 +161,11 @@ namespace Prazsky.BS3D.Physics
                                 if (staticBalls[x, z, level + 1] != null)
                                     EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z, level + 1], eConstraintType.Type12, simulation);
 
-                            result.Add(currentPhysicsBall);
+							//Highest level - only attach to ceiling
+							if (level == levelSize - 1)
+								currentPhysicsBall.HandlesTop.Handle1 = ConnectBallToCeiling(currentPhysicsBall, ceilingReference, simulation);
+
+							result.Add(currentPhysicsBall);
                         }
                     }
                 }

@@ -99,6 +99,16 @@ namespace Prazsky.BS3D.GameStructure
             return _balls;
         }
 
+        public void Clear()
+        {
+            if (_balls == null) return;
+
+            for (byte level = 0; level < Levels; level++)
+                for (byte x = 0; x < StageSizeX; x++)
+                    for (byte z = 0; z < StageSizeZ; z++)
+                        _balls[x, z, level] = null;
+		}
+
         public int GetBallsCount()
         {
             int count = 0;
