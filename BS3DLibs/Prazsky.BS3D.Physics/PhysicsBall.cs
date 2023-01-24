@@ -121,7 +121,7 @@ namespace Prazsky.BS3D.Physics
         public ConstraintHandle Handle4; // ↓ || ↘
     }
 
-    public enum eConstraintType : byte
+    public enum ConstraintType : byte
     {
         None = 0,
 
@@ -145,8 +145,6 @@ namespace Prazsky.BS3D.Physics
         Type9 = 9,
         Type10 = 10,
         Type11 = 11,
-        Type12 = 12,
-
-        //Type13 = 13 //Ceiling top
+        Type12 = 12
     }
 }
