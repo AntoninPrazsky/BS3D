@@ -120,28 +120,28 @@ namespace Prazsky.BS3D.Physics
                         #region level
 
                         //5
-                        //x + 1, y, z
-                        if (x + 1 < xSize)
-                            if (staticBalls[x + 1, z, level] != null)
-                                EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x + 1, z, level], ConstraintType.Type5, simulation);
-
-                        //6
-                        //x,     y, z + 1
-                        if (z + 1 < zSize)
-                            if (staticBalls[x, z + 1, level] != null)
-                                EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z + 1, level], ConstraintType.Type6, simulation);
-
-                        //7
-                        //x,     y, z - 1
-                        if (z - 1 >= 0)
-                            if (staticBalls[x, z - 1, level] != null)
-                                EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z - 1, level], ConstraintType.Type7, simulation);
-
-                        //8
                         //x - 1, y, z
                         if (x - 1 >= 0)
                             if (staticBalls[x - 1, z, level] != null)
-                                EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x - 1, z, level], ConstraintType.Type8, simulation);
+                                EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x - 1, z, level], ConstraintType.Type5, simulation);
+
+                        //6
+                        //x,     y, z - 1
+                        if (z - 1 >= 0)
+                            if (staticBalls[x, z - 1, level] != null)
+                                EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z - 1, level], ConstraintType.Type6, simulation);
+
+						//7
+						//x,     y, z + 1
+						if (z + 1 < zSize)
+							if (staticBalls[x, z + 1, level] != null)
+								EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z + 1, level], ConstraintType.Type7, simulation);
+
+						//8
+						//x + 1, y, z
+						if (x + 1 < xSize)
+                            if (staticBalls[x + 1, z, level] != null)
+                                EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x + 1, z, level], ConstraintType.Type8, simulation);
 
                         #endregion
 

@@ -7,21 +7,21 @@ namespace Prazsky.BS3D.Input
 {
 	public class CameraInputHelper : IUpdateable, IGameComponent
 	{
-		private BasicCamera3D _camera;
-		private Game _game;
+		private readonly BasicCamera3D _camera;
+		private readonly Game _game;
 
 		#region Controls
 
-		private GamePadState _currentGamePadState = new GamePadState();
-		private KeyboardState _currentKeyboardState = new KeyboardState();
-		private MouseState _currentMouseState = new MouseState();
+		private GamePadState _currentGamePadState = new();
+		private KeyboardState _currentKeyboardState = new();
+		private MouseState _currentMouseState = new();
 
-		private GamePadState _previousGamePadState = new GamePadState();
-		private KeyboardState _previousKeyboardState = new KeyboardState();
-		private MouseState _previousMouseState = new MouseState();
+		private GamePadState _previousGamePadState = new();
+		private KeyboardState _previousKeyboardState = new();
+		private MouseState _previousMouseState = new();
 
-		private int _heightHalf;
-		private int _widthHalf;
+		private readonly int _heightHalf;
+		private readonly int _widthHalf;
 		private bool _mousePanMode = false;
 		private bool _mouseRotationMode = false;
 
@@ -38,8 +38,8 @@ namespace Prazsky.BS3D.Input
 
 		#endregion Animation
 
-		private Vector3 _initialPosition;
-		private Vector3 _initialTarget;
+		private readonly Vector3 _initialPosition;
+		private readonly Vector3 _initialTarget;
 
 		public event EventHandler<EventArgs> EnabledChanged;
 
