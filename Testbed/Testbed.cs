@@ -241,7 +241,7 @@ namespace Testbed
 
         private void PutBallAtZero()
         {
-            BallsMap map = new BallsMap(10, 10, 10, _hrSphere);
+            BallsMap map = new(10, 10, 10, _hrSphere);
             map.PutBallAt(0, 0, 0, BallType.Type1);
             _balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
         }
@@ -260,7 +260,7 @@ namespace Testbed
                 float timeStep = Math.Min((float)gameTime.ElapsedGameTime.TotalSeconds, 1 / 60f);
                 if (timeStep == 0) timeStep = 1 / 60f;
 
-                //timeStep = timeStep / 5f; //Slow down simulation
+                //timeStep = timeStep / 10f; //Slow down simulation
                 _simulation.Timestep(timeStep, _threadDispatcher);
             }
 
