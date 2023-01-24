@@ -22,8 +22,8 @@ namespace Prazsky.BS3D.Physics
 
             HandlesMiddle.Handle1.Value = -1;
             HandlesMiddle.Handle2.Value = -1;
-            HandlesMiddle.Handle2.Value = -1;
-            HandlesMiddle.Handle2.Value = -1;
+            HandlesMiddle.Handle3.Value = -1;
+            HandlesMiddle.Handle4.Value = -1;
 
             HandlesBottom.Handle1.Value = -1;
             HandlesBottom.Handle2.Value = -1;
