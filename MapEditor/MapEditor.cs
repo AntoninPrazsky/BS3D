@@ -100,7 +100,8 @@ namespace MapEditor
                 new(mgKeys.NumPad3,() => _selector.ChangeBallType(BallType.Type3), "Change ball type to 3"),
 
                 new(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
-                new(mgKeys.F12,() => Info.Visible = ! Info.Visible, "Hide/show text overlay"),
+				new(mgKeys.F11, () => SetGraphics(_graphics.IsFullScreen), "Fullscreen/windowed"),
+				new(mgKeys.F12,() => Info.Visible = ! Info.Visible, "Hide/show text overlay"),
 
                 new(mgKeys.N, Buttons.X, () => new Task(FullMapTest).Start(), "Fill entire map with balls"),
                 new(mgKeys.M, () => _map.Clear(), "Clear entire map"),
@@ -243,8 +244,8 @@ namespace MapEditor
 
         private void SetGraphics(bool windowed = false)
         {
-            _graphics.PreferredBackBufferWidth = windowed ? _windowWidth : 3840; //GraphicsDevice.DisplayMode.Width
-            _graphics.PreferredBackBufferHeight = windowed ? _windowHeight : 1600; //GraphicsDevice.DisplayMode.Height
+            _graphics.PreferredBackBufferWidth = windowed ? _windowWidth : GraphicsDevice.DisplayMode.Width;
+            _graphics.PreferredBackBufferHeight = windowed ? _windowHeight : GraphicsDevice.DisplayMode.Height;
             _graphics.IsFullScreen = !windowed;
 
             _graphics.SynchronizeWithVerticalRetrace = true;

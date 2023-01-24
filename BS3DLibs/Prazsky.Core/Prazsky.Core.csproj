@@ -16,6 +16,7 @@
     <NoWarn>NU1701</NoWarn>
     <AssemblyName>Prazsky.Core</AssemblyName>
     <RootNamespace>Prazsky.Core</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

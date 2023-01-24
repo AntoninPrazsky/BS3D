@@ -15,7 +15,6 @@ using Prazsky.Render;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -126,6 +125,7 @@ namespace Testbed
 				new(mgKeys.F2, Buttons.DPadLeft, () => new Task(LoadBallsMap).Start(), "Load map"),
 				new(mgKeys.F5, Buttons.B, () => _simulate = !_simulate, "Stop/start simulation"),
                 new(mgKeys.F6, Buttons.X, () => _draw = !_draw, "Hide/show 3D rendering"),
+                new(mgKeys.F11, () => SetGraphics(_graphics.IsFullScreen), "Fullscreen/windowed"),
 				new(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
 				new(mgKeys.Delete, Buttons.Start, RemoveAllConstraints, "Remove all constraints"),
                 new(mgKeys.NumPad1, SwitchSkyDome, "Switch sky dome"),
@@ -211,7 +211,7 @@ namespace Testbed
         {
             var filePath = string.Empty;
 
-            using (OpenFileDialog openFileDialog = new OpenFileDialog())
+            using (OpenFileDialog openFileDialog = new())
             {
                 openFileDialog.InitialDirectory = Directory.GetCurrentDirectory();
                 openFileDialog.Filter = FILE_FILTER;
@@ -352,15 +352,8 @@ namespace Testbed
 
         private void SetGraphics(bool windowed = false)
         {
-            DisplaySettings.DEVMODE devMode = default;
-            devMode.dmSize = (short)Marshal.SizeOf(devMode);
-            DisplaySettings.EnumDisplaySettings(null, -1, ref devMode);
-
-            int mainScreenWidth = devMode.dmPelsWidth;
-            int mainScreenHeight = devMode.dmPelsHeight;
-
-            _graphics.PreferredBackBufferWidth = windowed ? _windowWidth : mainScreenWidth;
-            _graphics.PreferredBackBufferHeight = windowed ? _windowHeight : mainScreenHeight;
+			_graphics.PreferredBackBufferWidth = windowed ? _windowWidth : GraphicsDevice.DisplayMode.Width;
+            _graphics.PreferredBackBufferHeight = windowed ? _windowHeight : GraphicsDevice.DisplayMode.Height;
             _graphics.IsFullScreen = !windowed;
 
             _graphics.SynchronizeWithVerticalRetrace = true;
