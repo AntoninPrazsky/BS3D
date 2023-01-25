@@ -131,7 +131,7 @@ namespace Testbed
                 new(mgKeys.F6, Buttons.X, () => _draw = !_draw, "Hide/show 3D rendering"),
                 new(mgKeys.F11, () => SetGraphics(_graphics.IsFullScreen), "Fullscreen/windowed"),
 				new(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
-				new(mgKeys.Delete, Buttons.Start, RemoveAllConstraints, "Remove all constraints"),
+				new(mgKeys.End, Buttons.Start, RemoveAllConstraints, "Remove all constraints"),
                 new(mgKeys.NumPad1, SwitchSkyDome, "Switch sky dome"),
                 new(mgKeys.D0, PutBallAtZero, "Spawn ball at (0, 0, 0)"),
                 new(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
@@ -235,20 +235,24 @@ namespace Testbed
         private void DeserializeMapFromFile(string filePath)
         {
             BallsMap map = new(filePath, _hrSphere);
-
             map.Center();
-
             _balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
-            _info.CustomText = "Balls on scene: " + CountActiveBalls();
-            _info.CustomText += "\nConstraints count: " + _simulation.Solver.CountConstraints();
+            RecoundBallsAndConstraints();
         }
+
+        private void RecoundBallsAndConstraints()
+        {
+			_info.CustomText = "Balls on scene: " + CountActiveBalls();
+			_info.CustomText += "\nConstraints count: " + _simulation.Solver.CountConstraints();
+		}
 
         private void PutBallAtZero()
         {
             BallsMap map = new(10, 10, 10, _hrSphere);
             map.PutBallAt(0, 0, 0, BallType.Type1);
             _balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
-        }
+            RecoundBallsAndConstraints();
+		}
 
         private int CountActiveBalls()
         {
