@@ -69,7 +69,11 @@ namespace MapEditor
 			
         }
 
-        private void Window_ClientSizeChanged(object sender, EventArgs e) => Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
+        private void Window_ClientSizeChanged(object sender, EventArgs e)
+        {
+            Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
+            Info.RecomputeScale();
+        }
 
         protected override void Initialize()
         {

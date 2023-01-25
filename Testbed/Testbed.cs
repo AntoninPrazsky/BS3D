@@ -92,7 +92,11 @@ namespace Testbed
             DeserializeMapFromFile(e.Files[0]);
         }
 
-        private void Window_ClientSizeChanged(object sender, EventArgs e) => Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
+        private void Window_ClientSizeChanged(object sender, EventArgs e)
+        {
+            Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
+            _info.RecomputeScale();
+        }
         
 
         protected override void Initialize()
