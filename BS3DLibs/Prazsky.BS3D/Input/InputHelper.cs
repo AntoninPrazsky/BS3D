@@ -13,7 +13,7 @@ namespace Prazsky.BS3D.Input
         /// <param name="gamePadState">Current gamepsad state.</param>
         /// <param name="previousKeyboardState">Previous keyboard state.</param>
         /// <param name="previousGamePadState">Previous gamepsad state.</param>
-        /// <returns>Returns <code>true</code> if the key or button has been pressed only once and <code>false</code> if it wasn't.</returns>
+        /// <returns>Returns <code>true</code> if the key or button was pressed only once and <code>false</code> if it was not.</returns>
         public static bool PressedOnce(
                 Keys key,
                 Buttons button,
@@ -33,7 +33,7 @@ namespace Prazsky.BS3D.Input
         /// <param name="key">Keyboard key.</param>
         /// <param name="keyboardState">Current keyboard state.</param>
         /// <param name="previousKeyboardState">Previous keyboard state.</param>
-        /// <returns>Returns <code>true</code> if the key has been pressed only once and <code>false</code> if it wasn't.</returns>
+        /// <returns>Returns <code>true</code> if the key was pressed only once and <code>false</code> if it was not.</returns>
         public static bool PressedOnce(
                 Keys key,
                 KeyboardState keyboardState,
@@ -45,14 +45,14 @@ namespace Prazsky.BS3D.Input
         }
 
         /// <summary>
-        /// Detects if a given mouse button has been pressed only once.
+        /// Detects if any of the given mouse buttons was pressed only once.
         /// </summary>
         /// <param name="leftMouseButton">Left mouse button.</param>
         /// <param name="middleMouseButton">Middle mouse button.</param>
         /// <param name="rightMouseButton">Right mouse button.</param>
         /// <param name="mouseState">Current mouse state.</param>
         /// <param name="previsousMouseState">Previous mouse state.</param>
-        /// <returns>Returns <code>true</code> if the given button was pressed only once and <code>false</code>, if it wasn't.</returns>
+        /// <returns>Returns <code>true</code> if ony of the given buttons was pressed only once and <code>false</code> if none were pressed.</returns>
         public static bool PressedOnce(
                 bool leftMouseButton,
                 bool middleMouseButton,
