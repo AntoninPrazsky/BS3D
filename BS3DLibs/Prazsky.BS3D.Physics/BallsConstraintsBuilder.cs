@@ -10,8 +10,8 @@ namespace Prazsky.BS3D.Physics
 {
     public static class BallsConstraintsBuilder
     {
-        private static readonly float BALL_RADIUS = 0.5f;
-        private static readonly float BALL_MASS = 1f;
+        public static readonly float BALL_RADIUS = 0.5f;
+        public static readonly float BALL_MASS = 1f;
 
         private static readonly float SPECULATIVE_MARGIN = 0.1f; //TODO: Study what this value does exactly and how can it be optimized
 

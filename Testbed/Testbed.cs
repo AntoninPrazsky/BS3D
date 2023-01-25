@@ -67,7 +67,15 @@ namespace Testbed
 
         private static readonly string FILE_FILTER = "Maps (*.json)|*.json";
 
-        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
+        #region Shooting
+
+        BodyDescription _shotBall;
+        List<PhysicsBall> _shotBalls;
+        private static readonly float SHOOT_MULTIPLIER = 300f;
+
+		#endregion
+
+		public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
         {
             _windowed = windowed;
 
@@ -141,6 +149,7 @@ namespace Testbed
                 new(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up, true), "Up view"),
                 new(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
                 new(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
+                new(mgKeys.Space, ShootBall, "Shoot ball")
             };
 
             StringBuilder builder = new();
@@ -150,6 +159,8 @@ namespace Testbed
 
 
             #endregion
+
+            InitializeShooting();
 
             base.Initialize();
         }
@@ -346,6 +357,29 @@ namespace Testbed
                         }
                     }
                 }
+
+                if (_shotBalls.Count > 0)
+                {
+                    int ballsCount = _shotBalls.Count;
+                    for (int i = 0; i < ballsCount; i++)
+                    {
+						Microsoft.Xna.Framework.Matrix ballWorldMatrix = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(
+								new Quaternion(
+									_shotBalls[i].BallReference.Pose.Orientation.X,
+									_shotBalls[i].BallReference.Pose.Orientation.Y,
+									_shotBalls[i].BallReference.Pose.Orientation.Z,
+									_shotBalls[i].BallReference.Pose.Orientation.W))
+								* Microsoft.Xna.Framework.Matrix.CreateTranslation(
+									_shotBalls[i].BallReference.Pose.Position.X,
+									_shotBalls[i].BallReference.Pose.Position.Y,
+									_shotBalls[i].BallReference.Pose.Position.Z);
+
+						ICamera camera = Camera3D;
+						BasicEffectParams basicEffectParams = BasicEffectParamsProvider.GetEffectByType(_shotBalls[i].Type);
+
+						ModelRenderer.Render(_hrSphere, _hrSphereTransformations, ref camera, ballWorldMatrix, basicEffectParams, true, true);
+					}
+                }
             }
 
             base.Draw(gameTime);
@@ -367,7 +401,7 @@ namespace Testbed
 
         private void Graphics_PreparingDeviceSettings(object sender, PreparingDeviceSettingsEventArgs e)
         {
-            e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = PresentInterval.Immediate;
+            e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = PresentInterval.One;
             e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.HiDef;
             e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = MSAA_SAMPLES;
         }
@@ -384,6 +418,35 @@ namespace Testbed
             _simulation.Dispose();
             _threadDispatcher.Dispose();
             _bufferPool.Clear();
+        }
+
+        private void InitializeShooting()
+        {
+            var ballShape = new Sphere(BallsConstraintsBuilder.BALL_RADIUS);
+            _shotBall = BodyDescription.CreateDynamic(new System.Numerics.Vector3(), ballShape.ComputeInertia(BallsConstraintsBuilder.BALL_MASS), _simulation.Shapes.Add(ballShape), 0.01f);
+            _shotBalls = new List<PhysicsBall>();
+        }
+
+        private void ShootBall()
+        {
+            _shotBall.Pose.Position = new System.Numerics.Vector3(Camera3D.Position.X, Camera3D.Position.Y, Camera3D.Position.Z);
+
+            var cameraTargetDirection = Camera3D.Target - Camera3D.Position;
+			cameraTargetDirection.Normalize();
+            cameraTargetDirection *= SHOOT_MULTIPLIER;
+
+            _shotBall.Velocity.Linear = new System.Numerics.Vector3(cameraTargetDirection.X, cameraTargetDirection.Y, cameraTargetDirection.Z);
+
+            BodyHandle bodyHandle = _simulation.Bodies.Add(_shotBall);
+
+            PhysicsBall ball = new()
+            {
+                BallReference = new(bodyHandle, _simulation.Bodies),
+                Type = BallType.Type3
+            };
+
+            _shotBalls.Add(ball);
+            RecoundBallsAndConstraints();
         }
     }
 }
