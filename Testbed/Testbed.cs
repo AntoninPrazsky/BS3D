@@ -242,7 +242,7 @@ namespace Testbed
 
         private void RecoundBallsAndConstraints()
         {
-			_info.CustomText = "Balls on scene: " + CountActiveBalls();
+            _info.CustomText = "Balls on scene: " + (_simulation.Bodies.ActiveSet.Count - 1);
 			_info.CustomText += "\nConstraints count: " + _simulation.Solver.CountConstraints();
 		}
 
@@ -253,13 +253,6 @@ namespace Testbed
             _balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
             RecoundBallsAndConstraints();
 		}
-
-        private int CountActiveBalls()
-        {
-            int result = 0;
-            for (int i = 0; i < _balls.Count; i++) result += _balls[i].Length;
-            return result;
-        }
 
         protected override void Update(GameTime gameTime)
         {
