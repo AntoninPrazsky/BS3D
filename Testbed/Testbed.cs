@@ -152,8 +152,9 @@ namespace Testbed
                 new(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up, true), "Up view"),
                 new(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
                 new(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
-                new(mgKeys.Space, ShootBall, "Shoot ball")
-            };
+                new(mgKeys.Space, () => ShootBall(Camera3D.Position, Camera3D.Target), "Shoot ball from camera"),
+				new(mgKeys.RightAlt, () => ShootBall(_cannon.Position, _cannon.ShootTarget), "Shoot ball from cannon")
+			};
 
             StringBuilder builder = new();
             foreach (var act in _actions) builder.Append(string.Format("{0,-9} {1}\n", act.Key.ToString(), act.Description));
@@ -188,7 +189,7 @@ namespace Testbed
             _sky = new SkyDome(_skyModel, GraphicsDevice);
 
             _cilinderModel = Content.Load<Model>("Cilinder");
-			_cannon = new Cannon(_cilinderModel, Vector3.Zero, -7f, 20f);
+			_cannon = new Cannon(_cilinderModel, new Vector3(0f, 9f, 0f), -7f, 20f);
 		}
 
         private byte _skyModelNumber = 1;
@@ -436,27 +437,27 @@ namespace Testbed
             _shotBalls = new List<PhysicsBall>();
         }
 
-        private void ShootBall()
+        private void ShootBall(Vector3 sourcePosition, Vector3 target)
         {
-            _shotBall.Pose.Position = new System.Numerics.Vector3(Camera3D.Position.X, Camera3D.Position.Y, Camera3D.Position.Z);
+            _shotBall.Pose.Position = new System.Numerics.Vector3(sourcePosition.X, sourcePosition.Y, sourcePosition.Z);
 
-            var cameraTargetDirection = Camera3D.Target - Camera3D.Position;
+            var cameraTargetDirection = target - sourcePosition;
 			cameraTargetDirection.Normalize();
             cameraTargetDirection *= SHOOT_MULTIPLIER;
 
             _shotBall.Velocity.Linear = new System.Numerics.Vector3(cameraTargetDirection.X, cameraTargetDirection.Y, cameraTargetDirection.Z);
 
-            BodyHandle bodyHandle = _simulation.Bodies.Add(_shotBall);
+			BodyHandle bodyHandle = _simulation.Bodies.Add(_shotBall);
 
-            PhysicsBall ball = new()
-            {
-                BallReference = new(bodyHandle, _simulation.Bodies),
-                Type = BallType.Type3
-            };
+			PhysicsBall ball = new()
+			{
+				BallReference = new(bodyHandle, _simulation.Bodies),
+				Type = BallType.Type3
+			};
 
-            _shotBalls.Add(ball);
-            RecoundBallsAndConstraints();
-        }
+			_shotBalls.Add(ball);
+			RecoundBallsAndConstraints();
+		}
 
         private void UpdateCannon(GameTime gameTime)
         {

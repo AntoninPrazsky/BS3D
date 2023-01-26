@@ -37,7 +37,6 @@ namespace Prazsky.BS3D.GameObjects
 		{
 			CalculateDefaultPosition();
 			RecalculateDirection();
-			RecalculateRotation();
 			RecalculateWorldMatrix();
 		}
 
