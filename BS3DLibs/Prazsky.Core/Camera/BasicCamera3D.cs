@@ -28,7 +28,7 @@ namespace Prazsky.Core.Camera
 		private Vector3 _up = Vector3.Up;
 
 		private float _circleRadius = 30f;
-		private float _t = MathHelper.Pi / 2f;
+		private float _parametricVariable = MathHelper.Pi / 2f;
 
 		/// <summary>
 		/// Constructor of basic perspective camera.
@@ -93,13 +93,13 @@ namespace Prazsky.Core.Camera
 			Vector3 computedOrigin = Position - (directionNormalized * _circleRadius);
 
 			//TODO: Recompute t when user changed rotation manually
-			_t += RotationSpeed * delta * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+			_parametricVariable += RotationSpeed * delta * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-			while (_t > MathHelper.TwoPi) _t -= MathHelper.TwoPi;
-			while (_t < 0f) _t += MathHelper.TwoPi;
+			while (_parametricVariable > MathHelper.TwoPi) _parametricVariable -= MathHelper.TwoPi;
+			while (_parametricVariable < 0f) _parametricVariable += MathHelper.TwoPi;
 
-			float x = computedOrigin.X + (_circleRadius * (float)Math.Cos(_t));
-			float z = computedOrigin.Z + (_circleRadius * (float)Math.Sin(_t));
+			float x = computedOrigin.X + (_circleRadius * (float)Math.Cos(_parametricVariable));
+			float z = computedOrigin.Z + (_circleRadius * (float)Math.Sin(_parametricVariable));
 
 			Position = new(x, Position.Y, z);
 			Target = computedOrigin;
@@ -120,7 +120,7 @@ namespace Prazsky.Core.Camera
             if (_rotationX >= MathHelper.TwoPi || _rotationX <= -MathHelper.TwoPi) _rotationX = 0f;
 			if (_rotationY >= MathHelper.TwoPi || _rotationY <= -MathHelper.TwoPi) _rotationY = 0f;
 
-			_t = MathHelper.Pi / 2f;
+			_parametricVariable = MathHelper.Pi / 2f;
 
 			Recalculate();
 		}
@@ -147,7 +147,7 @@ namespace Prazsky.Core.Camera
 			if (circleRadius <= 0f) throw new ArgumentOutOfRangeException(nameof(circleRadius), "Circle radius must be greater than 0.");
 
 			_circleRadius = circleRadius;
-			_t = Math.Clamp(t, 0f, MathHelper.TwoPi);
+			_parametricVariable = Math.Clamp(t, 0f, MathHelper.TwoPi);
 		}
 
 		public void Recalculate()

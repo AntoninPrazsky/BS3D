@@ -5,6 +5,7 @@ using BepuUtilities.Memory;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Prazsky.BS3D.GameObjects;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Input;
 using Prazsky.BS3D.Physics;
@@ -31,15 +32,12 @@ namespace Testbed
         private Model _hrSphere;
         private Microsoft.Xna.Framework.Matrix[] _hrSphereTransformations;
 
-        private Model _groundModel3, _topPlatform;
+        private Model _groundModel, _topPlatformModel;
         private KinematicBody _ceiling;
 
         private Simulation _simulation;
         private ThreadDispatcher _threadDispatcher;
         private BufferPool _bufferPool;
-
-        private bool _simulate = true;
-        private bool _draw = true;
 
         private List<StaticBody> _staticBodies;
         private List<PhysicsBall[]> _balls;
@@ -51,9 +49,12 @@ namespace Testbed
 
         private ButtonAction[] _actions;
 
-        #region Graphics
+		private bool _simulate = true;
+		private bool _draw = true;
 
-        private int _windowWidth;
+		#region Graphics
+
+		private int _windowWidth;
         private int _windowHeight;
 
         private GraphicsDeviceManager _graphics;
@@ -72,6 +73,9 @@ namespace Testbed
         BodyDescription _shotBall;
         List<PhysicsBall> _shotBalls;
         private static readonly float SHOOT_MULTIPLIER = 300f;
+
+		Model _cilinderModel;
+        Cannon _cannon;
 
 		#endregion
 
@@ -105,7 +109,6 @@ namespace Testbed
             Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
             _info.RecomputeScale();
         }
-        
 
         protected override void Initialize()
         {
@@ -168,13 +171,14 @@ namespace Testbed
         protected override void LoadContent()
         {
             _hrSphere = Content.Load<Model>("HRGeoDome");
-            _hrSphereTransformations = new Microsoft.Xna.Framework.Matrix[_hrSphere.Bones.Count];
+
+			_hrSphereTransformations = new Microsoft.Xna.Framework.Matrix[_hrSphere.Bones.Count];
             _hrSphere.CopyAbsoluteBoneTransformsTo(_hrSphereTransformations);
 
             #region Ground and ceiling
 
-            _groundModel3 = Content.Load<Model>("GroundTripleX");
-            _topPlatform = Content.Load<Model>("TopGrid");
+            _groundModel = Content.Load<Model>("Ground");
+            _topPlatformModel = Content.Load<Model>("TopPlatform");
 
             BuildGroundAndCeiling();
 
@@ -182,7 +186,10 @@ namespace Testbed
 
             _skyModel = Content.Load<Model>("Skyes\\SkyDome" + _skyModelNumber);
             _sky = new SkyDome(_skyModel, GraphicsDevice);
-        }
+
+            _cilinderModel = Content.Load<Model>("Cilinder");
+			_cannon = new Cannon(_cilinderModel, Vector3.Zero, -7f, 20f);
+		}
 
         private byte _skyModelNumber = 1;
 
@@ -199,17 +206,17 @@ namespace Testbed
         {
             Box groundBox = new(30f, 1f, 30f);
 
-            _staticBodies.Add(new(_groundModel3, CreateStatic(new(0f, -10f, 0f), groundBox)));
+            _staticBodies.Add(new(_groundModel, CreateStatic(new(0f, -10f, 0f), groundBox)));
 
-            _staticBodies.Add(new(_groundModel3, CreateStatic(new(-30f, -9f, 0f), groundBox)));
-            _staticBodies.Add(new(_groundModel3, CreateStatic(new(30, -9f, 0f), groundBox)));
-            _staticBodies.Add(new(_groundModel3, CreateStatic(new(0f, -9f, 30f), groundBox)));
-            _staticBodies.Add(new(_groundModel3, CreateStatic(new(0f, -9f, -30f), groundBox)));
+            _staticBodies.Add(new(_groundModel, CreateStatic(new(-30f, -9f, 0f), groundBox)));
+            _staticBodies.Add(new(_groundModel, CreateStatic(new(30, -9f, 0f), groundBox)));
+            _staticBodies.Add(new(_groundModel, CreateStatic(new(0f, -9f, 30f), groundBox)));
+            _staticBodies.Add(new(_groundModel, CreateStatic(new(0f, -9f, -30f), groundBox)));
 
-            _staticBodies.Add(new(_groundModel3, CreateStatic(new(-30f, -9f, -30f), groundBox)));
-            _staticBodies.Add(new(_groundModel3, CreateStatic(new(30, -9f, 30f), groundBox)));
-            _staticBodies.Add(new(_groundModel3, CreateStatic(new(-30f, -9f, 30f), groundBox)));
-            _staticBodies.Add(new(_groundModel3, CreateStatic(new(30f, -9f, -30f), groundBox)));
+            _staticBodies.Add(new(_groundModel, CreateStatic(new(-30f, -9f, -30f), groundBox)));
+            _staticBodies.Add(new(_groundModel, CreateStatic(new(30, -9f, 30f), groundBox)));
+            _staticBodies.Add(new(_groundModel, CreateStatic(new(-30f, -9f, 30f), groundBox)));
+            _staticBodies.Add(new(_groundModel, CreateStatic(new(30f, -9f, -30f), groundBox)));
 
             Box box = new(10f, 1f, 10f);
             TypedIndex boxShapeIndex = _simulation.Shapes.Add(box);
@@ -219,7 +226,7 @@ namespace Testbed
             BodyHandle topBodyHandle = _simulation.Bodies.Add(in bodyDescription);
             BodyReference topBodyReference = new(topBodyHandle, _simulation.Bodies);
 
-            _ceiling = new KinematicBody(_topPlatform, topBodyReference);
+            _ceiling = new KinematicBody(_topPlatformModel, topBodyReference);
         }
 
         private void LoadBallsMap()
@@ -289,6 +296,8 @@ namespace Testbed
 
             _cih.MouseMovementDenominator = 5000f / _info.CurrentFPS; //Higher FPS → lower number
 
+            UpdateCannon(gameTime);
+
             base.Update(gameTime);
         }
 
@@ -326,10 +335,10 @@ namespace Testbed
 			//TODO: GameManager for drawing balls and optimize drawing (currently it is very slow)
 			if (_draw)
             {
-                for (int i = 0; i < _staticBodies.Count; i++)
-                    _staticBodies[i].Draw(Camera3D);
+                for (int i = 0; i < _staticBodies.Count; i++) _staticBodies[i].Draw(Camera3D);
 
                 _ceiling.Draw(Camera3D);
+                _cannon.Draw(Camera3D);
 
                 if (_balls.Count > 0)
                 {
@@ -448,5 +457,11 @@ namespace Testbed
             _shotBalls.Add(ball);
             RecoundBallsAndConstraints();
         }
+
+        private void UpdateCannon(GameTime gameTime)
+        {
+            if (Keyboard.GetState().IsKeyDown(mgKeys.NumPad7)) _cannon.Orbit(-1f, gameTime);
+			if (Keyboard.GetState().IsKeyDown(mgKeys.NumPad9)) _cannon.Orbit(1f, gameTime);
+		}
     }
 }

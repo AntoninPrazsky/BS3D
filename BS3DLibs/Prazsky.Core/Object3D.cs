@@ -67,14 +67,12 @@ namespace Prazsky.Core
 		/// <param name="camera">The camera to be used to render the model.</param>
 		public void Draw(ICamera camera)
 		{
-			ModelRenderer.Render(Model, Transformations, ref camera, World, BasicEffectParams,
-					EnableDefaultLighting, PreferPerPixelLighting);
+			ModelRenderer.Render(Model, Transformations, ref camera, World, BasicEffectParams, EnableDefaultLighting, PreferPerPixelLighting);
 		}
 
 		public void Draw(ICamera camera, Model model)
 		{
-			ModelRenderer.Render(model, Transformations, ref camera, World, BasicEffectParams,
-				EnableDefaultLighting, PreferPerPixelLighting);
+			ModelRenderer.Render(model, Transformations, ref camera, World, BasicEffectParams, EnableDefaultLighting, PreferPerPixelLighting);
 		}
 	}
 }
