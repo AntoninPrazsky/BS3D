@@ -114,7 +114,7 @@ namespace Testbed
         {
             IsMouseVisible = true;
 
-            Camera3D = new BasicCamera3D(new Vector3(0f, 0f, 30f), GraphicsDevice.Viewport.AspectRatio);
+            Camera3D = new BasicCamera3D(new Vector3(0f, 0f, 30f), GraphicsDevice.Viewport.AspectRatio, (float)Math.PI / 2.5f);
             _info = new TextInfoRenderer(this, "Content/Fonts/cascadia") { DrawOrder = int.MaxValue };
             Components.Add(_info);
 
@@ -189,7 +189,7 @@ namespace Testbed
             _sky = new SkyDome(_skyModel, GraphicsDevice);
 
             _cilinderModel = Content.Load<Model>("Cilinder");
-			_cannon = new Cannon(_cilinderModel, new Vector3(0f, 9f, 0f), -7f, 20f);
+			_cannon = new Cannon(_cilinderModel, new Vector3(0f, 5f, 0f), -6.4f, 20f);
 		}
 
         private byte _skyModelNumber = 1;
@@ -461,8 +461,10 @@ namespace Testbed
 
         private void UpdateCannon(GameTime gameTime)
         {
-            if (Keyboard.GetState().IsKeyDown(mgKeys.NumPad7)) _cannon.Orbit(-1f, gameTime);
-			if (Keyboard.GetState().IsKeyDown(mgKeys.NumPad9)) _cannon.Orbit(1f, gameTime);
+            if (Keyboard.GetState().IsKeyDown(mgKeys.NumPad4)) _cannon.Orbit(1f);
+			if (Keyboard.GetState().IsKeyDown(mgKeys.NumPad6)) _cannon.Orbit(-1f);
+
+            _cannon.Update(gameTime);
 		}
     }
 }

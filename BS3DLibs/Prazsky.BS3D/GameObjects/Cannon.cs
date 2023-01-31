@@ -5,10 +5,15 @@ using System;
 
 namespace Prazsky.BS3D.GameObjects
 {
-	public class Cannon : Object3D
+	public class Cannon : Object3D, IUpdateable
 	{
 		private const float DEFAULT_ROTATION_SPEED = 0.001f;
+		private float ACCELERATION_DELTA = 0.001f;
 		public float RotationSpeed { get; set; } = DEFAULT_ROTATION_SPEED;
+
+		public bool Enabled => throw new NotImplementedException();
+
+		public int UpdateOrder => throw new NotImplementedException();
 
 		public Vector3 ShootTarget;
 		public float OrbitRadius;
@@ -19,6 +24,14 @@ namespace Prazsky.BS3D.GameObjects
 
 		private float _rotationX = 0f;
 		private float _rotationY = 0f;
+
+		private float _delta = 0f;
+		private float _deltaLastSet = 0f;
+		private float _acceleration = 0f;
+		private bool _braking = false;
+
+		public event EventHandler<EventArgs> EnabledChanged;
+		public event EventHandler<EventArgs> UpdateOrderChanged;
 
 		public Cannon(Model model, Vector3 initialShootTarget, float floorHeight, float orbitRadius = 20f)
 		{ 
@@ -40,9 +53,40 @@ namespace Prazsky.BS3D.GameObjects
 			RecalculateWorldMatrix();
 		}
 
-		public void Orbit(float delta, GameTime gameTime)
+		public void Update(GameTime gameTime)
 		{
-			_parametricVariable += RotationSpeed * delta * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+			if (_acceleration <= 0f) _braking = false;
+
+			if (Math.Sign(_delta) != 0)
+			{
+				Move(gameTime);
+				if (_acceleration < 1f) _acceleration += ACCELERATION_DELTA * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+			}
+			
+			if (_delta == 0f && _acceleration > 0f)
+			{
+				Move(gameTime);
+				_acceleration -= ACCELERATION_DELTA * (_braking ? 4f : 2f) * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+			}
+
+			_delta = 0f;
+		}
+
+		public void Orbit(float delta)
+		{
+			if (Math.Sign(delta) != Math.Sign(_deltaLastSet) && _acceleration > 0f)
+			{
+				_braking = true;
+				return;
+			}
+
+			_delta = delta;
+			_deltaLastSet = delta;
+		}
+
+		private void Move(GameTime gameTime)
+		{
+			_parametricVariable += RotationSpeed * _acceleration * _deltaLastSet * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
 			EnsureParametricVariableInBounds();
 
