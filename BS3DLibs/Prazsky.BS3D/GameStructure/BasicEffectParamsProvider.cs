@@ -23,6 +23,9 @@ namespace Prazsky.BS3D.GameStructure
                 case BallType.Type3:
                     return ColorBlue;
 
+                case BallType.Type4:
+                    return ColorWhite;
+
                 default:
                     return null;
             }

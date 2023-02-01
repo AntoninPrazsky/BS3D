@@ -1,29 +1,28 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core;
+using Prazsky.Core.Tools;
 using System;
 
 namespace Prazsky.BS3D.GameObjects
 {
-	public class Cannon : Object3D, IUpdateable
+	public class Cannon : Object3D
 	{
-		private const float DEFAULT_ROTATION_SPEED = 0.001f;
-		private float ACCELERATION_DELTA = 0.001f;
+		private static readonly float DEFAULT_ROTATION_SPEED = Constants.THOUSANDTH;
+		private static readonly float ACCELERATION_DELTA = Constants.THOUSANDTH;
+
 		public float RotationSpeed { get; set; } = DEFAULT_ROTATION_SPEED;
 
-		public bool Enabled => throw new NotImplementedException();
+		public Vector3 AimTarget;
+		public readonly float FloorHeight;
 
-		public int UpdateOrder => throw new NotImplementedException();
+		private readonly float _orbitRadius;
+		private readonly Vector3 _orbitCenter;
 
-		public Vector3 ShootTarget;
-		public float OrbitRadius;
-		public Vector3 Direction;
-		public float FloorHeight;
+		private float _parametricVariable = Constants.HALF_PI;
 
-		private float _parametricVariable = MathHelper.Pi / 2f;
-
-		private float _rotationX = 0f;
-		private float _rotationY = 0f;
+		private Vector2 _rotationToOrbitCenter = Vector2.Zero;
+		private Vector2 _rotationAim = Vector2.Zero;
 
 		private float _delta = 0f;
 		private float _deltaLastSet = 0f;
@@ -33,23 +32,24 @@ namespace Prazsky.BS3D.GameObjects
 		public event EventHandler<EventArgs> EnabledChanged;
 		public event EventHandler<EventArgs> UpdateOrderChanged;
 
-		public Cannon(Model model, Vector3 initialShootTarget, float floorHeight, float orbitRadius = 20f)
+		public Cannon(Model model, Vector3 orbitCenter, float floorHeight, float orbitRadius = 20f)
 		{ 
 			Model = model;
 			Transformations = new Matrix[Model.Bones.Count];
 			Model.CopyBoneTransformsTo(Transformations);
 
-			ShootTarget = initialShootTarget;
+			_orbitCenter = orbitCenter;
+			AimTarget = Vector3.Normalize(orbitCenter);
 			FloorHeight = floorHeight;
-			OrbitRadius = orbitRadius;
+			_orbitRadius = orbitRadius;
 
 			Initialize();
 		}
 
 		private void Initialize()
 		{
-			CalculateDefaultPosition();
-			RecalculateDirection();
+			CalculateInitialPosition();
+			Recalculate();
 			RecalculateWorldMatrix();
 		}
 
@@ -59,13 +59,13 @@ namespace Prazsky.BS3D.GameObjects
 
 			if (Math.Sign(_delta) != 0)
 			{
-				Move(gameTime);
+				MoveCircular(gameTime);
 				if (_acceleration < 1f) _acceleration += ACCELERATION_DELTA * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 			}
 			
 			if (_delta == 0f && _acceleration > 0f)
 			{
-				Move(gameTime);
+				MoveCircular(gameTime);
 				_acceleration -= ACCELERATION_DELTA * (_braking ? 4f : 2f) * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 			}
 
@@ -84,38 +84,54 @@ namespace Prazsky.BS3D.GameObjects
 			_deltaLastSet = delta;
 		}
 
-		private void Move(GameTime gameTime)
+		public void Aim(Vector2 rotation, GameTime gameTime)
+		{
+			_rotationAim += RotationSpeed * rotation * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+			EnsureAimInBounds();
+
+#if DEBUG
+			Console.WriteLine("Canon position: " + Position);
+			Console.WriteLine("Aim direction:  " + AimTarget);
+#endif
+
+			Recalculate();
+			RecalculateWorldMatrix();
+		}
+
+
+		private void MoveCircular(GameTime gameTime)
 		{
 			_parametricVariable += RotationSpeed * _acceleration * _deltaLastSet * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
 			EnsureParametricVariableInBounds();
 
-			var x = ShootTarget.X + (OrbitRadius * (float)Math.Cos(_parametricVariable));
-			var z = ShootTarget.Z + (OrbitRadius * (float)Math.Sin(_parametricVariable));
+			var x = _orbitCenter.X + (_orbitRadius * (float)Math.Cos(_parametricVariable));
+			var z = _orbitCenter.Z + (_orbitRadius * (float)Math.Sin(_parametricVariable));
 
 			Position = new(x, Position.Y, z);
-			RecalculateDirection();
+			Recalculate();
 			RecalculateWorldMatrix();
 		}
 
-		private void CalculateDefaultPosition()
+		private void CalculateInitialPosition()
 		{
-			Position = new Vector3(ShootTarget.X, FloorHeight, ShootTarget.Z + OrbitRadius);
+			Position = new Vector3(_orbitCenter.X, FloorHeight, _orbitCenter.Z + _orbitRadius);
+
 			RecalculateWorldMatrix();
 		}
 
-		private void RecalculateDirection()
+		private void Recalculate()
 		{
-			var direction = Position - ShootTarget;
-			Direction = direction == Vector3.Zero ? direction : Vector3.Normalize(direction);
+			var directionToOrbitCenter = Position - _orbitCenter;
+			var normalized = directionToOrbitCenter == Vector3.Zero ? directionToOrbitCenter : Vector3.Normalize(directionToOrbitCenter);
+			_rotationToOrbitCenter = new Vector2((float)Math.Asin(-normalized.Y), (float)Math.Atan2(normalized.X, normalized.Z));
 
-			RecalculateRotation();
-		}
+			var finalRotationX = _rotationToOrbitCenter.X + _rotationAim.X - Constants.HALF_PI;
+			var finalRotationY = _rotationToOrbitCenter.Y + _rotationAim.Y;
 
-		private void RecalculateRotation()
-		{
-			_rotationX = (float)Math.Asin(-Direction.Y);
-			_rotationY = (float)Math.Atan2(Direction.X, Direction.Z);
+			Matrix rotationMatrix = Matrix.CreateRotationX(finalRotationX) * Matrix.CreateRotationY(finalRotationY);
+			AimTarget = Position + Vector3.Transform(_orbitCenter, rotationMatrix);
 		}
 
 		private void EnsureParametricVariableInBounds()
@@ -124,9 +140,27 @@ namespace Prazsky.BS3D.GameObjects
 			while (_parametricVariable < 0f) _parametricVariable += MathHelper.TwoPi;
 		}
 
+		private void EnsureAimInBounds()
+		{
+			var actualXRotation = _rotationAim.X + _rotationToOrbitCenter.X;
+
+			if (actualXRotation >= -Constants.HALF
+				&& actualXRotation <= Constants.HALF_PI
+				&& _rotationAim.Y >= -Constants.HALF_PI
+				&& _rotationAim.Y <= Constants.HALF_PI) return;
+
+			var x = Math.Clamp(actualXRotation, -Constants.HALF, Constants.HALF_PI) - _rotationToOrbitCenter.X;
+			var y = Math.Clamp(_rotationAim.Y, -Constants.HALF_PI, Constants.HALF_PI);
+
+			_rotationAim = new Vector2(x, y);
+		}
+
 		private void RecalculateWorldMatrix()
 		{
-			World = Matrix.CreateRotationX(_rotationX) * Matrix.CreateRotationY(_rotationY) * Matrix.CreateTranslation(Position);
+			World
+				= Matrix.CreateRotationX(_rotationToOrbitCenter.X + _rotationAim.X)
+				* Matrix.CreateRotationY(_rotationToOrbitCenter.Y + _rotationAim.Y)
+				* Matrix.CreateTranslation(Position);
 		}
 	}
 }

@@ -2,6 +2,7 @@
 using BepuPhysics.Collidables;
 using BepuPhysics.Constraints;
 using Prazsky.BS3D.GameStructure;
+using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
@@ -10,15 +11,15 @@ namespace Prazsky.BS3D.Physics
 {
     public static class BallsConstraintsBuilder
     {
-        public static readonly float BALL_RADIUS = 0.5f;
-        public static readonly float BALL_MASS = 1f;
+        public static readonly float BALL_RADIUS = Constants.HALF;
+        public static readonly float BALL_MASS = Constants.ONE;
 
         private static readonly float SPECULATIVE_MARGIN = 0.1f; //TODO: Study what this value does exactly and how can it be optimized
 
         /// <summary>
         /// Threshold of squared velocity under which the body is allowed to go to sleep.
         /// </summary>
-        private static readonly float SLEEP_TRESHOLD = 0.01f;
+        private static readonly float SLEEP_TRESHOLD = Constants.HUNDREDTH;
 
         private static readonly SpringSettings SPRING_SETTINGS = new(frequency: 15f, dampingRatio: 1f);
 

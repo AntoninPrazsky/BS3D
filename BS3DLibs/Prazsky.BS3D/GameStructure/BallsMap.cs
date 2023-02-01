@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Newtonsoft.Json;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.Core.Camera;
+using Prazsky.Core.Tools;
 using System;
 using System.IO;
 
@@ -15,7 +16,7 @@ namespace Prazsky.BS3D.GameStructure
         private Matrix[] _transformations;
         private Model _ballModel;
 
-        private static readonly float BALL_RADIUS = 0.5f;
+        private static readonly float BALL_RADIUS = Constants.HALF;
 
         public byte StageSizeX { get; internal set; }
         public byte StageSizeZ { get; internal set; }
@@ -84,12 +85,12 @@ namespace Prazsky.BS3D.GameStructure
             bool isShifted = (level % 2) > 0;
 
             float realPosX = stageX;
-            if (isShifted) realPosX += 0.5f;
+            if (isShifted) realPosX += Constants.HALF;
 
             float realPosZ = stageZ;
-            if (isShifted) realPosZ += 0.5f;
+            if (isShifted) realPosZ += Constants.HALF;
 
-            float realPosY = (level) / SQRTTWO;
+            float realPosY = level / SQRTTWO;
 
             return new Vector3(realPosX, realPosY, realPosZ);
         }

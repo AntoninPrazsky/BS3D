@@ -6,6 +6,7 @@ using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Input;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
+using Prazsky.Core.Tools;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -39,7 +40,6 @@ namespace MapEditor
         public TextInfoRenderer Info { private set; get; }
 
         private static readonly int MSAA_SAMPLES = 8;
-        private static readonly string FILE_FILTER = "Maps (*.json)|*.json";
 
         #endregion Graphics
 
@@ -219,7 +219,7 @@ namespace MapEditor
                 using (SaveFileDialog saveFileDialog = new())
                 {
                     saveFileDialog.InitialDirectory = Directory.GetCurrentDirectory();
-                    saveFileDialog.Filter = FILE_FILTER;
+                    saveFileDialog.Filter = Constants.MAPS_FILE_FILTER;
                     saveFileDialog.RestoreDirectory = true;
 
                     if (saveFileDialog.ShowDialog() == DialogResult.OK)
@@ -234,8 +234,8 @@ namespace MapEditor
             using (OpenFileDialog openFileDialog = new())
             {
                 openFileDialog.InitialDirectory = Directory.GetCurrentDirectory();
-                openFileDialog.Filter = FILE_FILTER;
-                openFileDialog.RestoreDirectory = true;
+                openFileDialog.Filter = Constants.MAPS_FILE_FILTER;
+				openFileDialog.RestoreDirectory = true;
 
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {

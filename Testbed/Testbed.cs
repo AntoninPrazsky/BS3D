@@ -12,6 +12,7 @@ using Prazsky.BS3D.Physics;
 using Prazsky.Core;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
+using Prazsky.Core.Tools;
 using Prazsky.Render;
 using System;
 using System.Collections.Generic;
@@ -26,8 +27,6 @@ namespace Testbed
 {
     public class Testbed : Game
     {
-        private static readonly float EARTH_GRAVITY = -9.807f;
-
         private BasicCamera3D Camera3D;
         private Model _hrSphere;
         private Microsoft.Xna.Framework.Matrix[] _hrSphereTransformations;
@@ -65,8 +64,6 @@ namespace Testbed
         private static readonly int MSAA_SAMPLES = 8;
 
         #endregion Graphics
-
-        private static readonly string FILE_FILTER = "Maps (*.json)|*.json";
 
         #region Shooting
 
@@ -127,7 +124,7 @@ namespace Testbed
             _simulation = Simulation.Create(
                 _bufferPool,
                 new NarrowPhaseCallbacks(),
-                new PoseIntegratorCallbacks(new System.Numerics.Vector3(0, EARTH_GRAVITY, 0)),
+                new PoseIntegratorCallbacks(new System.Numerics.Vector3(0, Constants.EARTH_GRAVITY, 0)),
                 new SolveDescription(8, 1));
 
             _threadDispatcher = new ThreadDispatcher(Environment.ProcessorCount);
@@ -153,7 +150,7 @@ namespace Testbed
                 new(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
                 new(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
                 new(mgKeys.Space, () => ShootBall(Camera3D.Position, Camera3D.Target), "Shoot ball from camera"),
-				new(mgKeys.RightAlt, () => ShootBall(_cannon.Position, _cannon.ShootTarget), "Shoot ball from cannon")
+				new(mgKeys.RightAlt, () => ShootBall(_cannon.Position, _cannon.AimTarget), "Shoot ball from cannon")
 			};
 
             StringBuilder builder = new();
@@ -222,7 +219,7 @@ namespace Testbed
             Box box = new(10f, 1f, 10f);
             TypedIndex boxShapeIndex = _simulation.Shapes.Add(box);
             CollidableDescription collidableDescription = new(boxShapeIndex, 0.1f);
-            BodyDescription bodyDescription = BodyDescription.CreateKinematic(new System.Numerics.Vector3(0f, 8.363961f, 0f), collidableDescription, new BodyActivityDescription(0.01f));
+            BodyDescription bodyDescription = BodyDescription.CreateKinematic(new System.Numerics.Vector3(0f, 8.363961f, 0f), collidableDescription, new BodyActivityDescription(Constants.HUNDREDTH));
 
             BodyHandle topBodyHandle = _simulation.Bodies.Add(in bodyDescription);
             BodyReference topBodyReference = new(topBodyHandle, _simulation.Bodies);
@@ -237,7 +234,7 @@ namespace Testbed
             using (OpenFileDialog openFileDialog = new())
             {
                 openFileDialog.InitialDirectory = Directory.GetCurrentDirectory();
-                openFileDialog.Filter = FILE_FILTER;
+                openFileDialog.Filter = Constants.MAPS_FILE_FILTER;
                 openFileDialog.RestoreDirectory = true;
 
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
@@ -433,26 +430,26 @@ namespace Testbed
         private void InitializeShooting()
         {
             var ballShape = new Sphere(BallsConstraintsBuilder.BALL_RADIUS);
-            _shotBall = BodyDescription.CreateDynamic(new System.Numerics.Vector3(), ballShape.ComputeInertia(BallsConstraintsBuilder.BALL_MASS), _simulation.Shapes.Add(ballShape), 0.01f);
+            _shotBall = BodyDescription.CreateDynamic(new System.Numerics.Vector3(), ballShape.ComputeInertia(BallsConstraintsBuilder.BALL_MASS), _simulation.Shapes.Add(ballShape), Constants.HUNDREDTH);
             _shotBalls = new List<PhysicsBall>();
         }
 
-        private void ShootBall(Vector3 sourcePosition, Vector3 target)
+        private void ShootBall(Vector3 sourcePosition, Vector3 shootTarget)
         {
             _shotBall.Pose.Position = new System.Numerics.Vector3(sourcePosition.X, sourcePosition.Y, sourcePosition.Z);
 
-            var cameraTargetDirection = target - sourcePosition;
-			cameraTargetDirection.Normalize();
-            cameraTargetDirection *= SHOOT_MULTIPLIER;
+            var direction = shootTarget - sourcePosition;
+			direction.Normalize();
+            direction *= SHOOT_MULTIPLIER;
 
-            _shotBall.Velocity.Linear = new System.Numerics.Vector3(cameraTargetDirection.X, cameraTargetDirection.Y, cameraTargetDirection.Z);
+            _shotBall.Velocity.Linear = new System.Numerics.Vector3(direction.X, direction.Y, direction.Z);
 
 			BodyHandle bodyHandle = _simulation.Bodies.Add(_shotBall);
 
 			PhysicsBall ball = new()
 			{
 				BallReference = new(bodyHandle, _simulation.Bodies),
-				Type = BallType.Type3
+				Type = BallType.Type4
 			};
 
 			_shotBalls.Add(ball);
@@ -462,9 +459,13 @@ namespace Testbed
         private void UpdateCannon(GameTime gameTime)
         {
             if (Keyboard.GetState().IsKeyDown(mgKeys.NumPad4)) _cannon.Orbit(1f);
-			if (Keyboard.GetState().IsKeyDown(mgKeys.NumPad6)) _cannon.Orbit(-1f);
+            if (Keyboard.GetState().IsKeyDown(mgKeys.NumPad6)) _cannon.Orbit(-1f);
+            if (Keyboard.GetState().IsKeyDown(mgKeys.Up)) _cannon.Aim(new Vector2(1f, 0f), gameTime);
+            if (Keyboard.GetState().IsKeyDown(mgKeys.Down)) _cannon.Aim(new Vector2(-1f, 0f), gameTime);
+            if (Keyboard.GetState().IsKeyDown(mgKeys.Left)) _cannon.Aim(new Vector2(0f, 1f), gameTime);
+			if (Keyboard.GetState().IsKeyDown(mgKeys.Right)) _cannon.Aim(new Vector2(0f, -1f), gameTime);
 
-            _cannon.Update(gameTime);
+			_cannon.Update(gameTime);
 		}
     }
 }

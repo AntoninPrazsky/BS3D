@@ -1,4 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
+using Prazsky.Core.Tools;
 using System;
 using System.Globalization;
 
@@ -10,9 +11,9 @@ namespace Prazsky.Core.Camera
     public class BasicCamera3D : ICamera
 	{
 		private const float DEFAULT_FAR_PLANE_DISTANCE = 500f;
-		private const float DEFAULT_MOVE_SPEED = 0.01f;
-		private const float DEFAULT_NEAR_PLANE_DISTANCE = 0.01f;
-		private const float DEFAULT_ROTATION_SPEED = 0.001f;
+		private const float DEFAULT_MOVE_SPEED = Constants.HUNDREDTH;
+		private const float DEFAULT_NEAR_PLANE_DISTANCE = Constants.HUNDREDTH;
+		private const float DEFAULT_ROTATION_SPEED = Constants.THOUSANDTH;
 		private const float DEFAULT_FIELD_OF_VIEW = MathHelper.PiOver4;
 
 		private Vector3 _defaultTarget = Vector3.Forward;
@@ -28,7 +29,7 @@ namespace Prazsky.Core.Camera
 		private Vector3 _up = Vector3.Up;
 
 		private float _circleRadius = 30f;
-		private float _parametricVariable = MathHelper.Pi / 2f;
+		private float _parametricVariable = Constants.HALF_PI;
 
 		/// <summary>
 		/// Constructor of basic perspective camera.
@@ -120,7 +121,7 @@ namespace Prazsky.Core.Camera
             if (_rotationX >= MathHelper.TwoPi || _rotationX <= -MathHelper.TwoPi) _rotationX = 0f;
 			if (_rotationY >= MathHelper.TwoPi || _rotationY <= -MathHelper.TwoPi) _rotationY = 0f;
 
-			_parametricVariable = MathHelper.Pi / 2f;
+			_parametricVariable = Constants.HALF_PI;
 
 			Recalculate();
 		}
@@ -142,7 +143,7 @@ namespace Prazsky.Core.Camera
 		/// <param name="circleOrigin">Circle origin (the camera will look at this point).</param>
 		/// <param name="circleRadius">Circle radius (the camera will be this far from the circle origin). Must be greater than 0.</param>
 		/// <param name="t">Parametric variable in the range from 0 to 2π (different values are clamped).</param>
-		public void SetCircularMovementProperties(float circleRadius = 30f, float t = MathHelper.Pi / 2f)
+		public void SetCircularMovementProperties(float circleRadius = 30f, float t = Constants.HALF_PI)
 		{
 			if (circleRadius <= 0f) throw new ArgumentOutOfRangeException(nameof(circleRadius), "Circle radius must be greater than 0.");
 
