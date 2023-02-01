@@ -111,7 +111,7 @@ namespace Testbed
         {
             IsMouseVisible = true;
 
-            Camera3D = new BasicCamera3D(new Vector3(0f, 0f, 30f), GraphicsDevice.Viewport.AspectRatio, (float)Math.PI / 2.5f);
+            Camera3D = new BasicCamera3D(new Vector3(0f, -3f, 30f), GraphicsDevice.Viewport.AspectRatio, (float)Math.PI / 2.5f);
             _info = new TextInfoRenderer(this, "Content/Fonts/cascadia") { DrawOrder = int.MaxValue };
             Components.Add(_info);
 
@@ -148,7 +148,7 @@ namespace Testbed
                 new(mgKeys.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right, true), "Right view"),
                 new(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up, true), "Up view"),
                 new(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
-                new(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
+                new(mgKeys.R, () => { _cih.RestartCamera(); _cannon.Restart(); }, "Restart camera"),
                 new(mgKeys.Space, () => ShootBall(Camera3D.Position, Camera3D.Target), "Shoot ball from camera"),
 				new(mgKeys.RightAlt, () => ShootBall(_cannon.Position, _cannon.AimTarget), "Shoot ball from cannon")
 			};
@@ -157,7 +157,6 @@ namespace Testbed
             foreach (var act in _actions) builder.Append(string.Format("{0,-9} {1}\n", act.Key.ToString(), act.Description));
 
             _info.HintText = builder.ToString();
-
 
             #endregion
 

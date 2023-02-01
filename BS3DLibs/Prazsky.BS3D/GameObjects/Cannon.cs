@@ -14,8 +14,8 @@ namespace Prazsky.BS3D.GameObjects
 		public float RotationSpeed { get; set; } = DEFAULT_ROTATION_SPEED;
 
 		public Vector3 AimTarget;
-		public readonly float FloorHeight;
 
+		private readonly float _floorHeight;
 		private readonly float _orbitRadius;
 		private readonly Vector3 _orbitCenter;
 
@@ -39,8 +39,7 @@ namespace Prazsky.BS3D.GameObjects
 			Model.CopyBoneTransformsTo(Transformations);
 
 			_orbitCenter = orbitCenter;
-			AimTarget = Vector3.Normalize(orbitCenter);
-			FloorHeight = floorHeight;
+			_floorHeight = floorHeight;
 			_orbitRadius = orbitRadius;
 
 			Initialize();
@@ -48,7 +47,7 @@ namespace Prazsky.BS3D.GameObjects
 
 		private void Initialize()
 		{
-			CalculateInitialPosition();
+			CalculateInitialPositionAndAimTarget();
 			Recalculate();
 			RecalculateWorldMatrix();
 		}
@@ -99,6 +98,15 @@ namespace Prazsky.BS3D.GameObjects
 			RecalculateWorldMatrix();
 		}
 
+		public void Restart()
+		{
+			_parametricVariable = Constants.HALF_PI;
+			_rotationToOrbitCenter = Vector2.Zero;
+			_rotationAim = Vector2.Zero;
+			_acceleration = 0f;
+
+			Initialize();
+		}
 
 		private void MoveCircular(GameTime gameTime)
 		{
@@ -114,9 +122,10 @@ namespace Prazsky.BS3D.GameObjects
 			RecalculateWorldMatrix();
 		}
 
-		private void CalculateInitialPosition()
+		private void CalculateInitialPositionAndAimTarget()
 		{
-			Position = new Vector3(_orbitCenter.X, FloorHeight, _orbitCenter.Z + _orbitRadius);
+			Position = new Vector3(_orbitCenter.X, _floorHeight, _orbitCenter.Z + _orbitRadius);
+			AimTarget = Vector3.Normalize(_orbitCenter);
 
 			RecalculateWorldMatrix();
 		}
