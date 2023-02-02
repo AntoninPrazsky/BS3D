@@ -29,9 +29,6 @@ namespace Prazsky.BS3D.GameObjects
 		private float _acceleration = 0f;
 		private bool _braking = false;
 
-		public event EventHandler<EventArgs> EnabledChanged;
-		public event EventHandler<EventArgs> UpdateOrderChanged;
-
 		public Cannon(Model model, Vector3 orbitCenter, float floorHeight, float orbitRadius = 20f)
 		{ 
 			Model = model;
