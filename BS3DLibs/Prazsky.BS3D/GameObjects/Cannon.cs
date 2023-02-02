@@ -48,7 +48,7 @@ namespace Prazsky.BS3D.GameObjects
 		private void Initialize()
 		{
 			CalculateInitialPositionAndAimTarget();
-			Recalculate();
+			RecalculateRotation();
 			RecalculateWorldMatrix();
 		}
 
@@ -88,13 +88,7 @@ namespace Prazsky.BS3D.GameObjects
 			_rotationAim += RotationSpeed * rotation * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
 			EnsureAimInBounds();
-
-#if DEBUG
-			Console.WriteLine("Canon position: " + Position);
-			Console.WriteLine("Aim direction:  " + AimTarget);
-#endif
-
-			Recalculate();
+			RecalculateRotation();
 			RecalculateWorldMatrix();
 		}
 
@@ -118,7 +112,8 @@ namespace Prazsky.BS3D.GameObjects
 			var z = _orbitCenter.Z + (_orbitRadius * (float)Math.Sin(_parametricVariable));
 
 			Position = new(x, Position.Y, z);
-			Recalculate();
+
+			RecalculateRotation();
 			RecalculateWorldMatrix();
 		}
 
@@ -130,7 +125,7 @@ namespace Prazsky.BS3D.GameObjects
 			RecalculateWorldMatrix();
 		}
 
-		private void Recalculate()
+		private void RecalculateRotation()
 		{
 			var directionToOrbitCenter = Position - _orbitCenter;
 			var normalized = directionToOrbitCenter == Vector3.Zero ? directionToOrbitCenter : Vector3.Normalize(directionToOrbitCenter);
