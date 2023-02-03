@@ -86,7 +86,6 @@ namespace MapEditor
             Components.Add(Info);
 
             _cih = new CameraInputHelper(Camera3D, this);
-            
 
             #region Controls
 
@@ -164,6 +163,8 @@ namespace MapEditor
 
         private void SaveJson()
         {
+            EnsureNotFullScreen();
+
             string filePath = GetFilePathByDialog(true);
             if (!string.IsNullOrEmpty(filePath))
             {
@@ -177,11 +178,20 @@ namespace MapEditor
 
         private void LoadJson()
         {
+            EnsureNotFullScreen();
+
             string filePath = GetFilePathByDialog(false);
             if (!string.IsNullOrEmpty(filePath))
             {
                 new Task(() => { DeserializeMapFromJsonFile(filePath); }).Start();                
             }
+        }
+
+        private void EnsureNotFullScreen()
+        {
+            if (!_graphics.IsFullScreen) return;
+
+            SetGraphics(true);
         }
 
         private void DeserializeMapFromJsonFile(string filePath)
