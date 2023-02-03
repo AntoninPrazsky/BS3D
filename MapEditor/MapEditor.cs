@@ -99,11 +99,12 @@ namespace MapEditor
                 new(mgKeys.Space, Buttons.A,() => _selector.PutBall(), "Put ball"),
                 new(mgKeys.Delete, Buttons.B,() => _selector.RemoveBall(), "Remove ball"),
 
-                new(mgKeys.NumPad1,() => _selector.ChangeBallType(BallType.Type1), "Change ball type to 1"),
-                new(mgKeys.NumPad2,() => _selector.ChangeBallType(BallType.Type2), "Change ball type to 2"),
-                new(mgKeys.NumPad3,() => _selector.ChangeBallType(BallType.Type3), "Change ball type to 3"),
+                new(mgKeys.NumPad1,() => _selector.ChangeBallType(BallType.Type1), "Change ball type to 1 (red)"),
+                new(mgKeys.NumPad2,() => _selector.ChangeBallType(BallType.Type2), "Change ball type to 2 (green)"),
+                new(mgKeys.NumPad3,() => _selector.ChangeBallType(BallType.Type3), "Change ball type to 3 (blue)"),
+				new(mgKeys.NumPad4,() => _selector.ChangeBallType(BallType.Type4), "Change ball type to 4 (white)"),
 
-                new(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
+				new(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
 				new(mgKeys.F11, () => SetGraphics(_graphics.IsFullScreen), "Fullscreen/windowed"),
 				new(mgKeys.F12,() => Info.Visible = ! Info.Visible, "Hide/show text overlay"),
 
