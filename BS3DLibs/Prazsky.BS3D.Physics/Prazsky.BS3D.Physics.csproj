@@ -5,13 +5,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Prazsky.BS3D\Prazsky.BS3D.csproj" />
+    <PackageReference Include="BepuPhysics" Version="2.4.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="BepuPhysics">
-      <HintPath>..\..\..\..\..\..\..\GitHub\bepuphysics2\BepuPhysics\bin\Release\net7.0\BepuPhysics.dll</HintPath>
-    </Reference>
+    <ProjectReference Include="..\Prazsky.BS3D\Prazsky.BS3D.csproj" />
   </ItemGroup>
 
 </Project>
