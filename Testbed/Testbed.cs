@@ -62,12 +62,13 @@ namespace Testbed
         private TextInfoRenderer _info;
 
         private static readonly int MSAA_SAMPLES = 8;
+        private static readonly PresentInterval PRESENTATION_INTERVAL = PresentInterval.One;
 
-        #endregion Graphics
+		#endregion Graphics
 
-        #region Shooting
+		#region Shooting
 
-        BodyDescription _shotBall;
+		BodyDescription _shotBall;
         List<PhysicsBall> _shotBalls;
         private static readonly float SHOOT_MULTIPLIER = 300f;
 
@@ -407,7 +408,7 @@ namespace Testbed
 
         private void Graphics_PreparingDeviceSettings(object sender, PreparingDeviceSettingsEventArgs e)
         {
-            e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = PresentInterval.One;
+            e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = PRESENTATION_INTERVAL;
             e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.HiDef;
             e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = MSAA_SAMPLES;
         }
