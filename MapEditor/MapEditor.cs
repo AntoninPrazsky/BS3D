@@ -72,6 +72,7 @@ namespace MapEditor
         private void Window_ClientSizeChanged(object sender, EventArgs e)
         {
             Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
+            
             Info.RecomputeScale();
         }
 
@@ -79,11 +80,13 @@ namespace MapEditor
         {
             IsMouseVisible = true;
 
-            Camera3D = new BasicCamera3D(new Vector3(0f, 0f, 30f), GraphicsDevice.Viewport.AspectRatio);
+            Camera3D = new BasicCamera3D(new Vector3(5f, 3.2f, 20f), GraphicsDevice.Viewport.AspectRatio);
+            Camera3D.SetCircularMovementProperties(15f);
             Info = new TextInfoRenderer(this, "Content/Fonts/cascadia") { DrawOrder = int.MaxValue };
             Components.Add(Info);
 
             _cih = new CameraInputHelper(Camera3D, this);
+            
 
             #region Controls
 

@@ -236,7 +236,7 @@ namespace Prazsky.BS3D.Input
 		{
 			_camera.Position = _initialPosition;
 			_camera.Target = _initialTarget;
-			_camera.SetCircularMovementProperties();
+			_camera.ResetCircularMovementProperties();
 
 			_camera.Recalculate();
 		}

@@ -29,7 +29,9 @@ namespace Prazsky.Core.Camera
 		private Vector3 _up = Vector3.Up;
 
 		private float _circleRadius = 30f;
+		private float _initialCircleRadius = 30f;
 		private float _parametricVariable = Constants.HALF_PI;
+		private float _initialParametricVariable = Constants.HALF_PI;
 
 		/// <summary>
 		/// Constructor of basic perspective camera.
@@ -142,13 +144,21 @@ namespace Prazsky.Core.Camera
 		/// </summary>
 		/// <param name="circleOrigin">Circle origin (the camera will look at this point).</param>
 		/// <param name="circleRadius">Circle radius (the camera will be this far from the circle origin). Must be greater than 0.</param>
-		/// <param name="t">Parametric variable in the range from 0 to 2π (different values are clamped).</param>
-		public void SetCircularMovementProperties(float circleRadius = 30f, float t = Constants.HALF_PI)
+		/// <param name="parametricVariable">Parametric variable in the range from 0 to 2π (different values are clamped).</param>
+		public void SetCircularMovementProperties(float circleRadius = 30f, float parametricVariable = Constants.HALF_PI)
 		{
 			if (circleRadius <= 0f) throw new ArgumentOutOfRangeException(nameof(circleRadius), "Circle radius must be greater than 0.");
 
 			_circleRadius = circleRadius;
-			_parametricVariable = Math.Clamp(t, 0f, MathHelper.TwoPi);
+			_initialCircleRadius = _circleRadius;
+			_parametricVariable = Math.Clamp(parametricVariable, 0f, MathHelper.TwoPi);
+			_initialParametricVariable = _parametricVariable;
+		}
+
+		public void ResetCircularMovementProperties()
+		{
+			_circleRadius = _initialCircleRadius;
+			_parametricVariable = _initialParametricVariable;
 		}
 
 		public void Recalculate()
