@@ -135,7 +135,7 @@ namespace Testbed
             _actions = new ButtonAction[]
             {
                 new(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
-				new(mgKeys.F2, Buttons.DPadLeft, () => new Task(LoadBallsMap).Start(), "Load map"),
+				new(mgKeys.F2, Buttons.DPadLeft, LoadBallsMap, "Load map"),
 				new(mgKeys.F5, Buttons.B, () => _simulate = !_simulate, "Stop/start simulation"),
                 new(mgKeys.F6, Buttons.X, () => _draw = !_draw, "Hide/show 3D rendering"),
                 new(mgKeys.F11, () => SetGraphics(_graphics.IsFullScreen), "Fullscreen/windowed"),
