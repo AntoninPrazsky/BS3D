@@ -19,8 +19,8 @@ namespace Prazsky.Core.Render
         private TimeSpan _elapsedTime = TimeSpan.Zero;
 
         private Vector2 _fpsPosition;
-		private Vector2 _hintTextPosition;
-		private Vector2 _customTextPosition;
+        private Vector2 _hintTextPosition;
+        private Vector2 _customTextPosition;
         private string _fps;
         private readonly string _fontAssetName;
         private readonly string _iconAssetName;
@@ -57,10 +57,10 @@ namespace Prazsky.Core.Render
             _scale = Game.GraphicsDevice.Viewport.Width / SCALE_DIVISOR;
 
             _fpsPosition = new Vector2(30f, 20f) * _scale;
-			_hintTextPosition = new Vector2(30f, 150f) * _scale;
-			_customTextPosition = new Vector2(450f, 20f) * _scale;
+            _hintTextPosition = new Vector2(30f, 150f) * _scale;
+            _customTextPosition = new Vector2(450f, 20f) * _scale;
 
-			if (_iconTexture != null)
+            if (_iconTexture != null)
             {
                 var x = Game.GraphicsDevice.Viewport.Width - (_iconTexture.Width * _scale) - (30f * _scale);
                 var y = 30f * _scale;
@@ -114,7 +114,7 @@ namespace Prazsky.Core.Render
             if (!string.IsNullOrEmpty(CustomText)) RenderTextScale(CustomText, new Vector2(_customTextPosition.X, _customTextPosition.Y), 0.6f, Color.DarkGoldenrod);
             if (!string.IsNullOrEmpty(HintText)) RenderTextScale(HintText, new Vector2(_hintTextPosition.X, _hintTextPosition.Y), 0.7f, Color.Azure);
 
-			if (_iconTexture != null && ShowIcon) _spriteBatch.Draw(_iconTexture, _iconPosition, null, Color.White, 0f, Vector2.Zero, _scale, SpriteEffects.None, 0);
+            if (_iconTexture != null && ShowIcon) _spriteBatch.Draw(_iconTexture, _iconPosition, null, Color.White, 0f, Vector2.Zero, _scale, SpriteEffects.None, 0);
 
             _spriteBatch.End();
         }
