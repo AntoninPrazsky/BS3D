@@ -3,6 +3,7 @@
 	public static class Constants
 	{
 		public const float HALF_PI = 1.5707963f;
+		public const float QUARTER_PI = 0.7853982f;
 		public const float ONE = 1f;
 		public const float HALF = 0.5f;
 		public const float HUNDREDTH = 0.01f;

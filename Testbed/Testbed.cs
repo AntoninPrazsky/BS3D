@@ -18,7 +18,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using static Testbed.Simu;
 using mgKeys = Microsoft.Xna.Framework.Input.Keys;
@@ -27,7 +26,7 @@ namespace Testbed
 {
     public class Testbed : Game
     {
-        private BasicCamera3D Camera3D;
+        private BasicCamera3D _camera;
         private Model _hrSphere;
         private Microsoft.Xna.Framework.Matrix[] _hrSphereTransformations;
 
@@ -50,6 +49,21 @@ namespace Testbed
 
 		private bool _simulate = true;
 		private bool _draw = true;
+        private bool _gameMode = false;
+
+		#region Game mode transition animation
+
+		private bool _gameModeAnimStarted = false;
+        private float _gameModeAnimStep = 0f;
+
+		private static readonly float ANIMATION_SPEED = Constants.THOUSANDTH;
+
+        private Vector3 _beforeAnimationPosition = Vector3.Zero;
+        private Vector3 _beforeAnimationTarget = Vector3.Zero;
+
+        #endregion
+
+        private Vector3 _gameCameraOffset = Vector3.Up * 6.5f;
 
 		#region Graphics
 
@@ -63,6 +77,9 @@ namespace Testbed
 
         private static readonly int MSAA_SAMPLES = 8;
         private static readonly PresentInterval PRESENTATION_INTERVAL = PresentInterval.One;
+        private static float GAME_FOV = (float)Math.PI / 2.9f;
+		private static float FREE_FOV = (float)Math.PI / 2.5f;
+        private static Vector3 DEFAULT_CAMERA_POS = new (0f, -3f, 30f);
 
 		#endregion Graphics
 
@@ -104,7 +121,7 @@ namespace Testbed
 
         private void Window_ClientSizeChanged(object sender, EventArgs e)
         {
-            Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
+            _camera.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
             _info.RecomputeScale();
         }
 
@@ -112,11 +129,11 @@ namespace Testbed
         {
             IsMouseVisible = true;
 
-            Camera3D = new BasicCamera3D(new Vector3(0f, -3f, 30f), GraphicsDevice.Viewport.AspectRatio, (float)Math.PI / 2.5f);
+            _camera = new BasicCamera3D(DEFAULT_CAMERA_POS, GraphicsDevice.Viewport.AspectRatio, FREE_FOV);
             _info = new TextInfoRenderer(this, "Content/Fonts/cascadia") { DrawOrder = int.MaxValue };
             Components.Add(_info);
 
-            _cih = new CameraInputHelper(Camera3D, this);
+            _cih = new CameraInputHelper(_camera, this);
 
             _staticBodies = new List<StaticBody>();
             _balls = new List<PhysicsBall[]>();
@@ -138,6 +155,7 @@ namespace Testbed
 				new(mgKeys.F2, Buttons.DPadLeft, LoadBallsMap, "Load map"),
 				new(mgKeys.F5, Buttons.B, () => _simulate = !_simulate, "Stop/start simulation"),
                 new(mgKeys.F6, Buttons.X, () => _draw = !_draw, "Hide/show 3D rendering"),
+                new(mgKeys.F10, () => SwitchGameMode(!_gameMode), "Switch game mode"),
                 new(mgKeys.F11, () => SetGraphics(_graphics.IsFullScreen), "Fullscreen/windowed"),
 				new(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
 				new(mgKeys.End, Buttons.Start, RemoveAllConstraints, "Remove all constraints"),
@@ -150,8 +168,7 @@ namespace Testbed
                 new(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up, true), "Up view"),
                 new(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
                 new(mgKeys.R, () => { _cih.RestartCamera(); _cannon.Restart(); }, "Restart camera"),
-                new(mgKeys.Space, () => ShootBall(Camera3D.Position, Camera3D.Target), "Shoot ball from camera"),
-				new(mgKeys.RightAlt, () => ShootBall(_cannon.Position, _cannon.AimTarget), "Shoot ball from cannon")
+                new(mgKeys.Space, ShootBall, "Shoot ball")
 			};
 
             StringBuilder builder = new();
@@ -165,6 +182,25 @@ namespace Testbed
 
             base.Initialize();
         }
+
+        private void SwitchGameMode(bool gameMode)
+        {
+            if (_gameMode == gameMode) return;
+            _gameMode = gameMode;
+
+            if (_gameMode)
+            {
+                _gameModeAnimStarted = true;
+                _beforeAnimationPosition = _camera.Position;
+                _beforeAnimationTarget = _camera.Target;
+            }
+            else
+            {
+                _camera.FieldOfView = FREE_FOV;
+            }
+
+			_camera.Recalculate();
+		}
 
         protected override void LoadContent()
         {
@@ -253,10 +289,10 @@ namespace Testbed
             BallsMap map = new(filePath, _hrSphere);
             map.Center();
             _balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
-            RecoundBallsAndConstraints();
+            RecountBallsAndConstraints();
         }
 
-        private void RecoundBallsAndConstraints()
+        private void RecountBallsAndConstraints()
         {
             _info.CustomText = "Balls on scene: " + (_simulation.Bodies.ActiveSet.Count - 1);
 			_info.CustomText += "\nConstraints count: " + _simulation.Solver.CountConstraints();
@@ -267,7 +303,7 @@ namespace Testbed
             BallsMap map = new(10, 10, 10, _hrSphere);
             map.PutBallAt(0, 0, 0, BallType.Type1);
             _balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
-            RecoundBallsAndConstraints();
+            RecountBallsAndConstraints();
 		}
 
         protected override void Update(GameTime gameTime)
@@ -296,7 +332,26 @@ namespace Testbed
 
             UpdateCannon(gameTime);
 
-            base.Update(gameTime);
+			#region Game mode animation
+
+            if (_gameModeAnimStarted && _gameMode)
+            {
+                _camera.Position = Vector3.SmoothStep(_beforeAnimationPosition, GetCanonOffsettedPos(), _gameModeAnimStep);
+                _camera.Target = Vector3.SmoothStep(_beforeAnimationTarget, GetCannonOffsettedTarget(), _gameModeAnimStep * 2f);
+                _camera.FieldOfView = Microsoft.Xna.Framework.MathHelper.SmoothStep(FREE_FOV, GAME_FOV, _gameModeAnimStep);
+
+                _gameModeAnimStep += ANIMATION_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+                if (_gameModeAnimStep > 1f)
+                {
+                    _gameModeAnimStep = 0;
+                    _gameModeAnimStarted = false;
+                }
+            }
+
+			#endregion
+
+			base.Update(gameTime);
         }
 
         private void RemoveAllStatics()
@@ -325,7 +380,7 @@ namespace Testbed
         {
             GraphicsDevice.Clear(Color.LightSlateGray);
 
-            _sky.Draw(Camera3D);
+            _sky.Draw(_camera);
 
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
@@ -333,10 +388,10 @@ namespace Testbed
 			//TODO: GameManager for drawing balls and optimize drawing (currently it is very slow)
 			if (_draw)
             {
-                for (int i = 0; i < _staticBodies.Count; i++) _staticBodies[i].Draw(Camera3D);
+                for (int i = 0; i < _staticBodies.Count; i++) _staticBodies[i].Draw(_camera);
 
-                _ceiling.Draw(Camera3D);
-                _cannon.Draw(Camera3D);
+                _ceiling.Draw(_camera);
+                _cannon.Draw(_camera);
 
                 if (_balls.Count > 0)
                 {
@@ -357,7 +412,7 @@ namespace Testbed
                                     _balls[x][i].BallReference.Pose.Position.Y,
                                     _balls[x][i].BallReference.Pose.Position.Z);
 
-                            ICamera camera = Camera3D;
+                            ICamera camera = _camera;
                             BasicEffectParams basicEffectParams = BasicEffectParamsProvider.GetEffectByType(_balls[x][i].Type);
 
                             ModelRenderer.Render(_hrSphere, _hrSphereTransformations, ref camera, ballWorldMatrix, basicEffectParams, true, true);
@@ -381,7 +436,7 @@ namespace Testbed
 									_shotBalls[i].BallReference.Pose.Position.Y,
 									_shotBalls[i].BallReference.Pose.Position.Z);
 
-						ICamera camera = Camera3D;
+						ICamera camera = _camera;
 						BasicEffectParams basicEffectParams = BasicEffectParamsProvider.GetEffectByType(_shotBalls[i].Type);
 
 						ModelRenderer.Render(_hrSphere, _hrSphereTransformations, ref camera, ballWorldMatrix, basicEffectParams, true, true);
@@ -434,8 +489,11 @@ namespace Testbed
             _shotBalls = new List<PhysicsBall>();
         }
 
-        private void ShootBall(Vector3 sourcePosition, Vector3 shootTarget)
+        private void ShootBall()
         {
+            var sourcePosition = _gameMode ? _cannon.Position : _camera.Position;
+            var shootTarget = _gameMode ? _cannon.AimTarget : _camera.Target;
+
             _shotBall.Pose.Position = new System.Numerics.Vector3(sourcePosition.X, sourcePosition.Y, sourcePosition.Z);
 
             var direction = shootTarget - sourcePosition;
@@ -453,7 +511,7 @@ namespace Testbed
 			};
 
 			_shotBalls.Add(ball);
-			RecoundBallsAndConstraints();
+			RecountBallsAndConstraints();
 		}
 
         private void UpdateCannon(GameTime gameTime)
@@ -465,7 +523,18 @@ namespace Testbed
             if (Keyboard.GetState().IsKeyDown(mgKeys.Left)) _cannon.Aim(new Vector2(0f, 1f), gameTime);
 			if (Keyboard.GetState().IsKeyDown(mgKeys.Right)) _cannon.Aim(new Vector2(0f, -1f), gameTime);
 
+            if (_gameMode && !_gameModeAnimStarted)
+            {
+                _camera.Position = GetCanonOffsettedPos();
+                _camera.Target = GetCannonOffsettedTarget();
+			}
+
 			_cannon.Update(gameTime);
 		}
-    }
+
+        private Vector3 GetCannonDirection() => Vector3.Normalize(_cannon.Position - _cannon.OrbitCenter) * 10f;
+        private Vector3 GetCanonOffsettedPos() => _cannon.Position + GetCannonDirection() + _gameCameraOffset;
+        private Vector3 GetCannonOffsettedTarget() => _cannon.OrbitCenter - _gameCameraOffset;
+
+	}
 }
