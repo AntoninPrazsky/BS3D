@@ -37,7 +37,7 @@ namespace MapEditor
         private GraphicsDeviceManager _graphics;
         private bool _windowed;
 
-        public TextInfoRenderer Info { private set; get; }
+        public InfoRenderer Info { private set; get; }
 
         private static readonly int MSAA_SAMPLES = 8;
 
@@ -82,7 +82,7 @@ namespace MapEditor
 
             Camera3D = new BasicCamera3D(new Vector3(5f, 3.2f, 20f), GraphicsDevice.Viewport.AspectRatio);
             Camera3D.SetCircularMovementProperties(15f);
-            Info = new TextInfoRenderer(this, "Content/Fonts/cascadia") { DrawOrder = int.MaxValue };
+            Info = new InfoRenderer(this, "Content/Fonts/cascadia") { DrawOrder = int.MaxValue };
             Components.Add(Info);
 
             _cih = new CameraInputHelper(Camera3D, this);

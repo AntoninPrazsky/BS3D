@@ -73,11 +73,11 @@ namespace Testbed
         private GraphicsDeviceManager _graphics;
         private bool _windowed;
 
-        private TextInfoRenderer _info;
+        private InfoRenderer _info;
 
         private static readonly int MSAA_SAMPLES = 8;
         private static readonly PresentInterval PRESENTATION_INTERVAL = PresentInterval.One;
-        private static float GAME_FOV = (float)Math.PI / 2.9f;
+        private static float GAME_FOV = (float)Math.PI / 3.1f;
 		private static float FREE_FOV = (float)Math.PI / 2.5f;
         private static Vector3 DEFAULT_CAMERA_POS = new (0f, -3f, 30f);
 
@@ -130,7 +130,7 @@ namespace Testbed
             IsMouseVisible = true;
 
             _camera = new BasicCamera3D(DEFAULT_CAMERA_POS, GraphicsDevice.Viewport.AspectRatio, FREE_FOV);
-            _info = new TextInfoRenderer(this, "Content/Fonts/cascadia") { DrawOrder = int.MaxValue };
+            _info = new InfoRenderer(this, "Content/Fonts/cascadia", "Content/controller") { DrawOrder = int.MaxValue };
             Components.Add(_info);
 
             _cih = new CameraInputHelper(_camera, this);
@@ -187,6 +187,7 @@ namespace Testbed
         {
             if (_gameMode == gameMode) return;
             _gameMode = gameMode;
+            _info.ShowIcon = gameMode;
 
             if (_gameMode)
             {

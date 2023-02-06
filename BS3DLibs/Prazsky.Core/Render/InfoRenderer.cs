@@ -8,7 +8,7 @@ namespace Prazsky.Core.Render
     /// <summary>
     /// Draws FPS and other text information.
     /// </summary>
-    public class TextInfoRenderer : DrawableGameComponent
+    public class InfoRenderer : DrawableGameComponent
     {
         private ContentManager _content;
         private SpriteBatch _spriteBatch;
@@ -18,11 +18,14 @@ namespace Prazsky.Core.Render
         private int _frameCounter = 0;
         private TimeSpan _elapsedTime = TimeSpan.Zero;
 
-        private Vector2 _fpsPosition = new(20f, 10f);
-        private Vector2 _customTextPosition = new(450f, 10f);
-        private Vector2 _hintTextPosition = new(20f, 150f);
+        private Vector2 _fpsPosition;
+		private Vector2 _hintTextPosition;
+		private Vector2 _customTextPosition;
         private string _fps;
         private readonly string _fontAssetName;
+        private readonly string _iconAssetName;
+        private Texture2D _iconTexture;
+        private Vector2 _iconPosition;
 
         private readonly float SCALE_DIVISOR = 3840f;
         private readonly float SHADOW_OFFSET = 2.5f;
@@ -30,6 +33,7 @@ namespace Prazsky.Core.Render
 
         public string CustomText { get; set; }
         public string HintText { get; set; }
+        public bool ShowIcon { get; set; }
 
         public int CurrentFPS { get => _frameRate; }
 
@@ -38,24 +42,37 @@ namespace Prazsky.Core.Render
         /// </summary>
         /// <param name="game">Game in which information is to be rendered.</param>
         /// <param name="fontAssetName">Font asset name (e.g. "Content/Fonts/cascadia").</param>
-        public TextInfoRenderer(Game game, string fontAssetName) : base(game)
+        public InfoRenderer(Game game, string fontAssetName, string iconAssetName = null) : base(game)
         {
             if (string.IsNullOrEmpty(fontAssetName))
                 throw new ArgumentNullException(nameof(fontAssetName), "Font asset name needs to be provided in order to load font");
 
             _content = new ContentManager(game.Services);
             _fontAssetName = fontAssetName;
+            _iconAssetName = iconAssetName;
         }
 
         public void RecomputeScale()
         {
             _scale = Game.GraphicsDevice.Viewport.Width / SCALE_DIVISOR;
+
+            _fpsPosition = new Vector2(30f, 20f) * _scale;
+			_hintTextPosition = new Vector2(30f, 150f) * _scale;
+			_customTextPosition = new Vector2(450f, 20f) * _scale;
+
+			if (_iconTexture != null)
+            {
+                var x = Game.GraphicsDevice.Viewport.Width - (_iconTexture.Width * _scale) - (30f * _scale);
+                var y = 30f * _scale;
+                _iconPosition = new(x, y);
+            }
         }
 
         protected override void LoadContent()
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             _font = _content.Load<SpriteFont>(_fontAssetName);
+            if (_iconAssetName != null) _iconTexture = _content.Load<Texture2D>(_iconAssetName);
 
             RecomputeScale();
         }
@@ -94,8 +111,10 @@ namespace Prazsky.Core.Render
             _spriteBatch.Begin();
 
             RenderText(_fps, _fpsPosition);
-            if (!string.IsNullOrEmpty(CustomText)) RenderTextScale(CustomText, new Vector2(_customTextPosition.X * _scale, _customTextPosition.Y), 0.6f, Color.DarkGoldenrod);
-            if (!string.IsNullOrEmpty(HintText)) RenderTextScale(HintText, new Vector2(_hintTextPosition.X, _hintTextPosition.Y * _scale), 0.7f, Color.Azure);
+            if (!string.IsNullOrEmpty(CustomText)) RenderTextScale(CustomText, new Vector2(_customTextPosition.X, _customTextPosition.Y), 0.6f, Color.DarkGoldenrod);
+            if (!string.IsNullOrEmpty(HintText)) RenderTextScale(HintText, new Vector2(_hintTextPosition.X, _hintTextPosition.Y), 0.7f, Color.Azure);
+
+			if (_iconTexture != null && ShowIcon) _spriteBatch.Draw(_iconTexture, _iconPosition, null, Color.White, 0f, Vector2.Zero, _scale, SpriteEffects.None, 0);
 
             _spriteBatch.End();
         }
