@@ -19,6 +19,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Windows.Forms;
+using Testbed.Backdrops;
 using static Testbed.Simu;
 using mgKeys = Microsoft.Xna.Framework.Input.Keys;
 
@@ -91,6 +92,13 @@ namespace Testbed
 
 		Model _cilinderModel;
         Cannon _cannon;
+
+        #endregion
+
+        #region backdrops
+
+        Model _castleModel;
+        Castle _castle;
 
 		#endregion
 
@@ -224,6 +232,9 @@ namespace Testbed
 
             _cilinderModel = Content.Load<Model>("Cilinder");
 			_cannon = new Cannon(_cilinderModel, new Vector3(0f, 5f, 0f), -6.4f, 20f);
+
+            _castleModel = Content.Load<Model>("Castle");
+            _castle = new Castle(_castleModel, new Vector3(0f, -8.5f, -60f));
 		}
 
         private byte _skyModelNumber = 1;
@@ -443,6 +454,8 @@ namespace Testbed
 						ModelRenderer.Render(_hrSphere, _hrSphereTransformations, ref camera, ballWorldMatrix, basicEffectParams, true, true);
 					}
                 }
+
+                _castle.Draw(_camera);
             }
 
             base.Draw(gameTime);

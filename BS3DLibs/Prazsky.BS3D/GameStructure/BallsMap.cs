@@ -151,6 +151,8 @@ namespace Prazsky.BS3D.GameStructure
 
             #region Basic validation
 
+            if (ballPositionTypes == null || ballPositionTypes.Balls == null) return;
+
             if (ballPositionTypes.Balls.Rank != 3)
                 throw new InvalidDataException("Deserialized data invalid");
 
