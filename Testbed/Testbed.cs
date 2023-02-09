@@ -138,7 +138,7 @@ namespace Testbed
             IsMouseVisible = true;
 
             _camera = new BasicCamera3D(DEFAULT_CAMERA_POS, GraphicsDevice.Viewport.AspectRatio, FREE_FOV);
-            _info = new InfoRenderer(this, "Content/Fonts/cascadia", "Content/controller") { DrawOrder = int.MaxValue };
+            _info = new InfoRenderer(this, "Content/Fonts/cascadia", "Content/Bitmaps/Controller") { DrawOrder = int.MaxValue };
             Components.Add(_info);
 
             _cih = new CameraInputHelper(_camera, this);
@@ -213,28 +213,28 @@ namespace Testbed
 
         protected override void LoadContent()
         {
-            _hrSphere = Content.Load<Model>("HRGeoDome");
+            _hrSphere = Content.Load<Model>("Balls/DebugSphere"); //HRGeoDome
 
 			_hrSphereTransformations = new Microsoft.Xna.Framework.Matrix[_hrSphere.Bones.Count];
             _hrSphere.CopyAbsoluteBoneTransformsTo(_hrSphereTransformations);
 
             #region Ground and ceiling
 
-            _groundModel = Content.Load<Model>("Ground");
-            _topPlatformModel = Content.Load<Model>("TopPlatform");
+            _groundModel = Content.Load<Model>("GameObjects/Ground");
+            _topPlatformModel = Content.Load<Model>("GameObjects/TopPlatform");
 
             BuildGroundAndCeiling();
 
             #endregion Ground and ceiling
 
-            _skyModel = Content.Load<Model>("Skyes\\SkyDome" + _skyModelNumber);
+            _skyModel = Content.Load<Model>("Skyes/SkyDome" + _skyModelNumber);
             _sky = new SkyDome(_skyModel, GraphicsDevice);
 
-            _cilinderModel = Content.Load<Model>("Cilinder");
+            _cilinderModel = Content.Load<Model>("GameObjects/Cilinder");
 			_cannon = new Cannon(_cilinderModel, new Vector3(0f, 5f, 0f), -6.4f, 20f);
 
-            _castleModel = Content.Load<Model>("Castle");
-            _castle = new Castle(_castleModel, new Vector3(0f, -8.5f, -60f));
+            _castleModel = Content.Load<Model>("Backdrops/Castle");
+            _castle = new Castle(_castleModel, new Vector3(0f, -8.5f, -60f), Microsoft.Xna.Framework.MathHelper.Pi);
 		}
 
         private byte _skyModelNumber = 1;
@@ -244,7 +244,7 @@ namespace Testbed
             if (_skyModelNumber == 18) _skyModelNumber = default;
 
             _skyModelNumber++;
-            _skyModel = Content.Load<Model>("Skyes\\SkyDome" + _skyModelNumber);
+            _skyModel = Content.Load<Model>("Skyes/SkyDome" + _skyModelNumber);
             _sky.SkyDomeModel = _skyModel;
         }
 

@@ -6,10 +6,14 @@ namespace Testbed.Backdrops
 {
 	internal class Castle : Backdrop3D
 	{
-		public Castle(Model model3D, Vector3 position) : base(model3D)
+		public Castle(Model model3D, Vector3 position, float yRotation = 0f) : base(model3D)
 		{
 			Position = position;
-			UpdateWorldMatrix(Matrix.CreateTranslation(Position));
+			Matrix worldMatrix = Matrix.CreateTranslation(position);
+
+			if (yRotation > 0f) worldMatrix *= Matrix.CreateRotationY(yRotation);
+
+			UpdateWorldMatrix(worldMatrix);
 		}
 	}
 }
