@@ -1,5 +1,6 @@
 ﻿using BepuPhysics;
 using BepuPhysics.Collidables;
+using BepuPhysics.CollisionDetection;
 using BepuUtilities;
 using BepuUtilities.Memory;
 using Microsoft.Xna.Framework;
@@ -52,6 +53,8 @@ namespace Testbed
 		private bool _draw = true;
         private bool _gameMode = false;
 
+		private Vector3 _gameCameraOffset = Vector3.Up * 6.5f;
+
 		#region Game mode transition animation
 
 		private bool _gameModeAnimStarted = false;
@@ -63,8 +66,6 @@ namespace Testbed
         private Vector3 _beforeAnimationTarget = Vector3.Zero;
 
         #endregion
-
-        private Vector3 _gameCameraOffset = Vector3.Up * 6.5f;
 
 		#region Graphics
 
@@ -95,14 +96,21 @@ namespace Testbed
 
         #endregion
 
-        #region backdrops
+        #region Backdrops
 
         Model _castleModel;
         Castle _castle;
 
-		#endregion
+        #endregion
 
-		public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
+        #region Contacts
+
+        private ContactEvents _events;
+        private EventHandler _eventHandler;
+
+        #endregion
+
+        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
         {
             _windowed = windowed;
 
@@ -146,16 +154,24 @@ namespace Testbed
             _staticBodies = new List<StaticBody>();
             _balls = new List<PhysicsBall[]>();
 
-            _bufferPool = new BufferPool();
+			_threadDispatcher = new ThreadDispatcher(Environment.ProcessorCount);
+			_bufferPool = new BufferPool();
+			_events = new ContactEvents(_threadDispatcher, _bufferPool);
+
             _simulation = Simulation.Create(
                 _bufferPool,
-                new NarrowPhaseCallbacks(),
+                new NarrowPhaseCallbacks(_events),
                 new PoseIntegratorCallbacks(new System.Numerics.Vector3(0, Constants.EARTH_GRAVITY, 0)),
                 new SolveDescription(8, 1));
 
-            _threadDispatcher = new ThreadDispatcher(Environment.ProcessorCount);
-
             #region Controls
+
+            #region Contact events
+
+            _eventHandler = new EventHandler(_simulation, _bufferPool);
+            _events.Initialize(_simulation);
+
+            #endregion
 
             _actions = new ButtonAction[]
             {
@@ -306,7 +322,7 @@ namespace Testbed
 
         private void RecountBallsAndConstraints()
         {
-            _info.CustomText = "Balls on scene: " + (_simulation.Bodies.ActiveSet.Count - 1);
+            _info.CustomText = "Balls on scene: " + (_simulation.Bodies.ActiveSet.Count);
 			_info.CustomText += "\nConstraints count: " + _simulation.Solver.CountConstraints();
 		}
 
@@ -314,7 +330,12 @@ namespace Testbed
         {
             BallsMap map = new(10, 10, 10, _hrSphere);
             map.PutBallAt(0, 0, 0, BallType.Type1);
-            _balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
+
+            var ball = BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference);
+			_balls.Add(ball);
+
+            _events.Register(_simulation.Bodies[ball[0].BallReference].CollidableReference, _eventHandler);
+
             RecountBallsAndConstraints();
 		}
 
@@ -322,7 +343,13 @@ namespace Testbed
         {
             if (_simulate)
             {
-                float timeStep = Math.Min((float)gameTime.ElapsedGameTime.TotalSeconds, 1 / 60f);
+				#region Contact events
+
+				_events.Flush();
+
+				#endregion
+
+				float timeStep = Math.Min((float)gameTime.ElapsedGameTime.TotalSeconds, 1 / 60f);
                 if (timeStep == 0) timeStep = 1 / 60f;
 
                 //timeStep = timeStep / 10f; //Slow down simulation
@@ -361,9 +388,9 @@ namespace Testbed
                 }
             }
 
-			#endregion
+            #endregion
 
-			base.Update(gameTime);
+            base.Update(gameTime);
         }
 
         private void RemoveAllStatics()
@@ -526,9 +553,16 @@ namespace Testbed
 
 			_shotBalls.Add(ball);
 			RecountBallsAndConstraints();
+
+			#region Contact event registration
+
+			//TODO: Unregister when removed from world
+			_events.Register(_simulation.Bodies[bodyHandle].CollidableReference, _eventHandler);
+
+			#endregion
 		}
 
-        private void UpdateCannon(GameTime gameTime)
+		private void UpdateCannon(GameTime gameTime)
         {
             if (Keyboard.GetState().IsKeyDown(mgKeys.NumPad4)) _cannon.Orbit(1f);
             if (Keyboard.GetState().IsKeyDown(mgKeys.NumPad6)) _cannon.Orbit(-1f);
@@ -549,6 +583,155 @@ namespace Testbed
         private Vector3 GetCannonDirection() => Vector3.Normalize(_cannon.Position - _cannon.OrbitCenter) * 10f;
         private Vector3 GetCanonOffsettedPos() => _cannon.Position + GetCannonDirection() + _gameCameraOffset;
         private Vector3 GetCannonOffsettedTarget() => _cannon.OrbitCenter - _gameCameraOffset;
+	}
 
+    #region Contact event
+
+	public class EventHandler : IContactEventHandler
+	{
+		public Simulation Simulation;
+		public BufferPool Pool;
+
+		public EventHandler(Simulation simulation, BufferPool pool)
+		{
+			Simulation = simulation;
+			Pool = pool;
+		}
+
+		public void OnContactAdded<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold,
+			Vector3 contactOffset, Vector3 contactNormal, float depth, int featureId, int contactIndex, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
+        { 
+			//TODO
+
+			Console.WriteLine(" → Ball colided! ← ");
+            Console.WriteLine(nameof(eventSource) + " : " + eventSource.ToString());
+            Console.WriteLine(nameof(pair.A) + " : " + pair.A.ToString());
+            Console.WriteLine(nameof(pair.B) + " : " + pair.B.ToString());
+            Console.WriteLine(nameof(contactManifold) + " : " + contactManifold.ToString());
+            Console.WriteLine(nameof(contactOffset) + " : " + contactOffset.ToString());
+            Console.WriteLine(nameof(contactNormal) + " : " + contactNormal.ToString());
+            Console.WriteLine(nameof(depth) + " : " + depth.ToString());
+            Console.WriteLine(nameof(featureId) + " : " + featureId.ToString());
+            Console.WriteLine(nameof(contactIndex) + " : " + contactIndex.ToString());
+            Console.WriteLine(nameof(workerIndex) + " : " + workerIndex.ToString());
+            Console.WriteLine();
+		}
+	}
+
+	#endregion
+
+	#region OnContactAdded doesn't happen if this interface is in separate file
+
+	//Taken from Bepuphysics ContactEventsDemo
+
+	/// <summary>
+	/// Implements handlers for various collision events.
+	/// </summary>
+	public interface IContactEventHandler
+	{
+		/// <summary>
+		/// Fires when a contact is added.
+		/// </summary>
+		/// <typeparam name="TManifold">Type of the contact manifold detected.</typeparam>
+		/// <param name="eventSource">Collidable that the event was attached to.</param>
+		/// <param name="pair">Collidable pair triggering the event.</param>
+		/// <param name="contactManifold">Set of remaining contacts in the collision.</param>
+		/// <param name="contactOffset">Offset from the pair's local origin to the new contact.</param>
+		/// <param name="contactNormal">Normal of the new contact.</param>
+		/// <param name="depth">Depth of the new contact.</param>
+		/// <param name="featureId">Feature id of the new contact.</param>
+		/// <param name="contactIndex">Index of the new contact in the contact manifold.</param>
+		/// <param name="workerIndex">Index of the worker thread that fired this event.</param>
+		public void OnContactAdded<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold,
+			Vector3 contactOffset, Vector3 contactNormal, float depth, int featureId, int contactIndex, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
+		{
+		}
+
+		/// <summary>
+		/// Fires when a contact is removed.
+		/// </summary>
+		/// <typeparam name="TManifold">Type of the contact manifold detected.</typeparam>
+		/// <param name="eventSource">Collidable that the event was attached to.</param>
+		/// <param name="pair">Collidable pair triggering the event.</param>
+		/// <param name="contactManifold">Set of remaining contacts in the collision.</param>
+		/// <param name="removedFeatureId">Feature id of the contact that was removed and is no longer present in the contact manifold.</param>
+		/// <param name="workerIndex">Index of the worker thread that fired this event.</param>
+		void OnContactRemoved<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int removedFeatureId, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
+		{
+		}
+
+		/// <summary>
+		/// Fires the first time a pair is observed to be touching. Touching means that there are contacts with nonnegative depths in the manifold.
+		/// </summary>
+		/// <typeparam name="TManifold">Type of the contact manifold detected.</typeparam>
+		/// <param name="eventSource">Collidable that the event was attached to.</param>
+		/// <param name="pair">Collidable pair triggering the event.</param>
+		/// <param name="contactManifold">Set of remaining contacts in the collision.</param>
+		/// <param name="workerIndex">Index of the worker thread that fired this event.</param>
+		void OnStartedTouching<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
+		{
+		}
+
+		/// <summary>
+		/// Fires whenever a pair is observed to be touching. Touching means that there are contacts with nonnegative depths in the manifold. Will not fire for sleeping pairs.
+		/// </summary>
+		/// <typeparam name="TManifold">Type of the contact manifold detected.</typeparam>
+		/// <param name="eventSource">Collidable that the event was attached to.</param>
+		/// <param name="pair">Collidable pair triggering the event.</param>
+		/// <param name="contactManifold">Set of remaining contacts in the collision.</param>
+		/// <param name="workerIndex">Index of the worker thread that fired this event.</param>
+		void OnTouching<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
+		{
+		}
+
+
+		/// <summary>
+		/// Fires when a pair stops touching. Touching means that there are contacts with nonnegative depths in the manifold.
+		/// </summary>
+		/// <typeparam name="TManifold">Type of the contact manifold detected.</typeparam>
+		/// <param name="eventSource">Collidable that the event was attached to.</param>
+		/// <param name="pair">Collidable pair triggering the event.</param>
+		/// <param name="contactManifold">Set of remaining contacts in the collision.</param>
+		/// <param name="workerIndex">Index of the worker thread that fired this event.</param>
+		void OnStoppedTouching<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
+		{
+		}
+
+
+		/// <summary>
+		/// Fires when a pair is observed for the first time.
+		/// </summary>
+		/// <typeparam name="TManifold">Type of the contact manifold detected.</typeparam>
+		/// <param name="eventSource">Collidable that the event was attached to.</param>
+		/// <param name="pair">Collidable pair triggering the event.</param>
+		/// <param name="contactManifold">Set of remaining contacts in the collision.</param>
+		/// <param name="workerIndex">Index of the worker thread that fired this event.</param>
+		void OnPairCreated<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
+		{
+		}
+
+		/// <summary>
+		/// Fires whenever a pair is updated. Will not fire for sleeping pairs.
+		/// </summary>
+		/// <typeparam name="TManifold">Type of the contact manifold detected.</typeparam>
+		/// <param name="eventSource">Collidable that the event was attached to.</param>
+		/// <param name="pair">Collidable pair triggering the event.</param>
+		/// <param name="contactManifold">Set of remaining contacts in the collision.</param>
+		/// <param name="workerIndex">Index of the worker thread that fired this event.</param>
+		void OnPairUpdated<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
+		{
+		}
+
+		/// <summary>
+		/// Fires when a pair ends.
+		/// </summary>
+		/// <typeparam name="TManifold">Type of the contact manifold detected.</typeparam>
+		/// <param name="eventSource">Collidable that the event was attached to.</param>
+		/// <param name="pair">Collidable pair triggering the event.</param>
+		void OnPairEnded(CollidableReference eventSource, CollidablePair pair)
+		{
+		}
+
+		#endregion
 	}
 }

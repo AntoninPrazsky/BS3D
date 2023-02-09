@@ -9,7 +9,7 @@ using System.Runtime.CompilerServices;
 namespace Testbed
 {
 	//Class copied from BepuPhysics Demo project
-	public static class Simu
+	public class Simu
 	{
 		//The simulation has a variety of extension points that must be defined.
 		//The demos tend to reuse a few types like the DemoNarrowPhaseCallbacks, but this demo will provide its own (super simple) versions.
@@ -18,14 +18,20 @@ namespace Testbed
 		//with delegates or virtual dispatch and allows inlining, which is valuable for extremely high frequency logic like contact callbacks.
 		public unsafe struct NarrowPhaseCallbacks : INarrowPhaseCallbacks
 		{
+			ContactEvents _events;
+
+			public NarrowPhaseCallbacks(ContactEvents events)
+            {
+                _events = events;
+            }
+
 			/// <summary>
 			/// Performs any required initialization logic after the Simulation instance has been constructed.
 			/// </summary>
 			/// <param name="simulation">Simulation that owns these callbacks.</param>
 			public void Initialize(Simulation simulation)
 			{
-				//Often, the callbacks type is created before the simulation instance is fully constructed, so the simulation will call this function when it's ready.
-				//Any logic which depends on the simulation existing can be put here.
+				_events.Initialize(simulation);
 			}
 
 			/// <summary>
@@ -89,8 +95,8 @@ namespace Testbed
 				//(Note that there's no bounciness property! See here for more details: https://github.com/bepu/bepuphysics2/issues/3)
 				pairMaterial.FrictionCoefficient = 1f;
 				pairMaterial.MaximumRecoveryVelocity = 2f;
-				pairMaterial.SpringSettings = new SpringSettings(30, 1);
-				//For the purposes of the demo, contact constraints are always generated.
+				pairMaterial.SpringSettings = new SpringSettings(30f, 1f);
+				_events.HandleManifold(workerIndex, pair, ref manifold);
 				return true;
 			}
 
@@ -142,8 +148,8 @@ namespace Testbed
             }
         }
 
-        //Note that the engine does not require any particular form of gravity- it, like all the contact callbacks, is managed by a callback.
-        public struct PoseIntegratorCallbacks : IPoseIntegratorCallbacks
+		//Note that the engine does not require any particular form of gravity- it, like all the contact callbacks, is managed by a callback.
+		public struct PoseIntegratorCallbacks : IPoseIntegratorCallbacks
         {
             /// <summary>
             /// Performs any required initialization logic after the Simulation instance has been constructed.
@@ -151,8 +157,6 @@ namespace Testbed
             /// <param name="simulation">Simulation that owns these callbacks.</param>
             public void Initialize(Simulation simulation)
             {
-                //In this demo, we don't need to initialize anything.
-                //If you had a simulation with per body gravity stored in a CollidableProperty<T> or something similar, having the simulation provided in a callback can be helpful.
             }
 
             /// <summary>
