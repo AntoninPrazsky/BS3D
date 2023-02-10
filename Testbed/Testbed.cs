@@ -168,7 +168,7 @@ namespace Testbed
 
             #region Contact events
 
-            _eventHandler = new EventHandler(_simulation, _bufferPool);
+            _eventHandler = new EventHandler(_simulation, _bufferPool, _events);
             _events.Initialize(_simulation);
 
             #endregion
@@ -591,11 +591,13 @@ namespace Testbed
     {
         public Simulation Simulation;
         public BufferPool Pool;
+        private ContactEvents _contactEvents;
 
-        public EventHandler(Simulation simulation, BufferPool pool)
+        public EventHandler(Simulation simulation, BufferPool pool, ContactEvents contactEvents)
         {
             Simulation = simulation;
             Pool = pool;
+            _contactEvents = contactEvents;
         }
 
         public void OnContactAdded<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold,
@@ -614,6 +616,12 @@ namespace Testbed
             Console.WriteLine(nameof(contactIndex) + " : " + contactIndex.ToString());
             Console.WriteLine(nameof(workerIndex) + " : " + workerIndex.ToString());
             Console.WriteLine();
+
+            if (pair.A.Mobility == CollidableMobility.Static || pair.B.Mobility == CollidableMobility.Static) //Once ball touches the ground, unregister collision event
+            {
+                if (pair.A.Mobility == CollidableMobility.Dynamic) _contactEvents.Unregister(pair.A.BodyHandle);
+                if (pair.B.Mobility == CollidableMobility.Dynamic) _contactEvents.Unregister(pair.B.BodyHandle);
+            }
         }
     }
 
@@ -629,7 +637,7 @@ namespace Testbed
         void OnTouching<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold> { }
         void OnStoppedTouching<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold> { }
         void OnPairCreated<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold> { }
-        void OnPairUpdated<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold> { }
+        //void OnPairUpdated<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold> { }
         void OnPairEnded(CollidableReference eventSource, CollidablePair pair) { }
 
         #endregion

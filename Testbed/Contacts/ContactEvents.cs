@@ -363,7 +363,7 @@ namespace Testbed
                     }
                     UpdatePreviousCollision(ref pendingAdd.Collision, ref manifold, isTouching);
                 }
-                listener.Handler.OnPairUpdated(source, pair, ref manifold, workerIndex);
+                //listener.Handler.OnPairUpdated(source, pair, ref manifold, workerIndex);
 
             }
         }
