@@ -363,7 +363,7 @@ namespace Testbed
                 foreach (var action in _actions) if (_cih.PressedOnce(action.Key, action.Button)) action.Method();
 
                 _cih.Update(gameTime);
-                _cih.CameraMovement(gameTime);
+                _cih.CameraMovement(gameTime, !_gameMode);
                 _cih.RegisterPreviousInputState();
             }
 
@@ -603,7 +603,7 @@ namespace Testbed
         { 
             //TODO
 
-            Console.WriteLine(" → Ball colided! ← ");
+            Console.WriteLine(" → Ball collided! ← ");
             Console.WriteLine(nameof(eventSource) + " : " + eventSource.ToString());
             Console.WriteLine(nameof(pair.A) + " : " + pair.A.ToString());
             Console.WriteLine(nameof(pair.B) + " : " + pair.B.ToString());

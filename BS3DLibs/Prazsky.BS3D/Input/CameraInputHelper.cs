@@ -80,7 +80,7 @@ namespace Prazsky.BS3D.Input
 			_previousMouseState = _currentMouseState;
 		}
 
-		public void CameraMovement(GameTime gameTime)
+		public void CameraMovement(GameTime gameTime, bool allowCircularMovement = true)
 		{
 			#region Gamepad
 
@@ -114,20 +114,23 @@ namespace Prazsky.BS3D.Input
 			if (Keyboard.GetState().IsKeyDown(Keys.E)) _camera.Move(0f, _cameraSpeed, 0f, gameTime);
 			if (Keyboard.GetState().IsKeyDown(Keys.Q)) _camera.Move(0f, -_cameraSpeed, 0f, gameTime);
 
-			if (Keyboard.GetState().IsKeyDown(Keys.NumPad9))
+			if (allowCircularMovement)
 			{
-				_mouseRotationMode = false;
-				_mousePanMode = false;
+				if (Keyboard.GetState().IsKeyDown(Keys.NumPad9))
+				{
+					_mouseRotationMode = false;
+					_mousePanMode = false;
 
-				_camera.MoveCircular(-_cameraSpeed, gameTime);
-			}
-				
-			if (Keyboard.GetState().IsKeyDown(Keys.NumPad7))
-			{
-				_mouseRotationMode = false;
-				_mousePanMode = false;
+					_camera.MoveCircular(-_cameraSpeed, gameTime);
+				}
 
-				_camera.MoveCircular(_cameraSpeed, gameTime);
+				if (Keyboard.GetState().IsKeyDown(Keys.NumPad7))
+				{
+					_mouseRotationMode = false;
+					_mousePanMode = false;
+
+					_camera.MoveCircular(_cameraSpeed, gameTime);
+				}
 			}
 
 			#endregion Keyboard
