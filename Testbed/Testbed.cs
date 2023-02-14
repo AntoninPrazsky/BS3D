@@ -211,6 +211,8 @@ namespace Testbed
         private void SwitchGameMode(bool gameMode)
         {
             if (_gameMode == gameMode) return;
+            if (_gameModeAnimStarted || _freeModeAnimStarted) return;
+
             _gameMode = gameMode;
             _info.ShowIcon = gameMode;
 
@@ -380,7 +382,7 @@ namespace Testbed
 
                 _gameModeAnimStep += ANIMATION_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-                if (_gameModeAnimStep > 1f)
+                if (_gameModeAnimStep > Constants.ONE)
                 {
                     _gameModeAnimStep = 0;
                     _gameModeAnimStarted = false;

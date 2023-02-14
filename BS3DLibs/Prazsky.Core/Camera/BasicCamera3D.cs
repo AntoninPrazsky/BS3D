@@ -1,7 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Prazsky.Core.Tools;
 using System;
-using System.Globalization;
 
 namespace Prazsky.Core.Camera
 {
