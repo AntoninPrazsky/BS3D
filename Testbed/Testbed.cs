@@ -46,8 +46,9 @@ namespace Testbed
 
         private SkyDome _sky;
         private Model _skyModel;
+		private byte _skyModelNumber = 1;
 
-        private ButtonAction[] _actions;
+		private ButtonAction[] _actions;
 
         private bool _simulate = true;
         private bool _draw = true;
@@ -145,6 +146,7 @@ namespace Testbed
         {
             _camera.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
             _info.RecomputeScale();
+            ComputeAimerPosition();
         }
 
         protected override void Initialize()
@@ -260,10 +262,13 @@ namespace Testbed
 
             _aimer = Content.Load<Texture2D>("Bitmaps/Aimer");
             _spriteBatch = new SpriteBatch(GraphicsDevice);
-            _aimerPos = new Vector2(GraphicsDevice.Viewport.Width / 2f - _aimer.Width / 2f, GraphicsDevice.Viewport.Height / 2f - _aimer.Height / 2f);
+            ComputeAimerPosition();
         }
 
-        private byte _skyModelNumber = 1;
+        private void ComputeAimerPosition()
+        {
+			_aimerPos = new Vector2(GraphicsDevice.Viewport.Width / 2f - _aimer.Width / 2f, GraphicsDevice.Viewport.Height / 2f - _aimer.Height / 2f);
+		}
 
         private void SwitchSkyDome()
         {
