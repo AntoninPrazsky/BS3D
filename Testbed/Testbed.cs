@@ -58,6 +58,7 @@ namespace Testbed
         #region Game mode transition animation
 
         private bool _gameModeAnimStarted = false;
+        private bool _freeModeAnimStarted = false;
         private float _gameModeAnimStep = 0f;
 
         private static readonly float ANIMATION_SPEED = Constants.THOUSANDTH;
@@ -221,10 +222,8 @@ namespace Testbed
             }
             else
             {
-                _camera.FieldOfView = FREE_FOV;
+                _freeModeAnimStarted = true;
             }
-
-            _camera.Recalculate();
         }
 
         protected override void LoadContent()
@@ -388,6 +387,19 @@ namespace Testbed
                 }
             }
 
+            if (_freeModeAnimStarted && !_gameMode)
+            {
+                _camera.FieldOfView = Microsoft.Xna.Framework.MathHelper.SmoothStep(GAME_FOV, FREE_FOV, _gameModeAnimStep);
+
+                _gameModeAnimStep += ANIMATION_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+                if (_gameModeAnimStep > 1f)
+                {
+                    _gameModeAnimStep = 0;
+                    _freeModeAnimStarted = false;
+                }
+            }
+
             #endregion
 
             base.Update(gameTime);
@@ -424,7 +436,7 @@ namespace Testbed
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
-            //TODO: GameManager for drawing balls and optimize drawing (currently it is very slow)
+            //TODO: GameManager for drawing balls and optimize drawing (currently it is slow)
             if (_draw)
             {
                 for (int i = 0; i < _staticBodies.Count; i++) _staticBodies[i].Draw(_camera);
@@ -512,7 +524,6 @@ namespace Testbed
         private StaticReference CreateStatic(System.Numerics.Vector3 position, Box boundingBox)
         {
             var shape = new CollidableDescription(_simulation.Shapes.Add(boundingBox), 0.1f).Shape;
-
             return new StaticReference(_simulation.Statics.Add(new StaticDescription(position, shape)), _simulation.Statics);
         }
 
@@ -643,3 +654,26 @@ namespace Testbed
         #endregion
     }
 }
+
+/*
+
+Ball's contact points position from its origin (0,0,0):
+        [ X,   Y,   Z ]
+TOP   : [ 0,   0,   0.5]
+DOWN  : [ 0,   0,  -0.5]
+LEFT  : [ 0,  -0.5, 0]
+RIGT  : [ 0,   0.5, 0]
+FRONT : [ 0.5, 0,   0]
+BACK  : [-0.5, 0,   0]
+
+TOP-LEFT-BACK   : [-0.25, -0.25,  0.353553]
+TOP-RIGHT-BACK  : [-0.25,  0.25,  0.353553]
+TOP-LEFT-FRONT  : [0.25,  -0.25,  0.353553]
+TOP-RIGHT-FRONT : [0.25,   0.25,  0.353553]
+
+BOTTOM-LEFT-BACK   : [-0.25, -0.25, -0.353553]
+BOTTOM-RIGHT-BACK  : [-0.25,  0.25, -0.353553]
+BOTTOM-LEFT-FRONT  : [ 0.25, -0.25, -0.353553]
+BOTTOM-RIGHT-FRONT : [ 0.25,  0.25, -0.353553]
+
+*/
