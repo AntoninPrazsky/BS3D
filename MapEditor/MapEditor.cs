@@ -140,7 +140,7 @@ namespace MapEditor
         {
             _hrSphere = Content.Load<Model>("HRGeoDome");
 
-            _map = new BallsMap(10, 10, 10, _hrSphere);
+			_map = new BallsMap(10, 10, 10, _hrSphere);
             _selector = new Selector(Content, _map);
             _aabb = new AABB(Content);
         }

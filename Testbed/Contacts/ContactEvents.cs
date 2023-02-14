@@ -153,7 +153,7 @@ namespace Testbed
         /// <param name="collidable">Collidable to stop listening for.</param>
         public void Unregister(CollidableReference collidable)
         {
-            Debug.Assert(IsListener(collidable), "Should only try to unregister listeners that actually exist.");
+             Debug.Assert(IsListener(collidable), "Should only try to unregister listeners that actually exist.");
             if (collidable.Mobility == CollidableMobility.Static)
             {
                 staticListenerFlags.Remove(collidable.RawHandleValue);

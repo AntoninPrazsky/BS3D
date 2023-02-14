@@ -84,22 +84,27 @@ namespace Testbed
         private static float FREE_FOV = (float)Math.PI / 2.5f;
         private static Vector3 DEFAULT_CAMERA_POS = new (0f, -3f, 30f);
 
-        #endregion Graphics
+		#endregion Graphics
 
-        #region Shooting
+		#region Shooting
 
-        BodyDescription _shotBall;
-        List<PhysicsBall> _shotBalls;
-        private static readonly float SHOOT_MULTIPLIER = 300f;
+		private BodyDescription _shotBall;
+		private List<PhysicsBall> _shotBalls;
+        private static readonly float SHOOT_MULTIPLIER = 200f;
 
-        Model _cilinderModel;
-        Cannon _cannon;
+        private Model _cilinderModel;
+        private Cannon _cannon;
 
-        #endregion
+        private SpriteBatch _spriteBatch;
+		private Texture2D _aimer;
+        private Vector2 _aimerPos;
+        private Color _aimerColor = new(255, 255, 255, 64);
 
-        #region Backdrops
+		#endregion
 
-        Model _castleModel;
+		#region Backdrops
+
+		Model _castleModel;
         Castle _castle;
 
         #endregion
@@ -238,7 +243,7 @@ namespace Testbed
             #region Ground and ceiling
 
             _groundModel = Content.Load<Model>("GameObjects/Ground");
-            _topPlatformModel = Content.Load<Model>("GameObjects/TopPlatform");
+            _topPlatformModel = Content.Load<Model>("GameObjects/TopGrid");
 
             BuildGroundAndCeiling();
 
@@ -252,6 +257,10 @@ namespace Testbed
 
             _castleModel = Content.Load<Model>("Backdrops/Castle");
             _castle = new Castle(_castleModel, new Vector3(0f, -8.5f, -60f), Microsoft.Xna.Framework.MathHelper.Pi);
+
+            _aimer = Content.Load<Texture2D>("Bitmaps/Aimer");
+            _spriteBatch = new SpriteBatch(GraphicsDevice);
+            _aimerPos = new Vector2(GraphicsDevice.Viewport.Width / 2f - _aimer.Width / 2f, GraphicsDevice.Viewport.Height / 2f - _aimer.Height / 2f);
         }
 
         private byte _skyModelNumber = 1;
@@ -498,6 +507,10 @@ namespace Testbed
 
                 _castle.Draw(_camera);
             }
+
+            _spriteBatch.Begin();
+            _spriteBatch.Draw(_aimer, _aimerPos, _aimerColor);
+            _spriteBatch.End();
 
             base.Draw(gameTime);
         }
