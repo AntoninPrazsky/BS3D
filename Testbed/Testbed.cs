@@ -46,30 +46,32 @@ namespace Testbed
 
         private SkyDome _sky;
         private Model _skyModel;
+		private byte _skyModelNumber = 1;
 
-        private ButtonAction[] _actions;
+		private ButtonAction[] _actions;
 
-		private bool _simulate = true;
-		private bool _draw = true;
+        private bool _simulate = true;
+        private bool _draw = true;
         private bool _gameMode = false;
 
-		private Vector3 _gameCameraOffset = Vector3.Up * 6.5f;
+        private Vector3 _gameCameraOffset = Vector3.Up * 6.5f;
 
-		#region Game mode transition animation
+        #region Game mode transition animation
 
-		private bool _gameModeAnimStarted = false;
+        private bool _gameModeAnimStarted = false;
+        private bool _freeModeAnimStarted = false;
         private float _gameModeAnimStep = 0f;
 
-		private static readonly float ANIMATION_SPEED = Constants.THOUSANDTH;
+        private static readonly float ANIMATION_SPEED = Constants.THOUSANDTH;
 
         private Vector3 _beforeAnimationPosition = Vector3.Zero;
         private Vector3 _beforeAnimationTarget = Vector3.Zero;
 
         #endregion
 
-		#region Graphics
+        #region Graphics
 
-		private int _windowWidth;
+        private int _windowWidth;
         private int _windowHeight;
 
         private GraphicsDeviceManager _graphics;
@@ -80,25 +82,30 @@ namespace Testbed
         private static readonly int MSAA_SAMPLES = 8;
         private static readonly PresentInterval PRESENTATION_INTERVAL = PresentInterval.One;
         private static float GAME_FOV = (float)Math.PI / 3.1f;
-		private static float FREE_FOV = (float)Math.PI / 2.5f;
+        private static float FREE_FOV = (float)Math.PI / 2.5f;
         private static Vector3 DEFAULT_CAMERA_POS = new (0f, -3f, 30f);
 
 		#endregion Graphics
 
 		#region Shooting
 
-		BodyDescription _shotBall;
-        List<PhysicsBall> _shotBalls;
-        private static readonly float SHOOT_MULTIPLIER = 300f;
+		private BodyDescription _shotBall;
+		private List<PhysicsBall> _shotBalls;
+        private static readonly float SHOOT_MULTIPLIER = 200f;
 
-		Model _cilinderModel;
-        Cannon _cannon;
+        private Model _cilinderModel;
+        private Cannon _cannon;
 
-        #endregion
+        private SpriteBatch _spriteBatch;
+		private Texture2D _aimer;
+        private Vector2 _aimerPos;
+        private Color _aimerColor = new(255, 255, 255, 64);
 
-        #region Backdrops
+		#endregion
 
-        Model _castleModel;
+		#region Backdrops
+
+		Model _castleModel;
         Castle _castle;
 
         #endregion
@@ -139,6 +146,7 @@ namespace Testbed
         {
             _camera.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
             _info.RecomputeScale();
+            ComputeAimerPosition();
         }
 
         protected override void Initialize()
@@ -154,9 +162,9 @@ namespace Testbed
             _staticBodies = new List<StaticBody>();
             _balls = new List<PhysicsBall[]>();
 
-			_threadDispatcher = new ThreadDispatcher(Environment.ProcessorCount);
-			_bufferPool = new BufferPool();
-			_events = new ContactEvents(_threadDispatcher, _bufferPool);
+            _threadDispatcher = new ThreadDispatcher(Environment.ProcessorCount);
+            _bufferPool = new BufferPool();
+            _events = new ContactEvents(_threadDispatcher, _bufferPool);
 
             _simulation = Simulation.Create(
                 _bufferPool,
@@ -168,7 +176,7 @@ namespace Testbed
 
             #region Contact events
 
-            _eventHandler = new EventHandler(_simulation, _bufferPool);
+            _eventHandler = new EventHandler(_simulation, _bufferPool, _events);
             _events.Initialize(_simulation);
 
             #endregion
@@ -176,13 +184,13 @@ namespace Testbed
             _actions = new ButtonAction[]
             {
                 new(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
-				new(mgKeys.F2, Buttons.DPadLeft, LoadBallsMap, "Load map"),
-				new(mgKeys.F5, Buttons.B, () => _simulate = !_simulate, "Stop/start simulation"),
+                new(mgKeys.F2, Buttons.DPadLeft, LoadBallsMap, "Load map"),
+                new(mgKeys.F5, Buttons.B, () => _simulate = !_simulate, "Stop/start simulation"),
                 new(mgKeys.F6, Buttons.X, () => _draw = !_draw, "Hide/show 3D rendering"),
                 new(mgKeys.F10, () => SwitchGameMode(!_gameMode), "Switch game mode"),
                 new(mgKeys.F11, () => SetGraphics(_graphics.IsFullScreen), "Fullscreen/windowed"),
-				new(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
-				new(mgKeys.End, Buttons.Start, RemoveAllConstraints, "Remove all constraints"),
+                new(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
+                new(mgKeys.End, Buttons.Start, RemoveAllConstraints, "Remove all constraints"),
                 new(mgKeys.NumPad1, SwitchSkyDome, "Switch sky dome"),
                 new(mgKeys.D0, PutBallAtZero, "Spawn ball at (0, 0, 0)"),
                 new(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
@@ -193,7 +201,7 @@ namespace Testbed
                 new(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
                 new(mgKeys.R, () => { _cih.RestartCamera(); _cannon.Restart(); }, "Restart camera"),
                 new(mgKeys.Space, ShootBall, "Shoot ball")
-			};
+            };
 
             StringBuilder builder = new();
             foreach (var act in _actions) builder.Append(string.Format("{0,-9} {1}\n", act.Key.ToString(), act.Description));
@@ -210,6 +218,8 @@ namespace Testbed
         private void SwitchGameMode(bool gameMode)
         {
             if (_gameMode == gameMode) return;
+            if (_gameModeAnimStarted || _freeModeAnimStarted) return;
+
             _gameMode = gameMode;
             _info.ShowIcon = gameMode;
 
@@ -221,23 +231,21 @@ namespace Testbed
             }
             else
             {
-                _camera.FieldOfView = FREE_FOV;
+                _freeModeAnimStarted = true;
             }
-
-			_camera.Recalculate();
-		}
+        }
 
         protected override void LoadContent()
         {
             _hrSphere = Content.Load<Model>("Balls/DebugSphere"); //HRGeoDome
 
-			_hrSphereTransformations = new Microsoft.Xna.Framework.Matrix[_hrSphere.Bones.Count];
+            _hrSphereTransformations = new Microsoft.Xna.Framework.Matrix[_hrSphere.Bones.Count];
             _hrSphere.CopyAbsoluteBoneTransformsTo(_hrSphereTransformations);
 
             #region Ground and ceiling
 
             _groundModel = Content.Load<Model>("GameObjects/Ground");
-            _topPlatformModel = Content.Load<Model>("GameObjects/TopPlatform");
+            _topPlatformModel = Content.Load<Model>("GameObjects/TopGrid");
 
             BuildGroundAndCeiling();
 
@@ -247,13 +255,20 @@ namespace Testbed
             _sky = new SkyDome(_skyModel, GraphicsDevice);
 
             _cilinderModel = Content.Load<Model>("GameObjects/Cilinder");
-			_cannon = new Cannon(_cilinderModel, new Vector3(0f, 5f, 0f), -6.4f, 20f);
+            _cannon = new Cannon(_cilinderModel, new Vector3(0f, 5f, 0f), -6.4f, 20f);
 
             _castleModel = Content.Load<Model>("Backdrops/Castle");
             _castle = new Castle(_castleModel, new Vector3(0f, -8.5f, -60f), Microsoft.Xna.Framework.MathHelper.Pi);
-		}
 
-        private byte _skyModelNumber = 1;
+            _aimer = Content.Load<Texture2D>("Bitmaps/Aimer");
+            _spriteBatch = new SpriteBatch(GraphicsDevice);
+            ComputeAimerPosition();
+        }
+
+        private void ComputeAimerPosition()
+        {
+			_aimerPos = new Vector2(GraphicsDevice.Viewport.Width / 2f - _aimer.Width / 2f, GraphicsDevice.Viewport.Height / 2f - _aimer.Height / 2f);
+		}
 
         private void SwitchSkyDome()
         {
@@ -323,8 +338,8 @@ namespace Testbed
         private void RecountBallsAndConstraints()
         {
             _info.CustomText = "Balls on scene: " + (_simulation.Bodies.ActiveSet.Count);
-			_info.CustomText += "\nConstraints count: " + _simulation.Solver.CountConstraints();
-		}
+            _info.CustomText += "\nConstraints count: " + _simulation.Solver.CountConstraints();
+        }
 
         private void PutBallAtZero()
         {
@@ -332,24 +347,24 @@ namespace Testbed
             map.PutBallAt(0, 0, 0, BallType.Type1);
 
             var ball = BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference);
-			_balls.Add(ball);
+            _balls.Add(ball);
 
             _events.Register(_simulation.Bodies[ball[0].BallReference].CollidableReference, _eventHandler);
 
             RecountBallsAndConstraints();
-		}
+        }
 
         protected override void Update(GameTime gameTime)
         {
             if (_simulate)
             {
-				#region Contact events
+                #region Contact events
 
-				_events.Flush();
+                _events.Flush();
 
-				#endregion
+                #endregion
 
-				float timeStep = Math.Min((float)gameTime.ElapsedGameTime.TotalSeconds, 1 / 60f);
+                float timeStep = Math.Min((float)gameTime.ElapsedGameTime.TotalSeconds, 1 / 60f);
                 if (timeStep == 0) timeStep = 1 / 60f;
 
                 //timeStep = timeStep / 10f; //Slow down simulation
@@ -363,7 +378,7 @@ namespace Testbed
                 foreach (var action in _actions) if (_cih.PressedOnce(action.Key, action.Button)) action.Method();
 
                 _cih.Update(gameTime);
-                _cih.CameraMovement(gameTime);
+                _cih.CameraMovement(gameTime, !_gameMode);
                 _cih.RegisterPreviousInputState();
             }
 
@@ -371,7 +386,7 @@ namespace Testbed
 
             UpdateCannon(gameTime);
 
-			#region Game mode animation
+            #region Game mode animation
 
             if (_gameModeAnimStarted && _gameMode)
             {
@@ -381,10 +396,23 @@ namespace Testbed
 
                 _gameModeAnimStep += ANIMATION_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-                if (_gameModeAnimStep > 1f)
+                if (_gameModeAnimStep > Constants.ONE)
                 {
                     _gameModeAnimStep = 0;
                     _gameModeAnimStarted = false;
+                }
+            }
+
+            if (_freeModeAnimStarted && !_gameMode)
+            {
+                _camera.FieldOfView = Microsoft.Xna.Framework.MathHelper.SmoothStep(GAME_FOV, FREE_FOV, _gameModeAnimStep);
+
+                _gameModeAnimStep += ANIMATION_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+                if (_gameModeAnimStep > 1f)
+                {
+                    _gameModeAnimStep = 0;
+                    _freeModeAnimStarted = false;
                 }
             }
 
@@ -424,8 +452,8 @@ namespace Testbed
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
-			//TODO: GameManager for drawing balls and optimize drawing (currently it is very slow)
-			if (_draw)
+            //TODO: GameManager for drawing balls and optimize drawing (currently it is slow)
+            if (_draw)
             {
                 for (int i = 0; i < _staticBodies.Count; i++) _staticBodies[i].Draw(_camera);
 
@@ -464,33 +492,37 @@ namespace Testbed
                     int ballsCount = _shotBalls.Count;
                     for (int i = 0; i < ballsCount; i++)
                     {
-						Microsoft.Xna.Framework.Matrix ballWorldMatrix = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(
-								new Quaternion(
-									_shotBalls[i].BallReference.Pose.Orientation.X,
-									_shotBalls[i].BallReference.Pose.Orientation.Y,
-									_shotBalls[i].BallReference.Pose.Orientation.Z,
-									_shotBalls[i].BallReference.Pose.Orientation.W))
-								* Microsoft.Xna.Framework.Matrix.CreateTranslation(
-									_shotBalls[i].BallReference.Pose.Position.X,
-									_shotBalls[i].BallReference.Pose.Position.Y,
-									_shotBalls[i].BallReference.Pose.Position.Z);
+                        Microsoft.Xna.Framework.Matrix ballWorldMatrix = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(
+                                new Quaternion(
+                                    _shotBalls[i].BallReference.Pose.Orientation.X,
+                                    _shotBalls[i].BallReference.Pose.Orientation.Y,
+                                    _shotBalls[i].BallReference.Pose.Orientation.Z,
+                                    _shotBalls[i].BallReference.Pose.Orientation.W))
+                                * Microsoft.Xna.Framework.Matrix.CreateTranslation(
+                                    _shotBalls[i].BallReference.Pose.Position.X,
+                                    _shotBalls[i].BallReference.Pose.Position.Y,
+                                    _shotBalls[i].BallReference.Pose.Position.Z);
 
-						ICamera camera = _camera;
-						BasicEffectParams basicEffectParams = BasicEffectParamsProvider.GetEffectByType(_shotBalls[i].Type);
+                        ICamera camera = _camera;
+                        BasicEffectParams basicEffectParams = BasicEffectParamsProvider.GetEffectByType(_shotBalls[i].Type);
 
-						ModelRenderer.Render(_hrSphere, _hrSphereTransformations, ref camera, ballWorldMatrix, basicEffectParams, true, true);
-					}
+                        ModelRenderer.Render(_hrSphere, _hrSphereTransformations, ref camera, ballWorldMatrix, basicEffectParams, true, true);
+                    }
                 }
 
                 _castle.Draw(_camera);
             }
+
+            _spriteBatch.Begin();
+            _spriteBatch.Draw(_aimer, _aimerPos, _aimerColor);
+            _spriteBatch.End();
 
             base.Draw(gameTime);
         }
 
         private void SetGraphics(bool windowed = false)
         {
-			_graphics.PreferredBackBufferWidth = windowed ? _windowWidth : GraphicsDevice.DisplayMode.Width;
+            _graphics.PreferredBackBufferWidth = windowed ? _windowWidth : GraphicsDevice.DisplayMode.Width;
             _graphics.PreferredBackBufferHeight = windowed ? _windowHeight : GraphicsDevice.DisplayMode.Height;
             _graphics.IsFullScreen = !windowed;
 
@@ -512,7 +544,6 @@ namespace Testbed
         private StaticReference CreateStatic(System.Numerics.Vector3 position, Box boundingBox)
         {
             var shape = new CollidableDescription(_simulation.Shapes.Add(boundingBox), 0.1f).Shape;
-
             return new StaticReference(_simulation.Statics.Add(new StaticDescription(position, shape)), _simulation.Statics);
         }
 
@@ -538,76 +569,77 @@ namespace Testbed
             _shotBall.Pose.Position = new System.Numerics.Vector3(sourcePosition.X, sourcePosition.Y, sourcePosition.Z);
 
             var direction = shootTarget - sourcePosition;
-			direction.Normalize();
+            direction.Normalize();
             direction *= SHOOT_MULTIPLIER;
 
             _shotBall.Velocity.Linear = new System.Numerics.Vector3(direction.X, direction.Y, direction.Z);
 
-			BodyHandle bodyHandle = _simulation.Bodies.Add(_shotBall);
+            BodyHandle bodyHandle = _simulation.Bodies.Add(_shotBall);
 
-			PhysicsBall ball = new()
-			{
-				BallReference = new(bodyHandle, _simulation.Bodies),
-				Type = BallType.Type4
-			};
+            PhysicsBall ball = new()
+            {
+                BallReference = new(bodyHandle, _simulation.Bodies),
+                Type = BallType.Type4
+            };
 
-			_shotBalls.Add(ball);
-			RecountBallsAndConstraints();
+            _shotBalls.Add(ball);
+            RecountBallsAndConstraints();
 
-			#region Contact event registration
+            #region Contact event registration
 
-			//TODO: Unregister when removed from world
-			_events.Register(_simulation.Bodies[bodyHandle].CollidableReference, _eventHandler);
+            //TODO: Unregister when removed from world
+            _events.Register(_simulation.Bodies[bodyHandle].CollidableReference, _eventHandler);
 
-			#endregion
-		}
+            #endregion
+        }
 
-		private void UpdateCannon(GameTime gameTime)
+        private void UpdateCannon(GameTime gameTime)
         {
             if (Keyboard.GetState().IsKeyDown(mgKeys.NumPad4)) _cannon.Orbit(1f);
             if (Keyboard.GetState().IsKeyDown(mgKeys.NumPad6)) _cannon.Orbit(-1f);
             if (Keyboard.GetState().IsKeyDown(mgKeys.Up)) _cannon.Aim(new Vector2(1f, 0f), gameTime);
             if (Keyboard.GetState().IsKeyDown(mgKeys.Down)) _cannon.Aim(new Vector2(-1f, 0f), gameTime);
             if (Keyboard.GetState().IsKeyDown(mgKeys.Left)) _cannon.Aim(new Vector2(0f, 1f), gameTime);
-			if (Keyboard.GetState().IsKeyDown(mgKeys.Right)) _cannon.Aim(new Vector2(0f, -1f), gameTime);
+            if (Keyboard.GetState().IsKeyDown(mgKeys.Right)) _cannon.Aim(new Vector2(0f, -1f), gameTime);
 
             if (_gameMode && !_gameModeAnimStarted)
             {
                 _camera.Position = GetCanonOffsettedPos();
                 _camera.Target = GetCannonOffsettedTarget();
-			}
+            }
 
-			_cannon.Update(gameTime);
-		}
+            _cannon.Update(gameTime);
+        }
 
         private Vector3 GetCannonDirection() => Vector3.Normalize(_cannon.Position - _cannon.OrbitCenter) * 10f;
         private Vector3 GetCanonOffsettedPos() => _cannon.Position + GetCannonDirection() + _gameCameraOffset;
         private Vector3 GetCannonOffsettedTarget() => _cannon.OrbitCenter - _gameCameraOffset;
-	}
+    }
 
     #region Contact event
 
-	public class EventHandler : IContactEventHandler
-	{
-		public Simulation Simulation;
-		public BufferPool Pool;
+    public class EventHandler : IContactEventHandler
+    {
+        public Simulation Simulation;
+        public BufferPool Pool;
+        private ContactEvents _contactEvents;
 
-		public EventHandler(Simulation simulation, BufferPool pool)
-		{
-			Simulation = simulation;
-			Pool = pool;
-		}
+        public EventHandler(Simulation simulation, BufferPool pool, ContactEvents contactEvents)
+        {
+            Simulation = simulation;
+            Pool = pool;
+            _contactEvents = contactEvents;
+        }
 
-		public void OnContactAdded<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold,
-			Vector3 contactOffset, Vector3 contactNormal, float depth, int featureId, int contactIndex, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
+        public void OnContactAdded<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold,
+            Vector3 contactOffset, Vector3 contactNormal, float depth, int featureId, int contactIndex, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
         { 
-			//TODO
+            //TODO
 
-			Console.WriteLine(" → Ball colided! ← ");
+            Console.WriteLine(" → Ball collided! ← ");
             Console.WriteLine(nameof(eventSource) + " : " + eventSource.ToString());
             Console.WriteLine(nameof(pair.A) + " : " + pair.A.ToString());
             Console.WriteLine(nameof(pair.B) + " : " + pair.B.ToString());
-            Console.WriteLine(nameof(contactManifold) + " : " + contactManifold.ToString());
             Console.WriteLine(nameof(contactOffset) + " : " + contactOffset.ToString());
             Console.WriteLine(nameof(contactNormal) + " : " + contactNormal.ToString());
             Console.WriteLine(nameof(depth) + " : " + depth.ToString());
@@ -615,123 +647,53 @@ namespace Testbed
             Console.WriteLine(nameof(contactIndex) + " : " + contactIndex.ToString());
             Console.WriteLine(nameof(workerIndex) + " : " + workerIndex.ToString());
             Console.WriteLine();
-		}
-	}
 
-	#endregion
+            if (pair.A.Mobility == CollidableMobility.Static || pair.B.Mobility == CollidableMobility.Static) //Once ball touches the ground, unregister collision event
+            {
+                if (pair.A.Mobility == CollidableMobility.Dynamic) _contactEvents.Unregister(pair.A.BodyHandle);
+                if (pair.B.Mobility == CollidableMobility.Dynamic) _contactEvents.Unregister(pair.B.BodyHandle);
+            }
+        }
+    }
 
-	#region OnContactAdded doesn't happen if this interface is in separate file
+    #endregion
 
-	//Taken from Bepuphysics ContactEventsDemo
+    #region IContactEventHandler
 
-	/// <summary>
-	/// Implements handlers for various collision events.
-	/// </summary>
-	public interface IContactEventHandler
-	{
-		/// <summary>
-		/// Fires when a contact is added.
-		/// </summary>
-		/// <typeparam name="TManifold">Type of the contact manifold detected.</typeparam>
-		/// <param name="eventSource">Collidable that the event was attached to.</param>
-		/// <param name="pair">Collidable pair triggering the event.</param>
-		/// <param name="contactManifold">Set of remaining contacts in the collision.</param>
-		/// <param name="contactOffset">Offset from the pair's local origin to the new contact.</param>
-		/// <param name="contactNormal">Normal of the new contact.</param>
-		/// <param name="depth">Depth of the new contact.</param>
-		/// <param name="featureId">Feature id of the new contact.</param>
-		/// <param name="contactIndex">Index of the new contact in the contact manifold.</param>
-		/// <param name="workerIndex">Index of the worker thread that fired this event.</param>
-		public void OnContactAdded<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold,
-			Vector3 contactOffset, Vector3 contactNormal, float depth, int featureId, int contactIndex, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
-		{
-		}
+    public interface IContactEventHandler
+    {
+        public void OnContactAdded<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, Vector3 contactOffset, Vector3 contactNormal, float depth, int featureId, int contactIndex, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold> { }
+        void OnContactRemoved<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int removedFeatureId, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold> { }
+        void OnStartedTouching<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold> { }
+        void OnTouching<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold> { }
+        void OnStoppedTouching<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold> { }
+        void OnPairCreated<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold> { }
+        //void OnPairUpdated<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold> { }
+        void OnPairEnded(CollidableReference eventSource, CollidablePair pair) { }
 
-		/// <summary>
-		/// Fires when a contact is removed.
-		/// </summary>
-		/// <typeparam name="TManifold">Type of the contact manifold detected.</typeparam>
-		/// <param name="eventSource">Collidable that the event was attached to.</param>
-		/// <param name="pair">Collidable pair triggering the event.</param>
-		/// <param name="contactManifold">Set of remaining contacts in the collision.</param>
-		/// <param name="removedFeatureId">Feature id of the contact that was removed and is no longer present in the contact manifold.</param>
-		/// <param name="workerIndex">Index of the worker thread that fired this event.</param>
-		void OnContactRemoved<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int removedFeatureId, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
-		{
-		}
-
-		/// <summary>
-		/// Fires the first time a pair is observed to be touching. Touching means that there are contacts with nonnegative depths in the manifold.
-		/// </summary>
-		/// <typeparam name="TManifold">Type of the contact manifold detected.</typeparam>
-		/// <param name="eventSource">Collidable that the event was attached to.</param>
-		/// <param name="pair">Collidable pair triggering the event.</param>
-		/// <param name="contactManifold">Set of remaining contacts in the collision.</param>
-		/// <param name="workerIndex">Index of the worker thread that fired this event.</param>
-		void OnStartedTouching<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
-		{
-		}
-
-		/// <summary>
-		/// Fires whenever a pair is observed to be touching. Touching means that there are contacts with nonnegative depths in the manifold. Will not fire for sleeping pairs.
-		/// </summary>
-		/// <typeparam name="TManifold">Type of the contact manifold detected.</typeparam>
-		/// <param name="eventSource">Collidable that the event was attached to.</param>
-		/// <param name="pair">Collidable pair triggering the event.</param>
-		/// <param name="contactManifold">Set of remaining contacts in the collision.</param>
-		/// <param name="workerIndex">Index of the worker thread that fired this event.</param>
-		void OnTouching<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
-		{
-		}
-
-
-		/// <summary>
-		/// Fires when a pair stops touching. Touching means that there are contacts with nonnegative depths in the manifold.
-		/// </summary>
-		/// <typeparam name="TManifold">Type of the contact manifold detected.</typeparam>
-		/// <param name="eventSource">Collidable that the event was attached to.</param>
-		/// <param name="pair">Collidable pair triggering the event.</param>
-		/// <param name="contactManifold">Set of remaining contacts in the collision.</param>
-		/// <param name="workerIndex">Index of the worker thread that fired this event.</param>
-		void OnStoppedTouching<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
-		{
-		}
-
-
-		/// <summary>
-		/// Fires when a pair is observed for the first time.
-		/// </summary>
-		/// <typeparam name="TManifold">Type of the contact manifold detected.</typeparam>
-		/// <param name="eventSource">Collidable that the event was attached to.</param>
-		/// <param name="pair">Collidable pair triggering the event.</param>
-		/// <param name="contactManifold">Set of remaining contacts in the collision.</param>
-		/// <param name="workerIndex">Index of the worker thread that fired this event.</param>
-		void OnPairCreated<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
-		{
-		}
-
-		/// <summary>
-		/// Fires whenever a pair is updated. Will not fire for sleeping pairs.
-		/// </summary>
-		/// <typeparam name="TManifold">Type of the contact manifold detected.</typeparam>
-		/// <param name="eventSource">Collidable that the event was attached to.</param>
-		/// <param name="pair">Collidable pair triggering the event.</param>
-		/// <param name="contactManifold">Set of remaining contacts in the collision.</param>
-		/// <param name="workerIndex">Index of the worker thread that fired this event.</param>
-		void OnPairUpdated<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
-		{
-		}
-
-		/// <summary>
-		/// Fires when a pair ends.
-		/// </summary>
-		/// <typeparam name="TManifold">Type of the contact manifold detected.</typeparam>
-		/// <param name="eventSource">Collidable that the event was attached to.</param>
-		/// <param name="pair">Collidable pair triggering the event.</param>
-		void OnPairEnded(CollidableReference eventSource, CollidablePair pair)
-		{
-		}
-
-		#endregion
-	}
+        #endregion
+    }
 }
+
+/*
+
+Ball's contact points position from its origin (0,0,0):
+        [ X,   Y,   Z ]
+TOP   : [ 0,   0,   0.5]
+DOWN  : [ 0,   0,  -0.5]
+LEFT  : [ 0,  -0.5, 0]
+RIGT  : [ 0,   0.5, 0]
+FRONT : [ 0.5, 0,   0]
+BACK  : [-0.5, 0,   0]
+
+TOP-LEFT-BACK   : [-0.25, -0.25,  0.353553]
+TOP-RIGHT-BACK  : [-0.25,  0.25,  0.353553]
+TOP-LEFT-FRONT  : [0.25,  -0.25,  0.353553]
+TOP-RIGHT-FRONT : [0.25,   0.25,  0.353553]
+
+BOTTOM-LEFT-BACK   : [-0.25, -0.25, -0.353553]
+BOTTOM-RIGHT-BACK  : [-0.25,  0.25, -0.353553]
+BOTTOM-LEFT-FRONT  : [ 0.25, -0.25, -0.353553]
+BOTTOM-RIGHT-FRONT : [ 0.25,  0.25, -0.353553]
+
+*/

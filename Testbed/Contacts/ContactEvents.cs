@@ -12,7 +12,7 @@ using System.Runtime.InteropServices;
 
 namespace Testbed
 {
-	//Taken from Bepuphysics ContactEventsDemo
+	//Class taken from Bepuphysics ContactEventsDemo
 
 	/// <summary>
 	/// Watches a set of bodies and statics for contact changes and reports events.
@@ -153,7 +153,7 @@ namespace Testbed
         /// <param name="collidable">Collidable to stop listening for.</param>
         public void Unregister(CollidableReference collidable)
         {
-            Debug.Assert(IsListener(collidable), "Should only try to unregister listeners that actually exist.");
+             Debug.Assert(IsListener(collidable), "Should only try to unregister listeners that actually exist.");
             if (collidable.Mobility == CollidableMobility.Static)
             {
                 staticListenerFlags.Remove(collidable.RawHandleValue);
@@ -363,7 +363,7 @@ namespace Testbed
                     }
                     UpdatePreviousCollision(ref pendingAdd.Collision, ref manifold, isTouching);
                 }
-                listener.Handler.OnPairUpdated(source, pair, ref manifold, workerIndex);
+                //listener.Handler.OnPairUpdated(source, pair, ref manifold, workerIndex);
 
             }
         }

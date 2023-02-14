@@ -1,7 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Prazsky.Core.Tools;
 using System;
-using System.Globalization;
 
 namespace Prazsky.Core.Camera
 {
@@ -280,7 +279,12 @@ namespace Prazsky.Core.Camera
         /// </summary>
         public float FieldOfView
 		{
-			get => _fieldOfView; set => _fieldOfView = MathHelper.Clamp(value, float.Epsilon, MathHelper.Pi);
+			get => _fieldOfView;
+			set
+			{
+				_fieldOfView = MathHelper.Clamp(value, float.Epsilon, MathHelper.Pi);
+				Recalculate();
+			}
 		}
 
         /// <summary>
