@@ -8,11 +8,13 @@ namespace Testbed
     public class KinematicBody : Object3D //TODO: I don't think that this should be Object3D
     {
         public BodyReference BodyReference { get; private set; }
+        public BodyHandle BodyHandle { get; private set; }
 
-        public KinematicBody(Model model, BodyReference staticReference)
+        public KinematicBody(Model model, BodyReference staticReference, BodyHandle bodyHandle)
         {
             Model = model;
             BodyReference = staticReference;
+            BodyHandle = bodyHandle;
             Transformations = new Matrix[Model.Bones.Count];
             Model.CopyAbsoluteBoneTransformsTo(Transformations);
 

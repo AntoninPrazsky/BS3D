@@ -21,7 +21,7 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         private static readonly float SLEEP_TRESHOLD = Constants.HUNDREDTH;
 
-        private static readonly SpringSettings SPRING_SETTINGS = new(frequency: 15f, dampingRatio: 1f);
+        public static readonly SpringSettings SPRING_SETTINGS = new(frequency: 15f, dampingRatio: 1f);
 
         public static PhysicsBall[] BuildBallsStructure(StaticBall[,,] staticBalls, ref Simulation simulation, BodyReference ceilingReference)
         {

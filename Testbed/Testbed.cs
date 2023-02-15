@@ -1,6 +1,7 @@
 ﻿using BepuPhysics;
 using BepuPhysics.Collidables;
 using BepuPhysics.CollisionDetection;
+using BepuPhysics.Constraints;
 using BepuUtilities;
 using BepuUtilities.Memory;
 using Microsoft.Xna.Framework;
@@ -41,6 +42,7 @@ namespace Testbed
 
         private List<StaticBody> _staticBodies;
         private List<PhysicsBall[]> _balls;
+        private BallsMap _map;
 
         private CameraInputHelper _cih;
 
@@ -99,7 +101,7 @@ namespace Testbed
         private SpriteBatch _spriteBatch;
 		private Texture2D _aimer;
         private Vector2 _aimerPos;
-        private Color _aimerColor = new(255, 255, 255, 64);
+        private Color _aimerColor = new((byte)255, (byte)255, (byte)255, (byte)64);
 
 		#endregion
 
@@ -174,13 +176,6 @@ namespace Testbed
 
             #region Controls
 
-            #region Contact events
-
-            _eventHandler = new EventHandler(_simulation, _bufferPool, _events);
-            _events.Initialize(_simulation);
-
-            #endregion
-
             _actions = new ButtonAction[]
             {
                 new(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
@@ -249,9 +244,16 @@ namespace Testbed
 
             BuildGroundAndCeiling();
 
-            #endregion Ground and ceiling
+			#endregion Ground and ceiling
 
-            _skyModel = Content.Load<Model>("Skyes/SkyDome" + _skyModelNumber);
+			#region Contact events
+
+			_eventHandler = new EventHandler(_simulation, _bufferPool, _events, _ceiling);
+			_events.Initialize(_simulation);
+
+			#endregion
+
+			_skyModel = Content.Load<Model>("Skyes/SkyDome" + _skyModelNumber);
             _sky = new SkyDome(_skyModel, GraphicsDevice);
 
             _cilinderModel = Content.Load<Model>("GameObjects/Cilinder");
@@ -303,7 +305,7 @@ namespace Testbed
             BodyHandle topBodyHandle = _simulation.Bodies.Add(in bodyDescription);
             BodyReference topBodyReference = new(topBodyHandle, _simulation.Bodies);
 
-            _ceiling = new KinematicBody(_topPlatformModel, topBodyReference);
+            _ceiling = new KinematicBody(_topPlatformModel, topBodyReference, topBodyHandle);
         }
 
         private void LoadBallsMap()
@@ -329,9 +331,11 @@ namespace Testbed
 
         private void DeserializeMapFromFile(string filePath)
         {
-            BallsMap map = new(filePath, _hrSphere);
-            map.Center();
-            _balls.Add(BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
+            _map = new(filePath, _hrSphere);
+            _map.Center();
+            _eventHandler.Map = _map;
+
+            _balls.Add(BallsConstraintsBuilder.BuildBallsStructure(_map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
             RecountBallsAndConstraints();
         }
 
@@ -356,16 +360,16 @@ namespace Testbed
 
         protected override void Update(GameTime gameTime)
         {
-            if (_simulate)
+			float timeStep = Math.Min((float)gameTime.ElapsedGameTime.TotalSeconds, 1 / 60f);
+			if (timeStep == 0) timeStep = 1 / 60f;
+
+			if (_simulate)
             {
                 #region Contact events
 
                 _events.Flush();
 
                 #endregion
-
-                float timeStep = Math.Min((float)gameTime.ElapsedGameTime.TotalSeconds, 1 / 60f);
-                if (timeStep == 0) timeStep = 1 / 60f;
 
                 //timeStep = timeStep / 10f; //Slow down simulation
                 _simulation.Timestep(timeStep, _threadDispatcher);
@@ -382,7 +386,7 @@ namespace Testbed
                 _cih.RegisterPreviousInputState();
             }
 
-            _cih.MouseMovementDenominator = 5000f / _info.CurrentFPS; //Higher FPS → lower number
+            _cih.MouseMovementDenominator = timeStep / Constants.THOUSANDTH;
 
             UpdateCannon(gameTime);
 
@@ -626,19 +630,23 @@ namespace Testbed
         public Simulation Simulation;
         public BufferPool Pool;
         private ContactEvents _contactEvents;
+        private KinematicBody _ceiling;
+        public BallsMap Map;
 
-        public EventHandler(Simulation simulation, BufferPool pool, ContactEvents contactEvents)
+        public EventHandler(Simulation simulation, BufferPool pool, ContactEvents contactEvents, KinematicBody ceiling)
         {
             Simulation = simulation;
             Pool = pool;
             _contactEvents = contactEvents;
+            _ceiling = ceiling;
         }
 
         public void OnContactAdded<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold,
             Vector3 contactOffset, Vector3 contactNormal, float depth, int featureId, int contactIndex, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
-        { 
+        {
             //TODO
 
+#if DEBUG
             Console.WriteLine(" → Ball collided! ← ");
             Console.WriteLine(nameof(eventSource) + " : " + eventSource.ToString());
             Console.WriteLine(nameof(pair.A) + " : " + pair.A.ToString());
@@ -650,10 +658,11 @@ namespace Testbed
             Console.WriteLine(nameof(contactIndex) + " : " + contactIndex.ToString());
             Console.WriteLine(nameof(workerIndex) + " : " + workerIndex.ToString());
             Console.WriteLine();
+#endif
 
-			//Once ball touches the ground or ceiling, unregister collision event
-			//TODO: This might be possible to do by checking if the Static/Kinematic body is specific object (ground block, ceiling block by BodyReference)
-			if (pair.A.Mobility == CollidableMobility.Static || pair.B.Mobility == CollidableMobility.Static ||
+            //Once ball touches the ground or ceiling, unregister collision event
+            //TODO: This might be possible to do by checking if the Static/Kinematic body is specific object (ground block, ceiling block by BodyReference)
+            if (pair.A.Mobility == CollidableMobility.Static || pair.B.Mobility == CollidableMobility.Static ||
                 pair.A.Mobility == CollidableMobility.Kinematic || pair.B.Mobility == CollidableMobility.Kinematic)
             {
                 if (pair.A.Mobility == CollidableMobility.Dynamic) _contactEvents.Unregister(pair.A.BodyHandle);
@@ -662,7 +671,41 @@ namespace Testbed
 
             #region Connect ball to the ceiling
 
+            if (pair.A.BodyHandle == _ceiling.BodyHandle)
+            {
+#if DEBUG
+				Console.WriteLine(" → CEILING HIT");
+#endif
 
+				System.Numerics.Vector3 offsetBall = new(0f, BallsConstraintsBuilder.BALL_RADIUS, 0f);
+
+                if (Map == null)
+                {
+                    Console.WriteLine("Map is null\n");
+                    return;
+                }
+
+                Vector3 possiblePosition = Map.GetClosestRealPosition(contactOffset);
+                if (possiblePosition.X == float.MinValue) return; //Outside of the ceiling
+
+#if DEBUG
+                Console.WriteLine("Possible position: " + possiblePosition);
+#endif
+
+
+
+				System.Numerics.Vector3 offsetCeiling = new(possiblePosition.X, -BallsConstraintsBuilder.BALL_RADIUS, possiblePosition.Z);
+
+				BallSocket ballSocket = new()
+                {
+                    LocalOffsetA = offsetBall,
+                    LocalOffsetB = offsetCeiling,
+                    SpringSettings = BallsConstraintsBuilder.SPRING_SETTINGS
+                };
+
+                var constraintHandle = Simulation.Solver.Add(pair.B.BodyHandle, _ceiling.BodyHandle, ballSocket);
+                //TODO: Use this constraint handle
+            }
 
             #endregion
         }

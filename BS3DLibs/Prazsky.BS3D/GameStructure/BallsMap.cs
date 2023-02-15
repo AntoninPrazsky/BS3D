@@ -12,7 +12,6 @@ namespace Prazsky.BS3D.GameStructure
     public class BallsMap
     {
         private StaticBall[,,] _balls;
-        private static readonly float SQRTTWO = (float)Math.Sqrt(2);
         private Matrix[] _transformations;
         private Model _ballModel;
 
@@ -21,6 +20,9 @@ namespace Prazsky.BS3D.GameStructure
         public byte StageSizeX { get; internal set; }
         public byte StageSizeZ { get; internal set; }
         public byte Levels { get; internal set; }
+        public bool Centered { get; internal set; } = false;
+        public Vector2 BoundingBoxCenter { get; internal set; }
+
 
         public BallsMap(byte stageSizeX, byte stageSizeZ, byte levels, Model ballModel)
         {
@@ -58,7 +60,7 @@ namespace Prazsky.BS3D.GameStructure
         /// <param name="type">Type.</param>
         public void PutBallAt(byte stageX, byte stageZ, byte level, BallType type)
         {
-            if (stageX > StageSizeX || stageZ > StageSizeZ || level > Levels) throw new ArgumentOutOfRangeException($"Invalid requested ball position, array size is: {StageSizeX} × {StageSizeZ} × {Levels}");
+            if (stageX >= StageSizeX || stageZ >= StageSizeZ || level >= Levels) throw new ArgumentOutOfRangeException($"Invalid requested ball position, array size is: {StageSizeX} × {StageSizeZ} × {Levels}");
 
             Vector3 realPos = GetRealPosition(stageX, stageZ, level);
 
@@ -71,7 +73,7 @@ namespace Prazsky.BS3D.GameStructure
 
         public void RemoveBallAt(byte stageX, byte stageZ, byte level)
         {
-            if (stageX > StageSizeX || stageZ > StageSizeZ || level > Levels) throw new ArgumentOutOfRangeException($"Invalid requested ball position, array size is: {StageSizeX} × {StageSizeZ} × {Levels}");
+            if (stageX >= StageSizeX || stageZ >= StageSizeZ || level >= Levels) throw new ArgumentOutOfRangeException($"Invalid requested ball position, array size is: {StageSizeX} × {StageSizeZ} × {Levels}");
 
 #if DEBUG
             Console.WriteLine($"Removing ball at stageX: {stageX}; stageZ: {stageZ}; level: {level}");
@@ -90,9 +92,28 @@ namespace Prazsky.BS3D.GameStructure
             float realPosZ = stageZ;
             if (isShifted) realPosZ += Constants.HALF;
 
-            float realPosY = level / SQRTTWO;
+            float realPosY = level / Constants.SQRT_TWO;
 
             return new Vector3(realPosX, realPosY, realPosZ);
+        }
+
+        public Vector3 GetClosestRealPosition(Vector3 position)
+        {
+            bool isShifted = true; //Currently computes only for top level (below ceiling)
+            
+            Vector3 uncentered = ComputeUncentered(position);
+
+            if (isShifted) uncentered = new Vector3(uncentered.X - Constants.HALF, uncentered.Y, uncentered.Z - Constants.HALF);
+
+            if (uncentered.X < -0.5f || uncentered.X >= 255.5f || uncentered.Z < -0.5f || uncentered.Z >= 255.5f) return new Vector3(float.MinValue);
+
+            byte x = Convert.ToByte(uncentered.X);
+			//byte y = Convert.ToByte(uncentered.Y);
+			byte z = Convert.ToByte(uncentered.Z);
+
+            if (x >= StageSizeX || z >= StageSizeZ) return new Vector3(float.MinValue);
+
+            return ComputeCentered(GetRealPosition(x, z, 9)); //Currently only level 9 (top level)
         }
 
         public StaticBall[,,] GetStaticBallsArray()
@@ -108,7 +129,7 @@ namespace Prazsky.BS3D.GameStructure
                 for (byte x = 0; x < StageSizeX; x++)
                     for (byte z = 0; z < StageSizeZ; z++)
                         _balls[x, z, level] = null;
-		}
+        }
 
         public int GetBallsCount()
         {
@@ -141,13 +162,13 @@ namespace Prazsky.BS3D.GameStructure
 
         public void DeserializeJson(string fileName)
         {
-			if (string.IsNullOrEmpty(fileName)) throw new ArgumentNullException(nameof(fileName));
+            if (string.IsNullOrEmpty(fileName)) throw new ArgumentNullException(nameof(fileName));
 
-			BallPositionTypes ballPositionTypes;
+            BallPositionTypes ballPositionTypes;
 
-			using StreamReader reader = File.OpenText(fileName);
-			var serializer = new JsonSerializer();
-			ballPositionTypes = (BallPositionTypes)serializer.Deserialize(reader, typeof(BallPositionTypes));
+            using StreamReader reader = File.OpenText(fileName);
+            var serializer = new JsonSerializer();
+            ballPositionTypes = (BallPositionTypes)serializer.Deserialize(reader, typeof(BallPositionTypes));
 
             #region Basic validation
 
@@ -156,21 +177,21 @@ namespace Prazsky.BS3D.GameStructure
             if (ballPositionTypes.Balls.Rank != 3)
                 throw new InvalidDataException("Deserialized data invalid");
 
-			int length1 = ballPositionTypes.Balls.GetLength(0);
-			int length2 = ballPositionTypes.Balls.GetLength(1);
-			int length3 = ballPositionTypes.Balls.GetLength(2);
+            int length1 = ballPositionTypes.Balls.GetLength(0);
+            int length2 = ballPositionTypes.Balls.GetLength(1);
+            int length3 = ballPositionTypes.Balls.GetLength(2);
 
-			if (length1 > byte.MaxValue || length2 > byte.MaxValue || length3 > byte.MaxValue)
+            if (length1 > byte.MaxValue || length2 > byte.MaxValue || length3 > byte.MaxValue)
                 throw new InvalidDataException("Deserialized data invalid");
 
             #endregion
 
-			StageSizeX = (byte)length1;
-			StageSizeZ = (byte)length2;
-			Levels = (byte)length3;
+            StageSizeX = (byte)length1;
+            StageSizeZ = (byte)length2;
+            Levels = (byte)length3;
 
-			BuildMapFromBallPositionTypes(ballPositionTypes);
-		}
+            BuildMapFromBallPositionTypes(ballPositionTypes);
+        }
 
         private BallPositionTypes BuildBallPositionTypes()
         {
@@ -204,47 +225,25 @@ namespace Prazsky.BS3D.GameStructure
                             PutBallAt(x, z, level, ballPositionTypes.Balls[x, z, level].Type);
         }
 
-        public Vector3 GetStaticBallsMapCenter()
+        private Vector3 ComputeUncentered(Vector3 position)
         {
-            byte minX = StageSizeX;
-            byte maxX = 0;
+            if (!Centered) return position;
 
-            byte minZ = StageSizeZ;
-            byte maxZ = 0;
-
-            byte minLevel = Levels;
-            byte maxLevel = 0;
-
-            for (byte level = 0; level < Levels; level++)
-                for (byte x = 0; x < StageSizeX; x++)
-                    for (byte z = 0; z < StageSizeZ; z++)
-                        if (_balls[x, z, level] != null)
-                        {
-                            if (x < minX) minX = x;
-                            if (z < minZ) minZ = z;
-                            if (level < minLevel) minLevel = level;
-
-                            if (x > maxX) maxX = x;
-                            if (z > maxZ) maxZ = z;
-                            if (level > maxLevel) maxLevel = level;
-                        }
-
-            Vector3 minPos = GetRealPosition(minX, minZ, minLevel);
-            Vector3 maxPos = GetRealPosition(maxX, maxZ, maxLevel);
-
-#if DEBUG
-            Console.WriteLine($"Min ball: {minPos}");
-            Console.WriteLine($"Max ball: {maxPos}");
-#endif
-
-            Vector3 result = (maxPos + minPos) / 2f;
-
-#if DEBUG
-            Console.WriteLine($"Balls map center: {result}");
-#endif
-
-            return result;
+            return new(
+                position.X + BoundingBoxCenter.X + BALL_RADIUS,
+                position.Y,
+                position.Z + BoundingBoxCenter.Y + BALL_RADIUS);
         }
+
+        private Vector3 ComputeCentered(Vector3 position)
+        {
+            if (!Centered) return position;
+
+			return new(
+				position.X - BoundingBoxCenter.X - BALL_RADIUS,
+				position.Y,
+				position.Z - BoundingBoxCenter.Y - BALL_RADIUS);
+		}
 
         public void Center()
         {
@@ -264,18 +263,15 @@ namespace Prazsky.BS3D.GameStructure
                         if (currentBall.Position.Z > maxPosZ) maxPosZ = currentBall.Position.Z;
                     }
 
-            Vector2 minPos = new Vector2(minPosX, minPosZ);
-            Vector2 maxPos = new Vector2(maxPosX, maxPosZ);
+            Vector2 minPos = new(minPosX, minPosZ);
+            Vector2 maxPos = new(maxPosX, maxPosZ);
+
+            BoundingBoxCenter = (maxPos - minPos) / 2f;
 
 #if DEBUG
             Console.WriteLine("Map minPos: " + minPos);
             Console.WriteLine("Map maxPos: " + maxPos);
-#endif
-
-            Vector2 boundingBoxCenter = (maxPos - minPos) / 2f;
-
-#if DEBUG
-            Console.WriteLine("Map AABB center: " + boundingBoxCenter);
+            Console.WriteLine("Map AABB center: " + BoundingBoxCenter);
 #endif
 
             for (byte level = 0; level < Levels; level++)
@@ -283,12 +279,14 @@ namespace Prazsky.BS3D.GameStructure
                     for (byte z = 0; z < StageSizeZ; z++)
                         if (_balls[x, z, level] != null)
                         {
-                            _balls[x, z, level].Position = new Vector3(
-                                _balls[x, z, level].Position.X - boundingBoxCenter.X - BALL_RADIUS,
+                            _balls[x, z, level].Position = new(
+                                _balls[x, z, level].Position.X - BoundingBoxCenter.X - BALL_RADIUS,
                                 _balls[x, z, level].Position.Y,
-                                _balls[x, z, level].Position.Z - boundingBoxCenter.Y - BALL_RADIUS
+                                _balls[x, z, level].Position.Z - BoundingBoxCenter.Y - BALL_RADIUS
                                 );
                         }
+
+            Centered = true;
         }
     }
 }
