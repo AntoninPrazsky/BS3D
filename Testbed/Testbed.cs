@@ -513,9 +513,12 @@ namespace Testbed
                 _castle.Draw(_camera);
             }
 
-            _spriteBatch.Begin();
-            _spriteBatch.Draw(_aimer, _aimerPos, _aimerColor);
-            _spriteBatch.End();
+            if (!_gameMode)
+            {
+				_spriteBatch.Begin();
+				_spriteBatch.Draw(_aimer, _aimerPos, _aimerColor);
+				_spriteBatch.End();
+			}
 
             base.Draw(gameTime);
         }
@@ -648,13 +651,22 @@ namespace Testbed
             Console.WriteLine(nameof(workerIndex) + " : " + workerIndex.ToString());
             Console.WriteLine();
 
-            if (pair.A.Mobility == CollidableMobility.Static || pair.B.Mobility == CollidableMobility.Static) //Once ball touches the ground, unregister collision event
+			//Once ball touches the ground or ceiling, unregister collision event
+			//TODO: This might be possible to do by checking if the Static/Kinematic body is specific object (ground block, ceiling block by BodyReference)
+			if (pair.A.Mobility == CollidableMobility.Static || pair.B.Mobility == CollidableMobility.Static ||
+                pair.A.Mobility == CollidableMobility.Kinematic || pair.B.Mobility == CollidableMobility.Kinematic)
             {
                 if (pair.A.Mobility == CollidableMobility.Dynamic) _contactEvents.Unregister(pair.A.BodyHandle);
                 if (pair.B.Mobility == CollidableMobility.Dynamic) _contactEvents.Unregister(pair.B.BodyHandle);
             }
+
+            #region Connect ball to the ceiling
+
+
+
+            #endregion
         }
-    }
+	}
 
     #endregion
 
