@@ -198,8 +198,15 @@ namespace Testbed
                 new(mgKeys.Space, ShootBall, "Shoot ball")
             };
 
+            string format = "{0,-9} {1}\n";
+
             StringBuilder builder = new();
-            foreach (var act in _actions) builder.Append(string.Format("{0,-9} {1}\n", act.Key.ToString(), act.Description));
+            foreach (var act in _actions) builder.Append(string.Format(format, act.Key.ToString(), act.Description));
+            builder.Append(string.Format(format, "Arrows", "Cannon aiming"));
+            builder.Append(string.Format(format, mgKeys.NumPad4.ToString(), "Move cannon left"));
+            builder.Append(string.Format(format, mgKeys.NumPad6.ToString(), "Move cannon right"));
+            builder.Append(string.Format(format, mgKeys.NumPad7.ToString(), "Camera orbit left"));
+            builder.Append(string.Format(format, mgKeys.NumPad9.ToString(), "Camera orbit right"));
 
             _info.HintText = builder.ToString();
 
@@ -352,8 +359,6 @@ namespace Testbed
 
             var ball = BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference);
             _balls.Add(ball);
-
-            _events.Register(_simulation.Bodies[ball[0].BallReference].CollidableReference, _eventHandler);
 
             RecountBallsAndConstraints();
         }
