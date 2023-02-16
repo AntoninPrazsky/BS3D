@@ -442,6 +442,7 @@ namespace Testbed
 
         private void RemoveAllConstraints()
         {
+            //TODO: Delete detached balls from the balls map (it is used for finding if given space is occupied by ball)
             if (_balls.Count > 0)
             {
                 int ballsCount = _balls.Count;
@@ -721,8 +722,9 @@ namespace Testbed
             };
 
             var constraintHandle = Simulation.Solver.Add(pair.B.BodyHandle, _ceiling.BodyHandle, ballSocket);
-            
-            //take shot physics ball, add constraint to it, and add it to the Balls list
+
+            //TODO: Attach to neighbouring balls (possibly also to balls on lower level)
+            //Also this logic could be provided by BallsConstraintsBuilder - it would recieve position and connect the ball to other balls
 
             var physicsBall = ShotBalls.Where(x => x.BallReference.Handle == pair.B.BodyHandle).FirstOrDefault(); //Linq is ok since this list should be short
             if (physicsBall.BallReference.Handle != pair.B.BodyHandle) throw new Exception("This should not happen, investigate why it did.");
@@ -731,7 +733,9 @@ namespace Testbed
 
             physicsBall.HandlesTop.Handle1 = constraintHandle;
 
-            Balls.Add(new PhysicsBall[] { physicsBall }); //Part of map now
+            Balls.Add(new PhysicsBall[] { physicsBall }); //Part of the map now
+
+			physicsBall.BallReference.ApplyLinearImpulse(-physicsBall.BallReference.Velocity.Linear); //Removing velocity from the shot, otherwise, ball spins after constraint is added (maybe there is a better way to remove velocity?)
 
             #endregion
         }
