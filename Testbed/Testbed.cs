@@ -351,8 +351,7 @@ namespace Testbed
 
         private void RecountBallsAndConstraints()
         {
-            _info.CustomText = "Balls on scene: " + (_simulation.Bodies.ActiveSet.Count);
-            _info.CustomText += "\nConstraints count: " + _simulation.Solver.CountConstraints();
+            _info.CustomText = "Balls on scene: " + (_simulation.Bodies.ActiveSet.Count) + "\nConstraints count: " + _simulation.Solver.CountConstraints();
         }
 
         private void PutBallAtZero()
@@ -394,6 +393,7 @@ namespace Testbed
                 _cih.CameraMovement(gameTime, !_gameMode);
                 _cih.RegisterPreviousInputState();
             }
+            else IsMouseVisible = true;
 
             _cih.MouseMovementDenominator = timeStep / Constants.THOUSANDTH;
 
