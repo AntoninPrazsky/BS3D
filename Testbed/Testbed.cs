@@ -48,9 +48,9 @@ namespace Testbed
 
         private SkyDome _sky;
         private Model _skyModel;
-		private byte _skyModelNumber = 1;
+        private byte _skyModelNumber = 1;
 
-		private ButtonAction[] _actions;
+        private ButtonAction[] _actions;
 
         private bool _simulate = true;
         private bool _draw = true;
@@ -87,27 +87,27 @@ namespace Testbed
         private static float FREE_FOV = (float)Math.PI / 2.5f;
         private static Vector3 DEFAULT_CAMERA_POS = new (0f, -3f, 30f);
 
-		#endregion Graphics
+        #endregion Graphics
 
-		#region Shooting
+        #region Shooting
 
-		private BodyDescription _shotBall;
-		private List<PhysicsBall> _shotBalls;
+        private BodyDescription _shotBall;
+        private List<PhysicsBall> _shotBalls;
         private static readonly float SHOOT_MULTIPLIER = 200f;
 
         private Model _cilinderModel;
         private Cannon _cannon;
 
         private SpriteBatch _spriteBatch;
-		private Texture2D _aimer;
+        private Texture2D _aimer;
         private Vector2 _aimerPos;
         private Color _aimerColor = new((byte)255, (byte)255, (byte)255, (byte)64);
 
-		#endregion
+        #endregion
 
-		#region Backdrops
+        #region Backdrops
 
-		Model _castleModel;
+        Model _castleModel;
         Castle _castle;
 
         #endregion
@@ -244,16 +244,16 @@ namespace Testbed
 
             BuildGroundAndCeiling();
 
-			#endregion Ground and ceiling
+            #endregion Ground and ceiling
 
-			#region Contact events
+            #region Contact events
 
-			_eventHandler = new EventHandler(_simulation, _bufferPool, _events, _ceiling);
-			_events.Initialize(_simulation);
+            _eventHandler = new EventHandler(_simulation, _bufferPool, _events, _ceiling);
+            _events.Initialize(_simulation);
 
-			#endregion
+            #endregion
 
-			_skyModel = Content.Load<Model>("Skyes/SkyDome" + _skyModelNumber);
+            _skyModel = Content.Load<Model>("Skyes/SkyDome" + _skyModelNumber);
             _sky = new SkyDome(_skyModel, GraphicsDevice);
 
             _cilinderModel = Content.Load<Model>("GameObjects/Cilinder");
@@ -269,8 +269,8 @@ namespace Testbed
 
         private void ComputeAimerPosition()
         {
-			_aimerPos = new Vector2(GraphicsDevice.Viewport.Width / 2f - _aimer.Width / 2f, GraphicsDevice.Viewport.Height / 2f - _aimer.Height / 2f);
-		}
+            _aimerPos = new Vector2(GraphicsDevice.Viewport.Width / 2f - _aimer.Width / 2f, GraphicsDevice.Viewport.Height / 2f - _aimer.Height / 2f);
+        }
 
         private void SwitchSkyDome()
         {
@@ -360,10 +360,10 @@ namespace Testbed
 
         protected override void Update(GameTime gameTime)
         {
-			float timeStep = Math.Min((float)gameTime.ElapsedGameTime.TotalSeconds, 1 / 60f);
-			if (timeStep == 0) timeStep = 1 / 60f;
+            float timeStep = Math.Min((float)gameTime.ElapsedGameTime.TotalSeconds, 1 / 60f);
+            if (timeStep == 0) timeStep = 1 / 60f;
 
-			if (_simulate)
+            if (_simulate)
             {
                 #region Contact events
 
@@ -519,10 +519,10 @@ namespace Testbed
 
             if (!_gameMode)
             {
-				_spriteBatch.Begin();
-				_spriteBatch.Draw(_aimer, _aimerPos, _aimerColor);
-				_spriteBatch.End();
-			}
+                _spriteBatch.Begin();
+                _spriteBatch.Draw(_aimer, _aimerPos, _aimerColor);
+                _spriteBatch.End();
+            }
 
             base.Draw(gameTime);
         }
@@ -647,7 +647,7 @@ namespace Testbed
             //TODO
 
 #if DEBUG
-            Console.WriteLine(" → Ball collided! ← ");
+            Console.WriteLine(" → Ball collided!");
             Console.WriteLine(nameof(eventSource) + " : " + eventSource.ToString());
             Console.WriteLine(nameof(pair.A) + " : " + pair.A.ToString());
             Console.WriteLine(nameof(pair.B) + " : " + pair.B.ToString());
@@ -674,10 +674,10 @@ namespace Testbed
             if (pair.A.BodyHandle == _ceiling.BodyHandle)
             {
 #if DEBUG
-				Console.WriteLine(" → CEILING HIT");
+                Console.WriteLine(" → CEILING HIT");
 #endif
 
-				System.Numerics.Vector3 offsetBall = new(0f, BallsConstraintsBuilder.BALL_RADIUS, 0f);
+                System.Numerics.Vector3 offsetBall = new(0f, BallsConstraintsBuilder.BALL_RADIUS, 0f);
 
                 if (Map == null)
                 {
@@ -694,9 +694,9 @@ namespace Testbed
 
 
 
-				System.Numerics.Vector3 offsetCeiling = new(possiblePosition.X, -BallsConstraintsBuilder.BALL_RADIUS, possiblePosition.Z);
+                System.Numerics.Vector3 offsetCeiling = new(possiblePosition.X, -BallsConstraintsBuilder.BALL_RADIUS, possiblePosition.Z);
 
-				BallSocket ballSocket = new()
+                BallSocket ballSocket = new()
                 {
                     LocalOffsetA = offsetBall,
                     LocalOffsetB = offsetCeiling,
@@ -709,7 +709,7 @@ namespace Testbed
 
             #endregion
         }
-	}
+    }
 
     #endregion
 
