@@ -56,6 +56,7 @@ namespace Testbed
         private bool _simulate = true;
         private bool _draw = true;
         private bool _gameMode = false;
+        private bool _slowSimulation = false;
 
         private Vector3 _gameCameraOffset = Vector3.Up * 6.5f;
 
@@ -183,6 +184,7 @@ namespace Testbed
                 new(mgKeys.F2, Buttons.DPadLeft, LoadBallsMap, "Load map"),
                 new(mgKeys.F5, Buttons.B, () => _simulate = !_simulate, "Stop/start simulation"),
                 new(mgKeys.F6, Buttons.X, () => _draw = !_draw, "Hide/show 3D rendering"),
+                new(mgKeys.F9, () => _slowSimulation = !_slowSimulation, "Switch simulation speed"),
                 new(mgKeys.F10, () => SwitchGameMode(!_gameMode), "Switch game mode"),
                 new(mgKeys.F11, () => SetGraphics(_graphics.IsFullScreen), "Fullscreen/windowed"),
                 new(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
@@ -377,9 +379,10 @@ namespace Testbed
 
                 #endregion
 
-                //timeStep = timeStep / 10f; //Slow down simulation
-                _simulation.Timestep(timeStep, _threadDispatcher);
-            }
+                if (_slowSimulation) _simulation.Timestep(timeStep / 100f, _threadDispatcher);
+                else _simulation.Timestep(timeStep, _threadDispatcher);
+
+			}
 
             if (IsActive)
             {
