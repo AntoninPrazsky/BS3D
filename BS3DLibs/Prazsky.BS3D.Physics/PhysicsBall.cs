@@ -102,6 +102,7 @@ namespace Prazsky.BS3D.Physics
     {
         /// <summary>
         /// ↑ || ↖
+        /// And also used for ceiling constraint.
         /// </summary>
         public ConstraintHandle Handle1; // ↑ || ↖
 

@@ -19,6 +19,7 @@ using Prazsky.Render;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using Testbed.Backdrops;
@@ -255,7 +256,7 @@ namespace Testbed
 
             #region Contact events
 
-            _eventHandler = new EventHandler(_simulation, _bufferPool, _events, _ceiling);
+            _eventHandler = new EventHandler(_simulation, _bufferPool, _events, _ceiling, _balls, _shotBalls);
             _events.Initialize(_simulation);
 
             #endregion
@@ -630,6 +631,7 @@ namespace Testbed
 
     #region Contact event
 
+    //WIP
     public class EventHandler : IContactEventHandler
     {
         public Simulation Simulation;
@@ -637,13 +639,17 @@ namespace Testbed
         private ContactEvents _contactEvents;
         private KinematicBody _ceiling;
         public BallsMap Map;
+        public List<PhysicsBall[]> Balls;
+        public List<PhysicsBall> ShotBalls;
 
-        public EventHandler(Simulation simulation, BufferPool pool, ContactEvents contactEvents, KinematicBody ceiling)
+        public EventHandler(Simulation simulation, BufferPool pool, ContactEvents contactEvents, KinematicBody ceiling, List<PhysicsBall[]> balls, List<PhysicsBall> shotBalls)
         {
             Simulation = simulation;
             Pool = pool;
             _contactEvents = contactEvents;
             _ceiling = ceiling;
+            Balls = balls;
+            ShotBalls = shotBalls;
         }
 
         public void OnContactAdded<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold,
@@ -674,43 +680,55 @@ namespace Testbed
                 if (pair.B.Mobility == CollidableMobility.Dynamic) _contactEvents.Unregister(pair.B.BodyHandle);
             }
 
-            #region Connect ball to the ceiling
+			if (Map == null)
+			{
+				Console.WriteLine("Map is null\n");
+				return;
+			}
 
-            if (pair.A.BodyHandle == _ceiling.BodyHandle)
+			if (pair.A.BodyHandle != _ceiling.BodyHandle) return;
+
+			#region Connect ball to the ceiling
+#if DEBUG
+			Console.WriteLine(" → CEILING HIT");
+#endif
+
+            Vector3 allowedPosition = Map.PutBallAtClosestEmptyCeilingPosition(contactOffset);
+
+            if (allowedPosition.X == float.MinValue)
             {
 #if DEBUG
-                Console.WriteLine(" → CEILING HIT");
+                Console.WriteLine("Outside of the ceiling or ceiling space already occupied by another ball");
 #endif
-
-                System.Numerics.Vector3 offsetBall = new(0f, BallsConstraintsBuilder.BALL_RADIUS, 0f);
-
-                if (Map == null)
-                {
-                    Console.WriteLine("Map is null\n");
-                    return;
-                }
-
-                Vector3 possiblePosition = Map.GetClosestRealPosition(contactOffset);
-                if (possiblePosition.X == float.MinValue) return; //Outside of the ceiling
+                return;
+            }
 
 #if DEBUG
-                Console.WriteLine("Possible position: " + possiblePosition);
+            Console.WriteLine("Ball placed at: " + allowedPosition);
 #endif
 
+			System.Numerics.Vector3 offsetBall = new(0f, BallsConstraintsBuilder.BALL_RADIUS, 0f);
+			System.Numerics.Vector3 offsetCeiling = new(allowedPosition.X, -BallsConstraintsBuilder.BALL_RADIUS, allowedPosition.Z);
 
+            BallSocket ballSocket = new()
+            {
+                LocalOffsetA = offsetBall,
+                LocalOffsetB = offsetCeiling,
+                SpringSettings = BallsConstraintsBuilder.SPRING_SETTINGS
+            };
 
-                System.Numerics.Vector3 offsetCeiling = new(possiblePosition.X, -BallsConstraintsBuilder.BALL_RADIUS, possiblePosition.Z);
+            var constraintHandle = Simulation.Solver.Add(pair.B.BodyHandle, _ceiling.BodyHandle, ballSocket);
+            
+            //take shot physics ball, add constraint to it, and add it to the Balls list
 
-                BallSocket ballSocket = new()
-                {
-                    LocalOffsetA = offsetBall,
-                    LocalOffsetB = offsetCeiling,
-                    SpringSettings = BallsConstraintsBuilder.SPRING_SETTINGS
-                };
+            var physicsBall = ShotBalls.Where(x => x.BallReference.Handle == pair.B.BodyHandle).FirstOrDefault(); //Linq is ok since this list should be short
+            if (physicsBall.BallReference.Handle != pair.B.BodyHandle) throw new Exception("This should not happen, investigate why it did.");
 
-                var constraintHandle = Simulation.Solver.Add(pair.B.BodyHandle, _ceiling.BodyHandle, ballSocket);
-                //TODO: Use this constraint handle
-            }
+            ShotBalls.Remove(physicsBall); //Not shot anymore
+
+            physicsBall.HandlesTop.Handle1 = constraintHandle;
+
+            Balls.Add(new PhysicsBall[] { physicsBall }); //Part of map now
 
             #endregion
         }

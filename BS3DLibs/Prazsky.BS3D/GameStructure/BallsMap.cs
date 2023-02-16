@@ -57,18 +57,21 @@ namespace Prazsky.BS3D.GameStructure
         /// <param name="stageX">The X coordinate in the given level.</param>
         /// <param name="stageZ">The Z coordinate in the given level.</param>
         /// <param name="level">Level.</param>
-        /// <param name="type">Type.</param>
-        public void PutBallAt(byte stageX, byte stageZ, byte level, BallType type)
+        /// <param name="type">Ball type.</param>
+        /// <returns>Created static ball.</returns>
+        public StaticBall PutBallAt(byte stageX, byte stageZ, byte level, BallType type = BallType.Type4)
         {
             if (stageX >= StageSizeX || stageZ >= StageSizeZ || level >= Levels) throw new ArgumentOutOfRangeException($"Invalid requested ball position, array size is: {StageSizeX} × {StageSizeZ} × {Levels}");
 
-            Vector3 realPos = GetRealPosition(stageX, stageZ, level);
-
+            Vector3 realPosition = GetRealPosition(stageX, stageZ, level);
+            if (Centered) realPosition = ComputeCentered(realPosition);
 #if DEBUG
-            Console.WriteLine($"Putting ball at stageX: {stageX}; stageZ: {stageZ}; level: {level}; Real position: {realPos}");
+            Console.WriteLine($"Putting ball at stageX: {stageX}; stageZ: {stageZ}; level: {level}; Real position: {realPosition}");
 #endif
+            var ball = new StaticBall(realPosition, type, _transformations);
+			_balls[stageX, stageZ, level] = ball;
 
-            _balls[stageX, stageZ, level] = new StaticBall(realPos, type, _transformations);
+            return ball;
         }
 
         public void RemoveBallAt(byte stageX, byte stageZ, byte level)
@@ -97,10 +100,12 @@ namespace Prazsky.BS3D.GameStructure
             return new Vector3(realPosX, realPosY, realPosZ);
         }
 
-        public Vector3 GetClosestRealPosition(Vector3 position)
+        //WIP
+        public Vector3 PutBallAtClosestEmptyCeilingPosition(Vector3 position)
         {
             bool isShifted = true; //Currently computes only for top level (below ceiling)
-            
+            byte level = 9; //Currently only level 9 (top level)
+
             Vector3 uncentered = ComputeUncentered(position);
 
             if (isShifted) uncentered = new Vector3(uncentered.X - Constants.HALF, uncentered.Y, uncentered.Z - Constants.HALF);
@@ -108,12 +113,14 @@ namespace Prazsky.BS3D.GameStructure
             if (uncentered.X < -0.5f || uncentered.X >= 255.5f || uncentered.Z < -0.5f || uncentered.Z >= 255.5f) return new Vector3(float.MinValue);
 
             byte x = Convert.ToByte(uncentered.X);
-			//byte y = Convert.ToByte(uncentered.Y);
-			byte z = Convert.ToByte(uncentered.Z);
+            //byte y = Convert.ToByte(uncentered.Y);
+            byte z = Convert.ToByte(uncentered.Z);
 
-            if (x >= StageSizeX || z >= StageSizeZ) return new Vector3(float.MinValue);
+            if (x >= StageSizeX || z >= StageSizeZ //Outside of map
+                || _balls[x, z, level] != null) //There is already a ball there
+                return new Vector3(float.MinValue);
 
-            return ComputeCentered(GetRealPosition(x, z, 9)); //Currently only level 9 (top level)
+            return PutBallAt(x, z, level).Position;
         }
 
         public StaticBall[,,] GetStaticBallsArray()
@@ -195,7 +202,7 @@ namespace Prazsky.BS3D.GameStructure
 
         private BallPositionTypes BuildBallPositionTypes()
         {
-            BallPositionTypes ballPositionTypes = new BallPositionTypes();
+            BallPositionTypes ballPositionTypes = new();
 
             ballPositionTypes.Balls = new BallPositionType[StageSizeX, StageSizeZ, Levels];
 
@@ -239,11 +246,11 @@ namespace Prazsky.BS3D.GameStructure
         {
             if (!Centered) return position;
 
-			return new(
-				position.X - BoundingBoxCenter.X - BALL_RADIUS,
-				position.Y,
-				position.Z - BoundingBoxCenter.Y - BALL_RADIUS);
-		}
+            return new(
+                position.X - BoundingBoxCenter.X - BALL_RADIUS,
+                position.Y,
+                position.Z - BoundingBoxCenter.Y - BALL_RADIUS);
+        }
 
         public void Center()
         {
