@@ -346,7 +346,7 @@ namespace Testbed
             _physicsBalls = BallsConstraintsBuilder.BuildBallsStructure(_map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference);
             _eventHandler.PhysicsBalls = _physicsBalls;
 
-			RecountBallsAndConstraints();
+            RecountBallsAndConstraints();
         }
 
         private void RecountBallsAndConstraints()
@@ -370,7 +370,7 @@ namespace Testbed
                 if (_slowSimulation) _simulation.Timestep(timeStep * Constants.HUNDREDTH, _threadDispatcher);
                 else _simulation.Timestep(timeStep, _threadDispatcher);
 
-			}
+            }
 
             if (IsActive)
             {
@@ -435,7 +435,7 @@ namespace Testbed
 
             XZLevel size = XZLevel.FromArray(_physicsBalls);
 
-			for (byte level = 0; level < size.Level; level++)
+            for (byte level = 0; level < size.Level; level++)
                 for (byte x = 0; x < size.X; x++)
                     for (byte z = 0; z < size.Z; z++)
                         _physicsBalls[x, z, level]?.RemoveAllConstraints(_simulation);
@@ -460,29 +460,29 @@ namespace Testbed
 
                 if (_physicsBalls != null)
                 {
-					XZLevel size = XZLevel.FromArray( _physicsBalls);
+                    XZLevel size = XZLevel.FromArray( _physicsBalls);
 
-					for (byte level = 0; level < size.Level; level++)
-						for (byte x = 0; x < size.X; x++)
-							for (byte z = 0; z < size.Z; z++)
-								if (_physicsBalls[x, z, level] != null)
-								{
-									Microsoft.Xna.Framework.Matrix ballWorldMatrix = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(new Quaternion(
-									_physicsBalls[x, z, level].BallReference.Pose.Orientation.X,
-									_physicsBalls[x, z, level].BallReference.Pose.Orientation.Y,
-									_physicsBalls[x, z, level].BallReference.Pose.Orientation.Z,
-									_physicsBalls[x, z, level].BallReference.Pose.Orientation.W))
-								* Microsoft.Xna.Framework.Matrix.CreateTranslation(
-									_physicsBalls[x, z, level].BallReference.Pose.Position.X,
-									_physicsBalls[x, z, level].BallReference.Pose.Position.Y,
-									_physicsBalls[x, z, level].BallReference.Pose.Position.Z);
+                    for (byte level = 0; level < size.Level; level++)
+                        for (byte x = 0; x < size.X; x++)
+                            for (byte z = 0; z < size.Z; z++)
+                                if (_physicsBalls[x, z, level] != null)
+                                {
+                                    Microsoft.Xna.Framework.Matrix ballWorldMatrix = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(new Quaternion(
+                                    _physicsBalls[x, z, level].BallReference.Pose.Orientation.X,
+                                    _physicsBalls[x, z, level].BallReference.Pose.Orientation.Y,
+                                    _physicsBalls[x, z, level].BallReference.Pose.Orientation.Z,
+                                    _physicsBalls[x, z, level].BallReference.Pose.Orientation.W))
+                                * Microsoft.Xna.Framework.Matrix.CreateTranslation(
+                                    _physicsBalls[x, z, level].BallReference.Pose.Position.X,
+                                    _physicsBalls[x, z, level].BallReference.Pose.Position.Y,
+                                    _physicsBalls[x, z, level].BallReference.Pose.Position.Z);
 
-									ICamera camera = _camera;
-									BasicEffectParams basicEffectParams = BasicEffectParamsProvider.GetEffectByType(_physicsBalls[x, z, level].Type);
+                                    ICamera camera = _camera;
+                                    BasicEffectParams basicEffectParams = BasicEffectParamsProvider.GetEffectByType(_physicsBalls[x, z, level].Type);
 
-									ModelRenderer.Render(_hrSphere, _hrSphereTransformations, ref camera, ballWorldMatrix, basicEffectParams, true, true);
-								}
-				}
+                                    ModelRenderer.Render(_hrSphere, _hrSphereTransformations, ref camera, ballWorldMatrix, basicEffectParams, true, true);
+                                }
+                }
 
                 if (_shotBalls.Count > 0)
                 {
@@ -667,17 +667,17 @@ namespace Testbed
                 if (pair.B.Mobility == CollidableMobility.Dynamic) _contactEvents.Unregister(pair.B.BodyHandle);
             }
 
-			if (Map == null)
-			{
-				Console.WriteLine("Map is null\n");
-				return;
-			}
+            if (Map == null)
+            {
+                Console.WriteLine("Map is null\n");
+                return;
+            }
 
-			if (pair.A.BodyHandle != _ceiling.BodyHandle) return;
+            if (pair.A.BodyHandle != _ceiling.BodyHandle) return;
 
-			#region Connect ball to the ceiling
+            #region Connect ball to the ceiling
 #if DEBUG
-			Console.WriteLine(" → CEILING HIT");
+            Console.WriteLine(" → CEILING HIT");
 #endif
 
             Vector3 allowedPosition = Map.PutBallAtClosestEmptyCeilingPosition(contactOffset, out XZLevel arrayPosition);
@@ -699,15 +699,15 @@ namespace Testbed
 
             var constraintHandle = BallsConstraintsBuilder.ConnectBallToCeiling(physicsBall, _ceiling.BodyReference, Simulation, allowedPosition.ToNumerics());
 
-			//Attaching to other balls should be possible to do by existing functionality in the BallsConstraintBuilder class
+            //Attaching to other balls should be possible to do by existing functionality in the BallsConstraintBuilder class
 
-			ShotBalls.Remove(physicsBall); //Not shot anymore
+            ShotBalls.Remove(physicsBall); //Not shot anymore
 
             physicsBall.HandlesTop.Handle1 = constraintHandle;
 
             PhysicsBalls[arrayPosition.X, arrayPosition.Z, arrayPosition.Level] = physicsBall; //Part of the map now
 
-			physicsBall.BallReference.ApplyLinearImpulse(-physicsBall.BallReference.Velocity.Linear); //Removing velocity from the shot, otherwise, ball spins after constraint is added (maybe there is a better way to remove velocity?)
+            physicsBall.BallReference.ApplyLinearImpulse(-physicsBall.BallReference.Velocity.Linear); //Removing velocity from the shot, otherwise, ball spins after constraint is added (maybe there is a better way to remove velocity?)
 
             #endregion
         }
