@@ -1,7 +1,6 @@
 ﻿using BepuPhysics;
 using BepuPhysics.Collidables;
 using BepuPhysics.CollisionDetection;
-using BepuPhysics.Constraints;
 using BepuUtilities;
 using BepuUtilities.Memory;
 using Microsoft.Xna.Framework;
@@ -9,6 +8,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Prazsky.BS3D.GameObjects;
 using Prazsky.BS3D.GameStructure;
+using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Input;
 using Prazsky.BS3D.Physics;
 using Prazsky.Core;
@@ -42,7 +42,7 @@ namespace Testbed
         private BufferPool _bufferPool;
 
         private List<StaticBody> _staticBodies;
-        private List<PhysicsBall[]> _balls;
+        private PhysicsBall[,,] _physicsBalls;
         private BallsMap _map;
 
         private CameraInputHelper _cih;
@@ -164,7 +164,6 @@ namespace Testbed
             _cih = new CameraInputHelper(_camera, this);
 
             _staticBodies = new List<StaticBody>();
-            _balls = new List<PhysicsBall[]>();
 
             _threadDispatcher = new ThreadDispatcher(Environment.ProcessorCount);
             _bufferPool = new BufferPool();
@@ -190,7 +189,6 @@ namespace Testbed
                 new(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
                 new(mgKeys.End, Buttons.Start, RemoveAllConstraints, "Remove all constraints"),
                 new(mgKeys.NumPad1, SwitchSkyDome, "Switch sky dome"),
-                new(mgKeys.D0, PutBallAtZero, "Spawn ball at (0, 0, 0)"),
                 new(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
                 new(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
                 new(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
@@ -258,7 +256,7 @@ namespace Testbed
 
             #region Contact events
 
-            _eventHandler = new EventHandler(_simulation, _bufferPool, _events, _ceiling, _balls, _shotBalls);
+            _eventHandler = new EventHandler(_simulation, _bufferPool, _events, _ceiling, _physicsBalls, _shotBalls);
             _events.Initialize(_simulation);
 
             #endregion
@@ -345,24 +343,15 @@ namespace Testbed
             _map.Center();
             _eventHandler.Map = _map;
 
-            _balls.Add(BallsConstraintsBuilder.BuildBallsStructure(_map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference));
-            RecountBallsAndConstraints();
+            _physicsBalls = BallsConstraintsBuilder.BuildBallsStructure(_map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference);
+            _eventHandler.PhysicsBalls = _physicsBalls;
+
+			RecountBallsAndConstraints();
         }
 
         private void RecountBallsAndConstraints()
         {
             _info.CustomText = "Balls on scene: " + (_simulation.Bodies.ActiveSet.Count) + "\nConstraints count: " + _simulation.Solver.CountConstraints();
-        }
-
-        private void PutBallAtZero()
-        {
-            BallsMap map = new(10, 10, 10, _hrSphere);
-            map.PutBallAt(0, 0, 0, BallType.Type1);
-
-            var ball = BallsConstraintsBuilder.BuildBallsStructure(map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference);
-            _balls.Add(ball);
-
-            RecountBallsAndConstraints();
         }
 
         protected override void Update(GameTime gameTime)
@@ -378,7 +367,7 @@ namespace Testbed
 
                 #endregion
 
-                if (_slowSimulation) _simulation.Timestep(timeStep / 100f, _threadDispatcher);
+                if (_slowSimulation) _simulation.Timestep(timeStep * Constants.HUNDREDTH, _threadDispatcher);
                 else _simulation.Timestep(timeStep, _threadDispatcher);
 
 			}
@@ -442,19 +431,14 @@ namespace Testbed
 
         private void RemoveAllConstraints()
         {
-            //TODO: Delete detached balls from the balls map (it is used for finding if given space is occupied by ball)
-            if (_balls.Count > 0)
-            {
-                int ballsCount = _balls.Count;
-                for (int x = 0; x < ballsCount; x++)
-                {
-                    int ballsXLength = _balls[x].Length;
-                    for (int i = 0; i < ballsXLength; i++)
-                    {
-                        _balls[x][i].RemoveAllConstraints(_simulation);
-                    }
-                }
-            }
+            if (_physicsBalls == null || _physicsBalls.Rank != 3) return;
+
+            XZLevel size = XZLevel.FromArray(_physicsBalls);
+
+			for (byte level = 0; level < size.Level; level++)
+                for (byte x = 0; x < size.X; x++)
+                    for (byte z = 0; z < size.Z; z++)
+                        _physicsBalls[x, z, level]?.RemoveAllConstraints(_simulation);
         }
 
         protected override void Draw(GameTime gameTime)
@@ -474,32 +458,31 @@ namespace Testbed
                 _ceiling.Draw(_camera);
                 _cannon.Draw(_camera);
 
-                if (_balls.Count > 0)
+                if (_physicsBalls != null)
                 {
-                    int ballsCount = _balls.Count;
-                    for (int x = 0; x < ballsCount; x++)
-                    {
-                        int ballsXLength = _balls[x].Length;
-                        for (int i = 0; i < ballsXLength; i++)
-                        {
-                            Microsoft.Xna.Framework.Matrix ballWorldMatrix = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(
-                                new Quaternion(
-                                    _balls[x][i].BallReference.Pose.Orientation.X,
-                                    _balls[x][i].BallReference.Pose.Orientation.Y,
-                                    _balls[x][i].BallReference.Pose.Orientation.Z,
-                                    _balls[x][i].BallReference.Pose.Orientation.W))
-                                * Microsoft.Xna.Framework.Matrix.CreateTranslation(
-                                    _balls[x][i].BallReference.Pose.Position.X,
-                                    _balls[x][i].BallReference.Pose.Position.Y,
-                                    _balls[x][i].BallReference.Pose.Position.Z);
+					XZLevel size = XZLevel.FromArray( _physicsBalls);
 
-                            ICamera camera = _camera;
-                            BasicEffectParams basicEffectParams = BasicEffectParamsProvider.GetEffectByType(_balls[x][i].Type);
+					for (byte level = 0; level < size.Level; level++)
+						for (byte x = 0; x < size.X; x++)
+							for (byte z = 0; z < size.Z; z++)
+								if (_physicsBalls[x, z, level] != null)
+								{
+									Microsoft.Xna.Framework.Matrix ballWorldMatrix = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(new Quaternion(
+									_physicsBalls[x, z, level].BallReference.Pose.Orientation.X,
+									_physicsBalls[x, z, level].BallReference.Pose.Orientation.Y,
+									_physicsBalls[x, z, level].BallReference.Pose.Orientation.Z,
+									_physicsBalls[x, z, level].BallReference.Pose.Orientation.W))
+								* Microsoft.Xna.Framework.Matrix.CreateTranslation(
+									_physicsBalls[x, z, level].BallReference.Pose.Position.X,
+									_physicsBalls[x, z, level].BallReference.Pose.Position.Y,
+									_physicsBalls[x, z, level].BallReference.Pose.Position.Z);
 
-                            ModelRenderer.Render(_hrSphere, _hrSphereTransformations, ref camera, ballWorldMatrix, basicEffectParams, true, true);
-                        }
-                    }
-                }
+									ICamera camera = _camera;
+									BasicEffectParams basicEffectParams = BasicEffectParamsProvider.GetEffectByType(_physicsBalls[x, z, level].Type);
+
+									ModelRenderer.Render(_hrSphere, _hrSphereTransformations, ref camera, ballWorldMatrix, basicEffectParams, true, true);
+								}
+				}
 
                 if (_shotBalls.Count > 0)
                 {
@@ -643,16 +626,16 @@ namespace Testbed
         private ContactEvents _contactEvents;
         private KinematicBody _ceiling;
         public BallsMap Map;
-        public List<PhysicsBall[]> Balls;
+        public PhysicsBall[,,] PhysicsBalls;
         public List<PhysicsBall> ShotBalls;
 
-        public EventHandler(Simulation simulation, BufferPool pool, ContactEvents contactEvents, KinematicBody ceiling, List<PhysicsBall[]> balls, List<PhysicsBall> shotBalls)
+        public EventHandler(Simulation simulation, BufferPool pool, ContactEvents contactEvents, KinematicBody ceiling, PhysicsBall[,,] physicsBalls, List<PhysicsBall> shotBalls)
         {
             Simulation = simulation;
             Pool = pool;
             _contactEvents = contactEvents;
             _ceiling = ceiling;
-            Balls = balls;
+            PhysicsBalls = physicsBalls;
             ShotBalls = shotBalls;
         }
 
@@ -697,12 +680,12 @@ namespace Testbed
 			Console.WriteLine(" → CEILING HIT");
 #endif
 
-            Vector3 allowedPosition = Map.PutBallAtClosestEmptyCeilingPosition(contactOffset);
+            Vector3 allowedPosition = Map.PutBallAtClosestEmptyCeilingPosition(contactOffset, out XZLevel arrayPosition);
 
             if (allowedPosition.X == float.MinValue)
             {
 #if DEBUG
-                Console.WriteLine("Outside of the ceiling or ceiling space already occupied by another ball");
+                Console.WriteLine("Outside of the ceiling or closest possible ceiling space already occupied by another ball");
 #endif
                 return;
             }
@@ -711,29 +694,18 @@ namespace Testbed
             Console.WriteLine("Ball placed at: " + allowedPosition);
 #endif
 
-			System.Numerics.Vector3 offsetBall = new(0f, BallsConstraintsBuilder.BALL_RADIUS, 0f);
-			System.Numerics.Vector3 offsetCeiling = new(allowedPosition.X, -BallsConstraintsBuilder.BALL_RADIUS, allowedPosition.Z);
-
-            BallSocket ballSocket = new()
-            {
-                LocalOffsetA = offsetBall,
-                LocalOffsetB = offsetCeiling,
-                SpringSettings = BallsConstraintsBuilder.SPRING_SETTINGS
-            };
-
-            var constraintHandle = Simulation.Solver.Add(pair.B.BodyHandle, _ceiling.BodyHandle, ballSocket);
-
-            //TODO: Attach to neighbouring balls (possibly also to balls on lower level)
-            //Also this logic could be provided by BallsConstraintsBuilder - it would recieve position and connect the ball to other balls
-
             var physicsBall = ShotBalls.Where(x => x.BallReference.Handle == pair.B.BodyHandle).FirstOrDefault(); //Linq is ok since this list should be short
             if (physicsBall.BallReference.Handle != pair.B.BodyHandle) throw new Exception("This should not happen, investigate why it did.");
 
-            ShotBalls.Remove(physicsBall); //Not shot anymore
+            var constraintHandle = BallsConstraintsBuilder.ConnectBallToCeiling(physicsBall, _ceiling.BodyReference, Simulation, allowedPosition.ToNumerics());
+
+			//Attaching to other balls should be possible to do by existing functionality in the BallsConstraintBuilder class
+
+			ShotBalls.Remove(physicsBall); //Not shot anymore
 
             physicsBall.HandlesTop.Handle1 = constraintHandle;
 
-            Balls.Add(new PhysicsBall[] { physicsBall }); //Part of the map now
+            PhysicsBalls[arrayPosition.X, arrayPosition.Z, arrayPosition.Level] = physicsBall; //Part of the map now
 
 			physicsBall.BallReference.ApplyLinearImpulse(-physicsBall.BallReference.Velocity.Linear); //Removing velocity from the shot, otherwise, ball spins after constraint is added (maybe there is a better way to remove velocity?)
 

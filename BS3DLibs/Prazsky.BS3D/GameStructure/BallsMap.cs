@@ -101,10 +101,12 @@ namespace Prazsky.BS3D.GameStructure
         }
 
         //WIP
-        public Vector3 PutBallAtClosestEmptyCeilingPosition(Vector3 position)
+        public Vector3 PutBallAtClosestEmptyCeilingPosition(Vector3 position, out XZLevel arrayPosition)
         {
             bool isShifted = true; //Currently computes only for top level (below ceiling)
             byte level = 9; //Currently only level 9 (top level)
+
+            arrayPosition = new XZLevel(-1, -1, -1);
 
             Vector3 uncentered = ComputeUncentered(position);
 
@@ -115,6 +117,10 @@ namespace Prazsky.BS3D.GameStructure
             byte x = Convert.ToByte(uncentered.X);
             //byte y = Convert.ToByte(uncentered.Y);
             byte z = Convert.ToByte(uncentered.Z);
+
+            arrayPosition.X = x;
+            arrayPosition.Z = z;
+            arrayPosition.Level = level;
 
             if (x >= StageSizeX || z >= StageSizeZ //Outside of map
                 || _balls[x, z, level] != null) //There is already a ball there
@@ -184,18 +190,16 @@ namespace Prazsky.BS3D.GameStructure
             if (ballPositionTypes.Balls.Rank != 3)
                 throw new InvalidDataException("Deserialized data invalid");
 
-            int length1 = ballPositionTypes.Balls.GetLength(0);
-            int length2 = ballPositionTypes.Balls.GetLength(1);
-            int length3 = ballPositionTypes.Balls.GetLength(2);
+            XZLevel size = XZLevel.FromArray(ballPositionTypes.Balls);
 
-            if (length1 > byte.MaxValue || length2 > byte.MaxValue || length3 > byte.MaxValue)
+            if (size.Level > byte.MaxValue || size.X > byte.MaxValue || size.Z > byte.MaxValue)
                 throw new InvalidDataException("Deserialized data invalid");
 
             #endregion
 
-            StageSizeX = (byte)length1;
-            StageSizeZ = (byte)length2;
-            Levels = (byte)length3;
+            StageSizeX = (byte)size.Level;
+            StageSizeZ = (byte)size.X;
+            Levels = (byte)size.Z;
 
             BuildMapFromBallPositionTypes(ballPositionTypes);
         }

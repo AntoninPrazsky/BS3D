@@ -2,6 +2,7 @@
 using BepuPhysics.Collidables;
 using BepuPhysics.Constraints;
 using Prazsky.BS3D.GameStructure;
+using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
@@ -23,17 +24,15 @@ namespace Prazsky.BS3D.Physics
 
         public static readonly SpringSettings SPRING_SETTINGS = new(frequency: 15f, dampingRatio: 1f);
 
-        public static PhysicsBall[] BuildBallsStructure(StaticBall[,,] staticBalls, ref Simulation simulation, BodyReference ceilingReference)
+        public static PhysicsBall[,,] BuildBallsStructure(StaticBall[,,] staticBalls, ref Simulation simulation, BodyReference ceilingReference)
         {
             if (staticBalls == null) throw new NullReferenceException(nameof(staticBalls));
             if (simulation == null) throw new NullReferenceException(nameof(simulation));
             if (staticBalls.Rank != 3) throw new ArgumentOutOfRangeException(nameof(staticBalls.Rank));
 
-            int levelSize = staticBalls.GetLength(0);
-            int xSize = staticBalls.GetLength(1);
-            int zSize = staticBalls.GetLength(2);
+            XZLevel size = XZLevel.FromArray(staticBalls);
 
-            PhysicsBall[,,] physicsBalls = new PhysicsBall[levelSize, xSize, zSize]; //Same three-dimensional array for physical balls
+            PhysicsBall[,,] physicsBalls = new PhysicsBall[size.Level, size.X, size.Z]; //Same three-dimensional array for physical balls
 
             #region Create physical representation for each ball (without connecting them)
 
@@ -45,11 +44,11 @@ namespace Prazsky.BS3D.Physics
             CollidableDescription collidableDescription = new(speheShapeIndex, SPECULATIVE_MARGIN);
             BodyActivityDescription bodyActivityDescription = new(SLEEP_TRESHOLD);
 
-            for (byte level = 0; level < levelSize; level++)
+            for (byte level = 0; level < size.Level; level++)
             {
-                for (byte x = 0; x < xSize; x++)
+                for (byte x = 0; x < size.X; x++)
                 {
-                    for (int z = 0; z < zSize; z++)
+                    for (int z = 0; z < size.Z; z++)
                     {
                         if (staticBalls[x, z, level] != null) //Is there even a ball here?
                         {
@@ -78,13 +77,11 @@ namespace Prazsky.BS3D.Physics
 
             #endregion Create physical representation for each ball (without connecting them)
 
-            List<PhysicsBall> result = new();
-
-            for (byte level = 0; level < levelSize; level++)
+            for (byte level = 0; level < size.Level; level++)
             {
-                for (byte x = 0; x < xSize; x++)
+                for (byte x = 0; x < size.X; x++)
                 {
-                    for (int z = 0; z < zSize; z++)
+                    for (int z = 0; z < size.Z; z++)
                     {
                         if (staticBalls[x, z, level] == null) continue; //Is there a ball?
                         
@@ -132,15 +129,15 @@ namespace Prazsky.BS3D.Physics
                             if (staticBalls[x, z - 1, level] != null)
                                 EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z - 1, level], ConstraintType.Type6, simulation);
 
-						//7
-						//x,     y, z + 1
-						if (z + 1 < zSize)
-							if (staticBalls[x, z + 1, level] != null)
-								EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z + 1, level], ConstraintType.Type7, simulation);
+                        //7
+                        //x,     y, z + 1
+                        if (z + 1 < size.Z)
+                            if (staticBalls[x, z + 1, level] != null)
+                                EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z + 1, level], ConstraintType.Type7, simulation);
 
-						//8
-						//x + 1, y, z
-						if (x + 1 < xSize)
+                        //8
+                        //x + 1, y, z
+                        if (x + 1 < size.X)
                             if (staticBalls[x + 1, z, level] != null)
                                 EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x + 1, z, level], ConstraintType.Type8, simulation);
 
@@ -150,40 +147,38 @@ namespace Prazsky.BS3D.Physics
 
                         //9
                         //x - 1, y + 1, z - 1
-                        if (x - 1 >= 0 && level + 1 < levelSize && z - 1 >= 0)
+                        if (x - 1 >= 0 && level + 1 < size.Level && z - 1 >= 0)
                             if (staticBalls[x - 1, z - 1, level + 1] != null)
                                 EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x - 1, z - 1, level + 1], ConstraintType.Type9, simulation);
 
                         //10
                         //x - 1, y + 1, z
-                        if (x - 1 >= 0 && level + 1 < levelSize)
+                        if (x - 1 >= 0 && level + 1 < size.Level)
                             if (staticBalls[x - 1, z, level + 1] != null)
                                 EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x - 1, z, level + 1], ConstraintType.Type10, simulation);
 
                         //11
                         //x,     y + 1, z - 1
-                        if (level + 1 < levelSize && z - 1 >= 0)
+                        if (level + 1 < size.Level && z - 1 >= 0)
                             if (staticBalls[x, z - 1, level + 1] != null)
                                 EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z - 1, level + 1], ConstraintType.Type11, simulation);
 
                         //12
                         //x,     y + 1, z
-                        if (level + 1 < levelSize)
+                        if (level + 1 < size.Level)
                             if (staticBalls[x, z, level + 1] != null)
                                 EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z, level + 1], ConstraintType.Type12, simulation);
 
                         #endregion
 
                         //Highest level - only attach to ceiling
-                        if (level == levelSize - 1)
+                        if (level == size.Level - 1)
                             currentPhysicsBall.HandlesTop.Handle1 = ConnectBallToCeiling(currentPhysicsBall, ceilingReference, simulation);
-
-                        result.Add(currentPhysicsBall);
                     }
                 }
             }
 
-            return result.ToArray();
+            return physicsBalls;
         }
 
         private static void EnsureConnected(ref PhysicsBall ballA, ref PhysicsBall ballB, ConstraintType constraintType, Simulation simulation)
@@ -377,6 +372,21 @@ namespace Prazsky.BS3D.Physics
         {
             Vector3 offsetBall = new(0f, BALL_RADIUS, 0f);
             Vector3 offsetCeiling = new(physicsBall.BallReference.Pose.Position.X, -BALL_RADIUS, physicsBall.BallReference.Pose.Position.Z);
+
+            BallSocket ballSocket = new()
+            {
+                LocalOffsetA = offsetBall,
+                LocalOffsetB = offsetCeiling,
+                SpringSettings = SPRING_SETTINGS
+            };
+
+            return simulation.Solver.Add(physicsBall.BallReference.Handle, ceilingReference.Handle, ballSocket);
+        }
+
+        public static ConstraintHandle ConnectBallToCeiling(PhysicsBall physicsBall, BodyReference ceilingReference, Simulation simulation, Vector3 ceilingPosition)
+        {
+            Vector3 offsetBall = new(0f, BALL_RADIUS, 0f);
+            Vector3 offsetCeiling = new(ceilingPosition.X, -BALL_RADIUS, ceilingPosition.Z);
 
             BallSocket ballSocket = new()
             {

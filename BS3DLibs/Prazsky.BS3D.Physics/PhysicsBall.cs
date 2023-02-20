@@ -3,7 +3,7 @@ using Prazsky.BS3D.GameStructure;
 
 namespace Prazsky.BS3D.Physics
 {
-    public struct PhysicsBall
+    public class PhysicsBall
     {
         public BodyReference BallReference;
 
