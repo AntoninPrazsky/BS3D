@@ -663,8 +663,10 @@ namespace Testbed
             if (pair.A.Mobility == CollidableMobility.Static || pair.B.Mobility == CollidableMobility.Static ||
                 pair.A.Mobility == CollidableMobility.Kinematic || pair.B.Mobility == CollidableMobility.Kinematic)
             {
+                //TODO: Unregistering contact events sometimes causes NullReferenceException in simulation, investigate what is null and why
                 if (pair.A.Mobility == CollidableMobility.Dynamic) _contactEvents.Unregister(pair.A.BodyHandle);
                 if (pair.B.Mobility == CollidableMobility.Dynamic) _contactEvents.Unregister(pair.B.BodyHandle);
+                _contactEvents.Flush();
             }
 
             if (Map == null)
@@ -695,19 +697,36 @@ namespace Testbed
 #endif
 
             var physicsBall = ShotBalls.Where(x => x.BallReference.Handle == pair.B.BodyHandle).FirstOrDefault(); //Linq is ok since this list should be short
-            if (physicsBall.BallReference.Handle != pair.B.BodyHandle) throw new Exception("This should not happen, investigate why it did.");
+            if (physicsBall == null || physicsBall.BallReference.Handle != pair.B.BodyHandle) throw new Exception("This should not happen, investigate why it did.");
+
+            physicsBall.ArrayPosition = arrayPosition;
 
             var constraintHandle = BallsConstraintsBuilder.ConnectBallToCeiling(physicsBall, _ceiling.BodyReference, Simulation, allowedPosition.ToNumerics());
+            physicsBall.HandlesTop.Handle1 = constraintHandle;
+
 
             //Attaching to other balls should be possible to do by existing functionality in the BallsConstraintBuilder class
 
             ShotBalls.Remove(physicsBall); //Not shot anymore
 
-            physicsBall.HandlesTop.Handle1 = constraintHandle;
-
             PhysicsBalls[arrayPosition.X, arrayPosition.Z, arrayPosition.Level] = physicsBall; //Part of the map now
 
             physicsBall.BallReference.ApplyLinearImpulse(-physicsBall.BallReference.Velocity.Linear); //Removing velocity from the shot, otherwise, ball spins after constraint is added (maybe there is a better way to remove velocity?)
+
+            #endregion
+
+            #region Connect ball to other neighbouring balls
+
+            //TODO: Constraints are created in wrong position because BallsConstraintBuilder takes physical position of both balls which are only correct when map is being built before simulation starts for the first time
+            //BallsConstraintsBuilder will have to compute "correct" constraint position based on static map (or this position will have to be saved somewhere)
+            BallsConstraintsBuilder.EnsureConnectedOnSameLevel(
+                Map.GetStaticBallsArray(),
+                arrayPosition,
+                physicsBall,
+                PhysicsBalls,
+                Simulation,
+                Map.GetStaticBallsArraySize(),
+                Map);
 
             #endregion
         }

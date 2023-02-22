@@ -12,7 +12,7 @@ using System.Runtime.InteropServices;
 
 namespace Testbed
 {
-	//Class taken from Bepuphysics ContactEventsDemo
+	//Class taken from Bepuphysics ContactEventsDemo and modified
 
 	/// <summary>
 	/// Watches a set of bodies and statics for contact changes and reports events.

@@ -1,5 +1,6 @@
 ﻿using BepuPhysics;
 using Prazsky.BS3D.GameStructure;
+using Prazsky.BS3D.GameStructure.DataBags;
 
 namespace Prazsky.BS3D.Physics
 {
@@ -12,6 +13,8 @@ namespace Prazsky.BS3D.Physics
         public ConstraintHandles HandlesBottom;
 
         public BallType Type;
+
+        public XZLevel ArrayPosition;
 
         public void SetEmptyConstraints()
         {
@@ -29,6 +32,11 @@ namespace Prazsky.BS3D.Physics
             HandlesBottom.Handle2.Value = -1;
             HandlesBottom.Handle3.Value = -1;
             HandlesBottom.Handle4.Value = -1;
+        }
+
+        public PhysicsBall()
+        {
+            SetEmptyConstraints();
         }
 
         public void RemoveAllConstraints(Simulation simulation)

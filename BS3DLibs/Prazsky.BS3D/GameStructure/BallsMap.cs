@@ -100,6 +100,12 @@ namespace Prazsky.BS3D.GameStructure
             return new Vector3(realPosX, realPosY, realPosZ);
         }
 
+        public Vector3 GetRealCenteredPosition(XZLevel arrayPosition)
+        {
+            var realPos = GetRealPosition((byte)arrayPosition.X, (byte)arrayPosition.Z, (byte)arrayPosition.Level);
+            return ComputeCentered(realPos);
+        }
+
         //WIP
         public Vector3 PutBallAtClosestEmptyCeilingPosition(Vector3 position, out XZLevel arrayPosition)
         {
@@ -129,10 +135,9 @@ namespace Prazsky.BS3D.GameStructure
             return PutBallAt(x, z, level).Position;
         }
 
-        public StaticBall[,,] GetStaticBallsArray()
-        {
-            return _balls;
-        }
+        public StaticBall[,,] GetStaticBallsArray() => _balls;
+
+        public XZLevel GetStaticBallsArraySize() => XZLevel.FromArray(_balls);
 
         public void Clear()
         {
