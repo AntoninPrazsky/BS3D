@@ -1,40 +1,9 @@
-﻿################################################################################
-# Tento soubor .gitignore byl automaticky vytvořen aplikací Microsoft(R) Visual Studio.
-################################################################################
+﻿# Build outputs
+bin/
+obj/
 
-/.vs
-/BS3DLibs/Prazsky.BS3D/bin/Debug/netstandard2.1
-/BS3DLibs/Prazsky.BS3D/obj
-/BS3DLibs/Prazsky.BS3D.Physics/obj/Debug/netstandard2.1
-/BS3DLibs/Prazsky.BS3D.Physics/obj/Release/netstandard2.1
-/BS3DLibs/Prazsky.BS3D.Physics/obj
-/BS3DLibs/Prazsky.Core/bin/Debug/netstandard2.0
-/BS3DLibs/Prazsky.Core/obj/Debug/netstandard2.0
-/BS3DLibs/Prazsky.Core/obj/Release/netstandard2.0
-/BS3DLibs/Prazsky.Core/obj
-/MapEditor/bin/netcoreapp3.1
-/MapEditor/Content/obj/DesktopGL
-/MapEditor/obj
-/Testbed/obj
-/BS3DLibs/Prazsky.BS3D.Physics/bin/Debug/netstandard2.1
-/Testbed/bin/netcoreapp3.1
-/Testbed/Content/obj/DesktopGL
-/BS3DLibs/Prazsky.BS3D.Physics/bin/Debug/net7.0
-/MapEditor/bin/net7.0-windows
-/MapEditor/Content/bin/DesktopGL/Content
-/Testbed/bin/net7.0-windows
-/Testbed/Content/bin/DesktopGL/Content
+# Visual Studio
+.vs/
+
+# Project specific
 /LEVELS
-/BS3DLibs/Prazsky.BS3D/bin/Debug/net7.0/Prazsky.BS3D.dll
-/BS3DLibs/Prazsky.BS3D/bin/Debug/net7.0/Prazsky.BS3D.pdb
-/BS3DLibs/Prazsky.BS3D/bin/Debug/net7.0/Prazsky.Core.dll
-/BS3DLibs/Prazsky.BS3D/bin/Debug/net7.0/Prazsky.Core.pdb
-/BS3DLibs/Prazsky.Core/bin/Debug/net7.0/Prazsky.Core.dll
-/BS3DLibs/Prazsky.Core/bin/Debug/net7.0/Prazsky.Core.pdb
-/Testbed/bin/Release/net7.0-windows
-/BS3DLibs/Prazsky.BS3D/bin/Release/net7.0
-/BS3DLibs/Prazsky.BS3D.Physics/bin/Release/net7.0
-/BS3DLibs/Prazsky.Core/bin/Release/net7.0
-/BS3DLibs/Prazsky.BS3D/bin/Debug/net7.0/Prazsky.BS3D.deps.json
-/Testbed/Content/obj/Windows
-/BS3DLibs/Prazsky.Core/bin/Debug/net7.0/Prazsky.Core.deps.json
