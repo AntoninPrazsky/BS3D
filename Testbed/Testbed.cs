@@ -105,7 +105,7 @@ namespace Testbed
 
         //Balls released from the structure (matched clusters and balls that lost their connection to the ceiling).
         //They are no longer part of the map, but their bodies keep falling in the simulation, so they still have to be drawn.
-        //TODO: Remove them from the simulation and from this list once they are far away (issue #23)
+        //RemoveFallenBalls cleans them up once they fall out of the world or come to rest.
         private List<PhysicsBall> _fallingBalls;
 
         private static readonly float SHOOT_MULTIPLIER = 200f;
@@ -138,10 +138,15 @@ namespace Testbed
         //Map file to load right after startup (e.g. passed on the command line); mainly for testing
         private readonly string _startupMapPath;
 
-        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null)
+        //Testing mode: shoots a ball at a random spot of the structure every second ("autoshoot" on the command line)
+        private readonly bool _autoShoot;
+        private float _autoShootElapsed;
+
+        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false)
         {
             _windowed = windowed;
             _startupMapPath = startupMapPath;
+            _autoShoot = autoShoot;
 
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;
@@ -214,7 +219,7 @@ namespace Testbed
                 new(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up, true), "Up view"),
                 new(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
                 new(mgKeys.R, () => { _cih.RestartCamera(); _cannon.Restart(); }, "Restart camera"),
-                new(mgKeys.Space, ShootBall, "Shoot ball")
+                new(mgKeys.Space, () => ShootBall(), "Shoot ball")
             };
 
             string format = "{0,-9} {1}\n";
@@ -405,6 +410,42 @@ namespace Testbed
             _info.CustomText = "Balls on scene: " + (_simulation.Bodies.ActiveSet.Count) + "\nConstraints count: " + _simulation.Solver.CountConstraints();
         }
 
+        /// <summary>
+        /// Y below which a ball is considered fallen out of the world (the ground sits around Y = -10).
+        /// </summary>
+        private static readonly float KILL_PLANE_Y = -30f;
+
+        /// <summary>
+        /// Removes balls that can no longer affect gameplay from the simulation and from the given list:
+        /// balls that fell below <see cref="KILL_PLANE_Y"/> and balls that came to rest on the ground
+        /// (their body fell asleep - flying or rolling bodies never sleep).
+        /// </summary>
+        /// <param name="unregisterListeners">Pass true for shot balls, which may still be registered as contact listeners.</param>
+        /// <returns>Number of removed balls.</returns>
+        private int RemoveFallenBalls(List<PhysicsBall> balls, bool unregisterListeners)
+        {
+            int removed = 0;
+
+            for (int i = balls.Count - 1; i >= 0; i--)
+            {
+                BodyReference body = balls[i].BallReference;
+
+                if (body.Pose.Position.Y >= KILL_PLANE_Y && body.Awake) continue;
+
+                if (unregisterListeners && _events.IsListener(body.CollidableReference)) _events.Unregister(body.CollidableReference);
+
+                _simulation.Bodies.Remove(body.Handle);
+                balls.RemoveAt(i);
+                removed++;
+
+#if DEBUG
+                Console.WriteLine("Removed a fallen ball from the simulation");
+#endif
+            }
+
+            return removed;
+        }
+
         protected override void Update(GameTime gameTime)
         {
             float timeStep = Math.Min((float)gameTime.ElapsedGameTime.TotalSeconds, 1 / 60f);
@@ -421,6 +462,28 @@ namespace Testbed
                 //unregistering a listener is only safe once the pending worker adds collected during the timestep have been applied.
                 _events.Flush();
                 if (_eventHandler.ProcessQueuedContacts() > 0) RecountBallsAndConstraints();
+
+                #endregion
+
+                #region Fallen balls cleanup
+
+                int removedBalls = RemoveFallenBalls(_shotBalls, unregisterListeners: true) + RemoveFallenBalls(_fallingBalls, unregisterListeners: false);
+                if (removedBalls > 0) RecountBallsAndConstraints();
+
+                #endregion
+
+                #region Auto shooting (testing)
+
+                if (_autoShoot && _map != null)
+                {
+                    _autoShootElapsed += (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+                    if (_autoShootElapsed >= 1f)
+                    {
+                        _autoShootElapsed = 0f;
+                        ShootBall(new Vector3(RANDOM.Next(-4, 5), RANDOM.Next(4, 11), RANDOM.Next(-4, 5)));
+                    }
+                }
 
                 #endregion
             }
@@ -618,10 +681,10 @@ namespace Testbed
             _fallingBalls = new List<PhysicsBall>();
         }
 
-        private void ShootBall()
+        private void ShootBall(Vector3? targetOverride = null)
         {
             var sourcePosition = _gameMode ? _cannon.Position : _camera.Position;
-            var shootTarget = _gameMode ? _cannon.AimTarget : _camera.Target;
+            var shootTarget = targetOverride ?? (_gameMode ? _cannon.AimTarget : _camera.Target);
 
             _shotBall.Pose.Position = new System.Numerics.Vector3(sourcePosition.X, sourcePosition.Y, sourcePosition.Z);
 

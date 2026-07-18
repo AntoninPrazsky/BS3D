@@ -7,8 +7,16 @@ namespace Testbed
         [STAThread]
         private static void Main(string[] args)
         {
-            string startupMapPath = args.Length > 0 ? args[0] : null;
-            using (var game = new Testbed(startupMapPath: startupMapPath)) game.Run();
+            string startupMapPath = null;
+            bool autoShoot = false;
+
+            foreach (string arg in args)
+            {
+                if (string.Equals(arg, "autoshoot", StringComparison.OrdinalIgnoreCase)) autoShoot = true;
+                else startupMapPath = arg;
+            }
+
+            using (var game = new Testbed(startupMapPath: startupMapPath, autoShoot: autoShoot)) game.Run();
         }
     }
 }
