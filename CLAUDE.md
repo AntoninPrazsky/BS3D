@@ -8,19 +8,13 @@ BS3D is a 3D Puzzle-Bobble-style game (shoot balls at a hanging 3D cluster of ba
 
 ## Build and run
 
-The `dotnet` on PATH is SDK 8, which cannot build the net10.0 projects. Always use SDK 10 at:
-
-```
-C:\Users\Administrator\.dotnet\dotnet.exe
-```
-
 ```powershell
 # Build everything (libraries + Testbed game)
-& "$env:USERPROFILE\.dotnet\dotnet.exe" build C:\Projects\Testbed.sln
+dotnet build C:\Projects\Testbed.sln
 
 # Run the game testbed / the map editor
-& "$env:USERPROFILE\.dotnet\dotnet.exe" run --project C:\Projects\Testbed\Testbed.csproj
-& "$env:USERPROFILE\.dotnet\dotnet.exe" run --project C:\Projects\MapEditor\MapEditor.csproj
+dotnet run --project C:\Projects\Testbed\Testbed.csproj
+dotnet run --project C:\Projects\MapEditor\MapEditor.csproj
 ```
 
 There are three solutions: `BS3DLibs.sln` (libraries only), `Testbed.sln` and `MapEditor.sln` (each executable plus the libraries). There are no test projects and no lint configuration.
