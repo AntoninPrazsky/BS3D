@@ -1,0 +1,57 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project
+
+BS3D is a 3D Puzzle-Bobble-style game (shoot balls at a hanging 3D cluster of balls) built with MonoGame (DesktopGL) and BepuPhysics 2. Repo: https://github.com/AntoninPrazsky/BS3D — tasks are tracked in GitHub issues.
+
+## Build and run
+
+The `dotnet` on PATH is SDK 8, which cannot build the net10.0 projects. Always use SDK 10 at:
+
+```
+C:\Users\Administrator\.dotnet\dotnet.exe
+```
+
+```powershell
+# Build everything (libraries + Testbed game)
+& "$env:USERPROFILE\.dotnet\dotnet.exe" build C:\Projects\Testbed.sln
+
+# Run the game testbed / the map editor
+& "$env:USERPROFILE\.dotnet\dotnet.exe" run --project C:\Projects\Testbed\Testbed.csproj
+& "$env:USERPROFILE\.dotnet\dotnet.exe" run --project C:\Projects\MapEditor\MapEditor.csproj
+```
+
+There are three solutions: `BS3DLibs.sln` (libraries only), `Testbed.sln` and `MapEditor.sln` (each executable plus the libraries). There are no test projects and no lint configuration.
+
+MonoGame content (`Content/Content.mgcb` in Testbed and MapEditor) is compiled automatically during build by `MonoGame.Content.Builder.Task`; editing the .mgcb itself is normally done with the MonoGame Pipeline Tool. Testbed and MapEditor target `net10.0-windows` and use WinForms interop, so the executables are Windows-only; the libraries target plain `net10.0`.
+
+## Architecture
+
+Three layered libraries under `BS3DLibs/`, consumed by two executables:
+
+- **Prazsky.Core** — game-agnostic 3D infrastructure: `BasicCamera3D`/`ICamera`, model/bitmap/info renderers, `SkyDome`, `World3D`, and `Tools/Constants.cs` (named float constants like `HALF`, `SQRT_TWO` used throughout).
+- **Prazsky.BS3D** — game logic without physics: the ball grid (`GameStructure/BallsMap.cs`), `StaticBall`, `BallType`, JSON map (de)serialization via Newtonsoft, input helpers, `Cannon`.
+- **Prazsky.BS3D.Physics** — BepuPhysics representation: `PhysicsBall` (body reference + constraint handle slots + array position) and `BallsConstraintsBuilder` (builds the constrained ball structure).
+- **Testbed** — the actual playable game loop: simulation setup, shooting, contact handling, backdrops, HUD. Test maps live in `Testbed\Maps\*.json`.
+- **MapEditor** — visual editor for those map JSON files (supports drag-and-drop of a map file onto the window).
+
+### The ball grid
+
+The central data structure is a 3D array `[x, z, level]` where **level is the vertical (Y) axis**. Odd levels are shifted by +0.5 in X and Z (hexagonal-like packing); vertical spacing between levels is `1/√2`. `BallsMap.GetRealPosition` maps array coordinates to world positions, and `Center()`/`ComputeCentered` translate between the raw grid frame and the centered world frame. A cell has 4 neighbours on its own level and up to 4 on each adjacent level; which diagonal offsets are the true neighbours depends on level parity (`GetNeighbouringCells` encodes this).
+
+`BallsMap` holds the logical state (`StaticBall`s); `BallsConstraintsBuilder.BuildBallsStructure` mirrors it into a parallel `PhysicsBall[,,]` of dynamic Bepu bodies connected by `BallSocket` constraints to their neighbours, with the top level constrained to a kinematic ceiling body. The whole cluster hangs from the ceiling and jiggles physically.
+
+### Constraint handle bookkeeping
+
+Each constraint is shared by two balls, so `PhysicsBall` stores handles in three slot groups (`HandlesBottom`/`HandlesMiddle`/`HandlesTop`, four slots each) and `EnsureConnected` uses `ConstraintType.Type1–12` to write the same handle into the matching slot of both balls without creating duplicates. At build time, cross-level constraints are created only when iterating from **even** levels (parity makes the even side cover every pair). The runtime attach path for a newly shot ball (`AttachBallToStructure` → `ConnectToNeighboursOnOtherLevels`) is different: it is parity-aware and creates constraints directly, using `TryStore` because neighbour slots may already be full. Anchor offsets must be rotated into body-local space (`WorldToLocalOffset`) since bodies no longer have identity orientation once the simulation has run.
+
+### Shooting flow (Testbed)
+
+Contact detection uses `Testbed/Contacts/ContactEvents.cs` (adapted from the Bepu demo); Bepu callbacks fire on worker threads, so contact events are queued and processed on the main thread. When a shot ball hits the structure, it is snapped into the nearest free neighbouring cell (`BallsMap.PutBallAtClosestEmptyPositionNextTo`) and then wired into the physics structure with `AttachBallToStructure`.
+
+### Conventions
+
+- Two vector types coexist: `Microsoft.Xna.Framework.Vector3` in game/render code and `System.Numerics.Vector3` in Bepu code, with `ToNumerics()` conversions at the boundary.
+- The user (sole author) communicates in Czech; code and comments are in English.
