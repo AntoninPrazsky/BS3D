@@ -72,6 +72,10 @@ namespace Prazsky.Core.Render
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             _font = _content.Load<SpriteFont>(_fontAssetName);
+
+            //Render characters missing from the font as '?' instead of DrawString throwing for the whole frame
+            _font.DefaultCharacter ??= '?';
+
             if (_iconAssetName != null) _iconTexture = _content.Load<Texture2D>(_iconAssetName);
 
             RecomputeScale();

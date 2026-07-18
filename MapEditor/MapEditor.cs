@@ -159,7 +159,7 @@ namespace MapEditor
             _selector.UpdateBallsBap(_map);
             _aabb.FitToMap(_map);
 
-            Info.CustomText = $"New map {dialog.StageSizeX} × {dialog.StageSizeZ} × {dialog.Levels}";
+            Info.CustomText = $"New map {dialog.StageSizeX} x {dialog.StageSizeZ} x {dialog.Levels}";
         }
 
         protected override void Update(GameTime gameTime)
