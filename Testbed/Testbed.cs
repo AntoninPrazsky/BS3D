@@ -768,14 +768,15 @@ namespace Testbed
 
             PhysicsBalls[arrayPosition.X, arrayPosition.Z, arrayPosition.Level] = physicsBall; //Part of the map now
 
-            physicsBall.BallReference.ApplyLinearImpulse(-physicsBall.BallReference.Velocity.Linear); //Removing velocity from the shot, otherwise, ball spins after constraint is added (maybe there is a better way to remove velocity?)
+            physicsBall.BallReference.Velocity.Linear = default; //Removing velocity from the shot
+            physicsBall.BallReference.Velocity.Angular = default; //Also stop spinning, so the freshly created constraint anchors are not dragged around by residual rotation
 
             #endregion
 
             #region Connect ball to other neighbouring balls
 
-            //TODO: Constraints are created in wrong position because BallsConstraintBuilder takes physical position of both balls which are only correct when map is being built before simulation starts for the first time
-            //BallsConstraintsBuilder will have to compute "correct" constraint position based on static map (or this position will have to be saved somewhere)
+            //Constraint anchors are computed from the static map grid (ideal positions) and rotated into each body's current local frame,
+            //so they are correct even after the simulation has been running
             BallsConstraintsBuilder.EnsureConnectedOnSameLevel(
                 Map.GetStaticBallsArray(),
                 arrayPosition,

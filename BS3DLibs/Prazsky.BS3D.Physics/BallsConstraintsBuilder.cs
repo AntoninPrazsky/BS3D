@@ -378,13 +378,13 @@ namespace Prazsky.BS3D.Physics
             Vector3 ballAPosition = map == null ? physicsBallA.BallReference.Pose.Position : map.GetRealCenteredPosition(physicsBallA.ArrayPosition).ToNumerics();
             Vector3 ballBPosition = map == null ? physicsBallB.BallReference.Pose.Position : map.GetRealCenteredPosition(physicsBallB.ArrayPosition).ToNumerics();
 
-            Vector3 offsetAB = GetLocalOffset(ballAPosition, ballBPosition);
-            Vector3 offsetBA = Vector3.Negate(offsetAB); //I could use GetLocalOffset again with inverted parameters, but changing polarity of the first vector is enough
+            //The constraint anchor sits halfway between the (ideal) positions of both balls
+            Vector3 anchor = (ballAPosition + ballBPosition) / 2;
 
             BallSocket ballSocket = new()
-            { 
-                LocalOffsetA = offsetAB,
-                LocalOffsetB = offsetBA,
+            {
+                LocalOffsetA = WorldToLocalOffset(physicsBallA.BallReference.Pose.Orientation, anchor - ballAPosition),
+                LocalOffsetB = WorldToLocalOffset(physicsBallB.BallReference.Pose.Orientation, anchor - ballBPosition),
                 SpringSettings = SPRING_SETTINGS
             };
 
@@ -393,23 +393,13 @@ namespace Prazsky.BS3D.Physics
 
         private static ConstraintHandle ConnectBallToCeiling(PhysicsBall physicsBall, BodyReference ceilingReference, Simulation simulation)
         {
-            Vector3 offsetBall = new(0f, BALL_RADIUS, 0f);
-            Vector3 offsetCeiling = new(physicsBall.BallReference.Pose.Position.X, -BALL_RADIUS, physicsBall.BallReference.Pose.Position.Z);
-
-            BallSocket ballSocket = new()
-            {
-                LocalOffsetA = offsetBall,
-                LocalOffsetB = offsetCeiling,
-                SpringSettings = SPRING_SETTINGS
-            };
-
-            return simulation.Solver.Add(physicsBall.BallReference.Handle, ceilingReference.Handle, ballSocket);
+            return ConnectBallToCeiling(physicsBall, ceilingReference, simulation, physicsBall.BallReference.Pose.Position);
         }
 
         public static ConstraintHandle ConnectBallToCeiling(PhysicsBall physicsBall, BodyReference ceilingReference, Simulation simulation, Vector3 ceilingPosition)
         {
-            Vector3 offsetBall = new(0f, BALL_RADIUS, 0f);
-            Vector3 offsetCeiling = new(ceilingPosition.X, -BALL_RADIUS, ceilingPosition.Z);
+            Vector3 offsetBall = WorldToLocalOffset(physicsBall.BallReference.Pose.Orientation, new Vector3(0f, BALL_RADIUS, 0f));
+            Vector3 offsetCeiling = WorldToLocalOffset(ceilingReference.Pose.Orientation, new Vector3(ceilingPosition.X, -BALL_RADIUS, ceilingPosition.Z));
 
             BallSocket ballSocket = new()
             {
@@ -421,9 +411,13 @@ namespace Prazsky.BS3D.Physics
             return simulation.Solver.Add(physicsBall.BallReference.Handle, ceilingReference.Handle, ballSocket);
         }
 
-        private static Vector3 GetLocalOffset(Vector3 ballAPosition, Vector3 ballBPosition)
+        /// <summary>
+        /// Rotates a world-space anchor offset into the body's local space. <see cref="BallSocket"/> offsets are local to the body,
+        /// so a world-space offset is only usable directly while the body still has identity orientation (before the simulation has run).
+        /// </summary>
+        private static Vector3 WorldToLocalOffset(Quaternion orientation, Vector3 worldOffset)
         {
-            return Vector3.Subtract(ballBPosition, ballAPosition) / 2;
+            return Vector3.Transform(worldOffset, Quaternion.Conjugate(orientation));
         }
     }
 }
