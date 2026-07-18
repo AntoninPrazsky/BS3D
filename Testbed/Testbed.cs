@@ -17,6 +17,7 @@ using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using Prazsky.Render;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -361,15 +362,17 @@ namespace Testbed
 
             if (_simulate)
             {
-                #region Contact events
-
-                _events.Flush();
-
-                #endregion
-
                 if (_slowSimulation) _simulation.Timestep(timeStep * Constants.HUNDREDTH, _threadDispatcher);
                 else _simulation.Timestep(timeStep, _threadDispatcher);
 
+                #region Contact events
+
+                //Flush must run right after the timestep and before ProcessQueuedContacts:
+                //unregistering a listener is only safe once the pending worker adds collected during the timestep have been applied.
+                _events.Flush();
+                if (_eventHandler.ProcessQueuedContacts() > 0) RecountBallsAndConstraints();
+
+                #endregion
             }
 
             if (IsActive)
@@ -639,22 +642,71 @@ namespace Testbed
             ShotBalls = shotBalls;
         }
 
+        //Contact callbacks run inside Simulation.Timestep, potentially from multiple worker threads at once.
+        //Mutating the simulation (constraints, velocities) or the ContactEvents listener set from there corrupts state
+        //the solver and the event system are using (this used to cause occasional NullReferenceExceptions).
+        //Contacts are therefore only recorded here and processed on the main thread by ProcessQueuedContacts after the timestep.
+        private readonly ConcurrentQueue<QueuedContact> _queuedContacts = new();
+
+        private readonly struct QueuedContact
+        {
+            public readonly CollidableReference EventSource;
+            public readonly CollidablePair Pair;
+            public readonly Vector3 ContactOffset;
+            public readonly Vector3 ContactNormal;
+            public readonly float Depth;
+            public readonly int FeatureId;
+            public readonly int ContactIndex;
+            public readonly int WorkerIndex;
+
+            public QueuedContact(CollidableReference eventSource, CollidablePair pair, Vector3 contactOffset, Vector3 contactNormal,
+                float depth, int featureId, int contactIndex, int workerIndex)
+            {
+                EventSource = eventSource;
+                Pair = pair;
+                ContactOffset = contactOffset;
+                ContactNormal = contactNormal;
+                Depth = depth;
+                FeatureId = featureId;
+                ContactIndex = contactIndex;
+                WorkerIndex = workerIndex;
+            }
+        }
+
         public void OnContactAdded<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold,
             Vector3 contactOffset, Vector3 contactNormal, float depth, int featureId, int contactIndex, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
         {
-            //TODO
+            _queuedContacts.Enqueue(new QueuedContact(eventSource, pair, contactOffset, contactNormal, depth, featureId, contactIndex, workerIndex));
+        }
+
+        /// <summary>
+        /// Processes contacts recorded during the last timestep. Must be called from the main thread while the simulation is not stepping,
+        /// after <see cref="ContactEvents.Flush"/>.
+        /// </summary>
+        /// <returns>Number of balls attached to the ceiling.</returns>
+        public int ProcessQueuedContacts()
+        {
+            int attachedBalls = 0;
+            while (_queuedContacts.TryDequeue(out QueuedContact contact))
+                if (ProcessContact(contact)) attachedBalls++;
+            return attachedBalls;
+        }
+
+        private bool ProcessContact(in QueuedContact contact)
+        {
+            CollidablePair pair = contact.Pair;
 
 #if DEBUG
             Console.WriteLine(" → Ball collided!");
-            Console.WriteLine(nameof(eventSource) + " : " + eventSource.ToString());
+            Console.WriteLine(nameof(contact.EventSource) + " : " + contact.EventSource.ToString());
             Console.WriteLine(nameof(pair.A) + " : " + pair.A.ToString());
             Console.WriteLine(nameof(pair.B) + " : " + pair.B.ToString());
-            Console.WriteLine(nameof(contactOffset) + " : " + contactOffset.ToString());
-            Console.WriteLine(nameof(contactNormal) + " : " + contactNormal.ToString());
-            Console.WriteLine(nameof(depth) + " : " + depth.ToString());
-            Console.WriteLine(nameof(featureId) + " : " + featureId.ToString());
-            Console.WriteLine(nameof(contactIndex) + " : " + contactIndex.ToString());
-            Console.WriteLine(nameof(workerIndex) + " : " + workerIndex.ToString());
+            Console.WriteLine(nameof(contact.ContactOffset) + " : " + contact.ContactOffset.ToString());
+            Console.WriteLine(nameof(contact.ContactNormal) + " : " + contact.ContactNormal.ToString());
+            Console.WriteLine(nameof(contact.Depth) + " : " + contact.Depth.ToString());
+            Console.WriteLine(nameof(contact.FeatureId) + " : " + contact.FeatureId.ToString());
+            Console.WriteLine(nameof(contact.ContactIndex) + " : " + contact.ContactIndex.ToString());
+            Console.WriteLine(nameof(contact.WorkerIndex) + " : " + contact.WorkerIndex.ToString());
             Console.WriteLine();
 #endif
 
@@ -663,41 +715,46 @@ namespace Testbed
             if (pair.A.Mobility == CollidableMobility.Static || pair.B.Mobility == CollidableMobility.Static ||
                 pair.A.Mobility == CollidableMobility.Kinematic || pair.B.Mobility == CollidableMobility.Kinematic)
             {
-                //TODO: Unregistering contact events sometimes causes NullReferenceException in simulation, investigate what is null and why
-                if (pair.A.Mobility == CollidableMobility.Dynamic) _contactEvents.Unregister(pair.A.BodyHandle);
-                if (pair.B.Mobility == CollidableMobility.Dynamic) _contactEvents.Unregister(pair.B.BodyHandle);
-                _contactEvents.Flush();
+                //A single timestep can queue several contacts for the same ball, so the listener may have been unregistered by a previous one
+                if (pair.A.Mobility == CollidableMobility.Dynamic && _contactEvents.IsListener(pair.A)) _contactEvents.Unregister(pair.A);
+                if (pair.B.Mobility == CollidableMobility.Dynamic && _contactEvents.IsListener(pair.B)) _contactEvents.Unregister(pair.B);
             }
 
             if (Map == null)
             {
                 Console.WriteLine("Map is null\n");
-                return;
+                return false;
             }
 
-            if (pair.A.BodyHandle != _ceiling.BodyHandle) return;
+            if (pair.A.Mobility == CollidableMobility.Static || pair.A.BodyHandle != _ceiling.BodyHandle) return false;
 
             #region Connect ball to the ceiling
 #if DEBUG
             Console.WriteLine(" → CEILING HIT");
 #endif
 
-            Vector3 allowedPosition = Map.PutBallAtClosestEmptyCeilingPosition(contactOffset, out XZLevel arrayPosition);
+            var physicsBall = ShotBalls.Where(x => x.BallReference.Handle == pair.B.BodyHandle).FirstOrDefault(); //Linq is ok since this list should be short
+            if (physicsBall == null)
+            {
+#if DEBUG
+                Console.WriteLine("Ball already attached or no longer tracked as shot, skipping");
+#endif
+                return false;
+            }
+
+            Vector3 allowedPosition = Map.PutBallAtClosestEmptyCeilingPosition(contact.ContactOffset, out XZLevel arrayPosition);
 
             if (allowedPosition.X == float.MinValue)
             {
 #if DEBUG
                 Console.WriteLine("Outside of the ceiling or closest possible ceiling space already occupied by another ball");
 #endif
-                return;
+                return false;
             }
 
 #if DEBUG
             Console.WriteLine("Ball placed at: " + allowedPosition);
 #endif
-
-            var physicsBall = ShotBalls.Where(x => x.BallReference.Handle == pair.B.BodyHandle).FirstOrDefault(); //Linq is ok since this list should be short
-            if (physicsBall == null || physicsBall.BallReference.Handle != pair.B.BodyHandle) throw new Exception("This should not happen, investigate why it did.");
 
             physicsBall.ArrayPosition = arrayPosition;
 
@@ -729,6 +786,8 @@ namespace Testbed
                 Map);
 
             #endregion
+
+            return true;
         }
     }
 
