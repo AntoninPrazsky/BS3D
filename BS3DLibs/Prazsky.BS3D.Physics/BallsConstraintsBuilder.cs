@@ -32,7 +32,8 @@ namespace Prazsky.BS3D.Physics
 
             XZLevel size = XZLevel.FromArray(staticBalls);
 
-            PhysicsBall[,,] physicsBalls = new PhysicsBall[size.Level, size.X, size.Z]; //Same three-dimensional array for physical balls
+            //Same [x, z, level] dimensions as the static balls array
+            PhysicsBall[,,] physicsBalls = new PhysicsBall[size.X, size.Z, size.Level];
 
             #region Create physical representation for each ball (without connecting them)
 
@@ -84,81 +85,23 @@ namespace Prazsky.BS3D.Physics
                     for (int z = 0; z < size.Z; z++)
                     {
                         if (staticBalls[x, z, level] == null) continue; //Is there a ball?
-                        
+
                         PhysicsBall currentPhysicsBall = physicsBalls[x, z, level];
 
-                        #region level
+                        //Same level: connect only towards +X and +Z, so every pair is connected exactly once
+                        if (x + 1 < size.X && physicsBalls[x + 1, z, level] != null)
+                            ConnectOnSameLevel(currentPhysicsBall, physicsBalls[x + 1, z, level], simulation);
+                        if (z + 1 < size.Z && physicsBalls[x, z + 1, level] != null)
+                            ConnectOnSameLevel(currentPhysicsBall, physicsBalls[x, z + 1, level], simulation);
 
-                        EnsureConnectedOnSameLevel(staticBalls, new(x, z, level), currentPhysicsBall, physicsBalls, simulation, size);
-
-                        #endregion
-
-                        //Cross-level connections are created only from even (unshifted) levels: adjacent levels always differ in parity,
-                        //and the (x - 1..x, z - 1..z) index offsets are geometrically correct only when looking from an even level.
-                        //Looking from an odd (shifted by +0.5 in X/Z) level, the same offsets would enumerate distant non-touching cells;
-                        //the true neighbours of odd-level balls are all covered by the even side of each pair.
+                        //Cross-level connections are created only from even (unshifted) levels: adjacent levels always
+                        //differ in parity, so every cross-level pair has exactly one even endpoint and is connected exactly once
                         if ((level % 2) == 0)
-                        {
-                            #region level - 1
+                            ConnectToNeighboursOnOtherLevels(currentPhysicsBall, physicsBalls, simulation, size);
 
-                            //1
-                            //x - 1, y - 1, z - 1
-                            if (x - 1 >= 0 && level - 1 >= 0 && z - 1 >= 0)
-                                if (staticBalls[x - 1, z - 1, level - 1] != null)
-                                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x - 1, z - 1, level - 1], ConstraintType.Type1, simulation);
-
-                            //2
-                            //x - 1, y - 1, z
-                            if (x - 1 >= 0 && level - 1 >= 0)
-                                if (staticBalls[x - 1, z, level - 1] != null)
-                                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x - 1, z, level - 1], ConstraintType.Type2, simulation);
-
-                            //3
-                            //x,     y - 1, z - 1
-                            if (level - 1 >= 0 && z - 1 >= 0)
-                                if (staticBalls[x, z - 1, level - 1] != null)
-                                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z - 1, level - 1], ConstraintType.Type3, simulation);
-
-                            //4
-                            //x,     y - 1, z
-                            if (level - 1 >= 0)
-                                if (staticBalls[x, z, level - 1] != null)
-                                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z, level - 1], ConstraintType.Type4, simulation);
-
-                            #endregion
-
-                            #region level + 1
-
-                            //9
-                            //x - 1, y + 1, z - 1
-                            if (x - 1 >= 0 && level + 1 < size.Level && z - 1 >= 0)
-                                if (staticBalls[x - 1, z - 1, level + 1] != null)
-                                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x - 1, z - 1, level + 1], ConstraintType.Type9, simulation);
-
-                            //10
-                            //x - 1, y + 1, z
-                            if (x - 1 >= 0 && level + 1 < size.Level)
-                                if (staticBalls[x - 1, z, level + 1] != null)
-                                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x - 1, z, level + 1], ConstraintType.Type10, simulation);
-
-                            //11
-                            //x,     y + 1, z - 1
-                            if (level + 1 < size.Level && z - 1 >= 0)
-                                if (staticBalls[x, z - 1, level + 1] != null)
-                                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z - 1, level + 1], ConstraintType.Type11, simulation);
-
-                            //12
-                            //x,     y + 1, z
-                            if (level + 1 < size.Level)
-                                if (staticBalls[x, z, level + 1] != null)
-                                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z, level + 1], ConstraintType.Type12, simulation);
-
-                            #endregion
-                        }
-
-                        //Highest level - only attach to ceiling
+                        //Highest level - also attach to ceiling
                         if (level == size.Level - 1)
-                            currentPhysicsBall.HandlesTop.Handle1 = ConnectBallToCeiling(currentPhysicsBall, ceilingReference, simulation);
+                            currentPhysicsBall.HandlesTop.TryStore(ConnectBallToCeiling(currentPhysicsBall, ceilingReference, simulation));
                     }
                 }
             }
@@ -249,18 +192,51 @@ namespace Prazsky.BS3D.Physics
             if (physicsBall.ArrayPosition.Level == size.Level - 1)
                 physicsBall.HandlesTop.TryStore(ConnectBallToCeiling(physicsBall, ceilingReference, simulation, map.GetRealCenteredPosition(physicsBall.ArrayPosition).ToNumerics()));
 
-            EnsureConnectedOnSameLevel(map.GetStaticBallsArray(), physicsBall.ArrayPosition, physicsBall, physicsBalls, simulation, size, map);
+            ConnectToNeighboursOnSameLevel(physicsBall, physicsBalls, simulation, size, map);
             ConnectToNeighboursOnOtherLevels(physicsBall, physicsBalls, simulation, size, map);
         }
 
         /// <summary>
-        /// Connects a freshly attached ball to the occupied neighbouring cells on the levels directly above and below.
-        /// Unlike the build-time pass this takes level parity into account: odd levels are shifted by +0.5 in X and Z,
-        /// so their neighbours on adjacent levels sit towards +X/+Z indices, while even levels neighbour towards -X/-Z.
-        /// Constraints are created directly instead of via EnsureConnected: the new ball has no constraints yet and every
-        /// neighbour is visited exactly once, so the build-time deduplication (which reads slot state of already connected balls) must not run here.
+        /// Connects a ball to the occupied neighbouring cells on its own level in all four directions.
+        /// Meant for a freshly attached ball, which has no same-level constraints yet, so every neighbour needs a new constraint.
+        /// (The build-time pass instead connects only towards +X/+Z from each ball so pairs are not visited twice.)
         /// </summary>
-        public static void ConnectToNeighboursOnOtherLevels(PhysicsBall physicsBall, PhysicsBall[,,] physicsBalls, Simulation simulation, XZLevel size, BallsMap map)
+        public static void ConnectToNeighboursOnSameLevel(PhysicsBall physicsBall, PhysicsBall[,,] physicsBalls, Simulation simulation, XZLevel size, BallsMap map = null)
+        {
+            XZLevel position = physicsBall.ArrayPosition;
+
+            if (position.X - 1 >= 0 && physicsBalls[position.X - 1, position.Z, position.Level] != null)
+                ConnectOnSameLevel(physicsBall, physicsBalls[position.X - 1, position.Z, position.Level], simulation, map);
+
+            if (position.X + 1 < size.X && physicsBalls[position.X + 1, position.Z, position.Level] != null)
+                ConnectOnSameLevel(physicsBall, physicsBalls[position.X + 1, position.Z, position.Level], simulation, map);
+
+            if (position.Z - 1 >= 0 && physicsBalls[position.X, position.Z - 1, position.Level] != null)
+                ConnectOnSameLevel(physicsBall, physicsBalls[position.X, position.Z - 1, position.Level], simulation, map);
+
+            if (position.Z + 1 < size.Z && physicsBalls[position.X, position.Z + 1, position.Level] != null)
+                ConnectOnSameLevel(physicsBall, physicsBalls[position.X, position.Z + 1, position.Level], simulation, map);
+        }
+
+        /// <summary>
+        /// Creates a constraint between two balls on the same level and stores its handle on both of them.
+        /// </summary>
+        private static void ConnectOnSameLevel(PhysicsBall ballA, PhysicsBall ballB, Simulation simulation, BallsMap map = null)
+        {
+            ConstraintHandle handle = ConnectBalls(ballA, ballB, simulation, map);
+
+            ballA.HandlesMiddle.TryStore(handle);
+            ballB.HandlesMiddle.TryStore(handle);
+        }
+
+        /// <summary>
+        /// Connects a ball to the occupied neighbouring cells on the levels directly above and below.
+        /// Takes level parity into account: odd levels are shifted by +0.5 in X and Z, so their neighbours on adjacent
+        /// levels sit towards +X/+Z indices, while even levels neighbour towards -X/-Z.
+        /// Used both by the build-time pass (from even levels only, so every cross-level pair is visited exactly once)
+        /// and when attaching a freshly shot ball (which has no constraints yet).
+        /// </summary>
+        public static void ConnectToNeighboursOnOtherLevels(PhysicsBall physicsBall, PhysicsBall[,,] physicsBalls, Simulation simulation, XZLevel size, BallsMap map = null)
         {
             XZLevel position = physicsBall.ArrayPosition;
             int diagonalShift = (position.Level % 2) > 0 ? 0 : -1;
@@ -284,8 +260,7 @@ namespace Prazsky.BS3D.Physics
 
                         ConstraintHandle handle = ConnectBalls(physicsBall, neighbour, simulation, map);
 
-                        //The neighbour's slots may all be taken (the build-time pass can consume them); the handle then stays
-                        //tracked only on the new ball, which is enough for removal thanks to the ConstraintExists guards.
+                        //Constraints to balls below are stored in HandlesBottom, to balls above in HandlesTop, on both sides
                         if (levelOffset < 0)
                         {
                             physicsBall.HandlesBottom.TryStore(handle);
@@ -301,216 +276,6 @@ namespace Prazsky.BS3D.Physics
             }
         }
 
-        public static void EnsureConnectedOnSameLevel(
-            StaticBall[,,] staticBalls,
-            XZLevel arrayPosition,
-            PhysicsBall currentPhysicsBall,
-            PhysicsBall[,,] physicsBalls,
-            Simulation simulation,
-            XZLevel size,
-            BallsMap map = null)
-        {
-            //5
-            //x - 1, y, z
-            if (arrayPosition.X - 1 >= 0)
-                if (staticBalls[arrayPosition.X - 1, arrayPosition.Z, arrayPosition.Level] != null)
-                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[arrayPosition.X - 1, arrayPosition.Z, arrayPosition.Level], ConstraintType.Type5, simulation, map);
-
-            //6
-            //x,     y, z - 1
-            if (arrayPosition.Z - 1 >= 0)
-                if (staticBalls[arrayPosition.X, arrayPosition.Z - 1, arrayPosition.Level] != null)
-                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[arrayPosition.X, arrayPosition.Z - 1, arrayPosition.Level], ConstraintType.Type6, simulation, map);
-
-            //7
-            //x,     y, z + 1
-            if (arrayPosition.Z + 1 < size.Z)
-                if (staticBalls[arrayPosition.X, arrayPosition.Z + 1, arrayPosition.Level] != null)
-                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[arrayPosition.X, arrayPosition.Z + 1, arrayPosition.Level], ConstraintType.Type7, simulation, map);
-
-            //8
-            //x + 1, y, z
-            if (arrayPosition.X + 1 < size.X)
-                if (staticBalls[arrayPosition.X + 1, arrayPosition.Z, arrayPosition.Level] != null)
-                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[arrayPosition.X + 1, arrayPosition.Z, arrayPosition.Level], ConstraintType.Type8, simulation, map);
-        }
-
-        private static void EnsureConnected(
-            ref PhysicsBall ballA,
-            ref PhysicsBall ballB,
-            ConstraintType constraintType,
-            Simulation simulation,
-            BallsMap map = null)
-        {
-            if (constraintType == ConstraintType.None) return;
-
-            //1 4 under → 1
-            //4 1 under → 2
-
-            //2 3 under → 3
-            //3 2 under → 4
-
-            //1 4 same → 5
-            //4 1 same → 6
-
-            //2 3 same → 7
-            //3 2 same → 8
-
-            //1 4 over → 9
-            //4 1 over → 10
-
-            //2 3 over → 11
-            //3 2 over → 12
-
-            switch (constraintType)
-            {
-                #region HandlesBottom
-
-                case ConstraintType.Type1:
-                    //1
-                    if (ballA.HandlesBottom.Handle1.Value >= 0) ballA.HandlesBottom.Handle4 = ballB.HandlesBottom.Handle1;
-                    else
-                    {
-                        ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation, map);
-                        ballA.HandlesBottom.Handle4 = constraintHandle;
-                        ballB.HandlesBottom.Handle1 = constraintHandle;
-                    }
-                    break;
-
-                case ConstraintType.Type2:
-                    //2
-                    if (ballA.HandlesBottom.Handle4.Value >= 0) ballA.HandlesBottom.Handle1 = ballB.HandlesBottom.Handle4;
-                    else
-                    {
-                        ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation, map);
-                        ballA.HandlesBottom.Handle1 = constraintHandle;
-                        ballB.HandlesBottom.Handle4 = constraintHandle;
-                    }
-                    break;
-
-                case ConstraintType.Type3:
-                    //3
-                    if (ballA.HandlesBottom.Handle2.Value >= 0) ballA.HandlesBottom.Handle3 = ballB.HandlesBottom.Handle2;
-                    else
-                    {
-                        ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation, map);
-                        ballA.HandlesBottom.Handle3 = constraintHandle;
-                        ballB.HandlesBottom.Handle2 = constraintHandle;
-                    }
-                    break;
-
-                case ConstraintType.Type4:
-                    //4
-                    if (ballA.HandlesBottom.Handle3.Value >= 0) ballA.HandlesBottom.Handle2 = ballB.HandlesBottom.Handle3;
-                    else
-                    {
-                        ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation, map);
-                        ballA.HandlesBottom.Handle2 = constraintHandle;
-                        ballB.HandlesBottom.Handle3 = constraintHandle;
-                    }
-                    break;
-
-                #endregion
-
-                #region HandlesMiddle
-
-                case ConstraintType.Type5:
-                    //5
-                    if (ballA.HandlesMiddle.Handle1.Value >= 0) ballA.HandlesMiddle.Handle4 = ballB.HandlesMiddle.Handle1;
-                    else
-                    {
-                        ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation, map);
-                        ballA.HandlesMiddle.Handle1 = constraintHandle;
-                        ballB.HandlesMiddle.Handle4 = constraintHandle;
-                    }
-                    break;
-
-                case ConstraintType.Type6:
-                    //6
-                    if (ballA.HandlesMiddle.Handle4.Value >= 0) ballA.HandlesMiddle.Handle1 = ballB.HandlesMiddle.Handle4;
-                    else
-                    {
-                        ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation, map);
-                        ballA.HandlesMiddle.Handle4 = constraintHandle;
-                        ballB.HandlesMiddle.Handle1 = constraintHandle;
-                    }
-                    break;
-
-                case ConstraintType.Type7:
-                    //7
-                    if (ballA.HandlesMiddle.Handle2.Value >= 0) ballA.HandlesMiddle.Handle3 = ballB.HandlesMiddle.Handle2;
-                    else
-                    {
-                        ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation, map);
-                        ballA.HandlesMiddle.Handle3 = constraintHandle;
-                        ballB.HandlesMiddle.Handle2 = constraintHandle;
-                    }
-                    break;
-
-                case ConstraintType.Type8:
-                    //8
-                    if (ballA.HandlesMiddle.Handle3.Value >= 0) ballA.HandlesMiddle.Handle2 = ballB.HandlesMiddle.Handle3;
-                    else
-                    {
-                        ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation, map);
-                        ballA.HandlesMiddle.Handle2 = constraintHandle;
-                        ballB.HandlesMiddle.Handle3 = constraintHandle;
-                    }
-                    break;
-
-                #endregion
-
-                #region HandlesTop
-
-                case ConstraintType.Type9:
-                    //9
-                    if (ballA.HandlesTop.Handle1.Value >= 0) ballA.HandlesTop.Handle4 = ballB.HandlesTop.Handle1;
-                    else
-                    {
-                        ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation, map);
-                        ballA.HandlesTop.Handle1 = constraintHandle;
-                        ballB.HandlesTop.Handle4 = constraintHandle;
-                    }
-                    break;
-
-                case ConstraintType.Type10:
-                    //10
-                    if (ballA.HandlesTop.Handle4.Value >= 0) ballA.HandlesTop.Handle1 = ballB.HandlesTop.Handle4;
-                    else
-                    {
-                        ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation, map);
-                        ballA.HandlesTop.Handle4 = constraintHandle;
-                        ballB.HandlesTop.Handle1 = constraintHandle;
-                    }
-
-                    break;
-
-                case ConstraintType.Type11:
-                    //11
-                    if (ballA.HandlesTop.Handle2.Value >= 0) ballA.HandlesTop.Handle3 = ballB.HandlesTop.Handle2;
-                    else
-                    {
-                        ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation, map);
-                        ballA.HandlesTop.Handle3 = constraintHandle;
-                        ballB.HandlesTop.Handle2 = constraintHandle;
-                    }
-
-                    break;
-
-                case ConstraintType.Type12:
-                    //12
-                    if (ballA.HandlesTop.Handle3.Value >= 0) ballA.HandlesTop.Handle2 = ballB.HandlesTop.Handle3;
-                    else
-                    {
-                        ConstraintHandle constraintHandle = ConnectBalls(ballA, ballB, simulation, map);
-                        ballA.HandlesTop.Handle2 = constraintHandle;
-                        ballB.HandlesTop.Handle3 = constraintHandle;
-                    }
-                    break;
-
-                #endregion
-            }
-        }
 
         private static ConstraintHandle ConnectBalls(
             PhysicsBall physicsBallA,

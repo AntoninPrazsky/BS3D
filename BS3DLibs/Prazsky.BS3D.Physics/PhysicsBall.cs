@@ -129,32 +129,20 @@ namespace Prazsky.BS3D.Physics
         }
     }
 
+    /// <summary>
+    /// Four constraint handle slots. A ball touches at most four neighbours in each group
+    /// (same level, level above incl. ceiling, level below), so four slots always suffice.
+    /// Slots are filled in no particular order (removal iterates all of them anyway).
+    /// </summary>
     public struct ConstraintHandles
     {
-        /// <summary>
-        /// ↑ || ↖
-        /// And also used for ceiling constraint.
-        /// </summary>
-        public ConstraintHandle Handle1; // ↑ || ↖
+        public ConstraintHandle Handle1;
+        public ConstraintHandle Handle2;
+        public ConstraintHandle Handle3;
+        public ConstraintHandle Handle4;
 
         /// <summary>
-        /// ← || ↗
-        /// </summary>
-        public ConstraintHandle Handle2; // ← || ↗
-
-        /// <summary>
-        /// → || ↙
-        /// </summary>
-        public ConstraintHandle Handle3; // → || ↙
-
-        /// <summary>
-        /// ↓ || ↘
-        /// </summary>
-        public ConstraintHandle Handle4; // ↓ || ↘
-
-        /// <summary>
-        /// Stores the handle into the first free slot. Used when attaching a shot ball after the map was built,
-        /// where the direction-based slot convention of the build-time pass is not needed (removal iterates all slots anyway).
+        /// Stores the handle into the first free slot.
         /// Returns false when all four slots are already taken; the constraint then stays tracked only on the other ball of the pair.
         /// </summary>
         public bool TryStore(ConstraintHandle handle)
@@ -187,32 +175,5 @@ namespace Prazsky.BS3D.Physics
             if (Handle3.Value == handle.Value) Handle3.Value = -1;
             if (Handle4.Value == handle.Value) Handle4.Value = -1;
         }
-    }
-
-    public enum ConstraintType : byte
-    {
-        None = 0,
-
-        // 1 2
-        // 3 4
-        Type1 = 1,
-        Type2 = 2,
-        Type3 = 3,
-        Type4 = 4,
-
-        //   5
-        // 6   7
-        //   8
-        Type5 = 5,
-        Type6 = 6,
-        Type7 = 7,
-        Type8 = 8,
-
-        // 9  10
-        // 11 12
-        Type9 = 9,
-        Type10 = 10,
-        Type11 = 11,
-        Type12 = 12
     }
 }
