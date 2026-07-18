@@ -5,6 +5,7 @@ using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Tools;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Prazsky.BS3D.GameStructure
@@ -107,7 +108,7 @@ namespace Prazsky.BS3D.GameStructure
         }
 
         //WIP
-        public Vector3 PutBallAtClosestEmptyCeilingPosition(Vector3 position, out XZLevel arrayPosition)
+        public Vector3 PutBallAtClosestEmptyCeilingPosition(Vector3 position, out XZLevel arrayPosition, BallType type = BallType.Type4)
         {
             bool isShifted = true; //Currently computes only for top level (below ceiling)
             byte level = 9; //Currently only level 9 (top level)
@@ -132,56 +133,158 @@ namespace Prazsky.BS3D.GameStructure
                 || _balls[x, z, level] != null) //There is already a ball there
                 return new Vector3(float.MinValue);
 
-            return PutBallAt(x, z, level).Position;
+            return PutBallAt(x, z, level, type).Position;
+        }
+
+        /// <summary>
+        /// Enumerates all in-bounds cells that geometrically touch the given cell: four on the same level and up to four
+        /// on each adjacent level. Odd levels are shifted by +0.5 in X and Z, so their neighbours on adjacent levels sit
+        /// towards +X/+Z indices, while even levels neighbour towards -X/-Z.
+        /// </summary>
+        public static IEnumerable<XZLevel> GetNeighbouringCells(XZLevel cell, XZLevel size)
+        {
+            //Same level
+            if (cell.X - 1 >= 0) yield return new XZLevel(cell.X - 1, cell.Z, cell.Level);
+            if (cell.X + 1 < size.X) yield return new XZLevel(cell.X + 1, cell.Z, cell.Level);
+            if (cell.Z - 1 >= 0) yield return new XZLevel(cell.X, cell.Z - 1, cell.Level);
+            if (cell.Z + 1 < size.Z) yield return new XZLevel(cell.X, cell.Z + 1, cell.Level);
+
+            //Levels above and below
+            int diagonalShift = (cell.Level % 2) > 0 ? 0 : -1;
+
+            for (int levelOffset = -1; levelOffset <= 1; levelOffset += 2)
+            {
+                int level = cell.Level + levelOffset;
+                if (level < 0 || level >= size.Level) continue;
+
+                for (int dX = 0; dX <= 1; dX++)
+                    for (int dZ = 0; dZ <= 1; dZ++)
+                    {
+                        int x = cell.X + dX + diagonalShift;
+                        int z = cell.Z + dZ + diagonalShift;
+
+                        if (x >= 0 && z >= 0 && x < size.X && z < size.Z) yield return new XZLevel(x, z, level);
+                    }
+            }
         }
 
         /// <summary>
         /// Puts a ball into the empty cell neighbouring the <paramref name="nextTo"/> cell that is closest to the given position.
-        /// Considers the four neighbours on the same level and the four parity-correct neighbours on each adjacent level
-        /// (odd levels are shifted by +0.5 in X and Z, so their neighbours on adjacent levels sit towards +X/+Z indices,
-        /// while even levels neighbour towards -X/-Z).
+        /// Candidate cells come from <see cref="GetNeighbouringCells"/>.
         /// </summary>
         /// <param name="position">Centered (world) position the new ball should be placed closest to, typically the contact point.</param>
         /// <param name="nextTo">Cell of the existing ball that was hit.</param>
         /// <param name="arrayPosition">Cell the ball was placed into.</param>
+        /// <param name="type">Type of the placed ball.</param>
         /// <returns>Centered position of the placed ball, or a <see cref="float.MinValue"/> vector when no neighbouring cell is free.</returns>
-        public Vector3 PutBallAtClosestEmptyPositionNextTo(Vector3 position, XZLevel nextTo, out XZLevel arrayPosition)
+        public Vector3 PutBallAtClosestEmptyPositionNextTo(Vector3 position, XZLevel nextTo, out XZLevel arrayPosition, BallType type = BallType.Type4)
         {
             arrayPosition = new XZLevel(-1, -1, -1);
 
             float closestDistanceSquared = float.MaxValue;
 
-            //Same level
-            TryPlacementCandidate(nextTo.X - 1, nextTo.Z, nextTo.Level, position, ref closestDistanceSquared, ref arrayPosition);
-            TryPlacementCandidate(nextTo.X + 1, nextTo.Z, nextTo.Level, position, ref closestDistanceSquared, ref arrayPosition);
-            TryPlacementCandidate(nextTo.X, nextTo.Z - 1, nextTo.Level, position, ref closestDistanceSquared, ref arrayPosition);
-            TryPlacementCandidate(nextTo.X, nextTo.Z + 1, nextTo.Level, position, ref closestDistanceSquared, ref arrayPosition);
+            foreach (XZLevel candidate in GetNeighbouringCells(nextTo, new XZLevel(StageSizeX, StageSizeZ, Levels)))
+            {
+                if (_balls[candidate.X, candidate.Z, candidate.Level] != null) continue;
 
-            //Levels above and below
-            int diagonalShift = (nextTo.Level % 2) > 0 ? 0 : -1;
+                float distanceSquared = Vector3.DistanceSquared(GetRealCenteredPosition(candidate), position);
 
-            for (int levelOffset = -1; levelOffset <= 1; levelOffset += 2)
-                for (int dX = 0; dX <= 1; dX++)
-                    for (int dZ = 0; dZ <= 1; dZ++)
-                        TryPlacementCandidate(nextTo.X + dX + diagonalShift, nextTo.Z + dZ + diagonalShift, nextTo.Level + levelOffset, position, ref closestDistanceSquared, ref arrayPosition);
+                if (distanceSquared < closestDistanceSquared)
+                {
+                    closestDistanceSquared = distanceSquared;
+                    arrayPosition = candidate;
+                }
+            }
 
             if (arrayPosition.X < 0) return new Vector3(float.MinValue);
 
-            return PutBallAt((byte)arrayPosition.X, (byte)arrayPosition.Z, (byte)arrayPosition.Level).Position;
+            return PutBallAt((byte)arrayPosition.X, (byte)arrayPosition.Z, (byte)arrayPosition.Level, type).Position;
         }
 
-        private void TryPlacementCandidate(int x, int z, int level, Vector3 position, ref float closestDistanceSquared, ref XZLevel closest)
+        /// <summary>
+        /// Finds the connected cluster of balls of the same <see cref="BallType"/> as the ball at <paramref name="start"/>,
+        /// walking over touching cells (see <see cref="GetNeighbouringCells"/>). The start cell itself is included.
+        /// Returns an empty list when the start cell is empty.
+        /// </summary>
+        public List<XZLevel> GetConnectedSameTypeCells(XZLevel start)
         {
-            if (x < 0 || z < 0 || level < 0 || x >= StageSizeX || z >= StageSizeZ || level >= Levels) return;
-            if (_balls[x, z, level] != null) return;
+            List<XZLevel> cluster = new();
 
-            float distanceSquared = Vector3.DistanceSquared(GetRealCenteredPosition(new XZLevel(x, z, level)), position);
+            StaticBall startBall = _balls[start.X, start.Z, start.Level];
+            if (startBall == null) return cluster;
 
-            if (distanceSquared < closestDistanceSquared)
+            XZLevel size = new(StageSizeX, StageSizeZ, Levels);
+
+            var visited = new bool[StageSizeX, StageSizeZ, Levels];
+            var toVisit = new Queue<XZLevel>();
+
+            visited[start.X, start.Z, start.Level] = true;
+            toVisit.Enqueue(start);
+
+            while (toVisit.Count > 0)
             {
-                closestDistanceSquared = distanceSquared;
-                closest = new XZLevel(x, z, level);
+                XZLevel cell = toVisit.Dequeue();
+                cluster.Add(cell);
+
+                foreach (XZLevel neighbour in GetNeighbouringCells(cell, size))
+                {
+                    if (visited[neighbour.X, neighbour.Z, neighbour.Level]) continue;
+                    visited[neighbour.X, neighbour.Z, neighbour.Level] = true;
+
+                    StaticBall neighbourBall = _balls[neighbour.X, neighbour.Z, neighbour.Level];
+                    if (neighbourBall == null || neighbourBall.Type != startBall.Type) continue;
+
+                    toVisit.Enqueue(neighbour);
+                }
             }
+
+            return cluster;
+        }
+
+        /// <summary>
+        /// Returns cells of balls that are no longer connected to the ceiling: walks the touching-neighbour graph
+        /// (see <see cref="GetNeighbouringCells"/>) from all balls on the top level (those hang from the ceiling)
+        /// and collects every ball the walk did not reach.
+        /// </summary>
+        public List<XZLevel> GetCellsDisconnectedFromCeiling()
+        {
+            XZLevel size = new(StageSizeX, StageSizeZ, Levels);
+
+            var visited = new bool[StageSizeX, StageSizeZ, Levels];
+            var toVisit = new Queue<XZLevel>();
+
+            byte topLevel = (byte)(Levels - 1);
+            for (byte x = 0; x < StageSizeX; x++)
+                for (byte z = 0; z < StageSizeZ; z++)
+                    if (_balls[x, z, topLevel] != null)
+                    {
+                        visited[x, z, topLevel] = true;
+                        toVisit.Enqueue(new XZLevel(x, z, topLevel));
+                    }
+
+            while (toVisit.Count > 0)
+            {
+                XZLevel cell = toVisit.Dequeue();
+
+                foreach (XZLevel neighbour in GetNeighbouringCells(cell, size))
+                {
+                    if (visited[neighbour.X, neighbour.Z, neighbour.Level]) continue;
+                    if (_balls[neighbour.X, neighbour.Z, neighbour.Level] == null) continue;
+
+                    visited[neighbour.X, neighbour.Z, neighbour.Level] = true;
+                    toVisit.Enqueue(neighbour);
+                }
+            }
+
+            List<XZLevel> disconnected = new();
+
+            for (byte level = 0; level < Levels; level++)
+                for (byte x = 0; x < StageSizeX; x++)
+                    for (byte z = 0; z < StageSizeZ; z++)
+                        if (_balls[x, z, level] != null && !visited[x, z, level])
+                            disconnected.Add(new XZLevel(x, z, level));
+
+            return disconnected;
         }
 
         public StaticBall[,,] GetStaticBallsArray() => _balls;

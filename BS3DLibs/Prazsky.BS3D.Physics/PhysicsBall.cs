@@ -1,6 +1,7 @@
 ﻿using BepuPhysics;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
+using System.Collections.Generic;
 
 namespace Prazsky.BS3D.Physics
 {
@@ -37,6 +38,28 @@ namespace Prazsky.BS3D.Physics
         public PhysicsBall()
         {
             SetEmptyConstraints();
+        }
+
+        /// <summary>
+        /// Adds all stored constraint handles (slots with a non-negative value) into <paramref name="into"/>.
+        /// </summary>
+        public void CollectConstraintHandles(List<ConstraintHandle> into)
+        {
+            HandlesTop.CollectStored(into);
+            HandlesMiddle.CollectStored(into);
+            HandlesBottom.CollectStored(into);
+        }
+
+        /// <summary>
+        /// Clears every slot holding the given handle (without touching the simulation).
+        /// Used when the constraint was removed through the other ball of the pair, so the stale
+        /// handle value cannot alias a different constraint once the solver reuses the index.
+        /// </summary>
+        public void ClearStoredHandle(ConstraintHandle handle)
+        {
+            HandlesTop.ClearStored(handle);
+            HandlesMiddle.ClearStored(handle);
+            HandlesBottom.ClearStored(handle);
         }
 
         public void RemoveAllConstraints(Simulation simulation)
@@ -141,6 +164,28 @@ namespace Prazsky.BS3D.Physics
             if (Handle3.Value < 0) { Handle3 = handle; return true; }
             if (Handle4.Value < 0) { Handle4 = handle; return true; }
             return false;
+        }
+
+        /// <summary>
+        /// Adds all stored handles (slots with a non-negative value) into <paramref name="into"/>.
+        /// </summary>
+        public void CollectStored(List<ConstraintHandle> into)
+        {
+            if (Handle1.Value >= 0) into.Add(Handle1);
+            if (Handle2.Value >= 0) into.Add(Handle2);
+            if (Handle3.Value >= 0) into.Add(Handle3);
+            if (Handle4.Value >= 0) into.Add(Handle4);
+        }
+
+        /// <summary>
+        /// Resets every slot holding the given handle back to the empty (-1) value.
+        /// </summary>
+        public void ClearStored(ConstraintHandle handle)
+        {
+            if (Handle1.Value == handle.Value) Handle1.Value = -1;
+            if (Handle2.Value == handle.Value) Handle2.Value = -1;
+            if (Handle3.Value == handle.Value) Handle3.Value = -1;
+            if (Handle4.Value == handle.Value) Handle4.Value = -1;
         }
     }
 

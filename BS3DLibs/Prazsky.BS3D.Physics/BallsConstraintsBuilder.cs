@@ -5,6 +5,7 @@ using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.Core.Tools;
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 
 namespace Prazsky.BS3D.Physics
@@ -163,6 +164,77 @@ namespace Prazsky.BS3D.Physics
             }
 
             return physicsBalls;
+        }
+
+        /// <summary>
+        /// Minimum number of touching same-type balls required for the cluster to be released.
+        /// </summary>
+        public static readonly int MINIMUM_CLUSTER_SIZE = 3;
+
+        /// <summary>
+        /// Checks whether the freshly attached ball completed a cluster of at least <see cref="MINIMUM_CLUSTER_SIZE"/>
+        /// touching balls of the same <see cref="BallType"/> and if so, releases the whole cluster: removes all constraints
+        /// of its balls (so they fall freely) and removes the balls from both the logical map and <paramref name="physicsBalls"/>.
+        /// Balls that lose their connection to the ceiling by that are then released the same way, so everything that
+        /// falls, falls as individual unconstrained balls.
+        /// </summary>
+        /// <param name="releasedInto">Released balls are added here so the caller can keep drawing (and later dispose of) them.</param>
+        /// <returns>Total number of released balls, or 0 when the cluster is below the minimum size.</returns>
+        public static int ReleaseSameTypeCluster(PhysicsBall attachedBall, PhysicsBall[,,] physicsBalls, BallsMap map, Simulation simulation, List<PhysicsBall> releasedInto)
+        {
+            List<XZLevel> cluster = map.GetConnectedSameTypeCells(attachedBall.ArrayPosition);
+            if (cluster.Count < MINIMUM_CLUSTER_SIZE) return 0;
+
+            XZLevel size = map.GetStaticBallsArraySize();
+            List<ConstraintHandle> handleBuffer = new();
+
+            foreach (XZLevel cell in cluster)
+                ReleaseBall(cell, physicsBalls, map, simulation, size, handleBuffer, releasedInto);
+
+            //Balls no longer connected to the ceiling would fall as chains still constrained to each other;
+            //releasing them explicitly cuts those constraints so they fall as individual balls.
+            List<XZLevel> disconnected = map.GetCellsDisconnectedFromCeiling();
+            foreach (XZLevel cell in disconnected)
+                ReleaseBall(cell, physicsBalls, map, simulation, size, handleBuffer, releasedInto);
+
+            return cluster.Count + disconnected.Count;
+        }
+
+        /// <summary>
+        /// Releases a single ball from the structure: removes all its constraints, clears their handles from the
+        /// neighbouring balls' slots (a stale value could alias a different constraint once the solver reuses the index),
+        /// wakes the body up so it starts falling and removes the ball from the logical map and <paramref name="physicsBalls"/>.
+        /// </summary>
+        private static void ReleaseBall(
+            XZLevel cell,
+            PhysicsBall[,,] physicsBalls,
+            BallsMap map,
+            Simulation simulation,
+            XZLevel size,
+            List<ConstraintHandle> handleBuffer,
+            List<PhysicsBall> releasedInto)
+        {
+            PhysicsBall ball = physicsBalls[cell.X, cell.Z, cell.Level];
+            if (ball == null) return;
+
+            handleBuffer.Clear();
+            ball.CollectConstraintHandles(handleBuffer);
+            ball.RemoveAllConstraints(simulation);
+
+            foreach (XZLevel neighbourCell in BallsMap.GetNeighbouringCells(cell, size))
+            {
+                PhysicsBall neighbour = physicsBalls[neighbourCell.X, neighbourCell.Z, neighbourCell.Level];
+                if (neighbour == null) continue;
+
+                foreach (ConstraintHandle handle in handleBuffer) neighbour.ClearStoredHandle(handle);
+            }
+
+            simulation.Awakener.AwakenBody(ball.BallReference.Handle); //Make sure the released ball starts falling even if it was asleep
+
+            physicsBalls[cell.X, cell.Z, cell.Level] = null;
+            map.RemoveBallAt((byte)cell.X, (byte)cell.Z, (byte)cell.Level);
+
+            releasedInto?.Add(ball);
         }
 
         /// <summary>

@@ -96,7 +96,14 @@ namespace Testbed
 
         private BodyDescription _shotBall;
         private List<PhysicsBall> _shotBalls;
+
+        //Balls released from the structure (matched clusters and balls that lost their connection to the ceiling).
+        //They are no longer part of the map, but their bodies keep falling in the simulation, so they still have to be drawn.
+        //TODO: Remove them from the simulation and from this list once they are far away (issue #23)
+        private List<PhysicsBall> _fallingBalls;
+
         private static readonly float SHOOT_MULTIPLIER = 200f;
+        private static readonly Random RANDOM = new();
 
         private Model _cilinderModel;
         private Cannon _cannon;
@@ -257,7 +264,7 @@ namespace Testbed
 
             #region Contact events
 
-            _eventHandler = new EventHandler(_simulation, _bufferPool, _events, _ceiling, _physicsBalls, _shotBalls);
+            _eventHandler = new EventHandler(_simulation, _bufferPool, _events, _ceiling, _physicsBalls, _shotBalls, _fallingBalls);
             _events.Initialize(_simulation);
 
             #endregion
@@ -487,28 +494,8 @@ namespace Testbed
                                 }
                 }
 
-                if (_shotBalls.Count > 0)
-                {
-                    int ballsCount = _shotBalls.Count;
-                    for (int i = 0; i < ballsCount; i++)
-                    {
-                        Microsoft.Xna.Framework.Matrix ballWorldMatrix = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(
-                                new Quaternion(
-                                    _shotBalls[i].BallReference.Pose.Orientation.X,
-                                    _shotBalls[i].BallReference.Pose.Orientation.Y,
-                                    _shotBalls[i].BallReference.Pose.Orientation.Z,
-                                    _shotBalls[i].BallReference.Pose.Orientation.W))
-                                * Microsoft.Xna.Framework.Matrix.CreateTranslation(
-                                    _shotBalls[i].BallReference.Pose.Position.X,
-                                    _shotBalls[i].BallReference.Pose.Position.Y,
-                                    _shotBalls[i].BallReference.Pose.Position.Z);
-
-                        ICamera camera = _camera;
-                        BasicEffectParams basicEffectParams = BasicEffectParamsProvider.GetEffectByType(_shotBalls[i].Type);
-
-                        ModelRenderer.Render(_hrSphere, _hrSphereTransformations, ref camera, ballWorldMatrix, basicEffectParams, true, true);
-                    }
-                }
+                DrawDynamicBalls(_shotBalls);
+                DrawDynamicBalls(_fallingBalls);
 
                 _castle.Draw(_camera);
             }
@@ -521,6 +508,29 @@ namespace Testbed
             }
 
             base.Draw(gameTime);
+        }
+
+        private void DrawDynamicBalls(List<PhysicsBall> balls)
+        {
+            int ballsCount = balls.Count;
+            for (int i = 0; i < ballsCount; i++)
+            {
+                Microsoft.Xna.Framework.Matrix ballWorldMatrix = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(
+                        new Quaternion(
+                            balls[i].BallReference.Pose.Orientation.X,
+                            balls[i].BallReference.Pose.Orientation.Y,
+                            balls[i].BallReference.Pose.Orientation.Z,
+                            balls[i].BallReference.Pose.Orientation.W))
+                        * Microsoft.Xna.Framework.Matrix.CreateTranslation(
+                            balls[i].BallReference.Pose.Position.X,
+                            balls[i].BallReference.Pose.Position.Y,
+                            balls[i].BallReference.Pose.Position.Z);
+
+                ICamera camera = _camera;
+                BasicEffectParams basicEffectParams = BasicEffectParamsProvider.GetEffectByType(balls[i].Type);
+
+                ModelRenderer.Render(_hrSphere, _hrSphereTransformations, ref camera, ballWorldMatrix, basicEffectParams, true, true);
+            }
         }
 
         private void SetGraphics(bool windowed = false)
@@ -562,6 +572,7 @@ namespace Testbed
             var ballShape = new Sphere(BallsConstraintsBuilder.BALL_RADIUS);
             _shotBall = BodyDescription.CreateDynamic(new System.Numerics.Vector3(), ballShape.ComputeInertia(BallsConstraintsBuilder.BALL_MASS), _simulation.Shapes.Add(ballShape), Constants.HUNDREDTH);
             _shotBalls = new List<PhysicsBall>();
+            _fallingBalls = new List<PhysicsBall>();
         }
 
         private void ShootBall()
@@ -582,7 +593,7 @@ namespace Testbed
             PhysicsBall ball = new()
             {
                 BallReference = new(bodyHandle, _simulation.Bodies),
-                Type = BallType.Type4
+                Type = (BallType)RANDOM.Next((int)BallType.Type1, (int)BallType.Type4 + 1) //Random colour so same-type clusters can form
             };
 
             _shotBalls.Add(ball);
@@ -631,8 +642,9 @@ namespace Testbed
         public BallsMap Map;
         public PhysicsBall[,,] PhysicsBalls;
         public List<PhysicsBall> ShotBalls;
+        public List<PhysicsBall> FallingBalls;
 
-        public EventHandler(Simulation simulation, BufferPool pool, ContactEvents contactEvents, KinematicBody ceiling, PhysicsBall[,,] physicsBalls, List<PhysicsBall> shotBalls)
+        public EventHandler(Simulation simulation, BufferPool pool, ContactEvents contactEvents, KinematicBody ceiling, PhysicsBall[,,] physicsBalls, List<PhysicsBall> shotBalls, List<PhysicsBall> fallingBalls)
         {
             Simulation = simulation;
             Pool = pool;
@@ -640,6 +652,7 @@ namespace Testbed
             _ceiling = ceiling;
             PhysicsBalls = physicsBalls;
             ShotBalls = shotBalls;
+            FallingBalls = fallingBalls;
         }
 
         //Contact callbacks run inside Simulation.Timestep, potentially from multiple worker threads at once.
@@ -749,7 +762,7 @@ namespace Testbed
 #if DEBUG
                 Console.WriteLine(" → CEILING HIT");
 #endif
-                allowedPosition = Map.PutBallAtClosestEmptyCeilingPosition(contact.ContactOffset, out arrayPosition);
+                allowedPosition = Map.PutBallAtClosestEmptyCeilingPosition(contact.ContactOffset, out arrayPosition, physicsBall.Type);
             }
             else if (other.Mobility == CollidableMobility.Dynamic && TryFindMapBall(other.BodyHandle, out PhysicsBall hitBall))
             {
@@ -758,7 +771,7 @@ namespace Testbed
 #endif
                 //Manifold offsets are relative to the position of the pair's first collidable
                 var worldContact = Simulation.Bodies[pair.A.BodyHandle].Pose.Position + contact.ContactOffset.ToNumerics();
-                allowedPosition = Map.PutBallAtClosestEmptyPositionNextTo(worldContact, hitBall.ArrayPosition, out arrayPosition);
+                allowedPosition = Map.PutBallAtClosestEmptyPositionNextTo(worldContact, hitBall.ArrayPosition, out arrayPosition, physicsBall.Type);
             }
             else return false; //Ground, a loose shot ball, …
 
@@ -793,6 +806,16 @@ namespace Testbed
 
             //Attached to the structure – no need to listen for its contacts anymore
             if (_contactEvents.IsListener(contact.EventSource)) _contactEvents.Unregister(contact.EventSource);
+
+            #region Same-type cluster removal
+
+            int releasedBalls = BallsConstraintsBuilder.ReleaseSameTypeCluster(physicsBall, PhysicsBalls, Map, Simulation, FallingBalls);
+
+#if DEBUG
+            if (releasedBalls > 0) Console.WriteLine($"Released a cluster of {releasedBalls} balls of type {physicsBall.Type}");
+#endif
+
+            #endregion
 
             #endregion
 
