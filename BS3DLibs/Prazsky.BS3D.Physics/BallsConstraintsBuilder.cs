@@ -86,67 +86,74 @@ namespace Prazsky.BS3D.Physics
                         
                         PhysicsBall currentPhysicsBall = physicsBalls[x, z, level];
 
-                        #region level - 1
-
-                        //1
-                        //x - 1, y - 1, z - 1
-                        if (x - 1 >= 0 && level - 1 >= 0 && z - 1 >= 0)
-                            if (staticBalls[x - 1, z - 1, level - 1] != null)
-                                EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x - 1, z - 1, level - 1], ConstraintType.Type1, simulation);
-
-                        //2
-                        //x - 1, y - 1, z
-                        if (x - 1 >= 0 && level - 1 >= 0)
-                            if (staticBalls[x - 1, z, level - 1] != null)
-                                EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x - 1, z, level - 1], ConstraintType.Type2, simulation);
-
-                        //3
-                        //x,     y - 1, z - 1
-                        if (level - 1 >= 0 && z - 1 >= 0)
-                            if (staticBalls[x, z - 1, level - 1] != null)
-                                EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z - 1, level - 1], ConstraintType.Type3, simulation);
-
-                        //4
-                        //x,     y - 1, z
-                        if (level - 1 >= 0)
-                            if (staticBalls[x, z, level - 1] != null)
-                                EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z, level - 1], ConstraintType.Type4, simulation);
-
-                        #endregion
-
                         #region level
 
                         EnsureConnectedOnSameLevel(staticBalls, new(x, z, level), currentPhysicsBall, physicsBalls, simulation, size);
 
                         #endregion
 
-                        #region level + 1
+                        //Cross-level connections are created only from even (unshifted) levels: adjacent levels always differ in parity,
+                        //and the (x - 1..x, z - 1..z) index offsets are geometrically correct only when looking from an even level.
+                        //Looking from an odd (shifted by +0.5 in X/Z) level, the same offsets would enumerate distant non-touching cells;
+                        //the true neighbours of odd-level balls are all covered by the even side of each pair.
+                        if ((level % 2) == 0)
+                        {
+                            #region level - 1
 
-                        //9
-                        //x - 1, y + 1, z - 1
-                        if (x - 1 >= 0 && level + 1 < size.Level && z - 1 >= 0)
-                            if (staticBalls[x - 1, z - 1, level + 1] != null)
-                                EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x - 1, z - 1, level + 1], ConstraintType.Type9, simulation);
+                            //1
+                            //x - 1, y - 1, z - 1
+                            if (x - 1 >= 0 && level - 1 >= 0 && z - 1 >= 0)
+                                if (staticBalls[x - 1, z - 1, level - 1] != null)
+                                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x - 1, z - 1, level - 1], ConstraintType.Type1, simulation);
 
-                        //10
-                        //x - 1, y + 1, z
-                        if (x - 1 >= 0 && level + 1 < size.Level)
-                            if (staticBalls[x - 1, z, level + 1] != null)
-                                EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x - 1, z, level + 1], ConstraintType.Type10, simulation);
+                            //2
+                            //x - 1, y - 1, z
+                            if (x - 1 >= 0 && level - 1 >= 0)
+                                if (staticBalls[x - 1, z, level - 1] != null)
+                                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x - 1, z, level - 1], ConstraintType.Type2, simulation);
 
-                        //11
-                        //x,     y + 1, z - 1
-                        if (level + 1 < size.Level && z - 1 >= 0)
-                            if (staticBalls[x, z - 1, level + 1] != null)
-                                EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z - 1, level + 1], ConstraintType.Type11, simulation);
+                            //3
+                            //x,     y - 1, z - 1
+                            if (level - 1 >= 0 && z - 1 >= 0)
+                                if (staticBalls[x, z - 1, level - 1] != null)
+                                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z - 1, level - 1], ConstraintType.Type3, simulation);
 
-                        //12
-                        //x,     y + 1, z
-                        if (level + 1 < size.Level)
-                            if (staticBalls[x, z, level + 1] != null)
-                                EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z, level + 1], ConstraintType.Type12, simulation);
+                            //4
+                            //x,     y - 1, z
+                            if (level - 1 >= 0)
+                                if (staticBalls[x, z, level - 1] != null)
+                                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z, level - 1], ConstraintType.Type4, simulation);
 
-                        #endregion
+                            #endregion
+
+                            #region level + 1
+
+                            //9
+                            //x - 1, y + 1, z - 1
+                            if (x - 1 >= 0 && level + 1 < size.Level && z - 1 >= 0)
+                                if (staticBalls[x - 1, z - 1, level + 1] != null)
+                                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x - 1, z - 1, level + 1], ConstraintType.Type9, simulation);
+
+                            //10
+                            //x - 1, y + 1, z
+                            if (x - 1 >= 0 && level + 1 < size.Level)
+                                if (staticBalls[x - 1, z, level + 1] != null)
+                                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x - 1, z, level + 1], ConstraintType.Type10, simulation);
+
+                            //11
+                            //x,     y + 1, z - 1
+                            if (level + 1 < size.Level && z - 1 >= 0)
+                                if (staticBalls[x, z - 1, level + 1] != null)
+                                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z - 1, level + 1], ConstraintType.Type11, simulation);
+
+                            //12
+                            //x,     y + 1, z
+                            if (level + 1 < size.Level)
+                                if (staticBalls[x, z, level + 1] != null)
+                                    EnsureConnected(ref currentPhysicsBall, ref physicsBalls[x, z, level + 1], ConstraintType.Type12, simulation);
+
+                            #endregion
+                        }
 
                         //Highest level - only attach to ceiling
                         if (level == size.Level - 1)
@@ -156,6 +163,70 @@ namespace Prazsky.BS3D.Physics
             }
 
             return physicsBalls;
+        }
+
+        /// <summary>
+        /// Attaches a freshly placed ball to everything it should be connected to: the ceiling (when on the top level),
+        /// neighbours on the same level and neighbours on the levels directly above and below.
+        /// The ball must already have its <see cref="PhysicsBall.ArrayPosition"/> set, be present in the static map and in <paramref name="physicsBalls"/>.
+        /// </summary>
+        public static void AttachBallToStructure(PhysicsBall physicsBall, PhysicsBall[,,] physicsBalls, BallsMap map, Simulation simulation, BodyReference ceilingReference)
+        {
+            XZLevel size = map.GetStaticBallsArraySize();
+
+            if (physicsBall.ArrayPosition.Level == size.Level - 1)
+                physicsBall.HandlesTop.TryStore(ConnectBallToCeiling(physicsBall, ceilingReference, simulation, map.GetRealCenteredPosition(physicsBall.ArrayPosition).ToNumerics()));
+
+            EnsureConnectedOnSameLevel(map.GetStaticBallsArray(), physicsBall.ArrayPosition, physicsBall, physicsBalls, simulation, size, map);
+            ConnectToNeighboursOnOtherLevels(physicsBall, physicsBalls, simulation, size, map);
+        }
+
+        /// <summary>
+        /// Connects a freshly attached ball to the occupied neighbouring cells on the levels directly above and below.
+        /// Unlike the build-time pass this takes level parity into account: odd levels are shifted by +0.5 in X and Z,
+        /// so their neighbours on adjacent levels sit towards +X/+Z indices, while even levels neighbour towards -X/-Z.
+        /// Constraints are created directly instead of via EnsureConnected: the new ball has no constraints yet and every
+        /// neighbour is visited exactly once, so the build-time deduplication (which reads slot state of already connected balls) must not run here.
+        /// </summary>
+        public static void ConnectToNeighboursOnOtherLevels(PhysicsBall physicsBall, PhysicsBall[,,] physicsBalls, Simulation simulation, XZLevel size, BallsMap map)
+        {
+            XZLevel position = physicsBall.ArrayPosition;
+            int diagonalShift = (position.Level % 2) > 0 ? 0 : -1;
+
+            for (int levelOffset = -1; levelOffset <= 1; levelOffset += 2)
+            {
+                int level = position.Level + levelOffset;
+                if (level < 0 || level >= size.Level) continue;
+
+                for (int dX = 0; dX <= 1; dX++)
+                {
+                    for (int dZ = 0; dZ <= 1; dZ++)
+                    {
+                        int x = position.X + dX + diagonalShift;
+                        int z = position.Z + dZ + diagonalShift;
+
+                        if (x < 0 || z < 0 || x >= size.X || z >= size.Z) continue;
+
+                        PhysicsBall neighbour = physicsBalls[x, z, level];
+                        if (neighbour == null) continue;
+
+                        ConstraintHandle handle = ConnectBalls(physicsBall, neighbour, simulation, map);
+
+                        //The neighbour's slots may all be taken (the build-time pass can consume them); the handle then stays
+                        //tracked only on the new ball, which is enough for removal thanks to the ConstraintExists guards.
+                        if (levelOffset < 0)
+                        {
+                            physicsBall.HandlesBottom.TryStore(handle);
+                            neighbour.HandlesTop.TryStore(handle);
+                        }
+                        else
+                        {
+                            physicsBall.HandlesTop.TryStore(handle);
+                            neighbour.HandlesBottom.TryStore(handle);
+                        }
+                    }
+                }
+            }
         }
 
         public static void EnsureConnectedOnSameLevel(

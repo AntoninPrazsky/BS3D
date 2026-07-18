@@ -135,6 +135,55 @@ namespace Prazsky.BS3D.GameStructure
             return PutBallAt(x, z, level).Position;
         }
 
+        /// <summary>
+        /// Puts a ball into the empty cell neighbouring the <paramref name="nextTo"/> cell that is closest to the given position.
+        /// Considers the four neighbours on the same level and the four parity-correct neighbours on each adjacent level
+        /// (odd levels are shifted by +0.5 in X and Z, so their neighbours on adjacent levels sit towards +X/+Z indices,
+        /// while even levels neighbour towards -X/-Z).
+        /// </summary>
+        /// <param name="position">Centered (world) position the new ball should be placed closest to, typically the contact point.</param>
+        /// <param name="nextTo">Cell of the existing ball that was hit.</param>
+        /// <param name="arrayPosition">Cell the ball was placed into.</param>
+        /// <returns>Centered position of the placed ball, or a <see cref="float.MinValue"/> vector when no neighbouring cell is free.</returns>
+        public Vector3 PutBallAtClosestEmptyPositionNextTo(Vector3 position, XZLevel nextTo, out XZLevel arrayPosition)
+        {
+            arrayPosition = new XZLevel(-1, -1, -1);
+
+            float closestDistanceSquared = float.MaxValue;
+
+            //Same level
+            TryPlacementCandidate(nextTo.X - 1, nextTo.Z, nextTo.Level, position, ref closestDistanceSquared, ref arrayPosition);
+            TryPlacementCandidate(nextTo.X + 1, nextTo.Z, nextTo.Level, position, ref closestDistanceSquared, ref arrayPosition);
+            TryPlacementCandidate(nextTo.X, nextTo.Z - 1, nextTo.Level, position, ref closestDistanceSquared, ref arrayPosition);
+            TryPlacementCandidate(nextTo.X, nextTo.Z + 1, nextTo.Level, position, ref closestDistanceSquared, ref arrayPosition);
+
+            //Levels above and below
+            int diagonalShift = (nextTo.Level % 2) > 0 ? 0 : -1;
+
+            for (int levelOffset = -1; levelOffset <= 1; levelOffset += 2)
+                for (int dX = 0; dX <= 1; dX++)
+                    for (int dZ = 0; dZ <= 1; dZ++)
+                        TryPlacementCandidate(nextTo.X + dX + diagonalShift, nextTo.Z + dZ + diagonalShift, nextTo.Level + levelOffset, position, ref closestDistanceSquared, ref arrayPosition);
+
+            if (arrayPosition.X < 0) return new Vector3(float.MinValue);
+
+            return PutBallAt((byte)arrayPosition.X, (byte)arrayPosition.Z, (byte)arrayPosition.Level).Position;
+        }
+
+        private void TryPlacementCandidate(int x, int z, int level, Vector3 position, ref float closestDistanceSquared, ref XZLevel closest)
+        {
+            if (x < 0 || z < 0 || level < 0 || x >= StageSizeX || z >= StageSizeZ || level >= Levels) return;
+            if (_balls[x, z, level] != null) return;
+
+            float distanceSquared = Vector3.DistanceSquared(GetRealCenteredPosition(new XZLevel(x, z, level)), position);
+
+            if (distanceSquared < closestDistanceSquared)
+            {
+                closestDistanceSquared = distanceSquared;
+                closest = new XZLevel(x, z, level);
+            }
+        }
+
         public StaticBall[,,] GetStaticBallsArray() => _balls;
 
         public XZLevel GetStaticBallsArraySize() => XZLevel.FromArray(_balls);

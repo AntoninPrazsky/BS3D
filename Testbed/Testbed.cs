@@ -726,14 +726,9 @@ namespace Testbed
                 return false;
             }
 
-            if (pair.A.Mobility == CollidableMobility.Static || pair.A.BodyHandle != _ceiling.BodyHandle) return false;
-
-            #region Connect ball to the ceiling
-#if DEBUG
-            Console.WriteLine(" → CEILING HIT");
-#endif
-
-            var physicsBall = ShotBalls.Where(x => x.BallReference.Handle == pair.B.BodyHandle).FirstOrDefault(); //Linq is ok since this list should be short
+            //The event source is the registered listener, i.e. the shot ball
+            BodyHandle shotBallHandle = contact.EventSource.BodyHandle;
+            var physicsBall = ShotBalls.Where(x => x.BallReference.Handle == shotBallHandle).FirstOrDefault(); //Linq is ok since this list should be short
             if (physicsBall == null)
             {
 #if DEBUG
@@ -742,12 +737,35 @@ namespace Testbed
                 return false;
             }
 
-            Vector3 allowedPosition = Map.PutBallAtClosestEmptyCeilingPosition(contact.ContactOffset, out XZLevel arrayPosition);
+            CollidableReference other = pair.A.Packed == contact.EventSource.Packed ? pair.B : pair.A;
+
+            #region Find a free cell for the ball
+
+            Vector3 allowedPosition;
+            XZLevel arrayPosition;
+
+            if (other.Mobility == CollidableMobility.Kinematic && other.BodyHandle == _ceiling.BodyHandle)
+            {
+#if DEBUG
+                Console.WriteLine(" → CEILING HIT");
+#endif
+                allowedPosition = Map.PutBallAtClosestEmptyCeilingPosition(contact.ContactOffset, out arrayPosition);
+            }
+            else if (other.Mobility == CollidableMobility.Dynamic && TryFindMapBall(other.BodyHandle, out PhysicsBall hitBall))
+            {
+#if DEBUG
+                Console.WriteLine(" → STRUCTURE BALL HIT");
+#endif
+                //Manifold offsets are relative to the position of the pair's first collidable
+                var worldContact = Simulation.Bodies[pair.A.BodyHandle].Pose.Position + contact.ContactOffset.ToNumerics();
+                allowedPosition = Map.PutBallAtClosestEmptyPositionNextTo(worldContact, hitBall.ArrayPosition, out arrayPosition);
+            }
+            else return false; //Ground, a loose shot ball, …
 
             if (allowedPosition.X == float.MinValue)
             {
 #if DEBUG
-                Console.WriteLine("Outside of the ceiling or closest possible ceiling space already occupied by another ball");
+                Console.WriteLine("Outside of the map or every neighbouring cell already occupied by another ball");
 #endif
                 return false;
             }
@@ -756,13 +774,11 @@ namespace Testbed
             Console.WriteLine("Ball placed at: " + allowedPosition);
 #endif
 
+            #endregion
+
+            #region Attach the ball to the structure
+
             physicsBall.ArrayPosition = arrayPosition;
-
-            var constraintHandle = BallsConstraintsBuilder.ConnectBallToCeiling(physicsBall, _ceiling.BodyReference, Simulation, allowedPosition.ToNumerics());
-            physicsBall.HandlesTop.Handle1 = constraintHandle;
-
-
-            //Attaching to other balls should be possible to do by existing functionality in the BallsConstraintBuilder class
 
             ShotBalls.Remove(physicsBall); //Not shot anymore
 
@@ -771,24 +787,38 @@ namespace Testbed
             physicsBall.BallReference.Velocity.Linear = default; //Removing velocity from the shot
             physicsBall.BallReference.Velocity.Angular = default; //Also stop spinning, so the freshly created constraint anchors are not dragged around by residual rotation
 
-            #endregion
-
-            #region Connect ball to other neighbouring balls
-
             //Constraint anchors are computed from the static map grid (ideal positions) and rotated into each body's current local frame,
             //so they are correct even after the simulation has been running
-            BallsConstraintsBuilder.EnsureConnectedOnSameLevel(
-                Map.GetStaticBallsArray(),
-                arrayPosition,
-                physicsBall,
-                PhysicsBalls,
-                Simulation,
-                Map.GetStaticBallsArraySize(),
-                Map);
+            BallsConstraintsBuilder.AttachBallToStructure(physicsBall, PhysicsBalls, Map, Simulation, _ceiling.BodyReference);
+
+            //Attached to the structure – no need to listen for its contacts anymore
+            if (_contactEvents.IsListener(contact.EventSource)) _contactEvents.Unregister(contact.EventSource);
 
             #endregion
 
             return true;
+        }
+
+        private bool TryFindMapBall(BodyHandle handle, out PhysicsBall ball)
+        {
+            ball = null;
+            if (PhysicsBalls == null) return false;
+
+            XZLevel size = XZLevel.FromArray(PhysicsBalls);
+
+            for (byte level = 0; level < size.Level; level++)
+                for (byte x = 0; x < size.X; x++)
+                    for (byte z = 0; z < size.Z; z++)
+                    {
+                        PhysicsBall candidate = PhysicsBalls[x, z, level];
+                        if (candidate != null && candidate.BallReference.Handle == handle)
+                        {
+                            ball = candidate;
+                            return true;
+                        }
+                    }
+
+            return false;
         }
     }
 

@@ -128,6 +128,20 @@ namespace Prazsky.BS3D.Physics
         /// ↓ || ↘
         /// </summary>
         public ConstraintHandle Handle4; // ↓ || ↘
+
+        /// <summary>
+        /// Stores the handle into the first free slot. Used when attaching a shot ball after the map was built,
+        /// where the direction-based slot convention of the build-time pass is not needed (removal iterates all slots anyway).
+        /// Returns false when all four slots are already taken; the constraint then stays tracked only on the other ball of the pair.
+        /// </summary>
+        public bool TryStore(ConstraintHandle handle)
+        {
+            if (Handle1.Value < 0) { Handle1 = handle; return true; }
+            if (Handle2.Value < 0) { Handle2 = handle; return true; }
+            if (Handle3.Value < 0) { Handle3 = handle; return true; }
+            if (Handle4.Value < 0) { Handle4 = handle; return true; }
+            return false;
+        }
     }
 
     public enum ConstraintType : byte
