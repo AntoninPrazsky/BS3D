@@ -10,7 +10,7 @@ namespace Testbed
         public BodyReference BodyReference { get; private set; }
         public BodyHandle BodyHandle { get; private set; }
 
-        public KinematicBody(Model model, BodyReference staticReference, BodyHandle bodyHandle)
+        public KinematicBody(Model model, BodyReference staticReference, BodyHandle bodyHandle, Vector3? modelScale = null)
         {
             Model = model;
             BodyReference = staticReference;
@@ -18,7 +18,8 @@ namespace Testbed
             Transformations = new Matrix[Model.Bones.Count];
             Model.CopyAbsoluteBoneTransformsTo(Transformations);
 
-            World = Matrix.CreateFromQuaternion(
+            World = Matrix.CreateScale(modelScale ?? Vector3.One)
+                * Matrix.CreateFromQuaternion(
                 new Quaternion(staticReference.Pose.Orientation.X, staticReference.Pose.Orientation.Y, staticReference.Pose.Orientation.Z, staticReference.Pose.Orientation.W))
                 * Matrix.CreateTranslation(staticReference.Pose.Position.X, staticReference.Pose.Position.Y, staticReference.Pose.Position.Z);
 

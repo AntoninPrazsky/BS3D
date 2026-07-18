@@ -124,6 +124,7 @@ namespace MapEditor
 
                 new(mgKeys.F1, SaveJson, "Save map to file (JSON)"),
                 new(mgKeys.F2, LoadJson, "Load map from file (JSON)"),
+                new(mgKeys.F3, NewMap, "New map (choose play field size)"),
             };
 
             StringBuilder builder = new();
@@ -140,9 +141,25 @@ namespace MapEditor
         {
             _hrSphere = Content.Load<Model>("HRGeoDome");
 
-			_map = new BallsMap(10, 10, 10, _hrSphere);
+			//10 levels for the initial ball layout plus empty levels at the bottom for the structure to grow into
+			_map = new BallsMap(10, 10, 15, _hrSphere);
             _selector = new Selector(Content, _map);
             _aabb = new AABB(Content);
+            _aabb.FitToMap(_map);
+        }
+
+        private void NewMap()
+        {
+            EnsureNotFullScreen();
+
+            using NewMapDialog dialog = new(_map.StageSizeX, _map.StageSizeZ, _map.Levels);
+            if (dialog.ShowDialog() != DialogResult.OK) return;
+
+            _map = new BallsMap(dialog.StageSizeX, dialog.StageSizeZ, dialog.Levels, _hrSphere);
+            _selector.UpdateBallsBap(_map);
+            _aabb.FitToMap(_map);
+
+            Info.CustomText = $"New map {dialog.StageSizeX} × {dialog.StageSizeZ} × {dialog.Levels}";
         }
 
         protected override void Update(GameTime gameTime)
@@ -201,6 +218,10 @@ namespace MapEditor
             _map.DeserializeJson(filePath);
             stopwatch.Stop();
             Console.WriteLine($"Deserialize JSON (ms): {stopwatch.ElapsedMilliseconds}");
+
+            //The loaded map may have different play field dimensions
+            _selector.UpdateBallsBap(_map);
+            _aabb.FitToMap(_map);
         }
 
         protected override void Draw(GameTime gameTime)
@@ -289,14 +310,16 @@ namespace MapEditor
 
         private void FullMapTest()
         {
-            byte sizeX = 10;
-            byte sizeZ = 10;
-            byte levels = 10;
+            //Fill the current map's whole play field (previously this replaced _map with a new 10×10×10 instance,
+            //leaving the selector working on the orphaned old map)
+            byte sizeX = _map.StageSizeX;
+            byte sizeZ = _map.StageSizeZ;
+            byte levels = _map.Levels;
 
             Stopwatch stopwatch = new();
             stopwatch.Start();
 
-            _map = new BallsMap(sizeX, sizeZ, levels, _hrSphere);
+            _map.Clear();
 
             Array ballTypes = Enum.GetValues(typeof(BallType));
             Random random = new();

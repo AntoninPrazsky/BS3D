@@ -18,6 +18,14 @@ namespace Prazsky.BS3D.GameStructure
 
         private static readonly float BALL_RADIUS = Constants.HALF;
 
+        /// <summary>
+        /// Empty levels added below the layout of legacy map files, which carried no play field size.
+        /// Gives the structure room to grow downwards when shot balls attach.
+        /// Must be an even number so the layout keeps its level parity (odd levels are shifted by +0.5 in X and Z);
+        /// an odd offset would flip the parity of every layer and change how shaped layouts nest into each other.
+        /// </summary>
+        private static readonly byte DEFAULT_EXTRA_LEVELS = 6;
+
         public byte StageSizeX { get; internal set; }
         public byte StageSizeZ { get; internal set; }
         public byte Levels { get; internal set; }
@@ -110,8 +118,8 @@ namespace Prazsky.BS3D.GameStructure
         //WIP
         public Vector3 PutBallAtClosestEmptyCeilingPosition(Vector3 position, out XZLevel arrayPosition, BallType type = BallType.Type4)
         {
-            bool isShifted = true; //Currently computes only for top level (below ceiling)
-            byte level = 9; //Currently only level 9 (top level)
+            byte level = (byte)(Levels - 1); //Balls hitting the ceiling always land on the top level
+            bool isShifted = (level % 2) > 0;
 
             arrayPosition = new XZLevel(-1, -1, -1);
 
@@ -354,9 +362,26 @@ namespace Prazsky.BS3D.GameStructure
 
             #endregion
 
-            StageSizeX = (byte)size.Level;
-            StageSizeZ = (byte)size.X;
-            Levels = (byte)size.Z;
+            if (ballPositionTypes.Levels == 0)
+            {
+                //Legacy file without play field size: the field is the layout itself,
+                //plus a few empty levels below so the structure has room to grow
+                StageSizeX = (byte)size.X;
+                StageSizeZ = (byte)size.Z;
+                Levels = (byte)Math.Min(byte.MaxValue, size.Level + DEFAULT_EXTRA_LEVELS);
+            }
+            else
+            {
+                //The play field can never be smaller than the stored layout
+                StageSizeX = Math.Max(ballPositionTypes.StageSizeX, (byte)size.X);
+                StageSizeZ = Math.Max(ballPositionTypes.StageSizeZ, (byte)size.Z);
+                Levels = Math.Max(ballPositionTypes.Levels, (byte)size.Level);
+            }
+
+            //The layout is placed at the top of the field. An odd offset would flip the level parity of every layer
+            //(odd levels are shifted by +0.5 in X and Z) and change how shaped layouts nest into each other,
+            //so the field is extended by one level to keep the offset even.
+            if (((Levels - size.Level) % 2) != 0) Levels = (byte)Math.Min(byte.MaxValue, Levels + 1);
 
             BuildMapFromBallPositionTypes(ballPositionTypes);
         }
@@ -364,6 +389,10 @@ namespace Prazsky.BS3D.GameStructure
         private BallPositionTypes BuildBallPositionTypes()
         {
             BallPositionTypes ballPositionTypes = new();
+
+            ballPositionTypes.StageSizeX = StageSizeX;
+            ballPositionTypes.StageSizeZ = StageSizeZ;
+            ballPositionTypes.Levels = Levels;
 
             ballPositionTypes.Balls = new BallPositionType[StageSizeX, StageSizeZ, Levels];
 
@@ -386,11 +415,17 @@ namespace Prazsky.BS3D.GameStructure
         {
             _balls = new StaticBall[StageSizeX, StageSizeZ, Levels];
 
-            for (byte level = 0; level < Levels; level++)
-                for (byte x = 0; x < StageSizeX; x++)
-                    for (byte z = 0; z < StageSizeZ; z++)
+            XZLevel layoutSize = XZLevel.FromArray(ballPositionTypes.Balls);
+
+            //The layout hangs from the ceiling: its top level goes to the field's top level,
+            //extra field levels stay empty at the bottom as room to grow
+            byte levelOffset = (byte)(Levels - layoutSize.Level);
+
+            for (byte level = 0; level < layoutSize.Level; level++)
+                for (byte x = 0; x < layoutSize.X; x++)
+                    for (byte z = 0; z < layoutSize.Z; z++)
                         if (ballPositionTypes.Balls[x, z, level] != null)
-                            PutBallAt(x, z, level, ballPositionTypes.Balls[x, z, level].Type);
+                            PutBallAt(x, z, (byte)(level + levelOffset), ballPositionTypes.Balls[x, z, level].Type);
         }
 
         private Vector3 ComputeUncentered(Vector3 position)
@@ -418,11 +453,13 @@ namespace Prazsky.BS3D.GameStructure
             float minPosX = float.MaxValue, minPosZ = float.MaxValue;
             float maxPosX = float.MinValue, maxPosZ = float.MinValue;
 
+            byte topLevel = (byte)(Levels - 1);
+
             for (byte x = 0; x < StageSizeX; x++)
                 for (byte z = 0; z < StageSizeZ; z++)
-                    if (_balls[x, z, 9] != null)
+                    if (_balls[x, z, topLevel] != null)
                     {
-                        StaticBall currentBall = _balls[x, z, 9];
+                        StaticBall currentBall = _balls[x, z, topLevel];
 
                         if (currentBall.Position.X < minPosX) minPosX = currentBall.Position.X;
                         if (currentBall.Position.Z < minPosZ) minPosZ = currentBall.Position.Z;

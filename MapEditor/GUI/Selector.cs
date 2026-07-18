@@ -143,6 +143,10 @@ namespace MapEditor.GUI
         {
             _ballsMap = ballsMap;
             _stageX = _stageZ = _level = 0;
+
+            Position = BallsMap.GetRealPosition(_stageX, _stageZ, _level);
+            World = Matrix.CreateTranslation(Position);
+            BasicEffectParams = BasicEffectParamsProvider.ColorWhite;
         }
     }
 }

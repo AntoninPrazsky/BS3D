@@ -15,6 +15,9 @@ dotnet build C:\Projects\Testbed.sln
 # Run the game testbed / the map editor
 dotnet run --project C:\Projects\Testbed\Testbed.csproj
 dotnet run --project C:\Projects\MapEditor\MapEditor.csproj
+
+# Testbed can load a map right at startup (useful for testing)
+Testbed.exe C:\Projects\Testbed\Maps\Full.json
 ```
 
 There are three solutions: `BS3DLibs.sln` (libraries only), `Testbed.sln` and `MapEditor.sln` (each executable plus the libraries). There are no test projects and no lint configuration.
@@ -37,9 +40,11 @@ The central data structure is a 3D array `[x, z, level]` where **level is the ve
 
 `BallsMap` holds the logical state (`StaticBall`s); `BallsConstraintsBuilder.BuildBallsStructure` mirrors it into a parallel `PhysicsBall[,,]` of dynamic Bepu bodies connected by `BallSocket` constraints to their neighbours, with the top level constrained to a kinematic ceiling body. The whole cluster hangs from the ceiling and jiggles physically.
 
+The play field is larger than the initial ball layout: map JSON stores field dimensions (`sx`/`sz`/`l`) separately from the layout array, the layout is placed at the **top** of the field and the empty bottom levels are room for shot balls to attach into. Legacy map files without field dimensions get 5 extra bottom levels on load. The Testbed ceiling repositions/resizes itself to the loaded map (`FitCeilingToMap`).
+
 ### Constraint handle bookkeeping
 
-Each constraint is shared by two balls, so `PhysicsBall` stores handles in three slot groups (`HandlesBottom`/`HandlesMiddle`/`HandlesTop`, four slots each) and `EnsureConnected` uses `ConstraintType.Type1–12` to write the same handle into the matching slot of both balls without creating duplicates. At build time, cross-level constraints are created only when iterating from **even** levels (parity makes the even side cover every pair). The runtime attach path for a newly shot ball (`AttachBallToStructure` → `ConnectToNeighboursOnOtherLevels`) is different: it is parity-aware and creates constraints directly, using `TryStore` because neighbour slots may already be full. Anchor offsets must be rotated into body-local space (`WorldToLocalOffset`) since bodies no longer have identity orientation once the simulation has run.
+Each constraint is shared by two balls, so `PhysicsBall` stores handles in three slot groups (`HandlesBottom`/`HandlesMiddle`/`HandlesTop` = balls below / same level / above + ceiling; four slots each, filled via `TryStore` in no particular order — a ball touches at most four neighbours per group). Every pair gets exactly one constraint by construction: the build pass connects same-level pairs only towards +X/+Z from each ball, and cross-level pairs only from the **even** (unshifted) level of each pair — adjacent levels always differ in parity, and neighbour index offsets depend on it (`diagonalShift`). The runtime attach path for a newly shot ball (`AttachBallToStructure`) instead connects all four same-level directions plus both adjacent levels, since the new ball has no constraints yet. Anchor offsets must be rotated into body-local space (`WorldToLocalOffset`) since bodies no longer have identity orientation once the simulation has run.
 
 ### Shooting flow (Testbed)
 

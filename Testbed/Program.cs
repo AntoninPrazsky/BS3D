@@ -5,9 +5,10 @@ namespace Testbed
     public static class Program
     {
         [STAThread]
-        private static void Main()
+        private static void Main(string[] args)
         {
-            using (var game = new Testbed()) game.Run();
+            string startupMapPath = args.Length > 0 ? args[0] : null;
+            using (var game = new Testbed(startupMapPath: startupMapPath)) game.Run();
         }
     }
 }

@@ -37,6 +37,12 @@ namespace Testbed
 
         private Model _groundModel, _topPlatformModel;
         private KinematicBody _ceiling;
+        private TypedIndex _ceilingShapeIndex;
+
+        /// <summary>
+        /// Size of the ceiling before a map is loaded; also the size the TopGrid model is modelled at.
+        /// </summary>
+        private static readonly float DEFAULT_CEILING_SIZE = 10f;
 
         private Simulation _simulation;
         private ThreadDispatcher _threadDispatcher;
@@ -129,9 +135,13 @@ namespace Testbed
 
         #endregion
 
-        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
+        //Map file to load right after startup (e.g. passed on the command line); mainly for testing
+        private readonly string _startupMapPath;
+
+        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null)
         {
             _windowed = windowed;
+            _startupMapPath = startupMapPath;
 
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;
@@ -281,6 +291,8 @@ namespace Testbed
             _aimer = Content.Load<Texture2D>("Bitmaps/Aimer");
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             ComputeAimerPosition();
+
+            if (!string.IsNullOrEmpty(_startupMapPath) && File.Exists(_startupMapPath)) DeserializeMapFromFile(_startupMapPath);
         }
 
         private void ComputeAimerPosition()
@@ -313,15 +325,44 @@ namespace Testbed
             _staticBodies.Add(new(_groundModel, CreateStatic(new(-30f, -9f, 30f), groundBox)));
             _staticBodies.Add(new(_groundModel, CreateStatic(new(30f, -9f, -30f), groundBox)));
 
-            Box box = new(10f, 1f, 10f);
+            Box box = new(DEFAULT_CEILING_SIZE, 1f, DEFAULT_CEILING_SIZE);
             TypedIndex boxShapeIndex = _simulation.Shapes.Add(box);
+            _ceilingShapeIndex = boxShapeIndex;
             CollidableDescription collidableDescription = new(boxShapeIndex, 0.1f);
-            BodyDescription bodyDescription = BodyDescription.CreateKinematic(new System.Numerics.Vector3(0f, 8.363961f, 0f), collidableDescription, new BodyActivityDescription(Constants.HUNDREDTH));
+            BodyDescription bodyDescription = BodyDescription.CreateKinematic(new System.Numerics.Vector3(0f, GetCeilingY(10), 0f), collidableDescription, new BodyActivityDescription(Constants.HUNDREDTH));
 
             BodyHandle topBodyHandle = _simulation.Bodies.Add(in bodyDescription);
             BodyReference topBodyReference = new(topBodyHandle, _simulation.Bodies);
 
             _ceiling = new KinematicBody(_topPlatformModel, topBodyReference, topBodyHandle);
+        }
+
+        /// <summary>
+        /// The ceiling hovers this far above the centre of the top-level balls (their Y is (levels - 1)/√2).
+        /// </summary>
+        private static float GetCeilingY(byte levels) => (levels - 1) / Constants.SQRT_TWO + 2f;
+
+        /// <summary>
+        /// Moves and resizes the ceiling so it covers the play field of the given map and sits just above its top level.
+        /// The kinematic body is kept (constraints of a previously loaded structure may still reference it);
+        /// only its pose, collision shape and drawn model scale change.
+        /// </summary>
+        private void FitCeilingToMap(BallsMap map)
+        {
+            float sizeX = map.StageSizeX + 1f; //Odd levels are shifted by +0.5 and balls have radius 0.5, so add a margin
+            float sizeZ = map.StageSizeZ + 1f;
+
+            BodyReference ceilingReference = _ceiling.BodyReference;
+            ceilingReference.Pose.Position = new System.Numerics.Vector3(0f, GetCeilingY(map.Levels), 0f);
+
+            TypedIndex newShapeIndex = _simulation.Shapes.Add(new Box(sizeX, 1f, sizeZ));
+            ceilingReference.SetShape(newShapeIndex);
+            _simulation.Shapes.Remove(_ceilingShapeIndex);
+            _ceilingShapeIndex = newShapeIndex;
+
+            //Recreate the wrapper so the drawn model matches the new pose and size (the body and handle stay the same)
+            _ceiling = new KinematicBody(_topPlatformModel, ceilingReference, _ceiling.BodyHandle,
+                new Vector3(sizeX / DEFAULT_CEILING_SIZE, 1f, sizeZ / DEFAULT_CEILING_SIZE));
         }
 
         private void LoadBallsMap()
@@ -350,6 +391,8 @@ namespace Testbed
             _map = new(filePath, _hrSphere);
             _map.Center();
             _eventHandler.Map = _map;
+
+            FitCeilingToMap(_map);
 
             _physicsBalls = BallsConstraintsBuilder.BuildBallsStructure(_map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference);
             _eventHandler.PhysicsBalls = _physicsBalls;
