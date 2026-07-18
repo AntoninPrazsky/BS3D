@@ -39,7 +39,6 @@ namespace Testbed
 
         Simulation simulation;
         IThreadDispatcher threadDispatcher;
-        WorkerBufferPools threadPools;
         BufferPool pool;
 
         //We'll use a handle->index mapping in a CollidableProperty to point at our contiguously stored listeners (in the later listeners array).
@@ -83,9 +82,9 @@ namespace Testbed
             listeners = new Listener[initialListenerCapacity];
         }
 
-        IUnmanagedMemoryPool GetPoolForWorker(int workerIndex)
+        BufferPool GetPoolForWorker(int workerIndex)
         {
-            return threadDispatcher == null ? pool : threadPools[workerIndex];
+            return threadDispatcher == null ? pool : threadDispatcher.WorkerPools[workerIndex];
         }
 
         /// <summary>
@@ -99,7 +98,6 @@ namespace Testbed
             this.simulation = simulation;
             if (pool == null)
                 pool = simulation.BufferPool;
-            threadPools = threadDispatcher != null ? new WorkerBufferPools(pool, threadDispatcher.ThreadCount) : null;
             simulation.Timestepper.BeforeCollisionDetection += SetFreshnessForCurrentActivityStatus;
             listenerIndices = new CollidableProperty<int>(simulation, pool);
             pendingWorkerAdds = new QuickList<PendingWorkerAdd>[threadDispatcher == null ? 1 : threadDispatcher.ThreadCount];
@@ -308,7 +306,7 @@ namespace Testbed
                                 manifold.GetContact(contactIndex, out var offset, out var normal, out var depth, out _);
                                 listener.Handler.OnContactAdded(source, pair, ref manifold, offset, normal, depth, featureId, contactIndex, workerIndex);
                             }
-                            if (manifold.GetDepth(ref manifold, contactIndex) >= 0)
+                            if (manifold.GetDepth(contactIndex) >= 0)
                                 isTouching = true;
                         }
                         if (previousContactsStillExist != (1 << collision.ContactCount) - 1)
@@ -381,12 +379,19 @@ namespace Testbed
             public int Count => 0;
             public bool Convex => true;
             //This type never has any contacts, so there's no need for any property grabbers.
-            public void GetContact(int contactIndex, out Vector3 offset, out Vector3 normal, out float depth, out int featureId) { throw new NotImplementedException(); }
-            public ref float GetDepth(ref EmptyManifold manifold, int contactIndex) { throw new NotImplementedException(); }
-            public int GetFeatureId(int contactIndex) { throw new NotImplementedException(); }
-            public ref int GetFeatureId(ref EmptyManifold manifold, int contactIndex) { throw new NotImplementedException(); }
-            public ref Vector3 GetNormal(ref EmptyManifold manifold, int contactIndex) { throw new NotImplementedException(); }
-            public ref Vector3 GetOffset(ref EmptyManifold manifold, int contactIndex) { throw new NotImplementedException(); }
+            public Contact this[int contactIndex] { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+            public static ref ConvexContact GetConvexContactReference(ref EmptyManifold manifold, int contactIndex) => throw new NotImplementedException();
+            public static ref float GetDepthReference(ref EmptyManifold manifold, int contactIndex) => throw new NotImplementedException();
+            public static ref int GetFeatureIdReference(ref EmptyManifold manifold, int contactIndex) => throw new NotImplementedException();
+            public static ref Contact GetNonconvexContactReference(ref EmptyManifold manifold, int contactIndex) => throw new NotImplementedException();
+            public static ref Vector3 GetNormalReference(ref EmptyManifold manifold, int contactIndex) => throw new NotImplementedException();
+            public static ref Vector3 GetOffsetReference(ref EmptyManifold manifold, int contactIndex) => throw new NotImplementedException();
+            public void GetContact(int contactIndex, out Vector3 offset, out Vector3 normal, out float depth, out int featureId) => throw new NotImplementedException();
+            public void GetContact(int contactIndex, out Contact contactData) => throw new NotImplementedException();
+            public float GetDepth(int contactIndex) => throw new NotImplementedException();
+            public int GetFeatureId(int contactIndex) => throw new NotImplementedException();
+            public Vector3 GetNormal(int contactIndex) => throw new NotImplementedException();
+            public Vector3 GetOffset(int contactIndex) => throw new NotImplementedException();
         }
 
         public void Flush()
@@ -449,7 +454,6 @@ namespace Testbed
                 //We rely on zeroing out the count for lazy initialization.
                 pendingAdds = default;
             }
-            threadPools?.Clear();
         }
 
         public void Dispose()
@@ -460,7 +464,6 @@ namespace Testbed
                 staticListenerFlags.Dispose(pool);
             listenerIndices.Dispose();
             simulation.Timestepper.BeforeCollisionDetection -= SetFreshnessForCurrentActivityStatus;
-            threadPools?.Dispose();
             for (int i = 0; i < pendingWorkerAdds.Length; ++i)
             {
                 Debug.Assert(!pendingWorkerAdds[i].Span.Allocated, "The pending worker adds should have been disposed by the previous flush.");
