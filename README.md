@@ -1,4 +1,4 @@
-![Screenshot](/Screenshots/screenshot1.png)
+![BS3D — Bubble Shooter 3D](/Screenshots/bs3d_logo_8.png)
 
 # BS3D
 
@@ -12,3 +12,7 @@
 - Test maps for Testbed project are located in `\Testbed\Maps`
 
 - The font used to render the text is https://github.com/microsoft/cascadia-code
+
+## Screenshot
+
+![Screenshot](/Screenshots/screenshot1.png)
