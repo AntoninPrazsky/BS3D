@@ -5,5 +5,8 @@ obj/
 # Visual Studio
 .vs/
 
+# JetBrains Rider
+.idea/
+
 # Project specific
 /LEVELS
