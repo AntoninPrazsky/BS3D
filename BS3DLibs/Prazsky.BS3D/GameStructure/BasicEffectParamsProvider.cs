@@ -5,10 +5,42 @@ namespace Prazsky.BS3D.GameStructure
 {
     public static class BasicEffectParamsProvider
     {
-        public static BasicEffectParams ColorRed = new BasicEffectParams(new Vector3(0.3f, 0f, 0f), new Vector3(0.8f, 0f, 0f), 0.5f, Vector3.Zero);
-        public static BasicEffectParams ColorGreen = new BasicEffectParams(new Vector3(0f, 0.3f, 0f), new Vector3(0f, 0.8f, 0f), 0.5f, Vector3.Zero);
-        public static BasicEffectParams ColorBlue = new BasicEffectParams(new Vector3(0f, 0f, 0.3f), new Vector3(0f, 0f, 0.8f), 0.5f, Vector3.Zero);
-        public static BasicEffectParams ColorWhite = new BasicEffectParams(new Vector3(0.1f, 0.1f, 0.1f), new Vector3(0.3f, 0.3f, 0.3f), 0.3f, Vector3.Zero);
+        //Neutral (white-ish) specular with a tight power reads as glossy plastic: each ball gets a distinct
+        //highlight whose position depends on where the ball sits relative to the light and the camera.
+        //(The old strongly coloured specular with power 0.5 was just a broad tinted sheen, no visible highlight.)
+        private static readonly Vector3 GLOSS_COLOR = new(0.5f, 0.5f, 0.5f);
+        private const float GLOSS_POWER = 24f;
+
+        public static BasicEffectParams ColorRed = new BasicEffectParams(new Vector3(0.3f, 0f, 0f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
+        public static BasicEffectParams ColorGreen = new BasicEffectParams(new Vector3(0f, 0.3f, 0f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
+        public static BasicEffectParams ColorBlue = new BasicEffectParams(new Vector3(0f, 0f, 0.3f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
+        public static BasicEffectParams ColorWhite = new BasicEffectParams(new Vector3(0.1f, 0.1f, 0.1f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
+
+        /// <summary>
+        /// Multiplier applied to the ball model's material diffuse colours to give the ball its type colour.
+        /// (Historically the type colour came from a broad coloured specular sheen; with a proper glossy
+        /// highlight the type has to tint the diffuse patches instead.)
+        /// </summary>
+        public static Vector3 GetDiffuseTintByType(BallType ballType)
+        {
+            switch (ballType)
+            {
+                case BallType.Type1:
+                    return new Vector3(1f, 0.2f, 0.2f);
+
+                case BallType.Type2:
+                    return new Vector3(0.25f, 1f, 0.25f);
+
+                case BallType.Type3:
+                    return new Vector3(0.35f, 0.45f, 1f);
+
+                case BallType.Type4:
+                    return Vector3.One;
+
+                default:
+                    return Vector3.One;
+            }
+        }
 
         public static BasicEffectParams GetEffectByType(BallType ballType)
         {

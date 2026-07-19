@@ -32,7 +32,9 @@ float SpecularPower;
 float3 SkyColor;
 float3 GroundColor;
 
-float3 DirLight0Direction;
+//The key light is positional (a "sun" placed in the scene): its direction differs per surface point,
+//so every ball is lit according to where it sits relative to the light instead of all balls looking identical.
+float3 KeyLightPosition;
 float3 DirLight0DiffuseColor;
 float3 DirLight0SpecularColor;
 
@@ -56,7 +58,7 @@ struct InstanceInput
 	float4 WorldRow2 : TEXCOORD2;
 	float4 WorldRow3 : TEXCOORD3;
 	float4 WorldRow4 : TEXCOORD4;
-	//X = ambient occlusion factor (1 = fully open, towards 0 = occluded by neighbours), YZW spare
+	//XYZ = world-space direction towards the instance's occluders (zero = none), W = base occlusion factor
 	float4 Custom : TEXCOORD5;
 };
 
@@ -65,7 +67,7 @@ struct VertexShaderOutput
 	float4 Position : SV_POSITION;
 	float3 WorldPosition : TEXCOORD0;
 	float3 WorldNormal : TEXCOORD1;
-	float Occlusion : TEXCOORD2;
+	float4 OcclusionData : TEXCOORD2;
 };
 
 VertexShaderOutput MainVS(VertexShaderInput input, InstanceInput instance)
@@ -81,43 +83,48 @@ VertexShaderOutput MainVS(VertexShaderInput input, InstanceInput instance)
 	output.Position = mul(mul(worldPosition, View), Projection);
 	//Bone and instance transforms are rotation + translation (+ uniform scale at most), so the adjoint transpose is not needed
 	output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
-	output.Occlusion = instance.Custom.x;
+	output.OcclusionData = instance.Custom;
 
 	return output;
 }
+
+//Same per-light math as ComputeLights in BasicEffect.fx (Blinn-Phong with the dotL > 0 mask)
+void AddLight(float3 towardsLight, float3 lightDiffuse, float3 lightSpecular, float3 worldNormal, float3 eyeVector,
+	inout float3 diffuse, inout float3 specular)
+{
+	float dotL = dot(worldNormal, towardsLight);
+	float lit = step(0, dotL);
+
+	diffuse += lightDiffuse * (dotL * lit);
+
+	float dotH = max(dot(worldNormal, normalize(towardsLight + eyeVector)), 0);
+	specular += lightSpecular * pow(dotH * lit, SpecularPower);
+}
+
+//How strongly the directional part of the occlusion darkens the surface facing the occluders
+static const float DirectionalOcclusionStrength = 1.1;
 
 float4 MainPS(VertexShaderOutput input) : COLOR
 {
 	float3 worldNormal = normalize(input.WorldNormal);
 	float3 eyeVector = normalize(EyePosition - input.WorldPosition);
 
-	//Same math as ComputeLights in BasicEffect.fx with all three lights enabled
-	float3x3 lightDirections = float3x3(DirLight0Direction, DirLight1Direction, DirLight2Direction);
-	float3x3 lightDiffuse = float3x3(DirLight0DiffuseColor, DirLight1DiffuseColor, DirLight2DiffuseColor);
-	float3x3 lightSpecular = float3x3(DirLight0SpecularColor, DirLight1SpecularColor, DirLight2SpecularColor);
+	float3 diffuse = 0;
+	float3 specular = 0;
 
-	float3x3 halfVectors;
-	halfVectors[0] = normalize(eyeVector - DirLight0Direction);
-	halfVectors[1] = normalize(eyeVector - DirLight1Direction);
-	halfVectors[2] = normalize(eyeVector - DirLight2Direction);
-
-	float3 dotL = mul(-lightDirections, worldNormal);
-	float3 dotH = mul(halfVectors, worldNormal);
-
-	float3 zeroL = step(0, dotL);
-
-	float3 diffuse = zeroL * dotL;
-	float3 specular = pow(max(dotH, 0) * zeroL, SpecularPower);
+	AddLight(normalize(KeyLightPosition - input.WorldPosition), DirLight0DiffuseColor, DirLight0SpecularColor, worldNormal, eyeVector, diffuse, specular);
+	AddLight(-DirLight1Direction, DirLight1DiffuseColor, DirLight1SpecularColor, worldNormal, eyeVector, diffuse, specular);
+	AddLight(-DirLight2Direction, DirLight2DiffuseColor, DirLight2SpecularColor, worldNormal, eyeVector, diffuse, specular);
 
 	float3 hemisphere = lerp(GroundColor, SkyColor, worldNormal.y * 0.5 + 0.5);
 
-	//Neighbour-based ambient occlusion: it fully attenuates the ambient and specular terms
-	//and softly darkens the diffuse term, so balls deep inside the cluster read as shaded crevices
-	float occlusion = input.Occlusion;
-	float diffuseOcclusion = lerp(0.7, 1.0, occlusion);
+	//Neighbour-based ambient occlusion: the base factor darkens the whole ball a little, the directional
+	//part darkens the side of the ball facing its occluders, so the crevices between touching balls go dark
+	float occlusion = saturate(input.OcclusionData.w - DirectionalOcclusionStrength * max(0, dot(worldNormal, input.OcclusionData.xyz)));
+	float diffuseOcclusion = lerp(0.6, 1.0, occlusion);
 
-	float4 color = float4(mul(diffuse, lightDiffuse) * DiffuseColor.rgb * diffuseOcclusion + hemisphere * AmbientColor * occlusion + EmissiveColor, DiffuseColor.a);
-	color.rgb += mul(specular, lightSpecular) * SpecularColor * color.a * occlusion;
+	float4 color = float4(diffuse * DiffuseColor.rgb * diffuseOcclusion + hemisphere * AmbientColor * occlusion + EmissiveColor, DiffuseColor.a);
+	color.rgb += specular * SpecularColor * color.a * occlusion;
 
 	return color;
 }

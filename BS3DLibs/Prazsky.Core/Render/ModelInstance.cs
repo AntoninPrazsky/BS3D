@@ -5,8 +5,9 @@ namespace Prazsky.Render
 {
     /// <summary>
     /// Per-instance data for <see cref="InstancedModelRenderer"/>: the world matrix (four rows in
-    /// TEXCOORD1-TEXCOORD4) plus one custom vector (TEXCOORD5). X of the custom vector carries the
-    /// ambient occlusion factor (1 = fully open, towards 0 = occluded); Y, Z and W are spare.
+    /// TEXCOORD1-TEXCOORD4) plus one custom vector (TEXCOORD5). XYZ of the custom vector carry the
+    /// world-space direction towards the instance's occluders (zero = none), W the base ambient
+    /// occlusion factor (1 = fully open, towards 0 = occluded).
     /// </summary>
     public struct ModelInstance : IVertexType
     {
@@ -22,10 +23,10 @@ namespace Prazsky.Render
 
         VertexDeclaration IVertexType.VertexDeclaration => VertexDeclaration;
 
-        public ModelInstance(Matrix world, float occlusion)
+        public ModelInstance(Matrix world, Vector4 custom)
         {
             World = world;
-            Custom = new Vector4(occlusion, 0f, 0f, 0f);
+            Custom = custom;
         }
     }
 }

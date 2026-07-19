@@ -45,6 +45,7 @@ namespace Prazsky.Render
         private readonly EffectParameter _specularPowerParam;
         private readonly EffectParameter _skyColorParam;
         private readonly EffectParameter _groundColorParam;
+        private readonly EffectParameter _keyLightPositionParam;
 
         /// <summary>
         /// Sky colour of the hemisphere ambient light (received by upward-facing surfaces).
@@ -57,6 +58,12 @@ namespace Prazsky.Render
         /// White reproduces a constant ambient term.
         /// </summary>
         public Vector3 GroundColor { get; set; } = Vector3.One;
+
+        /// <summary>
+        /// World position of the key light (a positional "sun"). The default sits far away along the
+        /// default key light direction, which is indistinguishable from a directional light.
+        /// </summary>
+        public Vector3 KeyLightPosition { get; set; } = -DefaultLighting.Light0Direction * 1000f;
 
         /// <summary>
         /// Bounding sphere of the whole model in model space (bone transforms applied). Useful for frustum culling.
@@ -132,9 +139,9 @@ namespace Prazsky.Render
             _skyColorParam = _effect.Parameters["SkyColor"];
             _groundColorParam = _effect.Parameters["GroundColor"];
 
-            _effect.Parameters["DirLight0Direction"].SetValue(DefaultLighting.Light0Direction);
             _effect.Parameters["DirLight1Direction"].SetValue(DefaultLighting.Light1Direction);
             _effect.Parameters["DirLight2Direction"].SetValue(DefaultLighting.Light2Direction);
+            _keyLightPositionParam = _effect.Parameters["KeyLightPosition"];
 
             SetLightTint(Vector3.One, Vector3.One);
         }
@@ -163,7 +170,10 @@ namespace Prazsky.Render
         /// <param name="effectParams">Lighting parameters shared by all the instances
         /// (<see cref="BasicEffectParams.AmbientLightColor"/>, specular and emissive colors are applied;
         /// zero vectors fall back to the <see cref="BasicEffect"/> defaults, like in <see cref="ModelRenderer"/>).</param>
-        public void Draw(ICamera camera, ModelInstance[] instances, int instanceCount, BasicEffectParams effectParams)
+        /// <param name="diffuseTint">Optional recolour of the model (e.g. the ball type colour): the material
+        /// diffuse colours are reduced to their luminance (keeping the patch pattern as shades) and multiplied
+        /// by this tint, so the whole instance reads as one colour. Null keeps the material colours unchanged.</param>
+        public void Draw(ICamera camera, ModelInstance[] instances, int instanceCount, BasicEffectParams effectParams, Vector3? diffuseTint = null)
         {
             if (instanceCount <= 0) return;
 
@@ -194,17 +204,28 @@ namespace Prazsky.Render
             _specularPowerParam.SetValue(specularPower);
             _skyColorParam.SetValue(SkyColor);
             _groundColorParam.SetValue(GroundColor);
+            _keyLightPositionParam.SetValue(KeyLightPosition);
 
             for (int i = 0; i < _parts.Length; i++)
             {
                 ref MeshPartData part = ref _parts[i];
 
                 _boneParam.SetValue(part.BoneTransform);
-                _diffuseColorParam.SetValue(part.DiffuseColor);
+
+                Vector3 diffuse = new(part.DiffuseColor.X, part.DiffuseColor.Y, part.DiffuseColor.Z);
+
+                if (diffuseTint.HasValue)
+                {
+                    //Luminance (Rec. 601) preserves the patch pattern as shades; the boost compensates
+                    //for the brightest material being 0.8 instead of pure white
+                    float luminance = diffuse.X * 0.299f + diffuse.Y * 0.587f + diffuse.Z * 0.114f;
+                    diffuse = diffuseTint.Value * (luminance * 1.25f);
+                }
+
+                _diffuseColorParam.SetValue(new Vector4(diffuse, part.DiffuseColor.W));
 
                 //The ambient tint is premultiplied by the material diffuse (like BasicEffect does on the CPU side);
                 //the shader modulates it per pixel by the sky/ground hemisphere colours
-                Vector3 diffuse = new(part.DiffuseColor.X, part.DiffuseColor.Y, part.DiffuseColor.Z);
                 _ambientColorParam.SetValue(ambientLightColor * diffuse);
                 _emissiveColorParam.SetValue(part.EmissiveColor + emissiveColor);
 

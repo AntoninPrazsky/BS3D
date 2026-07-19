@@ -361,6 +361,9 @@ namespace Testbed
             _ballRenderer.SkyColor = zenith * 1.3f;
             _ballRenderer.GroundColor = horizon * 0.75f; //Bounce light from below is dimmer than the sky above
 
+            //The "sun": close enough for its direction to visibly differ from ball to ball
+            _ballRenderer.KeyLightPosition = -DefaultLighting.Light0Direction * 40f;
+
             //The key/fill lights (the "sun" side) take on the horizon colour, the back light the zenith colour,
             //so the whole light rig follows the mood of the sky instead of just the ambient term
             Vector3 keyTint = Vector3.Lerp(Vector3.One, horizon, 0.5f);
@@ -762,26 +765,40 @@ namespace Testbed
                             PhysicsBall ball = _physicsBalls[x, z, level];
                             if (ball == null) continue;
 
-                            int occluders = BallsConstraintsBuilder.CountOccupiedNeighbours(_physicsBalls, ball.ArrayPosition, size);
-                            if (level == size.Level - 1) occluders = Math.Min(MAX_BALL_OCCLUDERS, occluders + 4); //The ceiling plate blocks the upper hemisphere
+                            int occluders = BallsConstraintsBuilder.CountOccupiedNeighbours(_physicsBalls, ball.ArrayPosition, size, out System.Numerics.Vector3 occlusionSum);
 
-                            CollectBallInstance(ball, 1f - BALL_OCCLUSION_STRENGTH * occluders / MAX_BALL_OCCLUDERS);
+                            if (level == size.Level - 1) //The ceiling plate blocks the upper hemisphere
+                            {
+                                occluders = Math.Min(MAX_BALL_OCCLUDERS, occluders + 4);
+                                occlusionSum.Y += 4f * Constants.SQRT_TWO * Constants.HALF;
+                            }
+
+                            Vector4 occlusionData = new(
+                                occlusionSum.X / MAX_BALL_OCCLUDERS,
+                                occlusionSum.Y / MAX_BALL_OCCLUDERS,
+                                occlusionSum.Z / MAX_BALL_OCCLUDERS,
+                                1f - BALL_OCCLUSION_STRENGTH * occluders / MAX_BALL_OCCLUDERS);
+
+                            CollectBallInstance(ball, occlusionData);
                         }
             }
 
             //Free-flying balls have nothing packed around them
-            for (int i = 0; i < _shotBalls.Count; i++) CollectBallInstance(_shotBalls[i], 1f);
-            for (int i = 0; i < _fallingBalls.Count; i++) CollectBallInstance(_fallingBalls[i], 1f);
+            Vector4 unoccluded = new(0f, 0f, 0f, 1f);
+            for (int i = 0; i < _shotBalls.Count; i++) CollectBallInstance(_shotBalls[i], unoccluded);
+            for (int i = 0; i < _fallingBalls.Count; i++) CollectBallInstance(_fallingBalls[i], unoccluded);
 
             _drawnBalls = 0;
             for (int i = 0; i < BALL_TYPE_COUNT; i++)
             {
                 _drawnBalls += _ballInstanceCounts[i];
-                _ballRenderer.Draw(_camera, _ballInstances[i], _ballInstanceCounts[i], BasicEffectParamsProvider.GetEffectByType((BallType)(i + 1)));
+                _ballRenderer.Draw(_camera, _ballInstances[i], _ballInstanceCounts[i],
+                    BasicEffectParamsProvider.GetEffectByType((BallType)(i + 1)),
+                    BasicEffectParamsProvider.GetDiffuseTintByType((BallType)(i + 1)));
             }
         }
 
-        private void CollectBallInstance(PhysicsBall ball, float occlusion)
+        private void CollectBallInstance(PhysicsBall ball, Vector4 occlusionData)
         {
             _collectedBalls++;
 
@@ -811,7 +828,7 @@ namespace Testbed
                     new Quaternion(pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z, pose.Orientation.W))
                 * Microsoft.Xna.Framework.Matrix.CreateTranslation(pose.Position.X, pose.Position.Y, pose.Position.Z);
 
-            bucket[count] = new ModelInstance(world, occlusion);
+            bucket[count] = new ModelInstance(world, occlusionData);
             _ballInstanceCounts[typeIndex] = count + 1;
         }
 
