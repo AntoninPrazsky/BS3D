@@ -28,7 +28,7 @@ MonoGame content (`Content/Content.mgcb` in Testbed and MapEditor) is compiled a
 
 Three layered libraries under `BS3DLibs/`, consumed by two executables:
 
-- **Prazsky.Core** — game-agnostic 3D infrastructure: `BasicCamera3D`/`ICamera`, model/bitmap/info renderers, `SkyDome`, `World3D`, and `Tools/Constants.cs` (named float constants like `HALF`, `SQRT_TWO` used throughout).
+- **Prazsky.Core** — game-agnostic 3D infrastructure: `BasicCamera3D`/`ICamera`, model/bitmap/info renderers, `InstancedModelRenderer` (GPU instancing), `SkyDome`, `World3D`, and `Tools/Constants.cs` (named float constants like `HALF`, `SQRT_TWO` used throughout).
 - **Prazsky.BS3D** — game logic without physics: the ball grid (`GameStructure/BallsMap.cs`), `StaticBall`, `BallType`, JSON map (de)serialization via Newtonsoft, input helpers, `Cannon`.
 - **Prazsky.BS3D.Physics** — BepuPhysics representation: `PhysicsBall` (body reference + constraint handle slots + array position) and `BallsConstraintsBuilder` (builds the constrained ball structure).
 - **Testbed** — the actual playable game loop: simulation setup, shooting, contact handling, backdrops, HUD. Test maps live in `Testbed\Maps\*.json`.
@@ -49,6 +49,10 @@ Each constraint is shared by two balls, so `PhysicsBall` stores handles in three
 ### Shooting flow (Testbed)
 
 Contact detection uses `Testbed/Contacts/ContactEvents.cs` (adapted from the Bepu demo); Bepu callbacks fire on worker threads, so contact events are queued and processed on the main thread. When a shot ball hits the structure, it is snapped into the nearest free neighbouring cell (`BallsMap.PutBallAtClosestEmptyPositionNextTo`) and then wired into the physics structure with `AttachBallToStructure`.
+
+### Ball rendering (Testbed)
+
+Balls are drawn with GPU instancing: `DrawBallsInstanced` collects world matrices into one bucket per `BallType` (skipping balls outside the camera frustum — sphere-vs-`BoundingFrustum` test) and `InstancedModelRenderer` issues one `DrawInstancedPrimitives` call per ball type per mesh part. The shader (`Testbed/Content/Shaders/InstancedModel.fx`, registered in Content.mgcb) replicates `BasicEffect`'s default-lighting per-pixel look; per-part material colors come from the `BasicEffect`s the ball model was loaded with, per-type ambient/specular tint from `BasicEffectParamsProvider`. The `autoshoot` CLI mode logs `[autoshoot] FPS: n, balls drawn: culled/total` once per second — `Maps/Dense20x10x15.json` (3000 balls) is the perf stress map (~30 FPS with the old per-ball path, vsync-capped 60 FPS instanced).
 
 ### Conventions
 

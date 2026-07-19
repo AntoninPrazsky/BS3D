@@ -195,6 +195,12 @@
 /processorParam:TextureFormat=Compressed
 /build:GameObjects/TopPlatform.x
 
+#begin Shaders/InstancedModel.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/InstancedModel.fx
+
 #begin Skyes/SkyDome1.dae
 /importer:XImporter
 /processor:ModelProcessor

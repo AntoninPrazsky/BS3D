@@ -33,7 +33,23 @@ namespace Testbed
     {
         private BasicCamera3D _camera;
         private Model _hrSphere;
-        private Microsoft.Xna.Framework.Matrix[] _hrSphereTransformations;
+
+        #region Instanced ball rendering (issues #19 and #28)
+
+        private static readonly int BALL_TYPE_COUNT = (int)BallType.Type4;
+
+        private InstancedModelRenderer _ballRenderer;
+        private readonly BoundingFrustum _cameraFrustum = new(Microsoft.Xna.Framework.Matrix.Identity);
+
+        //One world-matrix bucket per ball type; each bucket becomes a single instanced draw call
+        private readonly Microsoft.Xna.Framework.Matrix[][] _ballInstances = new Microsoft.Xna.Framework.Matrix[BALL_TYPE_COUNT][];
+        private readonly int[] _ballInstanceCounts = new int[BALL_TYPE_COUNT];
+
+        //Last frame's statistics (how many balls passed frustum culling out of how many exist)
+        private int _drawnBalls;
+        private int _collectedBalls;
+
+        #endregion
 
         private Model _groundModel, _topPlatformModel;
         private KinematicBody _ceiling;
@@ -265,8 +281,7 @@ namespace Testbed
         {
             _hrSphere = Content.Load<Model>("Balls/DebugSphere"); //HRGeoDome
 
-            _hrSphereTransformations = new Microsoft.Xna.Framework.Matrix[_hrSphere.Bones.Count];
-            _hrSphere.CopyAbsoluteBoneTransformsTo(_hrSphereTransformations);
+            _ballRenderer = new InstancedModelRenderer(GraphicsDevice, _hrSphere, Content.Load<Effect>("Shaders/InstancedModel"));
 
             #region Ground and ceiling
 
@@ -482,6 +497,7 @@ namespace Testbed
                     {
                         _autoShootElapsed = 0f;
                         ShootBall(new Vector3(RANDOM.Next(-4, 5), RANDOM.Next(4, 11), RANDOM.Next(-4, 5)));
+                        Console.WriteLine($"[autoshoot] FPS: {_info.CurrentFPS}, balls drawn: {_drawnBalls}/{_collectedBalls}");
                     }
                 }
 
@@ -574,34 +590,7 @@ namespace Testbed
                 _ceiling.Draw(_camera);
                 _cannon.Draw(_camera);
 
-                if (_physicsBalls != null)
-                {
-                    XZLevel size = XZLevel.FromArray( _physicsBalls);
-
-                    for (byte level = 0; level < size.Level; level++)
-                        for (byte x = 0; x < size.X; x++)
-                            for (byte z = 0; z < size.Z; z++)
-                                if (_physicsBalls[x, z, level] != null)
-                                {
-                                    Microsoft.Xna.Framework.Matrix ballWorldMatrix = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(new Quaternion(
-                                    _physicsBalls[x, z, level].BallReference.Pose.Orientation.X,
-                                    _physicsBalls[x, z, level].BallReference.Pose.Orientation.Y,
-                                    _physicsBalls[x, z, level].BallReference.Pose.Orientation.Z,
-                                    _physicsBalls[x, z, level].BallReference.Pose.Orientation.W))
-                                * Microsoft.Xna.Framework.Matrix.CreateTranslation(
-                                    _physicsBalls[x, z, level].BallReference.Pose.Position.X,
-                                    _physicsBalls[x, z, level].BallReference.Pose.Position.Y,
-                                    _physicsBalls[x, z, level].BallReference.Pose.Position.Z);
-
-                                    ICamera camera = _camera;
-                                    BasicEffectParams basicEffectParams = BasicEffectParamsProvider.GetEffectByType(_physicsBalls[x, z, level].Type);
-
-                                    ModelRenderer.Render(_hrSphere, _hrSphereTransformations, ref camera, ballWorldMatrix, basicEffectParams, true, true);
-                                }
-                }
-
-                DrawDynamicBalls(_shotBalls);
-                DrawDynamicBalls(_fallingBalls);
+                DrawBallsInstanced();
 
                 _castle.Draw(_camera);
             }
@@ -616,27 +605,69 @@ namespace Testbed
             base.Draw(gameTime);
         }
 
-        private void DrawDynamicBalls(List<PhysicsBall> balls)
+        /// <summary>
+        /// Draws all balls (map structure, shot and falling ones) with GPU instancing:
+        /// one draw call per ball type instead of one per ball. Balls outside
+        /// the camera frustum are skipped entirely.
+        /// </summary>
+        private void DrawBallsInstanced()
         {
-            int ballsCount = balls.Count;
-            for (int i = 0; i < ballsCount; i++)
+            _cameraFrustum.Matrix = _camera.View * _camera.Projection;
+
+            for (int i = 0; i < BALL_TYPE_COUNT; i++) _ballInstanceCounts[i] = 0;
+            _collectedBalls = 0;
+
+            if (_physicsBalls != null)
             {
-                Microsoft.Xna.Framework.Matrix ballWorldMatrix = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(
-                        new Quaternion(
-                            balls[i].BallReference.Pose.Orientation.X,
-                            balls[i].BallReference.Pose.Orientation.Y,
-                            balls[i].BallReference.Pose.Orientation.Z,
-                            balls[i].BallReference.Pose.Orientation.W))
-                        * Microsoft.Xna.Framework.Matrix.CreateTranslation(
-                            balls[i].BallReference.Pose.Position.X,
-                            balls[i].BallReference.Pose.Position.Y,
-                            balls[i].BallReference.Pose.Position.Z);
+                XZLevel size = XZLevel.FromArray(_physicsBalls);
 
-                ICamera camera = _camera;
-                BasicEffectParams basicEffectParams = BasicEffectParamsProvider.GetEffectByType(balls[i].Type);
-
-                ModelRenderer.Render(_hrSphere, _hrSphereTransformations, ref camera, ballWorldMatrix, basicEffectParams, true, true);
+                for (byte level = 0; level < size.Level; level++)
+                    for (byte x = 0; x < size.X; x++)
+                        for (byte z = 0; z < size.Z; z++)
+                            if (_physicsBalls[x, z, level] != null) CollectBallInstance(_physicsBalls[x, z, level]);
             }
+
+            for (int i = 0; i < _shotBalls.Count; i++) CollectBallInstance(_shotBalls[i]);
+            for (int i = 0; i < _fallingBalls.Count; i++) CollectBallInstance(_fallingBalls[i]);
+
+            _drawnBalls = 0;
+            for (int i = 0; i < BALL_TYPE_COUNT; i++)
+            {
+                _drawnBalls += _ballInstanceCounts[i];
+                _ballRenderer.Draw(_camera, _ballInstances[i], _ballInstanceCounts[i], BasicEffectParamsProvider.GetEffectByType((BallType)(i + 1)));
+            }
+        }
+
+        private void CollectBallInstance(PhysicsBall ball)
+        {
+            _collectedBalls++;
+
+            RigidPose pose = ball.BallReference.Pose;
+
+            Microsoft.Xna.Framework.BoundingSphere bounds = new(new Vector3(pose.Position.X, pose.Position.Y, pose.Position.Z), _ballRenderer.BoundingSphere.Radius);
+            if (!_cameraFrustum.Intersects(bounds)) return;
+
+            int typeIndex = (int)ball.Type - 1;
+            if (typeIndex < 0 || typeIndex >= BALL_TYPE_COUNT) return;
+
+            Microsoft.Xna.Framework.Matrix[] bucket = _ballInstances[typeIndex];
+            int count = _ballInstanceCounts[typeIndex];
+
+            if (bucket == null)
+            {
+                bucket = new Microsoft.Xna.Framework.Matrix[256];
+                _ballInstances[typeIndex] = bucket;
+            }
+            else if (count == bucket.Length)
+            {
+                Array.Resize(ref bucket, bucket.Length * 2);
+                _ballInstances[typeIndex] = bucket;
+            }
+
+            bucket[count] = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(
+                    new Quaternion(pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z, pose.Orientation.W))
+                * Microsoft.Xna.Framework.Matrix.CreateTranslation(pose.Position.X, pose.Position.Y, pose.Position.Z);
+            _ballInstanceCounts[typeIndex] = count + 1;
         }
 
         private void SetGraphics(bool windowed = false)
