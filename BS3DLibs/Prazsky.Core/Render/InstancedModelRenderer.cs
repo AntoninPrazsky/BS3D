@@ -56,10 +56,13 @@ namespace Prazsky.Render
         private EffectParameter _detailStrengthParam;
         private EffectParameter _detailBoostParam;
         private EffectParameter _masonryStrengthParam;
+        private EffectParameter _normalMapParam;
+        private EffectParameter _normalStrengthParam;
         private EffectTechnique _mainTechnique;
         private EffectTechnique _texturedTechnique;
         private EffectTechnique _triplanarTechnique;
         private EffectTechnique _detailUVTechnique;
+        private EffectTechnique _detailUVNormalTechnique;
         private EffectTechnique _depthTechnique;
 
         /// <summary>
@@ -93,6 +96,16 @@ namespace Prazsky.Render
         /// Only applies to <see cref="Render.DetailMapping.Triplanar"/>.
         /// </summary>
         public float MasonryStrength { get; set; }
+
+        /// <summary>
+        /// Optional tangent-space normal map accompanying <see cref="DetailTexture"/>, giving the surface
+        /// relief instead of just colour variation. Only applies to <see cref="Render.DetailMapping.ModelUVs"/>;
+        /// the tangent frame is derived in the shader, so the model needs no tangent vertex data.
+        /// </summary>
+        public Texture2D DetailNormalMap { get; set; }
+
+        /// <summary>How far <see cref="DetailNormalMap"/> tilts the surface normal (0 = flat).</summary>
+        public float DetailNormalStrength { get; set; } = 1f;
 
         /// <summary>
         /// Sky colour of the hemisphere ambient light (received by upward-facing surfaces).
@@ -251,10 +264,13 @@ namespace Prazsky.Render
             _detailStrengthParam = _effect.Parameters["DetailStrength"];
             _detailBoostParam = _effect.Parameters["DetailBoost"];
             _masonryStrengthParam = _effect.Parameters["MasonryStrength"];
+            _normalMapParam = _effect.Parameters["NormalMapTexture"];
+            _normalStrengthParam = _effect.Parameters["NormalStrength"];
             _mainTechnique = _effect.Techniques["InstancedModel"];
             _texturedTechnique = _effect.Techniques["InstancedModelTextured"];
             _triplanarTechnique = _effect.Techniques["InstancedModelTriplanar"];
             _detailUVTechnique = _effect.Techniques["InstancedModelDetailUV"];
+            _detailUVNormalTechnique = _effect.Techniques["InstancedModelDetailUVNormal"];
             _depthTechnique = _effect.Techniques["InstancedDepth"];
             _effect.CurrentTechnique = _mainTechnique;
 
@@ -392,12 +408,24 @@ namespace Prazsky.Render
                 }
                 else if (DetailTexture != null && part.DiffuseColor.W >= 1f)
                 {
-                    _effect.CurrentTechnique = DetailTextureMapping == DetailMapping.ModelUVs ? _detailUVTechnique : _triplanarTechnique;
+                    bool useModelUVs = DetailTextureMapping == DetailMapping.ModelUVs;
+                    bool useNormalMap = useModelUVs && DetailNormalMap != null;
+
+                    _effect.CurrentTechnique = useNormalMap ? _detailUVNormalTechnique
+                        : useModelUVs ? _detailUVTechnique
+                        : _triplanarTechnique;
+
                     _textureParam.SetValue(DetailTexture);
                     _detailScaleParam.SetValue(DetailScale);
                     _detailStrengthParam.SetValue(DetailStrength);
                     _detailBoostParam.SetValue(DetailBoost);
                     _masonryStrengthParam.SetValue(MasonryStrength);
+
+                    if (useNormalMap)
+                    {
+                        _normalMapParam.SetValue(DetailNormalMap);
+                        _normalStrengthParam.SetValue(DetailNormalStrength);
+                    }
                 }
                 else
                 {

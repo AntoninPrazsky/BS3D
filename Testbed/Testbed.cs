@@ -456,9 +456,11 @@ namespace Testbed
             //(a world-space projection would swim across the barrel as it moves)
             _cannonRenderer.DetailTexture = Content.Load<Texture2D>("GameObjects/CannonMetal");
             _cannonRenderer.DetailTextureMapping = DetailMapping.ModelUVs;
-            _cannonRenderer.DetailScale = 3f; //Tiles the lathe-turning rings a few times along the barrel
+            _cannonRenderer.DetailScale = 3f; //Tiles the cast mottling a few times along the barrel
             _cannonRenderer.DetailStrength = 0.75f;
             _cannonRenderer.DetailBoost = 1.75f;
+            _cannonRenderer.DetailNormalMap = Content.Load<Texture2D>("GameObjects/CannonMetalNormal");
+            _cannonRenderer.DetailNormalStrength = 0.55f; //Enough relief to catch the light without reading as corrosion
 
             _castleModel = Content.Load<Model>("Backdrops/Castle");
             _castle = new Castle(_castleModel, new Vector3(0f, -8.5f, -60f));

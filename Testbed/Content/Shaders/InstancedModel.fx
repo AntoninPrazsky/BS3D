@@ -235,6 +235,68 @@ float DetailBoost;
 //How strongly the procedural masonry joints show on vertical triplanar surfaces (0 = plain stone)
 float MasonryStrength;
 
+//Tangent-space normal map paired with the detail texture, and how far it tilts the surface normal
+texture NormalMapTexture;
+sampler2D NormalMapSampler = sampler_state
+{
+	Texture = <NormalMapTexture>;
+	MinFilter = Linear;
+	MagFilter = Linear;
+	MipFilter = Linear;
+	AddressU = Wrap;
+	AddressV = Wrap;
+};
+
+float NormalStrength;
+
+//Tangent frame derived from screen-space derivatives instead of vertex tangents: the instance
+//vertex streams carry only position, normal and UV (the procedural meshes have nothing else to give),
+//and this works for any mesh drawn through the renderer. Based on Christian Schueler's
+//"Normal Mapping Without Precomputed Tangents".
+float3x3 CotangentFrame(float3 normal, float3 worldPosition, float2 uv)
+{
+	float3 dp1 = ddx(worldPosition);
+	float3 dp2 = ddy(worldPosition);
+	float2 duv1 = ddx(uv);
+	float2 duv2 = ddy(uv);
+
+	float3 dp2perp = cross(dp2, normal);
+	float3 dp1perp = cross(normal, dp1);
+
+	float3 tangent = dp2perp * duv1.x + dp1perp * duv2.x;
+	float3 bitangent = dp2perp * duv1.y + dp1perp * duv2.y;
+
+	float invmax = rsqrt(max(dot(tangent, tangent), dot(bitangent, bitangent)));
+
+	return float3x3(tangent * invmax, bitangent * invmax, normal);
+}
+
+float4 DetailUVNormalPS(TexturedVertexShaderOutput input) : COLOR
+{
+	float2 uv = input.TexCoord * DetailScale;
+
+	float3 detail = tex2D(TextureSampler, uv).rgb;
+	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
+
+	float3 geometricNormal = normalize(input.WorldNormal);
+
+	float3 tangentNormal = tex2D(NormalMapSampler, uv).xyz * 2 - 1;
+	tangentNormal.xy *= NormalStrength;
+
+	float3 worldNormal = normalize(mul(normalize(tangentNormal), CotangentFrame(geometricNormal, input.WorldPosition, uv)));
+
+	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1));
+}
+
+technique InstancedModelDetailUVNormal
+{
+	pass P0
+	{
+		VertexShader = compile VS_SHADERMODEL TexturedVS();
+		PixelShader = compile PS_SHADERMODEL DetailUVNormalPS();
+	}
+};
+
 float4 DetailUVPS(TexturedVertexShaderOutput input) : COLOR
 {
 	float3 detail = tex2D(TextureSampler, input.TexCoord * DetailScale).rgb;

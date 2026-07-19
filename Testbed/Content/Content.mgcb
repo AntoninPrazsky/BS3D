@@ -181,6 +181,17 @@
 /processorParam:TextureFormat=Compressed
 /build:GameObjects/CannonMetal.png
 
+#begin GameObjects/CannonMetalNormal.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyEnabled=False
+/processorParam:GenerateMipmaps=True
+/processorParam:PremultiplyAlpha=False
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:GameObjects/CannonMetalNormal.png
+
 #begin GameObjects/GroundMarble.fbx
 /importer:FbxImporter
 /processor:ModelProcessor
