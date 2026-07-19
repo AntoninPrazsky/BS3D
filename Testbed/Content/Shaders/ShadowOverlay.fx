@@ -20,7 +20,13 @@ float ShadowStrength;
 //1 / shadow map resolution, for the PCF taps
 float ShadowMapTexelSize;
 
-static const float DepthBias = 0.002;
+//Only the balls render into the shadow map (the receiving ground does not), so no self-shadowing
+//can occur and the bias only needs to cover numeric noise. Too large a bias eats the part of the
+//shadow closest to the ball-ground contact, leaving a crescent-shaped hole behind resting balls.
+static const float DepthBias = 0.0005;
+
+//How far apart the PCF taps are, in shadow map texels: larger = softer (and slightly dithered) edges
+static const float PcfSpread = 2.5;
 
 texture ShadowMap;
 sampler ShadowMapSampler = sampler_state
@@ -69,12 +75,21 @@ float4 MainPS(VertexShaderOutput input) : COLOR
 
 	if (shadowUV.x < 0 || shadowUV.x > 1 || shadowUV.y < 0 || shadowUV.y > 1) return 0;
 
-	//2x2 PCF for slightly softened edges
-	float shadow = SampleShadow(shadowUV, depth);
-	shadow += SampleShadow(shadowUV + float2(ShadowMapTexelSize, 0), depth);
-	shadow += SampleShadow(shadowUV + float2(0, ShadowMapTexelSize), depth);
-	shadow += SampleShadow(shadowUV + float2(ShadowMapTexelSize, ShadowMapTexelSize), depth);
-	shadow *= 0.25;
+	//4x4 PCF with spread-out taps for soft edges
+	float shadow = 0;
+
+	[unroll]
+	for (int x = 0; x < 4; x++)
+	{
+		[unroll]
+		for (int y = 0; y < 4; y++)
+		{
+			float2 offset = float2(x - 1.5, y - 1.5) * ShadowMapTexelSize * PcfSpread;
+			shadow += SampleShadow(shadowUV + offset, depth);
+		}
+	}
+
+	shadow /= 16;
 
 	//Premultiplied alpha: zero RGB with this alpha multiplies the destination down
 	return float4(0, 0, 0, shadow * ShadowStrength);
