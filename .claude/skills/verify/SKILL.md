@@ -16,6 +16,10 @@ The exe is `Testbed\bin\net10.0-windows\Testbed.exe`. CLI arguments (any order):
 - a path to a map JSON — loaded right at startup
 - `autoshoot` — shoots a random ball every second and logs one line per second to stdout:
   `[autoshoot] FPS: <n>, balls drawn: <after frustum culling>/<total>`
+- `switchmap=<path>` — loads a second map on top of the running one after 10 s (logs `[switchmap] Loading …`);
+  exercises the map re-loading path used by F2 and drag-and-drop. Note `Dense20x10x15.json` is completely
+  full — nothing can attach to it, so to verify attachment after a switch, switch **to** a map with free cells
+  (e.g. `Full.json`) and grep stdout for `Ball placed at` after the `[switchmap]` line.
 
 Launch headless-ish (it still opens a window, 1280x800) with stdout captured:
 
@@ -24,6 +28,8 @@ Start-Process Testbed\bin\net10.0-windows\Testbed.exe -ArgumentList '"<map.json>
 ```
 
 Don't try SendKeys into the SDL window — it's unreliable. Drive tests via CLI args instead.
+When a real keypress is unavoidable, `user32.dll keybd_event` (virtual key + scan code + extended flag)
+after `SetForegroundWindow` does reach the SDL window — e.g. End = `keybd_event(0x23, 0x4F, 1, 0)` then flags `3` for key-up.
 
 ## Useful maps
 

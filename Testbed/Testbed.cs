@@ -158,11 +158,19 @@ namespace Testbed
         private readonly bool _autoShoot;
         private float _autoShootElapsed;
 
-        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false)
+        //Testing mode: loads this map on top of the running one after a delay ("switchmap=<path>" on the command line);
+        //exercises the map re-loading path that the F2 dialog and file drag-and-drop use
+        private readonly string _switchMapPath;
+        private float _switchMapElapsed;
+        private bool _switchMapDone;
+        private static readonly float SWITCH_MAP_DELAY_SECONDS = 10f;
+
+        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null)
         {
             _windowed = windowed;
             _startupMapPath = startupMapPath;
             _autoShoot = autoShoot;
+            _switchMapPath = switchMapPath;
 
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;
@@ -408,6 +416,8 @@ namespace Testbed
 
         private void DeserializeMapFromFile(string filePath)
         {
+            RemoveCurrentBallsStructure();
+
             _map = new(filePath, _hrSphere);
             _map.Center();
             _eventHandler.Map = _map;
@@ -418,6 +428,56 @@ namespace Testbed
             _eventHandler.PhysicsBalls = _physicsBalls;
 
             RecountBallsAndConstraints();
+        }
+
+        /// <summary>
+        /// Removes the previously loaded ball structure and all shot/falling balls from the simulation,
+        /// so a newly loaded map starts with a clean slate. Without this the old bodies would keep hanging
+        /// in the simulation invisibly (only <see cref="_physicsBalls"/> is drawn), blocking shots from
+        /// attaching and catching balls released by the End action in mid-air.
+        /// </summary>
+        private void RemoveCurrentBallsStructure()
+        {
+            if (_physicsBalls != null)
+            {
+                //First pass: remove all constraints. A constraint whose owning ball had no free handle slot is tracked
+                //only by the other ball of the pair, so bodies can only be removed once no constraints are left at all.
+                RemoveAllConstraints();
+
+                XZLevel size = XZLevel.FromArray(_physicsBalls);
+
+                for (byte level = 0; level < size.Level; level++)
+                    for (byte x = 0; x < size.X; x++)
+                        for (byte z = 0; z < size.Z; z++)
+                        {
+                            PhysicsBall ball = _physicsBalls[x, z, level];
+                            if (ball == null) continue;
+
+                            _simulation.Bodies.Remove(ball.BallReference.Handle);
+                            _physicsBalls[x, z, level] = null;
+                        }
+            }
+
+            RemoveDynamicBalls(_shotBalls, unregisterListeners: true);
+            RemoveDynamicBalls(_fallingBalls, unregisterListeners: false);
+        }
+
+        /// <summary>
+        /// Removes the bodies of the given balls from the simulation and clears the list
+        /// (the list instance is shared with <see cref="EventHandler"/>, so it must be cleared, not replaced).
+        /// </summary>
+        private void RemoveDynamicBalls(List<PhysicsBall> balls, bool unregisterListeners)
+        {
+            for (int i = 0; i < balls.Count; i++)
+            {
+                BodyReference body = balls[i].BallReference;
+
+                if (unregisterListeners && _events.IsListener(body.CollidableReference)) _events.Unregister(body.CollidableReference);
+
+                _simulation.Bodies.Remove(body.Handle);
+            }
+
+            balls.Clear();
         }
 
         private void RecountBallsAndConstraints()
@@ -498,6 +558,18 @@ namespace Testbed
                         _autoShootElapsed = 0f;
                         ShootBall(new Vector3(RANDOM.Next(-4, 5), RANDOM.Next(4, 11), RANDOM.Next(-4, 5)));
                         Console.WriteLine($"[autoshoot] FPS: {_info.CurrentFPS}, balls drawn: {_drawnBalls}/{_collectedBalls}");
+                    }
+                }
+
+                if (_switchMapPath != null && !_switchMapDone)
+                {
+                    _switchMapElapsed += (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+                    if (_switchMapElapsed >= SWITCH_MAP_DELAY_SECONDS)
+                    {
+                        _switchMapDone = true;
+                        Console.WriteLine($"[switchmap] Loading {_switchMapPath}");
+                        DeserializeMapFromFile(_switchMapPath);
                     }
                 }
 
