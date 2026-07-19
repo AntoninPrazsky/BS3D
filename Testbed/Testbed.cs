@@ -453,7 +453,7 @@ namespace Testbed
             _cannonRenderer = new InstancedModelRenderer(GraphicsDevice, _cilinderModel, _instancingEffect);
 
             _castleModel = Content.Load<Model>("Backdrops/Castle");
-            _castle = new Castle(_castleModel, new Vector3(0f, -8.5f, -60f), Microsoft.Xna.Framework.MathHelper.Pi);
+            _castle = new Castle(_castleModel, new Vector3(0f, -8.5f, -60f));
             _castleRenderer = new InstancedModelRenderer(GraphicsDevice, _castleModel, _instancingEffect);
 
             //The castle model has no UVs, so it gets a triplanar stone detail instead of a real texture
