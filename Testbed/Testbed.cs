@@ -47,7 +47,25 @@ namespace Testbed
 
         private SphereMesh[] _ballMeshes;
         private InstancedModelRenderer[] _ballRenderers;
-        private readonly BoundingFrustum _cameraFrustum = new(Microsoft.Xna.Framework.Matrix.Identity);
+
+        #region Shadow mapping (issue #41)
+
+        private static readonly int SHADOW_MAP_SIZE = 2048;
+        private static readonly float SHADOW_STRENGTH = 0.4f;
+        private static readonly float SHADOW_AREA = 90f; //World units covered by the light's ortho projection and by the ground overlay quad
+
+        /// <summary>
+        /// Y of the quad receiving the shadows: just above the ground top (the ground box top sits at -9.5).
+        /// </summary>
+        private static readonly float SHADOW_OVERLAY_Y = -9.49f;
+
+        private RenderTarget2D _shadowMap;
+        private Microsoft.Xna.Framework.Matrix _lightViewProjection;
+        private Effect _shadowOverlayEffect;
+        private readonly VertexPosition[] _shadowOverlayVertices = new VertexPosition[4];
+        private static readonly short[] SHADOW_OVERLAY_INDICES = { 0, 1, 2, 2, 1, 3 };
+
+        #endregion
 
         //One instance bucket per ball type and LOD level; each bucket becomes a single instanced draw call
         private readonly ModelInstance[][] _ballInstances = new ModelInstance[BALL_TYPE_COUNT * BALL_LOD_COUNT][];
@@ -321,6 +339,30 @@ namespace Testbed
                 //0.8 matches the brightest material of the old modelled sphere, so the overall brightness stays the same
                 _ballRenderers[lod] = new InstancedModelRenderer(GraphicsDevice, _ballMeshes[lod], new Vector3(0.8f), instancingEffect);
             }
+
+            #region Shadow mapping
+
+            _shadowMap = new RenderTarget2D(GraphicsDevice, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, false, SurfaceFormat.Single, DepthFormat.Depth24);
+            _shadowOverlayEffect = Content.Load<Effect>("Shaders/ShadowOverlay");
+
+            //The key light is directional for shadow purposes; a fixed ortho box around the play field covers
+            //everything that can meaningfully cast or receive (the sun position used for shading lies on this axis)
+            _lightViewProjection =
+                Microsoft.Xna.Framework.Matrix.CreateLookAt(-DefaultLighting.Light0Direction * 60f, Vector3.Zero, Vector3.Up)
+                * Microsoft.Xna.Framework.Matrix.CreateOrthographic(SHADOW_AREA, SHADOW_AREA, 1f, 150f);
+
+            float half = SHADOW_AREA * Constants.HALF;
+            _shadowOverlayVertices[0] = new(new Vector3(-half, SHADOW_OVERLAY_Y, -half));
+            _shadowOverlayVertices[1] = new(new Vector3(half, SHADOW_OVERLAY_Y, -half));
+            _shadowOverlayVertices[2] = new(new Vector3(-half, SHADOW_OVERLAY_Y, half));
+            _shadowOverlayVertices[3] = new(new Vector3(half, SHADOW_OVERLAY_Y, half));
+
+            _shadowOverlayEffect.Parameters["World"].SetValue(Microsoft.Xna.Framework.Matrix.Identity);
+            _shadowOverlayEffect.Parameters["LightViewProjection"].SetValue(_lightViewProjection);
+            _shadowOverlayEffect.Parameters["ShadowStrength"].SetValue(SHADOW_STRENGTH);
+            _shadowOverlayEffect.Parameters["ShadowMapTexelSize"].SetValue(1f / SHADOW_MAP_SIZE);
+
+            #endregion
 
             #region Ground and ceiling
 
@@ -733,6 +775,12 @@ namespace Testbed
 
         protected override void Draw(GameTime gameTime)
         {
+            if (_draw)
+            {
+                CollectBallInstances();
+                DrawBallsShadowMap(); //Must run before anything touches the backbuffer
+            }
+
             GraphicsDevice.Clear(Color.LightSlateGray);
 
             _sky.Draw(_camera);
@@ -740,7 +788,6 @@ namespace Testbed
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
-            //TODO: GameManager for drawing balls and optimize drawing (currently it is slow)
             if (_draw)
             {
                 for (int i = 0; i < _staticBodies.Count; i++) _staticBodies[i].Draw(_camera);
@@ -751,6 +798,8 @@ namespace Testbed
                 DrawBallsInstanced();
 
                 _castle.Draw(_camera);
+
+                DrawShadowOverlay();
             }
 
             if (!_gameMode)
@@ -764,14 +813,13 @@ namespace Testbed
         }
 
         /// <summary>
-        /// Draws all balls (map structure, shot and falling ones) with GPU instancing:
-        /// one draw call per ball type instead of one per ball. Balls outside
-        /// the camera frustum are skipped entirely.
+        /// Gathers the instance data of all balls (map structure, shot and falling ones) into the
+        /// per-type-and-LOD buckets used by both the shadow map pass and the visible pass.
+        /// No camera frustum culling: balls outside the view must still cast shadows into it
+        /// (and measurements showed the culling saved nothing on this scene anyway).
         /// </summary>
-        private void DrawBallsInstanced()
+        private void CollectBallInstances()
         {
-            _cameraFrustum.Matrix = _camera.View * _camera.Projection;
-
             for (int i = 0; i < _ballInstanceCounts.Length; i++) _ballInstanceCounts[i] = 0;
             for (int i = 0; i < BALL_LOD_COUNT; i++) _ballLodTotals[i] = 0;
             _collectedBalls = 0;
@@ -805,7 +853,31 @@ namespace Testbed
             Vector4 unoccluded = new(0f, 0f, 0f, 1f);
             for (int i = 0; i < _shotBalls.Count; i++) CollectBallInstance(_shotBalls[i], unoccluded);
             for (int i = 0; i < _fallingBalls.Count; i++) CollectBallInstance(_fallingBalls[i], unoccluded);
+        }
 
+        /// <summary>
+        /// Renders all collected ball instances into the shadow map from the key light's point of view.
+        /// </summary>
+        private void DrawBallsShadowMap()
+        {
+            GraphicsDevice.SetRenderTarget(_shadowMap);
+            GraphicsDevice.Clear(Color.White); //1 in the red channel = the far plane
+
+            for (int lod = 0; lod < BALL_LOD_COUNT; lod++)
+                for (int typeIndex = 0; typeIndex < BALL_TYPE_COUNT; typeIndex++)
+                {
+                    int bucketIndex = typeIndex * BALL_LOD_COUNT + lod;
+                    _ballRenderers[lod].DrawDepth(_lightViewProjection, _ballInstances[bucketIndex], _ballInstanceCounts[bucketIndex]);
+                }
+
+            GraphicsDevice.SetRenderTarget(null);
+        }
+
+        /// <summary>
+        /// Draws all collected ball instances with GPU instancing: one draw call per ball type and LOD level.
+        /// </summary>
+        private void DrawBallsInstanced()
+        {
             _drawnBalls = 0;
             for (int typeIndex = 0; typeIndex < BALL_TYPE_COUNT; typeIndex++)
                 for (int lod = 0; lod < BALL_LOD_COUNT; lod++)
@@ -822,6 +894,26 @@ namespace Testbed
                 }
         }
 
+        /// <summary>
+        /// Darkens the ground where the balls block the key light: a translucent quad on the ground plane
+        /// sampling the shadow map, so the ground keeps its own material and lighting.
+        /// </summary>
+        private void DrawShadowOverlay()
+        {
+            _shadowOverlayEffect.Parameters["ViewProjection"].SetValue(_camera.View * _camera.Projection);
+            _shadowOverlayEffect.Parameters["ShadowMap"].SetValue(_shadowMap);
+
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead; //Test against the scene, but do not write
+            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _shadowOverlayEffect.CurrentTechnique.Passes[0].Apply();
+            GraphicsDevice.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, _shadowOverlayVertices, 0, 4, SHADOW_OVERLAY_INDICES, 0, 2);
+
+            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
         private void CollectBallInstance(PhysicsBall ball, Vector4 occlusionData)
         {
             _collectedBalls++;
@@ -829,9 +921,6 @@ namespace Testbed
             RigidPose pose = ball.BallReference.Pose;
 
             Vector3 position = new(pose.Position.X, pose.Position.Y, pose.Position.Z);
-
-            Microsoft.Xna.Framework.BoundingSphere bounds = new(position, BallsConstraintsBuilder.BALL_RADIUS);
-            if (!_cameraFrustum.Intersects(bounds)) return;
 
             int typeIndex = (int)ball.Type - 1;
             if (typeIndex < 0 || typeIndex >= BALL_TYPE_COUNT) return;

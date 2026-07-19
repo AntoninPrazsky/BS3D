@@ -46,6 +46,9 @@ namespace Prazsky.Render
         private EffectParameter _skyColorParam;
         private EffectParameter _groundColorParam;
         private EffectParameter _keyLightPositionParam;
+        private EffectParameter _lightViewProjectionParam;
+        private EffectTechnique _mainTechnique;
+        private EffectTechnique _depthTechnique;
 
         /// <summary>
         /// Sky colour of the hemisphere ambient light (received by upward-facing surfaces).
@@ -176,8 +179,46 @@ namespace Prazsky.Render
             _effect.Parameters["DirLight1Direction"].SetValue(DefaultLighting.Light1Direction);
             _effect.Parameters["DirLight2Direction"].SetValue(DefaultLighting.Light2Direction);
             _keyLightPositionParam = _effect.Parameters["KeyLightPosition"];
+            _lightViewProjectionParam = _effect.Parameters["LightViewProjection"];
+
+            _mainTechnique = _effect.Techniques["InstancedModel"];
+            _depthTechnique = _effect.Techniques["InstancedDepth"];
+            _effect.CurrentTechnique = _mainTechnique;
 
             SetLightTint(Vector3.One, Vector3.One);
+        }
+
+        /// <summary>
+        /// Draws the given instances into the currently bound shadow map render target:
+        /// depth only, from the light's point of view. One draw call per model mesh part.
+        /// </summary>
+        public void DrawDepth(Matrix lightViewProjection, ModelInstance[] instances, int instanceCount)
+        {
+            if (instanceCount <= 0) return;
+
+            EnsureInstanceBufferCapacity(instances.Length);
+            _instanceBuffer.SetData(instances, 0, instanceCount, SetDataOptions.Discard);
+
+            _lightViewProjectionParam.SetValue(lightViewProjection);
+            _effect.CurrentTechnique = _depthTechnique;
+
+            for (int i = 0; i < _parts.Length; i++)
+            {
+                ref MeshPartData part = ref _parts[i];
+
+                _boneParam.SetValue(part.BoneTransform);
+
+                _graphicsDevice.SetVertexBuffers(
+                    new VertexBufferBinding(part.VertexBuffer, part.VertexOffset, 0),
+                    new VertexBufferBinding(_instanceBuffer, 0, 1));
+                _graphicsDevice.Indices = part.IndexBuffer;
+
+                _effect.CurrentTechnique.Passes[0].Apply();
+
+                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, instanceCount);
+            }
+
+            _effect.CurrentTechnique = _mainTechnique;
         }
 
         /// <summary>
