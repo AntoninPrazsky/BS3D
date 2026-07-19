@@ -825,13 +825,16 @@ namespace Testbed
             if (Keyboard.GetState().IsKeyDown(mgKeys.Left)) _cannon.Aim(new Vector2(0f, 1f), gameTime);
             if (Keyboard.GetState().IsKeyDown(mgKeys.Right)) _cannon.Aim(new Vector2(0f, -1f), gameTime);
 
+            _cannon.Update(gameTime);
+
+            //The camera must follow the cannon's pose from THIS frame (after Update above has moved it).
+            //Reading the pose before the move made the camera lag one frame behind, so any frame-time
+            //fluctuation (shooting, contact processing) showed up as the cannon jittering on screen (#29).
             if (_gameMode && !_gameModeAnimStarted)
             {
                 _camera.Position = GetCanonOffsettedPos();
                 _camera.Target = GetCannonOffsettedTarget();
             }
-
-            _cannon.Update(gameTime);
         }
 
         private Vector3 GetCannonDirection() => Vector3.Normalize(_cannon.Position - _cannon.OrbitCenter) * 10f;
