@@ -38,12 +38,21 @@ namespace Testbed
 
         private static readonly int BALL_TYPE_COUNT = (int)BallType.Type4;
 
-        private InstancedModelRenderer _ballRenderer;
+        //Procedurally generated sphere LODs, finest first: {slices, stacks} and the camera distance
+        //up to which each level is used (the last level covers everything beyond the last distance).
+        //Per-pixel lighting shades even the coarse levels smoothly; only the silhouette reveals polygons.
+        private static readonly int[,] BALL_LOD_RESOLUTIONS = { { 32, 24 }, { 16, 12 }, { 10, 7 } };
+        private static readonly float[] BALL_LOD_DISTANCES = { 15f, 30f };
+        private static readonly int BALL_LOD_COUNT = 3;
+
+        private SphereMesh[] _ballMeshes;
+        private InstancedModelRenderer[] _ballRenderers;
         private readonly BoundingFrustum _cameraFrustum = new(Microsoft.Xna.Framework.Matrix.Identity);
 
-        //One instance bucket per ball type; each bucket becomes a single instanced draw call
-        private readonly ModelInstance[][] _ballInstances = new ModelInstance[BALL_TYPE_COUNT][];
-        private readonly int[] _ballInstanceCounts = new int[BALL_TYPE_COUNT];
+        //One instance bucket per ball type and LOD level; each bucket becomes a single instanced draw call
+        private readonly ModelInstance[][] _ballInstances = new ModelInstance[BALL_TYPE_COUNT * BALL_LOD_COUNT][];
+        private readonly int[] _ballInstanceCounts = new int[BALL_TYPE_COUNT * BALL_LOD_COUNT];
+        private readonly int[] _ballLodTotals = new int[BALL_LOD_COUNT];
 
         /// <summary>
         /// How dark a fully surrounded ball gets: its lighting is scaled down by up to this fraction
@@ -119,7 +128,7 @@ namespace Testbed
         private InfoRenderer _info;
 
         private static readonly int MSAA_SAMPLES = 8;
-        private static readonly PresentInterval PRESENTATION_INTERVAL = PresentInterval.One;
+        private readonly bool _uncappedFps;
         private static float GAME_FOV = (float)Math.PI / 3.1f;
         private static float FREE_FOV = (float)Math.PI / 2.5f;
         private static Vector3 DEFAULT_CAMERA_POS = new (0f, -3f, 30f);
@@ -177,12 +186,13 @@ namespace Testbed
         private bool _switchMapDone;
         private static readonly float SWITCH_MAP_DELAY_SECONDS = 10f;
 
-        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0)
+        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false)
         {
             _windowed = windowed;
             _startupMapPath = startupMapPath;
             _autoShoot = autoShoot;
             _switchMapPath = switchMapPath;
+            _uncappedFps = uncappedFps; //Testing: "nocap" on the command line disables vsync so real rendering headroom can be measured
             if (skyNumber >= 1 && skyNumber <= 18) _skyModelNumber = skyNumber; //Testing: "sky=<n>" on the command line picks the starting sky dome
 
             _graphics = new GraphicsDeviceManager(this);
@@ -300,9 +310,18 @@ namespace Testbed
 
         protected override void LoadContent()
         {
-            _hrSphere = Content.Load<Model>("Balls/DebugSphere"); //HRGeoDome
+            _hrSphere = Content.Load<Model>("Balls/DebugSphere"); //Still used by BallsMap; balls themselves are drawn as generated spheres
 
-            _ballRenderer = new InstancedModelRenderer(GraphicsDevice, _hrSphere, Content.Load<Effect>("Shaders/InstancedModel"));
+            Effect instancingEffect = Content.Load<Effect>("Shaders/InstancedModel");
+            _ballMeshes = new SphereMesh[BALL_LOD_COUNT];
+            _ballRenderers = new InstancedModelRenderer[BALL_LOD_COUNT];
+
+            for (int lod = 0; lod < BALL_LOD_COUNT; lod++)
+            {
+                _ballMeshes[lod] = new SphereMesh(GraphicsDevice, BallsConstraintsBuilder.BALL_RADIUS, BALL_LOD_RESOLUTIONS[lod, 0], BALL_LOD_RESOLUTIONS[lod, 1]);
+                //0.8 matches the brightest material of the old modelled sphere, so the overall brightness stays the same
+                _ballRenderers[lod] = new InstancedModelRenderer(GraphicsDevice, _ballMeshes[lod], new Vector3(0.8f), instancingEffect);
+            }
 
             #region Ground and ceiling
 
@@ -358,18 +377,21 @@ namespace Testbed
             Console.WriteLine($"[sky] Dome {_skyModelNumber}: zenith {zenith}, horizon {horizon}");
 #endif
 
-            _ballRenderer.SkyColor = zenith * 1.3f;
-            _ballRenderer.GroundColor = horizon * 0.75f; //Bounce light from below is dimmer than the sky above
-
-            //The "sun": close enough for its direction to visibly differ from ball to ball
-            _ballRenderer.KeyLightPosition = -DefaultLighting.Light0Direction * 40f;
-
             //The key/fill lights (the "sun" side) take on the horizon colour, the back light the zenith colour,
             //so the whole light rig follows the mood of the sky instead of just the ambient term
             Vector3 keyTint = Vector3.Lerp(Vector3.One, horizon, 0.5f);
             Vector3 backTint = Vector3.Lerp(Vector3.One, zenith, 0.5f);
 
-            _ballRenderer.SetLightTint(keyTint, backTint);
+            foreach (InstancedModelRenderer ballRenderer in _ballRenderers)
+            {
+                ballRenderer.SkyColor = zenith * 1.3f;
+                ballRenderer.GroundColor = horizon * 0.75f; //Bounce light from below is dimmer than the sky above
+
+                //The "sun": close enough for its direction to visibly differ from ball to ball
+                ballRenderer.KeyLightPosition = -DefaultLighting.Light0Direction * 40f;
+
+                ballRenderer.SetLightTint(keyTint, backTint);
+            }
 
             DirectionalLightParams light0 = new(DefaultLighting.Light0Direction, DefaultLighting.Light0Diffuse * keyTint, DefaultLighting.Light0Specular * keyTint);
             DirectionalLightParams light1 = new(DefaultLighting.Light1Direction, DefaultLighting.Light1Diffuse * keyTint, DefaultLighting.Light1Specular * keyTint);
@@ -622,7 +644,7 @@ namespace Testbed
                     {
                         _autoShootElapsed = 0f;
                         ShootBall(new Vector3(RANDOM.Next(-4, 5), RANDOM.Next(4, 11), RANDOM.Next(-4, 5)));
-                        Console.WriteLine($"[autoshoot] FPS: {_info.CurrentFPS}, balls drawn: {_drawnBalls}/{_collectedBalls}");
+                        Console.WriteLine($"[autoshoot] FPS: {_info.CurrentFPS}, balls drawn: {_drawnBalls}/{_collectedBalls}, LOD: {string.Join("/", _ballLodTotals)}");
                     }
                 }
 
@@ -751,7 +773,8 @@ namespace Testbed
         {
             _cameraFrustum.Matrix = _camera.View * _camera.Projection;
 
-            for (int i = 0; i < BALL_TYPE_COUNT; i++) _ballInstanceCounts[i] = 0;
+            for (int i = 0; i < _ballInstanceCounts.Length; i++) _ballInstanceCounts[i] = 0;
+            for (int i = 0; i < BALL_LOD_COUNT; i++) _ballLodTotals[i] = 0;
             _collectedBalls = 0;
 
             if (_physicsBalls != null)
@@ -789,13 +812,19 @@ namespace Testbed
             for (int i = 0; i < _fallingBalls.Count; i++) CollectBallInstance(_fallingBalls[i], unoccluded);
 
             _drawnBalls = 0;
-            for (int i = 0; i < BALL_TYPE_COUNT; i++)
-            {
-                _drawnBalls += _ballInstanceCounts[i];
-                _ballRenderer.Draw(_camera, _ballInstances[i], _ballInstanceCounts[i],
-                    BasicEffectParamsProvider.GetEffectByType((BallType)(i + 1)),
-                    BasicEffectParamsProvider.GetDiffuseTintByType((BallType)(i + 1)));
-            }
+            for (int typeIndex = 0; typeIndex < BALL_TYPE_COUNT; typeIndex++)
+                for (int lod = 0; lod < BALL_LOD_COUNT; lod++)
+                {
+                    int bucketIndex = typeIndex * BALL_LOD_COUNT + lod;
+                    int count = _ballInstanceCounts[bucketIndex];
+
+                    _drawnBalls += count;
+                    _ballLodTotals[lod] += count;
+
+                    _ballRenderers[lod].Draw(_camera, _ballInstances[bucketIndex], count,
+                        BasicEffectParamsProvider.GetEffectByType((BallType)(typeIndex + 1)),
+                        BasicEffectParamsProvider.GetDiffuseTintByType((BallType)(typeIndex + 1)));
+                }
         }
 
         private void CollectBallInstance(PhysicsBall ball, Vector4 occlusionData)
@@ -804,24 +833,32 @@ namespace Testbed
 
             RigidPose pose = ball.BallReference.Pose;
 
-            Microsoft.Xna.Framework.BoundingSphere bounds = new(new Vector3(pose.Position.X, pose.Position.Y, pose.Position.Z), _ballRenderer.BoundingSphere.Radius);
+            Vector3 position = new(pose.Position.X, pose.Position.Y, pose.Position.Z);
+
+            Microsoft.Xna.Framework.BoundingSphere bounds = new(position, BallsConstraintsBuilder.BALL_RADIUS);
             if (!_cameraFrustum.Intersects(bounds)) return;
 
             int typeIndex = (int)ball.Type - 1;
             if (typeIndex < 0 || typeIndex >= BALL_TYPE_COUNT) return;
 
-            ModelInstance[] bucket = _ballInstances[typeIndex];
-            int count = _ballInstanceCounts[typeIndex];
+            //Mesh resolution by distance from the camera
+            float distance = Vector3.Distance(position, _camera.Position);
+            int lod = 0;
+            while (lod < BALL_LOD_DISTANCES.Length && distance > BALL_LOD_DISTANCES[lod]) lod++;
+
+            int bucketIndex = typeIndex * BALL_LOD_COUNT + lod;
+            ModelInstance[] bucket = _ballInstances[bucketIndex];
+            int count = _ballInstanceCounts[bucketIndex];
 
             if (bucket == null)
             {
                 bucket = new ModelInstance[256];
-                _ballInstances[typeIndex] = bucket;
+                _ballInstances[bucketIndex] = bucket;
             }
             else if (count == bucket.Length)
             {
                 Array.Resize(ref bucket, bucket.Length * 2);
-                _ballInstances[typeIndex] = bucket;
+                _ballInstances[bucketIndex] = bucket;
             }
 
             Microsoft.Xna.Framework.Matrix world = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(
@@ -829,7 +866,7 @@ namespace Testbed
                 * Microsoft.Xna.Framework.Matrix.CreateTranslation(pose.Position.X, pose.Position.Y, pose.Position.Z);
 
             bucket[count] = new ModelInstance(world, occlusionData);
-            _ballInstanceCounts[typeIndex] = count + 1;
+            _ballInstanceCounts[bucketIndex] = count + 1;
         }
 
         private void SetGraphics(bool windowed = false)
@@ -838,7 +875,7 @@ namespace Testbed
             _graphics.PreferredBackBufferHeight = windowed ? _windowHeight : GraphicsDevice.DisplayMode.Height;
             _graphics.IsFullScreen = !windowed;
 
-            _graphics.SynchronizeWithVerticalRetrace = true;
+            _graphics.SynchronizeWithVerticalRetrace = !_uncappedFps;
 
             _graphics.ApplyChanges();
 
@@ -848,7 +885,7 @@ namespace Testbed
 
         private void Graphics_PreparingDeviceSettings(object sender, PreparingDeviceSettingsEventArgs e)
         {
-            e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = PRESENTATION_INTERVAL;
+            e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = _uncappedFps ? PresentInterval.Immediate : PresentInterval.One;
             e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.HiDef;
             e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = MSAA_SAMPLES;
         }

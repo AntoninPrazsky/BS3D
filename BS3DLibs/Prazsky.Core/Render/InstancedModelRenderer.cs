@@ -34,18 +34,18 @@ namespace Prazsky.Render
         private readonly MeshPartData[] _parts;
         private DynamicVertexBuffer _instanceBuffer;
 
-        private readonly EffectParameter _viewParam;
-        private readonly EffectParameter _projectionParam;
-        private readonly EffectParameter _boneParam;
-        private readonly EffectParameter _eyePositionParam;
-        private readonly EffectParameter _diffuseColorParam;
-        private readonly EffectParameter _emissiveColorParam;
-        private readonly EffectParameter _ambientColorParam;
-        private readonly EffectParameter _specularColorParam;
-        private readonly EffectParameter _specularPowerParam;
-        private readonly EffectParameter _skyColorParam;
-        private readonly EffectParameter _groundColorParam;
-        private readonly EffectParameter _keyLightPositionParam;
+        private EffectParameter _viewParam;
+        private EffectParameter _projectionParam;
+        private EffectParameter _boneParam;
+        private EffectParameter _eyePositionParam;
+        private EffectParameter _diffuseColorParam;
+        private EffectParameter _emissiveColorParam;
+        private EffectParameter _ambientColorParam;
+        private EffectParameter _specularColorParam;
+        private EffectParameter _specularPowerParam;
+        private EffectParameter _skyColorParam;
+        private EffectParameter _groundColorParam;
+        private EffectParameter _keyLightPositionParam;
 
         /// <summary>
         /// Sky colour of the hemisphere ambient light (received by upward-facing surfaces).
@@ -127,6 +127,40 @@ namespace Prazsky.Render
             _parts = parts.ToArray();
             BoundingSphere = bounds;
 
+            InitializeEffect();
+        }
+
+        /// <summary>
+        /// Creates a renderer for drawing many instances of a procedurally generated mesh
+        /// (e.g. a <see cref="SphereMesh"/>) with the given material diffuse colour.
+        /// </summary>
+        public InstancedModelRenderer(GraphicsDevice graphicsDevice, SphereMesh mesh, Vector3 materialDiffuseColor, Effect effect)
+        {
+            _graphicsDevice = graphicsDevice;
+            _effect = effect;
+
+            _parts = new[]
+            {
+                new MeshPartData
+                {
+                    VertexBuffer = mesh.VertexBuffer,
+                    IndexBuffer = mesh.IndexBuffer,
+                    VertexOffset = 0,
+                    StartIndex = 0,
+                    PrimitiveCount = mesh.PrimitiveCount,
+                    BoneTransform = Matrix.Identity,
+                    DiffuseColor = new Vector4(materialDiffuseColor, 1f),
+                    EmissiveColor = Vector3.Zero
+                }
+            };
+
+            BoundingSphere = mesh.BoundingSphere;
+
+            InitializeEffect();
+        }
+
+        private void InitializeEffect()
+        {
             _viewParam = _effect.Parameters["View"];
             _projectionParam = _effect.Parameters["Projection"];
             _boneParam = _effect.Parameters["Bone"];
