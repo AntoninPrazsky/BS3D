@@ -61,8 +61,7 @@ namespace Testbed
         private static readonly float BALL_OCCLUSION_STRENGTH = 0.55f;
 
         /// <summary>
-        /// The most occluders a ball can have: 12 touching neighbour cells (the ceiling plate above
-        /// the top level counts as the 4 missing upper neighbours).
+        /// The most occluders a ball can have: 12 touching neighbour cells.
         /// </summary>
         private static readonly int MAX_BALL_OCCLUDERS = 12;
 
@@ -788,13 +787,9 @@ namespace Testbed
                             PhysicsBall ball = _physicsBalls[x, z, level];
                             if (ball == null) continue;
 
+                            //The ceiling plate deliberately does NOT occlude: balls released from the ceiling
+                            //would jump in brightness the moment the ceiling stops counting
                             int occluders = BallsConstraintsBuilder.CountOccupiedNeighbours(_physicsBalls, ball.ArrayPosition, size, out System.Numerics.Vector3 occlusionSum);
-
-                            if (level == size.Level - 1) //The ceiling plate blocks the upper hemisphere
-                            {
-                                occluders = Math.Min(MAX_BALL_OCCLUDERS, occluders + 4);
-                                occlusionSum.Y += 4f * Constants.SQRT_TWO * Constants.HALF;
-                            }
 
                             Vector4 occlusionData = new(
                                 occlusionSum.X / MAX_BALL_OCCLUDERS,
