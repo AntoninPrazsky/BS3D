@@ -452,6 +452,14 @@ namespace Testbed
             _cannon = new Cannon(_cilinderModel, new Vector3(0f, 5f, 0f), -6.4f, 20f);
             _cannonRenderer = new InstancedModelRenderer(GraphicsDevice, _cilinderModel, _instancingEffect);
 
+            //The cannon aims and orbits, so its metal must be mapped through the model's own UVs
+            //(a world-space projection would swim across the barrel as it moves)
+            _cannonRenderer.DetailTexture = Content.Load<Texture2D>("GameObjects/CannonMetal");
+            _cannonRenderer.DetailTextureMapping = DetailMapping.ModelUVs;
+            _cannonRenderer.DetailScale = 3f; //Tiles the lathe-turning rings a few times along the barrel
+            _cannonRenderer.DetailStrength = 0.75f;
+            _cannonRenderer.DetailBoost = 1.75f;
+
             _castleModel = Content.Load<Model>("Backdrops/Castle");
             _castle = new Castle(_castleModel, new Vector3(0f, -8.5f, -60f));
             _castleRenderer = new InstancedModelRenderer(GraphicsDevice, _castleModel, _instancingEffect);
@@ -462,6 +470,7 @@ namespace Testbed
             _castleRenderer.DetailScale = 0.08f; //Large stone patches that stay visible from across the play field
             _castleRenderer.DetailStrength = 0.7f;
             _castleRenderer.DetailBoost = 1.4f;
+            _castleRenderer.MasonryStrength = 1f;
 
             //The ground darkens the downward-facing parts of the scene objects too, like the ball bellies
             _cannonRenderer.GroundHeight = SHADOW_OVERLAY_Y;

@@ -38,12 +38,19 @@ draw all balls (see the "Ball rendering" section in CLAUDE.md). Facts that took 
   premultiplied by alpha like BasicEffect does. `ModelRenderer` + `BasicEffect` remains only in
   the MapEditor. Textured mesh parts (e.g. `GameObjects/GroundMarble.fbx`) automatically use the
   `InstancedModelTextured` technique (UVs in TEXCOORD0; same `ShadePixel` lighting, texture
-  modulates the non-specular colour like BasicEffect). UV-less models can instead set
-  `DetailTexture` (+`DetailScale`/`DetailStrength`/`DetailBoost`) on their renderer: the
-  `InstancedModelTriplanar` technique projects it along the world axes and adds procedural
-  masonry joints on vertical faces (the castle backdrop uses this with `Backdrops/CastleStone.png`,
-  a seamless tile mirrored out of the stone half of `Ground_8.png` — that source PNG is half
-  black filler with a watermark, do not tile it directly). Blender FBX gotchas: exported texture
+  modulates the non-specular colour like BasicEffect). Models with no texture of their own can instead set
+  `DetailTexture` (+`DetailScale`/`DetailStrength`/`DetailBoost`) on their renderer — it only
+  modulates the material colours — with `DetailTextureMapping` choosing how it lands:
+  - `DetailMapping.Triplanar` projects it along the world axes, needing no UVs, plus optional
+    procedural masonry joints (`MasonryStrength`). The castle uses this with
+    `Backdrops/CastleStone.png`, a seamless tile mirrored out of the stone half of `Ground_8.png`
+    (that source PNG is half black filler with a watermark — do not tile it directly).
+  - `DetailMapping.ModelUVs` samples the model's own UVs. **Anything that moves or rotates must
+    use this** — the triplanar projection is fixed in world space and would swim across the
+    surface. The cannon uses it with `GameObjects/CannonMetal.png`.
+  Procedurally generated tiles must be seamless: build them from integer-frequency sine waves
+  (see the generator approach used for CannonMetal). Waves along a single axis show up as a
+  plaid once tiled — mix directions for a mottled, direction-free surface. Blender FBX gotchas: exported texture
   paths may be relative to the .blend (patch to resolve from the FBX's own directory, or export
   with Path Mode: Strip Path), and Blender cm units make models 100× too big — fix with
   `/processorParam:Scale=0.01` in Content.mgcb. Sky domes are `Skyes/SkyDome1..18.dae`, switched with NumPad1,

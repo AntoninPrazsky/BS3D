@@ -219,17 +219,38 @@ technique InstancedModelTextured
 	}
 };
 
-//Triplanar variant for models without UVs (e.g. the castle backdrop): the detail texture is
-//projected along the three world axes and blended by the surface normal, so walls, roofs and
-//towers pick up material structure with no unwrapping. The detail only modulates the existing
-//material colours (DetailStrength 0 = untextured look).
+//Detail texturing: a texture that only modulates the existing material colours
+//(DetailStrength 0 = untextured look), mapped either through the model's own UVs
+//(InstancedModelDetailUV — required for objects that move, or the texture would swim
+//across them) or projected along the world axes for models with no UVs at all
+//(InstancedModelTriplanar, e.g. the castle backdrop).
 
-//World units per texture tile = 1 / DetailScale
+//Triplanar: world units per texture tile = 1 / DetailScale. UV mapping: tiles per UV span.
 float DetailScale;
 //How strongly the detail texture modulates the material colour (0 = not at all, 1 = fully)
 float DetailStrength;
 //Brightness compensation so a mid-grey detail texture does not darken the whole material
 float DetailBoost;
+
+//How strongly the procedural masonry joints show on vertical triplanar surfaces (0 = plain stone)
+float MasonryStrength;
+
+float4 DetailUVPS(TexturedVertexShaderOutput input) : COLOR
+{
+	float3 detail = tex2D(TextureSampler, input.TexCoord * DetailScale).rgb;
+	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
+
+	return ShadePixel(input.WorldPosition, input.WorldNormal, input.OcclusionData, float4(texRgb, 1));
+}
+
+technique InstancedModelDetailUV
+{
+	pass P0
+	{
+		VertexShader = compile VS_SHADERMODEL TexturedVS();
+		PixelShader = compile PS_SHADERMODEL DetailUVPS();
+	}
+};
 
 //Stone block coursing drawn on the vertical surfaces (world units)
 static const float BrickWidth = 3.0;
@@ -270,8 +291,8 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
 		+ tex2D(TextureSampler, p.xy).rgb * blend.z;
 
 	//Masonry joints on the vertical faces only (roofs and other Y-facing surfaces keep plain stone)
-	float verticalWeight = blend.x + blend.z;
-	float brick = (BrickMask(input.WorldPosition.zy) * blend.x + BrickMask(input.WorldPosition.xy) * blend.z) / max(verticalWeight, 0.001);
+	float verticalWeight = (blend.x + blend.z) * MasonryStrength;
+	float brick = (BrickMask(input.WorldPosition.zy) * blend.x + BrickMask(input.WorldPosition.xy) * blend.z) / max(blend.x + blend.z, 0.001);
 	float joints = lerp(1, lerp(MortarDarkness, 1, brick), verticalWeight);
 
 	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength) * joints;

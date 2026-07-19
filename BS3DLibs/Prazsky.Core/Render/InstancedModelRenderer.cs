@@ -55,19 +55,31 @@ namespace Prazsky.Render
         private EffectParameter _detailScaleParam;
         private EffectParameter _detailStrengthParam;
         private EffectParameter _detailBoostParam;
+        private EffectParameter _masonryStrengthParam;
         private EffectTechnique _mainTechnique;
         private EffectTechnique _texturedTechnique;
         private EffectTechnique _triplanarTechnique;
+        private EffectTechnique _detailUVTechnique;
         private EffectTechnique _depthTechnique;
 
         /// <summary>
-        /// Optional world-space detail texture for models without UVs: sampled triplanar (projected
-        /// along the world axes, blended by the surface normal) and modulating the material colours.
-        /// Applied to the opaque mesh parts only; translucent parts (e.g. glass) stay clean.
+        /// Optional detail texture modulating the material colours of a model that carries no texture
+        /// of its own. Applied to the opaque mesh parts only; translucent parts (e.g. glass) stay clean.
+        /// See <see cref="DetailTextureMapping"/> for how it is placed on the surface.
         /// </summary>
         public Texture2D DetailTexture { get; set; }
 
-        /// <summary>World units per detail texture tile = 1 / <see cref="DetailScale"/>.</summary>
+        /// <summary>
+        /// How <see cref="DetailTexture"/> is mapped onto the surface. Objects that move or rotate must
+        /// use <see cref="Render.DetailMapping.ModelUVs"/>, otherwise the world-space projection makes
+        /// the texture swim across them.
+        /// </summary>
+        public DetailMapping DetailTextureMapping { get; set; } = DetailMapping.Triplanar;
+
+        /// <summary>
+        /// Size of the detail texture: world units per tile = 1 / <see cref="DetailScale"/> for
+        /// <see cref="Render.DetailMapping.Triplanar"/>, tiles per UV span for <see cref="Render.DetailMapping.ModelUVs"/>.
+        /// </summary>
         public float DetailScale { get; set; } = 0.25f;
 
         /// <summary>How strongly the detail texture modulates the material colour (0 = not at all, 1 = fully).</summary>
@@ -75,6 +87,12 @@ namespace Prazsky.Render
 
         /// <summary>Brightness compensation so a mid-grey detail texture does not darken the material.</summary>
         public float DetailBoost { get; set; } = 1f;
+
+        /// <summary>
+        /// How strongly procedural masonry joints show on vertical surfaces (0 = plain stone).
+        /// Only applies to <see cref="Render.DetailMapping.Triplanar"/>.
+        /// </summary>
+        public float MasonryStrength { get; set; }
 
         /// <summary>
         /// Sky colour of the hemisphere ambient light (received by upward-facing surfaces).
@@ -232,9 +250,11 @@ namespace Prazsky.Render
             _detailScaleParam = _effect.Parameters["DetailScale"];
             _detailStrengthParam = _effect.Parameters["DetailStrength"];
             _detailBoostParam = _effect.Parameters["DetailBoost"];
+            _masonryStrengthParam = _effect.Parameters["MasonryStrength"];
             _mainTechnique = _effect.Techniques["InstancedModel"];
             _texturedTechnique = _effect.Techniques["InstancedModelTextured"];
             _triplanarTechnique = _effect.Techniques["InstancedModelTriplanar"];
+            _detailUVTechnique = _effect.Techniques["InstancedModelDetailUV"];
             _depthTechnique = _effect.Techniques["InstancedDepth"];
             _effect.CurrentTechnique = _mainTechnique;
 
@@ -372,11 +392,12 @@ namespace Prazsky.Render
                 }
                 else if (DetailTexture != null && part.DiffuseColor.W >= 1f)
                 {
-                    _effect.CurrentTechnique = _triplanarTechnique;
+                    _effect.CurrentTechnique = DetailTextureMapping == DetailMapping.ModelUVs ? _detailUVTechnique : _triplanarTechnique;
                     _textureParam.SetValue(DetailTexture);
                     _detailScaleParam.SetValue(DetailScale);
                     _detailStrengthParam.SetValue(DetailStrength);
                     _detailBoostParam.SetValue(DetailBoost);
+                    _masonryStrengthParam.SetValue(MasonryStrength);
                 }
                 else
                 {
