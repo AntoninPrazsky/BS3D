@@ -128,6 +128,33 @@ namespace Testbed
 
         #endregion
 
+        #region Ground
+
+        /// <summary>
+        /// Size of one ground block. The GroundMarble model is modelled at this size and its texture is
+        /// mapped for it, so the field is tiled from copies rather than stretched from a single slab.
+        /// </summary>
+        private static readonly float GROUND_BLOCK_SIZE = 30f;
+
+        /// <summary>
+        /// How many blocks the ground reaches from the centre in each direction. It has to extend past
+        /// the castle backdrop (whose base reaches Z -95) and far enough beyond that its edge falls close
+        /// to the horizon. All the blocks are one instanced draw call, so the extent is nearly free.
+        /// </summary>
+        private static readonly int GROUND_BLOCK_RADIUS = 4;
+
+        /// <summary>Y of the recessed centre block and of the plateau around it.</summary>
+        private static readonly float GROUND_PIT_Y = -10f;
+
+        private static readonly float GROUND_PLATEAU_Y = -9f;
+
+        /// <summary>The ground has no neighbouring-cell occlusion; the shader still expects the vector.</summary>
+        private static readonly Vector4 GROUND_NO_OCCLUSION = new(0f, 0f, 0f, 1f);
+
+        private ModelInstance[] _groundInstances;
+
+        #endregion
+
         private Model _groundModel;
         private KinematicBody _ceiling;
         private TypedIndex _ceilingShapeIndex;
@@ -555,19 +582,20 @@ namespace Testbed
 
         private void BuildGroundAndCeiling()
         {
-            Box groundBox = new(30f, 1f, 30f);
+            Box groundBox = new(GROUND_BLOCK_SIZE, 1f, GROUND_BLOCK_SIZE);
 
-            _staticBodies.Add(new(_groundModel, CreateStatic(new(0f, -10f, 0f), groundBox)));
+            for (int x = -GROUND_BLOCK_RADIUS; x <= GROUND_BLOCK_RADIUS; x++)
+                for (int z = -GROUND_BLOCK_RADIUS; z <= GROUND_BLOCK_RADIUS; z++)
+                {
+                    //The centre block is recessed by one unit, forming the arena the balls drop into
+                    float y = x == 0 && z == 0 ? GROUND_PIT_Y : GROUND_PLATEAU_Y;
 
-            _staticBodies.Add(new(_groundModel, CreateStatic(new(-30f, -9f, 0f), groundBox)));
-            _staticBodies.Add(new(_groundModel, CreateStatic(new(30, -9f, 0f), groundBox)));
-            _staticBodies.Add(new(_groundModel, CreateStatic(new(0f, -9f, 30f), groundBox)));
-            _staticBodies.Add(new(_groundModel, CreateStatic(new(0f, -9f, -30f), groundBox)));
+                    _staticBodies.Add(new(_groundModel, CreateStatic(new(x * GROUND_BLOCK_SIZE, y, z * GROUND_BLOCK_SIZE), groundBox)));
+                }
 
-            _staticBodies.Add(new(_groundModel, CreateStatic(new(-30f, -9f, -30f), groundBox)));
-            _staticBodies.Add(new(_groundModel, CreateStatic(new(30, -9f, 30f), groundBox)));
-            _staticBodies.Add(new(_groundModel, CreateStatic(new(-30f, -9f, 30f), groundBox)));
-            _staticBodies.Add(new(_groundModel, CreateStatic(new(30f, -9f, -30f), groundBox)));
+            //All the blocks share one model, so they go out as a single instanced draw call
+            _groundInstances = new ModelInstance[_staticBodies.Count];
+            for (int i = 0; i < _staticBodies.Count; i++) _groundInstances[i] = new ModelInstance(_staticBodies[i].World, GROUND_NO_OCCLUSION);
 
             Box box = new(DEFAULT_CEILING_SIZE, 1f, DEFAULT_CEILING_SIZE);
             TypedIndex boxShapeIndex = _simulation.Shapes.Add(box);
@@ -894,7 +922,7 @@ namespace Testbed
 
             if (_draw)
             {
-                for (int i = 0; i < _staticBodies.Count; i++) _groundRenderer.Draw(_camera, _staticBodies[i].World, _sceneEffectParams);
+                _groundRenderer.Draw(_camera, _groundInstances, _groundInstances.Length, _sceneEffectParams);
 
                 _cannonRenderer.Draw(_camera, _cannon.World, _sceneEffectParams);
 
