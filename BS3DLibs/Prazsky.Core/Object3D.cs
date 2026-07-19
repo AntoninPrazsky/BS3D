@@ -18,7 +18,7 @@ namespace Prazsky.Core
 		/// <summary>
 		/// World matrix.
 		/// </summary>
-		protected Matrix World { get; set; } = Matrix.Identity;
+		public Matrix World { get; protected set; } = Matrix.Identity;
 
 		/// <summary>
 		/// Three-dimensional model.

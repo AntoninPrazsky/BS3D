@@ -32,8 +32,16 @@ draw all balls (see the "Ball rendering" section in CLAUDE.md). Facts that took 
 - **Materials**: the ball model (`Balls/DebugSphere.dae`) has ~6 mesh parts with different material
   diffuse colours (beach-ball patches); the renderer reads them from the model's `BasicEffect`s at load.
   Per-type tint (red/green/blue/white) comes from `BasicEffectParamsProvider` (ambient+specular only).
-- Everything else in the scene still renders through `ModelRenderer` + `BasicEffect`
-  (`BasicEffectParams` in Prazsky.Core). Sky domes are `Skyes/SkyDome1..18.dae`, switched with NumPad1,
+- The scene objects (ground, ceiling, cannon, castle) render through the same effect as
+  single-instance draws (`InstancedModelRenderer.Draw(camera, world, effectParams)`); per-part
+  material diffuse/emissive/specular and alpha are read from the model's `BasicEffect`s and
+  premultiplied by alpha like BasicEffect does. `ModelRenderer` + `BasicEffect` remains only in
+  the MapEditor. Textured mesh parts (e.g. `GameObjects/GroundMarble.fbx`) automatically use the
+  `InstancedModelTextured` technique (UVs in TEXCOORD0; same `ShadePixel` lighting, texture
+  modulates the non-specular colour like BasicEffect). Blender FBX gotchas: exported texture
+  paths may be relative to the .blend (patch to resolve from the FBX's own directory, or export
+  with Path Mode: Strip Path), and Blender cm units make models 100× too big — fix with
+  `/processorParam:Scale=0.01` in Content.mgcb. Sky domes are `Skyes/SkyDome1..18.dae`, switched with NumPad1,
   drawn by `SkyDome` (Prazsky.Core) — the place to sample zenith/horizon colours for #39.
 
 ## Verifying shader work

@@ -49,6 +49,18 @@ float3 DirLight2Direction;
 float3 DirLight2DiffuseColor;
 float3 DirLight2SpecularColor;
 
+//Material texture of the mesh part, used by the InstancedModelTextured technique
+texture Texture;
+sampler2D TextureSampler = sampler_state
+{
+	Texture = <Texture>;
+	MinFilter = Linear;
+	MagFilter = Linear;
+	MipFilter = Linear;
+	AddressU = Wrap;
+	AddressV = Wrap;
+};
+
 struct VertexShaderInput
 {
 	float4 Position : POSITION0;
@@ -112,15 +124,17 @@ static const float DirectionalOcclusionStrength = 1.1;
 static const float GroundOcclusionStrength = 0.55;
 static const float GroundOcclusionRange = 2.0;
 
-float4 MainPS(VertexShaderOutput input) : COLOR
+//Shared shading: texColor is the sampled material texture (white for untextured parts).
+//Like BasicEffect, the texture modulates the whole non-specular colour (diffuse, ambient and emissive).
+float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionData, float4 texColor)
 {
-	float3 worldNormal = normalize(input.WorldNormal);
-	float3 eyeVector = normalize(EyePosition - input.WorldPosition);
+	float3 worldNormal = normalize(rawWorldNormal);
+	float3 eyeVector = normalize(EyePosition - worldPosition);
 
 	float3 diffuse = 0;
 	float3 specular = 0;
 
-	AddLight(normalize(KeyLightPosition - input.WorldPosition), DirLight0DiffuseColor, DirLight0SpecularColor, worldNormal, eyeVector, diffuse, specular);
+	AddLight(normalize(KeyLightPosition - worldPosition), DirLight0DiffuseColor, DirLight0SpecularColor, worldNormal, eyeVector, diffuse, specular);
 	AddLight(-DirLight1Direction, DirLight1DiffuseColor, DirLight1SpecularColor, worldNormal, eyeVector, diffuse, specular);
 	AddLight(-DirLight2Direction, DirLight2DiffuseColor, DirLight2SpecularColor, worldNormal, eyeVector, diffuse, specular);
 
@@ -128,17 +142,22 @@ float4 MainPS(VertexShaderOutput input) : COLOR
 
 	//Neighbour-based ambient occlusion: the base factor darkens the whole ball a little, the directional
 	//part darkens the side of the ball facing its occluders, so the crevices between touching balls go dark
-	float occlusion = saturate(input.OcclusionData.w - DirectionalOcclusionStrength * max(0, dot(worldNormal, input.OcclusionData.xyz)));
+	float occlusion = saturate(occlusionData.w - DirectionalOcclusionStrength * max(0, dot(worldNormal, occlusionData.xyz)));
 
 	//The ground is one more occluder: downward-facing surface close to the ground plane darkens
-	float groundProximity = saturate(1 - (input.WorldPosition.y - GroundHeight) / GroundOcclusionRange);
+	float groundProximity = saturate(1 - (worldPosition.y - GroundHeight) / GroundOcclusionRange);
 	occlusion = saturate(occlusion - GroundOcclusionStrength * groundProximity * saturate(-worldNormal.y));
 	float diffuseOcclusion = lerp(0.6, 1.0, occlusion);
 
-	float4 color = float4(diffuse * DiffuseColor.rgb * diffuseOcclusion + hemisphere * AmbientColor * occlusion + EmissiveColor, DiffuseColor.a);
+	float4 color = float4((diffuse * DiffuseColor.rgb * diffuseOcclusion + hemisphere * AmbientColor * occlusion + EmissiveColor) * texColor.rgb, DiffuseColor.a * texColor.a);
 	color.rgb += specular * SpecularColor * color.a * occlusion;
 
 	return color;
+}
+
+float4 MainPS(VertexShaderOutput input) : COLOR
+{
+	return ShadePixel(input.WorldPosition, input.WorldNormal, input.OcclusionData, float4(1, 1, 1, 1));
 }
 
 technique InstancedModel
@@ -147,6 +166,55 @@ technique InstancedModel
 	{
 		VertexShader = compile VS_SHADERMODEL MainVS();
 		PixelShader = compile PS_SHADERMODEL MainPS();
+	}
+};
+
+//Textured variant: the model vertices carry UVs in TEXCOORD0 (the instance stream stays in TEXCOORD1-5)
+
+struct TexturedVertexShaderInput
+{
+	float4 Position : POSITION0;
+	float3 Normal : NORMAL0;
+	float2 TexCoord : TEXCOORD0;
+};
+
+struct TexturedVertexShaderOutput
+{
+	float4 Position : SV_POSITION;
+	float3 WorldPosition : TEXCOORD0;
+	float3 WorldNormal : TEXCOORD1;
+	float4 OcclusionData : TEXCOORD2;
+	float2 TexCoord : TEXCOORD3;
+};
+
+TexturedVertexShaderOutput TexturedVS(TexturedVertexShaderInput input, InstanceInput instance)
+{
+	TexturedVertexShaderOutput output;
+
+	float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
+
+	float4 worldPosition = mul(mul(input.Position, Bone), world);
+
+	output.WorldPosition = worldPosition.xyz;
+	output.Position = mul(mul(worldPosition, View), Projection);
+	output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
+	output.OcclusionData = instance.Custom;
+	output.TexCoord = input.TexCoord;
+
+	return output;
+}
+
+float4 TexturedPS(TexturedVertexShaderOutput input) : COLOR
+{
+	return ShadePixel(input.WorldPosition, input.WorldNormal, input.OcclusionData, tex2D(TextureSampler, input.TexCoord));
+}
+
+technique InstancedModelTextured
+{
+	pass P0
+	{
+		VertexShader = compile VS_SHADERMODEL TexturedVS();
+		PixelShader = compile PS_SHADERMODEL TexturedPS();
 	}
 };
 

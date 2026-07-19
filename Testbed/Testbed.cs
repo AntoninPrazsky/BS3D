@@ -103,7 +103,32 @@ namespace Testbed
 
         #endregion
 
-        private Model _groundModel, _topPlatformModel;
+        #region Scene object rendering (same lit shader as the balls, drawn one instance at a time)
+
+        private Effect _instancingEffect;
+        private InstancedModelRenderer _groundRenderer;
+        private InstancedModelRenderer _ceilingRenderer;
+        private InstancedModelRenderer _cannonRenderer;
+        private InstancedModelRenderer _castleRenderer;
+
+        /// <summary>
+        /// The ceiling plate is a procedurally generated translucent glass box, rebuilt at the exact
+        /// field size of the loaded map (no model asset, no non-uniform scaling of a fixed mesh).
+        /// </summary>
+        private BoxMesh _ceilingMesh;
+
+        private static readonly Vector3 CEILING_GLASS_COLOR = new(0.55f, 0.75f, 0.85f);
+        private static readonly float CEILING_GLASS_ALPHA = 0.4f;
+
+        /// <summary>
+        /// Lighting parameters shared by all scene objects; the ambient colour is set by
+        /// <see cref="ApplySkyLighting"/>, zero specular keeps each mesh part's own material specular.
+        /// </summary>
+        private readonly BasicEffectParams _sceneEffectParams = new(Vector3.One * SCENE_AMBIENT_INTENSITY, Vector3.Zero, 0f, Vector3.Zero);
+
+        #endregion
+
+        private Model _groundModel;
         private KinematicBody _ceiling;
         private TypedIndex _ceilingShapeIndex;
 
@@ -343,7 +368,7 @@ namespace Testbed
         {
             _hrSphere = Content.Load<Model>("Balls/DebugSphere"); //Still used by BallsMap; balls themselves are drawn as generated spheres
 
-            Effect instancingEffect = Content.Load<Effect>("Shaders/InstancedModel");
+            _instancingEffect = Content.Load<Effect>("Shaders/InstancedModel");
             _ballMeshes = new SphereMesh[BALL_LOD_COUNT];
             _ballRenderers = new InstancedModelRenderer[BALL_LOD_COUNT];
 
@@ -351,7 +376,7 @@ namespace Testbed
             {
                 _ballMeshes[lod] = new SphereMesh(GraphicsDevice, BallsConstraintsBuilder.BALL_RADIUS, BALL_LOD_RESOLUTIONS[lod, 0], BALL_LOD_RESOLUTIONS[lod, 1]);
                 //0.8 matches the brightest material of the old modelled sphere, so the overall brightness stays the same
-                _ballRenderers[lod] = new InstancedModelRenderer(GraphicsDevice, _ballMeshes[lod], new Vector3(0.8f), instancingEffect);
+                _ballRenderers[lod] = new InstancedModelRenderer(GraphicsDevice, _ballMeshes[lod], new Vector3(0.8f), _instancingEffect);
             }
 
             #region Shadow mapping
@@ -404,8 +429,10 @@ namespace Testbed
 
             #region Ground and ceiling
 
-            _groundModel = Content.Load<Model>("GameObjects/Ground");
-            _topPlatformModel = Content.Load<Model>("GameObjects/TopGrid");
+            _groundModel = Content.Load<Model>("GameObjects/GroundMarble");
+
+            _groundRenderer = new InstancedModelRenderer(GraphicsDevice, _groundModel, _instancingEffect);
+            RecreateCeilingRenderer(DEFAULT_CEILING_SIZE, DEFAULT_CEILING_SIZE);
 
             BuildGroundAndCeiling();
 
@@ -423,9 +450,15 @@ namespace Testbed
 
             _cilinderModel = Content.Load<Model>("GameObjects/Cilinder");
             _cannon = new Cannon(_cilinderModel, new Vector3(0f, 5f, 0f), -6.4f, 20f);
+            _cannonRenderer = new InstancedModelRenderer(GraphicsDevice, _cilinderModel, _instancingEffect);
 
             _castleModel = Content.Load<Model>("Backdrops/Castle");
             _castle = new Castle(_castleModel, new Vector3(0f, -8.5f, -60f), Microsoft.Xna.Framework.MathHelper.Pi);
+            _castleRenderer = new InstancedModelRenderer(GraphicsDevice, _castleModel, _instancingEffect);
+
+            //The ground darkens the downward-facing parts of the scene objects too, like the ball bellies
+            _cannonRenderer.GroundHeight = SHADOW_OVERLAY_Y;
+            _castleRenderer.GroundHeight = SHADOW_OVERLAY_Y;
 
             _aimer = Content.Load<Texture2D>("Bitmaps/Aimer");
             _spriteBatch = new SpriteBatch(GraphicsDevice);
@@ -437,15 +470,28 @@ namespace Testbed
         }
 
         /// <summary>
-        /// How strongly the sky palette tints the ambient light of the BasicEffect-rendered scene objects
-        /// (ground, ceiling, cannon, castle). Balls get the full hemisphere treatment in their shader instead.
+        /// Ambient intensity of the scene objects (ground, ceiling, cannon, castle). The sky tint itself
+        /// comes from the hemisphere colours in the shader, so this stays a neutral grey.
         /// </summary>
         private static readonly float SCENE_AMBIENT_INTENSITY = 0.25f;
 
         /// <summary>
-        /// Derives the scene lighting from the current sky dome (issue #39): balls receive hemisphere ambient
-        /// (zenith colour from above, horizon colour from below) and the other objects an ambient tint mixed
-        /// from the same palette, so every sky dome gives the whole scene its own mood.
+        /// Every renderer that takes part in the sky-derived lighting: the ball LODs plus the scene objects.
+        /// </summary>
+        private IEnumerable<InstancedModelRenderer> SkyLitRenderers()
+        {
+            foreach (InstancedModelRenderer ballRenderer in _ballRenderers) yield return ballRenderer;
+
+            yield return _groundRenderer;
+            yield return _ceilingRenderer;
+            yield return _cannonRenderer;
+            yield return _castleRenderer;
+        }
+
+        /// <summary>
+        /// Derives the scene lighting from the current sky dome (issue #39): every object receives hemisphere
+        /// ambient (zenith colour from above, horizon colour from below) and the tinted three-light rig,
+        /// so every sky dome gives the whole scene its own mood.
         /// </summary>
         private void ApplySkyLighting()
         {
@@ -461,28 +507,16 @@ namespace Testbed
             Vector3 keyTint = Vector3.Lerp(Vector3.One, horizon, 0.5f);
             Vector3 backTint = Vector3.Lerp(Vector3.One, zenith, 0.5f);
 
-            foreach (InstancedModelRenderer ballRenderer in _ballRenderers)
+            foreach (InstancedModelRenderer renderer in SkyLitRenderers())
             {
-                ballRenderer.SkyColor = zenith * 1.3f;
-                ballRenderer.GroundColor = horizon * 0.75f; //Bounce light from below is dimmer than the sky above
+                renderer.SkyColor = zenith * 1.3f;
+                renderer.GroundColor = horizon * 0.75f; //Bounce light from below is dimmer than the sky above
 
-                //The "sun": close enough for its direction to visibly differ from ball to ball
-                ballRenderer.KeyLightPosition = -DefaultLighting.Light0Direction * 40f;
+                //The "sun": close enough for its direction to visibly differ from object to object
+                renderer.KeyLightPosition = -DefaultLighting.Light0Direction * 40f;
 
-                ballRenderer.SetLightTint(keyTint, backTint);
+                renderer.SetLightTint(keyTint, backTint);
             }
-
-            DirectionalLightParams light0 = new(DefaultLighting.Light0Direction, DefaultLighting.Light0Diffuse * keyTint, DefaultLighting.Light0Specular * keyTint);
-            DirectionalLightParams light1 = new(DefaultLighting.Light1Direction, DefaultLighting.Light1Diffuse * keyTint, DefaultLighting.Light1Specular * keyTint);
-            DirectionalLightParams light2 = new(DefaultLighting.Light2Direction, DefaultLighting.Light2Diffuse * backTint, DefaultLighting.Light2Specular * backTint);
-
-            Vector3 sceneAmbient = (zenith * 0.35f + horizon * 0.65f) * SCENE_AMBIENT_INTENSITY;
-            BasicEffectParams sceneParams = new(sceneAmbient, Vector3.Zero, 0f, Vector3.Zero, light0, light1, light2);
-
-            _cannon.BasicEffectParams = sceneParams;
-            _castle.BasicEffectParams = sceneParams;
-            _ceiling.BasicEffectParams = sceneParams;
-            foreach (StaticBody staticBody in _staticBodies) staticBody.BasicEffectParams = sceneParams;
         }
 
         private void ComputeAimerPosition()
@@ -526,7 +560,20 @@ namespace Testbed
             BodyHandle topBodyHandle = _simulation.Bodies.Add(in bodyDescription);
             BodyReference topBodyReference = new(topBodyHandle, _simulation.Bodies);
 
-            _ceiling = new KinematicBody(_topPlatformModel, topBodyReference, topBodyHandle);
+            _ceiling = new KinematicBody(null, topBodyReference, topBodyHandle);
+        }
+
+        /// <summary>
+        /// (Re)builds the procedural glass box of the ceiling at the given size. Called at startup
+        /// and whenever a loaded map resizes the ceiling; the caller must re-apply the sky lighting.
+        /// </summary>
+        private void RecreateCeilingRenderer(float sizeX, float sizeZ)
+        {
+            _ceilingMesh?.Dispose();
+            _ceilingRenderer?.Dispose();
+
+            _ceilingMesh = new BoxMesh(GraphicsDevice, sizeX, 1f, sizeZ);
+            _ceilingRenderer = new InstancedModelRenderer(GraphicsDevice, _ceilingMesh, CEILING_GLASS_COLOR, _instancingEffect, CEILING_GLASS_ALPHA);
         }
 
         /// <summary>
@@ -552,9 +599,10 @@ namespace Testbed
             _simulation.Shapes.Remove(_ceilingShapeIndex);
             _ceilingShapeIndex = newShapeIndex;
 
-            //Recreate the wrapper so the drawn model matches the new pose and size (the body and handle stay the same)
-            _ceiling = new KinematicBody(_topPlatformModel, ceilingReference, _ceiling.BodyHandle,
-                new Vector3(sizeX / DEFAULT_CEILING_SIZE, 1f, sizeZ / DEFAULT_CEILING_SIZE));
+            //Recreate the wrapper so its world matrix matches the new pose (the body and handle stay the same);
+            //the drawn glass box is regenerated at the exact new size instead of scaling a fixed mesh
+            _ceiling = new KinematicBody(null, ceilingReference, _ceiling.BodyHandle);
+            RecreateCeilingRenderer(sizeX, sizeZ);
         }
 
         private void LoadBallsMap()
@@ -593,7 +641,7 @@ namespace Testbed
 
             RecountBallsAndConstraints();
 
-            ApplySkyLighting(); //FitCeilingToMap recreated the ceiling wrapper, which dropped its lighting params
+            ApplySkyLighting(); //FitCeilingToMap recreated the ceiling renderer, which starts without the sky palette
         }
 
         /// <summary>
@@ -828,14 +876,16 @@ namespace Testbed
 
             if (_draw)
             {
-                for (int i = 0; i < _staticBodies.Count; i++) _staticBodies[i].Draw(_camera);
+                for (int i = 0; i < _staticBodies.Count; i++) _groundRenderer.Draw(_camera, _staticBodies[i].World, _sceneEffectParams);
 
-                _ceiling.Draw(_camera);
-                _cannon.Draw(_camera);
+                _cannonRenderer.Draw(_camera, _cannon.World, _sceneEffectParams);
 
                 DrawBallsInstanced();
 
-                _castle.Draw(_camera);
+                _castleRenderer.Draw(_camera, _castle.World, _sceneEffectParams);
+
+                //Translucent glass: drawn after the opaque scene so the balls show through it
+                _ceilingRenderer.Draw(_camera, _ceiling.World, _sceneEffectParams);
 
                 DrawShadowOverlay();
             }

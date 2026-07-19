@@ -42,7 +42,7 @@ after `SetForegroundWindow` does reach the SDL window — e.g. End = `keybd_even
 
 - `Testbed\Maps\Full.json` — legacy format (no field dimensions), ~1000 balls
 - `Testbed\Maps\Dense20x10x15.json` — full 20×10×15 grid, 3000 balls; the stress map for rendering/physics perf
-- `Testbed\Maps\20x10x15.json` — sparse map with hanging chains (tests cluster release / ceiling disconnection)
+- `Testbed\Maps\20x20x20.json` — sparse map with hanging chains (tests cluster release / ceiling disconnection)
 
 FPS is vsync-capped at 60 (`PresentInterval.One`); baseline non-instanced rendering did ~30 FPS on the dense map.
 

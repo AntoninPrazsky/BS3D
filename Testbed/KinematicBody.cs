@@ -10,13 +10,19 @@ namespace Testbed
         public BodyReference BodyReference { get; private set; }
         public BodyHandle BodyHandle { get; private set; }
 
+        /// <param name="model">Model drawn through <see cref="Object3D.Draw(Prazsky.Core.Camera.ICamera)"/>;
+        /// null for bodies drawn some other way (e.g. the ceiling, a procedurally generated mesh).</param>
         public KinematicBody(Model model, BodyReference staticReference, BodyHandle bodyHandle, Vector3? modelScale = null)
         {
             Model = model;
             BodyReference = staticReference;
             BodyHandle = bodyHandle;
-            Transformations = new Matrix[Model.Bones.Count];
-            Model.CopyAbsoluteBoneTransformsTo(Transformations);
+
+            if (model != null)
+            {
+                Transformations = new Matrix[model.Bones.Count];
+                model.CopyAbsoluteBoneTransformsTo(Transformations);
+            }
 
             World = Matrix.CreateScale(modelScale ?? Vector3.One)
                 * Matrix.CreateFromQuaternion(

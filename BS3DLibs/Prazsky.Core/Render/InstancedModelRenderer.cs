@@ -27,6 +27,9 @@ namespace Prazsky.Render
             public Matrix BoneTransform;
             public Vector4 DiffuseColor;
             public Vector3 EmissiveColor;
+            public Vector3 SpecularColor;
+            public float SpecularPower;
+            public Texture2D Texture;
         }
 
         private readonly GraphicsDevice _graphicsDevice;
@@ -48,7 +51,9 @@ namespace Prazsky.Render
         private EffectParameter _keyLightPositionParam;
         private EffectParameter _lightViewProjectionParam;
         private EffectParameter _groundHeightParam;
+        private EffectParameter _textureParam;
         private EffectTechnique _mainTechnique;
+        private EffectTechnique _texturedTechnique;
         private EffectTechnique _depthTechnique;
 
         /// <summary>
@@ -112,13 +117,19 @@ namespace Prazsky.Render
                 {
                     Vector3 diffuse = Vector3.One;
                     Vector3 emissive = Vector3.Zero;
+                    Vector3 specular = DEFAULT_SPECULAR_COLOR;
+                    float specularPower = DEFAULT_SPECULAR_POWER;
                     float alpha = 1f;
+                    Texture2D texture = null;
 
                     if (part.Effect is BasicEffect material)
                     {
                         diffuse = material.DiffuseColor;
                         emissive = material.EmissiveColor;
+                        specular = material.SpecularColor;
+                        specularPower = material.SpecularPower;
                         alpha = material.Alpha;
+                        if (material.TextureEnabled) texture = material.Texture;
                     }
 
                     parts.Add(new MeshPartData
@@ -130,7 +141,10 @@ namespace Prazsky.Render
                         PrimitiveCount = part.PrimitiveCount,
                         BoneTransform = boneTransform,
                         DiffuseColor = new Vector4(diffuse, alpha),
-                        EmissiveColor = emissive
+                        EmissiveColor = emissive,
+                        SpecularColor = specular,
+                        SpecularPower = specularPower,
+                        Texture = texture
                     });
                 }
             }
@@ -143,9 +157,11 @@ namespace Prazsky.Render
 
         /// <summary>
         /// Creates a renderer for drawing many instances of a procedurally generated mesh
-        /// (e.g. a <see cref="SphereMesh"/>) with the given material diffuse colour.
+        /// (e.g. a <see cref="SphereMesh"/> or <see cref="BoxMesh"/>) with the given material diffuse colour.
+        /// An <paramref name="alpha"/> below one makes the mesh translucent
+        /// (draw it after the opaque scene, under <see cref="BlendState.AlphaBlend"/>).
         /// </summary>
-        public InstancedModelRenderer(GraphicsDevice graphicsDevice, SphereMesh mesh, Vector3 materialDiffuseColor, Effect effect)
+        public InstancedModelRenderer(GraphicsDevice graphicsDevice, IProceduralMesh mesh, Vector3 materialDiffuseColor, Effect effect, float alpha = 1f)
         {
             _graphicsDevice = graphicsDevice;
             _effect = effect;
@@ -160,8 +176,10 @@ namespace Prazsky.Render
                     StartIndex = 0,
                     PrimitiveCount = mesh.PrimitiveCount,
                     BoneTransform = Matrix.Identity,
-                    DiffuseColor = new Vector4(materialDiffuseColor, 1f),
-                    EmissiveColor = Vector3.Zero
+                    DiffuseColor = new Vector4(materialDiffuseColor, alpha),
+                    EmissiveColor = Vector3.Zero,
+                    SpecularColor = DEFAULT_SPECULAR_COLOR,
+                    SpecularPower = DEFAULT_SPECULAR_POWER
                 }
             };
 
@@ -190,7 +208,9 @@ namespace Prazsky.Render
             _lightViewProjectionParam = _effect.Parameters["LightViewProjection"];
             _groundHeightParam = _effect.Parameters["GroundHeight"];
 
+            _textureParam = _effect.Parameters["Texture"];
             _mainTechnique = _effect.Techniques["InstancedModel"];
+            _texturedTechnique = _effect.Techniques["InstancedModelTextured"];
             _depthTechnique = _effect.Techniques["InstancedDepth"];
             _effect.CurrentTechnique = _mainTechnique;
 
@@ -269,6 +289,7 @@ namespace Prazsky.Render
             _eyePositionParam.SetValue(camera.Position);
 
             Vector3 ambientLightColor = DefaultLighting.AmbientLightColor;
+            bool overrideSpecular = false;
             Vector3 specularColor = DEFAULT_SPECULAR_COLOR;
             float specularPower = DEFAULT_SPECULAR_POWER;
             Vector3 emissiveColor = Vector3.Zero;
@@ -278,14 +299,13 @@ namespace Prazsky.Render
                 if (effectParams.AmbientLightColor != Vector3.Zero) ambientLightColor = effectParams.AmbientLightColor;
                 if (effectParams.SpecularColor != Vector3.Zero)
                 {
+                    overrideSpecular = true;
                     specularColor = effectParams.SpecularColor;
                     specularPower = effectParams.SpecularPower;
                 }
                 if (effectParams.EmmisiveColor != Vector3.Zero) emissiveColor = effectParams.EmmisiveColor;
             }
 
-            _specularColorParam.SetValue(specularColor);
-            _specularPowerParam.SetValue(specularPower);
             _skyColorParam.SetValue(SkyColor);
             _groundColorParam.SetValue(GroundColor);
             _keyLightPositionParam.SetValue(KeyLightPosition);
@@ -307,12 +327,21 @@ namespace Prazsky.Render
                     diffuse = diffuseTint.Value * (luminance * 1.25f);
                 }
 
-                _diffuseColorParam.SetValue(new Vector4(diffuse, part.DiffuseColor.W));
+                //BasicEffect premultiplies the non-specular terms by alpha on the CPU; do the same
+                //so translucent mesh parts blend identically under BlendState.AlphaBlend
+                float alpha = part.DiffuseColor.W;
+                _diffuseColorParam.SetValue(new Vector4(diffuse * alpha, alpha));
 
                 //The ambient tint is premultiplied by the material diffuse (like BasicEffect does on the CPU side);
                 //the shader modulates it per pixel by the sky/ground hemisphere colours
-                _ambientColorParam.SetValue(ambientLightColor * diffuse);
-                _emissiveColorParam.SetValue(part.EmissiveColor + emissiveColor);
+                _ambientColorParam.SetValue(ambientLightColor * diffuse * alpha);
+                _emissiveColorParam.SetValue((part.EmissiveColor + emissiveColor) * alpha);
+                _specularColorParam.SetValue(overrideSpecular ? specularColor : part.SpecularColor);
+                _specularPowerParam.SetValue(overrideSpecular ? specularPower : part.SpecularPower);
+
+                //Textured mesh parts need the variant that samples the texture (the model must carry UVs)
+                _effect.CurrentTechnique = part.Texture != null ? _texturedTechnique : _mainTechnique;
+                if (part.Texture != null) _textureParam.SetValue(part.Texture);
 
                 _graphicsDevice.SetVertexBuffers(
                     new VertexBufferBinding(part.VertexBuffer, part.VertexOffset, 0),
@@ -323,6 +352,21 @@ namespace Prazsky.Render
 
                 _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, instanceCount);
             }
+
+            _effect.CurrentTechnique = _mainTechnique;
+        }
+
+        private readonly ModelInstance[] _singleInstance = new ModelInstance[1];
+
+        /// <summary>
+        /// Draws a single instance of the model at the given world matrix, with no ambient occlusion.
+        /// Meant for unique scene objects (cannon, backdrops, ground), so they receive the same lighting
+        /// (hemisphere sky ambient, positional key light, per-pixel shading) as the instanced balls.
+        /// </summary>
+        public void Draw(ICamera camera, Matrix world, BasicEffectParams effectParams)
+        {
+            _singleInstance[0] = new ModelInstance(world, new Vector4(0f, 0f, 0f, 1f));
+            Draw(camera, _singleInstance, 1, effectParams);
         }
 
         private void EnsureInstanceBufferCapacity(int instanceCapacity)

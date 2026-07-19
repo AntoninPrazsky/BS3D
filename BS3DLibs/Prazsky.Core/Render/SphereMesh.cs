@@ -9,7 +9,7 @@ namespace Prazsky.Render
     /// a modelled sphere asset. Building several of these at different resolutions gives LOD levels:
     /// per-pixel lighting shades even a coarse sphere smoothly, only the silhouette reveals the polygons.
     /// </summary>
-    public class SphereMesh : IDisposable
+    public class SphereMesh : IProceduralMesh, IDisposable
     {
         public VertexBuffer VertexBuffer { get; private set; }
         public IndexBuffer IndexBuffer { get; private set; }
