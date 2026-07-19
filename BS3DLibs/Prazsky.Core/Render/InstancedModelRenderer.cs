@@ -14,26 +14,8 @@ namespace Prazsky.Render
     /// </summary>
     public class InstancedModelRenderer : IDisposable
     {
-        #region BasicEffect.EnableDefaultLighting values (the standard XNA three-light rig)
-
-        private static readonly Vector3 DEFAULT_AMBIENT_LIGHT_COLOR = new(0.05333332f, 0.09882354f, 0.1819608f);
-
-        private static readonly Vector3 LIGHT0_DIRECTION = new(-0.5265408f, -0.5735765f, -0.6275069f);
-        private static readonly Vector3 LIGHT0_DIFFUSE = new(1f, 0.9607844f, 0.8078432f);
-        private static readonly Vector3 LIGHT0_SPECULAR = new(1f, 0.9607844f, 0.8078432f);
-
-        private static readonly Vector3 LIGHT1_DIRECTION = new(0.7198464f, 0.3420201f, 0.4293262f);
-        private static readonly Vector3 LIGHT1_DIFFUSE = new(0.9647059f, 0.7607844f, 0.4078432f);
-        private static readonly Vector3 LIGHT1_SPECULAR = Vector3.Zero;
-
-        private static readonly Vector3 LIGHT2_DIRECTION = new(0.4545195f, -0.7660444f, 0.4545195f);
-        private static readonly Vector3 LIGHT2_DIFFUSE = new(0.3231373f, 0.3607844f, 0.3937255f);
-        private static readonly Vector3 LIGHT2_SPECULAR = new(0.3231373f, 0.3607844f, 0.3937255f);
-
         private static readonly Vector3 DEFAULT_SPECULAR_COLOR = Vector3.One;
         private const float DEFAULT_SPECULAR_POWER = 16f;
-
-        #endregion
 
         //The per-instance world matrix travels in a second vertex stream as four rows (TEXCOORD1-TEXCOORD4)
         private static readonly VertexDeclaration INSTANCE_VERTEX_DECLARATION = new(
@@ -65,8 +47,23 @@ namespace Prazsky.Render
         private readonly EffectParameter _eyePositionParam;
         private readonly EffectParameter _diffuseColorParam;
         private readonly EffectParameter _emissiveColorParam;
+        private readonly EffectParameter _ambientColorParam;
         private readonly EffectParameter _specularColorParam;
         private readonly EffectParameter _specularPowerParam;
+        private readonly EffectParameter _skyColorParam;
+        private readonly EffectParameter _groundColorParam;
+
+        /// <summary>
+        /// Sky colour of the hemisphere ambient light (received by upward-facing surfaces).
+        /// White reproduces a constant ambient term.
+        /// </summary>
+        public Vector3 SkyColor { get; set; } = Vector3.One;
+
+        /// <summary>
+        /// Ground colour of the hemisphere ambient light (received by downward-facing surfaces).
+        /// White reproduces a constant ambient term.
+        /// </summary>
+        public Vector3 GroundColor { get; set; } = Vector3.One;
 
         /// <summary>
         /// Bounding sphere of the whole model in model space (bone transforms applied). Useful for frustum culling.
@@ -136,19 +133,32 @@ namespace Prazsky.Render
             _eyePositionParam = _effect.Parameters["EyePosition"];
             _diffuseColorParam = _effect.Parameters["DiffuseColor"];
             _emissiveColorParam = _effect.Parameters["EmissiveColor"];
+            _ambientColorParam = _effect.Parameters["AmbientColor"];
             _specularColorParam = _effect.Parameters["SpecularColor"];
             _specularPowerParam = _effect.Parameters["SpecularPower"];
+            _skyColorParam = _effect.Parameters["SkyColor"];
+            _groundColorParam = _effect.Parameters["GroundColor"];
 
-            //The light rig never changes, so it is uploaded only once
-            _effect.Parameters["DirLight0Direction"].SetValue(LIGHT0_DIRECTION);
-            _effect.Parameters["DirLight0DiffuseColor"].SetValue(LIGHT0_DIFFUSE);
-            _effect.Parameters["DirLight0SpecularColor"].SetValue(LIGHT0_SPECULAR);
-            _effect.Parameters["DirLight1Direction"].SetValue(LIGHT1_DIRECTION);
-            _effect.Parameters["DirLight1DiffuseColor"].SetValue(LIGHT1_DIFFUSE);
-            _effect.Parameters["DirLight1SpecularColor"].SetValue(LIGHT1_SPECULAR);
-            _effect.Parameters["DirLight2Direction"].SetValue(LIGHT2_DIRECTION);
-            _effect.Parameters["DirLight2DiffuseColor"].SetValue(LIGHT2_DIFFUSE);
-            _effect.Parameters["DirLight2SpecularColor"].SetValue(LIGHT2_SPECULAR);
+            _effect.Parameters["DirLight0Direction"].SetValue(DefaultLighting.Light0Direction);
+            _effect.Parameters["DirLight1Direction"].SetValue(DefaultLighting.Light1Direction);
+            _effect.Parameters["DirLight2Direction"].SetValue(DefaultLighting.Light2Direction);
+
+            SetLightTint(Vector3.One, Vector3.One);
+        }
+
+        /// <summary>
+        /// Tints the default three-light rig, e.g. by the sky dome palette: the key and fill lights
+        /// (the "sun" side) by <paramref name="keyTint"/>, the back light by <paramref name="backTint"/>.
+        /// White tints reproduce the untinted <see cref="BasicEffect"/> default lighting.
+        /// </summary>
+        public void SetLightTint(Vector3 keyTint, Vector3 backTint)
+        {
+            _effect.Parameters["DirLight0DiffuseColor"].SetValue(DefaultLighting.Light0Diffuse * keyTint);
+            _effect.Parameters["DirLight0SpecularColor"].SetValue(DefaultLighting.Light0Specular * keyTint);
+            _effect.Parameters["DirLight1DiffuseColor"].SetValue(DefaultLighting.Light1Diffuse * keyTint);
+            _effect.Parameters["DirLight1SpecularColor"].SetValue(DefaultLighting.Light1Specular * keyTint);
+            _effect.Parameters["DirLight2DiffuseColor"].SetValue(DefaultLighting.Light2Diffuse * backTint);
+            _effect.Parameters["DirLight2SpecularColor"].SetValue(DefaultLighting.Light2Specular * backTint);
         }
 
         /// <summary>
@@ -171,7 +181,7 @@ namespace Prazsky.Render
             _projectionParam.SetValue(camera.Projection);
             _eyePositionParam.SetValue(camera.Position);
 
-            Vector3 ambientLightColor = DEFAULT_AMBIENT_LIGHT_COLOR;
+            Vector3 ambientLightColor = DefaultLighting.AmbientLightColor;
             Vector3 specularColor = DEFAULT_SPECULAR_COLOR;
             float specularPower = DEFAULT_SPECULAR_POWER;
             Vector3 emissiveColor = Vector3.Zero;
@@ -189,6 +199,8 @@ namespace Prazsky.Render
 
             _specularColorParam.SetValue(specularColor);
             _specularPowerParam.SetValue(specularPower);
+            _skyColorParam.SetValue(SkyColor);
+            _groundColorParam.SetValue(GroundColor);
 
             for (int i = 0; i < _parts.Length; i++)
             {
@@ -197,9 +209,11 @@ namespace Prazsky.Render
                 _boneParam.SetValue(part.BoneTransform);
                 _diffuseColorParam.SetValue(part.DiffuseColor);
 
-                //Ambient light is folded into the emissive color, exactly like BasicEffect does on the CPU side
+                //The ambient tint is premultiplied by the material diffuse (like BasicEffect does on the CPU side);
+                //the shader modulates it per pixel by the sky/ground hemisphere colours
                 Vector3 diffuse = new(part.DiffuseColor.X, part.DiffuseColor.Y, part.DiffuseColor.Z);
-                _emissiveColorParam.SetValue(part.EmissiveColor + emissiveColor + ambientLightColor * diffuse);
+                _ambientColorParam.SetValue(ambientLightColor * diffuse);
+                _emissiveColorParam.SetValue(part.EmissiveColor + emissiveColor);
 
                 _graphicsDevice.SetVertexBuffers(
                     new VertexBufferBinding(part.VertexBuffer, part.VertexOffset, 0),

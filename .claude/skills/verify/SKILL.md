@@ -16,6 +16,9 @@ The exe is `Testbed\bin\net10.0-windows\Testbed.exe`. CLI arguments (any order):
 - a path to a map JSON — loaded right at startup
 - `autoshoot` — shoots a random ball every second and logs one line per second to stdout:
   `[autoshoot] FPS: <n>, balls drawn: <after frustum culling>/<total>`
+- `sky=<n>` — starts with sky dome n (1–18) instead of 1; each dome logs `[sky] Dome n: zenith …, horizon …`
+  on load. Use separate launches per dome for lighting comparisons — synthetic NumPad1 presses don't register
+  (numpad VKs need NumLock; only extended keys like End/F10 work via keybd_event).
 - `switchmap=<path>` — loads a second map on top of the running one after 10 s (logs `[switchmap] Loading …`);
   exercises the map re-loading path used by F2 and drag-and-drop. Note `Dense20x10x15.json` is completely
   full — nothing can attach to it, so to verify attachment after a switch, switch **to** a map with free cells

@@ -165,12 +165,13 @@ namespace Testbed
         private bool _switchMapDone;
         private static readonly float SWITCH_MAP_DELAY_SECONDS = 10f;
 
-        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null)
+        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0)
         {
             _windowed = windowed;
             _startupMapPath = startupMapPath;
             _autoShoot = autoShoot;
             _switchMapPath = switchMapPath;
+            if (skyNumber >= 1 && skyNumber <= 18) _skyModelNumber = skyNumber; //Testing: "sky=<n>" on the command line picks the starting sky dome
 
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;
@@ -321,6 +322,51 @@ namespace Testbed
             ComputeAimerPosition();
 
             if (!string.IsNullOrEmpty(_startupMapPath) && File.Exists(_startupMapPath)) DeserializeMapFromFile(_startupMapPath);
+
+            ApplySkyLighting();
+        }
+
+        /// <summary>
+        /// How strongly the sky palette tints the ambient light of the BasicEffect-rendered scene objects
+        /// (ground, ceiling, cannon, castle). Balls get the full hemisphere treatment in their shader instead.
+        /// </summary>
+        private static readonly float SCENE_AMBIENT_INTENSITY = 0.25f;
+
+        /// <summary>
+        /// Derives the scene lighting from the current sky dome (issue #39): balls receive hemisphere ambient
+        /// (zenith colour from above, horizon colour from below) and the other objects an ambient tint mixed
+        /// from the same palette, so every sky dome gives the whole scene its own mood.
+        /// </summary>
+        private void ApplySkyLighting()
+        {
+            Vector3 zenith = _sky.ZenithColor;
+            Vector3 horizon = _sky.HorizonColor;
+
+#if DEBUG
+            Console.WriteLine($"[sky] Dome {_skyModelNumber}: zenith {zenith}, horizon {horizon}");
+#endif
+
+            _ballRenderer.SkyColor = zenith * 1.3f;
+            _ballRenderer.GroundColor = horizon * 0.75f; //Bounce light from below is dimmer than the sky above
+
+            //The key/fill lights (the "sun" side) take on the horizon colour, the back light the zenith colour,
+            //so the whole light rig follows the mood of the sky instead of just the ambient term
+            Vector3 keyTint = Vector3.Lerp(Vector3.One, horizon, 0.5f);
+            Vector3 backTint = Vector3.Lerp(Vector3.One, zenith, 0.5f);
+
+            _ballRenderer.SetLightTint(keyTint, backTint);
+
+            DirectionalLightParams light0 = new(DefaultLighting.Light0Direction, DefaultLighting.Light0Diffuse * keyTint, DefaultLighting.Light0Specular * keyTint);
+            DirectionalLightParams light1 = new(DefaultLighting.Light1Direction, DefaultLighting.Light1Diffuse * keyTint, DefaultLighting.Light1Specular * keyTint);
+            DirectionalLightParams light2 = new(DefaultLighting.Light2Direction, DefaultLighting.Light2Diffuse * backTint, DefaultLighting.Light2Specular * backTint);
+
+            Vector3 sceneAmbient = (zenith * 0.35f + horizon * 0.65f) * SCENE_AMBIENT_INTENSITY;
+            BasicEffectParams sceneParams = new(sceneAmbient, Vector3.Zero, 0f, Vector3.Zero, light0, light1, light2);
+
+            _cannon.BasicEffectParams = sceneParams;
+            _castle.BasicEffectParams = sceneParams;
+            _ceiling.BasicEffectParams = sceneParams;
+            foreach (StaticBody staticBody in _staticBodies) staticBody.BasicEffectParams = sceneParams;
         }
 
         private void ComputeAimerPosition()
@@ -335,6 +381,8 @@ namespace Testbed
             _skyModelNumber++;
             _skyModel = Content.Load<Model>("Skyes/SkyDome" + _skyModelNumber);
             _sky.SkyDomeModel = _skyModel;
+
+            ApplySkyLighting();
         }
 
         private void BuildGroundAndCeiling()
@@ -428,6 +476,8 @@ namespace Testbed
             _eventHandler.PhysicsBalls = _physicsBalls;
 
             RecountBallsAndConstraints();
+
+            ApplySkyLighting(); //FitCeilingToMap recreated the ceiling wrapper, which dropped its lighting params
         }
 
         /// <summary>

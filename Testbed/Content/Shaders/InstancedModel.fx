@@ -21,10 +21,16 @@ float3 EyePosition;
 
 //Material of the mesh part being drawn
 float4 DiffuseColor;
-//Premultiplied on the CPU: material emissive + ambient light color * material diffuse (same trick BasicEffect uses)
 float3 EmissiveColor;
+//Premultiplied on the CPU: ambient tint * material diffuse. Modulated per pixel by the sky hemisphere below.
+float3 AmbientColor;
 float3 SpecularColor;
 float SpecularPower;
+
+//Hemisphere ambient palette taken from the current sky dome: upward-facing surfaces receive SkyColor,
+//downward-facing ones GroundColor. Both default to white, which reproduces a constant ambient term.
+float3 SkyColor;
+float3 GroundColor;
 
 float3 DirLight0Direction;
 float3 DirLight0DiffuseColor;
@@ -99,7 +105,9 @@ float4 MainPS(VertexShaderOutput input) : COLOR
 	float3 diffuse = zeroL * dotL;
 	float3 specular = pow(max(dotH, 0) * zeroL, SpecularPower);
 
-	float4 color = float4(mul(diffuse, lightDiffuse) * DiffuseColor.rgb + EmissiveColor, DiffuseColor.a);
+	float3 hemisphere = lerp(GroundColor, SkyColor, worldNormal.y * 0.5 + 0.5);
+
+	float4 color = float4(mul(diffuse, lightDiffuse) * DiffuseColor.rgb + hemisphere * AmbientColor + EmissiveColor, DiffuseColor.a);
 	color.rgb += mul(specular, lightSpecular) * SpecularColor * color.a;
 
 	return color;
