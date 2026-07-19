@@ -41,9 +41,21 @@ namespace Testbed
         private InstancedModelRenderer _ballRenderer;
         private readonly BoundingFrustum _cameraFrustum = new(Microsoft.Xna.Framework.Matrix.Identity);
 
-        //One world-matrix bucket per ball type; each bucket becomes a single instanced draw call
-        private readonly Microsoft.Xna.Framework.Matrix[][] _ballInstances = new Microsoft.Xna.Framework.Matrix[BALL_TYPE_COUNT][];
+        //One instance bucket per ball type; each bucket becomes a single instanced draw call
+        private readonly ModelInstance[][] _ballInstances = new ModelInstance[BALL_TYPE_COUNT][];
         private readonly int[] _ballInstanceCounts = new int[BALL_TYPE_COUNT];
+
+        /// <summary>
+        /// How dark a fully surrounded ball gets: its lighting is scaled down by up to this fraction
+        /// (neighbour-based ambient occlusion, issue #40).
+        /// </summary>
+        private static readonly float BALL_OCCLUSION_STRENGTH = 0.55f;
+
+        /// <summary>
+        /// The most occluders a ball can have: 12 touching neighbour cells (the ceiling plate above
+        /// the top level counts as the 4 missing upper neighbours).
+        /// </summary>
+        private static readonly int MAX_BALL_OCCLUDERS = 12;
 
         //Last frame's statistics (how many balls passed frustum culling out of how many exist)
         private int _drawnBalls;
@@ -746,11 +758,20 @@ namespace Testbed
                 for (byte level = 0; level < size.Level; level++)
                     for (byte x = 0; x < size.X; x++)
                         for (byte z = 0; z < size.Z; z++)
-                            if (_physicsBalls[x, z, level] != null) CollectBallInstance(_physicsBalls[x, z, level]);
+                        {
+                            PhysicsBall ball = _physicsBalls[x, z, level];
+                            if (ball == null) continue;
+
+                            int occluders = BallsConstraintsBuilder.CountOccupiedNeighbours(_physicsBalls, ball.ArrayPosition, size);
+                            if (level == size.Level - 1) occluders = Math.Min(MAX_BALL_OCCLUDERS, occluders + 4); //The ceiling plate blocks the upper hemisphere
+
+                            CollectBallInstance(ball, 1f - BALL_OCCLUSION_STRENGTH * occluders / MAX_BALL_OCCLUDERS);
+                        }
             }
 
-            for (int i = 0; i < _shotBalls.Count; i++) CollectBallInstance(_shotBalls[i]);
-            for (int i = 0; i < _fallingBalls.Count; i++) CollectBallInstance(_fallingBalls[i]);
+            //Free-flying balls have nothing packed around them
+            for (int i = 0; i < _shotBalls.Count; i++) CollectBallInstance(_shotBalls[i], 1f);
+            for (int i = 0; i < _fallingBalls.Count; i++) CollectBallInstance(_fallingBalls[i], 1f);
 
             _drawnBalls = 0;
             for (int i = 0; i < BALL_TYPE_COUNT; i++)
@@ -760,7 +781,7 @@ namespace Testbed
             }
         }
 
-        private void CollectBallInstance(PhysicsBall ball)
+        private void CollectBallInstance(PhysicsBall ball, float occlusion)
         {
             _collectedBalls++;
 
@@ -772,12 +793,12 @@ namespace Testbed
             int typeIndex = (int)ball.Type - 1;
             if (typeIndex < 0 || typeIndex >= BALL_TYPE_COUNT) return;
 
-            Microsoft.Xna.Framework.Matrix[] bucket = _ballInstances[typeIndex];
+            ModelInstance[] bucket = _ballInstances[typeIndex];
             int count = _ballInstanceCounts[typeIndex];
 
             if (bucket == null)
             {
-                bucket = new Microsoft.Xna.Framework.Matrix[256];
+                bucket = new ModelInstance[256];
                 _ballInstances[typeIndex] = bucket;
             }
             else if (count == bucket.Length)
@@ -786,9 +807,11 @@ namespace Testbed
                 _ballInstances[typeIndex] = bucket;
             }
 
-            bucket[count] = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(
+            Microsoft.Xna.Framework.Matrix world = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(
                     new Quaternion(pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z, pose.Orientation.W))
                 * Microsoft.Xna.Framework.Matrix.CreateTranslation(pose.Position.X, pose.Position.Y, pose.Position.Z);
+
+            bucket[count] = new ModelInstance(world, occlusion);
             _ballInstanceCounts[typeIndex] = count + 1;
         }
 

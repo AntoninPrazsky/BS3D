@@ -17,13 +17,6 @@ namespace Prazsky.Render
         private static readonly Vector3 DEFAULT_SPECULAR_COLOR = Vector3.One;
         private const float DEFAULT_SPECULAR_POWER = 16f;
 
-        //The per-instance world matrix travels in a second vertex stream as four rows (TEXCOORD1-TEXCOORD4)
-        private static readonly VertexDeclaration INSTANCE_VERTEX_DECLARATION = new(
-            new VertexElement(0, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 1),
-            new VertexElement(16, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 2),
-            new VertexElement(32, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 3),
-            new VertexElement(48, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 4));
-
         private struct MeshPartData
         {
             public VertexBuffer VertexBuffer;
@@ -165,12 +158,12 @@ namespace Prazsky.Render
         /// Draws the given instances of the model in one draw call per model mesh part.
         /// </summary>
         /// <param name="camera">A camera that looks at the resulting rendering.</param>
-        /// <param name="instances">World matrices of the individual instances. Only the first <paramref name="instanceCount"/> entries are drawn.</param>
+        /// <param name="instances">Per-instance data (world matrix + custom vector). Only the first <paramref name="instanceCount"/> entries are drawn.</param>
         /// <param name="instanceCount">Number of instances to draw.</param>
         /// <param name="effectParams">Lighting parameters shared by all the instances
         /// (<see cref="BasicEffectParams.AmbientLightColor"/>, specular and emissive colors are applied;
         /// zero vectors fall back to the <see cref="BasicEffect"/> defaults, like in <see cref="ModelRenderer"/>).</param>
-        public void Draw(ICamera camera, Matrix[] instances, int instanceCount, BasicEffectParams effectParams)
+        public void Draw(ICamera camera, ModelInstance[] instances, int instanceCount, BasicEffectParams effectParams)
         {
             if (instanceCount <= 0) return;
 
@@ -231,7 +224,7 @@ namespace Prazsky.Render
             if (_instanceBuffer != null && _instanceBuffer.VertexCount >= instanceCapacity) return;
 
             _instanceBuffer?.Dispose();
-            _instanceBuffer = new DynamicVertexBuffer(_graphicsDevice, INSTANCE_VERTEX_DECLARATION, instanceCapacity, BufferUsage.WriteOnly);
+            _instanceBuffer = new DynamicVertexBuffer(_graphicsDevice, ModelInstance.VertexDeclaration, instanceCapacity, BufferUsage.WriteOnly);
         }
 
         public void Dispose()

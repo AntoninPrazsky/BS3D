@@ -56,6 +56,8 @@ struct InstanceInput
 	float4 WorldRow2 : TEXCOORD2;
 	float4 WorldRow3 : TEXCOORD3;
 	float4 WorldRow4 : TEXCOORD4;
+	//X = ambient occlusion factor (1 = fully open, towards 0 = occluded by neighbours), YZW spare
+	float4 Custom : TEXCOORD5;
 };
 
 struct VertexShaderOutput
@@ -63,6 +65,7 @@ struct VertexShaderOutput
 	float4 Position : SV_POSITION;
 	float3 WorldPosition : TEXCOORD0;
 	float3 WorldNormal : TEXCOORD1;
+	float Occlusion : TEXCOORD2;
 };
 
 VertexShaderOutput MainVS(VertexShaderInput input, InstanceInput instance)
@@ -78,6 +81,7 @@ VertexShaderOutput MainVS(VertexShaderInput input, InstanceInput instance)
 	output.Position = mul(mul(worldPosition, View), Projection);
 	//Bone and instance transforms are rotation + translation (+ uniform scale at most), so the adjoint transpose is not needed
 	output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
+	output.Occlusion = instance.Custom.x;
 
 	return output;
 }
@@ -107,8 +111,13 @@ float4 MainPS(VertexShaderOutput input) : COLOR
 
 	float3 hemisphere = lerp(GroundColor, SkyColor, worldNormal.y * 0.5 + 0.5);
 
-	float4 color = float4(mul(diffuse, lightDiffuse) * DiffuseColor.rgb + hemisphere * AmbientColor + EmissiveColor, DiffuseColor.a);
-	color.rgb += mul(specular, lightSpecular) * SpecularColor * color.a;
+	//Neighbour-based ambient occlusion: it fully attenuates the ambient and specular terms
+	//and softly darkens the diffuse term, so balls deep inside the cluster read as shaded crevices
+	float occlusion = input.Occlusion;
+	float diffuseOcclusion = lerp(0.7, 1.0, occlusion);
+
+	float4 color = float4(mul(diffuse, lightDiffuse) * DiffuseColor.rgb * diffuseOcclusion + hemisphere * AmbientColor * occlusion + EmissiveColor, DiffuseColor.a);
+	color.rgb += mul(specular, lightSpecular) * SpecularColor * color.a * occlusion;
 
 	return color;
 }

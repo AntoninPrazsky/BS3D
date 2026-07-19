@@ -110,6 +110,41 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
+        /// Counts occupied cells among the up-to-12 neighbouring cells of the given cell
+        /// (4 on the same level, up to 4 on each adjacent level — the same parity rules as
+        /// <see cref="BallsMap.GetNeighbouringCells"/>, but without allocating an enumerator,
+        /// since this runs for every ball every frame). Used for ambient occlusion.
+        /// </summary>
+        public static int CountOccupiedNeighbours(PhysicsBall[,,] balls, XZLevel cell, XZLevel size)
+        {
+            int occupied = 0;
+
+            if (cell.X - 1 >= 0 && balls[cell.X - 1, cell.Z, cell.Level] != null) occupied++;
+            if (cell.X + 1 < size.X && balls[cell.X + 1, cell.Z, cell.Level] != null) occupied++;
+            if (cell.Z - 1 >= 0 && balls[cell.X, cell.Z - 1, cell.Level] != null) occupied++;
+            if (cell.Z + 1 < size.Z && balls[cell.X, cell.Z + 1, cell.Level] != null) occupied++;
+
+            int diagonalShift = (cell.Level % 2) > 0 ? 0 : -1;
+
+            for (int levelOffset = -1; levelOffset <= 1; levelOffset += 2)
+            {
+                int level = cell.Level + levelOffset;
+                if (level < 0 || level >= size.Level) continue;
+
+                for (int dX = 0; dX <= 1; dX++)
+                    for (int dZ = 0; dZ <= 1; dZ++)
+                    {
+                        int x = cell.X + dX + diagonalShift;
+                        int z = cell.Z + dZ + diagonalShift;
+
+                        if (x >= 0 && z >= 0 && x < size.X && z < size.Z && balls[x, z, level] != null) occupied++;
+                    }
+            }
+
+            return occupied;
+        }
+
+        /// <summary>
         /// Minimum number of touching same-type balls required for the cluster to be released.
         /// </summary>
         public static readonly int MINIMUM_CLUSTER_SIZE = 3;
