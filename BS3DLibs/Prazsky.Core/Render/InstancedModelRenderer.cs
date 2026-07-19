@@ -47,6 +47,7 @@ namespace Prazsky.Render
         private EffectParameter _groundColorParam;
         private EffectParameter _keyLightPositionParam;
         private EffectParameter _lightViewProjectionParam;
+        private EffectParameter _groundHeightParam;
         private EffectTechnique _mainTechnique;
         private EffectTechnique _depthTechnique;
 
@@ -67,6 +68,13 @@ namespace Prazsky.Render
         /// default key light direction, which is indistinguishable from a directional light.
         /// </summary>
         public Vector3 KeyLightPosition { get; set; } = -DefaultLighting.Light0Direction * 1000f;
+
+        /// <summary>
+        /// Y of the ground plane for the ground-contact part of the ambient occlusion
+        /// (downward-facing surface near the ground darkens). The default is far enough below
+        /// everything to have no effect.
+        /// </summary>
+        public float GroundHeight { get; set; } = -10000f;
 
         /// <summary>
         /// Bounding sphere of the whole model in model space (bone transforms applied). Useful for frustum culling.
@@ -180,6 +188,7 @@ namespace Prazsky.Render
             _effect.Parameters["DirLight2Direction"].SetValue(DefaultLighting.Light2Direction);
             _keyLightPositionParam = _effect.Parameters["KeyLightPosition"];
             _lightViewProjectionParam = _effect.Parameters["LightViewProjection"];
+            _groundHeightParam = _effect.Parameters["GroundHeight"];
 
             _mainTechnique = _effect.Techniques["InstancedModel"];
             _depthTechnique = _effect.Techniques["InstancedDepth"];
@@ -280,6 +289,7 @@ namespace Prazsky.Render
             _skyColorParam.SetValue(SkyColor);
             _groundColorParam.SetValue(GroundColor);
             _keyLightPositionParam.SetValue(KeyLightPosition);
+            _groundHeightParam.SetValue(GroundHeight);
 
             for (int i = 0; i < _parts.Length; i++)
             {

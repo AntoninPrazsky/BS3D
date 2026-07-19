@@ -32,6 +32,9 @@ float SpecularPower;
 float3 SkyColor;
 float3 GroundColor;
 
+//Y of the ground plane, for the ground-contact part of the ambient occlusion
+float GroundHeight;
+
 //The key light is positional (a "sun" placed in the scene): its direction differs per surface point,
 //so every ball is lit according to where it sits relative to the light instead of all balls looking identical.
 float3 KeyLightPosition;
@@ -104,6 +107,11 @@ void AddLight(float3 towardsLight, float3 lightDiffuse, float3 lightSpecular, fl
 //How strongly the directional part of the occlusion darkens the surface facing the occluders
 static const float DirectionalOcclusionStrength = 1.1;
 
+//Ground-contact occlusion: how strongly the downward-facing side of a ball darkens near the ground,
+//and over how many world units above the ground the effect fades out
+static const float GroundOcclusionStrength = 0.55;
+static const float GroundOcclusionRange = 2.0;
+
 float4 MainPS(VertexShaderOutput input) : COLOR
 {
 	float3 worldNormal = normalize(input.WorldNormal);
@@ -121,6 +129,10 @@ float4 MainPS(VertexShaderOutput input) : COLOR
 	//Neighbour-based ambient occlusion: the base factor darkens the whole ball a little, the directional
 	//part darkens the side of the ball facing its occluders, so the crevices between touching balls go dark
 	float occlusion = saturate(input.OcclusionData.w - DirectionalOcclusionStrength * max(0, dot(worldNormal, input.OcclusionData.xyz)));
+
+	//The ground is one more occluder: downward-facing surface close to the ground plane darkens
+	float groundProximity = saturate(1 - (input.WorldPosition.y - GroundHeight) / GroundOcclusionRange);
+	occlusion = saturate(occlusion - GroundOcclusionStrength * groundProximity * saturate(-worldNormal.y));
 	float diffuseOcclusion = lerp(0.6, 1.0, occlusion);
 
 	float4 color = float4(diffuse * DiffuseColor.rgb * diffuseOcclusion + hemisphere * AmbientColor * occlusion + EmissiveColor, DiffuseColor.a);

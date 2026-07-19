@@ -103,3 +103,76 @@ technique ShadowOverlay
 		PixelShader = compile PS_SHADERMODEL MainPS();
 	}
 };
+
+//Contact ambient occlusion blobs: an instanced radial darkening on the ground under each ball
+//that is close to it. Overlapping blobs blend multiplicatively, so a group of resting balls
+//pools into one dark contact area, like the classic sphere-pyramid AO reference.
+
+//Ground plane Y the blobs lie on
+float GroundY;
+//Blob radius in world units
+float BlobRadius;
+//How many world units above the ground a ball stops producing a blob
+float BlobFadeHeight;
+//Darkening at the blob centre for a ball resting on the ground
+float BlobStrength;
+
+struct BlobVertexShaderInput
+{
+	//Unit quad in the XZ plane, corners at ±1
+	float4 Position : POSITION0;
+};
+
+struct BlobInstanceInput
+{
+	float4 WorldRow1 : TEXCOORD1;
+	float4 WorldRow2 : TEXCOORD2;
+	float4 WorldRow3 : TEXCOORD3;
+	float4 WorldRow4 : TEXCOORD4;
+	float4 Custom : TEXCOORD5;
+};
+
+struct BlobVertexShaderOutput
+{
+	float4 Position : SV_POSITION;
+	float2 Radial : TEXCOORD0;
+	float Strength : TEXCOORD1;
+};
+
+BlobVertexShaderOutput BlobVS(BlobVertexShaderInput input, BlobInstanceInput instance)
+{
+	BlobVertexShaderOutput output;
+
+	//The instance world matrix row 4 is the ball position
+	float3 ballPosition = instance.WorldRow4.xyz;
+	float height = max(0, ballPosition.y - GroundY);
+
+	output.Strength = saturate(1 - height / BlobFadeHeight) * BlobStrength;
+	output.Radial = input.Position.xz;
+
+	float3 worldPosition = float3(
+		ballPosition.x + input.Position.x * BlobRadius,
+		GroundY,
+		ballPosition.z + input.Position.z * BlobRadius);
+
+	output.Position = mul(float4(worldPosition, 1), ViewProjection);
+
+	return output;
+}
+
+float4 BlobPS(BlobVertexShaderOutput input) : COLOR
+{
+	float alpha = smoothstep(1.0, 0.25, length(input.Radial)) * input.Strength;
+
+	//Premultiplied alpha again: darkens what is already there, including the mapped shadows
+	return float4(0, 0, 0, alpha);
+}
+
+technique ContactBlobs
+{
+	pass P0
+	{
+		VertexShader = compile VS_SHADERMODEL BlobVS();
+		PixelShader = compile PS_SHADERMODEL BlobPS();
+	}
+};

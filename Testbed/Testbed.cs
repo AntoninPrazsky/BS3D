@@ -67,6 +67,20 @@ namespace Testbed
 
         #endregion
 
+        #region Contact AO blobs (the dark contact pool on the ground around resting balls)
+
+        private static readonly float BLOB_RADIUS = 1.1f;
+        private static readonly float BLOB_FADE_HEIGHT = 2.5f; //Measured from the ground plane; a resting ball centre sits 0.5 above it
+        private static readonly float BLOB_STRENGTH = 0.4f;
+
+        private ModelInstance[] _blobInstances = new ModelInstance[256];
+        private int _blobInstanceCount;
+        private DynamicVertexBuffer _blobInstanceBuffer;
+        private VertexBuffer _blobQuadVertexBuffer;
+        private IndexBuffer _blobQuadIndexBuffer;
+
+        #endregion
+
         //One instance bucket per ball type and LOD level; each bucket becomes a single instanced draw call
         private readonly ModelInstance[][] _ballInstances = new ModelInstance[BALL_TYPE_COUNT * BALL_LOD_COUNT][];
         private readonly int[] _ballInstanceCounts = new int[BALL_TYPE_COUNT * BALL_LOD_COUNT];
@@ -361,6 +375,30 @@ namespace Testbed
             _shadowOverlayEffect.Parameters["LightViewProjection"].SetValue(_lightViewProjection);
             _shadowOverlayEffect.Parameters["ShadowStrength"].SetValue(SHADOW_STRENGTH);
             _shadowOverlayEffect.Parameters["ShadowMapTexelSize"].SetValue(1f / SHADOW_MAP_SIZE);
+
+            #endregion
+
+            #region Contact AO blobs
+
+            _shadowOverlayEffect.Parameters["GroundY"].SetValue(SHADOW_OVERLAY_Y);
+            _shadowOverlayEffect.Parameters["BlobRadius"].SetValue(BLOB_RADIUS);
+            _shadowOverlayEffect.Parameters["BlobFadeHeight"].SetValue(BLOB_FADE_HEIGHT);
+            _shadowOverlayEffect.Parameters["BlobStrength"].SetValue(BLOB_STRENGTH);
+
+            //Unit quad in the XZ plane; the blob vertex shader scales and places it under each ball
+            _blobQuadVertexBuffer = new VertexBuffer(GraphicsDevice, VertexPosition.VertexDeclaration, 4, BufferUsage.WriteOnly);
+            _blobQuadVertexBuffer.SetData(new VertexPosition[]
+            {
+                new(new Vector3(-1f, 0f, -1f)),
+                new(new Vector3(1f, 0f, -1f)),
+                new(new Vector3(-1f, 0f, 1f)),
+                new(new Vector3(1f, 0f, 1f))
+            });
+            _blobQuadIndexBuffer = new IndexBuffer(GraphicsDevice, IndexElementSize.SixteenBits, SHADOW_OVERLAY_INDICES.Length, BufferUsage.WriteOnly);
+            _blobQuadIndexBuffer.SetData(SHADOW_OVERLAY_INDICES);
+
+            //The ground counts into the balls' own ambient occlusion too (dark bellies near the ground)
+            foreach (InstancedModelRenderer ballRenderer in _ballRenderers) ballRenderer.GroundHeight = SHADOW_OVERLAY_Y;
 
             #endregion
 
@@ -821,6 +859,7 @@ namespace Testbed
         private void CollectBallInstances()
         {
             for (int i = 0; i < _ballInstanceCounts.Length; i++) _ballInstanceCounts[i] = 0;
+            _blobInstanceCount = 0;
             for (int i = 0; i < BALL_LOD_COUNT; i++) _ballLodTotals[i] = 0;
             _collectedBalls = 0;
 
@@ -907,11 +946,42 @@ namespace Testbed
             GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead; //Test against the scene, but do not write
             GraphicsDevice.RasterizerState = RasterizerState.CullNone;
 
+            _shadowOverlayEffect.CurrentTechnique = _shadowOverlayEffect.Techniques["ShadowOverlay"];
             _shadowOverlayEffect.CurrentTechnique.Passes[0].Apply();
             GraphicsDevice.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, _shadowOverlayVertices, 0, 4, SHADOW_OVERLAY_INDICES, 0, 2);
 
+            DrawContactBlobs();
+
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
             GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// Instanced radial darkening of the ground under every ball close to it (contact ambient occlusion).
+        /// Overlapping blobs accumulate, so groups of resting balls pool into one dark contact area.
+        /// Expects the blend, depth and rasterizer states set by <see cref="DrawShadowOverlay"/>.
+        /// </summary>
+        private void DrawContactBlobs()
+        {
+            if (_blobInstanceCount == 0) return;
+
+            if (_blobInstanceBuffer == null || _blobInstanceBuffer.VertexCount < _blobInstances.Length)
+            {
+                _blobInstanceBuffer?.Dispose();
+                _blobInstanceBuffer = new DynamicVertexBuffer(GraphicsDevice, ModelInstance.VertexDeclaration, _blobInstances.Length, BufferUsage.WriteOnly);
+            }
+
+            _blobInstanceBuffer.SetData(_blobInstances, 0, _blobInstanceCount, SetDataOptions.Discard);
+
+            _shadowOverlayEffect.CurrentTechnique = _shadowOverlayEffect.Techniques["ContactBlobs"];
+
+            GraphicsDevice.SetVertexBuffers(
+                new VertexBufferBinding(_blobQuadVertexBuffer, 0, 0),
+                new VertexBufferBinding(_blobInstanceBuffer, 0, 1));
+            GraphicsDevice.Indices = _blobQuadIndexBuffer;
+
+            _shadowOverlayEffect.CurrentTechnique.Passes[0].Apply();
+            GraphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, 2, _blobInstanceCount);
         }
 
         private void CollectBallInstance(PhysicsBall ball, Vector4 occlusionData)
@@ -951,6 +1021,13 @@ namespace Testbed
 
             bucket[count] = new ModelInstance(world, occlusionData);
             _ballInstanceCounts[bucketIndex] = count + 1;
+
+            //Balls close to the ground also darken it with a contact AO blob
+            if (position.Y - SHADOW_OVERLAY_Y < BLOB_FADE_HEIGHT)
+            {
+                if (_blobInstanceCount == _blobInstances.Length) Array.Resize(ref _blobInstances, _blobInstances.Length * 2);
+                _blobInstances[_blobInstanceCount++] = bucket[count];
+            }
         }
 
         private void SetGraphics(bool windowed = false)
@@ -1309,3 +1386,4 @@ BOTTOM-LEFT-FRONT  : [ 0.25, -0.25, -0.353553]
 BOTTOM-RIGHT-FRONT : [ 0.25,  0.25, -0.353553]
 
 */
+
