@@ -38,7 +38,12 @@ draw all balls (see the "Ball rendering" section in CLAUDE.md). Facts that took 
   premultiplied by alpha like BasicEffect does. `ModelRenderer` + `BasicEffect` remains only in
   the MapEditor. Textured mesh parts (e.g. `GameObjects/GroundMarble.fbx`) automatically use the
   `InstancedModelTextured` technique (UVs in TEXCOORD0; same `ShadePixel` lighting, texture
-  modulates the non-specular colour like BasicEffect). Blender FBX gotchas: exported texture
+  modulates the non-specular colour like BasicEffect). UV-less models can instead set
+  `DetailTexture` (+`DetailScale`/`DetailStrength`/`DetailBoost`) on their renderer: the
+  `InstancedModelTriplanar` technique projects it along the world axes and adds procedural
+  masonry joints on vertical faces (the castle backdrop uses this with `Backdrops/CastleStone.png`,
+  a seamless tile mirrored out of the stone half of `Ground_8.png` — that source PNG is half
+  black filler with a watermark, do not tile it directly). Blender FBX gotchas: exported texture
   paths may be relative to the .blend (patch to resolve from the FBX's own directory, or export
   with Path Mode: Strip Path), and Blender cm units make models 100× too big — fix with
   `/processorParam:Scale=0.01` in Content.mgcb. Sky domes are `Skyes/SkyDome1..18.dae`, switched with NumPad1,

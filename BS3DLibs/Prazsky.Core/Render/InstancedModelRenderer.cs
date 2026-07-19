@@ -52,9 +52,29 @@ namespace Prazsky.Render
         private EffectParameter _lightViewProjectionParam;
         private EffectParameter _groundHeightParam;
         private EffectParameter _textureParam;
+        private EffectParameter _detailScaleParam;
+        private EffectParameter _detailStrengthParam;
+        private EffectParameter _detailBoostParam;
         private EffectTechnique _mainTechnique;
         private EffectTechnique _texturedTechnique;
+        private EffectTechnique _triplanarTechnique;
         private EffectTechnique _depthTechnique;
+
+        /// <summary>
+        /// Optional world-space detail texture for models without UVs: sampled triplanar (projected
+        /// along the world axes, blended by the surface normal) and modulating the material colours.
+        /// Applied to the opaque mesh parts only; translucent parts (e.g. glass) stay clean.
+        /// </summary>
+        public Texture2D DetailTexture { get; set; }
+
+        /// <summary>World units per detail texture tile = 1 / <see cref="DetailScale"/>.</summary>
+        public float DetailScale { get; set; } = 0.25f;
+
+        /// <summary>How strongly the detail texture modulates the material colour (0 = not at all, 1 = fully).</summary>
+        public float DetailStrength { get; set; } = 0.5f;
+
+        /// <summary>Brightness compensation so a mid-grey detail texture does not darken the material.</summary>
+        public float DetailBoost { get; set; } = 1f;
 
         /// <summary>
         /// Sky colour of the hemisphere ambient light (received by upward-facing surfaces).
@@ -209,8 +229,12 @@ namespace Prazsky.Render
             _groundHeightParam = _effect.Parameters["GroundHeight"];
 
             _textureParam = _effect.Parameters["Texture"];
+            _detailScaleParam = _effect.Parameters["DetailScale"];
+            _detailStrengthParam = _effect.Parameters["DetailStrength"];
+            _detailBoostParam = _effect.Parameters["DetailBoost"];
             _mainTechnique = _effect.Techniques["InstancedModel"];
             _texturedTechnique = _effect.Techniques["InstancedModelTextured"];
+            _triplanarTechnique = _effect.Techniques["InstancedModelTriplanar"];
             _depthTechnique = _effect.Techniques["InstancedDepth"];
             _effect.CurrentTechnique = _mainTechnique;
 
@@ -339,9 +363,25 @@ namespace Prazsky.Render
                 _specularColorParam.SetValue(overrideSpecular ? specularColor : part.SpecularColor);
                 _specularPowerParam.SetValue(overrideSpecular ? specularPower : part.SpecularPower);
 
-                //Textured mesh parts need the variant that samples the texture (the model must carry UVs)
-                _effect.CurrentTechnique = part.Texture != null ? _texturedTechnique : _mainTechnique;
-                if (part.Texture != null) _textureParam.SetValue(part.Texture);
+                //Mesh parts with their own texture sample it through UVs; parts of a UV-less model
+                //can get a triplanar world-space detail texture instead (opaque parts only)
+                if (part.Texture != null)
+                {
+                    _effect.CurrentTechnique = _texturedTechnique;
+                    _textureParam.SetValue(part.Texture);
+                }
+                else if (DetailTexture != null && part.DiffuseColor.W >= 1f)
+                {
+                    _effect.CurrentTechnique = _triplanarTechnique;
+                    _textureParam.SetValue(DetailTexture);
+                    _detailScaleParam.SetValue(DetailScale);
+                    _detailStrengthParam.SetValue(DetailStrength);
+                    _detailBoostParam.SetValue(DetailBoost);
+                }
+                else
+                {
+                    _effect.CurrentTechnique = _mainTechnique;
+                }
 
                 _graphicsDevice.SetVertexBuffers(
                     new VertexBufferBinding(part.VertexBuffer, part.VertexOffset, 0),

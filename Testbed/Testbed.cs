@@ -456,6 +456,13 @@ namespace Testbed
             _castle = new Castle(_castleModel, new Vector3(0f, -8.5f, -60f), Microsoft.Xna.Framework.MathHelper.Pi);
             _castleRenderer = new InstancedModelRenderer(GraphicsDevice, _castleModel, _instancingEffect);
 
+            //The castle model has no UVs, so it gets a triplanar stone detail instead of a real texture
+            //(CastleStone.png is the stone half of Ground_8.png mirrored into a seamless tile)
+            _castleRenderer.DetailTexture = Content.Load<Texture2D>("Backdrops/CastleStone");
+            _castleRenderer.DetailScale = 0.08f; //Large stone patches that stay visible from across the play field
+            _castleRenderer.DetailStrength = 0.7f;
+            _castleRenderer.DetailBoost = 1.4f;
+
             //The ground darkens the downward-facing parts of the scene objects too, like the ball bellies
             _cannonRenderer.GroundHeight = SHADOW_OVERLAY_Y;
             _castleRenderer.GroundHeight = SHADOW_OVERLAY_Y;

@@ -49,7 +49,8 @@ float3 DirLight2Direction;
 float3 DirLight2DiffuseColor;
 float3 DirLight2SpecularColor;
 
-//Material texture of the mesh part, used by the InstancedModelTextured technique
+//Material texture of the mesh part (InstancedModelTextured) or the world-space detail
+//texture (InstancedModelTriplanar)
 texture Texture;
 sampler2D TextureSampler = sampler_state
 {
@@ -215,6 +216,75 @@ technique InstancedModelTextured
 	{
 		VertexShader = compile VS_SHADERMODEL TexturedVS();
 		PixelShader = compile PS_SHADERMODEL TexturedPS();
+	}
+};
+
+//Triplanar variant for models without UVs (e.g. the castle backdrop): the detail texture is
+//projected along the three world axes and blended by the surface normal, so walls, roofs and
+//towers pick up material structure with no unwrapping. The detail only modulates the existing
+//material colours (DetailStrength 0 = untextured look).
+
+//World units per texture tile = 1 / DetailScale
+float DetailScale;
+//How strongly the detail texture modulates the material colour (0 = not at all, 1 = fully)
+float DetailStrength;
+//Brightness compensation so a mid-grey detail texture does not darken the whole material
+float DetailBoost;
+
+//Stone block coursing drawn on the vertical surfaces (world units)
+static const float BrickWidth = 3.0;
+static const float BrickHeight = 1.4;
+static const float MortarWidth = 0.09;
+static const float MortarDarkness = 0.62;
+
+//0 in a mortar joint, 1 inside a block; p is a vertical wall plane in world units.
+//Every other course is offset by half a block, like real coursed masonry.
+float BrickMask(float2 p)
+{
+	float row = floor(p.y / BrickHeight);
+	float2 cell = float2(frac((p.x + row * BrickWidth * 0.5) / BrickWidth), frac(p.y / BrickHeight));
+
+	//Distance to the nearest cell border, back in world units
+	float2 border = min(cell, 1 - cell) * float2(BrickWidth, BrickHeight);
+	float distance = min(border.x, border.y);
+
+	//Screen-space derivative keeps the joint edge soft and fades it out at long range instead of shimmering
+	float soft = max(fwidth(distance), 0.02);
+
+	return smoothstep(MortarWidth - soft, MortarWidth + soft, distance);
+}
+
+float4 TriplanarPS(VertexShaderOutput input) : COLOR
+{
+	float3 worldNormal = normalize(input.WorldNormal);
+
+	//Sharpened normal weights avoid visible cross-fading except near 45-degree edges
+	float3 blend = pow(abs(worldNormal), 4);
+	blend /= blend.x + blend.y + blend.z;
+
+	float3 p = input.WorldPosition * DetailScale;
+
+	float3 detail
+		= tex2D(TextureSampler, p.zy).rgb * blend.x
+		+ tex2D(TextureSampler, p.xz).rgb * blend.y
+		+ tex2D(TextureSampler, p.xy).rgb * blend.z;
+
+	//Masonry joints on the vertical faces only (roofs and other Y-facing surfaces keep plain stone)
+	float verticalWeight = blend.x + blend.z;
+	float brick = (BrickMask(input.WorldPosition.zy) * blend.x + BrickMask(input.WorldPosition.xy) * blend.z) / max(verticalWeight, 0.001);
+	float joints = lerp(1, lerp(MortarDarkness, 1, brick), verticalWeight);
+
+	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength) * joints;
+
+	return ShadePixel(input.WorldPosition, input.WorldNormal, input.OcclusionData, float4(texRgb, 1));
+}
+
+technique InstancedModelTriplanar
+{
+	pass P0
+	{
+		VertexShader = compile VS_SHADERMODEL MainVS();
+		PixelShader = compile PS_SHADERMODEL TriplanarPS();
 	}
 };
 

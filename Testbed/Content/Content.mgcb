@@ -157,6 +157,18 @@
 /processorParam:TextureFormat=Compressed
 /build:GameObjects/Ground.x
 
+#begin Backdrops/CastleStone.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=True
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Compressed
+/build:Backdrops/CastleStone.png
+
 #begin GameObjects/GroundMarble.fbx
 /importer:FbxImporter
 /processor:ModelProcessor

@@ -9,9 +9,10 @@ namespace Testbed.Backdrops
 		public Castle(Model model3D, Vector3 position, float yRotation = 0f) : base(model3D)
 		{
 			Position = position;
-			Matrix worldMatrix = Matrix.CreateTranslation(position);
 
-			if (yRotation > 0f) worldMatrix *= Matrix.CreateRotationY(yRotation);
+			//Rotation first, then translation: the castle turns around its own axis and stands at the
+			//given position (the reversed order used to orbit the position itself around the world origin)
+			Matrix worldMatrix = Matrix.CreateRotationY(yRotation) * Matrix.CreateTranslation(position);
 
 			UpdateWorldMatrix(worldMatrix);
 		}
