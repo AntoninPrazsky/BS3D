@@ -48,6 +48,16 @@ namespace Testbed
         //the three the ball started out with, separated by narrower white ones, plus a white polar disc
         private static readonly int BALL_PATTERN_GORES = 5;
 
+        /// <summary>
+        /// Diffuse reflectance of the ball material, multiplying both pattern colors. It used to be a
+        /// flat 1 — a surface that reflects every photon that reaches it, which nothing real does; white
+        /// vinyl manages about this. In gamma space dropping it muted the colors, which is why it was
+        /// raised in the first place, but that was the wrong composition talking: in linear light this
+        /// scales radiance evenly and takes the glare off without touching the hue or the saturation.
+        /// The one number to nudge if the balls want to be darker or lighter still.
+        /// </summary>
+        private static readonly float BALL_ALBEDO = 0.7f;
+
         private SphereMesh[] _ballMeshes;
         private InstancedModelRenderer[] _ballRenderers;
 
@@ -465,9 +475,7 @@ namespace Testbed
             for (int lod = 0; lod < BALL_LOD_COUNT; lod++)
             {
                 _ballMeshes[lod] = new SphereMesh(GraphicsDevice, BallsConstraintsBuilder.BALL_RADIUS, BALL_LOD_RESOLUTIONS[lod, 0], BALL_LOD_RESOLUTIONS[lod, 1]);
-                //Full white material: the balls are the playing pieces and should be the most vivid
-                //thing on screen (0.8 used to match the old modeled sphere, but it muted the colors)
-                _ballRenderers[lod] = new InstancedModelRenderer(GraphicsDevice, _ballMeshes[lod], Vector3.One, _instancingEffect);
+                _ballRenderers[lod] = new InstancedModelRenderer(GraphicsDevice, _ballMeshes[lod], BALL_ALBEDO * Vector3.One, _instancingEffect);
                 _ballRenderers[lod].PatternGoreCount = BALL_PATTERN_GORES;
             }
 
