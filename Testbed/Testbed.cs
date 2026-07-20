@@ -406,8 +406,9 @@ namespace Testbed
             for (int lod = 0; lod < BALL_LOD_COUNT; lod++)
             {
                 _ballMeshes[lod] = new SphereMesh(GraphicsDevice, BallsConstraintsBuilder.BALL_RADIUS, BALL_LOD_RESOLUTIONS[lod, 0], BALL_LOD_RESOLUTIONS[lod, 1]);
-                //0.8 matches the brightest material of the old modelled sphere, so the overall brightness stays the same
-                _ballRenderers[lod] = new InstancedModelRenderer(GraphicsDevice, _ballMeshes[lod], new Vector3(0.8f), _instancingEffect);
+                //Full white material: the balls are the playing pieces and should be the most vivid
+                //thing on screen (0.8 used to match the old modelled sphere, but it muted the colours)
+                _ballRenderers[lod] = new InstancedModelRenderer(GraphicsDevice, _ballMeshes[lod], Vector3.One, _instancingEffect);
                 _ballRenderers[lod].PatternGoreCount = BALL_PATTERN_GORES;
             }
 
@@ -503,7 +504,9 @@ namespace Testbed
             _castleRenderer.DetailTexture = Content.Load<Texture2D>("Backdrops/CastleStone");
             _castleRenderer.DetailScale = 0.08f; //Large stone patches that stay visible from across the play field
             _castleRenderer.DetailStrength = 0.7f;
-            _castleRenderer.DetailBoost = 1.4f;
+            //Kept below the neutral-brightness 1.4: the castle is a backdrop and should not
+            //compete with the balls for attention
+            _castleRenderer.DetailBoost = 1.15f;
             _castleRenderer.MasonryStrength = 1f;
 
             //The ground darkens the downward-facing parts of the scene objects too, like the ball bellies

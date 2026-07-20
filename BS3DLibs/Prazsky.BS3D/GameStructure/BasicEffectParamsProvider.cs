@@ -35,7 +35,9 @@ namespace Prazsky.BS3D.GameStructure
                     return new Vector3(0.35f, 0.45f, 1f);
 
                 case BallType.Type4:
-                    return Vector3.One;
+                    //Light beige rather than pure white: the beach-ball gores alternate with white,
+                    //so a white primary would leave the ball patternless (white on white)
+                    return new Vector3(0.85f, 0.78f, 0.62f);
 
                 default:
                     return Vector3.One;
