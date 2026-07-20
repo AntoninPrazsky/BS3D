@@ -20,6 +20,10 @@ The exe is `Testbed\bin\net10.0-windows\Testbed.exe`. CLI arguments (any order):
   machine, dense map, default view: ~300 FPS with physics running (the CPU simulation of 3000 bodies is the
   bottleneck), ~800 FPS with simulation stopped (F5, send via keybd_event scan 0x3F). The autoshoot log line
   includes `LOD: a/b/c` — per-level ball counts of the procedural sphere LOD (thresholds 15/30 world units).
+- `ssaa=<n>` — supersampling factor, 1–4, default 2. The scene renders into an n× target and is box-filtered
+  onto the back buffer, which is what keeps the balls' procedural relief sharp; `ssaa=1` turns it off (and
+  hands antialiasing back to 8x MSAA) for a before/after or when a machine is fill-rate bound. On the dense
+  map it costs nothing measurable — CPU physics is the bottleneck long before the fill rate is.
 - `sky=<n>` — starts with sky dome n (1–18) instead of 1; each dome logs `[sky] Dome n: zenith …, horizon …`
   on load. Use separate launches per dome for lighting comparisons — synthetic NumPad1 presses don't register
   (numpad VKs need NumLock; only extended keys like End/F10 work via keybd_event).

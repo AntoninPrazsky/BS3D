@@ -51,10 +51,29 @@ draw all balls (see the "Ball rendering" section in CLAUDE.md). Facts that took 
   perfect sphere. A Fresnel term adds the grazing-angle sky sheen, scaled by `SurfaceOcclusion` so
   balls buried in the pile stay dark. Two traps, both hit while building it: *multiplying* sines
   lays down a regular crosshatch (sum them instead), and any wave approaching pixel size aliases
-  into a hard checkerboard, because the perturbation is driven by `ddx/ddy`. Hence the top frequency
-  is kept low (`f/pi` waves span the ball) and the whole relief fades out on **screen-space pixel
-  footprint** rather than camera distance — the fade then holds at any resolution, FOV or ball size.
-  Keep the height computation branchless: `ddx/ddy` need every pixel of a quad on the same path.
+  into a hard checkerboard, because the perturbation is driven by `ddx/ddy`.
+- **Band-limiting is per octave, not global.** `ReliefOctave` fades each wave against *its own*
+  wavelength (`saturate(1 - footprint * f / pi)`), where `footprint` is the screen pixel size in
+  surface-distance-over-ball-radius units — the object-space radius comes free from
+  `length(ObjectPosition)`, so nothing has to be told how big a ball is. A single global fade has to
+  be tuned for the finest octave and therefore flattens the whole surface at arm's length; per-octave
+  attenuation lets fine detail stay fully present while the pixels resolve it and drop out silently
+  when they cannot. Measuring the *footprint* rather than camera distance is what makes it hold at
+  any resolution, FOV or ball size — and it is what makes supersampling pay off (below): more samples
+  shrink the footprint, so the fine octaves survive further out instead of the same mush getting
+  smoother. Keep the height branchless — `ddx/ddy` need every pixel of a quad on the same path.
+
+## Supersampling
+
+The Testbed renders the 3D scene into a `_supersampleFactor`× `RenderTarget2D` and box-filters it onto
+the back buffer (`EnsureSceneTarget` / `ResolveSceneTarget`), factor 2 by default, `ssaa=<n>` to override.
+MSAA would not do instead: it antialiases geometry edges only, and the ball relief is *shading*. At factor 2
+a bilinear tap lands exactly on the corner shared by four source pixels, so the resolve is an exact box
+filter; higher factors reach only four of the source pixels and would want a real downsample pass. The
+back-buffer MSAA is switched off whenever supersampling is on — the scene never touches the back buffer
+then, and 8x at 4K is hundreds of megabytes for nothing. Draw the overlay and any 2D sprite **after** the
+resolve (`base.Draw` already runs last) or the downsample softens the text. Recreate the target on
+`ClientSizeChanged` *and* in `SetGraphics`, or a resize or F11 leaves it at the old size.
 - The scene objects (ground, ceiling, cannon, castle) render through the same effect as
   single-instance draws (`InstancedModelRenderer.Draw(camera, world, effectParams)`); per-part
   material diffuse/emissive/specular and alpha are read from the model's `BasicEffect`s and

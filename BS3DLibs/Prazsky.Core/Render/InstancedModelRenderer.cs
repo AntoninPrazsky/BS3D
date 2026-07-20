@@ -145,7 +145,7 @@ namespace Prazsky.Render
         /// (0 = a mathematically smooth sphere). It only tilts the normal, so what it changes is the
         /// way the highlight breaks up — the silhouette stays a clean circle.
         /// </summary>
-        public float PatternReliefStrength { get; set; } = 0.016f;
+        public float PatternReliefStrength { get; set; } = 0.007f;
 
         /// <summary>
         /// How strongly the patterned surface catches the sky colour at grazing angles (0 = matte).

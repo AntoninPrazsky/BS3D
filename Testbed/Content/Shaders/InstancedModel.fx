@@ -261,11 +261,8 @@ static const float PatternSeamDepth = 0.010;
 static const float PatternSeamGoreWidth = 0.13;
 static const float PatternSeamCapWidth = 0.035;
 
-//Shortest relief wave, in world units: 2 * pi / 21 of the way around a ball of radius 0.5. Once a
-//screen pixel covers an appreciable part of that, the derivative-driven perturbation below is
-//sampling noise rather than the surface, so it is faded out. Measuring the pixel footprint rather
-//than the plain distance keeps the fade honest at any window size, field of view or ball size.
-static const float PatternReliefMinFeature = 0.15;
+//Wave count of the coarsest relief octave, used to fade the seam grooves, which are about that broad
+static const float PatternSeamFrequency = 8.0;
 
 struct PatternVertexShaderOutput
 {
@@ -303,19 +300,29 @@ float AntialiasedStep(float edge, float value)
 	return smoothstep(edge - width, edge + width, value);
 }
 
+//One octave of the relief, band-limited on the spot: a wave of this frequency spans 2 * pi / f of the
+//object-space direction, so it is faded out as a screen pixel grows towards half of that — its
+//Nyquist limit. Attenuating each octave against its own wavelength, rather than the whole field
+//against the finest one, is what lets fine detail exist at all: it stays fully present while the
+//pixels can still resolve it and drops out silently when they cannot, instead of breaking into the
+//hard checkerboard that point-sampled high frequencies produce through the derivatives below.
+//footprint is the screen pixel size in the same units — surface distance over the ball radius.
+float ReliefOctave(float3 direction, float3 waveDirection, float frequency, float footprint)
+{
+	return sin(dot(direction, waveDirection) * frequency) * saturate(1 - footprint * frequency / 3.14159265);
+}
+
 //Moulded micro-relief of the skin: the dimples and waviness a real ball is left with when it comes
-//out of the mould. Three waves along spread-out directions at frequencies sharing no common factor,
+//out of the mould. Four waves along spread-out directions at frequencies sharing no common factor,
 //so the sum never repeats over the ball — multiplying two waves instead would lay down a regular
 //crosshatch, the same plaid the seamless cannon metal tile had to avoid. The amplitudes add up to
-//one, which leaves PatternReliefStrength as the peak height in world units. Fed the object-space
-//direction, so the feature size does not depend on the ball radius.
-//Frequency f puts f/pi waves across the ball; keep the top one low enough that a wave still spans a
-//good many pixels on a nearby ball, or the derivatives below alias into a checkerboard.
-float SurfaceRelief(float3 direction)
+//one, which leaves PatternReliefStrength as the peak height in world units.
+float SurfaceRelief(float3 direction, float footprint)
 {
-	return 0.45 * sin(dot(direction, float3(0.71, 0.52, -0.47)) * 9.0)
-		+ 0.33 * sin(dot(direction, float3(-0.36, 0.83, 0.42)) * 14.0)
-		+ 0.22 * sin(dot(direction, float3(0.55, -0.44, 0.71)) * 21.0);
+	return 0.36 * ReliefOctave(direction, float3(0.71, 0.52, -0.47), 13.0, footprint)
+		+ 0.27 * ReliefOctave(direction, float3(-0.36, 0.83, 0.42), 21.0, footprint)
+		+ 0.21 * ReliefOctave(direction, float3(0.55, -0.44, 0.71), 34.0, footprint)
+		+ 0.16 * ReliefOctave(direction, float3(-0.82, -0.31, 0.48), 55.0, footprint);
 }
 
 //Tilts a normal by a height field using only screen-space derivatives, for the same reason
@@ -337,7 +344,10 @@ float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height
 
 float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 {
-	float3 direction = normalize(input.ObjectPosition);
+	//The object-space radius is the ball's own radius, which turns the pixel footprint below into the
+	//units the relief is written in without the shader having to be told how big a ball is
+	float radius = max(length(input.ObjectPosition), 1e-5);
+	float3 direction = input.ObjectPosition / radius;
 
 	//sin(N * azimuth) stays continuous across the atan2 branch cut for integer N, so neither the
 	//value nor its screen-space derivative jumps there and the seam needs no special handling
@@ -358,11 +368,15 @@ float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 	float goreSeam = (1 - smoothstep(0, PatternSeamGoreWidth, abs(gore - PatternGoreThreshold))) * saturate((PatternCapExtent - pole) * 8);
 	float capSeam = 1 - smoothstep(0, PatternSeamCapWidth, abs(pole - PatternCapExtent));
 
-	//Relief and welds ride in one height field, so a single perturbation covers both. Kept branchless:
-	//ddx/ddy below need every pixel of a quad to have taken the same path.
-	float pixelFootprint = length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition));
-	float reliefFade = saturate(1 - pixelFootprint / PatternReliefMinFeature);
-	float height = (SurfaceRelief(direction) * PatternReliefStrength - (goreSeam + capSeam) * PatternSeamDepth) * reliefFade;
+	//How much surface one screen pixel covers, over the ball radius — the yardstick every feature is
+	//band-limited against. It shrinks when the scene is supersampled, which is exactly why raising the
+	//render resolution buys back the fine octaves instead of just making the same mush smoother.
+	//Kept branchless: ddx/ddy need every pixel of a quad to have taken the same path.
+	float footprint = (length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition))) / radius;
+
+	//Relief and welds ride in one height field, so a single perturbation covers both
+	float seams = (goreSeam + capSeam) * saturate(1 - footprint * PatternSeamFrequency / 3.14159265);
+	float height = SurfaceRelief(direction, footprint) * PatternReliefStrength - seams * PatternSeamDepth;
 
 	float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
 

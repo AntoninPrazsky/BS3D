@@ -231,7 +231,20 @@ namespace Testbed
 
         private InfoRenderer _info;
 
+        //Only used when supersampling is off: multisampling antialiases geometry edges but not shading,
+        //and the balls' procedural relief is shading
         private static readonly int MSAA_SAMPLES = 8;
+
+        /// <summary>
+        /// The scene renders into a target this many times larger per axis and is box-filtered down on
+        /// the way to the back buffer. The balls' relief is the reason: it is a high-frequency signal
+        /// evaluated per pixel, so raising the sampling rate is the only thing that keeps its fine
+        /// octaves — which band-limit themselves against the pixel footprint — alive and sharp instead
+        /// of quietly fading out. 1 disables it and hands the antialiasing back to MSAA.
+        /// </summary>
+        private readonly int _supersampleFactor;
+
+        private RenderTarget2D _sceneTarget;
         private readonly bool _uncappedFps;
         private static float GAME_FOV = (float)Math.PI / 3.1f;
         private static float FREE_FOV = (float)Math.PI / 2.5f;
@@ -290,13 +303,14 @@ namespace Testbed
         private bool _switchMapDone;
         private static readonly float SWITCH_MAP_DELAY_SECONDS = 10f;
 
-        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false)
+        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false, int supersampleFactor = 2)
         {
             _windowed = windowed;
             _startupMapPath = startupMapPath;
             _autoShoot = autoShoot;
             _switchMapPath = switchMapPath;
             _uncappedFps = uncappedFps; //Testing: "nocap" on the command line disables vsync so real rendering headroom can be measured
+            _supersampleFactor = Math.Clamp(supersampleFactor, 1, 4); //Testing: "ssaa=<n>" on the command line trades sharpness against fill rate
             if (skyNumber >= 1 && skyNumber <= 18) _skyModelNumber = skyNumber; //Testing: "sky=<n>" on the command line picks the starting sky dome
 
             _graphics = new GraphicsDeviceManager(this);
@@ -325,6 +339,7 @@ namespace Testbed
             _camera.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
             _info.RecomputeScale();
             ComputeAimerPosition();
+            EnsureSceneTarget();
         }
 
         protected override void Initialize()
@@ -533,6 +548,7 @@ namespace Testbed
             _aimer = Content.Load<Texture2D>("Bitmaps/Aimer");
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             ComputeAimerPosition();
+            EnsureSceneTarget();
 
             if (!string.IsNullOrEmpty(_startupMapPath) && File.Exists(_startupMapPath)) DeserializeMapFromFile(_startupMapPath);
 
@@ -952,6 +968,11 @@ namespace Testbed
                 DrawBallsShadowMap(); //Must run before anything touches the backbuffer
             }
 
+            //The scene goes through the supersampled target; the aimer and the text overlay are drawn
+            //after the resolve, at native resolution, so they stay exactly as authored instead of
+            //being softened by the downsample
+            if (_sceneTarget != null) GraphicsDevice.SetRenderTarget(_sceneTarget);
+
             GraphicsDevice.Clear(Color.LightSlateGray);
 
             _sky.Draw(_camera);
@@ -974,6 +995,8 @@ namespace Testbed
 
                 DrawShadowOverlay();
             }
+
+            if (_sceneTarget != null) ResolveSceneTarget();
 
             if (!_gameMode)
             {
@@ -1221,6 +1244,8 @@ namespace Testbed
 
             _graphics.ApplyChanges();
 
+            EnsureSceneTarget(); //The back buffer just changed size, so the scene target has to follow
+
             IsMouseVisible = false;
             IsFixedTimeStep = false;
         }
@@ -1229,7 +1254,45 @@ namespace Testbed
         {
             e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = _uncappedFps ? PresentInterval.Immediate : PresentInterval.One;
             e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.HiDef;
-            e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = MSAA_SAMPLES;
+
+            //When supersampling, the 3D scene never reaches the back buffer, so multisampling it would
+            //buy nothing and cost hundreds of megabytes at 4K; the downsample already averages
+            //_supersampleFactor^2 samples per output pixel, geometry edges included.
+            e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = _supersampleFactor > 1 ? 0 : MSAA_SAMPLES;
+        }
+
+        /// <summary>
+        /// Creates the supersampled scene target, or resizes it after a window resize or a fullscreen
+        /// switch. Does nothing when supersampling is off — the scene then draws straight to the back buffer.
+        /// </summary>
+        private void EnsureSceneTarget()
+        {
+            if (_supersampleFactor <= 1 || GraphicsDevice == null) return;
+
+            int width = GraphicsDevice.PresentationParameters.BackBufferWidth * _supersampleFactor;
+            int height = GraphicsDevice.PresentationParameters.BackBufferHeight * _supersampleFactor;
+
+            if (_sceneTarget != null && _sceneTarget.Width == width && _sceneTarget.Height == height) return;
+
+            _sceneTarget?.Dispose();
+            _sceneTarget = new RenderTarget2D(GraphicsDevice, width, height, false, SurfaceFormat.Color, DepthFormat.Depth24Stencil8);
+        }
+
+        /// <summary>
+        /// Box-filters the supersampled scene onto the back buffer. At a factor of two, a bilinear tap
+        /// at the destination pixel centre lands exactly on the corner shared by its four source pixels
+        /// and weights them evenly, so this is an exact box filter rather than an approximation of one;
+        /// higher factors reach only four of the source pixels and would want a dedicated downsample pass.
+        /// </summary>
+        private void ResolveSceneTarget()
+        {
+            GraphicsDevice.SetRenderTarget(null);
+
+            _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
+            _spriteBatch.Draw(_sceneTarget,
+                new Rectangle(0, 0, GraphicsDevice.PresentationParameters.BackBufferWidth, GraphicsDevice.PresentationParameters.BackBufferHeight),
+                Color.White);
+            _spriteBatch.End();
         }
 
         private StaticReference CreateStatic(System.Numerics.Vector3 position, Box boundingBox)
@@ -1240,6 +1303,7 @@ namespace Testbed
 
         protected override void UnloadContent()
         {
+            _sceneTarget?.Dispose();
             _simulation.Dispose();
             _threadDispatcher.Dispose();
             _bufferPool.Clear();

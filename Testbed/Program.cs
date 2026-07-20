@@ -12,6 +12,7 @@ namespace Testbed
             bool autoShoot = false;
             bool uncappedFps = false;
             byte skyNumber = 0;
+            int supersampleFactor = 2;
 
             foreach (string arg in args)
             {
@@ -19,10 +20,11 @@ namespace Testbed
                 else if (string.Equals(arg, "nocap", StringComparison.OrdinalIgnoreCase)) uncappedFps = true;
                 else if (arg.StartsWith("switchmap=", StringComparison.OrdinalIgnoreCase)) switchMapPath = arg.Substring("switchmap=".Length);
                 else if (arg.StartsWith("sky=", StringComparison.OrdinalIgnoreCase) && byte.TryParse(arg.Substring("sky=".Length), out byte parsedSky)) skyNumber = parsedSky;
+                else if (arg.StartsWith("ssaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("ssaa=".Length), out int parsedSsaa)) supersampleFactor = parsedSsaa;
                 else startupMapPath = arg;
             }
 
-            using (var game = new Testbed(startupMapPath: startupMapPath, autoShoot: autoShoot, switchMapPath: switchMapPath, skyNumber: skyNumber, uncappedFps: uncappedFps)) game.Run();
+            using (var game = new Testbed(startupMapPath: startupMapPath, autoShoot: autoShoot, switchMapPath: switchMapPath, skyNumber: skyNumber, uncappedFps: uncappedFps, supersampleFactor: supersampleFactor)) game.Run();
         }
     }
 }
