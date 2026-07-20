@@ -1,41 +1,80 @@
-﻿using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Content;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.BS3D.GameStructure;
-using Prazsky.Core;
+using Prazsky.Core.Camera;
 using Prazsky.Core.Tools;
+using Prazsky.Render;
+using System;
 
 namespace MapEditor.GUI
 {
-    internal class AABB : Object3D
+    /// <summary>
+    /// Translucent outline of the play field of the map, generated procedurally so that it always matches
+    /// the field exactly. It is drawn thin and see-through, so it marks out the volume without getting in
+    /// the way of the balls inside it.
+    /// </summary>
+    internal class AABB : IDisposable
     {
-        //Dimensions the AABB model is modelled at: a 10×10 stage with 10 levels ((10 - 1)/√2 + ball diameter high)
-        private const float MODEL_HEIGHT = 7.3639610306789f;
-        private const float MODEL_SIZE_XZ = 10f;
+        private const float BEAM_THICKNESS = 0.06f;
+        private const float ALPHA = 0.35f;
+        private static readonly Vector3 COLOR = new(0.55f, 0.8f, 1f); //Pale blue, to stay apart from the ball colours
 
-        public AABB(ContentManager contentManager)
+        private readonly GraphicsDevice _graphicsDevice;
+        private readonly BasicEffect _effect;
+        private WireBoxMesh _mesh;
+        private Matrix _world = Matrix.Identity;
+
+        public AABB(GraphicsDevice graphicsDevice)
         {
-            Model = contentManager.Load<Model>("AABB");
-            Transformations = new Matrix[Model.Bones.Count];
-            Model.CopyAbsoluteBoneTransformsTo(Transformations);
+            _graphicsDevice = graphicsDevice;
 
-            Position = new Vector3(MODEL_SIZE_XZ / 2f, (MODEL_HEIGHT / 2f) - 0.5f, MODEL_SIZE_XZ / 2f);
-
-            BasicEffectParams = BasicEffectParamsProvider.ColorWhite; //BasicEffectParamsProvider will always create a new instance, it would make more sense to remember them
-            World = Matrix.CreateTranslation(Position);
+            _effect = new BasicEffect(graphicsDevice)
+            {
+                LightingEnabled = false, //A flat colour reads better than shading on beams this thin
+                VertexColorEnabled = false,
+                TextureEnabled = false,
+                DiffuseColor = COLOR,
+                Alpha = ALPHA
+            };
         }
 
         /// <summary>
-        /// Scales and positions the box so it outlines the play field of the given map.
+        /// Rebuilds the outline so that it encloses the play field of the given map.
         /// </summary>
         public void FitToMap(BallsMap map)
         {
             float height = (map.Levels - 1) / Constants.SQRT_TWO + 1f; //From the bottom of level 0 balls to the top of top-level balls
 
-            Position = new Vector3(map.StageSizeX / 2f, (height / 2f) - 0.5f, map.StageSizeZ / 2f);
+            _mesh?.Dispose();
+            _mesh = new WireBoxMesh(_graphicsDevice, map.StageSizeX, height, map.StageSizeZ, BEAM_THICKNESS);
 
-            World = Matrix.CreateScale(map.StageSizeX / MODEL_SIZE_XZ, height / MODEL_HEIGHT, map.StageSizeZ / MODEL_SIZE_XZ)
-                * Matrix.CreateTranslation(Position);
+            //The mesh is centred at the origin, the field starts at the centre of the ball at [0, 0, 0]
+            _world = Matrix.CreateTranslation(new Vector3(map.StageSizeX / 2f, (height / 2f) - 0.5f, map.StageSizeZ / 2f));
+        }
+
+        public void Draw(ICamera camera)
+        {
+            if (_mesh == null) return;
+
+            _effect.World = _world;
+            _effect.View = camera.View;
+            _effect.Projection = camera.Projection;
+
+            _graphicsDevice.SetVertexBuffer(_mesh.VertexBuffer);
+            _graphicsDevice.Indices = _mesh.IndexBuffer;
+
+            foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _mesh.PrimitiveCount);
+            }
+        }
+
+        public void Dispose()
+        {
+            _mesh?.Dispose();
+            _mesh = null;
+            _effect?.Dispose();
         }
     }
 }

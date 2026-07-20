@@ -3,6 +3,8 @@ using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.Core;
+using Prazsky.Core.Camera;
+using Prazsky.Core.Tools;
 using System;
 
 namespace MapEditor.GUI
@@ -12,9 +14,12 @@ namespace MapEditor.GUI
         private byte _stageX = 0, _stageZ = 0, _level = 0;
         private BallsMap _ballsMap;
         private BallType _ActiveBallType = BallType.Type1;
+        private readonly ICamera _camera;
 
-        public Selector(ContentManager contentManager, BallsMap ballsMap)
+        public Selector(ContentManager contentManager, BallsMap ballsMap, ICamera camera)
         {
+            _camera = camera;
+
             Model = contentManager.Load<Model>("GUI/Selector");
             Transformations = new Matrix[Model.Bones.Count];
             Model.CopyAbsoluteBoneTransformsTo(Transformations);
@@ -46,8 +51,54 @@ namespace MapEditor.GUI
             _ballsMap.RemoveBallAt(_stageX, _stageZ, _level);
         }
 
-        public void Move(Vector3 direction)
+        /// <summary>
+        /// Snaps a horizontal vector to the nearest of the four axis-aligned grid directions.
+        /// </summary>
+        private static Vector3 SnapToGridAxis(float x, float z)
         {
+            if (Math.Abs(x) >= Math.Abs(z)) return x >= 0f ? Vector3.Right : Vector3.Left;
+            return z >= 0f ? Vector3.Backward : Vector3.Forward;
+        }
+
+        /// <summary>
+        /// Turns a direction expressed from the camera's point of view into a direction in the grid frame.
+        /// </summary>
+        private Vector3 ToGridDirection(Vector3 viewDirection)
+        {
+            if (_camera == null || viewDirection == Vector3.Up || viewDirection == Vector3.Down) return viewDirection;
+
+            //Camera axes as stored in the view matrix (which holds the inverse of the camera orientation)
+            Matrix view = _camera.View;
+            Vector3 right = new(view.M11, view.M21, view.M31);
+            Vector3 up = new(view.M12, view.M22, view.M32);
+            Vector3 forward = -new Vector3(view.M13, view.M23, view.M33);
+
+            //Sideways movement follows the camera right vector, which is always horizontal
+            if (viewDirection == Vector3.Right || viewDirection == Vector3.Left)
+            {
+                Vector3 rightAxis = SnapToGridAxis(right.X, right.Z);
+                return viewDirection == Vector3.Right ? rightAxis : -rightAxis;
+            }
+
+            //Movement up and down the screen normally means movement into and out of the depth of the scene,
+            //but the steeper the camera looks, the less depth there is on screen and the more the horizontal
+            //part of its up vector takes over. Beyond a quarter turn (typically a view from below the map, where
+            //the far end of the structure projects downwards) the two disagree and the up vector wins, keeping
+            //the movement aligned with what the screen shows
+            Vector2 depth = new(forward.X, forward.Z);
+            Vector2 screenUp = new(up.X, up.Z);
+            Vector2 heading = screenUp.LengthSquared() > depth.LengthSquared() ? screenUp : depth;
+
+            if (heading.LengthSquared() < Constants.THOUSANDTH) return viewDirection;
+
+            Vector3 headingAxis = SnapToGridAxis(heading.X, heading.Y);
+            return viewDirection == Vector3.Forward ? headingAxis : -headingAxis;
+        }
+
+        public void Move(Vector3 viewDirection)
+        {
+            Vector3 direction = ToGridDirection(viewDirection);
+
             if (direction == Vector3.Forward)
             {
                 if (_stageZ - 1 < 0)

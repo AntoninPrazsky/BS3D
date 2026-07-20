@@ -143,8 +143,8 @@ namespace MapEditor
 
 			//10 levels for the initial ball layout plus empty levels at the bottom for the structure to grow into
 			_map = new BallsMap(10, 10, 15, _hrSphere);
-            _selector = new Selector(Content, _map);
-            _aabb = new AABB(Content);
+            _selector = new Selector(Content, _map, Camera3D);
+            _aabb = new AABB(GraphicsDevice);
             _aabb.FitToMap(_map);
         }
 
@@ -232,6 +232,8 @@ namespace MapEditor
 
             if (_map != null) _map.Draw(Camera3D);
 
+            //The outline is translucent, so it is drawn over the finished scene and does not write depth
+            GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
             _aabb.Draw(Camera3D);
 
             if (_selector != null)
