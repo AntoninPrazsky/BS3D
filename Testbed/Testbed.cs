@@ -181,7 +181,7 @@ namespace Testbed
         private TypedIndex _ceilingShapeIndex;
 
         /// <summary>
-        /// Size of the ceiling before a map is loaded; also the size the TopGrid model is modelled at.
+        /// Size of the ceiling before a map is loaded.
         /// </summary>
         private static readonly float DEFAULT_CEILING_SIZE = 10f;
 
