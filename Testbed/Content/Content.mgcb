@@ -223,6 +223,12 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/ShadowOverlay.fx
 
+#begin Shaders/Tonemap.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Tonemap.fx
+
 #begin Skyes/SkyDome1.dae
 /importer:XImporter
 /processor:ModelProcessor

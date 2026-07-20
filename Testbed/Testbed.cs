@@ -235,6 +235,16 @@ namespace Testbed
         private static readonly int MSAA_SAMPLES = 8;
 
         /// <summary>
+        /// Chosen so the daylight domes land at roughly the brightness the gamma-space renderer used to
+        /// show. It is a starting point for a rig that was lit by eye in the wrong space, not a
+        /// photometric value — the whole lighting rig wants re-balancing now that it composes correctly.
+        /// </summary>
+        private const float DEFAULT_EXPOSURE = 1.1f;
+
+        /// <summary>LightSlateGray, the old clear color, decoded into the linear space the target holds.</summary>
+        private static readonly Color CLEAR_COLOR_LINEAR = new(new Vector3(0.185f, 0.246f, 0.319f));
+
+        /// <summary>
         /// The scene renders into a target this many times larger per axis and is box-filtered down on
         /// the way to the back buffer. The balls' relief is the reason: it is a high-frequency signal
         /// evaluated per pixel, so raising the sampling rate is the only thing that keeps its fine
@@ -243,7 +253,24 @@ namespace Testbed
         /// </summary>
         private readonly int _supersampleFactor;
 
+        /// <summary>
+        /// The scene renders into this instead of the back buffer, and always does: it is where linear
+        /// radiance lives. A half-float format because linear light is open-ended — a lit highlight is
+        /// genuinely several times brighter than white, and an 8-bit target would clip it flat before
+        /// the tonemap curve ever got a chance to roll it off.
+        /// </summary>
         private RenderTarget2D _sceneTarget;
+
+        private Effect _tonemapEffect;
+        private VertexBuffer _fullScreenQuad;
+
+        /// <summary>
+        /// Linear scale applied to the scene before the tonemap curve — the renderer's shutter speed.
+        /// Overridable with "exposure=&lt;f&gt;" on the command line, which is how a sky dome that is much
+        /// brighter or darker than the rest gets checked without a rebuild.
+        /// </summary>
+        private readonly float _exposure;
+
         private readonly bool _uncappedFps;
         private static float GAME_FOV = (float)Math.PI / 3.1f;
         private static float FREE_FOV = (float)Math.PI / 2.5f;
@@ -302,8 +329,9 @@ namespace Testbed
         private bool _switchMapDone;
         private static readonly float SWITCH_MAP_DELAY_SECONDS = 10f;
 
-        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false, int supersampleFactor = 2)
+        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false, int supersampleFactor = 2, float exposure = DEFAULT_EXPOSURE)
         {
+            _exposure = exposure > 0f ? exposure : DEFAULT_EXPOSURE;
             _windowed = windowed;
             _startupMapPath = startupMapPath;
             _autoShoot = autoShoot;
@@ -448,6 +476,9 @@ namespace Testbed
             _shadowMap = new RenderTarget2D(GraphicsDevice, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, false, SurfaceFormat.Single, DepthFormat.Depth24);
             _shadowOverlayEffect = Content.Load<Effect>("Shaders/ShadowOverlay");
 
+            _tonemapEffect = Content.Load<Effect>("Shaders/Tonemap");
+            CreateFullScreenQuad();
+
             //The key light is directional for shadow purposes; a fixed ortho box around the play field covers
             //everything that can meaningfully cast or receive (the sun position used for shading lies on this axis)
             _lightViewProjection =
@@ -516,7 +547,8 @@ namespace Testbed
             #endregion
 
             _skyModel = Content.Load<Model>("Skyes/SkyDome" + _skyModelNumber);
-            _sky = new SkyDome(_skyModel, GraphicsDevice);
+            //The dome's vertex colors are sRGB; the target it is drawn into is linear
+            _sky = new SkyDome(_skyModel, GraphicsDevice, linearVertexColors: true);
 
             _cilinderModel = Content.Load<Model>("GameObjects/Cilinder");
             _cannon = new Cannon(_cilinderModel, new Vector3(0f, 5f, 0f), -6.4f, 20f);
@@ -992,12 +1024,15 @@ namespace Testbed
                 DrawBallsShadowMap(); //Must run before anything touches the backbuffer
             }
 
-            //The scene goes through the supersampled target; the aimer and the text overlay are drawn
-            //after the resolve, at native resolution, so they stay exactly as authored instead of
-            //being softened by the downsample
-            if (_sceneTarget != null) GraphicsDevice.SetRenderTarget(_sceneTarget);
+            //The scene goes through the HDR target; the aimer and the text overlay are drawn after the
+            //resolve, at native resolution and in display space, so they stay exactly as authored instead
+            //of being softened by the downsample and bent by the tonemap curve
+            GraphicsDevice.SetRenderTarget(_sceneTarget);
 
-            GraphicsDevice.Clear(Color.LightSlateGray);
+            //The old clear color in linear light. Nothing should ever see it — the sky dome covers the
+            //whole frame — but a clear color that is silently a different brightness than it reads is a
+            //trap worth not leaving behind.
+            GraphicsDevice.Clear(CLEAR_COLOR_LINEAR);
 
             _sky.Draw(_camera);
 
@@ -1020,7 +1055,7 @@ namespace Testbed
                 DrawShadowOverlay();
             }
 
-            if (_sceneTarget != null) ResolveSceneTarget();
+            ResolveSceneTarget();
 
             if (!_gameMode)
             {
@@ -1279,19 +1314,20 @@ namespace Testbed
             e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = _uncappedFps ? PresentInterval.Immediate : PresentInterval.One;
             e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.HiDef;
 
-            //When supersampling, the 3D scene never reaches the back buffer, so multisampling it would
-            //buy nothing and cost hundreds of megabytes at 4K; the downsample already averages
-            //_supersampleFactor^2 samples per output pixel, geometry edges included.
-            e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = _supersampleFactor > 1 ? 0 : MSAA_SAMPLES;
+            //The 3D scene never reaches the back buffer any more — it goes through the HDR target and
+            //arrives as one already-resolved full-screen quad — so multisampling the back buffer would
+            //cost memory and antialias nothing. Any MSAA now belongs on the scene target itself.
+            e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = 0;
         }
 
         /// <summary>
-        /// Creates the supersampled scene target, or resizes it after a window resize or a fullscreen
-        /// switch. Does nothing when supersampling is off — the scene then draws straight to the back buffer.
+        /// Creates the HDR scene target, or resizes it after a window resize or a fullscreen switch.
+        /// Unlike the old supersample-only target this one always exists: the scene is rendered in linear
+        /// radiance now, and there is nowhere in an 8-bit sRGB back buffer to put that.
         /// </summary>
         private void EnsureSceneTarget()
         {
-            if (_supersampleFactor <= 1 || GraphicsDevice == null) return;
+            if (GraphicsDevice == null) return;
 
             int width = GraphicsDevice.PresentationParameters.BackBufferWidth * _supersampleFactor;
             int height = GraphicsDevice.PresentationParameters.BackBufferHeight * _supersampleFactor;
@@ -1299,24 +1335,55 @@ namespace Testbed
             if (_sceneTarget != null && _sceneTarget.Width == width && _sceneTarget.Height == height) return;
 
             _sceneTarget?.Dispose();
-            _sceneTarget = new RenderTarget2D(GraphicsDevice, width, height, false, SurfaceFormat.Color, DepthFormat.Depth24Stencil8);
+
+            //Supersampling already averages _supersampleFactor^2 samples per output pixel, geometry edges
+            //included, so MSAA only earns its memory when supersampling is off.
+            _sceneTarget = new RenderTarget2D(GraphicsDevice, width, height, false, SurfaceFormat.HdrBlendable,
+                DepthFormat.Depth24Stencil8, _supersampleFactor > 1 ? 0 : MSAA_SAMPLES, RenderTargetUsage.DiscardContents);
         }
 
         /// <summary>
-        /// Box-filters the supersampled scene onto the back buffer. At a factor of two, a bilinear tap
-        /// at the destination pixel center lands exactly on the corner shared by its four source pixels
-        /// and weights them evenly, so this is an exact box filter rather than an approximation of one;
-        /// higher factors reach only four of the source pixels and would want a dedicated downsample pass.
+        /// Builds the clip-space quad the tonemap pass draws. Its corners are already in normalized device
+        /// coordinates, so the pass needs no transform of any kind.
+        /// </summary>
+        private void CreateFullScreenQuad()
+        {
+            VertexPositionTexture[] corners =
+            {
+                new(new Vector3(-1f, 1f, 0f), new Vector2(0f, 0f)),
+                new(new Vector3(1f, 1f, 0f), new Vector2(1f, 0f)),
+                new(new Vector3(-1f, -1f, 0f), new Vector2(0f, 1f)),
+                new(new Vector3(1f, -1f, 0f), new Vector2(1f, 1f))
+            };
+
+            _fullScreenQuad = new VertexBuffer(GraphicsDevice, VertexPositionTexture.VertexDeclaration, corners.Length, BufferUsage.WriteOnly);
+            _fullScreenQuad.SetData(corners);
+        }
+
+        /// <summary>
+        /// Box-filters the supersampled HDR scene onto the back buffer, tonemaps it from linear radiance
+        /// into display range and encodes it to sRGB. This is the frame's one and only exit from linear
+        /// light; everything drawn after it (the overlay, the aimer) is already in display space.
         /// </summary>
         private void ResolveSceneTarget()
         {
             GraphicsDevice.SetRenderTarget(null);
 
-            _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
-            _spriteBatch.Draw(_sceneTarget,
-                new Rectangle(0, 0, GraphicsDevice.PresentationParameters.BackBufferWidth, GraphicsDevice.PresentationParameters.BackBufferHeight),
-                Color.White);
-            _spriteBatch.End();
+            _tonemapEffect.Parameters["SceneTexture"].SetValue(_sceneTarget);
+            _tonemapEffect.Parameters["SourceTexelSize"].SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
+            _tonemapEffect.Parameters["SupersampleFactor"].SetValue(_supersampleFactor);
+            _tonemapEffect.Parameters["Exposure"].SetValue(_exposure);
+
+            GraphicsDevice.BlendState = BlendState.Opaque;
+            GraphicsDevice.DepthStencilState = DepthStencilState.None;
+            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+            GraphicsDevice.SetVertexBuffer(_fullScreenQuad);
+
+            foreach (EffectPass pass in _tonemapEffect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                GraphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+            }
         }
 
         private StaticReference CreateStatic(System.Numerics.Vector3 position, Box boundingBox)
@@ -1328,6 +1395,7 @@ namespace Testbed
         protected override void UnloadContent()
         {
             _sceneTarget?.Dispose();
+            _fullScreenQuad?.Dispose();
             _simulation.Dispose();
             _threadDispatcher.Dispose();
             _bufferPool.Clear();

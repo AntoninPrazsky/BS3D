@@ -14,6 +14,23 @@
 	#define PS_SHADERMODEL ps_5_0
 #endif
 
+//Every color that enters the lighting math - material colors, light colors, sky palette, texture
+//samples - is authored or stored in sRGB, which is a display encoding, not a quantity of light.
+//Adding, multiplying and averaging those numbers is only meaningful once they are back in linear
+//radiance; Tonemap.fx encodes the result for the display again at the very end of the frame.
+//
+//The map editor builds this same file for DesktopGL and has no tonemapping pass to encode back with,
+//so there this stays a no-op and the editor keeps working in gamma space exactly as before.
+float3 SrgbToLinear(float3 color)
+{
+#if OPENGL
+	return color;
+#else
+	//Jim Hejl's cubic fit of the sRGB curve - accurate to well under a display bit and no pow()
+	return color * (color * (color * 0.305306011 + 0.682171111) + 0.012522878);
+#endif
+}
+
 float4x4 View;
 float4x4 Projection;
 
@@ -157,17 +174,19 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
 	float3 diffuse = 0;
 	float3 specular = 0;
 
-	AddLight(normalize(KeyLightPosition - worldPosition), DirLight0DiffuseColor, DirLight0SpecularColor, worldNormal, eyeVector, diffuse, specular);
-	AddLight(-DirLight1Direction, DirLight1DiffuseColor, DirLight1SpecularColor, worldNormal, eyeVector, diffuse, specular);
-	AddLight(-DirLight2Direction, DirLight2DiffuseColor, DirLight2SpecularColor, worldNormal, eyeVector, diffuse, specular);
+	AddLight(normalize(KeyLightPosition - worldPosition), SrgbToLinear(DirLight0DiffuseColor), SrgbToLinear(DirLight0SpecularColor), worldNormal, eyeVector, diffuse, specular);
+	AddLight(-DirLight1Direction, SrgbToLinear(DirLight1DiffuseColor), SrgbToLinear(DirLight1SpecularColor), worldNormal, eyeVector, diffuse, specular);
+	AddLight(-DirLight2Direction, SrgbToLinear(DirLight2DiffuseColor), SrgbToLinear(DirLight2SpecularColor), worldNormal, eyeVector, diffuse, specular);
 
-	float3 hemisphere = lerp(GroundColor, SkyColor, worldNormal.y * 0.5 + 0.5);
+	float3 hemisphere = lerp(SrgbToLinear(GroundColor), SrgbToLinear(SkyColor), worldNormal.y * 0.5 + 0.5);
 
 	float occlusion = SurfaceOcclusion(worldPosition, worldNormal, occlusionData);
 	float diffuseOcclusion = lerp(0.6, 1.0, occlusion);
 
-	float4 color = float4((diffuse * DiffuseColor.rgb * diffuseOcclusion + hemisphere * AmbientColor * occlusion + EmissiveColor) * texColor.rgb, DiffuseColor.a * texColor.a);
-	color.rgb += specular * SpecularColor * color.a * occlusion;
+	//texColor arrives linear already: every sampling site linearizes at the tap, where the sRGB
+	//encoding of the texture is still an established fact rather than an assumption
+	float4 color = float4((diffuse * SrgbToLinear(DiffuseColor.rgb) * diffuseOcclusion + hemisphere * SrgbToLinear(AmbientColor) * occlusion + SrgbToLinear(EmissiveColor)) * texColor.rgb, DiffuseColor.a * texColor.a);
+	color.rgb += specular * SrgbToLinear(SpecularColor) * color.a * occlusion;
 
 	return color;
 }
@@ -311,7 +330,10 @@ float4 TexturedPS(TexturedVertexShaderOutput input) : COLOR
 	float height = SceneSurfaceHeight(input.WorldPosition, ddx(input.WorldPosition), ddy(input.WorldPosition));
 	float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
 
-	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, tex2D(TextureSampler, input.TexCoord));
+	float4 texColor = tex2D(TextureSampler, input.TexCoord);
+	texColor.rgb = SrgbToLinear(texColor.rgb);
+
+	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, texColor);
 }
 
 technique InstancedModelTextured
@@ -421,13 +443,18 @@ float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 	float azimuth = atan2(direction.z, direction.x);
 	float gore = sin(PatternGoreCount * azimuth);
 
-	float3 color = lerp(PatternPrimaryColor, PatternSecondaryColor, AntialiasedStep(PatternGoreThreshold, gore));
+	//Linearized before the blends: these crossfades run along the antialiased gore edges, so they are
+	//averaging light across a pixel and have to do it in linear
+	float3 primary = SrgbToLinear(PatternPrimaryColor);
+	float3 secondary = SrgbToLinear(PatternSecondaryColor);
+
+	float3 color = lerp(primary, secondary, AntialiasedStep(PatternGoreThreshold, gore));
 
 	//Discs at the poles, where the gores would otherwise converge into an aliasing mess
 	float pole = abs(direction.y);
 
-	color = lerp(color, PatternPrimaryColor, AntialiasedStep(PatternCapExtent, pole));
-	color = lerp(color, PatternSecondaryColor, AntialiasedStep(PatternCapExtent + PatternRingWidth, pole));
+	color = lerp(color, primary, AntialiasedStep(PatternCapExtent, pole));
+	color = lerp(color, secondary, AntialiasedStep(PatternCapExtent + PatternRingWidth, pole));
 
 	//The panels are welded together, not painted on: press a groove in along every gore boundary and
 	//around the rim of each polar disc. The gore grooves fade out towards the poles, where the
@@ -528,7 +555,7 @@ float4 DetailUVNormalPS(TexturedVertexShaderOutput input) : COLOR
 {
 	float2 uv = input.TexCoord * DetailScale;
 
-	float3 detail = tex2D(TextureSampler, uv).rgb;
+	float3 detail = SrgbToLinear(tex2D(TextureSampler, uv).rgb);
 	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
 	float3 geometricNormal = normalize(input.WorldNormal);
@@ -558,7 +585,7 @@ technique InstancedModelDetailUVNormal
 
 float4 DetailUVPS(TexturedVertexShaderOutput input) : COLOR
 {
-	float3 detail = tex2D(TextureSampler, input.TexCoord * DetailScale).rgb;
+	float3 detail = SrgbToLinear(tex2D(TextureSampler, input.TexCoord * DetailScale).rgb);
 	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
 	float height = SceneSurfaceHeight(input.WorldPosition, ddx(input.WorldPosition), ddy(input.WorldPosition));
@@ -643,10 +670,12 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
 
 	float3 p = input.WorldPosition * DetailScale;
 
+	//Each tap is linearized before the blend: the three projections are averaged, and averaging
+	//display-encoded values is exactly the mistake this whole pass exists to stop making
 	float3 detail
-		= tex2D(TextureSampler, p.zy).rgb * blend.x
-		+ tex2D(TextureSampler, p.xz).rgb * blend.y
-		+ tex2D(TextureSampler, p.xy).rgb * blend.z;
+		= SrgbToLinear(tex2D(TextureSampler, p.zy).rgb) * blend.x
+		+ SrgbToLinear(tex2D(TextureSampler, p.xz).rgb) * blend.y
+		+ SrgbToLinear(tex2D(TextureSampler, p.xy).rgb) * blend.z;
 
 	//Construction patterns land on the vertical faces only (roofs and other Y-facing surfaces stay plain)
 	float verticalWeight = (blend.x + blend.z) * MasonryStrength;
