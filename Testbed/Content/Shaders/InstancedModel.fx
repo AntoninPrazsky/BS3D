@@ -1048,6 +1048,85 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
 	return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
 }
 
+//Vertical spacing of a window row and horizontal spacing of a column, in world units, and how much of
+//each cell is glass rather than the wall around it
+static const float WindowPitchY = 2.2;
+static const float WindowPitchX = 1.7;
+static const float WindowFillY = 0.52;
+static const float WindowFillX = 0.46;
+
+//Fraction of the windows that are lit, and the two colors they are lit with
+static const float WindowLitFraction = 0.42;
+static const float3 WindowWarm = float3(1.0, 0.78, 0.44);
+static const float3 WindowCool = float3(0.52, 0.82, 1.0);
+
+//How brightly the lit windows glow, and how dark the facade around them is
+float CityWindowBrightness;
+
+float Hash21(float2 p)
+{
+	p = frac(p * float2(123.34, 456.21));
+	p += dot(p, p + 45.32);
+
+	return frac(p.x * p.y);
+}
+
+//Windows evaluated from world position rather than from the model's own coordinates: the buildings are
+//one box scaled per instance, so an object-space grid would stretch with the building and give a
+//hundred-storey tower the same number of floors as a low one.
+float4 CityPS(VertexShaderOutput input) : COLOR
+{
+	float3 worldNormal = normalize(input.WorldNormal);
+
+	//Which pair of world axes runs across this facade. Branchless: a lerp on the face's own normal,
+	//which is constant over a flat face, so the derivatives below stay well defined.
+	float facingX = step(abs(worldNormal.z), abs(worldNormal.x));
+	float2 facade = lerp(input.WorldPosition.xy, input.WorldPosition.zy, facingX);
+
+	//Roofs and the ground faces get no windows
+	float vertical = 1 - step(0.5, abs(worldNormal.y));
+
+	float2 grid = facade / float2(WindowPitchX, WindowPitchY);
+	float2 cell = floor(grid);
+	float2 withinCell = abs(frac(grid) - 0.5) * 2;
+
+	//The pixel's extent across the facade, per axis, in cells. Band-limited the way every other feature
+	//here is: once a pixel covers more than a window the pattern fades to its own average rather than
+	//aliasing into a moire of lit and unlit floors, which is what a city at distance would otherwise do.
+	float2 footprint = (abs(ddx(facade)) + abs(ddy(facade))) / float2(WindowPitchX, WindowPitchY);
+	float resolvable = saturate(1 - max(footprint.x, footprint.y));
+
+	float2 shape = smoothstep(float2(WindowFillX, WindowFillY) + footprint, float2(WindowFillX, WindowFillY) - footprint, withinCell);
+	float window = shape.x * shape.y * vertical;
+
+	//Each window decides once and for all whether it is lit, from its own cell and the building it is on
+	float lamp = Hash21(cell + floor(input.WorldPosition.xz * 0.37));
+	float lit = step(1 - WindowLitFraction, lamp);
+
+	float3 lampColor = lerp(WindowWarm, WindowCool, step(0.5, Hash21(cell * 1.7 + 11.3)));
+
+	//Fading to the average keeps a distant tower a dim glowing block instead of a flickering one
+	float coverage = lerp(WindowFillX * WindowFillY * WindowLitFraction * vertical, window * lit, resolvable);
+
+	//The facade itself is dark: a night city is mostly unlit concrete with light punched through it
+	float3 facadeColor = float3(0.06, 0.065, 0.08);
+
+	float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(facadeColor, 1), 1, 1);
+
+	shaded.rgb += coverage * lampColor * CityWindowBrightness;
+
+	return shaded;
+}
+
+technique InstancedCity
+{
+	pass P0
+	{
+		VertexShader = compile VS_SHADERMODEL MainVS();
+		PixelShader = compile PS_SHADERMODEL CityPS();
+	}
+};
+
 technique InstancedModelTriplanar
 {
 	pass P0

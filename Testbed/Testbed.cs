@@ -301,6 +301,46 @@ namespace Testbed
         private Effect _tonemapEffect;
         private VertexBuffer _fullScreenQuad;
 
+        #region City prototype ("city" on the command line)
+
+        /// <summary>
+        /// Swaps the castle-in-a-field backdrop for the intended setting: a glass arena among the tops
+        /// of a procedural city. Behind a flag so the existing scene stays available to compare against.
+        /// </summary>
+        private readonly bool _cityPrototype;
+
+        private City _city;
+        private BoxMesh _unitBox;
+        private InstancedModelRenderer _cityRenderer;
+        private InstancedModelRenderer _arenaGlassRenderer;
+        private InstancedModelRenderer _arenaFrameRenderer;
+        private ModelInstance[] _arenaGlassInstances;
+        private ModelInstance[] _arenaFrameInstances;
+
+        /// <summary>Half-width of the glass play surface, and the width of the marble band around it.</summary>
+        private static readonly float ARENA_HALF_EXTENT = 58f;
+
+        private static readonly float ARENA_FRAME_WIDTH = 9f;
+
+        /// <summary>Edge length of one glass panel, and the width of the marble mullion between panels.</summary>
+        private static readonly float ARENA_PANEL_SIZE = 14.5f;
+
+        private static readonly float ARENA_MULLION_WIDTH = 1.1f;
+
+        /// <summary>Top of the glass, matching the height the old marble ground sat at.</summary>
+        private static readonly float ARENA_Y = -9.5f;
+
+        private static readonly float ARENA_GLASS_THICKNESS = 0.6f;
+
+        private static readonly Vector3 ARENA_GLASS_COLOR = new(0.42f, 0.62f, 0.72f);
+        private static readonly float ARENA_GLASS_ALPHA = 0.24f;
+
+        private static readonly Vector3 ARENA_MARBLE_COLOR = new(0.58f, 0.56f, 0.54f);
+
+        private static readonly float CITY_WINDOW_BRIGHTNESS = 0.25f;
+
+        #endregion
+
         #region Glare
 
         /// <summary>
@@ -399,9 +439,10 @@ namespace Testbed
         private bool _switchMapDone;
         private static readonly float SWITCH_MAP_DELAY_SECONDS = 10f;
 
-        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false, int supersampleFactor = 2, float exposure = DEFAULT_EXPOSURE)
+        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false, int supersampleFactor = 2, float exposure = DEFAULT_EXPOSURE, bool cityPrototype = false)
         {
             _exposure = exposure > 0f ? exposure : DEFAULT_EXPOSURE;
+            _cityPrototype = cityPrototype; //Testing: "city" on the command line swaps the castle backdrop for the intended setting
             _windowed = windowed;
             _startupMapPath = startupMapPath;
             _autoShoot = autoShoot;
@@ -627,6 +668,8 @@ namespace Testbed
 
             BuildGroundAndCeiling();
 
+            if (_cityPrototype) BuildCityPrototype();
+
             #endregion Ground and ceiling
 
             #region Contact events
@@ -726,6 +769,10 @@ namespace Testbed
             yield return _ceilingRenderer;
             yield return _cannonRenderer;
             yield return _castleRenderer;
+
+            if (_cityRenderer != null) yield return _cityRenderer;
+            if (_arenaGlassRenderer != null) yield return _arenaGlassRenderer;
+            if (_arenaFrameRenderer != null) yield return _arenaFrameRenderer;
         }
 
         /// <summary>
@@ -781,6 +828,83 @@ namespace Testbed
             _sky.SkyDomeModel = _skyModel;
 
             ApplySkyLighting();
+        }
+
+        /// <summary>
+        /// Builds the intended setting: a glass play surface framed in marble, standing among the tops of
+        /// a procedural city. One unit box mesh serves all three — the buildings, the four marble bands
+        /// and the glass panel are the same cube under different instance matrices, which is what keeps
+        /// a whole city to a single draw call.
+        /// </summary>
+        private void BuildCityPrototype()
+        {
+            _unitBox = new BoxMesh(GraphicsDevice, 1f, 1f, 1f);
+
+            _city = new City(seed: 20260720, arenaHalfExtent: ARENA_HALF_EXTENT);
+
+            _cityRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, Vector3.One, _instancingEffect)
+            {
+                CityWindowBrightness = CITY_WINDOW_BRIGHTNESS,
+                //The specular ambient is not multiplied by albedo - a reflection does not care how dark
+                //the surface under it is - so on a city's worth of facades seen at grazing angles it
+                //washes the whole skyline in sky color. Concrete is rough and barely reflective; this is
+                //the one place the physically-right term needs turning down to look right.
+                SpecularAmbientStrength = 0.25f
+            };
+
+            //The glass panel, sitting just under the play surface
+            _arenaGlassRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, ARENA_GLASS_COLOR, _instancingEffect, ARENA_GLASS_ALPHA);
+
+            _arenaGlassInstances = new[]
+            {
+                new ModelInstance(
+                    Microsoft.Xna.Framework.Matrix.CreateScale(ARENA_HALF_EXTENT * 2f, ARENA_GLASS_THICKNESS, ARENA_HALF_EXTENT * 2f)
+                    * Microsoft.Xna.Framework.Matrix.CreateTranslation(0f, ARENA_Y - ARENA_GLASS_THICKNESS * 0.5f, 0f),
+                    GROUND_NO_OCCLUSION)
+            };
+
+            //Four marble bands framing the glass. The glass is what the city shows through; the marble is
+            //what it is set into, and it is also the only thing here with a surface worth the relief work.
+            _arenaFrameRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, ARENA_MARBLE_COLOR, _instancingEffect)
+            {
+                SurfaceReliefFrequency = 9f,
+                SurfaceReliefStrength = 0.008f,
+                SlabSize = 2f,
+                SlabJointWidth = 0.025f,
+                SlabJointDepth = 0.04f,
+                CavityStrength = 0.7f,
+                ReliefShadowStrength = 0.85f,
+                ParallaxScale = 1f
+            };
+
+            float outer = ARENA_HALF_EXTENT + ARENA_FRAME_WIDTH;
+            float bandCenter = ARENA_HALF_EXTENT + ARENA_FRAME_WIDTH * 0.5f;
+            float thickness = 1.2f;
+            float bandY = ARENA_Y - thickness * 0.5f;
+
+            List<ModelInstance> frame = new()
+            {
+                Band(outer * 2f, ARENA_FRAME_WIDTH, 0f, bandCenter),
+                Band(outer * 2f, ARENA_FRAME_WIDTH, 0f, -bandCenter),
+                Band(ARENA_FRAME_WIDTH, ARENA_HALF_EXTENT * 2f, bandCenter, 0f),
+                Band(ARENA_FRAME_WIDTH, ARENA_HALF_EXTENT * 2f, -bandCenter, 0f)
+            };
+
+            //Mullions dividing the glass into panels. Without them a translucent sheet over a lit city
+            //reads as no floor at all - you see the city and nothing else, and the eye has no reason to
+            //believe anything is between. A grid of things the glass is set into is what says "glass".
+            for (float offset = -ARENA_HALF_EXTENT + ARENA_PANEL_SIZE; offset < ARENA_HALF_EXTENT - 0.1f; offset += ARENA_PANEL_SIZE)
+            {
+                frame.Add(Band(ARENA_HALF_EXTENT * 2f, ARENA_MULLION_WIDTH, 0f, offset));
+                frame.Add(Band(ARENA_MULLION_WIDTH, ARENA_HALF_EXTENT * 2f, offset, 0f));
+            }
+
+            _arenaFrameInstances = frame.ToArray();
+
+            ModelInstance Band(float sizeX, float sizeZ, float x, float z) => new(
+                Microsoft.Xna.Framework.Matrix.CreateScale(sizeX, thickness, sizeZ)
+                * Microsoft.Xna.Framework.Matrix.CreateTranslation(x, bandY, z),
+                GROUND_NO_OCCLUSION);
         }
 
         private void BuildGroundAndCeiling()
@@ -1152,18 +1276,29 @@ namespace Testbed
 
             if (_draw)
             {
-                _groundRenderer.Draw(_camera, _groundInstances, _groundInstances.Length, _sceneEffectParams);
+                if (_cityPrototype)
+                {
+                    //The city stands in for the ground and the backdrop both, so neither is drawn
+                    _cityRenderer.Draw(_camera, _city.Buildings, _city.Buildings.Length, _sceneEffectParams);
+                    _arenaFrameRenderer.Draw(_camera, _arenaFrameInstances, _arenaFrameInstances.Length, _sceneEffectParams);
+                }
+                else
+                {
+                    _groundRenderer.Draw(_camera, _groundInstances, _groundInstances.Length, _sceneEffectParams);
+                }
 
                 _cannonRenderer.Draw(_camera, _cannon.World, _sceneEffectParams);
 
                 DrawBallsInstanced();
 
-                _castleRenderer.Draw(_camera, _castle.World, _sceneEffectParams);
+                if (!_cityPrototype) _castleRenderer.Draw(_camera, _castle.World, _sceneEffectParams);
 
-                //Translucent glass: drawn after the opaque scene so the balls show through it
+                //Translucent glass: drawn after the opaque scene so what is behind it shows through
+                if (_cityPrototype) _arenaGlassRenderer.Draw(_camera, _arenaGlassInstances, _arenaGlassInstances.Length, _sceneEffectParams);
+
                 _ceilingRenderer.Draw(_camera, _ceiling.World, _sceneEffectParams);
 
-                DrawShadowOverlay();
+                if (!_cityPrototype) DrawShadowOverlay();
             }
 
             ResolveSceneTarget();
@@ -1555,6 +1690,7 @@ namespace Testbed
 
         protected override void UnloadContent()
         {
+            _unitBox?.Dispose();
             _sceneTarget?.Dispose();
             _glareBright?.Dispose();
             _glareStreak?.Dispose();

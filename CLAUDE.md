@@ -52,6 +52,14 @@ Each constraint is shared by two balls, so `PhysicsBall` stores handles in three
 
 Contact detection uses `Testbed/Contacts/ContactEvents.cs` (adapted from the Bepu demo); Bepu callbacks fire on worker threads, so contact events are queued and processed on the main thread. When a shot ball hits the structure, it is snapped into the nearest free neighboring cell (`BallsMap.PutBallAtClosestEmptyPositionNextTo`) and then wired into the physics structure with `AttachBallToStructure`.
 
+### City prototype (`city` on the command line)
+
+A first pass at the intended setting, behind a flag so the castle-in-a-field scene stays available to compare against: a glass play surface framed in marble, standing among the tops of a procedural city (`Testbed/Backdrops/City.cs`). With `city` on, the ground, the castle and the shadow overlay are not drawn.
+
+Everything is procedural and there are no assets. One 1×1×1 `BoxMesh` serves all of it — every building, the four marble bands and each mullion is that cube under a different instance matrix, so the whole city is a single instanced draw call. Non-uniform scale is safe here because the boxes are axis-aligned in object space: a diagonal scale maps each face normal onto itself, so `normalize` in the pixel shader recovers it without an inverse transpose. The `InstancedCity` technique evaluates the window grid from **world position** rather than object space — the buildings are one cube scaled per instance, so an object-space grid would give a hundred-storey tower the same number of floors as a low one. Windows band-limit to their own average coverage, so a distant tower is a dim glowing block rather than a moire of floors.
+
+Two things learned tuning it, both worth keeping in mind elsewhere. The **specular ambient is not multiplied by albedo** (a reflection does not care how dark the surface under it is), which is physically right but washes a whole skyline in sky color at grazing angles — the city runs it at 0.25. And a translucent sheet over a lit city reads as *no floor at all*; the mullions dividing the glass into panels are what make the eye accept there is glass there.
+
 ### Color management (Testbed)
 
 The Testbed renders in **linear radiance** and leaves it exactly once. The scene always draws into a half-float HDR `RenderTarget2D` (`_sceneTarget`, `SurfaceFormat.HdrBlendable`, sized backbuffer × `_supersampleFactor`), and `Tonemap.fx` resolves it in one full-screen pass: box filter over the supersampled block, exposure (`DEFAULT_EXPOSURE`, `exposure=<f>` to override), the ACES filmic curve, then sRGB encode. The text overlay and aimer draw after it, in display space.

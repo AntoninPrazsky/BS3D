@@ -90,6 +90,16 @@ namespace Prazsky.Core.Render
         private EffectTechnique _detailUVTechnique;
         private EffectTechnique _detailUVNormalTechnique;
         private EffectTechnique _patternTechnique;
+        private EffectTechnique _cityTechnique;
+        private EffectParameter _cityWindowBrightnessParam;
+
+        /// <summary>
+        /// How brightly the lit windows of a city building glow (0 = this renderer is not a city, and
+        /// takes whichever technique its material would otherwise select). The facade needs no texture
+        /// and no UVs: the window grid is evaluated from world position, so one box mesh scaled per
+        /// instance gives a hundred-storey tower a hundred storeys rather than stretching one facade.
+        /// </summary>
+        public float CityWindowBrightness { get; set; }
         private EffectTechnique _depthTechnique;
 
         /// <summary>
@@ -469,6 +479,8 @@ namespace Prazsky.Core.Render
             _detailUVTechnique = _effect.Techniques["InstancedModelDetailUV"];
             _detailUVNormalTechnique = _effect.Techniques["InstancedModelDetailUVNormal"];
             _patternTechnique = _effect.Techniques["InstancedModelPattern"];
+            _cityTechnique = _effect.Techniques["InstancedCity"];
+            _cityWindowBrightnessParam = _effect.Parameters["CityWindowBrightness"];
             _depthTechnique = _effect.Techniques["InstancedDepth"];
             _effect.CurrentTechnique = _mainTechnique;
 
@@ -640,7 +652,13 @@ namespace Prazsky.Core.Render
 
                 //Mesh parts with their own texture sample it through UVs; parts of a UV-less model
                 //can get a triplanar world-space detail texture instead (opaque parts only)
-                if (part.Texture != null)
+                if (CityWindowBrightness > 0f)
+                {
+                    //A city building: no texture, no UVs, its facade drawn from world position
+                    _effect.CurrentTechnique = _cityTechnique;
+                    _cityWindowBrightnessParam.SetValue(CityWindowBrightness);
+                }
+                else if (part.Texture != null)
                 {
                     _effect.CurrentTechnique = _texturedTechnique;
                     _textureParam.SetValue(part.Texture);
