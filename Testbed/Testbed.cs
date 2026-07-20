@@ -108,7 +108,7 @@ namespace Testbed
         /// the neighbours it leaves behind) or darker (an attached ball and the neighbours it joins) a whole
         /// frame before anything visibly happened.
         /// </summary>
-        private static readonly float BALL_OCCLUSION_EASE_SECONDS = 0.15f;
+        private static readonly float BALL_OCCLUSION_EASE_SECONDS = 1f;
 
         /// <summary>
         /// Time constant of the glide a freshly attached ball is drawn with, and the offset below which the
