@@ -22,6 +22,9 @@
   <ItemGroup>
     <PackageReference Include="BepuPhysics" Version="2.5.0-beta.29" />
     <PackageReference Include="BepuUtilities" Version="2.5.0-beta.29" />
-    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5" />
+    <!--Compile-time only: both MonoGame platform packages ship the same MonoGame.Framework assembly,
+        so keeping this private lets each executable pick its own backend (Testbed WindowsDX, MapEditor
+        DesktopGL) without the two packages colliding over the same output file.-->
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5" PrivateAssets="all" />
   </ItemGroup>
 </Project>

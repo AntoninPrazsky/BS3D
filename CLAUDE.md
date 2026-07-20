@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-BS3D is a 3D Puzzle-Bobble-style game (shoot balls at a hanging 3D cluster of balls) built with MonoGame (DesktopGL) and BepuPhysics 2. Repo: https://github.com/AntoninPrazsky/BS3D — tasks are tracked in GitHub issues.
+BS3D is a 3D Puzzle-Bobble-style game (shoot balls at a hanging 3D cluster of balls) built with MonoGame and BepuPhysics 2. Repo: https://github.com/AntoninPrazsky/BS3D — tasks are tracked in GitHub issues.
+
+Testbed runs on **MonoGame.Framework.WindowsDX** (DirectX 11, Shader Model 5.0); MapEditor is still on **DesktopGL**, where MojoShader caps shaders at Shader Model 3.0. The three libraries reference MonoGame with `PrivateAssets="all"` so the package does not flow to consumers: both platform packages ship an assembly called `MonoGame.Framework`, and keeping the reference compile-time-only is what lets each executable bring its own backend without the two colliding over the same output file. Since MapEditor builds `Testbed/Content/Shaders/InstancedModel.fx` out of the Testbed content directory, anything in that file that SM 5.0 allows and SM 3.0 does not has to sit behind `#if OPENGL`, or MapEditor stops compiling.
 
 ## Build and run
 

@@ -3,7 +3,7 @@
 
 /outputDir:../bin/netcoreapp3.1/Content
 /intermediateDir:obj/$(Platform)
-/platform:DesktopGL
+/platform:Windows
 /config:
 /profile:HiDef
 /compress:False

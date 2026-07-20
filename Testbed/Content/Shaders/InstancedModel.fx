@@ -3,12 +3,15 @@
 //Lighting replicates BasicEffect with EnableDefaultLighting and per-pixel (Blinn-Phong) shading,
 //so instanced models look the same as those rendered through ModelRenderer.
 
+//Testbed builds this for DirectX and gets Shader Model 5.0; the map editor still builds the very same
+//file for DesktopGL, where MojoShader caps out at 3.0. Anything written below that 5.0 allows and 3.0
+//does not has to be guarded by #if OPENGL, or the map editor stops compiling.
 #if OPENGL
 	#define VS_SHADERMODEL vs_3_0
 	#define PS_SHADERMODEL ps_3_0
 #else
-	#define VS_SHADERMODEL vs_4_0_level_9_1
-	#define PS_SHADERMODEL ps_4_0_level_9_1
+	#define VS_SHADERMODEL vs_5_0
+	#define PS_SHADERMODEL ps_5_0
 #endif
 
 float4x4 View;
