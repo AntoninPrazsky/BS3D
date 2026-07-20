@@ -533,6 +533,18 @@ namespace Testbed
             _groundRenderer.SurfaceReliefFrequency = 9f;
             _groundRenderer.SurfaceReliefStrength = 0.008f;
 
+            //The floor is laid in slabs two balls across, and the joints between them are the only thing
+            //on it at a scale the eye reads as structure: at 8 mm the micro-relief is far too shallow for
+            //parallax or self-shadowing to show, while a 4 cm joint casts a real shadow and hides its own
+            //far wall as the camera moves. Everything below is measured against that joint.
+            _groundRenderer.SlabSize = 2f;
+            _groundRenderer.SlabJointWidth = 0.025f;
+            _groundRenderer.SlabJointDepth = 0.04f;
+
+            _groundRenderer.CavityStrength = 0.7f;
+            _groundRenderer.ReliefShadowStrength = 0.85f;
+            _groundRenderer.ParallaxScale = 1f;
+
             RecreateCeilingRenderer(DEFAULT_CEILING_SIZE, DEFAULT_CEILING_SIZE);
 
             BuildGroundAndCeiling();
@@ -569,6 +581,9 @@ namespace Testbed
             _cannonRenderer.SurfaceReliefFrequency = 10f;
             _cannonRenderer.SurfaceReliefStrength = 0.0037f;
 
+            //Cast metal: shallow pitting, so only the cavity term has anything to work with
+            _cannonRenderer.CavityStrength = 0.45f;
+
             _castleModel = Content.Load<Model>("Backdrops/Castle");
             _castle = new Castle(_castleModel, new Vector3(0f, -8.5f, -60f));
             _castleRenderer = new InstancedModelRenderer(GraphicsDevice, _castleModel, _instancingEffect);
@@ -587,6 +602,11 @@ namespace Testbed
             //now cut in as real recesses (MortarDepth in the shader) instead of being painted on flat
             _castleRenderer.SurfaceReliefFrequency = 7f;
             _castleRenderer.SurfaceReliefStrength = 0.010f;
+
+            //The triplanar path builds its own height field, so the castle takes cavity shading only —
+            //enough to sink its mortar joints into their own shade, which is most of what the marches
+            //would have bought on a wall
+            _castleRenderer.CavityStrength = 0.6f;
 
             //The castle is not stone all over, and coursed stonework drawn across the lot gave the door
             //brick joints. Its meshes are named by material, so each can say what it is actually made of.

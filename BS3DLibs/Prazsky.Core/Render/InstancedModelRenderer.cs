@@ -60,6 +60,12 @@ namespace Prazsky.Core.Render
         private EffectParameter _normalMapParam;
         private EffectParameter _normalStrengthParam;
         private EffectParameter _surfaceReliefStrengthParam;
+        private EffectParameter _slabSizeParam;
+        private EffectParameter _slabJointWidthParam;
+        private EffectParameter _slabJointDepthParam;
+        private EffectParameter _cavityStrengthParam;
+        private EffectParameter _reliefShadowStrengthParam;
+        private EffectParameter _parallaxScaleParam;
         private EffectParameter _surfaceReliefFrequencyParam;
         private EffectParameter _surfaceStyleParam;
         private EffectParameter _patternPrimaryColorParam;
@@ -144,6 +150,42 @@ namespace Prazsky.Core.Render
         /// once a screen pixel grows past half its wavelength.
         /// </summary>
         public float SurfaceReliefFrequency { get; set; } = 10f;
+
+        /// <summary>
+        /// Edge length of one floor slab in world units (0 = no slabs). The joints between slabs are cut
+        /// into the same height field as the micro-relief, so they are real recesses: they darken in
+        /// their own shade, take the key light's shadow and shift under the view. This is the structure
+        /// <see cref="ParallaxScale"/> and <see cref="ReliefShadowStrength"/> need to have any visible
+        /// effect at all — micro-relief alone is far too shallow for either to read.
+        /// </summary>
+        public float SlabSize { get; set; }
+
+        /// <summary>Half-width of the flat floor of a slab joint, in world units.</summary>
+        public float SlabJointWidth { get; set; } = 0.02f;
+
+        /// <summary>How far a slab joint sinks below the slab faces, in world units.</summary>
+        public float SlabJointDepth { get; set; } = 0.05f;
+
+        /// <summary>
+        /// How dark the pits of the relief go from being shaded by their own walls (0 = off, 1 = black).
+        /// Without it a normal-perturbed surface has its bumps lit but its hollows just as bright as its
+        /// peaks, which is most of why relief-by-normal reads as a painted-on texture rather than shape.
+        /// </summary>
+        public float CavityStrength { get; set; }
+
+        /// <summary>
+        /// How strongly the relief casts the key light's shadow across itself (0 = off). Costs a short
+        /// ray march per pixel; only surfaces with relief deep enough to shadow anything should ask for it.
+        /// </summary>
+        public float ReliefShadowStrength { get; set; }
+
+        /// <summary>
+        /// Depth range the parallax march covers, as a fraction of the relief's own amplitude (0 = off).
+        /// Moving the shading point along the view ray is what gives a surface real depth: the near wall
+        /// of a groove starts hiding its far wall as the camera moves, which is the one cue normal
+        /// mapping cannot fake. The most expensive of the three — a ray march of up to 28 steps.
+        /// </summary>
+        public float ParallaxScale { get; set; }
 
         /// <summary>
         /// Number of primary-colored gores of the procedural beach-ball pattern (segments around
@@ -343,6 +385,12 @@ namespace Prazsky.Core.Render
             _normalMapParam = _effect.Parameters["NormalMapTexture"];
             _normalStrengthParam = _effect.Parameters["NormalStrength"];
             _surfaceReliefStrengthParam = _effect.Parameters["SurfaceReliefStrength"];
+            _slabSizeParam = _effect.Parameters["SlabSize"];
+            _slabJointWidthParam = _effect.Parameters["SlabJointWidth"];
+            _slabJointDepthParam = _effect.Parameters["SlabJointDepth"];
+            _cavityStrengthParam = _effect.Parameters["CavityStrength"];
+            _reliefShadowStrengthParam = _effect.Parameters["ReliefShadowStrength"];
+            _parallaxScaleParam = _effect.Parameters["ParallaxScale"];
             _surfaceReliefFrequencyParam = _effect.Parameters["SurfaceReliefFrequency"];
             _surfaceStyleParam = _effect.Parameters["SurfaceStyle"];
             _patternPrimaryColorParam = _effect.Parameters["PatternPrimaryColor"];
@@ -463,6 +511,12 @@ namespace Prazsky.Core.Render
             //would show up as relief on a model that asked for none
             _surfaceReliefStrengthParam.SetValue(SurfaceReliefStrength);
             _surfaceReliefFrequencyParam.SetValue(SurfaceReliefFrequency);
+            _slabSizeParam.SetValue(SlabSize);
+            _slabJointWidthParam.SetValue(SlabJointWidth);
+            _slabJointDepthParam.SetValue(SlabJointDepth);
+            _cavityStrengthParam.SetValue(CavityStrength);
+            _reliefShadowStrengthParam.SetValue(ReliefShadowStrength);
+            _parallaxScaleParam.SetValue(ParallaxScale);
 
             for (int i = 0; i < _parts.Length; i++)
             {

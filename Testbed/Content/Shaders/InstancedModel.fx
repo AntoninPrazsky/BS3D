@@ -166,21 +166,29 @@ float SurfaceOcclusion(float3 worldPosition, float3 worldNormal, float4 occlusio
 
 //Shared shading: texColor is the sampled material texture (white for untextured parts).
 //Like BasicEffect, the texture modulates the whole non-specular color (diffuse, ambient and emissive).
-float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionData, float4 texColor)
+//keyShadow attenuates the key light alone - it is what the relief's own bumps block - while cavity
+//attenuates the ambient, which is the sky a pit cannot see. Surfaces with no relief pass 1 for both.
+float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionData, float4 texColor, float keyShadow, float cavity)
 {
 	float3 worldNormal = normalize(rawWorldNormal);
 	float3 eyeVector = normalize(EyePosition - worldPosition);
 
-	float3 diffuse = 0;
-	float3 specular = 0;
+	//The key light is accumulated on its own so the relief's self-shadow can be applied to it without
+	//touching the fill and back lights, which stand in for bounced light and are not blocked by a bump
+	float3 keyDiffuse = 0;
+	float3 keySpecular = 0;
 
-	AddLight(normalize(KeyLightPosition - worldPosition), SrgbToLinear(DirLight0DiffuseColor), SrgbToLinear(DirLight0SpecularColor), worldNormal, eyeVector, diffuse, specular);
+	AddLight(normalize(KeyLightPosition - worldPosition), SrgbToLinear(DirLight0DiffuseColor), SrgbToLinear(DirLight0SpecularColor), worldNormal, eyeVector, keyDiffuse, keySpecular);
+
+	float3 diffuse = keyDiffuse * keyShadow;
+	float3 specular = keySpecular * keyShadow;
+
 	AddLight(-DirLight1Direction, SrgbToLinear(DirLight1DiffuseColor), SrgbToLinear(DirLight1SpecularColor), worldNormal, eyeVector, diffuse, specular);
 	AddLight(-DirLight2Direction, SrgbToLinear(DirLight2DiffuseColor), SrgbToLinear(DirLight2SpecularColor), worldNormal, eyeVector, diffuse, specular);
 
 	float3 hemisphere = lerp(SrgbToLinear(GroundColor), SrgbToLinear(SkyColor), worldNormal.y * 0.5 + 0.5);
 
-	float occlusion = SurfaceOcclusion(worldPosition, worldNormal, occlusionData);
+	float occlusion = SurfaceOcclusion(worldPosition, worldNormal, occlusionData) * cavity;
 	float diffuseOcclusion = lerp(0.6, 1.0, occlusion);
 
 	//texColor arrives linear already: every sampling site linearizes at the tap, where the sRGB
@@ -193,7 +201,8 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
 
 float4 MainPS(VertexShaderOutput input) : COLOR
 {
-	return ShadePixel(input.WorldPosition, input.WorldNormal, input.OcclusionData, float4(1, 1, 1, 1));
+	//Untextured, unrelieved parts: nothing to shadow itself and no pits to darken
+	return ShadePixel(input.WorldPosition, input.WorldNormal, input.OcclusionData, float4(1, 1, 1, 1), 1, 1);
 }
 
 technique InstancedModel
@@ -213,6 +222,23 @@ technique InstancedModel
 //count per world unit — larger is finer grained. Four more octaves ride on top at rising frequencies.
 float SurfaceReliefStrength;
 float SurfaceReliefFrequency;
+
+//Floor slabs: joints cut into the horizontal plane, in world units. SlabSize 0 turns them off.
+//These exist so the relief has something at a scale the eye can actually see. Micro-relief alone is
+//sub-centimeter, and neither parallax nor self-shadowing has anything to bite on at that size - they
+//need real structure, and on a marble floor the structure is the joints between the slabs.
+float SlabSize;
+float SlabJointWidth;
+float SlabJointDepth;
+
+//How dark the pits of the relief go from being shaded by their own walls (0 = off)
+float CavityStrength;
+
+//How strongly the relief shadows itself along the key light (0 = off)
+float ReliefShadowStrength;
+
+//Depth range the parallax march covers, as a fraction of the relief amplitude (0 = off)
+float ParallaxScale;
 
 //How much surface one screen pixel covers, in world units. This is the yardstick every relief feature
 //is band-limited against, and it is why supersampling buys real detail: more samples shrink it.
@@ -283,9 +309,183 @@ float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height
 //The world-space relief of a scene object, ready to hand to PerturbNormalFromHeight.
 //Takes the world-space screen derivatives rather than a scalar footprint so every octave can be
 //band-limited along its own direction (see ReliefOctaveDirectional).
+//Width of the run-out from a joint's floor up to the slab face
+static const float SlabJointBevel = 0.03;
+
+//One axis of the joint grid: 1 in the floor of a joint, 0 out on the slab face.
+//
+//Two things here are deliberate, and both are the lesson the ground's grain already taught. The
+//footprint is the pixel's extent along this axis alone, because a joint running across the view is
+//perfectly resolvable however far the pixel stretches along it. And once the pixel does grow past the
+//joint, the profile widens to the pixel rather than fading out: a joint that is thinner than a pixel
+//still darkens that pixel, in proportion to how much of it the joint covers. Fading it to nothing —
+//which is what measuring it against its own bevel did — deletes the only structure the floor has at a
+//scale the eye can see. It only leaves once the pixel can no longer resolve the slab grid itself.
+float SlabGrooveAxis(float coordinate, float footprint)
+{
+	float cell = frac(coordinate / SlabSize);
+	float distance = min(cell, 1 - cell) * SlabSize;
+
+	float width = max(SlabJointWidth, footprint * 0.5);
+	float bevel = max(SlabJointBevel, footprint * 0.5);
+
+	return (1 - smoothstep(width, width + bevel, distance)) * saturate(1 - footprint / (SlabSize * 0.5));
+}
+
+float SlabGroove(float3 worldPosition, float3 dpdx, float3 dpdy)
+{
+	if (SlabSize <= 0) return 0;
+
+	//Extent of this pixel along X and along Z, measured separately
+	float2 footprint = abs(dpdx.xz) + abs(dpdy.xz);
+
+	return max(SlabGrooveAxis(worldPosition.x, footprint.x), SlabGrooveAxis(worldPosition.z, footprint.y));
+}
+
+//The height field the whole surface is built from: micro-relief on the slab faces, joints cut below
+//them. Everything below - the normal, the cavity shading, the self-shadow march and the parallax
+//march - reads this one function, so a feature added here is automatically lit, occluded and
+//parallaxed rather than needing to be handled three more times.
 float SceneSurfaceHeight(float3 worldPosition, float3 dpdx, float3 dpdy)
 {
-	return SurfaceReliefWorld(worldPosition, SurfaceReliefFrequency, dpdx, dpdy) * SurfaceReliefStrength;
+	float height = SurfaceReliefWorld(worldPosition, SurfaceReliefFrequency, dpdx, dpdy) * SurfaceReliefStrength;
+
+	return height - SlabGroove(worldPosition, dpdx, dpdy) * SlabJointDepth;
+}
+
+//The same field with three octaves instead of seven, for the ray marches. They evaluate it dozens of
+//times per pixel and only need the shape that casts a shadow or hides something, not the grain: the
+//octaves left out are finer than the steps the march takes anyway.
+float SceneSurfaceHeightCoarse(float3 worldPosition, float3 dpdx, float3 dpdy)
+{
+	float frequency = SurfaceReliefFrequency;
+
+	float height = (0.26 * ReliefOctaveDirectional(worldPosition, float3(0.71, 0.52, -0.47), frequency, dpdx, dpdy)
+		+ 0.20 * ReliefOctaveDirectional(worldPosition, float3(-0.36, 0.83, 0.42), frequency * 1.43, dpdx, dpdy)
+		+ 0.16 * ReliefOctaveDirectional(worldPosition, float3(0.55, -0.44, 0.71), frequency * 2.11, dpdx, dpdy)) * SurfaceReliefStrength;
+
+	return height - SlabGroove(worldPosition, dpdx, dpdy) * SlabJointDepth;
+}
+
+//Highest and lowest the field can reach: the micro-relief rides above zero, the joints cut below it
+float ReliefCeiling() { return SurfaceReliefStrength; }
+float ReliefFloor() { return -(SurfaceReliefStrength + SlabJointDepth); }
+
+//A pit is shaded by its own walls, and this is the cheapest honest way to say so: the deeper a point
+//sits in the field, the less of the sky it can see. Without it a normal-mapped surface has its bumps
+//lit but its hollows just as bright as its peaks, which is most of why relief-by-normal reads as a
+//painted-on texture rather than as shape.
+float CavityOcclusion(float height)
+{
+	float openness = saturate((height - ReliefFloor()) / max(ReliefCeiling() - ReliefFloor(), 1e-6));
+
+	return lerp(1 - CavityStrength, 1, openness);
+}
+
+//How many steps each march takes. Both are cheap at a steep angle and expensive at a grazing one,
+//which is also exactly where they matter, so the counts follow the angle.
+static const int ReliefShadowSteps = 8;
+static const int ParallaxMinSteps = 8;
+static const int ParallaxMaxSteps = 28;
+
+//Marches the height field towards the light and reports how much of the key light survives. This is
+//the other half of what makes relief read as shape: a raking light on a real surface does not just
+//shade the far sides of the bumps, it throws the bumps' shadows across the hollows behind them.
+float ReliefSelfShadow(float3 worldPosition, float3 normal, float3 towardsLight, float height, float3 dpdx, float3 dpdy)
+{
+#if OPENGL
+	//The map editor compiles this file at Shader Model 3.0, where these marches are not worth
+	//attempting, and it has no use for them either
+	return 1;
+#else
+	if (ReliefShadowStrength <= 0) return 1;
+
+	float alongNormal = dot(towardsLight, normal);
+	if (alongNormal <= 0.02) return 1; //Light at or below the horizon: the N.L term already has this
+
+	float3 alongSurface = towardsLight - normal * alongNormal;
+	float surfaceLength = length(alongSurface);
+	if (surfaceLength < 1e-5) return 1; //Light straight overhead: nothing can shadow anything
+
+	alongSurface /= surfaceLength;
+
+	//Height the ray gains per unit travelled across the surface
+	float rise = alongNormal / surfaceLength;
+
+	//Travel far enough for the ray to clear the tallest thing the field can put in its way
+	float reach = max((ReliefCeiling() - height) / max(rise, 1e-5), 0);
+	float amplitude = max(ReliefCeiling() - ReliefFloor(), 1e-6);
+
+	float blocked = 0;
+
+	[unroll]
+	for (int i = 1; i <= ReliefShadowSteps; i++)
+	{
+		float travel = reach * i / ReliefShadowSteps;
+		float rayHeight = height + travel * rise;
+		float fieldHeight = SceneSurfaceHeightCoarse(worldPosition + alongSurface * travel, dpdx, dpdy);
+
+		//How far the field pokes above the ray, as a fraction of the field's own depth. Taking the
+		//largest overlap rather than a hit/miss keeps the shadow's edge soft.
+		blocked = max(blocked, saturate((fieldHeight - rayHeight) / amplitude));
+	}
+
+	return 1 - blocked * ReliefShadowStrength;
+#endif
+}
+
+//Marches the height field along the view ray and returns where it actually hits. Tilting the normal
+//tells the eye a surface is uneven; moving the shading point tells it the surface has depth, because
+//the near walls of a groove start hiding its far walls as the camera moves. That parallax is the cue
+//normal mapping cannot fake, and it is what "plastic" means here.
+float3 ParallaxSurfacePosition(float3 worldPosition, float3 normal, float3 towardsEye, float3 dpdx, float3 dpdy)
+{
+#if OPENGL
+	return worldPosition;
+#else
+	if (ParallaxScale <= 0) return worldPosition;
+
+	float alongNormal = dot(towardsEye, normal);
+	if (alongNormal <= 0.05) return worldPosition; //Edge-on: the offset would run away to infinity
+
+	//World-space offset that corresponds to descending one unit into the surface
+	float3 perDepth = -(towardsEye - normal * alongNormal) / alongNormal;
+
+	float ceiling = ReliefCeiling();
+	float range = max(ceiling - ReliefFloor(), 1e-6) * ParallaxScale;
+
+	int steps = (int)lerp(ParallaxMaxSteps, ParallaxMinSteps, alongNormal);
+	float stepDepth = range / steps;
+
+	float rayDepth = 0;
+	float previousRayDepth = 0;
+	float previousSurfaceDepth = 0;
+
+	[loop]
+	for (int i = 0; i < steps; i++)
+	{
+		previousRayDepth = rayDepth;
+		rayDepth += stepDepth;
+
+		//Depth of the field below its ceiling at the point the ray has reached
+		float surfaceDepth = ceiling - SceneSurfaceHeightCoarse(worldPosition + perDepth * rayDepth, dpdx, dpdy);
+
+		if (surfaceDepth <= rayDepth)
+		{
+			//Crossed it between the last two samples. One linear solve for where the ray and the
+			//surface actually met beats halving the step size again.
+			float previousGap = previousSurfaceDepth - previousRayDepth;
+			float gap = surfaceDepth - rayDepth;
+			float t = saturate(previousGap / max(previousGap - gap, 1e-6));
+
+			return worldPosition + perDepth * lerp(previousRayDepth, rayDepth, t);
+		}
+
+		previousSurfaceDepth = surfaceDepth;
+	}
+
+	return worldPosition + perDepth * rayDepth;
+#endif
 }
 
 //Textured variant: the model vertices carry UVs in TEXCOORD0 (the instance stream stays in TEXCOORD1-5)
@@ -325,15 +525,32 @@ TexturedVertexShaderOutput TexturedVS(TexturedVertexShaderInput input, InstanceI
 
 float4 TexturedPS(TexturedVertexShaderOutput input) : COLOR
 {
-	//The ground comes through here: a flat slab of marble whose texture drew the veining but left the
-	//surface geometrically perfect, so it took light like a mirror-smooth plane
-	float height = SceneSurfaceHeight(input.WorldPosition, ddx(input.WorldPosition), ddy(input.WorldPosition));
-	float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
+	//The ground comes through here: marble slabs whose texture draws the veining, with the joints
+	//between them cut into the height field so they are real recesses that hide, shadow and shift
+	float3 dpdx = ddx(input.WorldPosition);
+	float3 dpdy = ddy(input.WorldPosition);
 
+	float3 geometricNormal = normalize(input.WorldNormal);
+	float3 towardsEye = normalize(EyePosition - input.WorldPosition);
+
+	//Where the view ray actually meets the relief, rather than where it meets the flat polygon
+	float3 reliefPosition = ParallaxSurfacePosition(input.WorldPosition, geometricNormal, towardsEye, dpdx, dpdy);
+
+	float height = SceneSurfaceHeight(reliefPosition, dpdx, dpdy);
+
+	//The tangent frame stays on the real geometry; only the height is read at the parallaxed point, so
+	//the derivatives pick up both the field's own slope and the way the offset changes across the screen
+	float3 worldNormal = PerturbNormalFromHeight(geometricNormal, input.WorldPosition, height);
+
+	float keyShadow = ReliefSelfShadow(reliefPosition, geometricNormal, normalize(KeyLightPosition - input.WorldPosition), height, dpdx, dpdy);
+
+	//The albedo is mapped through the model's UVs rather than world space, so the parallax offset is not
+	//applied to it: the veining stays put while the joints move. At these depths the mismatch is well
+	//under a pixel, and the joints are what carry the parallax anyway.
 	float4 texColor = tex2D(TextureSampler, input.TexCoord);
 	texColor.rgb = SrgbToLinear(texColor.rgb);
 
-	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, texColor);
+	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, texColor, keyShadow, CavityOcclusion(height));
 }
 
 technique InstancedModelTextured
@@ -474,7 +691,8 @@ float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 
 	float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
 
-	float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(color, 1));
+	//The balls carry their own relief and sheen model; the scene cavity and self-shadow terms are not it
+	float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(color, 1), 1, 1);
 
 	//A vinyl skin catches the sky at grazing angles, which is most of what separates a shiny
 	//inflatable ball from a matte painted sphere. Balls buried in the pile must not light up.
@@ -571,7 +789,7 @@ float4 DetailUVNormalPS(TexturedVertexShaderOutput input) : COLOR
 	float height = SceneSurfaceHeight(input.WorldPosition, ddx(input.WorldPosition), ddy(input.WorldPosition));
 	worldNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
 
-	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1));
+	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1), 1, CavityOcclusion(height));
 }
 
 technique InstancedModelDetailUVNormal
@@ -591,7 +809,7 @@ float4 DetailUVPS(TexturedVertexShaderOutput input) : COLOR
 	float height = SceneSurfaceHeight(input.WorldPosition, ddx(input.WorldPosition), ddy(input.WorldPosition));
 	float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
 
-	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1));
+	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1), 1, CavityOcclusion(height));
 }
 
 technique InstancedModelDetailUV
@@ -717,7 +935,14 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
 	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength) * shade;
 	float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
 
-	return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1));
+	//This path builds its own height field (masonry courses, board seams) rather than going through
+	//SceneSurfaceHeight, so the generic marches would be reading a different surface than the one drawn
+	//here. Cavity shading needs only the height and applies cleanly; sinking the mortar joints into
+	//shadow is most of what the marches would have bought on a wall anyway.
+	float cavityRange = max(SurfaceReliefStrength + MortarDepth, 1e-6);
+	float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + MortarDepth) / (cavityRange + SurfaceReliefStrength)));
+
+	return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
 }
 
 technique InstancedModelTriplanar
