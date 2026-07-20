@@ -22,6 +22,9 @@ namespace MapEditor
         private BasicCamera3D Camera3D;
         private Model _hrSphere;
 
+        //A little air around the play field, so that it does not touch the edges of the screen
+        private const float VIEW_MARGIN = 1.1f;
+
         private BallsMap _map;
         private Selector _selector;
         private AABB _aabb;
@@ -113,12 +116,12 @@ namespace MapEditor
                 new(mgKeys.N, Buttons.X, () => new Task(FullMapTest).Start(), "Fill entire map with balls"),
                 new(mgKeys.M, () => _map.Clear(), "Clear entire map"),
 
-                new(mgKeys.D1,() => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
-                new(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
-                new(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
-                new(mgKeys.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right, true), "Right view"),
-                new(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up, true), "Up view"),
-                new(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
+                new(mgKeys.D1,() => CenterViewOn(Vector3.Forward), "Forward view"),
+                new(mgKeys.D2, () => CenterViewOn(Vector3.Backward), "Backward view"),
+                new(mgKeys.D3, () => CenterViewOn(Vector3.Left), "Left view"),
+                new(mgKeys.D4, () => CenterViewOn(Vector3.Right), "Right view"),
+                new(mgKeys.D5, () => CenterViewOn(Vector3.Up), "Up view"),
+                new(mgKeys.D6, () => CenterViewOn(Vector3.Down), "Down view"),
 
                 new(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
 
@@ -146,6 +149,34 @@ namespace MapEditor
             _selector = new Selector(Content, _map, Camera3D);
             _aabb = new AABB(GraphicsDevice);
             _aabb.FitToMap(_map);
+        }
+
+        /// <summary>
+        /// Looks at the centre of the play field from the given direction, from far enough away for the whole
+        /// field to fit on the screen. The direction is expected to be axis aligned, as all six preset views are.
+        /// </summary>
+        private void CenterViewOn(Vector3 lookDirection)
+        {
+            Vector3 half = _aabb.Size * Constants.HALF;
+
+            //Which of the field dimensions ends up across the screen, up the screen and pointing at the camera.
+            //Looking from above or below puts Z up the screen, because that is where the up vector of the camera
+            //tips over to once it is pointing straight down or up
+            float halfWidth, halfHeight, halfDepth;
+            if (lookDirection.Y != 0f) (halfWidth, halfHeight, halfDepth) = (half.X, half.Z, half.Y);
+            else if (lookDirection.X != 0f) (halfWidth, halfHeight, halfDepth) = (half.Z, half.Y, half.X);
+            else (halfWidth, halfHeight, halfDepth) = (half.X, half.Y, half.Z);
+
+            //The window can be resized to any shape, so neither field of view can be assumed to be the narrower one
+            float horizontalFieldOfView = 2f * MathF.Atan(MathF.Tan(Camera3D.FieldOfView * Constants.HALF) * Camera3D.AspectRatio);
+
+            float distanceToFace = MathF.Max(
+                VIEW_MARGIN * halfWidth / MathF.Tan(horizontalFieldOfView * Constants.HALF),
+                VIEW_MARGIN * halfHeight / MathF.Tan(Camera3D.FieldOfView * Constants.HALF));
+
+            //The camera is placed relative to the centre of the field, so it has to clear the near half of it as well
+            _cih.CameraOffset = halfDepth + distanceToFace;
+            _cih.CenterCameraToMapCenter(_aabb.Center, lookDirection, true);
         }
 
         private void NewMap()
