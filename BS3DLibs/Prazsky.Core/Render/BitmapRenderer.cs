@@ -1,10 +1,10 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Prazsky.Tools;
+using Prazsky.Core.Tools;
 using System;
 using System.IO;
 
-namespace Prazsky.Render
+namespace Prazsky.Core.Render
 {
     /// <summary>
     /// Provides methods for rendering the orthogonal projection of a three-dimensional model.

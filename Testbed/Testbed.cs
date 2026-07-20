@@ -1,4 +1,4 @@
-﻿using BepuPhysics;
+using BepuPhysics;
 using BepuPhysics.Collidables;
 using BepuPhysics.CollisionDetection;
 using BepuUtilities;
@@ -15,7 +15,6 @@ using Prazsky.Core;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
-using Prazsky.Render;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -45,7 +44,7 @@ namespace Testbed
         private static readonly float[] BALL_LOD_DISTANCES = { 15f, 30f };
         private static readonly int BALL_LOD_COUNT = 3;
 
-        //Beach-ball pattern (concept art in issue #43): five gores in the type colour, each narrower than
+        //Beach-ball pattern (concept art in issue #43): five gores in the type color, each narrower than
         //the three the ball started out with, separated by narrower white ones, plus a white polar disc
         private static readonly int BALL_PATTERN_GORES = 5;
 
@@ -74,7 +73,7 @@ namespace Testbed
         #region Contact AO blobs (the dark contact pool on the ground around resting balls)
 
         private static readonly float BLOB_RADIUS = 1.1f;
-        private static readonly float BLOB_FADE_HEIGHT = 2.5f; //Measured from the ground plane; a resting ball centre sits 0.5 above it
+        private static readonly float BLOB_FADE_HEIGHT = 2.5f; //Measured from the ground plane; a resting ball center sits 0.5 above it
         private static readonly float BLOB_STRENGTH = 0.4f;
 
         private ModelInstance[] _blobInstances = new ModelInstance[256];
@@ -92,12 +91,12 @@ namespace Testbed
 
         /// <summary>
         /// How dark a fully surrounded ball gets: its lighting is scaled down by up to this fraction
-        /// (neighbour-based ambient occlusion, issue #40).
+        /// (neighbor-based ambient occlusion, issue #40).
         /// </summary>
         private static readonly float BALL_OCCLUSION_STRENGTH = 0.55f;
 
         /// <summary>
-        /// The most occluders a ball can have: 12 touching neighbour cells.
+        /// The most occluders a ball can have: 12 touching neighbor cells.
         /// </summary>
         private static readonly int MAX_BALL_OCCLUDERS = 12;
 
@@ -105,7 +104,7 @@ namespace Testbed
         /// Time constant of the occlusion easing (roughly three times this to arrive). The occlusion is computed
         /// from the grid, which changes in a single step - a ball is released, another one attaches - while the
         /// balls involved have not moved yet, so without the easing they would pop brighter (a released ball and
-        /// the neighbours it leaves behind) or darker (an attached ball and the neighbours it joins) a whole
+        /// the neighbors it leaves behind) or darker (an attached ball and the neighbors it joins) a whole
         /// frame before anything visibly happened.
         /// </summary>
         private static readonly float BALL_OCCLUSION_EASE_SECONDS = 1f;
@@ -142,7 +141,7 @@ namespace Testbed
         private static readonly float CEILING_GLASS_ALPHA = 0.4f;
 
         /// <summary>
-        /// Lighting parameters shared by all scene objects; the ambient colour is set by
+        /// Lighting parameters shared by all scene objects; the ambient color is set by
         /// <see cref="ApplySkyLighting"/>, zero specular keeps each mesh part's own material specular.
         /// </summary>
         private readonly BasicEffectParams _sceneEffectParams = new(Vector3.One * SCENE_AMBIENT_INTENSITY, Vector3.Zero, 0f, Vector3.Zero);
@@ -152,24 +151,24 @@ namespace Testbed
         #region Ground
 
         /// <summary>
-        /// Size of one ground block. The GroundMarble model is modelled at this size and its texture is
+        /// Size of one ground block. The GroundMarble model is modeled at this size and its texture is
         /// mapped for it, so the field is tiled from copies rather than stretched from a single slab.
         /// </summary>
         private static readonly float GROUND_BLOCK_SIZE = 30f;
 
         /// <summary>
-        /// How many blocks the ground reaches from the centre in each direction. It has to extend past
+        /// How many blocks the ground reaches from the center in each direction. It has to extend past
         /// the castle backdrop (whose base reaches Z -95) and far enough beyond that its edge falls close
         /// to the horizon. All the blocks are one instanced draw call, so the extent is nearly free.
         /// </summary>
         private static readonly int GROUND_BLOCK_RADIUS = 4;
 
-        /// <summary>Y of the recessed centre block and of the plateau around it.</summary>
+        /// <summary>Y of the recessed center block and of the plateau around it.</summary>
         private static readonly float GROUND_PIT_Y = -10f;
 
         private static readonly float GROUND_PLATEAU_Y = -9f;
 
-        /// <summary>The ground has no neighbouring-cell occlusion; the shader still expects the vector.</summary>
+        /// <summary>The ground has no neighboring-cell occlusion; the shader still expects the vector.</summary>
         private static readonly Vector4 GROUND_NO_OCCLUSION = new(0f, 0f, 0f, 1f);
 
         private ModelInstance[] _groundInstances;
@@ -439,7 +438,7 @@ namespace Testbed
             {
                 _ballMeshes[lod] = new SphereMesh(GraphicsDevice, BallsConstraintsBuilder.BALL_RADIUS, BALL_LOD_RESOLUTIONS[lod, 0], BALL_LOD_RESOLUTIONS[lod, 1]);
                 //Full white material: the balls are the playing pieces and should be the most vivid
-                //thing on screen (0.8 used to match the old modelled sphere, but it muted the colours)
+                //thing on screen (0.8 used to match the old modeled sphere, but it muted the colors)
                 _ballRenderers[lod] = new InstancedModelRenderer(GraphicsDevice, _ballMeshes[lod], Vector3.One, _instancingEffect);
                 _ballRenderers[lod].PatternGoreCount = BALL_PATTERN_GORES;
             }
@@ -557,7 +556,7 @@ namespace Testbed
 
         /// <summary>
         /// Ambient intensity of the scene objects (ground, ceiling, cannon, castle). The sky tint itself
-        /// comes from the hemisphere colours in the shader, so this stays a neutral grey.
+        /// comes from the hemisphere colors in the shader, so this stays a neutral gray.
         /// </summary>
         private static readonly float SCENE_AMBIENT_INTENSITY = 0.25f;
 
@@ -576,7 +575,7 @@ namespace Testbed
 
         /// <summary>
         /// Derives the scene lighting from the current sky dome (issue #39): every object receives hemisphere
-        /// ambient (zenith colour from above, horizon colour from below) and the tinted three-light rig,
+        /// ambient (zenith color from above, horizon color from below) and the tinted three-light rig,
         /// so every sky dome gives the whole scene its own mood.
         /// </summary>
         private void ApplySkyLighting()
@@ -588,7 +587,7 @@ namespace Testbed
             Console.WriteLine($"[sky] Dome {_skyModelNumber}: zenith {zenith}, horizon {horizon}");
 #endif
 
-            //The key/fill lights (the "sun" side) take on the horizon colour, the back light the zenith colour,
+            //The key/fill lights (the "sun" side) take on the horizon color, the back light the zenith color,
             //so the whole light rig follows the mood of the sky instead of just the ambient term
             Vector3 keyTint = Vector3.Lerp(Vector3.One, horizon, 0.5f);
             Vector3 backTint = Vector3.Lerp(Vector3.One, zenith, 0.5f);
@@ -628,7 +627,7 @@ namespace Testbed
             for (int x = -GROUND_BLOCK_RADIUS; x <= GROUND_BLOCK_RADIUS; x++)
                 for (int z = -GROUND_BLOCK_RADIUS; z <= GROUND_BLOCK_RADIUS; z++)
                 {
-                    //The centre block is recessed by one unit, forming the arena the balls drop into
+                    //The center block is recessed by one unit, forming the arena the balls drop into
                     float y = x == 0 && z == 0 ? GROUND_PIT_Y : GROUND_PLATEAU_Y;
 
                     _staticBodies.Add(new(_groundModel, CreateStatic(new(x * GROUND_BLOCK_SIZE, y, z * GROUND_BLOCK_SIZE), groundBox)));
@@ -664,7 +663,7 @@ namespace Testbed
         }
 
         /// <summary>
-        /// The ceiling hovers this far above the centre of the top-level balls (their Y is (levels - 1)/√2).
+        /// The ceiling hovers this far above the center of the top-level balls (their Y is (levels - 1)/√2).
         /// </summary>
         private static float GetCeilingY(byte levels) => (levels - 1) / Constants.SQRT_TWO + 2f;
 
@@ -1038,7 +1037,7 @@ namespace Testbed
                             //The ceiling plate deliberately does NOT occlude: it is translucent glass, so it
                             //lets the light through (what keeps a released ball from flashing brighter is the
                             //occlusion easing below, not this)
-                            int occluders = BallsConstraintsBuilder.CountOccupiedNeighbours(_physicsBalls, ball.ArrayPosition, size, out System.Numerics.Vector3 occlusionSum);
+                            int occluders = BallsConstraintsBuilder.CountOccupiedNeighbors(_physicsBalls, ball.ArrayPosition, size, out System.Numerics.Vector3 occlusionSum);
 
                             System.Numerics.Vector4 occlusionTarget = new(
                                 occlusionSum.X / MAX_BALL_OCCLUDERS,
@@ -1280,7 +1279,7 @@ namespace Testbed
 
         /// <summary>
         /// Box-filters the supersampled scene onto the back buffer. At a factor of two, a bilinear tap
-        /// at the destination pixel centre lands exactly on the corner shared by its four source pixels
+        /// at the destination pixel center lands exactly on the corner shared by its four source pixels
         /// and weights them evenly, so this is an exact box filter rather than an approximation of one;
         /// higher factors reach only four of the source pixels and would want a dedicated downsample pass.
         /// </summary>
@@ -1335,7 +1334,7 @@ namespace Testbed
             PhysicsBall ball = new()
             {
                 BallReference = new(bodyHandle, _simulation.Bodies),
-                Type = (BallType)RANDOM.Next((int)BallType.Type1, (int)BallType.Type4 + 1) //Random colour so same-type clusters can form
+                Type = (BallType)RANDOM.Next((int)BallType.Type1, (int)BallType.Type4 + 1) //Random color so same-type clusters can form
             };
 
             _shotBalls.Add(ball);
@@ -1523,7 +1522,7 @@ namespace Testbed
             if (allowedPosition.X == float.MinValue)
             {
 #if DEBUG
-                Console.WriteLine("Outside of the map or every neighbouring cell already occupied by another ball");
+                Console.WriteLine("Outside of the map or every neighboring cell already occupied by another ball");
 #endif
                 return false;
             }

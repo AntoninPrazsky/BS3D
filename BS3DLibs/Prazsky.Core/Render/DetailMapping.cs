@@ -1,4 +1,4 @@
-namespace Prazsky.Render
+namespace Prazsky.Core.Render
 {
     /// <summary>
     /// How <see cref="InstancedModelRenderer.DetailTexture"/> is placed onto a surface.

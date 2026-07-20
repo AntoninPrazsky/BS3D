@@ -1,7 +1,7 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace Prazsky.Tools
+namespace Prazsky.Core.Tools
 {
     /// <summary>
     /// Provides methods for calculating geometric objects (<see cref="BoundingBox"/>, <see cref="BoundingSphere"/>) based on a three-dimensional model (<see cref="Model"/>).

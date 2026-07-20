@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
 using System.Collections.Generic;
@@ -34,12 +34,12 @@ namespace Prazsky.Core
 		}
 
 		/// <summary>
-		/// Average vertex colour near the top of the dome. White when the dome has no vertex colour channel.
+		/// Average vertex color near the top of the dome. White when the dome has no vertex color channel.
 		/// </summary>
 		public Vector3 ZenithColor { get; private set; } = Vector3.One;
 
 		/// <summary>
-		/// Average vertex colour near the base of the dome. White when the dome has no vertex colour channel.
+		/// Average vertex color near the base of the dome. White when the dome has no vertex color channel.
 		/// </summary>
 		public Vector3 HorizonColor { get; private set; } = Vector3.One;
 
@@ -52,9 +52,9 @@ namespace Prazsky.Core
 		}
 
 		/// <summary>
-		/// Recovers the sky palette from the dome geometry: the domes are untextured vertex-coloured
-		/// gradients, so averaging the vertex colours of the top band gives the zenith colour and
-		/// averaging the bottom band gives the horizon colour. Used to tint the scene lighting.
+		/// Recovers the sky palette from the dome geometry: the domes are untextured vertex-colored
+		/// gradients, so averaging the vertex colors of the top band gives the zenith color and
+		/// averaging the bottom band gives the horizon color. Used to tint the scene lighting.
 		/// </summary>
 		private void ExtractSkyColors()
 		{

@@ -2,11 +2,11 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 
-namespace Prazsky.Render
+namespace Prazsky.Core.Render
 {
     /// <summary>
     /// Procedurally generated UV sphere (positions, normals and texture coordinates), replacing
-    /// a modelled sphere asset. Building several of these at different resolutions gives LOD levels:
+    /// a modeled sphere asset. Building several of these at different resolutions gives LOD levels:
     /// per-pixel lighting shades even a coarse sphere smoothly, only the silhouette reveals the polygons.
     /// </summary>
     public class SphereMesh : IProceduralMesh, IDisposable

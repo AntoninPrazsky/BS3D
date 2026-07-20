@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Newtonsoft.Json;
 using Prazsky.BS3D.GameStructure.DataBags;
@@ -146,10 +146,10 @@ namespace Prazsky.BS3D.GameStructure
 
         /// <summary>
         /// Enumerates all in-bounds cells that geometrically touch the given cell: four on the same level and up to four
-        /// on each adjacent level. Odd levels are shifted by +0.5 in X and Z, so their neighbours on adjacent levels sit
-        /// towards +X/+Z indices, while even levels neighbour towards -X/-Z.
+        /// on each adjacent level. Odd levels are shifted by +0.5 in X and Z, so their neighbors on adjacent levels sit
+        /// towards +X/+Z indices, while even levels neighbor towards -X/-Z.
         /// </summary>
-        public static IEnumerable<XZLevel> GetNeighbouringCells(XZLevel cell, XZLevel size)
+        public static IEnumerable<XZLevel> GetNeighboringCells(XZLevel cell, XZLevel size)
         {
             //Same level
             if (cell.X - 1 >= 0) yield return new XZLevel(cell.X - 1, cell.Z, cell.Level);
@@ -178,13 +178,13 @@ namespace Prazsky.BS3D.GameStructure
 
         /// <summary>
         /// Counts occupied cells among the up-to-12 cells touching the given one (the same parity rules as
-        /// <see cref="GetNeighbouringCells"/>, but without allocating an enumerator, since this runs for every
+        /// <see cref="GetNeighboringCells"/>, but without allocating an enumerator, since this runs for every
         /// ball every frame). Used for ambient occlusion, over either the logical or the physics ball array.
         /// </summary>
-        /// <param name="occlusionDirection">Sum of the unit vectors pointing at the occupied neighbours
-        /// (touching neighbours are always exactly one ball diameter away, so every contribution has length 1).
+        /// <param name="occlusionDirection">Sum of the unit vectors pointing at the occupied neighbors
+        /// (touching neighbors are always exactly one ball diameter away, so every contribution has length 1).
         /// The part of the ball surface facing this direction is the occluded one.</param>
-        public static int CountOccupiedNeighbours<T>(T[,,] balls, XZLevel cell, XZLevel size, out Vector3 occlusionDirection) where T : class
+        public static int CountOccupiedNeighbors<T>(T[,,] balls, XZLevel cell, XZLevel size, out Vector3 occlusionDirection) where T : class
         {
             int occupied = 0;
             occlusionDirection = Vector3.Zero;
@@ -212,7 +212,7 @@ namespace Prazsky.BS3D.GameStructure
                         if (x >= 0 && z >= 0 && x < size.X && z < size.Z && balls[x, z, level] != null)
                         {
                             occupied++;
-                            //Independently of level parity the horizontal offset to a touching cross-level neighbour is ±0.5
+                            //Independently of level parity the horizontal offset to a touching cross-level neighbor is ±0.5
                             occlusionDirection += new Vector3(dX - Constants.HALF, offsetY, dZ - Constants.HALF);
                         }
                     }
@@ -222,21 +222,21 @@ namespace Prazsky.BS3D.GameStructure
         }
 
         /// <summary>
-        /// Puts a ball into the empty cell neighbouring the <paramref name="nextTo"/> cell that is closest to the given position.
-        /// Candidate cells come from <see cref="GetNeighbouringCells"/>.
+        /// Puts a ball into the empty cell neighboring the <paramref name="nextTo"/> cell that is closest to the given position.
+        /// Candidate cells come from <see cref="GetNeighboringCells"/>.
         /// </summary>
         /// <param name="position">Centered (world) position the new ball should be placed closest to, typically the contact point.</param>
         /// <param name="nextTo">Cell of the existing ball that was hit.</param>
         /// <param name="arrayPosition">Cell the ball was placed into.</param>
         /// <param name="type">Type of the placed ball.</param>
-        /// <returns>Centered position of the placed ball, or a <see cref="float.MinValue"/> vector when no neighbouring cell is free.</returns>
+        /// <returns>Centered position of the placed ball, or a <see cref="float.MinValue"/> vector when no neighboring cell is free.</returns>
         public Vector3 PutBallAtClosestEmptyPositionNextTo(Vector3 position, XZLevel nextTo, out XZLevel arrayPosition, BallType type = BallType.Type4)
         {
             arrayPosition = new XZLevel(-1, -1, -1);
 
             float closestDistanceSquared = float.MaxValue;
 
-            foreach (XZLevel candidate in GetNeighbouringCells(nextTo, new XZLevel(StageSizeX, StageSizeZ, Levels)))
+            foreach (XZLevel candidate in GetNeighboringCells(nextTo, new XZLevel(StageSizeX, StageSizeZ, Levels)))
             {
                 if (_balls[candidate.X, candidate.Z, candidate.Level] != null) continue;
 
@@ -256,7 +256,7 @@ namespace Prazsky.BS3D.GameStructure
 
         /// <summary>
         /// Finds the connected cluster of balls of the same <see cref="BallType"/> as the ball at <paramref name="start"/>,
-        /// walking over touching cells (see <see cref="GetNeighbouringCells"/>). The start cell itself is included.
+        /// walking over touching cells (see <see cref="GetNeighboringCells"/>). The start cell itself is included.
         /// Returns an empty list when the start cell is empty.
         /// </summary>
         public List<XZLevel> GetConnectedSameTypeCells(XZLevel start)
@@ -279,15 +279,15 @@ namespace Prazsky.BS3D.GameStructure
                 XZLevel cell = toVisit.Dequeue();
                 cluster.Add(cell);
 
-                foreach (XZLevel neighbour in GetNeighbouringCells(cell, size))
+                foreach (XZLevel neighbor in GetNeighboringCells(cell, size))
                 {
-                    if (visited[neighbour.X, neighbour.Z, neighbour.Level]) continue;
-                    visited[neighbour.X, neighbour.Z, neighbour.Level] = true;
+                    if (visited[neighbor.X, neighbor.Z, neighbor.Level]) continue;
+                    visited[neighbor.X, neighbor.Z, neighbor.Level] = true;
 
-                    StaticBall neighbourBall = _balls[neighbour.X, neighbour.Z, neighbour.Level];
-                    if (neighbourBall == null || neighbourBall.Type != startBall.Type) continue;
+                    StaticBall neighborBall = _balls[neighbor.X, neighbor.Z, neighbor.Level];
+                    if (neighborBall == null || neighborBall.Type != startBall.Type) continue;
 
-                    toVisit.Enqueue(neighbour);
+                    toVisit.Enqueue(neighbor);
                 }
             }
 
@@ -295,8 +295,8 @@ namespace Prazsky.BS3D.GameStructure
         }
 
         /// <summary>
-        /// Returns cells of balls that are no longer connected to the ceiling: walks the touching-neighbour graph
-        /// (see <see cref="GetNeighbouringCells"/>) from all balls on the top level (those hang from the ceiling)
+        /// Returns cells of balls that are no longer connected to the ceiling: walks the touching-neighbor graph
+        /// (see <see cref="GetNeighboringCells"/>) from all balls on the top level (those hang from the ceiling)
         /// and collects every ball the walk did not reach.
         /// </summary>
         public List<XZLevel> GetCellsDisconnectedFromCeiling()
@@ -319,13 +319,13 @@ namespace Prazsky.BS3D.GameStructure
             {
                 XZLevel cell = toVisit.Dequeue();
 
-                foreach (XZLevel neighbour in GetNeighbouringCells(cell, size))
+                foreach (XZLevel neighbor in GetNeighboringCells(cell, size))
                 {
-                    if (visited[neighbour.X, neighbour.Z, neighbour.Level]) continue;
-                    if (_balls[neighbour.X, neighbour.Z, neighbour.Level] == null) continue;
+                    if (visited[neighbor.X, neighbor.Z, neighbor.Level]) continue;
+                    if (_balls[neighbor.X, neighbor.Z, neighbor.Level] == null) continue;
 
-                    visited[neighbour.X, neighbour.Z, neighbour.Level] = true;
-                    toVisit.Enqueue(neighbour);
+                    visited[neighbor.X, neighbor.Z, neighbor.Level] = true;
+                    toVisit.Enqueue(neighbor);
                 }
             }
 

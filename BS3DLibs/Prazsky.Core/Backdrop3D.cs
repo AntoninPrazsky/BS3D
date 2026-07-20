@@ -1,6 +1,6 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Prazsky.Tools;
+using Prazsky.Core.Tools;
 
 namespace Prazsky.Core
 {

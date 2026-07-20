@@ -5,7 +5,7 @@ using Prazsky.Core;
 
 namespace Testbed
 {
-    public class StaticBody : Object3D //TODO: I don't thing this should be Object3D
+    public class StaticBody : Object3D //TODO: I don't think this should be Object3D
     {
         public StaticReference StaticReference { get; private set; }
 

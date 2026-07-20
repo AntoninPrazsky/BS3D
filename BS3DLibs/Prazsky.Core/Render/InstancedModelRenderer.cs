@@ -4,7 +4,7 @@ using Prazsky.Core.Camera;
 using System;
 using System.Collections.Generic;
 
-namespace Prazsky.Render
+namespace Prazsky.Core.Render
 {
     /// <summary>
     /// Renders many instances of a single three-dimensional model using GPU (hardware) instancing:
@@ -74,7 +74,7 @@ namespace Prazsky.Render
         private EffectTechnique _depthTechnique;
 
         /// <summary>
-        /// Optional detail texture modulating the material colours of a model that carries no texture
+        /// Optional detail texture modulating the material colors of a model that carries no texture
         /// of its own. Applied to the opaque mesh parts only; translucent parts (e.g. glass) stay clean.
         /// See <see cref="DetailTextureMapping"/> for how it is placed on the surface.
         /// </summary>
@@ -93,10 +93,10 @@ namespace Prazsky.Render
         /// </summary>
         public float DetailScale { get; set; } = 0.25f;
 
-        /// <summary>How strongly the detail texture modulates the material colour (0 = not at all, 1 = fully).</summary>
+        /// <summary>How strongly the detail texture modulates the material color (0 = not at all, 1 = fully).</summary>
         public float DetailStrength { get; set; } = 0.5f;
 
-        /// <summary>Brightness compensation so a mid-grey detail texture does not darken the material.</summary>
+        /// <summary>Brightness compensation so a mid-gray detail texture does not darken the material.</summary>
         public float DetailBoost { get; set; } = 1f;
 
         /// <summary>
@@ -107,7 +107,7 @@ namespace Prazsky.Render
 
         /// <summary>
         /// Optional tangent-space normal map accompanying <see cref="DetailTexture"/>, giving the surface
-        /// relief instead of just colour variation. Only applies to <see cref="Render.DetailMapping.ModelUVs"/>;
+        /// relief instead of just color variation. Only applies to <see cref="Render.DetailMapping.ModelUVs"/>;
         /// the tangent frame is derived in the shader, so the model needs no tangent vertex data.
         /// </summary>
         public Texture2D DetailNormalMap { get; set; }
@@ -116,21 +116,21 @@ namespace Prazsky.Render
         public float DetailNormalStrength { get; set; } = 1f;
 
         /// <summary>
-        /// Number of primary-coloured gores of the procedural beach-ball pattern (segments around
+        /// Number of primary-colored gores of the procedural beach-ball pattern (segments around
         /// the object = twice this; 0 = no pattern). The pattern is evaluated in the model's own
         /// object space, so it turns with the object and makes a rolling ball's rotation readable.
         /// Applies to untextured opaque mesh parts; the diffuse tint passed to
         /// <see cref="Draw(ICamera, ModelInstance[], int, BasicEffectParams, Vector3?)"/> becomes
-        /// the primary gore colour and the material diffuse shades the whole pattern.
+        /// the primary gore color and the material diffuse shades the whole pattern.
         /// </summary>
         public int PatternGoreCount { get; set; }
 
-        /// <summary>Colour of the other gores and of the polar discs of the beach-ball pattern.</summary>
+        /// <summary>Color of the other gores and of the polar discs of the beach-ball pattern.</summary>
         public Vector3 PatternSecondaryColor { get; set; } = Vector3.One;
 
         /// <summary>
-        /// Fraction of each pair of segments taken by the primary-coloured gore: 0.5 gives gores of
-        /// equal width, more leaves the secondary colour as the narrower strip between them.
+        /// Fraction of each pair of segments taken by the primary-colored gore: 0.5 gives gores of
+        /// equal width, more leaves the secondary color as the narrower strip between them.
         /// </summary>
         public float PatternGoreWidth { get; set; } = 0.62f;
 
@@ -141,25 +141,25 @@ namespace Prazsky.Render
         public float PatternCapExtent { get; set; } = 0.9f;
 
         /// <summary>
-        /// Amplitude of the moulded micro-relief of the patterned surface, in world units
+        /// Amplitude of the molded micro-relief of the patterned surface, in world units
         /// (0 = a mathematically smooth sphere). It only tilts the normal, so what it changes is the
         /// way the highlight breaks up — the silhouette stays a clean circle.
         /// </summary>
         public float PatternReliefStrength { get; set; } = 0.007f;
 
         /// <summary>
-        /// How strongly the patterned surface catches the sky colour at grazing angles (0 = matte).
+        /// How strongly the patterned surface catches the sky color at grazing angles (0 = matte).
         /// </summary>
         public float PatternSheenStrength { get; set; } = 0.12f;
 
         /// <summary>
-        /// Sky colour of the hemisphere ambient light (received by upward-facing surfaces).
+        /// Sky color of the hemisphere ambient light (received by upward-facing surfaces).
         /// White reproduces a constant ambient term.
         /// </summary>
         public Vector3 SkyColor { get; set; } = Vector3.One;
 
         /// <summary>
-        /// Ground colour of the hemisphere ambient light (received by downward-facing surfaces).
+        /// Ground color of the hemisphere ambient light (received by downward-facing surfaces).
         /// White reproduces a constant ambient term.
         /// </summary>
         public Vector3 GroundColor { get; set; } = Vector3.One;
@@ -253,7 +253,7 @@ namespace Prazsky.Render
 
         /// <summary>
         /// Creates a renderer for drawing many instances of a procedurally generated mesh
-        /// (e.g. a <see cref="SphereMesh"/> or <see cref="BoxMesh"/>) with the given material diffuse colour.
+        /// (e.g. a <see cref="SphereMesh"/> or <see cref="BoxMesh"/>) with the given material diffuse color.
         /// An <paramref name="alpha"/> below one makes the mesh translucent
         /// (draw it after the opaque scene, under <see cref="BlendState.AlphaBlend"/>).
         /// </summary>
@@ -387,9 +387,9 @@ namespace Prazsky.Render
         /// <param name="effectParams">Lighting parameters shared by all the instances
         /// (<see cref="BasicEffectParams.AmbientLightColor"/>, specular and emissive colors are applied;
         /// zero vectors fall back to the <see cref="BasicEffect"/> defaults, like in <see cref="ModelRenderer"/>).</param>
-        /// <param name="diffuseTint">Optional recolour of the model (e.g. the ball type colour): the material
-        /// diffuse colours are reduced to their luminance (keeping the patch pattern as shades) and multiplied
-        /// by this tint, so the whole instance reads as one colour. Null keeps the material colours unchanged.</param>
+        /// <param name="diffuseTint">Optional recolor of the model (e.g. the ball type color): the material
+        /// diffuse colors are reduced to their luminance (keeping the patch pattern as shades) and multiplied
+        /// by this tint, so the whole instance reads as one color. Null keeps the material colors unchanged.</param>
         public void Draw(ICamera camera, ModelInstance[] instances, int instanceCount, BasicEffectParams effectParams, Vector3? diffuseTint = null)
         {
             if (instanceCount <= 0) return;
@@ -432,8 +432,8 @@ namespace Prazsky.Render
 
                 Vector3 diffuse = new(part.DiffuseColor.X, part.DiffuseColor.Y, part.DiffuseColor.Z);
 
-                //With the beach-ball pattern the tint colours the pattern instead of the material:
-                //the material diffuse stays the neutral shade multiplying both pattern colours
+                //With the beach-ball pattern the tint colors the pattern instead of the material:
+                //the material diffuse stays the neutral shade multiplying both pattern colors
                 bool usePattern = PatternGoreCount > 0 && part.Texture == null && part.DiffuseColor.W >= 1f;
 
                 if (diffuseTint.HasValue && !usePattern)
@@ -450,7 +450,7 @@ namespace Prazsky.Render
                 _diffuseColorParam.SetValue(new Vector4(diffuse * alpha, alpha));
 
                 //The ambient tint is premultiplied by the material diffuse (like BasicEffect does on the CPU side);
-                //the shader modulates it per pixel by the sky/ground hemisphere colours
+                //the shader modulates it per pixel by the sky/ground hemisphere colors
                 _ambientColorParam.SetValue(ambientLightColor * diffuse * alpha);
                 _emissiveColorParam.SetValue((part.EmissiveColor + emissiveColor) * alpha);
                 _specularColorParam.SetValue(overrideSpecular ? specularColor : part.SpecularColor);

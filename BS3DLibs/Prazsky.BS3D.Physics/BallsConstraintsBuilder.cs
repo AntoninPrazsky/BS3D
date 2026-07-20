@@ -1,4 +1,4 @@
-﻿using BepuPhysics;
+using BepuPhysics;
 using BepuPhysics.Collidables;
 using BepuPhysics.Constraints;
 using Prazsky.BS3D.GameStructure;
@@ -114,7 +114,7 @@ namespace Prazsky.BS3D.Physics
                         //Cross-level connections are created only from even (unshifted) levels: adjacent levels always
                         //differ in parity, so every cross-level pair has exactly one even endpoint and is connected exactly once
                         if ((level % 2) == 0)
-                            ConnectToNeighboursOnOtherLevels(currentPhysicsBall, physicsBalls, simulation, size);
+                            ConnectToNeighborsOnOtherLevels(currentPhysicsBall, physicsBalls, simulation, size);
 
                         //Highest level - also attach to ceiling
                         if (level == size.Level - 1)
@@ -127,17 +127,17 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
-        /// Counts occupied cells among the up-to-12 neighbouring cells of the given cell
+        /// Counts occupied cells among the up-to-12 neighboring cells of the given cell
         /// (4 on the same level, up to 4 on each adjacent level — the same parity rules as
-        /// <see cref="BallsMap.GetNeighbouringCells"/>, but without allocating an enumerator,
+        /// <see cref="BallsMap.GetNeighboringCells"/>, but without allocating an enumerator,
         /// since this runs for every ball every frame). Used for ambient occlusion.
         /// </summary>
-        /// <param name="occlusionDirection">Sum of the unit vectors pointing at the occupied neighbours
-        /// (touching neighbours are always exactly one ball diameter away, so every contribution has length 1).
+        /// <param name="occlusionDirection">Sum of the unit vectors pointing at the occupied neighbors
+        /// (touching neighbors are always exactly one ball diameter away, so every contribution has length 1).
         /// The part of the ball surface facing this direction is the occluded one.</param>
-        public static int CountOccupiedNeighbours(PhysicsBall[,,] balls, XZLevel cell, XZLevel size, out Vector3 occlusionDirection)
+        public static int CountOccupiedNeighbors(PhysicsBall[,,] balls, XZLevel cell, XZLevel size, out Vector3 occlusionDirection)
         {
-            int occupied = BallsMap.CountOccupiedNeighbours(balls, cell, size, out Microsoft.Xna.Framework.Vector3 direction);
+            int occupied = BallsMap.CountOccupiedNeighbors(balls, cell, size, out Microsoft.Xna.Framework.Vector3 direction);
 
             occlusionDirection = direction.ToNumerics();
 
@@ -207,7 +207,7 @@ namespace Prazsky.BS3D.Physics
 
         /// <summary>
         /// Releases a single ball from the structure: removes all its constraints, clears their handles from the
-        /// neighbouring balls' slots (a stale value could alias a different constraint once the solver reuses the index),
+        /// neighboring balls' slots (a stale value could alias a different constraint once the solver reuses the index),
         /// wakes the body up so it starts falling and removes the ball from the logical map and <paramref name="physicsBalls"/>.
         /// </summary>
         private static void ReleaseBall(
@@ -226,12 +226,12 @@ namespace Prazsky.BS3D.Physics
             ball.CollectConstraintHandles(handleBuffer);
             ball.RemoveAllConstraints(simulation);
 
-            foreach (XZLevel neighbourCell in BallsMap.GetNeighbouringCells(cell, size))
+            foreach (XZLevel neighborCell in BallsMap.GetNeighboringCells(cell, size))
             {
-                PhysicsBall neighbour = physicsBalls[neighbourCell.X, neighbourCell.Z, neighbourCell.Level];
-                if (neighbour == null) continue;
+                PhysicsBall neighbor = physicsBalls[neighborCell.X, neighborCell.Z, neighborCell.Level];
+                if (neighbor == null) continue;
 
-                foreach (ConstraintHandle handle in handleBuffer) neighbour.ClearStoredHandle(handle);
+                foreach (ConstraintHandle handle in handleBuffer) neighbor.ClearStoredHandle(handle);
             }
 
             simulation.Awakener.AwakenBody(ball.BallReference.Handle); //Make sure the released ball starts falling even if it was asleep
@@ -244,7 +244,7 @@ namespace Prazsky.BS3D.Physics
 
         /// <summary>
         /// Attaches a freshly placed ball to everything it should be connected to: the ceiling (when on the top level),
-        /// neighbours on the same level and neighbours on the levels directly above and below.
+        /// neighbors on the same level and neighbors on the levels directly above and below.
         /// The ball must already have its <see cref="PhysicsBall.ArrayPosition"/> set, be present in the static map and in <paramref name="physicsBalls"/>.
         /// </summary>
         public static void AttachBallToStructure(PhysicsBall physicsBall, PhysicsBall[,,] physicsBalls, BallsMap map, Simulation simulation, BodyReference ceilingReference)
@@ -254,16 +254,16 @@ namespace Prazsky.BS3D.Physics
             if (physicsBall.ArrayPosition.Level == size.Level - 1)
                 physicsBall.HandlesTop.TryStore(ConnectBallToCeiling(physicsBall, ceilingReference, simulation, map.GetRealCenteredPosition(physicsBall.ArrayPosition).ToNumerics()));
 
-            ConnectToNeighboursOnSameLevel(physicsBall, physicsBalls, simulation, size, map);
-            ConnectToNeighboursOnOtherLevels(physicsBall, physicsBalls, simulation, size, map);
+            ConnectToNeighborsOnSameLevel(physicsBall, physicsBalls, simulation, size, map);
+            ConnectToNeighborsOnOtherLevels(physicsBall, physicsBalls, simulation, size, map);
         }
 
         /// <summary>
-        /// Connects a ball to the occupied neighbouring cells on its own level in all four directions.
-        /// Meant for a freshly attached ball, which has no same-level constraints yet, so every neighbour needs a new constraint.
+        /// Connects a ball to the occupied neighboring cells on its own level in all four directions.
+        /// Meant for a freshly attached ball, which has no same-level constraints yet, so every neighbor needs a new constraint.
         /// (The build-time pass instead connects only towards +X/+Z from each ball so pairs are not visited twice.)
         /// </summary>
-        public static void ConnectToNeighboursOnSameLevel(PhysicsBall physicsBall, PhysicsBall[,,] physicsBalls, Simulation simulation, XZLevel size, BallsMap map = null)
+        public static void ConnectToNeighborsOnSameLevel(PhysicsBall physicsBall, PhysicsBall[,,] physicsBalls, Simulation simulation, XZLevel size, BallsMap map = null)
         {
             XZLevel position = physicsBall.ArrayPosition;
 
@@ -292,13 +292,13 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
-        /// Connects a ball to the occupied neighbouring cells on the levels directly above and below.
-        /// Takes level parity into account: odd levels are shifted by +0.5 in X and Z, so their neighbours on adjacent
-        /// levels sit towards +X/+Z indices, while even levels neighbour towards -X/-Z.
+        /// Connects a ball to the occupied neighboring cells on the levels directly above and below.
+        /// Takes level parity into account: odd levels are shifted by +0.5 in X and Z, so their neighbors on adjacent
+        /// levels sit towards +X/+Z indices, while even levels neighbor towards -X/-Z.
         /// Used both by the build-time pass (from even levels only, so every cross-level pair is visited exactly once)
         /// and when attaching a freshly shot ball (which has no constraints yet).
         /// </summary>
-        public static void ConnectToNeighboursOnOtherLevels(PhysicsBall physicsBall, PhysicsBall[,,] physicsBalls, Simulation simulation, XZLevel size, BallsMap map = null)
+        public static void ConnectToNeighborsOnOtherLevels(PhysicsBall physicsBall, PhysicsBall[,,] physicsBalls, Simulation simulation, XZLevel size, BallsMap map = null)
         {
             XZLevel position = physicsBall.ArrayPosition;
             int diagonalShift = (position.Level % 2) > 0 ? 0 : -1;
@@ -317,21 +317,21 @@ namespace Prazsky.BS3D.Physics
 
                         if (x < 0 || z < 0 || x >= size.X || z >= size.Z) continue;
 
-                        PhysicsBall neighbour = physicsBalls[x, z, level];
-                        if (neighbour == null) continue;
+                        PhysicsBall neighbor = physicsBalls[x, z, level];
+                        if (neighbor == null) continue;
 
-                        ConstraintHandle handle = ConnectBalls(physicsBall, neighbour, simulation, map);
+                        ConstraintHandle handle = ConnectBalls(physicsBall, neighbor, simulation, map);
 
                         //Constraints to balls below are stored in HandlesBottom, to balls above in HandlesTop, on both sides
                         if (levelOffset < 0)
                         {
                             physicsBall.HandlesBottom.TryStore(handle);
-                            neighbour.HandlesTop.TryStore(handle);
+                            neighbor.HandlesTop.TryStore(handle);
                         }
                         else
                         {
                             physicsBall.HandlesTop.TryStore(handle);
-                            neighbour.HandlesBottom.TryStore(handle);
+                            neighbor.HandlesBottom.TryStore(handle);
                         }
                     }
                 }

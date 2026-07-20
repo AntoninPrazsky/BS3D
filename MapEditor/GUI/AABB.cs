@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Tools;
-using Prazsky.Render;
+using Prazsky.Core.Render;
 using System;
 
 namespace MapEditor.GUI
@@ -18,7 +18,7 @@ namespace MapEditor.GUI
         private const float BEAM_THICKNESS = 0.06f;
         private const float BALL_RADIUS = 0.5f;
         private const float ALPHA = 0.35f;
-        private static readonly Vector3 COLOR = new(0.55f, 0.8f, 1f); //Pale blue, to stay apart from the ball colours
+        private static readonly Vector3 COLOR = new(0.55f, 0.8f, 1f); //Pale blue, to stay apart from the ball colors
 
         private readonly GraphicsDevice _graphicsDevice;
         private readonly BasicEffect _effect;
@@ -27,7 +27,7 @@ namespace MapEditor.GUI
         private Matrix _world = Matrix.Identity;
 
         /// <summary>
-        /// Centre of the play field the outline was last fitted to.
+        /// Center of the play field the outline was last fitted to.
         /// </summary>
         public Vector3 Center { get; private set; }
 
@@ -42,7 +42,7 @@ namespace MapEditor.GUI
 
             _effect = new BasicEffect(graphicsDevice)
             {
-                LightingEnabled = false, //A flat colour reads better than shading on beams this thin
+                LightingEnabled = false, //A flat color reads better than shading on beams this thin
                 VertexColorEnabled = false,
                 TextureEnabled = false,
                 DiffuseColor = COLOR,
@@ -55,13 +55,13 @@ namespace MapEditor.GUI
         /// </summary>
         public void FitToMap(BallsMap map)
         {
-            //The field reaches half a ball past the centres of the outermost cells on every side. Along X and Z
+            //The field reaches half a ball past the centers of the outermost cells on every side. Along X and Z
             //the far side reaches half a ball further still, because the odd levels are shifted by +0.5
             float height = (map.Levels - 1) / Constants.SQRT_TWO + 2f * BALL_RADIUS;
 
             Size = new Vector3(map.StageSizeX + BALL_RADIUS, height, map.StageSizeZ + BALL_RADIUS);
 
-            //The mesh is centred at the origin, the field starts at the centre of the ball at [0, 0, 0]
+            //The mesh is centerd at the origin, the field starts at the center of the ball at [0, 0, 0]
             Center = new Vector3(
                 (map.StageSizeX - BALL_RADIUS) / 2f,
                 (height / 2f) - BALL_RADIUS,

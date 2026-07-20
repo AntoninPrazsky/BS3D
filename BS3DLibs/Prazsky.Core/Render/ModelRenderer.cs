@@ -1,8 +1,8 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
 
-namespace Prazsky.Render
+namespace Prazsky.Core.Render
 {
     /// <summary>
     /// Used to render a three-dimensional model.

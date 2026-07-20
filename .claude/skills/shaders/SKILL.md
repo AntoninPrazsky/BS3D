@@ -33,19 +33,19 @@ draw all balls (see the "Ball rendering" section in CLAUDE.md). Facts that took 
   `ambientLight * materialDiffuse + materialEmissive` into the emissive uniform on the CPU — the renderer
   does the same, so ambient changes (hemisphere ambient for #39) belong on the C# side or need a new uniform.
 - **Materials**: the ball model (`Balls/DebugSphere.dae`) has ~6 mesh parts with different material
-  diffuse colours (beach-ball patches); the renderer reads them from the model's `BasicEffect`s at load.
+  diffuse colors (beach-ball patches); the renderer reads them from the model's `BasicEffect`s at load.
   Per-type tint (red/green/blue/white) comes from `BasicEffectParamsProvider` (ambient+specular only).
 - **Beach-ball pattern**: balls use the `InstancedModelPattern` technique — procedural gores +
   polar discs evaluated in *object space* (so the pattern turns with the ball; rotation stays
   readable), antialiased with `fwidth` so distant balls don't shimmer. Enabled by
   `PatternGoreCount > 0` on the renderer (untextured opaque parts only); the `diffuseTint` passed
-  to `Draw` becomes the primary gore colour, `PatternSecondaryColor`/`PatternCapExtent`/
+  to `Draw` becomes the primary gore color, `PatternSecondaryColor`/`PatternCapExtent`/
   `PatternGoreWidth` are renderer properties. `PatternGoreWidth` is the fraction of each pair of
-  segments the colour takes (0.5 = even); the shader thresholds `sin(azimuth)` at `-cos(pi * width)`,
+  segments the color takes (0.5 = even); the shader thresholds `sin(azimuth)` at `-cos(pi * width)`,
   which is exact and, unlike a fraction-of-period coordinate, stays continuous across the atan2
   branch cut. The white type (tint = white) intentionally renders plain.
-- **Inflatable-ball surface** (same technique): a height field — three summed sines along mixed
-  directions for the moulded micro-relief, plus a groove along every gore boundary and disc rim for
+- **Inflatable-ball surface** (same technique): a height field — four summed sines along mixed
+  directions for the molded micro-relief, plus a groove along every gore boundary and disc rim for
   the panel welds — tilts the normal via `PerturbNormalFromHeight` (Schueler's tangent-free bump,
   the height-field sibling of `CotangentFrame`), so the highlight breaks up instead of reading as a
   perfect sphere. A Fresnel term adds the grazing-angle sky sheen, scaled by `SurfaceOcclusion` so
@@ -62,27 +62,15 @@ draw all balls (see the "Ball rendering" section in CLAUDE.md). Facts that took 
   any resolution, FOV or ball size — and it is what makes supersampling pay off (below): more samples
   shrink the footprint, so the fine octaves survive further out instead of the same mush getting
   smoother. Keep the height branchless — `ddx/ddy` need every pixel of a quad on the same path.
-
-## Supersampling
-
-The Testbed renders the 3D scene into a `_supersampleFactor`× `RenderTarget2D` and box-filters it onto
-the back buffer (`EnsureSceneTarget` / `ResolveSceneTarget`), factor 2 by default, `ssaa=<n>` to override.
-MSAA would not do instead: it antialiases geometry edges only, and the ball relief is *shading*. At factor 2
-a bilinear tap lands exactly on the corner shared by four source pixels, so the resolve is an exact box
-filter; higher factors reach only four of the source pixels and would want a real downsample pass. The
-back-buffer MSAA is switched off whenever supersampling is on — the scene never touches the back buffer
-then, and 8x at 4K is hundreds of megabytes for nothing. Draw the overlay and any 2D sprite **after** the
-resolve (`base.Draw` already runs last) or the downsample softens the text. Recreate the target on
-`ClientSizeChanged` *and* in `SetGraphics`, or a resize or F11 leaves it at the old size.
 - The scene objects (ground, ceiling, cannon, castle) render through the same effect as
   single-instance draws (`InstancedModelRenderer.Draw(camera, world, effectParams)`); per-part
   material diffuse/emissive/specular and alpha are read from the model's `BasicEffect`s and
   premultiplied by alpha like BasicEffect does. `ModelRenderer` + `BasicEffect` remains only for the
   MapEditor's selector gizmo (its balls go through the instanced path like the game's). Textured mesh parts (e.g. `GameObjects/GroundMarble.fbx`) automatically use the
   `InstancedModelTextured` technique (UVs in TEXCOORD0; same `ShadePixel` lighting, texture
-  modulates the non-specular colour like BasicEffect). Models with no texture of their own can instead set
+  modulates the non-specular color like BasicEffect). Models with no texture of their own can instead set
   `DetailTexture` (+`DetailScale`/`DetailStrength`/`DetailBoost`) on their renderer — it only
-  modulates the material colours — with `DetailTextureMapping` choosing how it lands:
+  modulates the material colors — with `DetailTextureMapping` choosing how it lands:
   - `DetailMapping.Triplanar` projects it along the world axes, needing no UVs, plus optional
     procedural masonry joints (`MasonryStrength`). The castle uses this with
     `Backdrops/CastleStone.png`, a seamless tile mirrored out of the stone half of `Ground_8.png`
@@ -101,7 +89,19 @@ resolve (`base.Draw` already runs last) or the downsample softens the text. Recr
   paths may be relative to the .blend (patch to resolve from the FBX's own directory, or export
   with Path Mode: Strip Path), and Blender cm units make models 100× too big — fix with
   `/processorParam:Scale=0.01` in Content.mgcb. Sky domes are `Skyes/SkyDome1..18.dae`, switched with NumPad1,
-  drawn by `SkyDome` (Prazsky.Core) — the place to sample zenith/horizon colours for #39.
+  drawn by `SkyDome` (Prazsky.Core) — the place to sample zenith/horizon colors for #39.
+
+## Supersampling
+
+The Testbed renders the 3D scene into a `_supersampleFactor`× `RenderTarget2D` and box-filters it onto
+the back buffer (`EnsureSceneTarget` / `ResolveSceneTarget`), factor 2 by default, `ssaa=<n>` to override.
+MSAA would not do instead: it antialiases geometry edges only, and the ball relief is *shading*. At factor 2
+a bilinear tap lands exactly on the corner shared by four source pixels, so the resolve is an exact box
+filter; higher factors reach only four of the source pixels and would want a real downsample pass. The
+back-buffer MSAA is switched off whenever supersampling is on — the scene never touches the back buffer
+then, and 8x at 4K is hundreds of megabytes for nothing. Draw the overlay and any 2D sprite **after** the
+resolve (`base.Draw` already runs last) or the downsample softens the text. Recreate the target on
+`ClientSizeChanged` *and* in `SetGraphics`, or a resize or F11 leaves it at the old size.
 
 ## Verifying shader work
 

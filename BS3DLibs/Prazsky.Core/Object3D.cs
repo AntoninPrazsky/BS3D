@@ -1,6 +1,6 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Prazsky.Render;
+using Prazsky.Core.Render;
 using Prazsky.Core.Camera;
 
 namespace Prazsky.Core

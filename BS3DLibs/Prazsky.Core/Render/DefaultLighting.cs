@@ -1,6 +1,6 @@
 using Microsoft.Xna.Framework;
 
-namespace Prazsky.Render
+namespace Prazsky.Core.Render
 {
     /// <summary>
     /// The standard XNA three-light rig set up by <see cref="Microsoft.Xna.Framework.Graphics.BasicEffect"/>.EnableDefaultLighting().

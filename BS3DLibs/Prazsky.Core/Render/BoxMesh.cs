@@ -3,11 +3,11 @@ using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Tools;
 using System;
 
-namespace Prazsky.Render
+namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// Procedurally generated box centred at the origin, with per-face normals (24 vertices).
-    /// Replaces modelled slab assets whose size depends on runtime data (e.g. the ceiling plate,
+    /// Procedurally generated box centerd at the origin, with per-face normals (24 vertices).
+    /// Replaces modeled slab assets whose size depends on runtime data (e.g. the ceiling plate,
     /// which is sized to the loaded map).
     /// </summary>
     public class BoxMesh : IProceduralMesh, IDisposable
@@ -49,7 +49,7 @@ namespace Prazsky.Render
             BoundingSphere = new BoundingSphere(Vector3.Zero, half.Length());
         }
 
-        private void AddFace(Vector3 right, Vector3 up, float halfRight, float halfUp, Vector3 centre)
+        private void AddFace(Vector3 right, Vector3 up, float halfRight, float halfUp, Vector3 center)
         {
             Vector3 normal = Vector3.Cross(right, up);
 
@@ -58,10 +58,10 @@ namespace Prazsky.Render
 
             int baseIndex = _vertexCount;
 
-            _vertices[_vertexCount++] = new(centre - r - u, normal, new Vector2(0f, 1f));
-            _vertices[_vertexCount++] = new(centre + r - u, normal, new Vector2(1f, 1f));
-            _vertices[_vertexCount++] = new(centre + r + u, normal, new Vector2(1f, 0f));
-            _vertices[_vertexCount++] = new(centre - r + u, normal, new Vector2(0f, 0f));
+            _vertices[_vertexCount++] = new(center - r - u, normal, new Vector2(0f, 1f));
+            _vertices[_vertexCount++] = new(center + r - u, normal, new Vector2(1f, 1f));
+            _vertices[_vertexCount++] = new(center + r + u, normal, new Vector2(1f, 0f));
+            _vertices[_vertexCount++] = new(center - r + u, normal, new Vector2(0f, 0f));
 
             _indices[_indexCount++] = (short)baseIndex;
             _indices[_indexCount++] = (short)(baseIndex + 1);

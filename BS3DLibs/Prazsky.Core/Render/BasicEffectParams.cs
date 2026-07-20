@@ -1,6 +1,6 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 
-namespace Prazsky.Render
+namespace Prazsky.Core.Render
 {
     /// <summary>
     /// Represents the lighting effects parameters for the <see cref="Microsoft.Xna.Framework.Graphics.BasicEffect"/> class.

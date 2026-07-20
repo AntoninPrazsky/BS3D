@@ -1,4 +1,4 @@
-﻿using BepuPhysics;
+using BepuPhysics;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using System.Collections.Generic;
@@ -24,7 +24,7 @@ namespace Prazsky.BS3D.Physics
 
         /// <summary>
         /// Ambient occlusion the ball is currently rendered with: XYZ = direction towards its occupied
-        /// neighbouring cells, W = base occlusion factor. It is kept on the ball rather than in the renderer
+        /// neighboring cells, W = base occlusion factor. It is kept on the ball rather than in the renderer
         /// because it has to survive the ball crossing between the structure and the free balls: the occlusion
         /// is computed from the grid, which the ball joins or leaves in a single step while it has not moved
         /// yet, so the value is eased towards its new target over the following frames instead of popping.
@@ -178,7 +178,7 @@ namespace Prazsky.BS3D.Physics
     }
 
     /// <summary>
-    /// Four constraint handle slots. A ball touches at most four neighbours in each group
+    /// Four constraint handle slots. A ball touches at most four neighbors in each group
     /// (same level, level above incl. ceiling, level below), so four slots always suffice.
     /// Slots are filled in no particular order (removal iterates all of them anyway).
     /// </summary>

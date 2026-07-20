@@ -129,7 +129,7 @@ static const float GroundOcclusionRange = 2.0;
 //which has to stay dark on a ball buried in the pile.
 float SurfaceOcclusion(float3 worldPosition, float3 worldNormal, float4 occlusionData)
 {
-	//Neighbour-based ambient occlusion: the base factor darkens the whole ball a little, the directional
+	//Neighbor-based ambient occlusion: the base factor darkens the whole ball a little, the directional
 	//part darkens the side of the ball facing its occluders, so the crevices between touching balls go dark
 	float occlusion = saturate(occlusionData.w - DirectionalOcclusionStrength * max(0, dot(worldNormal, occlusionData.xyz)));
 
@@ -140,7 +140,7 @@ float SurfaceOcclusion(float3 worldPosition, float3 worldNormal, float4 occlusio
 }
 
 //Shared shading: texColor is the sampled material texture (white for untextured parts).
-//Like BasicEffect, the texture modulates the whole non-specular colour (diffuse, ambient and emissive).
+//Like BasicEffect, the texture modulates the whole non-specular color (diffuse, ambient and emissive).
 float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionData, float4 texColor)
 {
 	float3 worldNormal = normalize(rawWorldNormal);
@@ -229,9 +229,9 @@ technique InstancedModelTextured
 
 //Procedural beach-ball pattern. Evaluated in the model's own object space, so it turns with the
 //object instead of sliding over it — which is the whole point: it makes a rolling ball's rotation
-//readable. Gores alternate between the two colours, with a disc of the secondary colour at each pole.
+//readable. Gores alternate between the two colors, with a disc of the secondary color at each pole.
 
-//The colours the gores alternate between; the material shade multiplies both
+//The colors the gores alternate between; the material shade multiplies both
 float3 PatternPrimaryColor;
 float3 PatternSecondaryColor;
 
@@ -239,17 +239,17 @@ float3 PatternSecondaryColor;
 float PatternGoreCount;
 
 //Where the boundary between two gores sits in sin(azimuth). Zero splits every pair of segments
-//evenly, a positive value widens the primary-coloured gore at the expense of the secondary one
+//evenly, a positive value widens the primary-colored gore at the expense of the secondary one
 //(the renderer derives this from PatternGoreWidth, which says it in plain fractions).
 float PatternGoreThreshold;
 
 //Where the polar discs start, as the |Y| of the object-space direction (1 = the pole itself)
 float PatternCapExtent;
 
-//Amplitude of the moulded micro-relief of the skin, in world units (0 = a perfectly smooth sphere)
+//Amplitude of the molded micro-relief of the skin, in world units (0 = a perfectly smooth sphere)
 float PatternReliefStrength;
 
-//How strongly the skin catches the sky colour at grazing angles
+//How strongly the skin catches the sky color at grazing angles
 float PatternSheenStrength;
 
 //Width of the ring outlining each disc, so the circle reads whichever gore it lands on
@@ -312,8 +312,8 @@ float ReliefOctave(float3 direction, float3 waveDirection, float frequency, floa
 	return sin(dot(direction, waveDirection) * frequency) * saturate(1 - footprint * frequency / 3.14159265);
 }
 
-//Moulded micro-relief of the skin: the dimples and waviness a real ball is left with when it comes
-//out of the mould. Four waves along spread-out directions at frequencies sharing no common factor,
+//Molded micro-relief of the skin: the dimples and waviness a real ball is left with when it comes
+//out of the mold. Four waves along spread-out directions at frequencies sharing no common factor,
 //so the sum never repeats over the ball — multiplying two waves instead would lay down a regular
 //crosshatch, the same plaid the seamless cannon metal tile had to avoid. The amplitudes add up to
 //one, which leaves PatternReliefStrength as the peak height in world units.
@@ -401,7 +401,7 @@ technique InstancedModelPattern
 	}
 };
 
-//Detail texturing: a texture that only modulates the existing material colours
+//Detail texturing: a texture that only modulates the existing material colors
 //(DetailStrength 0 = untextured look), mapped either through the model's own UVs
 //(InstancedModelDetailUV — required for objects that move, or the texture would swim
 //across them) or projected along the world axes for models with no UVs at all
@@ -409,9 +409,9 @@ technique InstancedModelPattern
 
 //Triplanar: world units per texture tile = 1 / DetailScale. UV mapping: tiles per UV span.
 float DetailScale;
-//How strongly the detail texture modulates the material colour (0 = not at all, 1 = fully)
+//How strongly the detail texture modulates the material color (0 = not at all, 1 = fully)
 float DetailStrength;
-//Brightness compensation so a mid-grey detail texture does not darken the whole material
+//Brightness compensation so a mid-gray detail texture does not darken the whole material
 float DetailBoost;
 
 //How strongly the procedural masonry joints show on vertical triplanar surfaces (0 = plain stone)

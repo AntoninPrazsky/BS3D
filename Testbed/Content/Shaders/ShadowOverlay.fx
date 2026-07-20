@@ -114,7 +114,7 @@ float GroundY;
 float BlobRadius;
 //How many world units above the ground a ball stops producing a blob
 float BlobFadeHeight;
-//Darkening at the blob centre for a ball resting on the ground
+//Darkening at the blob center for a ball resting on the ground
 float BlobStrength;
 
 struct BlobVertexShaderInput

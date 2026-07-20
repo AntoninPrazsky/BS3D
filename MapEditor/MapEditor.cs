@@ -1,4 +1,4 @@
-﻿using MapEditor.GUI;
+using MapEditor.GUI;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -9,7 +9,6 @@ using Prazsky.Core;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
-using Prazsky.Render;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -219,7 +218,7 @@ namespace MapEditor
 
         /// <summary>
         /// Derives the ball lighting from the sky dome exactly as the game does: hemisphere ambient (zenith
-        /// colour from above, horizon colour from below) plus a light rig tinted by the same palette.
+        /// color from above, horizon color from below) plus a light rig tinted by the same palette.
         /// </summary>
         private void ApplySkyLighting()
         {
@@ -260,7 +259,7 @@ namespace MapEditor
                         StaticBall ball = balls[x, z, level];
                         if (ball == null) continue;
 
-                        int occluders = BallsMap.CountOccupiedNeighbours(balls, new XZLevel(x, z, level), size, out Vector3 occlusionSum);
+                        int occluders = BallsMap.CountOccupiedNeighbors(balls, new XZLevel(x, z, level), size, out Vector3 occlusionSum);
 
                         CollectBallInstance(ball, new Vector4(
                             occlusionSum.X / MAX_BALL_OCCLUDERS,
@@ -314,7 +313,7 @@ namespace MapEditor
         }
 
         /// <summary>
-        /// Looks at the centre of the play field from the given direction, from far enough away for the whole
+        /// Looks at the center of the play field from the given direction, from far enough away for the whole
         /// field to fit on the screen. The direction is expected to be axis aligned, as all six preset views are.
         /// </summary>
         private void CenterViewOn(Vector3 lookDirection)
@@ -336,7 +335,7 @@ namespace MapEditor
                 VIEW_MARGIN * halfWidth / MathF.Tan(horizontalFieldOfView * Constants.HALF),
                 VIEW_MARGIN * halfHeight / MathF.Tan(Camera3D.FieldOfView * Constants.HALF));
 
-            //The camera is placed relative to the centre of the field, so it has to clear the near half of it as well
+            //The camera is placed relative to the center of the field, so it has to clear the near half of it as well
             _cih.CameraOffset = halfDepth + distanceToFace;
             _cih.CenterCameraToMapCenter(_aabb.Center, lookDirection, true);
         }

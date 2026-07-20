@@ -3,10 +3,10 @@ using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Tools;
 using System;
 
-namespace Prazsky.Render
+namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// Procedurally generated outline of a box centred at the origin: the twelve edges rendered as thin
+    /// Procedurally generated outline of a box centerd at the origin: the twelve edges rendered as thin
     /// beams, with per-face normals. Unlike <see cref="BoxMesh"/> it leaves the faces open, so it can mark
     /// out a volume (e.g. the play field of a map) without hiding what is inside it.
     /// </summary>
@@ -100,24 +100,24 @@ namespace Prazsky.Render
         /// </summary>
         private void AddBox(Vector3 min, Vector3 max)
         {
-            Vector3 centre = (min + max) * Constants.HALF;
+            Vector3 center = (min + max) * Constants.HALF;
             Vector3 half = (max - min) * Constants.HALF;
 
-            AddFace(centre, Vector3.Right, Vector3.Forward, half.X, half.Z, half.Y * Vector3.Up);       //Top (+Y)
-            AddFace(centre, Vector3.Right, Vector3.Backward, half.X, half.Z, half.Y * Vector3.Down);    //Bottom (-Y)
-            AddFace(centre, Vector3.Forward, Vector3.Up, half.Z, half.Y, half.X * Vector3.Right);       //+X
-            AddFace(centre, Vector3.Backward, Vector3.Up, half.Z, half.Y, half.X * Vector3.Left);       //-X
-            AddFace(centre, Vector3.Right, Vector3.Up, half.X, half.Y, half.Z * Vector3.Backward);      //+Z
-            AddFace(centre, Vector3.Left, Vector3.Up, half.X, half.Y, half.Z * Vector3.Forward);        //-Z
+            AddFace(center, Vector3.Right, Vector3.Forward, half.X, half.Z, half.Y * Vector3.Up);       //Top (+Y)
+            AddFace(center, Vector3.Right, Vector3.Backward, half.X, half.Z, half.Y * Vector3.Down);    //Bottom (-Y)
+            AddFace(center, Vector3.Forward, Vector3.Up, half.Z, half.Y, half.X * Vector3.Right);       //+X
+            AddFace(center, Vector3.Backward, Vector3.Up, half.Z, half.Y, half.X * Vector3.Left);       //-X
+            AddFace(center, Vector3.Right, Vector3.Up, half.X, half.Y, half.Z * Vector3.Backward);      //+Z
+            AddFace(center, Vector3.Left, Vector3.Up, half.X, half.Y, half.Z * Vector3.Forward);        //-Z
         }
 
-        private void AddFace(Vector3 origin, Vector3 right, Vector3 up, float halfRight, float halfUp, Vector3 centre)
+        private void AddFace(Vector3 origin, Vector3 right, Vector3 up, float halfRight, float halfUp, Vector3 center)
         {
             Vector3 normal = Vector3.Cross(right, up);
 
             Vector3 r = right * halfRight;
             Vector3 u = up * halfUp;
-            Vector3 c = origin + centre;
+            Vector3 c = origin + center;
 
             int baseIndex = _vertexCount;
 
