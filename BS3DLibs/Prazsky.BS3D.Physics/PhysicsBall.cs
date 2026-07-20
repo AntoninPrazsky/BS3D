@@ -17,6 +17,20 @@ namespace Prazsky.BS3D.Physics
 
         public XZLevel ArrayPosition;
 
+        /// <summary>
+        /// Occlusion data of a ball with nothing packed around it.
+        /// </summary>
+        public static readonly System.Numerics.Vector4 UNOCCLUDED = new(0f, 0f, 0f, 1f);
+
+        /// <summary>
+        /// Ambient occlusion the ball is currently rendered with: XYZ = direction towards its occupied
+        /// neighbouring cells, W = base occlusion factor. It is kept on the ball rather than in the renderer
+        /// because it has to survive the ball leaving the structure: a released ball has not moved away from
+        /// its neighbours yet, so its occlusion has to fade out over the following frames instead of being
+        /// dropped at once, which read as the cluster flashing brighter the moment it detached.
+        /// </summary>
+        public System.Numerics.Vector4 Occlusion = UNOCCLUDED;
+
         public void SetEmptyConstraints()
         {
             HandlesTop.Handle1.Value = -1;

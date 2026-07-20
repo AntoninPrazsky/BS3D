@@ -101,6 +101,13 @@ namespace Testbed
         /// </summary>
         private static readonly int MAX_BALL_OCCLUDERS = 12;
 
+        /// <summary>
+        /// Time constant of the occlusion fade-out of a ball that left the structure (roughly three times
+        /// this to fade fully). The occlusion is computed from the grid, which a released ball leaves at once,
+        /// so without the fade it would brighten a whole frame before it even started moving.
+        /// </summary>
+        private static readonly float BALL_OCCLUSION_FADE_SECONDS = 0.15f;
+
         //Last frame's statistics (how many balls passed frustum culling out of how many exist)
         private int _drawnBalls;
         private int _collectedBalls;
@@ -931,7 +938,7 @@ namespace Testbed
         {
             if (_draw)
             {
-                CollectBallInstances();
+                CollectBallInstances((float)gameTime.ElapsedGameTime.TotalSeconds);
                 DrawBallsShadowMap(); //Must run before anything touches the backbuffer
             }
 
@@ -974,7 +981,7 @@ namespace Testbed
         /// No camera frustum culling: balls outside the view must still cast shadows into it
         /// (and measurements showed the culling saved nothing on this scene anyway).
         /// </summary>
-        private void CollectBallInstances()
+        private void CollectBallInstances(float elapsedSeconds)
         {
             for (int i = 0; i < _ballInstanceCounts.Length; i++) _ballInstanceCounts[i] = 0;
             _blobInstanceCount = 0;
@@ -992,25 +999,42 @@ namespace Testbed
                             PhysicsBall ball = _physicsBalls[x, z, level];
                             if (ball == null) continue;
 
-                            //The ceiling plate deliberately does NOT occlude: balls released from the ceiling
-                            //would jump in brightness the moment the ceiling stops counting
+                            //The ceiling plate deliberately does NOT occlude: it is translucent glass, so it
+                            //lets the light through (what keeps a released ball from flashing brighter is the
+                            //occlusion fade-out below, not this)
                             int occluders = BallsConstraintsBuilder.CountOccupiedNeighbours(_physicsBalls, ball.ArrayPosition, size, out System.Numerics.Vector3 occlusionSum);
 
-                            Vector4 occlusionData = new(
+                            //Kept on the ball so it stays available once the ball leaves the structure
+                            ball.Occlusion = new System.Numerics.Vector4(
                                 occlusionSum.X / MAX_BALL_OCCLUDERS,
                                 occlusionSum.Y / MAX_BALL_OCCLUDERS,
                                 occlusionSum.Z / MAX_BALL_OCCLUDERS,
                                 1f - BALL_OCCLUSION_STRENGTH * occluders / MAX_BALL_OCCLUDERS);
 
-                            CollectBallInstance(ball, occlusionData);
+                            CollectBallInstance(ball, ToXna(ball.Occlusion));
                         }
             }
 
-            //Free-flying balls have nothing packed around them
-            Vector4 unoccluded = new(0f, 0f, 0f, 1f);
-            for (int i = 0; i < _shotBalls.Count; i++) CollectBallInstance(_shotBalls[i], unoccluded);
-            for (int i = 0; i < _fallingBalls.Count; i++) CollectBallInstance(_fallingBalls[i], unoccluded);
+            //A free-flying ball ends up with nothing packed around it, but one just released from the structure
+            //is still sitting between its former neighbours, so its occlusion is faded out rather than dropped
+            //(a shot ball never had any, so it starts unoccluded and the fade leaves it there).
+            float fade = 1f - MathF.Exp(-elapsedSeconds / BALL_OCCLUSION_FADE_SECONDS);
+
+            for (int i = 0; i < _shotBalls.Count; i++) CollectBallInstance(_shotBalls[i], FadeOutOcclusion(_shotBalls[i], fade));
+            for (int i = 0; i < _fallingBalls.Count; i++) CollectBallInstance(_fallingBalls[i], FadeOutOcclusion(_fallingBalls[i], fade));
         }
+
+        /// <summary>
+        /// Eases a free ball's occlusion towards <see cref="PhysicsBall.UNOCCLUDED"/> and returns it in render form.
+        /// </summary>
+        private static Vector4 FadeOutOcclusion(PhysicsBall ball, float fade)
+        {
+            ball.Occlusion = System.Numerics.Vector4.Lerp(ball.Occlusion, PhysicsBall.UNOCCLUDED, fade);
+
+            return ToXna(ball.Occlusion);
+        }
+
+        private static Vector4 ToXna(System.Numerics.Vector4 vector) => new(vector.X, vector.Y, vector.Z, vector.W);
 
         /// <summary>
         /// Renders all collected ball instances into the shadow map from the key light's point of view.
