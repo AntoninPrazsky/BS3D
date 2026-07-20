@@ -110,6 +110,14 @@ namespace Testbed
         /// </summary>
         private static readonly float BALL_OCCLUSION_EASE_SECONDS = 0.15f;
 
+        /// <summary>
+        /// Time constant of the glide a freshly attached ball is drawn with, and the offset below which the
+        /// glide is dropped (a twentieth of a ball radius is under a pixel at any distance it is drawn from).
+        /// </summary>
+        private static readonly float BALL_ATTACH_GLIDE_SECONDS = 0.08f;
+
+        private static readonly float BALL_ATTACH_GLIDE_DONE_SQUARED = 0.025f * 0.025f;
+
         //Last frame's statistics (how many balls passed frustum culling out of how many exist)
         private int _drawnBalls;
         private int _collectedBalls;
@@ -991,6 +999,7 @@ namespace Testbed
             _collectedBalls = 0;
 
             float ease = 1f - MathF.Exp(-elapsedSeconds / BALL_OCCLUSION_EASE_SECONDS);
+            float glide = 1f - MathF.Exp(-elapsedSeconds / BALL_ATTACH_GLIDE_SECONDS);
 
             if (_physicsBalls != null)
             {
@@ -1014,13 +1023,13 @@ namespace Testbed
                                 occlusionSum.Z / MAX_BALL_OCCLUDERS,
                                 1f - BALL_OCCLUSION_STRENGTH * occluders / MAX_BALL_OCCLUDERS);
 
-                            CollectBallInstance(ball, EaseOcclusion(ball, occlusionTarget, ease));
+                            CollectBallInstance(ball, EaseOcclusion(ball, occlusionTarget, ease), glide);
                         }
             }
 
             //A free-flying ball has nothing packed around it (a shot one never had, so the easing keeps it there)
-            for (int i = 0; i < _shotBalls.Count; i++) CollectBallInstance(_shotBalls[i], EaseOcclusion(_shotBalls[i], PhysicsBall.UNOCCLUDED, ease));
-            for (int i = 0; i < _fallingBalls.Count; i++) CollectBallInstance(_fallingBalls[i], EaseOcclusion(_fallingBalls[i], PhysicsBall.UNOCCLUDED, ease));
+            for (int i = 0; i < _shotBalls.Count; i++) CollectBallInstance(_shotBalls[i], EaseOcclusion(_shotBalls[i], PhysicsBall.UNOCCLUDED, ease), glide);
+            for (int i = 0; i < _fallingBalls.Count; i++) CollectBallInstance(_fallingBalls[i], EaseOcclusion(_fallingBalls[i], PhysicsBall.UNOCCLUDED, ease), glide);
         }
 
         /// <summary>
@@ -1128,13 +1137,41 @@ namespace Testbed
             GraphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, 2, _blobInstanceCount);
         }
 
-        private void CollectBallInstance(PhysicsBall ball, Vector4 occlusionData)
+        /// <summary>
+        /// Position to draw a freshly attached ball at: it eases towards the position of its body, which the
+        /// constraints have already dragged into the cell. Every other ball is drawn where its body is.
+        /// </summary>
+        private static System.Numerics.Vector3 GlideRenderPosition(PhysicsBall ball, System.Numerics.Vector3 bodyPosition, float glide)
+        {
+            //The constraints that drag the body into its cell are only solved by the next timestep, so on this
+            //one frame the body is still where the ball hit and applying the offset would move it the wrong way
+            if (ball.RenderOffsetArmed)
+            {
+                ball.RenderOffsetArmed = false;
+                return bodyPosition;
+            }
+
+            if (ball.RenderOffset == System.Numerics.Vector3.Zero) return bodyPosition;
+
+            ball.RenderOffset *= 1f - glide;
+
+            if (ball.RenderOffset.LengthSquared() < BALL_ATTACH_GLIDE_DONE_SQUARED)
+            {
+                ball.RenderOffset = System.Numerics.Vector3.Zero;
+                return bodyPosition;
+            }
+
+            return bodyPosition + ball.RenderOffset;
+        }
+
+        private void CollectBallInstance(PhysicsBall ball, Vector4 occlusionData, float glide)
         {
             _collectedBalls++;
 
             RigidPose pose = ball.BallReference.Pose;
+            System.Numerics.Vector3 renderPosition = GlideRenderPosition(ball, pose.Position, glide);
 
-            Vector3 position = new(pose.Position.X, pose.Position.Y, pose.Position.Z);
+            Vector3 position = new(renderPosition.X, renderPosition.Y, renderPosition.Z);
 
             int typeIndex = (int)ball.Type - 1;
             if (typeIndex < 0 || typeIndex >= BALL_TYPE_COUNT) return;
@@ -1161,7 +1198,7 @@ namespace Testbed
 
             Microsoft.Xna.Framework.Matrix world = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(
                     new Quaternion(pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z, pose.Orientation.W))
-                * Microsoft.Xna.Framework.Matrix.CreateTranslation(pose.Position.X, pose.Position.Y, pose.Position.Z);
+                * Microsoft.Xna.Framework.Matrix.CreateTranslation(renderPosition.X, renderPosition.Y, renderPosition.Z);
 
             bucket[count] = new ModelInstance(world, occlusionData);
             _ballInstanceCounts[bucketIndex] = count + 1;
@@ -1443,6 +1480,11 @@ namespace Testbed
 
             physicsBall.BallReference.Velocity.Linear = default; //Removing velocity from the shot
             physicsBall.BallReference.Velocity.Angular = default; //Also stop spinning, so the freshly created constraint anchors are not dragged around by residual rotation
+
+            //The ball is snapped to the nearest free cell rather than to where it hit, so the constraints created
+            //below drag it across up to several ball diameters within a frame or two. Drawing it gliding in from
+            //where it actually hit hides that click without touching the simulation.
+            physicsBall.StartRenderGlide(allowedPosition.ToNumerics());
 
             //Constraint anchors are computed from the static map grid (ideal positions) and rotated into each body's current local frame,
             //so they are correct even after the simulation has been running

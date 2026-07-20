@@ -38,6 +38,33 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public bool OcclusionInitialized;
 
+        /// <summary>
+        /// Offset the ball is drawn at relative to its body, decaying to zero. A ball is attached to the nearest
+        /// free cell rather than to the spot it hit, so the constraints drag its body across up to several ball
+        /// diameters within a frame or two; drawing it at its body plus a vanishing offset turns that click into
+        /// a glide, without touching the simulation. An offset (rather than a smoothed position) is what decays
+        /// to nothing on its own - the ball still follows every bit of the structure's swaying meanwhile, so
+        /// there is nothing left over to jump when the glide ends.
+        /// </summary>
+        public System.Numerics.Vector3 RenderOffset;
+
+        /// <summary>
+        /// Whether <see cref="RenderOffset"/> is still waiting for the body to be dragged into the cell, which
+        /// the next timestep does. For that one frame the body is still where the ball hit and drawing it offset
+        /// would move it the wrong way.
+        /// </summary>
+        public bool RenderOffsetArmed;
+
+        /// <summary>
+        /// Starts drawing the ball gliding into <paramref name="attachedTo"/>, the position of the cell it has
+        /// been attached to. Called before the constraints that drag the body there are created.
+        /// </summary>
+        public void StartRenderGlide(System.Numerics.Vector3 attachedTo)
+        {
+            RenderOffset = BallReference.Pose.Position - attachedTo;
+            RenderOffsetArmed = true;
+        }
+
         public void SetEmptyConstraints()
         {
             HandlesTop.Handle1.Value = -1;
