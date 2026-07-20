@@ -30,6 +30,21 @@ int SupersampleFactor;
 //Linear scale applied before the tonemap curve - the renderer's "shutter speed"
 float Exposure;
 
+//Quarter-resolution glare, added back before the tonemap curve so it blows the highlights out through
+//the curve the way a real over-bright source does, rather than being pasted on top of a finished image
+texture GlareTexture;
+sampler2D GlareSampler = sampler_state
+{
+	Texture = <GlareTexture>;
+	MinFilter = Linear;
+	MagFilter = Linear;
+	MipFilter = None;
+	AddressU = Clamp;
+	AddressV = Clamp;
+};
+
+float GlareIntensity;
+
 struct VertexShaderOutput
 {
 	float4 Position : SV_POSITION;
@@ -88,6 +103,11 @@ float4 MainPS(VertexShaderOutput input) : COLOR
 	}
 
 	color /= SupersampleFactor * SupersampleFactor;
+
+	//Glare goes in here, in linear light and before the curve. Added after the curve it would look like
+	//a decal; added here it pushes the pixels it lands on up the highlight roll-off, so a glaring ball
+	//bleaches towards white through the same response as everything else.
+	color += tex2D(GlareSampler, input.TexCoord).rgb * GlareIntensity;
 
 	//Averaging happens in linear light, before the curve: averaging tonemapped samples would average
 	//display values, which is the same mistake as compositing in gamma space.

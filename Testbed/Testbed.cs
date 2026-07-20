@@ -56,7 +56,7 @@ namespace Testbed
         /// scales radiance evenly and takes the glare off without touching the hue or the saturation.
         /// The one number to nudge if the balls want to be darker or lighter still.
         /// </summary>
-        private static readonly float BALL_ALBEDO = 0.7f;
+        private static readonly float BALL_ALBEDO = 0.5f;
 
         /// <summary>
         /// How much of its own color a ball radiates. Kept well under 1: the ball should read as lit from
@@ -64,7 +64,7 @@ namespace Testbed
         /// looking like an unlit one with the brightness turned up, because the shading that gives it its
         /// shape gets drowned out.
         /// </summary>
-        private static readonly float BALL_EMISSION = 0.3f;
+        private static readonly float BALL_EMISSION = 0.5f;
 
         /// <summary>How much light passes through the shell from a source behind the ball.</summary>
         private static readonly float BALL_TRANSLUCENCY = 0.35f;
@@ -301,6 +301,39 @@ namespace Testbed
         private Effect _tonemapEffect;
         private VertexBuffer _fullScreenQuad;
 
+        #region Glare
+
+        /// <summary>
+        /// Quarter-resolution ping-pong targets for the glare: the bright pass writes the first, the
+        /// streak pass reads it and writes the second, and the tonemap adds that back. Quarter resolution
+        /// throughout — glare is the one thing in the frame that is meant to be blurry, and running the
+        /// streak star at full resolution would cost 193 taps a pixel for no visible gain.
+        /// </summary>
+        private RenderTarget2D _glareBright;
+        private RenderTarget2D _glareStreak;
+        private Effect _glareEffect;
+
+        private static readonly int GLARE_DOWNSAMPLE = 4;
+
+        /// <summary>
+        /// Radiance a pixel has to exceed before it starts to glare. Above the lit scene but below a
+        /// pulsing ball, so the glare belongs to the balls rather than to every bright surface.
+        /// </summary>
+        private static readonly float GLARE_THRESHOLD = 0.38f;
+
+        /// <summary>Length of one streak arm in quarter-resolution texels, and its exponential falloff.</summary>
+        private static readonly float GLARE_STREAK_LENGTH = 34f;
+
+        private static readonly float GLARE_STREAK_FALLOFF = 3.2f;
+
+        /// <summary>
+        /// How much of the glare is added back. Frankly exaggerated: the point is to make it unmistakable
+        /// that the balls emit light, not to model a lens.
+        /// </summary>
+        private static readonly float GLARE_INTENSITY = 2.6f;
+
+        #endregion
+
         /// <summary>
         /// Linear scale applied to the scene before the tonemap curve — the renderer's shutter speed.
         /// Overridable with "exposure=&lt;f&gt;" on the command line, which is how a sky dome that is much
@@ -521,6 +554,7 @@ namespace Testbed
             _shadowOverlayEffect = Content.Load<Effect>("Shaders/ShadowOverlay");
 
             _tonemapEffect = Content.Load<Effect>("Shaders/Tonemap");
+            _glareEffect = Content.Load<Effect>("Shaders/Glare");
             CreateFullScreenQuad();
 
             //The key light is directional for shadow purposes; a fixed ortho box around the play field covers
@@ -1417,6 +1451,52 @@ namespace Testbed
             //included, so MSAA only earns its memory when supersampling is off.
             _sceneTarget = new RenderTarget2D(GraphicsDevice, width, height, false, SurfaceFormat.HdrBlendable,
                 DepthFormat.Depth24Stencil8, _supersampleFactor > 1 ? 0 : MSAA_SAMPLES, RenderTargetUsage.DiscardContents);
+
+            //Sized off the back buffer, not off the supersampled target: the glare is blurred anyway, so
+            //it gains nothing from the extra samples and would only cost fill rate to produce them
+            int glareWidth = Math.Max(GraphicsDevice.PresentationParameters.BackBufferWidth / GLARE_DOWNSAMPLE, 1);
+            int glareHeight = Math.Max(GraphicsDevice.PresentationParameters.BackBufferHeight / GLARE_DOWNSAMPLE, 1);
+
+            _glareBright?.Dispose();
+            _glareStreak?.Dispose();
+
+            _glareBright = new RenderTarget2D(GraphicsDevice, glareWidth, glareHeight, false, SurfaceFormat.HdrBlendable, DepthFormat.None);
+            _glareStreak = new RenderTarget2D(GraphicsDevice, glareWidth, glareHeight, false, SurfaceFormat.HdrBlendable, DepthFormat.None);
+        }
+
+        /// <summary>
+        /// Extracts what in the scene is bright enough to glare and smears it into a star of streaks.
+        /// Runs between the scene and the tonemap, both passes at quarter resolution.
+        /// </summary>
+        private void DrawGlare()
+        {
+            GraphicsDevice.BlendState = BlendState.Opaque;
+            GraphicsDevice.DepthStencilState = DepthStencilState.None;
+            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+            GraphicsDevice.SetVertexBuffer(_fullScreenQuad);
+
+            GraphicsDevice.SetRenderTarget(_glareBright);
+            _glareEffect.CurrentTechnique = _glareEffect.Techniques["BrightPass"];
+            _glareEffect.Parameters["SourceTexture"].SetValue(_sceneTarget);
+            _glareEffect.Parameters["GlareThreshold"].SetValue(GLARE_THRESHOLD);
+            DrawFullScreenQuad(_glareEffect);
+
+            GraphicsDevice.SetRenderTarget(_glareStreak);
+            _glareEffect.CurrentTechnique = _glareEffect.Techniques["Streak"];
+            _glareEffect.Parameters["SourceTexture"].SetValue(_glareBright);
+            _glareEffect.Parameters["SourceTexelSize"].SetValue(new Vector2(1f / _glareBright.Width, 1f / _glareBright.Height));
+            _glareEffect.Parameters["StreakLength"].SetValue(GLARE_STREAK_LENGTH);
+            _glareEffect.Parameters["StreakFalloff"].SetValue(GLARE_STREAK_FALLOFF);
+            DrawFullScreenQuad(_glareEffect);
+        }
+
+        private void DrawFullScreenQuad(Effect effect)
+        {
+            foreach (EffectPass pass in effect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                GraphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+            }
         }
 
         /// <summary>
@@ -1444,8 +1524,12 @@ namespace Testbed
         /// </summary>
         private void ResolveSceneTarget()
         {
+            DrawGlare(); //Reads the scene target, so it has to happen before the back buffer is bound
+
             GraphicsDevice.SetRenderTarget(null);
 
+            _tonemapEffect.Parameters["GlareTexture"].SetValue(_glareStreak);
+            _tonemapEffect.Parameters["GlareIntensity"].SetValue(GLARE_INTENSITY);
             _tonemapEffect.Parameters["SceneTexture"].SetValue(_sceneTarget);
             _tonemapEffect.Parameters["SourceTexelSize"].SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
             _tonemapEffect.Parameters["SupersampleFactor"].SetValue(_supersampleFactor);
@@ -1472,6 +1556,8 @@ namespace Testbed
         protected override void UnloadContent()
         {
             _sceneTarget?.Dispose();
+            _glareBright?.Dispose();
+            _glareStreak?.Dispose();
             _fullScreenQuad?.Dispose();
             _simulation.Dispose();
             _threadDispatcher.Dispose();

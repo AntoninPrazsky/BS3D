@@ -795,7 +795,10 @@ float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 	//show, glowing out through its neighbors.
 	float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
 
-	shaded.rgb += color * EmissiveStrength * lerp(1 - PulseDepth, 1, beat);
+	//The ball glows with its own color, not with the pattern's: the gores and the polar discs are white,
+	//and emitting through them made half of every ball radiate white light, which is both the wrong color
+	//and the reason they read as washed out. What is alive here is the ball, not its paint job.
+	shaded.rgb += primary * EmissiveStrength * lerp(1 - PulseDepth, 1, beat);
 
 	//The hand-rolled vinyl sheen that used to sit here is gone: it was a Fresnel reflection of the sky,
 	//which ShadePixel's specular ambient now does for every surface with a real dielectric F0 behind it.
