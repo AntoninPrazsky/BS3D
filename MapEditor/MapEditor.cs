@@ -52,6 +52,10 @@ namespace MapEditor
 
         private SkyDome _sky;
 
+        //The game ships eighteen sky domes and starts on the first one
+        private static readonly int SKY_DOME_COUNT = 18;
+        private int _skyDomeNumber = 1;
+
         #endregion Ball rendering
 
         private BallsMap _map;
@@ -153,6 +157,8 @@ namespace MapEditor
                 new(mgKeys.D6, () => CenterViewOn(Vector3.Down), "Down view"),
 
                 new(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
+                //Not S, W, A, D, Q or E: those move the camera (see CameraInputHelper)
+                new(mgKeys.B, SwitchSkyDome, "Switch sky dome (backdrop)"),
 
                 new(mgKeys.F1, SaveJson, "Save map to file (JSON)"),
                 new(mgKeys.F2, LoadJson, "Load map from file (JSON)"),
@@ -187,7 +193,7 @@ namespace MapEditor
                 };
             }
 
-            _sky = new SkyDome(Content.Load<Model>("Skyes/SkyDome1"), GraphicsDevice);
+            _sky = new SkyDome(Content.Load<Model>("Skyes/SkyDome" + _skyDomeNumber), GraphicsDevice);
 
 			//10 levels for the initial ball layout plus empty levels at the bottom for the structure to grow into
 			_map = new BallsMap(10, 10, 15, _hrSphere);
@@ -196,6 +202,19 @@ namespace MapEditor
             _aabb.FitToMap(_map);
 
             ApplySkyLighting();
+        }
+
+        /// <summary>
+        /// Moves on to the next sky dome, which changes the lighting of the whole scene with it.
+        /// </summary>
+        private void SwitchSkyDome()
+        {
+            _skyDomeNumber = _skyDomeNumber % SKY_DOME_COUNT + 1;
+            _sky.SkyDomeModel = Content.Load<Model>("Skyes/SkyDome" + _skyDomeNumber);
+
+            ApplySkyLighting();
+
+            Info.CustomText = $"Sky dome {_skyDomeNumber}";
         }
 
         /// <summary>
