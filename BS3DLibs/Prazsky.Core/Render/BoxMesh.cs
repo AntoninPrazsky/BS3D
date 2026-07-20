@@ -29,8 +29,9 @@ namespace Prazsky.Core.Render
         {
             Vector3 half = new(sizeX * Constants.HALF, sizeY * Constants.HALF, sizeZ * Constants.HALF);
 
-            //Right and up vectors are chosen so that right × up = the outward face normal,
-            //giving the same counter-clockwise (viewed from outside) winding as SphereMesh
+            //Right and up vectors are chosen so that right × up = the outward face normal. The triangles
+            //are then wound so that the outward face is the front one under MonoGame's default
+            //CullCounterClockwiseFace - see AddFace.
             AddFace(Vector3.Right, Vector3.Forward, half.X, half.Z, half.Y * Vector3.Up);       //Top (+Y)
             AddFace(Vector3.Right, Vector3.Backward, half.X, half.Z, half.Y * Vector3.Down);    //Bottom (-Y)
             AddFace(Vector3.Forward, Vector3.Up, half.Z, half.Y, half.X * Vector3.Right);       //+X
@@ -63,13 +64,18 @@ namespace Prazsky.Core.Render
             _vertices[_vertexCount++] = new(center + r + u, normal, new Vector2(1f, 0f));
             _vertices[_vertexCount++] = new(center - r + u, normal, new Vector2(0f, 0f));
 
+            //Wound so the quad reads clockwise from outside, which is what MonoGame's default
+            //CullCounterClockwiseFace treats as the front face: the viewport transform flips Y, so a
+            //triangle whose (b - a) x (c - a) points at the viewer ends up counter-clockwise in window
+            //space and is culled. Getting this backwards does not make the box vanish - it draws the far
+            //side of every face instead, which reads as looking at the inside of a hollow shell.
             _indices[_indexCount++] = (short)baseIndex;
-            _indices[_indexCount++] = (short)(baseIndex + 1);
             _indices[_indexCount++] = (short)(baseIndex + 2);
+            _indices[_indexCount++] = (short)(baseIndex + 1);
 
             _indices[_indexCount++] = (short)baseIndex;
-            _indices[_indexCount++] = (short)(baseIndex + 2);
             _indices[_indexCount++] = (short)(baseIndex + 3);
+            _indices[_indexCount++] = (short)(baseIndex + 2);
         }
 
         public void Dispose()

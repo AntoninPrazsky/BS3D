@@ -1060,8 +1060,17 @@ static const float WindowLitFraction = 0.42;
 static const float3 WindowWarm = float3(1.0, 0.78, 0.44);
 static const float3 WindowCool = float3(0.52, 0.82, 1.0);
 
+//How long a window holds one state before deciding again, how much that varies from window to window,
+//and how much of an interval the switch itself takes
+static const float WindowHoldSeconds = 7.0;
+static const float WindowHoldVariation = 24.0;
+static const float WindowSwitchFade = 0.06;
+
 //How brightly the lit windows glow, and how dark the facade around them is
 float CityWindowBrightness;
+
+//Wall clock driving the windows switching on and off, in seconds
+float CityWindowTime;
 
 float Hash21(float2 p)
 {
@@ -1099,9 +1108,24 @@ float4 CityPS(VertexShaderOutput input) : COLOR
 	float2 shape = smoothstep(float2(WindowFillX, WindowFillY) + footprint, float2(WindowFillX, WindowFillY) - footprint, withinCell);
 	float window = shape.x * shape.y * vertical;
 
-	//Each window decides once and for all whether it is lit, from its own cell and the building it is on
-	float lamp = Hash21(cell + floor(input.WorldPosition.xz * 0.37));
-	float lit = step(1 - WindowLitFraction, lamp);
+	//Which window this is: its cell on the facade, plus the building it is on, so two towers do not
+	//light the same pattern
+	float2 windowId = cell + floor(input.WorldPosition.xz * 0.37);
+
+	//A window does not decide once and for all. Each keeps its own rhythm — a stretch of its own length,
+	//then it decides again — so lamps come on and go out across the skyline at their own pace. A city
+	//whose windows never change reads as a texture of a city rather than as one with people in it.
+	float rhythm = Hash21(windowId + 3.71);
+	float interval = WindowHoldSeconds + rhythm * WindowHoldVariation;
+	float slot = CityWindowTime / interval + rhythm * 37.0;
+	float slotIndex = floor(slot);
+
+	float wasLit = step(1 - WindowLitFraction, Hash21(windowId + slotIndex * 17.13));
+	float willBeLit = step(1 - WindowLitFraction, Hash21(windowId + (slotIndex + 1) * 17.13));
+
+	//The switch is a short fade rather than a cut: at this distance a lamp that vanishes between two
+	//frames reads as a rendering glitch, one that dies over a moment reads as somebody leaving
+	float lit = lerp(wasLit, willBeLit, smoothstep(1 - WindowSwitchFade, 1, frac(slot)));
 
 	float3 lampColor = lerp(WindowWarm, WindowCool, step(0.5, Hash21(cell * 1.7 + 11.3)));
 

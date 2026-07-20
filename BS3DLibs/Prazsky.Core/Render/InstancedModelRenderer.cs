@@ -100,6 +100,15 @@ namespace Prazsky.Core.Render
         /// instance gives a hundred-storey tower a hundred storeys rather than stretching one facade.
         /// </summary>
         public float CityWindowBrightness { get; set; }
+
+        /// <summary>
+        /// Wall clock, in seconds, driving the city's windows switching on and off. Each window keeps its
+        /// own rhythm off this one clock, so it has to be fed from real time rather than from the
+        /// simulation — the lamps of a city do not stop when the physics is paused.
+        /// </summary>
+        public float CityWindowTime { get; set; }
+
+        private EffectParameter _cityWindowTimeParam;
         private EffectTechnique _depthTechnique;
 
         /// <summary>
@@ -481,6 +490,7 @@ namespace Prazsky.Core.Render
             _patternTechnique = _effect.Techniques["InstancedModelPattern"];
             _cityTechnique = _effect.Techniques["InstancedCity"];
             _cityWindowBrightnessParam = _effect.Parameters["CityWindowBrightness"];
+            _cityWindowTimeParam = _effect.Parameters["CityWindowTime"];
             _depthTechnique = _effect.Techniques["InstancedDepth"];
             _effect.CurrentTechnique = _mainTechnique;
 
@@ -657,6 +667,7 @@ namespace Prazsky.Core.Render
                     //A city building: no texture, no UVs, its facade drawn from world position
                     _effect.CurrentTechnique = _cityTechnique;
                     _cityWindowBrightnessParam.SetValue(CityWindowBrightness);
+                    _cityWindowTimeParam.SetValue(CityWindowTime);
                 }
                 else if (part.Texture != null)
                 {

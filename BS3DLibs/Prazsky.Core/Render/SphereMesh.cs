@@ -53,12 +53,18 @@ namespace Prazsky.Core.Render
             var indices = new short[PrimitiveCount * 3];
             int i = 0;
 
+            //Every triangle below is wound clockwise seen from outside the sphere, which is the front face
+            //under MonoGame's default CullCounterClockwiseFace (the viewport transform flips Y, so a
+            //triangle whose (b - a) x (c - a) points at the viewer comes out counter-clockwise in window
+            //space and is culled). Wound the other way the sphere does not disappear, it draws its far
+            //hemisphere instead - the silhouette is identical and only the shading gives it away.
+
             //Top cap
             for (int slice = 0; slice < slices; slice++)
             {
                 indices[i++] = 0;
-                indices[i++] = (short)(1 + (slice + 1) % slices);
                 indices[i++] = (short)(1 + slice);
+                indices[i++] = (short)(1 + (slice + 1) % slices);
             }
 
             //Bands between rings
@@ -72,12 +78,12 @@ namespace Prazsky.Core.Render
                     int next = (slice + 1) % slices;
 
                     indices[i++] = (short)(upperRing + slice);
-                    indices[i++] = (short)(upperRing + next);
                     indices[i++] = (short)(lowerRing + slice);
+                    indices[i++] = (short)(upperRing + next);
 
                     indices[i++] = (short)(upperRing + next);
-                    indices[i++] = (short)(lowerRing + next);
                     indices[i++] = (short)(lowerRing + slice);
+                    indices[i++] = (short)(lowerRing + next);
                 }
             }
 
@@ -86,8 +92,8 @@ namespace Prazsky.Core.Render
             for (int slice = 0; slice < slices; slice++)
             {
                 indices[i++] = (short)bottomPole;
-                indices[i++] = (short)(lastRing + slice);
                 indices[i++] = (short)(lastRing + (slice + 1) % slices);
+                indices[i++] = (short)(lastRing + slice);
             }
 
             VertexBuffer = new VertexBuffer(graphicsDevice, VertexPositionNormalTexture.VertexDeclaration, VertexCount, BufferUsage.WriteOnly);

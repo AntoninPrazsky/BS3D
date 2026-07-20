@@ -310,27 +310,50 @@ namespace Testbed
         private ModelInstance[] _arenaGlassInstances;
         private ModelInstance[] _arenaFrameInstances;
 
-        /// <summary>Half-width of the glass play surface, and the width of the marble band around it.</summary>
-        private static readonly float ARENA_HALF_EXTENT = 58f;
+        /// <summary>
+        /// Half-width of the play surface, and the width of the marble band around it. Chosen as a whole
+        /// number of panels that also divides the recess evenly (see <see cref="ARENA_PIT_HALF_EXTENT"/>).
+        /// </summary>
+        private static readonly float ARENA_HALF_EXTENT = 60f;
 
         private static readonly float ARENA_FRAME_WIDTH = 9f;
 
-        /// <summary>Edge length of one glass panel, and the width of the marble mullion between panels.</summary>
-        private static readonly float ARENA_PANEL_SIZE = 14.5f;
+        /// <summary>Edge length of one panel, and the width of the marble mullion between panels.</summary>
+        private static readonly float ARENA_PANEL_SIZE = 15f;
 
         private static readonly float ARENA_MULLION_WIDTH = 1.1f;
 
-        /// <summary>Top of the glass, matching the height the old marble ground sat at.</summary>
-        private static readonly float ARENA_Y = -9.5f;
+        /// <summary>
+        /// Top of the floor, and top of the recess in the middle of it. Both are read off the physics
+        /// ground blocks rather than guessed: the balls rest on those blocks, and a floor drawn anywhere
+        /// else leaves them hanging over it or sunk into it. The recess is the bath the cluster settles
+        /// into, and it was lost when the drawn ground became a single flat sheet.
+        /// </summary>
+        private static readonly float ARENA_Y = GROUND_PLATEAU_Y + Constants.HALF;
 
-        private static readonly float ARENA_GLASS_THICKNESS = 0.6f;
+        private static readonly float ARENA_PIT_Y = GROUND_PIT_Y + Constants.HALF;
+
+        /// <summary>Half-width of the recess: exactly the one recessed ground block, which is 30 across.</summary>
+        private static readonly float ARENA_PIT_HALF_EXTENT = GROUND_BLOCK_SIZE * Constants.HALF;
+
+        /// <summary>
+        /// Thickness of every floor panel, mullion and band. It has to exceed the depth of the recess,
+        /// since the sides of the panels around the recess are what draw its wall.
+        /// </summary>
+        private static readonly float ARENA_FLOOR_THICKNESS = 1.2f;
 
         private static readonly Vector3 ARENA_GLASS_COLOR = new(0.42f, 0.62f, 0.72f);
         private static readonly float ARENA_GLASS_ALPHA = 0.24f;
 
         private static readonly Vector3 ARENA_MARBLE_COLOR = new(0.58f, 0.56f, 0.54f);
 
-        private static readonly float CITY_WINDOW_BRIGHTNESS = 0.25f;
+        /// <summary>
+        /// How brightly a lit window burns. Deliberately kept under <see cref="GLARE_THRESHOLD"/>: a
+        /// window that glares is a window that veils the tower behind it, and a thousand of them turn the
+        /// skyline into one white haze. The glare belongs to the balls — the windows only have to be
+        /// bright enough that the unlit one beside them reads as dark.
+        /// </summary>
+        private static readonly float CITY_WINDOW_BRIGHTNESS = 0.35f;
 
         #endregion
 
@@ -360,10 +383,13 @@ namespace Testbed
         private static readonly float GLARE_STREAK_FALLOFF = 3.2f;
 
         /// <summary>
-        /// How much of the glare is added back. Frankly exaggerated: the point is to make it unmistakable
-        /// that the balls emit light, not to model a lens.
+        /// How much of the glare is added back. Still exaggerated — the point is to make it unmistakable
+        /// that the balls emit light, not to model a lens — but no longer at 2.6, which was tuned while
+        /// the spheres were being drawn inside out. Correcting their winding turned the far hemisphere
+        /// the balls had been showing into the near one, and everything above the threshold got brighter
+        /// at once; the same number afterwards bleached a hole in the skyline behind the cluster.
         /// </summary>
-        private static readonly float GLARE_INTENSITY = 2.6f;
+        private static readonly float GLARE_INTENSITY = 1.3f;
 
         #endregion
 
@@ -797,7 +823,11 @@ namespace Testbed
 
             _city = new City(seed: 20260720, arenaHalfExtent: ARENA_HALF_EXTENT);
 
-            Console.WriteLine($"[city] {_city.Buildings.Length} buildings, arena half extent {ARENA_HALF_EXTENT}, glass top at {ARENA_Y}");
+            Console.WriteLine($"[city] {_city.Buildings.Length} buildings, arena half extent {ARENA_HALF_EXTENT}, floor at {ARENA_Y}, recess at {ARENA_PIT_Y}");
+
+            //The floor is the same marble the ground blocks were modeled with; the model carries the
+            //texture, so it is taken off the model rather than added to the content project again
+            Texture2D marble = (_groundModel.Meshes[0].Effects[0] as BasicEffect)?.Texture;
 
             _cityRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, Vector3.One, _instancingEffect)
             {
@@ -806,7 +836,11 @@ namespace Testbed
                 //the surface under it is - so on a city's worth of facades seen at grazing angles it
                 //washes the whole skyline in sky color. Concrete is rough and barely reflective; this is
                 //the one place the physically-right term needs turning down to look right.
-                SpecularAmbientStrength = 0.25f
+                //
+                //Turned down again once the city rose above the floor: from up there almost every facade
+                //is seen at a grazing angle, where Fresnel is near 1, and a quarter of the sky over a
+                //thousand towers bleached the skyline into a white cliff with the windows lost in it.
+                SpecularAmbientStrength = 0.07f
             };
 
             //The glass panel, sitting just under the play surface
@@ -825,19 +859,18 @@ namespace Testbed
             for (int px = 0; px < panelsPerSide; px++)
                 for (int pz = 0; pz < panelsPerSide; pz++)
                 {
-                    float x = -ARENA_HALF_EXTENT + (px + 0.5f) * ARENA_PANEL_SIZE;
-                    float z = -ARENA_HALF_EXTENT + (pz + 0.5f) * ARENA_PANEL_SIZE;
+                    float x = PanelCenter(px);
+                    float z = PanelCenter(pz);
 
                     //Glass towards the middle, stone towards the rim: the drop opens under the play area,
-                    //where the balls are, and the edge you stand on stays solid
+                    //where the balls are, and the edge you stand on stays solid. Squared, so the stone is
+                    //confined to the outermost ring or two and the openings in the middle run together
+                    //into one sheet of glass instead of a checkerboard.
                     float distance = MathF.Max(MathF.Abs(x), MathF.Abs(z)) / ARENA_HALF_EXTENT;
-                    bool glass = panelRandom.NextDouble() > distance * 0.85;
+                    bool glass = panelRandom.NextDouble() > distance * distance * 0.9;
 
-                    Microsoft.Xna.Framework.Matrix world =
-                        Microsoft.Xna.Framework.Matrix.CreateScale(ARENA_PANEL_SIZE - ARENA_MULLION_WIDTH, ARENA_GLASS_THICKNESS, ARENA_PANEL_SIZE - ARENA_MULLION_WIDTH)
-                        * Microsoft.Xna.Framework.Matrix.CreateTranslation(x, ARENA_Y - ARENA_GLASS_THICKNESS * 0.5f, z);
-
-                    (glass ? glassPanels : stonePanels).Add(new ModelInstance(world, GROUND_NO_OCCLUSION));
+                    (glass ? glassPanels : stonePanels).Add(
+                        Slab(ARENA_PANEL_SIZE - ARENA_MULLION_WIDTH, ARENA_PANEL_SIZE - ARENA_MULLION_WIDTH, x, z, TopAt(x, z)));
                 }
 
             _arenaGlassInstances = glassPanels.ToArray();
@@ -853,29 +886,59 @@ namespace Testbed
                 SlabJointDepth = 0.04f,
                 CavityStrength = 0.7f,
                 ReliefShadowStrength = 0.85f,
-                ParallaxScale = 1f
+                ParallaxScale = 1f,
+
+                //All of the above was dead: with no detail texture the renderer falls through to the plain
+                //technique, which has no slab joints and no relief at all. The marble the ground blocks are
+                //modeled with, projected triplanar so it tiles across every band and panel alike — these
+                //are boxes with no UVs worth the name, and the floor is one continuous surface anyway.
+                DetailTexture = marble,
+                DetailTextureMapping = DetailMapping.Triplanar,
+                DetailScale = 1f / GROUND_BLOCK_SIZE,
+
+                //A floor is seen at a grazing angle almost everywhere except right under your feet, which
+                //is exactly where Fresnel puts the sky reflection at full strength. Left at 1 the marble
+                //mirrors the sky into a white sheet from the middle distance out, and the mosaic it is
+                //there to carry disappears into it.
+                SpecularAmbientStrength = 0.4f
             };
 
             float outer = ARENA_HALF_EXTENT + ARENA_FRAME_WIDTH;
             float bandCenter = ARENA_HALF_EXTENT + ARENA_FRAME_WIDTH * 0.5f;
-            float thickness = 1.2f;
-            float bandY = ARENA_Y - thickness * 0.5f;
 
             List<ModelInstance> frame = new()
             {
-                Band(outer * 2f, ARENA_FRAME_WIDTH, 0f, bandCenter),
-                Band(outer * 2f, ARENA_FRAME_WIDTH, 0f, -bandCenter),
-                Band(ARENA_FRAME_WIDTH, ARENA_HALF_EXTENT * 2f, bandCenter, 0f),
-                Band(ARENA_FRAME_WIDTH, ARENA_HALF_EXTENT * 2f, -bandCenter, 0f)
+                Slab(outer * 2f, ARENA_FRAME_WIDTH, 0f, bandCenter, ARENA_Y),
+                Slab(outer * 2f, ARENA_FRAME_WIDTH, 0f, -bandCenter, ARENA_Y),
+                Slab(ARENA_FRAME_WIDTH, ARENA_HALF_EXTENT * 2f, bandCenter, 0f, ARENA_Y),
+                Slab(ARENA_FRAME_WIDTH, ARENA_HALF_EXTENT * 2f, -bandCenter, 0f, ARENA_Y)
             };
 
             //Mullions dividing the glass into panels. Without them a translucent sheet over a lit city
             //reads as no floor at all - you see the city and nothing else, and the eye has no reason to
             //believe anything is between. A grid of things the glass is set into is what says "glass".
-            for (float offset = -ARENA_HALF_EXTENT + ARENA_PANEL_SIZE; offset < ARENA_HALF_EXTENT - 0.1f; offset += ARENA_PANEL_SIZE)
+            //
+            //Laid one panel at a time rather than as four long bands, because the floor is not flat: where
+            //a mullion runs along the lip of the recess it belongs to the rim above, not to the floor
+            //below, and a single band spanning the whole width would cut through the air over the bath.
+            for (int line = 1; line < panelsPerSide; line++)
             {
-                frame.Add(Band(ARENA_HALF_EXTENT * 2f, ARENA_MULLION_WIDTH, 0f, offset));
-                frame.Add(Band(ARENA_MULLION_WIDTH, ARENA_HALF_EXTENT * 2f, offset, 0f));
+                float offset = -ARENA_HALF_EXTENT + line * ARENA_PANEL_SIZE;
+
+                for (int cell = 0; cell < panelsPerSide; cell++)
+                {
+                    float along = PanelCenter(cell);
+                    float step = ARENA_PANEL_SIZE * Constants.HALF;
+
+                    //A lip sits level with the higher of the two floors it separates
+                    frame.Add(Slab(ARENA_MULLION_WIDTH, ARENA_PANEL_SIZE, offset, along,
+                        MathF.Max(TopAt(offset - step, along), TopAt(offset + step, along))));
+
+                    //Shortened by one mullion width so the two directions abut at the crossings instead of
+                    //overlapping there: two coplanar tops in the same place is a z-fighting square
+                    frame.Add(Slab(ARENA_PANEL_SIZE - ARENA_MULLION_WIDTH, ARENA_MULLION_WIDTH, along, offset,
+                        MathF.Max(TopAt(along, offset - step), TopAt(along, offset + step))));
+                }
             }
 
             //The solid panels join the frame: same marble, same slab relief, one draw call for all of it
@@ -883,9 +946,15 @@ namespace Testbed
 
             _arenaFrameInstances = frame.ToArray();
 
-            ModelInstance Band(float sizeX, float sizeZ, float x, float z) => new(
-                Microsoft.Xna.Framework.Matrix.CreateScale(sizeX, thickness, sizeZ)
-                * Microsoft.Xna.Framework.Matrix.CreateTranslation(x, bandY, z),
+            static float PanelCenter(int index) => -ARENA_HALF_EXTENT + (index + 0.5f) * ARENA_PANEL_SIZE;
+
+            //Inside the recessed block the floor drops by exactly what the physics block drops by
+            static float TopAt(float x, float z) =>
+                MathF.Abs(x) < ARENA_PIT_HALF_EXTENT && MathF.Abs(z) < ARENA_PIT_HALF_EXTENT ? ARENA_PIT_Y : ARENA_Y;
+
+            static ModelInstance Slab(float sizeX, float sizeZ, float x, float z, float top) => new(
+                Microsoft.Xna.Framework.Matrix.CreateScale(sizeX, ARENA_FLOOR_THICKNESS, sizeZ)
+                * Microsoft.Xna.Framework.Matrix.CreateTranslation(x, top - ARENA_FLOOR_THICKNESS * Constants.HALF, z),
                 GROUND_NO_OCCLUSION);
         }
 
@@ -1100,6 +1169,10 @@ namespace Testbed
             _pulseSeconds += (float)gameTime.ElapsedGameTime.TotalSeconds;
             foreach (InstancedModelRenderer ballRenderer in _ballRenderers) ballRenderer.PulseTime = _pulseSeconds;
 
+            //The city runs off the same wall clock, and for the same reason: its windows are lit by people
+            //who do not care whether the simulation is running
+            _cityRenderer.CityWindowTime = _pulseSeconds;
+
             if (_simulate)
             {
                 if (_slowSimulation) _simulation.Timestep(timeStep * Constants.HUNDREDTH, _threadDispatcher);
@@ -1255,6 +1328,11 @@ namespace Testbed
 
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+
+            //Stated rather than inherited. The last thing to touch the rasterizer in a frame is the
+            //SpriteBatch drawing the overlay, which leaves its own state behind, and the tonemap pass
+            //before it leaves CullNone - so what the scene culled depended on which of them ran last.
+            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
 
             if (_draw)
             {
