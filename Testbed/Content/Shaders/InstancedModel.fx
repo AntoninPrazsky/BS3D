@@ -58,9 +58,14 @@ texture Texture;
 sampler2D TextureSampler = sampler_state
 {
 	Texture = <Texture>;
-	MinFilter = Linear;
+	//Anisotropic, not plain trilinear: a pixel on the ground seen at a grazing angle covers a long thin
+	//sliver of texture, and isotropic mip selection has to pick the mip matching its *long* axis, so it
+	//blurs across the short one too and the floor dissolves into a smear. The ground is the surface this
+	//shows on worst, being the one the camera always looks along.
+	MinFilter = Anisotropic;
 	MagFilter = Linear;
 	MipFilter = Linear;
+	MaxAnisotropy = 16;
 	AddressU = Wrap;
 	AddressV = Wrap;
 };
@@ -209,20 +214,34 @@ float ReliefOctave(float3 position, float3 waveDirection, float frequency, float
 	return sin(dot(position, waveDirection) * frequency) * saturate(1 - footprint * frequency / 3.14159265);
 }
 
+//The same octave, band-limited against the footprint measured *along the wave's own direction* instead
+//of against its overall extent. A pixel only fails to resolve a wave when it is wide across that wave's
+//crests; how far it stretches parallel to them costs nothing. One scalar footprint cannot express that,
+//and on a surface seen at a grazing angle — where a pixel covers meters along the view but stays
+//millimeters across it — it reports the long axis and fades out every octave at once. The floor then
+//becomes geometrically perfect exactly where it should look roughest, and takes the light like polished
+//glass: the milky smear this replaces. Directionally, the waves running across the view survive.
+float ReliefOctaveDirectional(float3 position, float3 waveDirection, float frequency, float3 dpdx, float3 dpdy)
+{
+	float footprint = abs(dot(dpdx, waveDirection)) + abs(dot(dpdy, waveDirection));
+
+	return sin(dot(position, waveDirection) * frequency) * saturate(1 - footprint * frequency / 3.14159265);
+}
+
 //World-space grain for the scene surfaces: stone, marble and cast metal all read as an irregular
 //surface rather than a polished one. Amplitudes sum to one, so SurfaceReliefStrength stays the peak
 //height in world units, and the frequency ratios are irrational so the sum never settles into a tile.
 //Seven octaves rather than a handful on purpose: too few waves spaced too far apart interfere into a
 //regular diagonal weave instead of a surface, which is exactly what the cannon barrel showed first.
-float SurfaceReliefWorld(float3 worldPosition, float frequency, float footprint)
+float SurfaceReliefWorld(float3 worldPosition, float frequency, float3 dpdx, float3 dpdy)
 {
-	return 0.26 * ReliefOctave(worldPosition, float3(0.71, 0.52, -0.47), frequency, footprint)
-		+ 0.20 * ReliefOctave(worldPosition, float3(-0.36, 0.83, 0.42), frequency * 1.43, footprint)
-		+ 0.16 * ReliefOctave(worldPosition, float3(0.55, -0.44, 0.71), frequency * 2.11, footprint)
-		+ 0.12 * ReliefOctave(worldPosition, float3(-0.82, -0.31, 0.48), frequency * 3.07, footprint)
-		+ 0.10 * ReliefOctave(worldPosition, float3(0.31, 0.62, 0.72), frequency * 4.51, footprint)
-		+ 0.09 * ReliefOctave(worldPosition, float3(-0.64, 0.27, -0.72), frequency * 6.73, footprint)
-		+ 0.07 * ReliefOctave(worldPosition, float3(0.18, -0.91, 0.37), frequency * 9.87, footprint);
+	return 0.26 * ReliefOctaveDirectional(worldPosition, float3(0.71, 0.52, -0.47), frequency, dpdx, dpdy)
+		+ 0.20 * ReliefOctaveDirectional(worldPosition, float3(-0.36, 0.83, 0.42), frequency * 1.43, dpdx, dpdy)
+		+ 0.16 * ReliefOctaveDirectional(worldPosition, float3(0.55, -0.44, 0.71), frequency * 2.11, dpdx, dpdy)
+		+ 0.12 * ReliefOctaveDirectional(worldPosition, float3(-0.82, -0.31, 0.48), frequency * 3.07, dpdx, dpdy)
+		+ 0.10 * ReliefOctaveDirectional(worldPosition, float3(0.31, 0.62, 0.72), frequency * 4.51, dpdx, dpdy)
+		+ 0.09 * ReliefOctaveDirectional(worldPosition, float3(-0.64, 0.27, -0.72), frequency * 6.73, dpdx, dpdy)
+		+ 0.07 * ReliefOctaveDirectional(worldPosition, float3(0.18, -0.91, 0.37), frequency * 9.87, dpdx, dpdy);
 }
 
 //Tilts a normal by a height field using only screen-space derivatives, for the same reason
@@ -242,10 +261,12 @@ float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height
 	return normalize(abs(determinant) * normal - surfaceGradient);
 }
 
-//The world-space relief of a scene object, ready to hand to PerturbNormalFromHeight
-float SceneSurfaceHeight(float3 worldPosition, float footprint)
+//The world-space relief of a scene object, ready to hand to PerturbNormalFromHeight.
+//Takes the world-space screen derivatives rather than a scalar footprint so every octave can be
+//band-limited along its own direction (see ReliefOctaveDirectional).
+float SceneSurfaceHeight(float3 worldPosition, float3 dpdx, float3 dpdy)
 {
-	return SurfaceReliefWorld(worldPosition, SurfaceReliefFrequency, footprint) * SurfaceReliefStrength;
+	return SurfaceReliefWorld(worldPosition, SurfaceReliefFrequency, dpdx, dpdy) * SurfaceReliefStrength;
 }
 
 //Textured variant: the model vertices carry UVs in TEXCOORD0 (the instance stream stays in TEXCOORD1-5)
@@ -287,7 +308,7 @@ float4 TexturedPS(TexturedVertexShaderOutput input) : COLOR
 {
 	//The ground comes through here: a flat slab of marble whose texture drew the veining but left the
 	//surface geometrically perfect, so it took light like a mirror-smooth plane
-	float height = SceneSurfaceHeight(input.WorldPosition, PixelFootprint(input.WorldPosition));
+	float height = SceneSurfaceHeight(input.WorldPosition, ddx(input.WorldPosition), ddy(input.WorldPosition));
 	float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
 
 	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, tex2D(TextureSampler, input.TexCoord));
@@ -520,7 +541,7 @@ float4 DetailUVNormalPS(TexturedVertexShaderOutput input) : COLOR
 	//The normal map carries the cast pattern at texture resolution; the procedural relief goes on top of
 	//it, finer than the map can hold and free of its tiling, so the barrel keeps breaking up the
 	//highlight right down to where a pixel can no longer tell
-	float height = SceneSurfaceHeight(input.WorldPosition, PixelFootprint(input.WorldPosition));
+	float height = SceneSurfaceHeight(input.WorldPosition, ddx(input.WorldPosition), ddy(input.WorldPosition));
 	worldNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
 
 	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1));
@@ -540,7 +561,7 @@ float4 DetailUVPS(TexturedVertexShaderOutput input) : COLOR
 	float3 detail = tex2D(TextureSampler, input.TexCoord * DetailScale).rgb;
 	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
-	float height = SceneSurfaceHeight(input.WorldPosition, PixelFootprint(input.WorldPosition));
+	float height = SceneSurfaceHeight(input.WorldPosition, ddx(input.WorldPosition), ddy(input.WorldPosition));
 	float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
 
 	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1));
@@ -603,9 +624,13 @@ float BoardSeamDistance(float p)
 
 //Long grain of the timber: the same octaves as the stone, but squashed hard along the board so the
 //waves stretch into fibers running its length instead of reading as isotropic mottling.
-float WoodGrain(float3 worldPosition, float footprint)
+float WoodGrain(float3 worldPosition, float3 dpdx, float3 dpdy)
 {
-	return SurfaceReliefWorld(worldPosition * float3(1.0, 0.14, 1.0), SurfaceReliefFrequency * 2.2, footprint);
+	//The derivatives are squashed along with the position, or the band limit would be measured in a
+	//different space than the waves it is limiting
+	float3 squash = float3(1.0, 0.14, 1.0);
+
+	return SurfaceReliefWorld(worldPosition * squash, SurfaceReliefFrequency * 2.2, dpdx * squash, dpdy * squash);
 }
 
 float4 TriplanarPS(VertexShaderOutput input) : COLOR
@@ -651,7 +676,10 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
 	float isWood = step(1.5, SurfaceStyle);
 	float isPatterned = step(0.5, SurfaceStyle) * verticalWeight;
 
-	float grain = lerp(SceneSurfaceHeight(input.WorldPosition, footprint), WoodGrain(input.WorldPosition, footprint) * SurfaceReliefStrength, isWood);
+	float3 dpdx = ddx(input.WorldPosition);
+	float3 dpdy = ddy(input.WorldPosition);
+
+	float grain = lerp(SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy), WoodGrain(input.WorldPosition, dpdx, dpdy) * SurfaceReliefStrength, isWood);
 	float groove = lerp(stoneGroove * MortarDepth, woodGroove * BoardGrooveDepth, isWood);
 
 	float shade = lerp(1, lerp(stoneShade, woodShade, isWood), isPatterned);
