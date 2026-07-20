@@ -37,6 +37,10 @@ Start-Process Testbed\bin\net10.0-windows\Testbed.exe -ArgumentList '"<map.json>
 Don't try SendKeys into the SDL window — it's unreliable. Drive tests via CLI args instead.
 When a real keypress is unavoidable, `user32.dll keybd_event` (virtual key + scan code + extended flag)
 after `SetForegroundWindow` does reach the SDL window — e.g. End = `keybd_event(0x23, 0x4F, 1, 0)` then flags `3` for key-up.
+`SetForegroundWindow` alone often silently fails when called from a background process, and both games skip
+their whole `Update` while `!IsActive`, so the keys are dropped without a trace. Click the title bar first —
+`SetCursorPos` to `Left + 60, Top + 12` then `mouse_event` down (`2`) and up (`4`) — and check
+`GetForegroundWindow()` against `MainWindowHandle` before sending anything.
 
 ## Useful maps
 
