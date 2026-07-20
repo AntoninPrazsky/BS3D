@@ -41,6 +41,10 @@ after `SetForegroundWindow` does reach the SDL window — e.g. End = `keybd_even
 their whole `Update` while `!IsActive`, so the keys are dropped without a trace. Click the title bar first —
 `SetCursorPos` to `Left + 60, Top + 12` then `mouse_event` down (`2`) and up (`4`) — and check
 `GetForegroundWindow()` against `MainWindowHandle` before sending anything.
+SDL reads the **scan code**, not the virtual key, so a wrong scan code silently presses a different key
+(F1–F3 are `0x3B`–`0x3D`, F12 is `0x58`, D1–D6 are `0x02`–`0x07`, letters follow the keyboard rows: N is `0x31`).
+WinForms dialogs the game opens (F1/F2 file dialogs, F3 new map) are ordinary Win32 windows — those do take
+`WScript.Shell.SendKeys`, so a map can be loaded by pressing F2 and sending the path followed by `{ENTER}`.
 
 ## Useful maps
 

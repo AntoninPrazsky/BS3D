@@ -23,6 +23,7 @@ namespace MapEditor.GUI
         private readonly GraphicsDevice _graphicsDevice;
         private readonly BasicEffect _effect;
         private WireBoxMesh _mesh;
+        private volatile bool _meshOutOfDate;
         private Matrix _world = Matrix.Identity;
 
         /// <summary>
@@ -66,28 +67,41 @@ namespace MapEditor.GUI
                 (height / 2f) - BALL_RADIUS,
                 (map.StageSizeZ - BALL_RADIUS) / 2f);
 
-            _mesh?.Dispose();
-            _mesh = new WireBoxMesh(_graphicsDevice, Size.X, Size.Y, Size.Z, BEAM_THICKNESS);
-
             _world = Matrix.CreateTranslation(Center);
+
+            //Maps are loaded on a worker thread, and the mesh holds graphics resources: releasing the old one
+            //here would pull the buffers out from under the draw that is running on the main thread meanwhile
+            _meshOutOfDate = true;
         }
 
         public void Draw(ICamera camera)
         {
-            if (_mesh == null) return;
+            if (_meshOutOfDate) RecreateMesh();
+
+            WireBoxMesh mesh = _mesh;
+            if (mesh == null) return;
 
             _effect.World = _world;
             _effect.View = camera.View;
             _effect.Projection = camera.Projection;
 
-            _graphicsDevice.SetVertexBuffer(_mesh.VertexBuffer);
-            _graphicsDevice.Indices = _mesh.IndexBuffer;
+            _graphicsDevice.SetVertexBuffer(mesh.VertexBuffer);
+            _graphicsDevice.Indices = mesh.IndexBuffer;
 
             foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
             {
                 pass.Apply();
-                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _mesh.PrimitiveCount);
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount);
             }
+        }
+
+        private void RecreateMesh()
+        {
+            //Cleared first, so that a map arriving while the mesh is being built is not missed
+            _meshOutOfDate = false;
+
+            _mesh?.Dispose();
+            _mesh = new WireBoxMesh(_graphicsDevice, Size.X, Size.Y, Size.Z, BEAM_THICKNESS);
         }
 
         public void Dispose()
