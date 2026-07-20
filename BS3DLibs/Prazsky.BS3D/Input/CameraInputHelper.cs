@@ -33,6 +33,9 @@ namespace Prazsky.BS3D.Input
 
         private float _animationStep = 0;
         private static readonly float ANIMATION_SPEED = Constants.THOUSANDTH;
+
+        //Above this much of the vertical axis in an offset, the vertical axis is no longer usable to turn around
+        private const float VERTICAL_LIMIT = 0.99f;
         private bool _animateCamera = false;
         private bool _animationStarted = false;
         private Vector3 _startCameraPos, _endCameraPos, _startCameraTarget, _endCameraTarget;
@@ -253,8 +256,18 @@ namespace Prazsky.BS3D.Input
 				_animationStarted = true;
 			}
 
-			_camera.Position = Vector3.SmoothStep(_startCameraPos, _endCameraPos, _animationStep);
-			_camera.Target = Vector3.SmoothStep(_startCameraTarget, _endCameraTarget, _animationStep);
+			float step = MathHelper.SmoothStep(0f, Constants.ONE, _animationStep);
+
+			//Swinging the camera around the point it ends up looking at keeps it on an arc around the map, instead
+			//of taking the short cut straight through the middle of it. Both ends of the arc are measured from that
+			//same point; the target of the camera is no use as a pivot, as it always sits just in front of it
+			_camera.Position = _endCameraTarget +
+					SlerpOffset(_startCameraPos - _endCameraTarget, _endCameraPos - _endCameraTarget, step);
+
+			//The camera keeps looking at the map for the whole of the arc. Easing the direction in from wherever it
+			//was pointing instead would leave it lagging behind the arc, with the map sliding off the screen halfway
+			//through; only a camera that did not start out facing the map turns abruptly, and just on the first frame
+			_camera.Target = _endCameraTarget;
 			_camera.Recalculate();
 
 			_animationStep += ANIMATION_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
@@ -264,6 +277,50 @@ namespace Prazsky.BS3D.Input
                 _animateCamera = false;
                 _animationStarted = false;
             }
+        }
+
+        /// <summary>
+        /// Interpolates between two camera offsets along the arc between them: the direction turns at a steady
+        /// rate around the target and the distance from it is interpolated separately.
+        /// </summary>
+        private static Vector3 SlerpOffset(Vector3 from, Vector3 to, float step)
+        {
+            float fromLength = from.Length();
+            float toLength = to.Length();
+
+            //Without a direction on one of the ends there is no arc to follow
+            if (fromLength < Constants.THOUSANDTH || toLength < Constants.THOUSANDTH) return Vector3.Lerp(from, to, step);
+
+            Vector3 fromDirection = from / fromLength;
+            Vector3 toDirection = to / toLength;
+            float length = MathHelper.Lerp(fromLength, toLength, step);
+
+            float dot = MathHelper.Clamp(Vector3.Dot(fromDirection, toDirection), -Constants.ONE, Constants.ONE);
+            float angle = (float)Math.Acos(dot);
+
+            //Almost the same direction: there is hardly an arc left and the division by its sine would blow up
+            if (angle < Constants.THOUSANDTH) return Vector3.Normalize(Vector3.Lerp(fromDirection, toDirection, step)) * length;
+
+            //Opposite directions (a view swapped for the one facing it) leave the arc undefined, as every way
+            //round is equally short. Turning around the vertical axis takes the camera around the side, which
+            //reads better than over the top; only a view that is already vertical has to go over the top
+            if (angle > MathHelper.Pi - Constants.THOUSANDTH)
+            {
+                Vector3 axis = Math.Abs(Vector3.Dot(fromDirection, Vector3.Up)) < VERTICAL_LIMIT ? Vector3.Up : Vector3.Right;
+
+                //Only the part of the axis perpendicular to the offset turns it, and half a turn around
+                //a perpendicular axis is exactly what lands on the opposite direction
+                axis = Vector3.Normalize(axis - fromDirection * Vector3.Dot(axis, fromDirection));
+
+                return Vector3.Transform(fromDirection, Matrix.CreateFromAxisAngle(axis, step * MathHelper.Pi)) * length;
+            }
+
+            float sine = (float)Math.Sin(angle);
+            Vector3 direction =
+                    ((float)Math.Sin((Constants.ONE - step) * angle) * fromDirection +
+                    (float)Math.Sin(step * angle) * toDirection) / sine;
+
+            return direction * length;
         }
 
         public void Initialize()
