@@ -52,9 +52,11 @@ Each constraint is shared by two balls, so `PhysicsBall` stores handles in three
 
 Contact detection uses `Testbed/Contacts/ContactEvents.cs` (adapted from the Bepu demo); Bepu callbacks fire on worker threads, so contact events are queued and processed on the main thread. When a shot ball hits the structure, it is snapped into the nearest free neighboring cell (`BallsMap.PutBallAtClosestEmptyPositionNextTo`) and then wired into the physics structure with `AttachBallToStructure`.
 
-### City prototype (`city` on the command line)
+### The city and the glass arena
 
-A first pass at the intended setting, behind a flag so the castle-in-a-field scene stays available to compare against: a glass play surface framed in marble, standing among the tops of a procedural city (`Testbed/Backdrops/City.cs`). With `city` on, the ground, the castle and the shadow overlay are not drawn.
+The setting, and the default scene — no flag: a play surface of marble and glass panels standing among the tops of a procedural city (`Testbed/Backdrops/City.cs`). The castle backdrop is gone, and neither the marble ground blocks nor the shadow overlay are drawn any more; the ground blocks remain only as physics bodies holding the balls up, since the arena has no collision of its own yet.
+
+The city continues **underneath** the arena, not just around it — the glass panels exist to be looked through, and the first version cleared the blocks under them, which left nothing to see. What changes under the arena is the height: those towers are cut off far below the glass so the drop reads as a drop. The floor is a mosaic of solid marble panels and glass ones (glass towards the middle, stone towards the rim) because a single glass sheet gives depth with nothing to measure it against, and a single stone one gives no depth at all.
 
 Everything is procedural and there are no assets. One 1×1×1 `BoxMesh` serves all of it — every building, the four marble bands and each mullion is that cube under a different instance matrix, so the whole city is a single instanced draw call. Non-uniform scale is safe here because the boxes are axis-aligned in object space: a diagonal scale maps each face normal onto itself, so `normalize` in the pixel shader recovers it without an inverse transpose. The `InstancedCity` technique evaluates the window grid from **world position** rather than object space — the buildings are one cube scaled per instance, so an object-space grid would give a hundred-storey tower the same number of floors as a low one. Windows band-limit to their own average coverage, so a distant tower is a dim glowing block rather than a moire of floors.
 

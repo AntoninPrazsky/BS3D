@@ -166,7 +166,6 @@ namespace Testbed
         private InstancedModelRenderer _groundRenderer;
         private InstancedModelRenderer _ceilingRenderer;
         private InstancedModelRenderer _cannonRenderer;
-        private InstancedModelRenderer _castleRenderer;
 
         /// <summary>
         /// The ceiling plate is a procedurally generated translucent glass box, rebuilt at the exact
@@ -303,12 +302,6 @@ namespace Testbed
 
         #region City prototype ("city" on the command line)
 
-        /// <summary>
-        /// Swaps the castle-in-a-field backdrop for the intended setting: a glass arena among the tops
-        /// of a procedural city. Behind a flag so the existing scene stays available to compare against.
-        /// </summary>
-        private readonly bool _cityPrototype;
-
         private City _city;
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
@@ -413,8 +406,6 @@ namespace Testbed
 
         #region Backdrops
 
-        Model _castleModel;
-        Castle _castle;
 
         #endregion
 
@@ -439,10 +430,9 @@ namespace Testbed
         private bool _switchMapDone;
         private static readonly float SWITCH_MAP_DELAY_SECONDS = 10f;
 
-        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false, int supersampleFactor = 2, float exposure = DEFAULT_EXPOSURE, bool cityPrototype = false)
+        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false, int supersampleFactor = 2, float exposure = DEFAULT_EXPOSURE)
         {
             _exposure = exposure > 0f ? exposure : DEFAULT_EXPOSURE;
-            _cityPrototype = cityPrototype; //Testing: "city" on the command line swaps the castle backdrop for the intended setting
             _windowed = windowed;
             _startupMapPath = startupMapPath;
             _autoShoot = autoShoot;
@@ -668,7 +658,7 @@ namespace Testbed
 
             BuildGroundAndCeiling();
 
-            if (_cityPrototype) BuildCityPrototype();
+            BuildCity();
 
             #endregion Ground and ceiling
 
@@ -705,42 +695,9 @@ namespace Testbed
             //Cast metal: shallow pitting, so only the cavity term has anything to work with
             _cannonRenderer.CavityStrength = 0.45f;
 
-            _castleModel = Content.Load<Model>("Backdrops/Castle");
-            _castle = new Castle(_castleModel, new Vector3(0f, -8.5f, -60f));
-            _castleRenderer = new InstancedModelRenderer(GraphicsDevice, _castleModel, _instancingEffect);
-
-            //The castle model has no UVs, so it gets a triplanar stone detail instead of a real texture
-            //(CastleStone.png is the stone half of Ground_8.png mirrored into a seamless tile)
-            _castleRenderer.DetailTexture = Content.Load<Texture2D>("Backdrops/CastleStone");
-            _castleRenderer.DetailScale = 0.08f; //Large stone patches that stay visible from across the play field
-            _castleRenderer.DetailStrength = 0.7f;
-            //Kept below the neutral-brightness 1.4: the castle is a backdrop and should not
-            //compete with the balls for attention
-            _castleRenderer.DetailBoost = 1.15f;
-            _castleRenderer.MasonryStrength = 1f;
-
-            //Rough-hewn stone: coarse grain over the whole facade, on top of which the masonry joints are
-            //now cut in as real recesses (MortarDepth in the shader) instead of being painted on flat
-            _castleRenderer.SurfaceReliefFrequency = 7f;
-            _castleRenderer.SurfaceReliefStrength = 0.010f;
-
-            //The triplanar path builds its own height field, so the castle takes cavity shading only —
-            //enough to sink its mortar joints into their own shade, which is most of what the marches
-            //would have bought on a wall
-            _castleRenderer.CavityStrength = 0.6f;
-
-            //The castle is not stone all over, and coursed stonework drawn across the lot gave the door
-            //brick joints. Its meshes are named by material, so each can say what it is actually made of.
-            _castleRenderer.SetMeshSurfaceStyle("Castle_Castle_wall1", SurfaceStyle.Masonry);
-            _castleRenderer.SetMeshSurfaceStyle("Castle_Castle_wall2", SurfaceStyle.Masonry);
-            _castleRenderer.SetMeshSurfaceStyle("Castle_Castle_wall3", SurfaceStyle.Masonry);
-            _castleRenderer.SetMeshSurfaceStyle("Castle_Castle_wood", SurfaceStyle.Wood); //Door and window frames
-            _castleRenderer.SetMeshSurfaceStyle("Castle_Castle_glass", SurfaceStyle.Plain);
-            _castleRenderer.SetMeshSurfaceStyle("Castle_Castle_top", SurfaceStyle.Plain); //Slate roof and spires
 
             //The ground darkens the downward-facing parts of the scene objects too, like the ball bellies
             _cannonRenderer.GroundHeight = SHADOW_OVERLAY_Y;
-            _castleRenderer.GroundHeight = SHADOW_OVERLAY_Y;
 
             _aimer = Content.Load<Texture2D>("Bitmaps/Aimer");
             _spriteBatch = new SpriteBatch(GraphicsDevice);
@@ -768,8 +725,6 @@ namespace Testbed
             yield return _groundRenderer;
             yield return _ceilingRenderer;
             yield return _cannonRenderer;
-            yield return _castleRenderer;
-
             if (_cityRenderer != null) yield return _cityRenderer;
             if (_arenaGlassRenderer != null) yield return _arenaGlassRenderer;
             if (_arenaFrameRenderer != null) yield return _arenaFrameRenderer;
@@ -836,11 +791,13 @@ namespace Testbed
         /// and the glass panel are the same cube under different instance matrices, which is what keeps
         /// a whole city to a single draw call.
         /// </summary>
-        private void BuildCityPrototype()
+        private void BuildCity()
         {
             _unitBox = new BoxMesh(GraphicsDevice, 1f, 1f, 1f);
 
             _city = new City(seed: 20260720, arenaHalfExtent: ARENA_HALF_EXTENT);
+
+            Console.WriteLine($"[city] {_city.Buildings.Length} buildings, arena half extent {ARENA_HALF_EXTENT}, glass top at {ARENA_Y}");
 
             _cityRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, Vector3.One, _instancingEffect)
             {
@@ -1301,29 +1258,19 @@ namespace Testbed
 
             if (_draw)
             {
-                if (_cityPrototype)
-                {
-                    //The city stands in for the ground and the backdrop both, so neither is drawn
-                    _cityRenderer.Draw(_camera, _city.Buildings, _city.Buildings.Length, _sceneEffectParams);
-                    _arenaFrameRenderer.Draw(_camera, _arenaFrameInstances, _arenaFrameInstances.Length, _sceneEffectParams);
-                }
-                else
-                {
-                    _groundRenderer.Draw(_camera, _groundInstances, _groundInstances.Length, _sceneEffectParams);
-                }
+                //The city is the ground and the backdrop both. The old marble blocks still exist as
+                //physics bodies under the arena, but nothing draws them any more.
+                _cityRenderer.Draw(_camera, _city.Buildings, _city.Buildings.Length, _sceneEffectParams);
+                _arenaFrameRenderer.Draw(_camera, _arenaFrameInstances, _arenaFrameInstances.Length, _sceneEffectParams);
 
                 _cannonRenderer.Draw(_camera, _cannon.World, _sceneEffectParams);
 
                 DrawBallsInstanced();
 
-                if (!_cityPrototype) _castleRenderer.Draw(_camera, _castle.World, _sceneEffectParams);
-
-                //Translucent glass: drawn after the opaque scene so what is behind it shows through
-                if (_cityPrototype) _arenaGlassRenderer.Draw(_camera, _arenaGlassInstances, _arenaGlassInstances.Length, _sceneEffectParams);
+                //Translucent glass: drawn after the opaque scene so the city below shows through it
+                _arenaGlassRenderer.Draw(_camera, _arenaGlassInstances, _arenaGlassInstances.Length, _sceneEffectParams);
 
                 _ceilingRenderer.Draw(_camera, _ceiling.World, _sceneEffectParams);
-
-                if (!_cityPrototype) DrawShadowOverlay();
             }
 
             ResolveSceneTarget();
