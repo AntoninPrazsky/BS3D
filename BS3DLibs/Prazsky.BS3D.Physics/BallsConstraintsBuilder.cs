@@ -24,6 +24,26 @@ namespace Prazsky.BS3D.Physics
 
         public static readonly SpringSettings SPRING_SETTINGS = new(frequency: 15f, dampingRatio: 1f);
 
+        private static Simulation _sphereShapeSimulation;
+        private static TypedIndex _sphereShapeIndex;
+
+        /// <summary>
+        /// Shape index of the shared ball sphere (<see cref="BALL_RADIUS"/>) in the given simulation.
+        /// The shape is added on first use and reused by every ball afterwards — adding a fresh one
+        /// per <see cref="BuildBallsStructure"/> call would leak a shape on every map load.
+        /// The cache resets when a different simulation instance is passed.
+        /// </summary>
+        public static TypedIndex GetSphereShapeIndex(Simulation simulation)
+        {
+            if (!ReferenceEquals(simulation, _sphereShapeSimulation))
+            {
+                _sphereShapeSimulation = simulation;
+                _sphereShapeIndex = simulation.Shapes.Add(new Sphere(BALL_RADIUS));
+            }
+
+            return _sphereShapeIndex;
+        }
+
         public static PhysicsBall[,,] BuildBallsStructure(StaticBall[,,] staticBalls, ref Simulation simulation, BodyReference ceilingReference)
         {
             if (staticBalls == null) throw new NullReferenceException(nameof(staticBalls));
@@ -37,12 +57,9 @@ namespace Prazsky.BS3D.Physics
 
             #region Create physical representation for each ball (without connecting them)
 
-            Sphere sphere = new(BALL_RADIUS);
-            BodyInertia bodyInertia = sphere.ComputeInertia(BALL_MASS);
+            BodyInertia bodyInertia = new Sphere(BALL_RADIUS).ComputeInertia(BALL_MASS);
 
-            TypedIndex speheShapeIndex = simulation.Shapes.Add(sphere);
-
-            CollidableDescription collidableDescription = new(speheShapeIndex, SPECULATIVE_MARGIN);
+            CollidableDescription collidableDescription = new(GetSphereShapeIndex(simulation), SPECULATIVE_MARGIN);
             BodyActivityDescription bodyActivityDescription = new(SLEEP_TRESHOLD);
 
             for (byte level = 0; level < size.Level; level++)
@@ -187,6 +204,33 @@ namespace Prazsky.BS3D.Physics
                 ReleaseBall(cell, physicsBalls, map, simulation, size, handleBuffer, releasedInto);
 
             return cluster.Count + disconnected.Count;
+        }
+
+        /// <summary>
+        /// Releases every ball of the structure at once (the End debug action): all constraints are removed
+        /// and the balls move out of the map and <paramref name="physicsBalls"/> into <paramref name="releasedInto"/>,
+        /// so the caller keeps drawing them and its fallen-ball cleanup can cull them once they come to rest.
+        /// (Merely removing the constraints while leaving the balls in <paramref name="physicsBalls"/> kept the
+        /// pile on the ground alive forever, generating contact constraints.)
+        /// </summary>
+        /// <returns>Number of released balls.</returns>
+        public static int ReleaseAllBalls(PhysicsBall[,,] physicsBalls, BallsMap map, Simulation simulation, List<PhysicsBall> releasedInto)
+        {
+            XZLevel size = map.GetStaticBallsArraySize();
+            List<ConstraintHandle> handleBuffer = new();
+            int released = 0;
+
+            for (byte level = 0; level < size.Level; level++)
+                for (byte x = 0; x < size.X; x++)
+                    for (byte z = 0; z < size.Z; z++)
+                    {
+                        if (physicsBalls[x, z, level] == null) continue;
+
+                        ReleaseBall(new XZLevel(x, z, level), physicsBalls, map, simulation, size, handleBuffer, releasedInto);
+                        released++;
+                    }
+
+            return released;
         }
 
         /// <summary>

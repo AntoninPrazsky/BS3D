@@ -344,7 +344,7 @@ namespace Testbed
                 new(mgKeys.F10, () => SwitchGameMode(!_gameMode), "Switch game mode"),
                 new(mgKeys.F11, () => SetGraphics(_graphics.IsFullScreen), "Fullscreen/windowed"),
                 new(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
-                new(mgKeys.End, Buttons.Start, RemoveAllConstraints, "Remove all constraints"),
+                new(mgKeys.End, Buttons.Start, ReleaseAllBalls, "Release all balls"),
                 new(mgKeys.NumPad1, SwitchSkyDome, "Switch sky dome"),
                 new(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
                 new(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
@@ -901,6 +901,20 @@ namespace Testbed
             _staticBodies.Clear();
         }
 
+        /// <summary>
+        /// Debug action (End): releases the whole hanging structure at once. The balls move into
+        /// <see cref="_fallingBalls"/>, so <see cref="RemoveFallenBalls"/> culls them once they come
+        /// to rest — leaving them in <see cref="_physicsBalls"/> kept the pile on the ground alive
+        /// (and generating contact constraints) forever.
+        /// </summary>
+        private void ReleaseAllBalls()
+        {
+            if (_physicsBalls == null || _map == null) return;
+
+            if (BallsConstraintsBuilder.ReleaseAllBalls(_physicsBalls, _map, _simulation, _fallingBalls) > 0)
+                RecountBallsAndConstraints();
+        }
+
         private void RemoveAllConstraints()
         {
             if (_physicsBalls == null || _physicsBalls.Rank != 3) return;
@@ -1171,7 +1185,7 @@ namespace Testbed
         private void InitializeShooting()
         {
             var ballShape = new Sphere(BallsConstraintsBuilder.BALL_RADIUS);
-            _shotBall = BodyDescription.CreateDynamic(new System.Numerics.Vector3(), ballShape.ComputeInertia(BallsConstraintsBuilder.BALL_MASS), _simulation.Shapes.Add(ballShape), Constants.HUNDREDTH);
+            _shotBall = BodyDescription.CreateDynamic(new System.Numerics.Vector3(), ballShape.ComputeInertia(BallsConstraintsBuilder.BALL_MASS), BallsConstraintsBuilder.GetSphereShapeIndex(_simulation), Constants.HUNDREDTH);
             _shotBalls = new List<PhysicsBall>();
             _fallingBalls = new List<PhysicsBall>();
         }
