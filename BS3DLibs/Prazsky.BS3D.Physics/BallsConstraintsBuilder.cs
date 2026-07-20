@@ -137,37 +137,9 @@ namespace Prazsky.BS3D.Physics
         /// The part of the ball surface facing this direction is the occluded one.</param>
         public static int CountOccupiedNeighbours(PhysicsBall[,,] balls, XZLevel cell, XZLevel size, out Vector3 occlusionDirection)
         {
-            int occupied = 0;
-            occlusionDirection = Vector3.Zero;
+            int occupied = BallsMap.CountOccupiedNeighbours(balls, cell, size, out Microsoft.Xna.Framework.Vector3 direction);
 
-            if (cell.X - 1 >= 0 && balls[cell.X - 1, cell.Z, cell.Level] != null) { occupied++; occlusionDirection.X -= 1f; }
-            if (cell.X + 1 < size.X && balls[cell.X + 1, cell.Z, cell.Level] != null) { occupied++; occlusionDirection.X += 1f; }
-            if (cell.Z - 1 >= 0 && balls[cell.X, cell.Z - 1, cell.Level] != null) { occupied++; occlusionDirection.Z -= 1f; }
-            if (cell.Z + 1 < size.Z && balls[cell.X, cell.Z + 1, cell.Level] != null) { occupied++; occlusionDirection.Z += 1f; }
-
-            int diagonalShift = (cell.Level % 2) > 0 ? 0 : -1;
-
-            for (int levelOffset = -1; levelOffset <= 1; levelOffset += 2)
-            {
-                int level = cell.Level + levelOffset;
-                if (level < 0 || level >= size.Level) continue;
-
-                float offsetY = levelOffset * Constants.SQRT_TWO * Constants.HALF;
-
-                for (int dX = 0; dX <= 1; dX++)
-                    for (int dZ = 0; dZ <= 1; dZ++)
-                    {
-                        int x = cell.X + dX + diagonalShift;
-                        int z = cell.Z + dZ + diagonalShift;
-
-                        if (x >= 0 && z >= 0 && x < size.X && z < size.Z && balls[x, z, level] != null)
-                        {
-                            occupied++;
-                            //Independently of level parity the horizontal offset to a touching cross-level neighbour is ±0.5
-                            occlusionDirection += new Vector3(dX - 0.5f, offsetY, dZ - 0.5f);
-                        }
-                    }
-            }
+            occlusionDirection = direction.ToNumerics();
 
             return occupied;
         }

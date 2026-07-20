@@ -177,6 +177,51 @@ namespace Prazsky.BS3D.GameStructure
         }
 
         /// <summary>
+        /// Counts occupied cells among the up-to-12 cells touching the given one (the same parity rules as
+        /// <see cref="GetNeighbouringCells"/>, but without allocating an enumerator, since this runs for every
+        /// ball every frame). Used for ambient occlusion, over either the logical or the physics ball array.
+        /// </summary>
+        /// <param name="occlusionDirection">Sum of the unit vectors pointing at the occupied neighbours
+        /// (touching neighbours are always exactly one ball diameter away, so every contribution has length 1).
+        /// The part of the ball surface facing this direction is the occluded one.</param>
+        public static int CountOccupiedNeighbours<T>(T[,,] balls, XZLevel cell, XZLevel size, out Vector3 occlusionDirection) where T : class
+        {
+            int occupied = 0;
+            occlusionDirection = Vector3.Zero;
+
+            if (cell.X - 1 >= 0 && balls[cell.X - 1, cell.Z, cell.Level] != null) { occupied++; occlusionDirection.X -= 1f; }
+            if (cell.X + 1 < size.X && balls[cell.X + 1, cell.Z, cell.Level] != null) { occupied++; occlusionDirection.X += 1f; }
+            if (cell.Z - 1 >= 0 && balls[cell.X, cell.Z - 1, cell.Level] != null) { occupied++; occlusionDirection.Z -= 1f; }
+            if (cell.Z + 1 < size.Z && balls[cell.X, cell.Z + 1, cell.Level] != null) { occupied++; occlusionDirection.Z += 1f; }
+
+            int diagonalShift = (cell.Level % 2) > 0 ? 0 : -1;
+
+            for (int levelOffset = -1; levelOffset <= 1; levelOffset += 2)
+            {
+                int level = cell.Level + levelOffset;
+                if (level < 0 || level >= size.Level) continue;
+
+                float offsetY = levelOffset * Constants.SQRT_TWO * Constants.HALF;
+
+                for (int dX = 0; dX <= 1; dX++)
+                    for (int dZ = 0; dZ <= 1; dZ++)
+                    {
+                        int x = cell.X + dX + diagonalShift;
+                        int z = cell.Z + dZ + diagonalShift;
+
+                        if (x >= 0 && z >= 0 && x < size.X && z < size.Z && balls[x, z, level] != null)
+                        {
+                            occupied++;
+                            //Independently of level parity the horizontal offset to a touching cross-level neighbour is ±0.5
+                            occlusionDirection += new Vector3(dX - Constants.HALF, offsetY, dZ - Constants.HALF);
+                        }
+                    }
+            }
+
+            return occupied;
+        }
+
+        /// <summary>
         /// Puts a ball into the empty cell neighbouring the <paramref name="nextTo"/> cell that is closest to the given position.
         /// Candidate cells come from <see cref="GetNeighbouringCells"/>.
         /// </summary>
