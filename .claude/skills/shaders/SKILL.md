@@ -9,6 +9,9 @@ description: How to add and wire custom HLSL effects (.fx) in BS3D — content p
 
 1. Put the `.fx` under `Testbed/Content/Shaders/` and register it in `Testbed/Content/Content.mgcb`:
    `importer:EffectImporter`, `processor:EffectProcessor`, `processorParam:DebugMode=Auto`.
+   The MapEditor draws balls through `InstancedModel.fx` too and builds it from that same source with
+   `/build:../../Testbed/Content/Shaders/InstancedModel.fx;Shaders/InstancedModel.fx` in its own .mgcb —
+   a source outside the content root is fine, so shader changes reach both executables at once.
 2. It compiles during `dotnet build` (MonoGame.Content.Builder.Task). Load with `Content.Load<Effect>("Shaders/<Name>")`.
 3. The platform is DesktopGL, so only the `#if OPENGL` branch matters: `vs_3_0` / `ps_3_0` (mojoshader).
    The game runs with `GraphicsProfile.HiDef` and 8x MSAA (`Graphics_PreparingDeviceSettings`).
@@ -41,8 +44,8 @@ draw all balls (see the "Ball rendering" section in CLAUDE.md). Facts that took 
 - The scene objects (ground, ceiling, cannon, castle) render through the same effect as
   single-instance draws (`InstancedModelRenderer.Draw(camera, world, effectParams)`); per-part
   material diffuse/emissive/specular and alpha are read from the model's `BasicEffect`s and
-  premultiplied by alpha like BasicEffect does. `ModelRenderer` + `BasicEffect` remains only in
-  the MapEditor. Textured mesh parts (e.g. `GameObjects/GroundMarble.fbx`) automatically use the
+  premultiplied by alpha like BasicEffect does. `ModelRenderer` + `BasicEffect` remains only for the
+  MapEditor's selector gizmo (its balls go through the instanced path like the game's). Textured mesh parts (e.g. `GameObjects/GroundMarble.fbx`) automatically use the
   `InstancedModelTextured` technique (UVs in TEXCOORD0; same `ShadePixel` lighting, texture
   modulates the non-specular colour like BasicEffect). Models with no texture of their own can instead set
   `DetailTexture` (+`DetailScale`/`DetailStrength`/`DetailBoost`) on their renderer — it only

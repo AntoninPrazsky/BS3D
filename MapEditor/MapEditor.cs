@@ -3,10 +3,13 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Prazsky.BS3D.GameStructure;
+using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Input;
+using Prazsky.Core;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
+using Prazsky.Render;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -24,6 +27,32 @@ namespace MapEditor
 
         //A little air around the play field, so that it does not touch the edges of the screen
         private const float VIEW_MARGIN = 1.1f;
+
+        #region Ball rendering
+
+        //The balls are drawn exactly as the game draws them, so that a map looks here the way it will play:
+        //generated sphere LODs picked by camera distance, instanced through the game's own shader.
+        //See the "Ball rendering" section in CLAUDE.md
+        private static readonly int[,] BALL_LOD_RESOLUTIONS = { { 32, 24 }, { 16, 12 }, { 10, 7 } };
+        private static readonly float[] BALL_LOD_DISTANCES = { 15f, 30f };
+        private static readonly int BALL_LOD_COUNT = 3;
+        private static readonly int BALL_TYPE_COUNT = 4;
+        private static readonly int BALL_PATTERN_GORES = 3;
+
+        private static readonly float BALL_OCCLUSION_STRENGTH = 0.55f;
+        private static readonly int MAX_BALL_OCCLUDERS = 12;
+
+        private Effect _instancingEffect;
+        private SphereMesh[] _ballMeshes;
+        private InstancedModelRenderer[] _ballRenderers;
+
+        //One instance bucket per ball type and LOD level; each bucket becomes a single instanced draw call
+        private readonly ModelInstance[][] _ballInstances = new ModelInstance[BALL_TYPE_COUNT * BALL_LOD_COUNT][];
+        private readonly int[] _ballInstanceCounts = new int[BALL_TYPE_COUNT * BALL_LOD_COUNT];
+
+        private SkyDome _sky;
+
+        #endregion Ball rendering
 
         private BallsMap _map;
         private Selector _selector;
@@ -142,13 +171,127 @@ namespace MapEditor
 
         protected override void LoadContent()
         {
-            _hrSphere = Content.Load<Model>("HRGeoDome");
+            _hrSphere = Content.Load<Model>("HRGeoDome"); //Still required by BallsMap; the balls themselves are generated spheres
+
+            _instancingEffect = Content.Load<Effect>("Shaders/InstancedModel");
+            _ballMeshes = new SphereMesh[BALL_LOD_COUNT];
+            _ballRenderers = new InstancedModelRenderer[BALL_LOD_COUNT];
+
+            for (int lod = 0; lod < BALL_LOD_COUNT; lod++)
+            {
+                //Constants.HALF is the ball radius the physics builder uses in the game; the editor has no physics to ask
+                _ballMeshes[lod] = new SphereMesh(GraphicsDevice, Constants.HALF, BALL_LOD_RESOLUTIONS[lod, 0], BALL_LOD_RESOLUTIONS[lod, 1]);
+                _ballRenderers[lod] = new InstancedModelRenderer(GraphicsDevice, _ballMeshes[lod], Vector3.One, _instancingEffect)
+                {
+                    PatternGoreCount = BALL_PATTERN_GORES
+                };
+            }
+
+            _sky = new SkyDome(Content.Load<Model>("Skyes/SkyDome1"), GraphicsDevice);
 
 			//10 levels for the initial ball layout plus empty levels at the bottom for the structure to grow into
 			_map = new BallsMap(10, 10, 15, _hrSphere);
             _selector = new Selector(Content, _map, Camera3D);
             _aabb = new AABB(GraphicsDevice);
             _aabb.FitToMap(_map);
+
+            ApplySkyLighting();
+        }
+
+        /// <summary>
+        /// Derives the ball lighting from the sky dome exactly as the game does: hemisphere ambient (zenith
+        /// colour from above, horizon colour from below) plus a light rig tinted by the same palette.
+        /// </summary>
+        private void ApplySkyLighting()
+        {
+            Vector3 zenith = _sky.ZenithColor;
+            Vector3 horizon = _sky.HorizonColor;
+
+            Vector3 keyTint = Vector3.Lerp(Vector3.One, horizon, 0.5f);
+            Vector3 backTint = Vector3.Lerp(Vector3.One, zenith, 0.5f);
+
+            foreach (InstancedModelRenderer renderer in _ballRenderers)
+            {
+                renderer.SkyColor = zenith * 1.3f;
+                renderer.GroundColor = horizon * 0.75f; //Bounce light from below is dimmer than the sky above
+
+                renderer.KeyLightPosition = -DefaultLighting.Light0Direction * 40f;
+                renderer.SetLightTint(keyTint, backTint);
+            }
+        }
+
+        /// <summary>
+        /// Gathers every ball of the map into the per-type-and-LOD buckets, each of which becomes one instanced
+        /// draw call. The editor map is static, so unlike the game there is nothing to ease: the occlusion is
+        /// simply what the grid says it is.
+        /// </summary>
+        private void CollectBallInstances()
+        {
+            for (int i = 0; i < _ballInstanceCounts.Length; i++) _ballInstanceCounts[i] = 0;
+
+            if (_map == null) return;
+
+            StaticBall[,,] balls = _map.GetStaticBallsArray();
+            XZLevel size = _map.GetStaticBallsArraySize();
+
+            for (byte level = 0; level < size.Level; level++)
+                for (byte x = 0; x < size.X; x++)
+                    for (byte z = 0; z < size.Z; z++)
+                    {
+                        StaticBall ball = balls[x, z, level];
+                        if (ball == null) continue;
+
+                        int occluders = BallsMap.CountOccupiedNeighbours(balls, new XZLevel(x, z, level), size, out Vector3 occlusionSum);
+
+                        CollectBallInstance(ball, new Vector4(
+                            occlusionSum.X / MAX_BALL_OCCLUDERS,
+                            occlusionSum.Y / MAX_BALL_OCCLUDERS,
+                            occlusionSum.Z / MAX_BALL_OCCLUDERS,
+                            1f - BALL_OCCLUSION_STRENGTH * occluders / MAX_BALL_OCCLUDERS));
+                    }
+        }
+
+        private void CollectBallInstance(StaticBall ball, Vector4 occlusionData)
+        {
+            int typeIndex = (int)ball.Type - 1;
+            if (typeIndex < 0 || typeIndex >= BALL_TYPE_COUNT) return;
+
+            //Mesh resolution by distance from the camera
+            float distance = Vector3.Distance(ball.Position, Camera3D.Position);
+            int lod = 0;
+            while (lod < BALL_LOD_DISTANCES.Length && distance > BALL_LOD_DISTANCES[lod]) lod++;
+
+            int bucketIndex = typeIndex * BALL_LOD_COUNT + lod;
+            ModelInstance[] bucket = _ballInstances[bucketIndex];
+            int count = _ballInstanceCounts[bucketIndex];
+
+            if (bucket == null)
+            {
+                bucket = new ModelInstance[256];
+                _ballInstances[bucketIndex] = bucket;
+            }
+            else if (count == bucket.Length)
+            {
+                Array.Resize(ref bucket, bucket.Length * 2);
+                _ballInstances[bucketIndex] = bucket;
+            }
+
+            //Editor balls never rotate, so the position is the whole transformation
+            bucket[count] = new ModelInstance(Matrix.CreateTranslation(ball.Position), occlusionData);
+            _ballInstanceCounts[bucketIndex] = count + 1;
+        }
+
+        private void DrawBallsInstanced()
+        {
+            for (int typeIndex = 0; typeIndex < BALL_TYPE_COUNT; typeIndex++)
+                for (int lod = 0; lod < BALL_LOD_COUNT; lod++)
+                {
+                    int bucketIndex = typeIndex * BALL_LOD_COUNT + lod;
+
+                    _ballRenderers[lod].Draw(Camera3D, _ballInstances[bucketIndex], _ballInstanceCounts[bucketIndex],
+                        BasicEffectParamsProvider.GetEffectByType((BallType)(typeIndex + 1)),
+                        BasicEffectParamsProvider.GetDiffuseTintByType((BallType)(typeIndex + 1)));
+                }
         }
 
         /// <summary>
@@ -257,11 +400,17 @@ namespace MapEditor
 
         protected override void Draw(GameTime gameTime)
         {
-            GraphicsDevice.Clear(Color.MidnightBlue);
+            CollectBallInstances();
+
+            GraphicsDevice.Clear(Color.LightSlateGray);
+
+            //Drawing the selector leaves additive blending behind, which would wash the sky dome out
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
-            if (_map != null) _map.Draw(Camera3D);
+            _sky.Draw(Camera3D);
+
+            DrawBallsInstanced();
 
             //The outline is translucent, so it is drawn over the finished scene and does not write depth
             GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;

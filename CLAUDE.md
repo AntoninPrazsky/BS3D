@@ -32,7 +32,7 @@ Three layered libraries under `BS3DLibs/`, consumed by two executables:
 - **Prazsky.BS3D** — game logic without physics: the ball grid (`GameStructure/BallsMap.cs`), `StaticBall`, `BallType`, JSON map (de)serialization via Newtonsoft, input helpers, `Cannon`.
 - **Prazsky.BS3D.Physics** — BepuPhysics representation: `PhysicsBall` (body reference + constraint handle slots + array position) and `BallsConstraintsBuilder` (builds the constrained ball structure).
 - **Testbed** — the actual playable game loop: simulation setup, shooting, contact handling, backdrops, HUD. Test maps live in `Testbed\Maps\*.json`.
-- **MapEditor** — visual editor for those map JSON files (supports drag-and-drop of a map file onto the window).
+- **MapEditor** — visual editor for those map JSON files (supports drag-and-drop of a map file onto the window). It draws the balls and the sky the same way the game does, so a map looks in the editor the way it will play: the same instanced procedural spheres, the same shader and the same sky-derived lighting (see "Ball rendering"). It builds `Shaders/InstancedModel.fx` and `Skyes/SkyDome1.dae` straight out of the Testbed content directory (`/build:../../Testbed/Content/…;<asset name>` in its own .mgcb), so there is one copy of each. It has no ground, castle, cannon or shadows; the play field is marked by a translucent procedural outline (`GUI/AABB.cs` + `WireBoxMesh`) instead of the game's glass ceiling, and only the selector gizmo still draws through `ModelRenderer`/`BasicEffect`.
 
 ### The ball grid
 
