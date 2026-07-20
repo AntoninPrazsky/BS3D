@@ -91,6 +91,30 @@ draw all balls (see the "Ball rendering" section in CLAUDE.md). Facts that took 
   `/processorParam:Scale=0.01` in Content.mgcb. Sky domes are `Skyes/SkyDome1..18.dae`, switched with NumPad1,
   drawn by `SkyDome` (Prazsky.Core) — the place to sample zenith/horizon colors for #39.
 
+## Procedural surface relief on the scene objects
+
+`SurfaceReliefWorld` is the ball relief's world-space sibling, driven by `SurfaceReliefStrength` (peak
+height in world units) and `SurfaceReliefFrequency` (base waves per world unit) on the renderer, and fed
+through the same `PerturbNormalFromHeight`. It is wired into the textured, detail-UV and triplanar paths,
+so ground, cannon and castle all get it, and it composes with a `DetailNormalMap` rather than replacing
+it — the cannon keeps its mapped grain and gains casting unevenness the map's texels cannot hold.
+
+- **Use seven octaves, not four.** Too few waves spaced too far apart interfere into a regular diagonal
+  weave rather than a surface; the cannon barrel showed it plainly at frequency 28. Ratios are ~1.47
+  apart and irrational. Slope ≈ `strength × frequency × 3.0`, which is the number to reason with when
+  tuning: ~0.2 reads as believable stone, past ~0.4 it looks like crumpled foil.
+- **A model is not one material.** `SetMeshSurfaceStyle(meshName, SurfaceStyle)` — `Masonry`, `Wood` or
+  `Plain` — keyed on the model's own mesh names, which the renderer now carries in `MeshPartData`.
+  The castle is `Castle_Castle_wall1..3` / `_wood` / `_glass` / `_top`; before styles existed the
+  coursing was drawn over the lot and its timber door came out clad in stone. Undeclared meshes default
+  to `Masonry`, which is what a stone-all-over model did before. Dump the names with a throwaway loop
+  over `model.Meshes` when adding a model — guessing which part is which wastes more time than the loop.
+- **Joints and seams are recesses, not paint.** The masonry mortar and the gaps between boards are cut
+  into the height field (`MortarDepth`, `BoardGrooveDepth`) with a world-space bevel, so they light and
+  shadow from the side. Give them a real width — collapsed to a one-pixel crease they just alias.
+- The style select is branchless `step`/`lerp`. `SurfaceStyle` is a uniform so a branch would not
+  diverge, but the derivatives downstream want every pixel of a quad on the same path regardless.
+
 ## Supersampling
 
 The Testbed renders the 3D scene into a `_supersampleFactor`× `RenderTarget2D` and box-filters it onto

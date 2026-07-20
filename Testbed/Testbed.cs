@@ -496,6 +496,12 @@ namespace Testbed
             _groundModel = Content.Load<Model>("GameObjects/GroundMarble");
 
             _groundRenderer = new InstancedModelRenderer(GraphicsDevice, _groundModel, _instancingEffect);
+
+            //The marble texture drew the veining but left the slab geometrically perfect, so it lit like
+            //polished glass. A ball-sized grain gives the floor something for the low sun to rake across.
+            _groundRenderer.SurfaceReliefFrequency = 9f;
+            _groundRenderer.SurfaceReliefStrength = 0.008f;
+
             RecreateCeilingRenderer(DEFAULT_CEILING_SIZE, DEFAULT_CEILING_SIZE);
 
             BuildGroundAndCeiling();
@@ -526,6 +532,11 @@ namespace Testbed
             _cannonRenderer.DetailNormalMap = Content.Load<Texture2D>("GameObjects/CannonMetalNormal");
             _cannonRenderer.DetailNormalStrength = 0.55f; //Enough relief to catch the light without reading as corrosion
 
+            //Unevenness of the casting, broad enough that it does not compete with the fine grain the
+            //normal map already carries — pushed finer than this it reads as a woven mesh over the barrel
+            _cannonRenderer.SurfaceReliefFrequency = 10f;
+            _cannonRenderer.SurfaceReliefStrength = 0.0037f;
+
             _castleModel = Content.Load<Model>("Backdrops/Castle");
             _castle = new Castle(_castleModel, new Vector3(0f, -8.5f, -60f));
             _castleRenderer = new InstancedModelRenderer(GraphicsDevice, _castleModel, _instancingEffect);
@@ -539,6 +550,20 @@ namespace Testbed
             //compete with the balls for attention
             _castleRenderer.DetailBoost = 1.15f;
             _castleRenderer.MasonryStrength = 1f;
+
+            //Rough-hewn stone: coarse grain over the whole facade, on top of which the masonry joints are
+            //now cut in as real recesses (MortarDepth in the shader) instead of being painted on flat
+            _castleRenderer.SurfaceReliefFrequency = 7f;
+            _castleRenderer.SurfaceReliefStrength = 0.010f;
+
+            //The castle is not stone all over, and coursed stonework drawn across the lot gave the door
+            //brick joints. Its meshes are named by material, so each can say what it is actually made of.
+            _castleRenderer.SetMeshSurfaceStyle("Castle_Castle_wall1", SurfaceStyle.Masonry);
+            _castleRenderer.SetMeshSurfaceStyle("Castle_Castle_wall2", SurfaceStyle.Masonry);
+            _castleRenderer.SetMeshSurfaceStyle("Castle_Castle_wall3", SurfaceStyle.Masonry);
+            _castleRenderer.SetMeshSurfaceStyle("Castle_Castle_wood", SurfaceStyle.Wood); //Door and window frames
+            _castleRenderer.SetMeshSurfaceStyle("Castle_Castle_glass", SurfaceStyle.Plain);
+            _castleRenderer.SetMeshSurfaceStyle("Castle_Castle_top", SurfaceStyle.Plain); //Slate roof and spires
 
             //The ground darkens the downward-facing parts of the scene objects too, like the ball bellies
             _cannonRenderer.GroundHeight = SHADOW_OVERLAY_Y;

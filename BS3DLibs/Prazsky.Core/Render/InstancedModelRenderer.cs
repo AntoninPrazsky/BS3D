@@ -30,6 +30,7 @@ namespace Prazsky.Core.Render
             public Vector3 SpecularColor;
             public float SpecularPower;
             public Texture2D Texture;
+            public string MeshName;
         }
 
         private readonly GraphicsDevice _graphicsDevice;
@@ -58,6 +59,9 @@ namespace Prazsky.Core.Render
         private EffectParameter _masonryStrengthParam;
         private EffectParameter _normalMapParam;
         private EffectParameter _normalStrengthParam;
+        private EffectParameter _surfaceReliefStrengthParam;
+        private EffectParameter _surfaceReliefFrequencyParam;
+        private EffectParameter _surfaceStyleParam;
         private EffectParameter _patternPrimaryColorParam;
         private EffectParameter _patternSecondaryColorParam;
         private EffectParameter _patternGoreCountParam;
@@ -100,10 +104,20 @@ namespace Prazsky.Core.Render
         public float DetailBoost { get; set; } = 1f;
 
         /// <summary>
-        /// How strongly procedural masonry joints show on vertical surfaces (0 = plain stone).
-        /// Only applies to <see cref="Render.DetailMapping.Triplanar"/>.
+        /// How strongly the procedural construction pattern of a mesh's <see cref="SurfaceStyle"/> shows
+        /// on vertical surfaces (0 = plain material). Only applies to <see cref="Render.DetailMapping.Triplanar"/>.
         /// </summary>
         public float MasonryStrength { get; set; }
+
+        private readonly Dictionary<string, SurfaceStyle> _meshStyles = new();
+
+        /// <summary>
+        /// Declares what a named mesh of the model is made of. Meshes left undeclared fall back to
+        /// <see cref="SurfaceStyle.Masonry"/>, which is the behavior a stone-all-over model had before
+        /// styles existed. Names are the model's own mesh names, so a model that is several materials
+        /// at once (a castle of stone walls, a timber door and glazing) can say so.
+        /// </summary>
+        public void SetMeshSurfaceStyle(string meshName, SurfaceStyle style) => _meshStyles[meshName] = style;
 
         /// <summary>
         /// Optional tangent-space normal map accompanying <see cref="DetailTexture"/>, giving the surface
@@ -114,6 +128,22 @@ namespace Prazsky.Core.Render
 
         /// <summary>How far <see cref="DetailNormalMap"/> tilts the surface normal (0 = flat).</summary>
         public float DetailNormalStrength { get; set; } = 1f;
+
+        /// <summary>
+        /// Peak height of the procedural micro-relief of this model's surface, in world units
+        /// (0 = the flat shading of a geometrically perfect surface). It only tilts the normal, so the
+        /// silhouette stays exactly as modeled; what changes is that the surface catches light
+        /// unevenly the way a real material does. Unlike <see cref="DetailNormalMap"/> it needs no
+        /// texture, does not tile, and keeps its detail right down to the pixel that can still show it.
+        /// </summary>
+        public float SurfaceReliefStrength { get; set; }
+
+        /// <summary>
+        /// Base wave count per world unit of <see cref="SurfaceReliefStrength"/>: larger values give a
+        /// finer grain. Four more octaves ride on top at rising frequencies, each fading out on its own
+        /// once a screen pixel grows past half its wavelength.
+        /// </summary>
+        public float SurfaceReliefFrequency { get; set; } = 10f;
 
         /// <summary>
         /// Number of primary-colored gores of the procedural beach-ball pattern (segments around
@@ -240,7 +270,8 @@ namespace Prazsky.Core.Render
                         EmissiveColor = emissive,
                         SpecularColor = specular,
                         SpecularPower = specularPower,
-                        Texture = texture
+                        Texture = texture,
+                        MeshName = mesh.Name
                     });
                 }
             }
@@ -311,6 +342,9 @@ namespace Prazsky.Core.Render
             _masonryStrengthParam = _effect.Parameters["MasonryStrength"];
             _normalMapParam = _effect.Parameters["NormalMapTexture"];
             _normalStrengthParam = _effect.Parameters["NormalStrength"];
+            _surfaceReliefStrengthParam = _effect.Parameters["SurfaceReliefStrength"];
+            _surfaceReliefFrequencyParam = _effect.Parameters["SurfaceReliefFrequency"];
+            _surfaceStyleParam = _effect.Parameters["SurfaceStyle"];
             _patternPrimaryColorParam = _effect.Parameters["PatternPrimaryColor"];
             _patternSecondaryColorParam = _effect.Parameters["PatternSecondaryColor"];
             _patternGoreCountParam = _effect.Parameters["PatternGoreCount"];
@@ -424,11 +458,24 @@ namespace Prazsky.Core.Render
             _keyLightPositionParam.SetValue(KeyLightPosition);
             _groundHeightParam.SetValue(GroundHeight);
 
+            //Set unconditionally rather than inside a technique branch: several techniques read these and
+            //the effect is shared between every renderer, so a value left behind by the previous Draw
+            //would show up as relief on a model that asked for none
+            _surfaceReliefStrengthParam.SetValue(SurfaceReliefStrength);
+            _surfaceReliefFrequencyParam.SetValue(SurfaceReliefFrequency);
+
             for (int i = 0; i < _parts.Length; i++)
             {
                 ref MeshPartData part = ref _parts[i];
 
                 _boneParam.SetValue(part.BoneTransform);
+
+                //What this mesh is made of, so a timber door does not come out clad in stone courses
+                SurfaceStyle style = part.MeshName != null && _meshStyles.TryGetValue(part.MeshName, out SurfaceStyle declared)
+                    ? declared
+                    : SurfaceStyle.Masonry;
+
+                _surfaceStyleParam.SetValue((float)(int)style);
 
                 Vector3 diffuse = new(part.DiffuseColor.X, part.DiffuseColor.Y, part.DiffuseColor.Z);
 

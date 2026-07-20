@@ -178,6 +178,73 @@ technique InstancedModel
 	}
 };
 
+//Procedural surface relief, shared by the ball pattern and by the scene objects. Nothing here moves a
+//vertex: the height field only tilts the normal, so silhouettes stay exactly as modeled and what
+//changes is that a surface catches light unevenly, the way a real material does.
+
+//Peak height of the relief on the scene objects, in world units (0 = flat shading), and the base wave
+//count per world unit — larger is finer grained. Four more octaves ride on top at rising frequencies.
+float SurfaceReliefStrength;
+float SurfaceReliefFrequency;
+
+//How much surface one screen pixel covers, in world units. This is the yardstick every relief feature
+//is band-limited against, and it is why supersampling buys real detail: more samples shrink it.
+float PixelFootprint(float3 worldPosition)
+{
+	return length(ddx(worldPosition)) + length(ddy(worldPosition));
+}
+
+//One octave, band-limited on the spot: a wave of this frequency spans 2 * pi / f of whatever space it
+//is evaluated in, so it is faded out as a pixel grows towards half of that — its Nyquist limit.
+//Attenuating each octave against its own wavelength, rather than the whole field against the finest
+//one, is what lets fine detail exist at all: it stays fully present while the pixels can still resolve
+//it and drops out silently when they cannot, instead of breaking into the hard checkerboard that
+//point-sampled high frequencies produce through the derivatives below. Position and footprint only
+//have to share units — object-space directions over a ball radius, or plain world space.
+float ReliefOctave(float3 position, float3 waveDirection, float frequency, float footprint)
+{
+	return sin(dot(position, waveDirection) * frequency) * saturate(1 - footprint * frequency / 3.14159265);
+}
+
+//World-space grain for the scene surfaces: stone, marble and cast metal all read as an irregular
+//surface rather than a polished one. Amplitudes sum to one, so SurfaceReliefStrength stays the peak
+//height in world units, and the frequency ratios are irrational so the sum never settles into a tile.
+//Seven octaves rather than a handful on purpose: too few waves spaced too far apart interfere into a
+//regular diagonal weave instead of a surface, which is exactly what the cannon barrel showed first.
+float SurfaceReliefWorld(float3 worldPosition, float frequency, float footprint)
+{
+	return 0.26 * ReliefOctave(worldPosition, float3(0.71, 0.52, -0.47), frequency, footprint)
+		+ 0.20 * ReliefOctave(worldPosition, float3(-0.36, 0.83, 0.42), frequency * 1.43, footprint)
+		+ 0.16 * ReliefOctave(worldPosition, float3(0.55, -0.44, 0.71), frequency * 2.11, footprint)
+		+ 0.12 * ReliefOctave(worldPosition, float3(-0.82, -0.31, 0.48), frequency * 3.07, footprint)
+		+ 0.10 * ReliefOctave(worldPosition, float3(0.31, 0.62, 0.72), frequency * 4.51, footprint)
+		+ 0.09 * ReliefOctave(worldPosition, float3(-0.64, 0.27, -0.72), frequency * 6.73, footprint)
+		+ 0.07 * ReliefOctave(worldPosition, float3(0.18, -0.91, 0.37), frequency * 9.87, footprint);
+}
+
+//Tilts a normal by a height field using only screen-space derivatives, for the same reason
+//CotangentFrame exists: the instance streams carry no tangents, and the object-to-world rotation
+//never reaches the pixel shader. Christian Schueler, "Bump Mapping Unparametrized Surfaces on the GPU".
+float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
+{
+	float3 dpdx = ddx(worldPosition);
+	float3 dpdy = ddy(worldPosition);
+
+	float3 r1 = cross(dpdy, normal);
+	float3 r2 = cross(normal, dpdx);
+
+	float determinant = dot(dpdx, r1);
+	float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
+
+	return normalize(abs(determinant) * normal - surfaceGradient);
+}
+
+//The world-space relief of a scene object, ready to hand to PerturbNormalFromHeight
+float SceneSurfaceHeight(float3 worldPosition, float footprint)
+{
+	return SurfaceReliefWorld(worldPosition, SurfaceReliefFrequency, footprint) * SurfaceReliefStrength;
+}
+
 //Textured variant: the model vertices carry UVs in TEXCOORD0 (the instance stream stays in TEXCOORD1-5)
 
 struct TexturedVertexShaderInput
@@ -215,7 +282,12 @@ TexturedVertexShaderOutput TexturedVS(TexturedVertexShaderInput input, InstanceI
 
 float4 TexturedPS(TexturedVertexShaderOutput input) : COLOR
 {
-	return ShadePixel(input.WorldPosition, input.WorldNormal, input.OcclusionData, tex2D(TextureSampler, input.TexCoord));
+	//The ground comes through here: a flat slab of marble whose texture drew the veining but left the
+	//surface geometrically perfect, so it took light like a mirror-smooth plane
+	float height = SceneSurfaceHeight(input.WorldPosition, PixelFootprint(input.WorldPosition));
+	float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
+
+	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, tex2D(TextureSampler, input.TexCoord));
 }
 
 technique InstancedModelTextured
@@ -300,18 +372,6 @@ float AntialiasedStep(float edge, float value)
 	return smoothstep(edge - width, edge + width, value);
 }
 
-//One octave of the relief, band-limited on the spot: a wave of this frequency spans 2 * pi / f of the
-//object-space direction, so it is faded out as a screen pixel grows towards half of that — its
-//Nyquist limit. Attenuating each octave against its own wavelength, rather than the whole field
-//against the finest one, is what lets fine detail exist at all: it stays fully present while the
-//pixels can still resolve it and drops out silently when they cannot, instead of breaking into the
-//hard checkerboard that point-sampled high frequencies produce through the derivatives below.
-//footprint is the screen pixel size in the same units — surface distance over the ball radius.
-float ReliefOctave(float3 direction, float3 waveDirection, float frequency, float footprint)
-{
-	return sin(dot(direction, waveDirection) * frequency) * saturate(1 - footprint * frequency / 3.14159265);
-}
-
 //Molded micro-relief of the skin: the dimples and waviness a real ball is left with when it comes
 //out of the mold. Four waves along spread-out directions at frequencies sharing no common factor,
 //so the sum never repeats over the ball — multiplying two waves instead would lay down a regular
@@ -323,23 +383,6 @@ float SurfaceRelief(float3 direction, float footprint)
 		+ 0.27 * ReliefOctave(direction, float3(-0.36, 0.83, 0.42), 21.0, footprint)
 		+ 0.21 * ReliefOctave(direction, float3(0.55, -0.44, 0.71), 34.0, footprint)
 		+ 0.16 * ReliefOctave(direction, float3(-0.82, -0.31, 0.48), 55.0, footprint);
-}
-
-//Tilts a normal by a height field using only screen-space derivatives, for the same reason
-//CotangentFrame exists: the instance streams carry no tangents, and the object-to-world rotation
-//never reaches the pixel shader. Christian Schueler, "Bump Mapping Unparametrized Surfaces on the GPU".
-float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
-{
-	float3 dpdx = ddx(worldPosition);
-	float3 dpdy = ddy(worldPosition);
-
-	float3 r1 = cross(dpdy, normal);
-	float3 r2 = cross(normal, dpdx);
-
-	float determinant = dot(dpdx, r1);
-	float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
-
-	return normalize(abs(determinant) * normal - surfaceGradient);
 }
 
 float4 PatternPS(PatternVertexShaderOutput input) : COLOR
@@ -414,8 +457,12 @@ float DetailStrength;
 //Brightness compensation so a mid-gray detail texture does not darken the whole material
 float DetailBoost;
 
-//How strongly the procedural masonry joints show on vertical triplanar surfaces (0 = plain stone)
+//How strongly the procedural construction pattern shows on vertical triplanar surfaces (0 = plain)
 float MasonryStrength;
+
+//What the mesh being drawn is made of: 0 plain, 1 coursed stone, 2 sawn timber. Matches SurfaceStyle
+//on the renderer, which reads it off the model's own mesh names.
+float SurfaceStyle;
 
 //Tangent-space normal map paired with the detail texture, and how far it tilts the surface normal
 texture NormalMapTexture;
@@ -467,6 +514,12 @@ float4 DetailUVNormalPS(TexturedVertexShaderOutput input) : COLOR
 
 	float3 worldNormal = normalize(mul(normalize(tangentNormal), CotangentFrame(geometricNormal, input.WorldPosition, uv)));
 
+	//The normal map carries the cast pattern at texture resolution; the procedural relief goes on top of
+	//it, finer than the map can hold and free of its tiling, so the barrel keeps breaking up the
+	//highlight right down to where a pixel can no longer tell
+	float height = SceneSurfaceHeight(input.WorldPosition, PixelFootprint(input.WorldPosition));
+	worldNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
+
 	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1));
 }
 
@@ -484,7 +537,10 @@ float4 DetailUVPS(TexturedVertexShaderOutput input) : COLOR
 	float3 detail = tex2D(TextureSampler, input.TexCoord * DetailScale).rgb;
 	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
-	return ShadePixel(input.WorldPosition, input.WorldNormal, input.OcclusionData, float4(texRgb, 1));
+	float height = SceneSurfaceHeight(input.WorldPosition, PixelFootprint(input.WorldPosition));
+	float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
+
+	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1));
 }
 
 technique InstancedModelDetailUV
@@ -502,21 +558,51 @@ static const float BrickHeight = 1.4;
 static const float MortarWidth = 0.09;
 static const float MortarDarkness = 0.62;
 
-//0 in a mortar joint, 1 inside a block; p is a vertical wall plane in world units.
+//How far the mortar sits behind the block faces and how wide the bevel running down to it is, both in
+//world units. Giving the joint a real width rather than letting it collapse into a one-pixel crease is
+//what makes it read as a recess instead of a dark line.
+static const float MortarDepth = 0.055;
+static const float MortarBevel = 0.07;
+
+//Distance to the nearest joint, in world units; p is a vertical wall plane.
 //Every other course is offset by half a block, like real coursed masonry.
-float BrickMask(float2 p)
+float BrickJointDistance(float2 p)
 {
 	float row = floor(p.y / BrickHeight);
 	float2 cell = float2(frac((p.x + row * BrickWidth * 0.5) / BrickWidth), frac(p.y / BrickHeight));
 
 	//Distance to the nearest cell border, back in world units
 	float2 border = min(cell, 1 - cell) * float2(BrickWidth, BrickHeight);
-	float distance = min(border.x, border.y);
 
+	return min(border.x, border.y);
+}
+
+//0 in a mortar joint, 1 inside a block
+float BrickMask(float distanceToJoint)
+{
 	//Screen-space derivative keeps the joint edge soft and fades it out at long range instead of shimmering
-	float soft = max(fwidth(distance), 0.02);
+	float soft = max(fwidth(distanceToJoint), 0.02);
 
-	return smoothstep(MortarWidth - soft, MortarWidth + soft, distance);
+	return smoothstep(MortarWidth - soft, MortarWidth + soft, distanceToJoint);
+}
+
+//Sawn timber: upright boards with a chamfer between them (world units)
+static const float BoardWidth = 0.42;
+static const float BoardGrooveWidth = 0.05;
+static const float BoardGrooveDepth = 0.05;
+static const float BoardDarkness = 0.72;
+
+//Distance to the nearest gap between boards, in world units. p runs across the boards.
+float BoardSeamDistance(float p)
+{
+	return abs(frac(p / BoardWidth) - 0.5) * BoardWidth;
+}
+
+//Long grain of the timber: the same octaves as the stone, but squashed hard along the board so the
+//waves stretch into fibers running its length instead of reading as isotropic mottling.
+float WoodGrain(float3 worldPosition, float footprint)
+{
+	return SurfaceReliefWorld(worldPosition * float3(1.0, 0.14, 1.0), SurfaceReliefFrequency * 2.2, footprint);
 }
 
 float4 TriplanarPS(VertexShaderOutput input) : COLOR
@@ -534,14 +620,44 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
 		+ tex2D(TextureSampler, p.xz).rgb * blend.y
 		+ tex2D(TextureSampler, p.xy).rgb * blend.z;
 
-	//Masonry joints on the vertical faces only (roofs and other Y-facing surfaces keep plain stone)
+	//Construction patterns land on the vertical faces only (roofs and other Y-facing surfaces stay plain)
 	float verticalWeight = (blend.x + blend.z) * MasonryStrength;
-	float brick = (BrickMask(input.WorldPosition.zy) * blend.x + BrickMask(input.WorldPosition.xy) * blend.z) / max(blend.x + blend.z, 0.001);
-	float joints = lerp(1, lerp(MortarDarkness, 1, brick), verticalWeight);
+	float sideWeight = max(blend.x + blend.z, 0.001);
+	float footprint = PixelFootprint(input.WorldPosition);
 
-	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength) * joints;
+	//Coursed stone. The joints are cut, not painted: sinking the mortar behind the block faces is what
+	//makes every course light and shadow from the side as the sun moves across the castle. Faded on the
+	//pixel footprint like the octaves are, against the bevel that sets the groove's own width.
+	float jointDistanceZY = BrickJointDistance(input.WorldPosition.zy);
+	float jointDistanceXY = BrickJointDistance(input.WorldPosition.xy);
 
-	return ShadePixel(input.WorldPosition, input.WorldNormal, input.OcclusionData, float4(texRgb, 1));
+	float brick = (BrickMask(jointDistanceZY) * blend.x + BrickMask(jointDistanceXY) * blend.z) / sideWeight;
+	float stoneShade = lerp(MortarDarkness, 1, brick);
+	float stoneGroove = (1 - smoothstep(MortarWidth, MortarWidth + MortarBevel, (jointDistanceZY * blend.x + jointDistanceXY * blend.z) / sideWeight))
+		* saturate(1 - footprint / MortarBevel);
+
+	//Sawn timber. The boards run up the wall, so their seams are spaced across it — along whichever
+	//horizontal axis the face is turned towards.
+	float boardSeamDistance = (BoardSeamDistance(input.WorldPosition.z) * blend.x + BoardSeamDistance(input.WorldPosition.x) * blend.z) / sideWeight;
+	float boardSoft = max(fwidth(boardSeamDistance), 0.004);
+	float woodShade = lerp(BoardDarkness, 1, smoothstep(BoardGrooveWidth - boardSoft, BoardGrooveWidth + boardSoft, boardSeamDistance));
+	float woodGroove = (1 - smoothstep(0, BoardGrooveWidth, boardSeamDistance)) * saturate(1 - footprint / BoardGrooveWidth);
+
+	//Pick the style branchlessly: the derivatives below need every pixel of a quad to have walked the
+	//same path, and SurfaceStyle is a uniform, so a branch would save nothing anyway.
+	float isWood = step(1.5, SurfaceStyle);
+	float isPatterned = step(0.5, SurfaceStyle) * verticalWeight;
+
+	float grain = lerp(SceneSurfaceHeight(input.WorldPosition, footprint), WoodGrain(input.WorldPosition, footprint) * SurfaceReliefStrength, isWood);
+	float groove = lerp(stoneGroove * MortarDepth, woodGroove * BoardGrooveDepth, isWood);
+
+	float shade = lerp(1, lerp(stoneShade, woodShade, isWood), isPatterned);
+	float height = grain - groove * isPatterned;
+
+	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength) * shade;
+	float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
+
+	return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1));
 }
 
 technique InstancedModelTriplanar
