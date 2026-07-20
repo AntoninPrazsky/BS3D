@@ -125,6 +125,20 @@ static const float DirectionalOcclusionStrength = 1.1;
 static const float GroundOcclusionStrength = 0.55;
 static const float GroundOcclusionRange = 2.0;
 
+//How much ambient light reaches a surface point. Shared with the pattern technique's rim sheen,
+//which has to stay dark on a ball buried in the pile.
+float SurfaceOcclusion(float3 worldPosition, float3 worldNormal, float4 occlusionData)
+{
+	//Neighbour-based ambient occlusion: the base factor darkens the whole ball a little, the directional
+	//part darkens the side of the ball facing its occluders, so the crevices between touching balls go dark
+	float occlusion = saturate(occlusionData.w - DirectionalOcclusionStrength * max(0, dot(worldNormal, occlusionData.xyz)));
+
+	//The ground is one more occluder: downward-facing surface close to the ground plane darkens
+	float groundProximity = saturate(1 - (worldPosition.y - GroundHeight) / GroundOcclusionRange);
+
+	return saturate(occlusion - GroundOcclusionStrength * groundProximity * saturate(-worldNormal.y));
+}
+
 //Shared shading: texColor is the sampled material texture (white for untextured parts).
 //Like BasicEffect, the texture modulates the whole non-specular colour (diffuse, ambient and emissive).
 float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionData, float4 texColor)
@@ -141,13 +155,7 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
 
 	float3 hemisphere = lerp(GroundColor, SkyColor, worldNormal.y * 0.5 + 0.5);
 
-	//Neighbour-based ambient occlusion: the base factor darkens the whole ball a little, the directional
-	//part darkens the side of the ball facing its occluders, so the crevices between touching balls go dark
-	float occlusion = saturate(occlusionData.w - DirectionalOcclusionStrength * max(0, dot(worldNormal, occlusionData.xyz)));
-
-	//The ground is one more occluder: downward-facing surface close to the ground plane darkens
-	float groundProximity = saturate(1 - (worldPosition.y - GroundHeight) / GroundOcclusionRange);
-	occlusion = saturate(occlusion - GroundOcclusionStrength * groundProximity * saturate(-worldNormal.y));
+	float occlusion = SurfaceOcclusion(worldPosition, worldNormal, occlusionData);
 	float diffuseOcclusion = lerp(0.6, 1.0, occlusion);
 
 	float4 color = float4((diffuse * DiffuseColor.rgb * diffuseOcclusion + hemisphere * AmbientColor * occlusion + EmissiveColor) * texColor.rgb, DiffuseColor.a * texColor.a);
@@ -230,11 +238,34 @@ float3 PatternSecondaryColor;
 //Segments around the object = 2 * PatternGoreCount
 float PatternGoreCount;
 
+//Where the boundary between two gores sits in sin(azimuth). Zero splits every pair of segments
+//evenly, a positive value widens the primary-coloured gore at the expense of the secondary one
+//(the renderer derives this from PatternGoreWidth, which says it in plain fractions).
+float PatternGoreThreshold;
+
 //Where the polar discs start, as the |Y| of the object-space direction (1 = the pole itself)
 float PatternCapExtent;
 
+//Amplitude of the moulded micro-relief of the skin, in world units (0 = a perfectly smooth sphere)
+float PatternReliefStrength;
+
+//How strongly the skin catches the sky colour at grazing angles
+float PatternSheenStrength;
+
 //Width of the ring outlining each disc, so the circle reads whichever gore it lands on
 static const float PatternRingWidth = 0.045;
+
+//Depth of the weld between two panels (world units) and how wide the groove is, measured in the
+//value of the field whose threshold the seam follows
+static const float PatternSeamDepth = 0.010;
+static const float PatternSeamGoreWidth = 0.13;
+static const float PatternSeamCapWidth = 0.035;
+
+//Shortest relief wave, in world units: 2 * pi / 21 of the way around a ball of radius 0.5. Once a
+//screen pixel covers an appreciable part of that, the derivative-driven perturbation below is
+//sampling noise rather than the surface, so it is faded out. Measuring the pixel footprint rather
+//than the plain distance keeps the fade honest at any window size, field of view or ball size.
+static const float PatternReliefMinFeature = 0.15;
 
 struct PatternVertexShaderOutput
 {
@@ -272,6 +303,38 @@ float AntialiasedStep(float edge, float value)
 	return smoothstep(edge - width, edge + width, value);
 }
 
+//Moulded micro-relief of the skin: the dimples and waviness a real ball is left with when it comes
+//out of the mould. Three waves along spread-out directions at frequencies sharing no common factor,
+//so the sum never repeats over the ball — multiplying two waves instead would lay down a regular
+//crosshatch, the same plaid the seamless cannon metal tile had to avoid. The amplitudes add up to
+//one, which leaves PatternReliefStrength as the peak height in world units. Fed the object-space
+//direction, so the feature size does not depend on the ball radius.
+//Frequency f puts f/pi waves across the ball; keep the top one low enough that a wave still spans a
+//good many pixels on a nearby ball, or the derivatives below alias into a checkerboard.
+float SurfaceRelief(float3 direction)
+{
+	return 0.45 * sin(dot(direction, float3(0.71, 0.52, -0.47)) * 9.0)
+		+ 0.33 * sin(dot(direction, float3(-0.36, 0.83, 0.42)) * 14.0)
+		+ 0.22 * sin(dot(direction, float3(0.55, -0.44, 0.71)) * 21.0);
+}
+
+//Tilts a normal by a height field using only screen-space derivatives, for the same reason
+//CotangentFrame exists: the instance streams carry no tangents, and the object-to-world rotation
+//never reaches the pixel shader. Christian Schueler, "Bump Mapping Unparametrized Surfaces on the GPU".
+float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
+{
+	float3 dpdx = ddx(worldPosition);
+	float3 dpdy = ddy(worldPosition);
+
+	float3 r1 = cross(dpdy, normal);
+	float3 r2 = cross(normal, dpdx);
+
+	float determinant = dot(dpdx, r1);
+	float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
+
+	return normalize(abs(determinant) * normal - surfaceGradient);
+}
+
 float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 {
 	float3 direction = normalize(input.ObjectPosition);
@@ -281,7 +344,7 @@ float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 	float azimuth = atan2(direction.z, direction.x);
 	float gore = sin(PatternGoreCount * azimuth);
 
-	float3 color = lerp(PatternPrimaryColor, PatternSecondaryColor, AntialiasedStep(0, gore));
+	float3 color = lerp(PatternPrimaryColor, PatternSecondaryColor, AntialiasedStep(PatternGoreThreshold, gore));
 
 	//Discs at the poles, where the gores would otherwise converge into an aliasing mess
 	float pole = abs(direction.y);
@@ -289,7 +352,30 @@ float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 	color = lerp(color, PatternPrimaryColor, AntialiasedStep(PatternCapExtent, pole));
 	color = lerp(color, PatternSecondaryColor, AntialiasedStep(PatternCapExtent + PatternRingWidth, pole));
 
-	return ShadePixel(input.WorldPosition, input.WorldNormal, input.OcclusionData, float4(color, 1));
+	//The panels are welded together, not painted on: press a groove in along every gore boundary and
+	//around the rim of each polar disc. The gore grooves fade out towards the poles, where the
+	//boundaries crowd together and the disc takes over anyway.
+	float goreSeam = (1 - smoothstep(0, PatternSeamGoreWidth, abs(gore - PatternGoreThreshold))) * saturate((PatternCapExtent - pole) * 8);
+	float capSeam = 1 - smoothstep(0, PatternSeamCapWidth, abs(pole - PatternCapExtent));
+
+	//Relief and welds ride in one height field, so a single perturbation covers both. Kept branchless:
+	//ddx/ddy below need every pixel of a quad to have taken the same path.
+	float pixelFootprint = length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition));
+	float reliefFade = saturate(1 - pixelFootprint / PatternReliefMinFeature);
+	float height = (SurfaceRelief(direction) * PatternReliefStrength - (goreSeam + capSeam) * PatternSeamDepth) * reliefFade;
+
+	float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
+
+	float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(color, 1));
+
+	//A vinyl skin catches the sky at grazing angles, which is most of what separates a shiny
+	//inflatable ball from a matte painted sphere. Balls buried in the pile must not light up.
+	float3 eyeVector = normalize(EyePosition - input.WorldPosition);
+	float fresnel = pow(1 - saturate(dot(worldNormal, eyeVector)), 4);
+
+	shaded.rgb += fresnel * PatternSheenStrength * SkyColor * SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
+
+	return shaded;
 }
 
 technique InstancedModelPattern

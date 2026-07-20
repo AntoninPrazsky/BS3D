@@ -45,9 +45,9 @@ namespace Testbed
         private static readonly float[] BALL_LOD_DISTANCES = { 15f, 30f };
         private static readonly int BALL_LOD_COUNT = 3;
 
-        //Beach-ball pattern (concept art in issue #43): three gores in the type colour alternating
-        //with three white ones, plus a white disc at each pole
-        private static readonly int BALL_PATTERN_GORES = 3;
+        //Beach-ball pattern (concept art in issue #43): five gores in the type colour, each narrower than
+        //the three the ball started out with, separated by narrower white ones, plus a white polar disc
+        private static readonly int BALL_PATTERN_GORES = 5;
 
         private SphereMesh[] _ballMeshes;
         private InstancedModelRenderer[] _ballRenderers;

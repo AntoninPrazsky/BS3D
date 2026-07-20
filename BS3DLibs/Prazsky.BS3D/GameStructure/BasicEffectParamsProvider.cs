@@ -8,8 +8,10 @@ namespace Prazsky.BS3D.GameStructure
         //Neutral (white-ish) specular with a tight power reads as glossy plastic: each ball gets a distinct
         //highlight whose position depends on where the ball sits relative to the light and the camera.
         //(The old strongly coloured specular with power 0.5 was just a broad tinted sheen, no visible highlight.)
-        private static readonly Vector3 GLOSS_COLOR = new(0.5f, 0.5f, 0.5f);
-        private const float GLOSS_POWER = 24f;
+        //The highlight is kept tight and bright on purpose: the tighter it is, the more of the moulded
+        //micro-relief of the skin (PatternReliefStrength) it picks out instead of reading as smooth vinyl.
+        private static readonly Vector3 GLOSS_COLOR = new(0.6f, 0.6f, 0.6f);
+        private const float GLOSS_POWER = 40f;
 
         public static BasicEffectParams ColorRed = new BasicEffectParams(new Vector3(0.3f, 0f, 0f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
         public static BasicEffectParams ColorGreen = new BasicEffectParams(new Vector3(0f, 0.3f, 0f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);

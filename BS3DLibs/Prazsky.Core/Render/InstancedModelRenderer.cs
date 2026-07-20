@@ -61,7 +61,10 @@ namespace Prazsky.Render
         private EffectParameter _patternPrimaryColorParam;
         private EffectParameter _patternSecondaryColorParam;
         private EffectParameter _patternGoreCountParam;
+        private EffectParameter _patternGoreThresholdParam;
         private EffectParameter _patternCapExtentParam;
+        private EffectParameter _patternReliefStrengthParam;
+        private EffectParameter _patternSheenStrengthParam;
         private EffectTechnique _mainTechnique;
         private EffectTechnique _texturedTechnique;
         private EffectTechnique _triplanarTechnique;
@@ -126,10 +129,28 @@ namespace Prazsky.Render
         public Vector3 PatternSecondaryColor { get; set; } = Vector3.One;
 
         /// <summary>
+        /// Fraction of each pair of segments taken by the primary-coloured gore: 0.5 gives gores of
+        /// equal width, more leaves the secondary colour as the narrower strip between them.
+        /// </summary>
+        public float PatternGoreWidth { get; set; } = 0.62f;
+
+        /// <summary>
         /// Where the polar discs of the beach-ball pattern start, as the |Y| of the object-space
         /// direction (1 = the pole itself).
         /// </summary>
-        public float PatternCapExtent { get; set; } = 0.85f;
+        public float PatternCapExtent { get; set; } = 0.9f;
+
+        /// <summary>
+        /// Amplitude of the moulded micro-relief of the patterned surface, in world units
+        /// (0 = a mathematically smooth sphere). It only tilts the normal, so what it changes is the
+        /// way the highlight breaks up — the silhouette stays a clean circle.
+        /// </summary>
+        public float PatternReliefStrength { get; set; } = 0.016f;
+
+        /// <summary>
+        /// How strongly the patterned surface catches the sky colour at grazing angles (0 = matte).
+        /// </summary>
+        public float PatternSheenStrength { get; set; } = 0.12f;
 
         /// <summary>
         /// Sky colour of the hemisphere ambient light (received by upward-facing surfaces).
@@ -293,7 +314,10 @@ namespace Prazsky.Render
             _patternPrimaryColorParam = _effect.Parameters["PatternPrimaryColor"];
             _patternSecondaryColorParam = _effect.Parameters["PatternSecondaryColor"];
             _patternGoreCountParam = _effect.Parameters["PatternGoreCount"];
+            _patternGoreThresholdParam = _effect.Parameters["PatternGoreThreshold"];
             _patternCapExtentParam = _effect.Parameters["PatternCapExtent"];
+            _patternReliefStrengthParam = _effect.Parameters["PatternReliefStrength"];
+            _patternSheenStrengthParam = _effect.Parameters["PatternSheenStrength"];
             _mainTechnique = _effect.Techniques["InstancedModel"];
             _texturedTechnique = _effect.Techniques["InstancedModelTextured"];
             _triplanarTechnique = _effect.Techniques["InstancedModelTriplanar"];
@@ -445,7 +469,13 @@ namespace Prazsky.Render
                     _patternPrimaryColorParam.SetValue(diffuseTint ?? Vector3.One);
                     _patternSecondaryColorParam.SetValue(PatternSecondaryColor);
                     _patternGoreCountParam.SetValue((float)PatternGoreCount);
+
+                    //Thresholding sin(azimuth) at -cos(pi * width) hands the primary gore exactly that
+                    //fraction of each pair of segments; the even split lands on zero, as before
+                    _patternGoreThresholdParam.SetValue(-MathF.Cos(MathF.PI * PatternGoreWidth));
                     _patternCapExtentParam.SetValue(PatternCapExtent);
+                    _patternReliefStrengthParam.SetValue(PatternReliefStrength);
+                    _patternSheenStrengthParam.SetValue(PatternSheenStrength);
                 }
                 else if (DetailTexture != null && part.DiffuseColor.W >= 1f)
                 {

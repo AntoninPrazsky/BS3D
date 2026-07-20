@@ -39,8 +39,22 @@ draw all balls (see the "Ball rendering" section in CLAUDE.md). Facts that took 
   polar discs evaluated in *object space* (so the pattern turns with the ball; rotation stays
   readable), antialiased with `fwidth` so distant balls don't shimmer. Enabled by
   `PatternGoreCount > 0` on the renderer (untextured opaque parts only); the `diffuseTint` passed
-  to `Draw` becomes the primary gore colour, `PatternSecondaryColor`/`PatternCapExtent` are
-  renderer properties. The white type (tint = white) intentionally renders plain.
+  to `Draw` becomes the primary gore colour, `PatternSecondaryColor`/`PatternCapExtent`/
+  `PatternGoreWidth` are renderer properties. `PatternGoreWidth` is the fraction of each pair of
+  segments the colour takes (0.5 = even); the shader thresholds `sin(azimuth)` at `-cos(pi * width)`,
+  which is exact and, unlike a fraction-of-period coordinate, stays continuous across the atan2
+  branch cut. The white type (tint = white) intentionally renders plain.
+- **Inflatable-ball surface** (same technique): a height field — three summed sines along mixed
+  directions for the moulded micro-relief, plus a groove along every gore boundary and disc rim for
+  the panel welds — tilts the normal via `PerturbNormalFromHeight` (Schueler's tangent-free bump,
+  the height-field sibling of `CotangentFrame`), so the highlight breaks up instead of reading as a
+  perfect sphere. A Fresnel term adds the grazing-angle sky sheen, scaled by `SurfaceOcclusion` so
+  balls buried in the pile stay dark. Two traps, both hit while building it: *multiplying* sines
+  lays down a regular crosshatch (sum them instead), and any wave approaching pixel size aliases
+  into a hard checkerboard, because the perturbation is driven by `ddx/ddy`. Hence the top frequency
+  is kept low (`f/pi` waves span the ball) and the whole relief fades out on **screen-space pixel
+  footprint** rather than camera distance — the fade then holds at any resolution, FOV or ball size.
+  Keep the height computation branchless: `ddx/ddy` need every pixel of a quad on the same path.
 - The scene objects (ground, ceiling, cannon, castle) render through the same effect as
   single-instance draws (`InstancedModelRenderer.Draw(camera, world, effectParams)`); per-part
   material diffuse/emissive/specular and alpha are read from the model's `BasicEffect`s and

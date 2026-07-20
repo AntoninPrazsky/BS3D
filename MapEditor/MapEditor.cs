@@ -37,7 +37,7 @@ namespace MapEditor
         private static readonly float[] BALL_LOD_DISTANCES = { 15f, 30f };
         private static readonly int BALL_LOD_COUNT = 3;
         private static readonly int BALL_TYPE_COUNT = 4;
-        private static readonly int BALL_PATTERN_GORES = 3;
+        private static readonly int BALL_PATTERN_GORES = 5;
 
         private static readonly float BALL_OCCLUSION_STRENGTH = 0.55f;
         private static readonly int MAX_BALL_OCCLUDERS = 12;
