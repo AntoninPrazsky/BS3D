@@ -855,13 +855,35 @@ namespace Testbed
             //The glass panel, sitting just under the play surface
             _arenaGlassRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, ARENA_GLASS_COLOR, _instancingEffect, ARENA_GLASS_ALPHA);
 
-            _arenaGlassInstances = new[]
-            {
-                new ModelInstance(
-                    Microsoft.Xna.Framework.Matrix.CreateScale(ARENA_HALF_EXTENT * 2f, ARENA_GLASS_THICKNESS, ARENA_HALF_EXTENT * 2f)
-                    * Microsoft.Xna.Framework.Matrix.CreateTranslation(0f, ARENA_Y - ARENA_GLASS_THICKNESS * 0.5f, 0f),
-                    GROUND_NO_OCCLUSION)
-            };
+            //The floor is a mosaic, not a sheet: some panels are solid marble, some are glass. That
+            //contrast is the whole point of standing here — the stone says the floor holds, the glass
+            //opens onto the drop, and the eye keeps being handed one and then the other. A single glass
+            //sheet gives depth with nothing to measure it against, and a single stone one gives no depth.
+            List<ModelInstance> glassPanels = new();
+            List<ModelInstance> stonePanels = new();
+
+            int panelsPerSide = (int)MathF.Round(ARENA_HALF_EXTENT * 2f / ARENA_PANEL_SIZE);
+            Random panelRandom = new(7311);
+
+            for (int px = 0; px < panelsPerSide; px++)
+                for (int pz = 0; pz < panelsPerSide; pz++)
+                {
+                    float x = -ARENA_HALF_EXTENT + (px + 0.5f) * ARENA_PANEL_SIZE;
+                    float z = -ARENA_HALF_EXTENT + (pz + 0.5f) * ARENA_PANEL_SIZE;
+
+                    //Glass towards the middle, stone towards the rim: the drop opens under the play area,
+                    //where the balls are, and the edge you stand on stays solid
+                    float distance = MathF.Max(MathF.Abs(x), MathF.Abs(z)) / ARENA_HALF_EXTENT;
+                    bool glass = panelRandom.NextDouble() > distance * 0.85;
+
+                    Microsoft.Xna.Framework.Matrix world =
+                        Microsoft.Xna.Framework.Matrix.CreateScale(ARENA_PANEL_SIZE - ARENA_MULLION_WIDTH, ARENA_GLASS_THICKNESS, ARENA_PANEL_SIZE - ARENA_MULLION_WIDTH)
+                        * Microsoft.Xna.Framework.Matrix.CreateTranslation(x, ARENA_Y - ARENA_GLASS_THICKNESS * 0.5f, z);
+
+                    (glass ? glassPanels : stonePanels).Add(new ModelInstance(world, GROUND_NO_OCCLUSION));
+                }
+
+            _arenaGlassInstances = glassPanels.ToArray();
 
             //Four marble bands framing the glass. The glass is what the city shows through; the marble is
             //what it is set into, and it is also the only thing here with a surface worth the relief work.
@@ -898,6 +920,9 @@ namespace Testbed
                 frame.Add(Band(ARENA_HALF_EXTENT * 2f, ARENA_MULLION_WIDTH, 0f, offset));
                 frame.Add(Band(ARENA_MULLION_WIDTH, ARENA_HALF_EXTENT * 2f, offset, 0f));
             }
+
+            //The solid panels join the frame: same marble, same slab relief, one draw call for all of it
+            frame.AddRange(stonePanels);
 
             _arenaFrameInstances = frame.ToArray();
 

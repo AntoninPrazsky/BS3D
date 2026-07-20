@@ -53,6 +53,14 @@ namespace Testbed.Backdrops
         /// </summary>
         private const float TAPER_PER_BLOCK = 2.6f;
 
+        /// <summary>
+        /// Highest a building directly under the arena is allowed to reach, and how much further down
+        /// they scatter. Far enough below the glass that the drop reads as a drop.
+        /// </summary>
+        private const float UNDER_ARENA_TOP_Y = -78f;
+
+        private const float UNDER_ARENA_SPREAD = 90f;
+
         /// <param name="seed">Layout seed; the same seed always gives the same city.</param>
         /// <param name="arenaHalfExtent">
         /// Half-width of the play surface. Blocks whose footprint would reach into it are left out, so
@@ -70,10 +78,13 @@ namespace Testbed.Backdrops
                 {
                     Vector2 blockCenter = new(blockX * BLOCK_PITCH, blockZ * BLOCK_PITCH);
 
-                    //Keep the arena clear, with a street's worth of margin so no facade grazes its edge
+                    //The city continues underneath the arena rather than stopping at its edge. It has to:
+                    //the glass panels are there to be looked through, and a clearing under them shows
+                    //nothing at all. What changes under the arena is the height — those towers are cut off
+                    //far below the glass, which is what opens the drop the floor is suspended over.
                     float clearance = arenaHalfExtent + STREET_WIDTH;
-                    if (Math.Abs(blockCenter.X) < clearance + buildable * 0.5f &&
-                        Math.Abs(blockCenter.Y) < clearance + buildable * 0.5f) continue;
+                    bool underArena = Math.Abs(blockCenter.X) < clearance + buildable * 0.5f &&
+                        Math.Abs(blockCenter.Y) < clearance + buildable * 0.5f;
 
                     //A gap in the grid every so often: a plaza, or something demolished. Without them the
                     //regularity of the streets reads as a spreadsheet rather than as a city.
@@ -99,6 +110,10 @@ namespace Testbed.Backdrops
                             float top = ROOFLINE_Y
                                 - distanceInBlocks * TAPER_PER_BLOCK
                                 + (float)(random.NextDouble() * 2 - 1) * ROOFLINE_SPREAD;
+
+                            //Under the glass the roofs drop away into a shaft. The gap is what turns
+                            //looking down from "there is a city there" into vertigo.
+                            if (underArena) top = UNDER_ARENA_TOP_Y - (float)random.NextDouble() * UNDER_ARENA_SPREAD;
 
                             float height = top - CITY_BASE_Y;
                             if (height <= 1f) continue;
