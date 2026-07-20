@@ -25,11 +25,18 @@ namespace Prazsky.BS3D.Physics
         /// <summary>
         /// Ambient occlusion the ball is currently rendered with: XYZ = direction towards its occupied
         /// neighbouring cells, W = base occlusion factor. It is kept on the ball rather than in the renderer
-        /// because it has to survive the ball leaving the structure: a released ball has not moved away from
-        /// its neighbours yet, so its occlusion has to fade out over the following frames instead of being
-        /// dropped at once, which read as the cluster flashing brighter the moment it detached.
+        /// because it has to survive the ball crossing between the structure and the free balls: the occlusion
+        /// is computed from the grid, which the ball joins or leaves in a single step while it has not moved
+        /// yet, so the value is eased towards its new target over the following frames instead of popping.
         /// </summary>
         public System.Numerics.Vector4 Occlusion = UNOCCLUDED;
+
+        /// <summary>
+        /// Whether <see cref="Occlusion"/> already holds a value the ball has been rendered with. A ball drawn
+        /// for the first time takes its occlusion as it is instead of easing into it, so a freshly built
+        /// structure is shaded correctly from its first frame rather than fading into its own shading.
+        /// </summary>
+        public bool OcclusionInitialized;
 
         public void SetEmptyConstraints()
         {

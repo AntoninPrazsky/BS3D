@@ -102,11 +102,13 @@ namespace Testbed
         private static readonly int MAX_BALL_OCCLUDERS = 12;
 
         /// <summary>
-        /// Time constant of the occlusion fade-out of a ball that left the structure (roughly three times
-        /// this to fade fully). The occlusion is computed from the grid, which a released ball leaves at once,
-        /// so without the fade it would brighten a whole frame before it even started moving.
+        /// Time constant of the occlusion easing (roughly three times this to arrive). The occlusion is computed
+        /// from the grid, which changes in a single step - a ball is released, another one attaches - while the
+        /// balls involved have not moved yet, so without the easing they would pop brighter (a released ball and
+        /// the neighbours it leaves behind) or darker (an attached ball and the neighbours it joins) a whole
+        /// frame before anything visibly happened.
         /// </summary>
-        private static readonly float BALL_OCCLUSION_FADE_SECONDS = 0.15f;
+        private static readonly float BALL_OCCLUSION_EASE_SECONDS = 0.15f;
 
         //Last frame's statistics (how many balls passed frustum culling out of how many exist)
         private int _drawnBalls;
@@ -988,6 +990,8 @@ namespace Testbed
             for (int i = 0; i < BALL_LOD_COUNT; i++) _ballLodTotals[i] = 0;
             _collectedBalls = 0;
 
+            float ease = 1f - MathF.Exp(-elapsedSeconds / BALL_OCCLUSION_EASE_SECONDS);
+
             if (_physicsBalls != null)
             {
                 XZLevel size = XZLevel.FromArray(_physicsBalls);
@@ -1001,35 +1005,33 @@ namespace Testbed
 
                             //The ceiling plate deliberately does NOT occlude: it is translucent glass, so it
                             //lets the light through (what keeps a released ball from flashing brighter is the
-                            //occlusion fade-out below, not this)
+                            //occlusion easing below, not this)
                             int occluders = BallsConstraintsBuilder.CountOccupiedNeighbours(_physicsBalls, ball.ArrayPosition, size, out System.Numerics.Vector3 occlusionSum);
 
-                            //Kept on the ball so it stays available once the ball leaves the structure
-                            ball.Occlusion = new System.Numerics.Vector4(
+                            System.Numerics.Vector4 occlusionTarget = new(
                                 occlusionSum.X / MAX_BALL_OCCLUDERS,
                                 occlusionSum.Y / MAX_BALL_OCCLUDERS,
                                 occlusionSum.Z / MAX_BALL_OCCLUDERS,
                                 1f - BALL_OCCLUSION_STRENGTH * occluders / MAX_BALL_OCCLUDERS);
 
-                            CollectBallInstance(ball, ToXna(ball.Occlusion));
+                            CollectBallInstance(ball, EaseOcclusion(ball, occlusionTarget, ease));
                         }
             }
 
-            //A free-flying ball ends up with nothing packed around it, but one just released from the structure
-            //is still sitting between its former neighbours, so its occlusion is faded out rather than dropped
-            //(a shot ball never had any, so it starts unoccluded and the fade leaves it there).
-            float fade = 1f - MathF.Exp(-elapsedSeconds / BALL_OCCLUSION_FADE_SECONDS);
-
-            for (int i = 0; i < _shotBalls.Count; i++) CollectBallInstance(_shotBalls[i], FadeOutOcclusion(_shotBalls[i], fade));
-            for (int i = 0; i < _fallingBalls.Count; i++) CollectBallInstance(_fallingBalls[i], FadeOutOcclusion(_fallingBalls[i], fade));
+            //A free-flying ball has nothing packed around it (a shot one never had, so the easing keeps it there)
+            for (int i = 0; i < _shotBalls.Count; i++) CollectBallInstance(_shotBalls[i], EaseOcclusion(_shotBalls[i], PhysicsBall.UNOCCLUDED, ease));
+            for (int i = 0; i < _fallingBalls.Count; i++) CollectBallInstance(_fallingBalls[i], EaseOcclusion(_fallingBalls[i], PhysicsBall.UNOCCLUDED, ease));
         }
 
         /// <summary>
-        /// Eases a free ball's occlusion towards <see cref="PhysicsBall.UNOCCLUDED"/> and returns it in render form.
+        /// Eases a ball's occlusion towards <paramref name="target"/> and returns it in render form.
+        /// A ball rendered for the first time takes the target as it is - only changes happening in front
+        /// of the player are worth easing, a newly built structure has to be shaded right away.
         /// </summary>
-        private static Vector4 FadeOutOcclusion(PhysicsBall ball, float fade)
+        private static Vector4 EaseOcclusion(PhysicsBall ball, System.Numerics.Vector4 target, float ease)
         {
-            ball.Occlusion = System.Numerics.Vector4.Lerp(ball.Occlusion, PhysicsBall.UNOCCLUDED, fade);
+            ball.Occlusion = ball.OcclusionInitialized ? System.Numerics.Vector4.Lerp(ball.Occlusion, target, ease) : target;
+            ball.OcclusionInitialized = true;
 
             return ToXna(ball.Occlusion);
         }
