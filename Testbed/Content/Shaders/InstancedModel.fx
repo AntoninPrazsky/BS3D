@@ -699,7 +699,10 @@ float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 	float3 eyeVector = normalize(EyePosition - input.WorldPosition);
 	float fresnel = pow(1 - saturate(dot(worldNormal, eyeVector)), 4);
 
-	shaded.rgb += fresnel * PatternSheenStrength * SkyColor * SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
+	//SrgbToLinear on the sky, like every other color entering the math: this term adds light into a
+	//linear buffer, and adding the display encoding instead makes the sheen far brighter than the sky
+	//it is supposed to be reflecting. Over a Fresnel that wide it washes the whole ball out.
+	shaded.rgb += fresnel * PatternSheenStrength * SrgbToLinear(SkyColor) * SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
 
 	return shaded;
 }
