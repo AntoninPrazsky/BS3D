@@ -27,7 +27,7 @@ namespace Prazsky.Core.Render
         private Texture2D _iconTexture;
         private Vector2 _iconPosition;
 
-        private readonly float SCALE_DIVISOR = 3840f;
+        private readonly float SCALE_DIVISOR = 2160f;
         private readonly float SHADOW_OFFSET = 2.5f;
         private float _scale = 1f;
 
@@ -54,7 +54,7 @@ namespace Prazsky.Core.Render
 
         public void RecomputeScale()
         {
-            _scale = Game.GraphicsDevice.Viewport.Width / SCALE_DIVISOR;
+            _scale = Game.GraphicsDevice.Viewport.Height / SCALE_DIVISOR;
 
             _fpsPosition = new Vector2(30f, 20f) * _scale;
             _hintTextPosition = new Vector2(30f, 150f) * _scale;
