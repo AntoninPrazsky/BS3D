@@ -58,11 +58,16 @@ namespace Prazsky.Render
         private EffectParameter _masonryStrengthParam;
         private EffectParameter _normalMapParam;
         private EffectParameter _normalStrengthParam;
+        private EffectParameter _patternPrimaryColorParam;
+        private EffectParameter _patternSecondaryColorParam;
+        private EffectParameter _patternGoreCountParam;
+        private EffectParameter _patternCapExtentParam;
         private EffectTechnique _mainTechnique;
         private EffectTechnique _texturedTechnique;
         private EffectTechnique _triplanarTechnique;
         private EffectTechnique _detailUVTechnique;
         private EffectTechnique _detailUVNormalTechnique;
+        private EffectTechnique _patternTechnique;
         private EffectTechnique _depthTechnique;
 
         /// <summary>
@@ -106,6 +111,25 @@ namespace Prazsky.Render
 
         /// <summary>How far <see cref="DetailNormalMap"/> tilts the surface normal (0 = flat).</summary>
         public float DetailNormalStrength { get; set; } = 1f;
+
+        /// <summary>
+        /// Number of primary-coloured gores of the procedural beach-ball pattern (segments around
+        /// the object = twice this; 0 = no pattern). The pattern is evaluated in the model's own
+        /// object space, so it turns with the object and makes a rolling ball's rotation readable.
+        /// Applies to untextured opaque mesh parts; the diffuse tint passed to
+        /// <see cref="Draw(ICamera, ModelInstance[], int, BasicEffectParams, Vector3?)"/> becomes
+        /// the primary gore colour and the material diffuse shades the whole pattern.
+        /// </summary>
+        public int PatternGoreCount { get; set; }
+
+        /// <summary>Colour of the other gores and of the polar discs of the beach-ball pattern.</summary>
+        public Vector3 PatternSecondaryColor { get; set; } = Vector3.One;
+
+        /// <summary>
+        /// Where the polar discs of the beach-ball pattern start, as the |Y| of the object-space
+        /// direction (1 = the pole itself).
+        /// </summary>
+        public float PatternCapExtent { get; set; } = 0.85f;
 
         /// <summary>
         /// Sky colour of the hemisphere ambient light (received by upward-facing surfaces).
@@ -266,11 +290,16 @@ namespace Prazsky.Render
             _masonryStrengthParam = _effect.Parameters["MasonryStrength"];
             _normalMapParam = _effect.Parameters["NormalMapTexture"];
             _normalStrengthParam = _effect.Parameters["NormalStrength"];
+            _patternPrimaryColorParam = _effect.Parameters["PatternPrimaryColor"];
+            _patternSecondaryColorParam = _effect.Parameters["PatternSecondaryColor"];
+            _patternGoreCountParam = _effect.Parameters["PatternGoreCount"];
+            _patternCapExtentParam = _effect.Parameters["PatternCapExtent"];
             _mainTechnique = _effect.Techniques["InstancedModel"];
             _texturedTechnique = _effect.Techniques["InstancedModelTextured"];
             _triplanarTechnique = _effect.Techniques["InstancedModelTriplanar"];
             _detailUVTechnique = _effect.Techniques["InstancedModelDetailUV"];
             _detailUVNormalTechnique = _effect.Techniques["InstancedModelDetailUVNormal"];
+            _patternTechnique = _effect.Techniques["InstancedModelPattern"];
             _depthTechnique = _effect.Techniques["InstancedDepth"];
             _effect.CurrentTechnique = _mainTechnique;
 
@@ -379,7 +408,11 @@ namespace Prazsky.Render
 
                 Vector3 diffuse = new(part.DiffuseColor.X, part.DiffuseColor.Y, part.DiffuseColor.Z);
 
-                if (diffuseTint.HasValue)
+                //With the beach-ball pattern the tint colours the pattern instead of the material:
+                //the material diffuse stays the neutral shade multiplying both pattern colours
+                bool usePattern = PatternGoreCount > 0 && part.Texture == null && part.DiffuseColor.W >= 1f;
+
+                if (diffuseTint.HasValue && !usePattern)
                 {
                     //Luminance (Rec. 601) preserves the patch pattern as shades; the boost compensates
                     //for the brightest material being 0.8 instead of pure white
@@ -405,6 +438,14 @@ namespace Prazsky.Render
                 {
                     _effect.CurrentTechnique = _texturedTechnique;
                     _textureParam.SetValue(part.Texture);
+                }
+                else if (usePattern)
+                {
+                    _effect.CurrentTechnique = _patternTechnique;
+                    _patternPrimaryColorParam.SetValue(diffuseTint ?? Vector3.One);
+                    _patternSecondaryColorParam.SetValue(PatternSecondaryColor);
+                    _patternGoreCountParam.SetValue((float)PatternGoreCount);
+                    _patternCapExtentParam.SetValue(PatternCapExtent);
                 }
                 else if (DetailTexture != null && part.DiffuseColor.W >= 1f)
                 {

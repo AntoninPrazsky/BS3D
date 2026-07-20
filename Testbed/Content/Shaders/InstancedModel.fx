@@ -219,6 +219,88 @@ technique InstancedModelTextured
 	}
 };
 
+//Procedural beach-ball pattern. Evaluated in the model's own object space, so it turns with the
+//object instead of sliding over it — which is the whole point: it makes a rolling ball's rotation
+//readable. Gores alternate between the two colours, with a disc of the secondary colour at each pole.
+
+//The colours the gores alternate between; the material shade multiplies both
+float3 PatternPrimaryColor;
+float3 PatternSecondaryColor;
+
+//Segments around the object = 2 * PatternGoreCount
+float PatternGoreCount;
+
+//Where the polar discs start, as the |Y| of the object-space direction (1 = the pole itself)
+float PatternCapExtent;
+
+//Width of the ring outlining each disc, so the circle reads whichever gore it lands on
+static const float PatternRingWidth = 0.045;
+
+struct PatternVertexShaderOutput
+{
+	float4 Position : SV_POSITION;
+	float3 WorldPosition : TEXCOORD0;
+	float3 WorldNormal : TEXCOORD1;
+	float4 OcclusionData : TEXCOORD2;
+	float3 ObjectPosition : TEXCOORD3;
+};
+
+PatternVertexShaderOutput PatternVS(VertexShaderInput input, InstanceInput instance)
+{
+	PatternVertexShaderOutput output;
+
+	float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
+
+	float4 bonePosition = mul(input.Position, Bone);
+	float4 worldPosition = mul(bonePosition, world);
+
+	output.ObjectPosition = bonePosition.xyz;
+	output.WorldPosition = worldPosition.xyz;
+	output.Position = mul(mul(worldPosition, View), Projection);
+	output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
+	output.OcclusionData = instance.Custom;
+
+	return output;
+}
+
+//Soft step across a boundary, one screen pixel wide, so the stripes do not crawl on the
+//small distant balls (a scene holds thousands of them, most only a few pixels across)
+float AntialiasedStep(float edge, float value)
+{
+	float width = max(fwidth(value), 1e-5);
+
+	return smoothstep(edge - width, edge + width, value);
+}
+
+float4 PatternPS(PatternVertexShaderOutput input) : COLOR
+{
+	float3 direction = normalize(input.ObjectPosition);
+
+	//sin(N * azimuth) stays continuous across the atan2 branch cut for integer N, so neither the
+	//value nor its screen-space derivative jumps there and the seam needs no special handling
+	float azimuth = atan2(direction.z, direction.x);
+	float gore = sin(PatternGoreCount * azimuth);
+
+	float3 color = lerp(PatternPrimaryColor, PatternSecondaryColor, AntialiasedStep(0, gore));
+
+	//Discs at the poles, where the gores would otherwise converge into an aliasing mess
+	float pole = abs(direction.y);
+
+	color = lerp(color, PatternPrimaryColor, AntialiasedStep(PatternCapExtent, pole));
+	color = lerp(color, PatternSecondaryColor, AntialiasedStep(PatternCapExtent + PatternRingWidth, pole));
+
+	return ShadePixel(input.WorldPosition, input.WorldNormal, input.OcclusionData, float4(color, 1));
+}
+
+technique InstancedModelPattern
+{
+	pass P0
+	{
+		VertexShader = compile VS_SHADERMODEL PatternVS();
+		PixelShader = compile PS_SHADERMODEL PatternPS();
+	}
+};
+
 //Detail texturing: a texture that only modulates the existing material colours
 //(DetailStrength 0 = untextured look), mapped either through the model's own UVs
 //(InstancedModelDetailUV — required for objects that move, or the texture would swim

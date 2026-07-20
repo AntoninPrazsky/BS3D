@@ -45,6 +45,10 @@ namespace Testbed
         private static readonly float[] BALL_LOD_DISTANCES = { 15f, 30f };
         private static readonly int BALL_LOD_COUNT = 3;
 
+        //Beach-ball pattern (concept art in issue #43): three gores in the type colour alternating
+        //with three white ones, plus a white disc at each pole
+        private static readonly int BALL_PATTERN_GORES = 3;
+
         private SphereMesh[] _ballMeshes;
         private InstancedModelRenderer[] _ballRenderers;
 
@@ -404,6 +408,7 @@ namespace Testbed
                 _ballMeshes[lod] = new SphereMesh(GraphicsDevice, BallsConstraintsBuilder.BALL_RADIUS, BALL_LOD_RESOLUTIONS[lod, 0], BALL_LOD_RESOLUTIONS[lod, 1]);
                 //0.8 matches the brightest material of the old modelled sphere, so the overall brightness stays the same
                 _ballRenderers[lod] = new InstancedModelRenderer(GraphicsDevice, _ballMeshes[lod], new Vector3(0.8f), _instancingEffect);
+                _ballRenderers[lod].PatternGoreCount = BALL_PATTERN_GORES;
             }
 
             #region Shadow mapping
