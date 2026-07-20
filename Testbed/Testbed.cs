@@ -58,6 +58,33 @@ namespace Testbed
         /// </summary>
         private static readonly float BALL_ALBEDO = 0.7f;
 
+        /// <summary>
+        /// How much of its own color a ball radiates. Kept well under 1: the ball should read as lit from
+        /// within, not as a lamp — past about a third it stops looking like a glowing object and starts
+        /// looking like an unlit one with the brightness turned up, because the shading that gives it its
+        /// shape gets drowned out.
+        /// </summary>
+        private static readonly float BALL_EMISSION = 0.3f;
+
+        /// <summary>How much light passes through the shell from a source behind the ball.</summary>
+        private static readonly float BALL_TRANSLUCENCY = 0.35f;
+
+        /// <summary>
+        /// A resting human heart, near enough. Slow on purpose — a fast pulse reads as an alarm rather
+        /// than as something alive and calm.
+        /// </summary>
+        private static readonly float BALL_PULSE_BEATS_PER_SECOND = 1.1f;
+
+        private static readonly float BALL_PULSE_DEPTH = 0.55f;
+
+        /// <summary>
+        /// World units one beat spans as it travels up the cluster. Comparable to the height of a full
+        /// map, so a beat is visibly a wave crossing the structure rather than a uniform flash.
+        /// </summary>
+        private static readonly float BALL_PULSE_WAVELENGTH = 14f;
+
+        private float _pulseSeconds;
+
         private SphereMesh[] _ballMeshes;
         private InstancedModelRenderer[] _ballRenderers;
 
@@ -477,6 +504,15 @@ namespace Testbed
                 _ballMeshes[lod] = new SphereMesh(GraphicsDevice, BallsConstraintsBuilder.BALL_RADIUS, BALL_LOD_RESOLUTIONS[lod, 0], BALL_LOD_RESOLUTIONS[lod, 1]);
                 _ballRenderers[lod] = new InstancedModelRenderer(GraphicsDevice, _ballMeshes[lod], BALL_ALBEDO * Vector3.One, _instancingEffect);
                 _ballRenderers[lod].PatternGoreCount = BALL_PATTERN_GORES;
+
+                //The balls are alive: they radiate their own color on a heartbeat and pass light through
+                //their shell. The beat runs up the cluster rather than firing everywhere at once.
+                _ballRenderers[lod].EmissiveStrength = BALL_EMISSION;
+                _ballRenderers[lod].TranslucencyStrength = BALL_TRANSLUCENCY;
+                _ballRenderers[lod].PulseSpeed = BALL_PULSE_BEATS_PER_SECOND;
+                _ballRenderers[lod].PulseDepth = BALL_PULSE_DEPTH;
+                _ballRenderers[lod].PulseDirection = Vector3.Up;
+                _ballRenderers[lod].PulseWavelength = BALL_PULSE_WAVELENGTH;
             }
 
             #region Shadow mapping
@@ -672,15 +708,23 @@ namespace Testbed
             Console.WriteLine($"[sky] Dome {_skyModelNumber}: zenith {zenith}, horizon {horizon}");
 #endif
 
+            //The palette is read off the dome's vertex colors, so it arrives sRGB-encoded. Everything below
+            //this line scales, tints and lerps it, and none of that means anything until it is radiance:
+            //scaling an sRGB value by 1.3 does not make 1.3 times the light. Doing it in display space is
+            //what had the ambient running some 38% brighter than the rig asked for.
+            Vector3 zenithLinear = ColorSpace.SrgbToLinear(zenith);
+            Vector3 horizonLinear = ColorSpace.SrgbToLinear(horizon);
+
             //The key/fill lights (the "sun" side) take on the horizon color, the back light the zenith color,
             //so the whole light rig follows the mood of the sky instead of just the ambient term
-            Vector3 keyTint = Vector3.Lerp(Vector3.One, horizon, 0.5f);
-            Vector3 backTint = Vector3.Lerp(Vector3.One, zenith, 0.5f);
+            Vector3 keyTint = Vector3.Lerp(Vector3.One, horizonLinear, 0.5f);
+            Vector3 backTint = Vector3.Lerp(Vector3.One, zenithLinear, 0.5f);
 
             foreach (InstancedModelRenderer renderer in SkyLitRenderers())
             {
-                renderer.SkyColor = zenith * 1.3f;
-                renderer.GroundColor = horizon * 0.75f; //Bounce light from below is dimmer than the sky above
+                renderer.LinearLightRig = true;
+                renderer.SkyColor = zenithLinear * 1.3f;
+                renderer.GroundColor = horizonLinear * 0.75f; //Bounce light from below is dimmer than the sky above
 
                 //The "sun": close enough for its direction to visibly differ from object to object
                 renderer.KeyLightPosition = -DefaultLighting.Light0Direction * 40f;
@@ -910,6 +954,11 @@ namespace Testbed
         {
             float timeStep = Math.Min((float)gameTime.ElapsedGameTime.TotalSeconds, 1 / 60f);
             if (timeStep == 0) timeStep = 1 / 60f;
+
+            //Wall-clock time, not simulation time: the balls keep their pulse when the simulation is
+            //paused or slowed (F5, F9), because it is what they are, not something they are doing
+            _pulseSeconds += (float)gameTime.ElapsedGameTime.TotalSeconds;
+            foreach (InstancedModelRenderer ballRenderer in _ballRenderers) ballRenderer.PulseTime = _pulseSeconds;
 
             if (_simulate)
             {

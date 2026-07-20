@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
+using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
 
@@ -66,6 +67,14 @@ namespace Prazsky.Core.Render
         private EffectParameter _cavityStrengthParam;
         private EffectParameter _reliefShadowStrengthParam;
         private EffectParameter _parallaxScaleParam;
+        private EffectParameter _specularAmbientStrengthParam;
+        private EffectParameter _emissiveStrengthParam;
+        private EffectParameter _translucencyStrengthParam;
+        private EffectParameter _pulseTimeParam;
+        private EffectParameter _pulseSpeedParam;
+        private EffectParameter _pulseDepthParam;
+        private EffectParameter _pulseDirectionParam;
+        private EffectParameter _pulseWavelengthParam;
         private EffectParameter _surfaceReliefFrequencyParam;
         private EffectParameter _surfaceStyleParam;
         private EffectParameter _patternPrimaryColorParam;
@@ -188,6 +197,16 @@ namespace Prazsky.Core.Render
         public float ParallaxScale { get; set; }
 
         /// <summary>
+        /// How strongly the surface reflects the sky as an environment, on top of the direct lights'
+        /// highlights (0 = off, 1 = the material's own specular reflectance). Roughness is taken from the
+        /// material's Blinn-Phong exponent, so nothing has to be re-authored: a polished material mirrors
+        /// the sky, a rough one gathers its average, and every material turns reflective at a grazing
+        /// angle through the Fresnel term. This is most of what separates a real surface from a plastic
+        /// one — a lit object mostly shows its surroundings, not the lamp.
+        /// </summary>
+        public float SpecularAmbientStrength { get; set; } = 1f;
+
+        /// <summary>
         /// Number of primary-colored gores of the procedural beach-ball pattern (segments around
         /// the object = twice this; 0 = no pattern). The pattern is evaluated in the model's own
         /// object space, so it turns with the object and makes a rolling ball's rotation readable.
@@ -225,14 +244,50 @@ namespace Prazsky.Core.Render
         public float PatternSheenStrength { get; set; } = 0.12f;
 
         /// <summary>
-        /// Sky color of the hemisphere ambient light (received by upward-facing surfaces).
-        /// White reproduces a constant ambient term.
+        /// How much of its own color the surface radiates, independent of any light falling on it.
+        /// Deliberately not occluded: a light source buried inside a pile is the one that should still
+        /// show, glowing out past its neighbors.
+        /// </summary>
+        public float EmissiveStrength { get; set; }
+
+        /// <summary>
+        /// How much light is carried through the shell from a source behind it. A translucent ball lit
+        /// from the far side glows around its rim rather than going flatly black, which is what tells the
+        /// eye it is a skin around a volume instead of a painted solid.
+        /// </summary>
+        public float TranslucencyStrength { get; set; }
+
+        /// <summary>Seconds since the scene started; drives <see cref="PulseSpeed"/>.</summary>
+        public float PulseTime { get; set; }
+
+        /// <summary>Beats per second of the emissive pulse.</summary>
+        public float PulseSpeed { get; set; } = 1f;
+
+        /// <summary>
+        /// How deep the pulse swings, as a fraction of <see cref="EmissiveStrength"/>
+        /// (0 = a steady glow, 1 = all the way down to dark between beats).
+        /// </summary>
+        public float PulseDepth { get; set; } = 0.6f;
+
+        /// <summary>
+        /// Direction the beat travels through the scene, and how many world units one beat spans.
+        /// The phase is offset by position along this direction, so a cluster reads as a wave passing
+        /// through it rather than every instance flashing at once.
+        /// </summary>
+        public Vector3 PulseDirection { get; set; } = Vector3.Up;
+
+        public float PulseWavelength { get; set; } = 12f;
+
+        /// <summary>
+        /// Sky color of the hemisphere ambient light (received by upward-facing surfaces), in
+        /// <b>linear</b> radiance — see <see cref="ColorSpace"/>. It is also the environment the
+        /// specular ambient reflects, so it is not clamped to 1: a bright sky legitimately exceeds white.
         /// </summary>
         public Vector3 SkyColor { get; set; } = Vector3.One;
 
         /// <summary>
-        /// Ground color of the hemisphere ambient light (received by downward-facing surfaces).
-        /// White reproduces a constant ambient term.
+        /// Ground color of the hemisphere ambient light (received by downward-facing surfaces), in
+        /// <b>linear</b> radiance — see <see cref="ColorSpace"/>.
         /// </summary>
         public Vector3 GroundColor { get; set; } = Vector3.One;
 
@@ -391,6 +446,7 @@ namespace Prazsky.Core.Render
             _cavityStrengthParam = _effect.Parameters["CavityStrength"];
             _reliefShadowStrengthParam = _effect.Parameters["ReliefShadowStrength"];
             _parallaxScaleParam = _effect.Parameters["ParallaxScale"];
+            _specularAmbientStrengthParam = _effect.Parameters["SpecularAmbientStrength"];
             _surfaceReliefFrequencyParam = _effect.Parameters["SurfaceReliefFrequency"];
             _surfaceStyleParam = _effect.Parameters["SurfaceStyle"];
             _patternPrimaryColorParam = _effect.Parameters["PatternPrimaryColor"];
@@ -400,6 +456,13 @@ namespace Prazsky.Core.Render
             _patternCapExtentParam = _effect.Parameters["PatternCapExtent"];
             _patternReliefStrengthParam = _effect.Parameters["PatternReliefStrength"];
             _patternSheenStrengthParam = _effect.Parameters["PatternSheenStrength"];
+            _emissiveStrengthParam = _effect.Parameters["EmissiveStrength"];
+            _translucencyStrengthParam = _effect.Parameters["TranslucencyStrength"];
+            _pulseTimeParam = _effect.Parameters["PulseTime"];
+            _pulseSpeedParam = _effect.Parameters["PulseSpeed"];
+            _pulseDepthParam = _effect.Parameters["PulseDepth"];
+            _pulseDirectionParam = _effect.Parameters["PulseDirection"];
+            _pulseWavelengthParam = _effect.Parameters["PulseWavelength"];
             _mainTechnique = _effect.Techniques["InstancedModel"];
             _texturedTechnique = _effect.Techniques["InstancedModelTextured"];
             _triplanarTechnique = _effect.Techniques["InstancedModelTriplanar"];
@@ -450,14 +513,31 @@ namespace Prazsky.Core.Render
         /// (the "sun" side) by <paramref name="keyTint"/>, the back light by <paramref name="backTint"/>.
         /// White tints reproduce the untinted <see cref="BasicEffect"/> default lighting.
         /// </summary>
+        /// <summary>
+        /// Whether the caller renders into a linear HDR target and tonemaps at the end of the frame (the
+        /// Testbed) or draws in gamma space straight to an 8-bit back buffer (the map editor). It decides
+        /// whether the light rig is decoded out of its sRGB authoring before the tints are applied.
+        /// Defaults to the gamma-space behavior, so a caller that has not been converted keeps its look.
+        /// </summary>
+        public bool LinearLightRig { get; set; }
+
+        /// <param name="keyTint">Tint of the key and fill lights, in the space <see cref="LinearLightRig"/> selects.</param>
+        /// <param name="backTint">Tint of the back light, in that same space.</param>
+        /// <remarks>
+        /// The rig is decoded here rather than in the shader because a tint is a multiplication, and
+        /// multiplying two sRGB values does not multiply the light they stand for. Doing it on this side
+        /// also means the conversion happens once per sky change instead of once per pixel.
+        /// </remarks>
         public void SetLightTint(Vector3 keyTint, Vector3 backTint)
         {
-            _effect.Parameters["DirLight0DiffuseColor"].SetValue(DefaultLighting.Light0Diffuse * keyTint);
-            _effect.Parameters["DirLight0SpecularColor"].SetValue(DefaultLighting.Light0Specular * keyTint);
-            _effect.Parameters["DirLight1DiffuseColor"].SetValue(DefaultLighting.Light1Diffuse * keyTint);
-            _effect.Parameters["DirLight1SpecularColor"].SetValue(DefaultLighting.Light1Specular * keyTint);
-            _effect.Parameters["DirLight2DiffuseColor"].SetValue(DefaultLighting.Light2Diffuse * backTint);
-            _effect.Parameters["DirLight2SpecularColor"].SetValue(DefaultLighting.Light2Specular * backTint);
+            Vector3 Rig(Vector3 color) => LinearLightRig ? ColorSpace.SrgbToLinear(color) : color;
+
+            _effect.Parameters["DirLight0DiffuseColor"].SetValue(Rig(DefaultLighting.Light0Diffuse) * keyTint);
+            _effect.Parameters["DirLight0SpecularColor"].SetValue(Rig(DefaultLighting.Light0Specular) * keyTint);
+            _effect.Parameters["DirLight1DiffuseColor"].SetValue(Rig(DefaultLighting.Light1Diffuse) * keyTint);
+            _effect.Parameters["DirLight1SpecularColor"].SetValue(Rig(DefaultLighting.Light1Specular) * keyTint);
+            _effect.Parameters["DirLight2DiffuseColor"].SetValue(Rig(DefaultLighting.Light2Diffuse) * backTint);
+            _effect.Parameters["DirLight2SpecularColor"].SetValue(Rig(DefaultLighting.Light2Specular) * backTint);
         }
 
         /// <summary>
@@ -517,6 +597,7 @@ namespace Prazsky.Core.Render
             _cavityStrengthParam.SetValue(CavityStrength);
             _reliefShadowStrengthParam.SetValue(ReliefShadowStrength);
             _parallaxScaleParam.SetValue(ParallaxScale);
+            _specularAmbientStrengthParam.SetValue(SpecularAmbientStrength);
 
             for (int i = 0; i < _parts.Length; i++)
             {
@@ -577,6 +658,13 @@ namespace Prazsky.Core.Render
                     _patternCapExtentParam.SetValue(PatternCapExtent);
                     _patternReliefStrengthParam.SetValue(PatternReliefStrength);
                     _patternSheenStrengthParam.SetValue(PatternSheenStrength);
+                    _emissiveStrengthParam.SetValue(EmissiveStrength);
+                    _translucencyStrengthParam.SetValue(TranslucencyStrength);
+                    _pulseTimeParam.SetValue(PulseTime);
+                    _pulseSpeedParam.SetValue(PulseSpeed);
+                    _pulseDepthParam.SetValue(PulseDepth);
+                    _pulseDirectionParam.SetValue(PulseDirection);
+                    _pulseWavelengthParam.SetValue(PulseWavelength);
                 }
                 else if (DetailTexture != null && part.DiffuseColor.W >= 1f)
                 {

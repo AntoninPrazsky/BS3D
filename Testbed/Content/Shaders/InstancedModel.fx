@@ -48,7 +48,9 @@ float3 SpecularColor;
 float SpecularPower;
 
 //Hemisphere ambient palette taken from the current sky dome: upward-facing surfaces receive SkyColor,
-//downward-facing ones GroundColor. Both default to white, which reproduces a constant ambient term.
+//downward-facing ones GroundColor. Both arrive in LINEAR radiance - Prazsky.Core.Tools.ColorSpace
+//decodes them on the CPU, because the scales and tints applied to them there are multiplications and
+//those mean nothing in a display encoding. Neither is clamped to 1: a bright sky does exceed white.
 float3 SkyColor;
 float3 GroundColor;
 
@@ -142,6 +144,31 @@ void AddLight(float3 towardsLight, float3 lightDiffuse, float3 lightSpecular, fl
 	specular += lightSpecular * pow(dotH * lit, SpecularPower);
 }
 
+//Radiance arriving from the sky in a given direction. The domes are vertical gradients between two
+//vertex colors and nothing else, so the environment can be evaluated in closed form instead of being
+//baked into a cubemap: for a gradient, a prefiltered cubemap would only reproduce this expression at
+//lower resolution. It is the same function for the diffuse ambient (sampled along the normal) and for
+//the specular ambient (sampled along the reflection).
+float3 SkyRadiance(float3 direction)
+{
+	return lerp(GroundColor, SkyColor, direction.y * 0.5 + 0.5);
+}
+
+//How much of the environment a surface mirrors back at this angle. Schlick's approximation: every
+//dielectric turns mirror-like at a grazing angle, which is why a stone floor picks up the sky along it
+//and why polished marble reads as polished at all. Nothing in the renderer said this before.
+float3 FresnelSchlick(float3 reflectanceAtNormal, float cosTheta)
+{
+	return reflectanceAtNormal + (1 - reflectanceAtNormal) * pow(1 - saturate(cosTheta), 5);
+}
+
+//How strongly the surface reflects the sky as an environment (0 = off)
+float SpecularAmbientStrength;
+
+//Normal-incidence reflectance of a dielectric. Stone, marble, glass, vinyl, paint - everything in this
+//scene that is not bare metal - reflects roughly this fraction of what hits it head-on.
+static const float DielectricF0 = 0.04;
+
 //How strongly the directional part of the occlusion darkens the surface facing the occluders
 static const float DirectionalOcclusionStrength = 1.1;
 
@@ -178,15 +205,16 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
 	float3 keyDiffuse = 0;
 	float3 keySpecular = 0;
 
-	AddLight(normalize(KeyLightPosition - worldPosition), SrgbToLinear(DirLight0DiffuseColor), SrgbToLinear(DirLight0SpecularColor), worldNormal, eyeVector, keyDiffuse, keySpecular);
+	//The rig arrives linear, decoded once on the CPU along with the tints applied to it
+	AddLight(normalize(KeyLightPosition - worldPosition), DirLight0DiffuseColor, DirLight0SpecularColor, worldNormal, eyeVector, keyDiffuse, keySpecular);
 
 	float3 diffuse = keyDiffuse * keyShadow;
 	float3 specular = keySpecular * keyShadow;
 
-	AddLight(-DirLight1Direction, SrgbToLinear(DirLight1DiffuseColor), SrgbToLinear(DirLight1SpecularColor), worldNormal, eyeVector, diffuse, specular);
-	AddLight(-DirLight2Direction, SrgbToLinear(DirLight2DiffuseColor), SrgbToLinear(DirLight2SpecularColor), worldNormal, eyeVector, diffuse, specular);
+	AddLight(-DirLight1Direction, DirLight1DiffuseColor, DirLight1SpecularColor, worldNormal, eyeVector, diffuse, specular);
+	AddLight(-DirLight2Direction, DirLight2DiffuseColor, DirLight2SpecularColor, worldNormal, eyeVector, diffuse, specular);
 
-	float3 hemisphere = lerp(SrgbToLinear(GroundColor), SrgbToLinear(SkyColor), worldNormal.y * 0.5 + 0.5);
+	float3 hemisphere = SkyRadiance(worldNormal);
 
 	float occlusion = SurfaceOcclusion(worldPosition, worldNormal, occlusionData) * cavity;
 	float diffuseOcclusion = lerp(0.6, 1.0, occlusion);
@@ -194,7 +222,29 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
 	//texColor arrives linear already: every sampling site linearizes at the tap, where the sRGB
 	//encoding of the texture is still an established fact rather than an assumption
 	float4 color = float4((diffuse * SrgbToLinear(DiffuseColor.rgb) * diffuseOcclusion + hemisphere * SrgbToLinear(AmbientColor) * occlusion + SrgbToLinear(EmissiveColor)) * texColor.rgb, DiffuseColor.a * texColor.a);
-	color.rgb += specular * SrgbToLinear(SpecularColor) * color.a * occlusion;
+
+	float3 linearSpecular = SrgbToLinear(SpecularColor);
+	color.rgb += specular * linearSpecular * color.a * occlusion;
+
+	//Specular ambient: the sky reflected off the surface, which the renderer simply never had. The
+	//direct lights gave every material one highlight from one lamp, and that is a plastic look no
+	//matter how the highlight is shaped - real surfaces mostly show their surroundings.
+	//
+	//Roughness comes from the Blinn-Phong exponent so no material has to be re-authored to get this:
+	//sqrt(2 / (n + 2)) is the standard correspondence. It lerps the mirror sample towards the average
+	//of the whole sky, which is what blurring a two-color gradient converges to.
+	float roughness = sqrt(2.0 / (SpecularPower + 2.0));
+	float3 reflection = reflect(-eyeVector, worldNormal);
+	float3 environment = lerp(SkyRadiance(reflection), (SkyColor + GroundColor) * 0.5, saturate(roughness));
+
+	//F0 is the fraction reflected head-on, and for every non-metal that is about 4%. BasicEffect's
+	//SpecularColor is a highlight tint rather than a reflectance - it is near white on most materials -
+	//so it modulates that 4% instead of standing in for it. Handing it to Schlick directly makes F come
+	//out near 1 at every angle, which mirrors the entire sky off every surface and veils the scene.
+	//The Fresnel rise to 1 at grazing angles is then the whole effect, which is as it should be.
+	float3 reflectanceAtNormal = DielectricF0 * linearSpecular;
+
+	color.rgb += environment * FresnelSchlick(reflectanceAtNormal, dot(worldNormal, eyeVector)) * SpecularAmbientStrength * color.a * occlusion;
 
 	return color;
 }
@@ -587,6 +637,41 @@ float PatternReliefStrength;
 //How strongly the skin catches the sky color at grazing angles
 float PatternSheenStrength;
 
+//How much of its own color the ball radiates, independent of any light falling on it
+float EmissiveStrength;
+
+//How much light is carried through the shell from a source behind it
+float TranslucencyStrength;
+
+//Seconds since the level started, beats per second, and how deep the pulse swings (0 = steady glow)
+float PulseTime;
+float PulseSpeed;
+float PulseDepth;
+
+//Direction the beat travels through the cluster, and how many world units one beat spans. Offsetting
+//the phase by position is what turns a cluster of balls flashing in lockstep into a wave passing
+//through them - the difference between a strobe and something breathing.
+float3 PulseDirection;
+float PulseWavelength;
+
+//A heart does not beat like a sine. Two pulses per cycle, the second smaller and close behind the
+//first, then a long rest: the lub-dub that reads as alive rather than as a fading lamp.
+float Heartbeat(float t)
+{
+	float phase = frac(t);
+
+	//Squared by multiplication, not pow(x, 2): HLSL compiles pow as exp(y * log(x)), and log of a
+	//negative is a NaN. Both bases go negative over most of the cycle, which left the whole term NaN
+	//and the beat silently stuck at zero.
+	float lubOffset = (phase - 0.10) * 13.0;
+	float dubOffset = (phase - 0.29) * 15.0;
+
+	float lub = exp(-lubOffset * lubOffset);
+	float dub = 0.55 * exp(-dubOffset * dubOffset);
+
+	return saturate(lub + dub);
+}
+
 //Width of the ring outlining each disc, so the circle reads whichever gore it lands on
 static const float PatternRingWidth = 0.045;
 
@@ -691,19 +776,31 @@ float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 
 	float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
 
-	//The balls carry their own relief and sheen model; the scene cavity and self-shadow terms are not it
+	//The balls carry their own relief; the scene cavity and self-shadow terms are not it
 	float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(color, 1), 1, 1);
 
-	//A vinyl skin catches the sky at grazing angles, which is most of what separates a shiny
-	//inflatable ball from a matte painted sphere. Balls buried in the pile must not light up.
-	float3 eyeVector = normalize(EyePosition - input.WorldPosition);
-	float fresnel = pow(1 - saturate(dot(worldNormal, eyeVector)), 4);
+	//Light carried through the shell from behind. A ball lit from the far side glows around its rim
+	//instead of going flatly black, which is what tells the eye the thing is a skin around a volume
+	//rather than a painted solid — and is half of why it can read as alive.
+	float3 towardsKey = normalize(KeyLightPosition - input.WorldPosition);
+	float throughShell = pow(saturate(dot(-worldNormal, towardsKey)), 2);
 
-	//SrgbToLinear on the sky, like every other color entering the math: this term adds light into a
-	//linear buffer, and adding the display encoding instead makes the sheen far brighter than the sky
-	//it is supposed to be reflecting. Over a Fresnel that wide it washes the whole ball out.
-	shaded.rgb += fresnel * PatternSheenStrength * SrgbToLinear(SkyColor) * SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
+	shaded.rgb += throughShell * TranslucencyStrength * DirLight0DiffuseColor * color
+		* SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
 
+	//Emission: the ball radiates its own color rather than only reflecting what falls on it, and does it
+	//on a heartbeat. The phase runs with world position, so the beat travels through the cluster as a
+	//wave instead of every ball flashing in lockstep — a pile of them breathing together, not a strobe.
+	//Emission is not occluded: a light source buried in the pile is exactly the one that should still
+	//show, glowing out through its neighbors.
+	float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
+
+	shaded.rgb += color * EmissiveStrength * lerp(1 - PulseDepth, 1, beat);
+
+	//The hand-rolled vinyl sheen that used to sit here is gone: it was a Fresnel reflection of the sky,
+	//which ShadePixel's specular ambient now does for every surface with a real dielectric F0 behind it.
+	//Two Fresnel sky terms stacked on one sphere - where a grazing angle covers most of what you can see
+	//of it - is what was bleaching the balls out under a bright dome.
 	return shaded;
 }
 
