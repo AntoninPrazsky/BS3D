@@ -229,6 +229,12 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/Sea.fx
 
+#begin Shaders/Desert.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Desert.fx
+
 #begin Shaders/ShadowOverlay.fx
 /importer:EffectImporter
 /processor:EffectProcessor

@@ -367,9 +367,10 @@ namespace Testbed
         private ModelInstance[] _arenaGlassInstances;
         private ModelInstance[] _arenaFrameInstances;
 
-        //Which environment the arena stands in. City is the default; Sea swaps the city (and only the
-        //city) for an open water surface — the marble/glass platform stays in both. NumPad2 toggles it.
-        private enum SceneKind { City, Sea }
+        //Which environment the arena stands in. City is the default; Sea and Desert swap the city (and
+        //only the city) for open water or a dune field — the marble/glass platform stays in all three.
+        //NumPad2 cycles them.
+        private enum SceneKind { City, Sea, Desert }
         private SceneKind _scene = SceneKind.City;
 
         private Effect _seaEffect;
@@ -402,6 +403,38 @@ namespace Testbed
         private static readonly float SUN_GLINT_POWER = 600f;
 
         private static readonly float SEA_HORIZON_HAZE_DISTANCE = 400f;
+
+        private Effect _desertEffect;
+        private VertexBuffer _desertVertexBuffer;
+        private IndexBuffer _desertIndexBuffer;
+        private int _desertIndexCount;
+
+        //The dune surface is real geometry: a camera-centred grid of this many vertices per side over this
+        //world extent, displaced in the shader. Snapped to a cell on the CPU each frame so it does not swim.
+        private static readonly int DESERT_GRID_N = 200;
+        private static readonly float DESERT_EXTENT = 800f;
+
+        //Mean sand level and peak dune height. The crests (level + ~1.1 × amplitude) stay below the
+        //platform's recessed glass (about -10.7), so the dunes do not poke up through the panels; the mean
+        //sits low and the amplitude is large, which deepens the troughs into real rolling dunes.
+        private static readonly float DESERT_LEVEL_Y = -23f;
+        private static readonly float DUNE_AMPLITUDE = 10f;
+
+        //Fine wind ripples: peak height (world units), ripples per world unit, and how fast they crawl.
+        private static readonly float DESERT_RIPPLE_AMPLITUDE = 0.10f;
+        private static readonly float DESERT_RIPPLE_FREQUENCY = 1.6f;
+        private static readonly float DESERT_RIPPLE_SPEED = 1.4f;
+
+        //Blown dust veil: strength, drift speed and the distance over which it thickens towards the horizon.
+        private static readonly float DESERT_DUST_STRENGTH = 0.3f;
+        private static readonly float DESERT_DUST_SPEED = 6f;
+        private static readonly float DESERT_DUST_START = 220f;
+
+        //Warm sand (linear reflectance), how much sky fills the flats, the wind, and the horizon fade.
+        private static readonly Vector3 SAND_COLOR = new(0.55f, 0.38f, 0.18f);
+        private static readonly float DESERT_AMBIENT_STRENGTH = 0.65f;
+        private static readonly Vector2 DESERT_WIND = new(0.86f, 0.51f);
+        private static readonly float DESERT_HORIZON_HAZE_DISTANCE = 350f;
 
         /// <summary>
         /// Half-width of the play surface, and the width of the marble band around it. Chosen as a whole
@@ -546,7 +579,9 @@ namespace Testbed
 
         public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false, int supersampleFactor = 2, float exposure = DEFAULT_EXPOSURE, string scene = null)
         {
-            if (string.Equals(scene, "sea", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Sea; //Testing: "scene=sea" starts in the sea variant
+            //Testing: "scene=sea" / "scene=desert" pick the starting environment
+            if (string.Equals(scene, "sea", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Sea;
+            else if (string.Equals(scene, "desert", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Desert;
             _exposure = exposure > 0f ? exposure : DEFAULT_EXPOSURE;
             _windowed = windowed;
             _startupMapPath = startupMapPath;
@@ -621,7 +656,7 @@ namespace Testbed
                 new(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
                 new(mgKeys.End, Buttons.Start, ReleaseAllBalls, "Release all balls"),
                 new(mgKeys.NumPad1, SwitchSkyDome, "Switch sky dome"),
-                new(mgKeys.NumPad2, SwitchScene, "Switch scene (city/sea)"),
+                new(mgKeys.NumPad2, SwitchScene, "Switch scene (city/sea/desert)"),
                 new(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
                 new(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
                 new(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
@@ -730,6 +765,7 @@ namespace Testbed
             SetCloudParameters();
 
             LoadSea();
+            LoadDesert();
 
             _cilinderModel = Content.Load<Model>("GameObjects/Cilinder");
             _cannon = new Cannon(_cilinderModel, new Vector3(0f, 5f, 0f), -6.4f, 20f);
@@ -962,7 +998,7 @@ namespace Testbed
 
         private void SwitchScene()
         {
-            _scene = _scene == SceneKind.City ? SceneKind.Sea : SceneKind.City;
+            _scene = (SceneKind)(((int)_scene + 1) % 3);
             Console.WriteLine($"[scene] {_scene}");
         }
 
@@ -1033,6 +1069,103 @@ namespace Testbed
             GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
 
             //Restore what the scene block set for the rest of the opaque draws
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// Loads the desert effect and builds its dune grid (a flat lattice the shader displaces into
+        /// dunes). Static tuning goes in here; the per-frame origin, sky palette and cloud field are handed
+        /// over in <see cref="DrawDesert"/>.
+        /// </summary>
+        private void LoadDesert()
+        {
+            _desertEffect = Content.Load<Effect>("Shaders/Desert");
+            CreateDesertMesh();
+
+            _desertEffect.Parameters["DesertLevelY"].SetValue(DESERT_LEVEL_Y);
+            _desertEffect.Parameters["DuneAmplitude"].SetValue(DUNE_AMPLITUDE);
+            _desertEffect.Parameters["RippleAmplitude"].SetValue(DESERT_RIPPLE_AMPLITUDE);
+            _desertEffect.Parameters["RippleFrequency"].SetValue(DESERT_RIPPLE_FREQUENCY);
+            _desertEffect.Parameters["RippleSpeed"].SetValue(DESERT_RIPPLE_SPEED);
+            _desertEffect.Parameters["DustStrength"].SetValue(DESERT_DUST_STRENGTH);
+            _desertEffect.Parameters["DustSpeed"].SetValue(DESERT_DUST_SPEED);
+            _desertEffect.Parameters["DustStart"].SetValue(DESERT_DUST_START);
+            _desertEffect.Parameters["SandColor"].SetValue(SAND_COLOR);
+            _desertEffect.Parameters["AmbientStrength"].SetValue(DESERT_AMBIENT_STRENGTH);
+            _desertEffect.Parameters["WindDirection"].SetValue(DESERT_WIND);
+            _desertEffect.Parameters["HorizonHazeDistance"].SetValue(DESERT_HORIZON_HAZE_DISTANCE);
+        }
+
+        /// <summary>
+        /// Builds the flat dune grid: a lattice of <see cref="DESERT_GRID_N"/> vertices per side over
+        /// <see cref="DESERT_EXTENT"/>, centred on the origin. The shader recentres it on the camera and
+        /// lifts it into dunes; it is drawn CullNone, so the triangle winding does not matter.
+        /// </summary>
+        private void CreateDesertMesh()
+        {
+            int n = DESERT_GRID_N;
+            float half = DESERT_EXTENT * Constants.HALF;
+            float step = DESERT_EXTENT / (n - 1);
+
+            VertexPosition[] vertices = new VertexPosition[n * n];
+            for (int z = 0; z < n; z++)
+                for (int x = 0; x < n; x++)
+                    vertices[z * n + x] = new VertexPosition(new Vector3(-half + x * step, 0f, -half + z * step));
+
+            _desertVertexBuffer = new VertexBuffer(GraphicsDevice, VertexPosition.VertexDeclaration, vertices.Length, BufferUsage.WriteOnly);
+            _desertVertexBuffer.SetData(vertices);
+
+            short[] indices = new short[(n - 1) * (n - 1) * 6];
+            int i = 0;
+            for (int z = 0; z < n - 1; z++)
+                for (int x = 0; x < n - 1; x++)
+                {
+                    short a = (short)(z * n + x);
+                    short b = (short)(z * n + x + 1);
+                    short c = (short)((z + 1) * n + x);
+                    short d = (short)((z + 1) * n + x + 1);
+
+                    indices[i++] = a; indices[i++] = c; indices[i++] = b;
+                    indices[i++] = b; indices[i++] = c; indices[i++] = d;
+                }
+
+            _desertIndexCount = i;
+            _desertIndexBuffer = new IndexBuffer(GraphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
+            _desertIndexBuffer.SetData(indices);
+        }
+
+        /// <summary>
+        /// Draws the dune field: the grid pinned to the camera (snapped to a cell so the dunes do not swim),
+        /// lifted into dunes and shaded by the current dome, shadowed by the shared cloud field. Opaque, so
+        /// it stands in for the city as the thing the arena glass shows beneath it.
+        /// </summary>
+        private void DrawDesert()
+        {
+            float cell = DESERT_EXTENT / (DESERT_GRID_N - 1);
+            float originX = MathF.Round(_camera.Position.X / cell) * cell;
+            float originZ = MathF.Round(_camera.Position.Z / cell) * cell;
+
+            _desertEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
+            _desertEffect.Parameters["View"].SetValue(_camera.View);
+            _desertEffect.Parameters["Projection"].SetValue(_camera.Projection);
+            _desertEffect.Parameters["CameraPosition"].SetValue(_camera.Position);
+            _desertEffect.Parameters["SunDirection"].SetValue(SUN_DIRECTION);
+            _desertEffect.Parameters["ZenithColor"].SetValue(_zenithLinear);
+            _desertEffect.Parameters["HorizonColor"].SetValue(_horizonLinear);
+            _desertEffect.Parameters["DesertTime"].SetValue(_pulseSeconds);
+            _desertEffect.Parameters["SunColor"].SetValue(CLOUD_SUN_COLOR * Vector3.Lerp(Vector3.One, _horizonLinear, SKY_TINT_STRENGTH));
+
+            _clouds.ApplyTo(_desertEffect);
+
+            GraphicsDevice.BlendState = BlendState.Opaque;
+            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            GraphicsDevice.SetVertexBuffer(_desertVertexBuffer);
+            GraphicsDevice.Indices = _desertIndexBuffer;
+            _desertEffect.CurrentTechnique.Passes[0].Apply();
+            GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _desertIndexCount / 3);
+
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
@@ -1567,8 +1700,10 @@ namespace Testbed
                 //draws them. The marble/glass arena is the platform, and stays in both scenes.
                 if (_scene == SceneKind.City)
                     _cityRenderer.Draw(_camera, _city.Buildings, _city.Buildings.Length, _sceneEffectParams);
-                else
+                else if (_scene == SceneKind.Sea)
                     DrawSea();
+                else
+                    DrawDesert();
 
                 _arenaFrameRenderer.Draw(_camera, _arenaFrameInstances, _arenaFrameInstances.Length, _sceneEffectParams);
 
