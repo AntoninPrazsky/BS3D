@@ -33,12 +33,11 @@ namespace Prazsky.BS3D.GameObjects
 		private bool _aiming = false;
 		private Vector2 _beforeAnimationRotationAim = Vector2.Zero;
 
-		public Cannon(Model model, Vector3 orbitCenter, float floorHeight, float orbitRadius = 20f)
-		{ 
-			Model = model;
-			Transformations = new Matrix[Model.Bones.Count];
-			Model.CopyBoneTransformsTo(Transformations);
-
+		public Cannon(Vector3 orbitCenter, float floorHeight, float orbitRadius = 20f)
+		{
+			//The cannon is drawn procedurally now (a CannonMesh with the loaded balls shown in its magazine),
+			//so this holds only the pose: where it orbits, where it aims and its World matrix. The renderer
+			//builds its own look-at world from Position and AimTarget.
 			OrbitCenter = orbitCenter;
 			_floorHeight = floorHeight;
 			_orbitRadius = orbitRadius;

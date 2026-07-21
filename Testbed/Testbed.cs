@@ -493,8 +493,30 @@ namespace Testbed
         private static readonly float SHOOT_MULTIPLIER = 200f;
         private static readonly Random RANDOM = new();
 
-        private Model _cilinderModel;
         private Cannon _cannon;
+        private CannonMesh _cannonMesh;
+
+        //The cannon's magazine: the next ball to fire (index 0) and the ones queued behind it, shown loaded
+        //in the barrel so the player can see what is coming and aim for it. The queue never empties - firing
+        //shifts it forward and a fresh random type drops in at the back.
+        private const int MAGAZINE_SIZE = 5;
+        private readonly BallType[] _magazine = new BallType[MAGAZINE_SIZE];
+
+        //How far the queue is still displaced backwards from its resting slots while it slides forward after a
+        //shot: 1 the instant a ball fires (each ball drawn one slot back, so the muzzle slot is empty), easing
+        //to 0 as the balls glide into place. Keeps the advance from snapping. Wall-clock eased in Update.
+        private float _magazineSlide;
+        private const float MAGAZINE_SLIDE_TAU = 0.07f; //seconds; ease-out time constant for the glide (~0.2s to settle)
+
+        //Cannon geometry. It stays a tube - a barrel - with a relatively thin slot along the top: the balls
+        //nest inside the bore (a little over the ball radius) and only a strip of each shows through the slot,
+        //enough to read its colour. They sit one diameter apart along the aim axis, the front one at the
+        //muzzle (which is the spawn point).
+        private const float CANNON_BORE_RADIUS = 0.6f;
+        private const float CANNON_WALL_THICKNESS = 0.14f;
+        private const float CANNON_SLOT_HALF_ANGLE = 0.36f; //radians from straight up - about a 41-degree slot
+        private const float MAGAZINE_SPACING = 1.0f;        //ball diameter
+        private static readonly Vector3 CANNON_COLOR = new(0.42f, 0.44f, 0.48f); //Steel grey (sRGB; the shader linearizes)
 
         private SpriteBatch _spriteBatch;
         private Texture2D _aimer;
@@ -718,28 +740,19 @@ namespace Testbed
             //mountain's snow) all live here now, shared with the map editor so a scene looks the same in both
             _sceneRenderer = new SceneRenderer(GraphicsDevice, Content);
 
-            _cilinderModel = Content.Load<Model>("GameObjects/Cilinder");
-            _cannon = new Cannon(_cilinderModel, new Vector3(0f, 5f, 0f), -6.4f, 20f);
-            _cannonRenderer = new InstancedModelRenderer(GraphicsDevice, _cilinderModel, _instancingEffect);
+            _cannon = new Cannon(new Vector3(0f, 5f, 0f), -6.4f, 20f);
 
-            //The cannon aims and orbits, so its metal must be mapped through the model's own UVs
-            //(a world-space projection would swim across the barrel as it moves)
-            _cannonRenderer.DetailTexture = Content.Load<Texture2D>("GameObjects/CannonMetal");
-            _cannonRenderer.DetailTextureMapping = DetailMapping.ModelUVs;
-            _cannonRenderer.DetailScale = 3f; //Tiles the cast mottling a few times along the barrel
-            _cannonRenderer.DetailStrength = 0.75f;
-            _cannonRenderer.DetailBoost = 1.75f;
-            _cannonRenderer.DetailNormalMap = Content.Load<Texture2D>("GameObjects/CannonMetalNormal");
-            _cannonRenderer.DetailNormalStrength = 0.55f; //Enough relief to catch the light without reading as corrosion
-
-            //Unevenness of the casting, broad enough that it does not compete with the fine grain the
-            //normal map already carries — pushed finer than this it reads as a woven mesh over the barrel
-            _cannonRenderer.SurfaceReliefFrequency = 10f;
-            _cannonRenderer.SurfaceReliefStrength = 0.0037f;
-
-            //Cast metal: shallow pitting, so only the cavity term has anything to work with
-            _cannonRenderer.CavityStrength = 0.45f;
-
+            //Procedural barrel (the last modeled asset made procedural): a tube with a window cut in the top,
+            //running from a muzzle lip just ahead of the front ball to a breech just behind the last one, so
+            //all MAGAZINE_SIZE loaded balls sit inside it and show through the window. No UVs, so it uses no
+            //detail texture — plain steel whose sheen comes from the specular ambient reflecting the sky.
+            float muzzleZ = -0.5f;
+            float breechZ = (MAGAZINE_SIZE - 1) * MAGAZINE_SPACING + 0.5f;
+            _cannonMesh = new CannonMesh(GraphicsDevice, CANNON_BORE_RADIUS, CANNON_WALL_THICKNESS, muzzleZ, breechZ, CANNON_SLOT_HALF_ANGLE, 24);
+            _cannonRenderer = new InstancedModelRenderer(GraphicsDevice, _cannonMesh, CANNON_COLOR, _instancingEffect)
+            {
+                SpecularAmbientStrength = 0.5f //Metal takes a good deal of the sky as reflection
+            };
 
             //The ground darkens the downward-facing parts of the scene objects too, like the ball bellies
             _cannonRenderer.GroundHeight = GROUND_TOP_Y;
@@ -1321,6 +1334,14 @@ namespace Testbed
             _pulseSeconds += (float)gameTime.ElapsedGameTime.TotalSeconds;
             foreach (InstancedModelRenderer ballRenderer in _ballRenderers) ballRenderer.PulseTime = _pulseSeconds;
 
+            //Ease the magazine's post-shot slide towards its resting slots (wall-clock too, so it glides even
+            //while the simulation is paused). Ease-out: quick off the mark, settling gently into place.
+            if (_magazineSlide > 0f)
+            {
+                _magazineSlide *= MathF.Exp(-(float)gameTime.ElapsedGameTime.TotalSeconds / MAGAZINE_SLIDE_TAU);
+                if (_magazineSlide < 0.01f) _magazineSlide = 0f;
+            }
+
             //The city runs off the same wall clock, and for the same reason: its windows are lit by people
             //who do not care whether the simulation is running
             _cityRenderer.CityWindowTime = _pulseSeconds;
@@ -1509,7 +1530,7 @@ namespace Testbed
 
                 _arenaFrameRenderer.Draw(_camera, _arenaFrameInstances, _arenaFrameInstances.Length, _sceneEffectParams);
 
-                _cannonRenderer.Draw(_camera, _cannon.World, _sceneEffectParams);
+                _cannonRenderer.Draw(_camera, CannonWorld(), _sceneEffectParams);
 
                 DrawBallsInstanced();
 
@@ -1577,6 +1598,60 @@ namespace Testbed
             //A free-flying ball has nothing packed around it (a shot one never had, so the easing keeps it there)
             for (int i = 0; i < _shotBalls.Count; i++) CollectBallInstance(_shotBalls[i], EaseOcclusion(_shotBalls[i], PhysicsBall.UNOCCLUDED, ease), glide);
             for (int i = 0; i < _fallingBalls.Count; i++) CollectBallInstance(_fallingBalls[i], EaseOcclusion(_fallingBalls[i], PhysicsBall.UNOCCLUDED, ease), glide);
+
+            //The loaded queue: drawn as real balls (same shader, pattern and emission) in a line along the
+            //barrel, the next one at the muzzle. They go through the instanced path like every other ball.
+            CollectMagazineBalls();
+        }
+
+        /// <summary>
+        /// Adds the magazine's queued balls as instances along the cannon axis: index 0 at the muzzle (the
+        /// spawn point), the rest receding back towards the breech, so the player sees the colour that will
+        /// fire and the ones behind it.
+        /// </summary>
+        private void CollectMagazineBalls()
+        {
+            Vector3 direction = CannonAimDirection();
+
+            for (int i = 0; i < MAGAZINE_SIZE; i++)
+            {
+                //During the slide each ball is drawn (i + slide) slots back, so it eases forward by one slot
+                //into the place the fired ball vacated
+                Vector3 position = _cannon.Position - direction * ((i + _magazineSlide) * MAGAZINE_SPACING);
+                CollectBallInstanceAt(position, _magazine[i]);
+            }
+        }
+
+        /// <summary>
+        /// Adds a single ball instance at a world position with a given type, unoccluded and unrotated.
+        /// Used for the magazine balls, which are previews rather than bodies, so they have no pose to read.
+        /// </summary>
+        private void CollectBallInstanceAt(Vector3 position, BallType type)
+        {
+            int typeIndex = (int)type - 1;
+            if (typeIndex < 0 || typeIndex >= BALL_TYPE_COUNT) return;
+
+            float distance = Vector3.Distance(position, _camera.Position);
+            int lod = 0;
+            while (lod < BALL_LOD_DISTANCES.Length && distance > BALL_LOD_DISTANCES[lod]) lod++;
+
+            int bucketIndex = typeIndex * BALL_LOD_COUNT + lod;
+            ModelInstance[] bucket = _ballInstances[bucketIndex];
+            int count = _ballInstanceCounts[bucketIndex];
+
+            if (bucket == null)
+            {
+                bucket = new ModelInstance[256];
+                _ballInstances[bucketIndex] = bucket;
+            }
+            else if (count == bucket.Length)
+            {
+                Array.Resize(ref bucket, bucket.Length * 2);
+                _ballInstances[bucketIndex] = bucket;
+            }
+
+            bucket[count] = new ModelInstance(Microsoft.Xna.Framework.Matrix.CreateTranslation(position), new Vector4(0f, 0f, 0f, 1f));
+            _ballInstanceCounts[bucketIndex] = count + 1;
         }
 
         /// <summary>
@@ -1834,6 +1909,7 @@ namespace Testbed
         protected override void UnloadContent()
         {
             _unitBox?.Dispose();
+            _cannonMesh?.Dispose();
             _sceneRenderer?.Dispose();
             _sceneTarget?.Dispose();
             _glareBright?.Dispose();
@@ -1850,6 +1926,25 @@ namespace Testbed
             _shotBall = BodyDescription.CreateDynamic(new System.Numerics.Vector3(), ballShape.ComputeInertia(BallsConstraintsBuilder.BALL_MASS), BallsConstraintsBuilder.GetSphereShapeIndex(_simulation), Constants.HUNDREDTH);
             _shotBalls = new List<PhysicsBall>();
             _fallingBalls = new List<PhysicsBall>();
+
+            //Load the magazine up front so the player has a full queue to read from the first frame
+            for (int i = 0; i < MAGAZINE_SIZE; i++) _magazine[i] = RandomBallType();
+        }
+
+        private static BallType RandomBallType() =>
+            (BallType)RANDOM.Next((int)BallType.Type1, (int)BallType.Type4 + 1);
+
+        /// <summary>
+        /// Shifts the queue forward and drops a fresh random type in at the back, so it never empties. The
+        /// slide is armed at 1 so the balls are drawn one slot back and glide forward into the freed muzzle
+        /// slot rather than snapping.
+        /// </summary>
+        private void AdvanceMagazine()
+        {
+            for (int i = 0; i < MAGAZINE_SIZE - 1; i++) _magazine[i] = _magazine[i + 1];
+            _magazine[MAGAZINE_SIZE - 1] = RandomBallType();
+
+            _magazineSlide = 1f;
         }
 
         private void ShootBall(Vector3? targetOverride = null)
@@ -1870,8 +1965,11 @@ namespace Testbed
             PhysicsBall ball = new()
             {
                 BallReference = new(bodyHandle, _simulation.Bodies),
-                Type = (BallType)RANDOM.Next((int)BallType.Type1, (int)BallType.Type4 + 1) //Random color so same-type clusters can form
+                Type = _magazine[0] //The colour the player saw loaded at the muzzle - so aiming for it means something
             };
+
+            //Advance the magazine: the fired ball's slot empties, the queue shifts up and a new one loads
+            AdvanceMagazine();
 
             _shotBalls.Add(ball);
             RecountBallsAndConstraints();
@@ -1908,6 +2006,18 @@ namespace Testbed
         private Vector3 GetCannonDirection() => Vector3.Normalize(_cannon.Position - _cannon.OrbitCenter) * 10f;
         private Vector3 GetCanonOffsettedPos() => _cannon.Position + GetCannonDirection() + _gameCameraOffset;
         private Vector3 GetCannonOffsettedTarget() => _cannon.OrbitCenter - _gameCameraOffset;
+
+        /// <summary>The direction the cannon fires: from the muzzle (its Position) towards its aim target.</summary>
+        private Vector3 CannonAimDirection() => Vector3.Normalize(_cannon.AimTarget - _cannon.Position);
+
+        /// <summary>
+        /// The cannon's draw matrix, built from its pose rather than the (now unused) Object3D.World: the
+        /// muzzle at Position pointing down the aim direction, the top window facing up. The barrel mesh is
+        /// modelled with its muzzle towards local -Z, which is where Matrix.CreateWorld maps the forward
+        /// direction, and its window towards local +Y, which maps to the up vector.
+        /// </summary>
+        private Microsoft.Xna.Framework.Matrix CannonWorld() =>
+            Microsoft.Xna.Framework.Matrix.CreateWorld(_cannon.Position, CannonAimDirection(), Vector3.Up);
     }
 
     #region Contact event

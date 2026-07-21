@@ -82,7 +82,8 @@ draw all balls (see the "Ball rendering" section in CLAUDE.md). Facts that took 
     (that source PNG is half black filler with a watermark — do not tile it directly).
   - `DetailMapping.ModelUVs` samples the model's own UVs. **Anything that moves or rotates must
     use this** — the triplanar projection is fixed in world space and would swim across the
-    surface. The cannon uses it with `GameObjects/CannonMetal.png`. This path also accepts a
+    surface. The cannon used it with `GameObjects/CannonMetal.png` before it became a procedural
+    `CannonMesh` (a plain-steel barrel with no UVs); nothing uses this path now. It also accepts a
     `DetailNormalMap` (+`DetailNormalStrength`) for real relief: the tangent frame is derived
     from `ddx/ddy` in the pixel shader (`CotangentFrame`), because the instance vertex streams
     carry only position/normal/UV and the procedural meshes have no tangents to give.
