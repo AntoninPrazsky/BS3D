@@ -110,6 +110,15 @@ namespace Prazsky.Core.Render
         public float CityWindowTime { get; set; }
 
         private EffectParameter _cityWindowTimeParam;
+
+        /// <summary>
+        /// 0 = ordinary city (warm and cool lamps), 1 = neon: near-black facades and vivid saturated signs,
+        /// one hue per tower. Meant to run with a window brightness well over the glare threshold so the
+        /// signs bloom into neon.
+        /// </summary>
+        public float CityNeon { get; set; }
+
+        private EffectParameter _cityNeonParam;
         private EffectTechnique _depthTechnique;
 
         /// <summary>
@@ -493,6 +502,7 @@ namespace Prazsky.Core.Render
             _cityTechnique = _effect.Techniques["InstancedCity"];
             _cityWindowBrightnessParam = _effect.Parameters["CityWindowBrightness"];
             _cityWindowTimeParam = _effect.Parameters["CityWindowTime"];
+            _cityNeonParam = _effect.Parameters["CityNeon"];
             _depthTechnique = _effect.Techniques["InstancedDepth"];
             _effect.CurrentTechnique = _mainTechnique;
 
@@ -692,6 +702,7 @@ namespace Prazsky.Core.Render
                 _effect.CurrentTechnique = _cityTechnique;
                 _cityWindowBrightnessParam.SetValue(CityWindowBrightness);
                 _cityWindowTimeParam.SetValue(CityWindowTime);
+                _cityNeonParam.SetValue(CityNeon);
             }
             else if (part.Texture != null)
             {

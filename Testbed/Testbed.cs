@@ -367,10 +367,11 @@ namespace Testbed
         private ModelInstance[] _arenaGlassInstances;
         private ModelInstance[] _arenaFrameInstances;
 
-        //Which environment the arena stands in. City is the default; Sea, Desert, Mountain and Meadow swap
-        //the city (and only the city) for open water, a dune field, a snowy range or a flowering meadow —
-        //the marble/glass platform stays in all five. NumPad2 cycles them.
-        private enum SceneKind { City, Sea, Desert, Mountain, Meadow }
+        //Which environment the arena stands in. City is the default; Sea, Desert, Mountain, Meadow and
+        //NeonCity swap the city (and only the city) for open water, a dune field, a snowy range, a
+        //flowering meadow, or the same city lit up in neon — the marble/glass platform stays in all six.
+        //NumPad2 cycles them.
+        private enum SceneKind { City, Sea, Desert, Mountain, Meadow, NeonCity }
         private SceneKind _scene = SceneKind.City;
 
         private Effect _seaEffect;
@@ -592,6 +593,12 @@ namespace Testbed
         /// </summary>
         private static readonly float CITY_WINDOW_BRIGHTNESS = 0.35f;
 
+        /// <summary>
+        /// The neon scene runs the windows this bright — well over <see cref="GLARE_THRESHOLD"/> on
+        /// purpose, so each lit sign blooms into a neon glow instead of staying a flat lit pane.
+        /// </summary>
+        private static readonly float NEON_WINDOW_BRIGHTNESS = 0.9f;
+
         #endregion
 
         #region Glare
@@ -695,6 +702,7 @@ namespace Testbed
             else if (string.Equals(scene, "desert", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Desert;
             else if (string.Equals(scene, "mountain", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Mountain;
             else if (string.Equals(scene, "meadow", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Meadow;
+            else if (string.Equals(scene, "neon", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.NeonCity;
             _exposure = exposure > 0f ? exposure : DEFAULT_EXPOSURE;
             _windowed = windowed;
             _startupMapPath = startupMapPath;
@@ -769,7 +777,7 @@ namespace Testbed
                 new(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
                 new(mgKeys.End, Buttons.Start, ReleaseAllBalls, "Release all balls"),
                 new(mgKeys.NumPad1, SwitchSkyDome, "Switch sky dome"),
-                new(mgKeys.NumPad2, SwitchScene, "Switch scene (city/sea/desert/mountain/meadow)"),
+                new(mgKeys.NumPad2, SwitchScene, "Switch scene (city/sea/desert/mountain/meadow/neon)"),
                 new(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
                 new(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
                 new(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
@@ -1115,7 +1123,7 @@ namespace Testbed
 
         private void SwitchScene()
         {
-            _scene = (SceneKind)(((int)_scene + 1) % 5);
+            _scene = (SceneKind)(((int)_scene + 1) % 6);
             Console.WriteLine($"[scene] {_scene}");
         }
 
@@ -2103,8 +2111,13 @@ namespace Testbed
                 //The environment — city or open sea — is the backdrop and the thing seen beneath the glass
                 //both. Either way the old marble ground blocks survive only as physics bodies; nothing
                 //draws them. The marble/glass arena is the platform, and stays in both scenes.
-                if (_scene == SceneKind.City)
+                if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
+                {
+                    bool neon = _scene == SceneKind.NeonCity;
+                    _cityRenderer.CityNeon = neon ? 1f : 0f;
+                    _cityRenderer.CityWindowBrightness = neon ? NEON_WINDOW_BRIGHTNESS : CITY_WINDOW_BRIGHTNESS;
                     _cityRenderer.Draw(_camera, _city.Buildings, _city.Buildings.Length, _sceneEffectParams);
+                }
                 else if (_scene == SceneKind.Sea)
                     DrawSea();
                 else if (_scene == SceneKind.Desert)

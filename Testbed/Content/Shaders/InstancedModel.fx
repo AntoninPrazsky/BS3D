@@ -1088,12 +1088,23 @@ float CityWindowBrightness;
 //Wall clock driving the windows switching on and off, in seconds
 float CityWindowTime;
 
+//0 = ordinary city, 1 = neon night city: near-black facades and vivid saturated signs, one hue per tower
+float CityNeon;
+
 float Hash21(float2 p)
 {
 	p = frac(p * float2(123.34, 456.21));
 	p += dot(p, p + 45.32);
 
 	return frac(p.x * p.y);
+}
+
+//A fully saturated color from a hue in [0,1] - the neon signs' palette. Pure and bright; the brightness
+//that makes them bloom comes from CityWindowBrightness, not from here.
+float3 HueToRGB(float h)
+{
+	float3 k = frac(h + float3(0.0, 2.0 / 3.0, 1.0 / 3.0));
+	return saturate(abs(k * 6.0 - 3.0) - 1.0);
 }
 
 //Windows evaluated from world position rather than from the model's own coordinates: the buildings are
@@ -1124,9 +1135,10 @@ float4 CityPS(VertexShaderOutput input) : COLOR
 	float2 shape = smoothstep(float2(WindowFillX, WindowFillY) + footprint, float2(WindowFillX, WindowFillY) - footprint, withinCell);
 	float window = shape.x * shape.y * vertical;
 
-	//Which window this is: its cell on the facade, plus the building it is on, so two towers do not
-	//light the same pattern
-	float2 windowId = cell + floor(input.WorldPosition.xz * 0.37);
+	//The building this facade belongs to, so two towers neither light the same window pattern nor, in
+	//neon, glow the same colour
+	float2 buildingId = floor(input.WorldPosition.xz * 0.37);
+	float2 windowId = cell + buildingId;
 
 	//A window does not decide once and for all. Each keeps its own rhythm — a stretch of its own length,
 	//then it decides again — so lamps come on and go out across the skyline at their own pace. A city
@@ -1143,17 +1155,50 @@ float4 CityPS(VertexShaderOutput input) : COLOR
 	//frames reads as a rendering glitch, one that dies over a moment reads as somebody leaving
 	float lit = lerp(wasLit, willBeLit, smoothstep(1 - WindowSwitchFade, 1, frac(slot)));
 
-	float3 lampColor = lerp(WindowWarm, WindowCool, step(0.5, Hash21(cell * 1.7 + 11.3)));
+	//Ordinary warm/cool lamp for the plain daytime city
+	float3 lamp = lerp(WindowWarm, WindowCool, step(0.5, Hash21(cell * 1.7 + 11.3)));
 
 	//Fading to the average keeps a distant tower a dim glowing block instead of a flickering one
 	float coverage = lerp(WindowFillX * WindowFillY * WindowLitFraction * vertical, window * lit, resolvable);
 
-	//The facade itself is dark: a night city is mostly unlit concrete with light punched through it
+	float3 lampColor = lamp;
+	float windowFlicker = 1.0;
+	float3 signEmission = float3(0.0, 0.0, 0.0);
 	float3 facadeColor = float3(0.06, 0.065, 0.08);
+
+#if !OPENGL
+	//Neon night city - Shader Model 5.0 only, so the map editor (which never draws the city) keeps the
+	//plain path above. The skyline runs on magenta and cyan, the pink-and-blue of a neon street, with the
+	//odd off-colour tower; about one window in six sparks the opposite hue, big sign bands wrap some towers
+	//in the contrast colour, and a fraction of it all buzzes. Brightness sits over the glare threshold, so
+	//every lit pane blooms.
+	float3 neonMagenta = float3(1.0, 0.04, 0.85);
+	float3 neonCyan = float3(0.05, 0.85, 1.0);
+
+	float pickBuilding = Hash21(buildingId + 5.0);
+	float3 buildingNeon = pickBuilding < 0.45 ? neonMagenta : (pickBuilding < 0.9 ? neonCyan : HueToRGB(Hash21(buildingId + 6.3)));
+	float3 contrast = buildingNeon.r > buildingNeon.b ? neonCyan : neonMagenta;
+	float3 neonWindow = lerp(buildingNeon, contrast, step(0.83, Hash21(windowId + 4.4)));
+
+	//A bright solid sign band wrapping some towers at a hashed height, in the contrast colour
+	float hasSign = step(0.5, Hash21(buildingId + 21.0));
+	float signHeight = 5.0 + Hash21(buildingId + 22.0) * 34.0;
+	float signBand = hasSign * vertical * (1.0 - smoothstep(1.1, 1.9, abs(facade.y - signHeight))) * resolvable;
+
+	//A fraction of the windows buzz on and off, the way a tired neon tube does
+	float flickerId = Hash21(windowId + 8.8);
+	float buzz = 0.55 + 0.45 * step(0.45, frac(CityWindowTime * (5.0 + flickerId * 9.0) + flickerId * 13.0));
+
+	lampColor = lerp(lamp, neonWindow, CityNeon);
+	windowFlicker = lerp(1.0, lerp(1.0, buzz, step(0.86, flickerId)), CityNeon);
+	signEmission = signBand * contrast * (CityWindowBrightness * 1.6) * CityNeon;
+	facadeColor = lerp(facadeColor, float3(0.02, 0.02, 0.028), CityNeon);
+#endif
 
 	float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(facadeColor, 1), 1, 1);
 
-	shaded.rgb += coverage * lampColor * CityWindowBrightness;
+	shaded.rgb += coverage * lampColor * CityWindowBrightness * windowFlicker;
+	shaded.rgb += signEmission;
 
 	return shaded;
 }
