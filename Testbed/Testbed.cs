@@ -436,6 +436,43 @@ namespace Testbed
         private static readonly Vector2 DESERT_WIND = new(0.86f, 0.51f);
         private static readonly float DESERT_HORIZON_HAZE_DISTANCE = 350f;
 
+        //Circling birds over the dunes (desert scene only): a flock of camera-facing billboard silhouettes.
+        private Effect _birdsEffect;
+        private DynamicVertexBuffer _birdVertexBuffer;
+        private IndexBuffer _birdIndexBuffer;
+        private BirdVertex[] _birdVertices;
+
+        private float[] _birdRadius, _birdAltitude, _birdOrbitSpeed, _birdOrbitPhase, _birdFlapSpeed, _birdFlapPhase, _birdBobSpeed;
+
+        private static readonly int BIRD_COUNT = 9;
+        private static readonly float BIRD_WINGSPAN = 6f;
+        private static readonly float BIRD_ASPECT = 0.55f; //Height of the billboard as a fraction of its width
+        private static readonly float BIRD_BOB = 2.5f; //How far a bird drifts up and down over its circle
+        private static readonly Vector3 BIRD_COLOR = new(0.02f, 0.017f, 0.014f); //Near-black silhouette (linear)
+
+        //Where the flock circles: a fixed point out over the dunes, well above the cluster so the birds sit
+        //against the sky. Each bird orbits it at its own radius, altitude, phase and (slow) speed.
+        private static readonly Vector3 BIRD_FLOCK_CENTER = new(-20f, 34f, -75f);
+
+        //One camera-facing quad per bird; Data carries (u along the wingspan, v vertical, flap phase).
+        private struct BirdVertex : IVertexType
+        {
+            public Vector3 Position;
+            public Vector3 Data;
+
+            public BirdVertex(Vector3 position, Vector3 data)
+            {
+                Position = position;
+                Data = data;
+            }
+
+            public static readonly VertexDeclaration Declaration = new(
+                new VertexElement(0, VertexElementFormat.Vector3, VertexElementUsage.Position, 0),
+                new VertexElement(12, VertexElementFormat.Vector3, VertexElementUsage.TextureCoordinate, 0));
+
+            readonly VertexDeclaration IVertexType.VertexDeclaration => Declaration;
+        }
+
         /// <summary>
         /// Half-width of the play surface, and the width of the marble band around it. Chosen as a whole
         /// number of panels that also divides the recess evenly (see <see cref="ARENA_PIT_HALF_EXTENT"/>).
@@ -766,6 +803,7 @@ namespace Testbed
 
             LoadSea();
             LoadDesert();
+            LoadBirds();
 
             _cilinderModel = Content.Load<Model>("GameObjects/Cilinder");
             _cannon = new Cannon(_cilinderModel, new Vector3(0f, 5f, 0f), -6.4f, 20f);
@@ -1167,6 +1205,102 @@ namespace Testbed
             GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _desertIndexCount / 3);
 
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// Loads the bird effect, allocates the flock's dynamic billboard buffer and static indices, and
+        /// seeds each bird's orbit and flap. Called once; <see cref="DrawBirds"/> rebuilds the billboards
+        /// each frame.
+        /// </summary>
+        private void LoadBirds()
+        {
+            _birdsEffect = Content.Load<Effect>("Shaders/Birds");
+            _birdsEffect.Parameters["BirdColor"].SetValue(BIRD_COLOR);
+
+            _birdVertices = new BirdVertex[BIRD_COUNT * 4];
+            _birdVertexBuffer = new DynamicVertexBuffer(GraphicsDevice, BirdVertex.Declaration, BIRD_COUNT * 4, BufferUsage.WriteOnly);
+
+            short[] indices = new short[BIRD_COUNT * 6];
+            for (int i = 0; i < BIRD_COUNT; i++)
+            {
+                int v = i * 4;
+                int o = i * 6;
+                indices[o] = (short)v; indices[o + 1] = (short)(v + 2); indices[o + 2] = (short)(v + 1);
+                indices[o + 3] = (short)(v + 1); indices[o + 4] = (short)(v + 2); indices[o + 5] = (short)(v + 3);
+            }
+            _birdIndexBuffer = new IndexBuffer(GraphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
+            _birdIndexBuffer.SetData(indices);
+
+            _birdRadius = new float[BIRD_COUNT];
+            _birdAltitude = new float[BIRD_COUNT];
+            _birdOrbitSpeed = new float[BIRD_COUNT];
+            _birdOrbitPhase = new float[BIRD_COUNT];
+            _birdFlapSpeed = new float[BIRD_COUNT];
+            _birdFlapPhase = new float[BIRD_COUNT];
+            _birdBobSpeed = new float[BIRD_COUNT];
+
+            //Deterministic, so the flock is the same every run. All circle the same way, like a kettle of
+            //vultures riding one thermal, each at its own radius, height and unhurried pace.
+            Random rng = new(4242);
+            for (int i = 0; i < BIRD_COUNT; i++)
+            {
+                _birdRadius[i] = 28f + (float)rng.NextDouble() * 34f;
+                _birdAltitude[i] = (float)(rng.NextDouble() * 2.0 - 1.0) * 10f;
+                _birdOrbitSpeed[i] = 0.10f + (float)rng.NextDouble() * 0.12f;
+                _birdOrbitPhase[i] = (float)rng.NextDouble() * Microsoft.Xna.Framework.MathHelper.TwoPi;
+                _birdFlapSpeed[i] = 2.2f + (float)rng.NextDouble() * 2.2f;
+                _birdFlapPhase[i] = (float)rng.NextDouble() * Microsoft.Xna.Framework.MathHelper.TwoPi;
+                _birdBobSpeed[i] = 0.4f + (float)rng.NextDouble() * 0.5f;
+            }
+        }
+
+        /// <summary>
+        /// Draws the flock: each bird circles <see cref="BIRD_FLOCK_CENTER"/> on its own slow orbit, built
+        /// into a camera-facing billboard here and flapped in the shader. Alpha-blended and depth-tested (a
+        /// dune or the platform in front hides one) but writing no depth. Called in the desert scene only.
+        /// </summary>
+        private void DrawBirds()
+        {
+            Microsoft.Xna.Framework.Matrix inverseView = Microsoft.Xna.Framework.Matrix.Invert(_camera.View);
+            Vector3 right = inverseView.Right * (BIRD_WINGSPAN * Constants.HALF);
+            Vector3 up = inverseView.Up * (BIRD_WINGSPAN * Constants.HALF * BIRD_ASPECT);
+
+            for (int i = 0; i < BIRD_COUNT; i++)
+            {
+                float angle = _pulseSeconds * _birdOrbitSpeed[i] + _birdOrbitPhase[i];
+                float bob = MathF.Sin(_pulseSeconds * _birdBobSpeed[i] + _birdOrbitPhase[i]) * BIRD_BOB;
+
+                Vector3 center = BIRD_FLOCK_CENTER + new Vector3(
+                    MathF.Cos(angle) * _birdRadius[i],
+                    _birdAltitude[i] + bob,
+                    MathF.Sin(angle) * _birdRadius[i]);
+
+                float flap = _pulseSeconds * _birdFlapSpeed[i] + _birdFlapPhase[i];
+
+                int v = i * 4;
+                _birdVertices[v] = new BirdVertex(center - right + up, new Vector3(-1f, 1f, flap));
+                _birdVertices[v + 1] = new BirdVertex(center + right + up, new Vector3(1f, 1f, flap));
+                _birdVertices[v + 2] = new BirdVertex(center - right - up, new Vector3(-1f, -1f, flap));
+                _birdVertices[v + 3] = new BirdVertex(center + right - up, new Vector3(1f, -1f, flap));
+            }
+
+            _birdVertexBuffer.SetData(_birdVertices);
+
+            _birdsEffect.Parameters["View"].SetValue(_camera.View);
+            _birdsEffect.Parameters["Projection"].SetValue(_camera.Projection);
+
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            GraphicsDevice.SetVertexBuffer(_birdVertexBuffer);
+            GraphicsDevice.Indices = _birdIndexBuffer;
+            _birdsEffect.CurrentTechnique.Passes[0].Apply();
+            GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, BIRD_COUNT * 2);
+
+            //Restore the scene block's states for the opaque draws that follow
+            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
             GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
@@ -1703,7 +1837,10 @@ namespace Testbed
                 else if (_scene == SceneKind.Sea)
                     DrawSea();
                 else
+                {
                     DrawDesert();
+                    DrawBirds();
+                }
 
                 _arenaFrameRenderer.Draw(_camera, _arenaFrameInstances, _arenaFrameInstances.Length, _sceneEffectParams);
 
