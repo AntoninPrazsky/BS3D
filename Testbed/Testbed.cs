@@ -367,6 +367,42 @@ namespace Testbed
         private ModelInstance[] _arenaGlassInstances;
         private ModelInstance[] _arenaFrameInstances;
 
+        //Which environment the arena stands in. City is the default; Sea swaps the city (and only the
+        //city) for an open water surface — the marble/glass platform stays in both. NumPad2 toggles it.
+        private enum SceneKind { City, Sea }
+        private SceneKind _scene = SceneKind.City;
+
+        private Effect _seaEffect;
+        private VertexBuffer _seaVertexBuffer;
+        private IndexBuffer _seaIndexBuffer;
+
+        /// <summary>
+        /// Y of the water surface. Clear below the platform geometry (its glass reaches down to about
+        /// -10.7), so the arena reads as floating a little above the sea rather than the water poking up
+        /// through the panels.
+        /// </summary>
+        private static readonly float SEA_LEVEL_Y = -12f;
+
+        /// <summary>
+        /// Half-width of the water quad. It is recentered on the camera every frame so it always reaches
+        /// the horizon; the haze fades it into the sky long before this edge.
+        /// </summary>
+        private static readonly float SEA_HALF_EXTENT = 2000f;
+
+        private static readonly Vector3 WATER_COLOR_DEEP = new(0.04f, 0.10f, 0.13f);
+        private static readonly Vector3 WATER_COLOR_SHALLOW = new(0.10f, 0.22f, 0.25f);
+
+        //Peak ripple height (world units), base ripples per world unit and how fast they scroll. Gentle
+        //on purpose — vlnky, not swell.
+        private static readonly float WAVE_AMPLITUDE = 0.12f;
+        private static readonly float WAVE_FREQUENCY = 0.55f;
+        private static readonly float WAVE_SPEED = 0.5f;
+
+        private static readonly float SUN_GLINT_STRENGTH = 8f;
+        private static readonly float SUN_GLINT_POWER = 600f;
+
+        private static readonly float SEA_HORIZON_HAZE_DISTANCE = 400f;
+
         /// <summary>
         /// Half-width of the play surface, and the width of the marble band around it. Chosen as a whole
         /// number of panels that also divides the recess evenly (see <see cref="ARENA_PIT_HALF_EXTENT"/>).
@@ -508,8 +544,9 @@ namespace Testbed
         private bool _switchMapDone;
         private static readonly float SWITCH_MAP_DELAY_SECONDS = 10f;
 
-        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false, int supersampleFactor = 2, float exposure = DEFAULT_EXPOSURE)
+        public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false, int supersampleFactor = 2, float exposure = DEFAULT_EXPOSURE, string scene = null)
         {
+            if (string.Equals(scene, "sea", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Sea; //Testing: "scene=sea" starts in the sea variant
             _exposure = exposure > 0f ? exposure : DEFAULT_EXPOSURE;
             _windowed = windowed;
             _startupMapPath = startupMapPath;
@@ -584,6 +621,7 @@ namespace Testbed
                 new(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
                 new(mgKeys.End, Buttons.Start, ReleaseAllBalls, "Release all balls"),
                 new(mgKeys.NumPad1, SwitchSkyDome, "Switch sky dome"),
+                new(mgKeys.NumPad2, SwitchScene, "Switch scene (city/sea)"),
                 new(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
                 new(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
                 new(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
@@ -690,6 +728,8 @@ namespace Testbed
             _skyEffect = Content.Load<Effect>("Shaders/Sky");
             _sky.Effect = _skyEffect;
             SetCloudParameters();
+
+            LoadSea();
 
             _cilinderModel = Content.Load<Model>("GameObjects/Cilinder");
             _cannon = new Cannon(_cilinderModel, new Vector3(0f, 5f, 0f), -6.4f, 20f);
@@ -918,6 +958,83 @@ namespace Testbed
             _sky.SkyDomeModel = _skyModel;
 
             ApplySkyLighting();
+        }
+
+        private void SwitchScene()
+        {
+            _scene = _scene == SceneKind.City ? SceneKind.Sea : SceneKind.City;
+            Console.WriteLine($"[scene] {_scene}");
+        }
+
+        /// <summary>
+        /// Loads the sea effect and builds its water quad. Static tuning goes in here; the per-frame camera,
+        /// sky palette and cloud field are handed over in <see cref="DrawSea"/>.
+        /// </summary>
+        private void LoadSea()
+        {
+            _seaEffect = Content.Load<Effect>("Shaders/Sea");
+
+            //A flat quad in the XZ plane at local Y 0; DrawSea drops it to SEA_LEVEL_Y and recenters it on
+            //the camera. Drawn CullNone, so its winding does not matter (it is one quad either way).
+            float h = SEA_HALF_EXTENT;
+            VertexPosition[] vertices =
+            {
+                new(new Vector3(-h, 0f, -h)),
+                new(new Vector3(h, 0f, -h)),
+                new(new Vector3(-h, 0f, h)),
+                new(new Vector3(h, 0f, h))
+            };
+            _seaVertexBuffer = new VertexBuffer(GraphicsDevice, VertexPosition.VertexDeclaration, 4, BufferUsage.WriteOnly);
+            _seaVertexBuffer.SetData(vertices);
+
+            short[] indices = { 0, 1, 2, 1, 3, 2 };
+            _seaIndexBuffer = new IndexBuffer(GraphicsDevice, IndexElementSize.SixteenBits, 6, BufferUsage.WriteOnly);
+            _seaIndexBuffer.SetData(indices);
+
+            _seaEffect.Parameters["WaterColorDeep"].SetValue(WATER_COLOR_DEEP);
+            _seaEffect.Parameters["WaterColorShallow"].SetValue(WATER_COLOR_SHALLOW);
+            _seaEffect.Parameters["WaveAmplitude"].SetValue(WAVE_AMPLITUDE);
+            _seaEffect.Parameters["WaveFrequency"].SetValue(WAVE_FREQUENCY);
+            _seaEffect.Parameters["WaveSpeed"].SetValue(WAVE_SPEED);
+            _seaEffect.Parameters["SunGlintStrength"].SetValue(SUN_GLINT_STRENGTH);
+            _seaEffect.Parameters["SunGlintPower"].SetValue(SUN_GLINT_POWER);
+            _seaEffect.Parameters["HorizonHazeDistance"].SetValue(SEA_HORIZON_HAZE_DISTANCE);
+        }
+
+        /// <summary>
+        /// Draws the sea: a large flat water plane recentered on the camera, reflecting the current dome and
+        /// shadowed by the same cloud field as the rest of the scene. Opaque, so it stands in for the city
+        /// as the thing the translucent arena glass shows beneath it.
+        /// </summary>
+        private void DrawSea()
+        {
+            _seaEffect.Parameters["World"].SetValue(Microsoft.Xna.Framework.Matrix.CreateTranslation(_camera.Position.X, SEA_LEVEL_Y, _camera.Position.Z));
+            _seaEffect.Parameters["View"].SetValue(_camera.View);
+            _seaEffect.Parameters["Projection"].SetValue(_camera.Projection);
+            _seaEffect.Parameters["CameraPosition"].SetValue(_camera.Position);
+            _seaEffect.Parameters["SunDirection"].SetValue(SUN_DIRECTION);
+            _seaEffect.Parameters["ZenithColor"].SetValue(_zenithLinear);
+            _seaEffect.Parameters["HorizonColor"].SetValue(_horizonLinear);
+            _seaEffect.Parameters["SeaTime"].SetValue(_pulseSeconds);
+
+            //The glint takes the sun's own radiance — the same lit-cloud color the weather uses, tinted by
+            //the dome, so it warms at dusk like everything else the sun touches
+            _seaEffect.Parameters["SunColor"].SetValue(CLOUD_SUN_COLOR * Vector3.Lerp(Vector3.One, _horizonLinear, SKY_TINT_STRENGTH));
+
+            //Cloud shadows off the one shared field, so the water darkens under the cloud the sky shows
+            _clouds.ApplyTo(_seaEffect);
+
+            GraphicsDevice.BlendState = BlendState.Opaque;
+            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            GraphicsDevice.SetVertexBuffer(_seaVertexBuffer);
+            GraphicsDevice.Indices = _seaIndexBuffer;
+            _seaEffect.CurrentTechnique.Passes[0].Apply();
+            GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
+
+            //Restore what the scene block set for the rest of the opaque draws
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
         /// <summary>
@@ -1445,16 +1562,21 @@ namespace Testbed
 
             if (_draw)
             {
-                //The city is the ground and the backdrop both. The old marble blocks still exist as
-                //physics bodies under the arena, but nothing draws them any more.
-                _cityRenderer.Draw(_camera, _city.Buildings, _city.Buildings.Length, _sceneEffectParams);
+                //The environment — city or open sea — is the backdrop and the thing seen beneath the glass
+                //both. Either way the old marble ground blocks survive only as physics bodies; nothing
+                //draws them. The marble/glass arena is the platform, and stays in both scenes.
+                if (_scene == SceneKind.City)
+                    _cityRenderer.Draw(_camera, _city.Buildings, _city.Buildings.Length, _sceneEffectParams);
+                else
+                    DrawSea();
+
                 _arenaFrameRenderer.Draw(_camera, _arenaFrameInstances, _arenaFrameInstances.Length, _sceneEffectParams);
 
                 _cannonRenderer.Draw(_camera, _cannon.World, _sceneEffectParams);
 
                 DrawBallsInstanced();
 
-                //Translucent glass: drawn after the opaque scene so the city below shows through it
+                //Translucent glass: drawn after the opaque scene so the city or the sea below shows through it
                 _arenaGlassRenderer.Draw(_camera, _arenaGlassInstances, _arenaGlassInstances.Length, _sceneEffectParams);
 
                 _ceilingRenderer.Draw(_camera, _ceiling.World, _sceneEffectParams);

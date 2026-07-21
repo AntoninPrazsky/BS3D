@@ -15,6 +15,7 @@ namespace Testbed
             byte skyNumber = 0;
             int supersampleFactor = 2;
             float exposure = 0f;
+            string scene = null;
 
             foreach (string arg in args)
             {
@@ -24,10 +25,11 @@ namespace Testbed
                 else if (arg.StartsWith("sky=", StringComparison.OrdinalIgnoreCase) && byte.TryParse(arg.Substring("sky=".Length), out byte parsedSky)) skyNumber = parsedSky;
                 else if (arg.StartsWith("ssaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("ssaa=".Length), out int parsedSsaa)) supersampleFactor = parsedSsaa;
                 else if (arg.StartsWith("exposure=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("exposure=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedExposure)) exposure = parsedExposure;
+                else if (arg.StartsWith("scene=", StringComparison.OrdinalIgnoreCase)) scene = arg.Substring("scene=".Length);
                 else startupMapPath = arg;
             }
 
-            using (var game = new Testbed(startupMapPath: startupMapPath, autoShoot: autoShoot, switchMapPath: switchMapPath, skyNumber: skyNumber, uncappedFps: uncappedFps, supersampleFactor: supersampleFactor, exposure: exposure)) game.Run();
+            using (var game = new Testbed(startupMapPath: startupMapPath, autoShoot: autoShoot, switchMapPath: switchMapPath, skyNumber: skyNumber, uncappedFps: uncappedFps, supersampleFactor: supersampleFactor, exposure: exposure, scene: scene)) game.Run();
         }
     }
 }
