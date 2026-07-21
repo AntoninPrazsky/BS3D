@@ -367,10 +367,10 @@ namespace Testbed
         private ModelInstance[] _arenaGlassInstances;
         private ModelInstance[] _arenaFrameInstances;
 
-        //Which environment the arena stands in. City is the default; Sea, Desert and Mountain swap the city
-        //(and only the city) for open water, a dune field or a snowy range — the marble/glass platform
-        //stays in all four. NumPad2 cycles them.
-        private enum SceneKind { City, Sea, Desert, Mountain }
+        //Which environment the arena stands in. City is the default; Sea, Desert, Mountain and Meadow swap
+        //the city (and only the city) for open water, a dune field, a snowy range or a flowering meadow —
+        //the marble/glass platform stays in all five. NumPad2 cycles them.
+        private enum SceneKind { City, Sea, Desert, Mountain, Meadow }
         private SceneKind _scene = SceneKind.City;
 
         private Effect _seaEffect;
@@ -511,6 +511,41 @@ namespace Testbed
         //Bright cool white, but kept under GLARE_THRESHOLD so a near flake does not bloom into a glowing orb
         private static readonly Vector3 SNOW_FLAKE_COLOR = new(0.72f, 0.76f, 0.82f);
         private static readonly float SNOW_OPACITY = 0.9f;
+
+        //Meadow scene: a displaced grid like the desert, rolling green hills scattered with flowers.
+        private Effect _meadowEffect;
+        private VertexBuffer _meadowVertexBuffer;
+        private IndexBuffer _meadowIndexBuffer;
+        private int _meadowIndexCount;
+
+        private static readonly int MEADOW_GRID_N = 220;
+        private static readonly float MEADOW_EXTENT = 1200f;
+
+        //Basin the arena sits in, rising into rolling hills with distance (flat within the radius, hills
+        //over the transition beyond). The basin stays below the platform glass (about -10.7).
+        private static readonly float MEADOW_LEVEL_Y = -14f;
+        private static readonly float HILL_HEIGHT = 40f;
+        private static readonly float MEADOW_CLEARING_RADIUS = 95f;
+        private static readonly float MEADOW_CLEARING_TRANSITION = 140f;
+        private static readonly float MEADOW_CLEARING_RELIEF = 1.5f;
+
+        private static readonly Vector3 GRASS_COLOR = new(0.14f, 0.46f, 0.05f); //Lush green (linear)
+        private static readonly Vector3 GRASS_COLOR_DARK = new(0.08f, 0.27f, 0.04f);
+        private static readonly float MEADOW_AMBIENT_STRENGTH = 0.7f;
+        private static readonly float MEADOW_HORIZON_HAZE_DISTANCE = 580f;
+        private static readonly Vector2 MEADOW_WIND = new(0.82f, 0.57f);
+
+        //Wind combing the grass, and the fine grass texture
+        private static readonly float MEADOW_WIND_RIPPLE_SPEED = 1.4f;
+        private static readonly float MEADOW_WIND_RIPPLE_FREQUENCY = 0.15f;
+        private static readonly float MEADOW_WIND_RIPPLE_STRENGTH = 0.12f;
+        private static readonly float GRASS_RELIEF_STRENGTH = 0.05f;
+        private static readonly float GRASS_RELIEF_FREQUENCY = 2f;
+
+        //Wildflowers scattered through the grass
+        private static readonly float FLOWER_DENSITY = 0.16f;
+        private static readonly float FLOWER_SPACING = 2.2f;
+        private static readonly float FLOWER_SIZE = 0.22f;
 
         /// <summary>
         /// Half-width of the play surface, and the width of the marble band around it. Chosen as a whole
@@ -659,6 +694,7 @@ namespace Testbed
             if (string.Equals(scene, "sea", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Sea;
             else if (string.Equals(scene, "desert", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Desert;
             else if (string.Equals(scene, "mountain", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Mountain;
+            else if (string.Equals(scene, "meadow", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Meadow;
             _exposure = exposure > 0f ? exposure : DEFAULT_EXPOSURE;
             _windowed = windowed;
             _startupMapPath = startupMapPath;
@@ -733,7 +769,7 @@ namespace Testbed
                 new(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
                 new(mgKeys.End, Buttons.Start, ReleaseAllBalls, "Release all balls"),
                 new(mgKeys.NumPad1, SwitchSkyDome, "Switch sky dome"),
-                new(mgKeys.NumPad2, SwitchScene, "Switch scene (city/sea/desert/mountain)"),
+                new(mgKeys.NumPad2, SwitchScene, "Switch scene (city/sea/desert/mountain/meadow)"),
                 new(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
                 new(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
                 new(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
@@ -846,6 +882,7 @@ namespace Testbed
             LoadBirds();
             LoadMountain();
             LoadSnow();
+            LoadMeadow();
 
             _cilinderModel = Content.Load<Model>("GameObjects/Cilinder");
             _cannon = new Cannon(_cilinderModel, new Vector3(0f, 5f, 0f), -6.4f, 20f);
@@ -1078,7 +1115,7 @@ namespace Testbed
 
         private void SwitchScene()
         {
-            _scene = (SceneKind)(((int)_scene + 1) % 4);
+            _scene = (SceneKind)(((int)_scene + 1) % 5);
             Console.WriteLine($"[scene] {_scene}");
         }
 
@@ -1471,6 +1508,70 @@ namespace Testbed
             GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, SNOW_FLAKE_COUNT * 2);
 
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// Loads the meadow effect and its terrain grid, and hands over the static tuning. The per-frame
+        /// origin, sky palette and cloud field are set in <see cref="DrawMeadow"/>.
+        /// </summary>
+        private void LoadMeadow()
+        {
+            _meadowEffect = Content.Load<Effect>("Shaders/Meadow");
+            CreateGridMesh(MEADOW_GRID_N, MEADOW_EXTENT, out _meadowVertexBuffer, out _meadowIndexBuffer, out _meadowIndexCount);
+
+            _meadowEffect.Parameters["MeadowLevelY"].SetValue(MEADOW_LEVEL_Y);
+            _meadowEffect.Parameters["HillHeight"].SetValue(HILL_HEIGHT);
+            _meadowEffect.Parameters["ClearingRadius"].SetValue(MEADOW_CLEARING_RADIUS);
+            _meadowEffect.Parameters["ClearingTransition"].SetValue(MEADOW_CLEARING_TRANSITION);
+            _meadowEffect.Parameters["ClearingRelief"].SetValue(MEADOW_CLEARING_RELIEF);
+            _meadowEffect.Parameters["GrassColor"].SetValue(GRASS_COLOR);
+            _meadowEffect.Parameters["GrassColorDark"].SetValue(GRASS_COLOR_DARK);
+            _meadowEffect.Parameters["AmbientStrength"].SetValue(MEADOW_AMBIENT_STRENGTH);
+            _meadowEffect.Parameters["HorizonHazeDistance"].SetValue(MEADOW_HORIZON_HAZE_DISTANCE);
+            _meadowEffect.Parameters["WindDirection"].SetValue(MEADOW_WIND);
+            _meadowEffect.Parameters["WindRippleSpeed"].SetValue(MEADOW_WIND_RIPPLE_SPEED);
+            _meadowEffect.Parameters["WindRippleFrequency"].SetValue(MEADOW_WIND_RIPPLE_FREQUENCY);
+            _meadowEffect.Parameters["WindRippleStrength"].SetValue(MEADOW_WIND_RIPPLE_STRENGTH);
+            _meadowEffect.Parameters["GrassReliefStrength"].SetValue(GRASS_RELIEF_STRENGTH);
+            _meadowEffect.Parameters["GrassReliefFrequency"].SetValue(GRASS_RELIEF_FREQUENCY);
+            _meadowEffect.Parameters["FlowerDensity"].SetValue(FLOWER_DENSITY);
+            _meadowEffect.Parameters["FlowerSpacing"].SetValue(FLOWER_SPACING);
+            _meadowEffect.Parameters["FlowerSize"].SetValue(FLOWER_SIZE);
+        }
+
+        /// <summary>
+        /// Draws the meadow: the grid pinned to the camera (snapped so it does not swim), rolling green
+        /// hills scattered with flowers, wind combing the grass, shadowed by the shared cloud field. Opaque,
+        /// so it stands in for the city as the thing the arena glass shows beneath it.
+        /// </summary>
+        private void DrawMeadow()
+        {
+            float cell = MEADOW_EXTENT / (MEADOW_GRID_N - 1);
+            float originX = MathF.Round(_camera.Position.X / cell) * cell;
+            float originZ = MathF.Round(_camera.Position.Z / cell) * cell;
+
+            _meadowEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
+            _meadowEffect.Parameters["View"].SetValue(_camera.View);
+            _meadowEffect.Parameters["Projection"].SetValue(_camera.Projection);
+            _meadowEffect.Parameters["CameraPosition"].SetValue(_camera.Position);
+            _meadowEffect.Parameters["SunDirection"].SetValue(SUN_DIRECTION);
+            _meadowEffect.Parameters["ZenithColor"].SetValue(_zenithLinear);
+            _meadowEffect.Parameters["HorizonColor"].SetValue(_horizonLinear);
+            _meadowEffect.Parameters["MeadowTime"].SetValue(_pulseSeconds);
+            _meadowEffect.Parameters["SunColor"].SetValue(CLOUD_SUN_COLOR * Vector3.Lerp(Vector3.One, _horizonLinear, SKY_TINT_STRENGTH));
+
+            _clouds.ApplyTo(_meadowEffect);
+
+            GraphicsDevice.BlendState = BlendState.Opaque;
+            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            GraphicsDevice.SetVertexBuffer(_meadowVertexBuffer);
+            GraphicsDevice.Indices = _meadowIndexBuffer;
+            _meadowEffect.CurrentTechnique.Passes[0].Apply();
+            GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _meadowIndexCount / 3);
+
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
@@ -2011,8 +2112,10 @@ namespace Testbed
                     DrawDesert();
                     DrawBirds();
                 }
-                else
+                else if (_scene == SceneKind.Mountain)
                     DrawMountain();
+                else
+                    DrawMeadow();
 
                 _arenaFrameRenderer.Draw(_camera, _arenaFrameInstances, _arenaFrameInstances.Length, _sceneEffectParams);
 
