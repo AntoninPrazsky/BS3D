@@ -22,6 +22,15 @@ namespace Prazsky.Core
 
 		public GraphicsDevice GraphicsDevice { get; set; }
 
+		/// <summary>
+		/// Draws the dome with this effect instead of the <see cref="BasicEffect"/> the model carries,
+		/// which is how the Testbed puts procedural clouds over the baked gradient. The effect is expected
+		/// to declare <c>World</c>, <c>View</c> and <c>Projection</c>; everything else it needs is the
+		/// caller's business and is set on the effect directly. Leave it null for the plain gradient —
+		/// the map editor does, and does not build a sky shader at all.
+		/// </summary>
+		public Effect Effect { get; set; }
+
 		private Model _skyDomeModel;
 
 		private Matrix[] _skyDomeTransforms;
@@ -224,6 +233,15 @@ namespace Prazsky.Core
 			DepthStencilState depthStencilState = new DepthStencilState { DepthBufferEnable = false };
 			GraphicsDevice.DepthStencilState = depthStencilState;
 
+			if (Effect == null) DrawWithModelEffects(camera); else DrawWithCustomEffect(camera);
+
+			depthStencilState = new DepthStencilState { DepthBufferEnable = true };
+			GraphicsDevice.DepthStencilState = depthStencilState;
+		}
+
+		/// <summary>The original path: the dome's own <see cref="BasicEffect"/>s, gradient and nothing else.</summary>
+		private void DrawWithModelEffects(ICamera camera)
+		{
 			int skyDomeModelMeshesCount = _skyDomeModel.Meshes.Count;
 			for (int i = 0; i < skyDomeModelMeshesCount; i++)
 			{
@@ -238,9 +256,38 @@ namespace Prazsky.Core
 				}
 				_skyDomeModel.Meshes[i].Draw();
 			}
+		}
 
-			depthStencilState = new DepthStencilState { DepthBufferEnable = true };
-			GraphicsDevice.DepthStencilState = depthStencilState;
+		/// <summary>
+		/// Issues the dome's mesh parts against <see cref="Effect"/> by hand, since ModelMesh.Draw would
+		/// use the effects the model came with. The dome is translated to the camera every frame, which is
+		/// what puts it at infinity — and it is also what lets the sky shader recover the view ray as
+		/// nothing more than the world position minus the camera.
+		/// </summary>
+		private void DrawWithCustomEffect(ICamera camera)
+		{
+			EffectParameter world = Effect.Parameters["World"];
+			EffectParameter view = Effect.Parameters["View"];
+			EffectParameter projection = Effect.Parameters["Projection"];
+
+			view.SetValue(camera.View);
+			projection.SetValue(camera.Projection);
+
+			foreach (ModelMesh mesh in _skyDomeModel.Meshes)
+			{
+				world.SetValue(_skyDomeTransforms[mesh.ParentBone.Index] * Matrix.CreateTranslation(camera.Position));
+
+				foreach (ModelMeshPart part in mesh.MeshParts)
+				{
+					if (part.PrimitiveCount == 0) continue;
+
+					GraphicsDevice.SetVertexBuffer(part.VertexBuffer, part.VertexOffset);
+					GraphicsDevice.Indices = part.IndexBuffer;
+
+					Effect.CurrentTechnique.Passes[0].Apply();
+					GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount);
+				}
+			}
 		}
 	}
 }

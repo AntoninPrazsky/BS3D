@@ -217,6 +217,12 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/InstancedModel.fx
 
+#begin Shaders/Sky.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Sky.fx
+
 #begin Shaders/ShadowOverlay.fx
 /importer:EffectImporter
 /processor:EffectProcessor

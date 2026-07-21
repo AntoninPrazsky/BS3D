@@ -31,6 +31,18 @@ float3 SrgbToLinear(float3 color)
 #endif
 }
 
+//Cloud shadows. The map editor builds this same file for DesktopGL, where the instruction budget is
+//tight and there is no weather to speak of anyway, so there it is a stub that lets the sun through.
+#if OPENGL
+	float CloudSunlight(float3 worldPosition, float3 sunDirection) { return 1.0; }
+#else
+	#include "Clouds.fxh"
+#endif
+
+//Towards the sun. The key light is positional and sits only forty units off, so its direction swings
+//right across the scene - useless for a shadow that has to fall in parallel bands over a whole city.
+float3 SunDirection;
+
 float4x4 View;
 float4x4 Projection;
 
@@ -208,8 +220,12 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
 	//The rig arrives linear, decoded once on the CPU along with the tints applied to it
 	AddLight(normalize(KeyLightPosition - worldPosition), DirLight0DiffuseColor, DirLight0SpecularColor, worldNormal, eyeVector, keyDiffuse, keySpecular);
 
-	float3 diffuse = keyDiffuse * keyShadow;
-	float3 specular = keySpecular * keyShadow;
+	//The cloud shadow rides on the same multiplier the relief's own bumps use, which is why one line here
+	//puts weather across the whole scene at once - balls, city, floor and cannon all come through here.
+	float sunlight = keyShadow * CloudSunlight(worldPosition, SunDirection);
+
+	float3 diffuse = keyDiffuse * sunlight;
+	float3 specular = keySpecular * sunlight;
 
 	AddLight(-DirLight1Direction, DirLight1DiffuseColor, DirLight1SpecularColor, worldNormal, eyeVector, diffuse, specular);
 	AddLight(-DirLight2Direction, DirLight2DiffuseColor, DirLight2SpecularColor, worldNormal, eyeVector, diffuse, specular);

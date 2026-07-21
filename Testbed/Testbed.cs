@@ -300,6 +300,89 @@ namespace Testbed
         private Effect _tonemapEffect;
         private VertexBuffer _fullScreenQuad;
 
+        #region Clouds
+
+        /// <summary>
+        /// Draws the sky dome with a procedural cloud layer over its baked gradient. The same field is
+        /// read back by the scene shader for cloud shadows and by the CPU for the light rig, so all three
+        /// agree by construction — see <c>Shaders/Clouds.fxh</c>, which is the only place it is defined.
+        /// </summary>
+        private Effect _skyEffect;
+
+        /// <summary>
+        /// The one cloud field, shared by the sky shader, the scene shader's shadows and the light rig.
+        /// Its defaults are the tuned ones; only the clock moves at runtime.
+        /// </summary>
+        private readonly CloudField _clouds = new();
+
+        /// <summary>
+        /// How much cloud is over the arena, smoothed: 0 clear, 1 solid. Read straight off the field it
+        /// would jump about as the sample crossed an edge, and the ambient of a whole scene snapping is
+        /// far more noticeable than the cloud that caused it.
+        /// </summary>
+        private float _overcast;
+
+        /// <summary>Seconds the overcast reading takes to catch up — about how long a sky takes to close over.</summary>
+        private static readonly float OVERCAST_RESPONSE_SECONDS = 2.5f;
+
+        /// <summary>How wide a patch of sky the ambient reads, roughly one cloud across.</summary>
+        private static readonly float OVERCAST_SAMPLE_RADIUS = 320f;
+
+        /// <summary>The dome's palette, decoded once per dome and re-applied whenever the weather moves.</summary>
+        private Vector3 _zenithLinear = Vector3.One;
+
+        private Vector3 _horizonLinear = Vector3.One;
+
+        /// <summary>
+        /// How hard the fine octaves chew at the shape the weather layer drew. Has to be read against
+        /// <see cref="CLOUD_COVERAGE_GAIN"/>, which is what the weather is multiplied by: at 0.55 against a
+        /// gain of 2.8 the detail was modulating the thickness by about six percent and the clouds came
+        /// out airbrushed. It wants to be a decent fraction of the weather's own amplitude.
+        /// </summary>
+        private static readonly float CLOUD_DETAIL_STRENGTH = 2.5f;
+
+        /// <summary>
+        /// Lit tops and shadowed undersides, in **linear radiance** — these are quantities of light, not
+        /// sRGB paint colors, so nothing decodes them. The sunlit color runs above 1 deliberately: a cloud
+        /// edge with the sun behind it really is brighter than white paper, and saying so is what sends it
+        /// through the same glare and the same highlight roll-off as the balls.
+        /// </summary>
+        private static readonly Vector3 CLOUD_SUN_COLOR = new(1.7f, 1.66f, 1.55f);
+
+        //Well below the sunlit color rather than a shade under it. The frame goes through an ACES curve
+        //that compresses the highlights hard, so two linear values close together up there come out of the
+        //tonemapper as the same white - at 0.45 the undersides were indistinguishable from the tops and
+        //the whole layer read as flat paper.
+        private static readonly Vector3 CLOUD_SHADOW_COLOR = new(0.18f, 0.21f, 0.28f);
+
+        /// <summary>
+        /// Opacity of the densest cloud, and the elevation over which cloud fades into haze. Well over 1,
+        /// so a cloud reaches solid at about half density and only its edges stay translucent — at 1.15 the
+        /// whole layer was semi-transparent everywhere and read as haze rather than as weather.
+        /// </summary>
+        private static readonly float CLOUD_OPACITY = 2.4f;
+
+        private static readonly float CLOUD_HORIZON_FADE = 0.16f;
+
+        /// <summary>How far along the sun the shading looks to decide whether a piece of cloud is backlit.</summary>
+        private static readonly float CLOUD_SUN_STEP = 90f;
+
+        /// <summary>
+        /// How much light a piece of cloud swallows on the way through its own body, and how much the
+        /// cloud between it and the sun swallows first. The body term is the one that matters: it is what
+        /// turns a flat white field into undersides with dark cores and edges the light comes through.
+        /// </summary>
+        private static readonly float CLOUD_SELF_ABSORPTION = 2.5f;
+
+        private static readonly float CLOUD_SUN_ABSORPTION = 1f;
+
+        /// <summary>The silver lining: forward scattering towards the sun, and how tightly it hugs it.</summary>
+        private static readonly float CLOUD_SILVER_STRENGTH = 1.2f;
+
+        private static readonly float CLOUD_SILVER_POWER = 12f;
+
+        #endregion
+
         #region City prototype ("city" on the command line)
 
         private City _city;
@@ -699,6 +782,10 @@ namespace Testbed
             //The dome's vertex colors are sRGB; the target it is drawn into is linear
             _sky = new SkyDome(_skyModel, GraphicsDevice, linearVertexColors: true);
 
+            _skyEffect = Content.Load<Effect>("Shaders/Sky");
+            _sky.Effect = _skyEffect;
+            SetCloudParameters();
+
             _cilinderModel = Content.Load<Model>("GameObjects/Cilinder");
             _cannon = new Cannon(_cilinderModel, new Vector3(0f, 5f, 0f), -6.4f, 20f);
             _cannonRenderer = new InstancedModelRenderer(GraphicsDevice, _cilinderModel, _instancingEffect);
@@ -774,19 +861,80 @@ namespace Testbed
             //this line scales, tints and lerps it, and none of that means anything until it is radiance:
             //scaling an sRGB value by 1.3 does not make 1.3 times the light. Doing it in display space is
             //what had the ambient running some 38% brighter than the rig asked for.
-            Vector3 zenithLinear = ColorSpace.SrgbToLinear(zenith);
-            Vector3 horizonLinear = ColorSpace.SrgbToLinear(horizon);
+            _zenithLinear = ColorSpace.SrgbToLinear(zenith);
+            _horizonLinear = ColorSpace.SrgbToLinear(horizon);
 
+            ApplyCloudPalette();
+            ApplyLightRig();
+        }
+
+        /// <summary>
+        /// How far the key/fill lights are carried towards the horizon color, and the back light towards
+        /// the zenith. The clouds borrow the same figure, being lit by the same rig.
+        /// </summary>
+        private static readonly float SKY_TINT_STRENGTH = 0.5f;
+
+        /// <summary>
+        /// The shadowed side of a cloud sees no sun at all — only sky — so it takes the zenith color far
+        /// more completely than any surface the rig lights from two sides.
+        /// </summary>
+        private static readonly float CLOUD_SHADOW_TINT_STRENGTH = 0.8f;
+
+        /// <summary>
+        /// Colors the clouds with the dome they hang in.
+        /// <para>
+        /// Every dome was getting the same cold white cloud, and over eighteen skies running from turquoise
+        /// day to blood-red dusk to near-black night it read as a grey smear pasted over the sky rather
+        /// than as weather in it. A cloud has no color of its own: its lit side is the color of the sun and
+        /// its underside is the color of the sky. So the lit side takes the same tint the scene's key light
+        /// takes, which means the clouds are lit by literally the same light as everything under them, and
+        /// the underside takes the zenith.
+        /// </para>
+        /// </summary>
+        private void ApplyCloudPalette()
+        {
+            Vector3 sunTint = Vector3.Lerp(Vector3.One, _horizonLinear, SKY_TINT_STRENGTH);
+            Vector3 skyTint = Vector3.Lerp(Vector3.One, _zenithLinear, CLOUD_SHADOW_TINT_STRENGTH);
+
+            _skyEffect.Parameters["CloudSunColor"].SetValue(CLOUD_SUN_COLOR * sunTint);
+            _skyEffect.Parameters["CloudShadowColor"].SetValue(CLOUD_SHADOW_COLOR * skyTint);
+        }
+
+        /// <summary>
+        /// Fully overcast ambient, in linear radiance: grey, and no dimmer than the clear sky it replaces.
+        /// A cloud deck is a big lit diffuse source, so losing the sun does not darken what arrives from
+        /// above so much as spread it out and take the colour out of it.
+        /// </summary>
+        private static readonly Vector3 OVERCAST_SKY = new(0.62f, 0.64f, 0.68f);
+
+        private static readonly Vector3 OVERCAST_GROUND = new(0.34f, 0.35f, 0.37f);
+
+        /// <summary>
+        /// Hands the cached sky palette to every renderer, shaded by how much cloud is overhead.
+        /// <para>
+        /// Only the **ambient** is touched here. The key light is already dimmed per pixel by the cloud
+        /// shadow in the shader, and dimming it again on this side would count the same cloud twice — and
+        /// worse, would darken the scene uniformly, which is precisely the look this is meant to avoid.
+        /// The two halves together are what makes overcast read as *flat*: the sun goes, the sky stays.
+        /// </para>
+        /// </summary>
+        private void ApplyLightRig()
+        {
             //The key/fill lights (the "sun" side) take on the horizon color, the back light the zenith color,
             //so the whole light rig follows the mood of the sky instead of just the ambient term
-            Vector3 keyTint = Vector3.Lerp(Vector3.One, horizonLinear, 0.5f);
-            Vector3 backTint = Vector3.Lerp(Vector3.One, zenithLinear, 0.5f);
+            Vector3 keyTint = Vector3.Lerp(Vector3.One, _horizonLinear, SKY_TINT_STRENGTH);
+            Vector3 backTint = Vector3.Lerp(Vector3.One, _zenithLinear, SKY_TINT_STRENGTH);
+
+            Vector3 skyColor = Vector3.Lerp(_zenithLinear * 1.3f, OVERCAST_SKY, _overcast);
+
+            //Bounce light from below is dimmer than the sky above
+            Vector3 groundColor = Vector3.Lerp(_horizonLinear * 0.75f, OVERCAST_GROUND, _overcast);
 
             foreach (InstancedModelRenderer renderer in SkyLitRenderers())
             {
                 renderer.LinearLightRig = true;
-                renderer.SkyColor = zenithLinear * 1.3f;
-                renderer.GroundColor = horizonLinear * 0.75f; //Bounce light from below is dimmer than the sky above
+                renderer.SkyColor = skyColor;
+                renderer.GroundColor = groundColor;
 
                 //The "sun": close enough for its direction to visibly differ from object to object
                 renderer.KeyLightPosition = -DefaultLighting.Light0Direction * 40f;
@@ -795,10 +943,67 @@ namespace Testbed
             }
         }
 
+        /// <summary>
+        /// Follows the cloud straight over the arena and hands it to the light rig.
+        /// <para>
+        /// Overhead, not along the sun ray, and the difference matters: the sun ray is what decides whether
+        /// you are standing in a shadow, which the shader already answers per pixel, while what is over
+        /// your head is what decides how much of the sky is still blue air. Sun behind a cloud with the
+        /// rest of the sky open should take the shadows away and leave the ambient where it was, and
+        /// reading both off one number would not let it.
+        /// </para>
+        /// </summary>
+        private void UpdateOvercast(float elapsedSeconds)
+        {
+            _clouds.Time = _pulseSeconds;
+
+            //Straight up from the middle of the arena, so the sample is simply where the arena stands —
+            //averaged over a patch about as wide as a cloud, since what lights the scene from above is how
+            //much of the sky is covered, not what happens to sit over one point of it
+            float overhead = _clouds.CoverAround(Vector2.Zero, OVERCAST_SAMPLE_RADIUS);
+
+            //Exponential, framed in seconds rather than as a per-frame constant, so the response does not
+            //change with the frame rate
+            _overcast = Microsoft.Xna.Framework.MathHelper.Lerp(_overcast, overhead, 1f - MathF.Exp(-elapsedSeconds / OVERCAST_RESPONSE_SECONDS));
+
+            ApplyLightRig();
+        }
+
         private void ComputeAimerPosition()
         {
             _aimerPos = new Vector2(GraphicsDevice.Viewport.Width / 2f - _aimer.Width / 2f, GraphicsDevice.Viewport.Height / 2f - _aimer.Height / 2f);
         }
+
+        /// <summary>
+        /// Everything about the clouds that does not change frame to frame. The per-frame half — the
+        /// clock and the camera — is set in <see cref="Draw"/>, right before the dome goes out.
+        /// </summary>
+        private void SetCloudParameters()
+        {
+            _skyEffect.Parameters["CloudDetailStrength"].SetValue(CLOUD_DETAIL_STRENGTH);
+
+            //The two cloud colors are not set here: they follow the dome, and ApplySkyLighting sets them
+            //every time it changes
+            _skyEffect.Parameters["CloudOpacity"].SetValue(CLOUD_OPACITY);
+            _skyEffect.Parameters["CloudHorizonFade"].SetValue(CLOUD_HORIZON_FADE);
+            _skyEffect.Parameters["CloudSunStep"].SetValue(CLOUD_SUN_STEP);
+            _skyEffect.Parameters["CloudSelfAbsorption"].SetValue(CLOUD_SELF_ABSORPTION);
+            _skyEffect.Parameters["CloudSunAbsorption"].SetValue(CLOUD_SUN_ABSORPTION);
+            _skyEffect.Parameters["CloudSilverStrength"].SetValue(CLOUD_SILVER_STRENGTH);
+            _skyEffect.Parameters["CloudSilverPower"].SetValue(CLOUD_SILVER_POWER);
+
+            //The rig's key light stands in for the sun, so the clouds are lit by whatever it is lit by,
+            //and the scene is shadowed along the very same direction
+            _skyEffect.Parameters["SunDirection"].SetValue(SUN_DIRECTION);
+            _instancingEffect.Parameters["SunDirection"].SetValue(SUN_DIRECTION);
+        }
+
+        /// <summary>
+        /// Towards the sun. Taken as a direction rather than from <c>KeyLightPosition</c>, which is a point
+        /// forty units off the middle of the arena: near enough that its direction fans right across the
+        /// scene, and cloud shadows have to arrive in parallel bands over a city hundreds of units wide.
+        /// </summary>
+        private static readonly Vector3 SUN_DIRECTION = -DefaultLighting.Light0Direction;
 
         private void SwitchSkyDome()
         {
@@ -1173,6 +1378,8 @@ namespace Testbed
             //who do not care whether the simulation is running
             _cityRenderer.CityWindowTime = _pulseSeconds;
 
+            UpdateOvercast((float)gameTime.ElapsedGameTime.TotalSeconds);
+
             if (_simulate)
             {
                 if (_slowSimulation) _simulation.Timestep(timeStep * Constants.HUNDREDTH, _threadDispatcher);
@@ -1323,6 +1530,15 @@ namespace Testbed
             //whole frame — but a clear color that is silently a different brightness than it reads is a
             //trap worth not leaving behind.
             GraphicsDevice.Clear(CLEAR_COLOR_LINEAR);
+
+            //The clouds run off the same wall clock the balls pulse to, so the weather keeps moving while
+            //the simulation is paused or slowed. Handed to both shaders from the one field, which is what
+            //keeps the cloud you look at and the shadow it throws the same cloud.
+            _clouds.Time = _pulseSeconds;
+            _clouds.ApplyTo(_skyEffect);
+            _clouds.ApplyTo(_instancingEffect);
+
+            _skyEffect.Parameters["CameraPosition"].SetValue(_camera.Position);
 
             _sky.Draw(_camera);
 

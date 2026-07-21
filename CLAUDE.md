@@ -68,6 +68,30 @@ Everything about the buildings is procedural and there are no assets; the marble
 
 Two things learned tuning it, both worth keeping in mind elsewhere. The **specular ambient is not multiplied by albedo** (a reflection does not care how dark the surface under it is), which is physically right but washes a whole skyline in sky color at grazing angles. Almost every facade of a city seen from inside it, and almost every square metre of a floor beyond your own feet, is at a grazing angle where Fresnel is near 1 — so the city runs the term at 0.07 and the marble floor at 0.4, and both were bleached white before that. And a translucent sheet over a lit city reads as *no floor at all*; the mullions dividing the glass into panels are what make the eye accept there is glass there.
 
+### The weather (Testbed)
+
+Procedural clouds that drift, shade the sky, throw shadows across the scene and flatten the light when they cover the sun. They live on **a flat plane at a finite altitude**, not as a texture on the dome, and that is the decision everything else follows from: a dome texture sits at infinity and casts no shadow anyone can derive from it, so what you look at and what shadows you would have to be two fields, and two fields drift apart. With a plane there is one field and three ray-plane intersections into it — the sky shader crosses it with the view ray, the scene shader with the sun ray, the CPU with the sun ray from the arena.
+
+The field is defined **once**, in `Testbed/Content/Shaders/Clouds.fxh` (`#include` works in the MonoGame content pipeline, and `.fxh` edits *do* trigger a rebuild of the `.fx` that includes them — both verified). It is split in two, and the split is what removes the usual CPU/GPU noise-synchronisation problem:
+
+- the **weather** layer is coarse, and mirrored in `Prazsky.Core.Render.CloudField` — the only part that exists twice. Its hash is built from `frac`/`dot`/multiply and no `sin`, because a sine-based hash is exactly where a C# and an HLSL copy would part company.
+- the **detail** layer is fine, lives only in the sky shader, and nothing the shadow or the light rig looks at ever touches it.
+
+`CloudField.ApplyTo(effect)` hands the shared parameters to both shaders, so the drawn cloud and the shadow it throws cannot be tuned apart by accident.
+
+Things that took a while to get right:
+
+- **Shading needs unclamped thickness, opacity needs the clamped one.** With one `saturate` for both, everything inside a cloud is exactly 1 and the interior comes out as a flat wash with a nice edge. `CloudThickness` runs past 1 on purpose.
+- **The ACES curve eats cloud contrast.** Two linear values close together up in the highlights tonemap to the same white, so the shadowed underside has to be *well* below the sunlit top (0.18 against 1.7), not a shade under it.
+- **Detail strength must be read against `CoverageGain`**, which is what the weather is multiplied by. At 0.55 against a gain of 2.8 the detail modulated the thickness by six percent and the clouds came out airbrushed.
+- **Cloud shadows plug into the existing `keyShadow`** in `ShadePixel` — one line, and balls, city, floor and cannon all get them, because they all come through there. They use the coarse layer alone: a shadow thrown from that height has a penumbra hundreds of units wide, so the fine octaves would not survive the trip anyway. `SunDirection` is a separate uniform, not `KeyLightPosition`, which is a point forty units out whose direction fans across the scene.
+- **The key light is dimmed per pixel by the shader, the ambient on the CPU, and never both.** Dimming the key on both sides counts the same cloud twice and darkens everything uniformly, which is the look this exists to avoid. Sun goes, sky stays: overcast reads *flat*, not dark.
+- **Ambient reads an area, not a point** (`CoverAround`, five taps). "How much sky is over me" is an average by definition, and a single tap lurches between 0 and solid every time a cloud edge crosses it — smoothing afterwards does not turn that back into the quantity that was wanted.
+- **Coverage is also the dial for whether the weather is noticeable at all**, which is a different question from whether it looks right: a handsome sky with a fifth of it covered leaves the arena in unbroken sun for minutes, because a shadow only lands when cloud happens to sit on the one patch its sun ray crosses.
+- **Cloud color follows the dome** (`ApplyCloudPalette`, re-run on every dome switch). A cloud has no color of its own — its lit side is the color of the sun and its underside the color of the sky — so the lit side takes the same tint the scene's key light takes (`SKY_TINT_STRENGTH`, shared with the rig, so the clouds are lit by literally the same light as everything under them) and the underside takes the zenith, harder (`CLOUD_SHADOW_TINT_STRENGTH`), since it sees no sun at all. One fixed white cloud over all eighteen domes read as a grey smear pasted onto turquoise day, blood-red dusk and near-black night alike; checking a change like this means a launch per dome (`sky=<n>`), because synthetic NumPad presses do not reach the window.
+
+Costs nothing measurable — 265–338 FPS on `Dense20x10x15` uncapped, the same CPU-physics ceiling as before. `SkyDome` takes an optional `Effect`; leave it null and it draws the plain gradient through `BasicEffect`, which is what the MapEditor does (it does not build `Sky.fx`, and the cloud shadow in `InstancedModel.fx` is stubbed out under `#if OPENGL`).
+
 ### Color management (Testbed)
 
 The Testbed renders in **linear radiance** and leaves it exactly once. The scene always draws into a half-float HDR `RenderTarget2D` (`_sceneTarget`, `SurfaceFormat.HdrBlendable`, sized backbuffer × `_supersampleFactor`), and `Tonemap.fx` resolves it in one full-screen pass: box filter over the supersampled block, exposure (`DEFAULT_EXPOSURE`, `exposure=<f>` to override), the ACES filmic curve, then sRGB encode. The text overlay and aimer draw after it, in display space.
