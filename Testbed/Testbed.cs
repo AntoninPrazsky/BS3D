@@ -88,39 +88,6 @@ namespace Testbed
         private SphereMesh[] _ballMeshes;
         private InstancedModelRenderer[] _ballRenderers;
 
-        #region Shadow mapping (issue #41)
-
-        private static readonly int SHADOW_MAP_SIZE = 2048;
-        private static readonly float SHADOW_STRENGTH = 0.4f;
-        private static readonly float SHADOW_AREA = 90f; //World units covered by the light's ortho projection and by the ground overlay quad
-
-        /// <summary>
-        /// Y of the quad receiving the shadows: just above the ground top (the ground box top sits at -9.5).
-        /// </summary>
-        private static readonly float SHADOW_OVERLAY_Y = -9.49f;
-
-        private RenderTarget2D _shadowMap;
-        private Microsoft.Xna.Framework.Matrix _lightViewProjection;
-        private Effect _shadowOverlayEffect;
-        private readonly VertexPosition[] _shadowOverlayVertices = new VertexPosition[4];
-        private static readonly short[] SHADOW_OVERLAY_INDICES = { 0, 1, 2, 2, 1, 3 };
-
-        #endregion
-
-        #region Contact AO blobs (the dark contact pool on the ground around resting balls)
-
-        private static readonly float BLOB_RADIUS = 1.1f;
-        private static readonly float BLOB_FADE_HEIGHT = 2.5f; //Measured from the ground plane; a resting ball center sits 0.5 above it
-        private static readonly float BLOB_STRENGTH = 0.4f;
-
-        private ModelInstance[] _blobInstances = new ModelInstance[256];
-        private int _blobInstanceCount;
-        private DynamicVertexBuffer _blobInstanceBuffer;
-        private VertexBuffer _blobQuadVertexBuffer;
-        private IndexBuffer _blobQuadIndexBuffer;
-
-        #endregion
-
         //One instance bucket per ball type and LOD level; each bucket becomes a single instanced draw call
         private readonly ModelInstance[][] _ballInstances = new ModelInstance[BALL_TYPE_COUNT * BALL_LOD_COUNT][];
         private readonly int[] _ballInstanceCounts = new int[BALL_TYPE_COUNT * BALL_LOD_COUNT];
@@ -163,7 +130,6 @@ namespace Testbed
         #region Scene object rendering (same lit shader as the balls, drawn one instance at a time)
 
         private Effect _instancingEffect;
-        private InstancedModelRenderer _groundRenderer;
         private InstancedModelRenderer _ceilingRenderer;
         private InstancedModelRenderer _cannonRenderer;
 
@@ -193,9 +159,9 @@ namespace Testbed
         private static readonly float GROUND_BLOCK_SIZE = 30f;
 
         /// <summary>
-        /// How many blocks the ground reaches from the center in each direction. It has to extend past
-        /// the castle backdrop (whose base reaches Z -95) and far enough beyond that its edge falls close
-        /// to the horizon. All the blocks are one instanced draw call, so the extent is nearly free.
+        /// How many blocks the physics ground reaches from the centre in each direction. The blocks are no
+        /// longer drawn (the city and the arena floor stand in for them); they remain only as the static
+        /// bodies the ball cluster settles onto.
         /// </summary>
         private static readonly int GROUND_BLOCK_RADIUS = 4;
 
@@ -204,10 +170,15 @@ namespace Testbed
 
         private static readonly float GROUND_PLATEAU_Y = -9f;
 
+        /// <summary>
+        /// Y just above the recessed centre block's top (its box top sits at -9.5). The balls' bellies and
+        /// the downward-facing parts of the scene objects darken as they approach it (ground-proximity
+        /// occlusion, handed to the shader as GroundHeight).
+        /// </summary>
+        private static readonly float GROUND_TOP_Y = -9.49f;
+
         /// <summary>The ground has no neighboring-cell occlusion; the shader still expects the vector.</summary>
         private static readonly Vector4 GROUND_NO_OCCLUSION = new(0f, 0f, 0f, 1f);
-
-        private ModelInstance[] _groundInstances;
 
         #endregion
 
@@ -233,6 +204,9 @@ namespace Testbed
         private SkyDome _sky;
         private Model _skyModel;
         private byte _skyModelNumber = 1;
+
+        /// <summary>Number of <c>Skyes/SkyDome*.dae</c> assets the game cycles through.</summary>
+        private const byte SKY_DOME_COUNT = 18;
 
         private ButtonAction[] _actions;
 
@@ -484,9 +458,9 @@ namespace Testbed
         private readonly float _exposure;
 
         private readonly bool _uncappedFps;
-        private static float GAME_FOV = (float)Math.PI / 3.1f;
-        private static float FREE_FOV = (float)Math.PI / 2.5f;
-        private static Vector3 DEFAULT_CAMERA_POS = new (0f, -3f, 30f);
+        private static readonly float GAME_FOV = (float)Math.PI / 3.1f;
+        private static readonly float FREE_FOV = (float)Math.PI / 2.5f;
+        private static readonly Vector3 DEFAULT_CAMERA_POS = new (0f, -3f, 30f);
 
         #endregion Graphics
 
@@ -513,15 +487,10 @@ namespace Testbed
 
         #endregion
 
-        #region Backdrops
-
-
-        #endregion
-
         #region Contacts
 
         private ContactEvents _events;
-        private EventHandler _eventHandler;
+        private BallContactEventHandler _eventHandler;
 
         #endregion
 
@@ -548,7 +517,7 @@ namespace Testbed
             _switchMapPath = switchMapPath;
             _uncappedFps = uncappedFps; //Testing: "nocap" on the command line disables vsync so real rendering headroom can be measured
             _supersampleFactor = Math.Clamp(supersampleFactor, 1, 4); //Testing: "ssaa=<n>" on the command line trades sharpness against fill rate
-            if (skyNumber >= 1 && skyNumber <= 18) _skyModelNumber = skyNumber; //Testing: "sky=<n>" on the command line picks the starting sky dome
+            if (skyNumber >= 1 && skyNumber <= SKY_DOME_COUNT) _skyModelNumber = skyNumber; //Testing: "sky=<n>" on the command line picks the starting sky dome
 
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;
@@ -688,80 +657,16 @@ namespace Testbed
                 _ballRenderers[lod].PulseWavelength = BALL_PULSE_WAVELENGTH;
             }
 
-            #region Shadow mapping
-
-            _shadowMap = new RenderTarget2D(GraphicsDevice, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, false, SurfaceFormat.Single, DepthFormat.Depth24);
-            _shadowOverlayEffect = Content.Load<Effect>("Shaders/ShadowOverlay");
-
             _tonemapEffect = Content.Load<Effect>("Shaders/Tonemap");
             _glareEffect = Content.Load<Effect>("Shaders/Glare");
             CreateFullScreenQuad();
 
-            //The key light is directional for shadow purposes; a fixed ortho box around the play field covers
-            //everything that can meaningfully cast or receive (the sun position used for shading lies on this axis)
-            _lightViewProjection =
-                Microsoft.Xna.Framework.Matrix.CreateLookAt(-DefaultLighting.Light0Direction * 60f, Vector3.Zero, Vector3.Up)
-                * Microsoft.Xna.Framework.Matrix.CreateOrthographic(SHADOW_AREA, SHADOW_AREA, 1f, 150f);
-
-            float half = SHADOW_AREA * Constants.HALF;
-            _shadowOverlayVertices[0] = new(new Vector3(-half, SHADOW_OVERLAY_Y, -half));
-            _shadowOverlayVertices[1] = new(new Vector3(half, SHADOW_OVERLAY_Y, -half));
-            _shadowOverlayVertices[2] = new(new Vector3(-half, SHADOW_OVERLAY_Y, half));
-            _shadowOverlayVertices[3] = new(new Vector3(half, SHADOW_OVERLAY_Y, half));
-
-            _shadowOverlayEffect.Parameters["World"].SetValue(Microsoft.Xna.Framework.Matrix.Identity);
-            _shadowOverlayEffect.Parameters["LightViewProjection"].SetValue(_lightViewProjection);
-            _shadowOverlayEffect.Parameters["ShadowStrength"].SetValue(SHADOW_STRENGTH);
-            _shadowOverlayEffect.Parameters["ShadowMapTexelSize"].SetValue(1f / SHADOW_MAP_SIZE);
-
-            #endregion
-
-            #region Contact AO blobs
-
-            _shadowOverlayEffect.Parameters["GroundY"].SetValue(SHADOW_OVERLAY_Y);
-            _shadowOverlayEffect.Parameters["BlobRadius"].SetValue(BLOB_RADIUS);
-            _shadowOverlayEffect.Parameters["BlobFadeHeight"].SetValue(BLOB_FADE_HEIGHT);
-            _shadowOverlayEffect.Parameters["BlobStrength"].SetValue(BLOB_STRENGTH);
-
-            //Unit quad in the XZ plane; the blob vertex shader scales and places it under each ball
-            _blobQuadVertexBuffer = new VertexBuffer(GraphicsDevice, VertexPosition.VertexDeclaration, 4, BufferUsage.WriteOnly);
-            _blobQuadVertexBuffer.SetData(new VertexPosition[]
-            {
-                new(new Vector3(-1f, 0f, -1f)),
-                new(new Vector3(1f, 0f, -1f)),
-                new(new Vector3(-1f, 0f, 1f)),
-                new(new Vector3(1f, 0f, 1f))
-            });
-            _blobQuadIndexBuffer = new IndexBuffer(GraphicsDevice, IndexElementSize.SixteenBits, SHADOW_OVERLAY_INDICES.Length, BufferUsage.WriteOnly);
-            _blobQuadIndexBuffer.SetData(SHADOW_OVERLAY_INDICES);
-
             //The ground counts into the balls' own ambient occlusion too (dark bellies near the ground)
-            foreach (InstancedModelRenderer ballRenderer in _ballRenderers) ballRenderer.GroundHeight = SHADOW_OVERLAY_Y;
-
-            #endregion
+            foreach (InstancedModelRenderer ballRenderer in _ballRenderers) ballRenderer.GroundHeight = GROUND_TOP_Y;
 
             #region Ground and ceiling
 
             _groundModel = Content.Load<Model>("GameObjects/GroundMarble");
-
-            _groundRenderer = new InstancedModelRenderer(GraphicsDevice, _groundModel, _instancingEffect);
-
-            //The marble texture drew the veining but left the slab geometrically perfect, so it lit like
-            //polished glass. A ball-sized grain gives the floor something for the low sun to rake across.
-            _groundRenderer.SurfaceReliefFrequency = 9f;
-            _groundRenderer.SurfaceReliefStrength = 0.008f;
-
-            //The floor is laid in slabs two balls across, and the joints between them are the only thing
-            //on it at a scale the eye reads as structure: at 8 mm the micro-relief is far too shallow for
-            //parallax or self-shadowing to show, while a 4 cm joint casts a real shadow and hides its own
-            //far wall as the camera moves. Everything below is measured against that joint.
-            _groundRenderer.SlabSize = 2f;
-            _groundRenderer.SlabJointWidth = 0.025f;
-            _groundRenderer.SlabJointDepth = 0.04f;
-
-            _groundRenderer.CavityStrength = 0.7f;
-            _groundRenderer.ReliefShadowStrength = 0.85f;
-            _groundRenderer.ParallaxScale = 1f;
 
             RecreateCeilingRenderer(DEFAULT_CEILING_SIZE, DEFAULT_CEILING_SIZE);
 
@@ -773,7 +678,7 @@ namespace Testbed
 
             #region Contact events
 
-            _eventHandler = new EventHandler(_simulation, _bufferPool, _events, _ceiling, _physicsBalls, _shotBalls, _fallingBalls);
+            _eventHandler = new BallContactEventHandler(_simulation, _events, _ceiling, _physicsBalls, _shotBalls, _fallingBalls);
             _events.Initialize(_simulation);
 
             #endregion
@@ -810,7 +715,7 @@ namespace Testbed
 
 
             //The ground darkens the downward-facing parts of the scene objects too, like the ball bellies
-            _cannonRenderer.GroundHeight = SHADOW_OVERLAY_Y;
+            _cannonRenderer.GroundHeight = GROUND_TOP_Y;
 
             _aimer = Content.Load<Texture2D>("Bitmaps/Aimer");
             _spriteBatch = new SpriteBatch(GraphicsDevice);
@@ -823,7 +728,7 @@ namespace Testbed
         }
 
         /// <summary>
-        /// Ambient intensity of the scene objects (ground, ceiling, cannon, castle). The sky tint itself
+        /// Ambient intensity of the scene objects (ceiling, cannon, city, arena floor). The sky tint itself
         /// comes from the hemisphere colors in the shader, so this stays a neutral gray.
         /// </summary>
         private static readonly float SCENE_AMBIENT_INTENSITY = 0.25f;
@@ -835,7 +740,6 @@ namespace Testbed
         {
             foreach (InstancedModelRenderer ballRenderer in _ballRenderers) yield return ballRenderer;
 
-            yield return _groundRenderer;
             yield return _ceilingRenderer;
             yield return _cannonRenderer;
             if (_cityRenderer != null) yield return _cityRenderer;
@@ -1007,7 +911,7 @@ namespace Testbed
 
         private void SwitchSkyDome()
         {
-            if (_skyModelNumber == 18) _skyModelNumber = default;
+            if (_skyModelNumber == SKY_DOME_COUNT) _skyModelNumber = default;
 
             _skyModelNumber++;
             _skyModel = Content.Load<Model>("Skyes/SkyDome" + _skyModelNumber);
@@ -1176,10 +1080,6 @@ namespace Testbed
                     _staticBodies.Add(new(_groundModel, CreateStatic(new(x * GROUND_BLOCK_SIZE, y, z * GROUND_BLOCK_SIZE), groundBox)));
                 }
 
-            //All the blocks share one model, so they go out as a single instanced draw call
-            _groundInstances = new ModelInstance[_staticBodies.Count];
-            for (int i = 0; i < _staticBodies.Count; i++) _groundInstances[i] = new ModelInstance(_staticBodies[i].World, GROUND_NO_OCCLUSION);
-
             Box box = new(DEFAULT_CEILING_SIZE, 1f, DEFAULT_CEILING_SIZE);
             TypedIndex boxShapeIndex = _simulation.Shapes.Add(box);
             _ceilingShapeIndex = boxShapeIndex;
@@ -1307,7 +1207,7 @@ namespace Testbed
 
         /// <summary>
         /// Removes the bodies of the given balls from the simulation and clears the list
-        /// (the list instance is shared with <see cref="EventHandler"/>, so it must be cleared, not replaced).
+        /// (the list instance is shared with <see cref="BallContactEventHandler"/>, so it must be cleared, not replaced).
         /// </summary>
         private void RemoveDynamicBalls(List<PhysicsBall> balls, bool unregisterListeners)
         {
@@ -1481,12 +1381,6 @@ namespace Testbed
             base.Update(gameTime);
         }
 
-        private void RemoveAllStatics()
-        {
-            foreach (var staticBody in _staticBodies) _simulation.Statics.Remove(staticBody.StaticReference.Handle);
-            _staticBodies.Clear();
-        }
-
         /// <summary>
         /// Debug action (End): releases the whole hanging structure at once. The balls move into
         /// <see cref="_fallingBalls"/>, so <see cref="RemoveFallenBalls"/> culls them once they come
@@ -1518,7 +1412,6 @@ namespace Testbed
             if (_draw)
             {
                 CollectBallInstances((float)gameTime.ElapsedGameTime.TotalSeconds);
-                DrawBallsShadowMap(); //Must run before anything touches the backbuffer
             }
 
             //The scene goes through the HDR target; the aimer and the text overlay are drawn after the
@@ -1581,14 +1474,12 @@ namespace Testbed
 
         /// <summary>
         /// Gathers the instance data of all balls (map structure, shot and falling ones) into the
-        /// per-type-and-LOD buckets used by both the shadow map pass and the visible pass.
-        /// No camera frustum culling: balls outside the view must still cast shadows into it
-        /// (and measurements showed the culling saved nothing on this scene anyway).
+        /// per-type-and-LOD buckets drawn by the instanced pass. No camera frustum culling:
+        /// measurements showed it saved nothing on this scene.
         /// </summary>
         private void CollectBallInstances(float elapsedSeconds)
         {
             for (int i = 0; i < _ballInstanceCounts.Length; i++) _ballInstanceCounts[i] = 0;
-            _blobInstanceCount = 0;
             for (int i = 0; i < BALL_LOD_COUNT; i++) _ballLodTotals[i] = 0;
             _collectedBalls = 0;
 
@@ -1642,24 +1533,6 @@ namespace Testbed
         private static Vector4 ToXna(System.Numerics.Vector4 vector) => new(vector.X, vector.Y, vector.Z, vector.W);
 
         /// <summary>
-        /// Renders all collected ball instances into the shadow map from the key light's point of view.
-        /// </summary>
-        private void DrawBallsShadowMap()
-        {
-            GraphicsDevice.SetRenderTarget(_shadowMap);
-            GraphicsDevice.Clear(Color.White); //1 in the red channel = the far plane
-
-            for (int lod = 0; lod < BALL_LOD_COUNT; lod++)
-                for (int typeIndex = 0; typeIndex < BALL_TYPE_COUNT; typeIndex++)
-                {
-                    int bucketIndex = typeIndex * BALL_LOD_COUNT + lod;
-                    _ballRenderers[lod].DrawDepth(_lightViewProjection, _ballInstances[bucketIndex], _ballInstanceCounts[bucketIndex]);
-                }
-
-            GraphicsDevice.SetRenderTarget(null);
-        }
-
-        /// <summary>
         /// Draws all collected ball instances with GPU instancing: one draw call per ball type and LOD level.
         /// </summary>
         private void DrawBallsInstanced()
@@ -1678,57 +1551,6 @@ namespace Testbed
                         BasicEffectParamsProvider.GetEffectByType((BallType)(typeIndex + 1)),
                         BasicEffectParamsProvider.GetDiffuseTintByType((BallType)(typeIndex + 1)));
                 }
-        }
-
-        /// <summary>
-        /// Darkens the ground where the balls block the key light: a translucent quad on the ground plane
-        /// sampling the shadow map, so the ground keeps its own material and lighting.
-        /// </summary>
-        private void DrawShadowOverlay()
-        {
-            _shadowOverlayEffect.Parameters["ViewProjection"].SetValue(_camera.View * _camera.Projection);
-            _shadowOverlayEffect.Parameters["ShadowMap"].SetValue(_shadowMap);
-
-            GraphicsDevice.BlendState = BlendState.AlphaBlend;
-            GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead; //Test against the scene, but do not write
-            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _shadowOverlayEffect.CurrentTechnique = _shadowOverlayEffect.Techniques["ShadowOverlay"];
-            _shadowOverlayEffect.CurrentTechnique.Passes[0].Apply();
-            GraphicsDevice.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, _shadowOverlayVertices, 0, 4, SHADOW_OVERLAY_INDICES, 0, 2);
-
-            DrawContactBlobs();
-
-            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Instanced radial darkening of the ground under every ball close to it (contact ambient occlusion).
-        /// Overlapping blobs accumulate, so groups of resting balls pool into one dark contact area.
-        /// Expects the blend, depth and rasterizer states set by <see cref="DrawShadowOverlay"/>.
-        /// </summary>
-        private void DrawContactBlobs()
-        {
-            if (_blobInstanceCount == 0) return;
-
-            if (_blobInstanceBuffer == null || _blobInstanceBuffer.VertexCount < _blobInstances.Length)
-            {
-                _blobInstanceBuffer?.Dispose();
-                _blobInstanceBuffer = new DynamicVertexBuffer(GraphicsDevice, ModelInstance.VertexDeclaration, _blobInstances.Length, BufferUsage.WriteOnly);
-            }
-
-            _blobInstanceBuffer.SetData(_blobInstances, 0, _blobInstanceCount, SetDataOptions.Discard);
-
-            _shadowOverlayEffect.CurrentTechnique = _shadowOverlayEffect.Techniques["ContactBlobs"];
-
-            GraphicsDevice.SetVertexBuffers(
-                new VertexBufferBinding(_blobQuadVertexBuffer, 0, 0),
-                new VertexBufferBinding(_blobInstanceBuffer, 0, 1));
-            GraphicsDevice.Indices = _blobQuadIndexBuffer;
-
-            _shadowOverlayEffect.CurrentTechnique.Passes[0].Apply();
-            GraphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, 2, _blobInstanceCount);
         }
 
         /// <summary>
@@ -1796,13 +1618,6 @@ namespace Testbed
 
             bucket[count] = new ModelInstance(world, occlusionData);
             _ballInstanceCounts[bucketIndex] = count + 1;
-
-            //Balls close to the ground also darken it with a contact AO blob
-            if (position.Y - SHADOW_OVERLAY_Y < BLOB_FADE_HEIGHT)
-            {
-                if (_blobInstanceCount == _blobInstances.Length) Array.Resize(ref _blobInstances, _blobInstances.Length * 2);
-                _blobInstances[_blobInstanceCount++] = bucket[count];
-            }
         }
 
         private void SetGraphics(bool windowed = false)
@@ -2035,10 +1850,9 @@ namespace Testbed
     #region Contact event
 
     //WIP
-    public class EventHandler : IContactEventHandler
+    public class BallContactEventHandler : IContactEventHandler
     {
         public Simulation Simulation;
-        public BufferPool Pool;
         private ContactEvents _contactEvents;
         private KinematicBody _ceiling;
         public BallsMap Map;
@@ -2046,10 +1860,9 @@ namespace Testbed
         public List<PhysicsBall> ShotBalls;
         public List<PhysicsBall> FallingBalls;
 
-        public EventHandler(Simulation simulation, BufferPool pool, ContactEvents contactEvents, KinematicBody ceiling, PhysicsBall[,,] physicsBalls, List<PhysicsBall> shotBalls, List<PhysicsBall> fallingBalls)
+        public BallContactEventHandler(Simulation simulation, ContactEvents contactEvents, KinematicBody ceiling, PhysicsBall[,,] physicsBalls, List<PhysicsBall> shotBalls, List<PhysicsBall> fallingBalls)
         {
             Simulation = simulation;
-            Pool = pool;
             _contactEvents = contactEvents;
             _ceiling = ceiling;
             PhysicsBalls = physicsBalls;
@@ -2264,11 +2077,10 @@ namespace Testbed
         void OnTouching<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold> { }
         void OnStoppedTouching<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold> { }
         void OnPairCreated<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold> { }
-        //void OnPairUpdated<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold> { }
         void OnPairEnded(CollidableReference eventSource, CollidablePair pair) { }
-
-        #endregion
     }
+
+    #endregion
 }
 
 /*

@@ -246,13 +246,13 @@ namespace Prazsky.Core
 			for (int i = 0; i < skyDomeModelMeshesCount; i++)
 			{
 				int effectsCount = _skyDomeModel.Meshes[i].Effects.Count;
-				for (int y = 0; y < effectsCount; y++)
+				for (int j = 0; j < effectsCount; j++)
 				{
 					Matrix worldMatrix = _skyDomeTransforms[_skyDomeModel.Meshes[i].ParentBone.Index] * Matrix.CreateTranslation(camera.Position);
 
-					((BasicEffect)_skyDomeModel.Meshes[i].Effects[y]).World = _skyDomeTransforms[_skyDomeModel.Meshes[i].ParentBone.Index] * worldMatrix;
-					((BasicEffect)_skyDomeModel.Meshes[i].Effects[y]).View = camera.View;
-					((BasicEffect)_skyDomeModel.Meshes[i].Effects[y]).Projection = camera.Projection;
+					((BasicEffect)_skyDomeModel.Meshes[i].Effects[j]).World = _skyDomeTransforms[_skyDomeModel.Meshes[i].ParentBone.Index] * worldMatrix;
+					((BasicEffect)_skyDomeModel.Meshes[i].Effects[j]).View = camera.View;
+					((BasicEffect)_skyDomeModel.Meshes[i].Effects[j]).Projection = camera.Projection;
 				}
 				_skyDomeModel.Meshes[i].Draw();
 			}

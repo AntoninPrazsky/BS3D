@@ -48,7 +48,7 @@ namespace Prazsky.Core.Render
                             effect.SpecularColor = basicEffectParams.SpecularColor;
                             effect.SpecularPower = basicEffectParams.SpecularPower;
                         }
-                        if (basicEffectParams.EmmisiveColor != Vector3.Zero) effect.EmissiveColor = basicEffectParams.EmmisiveColor;
+                        if (basicEffectParams.EmissiveColor != Vector3.Zero) effect.EmissiveColor = basicEffectParams.EmissiveColor;
 
                         if (basicEffectParams.DirectionalLight0 != null)
                         {

@@ -27,6 +27,9 @@ namespace Prazsky.BS3D.Input
         private bool _mouseRotationMode = false;
         private float _cameraSpeed = Constants.ONE;
 
+        //How much faster the camera flies while LeftShift is held
+        private const float SPRINT_MULTIPLIER = 3f;
+
         #endregion Controls
 
         #region Animation
@@ -107,7 +110,7 @@ namespace Prazsky.BS3D.Input
             #region Keyboard
 
             _cameraSpeed = Constants.ONE;
-            if (Keyboard.GetState().IsKeyDown(Keys.LeftShift)) _cameraSpeed = Constants.ONE * 3f;
+            if (Keyboard.GetState().IsKeyDown(Keys.LeftShift)) _cameraSpeed = Constants.ONE * SPRINT_MULTIPLIER;
 
             if (Keyboard.GetState().IsKeyDown(Keys.W)) _camera.Move(0, 0f, -_cameraSpeed, gameTime);
             if (Keyboard.GetState().IsKeyDown(Keys.S)) _camera.Move(0, 0f, _cameraSpeed, gameTime);

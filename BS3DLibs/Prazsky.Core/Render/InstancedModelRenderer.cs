@@ -38,6 +38,7 @@ namespace Prazsky.Core.Render
         private readonly Effect _effect;
         private readonly MeshPartData[] _parts;
         private DynamicVertexBuffer _instanceBuffer;
+        private readonly ModelInstance[] _singleInstance = new ModelInstance[1];
 
         private EffectParameter _viewParam;
         private EffectParameter _projectionParam;
@@ -295,6 +296,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         public Vector3 PulseDirection { get; set; } = Vector3.Up;
 
+        /// <summary>How many world units one beat of the emissive pulse spans along <see cref="PulseDirection"/>.</summary>
         public float PulseWavelength { get; set; } = 12f;
 
         /// <summary>
@@ -531,11 +533,6 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Tints the default three-light rig, e.g. by the sky dome palette: the key and fill lights
-        /// (the "sun" side) by <paramref name="keyTint"/>, the back light by <paramref name="backTint"/>.
-        /// White tints reproduce the untinted <see cref="BasicEffect"/> default lighting.
-        /// </summary>
-        /// <summary>
         /// Whether the caller renders into a linear HDR target and tonemaps at the end of the frame (the
         /// Testbed) or draws in gamma space straight to an 8-bit back buffer (the map editor). It decides
         /// whether the light rig is decoded out of its sRGB authoring before the tints are applied.
@@ -543,6 +540,11 @@ namespace Prazsky.Core.Render
         /// </summary>
         public bool LinearLightRig { get; set; }
 
+        /// <summary>
+        /// Tints the default three-light rig, e.g. by the sky dome palette: the key and fill lights
+        /// (the "sun" side) by <paramref name="keyTint"/>, the back light by <paramref name="backTint"/>.
+        /// White tints reproduce the untinted <see cref="BasicEffect"/> default lighting.
+        /// </summary>
         /// <param name="keyTint">Tint of the key and fill lights, in the space <see cref="LinearLightRig"/> selects.</param>
         /// <param name="backTint">Tint of the back light, in that same space.</param>
         /// <remarks>
@@ -600,7 +602,7 @@ namespace Prazsky.Core.Render
                     specularColor = effectParams.SpecularColor;
                     specularPower = effectParams.SpecularPower;
                 }
-                if (effectParams.EmmisiveColor != Vector3.Zero) emissiveColor = effectParams.EmmisiveColor;
+                if (effectParams.EmissiveColor != Vector3.Zero) emissiveColor = effectParams.EmissiveColor;
             }
 
             _skyColorParam.SetValue(SkyColor);
@@ -660,66 +662,7 @@ namespace Prazsky.Core.Render
                 _specularColorParam.SetValue(overrideSpecular ? specularColor : part.SpecularColor);
                 _specularPowerParam.SetValue(overrideSpecular ? specularPower : part.SpecularPower);
 
-                //Mesh parts with their own texture sample it through UVs; parts of a UV-less model
-                //can get a triplanar world-space detail texture instead (opaque parts only)
-                if (CityWindowBrightness > 0f)
-                {
-                    //A city building: no texture, no UVs, its facade drawn from world position
-                    _effect.CurrentTechnique = _cityTechnique;
-                    _cityWindowBrightnessParam.SetValue(CityWindowBrightness);
-                    _cityWindowTimeParam.SetValue(CityWindowTime);
-                }
-                else if (part.Texture != null)
-                {
-                    _effect.CurrentTechnique = _texturedTechnique;
-                    _textureParam.SetValue(part.Texture);
-                }
-                else if (usePattern)
-                {
-                    _effect.CurrentTechnique = _patternTechnique;
-                    _patternPrimaryColorParam.SetValue(diffuseTint ?? Vector3.One);
-                    _patternSecondaryColorParam.SetValue(PatternSecondaryColor);
-                    _patternGoreCountParam.SetValue((float)PatternGoreCount);
-
-                    //Thresholding sin(azimuth) at -cos(pi * width) hands the primary gore exactly that
-                    //fraction of each pair of segments; the even split lands on zero, as before
-                    _patternGoreThresholdParam.SetValue(-MathF.Cos(MathF.PI * PatternGoreWidth));
-                    _patternCapExtentParam.SetValue(PatternCapExtent);
-                    _patternReliefStrengthParam.SetValue(PatternReliefStrength);
-                    _patternSheenStrengthParam.SetValue(PatternSheenStrength);
-                    _emissiveStrengthParam.SetValue(EmissiveStrength);
-                    _translucencyStrengthParam.SetValue(TranslucencyStrength);
-                    _pulseTimeParam.SetValue(PulseTime);
-                    _pulseSpeedParam.SetValue(PulseSpeed);
-                    _pulseDepthParam.SetValue(PulseDepth);
-                    _pulseDirectionParam.SetValue(PulseDirection);
-                    _pulseWavelengthParam.SetValue(PulseWavelength);
-                }
-                else if (DetailTexture != null && part.DiffuseColor.W >= 1f)
-                {
-                    bool useModelUVs = DetailTextureMapping == DetailMapping.ModelUVs;
-                    bool useNormalMap = useModelUVs && DetailNormalMap != null;
-
-                    _effect.CurrentTechnique = useNormalMap ? _detailUVNormalTechnique
-                        : useModelUVs ? _detailUVTechnique
-                        : _triplanarTechnique;
-
-                    _textureParam.SetValue(DetailTexture);
-                    _detailScaleParam.SetValue(DetailScale);
-                    _detailStrengthParam.SetValue(DetailStrength);
-                    _detailBoostParam.SetValue(DetailBoost);
-                    _masonryStrengthParam.SetValue(MasonryStrength);
-
-                    if (useNormalMap)
-                    {
-                        _normalMapParam.SetValue(DetailNormalMap);
-                        _normalStrengthParam.SetValue(DetailNormalStrength);
-                    }
-                }
-                else
-                {
-                    _effect.CurrentTechnique = _mainTechnique;
-                }
+                SelectTechniqueAndParameters(in part, usePattern, diffuseTint);
 
                 _graphicsDevice.SetVertexBuffers(
                     new VertexBufferBinding(part.VertexBuffer, part.VertexOffset, 0),
@@ -734,7 +677,74 @@ namespace Prazsky.Core.Render
             _effect.CurrentTechnique = _mainTechnique;
         }
 
-        private readonly ModelInstance[] _singleInstance = new ModelInstance[1];
+        /// <summary>
+        /// Picks the technique for one mesh part and sets the parameters that technique reads. The branches
+        /// are mutually exclusive: a city facade, a UV-textured part, the beach-ball pattern, a detail-textured
+        /// part (triplanar or through the model's own UVs), or the plain lit material.
+        /// </summary>
+        private void SelectTechniqueAndParameters(in MeshPartData part, bool usePattern, Vector3? diffuseTint)
+        {
+            //Mesh parts with their own texture sample it through UVs; parts of a UV-less model
+            //can get a triplanar world-space detail texture instead (opaque parts only)
+            if (CityWindowBrightness > 0f)
+            {
+                //A city building: no texture, no UVs, its facade drawn from world position
+                _effect.CurrentTechnique = _cityTechnique;
+                _cityWindowBrightnessParam.SetValue(CityWindowBrightness);
+                _cityWindowTimeParam.SetValue(CityWindowTime);
+            }
+            else if (part.Texture != null)
+            {
+                _effect.CurrentTechnique = _texturedTechnique;
+                _textureParam.SetValue(part.Texture);
+            }
+            else if (usePattern)
+            {
+                _effect.CurrentTechnique = _patternTechnique;
+                _patternPrimaryColorParam.SetValue(diffuseTint ?? Vector3.One);
+                _patternSecondaryColorParam.SetValue(PatternSecondaryColor);
+                _patternGoreCountParam.SetValue((float)PatternGoreCount);
+
+                //Thresholding sin(azimuth) at -cos(pi * width) hands the primary gore exactly that
+                //fraction of each pair of segments; the even split lands on zero, as before
+                _patternGoreThresholdParam.SetValue(-MathF.Cos(MathF.PI * PatternGoreWidth));
+                _patternCapExtentParam.SetValue(PatternCapExtent);
+                _patternReliefStrengthParam.SetValue(PatternReliefStrength);
+                _patternSheenStrengthParam.SetValue(PatternSheenStrength);
+                _emissiveStrengthParam.SetValue(EmissiveStrength);
+                _translucencyStrengthParam.SetValue(TranslucencyStrength);
+                _pulseTimeParam.SetValue(PulseTime);
+                _pulseSpeedParam.SetValue(PulseSpeed);
+                _pulseDepthParam.SetValue(PulseDepth);
+                _pulseDirectionParam.SetValue(PulseDirection);
+                _pulseWavelengthParam.SetValue(PulseWavelength);
+            }
+            else if (DetailTexture != null && part.DiffuseColor.W >= 1f)
+            {
+                bool useModelUVs = DetailTextureMapping == DetailMapping.ModelUVs;
+                bool useNormalMap = useModelUVs && DetailNormalMap != null;
+
+                _effect.CurrentTechnique = useNormalMap ? _detailUVNormalTechnique
+                    : useModelUVs ? _detailUVTechnique
+                    : _triplanarTechnique;
+
+                _textureParam.SetValue(DetailTexture);
+                _detailScaleParam.SetValue(DetailScale);
+                _detailStrengthParam.SetValue(DetailStrength);
+                _detailBoostParam.SetValue(DetailBoost);
+                _masonryStrengthParam.SetValue(MasonryStrength);
+
+                if (useNormalMap)
+                {
+                    _normalMapParam.SetValue(DetailNormalMap);
+                    _normalStrengthParam.SetValue(DetailNormalStrength);
+                }
+            }
+            else
+            {
+                _effect.CurrentTechnique = _mainTechnique;
+            }
+        }
 
         /// <summary>
         /// Draws a single instance of the model at the given world matrix, with no ambient occlusion.

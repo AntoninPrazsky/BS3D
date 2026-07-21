@@ -127,10 +127,11 @@ namespace Prazsky.BS3D.GameStructure
 
             if (isShifted) uncentered = new Vector3(uncentered.X - Constants.HALF, uncentered.Y, uncentered.Z - Constants.HALF);
 
+            //Convert.ToByte rounds to nearest, so [-0.5, byte.MaxValue + 0.5) is exactly the range that
+            //maps to a valid byte without overflowing
             if (uncentered.X < -0.5f || uncentered.X >= 255.5f || uncentered.Z < -0.5f || uncentered.Z >= 255.5f) return new Vector3(float.MinValue);
 
             byte x = Convert.ToByte(uncentered.X);
-            //byte y = Convert.ToByte(uncentered.Y);
             byte z = Convert.ToByte(uncentered.Z);
 
             arrayPosition.X = x;
@@ -483,15 +484,13 @@ namespace Prazsky.BS3D.GameStructure
                 position.Z + BoundingBoxCenter.Y + BALL_RADIUS);
         }
 
-        private Vector3 ComputeCentered(Vector3 position)
-        {
-            if (!Centered) return position;
+        private Vector3 ComputeCentered(Vector3 position) => Centered ? ApplyCenterOffset(position) : position;
 
-            return new(
-                position.X - BoundingBoxCenter.X - BALL_RADIUS,
-                position.Y,
-                position.Z - BoundingBoxCenter.Y - BALL_RADIUS);
-        }
+        /// <summary>Translates a raw grid-frame position into the centered world frame.</summary>
+        private Vector3 ApplyCenterOffset(Vector3 position) => new(
+            position.X - BoundingBoxCenter.X - BALL_RADIUS,
+            position.Y,
+            position.Z - BoundingBoxCenter.Y - BALL_RADIUS);
 
         public void Center()
         {
@@ -528,13 +527,7 @@ namespace Prazsky.BS3D.GameStructure
                 for (byte x = 0; x < StageSizeX; x++)
                     for (byte z = 0; z < StageSizeZ; z++)
                         if (_balls[x, z, level] != null)
-                        {
-                            _balls[x, z, level].Position = new(
-                                _balls[x, z, level].Position.X - BoundingBoxCenter.X - BALL_RADIUS,
-                                _balls[x, z, level].Position.Y,
-                                _balls[x, z, level].Position.Z - BoundingBoxCenter.Y - BALL_RADIUS
-                                );
-                        }
+                            _balls[x, z, level].Position = ApplyCenterOffset(_balls[x, z, level].Position);
 
             Centered = true;
         }

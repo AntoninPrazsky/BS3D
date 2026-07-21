@@ -27,8 +27,8 @@ namespace Prazsky.Core.Render
         private Texture2D _iconTexture;
         private Vector2 _iconPosition;
 
-        private readonly float SCALE_DIVISOR = 2160f;
-        private readonly float SHADOW_OFFSET = 2.5f;
+        private const float SCALE_DIVISOR = 2160f;
+        private const float SHADOW_OFFSET = 2.5f;
         private float _scale = 1f;
 
         public string CustomText { get; set; }

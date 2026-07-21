@@ -12,10 +12,10 @@ namespace Testbed
 
         /// <param name="model">Model drawn through <see cref="Object3D.Draw(Prazsky.Core.Camera.ICamera)"/>;
         /// null for bodies drawn some other way (e.g. the ceiling, a procedurally generated mesh).</param>
-        public KinematicBody(Model model, BodyReference staticReference, BodyHandle bodyHandle, Vector3? modelScale = null)
+        public KinematicBody(Model model, BodyReference bodyReference, BodyHandle bodyHandle, Vector3? modelScale = null)
         {
             Model = model;
-            BodyReference = staticReference;
+            BodyReference = bodyReference;
             BodyHandle = bodyHandle;
 
             if (model != null)
@@ -26,12 +26,8 @@ namespace Testbed
 
             World = Matrix.CreateScale(modelScale ?? Vector3.One)
                 * Matrix.CreateFromQuaternion(
-                new Quaternion(staticReference.Pose.Orientation.X, staticReference.Pose.Orientation.Y, staticReference.Pose.Orientation.Z, staticReference.Pose.Orientation.W))
-                * Matrix.CreateTranslation(staticReference.Pose.Position.X, staticReference.Pose.Position.Y, staticReference.Pose.Position.Z);
-
-            //Position = new Vector3(staticReference.Pose.Position.X, staticReference.Pose.Position.Y, staticReference.Pose.Position.Z);
-            //BoundingSphere = Geometry.GetBoundingSphere(Model);
-            //BoundingSphere = new BoundingSphere(Position, BoundingSphere.Radius);
+                new Quaternion(bodyReference.Pose.Orientation.X, bodyReference.Pose.Orientation.Y, bodyReference.Pose.Orientation.Z, bodyReference.Pose.Orientation.W))
+                * Matrix.CreateTranslation(bodyReference.Pose.Position.X, bodyReference.Pose.Position.Y, bodyReference.Pose.Position.Z);
         }
     }
 }

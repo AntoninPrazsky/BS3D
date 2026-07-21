@@ -130,7 +130,7 @@ namespace Prazsky.Core.Render
                 throw new ArgumentException(
                         string.Format("The height of the resulting bitmap background ({0}) exceeds the maximum allowed value ({1}). Use a smaller model or reduce the value of parameter {2} ({3}).",
                         calculatedSize.Y,
-                        MAX_BITMAP_WIDTH,
+                        MAX_BITMAP_HEIGHT,
                         nameof(bitmapScale),
                         bitmapScale));
 

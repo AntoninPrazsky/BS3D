@@ -95,8 +95,9 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Adds an axis-aligned box given by its two opposite corners, with the same counter-clockwise
-        /// (viewed from outside) winding as <see cref="BoxMesh"/>.
+        /// Adds an axis-aligned box given by its two opposite corners. Its triangles are wound (0,1,2 /
+        /// 0,2,3) — the opposite order to <see cref="BoxMesh"/> — so the faces front towards the inside of
+        /// the outline the camera sits within.
         /// </summary>
         private void AddBox(Vector3 min, Vector3 max)
         {

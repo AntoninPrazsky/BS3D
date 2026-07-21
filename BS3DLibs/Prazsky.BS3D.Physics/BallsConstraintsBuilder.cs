@@ -20,9 +20,14 @@ namespace Prazsky.BS3D.Physics
         /// <summary>
         /// Threshold of squared velocity under which the body is allowed to go to sleep.
         /// </summary>
-        private static readonly float SLEEP_TRESHOLD = Constants.HUNDREDTH;
+        private static readonly float SLEEP_THRESHOLD = Constants.HUNDREDTH;
 
         public static readonly SpringSettings SPRING_SETTINGS = new(frequency: 15f, dampingRatio: 1f);
+
+        /// <summary>
+        /// Minimum number of touching same-type balls required for the cluster to be released.
+        /// </summary>
+        public static readonly int MINIMUM_CLUSTER_SIZE = 3;
 
         private static Simulation _sphereShapeSimulation;
         private static TypedIndex _sphereShapeIndex;
@@ -60,7 +65,7 @@ namespace Prazsky.BS3D.Physics
             BodyInertia bodyInertia = new Sphere(BALL_RADIUS).ComputeInertia(BALL_MASS);
 
             CollidableDescription collidableDescription = new(GetSphereShapeIndex(simulation), SPECULATIVE_MARGIN);
-            BodyActivityDescription bodyActivityDescription = new(SLEEP_TRESHOLD);
+            BodyActivityDescription bodyActivityDescription = new(SLEEP_THRESHOLD);
 
             for (byte level = 0; level < size.Level; level++)
             {
@@ -143,11 +148,6 @@ namespace Prazsky.BS3D.Physics
 
             return occupied;
         }
-
-        /// <summary>
-        /// Minimum number of touching same-type balls required for the cluster to be released.
-        /// </summary>
-        public static readonly int MINIMUM_CLUSTER_SIZE = 3;
 
         /// <summary>
         /// Checks whether the freshly attached ball completed a cluster of at least <see cref="MINIMUM_CLUSTER_SIZE"/>

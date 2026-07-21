@@ -2,14 +2,11 @@
 {
     public enum BallType : byte
     {
-        //None = 0,
         Type1 = 1,
         Type2 = 2,
         Type3 = 3,
         Type4 = 4,
-        //Type5 = 5,
-        //Type6 = 6,
-        //Type7 = 7,
-        //Type8 = 8
+
+        // Values 0 and 5-8 are reserved for future ball types; only 1-4 are in use.
     }
 }

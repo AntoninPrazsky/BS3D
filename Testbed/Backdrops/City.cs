@@ -64,6 +64,9 @@ namespace Testbed.Backdrops
 
         private const float UNDER_ARENA_SPREAD = 90f;
 
+        /// <summary>The city has no neighboring-cell occlusion; the shader still expects the vector.</summary>
+        private static readonly Vector4 NO_OCCLUSION = new(0f, 0f, 0f, 1f);
+
         /// <param name="seed">Layout seed; the same seed always gives the same city.</param>
         /// <param name="arenaHalfExtent">
         /// Half-width of the play surface. Blocks whose footprint would reach into it are left out, so
@@ -136,8 +139,5 @@ namespace Testbed.Backdrops
 
             Buildings = buildings.ToArray();
         }
-
-        /// <summary>The city has no neighboring-cell occlusion; the shader still expects the vector.</summary>
-        private static readonly Vector4 NO_OCCLUSION = new(0f, 0f, 0f, 1f);
     }
 }

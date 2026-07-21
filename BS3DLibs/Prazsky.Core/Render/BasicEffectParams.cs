@@ -13,7 +13,7 @@ namespace Prazsky.Core.Render
         /// <param name="ambientLightColor">Ambient light color.</param>
         /// <param name="specularColor">Specular color.</param>
         /// <param name="specularPower">Specular power.</param>
-        /// <param name="emmisiveColor">The color of the emitted light.</param>
+        /// <param name="emissiveColor">The color of the emitted light.</param>
         /// <param name="directionalLight0">Parameters of the first directional light.</param>
         /// <param name="directionalLight1">Parameters of the second directional light.</param>
         /// <param name="directionalLight2">Parameters of the third directional light.</param>
@@ -22,7 +22,7 @@ namespace Prazsky.Core.Render
 				Vector3 ambientLightColor,
 				Vector3 specularColor,
 				float specularPower,
-				Vector3 emmisiveColor,
+				Vector3 emissiveColor,
 				DirectionalLightParams directionalLight0 = null,
 				DirectionalLightParams directionalLight1 = null,
 				DirectionalLightParams directionalLight2 = null,
@@ -31,7 +31,7 @@ namespace Prazsky.Core.Render
 			AmbientLightColor = ambientLightColor;
 			SpecularColor = specularColor;
 			SpecularPower = specularPower;
-			EmmisiveColor = emmisiveColor;
+			EmissiveColor = emissiveColor;
 			DirectionalLight0 = directionalLight0;
 			DirectionalLight1 = directionalLight1;
 			DirectionalLight2 = directionalLight2;
@@ -56,7 +56,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The color of the emitted light.
         /// </summary>
-        public Vector3 EmmisiveColor { get; set; }
+        public Vector3 EmissiveColor { get; set; }
 
         /// <summary>
         /// Parameters of the first directional light.
@@ -122,9 +122,9 @@ namespace Prazsky.Core.Render
         /// Fog effect parameters.
         /// </summary>
         /// <param name="fogColor">The color of the fog.</param>
-        /// <param name="fogStart">The beginning of fog in a 3D world as the distance from the camera (<see cref="Simulation.Camera.ICamera"/>).
+        /// <param name="fogStart">The beginning of fog in a 3D world as the distance from the camera (<see cref="Prazsky.Core.Camera.ICamera"/>).
         /// Objects in front of this distance are fully visible.</param>
-        /// <param name="fogEnd">The end of the fog in the 3D world as the distance from the camera (<see cref="Simulation.Camera.ICamera"/>).
+        /// <param name="fogEnd">The end of the fog in the 3D world as the distance from the camera (<see cref="Prazsky.Core.Camera.ICamera"/>).
         /// Objects beyond this distance are completely invisible.</param>
         public FogParams(Vector3 fogColor, float fogStart, float fogEnd)
 		{
@@ -139,13 +139,13 @@ namespace Prazsky.Core.Render
         public Vector3 FogColor { get; set; }
 
         /// <summary>
-        /// The beginning of fog in a 3D world as the distance from the camera (<see cref="Simulation.Camera.ICamera"/>).
+        /// The beginning of fog in a 3D world as the distance from the camera (<see cref="Prazsky.Core.Camera.ICamera"/>).
         /// Objects in front of this distance are fully visible.
         /// </summary>
         public float FogStart { get; set; }
 
         /// <summary>
-        /// The end of the fog in the 3D world as the distance from the camera (<see cref="Simulation.Camera.ICamera"/>).
+        /// The end of the fog in the 3D world as the distance from the camera (<see cref="Prazsky.Core.Camera.ICamera"/>).
         /// Objects beyond this distance are completely invisible.
         /// </summary>
         public float FogEnd { get; set; }

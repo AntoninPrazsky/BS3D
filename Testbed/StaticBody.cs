@@ -19,10 +19,6 @@ namespace Testbed
             World = Matrix.CreateFromQuaternion(
                 new Quaternion(staticReference.Pose.Orientation.X, staticReference.Pose.Orientation.Y, staticReference.Pose.Orientation.Z, staticReference.Pose.Orientation.W))
                 * Matrix.CreateTranslation(staticReference.Pose.Position.X, staticReference.Pose.Position.Y, staticReference.Pose.Position.Z);
-
-            //Position = new Vector3(staticReference.Pose.Position.X, staticReference.Pose.Position.Y, staticReference.Pose.Position.Z);
-            //BoundingSphere = Geometry.GetBoundingSphere(Model);
-            //BoundingSphere = new BoundingSphere(Position, BoundingSphere.Radius);
         }
     }
 }

@@ -19,7 +19,7 @@ namespace Prazsky.BS3D.GameObjects
 		private readonly float _floorHeight;
 		private readonly float _orbitRadius;
 
-		private float _parametricVariable = Constants.HALF_PI;
+		private float _orbitAngle = Constants.HALF_PI;
 
 		private Vector2 _rotationToOrbitCenter = Vector2.Zero;
 		private Vector2 _rotationAim = Vector2.Zero;
@@ -126,7 +126,7 @@ namespace Prazsky.BS3D.GameObjects
 
 		public void Restart()
 		{
-			_parametricVariable = Constants.HALF_PI;
+			_orbitAngle = Constants.HALF_PI;
 			_rotationToOrbitCenter = Vector2.Zero;
 			_rotationAim = Vector2.Zero;
 			_acceleration = 0f;
@@ -136,12 +136,12 @@ namespace Prazsky.BS3D.GameObjects
 
 		private void MoveCircular(GameTime gameTime)
 		{
-			_parametricVariable += RotationSpeed * _acceleration * _deltaLastSet * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+			_orbitAngle += RotationSpeed * _acceleration * _deltaLastSet * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-			EnsureParametricVariableInBounds();
+			EnsureOrbitAngleInBounds();
 
-			var x = OrbitCenter.X + (_orbitRadius * (float)Math.Cos(_parametricVariable));
-			var z = OrbitCenter.Z + (_orbitRadius * (float)Math.Sin(_parametricVariable));
+			var x = OrbitCenter.X + (_orbitRadius * (float)Math.Cos(_orbitAngle));
+			var z = OrbitCenter.Z + (_orbitRadius * (float)Math.Sin(_orbitAngle));
 
 			Position = new(x, Position.Y, z);
 
@@ -170,10 +170,10 @@ namespace Prazsky.BS3D.GameObjects
 			AimTarget = Position + Vector3.Transform(OrbitCenter, rotationMatrix);
 		}
 
-		private void EnsureParametricVariableInBounds()
+		private void EnsureOrbitAngleInBounds()
 		{
-			while (_parametricVariable > MathHelper.TwoPi) _parametricVariable -= MathHelper.TwoPi;
-			while (_parametricVariable < 0f) _parametricVariable += MathHelper.TwoPi;
+			while (_orbitAngle > MathHelper.TwoPi) _orbitAngle -= MathHelper.TwoPi;
+			while (_orbitAngle < 0f) _orbitAngle += MathHelper.TwoPi;
 		}
 
 		private void EnsureAimInBounds()

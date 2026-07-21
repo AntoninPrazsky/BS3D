@@ -23,7 +23,7 @@ namespace Prazsky.Core.Camera
         Vector3 Position { get; }
 
         /// <summary>
-        /// The direction the camera is looking.
+        /// The point in three-dimensional space that the camera is looking at.
         /// </summary>
         Vector3 Target { get; }
 

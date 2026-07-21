@@ -354,15 +354,8 @@ namespace Testbed
                         if (depth >= 0)
                             isTouching = true;
                     }
-                    //if (isTouching)
-                    //{
-                    //    listener.Handler.OnStartedTouching(source, pair, ref manifold, workerIndex);
-                    //    listener.Handler.OnTouching(source, pair, ref manifold, workerIndex);
-                    //}
                     UpdatePreviousCollision(ref pendingAdd.Collision, ref manifold, isTouching);
                 }
-                //listener.Handler.OnPairUpdated(source, pair, ref manifold, workerIndex);
-
             }
         }
 
