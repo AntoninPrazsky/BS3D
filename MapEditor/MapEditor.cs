@@ -78,6 +78,34 @@ namespace MapEditor
 
         #endregion Graphics
 
+        #region Post-processing
+
+        //The scene is drawn in linear radiance into a supersampled HDR target and resolved to the back buffer
+        //in one pass — box filter, glare, exposure, the ACES curve, then the sRGB encode — exactly as the game
+        //does it, so a map looks here the way it will play. The exposure, clear color and every glare figure
+        //are the game's own, so the two agree. See the "Color management" and "Ball rendering" sections in
+        //CLAUDE.md, and the matching code in Testbed.cs.
+        private const int SUPERSAMPLE_FACTOR = 2;
+        private const float DEFAULT_EXPOSURE = 1.1f;
+
+        //LightSlateGray, the old clear color, decoded into the linear space the target holds
+        private static readonly Color CLEAR_COLOR_LINEAR = new(new Vector3(0.185f, 0.246f, 0.319f));
+
+        private static readonly int GLARE_DOWNSAMPLE = 4;
+        private static readonly float GLARE_THRESHOLD = 0.38f;
+        private static readonly float GLARE_STREAK_LENGTH = 34f;
+        private static readonly float GLARE_STREAK_FALLOFF = 3.2f;
+        private static readonly float GLARE_INTENSITY = 1.3f;
+
+        private RenderTarget2D _sceneTarget;
+        private RenderTarget2D _glareBright;
+        private RenderTarget2D _glareStreak;
+        private Effect _tonemapEffect;
+        private Effect _glareEffect;
+        private VertexBuffer _fullScreenQuad;
+
+        #endregion Post-processing
+
         public MapEditor(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
         {
             _windowed = windowed;
@@ -107,7 +135,9 @@ namespace MapEditor
         private void Window_ClientSizeChanged(object sender, EventArgs e)
         {
             Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
-            
+
+            EnsureSceneTarget(); //The back buffer just changed size, so the scene target has to follow
+
             Info.RecomputeScale();
         }
 
@@ -179,6 +209,10 @@ namespace MapEditor
             _hrSphere = Content.Load<Model>("HRGeoDome"); //Still required by BallsMap; the balls themselves are generated spheres
 
             _instancingEffect = Content.Load<Effect>("Shaders/InstancedModel");
+            _tonemapEffect = Content.Load<Effect>("Shaders/Tonemap");
+            _glareEffect = Content.Load<Effect>("Shaders/Glare");
+            CreateFullScreenQuad();
+
             _ballMeshes = new SphereMesh[BALL_LOD_COUNT];
             _ballRenderers = new InstancedModelRenderer[BALL_LOD_COUNT];
 
@@ -192,7 +226,10 @@ namespace MapEditor
                 };
             }
 
-            _sky = new SkyDome(Content.Load<Model>("Skyes/SkyDome" + _skyDomeNumber), GraphicsDevice);
+            //linearVertexColors: the dome is drawn through BasicEffect into the linear HDR target, so its
+            //baked gradient has to be converted from sRGB once at load or the tonemapper reads a gradient of
+            //display values as radiance. The game does the same; the editor used to skip it, drawing in gamma.
+            _sky = new SkyDome(Content.Load<Model>("Skyes/SkyDome" + _skyDomeNumber), GraphicsDevice, linearVertexColors: true);
 
 			//10 levels for the initial ball layout plus empty levels at the bottom for the structure to grow into
 			_map = new BallsMap(10, 10, 15, _hrSphere);
@@ -201,6 +238,8 @@ namespace MapEditor
             _aabb.FitToMap(_map);
 
             ApplySkyLighting();
+
+            EnsureSceneTarget();
         }
 
         /// <summary>
@@ -222,14 +261,22 @@ namespace MapEditor
         /// </summary>
         private void ApplySkyLighting()
         {
-            Vector3 zenith = _sky.ZenithColor;
-            Vector3 horizon = _sky.HorizonColor;
+            //The palette is read off the dome's vertex colors, so it arrives sRGB-encoded. Everything below
+            //scales, tints and lerps it, and none of that means anything until it is radiance — scaling an
+            //sRGB value by 1.3 does not make 1.3 times the light — so it is decoded to linear first, exactly
+            //as the game's ApplySkyLighting does. The renderer works in linear now (LinearLightRig true), and
+            //SkyColor/GroundColor hold linear values.
+            Vector3 zenith = ColorSpace.SrgbToLinear(_sky.ZenithColor);
+            Vector3 horizon = ColorSpace.SrgbToLinear(_sky.HorizonColor);
 
+            //Key/fill lights take on the horizon color, the back light the zenith, so the whole rig follows
+            //the mood of the sky (the game calls this figure SKY_TINT_STRENGTH; it is the same 0.5)
             Vector3 keyTint = Vector3.Lerp(Vector3.One, horizon, 0.5f);
             Vector3 backTint = Vector3.Lerp(Vector3.One, zenith, 0.5f);
 
             foreach (InstancedModelRenderer renderer in _ballRenderers)
             {
+                renderer.LinearLightRig = true;
                 renderer.SkyColor = zenith * 1.3f;
                 renderer.GroundColor = horizon * 0.75f; //Bounce light from below is dimmer than the sky above
 
@@ -420,11 +467,17 @@ namespace MapEditor
         {
             CollectBallInstances();
 
-            GraphicsDevice.Clear(Color.LightSlateGray);
+            //The scene is drawn in linear radiance into the HDR target; ResolveSceneTarget box-filters,
+            //glares, tonemaps and sRGB-encodes it onto the back buffer. The selector gizmo and the text
+            //overlay are drawn after that, in display space, so they stay exactly as authored — the same
+            //split the game makes for its aimer and overlay.
+            GraphicsDevice.SetRenderTarget(_sceneTarget);
+            GraphicsDevice.Clear(CLEAR_COLOR_LINEAR);
 
             //Drawing the selector leaves additive blending behind, which would wash the sky dome out
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
 
             _sky.Draw(Camera3D);
 
@@ -434,15 +487,137 @@ namespace MapEditor
             GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
             _aabb.Draw(Camera3D);
 
+            ResolveSceneTarget();
+
+            //The selector is additive and always on top (depth off), so it belongs after the resolve, in
+            //display space, where its BasicEffect colors read the way they were authored
             if (_selector != null)
             {
                 GraphicsDevice.BlendState = BlendState.Additive;
                 GraphicsDevice.DepthStencilState = DepthStencilState.None;
 
+                //ResolveSceneTarget leaves CullNone behind; the gizmo is back-face culled like the scene, or
+                //an additive draw of both faces doubles its brightness where they overlap
+                GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+
                 _selector.Draw(Camera3D);
             }
 
             base.Draw(gameTime);
+        }
+
+        /// <summary>
+        /// Creates the HDR scene target and the quarter-resolution glare targets, or resizes them after a
+        /// window resize or a fullscreen switch. Ported from the Testbed — see its <c>EnsureSceneTarget</c>.
+        /// </summary>
+        private void EnsureSceneTarget()
+        {
+            if (GraphicsDevice == null) return;
+
+            int width = GraphicsDevice.PresentationParameters.BackBufferWidth * SUPERSAMPLE_FACTOR;
+            int height = GraphicsDevice.PresentationParameters.BackBufferHeight * SUPERSAMPLE_FACTOR;
+            if (width <= 0 || height <= 0) return;
+
+            if (_sceneTarget != null && _sceneTarget.Width == width && _sceneTarget.Height == height) return;
+
+            _sceneTarget?.Dispose();
+
+            //Supersampling already averages SUPERSAMPLE_FACTOR^2 samples per output pixel, geometry edges
+            //included, so MSAA on the scene target only earns its memory when supersampling is off
+            _sceneTarget = new RenderTarget2D(GraphicsDevice, width, height, false, SurfaceFormat.HdrBlendable,
+                DepthFormat.Depth24Stencil8, SUPERSAMPLE_FACTOR > 1 ? 0 : MSAA_SAMPLES, RenderTargetUsage.DiscardContents);
+
+            //Sized off the back buffer, not the supersampled target: the glare is blurred anyway
+            int glareWidth = Math.Max(GraphicsDevice.PresentationParameters.BackBufferWidth / GLARE_DOWNSAMPLE, 1);
+            int glareHeight = Math.Max(GraphicsDevice.PresentationParameters.BackBufferHeight / GLARE_DOWNSAMPLE, 1);
+
+            _glareBright?.Dispose();
+            _glareStreak?.Dispose();
+
+            _glareBright = new RenderTarget2D(GraphicsDevice, glareWidth, glareHeight, false, SurfaceFormat.HdrBlendable, DepthFormat.None);
+            _glareStreak = new RenderTarget2D(GraphicsDevice, glareWidth, glareHeight, false, SurfaceFormat.HdrBlendable, DepthFormat.None);
+        }
+
+        /// <summary>
+        /// Extracts what is bright enough to glare and smears it into a star of streaks, both passes at
+        /// quarter resolution. Runs between the scene and the tonemap.
+        /// </summary>
+        private void DrawGlare()
+        {
+            GraphicsDevice.BlendState = BlendState.Opaque;
+            GraphicsDevice.DepthStencilState = DepthStencilState.None;
+            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+            GraphicsDevice.SetVertexBuffer(_fullScreenQuad);
+
+            GraphicsDevice.SetRenderTarget(_glareBright);
+            _glareEffect.CurrentTechnique = _glareEffect.Techniques["BrightPass"];
+            _glareEffect.Parameters["SourceTexture"].SetValue(_sceneTarget);
+            _glareEffect.Parameters["GlareThreshold"].SetValue(GLARE_THRESHOLD);
+            DrawFullScreenQuad(_glareEffect);
+
+            GraphicsDevice.SetRenderTarget(_glareStreak);
+            _glareEffect.CurrentTechnique = _glareEffect.Techniques["Streak"];
+            _glareEffect.Parameters["SourceTexture"].SetValue(_glareBright);
+            _glareEffect.Parameters["SourceTexelSize"].SetValue(new Vector2(1f / _glareBright.Width, 1f / _glareBright.Height));
+            _glareEffect.Parameters["StreakLength"].SetValue(GLARE_STREAK_LENGTH);
+            _glareEffect.Parameters["StreakFalloff"].SetValue(GLARE_STREAK_FALLOFF);
+            DrawFullScreenQuad(_glareEffect);
+        }
+
+        private void DrawFullScreenQuad(Effect effect)
+        {
+            foreach (EffectPass pass in effect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                GraphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+            }
+        }
+
+        /// <summary>
+        /// Builds the clip-space quad the glare and tonemap passes draw. Its corners are already in
+        /// normalized device coordinates, so the passes need no transform.
+        /// </summary>
+        private void CreateFullScreenQuad()
+        {
+            VertexPositionTexture[] corners =
+            {
+                new(new Vector3(-1f, 1f, 0f), new Vector2(0f, 0f)),
+                new(new Vector3(1f, 1f, 0f), new Vector2(1f, 0f)),
+                new(new Vector3(-1f, -1f, 0f), new Vector2(0f, 1f)),
+                new(new Vector3(1f, -1f, 0f), new Vector2(1f, 1f))
+            };
+
+            _fullScreenQuad = new VertexBuffer(GraphicsDevice, VertexPositionTexture.VertexDeclaration, corners.Length, BufferUsage.WriteOnly);
+            _fullScreenQuad.SetData(corners);
+        }
+
+        /// <summary>
+        /// Box-filters the supersampled HDR scene onto the back buffer, adds the glare, tonemaps from linear
+        /// radiance and encodes to sRGB. The frame's one and only exit from linear light.
+        /// </summary>
+        private void ResolveSceneTarget()
+        {
+            DrawGlare(); //Reads the scene target, so it has to happen before the back buffer is bound
+
+            GraphicsDevice.SetRenderTarget(null);
+
+            _tonemapEffect.Parameters["GlareTexture"].SetValue(_glareStreak);
+            _tonemapEffect.Parameters["GlareIntensity"].SetValue(GLARE_INTENSITY);
+            _tonemapEffect.Parameters["SceneTexture"].SetValue(_sceneTarget);
+            _tonemapEffect.Parameters["SourceTexelSize"].SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
+            _tonemapEffect.Parameters["SupersampleFactor"].SetValue(SUPERSAMPLE_FACTOR);
+            _tonemapEffect.Parameters["Exposure"].SetValue(DEFAULT_EXPOSURE);
+
+            GraphicsDevice.BlendState = BlendState.Opaque;
+            GraphicsDevice.DepthStencilState = DepthStencilState.None;
+            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+            GraphicsDevice.SetVertexBuffer(_fullScreenQuad);
+
+            foreach (EffectPass pass in _tonemapEffect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                GraphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+            }
         }
 
         private string GetFilePathByDialog(bool save)
@@ -491,6 +666,8 @@ namespace MapEditor
 
             _graphics.ApplyChanges();
 
+            EnsureSceneTarget(); //The back buffer just changed size, so the scene target has to follow
+
             IsMouseVisible = false;
             IsFixedTimeStep = false;
         }
@@ -499,11 +676,20 @@ namespace MapEditor
         {
             e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = PresentInterval.Default;
             e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.HiDef;
-            e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = MSAA_SAMPLES;
+
+            //The scene renders into the supersampled HDR target and only the resolved full-screen quad ever
+            //touches the back buffer, so back-buffer MSAA would antialias nothing. Any MSAA now belongs on
+            //the scene target instead, and only when supersampling is off.
+            e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = SUPERSAMPLE_FACTOR > 1 ? 0 : MSAA_SAMPLES;
         }
 
         protected override void UnloadContent()
         {
+            _sceneTarget?.Dispose();
+            _glareBright?.Dispose();
+            _glareStreak?.Dispose();
+            _fullScreenQuad?.Dispose();
+            _aabb?.Dispose();
         }
 
         #region Map Tests

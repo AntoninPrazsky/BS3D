@@ -45,7 +45,9 @@ namespace MapEditor.GUI
                 LightingEnabled = false, //A flat color reads better than shading on beams this thin
                 VertexColorEnabled = false,
                 TextureEnabled = false,
-                DiffuseColor = COLOR,
+                //The outline is drawn into the linear HDR target the editor tonemaps at the end of the frame,
+                //so its authored sRGB color is decoded once here; handed over raw it would tonemap too bright
+                DiffuseColor = ColorSpace.SrgbToLinear(COLOR),
                 Alpha = ALPHA
             };
         }

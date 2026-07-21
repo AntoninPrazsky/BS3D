@@ -3,41 +3,27 @@
 //Lighting replicates BasicEffect with EnableDefaultLighting and per-pixel (Blinn-Phong) shading,
 //so instanced models look the same as those rendered through ModelRenderer.
 
-//Testbed builds this for DirectX and gets Shader Model 5.0; the map editor still builds the very same
-//file for DesktopGL, where MojoShader caps out at 3.0. Anything written below that 5.0 allows and 3.0
-//does not has to be guarded by #if OPENGL, or the map editor stops compiling.
-#if OPENGL
-	#define VS_SHADERMODEL vs_3_0
-	#define PS_SHADERMODEL ps_3_0
-#else
-	#define VS_SHADERMODEL vs_5_0
-	#define PS_SHADERMODEL ps_5_0
-#endif
+//Both the Testbed and the map editor build this for DirectX now and get Shader Model 5.0. The editor
+//used to build it for DesktopGL, where MojoShader capped shaders at 3.0 and everything 5.0-only had to
+//sit behind #if OPENGL; it has since moved onto WindowsDX so it can render the balls exactly as the game
+//does, tonemapping and all. There is no OPENGL build of this file any more, so nothing needs a fallback.
+#define VS_SHADERMODEL vs_5_0
+#define PS_SHADERMODEL ps_5_0
 
 //Every color that enters the lighting math - material colors, light colors, sky palette, texture
 //samples - is authored or stored in sRGB, which is a display encoding, not a quantity of light.
 //Adding, multiplying and averaging those numbers is only meaningful once they are back in linear
-//radiance; Tonemap.fx encodes the result for the display again at the very end of the frame.
-//
-//The map editor builds this same file for DesktopGL and has no tonemapping pass to encode back with,
-//so there this stays a no-op and the editor keeps working in gamma space exactly as before.
+//radiance; Tonemap.fx encodes the result for the display again at the very end of the frame. Both the
+//game and the map editor render into a linear HDR target and tonemap now, so this always decodes.
 float3 SrgbToLinear(float3 color)
 {
-#if OPENGL
-	return color;
-#else
 	//Jim Hejl's cubic fit of the sRGB curve - accurate to well under a display bit and no pow()
 	return color * (color * (color * 0.305306011 + 0.682171111) + 0.012522878);
-#endif
 }
 
-//Cloud shadows. The map editor builds this same file for DesktopGL, where the instruction budget is
-//tight and there is no weather to speak of anyway, so there it is a stub that lets the sun through.
-#if OPENGL
-	float CloudSunlight(float3 worldPosition, float3 sunDirection) { return 1.0; }
-#else
-	#include "Clouds.fxh"
-#endif
+//Cloud shadows. The map editor has no weather and never sets the cloud uniforms, so there CloudCoverageGain
+//stays zero and CloudSunlight falls straight through to a flat 1.0 - full sun, no shadow - on its own.
+#include "Clouds.fxh"
 
 //Towards the sun. The key light is positional and sits only forty units off, so its direction swings
 //right across the scene - useless for a shadow that has to fall in parallel bands over a whole city.
@@ -459,11 +445,6 @@ static const int ParallaxMaxSteps = 28;
 //shade the far sides of the bumps, it throws the bumps' shadows across the hollows behind them.
 float ReliefSelfShadow(float3 worldPosition, float3 normal, float3 towardsLight, float height, float3 dpdx, float3 dpdy)
 {
-#if OPENGL
-	//The map editor compiles this file at Shader Model 3.0, where these marches are not worth
-	//attempting, and it has no use for them either
-	return 1;
-#else
 	if (ReliefShadowStrength <= 0) return 1;
 
 	float alongNormal = dot(towardsLight, normal);
@@ -497,7 +478,6 @@ float ReliefSelfShadow(float3 worldPosition, float3 normal, float3 towardsLight,
 	}
 
 	return 1 - blocked * ReliefShadowStrength;
-#endif
 }
 
 //Marches the height field along the view ray and returns where it actually hits. Tilting the normal
@@ -506,9 +486,6 @@ float ReliefSelfShadow(float3 worldPosition, float3 normal, float3 towardsLight,
 //normal mapping cannot fake, and it is what "plastic" means here.
 float3 ParallaxSurfacePosition(float3 worldPosition, float3 normal, float3 towardsEye, float3 dpdx, float3 dpdy)
 {
-#if OPENGL
-	return worldPosition;
-#else
 	if (ParallaxScale <= 0) return worldPosition;
 
 	float alongNormal = dot(towardsEye, normal);
@@ -551,7 +528,6 @@ float3 ParallaxSurfacePosition(float3 worldPosition, float3 normal, float3 towar
 	}
 
 	return worldPosition + perDepth * rayDepth;
-#endif
 }
 
 //Textured variant: the model vertices carry UVs in TEXCOORD0 (the instance stream stays in TEXCOORD1-5)
@@ -1166,12 +1142,11 @@ float4 CityPS(VertexShaderOutput input) : COLOR
 	float3 signEmission = float3(0.0, 0.0, 0.0);
 	float3 facadeColor = float3(0.06, 0.065, 0.08);
 
-#if !OPENGL
-	//Neon night city - Shader Model 5.0 only, so the map editor (which never draws the city) keeps the
-	//plain path above. The skyline runs on magenta and cyan, the pink-and-blue of a neon street, with the
-	//odd off-colour tower; about one window in six sparks the opposite hue, big sign bands wrap some towers
-	//in the contrast colour, and a fraction of it all buzzes. Brightness sits over the glare threshold, so
-	//every lit pane blooms.
+	//Neon night city. The map editor never draws the city, so this path only ever runs in the game (it is
+	//gated at runtime by CityNeon, which the editor leaves at zero). The skyline runs on magenta and cyan,
+	//the pink-and-blue of a neon street, with the odd off-colour tower; about one window in six sparks the
+	//opposite hue, big sign bands wrap some towers in the contrast colour, and a fraction of it all buzzes.
+	//Brightness sits over the glare threshold, so every lit pane blooms.
 	float3 neonMagenta = float3(1.0, 0.04, 0.85);
 	float3 neonCyan = float3(0.05, 0.85, 1.0);
 
@@ -1193,7 +1168,6 @@ float4 CityPS(VertexShaderOutput input) : COLOR
 	windowFlicker = lerp(1.0, lerp(1.0, buzz, step(0.86, flickerId)), CityNeon);
 	signEmission = signBand * contrast * (CityWindowBrightness * 1.6) * CityNeon;
 	facadeColor = lerp(facadeColor, float3(0.02, 0.02, 0.028), CityNeon);
-#endif
 
 	float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(facadeColor, 1), 1, 1);
 

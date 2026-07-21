@@ -3,9 +3,9 @@
 
 /outputDir:../bin/netcoreapp3.1/Content
 /intermediateDir:obj/$(Platform)
-/platform:DesktopGL
+/platform:Windows
 /config:
-/profile:Reach
+/profile:HiDef
 /compress:False
 
 #-------------------------------- References --------------------------------#
@@ -100,6 +100,18 @@
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/InstancedModel.fx;Shaders/InstancedModel.fx
+
+#begin ../../Testbed/Content/Shaders/Glare.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Glare.fx;Shaders/Glare.fx
+
+#begin ../../Testbed/Content/Shaders/Tonemap.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Tonemap.fx;Shaders/Tonemap.fx
 
 #begin ../../Testbed/Content/Skyes/SkyDome1.dae
 /importer:XImporter

@@ -3,7 +3,7 @@ name: shaders
 description: How to add and wire custom HLSL effects (.fx) in BS3D — content pipeline, instancing, matching BasicEffect lighting. Load before any shader/graphics work (issues #8, #39, #40, #41).
 ---
 
-# Custom shaders in BS3D (MonoGame DesktopGL)
+# Custom shaders in BS3D (MonoGame WindowsDX)
 
 ## Adding an effect
 
@@ -13,8 +13,13 @@ description: How to add and wire custom HLSL effects (.fx) in BS3D — content p
    `/build:../../Testbed/Content/Shaders/InstancedModel.fx;Shaders/InstancedModel.fx` in its own .mgcb —
    a source outside the content root is fine, so shader changes reach both executables at once.
 2. It compiles during `dotnet build` (MonoGame.Content.Builder.Task). Load with `Content.Load<Effect>("Shaders/<Name>")`.
-3. The platform is DesktopGL, so only the `#if OPENGL` branch matters: `vs_3_0` / `ps_3_0` (mojoshader).
-   The game runs with `GraphicsProfile.HiDef` and 8x MSAA (`Graphics_PreparingDeviceSettings`).
+3. Both executables are on **WindowsDX** now, so everything builds for DirectX at **Shader Model 5.0**
+   (`vs_5_0` / `ps_5_0`) — there is no OPENGL/mojoshader build any more, and `#if OPENGL` is gone from
+   `InstancedModel.fx`. Both run with `GraphicsProfile.HiDef`. A shader that only the Testbed uses (each
+   scene shader, `Sky.fx`) it registers in its own `.mgcb`; a shader the MapEditor also needs (the shared
+   `InstancedModel.fx`, plus `Tonemap.fx`/`Glare.fx` for its own linear+tonemap pipeline) is registered in
+   both `.mgcb`s, the editor building it out of the Testbed content dir with the `/build:../../Testbed/…`
+   form so there is one source. MSAA is off while supersampling is on (the scene renders into an HDR target).
 
 ## Existing shader
 
