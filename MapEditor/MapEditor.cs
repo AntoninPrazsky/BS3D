@@ -60,6 +60,7 @@ namespace MapEditor
         private BallsMap _map;
         private Selector _selector;
         private AABB _aabb;
+        private AxisGizmo _axisGizmo;
 
         private CameraInputHelper _cih;
         private ButtonAction[] _actions;
@@ -277,6 +278,7 @@ namespace MapEditor
             _selector = new Selector(Content, _map, Camera3D);
             _aabb = new AABB(GraphicsDevice);
             _aabb.FitToMap(_map);
+            _axisGizmo = new AxisGizmo(GraphicsDevice, Content);
 
             //The switchable backdrops, drawn exactly as the game draws them. The self-lit ones live in the
             //shared SceneRenderer; the city is one instanced box mesh under the shared city technique, and it
@@ -583,6 +585,9 @@ namespace MapEditor
                 _selector.Draw(Camera3D);
             }
 
+            //The orientation cross, a corner overlay in display space like the selector and the text
+            _axisGizmo.Draw(Camera3D);
+
             base.Draw(gameTime);
         }
 
@@ -804,6 +809,7 @@ namespace MapEditor
             _cityRenderer?.Dispose();
             _unitBox?.Dispose();
             _aabb?.Dispose();
+            _axisGizmo?.Dispose();
         }
 
         #region Map Tests
