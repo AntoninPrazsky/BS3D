@@ -367,10 +367,10 @@ namespace Testbed
         private ModelInstance[] _arenaGlassInstances;
         private ModelInstance[] _arenaFrameInstances;
 
-        //Which environment the arena stands in. City is the default; Sea and Desert swap the city (and
-        //only the city) for open water or a dune field — the marble/glass platform stays in all three.
-        //NumPad2 cycles them.
-        private enum SceneKind { City, Sea, Desert }
+        //Which environment the arena stands in. City is the default; Sea, Desert and Mountain swap the city
+        //(and only the city) for open water, a dune field or a snowy range — the marble/glass platform
+        //stays in all four. NumPad2 cycles them.
+        private enum SceneKind { City, Sea, Desert, Mountain }
         private SceneKind _scene = SceneKind.City;
 
         private Effect _seaEffect;
@@ -472,6 +472,45 @@ namespace Testbed
 
             readonly VertexDeclaration IVertexType.VertexDeclaration => Declaration;
         }
+
+        //Mountain scene: a displaced grid like the desert, but ridged into snowy peaks around a basin.
+        private Effect _mountainEffect;
+        private VertexBuffer _mountainVertexBuffer;
+        private IndexBuffer _mountainIndexBuffer;
+        private int _mountainIndexCount;
+
+        private static readonly int MOUNTAIN_GRID_N = 240;
+        private static readonly float MOUNTAIN_EXTENT = 1200f;
+
+        //Basin floor, peak height far out, and the clearing the arena sits in (flat within the radius, the
+        //peaks rising over the transition beyond it). The basin stays below the platform glass (about -10.7).
+        private static readonly float MOUNTAIN_LEVEL_Y = -14f;
+        private static readonly float MOUNTAIN_HEIGHT = 75f;
+        private static readonly float MOUNTAIN_CLEARING_RADIUS = 95f;
+        private static readonly float MOUNTAIN_CLEARING_TRANSITION = 110f;
+        private static readonly float MOUNTAIN_CLEARING_RELIEF = 1.5f;
+
+        private static readonly Vector3 SNOW_COLOR = new(0.90f, 0.93f, 0.99f); //Snow (linear, near white)
+        private static readonly Vector3 ROCK_COLOR = new(0.09f, 0.08f, 0.075f); //Bare rock (linear, dark)
+        private static readonly float MOUNTAIN_ROCK_SLOPE = 0.42f; //normal.y below this is all rock
+        private static readonly float MOUNTAIN_SNOW_SLOPE = 0.72f; //normal.y above this is all snow
+        private static readonly float MOUNTAIN_AMBIENT_STRENGTH = 0.6f;
+        private static readonly float MOUNTAIN_HORIZON_HAZE_DISTANCE = 560f;
+
+        //Falling snow (mountain scene only): a static buffer of billboard flakes, animated in the shader.
+        private Effect _snowEffect;
+        private VertexBuffer _snowVertexBuffer;
+        private IndexBuffer _snowIndexBuffer;
+
+        private static readonly int SNOW_FLAKE_COUNT = 1400;
+        private static readonly Vector3 SNOW_BOX_SIZE = new(70f, 55f, 70f);
+        private static readonly float SNOW_FALL_SPEED = 9f;
+        private static readonly Vector2 SNOW_WIND = new(4f, 1.5f);
+        private static readonly float SNOW_SWAY = 1.2f;
+        private static readonly float SNOW_FLAKE_SIZE = 0.13f;
+        //Bright cool white, but kept under GLARE_THRESHOLD so a near flake does not bloom into a glowing orb
+        private static readonly Vector3 SNOW_FLAKE_COLOR = new(0.72f, 0.76f, 0.82f);
+        private static readonly float SNOW_OPACITY = 0.9f;
 
         /// <summary>
         /// Half-width of the play surface, and the width of the marble band around it. Chosen as a whole
@@ -616,9 +655,10 @@ namespace Testbed
 
         public Testbed(bool windowed = true, int windowWidth = 1280, int windowHeight = 800, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false, int supersampleFactor = 2, float exposure = DEFAULT_EXPOSURE, string scene = null)
         {
-            //Testing: "scene=sea" / "scene=desert" pick the starting environment
+            //Testing: "scene=sea" / "scene=desert" / "scene=mountain" pick the starting environment
             if (string.Equals(scene, "sea", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Sea;
             else if (string.Equals(scene, "desert", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Desert;
+            else if (string.Equals(scene, "mountain", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Mountain;
             _exposure = exposure > 0f ? exposure : DEFAULT_EXPOSURE;
             _windowed = windowed;
             _startupMapPath = startupMapPath;
@@ -693,7 +733,7 @@ namespace Testbed
                 new(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
                 new(mgKeys.End, Buttons.Start, ReleaseAllBalls, "Release all balls"),
                 new(mgKeys.NumPad1, SwitchSkyDome, "Switch sky dome"),
-                new(mgKeys.NumPad2, SwitchScene, "Switch scene (city/sea/desert)"),
+                new(mgKeys.NumPad2, SwitchScene, "Switch scene (city/sea/desert/mountain)"),
                 new(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
                 new(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
                 new(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
@@ -804,6 +844,8 @@ namespace Testbed
             LoadSea();
             LoadDesert();
             LoadBirds();
+            LoadMountain();
+            LoadSnow();
 
             _cilinderModel = Content.Load<Model>("GameObjects/Cilinder");
             _cannon = new Cannon(_cilinderModel, new Vector3(0f, 5f, 0f), -6.4f, 20f);
@@ -1036,7 +1078,7 @@ namespace Testbed
 
         private void SwitchScene()
         {
-            _scene = (SceneKind)(((int)_scene + 1) % 3);
+            _scene = (SceneKind)(((int)_scene + 1) % 4);
             Console.WriteLine($"[scene] {_scene}");
         }
 
@@ -1119,7 +1161,7 @@ namespace Testbed
         private void LoadDesert()
         {
             _desertEffect = Content.Load<Effect>("Shaders/Desert");
-            CreateDesertMesh();
+            CreateGridMesh(DESERT_GRID_N, DESERT_EXTENT, out _desertVertexBuffer, out _desertIndexBuffer, out _desertIndexCount);
 
             _desertEffect.Parameters["DesertLevelY"].SetValue(DESERT_LEVEL_Y);
             _desertEffect.Parameters["DuneAmplitude"].SetValue(DUNE_AMPLITUDE);
@@ -1136,23 +1178,23 @@ namespace Testbed
         }
 
         /// <summary>
-        /// Builds the flat dune grid: a lattice of <see cref="DESERT_GRID_N"/> vertices per side over
-        /// <see cref="DESERT_EXTENT"/>, centred on the origin. The shader recentres it on the camera and
-        /// lifts it into dunes; it is drawn CullNone, so the triangle winding does not matter.
+        /// Builds a flat lattice grid: <paramref name="n"/> vertices per side over <paramref name="extent"/>,
+        /// centred on the origin. The desert and mountain shaders recentre it on the camera and lift it into
+        /// dunes or peaks; it is drawn CullNone, so the winding does not matter. (Indices run up to n*n-1 in
+        /// a 16-bit buffer, so keep n at 256 or below.)
         /// </summary>
-        private void CreateDesertMesh()
+        private void CreateGridMesh(int n, float extent, out VertexBuffer vertexBuffer, out IndexBuffer indexBuffer, out int indexCount)
         {
-            int n = DESERT_GRID_N;
-            float half = DESERT_EXTENT * Constants.HALF;
-            float step = DESERT_EXTENT / (n - 1);
+            float half = extent * Constants.HALF;
+            float step = extent / (n - 1);
 
             VertexPosition[] vertices = new VertexPosition[n * n];
             for (int z = 0; z < n; z++)
                 for (int x = 0; x < n; x++)
                     vertices[z * n + x] = new VertexPosition(new Vector3(-half + x * step, 0f, -half + z * step));
 
-            _desertVertexBuffer = new VertexBuffer(GraphicsDevice, VertexPosition.VertexDeclaration, vertices.Length, BufferUsage.WriteOnly);
-            _desertVertexBuffer.SetData(vertices);
+            vertexBuffer = new VertexBuffer(GraphicsDevice, VertexPosition.VertexDeclaration, vertices.Length, BufferUsage.WriteOnly);
+            vertexBuffer.SetData(vertices);
 
             short[] indices = new short[(n - 1) * (n - 1) * 6];
             int i = 0;
@@ -1168,9 +1210,9 @@ namespace Testbed
                     indices[i++] = b; indices[i++] = c; indices[i++] = d;
                 }
 
-            _desertIndexCount = i;
-            _desertIndexBuffer = new IndexBuffer(GraphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
-            _desertIndexBuffer.SetData(indices);
+            indexCount = i;
+            indexBuffer = new IndexBuffer(GraphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
+            indexBuffer.SetData(indices);
         }
 
         /// <summary>
@@ -1300,6 +1342,134 @@ namespace Testbed
             GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, BIRD_COUNT * 2);
 
             //Restore the scene block's states for the opaque draws that follow
+            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// Loads the mountain effect and its terrain grid, and hands over the static tuning. The per-frame
+        /// origin, sky palette and cloud field are set in <see cref="DrawMountain"/>.
+        /// </summary>
+        private void LoadMountain()
+        {
+            _mountainEffect = Content.Load<Effect>("Shaders/Mountain");
+            CreateGridMesh(MOUNTAIN_GRID_N, MOUNTAIN_EXTENT, out _mountainVertexBuffer, out _mountainIndexBuffer, out _mountainIndexCount);
+
+            _mountainEffect.Parameters["MountainLevelY"].SetValue(MOUNTAIN_LEVEL_Y);
+            _mountainEffect.Parameters["MountainHeight"].SetValue(MOUNTAIN_HEIGHT);
+            _mountainEffect.Parameters["ClearingRadius"].SetValue(MOUNTAIN_CLEARING_RADIUS);
+            _mountainEffect.Parameters["ClearingTransition"].SetValue(MOUNTAIN_CLEARING_TRANSITION);
+            _mountainEffect.Parameters["ClearingRelief"].SetValue(MOUNTAIN_CLEARING_RELIEF);
+            _mountainEffect.Parameters["SnowColor"].SetValue(SNOW_COLOR);
+            _mountainEffect.Parameters["RockColor"].SetValue(ROCK_COLOR);
+            _mountainEffect.Parameters["RockSlope"].SetValue(MOUNTAIN_ROCK_SLOPE);
+            _mountainEffect.Parameters["SnowSlope"].SetValue(MOUNTAIN_SNOW_SLOPE);
+            _mountainEffect.Parameters["AmbientStrength"].SetValue(MOUNTAIN_AMBIENT_STRENGTH);
+            _mountainEffect.Parameters["HorizonHazeDistance"].SetValue(MOUNTAIN_HORIZON_HAZE_DISTANCE);
+        }
+
+        /// <summary>
+        /// Draws the snowy range: the grid pinned to the camera (snapped to a cell so it does not swim),
+        /// lifted into a snow basin ringed by peaks and shaded by the current dome, shadowed by the shared
+        /// cloud field. Opaque, so it stands in for the city as the thing the arena glass shows beneath it.
+        /// </summary>
+        private void DrawMountain()
+        {
+            float cell = MOUNTAIN_EXTENT / (MOUNTAIN_GRID_N - 1);
+            float originX = MathF.Round(_camera.Position.X / cell) * cell;
+            float originZ = MathF.Round(_camera.Position.Z / cell) * cell;
+
+            _mountainEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
+            _mountainEffect.Parameters["View"].SetValue(_camera.View);
+            _mountainEffect.Parameters["Projection"].SetValue(_camera.Projection);
+            _mountainEffect.Parameters["CameraPosition"].SetValue(_camera.Position);
+            _mountainEffect.Parameters["SunDirection"].SetValue(SUN_DIRECTION);
+            _mountainEffect.Parameters["ZenithColor"].SetValue(_zenithLinear);
+            _mountainEffect.Parameters["HorizonColor"].SetValue(_horizonLinear);
+            _mountainEffect.Parameters["SunColor"].SetValue(CLOUD_SUN_COLOR * Vector3.Lerp(Vector3.One, _horizonLinear, SKY_TINT_STRENGTH));
+
+            _clouds.ApplyTo(_mountainEffect);
+
+            GraphicsDevice.BlendState = BlendState.Opaque;
+            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            GraphicsDevice.SetVertexBuffer(_mountainVertexBuffer);
+            GraphicsDevice.Indices = _mountainIndexBuffer;
+            _mountainEffect.CurrentTechnique.Passes[0].Apply();
+            GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _mountainIndexCount / 3);
+
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// Loads the falling-snow effect and builds the static flake buffer: one quad per flake, its base a
+        /// fixed random point in the unit cube, animated entirely in the shader (so it is never rebuilt).
+        /// Reuses the position+data billboard vertex.
+        /// </summary>
+        private void LoadSnow()
+        {
+            _snowEffect = Content.Load<Effect>("Shaders/Snow");
+            _snowEffect.Parameters["SnowBoxSize"].SetValue(SNOW_BOX_SIZE);
+            _snowEffect.Parameters["SnowFallSpeed"].SetValue(SNOW_FALL_SPEED);
+            _snowEffect.Parameters["SnowWind"].SetValue(SNOW_WIND);
+            _snowEffect.Parameters["SnowSway"].SetValue(SNOW_SWAY);
+            _snowEffect.Parameters["FlakeSize"].SetValue(SNOW_FLAKE_SIZE);
+            _snowEffect.Parameters["SnowColor"].SetValue(SNOW_FLAKE_COLOR);
+            _snowEffect.Parameters["SnowOpacity"].SetValue(SNOW_OPACITY);
+
+            BirdVertex[] vertices = new BirdVertex[SNOW_FLAKE_COUNT * 4];
+            Random rng = new(1207);
+            for (int i = 0; i < SNOW_FLAKE_COUNT; i++)
+            {
+                Vector3 basePosition = new((float)rng.NextDouble(), (float)rng.NextDouble(), (float)rng.NextDouble());
+                float rand = (float)rng.NextDouble();
+                int v = i * 4;
+                vertices[v] = new BirdVertex(basePosition, new Vector3(-1f, 1f, rand));
+                vertices[v + 1] = new BirdVertex(basePosition, new Vector3(1f, 1f, rand));
+                vertices[v + 2] = new BirdVertex(basePosition, new Vector3(-1f, -1f, rand));
+                vertices[v + 3] = new BirdVertex(basePosition, new Vector3(1f, -1f, rand));
+            }
+            _snowVertexBuffer = new VertexBuffer(GraphicsDevice, BirdVertex.Declaration, vertices.Length, BufferUsage.WriteOnly);
+            _snowVertexBuffer.SetData(vertices);
+
+            short[] indices = new short[SNOW_FLAKE_COUNT * 6];
+            for (int i = 0; i < SNOW_FLAKE_COUNT; i++)
+            {
+                int v = i * 4;
+                int o = i * 6;
+                indices[o] = (short)v; indices[o + 1] = (short)(v + 2); indices[o + 2] = (short)(v + 1);
+                indices[o + 3] = (short)(v + 1); indices[o + 4] = (short)(v + 2); indices[o + 5] = (short)(v + 3);
+            }
+            _snowIndexBuffer = new IndexBuffer(GraphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
+            _snowIndexBuffer.SetData(indices);
+        }
+
+        /// <summary>
+        /// Draws the falling snow: the static flake buffer animated in the shader, in a box that follows the
+        /// camera. Drawn last, alpha-blended and depth-read (so the terrain and the cluster occlude the
+        /// flakes behind them) but writing no depth. Mountain scene only.
+        /// </summary>
+        private void DrawSnow()
+        {
+            Microsoft.Xna.Framework.Matrix inverseView = Microsoft.Xna.Framework.Matrix.Invert(_camera.View);
+
+            _snowEffect.Parameters["View"].SetValue(_camera.View);
+            _snowEffect.Parameters["Projection"].SetValue(_camera.Projection);
+            _snowEffect.Parameters["CameraPosition"].SetValue(_camera.Position);
+            _snowEffect.Parameters["CameraRight"].SetValue(inverseView.Right);
+            _snowEffect.Parameters["CameraUp"].SetValue(inverseView.Up);
+            _snowEffect.Parameters["SnowTime"].SetValue(_pulseSeconds);
+
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            GraphicsDevice.SetVertexBuffer(_snowVertexBuffer);
+            GraphicsDevice.Indices = _snowIndexBuffer;
+            _snowEffect.CurrentTechnique.Passes[0].Apply();
+            GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, SNOW_FLAKE_COUNT * 2);
+
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
             GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
@@ -1836,11 +2006,13 @@ namespace Testbed
                     _cityRenderer.Draw(_camera, _city.Buildings, _city.Buildings.Length, _sceneEffectParams);
                 else if (_scene == SceneKind.Sea)
                     DrawSea();
-                else
+                else if (_scene == SceneKind.Desert)
                 {
                     DrawDesert();
                     DrawBirds();
                 }
+                else
+                    DrawMountain();
 
                 _arenaFrameRenderer.Draw(_camera, _arenaFrameInstances, _arenaFrameInstances.Length, _sceneEffectParams);
 
@@ -1848,10 +2020,13 @@ namespace Testbed
 
                 DrawBallsInstanced();
 
-                //Translucent glass: drawn after the opaque scene so the city or the sea below shows through it
+                //Translucent glass: drawn after the opaque scene so the environment below shows through it
                 _arenaGlassRenderer.Draw(_camera, _arenaGlassInstances, _arenaGlassInstances.Length, _sceneEffectParams);
 
                 _ceilingRenderer.Draw(_camera, _ceiling.World, _sceneEffectParams);
+
+                //Falling snow settles over everything, so it is drawn last, in front of what it should hide
+                if (_scene == SceneKind.Mountain) DrawSnow();
             }
 
             ResolveSceneTarget();

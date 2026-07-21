@@ -241,6 +241,18 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/Birds.fx
 
+#begin Shaders/Mountain.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Mountain.fx
+
+#begin Shaders/Snow.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Snow.fx
+
 #begin Shaders/ShadowOverlay.fx
 /importer:EffectImporter
 /processor:EffectProcessor
