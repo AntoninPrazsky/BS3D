@@ -16,8 +16,8 @@ namespace Prazsky.BS3D.GameObjects
 		public Vector3 AimTarget;
 		public readonly Vector3 OrbitCenter;
 
-		private readonly float _floorHeight;
-		private readonly float _orbitRadius;
+		private readonly float _trunnionHeight;
+		private float _orbitRadius;
 
 		private float _orbitAngle = Constants.HALF_PI;
 
@@ -33,13 +33,20 @@ namespace Prazsky.BS3D.GameObjects
 		private bool _aiming = false;
 		private Vector2 _beforeAnimationRotationAim = Vector2.Zero;
 
-		public Cannon(Vector3 orbitCenter, float floorHeight, float orbitRadius = 20f)
+		/// <param name="trunnionHeight">
+		/// Height of <see cref="Object3D.Position"/>, which is the barrel's pivot - the trunnions a carriage
+		/// would hold it by - and not a point on the barrel's surface, so this sits an axle's height above
+		/// whatever the gun ends up standing on rather than at the floor itself.
+		/// </param>
+		public Cannon(Vector3 orbitCenter, float trunnionHeight, float orbitRadius = 20f)
 		{
 			//The cannon is drawn procedurally now (a CannonMesh with the loaded balls shown in its magazine),
-			//so this holds only the pose: where it orbits, where it aims and its World matrix. The renderer
-			//builds its own look-at world from Position and AimTarget.
+			//so this holds only the pose: where it orbits, where it aims and its World matrix. Position is
+			//the trunnions, at the barrel's midpoint - elevating turns the barrel about them, raising the
+			//muzzle and dropping the breech, so the gun stays where it stands. The renderer builds its own
+			//look-at world from Position and AimTarget, and derives the muzzle from them.
 			OrbitCenter = orbitCenter;
-			_floorHeight = floorHeight;
+			_trunnionHeight = trunnionHeight;
 			_orbitRadius = orbitRadius;
 
 			Initialize();
@@ -133,12 +140,32 @@ namespace Prazsky.BS3D.GameObjects
 			Initialize();
 		}
 
+		/// <summary>
+		/// How far out from <see cref="OrbitCenter"/> the gun stands. Set per map rather than fixed: it has to
+		/// clear the play field's footprint, and it also decides how steeply the barrel looks up at the
+		/// cluster — <see cref="EnsureAimInBounds"/> tops the elevation out at 45°, so standing too close
+		/// puts the resting aim outside the clamp. Setting it slides the gun along its current orbit angle.
+		/// </summary>
+		public float OrbitRadius
+		{
+			get => _orbitRadius;
+			set
+			{
+				_orbitRadius = value;
+				MoveToOrbitAngle();
+			}
+		}
+
 		private void MoveCircular(GameTime gameTime)
 		{
 			_orbitAngle += RotationSpeed * _acceleration * _deltaLastSet * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
 			EnsureOrbitAngleInBounds();
+			MoveToOrbitAngle();
+		}
 
+		private void MoveToOrbitAngle()
+		{
 			var x = OrbitCenter.X + (_orbitRadius * (float)Math.Cos(_orbitAngle));
 			var z = OrbitCenter.Z + (_orbitRadius * (float)Math.Sin(_orbitAngle));
 
@@ -150,7 +177,7 @@ namespace Prazsky.BS3D.GameObjects
 
 		private void CalculateInitialPositionAndAimTarget()
 		{
-			Position = new Vector3(OrbitCenter.X, _floorHeight, OrbitCenter.Z + _orbitRadius);
+			Position = new Vector3(OrbitCenter.X, _trunnionHeight, OrbitCenter.Z + _orbitRadius);
 			AimTarget = Vector3.Normalize(OrbitCenter);
 
 			RecalculateWorldMatrix();
