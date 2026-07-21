@@ -113,6 +113,42 @@
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/Tonemap.fx;Shaders/Tonemap.fx
 
+#begin ../../Testbed/Content/Shaders/Sea.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Sea.fx;Shaders/Sea.fx
+
+#begin ../../Testbed/Content/Shaders/Desert.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Desert.fx;Shaders/Desert.fx
+
+#begin ../../Testbed/Content/Shaders/Birds.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Birds.fx;Shaders/Birds.fx
+
+#begin ../../Testbed/Content/Shaders/Mountain.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Mountain.fx;Shaders/Mountain.fx
+
+#begin ../../Testbed/Content/Shaders/Snow.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Snow.fx;Shaders/Snow.fx
+
+#begin ../../Testbed/Content/Shaders/Meadow.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Meadow.fx;Shaders/Meadow.fx
+
 #begin ../../Testbed/Content/Skyes/SkyDome1.dae
 /importer:XImporter
 /processor:ModelProcessor

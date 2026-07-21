@@ -106,6 +106,46 @@ namespace MapEditor
 
         #endregion Post-processing
 
+        #region Scenes
+
+        //The switchable environment backdrops, shared with the game so a scene looks here the way it will
+        //play. The four self-lit backdrops (sea/desert/mountain/meadow, with the desert's birds and the
+        //mountain's snow) live in the shared SceneRenderer; the city is its buildings drawn through the shared
+        //InstancedModel city technique, lit by the sky rig like the balls. V cycles the scenes (the game uses
+        //NumPad2, which the editor spends on ball types). There is no arena platform here — the AABB marks the
+        //field instead — and no clouds, so the scenes get full sun with no cloud shadow.
+        private SceneRenderer _sceneRenderer;
+        private SceneKind _scene = SceneKind.City;
+
+        private City _city;
+        private BoxMesh _unitBox;
+        private InstancedModelRenderer _cityRenderer;
+
+        //Wall-clock seconds the scene motion runs off (waves, wind, birds, snow), so the environment keeps
+        //moving the way it does in the game instead of freezing
+        private float _sceneSeconds;
+
+        //Cached sky palette in linear radiance, handed to the scenes each frame (set in ApplySkyLighting)
+        private Vector3 _zenithLinear = Vector3.One;
+        private Vector3 _horizonLinear = Vector3.One;
+
+        //Mirrors of the game's scene-lighting constants (see Testbed.cs): the arena half extent sizes the
+        //city's clearing, the sun radiance and tint give the scenes their warm sun, and the ambient is the
+        //city's. The shaders — the actual look of every scene — are the shared source; these few scalars are
+        //the only things duplicated, and they are stable.
+        private const float ARENA_HALF_EXTENT = 60f;
+        private const float CITY_WINDOW_BRIGHTNESS = 0.35f;
+        private const float NEON_WINDOW_BRIGHTNESS = 0.9f;
+        private const float CITY_SPECULAR_AMBIENT = 0.07f;
+        private const float SCENE_SKY_TINT = 0.5f;
+        private const float SCENE_AMBIENT_INTENSITY = 0.25f;
+        private static readonly Vector3 SCENE_SUN_RADIANCE = new(1.7f, 1.66f, 1.55f);
+        private static readonly Vector3 SUN_DIRECTION = -DefaultLighting.Light0Direction;
+
+        private readonly BasicEffectParams _sceneEffectParams = new(Vector3.One * SCENE_AMBIENT_INTENSITY, Vector3.Zero, 0f, Vector3.Zero);
+
+        #endregion Scenes
+
         public MapEditor(bool windowed = true, int windowWidth = 1280, int windowHeight = 800)
         {
             _windowed = windowed;
@@ -188,6 +228,7 @@ namespace MapEditor
                 new(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
                 //Not S, W, A, D, Q or E: those move the camera (see CameraInputHelper)
                 new(mgKeys.B, SwitchSkyDome, "Switch sky dome (backdrop)"),
+                new(mgKeys.V, SwitchScene, "Switch scene (city/sea/desert/mountain/meadow/neon)"),
 
                 new(mgKeys.F1, SaveJson, "Save map to file (JSON)"),
                 new(mgKeys.F2, LoadJson, "Load map from file (JSON)"),
@@ -237,9 +278,31 @@ namespace MapEditor
             _aabb = new AABB(GraphicsDevice);
             _aabb.FitToMap(_map);
 
+            //The switchable backdrops, drawn exactly as the game draws them. The self-lit ones live in the
+            //shared SceneRenderer; the city is one instanced box mesh under the shared city technique, and it
+            //takes part in the sky lighting below like the balls do.
+            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content);
+            _unitBox = new BoxMesh(GraphicsDevice, 1f, 1f, 1f);
+            _city = new City(seed: 20260720, arenaHalfExtent: ARENA_HALF_EXTENT);
+            _cityRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, Vector3.One, _instancingEffect)
+            {
+                CityWindowBrightness = CITY_WINDOW_BRIGHTNESS,
+                SpecularAmbientStrength = CITY_SPECULAR_AMBIENT
+            };
+
             ApplySkyLighting();
 
             EnsureSceneTarget();
+        }
+
+        /// <summary>
+        /// Cycles the environment backdrop the map is previewed against (the game's NumPad2), so a map can be
+        /// checked against every scene it might play in.
+        /// </summary>
+        private void SwitchScene()
+        {
+            _scene = (SceneKind)(((int)_scene + 1) % 6);
+            Info.CustomText = $"Scene: {_scene}";
         }
 
         /// <summary>
@@ -266,23 +329,27 @@ namespace MapEditor
             //sRGB value by 1.3 does not make 1.3 times the light — so it is decoded to linear first, exactly
             //as the game's ApplySkyLighting does. The renderer works in linear now (LinearLightRig true), and
             //SkyColor/GroundColor hold linear values.
-            Vector3 zenith = ColorSpace.SrgbToLinear(_sky.ZenithColor);
-            Vector3 horizon = ColorSpace.SrgbToLinear(_sky.HorizonColor);
+            _zenithLinear = ColorSpace.SrgbToLinear(_sky.ZenithColor);
+            _horizonLinear = ColorSpace.SrgbToLinear(_sky.HorizonColor);
 
             //Key/fill lights take on the horizon color, the back light the zenith, so the whole rig follows
             //the mood of the sky (the game calls this figure SKY_TINT_STRENGTH; it is the same 0.5)
-            Vector3 keyTint = Vector3.Lerp(Vector3.One, horizon, 0.5f);
-            Vector3 backTint = Vector3.Lerp(Vector3.One, zenith, 0.5f);
+            Vector3 keyTint = Vector3.Lerp(Vector3.One, _horizonLinear, SCENE_SKY_TINT);
+            Vector3 backTint = Vector3.Lerp(Vector3.One, _zenithLinear, SCENE_SKY_TINT);
 
-            foreach (InstancedModelRenderer renderer in _ballRenderers)
-            {
-                renderer.LinearLightRig = true;
-                renderer.SkyColor = zenith * 1.3f;
-                renderer.GroundColor = horizon * 0.75f; //Bounce light from below is dimmer than the sky above
+            //The balls and the city are lit the same way — the city takes part in the sky rig like every
+            //other instanced object (its facades are dark, but its specular ambient reads the sky)
+            foreach (InstancedModelRenderer renderer in _ballRenderers) ApplySkyLightingTo(renderer, keyTint, backTint);
+            if (_cityRenderer != null) ApplySkyLightingTo(_cityRenderer, keyTint, backTint);
+        }
 
-                renderer.KeyLightPosition = -DefaultLighting.Light0Direction * 40f;
-                renderer.SetLightTint(keyTint, backTint);
-            }
+        private void ApplySkyLightingTo(InstancedModelRenderer renderer, Vector3 keyTint, Vector3 backTint)
+        {
+            renderer.LinearLightRig = true;
+            renderer.SkyColor = _zenithLinear * 1.3f;
+            renderer.GroundColor = _horizonLinear * 0.75f; //Bounce light from below is dimmer than the sky above
+            renderer.KeyLightPosition = -DefaultLighting.Light0Direction * 40f;
+            renderer.SetLightTint(keyTint, backTint);
         }
 
         /// <summary>
@@ -405,6 +472,9 @@ namespace MapEditor
         {
             if (!IsActive) return;
 
+            //Drives the scene motion (waves, wind, birds, snow) off the wall clock, like the game's pulse
+            _sceneSeconds += (float)gameTime.ElapsedGameTime.TotalSeconds;
+
             _cih.RegisterCurrentInputState();
 
             foreach (var action in _actions) if (_cih.PressedOnce(action.Key, action.Button)) action.Method();
@@ -474,18 +544,28 @@ namespace MapEditor
             GraphicsDevice.SetRenderTarget(_sceneTarget);
             GraphicsDevice.Clear(CLEAR_COLOR_LINEAR);
 
-            //Drawing the selector leaves additive blending behind, which would wash the sky dome out
+            _sky.Draw(Camera3D);
+
+            //Stated after the sky (which sets its own depth state): the backdrop and the balls both want
+            //alpha blending, depth on and back-face culling. Drawing the selector also leaves additive
+            //blending behind, which would wash the sky dome out on the next frame without this.
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
             GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
 
-            _sky.Draw(Camera3D);
+            //The chosen environment stands in for what the game draws where the city would be. It is drawn
+            //before the balls so the cluster reads in front of it; the snow (mountain) comes after, in front.
+            SceneFrame sceneFrame = BuildSceneFrame();
+            DrawScene(sceneFrame);
 
             DrawBallsInstanced();
 
             //The outline is translucent, so it is drawn over the finished scene and does not write depth
             GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
             _aabb.Draw(Camera3D);
+
+            //Falling snow (mountain) settles in front of everything; a no-op for every other scene
+            _sceneRenderer.DrawOverlays(_scene, sceneFrame);
 
             ResolveSceneTarget();
 
@@ -505,6 +585,37 @@ namespace MapEditor
 
             base.Draw(gameTime);
         }
+
+        /// <summary>
+        /// Draws the chosen environment backdrop: the city's buildings (lit by the sky rig, neon-lit for the
+        /// neon scene) or one of the self-lit shared backdrops. No arena platform — the AABB marks the field.
+        /// </summary>
+        private void DrawScene(in SceneFrame frame)
+        {
+            if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
+            {
+                bool neon = _scene == SceneKind.NeonCity;
+                _cityRenderer.CityNeon = neon ? 1f : 0f;
+                _cityRenderer.CityWindowBrightness = neon ? NEON_WINDOW_BRIGHTNESS : CITY_WINDOW_BRIGHTNESS;
+                _cityRenderer.Draw(Camera3D, _city.Buildings, _city.Buildings.Length, _sceneEffectParams);
+            }
+            else
+                _sceneRenderer.DrawEnvironment(_scene, frame);
+        }
+
+        /// <summary>
+        /// The per-frame inputs the shared <see cref="SceneRenderer"/> needs. No clouds here (the editor draws
+        /// none), so the cloud hook is null and the scenes get full sun; the sun color is its radiance tinted
+        /// by the dome, exactly as the game computes it.
+        /// </summary>
+        private SceneFrame BuildSceneFrame() => new(
+            Camera3D,
+            SUN_DIRECTION,
+            _zenithLinear,
+            _horizonLinear,
+            SCENE_SUN_RADIANCE * Vector3.Lerp(Vector3.One, _horizonLinear, SCENE_SKY_TINT),
+            _sceneSeconds,
+            null);
 
         /// <summary>
         /// Creates the HDR scene target and the quarter-resolution glare targets, or resizes them after a
@@ -689,6 +800,9 @@ namespace MapEditor
             _glareBright?.Dispose();
             _glareStreak?.Dispose();
             _fullScreenQuad?.Dispose();
+            _sceneRenderer?.Dispose();
+            _cityRenderer?.Dispose();
+            _unitBox?.Dispose();
             _aabb?.Dispose();
         }
 

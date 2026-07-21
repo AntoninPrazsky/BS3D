@@ -22,7 +22,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
-using Testbed.Backdrops;
 using static Testbed.Simu;
 using mgKeys = Microsoft.Xna.Framework.Input.Keys;
 
@@ -371,182 +370,12 @@ namespace Testbed
         //NeonCity swap the city (and only the city) for open water, a dune field, a snowy range, a
         //flowering meadow, or the same city lit up in neon — the marble/glass platform stays in all six.
         //NumPad2 cycles them.
-        private enum SceneKind { City, Sea, Desert, Mountain, Meadow, NeonCity }
+        //The four self-lit backdrops (sea/desert/mountain/meadow), plus the circling birds and falling snow,
+        //live in the shared SceneRenderer so the map editor draws them exactly as the game does. The city
+        //below stays here: its buildings go through the shared InstancedModel city technique and are lit by
+        //this scene's rig like every other instanced object, and its arena floor is tied to the ground blocks.
         private SceneKind _scene = SceneKind.City;
-
-        private Effect _seaEffect;
-        private VertexBuffer _seaVertexBuffer;
-        private IndexBuffer _seaIndexBuffer;
-
-        /// <summary>
-        /// Y of the water surface. Kept just clear below the platform geometry (its recessed glass reaches
-        /// down to about -10.7), so the arena reads as floating only a little above the sea without the
-        /// water poking up through the panels.
-        /// </summary>
-        private static readonly float SEA_LEVEL_Y = -11f;
-
-        /// <summary>
-        /// Half-width of the water quad. It is recentered on the camera every frame so it always reaches
-        /// the horizon; the haze fades it into the sky long before this edge.
-        /// </summary>
-        private static readonly float SEA_HALF_EXTENT = 2000f;
-
-        private static readonly Vector3 WATER_COLOR_DEEP = new(0.04f, 0.10f, 0.13f);
-        private static readonly Vector3 WATER_COLOR_SHALLOW = new(0.10f, 0.22f, 0.25f);
-
-        //Peak ripple height (world units), base ripples per world unit and how fast they scroll. Gentle
-        //on purpose — vlnky, not swell.
-        private static readonly float WAVE_AMPLITUDE = 0.18f;
-        private static readonly float WAVE_FREQUENCY = 0.55f;
-        private static readonly float WAVE_SPEED = 0.5f;
-
-        private static readonly float SUN_GLINT_STRENGTH = 8f;
-        private static readonly float SUN_GLINT_POWER = 600f;
-
-        private static readonly float SEA_HORIZON_HAZE_DISTANCE = 400f;
-
-        private Effect _desertEffect;
-        private VertexBuffer _desertVertexBuffer;
-        private IndexBuffer _desertIndexBuffer;
-        private int _desertIndexCount;
-
-        //The dune surface is real geometry: a camera-centred grid of this many vertices per side over this
-        //world extent, displaced in the shader. Snapped to a cell on the CPU each frame so it does not swim.
-        private static readonly int DESERT_GRID_N = 200;
-        private static readonly float DESERT_EXTENT = 800f;
-
-        //Mean sand level and peak dune height. The crests (level + ~1.1 × amplitude) stay below the
-        //platform's recessed glass (about -10.7), so the dunes do not poke up through the panels; the mean
-        //sits low and the amplitude is large, which deepens the troughs into real rolling dunes.
-        private static readonly float DESERT_LEVEL_Y = -23f;
-        private static readonly float DUNE_AMPLITUDE = 10f;
-
-        //Fine wind ripples: peak height (world units), ripples per world unit, and how fast they crawl.
-        private static readonly float DESERT_RIPPLE_AMPLITUDE = 0.10f;
-        private static readonly float DESERT_RIPPLE_FREQUENCY = 1.6f;
-        private static readonly float DESERT_RIPPLE_SPEED = 1.4f;
-
-        //Blown dust veil: strength, drift speed and the distance over which it thickens towards the horizon.
-        private static readonly float DESERT_DUST_STRENGTH = 0.3f;
-        private static readonly float DESERT_DUST_SPEED = 6f;
-        private static readonly float DESERT_DUST_START = 220f;
-
-        //Warm sand (linear reflectance), how much sky fills the flats, the wind, and the horizon fade.
-        private static readonly Vector3 SAND_COLOR = new(0.55f, 0.38f, 0.18f);
-        private static readonly float DESERT_AMBIENT_STRENGTH = 0.65f;
-        private static readonly Vector2 DESERT_WIND = new(0.86f, 0.51f);
-        private static readonly float DESERT_HORIZON_HAZE_DISTANCE = 350f;
-
-        //Circling birds over the dunes (desert scene only): a flock of camera-facing billboard silhouettes.
-        private Effect _birdsEffect;
-        private DynamicVertexBuffer _birdVertexBuffer;
-        private IndexBuffer _birdIndexBuffer;
-        private BirdVertex[] _birdVertices;
-
-        private float[] _birdRadius, _birdAltitude, _birdOrbitSpeed, _birdOrbitPhase, _birdFlapSpeed, _birdFlapPhase, _birdBobSpeed;
-
-        private static readonly int BIRD_COUNT = 9;
-        private static readonly float BIRD_WINGSPAN = 6f;
-        private static readonly float BIRD_ASPECT = 0.55f; //Height of the billboard as a fraction of its width
-        private static readonly float BIRD_BOB = 2.5f; //How far a bird drifts up and down over its circle
-        private static readonly Vector3 BIRD_COLOR = new(0.02f, 0.017f, 0.014f); //Near-black silhouette (linear)
-
-        //Where the flock circles: a fixed point out over the dunes, well above the cluster so the birds sit
-        //against the sky. Each bird orbits it at its own radius, altitude, phase and (slow) speed.
-        private static readonly Vector3 BIRD_FLOCK_CENTER = new(-20f, 34f, -75f);
-
-        //One camera-facing quad per bird; Data carries (u along the wingspan, v vertical, flap phase).
-        private struct BirdVertex : IVertexType
-        {
-            public Vector3 Position;
-            public Vector3 Data;
-
-            public BirdVertex(Vector3 position, Vector3 data)
-            {
-                Position = position;
-                Data = data;
-            }
-
-            public static readonly VertexDeclaration Declaration = new(
-                new VertexElement(0, VertexElementFormat.Vector3, VertexElementUsage.Position, 0),
-                new VertexElement(12, VertexElementFormat.Vector3, VertexElementUsage.TextureCoordinate, 0));
-
-            readonly VertexDeclaration IVertexType.VertexDeclaration => Declaration;
-        }
-
-        //Mountain scene: a displaced grid like the desert, but ridged into snowy peaks around a basin.
-        private Effect _mountainEffect;
-        private VertexBuffer _mountainVertexBuffer;
-        private IndexBuffer _mountainIndexBuffer;
-        private int _mountainIndexCount;
-
-        private static readonly int MOUNTAIN_GRID_N = 240;
-        private static readonly float MOUNTAIN_EXTENT = 1200f;
-
-        //Basin floor, peak height far out, and the clearing the arena sits in (flat within the radius, the
-        //peaks rising over the transition beyond it). The basin stays below the platform glass (about -10.7).
-        private static readonly float MOUNTAIN_LEVEL_Y = -14f;
-        private static readonly float MOUNTAIN_HEIGHT = 75f;
-        private static readonly float MOUNTAIN_CLEARING_RADIUS = 95f;
-        private static readonly float MOUNTAIN_CLEARING_TRANSITION = 110f;
-        private static readonly float MOUNTAIN_CLEARING_RELIEF = 1.5f;
-
-        private static readonly Vector3 SNOW_COLOR = new(0.90f, 0.93f, 0.99f); //Snow (linear, near white)
-        private static readonly Vector3 ROCK_COLOR = new(0.09f, 0.08f, 0.075f); //Bare rock (linear, dark)
-        private static readonly float MOUNTAIN_ROCK_SLOPE = 0.42f; //normal.y below this is all rock
-        private static readonly float MOUNTAIN_SNOW_SLOPE = 0.72f; //normal.y above this is all snow
-        private static readonly float MOUNTAIN_AMBIENT_STRENGTH = 0.6f;
-        private static readonly float MOUNTAIN_HORIZON_HAZE_DISTANCE = 560f;
-
-        //Falling snow (mountain scene only): a static buffer of billboard flakes, animated in the shader.
-        private Effect _snowEffect;
-        private VertexBuffer _snowVertexBuffer;
-        private IndexBuffer _snowIndexBuffer;
-
-        private static readonly int SNOW_FLAKE_COUNT = 1400;
-        private static readonly Vector3 SNOW_BOX_SIZE = new(70f, 55f, 70f);
-        private static readonly float SNOW_FALL_SPEED = 9f;
-        private static readonly Vector2 SNOW_WIND = new(4f, 1.5f);
-        private static readonly float SNOW_SWAY = 1.2f;
-        private static readonly float SNOW_FLAKE_SIZE = 0.13f;
-        //Bright cool white, but kept under GLARE_THRESHOLD so a near flake does not bloom into a glowing orb
-        private static readonly Vector3 SNOW_FLAKE_COLOR = new(0.72f, 0.76f, 0.82f);
-        private static readonly float SNOW_OPACITY = 0.9f;
-
-        //Meadow scene: a displaced grid like the desert, rolling green hills scattered with flowers.
-        private Effect _meadowEffect;
-        private VertexBuffer _meadowVertexBuffer;
-        private IndexBuffer _meadowIndexBuffer;
-        private int _meadowIndexCount;
-
-        private static readonly int MEADOW_GRID_N = 220;
-        private static readonly float MEADOW_EXTENT = 1200f;
-
-        //Basin the arena sits in, rising into rolling hills with distance (flat within the radius, hills
-        //over the transition beyond). The basin stays below the platform glass (about -10.7).
-        private static readonly float MEADOW_LEVEL_Y = -14f;
-        private static readonly float HILL_HEIGHT = 40f;
-        private static readonly float MEADOW_CLEARING_RADIUS = 95f;
-        private static readonly float MEADOW_CLEARING_TRANSITION = 140f;
-        private static readonly float MEADOW_CLEARING_RELIEF = 1.5f;
-
-        private static readonly Vector3 GRASS_COLOR = new(0.14f, 0.46f, 0.05f); //Lush green (linear)
-        private static readonly Vector3 GRASS_COLOR_DARK = new(0.08f, 0.27f, 0.04f);
-        private static readonly float MEADOW_AMBIENT_STRENGTH = 0.7f;
-        private static readonly float MEADOW_HORIZON_HAZE_DISTANCE = 580f;
-        private static readonly Vector2 MEADOW_WIND = new(0.82f, 0.57f);
-
-        //Wind combing the grass, and the fine grass texture
-        private static readonly float MEADOW_WIND_RIPPLE_SPEED = 1.4f;
-        private static readonly float MEADOW_WIND_RIPPLE_FREQUENCY = 0.15f;
-        private static readonly float MEADOW_WIND_RIPPLE_STRENGTH = 0.12f;
-        private static readonly float GRASS_RELIEF_STRENGTH = 0.05f;
-        private static readonly float GRASS_RELIEF_FREQUENCY = 2f;
-
-        //Wildflowers scattered through the grass
-        private static readonly float FLOWER_DENSITY = 0.16f;
-        private static readonly float FLOWER_SPACING = 2.2f;
-        private static readonly float FLOWER_SIZE = 0.22f;
+        private SceneRenderer _sceneRenderer;
 
         /// <summary>
         /// Half-width of the play surface, and the width of the marble band around it. Chosen as a whole
@@ -885,12 +714,9 @@ namespace Testbed
             _sky.Effect = _skyEffect;
             SetCloudParameters();
 
-            LoadSea();
-            LoadDesert();
-            LoadBirds();
-            LoadMountain();
-            LoadSnow();
-            LoadMeadow();
+            //The self-lit outdoor backdrops (sea/desert/mountain/meadow, with the desert's birds and the
+            //mountain's snow) all live here now, shared with the map editor so a scene looks the same in both
+            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content);
 
             _cilinderModel = Content.Load<Model>("GameObjects/Cilinder");
             _cannon = new Cannon(_cilinderModel, new Vector3(0f, 5f, 0f), -6.4f, 20f);
@@ -1128,460 +954,18 @@ namespace Testbed
         }
 
         /// <summary>
-        /// Loads the sea effect and builds its water quad. Static tuning goes in here; the per-frame camera,
-        /// sky palette and cloud field are handed over in <see cref="DrawSea"/>.
+        /// The per-frame inputs the shared <see cref="SceneRenderer"/> needs, taken from this frame's camera,
+        /// sun and sky. The sun color is the sun's own radiance tinted by the dome, exactly as the scene
+        /// shaders used to read it inline; the clouds are handed over from the one shared field.
         /// </summary>
-        private void LoadSea()
-        {
-            _seaEffect = Content.Load<Effect>("Shaders/Sea");
-
-            //A flat quad in the XZ plane at local Y 0; DrawSea drops it to SEA_LEVEL_Y and recenters it on
-            //the camera. Drawn CullNone, so its winding does not matter (it is one quad either way).
-            float h = SEA_HALF_EXTENT;
-            VertexPosition[] vertices =
-            {
-                new(new Vector3(-h, 0f, -h)),
-                new(new Vector3(h, 0f, -h)),
-                new(new Vector3(-h, 0f, h)),
-                new(new Vector3(h, 0f, h))
-            };
-            _seaVertexBuffer = new VertexBuffer(GraphicsDevice, VertexPosition.VertexDeclaration, 4, BufferUsage.WriteOnly);
-            _seaVertexBuffer.SetData(vertices);
-
-            short[] indices = { 0, 1, 2, 1, 3, 2 };
-            _seaIndexBuffer = new IndexBuffer(GraphicsDevice, IndexElementSize.SixteenBits, 6, BufferUsage.WriteOnly);
-            _seaIndexBuffer.SetData(indices);
-
-            _seaEffect.Parameters["WaterColorDeep"].SetValue(WATER_COLOR_DEEP);
-            _seaEffect.Parameters["WaterColorShallow"].SetValue(WATER_COLOR_SHALLOW);
-            _seaEffect.Parameters["WaveAmplitude"].SetValue(WAVE_AMPLITUDE);
-            _seaEffect.Parameters["WaveFrequency"].SetValue(WAVE_FREQUENCY);
-            _seaEffect.Parameters["WaveSpeed"].SetValue(WAVE_SPEED);
-            _seaEffect.Parameters["SunGlintStrength"].SetValue(SUN_GLINT_STRENGTH);
-            _seaEffect.Parameters["SunGlintPower"].SetValue(SUN_GLINT_POWER);
-            _seaEffect.Parameters["HorizonHazeDistance"].SetValue(SEA_HORIZON_HAZE_DISTANCE);
-        }
-
-        /// <summary>
-        /// Draws the sea: a large flat water plane recentered on the camera, reflecting the current dome and
-        /// shadowed by the same cloud field as the rest of the scene. Opaque, so it stands in for the city
-        /// as the thing the translucent arena glass shows beneath it.
-        /// </summary>
-        private void DrawSea()
-        {
-            _seaEffect.Parameters["World"].SetValue(Microsoft.Xna.Framework.Matrix.CreateTranslation(_camera.Position.X, SEA_LEVEL_Y, _camera.Position.Z));
-            _seaEffect.Parameters["View"].SetValue(_camera.View);
-            _seaEffect.Parameters["Projection"].SetValue(_camera.Projection);
-            _seaEffect.Parameters["CameraPosition"].SetValue(_camera.Position);
-            _seaEffect.Parameters["SunDirection"].SetValue(SUN_DIRECTION);
-            _seaEffect.Parameters["ZenithColor"].SetValue(_zenithLinear);
-            _seaEffect.Parameters["HorizonColor"].SetValue(_horizonLinear);
-            _seaEffect.Parameters["SeaTime"].SetValue(_pulseSeconds);
-
-            //The glint takes the sun's own radiance — the same lit-cloud color the weather uses, tinted by
-            //the dome, so it warms at dusk like everything else the sun touches
-            _seaEffect.Parameters["SunColor"].SetValue(CLOUD_SUN_COLOR * Vector3.Lerp(Vector3.One, _horizonLinear, SKY_TINT_STRENGTH));
-
-            //Cloud shadows off the one shared field, so the water darkens under the cloud the sky shows
-            _clouds.ApplyTo(_seaEffect);
-
-            GraphicsDevice.BlendState = BlendState.Opaque;
-            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            GraphicsDevice.SetVertexBuffer(_seaVertexBuffer);
-            GraphicsDevice.Indices = _seaIndexBuffer;
-            _seaEffect.CurrentTechnique.Passes[0].Apply();
-            GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
-
-            //Restore what the scene block set for the rest of the opaque draws
-            GraphicsDevice.BlendState = BlendState.AlphaBlend;
-            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Loads the desert effect and builds its dune grid (a flat lattice the shader displaces into
-        /// dunes). Static tuning goes in here; the per-frame origin, sky palette and cloud field are handed
-        /// over in <see cref="DrawDesert"/>.
-        /// </summary>
-        private void LoadDesert()
-        {
-            _desertEffect = Content.Load<Effect>("Shaders/Desert");
-            CreateGridMesh(DESERT_GRID_N, DESERT_EXTENT, out _desertVertexBuffer, out _desertIndexBuffer, out _desertIndexCount);
-
-            _desertEffect.Parameters["DesertLevelY"].SetValue(DESERT_LEVEL_Y);
-            _desertEffect.Parameters["DuneAmplitude"].SetValue(DUNE_AMPLITUDE);
-            _desertEffect.Parameters["RippleAmplitude"].SetValue(DESERT_RIPPLE_AMPLITUDE);
-            _desertEffect.Parameters["RippleFrequency"].SetValue(DESERT_RIPPLE_FREQUENCY);
-            _desertEffect.Parameters["RippleSpeed"].SetValue(DESERT_RIPPLE_SPEED);
-            _desertEffect.Parameters["DustStrength"].SetValue(DESERT_DUST_STRENGTH);
-            _desertEffect.Parameters["DustSpeed"].SetValue(DESERT_DUST_SPEED);
-            _desertEffect.Parameters["DustStart"].SetValue(DESERT_DUST_START);
-            _desertEffect.Parameters["SandColor"].SetValue(SAND_COLOR);
-            _desertEffect.Parameters["AmbientStrength"].SetValue(DESERT_AMBIENT_STRENGTH);
-            _desertEffect.Parameters["WindDirection"].SetValue(DESERT_WIND);
-            _desertEffect.Parameters["HorizonHazeDistance"].SetValue(DESERT_HORIZON_HAZE_DISTANCE);
-        }
-
-        /// <summary>
-        /// Builds a flat lattice grid: <paramref name="n"/> vertices per side over <paramref name="extent"/>,
-        /// centred on the origin. The desert and mountain shaders recentre it on the camera and lift it into
-        /// dunes or peaks; it is drawn CullNone, so the winding does not matter. (Indices run up to n*n-1 in
-        /// a 16-bit buffer, so keep n at 256 or below.)
-        /// </summary>
-        private void CreateGridMesh(int n, float extent, out VertexBuffer vertexBuffer, out IndexBuffer indexBuffer, out int indexCount)
-        {
-            float half = extent * Constants.HALF;
-            float step = extent / (n - 1);
-
-            VertexPosition[] vertices = new VertexPosition[n * n];
-            for (int z = 0; z < n; z++)
-                for (int x = 0; x < n; x++)
-                    vertices[z * n + x] = new VertexPosition(new Vector3(-half + x * step, 0f, -half + z * step));
-
-            vertexBuffer = new VertexBuffer(GraphicsDevice, VertexPosition.VertexDeclaration, vertices.Length, BufferUsage.WriteOnly);
-            vertexBuffer.SetData(vertices);
-
-            short[] indices = new short[(n - 1) * (n - 1) * 6];
-            int i = 0;
-            for (int z = 0; z < n - 1; z++)
-                for (int x = 0; x < n - 1; x++)
-                {
-                    short a = (short)(z * n + x);
-                    short b = (short)(z * n + x + 1);
-                    short c = (short)((z + 1) * n + x);
-                    short d = (short)((z + 1) * n + x + 1);
-
-                    indices[i++] = a; indices[i++] = c; indices[i++] = b;
-                    indices[i++] = b; indices[i++] = c; indices[i++] = d;
-                }
-
-            indexCount = i;
-            indexBuffer = new IndexBuffer(GraphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
-            indexBuffer.SetData(indices);
-        }
-
-        /// <summary>
-        /// Draws the dune field: the grid pinned to the camera (snapped to a cell so the dunes do not swim),
-        /// lifted into dunes and shaded by the current dome, shadowed by the shared cloud field. Opaque, so
-        /// it stands in for the city as the thing the arena glass shows beneath it.
-        /// </summary>
-        private void DrawDesert()
-        {
-            float cell = DESERT_EXTENT / (DESERT_GRID_N - 1);
-            float originX = MathF.Round(_camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(_camera.Position.Z / cell) * cell;
-
-            _desertEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _desertEffect.Parameters["View"].SetValue(_camera.View);
-            _desertEffect.Parameters["Projection"].SetValue(_camera.Projection);
-            _desertEffect.Parameters["CameraPosition"].SetValue(_camera.Position);
-            _desertEffect.Parameters["SunDirection"].SetValue(SUN_DIRECTION);
-            _desertEffect.Parameters["ZenithColor"].SetValue(_zenithLinear);
-            _desertEffect.Parameters["HorizonColor"].SetValue(_horizonLinear);
-            _desertEffect.Parameters["DesertTime"].SetValue(_pulseSeconds);
-            _desertEffect.Parameters["SunColor"].SetValue(CLOUD_SUN_COLOR * Vector3.Lerp(Vector3.One, _horizonLinear, SKY_TINT_STRENGTH));
-
-            _clouds.ApplyTo(_desertEffect);
-
-            GraphicsDevice.BlendState = BlendState.Opaque;
-            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            GraphicsDevice.SetVertexBuffer(_desertVertexBuffer);
-            GraphicsDevice.Indices = _desertIndexBuffer;
-            _desertEffect.CurrentTechnique.Passes[0].Apply();
-            GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _desertIndexCount / 3);
-
-            GraphicsDevice.BlendState = BlendState.AlphaBlend;
-            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Loads the bird effect, allocates the flock's dynamic billboard buffer and static indices, and
-        /// seeds each bird's orbit and flap. Called once; <see cref="DrawBirds"/> rebuilds the billboards
-        /// each frame.
-        /// </summary>
-        private void LoadBirds()
-        {
-            _birdsEffect = Content.Load<Effect>("Shaders/Birds");
-            _birdsEffect.Parameters["BirdColor"].SetValue(BIRD_COLOR);
-
-            _birdVertices = new BirdVertex[BIRD_COUNT * 4];
-            _birdVertexBuffer = new DynamicVertexBuffer(GraphicsDevice, BirdVertex.Declaration, BIRD_COUNT * 4, BufferUsage.WriteOnly);
-
-            short[] indices = new short[BIRD_COUNT * 6];
-            for (int i = 0; i < BIRD_COUNT; i++)
-            {
-                int v = i * 4;
-                int o = i * 6;
-                indices[o] = (short)v; indices[o + 1] = (short)(v + 2); indices[o + 2] = (short)(v + 1);
-                indices[o + 3] = (short)(v + 1); indices[o + 4] = (short)(v + 2); indices[o + 5] = (short)(v + 3);
-            }
-            _birdIndexBuffer = new IndexBuffer(GraphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
-            _birdIndexBuffer.SetData(indices);
-
-            _birdRadius = new float[BIRD_COUNT];
-            _birdAltitude = new float[BIRD_COUNT];
-            _birdOrbitSpeed = new float[BIRD_COUNT];
-            _birdOrbitPhase = new float[BIRD_COUNT];
-            _birdFlapSpeed = new float[BIRD_COUNT];
-            _birdFlapPhase = new float[BIRD_COUNT];
-            _birdBobSpeed = new float[BIRD_COUNT];
-
-            //Deterministic, so the flock is the same every run. All circle the same way, like a kettle of
-            //vultures riding one thermal, each at its own radius, height and unhurried pace.
-            Random rng = new(4242);
-            for (int i = 0; i < BIRD_COUNT; i++)
-            {
-                _birdRadius[i] = 28f + (float)rng.NextDouble() * 34f;
-                _birdAltitude[i] = (float)(rng.NextDouble() * 2.0 - 1.0) * 10f;
-                _birdOrbitSpeed[i] = 0.10f + (float)rng.NextDouble() * 0.12f;
-                _birdOrbitPhase[i] = (float)rng.NextDouble() * Microsoft.Xna.Framework.MathHelper.TwoPi;
-                _birdFlapSpeed[i] = 2.2f + (float)rng.NextDouble() * 2.2f;
-                _birdFlapPhase[i] = (float)rng.NextDouble() * Microsoft.Xna.Framework.MathHelper.TwoPi;
-                _birdBobSpeed[i] = 0.4f + (float)rng.NextDouble() * 0.5f;
-            }
-        }
-
-        /// <summary>
-        /// Draws the flock: each bird circles <see cref="BIRD_FLOCK_CENTER"/> on its own slow orbit, built
-        /// into a camera-facing billboard here and flapped in the shader. Alpha-blended and depth-tested (a
-        /// dune or the platform in front hides one) but writing no depth. Called in the desert scene only.
-        /// </summary>
-        private void DrawBirds()
-        {
-            Microsoft.Xna.Framework.Matrix inverseView = Microsoft.Xna.Framework.Matrix.Invert(_camera.View);
-            Vector3 right = inverseView.Right * (BIRD_WINGSPAN * Constants.HALF);
-            Vector3 up = inverseView.Up * (BIRD_WINGSPAN * Constants.HALF * BIRD_ASPECT);
-
-            for (int i = 0; i < BIRD_COUNT; i++)
-            {
-                float angle = _pulseSeconds * _birdOrbitSpeed[i] + _birdOrbitPhase[i];
-                float bob = MathF.Sin(_pulseSeconds * _birdBobSpeed[i] + _birdOrbitPhase[i]) * BIRD_BOB;
-
-                Vector3 center = BIRD_FLOCK_CENTER + new Vector3(
-                    MathF.Cos(angle) * _birdRadius[i],
-                    _birdAltitude[i] + bob,
-                    MathF.Sin(angle) * _birdRadius[i]);
-
-                float flap = _pulseSeconds * _birdFlapSpeed[i] + _birdFlapPhase[i];
-
-                int v = i * 4;
-                _birdVertices[v] = new BirdVertex(center - right + up, new Vector3(-1f, 1f, flap));
-                _birdVertices[v + 1] = new BirdVertex(center + right + up, new Vector3(1f, 1f, flap));
-                _birdVertices[v + 2] = new BirdVertex(center - right - up, new Vector3(-1f, -1f, flap));
-                _birdVertices[v + 3] = new BirdVertex(center + right - up, new Vector3(1f, -1f, flap));
-            }
-
-            _birdVertexBuffer.SetData(_birdVertices);
-
-            _birdsEffect.Parameters["View"].SetValue(_camera.View);
-            _birdsEffect.Parameters["Projection"].SetValue(_camera.Projection);
-
-            GraphicsDevice.BlendState = BlendState.AlphaBlend;
-            GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            GraphicsDevice.SetVertexBuffer(_birdVertexBuffer);
-            GraphicsDevice.Indices = _birdIndexBuffer;
-            _birdsEffect.CurrentTechnique.Passes[0].Apply();
-            GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, BIRD_COUNT * 2);
-
-            //Restore the scene block's states for the opaque draws that follow
-            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Loads the mountain effect and its terrain grid, and hands over the static tuning. The per-frame
-        /// origin, sky palette and cloud field are set in <see cref="DrawMountain"/>.
-        /// </summary>
-        private void LoadMountain()
-        {
-            _mountainEffect = Content.Load<Effect>("Shaders/Mountain");
-            CreateGridMesh(MOUNTAIN_GRID_N, MOUNTAIN_EXTENT, out _mountainVertexBuffer, out _mountainIndexBuffer, out _mountainIndexCount);
-
-            _mountainEffect.Parameters["MountainLevelY"].SetValue(MOUNTAIN_LEVEL_Y);
-            _mountainEffect.Parameters["MountainHeight"].SetValue(MOUNTAIN_HEIGHT);
-            _mountainEffect.Parameters["ClearingRadius"].SetValue(MOUNTAIN_CLEARING_RADIUS);
-            _mountainEffect.Parameters["ClearingTransition"].SetValue(MOUNTAIN_CLEARING_TRANSITION);
-            _mountainEffect.Parameters["ClearingRelief"].SetValue(MOUNTAIN_CLEARING_RELIEF);
-            _mountainEffect.Parameters["SnowColor"].SetValue(SNOW_COLOR);
-            _mountainEffect.Parameters["RockColor"].SetValue(ROCK_COLOR);
-            _mountainEffect.Parameters["RockSlope"].SetValue(MOUNTAIN_ROCK_SLOPE);
-            _mountainEffect.Parameters["SnowSlope"].SetValue(MOUNTAIN_SNOW_SLOPE);
-            _mountainEffect.Parameters["AmbientStrength"].SetValue(MOUNTAIN_AMBIENT_STRENGTH);
-            _mountainEffect.Parameters["HorizonHazeDistance"].SetValue(MOUNTAIN_HORIZON_HAZE_DISTANCE);
-        }
-
-        /// <summary>
-        /// Draws the snowy range: the grid pinned to the camera (snapped to a cell so it does not swim),
-        /// lifted into a snow basin ringed by peaks and shaded by the current dome, shadowed by the shared
-        /// cloud field. Opaque, so it stands in for the city as the thing the arena glass shows beneath it.
-        /// </summary>
-        private void DrawMountain()
-        {
-            float cell = MOUNTAIN_EXTENT / (MOUNTAIN_GRID_N - 1);
-            float originX = MathF.Round(_camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(_camera.Position.Z / cell) * cell;
-
-            _mountainEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _mountainEffect.Parameters["View"].SetValue(_camera.View);
-            _mountainEffect.Parameters["Projection"].SetValue(_camera.Projection);
-            _mountainEffect.Parameters["CameraPosition"].SetValue(_camera.Position);
-            _mountainEffect.Parameters["SunDirection"].SetValue(SUN_DIRECTION);
-            _mountainEffect.Parameters["ZenithColor"].SetValue(_zenithLinear);
-            _mountainEffect.Parameters["HorizonColor"].SetValue(_horizonLinear);
-            _mountainEffect.Parameters["SunColor"].SetValue(CLOUD_SUN_COLOR * Vector3.Lerp(Vector3.One, _horizonLinear, SKY_TINT_STRENGTH));
-
-            _clouds.ApplyTo(_mountainEffect);
-
-            GraphicsDevice.BlendState = BlendState.Opaque;
-            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            GraphicsDevice.SetVertexBuffer(_mountainVertexBuffer);
-            GraphicsDevice.Indices = _mountainIndexBuffer;
-            _mountainEffect.CurrentTechnique.Passes[0].Apply();
-            GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _mountainIndexCount / 3);
-
-            GraphicsDevice.BlendState = BlendState.AlphaBlend;
-            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Loads the falling-snow effect and builds the static flake buffer: one quad per flake, its base a
-        /// fixed random point in the unit cube, animated entirely in the shader (so it is never rebuilt).
-        /// Reuses the position+data billboard vertex.
-        /// </summary>
-        private void LoadSnow()
-        {
-            _snowEffect = Content.Load<Effect>("Shaders/Snow");
-            _snowEffect.Parameters["SnowBoxSize"].SetValue(SNOW_BOX_SIZE);
-            _snowEffect.Parameters["SnowFallSpeed"].SetValue(SNOW_FALL_SPEED);
-            _snowEffect.Parameters["SnowWind"].SetValue(SNOW_WIND);
-            _snowEffect.Parameters["SnowSway"].SetValue(SNOW_SWAY);
-            _snowEffect.Parameters["FlakeSize"].SetValue(SNOW_FLAKE_SIZE);
-            _snowEffect.Parameters["SnowColor"].SetValue(SNOW_FLAKE_COLOR);
-            _snowEffect.Parameters["SnowOpacity"].SetValue(SNOW_OPACITY);
-
-            BirdVertex[] vertices = new BirdVertex[SNOW_FLAKE_COUNT * 4];
-            Random rng = new(1207);
-            for (int i = 0; i < SNOW_FLAKE_COUNT; i++)
-            {
-                Vector3 basePosition = new((float)rng.NextDouble(), (float)rng.NextDouble(), (float)rng.NextDouble());
-                float rand = (float)rng.NextDouble();
-                int v = i * 4;
-                vertices[v] = new BirdVertex(basePosition, new Vector3(-1f, 1f, rand));
-                vertices[v + 1] = new BirdVertex(basePosition, new Vector3(1f, 1f, rand));
-                vertices[v + 2] = new BirdVertex(basePosition, new Vector3(-1f, -1f, rand));
-                vertices[v + 3] = new BirdVertex(basePosition, new Vector3(1f, -1f, rand));
-            }
-            _snowVertexBuffer = new VertexBuffer(GraphicsDevice, BirdVertex.Declaration, vertices.Length, BufferUsage.WriteOnly);
-            _snowVertexBuffer.SetData(vertices);
-
-            short[] indices = new short[SNOW_FLAKE_COUNT * 6];
-            for (int i = 0; i < SNOW_FLAKE_COUNT; i++)
-            {
-                int v = i * 4;
-                int o = i * 6;
-                indices[o] = (short)v; indices[o + 1] = (short)(v + 2); indices[o + 2] = (short)(v + 1);
-                indices[o + 3] = (short)(v + 1); indices[o + 4] = (short)(v + 2); indices[o + 5] = (short)(v + 3);
-            }
-            _snowIndexBuffer = new IndexBuffer(GraphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
-            _snowIndexBuffer.SetData(indices);
-        }
-
-        /// <summary>
-        /// Draws the falling snow: the static flake buffer animated in the shader, in a box that follows the
-        /// camera. Drawn last, alpha-blended and depth-read (so the terrain and the cluster occlude the
-        /// flakes behind them) but writing no depth. Mountain scene only.
-        /// </summary>
-        private void DrawSnow()
-        {
-            Microsoft.Xna.Framework.Matrix inverseView = Microsoft.Xna.Framework.Matrix.Invert(_camera.View);
-
-            _snowEffect.Parameters["View"].SetValue(_camera.View);
-            _snowEffect.Parameters["Projection"].SetValue(_camera.Projection);
-            _snowEffect.Parameters["CameraPosition"].SetValue(_camera.Position);
-            _snowEffect.Parameters["CameraRight"].SetValue(inverseView.Right);
-            _snowEffect.Parameters["CameraUp"].SetValue(inverseView.Up);
-            _snowEffect.Parameters["SnowTime"].SetValue(_pulseSeconds);
-
-            GraphicsDevice.BlendState = BlendState.AlphaBlend;
-            GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            GraphicsDevice.SetVertexBuffer(_snowVertexBuffer);
-            GraphicsDevice.Indices = _snowIndexBuffer;
-            _snowEffect.CurrentTechnique.Passes[0].Apply();
-            GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, SNOW_FLAKE_COUNT * 2);
-
-            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Loads the meadow effect and its terrain grid, and hands over the static tuning. The per-frame
-        /// origin, sky palette and cloud field are set in <see cref="DrawMeadow"/>.
-        /// </summary>
-        private void LoadMeadow()
-        {
-            _meadowEffect = Content.Load<Effect>("Shaders/Meadow");
-            CreateGridMesh(MEADOW_GRID_N, MEADOW_EXTENT, out _meadowVertexBuffer, out _meadowIndexBuffer, out _meadowIndexCount);
-
-            _meadowEffect.Parameters["MeadowLevelY"].SetValue(MEADOW_LEVEL_Y);
-            _meadowEffect.Parameters["HillHeight"].SetValue(HILL_HEIGHT);
-            _meadowEffect.Parameters["ClearingRadius"].SetValue(MEADOW_CLEARING_RADIUS);
-            _meadowEffect.Parameters["ClearingTransition"].SetValue(MEADOW_CLEARING_TRANSITION);
-            _meadowEffect.Parameters["ClearingRelief"].SetValue(MEADOW_CLEARING_RELIEF);
-            _meadowEffect.Parameters["GrassColor"].SetValue(GRASS_COLOR);
-            _meadowEffect.Parameters["GrassColorDark"].SetValue(GRASS_COLOR_DARK);
-            _meadowEffect.Parameters["AmbientStrength"].SetValue(MEADOW_AMBIENT_STRENGTH);
-            _meadowEffect.Parameters["HorizonHazeDistance"].SetValue(MEADOW_HORIZON_HAZE_DISTANCE);
-            _meadowEffect.Parameters["WindDirection"].SetValue(MEADOW_WIND);
-            _meadowEffect.Parameters["WindRippleSpeed"].SetValue(MEADOW_WIND_RIPPLE_SPEED);
-            _meadowEffect.Parameters["WindRippleFrequency"].SetValue(MEADOW_WIND_RIPPLE_FREQUENCY);
-            _meadowEffect.Parameters["WindRippleStrength"].SetValue(MEADOW_WIND_RIPPLE_STRENGTH);
-            _meadowEffect.Parameters["GrassReliefStrength"].SetValue(GRASS_RELIEF_STRENGTH);
-            _meadowEffect.Parameters["GrassReliefFrequency"].SetValue(GRASS_RELIEF_FREQUENCY);
-            _meadowEffect.Parameters["FlowerDensity"].SetValue(FLOWER_DENSITY);
-            _meadowEffect.Parameters["FlowerSpacing"].SetValue(FLOWER_SPACING);
-            _meadowEffect.Parameters["FlowerSize"].SetValue(FLOWER_SIZE);
-        }
-
-        /// <summary>
-        /// Draws the meadow: the grid pinned to the camera (snapped so it does not swim), rolling green
-        /// hills scattered with flowers, wind combing the grass, shadowed by the shared cloud field. Opaque,
-        /// so it stands in for the city as the thing the arena glass shows beneath it.
-        /// </summary>
-        private void DrawMeadow()
-        {
-            float cell = MEADOW_EXTENT / (MEADOW_GRID_N - 1);
-            float originX = MathF.Round(_camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(_camera.Position.Z / cell) * cell;
-
-            _meadowEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _meadowEffect.Parameters["View"].SetValue(_camera.View);
-            _meadowEffect.Parameters["Projection"].SetValue(_camera.Projection);
-            _meadowEffect.Parameters["CameraPosition"].SetValue(_camera.Position);
-            _meadowEffect.Parameters["SunDirection"].SetValue(SUN_DIRECTION);
-            _meadowEffect.Parameters["ZenithColor"].SetValue(_zenithLinear);
-            _meadowEffect.Parameters["HorizonColor"].SetValue(_horizonLinear);
-            _meadowEffect.Parameters["MeadowTime"].SetValue(_pulseSeconds);
-            _meadowEffect.Parameters["SunColor"].SetValue(CLOUD_SUN_COLOR * Vector3.Lerp(Vector3.One, _horizonLinear, SKY_TINT_STRENGTH));
-
-            _clouds.ApplyTo(_meadowEffect);
-
-            GraphicsDevice.BlendState = BlendState.Opaque;
-            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            GraphicsDevice.SetVertexBuffer(_meadowVertexBuffer);
-            GraphicsDevice.Indices = _meadowIndexBuffer;
-            _meadowEffect.CurrentTechnique.Passes[0].Apply();
-            GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _meadowIndexCount / 3);
-
-            GraphicsDevice.BlendState = BlendState.AlphaBlend;
-            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
+        private SceneFrame BuildSceneFrame() => new(
+            _camera,
+            SUN_DIRECTION,
+            _zenithLinear,
+            _horizonLinear,
+            CLOUD_SUN_COLOR * Vector3.Lerp(Vector3.One, _horizonLinear, SKY_TINT_STRENGTH),
+            _pulseSeconds,
+            _clouds.ApplyTo);
 
         /// <summary>
         /// Builds the intended setting: a glass play surface framed in marble, standing among the tops of
@@ -2111,6 +1495,8 @@ namespace Testbed
                 //The environment — city or open sea — is the backdrop and the thing seen beneath the glass
                 //both. Either way the old marble ground blocks survive only as physics bodies; nothing
                 //draws them. The marble/glass arena is the platform, and stays in both scenes.
+                SceneFrame sceneFrame = BuildSceneFrame();
+
                 if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
                 {
                     bool neon = _scene == SceneKind.NeonCity;
@@ -2118,17 +1504,8 @@ namespace Testbed
                     _cityRenderer.CityWindowBrightness = neon ? NEON_WINDOW_BRIGHTNESS : CITY_WINDOW_BRIGHTNESS;
                     _cityRenderer.Draw(_camera, _city.Buildings, _city.Buildings.Length, _sceneEffectParams);
                 }
-                else if (_scene == SceneKind.Sea)
-                    DrawSea();
-                else if (_scene == SceneKind.Desert)
-                {
-                    DrawDesert();
-                    DrawBirds();
-                }
-                else if (_scene == SceneKind.Mountain)
-                    DrawMountain();
                 else
-                    DrawMeadow();
+                    _sceneRenderer.DrawEnvironment(_scene, sceneFrame);
 
                 _arenaFrameRenderer.Draw(_camera, _arenaFrameInstances, _arenaFrameInstances.Length, _sceneEffectParams);
 
@@ -2142,7 +1519,7 @@ namespace Testbed
                 _ceilingRenderer.Draw(_camera, _ceiling.World, _sceneEffectParams);
 
                 //Falling snow settles over everything, so it is drawn last, in front of what it should hide
-                if (_scene == SceneKind.Mountain) DrawSnow();
+                _sceneRenderer.DrawOverlays(_scene, sceneFrame);
             }
 
             ResolveSceneTarget();
@@ -2457,6 +1834,7 @@ namespace Testbed
         protected override void UnloadContent()
         {
             _unitBox?.Dispose();
+            _sceneRenderer?.Dispose();
             _sceneTarget?.Dispose();
             _glareBright?.Dispose();
             _glareStreak?.Dispose();

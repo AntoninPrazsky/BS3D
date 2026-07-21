@@ -1,9 +1,8 @@
 using Microsoft.Xna.Framework;
-using Prazsky.Core.Render;
 using System;
 using System.Collections.Generic;
 
-namespace Testbed.Backdrops
+namespace Prazsky.Core.Render
 {
     /// <summary>
     /// A procedurally generated city, drawn as one instanced box per building. No assets: the layout,
@@ -17,6 +16,9 @@ namespace Testbed.Backdrops
     /// boxes are axis-aligned in object space — a diagonal scale maps each face normal onto itself, so
     /// normalizing in the pixel shader recovers it without an inverse transpose.
     /// </para>
+    /// Drawn by an <see cref="InstancedModelRenderer"/> with <c>CityWindowBrightness &gt; 0</c> (the shared
+    /// InstancedModel city technique); the game and the map editor each own one, so the city takes part in
+    /// their sky lighting like every other instanced object.
     /// </summary>
     public sealed class City
     {
