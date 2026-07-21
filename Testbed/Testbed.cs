@@ -377,11 +377,11 @@ namespace Testbed
         private IndexBuffer _seaIndexBuffer;
 
         /// <summary>
-        /// Y of the water surface. Clear below the platform geometry (its glass reaches down to about
-        /// -10.7), so the arena reads as floating a little above the sea rather than the water poking up
-        /// through the panels.
+        /// Y of the water surface. Kept just clear below the platform geometry (its recessed glass reaches
+        /// down to about -10.7), so the arena reads as floating only a little above the sea without the
+        /// water poking up through the panels.
         /// </summary>
-        private static readonly float SEA_LEVEL_Y = -12f;
+        private static readonly float SEA_LEVEL_Y = -11f;
 
         /// <summary>
         /// Half-width of the water quad. It is recentered on the camera every frame so it always reaches
@@ -394,7 +394,7 @@ namespace Testbed
 
         //Peak ripple height (world units), base ripples per world unit and how fast they scroll. Gentle
         //on purpose — vlnky, not swell.
-        private static readonly float WAVE_AMPLITUDE = 0.12f;
+        private static readonly float WAVE_AMPLITUDE = 0.18f;
         private static readonly float WAVE_FREQUENCY = 0.55f;
         private static readonly float WAVE_SPEED = 0.5f;
 
