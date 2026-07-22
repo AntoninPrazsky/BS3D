@@ -1754,11 +1754,10 @@ namespace Testbed
             Vector3 direction = CannonAimDirection();
             Vector3 front = CannonMuzzlePosition();
 
-            //The queued balls lie in the bore, so they are carried by the barrel: they take its orientation
-            //and turn with it, roll included. Drawn unrotated they keep a fixed world orientation while the
-            //barrel turns around them, which reads as each ball spinning backwards in its slot - the gun
-            //rotates, the pattern on the ball does not, and the eye sees the difference as the ball turning
-            //the wrong way. The very same basis the barrel is drawn with, so the two cannot drift apart.
+            //The queued balls lie in the bore, so they are carried by the barrel: they take its orientation and
+            //turn with it as it elevates and traverses. Drawn unrotated they would keep a fixed world orientation
+            //while the barrel tilts around them, and the eye reads that mismatch as each ball skewing in its slot.
+            //The very same basis the barrel is drawn with, so the two cannot drift apart.
             Microsoft.Xna.Framework.Matrix orientation = CannonOrientation();
 
             for (int i = 0; i < MAGAZINE_SIZE; i++)
@@ -2467,24 +2466,19 @@ namespace Testbed
         }
 
         /// <summary>
-        /// The barrel's orientation: forward down the aim, and rolled about that axis so the magazine slot
-        /// (the mesh's local +Y) faces the camera instead of a fixed world up. The queue lies inside a closed
-        /// tube and shows only through that slot, so pinning the slot upwards makes it unreadable from
-        /// anywhere but above the gun - and the game camera sits low, looking up at the cluster. A tube
-        /// rolled about its own axis is otherwise identical, so the slot is the only thing this moves.
+        /// The barrel's orientation: forward down the aim, with the magazine slot (the mesh's local +Y) pinned
+        /// to world up - it stays on top of the barrel and never rolls about the bore. An earlier version rolled
+        /// the slot to face the camera so the loaded queue was always readable, but the roll looked wrong in
+        /// motion: the gun is to sit on a stand that only elevates and traverses, and a barrel that spins about
+        /// its own axis to track the eye reads as unreal. The cost is accepted - from the low game camera the
+        /// player sees the barrel's underside and not always the queue (precise aim, whose camera rides over the
+        /// barrel, still looks into the slot). CreateWorld orthogonalises world up against the aim, keeping the
+        /// slot on the barrel's upper face as it elevates; the bore is clamped well off vertical
+        /// (<see cref="Cannon"/>'s elevation clamp) so world up and the aim are never parallel and this never
+        /// degenerates. Note it no longer depends on the camera.
         /// </summary>
-        private Microsoft.Xna.Framework.Matrix CannonOrientation()
-        {
-            Vector3 aim = CannonAimDirection();
-
-            //The part of "towards the camera" perpendicular to the barrel - the direction the slot must point.
-            //Degenerate only when the camera looks straight down the bore, where every roll looks the same.
-            Vector3 toCamera = _camera.Position - _cannon.Position;
-            Vector3 up = toCamera - aim * Vector3.Dot(toCamera, aim);
-
-            return Microsoft.Xna.Framework.Matrix.CreateWorld(Vector3.Zero, aim,
-                up.LengthSquared() < Constants.THOUSANDTH ? Vector3.Up : Vector3.Normalize(up));
-        }
+        private Microsoft.Xna.Framework.Matrix CannonOrientation() =>
+            Microsoft.Xna.Framework.Matrix.CreateWorld(Vector3.Zero, CannonAimDirection(), Vector3.Up);
 
         /// <summary>
         /// The cannon's draw matrix, built from its pose rather than the (now unused) Object3D.World: the
