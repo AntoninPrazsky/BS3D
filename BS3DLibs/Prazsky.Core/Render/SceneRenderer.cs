@@ -145,15 +145,17 @@ namespace Prazsky.Core.Render
         //rises with distance. Flatter than the meadow's hills - a savanna is open. Mean grass level sits at the
         //island's foot; ClearingRelief is a soft undulation even inside the clearing.
         private const float SAVANNA_LEVEL_Y = -13.5f;
-        private const float SAVANNA_HILL_HEIGHT = 24f;
+        private const float SAVANNA_HILL_HEIGHT = 34f;
         private const float SAVANNA_CLEARING_RADIUS = 90f;
         private const float SAVANNA_CLEARING_TRANSITION = 130f;
-        private const float SAVANNA_CLEARING_RELIEF = 1.4f;
+        private const float SAVANNA_CLEARING_RELIEF = 1.6f;
 
-        //Grass (linear): the greener shade and the drier golden one it varies between in patches. A savanna is
-        //dry gold with green flushes, so the dry tone dominates. How much sky fills the flats, and the horizon fade.
-        private static readonly Vector3 GRASS_COLOR_SAVANNA = new(0.20f, 0.24f, 0.07f);   //green flush
-        private static readonly Vector3 GRASS_COLOR_DRY = new(0.42f, 0.32f, 0.11f);       //dry golden grass
+        //Grass (linear): a green flush, a drier golden base and bare reddish earth, blended in patches. A
+        //savanna is dry gold with green flushes and scuffed earth, so the dry tone dominates. Plus how much sky
+        //fills the flats, and the horizon fade.
+        private static readonly Vector3 GRASS_COLOR_SAVANNA = new(0.15f, 0.26f, 0.06f);   //green flush
+        private static readonly Vector3 GRASS_COLOR_DRY = new(0.40f, 0.30f, 0.10f);       //dry golden grass
+        private static readonly Vector3 GRASS_COLOR_BARE = new(0.26f, 0.15f, 0.08f);      //bare reddish earth
         private const float SAVANNA_AMBIENT_STRENGTH = 0.7f;
         private static readonly Vector2 SAVANNA_WIND = new(0.86f, 0.51f);
         private const float SAVANNA_HORIZON_HAZE_DISTANCE = 520f;
@@ -173,15 +175,22 @@ namespace Prazsky.Core.Render
         private readonly VertexBuffer _acaciaVertexBuffer;
         private readonly IndexBuffer _acaciaIndexBuffer;
 
-        //Scattered acacia trees over the savanna: upright billboards positioned on the ground here, drawn as a
-        //flat-topped tree in the shader. Alpha-tested and depth-writing, so they occlude the terrain and each other.
-        private const int ACACIA_COUNT = 60;
-        private const float ACACIA_WIDTH = 5.5f;   //half-width of the crown
-        private const float ACACIA_HEIGHT = 8.5f;
+        //Scattered acacia trees and low bushes over the savanna: upright billboards positioned on the ground
+        //here, drawn as a flat-topped tree or a rounded clump in the shader. Alpha-tested and depth-writing, so
+        //they occlude the terrain and each other. Plants gather in clumps (as they do on a real savanna) around
+        //a set of cluster centres, with a few solitary ones. One buffer carries both: the packed random is
+        //[0,1) for a tree and [1,2) for a bush.
+        private const int ACACIA_COUNT = 120;
+        private const float ACACIA_BUSH_FRACTION = 0.45f;
+        private const float ACACIA_WIDTH = 6f;     //base half-width of a tree crown
+        private const float ACACIA_HEIGHT = 9f;
         private const float ACACIA_MIN_RADIUS = 42f;   //clear of the island
-        private const float ACACIA_MAX_RADIUS = 330f;
-        private static readonly Vector3 ACACIA_CANOPY_COLOR = new(0.10f, 0.16f, 0.05f); //dark savanna green (linear)
-        private static readonly Vector3 ACACIA_TRUNK_COLOR = new(0.10f, 0.07f, 0.04f);  //dark brown (linear)
+        private const float ACACIA_MAX_RADIUS = 340f;
+        private const int ACACIA_CLUSTERS = 24;
+        private const float ACACIA_CLUSTER_SPREAD = 30f;
+        private static readonly Vector3 ACACIA_CANOPY_COLOR = new(0.09f, 0.17f, 0.05f); //acacia green (linear)
+        private static readonly Vector3 ACACIA_CANOPY_DRY = new(0.22f, 0.22f, 0.07f);   //drier yellow-green
+        private static readonly Vector3 ACACIA_TRUNK_COLOR = new(0.09f, 0.06f, 0.035f); //dark brown (linear)
 
         #endregion
 
@@ -386,6 +395,7 @@ namespace Prazsky.Core.Render
             _savannaEffect.Parameters["ClearingRelief"].SetValue(SAVANNA_CLEARING_RELIEF);
             _savannaEffect.Parameters["GrassColor"].SetValue(GRASS_COLOR_SAVANNA);
             _savannaEffect.Parameters["GrassColorDry"].SetValue(GRASS_COLOR_DRY);
+            _savannaEffect.Parameters["GrassColorBare"].SetValue(GRASS_COLOR_BARE);
             _savannaEffect.Parameters["AmbientStrength"].SetValue(SAVANNA_AMBIENT_STRENGTH);
             _savannaEffect.Parameters["WindDirection"].SetValue(SAVANNA_WIND);
             _savannaEffect.Parameters["HorizonHazeDistance"].SetValue(SAVANNA_HORIZON_HAZE_DISTANCE);
@@ -401,24 +411,63 @@ namespace Prazsky.Core.Render
             _acaciaEffect.Parameters["TreeWidth"].SetValue(ACACIA_WIDTH);
             _acaciaEffect.Parameters["TreeHeight"].SetValue(ACACIA_HEIGHT);
             _acaciaEffect.Parameters["CanopyColor"].SetValue(ACACIA_CANOPY_COLOR);
+            _acaciaEffect.Parameters["CanopyColorDry"].SetValue(ACACIA_CANOPY_DRY);
             _acaciaEffect.Parameters["TrunkColor"].SetValue(ACACIA_TRUNK_COLOR);
 
-            BirdVertex[] acaciaVertices = new BirdVertex[ACACIA_COUNT * 4];
             Random acaciaRng = new(90125);
+
+            //Cluster centres the plants gather around, so the savanna reads as clumps of trees rather than an
+            //even scatter. A minority of plants are placed solo.
+            float[] clusterX = new float[ACACIA_CLUSTERS];
+            float[] clusterZ = new float[ACACIA_CLUSTERS];
+            for (int c = 0; c < ACACIA_CLUSTERS; c++)
+            {
+                float ca = (float)acaciaRng.NextDouble() * MathHelper.TwoPi;
+                float cr = ACACIA_MIN_RADIUS + (float)acaciaRng.NextDouble() * (ACACIA_MAX_RADIUS - ACACIA_MIN_RADIUS);
+                clusterX[c] = MathF.Cos(ca) * cr;
+                clusterZ[c] = MathF.Sin(ca) * cr;
+            }
+
+            BirdVertex[] acaciaVertices = new BirdVertex[ACACIA_COUNT * 4];
             for (int i = 0; i < ACACIA_COUNT; i++)
             {
-                float angle = (float)acaciaRng.NextDouble() * MathHelper.TwoPi;
-                float radius = ACACIA_MIN_RADIUS + (float)acaciaRng.NextDouble() * (ACACIA_MAX_RADIUS - ACACIA_MIN_RADIUS);
-                float x = MathF.Cos(angle) * radius;
-                float z = MathF.Sin(angle) * radius;
+                float x, z;
+                if (acaciaRng.NextDouble() < 0.82) //most plants clump around a cluster centre
+                {
+                    int c = acaciaRng.Next(ACACIA_CLUSTERS);
+                    float off = (float)acaciaRng.NextDouble();
+                    float d = off * off * ACACIA_CLUSTER_SPREAD; //denser towards the centre
+                    float da = (float)acaciaRng.NextDouble() * MathHelper.TwoPi;
+                    x = clusterX[c] + MathF.Cos(da) * d;
+                    z = clusterZ[c] + MathF.Sin(da) * d;
+                }
+                else //the odd solitary plant, anywhere in the ring
+                {
+                    float a = (float)acaciaRng.NextDouble() * MathHelper.TwoPi;
+                    float r = ACACIA_MIN_RADIUS + (float)acaciaRng.NextDouble() * (ACACIA_MAX_RADIUS - ACACIA_MIN_RADIUS);
+                    x = MathF.Cos(a) * r;
+                    z = MathF.Sin(a) * r;
+                }
+
+                //Keep clear of the island
+                float dist = MathF.Sqrt(x * x + z * z);
+                if (dist < ACACIA_MIN_RADIUS && dist > 0.01f)
+                {
+                    x *= ACACIA_MIN_RADIUS / dist;
+                    z *= ACACIA_MIN_RADIUS / dist;
+                }
+
                 Vector3 basePos = new(x, SavannaTerrainHeight(x, z), z);
+
+                //Packed random: [0,1) a tree, [1,2) a bush
                 float rand = (float)acaciaRng.NextDouble();
+                float packed = acaciaRng.NextDouble() < ACACIA_BUSH_FRACTION ? 1f + rand : rand;
 
                 int v = i * 4;
-                acaciaVertices[v] = new BirdVertex(basePos, new Vector3(-1f, 0f, rand));
-                acaciaVertices[v + 1] = new BirdVertex(basePos, new Vector3(1f, 0f, rand));
-                acaciaVertices[v + 2] = new BirdVertex(basePos, new Vector3(-1f, 1f, rand));
-                acaciaVertices[v + 3] = new BirdVertex(basePos, new Vector3(1f, 1f, rand));
+                acaciaVertices[v] = new BirdVertex(basePos, new Vector3(-1f, 0f, packed));
+                acaciaVertices[v + 1] = new BirdVertex(basePos, new Vector3(1f, 0f, packed));
+                acaciaVertices[v + 2] = new BirdVertex(basePos, new Vector3(-1f, 1f, packed));
+                acaciaVertices[v + 3] = new BirdVertex(basePos, new Vector3(1f, 1f, packed));
             }
             _acaciaVertexBuffer = new VertexBuffer(graphicsDevice, BirdVertex.Declaration, acaciaVertices.Length, BufferUsage.WriteOnly);
             _acaciaVertexBuffer.SetData(acaciaVertices);
@@ -749,7 +798,7 @@ namespace Prazsky.Core.Render
                 + 0.3f * MathF.Sin(x * -0.011f + z * 0.020f + 1.5f)
                 + 0.2f * MathF.Sin(x * 0.026f + z * 0.021f + 3.0f);
 
-            float gentle = SAVANNA_CLEARING_RELIEF * MathF.Sin(x * 0.04f + z * 0.03f);
+            float gentle = SAVANNA_CLEARING_RELIEF * (MathF.Sin(x * 0.04f + z * 0.03f) + 0.6f * MathF.Sin(x * -0.055f + z * 0.048f + 2.1f));
 
             return SAVANNA_LEVEL_Y + gentle + SAVANNA_HILL_HEIGHT * ramp * (rolling * 0.5f + 0.5f);
         }

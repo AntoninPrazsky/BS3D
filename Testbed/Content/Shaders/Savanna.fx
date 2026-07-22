@@ -39,6 +39,7 @@ float2 WindDirection;
 //flats, and the distance the field melts into the skyline over
 float3 GrassColor;
 float3 GrassColorDry;
+float3 GrassColorBare;
 float AmbientStrength;
 float HorizonHazeDistance;
 
@@ -62,7 +63,9 @@ float TerrainHeight(float2 p)
 		+ 0.3 * sin(dot(p, float2(-0.011, 0.020)) + 1.5)
 		+ 0.2 * sin(dot(p, float2(0.026, 0.021)) + 3.0);
 
-	float gentle = ClearingRelief * sin(dot(p, float2(0.04, 0.03)));
+	//Gentle undulation even inside the clearing, so the near ground is not a dead-flat plane (two crossing
+	//swells rather than one). Kept low enough that the crests clear the island's foot.
+	float gentle = ClearingRelief * (sin(dot(p, float2(0.04, 0.03))) + 0.6 * sin(dot(p, float2(-0.055, 0.048)) + 2.1));
 
 	return SavannaLevelY + gentle + HillHeight * ramp * (rolling * 0.5 + 0.5);
 }
@@ -136,10 +139,14 @@ float4 SavannaPS(SavannaVertexOutput input) : COLOR
 	float relief = GrassRelief(worldPosition.xz, footprint);
 	float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
 
-	//Dry gold-green grass, varied in patches at two scales so the field is patchy gold and green, not one flat tone
-	float patch = CloudNoise(worldPosition.xz * 0.06) * 0.5 + 0.5;
-	float patchBroad = CloudNoise(worldPosition.xz * 0.02 + 40.0) * 0.5 + 0.5;
-	float3 grass = lerp(GrassColorDry, GrassColor, saturate(patch * patchBroad * 1.4));
+	//Three-tone grass: dry gold as the base, green flushes where it is lusher, and patches of bare reddish
+	//earth. Sampled at several noise scales so the field reads varied and alive, not one flat tone.
+	float patchLarge = CloudNoise(worldPosition.xz * 0.012) * 0.5 + 0.5;   //broad green vs gold zones
+	float patchMed = CloudNoise(worldPosition.xz * 0.05 + 17.0) * 0.5 + 0.5;
+	float bare = CloudNoise(worldPosition.xz * 0.09 + 60.0) * 0.5 + 0.5;   //scattered bare earth
+
+	float3 grass = lerp(GrassColorDry, GrassColor, saturate((patchLarge - 0.35) * 2.2) * patchMed);
+	grass = lerp(grass, GrassColorBare, smoothstep(0.68, 0.82, bare) * 0.7);
 
 	//Wind combing the grass: bright and dark bands travelling downwind
 	float wind = sin(dot(worldPosition.xz, WindDirection) * WindRippleFrequency + SavannaTime * WindRippleSpeed);
