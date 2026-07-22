@@ -250,6 +250,35 @@ namespace Prazsky.Core.Render
 
         #endregion
 
+        #region Spray (sea scene only)
+
+        private readonly Effect _sprayEffect;
+        private readonly VertexBuffer _sprayVertexBuffer;
+        private readonly IndexBuffer _sprayIndexBuffer;
+
+        //Blown spray and spindrift over the sea: a thin slab of billboards hugging the water, whipped downwind
+        //by the storm. One buffer, two reads (fine droplets + faint mist wisps), split per particle in the shader.
+        private const int SPRAY_PARTICLE_COUNT = 2000;
+        //Wide slab in XZ (follows the camera), thin in Y - the spray clings to the surface rather than filling a volume
+        private static readonly Vector3 SPRAY_BOX_SIZE = new(200f, 16f, 200f);
+        //Centred just above the mean sea level (SEA_LEVEL_Y) so the spray sits on the water at any camera height
+        private const float SPRAY_LEVEL_Y = SEA_LEVEL_Y + 2f;
+        //Strong downwind drift, aligned with the sea's own wind (SEA_WIND ~ (0.94, 0.34)) but much faster
+        private static readonly Vector2 SPRAY_WIND = new(30f, 11f);
+        private const float SPRAY_RISE = 3f;   //slow vertical churn
+        private const float SPRAY_TURB = 1.6f; //per-particle turbulent sway
+        private const float SPRAY_DROPLET_SIZE = 0.12f;
+        //Cool grey-blue, its LUMINANCE deliberately just under GLARE_THRESHOLD (0.38). At a grazing angle the
+        //view ray threads hundreds of particles through the thin slab and they stack to full opacity, so any
+        //colour above the threshold - however low the per-particle alpha - blooms into a starfield once it
+        //accumulates. A glare-safe colour is the only robust fix in the HDR pass: the spray reads as cold
+        //storm haze/spindrift rather than white foam-spray, but it never glares. (A brighter, whiter spray
+        //would need a higher glare threshold or a post-resolve pass - see CLAUDE.md.)
+        private static readonly Vector3 SPRAY_COLOR = new(0.33f, 0.37f, 0.43f);
+        private const float SPRAY_OPACITY = 0.38f;
+
+        #endregion
+
         #region Meadow
 
         private readonly Effect _meadowEffect;
@@ -290,7 +319,7 @@ namespace Prazsky.Core.Render
 
         /// <param name="content">
         /// A content manager whose root holds the scene shaders under <c>Shaders/</c> (both executables build
-        /// <c>Sea.fx</c>, <c>Desert.fx</c>, <c>Birds.fx</c>, <c>Mountain.fx</c>, <c>Snow.fx</c>, <c>Meadow.fx</c>
+        /// <c>Sea.fx</c>, <c>Desert.fx</c>, <c>Birds.fx</c>, <c>Mountain.fx</c>, <c>Snow.fx</c>, <c>Spray.fx</c>, <c>Meadow.fx</c>
         /// out of the Testbed content directory).
         /// </param>
         public SceneRenderer(GraphicsDevice graphicsDevice, ContentManager content)
@@ -435,6 +464,44 @@ namespace Prazsky.Core.Render
             _snowIndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, snowIndices.Length, BufferUsage.WriteOnly);
             _snowIndexBuffer.SetData(snowIndices);
 
+            //--- Spray: a static billboard buffer for the sea's blown spray and spindrift, animated entirely
+            //in the shader like the snow (never rebuilt). Same position+data billboard vertex.
+            _sprayEffect = content.Load<Effect>("Shaders/Spray");
+            _sprayEffect.Parameters["SprayBoxSize"].SetValue(SPRAY_BOX_SIZE);
+            _sprayEffect.Parameters["SprayLevelY"].SetValue(SPRAY_LEVEL_Y);
+            _sprayEffect.Parameters["SprayWind"].SetValue(SPRAY_WIND);
+            _sprayEffect.Parameters["SprayRise"].SetValue(SPRAY_RISE);
+            _sprayEffect.Parameters["SprayTurb"].SetValue(SPRAY_TURB);
+            _sprayEffect.Parameters["DropletSize"].SetValue(SPRAY_DROPLET_SIZE);
+            _sprayEffect.Parameters["SprayColor"].SetValue(SPRAY_COLOR);
+            _sprayEffect.Parameters["SprayOpacity"].SetValue(SPRAY_OPACITY);
+
+            BirdVertex[] sprayVertices = new BirdVertex[SPRAY_PARTICLE_COUNT * 4];
+            Random sprayRng = new(5023);
+            for (int i = 0; i < SPRAY_PARTICLE_COUNT; i++)
+            {
+                Vector3 basePosition = new((float)sprayRng.NextDouble(), (float)sprayRng.NextDouble(), (float)sprayRng.NextDouble());
+                float rand = (float)sprayRng.NextDouble();
+                int v = i * 4;
+                sprayVertices[v] = new BirdVertex(basePosition, new Vector3(-1f, 1f, rand));
+                sprayVertices[v + 1] = new BirdVertex(basePosition, new Vector3(1f, 1f, rand));
+                sprayVertices[v + 2] = new BirdVertex(basePosition, new Vector3(-1f, -1f, rand));
+                sprayVertices[v + 3] = new BirdVertex(basePosition, new Vector3(1f, -1f, rand));
+            }
+            _sprayVertexBuffer = new VertexBuffer(graphicsDevice, BirdVertex.Declaration, sprayVertices.Length, BufferUsage.WriteOnly);
+            _sprayVertexBuffer.SetData(sprayVertices);
+
+            short[] sprayIndices = new short[SPRAY_PARTICLE_COUNT * 6];
+            for (int i = 0; i < SPRAY_PARTICLE_COUNT; i++)
+            {
+                int v = i * 4;
+                int o = i * 6;
+                sprayIndices[o] = (short)v; sprayIndices[o + 1] = (short)(v + 2); sprayIndices[o + 2] = (short)(v + 1);
+                sprayIndices[o + 3] = (short)(v + 1); sprayIndices[o + 4] = (short)(v + 2); sprayIndices[o + 5] = (short)(v + 3);
+            }
+            _sprayIndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, sprayIndices.Length, BufferUsage.WriteOnly);
+            _sprayIndexBuffer.SetData(sprayIndices);
+
             //--- Meadow: a smooth rolling displaced grid scattered with flowers
             _meadowEffect = content.Load<Effect>("Shaders/Meadow");
             CreateGridMesh(MEADOW_GRID_N, MEADOW_EXTENT, out _meadowVertexBuffer, out _meadowIndexBuffer, out _meadowIndexCount);
@@ -525,12 +592,14 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Draws the foreground weather that belongs after the opaque scene and the cluster: falling snow in
-        /// the mountain scene. Alpha-blended and depth-read (the terrain and the cluster occlude the flakes
-        /// behind them) but writing no depth. A no-op for every other scene.
+        /// the mountain scene, blown spray and spindrift in the sea scene. Alpha-blended and depth-read (the
+        /// terrain/water and the cluster occlude the particles behind them) but writing no depth. A no-op for
+        /// every other scene.
         /// </summary>
         public void DrawOverlays(SceneKind scene, in SceneFrame frame)
         {
             if (scene == SceneKind.Mountain) DrawSnow(frame);
+            else if (scene == SceneKind.Sea) DrawSpray(frame);
         }
 
         /// <summary>
@@ -715,6 +784,36 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// Draws the sea's blown spray and spindrift: the static billboard buffer animated in the shader, in a
+        /// thin slab that follows the camera in XZ but clings to the water surface in Y. Alpha-blended and
+        /// depth-read (the waves and the platform occlude the particles behind them) but writing no depth. Sea
+        /// scene only.
+        /// </summary>
+        private void DrawSpray(in SceneFrame frame)
+        {
+            Matrix inverseView = Matrix.Invert(frame.Camera.View);
+
+            _sprayEffect.Parameters["View"].SetValue(frame.Camera.View);
+            _sprayEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
+            _sprayEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
+            _sprayEffect.Parameters["CameraRight"].SetValue(inverseView.Right);
+            _sprayEffect.Parameters["CameraUp"].SetValue(inverseView.Up);
+            _sprayEffect.Parameters["SprayTime"].SetValue(frame.Time);
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _graphicsDevice.SetVertexBuffer(_sprayVertexBuffer);
+            _graphicsDevice.Indices = _sprayIndexBuffer;
+            _sprayEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, SPRAY_PARTICLE_COUNT * 2);
+
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
         /// Draws the meadow: the grid pinned to the camera (snapped so it does not swim), rolling green hills
         /// scattered with flowers, wind combing the grass, shadowed by the shared cloud field.
         /// </summary>
@@ -760,6 +859,8 @@ namespace Prazsky.Core.Render
             _mountainIndexBuffer?.Dispose();
             _snowVertexBuffer?.Dispose();
             _snowIndexBuffer?.Dispose();
+            _sprayVertexBuffer?.Dispose();
+            _sprayIndexBuffer?.Dispose();
             _meadowVertexBuffer?.Dispose();
             _meadowIndexBuffer?.Dispose();
         }

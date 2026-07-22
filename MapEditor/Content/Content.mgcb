@@ -143,6 +143,12 @@
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/Snow.fx;Shaders/Snow.fx
 
+#begin ../../Testbed/Content/Shaders/Spray.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Spray.fx;Shaders/Spray.fx
+
 #begin ../../Testbed/Content/Shaders/Meadow.fx
 /importer:EffectImporter
 /processor:EffectProcessor

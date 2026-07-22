@@ -211,6 +211,12 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/Snow.fx
 
+#begin Shaders/Spray.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Spray.fx
+
 #begin Shaders/Meadow.fx
 /importer:EffectImporter
 /processor:EffectProcessor
