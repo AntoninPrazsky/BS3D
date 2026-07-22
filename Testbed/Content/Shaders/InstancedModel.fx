@@ -1047,6 +1047,11 @@ static const float WindowPitchX = 1.7;
 static const float WindowFillY = 0.52;
 static const float WindowFillX = 0.46;
 
+//Wall border kept clear of glass at every building edge, in world units. The window grid is laid out per
+//building (see CityPS) with this margin held at every side, so no window is ever jammed into a corner and
+//every tower carries the same border — the pitch above is only the target spacing the count is solved for.
+static const float WindowMargin = 0.9;
+
 //Fraction of the windows that are lit, and the two colors they are lit with
 static const float WindowLitFraction = 0.42;
 static const float3 WindowWarm = float3(1.0, 0.78, 0.44);
@@ -1083,38 +1088,90 @@ float3 HueToRGB(float h)
 	return saturate(abs(k * 6.0 - 3.0) - 1.0);
 }
 
-//Windows evaluated from world position rather than from the model's own coordinates: the buildings are
-//one box scaled per instance, so an object-space grid would stretch with the building and give a
-//hundred-storey tower the same number of floors as a low one.
-float4 CityPS(VertexShaderOutput input) : COLOR
+//The city needs each building's own extent, not just world position, so windows can be laid out relative to
+//the tower (a consistent edge margin) instead of on a world grid that clips them at the corners. This VS
+//hands the pixel shader the offset from the building's centre and the building's world size. The box is the
+//1x1x1 unit cube, so a transformed unit direction is the world size along that axis and the transform of the
+//object origin is the centre; Bone is applied exactly as for the position. Everything else matches MainVS.
+struct CityVSOutput
+{
+	float4 Position : SV_POSITION;
+	float3 WorldPosition : TEXCOORD0;
+	float3 WorldNormal : TEXCOORD1;
+	float4 OcclusionData : TEXCOORD2;
+	float3 PosFromCenter : TEXCOORD3;
+	float3 BuildingSize : TEXCOORD4;
+};
+
+CityVSOutput CityVS(VertexShaderInput input, InstanceInput instance)
+{
+	CityVSOutput output;
+
+	float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
+	float4 worldPosition = mul(mul(input.Position, Bone), world);
+
+	output.WorldPosition = worldPosition.xyz;
+	output.Position = mul(mul(worldPosition, View), Projection);
+	output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
+	output.OcclusionData = instance.Custom;
+
+	float3 center = mul(mul(float4(0, 0, 0, 1), Bone), world).xyz;
+	output.PosFromCenter = worldPosition.xyz - center;
+	output.BuildingSize = float3(
+		length(mul(mul(float4(1, 0, 0, 0), Bone), world).xyz),
+		length(mul(mul(float4(0, 1, 0, 0), Bone), world).xyz),
+		length(mul(mul(float4(0, 0, 1, 0), Bone), world).xyz));
+
+	return output;
+}
+
+//Windows laid out relative to the building rather than on a world grid: a fixed wall margin (WindowMargin)
+//is held at every edge and the windows are spread evenly across the interior, so none is jammed into a
+//corner and every tower carries the same border. The count is solved from the building's world size against
+//the target pitch, so a taller tower still gets more floors and a wider one more columns.
+float4 CityPS(CityVSOutput input) : COLOR
 {
 	float3 worldNormal = normalize(input.WorldNormal);
 
 	//Which pair of world axes runs across this facade. Branchless: a lerp on the face's own normal,
 	//which is constant over a flat face, so the derivatives below stay well defined.
 	float facingX = step(abs(worldNormal.z), abs(worldNormal.x));
-	float2 facade = lerp(input.WorldPosition.xy, input.WorldPosition.zy, facingX);
+	//Facade coordinates measured from the building centre (horizontal axis picked by the facing), and the
+	//building's half-size along the same two axes. Vertical is always world Y.
+	float2 posFromCenter = float2(lerp(input.PosFromCenter.x, input.PosFromCenter.z, facingX), input.PosFromCenter.y);
+	float2 halfSize = float2(lerp(input.BuildingSize.x, input.BuildingSize.z, facingX), input.BuildingSize.y) * 0.5;
 
 	//Roofs and the ground faces get no windows
 	float vertical = 1 - step(0.5, abs(worldNormal.y));
 
-	float2 grid = facade / float2(WindowPitchX, WindowPitchY);
+	//Interior left for glass after the wall margin, the whole windows that fit at the target pitch, and the
+	//per-building pitch that fills the interior evenly (kept near the target, so it still reads natural).
+	float2 interior = halfSize - WindowMargin;
+	float2 count = floor(interior * 2.0 / float2(WindowPitchX, WindowPitchY) + 0.5);
+	float hasGrid = step(1.0, count.x) * step(1.0, count.y) * vertical;
+	float2 cellPitch = (interior * 2.0) / max(count, 1.0);
+
+	float2 grid = (posFromCenter + interior) / cellPitch;
 	float2 cell = floor(grid);
 	float2 withinCell = abs(frac(grid) - 0.5) * 2;
 
 	//The pixel's extent across the facade, per axis, in cells. Band-limited the way every other feature
 	//here is: once a pixel covers more than a window the pattern fades to its own average rather than
 	//aliasing into a moire of lit and unlit floors, which is what a city at distance would otherwise do.
-	float2 footprint = (abs(ddx(facade)) + abs(ddy(facade))) / float2(WindowPitchX, WindowPitchY);
+	float2 footprint = (abs(ddx(posFromCenter)) + abs(ddy(posFromCenter))) / cellPitch;
 	float resolvable = saturate(1 - max(footprint.x, footprint.y));
 
 	float2 shape = smoothstep(float2(WindowFillX, WindowFillY) + footprint, float2(WindowFillX, WindowFillY) - footprint, withinCell);
-	float window = shape.x * shape.y * vertical;
 
-	//The building this facade belongs to, so two towers neither light the same window pattern nor, in
-	//neon, glow the same colour
-	float2 buildingId = floor(input.WorldPosition.xz * 0.37);
-	float2 windowId = cell + buildingId;
+	//No glass in the wall margin outside the interior (the cut lands in wall, so it needs no smoothing)
+	float2 inside = step(abs(posFromCenter), interior);
+	float window = shape.x * shape.y * hasGrid * inside.x * inside.y;
+
+	//The building this facade belongs to, taken from the tower's own centre so it is one value across the
+	//whole tower (neon hue per tower, and a window pattern that belongs to the building not the world grid)
+	float facadeY = input.WorldPosition.y;
+	float2 buildingId = floor((input.WorldPosition.xz - input.PosFromCenter.xz) * 0.37);
+	float2 windowId = cell + buildingId * 101.0;
 
 	//A window does not decide once and for all. Each keeps its own rhythm — a stretch of its own length,
 	//then it decides again — so lamps come on and go out across the skyline at their own pace. A city
@@ -1135,7 +1192,7 @@ float4 CityPS(VertexShaderOutput input) : COLOR
 	float3 lamp = lerp(WindowWarm, WindowCool, step(0.5, Hash21(cell * 1.7 + 11.3)));
 
 	//Fading to the average keeps a distant tower a dim glowing block instead of a flickering one
-	float coverage = lerp(WindowFillX * WindowFillY * WindowLitFraction * vertical, window * lit, resolvable);
+	float coverage = lerp(WindowFillX * WindowFillY * WindowLitFraction * hasGrid * inside.x * inside.y, window * lit, resolvable);
 
 	float3 lampColor = lamp;
 	float windowFlicker = 1.0;
@@ -1158,7 +1215,7 @@ float4 CityPS(VertexShaderOutput input) : COLOR
 	//A bright solid sign band wrapping some towers at a hashed height, in the contrast colour
 	float hasSign = step(0.5, Hash21(buildingId + 21.0));
 	float signHeight = 5.0 + Hash21(buildingId + 22.0) * 34.0;
-	float signBand = hasSign * vertical * (1.0 - smoothstep(1.1, 1.9, abs(facade.y - signHeight))) * resolvable;
+	float signBand = hasSign * vertical * (1.0 - smoothstep(1.1, 1.9, abs(facadeY - signHeight))) * resolvable;
 
 	//A fraction of the windows buzz on and off, the way a tired neon tube does
 	float flickerId = Hash21(windowId + 8.8);
@@ -1181,7 +1238,7 @@ technique InstancedCity
 {
 	pass P0
 	{
-		VertexShader = compile VS_SHADERMODEL MainVS();
+		VertexShader = compile VS_SHADERMODEL CityVS();
 		PixelShader = compile PS_SHADERMODEL CityPS();
 	}
 };
