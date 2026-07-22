@@ -412,6 +412,23 @@ namespace Testbed
         //entering it defaults the dome to a warm one (dome 14 has the warmest gold horizon of the set).
         private const byte SAVANNA_DEFAULT_SKY_DOME = 14;
 
+        //Scene point lights (the savanna's campfire, the neon city's neon) applied to the shared instanced
+        //effect each frame, so the balls, island, cannon and city are lit by them on top of the sun and the
+        //dome - present under every dome. MAX matches MAX_SCENE_LIGHTS in the shaders.
+        private const int MAX_SCENE_LIGHTS = 8;
+        private readonly Microsoft.Xna.Framework.Vector3[] _sceneLightPos = new Microsoft.Xna.Framework.Vector3[MAX_SCENE_LIGHTS];
+        private readonly Microsoft.Xna.Framework.Vector3[] _sceneLightColor = new Microsoft.Xna.Framework.Vector3[MAX_SCENE_LIGHTS];
+        private readonly float[] _sceneLightRange = new float[MAX_SCENE_LIGHTS];
+
+        //The neon city's lights: a ring of alternating magenta/cyan point lights that actually colour the near
+        //towers, the balls and the island (the windows only glow; these light). Bright linear radiance.
+        private const int NEON_LIGHT_COUNT = 6;
+        private static readonly float NEON_LIGHT_RANGE = 58f;
+        private static readonly float NEON_LIGHT_RADIUS = 46f;
+        private static readonly float NEON_LIGHT_HEIGHT = -6f;
+        private static readonly Vector3 NEON_MAGENTA = new(2.6f, 0.25f, 2.2f);
+        private static readonly Vector3 NEON_CYAN = new(0.25f, 2.2f, 2.8f);
+
         /// <summary>
         /// Top of the stone island's surface, read off the physics plateau (<see cref="GROUND_PLATEAU_Y"/>) so
         /// the drawn floor sits exactly where the balls rest rather than being guessed. The funnel rim and the
@@ -1108,6 +1125,43 @@ namespace Testbed
             _clouds.ApplyTo);
 
         /// <summary>
+        /// Builds this frame's scene point lights for the current scene and sets them on the shared instanced
+        /// effect, so the balls, island, cannon and city are lit by the savanna's campfire or the neon city's
+        /// neon on top of the sun and the dome — present under every sky dome. The savanna grass shader sets
+        /// its own copy (in <see cref="SceneRenderer"/>); other scenes have no extra lights (count 0).
+        /// </summary>
+        private void ApplySceneLights()
+        {
+            int count = 0;
+
+            if (_scene == SceneKind.Savanna)
+            {
+                //The campfire, flickering off the same wall clock as its flame
+                _sceneLightPos[0] = SceneRenderer.SavannaCampfirePosition;
+                _sceneLightColor[0] = SceneRenderer.CampfireColor(_pulseSeconds);
+                _sceneLightRange[0] = SceneRenderer.SAVANNA_CAMPFIRE_RANGE;
+                count = 1;
+            }
+            else if (_scene == SceneKind.NeonCity)
+            {
+                //A ring of alternating magenta/cyan lights around the island, colouring the near towers and balls
+                for (int i = 0; i < NEON_LIGHT_COUNT; i++)
+                {
+                    float a = i / (float)NEON_LIGHT_COUNT * Microsoft.Xna.Framework.MathHelper.TwoPi;
+                    _sceneLightPos[i] = new Vector3(MathF.Cos(a) * NEON_LIGHT_RADIUS, NEON_LIGHT_HEIGHT, MathF.Sin(a) * NEON_LIGHT_RADIUS);
+                    _sceneLightColor[i] = (i % 2 == 0) ? NEON_MAGENTA : NEON_CYAN;
+                    _sceneLightRange[i] = NEON_LIGHT_RANGE;
+                }
+                count = NEON_LIGHT_COUNT;
+            }
+
+            _instancingEffect.Parameters["SceneLightPosition"].SetValue(_sceneLightPos);
+            _instancingEffect.Parameters["SceneLightColor"].SetValue(_sceneLightColor);
+            _instancingEffect.Parameters["SceneLightRange"].SetValue(_sceneLightRange);
+            _instancingEffect.Parameters["SceneLightCount"].SetValue(count);
+        }
+
+        /// <summary>
         /// Builds the intended setting: a glass play surface framed in marble, standing among the tops of
         /// a procedural city. One unit box mesh serves all three — the buildings, the four marble bands
         /// and the glass panel are the same cube under different instance matrices, which is what keeps
@@ -1606,6 +1660,10 @@ namespace Testbed
                 //both. Either way the old marble ground blocks survive only as physics bodies; nothing
                 //draws them. The marble/glass arena is the platform, and stays in both scenes.
                 SceneFrame sceneFrame = BuildSceneFrame();
+
+                //Scene point lights (campfire / neon) onto the shared instanced effect, so the balls, island,
+                //cannon and city are lit by them under every dome, on top of the sun and sky
+                ApplySceneLights();
 
                 if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
                 {

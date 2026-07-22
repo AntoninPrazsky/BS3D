@@ -194,6 +194,40 @@ namespace Prazsky.Core.Render
 
         #endregion
 
+        #region Campfire (savanna scene only)
+
+        private readonly Effect _flameEffect;
+        private readonly VertexBuffer _flameVertexBuffer;
+        private readonly IndexBuffer _flameIndexBuffer;
+
+        //Maximum scene point lights, matching MAX_SCENE_LIGHTS in InstancedModel.fx / Savanna.fx
+        private const int MAX_SCENE_LIGHTS = 8;
+        private readonly Vector3[] _savannaLightPos = new Vector3[MAX_SCENE_LIGHTS];
+        private readonly Vector3[] _savannaLightColor = new Vector3[MAX_SCENE_LIGHTS];
+        private readonly float[] _savannaLightRange = new float[MAX_SCENE_LIGHTS];
+
+        //The savanna's campfire: a real point light that warms the grass, the island and the balls near it
+        //(set on the savanna effect here and on the instanced effect by the Testbed), plus the visible flame
+        //billboard below. It sits on the ground just off the island. Position/colour are public so the Testbed
+        //can set the same light on the balls and island, and they flicker together off the one clock.
+        //Just off the island in the grass, in front of its far edge and a little to the side, so it is in the
+        //game camera's view (the camera sits at ~(0,-3,30) looking down -Z) and lights the island edge and grass.
+        public static readonly Vector3 SavannaCampfirePosition = new(28f, SavannaTerrainHeight(28f, -18f) + 0.2f, -18f);
+        public const float SAVANNA_CAMPFIRE_RANGE = 32f;
+        private const float FLAME_SIZE = 2.3f;
+        //Warm fire colour in LINEAR radiance, kept bright (over 1) so it casts real warm light, not a tint
+        private static readonly Vector3 CAMPFIRE_BASE_COLOR = new(2.4f, 1.0f, 0.32f);
+
+        /// <summary>The flickering campfire colour at a wall-clock time, so the grass light, the balls light
+        /// and the flame all pulse together.</summary>
+        public static Vector3 CampfireColor(float time)
+        {
+            float flicker = 0.72f + 0.28f * (0.5f * MathF.Sin(time * 11f) + 0.3f * MathF.Sin(time * 17f + 1.3f) + 0.2f * MathF.Sin(time * 7f));
+            return CAMPFIRE_BASE_COLOR * flicker;
+        }
+
+        #endregion
+
         #region Birds (savanna scene only)
 
         private readonly Effect _birdsEffect;
@@ -483,6 +517,21 @@ namespace Prazsky.Core.Render
             _acaciaIndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, acaciaIndices.Length, BufferUsage.WriteOnly);
             _acaciaIndexBuffer.SetData(acaciaIndices);
 
+            //--- Campfire flame: one billboard drawn as a procedural flame at the campfire position
+            _flameEffect = content.Load<Effect>("Shaders/Flame");
+            BirdVertex[] flameVertices =
+            {
+                new(Vector3.Zero, new Vector3(-1f, 0f, 0f)),
+                new(Vector3.Zero, new Vector3(1f, 0f, 0f)),
+                new(Vector3.Zero, new Vector3(-1f, 1f, 0f)),
+                new(Vector3.Zero, new Vector3(1f, 1f, 0f))
+            };
+            _flameVertexBuffer = new VertexBuffer(graphicsDevice, BirdVertex.Declaration, 4, BufferUsage.WriteOnly);
+            _flameVertexBuffer.SetData(flameVertices);
+            short[] flameIndices = { 0, 1, 2, 2, 1, 3 };
+            _flameIndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, 6, BufferUsage.WriteOnly);
+            _flameIndexBuffer.SetData(flameIndices);
+
             //--- Birds: a dynamic billboard buffer, static indices, and each bird's orbit and flap seeded once
             _birdsEffect = content.Load<Effect>("Shaders/Birds");
             _birdsEffect.Parameters["BirdColor"].SetValue(BIRD_COLOR);
@@ -713,6 +762,7 @@ namespace Prazsky.Core.Render
         {
             if (scene == SceneKind.Mountain) DrawSnow(frame);
             else if (scene == SceneKind.Sea) DrawSpray(frame);
+            else if (scene == SceneKind.Savanna) DrawFlame(frame);
         }
 
         /// <summary>
@@ -770,6 +820,15 @@ namespace Prazsky.Core.Render
             _savannaEffect.Parameters["SavannaTime"].SetValue(frame.Time);
             _savannaEffect.Parameters["SunColor"].SetValue(frame.SunColor);
 
+            //The campfire lights the grass around it (a real point light, present under every dome)
+            _savannaLightPos[0] = SavannaCampfirePosition;
+            _savannaLightColor[0] = CampfireColor(frame.Time);
+            _savannaLightRange[0] = SAVANNA_CAMPFIRE_RANGE;
+            _savannaEffect.Parameters["SceneLightPosition"].SetValue(_savannaLightPos);
+            _savannaEffect.Parameters["SceneLightColor"].SetValue(_savannaLightColor);
+            _savannaEffect.Parameters["SceneLightRange"].SetValue(_savannaLightRange);
+            _savannaEffect.Parameters["SceneLightCount"].SetValue(1);
+
             frame.ApplyClouds?.Invoke(_savannaEffect);
 
             _graphicsDevice.BlendState = BlendState.Opaque;
@@ -826,6 +885,35 @@ namespace Prazsky.Core.Render
             _acaciaEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, ACACIA_COUNT * 2);
 
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// Draws the campfire's visible flame: one billboard at <see cref="SavannaCampfirePosition"/>, a
+        /// procedural flickering flame in the shader, drawn additively and depth-read (the terrain or platform
+        /// in front hides it) but writing no depth. The light it casts is a separate scene point light. Savanna
+        /// scene only, drawn last with the overlays.
+        /// </summary>
+        private void DrawFlame(in SceneFrame frame)
+        {
+            _flameEffect.Parameters["View"].SetValue(frame.Camera.View);
+            _flameEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
+            _flameEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
+            _flameEffect.Parameters["FlamePosition"].SetValue(SavannaCampfirePosition);
+            _flameEffect.Parameters["FlameSize"].SetValue(FLAME_SIZE);
+            _flameEffect.Parameters["FlameTime"].SetValue(frame.Time);
+
+            _graphicsDevice.BlendState = BlendState.Additive;
+            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _graphicsDevice.SetVertexBuffer(_flameVertexBuffer);
+            _graphicsDevice.Indices = _flameIndexBuffer;
+            _flameEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
@@ -1013,6 +1101,8 @@ namespace Prazsky.Core.Render
             _savannaIndexBuffer?.Dispose();
             _acaciaVertexBuffer?.Dispose();
             _acaciaIndexBuffer?.Dispose();
+            _flameVertexBuffer?.Dispose();
+            _flameIndexBuffer?.Dispose();
             _birdVertexBuffer?.Dispose();
             _birdIndexBuffer?.Dispose();
             _mountainVertexBuffer?.Dispose();

@@ -52,6 +52,14 @@ float WindRippleStrength;
 float GrassReliefStrength;
 float GrassReliefFrequency;
 
+//Scene point lights (the savanna's campfire) that light the grass under every dome, same as InstancedModel.fx.
+//Colours are linear radiance.
+#define MAX_SCENE_LIGHTS 8
+float3 SceneLightPosition[MAX_SCENE_LIGHTS];
+float3 SceneLightColor[MAX_SCENE_LIGHTS];
+float SceneLightRange[MAX_SCENE_LIGHTS];
+int SceneLightCount;
+
 //Gentle rolling savanna: smooth low sines, flat within the clearing around the origin (where the island
 //stands) and rising into low rises with distance. Kept flatter than the meadow's hills - a savanna is open.
 float TerrainHeight(float2 p)
@@ -159,7 +167,20 @@ float4 SavannaPS(SavannaVertexOutput input) : COLOR
 	float ndotl = saturate(dot(normal, SunDirection));
 	float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
 
-	float3 color = grass * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight);
+	//Scene point lights (the campfire) warming the grass around them, on top of sun and sky
+	float3 sceneLight = float3(0.0, 0.0, 0.0);
+	[loop]
+	for (int i = 0; i < SceneLightCount; i++)
+	{
+		float3 toL = SceneLightPosition[i] - worldPosition;
+		float dist = length(toL);
+		float3 L = toL / max(dist, 1e-4);
+		float atten = saturate(1.0 - dist / SceneLightRange[i]);
+		atten *= atten;
+		sceneLight += SceneLightColor[i] * (saturate(dot(normal, L)) * atten);
+	}
+
+	float3 color = grass * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight + sceneLight);
 
 	//Horizon haze: the distant field softens into the skyline
 	float dist = distance(CameraPosition, worldPosition);

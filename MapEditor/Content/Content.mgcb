@@ -131,6 +131,12 @@
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/Acacia.fx;Shaders/Acacia.fx
 
+#begin ../../Testbed/Content/Shaders/Flame.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Flame.fx;Shaders/Flame.fx
+
 #begin ../../Testbed/Content/Shaders/Birds.fx
 /importer:EffectImporter
 /processor:EffectProcessor

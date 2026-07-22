@@ -142,6 +142,37 @@ void AddLight(float3 towardsLight, float3 lightDiffuse, float3 lightSpecular, fl
 	specular += lightSpecular * pow(dotH * lit, SpecularPower);
 }
 
+//Additional scene-specific point lights (a campfire on the savanna, the city's neon, ...) that exist under
+//EVERY sky dome, added on top of the sun and the dome ambient rather than derived from either. Colours are
+//linear radiance; the count is how many of the fixed slots are live this frame. They light everything that
+//comes through ShadePixel - the balls, the island, the cannon, the city facades - so a fire warms the balls
+//near it and the neon actually colours the towers.
+#define MAX_SCENE_LIGHTS 8
+float3 SceneLightPosition[MAX_SCENE_LIGHTS];
+float3 SceneLightColor[MAX_SCENE_LIGHTS];
+float SceneLightRange[MAX_SCENE_LIGHTS];
+int SceneLightCount;
+
+void AddSceneLights(float3 worldPosition, float3 worldNormal, float3 eyeVector, inout float3 diffuse, inout float3 specular)
+{
+	[loop]
+	for (int i = 0; i < SceneLightCount; i++)
+	{
+		float3 toLight = SceneLightPosition[i] - worldPosition;
+		float dist = length(toLight);
+		float3 L = toLight / max(dist, 1e-4);
+
+		//Smooth distance falloff to the light's range (quadratic, so it fades gently and dies at the edge)
+		float atten = saturate(1.0 - dist / SceneLightRange[i]);
+		atten *= atten;
+
+		diffuse += SceneLightColor[i] * (saturate(dot(worldNormal, L)) * atten);
+
+		float dotH = saturate(dot(worldNormal, normalize(L + eyeVector)));
+		specular += SceneLightColor[i] * (pow(dotH, SpecularPower) * atten);
+	}
+}
+
 //Radiance arriving from the sky in a given direction. The domes are vertical gradients between two
 //vertex colors and nothing else, so the environment can be evaluated in closed form instead of being
 //baked into a cubemap: for a gradient, a prefiltered cubemap would only reproduce this expression at
@@ -221,6 +252,9 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
 
 	AddLight(-DirLight1Direction, DirLight1DiffuseColor, DirLight1SpecularColor, worldNormal, eyeVector, diffuse, specular);
 	AddLight(-DirLight2Direction, DirLight2DiffuseColor, DirLight2SpecularColor, worldNormal, eyeVector, diffuse, specular);
+
+	//Scene point lights (fire, neon, ...) on top of the sun and sky - present under every dome
+	AddSceneLights(worldPosition, worldNormal, eyeVector, diffuse, specular);
 
 	float3 hemisphere = SkyRadiance(worldNormal);
 

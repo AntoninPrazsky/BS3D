@@ -199,6 +199,12 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/Acacia.fx
 
+#begin Shaders/Flame.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Flame.fx
+
 #begin Shaders/Birds.fx
 /importer:EffectImporter
 /processor:EffectProcessor
