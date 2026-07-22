@@ -273,9 +273,6 @@ namespace Testbed
         /// </summary>
         private const float DEFAULT_EXPOSURE = 1.1f;
 
-        /// <summary>LightSlateGray, the old clear color, decoded into the linear space the target holds.</summary>
-        private static readonly Color CLEAR_COLOR_LINEAR = new(new Vector3(0.185f, 0.246f, 0.319f));
-
         /// <summary>
         /// The scene renders into a target this many times larger per axis and is box-filtered down on
         /// the way to the back buffer. The balls' relief is the reason: it is a high-frequency signal
@@ -1576,10 +1573,13 @@ namespace Testbed
             //of being softened by the downsample and bent by the tonemap curve
             GraphicsDevice.SetRenderTarget(_sceneTarget);
 
-            //The old clear color in linear light. Nothing should ever see it — the sky dome covers the
-            //whole frame — but a clear color that is silently a different brightness than it reads is a
-            //trap worth not leaving behind.
-            GraphicsDevice.Clear(CLEAR_COLOR_LINEAR);
+            //Clear to the current dome's HORIZON colour (linear), not a fixed blue. The dome is a hemisphere
+            //model translated to the camera and drawn without depth, so it covers everything above the
+            //horizon; below it the terrain covers what it reaches. But at a wide aspect (21:9) the bottom
+            //corners look below the horizon past the terrain's finite edge, and there a fixed clear colour
+            //showed through as a blue band. Clearing to the horizon colour makes any such gap blend seamlessly
+            //with the hazed skyline the terrain and dome both fade to there, so it is never seen as a seam.
+            GraphicsDevice.Clear(new Color(_horizonLinear));
 
             //The clouds run off the same wall clock the balls pulse to, so the weather keeps moving while
             //the simulation is paused or slowed. Handed to both shaders from the one field, which is what

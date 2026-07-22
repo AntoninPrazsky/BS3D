@@ -89,9 +89,6 @@ namespace MapEditor
         private const int SUPERSAMPLE_FACTOR = 2;
         private const float DEFAULT_EXPOSURE = 1.1f;
 
-        //LightSlateGray, the old clear color, decoded into the linear space the target holds
-        private static readonly Color CLEAR_COLOR_LINEAR = new(new Vector3(0.185f, 0.246f, 0.319f));
-
         private static readonly int GLARE_DOWNSAMPLE = 4;
         private static readonly float GLARE_THRESHOLD = 0.38f;
         private static readonly float GLARE_STREAK_LENGTH = 34f;
@@ -544,7 +541,10 @@ namespace MapEditor
             //overlay are drawn after that, in display space, so they stay exactly as authored — the same
             //split the game makes for its aimer and overlay.
             GraphicsDevice.SetRenderTarget(_sceneTarget);
-            GraphicsDevice.Clear(CLEAR_COLOR_LINEAR);
+            //Clear to the dome's horizon colour (linear), not a fixed blue, so any pixel the hemisphere dome
+            //and the finite scene do not cover - the bottom corners at a wide aspect - blends with the hazed
+            //skyline instead of showing through as a blue band (same fix as the game).
+            GraphicsDevice.Clear(new Color(_horizonLinear));
 
             _sky.Draw(Camera3D);
 
