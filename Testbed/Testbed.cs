@@ -419,6 +419,12 @@ namespace Testbed
         private SceneKind _scene = SceneKind.City;
         private SceneRenderer _sceneRenderer;
 
+        //The sea mirrors the sky, so it reads best under a moody dome rather than the bright default: a sunny
+        //sky gives a bright, breezy sea, not a stormy one. Entering the sea scene (at startup or via NumPad2)
+        //therefore defaults the dome to this darker one; NumPad1 still cycles freely from there, and an
+        //explicit sky= on the command line overrides the startup default. Dome 13 is a violet/teal dusk.
+        private const byte SEA_DEFAULT_SKY_DOME = 13;
+
         /// <summary>
         /// Half-width of the play surface, and the width of the marble band around it. Chosen as a whole
         /// number of panels that also divides the recess evenly (see <see cref="ARENA_PIT_HALF_EXTENT"/>).
@@ -675,6 +681,7 @@ namespace Testbed
             _uncappedFps = uncappedFps; //Testing: "nocap" on the command line disables vsync so real rendering headroom can be measured
             _supersampleFactor = Math.Clamp(supersampleFactor, 1, 4); //Testing: "ssaa=<n>" on the command line trades sharpness against fill rate
             if (skyNumber >= 1 && skyNumber <= SKY_DOME_COUNT) _skyModelNumber = skyNumber; //Testing: "sky=<n>" on the command line picks the starting sky dome
+            else if (_scene == SceneKind.Sea) _skyModelNumber = SEA_DEFAULT_SKY_DOME; //The sea scene defaults to a darker dome (unless sky= overrode it above)
 
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;
@@ -1089,9 +1096,16 @@ namespace Testbed
 
         private void SwitchSkyDome()
         {
-            if (_skyModelNumber == SKY_DOME_COUNT) _skyModelNumber = default;
+            SetSkyDome((byte)(_skyModelNumber == SKY_DOME_COUNT ? 1 : _skyModelNumber + 1));
+        }
 
-            _skyModelNumber++;
+        /// <summary>
+        /// Loads the given sky dome and re-derives the whole scene's lighting from it. The one place a dome
+        /// change happens at runtime, shared by <see cref="SwitchSkyDome"/> and the sea scene's default dome.
+        /// </summary>
+        private void SetSkyDome(byte number)
+        {
+            _skyModelNumber = number;
             _skyModel = Content.Load<Model>("Skyes/SkyDome" + _skyModelNumber);
             _sky.SkyDomeModel = _skyModel;
 
@@ -1102,6 +1116,10 @@ namespace Testbed
         {
             _scene = (SceneKind)(((int)_scene + 1) % 6);
             Console.WriteLine($"[scene] {_scene}");
+
+            //The sea reads best under a moody sky, so entering it defaults the dome to a darker one (NumPad1
+            //still cycles freely from there). The other scenes keep whatever dome is up.
+            if (_scene == SceneKind.Sea) SetSkyDome(SEA_DEFAULT_SKY_DOME);
         }
 
         /// <summary>

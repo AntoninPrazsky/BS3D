@@ -1,57 +1,106 @@
-//Draws the open sea: a large flat water plane, animated with gentle procedural ripples, reflecting the
-//current sky dome and receiving the same cloud shadows as the rest of the scene. It is the second scene
-//variant (NumPad2 switches city <-> sea); the marble/glass arena stays as a platform floating on it.
+//Draws the open sea as a rough, storm-driven ocean: a camera-centred grid displaced by a sum of Gerstner
+//(trochoidal) waves - real geometry with sharp crests and rounded troughs that break the horizon and
+//occlude each other, not the flat mirror the first version was. On top of the wave geometry the pixel
+//shader adds fine wind chop, a Fresnel sky reflection, a sun glint, subsurface scattering that lights the
+//crests from behind, and whitecap foam where the waves fold. It is the second scene variant (NumPad2
+//cycles city <-> sea); the marble/glass arena stays as a platform floating on it.
 //
-//Testbed-only - the map editor draws no scene backdrop, so unlike InstancedModel.fx this file is never
-//built for DesktopGL and needs no Shader Model 3.0 branch. It mirrors the idioms of InstancedModel.fx and
-//Sky.fx: the dome is a two-color vertical gradient sampled in closed form (SkyRadiance), features
-//band-limit against the pixel footprint the way the clouds and the ground relief do, and the cloud shadow
-//comes from the one shared field in Clouds.fxh, so the water darkens under the very cloud the sky shows
-//overhead rather than under a second field tuned to look similar.
+//It shares the whole scene toolkit with Desert.fx/Mountain.fx/Meadow.fx: the grid is recentred on the
+//camera each frame and snapped to a cell on the CPU (OriginXZ) so the surface never swims; the dome is a
+//two-color vertical gradient sampled in closed form (the reflection and the ambient); features band-limit
+//against the pixel footprint the way the ground relief does; and the cloud shadow comes from the one
+//shared field in Clouds.fxh, so the water darkens under the very cloud the sky shows overhead. Built for
+//Shader Model 5.0 and drawn through SceneRenderer in both executables (the map editor draws it too now).
 
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0
 
 #include "Clouds.fxh"
 
-float4x4 World;
 float4x4 View;
 float4x4 Projection;
 
 float3 CameraPosition;
 
-//Towards the sun, normalized (the same direction the scene is shadowed and the clouds are lit along)
+//Towards the sun, normalized (the same direction the scene is shadowed and the clouds are lit along), and
+//the sun's own radiance (the lit-cloud color the weather uses, tinted by the dome) for the glint and SSS.
 float3 SunDirection;
+float3 SunColor;
 
 //The current dome's gradient in LINEAR radiance - zenith overhead, horizon at the skyline. The water
 //mirrors this, so it takes on the mood of whichever of the eighteen skies is up, exactly as the city does.
 float3 ZenithColor;
 float3 HorizonColor;
 
-//Radiance of the sun itself, for the glint: the same lit-cloud color the weather uses, tinted by the dome.
-float3 SunColor;
-
-//Wall clock driving the ripples, in seconds (shared with the balls' pulse and the clouds, so the water
-//keeps moving while the simulation is paused).
+//Wall clock driving the waves, in seconds (shared with the balls' pulse and the clouds, so the water keeps
+//moving while the simulation is paused).
 float SeaTime;
 
-//Deep body color of the water and the paler shade the up-facing wave faces take, both linear and both
-//treated as reflectances - they are multiplied by the sky's own light below, so night water goes dark.
+//Where the flat grid is pinned this frame (camera XZ snapped to a cell) and the mean water level
+float2 OriginXZ;
+float SeaLevelY;
+
+//Deep body color of the water and the paler shade its up-facing faces take, both linear and both treated
+//as reflectances - they are multiplied by the sky's own light below, so night water goes dark.
 float3 WaterColorDeep;
 float3 WaterColorShallow;
 
-//Peak wave height (world units), base ripples per world unit, and how fast the phase scrolls
+//Overall wave height (world units, the dominant swell's amplitude), how sharp the crests pinch (0..1, the
+//Gerstner steepness) and a multiplier on the dispersion-derived wave speed.
 float WaveAmplitude;
-float WaveFrequency;
+float WaveSteepness;
 float WaveSpeed;
+
+//The waves are faded to flat between these camera distances, so the far sea settles into a clean hazed
+//horizon line rather than a jagged fringe of crests against the sky.
+float WaveFadeStart;
+float WaveFadeEnd;
+
+//Fine wind chop layered on top of the Gerstner geometry in the pixel shader: peak height, ripples per
+//world unit and scroll speed, plus the wind it crawls along (a unit direction in the XZ plane).
+float ChopAmplitude;
+float ChopFrequency;
+float ChopSpeed;
+float2 WindDirection;
 
 //How sharp and how bright the sun's reflection sparkles off the crests
 float SunGlintStrength;
 float SunGlintPower;
 
+//Whitecap foam: how far the Gerstner Jacobian must fold before foam appears (nearer 1 = more foam), how
+//strong that fold foam is, where on a crest the height-driven foam starts (0..1) and how strong it is, and
+//the foam's own near-white color.
+float FoamJacobianThreshold;
+float FoamStrength;
+float FoamCrestStart;
+float FoamCrestStrength;
+float3 FoamColor;
+
+//Subsurface scattering: how strongly a crest glows when the sun is behind it and the eye looks into it,
+//and the warm green-blue that light takes coming through the water.
+float SssStrength;
+float3 SssColor;
+
 //World distance over which the sea melts into the horizon haze (the sky's own skyline color), so the
-//finite plane has no visible edge and no hard seam against the dome.
+//finite grid has no visible edge and no hard seam against the dome.
 float HorizonHazeDistance;
+
+static const float TWO_PI = 6.28318530718;
+static const float GRAVITY = 9.81;
+
+//The storm spectrum: a dominant long swell down to fine chop, directions fanned around and across the wind
+//so the sum never settles into a tile. Directions need not be unit here - they are normalized at use. The
+//amplitudes are weights on WaveAmplitude; the steepness weights ride on WaveSteepness. Kept few enough to
+//unroll cheaply, since every vertex evaluates the lot.
+//Wavelengths are kept short relative to the scene (a ball is ~1 unit) so several crests fall inside the
+//visible water and it reads as waves, not one flat tilt - a 100-unit swell only ever shows a corner of one
+//wave here. Steepness is high so the crests pinch sharp for a rough sea.
+static const int WAVE_COUNT = 6;
+static const float2 WAVE_DIR[6]   = { float2(1.0, 0.35), float2(0.7, 0.72), float2(1.0, -0.30), float2(0.35, 1.0), float2(-0.45, 1.0), float2(1.0, 0.85) };
+static const float  WAVE_LEN[6]   = { 52.0, 33.0, 21.0, 13.0, 8.5, 5.5 };
+static const float  WAVE_AMP[6]   = { 1.0, 0.72, 0.5, 0.34, 0.22, 0.14 };
+static const float  WAVE_STEEP[6] = { 0.9, 0.95, 1.0, 1.0, 1.0, 1.0 };
+static const float  WAVE_PHASE[6] = { 0.0, 1.7, 3.1, 4.2, 5.5, 0.9 };
 
 struct SeaVertexInput
 {
@@ -62,96 +111,190 @@ struct SeaVertexOutput
 {
 	float4 Position : SV_POSITION;
 	float3 WorldPosition : TEXCOORD0;
+	float3 WorldNormal : TEXCOORD1;
+	//x = whitecap fold factor (0..1), y = crest height normalized (0..1)
+	float2 Foam : TEXCOORD2;
 };
+
+//Sum of Gerstner waves at the rest position p0. Returns the world-space displacement (horizontal AND
+//vertical - the horizontal pinch is what sharpens the crests over a plain height field), the analytic
+//surface normal (GPU Gems 1 form, WA = k*A), the horizontal Jacobian fold (drops below 1 as crests pinch,
+//negative where the surface overhangs - the whitecap generator) and the crest height normalized to 0..1.
+//ampScale fades the whole thing to flat towards the horizon.
+void OceanSurface(float2 p0, float ampScale, out float3 disp, out float3 normal, out float fold, out float crest)
+{
+	disp = float3(0.0, 0.0, 0.0);
+
+	//Normal accumulators: N = normalize(-nx, 1 - nySub, -nz)
+	float nx = 0.0, nz = 0.0, nySub = 0.0;
+
+	//Jacobian accumulators for the horizontal displacement map (x,z) -> (x+dx, z+dz)
+	float jxx = 0.0, jzz = 0.0, jxz = 0.0;
+
+	float sumAmp = 0.0;
+
+	[unroll]
+	for (int i = 0; i < WAVE_COUNT; i++)
+	{
+		float2 d = normalize(WAVE_DIR[i]);
+		float k = TWO_PI / WAVE_LEN[i];
+		float a = WaveAmplitude * WAVE_AMP[i] * ampScale;
+		float w = sqrt(GRAVITY * k) * WaveSpeed;   //deep-water dispersion: long swells roll slower than chop
+		float q = WaveSteepness * WAVE_STEEP[i];
+
+		float phase = k * dot(d, p0) + w * SeaTime + WAVE_PHASE[i];
+		float c = cos(phase);
+		float s = sin(phase);
+
+		float qa = q * a;
+		disp.x += qa * d.x * c;
+		disp.z += qa * d.y * c;
+		disp.y += a * s;
+
+		float wa = k * a;
+		nx += d.x * wa * c;
+		nz += d.y * wa * c;
+		nySub += q * wa * s;
+
+		//d(disp.x)/dx0 = -q*a*k*d.x*d.x*sin(phase); the map derivative subtracts that from the identity
+		jxx += q * wa * d.x * d.x * s;
+		jzz += q * wa * d.y * d.y * s;
+		jxz += q * wa * d.x * d.y * s;
+
+		sumAmp += a;
+	}
+
+	normal = normalize(float3(-nx, 1.0 - nySub, -nz));
+
+	float jacobian = (1.0 - jxx) * (1.0 - jzz) - jxz * jxz;
+	fold = saturate((FoamJacobianThreshold - jacobian) / max(FoamJacobianThreshold, 1e-3));
+
+	crest = saturate(disp.y / max(sumAmp, 1e-3) * 0.5 + 0.5);
+}
 
 SeaVertexOutput SeaVS(SeaVertexInput input)
 {
 	SeaVertexOutput output;
 
-	float4 world = mul(input.Position, World);
+	//Local grid position + the snapped origin gives the rest world XZ; the waves are sampled there, so they
+	//sit still in the world while the grid slides under them
+	float2 restXZ = input.Position.xz + OriginXZ;
 
-	output.WorldPosition = world.xyz;
-	output.Position = mul(mul(world, View), Projection);
+	//Fade the waves to flat between WaveFadeStart and WaveFadeEnd so the horizon reads as one hazed line
+	float restDist = distance(CameraPosition.xz, restXZ);
+	float ampScale = saturate(1.0 - (restDist - WaveFadeStart) / max(WaveFadeEnd - WaveFadeStart, 1.0));
+
+	float3 disp;
+	float3 normal;
+	float fold, crest;
+	OceanSurface(restXZ, ampScale, disp, normal, fold, crest);
+
+	float3 worldPosition = float3(restXZ.x + disp.x, SeaLevelY + disp.y, restXZ.y + disp.z);
+
+	output.WorldPosition = worldPosition;
+	output.WorldNormal = normal;
+	output.Foam = float2(fold, crest);
+	output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
 
 	return output;
 }
 
-//One directional ripple, accumulated as the XZ slope of its height rather than the height itself, since
-//the flat plane is shaded off its normal and never displaced. Band-limited against the pixel footprint
-//the way ReliefOctave is, so the fine ripples retire into a flat mirror towards the horizon instead of
-//aliasing into a shimmer. dir is a unit direction in the XZ plane.
-void SeaRipple(float2 xz, float2 dir, float frequency, float speed, float amplitude, float footprint, inout float2 slope)
+//One fine chop octave, band-limited against the pixel footprint like the ground relief, so the chop fades
+//into smooth water towards the horizon rather than aliasing into a shimmer. Accumulated as a height for
+//PerturbNormalFromHeight to tilt the Gerstner normal by.
+float ChopRipple(float2 xz, float2 dir, float frequency, float footprint)
 {
 	float resolvable = saturate(1.0 - footprint * frequency / 3.14159265);
-	float phase = dot(xz, dir) * frequency + SeaTime * speed;
-
-	//d/dxz of [amplitude * sin(phase)] is amplitude * frequency * cos(phase) * dir
-	slope += amplitude * resolvable * frequency * cos(phase) * dir;
+	return sin(dot(xz, dir) * frequency) * resolvable;
 }
 
-//The XZ slope of the wave field: five ripples along directions and at frequencies sharing no common
-//factor, so the sum never settles into a tile. Gentle ripples, not ocean swell.
-float2 SeaSurfaceSlope(float2 xz, float footprint)
+//The fine wind-chop height field: a few octaves crossing the wind, scrolling downwind so the surface crawls
+float ChopHeight(float2 xz, float footprint)
 {
-	float2 slope = 0.0;
+	float2 p = xz + WindDirection * SeaTime * ChopSpeed;
+	float f = ChopFrequency;
 
-	float f = WaveFrequency;
-	float a = WaveAmplitude;
+	float h = 0.5 * ChopRipple(p, normalize(float2(0.9, 0.4)), f, footprint)
+		+ 0.28 * ChopRipple(p, normalize(float2(0.6, -0.8)), f * 1.9, footprint)
+		+ 0.15 * ChopRipple(p, normalize(float2(-0.5, 0.85)), f * 3.4, footprint)
+		+ 0.09 * ChopRipple(p, normalize(float2(0.2, -0.98)), f * 5.7, footprint);
 
-	SeaRipple(xz, normalize(float2(1.0, 0.3)),   f,        WaveSpeed,        a,        footprint, slope);
-	SeaRipple(xz, normalize(float2(-0.4, 1.0)),  f * 1.7,  WaveSpeed * 1.3,  a * 0.65, footprint, slope);
-	SeaRipple(xz, normalize(float2(0.7, -0.8)),  f * 2.9,  WaveSpeed * 0.8,  a * 0.42, footprint, slope);
-	SeaRipple(xz, normalize(float2(-0.9, -0.3)), f * 4.6,  WaveSpeed * 1.7,  a * 0.28, footprint, slope);
-	SeaRipple(xz, normalize(float2(0.2, 0.98)),  f * 7.3,  WaveSpeed * 2.1,  a * 0.18, footprint, slope);
+	return h * ChopAmplitude;
+}
 
-	return slope;
+//Tangent-free normal tilt from a height field (Christian Schueler), the same one the balls and the ground
+//relief use - the grid carries no tangents and the chop never reaches the vertices anyway.
+float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
+{
+	float3 dpdx = ddx(worldPosition);
+	float3 dpdy = ddy(worldPosition);
+
+	float3 r1 = cross(dpdy, normal);
+	float3 r2 = cross(normal, dpdx);
+
+	float determinant = dot(dpdx, r1);
+	float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
+
+	return normalize(abs(determinant) * normal - surfaceGradient);
 }
 
 float4 SeaPS(SeaVertexOutput input) : COLOR
 {
 	float3 worldPosition = input.WorldPosition;
 
-	//View ray and the pixel's footprint on the plane - the same measure the clouds and the ground relief
-	//band-limit against. It grows without bound towards the horizon, which is what silently flattens the
-	//ripples into a mirror out there.
 	float3 toEye = CameraPosition - worldPosition;
 	float dist = length(toEye);
 	float3 viewDir = toEye / dist;
 
 	float footprint = length(fwidth(worldPosition.xz));
 
-	//Wave normal from the field's slope: a flat plane tilted by the ripples, no vertex moved - the same
-	//normal-from-height idiom as the ball skin and the ground relief.
-	float2 slope = SeaSurfaceSlope(worldPosition.xz, footprint);
-	float3 normal = normalize(float3(-slope.x, 1.0, -slope.y));
-
-	//Sky reflection. The dome is a vertical gradient, so the reflected ray's height picks between horizon
-	//and zenith in closed form - the same trick InstancedModel.fx's SkyRadiance uses for its specular
-	//ambient. A grazing view mirrors the low sky near the horizon; looking steeply down shows more zenith.
-	float3 reflected = reflect(-viewDir, normal);
-	float3 sky = lerp(HorizonColor, ZenithColor, saturate(reflected.y * 0.5 + 0.5));
-
-	//Fresnel: at a grazing angle the water is a mirror, straight down it shows mostly its own body. Water
-	//reflects about 2% head-on, but a small floor above that keeps a little sky in the surface even looking
-	//straight down, which is what stops stylised water from reading as flat black paint.
-	float fresnel = 0.06 + 0.94 * pow(1.0 - saturate(dot(normal, viewDir)), 5.0);
+	//Fine chop tilts the Gerstner normal; it carries the close-up sparkle and breaks the big waves into a
+	//surface. Faded with the same distance ramp as the geometry so the far water is smooth.
+	float chopFade = saturate(1.0 - (dist - WaveFadeStart) / max(WaveFadeEnd - WaveFadeStart, 1.0));
+	float chop = ChopHeight(worldPosition.xz, footprint) * chopFade;
+	float3 normal = PerturbNormalFromHeight(normalize(input.WorldNormal), worldPosition, chop);
 
 	//How much sun reaches this patch through the clouds - the very field the whole scene is shadowed by
 	float sunlight = CloudSunlight(worldPosition, SunDirection);
 
-	//Body color: deep water lit by the sky above it (so a night sea goes dark), the up-facing wave faces
-	//a touch paler. Water has almost no light of its own; what you see looking into it is skylight, both
-	//scattered back out of the body and a dim always-present tint of the sky straight overhead.
-	float3 ambient = (ZenithColor + HorizonColor) * 0.5;
-	float3 body = lerp(WaterColorDeep, WaterColorShallow, saturate(normal.y) * 0.5) * ambient + ZenithColor * 0.06;
-
-	//A cloud overhead greys the mirrored sky down a little, since there is less lit blue to reflect
+	//Sky reflection. The dome is a vertical gradient, so the reflected ray's height picks between horizon
+	//and zenith in closed form - the same trick InstancedModel.fx's SkyRadiance uses. A grazing view mirrors
+	//the low sky near the horizon; a steep look down shows more zenith. A cloud overhead greys it a little.
+	float3 reflected = reflect(-viewDir, normal);
+	float3 sky = lerp(HorizonColor, ZenithColor, saturate(reflected.y * 0.5 + 0.5));
 	float3 reflection = sky * lerp(0.65, 1.0, sunlight);
 
-	//Sun glint: a sharp spark where the reflected ray points at the sun, snuffed out under a cloud shadow
-	float glint = pow(saturate(dot(reflected, SunDirection)), SunGlintPower) * SunGlintStrength * sunlight;
+	//Fresnel: at a grazing angle the water is a mirror, straight down it shows mostly its own body. A small
+	//floor above water's ~2% head-on reflectance keeps a little sky in the surface even looking straight down.
+	float fresnel = 0.02 + 0.98 * pow(1.0 - saturate(dot(normal, viewDir)), 5.0);
 
-	float3 color = lerp(body, reflection, fresnel) + glint * SunColor;
+	//Body color: deep water lit by the sky above it (so a night sea goes dark), the up-facing faces a touch
+	//paler. Water has almost no light of its own; what you see into it is skylight scattered back out.
+	float3 ambient = (ZenithColor + HorizonColor) * 0.5;
+	float3 body = lerp(WaterColorDeep, WaterColorShallow, saturate(normal.y) * 0.5) * ambient + ZenithColor * 0.05;
+
+	float3 color = lerp(body, reflection, fresnel);
+
+	//Subsurface scattering: a crest glows when the sun is behind it and the eye looks into the water. The
+	//classic cheap term - looking towards the sun, strongest on the raised faces of the waves, snuffed by cloud.
+	float backlight = pow(saturate(dot(viewDir, -SunDirection)), 4.0);
+	float sss = backlight * saturate(input.Foam.y * 2.0 - 0.5) * SssStrength * sunlight;
+	color += SssColor * SunColor * sss;
+
+	//Sun glint: a sharp spark where the reflected ray points at the sun, sparkling across the chop facets,
+	//snuffed out under a cloud shadow
+	float glint = pow(saturate(dot(reflected, SunDirection)), SunGlintPower) * SunGlintStrength * sunlight;
+	color += glint * SunColor;
+
+	//Whitecap foam: where the Gerstner Jacobian folds (fold) and where a crest rises past FoamCrestStart,
+	//broken up by the shared cloud noise so it is flecks and streaks, not a clean painted band. Foam is a
+	//near-white matte cap lit by the sun and the sky, not a mirror, so it composites over the water color.
+	float crestFoam = saturate((input.Foam.y - FoamCrestStart) / max(1.0 - FoamCrestStart, 1e-3)) * FoamCrestStrength;
+	float foam = saturate(max(input.Foam.x * FoamStrength, crestFoam));
+	float foamNoise = saturate(CloudNoise(worldPosition.xz * 0.25 + WindDirection * SeaTime * ChopSpeed * 0.5) * 0.7 + 0.4);
+	foam *= foamNoise * chopFade;
+	float3 foamCol = FoamColor * (ambient + SunColor * sunlight * saturate(dot(normal, SunDirection)) * 0.7);
+	color = lerp(color, foamCol, foam);
 
 	//Horizon haze: melt the sea into the skyline color over distance, so the plane has no visible edge
 	float haze = saturate(dist / HorizonHazeDistance);

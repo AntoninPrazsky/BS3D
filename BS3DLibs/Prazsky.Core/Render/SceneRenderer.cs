@@ -67,33 +67,64 @@ namespace Prazsky.Core.Render
         private readonly Effect _seaEffect;
         private readonly VertexBuffer _seaVertexBuffer;
         private readonly IndexBuffer _seaIndexBuffer;
+        private readonly int _seaIndexCount;
+
+        //The sea is real geometry now, like the dunes: a camera-centred grid this many vertices per side over
+        //this world extent, displaced by Gerstner waves in the shader and snapped to a cell on the CPU each
+        //frame so it does not swim. Dense enough for the dominant swell to read as smooth geometry; the fine
+        //chop is added per pixel. (Grid density is the natural Low/Med/High/Ultra dial once graphics settings land.)
+        private const int SEA_GRID_N = 380;
+        private const float SEA_EXTENT = 1600f;
 
         /// <summary>
-        /// Y of the water surface. Kept just clear below the platform geometry (its recessed glass reaches
-        /// down to about -10.7), so the arena reads as floating only a little above the sea without the
-        /// water poking up through the panels.
+        /// Mean water level. Lowered well below the platform (its recessed glass reaches to about -10.7) so a
+        /// rough sea has headroom for its crests without them poking up through the panels — the arena now
+        /// stands a little above churning water rather than sitting right at a mirror-calm waterline.
         /// </summary>
-        private const float SEA_LEVEL_Y = -11f;
+        private const float SEA_LEVEL_Y = -13f;
 
-        /// <summary>
-        /// Half-width of the water quad. It is recentered on the camera every frame so it always reaches
-        /// the horizon; the haze fades it into the sky long before this edge.
-        /// </summary>
-        private const float SEA_HALF_EXTENT = 2000f;
+        //Deep body and the paler up-facing shade (linear reflectances, multiplied by skylight in the shader).
+        //Darker and greener than the calm version, for storm water.
+        private static readonly Vector3 WATER_COLOR_DEEP = new(0.02f, 0.05f, 0.07f);
+        private static readonly Vector3 WATER_COLOR_SHALLOW = new(0.07f, 0.17f, 0.19f);
 
-        private static readonly Vector3 WATER_COLOR_DEEP = new(0.04f, 0.10f, 0.13f);
-        private static readonly Vector3 WATER_COLOR_SHALLOW = new(0.10f, 0.22f, 0.25f);
+        //Dominant swell height (world units), crest sharpness (0..1 Gerstner steepness) and a speed multiplier
+        //on the dispersion-derived wave speed. Amplitude is kept so the tallest crests stay below the platform.
+        private const float WAVE_AMPLITUDE = 0.6f;
+        private const float WAVE_STEEPNESS = 0.95f;
+        private const float WAVE_SPEED = 1.2f;
 
-        //Peak ripple height (world units), base ripples per world unit and how fast they scroll. Gentle
-        //on purpose — vlnky, not swell.
-        private const float WAVE_AMPLITUDE = 0.18f;
-        private const float WAVE_FREQUENCY = 0.55f;
-        private const float WAVE_SPEED = 0.5f;
+        //Waves fade to flat between these camera distances. Kept out to nearly the grid half-extent (800) so
+        //the far sea keeps a wavy, foam-flecked horizon rather than melting into a flat line too early.
+        private const float WAVE_FADE_START = 340f;
+        private const float WAVE_FADE_END = 780f;
 
-        private const float SUN_GLINT_STRENGTH = 8f;
-        private const float SUN_GLINT_POWER = 600f;
+        //Fine wind chop layered per pixel over the swell: peak height, ripples per world unit, scroll speed,
+        //and the wind it crawls along (a roughly unit direction in XZ). Strong, so the surface is broken and
+        //rough rather than a smooth mirror between the crests.
+        private const float CHOP_AMPLITUDE = 0.16f;
+        private const float CHOP_FREQUENCY = 1.0f;
+        private const float CHOP_SPEED = 1.6f;
+        private static readonly Vector2 SEA_WIND = new(0.94f, 0.34f);
 
-        private const float SEA_HORIZON_HAZE_DISTANCE = 400f;
+        private const float SUN_GLINT_STRENGTH = 12f;
+        private const float SUN_GLINT_POWER = 500f;
+
+        //Whitecap foam: how far the wave Jacobian must fold before foam shows (nearer 1 = more), that fold
+        //foam's strength, where on a crest height-driven foam begins (0..1) and its strength, and the foam
+        //color. Tuned heavy for a storm - foam over much of the upper crest and wherever the waves pinch.
+        private const float FOAM_JACOBIAN_THRESHOLD = 0.5f;
+        private const float FOAM_STRENGTH = 1.1f;
+        private const float FOAM_CREST_START = 0.72f;
+        private const float FOAM_CREST_STRENGTH = 0.7f;
+        private static readonly Vector3 FOAM_COLOR = new(0.8f, 0.85f, 0.9f);
+
+        //Subsurface scattering: strength of the crest glow when the sun is behind a wave, and the warm
+        //green-blue that light takes coming through the water.
+        private const float SSS_STRENGTH = 0.7f;
+        private static readonly Vector3 SSS_COLOR = new(0.15f, 0.55f, 0.50f);
+
+        private const float SEA_HORIZON_HAZE_DISTANCE = 700f;
 
         #endregion
 
@@ -266,32 +297,32 @@ namespace Prazsky.Core.Render
         {
             _graphicsDevice = graphicsDevice;
 
-            //--- Sea: a flat quad in the XZ plane at local Y 0; DrawSea drops it to SEA_LEVEL_Y and recenters
-            //it on the camera. Drawn CullNone, so its winding does not matter (it is one quad either way).
+            //--- Sea: a camera-centred grid displaced into Gerstner waves; DrawSea snaps it to a cell and sets
+            //the mean level. Drawn CullNone (one open surface, read from above and through the crests).
             _seaEffect = content.Load<Effect>("Shaders/Sea");
+            CreateGridMesh(SEA_GRID_N, SEA_EXTENT, out _seaVertexBuffer, out _seaIndexBuffer, out _seaIndexCount);
 
-            float h = SEA_HALF_EXTENT;
-            VertexPosition[] seaVertices =
-            {
-                new(new Vector3(-h, 0f, -h)),
-                new(new Vector3(h, 0f, -h)),
-                new(new Vector3(-h, 0f, h)),
-                new(new Vector3(h, 0f, h))
-            };
-            _seaVertexBuffer = new VertexBuffer(graphicsDevice, VertexPosition.VertexDeclaration, 4, BufferUsage.WriteOnly);
-            _seaVertexBuffer.SetData(seaVertices);
-
-            short[] seaIndices = { 0, 1, 2, 1, 3, 2 };
-            _seaIndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, 6, BufferUsage.WriteOnly);
-            _seaIndexBuffer.SetData(seaIndices);
-
+            _seaEffect.Parameters["SeaLevelY"].SetValue(SEA_LEVEL_Y);
             _seaEffect.Parameters["WaterColorDeep"].SetValue(WATER_COLOR_DEEP);
             _seaEffect.Parameters["WaterColorShallow"].SetValue(WATER_COLOR_SHALLOW);
             _seaEffect.Parameters["WaveAmplitude"].SetValue(WAVE_AMPLITUDE);
-            _seaEffect.Parameters["WaveFrequency"].SetValue(WAVE_FREQUENCY);
+            _seaEffect.Parameters["WaveSteepness"].SetValue(WAVE_STEEPNESS);
             _seaEffect.Parameters["WaveSpeed"].SetValue(WAVE_SPEED);
+            _seaEffect.Parameters["WaveFadeStart"].SetValue(WAVE_FADE_START);
+            _seaEffect.Parameters["WaveFadeEnd"].SetValue(WAVE_FADE_END);
+            _seaEffect.Parameters["ChopAmplitude"].SetValue(CHOP_AMPLITUDE);
+            _seaEffect.Parameters["ChopFrequency"].SetValue(CHOP_FREQUENCY);
+            _seaEffect.Parameters["ChopSpeed"].SetValue(CHOP_SPEED);
+            _seaEffect.Parameters["WindDirection"].SetValue(SEA_WIND);
             _seaEffect.Parameters["SunGlintStrength"].SetValue(SUN_GLINT_STRENGTH);
             _seaEffect.Parameters["SunGlintPower"].SetValue(SUN_GLINT_POWER);
+            _seaEffect.Parameters["FoamJacobianThreshold"].SetValue(FOAM_JACOBIAN_THRESHOLD);
+            _seaEffect.Parameters["FoamStrength"].SetValue(FOAM_STRENGTH);
+            _seaEffect.Parameters["FoamCrestStart"].SetValue(FOAM_CREST_START);
+            _seaEffect.Parameters["FoamCrestStrength"].SetValue(FOAM_CREST_STRENGTH);
+            _seaEffect.Parameters["FoamColor"].SetValue(FOAM_COLOR);
+            _seaEffect.Parameters["SssStrength"].SetValue(SSS_STRENGTH);
+            _seaEffect.Parameters["SssColor"].SetValue(SSS_COLOR);
             _seaEffect.Parameters["HorizonHazeDistance"].SetValue(SEA_HORIZON_HAZE_DISTANCE);
 
             //--- Desert: a flat lattice the shader displaces into dunes
@@ -503,12 +534,17 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the sea: a large flat water plane recentered on the camera, reflecting the current dome and
+        /// Draws the sea: a camera-centred grid (snapped to a cell so the waves do not swim) displaced into
+        /// Gerstner swell with foam, subsurface scattering and a Fresnel reflection of the current dome,
         /// shadowed by the same cloud field as the rest of the scene.
         /// </summary>
         private void DrawSea(in SceneFrame frame)
         {
-            _seaEffect.Parameters["World"].SetValue(Matrix.CreateTranslation(frame.Camera.Position.X, SEA_LEVEL_Y, frame.Camera.Position.Z));
+            float cell = SEA_EXTENT / (SEA_GRID_N - 1);
+            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
+            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
+
+            _seaEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
             _seaEffect.Parameters["View"].SetValue(frame.Camera.View);
             _seaEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
             _seaEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
@@ -526,7 +562,7 @@ namespace Prazsky.Core.Render
             _graphicsDevice.SetVertexBuffer(_seaVertexBuffer);
             _graphicsDevice.Indices = _seaIndexBuffer;
             _seaEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _seaIndexCount / 3);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
