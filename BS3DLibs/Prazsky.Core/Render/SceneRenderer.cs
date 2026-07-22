@@ -8,11 +8,11 @@ using System;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// Which environment the arena stands in. City is the default; Sea, Desert, Mountain, Meadow and
-    /// NeonCity swap the city (and only the city) for open water, a dune field, a snowy range, a flowering
+    /// Which environment the arena stands in. City is the default; Sea, Savanna, Mountain, Meadow and
+    /// NeonCity swap the city (and only the city) for open water, a savanna, a snowy range, a flowering
     /// meadow, or the same city lit up in neon. Both the game and the map editor cycle these.
     /// </summary>
-    public enum SceneKind { City, Sea, Desert, Mountain, Meadow, NeonCity }
+    public enum SceneKind { City, Sea, Savanna, Mountain, Meadow, NeonCity }
 
     /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,
@@ -128,43 +128,64 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        #region Desert
+        #region Savanna
 
-        private readonly Effect _desertEffect;
-        private readonly VertexBuffer _desertVertexBuffer;
-        private readonly IndexBuffer _desertIndexBuffer;
-        private readonly int _desertIndexCount;
+        private readonly Effect _savannaEffect;
+        private readonly VertexBuffer _savannaVertexBuffer;
+        private readonly IndexBuffer _savannaIndexBuffer;
+        private readonly int _savannaIndexCount;
 
-        //The dune surface is real geometry: a camera-centred grid of this many vertices per side over this
-        //world extent, displaced in the shader. Snapped to a cell on the CPU each frame so it does not swim.
-        private const int DESERT_GRID_N = 200;
-        private const float DESERT_EXTENT = 800f;
+        //Open grassland is real geometry: a camera-centred grid of this many vertices per side over this world
+        //extent, displaced in the shader and snapped to a cell so it does not swim. Finer than the old dune
+        //grid (200) so the silhouette is smooth; the shading normal is per-pixel, so the grid no longer shows.
+        private const int SAVANNA_GRID_N = 400;
+        private const float SAVANNA_EXTENT = 1200f;
 
-        //Mean sand level and peak dune height. The crests (level + ~1.1 × amplitude) stay below the
-        //platform's recessed glass (about -10.7), so the dunes do not poke up through the panels; the mean
-        //sits low and the amplitude is large, which deepens the troughs into real rolling dunes.
-        private const float DESERT_LEVEL_Y = -23f;
-        private const float DUNE_AMPLITUDE = 10f;
+        //Gentle rolling grassland: flat in a clearing the island stands in (world origin), rising into low
+        //rises with distance. Flatter than the meadow's hills - a savanna is open. Mean grass level sits at the
+        //island's foot; ClearingRelief is a soft undulation even inside the clearing.
+        private const float SAVANNA_LEVEL_Y = -13.5f;
+        private const float SAVANNA_HILL_HEIGHT = 24f;
+        private const float SAVANNA_CLEARING_RADIUS = 90f;
+        private const float SAVANNA_CLEARING_TRANSITION = 130f;
+        private const float SAVANNA_CLEARING_RELIEF = 1.4f;
 
-        //Fine wind ripples: peak height (world units), ripples per world unit, and how fast they crawl.
-        private const float DESERT_RIPPLE_AMPLITUDE = 0.10f;
-        private const float DESERT_RIPPLE_FREQUENCY = 1.6f;
-        private const float DESERT_RIPPLE_SPEED = 1.4f;
+        //Grass (linear): the greener shade and the drier golden one it varies between in patches. A savanna is
+        //dry gold with green flushes, so the dry tone dominates. How much sky fills the flats, and the horizon fade.
+        private static readonly Vector3 GRASS_COLOR_SAVANNA = new(0.20f, 0.24f, 0.07f);   //green flush
+        private static readonly Vector3 GRASS_COLOR_DRY = new(0.42f, 0.32f, 0.11f);       //dry golden grass
+        private const float SAVANNA_AMBIENT_STRENGTH = 0.7f;
+        private static readonly Vector2 SAVANNA_WIND = new(0.86f, 0.51f);
+        private const float SAVANNA_HORIZON_HAZE_DISTANCE = 520f;
 
-        //Blown dust veil: strength, drift speed and the distance over which it thickens towards the horizon.
-        private const float DESERT_DUST_STRENGTH = 0.3f;
-        private const float DESERT_DUST_SPEED = 6f;
-        private const float DESERT_DUST_START = 220f;
-
-        //Warm sand (linear reflectance), how much sky fills the flats, the wind, and the horizon fade.
-        private static readonly Vector3 SAND_COLOR = new(0.55f, 0.38f, 0.18f);
-        private const float DESERT_AMBIENT_STRENGTH = 0.65f;
-        private static readonly Vector2 DESERT_WIND = new(0.86f, 0.51f);
-        private const float DESERT_HORIZON_HAZE_DISTANCE = 350f;
+        //Wind combing the grass, and the fine grass texture (a normal-tilting height field)
+        private const float SAVANNA_WIND_RIPPLE_SPEED = 1.2f;
+        private const float SAVANNA_WIND_RIPPLE_FREQUENCY = 0.14f;
+        private const float SAVANNA_WIND_RIPPLE_STRENGTH = 0.1f;
+        private const float SAVANNA_GRASS_RELIEF_STRENGTH = 0.05f;
+        private const float SAVANNA_GRASS_RELIEF_FREQUENCY = 2f;
 
         #endregion
 
-        #region Birds (desert scene only)
+        #region Acacia (savanna scene only)
+
+        private readonly Effect _acaciaEffect;
+        private readonly VertexBuffer _acaciaVertexBuffer;
+        private readonly IndexBuffer _acaciaIndexBuffer;
+
+        //Scattered acacia trees over the savanna: upright billboards positioned on the ground here, drawn as a
+        //flat-topped tree in the shader. Alpha-tested and depth-writing, so they occlude the terrain and each other.
+        private const int ACACIA_COUNT = 60;
+        private const float ACACIA_WIDTH = 5.5f;   //half-width of the crown
+        private const float ACACIA_HEIGHT = 8.5f;
+        private const float ACACIA_MIN_RADIUS = 42f;   //clear of the island
+        private const float ACACIA_MAX_RADIUS = 330f;
+        private static readonly Vector3 ACACIA_CANOPY_COLOR = new(0.10f, 0.16f, 0.05f); //dark savanna green (linear)
+        private static readonly Vector3 ACACIA_TRUNK_COLOR = new(0.10f, 0.07f, 0.04f);  //dark brown (linear)
+
+        #endregion
+
+        #region Birds (savanna scene only)
 
         private readonly Effect _birdsEffect;
         private readonly DynamicVertexBuffer _birdVertexBuffer;
@@ -319,7 +340,7 @@ namespace Prazsky.Core.Render
 
         /// <param name="content">
         /// A content manager whose root holds the scene shaders under <c>Shaders/</c> (both executables build
-        /// <c>Sea.fx</c>, <c>Desert.fx</c>, <c>Birds.fx</c>, <c>Mountain.fx</c>, <c>Snow.fx</c>, <c>Spray.fx</c>, <c>Meadow.fx</c>
+        /// <c>Sea.fx</c>, <c>Savanna.fx</c>, <c>Birds.fx</c>, <c>Mountain.fx</c>, <c>Snow.fx</c>, <c>Spray.fx</c>, <c>Meadow.fx</c>
         /// out of the Testbed content directory).
         /// </param>
         public SceneRenderer(GraphicsDevice graphicsDevice, ContentManager content)
@@ -354,22 +375,64 @@ namespace Prazsky.Core.Render
             _seaEffect.Parameters["SssColor"].SetValue(SSS_COLOR);
             _seaEffect.Parameters["HorizonHazeDistance"].SetValue(SEA_HORIZON_HAZE_DISTANCE);
 
-            //--- Desert: a flat lattice the shader displaces into dunes
-            _desertEffect = content.Load<Effect>("Shaders/Desert");
-            CreateGridMesh(DESERT_GRID_N, DESERT_EXTENT, out _desertVertexBuffer, out _desertIndexBuffer, out _desertIndexCount);
+            //--- Savanna: a flat lattice the shader displaces into gentle grassland (per-pixel normal, no grid)
+            _savannaEffect = content.Load<Effect>("Shaders/Savanna");
+            CreateGridMesh(SAVANNA_GRID_N, SAVANNA_EXTENT, out _savannaVertexBuffer, out _savannaIndexBuffer, out _savannaIndexCount);
 
-            _desertEffect.Parameters["DesertLevelY"].SetValue(DESERT_LEVEL_Y);
-            _desertEffect.Parameters["DuneAmplitude"].SetValue(DUNE_AMPLITUDE);
-            _desertEffect.Parameters["RippleAmplitude"].SetValue(DESERT_RIPPLE_AMPLITUDE);
-            _desertEffect.Parameters["RippleFrequency"].SetValue(DESERT_RIPPLE_FREQUENCY);
-            _desertEffect.Parameters["RippleSpeed"].SetValue(DESERT_RIPPLE_SPEED);
-            _desertEffect.Parameters["DustStrength"].SetValue(DESERT_DUST_STRENGTH);
-            _desertEffect.Parameters["DustSpeed"].SetValue(DESERT_DUST_SPEED);
-            _desertEffect.Parameters["DustStart"].SetValue(DESERT_DUST_START);
-            _desertEffect.Parameters["SandColor"].SetValue(SAND_COLOR);
-            _desertEffect.Parameters["AmbientStrength"].SetValue(DESERT_AMBIENT_STRENGTH);
-            _desertEffect.Parameters["WindDirection"].SetValue(DESERT_WIND);
-            _desertEffect.Parameters["HorizonHazeDistance"].SetValue(DESERT_HORIZON_HAZE_DISTANCE);
+            _savannaEffect.Parameters["SavannaLevelY"].SetValue(SAVANNA_LEVEL_Y);
+            _savannaEffect.Parameters["HillHeight"].SetValue(SAVANNA_HILL_HEIGHT);
+            _savannaEffect.Parameters["ClearingRadius"].SetValue(SAVANNA_CLEARING_RADIUS);
+            _savannaEffect.Parameters["ClearingTransition"].SetValue(SAVANNA_CLEARING_TRANSITION);
+            _savannaEffect.Parameters["ClearingRelief"].SetValue(SAVANNA_CLEARING_RELIEF);
+            _savannaEffect.Parameters["GrassColor"].SetValue(GRASS_COLOR_SAVANNA);
+            _savannaEffect.Parameters["GrassColorDry"].SetValue(GRASS_COLOR_DRY);
+            _savannaEffect.Parameters["AmbientStrength"].SetValue(SAVANNA_AMBIENT_STRENGTH);
+            _savannaEffect.Parameters["WindDirection"].SetValue(SAVANNA_WIND);
+            _savannaEffect.Parameters["HorizonHazeDistance"].SetValue(SAVANNA_HORIZON_HAZE_DISTANCE);
+            _savannaEffect.Parameters["WindRippleSpeed"].SetValue(SAVANNA_WIND_RIPPLE_SPEED);
+            _savannaEffect.Parameters["WindRippleFrequency"].SetValue(SAVANNA_WIND_RIPPLE_FREQUENCY);
+            _savannaEffect.Parameters["WindRippleStrength"].SetValue(SAVANNA_WIND_RIPPLE_STRENGTH);
+            _savannaEffect.Parameters["GrassReliefStrength"].SetValue(SAVANNA_GRASS_RELIEF_STRENGTH);
+            _savannaEffect.Parameters["GrassReliefFrequency"].SetValue(SAVANNA_GRASS_RELIEF_FREQUENCY);
+
+            //--- Acacia: a static billboard buffer of trees scattered over the savanna, positioned on the
+            //ground (SavannaTerrainHeight mirrors the shader's field) and drawn as a flat-topped tree in Acacia.fx
+            _acaciaEffect = content.Load<Effect>("Shaders/Acacia");
+            _acaciaEffect.Parameters["TreeWidth"].SetValue(ACACIA_WIDTH);
+            _acaciaEffect.Parameters["TreeHeight"].SetValue(ACACIA_HEIGHT);
+            _acaciaEffect.Parameters["CanopyColor"].SetValue(ACACIA_CANOPY_COLOR);
+            _acaciaEffect.Parameters["TrunkColor"].SetValue(ACACIA_TRUNK_COLOR);
+
+            BirdVertex[] acaciaVertices = new BirdVertex[ACACIA_COUNT * 4];
+            Random acaciaRng = new(90125);
+            for (int i = 0; i < ACACIA_COUNT; i++)
+            {
+                float angle = (float)acaciaRng.NextDouble() * MathHelper.TwoPi;
+                float radius = ACACIA_MIN_RADIUS + (float)acaciaRng.NextDouble() * (ACACIA_MAX_RADIUS - ACACIA_MIN_RADIUS);
+                float x = MathF.Cos(angle) * radius;
+                float z = MathF.Sin(angle) * radius;
+                Vector3 basePos = new(x, SavannaTerrainHeight(x, z), z);
+                float rand = (float)acaciaRng.NextDouble();
+
+                int v = i * 4;
+                acaciaVertices[v] = new BirdVertex(basePos, new Vector3(-1f, 0f, rand));
+                acaciaVertices[v + 1] = new BirdVertex(basePos, new Vector3(1f, 0f, rand));
+                acaciaVertices[v + 2] = new BirdVertex(basePos, new Vector3(-1f, 1f, rand));
+                acaciaVertices[v + 3] = new BirdVertex(basePos, new Vector3(1f, 1f, rand));
+            }
+            _acaciaVertexBuffer = new VertexBuffer(graphicsDevice, BirdVertex.Declaration, acaciaVertices.Length, BufferUsage.WriteOnly);
+            _acaciaVertexBuffer.SetData(acaciaVertices);
+
+            short[] acaciaIndices = new short[ACACIA_COUNT * 6];
+            for (int i = 0; i < ACACIA_COUNT; i++)
+            {
+                int v = i * 4;
+                int o = i * 6;
+                acaciaIndices[o] = (short)v; acaciaIndices[o + 1] = (short)(v + 1); acaciaIndices[o + 2] = (short)(v + 2);
+                acaciaIndices[o + 3] = (short)(v + 2); acaciaIndices[o + 4] = (short)(v + 1); acaciaIndices[o + 5] = (short)(v + 3);
+            }
+            _acaciaIndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, acaciaIndices.Length, BufferUsage.WriteOnly);
+            _acaciaIndexBuffer.SetData(acaciaIndices);
 
             //--- Birds: a dynamic billboard buffer, static indices, and each bird's orbit and flap seeded once
             _birdsEffect = content.Load<Effect>("Shaders/Birds");
@@ -577,8 +640,9 @@ namespace Prazsky.Core.Render
                 case SceneKind.Sea:
                     DrawSea(frame);
                     break;
-                case SceneKind.Desert:
-                    DrawDesert(frame);
+                case SceneKind.Savanna:
+                    DrawSavanna(frame);
+                    DrawAcacias(frame);
                     DrawBirds(frame);
                     break;
                 case SceneKind.Mountain:
@@ -638,36 +702,81 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the dune field: the grid pinned to the camera (snapped to a cell so the dunes do not swim),
-        /// lifted into dunes and shaded by the current dome, shadowed by the shared cloud field.
+        /// Draws the savanna grassland: the grid pinned to the camera (snapped to a cell so it does not swim),
+        /// rolled gently and shaded per-pixel (no grid) by the current dome, shadowed by the shared cloud field.
         /// </summary>
-        private void DrawDesert(in SceneFrame frame)
+        private void DrawSavanna(in SceneFrame frame)
         {
-            float cell = DESERT_EXTENT / (DESERT_GRID_N - 1);
+            float cell = SAVANNA_EXTENT / (SAVANNA_GRID_N - 1);
             float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
             float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
 
-            _desertEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _desertEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _desertEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _desertEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _desertEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
-            _desertEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
-            _desertEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
-            _desertEffect.Parameters["DesertTime"].SetValue(frame.Time);
-            _desertEffect.Parameters["SunColor"].SetValue(frame.SunColor);
+            _savannaEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
+            _savannaEffect.Parameters["View"].SetValue(frame.Camera.View);
+            _savannaEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
+            _savannaEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
+            _savannaEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
+            _savannaEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
+            _savannaEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
+            _savannaEffect.Parameters["SavannaTime"].SetValue(frame.Time);
+            _savannaEffect.Parameters["SunColor"].SetValue(frame.SunColor);
 
-            frame.ApplyClouds?.Invoke(_desertEffect);
+            frame.ApplyClouds?.Invoke(_savannaEffect);
 
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
-            _graphicsDevice.SetVertexBuffer(_desertVertexBuffer);
-            _graphicsDevice.Indices = _desertIndexBuffer;
-            _desertEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _desertIndexCount / 3);
+            _graphicsDevice.SetVertexBuffer(_savannaVertexBuffer);
+            _graphicsDevice.Indices = _savannaIndexBuffer;
+            _savannaEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _savannaIndexCount / 3);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// The savanna terrain height at a world point, mirroring <c>Savanna.fx</c>'s <c>TerrainHeight</c>, so the
+        /// acacia trees can be planted on the ground the shader draws.
+        /// </summary>
+        private static float SavannaTerrainHeight(float x, float z)
+        {
+            float dist = MathF.Sqrt(x * x + z * z);
+            float t = MathHelper.Clamp((dist - SAVANNA_CLEARING_RADIUS) / SAVANNA_CLEARING_TRANSITION, 0f, 1f);
+            float ramp = t * t * (3f - 2f * t); //smoothstep, as in the shader
+
+            float rolling = 0.5f * MathF.Sin(x * 0.016f + z * 0.012f)
+                + 0.3f * MathF.Sin(x * -0.011f + z * 0.020f + 1.5f)
+                + 0.2f * MathF.Sin(x * 0.026f + z * 0.021f + 3.0f);
+
+            float gentle = SAVANNA_CLEARING_RELIEF * MathF.Sin(x * 0.04f + z * 0.03f);
+
+            return SAVANNA_LEVEL_Y + gentle + SAVANNA_HILL_HEIGHT * ramp * (rolling * 0.5f + 0.5f);
+        }
+
+        /// <summary>
+        /// Draws the scattered acacia trees: the static billboard buffer, each tree faced upright towards the
+        /// camera and drawn as a flat-topped tree in the shader. Alpha-tested and depth-writing (not blended),
+        /// so trees occlude the terrain and each other correctly. Savanna scene only, after the terrain.
+        /// </summary>
+        private void DrawAcacias(in SceneFrame frame)
+        {
+            _acaciaEffect.Parameters["View"].SetValue(frame.Camera.View);
+            _acaciaEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
+            _acaciaEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
+            _acaciaEffect.Parameters["SunColor"].SetValue(frame.SunColor);
+            _acaciaEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
+            _acaciaEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
+
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default; //depth write on: alpha-tested foliage
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _graphicsDevice.SetVertexBuffer(_acaciaVertexBuffer);
+            _graphicsDevice.Indices = _acaciaIndexBuffer;
+            _acaciaEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, ACACIA_COUNT * 2);
+
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
@@ -851,8 +960,10 @@ namespace Prazsky.Core.Render
         {
             _seaVertexBuffer?.Dispose();
             _seaIndexBuffer?.Dispose();
-            _desertVertexBuffer?.Dispose();
-            _desertIndexBuffer?.Dispose();
+            _savannaVertexBuffer?.Dispose();
+            _savannaIndexBuffer?.Dispose();
+            _acaciaVertexBuffer?.Dispose();
+            _acaciaIndexBuffer?.Dispose();
             _birdVertexBuffer?.Dispose();
             _birdIndexBuffer?.Dispose();
             _mountainVertexBuffer?.Dispose();

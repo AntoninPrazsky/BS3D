@@ -119,11 +119,17 @@
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/Sea.fx;Shaders/Sea.fx
 
-#begin ../../Testbed/Content/Shaders/Desert.fx
+#begin ../../Testbed/Content/Shaders/Savanna.fx
 /importer:EffectImporter
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Desert.fx;Shaders/Desert.fx
+/build:../../Testbed/Content/Shaders/Savanna.fx;Shaders/Savanna.fx
+
+#begin ../../Testbed/Content/Shaders/Acacia.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Acacia.fx;Shaders/Acacia.fx
 
 #begin ../../Testbed/Content/Shaders/Birds.fx
 /importer:EffectImporter
