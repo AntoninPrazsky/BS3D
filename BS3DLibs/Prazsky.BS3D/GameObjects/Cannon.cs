@@ -29,6 +29,10 @@ namespace Prazsky.BS3D.GameObjects
 		private float _acceleration = 0f;
 		private bool _braking = false;
 
+		private bool _resettingAim = false;
+		private float _resetAimStep = 0f;
+		private Vector2 _resetAimFrom = Vector2.Zero;
+
 		/// <param name="trunnionHeight">
 		/// Height of <see cref="Object3D.Position"/>, which is the barrel's pivot - the trunnions a carriage
 		/// would hold it by - and not a point on the barrel's surface, so this sits an axle's height above
@@ -57,8 +61,8 @@ namespace Prazsky.BS3D.GameObjects
 
 		public void Update(GameTime gameTime)
 		{
-			//Orbiting only. The aim itself is set directly by Aim and simply held - nothing eases it back to a
-			//rest direction any more (in game mode the mouse owns the aim and keeps it wherever the player leaves it).
+			//Orbiting. Within game mode the mouse owns the aim and it is simply held; the only thing that moves the
+			//aim on its own is a queued reset (see ResetAim), eased below when leaving game mode.
 			if (_acceleration <= 0f) _braking = false;
 
 			if (Math.Sign(_delta) != 0)
@@ -74,6 +78,20 @@ namespace Prazsky.BS3D.GameObjects
 			}
 
 			_delta = 0f;
+
+			//Eased aim reset (queued by ResetAim on leaving game mode): swing the barrel smoothly back to its rest
+			//direction over ~1s rather than snapping - the smooth return the orbit parking used to have. Runs in any
+			//mode (the cannon is a prop in free mode); a mouse Aim interrupts it. SmoothStep clamps its amount, so at
+			//step >= 1 the aim sits exactly at rest.
+			if (_resettingAim)
+			{
+				_rotationAim = Vector2.SmoothStep(_resetAimFrom, Vector2.Zero, _resetAimStep);
+				RecalculateRotation();
+				RecalculateWorldMatrix();
+
+				if (_resetAimStep >= 1f) _resettingAim = false;
+				else _resetAimStep += DEFAULT_ROTATION_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+			}
 		}
 
 		public void Orbit(float delta)
@@ -90,6 +108,7 @@ namespace Prazsky.BS3D.GameObjects
 
 		public void Aim(Vector2 rotation, GameTime gameTime)
 		{
+			_resettingAim = false; //taking the aim by hand interrupts any eased return in progress
 			_rotationAim += RotationSpeed * rotation * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
 			EnsureAimInBounds();
@@ -98,16 +117,17 @@ namespace Prazsky.BS3D.GameObjects
 		}
 
 		/// <summary>
-		/// Snaps the aim back to its rest direction - the barrel pointing at the orbit centre - leaving the orbit
-		/// position alone. Called when leaving game mode so the gun is not left cocked at the last mouse aim.
+		/// Eases the aim back to its rest direction - the barrel pointing at the orbit centre - over about a second,
+		/// the smooth return the orbit parking used to have, leaving the orbit position alone. Called when leaving
+		/// game mode so the gun swings back rather than snapping; a mouse <see cref="Aim"/> interrupts it.
 		/// </summary>
 		public void ResetAim()
 		{
-			if (_rotationAim == Vector2.Zero) return;
+			if (_rotationAim == Vector2.Zero) { _resettingAim = false; return; }
 
-			_rotationAim = Vector2.Zero;
-			RecalculateRotation();
-			RecalculateWorldMatrix();
+			_resettingAim = true;
+			_resetAimFrom = _rotationAim;
+			_resetAimStep = 0f;
 		}
 
 		public void Restart()
@@ -116,6 +136,7 @@ namespace Prazsky.BS3D.GameObjects
 			_rotationToOrbitCenter = Vector2.Zero;
 			_rotationAim = Vector2.Zero;
 			_acceleration = 0f;
+			_resettingAim = false;
 
 			Initialize();
 		}
