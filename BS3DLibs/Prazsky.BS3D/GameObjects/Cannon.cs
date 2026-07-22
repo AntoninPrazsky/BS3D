@@ -144,6 +144,16 @@ namespace Prazsky.BS3D.GameObjects
 			_aimParkingStep = 0f;
 		}
 
+		/// <summary>
+		/// Freezes the current aim by cancelling any return-to-rest in progress. Call each frame the player is
+		/// actively aiming (precise aim) so neither orbiting nor idle time drifts the barrel back to its rest
+		/// direction; <see cref="Orbit"/> and the idle park resume once it stops being called.
+		/// </summary>
+		public void HoldAim()
+		{
+			_aimParkingStarted = false;
+		}
+
 		public void Restart()
 		{
 			_orbitAngle = Constants.HALF_PI;

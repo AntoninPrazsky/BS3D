@@ -732,8 +732,7 @@ namespace Testbed
             builder.Append(string.Format(format, "Arrows", "Cannon aiming"));
             builder.Append(string.Format(format, "RMB/LT", "Precise aim (hold)"));
             builder.Append(string.Format(format, "LMB", "Shoot (game mode)"));
-            builder.Append(string.Format(format, mgKeys.NumPad4.ToString(), "Move cannon left"));
-            builder.Append(string.Format(format, mgKeys.NumPad6.ToString(), "Move cannon right"));
+            builder.Append(string.Format(format, "A / D", "Move cannon left / right (game mode)"));
             builder.Append(string.Format(format, mgKeys.NumPad7.ToString(), "Camera orbit left"));
             builder.Append(string.Format(format, mgKeys.NumPad9.ToString(), "Camera orbit right"));
 
@@ -2134,8 +2133,20 @@ namespace Testbed
 
         private void UpdateCannon(GameTime gameTime)
         {
-            if (Keyboard.GetState().IsKeyDown(mgKeys.NumPad4)) _cannon.Orbit(1f);
-            if (Keyboard.GetState().IsKeyDown(mgKeys.NumPad6)) _cannon.Orbit(-1f);
+            //Orbiting the cannon around the field is on A/D, and only in game mode - in the free fly camera A/D
+            //stay its strafe. W/S are left unused: the gun turns on a carriage, it does not rise or fall. (The
+            //old NumPad4/6 orbit is retired now that WASD is the game-mode control.)
+            if (_gameMode)
+            {
+                if (Keyboard.GetState().IsKeyDown(mgKeys.A)) _cannon.Orbit(1f);
+                if (Keyboard.GetState().IsKeyDown(mgKeys.D)) _cannon.Orbit(-1f);
+
+                //While precise aim is held, keep the player's aim: orbiting with A/D (which normally recentres the
+                //barrel) must not drift it back to rest mid-aim, nor may idle time. Releasing precise aim still
+                //returns it to rest, and orbiting in the plain overview still recentres it.
+                if (AdsButtonHeld()) _cannon.HoldAim();
+            }
+
             if (Keyboard.GetState().IsKeyDown(mgKeys.Up)) _cannon.Aim(new Vector2(1f, 0f), gameTime);
             if (Keyboard.GetState().IsKeyDown(mgKeys.Down)) _cannon.Aim(new Vector2(-1f, 0f), gameTime);
             if (Keyboard.GetState().IsKeyDown(mgKeys.Left)) _cannon.Aim(new Vector2(0f, 1f), gameTime);
