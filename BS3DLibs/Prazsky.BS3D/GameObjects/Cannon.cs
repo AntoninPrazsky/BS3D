@@ -28,10 +28,6 @@ namespace Prazsky.BS3D.GameObjects
 		private float _deltaLastSet = 0f;
 		private float _acceleration = 0f;
 		private bool _braking = false;
-		private bool _aimParkingStarted = false;
-		private float _aimParkingStep = 0f;
-		private bool _aiming = false;
-		private Vector2 _beforeAnimationRotationAim = Vector2.Zero;
 
 		/// <param name="trunnionHeight">
 		/// Height of <see cref="Object3D.Position"/>, which is the barrel's pivot - the trunnions a carriage
@@ -61,8 +57,8 @@ namespace Prazsky.BS3D.GameObjects
 
 		public void Update(GameTime gameTime)
 		{
-			#region Orbiting
-
+			//Orbiting only. The aim itself is set directly by Aim and simply held - nothing eases it back to a
+			//rest direction any more (in game mode the mouse owns the aim and keeps it wherever the player leaves it).
 			if (_acceleration <= 0f) _braking = false;
 
 			if (Math.Sign(_delta) != 0)
@@ -78,35 +74,10 @@ namespace Prazsky.BS3D.GameObjects
 			}
 
 			_delta = 0f;
-
-			#endregion
-
-			#region Aim parking
-
-			if (!_aiming && _aimParkingStarted && _rotationAim != Vector2.Zero)
-			{
-				_rotationAim = Vector2.SmoothStep(_beforeAnimationRotationAim, Vector2.Zero, _aimParkingStep);
-				RecalculateRotation();
-				RecalculateWorldMatrix();
-				_aimParkingStep += DEFAULT_ROTATION_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-
-				if (_aimParkingStep > 1f)
-				{
-					_aimParkingStep = 0f;
-					_aimParkingStarted = false;
-				}
-			}
-
-			_aiming = false;
-
-			#endregion
 		}
 
 		public void Orbit(float delta)
 		{
-			_aimParkingStarted = true;
-			_beforeAnimationRotationAim = _rotationAim;
-
 			if (Math.Sign(delta) != Math.Sign(_deltaLastSet) && _acceleration > 0f)
 			{
 				_braking = true;
@@ -121,37 +92,22 @@ namespace Prazsky.BS3D.GameObjects
 		{
 			_rotationAim += RotationSpeed * rotation * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-			_aiming = true;
-			_aimParkingStarted = false;
-			_aimParkingStep = 0f;
-
 			EnsureAimInBounds();
 			RecalculateRotation();
 			RecalculateWorldMatrix();
 		}
 
 		/// <summary>
-		/// Eases the barrel's aim back to its rest direction (pointing at the orbit centre) with the same motion an
-		/// <see cref="Orbit"/> already triggers. Call once when an aiming session ends (e.g. the player releases
-		/// precise aim); a later <see cref="Aim"/> or <see cref="Orbit"/> interrupts the return.
+		/// Snaps the aim back to its rest direction - the barrel pointing at the orbit centre - leaving the orbit
+		/// position alone. Called when leaving game mode so the gun is not left cocked at the last mouse aim.
 		/// </summary>
-		public void ReturnAimToRest()
+		public void ResetAim()
 		{
 			if (_rotationAim == Vector2.Zero) return;
 
-			_aimParkingStarted = true;
-			_beforeAnimationRotationAim = _rotationAim;
-			_aimParkingStep = 0f;
-		}
-
-		/// <summary>
-		/// Freezes the current aim by cancelling any return-to-rest in progress. Call each frame the player is
-		/// actively aiming (precise aim) so neither orbiting nor idle time drifts the barrel back to its rest
-		/// direction; <see cref="Orbit"/> and the idle park resume once it stops being called.
-		/// </summary>
-		public void HoldAim()
-		{
-			_aimParkingStarted = false;
+			_rotationAim = Vector2.Zero;
+			RecalculateRotation();
+			RecalculateWorldMatrix();
 		}
 
 		public void Restart()
