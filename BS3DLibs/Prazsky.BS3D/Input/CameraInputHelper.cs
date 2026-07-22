@@ -85,7 +85,7 @@ namespace Prazsky.BS3D.Input
             _previousMouseState = _currentMouseState;
         }
 
-        public void CameraMovement(GameTime gameTime, bool allowCircularMovement = true)
+        public void CameraMovement(GameTime gameTime, bool allowCircularMovement = true, bool allowMouseLook = true)
         {
             #region Gamepad
 
@@ -142,41 +142,46 @@ namespace Prazsky.BS3D.Input
 
             #region Mouse
 
-            if (PressedOnceMouse(leftButton: false, middleButton: false, rightButton: true))
+            //Only the fly camera consumes the mouse. In game mode the mouse belongs to precise aim (handled in
+            //Testbed), so the caller passes allowMouseLook = false and the right button no longer toggles rotate/pan.
+            if (allowMouseLook)
             {
-                CenterMouse();
-                _mouseRotationMode = !_mouseRotationMode;
-                return;
-            }
-
-            if (_currentMouseState.RightButton == ButtonState.Pressed)
-                _mousePanMode = true;
-
-            _game.IsMouseVisible = !_mousePanMode && !_mouseRotationMode;
-
-            if (_mouseRotationMode || _mousePanMode)
-            {
-                float mDeltaA = 0f;
-                float mDeltaB = 0f;
-
-                if (_currentMouseState.X != _widthHalf)
-                    mDeltaB = -(_currentMouseState.X - _widthHalf) / MouseMovementDenominator;
-
-                if (_currentMouseState.Y != _heightHalf)
-                    mDeltaA = -(_currentMouseState.Y - _heightHalf) / MouseMovementDenominator;
-
-                CenterMouse();
-
-                if (_mouseRotationMode && !_mousePanMode)
-                    _camera.Rotate(mDeltaA, mDeltaB, gameTime);
+                if (PressedOnceMouse(leftButton: false, middleButton: false, rightButton: true))
+                {
+                    CenterMouse();
+                    _mouseRotationMode = !_mouseRotationMode;
+                    return;
+                }
 
                 if (_currentMouseState.RightButton == ButtonState.Pressed)
-                {
                     _mousePanMode = true;
-                    _camera.Move(-mDeltaB, mDeltaA, 0f, gameTime);
+
+                _game.IsMouseVisible = !_mousePanMode && !_mouseRotationMode;
+
+                if (_mouseRotationMode || _mousePanMode)
+                {
+                    float mDeltaA = 0f;
+                    float mDeltaB = 0f;
+
+                    if (_currentMouseState.X != _widthHalf)
+                        mDeltaB = -(_currentMouseState.X - _widthHalf) / MouseMovementDenominator;
+
+                    if (_currentMouseState.Y != _heightHalf)
+                        mDeltaA = -(_currentMouseState.Y - _heightHalf) / MouseMovementDenominator;
+
+                    CenterMouse();
+
+                    if (_mouseRotationMode && !_mousePanMode)
+                        _camera.Rotate(mDeltaA, mDeltaB, gameTime);
+
+                    if (_currentMouseState.RightButton == ButtonState.Pressed)
+                    {
+                        _mousePanMode = true;
+                        _camera.Move(-mDeltaB, mDeltaA, 0f, gameTime);
+                    }
+                    else
+                        _mousePanMode = false;
                 }
-                else
-                    _mousePanMode = false;
             }
 
             #endregion Mouse
@@ -214,6 +219,16 @@ namespace Prazsky.BS3D.Input
         public void CenterMouse()
         {
             Mouse.SetPosition(_widthHalf, _heightHalf);
+        }
+
+        /// <summary>
+        /// Clears the mouse pan/rotate toggles so a free-look mode left on before switching away does not resume
+        /// when the fly camera is used again. Called when the game hands the mouse to a mode that owns it itself.
+        /// </summary>
+        public void ResetMouseModes()
+        {
+            _mouseRotationMode = false;
+            _mousePanMode = false;
         }
 
         public void CenterCameraToMapCenter(Vector3 mapCenter, Vector3 lookDirection, bool animate = false)

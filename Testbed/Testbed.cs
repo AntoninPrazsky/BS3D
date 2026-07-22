@@ -234,6 +234,21 @@ namespace Testbed
         private float _gameCameraDistance = 37f;
         private float _gameCameraTargetY = 3f;
 
+        //Precise-aim (ADS) sub-mode of game mode: hold the right mouse button (or the gamepad left trigger) to
+        //lean in over the barrel and look straight down the aim, so the map reads clearly and the shot goes where
+        //the crosshair is. _adsBlend eases 0->1 while held (0 == the exact game-mode overview pose);
+        //_adsMouseInitialized skips the first captured frame so acquiring the cursor never yanks the aim.
+        private float _adsBlend = 0f;
+        private bool _adsMouseInitialized = false;
+        //Precise aim held on the previous frame, so the release edge can be detected: when it ends, the barrel
+        //eases back to its rest direction (like an Orbit does) instead of staying cocked at the last aimed angle.
+        private bool _adsHeldLast = false;
+
+        //Whether the window was active on the previous frame. Edge-driven input (the button actions and the
+        //game-mode LMB fire) is skipped the frame focus returns, so the click that refocuses a windowed game is
+        //not read as a fresh press against the input state frozen while the window was inactive (an unintended shot).
+        private bool _wasActive = true;
+
         #region Game mode transition animation
 
         private bool _gameModeAnimStarted = false;
@@ -244,6 +259,12 @@ namespace Testbed
 
         private Vector3 _beforeAnimationPosition = Vector3.Zero;
         private Vector3 _beforeAnimationTarget = Vector3.Zero;
+
+        //Leaving game mode straight from precise aim needs the pose eased out, not snapped: _freeExitFromAds says
+        //the free-mode exit should Lerp position/target/FOV from the leaned ADS pose (captured here) to the overview
+        //pose, rather than only widening the FOV. A plain overview->free exit leaves both false and is unchanged.
+        private float _beforeAnimationFov = 0f;
+        private bool _freeExitFromAds = false;
 
         #endregion
 
@@ -564,6 +585,22 @@ namespace Testbed
         private static readonly float CANNON_FIELD_CLEARANCE = 2f;
         private static readonly float CANNON_MAX_REST_ELEVATION = 0.70f; //radians, about 40 degrees
 
+        //Precise-aim (ADS) camera. Held with RMB / the gamepad left trigger, it leans the game camera in behind
+        //the barrel and looks down the aim, so the whole map reads and the crosshair marks the shot. The lens sits
+        //ADS_BACK behind the muzzle along -aim and ADS_RISE above the bore (perpendicular to it), so the barrel
+        //stays a small sliver along the bottom; the look target is put ON the shot ray so screen centre is the
+        //impact point (see AdsCameraTarget). The dials interact - retuning RISE/BACK/FOV must re-check both that
+        //the barrel's top rim clears the centre crosshair and that the over-the-barrel parallax stays small.
+        private const float ADS_BACK = 6.0f;              //lens set-back from the muzzle ball along -aim (== pivot - aim*4)
+        private const float ADS_RISE = 2.0f;              //lens height above the bore axis; clears the tube (r=0.74) and keeps the sliver low
+        private static readonly float ADS_FOV = (float)Math.PI / 5f; //36 degrees, a modest 1.19x zoom over GAME_FOV
+        private const float ADS_CONVERGE_MIN = 6f;        //nearest convergence depth (keeps the look target clear of the barrel front)
+        private const float ADS_CONVERGE_MAX = 90f;       //farthest (covers the biggest map's cluster, well under FarPlane)
+        private const float ADS_BLEND_TAU = 0.08f;        //ease time constant, seconds (~90% in ~0.18s); same idiom as _magazineSlide
+        private const float ADS_MOUSE_SENSITIVITY = 2.0f; //aim per pixel after the dt cancellation is 0.001 * this radians
+        private const float ADS_TRIGGER_THRESHOLD = 0.5f; //gamepad left-trigger pull that counts as "held"
+        private const float ADS_PAD_AIM_RATE = 1.0f;      //right-stick aim rate (the stick is already a rate, so no 1/dt)
+
         private SpriteBatch _spriteBatch;
         private Texture2D _aimer;
         private Vector2 _aimerPos;
@@ -693,6 +730,8 @@ namespace Testbed
             StringBuilder builder = new();
             foreach (var act in _actions) builder.Append(string.Format(format, act.Key.ToString(), act.Description));
             builder.Append(string.Format(format, "Arrows", "Cannon aiming"));
+            builder.Append(string.Format(format, "RMB/LT", "Precise aim (hold)"));
+            builder.Append(string.Format(format, "LMB", "Shoot (game mode)"));
             builder.Append(string.Format(format, mgKeys.NumPad4.ToString(), "Move cannon left"));
             builder.Append(string.Format(format, mgKeys.NumPad6.ToString(), "Move cannon right"));
             builder.Append(string.Format(format, mgKeys.NumPad7.ToString(), "Camera orbit left"));
@@ -717,12 +756,25 @@ namespace Testbed
 
             if (_gameMode)
             {
+                _cih.ResetMouseModes(); //drop any free-look pan/rotate toggle so it does not resume in game mode
                 _gameModeAnimStarted = true;
                 _beforeAnimationPosition = _camera.Position;
                 _beforeAnimationTarget = _camera.Target;
             }
             else
             {
+                //Leaving game mode while precise aim is engaged: capture the leaned pose so the free-mode exit eases
+                //it out to the overview pose (position, target and FOV), instead of snapping ~30 units in one frame.
+                _freeExitFromAds = _adsBlend > 0f;
+                if (_freeExitFromAds)
+                {
+                    _beforeAnimationPosition = _camera.Position;
+                    _beforeAnimationTarget = _camera.Target;
+                    _beforeAnimationFov = _camera.FieldOfView;
+                }
+                _adsBlend = 0f;
+                _adsMouseInitialized = false;
+                IsMouseVisible = true;
                 _freeModeAnimStarted = true;
             }
         }
@@ -1455,13 +1507,25 @@ namespace Testbed
             {
                 _cih.RegisterCurrentInputState();
 
-                foreach (var action in _actions) if (_cih.PressedOnce(action.Key, action.Button)) action.Method();
+                //Skip edge-driven input the frame focus returns: while the window was inactive the input state was
+                //not registered, so the click (or key) that refocuses would otherwise read as a fresh press against
+                //a stale "released". RegisterPreviousInputState below re-syncs it, so edges resume next frame.
+                if (_wasActive)
+                {
+                    foreach (var action in _actions) if (_cih.PressedOnce(action.Key, action.Button)) action.Method();
+
+                    //In game mode the left mouse button fires, completing the shooter idiom (hold RMB to aim, click
+                    //to shoot); Space still fires too. The free-cam mouse look is gated off in game mode (last
+                    //argument), so the right button means "precise aim" there instead of toggling rotate/pan.
+                    if (_gameMode && _cih.PressedOnceMouse(leftButton: true, middleButton: false, rightButton: false)) ShootBall();
+                }
 
                 _cih.Update(gameTime);
-                _cih.CameraMovement(gameTime, !_gameMode);
+                _cih.CameraMovement(gameTime, !_gameMode, !_gameMode);
                 _cih.RegisterPreviousInputState();
+                _wasActive = true;
             }
-            else IsMouseVisible = true;
+            else { IsMouseVisible = true; _wasActive = false; }
 
             _cih.MouseMovementDenominator = timeStep / Constants.THOUSANDTH;
 
@@ -1486,7 +1550,19 @@ namespace Testbed
 
             if (_freeModeAnimStarted && !_gameMode)
             {
-                _camera.FieldOfView = Microsoft.Xna.Framework.MathHelper.SmoothStep(GAME_FOV, FREE_FOV, _gameModeAnimStep);
+                if (_freeExitFromAds)
+                {
+                    //Leaving straight from precise aim: ease the whole leaned pose out to the overview pose over the
+                    //same animation that widens the FOV, so the camera does not teleport the ~30 units between them.
+                    _camera.FieldOfView = Microsoft.Xna.Framework.MathHelper.SmoothStep(_beforeAnimationFov, FREE_FOV, _gameModeAnimStep);
+                    _camera.Position = Vector3.SmoothStep(_beforeAnimationPosition, GetCanonOffsettedPos(), _gameModeAnimStep);
+                    _camera.Target = Vector3.SmoothStep(_beforeAnimationTarget, GetCannonOffsettedTarget(), _gameModeAnimStep);
+                }
+                else
+                {
+                    //Plain overview -> free exit: the camera is already at the overview pose, so only the FOV widens.
+                    _camera.FieldOfView = Microsoft.Xna.Framework.MathHelper.SmoothStep(GAME_FOV, FREE_FOV, _gameModeAnimStep);
+                }
 
                 _gameModeAnimStep += ANIMATION_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
@@ -1494,6 +1570,7 @@ namespace Testbed
                 {
                     _gameModeAnimStep = 0;
                     _freeModeAnimStarted = false;
+                    _freeExitFromAds = false;
                 }
             }
 
@@ -1598,10 +1675,20 @@ namespace Testbed
 
             ResolveSceneTarget();
 
+            //The crosshair: in free mode it marks where a shot from the camera goes; in game mode it appears only
+            //as precise aim engages, fading in with the blend, and marks the impact point the camera converges on.
+            //_aimerPos is kept centred on resize by ComputeAimerPosition. Color * float scales alpha too, so the
+            //ADS crosshair grows in with _adsBlend.
             if (!_gameMode)
             {
                 _spriteBatch.Begin();
                 _spriteBatch.Draw(_aimer, _aimerPos, _aimerColor);
+                _spriteBatch.End();
+            }
+            else if (_adsBlend > 0.01f)
+            {
+                _spriteBatch.Begin();
+                _spriteBatch.Draw(_aimer, _aimerPos, _aimerColor * _adsBlend);
                 _spriteBatch.End();
             }
 
@@ -2062,8 +2149,36 @@ namespace Testbed
             //fluctuation (shooting, contact processing) showed up as the cannon jittering on screen (#29).
             if (_gameMode && !_gameModeAnimStarted)
             {
-                _camera.Position = GetCanonOffsettedPos();
-                _camera.Target = GetCannonOffsettedTarget();
+                //Precise aim (ADS): while the right button / left trigger is held, ease the camera in behind the
+                //barrel and down the aim. The mouse drives the aim first (before the pose is read, so the camera
+                //does not lag a frame - #29), then _adsBlend eases 0..1, then the pose is Lerped between the
+                //overview and the ADS pose. At blend 0 this is bit-for-bit the old overview pose. The order
+                //FOV -> Position -> Target is required: the Target setter rebuilds the view last, with world up,
+                //from the freshest position and target.
+                //IsActive gates the whole sub-mode, not just the mouse: the gamepad trigger reads globally through
+                //XInput, so without it a held trigger would keep an alt-tabbed window leaned in and showing the
+                //crosshair. With it, losing focus eases ADS back out and restores the cursor (the else branch).
+                bool adsHeld = IsActive && !_freeModeAnimStarted && _map != null && AdsButtonHeld();
+
+                //When precise aim ends, ease the barrel back to its rest direction (the same motion an Orbit
+                //triggers) rather than leaving it cocked at the last aimed angle. One-shot on the release edge;
+                //aiming again (mouse or arrows) or orbiting interrupts the return.
+                if (_adsHeldLast && !adsHeld) _cannon.ReturnAimToRest();
+                _adsHeldLast = adsHeld;
+
+                if (adsHeld) UpdateAdsMouseAim(gameTime);
+                else { _adsMouseInitialized = false; IsMouseVisible = true; }
+
+                float adsTarget = adsHeld ? 1f : 0f;
+                float adsDt = (float)gameTime.ElapsedGameTime.TotalSeconds;
+                _adsBlend = adsTarget + (_adsBlend - adsTarget) * MathF.Exp(-adsDt / ADS_BLEND_TAU);
+                if (adsTarget == 0f && _adsBlend < 0.002f) _adsBlend = 0f;
+                if (adsTarget == 1f && _adsBlend > 0.998f) _adsBlend = 1f;
+
+                float s = _adsBlend;
+                _camera.FieldOfView = Microsoft.Xna.Framework.MathHelper.Lerp(GAME_FOV, ADS_FOV, s);
+                _camera.Position = Vector3.Lerp(GetCanonOffsettedPos(), AdsCameraPosition(), s);
+                _camera.Target = Vector3.Lerp(GetCannonOffsettedTarget(), AdsCameraTarget(), s);
             }
         }
 
@@ -2268,6 +2383,88 @@ namespace Testbed
         /// </summary>
         private Vector3 CannonMuzzlePosition() =>
             _cannon.Position + CannonAimDirection() * CANNON_PIVOT_TO_FRONT_BALL;
+
+        /// <summary>
+        /// The lens position for precise aim (ADS): behind the muzzle along the bore and lifted above it, so the
+        /// camera looks down the aim with the barrel a small sliver along the bottom of the frame (ADS_BACK/ADS_RISE).
+        /// </summary>
+        private Vector3 AdsCameraPosition()
+        {
+            Vector3 aim = CannonAimDirection();
+            return CannonMuzzlePosition() - aim * ADS_BACK + AdsCamUp() * ADS_RISE;
+        }
+
+        /// <summary>
+        /// Where the ADS camera looks: a point ON the shot ray (muzzle + aim * d), so screen centre marks where the
+        /// shot is directed. d is the depth of the field's vertical midpoint projected onto the aim, clamped, which
+        /// centres the small over-the-barrel parallax over the region the impact face sweeps during a game.
+        /// </summary>
+        private Vector3 AdsCameraTarget()
+        {
+            Vector3 aim = CannonAimDirection();
+            Vector3 muzzle = CannonMuzzlePosition();
+
+            float clusterY = _map != null
+                ? GetCeilingY(_map.Levels) - (_map.Levels - 1) / Constants.SQRT_TWO * Constants.HALF
+                : _cannon.OrbitCenter.Y;
+            Vector3 clusterCentre = new(_cannon.OrbitCenter.X, clusterY, _cannon.OrbitCenter.Z);
+
+            float d = Microsoft.Xna.Framework.MathHelper.Clamp(Vector3.Dot(clusterCentre - muzzle, aim), ADS_CONVERGE_MIN, ADS_CONVERGE_MAX);
+            return muzzle + aim * d;
+        }
+
+        /// <summary>
+        /// The "up" for the ADS lens offset: world up made perpendicular to the bore, so the lift is always straight
+        /// over the barrel whatever the aim. Safe under Cannon's ~45 degree elevation clamp (the bore never nears
+        /// vertical); the horizontal-perpendicular fallback is only a guard against that clamp being widened.
+        /// </summary>
+        private Vector3 AdsCamUp()
+        {
+            Vector3 aim = CannonAimDirection();
+            Vector3 up = Vector3.Up - aim * Vector3.Dot(Vector3.Up, aim);
+            return up.LengthSquared() < 1e-4f ? Vector3.Normalize(new Vector3(aim.Z, 0f, -aim.X)) : Vector3.Normalize(up);
+        }
+
+        /// <summary>Whether precise aim is being held — the right mouse button or the gamepad's left trigger.</summary>
+        private bool AdsButtonHeld() =>
+            Mouse.GetState().RightButton == Microsoft.Xna.Framework.Input.ButtonState.Pressed
+            || GamePad.GetState(PlayerIndex.One).Triggers.Left > ADS_TRIGGER_THRESHOLD;
+
+        /// <summary>
+        /// Drives the cannon's aim from the mouse while precise aim is held (the arrow keys still work; they sum into
+        /// the same aim). The cursor is hidden and re-centred every frame; the delta is read against the live viewport
+        /// centre (robust to a resize / fullscreen switch) and divided by the frame time, which cancels exactly against
+        /// the frame time <see cref="Cannon.Aim"/> multiplies back in, so the aim moves a fixed amount per pixel at any
+        /// frame rate. The first captured frame is skipped so acquiring the cursor never jumps the aim. The gamepad's
+        /// right stick aims too, fed straight in as a rate.
+        /// </summary>
+        private void UpdateAdsMouseAim(GameTime gameTime)
+        {
+            int cx = GraphicsDevice.Viewport.Width / 2;
+            int cy = GraphicsDevice.Viewport.Height / 2;
+
+            IsMouseVisible = false;
+            MouseState mouse = Mouse.GetState();
+
+            if (_adsMouseInitialized)
+            {
+                float dtMillis = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+                if (dtMillis > 0f)
+                {
+                    float invDt = 1f / dtMillis;
+                    float pitch = -(mouse.Y - cy) * ADS_MOUSE_SENSITIVITY * invDt; //mouse up -> aim up
+                    float yaw = -(mouse.X - cx) * ADS_MOUSE_SENSITIVITY * invDt;    //mouse left -> yaw like the Left arrow
+                    if (pitch != 0f || yaw != 0f) _cannon.Aim(new Vector2(pitch, yaw), gameTime);
+                }
+            }
+
+            Mouse.SetPosition(cx, cy);
+            _adsMouseInitialized = true;
+
+            GamePadState pad = GamePad.GetState(PlayerIndex.One);
+            if (pad.IsConnected && pad.ThumbSticks.Right.LengthSquared() > 0f)
+                _cannon.Aim(new Vector2(pad.ThumbSticks.Right.Y, -pad.ThumbSticks.Right.X) * ADS_PAD_AIM_RATE, gameTime);
+        }
 
         /// <summary>
         /// The barrel's orientation: forward down the aim, and rolled about that axis so the magazine slot

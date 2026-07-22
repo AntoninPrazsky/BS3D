@@ -130,6 +130,20 @@ namespace Prazsky.BS3D.GameObjects
 			RecalculateWorldMatrix();
 		}
 
+		/// <summary>
+		/// Eases the barrel's aim back to its rest direction (pointing at the orbit centre) with the same motion an
+		/// <see cref="Orbit"/> already triggers. Call once when an aiming session ends (e.g. the player releases
+		/// precise aim); a later <see cref="Aim"/> or <see cref="Orbit"/> interrupts the return.
+		/// </summary>
+		public void ReturnAimToRest()
+		{
+			if (_rotationAim == Vector2.Zero) return;
+
+			_aimParkingStarted = true;
+			_beforeAnimationRotationAim = _rotationAim;
+			_aimParkingStep = 0f;
+		}
+
 		public void Restart()
 		{
 			_orbitAngle = Constants.HALF_PI;
