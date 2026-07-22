@@ -157,16 +157,6 @@ namespace Testbed
         /// </summary>
         private static readonly float GROUND_BLOCK_SIZE = 30f;
 
-        /// <summary>
-        /// How many blocks the physics ground reaches from the centre in each direction. The blocks are no
-        /// longer drawn (the city and the arena floor stand in for them); they remain only as the static
-        /// bodies the ball cluster settles onto.
-        /// </summary>
-        private static readonly int GROUND_BLOCK_RADIUS = 4;
-
-        /// <summary>Y of the recessed center block and of the plateau around it.</summary>
-        private static readonly float GROUND_PIT_Y = -10f;
-
         private static readonly float GROUND_PLATEAU_Y = -9f;
 
         /// <summary>
@@ -175,9 +165,6 @@ namespace Testbed
         /// occlusion, handed to the shader as GroundHeight).
         /// </summary>
         private static readonly float GROUND_TOP_Y = -9.49f;
-
-        /// <summary>The ground has no neighboring-cell occlusion; the shader still expects the vector.</summary>
-        private static readonly Vector4 GROUND_NO_OCCLUSION = new(0f, 0f, 0f, 1f);
 
         #endregion
 
@@ -397,10 +384,9 @@ namespace Testbed
         private City _city;
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
-        private InstancedModelRenderer _arenaGlassRenderer;
-        private InstancedModelRenderer _arenaFrameRenderer;
-        private ModelInstance[] _arenaGlassInstances;
-        private ModelInstance[] _arenaFrameInstances;
+        private DiscMesh _arenaDiscMesh;
+        private InstancedModelRenderer _arenaDiscRenderer;
+        private Microsoft.Xna.Framework.Matrix _arenaDiscWorld;
         private FunnelMesh _funnelMesh;
         private InstancedModelRenderer _funnelRenderer;
         private FunnelRimsMesh _funnelRimsMesh;
@@ -426,41 +412,24 @@ namespace Testbed
         private const byte SEA_DEFAULT_SKY_DOME = 13;
 
         /// <summary>
-        /// Half-width of the play surface, and the width of the marble band around it. Chosen as a whole
-        /// number of panels that also divides the recess evenly (see <see cref="ARENA_PIT_HALF_EXTENT"/>).
-        /// </summary>
-        private static readonly float ARENA_HALF_EXTENT = 60f;
-
-        private static readonly float ARENA_FRAME_WIDTH = 9f;
-
-        /// <summary>Edge length of one panel, and the width of the marble mullion between panels.</summary>
-        private static readonly float ARENA_PANEL_SIZE = 15f;
-
-        private static readonly float ARENA_MULLION_WIDTH = 1.1f;
-
-        /// <summary>
-        /// Top of the floor, and top of the recess in the middle of it. Both are read off the physics
-        /// ground blocks rather than guessed: the balls rest on those blocks, and a floor drawn anywhere
-        /// else leaves them hanging over it or sunk into it. The recess is the bath the cluster settles
-        /// into, and it was lost when the drawn ground became a single flat sheet.
+        /// Top of the stone island's surface, read off the physics plateau (<see cref="GROUND_PLATEAU_Y"/>) so
+        /// the drawn floor sits exactly where the balls rest rather than being guessed. The funnel rim and the
+        /// disc's top are flush with it.
         /// </summary>
         private static readonly float ARENA_Y = GROUND_PLATEAU_Y + Constants.HALF;
 
-        private static readonly float ARENA_PIT_Y = GROUND_PIT_Y + Constants.HALF;
-
-        /// <summary>Half-width of the recess: exactly the one recessed ground block, which is 30 across.</summary>
-        private static readonly float ARENA_PIT_HALF_EXTENT = GROUND_BLOCK_SIZE * Constants.HALF;
-
-        /// <summary>
-        /// Thickness of every floor panel, mullion and band. It has to exceed the depth of the recess,
-        /// since the sides of the panels around the recess are what draw its wall.
-        /// </summary>
-        private static readonly float ARENA_FLOOR_THICKNESS = 1.2f;
-
+        //The drain funnel is glass; the disc around it is stone (ARENA_MARBLE_COLOR)
         private static readonly Vector3 ARENA_GLASS_COLOR = new(0.42f, 0.62f, 0.72f);
-        private static readonly float ARENA_GLASS_ALPHA = 0.24f;
 
         private static readonly Vector3 ARENA_MARBLE_COLOR = new(0.58f, 0.56f, 0.54f);
+
+        //The arena is a small round stone island now, not a big square plaza: the drain funnel in the centre,
+        //a ring of stone around it out to this radius, then a hard edge (the outer wall drops ARENA_EDGE_HEIGHT)
+        //and the scene beyond. Kept just big enough to stand the funnel in - the whole point is that the scene
+        //(sea, dunes, city...) fills the frame rather than a plaza. The stone ring runs from the funnel's rim
+        //(FUNNEL_TOP_RADIUS) out to here.
+        private static readonly float ARENA_DISC_RADIUS = 26f;
+        private static readonly float ARENA_EDGE_HEIGHT = 5f;
 
         //The drain funnel that replaces the recessed centre: a glass cone the shot balls fall into and roll
         //down, dropping through the hole at the bottom - below the map, where the kill plane removes them. The
@@ -926,8 +895,7 @@ namespace Testbed
             yield return _ceilingRenderer;
             yield return _cannonRenderer;
             if (_cityRenderer != null) yield return _cityRenderer;
-            if (_arenaGlassRenderer != null) yield return _arenaGlassRenderer;
-            if (_arenaFrameRenderer != null) yield return _arenaFrameRenderer;
+            if (_arenaDiscRenderer != null) yield return _arenaDiscRenderer;
             if (_funnelRenderer != null) yield return _funnelRenderer;
             if (_funnelRimsRenderer != null) yield return _funnelRimsRenderer;
         }
@@ -1146,9 +1114,11 @@ namespace Testbed
         {
             _unitBox = new BoxMesh(GraphicsDevice, 1f, 1f, 1f);
 
-            _city = new City(seed: 20260720, arenaHalfExtent: ARENA_HALF_EXTENT);
+            //The clearing the city keeps clear of towers is now the round island's radius, so the towers
+            //frame the small island closely instead of a big plaza
+            _city = new City(seed: 20260720, arenaHalfExtent: ARENA_DISC_RADIUS);
 
-            Console.WriteLine($"[city] {_city.Buildings.Length} buildings, arena half extent {ARENA_HALF_EXTENT}, floor at {ARENA_Y}, recess at {ARENA_PIT_Y}");
+            Console.WriteLine($"[city] {_city.Buildings.Length} buildings, island radius {ARENA_DISC_RADIUS}, floor at {ARENA_Y}");
 
             //The floor is the same marble the ground blocks were modeled with; the model carries the
             //texture, so it is taken off the model rather than added to the content project again
@@ -1168,45 +1138,16 @@ namespace Testbed
                 SpecularAmbientStrength = 0.07f
             };
 
-            //The glass panel, sitting just under the play surface
-            _arenaGlassRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, ARENA_GLASS_COLOR, _instancingEffect, ARENA_GLASS_ALPHA);
-
-            //The floor is a mosaic, not a sheet: some panels are solid marble, some are glass. That
-            //contrast is the whole point of standing here — the stone says the floor holds, the glass
-            //opens onto the drop, and the eye keeps being handed one and then the other. A single glass
-            //sheet gives depth with nothing to measure it against, and a single stone one gives no depth.
-            List<ModelInstance> glassPanels = new();
-            List<ModelInstance> stonePanels = new();
-
-            int panelsPerSide = (int)MathF.Round(ARENA_HALF_EXTENT * 2f / ARENA_PANEL_SIZE);
-            Random panelRandom = new(7311);
-
-            for (int px = 0; px < panelsPerSide; px++)
-                for (int pz = 0; pz < panelsPerSide; pz++)
-                {
-                    float x = PanelCenter(px);
-                    float z = PanelCenter(pz);
-
-                    //The centre is left open for the drain funnel - no panel over its mouth
-                    if (MathF.Abs(x) < ARENA_PIT_HALF_EXTENT && MathF.Abs(z) < ARENA_PIT_HALF_EXTENT) continue;
-
-                    //Glass towards the middle, stone towards the rim: the drop opens under the play area,
-                    //where the balls are, and the edge you stand on stays solid. Squared, so the stone is
-                    //confined to the outermost ring or two and the openings in the middle run together
-                    //into one sheet of glass instead of a checkerboard.
-                    float distance = MathF.Max(MathF.Abs(x), MathF.Abs(z)) / ARENA_HALF_EXTENT;
-                    bool glass = panelRandom.NextDouble() > distance * distance * 0.9;
-
-                    (glass ? glassPanels : stonePanels).Add(
-                        Slab(ARENA_PANEL_SIZE - ARENA_MULLION_WIDTH, ARENA_PANEL_SIZE - ARENA_MULLION_WIDTH, x, z, TopAt(x, z)));
-                }
-
-            _arenaGlassInstances = glassPanels.ToArray();
-
-            //Four marble bands framing the glass. The glass is what the city shows through; the marble is
-            //what it is set into, and it is also the only thing here with a surface worth the relief work.
-            _arenaFrameRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, ARENA_MARBLE_COLOR, _instancingEffect)
+            //The arena is a small round stone island: the drain funnel in the centre, a ring of stone from
+            //the funnel's rim (FUNNEL_TOP_RADIUS) out to ARENA_DISC_RADIUS, then a hard vertical edge and the
+            //scene beyond. It replaces the big square marble/glass plaza, whose panels ate the whole lower
+            //frame and hid the scene the arena stands in. One mesh, drawn opaque with CullNone (see Draw).
+            _arenaDiscMesh = new DiscMesh(GraphicsDevice, FUNNEL_TOP_RADIUS, ARENA_DISC_RADIUS, ARENA_EDGE_HEIGHT, FUNNEL_SEGMENTS);
+            _arenaDiscRenderer = new InstancedModelRenderer(GraphicsDevice, _arenaDiscMesh, ARENA_MARBLE_COLOR, _instancingEffect)
             {
+                //The marble surface: coursed slab relief plus the ground blocks' own marble texture, projected
+                //triplanar (the disc's boxes carry no UVs worth the name). Without a detail texture the renderer
+                //falls through to the plain technique and every relief setting below is silently dead.
                 SurfaceReliefFrequency = 9f,
                 SurfaceReliefStrength = 0.008f,
                 SlabSize = 2f,
@@ -1215,72 +1156,21 @@ namespace Testbed
                 CavityStrength = 0.7f,
                 ReliefShadowStrength = 0.85f,
                 ParallaxScale = 1f,
-
-                //All of the above was dead: with no detail texture the renderer falls through to the plain
-                //technique, which has no slab joints and no relief at all. The marble the ground blocks are
-                //modeled with, projected triplanar so it tiles across every band and panel alike — these
-                //are boxes with no UVs worth the name, and the floor is one continuous surface anyway.
                 DetailTexture = marble,
                 DetailTextureMapping = DetailMapping.Triplanar,
                 DetailScale = 1f / GROUND_BLOCK_SIZE,
 
-                //A floor is seen at a grazing angle almost everywhere except right under your feet, which
-                //is exactly where Fresnel puts the sky reflection at full strength. Left at 1 the marble
-                //mirrors the sky into a white sheet from the middle distance out, and the mosaic it is
-                //there to carry disappears into it.
+                //A floor is seen at a grazing angle almost everywhere except right under your feet, which is
+                //exactly where Fresnel puts the sky reflection at full strength. Left at 1 the marble mirrors
+                //the sky into a white sheet from the middle distance out.
                 SpecularAmbientStrength = 0.4f
             };
+            _arenaDiscWorld = Microsoft.Xna.Framework.Matrix.CreateTranslation(0f, ARENA_Y, 0f);
 
-            float outer = ARENA_HALF_EXTENT + ARENA_FRAME_WIDTH;
-            float bandCenter = ARENA_HALF_EXTENT + ARENA_FRAME_WIDTH * 0.5f;
-
-            List<ModelInstance> frame = new()
-            {
-                Slab(outer * 2f, ARENA_FRAME_WIDTH, 0f, bandCenter, ARENA_Y),
-                Slab(outer * 2f, ARENA_FRAME_WIDTH, 0f, -bandCenter, ARENA_Y),
-                Slab(ARENA_FRAME_WIDTH, ARENA_HALF_EXTENT * 2f, bandCenter, 0f, ARENA_Y),
-                Slab(ARENA_FRAME_WIDTH, ARENA_HALF_EXTENT * 2f, -bandCenter, 0f, ARENA_Y)
-            };
-
-            //Mullions dividing the glass into panels. Without them a translucent sheet over a lit city
-            //reads as no floor at all - you see the city and nothing else, and the eye has no reason to
-            //believe anything is between. A grid of things the glass is set into is what says "glass".
-            //
-            //Laid one panel at a time rather than as four long bands, because the floor is not flat: where
-            //a mullion runs along the lip of the recess it belongs to the rim above, not to the floor
-            //below, and a single band spanning the whole width would cut through the air over the bath.
-            for (int line = 1; line < panelsPerSide; line++)
-            {
-                float offset = -ARENA_HALF_EXTENT + line * ARENA_PANEL_SIZE;
-
-                for (int cell = 0; cell < panelsPerSide; cell++)
-                {
-                    float along = PanelCenter(cell);
-                    float step = ARENA_PANEL_SIZE * Constants.HALF;
-
-                    //A lip sits level with the higher of the two floors it separates; skipped where it would
-                    //cross the open funnel mouth in the centre
-                    if (!(MathF.Abs(offset) < ARENA_PIT_HALF_EXTENT && MathF.Abs(along) < ARENA_PIT_HALF_EXTENT))
-                        frame.Add(Slab(ARENA_MULLION_WIDTH, ARENA_PANEL_SIZE, offset, along,
-                            MathF.Max(TopAt(offset - step, along), TopAt(offset + step, along))));
-
-                    //Shortened by one mullion width so the two directions abut at the crossings instead of
-                    //overlapping there: two coplanar tops in the same place is a z-fighting square
-                    if (!(MathF.Abs(along) < ARENA_PIT_HALF_EXTENT && MathF.Abs(offset) < ARENA_PIT_HALF_EXTENT))
-                        frame.Add(Slab(ARENA_PANEL_SIZE - ARENA_MULLION_WIDTH, ARENA_MULLION_WIDTH, along, offset,
-                            MathF.Max(TopAt(along, offset - step), TopAt(along, offset + step))));
-                }
-            }
-
-            //The solid panels join the frame: same marble, same slab relief, one draw call for all of it
-            frame.AddRange(stonePanels);
-
-            _arenaFrameInstances = frame.ToArray();
-
-            //The drain funnel in the centre, drawn as glass like the panels. Its top rim is flush with the
-            //platform; it descends to the hole the balls fall through. Drawn CullNone (see Draw) so it reads
-            //both looking down into it and up through the hole.
-            _funnelMesh = new FunnelMesh(GraphicsDevice, FUNNEL_TOP_RADIUS, FUNNEL_HOLE_RADIUS, FUNNEL_TOP_Y - FUNNEL_BOTTOM_Y, FUNNEL_SEGMENTS, ARENA_PIT_HALF_EXTENT);
+            //The drain funnel in the centre, glass. Its top rim (FUNNEL_TOP_RADIUS) is flush with the stone
+            //disc and meets the disc's inner hole directly, so it needs no collar (pass 0); it descends to the
+            //hole the balls fall through. Drawn CullNone (see Draw) so it reads both down into it and up through.
+            _funnelMesh = new FunnelMesh(GraphicsDevice, FUNNEL_TOP_RADIUS, FUNNEL_HOLE_RADIUS, FUNNEL_TOP_Y - FUNNEL_BOTTOM_Y, FUNNEL_SEGMENTS, 0f);
             _funnelRenderer = new InstancedModelRenderer(GraphicsDevice, _funnelMesh, ARENA_GLASS_COLOR, _instancingEffect, FUNNEL_GLASS_ALPHA);
             _funnelWorld = Microsoft.Xna.Framework.Matrix.CreateTranslation(0f, FUNNEL_TOP_Y, 0f);
 
@@ -1295,33 +1185,14 @@ namespace Testbed
                 SpecularAmbientStrength = 1f
             };
             _funnelRimEffectParams = new BasicEffectParams(Vector3.One * SCENE_AMBIENT_INTENSITY, FUNNEL_RIM_SPECULAR, FUNNEL_RIM_SPECULAR_POWER, Vector3.Zero);
-
-            static float PanelCenter(int index) => -ARENA_HALF_EXTENT + (index + 0.5f) * ARENA_PANEL_SIZE;
-
-            //Inside the recessed block the floor drops by exactly what the physics block drops by
-            static float TopAt(float x, float z) =>
-                MathF.Abs(x) < ARENA_PIT_HALF_EXTENT && MathF.Abs(z) < ARENA_PIT_HALF_EXTENT ? ARENA_PIT_Y : ARENA_Y;
-
-            static ModelInstance Slab(float sizeX, float sizeZ, float x, float z, float top) => new(
-                Microsoft.Xna.Framework.Matrix.CreateScale(sizeX, ARENA_FLOOR_THICKNESS, sizeZ)
-                * Microsoft.Xna.Framework.Matrix.CreateTranslation(x, top - ARENA_FLOOR_THICKNESS * Constants.HALF, z),
-                GROUND_NO_OCCLUSION);
         }
 
         private void BuildGroundAndCeiling()
         {
-            Box groundBox = new(GROUND_BLOCK_SIZE, 1f, GROUND_BLOCK_SIZE);
-
-            for (int x = -GROUND_BLOCK_RADIUS; x <= GROUND_BLOCK_RADIUS; x++)
-                for (int z = -GROUND_BLOCK_RADIUS; z <= GROUND_BLOCK_RADIUS; z++)
-                {
-                    //The centre block is gone: the drain funnel takes its place, so balls that fall there run
-                    //down it and drop through the hole instead of resting on a flat floor.
-                    if (x == 0 && z == 0) continue;
-
-                    _staticBodies.Add(new(_groundModel, CreateStatic(new(x * GROUND_BLOCK_SIZE, GROUND_PLATEAU_Y, z * GROUND_BLOCK_SIZE), groundBox)));
-                }
-
+            //The wide grid of ground blocks is gone with the big plaza: the round island's only physics floor
+            //is the funnel's own mesh - the drain cone plus the flat stone ring around it (BuildFunnelPhysics),
+            //out to ARENA_DISC_RADIUS. A ball that falls past the ring drops off the island's edge into the
+            //scene and is culled by the kill plane, exactly as one that runs down the funnel is.
             BuildFunnelPhysics();
 
             Box box = new(DEFAULT_CEILING_SIZE, 1f, DEFAULT_CEILING_SIZE);
@@ -1740,7 +1611,11 @@ namespace Testbed
                 else
                     _sceneRenderer.DrawEnvironment(_scene, sceneFrame);
 
-                _arenaFrameRenderer.Draw(_camera, _arenaFrameInstances, _arenaFrameInstances.Length, _sceneEffectParams);
+                //The round stone island, opaque. Drawn CullNone (a solid ring - the nearest face wins on depth,
+                //so the result matches back-face culling and the mesh needs no winding convention); restored after.
+                GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+                _arenaDiscRenderer.Draw(_camera, _arenaDiscWorld, _sceneEffectParams);
+                GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
 
                 _cannonRenderer.Draw(_camera, CannonWorld(), _sceneEffectParams);
 
@@ -1753,9 +1628,6 @@ namespace Testbed
                 GraphicsDevice.RasterizerState = RasterizerState.CullNone;
                 _funnelRimsRenderer.Draw(_camera, _funnelWorld, _funnelRimEffectParams);
                 GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-
-                //Translucent glass: drawn after the opaque scene so the environment below shows through it
-                _arenaGlassRenderer.Draw(_camera, _arenaGlassInstances, _arenaGlassInstances.Length, _sceneEffectParams);
 
                 //The glass drain funnel. Its wall is a single-sided cone, so it is drawn with culling off to
                 //show both the inside (looking down into it) and the outside (up through the hole); the state
@@ -2161,13 +2033,12 @@ namespace Testbed
         {
             int segments = FUNNEL_SEGMENTS;
             float depth = FUNNEL_TOP_Y - FUNNEL_BOTTOM_Y;
-            float squareHalf = ARENA_PIT_HALF_EXTENT;
 
             //Two triangles per quad, each added in both windings so the surface blocks a ball from either side:
             //Bepu meshes only collide with a triangle's front (normal) face, and rather than depend on getting
             //the winding right the funnel is made double-sided - a ball can never slip through it. Eight per
-            //segment: the sloped cone wall (4) plus the flat collar filling out to the square opening (4), so
-            //the corners between the round rim and the square are solid floor the balls rest on, not open gaps.
+            //segment: the sloped cone wall (4) plus the flat stone ring around it (4), from the rim out to
+            //ARENA_DISC_RADIUS - the round island's floor, that balls rest on until they fall off the edge.
             _bufferPool.Take<Triangle>(segments * 8, out var triangles);
 
             for (int s = 0; s < segments; s++)
@@ -2180,8 +2051,8 @@ namespace Testbed
                 var t1 = Ring(a1, FUNNEL_TOP_RADIUS, 0f);
                 var h0 = Ring(a0, FUNNEL_HOLE_RADIUS, -depth);
                 var h1 = Ring(a1, FUNNEL_HOLE_RADIUS, -depth);
-                var q0 = SquareEdge(a0, squareHalf);   //flat collar's outer edge, on the square
-                var q1 = SquareEdge(a1, squareHalf);
+                var q0 = Ring(a0, ARENA_DISC_RADIUS, 0f);   //flat stone ring's outer edge, on the island's rim
+                var q1 = Ring(a1, ARENA_DISC_RADIUS, 0f);
 
                 int b = s * 8;
                 //Cone wall (both faces)
@@ -2199,13 +2070,6 @@ namespace Testbed
             static System.Numerics.Vector3 Ring(float angle, float radius, float y) =>
                 new(radius * MathF.Cos(angle), y, radius * MathF.Sin(angle));
 
-            static System.Numerics.Vector3 SquareEdge(float angle, float h)
-            {
-                float cos = MathF.Cos(angle), sin = MathF.Sin(angle);
-                float r = h / MathF.Max(MathF.Abs(cos), MathF.Abs(sin));
-                return new System.Numerics.Vector3(r * cos, 0f, r * sin);
-            }
-
             var mesh = new Mesh(triangles, System.Numerics.Vector3.One, _bufferPool);
             var shapeIndex = _simulation.Shapes.Add(mesh);
             _simulation.Statics.Add(new StaticDescription(new System.Numerics.Vector3(0f, FUNNEL_TOP_Y, 0f), shapeIndex));
@@ -2215,6 +2079,7 @@ namespace Testbed
         {
             _unitBox?.Dispose();
             _cannonMesh?.Dispose();
+            _arenaDiscMesh?.Dispose();
             _funnelMesh?.Dispose();
             _funnelRimsMesh?.Dispose();
             _sceneRenderer?.Dispose();
