@@ -276,23 +276,32 @@ namespace Prazsky.Core.Render
         private readonly IndexBuffer _mountainIndexBuffer;
         private readonly int _mountainIndexCount;
 
-        private const int MOUNTAIN_GRID_N = 240;
+        //Finer than the first version (240) so the craggier peaks resolve; needs the 32-bit index buffer (360*360
+        //vertices overflow a 16-bit one). Per-vertex base normal, per-pixel rock relief on top (see Mountain.fx)
+        private const int MOUNTAIN_GRID_N = 360;
         private const float MOUNTAIN_EXTENT = 1200f;
 
         //Basin floor, peak height far out, and the clearing the arena sits in (flat within the radius, the
         //peaks rising over the transition beyond it). The basin stays below the platform glass (about -10.7).
         private const float MOUNTAIN_LEVEL_Y = -14f;
-        private const float MOUNTAIN_HEIGHT = 75f;
+        private const float MOUNTAIN_HEIGHT = 82f;
         private const float MOUNTAIN_CLEARING_RADIUS = 95f;
         private const float MOUNTAIN_CLEARING_TRANSITION = 110f;
         private const float MOUNTAIN_CLEARING_RELIEF = 1.5f;
 
-        private static readonly Vector3 SNOW_COLOR = new(0.90f, 0.93f, 0.99f); //Snow (linear, near white)
-        private static readonly Vector3 ROCK_COLOR = new(0.09f, 0.08f, 0.075f); //Bare rock (linear, dark)
-        private const float MOUNTAIN_ROCK_SLOPE = 0.42f; //normal.y below this is all rock
-        private const float MOUNTAIN_SNOW_SLOPE = 0.72f; //normal.y above this is all snow
+        private static readonly Vector3 SNOW_COLOR = new(0.90f, 0.93f, 0.99f);       //Snow (linear, near white)
+        private static readonly Vector3 ROCK_COLOR = new(0.08f, 0.07f, 0.065f);      //Dark bare rock (linear)
+        private static readonly Vector3 ROCK_COLOR_LIGHT = new(0.20f, 0.17f, 0.14f); //Lighter grey-brown rock
+        //Snow lies over flatter faces (normal.y in this band) AND above an altitude snowline; more rock shows now
+        private const float MOUNTAIN_ROCK_SLOPE = 0.30f;
+        private const float MOUNTAIN_SNOW_SLOPE = 0.95f;
+        private const float MOUNTAIN_SNOWLINE_LOW = -15f;
+        private const float MOUNTAIN_SNOWLINE_HIGH = 50f;
+        //Fine rock relief: peak height of the normal-tilting field and its features per world unit
+        private const float MOUNTAIN_ROCK_RELIEF_STRENGTH = 0.5f;
+        private const float MOUNTAIN_ROCK_RELIEF_FREQUENCY = 0.6f;
         private const float MOUNTAIN_AMBIENT_STRENGTH = 0.6f;
-        private const float MOUNTAIN_HORIZON_HAZE_DISTANCE = 560f;
+        private const float MOUNTAIN_HORIZON_HAZE_DISTANCE = 500f;
 
         #endregion
 
@@ -583,8 +592,13 @@ namespace Prazsky.Core.Render
             _mountainEffect.Parameters["ClearingRelief"].SetValue(MOUNTAIN_CLEARING_RELIEF);
             _mountainEffect.Parameters["SnowColor"].SetValue(SNOW_COLOR);
             _mountainEffect.Parameters["RockColor"].SetValue(ROCK_COLOR);
+            _mountainEffect.Parameters["RockColorLight"].SetValue(ROCK_COLOR_LIGHT);
             _mountainEffect.Parameters["RockSlope"].SetValue(MOUNTAIN_ROCK_SLOPE);
             _mountainEffect.Parameters["SnowSlope"].SetValue(MOUNTAIN_SNOW_SLOPE);
+            _mountainEffect.Parameters["SnowlineLow"].SetValue(MOUNTAIN_SNOWLINE_LOW);
+            _mountainEffect.Parameters["SnowlineHigh"].SetValue(MOUNTAIN_SNOWLINE_HIGH);
+            _mountainEffect.Parameters["RockReliefStrength"].SetValue(MOUNTAIN_ROCK_RELIEF_STRENGTH);
+            _mountainEffect.Parameters["RockReliefFrequency"].SetValue(MOUNTAIN_ROCK_RELIEF_FREQUENCY);
             _mountainEffect.Parameters["AmbientStrength"].SetValue(MOUNTAIN_AMBIENT_STRENGTH);
             _mountainEffect.Parameters["HorizonHazeDistance"].SetValue(MOUNTAIN_HORIZON_HAZE_DISTANCE);
 
@@ -706,22 +720,28 @@ namespace Prazsky.Core.Render
             vertexBuffer = new VertexBuffer(_graphicsDevice, VertexPosition.VertexDeclaration, vertices.Length, BufferUsage.WriteOnly);
             vertexBuffer.SetData(vertices);
 
-            short[] indices = new short[(n - 1) * (n - 1) * 6];
+            //32-bit indices: these grids run to hundreds of vertices a side (the mountain at 360, the savanna
+            //at 400 = 160k vertices), well past the 65 536 a 16-bit index can address. A 16-bit index silently
+            //wraps at that point, so triangles reference the wrong vertices and stretch into garbage. On a near
+            //flat field (sea, savanna) the garbage stays down near the surface and hides; on the mountain's tall
+            //peaks it stretched into long dark bands across the whole sky. Wrong cause chased for a while - it
+            //looked like a glare/shading artifact - so: a grid over 255 a side MUST use 32-bit indices.
+            int[] indices = new int[(n - 1) * (n - 1) * 6];
             int i = 0;
             for (int z = 0; z < n - 1; z++)
                 for (int x = 0; x < n - 1; x++)
                 {
-                    short a = (short)(z * n + x);
-                    short b = (short)(z * n + x + 1);
-                    short c = (short)((z + 1) * n + x);
-                    short d = (short)((z + 1) * n + x + 1);
+                    int a = z * n + x;
+                    int b = z * n + x + 1;
+                    int c = (z + 1) * n + x;
+                    int d = (z + 1) * n + x + 1;
 
                     indices[i++] = a; indices[i++] = c; indices[i++] = b;
                     indices[i++] = b; indices[i++] = c; indices[i++] = d;
                 }
 
             indexCount = i;
-            indexBuffer = new IndexBuffer(_graphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
+            indexBuffer = new IndexBuffer(_graphicsDevice, IndexElementSize.ThirtyTwoBits, indices.Length, BufferUsage.WriteOnly);
             indexBuffer.SetData(indices);
         }
 
