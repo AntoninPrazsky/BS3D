@@ -145,8 +145,9 @@ float4 SavannaPS(SavannaVertexOutput input) : COLOR
 	float patchMed = CloudNoise(worldPosition.xz * 0.05 + 17.0) * 0.5 + 0.5;
 	float bare = CloudNoise(worldPosition.xz * 0.09 + 60.0) * 0.5 + 0.5;   //scattered bare earth
 
-	float3 grass = lerp(GrassColorDry, GrassColor, saturate((patchLarge - 0.35) * 2.2) * patchMed);
-	grass = lerp(grass, GrassColorBare, smoothstep(0.68, 0.82, bare) * 0.7);
+	//Green over most of the field, drying to gold in patches - a lusher savanna than the all-gold first pass.
+	float3 grass = lerp(GrassColorDry, GrassColor, saturate((patchLarge - 0.12) * 1.9) * (0.7 + 0.3 * patchMed));
+	grass = lerp(grass, GrassColorBare, smoothstep(0.72, 0.85, bare) * 0.55);
 
 	//Wind combing the grass: bright and dark bands travelling downwind
 	float wind = sin(dot(worldPosition.xz, WindDirection) * WindRippleFrequency + SavannaTime * WindRippleSpeed);

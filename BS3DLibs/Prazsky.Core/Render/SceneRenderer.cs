@@ -153,8 +153,8 @@ namespace Prazsky.Core.Render
         //Grass (linear): a green flush, a drier golden base and bare reddish earth, blended in patches. A
         //savanna is dry gold with green flushes and scuffed earth, so the dry tone dominates. Plus how much sky
         //fills the flats, and the horizon fade.
-        private static readonly Vector3 GRASS_COLOR_SAVANNA = new(0.15f, 0.26f, 0.06f);   //green flush
-        private static readonly Vector3 GRASS_COLOR_DRY = new(0.40f, 0.30f, 0.10f);       //dry golden grass
+        private static readonly Vector3 GRASS_COLOR_SAVANNA = new(0.13f, 0.33f, 0.06f);   //lush green (dominant now)
+        private static readonly Vector3 GRASS_COLOR_DRY = new(0.40f, 0.31f, 0.10f);       //dry golden grass (patches)
         private static readonly Vector3 GRASS_COLOR_BARE = new(0.26f, 0.15f, 0.08f);      //bare reddish earth
         private const float SAVANNA_AMBIENT_STRENGTH = 0.7f;
         private static readonly Vector2 SAVANNA_WIND = new(0.86f, 0.51f);

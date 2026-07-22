@@ -411,6 +411,10 @@ namespace Testbed
         //explicit sky= on the command line overrides the startup default. Dome 13 is a violet/teal dusk.
         private const byte SEA_DEFAULT_SKY_DOME = 13;
 
+        //The savanna does the same for the opposite mood: it reads best under a warm golden-hour sky, so
+        //entering it defaults the dome to a warm one (dome 14 has the warmest gold horizon of the set).
+        private const byte SAVANNA_DEFAULT_SKY_DOME = 14;
+
         /// <summary>
         /// Top of the stone island's surface, read off the physics plateau (<see cref="GROUND_PLATEAU_Y"/>) so
         /// the drawn floor sits exactly where the balls rest rather than being guessed. The funnel rim and the
@@ -651,6 +655,7 @@ namespace Testbed
             _supersampleFactor = Math.Clamp(supersampleFactor, 1, 4); //Testing: "ssaa=<n>" on the command line trades sharpness against fill rate
             if (skyNumber >= 1 && skyNumber <= SKY_DOME_COUNT) _skyModelNumber = skyNumber; //Testing: "sky=<n>" on the command line picks the starting sky dome
             else if (_scene == SceneKind.Sea) _skyModelNumber = SEA_DEFAULT_SKY_DOME; //The sea scene defaults to a darker dome (unless sky= overrode it above)
+            else if (_scene == SceneKind.Savanna) _skyModelNumber = SAVANNA_DEFAULT_SKY_DOME; //The savanna defaults to a warm golden dome
 
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;
@@ -1085,9 +1090,10 @@ namespace Testbed
             _scene = (SceneKind)(((int)_scene + 1) % 6);
             Console.WriteLine($"[scene] {_scene}");
 
-            //The sea reads best under a moody sky, so entering it defaults the dome to a darker one (NumPad1
-            //still cycles freely from there). The other scenes keep whatever dome is up.
+            //The sea reads best under a moody sky and the savanna under a warm golden one, so entering either
+            //defaults its dome (NumPad1 still cycles freely from there). The other scenes keep whatever dome is up.
             if (_scene == SceneKind.Sea) SetSkyDome(SEA_DEFAULT_SKY_DOME);
+            else if (_scene == SceneKind.Savanna) SetSkyDome(SAVANNA_DEFAULT_SKY_DOME);
         }
 
         /// <summary>
