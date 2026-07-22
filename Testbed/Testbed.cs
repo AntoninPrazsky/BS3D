@@ -401,6 +401,9 @@ namespace Testbed
         private InstancedModelRenderer _arenaFrameRenderer;
         private ModelInstance[] _arenaGlassInstances;
         private ModelInstance[] _arenaFrameInstances;
+        private FunnelMesh _funnelMesh;
+        private InstancedModelRenderer _funnelRenderer;
+        private Microsoft.Xna.Framework.Matrix _funnelWorld;
 
         //Which environment the arena stands in. City is the default; Sea, Desert, Mountain, Meadow and
         //NeonCity swap the city (and only the city) for open water, a dune field, a snowy range, a
@@ -449,6 +452,20 @@ namespace Testbed
         private static readonly float ARENA_GLASS_ALPHA = 0.24f;
 
         private static readonly Vector3 ARENA_MARBLE_COLOR = new(0.58f, 0.56f, 0.54f);
+
+        //The drain funnel that replaces the recessed centre: a glass cone the shot balls fall into and roll
+        //down, dropping through the hole at the bottom - below the map, where the kill plane removes them. The
+        //top rim is flush with the platform and sized to the old bath, so it catches the balls that used to
+        //pile there; the walls are steep (~55 degrees) so the balls run down to the hole rather than resting.
+        private static readonly float FUNNEL_TOP_RADIUS = 14f;   //slightly inscribed in the pit square, so the collar always has width
+        private static readonly float FUNNEL_HOLE_RADIUS = 1.8f;
+        private static readonly float FUNNEL_TOP_Y = ARENA_Y;    //rim flush with the platform top
+        private static readonly float FUNNEL_BOTTOM_Y = -27.5f;  //hole ~19 below the rim
+        private const int FUNNEL_SEGMENTS = 64;
+
+        //The funnel (and its corner collar) is glass, but more opaque than the arena panels so it reads clearly
+        //as a solid frosted-glass drain rather than an almost-invisible sheet.
+        private static readonly float FUNNEL_GLASS_ALPHA = 0.55f;
 
         /// <summary>
         /// How brightly a lit window burns. Deliberately kept under <see cref="GLARE_THRESHOLD"/>: a
@@ -890,6 +907,7 @@ namespace Testbed
             if (_cityRenderer != null) yield return _cityRenderer;
             if (_arenaGlassRenderer != null) yield return _arenaGlassRenderer;
             if (_arenaFrameRenderer != null) yield return _arenaFrameRenderer;
+            if (_funnelRenderer != null) yield return _funnelRenderer;
         }
 
         /// <summary>
@@ -1136,6 +1154,9 @@ namespace Testbed
                     float x = PanelCenter(px);
                     float z = PanelCenter(pz);
 
+                    //The centre is left open for the drain funnel - no panel over its mouth
+                    if (MathF.Abs(x) < ARENA_PIT_HALF_EXTENT && MathF.Abs(z) < ARENA_PIT_HALF_EXTENT) continue;
+
                     //Glass towards the middle, stone towards the rim: the drop opens under the play area,
                     //where the balls are, and the edge you stand on stays solid. Squared, so the stone is
                     //confined to the outermost ring or two and the openings in the middle run together
@@ -1204,14 +1225,17 @@ namespace Testbed
                     float along = PanelCenter(cell);
                     float step = ARENA_PANEL_SIZE * Constants.HALF;
 
-                    //A lip sits level with the higher of the two floors it separates
-                    frame.Add(Slab(ARENA_MULLION_WIDTH, ARENA_PANEL_SIZE, offset, along,
-                        MathF.Max(TopAt(offset - step, along), TopAt(offset + step, along))));
+                    //A lip sits level with the higher of the two floors it separates; skipped where it would
+                    //cross the open funnel mouth in the centre
+                    if (!(MathF.Abs(offset) < ARENA_PIT_HALF_EXTENT && MathF.Abs(along) < ARENA_PIT_HALF_EXTENT))
+                        frame.Add(Slab(ARENA_MULLION_WIDTH, ARENA_PANEL_SIZE, offset, along,
+                            MathF.Max(TopAt(offset - step, along), TopAt(offset + step, along))));
 
                     //Shortened by one mullion width so the two directions abut at the crossings instead of
                     //overlapping there: two coplanar tops in the same place is a z-fighting square
-                    frame.Add(Slab(ARENA_PANEL_SIZE - ARENA_MULLION_WIDTH, ARENA_MULLION_WIDTH, along, offset,
-                        MathF.Max(TopAt(along, offset - step), TopAt(along, offset + step))));
+                    if (!(MathF.Abs(along) < ARENA_PIT_HALF_EXTENT && MathF.Abs(offset) < ARENA_PIT_HALF_EXTENT))
+                        frame.Add(Slab(ARENA_PANEL_SIZE - ARENA_MULLION_WIDTH, ARENA_MULLION_WIDTH, along, offset,
+                            MathF.Max(TopAt(along, offset - step), TopAt(along, offset + step))));
                 }
             }
 
@@ -1219,6 +1243,13 @@ namespace Testbed
             frame.AddRange(stonePanels);
 
             _arenaFrameInstances = frame.ToArray();
+
+            //The drain funnel in the centre, drawn as glass like the panels. Its top rim is flush with the
+            //platform; it descends to the hole the balls fall through. Drawn CullNone (see Draw) so it reads
+            //both looking down into it and up through the hole.
+            _funnelMesh = new FunnelMesh(GraphicsDevice, FUNNEL_TOP_RADIUS, FUNNEL_HOLE_RADIUS, FUNNEL_TOP_Y - FUNNEL_BOTTOM_Y, FUNNEL_SEGMENTS, ARENA_PIT_HALF_EXTENT);
+            _funnelRenderer = new InstancedModelRenderer(GraphicsDevice, _funnelMesh, ARENA_GLASS_COLOR, _instancingEffect, FUNNEL_GLASS_ALPHA);
+            _funnelWorld = Microsoft.Xna.Framework.Matrix.CreateTranslation(0f, FUNNEL_TOP_Y, 0f);
 
             static float PanelCenter(int index) => -ARENA_HALF_EXTENT + (index + 0.5f) * ARENA_PANEL_SIZE;
 
@@ -1239,11 +1270,14 @@ namespace Testbed
             for (int x = -GROUND_BLOCK_RADIUS; x <= GROUND_BLOCK_RADIUS; x++)
                 for (int z = -GROUND_BLOCK_RADIUS; z <= GROUND_BLOCK_RADIUS; z++)
                 {
-                    //The center block is recessed by one unit, forming the arena the balls drop into
-                    float y = x == 0 && z == 0 ? GROUND_PIT_Y : GROUND_PLATEAU_Y;
+                    //The centre block is gone: the drain funnel takes its place, so balls that fall there run
+                    //down it and drop through the hole instead of resting on a flat floor.
+                    if (x == 0 && z == 0) continue;
 
-                    _staticBodies.Add(new(_groundModel, CreateStatic(new(x * GROUND_BLOCK_SIZE, y, z * GROUND_BLOCK_SIZE), groundBox)));
+                    _staticBodies.Add(new(_groundModel, CreateStatic(new(x * GROUND_BLOCK_SIZE, GROUND_PLATEAU_Y, z * GROUND_BLOCK_SIZE), groundBox)));
                 }
+
+            BuildFunnelPhysics();
 
             Box box = new(DEFAULT_CEILING_SIZE, 1f, DEFAULT_CEILING_SIZE);
             TypedIndex boxShapeIndex = _simulation.Shapes.Add(box);
@@ -1395,9 +1429,11 @@ namespace Testbed
         }
 
         /// <summary>
-        /// Y below which a ball is considered fallen out of the world (the ground sits around Y = -10).
+        /// Y below which a ball is considered fallen out of the world. Set below the funnel's hole
+        /// (<see cref="FUNNEL_BOTTOM_Y"/>) so a ball that drops through it falls a visible distance into the
+        /// drop below the platform before it is removed.
         /// </summary>
-        private static readonly float KILL_PLANE_Y = -30f;
+        private static readonly float KILL_PLANE_Y = -42f;
 
         /// <summary>
         /// Removes balls that can no longer affect gameplay from the simulation and from the given list:
@@ -1667,6 +1703,13 @@ namespace Testbed
 
                 //Translucent glass: drawn after the opaque scene so the environment below shows through it
                 _arenaGlassRenderer.Draw(_camera, _arenaGlassInstances, _arenaGlassInstances.Length, _sceneEffectParams);
+
+                //The glass drain funnel. Its wall is a single-sided cone, so it is drawn with culling off to
+                //show both the inside (looking down into it) and the outside (up through the hole); the state
+                //is put back to the scene's cull mode afterwards.
+                GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+                _funnelRenderer.Draw(_camera, _funnelWorld, _sceneEffectParams);
+                GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
 
                 _ceilingRenderer.Draw(_camera, _ceiling.World, _sceneEffectParams);
 
@@ -2054,10 +2097,72 @@ namespace Testbed
             return new StaticReference(_simulation.Statics.Add(new StaticDescription(position, shape)), _simulation.Statics);
         }
 
+        /// <summary>
+        /// The drain funnel's collision: a triangle-mesh cone (wide rim down to a small hole) placed where the
+        /// centre ground block was. Each triangle is wound so its normal faces inward and up - the concave side
+        /// the balls rest on - so a ball dropped in rolls down the wall to the hole and falls through (the hole
+        /// is wider than a ball, so nothing collides there). Balls that drop through fall past the kill plane
+        /// and are removed. Matches the drawn <see cref="FunnelMesh"/>: top rim at FUNNEL_TOP_Y, hole below it.
+        /// </summary>
+        private void BuildFunnelPhysics()
+        {
+            int segments = FUNNEL_SEGMENTS;
+            float depth = FUNNEL_TOP_Y - FUNNEL_BOTTOM_Y;
+            float squareHalf = ARENA_PIT_HALF_EXTENT;
+
+            //Two triangles per quad, each added in both windings so the surface blocks a ball from either side:
+            //Bepu meshes only collide with a triangle's front (normal) face, and rather than depend on getting
+            //the winding right the funnel is made double-sided - a ball can never slip through it. Eight per
+            //segment: the sloped cone wall (4) plus the flat collar filling out to the square opening (4), so
+            //the corners between the round rim and the square are solid floor the balls rest on, not open gaps.
+            _bufferPool.Take<Triangle>(segments * 8, out var triangles);
+
+            for (int s = 0; s < segments; s++)
+            {
+                float a0 = s / (float)segments * MathF.PI * 2f;
+                float a1 = (s + 1) / (float)segments * MathF.PI * 2f;
+
+                //Local space: top rim at y = 0 (radius FUNNEL_TOP_RADIUS), hole at y = -depth (radius FUNNEL_HOLE_RADIUS)
+                var t0 = Ring(a0, FUNNEL_TOP_RADIUS, 0f);
+                var t1 = Ring(a1, FUNNEL_TOP_RADIUS, 0f);
+                var h0 = Ring(a0, FUNNEL_HOLE_RADIUS, -depth);
+                var h1 = Ring(a1, FUNNEL_HOLE_RADIUS, -depth);
+                var q0 = SquareEdge(a0, squareHalf);   //flat collar's outer edge, on the square
+                var q1 = SquareEdge(a1, squareHalf);
+
+                int b = s * 8;
+                //Cone wall (both faces)
+                triangles[b] = new Triangle(t0, h0, t1);
+                triangles[b + 1] = new Triangle(t1, h0, h1);
+                triangles[b + 2] = new Triangle(t0, t1, h0);
+                triangles[b + 3] = new Triangle(t1, h1, h0);
+                //Flat collar rim -> square (both faces)
+                triangles[b + 4] = new Triangle(t0, t1, q1);
+                triangles[b + 5] = new Triangle(t0, q1, q0);
+                triangles[b + 6] = new Triangle(t0, q1, t1);
+                triangles[b + 7] = new Triangle(t0, q0, q1);
+            }
+
+            static System.Numerics.Vector3 Ring(float angle, float radius, float y) =>
+                new(radius * MathF.Cos(angle), y, radius * MathF.Sin(angle));
+
+            static System.Numerics.Vector3 SquareEdge(float angle, float h)
+            {
+                float cos = MathF.Cos(angle), sin = MathF.Sin(angle);
+                float r = h / MathF.Max(MathF.Abs(cos), MathF.Abs(sin));
+                return new System.Numerics.Vector3(r * cos, 0f, r * sin);
+            }
+
+            var mesh = new Mesh(triangles, System.Numerics.Vector3.One, _bufferPool);
+            var shapeIndex = _simulation.Shapes.Add(mesh);
+            _simulation.Statics.Add(new StaticDescription(new System.Numerics.Vector3(0f, FUNNEL_TOP_Y, 0f), shapeIndex));
+        }
+
         protected override void UnloadContent()
         {
             _unitBox?.Dispose();
             _cannonMesh?.Dispose();
+            _funnelMesh?.Dispose();
             _sceneRenderer?.Dispose();
             _sceneTarget?.Dispose();
             _glareBright?.Dispose();
