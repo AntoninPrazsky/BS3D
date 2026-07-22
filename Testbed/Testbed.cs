@@ -403,6 +403,9 @@ namespace Testbed
         private ModelInstance[] _arenaFrameInstances;
         private FunnelMesh _funnelMesh;
         private InstancedModelRenderer _funnelRenderer;
+        private FunnelRimsMesh _funnelRimsMesh;
+        private InstancedModelRenderer _funnelRimsRenderer;
+        private BasicEffectParams _funnelRimEffectParams;
         private Microsoft.Xna.Framework.Matrix _funnelWorld;
 
         //Which environment the arena stands in. City is the default; Sea, Desert, Mountain, Meadow and
@@ -466,6 +469,17 @@ namespace Testbed
         //The funnel (and its corner collar) is glass, but more opaque than the arena panels so it reads clearly
         //as a solid frosted-glass drain rather than an almost-invisible sheet.
         private static readonly float FUNNEL_GLASS_ALPHA = 0.55f;
+
+        //A polished-gold metal bead runs around both circles of the funnel (the wide top rim and the small
+        //bottom hole), which is what makes the glass drain read at a glance. Drawn as two tori with the
+        //metal path (Metalness = 1): the gold diffuse keeps it visible in any scene, the gold specular is
+        //its reflectance so it mirrors the sky in gold, and a tight specular power keeps the highlight sharp.
+        private static readonly Vector3 FUNNEL_RIM_COLOR = new(0.62f, 0.44f, 0.13f);        //warm gold diffuse (sRGB)
+        private static readonly Vector3 FUNNEL_RIM_SPECULAR = new(1f, 0.83f, 0.48f);        //gold reflectance (sRGB)
+        private const float FUNNEL_RIM_SPECULAR_POWER = 80f;                                //polished: a tight highlight
+        private static readonly float FUNNEL_RIM_TOP_TUBE = 0.5f;                           //bead radius at the top rim
+        private static readonly float FUNNEL_RIM_HOLE_TUBE = 0.3f;                          //bead radius at the hole
+        private const int FUNNEL_RIM_TUBE_SEGMENTS = 16;                                    //facets around each bead
 
         /// <summary>
         /// How brightly a lit window burns. Deliberately kept under <see cref="GLARE_THRESHOLD"/>: a
@@ -908,6 +922,7 @@ namespace Testbed
             if (_arenaGlassRenderer != null) yield return _arenaGlassRenderer;
             if (_arenaFrameRenderer != null) yield return _arenaFrameRenderer;
             if (_funnelRenderer != null) yield return _funnelRenderer;
+            if (_funnelRimsRenderer != null) yield return _funnelRimsRenderer;
         }
 
         /// <summary>
@@ -1250,6 +1265,18 @@ namespace Testbed
             _funnelMesh = new FunnelMesh(GraphicsDevice, FUNNEL_TOP_RADIUS, FUNNEL_HOLE_RADIUS, FUNNEL_TOP_Y - FUNNEL_BOTTOM_Y, FUNNEL_SEGMENTS, ARENA_PIT_HALF_EXTENT);
             _funnelRenderer = new InstancedModelRenderer(GraphicsDevice, _funnelMesh, ARENA_GLASS_COLOR, _instancingEffect, FUNNEL_GLASS_ALPHA);
             _funnelWorld = Microsoft.Xna.Framework.Matrix.CreateTranslation(0f, FUNNEL_TOP_Y, 0f);
+
+            //The gold metal beads around both circles of the funnel, in one mesh (top rim + hole) so one
+            //renderer draws them. Opaque, and metallic (see FUNNEL_RIM_* / Metalness), with the gold specular
+            //passed as an effect-params override so it reflects the sky in gold rather than the default white.
+            _funnelRimsMesh = new FunnelRimsMesh(GraphicsDevice, FUNNEL_TOP_RADIUS, FUNNEL_HOLE_RADIUS,
+                FUNNEL_TOP_Y - FUNNEL_BOTTOM_Y, FUNNEL_RIM_TOP_TUBE, FUNNEL_RIM_HOLE_TUBE, FUNNEL_SEGMENTS, FUNNEL_RIM_TUBE_SEGMENTS);
+            _funnelRimsRenderer = new InstancedModelRenderer(GraphicsDevice, _funnelRimsMesh, FUNNEL_RIM_COLOR, _instancingEffect)
+            {
+                Metalness = 1f,
+                SpecularAmbientStrength = 1f
+            };
+            _funnelRimEffectParams = new BasicEffectParams(Vector3.One * SCENE_AMBIENT_INTENSITY, FUNNEL_RIM_SPECULAR, FUNNEL_RIM_SPECULAR_POWER, Vector3.Zero);
 
             static float PanelCenter(int index) => -ARENA_HALF_EXTENT + (index + 0.5f) * ARENA_PANEL_SIZE;
 
@@ -1700,6 +1727,14 @@ namespace Testbed
                 _cannonRenderer.Draw(_camera, CannonWorld(), _sceneEffectParams);
 
                 DrawBallsInstanced();
+
+                //The funnel's gold metal rims: opaque, so drawn with the opaque scene (before the glass, which
+                //then composites over them). A closed convex-tube torus, drawn CullNone (both windings) rather
+                //than relying on the winding - the nearest face wins on depth, so the result matches backface
+                //culling. Restored to the scene's cull mode after.
+                GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+                _funnelRimsRenderer.Draw(_camera, _funnelWorld, _funnelRimEffectParams);
+                GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
 
                 //Translucent glass: drawn after the opaque scene so the environment below shows through it
                 _arenaGlassRenderer.Draw(_camera, _arenaGlassInstances, _arenaGlassInstances.Length, _sceneEffectParams);
@@ -2163,6 +2198,7 @@ namespace Testbed
             _unitBox?.Dispose();
             _cannonMesh?.Dispose();
             _funnelMesh?.Dispose();
+            _funnelRimsMesh?.Dispose();
             _sceneRenderer?.Dispose();
             _sceneTarget?.Dispose();
             _glareBright?.Dispose();

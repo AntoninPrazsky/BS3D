@@ -69,6 +69,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _reliefShadowStrengthParam;
         private EffectParameter _parallaxScaleParam;
         private EffectParameter _specularAmbientStrengthParam;
+        private EffectParameter _metalnessParam;
         private EffectParameter _emissiveStrengthParam;
         private EffectParameter _translucencyStrengthParam;
         private EffectParameter _pulseTimeParam;
@@ -234,6 +235,14 @@ namespace Prazsky.Core.Render
         /// one — a lit object mostly shows its surroundings, not the lamp.
         /// </summary>
         public float SpecularAmbientStrength { get; set; } = 1f;
+
+        /// <summary>
+        /// 0 = a dielectric (stone, glass, vinyl, paint — the default for everything), whose environment
+        /// reflection is the ~4% dielectric F0 tinted by the specular color and only turns mirror-like at
+        /// grazing angles. 1 = bare metal, whose reflectance <i>is</i> its specular color, so the whole
+        /// surface reflects the sky in that tint (gold reflects gold). Used by the funnel's gold rims.
+        /// </summary>
+        public float Metalness { get; set; }
 
         /// <summary>
         /// Number of primary-colored gores of the procedural beach-ball pattern (segments around
@@ -477,6 +486,7 @@ namespace Prazsky.Core.Render
             _reliefShadowStrengthParam = _effect.Parameters["ReliefShadowStrength"];
             _parallaxScaleParam = _effect.Parameters["ParallaxScale"];
             _specularAmbientStrengthParam = _effect.Parameters["SpecularAmbientStrength"];
+            _metalnessParam = _effect.Parameters["Metalness"];
             _surfaceReliefFrequencyParam = _effect.Parameters["SurfaceReliefFrequency"];
             _surfaceStyleParam = _effect.Parameters["SurfaceStyle"];
             _patternPrimaryColorParam = _effect.Parameters["PatternPrimaryColor"];
@@ -632,6 +642,7 @@ namespace Prazsky.Core.Render
             _reliefShadowStrengthParam.SetValue(ReliefShadowStrength);
             _parallaxScaleParam.SetValue(ParallaxScale);
             _specularAmbientStrengthParam.SetValue(SpecularAmbientStrength);
+            _metalnessParam.SetValue(Metalness);
 
             for (int i = 0; i < _parts.Length; i++)
             {

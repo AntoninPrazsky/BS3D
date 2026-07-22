@@ -163,6 +163,12 @@ float3 FresnelSchlick(float3 reflectanceAtNormal, float cosTheta)
 //How strongly the surface reflects the sky as an environment (0 = off)
 float SpecularAmbientStrength;
 
+//0 = dielectric (the default for everything): the reflection is the ~4% dielectric F0 tinted by the
+//specular color, near white and only mirror-like at grazing angles. 1 = metal: the reflectance at normal
+//incidence *is* the specular color, so the whole surface reflects the environment in that tint (gold
+//reflects gold), which is what a bare-metal trim needs. Left at 0 unless a renderer sets it.
+float Metalness;
+
 //Normal-incidence reflectance of a dielectric. Stone, marble, glass, vinyl, paint - everything in this
 //scene that is not bare metal - reflects roughly this fraction of what hits it head-on.
 static const float DielectricF0 = 0.04;
@@ -244,7 +250,9 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
 	//so it modulates that 4% instead of standing in for it. Handing it to Schlick directly makes F come
 	//out near 1 at every angle, which mirrors the entire sky off every surface and veils the scene.
 	//The Fresnel rise to 1 at grazing angles is then the whole effect, which is as it should be.
-	float3 reflectanceAtNormal = DielectricF0 * linearSpecular;
+	//A dielectric reflects DielectricF0 * tint head-on; a metal reflects its specular color itself (its F0
+	//is high and colored). Metalness picks between them, so gold trim mirrors the sky in gold.
+	float3 reflectanceAtNormal = lerp(DielectricF0 * linearSpecular, linearSpecular, Metalness);
 
 	color.rgb += environment * FresnelSchlick(reflectanceAtNormal, dot(worldNormal, eyeVector)) * SpecularAmbientStrength * color.a * occlusion;
 
