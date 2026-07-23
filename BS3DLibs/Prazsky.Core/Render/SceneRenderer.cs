@@ -8,11 +8,11 @@ using System;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// Which environment the arena stands in. City is the default; Sea, Savanna, Mountain, Meadow and
-    /// NeonCity swap the city (and only the city) for open water, a savanna, a snowy range, a flowering
-    /// meadow, or the same city lit up in neon. Both the game and the map editor cycle these.
+    /// Which environment the arena stands in. City is the default; Sea, Savanna, Desert, Mountain, Meadow and
+    /// NeonCity swap the city (and only the city) for open water, a savanna, a Sahara of dunes, a snowy range,
+    /// a flowering meadow, or the same city lit up in neon. Both the game and the map editor cycle these.
     /// </summary>
-    public enum SceneKind { City, Sea, Savanna, Mountain, Meadow, NeonCity }
+    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity }
 
     /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,
@@ -47,16 +47,17 @@ namespace Prazsky.Core.Render
 
     /// <summary>
     /// The switchable outdoor backdrops shared by the game and the map editor, so a scene looks the same in
-    /// both: the sea, the desert (with its circling birds), the snowy mountains (with falling snow) and the
-    /// flowering meadow. Each is a self-lit dedicated shader — it computes its own lighting from the sun and
-    /// the sky palette handed over in a <see cref="SceneFrame"/> — so this owns their effects, meshes and
-    /// tuning and nothing else in the frame has to know about them.
+    /// both: the sea, the savanna (with its acacias and circling birds), the desert (Sahara dunes, with the
+    /// same flock of birds), the snowy mountains (with falling snow) and the flowering meadow. Each is a
+    /// self-lit dedicated shader — it computes its own lighting from the sun and the sky palette handed over
+    /// in a <see cref="SceneFrame"/> — so this owns their effects, meshes and tuning and nothing else in the
+    /// frame has to know about them.
     /// <para>
     /// The City/NeonCity is deliberately <b>not</b> here: the city buildings are drawn through the shared
     /// <c>InstancedModel</c> city technique by an <see cref="InstancedModelRenderer"/> the caller owns, so
     /// they take part in the caller's sky lighting like every other instanced object (see <see cref="City"/>).
     /// </para>
-    /// See the "The sea/desert/mountains/meadow" sections in CLAUDE.md for what each one is doing.
+    /// See the "The sea/savanna/desert/mountains/meadow" sections in CLAUDE.md for what each one is doing.
     /// </summary>
     public sealed class SceneRenderer : IDisposable
     {
@@ -125,6 +126,46 @@ namespace Prazsky.Core.Render
         private static readonly Vector3 SSS_COLOR = new(0.15f, 0.55f, 0.50f);
 
         private const float SEA_HORIZON_HAZE_DISTANCE = 700f;
+
+        #endregion
+
+        #region Desert
+
+        private readonly Effect _desertEffect;
+        private readonly VertexBuffer _desertVertexBuffer;
+        private readonly IndexBuffer _desertIndexBuffer;
+        private readonly int _desertIndexCount;
+
+        //The dunes are real geometry: a camera-centred grid of this many vertices per side over this world
+        //extent, displaced in the shader and snapped to a cell so they do not swim. Finer than the old dune
+        //grid (200) so the crest silhouettes read smooth; the shading normal is per-pixel, so no grid shows.
+        private const int DESERT_GRID_N = 360;
+        private const float DESERT_EXTENT = 1000f;
+
+        //Flat sand in a clearing the island stands in (world origin), rising into dunes with distance - the
+        //same clearing-then-terrain shape the savanna/mountains/meadow use around the round island. Mean sand
+        //level sits at the island's foot (as the savanna's grass does); DUNE_AMPLITUDE is roughly the peak
+        //dune height above it out in the far field.
+        private const float DESERT_LEVEL_Y = -13.5f;
+        private const float DUNE_AMPLITUDE = 14f;
+        private const float DESERT_CLEARING_RADIUS = 80f;
+        private const float DESERT_CLEARING_TRANSITION = 120f;
+
+        //Fine wind ripples: peak height (world units), ripples per world unit, and how fast they crawl.
+        private const float DESERT_RIPPLE_AMPLITUDE = 0.10f;
+        private const float DESERT_RIPPLE_FREQUENCY = 1.6f;
+        private const float DESERT_RIPPLE_SPEED = 1.4f;
+
+        //Blown dust veil: strength, drift speed and the distance over which it thickens towards the horizon.
+        private const float DESERT_DUST_STRENGTH = 0.3f;
+        private const float DESERT_DUST_SPEED = 6f;
+        private const float DESERT_DUST_START = 240f;
+
+        //Warm sand (linear reflectance), how much sky fills the flats, the wind, and the horizon fade.
+        private static readonly Vector3 SAND_COLOR = new(0.55f, 0.38f, 0.18f);
+        private const float DESERT_AMBIENT_STRENGTH = 0.65f;
+        private static readonly Vector2 DESERT_WIND = new(0.86f, 0.51f);
+        private const float DESERT_HORIZON_HAZE_DISTANCE = 420f;
 
         #endregion
 
@@ -228,7 +269,7 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        #region Birds (savanna scene only)
+        #region Birds (savanna and desert scenes)
 
         private readonly Effect _birdsEffect;
         private readonly DynamicVertexBuffer _birdVertexBuffer;
@@ -426,6 +467,25 @@ namespace Prazsky.Core.Render
             _seaEffect.Parameters["SssStrength"].SetValue(SSS_STRENGTH);
             _seaEffect.Parameters["SssColor"].SetValue(SSS_COLOR);
             _seaEffect.Parameters["HorizonHazeDistance"].SetValue(SEA_HORIZON_HAZE_DISTANCE);
+
+            //--- Desert: a flat lattice the shader displaces into Sahara dunes (per-pixel normal, no grid)
+            _desertEffect = content.Load<Effect>("Shaders/Desert");
+            CreateGridMesh(DESERT_GRID_N, DESERT_EXTENT, out _desertVertexBuffer, out _desertIndexBuffer, out _desertIndexCount);
+
+            _desertEffect.Parameters["DesertLevelY"].SetValue(DESERT_LEVEL_Y);
+            _desertEffect.Parameters["DuneAmplitude"].SetValue(DUNE_AMPLITUDE);
+            _desertEffect.Parameters["ClearingRadius"].SetValue(DESERT_CLEARING_RADIUS);
+            _desertEffect.Parameters["ClearingTransition"].SetValue(DESERT_CLEARING_TRANSITION);
+            _desertEffect.Parameters["RippleAmplitude"].SetValue(DESERT_RIPPLE_AMPLITUDE);
+            _desertEffect.Parameters["RippleFrequency"].SetValue(DESERT_RIPPLE_FREQUENCY);
+            _desertEffect.Parameters["RippleSpeed"].SetValue(DESERT_RIPPLE_SPEED);
+            _desertEffect.Parameters["DustStrength"].SetValue(DESERT_DUST_STRENGTH);
+            _desertEffect.Parameters["DustSpeed"].SetValue(DESERT_DUST_SPEED);
+            _desertEffect.Parameters["DustStart"].SetValue(DESERT_DUST_START);
+            _desertEffect.Parameters["SandColor"].SetValue(SAND_COLOR);
+            _desertEffect.Parameters["AmbientStrength"].SetValue(DESERT_AMBIENT_STRENGTH);
+            _desertEffect.Parameters["WindDirection"].SetValue(DESERT_WIND);
+            _desertEffect.Parameters["HorizonHazeDistance"].SetValue(DESERT_HORIZON_HAZE_DISTANCE);
 
             //--- Savanna: a flat lattice the shader displaces into gentle grassland (per-pixel normal, no grid)
             _savannaEffect = content.Load<Effect>("Shaders/Savanna");
@@ -746,8 +806,9 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the far environment for a natural scene — the sea, the dune field (with its circling birds),
-        /// the snowy range or the meadow. A no-op for <see cref="SceneKind.City"/>/<see cref="SceneKind.NeonCity"/>,
+        /// Draws the far environment for a natural scene — the sea, the savanna (with its acacias and birds),
+        /// the Sahara dunes (with the same birds), the snowy range or the meadow. A no-op for
+        /// <see cref="SceneKind.City"/>/<see cref="SceneKind.NeonCity"/>,
         /// which the caller draws itself. Opaque, so it stands in for the city as the thing the arena glass
         /// shows beneath it; it leaves the alpha-blend / back-face-cull state the rest of the opaque scene wants.
         /// </summary>
@@ -761,6 +822,10 @@ namespace Prazsky.Core.Render
                 case SceneKind.Savanna:
                     DrawSavanna(frame);
                     DrawAcacias(frame);
+                    DrawBirds(frame);
+                    break;
+                case SceneKind.Desert:
+                    DrawDesert(frame);
                     DrawBirds(frame);
                     break;
                 case SceneKind.Mountain:
@@ -815,6 +880,42 @@ namespace Prazsky.Core.Render
             _graphicsDevice.Indices = _seaIndexBuffer;
             _seaEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _seaIndexCount / 3);
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// Draws the Sahara dune field: the grid pinned to the camera (snapped to a cell so the dunes do not
+        /// swim), lifted into dunes with distance and shaded per-pixel (no grid) by the current dome, ripples
+        /// and blown dust crawling on the wind, shadowed by the shared cloud field. The desert has no point
+        /// lights, so unlike the savanna it sets none.
+        /// </summary>
+        private void DrawDesert(in SceneFrame frame)
+        {
+            float cell = DESERT_EXTENT / (DESERT_GRID_N - 1);
+            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
+            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
+
+            _desertEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
+            _desertEffect.Parameters["View"].SetValue(frame.Camera.View);
+            _desertEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
+            _desertEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
+            _desertEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
+            _desertEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
+            _desertEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
+            _desertEffect.Parameters["DesertTime"].SetValue(frame.Time);
+            _desertEffect.Parameters["SunColor"].SetValue(frame.SunColor);
+
+            frame.ApplyClouds?.Invoke(_desertEffect);
+
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _graphicsDevice.SetVertexBuffer(_desertVertexBuffer);
+            _graphicsDevice.Indices = _desertIndexBuffer;
+            _desertEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _desertIndexCount / 3);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
@@ -939,8 +1040,9 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Draws the flock: each bird circles <see cref="BIRD_FLOCK_CENTER"/> on its own slow orbit, built
-        /// into a camera-facing billboard here and flapped in the shader. Alpha-blended and depth-tested (a
-        /// dune or the platform in front hides one) but writing no depth. Called in the desert scene only.
+        /// into a camera-facing billboard here and flapped in the shader. Alpha-blended and depth-tested (the
+        /// terrain or the platform in front hides one) but writing no depth. Called in the savanna and desert
+        /// scenes, which share the one flock.
         /// </summary>
         private void DrawBirds(in SceneFrame frame)
         {
@@ -1117,6 +1219,8 @@ namespace Prazsky.Core.Render
         {
             _seaVertexBuffer?.Dispose();
             _seaIndexBuffer?.Dispose();
+            _desertVertexBuffer?.Dispose();
+            _desertIndexBuffer?.Dispose();
             _savannaVertexBuffer?.Dispose();
             _savannaIndexBuffer?.Dispose();
             _acaciaVertexBuffer?.Dispose();

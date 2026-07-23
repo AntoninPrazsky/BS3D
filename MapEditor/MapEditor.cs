@@ -226,7 +226,7 @@ namespace MapEditor
                 new(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
                 //Not S, W, A, D, Q or E: those move the camera (see CameraInputHelper)
                 new(mgKeys.B, SwitchSkyDome, "Switch sky dome (backdrop)"),
-                new(mgKeys.V, SwitchScene, "Switch scene (city/sea/desert/mountain/meadow/neon)"),
+                new(mgKeys.V, SwitchScene, "Switch scene (city/sea/savanna/desert/mountain/meadow/neon)"),
 
                 new(mgKeys.F1, SaveJson, "Save map to file (JSON)"),
                 new(mgKeys.F2, LoadJson, "Load map from file (JSON)"),
@@ -300,7 +300,7 @@ namespace MapEditor
         /// </summary>
         private void SwitchScene()
         {
-            _scene = (SceneKind)(((int)_scene + 1) % 6);
+            _scene = (SceneKind)(((int)_scene + 1) % 7);
             Info.CustomText = $"Scene: {_scene}";
         }
 

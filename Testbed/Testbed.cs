@@ -391,12 +391,12 @@ namespace Testbed
         private BasicEffectParams _funnelRimEffectParams;
         private Microsoft.Xna.Framework.Matrix _funnelWorld;
 
-        //Which environment the arena stands in. City is the default; Sea, Savanna, Mountain, Meadow and
-        //NeonCity swap the city (and only the city) for open water, a savanna, a snowy range, a
-        //flowering meadow, or the same city lit up in neon — the round island stays in all six.
+        //Which environment the arena stands in. City is the default; Sea, Savanna, Desert, Mountain, Meadow and
+        //NeonCity swap the city (and only the city) for open water, a savanna, a Sahara of dunes, a snowy range,
+        //a flowering meadow, or the same city lit up in neon — the round island stays in all seven.
         //NumPad2 cycles them.
-        //The four self-lit backdrops (sea/savanna/mountain/meadow), plus the circling birds and falling snow,
-        //live in the shared SceneRenderer so the map editor draws them exactly as the game does. The city
+        //The five self-lit backdrops (sea/savanna/desert/mountain/meadow), plus the circling birds and falling
+        //snow, live in the shared SceneRenderer so the map editor draws them exactly as the game does. The city
         //below stays here: its buildings go through the shared InstancedModel city technique and are lit by
         //this scene's rig like every other instanced object, and its arena floor is tied to the ground blocks.
         private SceneKind _scene = SceneKind.City;
@@ -654,9 +654,10 @@ namespace Testbed
         //3840x1600), so what is framed in a window is the tightest case and a wider display only adds width
         public Testbed(bool windowed = true, int windowWidth = 1600, int windowHeight = 900, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false, int supersampleFactor = 2, float exposure = DEFAULT_EXPOSURE, string scene = null)
         {
-            //Testing: "scene=sea" / "scene=savanna" / "scene=mountain" pick the starting environment
+            //Testing: "scene=sea" / "scene=savanna" / "scene=desert" / "scene=mountain" pick the starting environment
             if (string.Equals(scene, "sea", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Sea;
-            else if (string.Equals(scene, "savanna", StringComparison.OrdinalIgnoreCase) || string.Equals(scene, "desert", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Savanna;
+            else if (string.Equals(scene, "savanna", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Savanna;
+            else if (string.Equals(scene, "desert", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Desert;
             else if (string.Equals(scene, "mountain", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Mountain;
             else if (string.Equals(scene, "meadow", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Meadow;
             else if (string.Equals(scene, "neon", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.NeonCity;
@@ -737,7 +738,7 @@ namespace Testbed
                 new(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
                 new(mgKeys.End, Buttons.Start, ReleaseAllBalls, "Release all balls"),
                 new(mgKeys.NumPad1, SwitchSkyDome, "Switch sky dome"),
-                new(mgKeys.NumPad2, SwitchScene, "Switch scene (city/sea/savanna/mountain/meadow/neon)"),
+                new(mgKeys.NumPad2, SwitchScene, "Switch scene (city/sea/savanna/desert/mountain/meadow/neon)"),
                 new(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
                 new(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
                 new(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
@@ -864,8 +865,9 @@ namespace Testbed
             _sky.Effect = _skyEffect;
             SetCloudParameters();
 
-            //The self-lit outdoor backdrops (sea/savanna/mountain/meadow, with the savanna's birds and acacias
-            //and the mountain's snow) all live here now, shared with the map editor so a scene looks the same in both
+            //The self-lit outdoor backdrops (sea/savanna/desert/mountain/meadow, with the savanna's acacias, the
+            //savanna's and desert's birds and the mountain's snow) all live here now, shared with the map editor
+            //so a scene looks the same in both
             _sceneRenderer = new SceneRenderer(GraphicsDevice, Content);
 
             _cannon = new Cannon(new Vector3(0f, 5f, 0f), -6.4f, 20f);
@@ -1101,7 +1103,7 @@ namespace Testbed
 
         private void SwitchScene()
         {
-            _scene = (SceneKind)(((int)_scene + 1) % 6);
+            _scene = (SceneKind)(((int)_scene + 1) % 7);
             Console.WriteLine($"[scene] {_scene}");
 
             //The sea reads best under a moody sky and the savanna under a warm golden one, so entering either
