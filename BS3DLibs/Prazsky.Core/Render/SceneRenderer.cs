@@ -63,6 +63,13 @@ namespace Prazsky.Core.Render
     {
         private readonly GraphicsDevice _graphicsDevice;
 
+        //Scene configuration. Defaults reproduce the current look byte-for-byte; the desert, mountain and
+        //meadow scenes read their tuning from these instead of constants. A runtime setter/apply (for a
+        //loaded level or the live editor) is wired under issue #32; the remaining scenes follow.
+        private readonly DesertSceneConfig _desertConfig = new();
+        private readonly MountainSceneConfig _mountainConfig = new();
+        private readonly MeadowSceneConfig _meadowConfig = new();
+
         #region Sea
 
         private readonly Effect _seaEffect;
@@ -142,30 +149,8 @@ namespace Prazsky.Core.Render
         private const int DESERT_GRID_N = 360;
         private const float DESERT_EXTENT = 1000f;
 
-        //Flat sand in a clearing the island stands in (world origin), rising into dunes with distance - the
-        //same clearing-then-terrain shape the savanna/mountains/meadow use around the round island. Mean sand
-        //level sits at the island's foot (as the savanna's grass does); DUNE_AMPLITUDE is roughly the peak
-        //dune height above it out in the far field.
-        private const float DESERT_LEVEL_Y = -13.5f;
-        private const float DUNE_AMPLITUDE = 14f;
-        private const float DESERT_CLEARING_RADIUS = 80f;
-        private const float DESERT_CLEARING_TRANSITION = 120f;
-
-        //Fine wind ripples: peak height (world units), ripples per world unit, and how fast they crawl.
-        private const float DESERT_RIPPLE_AMPLITUDE = 0.10f;
-        private const float DESERT_RIPPLE_FREQUENCY = 1.6f;
-        private const float DESERT_RIPPLE_SPEED = 1.4f;
-
-        //Blown dust veil: strength, drift speed and the distance over which it thickens towards the horizon.
-        private const float DESERT_DUST_STRENGTH = 0.3f;
-        private const float DESERT_DUST_SPEED = 6f;
-        private const float DESERT_DUST_START = 240f;
-
-        //Warm sand (linear reflectance), how much sky fills the flats, the wind, and the horizon fade.
-        private static readonly Vector3 SAND_COLOR = new(0.55f, 0.38f, 0.18f);
-        private const float DESERT_AMBIENT_STRENGTH = 0.65f;
-        private static readonly Vector2 DESERT_WIND = new(0.86f, 0.51f);
-        private const float DESERT_HORIZON_HAZE_DISTANCE = 420f;
+        //Look/tuning parameters (dune height, clearing, ripples, dust, sand colour, wind, haze) now live in
+        //DesertSceneConfig; SceneRenderer reads them from _desertConfig.
 
         #endregion
 
@@ -322,27 +307,8 @@ namespace Prazsky.Core.Render
         private const int MOUNTAIN_GRID_N = 360;
         private const float MOUNTAIN_EXTENT = 1200f;
 
-        //Basin floor, peak height far out, and the clearing the arena sits in (flat within the radius, the
-        //peaks rising over the transition beyond it). The basin stays below the platform glass (about -10.7).
-        private const float MOUNTAIN_LEVEL_Y = -14f;
-        private const float MOUNTAIN_HEIGHT = 82f;
-        private const float MOUNTAIN_CLEARING_RADIUS = 95f;
-        private const float MOUNTAIN_CLEARING_TRANSITION = 110f;
-        private const float MOUNTAIN_CLEARING_RELIEF = 1.5f;
-
-        private static readonly Vector3 SNOW_COLOR = new(0.90f, 0.93f, 0.99f);       //Snow (linear, near white)
-        private static readonly Vector3 ROCK_COLOR = new(0.08f, 0.07f, 0.065f);      //Dark bare rock (linear)
-        private static readonly Vector3 ROCK_COLOR_LIGHT = new(0.20f, 0.17f, 0.14f); //Lighter grey-brown rock
-        //Snow lies over flatter faces (normal.y in this band) AND above an altitude snowline; more rock shows now
-        private const float MOUNTAIN_ROCK_SLOPE = 0.30f;
-        private const float MOUNTAIN_SNOW_SLOPE = 0.95f;
-        private const float MOUNTAIN_SNOWLINE_LOW = -15f;
-        private const float MOUNTAIN_SNOWLINE_HIGH = 50f;
-        //Fine rock relief: peak height of the normal-tilting field and its features per world unit
-        private const float MOUNTAIN_ROCK_RELIEF_STRENGTH = 0.5f;
-        private const float MOUNTAIN_ROCK_RELIEF_FREQUENCY = 0.6f;
-        private const float MOUNTAIN_AMBIENT_STRENGTH = 0.6f;
-        private const float MOUNTAIN_HORIZON_HAZE_DISTANCE = 500f;
+        //Look/tuning parameters (heights, clearing, snow/rock colours, snowline, rock relief, ambient, haze)
+        //now live in MountainSceneConfig; SceneRenderer reads them from _mountainConfig.
 
         #endregion
 
@@ -352,15 +318,8 @@ namespace Prazsky.Core.Render
         private readonly VertexBuffer _snowVertexBuffer;
         private readonly IndexBuffer _snowIndexBuffer;
 
-        private const int SNOW_FLAKE_COUNT = 1400;
-        private static readonly Vector3 SNOW_BOX_SIZE = new(70f, 55f, 70f);
-        private const float SNOW_FALL_SPEED = 9f;
-        private static readonly Vector2 SNOW_WIND = new(4f, 1.5f);
-        private const float SNOW_SWAY = 1.2f;
-        private const float SNOW_FLAKE_SIZE = 0.13f;
-        //Bright cool white, but kept under GLARE_THRESHOLD so a near flake does not bloom into a glowing orb
-        private static readonly Vector3 SNOW_FLAKE_COLOR = new(0.72f, 0.76f, 0.82f);
-        private const float SNOW_OPACITY = 0.9f;
+        //Snowfall parameters (flake count/size/colour/opacity, box, fall speed, wind, sway) now live in
+        //MountainSceneConfig.Snow (SnowConfig); SceneRenderer reads them from _mountainConfig.Snow.
 
         #endregion
 
@@ -403,31 +362,8 @@ namespace Prazsky.Core.Render
         private const int MEADOW_GRID_N = 220;
         private const float MEADOW_EXTENT = 1200f;
 
-        //Basin the arena sits in, rising into rolling hills with distance (flat within the radius, hills
-        //over the transition beyond). The basin stays below the platform glass (about -10.7).
-        private const float MEADOW_LEVEL_Y = -14f;
-        private const float HILL_HEIGHT = 40f;
-        private const float MEADOW_CLEARING_RADIUS = 95f;
-        private const float MEADOW_CLEARING_TRANSITION = 140f;
-        private const float MEADOW_CLEARING_RELIEF = 1.5f;
-
-        private static readonly Vector3 GRASS_COLOR = new(0.14f, 0.46f, 0.05f); //Lush green (linear)
-        private static readonly Vector3 GRASS_COLOR_DARK = new(0.08f, 0.27f, 0.04f);
-        private const float MEADOW_AMBIENT_STRENGTH = 0.7f;
-        private const float MEADOW_HORIZON_HAZE_DISTANCE = 580f;
-        private static readonly Vector2 MEADOW_WIND = new(0.82f, 0.57f);
-
-        //Wind combing the grass, and the fine grass texture
-        private const float MEADOW_WIND_RIPPLE_SPEED = 1.4f;
-        private const float MEADOW_WIND_RIPPLE_FREQUENCY = 0.15f;
-        private const float MEADOW_WIND_RIPPLE_STRENGTH = 0.12f;
-        private const float GRASS_RELIEF_STRENGTH = 0.05f;
-        private const float GRASS_RELIEF_FREQUENCY = 2f;
-
-        //Wildflowers scattered through the grass
-        private const float FLOWER_DENSITY = 0.16f;
-        private const float FLOWER_SPACING = 2.2f;
-        private const float FLOWER_SIZE = 0.22f;
+        //Look/tuning parameters (hills, clearing, grass colours, ambient, haze, wind, relief) and the
+        //wildflowers now live in MeadowSceneConfig (Flowers = FlowersConfig); read from _meadowConfig.
 
         #endregion
 
@@ -472,20 +408,20 @@ namespace Prazsky.Core.Render
             _desertEffect = content.Load<Effect>("Shaders/Desert");
             CreateGridMesh(DESERT_GRID_N, DESERT_EXTENT, out _desertVertexBuffer, out _desertIndexBuffer, out _desertIndexCount);
 
-            _desertEffect.Parameters["DesertLevelY"].SetValue(DESERT_LEVEL_Y);
-            _desertEffect.Parameters["DuneAmplitude"].SetValue(DUNE_AMPLITUDE);
-            _desertEffect.Parameters["ClearingRadius"].SetValue(DESERT_CLEARING_RADIUS);
-            _desertEffect.Parameters["ClearingTransition"].SetValue(DESERT_CLEARING_TRANSITION);
-            _desertEffect.Parameters["RippleAmplitude"].SetValue(DESERT_RIPPLE_AMPLITUDE);
-            _desertEffect.Parameters["RippleFrequency"].SetValue(DESERT_RIPPLE_FREQUENCY);
-            _desertEffect.Parameters["RippleSpeed"].SetValue(DESERT_RIPPLE_SPEED);
-            _desertEffect.Parameters["DustStrength"].SetValue(DESERT_DUST_STRENGTH);
-            _desertEffect.Parameters["DustSpeed"].SetValue(DESERT_DUST_SPEED);
-            _desertEffect.Parameters["DustStart"].SetValue(DESERT_DUST_START);
-            _desertEffect.Parameters["SandColor"].SetValue(SAND_COLOR);
-            _desertEffect.Parameters["AmbientStrength"].SetValue(DESERT_AMBIENT_STRENGTH);
-            _desertEffect.Parameters["WindDirection"].SetValue(DESERT_WIND);
-            _desertEffect.Parameters["HorizonHazeDistance"].SetValue(DESERT_HORIZON_HAZE_DISTANCE);
+            _desertEffect.Parameters["DesertLevelY"].SetValue(_desertConfig.LevelY);
+            _desertEffect.Parameters["DuneAmplitude"].SetValue(_desertConfig.DuneAmplitude);
+            _desertEffect.Parameters["ClearingRadius"].SetValue(_desertConfig.ClearingRadius);
+            _desertEffect.Parameters["ClearingTransition"].SetValue(_desertConfig.ClearingTransition);
+            _desertEffect.Parameters["RippleAmplitude"].SetValue(_desertConfig.RippleAmplitude);
+            _desertEffect.Parameters["RippleFrequency"].SetValue(_desertConfig.RippleFrequency);
+            _desertEffect.Parameters["RippleSpeed"].SetValue(_desertConfig.RippleSpeed);
+            _desertEffect.Parameters["DustStrength"].SetValue(_desertConfig.DustStrength);
+            _desertEffect.Parameters["DustSpeed"].SetValue(_desertConfig.DustSpeed);
+            _desertEffect.Parameters["DustStart"].SetValue(_desertConfig.DustStart);
+            _desertEffect.Parameters["SandColor"].SetValue(_desertConfig.SandColor.ToVector3());
+            _desertEffect.Parameters["AmbientStrength"].SetValue(_desertConfig.AmbientStrength);
+            _desertEffect.Parameters["WindDirection"].SetValue(_desertConfig.Wind.ToVector2());
+            _desertEffect.Parameters["HorizonHazeDistance"].SetValue(_desertConfig.HorizonHazeDistance);
 
             //--- Savanna: a flat lattice the shader displaces into gentle grassland (per-pixel normal, no grid)
             _savannaEffect = content.Load<Effect>("Shaders/Savanna");
@@ -645,37 +581,37 @@ namespace Prazsky.Core.Render
             _mountainEffect = content.Load<Effect>("Shaders/Mountain");
             CreateGridMesh(MOUNTAIN_GRID_N, MOUNTAIN_EXTENT, out _mountainVertexBuffer, out _mountainIndexBuffer, out _mountainIndexCount);
 
-            _mountainEffect.Parameters["MountainLevelY"].SetValue(MOUNTAIN_LEVEL_Y);
-            _mountainEffect.Parameters["MountainHeight"].SetValue(MOUNTAIN_HEIGHT);
-            _mountainEffect.Parameters["ClearingRadius"].SetValue(MOUNTAIN_CLEARING_RADIUS);
-            _mountainEffect.Parameters["ClearingTransition"].SetValue(MOUNTAIN_CLEARING_TRANSITION);
-            _mountainEffect.Parameters["ClearingRelief"].SetValue(MOUNTAIN_CLEARING_RELIEF);
-            _mountainEffect.Parameters["SnowColor"].SetValue(SNOW_COLOR);
-            _mountainEffect.Parameters["RockColor"].SetValue(ROCK_COLOR);
-            _mountainEffect.Parameters["RockColorLight"].SetValue(ROCK_COLOR_LIGHT);
-            _mountainEffect.Parameters["RockSlope"].SetValue(MOUNTAIN_ROCK_SLOPE);
-            _mountainEffect.Parameters["SnowSlope"].SetValue(MOUNTAIN_SNOW_SLOPE);
-            _mountainEffect.Parameters["SnowlineLow"].SetValue(MOUNTAIN_SNOWLINE_LOW);
-            _mountainEffect.Parameters["SnowlineHigh"].SetValue(MOUNTAIN_SNOWLINE_HIGH);
-            _mountainEffect.Parameters["RockReliefStrength"].SetValue(MOUNTAIN_ROCK_RELIEF_STRENGTH);
-            _mountainEffect.Parameters["RockReliefFrequency"].SetValue(MOUNTAIN_ROCK_RELIEF_FREQUENCY);
-            _mountainEffect.Parameters["AmbientStrength"].SetValue(MOUNTAIN_AMBIENT_STRENGTH);
-            _mountainEffect.Parameters["HorizonHazeDistance"].SetValue(MOUNTAIN_HORIZON_HAZE_DISTANCE);
+            _mountainEffect.Parameters["MountainLevelY"].SetValue(_mountainConfig.LevelY);
+            _mountainEffect.Parameters["MountainHeight"].SetValue(_mountainConfig.Height);
+            _mountainEffect.Parameters["ClearingRadius"].SetValue(_mountainConfig.ClearingRadius);
+            _mountainEffect.Parameters["ClearingTransition"].SetValue(_mountainConfig.ClearingTransition);
+            _mountainEffect.Parameters["ClearingRelief"].SetValue(_mountainConfig.ClearingRelief);
+            _mountainEffect.Parameters["SnowColor"].SetValue(_mountainConfig.SnowColor.ToVector3());
+            _mountainEffect.Parameters["RockColor"].SetValue(_mountainConfig.RockColor.ToVector3());
+            _mountainEffect.Parameters["RockColorLight"].SetValue(_mountainConfig.RockColorLight.ToVector3());
+            _mountainEffect.Parameters["RockSlope"].SetValue(_mountainConfig.RockSlope);
+            _mountainEffect.Parameters["SnowSlope"].SetValue(_mountainConfig.SnowSlope);
+            _mountainEffect.Parameters["SnowlineLow"].SetValue(_mountainConfig.SnowlineLow);
+            _mountainEffect.Parameters["SnowlineHigh"].SetValue(_mountainConfig.SnowlineHigh);
+            _mountainEffect.Parameters["RockReliefStrength"].SetValue(_mountainConfig.RockReliefStrength);
+            _mountainEffect.Parameters["RockReliefFrequency"].SetValue(_mountainConfig.RockReliefFrequency);
+            _mountainEffect.Parameters["AmbientStrength"].SetValue(_mountainConfig.AmbientStrength);
+            _mountainEffect.Parameters["HorizonHazeDistance"].SetValue(_mountainConfig.HorizonHazeDistance);
 
             //--- Snow: a static flake buffer, one quad per flake at a fixed point in the unit cube, animated
             //entirely in the shader (so it is never rebuilt). Reuses the position+data billboard vertex.
             _snowEffect = content.Load<Effect>("Shaders/Snow");
-            _snowEffect.Parameters["SnowBoxSize"].SetValue(SNOW_BOX_SIZE);
-            _snowEffect.Parameters["SnowFallSpeed"].SetValue(SNOW_FALL_SPEED);
-            _snowEffect.Parameters["SnowWind"].SetValue(SNOW_WIND);
-            _snowEffect.Parameters["SnowSway"].SetValue(SNOW_SWAY);
-            _snowEffect.Parameters["FlakeSize"].SetValue(SNOW_FLAKE_SIZE);
-            _snowEffect.Parameters["SnowColor"].SetValue(SNOW_FLAKE_COLOR);
-            _snowEffect.Parameters["SnowOpacity"].SetValue(SNOW_OPACITY);
+            _snowEffect.Parameters["SnowBoxSize"].SetValue(_mountainConfig.Snow.BoxSize.ToVector3());
+            _snowEffect.Parameters["SnowFallSpeed"].SetValue(_mountainConfig.Snow.FallSpeed);
+            _snowEffect.Parameters["SnowWind"].SetValue(_mountainConfig.Snow.Wind.ToVector2());
+            _snowEffect.Parameters["SnowSway"].SetValue(_mountainConfig.Snow.Sway);
+            _snowEffect.Parameters["FlakeSize"].SetValue(_mountainConfig.Snow.FlakeSize);
+            _snowEffect.Parameters["SnowColor"].SetValue(_mountainConfig.Snow.FlakeColor.ToVector3());
+            _snowEffect.Parameters["SnowOpacity"].SetValue(_mountainConfig.Snow.Opacity);
 
-            BirdVertex[] snowVertices = new BirdVertex[SNOW_FLAKE_COUNT * 4];
+            BirdVertex[] snowVertices = new BirdVertex[_mountainConfig.Snow.FlakeCount * 4];
             Random snowRng = new(1207);
-            for (int i = 0; i < SNOW_FLAKE_COUNT; i++)
+            for (int i = 0; i < _mountainConfig.Snow.FlakeCount; i++)
             {
                 Vector3 basePosition = new((float)snowRng.NextDouble(), (float)snowRng.NextDouble(), (float)snowRng.NextDouble());
                 float rand = (float)snowRng.NextDouble();
@@ -688,8 +624,8 @@ namespace Prazsky.Core.Render
             _snowVertexBuffer = new VertexBuffer(graphicsDevice, BirdVertex.Declaration, snowVertices.Length, BufferUsage.WriteOnly);
             _snowVertexBuffer.SetData(snowVertices);
 
-            short[] snowIndices = new short[SNOW_FLAKE_COUNT * 6];
-            for (int i = 0; i < SNOW_FLAKE_COUNT; i++)
+            short[] snowIndices = new short[_mountainConfig.Snow.FlakeCount * 6];
+            for (int i = 0; i < _mountainConfig.Snow.FlakeCount; i++)
             {
                 int v = i * 4;
                 int o = i * 6;
@@ -741,24 +677,24 @@ namespace Prazsky.Core.Render
             _meadowEffect = content.Load<Effect>("Shaders/Meadow");
             CreateGridMesh(MEADOW_GRID_N, MEADOW_EXTENT, out _meadowVertexBuffer, out _meadowIndexBuffer, out _meadowIndexCount);
 
-            _meadowEffect.Parameters["MeadowLevelY"].SetValue(MEADOW_LEVEL_Y);
-            _meadowEffect.Parameters["HillHeight"].SetValue(HILL_HEIGHT);
-            _meadowEffect.Parameters["ClearingRadius"].SetValue(MEADOW_CLEARING_RADIUS);
-            _meadowEffect.Parameters["ClearingTransition"].SetValue(MEADOW_CLEARING_TRANSITION);
-            _meadowEffect.Parameters["ClearingRelief"].SetValue(MEADOW_CLEARING_RELIEF);
-            _meadowEffect.Parameters["GrassColor"].SetValue(GRASS_COLOR);
-            _meadowEffect.Parameters["GrassColorDark"].SetValue(GRASS_COLOR_DARK);
-            _meadowEffect.Parameters["AmbientStrength"].SetValue(MEADOW_AMBIENT_STRENGTH);
-            _meadowEffect.Parameters["HorizonHazeDistance"].SetValue(MEADOW_HORIZON_HAZE_DISTANCE);
-            _meadowEffect.Parameters["WindDirection"].SetValue(MEADOW_WIND);
-            _meadowEffect.Parameters["WindRippleSpeed"].SetValue(MEADOW_WIND_RIPPLE_SPEED);
-            _meadowEffect.Parameters["WindRippleFrequency"].SetValue(MEADOW_WIND_RIPPLE_FREQUENCY);
-            _meadowEffect.Parameters["WindRippleStrength"].SetValue(MEADOW_WIND_RIPPLE_STRENGTH);
-            _meadowEffect.Parameters["GrassReliefStrength"].SetValue(GRASS_RELIEF_STRENGTH);
-            _meadowEffect.Parameters["GrassReliefFrequency"].SetValue(GRASS_RELIEF_FREQUENCY);
-            _meadowEffect.Parameters["FlowerDensity"].SetValue(FLOWER_DENSITY);
-            _meadowEffect.Parameters["FlowerSpacing"].SetValue(FLOWER_SPACING);
-            _meadowEffect.Parameters["FlowerSize"].SetValue(FLOWER_SIZE);
+            _meadowEffect.Parameters["MeadowLevelY"].SetValue(_meadowConfig.LevelY);
+            _meadowEffect.Parameters["HillHeight"].SetValue(_meadowConfig.HillHeight);
+            _meadowEffect.Parameters["ClearingRadius"].SetValue(_meadowConfig.ClearingRadius);
+            _meadowEffect.Parameters["ClearingTransition"].SetValue(_meadowConfig.ClearingTransition);
+            _meadowEffect.Parameters["ClearingRelief"].SetValue(_meadowConfig.ClearingRelief);
+            _meadowEffect.Parameters["GrassColor"].SetValue(_meadowConfig.GrassColor.ToVector3());
+            _meadowEffect.Parameters["GrassColorDark"].SetValue(_meadowConfig.GrassColorDark.ToVector3());
+            _meadowEffect.Parameters["AmbientStrength"].SetValue(_meadowConfig.AmbientStrength);
+            _meadowEffect.Parameters["HorizonHazeDistance"].SetValue(_meadowConfig.HorizonHazeDistance);
+            _meadowEffect.Parameters["WindDirection"].SetValue(_meadowConfig.Wind.ToVector2());
+            _meadowEffect.Parameters["WindRippleSpeed"].SetValue(_meadowConfig.WindRippleSpeed);
+            _meadowEffect.Parameters["WindRippleFrequency"].SetValue(_meadowConfig.WindRippleFrequency);
+            _meadowEffect.Parameters["WindRippleStrength"].SetValue(_meadowConfig.WindRippleStrength);
+            _meadowEffect.Parameters["GrassReliefStrength"].SetValue(_meadowConfig.GrassReliefStrength);
+            _meadowEffect.Parameters["GrassReliefFrequency"].SetValue(_meadowConfig.GrassReliefFrequency);
+            _meadowEffect.Parameters["FlowerDensity"].SetValue(_meadowConfig.Flowers.Density);
+            _meadowEffect.Parameters["FlowerSpacing"].SetValue(_meadowConfig.Flowers.Spacing);
+            _meadowEffect.Parameters["FlowerSize"].SetValue(_meadowConfig.Flowers.Size);
         }
 
         /// <summary>
@@ -1145,7 +1081,7 @@ namespace Prazsky.Core.Render
             _graphicsDevice.SetVertexBuffer(_snowVertexBuffer);
             _graphicsDevice.Indices = _snowIndexBuffer;
             _snowEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, SNOW_FLAKE_COUNT * 2);
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _mountainConfig.Snow.FlakeCount * 2);
 
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
