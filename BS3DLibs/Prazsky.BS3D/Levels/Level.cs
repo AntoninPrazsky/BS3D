@@ -10,9 +10,9 @@ namespace Prazsky.BS3D.Levels
     /// <summary>
     /// A complete level (issue #32): the ball map plus everything that reproduces its look — the scene
     /// backdrop with its full <see cref="SceneConfig"/> (issue #44), the sky dome and metadata. Serialized
-    /// with System.Text.Json (the level format was born on it; the legacy map files stay on Newtonsoft
-    /// until #38 finishes). A level file is a JSON object marked by <c>"format": "bs3d-level"</c>, which is
-    /// how <see cref="IsLevelFile"/> tells it from a plain map file — both use the .json extension.
+    /// with System.Text.Json, like the plain map files since the Newtonsoft migration (issue #38). A level
+    /// file is a JSON object marked by <c>"format": "bs3d-level"</c>, which is how <see cref="IsLevelFile"/>
+    /// tells it from a plain map file — both use the .json extension.
     ///
     /// The ceiling, the physics statics and the cannon/camera placement are deliberately not stored:
     /// they are all derived from the map size at load (FitCeilingToMap / FitCannonAndGameCameraToMap).

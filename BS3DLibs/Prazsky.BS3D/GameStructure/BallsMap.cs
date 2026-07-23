@@ -1,6 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Newtonsoft.Json;
+using System.Text.Json;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Tools;
@@ -392,7 +392,7 @@ namespace Prazsky.BS3D.GameStructure
         public void SerializeAsJson(string fileName)
         {
             var ballPositionTypes = BuildBallPositionTypes();
-            var json = JsonConvert.SerializeObject(ballPositionTypes);
+            var json = JsonSerializer.Serialize(ballPositionTypes);
             File.WriteAllText(fileName, json);
             Console.WriteLine(json);
         }
@@ -407,11 +407,8 @@ namespace Prazsky.BS3D.GameStructure
         {
             if (string.IsNullOrEmpty(fileName)) throw new ArgumentNullException(nameof(fileName));
 
-            BallPositionTypes ballPositionTypes;
-
-            using StreamReader reader = File.OpenText(fileName);
-            var serializer = new JsonSerializer();
-            ballPositionTypes = (BallPositionTypes)serializer.Deserialize(reader, typeof(BallPositionTypes));
+            using FileStream stream = File.OpenRead(fileName);
+            BallPositionTypes ballPositionTypes = JsonSerializer.Deserialize<BallPositionTypes>(stream);
 
             if (ballPositionTypes == null || ballPositionTypes.Balls == null) return;
 
@@ -420,8 +417,8 @@ namespace Prazsky.BS3D.GameStructure
 
         /// <summary>
         /// Validates deserialized map data, sizes the play field (legacy files carry no field size, so they
-        /// get extra bottom levels to grow into) and builds the ball layout. Shared by the Newtonsoft map
-        /// file path and the level path, which hands the data over already deserialized.
+        /// get extra bottom levels to grow into) and builds the ball layout. Shared by the map file path and
+        /// the level path, which hands the data over already deserialized.
         /// </summary>
         private void ApplyBallPositionTypes(BallPositionTypes ballPositionTypes)
         {

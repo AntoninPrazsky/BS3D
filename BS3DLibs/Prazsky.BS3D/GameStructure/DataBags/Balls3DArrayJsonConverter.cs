@@ -6,10 +6,10 @@ namespace Prazsky.BS3D.GameStructure.DataBags
 {
     /// <summary>
     /// System.Text.Json converter for the map's 3D ball array. System.Text.Json cannot serialize
-    /// multi-dimensional arrays on its own (Newtonsoft can), so this writes and reads the exact shape
-    /// Newtonsoft produces for <c>BallPositionType[,,]</c>: nested arrays with dimension 0 outermost,
-    /// i.e. <c>[x][z][level]</c>, with <c>null</c> for an empty cell. Level files therefore embed a map
-    /// that is byte-shape-compatible with the legacy map files.
+    /// multi-dimensional arrays on its own, so this writes and reads the exact nested shape the legacy map
+    /// files use for <c>BallPositionType[,,]</c> (they were written by Newtonsoft, which does it natively):
+    /// nested arrays with dimension 0 outermost, i.e. <c>[x][z][level]</c>, with <c>null</c> for an empty
+    /// cell. Both a plain map file and a level file's embedded map therefore stay byte-shape-compatible.
     /// </summary>
     public sealed class Balls3DArrayJsonConverter : JsonConverter<BallPositionType[,,]>
     {

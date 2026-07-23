@@ -1,28 +1,23 @@
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
 namespace Prazsky.BS3D.GameStructure.DataBags
 {
 	/// <summary>
-	/// One serialized ball: its raw grid-frame position and type. Carries both Newtonsoft attributes (the
-	/// legacy map files) and System.Text.Json ones (the level format, issue #32) so the JSON shape is
-	/// identical whichever serializer reads or writes it.
+	/// One serialized ball: its raw grid-frame position and type. Serialized with System.Text.Json; the
+	/// property names match the legacy map files (and the level format, issue #32), so both stay loadable.
 	/// </summary>
 	public class BallPositionType
     {
-        [JsonProperty("x")]
-        [System.Text.Json.Serialization.JsonPropertyName("x")]
+        [JsonPropertyName("x")]
         public float PositionX { get; set; }
 
-		[JsonProperty("y")]
-		[System.Text.Json.Serialization.JsonPropertyName("y")]
+		[JsonPropertyName("y")]
 		public float PositionY { get; set; }
 
-		[JsonProperty("z")]
-		[System.Text.Json.Serialization.JsonPropertyName("z")]
+		[JsonPropertyName("z")]
 		public float PositionZ { get; set; }
 
-		[JsonProperty("t")]
-		[System.Text.Json.Serialization.JsonPropertyName("t")]
+		[JsonPropertyName("t")]
 		public BallType Type { get; set; }
     }
 
@@ -32,16 +27,14 @@ namespace Prazsky.BS3D.GameStructure.DataBags
 		/// Play field width (X). May be larger than the initial ball layout in <see cref="Balls"/>.
 		/// Zero in legacy files, which carried only the layout array.
 		/// </summary>
-		[JsonProperty("sx")]
-		[System.Text.Json.Serialization.JsonPropertyName("sx")]
+		[JsonPropertyName("sx")]
 		public byte StageSizeX { get; set; }
 
 		/// <summary>
 		/// Play field depth (Z). May be larger than the initial ball layout in <see cref="Balls"/>.
 		/// Zero in legacy files, which carried only the layout array.
 		/// </summary>
-		[JsonProperty("sz")]
-		[System.Text.Json.Serialization.JsonPropertyName("sz")]
+		[JsonPropertyName("sz")]
 		public byte StageSizeZ { get; set; }
 
 		/// <summary>
@@ -49,17 +42,16 @@ namespace Prazsky.BS3D.GameStructure.DataBags
 		/// leaving empty levels at the bottom for the structure to grow into.
 		/// Zero in legacy files, which carried only the layout array.
 		/// </summary>
-		[JsonProperty("l")]
-		[System.Text.Json.Serialization.JsonPropertyName("l")]
+		[JsonPropertyName("l")]
 		public byte Levels { get; set; }
 
 		/// <summary>
-		/// The layout as nested arrays [x][z][level] with null for an empty cell — the shape Newtonsoft
-		/// gives a 3D array natively; the System.Text.Json converter reproduces it exactly.
+		/// The layout as nested arrays [x][z][level] with null for an empty cell. System.Text.Json has no
+		/// native multidimensional-array support, so <see cref="Balls3DArrayJsonConverter"/> reads and writes
+		/// this exact nested shape — the shape the legacy map files (written by Newtonsoft) already use.
 		/// </summary>
-		[JsonProperty("b")]
-		[System.Text.Json.Serialization.JsonPropertyName("b")]
-		[System.Text.Json.Serialization.JsonConverter(typeof(Balls3DArrayJsonConverter))]
+		[JsonPropertyName("b")]
+		[JsonConverter(typeof(Balls3DArrayJsonConverter))]
 		public BallPositionType[,,] Balls { get; set; }
     }
 }
