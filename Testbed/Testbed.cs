@@ -1176,7 +1176,7 @@ namespace Testbed
 
             //The clearing the city keeps clear of towers is now the round island's radius, so the towers
             //frame the small island closely instead of a big plaza
-            _city = new City(seed: 20260720, arenaHalfExtent: ARENA_DISC_RADIUS);
+            _city = new City(seed: 20260720, arenaHalfExtent: ARENA_DISC_RADIUS, config: new CitySceneConfig());
 
             Console.WriteLine($"[city] {_city.Buildings.Length} buildings, island radius {ARENA_DISC_RADIUS}, floor at {ARENA_Y}");
 

@@ -282,7 +282,7 @@ namespace MapEditor
             //takes part in the sky lighting below like the balls do.
             _sceneRenderer = new SceneRenderer(GraphicsDevice, Content);
             _unitBox = new BoxMesh(GraphicsDevice, 1f, 1f, 1f);
-            _city = new City(seed: 20260720, arenaHalfExtent: ARENA_HALF_EXTENT);
+            _city = new City(seed: 20260720, arenaHalfExtent: ARENA_HALF_EXTENT, config: new CitySceneConfig());
             _cityRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, Vector3.One, _instancingEffect)
             {
                 CityWindowBrightness = CITY_WINDOW_BRIGHTNESS,
