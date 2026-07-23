@@ -196,15 +196,9 @@ namespace Prazsky.Core.Render
 
         private readonly float[] _birdRadius, _birdAltitude, _birdOrbitSpeed, _birdOrbitPhase, _birdFlapSpeed, _birdFlapPhase, _birdBobSpeed;
 
-        private const int BIRD_COUNT = 9;
-        private const float BIRD_WINGSPAN = 6f;
-        private const float BIRD_ASPECT = 0.55f; //Height of the billboard as a fraction of its width
-        private const float BIRD_BOB = 2.5f; //How far a bird drifts up and down over its circle
-        private static readonly Vector3 BIRD_COLOR = new(0.02f, 0.017f, 0.014f); //Near-black silhouette (linear)
-
-        //Where the flock circles: a fixed point out over the dunes, well above the cluster so the birds sit
-        //against the sky. Each bird orbits it at its own radius, altitude, phase and (slow) speed.
-        private static readonly Vector3 BIRD_FLOCK_CENTER = new(-20f, 34f, -75f);
+        //Flock parameters (count, wingspan, aspect, bob, colour, flock centre) now live in BirdsConfig, shared
+        //by the savanna and desert configs; DrawBirds reads the active scene's Birds config each frame. The
+        //shared buffer and per-bird orbit state are sized once from the savanna config's count.
 
         //One camera-facing quad per bird; Data carries (u along the wingspan, v vertical, flap phase).
         //Also reused for the snow flakes.
@@ -456,13 +450,16 @@ namespace Prazsky.Core.Render
 
             //--- Birds: a dynamic billboard buffer, static indices, and each bird's orbit and flap seeded once
             _birdsEffect = content.Load<Effect>("Shaders/Birds");
-            _birdsEffect.Parameters["BirdColor"].SetValue(BIRD_COLOR);
 
-            _birdVertices = new BirdVertex[BIRD_COUNT * 4];
-            _birdVertexBuffer = new DynamicVertexBuffer(graphicsDevice, BirdVertex.Declaration, BIRD_COUNT * 4, BufferUsage.WriteOnly);
+            //The flock is shared by the savanna and desert; its buffer and per-bird orbit state are sized once
+            //from the savanna config's count (DrawBirds caps its draw to this), while colour/size/centre are
+            //read per frame from the active scene's Birds config.
+            int birdCount = _savannaConfig.Birds.Count;
+            _birdVertices = new BirdVertex[birdCount * 4];
+            _birdVertexBuffer = new DynamicVertexBuffer(graphicsDevice, BirdVertex.Declaration, birdCount * 4, BufferUsage.WriteOnly);
 
-            short[] birdIndices = new short[BIRD_COUNT * 6];
-            for (int i = 0; i < BIRD_COUNT; i++)
+            short[] birdIndices = new short[birdCount * 6];
+            for (int i = 0; i < birdCount; i++)
             {
                 int v = i * 4;
                 int o = i * 6;
@@ -472,18 +469,18 @@ namespace Prazsky.Core.Render
             _birdIndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, birdIndices.Length, BufferUsage.WriteOnly);
             _birdIndexBuffer.SetData(birdIndices);
 
-            _birdRadius = new float[BIRD_COUNT];
-            _birdAltitude = new float[BIRD_COUNT];
-            _birdOrbitSpeed = new float[BIRD_COUNT];
-            _birdOrbitPhase = new float[BIRD_COUNT];
-            _birdFlapSpeed = new float[BIRD_COUNT];
-            _birdFlapPhase = new float[BIRD_COUNT];
-            _birdBobSpeed = new float[BIRD_COUNT];
+            _birdRadius = new float[birdCount];
+            _birdAltitude = new float[birdCount];
+            _birdOrbitSpeed = new float[birdCount];
+            _birdOrbitPhase = new float[birdCount];
+            _birdFlapSpeed = new float[birdCount];
+            _birdFlapPhase = new float[birdCount];
+            _birdBobSpeed = new float[birdCount];
 
             //Deterministic, so the flock is the same every run. All circle the same way, like a kettle of
             //vultures riding one thermal, each at its own radius, height and unhurried pace.
             Random birdRng = new(4242);
-            for (int i = 0; i < BIRD_COUNT; i++)
+            for (int i = 0; i < birdCount; i++)
             {
                 _birdRadius[i] = 28f + (float)birdRng.NextDouble() * 34f;
                 _birdAltitude[i] = (float)(birdRng.NextDouble() * 2.0 - 1.0) * 10f;
@@ -675,11 +672,11 @@ namespace Prazsky.Core.Render
                 case SceneKind.Savanna:
                     DrawSavanna(frame);
                     DrawAcacias(frame);
-                    DrawBirds(frame);
+                    DrawBirds(frame, _savannaConfig.Birds);
                     break;
                 case SceneKind.Desert:
                     DrawDesert(frame);
-                    DrawBirds(frame);
+                    DrawBirds(frame, _desertConfig.Birds);
                     break;
                 case SceneKind.Mountain:
                     DrawMountain(frame);
@@ -892,23 +889,26 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the flock: each bird circles <see cref="BIRD_FLOCK_CENTER"/> on its own slow orbit, built
-        /// into a camera-facing billboard here and flapped in the shader. Alpha-blended and depth-tested (the
-        /// terrain or the platform in front hides one) but writing no depth. Called in the savanna and desert
-        /// scenes, which share the one flock.
+        /// Draws the flock: each bird circles the config's flock centre on its own slow orbit, built into a
+        /// camera-facing billboard here and flapped in the shader. Alpha-blended and depth-tested (the terrain
+        /// or the platform in front hides one) but writing no depth. Called in the savanna and desert scenes,
+        /// which share the one flock buffer; <paramref name="birds"/> is the active scene's flock config and
+        /// its count is capped to the shared buffer's size.
         /// </summary>
-        private void DrawBirds(in SceneFrame frame)
+        private void DrawBirds(in SceneFrame frame, BirdsConfig birds)
         {
             Matrix inverseView = Matrix.Invert(frame.Camera.View);
-            Vector3 right = inverseView.Right * (BIRD_WINGSPAN * Constants.HALF);
-            Vector3 up = inverseView.Up * (BIRD_WINGSPAN * Constants.HALF * BIRD_ASPECT);
+            Vector3 right = inverseView.Right * (birds.Wingspan * Constants.HALF);
+            Vector3 up = inverseView.Up * (birds.Wingspan * Constants.HALF * birds.Aspect);
 
-            for (int i = 0; i < BIRD_COUNT; i++)
+            Vector3 flockCenter = birds.FlockCenter.ToVector3();
+            int count = Math.Min(birds.Count, _birdRadius.Length);
+            for (int i = 0; i < count; i++)
             {
                 float angle = frame.Time * _birdOrbitSpeed[i] + _birdOrbitPhase[i];
-                float bob = MathF.Sin(frame.Time * _birdBobSpeed[i] + _birdOrbitPhase[i]) * BIRD_BOB;
+                float bob = MathF.Sin(frame.Time * _birdBobSpeed[i] + _birdOrbitPhase[i]) * birds.Bob;
 
-                Vector3 center = BIRD_FLOCK_CENTER + new Vector3(
+                Vector3 center = flockCenter + new Vector3(
                     MathF.Cos(angle) * _birdRadius[i],
                     _birdAltitude[i] + bob,
                     MathF.Sin(angle) * _birdRadius[i]);
@@ -924,6 +924,7 @@ namespace Prazsky.Core.Render
 
             _birdVertexBuffer.SetData(_birdVertices);
 
+            _birdsEffect.Parameters["BirdColor"].SetValue(birds.Color.ToVector3());
             _birdsEffect.Parameters["View"].SetValue(frame.Camera.View);
             _birdsEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
 
@@ -934,7 +935,7 @@ namespace Prazsky.Core.Render
             _graphicsDevice.SetVertexBuffer(_birdVertexBuffer);
             _graphicsDevice.Indices = _birdIndexBuffer;
             _birdsEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, BIRD_COUNT * 2);
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, count * 2);
 
             //Restore the scene block's states for the opaque draws that follow
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
