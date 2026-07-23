@@ -125,28 +125,8 @@ namespace Prazsky.Core.Render
         //Gentle rolling grassland: flat in a clearing the island stands in (world origin), rising into low
         //rises with distance. Flatter than the meadow's hills - a savanna is open. Mean grass level sits at the
         //island's foot; ClearingRelief is a soft undulation even inside the clearing.
-        private const float SAVANNA_LEVEL_Y = -13.5f;
-        private const float SAVANNA_HILL_HEIGHT = 34f;
-        private const float SAVANNA_CLEARING_RADIUS = 90f;
-        private const float SAVANNA_CLEARING_TRANSITION = 130f;
-        private const float SAVANNA_CLEARING_RELIEF = 1.6f;
-
-        //Grass (linear): a green flush, a drier golden base and bare reddish earth, blended in patches. A
-        //savanna is dry gold with green flushes and scuffed earth, so the dry tone dominates. Plus how much sky
-        //fills the flats, and the horizon fade.
-        private static readonly Vector3 GRASS_COLOR_SAVANNA = new(0.13f, 0.33f, 0.06f);   //lush green (dominant now)
-        private static readonly Vector3 GRASS_COLOR_DRY = new(0.40f, 0.31f, 0.10f);       //dry golden grass (patches)
-        private static readonly Vector3 GRASS_COLOR_BARE = new(0.26f, 0.15f, 0.08f);      //bare reddish earth
-        private const float SAVANNA_AMBIENT_STRENGTH = 0.7f;
-        private static readonly Vector2 SAVANNA_WIND = new(0.86f, 0.51f);
-        private const float SAVANNA_HORIZON_HAZE_DISTANCE = 520f;
-
-        //Wind combing the grass, and the fine grass texture (a normal-tilting height field)
-        private const float SAVANNA_WIND_RIPPLE_SPEED = 1.2f;
-        private const float SAVANNA_WIND_RIPPLE_FREQUENCY = 0.14f;
-        private const float SAVANNA_WIND_RIPPLE_STRENGTH = 0.1f;
-        private const float SAVANNA_GRASS_RELIEF_STRENGTH = 0.05f;
-        private const float SAVANNA_GRASS_RELIEF_FREQUENCY = 2f;
+        //Look/tuning parameters (level, hills, clearing, grass colours, ambient, wind, haze, relief) now live in
+        //SavannaSceneConfig; SceneRenderer reads them from _savannaConfig (and SavannaTerrainHeight uses them too).
 
         #endregion
 
@@ -161,17 +141,8 @@ namespace Prazsky.Core.Render
         //they occlude the terrain and each other. Plants gather in clumps (as they do on a real savanna) around
         //a set of cluster centres, with a few solitary ones. One buffer carries both: the packed random is
         //[0,1) for a tree and [1,2) for a bush.
-        private const int ACACIA_COUNT = 120;
-        private const float ACACIA_BUSH_FRACTION = 0.45f;
-        private const float ACACIA_WIDTH = 6f;     //base half-width of a tree crown
-        private const float ACACIA_HEIGHT = 9f;
-        private const float ACACIA_MIN_RADIUS = 42f;   //clear of the island
-        private const float ACACIA_MAX_RADIUS = 340f;
-        private const int ACACIA_CLUSTERS = 24;
-        private const float ACACIA_CLUSTER_SPREAD = 30f;
-        private static readonly Vector3 ACACIA_CANOPY_COLOR = new(0.09f, 0.17f, 0.05f); //acacia green (linear)
-        private static readonly Vector3 ACACIA_CANOPY_DRY = new(0.22f, 0.22f, 0.07f);   //drier yellow-green
-        private static readonly Vector3 ACACIA_TRUNK_COLOR = new(0.09f, 0.06f, 0.035f); //dark brown (linear)
+        //Acacia scatter parameters (count, bush fraction, size, radii, clusters, canopy/trunk colours) now live
+        //in SavannaSceneConfig.Acacia (AcaciaConfig); SceneRenderer reads them from _savannaConfig.Acacia.
 
         #endregion
 
@@ -193,18 +164,25 @@ namespace Prazsky.Core.Render
         //can set the same light on the balls and island, and they flicker together off the one clock.
         //Just off the island in the grass, in front of its far edge and a little to the side, so it is in the
         //game camera's view (the camera sits at ~(0,-3,30) looking down -Z) and lights the island edge and grass.
-        public static readonly Vector3 SavannaCampfirePosition = new(28f, SavannaTerrainHeight(28f, -18f) + 0.2f, -18f);
-        public const float SAVANNA_CAMPFIRE_RANGE = 32f;
-        private const float FLAME_SIZE = 2.3f;
-        //Warm fire colour in LINEAR radiance, kept bright (over 1) so it casts real warm light, not a tint
-        private static readonly Vector3 CAMPFIRE_BASE_COLOR = new(2.4f, 1.0f, 0.32f);
+        //Campfire parameters (ground position, range, flame size, base colour) live in
+        //SavannaSceneConfig.Campfire (CampfireConfig). Position/range/colour stay public (the Testbed sets the
+        //same point light on the balls and island) but are now instance members derived from the config.
+
+        /// <summary>The campfire's world position: the config's ground XZ, lifted to the terrain height there.</summary>
+        public Vector3 SavannaCampfirePosition => new(
+            _savannaConfig.Campfire.GroundXZ.X,
+            SavannaTerrainHeight(_savannaConfig.Campfire.GroundXZ.X, _savannaConfig.Campfire.GroundXZ.Y) + _savannaConfig.Campfire.HeightAboveTerrain,
+            _savannaConfig.Campfire.GroundXZ.Y);
+
+        /// <summary>The campfire point-light range (quadratic distance falloff).</summary>
+        public float SavannaCampfireRange => _savannaConfig.Campfire.Range;
 
         /// <summary>The flickering campfire colour at a wall-clock time, so the grass light, the balls light
         /// and the flame all pulse together.</summary>
-        public static Vector3 CampfireColor(float time)
+        public Vector3 CampfireColor(float time)
         {
             float flicker = 0.72f + 0.28f * (0.5f * MathF.Sin(time * 11f) + 0.3f * MathF.Sin(time * 17f + 1.3f) + 0.2f * MathF.Sin(time * 7f));
-            return CAMPFIRE_BASE_COLOR * flicker;
+            return _savannaConfig.Campfire.BaseColor.ToVector3() * flicker;
         }
 
         #endregion
@@ -365,55 +343,56 @@ namespace Prazsky.Core.Render
             _savannaEffect = content.Load<Effect>("Shaders/Savanna");
             CreateGridMesh(SAVANNA_GRID_N, SAVANNA_EXTENT, out _savannaVertexBuffer, out _savannaIndexBuffer, out _savannaIndexCount);
 
-            _savannaEffect.Parameters["SavannaLevelY"].SetValue(SAVANNA_LEVEL_Y);
-            _savannaEffect.Parameters["HillHeight"].SetValue(SAVANNA_HILL_HEIGHT);
-            _savannaEffect.Parameters["ClearingRadius"].SetValue(SAVANNA_CLEARING_RADIUS);
-            _savannaEffect.Parameters["ClearingTransition"].SetValue(SAVANNA_CLEARING_TRANSITION);
-            _savannaEffect.Parameters["ClearingRelief"].SetValue(SAVANNA_CLEARING_RELIEF);
-            _savannaEffect.Parameters["GrassColor"].SetValue(GRASS_COLOR_SAVANNA);
-            _savannaEffect.Parameters["GrassColorDry"].SetValue(GRASS_COLOR_DRY);
-            _savannaEffect.Parameters["GrassColorBare"].SetValue(GRASS_COLOR_BARE);
-            _savannaEffect.Parameters["AmbientStrength"].SetValue(SAVANNA_AMBIENT_STRENGTH);
-            _savannaEffect.Parameters["WindDirection"].SetValue(SAVANNA_WIND);
-            _savannaEffect.Parameters["HorizonHazeDistance"].SetValue(SAVANNA_HORIZON_HAZE_DISTANCE);
-            _savannaEffect.Parameters["WindRippleSpeed"].SetValue(SAVANNA_WIND_RIPPLE_SPEED);
-            _savannaEffect.Parameters["WindRippleFrequency"].SetValue(SAVANNA_WIND_RIPPLE_FREQUENCY);
-            _savannaEffect.Parameters["WindRippleStrength"].SetValue(SAVANNA_WIND_RIPPLE_STRENGTH);
-            _savannaEffect.Parameters["GrassReliefStrength"].SetValue(SAVANNA_GRASS_RELIEF_STRENGTH);
-            _savannaEffect.Parameters["GrassReliefFrequency"].SetValue(SAVANNA_GRASS_RELIEF_FREQUENCY);
+            _savannaEffect.Parameters["SavannaLevelY"].SetValue(_savannaConfig.LevelY);
+            _savannaEffect.Parameters["HillHeight"].SetValue(_savannaConfig.HillHeight);
+            _savannaEffect.Parameters["ClearingRadius"].SetValue(_savannaConfig.ClearingRadius);
+            _savannaEffect.Parameters["ClearingTransition"].SetValue(_savannaConfig.ClearingTransition);
+            _savannaEffect.Parameters["ClearingRelief"].SetValue(_savannaConfig.ClearingRelief);
+            _savannaEffect.Parameters["GrassColor"].SetValue(_savannaConfig.GrassSavanna.ToVector3());
+            _savannaEffect.Parameters["GrassColorDry"].SetValue(_savannaConfig.GrassDry.ToVector3());
+            _savannaEffect.Parameters["GrassColorBare"].SetValue(_savannaConfig.GrassBare.ToVector3());
+            _savannaEffect.Parameters["AmbientStrength"].SetValue(_savannaConfig.AmbientStrength);
+            _savannaEffect.Parameters["WindDirection"].SetValue(_savannaConfig.Wind.ToVector2());
+            _savannaEffect.Parameters["HorizonHazeDistance"].SetValue(_savannaConfig.HorizonHazeDistance);
+            _savannaEffect.Parameters["WindRippleSpeed"].SetValue(_savannaConfig.WindRippleSpeed);
+            _savannaEffect.Parameters["WindRippleFrequency"].SetValue(_savannaConfig.WindRippleFrequency);
+            _savannaEffect.Parameters["WindRippleStrength"].SetValue(_savannaConfig.WindRippleStrength);
+            _savannaEffect.Parameters["GrassReliefStrength"].SetValue(_savannaConfig.GrassReliefStrength);
+            _savannaEffect.Parameters["GrassReliefFrequency"].SetValue(_savannaConfig.GrassReliefFrequency);
 
             //--- Acacia: a static billboard buffer of trees scattered over the savanna, positioned on the
             //ground (SavannaTerrainHeight mirrors the shader's field) and drawn as a flat-topped tree in Acacia.fx
             _acaciaEffect = content.Load<Effect>("Shaders/Acacia");
-            _acaciaEffect.Parameters["TreeWidth"].SetValue(ACACIA_WIDTH);
-            _acaciaEffect.Parameters["TreeHeight"].SetValue(ACACIA_HEIGHT);
-            _acaciaEffect.Parameters["CanopyColor"].SetValue(ACACIA_CANOPY_COLOR);
-            _acaciaEffect.Parameters["CanopyColorDry"].SetValue(ACACIA_CANOPY_DRY);
-            _acaciaEffect.Parameters["TrunkColor"].SetValue(ACACIA_TRUNK_COLOR);
+            var ac = _savannaConfig.Acacia;
+            _acaciaEffect.Parameters["TreeWidth"].SetValue(ac.Width);
+            _acaciaEffect.Parameters["TreeHeight"].SetValue(ac.Height);
+            _acaciaEffect.Parameters["CanopyColor"].SetValue(ac.CanopyColor.ToVector3());
+            _acaciaEffect.Parameters["CanopyColorDry"].SetValue(ac.CanopyDry.ToVector3());
+            _acaciaEffect.Parameters["TrunkColor"].SetValue(ac.TrunkColor.ToVector3());
 
             Random acaciaRng = new(90125);
 
             //Cluster centres the plants gather around, so the savanna reads as clumps of trees rather than an
             //even scatter. A minority of plants are placed solo.
-            float[] clusterX = new float[ACACIA_CLUSTERS];
-            float[] clusterZ = new float[ACACIA_CLUSTERS];
-            for (int c = 0; c < ACACIA_CLUSTERS; c++)
+            float[] clusterX = new float[ac.Clusters];
+            float[] clusterZ = new float[ac.Clusters];
+            for (int c = 0; c < ac.Clusters; c++)
             {
                 float ca = (float)acaciaRng.NextDouble() * MathHelper.TwoPi;
-                float cr = ACACIA_MIN_RADIUS + (float)acaciaRng.NextDouble() * (ACACIA_MAX_RADIUS - ACACIA_MIN_RADIUS);
+                float cr = ac.MinRadius + (float)acaciaRng.NextDouble() * (ac.MaxRadius - ac.MinRadius);
                 clusterX[c] = MathF.Cos(ca) * cr;
                 clusterZ[c] = MathF.Sin(ca) * cr;
             }
 
-            BirdVertex[] acaciaVertices = new BirdVertex[ACACIA_COUNT * 4];
-            for (int i = 0; i < ACACIA_COUNT; i++)
+            BirdVertex[] acaciaVertices = new BirdVertex[ac.Count * 4];
+            for (int i = 0; i < ac.Count; i++)
             {
                 float x, z;
                 if (acaciaRng.NextDouble() < 0.82) //most plants clump around a cluster centre
                 {
-                    int c = acaciaRng.Next(ACACIA_CLUSTERS);
+                    int c = acaciaRng.Next(ac.Clusters);
                     float off = (float)acaciaRng.NextDouble();
-                    float d = off * off * ACACIA_CLUSTER_SPREAD; //denser towards the centre
+                    float d = off * off * ac.ClusterSpread; //denser towards the centre
                     float da = (float)acaciaRng.NextDouble() * MathHelper.TwoPi;
                     x = clusterX[c] + MathF.Cos(da) * d;
                     z = clusterZ[c] + MathF.Sin(da) * d;
@@ -421,24 +400,24 @@ namespace Prazsky.Core.Render
                 else //the odd solitary plant, anywhere in the ring
                 {
                     float a = (float)acaciaRng.NextDouble() * MathHelper.TwoPi;
-                    float r = ACACIA_MIN_RADIUS + (float)acaciaRng.NextDouble() * (ACACIA_MAX_RADIUS - ACACIA_MIN_RADIUS);
+                    float r = ac.MinRadius + (float)acaciaRng.NextDouble() * (ac.MaxRadius - ac.MinRadius);
                     x = MathF.Cos(a) * r;
                     z = MathF.Sin(a) * r;
                 }
 
                 //Keep clear of the island
                 float dist = MathF.Sqrt(x * x + z * z);
-                if (dist < ACACIA_MIN_RADIUS && dist > 0.01f)
+                if (dist < ac.MinRadius && dist > 0.01f)
                 {
-                    x *= ACACIA_MIN_RADIUS / dist;
-                    z *= ACACIA_MIN_RADIUS / dist;
+                    x *= ac.MinRadius / dist;
+                    z *= ac.MinRadius / dist;
                 }
 
                 Vector3 basePos = new(x, SavannaTerrainHeight(x, z), z);
 
                 //Packed random: [0,1) a tree, [1,2) a bush
                 float rand = (float)acaciaRng.NextDouble();
-                float packed = acaciaRng.NextDouble() < ACACIA_BUSH_FRACTION ? 1f + rand : rand;
+                float packed = acaciaRng.NextDouble() < ac.BushFraction ? 1f + rand : rand;
 
                 int v = i * 4;
                 acaciaVertices[v] = new BirdVertex(basePos, new Vector3(-1f, 0f, packed));
@@ -449,8 +428,8 @@ namespace Prazsky.Core.Render
             _acaciaVertexBuffer = new VertexBuffer(graphicsDevice, BirdVertex.Declaration, acaciaVertices.Length, BufferUsage.WriteOnly);
             _acaciaVertexBuffer.SetData(acaciaVertices);
 
-            short[] acaciaIndices = new short[ACACIA_COUNT * 6];
-            for (int i = 0; i < ACACIA_COUNT; i++)
+            short[] acaciaIndices = new short[ac.Count * 6];
+            for (int i = 0; i < ac.Count; i++)
             {
                 int v = i * 4;
                 int o = i * 6;
@@ -818,7 +797,7 @@ namespace Prazsky.Core.Render
             //The campfire lights the grass around it (a real point light, present under every dome)
             _savannaLightPos[0] = SavannaCampfirePosition;
             _savannaLightColor[0] = CampfireColor(frame.Time);
-            _savannaLightRange[0] = SAVANNA_CAMPFIRE_RANGE;
+            _savannaLightRange[0] = SavannaCampfireRange;
             _savannaEffect.Parameters["SceneLightPosition"].SetValue(_savannaLightPos);
             _savannaEffect.Parameters["SceneLightColor"].SetValue(_savannaLightColor);
             _savannaEffect.Parameters["SceneLightRange"].SetValue(_savannaLightRange);
@@ -842,19 +821,19 @@ namespace Prazsky.Core.Render
         /// The savanna terrain height at a world point, mirroring <c>Savanna.fx</c>'s <c>TerrainHeight</c>, so the
         /// acacia trees can be planted on the ground the shader draws.
         /// </summary>
-        private static float SavannaTerrainHeight(float x, float z)
+        private float SavannaTerrainHeight(float x, float z)
         {
             float dist = MathF.Sqrt(x * x + z * z);
-            float t = MathHelper.Clamp((dist - SAVANNA_CLEARING_RADIUS) / SAVANNA_CLEARING_TRANSITION, 0f, 1f);
+            float t = MathHelper.Clamp((dist - _savannaConfig.ClearingRadius) / _savannaConfig.ClearingTransition, 0f, 1f);
             float ramp = t * t * (3f - 2f * t); //smoothstep, as in the shader
 
             float rolling = 0.5f * MathF.Sin(x * 0.016f + z * 0.012f)
                 + 0.3f * MathF.Sin(x * -0.011f + z * 0.020f + 1.5f)
                 + 0.2f * MathF.Sin(x * 0.026f + z * 0.021f + 3.0f);
 
-            float gentle = SAVANNA_CLEARING_RELIEF * (MathF.Sin(x * 0.04f + z * 0.03f) + 0.6f * MathF.Sin(x * -0.055f + z * 0.048f + 2.1f));
+            float gentle = _savannaConfig.ClearingRelief * (MathF.Sin(x * 0.04f + z * 0.03f) + 0.6f * MathF.Sin(x * -0.055f + z * 0.048f + 2.1f));
 
-            return SAVANNA_LEVEL_Y + gentle + SAVANNA_HILL_HEIGHT * ramp * (rolling * 0.5f + 0.5f);
+            return _savannaConfig.LevelY + gentle + _savannaConfig.HillHeight * ramp * (rolling * 0.5f + 0.5f);
         }
 
         /// <summary>
@@ -878,7 +857,7 @@ namespace Prazsky.Core.Render
             _graphicsDevice.SetVertexBuffer(_acaciaVertexBuffer);
             _graphicsDevice.Indices = _acaciaIndexBuffer;
             _acaciaEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, ACACIA_COUNT * 2);
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _savannaConfig.Acacia.Count * 2);
 
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
@@ -895,7 +874,7 @@ namespace Prazsky.Core.Render
             _flameEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
             _flameEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
             _flameEffect.Parameters["FlamePosition"].SetValue(SavannaCampfirePosition);
-            _flameEffect.Parameters["FlameSize"].SetValue(FLAME_SIZE);
+            _flameEffect.Parameters["FlameSize"].SetValue(_savannaConfig.Campfire.FlameSize);
             _flameEffect.Parameters["FlameTime"].SetValue(frame.Time);
 
             _graphicsDevice.BlendState = BlendState.Additive;

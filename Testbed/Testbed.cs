@@ -1140,9 +1140,9 @@ namespace Testbed
             if (_scene == SceneKind.Savanna)
             {
                 //The campfire, flickering off the same wall clock as its flame
-                _sceneLightPos[0] = SceneRenderer.SavannaCampfirePosition;
-                _sceneLightColor[0] = SceneRenderer.CampfireColor(_pulseSeconds);
-                _sceneLightRange[0] = SceneRenderer.SAVANNA_CAMPFIRE_RANGE;
+                _sceneLightPos[0] = _sceneRenderer.SavannaCampfirePosition;
+                _sceneLightColor[0] = _sceneRenderer.CampfireColor(_pulseSeconds);
+                _sceneLightRange[0] = _sceneRenderer.SavannaCampfireRange;
                 count = 1;
             }
             else if (_scene == SceneKind.NeonCity)
