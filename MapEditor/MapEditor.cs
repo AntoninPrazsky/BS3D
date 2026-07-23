@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Input;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Input;
+using Prazsky.BS3D.Levels;
 using Prazsky.Core;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
@@ -23,6 +24,9 @@ namespace MapEditor
     {
         private BasicCamera3D Camera3D;
         private Model _hrSphere;
+
+        /// <summary>Optional map or level file loaded once at startup (first command-line argument).</summary>
+        public string StartupFilePath { get; set; }
 
         //A little air around the play field, so that it does not touch the edges of the screen
         private const float VIEW_MARGIN = 1.1f;
@@ -118,7 +122,14 @@ namespace MapEditor
         private City _city;
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
-        private readonly CitySceneConfig _cityConfig = new();
+        //Not readonly: a loaded level (bs3d-level file) replaces it with the level's city config
+        private CitySceneConfig _cityConfig = new();
+
+        //A level dropped or opened is parsed off the render thread (like a map file), but its scene/sky/city
+        //application touches GPU resources (Content.Load, buffer rebuilds, a new City), so the parsed level is
+        //stashed here and applied on the main thread in Update. See ApplyPendingLevel.
+        private Level _pendingLevel;
+        private readonly object _pendingLevelLock = new();
 
         //Wall-clock seconds the scene motion runs off (waves, wind, birds, snow), so the environment keeps
         //moving the way it does in the game instead of freezing
@@ -293,6 +304,10 @@ namespace MapEditor
             ApplySkyLighting();
 
             EnsureSceneTarget();
+
+            //Load a map or level handed on the command line (a level stashes to _pendingLevel and lands next Update)
+            if (!string.IsNullOrEmpty(StartupFilePath) && File.Exists(StartupFilePath))
+                DeserializeMapFromJsonFile(StartupFilePath);
         }
 
         /// <summary>
@@ -308,9 +323,12 @@ namespace MapEditor
         /// <summary>
         /// Moves on to the next sky dome, which changes the lighting of the whole scene with it.
         /// </summary>
-        private void SwitchSkyDome()
+        private void SwitchSkyDome() => SetSkyDome(_skyDomeNumber % SKY_DOME_COUNT + 1);
+
+        /// <summary>Loads sky dome <paramref name="number"/> (1–18) and relights the scene from it.</summary>
+        private void SetSkyDome(int number)
         {
-            _skyDomeNumber = _skyDomeNumber % SKY_DOME_COUNT + 1;
+            _skyDomeNumber = number;
             _sky.SkyDomeModel = Content.Load<Model>("Skyes/SkyDome" + _skyDomeNumber);
 
             ApplySkyLighting();
@@ -470,6 +488,10 @@ namespace MapEditor
 
         protected override void Update(GameTime gameTime)
         {
+            //A level dropped/opened on a background thread is applied here, on the main thread, before the
+            //focus guard so it lands even if the window briefly lost focus during the drop
+            ApplyPendingLevel();
+
             if (!IsActive) return;
 
             //Drives the scene motion (waves, wind, birds, snow) off the wall clock, like the game's pulse
@@ -522,15 +544,89 @@ namespace MapEditor
 
         private void DeserializeMapFromJsonFile(string filePath)
         {
-            Stopwatch stopwatch = new();
-            stopwatch.Start();
-            _map.DeserializeJson(filePath);
-            stopwatch.Stop();
-            Console.WriteLine($"Deserialize JSON (ms): {stopwatch.ElapsedMilliseconds}");
+            try
+            {
+                //A level file (format marker "bs3d-level") carries a map plus the scene and sky that reproduce
+                //its look; a plain map file carries just the layout. Both use .json, so the loader probes. The
+                //level is parsed here (may run off the render thread) but applied on the main thread — see
+                //ApplyPendingLevel.
+                if (Level.IsLevelFile(filePath))
+                {
+                    Level level = Level.Load(filePath);
+                    lock (_pendingLevelLock) _pendingLevel = level;
+                    return;
+                }
 
-            //The loaded map may have different play field dimensions
-            _selector.UpdateBallsBap(_map);
-            _aabb.FitToMap(_map);
+                Stopwatch stopwatch = new();
+                stopwatch.Start();
+                _map.DeserializeJson(filePath);
+                stopwatch.Stop();
+                Console.WriteLine($"Deserialize JSON (ms): {stopwatch.ElapsedMilliseconds}");
+
+                //The loaded map may have different play field dimensions
+                _selector.UpdateBallsBap(_map);
+                _aabb.FitToMap(_map);
+            }
+            catch (Exception e)
+            {
+                //A broken or unreadable file (bad JSON, a hand-edit typo in a level, a dropped folder) must not
+                //kill the editor. On the drop/dialog path this runs on a background task where an escaping
+                //exception would be swallowed silently; on the startup path it runs on the main thread and would
+                //crash — so both are caught and logged, leaving the current map/scene untouched.
+                Console.WriteLine($"[load] Failed to load '{filePath}': {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Applies a level parsed off the render thread, on the main thread: swaps in its map (so the selector
+        /// and field outline follow the new field), applies the scene backdrop with its full config and sets
+        /// the sky dome — so a level previews in the editor exactly the way it plays. A no-op when nothing is
+        /// pending. Mirrors the Testbed's LoadLevel, minus the physics/cannon/camera the game derives.
+        /// </summary>
+        private void ApplyPendingLevel()
+        {
+            Level level;
+            lock (_pendingLevelLock) { level = _pendingLevel; _pendingLevel = null; }
+            if (level == null) return;
+
+            try
+            {
+                //The editor works in raw grid coordinates (the selector does), so the map is left uncentered,
+                //exactly as a loaded map file or a new map is. The ctor validates and throws before the
+                //assignment, so a bad map leaves the current one in place.
+                _map = new BallsMap(level.Map, _hrSphere);
+                _selector.UpdateBallsBap(_map);
+                _aabb.FitToMap(_map);
+
+                if (level.Scene != null)
+                {
+                    _scene = level.Scene.Kind;
+
+                    if (level.Scene is CitySceneConfig cityConfig)
+                    {
+                        //The city lives outside the SceneRenderer: regenerate the buildings from the config's
+                        //layout and hand the config to the city renderer (which reads the brightness per frame)
+                        _cityConfig = cityConfig;
+                        _city = new City(seed: 20260720, arenaHalfExtent: ARENA_HALF_EXTENT, config: _cityConfig);
+                        _cityRenderer.CityConfig = _cityConfig;
+                    }
+                    else
+                    {
+                        _sceneRenderer.Apply(level.Scene);
+                    }
+                }
+
+                //The level's dome wins over whatever is up (the sky key still cycles freely from here)
+                SetSkyDome(Math.Clamp((int)level.SkyDome, 1, SKY_DOME_COUNT));
+
+                string levelName = string.IsNullOrEmpty(level.Name) ? "Untitled" : level.Name;
+                Info.CustomText = $"Level: {levelName}, scene {_scene}, sky {_skyDomeNumber}";
+                Console.WriteLine($"[level] Loaded '{levelName}': scene={_scene}, sky={_skyDomeNumber}, balls={_map.GetBallsCount()}");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"[level] Failed to apply level: {e.Message}");
+            }
         }
 
         protected override void Draw(GameTime gameTime)
