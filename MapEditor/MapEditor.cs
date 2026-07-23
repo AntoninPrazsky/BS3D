@@ -10,6 +10,15 @@ using Prazsky.Core;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
+using Myra;
+using Myra.Graphics2D;
+using Myra.Graphics2D.Brushes;
+using Myra.Graphics2D.UI;
+//PropertyGrid, Label and HorizontalAlignment also exist in System.Windows.Forms (used here for the file
+//dialogs), so alias Myra's (VerticalAlignment has no WinForms twin, so it needs none)
+using MyraPropertyGrid = Myra.Graphics2D.UI.Properties.PropertyGrid;
+using MyraLabel = Myra.Graphics2D.UI.Label;
+using MyraHAlign = Myra.Graphics2D.UI.HorizontalAlignment;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -131,6 +140,15 @@ namespace MapEditor
         private Level _pendingLevel;
         private readonly object _pendingLevelLock = new();
 
+        //Myra in-engine GUI (issue #45): a live scene-config editor (issue #33). The PropertyGrid reflects over
+        //the active scene's SceneConfig POCO (issue #44); editing a value re-applies it, so the backdrop updates
+        //in place. G toggles the panel. Myra's default stylesheet is embedded, so no content pipeline is needed.
+        private Desktop _desktop;
+        private MyraPropertyGrid _sceneConfigGrid;
+        private MyraLabel _sceneConfigHeader;
+        private Widget _sceneConfigPanel;
+        private bool _sceneConfigPanelVisible = true;
+
         //Wall-clock seconds the scene motion runs off (waves, wind, birds, snow), so the environment keeps
         //moving the way it does in the game instead of freezing
         private float _sceneSeconds;
@@ -238,6 +256,7 @@ namespace MapEditor
                 //Not S, W, A, D, Q or E: those move the camera (see CameraInputHelper)
                 new(mgKeys.B, SwitchSkyDome, "Switch sky dome (backdrop)"),
                 new(mgKeys.V, SwitchScene, "Switch scene (city/sea/savanna/desert/mountain/meadow/neon)"),
+                new(mgKeys.G, ToggleSceneConfigPanel, "Show/hide scene-config editor"),
 
                 new(mgKeys.F1, SaveJson, "Save map to file (JSON)"),
                 new(mgKeys.F2, LoadJson, "Load map or level from file (JSON)"),
@@ -306,6 +325,8 @@ namespace MapEditor
 
             EnsureSceneTarget();
 
+            BuildSceneConfigPanel();
+
             //Load a map or level handed on the command line (a level stashes to _pendingLevel and lands next Update)
             if (!string.IsNullOrEmpty(StartupFilePath) && File.Exists(StartupFilePath))
                 DeserializeMapFromJsonFile(StartupFilePath);
@@ -319,6 +340,79 @@ namespace MapEditor
         {
             _scene = (SceneKind)(((int)_scene + 1) % 7);
             Info.CustomText = $"Scene: {_scene}";
+            RebindSceneConfigGrid();
+        }
+
+        /// <summary>
+        /// Builds the Myra scene-config editor: a right-docked panel with a header and a scrollable PropertyGrid
+        /// that reflects over the active scene's config. Editing a value re-applies the config live.
+        /// </summary>
+        private void BuildSceneConfigPanel()
+        {
+            MyraEnvironment.Game = this;
+            _desktop = new Desktop();
+
+            _sceneConfigGrid = new MyraPropertyGrid { IgnoreCollections = true };
+            _sceneConfigGrid.PropertyChanged += (s, e) => OnSceneConfigEdited();
+
+            var scroll = new ScrollViewer
+            {
+                Content = _sceneConfigGrid,
+                HorizontalAlignment = MyraHAlign.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch,
+            };
+
+            _sceneConfigHeader = new MyraLabel { Text = "Scene", Wrap = true, Padding = new Thickness(6, 6, 6, 8) };
+
+            var layout = new Grid { Padding = new Thickness(4), Background = new SolidBrush(new Color(12, 12, 18, 214)) };
+            layout.RowsProportions.Add(new Proportion(ProportionType.Auto));
+            layout.RowsProportions.Add(new Proportion(ProportionType.Fill));
+            Grid.SetRow(_sceneConfigHeader, 0);
+            Grid.SetRow(scroll, 1);
+            layout.Widgets.Add(_sceneConfigHeader);
+            layout.Widgets.Add(scroll);
+
+            layout.HorizontalAlignment = MyraHAlign.Right;
+            layout.VerticalAlignment = VerticalAlignment.Stretch;
+            layout.Width = 360;
+
+            _sceneConfigPanel = layout;
+            _desktop.Root = _sceneConfigPanel;
+
+            RebindSceneConfigGrid();
+        }
+
+        /// <summary>Points the PropertyGrid at the current scene's config (the editor's CitySceneConfig for the city).</summary>
+        private void RebindSceneConfigGrid()
+        {
+            if (_sceneConfigGrid == null) return;
+
+            bool isCity = _scene == SceneKind.City || _scene == SceneKind.NeonCity;
+            if (isCity) _cityConfig.Neon = _scene == SceneKind.NeonCity; //show the config's Neon matching the current view
+
+            _sceneConfigGrid.Object = isCity ? _cityConfig : _sceneRenderer.GetSceneConfig(_scene);
+            _sceneConfigHeader.Text = $"{_scene}  —  edit to preview live  (G: hide)";
+        }
+
+        /// <summary>Re-applies the edited scene config so the backdrop updates in place.</summary>
+        private void OnSceneConfigEdited()
+        {
+            switch (_sceneConfigGrid.Object)
+            {
+                case CitySceneConfig city:
+                    _city = new City(seed: 20260720, arenaHalfExtent: ARENA_HALF_EXTENT, config: city);
+                    _cityRenderer.CityConfig = city;
+                    break;
+                case SceneConfig sceneConfig:
+                    _sceneRenderer.Apply(sceneConfig);
+                    break;
+            }
+        }
+
+        private void ToggleSceneConfigPanel()
+        {
+            _sceneConfigPanelVisible = !_sceneConfigPanelVisible;
+            _sceneConfigPanel.Visible = _sceneConfigPanelVisible;
         }
 
         /// <summary>
@@ -500,9 +594,17 @@ namespace MapEditor
 
             _cih.RegisterCurrentInputState();
 
-            foreach (var action in _actions) if (_cih.PressedOnce(action.Key, action.Button)) action.Method();
+            //When a Myra widget owns the keyboard (a value is being typed) or the mouse is over the panel, the
+            //editor's own keys and camera must stand down, or typing "42" would fire hotkeys and dragging a
+            //slider would spin the camera. Myra processes its input in Draw (_desktop.Render), so these flags
+            //reflect the previous frame — a negligible lag.
+            bool guiHasKeyboard = _desktop?.FocusedKeyboardWidget != null;
+            bool guiHasMouse = _sceneConfigPanelVisible && (_desktop?.IsMouseOverGUI ?? false);
 
-            _cih.CameraMovement(gameTime);
+            if (!guiHasKeyboard)
+                foreach (var action in _actions) if (_cih.PressedOnce(action.Key, action.Button)) action.Method();
+
+            if (!guiHasKeyboard && !guiHasMouse) _cih.CameraMovement(gameTime);
             _cih.RegisterPreviousInputState();
             
             _cih.Update(gameTime);
@@ -665,6 +767,9 @@ namespace MapEditor
                 //The level's dome wins over whatever is up (the sky key still cycles freely from here)
                 SetSkyDome(Math.Clamp((int)level.SkyDome, 1, SKY_DOME_COUNT));
 
+                //Point the live editor at the loaded level's scene config
+                RebindSceneConfigGrid();
+
                 string levelName = string.IsNullOrEmpty(level.Name) ? "Untitled" : level.Name;
                 Info.CustomText = $"Level: {levelName}, scene {_scene}, sky {_skyDomeNumber}";
                 Console.WriteLine($"[level] Loaded '{levelName}': scene={_scene}, sky={_skyDomeNumber}, balls={_map.GetBallsCount()}");
@@ -732,6 +837,10 @@ namespace MapEditor
             _axisGizmo.Draw(Camera3D);
 
             base.Draw(gameTime);
+
+            //The Myra GUI renders last, on top of everything, straight to the back buffer (base.Draw and
+            //ResolveSceneTarget leave it bound). Render also processes Myra's own mouse/keyboard input.
+            _desktop.Render();
         }
 
         /// <summary>
