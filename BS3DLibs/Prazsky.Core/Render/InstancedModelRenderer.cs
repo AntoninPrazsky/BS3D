@@ -120,6 +120,18 @@ namespace Prazsky.Core.Render
         public float CityNeon { get; set; }
 
         private EffectParameter _cityNeonParam;
+
+        /// <summary>
+        /// The city's window/look configuration, pushed to the shader on each city draw. Its defaults
+        /// reproduce the values that used to be hard-coded in the shader, so a renderer that is never given a
+        /// config still draws the original city. Only the city technique reads these.
+        /// </summary>
+        public CitySceneConfig CityConfig { get; set; } = new();
+
+        private EffectParameter _windowPitchXParam, _windowPitchYParam, _windowFillXParam, _windowFillYParam,
+            _windowMarginParam, _windowLitFractionParam, _windowWarmParam, _windowCoolParam,
+            _windowHoldSecondsParam, _windowHoldVariationParam, _windowSwitchFadeParam;
+
         private EffectTechnique _depthTechnique;
 
         /// <summary>
@@ -513,6 +525,17 @@ namespace Prazsky.Core.Render
             _cityWindowBrightnessParam = _effect.Parameters["CityWindowBrightness"];
             _cityWindowTimeParam = _effect.Parameters["CityWindowTime"];
             _cityNeonParam = _effect.Parameters["CityNeon"];
+            _windowPitchXParam = _effect.Parameters["WindowPitchX"];
+            _windowPitchYParam = _effect.Parameters["WindowPitchY"];
+            _windowFillXParam = _effect.Parameters["WindowFillX"];
+            _windowFillYParam = _effect.Parameters["WindowFillY"];
+            _windowMarginParam = _effect.Parameters["WindowMargin"];
+            _windowLitFractionParam = _effect.Parameters["WindowLitFraction"];
+            _windowWarmParam = _effect.Parameters["WindowWarm"];
+            _windowCoolParam = _effect.Parameters["WindowCool"];
+            _windowHoldSecondsParam = _effect.Parameters["WindowHoldSeconds"];
+            _windowHoldVariationParam = _effect.Parameters["WindowHoldVariation"];
+            _windowSwitchFadeParam = _effect.Parameters["WindowSwitchFade"];
             _depthTechnique = _effect.Techniques["InstancedDepth"];
             _effect.CurrentTechnique = _mainTechnique;
 
@@ -714,6 +737,19 @@ namespace Prazsky.Core.Render
                 _cityWindowBrightnessParam.SetValue(CityWindowBrightness);
                 _cityWindowTimeParam.SetValue(CityWindowTime);
                 _cityNeonParam.SetValue(CityNeon);
+
+                var city = CityConfig;
+                _windowPitchXParam.SetValue(city.WindowPitchX);
+                _windowPitchYParam.SetValue(city.WindowPitchY);
+                _windowFillXParam.SetValue(city.WindowFillX);
+                _windowFillYParam.SetValue(city.WindowFillY);
+                _windowMarginParam.SetValue(city.WindowMargin);
+                _windowLitFractionParam.SetValue(city.WindowLitFraction);
+                _windowWarmParam.SetValue(city.WindowWarm.ToVector3());
+                _windowCoolParam.SetValue(city.WindowCool.ToVector3());
+                _windowHoldSecondsParam.SetValue(city.WindowHoldSeconds);
+                _windowHoldVariationParam.SetValue(city.WindowHoldVariation);
+                _windowSwitchFadeParam.SetValue(city.WindowSwitchFade);
             }
             else if (part.Texture != null)
             {

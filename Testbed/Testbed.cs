@@ -381,6 +381,7 @@ namespace Testbed
         private City _city;
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
+        private readonly CitySceneConfig _cityConfig = new();
         private DiscMesh _arenaDiscMesh;
         private InstancedModelRenderer _arenaDiscRenderer;
         private Microsoft.Xna.Framework.Matrix _arenaDiscWorld;
@@ -420,14 +421,8 @@ namespace Testbed
         private readonly Microsoft.Xna.Framework.Vector3[] _sceneLightColor = new Microsoft.Xna.Framework.Vector3[MAX_SCENE_LIGHTS];
         private readonly float[] _sceneLightRange = new float[MAX_SCENE_LIGHTS];
 
-        //The neon city's lights: a ring of alternating magenta/cyan point lights that actually colour the near
-        //towers, the balls and the island (the windows only glow; these light). Bright linear radiance.
-        private const int NEON_LIGHT_COUNT = 6;
-        private static readonly float NEON_LIGHT_RANGE = 58f;
-        private static readonly float NEON_LIGHT_RADIUS = 46f;
-        private static readonly float NEON_LIGHT_HEIGHT = -6f;
-        private static readonly Vector3 NEON_MAGENTA = new(2.6f, 0.25f, 2.2f);
-        private static readonly Vector3 NEON_CYAN = new(0.25f, 2.2f, 2.8f);
+        //The neon city's ring of magenta/cyan point lights (count, range, radius, height, colours) now lives in
+        //_cityConfig.NeonLook; the neon branch of ApplySceneLights reads it. Colours are bright linear radiance.
 
         /// <summary>
         /// Top of the stone island's surface, read off the physics plateau (<see cref="GROUND_PLATEAU_Y"/>) so
@@ -474,19 +469,9 @@ namespace Testbed
         private static readonly float FUNNEL_RIM_HOLE_TUBE = 0.3f;                          //bead radius at the hole
         private const int FUNNEL_RIM_TUBE_SEGMENTS = 16;                                    //facets around each bead
 
-        /// <summary>
-        /// How brightly a lit window burns. Deliberately kept under <see cref="GLARE_THRESHOLD"/>: a
-        /// window that glares is a window that veils the tower behind it, and a thousand of them turn the
-        /// skyline into one white haze. The glare belongs to the balls — the windows only have to be
-        /// bright enough that the unlit one beside them reads as dark.
-        /// </summary>
-        private static readonly float CITY_WINDOW_BRIGHTNESS = 0.35f;
-
-        /// <summary>
-        /// The neon scene runs the windows this bright — well over <see cref="GLARE_THRESHOLD"/> on
-        /// purpose, so each lit sign blooms into a neon glow instead of staying a flat lit pane.
-        /// </summary>
-        private static readonly float NEON_WINDOW_BRIGHTNESS = 0.9f;
+        //Window brightness now lives in the city config: _cityConfig.WindowBrightness for the day city (kept
+        //under GLARE_THRESHOLD, or a window that glares veils its tower) and _cityConfig.NeonLook.WindowBrightness
+        //for neon (well over the threshold, so each lit sign blooms).
 
         #endregion
 
@@ -1148,14 +1133,16 @@ namespace Testbed
             else if (_scene == SceneKind.NeonCity)
             {
                 //A ring of alternating magenta/cyan lights around the island, colouring the near towers and balls
-                for (int i = 0; i < NEON_LIGHT_COUNT; i++)
+                var neonLook = _cityConfig.NeonLook;
+                int neonCount = Math.Min(neonLook.LightCount, MAX_SCENE_LIGHTS);
+                for (int i = 0; i < neonCount; i++)
                 {
-                    float a = i / (float)NEON_LIGHT_COUNT * Microsoft.Xna.Framework.MathHelper.TwoPi;
-                    _sceneLightPos[i] = new Vector3(MathF.Cos(a) * NEON_LIGHT_RADIUS, NEON_LIGHT_HEIGHT, MathF.Sin(a) * NEON_LIGHT_RADIUS);
-                    _sceneLightColor[i] = (i % 2 == 0) ? NEON_MAGENTA : NEON_CYAN;
-                    _sceneLightRange[i] = NEON_LIGHT_RANGE;
+                    float a = i / (float)neonCount * Microsoft.Xna.Framework.MathHelper.TwoPi;
+                    _sceneLightPos[i] = new Vector3(MathF.Cos(a) * neonLook.LightRadius, neonLook.LightHeight, MathF.Sin(a) * neonLook.LightRadius);
+                    _sceneLightColor[i] = (i % 2 == 0) ? neonLook.Magenta.ToVector3() : neonLook.Cyan.ToVector3();
+                    _sceneLightRange[i] = neonLook.LightRange;
                 }
-                count = NEON_LIGHT_COUNT;
+                count = neonCount;
             }
 
             _instancingEffect.Parameters["SceneLightPosition"].SetValue(_sceneLightPos);
@@ -1176,7 +1163,7 @@ namespace Testbed
 
             //The clearing the city keeps clear of towers is now the round island's radius, so the towers
             //frame the small island closely instead of a big plaza
-            _city = new City(seed: 20260720, arenaHalfExtent: ARENA_DISC_RADIUS, config: new CitySceneConfig());
+            _city = new City(seed: 20260720, arenaHalfExtent: ARENA_DISC_RADIUS, config: _cityConfig);
 
             Console.WriteLine($"[city] {_city.Buildings.Length} buildings, island radius {ARENA_DISC_RADIUS}, floor at {ARENA_Y}");
 
@@ -1186,7 +1173,8 @@ namespace Testbed
 
             _cityRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, Vector3.One, _instancingEffect)
             {
-                CityWindowBrightness = CITY_WINDOW_BRIGHTNESS,
+                CityWindowBrightness = _cityConfig.WindowBrightness,
+                CityConfig = _cityConfig,
                 //The specular ambient is not multiplied by albedo - a reflection does not care how dark
                 //the surface under it is - so on a city's worth of facades seen at grazing angles it
                 //washes the whole skyline in sky color. Concrete is rough and barely reflective; this is
@@ -1672,7 +1660,7 @@ namespace Testbed
                 {
                     bool neon = _scene == SceneKind.NeonCity;
                     _cityRenderer.CityNeon = neon ? 1f : 0f;
-                    _cityRenderer.CityWindowBrightness = neon ? NEON_WINDOW_BRIGHTNESS : CITY_WINDOW_BRIGHTNESS;
+                    _cityRenderer.CityWindowBrightness = neon ? _cityConfig.NeonLook.WindowBrightness : _cityConfig.WindowBrightness;
                     _cityRenderer.Draw(_camera, _city.Buildings, _city.Buildings.Length, _sceneEffectParams);
                 }
                 else

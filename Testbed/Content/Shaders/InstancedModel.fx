@@ -1082,28 +1082,29 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
 	return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
 }
 
-//Vertical spacing of a window row and horizontal spacing of a column, in world units, and how much of
-//each cell is glass rather than the wall around it
-static const float WindowPitchY = 2.2;
-static const float WindowPitchX = 1.7;
-static const float WindowFillY = 0.52;
-static const float WindowFillX = 0.46;
+//Window layout and look. These are uniforms now, set on every city draw from CitySceneConfig (whose
+//defaults reproduce the values that used to be hard-coded here). Only the city technique reads them, so
+//leaving them zero for the ball and scene draws is harmless.
+//Vertical/horizontal window spacing (world units) and how much of each cell is glass rather than wall:
+float WindowPitchY;
+float WindowPitchX;
+float WindowFillY;
+float WindowFillX;
 
-//Wall border kept clear of glass at every building edge, in world units. The window grid is laid out per
-//building (see CityPS) with this margin held at every side, so no window is ever jammed into a corner and
-//every tower carries the same border — the pitch above is only the target spacing the count is solved for.
-static const float WindowMargin = 0.9;
+//Wall border kept clear of glass at every building edge (see CityPS): the grid is laid out per building
+//with this margin held at every side, so no window is ever jammed into a corner and every tower matches.
+float WindowMargin;
 
-//Fraction of the windows that are lit, and the two colors they are lit with
-static const float WindowLitFraction = 0.42;
-static const float3 WindowWarm = float3(1.0, 0.78, 0.44);
-static const float3 WindowCool = float3(0.52, 0.82, 1.0);
+//Fraction of the windows that are lit, and the two colours they are lit with.
+float WindowLitFraction;
+float3 WindowWarm;
+float3 WindowCool;
 
 //How long a window holds one state before deciding again, how much that varies from window to window,
-//and how much of an interval the switch itself takes
-static const float WindowHoldSeconds = 7.0;
-static const float WindowHoldVariation = 24.0;
-static const float WindowSwitchFade = 0.06;
+//and how much of an interval the switch itself takes.
+float WindowHoldSeconds;
+float WindowHoldVariation;
+float WindowSwitchFade;
 
 //How brightly the lit windows glow, and how dark the facade around them is
 float CityWindowBrightness;

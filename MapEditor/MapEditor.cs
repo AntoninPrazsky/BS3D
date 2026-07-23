@@ -118,6 +118,7 @@ namespace MapEditor
         private City _city;
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
+        private readonly CitySceneConfig _cityConfig = new();
 
         //Wall-clock seconds the scene motion runs off (waves, wind, birds, snow), so the environment keeps
         //moving the way it does in the game instead of freezing
@@ -132,8 +133,7 @@ namespace MapEditor
         //city's. The shaders — the actual look of every scene — are the shared source; these few scalars are
         //the only things duplicated, and they are stable.
         private const float ARENA_HALF_EXTENT = 60f;
-        private const float CITY_WINDOW_BRIGHTNESS = 0.35f;
-        private const float NEON_WINDOW_BRIGHTNESS = 0.9f;
+        //Window brightness (day + neon) now lives in _cityConfig.WindowBrightness / _cityConfig.NeonLook.WindowBrightness.
         private const float CITY_SPECULAR_AMBIENT = 0.07f;
         private const float SCENE_SKY_TINT = 0.5f;
         private const float SCENE_AMBIENT_INTENSITY = 0.25f;
@@ -282,10 +282,11 @@ namespace MapEditor
             //takes part in the sky lighting below like the balls do.
             _sceneRenderer = new SceneRenderer(GraphicsDevice, Content);
             _unitBox = new BoxMesh(GraphicsDevice, 1f, 1f, 1f);
-            _city = new City(seed: 20260720, arenaHalfExtent: ARENA_HALF_EXTENT, config: new CitySceneConfig());
+            _city = new City(seed: 20260720, arenaHalfExtent: ARENA_HALF_EXTENT, config: _cityConfig);
             _cityRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, Vector3.One, _instancingEffect)
             {
-                CityWindowBrightness = CITY_WINDOW_BRIGHTNESS,
+                CityWindowBrightness = _cityConfig.WindowBrightness,
+                CityConfig = _cityConfig,
                 SpecularAmbientStrength = CITY_SPECULAR_AMBIENT
             };
 
@@ -601,7 +602,7 @@ namespace MapEditor
             {
                 bool neon = _scene == SceneKind.NeonCity;
                 _cityRenderer.CityNeon = neon ? 1f : 0f;
-                _cityRenderer.CityWindowBrightness = neon ? NEON_WINDOW_BRIGHTNESS : CITY_WINDOW_BRIGHTNESS;
+                _cityRenderer.CityWindowBrightness = neon ? _cityConfig.NeonLook.WindowBrightness : _cityConfig.WindowBrightness;
                 _cityRenderer.Draw(Camera3D, _city.Buildings, _city.Buildings.Length, _sceneEffectParams);
             }
             else
