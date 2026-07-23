@@ -10,6 +10,7 @@ using Prazsky.BS3D.GameObjects;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Input;
+using Prazsky.BS3D.Levels;
 using Prazsky.BS3D.Physics;
 using Prazsky.Core;
 using Prazsky.Core.Camera;
@@ -190,6 +191,11 @@ namespace Testbed
         private SkyDome _sky;
         private Model _skyModel;
         private byte _skyModelNumber = 1;
+
+        //An explicit "sky=<n>" on the command line pins the starting dome over a startup level's own dome (the
+        //dome-testing workflow in CLAUDE.md relies on it). Consumed once the startup map/level has loaded, so a
+        //level opened at runtime (F2/drag-drop) still takes its own dome.
+        private bool _skyFromCommandLine;
 
         /// <summary>Number of <c>Skyes/SkyDome*.dae</c> assets the game cycles through.</summary>
         private const byte SKY_DOME_COUNT = 18;
@@ -381,7 +387,7 @@ namespace Testbed
         private City _city;
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
-        private readonly CitySceneConfig _cityConfig = new();
+        private CitySceneConfig _cityConfig = new();
         private DiscMesh _arenaDiscMesh;
         private InstancedModelRenderer _arenaDiscRenderer;
         private Microsoft.Xna.Framework.Matrix _arenaDiscWorld;
@@ -653,7 +659,8 @@ namespace Testbed
             _switchMapPath = switchMapPath;
             _uncappedFps = uncappedFps; //Testing: "nocap" on the command line disables vsync so real rendering headroom can be measured
             _supersampleFactor = Math.Clamp(supersampleFactor, 1, 4); //Testing: "ssaa=<n>" on the command line trades sharpness against fill rate
-            if (skyNumber >= 1 && skyNumber <= SKY_DOME_COUNT) _skyModelNumber = skyNumber; //Testing: "sky=<n>" on the command line picks the starting sky dome
+            _skyFromCommandLine = skyNumber >= 1 && skyNumber <= SKY_DOME_COUNT;
+            if (_skyFromCommandLine) _skyModelNumber = skyNumber; //Testing: "sky=<n>" on the command line picks the starting sky dome
             else if (_scene == SceneKind.Sea) _skyModelNumber = SEA_DEFAULT_SKY_DOME; //The sea scene defaults to a darker dome (unless sky= overrode it above)
             else if (_scene == SceneKind.Savanna) _skyModelNumber = SAVANNA_DEFAULT_SKY_DOME; //The savanna defaults to a warm golden dome
 
@@ -882,6 +889,9 @@ namespace Testbed
             EnsureSceneTarget();
 
             if (!string.IsNullOrEmpty(_startupMapPath) && File.Exists(_startupMapPath)) DeserializeMapFromFile(_startupMapPath);
+
+            //The command-line sky= only pins the startup dome; a level opened at runtime takes its own dome
+            _skyFromCommandLine = false;
 
             ApplySkyLighting();
         }
@@ -1320,9 +1330,74 @@ namespace Testbed
 
         private void DeserializeMapFromFile(string filePath)
         {
+            try
+            {
+                //A level file (format marker "bs3d-level") carries a map plus the scene/sky that reproduce its
+                //look; a plain map file carries just the layout. Both use .json, so the loader probes.
+                if (Level.IsLevelFile(filePath))
+                {
+                    LoadLevel(filePath);
+                    return;
+                }
+
+                InstallMap(new BallsMap(filePath, _hrSphere));
+            }
+            catch (Exception e)
+            {
+                //A broken or unreadable file must not kill the game: a hand-edited level with a typo'd
+                //discriminator or sky, a non-rectangular ball array, a dropped folder. Both paths parse fully
+                //before the current structure is torn down (LoadLevel / the BallsMap ctor before InstallMap),
+                //so logging and returning leaves the running game exactly as it was.
+                Console.WriteLine($"[load] Failed to load '{filePath}': {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Loads a level: its map through the same path a plain map file takes, then the scene backdrop with
+        /// its full config and the sky dome. The file is parsed completely before the current structure is
+        /// torn down, so a broken file leaves the running game untouched.
+        /// </summary>
+        private void LoadLevel(string filePath)
+        {
+            Level level = Level.Load(filePath);
+            BallsMap map = new(level.Map, _hrSphere);
+
+            InstallMap(map);
+
+            if (level.Scene != null)
+            {
+                _scene = level.Scene.Kind;
+
+                if (level.Scene is CitySceneConfig cityConfig)
+                {
+                    //The city lives outside the SceneRenderer: regenerate the buildings from the config's
+                    //layout and hand the window/neon look to the city renderer
+                    _cityConfig = cityConfig;
+                    _city = new City(seed: 20260720, arenaHalfExtent: ARENA_DISC_RADIUS, config: _cityConfig);
+                    _cityRenderer.CityConfig = _cityConfig;
+                }
+                else
+                {
+                    _sceneRenderer.Apply(level.Scene);
+                }
+            }
+
+            //The level's dome wins over any scene-entry default (NumPad1 still cycles freely from here), except
+            //an explicit command-line sky= pins the startup dome — see _skyFromCommandLine
+            if (!_skyFromCommandLine) SetSkyDome(Math.Clamp(level.SkyDome, (byte)1, (byte)18));
+
+            Console.WriteLine($"[level] Loaded '{level.Name ?? Path.GetFileName(filePath)}': scene={_scene}, sky={_skyModelNumber}, balls={_map.GetBallsCount()}");
+        }
+
+        /// <summary>
+        /// Installs an already-built map: tears down the current ball structure, fits the ceiling, cannon
+        /// and game camera to the new field and builds the constrained physics structure.
+        /// </summary>
+        private void InstallMap(BallsMap map)
+        {
             RemoveCurrentBallsStructure();
 
-            _map = new(filePath, _hrSphere);
+            _map = map;
             _map.Center();
             _eventHandler.Map = _map;
 
