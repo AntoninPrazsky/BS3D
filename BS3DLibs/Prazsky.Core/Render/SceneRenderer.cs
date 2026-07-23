@@ -66,7 +66,9 @@ namespace Prazsky.Core.Render
         //Scene configuration. Defaults reproduce the current look byte-for-byte; the desert, mountain and
         //meadow scenes read their tuning from these instead of constants. A runtime setter/apply (for a
         //loaded level or the live editor) is wired under issue #32; the remaining scenes follow.
+        private readonly SeaSceneConfig _seaConfig = new();
         private readonly DesertSceneConfig _desertConfig = new();
+        private readonly SavannaSceneConfig _savannaConfig = new();
         private readonly MountainSceneConfig _mountainConfig = new();
         private readonly MeadowSceneConfig _meadowConfig = new();
 
@@ -84,55 +86,8 @@ namespace Prazsky.Core.Render
         private const int SEA_GRID_N = 380;
         private const float SEA_EXTENT = 1600f;
 
-        /// <summary>
-        /// Mean water level. Lowered well below the platform (its recessed glass reaches to about -10.7) so a
-        /// rough sea has headroom for its crests without them poking up through the panels — the arena now
-        /// stands a little above churning water rather than sitting right at a mirror-calm waterline.
-        /// </summary>
-        private const float SEA_LEVEL_Y = -13f;
-
-        //Deep body and the paler up-facing shade (linear reflectances, multiplied by skylight in the shader).
-        //Darker and greener than the calm version, for storm water.
-        private static readonly Vector3 WATER_COLOR_DEEP = new(0.02f, 0.05f, 0.07f);
-        private static readonly Vector3 WATER_COLOR_SHALLOW = new(0.07f, 0.17f, 0.19f);
-
-        //Dominant swell height (world units), crest sharpness (0..1 Gerstner steepness) and a speed multiplier
-        //on the dispersion-derived wave speed. Amplitude is kept so the tallest crests stay below the platform.
-        private const float WAVE_AMPLITUDE = 0.6f;
-        private const float WAVE_STEEPNESS = 0.95f;
-        private const float WAVE_SPEED = 1.2f;
-
-        //Waves fade to flat between these camera distances. Kept out to nearly the grid half-extent (800) so
-        //the far sea keeps a wavy, foam-flecked horizon rather than melting into a flat line too early.
-        private const float WAVE_FADE_START = 340f;
-        private const float WAVE_FADE_END = 780f;
-
-        //Fine wind chop layered per pixel over the swell: peak height, ripples per world unit, scroll speed,
-        //and the wind it crawls along (a roughly unit direction in XZ). Strong, so the surface is broken and
-        //rough rather than a smooth mirror between the crests.
-        private const float CHOP_AMPLITUDE = 0.16f;
-        private const float CHOP_FREQUENCY = 1.0f;
-        private const float CHOP_SPEED = 1.6f;
-        private static readonly Vector2 SEA_WIND = new(0.94f, 0.34f);
-
-        private const float SUN_GLINT_STRENGTH = 12f;
-        private const float SUN_GLINT_POWER = 500f;
-
-        //Whitecap foam: how far the wave Jacobian must fold before foam shows (nearer 1 = more), that fold
-        //foam's strength, where on a crest height-driven foam begins (0..1) and its strength, and the foam
-        //color. Tuned heavy for a storm - foam over much of the upper crest and wherever the waves pinch.
-        private const float FOAM_JACOBIAN_THRESHOLD = 0.5f;
-        private const float FOAM_STRENGTH = 1.1f;
-        private const float FOAM_CREST_START = 0.72f;
-        private const float FOAM_CREST_STRENGTH = 0.7f;
-        private static readonly Vector3 FOAM_COLOR = new(0.8f, 0.85f, 0.9f);
-
-        //Subsurface scattering: strength of the crest glow when the sun is behind a wave, and the warm
-        //green-blue that light takes coming through the water.
-        private const float SSS_STRENGTH = 0.7f;
-        private static readonly Vector3 SSS_COLOR = new(0.15f, 0.55f, 0.50f);
-
-        private const float SEA_HORIZON_HAZE_DISTANCE = 700f;
+        //Look/tuning parameters (water level & colours, waves, chop, wind, sun glint, foam, subsurface, haze)
+        //now live in SeaSceneConfig; SceneRenderer reads them from _seaConfig (spray via _seaConfig.Spray).
 
         #endregion
 
@@ -329,26 +284,9 @@ namespace Prazsky.Core.Render
         private readonly VertexBuffer _sprayVertexBuffer;
         private readonly IndexBuffer _sprayIndexBuffer;
 
-        //Blown spray and spindrift over the sea: a thin slab of billboards hugging the water, whipped downwind
-        //by the storm. One buffer, two reads (fine droplets + faint mist wisps), split per particle in the shader.
-        private const int SPRAY_PARTICLE_COUNT = 2000;
-        //Wide slab in XZ (follows the camera), thin in Y - the spray clings to the surface rather than filling a volume
-        private static readonly Vector3 SPRAY_BOX_SIZE = new(200f, 16f, 200f);
-        //Centred just above the mean sea level (SEA_LEVEL_Y) so the spray sits on the water at any camera height
-        private const float SPRAY_LEVEL_Y = SEA_LEVEL_Y + 2f;
-        //Strong downwind drift, aligned with the sea's own wind (SEA_WIND ~ (0.94, 0.34)) but much faster
-        private static readonly Vector2 SPRAY_WIND = new(30f, 11f);
-        private const float SPRAY_RISE = 3f;   //slow vertical churn
-        private const float SPRAY_TURB = 1.6f; //per-particle turbulent sway
-        private const float SPRAY_DROPLET_SIZE = 0.12f;
-        //Cool grey-blue, its LUMINANCE deliberately just under GLARE_THRESHOLD (0.38). At a grazing angle the
-        //view ray threads hundreds of particles through the thin slab and they stack to full opacity, so any
-        //colour above the threshold - however low the per-particle alpha - blooms into a starfield once it
-        //accumulates. A glare-safe colour is the only robust fix in the HDR pass: the spray reads as cold
-        //storm haze/spindrift rather than white foam-spray, but it never glares. (A brighter, whiter spray
-        //would need a higher glare threshold or a post-resolve pass - see CLAUDE.md.)
-        private static readonly Vector3 SPRAY_COLOR = new(0.33f, 0.37f, 0.43f);
-        private const float SPRAY_OPACITY = 0.38f;
+        //Spray parameters (particle count/size/colour/opacity, box, level, wind, rise, turbulence) now live in
+        //SeaSceneConfig.Spray (SprayConfig); SceneRenderer reads them from _seaConfig.Spray. The glare-safe
+        //spray colour still matters: its luminance must stay under GLARE_THRESHOLD or it blooms - see CLAUDE.md.
 
         #endregion
 
@@ -381,28 +319,28 @@ namespace Prazsky.Core.Render
             _seaEffect = content.Load<Effect>("Shaders/Sea");
             CreateGridMesh(SEA_GRID_N, SEA_EXTENT, out _seaVertexBuffer, out _seaIndexBuffer, out _seaIndexCount);
 
-            _seaEffect.Parameters["SeaLevelY"].SetValue(SEA_LEVEL_Y);
-            _seaEffect.Parameters["WaterColorDeep"].SetValue(WATER_COLOR_DEEP);
-            _seaEffect.Parameters["WaterColorShallow"].SetValue(WATER_COLOR_SHALLOW);
-            _seaEffect.Parameters["WaveAmplitude"].SetValue(WAVE_AMPLITUDE);
-            _seaEffect.Parameters["WaveSteepness"].SetValue(WAVE_STEEPNESS);
-            _seaEffect.Parameters["WaveSpeed"].SetValue(WAVE_SPEED);
-            _seaEffect.Parameters["WaveFadeStart"].SetValue(WAVE_FADE_START);
-            _seaEffect.Parameters["WaveFadeEnd"].SetValue(WAVE_FADE_END);
-            _seaEffect.Parameters["ChopAmplitude"].SetValue(CHOP_AMPLITUDE);
-            _seaEffect.Parameters["ChopFrequency"].SetValue(CHOP_FREQUENCY);
-            _seaEffect.Parameters["ChopSpeed"].SetValue(CHOP_SPEED);
-            _seaEffect.Parameters["WindDirection"].SetValue(SEA_WIND);
-            _seaEffect.Parameters["SunGlintStrength"].SetValue(SUN_GLINT_STRENGTH);
-            _seaEffect.Parameters["SunGlintPower"].SetValue(SUN_GLINT_POWER);
-            _seaEffect.Parameters["FoamJacobianThreshold"].SetValue(FOAM_JACOBIAN_THRESHOLD);
-            _seaEffect.Parameters["FoamStrength"].SetValue(FOAM_STRENGTH);
-            _seaEffect.Parameters["FoamCrestStart"].SetValue(FOAM_CREST_START);
-            _seaEffect.Parameters["FoamCrestStrength"].SetValue(FOAM_CREST_STRENGTH);
-            _seaEffect.Parameters["FoamColor"].SetValue(FOAM_COLOR);
-            _seaEffect.Parameters["SssStrength"].SetValue(SSS_STRENGTH);
-            _seaEffect.Parameters["SssColor"].SetValue(SSS_COLOR);
-            _seaEffect.Parameters["HorizonHazeDistance"].SetValue(SEA_HORIZON_HAZE_DISTANCE);
+            _seaEffect.Parameters["SeaLevelY"].SetValue(_seaConfig.LevelY);
+            _seaEffect.Parameters["WaterColorDeep"].SetValue(_seaConfig.WaterDeep.ToVector3());
+            _seaEffect.Parameters["WaterColorShallow"].SetValue(_seaConfig.WaterShallow.ToVector3());
+            _seaEffect.Parameters["WaveAmplitude"].SetValue(_seaConfig.WaveAmplitude);
+            _seaEffect.Parameters["WaveSteepness"].SetValue(_seaConfig.WaveSteepness);
+            _seaEffect.Parameters["WaveSpeed"].SetValue(_seaConfig.WaveSpeed);
+            _seaEffect.Parameters["WaveFadeStart"].SetValue(_seaConfig.WaveFadeStart);
+            _seaEffect.Parameters["WaveFadeEnd"].SetValue(_seaConfig.WaveFadeEnd);
+            _seaEffect.Parameters["ChopAmplitude"].SetValue(_seaConfig.ChopAmplitude);
+            _seaEffect.Parameters["ChopFrequency"].SetValue(_seaConfig.ChopFrequency);
+            _seaEffect.Parameters["ChopSpeed"].SetValue(_seaConfig.ChopSpeed);
+            _seaEffect.Parameters["WindDirection"].SetValue(_seaConfig.Wind.ToVector2());
+            _seaEffect.Parameters["SunGlintStrength"].SetValue(_seaConfig.SunGlintStrength);
+            _seaEffect.Parameters["SunGlintPower"].SetValue(_seaConfig.SunGlintPower);
+            _seaEffect.Parameters["FoamJacobianThreshold"].SetValue(_seaConfig.FoamJacobianThreshold);
+            _seaEffect.Parameters["FoamStrength"].SetValue(_seaConfig.FoamStrength);
+            _seaEffect.Parameters["FoamCrestStart"].SetValue(_seaConfig.FoamCrestStart);
+            _seaEffect.Parameters["FoamCrestStrength"].SetValue(_seaConfig.FoamCrestStrength);
+            _seaEffect.Parameters["FoamColor"].SetValue(_seaConfig.FoamColor.ToVector3());
+            _seaEffect.Parameters["SssStrength"].SetValue(_seaConfig.SssStrength);
+            _seaEffect.Parameters["SssColor"].SetValue(_seaConfig.SssColor.ToVector3());
+            _seaEffect.Parameters["HorizonHazeDistance"].SetValue(_seaConfig.HorizonHazeDistance);
 
             //--- Desert: a flat lattice the shader displaces into Sahara dunes (per-pixel normal, no grid)
             _desertEffect = content.Load<Effect>("Shaders/Desert");
@@ -638,18 +576,18 @@ namespace Prazsky.Core.Render
             //--- Spray: a static billboard buffer for the sea's blown spray and spindrift, animated entirely
             //in the shader like the snow (never rebuilt). Same position+data billboard vertex.
             _sprayEffect = content.Load<Effect>("Shaders/Spray");
-            _sprayEffect.Parameters["SprayBoxSize"].SetValue(SPRAY_BOX_SIZE);
-            _sprayEffect.Parameters["SprayLevelY"].SetValue(SPRAY_LEVEL_Y);
-            _sprayEffect.Parameters["SprayWind"].SetValue(SPRAY_WIND);
-            _sprayEffect.Parameters["SprayRise"].SetValue(SPRAY_RISE);
-            _sprayEffect.Parameters["SprayTurb"].SetValue(SPRAY_TURB);
-            _sprayEffect.Parameters["DropletSize"].SetValue(SPRAY_DROPLET_SIZE);
-            _sprayEffect.Parameters["SprayColor"].SetValue(SPRAY_COLOR);
-            _sprayEffect.Parameters["SprayOpacity"].SetValue(SPRAY_OPACITY);
+            _sprayEffect.Parameters["SprayBoxSize"].SetValue(_seaConfig.Spray.BoxSize.ToVector3());
+            _sprayEffect.Parameters["SprayLevelY"].SetValue(_seaConfig.LevelY + _seaConfig.Spray.LevelYAboveSea);
+            _sprayEffect.Parameters["SprayWind"].SetValue(_seaConfig.Spray.Wind.ToVector2());
+            _sprayEffect.Parameters["SprayRise"].SetValue(_seaConfig.Spray.Rise);
+            _sprayEffect.Parameters["SprayTurb"].SetValue(_seaConfig.Spray.Turbulence);
+            _sprayEffect.Parameters["DropletSize"].SetValue(_seaConfig.Spray.DropletSize);
+            _sprayEffect.Parameters["SprayColor"].SetValue(_seaConfig.Spray.Color.ToVector3());
+            _sprayEffect.Parameters["SprayOpacity"].SetValue(_seaConfig.Spray.Opacity);
 
-            BirdVertex[] sprayVertices = new BirdVertex[SPRAY_PARTICLE_COUNT * 4];
+            BirdVertex[] sprayVertices = new BirdVertex[_seaConfig.Spray.ParticleCount * 4];
             Random sprayRng = new(5023);
-            for (int i = 0; i < SPRAY_PARTICLE_COUNT; i++)
+            for (int i = 0; i < _seaConfig.Spray.ParticleCount; i++)
             {
                 Vector3 basePosition = new((float)sprayRng.NextDouble(), (float)sprayRng.NextDouble(), (float)sprayRng.NextDouble());
                 float rand = (float)sprayRng.NextDouble();
@@ -662,8 +600,8 @@ namespace Prazsky.Core.Render
             _sprayVertexBuffer = new VertexBuffer(graphicsDevice, BirdVertex.Declaration, sprayVertices.Length, BufferUsage.WriteOnly);
             _sprayVertexBuffer.SetData(sprayVertices);
 
-            short[] sprayIndices = new short[SPRAY_PARTICLE_COUNT * 6];
-            for (int i = 0; i < SPRAY_PARTICLE_COUNT; i++)
+            short[] sprayIndices = new short[_seaConfig.Spray.ParticleCount * 6];
+            for (int i = 0; i < _seaConfig.Spray.ParticleCount; i++)
             {
                 int v = i * 4;
                 int o = i * 6;
@@ -1111,7 +1049,7 @@ namespace Prazsky.Core.Render
             _graphicsDevice.SetVertexBuffer(_sprayVertexBuffer);
             _graphicsDevice.Indices = _sprayIndexBuffer;
             _sprayEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, SPRAY_PARTICLE_COUNT * 2);
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _seaConfig.Spray.ParticleCount * 2);
 
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
