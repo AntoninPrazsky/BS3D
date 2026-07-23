@@ -10,3 +10,6 @@ obj/
 
 # Project specific
 /LEVELS
+
+# Crash dumps (MSYS/Cygwin)
+*.stackdump
