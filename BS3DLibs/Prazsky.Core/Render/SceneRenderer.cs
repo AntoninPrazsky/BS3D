@@ -63,6 +63,20 @@ namespace Prazsky.Core.Render
     {
         private readonly GraphicsDevice _graphicsDevice;
 
+        /// <summary>
+        /// Radius of the arena platform's footprint, cut out of every solid terrain scene (mountains, meadow,
+        /// savanna, desert) around the world origin so the drain funnel below the island reads as a drain into a
+        /// pit rather than a bowl in flat ground - the flat clearing otherwise slices across the funnel just
+        /// below its rim, hiding its depth and swallowing the balls falling through. The Testbed sets this to the
+        /// island's radius; the map editor draws no island, so it leaves it 0 (the default) and nothing is cut.
+        /// The water scenes are not cut - the funnel draining into the sea is fine as it is.
+        /// </summary>
+        public float TerrainHoleRadius { get; set; }
+
+        /// <summary>Mean sea level of the sea scene (world Y), so the caller can tell when its camera is under
+        /// the water and fade in the underwater murk.</summary>
+        public float SeaLevelY => _seaConfig.LevelY;
+
         //Scene configuration. Defaults reproduce the original hard-coded look byte-for-byte; every scene
         //reads its tuning from these instead of constants. Replaced at runtime by Apply(SceneConfig) when a
         //level is loaded (issue #32), which re-pushes the effect parameters and rebuilds the scatter/particle
@@ -891,6 +905,7 @@ namespace Prazsky.Core.Render
             float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
 
             _desertEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
+            _desertEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
             _desertEffect.Parameters["View"].SetValue(frame.Camera.View);
             _desertEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
             _desertEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
@@ -925,6 +940,7 @@ namespace Prazsky.Core.Render
             float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
 
             _savannaEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
+            _savannaEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
             _savannaEffect.Parameters["View"].SetValue(frame.Camera.View);
             _savannaEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
             _savannaEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
@@ -1097,6 +1113,7 @@ namespace Prazsky.Core.Render
             float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
 
             _mountainEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
+            _mountainEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
             _mountainEffect.Parameters["View"].SetValue(frame.Camera.View);
             _mountainEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
             _mountainEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
@@ -1189,6 +1206,7 @@ namespace Prazsky.Core.Render
             float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
 
             _meadowEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
+            _meadowEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
             _meadowEffect.Parameters["View"].SetValue(frame.Camera.View);
             _meadowEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
             _meadowEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);

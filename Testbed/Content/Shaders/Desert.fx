@@ -45,6 +45,13 @@ float3 HorizonColor;
 //sand level in the clearing (the island's foot), peak dune height, and the flat clearing that rises into
 //dunes over its transition band - the same shape the savanna/mountains/meadow use around the round island.
 float2 OriginXZ;
+
+//Radius of the platform footprint cut out of the terrain around the world origin, so the drain funnel below
+//the island reads as a drain into a pit rather than a bowl in flat ground (the flat clearing otherwise slices
+//across the funnel just below its rim, hiding its depth and swallowing the balls falling through). The Testbed
+//sets this to the island's radius; the map editor draws no island, so it leaves it 0 and nothing is cut.
+float IslandHoleRadius;
+
 float DesertLevelY;
 float DuneAmplitude;
 float ClearingRadius;
@@ -162,6 +169,10 @@ float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height
 float4 DesertPS(DesertVertexOutput input) : COLOR
 {
 	float3 worldPosition = input.WorldPosition;
+
+	//Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+	clip(length(worldPosition.xz) - IslandHoleRadius);
+
 	float dist = distance(CameraPosition, worldPosition);
 	float footprint = length(fwidth(worldPosition.xz));
 

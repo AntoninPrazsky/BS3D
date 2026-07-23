@@ -48,7 +48,7 @@ namespace MapEditor
         private static readonly int[,] BALL_LOD_RESOLUTIONS = { { 32, 24 }, { 16, 12 }, { 10, 7 } };
         private static readonly float[] BALL_LOD_DISTANCES = { 15f, 30f };
         private static readonly int BALL_LOD_COUNT = 3;
-        private static readonly int BALL_TYPE_COUNT = 4;
+        private static readonly int BALL_TYPE_COUNT = (int)BallType.Type8;   //red/green/blue/white + cyan/magenta/yellow/black
         private static readonly int BALL_PATTERN_GORES = 5;
 
         private static readonly float BALL_OCCLUSION_STRENGTH = 0.55f;
@@ -237,6 +237,10 @@ namespace MapEditor
                 new(mgKeys.NumPad2,() => _selector.ChangeBallType(BallType.Type2), "Change ball type to 2 (green)"),
                 new(mgKeys.NumPad3,() => _selector.ChangeBallType(BallType.Type3), "Change ball type to 3 (blue)"),
 				new(mgKeys.NumPad4,() => _selector.ChangeBallType(BallType.Type4), "Change ball type to 4 (white)"),
+                new(mgKeys.NumPad5,() => _selector.ChangeBallType(BallType.Type5), "Change ball type to 5 (cyan)"),
+                new(mgKeys.NumPad6,() => _selector.ChangeBallType(BallType.Type6), "Change ball type to 6 (magenta)"),
+                new(mgKeys.NumPad7,() => _selector.ChangeBallType(BallType.Type7), "Change ball type to 7 (yellow)"),
+                new(mgKeys.NumPad8,() => _selector.ChangeBallType(BallType.Type8), "Change ball type to 8 (black)"),
 
 				new(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
 				new(mgKeys.F11, () => SetGraphics(_graphics.IsFullScreen), "Fullscreen/windowed"),

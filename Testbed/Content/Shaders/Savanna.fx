@@ -26,6 +26,13 @@ float3 HorizonColor;
 
 //Where the flat grid is pinned this frame (camera XZ snapped to a cell), and the terrain shape dials
 float2 OriginXZ;
+
+//Radius of the platform footprint cut out of the terrain around the world origin, so the drain funnel below
+//the island reads as a drain into a pit rather than a bowl in flat ground (the flat clearing otherwise slices
+//across the funnel just below its rim, hiding its depth and swallowing the balls falling through). The Testbed
+//sets this to the island's radius; the map editor draws no island, so it leaves it 0 and nothing is cut.
+float IslandHoleRadius;
+
 float SavannaLevelY;
 float HillHeight;
 float ClearingRadius;
@@ -133,6 +140,10 @@ float GrassRelief(float2 xz, float footprint)
 float4 SavannaPS(SavannaVertexOutput input) : COLOR
 {
 	float3 worldPosition = input.WorldPosition;
+
+	//Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+	clip(length(worldPosition.xz) - IslandHoleRadius);
+
 	float footprint = length(fwidth(worldPosition.xz));
 
 	//The base terrain normal, taken PER PIXEL from the height field's gradient (three cheap taps) rather than

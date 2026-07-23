@@ -35,7 +35,7 @@ namespace Testbed
 
         #region Instanced ball rendering (issues #19 and #28)
 
-        private static readonly int BALL_TYPE_COUNT = (int)BallType.Type4;
+        private static readonly int BALL_TYPE_COUNT = (int)BallType.Type8;   //red/green/blue/white + cyan/magenta/yellow/black
 
         //Procedurally generated sphere LODs, finest first: {slices, stacks} and the camera distance
         //up to which each level is used (the last level covers everything beyond the last distance).
@@ -398,6 +398,16 @@ namespace Testbed
         private BasicEffectParams _funnelRimEffectParams;
         private Microsoft.Xna.Framework.Matrix _funnelWorld;
 
+        //A dark pit shaft behind the glass funnel, drawn in the solid-terrain scenes only (mountain, meadow,
+        //savanna, desert). The terrain there has its footprint cut out (see TerrainHoleRadius); without a dark
+        //backing the transparent funnel would just show the bright sky-haze behind the hole and read as a glass
+        //ring on the ground, not a drain. This wide dark cone nests the funnel and descends past the kill plane,
+        //so the drain reads as a deep, dark well going down into the earth. Not drawn in the sea (water fills it)
+        //or the city (the city's own canyon falls away below the arena).
+        private FunnelMesh _pitMesh;
+        private InstancedModelRenderer _pitRenderer;
+        private Microsoft.Xna.Framework.Matrix _pitWorld;
+
         //Which environment the arena stands in. City is the default; Sea, Savanna, Desert, Mountain, Meadow and
         //NeonCity swap the city (and only the city) for open water, a savanna, a Sahara of dunes, a snowy range,
         //a flowering meadow, or the same city lit up in neon — the round island stays in all seven.
@@ -437,6 +447,14 @@ namespace Testbed
         /// </summary>
         private static readonly float ARENA_Y = GROUND_PLATEAU_Y + Constants.HALF;
 
+        //When the free camera dips below the sea surface the whole frame is pulled into a blue-green murk so it
+        //reads as being underwater (see Tonemap.fx's underwater block). These are LINEAR: ABSORB multiplies the
+        //scene (red goes first, so it blues and dims), INSCATTER is the water's own ambient glow added on top,
+        //and the effect ramps to full over FADE_DEPTH world units below the mean surface. Sea scene only.
+        private static readonly Vector3 UNDERWATER_ABSORB = new(0.10f, 0.42f, 0.52f);
+        private static readonly Vector3 UNDERWATER_INSCATTER = new(0.015f, 0.06f, 0.09f);
+        private const float UNDERWATER_FADE_DEPTH = 7f;
+
         //The drain funnel is glass; the disc around it is stone (ARENA_MARBLE_COLOR)
         private static readonly Vector3 ARENA_GLASS_COLOR = new(0.42f, 0.62f, 0.72f);
 
@@ -463,6 +481,20 @@ namespace Testbed
         //The funnel (and its corner collar) is glass, but more opaque than the arena panels so it reads clearly
         //as a solid frosted-glass drain rather than an almost-invisible sheet.
         private static readonly float FUNNEL_GLASS_ALPHA = 0.55f;
+
+        //The dark pit shaft the funnel drains into in the solid-terrain scenes (see the _pitMesh field). The
+        //terrain's own footprint is cut out (TERRAIN_HOLE_RADIUS, kept just inside the disc's rim so the terrain
+        //tucks under the stone edge with no gap) so nothing solid shows through the drain; this dark cone then
+        //backs the glass. It must HUG the glass funnel - a wide cone would hide behind the disc's stone ring and
+        //leave the bright hole showing through the narrow (radius 14) aperture - so it shares the funnel's mouth
+        //and descends just outside it, a near-black twin dropping well past the kill plane. A ball runs down the
+        //glass into darkness and is culled inside the pit, not against the bright sky. Near-matte (its specular
+        //ambient turned right down) so no dome bleaches the well; the disc's gold rim bead hides the shared mouth.
+        private static readonly float TERRAIN_HOLE_RADIUS = ARENA_DISC_RADIUS - 2f;   //24: the terrain footprint that is cut out
+        private static readonly float PIT_TOP_Y = FUNNEL_TOP_Y;                        //shares the funnel's mouth, right behind the glass
+        private static readonly float PIT_BOTTOM_Y = -46f;                            //below KILL_PLANE_Y, so balls vanish inside the pit
+        private static readonly float PIT_HOLE_RADIUS = 1.2f;                          //nearly closed at the bottom - a dark receding throat
+        private static readonly Vector3 PIT_COLOR = new(0.03f, 0.03f, 0.035f);         //near-black, a touch cool
 
         //A polished-gold metal bead runs around both circles of the funnel (the wide top rim and the small
         //bottom hole), which is what makes the glass drain read at a glance. Drawn as two tori with the
@@ -630,6 +662,11 @@ namespace Testbed
         //Map file to load right after startup (e.g. passed on the command line); mainly for testing
         private readonly string _startupMapPath;
 
+        //Testing: an initial free-camera pose ("campos="/"camtarget=" on the command line), applied once in
+        //Initialize so a screenshot can be framed from any vantage (e.g. under the sea, or in on the drain)
+        private readonly Vector3? _startupCamPos;
+        private readonly Vector3? _startupCamTarget;
+
         //Testing mode: shoots a ball at a random spot of the structure every second ("autoshoot" on the command line)
         private readonly bool _autoShoot;
         private float _autoShootElapsed;
@@ -643,8 +680,13 @@ namespace Testbed
 
         //The windowed default is 16:9, the narrowest aspect the game targets (desktop and Xbox, 3840x2160 to
         //3840x1600), so what is framed in a window is the tightest case and a wider display only adds width
-        public Testbed(bool windowed = true, int windowWidth = 1600, int windowHeight = 900, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false, int supersampleFactor = 2, float exposure = DEFAULT_EXPOSURE, string scene = null)
+        public Testbed(bool windowed = true, int windowWidth = 1600, int windowHeight = 900, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false, int supersampleFactor = 2, float exposure = DEFAULT_EXPOSURE, string scene = null, Vector3? camPos = null, Vector3? camTarget = null)
         {
+            //Testing: "campos=x,y,z"/"camtarget=x,y,z" place and aim the free camera at startup (applied in
+            //Initialize once the camera exists), so a screenshot can be framed from any vantage.
+            _startupCamPos = camPos;
+            _startupCamTarget = camTarget;
+
             //Testing: "scene=sea" / "scene=savanna" / "scene=desert" / "scene=mountain" pick the starting environment
             if (string.Equals(scene, "sea", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Sea;
             else if (string.Equals(scene, "savanna", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Savanna;
@@ -699,6 +741,15 @@ namespace Testbed
             IsMouseVisible = true;
 
             _camera = new BasicCamera3D(DEFAULT_CAMERA_POS, GraphicsDevice.Viewport.AspectRatio, FREE_FOV);
+
+            //Testing camera pose from the command line: position, then aim (the Target setter rebuilds the view
+            //and the look angles, so mouse-look carries on from there). Target defaults to the arena at the origin.
+            if (_startupCamPos.HasValue)
+            {
+                _camera.Position = _startupCamPos.Value;
+                _camera.Target = _startupCamTarget ?? Vector3.Zero;
+            }
+
             //"\uE7FC" is the "Game" glyph (gamepad) in the Segoe MDL2 Assets icon font
             _info = new InfoRenderer(this, "Content/Fonts/segoeui", "Content/Fonts/icons") { DrawOrder = int.MaxValue, IconGlyph = "\uE7FC" };
             Components.Add(_info);
@@ -862,6 +913,12 @@ namespace Testbed
             //savanna's and desert's birds and the mountain's snow) all live here now, shared with the map editor
             //so a scene looks the same in both
             _sceneRenderer = new SceneRenderer(GraphicsDevice, Content);
+
+            //Cut the island's footprint out of the solid terrain scenes so nothing solid shows through the drain
+            //and the funnel below the island reads as a drain into a pit, not a bowl in flat ground (the dark pit
+            //cone that backs the glass then fills that hole - see TERRAIN_HOLE_RADIUS / _pitMesh). The map editor
+            //leaves this 0 - it draws no island, so nothing is cut and the terrain stays whole under the field's AABB.
+            _sceneRenderer.TerrainHoleRadius = TERRAIN_HOLE_RADIUS;
 
             _cannon = new Cannon(new Vector3(0f, 5f, 0f), -6.4f, 20f);
 
@@ -1109,6 +1166,15 @@ namespace Testbed
         }
 
         /// <summary>
+        /// Whether the scene is one of the solid-ground backdrops (mountains, meadow, savanna, desert) whose
+        /// terrain has the island's footprint cut out and needs the dark pit shaft drawn behind the glass funnel.
+        /// The sea (water fills the funnel) and the city/neon (their own canyon falls away below) are excluded.
+        /// </summary>
+        private static bool IsSolidTerrainScene(SceneKind scene) =>
+            scene == SceneKind.Mountain || scene == SceneKind.Meadow ||
+            scene == SceneKind.Savanna || scene == SceneKind.Desert;
+
+        /// <summary>
         /// The per-frame inputs the shared <see cref="SceneRenderer"/> needs, taken from this frame's camera,
         /// sun and sky. The sun color is the sun's own radiance tinted by the dome, exactly as the scene
         /// shaders used to read it inline; the clouds are handed over from the one shared field.
@@ -1243,6 +1309,18 @@ namespace Testbed
                 SpecularAmbientStrength = 1f
             };
             _funnelRimEffectParams = new BasicEffectParams(Vector3.One * SCENE_AMBIENT_INTENSITY, FUNNEL_RIM_SPECULAR, FUNNEL_RIM_SPECULAR_POWER, Vector3.Zero);
+
+            //The dark pit shaft (terrain scenes only) - a near-black cone sharing the glass funnel's mouth and
+            //descending just outside it, past the kill plane, so the drain reads as a deep dark well rather than a
+            //glass ring over the bright hole cut in the terrain. Reuses FunnelMesh (its wall faces inward-and-up,
+            //so it reads looking down into it); drawn opaque and CullNone before the glass, which composites over
+            //it. Near-matte so no dome bleaches it; the gold rim bead hides the mouth it shares with the funnel.
+            _pitMesh = new FunnelMesh(GraphicsDevice, FUNNEL_TOP_RADIUS, PIT_HOLE_RADIUS, PIT_TOP_Y - PIT_BOTTOM_Y, FUNNEL_SEGMENTS, 0f);
+            _pitRenderer = new InstancedModelRenderer(GraphicsDevice, _pitMesh, PIT_COLOR, _instancingEffect)
+            {
+                SpecularAmbientStrength = 0.03f
+            };
+            _pitWorld = Microsoft.Xna.Framework.Matrix.CreateTranslation(0f, PIT_TOP_Y, 0f);
         }
 
         private void BuildGroundAndCeiling()
@@ -1745,6 +1823,13 @@ namespace Testbed
                 //so the result matches back-face culling and the mesh needs no winding convention); restored after.
                 GraphicsDevice.RasterizerState = RasterizerState.CullNone;
                 _arenaDiscRenderer.Draw(_camera, _arenaDiscWorld, _sceneEffectParams);
+
+                //The dark pit shaft behind the glass funnel, in the solid-terrain scenes only: it fills the hole
+                //cut in the terrain so the drain reads as a deep well rather than a glass ring over bright haze.
+                //Opaque and CullNone like the island, drawn before the glass funnel (which composites over it).
+                if (IsSolidTerrainScene(_scene))
+                    _pitRenderer.Draw(_camera, _pitWorld, _sceneEffectParams);
+
                 GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
 
                 _cannonRenderer.Draw(_camera, CannonWorld(), _sceneEffectParams);
@@ -2134,6 +2219,16 @@ namespace Testbed
             _tonemapEffect.Parameters["SupersampleFactor"].SetValue(_supersampleFactor);
             _tonemapEffect.Parameters["Exposure"].SetValue(_exposure);
 
+            //Underwater murk: only the sea has water the camera can get under. Ramp it in by how far the lens
+            //is below the mean surface (a touch above it, so partial submersion already begins to tint), full
+            //by UNDERWATER_FADE_DEPTH down. Zero (a no-op in the shader) in every other scene.
+            float underwater = _scene == SceneKind.Sea
+                ? Math.Clamp((_sceneRenderer.SeaLevelY + 0.5f - _camera.Position.Y) / UNDERWATER_FADE_DEPTH, 0f, 1f)
+                : 0f;
+            _tonemapEffect.Parameters["UnderwaterAmount"].SetValue(underwater);
+            _tonemapEffect.Parameters["UnderwaterAbsorb"].SetValue(UNDERWATER_ABSORB);
+            _tonemapEffect.Parameters["UnderwaterInscatter"].SetValue(UNDERWATER_INSCATTER);
+
             GraphicsDevice.BlendState = BlendState.Opaque;
             GraphicsDevice.DepthStencilState = DepthStencilState.None;
             GraphicsDevice.RasterizerState = RasterizerState.CullNone;
@@ -2212,6 +2307,7 @@ namespace Testbed
             _arenaDiscMesh?.Dispose();
             _funnelMesh?.Dispose();
             _funnelRimsMesh?.Dispose();
+            _pitMesh?.Dispose();
             _sceneRenderer?.Dispose();
             _sceneTarget?.Dispose();
             _glareBright?.Dispose();
@@ -2234,7 +2330,7 @@ namespace Testbed
         }
 
         private static BallType RandomBallType() =>
-            (BallType)RANDOM.Next((int)BallType.Type1, (int)BallType.Type4 + 1);
+            (BallType)RANDOM.Next((int)BallType.Type1, (int)BallType.Type8 + 1);
 
         /// <summary>
         /// Shifts the queue forward and drops a fresh random type in at the back, so it never empties. The
