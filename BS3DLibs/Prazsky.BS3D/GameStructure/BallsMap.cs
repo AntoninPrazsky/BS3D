@@ -52,6 +52,19 @@ namespace Prazsky.BS3D.GameStructure
             InitializeModel(ballModel);
         }
 
+        /// <summary>
+        /// Builds the map from already-deserialized data — the path a level file takes (its map portion is
+        /// deserialized by the level loader, not read from a separate file). Throws on invalid data so the
+        /// caller can leave its current state untouched.
+        /// </summary>
+        public BallsMap(BallPositionTypes ballPositionTypes, Model ballModel)
+        {
+            if (ballPositionTypes?.Balls == null) throw new ArgumentNullException(nameof(ballPositionTypes));
+
+            ApplyBallPositionTypes(ballPositionTypes);
+            InitializeModel(ballModel);
+        }
+
         private void InitializeModel(Model ballModel)
         {
             _ballModel = ballModel;
@@ -394,9 +407,19 @@ namespace Prazsky.BS3D.GameStructure
             var serializer = new JsonSerializer();
             ballPositionTypes = (BallPositionTypes)serializer.Deserialize(reader, typeof(BallPositionTypes));
 
-            #region Basic validation
-
             if (ballPositionTypes == null || ballPositionTypes.Balls == null) return;
+
+            ApplyBallPositionTypes(ballPositionTypes);
+        }
+
+        /// <summary>
+        /// Validates deserialized map data, sizes the play field (legacy files carry no field size, so they
+        /// get extra bottom levels to grow into) and builds the ball layout. Shared by the Newtonsoft map
+        /// file path and the level path, which hands the data over already deserialized.
+        /// </summary>
+        private void ApplyBallPositionTypes(BallPositionTypes ballPositionTypes)
+        {
+            #region Basic validation
 
             if (ballPositionTypes.Balls.Rank != 3)
                 throw new InvalidDataException("Deserialized data invalid");
