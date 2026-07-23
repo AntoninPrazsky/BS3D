@@ -402,6 +402,21 @@ namespace Prazsky.Core.Render
             }
         }
 
+        /// <summary>
+        /// The active configuration of one of the self-lit scenes — what a level saves as its scene. Returns
+        /// null for <see cref="SceneKind.City"/>/<see cref="SceneKind.NeonCity"/>, whose config lives outside
+        /// the renderer (the caller owns the <see cref="CitySceneConfig"/>).
+        /// </summary>
+        public SceneConfig GetSceneConfig(SceneKind kind) => kind switch
+        {
+            SceneKind.Sea => _seaConfig,
+            SceneKind.Desert => _desertConfig,
+            SceneKind.Savanna => _savannaConfig,
+            SceneKind.Mountain => _mountainConfig,
+            SceneKind.Meadow => _meadowConfig,
+            _ => null,
+        };
+
         private void ApplySeaParameters()
         {
             _seaEffect.Parameters["SeaLevelY"].SetValue(_seaConfig.LevelY);

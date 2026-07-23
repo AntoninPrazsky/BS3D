@@ -397,6 +397,12 @@ namespace Prazsky.BS3D.GameStructure
             Console.WriteLine(json);
         }
 
+        /// <summary>
+        /// The current layout as a serializable data bag (field size plus the ball array) — what a level file
+        /// embeds as its map, and the same shape <see cref="SerializeAsJson"/> writes for a plain map file.
+        /// </summary>
+        public BallPositionTypes ToBallPositionTypes() => BuildBallPositionTypes();
+
         public void DeserializeJson(string fileName)
         {
             if (string.IsNullOrEmpty(fileName)) throw new ArgumentNullException(nameof(fileName));

@@ -240,8 +240,9 @@ namespace MapEditor
                 new(mgKeys.V, SwitchScene, "Switch scene (city/sea/savanna/desert/mountain/meadow/neon)"),
 
                 new(mgKeys.F1, SaveJson, "Save map to file (JSON)"),
-                new(mgKeys.F2, LoadJson, "Load map from file (JSON)"),
+                new(mgKeys.F2, LoadJson, "Load map or level from file (JSON)"),
                 new(mgKeys.F3, NewMap, "New map (choose play field size)"),
+                new(mgKeys.F4, SaveLevel, "Save level: map + current scene + sky (JSON)"),
             };
 
             StringBuilder builder = new();
@@ -521,6 +522,51 @@ namespace MapEditor
                 _map.SerializeAsJson(filePath);
                 stopwatch.Stop();
                 Console.WriteLine($"Serialize JSON (ms): {stopwatch.ElapsedMilliseconds}");
+            }
+        }
+
+        /// <summary>
+        /// Saves the current state as a level file (issue #32): the map plus the active scene backdrop with its
+        /// full config and the sky dome, so it reloads looking exactly as it does now — in the game as well as
+        /// here. The scene config comes from the shared <see cref="SceneRenderer"/> for the self-lit scenes and
+        /// from the editor's own <see cref="CitySceneConfig"/> for the city (its Neon flag set from the view).
+        /// </summary>
+        private void SaveLevel()
+        {
+            EnsureNotFullScreen();
+
+            string filePath = GetFilePathByDialog(true);
+            if (string.IsNullOrEmpty(filePath)) return;
+
+            SceneConfig sceneConfig;
+            if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
+            {
+                _cityConfig.Neon = _scene == SceneKind.NeonCity; //the saved config's Kind must match the current view
+                sceneConfig = _cityConfig;
+            }
+            else
+            {
+                sceneConfig = _sceneRenderer.GetSceneConfig(_scene);
+            }
+
+            Level level = new()
+            {
+                Name = Path.GetFileNameWithoutExtension(filePath),
+                SkyDome = (byte)_skyDomeNumber,
+                Scene = sceneConfig,
+                Map = _map.ToBallPositionTypes(),
+            };
+
+            try
+            {
+                level.Save(filePath);
+                Info.CustomText = $"Saved level to {Path.GetFileName(filePath)}";
+                Console.WriteLine($"[level] Saved '{level.Name}': scene={_scene}, sky={_skyDomeNumber}, balls={_map.GetBallsCount()} -> {filePath}");
+            }
+            catch (Exception e)
+            {
+                Info.CustomText = "Save failed";
+                Console.WriteLine($"[level] Save failed: {e.Message}");
             }
         }
 
