@@ -11,7 +11,7 @@
   
 - Test maps for Testbed project are located in `\Testbed\Maps`
 
-- The font used to render the text is https://github.com/microsoft/cascadia-code
+- The HUD text is rendered in **Segoe UI** (the Windows system UI font, shipped with every Windows since Vista), covering ASCII plus Latin-1 Supplement and Latin Extended-A so Czech and other European diacritics render. The game-mode indicator is the gamepad glyph (U+E7FC "Game") from **Segoe MDL2 Assets**, a Windows icon font present on Windows 10 and 11. MonoGame bakes the glyphs into a texture at build time, so only the build machine needs the fonts installed — end users do not.
 
 ## Screenshot
 

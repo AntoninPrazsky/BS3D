@@ -12,12 +12,12 @@
 
 #---------------------------------- Content ---------------------------------#
 
-#begin Fonts/cascadia.spritefont
+#begin Fonts/segoeui.spritefont
 /importer:FontDescriptionImporter
 /processor:FontDescriptionProcessor
 /processorParam:PremultiplyAlpha=True
 /processorParam:TextureFormat=Compressed
-/build:Fonts/cascadia.spritefont
+/build:Fonts/segoeui.spritefont
 
 #begin GUI/Selector.x
 /importer:XImporter

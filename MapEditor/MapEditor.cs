@@ -185,7 +185,7 @@ namespace MapEditor
 
             Camera3D = new BasicCamera3D(new Vector3(5f, 3.2f, 20f), GraphicsDevice.Viewport.AspectRatio);
             Camera3D.SetCircularMovementProperties(15f);
-            Info = new InfoRenderer(this, "Content/Fonts/cascadia") { DrawOrder = int.MaxValue };
+            Info = new InfoRenderer(this, "Content/Fonts/segoeui") { DrawOrder = int.MaxValue };
             Components.Add(Info);
 
             _cih = new CameraInputHelper(Camera3D, this);

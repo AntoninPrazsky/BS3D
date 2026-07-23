@@ -48,7 +48,7 @@ namespace MapEditor.GUI
         {
             _graphicsDevice = graphicsDevice;
             _spriteBatch = new SpriteBatch(graphicsDevice);
-            _font = content.Load<SpriteFont>("Fonts/cascadia");
+            _font = content.Load<SpriteFont>("Fonts/segoeui");
 
             _effect = new BasicEffect(graphicsDevice)
             {

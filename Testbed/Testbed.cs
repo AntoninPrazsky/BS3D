@@ -707,7 +707,8 @@ namespace Testbed
             IsMouseVisible = true;
 
             _camera = new BasicCamera3D(DEFAULT_CAMERA_POS, GraphicsDevice.Viewport.AspectRatio, FREE_FOV);
-            _info = new InfoRenderer(this, "Content/Fonts/cascadia", "Content/Bitmaps/Controller") { DrawOrder = int.MaxValue };
+            //"\uE7FC" is the "Game" glyph (gamepad) in the Segoe MDL2 Assets icon font
+            _info = new InfoRenderer(this, "Content/Fonts/segoeui", "Content/Fonts/icons") { DrawOrder = int.MaxValue, IconGlyph = "\uE7FC" };
             Components.Add(_info);
 
             _cih = new CameraInputHelper(_camera, this);

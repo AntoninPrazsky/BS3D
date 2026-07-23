@@ -100,24 +100,19 @@
 /processorParam:TextureFormat=Color
 /build:Bitmaps/Aimer.png
 
-#begin Bitmaps/Controller.png
-/importer:TextureImporter
-/processor:TextureProcessor
-/processorParam:ColorKeyColor=255,0,255,255
-/processorParam:ColorKeyEnabled=True
-/processorParam:GenerateMipmaps=False
-/processorParam:PremultiplyAlpha=True
-/processorParam:ResizeToPowerOfTwo=False
-/processorParam:MakeSquare=False
-/processorParam:TextureFormat=Color
-/build:Bitmaps/Controller.png
-
-#begin Fonts/cascadia.spritefont
+#begin Fonts/segoeui.spritefont
 /importer:FontDescriptionImporter
 /processor:FontDescriptionProcessor
 /processorParam:PremultiplyAlpha=True
 /processorParam:TextureFormat=Compressed
-/build:Fonts/cascadia.spritefont
+/build:Fonts/segoeui.spritefont
+
+#begin Fonts/icons.spritefont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/processorParam:TextureFormat=Color
+/build:Fonts/icons.spritefont
 
 #begin GameObjects/Ground.x
 /importer:XImporter

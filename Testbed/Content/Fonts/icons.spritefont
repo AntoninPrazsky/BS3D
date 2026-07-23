@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<XnaContent xmlns:Graphics="Microsoft.Xna.Framework.Content.Pipeline.Graphics">
+  <Asset Type="Graphics:FontDescription">
+    <FontName>Segoe MDL2 Assets</FontName>
+    <Size>96</Size>
+    <Spacing>0</Spacing>
+    <UseKerning>false</UseKerning>
+    <Style>Regular</Style>
+    <CharacterRegions>
+      <CharacterRegion>
+        <Start>&#xE7FC;</Start>
+        <End>&#xE7FC;</End>
+      </CharacterRegion>
+      <CharacterRegion>
+        <Start>&#xF093;</Start>
+        <End>&#xF096;</End>
+      </CharacterRegion>
+      <CharacterRegion>
+        <Start>&#xF108;</Start>
+        <End>&#xF10E;</End>
+      </CharacterRegion>
+    </CharacterRegions>
+  </Asset>
+</XnaContent>

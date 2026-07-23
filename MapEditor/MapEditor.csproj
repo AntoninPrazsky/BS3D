@@ -47,7 +47,7 @@
     <ProjectReference Include="..\BS3DLibs\Prazsky.Core\Prazsky.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <None Update="Content\Fonts\cascadia.spritefont">
+    <None Update="Content\Fonts\segoeui.spritefont">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
