@@ -1,31 +1,30 @@
-﻿using BepuPhysics;
+using BepuPhysics;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-using Prazsky.Core;
 
 namespace Testbed
 {
-    public class KinematicBody : Object3D //TODO: I don't think that this should be Object3D
+    /// <summary>
+    /// A Bepu kinematic body paired with the world matrix captured from its pose. Deliberately <b>not</b> an
+    /// <see cref="Prazsky.Core.Object3D"/>: the only kinematic body is the ceiling, which carries no model of
+    /// its own and is drawn procedurally through its own <see cref="Prazsky.Core.Render.InstancedModelRenderer"/>
+    /// (see <c>RecreateCeilingRenderer</c>) using <see cref="World"/> — so the whole <c>Object3D</c> drawing
+    /// apparatus (model, transformations, <c>Draw</c>, bounding volumes) was dead weight. What is actually used
+    /// is the body handle/reference and the pose's world matrix, which is all this holds.
+    /// </summary>
+    public class KinematicBody
     {
-        public BodyReference BodyReference { get; private set; }
-        public BodyHandle BodyHandle { get; private set; }
+        public BodyReference BodyReference { get; }
+        public BodyHandle BodyHandle { get; }
 
-        /// <param name="model">Model drawn through <see cref="Object3D.Draw(Prazsky.Core.Camera.ICamera)"/>;
-        /// null for bodies drawn some other way (e.g. the ceiling, a procedurally generated mesh).</param>
-        public KinematicBody(Model model, BodyReference bodyReference, BodyHandle bodyHandle, Vector3? modelScale = null)
+        /// <summary>World matrix built from the body's pose (rotation and translation) at construction.</summary>
+        public Matrix World { get; }
+
+        public KinematicBody(BodyReference bodyReference, BodyHandle bodyHandle)
         {
-            Model = model;
             BodyReference = bodyReference;
             BodyHandle = bodyHandle;
 
-            if (model != null)
-            {
-                Transformations = new Matrix[model.Bones.Count];
-                model.CopyAbsoluteBoneTransformsTo(Transformations);
-            }
-
-            World = Matrix.CreateScale(modelScale ?? Vector3.One)
-                * Matrix.CreateFromQuaternion(
+            World = Matrix.CreateFromQuaternion(
                 new Quaternion(bodyReference.Pose.Orientation.X, bodyReference.Pose.Orientation.Y, bodyReference.Pose.Orientation.Z, bodyReference.Pose.Orientation.W))
                 * Matrix.CreateTranslation(bodyReference.Pose.Position.X, bodyReference.Pose.Position.Y, bodyReference.Pose.Position.Z);
         }

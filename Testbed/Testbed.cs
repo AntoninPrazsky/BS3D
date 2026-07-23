@@ -1263,7 +1263,7 @@ namespace Testbed
             BodyHandle topBodyHandle = _simulation.Bodies.Add(in bodyDescription);
             BodyReference topBodyReference = new(topBodyHandle, _simulation.Bodies);
 
-            _ceiling = new KinematicBody(null, topBodyReference, topBodyHandle);
+            _ceiling = new KinematicBody(topBodyReference, topBodyHandle);
         }
 
         /// <summary>
@@ -1304,7 +1304,7 @@ namespace Testbed
 
             //Recreate the wrapper so its world matrix matches the new pose (the body and handle stay the same);
             //the drawn glass box is regenerated at the exact new size instead of scaling a fixed mesh
-            _ceiling = new KinematicBody(null, ceilingReference, _ceiling.BodyHandle);
+            _ceiling = new KinematicBody(ceilingReference, _ceiling.BodyHandle);
             RecreateCeilingRenderer(sizeX, sizeZ);
         }
 
