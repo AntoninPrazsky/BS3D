@@ -63,14 +63,15 @@ namespace Prazsky.Core.Render
     {
         private readonly GraphicsDevice _graphicsDevice;
 
-        //Scene configuration. Defaults reproduce the current look byte-for-byte; the desert, mountain and
-        //meadow scenes read their tuning from these instead of constants. A runtime setter/apply (for a
-        //loaded level or the live editor) is wired under issue #32; the remaining scenes follow.
-        private readonly SeaSceneConfig _seaConfig = new();
-        private readonly DesertSceneConfig _desertConfig = new();
-        private readonly SavannaSceneConfig _savannaConfig = new();
-        private readonly MountainSceneConfig _mountainConfig = new();
-        private readonly MeadowSceneConfig _meadowConfig = new();
+        //Scene configuration. Defaults reproduce the original hard-coded look byte-for-byte; every scene
+        //reads its tuning from these instead of constants. Replaced at runtime by Apply(SceneConfig) when a
+        //level is loaded (issue #32), which re-pushes the effect parameters and rebuilds the scatter/particle
+        //buffers the config sizes.
+        private SeaSceneConfig _seaConfig = new();
+        private DesertSceneConfig _desertConfig = new();
+        private SavannaSceneConfig _savannaConfig = new();
+        private MountainSceneConfig _mountainConfig = new();
+        private MeadowSceneConfig _meadowConfig = new();
 
         #region Sea
 
@@ -133,8 +134,8 @@ namespace Prazsky.Core.Render
         #region Acacia (savanna scene only)
 
         private readonly Effect _acaciaEffect;
-        private readonly VertexBuffer _acaciaVertexBuffer;
-        private readonly IndexBuffer _acaciaIndexBuffer;
+        private VertexBuffer _acaciaVertexBuffer;
+        private IndexBuffer _acaciaIndexBuffer;
 
         //Scattered acacia trees and low bushes over the savanna: upright billboards positioned on the ground
         //here, drawn as a flat-topped tree or a rounded clump in the shader. Alpha-tested and depth-writing, so
@@ -190,11 +191,11 @@ namespace Prazsky.Core.Render
         #region Birds (savanna and desert scenes)
 
         private readonly Effect _birdsEffect;
-        private readonly DynamicVertexBuffer _birdVertexBuffer;
-        private readonly IndexBuffer _birdIndexBuffer;
-        private readonly BirdVertex[] _birdVertices;
+        private DynamicVertexBuffer _birdVertexBuffer;
+        private IndexBuffer _birdIndexBuffer;
+        private BirdVertex[] _birdVertices;
 
-        private readonly float[] _birdRadius, _birdAltitude, _birdOrbitSpeed, _birdOrbitPhase, _birdFlapSpeed, _birdFlapPhase, _birdBobSpeed;
+        private float[] _birdRadius, _birdAltitude, _birdOrbitSpeed, _birdOrbitPhase, _birdFlapSpeed, _birdFlapPhase, _birdBobSpeed;
 
         //Flock parameters (count, wingspan, aspect, bob, colour, flock centre) now live in BirdsConfig, shared
         //by the savanna and desert configs; DrawBirds reads the active scene's Birds config each frame. The
@@ -242,8 +243,8 @@ namespace Prazsky.Core.Render
         #region Snow (mountain scene only)
 
         private readonly Effect _snowEffect;
-        private readonly VertexBuffer _snowVertexBuffer;
-        private readonly IndexBuffer _snowIndexBuffer;
+        private VertexBuffer _snowVertexBuffer;
+        private IndexBuffer _snowIndexBuffer;
 
         //Snowfall parameters (flake count/size/colour/opacity, box, fall speed, wind, sway) now live in
         //MountainSceneConfig.Snow (SnowConfig); SceneRenderer reads them from _mountainConfig.Snow.
@@ -253,8 +254,8 @@ namespace Prazsky.Core.Render
         #region Spray (sea scene only)
 
         private readonly Effect _sprayEffect;
-        private readonly VertexBuffer _sprayVertexBuffer;
-        private readonly IndexBuffer _sprayIndexBuffer;
+        private VertexBuffer _sprayVertexBuffer;
+        private IndexBuffer _sprayIndexBuffer;
 
         //Spray parameters (particle count/size/colour/opacity, box, level, wind, rise, turbulence) now live in
         //SeaSceneConfig.Spray (SprayConfig); SceneRenderer reads them from _seaConfig.Spray. The glare-safe
@@ -291,6 +292,118 @@ namespace Prazsky.Core.Render
             _seaEffect = content.Load<Effect>("Shaders/Sea");
             CreateGridMesh(SEA_GRID_N, SEA_EXTENT, out _seaVertexBuffer, out _seaIndexBuffer, out _seaIndexCount);
 
+            ApplySeaParameters();
+
+            //--- Desert: a flat lattice the shader displaces into Sahara dunes (per-pixel normal, no grid)
+            _desertEffect = content.Load<Effect>("Shaders/Desert");
+            CreateGridMesh(DESERT_GRID_N, DESERT_EXTENT, out _desertVertexBuffer, out _desertIndexBuffer, out _desertIndexCount);
+
+            ApplyDesertParameters();
+
+            //--- Savanna: a flat lattice the shader displaces into gentle grassland (per-pixel normal, no grid)
+            _savannaEffect = content.Load<Effect>("Shaders/Savanna");
+            CreateGridMesh(SAVANNA_GRID_N, SAVANNA_EXTENT, out _savannaVertexBuffer, out _savannaIndexBuffer, out _savannaIndexCount);
+
+            ApplySavannaParameters();
+
+            //--- Acacia: a static billboard buffer of trees scattered over the savanna, positioned on the
+            //ground (SavannaTerrainHeight mirrors the shader's field) and drawn as a flat-topped tree in Acacia.fx
+            _acaciaEffect = content.Load<Effect>("Shaders/Acacia");
+            ApplyAcaciaParameters();
+            BuildAcaciaBuffers();
+
+            //--- Campfire flame: one billboard drawn as a procedural flame at the campfire position
+            _flameEffect = content.Load<Effect>("Shaders/Flame");
+            BirdVertex[] flameVertices =
+            {
+                new(Vector3.Zero, new Vector3(-1f, 0f, 0f)),
+                new(Vector3.Zero, new Vector3(1f, 0f, 0f)),
+                new(Vector3.Zero, new Vector3(-1f, 1f, 0f)),
+                new(Vector3.Zero, new Vector3(1f, 1f, 0f))
+            };
+            _flameVertexBuffer = new VertexBuffer(graphicsDevice, BirdVertex.Declaration, 4, BufferUsage.WriteOnly);
+            _flameVertexBuffer.SetData(flameVertices);
+            short[] flameIndices = { 0, 1, 2, 2, 1, 3 };
+            _flameIndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, 6, BufferUsage.WriteOnly);
+            _flameIndexBuffer.SetData(flameIndices);
+
+            //--- Birds: a dynamic billboard buffer, static indices, and each bird's orbit and flap seeded once
+            _birdsEffect = content.Load<Effect>("Shaders/Birds");
+            BuildBirdBuffers();
+
+            //--- Mountain: a ridged displaced grid
+            _mountainEffect = content.Load<Effect>("Shaders/Mountain");
+            CreateGridMesh(MOUNTAIN_GRID_N, MOUNTAIN_EXTENT, out _mountainVertexBuffer, out _mountainIndexBuffer, out _mountainIndexCount);
+
+            ApplyMountainParameters();
+
+            //--- Snow: a static flake buffer, one quad per flake at a fixed point in the unit cube, animated
+            //entirely in the shader (so it is only rebuilt when a new config changes the flake count).
+            _snowEffect = content.Load<Effect>("Shaders/Snow");
+            ApplySnowParameters();
+            BuildSnowBuffers();
+
+            //--- Spray: a static billboard buffer for the sea's blown spray and spindrift, animated entirely
+            //in the shader like the snow. Same position+data billboard vertex.
+            _sprayEffect = content.Load<Effect>("Shaders/Spray");
+            ApplySprayParameters();
+
+            BuildSprayBuffers();
+
+            //--- Meadow: a smooth rolling displaced grid scattered with flowers
+            _meadowEffect = content.Load<Effect>("Shaders/Meadow");
+            CreateGridMesh(MEADOW_GRID_N, MEADOW_EXTENT, out _meadowVertexBuffer, out _meadowIndexBuffer, out _meadowIndexCount);
+
+            ApplyMeadowParameters();
+        }
+
+        #region Scene-config apply (issue #32)
+
+        /// <summary>
+        /// Applies a scene configuration at runtime — the path a loaded level takes. Re-pushes the scene's
+        /// effect parameters and rebuilds the scatter/particle buffers the config sizes (acacias, birds,
+        /// snow, spray). A <see cref="CitySceneConfig"/> is a no-op here: the city lives outside the
+        /// SceneRenderer (<see cref="City"/> + the instanced city technique), so its caller applies it.
+        /// </summary>
+        public void Apply(SceneConfig config)
+        {
+            switch (config)
+            {
+                case SeaSceneConfig sea:
+                    _seaConfig = sea;
+                    ApplySeaParameters();
+                    ApplySprayParameters();
+                    BuildSprayBuffers();
+                    break;
+                case DesertSceneConfig desert:
+                    _desertConfig = desert; //terrain params re-pushed below; birds read per frame from the config
+                    ApplyDesertParameters();
+                    BuildBirdBuffers();     //the shared flock is sized from both arid scenes' counts, so the desert's own count is honoured
+                    break;
+                case SavannaSceneConfig savanna:
+                    _savannaConfig = savanna;
+                    ApplySavannaParameters();
+                    ApplyAcaciaParameters();
+                    BuildAcaciaBuffers();   //tree positions depend on the terrain, so the terrain change rebuilds them
+                    BuildBirdBuffers();     //the shared flock is sized from both arid scenes' counts
+                    break;
+                case MountainSceneConfig mountain:
+                    _mountainConfig = mountain;
+                    ApplyMountainParameters();
+                    ApplySnowParameters();
+                    BuildSnowBuffers();
+                    break;
+                case MeadowSceneConfig meadow:
+                    _meadowConfig = meadow;
+                    ApplyMeadowParameters();
+                    break;
+                case CitySceneConfig:
+                    break;
+            }
+        }
+
+        private void ApplySeaParameters()
+        {
             _seaEffect.Parameters["SeaLevelY"].SetValue(_seaConfig.LevelY);
             _seaEffect.Parameters["WaterColorDeep"].SetValue(_seaConfig.WaterDeep.ToVector3());
             _seaEffect.Parameters["WaterColorShallow"].SetValue(_seaConfig.WaterShallow.ToVector3());
@@ -313,11 +426,10 @@ namespace Prazsky.Core.Render
             _seaEffect.Parameters["SssStrength"].SetValue(_seaConfig.SssStrength);
             _seaEffect.Parameters["SssColor"].SetValue(_seaConfig.SssColor.ToVector3());
             _seaEffect.Parameters["HorizonHazeDistance"].SetValue(_seaConfig.HorizonHazeDistance);
+        }
 
-            //--- Desert: a flat lattice the shader displaces into Sahara dunes (per-pixel normal, no grid)
-            _desertEffect = content.Load<Effect>("Shaders/Desert");
-            CreateGridMesh(DESERT_GRID_N, DESERT_EXTENT, out _desertVertexBuffer, out _desertIndexBuffer, out _desertIndexCount);
-
+        private void ApplyDesertParameters()
+        {
             _desertEffect.Parameters["DesertLevelY"].SetValue(_desertConfig.LevelY);
             _desertEffect.Parameters["DuneAmplitude"].SetValue(_desertConfig.DuneAmplitude);
             _desertEffect.Parameters["ClearingRadius"].SetValue(_desertConfig.ClearingRadius);
@@ -332,11 +444,10 @@ namespace Prazsky.Core.Render
             _desertEffect.Parameters["AmbientStrength"].SetValue(_desertConfig.AmbientStrength);
             _desertEffect.Parameters["WindDirection"].SetValue(_desertConfig.Wind.ToVector2());
             _desertEffect.Parameters["HorizonHazeDistance"].SetValue(_desertConfig.HorizonHazeDistance);
+        }
 
-            //--- Savanna: a flat lattice the shader displaces into gentle grassland (per-pixel normal, no grid)
-            _savannaEffect = content.Load<Effect>("Shaders/Savanna");
-            CreateGridMesh(SAVANNA_GRID_N, SAVANNA_EXTENT, out _savannaVertexBuffer, out _savannaIndexBuffer, out _savannaIndexCount);
-
+        private void ApplySavannaParameters()
+        {
             _savannaEffect.Parameters["SavannaLevelY"].SetValue(_savannaConfig.LevelY);
             _savannaEffect.Parameters["HillHeight"].SetValue(_savannaConfig.HillHeight);
             _savannaEffect.Parameters["ClearingRadius"].SetValue(_savannaConfig.ClearingRadius);
@@ -353,17 +464,28 @@ namespace Prazsky.Core.Render
             _savannaEffect.Parameters["WindRippleStrength"].SetValue(_savannaConfig.WindRippleStrength);
             _savannaEffect.Parameters["GrassReliefStrength"].SetValue(_savannaConfig.GrassReliefStrength);
             _savannaEffect.Parameters["GrassReliefFrequency"].SetValue(_savannaConfig.GrassReliefFrequency);
+        }
 
-            //--- Acacia: a static billboard buffer of trees scattered over the savanna, positioned on the
-            //ground (SavannaTerrainHeight mirrors the shader's field) and drawn as a flat-topped tree in Acacia.fx
-            _acaciaEffect = content.Load<Effect>("Shaders/Acacia");
-            var ac = _savannaConfig.Acacia;
+        private void ApplyAcaciaParameters()
+        {
+            AcaciaConfig ac = _savannaConfig.Acacia;
             _acaciaEffect.Parameters["TreeWidth"].SetValue(ac.Width);
             _acaciaEffect.Parameters["TreeHeight"].SetValue(ac.Height);
             _acaciaEffect.Parameters["CanopyColor"].SetValue(ac.CanopyColor.ToVector3());
             _acaciaEffect.Parameters["CanopyColorDry"].SetValue(ac.CanopyDry.ToVector3());
             _acaciaEffect.Parameters["TrunkColor"].SetValue(ac.TrunkColor.ToVector3());
+        }
 
+        /// <summary>
+        /// (Re)builds the acacia scatter: cluster centres, per-plant positions on the terrain and the
+        /// billboard buffers. Deterministic seed, so the same config always gives the same savanna.
+        /// </summary>
+        private void BuildAcaciaBuffers()
+        {
+            _acaciaVertexBuffer?.Dispose();
+            _acaciaIndexBuffer?.Dispose();
+
+            AcaciaConfig ac = _savannaConfig.Acacia;
             Random acaciaRng = new(90125);
 
             //Cluster centres the plants gather around, so the savanna reads as clumps of trees rather than an
@@ -419,7 +541,7 @@ namespace Prazsky.Core.Render
                 acaciaVertices[v + 2] = new BirdVertex(basePos, new Vector3(-1f, 1f, packed));
                 acaciaVertices[v + 3] = new BirdVertex(basePos, new Vector3(1f, 1f, packed));
             }
-            _acaciaVertexBuffer = new VertexBuffer(graphicsDevice, BirdVertex.Declaration, acaciaVertices.Length, BufferUsage.WriteOnly);
+            _acaciaVertexBuffer = new VertexBuffer(_graphicsDevice, BirdVertex.Declaration, acaciaVertices.Length, BufferUsage.WriteOnly);
             _acaciaVertexBuffer.SetData(acaciaVertices);
 
             short[] acaciaIndices = new short[ac.Count * 6];
@@ -430,33 +552,25 @@ namespace Prazsky.Core.Render
                 acaciaIndices[o] = (short)v; acaciaIndices[o + 1] = (short)(v + 1); acaciaIndices[o + 2] = (short)(v + 2);
                 acaciaIndices[o + 3] = (short)(v + 2); acaciaIndices[o + 4] = (short)(v + 1); acaciaIndices[o + 5] = (short)(v + 3);
             }
-            _acaciaIndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, acaciaIndices.Length, BufferUsage.WriteOnly);
+            _acaciaIndexBuffer = new IndexBuffer(_graphicsDevice, IndexElementSize.SixteenBits, acaciaIndices.Length, BufferUsage.WriteOnly);
             _acaciaIndexBuffer.SetData(acaciaIndices);
+        }
 
-            //--- Campfire flame: one billboard drawn as a procedural flame at the campfire position
-            _flameEffect = content.Load<Effect>("Shaders/Flame");
-            BirdVertex[] flameVertices =
-            {
-                new(Vector3.Zero, new Vector3(-1f, 0f, 0f)),
-                new(Vector3.Zero, new Vector3(1f, 0f, 0f)),
-                new(Vector3.Zero, new Vector3(-1f, 1f, 0f)),
-                new(Vector3.Zero, new Vector3(1f, 1f, 0f))
-            };
-            _flameVertexBuffer = new VertexBuffer(graphicsDevice, BirdVertex.Declaration, 4, BufferUsage.WriteOnly);
-            _flameVertexBuffer.SetData(flameVertices);
-            short[] flameIndices = { 0, 1, 2, 2, 1, 3 };
-            _flameIndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, 6, BufferUsage.WriteOnly);
-            _flameIndexBuffer.SetData(flameIndices);
+        /// <summary>
+        /// (Re)builds the shared bird flock. The savanna and desert scenes draw from the one buffer, so it is
+        /// sized to the larger of the two configs' counts — otherwise a desert level's flock would be silently
+        /// capped to the savanna's count (and vice versa, since neither scene rebuilds on a NumPad2 switch).
+        /// <see cref="DrawBirds"/> caps its draw to the active scene's count; colour/size/centre are read per
+        /// frame from that scene's Birds config. Deterministic seed, so the flock is the same every run.
+        /// </summary>
+        private void BuildBirdBuffers()
+        {
+            _birdVertexBuffer?.Dispose();
+            _birdIndexBuffer?.Dispose();
 
-            //--- Birds: a dynamic billboard buffer, static indices, and each bird's orbit and flap seeded once
-            _birdsEffect = content.Load<Effect>("Shaders/Birds");
-
-            //The flock is shared by the savanna and desert; its buffer and per-bird orbit state are sized once
-            //from the savanna config's count (DrawBirds caps its draw to this), while colour/size/centre are
-            //read per frame from the active scene's Birds config.
-            int birdCount = _savannaConfig.Birds.Count;
+            int birdCount = Math.Max(_savannaConfig.Birds.Count, _desertConfig.Birds.Count);
             _birdVertices = new BirdVertex[birdCount * 4];
-            _birdVertexBuffer = new DynamicVertexBuffer(graphicsDevice, BirdVertex.Declaration, birdCount * 4, BufferUsage.WriteOnly);
+            _birdVertexBuffer = new DynamicVertexBuffer(_graphicsDevice, BirdVertex.Declaration, birdCount * 4, BufferUsage.WriteOnly);
 
             short[] birdIndices = new short[birdCount * 6];
             for (int i = 0; i < birdCount; i++)
@@ -466,7 +580,7 @@ namespace Prazsky.Core.Render
                 birdIndices[o] = (short)v; birdIndices[o + 1] = (short)(v + 2); birdIndices[o + 2] = (short)(v + 1);
                 birdIndices[o + 3] = (short)(v + 1); birdIndices[o + 4] = (short)(v + 2); birdIndices[o + 5] = (short)(v + 3);
             }
-            _birdIndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, birdIndices.Length, BufferUsage.WriteOnly);
+            _birdIndexBuffer = new IndexBuffer(_graphicsDevice, IndexElementSize.SixteenBits, birdIndices.Length, BufferUsage.WriteOnly);
             _birdIndexBuffer.SetData(birdIndices);
 
             _birdRadius = new float[birdCount];
@@ -490,11 +604,10 @@ namespace Prazsky.Core.Render
                 _birdFlapPhase[i] = (float)birdRng.NextDouble() * MathHelper.TwoPi;
                 _birdBobSpeed[i] = 0.4f + (float)birdRng.NextDouble() * 0.5f;
             }
+        }
 
-            //--- Mountain: a ridged displaced grid
-            _mountainEffect = content.Load<Effect>("Shaders/Mountain");
-            CreateGridMesh(MOUNTAIN_GRID_N, MOUNTAIN_EXTENT, out _mountainVertexBuffer, out _mountainIndexBuffer, out _mountainIndexCount);
-
+        private void ApplyMountainParameters()
+        {
             _mountainEffect.Parameters["MountainLevelY"].SetValue(_mountainConfig.LevelY);
             _mountainEffect.Parameters["MountainHeight"].SetValue(_mountainConfig.Height);
             _mountainEffect.Parameters["ClearingRadius"].SetValue(_mountainConfig.ClearingRadius);
@@ -511,10 +624,10 @@ namespace Prazsky.Core.Render
             _mountainEffect.Parameters["RockReliefFrequency"].SetValue(_mountainConfig.RockReliefFrequency);
             _mountainEffect.Parameters["AmbientStrength"].SetValue(_mountainConfig.AmbientStrength);
             _mountainEffect.Parameters["HorizonHazeDistance"].SetValue(_mountainConfig.HorizonHazeDistance);
+        }
 
-            //--- Snow: a static flake buffer, one quad per flake at a fixed point in the unit cube, animated
-            //entirely in the shader (so it is never rebuilt). Reuses the position+data billboard vertex.
-            _snowEffect = content.Load<Effect>("Shaders/Snow");
+        private void ApplySnowParameters()
+        {
             _snowEffect.Parameters["SnowBoxSize"].SetValue(_mountainConfig.Snow.BoxSize.ToVector3());
             _snowEffect.Parameters["SnowFallSpeed"].SetValue(_mountainConfig.Snow.FallSpeed);
             _snowEffect.Parameters["SnowWind"].SetValue(_mountainConfig.Snow.Wind.ToVector2());
@@ -522,6 +635,13 @@ namespace Prazsky.Core.Render
             _snowEffect.Parameters["FlakeSize"].SetValue(_mountainConfig.Snow.FlakeSize);
             _snowEffect.Parameters["SnowColor"].SetValue(_mountainConfig.Snow.FlakeColor.ToVector3());
             _snowEffect.Parameters["SnowOpacity"].SetValue(_mountainConfig.Snow.Opacity);
+        }
+
+        /// <summary>(Re)builds the snowfall's flake buffer at the config's flake count. Deterministic seed.</summary>
+        private void BuildSnowBuffers()
+        {
+            _snowVertexBuffer?.Dispose();
+            _snowIndexBuffer?.Dispose();
 
             BirdVertex[] snowVertices = new BirdVertex[_mountainConfig.Snow.FlakeCount * 4];
             Random snowRng = new(1207);
@@ -535,7 +655,7 @@ namespace Prazsky.Core.Render
                 snowVertices[v + 2] = new BirdVertex(basePosition, new Vector3(-1f, -1f, rand));
                 snowVertices[v + 3] = new BirdVertex(basePosition, new Vector3(1f, -1f, rand));
             }
-            _snowVertexBuffer = new VertexBuffer(graphicsDevice, BirdVertex.Declaration, snowVertices.Length, BufferUsage.WriteOnly);
+            _snowVertexBuffer = new VertexBuffer(_graphicsDevice, BirdVertex.Declaration, snowVertices.Length, BufferUsage.WriteOnly);
             _snowVertexBuffer.SetData(snowVertices);
 
             short[] snowIndices = new short[_mountainConfig.Snow.FlakeCount * 6];
@@ -546,12 +666,12 @@ namespace Prazsky.Core.Render
                 snowIndices[o] = (short)v; snowIndices[o + 1] = (short)(v + 2); snowIndices[o + 2] = (short)(v + 1);
                 snowIndices[o + 3] = (short)(v + 1); snowIndices[o + 4] = (short)(v + 2); snowIndices[o + 5] = (short)(v + 3);
             }
-            _snowIndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, snowIndices.Length, BufferUsage.WriteOnly);
+            _snowIndexBuffer = new IndexBuffer(_graphicsDevice, IndexElementSize.SixteenBits, snowIndices.Length, BufferUsage.WriteOnly);
             _snowIndexBuffer.SetData(snowIndices);
+        }
 
-            //--- Spray: a static billboard buffer for the sea's blown spray and spindrift, animated entirely
-            //in the shader like the snow (never rebuilt). Same position+data billboard vertex.
-            _sprayEffect = content.Load<Effect>("Shaders/Spray");
+        private void ApplySprayParameters()
+        {
             _sprayEffect.Parameters["SprayBoxSize"].SetValue(_seaConfig.Spray.BoxSize.ToVector3());
             _sprayEffect.Parameters["SprayLevelY"].SetValue(_seaConfig.LevelY + _seaConfig.Spray.LevelYAboveSea);
             _sprayEffect.Parameters["SprayWind"].SetValue(_seaConfig.Spray.Wind.ToVector2());
@@ -560,6 +680,13 @@ namespace Prazsky.Core.Render
             _sprayEffect.Parameters["DropletSize"].SetValue(_seaConfig.Spray.DropletSize);
             _sprayEffect.Parameters["SprayColor"].SetValue(_seaConfig.Spray.Color.ToVector3());
             _sprayEffect.Parameters["SprayOpacity"].SetValue(_seaConfig.Spray.Opacity);
+        }
+
+        /// <summary>(Re)builds the spray's particle buffer at the config's particle count. Deterministic seed.</summary>
+        private void BuildSprayBuffers()
+        {
+            _sprayVertexBuffer?.Dispose();
+            _sprayIndexBuffer?.Dispose();
 
             BirdVertex[] sprayVertices = new BirdVertex[_seaConfig.Spray.ParticleCount * 4];
             Random sprayRng = new(5023);
@@ -573,7 +700,7 @@ namespace Prazsky.Core.Render
                 sprayVertices[v + 2] = new BirdVertex(basePosition, new Vector3(-1f, -1f, rand));
                 sprayVertices[v + 3] = new BirdVertex(basePosition, new Vector3(1f, -1f, rand));
             }
-            _sprayVertexBuffer = new VertexBuffer(graphicsDevice, BirdVertex.Declaration, sprayVertices.Length, BufferUsage.WriteOnly);
+            _sprayVertexBuffer = new VertexBuffer(_graphicsDevice, BirdVertex.Declaration, sprayVertices.Length, BufferUsage.WriteOnly);
             _sprayVertexBuffer.SetData(sprayVertices);
 
             short[] sprayIndices = new short[_seaConfig.Spray.ParticleCount * 6];
@@ -584,13 +711,12 @@ namespace Prazsky.Core.Render
                 sprayIndices[o] = (short)v; sprayIndices[o + 1] = (short)(v + 2); sprayIndices[o + 2] = (short)(v + 1);
                 sprayIndices[o + 3] = (short)(v + 1); sprayIndices[o + 4] = (short)(v + 2); sprayIndices[o + 5] = (short)(v + 3);
             }
-            _sprayIndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, sprayIndices.Length, BufferUsage.WriteOnly);
+            _sprayIndexBuffer = new IndexBuffer(_graphicsDevice, IndexElementSize.SixteenBits, sprayIndices.Length, BufferUsage.WriteOnly);
             _sprayIndexBuffer.SetData(sprayIndices);
+        }
 
-            //--- Meadow: a smooth rolling displaced grid scattered with flowers
-            _meadowEffect = content.Load<Effect>("Shaders/Meadow");
-            CreateGridMesh(MEADOW_GRID_N, MEADOW_EXTENT, out _meadowVertexBuffer, out _meadowIndexBuffer, out _meadowIndexCount);
-
+        private void ApplyMeadowParameters()
+        {
             _meadowEffect.Parameters["MeadowLevelY"].SetValue(_meadowConfig.LevelY);
             _meadowEffect.Parameters["HillHeight"].SetValue(_meadowConfig.HillHeight);
             _meadowEffect.Parameters["ClearingRadius"].SetValue(_meadowConfig.ClearingRadius);
@@ -610,6 +736,8 @@ namespace Prazsky.Core.Render
             _meadowEffect.Parameters["FlowerSpacing"].SetValue(_meadowConfig.Flowers.Spacing);
             _meadowEffect.Parameters["FlowerSize"].SetValue(_meadowConfig.Flowers.Size);
         }
+
+        #endregion
 
         /// <summary>
         /// Builds a flat lattice grid: <paramref name="n"/> vertices per side over <paramref name="extent"/>,
