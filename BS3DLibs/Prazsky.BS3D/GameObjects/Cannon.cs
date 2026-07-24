@@ -13,6 +13,20 @@ namespace Prazsky.BS3D.GameObjects
 
 		public float RotationSpeed { get; set; } = DEFAULT_ROTATION_SPEED;
 
+		//Elevation (pitch off horizontal) the barrel is allowed to reach, in radians, as a TOTAL angle -
+		//resting pitch plus the aimed offset (see EnsureAimInBounds). The whole target cluster hangs overhead,
+		//so the useful range is strongly upward: a hair below horizontal (aiming down only wastes shots into
+		//the ground) up to steep, kept off vertical so the ADS over-barrel up-vector never degenerates. The old
+		//range ([-28.6°, +45°]) let the gun plunge into the ground yet could not lift onto a large map's top
+		//cells while facing them (~52-64° needed) - a third of a wide map was unreachable, so levels could not
+		//be finished. ~80° up covers the top corners of every supported map with margin; -5.7° down is a hair
+		//of feel with no more shots into the ground. (aimcheck logs the facing-elevation reachability per map.)
+		public const float MinElevation = -0.10f;
+		public const float MaxElevation = 1.40f;
+
+		//Traverse (yaw) the aim may swing either side of the resting heading, in radians (±45°).
+		public const float MaxTraverse = Constants.QUARTER_PI;
+
 		public Vector3 AimTarget;
 		public readonly Vector3 OrbitCenter;
 
@@ -92,6 +106,21 @@ namespace Prazsky.BS3D.GameObjects
 				if (_resetAimStep >= 1f) _resettingAim = false;
 				else _resetAimStep += DEFAULT_ROTATION_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 			}
+		}
+
+		/// <summary>
+		/// Orbits the carriage to stand on the same side of the field as <paramref name="worldTarget"/> — facing it —
+		/// so a following <see cref="AimAt"/> is the clean, steep facing shot rather than one fired across the cluster.
+		/// Used by the aim-and-shoot test; in play the carriage is orbited by hand (A/D).
+		/// </summary>
+		public void OrbitToFace(Vector3 worldTarget)
+		{
+			float dx = worldTarget.X - OrbitCenter.X;
+			float dz = worldTarget.Z - OrbitCenter.Z;
+			if (dx * dx + dz * dz < 1e-6f) return;
+
+			_orbitAngle = (float)Math.Atan2(dz, dx);
+			MoveToOrbitAngle();
 		}
 
 		public void Orbit(float delta)
@@ -186,15 +215,67 @@ namespace Prazsky.BS3D.GameObjects
 
 		private void RecalculateRotation()
 		{
-			var directionToOrbitCenter = Position - OrbitCenter;
-			var normalized = directionToOrbitCenter == Vector3.Zero ? directionToOrbitCenter : Vector3.Normalize(directionToOrbitCenter);
-			_rotationToOrbitCenter = new Vector2((float)Math.Asin(-normalized.Y), (float)Math.Atan2(normalized.X, normalized.Z));
+			UpdateRestRotation();
 
 			var finalRotationX = _rotationToOrbitCenter.X + _rotationAim.X - Constants.HALF_PI;
 			var finalRotationY = _rotationToOrbitCenter.Y + _rotationAim.Y;
 
 			Matrix rotationMatrix = Matrix.CreateRotationX(finalRotationX) * Matrix.CreateRotationY(finalRotationY);
 			AimTarget = Position + Vector3.Transform(OrbitCenter, rotationMatrix);
+		}
+
+		/// <summary>
+		/// The barrel's resting pose in (pitch, yaw): the rotation that points it from <see cref="Object3D.Position"/>
+		/// straight at <see cref="OrbitCenter"/>. Depends only on where the gun stands, so it is recomputed whenever
+		/// the pose is rebuilt and is the reference the aimed offset (<c>_rotationAim</c>) and the clamps add onto.
+		/// </summary>
+		private void UpdateRestRotation()
+		{
+			var directionToOrbitCenter = Position - OrbitCenter;
+			var normalized = directionToOrbitCenter == Vector3.Zero ? directionToOrbitCenter : Vector3.Normalize(directionToOrbitCenter);
+			_rotationToOrbitCenter = new Vector2((float)Math.Asin(-normalized.Y), (float)Math.Atan2(normalized.X, normalized.Z));
+		}
+
+		/// <summary>
+		/// Whether the barrel can be pointed straight at <paramref name="worldTarget"/> within the elevation and
+		/// traverse clamps from where the gun currently stands. Outputs the total elevation off horizontal and the
+		/// traverse off the resting heading such an aim needs, so a caller can report by how far a target is out of
+		/// reach. Pure geometry: the shot leaves along the barrel, so this is the aim direction, before gravity.
+		/// </summary>
+		public bool CanAimAt(Vector3 worldTarget, out float requiredElevation, out float requiredTraverse)
+		{
+			UpdateRestRotation();
+
+			Vector3 d = worldTarget - Position;
+			float horizontal = (float)Math.Sqrt(d.X * d.X + d.Z * d.Z);
+			requiredElevation = (float)Math.Atan2(d.Y, horizontal);
+
+			//The aim direction's heading comes out as (restYaw + aimYaw + PI) in RecalculateRotation, so the aimed
+			//yaw needed to face the target is its heading, less PI, less the resting heading (wrapped to ±PI).
+			float desiredHeading = (float)Math.Atan2(d.X, d.Z);
+			requiredTraverse = MathHelper.WrapAngle(desiredHeading - MathHelper.Pi - _rotationToOrbitCenter.Y);
+
+			return requiredElevation >= MinElevation && requiredElevation <= MaxElevation
+				&& requiredTraverse >= -MaxTraverse && requiredTraverse <= MaxTraverse;
+		}
+
+		/// <summary>
+		/// Points the barrel at <paramref name="worldTarget"/> as nearly as the clamps allow, from where the gun
+		/// currently stands. Returns whether the target was reachable without being clamped short. Used by the aim
+		/// diagnostics/tests (and available for any auto-aim); the mouse path still goes through <see cref="Aim"/>.
+		/// </summary>
+		public bool AimAt(Vector3 worldTarget)
+		{
+			bool reachable = CanAimAt(worldTarget, out float requiredElevation, out float requiredTraverse);
+
+			_resettingAim = false;
+			_rotationAim = new Vector2(requiredElevation - _rotationToOrbitCenter.X, requiredTraverse);
+
+			EnsureAimInBounds();
+			RecalculateRotation();
+			RecalculateWorldMatrix();
+
+			return reachable;
 		}
 
 		private void EnsureOrbitAngleInBounds()
@@ -207,13 +288,13 @@ namespace Prazsky.BS3D.GameObjects
 		{
 			var actualXRotation = _rotationAim.X + _rotationToOrbitCenter.X;
 
-			if (actualXRotation >= -Constants.HALF
-				&& actualXRotation <= Constants.QUARTER_PI
-				&& _rotationAim.Y >= -Constants.QUARTER_PI
-				&& _rotationAim.Y <= Constants.QUARTER_PI) return;
+			if (actualXRotation >= MinElevation
+				&& actualXRotation <= MaxElevation
+				&& _rotationAim.Y >= -MaxTraverse
+				&& _rotationAim.Y <= MaxTraverse) return;
 
-			var x = Math.Clamp(actualXRotation, -Constants.HALF, Constants.QUARTER_PI) - _rotationToOrbitCenter.X;
-			var y = Math.Clamp(_rotationAim.Y, -Constants.QUARTER_PI, Constants.QUARTER_PI);
+			var x = Math.Clamp(actualXRotation, MinElevation, MaxElevation) - _rotationToOrbitCenter.X;
+			var y = Math.Clamp(_rotationAim.Y, -MaxTraverse, MaxTraverse);
 
 			_rotationAim = new Vector2(x, y);
 		}

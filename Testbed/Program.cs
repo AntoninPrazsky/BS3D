@@ -12,6 +12,8 @@ namespace Testbed
             string startupMapPath = null;
             string switchMapPath = null;
             bool autoShoot = false;
+            bool aimCheck = false;
+            bool aimShoot = false;
             bool uncappedFps = false;
             byte skyNumber = 0;
             int supersampleFactor = 2;
@@ -23,6 +25,10 @@ namespace Testbed
             foreach (string arg in args)
             {
                 if (string.Equals(arg, "autoshoot", StringComparison.OrdinalIgnoreCase)) autoShoot = true;
+                //Testing: "aimcheck" logs per map whether the cannon can aim at every cell; "aimshoot" auto-enters
+                //game mode and fires up the field's centre column so the aim + shoot path is exercised end to end
+                else if (string.Equals(arg, "aimcheck", StringComparison.OrdinalIgnoreCase)) aimCheck = true;
+                else if (string.Equals(arg, "aimshoot", StringComparison.OrdinalIgnoreCase)) { aimShoot = true; aimCheck = true; }
                 else if (string.Equals(arg, "nocap", StringComparison.OrdinalIgnoreCase)) uncappedFps = true;
                 else if (arg.StartsWith("switchmap=", StringComparison.OrdinalIgnoreCase)) switchMapPath = arg.Substring("switchmap=".Length);
                 else if (arg.StartsWith("sky=", StringComparison.OrdinalIgnoreCase) && byte.TryParse(arg.Substring("sky=".Length), out byte parsedSky)) skyNumber = parsedSky;
@@ -36,7 +42,7 @@ namespace Testbed
                 else startupMapPath = arg;
             }
 
-            using (var game = new Testbed(startupMapPath: startupMapPath, autoShoot: autoShoot, switchMapPath: switchMapPath, skyNumber: skyNumber, uncappedFps: uncappedFps, supersampleFactor: supersampleFactor, exposure: exposure, scene: scene, camPos: camPos, camTarget: camTarget)) game.Run();
+            using (var game = new Testbed(startupMapPath: startupMapPath, autoShoot: autoShoot, aimCheck: aimCheck, aimShoot: aimShoot, switchMapPath: switchMapPath, skyNumber: skyNumber, uncappedFps: uncappedFps, supersampleFactor: supersampleFactor, exposure: exposure, scene: scene, camPos: camPos, camTarget: camTarget)) game.Run();
         }
 
         //Parses "x,y,z" (invariant, so a decimal point) into a Vector3

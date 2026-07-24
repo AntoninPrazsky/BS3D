@@ -631,8 +631,9 @@ namespace Testbed
         //and a fixed distance from the field does not (the camera itself moves per map).
         private static readonly float CANNON_CAMERA_STANDOFF = 15f;
 
-        //Clearance the cannon keeps outside the field's corner, and the steepest resting aim it is placed
-        //for - kept under Cannon's own QUARTER_PI elevation clamp so the rest pose is not against the stop
+        //Clearance the cannon keeps outside the field's corner, and the steepest resting aim it is placed for -
+        //kept well under Cannon.MaxElevation so the rest pose sits mid-range, with room to elevate onto the high
+        //cells (the clamp reaches ~80°; the top corners of a large map need ~50-65° facing them - see aimcheck)
         private static readonly float CANNON_FIELD_CLEARANCE = 2f;
         private static readonly float CANNON_MAX_REST_ELEVATION = 0.70f; //radians, about 40 degrees
 
@@ -678,6 +679,17 @@ namespace Testbed
         private readonly bool _autoShoot;
         private float _autoShootElapsed;
 
+        //Testing (see Program.cs): "aimcheck" logs, per loaded map, whether the cannon's elevation/traverse clamps
+        //let it aim at every cell; "aimshoot" then auto-enters game mode and fires up the field's centre column so
+        //the whole aim -> clamp -> shoot path is exercised, logging the elevation each shot wanted versus what it got.
+        private readonly bool _aimCheck;
+        private readonly bool _aimShoot;
+        private float _aimShootElapsed;
+        private int _aimShootIndex = -1;                       //-1 until the game-mode entry animation finishes; then 0..AIM_SHOOT_STEPS
+        private const int AIM_SHOOT_COLUMN_STEPS = 6;          //samples up the centre column, bottom to top
+        private const int AIM_SHOOT_STEPS = AIM_SHOOT_COLUMN_STEPS + 4; //then the four top corners (the steepest facing shots)
+        private const float AIM_SHOOT_INTERVAL = 0.6f;         //seconds between shots, so they do not pile up mid-flight
+
         //Testing mode: loads this map on top of the running one after a delay ("switchmap=<path>" on the command line);
         //exercises the map re-loading path that the F2 dialog and file drag-and-drop use
         private readonly string _switchMapPath;
@@ -687,7 +699,7 @@ namespace Testbed
 
         //The windowed default is 16:9, the narrowest aspect the game targets (desktop and Xbox, 3840x2160 to
         //3840x1600), so what is framed in a window is the tightest case and a wider display only adds width
-        public Testbed(bool windowed = true, int windowWidth = 1600, int windowHeight = 900, string startupMapPath = null, bool autoShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false, int supersampleFactor = 2, float exposure = DEFAULT_EXPOSURE, string scene = null, Vector3? camPos = null, Vector3? camTarget = null)
+        public Testbed(bool windowed = true, int windowWidth = 1600, int windowHeight = 900, string startupMapPath = null, bool autoShoot = false, bool aimCheck = false, bool aimShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false, int supersampleFactor = 2, float exposure = DEFAULT_EXPOSURE, string scene = null, Vector3? camPos = null, Vector3? camTarget = null)
         {
             //Testing: "campos=x,y,z"/"camtarget=x,y,z" place and aim the free camera at startup (applied in
             //Initialize once the camera exists), so a screenshot can be framed from any vantage.
@@ -705,6 +717,8 @@ namespace Testbed
             _windowed = windowed;
             _startupMapPath = startupMapPath;
             _autoShoot = autoShoot;
+            _aimCheck = aimCheck;
+            _aimShoot = aimShoot;
             _switchMapPath = switchMapPath;
             _uncappedFps = uncappedFps; //Testing: "nocap" on the command line disables vsync so real rendering headroom can be measured
             _supersampleFactor = Math.Clamp(supersampleFactor, 1, 4); //Testing: "ssaa=<n>" on the command line trades sharpness against fill rate
@@ -962,6 +976,10 @@ namespace Testbed
             _skyFromCommandLine = false;
 
             ApplySkyLighting();
+
+            //Testing: the aim-and-shoot scan needs to be in game mode (a shot then leaves the cannon along its aim
+            //rather than the free camera). Kick off the entry animation now; the sweep waits for it in Update.
+            if (_aimShoot) SwitchGameMode(true);
         }
 
         /// <summary>
@@ -1499,6 +1517,8 @@ namespace Testbed
             RecountBallsAndConstraints();
 
             ApplySkyLighting(); //FitCeilingToMap recreated the ceiling renderer, which starts without the sky palette
+
+            if (_aimCheck) LogAimReachability();
         }
 
         /// <summary>
@@ -1650,6 +1670,27 @@ namespace Testbed
                         _autoShootElapsed = 0f;
                         ShootBall(new Vector3(RANDOM.Next(-4, 5), RANDOM.Next(4, 11), RANDOM.Next(-4, 5)));
                         Console.WriteLine($"[autoshoot] FPS: {_info.CurrentFPS}, balls drawn: {_drawnBalls}/{_collectedBalls}, LOD: {string.Join("/", _ballLodTotals)}");
+                    }
+                }
+
+                //Automated aim-and-shoot scan up the field's centre column (testing). Waits for the game-mode
+                //entry animation to finish, then fires one shot per interval, aiming the cannon at each height
+                //via Cannon.AimAt and logging the elevation wanted vs the elevation the clamp allowed.
+                if (_aimShoot && _map != null && _gameMode && !_gameModeAnimStarted && !_freeModeAnimStarted)
+                {
+                    if (_aimShootIndex == -1) { _aimShootIndex = 0; _aimShootElapsed = AIM_SHOOT_INTERVAL; }
+
+                    if (_aimShootIndex < AIM_SHOOT_STEPS)
+                    {
+                        _aimShootElapsed += (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+                        if (_aimShootElapsed >= AIM_SHOOT_INTERVAL)
+                        {
+                            _aimShootElapsed = 0f;
+                            AimShootStep(_aimShootIndex);
+                            _aimShootIndex++;
+                            if (_aimShootIndex >= AIM_SHOOT_STEPS) Console.WriteLine("[aimshoot] centre-column sweep complete");
+                        }
                     }
                 }
 
@@ -2420,7 +2461,7 @@ namespace Testbed
                 //order FOV -> Position -> Target is required: the Target setter rebuilds the view last, with world up.
                 //IsActive gates the capture: the gamepad trigger reads globally through XInput, and losing focus must
                 //free the cursor rather than keep grabbing it (the else branch).
-                if (IsActive && _map != null) UpdateMouseAim(gameTime);
+                if (IsActive && _map != null && !_aimShoot) UpdateMouseAim(gameTime);
                 else { _adsMouseInitialized = false; IsMouseVisible = true; }
 
                 bool adsHeld = IsActive && !_freeModeAnimStarted && _map != null && AdsButtonHeld();
@@ -2589,6 +2630,102 @@ namespace Testbed
                 $"cannon orbit {_cannon.OrbitRadius:F1} ({_gameCameraDistance - _cannon.OrbitRadius:F1} in front of the camera)");
         }
 
+        private const float RAD_TO_DEG = 180f / MathF.PI;
+
+        /// <summary>
+        /// Diagnostic ("aimcheck"): reports whether the cannon can be aimed at every cell of the loaded map, which
+        /// is what makes a level finishable. The clean shot at a cell is from the orbit angle that <i>faces</i> it
+        /// (the cell on the near side): the ball rises from the gun straight to it over open ground. The opposite
+        /// angle is geometrically shallower but fires across the whole hanging cluster, so it is obstructed for
+        /// anything high — this facing angle is the one that actually has to fit the elevation clamp. It steepens
+        /// with height and with distance out from the field's axis, so the top corners of a large map bind. Logs
+        /// the steepest required facing elevation against the clamp and a PASS/FAIL.
+        /// </summary>
+        private void LogAimReachability()
+        {
+            if (_map == null || _cannon == null) return;
+
+            float orbitRadius = _cannon.OrbitRadius;
+            float trunnionsY = _cannon.Position.Y;
+
+            int total = 0, unreachable = 0;
+            float worstElevation = float.MinValue;
+            XZLevel worstCell = default;
+            float worstY = 0f;
+
+            for (byte level = 0; level < _map.Levels; level++)
+                for (byte x = 0; x < _map.StageSizeX; x++)
+                    for (byte z = 0; z < _map.StageSizeZ; z++)
+                    {
+                        Vector3 world = _map.GetRealCenteredPosition(new XZLevel(x, z, level));
+                        float cellHorizontal = MathF.Sqrt(world.X * world.X + world.Z * world.Z);
+
+                        //Facing shot: cannon on the same side as the cell, so the horizontal separation is the
+                        //smallest (orbitRadius - cellHorizontal) and the elevation the steepest
+                        float facingSeparation = MathF.Max(orbitRadius - cellHorizontal, 1f);
+                        float facingElevation = MathF.Atan2(world.Y - trunnionsY, facingSeparation);
+
+                        total++;
+                        if (facingElevation > Cannon.MaxElevation) unreachable++;
+                        if (facingElevation > worstElevation) { worstElevation = facingElevation; worstCell = new XZLevel(x, z, level); worstY = world.Y; }
+                    }
+
+            string verdict = unreachable == 0
+                ? "PASS - every cell can be shot while facing it"
+                : $"FAIL - {unreachable}/{total} cells need more up-elevation than the clamp allows (unfinishable)";
+
+            Console.WriteLine($"[aimcheck] Field {_map.StageSizeX}x{_map.StageSizeZ}x{_map.Levels}: cannon orbit R={orbitRadius:F1}, trunnions Y={trunnionsY:F1}");
+            Console.WriteLine($"[aimcheck]   elevation clamp [{Cannon.MinElevation * RAD_TO_DEG:F1}, {Cannon.MaxElevation * RAD_TO_DEG:F1}] deg, traverse +/-{Cannon.MaxTraverse * RAD_TO_DEG:F0} deg");
+            Console.WriteLine($"[aimcheck]   steepest cell ({worstCell.X},{worstCell.Z},{worstCell.Level}) at Y={worstY:F1} needs {worstElevation * RAD_TO_DEG:F1} deg facing elevation  ->  {verdict}");
+        }
+
+        /// <summary>
+        /// One step of the "aimshoot" scan. Steps 0..N-1 walk up the field's centre column; the last four are its
+        /// top corners, the steepest facing shots. For each the carriage is orbited to face the cell and the cannon
+        /// aimed at it, then a shot is fired through the normal game-mode path (so any attach is reported by the
+        /// usual contact logging). Logs the elevation the aim asked for against what the clamp allowed, so a shot
+        /// held short by the clamp is obvious.
+        /// </summary>
+        private void AimShootStep(int step)
+        {
+            byte topLevel = (byte)(_map.Levels - 1);
+            XZLevel cell;
+            string label;
+
+            if (step < AIM_SHOOT_COLUMN_STEPS)
+            {
+                byte level = (byte)(topLevel * step / (AIM_SHOOT_COLUMN_STEPS - 1));
+                cell = new XZLevel(_map.StageSizeX / 2, _map.StageSizeZ / 2, level);
+                label = "centre";
+            }
+            else
+            {
+                byte lastX = (byte)(_map.StageSizeX - 1), lastZ = (byte)(_map.StageSizeZ - 1);
+                cell = (step - AIM_SHOOT_COLUMN_STEPS) switch
+                {
+                    0 => new XZLevel(0, 0, topLevel),
+                    1 => new XZLevel(lastX, 0, topLevel),
+                    2 => new XZLevel(0, lastZ, topLevel),
+                    _ => new XZLevel(lastX, lastZ, topLevel),
+                };
+                label = "top corner";
+            }
+
+            Vector3 target = _map.GetRealCenteredPosition(cell);
+
+            _cannon.OrbitToFace(target); //stand facing the cell so the shot is the clean, steep facing one
+            bool reachable = _cannon.CanAimAt(target, out float wantedElevation, out _);
+            _cannon.AimAt(target);
+
+            Vector3 dir = _cannon.AimTarget - _cannon.Position;
+            float gotElevation = MathF.Atan2(dir.Y, MathF.Sqrt(dir.X * dir.X + dir.Z * dir.Z));
+
+            Console.WriteLine($"[aimshoot] {label} ({cell.X},{cell.Z},{cell.Level}) Y={target.Y:F1}: " +
+                $"want {wantedElevation * RAD_TO_DEG:F1} deg, got {gotElevation * RAD_TO_DEG:F1} deg  ->  {(reachable ? "reachable" : "CLAMPED SHORT")}");
+
+            ShootBall();
+        }
+
         /// <summary>
         /// Puts the cannon <see cref="CANNON_CAMERA_STANDOFF"/> in front of the game camera, so it keeps the
         /// same size on screen from map to map — the magazine showing through its slot is what the player
@@ -2598,9 +2735,10 @@ namespace Testbed
         /// Two lower bounds override that, and which one binds changes with the map, so this can never be a
         /// single number. The gun must clear the field's <b>footprint</b> at every orbit angle — closer than
         /// the field's corner and it would stand under the cluster it is shooting at. And the closer it
-        /// stands the more steeply it looks up, while <c>Cannon</c> clamps elevation at 45°, so it has to
-        /// stay far enough out that the <b>resting aim</b> is inside that clamp; ignore this one and the gun
-        /// is silently held below the angle it is trying to sit at.
+        /// stands the more steeply it looks up, so it stays far enough out that the <b>resting aim</b> is
+        /// well within <c>Cannon</c>'s elevation clamp (<see cref="CANNON_MAX_REST_ELEVATION"/>, ~40°, kept
+        /// under the ~80° ceiling so there is headroom to elevate onto the high cells); ignore this one and
+        /// the gun is silently held below the angle it is trying to sit at.
         /// </para>
         /// </summary>
         private void FitCannonOrbitToMap()
@@ -2670,8 +2808,9 @@ namespace Testbed
 
         /// <summary>
         /// The "up" for the ADS lens offset: world up made perpendicular to the bore, so the lift is always straight
-        /// over the barrel whatever the aim. Safe under Cannon's ~45 degree elevation clamp (the bore never nears
-        /// vertical); the horizontal-perpendicular fallback is only a guard against that clamp being widened.
+        /// over the barrel whatever the aim. Well-conditioned across Cannon's elevation clamp: at its ~80° ceiling
+        /// |up|² is still ~0.03, far above the fallback threshold, which only trips within ~0.6° of vertical - so
+        /// the horizontal-perpendicular fallback stays dead code unless the clamp is pushed almost to straight up.
         /// </summary>
         private Vector3 AdsCamUp()
         {
