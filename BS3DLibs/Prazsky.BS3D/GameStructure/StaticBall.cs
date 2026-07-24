@@ -7,13 +7,12 @@ namespace Prazsky.BS3D.GameStructure
     {
         public BallType Type { get; }
 
-        public StaticBall(Vector3 position, BallType type, Matrix[] transformations)
+        public StaticBall(Vector3 position, BallType type)
         {
             Type = type;
             Position = position;
             BasicEffectParams = BasicEffectParamsProvider.GetEffectByType(type);
 
-            Transformations = transformations;
             World = Matrix.CreateTranslation(Position);
         }
 

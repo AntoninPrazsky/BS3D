@@ -1,8 +1,6 @@
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using System.Text.Json;
 using Prazsky.BS3D.GameStructure.DataBags;
-using Prazsky.Core.Camera;
 using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
@@ -13,8 +11,6 @@ namespace Prazsky.BS3D.GameStructure
     public class BallsMap
     {
         private StaticBall[,,] _balls;
-        private Matrix[] _transformations;
-        private Model _ballModel;
 
         private static readonly float BALL_RADIUS = Constants.HALF;
 
@@ -33,7 +29,7 @@ namespace Prazsky.BS3D.GameStructure
         public Vector2 BoundingBoxCenter { get; internal set; }
 
 
-        public BallsMap(byte stageSizeX, byte stageSizeZ, byte levels, Model ballModel)
+        public BallsMap(byte stageSizeX, byte stageSizeZ, byte levels)
         {
             if (stageSizeX < 2 || stageSizeZ < 2 || levels < 2) throw new ArgumentException($"Minimum BallsMap size is 2×2×2, given arguments: {stageSizeX}, {stageSizeZ}, {levels}");
 
@@ -41,15 +37,12 @@ namespace Prazsky.BS3D.GameStructure
             StageSizeZ = stageSizeZ;
             Levels = levels;
 
-            InitializeModel(ballModel);
-
             _balls = new StaticBall[StageSizeX, StageSizeZ, Levels];
         }
 
-        public BallsMap(string fileNameForDeserialization, Model ballModel)
+        public BallsMap(string fileNameForDeserialization)
         {
             DeserializeJson(fileNameForDeserialization);
-            InitializeModel(ballModel);
         }
 
         /// <summary>
@@ -57,19 +50,11 @@ namespace Prazsky.BS3D.GameStructure
         /// deserialized by the level loader, not read from a separate file). Throws on invalid data so the
         /// caller can leave its current state untouched.
         /// </summary>
-        public BallsMap(BallPositionTypes ballPositionTypes, Model ballModel)
+        public BallsMap(BallPositionTypes ballPositionTypes)
         {
             if (ballPositionTypes?.Balls == null) throw new ArgumentNullException(nameof(ballPositionTypes));
 
             ApplyBallPositionTypes(ballPositionTypes);
-            InitializeModel(ballModel);
-        }
-
-        private void InitializeModel(Model ballModel)
-        {
-            _ballModel = ballModel;
-            _transformations = new Matrix[ballModel.Bones.Count];
-            ballModel.CopyAbsoluteBoneTransformsTo(_transformations);
         }
 
         /// <summary>
@@ -90,7 +75,7 @@ namespace Prazsky.BS3D.GameStructure
 #if DEBUG
             Console.WriteLine($"Putting ball at stageX: {stageX}; stageZ: {stageZ}; level: {level}; Real position: {realPosition}");
 #endif
-            var ball = new StaticBall(realPosition, type, _transformations);
+            var ball = new StaticBall(realPosition, type);
 			_balls[stageX, stageZ, level] = ball;
 
             return ball;
@@ -378,15 +363,6 @@ namespace Prazsky.BS3D.GameStructure
                         if (_balls[x, z, level] != null)
                             count++;
             return count;
-        }
-
-        public void Draw(ICamera camera)
-        {
-            for (byte level = 0; level < Levels; level++)
-                for (byte x = 0; x < StageSizeX; x++)
-                    for (byte z = 0; z < StageSizeZ; z++)
-                        if (_balls[x, z, level] != null)
-                            _balls[x, z, level].Draw(camera, _ballModel);
         }
 
         public void SerializeAsJson(string fileName)

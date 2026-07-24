@@ -32,7 +32,6 @@ namespace MapEditor
     public class MapEditor : Game
     {
         private BasicCamera3D Camera3D;
-        private Model _hrSphere;
 
         /// <summary>Optional map or level file loaded once at startup (first command-line argument).</summary>
         public string StartupFilePath { get; set; }
@@ -280,8 +279,6 @@ namespace MapEditor
 
         protected override void LoadContent()
         {
-            _hrSphere = Content.Load<Model>("HRGeoDome"); //Still required by BallsMap; the balls themselves are generated spheres
-
             _instancingEffect = Content.Load<Effect>("Shaders/InstancedModel");
             _tonemapEffect = Content.Load<Effect>("Shaders/Tonemap");
             _glareEffect = Content.Load<Effect>("Shaders/Glare");
@@ -306,7 +303,7 @@ namespace MapEditor
             _sky = new SkyDome(Content.Load<Model>("Skyes/SkyDome" + _skyDomeNumber), GraphicsDevice, linearVertexColors: true);
 
 			//10 levels for the initial ball layout plus empty levels at the bottom for the structure to grow into
-			_map = new BallsMap(10, 10, 15, _hrSphere);
+			_map = new BallsMap(10, 10, 15);
             _selector = new Selector(Content, _map, Camera3D);
             _aabb = new AABB(GraphicsDevice);
             _aabb.FitToMap(_map);
@@ -578,7 +575,7 @@ namespace MapEditor
             using NewMapDialog dialog = new(_map.StageSizeX, _map.StageSizeZ, _map.Levels);
             if (dialog.ShowDialog() != DialogResult.OK) return;
 
-            _map = new BallsMap(dialog.StageSizeX, dialog.StageSizeZ, dialog.Levels, _hrSphere);
+            _map = new BallsMap(dialog.StageSizeX, dialog.StageSizeZ, dialog.Levels);
             _selector.UpdateBallsBap(_map);
             _aabb.FitToMap(_map);
 
@@ -746,7 +743,7 @@ namespace MapEditor
                 //The editor works in raw grid coordinates (the selector does), so the map is left uncentered,
                 //exactly as a loaded map file or a new map is. The ctor validates and throws before the
                 //assignment, so a bad map leaves the current one in place.
-                _map = new BallsMap(level.Map, _hrSphere);
+                _map = new BallsMap(level.Map);
                 _selector.UpdateBallsBap(_map);
                 _aabb.FitToMap(_map);
 

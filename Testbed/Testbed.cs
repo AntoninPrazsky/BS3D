@@ -31,7 +31,6 @@ namespace Testbed
     public class Testbed : Game
     {
         private BasicCamera3D _camera;
-        private Model _hrSphere;
 
         #region Instanced ball rendering (issues #19 and #28)
 
@@ -861,8 +860,6 @@ namespace Testbed
 
         protected override void LoadContent()
         {
-            _hrSphere = Content.Load<Model>("Balls/DebugSphere"); //Still used by BallsMap; balls themselves are drawn as generated spheres
-
             _instancingEffect = Content.Load<Effect>("Shaders/InstancedModel");
             _ballMeshes = new SphereMesh[BALL_LOD_COUNT];
             _ballRenderers = new InstancedModelRenderer[BALL_LOD_COUNT];
@@ -959,7 +956,7 @@ namespace Testbed
             //load): an empty field the player can aim and shoot into right away. Without a map _map stays null,
             //which gates off the mouse aim and precise aim (UpdateCannon), so game mode could not aim or shoot.
             //A map loaded or dropped later replaces this one.
-            if (_map == null) InstallMap(new BallsMap(DEFAULT_EMPTY_MAP_X, DEFAULT_EMPTY_MAP_Z, DEFAULT_EMPTY_MAP_LEVELS, _hrSphere));
+            if (_map == null) InstallMap(new BallsMap(DEFAULT_EMPTY_MAP_X, DEFAULT_EMPTY_MAP_Z, DEFAULT_EMPTY_MAP_LEVELS));
 
             //The command-line sky= only pins the startup dome; a level opened at runtime takes its own dome
             _skyFromCommandLine = false;
@@ -1432,7 +1429,7 @@ namespace Testbed
                     return;
                 }
 
-                InstallMap(new BallsMap(filePath, _hrSphere));
+                InstallMap(new BallsMap(filePath));
             }
             catch (Exception e)
             {
@@ -1452,7 +1449,7 @@ namespace Testbed
         private void LoadLevel(string filePath)
         {
             Level level = Level.Load(filePath);
-            BallsMap map = new(level.Map, _hrSphere);
+            BallsMap map = new(level.Map);
 
             InstallMap(map);
 
