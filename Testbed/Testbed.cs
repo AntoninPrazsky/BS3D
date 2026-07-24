@@ -535,10 +535,12 @@ namespace Testbed
         private static readonly int GLARE_DOWNSAMPLE = 4;
 
         /// <summary>
-        /// Radiance a pixel has to exceed before it starts to glare. Above the lit scene but below a
-        /// pulsing ball, so the glare belongs to the balls rather than to every bright surface.
+        /// Radiance a pixel has to exceed before it starts to glare. Set high enough that a ball only glares
+        /// near the peak of its heartbeat (emission ~0.5 on top of the lit colour), not while merely lit, so
+        /// the stars follow the pulse wave through the cluster rather than sitting on every bright surface at
+        /// once — which read as too many, too prominent. Above the lit scene, the city windows and the spray.
         /// </summary>
-        private static readonly float GLARE_THRESHOLD = 0.38f;
+        private static readonly float GLARE_THRESHOLD = 0.55f;
 
         /// <summary>Length of one streak arm in quarter-resolution texels, and its exponential falloff.</summary>
         private static readonly float GLARE_STREAK_LENGTH = 34f;
@@ -546,13 +548,13 @@ namespace Testbed
         private static readonly float GLARE_STREAK_FALLOFF = 3.2f;
 
         /// <summary>
-        /// How much of the glare is added back. Still exaggerated — the point is to make it unmistakable
-        /// that the balls emit light, not to model a lens — but no longer at 2.6, which was tuned while
-        /// the spheres were being drawn inside out. Correcting their winding turned the far hemisphere
-        /// the balls had been showing into the near one, and everything above the threshold got brighter
-        /// at once; the same number afterwards bleached a hole in the skyline behind the cluster.
+        /// How much of the glare is added back. Kept subtle — the point is to hint that the balls emit light,
+        /// not to draw the eye with a lens star, so it is well below the 2.6 it was tuned to while the spheres
+        /// were drawn inside out (correcting their winding brightened everything above the threshold at once).
+        /// Lowered from 1.3 with the threshold raised, so the stars read as a soft glow on the pulse rather
+        /// than a distinct six-armed cross on every bright thing.
         /// </summary>
-        private static readonly float GLARE_INTENSITY = 1.3f;
+        private static readonly float GLARE_INTENSITY = 0.9f;
 
         #endregion
 
