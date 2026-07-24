@@ -645,6 +645,10 @@ namespace Testbed
         //the barrel's top rim clears the centre crosshair and that the over-the-barrel parallax stays small.
         private const float ADS_BACK = 6.0f;              //lens set-back from the muzzle ball along -aim (== pivot - aim*4)
         private const float ADS_RISE = 2.0f;              //lens height above the bore axis; clears the tube (r=0.74) and keeps the sliver low
+        //Floor for the ADS lens: aiming steeply up, "behind the muzzle along -aim" is *below* it, so the lens would
+        //otherwise drop through the stone island (top at ARENA_Y) and show it from underneath. Held a margin above
+        //the island surface - the lens looks up at the cluster from there, so the island stays below the frame.
+        private static readonly float ADS_MIN_Y = ARENA_Y + 1.0f;
         private static readonly float ADS_FOV = (float)Math.PI / 5f; //36 degrees, a modest 1.19x zoom over GAME_FOV
         private const float ADS_CONVERGE_MIN = 6f;        //nearest convergence depth (keeps the look target clear of the barrel front)
         private const float ADS_CONVERGE_MAX = 90f;       //farthest (covers the biggest map's cluster, well under FarPlane)
@@ -1689,7 +1693,14 @@ namespace Testbed
                             _aimShootElapsed = 0f;
                             AimShootStep(_aimShootIndex);
                             _aimShootIndex++;
-                            if (_aimShootIndex >= AIM_SHOOT_STEPS) Console.WriteLine("[aimshoot] centre-column sweep complete");
+                            if (_aimShootIndex >= AIM_SHOOT_STEPS)
+                            {
+                                //Sweep done: hold the barrel aimed straight up (clamped to MaxElevation, ~80°) and
+                                //leave ADS engaged, so the steepest precise-aim view - the one that used to sink the
+                                //lens under the island - sits as a stable frame to inspect or screenshot.
+                                _cannon.AimAt(new Vector3(_cannon.OrbitCenter.X, 100f, _cannon.OrbitCenter.Z));
+                                Console.WriteLine($"[aimshoot] centre-column sweep complete; holding straight-up, ADS lens Y={AdsCameraPosition().Y:F1} (island top {ARENA_Y:F1})");
+                            }
                         }
                     }
                 }
@@ -2464,7 +2475,9 @@ namespace Testbed
                 if (IsActive && _map != null && !_aimShoot) UpdateMouseAim(gameTime);
                 else { _adsMouseInitialized = false; IsMouseVisible = true; }
 
-                bool adsHeld = IsActive && !_freeModeAnimStarted && _map != null && AdsButtonHeld();
+                //The aim-shoot test drives ADS on throughout so the precise-aim camera is exercised (and can be
+                //screenshotted) at every aim, including straight up where the lens used to sink under the island.
+                bool adsHeld = !_freeModeAnimStarted && _map != null && (_aimShoot || (IsActive && AdsButtonHeld()));
                 float adsTarget = adsHeld ? 1f : 0f;
                 float adsDt = (float)gameTime.ElapsedGameTime.TotalSeconds;
                 _adsBlend = adsTarget + (_adsBlend - adsTarget) * MathF.Exp(-adsDt / ADS_BLEND_TAU);
@@ -2720,8 +2733,13 @@ namespace Testbed
             Vector3 dir = _cannon.AimTarget - _cannon.Position;
             float gotElevation = MathF.Atan2(dir.Y, MathF.Sqrt(dir.X * dir.X + dir.Z * dir.Z));
 
+            //ADS lens Y against the island top (ARENA_Y): confirms the precise-aim camera stays above the floor
+            //even at the steep corner shots, where it used to sink through the stone disc.
+            float adsLensY = AdsCameraPosition().Y;
+
             Console.WriteLine($"[aimshoot] {label} ({cell.X},{cell.Z},{cell.Level}) Y={target.Y:F1}: " +
-                $"want {wantedElevation * RAD_TO_DEG:F1} deg, got {gotElevation * RAD_TO_DEG:F1} deg  ->  {(reachable ? "reachable" : "CLAMPED SHORT")}");
+                $"want {wantedElevation * RAD_TO_DEG:F1} deg, got {gotElevation * RAD_TO_DEG:F1} deg  ->  {(reachable ? "reachable" : "CLAMPED SHORT")}" +
+                $"; ADS lens Y={adsLensY:F1} (island top {ARENA_Y:F1})");
 
             ShootBall();
         }
@@ -2780,11 +2798,15 @@ namespace Testbed
         /// <summary>
         /// The lens position for precise aim (ADS): behind the muzzle along the bore and lifted above it, so the
         /// camera looks down the aim with the barrel a small sliver along the bottom of the frame (ADS_BACK/ADS_RISE).
+        /// Aiming steeply up the set-back drops the lens below the stone island; its Y is held at <see cref="ADS_MIN_Y"/>
+        /// so it never sinks through the floor (the lens looks up from there, so the island stays out of frame).
         /// </summary>
         private Vector3 AdsCameraPosition()
         {
             Vector3 aim = CannonAimDirection();
-            return CannonMuzzlePosition() - aim * ADS_BACK + AdsCamUp() * ADS_RISE;
+            Vector3 lens = CannonMuzzlePosition() - aim * ADS_BACK + AdsCamUp() * ADS_RISE;
+            lens.Y = MathF.Max(lens.Y, ADS_MIN_Y);
+            return lens;
         }
 
         /// <summary>
