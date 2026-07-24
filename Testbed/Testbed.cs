@@ -600,10 +600,10 @@ namespace Testbed
         private IndexBuffer _shotTrailIndexBuffer;
         private sealed class ShotTrail { public Vector3 Origin; public Vector3 Direction; public float Age; public Vector3 Color; }
         private readonly List<ShotTrail> _shotTrails = new();
-        private const float TRAIL_LIFETIME = 0.28f;     //seconds the launch smear fades over - a brief, punchy flash
-        private const float TRAIL_LENGTH = 5f;          //world length of the streak, from the muzzle along the shot
-        private const float TRAIL_LEAD_WIDTH = 0.55f;   //half-width at the leading (far) end - bright and clear of the barrel
-        private const float TRAIL_MUZZLE_WIDTH = 0.35f; //half-width at the muzzle end (mostly hidden behind the barrel)
+        private const float TRAIL_LIFETIME = 0.45f;     //seconds the launch smear lasts - long enough not to be missed
+        private const float TRAIL_LENGTH = 7f;          //world length of the streak, from the muzzle along the shot
+        private const float TRAIL_LEAD_WIDTH = 0.72f;   //half-width at the leading (far) end - bright and clear of the barrel
+        private const float TRAIL_MUZZLE_WIDTH = 0.42f; //half-width at the muzzle end (mostly hidden behind the barrel)
         private const float TRAIL_BRIGHTNESS = 3.0f;    //radiance boost so the streak glows and blooms through the glare
         private const float TRAIL_COLOR_FLOOR = 0.12f;  //min peak channel, so even the near-black ball leaves a faint smear
 
@@ -2144,8 +2144,10 @@ namespace Testbed
                 Vector3 head = trail.Origin + trail.Direction * TRAIL_LENGTH;  //leading end, clear of the barrel: bright
                 Vector3 tail = trail.Origin;                                   //muzzle end, mostly hidden by the barrel
 
-                float fade = 1f - trail.Age / TRAIL_LIFETIME; //eased out (holds bright, then drops) so the launch reads
-                fade *= fade;
+                //Hold near-full for most of the life, then drop away at the end (1 - t^2), so the smear stays
+                //clearly visible rather than dimming the instant it appears - the point is that it not be missed
+                float t = trail.Age / TRAIL_LIFETIME;
+                float fade = 1f - t * t;
 
                 _shotTrailEffect.Parameters["TrailHead"].SetValue(head);
                 _shotTrailEffect.Parameters["TrailTail"].SetValue(tail);
