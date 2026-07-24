@@ -65,15 +65,18 @@ TrailVertexOutput TrailVS(TrailVertexInput input)
 float4 TrailPS(TrailVertexOutput input) : COLOR
 {
 	float across = 1.0 - abs(input.UV.x); //1 at the core, 0 at the edges
-	float along = input.UV.y;             //0 at the tail, 1 at the head
+	float along = input.UV.y;             //0 at the muzzle end, 1 at the leading tip
 
 	float profile = across * across;      //soft, round-ish falloff across the streak
-	float lengthFade = along;             //faint at the tail, full at the head
 
+	//Soft at both ends along its length: fades in from the muzzle and out to the leading tip (holding full
+	//through the middle), so the streak dissolves smoothly instead of stopping at a hard rectangular edge.
+	float lengthFade = smoothstep(0.0, 0.25, along) * smoothstep(1.0, 0.75, along);
+
+	//No clip. With additive blending a zero-alpha pixel adds nothing, so the streak can fade smoothly to
+	//nothing everywhere. A clip on (profile * TrailAlpha) would sweep inward as the smear fades and cut it
+	//with a hard moving edge halfway through the fade - which read as the streak being sliced off.
 	float a = profile * lengthFade * TrailAlpha;
-	clip(a - 0.003);
-
-	//Premultiplied, so additive blending fades the streak out towards its edges and tail
 	return float4(TrailColor * a, a);
 }
 
