@@ -1,7 +1,7 @@
 
 #----------------------------- Global Properties ----------------------------#
 
-/outputDir:../bin/netcoreapp3.1/Content
+/outputDir:bin/$(Platform)/Content
 /intermediateDir:obj/$(Platform)
 /platform:Windows
 /config:
