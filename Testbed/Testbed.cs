@@ -591,6 +591,22 @@ namespace Testbed
         private static readonly float SHOOT_MULTIPLIER = 200f;
         private static readonly Random RANDOM = new();
 
+        //Launch smear: a colour streak left at the muzzle when a ball fires, stretched in the flight direction
+        //and fading over a fraction of a second, to sell how hard the ball leaves the cannon (Shaders/ShotTrail.fx).
+        //Anchored at the muzzle (not following the ball, which attaches in ~0.075s - far too brief to read); one
+        //additive billboard per live smear. Brightest and widest at the muzzle, tapering to a faint point outward.
+        private Effect _shotTrailEffect;
+        private VertexBuffer _shotTrailVertexBuffer;
+        private IndexBuffer _shotTrailIndexBuffer;
+        private sealed class ShotTrail { public Vector3 Origin; public Vector3 Direction; public float Age; public Vector3 Color; }
+        private readonly List<ShotTrail> _shotTrails = new();
+        private const float TRAIL_LIFETIME = 0.28f;     //seconds the launch smear fades over - a brief, punchy flash
+        private const float TRAIL_LENGTH = 5f;          //world length of the streak, from the muzzle along the shot
+        private const float TRAIL_LEAD_WIDTH = 0.55f;   //half-width at the leading (far) end - bright and clear of the barrel
+        private const float TRAIL_MUZZLE_WIDTH = 0.35f; //half-width at the muzzle end (mostly hidden behind the barrel)
+        private const float TRAIL_BRIGHTNESS = 3.0f;    //radiance boost so the streak glows and blooms through the glare
+        private const float TRAIL_COLOR_FLOOR = 0.12f;  //min peak channel, so even the near-black ball leaves a faint smear
+
         private Cannon _cannon;
         private CannonMesh _cannonMesh;
 
@@ -901,6 +917,7 @@ namespace Testbed
             _tonemapEffect = Content.Load<Effect>("Shaders/Tonemap");
             _glareEffect = Content.Load<Effect>("Shaders/Glare");
             CreateFullScreenQuad();
+            CreateShotTrailQuad();
 
             //The ground counts into the balls' own ambient occlusion too (dark bellies near the ground)
             foreach (InstancedModelRenderer ballRenderer in _ballRenderers) ballRenderer.GroundHeight = GROUND_TOP_Y;
@@ -1663,6 +1680,17 @@ namespace Testbed
 
                 #endregion
 
+                #region Shot-trail launch smear
+
+                //Age each muzzle smear and drop it once the launch burst has faded
+                for (int i = _shotTrails.Count - 1; i >= 0; i--)
+                {
+                    _shotTrails[i].Age += (float)gameTime.ElapsedGameTime.TotalSeconds;
+                    if (_shotTrails[i].Age >= TRAIL_LIFETIME) _shotTrails.RemoveAt(i);
+                }
+
+                #endregion
+
                 #region Auto shooting (testing)
 
                 if (_autoShoot && _map != null)
@@ -1899,6 +1927,10 @@ namespace Testbed
 
                 DrawBallsInstanced();
 
+                //The launch smears trailing the shots, over the opaque scene (which the depth buffer now holds,
+                //so the cluster/cannon/platform occlude them) and additive, so they glow through the glare
+                DrawShotTrails();
+
                 //The funnel's gold metal rims: opaque, so drawn with the opaque scene (before the glass, which
                 //then composites over them). A closed convex-tube torus, drawn CullNone (both windings) rather
                 //than relying on the winding - the nearest face wins on depth, so the result matches backface
@@ -2085,6 +2117,51 @@ namespace Testbed
         }
 
         /// <summary>
+        /// Draws each live launch smear: one camera-facing billboard from the muzzle (tail — faint, mostly hidden
+        /// behind the barrel) stretched <see cref="TRAIL_LENGTH"/> along the shot to a bright leading end (head)
+        /// out in the open, coloured by the ball type and fading over the shot's first quarter-second. Additive
+        /// and depth-read, like the campfire flame, so it glows and blooms through the glare while the opaque
+        /// scene in front still hides it.
+        /// </summary>
+        private void DrawShotTrails()
+        {
+            if (_shotTrails.Count == 0) return;
+
+            _shotTrailEffect.Parameters["View"].SetValue(_camera.View);
+            _shotTrailEffect.Parameters["Projection"].SetValue(_camera.Projection);
+            _shotTrailEffect.Parameters["CameraPosition"].SetValue(_camera.Position);
+            _shotTrailEffect.Parameters["TrailHeadWidth"].SetValue(TRAIL_LEAD_WIDTH);
+            _shotTrailEffect.Parameters["TrailTailWidth"].SetValue(TRAIL_MUZZLE_WIDTH);
+
+            GraphicsDevice.BlendState = BlendState.Additive;
+            GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+            GraphicsDevice.SetVertexBuffer(_shotTrailVertexBuffer);
+            GraphicsDevice.Indices = _shotTrailIndexBuffer;
+
+            foreach (ShotTrail trail in _shotTrails)
+            {
+                Vector3 head = trail.Origin + trail.Direction * TRAIL_LENGTH;  //leading end, clear of the barrel: bright
+                Vector3 tail = trail.Origin;                                   //muzzle end, mostly hidden by the barrel
+
+                float fade = 1f - trail.Age / TRAIL_LIFETIME; //eased out (holds bright, then drops) so the launch reads
+                fade *= fade;
+
+                _shotTrailEffect.Parameters["TrailHead"].SetValue(head);
+                _shotTrailEffect.Parameters["TrailTail"].SetValue(tail);
+                _shotTrailEffect.Parameters["TrailColor"].SetValue(trail.Color);
+                _shotTrailEffect.Parameters["TrailAlpha"].SetValue(fade);
+
+                _shotTrailEffect.CurrentTechnique.Passes[0].Apply();
+                GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
+            }
+
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
         /// Position to draw a freshly attached ball at: it eases towards the position of its body, which the
         /// constraints have already dragged into the cell. Every other ball is drawn where its body is.
         /// </summary>
@@ -2265,6 +2342,31 @@ namespace Testbed
         }
 
         /// <summary>
+        /// The shot-trail billboard: a unit quad whose texture channel carries (side in {-1,1}, along in
+        /// {0 tail, 1 head}); the shader places it in world space from each trail's head/tail (ShotTrail.fx).
+        /// The vertex positions are unused, so one shared quad serves every trail.
+        /// </summary>
+        private void CreateShotTrailQuad()
+        {
+            VertexPositionTexture[] corners =
+            {
+                new(Vector3.Zero, new Vector2(-1f, 0f)), //tail, left
+                new(Vector3.Zero, new Vector2(1f, 0f)),  //tail, right
+                new(Vector3.Zero, new Vector2(-1f, 1f)), //head, left
+                new(Vector3.Zero, new Vector2(1f, 1f))   //head, right
+            };
+
+            _shotTrailVertexBuffer = new VertexBuffer(GraphicsDevice, VertexPositionTexture.VertexDeclaration, corners.Length, BufferUsage.WriteOnly);
+            _shotTrailVertexBuffer.SetData(corners);
+
+            short[] indices = { 0, 1, 2, 2, 1, 3 };
+            _shotTrailIndexBuffer = new IndexBuffer(GraphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
+            _shotTrailIndexBuffer.SetData(indices);
+
+            _shotTrailEffect = Content.Load<Effect>("Shaders/ShotTrail");
+        }
+
+        /// <summary>
         /// Box-filters the supersampled HDR scene onto the back buffer, tonemaps it from linear radiance
         /// into display range and encodes it to sRGB. This is the frame's one and only exit from linear
         /// light; everything drawn after it (the overlay, the aimer) is already in display space.
@@ -2376,6 +2478,8 @@ namespace Testbed
             _glareBright?.Dispose();
             _glareStreak?.Dispose();
             _fullScreenQuad?.Dispose();
+            _shotTrailVertexBuffer?.Dispose();
+            _shotTrailIndexBuffer?.Dispose();
             _simulation.Dispose();
             _threadDispatcher.Dispose();
             _bufferPool.Clear();
@@ -2420,6 +2524,7 @@ namespace Testbed
 
             var direction = shootTarget - sourcePosition;
             direction.Normalize();
+            Vector3 launchDirection = direction; //unit, before it is scaled to a velocity below
             direction *= SHOOT_MULTIPLIER;
 
             _shotBall.Velocity.Linear = new System.Numerics.Vector3(direction.X, direction.Y, direction.Z);
@@ -2438,12 +2543,31 @@ namespace Testbed
             _shotBalls.Add(ball);
             RecountBallsAndConstraints();
 
+            //Give the shot its launch smear: a colour streak at the muzzle, along the shot, fading over its
+            //first quarter-second (drawn in DrawShotTrails, aged out in Update)
+            _shotTrails.Add(new ShotTrail { Origin = sourcePosition, Direction = launchDirection, Age = 0f, Color = TrailColorFor(ball.Type) });
+
             #region Contact event registration
 
             //TODO: Unregister when removed from world
             _events.Register(_simulation.Bodies[bodyHandle].CollidableReference, _eventHandler);
 
             #endregion
+        }
+
+        /// <summary>
+        /// The launch-smear colour for a ball type: its diffuse tint decoded to linear, its hue kept but lifted
+        /// to a floor so even the near-black ball leaves a faint smear, then boosted to a glowing radiance so the
+        /// streak reads as energy and blooms through the glare.
+        /// </summary>
+        private static Vector3 TrailColorFor(BallType type)
+        {
+            Vector3 linear = ColorSpace.SrgbToLinear(BasicEffectParamsProvider.GetDiffuseTintByType(type));
+
+            float peak = MathF.Max(linear.X, MathF.Max(linear.Y, linear.Z));
+            if (peak < TRAIL_COLOR_FLOOR) linear *= TRAIL_COLOR_FLOOR / MathF.Max(peak, 1e-4f);
+
+            return linear * TRAIL_BRIGHTNESS;
         }
 
         private void UpdateCannon(GameTime gameTime)
@@ -2475,9 +2599,7 @@ namespace Testbed
                 if (IsActive && _map != null && !_aimShoot) UpdateMouseAim(gameTime);
                 else { _adsMouseInitialized = false; IsMouseVisible = true; }
 
-                //The aim-shoot test drives ADS on throughout so the precise-aim camera is exercised (and can be
-                //screenshotted) at every aim, including straight up where the lens used to sink under the island.
-                bool adsHeld = !_freeModeAnimStarted && _map != null && (_aimShoot || (IsActive && AdsButtonHeld()));
+                bool adsHeld = IsActive && !_freeModeAnimStarted && _map != null && AdsButtonHeld();
                 float adsTarget = adsHeld ? 1f : 0f;
                 float adsDt = (float)gameTime.ElapsedGameTime.TotalSeconds;
                 _adsBlend = adsTarget + (_adsBlend - adsTarget) * MathF.Exp(-adsDt / ADS_BLEND_TAU);

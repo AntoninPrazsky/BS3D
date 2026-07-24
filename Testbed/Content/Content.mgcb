@@ -141,6 +141,12 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/Tonemap.fx
 
+#begin Shaders/ShotTrail.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/ShotTrail.fx
+
 #begin Skyes/SkyDome1.dae
 /importer:XImporter
 /processor:ModelProcessor
