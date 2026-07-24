@@ -538,6 +538,20 @@ namespace Prazsky.BS3D.GameStructure
                         if (currentBall.Position.Z > maxPosZ) maxPosZ = currentBall.Position.Z;
                     }
 
+            //An empty top level leaves min/max at their sentinels (float.Max/float.Min), and their difference
+            //overflows to ±Infinity — which would poison every centered position derived from BoundingBoxCenter
+            //(ComputeCentered/ComputeUncentered), so a ball shot at the ceiling of a fully empty map — the default
+            //field installed at startup with no map loaded — could never attach. Fall back to the full field
+            //extent, exactly what a filled top level would give, so the map centres on the origin over the whole
+            //field the way the ceiling does and a ball shot up attaches centred, building a cluster from nothing.
+            if (maxPosX < minPosX) //Sentinels still inverted: no ball on the top level
+            {
+                minPosX = 0f;
+                minPosZ = 0f;
+                maxPosX = StageSizeX - 1;
+                maxPosZ = StageSizeZ - 1;
+            }
+
             Vector2 minPos = new(minPosX, minPosZ);
             Vector2 maxPos = new(maxPosX, maxPosZ);
 

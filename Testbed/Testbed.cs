@@ -186,6 +186,14 @@ namespace Testbed
         private PhysicsBall[,,] _physicsBalls;
         private BallsMap _map;
 
+        //Field size of the empty map installed at startup when no map is given on the command line, so the game
+        //is playable straight away — mouse aim and precise aim are gated on a map existing (see UpdateCannon).
+        //It starts empty: shooting up attaches balls to the ceiling and builds a cluster from nothing, shooting
+        //down drains through the funnel. 10×10×16 matches Full.json, the size the game camera fit is tuned against.
+        private const byte DEFAULT_EMPTY_MAP_X = 10;
+        private const byte DEFAULT_EMPTY_MAP_Z = 10;
+        private const byte DEFAULT_EMPTY_MAP_LEVELS = 16;
+
         private CameraInputHelper _cih;
 
         private SkyDome _sky;
@@ -946,6 +954,12 @@ namespace Testbed
             EnsureSceneTarget();
 
             if (!string.IsNullOrEmpty(_startupMapPath) && File.Exists(_startupMapPath)) DeserializeMapFromFile(_startupMapPath);
+
+            //Start playable even with nothing on the command line (and as a fallback if a startup map failed to
+            //load): an empty field the player can aim and shoot into right away. Without a map _map stays null,
+            //which gates off the mouse aim and precise aim (UpdateCannon), so game mode could not aim or shoot.
+            //A map loaded or dropped later replaces this one.
+            if (_map == null) InstallMap(new BallsMap(DEFAULT_EMPTY_MAP_X, DEFAULT_EMPTY_MAP_Z, DEFAULT_EMPTY_MAP_LEVELS, _hrSphere));
 
             //The command-line sky= only pins the startup dome; a level opened at runtime takes its own dome
             _skyFromCommandLine = false;
