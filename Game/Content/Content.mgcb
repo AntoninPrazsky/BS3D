@@ -1,0 +1,61 @@
+
+#----------------------------- Global Properties ----------------------------#
+
+/outputDir:bin/$(Platform)/Content
+/intermediateDir:obj/$(Platform)
+/platform:Windows
+/config:
+/profile:HiDef
+/compress:False
+
+#-------------------------------- References --------------------------------#
+
+#---------------------------------- Content ---------------------------------#
+
+# Everything here is built straight out of the Testbed's content directory, so there is one copy of each
+# shader and each dome in the repository and a change reaches every executable at once (the map editor
+# does the same). Nothing in this project has content of its own yet.
+
+#begin ../../Testbed/Content/Shaders/InstancedModel.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/InstancedModel.fx;Shaders/InstancedModel.fx
+
+#begin ../../Testbed/Content/Shaders/Glare.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Glare.fx;Shaders/Glare.fx
+
+#begin ../../Testbed/Content/Shaders/Tonemap.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Tonemap.fx;Shaders/Tonemap.fx
+
+#begin ../../Testbed/Content/Shaders/ShotTrail.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/ShotTrail.fx;Shaders/ShotTrail.fx
+
+#begin ../../Testbed/Content/Skyes/SkyDome13.dae
+/importer:XImporter
+/processor:ModelProcessor
+/processorParam:ColorKeyColor=0,0,0,0
+/processorParam:ColorKeyEnabled=True
+/processorParam:DefaultEffect=BasicEffect
+/processorParam:GenerateMipmaps=True
+/processorParam:GenerateTangentFrames=False
+/processorParam:PremultiplyTextureAlpha=True
+/processorParam:PremultiplyVertexColors=True
+/processorParam:ResizeTexturesToPowerOfTwo=False
+/processorParam:RotationX=0
+/processorParam:RotationY=0
+/processorParam:RotationZ=0
+/processorParam:Scale=1
+/processorParam:SwapWindingOrder=False
+/processorParam:TextureFormat=Compressed
+/build:../../Testbed/Content/Skyes/SkyDome13.dae;Skyes/SkyDome13.dae
+
