@@ -18,8 +18,8 @@ namespace BS3D
     /// the procedural city, the sky dome, the linear-radiance render pipeline.
     /// <para>
     /// What it is <b>not</b> is a copy of <c>Testbed.cs</c>. There is no Bepu simulation here yet, no map
-    /// files, no scene switching and no editor plumbing: a shot ball flies ballistically and sticks where
-    /// it touches the cluster. That is enough to carry the thing this build exists to establish — balls
+    /// files, no scene switching and no editor plumbing: a shot ball flies ballistically and snaps into the
+    /// cluster's lattice where it touches. That is enough to carry the thing this build exists to establish — balls
     /// crossing a neon city fast enough that you cannot follow them, and a camera that is visibly hit
     /// every time the gun fires.
     /// </para>
@@ -78,6 +78,10 @@ namespace BS3D
         private static readonly float GLARE_STREAK_FALLOFF = 3.2f;
         private static readonly float GLARE_INTENSITY = 0.9f;
 
+        //Only used when supersampling is off: multisampling antialiases geometry edges but not shading, and
+        //the balls' procedural relief is shading.
+        private static readonly int MSAA_SAMPLES = 8;
+
         #endregion
 
         #region Scene
@@ -87,8 +91,39 @@ namespace BS3D
         private const int SKY_DOME = 13;
 
         private SkyDome _sky;
+        private Effect _skyEffect;
         private Vector3 _zenithLinear = Vector3.One;
         private Vector3 _horizonLinear = Vector3.One;
+
+        //The weather. Clouds live on a flat plane at a finite altitude rather than as a texture on the dome,
+        //which is what lets the same field be both the cloud you look at and the shadow it throws: the sky
+        //shader crosses the plane with the view ray, the ball/city/island shader with the sun ray. One field,
+        //handed to both shaders from here, so the two cannot be tuned apart by accident.
+        private readonly CloudField _clouds = new();
+
+        private static readonly Vector3 CLOUD_SUN_COLOR = new(1.7f, 1.66f, 1.55f);
+        private static readonly Vector3 CLOUD_SHADOW_COLOR = new(0.18f, 0.21f, 0.28f);
+        private static readonly float CLOUD_DETAIL_STRENGTH = 2.5f;
+        private static readonly float CLOUD_OPACITY = 2.4f;
+        private static readonly float CLOUD_HORIZON_FADE = 0.16f;
+        private static readonly float CLOUD_SUN_STEP = 90f;
+        private static readonly float CLOUD_SELF_ABSORPTION = 2.5f;
+        private static readonly float CLOUD_SUN_ABSORPTION = 1f;
+        private static readonly float CLOUD_SILVER_STRENGTH = 1.2f;
+        private static readonly float CLOUD_SILVER_POWER = 12f;
+
+        /// <summary>
+        /// The shadowed side of a cloud sees no sun at all — only sky — so it takes the zenith colour far more
+        /// completely than any surface the rig lights from two sides.
+        /// </summary>
+        private static readonly float CLOUD_SHADOW_TINT_STRENGTH = 0.8f;
+
+        /// <summary>
+        /// Towards the sun. A direction rather than <c>KeyLightPosition</c>, which is a point forty units off
+        /// the island: near enough that its direction fans right across the scene, while a cloud shadow has to
+        /// arrive in parallel bands over a city hundreds of units wide.
+        /// </summary>
+        private static readonly Vector3 SUN_DIRECTION = -DefaultLighting.Light0Direction;
 
         private static readonly float SKY_TINT_STRENGTH = 0.5f;
         private static readonly float SCENE_AMBIENT_INTENSITY = 0.25f;
@@ -104,14 +139,23 @@ namespace BS3D
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
 
-        //The round stone island the gun stands on: the funnel's rim radius out to the disc's, then a hard
-        //vertical edge the city falls away past. No drain and no physics floor here yet — nothing falls.
+        //The round stone island the gun stands on: a solid disc out to its rim, then a hard vertical edge the
+        //city falls away past. No drain and no physics floor here yet — nothing falls.
         private static readonly float ISLAND_Y = -8.5f;
-        private static readonly float ISLAND_INNER_RADIUS = 14f;
+
+        //Solid, because there is nothing to leave a hole for. The Testbed's disc is a washer with a 14-unit
+        //bore, and the glass drain funnel, its gold rims and the dark pit shaft are what fill it; this build
+        //has none of them, so the bore was simply a 28-unit hole in the floor under the hanging cluster. It
+        //goes back to 14 the day the funnel arrives, and not before.
+        private static readonly float ISLAND_INNER_RADIUS = 0f;
         private static readonly float ISLAND_RADIUS = 26f;
         private static readonly float ISLAND_EDGE_HEIGHT = 5f;
         private static readonly int ISLAND_SEGMENTS = 64;
         private static readonly Vector3 ISLAND_COLOR = new(0.58f, 0.56f, 0.54f);
+
+        //How many world units one tile of the marble spans. The Testbed derives the same figure from the size
+        //of the ground block the texture was modelled on; here it is what it is — the grain of the stone.
+        private static readonly float ISLAND_DETAIL_SPAN = 30f;
 
         private DiscMesh _islandMesh;
         private InstancedModelRenderer _islandRenderer;
@@ -162,15 +206,41 @@ namespace BS3D
         private const byte CLUSTER_LEVELS = 12;
         private const float CLUSTER_TOP_RADIUS = 4.6f;
 
+        //Empty field levels below the layout: the room the cluster grows into as shot balls attach under it,
+        //which is how a map file's field is taller than the layout hanging at its top. Must be even — odd
+        //levels are shifted by +0.5 in X and Z, so an odd offset would flip the parity of every layer of the
+        //layout and change how the balls nest into each other.
+        private const byte CLUSTER_EXTRA_LEVELS = 6;
+        private const byte FIELD_LEVELS = CLUSTER_LEVELS + CLUSTER_EXTRA_LEVELS;
+
+        //A cell's height is its level index over √2 and the layout now sits that many levels up the field, so
+        //without this the whole cluster would hang CLUSTER_EXTRA_LEVELS higher than it was framed for. The
+        //grid is the truth; this is only where it is drawn, so it is applied at the map/world boundary alone.
+        private static readonly float CLUSTER_WORLD_Y = -CLUSTER_EXTRA_LEVELS / Constants.SQRT_TWO;
+
         /// <summary>A ball that is part of the hanging structure: where it is, what colour, how boxed in.</summary>
         private struct ClusterBall
         {
             public Vector3 Position;
+            public XZLevel Cell;
             public BallType Type;
             public Vector4 Occlusion;
         }
 
+        //The lattice is the truth about the cluster — what is where, and what is free for a shot to land in.
+        //The list is the flattened frame-facing copy of it: what is drawn, and what a shot is tested against.
+        private BallsMap _map;
         private readonly List<ClusterBall> _clusterBalls = new();
+
+        //What the cluster hangs from: a translucent glass plate over the play field, the Testbed's own ceiling.
+        //Without it the cluster hangs out of nothing, and a mass of balls suspended in mid-air over a city
+        //reads as an object that has not been finished rather than as one that is held up.
+        private static readonly Vector3 CEILING_GLASS_COLOR = new(0.55f, 0.75f, 0.85f);
+        private static readonly float CEILING_GLASS_ALPHA = 0.4f;
+
+        private BoxMesh _ceilingMesh;
+        private InstancedModelRenderer _ceilingRenderer;
+        private Matrix _ceilingWorld;
 
         #endregion
 
@@ -280,8 +350,14 @@ namespace BS3D
 
         private void SetGraphics()
         {
-            _graphics.PreferredBackBufferWidth = _fullscreen ? GraphicsDevice?.DisplayMode.Width ?? WINDOW_WIDTH : WINDOW_WIDTH;
-            _graphics.PreferredBackBufferHeight = _fullscreen ? GraphicsDevice?.DisplayMode.Height ?? WINDOW_HEIGHT : WINDOW_HEIGHT;
+            //The adapter's mode, not the device's: this is called from the constructor as well, before the
+            //GraphicsDeviceManager has made a device at all — so reading GraphicsDevice there fell through to
+            //the windowed default and `BS3D.exe fullscreen` mode-switched the display down to 1600×900
+            //instead of filling it. GraphicsAdapter is valid with no device.
+            DisplayMode display = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode;
+
+            _graphics.PreferredBackBufferWidth = _fullscreen ? display.Width : WINDOW_WIDTH;
+            _graphics.PreferredBackBufferHeight = _fullscreen ? display.Height : WINDOW_HEIGHT;
             _graphics.IsFullScreen = _fullscreen;
             _graphics.SynchronizeWithVerticalRetrace = !_uncappedFps;
 
@@ -367,8 +443,13 @@ namespace BS3D
             BuildScene();
             BuildCluster();
 
-            _sky = new SkyDome(Content.Load<Model>("Skyes/SkyDome" + SKY_DOME), GraphicsDevice, linearVertexColors: true);
+            _skyEffect = Content.Load<Effect>("Shaders/Sky");
+            _sky = new SkyDome(Content.Load<Model>("Skyes/SkyDome" + SKY_DOME), GraphicsDevice, linearVertexColors: true)
+            {
+                Effect = _skyEffect
+            };
 
+            SetCloudParameters();
             ApplySkyLighting();
             ApplyNeonLights();
 
@@ -398,12 +479,27 @@ namespace BS3D
                 SpecularAmbientStrength = 0.07f
             };
 
-            //No detail texture: without one the renderer falls through to the plain technique, which is
-            //what is wanted here (plain stone, its sheen the sky reflection). Adding relief settings
-            //without a texture would be silently dead code.
             _islandMesh = new DiscMesh(GraphicsDevice, ISLAND_INNER_RADIUS, ISLAND_RADIUS, ISLAND_EDGE_HEIGHT, ISLAND_SEGMENTS);
             _islandRenderer = new InstancedModelRenderer(GraphicsDevice, _islandMesh, ISLAND_COLOR, _instancingEffect)
             {
+                //The stone surface, the Testbed's own: coursed slab relief over the marble texture, projected
+                //triplanar because the disc carries no UVs worth the name. The detail texture is what selects
+                //the technique that reads any of this — without one the renderer falls through to the plain
+                //one and every setting here is silently dead, which is exactly what left the island a flat
+                //grey band under the neon.
+                DetailTexture = Content.Load<Texture2D>("GameObjects/Ground_8"),
+                DetailTextureMapping = DetailMapping.Triplanar,
+                DetailScale = 1f / ISLAND_DETAIL_SPAN,
+
+                SurfaceReliefFrequency = 9f,
+                SurfaceReliefStrength = 0.008f,
+                SlabSize = 2f,
+                SlabJointWidth = 0.025f,
+                SlabJointDepth = 0.04f,
+                CavityStrength = 0.7f,
+                ReliefShadowStrength = 0.85f,
+                ParallaxScale = 1f,
+
                 //A floor is seen at a grazing angle everywhere except right under your feet, which is
                 //exactly where Fresnel puts the sky reflection at full strength.
                 SpecularAmbientStrength = 0.4f
@@ -412,13 +508,14 @@ namespace BS3D
         }
 
         /// <summary>
-        /// Fills the hanging cluster: a <see cref="BallsMap"/> carved to a taper, centred on the origin, then
-        /// flattened into a list of world positions. The map is what a level will hand over later; the list is
-        /// what the frame actually draws and what a shot is tested against, so the two are built together here.
+        /// Fills the hanging cluster: a <see cref="BallsMap"/> carved to a taper and centred on the origin.
+        /// The layout hangs at the top of a taller field, so the empty levels underneath are room for shot
+        /// balls to attach into — the same arrangement a map file carries, which is what a level will replace
+        /// this with. <see cref="RebuildClusterBalls"/> then derives the drawn copy from it.
         /// </summary>
         private void BuildCluster()
         {
-            BallsMap map = new(CLUSTER_X, CLUSTER_Z, CLUSTER_LEVELS);
+            _map = new BallsMap(CLUSTER_X, CLUSTER_Z, FIELD_LEVELS);
 
             float centreX = (CLUSTER_X - 1) * Constants.HALF;
             float centreZ = (CLUSTER_Z - 1) * Constants.HALF;
@@ -435,35 +532,73 @@ namespace BS3D
                         float dz = z - centreZ;
                         if (dx * dx + dz * dz > radius * radius) continue;
 
-                        map.PutBallAt(x, z, level, RandomBallType());
+                        _map.PutBallAt(x, z, (byte)(level + CLUSTER_EXTRA_LEVELS), RandomBallType());
                     }
             }
 
-            map.Center();
+            _map.Center();
 
-            //Neighbour-based ambient occlusion, computed once: a ball buried in the mass is darker than one
-            //on the outside, which is what makes the cluster read as one body instead of a heap of spheres.
-            StaticBall[,,] balls = map.GetStaticBallsArray();
-            XZLevel size = map.GetStaticBallsArraySize();
+            RebuildClusterBalls();
 
-            for (int level = 0; level < CLUSTER_LEVELS; level++)
-                for (int x = 0; x < CLUSTER_X; x++)
-                    for (int z = 0; z < CLUSTER_Z; z++)
+            //Odd levels are shifted by +0.5 and a ball's radius is another 0.5, so a field's worth of balls is
+            //one unit wider than its cell count; the plate covers it with that margin, as the Testbed's does.
+            _ceilingMesh = new BoxMesh(GraphicsDevice, CLUSTER_X + 1f, 1f, CLUSTER_Z + 1f);
+            _ceilingRenderer = new InstancedModelRenderer(GraphicsDevice, _ceilingMesh, CEILING_GLASS_COLOR, _instancingEffect, CEILING_GLASS_ALPHA);
+
+            //Two above the centres of the top level's balls, so the plate clears them and the cluster reads as
+            //hanging just under it rather than embedded in it
+            _ceilingWorld = Matrix.CreateTranslation(MapToWorld(new Vector3(0f, (FIELD_LEVELS - 1) / Constants.SQRT_TWO + 2f, 0f)));
+        }
+
+        /// <summary>
+        /// Flattens the lattice into the list the frame draws and a shot is tested against, each ball carrying
+        /// the cell it came from so a hit knows where in the lattice it landed.
+        /// <para>
+        /// Neighbour-based ambient occlusion is derived here too — a ball buried in the mass is darker than
+        /// one on the outside, which is what makes the cluster read as one body rather than a heap of
+        /// spheres. It is re-derived for the whole cluster rather than for the new ball alone, because a
+        /// ball that attaches also boxes in every neighbour it just arrived next to.
+        /// </para>
+        /// </summary>
+        private void RebuildClusterBalls()
+        {
+            _clusterBalls.Clear();
+
+            StaticBall[,,] balls = _map.GetStaticBallsArray();
+            XZLevel size = _map.GetStaticBallsArraySize();
+
+            for (int level = 0; level < size.Level; level++)
+                for (int x = 0; x < size.X; x++)
+                    for (int z = 0; z < size.Z; z++)
                     {
                         StaticBall ball = balls[x, z, level];
                         if (ball == null) continue;
 
-                        int occluders = BallsMap.CountOccupiedNeighbors(balls, new XZLevel(x, z, level), size, out Vector3 direction);
+                        XZLevel cell = new(x, z, level);
+
+                        int occluders = BallsMap.CountOccupiedNeighbors(balls, cell, size, out Vector3 direction);
                         float open = 1f - BALL_OCCLUSION_STRENGTH * Math.Min(occluders, MAX_BALL_OCCLUDERS) / MAX_BALL_OCCLUDERS;
 
+                        //The direction is a sum of unit vectors, one per occupied neighbour, so it has to be
+                        //divided by the most there can be before the shader reads it as a direction-and-weight.
+                        //Handed over raw it is up to twelve times too long, and the shader's dot against it
+                        //saturates over most of the ball — which paints a hard black crescent on every surface
+                        //ball instead of the soft inward shading that makes the cluster read as one body.
                         _clusterBalls.Add(new ClusterBall
                         {
-                            Position = ball.Position,
+                            Position = MapToWorld(ball.Position),
+                            Cell = cell,
                             Type = ball.Type,
-                            Occlusion = new Vector4(direction.X, direction.Y, direction.Z, open)
+                            Occlusion = new Vector4(direction / MAX_BALL_OCCLUDERS, open)
                         });
                     }
         }
+
+        /// <summary>Where a lattice position is drawn.</summary>
+        private static Vector3 MapToWorld(Vector3 mapPosition) => new(mapPosition.X, mapPosition.Y + CLUSTER_WORLD_Y, mapPosition.Z);
+
+        /// <summary>Which lattice position a point in the world is at — the inverse of <see cref="MapToWorld"/>.</summary>
+        private static Vector3 WorldToMap(Vector3 worldPosition) => new(worldPosition.X, worldPosition.Y - CLUSTER_WORLD_Y, worldPosition.Z);
 
         /// <summary>
         /// Every renderer that takes its lighting from the sky dome.
@@ -475,6 +610,7 @@ namespace BS3D
             yield return _cannonRenderer;
             yield return _cityRenderer;
             yield return _islandRenderer;
+            yield return _ceilingRenderer;
         }
 
         /// <summary>
@@ -499,6 +635,54 @@ namespace BS3D
                 renderer.KeyLightPosition = -DefaultLighting.Light0Direction * 40f;
                 renderer.SetLightTint(keyTint, backTint);
             }
+
+            ApplyCloudPalette();
+        }
+
+        /// <summary>
+        /// Colours the clouds with the dome they hang in. A cloud has no colour of its own: its lit side is
+        /// the colour of the sun and its underside the colour of the sky, so the lit side takes the very tint
+        /// the key light takes — the clouds are lit by literally the same light as everything under them —
+        /// and the underside takes the zenith, harder, since it sees no sun at all.
+        /// <para>
+        /// The dome never changes here, but this is not therefore optional: the two colours have no defaults,
+        /// and left unset the whole deck comes out black.
+        /// </para>
+        /// </summary>
+        private void ApplyCloudPalette()
+        {
+            Vector3 sunTint = Vector3.Lerp(Vector3.One, _horizonLinear, SKY_TINT_STRENGTH);
+            Vector3 skyTint = Vector3.Lerp(Vector3.One, _zenithLinear, CLOUD_SHADOW_TINT_STRENGTH);
+
+            _skyEffect.Parameters["CloudSunColor"].SetValue(CLOUD_SUN_COLOR * sunTint);
+            _skyEffect.Parameters["CloudShadowColor"].SetValue(CLOUD_SHADOW_COLOR * skyTint);
+        }
+
+        /// <summary>
+        /// Everything about the clouds that does not change frame to frame. The per-frame half — the clock and
+        /// the camera — goes in <see cref="Draw"/>, right before the dome does.
+        /// <para>
+        /// The Testbed also flattens its <b>ambient</b> as cloud closes over the arena. That is not copied
+        /// here: its overcast palette is authored for a daylight sky and is brighter than this dusk dome's
+        /// own, so lerping towards it would <i>lighten</i> a night city as the weather thickened. The half
+        /// that matters is the shader's, which takes the sun away per pixel where cloud covers it.
+        /// </para>
+        /// </summary>
+        private void SetCloudParameters()
+        {
+            _skyEffect.Parameters["CloudDetailStrength"].SetValue(CLOUD_DETAIL_STRENGTH);
+            _skyEffect.Parameters["CloudOpacity"].SetValue(CLOUD_OPACITY);
+            _skyEffect.Parameters["CloudHorizonFade"].SetValue(CLOUD_HORIZON_FADE);
+            _skyEffect.Parameters["CloudSunStep"].SetValue(CLOUD_SUN_STEP);
+            _skyEffect.Parameters["CloudSelfAbsorption"].SetValue(CLOUD_SELF_ABSORPTION);
+            _skyEffect.Parameters["CloudSunAbsorption"].SetValue(CLOUD_SUN_ABSORPTION);
+            _skyEffect.Parameters["CloudSilverStrength"].SetValue(CLOUD_SILVER_STRENGTH);
+            _skyEffect.Parameters["CloudSilverPower"].SetValue(CLOUD_SILVER_POWER);
+
+            //The clouds are lit by whatever the rig's key light is, and the scene is shadowed along the very
+            //same direction — so both shaders are told about the one sun
+            _skyEffect.Parameters["SunDirection"].SetValue(SUN_DIRECTION);
+            _instancingEffect.Parameters["SunDirection"].SetValue(SUN_DIRECTION);
         }
 
         /// <summary>
@@ -536,10 +720,20 @@ namespace BS3D
 
             if (IsActive)
             {
+                IsMouseVisible = false;
                 UpdateInput(gameTime, edgeInputAllowed);
-                UpdateAim(gameTime);
+                UpdateAim(gameTime, edgeInputAllowed);
             }
-            else _mouseAimInitialized = false;
+            else
+            {
+                //The cursor belongs to the desktop again as soon as the window is not the one being played:
+                //hidden over an unfocused window it simply disappears wherever the player moves it.
+                IsMouseVisible = true;
+                _mouseAimInitialized = false;
+
+                //A trigger held while the window was away must be re-released before it fires
+                _padTriggerReleased = false;
+            }
 
             _wasActive = IsActive;
 
@@ -590,7 +784,7 @@ namespace BS3D
         /// pixel at any frame rate. Firing is read from the same state, so the click and the aim cannot
         /// disagree about the frame they happened in.
         /// </summary>
-        private void UpdateAim(GameTime gameTime)
+        private void UpdateAim(GameTime gameTime, bool edgeInputAllowed)
         {
             int centreX = GraphicsDevice.Viewport.Width / 2;
             int centreY = GraphicsDevice.Viewport.Height / 2;
@@ -609,7 +803,7 @@ namespace BS3D
                     if (pitch != 0f || yaw != 0f) _cannon.Aim(new Vector2(pitch, yaw), gameTime);
                 }
 
-                if (mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released && _wasActive)
+                if (edgeInputAllowed && mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released)
                     Shoot();
             }
 
@@ -625,7 +819,10 @@ namespace BS3D
                 if (pad.ThumbSticks.Right.LengthSquared() > 0f)
                     _cannon.Aim(new Vector2(pad.ThumbSticks.Right.Y, -pad.ThumbSticks.Right.X) * PAD_AIM_RATE, gameTime);
 
-                if (pad.Triggers.Right > 0.5f && _padTriggerReleased) { Shoot(); _padTriggerReleased = false; }
+                //Gated like the keyboard and the mouse: XInput reports a held trigger whether the window has
+                //focus or not, so without this the click that refocuses the game would arrive alongside a
+                //trigger that was never released and fire a shot the player did not ask for
+                if (edgeInputAllowed && pad.Triggers.Right > 0.5f && _padTriggerReleased) { Shoot(); _padTriggerReleased = false; }
                 else if (pad.Triggers.Right <= 0.5f) _padTriggerReleased = true;
             }
         }
@@ -664,7 +861,7 @@ namespace BS3D
         /// <summary>
         /// Advances the shots. A ball crosses several diameters a frame, so the step is tested as a swept
         /// segment against the cluster — a point test at the end of the frame would tunnel clean through it.
-        /// A ball that touches sticks where it touched; the rest fly on until they age out or fall away.
+        /// A ball that touches is snapped into the lattice; the rest fly on until they age out or fall away.
         /// </summary>
         private void UpdateFlyingBalls(float elapsed)
         {
@@ -675,9 +872,9 @@ namespace BS3D
                 Vector3 from = ball.Position;
                 Vector3 to = from + ball.Velocity * elapsed;
 
-                if (TryHitCluster(from, to, out Vector3 contact))
+                if (TryHitCluster(from, to, out Vector3 contact, out XZLevel hitCell))
                 {
-                    StickToCluster(contact, ball.Type);
+                    AttachBall(contact, hitCell, ball.Type);
                     _flying.RemoveAt(i);
                     continue;
                 }
@@ -692,54 +889,131 @@ namespace BS3D
         }
 
         /// <summary>
-        /// Where along <c>from → to</c> the moving ball first touches a ball of the cluster, if it does.
-        /// Solved rather than sampled: the closest approach of the segment to each cluster centre, backed
-        /// off along the segment to the point where the two spheres are exactly touching.
+        /// Where along <c>from → to</c> the moving ball first touches a ball of the cluster, if it does, and
+        /// which cell of the lattice that ball occupies. Solved rather than sampled — a ball crosses several
+        /// diameters a frame, so a point test at the end of the step tunnels clean through the cluster.
+        /// <para>
+        /// It is the moment of contact that is solved for, not the closest approach: the quadratic in the step
+        /// parameter whose smaller root is where the two spheres first touch. Ranking candidates by their
+        /// <i>clamped</i> closest approach instead — which is what this did — is wrong in exactly the case that
+        /// matters. On the frame a ball first comes within reach it is still approaching, so every candidate's
+        /// closest approach lies past the end of the step and clamps to 1: the whole field ties, and the "first
+        /// touched" ball falls out of the array order rather than the geometry. The shot then reports the same
+        /// buried cell every time however the cluster grows around it, and once that one cell's neighbourhood
+        /// is full every further shot is refused.
+        /// </para>
         /// </summary>
-        private bool TryHitCluster(Vector3 from, Vector3 to, out Vector3 contact)
+        private bool TryHitCluster(Vector3 from, Vector3 to, out Vector3 contact, out XZLevel hitCell)
         {
             contact = to;
+            hitCell = new XZLevel(-1, -1, -1);
 
             Vector3 segment = to - from;
-            float segmentLengthSquared = segment.LengthSquared();
-            if (segmentLengthSquared <= 1e-8f) return false;
+            float a = segment.LengthSquared();
+            if (a <= 1e-8f) return false;
 
             const float touchDistance = 2f * BALL_RADIUS;
             float touchSquared = touchDistance * touchDistance;
 
-            float bestT = float.MaxValue;
-            bool found = false;
+            float bestS = float.MaxValue;
 
             foreach (ClusterBall target in _clusterBalls)
             {
-                Vector3 toCentre = target.Position - from;
-                float t = MathHelper.Clamp(Vector3.Dot(toCentre, segment) / segmentLengthSquared, 0f, 1f);
-                Vector3 closest = from + segment * t;
+                Vector3 fromCentre = from - target.Position;
 
-                float gapSquared = (target.Position - closest).LengthSquared();
-                if (gapSquared > touchSquared) continue;
+                float b = Vector3.Dot(segment, fromCentre);
+                float c = fromCentre.LengthSquared() - touchSquared;
 
-                if (t >= bestT) continue;
+                //Already touching at the start of the step (the previous frame left them overlapping): the
+                //contact is here and now, and no root of the quadratic would say so
+                if (c <= 0f)
+                {
+                    if (0f >= bestS) continue;
 
-                bestT = t;
-                found = true;
+                    bestS = 0f;
+                    contact = from;
+                    hitCell = target.Cell;
+                    continue;
+                }
 
-                //Step back from the closest approach to the moment of contact along the segment
-                float backOff = MathF.Sqrt(MathF.Max(0f, touchSquared - gapSquared));
-                float segmentLength = MathF.Sqrt(segmentLengthSquared);
-                contact = closest - segment / segmentLength * MathF.Min(backOff, segmentLength * t);
+                float discriminant = b * b - a * c;
+                if (discriminant < 0f) continue; //passes by without ever touching
+
+                float s = (-b - MathF.Sqrt(discriminant)) / a;
+                if (s < 0f || s > 1f || s >= bestS) continue; //touches outside this step, or later than one already found
+
+                bestS = s;
+                contact = from + segment * s;
+                hitCell = target.Cell;
             }
 
-            return found;
+            return bestS <= 1f;
         }
 
         /// <summary>
-        /// Adds a landed ball to the structure. Unoccluded — it is on the outside of the mass by
-        /// definition, and its neighbours' occlusion is left alone: snapping the new ball into a grid cell
-        /// and re-deriving the neighbourhood is the game's rules, which this build does not have yet.
+        /// Snaps a landed ball into the lattice: the free cell touching the ball it hit that lies closest to
+        /// the contact point, which is what makes it land flush in the packing instead of wherever it happened
+        /// to make contact. Sticking a ball at its contact point leaves it standing off the cluster's surface,
+        /// and since each new ball is then a target for the next one they chain into an icicle pointing back
+        /// down the line of fire — the one thing that made this read as broken rather than merely unfinished.
         /// </summary>
-        private void StickToCluster(Vector3 position, BallType type) =>
-            _clusterBalls.Add(new ClusterBall { Position = position, Type = type, Occlusion = new Vector4(0f, 0f, 0f, 1f) });
+        private void AttachBall(Vector3 contact, XZLevel hitCell, BallType type)
+        {
+            Vector3 mapContact = WorldToMap(contact);
+
+            _map.PutBallAtClosestEmptyPositionNextTo(mapContact, hitCell, out XZLevel cell, type);
+
+            //Nothing free touching the ball it hit. That is not an exotic case: the ball a shot reaches first
+            //is on the cluster's outer face, and where that face is the field's own wall there is no cell
+            //beyond it to fall into — so the pocket around an edge ball fills after a handful of shots and
+            //every ball after that would be silently eaten. Widen the search by one ring: the free cells
+            //touching the balls that touch the one it hit, nearest the contact point first. Local by
+            //construction, so the ball never lands somewhere it could not have rolled to.
+            if (cell.X < 0 && TryFindCellInSecondRing(mapContact, hitCell, out XZLevel ringCell))
+                _map.PutBallAt((byte)ringCell.X, (byte)ringCell.Z, (byte)ringCell.Level, type);
+            else if (cell.X < 0)
+            {
+#if DEBUG
+                Console.WriteLine($"[shot] nothing free within two rings of {hitCell.X},{hitCell.Z},{hitCell.Level} — ball discarded");
+#endif
+                return;
+            }
+
+            RebuildClusterBalls();
+        }
+
+        /// <summary>
+        /// The free cell nearest <paramref name="mapContact"/> among those touching a ball that itself touches
+        /// <paramref name="hitCell"/> — one ring further out than
+        /// <see cref="BallsMap.PutBallAtClosestEmptyPositionNextTo"/> looks.
+        /// </summary>
+        private bool TryFindCellInSecondRing(Vector3 mapContact, XZLevel hitCell, out XZLevel best)
+        {
+            best = new XZLevel(-1, -1, -1);
+
+            StaticBall[,,] balls = _map.GetStaticBallsArray();
+            XZLevel size = _map.GetStaticBallsArraySize();
+
+            float closest = float.MaxValue;
+
+            foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(hitCell, size))
+            {
+                if (balls[neighbour.X, neighbour.Z, neighbour.Level] == null) continue; //free cells were the first ring's business
+
+                foreach (XZLevel candidate in BallsMap.GetNeighboringCells(neighbour, size))
+                {
+                    if (balls[candidate.X, candidate.Z, candidate.Level] != null) continue;
+
+                    float distance = Vector3.DistanceSquared(_map.GetRealCenteredPosition(candidate), mapContact);
+                    if (distance >= closest) continue;
+
+                    closest = distance;
+                    best = candidate;
+                }
+            }
+
+            return best.X >= 0;
+        }
 
         private void UpdateTrails(float elapsed)
         {
@@ -786,6 +1060,15 @@ namespace BS3D
             //colour shows up as a band instead of blending into the hazed skyline.
             GraphicsDevice.Clear(new Color(_horizonLinear));
 
+            //The weather runs off the same wall clock the balls pulse to, so it keeps drifting whatever the
+            //game does. Handed to both shaders from the one field, which is what keeps the cloud the player
+            //looks at and the shadow it throws across the cluster the same cloud.
+            _clouds.Time = _wallClock;
+            _clouds.ApplyTo(_skyEffect);
+            _clouds.ApplyTo(_instancingEffect);
+
+            _skyEffect.Parameters["CameraPosition"].SetValue(_camera.Position);
+
             _sky.Draw(_camera);
 
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
@@ -812,6 +1095,10 @@ namespace BS3D
             //Over the opaque scene (which the depth buffer now holds, so the cluster and the gun occlude
             //them) and additive, so they glow through the glare
             DrawShotTrails();
+
+            //The glass the cluster hangs from, last: it is translucent, so everything it should be seen
+            //through has to be in the depth buffer and the frame already
+            _ceilingRenderer.Draw(_camera, _ceilingWorld, _sceneEffectParams);
 
             ResolveSceneTarget();
 
@@ -973,9 +1260,11 @@ namespace BS3D
             _sceneTarget?.Dispose();
 
             //Supersampling already averages its samples per output pixel, geometry edges included, so MSAA
-            //would only earn its memory with supersampling off — and it antialiases no shading either way.
+            //only earns its memory with supersampling off — which is exactly the ssaa=1 path this used to
+            //leave with no antialiasing of any kind, on the setting a weak machine reaches for first. It goes
+            //on the scene target, never the back buffer: nothing but one resolved quad ever reaches that.
             _sceneTarget = new RenderTarget2D(GraphicsDevice, width, height, false, SurfaceFormat.HdrBlendable,
-                DepthFormat.Depth24Stencil8, 0, RenderTargetUsage.DiscardContents);
+                DepthFormat.Depth24Stencil8, _supersampleFactor > 1 ? 0 : MSAA_SAMPLES, RenderTargetUsage.DiscardContents);
 
             //Sized off the back buffer, not the supersampled target: the glare is blurred anyway, so the
             //extra samples buy nothing and would only cost fill rate to produce
@@ -1135,6 +1424,8 @@ namespace BS3D
             _cityRenderer?.Dispose();
             _islandMesh?.Dispose();
             _islandRenderer?.Dispose();
+            _ceilingMesh?.Dispose();
+            _ceilingRenderer?.Dispose();
 
             base.UnloadContent();
         }

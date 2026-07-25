@@ -13,8 +13,23 @@
 #---------------------------------- Content ---------------------------------#
 
 # Everything here is built straight out of the Testbed's content directory, so there is one copy of each
-# shader and each dome in the repository and a change reaches every executable at once (the map editor
+# shader, texture and dome in the repository and a change reaches every executable at once (the map editor
 # does the same). Nothing in this project has content of its own yet.
+
+# The island's stone. This is the texture the Testbed's GroundMarble model carries; the Testbed loads the
+# whole model and fishes the texture out of its BasicEffect because it also used to draw the model, while
+# the island only ever wanted the image — so it is built here directly as a Texture2D.
+#begin ../../Testbed/Content/GameObjects/Ground_8.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=0,0,0,0
+/processorParam:ColorKeyEnabled=False
+/processorParam:GenerateMipmaps=True
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Compressed
+/build:../../Testbed/Content/GameObjects/Ground_8.png;GameObjects/Ground_8.png
 
 #begin ../../Testbed/Content/Shaders/InstancedModel.fx
 /importer:EffectImporter
@@ -39,6 +54,12 @@
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/ShotTrail.fx;Shaders/ShotTrail.fx
+
+#begin ../../Testbed/Content/Shaders/Sky.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Sky.fx;Shaders/Sky.fx
 
 #begin ../../Testbed/Content/Skyes/SkyDome13.dae
 /importer:XImporter
