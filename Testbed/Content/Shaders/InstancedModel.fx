@@ -1470,22 +1470,35 @@ float4 CityPS(CityVSOutput input) : COLOR
 	//emission gets, so a far tower becomes one averaged material instead of aliasing between two.
 	float glass = lerp(WindowFillX * WindowFillY * hasGrid * inside.x * inside.y, window, resolvable);
 
-	//The plaster frame moulding around each pane. A bead standing proud of the wall, computed on each axis
-	//from withinCell by WindowFrameProfile (value and analytic slope), then combined into a 2D frame: a ring
-	//where AT LEAST one axis is on the bead. The frame is plaster, not glass -- it catches light on its top
-	//and casts a shadow off its base -- so it is excluded from the pane by (1 - glass), exactly the way the
-	//grain's tilt and shading are below. Band-limited to nothing at distance via `resolvable`, the same
-	//weight `window` and `glass` use: a tower too far to resolve its windows does not get a frame on them.
+	//The plaster frame moulding around each pane: a bead standing proud of the wall, RINGING one window
+	//rather than striping the whole facade. The trap the first version fell into was combining the two axes
+	//with max(frameX, frameY): frameX is a bead profile on X alone, which is the SAME value on every row of
+	//a column, so max-ing it with frameY drew the bead as a full-height vertical strip and a full-width
+	//horizontal one -- a grid over the building, not a frame around a pane.
 	//
-	//The frame needs its own gate independent of the neon branch (it must run in the plain city too), but
-	//WindowFrameProfile already returns 0 at WindowFrameWidth <= 0 and the whole thing multiplies away, so
-	//no separate [branch] is needed -- the cost is a handful of ALU ops that fold to nothing when off.
+	//A real frame is two pieces, each gated by the OTHER axis being inside the window's span:
+	//  - the side beads (left/right of the glass) run along X, but only across the rows the pane occupies;
+	//  - the head/sill beads (top/bottom) run along Y, but only across the columns the pane occupies.
+	//Each is frameX/frameY (the bead profile on its own axis) times a smooth gate on the cross axis that is
+	//1 inside [0, WindowFill + Width] and 0 out in the wall, so the strip stops at the pane's edge and the
+	//four pieces meet as one ring per window.
+	//
+	//The frame is plaster, not glass -- it catches light on its top and casts a shadow off its base -- so it
+	//is excluded from the pane by (1 - glass), exactly the way the grain's tilt and shading are below. Band-
+	//limited to nothing at distance via `resolvable`, the same weight `window` and `glass` use: a tower too
+	//far to resolve its windows does not get a frame on them.
 	float2 frameX = WindowFrameProfile(withinCell.x, WindowFillX, WindowFrameWidth, footprint.x);
 	float2 frameY = WindowFrameProfile(withinCell.y, WindowFillY, WindowFrameWidth, footprint.y);
 
-	//The ring mask: the bead is present where either axis is on it, but not over the glass it surrounds.
-	//Past the bead's outer edge both profiles are 0, so the mask is naturally 0 in the deep wall too.
-	float frameBead = saturate(max(frameX.x, frameY.x)) * (1.0 - glass) * hasGrid * inside.x * inside.y * vertical;
+	//The cross-axis span of one window plus its frame: 1 inside, softening to 0 across one pixel at the
+	//pane's outer edge (the same +/- footprint softening `shape` uses), so the bead fades out rather than
+	//cutting a hard line where the wall between windows begins.
+	float paneSpanX = 1.0 - smoothstep(WindowFillX + WindowFrameWidth - footprint.x, WindowFillX + WindowFrameWidth + footprint.x, withinCell.x);
+	float paneSpanY = 1.0 - smoothstep(WindowFillY + WindowFrameWidth - footprint.y, WindowFillY + WindowFrameWidth + footprint.y, withinCell.y);
+
+	//Side beads (profile on X) exist only within the pane's vertical span; head/sill beads (profile on Y)
+	//only within its horizontal span. The two never run past the pane, so they form a ring, not a grid.
+	float frameBead = saturate(max(frameX.x * paneSpanY, frameY.x * paneSpanX)) * (1.0 - glass) * hasGrid * inside.x * inside.y * vertical;
 	frameBead = lerp(0.0, frameBead, resolvable);
 
 	float3 lampColor = lamp;
