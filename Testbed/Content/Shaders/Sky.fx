@@ -5,8 +5,8 @@
 //already linear - SkyDome rewrites the vertex buffers once at load - so nothing here decodes anything,
 //and every cloud color below is authored as linear radiance rather than as an sRGB paint color.
 //
-//Testbed-only: the map editor builds InstancedModel.fx out of this directory but not this file, so
-//there is no Shader Model 3.0 branch to keep alive here.
+//Built by the Testbed and the Game; the map editor builds InstancedModel.fx out of this directory but
+//not this file, so it gets no drawn clouds.
 
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0

@@ -5,7 +5,8 @@
 //This pass is the only place the renderer leaves linear light. Everything drawn before it works in
 //linear radiance, where adding two lights or averaging two samples means what it says; everything drawn
 //after it (the text overlay, the aimer) is authored in display space and goes straight to the back
-//buffer. Only the Testbed builds this file - the map editor has no HDR target to resolve.
+//buffer. All three executables build this file out of this directory and resolve their HDR targets
+//through it (the editor leaves UnderwaterAmount at zero).
 
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0

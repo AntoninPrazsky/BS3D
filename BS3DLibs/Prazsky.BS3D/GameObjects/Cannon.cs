@@ -173,8 +173,9 @@ namespace Prazsky.BS3D.GameObjects
 		/// <summary>
 		/// How far out from <see cref="OrbitCenter"/> the gun stands. Set per map rather than fixed: it has to
 		/// clear the play field's footprint, and it also decides how steeply the barrel looks up at the
-		/// cluster — <see cref="EnsureAimInBounds"/> tops the elevation out at 45°, so standing too close
-		/// puts the resting aim outside the clamp. Setting it slides the gun along its current orbit angle.
+		/// cluster — <see cref="EnsureAimInBounds"/> tops the elevation out at <see cref="MaxElevation"/>
+		/// (~80°), so standing too close puts the resting aim outside the clamp. Setting it slides the gun
+		/// along its current orbit angle.
 		/// </summary>
 		public float OrbitRadius
 		{

@@ -83,13 +83,6 @@ namespace Prazsky.Core.Camera
 			// (a, b): Origin
 			// r: Radius
 
-#if DEBUG
-			Console.WriteLine();
-			Console.WriteLine("Camera position: " + Position);
-			Console.WriteLine("Camera target:   " + Target);
-			Console.WriteLine("Camera rotation: " + _rotationX + " " + _rotationY);
-#endif
-
 			Vector3 direction = Position - Target;
 			Vector3 directionNormalized = direction == Vector3.Zero ? direction : Vector3.Normalize(direction);
 			Vector3 computedOrigin = Position - (directionNormalized * _circleRadius);
@@ -141,7 +134,6 @@ namespace Prazsky.Core.Camera
 		/// <summary>
 		/// Sets properties used for circular camera movement.
 		/// </summary>
-		/// <param name="circleOrigin">Circle origin (the camera will look at this point).</param>
 		/// <param name="circleRadius">Circle radius (the camera will be this far from the circle origin). Must be greater than 0.</param>
 		/// <param name="parametricVariable">Parametric variable in the range from 0 to 2π (different values are clamped).</param>
 		public void SetCircularMovementProperties(float circleRadius = 30f, float parametricVariable = Constants.HALF_PI)

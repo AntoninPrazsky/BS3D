@@ -1,12 +1,12 @@
 //Draws a flowering meadow: lush green rolling hills scattered with wildflowers, a clearing the arena sits
-//in with the hills rolling up in the distance. Fifth scene variant (NumPad2 cycles ... -> meadow). The
+//in with the hills rolling up in the distance. Sixth scene variant (NumPad2 cycles ... -> meadow). The
 //look is the Windows XP "Bliss" hill - smooth vivid green under a blue sky - and the motion is the wind:
 //bands of it comb through the grass, while the shared cloud shadows drift over the whole field. The
-//marble/glass arena stays as a platform standing in the meadow.
+//round stone island stays as the platform standing in the meadow.
 //
 //Real geometry like the desert and the mountains - a camera-centred grid (shared CreateGridMesh on the C#
 //side) displaced by a smooth rolling field, low around the arena and rising into hills with distance, its
-//normal taken by finite differences. Testbed-only, Shader Model 5.0, no OPENGL branch.
+//normal taken by finite differences. Drawn in both executables, Shader Model 5.0, no OPENGL branch.
 
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0

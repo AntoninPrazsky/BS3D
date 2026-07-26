@@ -68,7 +68,7 @@ namespace Prazsky.Core.Render
             Matrix projection = Matrix.CreateOrthographic(modelSize.X, modelSize.Y, nearPlane, farPlane);
 
             graphicsDevice.SetRenderTarget(renderTarget);
-            graphicsDevice.DepthStencilState = new DepthStencilState() { DepthBufferEnable = true };
+            graphicsDevice.DepthStencilState = DepthStencilState.Default; //the framework's cached state, not a fresh native-backed instance per call
 
             graphicsDevice.Clear(Color.Transparent);
             model.Draw(world, view, projection);

@@ -109,19 +109,22 @@ namespace Prazsky.BS3D.Input
 
             #region Keyboard
 
+            //The frame's snapshot from RegisterCurrentInputState, not a fresh Keyboard.GetState() per key:
+            //each GetState call rebuilds the state from the platform key list, and a key pressed mid-frame
+            //could make these reads disagree with the snapshot the PressedOnce edge detection uses
             _cameraSpeed = Constants.ONE;
-            if (Keyboard.GetState().IsKeyDown(Keys.LeftShift)) _cameraSpeed = Constants.ONE * SPRINT_MULTIPLIER;
+            if (_currentKeyboardState.IsKeyDown(Keys.LeftShift)) _cameraSpeed = Constants.ONE * SPRINT_MULTIPLIER;
 
-            if (Keyboard.GetState().IsKeyDown(Keys.W)) _camera.Move(0, 0f, -_cameraSpeed, gameTime);
-            if (Keyboard.GetState().IsKeyDown(Keys.S)) _camera.Move(0, 0f, _cameraSpeed, gameTime);
-            if (Keyboard.GetState().IsKeyDown(Keys.A)) _camera.Move(-_cameraSpeed, 0f, 0f, gameTime);
-            if (Keyboard.GetState().IsKeyDown(Keys.D)) _camera.Move(_cameraSpeed, 0f, 0f, gameTime);
-            if (Keyboard.GetState().IsKeyDown(Keys.E)) _camera.Move(0f, _cameraSpeed, 0f, gameTime);
-            if (Keyboard.GetState().IsKeyDown(Keys.Q)) _camera.Move(0f, -_cameraSpeed, 0f, gameTime);
+            if (_currentKeyboardState.IsKeyDown(Keys.W)) _camera.Move(0, 0f, -_cameraSpeed, gameTime);
+            if (_currentKeyboardState.IsKeyDown(Keys.S)) _camera.Move(0, 0f, _cameraSpeed, gameTime);
+            if (_currentKeyboardState.IsKeyDown(Keys.A)) _camera.Move(-_cameraSpeed, 0f, 0f, gameTime);
+            if (_currentKeyboardState.IsKeyDown(Keys.D)) _camera.Move(_cameraSpeed, 0f, 0f, gameTime);
+            if (_currentKeyboardState.IsKeyDown(Keys.E)) _camera.Move(0f, _cameraSpeed, 0f, gameTime);
+            if (_currentKeyboardState.IsKeyDown(Keys.Q)) _camera.Move(0f, -_cameraSpeed, 0f, gameTime);
 
             if (allowCircularMovement)
             {
-                if (Keyboard.GetState().IsKeyDown(Keys.NumPad9))
+                if (_currentKeyboardState.IsKeyDown(Keys.NumPad9))
                 {
                     _mouseRotationMode = false;
                     _mousePanMode = false;
@@ -129,7 +132,7 @@ namespace Prazsky.BS3D.Input
                     _camera.MoveCircular(-_cameraSpeed, gameTime);
                 }
 
-                if (Keyboard.GetState().IsKeyDown(Keys.NumPad7))
+                if (_currentKeyboardState.IsKeyDown(Keys.NumPad7))
                 {
                     _mouseRotationMode = false;
                     _mousePanMode = false;

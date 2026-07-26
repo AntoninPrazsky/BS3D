@@ -72,6 +72,19 @@ namespace BS3D
         private Effect _glareEffect;
         private VertexBuffer _fullScreenQuad;
 
+        //Cached in LoadContent: the resolve runs every frame and the by-name indexer is a linear scan over
+        //the effect's parameter list. Values that never change after startup (the thresholds, the exposure,
+        //the trail widths) are set once there and never touched again; the textures and texel sizes still go
+        //out per frame through these references, because the render targets are recreated on every resize.
+        private EffectTechnique _glareBrightPassTechnique;
+        private EffectTechnique _glareStreakTechnique;
+        private EffectParameter _glareSourceTextureParam;
+        private EffectParameter _glareSourceTexelSizeParam;
+        private EffectParameter _tonemapGlareTextureParam;
+        private EffectParameter _tonemapSceneTextureParam;
+        private EffectParameter _tonemapSourceTexelSizeParam;
+        private EffectParameter _skyCameraPositionParam;
+
         private static readonly int GLARE_DOWNSAMPLE = 4;
         private static readonly float GLARE_THRESHOLD = 0.55f;
         private static readonly float GLARE_STREAK_LENGTH = 34f;
@@ -311,6 +324,15 @@ namespace BS3D
         private VertexBuffer _shotTrailVertexBuffer;
         private IndexBuffer _shotTrailIndexBuffer;
 
+        //Cached in CreateShotTrailQuad; the fixed widths are set once there and never re-sent
+        private EffectParameter _trailViewParam;
+        private EffectParameter _trailProjectionParam;
+        private EffectParameter _trailCameraPositionParam;
+        private EffectParameter _trailHeadParam;
+        private EffectParameter _trailTailParam;
+        private EffectParameter _trailColorParam;
+        private EffectParameter _trailAlphaParam;
+
         private static readonly Random RANDOM = new();
 
         private MouseState _previousMouse;
@@ -398,6 +420,26 @@ namespace BS3D
             _tonemapEffect = Content.Load<Effect>("Shaders/Tonemap");
             _glareEffect = Content.Load<Effect>("Shaders/Glare");
 
+            _glareBrightPassTechnique = _glareEffect.Techniques["BrightPass"];
+            _glareStreakTechnique = _glareEffect.Techniques["Streak"];
+            _glareSourceTextureParam = _glareEffect.Parameters["SourceTexture"];
+            _glareSourceTexelSizeParam = _glareEffect.Parameters["SourceTexelSize"];
+            _tonemapGlareTextureParam = _tonemapEffect.Parameters["GlareTexture"];
+            _tonemapSceneTextureParam = _tonemapEffect.Parameters["SceneTexture"];
+            _tonemapSourceTexelSizeParam = _tonemapEffect.Parameters["SourceTexelSize"];
+
+            //Fixed for the whole run, so they are set exactly once: a parameter's value persists on the
+            //effect, and re-sending a constant every frame bought nothing
+            _glareEffect.Parameters["GlareThreshold"].SetValue(GLARE_THRESHOLD);
+            _glareEffect.Parameters["StreakLength"].SetValue(GLARE_STREAK_LENGTH);
+            _glareEffect.Parameters["StreakFalloff"].SetValue(GLARE_STREAK_FALLOFF);
+            _tonemapEffect.Parameters["GlareIntensity"].SetValue(GLARE_INTENSITY);
+            _tonemapEffect.Parameters["SupersampleFactor"].SetValue(_supersampleFactor);
+            _tonemapEffect.Parameters["Exposure"].SetValue(_exposure);
+
+            //There is no water in this scene to get under, so the underwater murk is a no-op
+            _tonemapEffect.Parameters["UnderwaterAmount"].SetValue(0f);
+
             CreateFullScreenQuad();
             CreateShotTrailQuad();
 
@@ -444,6 +486,7 @@ namespace BS3D
             BuildCluster();
 
             _skyEffect = Content.Load<Effect>("Shaders/Sky");
+            _skyCameraPositionParam = _skyEffect.Parameters["CameraPosition"];
             _sky = new SkyDome(Content.Load<Model>("Skyes/SkyDome" + SKY_DOME), GraphicsDevice, linearVertexColors: true)
             {
                 Effect = _skyEffect
@@ -721,8 +764,13 @@ namespace BS3D
             if (IsActive)
             {
                 IsMouseVisible = false;
-                UpdateInput(gameTime, edgeInputAllowed);
-                UpdateAim(gameTime, edgeInputAllowed);
+
+                //One XInput poll for the whole frame: UpdateInput and UpdateAim used to each poll the pad,
+                //two OS queries of the same slot microseconds apart
+                GamePadState pad = GamePad.GetState(PlayerIndex.One);
+
+                UpdateInput(gameTime, edgeInputAllowed, pad);
+                UpdateAim(gameTime, edgeInputAllowed, pad);
             }
             else
             {
@@ -751,10 +799,9 @@ namespace BS3D
             base.Update(gameTime);
         }
 
-        private void UpdateInput(GameTime gameTime, bool edgeInputAllowed)
+        private void UpdateInput(GameTime gameTime, bool edgeInputAllowed, GamePadState pad)
         {
             KeyboardState keyboard = Keyboard.GetState();
-            GamePadState pad = GamePad.GetState(PlayerIndex.One);
 
             if (keyboard.IsKeyDown(Keys.Escape) || pad.IsButtonDown(Buttons.Back)) Exit();
 
@@ -784,7 +831,7 @@ namespace BS3D
         /// pixel at any frame rate. Firing is read from the same state, so the click and the aim cannot
         /// disagree about the frame they happened in.
         /// </summary>
-        private void UpdateAim(GameTime gameTime, bool edgeInputAllowed)
+        private void UpdateAim(GameTime gameTime, bool edgeInputAllowed, GamePadState pad)
         {
             int centreX = GraphicsDevice.Viewport.Width / 2;
             int centreY = GraphicsDevice.Viewport.Height / 2;
@@ -810,10 +857,10 @@ namespace BS3D
             Mouse.SetPosition(centreX, centreY);
             _mouseAimInitialized = true;
 
-            //Read back the recentred position, or the next frame's delta would be measured against the old one
-            _previousMouse = Mouse.GetState();
+            //Only its LeftButton is ever read (the shot's edge test above); the aim delta is measured against
+            //the viewport centre, never against this, so the state captured at the top of the method serves
+            _previousMouse = mouse;
 
-            GamePadState pad = GamePad.GetState(PlayerIndex.One);
             if (pad.IsConnected)
             {
                 if (pad.ThumbSticks.Right.LengthSquared() > 0f)
@@ -1067,7 +1114,7 @@ namespace BS3D
             _clouds.ApplyTo(_skyEffect);
             _clouds.ApplyTo(_instancingEffect);
 
-            _skyEffect.Parameters["CameraPosition"].SetValue(_camera.Position);
+            _skyCameraPositionParam.SetValue(_camera.Position);
 
             _sky.Draw(_camera);
 
@@ -1113,11 +1160,13 @@ namespace BS3D
         {
             for (int i = 0; i < _ballInstanceCounts.Length; i++) _ballInstanceCounts[i] = 0;
 
+            //Unrotated balls take a plain translation for their world matrix — composing Identity with a
+            //translation was a full 4×4 multiply per ball per frame for a result equal to the translation
             foreach (ClusterBall ball in _clusterBalls)
-                CollectBallInstance(ball.Position, Matrix.Identity, ball.Type, ball.Occlusion);
+                CollectBallInstance(ball.Position, Matrix.CreateTranslation(ball.Position), ball.Type, ball.Occlusion);
 
             foreach (FlyingBall ball in _flying)
-                CollectBallInstance(ball.Position, Matrix.Identity, ball.Type, new Vector4(0f, 0f, 0f, 1f));
+                CollectBallInstance(ball.Position, Matrix.CreateTranslation(ball.Position), ball.Type, new Vector4(0f, 0f, 0f, 1f));
 
             CollectMagazineBalls();
         }
@@ -1132,16 +1181,23 @@ namespace BS3D
         {
             Vector3 direction = CannonAimDirection();
             Vector3 front = CannonMuzzlePosition();
-            Matrix orientation = CannonOrientation();
+
+            //The barrel's basis with the translation written straight in: CannonOrientation() carries zero
+            //translation (Matrix.CreateWorld with Vector3.Zero), so orientation × translation is exactly the
+            //orientation with its fourth row set — no per-ball matrix multiply needed
+            Matrix world = CannonOrientation();
 
             for (int i = 0; i < MAGAZINE_SIZE; i++)
             {
                 Vector3 position = front - direction * ((i + _magazineSlide) * MAGAZINE_SPACING);
-                CollectBallInstance(position, orientation, _magazine[i], new Vector4(0f, 0f, 0f, 1f));
+                world.M41 = position.X;
+                world.M42 = position.Y;
+                world.M43 = position.Z;
+                CollectBallInstance(position, world, _magazine[i], new Vector4(0f, 0f, 0f, 1f));
             }
         }
 
-        private void CollectBallInstance(Vector3 position, Matrix orientation, BallType type, Vector4 occlusion)
+        private void CollectBallInstance(Vector3 position, Matrix world, BallType type, Vector4 occlusion)
         {
             int typeIndex = (int)type - 1;
             if (typeIndex < 0 || typeIndex >= BALL_TYPE_COUNT) return;
@@ -1165,7 +1221,7 @@ namespace BS3D
                 _ballInstances[bucketIndex] = bucket;
             }
 
-            bucket[count] = new ModelInstance(orientation * Matrix.CreateTranslation(position), occlusion);
+            bucket[count] = new ModelInstance(world, occlusion);
             _ballInstanceCounts[bucketIndex] = count + 1;
         }
 
@@ -1199,11 +1255,9 @@ namespace BS3D
         {
             if (_trails.Count == 0) return;
 
-            _shotTrailEffect.Parameters["View"].SetValue(_camera.View);
-            _shotTrailEffect.Parameters["Projection"].SetValue(_camera.Projection);
-            _shotTrailEffect.Parameters["CameraPosition"].SetValue(_camera.Position);
-            _shotTrailEffect.Parameters["TrailHeadWidth"].SetValue(TRAIL_LEAD_WIDTH);
-            _shotTrailEffect.Parameters["TrailTailWidth"].SetValue(TRAIL_MUZZLE_WIDTH);
+            _trailViewParam.SetValue(_camera.View);
+            _trailProjectionParam.SetValue(_camera.Projection);
+            _trailCameraPositionParam.SetValue(_camera.Position);
 
             GraphicsDevice.BlendState = BlendState.Additive;
             GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
@@ -1217,10 +1271,10 @@ namespace BS3D
                 //does not dim the instant it appears and get missed
                 float t = trail.Age / TRAIL_LIFETIME;
 
-                _shotTrailEffect.Parameters["TrailHead"].SetValue(trail.Origin + trail.Direction * TRAIL_LENGTH);
-                _shotTrailEffect.Parameters["TrailTail"].SetValue(trail.Origin);
-                _shotTrailEffect.Parameters["TrailColor"].SetValue(trail.Color);
-                _shotTrailEffect.Parameters["TrailAlpha"].SetValue(1f - t * t);
+                _trailHeadParam.SetValue(trail.Origin + trail.Direction * TRAIL_LENGTH);
+                _trailTailParam.SetValue(trail.Origin);
+                _trailColorParam.SetValue(trail.Color);
+                _trailAlphaParam.SetValue(1f - t * t);
 
                 _shotTrailEffect.CurrentTechnique.Passes[0].Apply();
                 GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
@@ -1286,17 +1340,14 @@ namespace BS3D
             GraphicsDevice.SetVertexBuffer(_fullScreenQuad);
 
             GraphicsDevice.SetRenderTarget(_glareBright);
-            _glareEffect.CurrentTechnique = _glareEffect.Techniques["BrightPass"];
-            _glareEffect.Parameters["SourceTexture"].SetValue(_sceneTarget);
-            _glareEffect.Parameters["GlareThreshold"].SetValue(GLARE_THRESHOLD);
+            _glareEffect.CurrentTechnique = _glareBrightPassTechnique;
+            _glareSourceTextureParam.SetValue(_sceneTarget);
             DrawFullScreenQuad(_glareEffect);
 
             GraphicsDevice.SetRenderTarget(_glareStreak);
-            _glareEffect.CurrentTechnique = _glareEffect.Techniques["Streak"];
-            _glareEffect.Parameters["SourceTexture"].SetValue(_glareBright);
-            _glareEffect.Parameters["SourceTexelSize"].SetValue(new Vector2(1f / _glareBright.Width, 1f / _glareBright.Height));
-            _glareEffect.Parameters["StreakLength"].SetValue(GLARE_STREAK_LENGTH);
-            _glareEffect.Parameters["StreakFalloff"].SetValue(GLARE_STREAK_FALLOFF);
+            _glareEffect.CurrentTechnique = _glareStreakTechnique;
+            _glareSourceTextureParam.SetValue(_glareBright);
+            _glareSourceTexelSizeParam.SetValue(new Vector2(1f / _glareBright.Width, 1f / _glareBright.Height));
             DrawFullScreenQuad(_glareEffect);
         }
 
@@ -1310,15 +1361,11 @@ namespace BS3D
 
             GraphicsDevice.SetRenderTarget(null);
 
-            _tonemapEffect.Parameters["GlareTexture"].SetValue(_glareStreak);
-            _tonemapEffect.Parameters["GlareIntensity"].SetValue(GLARE_INTENSITY);
-            _tonemapEffect.Parameters["SceneTexture"].SetValue(_sceneTarget);
-            _tonemapEffect.Parameters["SourceTexelSize"].SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
-            _tonemapEffect.Parameters["SupersampleFactor"].SetValue(_supersampleFactor);
-            _tonemapEffect.Parameters["Exposure"].SetValue(_exposure);
-
-            //There is no water in this scene to get under, so the underwater murk is a no-op
-            _tonemapEffect.Parameters["UnderwaterAmount"].SetValue(0f);
+            //The constants (exposure, glare intensity, supersample factor, the underwater no-op) were set
+            //once in LoadContent and persist on the effect; only what can change goes out per frame
+            _tonemapGlareTextureParam.SetValue(_glareStreak);
+            _tonemapSceneTextureParam.SetValue(_sceneTarget);
+            _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
 
             GraphicsDevice.BlendState = BlendState.Opaque;
             GraphicsDevice.DepthStencilState = DepthStencilState.None;
@@ -1378,6 +1425,18 @@ namespace BS3D
             _shotTrailIndexBuffer.SetData(indices);
 
             _shotTrailEffect = Content.Load<Effect>("Shaders/ShotTrail");
+
+            _trailViewParam = _shotTrailEffect.Parameters["View"];
+            _trailProjectionParam = _shotTrailEffect.Parameters["Projection"];
+            _trailCameraPositionParam = _shotTrailEffect.Parameters["CameraPosition"];
+            _trailHeadParam = _shotTrailEffect.Parameters["TrailHead"];
+            _trailTailParam = _shotTrailEffect.Parameters["TrailTail"];
+            _trailColorParam = _shotTrailEffect.Parameters["TrailColor"];
+            _trailAlphaParam = _shotTrailEffect.Parameters["TrailAlpha"];
+
+            //The widths never change; a parameter's value persists on the effect, so once is enough
+            _shotTrailEffect.Parameters["TrailHeadWidth"].SetValue(TRAIL_LEAD_WIDTH);
+            _shotTrailEffect.Parameters["TrailTailWidth"].SetValue(TRAIL_MUZZLE_WIDTH);
         }
 
         #endregion

@@ -854,7 +854,7 @@ technique InstancedModelPattern
 //(DetailStrength 0 = untextured look), mapped either through the model's own UVs
 //(InstancedModelDetailUV — required for objects that move, or the texture would swim
 //across them) or projected along the world axes for models with no UVs at all
-//(InstancedModelTriplanar, e.g. the castle backdrop).
+//(InstancedModelTriplanar, e.g. the arena's stone island).
 
 //Triplanar: world units per texture tile = 1 / DetailScale. UV mapping: tiles per UV span.
 float DetailScale;
@@ -1242,32 +1242,43 @@ float4 CityPS(CityVSOutput input) : COLOR
 	float3 signEmission = float3(0.0, 0.0, 0.0);
 	float3 facadeColor = float3(0.06, 0.065, 0.08);
 
-	//Neon night city. The map editor never draws the city, so this path only ever runs in the game (it is
-	//gated at runtime by CityNeon, which the editor leaves at zero). The skyline runs on magenta and cyan,
-	//the pink-and-blue of a neon street, with the odd off-colour tower; about one window in six sparks the
-	//opposite hue, big sign bands wrap some towers in the contrast colour, and a fraction of it all buzzes.
-	//Brightness sits over the glare threshold, so every lit pane blooms.
-	float3 neonMagenta = float3(1.0, 0.04, 0.85);
-	float3 neonCyan = float3(0.05, 0.85, 1.0);
+	//Neon night city, gated at runtime by CityNeon; both the Testbed and the map editor drive it (V cycles
+	//to the neon scene in the editor too). The skyline runs on magenta and cyan, the pink-and-blue of a neon
+	//street, with the odd off-colour tower; about one window in six sparks the opposite hue, big sign bands
+	//wrap some towers in the contrast colour, and a fraction of it all buzzes. Brightness sits over the glare
+	//threshold, so every lit pane blooms.
+	//
+	//A uniform branch, deliberately: CityNeon is 0 in the ordinary city — the DEFAULT scene — and this block
+	//is ~7 hashes of per-pixel work that the lerps below would throw away entirely at 0. A branch on a
+	//uniform is non-divergent (every pixel takes the same path) and there are no gradient ops inside, so it
+	//is derivative-safe; the defaults above already hold the plain-city values for the else path.
+	[branch]
+	if (CityNeon > 0.0)
+	{
+		float3 neonMagenta = float3(1.0, 0.04, 0.85);
+		float3 neonCyan = float3(0.05, 0.85, 1.0);
 
-	float pickBuilding = Hash21(buildingId + 5.0);
-	float3 buildingNeon = pickBuilding < 0.45 ? neonMagenta : (pickBuilding < 0.9 ? neonCyan : HueToRGB(Hash21(buildingId + 6.3)));
-	float3 contrast = buildingNeon.r > buildingNeon.b ? neonCyan : neonMagenta;
-	float3 neonWindow = lerp(buildingNeon, contrast, step(0.83, Hash21(windowId + 4.4)));
+		float pickBuilding = Hash21(buildingId + 5.0);
+		float3 buildingNeon = pickBuilding < 0.45 ? neonMagenta : (pickBuilding < 0.9 ? neonCyan : HueToRGB(Hash21(buildingId + 6.3)));
+		float3 contrast = buildingNeon.r > buildingNeon.b ? neonCyan : neonMagenta;
+		float3 neonWindow = lerp(buildingNeon, contrast, step(0.83, Hash21(windowId + 4.4)));
 
-	//A bright solid sign band wrapping some towers at a hashed height, in the contrast colour
-	float hasSign = step(0.5, Hash21(buildingId + 21.0));
-	float signHeight = 5.0 + Hash21(buildingId + 22.0) * 34.0;
-	float signBand = hasSign * vertical * (1.0 - smoothstep(1.1, 1.9, abs(facadeY - signHeight))) * resolvable;
+		//A bright solid sign band wrapping some towers at a hashed height, in the contrast colour
+		float hasSign = step(0.5, Hash21(buildingId + 21.0));
+		float signHeight = 5.0 + Hash21(buildingId + 22.0) * 34.0;
+		float signBand = hasSign * vertical * (1.0 - smoothstep(1.1, 1.9, abs(facadeY - signHeight))) * resolvable;
 
-	//A fraction of the windows buzz on and off, the way a tired neon tube does
-	float flickerId = Hash21(windowId + 8.8);
-	float buzz = 0.55 + 0.45 * step(0.45, frac(CityWindowTime * (5.0 + flickerId * 9.0) + flickerId * 13.0));
+		//A fraction of the windows buzz on and off, the way a tired neon tube does
+		float flickerId = Hash21(windowId + 8.8);
+		float buzz = 0.55 + 0.45 * step(0.45, frac(CityWindowTime * (5.0 + flickerId * 9.0) + flickerId * 13.0));
 
-	lampColor = lerp(lamp, neonWindow, CityNeon);
-	windowFlicker = lerp(1.0, lerp(1.0, buzz, step(0.86, flickerId)), CityNeon);
-	signEmission = signBand * contrast * (CityWindowBrightness * 1.6) * CityNeon;
-	facadeColor = lerp(facadeColor, float3(0.02, 0.02, 0.028), CityNeon);
+		//Kept as lerps by CityNeon (not straight assignments), so a fractional CityNeon still blends exactly
+		//as it did when this ran unconditionally
+		lampColor = lerp(lamp, neonWindow, CityNeon);
+		windowFlicker = lerp(1.0, lerp(1.0, buzz, step(0.86, flickerId)), CityNeon);
+		signEmission = signBand * contrast * (CityWindowBrightness * 1.6) * CityNeon;
+		facadeColor = lerp(facadeColor, float3(0.02, 0.02, 0.028), CityNeon);
+	}
 
 	float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(facadeColor, 1), 1, 1);
 

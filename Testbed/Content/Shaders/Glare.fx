@@ -27,7 +27,8 @@ float2 SourceTexelSize;
 //Radiance above which a pixel starts to glare, and how sharply it ramps in past that
 float GlareThreshold;
 
-//World-space length of a streak arm in source texels, and how fast it fades along its length
+//Length of a streak arm in source texels (screen space — the quarter-resolution bright pass), and how
+//fast it fades along its length
 float StreakLength;
 float StreakFalloff;
 

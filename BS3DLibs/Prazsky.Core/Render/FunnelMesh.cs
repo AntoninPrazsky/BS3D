@@ -8,9 +8,10 @@ namespace Prazsky.Core.Render
     /// <summary>
     /// Procedurally generated drain funnel: a truncated cone with a wide top rim and a small hole at the
     /// bottom (its wall faces inward and up, so shot balls dropped into it read as resting on the inside and
-    /// rolling down to the hole), plus a flat top <b>collar</b> that fills the ring from the round rim out to
-    /// a square boundary. The collar is what closes the corner gaps between the round funnel and the square
-    /// opening cut in the arena floor. Origin is the centre of the top rim (y = 0); the wall descends to
+    /// rolling down to the hole), optionally plus a flat top <b>collar</b> that fills the ring from the round
+    /// rim out to a square boundary — for a funnel set into a square floor opening, which no caller has any
+    /// more: the round stone disc meets the rim directly, and both call sites pass a <paramref name="squareHalf"/>
+    /// of 0. Origin is the centre of the top rim (y = 0); the wall descends to
     /// y = -<paramref name="height"/>. Meant to be drawn translucent (glass) with back-face culling off.
     /// </summary>
     public class FunnelMesh : IProceduralMesh, IDisposable

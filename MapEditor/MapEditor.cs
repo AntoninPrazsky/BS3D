@@ -114,16 +114,26 @@ namespace MapEditor
         private Effect _glareEffect;
         private VertexBuffer _fullScreenQuad;
 
+        //Cached in LoadContent: the resolve runs every frame, and the by-name indexer is a linear scan
+        private EffectTechnique _glareBrightPassTechnique;
+        private EffectTechnique _glareStreakTechnique;
+        private EffectParameter _glareSourceTextureParam;
+        private EffectParameter _glareSourceTexelSizeParam;
+        private EffectParameter _tonemapGlareTextureParam;
+        private EffectParameter _tonemapSceneTextureParam;
+        private EffectParameter _tonemapSourceTexelSizeParam;
+
         #endregion Post-processing
 
         #region Scenes
 
         //The switchable environment backdrops, shared with the game so a scene looks here the way it will
-        //play. The four self-lit backdrops (sea/desert/mountain/meadow, with the desert's birds and the
-        //mountain's snow) live in the shared SceneRenderer; the city is its buildings drawn through the shared
-        //InstancedModel city technique, lit by the sky rig like the balls. V cycles the scenes (the game uses
-        //NumPad2, which the editor spends on ball types). There is no arena platform here — the AABB marks the
-        //field instead — and no clouds, so the scenes get full sun with no cloud shadow.
+        //play. The five self-lit backdrops (sea/savanna/desert/mountain/meadow, with the savanna's acacias,
+        //the shared savanna/desert birds, the mountain's snow and the sea's spray) live in the shared
+        //SceneRenderer; the city is its buildings drawn through the shared InstancedModel city technique, lit
+        //by the sky rig like the balls. V cycles the scenes (the game uses NumPad2, which the editor spends on
+        //ball types). There is no arena platform here — the AABB marks the field instead — and no clouds, so
+        //the scenes get full sun with no cloud shadow.
         private SceneRenderer _sceneRenderer;
         private SceneKind _scene = SceneKind.City;
 
@@ -156,10 +166,11 @@ namespace MapEditor
         private Vector3 _zenithLinear = Vector3.One;
         private Vector3 _horizonLinear = Vector3.One;
 
-        //Mirrors of the game's scene-lighting constants (see Testbed.cs): the arena half extent sizes the
-        //city's clearing, the sun radiance and tint give the scenes their warm sun, and the ambient is the
-        //city's. The shaders — the actual look of every scene — are the shared source; these few scalars are
-        //the only things duplicated, and they are stable.
+        //Near-mirrors of the game's scene-lighting constants: the sun radiance and tint give the scenes their
+        //warm sun, and the ambient is the city's. The shaders — the actual look of every scene — are the
+        //shared source. The clearing radius no longer mirrors anything: the game's arena became the round
+        //stone island (ARENA_DISC_RADIUS/ISLAND_RADIUS = 26), so this 60 keeps the editor's towers ~2.3× as
+        //far from the field as they stand in play. Whether to close that to 26 is a look decision, not a sync.
         private const float ARENA_HALF_EXTENT = 60f;
         //Window brightness (day + neon) now lives in _cityConfig.WindowBrightness / _cityConfig.NeonLook.WindowBrightness.
         private const float CITY_SPECULAR_AMBIENT = 0.07f;
@@ -282,6 +293,23 @@ namespace MapEditor
             _instancingEffect = Content.Load<Effect>("Shaders/InstancedModel");
             _tonemapEffect = Content.Load<Effect>("Shaders/Tonemap");
             _glareEffect = Content.Load<Effect>("Shaders/Glare");
+
+            _glareBrightPassTechnique = _glareEffect.Techniques["BrightPass"];
+            _glareStreakTechnique = _glareEffect.Techniques["Streak"];
+            _glareSourceTextureParam = _glareEffect.Parameters["SourceTexture"];
+            _glareSourceTexelSizeParam = _glareEffect.Parameters["SourceTexelSize"];
+            _tonemapGlareTextureParam = _tonemapEffect.Parameters["GlareTexture"];
+            _tonemapSceneTextureParam = _tonemapEffect.Parameters["SceneTexture"];
+            _tonemapSourceTexelSizeParam = _tonemapEffect.Parameters["SourceTexelSize"];
+
+            //Fixed for the whole run, so they are set exactly once (a parameter's value persists on the effect)
+            _glareEffect.Parameters["GlareThreshold"].SetValue(GLARE_THRESHOLD);
+            _glareEffect.Parameters["StreakLength"].SetValue(GLARE_STREAK_LENGTH);
+            _glareEffect.Parameters["StreakFalloff"].SetValue(GLARE_STREAK_FALLOFF);
+            _tonemapEffect.Parameters["GlareIntensity"].SetValue(GLARE_INTENSITY);
+            _tonemapEffect.Parameters["SupersampleFactor"].SetValue(SUPERSAMPLE_FACTOR);
+            _tonemapEffect.Parameters["Exposure"].SetValue(DEFAULT_EXPOSURE);
+
             CreateFullScreenQuad();
 
             _ballMeshes = new SphereMesh[BALL_LOD_COUNT];
@@ -918,18 +946,17 @@ namespace MapEditor
             GraphicsDevice.RasterizerState = RasterizerState.CullNone;
             GraphicsDevice.SetVertexBuffer(_fullScreenQuad);
 
+            //Techniques and parameters through the references cached in LoadContent (the by-name indexer is
+            //a linear scan, and this runs every frame); the constants went out once there
             GraphicsDevice.SetRenderTarget(_glareBright);
-            _glareEffect.CurrentTechnique = _glareEffect.Techniques["BrightPass"];
-            _glareEffect.Parameters["SourceTexture"].SetValue(_sceneTarget);
-            _glareEffect.Parameters["GlareThreshold"].SetValue(GLARE_THRESHOLD);
+            _glareEffect.CurrentTechnique = _glareBrightPassTechnique;
+            _glareSourceTextureParam.SetValue(_sceneTarget);
             DrawFullScreenQuad(_glareEffect);
 
             GraphicsDevice.SetRenderTarget(_glareStreak);
-            _glareEffect.CurrentTechnique = _glareEffect.Techniques["Streak"];
-            _glareEffect.Parameters["SourceTexture"].SetValue(_glareBright);
-            _glareEffect.Parameters["SourceTexelSize"].SetValue(new Vector2(1f / _glareBright.Width, 1f / _glareBright.Height));
-            _glareEffect.Parameters["StreakLength"].SetValue(GLARE_STREAK_LENGTH);
-            _glareEffect.Parameters["StreakFalloff"].SetValue(GLARE_STREAK_FALLOFF);
+            _glareEffect.CurrentTechnique = _glareStreakTechnique;
+            _glareSourceTextureParam.SetValue(_glareBright);
+            _glareSourceTexelSizeParam.SetValue(new Vector2(1f / _glareBright.Width, 1f / _glareBright.Height));
             DrawFullScreenQuad(_glareEffect);
         }
 
@@ -970,12 +997,11 @@ namespace MapEditor
 
             GraphicsDevice.SetRenderTarget(null);
 
-            _tonemapEffect.Parameters["GlareTexture"].SetValue(_glareStreak);
-            _tonemapEffect.Parameters["GlareIntensity"].SetValue(GLARE_INTENSITY);
-            _tonemapEffect.Parameters["SceneTexture"].SetValue(_sceneTarget);
-            _tonemapEffect.Parameters["SourceTexelSize"].SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
-            _tonemapEffect.Parameters["SupersampleFactor"].SetValue(SUPERSAMPLE_FACTOR);
-            _tonemapEffect.Parameters["Exposure"].SetValue(DEFAULT_EXPOSURE);
+            //The constants (exposure, glare intensity, supersample factor) were set once in LoadContent and
+            //persist on the effect; only the targets and their texel size can change (a resize recreates them)
+            _tonemapGlareTextureParam.SetValue(_glareStreak);
+            _tonemapSceneTextureParam.SetValue(_sceneTarget);
+            _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
 
             GraphicsDevice.BlendState = BlendState.Opaque;
             GraphicsDevice.DepthStencilState = DepthStencilState.None;

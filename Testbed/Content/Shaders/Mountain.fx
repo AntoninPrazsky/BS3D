@@ -1,5 +1,5 @@
 //Draws a snowy mountain range: a basin the arena sits in, ringed by craggy snow-capped peaks rising with
-//distance into an alpine haze. Fourth scene variant (NumPad2); the island stands in the basin and snow
+//distance into an alpine haze. Fifth scene variant (NumPad2); the island stands in the basin and snow
 //falls over it (Snow.fx).
 //
 //Reworked for realism (the first version was smooth low-poly white lumps): a finer camera-centred grid

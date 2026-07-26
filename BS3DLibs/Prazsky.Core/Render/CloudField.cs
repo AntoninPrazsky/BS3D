@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 
 namespace Prazsky.Core.Render
 {
@@ -53,6 +54,21 @@ namespace Prazsky.Core.Render
         public float ShadowGain { get; set; } = 1.3f;
 
         /// <summary>
+        /// The cloud parameters of one effect, resolved once. A missing parameter stays null and is skipped
+        /// on every apply, preserving the contract that a shader declaring only part of the field costs
+        /// nothing to support.
+        /// </summary>
+        private sealed class EffectSlots
+        {
+            public EffectParameter PlaneY, Scale, Time, CoverageBias, CoverageGain, ShadowFloor, ShadowGain, Wind;
+        }
+
+        //Callers apply the field to the same two or three effects every frame, and the by-name indexer is
+        //a linear scan over the effect's parameter list (~70 entries on the instanced-model effect) — so
+        //the names are resolved once per effect and the per-frame path is direct SetValue calls.
+        private readonly Dictionary<Effect, EffectSlots> _slotsByEffect = new();
+
+        /// <summary>
         /// Hands the shared parameters to any effect that declares them — the sky shader and the scene
         /// shader both do. Setting them from one place is what stops the drawn cloud and the shadow it
         /// throws from being tuned apart from each other by accident. Parameters the effect does not
@@ -60,18 +76,31 @@ namespace Prazsky.Core.Render
         /// </summary>
         public void ApplyTo(Effect effect)
         {
-            Set(effect, "CloudPlaneY", PlaneY);
-            Set(effect, "CloudScale", Scale);
-            Set(effect, "CloudTime", Time);
-            Set(effect, "CloudCoverageBias", CoverageBias);
-            Set(effect, "CloudCoverageGain", CoverageGain);
-            Set(effect, "CloudShadowFloor", ShadowFloor);
-            Set(effect, "CloudShadowGain", ShadowGain);
+            if (!_slotsByEffect.TryGetValue(effect, out EffectSlots slots))
+            {
+                slots = new EffectSlots
+                {
+                    PlaneY = effect.Parameters["CloudPlaneY"],
+                    Scale = effect.Parameters["CloudScale"],
+                    Time = effect.Parameters["CloudTime"],
+                    CoverageBias = effect.Parameters["CloudCoverageBias"],
+                    CoverageGain = effect.Parameters["CloudCoverageGain"],
+                    ShadowFloor = effect.Parameters["CloudShadowFloor"],
+                    ShadowGain = effect.Parameters["CloudShadowGain"],
+                    Wind = effect.Parameters["CloudWind"]
+                };
+                _slotsByEffect.Add(effect, slots);
+            }
 
-            effect.Parameters["CloudWind"]?.SetValue(Wind);
+            slots.PlaneY?.SetValue(PlaneY);
+            slots.Scale?.SetValue(Scale);
+            slots.Time?.SetValue(Time);
+            slots.CoverageBias?.SetValue(CoverageBias);
+            slots.CoverageGain?.SetValue(CoverageGain);
+            slots.ShadowFloor?.SetValue(ShadowFloor);
+            slots.ShadowGain?.SetValue(ShadowGain);
+            slots.Wind?.SetValue(Wind);
         }
-
-        private static void Set(Effect effect, string name, float value) => effect.Parameters[name]?.SetValue(value);
 
         /// <summary>
         /// The coarse layer, mirroring <c>CloudWeather</c>. Keep the two in step: this is the one piece of

@@ -77,6 +77,12 @@ namespace Prazsky.Core.Render
         private EffectParameter _pulseDepthParam;
         private EffectParameter _pulseDirectionParam;
         private EffectParameter _pulseWavelengthParam;
+        private EffectParameter _dirLight0DiffuseParam;
+        private EffectParameter _dirLight0SpecularParam;
+        private EffectParameter _dirLight1DiffuseParam;
+        private EffectParameter _dirLight1SpecularParam;
+        private EffectParameter _dirLight2DiffuseParam;
+        private EffectParameter _dirLight2SpecularParam;
         private EffectParameter _surfaceReliefFrequencyParam;
         private EffectParameter _surfaceStyleParam;
         private EffectParameter _patternPrimaryColorParam;
@@ -537,6 +543,19 @@ namespace Prazsky.Core.Render
             _windowHoldVariationParam = _effect.Parameters["WindowHoldVariation"];
             _windowSwitchFadeParam = _effect.Parameters["WindowSwitchFade"];
             _depthTechnique = _effect.Techniques["InstancedDepth"];
+
+            //Cached before the SetLightTint call below, which reads them. The rig used to be looked up by
+            //name inside SetLightTint, which was fine while it ran once per dome switch — the Testbed's
+            //overcast lerp now calls it for every sky-lit renderer every frame, and six linear name scans
+            //over this effect's ~70 parameters times ~9 renderers added up to thousands of string compares
+            //a frame.
+            _dirLight0DiffuseParam = _effect.Parameters["DirLight0DiffuseColor"];
+            _dirLight0SpecularParam = _effect.Parameters["DirLight0SpecularColor"];
+            _dirLight1DiffuseParam = _effect.Parameters["DirLight1DiffuseColor"];
+            _dirLight1SpecularParam = _effect.Parameters["DirLight1SpecularColor"];
+            _dirLight2DiffuseParam = _effect.Parameters["DirLight2DiffuseColor"];
+            _dirLight2SpecularParam = _effect.Parameters["DirLight2SpecularColor"];
+
             _effect.CurrentTechnique = _mainTechnique;
 
             SetLightTint(Vector3.One, Vector3.One);
@@ -576,10 +595,11 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Whether the caller renders into a linear HDR target and tonemaps at the end of the frame (the
-        /// Testbed) or draws in gamma space straight to an 8-bit back buffer (the map editor). It decides
-        /// whether the light rig is decoded out of its sRGB authoring before the tints are applied.
-        /// Defaults to the gamma-space behavior, so a caller that has not been converted keeps its look.
+        /// Whether the caller renders into a linear HDR target and tonemaps at the end of the frame. It
+        /// decides whether the light rig is decoded out of its sRGB authoring before the tints are applied.
+        /// Every current executable renders linear and sets this true (the map editor moved to the full
+        /// linear pipeline too); the false default only exists so an unconverted future caller drawing
+        /// straight to an 8-bit back buffer in gamma space keeps the legacy look.
         /// </summary>
         public bool LinearLightRig { get; set; }
 
@@ -593,18 +613,19 @@ namespace Prazsky.Core.Render
         /// <remarks>
         /// The rig is decoded here rather than in the shader because a tint is a multiplication, and
         /// multiplying two sRGB values does not multiply the light they stand for. Doing it on this side
-        /// also means the conversion happens once per sky change instead of once per pixel.
+        /// also keeps the conversion off the per-pixel path — note the Testbed now calls this per frame
+        /// for every sky-lit renderer (the overcast lerp), which is why the six parameters are cached.
         /// </remarks>
         public void SetLightTint(Vector3 keyTint, Vector3 backTint)
         {
             Vector3 Rig(Vector3 color) => LinearLightRig ? ColorSpace.SrgbToLinear(color) : color;
 
-            _effect.Parameters["DirLight0DiffuseColor"].SetValue(Rig(DefaultLighting.Light0Diffuse) * keyTint);
-            _effect.Parameters["DirLight0SpecularColor"].SetValue(Rig(DefaultLighting.Light0Specular) * keyTint);
-            _effect.Parameters["DirLight1DiffuseColor"].SetValue(Rig(DefaultLighting.Light1Diffuse) * keyTint);
-            _effect.Parameters["DirLight1SpecularColor"].SetValue(Rig(DefaultLighting.Light1Specular) * keyTint);
-            _effect.Parameters["DirLight2DiffuseColor"].SetValue(Rig(DefaultLighting.Light2Diffuse) * backTint);
-            _effect.Parameters["DirLight2SpecularColor"].SetValue(Rig(DefaultLighting.Light2Specular) * backTint);
+            _dirLight0DiffuseParam.SetValue(Rig(DefaultLighting.Light0Diffuse) * keyTint);
+            _dirLight0SpecularParam.SetValue(Rig(DefaultLighting.Light0Specular) * keyTint);
+            _dirLight1DiffuseParam.SetValue(Rig(DefaultLighting.Light1Diffuse) * keyTint);
+            _dirLight1SpecularParam.SetValue(Rig(DefaultLighting.Light1Specular) * keyTint);
+            _dirLight2DiffuseParam.SetValue(Rig(DefaultLighting.Light2Diffuse) * backTint);
+            _dirLight2SpecularParam.SetValue(Rig(DefaultLighting.Light2Specular) * backTint);
         }
 
         /// <summary>

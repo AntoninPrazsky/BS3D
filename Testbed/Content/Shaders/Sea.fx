@@ -3,7 +3,7 @@
 //occlude each other, not the flat mirror the first version was. On top of the wave geometry the pixel
 //shader adds fine wind chop, a Fresnel sky reflection, a sun glint, subsurface scattering that lights the
 //crests from behind, and whitecap foam where the waves fold. It is the second scene variant (NumPad2
-//cycles city <-> sea); the marble/glass arena stays as a platform floating on it.
+//cycles the seven scenes); the round stone island stays as the platform floating on it.
 //
 //It shares the whole scene toolkit with Desert.fx/Mountain.fx/Meadow.fx: the grid is recentred on the
 //camera each frame and snapped to a cell on the CPU (OriginXZ) so the surface never swims; the dome is a

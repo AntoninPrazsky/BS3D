@@ -57,7 +57,7 @@ namespace BS3D
 
         /// <summary>
         /// Rebuilds the view and projection from the base pose and the current kick. Cheap enough to run
-        /// unconditionally every frame (two axis-angle matrices), and running it unconditionally is what
+        /// unconditionally every frame (three axis-angle matrices), and running it unconditionally is what
         /// keeps the camera correct on the frame the shake reaches zero.
         /// </summary>
         public void Recalculate()

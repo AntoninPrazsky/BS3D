@@ -11,7 +11,8 @@ namespace Prazsky.Core.Render
         [JsonIgnore]
         public override SceneKind Kind => SceneKind.Mountain;
 
-        /// <summary>Basin floor level Y (the basin stays below the platform glass, about -10.7).</summary>
+        /// <summary>Basin floor level Y (the basin stays below the island top, ARENA_Y ≈ -8.5; the old
+        /// -10.7 referent was the square plaza's recessed glass bath, removed with the panel arena).</summary>
         public float LevelY { get; set; } = -14f;
 
         /// <summary>Peak height far out in the field.</summary>
@@ -84,7 +85,10 @@ namespace Prazsky.Core.Render
         /// <summary>The flake size in world units.</summary>
         public float FlakeSize { get; set; } = 0.13f;
 
-        /// <summary>Bright cool white, kept under the glare threshold so a near flake does not bloom into a glowing orb.</summary>
+        /// <summary>Bright cool white. Its Rec. 709 luminance (~0.76) sits over GLARE_THRESHOLD (0.55 in the
+        /// game), so a large near flake can bloom slightly; in practice a flake's few pixels are diluted by
+        /// the quarter-resolution glare downsample. Dim the colour, not the opacity, if flakes ever read as
+        /// glowing orbs.</summary>
         public Rgb FlakeColor { get; set; } = new(0.72f, 0.76f, 0.82f);
 
         /// <summary>Snow flake opacity.</summary>

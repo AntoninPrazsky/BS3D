@@ -2,9 +2,11 @@
 //flapping-wing silhouette against the sky. There are no living things in this project's world otherwise,
 //so this is the one moving creature - and like everything else here it is procedural, no sprite sheet:
 //the wing shape and its flap are a couple of lines of math in the pixel shader, and the C# side circles
-//the quads on slow orbits over the desert. Drawn only in the desert scene.
+//the quads on slow orbits over the field. Drawn in the savanna and desert scenes, from the one shared
+//buffer.
 //
-//Testbed-only, Shader Model 5.0, no OPENGL branch.
+//Drawn in both executables through the shared SceneRenderer (the map editor builds this file out of this
+//directory too). Shader Model 5.0, no OPENGL branch.
 
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0

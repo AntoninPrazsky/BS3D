@@ -8,9 +8,10 @@ namespace Prazsky.Core.Render
     /// the <see cref="SceneKind.NeonCity"/> night relight — selected by <see cref="Neon"/>; the neon-only
     /// look lives in <see cref="NeonLook"/>.
     ///
-    /// Note: the city's parameters currently live across three places (City.cs generator, the city technique
-    /// in InstancedModel.fx, and neon/brightness constants in Testbed.cs). This config gathers them as the
-    /// intended single source; wiring each back to its site is a larger follow-up than the terrain scenes.
+    /// The config is wired to all three of its sites: <see cref="City"/>'s constructor reads the layout,
+    /// <see cref="InstancedModelRenderer.CityConfig"/> pushes the window look to the shader on every city
+    /// draw, and the caller reads <see cref="WindowBrightness"/> / <see cref="NeonLook"/> for the day/neon
+    /// relight — which is what lets the map editor's PropertyGrid edit the city live.
     /// </summary>
     public sealed class CitySceneConfig : SceneConfig
     {

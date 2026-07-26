@@ -108,8 +108,9 @@ namespace Prazsky.Core.Render
 
     /// <summary>
     /// The savanna's campfire: a real point light warming the grass and the island, plus the visible
-    /// additive flame billboard. Ground position is XZ; the Y is resolved from the terrain height at load
-    /// (the original derived it as SavannaTerrainHeight(x, z) + <see cref="HeightAboveTerrain"/>).
+    /// additive flame billboard. Ground position is XZ; the Y is derived live — SavannaTerrainHeight(x, z)
+    /// + <see cref="HeightAboveTerrain"/> on every read of SavannaCampfirePosition — so a GroundXZ or
+    /// terrain edit in the editor moves the fire without a re-apply.
     /// </summary>
     public sealed class CampfireConfig
     {

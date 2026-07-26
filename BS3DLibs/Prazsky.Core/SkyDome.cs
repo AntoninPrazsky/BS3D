@@ -46,8 +46,8 @@ namespace Prazsky.Core
 
 		/// <param name="linearVertexColors">
 		/// Converts the dome's vertex colors from sRGB to linear once, at load. Set this when the caller
-		/// renders into a linear HDR target and tonemaps at the end of the frame (the Testbed); leave it
-		/// off when drawing straight to an 8-bit back buffer in gamma space (the map editor).
+		/// renders into a linear HDR target and tonemaps at the end of the frame — every current executable
+		/// does; leave it off only for a caller drawing straight to an 8-bit back buffer in gamma space.
 		/// </param>
 		public SkyDome(Model skyDome, GraphicsDevice graphicsDevice, bool linearVertexColors = false)
 		{
@@ -72,10 +72,10 @@ namespace Prazsky.Core
 			_skyDomeTransforms = new Matrix[SkyDomeModel.Bones.Count];
 			SkyDomeModel.CopyAbsoluteBoneTransformsTo(_skyDomeTransforms);
 
-			//Order matters: the palette is read first and stays in sRGB, because it is handed to the scene
-			//shader as a plain color parameter and gets linearized there along with every other one. Only
-			//the geometry, which BasicEffect writes into the HDR target without knowing about any of this,
-			//is converted here.
+			//Order matters: the palette is read first and stays in sRGB, because the caller decodes it to
+			//linear on the CPU (ApplySkyLighting, through ColorSpace.SrgbToLinear) along with the rest of
+			//the light rig — read after LinearizeVertexColors it would be decoded twice. Only the geometry,
+			//which BasicEffect writes into the HDR target without knowing about any of this, is converted here.
 			ExtractSkyColors();
 
 			if (_linearVertexColors) LinearizeVertexColors();
@@ -223,20 +223,15 @@ namespace Prazsky.Core
 
 		public void Draw(ICamera camera)
 		{
-			SamplerState ss = new SamplerState
-			{
-				AddressU = TextureAddressMode.Clamp,
-				AddressV = TextureAddressMode.Clamp
-			};
-			GraphicsDevice.SamplerStates[0] = ss;
-
-			DepthStencilState depthStencilState = new DepthStencilState { DepthBufferEnable = false };
-			GraphicsDevice.DepthStencilState = depthStencilState;
+			//The framework's cached states, never fresh instances: this runs every frame in all three
+			//executables, and a state object constructed here backs a native D3D11 state that is never
+			//disposed — per-frame construction is a steady leak of finalizer-queue objects.
+			GraphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
+			GraphicsDevice.DepthStencilState = DepthStencilState.None;
 
 			if (Effect == null) DrawWithModelEffects(camera); else DrawWithCustomEffect(camera);
 
-			depthStencilState = new DepthStencilState { DepthBufferEnable = true };
-			GraphicsDevice.DepthStencilState = depthStencilState;
+			GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 		}
 
 		/// <summary>The original path: the dome's own <see cref="BasicEffect"/>s, gradient and nothing else.</summary>
@@ -245,16 +240,22 @@ namespace Prazsky.Core
 			int skyDomeModelMeshesCount = _skyDomeModel.Meshes.Count;
 			for (int i = 0; i < skyDomeModelMeshesCount; i++)
 			{
-				int effectsCount = _skyDomeModel.Meshes[i].Effects.Count;
+				ModelMesh mesh = _skyDomeModel.Meshes[i];
+
+				//The bone transform goes in exactly once (it used to be multiplied in twice, which only
+				//rendered correctly because the domes' bones are identity — the custom-effect path below
+				//has always applied it once, and the two must agree on any future dome)
+				Matrix worldMatrix = _skyDomeTransforms[mesh.ParentBone.Index] * Matrix.CreateTranslation(camera.Position);
+
+				int effectsCount = mesh.Effects.Count;
 				for (int j = 0; j < effectsCount; j++)
 				{
-					Matrix worldMatrix = _skyDomeTransforms[_skyDomeModel.Meshes[i].ParentBone.Index] * Matrix.CreateTranslation(camera.Position);
-
-					((BasicEffect)_skyDomeModel.Meshes[i].Effects[j]).World = _skyDomeTransforms[_skyDomeModel.Meshes[i].ParentBone.Index] * worldMatrix;
-					((BasicEffect)_skyDomeModel.Meshes[i].Effects[j]).View = camera.View;
-					((BasicEffect)_skyDomeModel.Meshes[i].Effects[j]).Projection = camera.Projection;
+					BasicEffect effect = (BasicEffect)mesh.Effects[j];
+					effect.World = worldMatrix;
+					effect.View = camera.View;
+					effect.Projection = camera.Projection;
 				}
-				_skyDomeModel.Meshes[i].Draw();
+				mesh.Draw();
 			}
 		}
 

@@ -21,7 +21,7 @@ namespace Prazsky.Core.Render
         private Vector2 _fpsPosition;
         private Vector2 _hintTextPosition;
         private Vector2 _customTextPosition;
-        private string _fps;
+        private string _fps = "FPS: 0"; //never null, so the first second's DrawString cannot throw
         private readonly string _fontAssetName;
         private readonly string _iconFontAssetName;
         private SpriteFont _iconFont;
@@ -97,9 +97,11 @@ namespace Prazsky.Core.Render
                 _elapsedTime -= TimeSpan.FromSeconds(1);
                 _frameRate = _frameCounter;
                 _frameCounter = 0;
-            }
 
-            _fps = "FPS: " + _frameRate.ToString();
+                //Built here, once a second when the value actually changes — building it every Update
+                //allocated two strings per frame for a text that holds still between the ticks
+                _fps = "FPS: " + _frameRate.ToString();
+            }
         }
 
         /// <summary>

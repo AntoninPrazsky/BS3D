@@ -7,7 +7,8 @@
 //since the muzzle end is hidden behind the barrel. Drawn additively and in linear radiance boosted over 1, so
 //it glows and blooms through the glare pass like the emissive balls; depth-read (the cluster/platform/cannon
 //in front hide it) but writes no depth. Its overall alpha fades over the shot's first fraction of a second
-//(TrailAlpha, set on the CPU), so it is a launch burst that leaves the ball crisp. Testbed-only. SM 5.0.
+//(TrailAlpha, set on the CPU), so it is a launch burst that leaves the ball crisp. Built by the Testbed
+//and the Game (the editor never shoots). SM 5.0.
 
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0
@@ -16,8 +17,8 @@ float4x4 View;
 float4x4 Projection;
 float3 CameraPosition;
 
-float3 TrailHead;       //world position of the flying ball
-float3 TrailTail;       //TrailLength behind it, along -velocity
+float3 TrailHead;       //leading (far) tip of the smear: muzzle + shot direction * trail length (fixed; the ball is long past it)
+float3 TrailTail;       //the muzzle end (the smear is anchored there, mostly hidden by the barrel)
 float TrailHeadWidth;   //half-width at the head
 float TrailTailWidth;   //half-width at the tail
 float3 TrailColor;      //linear radiance, already boosted and hue-floored on the CPU

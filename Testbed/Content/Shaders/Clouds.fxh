@@ -136,10 +136,18 @@ float CloudDensity(float2 world, float footprint)
 	return saturate(CloudThickness(world, footprint));
 }
 
-//How much of the sun still reaches a point in the world. Branchless on purpose: the callers take
-//screen-space derivatives further down, and those want every pixel of a quad to have walked one path.
+//How much of the sun still reaches a point in the world. Branchless on purpose past the early-out: the
+//callers take screen-space derivatives further down, and those want every pixel of a quad to have walked
+//one path.
 float CloudSunlight(float3 worldPosition, float3 sunDirection)
 {
+	//No clouds configured (the map editor never sets the uniforms, so the gain sits at 0): the answer is
+	//a flat 1 and the noise below would be evaluated only to be multiplied away. A branch on a uniform is
+	//non-divergent — every pixel takes the same path — and there are no gradient ops in this function, so
+	//the derivative-coherence concern above does not apply to it.
+	[branch]
+	if (CloudCoverageGain <= 0.0) return 1.0;
+
 	//Guarded rather than branched. A sun on the horizon would send the ray along the plane for an
 	//unbounded distance, which is meaningless as a shadow lookup and noisy as a number.
 	float climb = max(sunDirection.y, 0.05);

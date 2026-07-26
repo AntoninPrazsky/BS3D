@@ -26,7 +26,7 @@ namespace MapEditor.GUI
 
             _ballsMap = ballsMap;
 
-            BasicEffectParams = BasicEffectParamsProvider.ColorWhite; //BasicEffectParamsProvider will always create a new instance, it would make more sense to remember them
+            BasicEffectParams = BasicEffectParamsProvider.ColorWhite; //a shared static instance, allocated once by the provider
             World = Matrix.CreateTranslation(Position);
         }
 

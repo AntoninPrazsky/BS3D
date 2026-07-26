@@ -120,7 +120,9 @@ namespace Testbed
 
         private static readonly float BALL_ATTACH_GLIDE_DONE_SQUARED = 0.025f * 0.025f;
 
-        //Last frame's statistics (how many balls passed frustum culling out of how many exist)
+        //Last frame's statistics: instances drawn (bucket contents, incl. the magazine preview) vs bodies
+        //collected — there is no frustum culling (measured as saving nothing on this scene), so the two
+        //differ by the magazine balls, not by any cull
         private int _drawnBalls;
         private int _collectedBalls;
 
@@ -152,17 +154,19 @@ namespace Testbed
         #region Ground
 
         /// <summary>
-        /// Size of one ground block. The GroundMarble model is modeled at this size and its texture is
-        /// mapped for it, so the field is tiled from copies rather than stretched from a single slab.
+        /// The size the GroundMarble model's texture is authored for. The ground blocks it used to tile are
+        /// gone; it survives as the island disc's triplanar DetailScale (1/this), keeping the marble's grain
+        /// at its authored density.
         /// </summary>
         private static readonly float GROUND_BLOCK_SIZE = 30f;
 
         private static readonly float GROUND_PLATEAU_Y = -9f;
 
         /// <summary>
-        /// Y just above the recessed centre block's top (its box top sits at -9.5). The balls' bellies and
-        /// the downward-facing parts of the scene objects darken as they approach it (ground-proximity
-        /// occlusion, handed to the shader as GroundHeight).
+        /// Reference height below the island top that the ground-proximity occlusion darkens against: the
+        /// balls' bellies and the downward-facing parts of the scene objects darken as they approach it
+        /// (handed to the shader as GroundHeight). Kept from the old ground-block layout, whose recessed
+        /// centre block's top sat at -9.5.
         /// </summary>
         private static readonly float GROUND_TOP_Y = -9.49f;
 
@@ -306,6 +310,19 @@ namespace Testbed
         private Effect _tonemapEffect;
         private VertexBuffer _fullScreenQuad;
 
+        //The resolve runs every frame and the by-name parameter indexer is a linear scan, so the references
+        //are cached once in LoadContent (the values still go out per frame — the render targets among them
+        //are recreated on every resize, so caching the values would go stale)
+        private EffectParameter _tonemapGlareTextureParam;
+        private EffectParameter _tonemapGlareIntensityParam;
+        private EffectParameter _tonemapSceneTextureParam;
+        private EffectParameter _tonemapSourceTexelSizeParam;
+        private EffectParameter _tonemapSupersampleFactorParam;
+        private EffectParameter _tonemapExposureParam;
+        private EffectParameter _tonemapUnderwaterAmountParam;
+        private EffectParameter _tonemapUnderwaterAbsorbParam;
+        private EffectParameter _tonemapUnderwaterInscatterParam;
+
         #region Clouds
 
         /// <summary>
@@ -389,7 +406,7 @@ namespace Testbed
 
         #endregion
 
-        #region City prototype ("city" on the command line)
+        #region City, island and funnel (the city is the default of the seven scenes)
 
         private City _city;
         private BoxMesh _unitBox;
@@ -444,6 +461,14 @@ namespace Testbed
         private readonly Microsoft.Xna.Framework.Vector3[] _sceneLightColor = new Microsoft.Xna.Framework.Vector3[MAX_SCENE_LIGHTS];
         private readonly float[] _sceneLightRange = new float[MAX_SCENE_LIGHTS];
 
+        //Cached in LoadContent: ApplySceneLights runs every frame, and the by-name indexer is a linear scan
+        //over the instanced effect's ~70 parameters. Starts at -1 so the first frame always pushes a count.
+        private EffectParameter _sceneLightPositionParam;
+        private EffectParameter _sceneLightColorParam;
+        private EffectParameter _sceneLightRangeParam;
+        private EffectParameter _sceneLightCountParam;
+        private int _lastSceneLightCount = -1;
+
         //The neon city's ring of magenta/cyan point lights (count, range, radius, height, colours) now lives in
         //_cityConfig.NeonLook; the neon branch of ApplySceneLights reads it. Colours are bright linear radiance.
 
@@ -479,14 +504,14 @@ namespace Testbed
         //down, dropping through the hole at the bottom - below the map, where the kill plane removes them. The
         //top rim is flush with the platform and sized to the old bath, so it catches the balls that used to
         //pile there; the walls are steep (~55 degrees) so the balls run down to the hole rather than resting.
-        private static readonly float FUNNEL_TOP_RADIUS = 14f;   //slightly inscribed in the pit square, so the collar always has width
+        private static readonly float FUNNEL_TOP_RADIUS = 14f;   //meets the stone disc's inner hole exactly; the gold rim bead rings the junction
         private static readonly float FUNNEL_HOLE_RADIUS = 1.8f;
         private static readonly float FUNNEL_TOP_Y = ARENA_Y;    //rim flush with the platform top
         private static readonly float FUNNEL_BOTTOM_Y = -27.5f;  //hole ~19 below the rim
         private const int FUNNEL_SEGMENTS = 64;
 
-        //The funnel (and its corner collar) is glass, but more opaque than the arena panels so it reads clearly
-        //as a solid frosted-glass drain rather than an almost-invisible sheet.
+        //The funnel is glass, but more opaque than the glass ceiling so it reads clearly as a solid
+        //frosted-glass drain rather than an almost-invisible sheet.
         private static readonly float FUNNEL_GLASS_ALPHA = 0.55f;
 
         //The dark pit shaft the funnel drains into in the solid-terrain scenes (see the _pitMesh field). The
@@ -531,6 +556,16 @@ namespace Testbed
         private RenderTarget2D _glareBright;
         private RenderTarget2D _glareStreak;
         private Effect _glareEffect;
+
+        //Cached in LoadContent like the tonemap's, and for the same reason
+        private EffectTechnique _glareBrightPassTechnique;
+        private EffectTechnique _glareStreakTechnique;
+        private EffectParameter _glareSourceTextureParam;
+        private EffectParameter _glareThresholdParam;
+        private EffectParameter _glareSourceTexelSizeParam;
+        private EffectParameter _glareStreakLengthParam;
+        private EffectParameter _glareStreakFalloffParam;
+        private EffectParameter _skyCameraPositionParam;
 
         private static readonly int GLARE_DOWNSAMPLE = 4;
 
@@ -596,7 +631,9 @@ namespace Testbed
         //Launch smear: a colour streak left at the muzzle when a ball fires, stretched in the flight direction
         //and fading over a fraction of a second, to sell how hard the ball leaves the cannon (Shaders/ShotTrail.fx).
         //Anchored at the muzzle (not following the ball, which attaches in ~0.075s - far too brief to read); one
-        //additive billboard per live smear. Brightest and widest at the muzzle, tapering to a faint point outward.
+        //additive billboard per live smear. Brightest and widest at the leading (far) end, clear of the barrel,
+        //tapering back to the muzzle end, which is mostly hidden behind it - a muzzle-bright streak shows only
+        //its faint tapering tip and reads as a thin thread (the mistake this replaced).
         private Effect _shotTrailEffect;
         private VertexBuffer _shotTrailVertexBuffer;
         private IndexBuffer _shotTrailIndexBuffer;
@@ -728,7 +765,7 @@ namespace Testbed
             _startupCamPos = camPos;
             _startupCamTarget = camTarget;
 
-            //Testing: "scene=sea" / "scene=savanna" / "scene=desert" / "scene=mountain" pick the starting environment
+            //Testing: "scene=sea/savanna/desert/mountain/meadow/neon" picks the starting environment
             if (string.Equals(scene, "sea", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Sea;
             else if (string.Equals(scene, "savanna", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Savanna;
             else if (string.Equals(scene, "desert", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Desert;
@@ -874,8 +911,9 @@ namespace Testbed
             }
             else
             {
-                //Snap the aim back to its rest direction so the gun is not left cocked at the last mouse aim - the
-                //aim persists within game mode, but a fresh session starts neutral. Leaves the orbit position alone.
+                //Ease the aim back to its rest direction (~1s SmoothStep in Cannon.Update, not a snap) so the
+                //gun is not left cocked at the last mouse aim - the aim persists within game mode, but a fresh
+                //session starts neutral. Leaves the orbit position alone.
                 _cannon.ResetAim();
 
                 //Leaving game mode while precise aim is engaged: capture the leaned pose so the free-mode exit eases
@@ -918,6 +956,30 @@ namespace Testbed
 
             _tonemapEffect = Content.Load<Effect>("Shaders/Tonemap");
             _glareEffect = Content.Load<Effect>("Shaders/Glare");
+
+            _tonemapGlareTextureParam = _tonemapEffect.Parameters["GlareTexture"];
+            _tonemapGlareIntensityParam = _tonemapEffect.Parameters["GlareIntensity"];
+            _tonemapSceneTextureParam = _tonemapEffect.Parameters["SceneTexture"];
+            _tonemapSourceTexelSizeParam = _tonemapEffect.Parameters["SourceTexelSize"];
+            _tonemapSupersampleFactorParam = _tonemapEffect.Parameters["SupersampleFactor"];
+            _tonemapExposureParam = _tonemapEffect.Parameters["Exposure"];
+            _tonemapUnderwaterAmountParam = _tonemapEffect.Parameters["UnderwaterAmount"];
+            _tonemapUnderwaterAbsorbParam = _tonemapEffect.Parameters["UnderwaterAbsorb"];
+            _tonemapUnderwaterInscatterParam = _tonemapEffect.Parameters["UnderwaterInscatter"];
+
+            _glareBrightPassTechnique = _glareEffect.Techniques["BrightPass"];
+            _glareStreakTechnique = _glareEffect.Techniques["Streak"];
+            _glareSourceTextureParam = _glareEffect.Parameters["SourceTexture"];
+            _glareThresholdParam = _glareEffect.Parameters["GlareThreshold"];
+            _glareSourceTexelSizeParam = _glareEffect.Parameters["SourceTexelSize"];
+            _glareStreakLengthParam = _glareEffect.Parameters["StreakLength"];
+            _glareStreakFalloffParam = _glareEffect.Parameters["StreakFalloff"];
+
+            _sceneLightPositionParam = _instancingEffect.Parameters["SceneLightPosition"];
+            _sceneLightColorParam = _instancingEffect.Parameters["SceneLightColor"];
+            _sceneLightRangeParam = _instancingEffect.Parameters["SceneLightRange"];
+            _sceneLightCountParam = _instancingEffect.Parameters["SceneLightCount"];
+
             CreateFullScreenQuad();
             CreateShotTrailQuad();
 
@@ -949,6 +1011,7 @@ namespace Testbed
 
             _skyEffect = Content.Load<Effect>("Shaders/Sky");
             _sky.Effect = _skyEffect;
+            _skyCameraPositionParam = _skyEffect.Parameters["CameraPosition"];
             SetCloudParameters();
 
             //The self-lit outdoor backdrops (sea/savanna/desert/mountain/meadow, with the savanna's acacias, the
@@ -1011,19 +1074,29 @@ namespace Testbed
         /// </summary>
         private static readonly float SCENE_AMBIENT_INTENSITY = 0.25f;
 
+        //Reused by SkyLitRenderers: the overcast lerp re-applies the light rig every frame, and an iterator
+        //method allocates its enumerator on every call — a steady per-frame allocation for a fixed list
+        private readonly List<InstancedModelRenderer> _skyLitRenderers = new();
+
         /// <summary>
         /// Every renderer that takes part in the sky-derived lighting: the ball LODs plus the scene objects.
+        /// Refilled on every call (into one reused list, so per-frame callers allocate nothing), which keeps
+        /// it correct across renderer recreation — the ceiling's, for one, is rebuilt on every map load.
         /// </summary>
-        private IEnumerable<InstancedModelRenderer> SkyLitRenderers()
+        private List<InstancedModelRenderer> SkyLitRenderers()
         {
-            foreach (InstancedModelRenderer ballRenderer in _ballRenderers) yield return ballRenderer;
+            _skyLitRenderers.Clear();
 
-            yield return _ceilingRenderer;
-            yield return _cannonRenderer;
-            if (_cityRenderer != null) yield return _cityRenderer;
-            if (_arenaDiscRenderer != null) yield return _arenaDiscRenderer;
-            if (_funnelRenderer != null) yield return _funnelRenderer;
-            if (_funnelRimsRenderer != null) yield return _funnelRimsRenderer;
+            foreach (InstancedModelRenderer ballRenderer in _ballRenderers) _skyLitRenderers.Add(ballRenderer);
+
+            _skyLitRenderers.Add(_ceilingRenderer);
+            _skyLitRenderers.Add(_cannonRenderer);
+            if (_cityRenderer != null) _skyLitRenderers.Add(_cityRenderer);
+            if (_arenaDiscRenderer != null) _skyLitRenderers.Add(_arenaDiscRenderer);
+            if (_funnelRenderer != null) _skyLitRenderers.Add(_funnelRenderer);
+            if (_funnelRimsRenderer != null) _skyLitRenderers.Add(_funnelRimsRenderer);
+
+            return _skyLitRenderers;
         }
 
         /// <summary>
@@ -1273,17 +1346,24 @@ namespace Testbed
                 count = neonCount;
             }
 
-            _instancingEffect.Parameters["SceneLightPosition"].SetValue(_sceneLightPos);
-            _instancingEffect.Parameters["SceneLightColor"].SetValue(_sceneLightColor);
-            _instancingEffect.Parameters["SceneLightRange"].SetValue(_sceneLightRange);
-            _instancingEffect.Parameters["SceneLightCount"].SetValue(count);
+            //A scene with no lights only needs the count pushed the first time it goes to zero — the arrays
+            //are untouched above when count is 0, so re-sending them every frame was four parameter writes
+            //(and four linear name scans before the references were cached) for values that cannot change
+            if (count == 0 && _lastSceneLightCount == 0) return;
+
+            _sceneLightPositionParam.SetValue(_sceneLightPos);
+            _sceneLightColorParam.SetValue(_sceneLightColor);
+            _sceneLightRangeParam.SetValue(_sceneLightRange);
+            _sceneLightCountParam.SetValue(count);
+
+            _lastSceneLightCount = count;
         }
 
         /// <summary>
-        /// Builds the intended setting: a glass play surface framed in marble, standing among the tops of
-        /// a procedural city. One unit box mesh serves all three — the buildings, the four marble bands
-        /// and the glass panel are the same cube under different instance matrices, which is what keeps
-        /// a whole city to a single draw call.
+        /// Builds the setting: the procedural city (one unit box mesh under a different instance matrix per
+        /// building, which is what keeps the whole skyline to a single draw call) and the round stone island
+        /// the play field stands over — the marble disc, the glass drain funnel, its gold rims and the dark
+        /// pit shaft, each its own procedural mesh and renderer.
         /// </summary>
         private void BuildCity()
         {
@@ -1879,7 +1959,7 @@ namespace Testbed
             _clouds.ApplyTo(_skyEffect);
             _clouds.ApplyTo(_instancingEffect);
 
-            _skyEffect.Parameters["CameraPosition"].SetValue(_camera.Position);
+            _skyCameraPositionParam.SetValue(_camera.Position);
 
             _sky.Draw(_camera);
 
@@ -1893,9 +1973,9 @@ namespace Testbed
 
             if (_draw)
             {
-                //The environment — city or open sea — is the backdrop and the thing seen beneath the glass
-                //both. Either way the old marble ground blocks survive only as physics bodies; nothing
-                //draws them. The marble/glass arena is the platform, and stays in both scenes.
+                //The environment — city, sea or terrain — is the backdrop and the thing seen past the island's
+                //edge both. Either way the only physics floor is the funnel mesh (BuildFunnelPhysics); the
+                //round stone island is the platform, and stays in all seven scenes.
                 SceneFrame sceneFrame = BuildSceneFrame();
 
                 //Scene point lights (campfire / neon) onto the shared instanced effect, so the balls, island,
@@ -2121,7 +2201,7 @@ namespace Testbed
         /// <summary>
         /// Draws each live launch smear: one camera-facing billboard from the muzzle (tail — faint, mostly hidden
         /// behind the barrel) stretched <see cref="TRAIL_LENGTH"/> along the shot to a bright leading end (head)
-        /// out in the open, coloured by the ball type and fading over the shot's first quarter-second. Additive
+        /// out in the open, coloured by the ball type and fading over <see cref="TRAIL_LIFETIME"/> (~0.45 s). Additive
         /// and depth-read, like the campfire flame, so it glows and blooms through the glare while the opaque
         /// scene in front still hides it.
         /// </summary>
@@ -2224,9 +2304,14 @@ namespace Testbed
                 _ballInstances[bucketIndex] = bucket;
             }
 
+            //The translation is written into the rotation matrix rather than multiplied in: R × T is exactly
+            //R with its fourth row set to the translation (R's fourth row is (0,0,0,1)), and this runs once
+            //per ball per frame — a full 4×4 multiply here was the hottest needless work in the file
             Microsoft.Xna.Framework.Matrix world = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(
-                    new Quaternion(pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z, pose.Orientation.W))
-                * Microsoft.Xna.Framework.Matrix.CreateTranslation(renderPosition.X, renderPosition.Y, renderPosition.Z);
+                    new Quaternion(pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z, pose.Orientation.W));
+            world.M41 = renderPosition.X;
+            world.M42 = renderPosition.Y;
+            world.M43 = renderPosition.Z;
 
             bucket[count] = new ModelInstance(world, occlusionData);
             _ballInstanceCounts[bucketIndex] = count + 1;
@@ -2303,18 +2388,21 @@ namespace Testbed
             GraphicsDevice.RasterizerState = RasterizerState.CullNone;
             GraphicsDevice.SetVertexBuffer(_fullScreenQuad);
 
+            //Techniques and parameters through the references cached in LoadContent — this runs every frame,
+            //and the by-name indexers are linear scans. The textures are still set per pass: SourceTexture
+            //switches value between the two passes, and the targets are recreated on every resize.
             GraphicsDevice.SetRenderTarget(_glareBright);
-            _glareEffect.CurrentTechnique = _glareEffect.Techniques["BrightPass"];
-            _glareEffect.Parameters["SourceTexture"].SetValue(_sceneTarget);
-            _glareEffect.Parameters["GlareThreshold"].SetValue(GLARE_THRESHOLD);
+            _glareEffect.CurrentTechnique = _glareBrightPassTechnique;
+            _glareSourceTextureParam.SetValue(_sceneTarget);
+            _glareThresholdParam.SetValue(GLARE_THRESHOLD);
             DrawFullScreenQuad(_glareEffect);
 
             GraphicsDevice.SetRenderTarget(_glareStreak);
-            _glareEffect.CurrentTechnique = _glareEffect.Techniques["Streak"];
-            _glareEffect.Parameters["SourceTexture"].SetValue(_glareBright);
-            _glareEffect.Parameters["SourceTexelSize"].SetValue(new Vector2(1f / _glareBright.Width, 1f / _glareBright.Height));
-            _glareEffect.Parameters["StreakLength"].SetValue(GLARE_STREAK_LENGTH);
-            _glareEffect.Parameters["StreakFalloff"].SetValue(GLARE_STREAK_FALLOFF);
+            _glareEffect.CurrentTechnique = _glareStreakTechnique;
+            _glareSourceTextureParam.SetValue(_glareBright);
+            _glareSourceTexelSizeParam.SetValue(new Vector2(1f / _glareBright.Width, 1f / _glareBright.Height));
+            _glareStreakLengthParam.SetValue(GLARE_STREAK_LENGTH);
+            _glareStreakFalloffParam.SetValue(GLARE_STREAK_FALLOFF);
             DrawFullScreenQuad(_glareEffect);
         }
 
@@ -2381,12 +2469,12 @@ namespace Testbed
 
             GraphicsDevice.SetRenderTarget(null);
 
-            _tonemapEffect.Parameters["GlareTexture"].SetValue(_glareStreak);
-            _tonemapEffect.Parameters["GlareIntensity"].SetValue(GLARE_INTENSITY);
-            _tonemapEffect.Parameters["SceneTexture"].SetValue(_sceneTarget);
-            _tonemapEffect.Parameters["SourceTexelSize"].SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
-            _tonemapEffect.Parameters["SupersampleFactor"].SetValue(_supersampleFactor);
-            _tonemapEffect.Parameters["Exposure"].SetValue(_exposure);
+            _tonemapGlareTextureParam.SetValue(_glareStreak);
+            _tonemapGlareIntensityParam.SetValue(GLARE_INTENSITY);
+            _tonemapSceneTextureParam.SetValue(_sceneTarget);
+            _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
+            _tonemapSupersampleFactorParam.SetValue(_supersampleFactor);
+            _tonemapExposureParam.SetValue(_exposure);
 
             //Underwater murk: only the sea has water the camera can get under. Ramp it in by how far the lens
             //is below the mean surface (a touch above it, so partial submersion already begins to tint), full
@@ -2394,9 +2482,9 @@ namespace Testbed
             float underwater = _scene == SceneKind.Sea
                 ? Math.Clamp((_sceneRenderer.SeaLevelY + 0.5f - _camera.Position.Y) / UNDERWATER_FADE_DEPTH, 0f, 1f)
                 : 0f;
-            _tonemapEffect.Parameters["UnderwaterAmount"].SetValue(underwater);
-            _tonemapEffect.Parameters["UnderwaterAbsorb"].SetValue(UNDERWATER_ABSORB);
-            _tonemapEffect.Parameters["UnderwaterInscatter"].SetValue(UNDERWATER_INSCATTER);
+            _tonemapUnderwaterAmountParam.SetValue(underwater);
+            _tonemapUnderwaterAbsorbParam.SetValue(UNDERWATER_ABSORB);
+            _tonemapUnderwaterInscatterParam.SetValue(UNDERWATER_INSCATTER);
 
             GraphicsDevice.BlendState = BlendState.Opaque;
             GraphicsDevice.DepthStencilState = DepthStencilState.None;
@@ -2454,7 +2542,7 @@ namespace Testbed
                 triangles[b + 1] = new Triangle(t1, h0, h1);
                 triangles[b + 2] = new Triangle(t0, t1, h0);
                 triangles[b + 3] = new Triangle(t1, h1, h0);
-                //Flat collar rim -> square (both faces)
+                //Flat stone ring, funnel rim -> disc edge (both faces)
                 triangles[b + 4] = new Triangle(t0, t1, q1);
                 triangles[b + 5] = new Triangle(t0, q1, q0);
                 triangles[b + 6] = new Triangle(t0, q1, t1);
@@ -2547,8 +2635,8 @@ namespace Testbed
             _shotBalls.Add(ball);
             RecountBallsAndConstraints();
 
-            //Give the shot its launch smear: a colour streak at the muzzle, along the shot, fading over its
-            //first quarter-second (drawn in DrawShotTrails, aged out in Update)
+            //Give the shot its launch smear: a colour streak at the muzzle, along the shot, fading over
+            //TRAIL_LIFETIME (drawn in DrawShotTrails, aged out in Update)
             _shotTrails.Add(new ShotTrail { Origin = sourcePosition, Direction = launchDirection, Age = 0f, Color = TrailColorFor(ball.Type) });
 
             #region Contact event registration
@@ -2576,13 +2664,20 @@ namespace Testbed
 
         private void UpdateCannon(GameTime gameTime)
         {
+            //One snapshot of each input device for the whole game-mode frame: every extra GetState call
+            //re-queries the OS (a real XInput poll for the pad), and two reads in one frame can even
+            //disagree about a key pressed between them
+            KeyboardState keyboard = Keyboard.GetState();
+            MouseState mouse = Mouse.GetState();
+            GamePadState pad = GamePad.GetState(PlayerIndex.One);
+
             //Orbiting the cannon around the field is on A/D, and only in game mode - in the free fly camera A/D
             //stay its strafe. W/S are left unused: the gun turns on a carriage, it does not rise or fall. Orbiting
             //does not touch the aim: the mouse owns it (below) and holds it wherever the player leaves it.
             if (_gameMode)
             {
-                if (Keyboard.GetState().IsKeyDown(mgKeys.A)) _cannon.Orbit(1f);
-                if (Keyboard.GetState().IsKeyDown(mgKeys.D)) _cannon.Orbit(-1f);
+                if (keyboard.IsKeyDown(mgKeys.A)) _cannon.Orbit(1f);
+                if (keyboard.IsKeyDown(mgKeys.D)) _cannon.Orbit(-1f);
             }
 
             _cannon.Update(gameTime);
@@ -2600,10 +2695,10 @@ namespace Testbed
                 //order FOV -> Position -> Target is required: the Target setter rebuilds the view last, with world up.
                 //IsActive gates the capture: the gamepad trigger reads globally through XInput, and losing focus must
                 //free the cursor rather than keep grabbing it (the else branch).
-                if (IsActive && _map != null && !_aimShoot) UpdateMouseAim(gameTime);
+                if (IsActive && _map != null && !_aimShoot) UpdateMouseAim(gameTime, mouse, pad);
                 else { _adsMouseInitialized = false; IsMouseVisible = true; }
 
-                bool adsHeld = IsActive && !_freeModeAnimStarted && _map != null && AdsButtonHeld();
+                bool adsHeld = IsActive && !_freeModeAnimStarted && _map != null && AdsButtonHeld(mouse, pad);
                 float adsTarget = adsHeld ? 1f : 0f;
                 float adsDt = (float)gameTime.ElapsedGameTime.TotalSeconds;
                 _adsBlend = adsTarget + (_adsBlend - adsTarget) * MathF.Exp(-adsDt / ADS_BLEND_TAU);
@@ -2967,10 +3062,11 @@ namespace Testbed
             return up.LengthSquared() < 1e-4f ? Vector3.Normalize(new Vector3(aim.Z, 0f, -aim.X)) : Vector3.Normalize(up);
         }
 
-        /// <summary>Whether precise aim is being held — the right mouse button or the gamepad's left trigger.</summary>
-        private bool AdsButtonHeld() =>
-            Mouse.GetState().RightButton == Microsoft.Xna.Framework.Input.ButtonState.Pressed
-            || GamePad.GetState(PlayerIndex.One).Triggers.Left > ADS_TRIGGER_THRESHOLD;
+        /// <summary>Whether precise aim is being held — the right mouse button or the gamepad's left trigger.
+        /// Reads the frame's input snapshots from <see cref="UpdateCannon"/> rather than polling again.</summary>
+        private static bool AdsButtonHeld(MouseState mouse, GamePadState pad) =>
+            mouse.RightButton == Microsoft.Xna.Framework.Input.ButtonState.Pressed
+            || pad.Triggers.Left > ADS_TRIGGER_THRESHOLD;
 
         /// <summary>
         /// Drives the cannon's aim from the mouse throughout game mode (the overview as well as precise aim; the arrow
@@ -2980,13 +3076,12 @@ namespace Testbed
         /// per pixel at any frame rate. The first captured frame is skipped so acquiring the cursor never jumps the
         /// aim. The gamepad's right stick aims too, fed straight in as a rate.
         /// </summary>
-        private void UpdateMouseAim(GameTime gameTime)
+        private void UpdateMouseAim(GameTime gameTime, MouseState mouse, GamePadState pad)
         {
             int cx = GraphicsDevice.Viewport.Width / 2;
             int cy = GraphicsDevice.Viewport.Height / 2;
 
             IsMouseVisible = false;
-            MouseState mouse = Mouse.GetState();
 
             if (_adsMouseInitialized)
             {
@@ -3003,7 +3098,6 @@ namespace Testbed
             Mouse.SetPosition(cx, cy);
             _adsMouseInitialized = true;
 
-            GamePadState pad = GamePad.GetState(PlayerIndex.One);
             if (pad.IsConnected && pad.ThumbSticks.Right.LengthSquared() > 0f)
                 _cannon.Aim(new Vector2(pad.ThumbSticks.Right.Y, -pad.ThumbSticks.Right.X) * PAD_AIM_RATE, gameTime);
         }

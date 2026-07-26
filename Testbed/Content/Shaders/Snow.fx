@@ -2,11 +2,12 @@
 //The whole flake set lives in a static vertex buffer - one quad per flake, its base position a fixed
 //random point in a unit cube - and the vertex shader animates it: the flake falls and drifts, wrapping
 //within a box that follows the camera, so the snowfall is endless and always around you. The pixel shader
-//is a soft round white speck. Drawn only in the mountain scene, alpha-blended over the finished frame.
+//is a soft round white speck. Drawn only in the mountain scene, alpha-blended into the HDR scene target
+//(before glare and tonemap — which is why the flake colour has to mind GLARE_THRESHOLD), depth-read.
 //
 //The box follows the camera rather than being pinned to the world, which trades a little translational
 //parallax for never popping as the camera crosses a box boundary - the right trade for a uniform veil of
-//small flakes. Testbed-only, Shader Model 5.0, no OPENGL branch.
+//small flakes. Drawn in both executables through the shared SceneRenderer, Shader Model 5.0, no OPENGL branch.
 
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0

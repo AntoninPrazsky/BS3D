@@ -72,9 +72,7 @@ namespace Prazsky.BS3D.GameStructure
 
             Vector3 realPosition = GetRealPosition(stageX, stageZ, level);
             if (Centered) realPosition = ComputeCentered(realPosition);
-#if DEBUG
-            Console.WriteLine($"Putting ball at stageX: {stageX}; stageZ: {stageZ}; level: {level}; Real position: {realPosition}");
-#endif
+
             var ball = new StaticBall(realPosition, type);
 			_balls[stageX, stageZ, level] = ball;
 
@@ -84,10 +82,6 @@ namespace Prazsky.BS3D.GameStructure
         public void RemoveBallAt(byte stageX, byte stageZ, byte level)
         {
             if (stageX >= StageSizeX || stageZ >= StageSizeZ || level >= Levels) throw new ArgumentOutOfRangeException($"Invalid requested ball position, array size is: {StageSizeX} × {StageSizeZ} × {Levels}");
-
-#if DEBUG
-            Console.WriteLine($"Removing ball at stageX: {stageX}; stageZ: {stageZ}; level: {level}");
-#endif
 
             _balls[stageX, stageZ, level] = null;
         }
@@ -370,7 +364,6 @@ namespace Prazsky.BS3D.GameStructure
             var ballPositionTypes = BuildBallPositionTypes();
             var json = JsonSerializer.Serialize(ballPositionTypes);
             File.WriteAllText(fileName, json);
-            Console.WriteLine(json);
         }
 
         /// <summary>

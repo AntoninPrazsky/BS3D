@@ -216,7 +216,7 @@ namespace Prazsky.Core.Render
         //shared buffer and per-bird orbit state are sized once from the savanna config's count.
 
         //One camera-facing quad per bird; Data carries (u along the wingspan, v vertical, flap phase).
-        //Also reused for the snow flakes.
+        //Also reused for the flame, acacia, snow and spray billboards.
         private struct BirdVertex : IVertexType
         {
             public Vector3 Position;
@@ -352,7 +352,7 @@ namespace Prazsky.Core.Render
             ApplyMountainParameters();
 
             //--- Snow: a static flake buffer, one quad per flake at a fixed point in the unit cube, animated
-            //entirely in the shader (so it is only rebuilt when a new config changes the flake count).
+            //entirely in the shader (so it is only rebuilt when a mountain config is applied, never per frame).
             _snowEffect = content.Load<Effect>("Shaders/Snow");
             ApplySnowParameters();
             BuildSnowBuffers();
@@ -770,9 +770,10 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Builds a flat lattice grid: <paramref name="n"/> vertices per side over <paramref name="extent"/>,
-        /// centred on the origin. The desert, mountain and meadow shaders recentre it on the camera and lift
-        /// it into dunes, peaks or hills; it is drawn CullNone, so the winding does not matter. (Indices run
-        /// up to n*n-1 in a 16-bit buffer, so keep n at 256 or below.)
+        /// centred on the origin. The sea, savanna, desert, mountain and meadow shaders recentre it on the
+        /// camera and lift it into waves, dunes, peaks or hills; it is drawn CullNone, so the winding does
+        /// not matter. Indices are 32-bit: every one of these grids runs past 255 vertices a side, where a
+        /// 16-bit index silently wraps (see the inline note below — that wrap has already cost one long hunt).
         /// </summary>
         private void CreateGridMesh(int n, float extent, out VertexBuffer vertexBuffer, out IndexBuffer indexBuffer, out int indexCount)
         {

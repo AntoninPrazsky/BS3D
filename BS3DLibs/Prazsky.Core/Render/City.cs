@@ -10,8 +10,8 @@ namespace Prazsky.Core.Render
     /// in the shader from world position, so a building carries no texture and no UVs.
     /// <para>
     /// The play surface sits low among the towers, which is what the whole arrangement is for: the arena
-    /// is a glass platform in a clearing between skyscrapers, with the city standing over it and falling
-    /// away underneath it at the same time.
+    /// is the small round stone island in a clearing between skyscrapers, with the city standing over it
+    /// and falling away underneath it at the same time.
     /// Buildings are scaled non-uniformly through their instance matrix, which is safe here because the
     /// boxes are axis-aligned in object space — a diagonal scale maps each face normal onto itself, so
     /// normalizing in the pixel shader recovers it without an inverse transpose.
@@ -26,9 +26,9 @@ namespace Prazsky.Core.Render
         public ModelInstance[] Buildings { get; }
 
         //Layout/generator parameters (block pitch, street width, radius, roofline, taper, base Y, under-arena
-        //depth) now live in CitySceneConfig; the constructor reads them from the config passed in. The window
-        //look (shader statics in InstancedModel.fx) and the neon relight (Testbed) are separate and not wired
-        //to the config yet.
+        //depth) live in CitySceneConfig; the constructor reads them from the config passed in. The window look
+        //and the neon relight are wired too: InstancedModelRenderer.CityConfig pushes them to the shader on
+        //every city draw, and the caller reads WindowBrightness/NeonLook for the day/neon switch.
 
         /// <summary>The city has no neighboring-cell occlusion; the shader still expects the vector.</summary>
         private static readonly Vector4 NO_OCCLUSION = new(0f, 0f, 0f, 1f);
@@ -52,9 +52,10 @@ namespace Prazsky.Core.Render
                     Vector2 blockCenter = new(blockX * config.BlockPitch, blockZ * config.BlockPitch);
 
                     //The city continues underneath the arena rather than stopping at its edge. It has to:
-                    //the glass panels are there to be looked through, and a clearing under them shows
-                    //nothing at all. What changes under the arena is the height — those towers are cut off
-                    //far below the glass, which is what opens the drop the floor is suspended over.
+                    //the drop is seen past the island's rim and down through the drain funnel, and a
+                    //clearing under the island would show nothing at all. What changes under the arena is
+                    //the height — those towers are cut off far below, which is what opens the drop the
+                    //island is suspended over.
                     float clearance = arenaHalfExtent + config.StreetWidth;
                     bool underArena = Math.Abs(blockCenter.X) < clearance + buildable * 0.5f &&
                         Math.Abs(blockCenter.Y) < clearance + buildable * 0.5f;
@@ -84,7 +85,7 @@ namespace Prazsky.Core.Render
                                 - distanceInBlocks * config.TaperPerBlock
                                 + (float)(random.NextDouble() * 2 - 1) * config.RooflineSpread;
 
-                            //Under the glass the roofs drop away into a shaft. The gap is what turns
+                            //Under the island the roofs drop away into a shaft. The gap is what turns
                             //looking down from "there is a city there" into vertigo.
                             if (underArena) top = config.UnderArenaTopY - (float)random.NextDouble() * config.UnderArenaSpread;
 
