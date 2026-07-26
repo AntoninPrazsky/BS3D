@@ -137,6 +137,31 @@ namespace Prazsky.Core.Render
         /// <summary>How much of each cell is glass vertically (rest is wall).</summary>
         public float WindowFillY { get; set; } = 0.52f;
 
+        /// <summary>
+        /// Half-width of the plaster frame moulding around each pane, as a fraction of the cell beyond
+        /// <see cref="WindowFillX"/>/<see cref="WindowFillY"/> (0 = no frame, just a flat pane). A pane cut
+        /// straight into a flat wall reads as a hole in it; a real window is set into a frame, and the frame is
+        /// the same render carried proud of the wall. The moulding lives in the ring between the glass edge and
+        /// this width past it, so it is plaster -- it catches light and casts its own shadow -- not a second
+        /// surface pasted on. ~0.1 is a clear middle weight that reads as a frame from across the arena.
+        /// </summary>
+        public float WindowFrameWidth { get; set; } = 0.1f;
+
+        /// <summary>
+        /// How high the moulding stands proud of the surrounding wall, in world units (0 = a flat pane with no
+        /// frame). This is the bead's own relief, not its reflectance: what makes a frame read as standing off
+        /// the wall is that its top catches light and its flanks lean the normal, which a flat stripe cannot do.
+        /// </summary>
+        public float WindowFrameHeight { get; set; } = 0.015f;
+
+        /// <summary>
+        /// How much the moulding's own relief also <i>shades</i> — the lit crest lightened and the wall in its
+        /// lee darkened (0 = the normal is tilted and nothing else). The same lesson <see cref="FacadeGrainShading"/>
+        /// already taught: a tilted normal alone is invisible at a tower's distance, so the bead's height also
+        /// lightens and darkens the render's tone, which at this range is the stronger cue of the two.
+        /// </summary>
+        public float WindowFrameShading { get; set; } = 0.3f;
+
         /// <summary>Wall border kept clear of glass at every building edge, in world units.</summary>
         public float WindowMargin { get; set; } = 0.9f;
 

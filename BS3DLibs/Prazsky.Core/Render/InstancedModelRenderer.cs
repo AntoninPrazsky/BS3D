@@ -135,6 +135,7 @@ namespace Prazsky.Core.Render
         public CitySceneConfig CityConfig { get; set; } = new();
 
         private EffectParameter _windowPitchXParam, _windowPitchYParam, _windowFillXParam, _windowFillYParam,
+            _windowFrameWidthParam, _windowFrameHeightParam, _windowFrameShadingParam,
             _windowMarginParam, _windowLitFractionParam, _windowWarmParam, _windowCoolParam,
             _windowHoldSecondsParam, _windowHoldVariationParam, _windowSwitchFadeParam;
 
@@ -543,6 +544,9 @@ namespace Prazsky.Core.Render
             _windowPitchYParam = _effect.Parameters["WindowPitchY"];
             _windowFillXParam = _effect.Parameters["WindowFillX"];
             _windowFillYParam = _effect.Parameters["WindowFillY"];
+            _windowFrameWidthParam = _effect.Parameters["WindowFrameWidth"];
+            _windowFrameHeightParam = _effect.Parameters["WindowFrameHeight"];
+            _windowFrameShadingParam = _effect.Parameters["WindowFrameShading"];
             _windowMarginParam = _effect.Parameters["WindowMargin"];
             _windowLitFractionParam = _effect.Parameters["WindowLitFraction"];
             _windowWarmParam = _effect.Parameters["WindowWarm"];
@@ -783,6 +787,9 @@ namespace Prazsky.Core.Render
                 _windowPitchYParam.SetValue(city.WindowPitchY);
                 _windowFillXParam.SetValue(city.WindowFillX);
                 _windowFillYParam.SetValue(city.WindowFillY);
+                _windowFrameWidthParam.SetValue(city.WindowFrameWidth);
+                _windowFrameHeightParam.SetValue(city.WindowFrameHeight);
+                _windowFrameShadingParam.SetValue(city.WindowFrameShading);
                 _windowMarginParam.SetValue(city.WindowMargin);
                 _windowLitFractionParam.SetValue(city.WindowLitFraction);
                 _windowWarmParam.SetValue(city.WindowWarm.ToVector3());

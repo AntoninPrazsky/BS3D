@@ -1144,6 +1144,20 @@ float WindowPitchX;
 float WindowFillY;
 float WindowFillX;
 
+//The raised plaster frame moulding around each pane. A pane cut straight into a flat wall reads as a
+//hole in it, not as a window; a real window is set into a frame, and the frame is render carried proud
+//of the surrounding wall. The moulding lives between the glass (withinCell < WindowFill) and its outer
+//edge (WindowFill + WindowFrameWidth), so it is the same material as the wall -- it catches light and
+//casts its own shadow -- rather than a second surface pasted on.
+float WindowFrameWidth;
+//How high the moulding stands proud of the wall, in world units (0 = no frame, just a flat pane).
+float WindowFrameHeight;
+//How much the moulding's own relief also SHADES -- the lit top of the bead and the shadow it throws on
+//the wall just past it (0 = the normal is tilted and nothing else). The same lesson FacadeGrainShading
+//already taught: a tilted normal alone is invisible at a tower's distance, so the bead's height also
+//darkens and lightens the render's tone, which at this range is the stronger cue.
+float WindowFrameShading;
+
 //Wall border kept clear of glass at every building edge (see CityPS): the grid is laid out per building
 //with this margin held at every side, so no window is ever jammed into a corner and every tower matches.
 float WindowMargin;
@@ -1291,6 +1305,58 @@ float3 FacadeGrain(float2 position, float footprint)
 	return grain;
 }
 
+//The profile of one edge of the plaster frame moulding around a pane, as a function of the per-axis cell
+//coordinate `withinCell` (0 at the pane centre, 1 at the wall centre between panes). It returns the bead's
+//height (0 outside the moulding, peaking at 1 on its crest) AND its analytic derivative with respect to
+//withinCell -- the same value-and-gradient pair FacadeNoise returns, and for the same reason: the normal
+//tilt below needs no ddx/ddy, so the whole frame can sit behind a uniform branch like the grain does.
+//
+//The moulding occupies the ring between the glass edge (withinCell = WindowFill) and its own outer edge
+//(WindowFill + WindowFrameWidth). Its crest sits at the midpoint of that ring, and smoothstep carries it
+//up from the glass and back down to the wall -- a bead standing proud of both, which is what catches light
+//on its top and casts a shadow off its base. The derivative is the slope of that smoothstep (a signed
+//bump), so on the inner flank the normal leans AWAY from the pane and on the outer flank back towards it.
+//
+//`soft` widens the two flanks by the pixel footprint the way `shape`'s smoothstep does (and SlabGrooveAxis
+//does by max(width, footprint*0.5)): a frame thinner than a pixel still darkens/shades that pixel in
+//proportion to its coverage instead of vanishing, and it does not shimmer as the camera moves. `soft` is
+//also clamped so the two flanks never cross -- at a wide footprint the bead widens rather than inverting.
+//At WindowFrameWidth <= 0 this returns 0 (frame off), which is the off switch the uniform branch tests.
+float2 WindowFrameProfile(float withinCell, float WindowFill, float WindowFrameWidth, float footprint)
+{
+	float2 result = 0;
+
+	if (WindowFrameWidth > 0.0)
+	{
+		float edge0 = WindowFill;
+		float edgeOuter = WindowFill + WindowFrameWidth;
+		float crest = WindowFill + WindowFrameWidth * 0.5;
+
+		//Half the bead's run on each side of the crest, widened by the pixel footprint but never past the
+		//flank's own length (else the two smoothsteps invert and the bead turns into a dip).
+		float soft = min(WindowFrameWidth * 0.5, max(footprint, WindowFrameWidth * 0.1));
+
+		//Inner flank: glass (0) up to crest (1). Outer flank: crest (1) back down to wall (0).
+		float inner = smoothstep(edge0 - soft, crest, withinCell);
+		float outer = 1.0 - smoothstep(crest, edgeOuter + soft, withinCell);
+		float bead = saturate(min(inner, outer));
+
+		//The bead only exists where withinCell is past the glass edge, so the inner flank's smoothstep
+		//rising from edge0 is the whole derivative; the outer flank contributes the symmetric falling part.
+		//smoothstep'(t0,t1,x) = 6*(t1-t0)*x*(1-x) where x is the normalised position; combined as the
+		//difference of the two flanks' contributions.
+		float tInner = saturate((withinCell - (edge0 - soft)) / max(crest - (edge0 - soft), 1e-5));
+		float tOuter = saturate((withinCell - crest) / max((edgeOuter + soft) - crest, 1e-5));
+		float dInner = 6.0 * tInner * (1.0 - tInner) / max(crest - (edge0 - soft), 1e-5);
+		float dOuter = 6.0 * tOuter * (1.0 - tOuter) / max((edgeOuter + soft) - crest, 1e-5);
+		float slope = dInner - dOuter;
+
+		result = float2(bead, slope);
+	}
+
+	return result;
+}
+
 //The city needs each building's own extent, not just world position, so windows can be laid out relative to
 //the tower (a consistent edge margin) instead of on a world grid that clips them at the corners. This VS
 //hands the pixel shader the offset from the building's centre and the building's world size. The box is the
@@ -1404,6 +1470,24 @@ float4 CityPS(CityVSOutput input) : COLOR
 	//emission gets, so a far tower becomes one averaged material instead of aliasing between two.
 	float glass = lerp(WindowFillX * WindowFillY * hasGrid * inside.x * inside.y, window, resolvable);
 
+	//The plaster frame moulding around each pane. A bead standing proud of the wall, computed on each axis
+	//from withinCell by WindowFrameProfile (value and analytic slope), then combined into a 2D frame: a ring
+	//where AT LEAST one axis is on the bead. The frame is plaster, not glass -- it catches light on its top
+	//and casts a shadow off its base -- so it is excluded from the pane by (1 - glass), exactly the way the
+	//grain's tilt and shading are below. Band-limited to nothing at distance via `resolvable`, the same
+	//weight `window` and `glass` use: a tower too far to resolve its windows does not get a frame on them.
+	//
+	//The frame needs its own gate independent of the neon branch (it must run in the plain city too), but
+	//WindowFrameProfile already returns 0 at WindowFrameWidth <= 0 and the whole thing multiplies away, so
+	//no separate [branch] is needed -- the cost is a handful of ALU ops that fold to nothing when off.
+	float2 frameX = WindowFrameProfile(withinCell.x, WindowFillX, WindowFrameWidth, footprint.x);
+	float2 frameY = WindowFrameProfile(withinCell.y, WindowFillY, WindowFrameWidth, footprint.y);
+
+	//The ring mask: the bead is present where either axis is on it, but not over the glass it surrounds.
+	//Past the bead's outer edge both profiles are 0, so the mask is naturally 0 in the deep wall too.
+	float frameBead = saturate(max(frameX.x, frameY.x)) * (1.0 - glass) * hasGrid * inside.x * inside.y * vertical;
+	frameBead = lerp(0.0, frameBead, resolvable);
+
 	float3 lampColor = lamp;
 	float windowFlicker = 1.0;
 	float3 signEmission = float3(0.0, 0.0, 0.0);
@@ -1482,6 +1566,13 @@ float4 CityPS(CityVSOutput input) : COLOR
 	float3 tangentAcross = facingX > 0.5 ? float3(0, 0, 1) : float3(1, 0, 0);
 	float3 slope = FacadeGrainStrength * FacadeGrainFrequency * (grain.y * tangentAcross + grain.z * float3(0, 1, 0));
 
+	//The frame's own tilt rides the same mechanism: its analytic slope (frameX.y / frameY.y) becomes a
+	//world-space lean on the bead's two flanks. The slope is gated by the bead mask, so it is exactly zero
+	//over the glass and in the deep wall -- only the bead's two rising/falling edges tilt the normal, which
+	//is what makes the moulding read as standing proud of the wall rather than as a painted-on stripe.
+	//Scale by the bead height (world units) the way the grain's slope carries FacadeGrainStrength.
+	slope += WindowFrameHeight * frameBead * (frameX.y * tangentAcross + frameY.y * float3(0, 1, 0));
+
 	//Tilted first and blended back towards the flat face by the glass mask, never the other way round: a pane
 	//is flat, but folding the mask into the height would put a window edge inside the gradient.
 	float3 shadingNormal = normalize(worldNormal - slope * (1.0 - glass));
@@ -1498,6 +1589,15 @@ float4 CityPS(CityVSOutput input) : COLOR
 	float cavity = 1.0 - FacadeGrainShading * saturate(-grainField) * plaster;
 
 	facadeColor *= 1.0 + FacadeGrainShading * grainField * plaster;
+
+	//The frame's bead also SHADES, the same way the grain's bumps do: the crest stands proud, catches more
+	//sky and reads lighter; the wall in its lee, where the outer flank falls back, sits a touch darker.
+	//`frameBead` (the crest mask) lightens, and `1 - frameBead` confined to the band just past the crest
+	//darkens -- but the crest's own slope already carries the lion's share of the 3D read, so the shading
+	//here is modest (gated by WindowFrameShading) and only the crest lightens, which is the cue that
+	//survives at a tower's distance the way the grain's tone-mottling does.
+	facadeColor *= 1.0 + WindowFrameShading * frameBead;
+	cavity = saturate(cavity - WindowFrameShading * 0.5 * frameBead * (1.0 - frameBead) * plaster);
 
 	//And the glass gets its own albedo, which is DARK: what is behind a pane is a dim room, not a rendered
 	//wall. That is the other half of why the windows read as glass and the wall does not -- a dark surface
