@@ -2,6 +2,9 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <!--ContactEvents is an unsafe class and NarrowPhaseCallbacks an unsafe struct: both are adapted from the
+        BepuPhysics demos, which reach into the solver's raw manifold pointers.-->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

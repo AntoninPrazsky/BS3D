@@ -10,7 +10,7 @@ using System.Runtime.CompilerServices;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-namespace Testbed
+namespace Prazsky.BS3D.Physics
 {
 	//Class taken from Bepuphysics ContactEventsDemo and modified
 

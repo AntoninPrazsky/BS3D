@@ -49,7 +49,29 @@ namespace Prazsky.BS3D.Physics
             return _sphereShapeIndex;
         }
 
-        public static PhysicsBall[,,] BuildBallsStructure(StaticBall[,,] staticBalls, ref Simulation simulation, BodyReference ceilingReference)
+        /// <param name="worldOffset">
+        /// Added to every body's position, and to nothing else. A <see cref="BallsMap"/> lives in its own grid
+        /// frame, and a caller may draw that frame somewhere other than the world origin — the game offsets it
+        /// in Y so the empty field levels below the layout do not raise the cluster. The bodies then have to be
+        /// created where they are <i>drawn</i>, because everything else the simulation touches (the floor, the
+        /// ceiling, the muzzle a shot leaves from, the kill plane) is in world coordinates.
+        /// <para>
+        /// <b>Must be vertical: X and Z have to be zero.</b> A ball-to-ball anchor survives any translation,
+        /// because <see cref="ConnectBalls"/> builds it from the <i>difference</i> of two positions read in the
+        /// same frame. The ceiling anchor does not, and the reason is easy to miss: the two paths that build it
+        /// read <i>different</i> frames — the build pass below hands
+        /// <see cref="ConnectBallToCeiling"/> the body's world position, while
+        /// <see cref="AttachBallToStructure"/> hands it the raw grid position — and they agree only because the
+        /// one component they differ in is the Y that method throws away. Give this an X or a Z and the initial
+        /// structure still builds correctly, but every ball that later attaches to the top level gets a ceiling
+        /// anchor offset laterally and drags the whole cluster sideways.
+        /// </para>
+        /// <para>
+        /// Nothing else in this class takes the offset, and adding it elsewhere is a bug rather than
+        /// consistency: applying it twice tears the structure apart on the first timestep.
+        /// </para>
+        /// </param>
+        public static PhysicsBall[,,] BuildBallsStructure(StaticBall[,,] staticBalls, ref Simulation simulation, BodyReference ceilingReference, Vector3 worldOffset = default)
         {
             if (staticBalls == null) throw new NullReferenceException(nameof(staticBalls));
             if (simulation == null) throw new NullReferenceException(nameof(simulation));
@@ -76,7 +98,7 @@ namespace Prazsky.BS3D.Physics
                         if (staticBalls[x, z, level] != null) //Is there even a ball here?
                         {
                             BodyDescription bodyDescription = BodyDescription.CreateDynamic(
-                                staticBalls[x, z, level].GetPosition(),
+                                staticBalls[x, z, level].GetPosition() + worldOffset,
                                 bodyInertia,
                                 collidableDescription,
                                 bodyActivityDescription);

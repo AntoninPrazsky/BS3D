@@ -90,6 +90,13 @@ namespace Prazsky.Core.Render
         /// <param name="gameTime">Game time.</param>
         public override void Update(GameTime gameTime)
         {
+            //Frames are counted in Draw, which the component list skips entirely while Visible is false, so
+            //the one-second window has to be held with them. Left running, every tick spent hidden latches a
+            //frame rate of 0 and re-showing the overlay reads "FPS: 0" for up to a second — exactly the
+            //moment the number is being looked at. Frozen together, the counter and its window simply resume
+            //where they stopped, so the last real reading is what comes back up.
+            if (!Visible) return;
+
             _elapsedTime += gameTime.ElapsedGameTime;
 
             if (_elapsedTime > TimeSpan.FromSeconds(1))

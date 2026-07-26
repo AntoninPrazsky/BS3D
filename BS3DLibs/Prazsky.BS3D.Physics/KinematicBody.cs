@@ -1,7 +1,7 @@
 using BepuPhysics;
 using Microsoft.Xna.Framework;
 
-namespace Testbed
+namespace Prazsky.BS3D.Physics
 {
     /// <summary>
     /// A Bepu kinematic body paired with the world matrix captured from its pose. Deliberately <b>not</b> an

@@ -31,6 +31,14 @@
 /processorParam:TextureFormat=Compressed
 /build:../../Testbed/Content/GameObjects/Ground_8.png;GameObjects/Ground_8.png
 
+# The overlay's font (FPS). The same description the Testbed's overlay uses, so the two read alike.
+#begin ../../Testbed/Content/Fonts/segoeui.spritefont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/processorParam:TextureFormat=Color
+/build:../../Testbed/Content/Fonts/segoeui.spritefont;Fonts/segoeui.spritefont
+
 #begin ../../Testbed/Content/Shaders/InstancedModel.fx
 /importer:EffectImporter
 /processor:EffectProcessor

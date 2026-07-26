@@ -6,7 +6,7 @@ using BepuUtilities;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 
-namespace Testbed
+namespace Prazsky.BS3D.Physics
 {
 	//Class copied from BepuPhysics Demo project
 	public class Simu

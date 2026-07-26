@@ -37,10 +37,13 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="BepuPhysics" Version="2.5.0-beta.29" />
+    <PackageReference Include="BepuUtilities" Version="2.5.0-beta.29" />
     <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.5" />
     <PackageReference Include="MonoGame.Framework.WindowsDX" Version="3.8.5" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\BS3DLibs\Prazsky.BS3D.Physics\Prazsky.BS3D.Physics.csproj" />
     <ProjectReference Include="..\BS3DLibs\Prazsky.BS3D\Prazsky.BS3D.csproj" />
     <ProjectReference Include="..\BS3DLibs\Prazsky.Core\Prazsky.Core.csproj" />
   </ItemGroup>
