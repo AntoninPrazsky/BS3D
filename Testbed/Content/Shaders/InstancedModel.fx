@@ -186,9 +186,19 @@ float3 SkyRadiance(float3 direction)
 //How much of the environment a surface mirrors back at this angle. Schlick's approximation: every
 //dielectric turns mirror-like at a grazing angle, which is why a stone floor picks up the sky along it
 //and why polished marble reads as polished at all. Nothing in the renderer said this before.
-float3 FresnelSchlick(float3 reflectanceAtNormal, float cosTheta)
+//
+//Schlick rises to a FULL mirror at grazing incidence, and that is only true of a SMOOTH surface. On a
+//rough one the microfacets shadow and mask each other, so the fraction reflected never approaches 1 --
+//which is why plaster does not flare white along a wall the way polished stone does. Smoothness caps the
+//grazing value (the roughness-aware Schlick from Lagarde's Frostbite notes); at 1 this is Schlick exactly,
+//so every polished surface in the scene is unchanged to the bit. It matters most where a whole surface is
+//seen edge-on, and almost every facade of a city viewed from inside it is: that flare, over a dark albedo,
+//is what made the towers read as glass.
+float3 FresnelSchlick(float3 reflectanceAtNormal, float cosTheta, float smoothness)
 {
-	return reflectanceAtNormal + (1 - reflectanceAtNormal) * pow(1 - saturate(cosTheta), 5);
+	float3 reflectanceAtGrazing = max(smoothness, reflectanceAtNormal);
+
+	return reflectanceAtNormal + (reflectanceAtGrazing - reflectanceAtNormal) * pow(1 - saturate(cosTheta), 5);
 }
 
 //How strongly the surface reflects the sky as an environment (0 = off)
@@ -203,6 +213,38 @@ float Metalness;
 //Normal-incidence reflectance of a dielectric. Stone, marble, glass, vinyl, paint - everything in this
 //scene that is not bare metal - reflects roughly this fraction of what hits it head-on.
 static const float DielectricF0 = 0.04;
+
+//What a surface does with light where it is not diffuse: how much of the direct highlight it shows, how
+//much of the environment it mirrors, and how polished it is.
+//
+//These three are uniforms for every technique but one, because a mesh part is one material. The city is the
+//exception: a facade is plaster AND glass on the same triangle, and a uniform cannot vary per pixel -- so
+//CityPS blends one of these per pixel and hands it in. Everything else passes DefaultSurfaceSpecular(),
+//which is the uniforms verbatim, so the rest of the scene is untouched by this existing.
+struct SurfaceSpecular
+{
+	//Scales the direct lights' highlight. 1 = the whole of it, as every other surface gets.
+	float Highlight;
+
+	//Scales SpecularAmbientStrength, the reflected environment. 1 = the renderer's own dial, unchanged.
+	float Environment;
+
+	//1 = polished: a sharp reflection and a full mirror at grazing angles. 0 = rough: the reflection blurred
+	//all the way to the sky's average, and no grazing mirror at all. Drives both, because both are the same
+	//physical fact about the surface, and driving them apart is how a material stops being one material.
+	float Smoothness;
+};
+
+SurfaceSpecular DefaultSurfaceSpecular()
+{
+	SurfaceSpecular surface;
+
+	surface.Highlight = 1;
+	surface.Environment = 1;
+	surface.Smoothness = 1;
+
+	return surface;
+}
 
 //How strongly the directional part of the occlusion darkens the surface facing the occluders
 static const float DirectionalOcclusionStrength = 1.1;
@@ -230,7 +272,7 @@ float SurfaceOcclusion(float3 worldPosition, float3 worldNormal, float4 occlusio
 //Like BasicEffect, the texture modulates the whole non-specular color (diffuse, ambient and emissive).
 //keyShadow attenuates the key light alone - it is what the relief's own bumps block - while cavity
 //attenuates the ambient, which is the sky a pit cannot see. Surfaces with no relief pass 1 for both.
-float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionData, float4 texColor, float keyShadow, float cavity)
+float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionData, float4 texColor, float keyShadow, float cavity, SurfaceSpecular surface)
 {
 	float3 worldNormal = normalize(rawWorldNormal);
 	float3 eyeVector = normalize(EyePosition - worldPosition);
@@ -266,7 +308,7 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
 	float4 color = float4((diffuse * SrgbToLinear(DiffuseColor.rgb) * diffuseOcclusion + hemisphere * SrgbToLinear(AmbientColor) * occlusion + SrgbToLinear(EmissiveColor)) * texColor.rgb, DiffuseColor.a * texColor.a);
 
 	float3 linearSpecular = SrgbToLinear(SpecularColor);
-	color.rgb += specular * linearSpecular * color.a * occlusion;
+	color.rgb += specular * linearSpecular * surface.Highlight * color.a * occlusion;
 
 	//Specular ambient: the sky reflected off the surface, which the renderer simply never had. The
 	//direct lights gave every material one highlight from one lamp, and that is a plastic look no
@@ -274,8 +316,10 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
 	//
 	//Roughness comes from the Blinn-Phong exponent so no material has to be re-authored to get this:
 	//sqrt(2 / (n + 2)) is the standard correspondence. It lerps the mirror sample towards the average
-	//of the whole sky, which is what blurring a two-color gradient converges to.
-	float roughness = sqrt(2.0 / (SpecularPower + 2.0));
+	//of the whole sky, which is what blurring a two-color gradient converges to. A surface that declares
+	//itself rough is driven the rest of the way to 1 -- fully blurred, i.e. it shows the sky's average and
+	//no image of it, which is the whole difference between a plastered wall and a pane of glass.
+	float roughness = lerp(1.0, sqrt(2.0 / (SpecularPower + 2.0)), surface.Smoothness);
 	float3 reflection = reflect(-eyeVector, worldNormal);
 	float3 environment = lerp(SkyRadiance(reflection), (SkyColor + GroundColor) * 0.5, saturate(roughness));
 
@@ -288,9 +332,18 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
 	//is high and colored). Metalness picks between them, so gold trim mirrors the sky in gold.
 	float3 reflectanceAtNormal = lerp(DielectricF0 * linearSpecular, linearSpecular, Metalness);
 
-	color.rgb += environment * FresnelSchlick(reflectanceAtNormal, dot(worldNormal, eyeVector)) * SpecularAmbientStrength * color.a * occlusion;
+	color.rgb += environment * FresnelSchlick(reflectanceAtNormal, dot(worldNormal, eyeVector), surface.Smoothness)
+		* SpecularAmbientStrength * surface.Environment * color.a * occlusion;
 
 	return color;
+}
+
+//One material over the whole surface, described by the uniforms -- every technique but the city's. At
+//DefaultSurfaceSpecular() the three terms above are multiplied by 1 and Smoothness 1 makes the roughness
+//lerp and FresnelSchlick identities, so this is the shading this function did before it was split.
+float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionData, float4 texColor, float keyShadow, float cavity)
+{
+	return ShadePixel(worldPosition, rawWorldNormal, occlusionData, texColor, keyShadow, cavity, DefaultSurfaceSpecular());
 }
 
 float4 MainPS(VertexShaderOutput input) : COLOR
@@ -1115,6 +1168,44 @@ float CityWindowTime;
 //0 = ordinary city, 1 = neon night city: near-black facades and vivid saturated signs, one hue per tower
 float CityNeon;
 
+//The plaster: what the wall between the windows is made of. Its albedo by day and under neon, how far that
+//wanders from tower to tower, and the grain of the render itself.
+//
+//The albedo has to be a real one, and that is not a detail. NEITHER specular term is multiplied by albedo --
+//a highlight does not care how dark the surface under it is -- so with a dark facade almost the whole
+//brightness of a tower used to BE its white highlight and its grazing sky reflection. Take the shine off a
+//dark wall and what is left is a black slab; the albedo comes up in the same change, and the light on the
+//wall is then diffuse light, which is what plaster does with it.
+float3 FacadeColor;
+float3 FacadeNeonColor;
+float FacadeColorVariation;
+
+//Peak height of the render's grain in world units, and its base wave count per unit. What makes a wall read
+//as plaster is not its BRDF but that the light plays over it: a flat box face takes the light as a flat box
+//face however the reflectance is tuned.
+float FacadeGrainStrength;
+float FacadeGrainFrequency;
+
+//How much that same grain also shades: the ambient it keeps out of its hollows, and the mottling of the
+//render's own tone. Without it the grain is invisible at a tower's distance, where a few degrees of normal
+//tilt move a matte surface by a percent.
+float FacadeGrainShading;
+
+//How the wall answers light against how the glass does (see SurfaceSpecular). The wall is rough and shows
+//almost no highlight; the window keeps -- and is boosted past -- the shine the whole tower used to have,
+//because a window IS the glass on a building and should be the only thing on it mirroring the sky.
+float FacadeSmoothness;
+float FacadeHighlight;
+float WindowHighlightBoost;
+float WindowReflectionBoost;
+
+//Albedo of the glass itself: what is behind a pane is a dim room, not a rendered wall.
+float3 WindowGlassColor;
+
+//Glass is glass: no dial, and the value that makes FresnelSchlick and the roughness lerp identities, so a
+//pane behaves exactly as every polished surface elsewhere in the scene does.
+static const float WindowSmoothness = 1.0;
+
 float Hash21(float2 p)
 {
 	p = frac(p * float2(123.34, 456.21));
@@ -1129,6 +1220,75 @@ float3 HueToRGB(float h)
 {
 	float3 k = frac(h + float3(0.0, 2.0 / 3.0, 1.0 / 3.0));
 	return saturate(abs(k * 6.0 - 3.0) - 1.0);
+}
+
+//The render's grain, and it has to be NOISE rather than a sum of waves. The scene's own SurfaceReliefWorld
+//sums seven sines along seven fixed 3D directions, which decorrelate handsomely over a ball or a triplanar
+//floor -- but a facade is a FLAT, axis-aligned plane, and on one of those only each direction's projection
+//into the plane survives. Several of the seven project alike, the sum interferes with itself, and the wall
+//comes out under a regular diagonal weave: woven cloth, not plaster. (It is the trap the cannon barrel
+//already showed once, one surface further on, and the reason that function has seven octaves in the first
+//place -- on a plane no number of them is enough.) A hashed lattice has no preferred direction to interfere
+//along, so it cannot weave however few octaves it is given.
+//Returns the value AND both partial derivatives, in the units of p. Analytic rather than taken with
+//ddx/ddy, and that buys two things: the tilt below needs no tangent frame reconstructed from screen
+//derivatives, and with no gradient op left anywhere in the grain the whole of it can sit behind a branch on
+//a uniform -- which is this shader's rule for scene-gated work, and the off switch a low quality preset needs.
+float3 FacadeNoise(float2 p)
+{
+	float2 cell = floor(p);
+	float2 f = p - cell;
+
+	//Smoothstep and its own derivative. Not the raw fraction: a linear ramp's derivative jumps at every cell
+	//boundary, which would print the noise lattice straight back onto the wall as a grid of creases in the
+	//normal -- one regular pattern traded for another.
+	float2 u = f * f * (3.0 - 2.0 * f);
+	float2 du = 6.0 * f * (1.0 - f);
+
+	float a = Hash21(cell);
+	float b = Hash21(cell + float2(1, 0));
+	float c = Hash21(cell + float2(0, 1));
+	float d = Hash21(cell + float2(1, 1));
+
+	//The bilinear patch written as a + k0.u + k1.v + k2.u.v, which differentiates by inspection
+	float k0 = b - a;
+	float k1 = c - a;
+	float k2 = a - b - c + d;
+
+	//All three scaled alike by the [0,1] -> [-1,1] remap, so the derivatives stay the derivatives OF the value
+	return float3(
+		(a + k0 * u.x + k1 * u.y + k2 * u.x * u.y) * 2.0 - 1.0,
+		(k0 + k2 * u.y) * du.x * 2.0,
+		(k1 + k2 * u.x) * du.y * 2.0);
+}
+
+//Three octaves of it, value and gradient together. Amplitudes sum to one, so FacadeGrainStrength stays the
+//peak height in world units, and each octave fades out on its own once a pixel grows past half its cell --
+//the same per-octave band-limiting ReliefOctave does, so the render is fully present on the towers around the
+//arena and silently gone on the skyline behind them instead of boiling into a moire.
+//
+//Three and not more: a fourth would have a cell of some four centimetres of tower, which is inside two units
+//of the eye -- closer than the play camera ever gets to a facade -- and it measured at 0.16 ms of the frame.
+//Footprint arrives in the same units as the position.
+float3 FacadeGrain(float2 position, float footprint)
+{
+	float3 grain = 0;
+	float amplitude = 0.57;
+	float frequency = 1.0;
+
+	[unroll]
+	for (int i = 0; i < 3; i++)
+	{
+		float3 octave = FacadeNoise(position * frequency);
+
+		//The gradient is with respect to this octave's own scaled position, so it carries its frequency back
+		grain += amplitude * saturate(1 - footprint * frequency * 2.0) * float3(octave.x, octave.yz * frequency);
+
+		amplitude *= 0.5;
+		frequency *= 2.17;   //not an exact doubling, which would line successive octaves' lattices up
+	}
+
+	return grain;
 }
 
 //The city needs each building's own extent, not just world position, so windows can be laid out relative to
@@ -1237,10 +1397,21 @@ float4 CityPS(CityVSOutput input) : COLOR
 	//Fading to the average keeps a distant tower a dim glowing block instead of a flickering one
 	float coverage = lerp(WindowFillX * WindowFillY * WindowLitFraction * hasGrid * inside.x * inside.y, window * lit, resolvable);
 
+	//Where the facade is glass rather than plaster, which is what the material below is blended by. NOT the
+	//emission's coverage: that one is multiplied by `lit`, and whether the lamp behind a pane happens to be
+	//on says nothing about what the pane is made of -- a dark window is still the one part of the wall that
+	//mirrors the sky. Faded to the windows' own area fraction at distance, the same band-limiting the
+	//emission gets, so a far tower becomes one averaged material instead of aliasing between two.
+	float glass = lerp(WindowFillX * WindowFillY * hasGrid * inside.x * inside.y, window, resolvable);
+
 	float3 lampColor = lamp;
 	float windowFlicker = 1.0;
 	float3 signEmission = float3(0.0, 0.0, 0.0);
-	float3 facadeColor = float3(0.06, 0.065, 0.08);
+
+	//One tower is not the next. Real renders are mixed and painted and weathered per building, and once the
+	//wall is matte its tone is the only variety it has left -- the tonal spread the skyline used to get came
+	//from the mirror, and goes out with it. Off the building's own id, so it is one shade per tower.
+	float3 facadeColor = FacadeColor * (1.0 + FacadeColorVariation * (Hash21(buildingId + 13.9) - 0.5) * 2.0);
 
 	//Neon night city, gated at runtime by CityNeon; both the Testbed and the map editor drive it (V cycles
 	//to the neon scene in the editor too). The skyline runs on magenta and cyan, the pink-and-blue of a neon
@@ -1277,10 +1448,71 @@ float4 CityPS(CityVSOutput input) : COLOR
 		lampColor = lerp(lamp, neonWindow, CityNeon);
 		windowFlicker = lerp(1.0, lerp(1.0, buzz, step(0.86, flickerId)), CityNeon);
 		signEmission = signBand * contrast * (CityWindowBrightness * 1.6) * CityNeon;
-		facadeColor = lerp(facadeColor, float3(0.02, 0.02, 0.028), CityNeon);
+		facadeColor = lerp(facadeColor, FacadeNeonColor, CityNeon);
 	}
 
-	float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(facadeColor, 1), 1, 1);
+	//The render's grain, in the facade's own 2D frame. Offset by the building's id so every tower is rendered
+	//in its own patch rather than all of them wearing one pattern at the same height, and by the facing so a
+	//tower's two axes do not match each other. Anchored to the building, like the window grid and for the same
+	//reason; the pattern does not carry around a corner, which a hard 90-degree edge hides.
+	//
+	//The footprint is the window grid's own, multiplied back out of cells into world units along the facade --
+	//that quantity is already abs(ddx) + abs(ddy) of posFromCenter, so reusing it saves a second pair of
+	//derivative ops rather than merely tidying.
+	float2 facadeFootprint = footprint * cellPitch;
+
+	//Vertical faces only. A roof's posFromCenter is (z, a constant), so the field would degenerate into
+	//stripes along one axis there; a flat concrete roof reading flat is the better answer, and it is matte
+	//either way, since the material below does not depend on the grain.
+	float3 grain = 0;
+
+	//A branch on a uniform, which is what this shader's conventions ask for: FacadeGrainStrength is the one
+	//dial that turns the render's grain off, everything below is multiplied away at 0, every pixel takes the
+	//same path, and there is not a single gradient op inside -- the noise's gradient being analytic is exactly
+	//what makes that last part true.
+	[branch]
+	if (FacadeGrainStrength > 0.0)
+		grain = FacadeGrain((posFromCenter + buildingId * 37.0 + facingX * 19.0) * FacadeGrainFrequency,
+			max(facadeFootprint.x, facadeFootprint.y) * FacadeGrainFrequency) * vertical;
+
+	//A facade is an axis-aligned plane, and that is worth exploiting rather than working around: its two
+	//tangents ARE world axes, so the height field's analytic gradient becomes a world-space tilt directly --
+	//no tangent frame rebuilt from screen derivatives, no ddx of the height, and exact. The same flatness that
+	//makes a sum of sines weave here is what makes this cheap.
+	float3 tangentAcross = facingX > 0.5 ? float3(0, 0, 1) : float3(1, 0, 0);
+	float3 slope = FacadeGrainStrength * FacadeGrainFrequency * (grain.y * tangentAcross + grain.z * float3(0, 1, 0));
+
+	//Tilted first and blended back towards the flat face by the glass mask, never the other way round: a pane
+	//is flat, but folding the mask into the height would put a window edge inside the gradient.
+	float3 shadingNormal = normalize(worldNormal - slope * (1.0 - glass));
+	float grainField = grain.x;
+
+	//A tilted normal alone is not enough, and that is the lesson the ground's coursed slabs already taught:
+	//relief by normal has its bumps lit and its hollows just as bright as its peaks, which is most of why it
+	//reads as a painted-on texture rather than as shape. At a tower's distance a few degrees of tilt changes
+	//a matte surface's N.L by a percent or two and is simply invisible. So the same field also SHADES -- it
+	//darkens the ambient a hollow cannot see, and mottles the render's own tone, which at this range is the
+	//stronger cue of the two. One field doing both is what a real render does: the hollows hold the shade and
+	//the high spots wear lighter. Off over the glass, which is flat and evenly tinted.
+	float plaster = 1.0 - glass;
+	float cavity = 1.0 - FacadeGrainShading * saturate(-grainField) * plaster;
+
+	facadeColor *= 1.0 + FacadeGrainShading * grainField * plaster;
+
+	//And the glass gets its own albedo, which is DARK: what is behind a pane is a dim room, not a rendered
+	//wall. That is the other half of why the windows read as glass and the wall does not -- a dark surface
+	//under a bright mirror is exactly what glass looks like, and it is the same combination that was wrong
+	//on the plaster. It also gives a facade its variation back: a pane is dark where it faces nothing and
+	//bright where it catches the sky, which is how a glazed tower reads at all.
+	facadeColor = lerp(facadeColor, WindowGlassColor, glass);
+
+	//Two materials on one triangle, blended per pixel: rough plaster, and the glass of the windows in it.
+	SurfaceSpecular surface;
+	surface.Highlight = lerp(FacadeHighlight, WindowHighlightBoost, glass);
+	surface.Environment = lerp(1.0, WindowReflectionBoost, glass);
+	surface.Smoothness = lerp(FacadeSmoothness, WindowSmoothness, glass);
+
+	float4 shaded = ShadePixel(input.WorldPosition, shadingNormal, input.OcclusionData, float4(facadeColor, 1), 1, cavity, surface);
 
 	shaded.rgb += coverage * lampColor * CityWindowBrightness * windowFlicker;
 	shaded.rgb += signEmission;

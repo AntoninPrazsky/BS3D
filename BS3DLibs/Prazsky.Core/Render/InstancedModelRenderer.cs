@@ -138,6 +138,14 @@ namespace Prazsky.Core.Render
             _windowMarginParam, _windowLitFractionParam, _windowWarmParam, _windowCoolParam,
             _windowHoldSecondsParam, _windowHoldVariationParam, _windowSwitchFadeParam;
 
+        //The plaster the windows sit in: its albedo, its grain, and how it answers light against how the glass
+        //does. Only the city technique reads these, and the same CityConfig pushes them, so all three
+        //executables get one facade rather than three that drift.
+        private EffectParameter _facadeColorParam, _facadeNeonColorParam, _facadeColorVariationParam,
+            _facadeGrainStrengthParam, _facadeGrainFrequencyParam, _facadeGrainShadingParam,
+            _facadeSmoothnessParam, _facadeHighlightParam,
+            _windowHighlightBoostParam, _windowReflectionBoostParam, _windowGlassColorParam;
+
         private EffectTechnique _depthTechnique;
 
         /// <summary>
@@ -542,6 +550,17 @@ namespace Prazsky.Core.Render
             _windowHoldSecondsParam = _effect.Parameters["WindowHoldSeconds"];
             _windowHoldVariationParam = _effect.Parameters["WindowHoldVariation"];
             _windowSwitchFadeParam = _effect.Parameters["WindowSwitchFade"];
+            _facadeColorParam = _effect.Parameters["FacadeColor"];
+            _facadeNeonColorParam = _effect.Parameters["FacadeNeonColor"];
+            _facadeColorVariationParam = _effect.Parameters["FacadeColorVariation"];
+            _facadeGrainStrengthParam = _effect.Parameters["FacadeGrainStrength"];
+            _facadeGrainFrequencyParam = _effect.Parameters["FacadeGrainFrequency"];
+            _facadeGrainShadingParam = _effect.Parameters["FacadeGrainShading"];
+            _facadeSmoothnessParam = _effect.Parameters["FacadeSmoothness"];
+            _facadeHighlightParam = _effect.Parameters["FacadeHighlight"];
+            _windowHighlightBoostParam = _effect.Parameters["WindowHighlightBoost"];
+            _windowReflectionBoostParam = _effect.Parameters["WindowReflectionBoost"];
+            _windowGlassColorParam = _effect.Parameters["WindowGlassColor"];
             _depthTechnique = _effect.Techniques["InstancedDepth"];
 
             //Cached before the SetLightTint call below, which reads them. The rig used to be looked up by
@@ -771,6 +790,17 @@ namespace Prazsky.Core.Render
                 _windowHoldSecondsParam.SetValue(city.WindowHoldSeconds);
                 _windowHoldVariationParam.SetValue(city.WindowHoldVariation);
                 _windowSwitchFadeParam.SetValue(city.WindowSwitchFade);
+                _facadeColorParam.SetValue(city.FacadeColor.ToVector3());
+                _facadeNeonColorParam.SetValue(city.FacadeNeonColor.ToVector3());
+                _facadeColorVariationParam.SetValue(city.FacadeColorVariation);
+                _facadeGrainStrengthParam.SetValue(city.FacadeGrainStrength);
+                _facadeGrainFrequencyParam.SetValue(city.FacadeGrainFrequency);
+                _facadeGrainShadingParam.SetValue(city.FacadeGrainShading);
+                _facadeSmoothnessParam.SetValue(city.FacadeSmoothness);
+                _facadeHighlightParam.SetValue(city.FacadeHighlight);
+                _windowHighlightBoostParam.SetValue(city.WindowHighlightBoost);
+                _windowReflectionBoostParam.SetValue(city.WindowReflectionBoost);
+                _windowGlassColorParam.SetValue(city.WindowGlassColor.ToVector3());
             }
             else if (part.Texture != null)
             {
