@@ -150,17 +150,20 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// How high the moulding stands proud of the surrounding wall, in world units (0 = a flat pane with no
         /// frame). This is the bead's own relief, not its reflectance: what makes a frame read as standing off
-        /// the wall is that its top catches light and its flanks lean the normal, which a flat stripe cannot do.
+        /// the wall is that its top catches light, its flanks lean the normal, AND it throws a cast shadow on
+        /// the wall in the sun's lee. The shadow length scales with this height, so a taller trim reads as more
+        /// strongly raised -- a fraction of a unit is enough to cast a visible shadow at the city's scale.
         /// </summary>
-        public float WindowFrameHeight { get; set; } = 0.015f;
+        public float WindowFrameHeight { get; set; } = 0.06f;
 
         /// <summary>
-        /// How much the moulding's own relief also <i>shades</i> — the lit crest lightened and the wall in its
-        /// lee darkened (0 = the normal is tilted and nothing else). The same lesson <see cref="FacadeGrainShading"/>
-        /// already taught: a tilted normal alone is invisible at a tower's distance, so the bead's height also
-        /// lightens and darkens the render's tone, which at this range is the stronger cue of the two.
+        /// How much the moulding's own relief also <i>shades</i> — the lit flat top lightened and the wall in
+        /// its cast shadow darkened (0 = the normal is tilted and nothing else). The same lesson
+        /// <see cref="FacadeGrainShading"/> already taught: a tilted normal alone is invisible at a tower's
+        /// distance, so the fillet's top must also lighten and its shadow darken for the trim to read as a
+        /// raised body rather than a painted stripe.
         /// </summary>
-        public float WindowFrameShading { get; set; } = 0.3f;
+        public float WindowFrameShading { get; set; } = 0.55f;
 
         /// <summary>Wall border kept clear of glass at every building edge, in world units.</summary>
         public float WindowMargin { get; set; } = 0.9f;
