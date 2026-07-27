@@ -12,6 +12,7 @@ using Myra.Graphics2D.UI;
 using Prazsky.BS3D.GameObjects;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
+using Prazsky.BS3D.Levels;
 using Prazsky.BS3D.Physics;
 using Prazsky.Core;
 using Prazsky.Core.Camera;
@@ -433,54 +434,69 @@ namespace BS3D
 
         #region The cluster
 
-        //The first level: a stepped square pyramid hanging point-down. The top level is the full
-        //CLUSTER_X × CLUSTER_Z base and each level under it is half a unit narrower on every side, so the
-        //side count steps 9, 8, 7 … 1 and the flanks come out straight. Half a unit rather than a whole
-        //cell, because consecutive levels are offset by +0.5 in X and Z: shrinking by a cell per level puts
-        //every second level half a unit off the axis and the flank zig-zags. A map file will replace it.
-        private const byte CLUSTER_X = 9;
-        private const byte CLUSTER_Z = 9;
+        //The fallback level, used only when no level file can be read (see LoadLevelSet): a stepped square
+        //pyramid hanging point-down. The top level is the full FALLBACK_X × FALLBACK_Z base and each level
+        //under it is half a unit narrower on every side, so the side count steps 9, 8, 7 … 1 and the flanks
+        //come out straight. Half a unit rather than a whole cell, because consecutive levels are offset by
+        //+0.5 in X and Z: shrinking by a cell per level puts every second level half a unit off the axis and
+        //the flank zig-zags. It is the shape the game shipped with before it read levels off disk, kept so a
+        //missing or broken Levels directory still gives something to play rather than an empty field.
+        private const byte FALLBACK_X = 9;
+        private const byte FALLBACK_Z = 9;
 
-        //One level per half-unit of the base's half-extent, plus the apex — exactly CLUSTER_X of them. The
+        //One level per half-unit of the base's half-extent, plus the apex — exactly FALLBACK_X of them. The
         //base is square on purpose: a rectangular one would run out of width on its narrow axis first and
         //finish as a ridge rather than a point.
-        private const byte CLUSTER_LEVELS = CLUSTER_X;
+        private const byte FALLBACK_LEVELS = FALLBACK_X;
 
         //Empty field levels below the layout: the room the cluster grows into as shot balls attach under it,
         //which is how a map file's field is taller than the layout hanging at its top.
-        //
-        //What actually constrains this number is that FIELD_LEVELS must come out EVEN. BallsMap.Center()
-        //centres the map on its topmost level and offsets by that level's bounding-box half-extent less a
-        //ball radius, which lands on the origin only when the top level is one of the shifted (odd-index)
-        //ones and its occupied cells start at index 0. An ODD field tops out on an unshifted level, whose
-        //cells run 0…N-1 rather than 0.5…N-0.5, and the same offset then hangs the whole pyramid half a unit
-        //off the axis the gun orbits and the camera looks down. (Nothing enforces it, and CLUSTER_LEVELS
-        //tracks CLUSTER_X, so re-shaping the level means re-checking this parity by hand.) The layout's own
-        //shape is parity-proof either way: BuildCluster measures each level's width against the shifted
-        //position of its cells rather than against the raw cell indices.
-        private const byte CLUSTER_EXTRA_LEVELS = 7;
-        private const byte FIELD_LEVELS = CLUSTER_LEVELS + CLUSTER_EXTRA_LEVELS;
+        private const byte FALLBACK_EXTRA_LEVELS = 7;
+        private const byte FALLBACK_FIELD_LEVELS = FALLBACK_LEVELS + FALLBACK_EXTRA_LEVELS;
 
-        //Four colours, not the full eight: a first level is meant to be read at a glance, and half the set
-        //makes a match something you see rather than something you hunt for. The magazine draws from this
-        //same list — loading a colour that is nowhere in the cluster would be a shot that cannot be spent.
-        private static readonly BallType[] LEVEL_BALL_TYPES =
+        //Fixed, so the fallback is the same pile every run
+        private const int FALLBACK_SEED = 20260726;
+
+        //What the magazine loads when a map carries no balls at all. A real level's colours are read off the
+        //map itself (CollectLevelBallTypes) — loading a colour that is nowhere in the cluster is a shot that
+        //cannot be spent, so the queue can only be built from what is actually up there.
+        private static readonly BallType[] DEFAULT_BALL_TYPES =
             { BallType.Type1, BallType.Type2, BallType.Type3, BallType.Type4 };
 
-        //Fixed, so the first level is the same one every run. It is a level, not a random pile — and until
-        //map files arrive this seed is the whole of its authoring.
-        private const int LEVEL_SEED = 20260726;
+        private BallType[] _levelBallTypes = DEFAULT_BALL_TYPES;
 
-        //A cell's height is its level index over √2 and the layout now sits that many levels up the field, so
-        //without this the whole cluster would hang CLUSTER_EXTRA_LEVELS higher than it was framed for. The
-        //grid is the truth; this is only where it is drawn, so it is applied at the map/world boundary alone.
-        private static readonly float CLUSTER_WORLD_Y = -CLUSTER_EXTRA_LEVELS / Constants.SQRT_TWO;
+        /// <summary>
+        /// Where the lattice frame meets the world, and the <b>only</b> place it does on the drawing side.
+        /// <para>
+        /// Y puts the top of the field at a fixed world height whatever the field's depth: a cell's height is
+        /// its level index over √2, so without this a map with more empty levels below its layout would hang
+        /// that much higher than the camera frames.
+        /// </para>
+        /// <para>
+        /// X and Z correct the residual half-unit <see cref="BallsMap.Center"/> can leave behind. It offsets
+        /// by the top level's bounding-box <i>half-extent</i> less a ball radius, which lands on the origin
+        /// only when that level is one of the shifted (odd-index) ones and its cells start at index 0 — an
+        /// <b>odd</b> field tops out on an unshifted level, whose cells run 0…N-1 rather than 0.5…N-0.5, and
+        /// the whole cluster then hangs half a unit off the axis the gun orbits and the camera looks down.
+        /// That used to be a rule the hard-coded field had to satisfy by hand; a level file is authored
+        /// elsewhere and cannot be held to it (One.json is fifteen levels deep), so the residual is measured
+        /// off the centred top level and folded in here instead. Both halves ride the one vector the physics
+        /// builder and the contact handler already take, so no new frame crossing is introduced.
+        /// </para>
+        /// </summary>
+        private Vector3 _clusterWorldOffset;
+
+        /// <summary>
+        /// The height the field's topmost level hangs at, which is what everything else is measured from.
+        /// It is where the previous hard-coded field put its top ((16-1)/√2 − 7/√2), kept exactly so the
+        /// camera, the gun and the ceiling frame a loaded level the way they framed that one.
+        /// </summary>
+        private static readonly float FIELD_TOP_Y = (FALLBACK_FIELD_LEVELS - 1 - FALLBACK_EXTRA_LEVELS) / Constants.SQRT_TWO;
 
         //The middle of the field in world Y, which is what precise aim converges its crosshair on. The whole
         //field rather than the layout hanging at its top, because the cluster grows down into the empty
         //levels as balls attach, and the impact face sweeps that range over a game.
-        private static readonly float CLUSTER_CENTRE_Y =
-            (FIELD_LEVELS - 1) * Constants.HALF / Constants.SQRT_TWO + CLUSTER_WORLD_Y;
+        private float _clusterCentreY;
 
         //The lattice is the truth about what is where and what is free for a shot to land in. The parallel
         //array of PhysicsBalls is that same structure as Bepu bodies — one per occupied cell, each held to its
@@ -507,11 +523,27 @@ namespace BS3D
         //and the whole rigid structure with it. Half the clearance this constant looks like it buys is spent
         //that way, and the top balls end up close under the glass. It is the Testbed's behaviour, kept for
         //parity; the figure to change if the cluster should hang exactly on its lattice is this one.
-        private static readonly float CEILING_Y = (FIELD_LEVELS - 1) / Constants.SQRT_TWO + 2f + CLUSTER_WORLD_Y;
+        private const float CEILING_CLEARANCE = 2f;
+        private float _ceilingY;
 
         private BoxMesh _ceilingMesh;
         private InstancedModelRenderer _ceilingRenderer;
         private KinematicBody _ceiling;
+
+        #endregion
+
+        #region Levels
+
+        /// <summary>
+        /// The levels and the order they are played in, read from <c>Levels/Levels.json</c> beside the exe.
+        /// Null when no set could be read at all, which is the one case the procedural fallback covers.
+        /// </summary>
+        private LevelSet _levelSet;
+
+        /// <summary>Which entry of <see cref="_levelSet"/> the current session is playing.</summary>
+        private int _levelIndex;
+
+        private const string LEVELS_DIRECTORY = "Levels";
 
         #endregion
 
@@ -734,18 +766,26 @@ namespace BS3D
         private float _menuScale = 1f;
         private int _menuBuiltForHeight = -1;
 
+        /// <summary>
+        /// The game's name, as the player sees it — on the menu and in the window's title bar. <c>BS3D</c>
+        /// stays the shorthand the repository, the assembly and this file's namespace are named for; it is
+        /// not what the game is called.
+        /// </summary>
+        private const string GAME_TITLE = "Bubble Shooter 3D";
+
         //Design units: pixels at 2160p, put through Scaled() wherever they reach a widget
         private const int MENU_BUTTON_WIDTH = 1000;
         private const int SETTING_VALUE_WIDTH = 560;
         private const int ABOUT_TEXT_WIDTH = 1860;
         private const int MENU_COLUMN_SPACING = 26;
 
-        //Entries are read at a glance and from across a room, so the type is set large. The title is set very
-        //large, because it is a logo and not a label.
+        //Entries are read at a glance and from across a room, so the type is set large. The title is sized to
+        //the whole of GAME_TITLE on one line at the narrowest targeted aspect (16:9, i.e. 3840 design units
+        //wide) with room to spare — a short acronym would take far more, but the name is what is set.
         private const int MENU_FONT_SMALL = 58;
         private const int MENU_FONT_BODY = 80;
         private const int MENU_FONT_HEADING = 124;
-        private const int MENU_FONT_TITLE = 300;
+        private const int MENU_FONT_TITLE = 170;
 
         //The exposure ladder the settings button walks. Centred on DEFAULT_EXPOSURE, wide enough either way
         //to matter on a dim laptop panel and on a bright monitor without ever crushing or blowing the frame.
@@ -773,7 +813,7 @@ namespace BS3D
             Content.RootDirectory = "Content";
 
             Window.AllowUserResizing = true;
-            Window.Title = "BS3D";
+            Window.Title = GAME_TITLE;
             Window.ClientSizeChanged += (_, _) => OnClientSizeChanged();
 
             SetGraphics();
@@ -967,6 +1007,10 @@ namespace BS3D
 
             EnsureSceneTarget();
 
+            //The order the levels are played in, read once here: a broken set is reported at startup rather
+            //than at the moment the player presses Play, and the maps themselves are only parsed per level.
+            LoadLevelSet();
+
             Console.WriteLine($"[game] {_city.Buildings.Length} buildings, scene {_scene}, dome {_skyDome}");
 
             BuildMenu();
@@ -1115,21 +1159,12 @@ namespace BS3D
 
             //The title carries no plate and no frame: at this size the letters are their own mass, and a
             //frame around them would be one more thing competing with whichever scene is turning behind it.
+            //"BS3D" is the repository's and the assembly's shorthand; the game's name is spelled out.
             column.Widgets.Add(new Label
             {
-                Text = "BS3D",
+                Text = GAME_TITLE,
                 Font = _menuFontTitle,
                 TextColor = MENU_TEXT,
-                HorizontalAlignment = HorizontalAlignment.Center,
-            });
-            column.Widgets.Add(new Label
-            {
-                Text = "3D PUZZLE BOBBLE",
-                Font = _menuFontSmall,
-
-                //Not the dim grey the asides use: this one sits over open sky with no plate under it, and a
-                //bright dome would swallow it
-                TextColor = MENU_TEXT_BODY,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 60),
             });
@@ -1315,7 +1350,7 @@ namespace BS3D
 
             column.Widgets.Add(ScreenHeading("ABOUT"));
             column.Widgets.Add(AboutParagraph(
-                "BS3D is 3D Puzzle Bobble: shoot coloured balls at a cluster hanging from a glass ceiling. "
+                GAME_TITLE + " is a 3D bubble shooter: shoot coloured balls at a cluster hanging from a glass ceiling. "
                 + "Three or more of one colour let go and fall — and take with them everything they were the "
                 + "last anchor for."));
             column.Widgets.Add(AboutParagraph(
@@ -1534,13 +1569,9 @@ namespace BS3D
             };
             _pitWorld = Matrix.CreateTranslation(0f, ISLAND_Y, 0f);
 
-            //The glass the cluster hangs from. Odd levels are shifted by +0.5 and a ball's radius is another
-            //0.5, so a field's worth of balls is one unit wider than its cell count; the plate covers it with
-            //that margin, as the Testbed's does. The plate is a fixed size here (there is one cluster shape
-            //and no map files yet), so it is scene furniture and outlives any one game — only the kinematic
-            //body it is drawn from belongs to the simulation.
-            _ceilingMesh = new BoxMesh(GraphicsDevice, CLUSTER_X + 1f, 1f, CLUSTER_Z + 1f);
-            _ceilingRenderer = new InstancedModelRenderer(GraphicsDevice, _ceilingMesh, CEILING_GLASS_COLOR, _instancingEffect, CEILING_GLASS_ALPHA);
+            //Note the glass the cluster hangs from is NOT built here: its footprint is the loaded level's
+            //field, so FitCeilingToMap makes it (and remakes it on every level) — which is why
+            //SkyLitRenderers tolerates a null ceiling renderer and ApplySkyLighting runs again after a load.
         }
 
         /// <summary>
@@ -1593,11 +1624,12 @@ namespace BS3D
         {
             //Sized to the field with the same one-unit margin the drawn plate has: a field's worth of balls is
             //one unit wider than its cell count, since odd levels are shifted by half and a radius is another.
-            Box box = new(CLUSTER_X + 1f, 1f, CLUSTER_Z + 1f);
+            //The same figures FitCeilingToMap gave the drawn box, so the glass and the collidable agree.
+            Box box = new(_map.StageSizeX + 1f, 1f, _map.StageSizeZ + 1f);
             TypedIndex shape = _simulation.Shapes.Add(box);
 
             BodyHandle handle = _simulation.Bodies.Add(BodyDescription.CreateKinematic(
-                new System.Numerics.Vector3(0f, CEILING_Y, 0f),
+                new System.Numerics.Vector3(0f, _ceilingY, 0f),
                 new CollidableDescription(shape, 0.1f),
                 new BodyActivityDescription(Constants.HUNDREDTH)));
 
@@ -1664,30 +1696,29 @@ namespace BS3D
         }
 
         /// <summary>
-        /// Fills the hanging cluster: a <see cref="BallsMap"/> carved to a stepped square pyramid, apex down,
-        /// and centred on the origin. The layout hangs at the top of a taller field, so the empty levels
-        /// underneath are room for shot balls to attach into — the same arrangement a map file carries, which
-        /// is what a level will replace this with. The lattice is then mirrored into Bepu bodies, which is what
-        /// the frame actually draws.
+        /// The procedural pyramid the game shipped with, used only when no level file could be read: a
+        /// <see cref="BallsMap"/> carved to a stepped square pyramid, apex down, hanging at the top of a
+        /// taller field so the empty levels underneath are room for shot balls to attach into — the same
+        /// arrangement a map file carries.
         /// </summary>
-        private void BuildCluster()
+        private static BallsMap BuildFallbackMap()
         {
-            _map = new BallsMap(CLUSTER_X, CLUSTER_Z, FIELD_LEVELS);
+            BallsMap map = new(FALLBACK_X, FALLBACK_Z, FALLBACK_FIELD_LEVELS);
 
-            //Its own generator off a fixed seed, so the level is reproducible however many shots the
+            //Its own generator off a fixed seed, so the pile is reproducible however many shots the
             //magazine's unseeded one has drawn by the time this runs
-            Random layout = new(LEVEL_SEED);
+            Random layout = new(FALLBACK_SEED);
 
             //The pyramid is built about the centre of the field's topmost level, because that is the level
             //BallsMap.Center() puts on the origin. Odd levels are shifted by +0.5 in X and Z, so which
-            //centre that is depends on its parity (FIELD_LEVELS is chosen to make it a shifted one).
-            float topShift = LevelShift((byte)(FIELD_LEVELS - 1));
-            float axisX = (CLUSTER_X - 1) * Constants.HALF + topShift;
-            float axisZ = (CLUSTER_Z - 1) * Constants.HALF + topShift;
+            //centre that is depends on its parity.
+            float topShift = LevelShift(FALLBACK_FIELD_LEVELS - 1);
+            float axisX = (FALLBACK_X - 1) * Constants.HALF + topShift;
+            float axisZ = (FALLBACK_Z - 1) * Constants.HALF + topShift;
 
-            for (byte level = 0; level < CLUSTER_LEVELS; level++)
+            for (byte level = 0; level < FALLBACK_LEVELS; level++)
             {
-                byte fieldLevel = (byte)(level + CLUSTER_EXTRA_LEVELS);
+                byte fieldLevel = (byte)(level + FALLBACK_EXTRA_LEVELS);
 
                 //Half the pyramid's width here: nothing but the apex cell at the bottom, growing half a unit
                 //per level up to the full base at the top. Both this and the cell positions are whole
@@ -1695,51 +1726,215 @@ namespace BS3D
                 float half = level * Constants.HALF;
                 float shift = LevelShift(fieldLevel);
 
-                for (byte x = 0; x < CLUSTER_X; x++)
-                    for (byte z = 0; z < CLUSTER_Z; z++)
+                for (byte x = 0; x < FALLBACK_X; x++)
+                    for (byte z = 0; z < FALLBACK_Z; z++)
                     {
                         //Measured against where the cell actually sits, not its raw index, so a level's
                         //own half-unit offset cannot throw the flank out of line
                         if (MathF.Abs(x + shift - axisX) > half) continue;
                         if (MathF.Abs(z + shift - axisZ) > half) continue;
 
-                        _map.PutBallAt(x, z, fieldLevel, RandomLevelBallType(layout));
+                        map.PutBallAt(x, z, fieldLevel, layout.Next(DEFAULT_BALL_TYPES.Length) switch
+                        {
+                            0 => DEFAULT_BALL_TYPES[0],
+                            1 => DEFAULT_BALL_TYPES[1],
+                            2 => DEFAULT_BALL_TYPES[2],
+                            _ => DEFAULT_BALL_TYPES[3],
+                        });
                     }
             }
 
-            _map.Center();
+            return map;
+        }
 
+        /// <summary>
+        /// Mirrors the loaded lattice into Bepu bodies, which is what the frame actually draws, and wires up
+        /// the contact handler that catches a shot landing on it.
+        /// </summary>
+        private void BuildCluster()
+        {
             //The lattice mirrored into bodies, one per occupied cell, constrained to its neighbours and — on
             //the top level — to the ceiling. The offset is what creates them where the cluster is drawn: a
-            //BallsMap reckons in its own grid frame and this game draws that frame CLUSTER_WORLD_Y lower, so
-            //the empty levels below the layout do not raise it. The bodies have to be in world coordinates
-            //because everything else the simulation touches is — the floor, the ceiling, the muzzle a shot
-            //leaves from, the kill plane. It is applied to the body positions and to nothing else: the
-            //constraint anchors are differences of two grid positions, so the offset cancels out of them.
+            //BallsMap reckons in its own grid frame and this game draws that frame lower (and, for an odd
+            //field, half a cell across — see _clusterWorldOffset), so the empty levels below the layout do
+            //not raise it. The bodies have to be in world coordinates because everything else the simulation
+            //touches is — the floor, the ceiling, the muzzle a shot leaves from, the kill plane. It is
+            //applied to the body positions and to nothing else: the constraint anchors are differences of two
+            //grid positions, so the offset cancels out of them.
             _physicsBalls = BallsConstraintsBuilder.BuildBallsStructure(
                 _map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference,
-                new System.Numerics.Vector3(0f, CLUSTER_WORLD_Y, 0f));
+                _clusterWorldOffset.ToNumerics());
 
             //What happens on a hit lives in the handler: the snap into the lattice, the constraints, and the
             //match rule. It gets the very list instances the frame draws from, and the same offset, so it can
             //take a world contact down into the grid frame to ask the map about it and bring the answer back up.
             _eventHandler = new BallContactEventHandler(_simulation, _events, _ceiling, _map, _physicsBalls,
-                _shotBalls, _fallingBalls, new Vector3(0f, CLUSTER_WORLD_Y, 0f));
+                _shotBalls, _fallingBalls, _clusterWorldOffset);
 
             Console.WriteLine($"[game] {_map.GetBallsCount()} balls in the cluster, "
                 + $"{_simulation.Solver.CountConstraints()} constraints");
         }
 
+        #region Levels
+
+        /// <summary>
+        /// Reads the level set — the file that says which level is first and which is second — from the
+        /// <c>Levels</c> directory beside the executable. Run once at load, so a broken set is reported before
+        /// the player ever presses Play rather than at the moment they do.
+        /// <para>
+        /// A missing or broken set is <b>not</b> fatal: <see cref="_levelSet"/> stays null and the session
+        /// falls back to the procedural pyramid the game shipped with, so the thing still plays. That is
+        /// deliberate — the levels are loose data files beside the binary precisely so they can be edited, and
+        /// a typo in one of them should cost a level, not the game.
+        /// </para>
+        /// </summary>
+        private void LoadLevelSet()
+        {
+            //AppContext.BaseDirectory, not the working directory: the game is launched from a shortcut, from
+            //a shell somewhere else and from the debugger, and only the first of those has them agree
+            string path = Path.Combine(AppContext.BaseDirectory, LEVELS_DIRECTORY, LevelSet.DefaultFileName);
+
+            try
+            {
+                _levelSet = LevelSet.Load(path);
+                Console.WriteLine($"[levels] '{_levelSet.Name ?? LevelSet.DefaultFileName}': {_levelSet.Count} level(s), first '{_levelSet.DisplayName(0)}'");
+            }
+            catch (Exception e)
+            {
+                //Anything at all: no file, no directory, malformed JSON, a set that lists nothing. The game
+                //has a level of its own to fall back on, so this is a log line and not a crash.
+                Console.WriteLine($"[levels] No level set at '{path}' ({e.Message}); using the built-in level");
+                _levelSet = null;
+            }
+        }
+
+        /// <summary>
+        /// Installs the map for one entry of the level set, and everything the field's size and depth decide:
+        /// where the lattice meets the world, how high the glass hangs, how big it is, and which colours the
+        /// magazine may load. Nothing here touches the simulation — it runs before
+        /// <see cref="BuildPhysicsWorld"/>, which needs the ceiling's height and footprint to place its body.
+        /// <para>
+        /// The file is parsed <b>before</b> anything is installed, so a broken level leaves the previous state
+        /// alone and simply falls back to the built-in one, exactly as the Testbed's loader does.
+        /// </para>
+        /// </summary>
+        private void InstallLevel(int index)
+        {
+            BallsMap map = null;
+
+            if (_levelSet != null && index >= 0 && index < _levelSet.Count)
+            {
+                string path = _levelSet.ResolvePath(index);
+
+                try
+                {
+                    //Both a full level file (marked "bs3d-level", carrying a scene and a sky as well) and a
+                    //plain map file are .json, so the loader probes exactly as the Testbed's does. A level's
+                    //scene is honoured; the player's own pick from the menu stands when the level has none.
+                    if (Level.IsLevelFile(path))
+                    {
+                        Level level = Level.Load(path);
+                        map = new BallsMap(level.Map);
+
+                        if (level.Scene != null) SetScene(level.Scene.Kind);
+                        SetSkyDome(Math.Clamp(level.SkyDome, (byte)1, (byte)SKY_DOME_COUNT));
+                    }
+                    else map = new BallsMap(path);
+
+                    Console.WriteLine($"[levels] Loaded {index + 1}/{_levelSet.Count} '{_levelSet.DisplayName(index)}' from '{path}'");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"[levels] Failed to load '{path}': {e.Message}");
+                    map = null;
+                }
+            }
+
+            _map = map ?? BuildFallbackMap();
+            _map.Center();
+
+            FitFieldToMap();
+            FitCeilingToMap();
+
+            _levelBallTypes = CollectLevelBallTypes(_map);
+
+            for (int i = 0; i < MAGAZINE_SIZE; i++) _magazine[i] = RandomBallType();
+        }
+
+        /// <summary>
+        /// Derives everything the loaded field's size and depth decide. See <see cref="_clusterWorldOffset"/>
+        /// for why the offset has an X and a Z as well as a Y.
+        /// </summary>
+        private void FitFieldToMap()
+        {
+            XZLevel size = _map.GetStaticBallsArraySize();
+            byte topLevel = (byte)(size.Level - 1);
+
+            //The residual the centring leaves: the midpoint of the top level's own cells, measured through
+            //the map's public centred-position accessor rather than re-deriving its arithmetic here
+            Vector3 nearCorner = _map.GetRealCenteredPosition(new XZLevel(0, 0, topLevel));
+            Vector3 farCorner = _map.GetRealCenteredPosition(new XZLevel(size.X - 1, size.Z - 1, topLevel));
+
+            _clusterWorldOffset = new Vector3(
+                -(nearCorner.X + farCorner.X) * Constants.HALF,
+                FIELD_TOP_Y - topLevel / Constants.SQRT_TWO,
+                -(nearCorner.Z + farCorner.Z) * Constants.HALF);
+
+            _ceilingY = FIELD_TOP_Y + CEILING_CLEARANCE;
+            _clusterCentreY = topLevel * Constants.HALF / Constants.SQRT_TWO + _clusterWorldOffset.Y;
+        }
+
+        /// <summary>
+        /// Rebuilds the drawn glass plate at the loaded field's footprint. Its renderer is recreated here, so
+        /// it starts without the sky palette — <see cref="ApplySkyLighting"/> has to run after this, exactly
+        /// as it does after the Testbed's <c>FitCeilingToMap</c>.
+        /// </summary>
+        private void FitCeilingToMap()
+        {
+            _ceilingMesh?.Dispose();
+            _ceilingRenderer?.Dispose();
+
+            //Odd levels are shifted by +0.5 and a ball's radius is another 0.5, so a field's worth of balls is
+            //one unit wider than its cell count; the plate covers it with that margin, as the Testbed's does.
+            //It is drawn from the kinematic body's own pose, so the glass and the collidable cannot disagree.
+            _ceilingMesh = new BoxMesh(GraphicsDevice, _map.StageSizeX + 1f, 1f, _map.StageSizeZ + 1f);
+            _ceilingRenderer = new InstancedModelRenderer(GraphicsDevice, _ceilingMesh, CEILING_GLASS_COLOR, _instancingEffect, CEILING_GLASS_ALPHA);
+        }
+
+        /// <summary>
+        /// The colours actually hanging in the level, which is the only set the magazine may draw from —
+        /// loading a colour that is nowhere in the cluster is a shot that cannot be spent. An empty map (or a
+        /// level authored with none) falls back to the default four.
+        /// </summary>
+        private static BallType[] CollectLevelBallTypes(BallsMap map)
+        {
+            List<BallType> types = new();
+            StaticBall[,,] balls = map.GetStaticBallsArray();
+            XZLevel size = XZLevel.FromArray(balls);
+
+            for (int level = 0; level < size.Level; level++)
+                for (int x = 0; x < size.X; x++)
+                    for (int z = 0; z < size.Z; z++)
+                    {
+                        StaticBall ball = balls[x, z, level];
+                        if (ball != null && !types.Contains(ball.Type)) types.Add(ball.Type);
+                    }
+
+            return types.Count > 0 ? types.ToArray() : DEFAULT_BALL_TYPES;
+        }
+
+        #endregion
+
         #region The session (menu ⇄ play)
 
         /// <summary>
-        /// Starts playing. The world — the simulation, the ceiling body, the drain's collision mesh and the
-        /// cluster — is built here rather than in <see cref="LoadContent"/>, so the menu comes up without
-        /// paying for it and a machine that never presses Play never pays at all.
+        /// Starts playing. The world — the level's map, the simulation, the ceiling body, the drain's
+        /// collision mesh and the cluster — is built here rather than in <see cref="LoadContent"/>, so the
+        /// menu comes up without paying for it and a machine that never presses Play never pays at all.
         /// </summary>
         /// <param name="newGame">
-        /// True to throw away a session in progress and deal a fresh cluster; false to carry on with whatever
-        /// is already standing (and to build it, if this is the first time).
+        /// True to throw away a session in progress and deal the first level again; false to carry on with
+        /// whatever is already standing (and to build it, if this is the first time).
         /// </param>
         private void StartGame(bool newGame)
         {
@@ -1747,9 +1942,16 @@ namespace BS3D
             {
                 if (_gameBuilt) TearDownGame();
 
-                //The ceiling body has to exist before the cluster: the top level's balls are constrained to it
+                //The map first: the ceiling's height and footprint come off the field, and the ceiling body
+                //has to exist before the cluster, whose top level is constrained to it.
+                _levelIndex = 0;
+                InstallLevel(_levelIndex);
+
                 BuildPhysicsWorld();
                 BuildCluster();
+
+                //FitCeilingToMap made a new renderer, which starts without the sky palette
+                ApplySkyLighting();
 
                 _gameBuilt = true;
             }
@@ -1834,7 +2036,8 @@ namespace BS3D
             _magazineSlide = 0f;
             _adsBlend = 0f;
 
-            for (int i = 0; i < MAGAZINE_SIZE; i++) _magazine[i] = RandomBallType();
+            //The magazine is not refilled here: its colours belong to a level, and InstallLevel loads the
+            //next one's before the queue means anything again
 
             //The gun goes back to its resting orbit angle and aim, so a new game starts pointed where the
             //first one did rather than wherever the last shot left the barrel
@@ -1859,7 +2062,9 @@ namespace BS3D
         //Keeping a general-purpose converter around invited a third, uncounted crossing.
 
         /// <summary>
-        /// Every renderer that takes its lighting from the sky dome.
+        /// Every renderer that takes its lighting from the sky dome. The ceiling's is the one that can be
+        /// missing: it is rebuilt at each level's footprint, so before the first level is installed — and for
+        /// the moment inside a load when the old one has gone — there is none.
         /// </summary>
         private IEnumerable<InstancedModelRenderer> SkyLitRenderers()
         {
@@ -1870,7 +2075,8 @@ namespace BS3D
             yield return _islandRenderer;
             yield return _funnelRenderer;
             yield return _funnelRimsRenderer;
-            yield return _ceilingRenderer;
+
+            if (_ceilingRenderer != null) yield return _ceilingRenderer;
         }
 
         /// <summary>
@@ -3075,7 +3281,7 @@ namespace BS3D
             Vector3 aim = CannonAimDirection();
             Vector3 muzzle = CannonMuzzlePosition();
 
-            Vector3 clusterCentre = new(_cannon.OrbitCenter.X, CLUSTER_CENTRE_Y, _cannon.OrbitCenter.Z);
+            Vector3 clusterCentre = new(_cannon.OrbitCenter.X, _clusterCentreY, _cannon.OrbitCenter.Z);
             float d = MathHelper.Clamp(Vector3.Dot(clusterCentre - muzzle, aim), ADS_CONVERGE_MIN, ADS_CONVERGE_MAX);
 
             return muzzle + aim * d;
@@ -3126,11 +3332,13 @@ namespace BS3D
 
         #endregion
 
-        /// <summary>One of the level's colours. Only those: see <see cref="LEVEL_BALL_TYPES"/>.</summary>
-        private static BallType RandomLevelBallType(Random random) => LEVEL_BALL_TYPES[random.Next(LEVEL_BALL_TYPES.Length)];
-
-        /// <summary>What the magazine loads next — the level's colours, off the unseeded run-to-run generator.</summary>
-        private static BallType RandomBallType() => RandomLevelBallType(RANDOM);
+        /// <summary>
+        /// What the magazine loads next: one of the colours actually hanging in the loaded level (see
+        /// <see cref="CollectLevelBallTypes"/>), off the unseeded run-to-run generator. Not an instance method
+        /// by accident — the set changes with the level, so it cannot be static the way it was when the
+        /// cluster was a fixed pyramid.
+        /// </summary>
+        private BallType RandomBallType() => _levelBallTypes[RANDOM.Next(_levelBallTypes.Length)];
 
         protected override void UnloadContent()
         {

@@ -52,6 +52,12 @@
     <EmbeddedResource Include="Content\Fonts\Inter-Regular.ttf" />
     <EmbeddedResource Include="Content\Fonts\Inter-Bold.ttf" />
   </ItemGroup>
+  <!--The levels and the set that orders them. Plain files copied beside the exe rather than MGCB content:
+  they are data the game reads with System.Text.Json at runtime, not assets the pipeline compiles, and keeping
+  them editable next to the binary is the point — a level can be swapped without a rebuild.-->
+  <ItemGroup>
+    <Content Include="Levels\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BS3DLibs\Prazsky.BS3D.Physics\Prazsky.BS3D.Physics.csproj" />
     <ProjectReference Include="..\BS3DLibs\Prazsky.BS3D\Prazsky.BS3D.csproj" />

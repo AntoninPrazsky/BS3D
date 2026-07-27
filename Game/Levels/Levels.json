@@ -1,0 +1,11 @@
+{
+  "format": "bs3d-levels",
+  "version": 1,
+  "name": "Bubble Shooter 3D",
+  "levels": [
+    {
+      "file": "One.json",
+      "name": "One"
+    }
+  ]
+}
