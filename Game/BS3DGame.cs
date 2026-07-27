@@ -64,9 +64,29 @@ namespace BS3D
 
         //Where the lens stands relative to the gun: back from the field centre along the gun's own bearing,
         //and just below the trunnions, so the player looks up at the hanging cluster past the barrel.
-        private const float CAMERA_DISTANCE = 34f;
         private const float CAMERA_HEIGHT = -1.5f;
-        private const float CAMERA_TARGET_Y = 3.5f;
+
+        //How far back the camera stands and how high it aims. Both are SOLVED per level and per display
+        //(FitGameCameraToMap) rather than tuned, because both of their inputs move underneath a fixed number:
+        //the field is sized per level, and the frustum per display. These defaults only cover the frames
+        //before the first level is installed.
+        private float _gameCameraDistance = 34f;
+        private float _gameCameraTargetY = 3.5f;
+
+        //How much of the frustum the fit is allowed to fill. Under 1 so the field does not sit hard against
+        //the frame's edges, which reads as cropped even when nothing is.
+        private const float GAME_CAMERA_FIT_MARGIN = 0.92f;
+
+        //Where the gun stands relative to the camera, and the two lower bounds that override it. The gun is
+        //placed off the LENS and not off the field, because the magazine showing through its slot is really a
+        //HUD element and has to keep its size on screen — anchoring it to the field lets a large level push
+        //the camera back and shrink the queue with it. The bounds: it must clear the field's own footprint at
+        //every orbit angle (closer, and it stands under the cluster it shoots at), and it must stay far
+        //enough out that its RESTING aim is well inside Cannon's elevation clamp, with headroom to elevate
+        //onto the high cells. Which bound binds changes with the level, so this can never be one number.
+        private const float CANNON_CAMERA_STANDOFF = 15f;
+        private const float CANNON_FIELD_CLEARANCE = 2f;
+        private const float CANNON_MAX_REST_ELEVATION = 0.70f;  //radians, ~40°, against a clamp that reaches ~80°
 
         //Precise aim, held on the right mouse button (or the gamepad's left trigger): the lens leans in over
         //the barrel and looks straight down the bore, so the shot goes where a screen-centre crosshair points
@@ -847,8 +867,9 @@ namespace BS3D
             EnsureSceneTarget();
 
             //A fullscreen switch resizes the back buffer without necessarily going through the window's own
-            //resize event, and the overlay's scale is derived from the viewport
+            //resize event, and both the overlay's scale and the camera's framing are derived from the viewport
             _info?.RecomputeScale();
+            UpdateCameraAspect();
 
             //The cursor is captured for aiming only while a game is actually running; in the menu it is the
             //pointer the player clicks with. This runs from the constructor too, before the device exists,
@@ -859,13 +880,27 @@ namespace BS3D
 
         private void OnClientSizeChanged()
         {
-            if (_camera != null) _camera.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
+            UpdateCameraAspect();
 
             //The overlay is authored for 2160p and scaled to the viewport, so a resize has to re-derive it.
             //The menu is authored the same way, and refits itself in Draw (EnsureMenuLayout).
             _info?.RecomputeScale();
 
             EnsureSceneTarget();
+        }
+
+        /// <summary>
+        /// Re-derives the camera's aspect and, with it, the framing. The fit is checked on <b>both</b> frustum
+        /// axes, and only the vertical one is aspect-independent — a narrow window or a tall one flips which
+        /// binds — so a resize has to re-solve the stand-off and not just the projection.
+        /// </summary>
+        private void UpdateCameraAspect()
+        {
+            if (_camera == null) return;
+
+            _camera.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
+
+            FitCannonAndGameCameraToLevel();
         }
 
         protected override void Initialize()
@@ -1856,6 +1891,9 @@ namespace BS3D
             FitFieldToMap();
             FitCeilingToMap();
 
+            //The gun and the lens both move with the field's size, and each is placed off the other
+            FitCannonAndGameCameraToLevel();
+
             _levelBallTypes = CollectLevelBallTypes(_map);
 
             for (int i = 0; i < MAGAZINE_SIZE; i++) _magazine[i] = RandomBallType();
@@ -2661,14 +2699,8 @@ namespace BS3D
             if (adsTarget == 0f && _adsBlend < 0.002f) _adsBlend = 0f;
             if (adsTarget == 1f && _adsBlend > 0.998f) _adsBlend = 1f;
 
-            Vector3 back = _cannon.Position - _cannon.OrbitCenter;
-            back.Y = 0f;
-            Vector3 bearing = back == Vector3.Zero ? Vector3.Backward : Vector3.Normalize(back);
-
-            Vector3 fieldCentre = new(_cannon.OrbitCenter.X, 0f, _cannon.OrbitCenter.Z);
-
-            Vector3 overviewPosition = fieldCentre + bearing * CAMERA_DISTANCE + Vector3.Up * (_cannon.Position.Y + CAMERA_HEIGHT);
-            Vector3 overviewTarget = new(_cannon.OrbitCenter.X, CAMERA_TARGET_Y, _cannon.OrbitCenter.Z);
+            Vector3 overviewPosition = GameCameraPositionAt(_gameCameraDistance);
+            Vector3 overviewTarget = new(_cannon.OrbitCenter.X, _gameCameraTargetY, _cannon.OrbitCenter.Z);
 
             _camera.BasePosition = Vector3.Lerp(overviewPosition, AdsCameraPosition(), _adsBlend);
             _camera.BaseTarget = Vector3.Lerp(overviewTarget, AdsCameraTarget(), _adsBlend);
@@ -2676,6 +2708,181 @@ namespace BS3D
 
             _camera.Update(elapsed);
         }
+
+        #region Fitting the camera and the gun to the level
+
+        /// <summary>
+        /// The horizontal direction from the field out towards the gun — the way the camera stands back.
+        /// Deliberately <b>flattened to the horizontal</b>: taken straight from <c>Position - OrbitCenter</c>
+        /// it tilts down by however far the gun stands below the cluster, which eats the camera's height and
+        /// leaves the lens sitting on the barrel's own axis, seeing the gun end-on.
+        /// </summary>
+        private Vector3 GameCameraBearing()
+        {
+            Vector3 back = _cannon.Position - _cannon.OrbitCenter;
+            back.Y = 0f;
+
+            return back == Vector3.Zero ? Vector3.Backward : Vector3.Normalize(back);
+        }
+
+        /// <summary>The field's centre at ground level: what the camera stands off from and turns about.</summary>
+        private Vector3 FieldCentreGround() => new(_cannon.OrbitCenter.X, 0f, _cannon.OrbitCenter.Z);
+
+        /// <summary>Where the lens sits for a given stand-off — the pose the fit below searches over.</summary>
+        private Vector3 GameCameraPositionAt(float distance) =>
+            FieldCentreGround() + GameCameraBearing() * distance + Vector3.Up * (_cannon.Position.Y + CAMERA_HEIGHT);
+
+        /// <summary>
+        /// Solves the gun's orbit radius and the camera's stand-off together, since each depends on the other
+        /// — the camera is placed to frame the field <i>and the gun</i>, and the gun is placed a fixed
+        /// distance in front of the camera. Alternating converges at once in practice: at a fixed distance
+        /// from the lens the gun's angular footprint is the same whatever the radius, so the camera's solve
+        /// barely moves after the first round. Run on every level load and every resize.
+        /// </summary>
+        private void FitCannonAndGameCameraToLevel()
+        {
+            if (_map == null || _camera == null || _cannon == null) return;
+
+            for (int round = 0; round < 3; round++)
+            {
+                FitCannonOrbitToLevel();
+                FitGameCameraToLevel();
+            }
+
+            Console.WriteLine($"[camera] Field {_map.StageSizeX}x{_map.StageSizeZ}x{_map.Levels}, aspect {_camera.AspectRatio:F2}: "
+                + $"camera {_gameCameraDistance:F1} out, aim Y {_gameCameraTargetY:F1}, "
+                + $"gun orbit {_cannon.OrbitRadius:F1} ({_gameCameraDistance - _cannon.OrbitRadius:F1} in front of the lens)");
+        }
+
+        /// <summary>
+        /// Puts the gun <see cref="CANNON_CAMERA_STANDOFF"/> in front of the camera, held off by the two lower
+        /// bounds documented with that constant.
+        /// </summary>
+        private void FitCannonOrbitToLevel()
+        {
+            float halfX = (_map.StageSizeX + 1f) * Constants.HALF;
+            float halfZ = (_map.StageSizeZ + 1f) * Constants.HALF;
+
+            float clearFootprint = MathF.Sqrt(halfX * halfX + halfZ * halfZ) + CANNON_FIELD_CLEARANCE;
+            float clearElevation = (_cannon.OrbitCenter.Y - _cannon.Position.Y) / MathF.Tan(CANNON_MAX_REST_ELEVATION);
+
+            _cannon.OrbitRadius = MathF.Max(_gameCameraDistance - CANNON_CAMERA_STANDOFF,
+                MathF.Max(clearFootprint, clearElevation));
+        }
+
+        /// <summary>
+        /// Places the camera so the whole play field, the glass over it and the gun fit inside the frustum,
+        /// and aims it so they sit centred in it.
+        /// <para>
+        /// This has to be <b>solved</b> rather than tuned, because both of its inputs move. The field is
+        /// sized per level, so a stand-off that frames one crops another off the top of the screen — which is
+        /// exactly what the fixed number it replaces did. And the frustum is sized per display:
+        /// <c>CreatePerspectiveFieldOfView</c> takes the <b>vertical</b> FOV, so a wider screen only adds
+        /// width. That is the behaviour wanted — the field keeps its size on an ultrawide and the extra width
+        /// goes to scenery — but it also means the horizontal fit is generous at 21:9 and tightest on the
+        /// narrowest display, so both axes are checked.
+        /// </para>
+        /// </summary>
+        private void FitGameCameraToLevel()
+        {
+            float halfX = (_map.StageSizeX + 1f) * Constants.HALF;
+            float halfZ = (_map.StageSizeZ + 1f) * Constants.HALF;
+
+            //The field in WORLD Y, which is the one place this differs from the Testbed's own solver: there
+            //the lattice frame IS the world frame, while here level 0 sits at the cluster offset rather than
+            //at zero. A deep level's empty growth levels are inside this on purpose — the cluster grows down
+            //into them, so they have to be in frame before the first ball ever lands there.
+            float bottomY = _clusterWorldOffset.Y;
+            float topY = _ceilingY + Constants.HALF;   //upper face of the ceiling slab
+
+            float verticalHalf = GAME_FOV * Constants.HALF * GAME_CAMERA_FIT_MARGIN;
+            float horizontalHalf = MathF.Atan(MathF.Tan(GAME_FOV * Constants.HALF) * _camera.AspectRatio) * GAME_CAMERA_FIT_MARGIN;
+
+            //Everything fits from far enough away and nothing does from close in, so the smallest distance
+            //that fits can be bisected for. The near bound is the lens right behind the gun.
+            float near = CannonOrbitRadius() + 2f;
+            float far = 400f;
+
+            for (int i = 0; i < 32; i++)
+            {
+                float middle = (near + far) * Constants.HALF;
+                if (GameCameraFitsAt(middle, halfX, halfZ, bottomY, topY, verticalHalf, horizontalHalf, out _)) far = middle;
+                else near = middle;
+            }
+
+            GameCameraFitsAt(far, halfX, halfZ, bottomY, topY, verticalHalf, horizontalHalf, out float axisElevation);
+
+            _gameCameraDistance = far;
+            _gameCameraTargetY = _cannon.Position.Y + CAMERA_HEIGHT + far * MathF.Tan(axisElevation);
+        }
+
+        /// <summary>
+        /// Whether the field, its ceiling and the gun all land inside the frustum with the lens that far out,
+        /// and at what elevation the view axis has to sit for it. Elevations are measured off the horizontal
+        /// and bisected, which is what centres the subject between the top and bottom edges.
+        /// </summary>
+        private bool GameCameraFitsAt(float distance, float halfX, float halfZ, float bottomY, float topY,
+            float verticalHalf, float horizontalHalf, out float axisElevation)
+        {
+            Vector3 back = GameCameraBearing();
+            Vector3 camera = GameCameraPositionAt(distance);
+            Vector3 forward = -back;
+            Vector3 right = Vector3.Cross(Vector3.Up, forward);
+
+            float minElevation = float.MaxValue;
+            float maxElevation = float.MinValue;
+            float maxSide = 0f;
+            bool ahead = true;
+
+            void Consider(Vector3 point)
+            {
+                Vector3 offset = point - camera;
+                float depth = Vector3.Dot(offset, forward);
+
+                //On or behind the lens: there is no angle to measure, and the pose is rejected outright
+                if (depth <= Constants.ONE) { ahead = false; return; }
+
+                float elevation = MathF.Atan2(offset.Y, depth);
+                minElevation = MathF.Min(minElevation, elevation);
+                maxElevation = MathF.Max(maxElevation, elevation);
+                maxSide = MathF.Max(maxSide, MathF.Atan2(MathF.Abs(Vector3.Dot(offset, right)), depth));
+            }
+
+            //The field's eight corners, from the floor of the play space to the top of the glass
+            for (int cornerX = -1; cornerX <= 1; cornerX += 2)
+                for (int cornerZ = -1; cornerZ <= 1; cornerZ += 2)
+                {
+                    Consider(new Vector3(cornerX * halfX, bottomY, cornerZ * halfZ));
+                    Consider(new Vector3(cornerX * halfX, topY, cornerZ * halfZ));
+                }
+
+            //The gun, as a box around its trunnions large enough to hold the barrel at any aim, so the fit
+            //does not change as the player elevates or traverses
+            float reach = CANNON_PIVOT_TO_FRONT_BALL + Constants.HALF;
+            Consider(_cannon.Position + Vector3.Up * reach);
+            Consider(_cannon.Position - Vector3.Up * reach);
+            Consider(_cannon.Position + back * reach);
+            Consider(_cannon.Position - back * reach);
+            Consider(_cannon.Position + right * reach);
+            Consider(_cannon.Position - right * reach);
+
+            axisElevation = (minElevation + maxElevation) * Constants.HALF;
+
+            return ahead
+                && (maxElevation - minElevation) * Constants.HALF <= verticalHalf
+                && maxSide <= horizontalHalf;
+        }
+
+        /// <summary>The gun's horizontal distance from the centre it orbits — its orbit radius.</summary>
+        private float CannonOrbitRadius()
+        {
+            Vector3 offset = _cannon.Position - _cannon.OrbitCenter;
+            offset.Y = 0f;
+
+            return offset.Length();
+        }
+
+        #endregion
 
         protected override void Draw(GameTime gameTime)
         {
