@@ -578,6 +578,20 @@ namespace BS3D
         private const string LEVELS_DIRECTORY = "Levels";
 
         /// <summary>
+        /// Seconds left of the pause between the field emptying and the level actually ending, counted down
+        /// only while it is above zero — so zero doubles as "this level is still being played".
+        /// <para>
+        /// The pause is the point. Balls leave the map at <b>release</b> time, while their bodies are still
+        /// falling: ending the level the instant the last group is cut would take the collapse the player just
+        /// earned off the screen before they saw it.
+        /// </para>
+        /// </summary>
+        private float _clearedCountdown;
+
+        /// <summary>How long that pause is — long enough for a big collapse to reach the drain and go down it.</summary>
+        private const float LEVEL_CLEARED_BEAT = 2.5f;
+
+        /// <summary>
         /// The level's score and ball budget. Built fresh for each level from that entry's rules, so it never
         /// carries anything across; it holds the rules themselves and this file only feeds it the three events
         /// a shot goes through.
@@ -1971,25 +1985,113 @@ namespace BS3D
         {
             ScoreAward award = _score.Landed(released.Matched, released.Orphaned);
 
-            //The cluster just changed — a ball joined it, and a group may have left. Recount before anything
-            //asks what may be loaded, and re-colour whatever is already in the barrel and has just gone dead.
-            RecountBallTypes();
-            Transmute();
-
             //Temporary: until the HUD (#60) exists there is nowhere to show this, and a score that is counted
             //but never seen is indistinguishable from one that is not counted at all. A shot that dropped
-            //nothing logs nothing — the reset still shows, as the next scoring shot coming back at ×1.
-            //Spelled out in ASCII rather than through ScoreAward.ToString(), whose "x" is a proper multiplication
-            //sign: the console this lands in is a legacy code page and mangles anything outside it.
+            //nothing logs nothing — the reset still shows, as the next scoring shot coming back at x1.
+            //Spelled out in ASCII rather than through ScoreAward.ToString(), whose "×" is a proper
+            //multiplication sign: the console this lands in is a legacy code page and mangles anything outside
+            //it. Logged here rather than at the end of the method so it reads before the level's own lines.
             if (award.Scored)
                 Console.WriteLine($"[score] {released} -> +{award.Points} x{award.Multiplier}"
                     + $"  score {_score.Score} (base {_score.BaseScore} + streak {_score.StreakBonus})"
                     + $", next x{_score.Multiplier}"
                     + $", balls left {(_score.ShotsRemaining?.ToString() ?? "unlimited")}");
+
+            //The cluster just changed — a ball joined it, and a group may have left. Recount before anything
+            //asks what may be loaded, and re-colour whatever is already in the barrel and has just gone dead.
+            RecountBallTypes();
+            Transmute();
+
+            CheckLevelCleared();
         }
 
         /// <summary>A shot is over without having landed. The streak breaks.</summary>
         private void OnShotSpent() => _score.Missed();
+
+        /// <summary>
+        /// Has the field just been emptied? That is the goal of a level: release every ball so it falls.
+        /// <para>
+        /// Tested only here, on a landing, which is the one thing that can empty the field — and testing it
+        /// anywhere else would be worse than redundant. Polling it per frame would declare a level authored
+        /// with no balls won before the player had fired a shot, and would keep declaring it.
+        /// </para>
+        /// <para>
+        /// The completion bonus is awarded <b>now</b> rather than when the level actually ends, so that shots
+        /// fired into the empty field during the pause below cannot eat the balls the player finished with.
+        /// A shot still in flight at this moment is harmless: there is nothing left for it to hit, and the
+        /// body goes with the simulation when the next level replaces it.
+        /// </para>
+        /// </summary>
+        private void CheckLevelCleared()
+        {
+            if (_clearedCountdown > 0f || _map.GetBallsCount() > 0) return;
+
+            int bonus = _score.AwardCompletionBonus();
+            _clearedCountdown = LEVEL_CLEARED_BEAT;
+
+            Console.WriteLine($"[level] Cleared '{LevelName(_levelIndex)}' with {_score.Score}"
+                + $" (+{bonus} for {_score.ShotsRemaining?.ToString() ?? "unlimited"} unused)"
+                + $", needed {LevelMinScore(_levelIndex)}");
+        }
+
+        /// <summary>
+        /// The level is over and the collapse has played out. Three outcomes, and only one of them is going
+        /// forward.
+        /// <para>
+        /// Every branch here is a placeholder for the result screen of #59, which is where a player will
+        /// actually be <i>told</i> which of the three happened and will choose what to do about it. Until then
+        /// each one does the least surprising thing on its own, and says so in the log — a silent retry would
+        /// otherwise be indistinguishable from a crash that reloaded.
+        /// </para>
+        /// </summary>
+        private void FinishLevel()
+        {
+            int required = LevelMinScore(_levelIndex);
+
+            //Cleared but not passed: the field is empty and the score is not enough to unlock what is next.
+            //The level is replayed, which is what the result screen will offer as "Retry".
+            if (_score.Score < required)
+            {
+                Console.WriteLine($"[level] {_score.Score} short of the {required} needed — replaying '{LevelName(_levelIndex)}'");
+                BuildLevel(_levelIndex);
+                EnterPlaying();
+
+                return;
+            }
+
+            int next = _levelIndex + 1;
+
+            if (_levelSet != null && next < _levelSet.Count)
+            {
+                Console.WriteLine($"[level] Advancing to {next + 1}/{_levelSet.Count} '{_levelSet.DisplayName(next)}'");
+                BuildLevel(next);
+                EnterPlaying();
+
+                return;
+            }
+
+            //Past the last entry. Said plainly and returned to the front end rather than wrapped silently
+            //back to the first level, which reads as a bug rather than as an ending. The session is torn down
+            //so the main menu offers a new game instead of "Continue" into a level that is already finished.
+            Console.WriteLine($"[level] Campaign complete — {_score.Score} on the last level");
+
+            TearDownGame();
+            ReturnToMainMenu();
+        }
+
+        /// <summary>What to call the level at <paramref name="index"/>, set or no set.</summary>
+        private string LevelName(int index) =>
+            _levelSet != null && index >= 0 && index < _levelSet.Count ? _levelSet.DisplayName(index) : "the built-in level";
+
+        /// <summary>
+        /// The score the entry at <paramref name="index"/> demands before the <b>next</b> level unlocks. Zero —
+        /// what an absent rule, a missing set and an index outside it all mean — leaves clearing the field
+        /// enough on its own, which is what every level is until one opts into the gate.
+        /// </summary>
+        private int LevelMinScore(int index) =>
+            _levelSet != null && index >= 0 && index < _levelSet.Count
+                ? _levelSet.Levels[index].MinScore.GetValueOrDefault()
+                : 0;
 
         /// <summary>
         /// The ball budget the entry at <paramref name="index"/> grants, or null for unlimited — which is what
@@ -2123,25 +2225,33 @@ namespace BS3D
         /// </param>
         private void StartGame(bool newGame)
         {
-            if (newGame || !_gameBuilt)
-            {
-                if (_gameBuilt) TearDownGame();
-
-                //The map first: the ceiling's height and footprint come off the field, and the ceiling body
-                //has to exist before the cluster, whose top level is constrained to it.
-                _levelIndex = 0;
-                InstallLevel(_levelIndex);
-
-                BuildPhysicsWorld();
-                BuildCluster();
-
-                //FitCeilingToMap made a new renderer, which starts without the sky palette
-                ApplySkyLighting();
-
-                _gameBuilt = true;
-            }
+            if (newGame || !_gameBuilt) BuildLevel(0);
 
             EnterPlaying();
+        }
+
+        /// <summary>
+        /// Tears down whatever session is standing and builds the level at <paramref name="index"/> in its
+        /// place — the path a first "Play", a "New Game", a retry and an advance all take, which is the whole
+        /// reason it is not inlined in <see cref="StartGame"/> any more.
+        /// </summary>
+        private void BuildLevel(int index)
+        {
+            if (_gameBuilt) TearDownGame();
+
+            //The map first: the ceiling's height and footprint come off the field, and the ceiling body has
+            //to exist before the cluster, whose top level is constrained to it.
+            _levelIndex = index;
+            InstallLevel(_levelIndex);
+
+            BuildPhysicsWorld();
+            BuildCluster();
+
+            //FitCeilingToMap made a new renderer, which starts without the sky palette
+            ApplySkyLighting();
+
+            _gameBuilt = true;
+            _clearedCountdown = 0f;
         }
 
         /// <summary>
@@ -2515,6 +2625,14 @@ namespace BS3D
             UpdateTrails(elapsed);
 
             UpdateCamera(elapsed);
+
+            //Last, because FinishLevel may tear the whole session down and build the next one in its place —
+            //everything above it this frame would then be running against a simulation that no longer exists.
+            if (_clearedCountdown > 0f)
+            {
+                _clearedCountdown -= elapsed;
+                if (_clearedCountdown <= 0f) FinishLevel();
+            }
 
             base.Update(gameTime);
         }
