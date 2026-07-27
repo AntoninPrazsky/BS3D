@@ -878,6 +878,17 @@ namespace BS3D
         private Widget _resultBreakdown;
         private Button _retryButton, _nextLevelButton;
 
+        //The current screen's entries in the order they are drawn, and which one a pad or the arrow keys have
+        //landed on. Collected by walking the shown tree rather than registered per button: a list that has to
+        //be kept in step by hand is one an added entry silently falls out of, and the walk is run only on a
+        //screen change. -1 means the focus cursor is not up at all — the pointer is driving, and two entries
+        //lit at once (one hovered, one focused) reads as a bug.
+        private readonly List<Button> _navEntries = new();
+        private int _navIndex = -1;
+        private float _navRepeatDelay;
+        private int _navDirection;
+        private Point _navMouseAt;
+
         //Inter (SIL OFL), through FontStashSharp. Myra's embedded stylesheet carries a small bitmap font that
         //is fine for a tool panel and much too coarse for a game's title, so the menu brings its own; it is
         //embedded in the assembly, so there is no path to get wrong and nothing to install. Each size is a
@@ -925,6 +936,12 @@ namespace BS3D
         private static readonly Color MENU_BUTTON = new(11, 11, 11, 212);
         private static readonly Color MENU_BUTTON_OVER = new(72, 72, 72, 232);
         private static readonly Color MENU_BUTTON_PRESSED = new(120, 120, 120, 240);
+
+        //Built once and shared by every entry. A brush holds no per-widget state, and the focus highlight
+        //swaps an entry between the first two of these rather than minting a brush per frame.
+        private static readonly IBrush MENU_BUTTON_BRUSH = new SolidBrush(MENU_BUTTON);
+        private static readonly IBrush MENU_BUTTON_OVER_BRUSH = new SolidBrush(MENU_BUTTON_OVER);
+        private static readonly IBrush MENU_BUTTON_PRESSED_BRUSH = new SolidBrush(MENU_BUTTON_PRESSED);
 
         //A pause dims the whole frame, because what is behind it is a stopped game and the menu is the thing
         //to look at. The front end does NOT: there the rotating scene is the point of the screen, and a
@@ -1012,6 +1029,18 @@ namespace BS3D
         private const int SETTING_VALUE_WIDTH = 560;
         private const int ABOUT_TEXT_WIDTH = 1860;
         private const int MENU_COLUMN_SPACING = 26;
+
+        //Held direction repeats: one step, a pause long enough that a deliberate single press stays single,
+        //then a steady walk. Both are wall-clock seconds and not frame counts, or the list would run faster on
+        //a faster machine — the same rule the rattle's phase and the menu's orbit follow.
+        private const float NAV_REPEAT_DELAY = 0.42f;
+        private const float NAV_REPEAT_INTERVAL = 0.11f;
+
+        //Well past a resting stick's drift, and far enough in that a diagonal push does not step the list
+        private const float NAV_STICK_DEADZONE = 0.55f;
+
+        //A pointer has to move by more than its own jitter before it takes the focus back off the pad
+        private const int NAV_MOUSE_WAKE_PIXELS = 6;
 
         //Entries are read at a glance and from across a room, so the type is set large. The title is sized to
         //the whole of GAME_TITLE on one line at the narrowest targeted aspect (16:9, i.e. 3840 design units
@@ -1417,6 +1446,10 @@ namespace BS3D
                     _desktop.Root = _resultRoot;
                     break;
             }
+
+            //Last, and only here: every branch above has finished deciding which entries this screen actually
+            //shows — the resume entry, Next Level — and the walk reads what is up rather than what was built.
+            CollectNavEntries();
         }
 
         /// <summary>
@@ -1428,6 +1461,213 @@ namespace BS3D
         /// <summary>Back out of a sub-screen to whichever menu opened it.</summary>
         private void BackFromSubScreen() =>
             ShowMenuScreen(_state == GameState.Paused ? MenuScreen.Pause : MenuScreen.MainMenu);
+
+        /// <summary>
+        /// One level back, wherever Escape or the pad's B is pressed: out of a sub-screen to the screen that
+        /// opened it, out of the pause menu into the game.
+        /// <para>
+        /// The main menu has no back — quitting is a menu item, and a front end that closes when a key is
+        /// tapped is one that closes by accident. The result screen has none either, and for a different
+        /// reason: the level has already ended, so there is nothing to resume into and "back one level" has no
+        /// meaning; Retry, Next Level and Main Menu are the only ways off it.
+        /// </para>
+        /// </summary>
+        private void MenuBack()
+        {
+            if (_menuScreen is MenuScreen.MainMenu or MenuScreen.Result) return;
+
+            if (_menuScreen != MenuScreen.Pause)
+                ShowMenuScreen(_state == GameState.Paused ? MenuScreen.Pause : MenuScreen.MainMenu);
+            else if (_state == GameState.Paused) ResumeGame();
+        }
+
+        #region Menu navigation (pad and arrow keys)
+
+        /// <summary>
+        /// Re-reads the entries of the screen that is up, in the order they are drawn. Walking the shown tree
+        /// is deliberate: a list registered per button is one that an entry added later silently falls out of,
+        /// and a screen whose entries come and go — the resume entry, Next Level — would need the registration
+        /// repeating anyway. It runs on a screen change and on a layout rebuild, never per frame.
+        /// </summary>
+        private void CollectNavEntries()
+        {
+            //The INDEX does not survive a screen change — entry 3 of the settings screen is not entry 3 of the
+            //one it returns to — but whether the cursor was up does. A pad player who opens Settings and backs
+            //out again would otherwise land on a screen with no cursor and have to press a direction to get one
+            //back, every time; and putting it up unconditionally would light an entry for a player who is
+            //using the pointer and never asked for one.
+            bool cursorWasUp = _navIndex >= 0;
+
+            _navEntries.Clear();
+            _navIndex = -1;
+            _navDirection = 0;
+
+            CollectNavEntries(_desktop.Root);
+
+            if (cursorWasUp && _navEntries.Count > 0) _navIndex = 0;
+
+            //Re-baseline the pointer, or the very next frame reads a move the PLAYER did not make and takes
+            //the cursor straight back down: the game recentres the mouse every frame while it is being played,
+            //so a pause always arrives with the pointer somewhere other than where the menu last saw it. One
+            //poll on a screen change, which is not a per-frame path.
+            MouseState mouse = Mouse.GetState();
+            _navMouseAt = new Point(mouse.X, mouse.Y);
+
+            ApplyNavHighlight();
+        }
+
+        private void CollectNavEntries(Widget widget)
+        {
+            //An entry that is not shown is not an entry — this is what keeps the focus off the resume entry
+            //before there is a session, and off Next Level when the level was not passed
+            if (widget == null || !widget.Visible) return;
+
+            if (widget is Button button)
+            {
+                if (button.Enabled) _navEntries.Add(button);
+
+                //A button's content is its label, never another entry
+                return;
+            }
+
+            //Myra keeps a container's real child list internal, so the walk goes through the public
+            //multiple-items interface — which is every container this menu is built from (Panel,
+            //VerticalStackPanel, Grid). A Label or an Image simply has no children and ends the branch.
+            if (widget is IContainer container)
+                foreach (Widget child in container.Widgets) CollectNavEntries(child);
+        }
+
+        /// <summary>
+        /// Lights the focused entry with the pointer's own hover brush, so a pad-driven menu reads exactly as a
+        /// moused one rather than growing a second visual language. Myra will not do this on its own — its
+        /// <c>OverBackground</c> follows the pointer and nothing else — so the focused entry's resting
+        /// background is swapped instead, which the hover brush then still overrides for the pointer.
+        /// </summary>
+        private void ApplyNavHighlight()
+        {
+            //Exactly one device drives at a time. While the cursor is up the pointer's own hover is switched
+            //OFF, because the pointer does not have to move to sit over an entry — a pause recentres it, and
+            //it lands wherever the column happens to be, lighting a second entry beside the focused one. That
+            //reads as a bug, not as two input devices. Moving the pointer puts the cursor down again (see
+            //UpdateMenuNavigation), which restores the hover in the same pass.
+            bool cursorUp = _navIndex >= 0;
+
+            for (int i = 0; i < _navEntries.Count; i++)
+            {
+                IBrush rest = i == _navIndex ? MENU_BUTTON_OVER_BRUSH : MENU_BUTTON_BRUSH;
+
+                _navEntries[i].Background = rest;
+                _navEntries[i].OverBackground = cursorUp ? rest : MENU_BUTTON_OVER_BRUSH;
+            }
+        }
+
+        /// <summary>
+        /// The menu's directional input: the D-pad, the left stick and the arrow keys move the focus, A or
+        /// Enter presses the focused entry, B backs out exactly as Escape does.
+        /// <para>
+        /// This is what makes the game shippable on a pad at all — it is otherwise fully playable on one (aim
+        /// on the right stick, fire on the right trigger, precise aim on the left), and <c>Buttons.Back</c>
+        /// already opens the pause menu, so without this the pad could open a menu it could not then use.
+        /// </para>
+        /// <para>
+        /// Called only while the window is focused, since a pad reports through XInput whether it is or not —
+        /// the same gate the precise-aim trigger has.
+        /// </para>
+        /// </summary>
+        private void UpdateMenuNavigation(float elapsed, KeyboardState keyboard, GamePadState pad, bool edgeInputAllowed)
+        {
+            if (_navEntries.Count == 0) return;
+
+            //Moving the pointer puts the focus cursor away again: the hover and the cursor use the same
+            //highlight, and two entries lit at once reads as a bug rather than as two input devices
+            MouseState mouse = Mouse.GetState();
+
+            if (Math.Abs(mouse.X - _navMouseAt.X) > NAV_MOUSE_WAKE_PIXELS
+                || Math.Abs(mouse.Y - _navMouseAt.Y) > NAV_MOUSE_WAKE_PIXELS)
+            {
+                _navMouseAt = new Point(mouse.X, mouse.Y);
+
+                if (_navIndex >= 0)
+                {
+                    _navIndex = -1;
+                    ApplyNavHighlight();
+                }
+            }
+
+            int direction = 0;
+
+            if (keyboard.IsKeyDown(Keys.Down) || pad.IsButtonDown(Buttons.DPadDown)
+                || pad.ThumbSticks.Left.Y < -NAV_STICK_DEADZONE) direction = 1;
+            else if (keyboard.IsKeyDown(Keys.Up) || pad.IsButtonDown(Buttons.DPadUp)
+                || pad.ThumbSticks.Left.Y > NAV_STICK_DEADZONE) direction = -1;
+
+            //A held direction steps once, waits, then walks — a stick read per frame would cross the whole
+            //list before the player let go
+            if (direction == 0)
+            {
+                _navDirection = 0;
+            }
+            else if (direction != _navDirection)
+            {
+                _navDirection = direction;
+                _navRepeatDelay = NAV_REPEAT_DELAY;
+                StepNavFocus(direction);
+            }
+            else
+            {
+                _navRepeatDelay -= elapsed;
+
+                if (_navRepeatDelay <= 0f)
+                {
+                    _navRepeatDelay = NAV_REPEAT_INTERVAL;
+                    StepNavFocus(direction);
+                }
+            }
+
+            if (!edgeInputAllowed) return;
+
+            //B is Escape. Read before A, since backing out changes the screen the accept below would act on.
+            if (pad.IsButtonDown(Buttons.B) && !_previousPad.IsButtonDown(Buttons.B))
+            {
+                MenuBack();
+                return;
+            }
+
+            if ((pad.IsButtonDown(Buttons.A) && !_previousPad.IsButtonDown(Buttons.A)) || IsKeyEdge(keyboard, Keys.Enter))
+            {
+                //Pressing accept with the cursor down only raises it. Firing the top entry instead would make
+                //the pad's first press mean whatever happened to be first — "New Game" over a session in
+                //progress, on the very screen that exists to offer Continue.
+                if (_navIndex < 0) StepNavFocus(1);
+                else ActivateNavEntry();
+            }
+        }
+
+        private void StepNavFocus(int direction)
+        {
+            //The first press only shows the cursor, at the top of the list, rather than stepping off nothing
+            _navIndex = _navIndex < 0
+                ? (direction > 0 ? 0 : _navEntries.Count - 1)
+                : (_navIndex + direction + _navEntries.Count) % _navEntries.Count;
+
+            ApplyNavHighlight();
+        }
+
+        /// <summary>
+        /// Presses the focused entry. The action is carried on the button's own <c>Tag</c> because the entries
+        /// are found by walking the widget tree, which has no way back to the delegate handed to
+        /// <see cref="MenuButton"/> — and reaching into Myra's own click plumbing would tie this to a version
+        /// of it. Returns immediately after: the action may swap the screen or tear the session down, and
+        /// <see cref="_navEntries"/> is not the same list afterwards.
+        /// </summary>
+        private void ActivateNavEntry()
+        {
+            if (_navIndex < 0 || _navIndex >= _navEntries.Count) return;
+
+            (_navEntries[_navIndex].Tag as Action)?.Invoke();
+        }
+
+        #endregion
 
         private Widget BuildMainMenuScreen()
         {
@@ -2041,9 +2281,11 @@ namespace BS3D
                 Width = Scaled(MENU_BUTTON_WIDTH),
                 Padding = ScaledThickness(43, 18),
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Background = new SolidBrush(MENU_BUTTON),
-                OverBackground = new SolidBrush(MENU_BUTTON_OVER),
-                PressedBackground = new SolidBrush(MENU_BUTTON_PRESSED),
+                //Shared rather than one brush per button: a brush is a paint recipe with no state of its own,
+                //and the focus highlight swaps between these two by identity (see ApplyNavHighlight)
+                Background = MENU_BUTTON_BRUSH,
+                OverBackground = MENU_BUTTON_OVER_BRUSH,
+                PressedBackground = MENU_BUTTON_PRESSED_BRUSH,
 
                 //Myra's stylesheet gives a button a border of its own, so it has to be explicitly cleared
                 Border = null,
@@ -2051,6 +2293,10 @@ namespace BS3D
             };
 
             button.Click += (_, _) => onClick();
+
+            //The pad and the arrow keys find their entries by walking the widget tree, which has no way back
+            //to this delegate — so it rides on the widget itself. See ActivateNavEntry.
+            button.Tag = onClick;
 
             return button;
         }
@@ -3309,24 +3555,12 @@ namespace BS3D
             {
                 KeyboardState keyboard = Keyboard.GetState();
 
+                GamePadState pad = GamePad.GetState(PlayerIndex.One);
+
                 if (edgeInputAllowed)
                 {
-                    //Escape backs out one level: out of a sub-screen to the screen that opened it, out of the
-                    //pause menu into the game. The main menu has no back — quitting is a menu item, and a front
-                    //end that closes when a key is tapped is one that closes by accident.
-                    //
-                    //The result screen has no back either, and for the same reason: the level has already ended,
-                    //so there is nothing to resume into, and "back one level" has no meaning. Retry, Next Level
-                    //and Main Menu are the only ways off it — Escape does nothing, exactly as it does at the
-                    //front end.
-                    if (IsKeyEdge(keyboard, Keys.Escape)
-                        && _menuScreen != MenuScreen.MainMenu
-                        && _menuScreen != MenuScreen.Result)
-                    {
-                        if (_menuScreen != MenuScreen.Pause)
-                            ShowMenuScreen(_state == GameState.Paused ? MenuScreen.Pause : MenuScreen.MainMenu);
-                        else if (_state == GameState.Paused) ResumeGame();
-                    }
+                    //Escape backs out one level; MenuBack owns which screens have a back at all
+                    if (IsKeyEdge(keyboard, Keys.Escape)) MenuBack();
 
                     //The same two display keys the game has, because a player who wants windowed mode or no
                     //FPS line wants them before pressing Play as much as after
@@ -3334,7 +3568,12 @@ namespace BS3D
                     if (IsKeyEdge(keyboard, Keys.F12)) ToggleFpsOverlay();
                 }
 
+                //After the keys above, so an Escape and a B press in the same frame cannot both act, and
+                //before the snapshots below, which are what its own edge tests are read against
+                UpdateMenuNavigation(elapsed, keyboard, pad, edgeInputAllowed);
+
                 _previousKeyboard = keyboard;
+                _previousPad = pad;
             }
 
             _wasActive = IsActive;
