@@ -14,6 +14,7 @@ using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Levels;
 using Prazsky.BS3D.Physics;
+using Prazsky.BS3D.Scoring;
 using Prazsky.Core;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
@@ -564,6 +565,13 @@ namespace BS3D
         private int _levelIndex;
 
         private const string LEVELS_DIRECTORY = "Levels";
+
+        /// <summary>
+        /// The level's score and ball budget. Built fresh for each level from that entry's rules, so it never
+        /// carries anything across; it holds the rules themselves and this file only feeds it the three events
+        /// a shot goes through.
+        /// </summary>
+        private ScoreKeeper _score = new();
 
         #endregion
 
@@ -1806,6 +1814,14 @@ namespace BS3D
             _eventHandler = new BallContactEventHandler(_simulation, _events, _ceiling, _map, _physicsBalls,
                 _shotBalls, _fallingBalls, _clusterWorldOffset);
 
+            //The handler reports what a shot did; what it is worth is the scorer's business. Subscribed on the
+            //handler the level just built, and the handler is rebuilt with it, so there is nothing to unhook.
+            //Both go through a method that reads _score rather than binding the instance the field happens to
+            //hold now: the scorer is replaced per level, and a handler holding a stale one would score into a
+            //keeper nothing reads.
+            _eventHandler.BallLanded += OnBallLanded;
+            _eventHandler.ShotSpent += OnShotSpent;
+
             Console.WriteLine($"[game] {_map.GetBallsCount()} balls in the cluster, "
                 + $"{_simulation.Solver.CountConstraints()} constraints");
         }
@@ -1906,7 +1922,44 @@ namespace BS3D
             _levelBallTypes = CollectLevelBallTypes(_map);
 
             for (int i = 0; i < MAGAZINE_SIZE; i++) _magazine[i] = RandomBallType();
+
+            //A fresh scorer per level, holding that entry's rules. Built even when the level fell back to the
+            //built-in map, which then has no rules at all and so an unlimited budget — the same thing an entry
+            //that authors no "shots" means.
+            _score = new ScoreKeeper(LevelShotBudget(index));
         }
+
+        /// <summary>
+        /// A shot has landed in the lattice, having cut <paramref name="released"/> loose. Zero of both means
+        /// it stuck without completing a group, which the scorer treats as a spent shot.
+        /// </summary>
+        private void OnBallLanded(BallsReleased released)
+        {
+            ScoreAward award = _score.Landed(released.Matched, released.Orphaned);
+
+            //Temporary: until the HUD (#60) exists there is nowhere to show this, and a score that is counted
+            //but never seen is indistinguishable from one that is not counted at all. A shot that dropped
+            //nothing logs nothing — the reset still shows, as the next scoring shot coming back at ×1.
+            //Spelled out in ASCII rather than through ScoreAward.ToString(), whose "x" is a proper multiplication
+            //sign: the console this lands in is a legacy code page and mangles anything outside it.
+            if (award.Scored)
+                Console.WriteLine($"[score] {released} -> +{award.Points} x{award.Multiplier}"
+                    + $"  score {_score.Score} (base {_score.BaseScore} + streak {_score.StreakBonus})"
+                    + $", next x{_score.Multiplier}"
+                    + $", balls left {(_score.ShotsRemaining?.ToString() ?? "unlimited")}");
+        }
+
+        /// <summary>A shot is over without having landed. The streak breaks.</summary>
+        private void OnShotSpent() => _score.Missed();
+
+        /// <summary>
+        /// The ball budget the entry at <paramref name="index"/> grants, or null for unlimited — which is what
+        /// an absent <c>shots</c> rule, an index outside the set and a missing set all mean. This is the read
+        /// site the nullable rule is documented against: the set records only that a rule is absent, and this
+        /// is where the game says what absent means.
+        /// </summary>
+        private int? LevelShotBudget(int index) =>
+            _levelSet != null && index >= 0 && index < _levelSet.Count ? _levelSet.Levels[index].Shots : null;
 
         /// <summary>
         /// Derives everything the loaded field's size and depth decide. See <see cref="_clusterWorldOffset"/>
@@ -2582,6 +2635,12 @@ namespace BS3D
 
             _shotBalls.Add(ball);
 
+            //The ball is spent the instant it leaves the barrel. What it *did* takes a physics step or more to
+            //resolve, so the budget and the score are driven by different events on purpose — see ScoreKeeper.
+            //Nothing refuses the shot when the budget is empty: that is the lose condition's job, not the
+            //scorer's, and there is no lose condition yet.
+            _score.Shot();
+
             //Registered after the body exists, since a listener is keyed on its collidable reference
             _events.Register(_simulation.Bodies[handle].CollidableReference, _eventHandler);
 
@@ -2667,7 +2726,16 @@ namespace BS3D
                 BodyReference body = balls[i].BallReference;
                 if (body.Pose.Position.Y >= KILL_PLANE_Y) continue;
 
-                if (unregisterListeners && _events.IsListener(body.CollidableReference)) _events.Unregister(body.CollidableReference);
+                if (unregisterListeners && _events.IsListener(body.CollidableReference))
+                {
+                    //Still listening means the shot never resolved: it missed the island as well as the
+                    //cluster and fell straight past everything into the city. The far rarer of the two misses
+                    //— a shot that strikes the stone is spent the moment it does (see the handler) — but it is
+                    //what makes "every shot resolves exactly once" true rather than nearly true.
+                    _score.Missed();
+
+                    _events.Unregister(body.CollidableReference);
+                }
 
                 _simulation.Bodies.Remove(body.Handle);
                 balls.RemoveAt(i);

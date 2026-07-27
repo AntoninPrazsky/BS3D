@@ -3309,10 +3309,10 @@ namespace Testbed
 
             #region Same-type cluster removal
 
-            int releasedBalls = BallsConstraintsBuilder.ReleaseSameTypeCluster(physicsBall, PhysicsBalls, Map, Simulation, FallingBalls);
+            BallsReleased releasedBalls = BallsConstraintsBuilder.ReleaseSameTypeCluster(physicsBall, PhysicsBalls, Map, Simulation, FallingBalls);
 
 #if DEBUG
-            if (releasedBalls > 0) Console.WriteLine($"Released a cluster of {releasedBalls} balls of type {physicsBall.Type}");
+            if (releasedBalls.Any) Console.WriteLine($"Released a cluster of type {physicsBall.Type}: {releasedBalls}");
 #endif
 
             #endregion

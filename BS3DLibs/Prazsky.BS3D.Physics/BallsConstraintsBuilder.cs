@@ -179,11 +179,15 @@ namespace Prazsky.BS3D.Physics
         /// falls, falls as individual unconstrained balls.
         /// </summary>
         /// <param name="releasedInto">Released balls are added here so the caller can keep drawing (and later dispose of) them.</param>
-        /// <returns>Total number of released balls, or 0 when the cluster is below the minimum size.</returns>
-        public static int ReleaseSameTypeCluster(PhysicsBall attachedBall, PhysicsBall[,,] physicsBalls, BallsMap map, Simulation simulation, List<PhysicsBall> releasedInto)
+        /// <returns>
+        /// The two kinds of released ball, kept apart rather than summed (see <see cref="BallsReleased"/>): a
+        /// scorer has to be able to tell the group the player aimed at from everything that fell because they
+        /// cut its support. Zero of both when the cluster is below the minimum size.
+        /// </returns>
+        public static BallsReleased ReleaseSameTypeCluster(PhysicsBall attachedBall, PhysicsBall[,,] physicsBalls, BallsMap map, Simulation simulation, List<PhysicsBall> releasedInto)
         {
             List<XZLevel> cluster = map.GetConnectedSameTypeCells(attachedBall.ArrayPosition);
-            if (cluster.Count < MINIMUM_CLUSTER_SIZE) return 0;
+            if (cluster.Count < MINIMUM_CLUSTER_SIZE) return default;
 
             XZLevel size = map.GetStaticBallsArraySize();
             List<ConstraintHandle> handleBuffer = new();
@@ -197,7 +201,7 @@ namespace Prazsky.BS3D.Physics
             foreach (XZLevel cell in disconnected)
                 ReleaseBall(cell, physicsBalls, map, simulation, size, handleBuffer, releasedInto);
 
-            return cluster.Count + disconnected.Count;
+            return new BallsReleased(cluster.Count, disconnected.Count);
         }
 
         /// <summary>

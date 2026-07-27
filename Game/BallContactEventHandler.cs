@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Physics;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 
@@ -57,6 +58,20 @@ namespace BS3D
             _worldOffset = worldOffset;
         }
 
+        /// <summary>
+        /// Raised once for a shot that landed in the lattice, with what it cut loose (zero of both when it
+        /// stuck without completing a group). The handler reports and does not score: what a landing is worth
+        /// is a rule, and rules live in <c>ScoreKeeper</c>.
+        /// </summary>
+        public event Action<BallsReleased> BallLanded;
+
+        /// <summary>
+        /// Raised once for a shot that is over without having landed — it hit the island, the drain or the
+        /// glass. Together with <see cref="BallLanded"/> and the kill-plane cull in the game, every shot
+        /// resolves exactly once, which is what a streak rule needs to be able to rely on.
+        /// </summary>
+        public event Action ShotSpent;
+
         private readonly ConcurrentQueue<QueuedContact> _queuedContacts = new();
 
         private readonly struct QueuedContact
@@ -102,6 +117,13 @@ namespace BS3D
         {
             CollidablePair pair = contact.Pair;
 
+            //Read BEFORE the unregister below, because that is what makes reporting a spent shot once-only:
+            //the same timestep can queue several contacts for one ball, and only the first of them finds it
+            //still listening. A ball stops being a listener exactly when its shot is over — on attaching, on
+            //touching something it cannot attach to, or on being culled — so this flag is the resolution
+            //guard for free, with no per-ball state to keep anywhere.
+            bool wasListening = _contactEvents.IsListener(contact.EventSource);
+
             //A ball that has touched anything static or kinematic has had its shot: it hit the island, the
             //drain or the glass, and it is no longer a candidate for attaching. Stop listening to it — the
             //same timestep can queue several contacts for one ball, so the listener may already be gone.
@@ -124,7 +146,16 @@ namespace BS3D
             //either — so this is where a shot that missed the cluster ends. It also has to come before the
             //world contact is rebuilt below: a static's CollidableReference carries no meaningful BodyHandle,
             //and indexing Bodies with one reads an unrelated slot of an unchecked buffer.
-            if (pair.A.Mobility == CollidableMobility.Static || pair.B.Mobility == CollidableMobility.Static) return false;
+            if (pair.A.Mobility == CollidableMobility.Static || pair.B.Mobility == CollidableMobility.Static)
+            {
+                //Resolved here rather than when the ball is finally culled, and that is the point: the player
+                //knows they missed the instant the ball strikes the stone, so the streak has to break then and
+                //not forty units of falling later. It also closes the case of a shot that comes to rest ON the
+                //island and is therefore never culled at all — it touched the stone, so it is already spent.
+                if (wasListening) ShotSpent?.Invoke();
+
+                return false;
+            }
 
             //A manifold offset is relative to the position of the pair's FIRST collidable, not to either
             //body's own — so the world contact is pair.A's position plus the offset, whichever of the two
@@ -192,7 +223,11 @@ namespace BS3D
 
             //And the game rule: three or more of a colour touching each other let go, and so does anything
             //that was only held up by them
-            BallsConstraintsBuilder.ReleaseSameTypeCluster(physicsBall, _physicsBalls, _map, _simulation, _fallingBalls);
+            BallsReleased released = BallsConstraintsBuilder.ReleaseSameTypeCluster(physicsBall, _physicsBalls, _map, _simulation, _fallingBalls);
+
+            //Reported whether or not anything fell: a shot that stuck without completing a group is still a
+            //resolved shot, and the streak rule has to hear about it.
+            BallLanded?.Invoke(released);
 
             return true;
         }
