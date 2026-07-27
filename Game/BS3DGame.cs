@@ -1,9 +1,14 @@
 using BepuPhysics;
 using BepuPhysics.Collidables;
 using BepuUtilities.Memory;
+using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Myra;
+using Myra.Graphics2D;
+using Myra.Graphics2D.Brushes;
+using Myra.Graphics2D.UI;
 using Prazsky.BS3D.GameObjects;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
@@ -14,6 +19,11 @@ using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Reflection;
+using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
+using Label = Myra.Graphics2D.UI.Label;
 using static Prazsky.BS3D.Physics.Simu;
 
 //BepuUtilities is deliberately NOT imported: it carries its own Matrix and MathHelper, which would make every
@@ -84,8 +94,13 @@ namespace BS3D
 
         private readonly GraphicsDeviceManager _graphics;
         private readonly bool _uncappedFps;
-        private readonly int _supersampleFactor;
-        private readonly float _exposure;
+
+        //Seeded from the command line and then owned by the settings screen: supersampling resizes the scene
+        //target (EnsureSceneTarget compares dimensions, so changing the factor is what recreates it) and the
+        //exposure is one uniform on the tonemap. Both are the dials a weak machine and a bright monitor reach
+        //for first, which is exactly why they are in the menu rather than only in argv.
+        private int _supersampleFactor;
+        private float _exposure;
         private bool _fullscreen;
 
         private RecoilCamera _camera;
@@ -163,8 +178,33 @@ namespace BS3D
         #region Scene
 
         //Dome 13 is the violet/teal dusk. The neon city reads best under a dark sky — the facades stay dark
-        //under any dome, so a bright one only fights the neon it is meant to set off.
-        private const int SKY_DOME = 13;
+        //under any dome, so a bright one only fights the neon it is meant to set off. It is the default the
+        //game starts on; the sky setting cycles the whole set, and two scenes bring a dome of their own.
+        private const byte SKY_DOME_COUNT = 18;
+        private const byte DEFAULT_SKY_DOME = 13;
+
+        //The sea mirrors the sky, so its whole mood follows the dome and a bright one gives a breezy sea
+        //rather than a moody one; the savanna wants the set's warmest gold horizon. The Testbed's own figures.
+        private const byte SEA_SKY_DOME = 13;
+        private const byte SAVANNA_SKY_DOME = 14;
+
+        private byte _skyDome = DEFAULT_SKY_DOME;
+
+        /// <summary>
+        /// Which of the seven settings the frame stands in — the backdrop the menu's camera orbits and the
+        /// one the game is then played in, since the player picks it from the menu and it stays picked. The
+        /// city and the neon city are the procedural <see cref="City"/> under two lightings; the other five
+        /// are the shared <see cref="SceneRenderer"/>'s self-lit backdrops, the same ones the Testbed and the
+        /// map editor draw.
+        /// </summary>
+        private SceneKind _scene = SceneKind.NeonCity;
+
+        //Every value of the enum, in its declared order (City, Sea, Savanna, Desert, Mountain, Meadow,
+        //NeonCity). Written out rather than counted with Enum.GetValues so nothing walks reflection at load,
+        //and so the scene menu's labels below can be indexed by the same number.
+        private const int SCENE_COUNT = 7;
+
+        private SceneRenderer _sceneRenderer;
 
         private SkyDome _sky;
         private Effect _skyEffect;
@@ -273,10 +313,37 @@ namespace BS3D
         private InstancedModelRenderer _islandRenderer;
         private Matrix _islandWorld;
 
+        //The dark pit shaft behind the glass drain, in the four solid-terrain scenes only (the Testbed's own,
+        //figures included). Those scenes are a flat clearing at the island's foot, so their ground plane would
+        //slice straight across the funnel just under its rim; the terrain shaders cut the island's footprint
+        //out of it (TerrainHoleRadius), and this near-black cone then backs the ~55 %-opaque glass so the
+        //drain reads as a deep well rather than as a glass ring over bright sky haze. It must HUG the funnel —
+        //it shares the mouth and descends just outside it — or it hides behind the stone ring and the bright
+        //hole shows through the narrow aperture anyway. Visual only; the funnel mesh is still the only floor.
+        private static readonly float TERRAIN_HOLE_RADIUS = ISLAND_RADIUS - 2f;  //tucked under the stone edge, no gap
+        private static readonly float PIT_BOTTOM_Y = -46f;                       //below KILL_PLANE_Y, so balls vanish inside the pit
+        private static readonly float PIT_HOLE_RADIUS = 1.2f;                    //nearly closed: a dark receding throat
+        private static readonly Vector3 PIT_COLOR = new(0.03f, 0.03f, 0.035f);   //near-black, a touch cool
+
+        private FunnelMesh _pitMesh;
+        private InstancedModelRenderer _pitRenderer;
+        private Matrix _pitWorld;
+
+        //Lights a scene carries of its own, on top of the sun and the dome-derived ambient — real lights that
+        //illuminate, not emissive surfaces that only glow. Two scenes have them: the neon city's ring of
+        //magenta and cyan around the island, and the savanna's campfire. Rebuilt per frame (the campfire
+        //flickers), so the parameter references are cached rather than looked up by name each time.
         private const int MAX_SCENE_LIGHTS = 8;
         private readonly Vector3[] _sceneLightPos = new Vector3[MAX_SCENE_LIGHTS];
         private readonly Vector3[] _sceneLightColor = new Vector3[MAX_SCENE_LIGHTS];
         private readonly float[] _sceneLightRange = new float[MAX_SCENE_LIGHTS];
+
+        private EffectParameter _sceneLightPositionParam, _sceneLightColorParam, _sceneLightRangeParam, _sceneLightCountParam;
+
+        //What was last pushed. A scene with no lights only has to send the zero once — the arrays are not
+        //touched while the count is zero, so re-sending them every frame writes four parameters that cannot
+        //have changed. Starts at -1, so the first frame always pushes, whatever the scene turns out to be.
+        private int _lastSceneLightCount = -1;
 
         #endregion
 
@@ -540,7 +607,156 @@ namespace BS3D
 
         private MouseState _previousMouse;
         private KeyboardState _previousKeyboard;
+        private GamePadState _previousPad;
         private bool _mouseAimInitialized;
+
+        #endregion
+
+        #region The menu (Myra)
+
+        //The game's three coarse states, gated at the top of Update and Draw. Menu is the launch state: a
+        //camera orbiting one of the seven scenes with the front end over it, and no session at all. Playing
+        //is the game loop. Paused freezes the session and puts the pause menu over the frame it stopped on.
+        //The split is the seam the whole menu is built around — every gameplay path (input, physics,
+        //shooting, the game camera) sits behind it, so the menu never has to fight the game for anything.
+        private enum GameState { Menu, Playing, Paused }
+
+        private enum MenuScreen { MainMenu, Settings, SceneSelect, About, Pause }
+
+        private GameState _state = GameState.Menu;
+        private MenuScreen _menuScreen = MenuScreen.MainMenu;
+
+        //True once the physics world, the ceiling body and the cluster have been built. They are deferred out
+        //of LoadContent and built on the first "Play" — the simulation is the expensive part of starting up,
+        //and there is no point paying for it before the player has chosen to play. It is also what tells the
+        //main menu whether there is a session to go back to, and what keeps Draw off a cluster that is not
+        //there: every gameplay object is drawn behind this flag.
+        private bool _gameBuilt;
+
+        //The Myra host. Rendered as the very last thing in Draw (after the tonemap resolve and base.Draw),
+        //straight to the back buffer — the same place the map editor puts it. Render() also processes Myra's
+        //own mouse/keyboard input, so it is only called in Menu/Paused, where the game's own input stands down.
+        private Desktop _desktop;
+
+        //The five screens, built once at load and swapped into _desktop.Root as the player navigates. Building
+        //them once rather than per frame keeps the menu out of the frame loop's allocation path.
+        private Widget _mainMenuRoot, _settingsRoot, _sceneSelectRoot, _aboutRoot, _pauseRoot;
+
+        //Widgets the menu writes back into: the resume entry only exists while there is a session to resume,
+        //the settings screen shows each value on its own button, and the scene list marks the one in use.
+        private Button _resumeButton;
+        private Label _playLabel;
+        private Label _fullscreenValue, _ssaaValue, _exposureValue, _skyValue, _fpsValue;
+        private readonly Label[] _sceneLabels = new Label[SCENE_COUNT];
+
+        //Inter (SIL OFL), through FontStashSharp. Myra's embedded stylesheet carries a small bitmap font that
+        //is fine for a tool panel and much too coarse for a game's title, so the menu brings its own; it is
+        //embedded in the assembly, so there is no path to get wrong and nothing to install. Each size is a
+        //separate rasterized atlas, so they are resolved once at load rather than per label.
+        //
+        //Two systems, not two fonts in one: FontStashSharp falls back through a system's fonts glyph by
+        //glyph, so a bold added beside the regular would never be reached — the regular has every glyph.
+        //Picking a weight means picking a system.
+        private FontSystem _menuFontSystem, _menuFontSystemBold;
+        private SpriteFontBase _menuFontBody, _menuFontSmall, _menuFontHeading, _menuFontTitle;
+
+        //The menu camera orbits the scene's origin in XZ. The angle is advanced by elapsed seconds, never by
+        //a frame count, so the turn takes the same time on any machine.
+        private float _menuAngle;
+
+        //The orbit sits well outside the island (radius 26) so the whole platform reads with the backdrop
+        //around it, and close to level with its target so the frame is a look across the scene rather than
+        //down onto it — which is what shows most of a city, a sea or a mountain range at once.
+        private const float MENU_CAM_RADIUS = 44f;
+        private const float MENU_CAM_HEIGHT = 3f;
+        private const float MENU_TARGET_Y = 5f;
+
+        //About a full turn every 90 s: slow enough to read as ambience rather than as a turntable.
+        private const float MENU_ROTATION_SPEED = MathHelper.TwoPi / 90f;
+
+        private static readonly float MENU_FOV = MathF.PI / 3f;  //60°: wide, to take in the scene behind the panel
+
+        //The menu is deliberately GREYSCALE — no hue anywhere, and no coloured frames. It has to sit over
+        //seven backdrops whose palettes are nothing alike (a neon city, an ochre desert, a blue sea, white
+        //peaks, green meadow), and any accent colour that reads as the game's own over one of them fights
+        //the next. Neutral black-to-white belongs over all of them equally: emphasis is carried by
+        //brightness and by opacity, which is legible against any hue.
+        //
+        //Display-space sRGB throughout: Myra draws to the back buffer, after the frame's one and only exit
+        //from linear light.
+        private static readonly Color MENU_TEXT = new(244, 244, 244);        //the active thing on a screen
+        private static readonly Color MENU_TEXT_BODY = new(208, 208, 208);   //prose, a shade under a heading
+        private static readonly Color MENU_TEXT_DIM = new(146, 146, 146);    //asides, always on a dark plate
+
+        //Buttons: a dark slab at rest that the pointer lifts a step up the grey ramp, so the highlight is
+        //brightness and not hue. Each of these REPLACES the one before it rather than being laid over it
+        //(Myra picks one brush per state), so they all have to be opaque enough to hide the scene behind
+        //them — a translucent hover would show the backdrop through the entry the pointer is on, which is
+        //exactly the one that has to read clearly. They stay dark, because the label on top of them is white.
+        private static readonly Color MENU_BUTTON = new(11, 11, 11, 212);
+        private static readonly Color MENU_BUTTON_OVER = new(72, 72, 72, 232);
+        private static readonly Color MENU_BUTTON_PRESSED = new(120, 120, 120, 240);
+
+        //A pause dims the whole frame, because what is behind it is a stopped game and the menu is the thing
+        //to look at. The front end does NOT: there the rotating scene is the point of the screen, and a
+        //full-screen wash over it throws away the one thing that screen exists to show. Its legibility comes
+        //from the widgets instead — the entries are near-opaque slabs and the prose sits on a plate.
+        private static readonly Color PAUSE_SCRIM = new(0, 0, 0, 176);
+
+        //Behind prose, where a slab alone cannot hold a line of small text steady over a moving scene
+        private static readonly Color MENU_PLATE = new(0, 0, 0, 190);
+
+        //Held rather than made per navigation: the shared screens swap between this and no scrim at all,
+        //depending on whether they were opened from the front end or from a pause.
+        private readonly SolidBrush _pauseScrimBrush = new(PAUSE_SCRIM);
+
+        /// <summary>
+        /// The height the menu is laid out for, in the same spirit as <see cref="InfoRenderer"/>'s overlay:
+        /// every size in the menu is a 2160p figure put through <see cref="Scaled"/> at build time. Myra
+        /// measures in pixels, so without this the menu would keep its pixel size and shrink to a postage
+        /// stamp on a 4K screen — against the game's own resolution policy, and against the FPS line beside
+        /// it, which is authored exactly this way.
+        /// <para>
+        /// It is done by re-resolving the sizes rather than by <c>Desktop.Scale</c>: scaling the desktop also
+        /// scales the full-screen scrim, which then stops covering the frame.
+        /// </para>
+        /// </summary>
+        private const int MENU_DESIGN_HEIGHT = 2160;
+
+        /// <summary>
+        /// How much the viewport has to change before the widget tree is rebuilt at the new size, in pixels
+        /// of height. A live window drag reports a new size every frame, and each rebuild asks the font
+        /// system for glyphs at another size; quantizing bounds a drag across the whole screen to a couple of
+        /// dozen rebuilds instead of hundreds, and the sizes are never more than this far out meanwhile.
+        /// </summary>
+        private const int MENU_REBUILD_QUANTUM = 32;
+
+        private float _menuScale = 1f;
+        private int _menuBuiltForHeight = -1;
+
+        //Design units: pixels at 2160p, put through Scaled() wherever they reach a widget
+        private const int MENU_BUTTON_WIDTH = 1000;
+        private const int SETTING_VALUE_WIDTH = 560;
+        private const int ABOUT_TEXT_WIDTH = 1860;
+        private const int MENU_COLUMN_SPACING = 26;
+
+        //Entries are read at a glance and from across a room, so the type is set large. The title is set very
+        //large, because it is a logo and not a label.
+        private const int MENU_FONT_SMALL = 58;
+        private const int MENU_FONT_BODY = 80;
+        private const int MENU_FONT_HEADING = 124;
+        private const int MENU_FONT_TITLE = 300;
+
+        //The exposure ladder the settings button walks. Centred on DEFAULT_EXPOSURE, wide enough either way
+        //to matter on a dim laptop panel and on a bright monitor without ever crushing or blowing the frame.
+        private const float EXPOSURE_MIN = 0.7f;
+        private const float EXPOSURE_MAX = 1.5f;
+        private const float EXPOSURE_STEP = 0.2f;
+
+        //In the declared order of SceneKind (City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity), so the
+        //scene list can be indexed by the enum's own value
+        private static readonly string[] SCENE_NAMES =
+            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City" };
 
         #endregion
 
@@ -594,7 +810,10 @@ namespace BS3D
             //resize event, and the overlay's scale is derived from the viewport
             _info?.RecomputeScale();
 
-            IsMouseVisible = false;
+            //The cursor is captured for aiming only while a game is actually running; in the menu it is the
+            //pointer the player clicks with. This runs from the constructor too, before the device exists,
+            //where the field initialiser has already put the state at Menu.
+            IsMouseVisible = _state != GameState.Playing;
             IsFixedTimeStep = false;
         }
 
@@ -602,7 +821,8 @@ namespace BS3D
         {
             if (_camera != null) _camera.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
 
-            //The overlay is authored for 2160p and scaled to the viewport, so a resize has to re-derive it
+            //The overlay is authored for 2160p and scaled to the viewport, so a resize has to re-derive it.
+            //The menu is authored the same way, and refits itself in Draw (EnsureMenuLayout).
             _info?.RecomputeScale();
 
             EnsureSceneTarget();
@@ -654,6 +874,12 @@ namespace BS3D
             _tonemapGlareTextureParam = _tonemapEffect.Parameters["GlareTexture"];
             _tonemapSceneTextureParam = _tonemapEffect.Parameters["SceneTexture"];
             _tonemapSourceTexelSizeParam = _tonemapEffect.Parameters["SourceTexelSize"];
+
+            //Re-sent every frame (the savanna's campfire flickers), so the by-name scans are done once here
+            _sceneLightPositionParam = _instancingEffect.Parameters["SceneLightPosition"];
+            _sceneLightColorParam = _instancingEffect.Parameters["SceneLightColor"];
+            _sceneLightRangeParam = _instancingEffect.Parameters["SceneLightRange"];
+            _sceneLightCountParam = _instancingEffect.Parameters["SceneLightCount"];
 
             //Fixed for the whole run, so they are set exactly once: a parameter's value persists on the
             //effect, and re-sending a constant every frame bought nothing
@@ -714,39 +940,527 @@ namespace BS3D
 
             #endregion
 
+            //The five self-lit backdrops, shared with the Testbed and the map editor — one copy of every
+            //scene shader, built out of the Testbed's content directory. The hole radius is fixed (the island
+            //never moves or resizes here), so it is set once rather than per frame.
+            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content) { TerrainHoleRadius = TERRAIN_HOLE_RADIUS };
+
             BuildScene();
 
-            //The simulation, the ceiling body and the funnel floor first: the cluster's bodies are constrained
-            //to the ceiling, so it has to exist before they are built.
-            BuildPhysicsWorld();
-            BuildCluster();
+            //Note the simulation, the ceiling body and the cluster are NOT built here: they are the expensive
+            //part of starting up and belong to a play session, so StartGame builds them on the first "Play"
+            //and rebuilds them for a new game. Everything above is the scene, which the menu also stands in.
 
             _skyEffect = Content.Load<Effect>("Shaders/Sky");
             _skyCameraPositionParam = _skyEffect.Parameters["CameraPosition"];
-            _sky = new SkyDome(Content.Load<Model>("Skyes/SkyDome" + SKY_DOME), GraphicsDevice, linearVertexColors: true)
+            _sky = new SkyDome(Content.Load<Model>("Skyes/SkyDome" + _skyDome), GraphicsDevice, linearVertexColors: true)
             {
                 Effect = _skyEffect
             };
 
             SetCloudParameters();
-            ApplySkyLighting();
-            ApplyNeonLights();
+
+            //A different one of the seven every launch, so the front end is not the same picture twice. It
+            //also sets the dome and the city's lighting, and ends in ApplySkyLighting — which is why nothing
+            //derives the light rig before this point.
+            SetScene((SceneKind)RANDOM.Next(SCENE_COUNT));
 
             EnsureSceneTarget();
 
-            Console.WriteLine($"[game] {_city.Buildings.Length} buildings, {_map.GetBallsCount()} balls in the cluster, "
-                + $"{_simulation.Solver.CountConstraints()} constraints, dome {SKY_DOME}");
+            Console.WriteLine($"[game] {_city.Buildings.Length} buildings, scene {_scene}, dome {_skyDome}");
+
+            BuildMenu();
+        }
+
+        #region The menu's screens
+
+        /// <summary>
+        /// Boots Myra and builds the five screens. Called once at the end of <see cref="LoadContent"/>: the
+        /// menu is drawn over the live scene, so everything it stands on has to exist first. Each screen is
+        /// built once here and swapped into <see cref="_desktop"/>.Root as the player navigates, which is what
+        /// keeps the menu out of the frame loop's allocation path.
+        /// </summary>
+        private void BuildMenu()
+        {
+            MyraEnvironment.Game = this;
+
+            //Inter (SIL OFL 1.1), embedded in the assembly so there is no path to get wrong and nothing to
+            //install. Myra's own stylesheet carries a small bitmap font, which is fine for a tool panel and
+            //far too coarse for a title. Each size is rasterized into its own atlas by GetFont, so they are
+            //resolved once here rather than per label.
+            _menuFontSystem = LoadEmbeddedFont("BS3D.Content.Fonts.Inter-Regular.ttf");
+            _menuFontSystemBold = LoadEmbeddedFont("BS3D.Content.Fonts.Inter-Bold.ttf");
+
+            _desktop = new Desktop();
+
+            EnsureMenuLayout();
         }
 
         /// <summary>
-        /// The neon city and the island it leaves a clearing for. One unit box under a different instance
-        /// matrix per building, so the whole skyline is a single instanced draw call.
+        /// Builds the widget tree at the viewport's current size, and rebuilds it when that size has moved
+        /// far enough to matter. Called from <see cref="Draw"/> right before the menu is rendered rather than
+        /// hooked onto the resize event, so there is one place it can be out of date and it is the frame that
+        /// is about to draw it — a fullscreen switch, a window drag and the first frame all come through here.
+        /// </summary>
+        private void EnsureMenuLayout()
+        {
+            int height = GraphicsDevice.Viewport.Height;
+            int quantized = height / MENU_REBUILD_QUANTUM;
+
+            if (quantized == _menuBuiltForHeight) return;
+
+            _menuBuiltForHeight = quantized;
+            _menuScale = height / (float)MENU_DESIGN_HEIGHT;
+
+            //Each size is its own rasterized atlas, so they are asked for once per rebuild and not per label.
+            //Quantizing the rebuild is what keeps a drag from asking for a hundred slightly different sizes.
+            _menuFontSmall = _menuFontSystem.GetFont(Scaled(MENU_FONT_SMALL));
+            _menuFontBody = _menuFontSystem.GetFont(Scaled(MENU_FONT_BODY));
+            _menuFontHeading = _menuFontSystemBold.GetFont(Scaled(MENU_FONT_HEADING));
+            _menuFontTitle = _menuFontSystemBold.GetFont(Scaled(MENU_FONT_TITLE));
+
+            _mainMenuRoot = BuildMainMenuScreen();
+            _settingsRoot = BuildSettingsScreen();
+            _sceneSelectRoot = BuildSceneSelectScreen();
+            _aboutRoot = BuildAboutScreen();
+            _pauseRoot = BuildPauseScreen();
+
+            //Re-asserts the screen the player was on onto the freshly built widgets, and with it everything
+            //ShowMenuScreen keeps in step — the resume entry, the setting values, the marked scene
+            ShowMenuScreen(_menuScreen);
+        }
+
+        /// <summary>A 2160p design figure at the viewport's actual size. Never below one pixel.</summary>
+        private int Scaled(int designUnits) => Math.Max(1, (int)MathF.Round(designUnits * _menuScale));
+
+        private Thickness ScaledThickness(int horizontal, int vertical) =>
+            new(Scaled(horizontal), Scaled(vertical));
+
+        private Thickness ScaledThickness(int left, int top, int right, int bottom) =>
+            new(Scaled(left), Scaled(top), Scaled(right), Scaled(bottom));
+
+        /// <summary>Reads one TTF out of the assembly's own resources into a <see cref="FontSystem"/>.</summary>
+        private static FontSystem LoadEmbeddedFont(string resourceName)
+        {
+            FontSystem system = new();
+
+            using Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
+            using MemoryStream buffer = new();
+
+            stream.CopyTo(buffer);
+            system.AddFont(buffer.ToArray());
+
+            return system;
+        }
+
+        /// <summary>
+        /// Puts a screen up. Everything that has to agree with the game's current state — whether there is a
+        /// session to resume, what each setting reads, which scene is in use — is refreshed here rather than
+        /// per frame, because a screen can only change while it is being shown.
+        /// </summary>
+        private void ShowMenuScreen(MenuScreen screen)
+        {
+            _menuScreen = screen;
+
+            switch (screen)
+            {
+                case MenuScreen.MainMenu:
+                    //Resuming is only offered when there is something to resume, and the play entry says
+                    //plainly that pressing it again deals a new cluster rather than continuing this one
+                    _resumeButton.Visible = _gameBuilt;
+                    _playLabel.Text = _gameBuilt ? "New Game" : "Play";
+                    _desktop.Root = _mainMenuRoot;
+                    break;
+
+                case MenuScreen.Settings:
+                    RefreshSettingsLabels();
+
+                    //The three shared screens are reached from the front end and from a pause alike, and the
+                    //dimming behind them belongs to where they were opened from: light over a scene that is
+                    //the point of the picture, heavy over a frozen game that is not.
+                    _settingsRoot.Background = CurrentScrim();
+                    _desktop.Root = _settingsRoot;
+                    break;
+
+                case MenuScreen.SceneSelect:
+                    MarkSelectedScene();
+                    _sceneSelectRoot.Background = CurrentScrim();
+                    _desktop.Root = _sceneSelectRoot;
+                    break;
+
+                case MenuScreen.About:
+                    _aboutRoot.Background = CurrentScrim();
+                    _desktop.Root = _aboutRoot;
+                    break;
+
+                case MenuScreen.Pause:
+                    _desktop.Root = _pauseRoot;
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// The dimming a shared screen gets: the pause scrim over a stopped game, and <b>none at all</b> over
+        /// the front end's live scene — see the palette for why. A null background simply draws nothing.
+        /// </summary>
+        private IBrush CurrentScrim() => _state == GameState.Paused ? _pauseScrimBrush : null;
+
+        /// <summary>Back out of a sub-screen to whichever menu opened it.</summary>
+        private void BackFromSubScreen() =>
+            ShowMenuScreen(_state == GameState.Paused ? MenuScreen.Pause : MenuScreen.MainMenu);
+
+        private Widget BuildMainMenuScreen()
+        {
+            VerticalStackPanel column = MenuColumn();
+
+            //The title carries no plate and no frame: at this size the letters are their own mass, and a
+            //frame around them would be one more thing competing with whichever scene is turning behind it.
+            column.Widgets.Add(new Label
+            {
+                Text = "BS3D",
+                Font = _menuFontTitle,
+                TextColor = MENU_TEXT,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+            column.Widgets.Add(new Label
+            {
+                Text = "3D PUZZLE BOBBLE",
+                Font = _menuFontSmall,
+
+                //Not the dim grey the asides use: this one sits over open sky with no plate under it, and a
+                //bright dome would swallow it
+                TextColor = MENU_TEXT_BODY,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = ScaledThickness(0, 0, 0, 60),
+            });
+
+            _resumeButton = MenuButton("Continue", () => StartGame(newGame: false));
+            column.Widgets.Add(_resumeButton);
+
+            column.Widgets.Add(MenuButton("Play", () => StartGame(newGame: true), out _playLabel));
+            column.Widgets.Add(MenuButton("Scene", () => ShowMenuScreen(MenuScreen.SceneSelect)));
+            column.Widgets.Add(MenuButton("Settings", () => ShowMenuScreen(MenuScreen.Settings)));
+            column.Widgets.Add(MenuButton("About", () => ShowMenuScreen(MenuScreen.About)));
+            column.Widgets.Add(MenuButton("Quit", Exit));
+
+            return ScreenRoot(column, scrim: null);
+        }
+
+        private Widget BuildPauseScreen()
+        {
+            VerticalStackPanel column = MenuColumn();
+
+            column.Widgets.Add(ScreenHeading("PAUSED"));
+            column.Widgets.Add(MenuButton("Resume", ResumeGame));
+            column.Widgets.Add(MenuButton("Settings", () => ShowMenuScreen(MenuScreen.Settings)));
+            column.Widgets.Add(MenuButton("Scene", () => ShowMenuScreen(MenuScreen.SceneSelect)));
+            column.Widgets.Add(MenuButton("Main Menu", ReturnToMainMenu));
+            column.Widgets.Add(MenuButton("Quit", Exit));
+
+            return ScreenRoot(column, _pauseScrimBrush);
+        }
+
+        /// <summary>
+        /// The settings. Every value is a button that cycles it rather than a slider or a drop-down: one
+        /// widget kind, one click, and nothing that can be left half-dragged — and each change takes effect
+        /// where it is made, so what the scene behind the panel looks like <i>is</i> the preview.
+        /// </summary>
+        private Widget BuildSettingsScreen()
+        {
+            VerticalStackPanel column = MenuColumn();
+            column.Widgets.Add(ScreenHeading("SETTINGS"));
+
+            Grid grid = new()
+            {
+                ColumnSpacing = Scaled(58),
+                RowSpacing = Scaled(24),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = ScaledThickness(0, 0, 0, 43),
+            };
+            grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
+            grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
+
+            AddSettingRow(grid, 0, "Fullscreen", ToggleFullscreen, out _fullscreenValue);
+            AddSettingRow(grid, 1, "Antialiasing", CycleSupersampling, out _ssaaValue);
+            AddSettingRow(grid, 2, "Exposure", CycleExposure, out _exposureValue);
+            AddSettingRow(grid, 3, "Sky", CycleSkyDome, out _skyValue);
+            AddSettingRow(grid, 4, "FPS counter", ToggleFpsOverlay, out _fpsValue);
+
+            column.Widgets.Add(grid);
+            column.Widgets.Add(MenuButton("Back", BackFromSubScreen));
+
+            return ScreenRoot(Plate(column), CurrentScrim());
+        }
+
+        private void AddSettingRow(Grid grid, int row, string caption, Action onClick, out Label value)
+        {
+            grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
+
+            Label captionLabel = new()
+            {
+                Text = caption,
+                Font = _menuFontBody,
+                TextColor = MENU_TEXT,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+
+            Grid.SetColumn(captionLabel, 0);
+            Grid.SetRow(captionLabel, row);
+            grid.Widgets.Add(captionLabel);
+
+            Button button = MenuButton(string.Empty, onClick, out value);
+            button.Width = Scaled(SETTING_VALUE_WIDTH);
+
+            Grid.SetColumn(button, 1);
+            Grid.SetRow(button, row);
+            grid.Widgets.Add(button);
+        }
+
+        /// <summary>Writes the current value onto each setting's button. Cheap, and only run on a change.</summary>
+        private void RefreshSettingsLabels()
+        {
+            //The display hotkeys work before the menu has been built (LoadContent runs after Initialize), and
+            //there is nothing to write onto until it has been
+            if (_fullscreenValue == null) return;
+
+            _fullscreenValue.Text = _fullscreen ? "On" : "Off";
+            _ssaaValue.Text = _supersampleFactor == 1 ? "Off" : _supersampleFactor + "×";
+            _exposureValue.Text = _exposure.ToString("0.0", CultureInfo.InvariantCulture);
+            _skyValue.Text = _skyDome.ToString(CultureInfo.InvariantCulture);
+            _fpsValue.Text = _info.Visible ? "On" : "Off";
+        }
+
+        /// <summary>
+        /// Supersampling, the dominant frame cost at a high resolution and the first dial a weak machine
+        /// reaches for. Off means 8× MSAA instead (see <see cref="EnsureSceneTarget"/>) — multisampling
+        /// antialiases geometry edges but not shading, so it only earns its memory with supersampling off.
+        /// </summary>
+        private void CycleSupersampling()
+        {
+            _supersampleFactor = _supersampleFactor switch { 1 => 2, 2 => 4, _ => 1 };
+
+            _tonemapEffect.Parameters["SupersampleFactor"].SetValue(_supersampleFactor);
+
+            //The factor is the scene target's size, so changing it is exactly what makes EnsureSceneTarget
+            //recreate the target rather than recognize it as the one already there
+            EnsureSceneTarget();
+
+            RefreshSettingsLabels();
+        }
+
+        private void CycleExposure()
+        {
+            _exposure += EXPOSURE_STEP;
+
+            //A command-line exposure can start anywhere, so this wraps on the ceiling rather than assuming
+            //the value is already on the ladder
+            if (_exposure > EXPOSURE_MAX + Constants.THOUSANDTH) _exposure = EXPOSURE_MIN;
+
+            _tonemapEffect.Parameters["Exposure"].SetValue(_exposure);
+
+            RefreshSettingsLabels();
+        }
+
+        private void CycleSkyDome()
+        {
+            SetSkyDome((byte)(_skyDome == SKY_DOME_COUNT ? 1 : _skyDome + 1));
+            RefreshSettingsLabels();
+        }
+
+        private Widget BuildSceneSelectScreen()
+        {
+            VerticalStackPanel column = MenuColumn();
+            column.Widgets.Add(ScreenHeading("SCENE"));
+
+            for (int i = 0; i < SCENE_COUNT; i++)
+            {
+                //Captured per iteration, not off the loop variable's final value
+                SceneKind scene = (SceneKind)i;
+                column.Widgets.Add(MenuButton(SCENE_NAMES[i], () => ChooseScene(scene), out _sceneLabels[i]));
+            }
+
+            column.Widgets.Add(new Label
+            {
+                Text = "Applies at once — the menu and the game both play in it.",
+                Font = _menuFontSmall,
+                TextColor = MENU_TEXT_DIM,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = ScaledThickness(0, 29, 0, 29),
+            });
+            column.Widgets.Add(MenuButton("Back", BackFromSubScreen));
+
+            return ScreenRoot(Plate(column), CurrentScrim());
+        }
+
+        private void ChooseScene(SceneKind scene)
+        {
+            SetScene(scene);
+            MarkSelectedScene();
+        }
+
+        /// <summary>
+        /// Marks the scene in use, so the screen says where you are as well as where you can go. Brightness,
+        /// not colour: the one in use is stated white and the rest step back to grey, which reads the same over
+        /// a neon city and over a snowfield.
+        /// </summary>
+        private void MarkSelectedScene()
+        {
+            for (int i = 0; i < SCENE_COUNT; i++)
+                _sceneLabels[i].TextColor = (SceneKind)i == _scene ? MENU_TEXT : MENU_TEXT_DIM;
+        }
+
+        private Widget BuildAboutScreen()
+        {
+            VerticalStackPanel column = MenuColumn();
+
+            column.Widgets.Add(ScreenHeading("ABOUT"));
+            column.Widgets.Add(AboutParagraph(
+                "BS3D is 3D Puzzle Bobble: shoot coloured balls at a cluster hanging from a glass ceiling. "
+                + "Three or more of one colour let go and fall — and take with them everything they were the "
+                + "last anchor for."));
+            column.Widgets.Add(AboutParagraph(
+                "Controls:  the mouse aims,  left button or space fires,  right button leans in along the "
+                + "barrel,  A/D traverses the carriage,  Esc pauses,  F11 toggles fullscreen,  F12 hides the "
+                + "FPS counter."));
+            column.Widgets.Add(AboutParagraph(
+                "Built on MonoGame (DirectX 11) and BepuPhysics 2. The scenes, the balls and the city are all "
+                + "procedural — no models, only code. Typeface Inter (SIL OFL 1.1)."));
+            column.Widgets.Add(AboutParagraph("github.com/AntoninPrazsky/BS3D"));
+
+            column.Widgets.Add(MenuButton("Back", BackFromSubScreen));
+
+            return ScreenRoot(Plate(column), CurrentScrim());
+        }
+
+        private Label AboutParagraph(string text) => new()
+        {
+            Text = text,
+            Font = _menuFontSmall,
+            TextColor = MENU_TEXT_BODY,
+            Wrap = true,
+            Width = Scaled(ABOUT_TEXT_WIDTH),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = ScaledThickness(0, 0, 0, 34),
+        };
+
+        /// <summary>
+        /// A dark plate behind a column that carries actual prose. A scrim alone is not enough for small text
+        /// over a moving scene — every line lands on a different background — and darkening the whole scrim
+        /// would throw away the scene the screen is standing in. No frame: the edge of the plate is the tone
+        /// step itself, which is all it takes, and a drawn border is one more shape to fight the backdrop.
+        /// The button screens need no plate at all — a button carries its own background.
+        /// </summary>
+        private Panel Plate(Widget content)
+        {
+            Panel plate = new()
+            {
+                Background = new SolidBrush(MENU_PLATE),
+                Padding = ScaledThickness(106, 67),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+
+            plate.Widgets.Add(content);
+
+            return plate;
+        }
+
+        /// <summary>
+        /// A screen: the column of widgets centred over the whole frame, optionally on a scrim that dims the
+        /// scene behind it. <paramref name="scrim"/> is null for every front-end screen — only a pause dims.
+        /// The panel itself still stretches, because it is what centres the column and what Myra hit-tests.
+        /// </summary>
+        private static Panel ScreenRoot(Widget content, IBrush scrim)
+        {
+            Panel panel = new()
+            {
+                Background = scrim,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch,
+            };
+
+            panel.Widgets.Add(content);
+
+            return panel;
+        }
+
+        private VerticalStackPanel MenuColumn() => new()
+        {
+            Spacing = Scaled(MENU_COLUMN_SPACING),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        private Label ScreenHeading(string text) => new()
+        {
+            Text = text,
+            Font = _menuFontHeading,
+            TextColor = MENU_TEXT,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = ScaledThickness(0, 0, 0, 43),
+        };
+
+        private Button MenuButton(string text, Action onClick) => MenuButton(text, onClick, out _);
+
+        /// <summary>
+        /// One menu entry. Myra's default button style is a framed grey tool button, so every brush is stated
+        /// here instead: dark glass at rest, and the pointer <b>lifts</b> it with a wash of white rather than
+        /// tinting it — see the palette above for why nothing in this menu carries a hue. No border either:
+        /// the tone step at the button's edge is enough to read it as a control, and a drawn frame over seven
+        /// different backdrops is a shape competing with all of them.
+        /// </summary>
+        private Button MenuButton(string text, Action onClick, out Label label)
+        {
+            label = new Label
+            {
+                Text = text,
+                Font = _menuFontBody,
+                TextColor = MENU_TEXT,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+
+            Button button = new()
+            {
+                Content = label,
+                Width = Scaled(MENU_BUTTON_WIDTH),
+                Padding = ScaledThickness(43, 18),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Background = new SolidBrush(MENU_BUTTON),
+                OverBackground = new SolidBrush(MENU_BUTTON_OVER),
+                PressedBackground = new SolidBrush(MENU_BUTTON_PRESSED),
+
+                //Myra's stylesheet gives a button a border of its own, so it has to be explicitly cleared
+                Border = null,
+                BorderThickness = new Thickness(0),
+            };
+
+            button.Click += (_, _) => onClick();
+
+            return button;
+        }
+
+        #endregion
+
+        /// <summary>
+        /// The city and the island it leaves a clearing for, plus everything the island carries: the glass
+        /// drain, its gold beads, the dark pit shaft behind it and the glass plate the cluster will hang
+        /// from. One unit box under a different instance matrix per building, so the whole skyline is a
+        /// single instanced draw call.
+        /// <para>
+        /// All of it is scene, not session: it stands whether a game is being played or the menu's camera is
+        /// merely orbiting it, which is why the ceiling's <i>mesh and renderer</i> are built here while its
+        /// kinematic <i>body</i> belongs to the simulation and is built with the rest of the world. Building
+        /// the renderer here is also what keeps <see cref="SkyLitRenderers"/> complete before the first game.
+        /// </para>
         /// </summary>
         private void BuildScene()
         {
             _unitBox = new BoxMesh(GraphicsDevice, 1f, 1f, 1f);
             _city = new City(seed: 20260720, arenaHalfExtent: ISLAND_RADIUS, config: _cityConfig);
 
+            //The neon flags are what SetScene switches between the two city lightings; these are only the
+            //values they start at, and are overwritten before the first frame is drawn.
             _cityRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, Vector3.One, _instancingEffect)
             {
                 CityConfig = _cityConfig,
@@ -808,6 +1522,25 @@ namespace BS3D
             _funnelRimEffectParams = new BasicEffectParams(Vector3.One * SCENE_AMBIENT_INTENSITY, FUNNEL_RIM_SPECULAR, FUNNEL_RIM_SPECULAR_POWER, Vector3.Zero);
 
             _funnelWorld = Matrix.CreateTranslation(0f, ISLAND_Y, 0f);
+
+            //The dark well behind the glass, drawn in the solid-terrain scenes only. It reuses FunnelMesh (a
+            //wall facing inward and up, so it reads looking down into it), shares the funnel's mouth and
+            //descends just outside it. Deliberately NOT in SkyLitRenderers and near-matte, so no dome
+            //bleaches the inside of a hole in the ground.
+            _pitMesh = new FunnelMesh(GraphicsDevice, FUNNEL_TOP_RADIUS, PIT_HOLE_RADIUS, ISLAND_Y - PIT_BOTTOM_Y, FUNNEL_SEGMENTS, 0f);
+            _pitRenderer = new InstancedModelRenderer(GraphicsDevice, _pitMesh, PIT_COLOR, _instancingEffect)
+            {
+                SpecularAmbientStrength = 0.03f
+            };
+            _pitWorld = Matrix.CreateTranslation(0f, ISLAND_Y, 0f);
+
+            //The glass the cluster hangs from. Odd levels are shifted by +0.5 and a ball's radius is another
+            //0.5, so a field's worth of balls is one unit wider than its cell count; the plate covers it with
+            //that margin, as the Testbed's does. The plate is a fixed size here (there is one cluster shape
+            //and no map files yet), so it is scene furniture and outlives any one game — only the kinematic
+            //body it is drawn from belongs to the simulation.
+            _ceilingMesh = new BoxMesh(GraphicsDevice, CLUSTER_X + 1f, 1f, CLUSTER_Z + 1f);
+            _ceilingRenderer = new InstancedModelRenderer(GraphicsDevice, _ceilingMesh, CEILING_GLASS_COLOR, _instancingEffect, CEILING_GLASS_ALPHA);
         }
 
         /// <summary>
@@ -993,12 +1726,124 @@ namespace BS3D
             _eventHandler = new BallContactEventHandler(_simulation, _events, _ceiling, _map, _physicsBalls,
                 _shotBalls, _fallingBalls, new Vector3(0f, CLUSTER_WORLD_Y, 0f));
 
-            //Odd levels are shifted by +0.5 and a ball's radius is another 0.5, so a field's worth of balls is
-            //one unit wider than its cell count; the plate covers it with that margin, as the Testbed's does.
-            //It is drawn from the kinematic body's own pose, so the glass and the collidable cannot disagree.
-            _ceilingMesh = new BoxMesh(GraphicsDevice, CLUSTER_X + 1f, 1f, CLUSTER_Z + 1f);
-            _ceilingRenderer = new InstancedModelRenderer(GraphicsDevice, _ceilingMesh, CEILING_GLASS_COLOR, _instancingEffect, CEILING_GLASS_ALPHA);
+            Console.WriteLine($"[game] {_map.GetBallsCount()} balls in the cluster, "
+                + $"{_simulation.Solver.CountConstraints()} constraints");
         }
+
+        #region The session (menu ⇄ play)
+
+        /// <summary>
+        /// Starts playing. The world — the simulation, the ceiling body, the drain's collision mesh and the
+        /// cluster — is built here rather than in <see cref="LoadContent"/>, so the menu comes up without
+        /// paying for it and a machine that never presses Play never pays at all.
+        /// </summary>
+        /// <param name="newGame">
+        /// True to throw away a session in progress and deal a fresh cluster; false to carry on with whatever
+        /// is already standing (and to build it, if this is the first time).
+        /// </param>
+        private void StartGame(bool newGame)
+        {
+            if (newGame || !_gameBuilt)
+            {
+                if (_gameBuilt) TearDownGame();
+
+                //The ceiling body has to exist before the cluster: the top level's balls are constrained to it
+                BuildPhysicsWorld();
+                BuildCluster();
+
+                _gameBuilt = true;
+            }
+
+            EnterPlaying();
+        }
+
+        /// <summary>
+        /// The one door into <see cref="GameState.Playing"/>, from a fresh start and from a resume alike. What
+        /// it exists for is the input state: the cursor is captured and recentred every frame while playing
+        /// and left alone in the menu, so the first frame back would otherwise read the distance from wherever
+        /// the player clicked to the viewport centre as an aim delta and yank the barrel across the field —
+        /// and the very click that pressed the button would arrive against a stale "released" and fire a shot
+        /// nobody asked for. Clearing <see cref="_mouseAimInitialized"/> skips that first frame's aim <i>and</i>
+        /// its shot test, since both live behind it.
+        /// </summary>
+        private void EnterPlaying()
+        {
+            _state = GameState.Playing;
+
+            _mouseAimInitialized = false;
+            _adsHeld = false;
+
+            //A gamepad reports to an unfocused window and to a paused one; both triggers must be released
+            //before they mean anything again. One poll on a state change, which is not a per-frame path.
+            _padTriggerReleased = false;
+            _previousPad = GamePad.GetState(PlayerIndex.One);
+
+            IsMouseVisible = false;
+        }
+
+        /// <summary>Freezes the session and puts the pause menu over the frame the player was looking at.</summary>
+        private void PauseGame()
+        {
+            _state = GameState.Paused;
+            ShowMenuScreen(MenuScreen.Pause);
+        }
+
+        private void ResumeGame() => EnterPlaying();
+
+        /// <summary>
+        /// Back to the front end. The session is <b>kept</b>, not discarded — the main menu offers to resume it
+        /// and to start a new game, which is the difference between a mis-click costing a click and costing a
+        /// game. What it does drop is the camera: the menu's own orbit takes over from here.
+        /// </summary>
+        private void ReturnToMainMenu()
+        {
+            _state = GameState.Menu;
+            ShowMenuScreen(MenuScreen.MainMenu);
+        }
+
+        /// <summary>
+        /// Tears the session down so a new one can be built. The simulation is disposed outright rather than
+        /// emptied ball by ball: the constraints, the bodies, the statics and the per-worker contact queues all
+        /// go with it, and rebuilding is a few milliseconds. The order is <see cref="UnloadContent"/>'s and for
+        /// the same reason — <see cref="ContactEvents"/> unhooks itself from the timestepper, so it has to go
+        /// before the simulation it hooked into, and the pool both allocated from has to outlive the two.
+        /// </summary>
+        private void TearDownGame()
+        {
+            _events?.Dispose();
+            _simulation?.Dispose();
+            _threadDispatcher?.Dispose();
+            _bufferPool?.Clear();
+
+            _events = null;
+            _simulation = null;
+            _threadDispatcher = null;
+            _bufferPool = null;
+            _eventHandler = null;
+            _ceiling = null;
+            _map = null;
+            _physicsBalls = null;
+
+            //Cleared, never reassigned: the contact handler holds these very instances
+            _shotBalls.Clear();
+            _fallingBalls.Clear();
+            _trails.Clear();
+
+            _physicsAccumulator = 0f;
+            _cannonRecoil = 0f;
+            _magazineSlide = 0f;
+            _adsBlend = 0f;
+
+            for (int i = 0; i < MAGAZINE_SIZE; i++) _magazine[i] = RandomBallType();
+
+            //The gun goes back to its resting orbit angle and aim, so a new game starts pointed where the
+            //first one did rather than wherever the last shot left the barrel
+            _cannon.Restart();
+
+            _gameBuilt = false;
+        }
+
+        #endregion
 
         /// <summary>
         /// The half-unit offset a level's cells carry in X and Z: odd levels of the lattice are shifted, which
@@ -1055,6 +1900,71 @@ namespace BS3D
         }
 
         /// <summary>
+        /// Puts the scene into the frame: the backdrop's own lighting defaults, the dome that suits it and
+        /// the city's day-or-neon switch. The one place a scene change happens, shared by the random pick at
+        /// startup and the scene menu.
+        /// </summary>
+        private void SetScene(SceneKind scene)
+        {
+            _scene = scene;
+
+            //Neither city is drawn by the SceneRenderer — the city is one instanced box mesh under the shared
+            //shader's city technique, and its two lightings are a flag and a brightness on the renderer.
+            bool neon = scene == SceneKind.NeonCity;
+            _cityRenderer.CityNeon = neon ? 1f : 0f;
+            _cityRenderer.CityWindowBrightness = neon ? _cityConfig.NeonLook.WindowBrightness : _cityConfig.WindowBrightness;
+
+            //The sea mirrors the sky, so a bright dome would give it a breezy mood rather than the moody one
+            //it is built for, and the savanna wants the warmest gold horizon of the set. Every other scene
+            //keeps whatever dome is up — including the neon city, whose default IS the dusk. The Testbed's
+            //rule, so a scene looks the same in both.
+            if (scene == SceneKind.Sea) _skyDome = SEA_SKY_DOME;
+            else if (scene == SceneKind.Savanna) _skyDome = SAVANNA_SKY_DOME;
+
+            //Re-derives the whole light rig from the dome, which every scene needs whether its dome changed
+            //or not: the renderers were told nothing until now. Content.Load caches, so re-loading the dome
+            //that is already up costs a dictionary hit and a re-read of its palette.
+            SetSkyDome(_skyDome);
+        }
+
+        /// <summary>
+        /// Loads a sky dome and re-derives the whole scene's lighting from it — the one place a dome change
+        /// happens, shared by <see cref="SetScene"/> and the sky setting.
+        /// </summary>
+        private void SetSkyDome(byte number)
+        {
+            _skyDome = number;
+            _sky.SkyDomeModel = Content.Load<Model>("Skyes/SkyDome" + number);
+
+            ApplySkyLighting();
+        }
+
+        /// <summary>
+        /// Whether the scene is one of the solid-ground backdrops (mountains, meadow, savanna, desert), whose
+        /// terrain has the island's footprint cut out of it and therefore needs the dark pit shaft drawn
+        /// behind the glass funnel. The sea fills the drain with water and the two cities have their own
+        /// canyon falling away below the island, so neither needs it.
+        /// </summary>
+        private static bool IsSolidTerrainScene(SceneKind scene) =>
+            scene == SceneKind.Mountain || scene == SceneKind.Meadow ||
+            scene == SceneKind.Savanna || scene == SceneKind.Desert;
+
+        /// <summary>
+        /// The per-frame inputs the shared <see cref="SceneRenderer"/> needs, taken from this frame's camera,
+        /// sun and sky. The sun colour is the sun's own radiance tinted by the dome, and the clouds are handed
+        /// over from the one shared field — which is what keeps the cloud the player looks at and the shadow
+        /// it throws over the terrain the same cloud. A readonly struct, so this allocates nothing.
+        /// </summary>
+        private SceneFrame BuildSceneFrame() => new(
+            _camera,
+            SUN_DIRECTION,
+            _zenithLinear,
+            _horizonLinear,
+            CLOUD_SUN_COLOR * Vector3.Lerp(Vector3.One, _horizonLinear, SKY_TINT_STRENGTH),
+            _wallClock,
+            _clouds.ApplyTo);
+
+        /// <summary>
         /// Colours the clouds with the dome they hang in. A cloud has no colour of its own: its lit side is
         /// the colour of the sun and its underside the colour of the sky, so the lit side takes the very tint
         /// the key light takes — the clouds are lit by literally the same light as everything under them —
@@ -1101,27 +2011,50 @@ namespace BS3D
         }
 
         /// <summary>
-        /// The neon's point lights: a ring of alternating magenta and cyan around the island, so the near
-        /// towers, the island, the gun and the balls actually take the neon's colour rather than the windows
-        /// merely glowing. Set once — they do not move — on the shared effect every lit surface draws with.
+        /// This frame's scene point lights, on the shared instanced effect — so the balls, the island, the gun
+        /// and the city are lit by the neon city's neon or the savanna's campfire on top of the sun and the
+        /// dome, under whatever sky is up. Two scenes carry lights; the rest push a count of zero once and
+        /// then cost nothing.
         /// </summary>
-        private void ApplyNeonLights()
+        private void ApplySceneLights()
         {
-            NeonConfig neon = _cityConfig.NeonLook;
-            int count = Math.Min(neon.LightCount, MAX_SCENE_LIGHTS);
+            int count = 0;
 
-            for (int i = 0; i < count; i++)
+            if (_scene == SceneKind.NeonCity)
             {
-                float angle = i / (float)count * MathHelper.TwoPi;
-                _sceneLightPos[i] = new Vector3(MathF.Cos(angle) * neon.LightRadius, neon.LightHeight, MathF.Sin(angle) * neon.LightRadius);
-                _sceneLightColor[i] = (i % 2 == 0) ? neon.Magenta.ToVector3() : neon.Cyan.ToVector3();
-                _sceneLightRange[i] = neon.LightRange;
+                //A ring of alternating magenta and cyan around the island, so the near towers and the balls
+                //actually take the neon's colour rather than the windows merely glowing at them
+                NeonConfig neon = _cityConfig.NeonLook;
+                count = Math.Min(neon.LightCount, MAX_SCENE_LIGHTS);
+
+                for (int i = 0; i < count; i++)
+                {
+                    float angle = i / (float)count * MathHelper.TwoPi;
+                    _sceneLightPos[i] = new Vector3(MathF.Cos(angle) * neon.LightRadius, neon.LightHeight, MathF.Sin(angle) * neon.LightRadius);
+                    _sceneLightColor[i] = (i % 2 == 0) ? neon.Magenta.ToVector3() : neon.Cyan.ToVector3();
+                    _sceneLightRange[i] = neon.LightRange;
+                }
+            }
+            else if (_scene == SceneKind.Savanna)
+            {
+                //The campfire on the grass just off the island, flickering off the same wall clock its flame
+                //billboard does — one clock, so the light and the fire cannot fall out of step
+                _sceneLightPos[0] = _sceneRenderer.SavannaCampfirePosition;
+                _sceneLightColor[0] = _sceneRenderer.CampfireColor(_wallClock);
+                _sceneLightRange[0] = _sceneRenderer.SavannaCampfireRange;
+                count = 1;
             }
 
-            _instancingEffect.Parameters["SceneLightPosition"].SetValue(_sceneLightPos);
-            _instancingEffect.Parameters["SceneLightColor"].SetValue(_sceneLightColor);
-            _instancingEffect.Parameters["SceneLightRange"].SetValue(_sceneLightRange);
-            _instancingEffect.Parameters["SceneLightCount"].SetValue(count);
+            //Nothing above touches the arrays while the count is zero, so once the zero has gone out there is
+            //nothing left that could have changed
+            if (count == 0 && _lastSceneLightCount == 0) return;
+
+            _sceneLightPositionParam.SetValue(_sceneLightPos);
+            _sceneLightColorParam.SetValue(_sceneLightColor);
+            _sceneLightRangeParam.SetValue(_sceneLightRange);
+            _sceneLightCountParam.SetValue(count);
+
+            _lastSceneLightCount = count;
         }
 
         protected override void Update(GameTime gameTime)
@@ -1132,6 +2065,15 @@ namespace BS3D
             //The very click that refocuses a windowed game would otherwise read as a fresh press against a
             //stale "released" state and fire an unintended shot, since input is not sampled while inactive.
             bool edgeInputAllowed = IsActive && _wasActive;
+
+            //The menu/pause split. Neither state runs any gameplay path — no aiming, no shooting, no physics,
+            //no game camera — so the whole of the rest of this method is behind Playing, and Myra owns the
+            //input instead (it reads it in Desktop.Render, at the end of Draw).
+            if (_state != GameState.Playing)
+            {
+                UpdateMenu(gameTime, elapsed, edgeInputAllowed);
+                return;
+            }
 
             if (IsActive)
             {
@@ -1180,25 +2122,117 @@ namespace BS3D
             base.Update(gameTime);
         }
 
+        /// <summary>
+        /// The menu's and the pause screen's own frame. Myra consumes the mouse and the keyboard itself (in
+        /// <c>Desktop.Render</c>, at the end of <see cref="Draw"/>), so all this owes it is the keys the menu
+        /// does not carry as buttons — Escape, and the two display toggles that are useful from anywhere.
+        /// <para>
+        /// The keyboard snapshot is stored into the very same <see cref="_previousKeyboard"/> the play loop
+        /// uses, which is what makes the two states hand over cleanly: the Escape that paused the game is
+        /// still down on the first menu frame and is correctly not seen as a second press, and the Escape that
+        /// resumed it is likewise not seen again by the play loop.
+        /// </para>
+        /// </summary>
+        private void UpdateMenu(GameTime gameTime, float elapsed, bool edgeInputAllowed)
+        {
+            //The cursor is the pointer here, not the aim; nothing recentres it while the menu is up
+            IsMouseVisible = true;
+
+            if (IsActive)
+            {
+                KeyboardState keyboard = Keyboard.GetState();
+
+                if (edgeInputAllowed)
+                {
+                    //Escape backs out one level: out of a sub-screen to the screen that opened it, out of the
+                    //pause menu into the game. In the main menu it does nothing — quitting is a menu item, and
+                    //a front end that closes when a key is tapped is one that closes by accident.
+                    if (IsKeyEdge(keyboard, Keys.Escape))
+                    {
+                        if (_menuScreen != MenuScreen.MainMenu && _menuScreen != MenuScreen.Pause)
+                            ShowMenuScreen(_state == GameState.Paused ? MenuScreen.Pause : MenuScreen.MainMenu);
+                        else if (_state == GameState.Paused) ResumeGame();
+                    }
+
+                    //The same two display keys the game has, because a player who wants windowed mode or no
+                    //FPS line wants them before pressing Play as much as after
+                    if (IsKeyEdge(keyboard, Keys.F11)) ToggleFullscreen();
+                    if (IsKeyEdge(keyboard, Keys.F12)) ToggleFpsOverlay();
+                }
+
+                _previousKeyboard = keyboard;
+            }
+
+            _wasActive = IsActive;
+
+            //Only the front end's camera moves. A pause holds the exact frame the player left, camera shake
+            //and all — the game is stopped, not merely un-simulated.
+            if (_state == GameState.Menu) UpdateMenuCamera(elapsed);
+
+            base.Update(gameTime);
+        }
+
+        /// <summary>
+        /// The front end's slow orbit around the scene's origin. The angle is advanced by elapsed seconds, so
+        /// the turn takes the same ninety seconds on any machine, and the camera is the game's own
+        /// <see cref="RecoilCamera"/> with its shake at rest — nothing kicks it here.
+        /// </summary>
+        private void UpdateMenuCamera(float elapsed)
+        {
+            _menuAngle += MENU_ROTATION_SPEED * elapsed;
+            if (_menuAngle >= MathHelper.TwoPi) _menuAngle -= MathHelper.TwoPi;
+
+            _camera.BasePosition = new Vector3(
+                MathF.Cos(_menuAngle) * MENU_CAM_RADIUS, MENU_CAM_HEIGHT, MathF.Sin(_menuAngle) * MENU_CAM_RADIUS);
+            _camera.BaseTarget = new Vector3(0f, MENU_TARGET_Y, 0f);
+            _camera.FieldOfView = MENU_FOV;
+
+            _camera.Update(elapsed);
+        }
+
+        /// <summary>A key pressed this frame that was not pressed last frame.</summary>
+        private bool IsKeyEdge(KeyboardState keyboard, Keys key) =>
+            keyboard.IsKeyDown(key) && !_previousKeyboard.IsKeyDown(key);
+
+        private void ToggleFullscreen()
+        {
+            _fullscreen = !_fullscreen;
+            SetGraphics();
+            RefreshSettingsLabels();
+        }
+
+        private void ToggleFpsOverlay()
+        {
+            _info.Visible = !_info.Visible;
+            RefreshSettingsLabels();
+        }
+
         private void UpdateInput(GameTime gameTime, bool edgeInputAllowed, GamePadState pad)
         {
             KeyboardState keyboard = Keyboard.GetState();
 
-            if (keyboard.IsKeyDown(Keys.Escape) || pad.IsButtonDown(Buttons.Back)) Exit();
-
             if (edgeInputAllowed)
             {
-                if (keyboard.IsKeyDown(Keys.F11) && !_previousKeyboard.IsKeyDown(Keys.F11))
+                //Escape (or the gamepad's Back button) pauses rather than quitting outright: quitting is a
+                //menu item now, and a game that closes the instant Escape is tapped is one that loses a game.
+                if (IsKeyEdge(keyboard, Keys.Escape) || (pad.IsButtonDown(Buttons.Back) && !_previousPad.IsButtonDown(Buttons.Back)))
                 {
-                    _fullscreen = !_fullscreen;
-                    SetGraphics();
+                    _previousKeyboard = keyboard;
+                    _previousPad = pad;
+                    PauseGame();
+
+                    //Nothing else this frame: the game is paused as of now, and firing or traversing on the
+                    //way out would be an action the player asked of a game that has stopped
+                    return;
                 }
 
+                if (IsKeyEdge(keyboard, Keys.F11)) ToggleFullscreen();
+
                 //F12 hides the FPS overlay, the same key that hides the Testbed's text
-                if (keyboard.IsKeyDown(Keys.F12) && !_previousKeyboard.IsKeyDown(Keys.F12)) _info.Visible = !_info.Visible;
+                if (IsKeyEdge(keyboard, Keys.F12)) ToggleFpsOverlay();
 
                 //Space fires; the gamepad fires off its right trigger, read with the aim (below)
-                if (keyboard.IsKeyDown(Keys.Space) && !_previousKeyboard.IsKeyDown(Keys.Space)) Shoot();
+                if (IsKeyEdge(keyboard, Keys.Space)) Shoot();
             }
 
             //The carriage traverses on A/D — it turns where it stands, it does not walk
@@ -1260,6 +2294,11 @@ namespace BS3D
                 if (edgeInputAllowed && pad.Triggers.Right > 0.5f && _padTriggerReleased) { Shoot(); _padTriggerReleased = false; }
                 else if (pad.Triggers.Right <= 0.5f) _padTriggerReleased = true;
             }
+
+            //Stored here rather than in UpdateInput, which runs first: the Back button's press edge is
+            //measured against the previous *frame*, so the snapshot has to be the last thing the frame does
+            //with the pad. Both methods are handed the one poll taken at the top of Update.
+            _previousPad = pad;
         }
 
         private bool _padTriggerReleased = true;
@@ -1434,9 +2473,16 @@ namespace BS3D
 
         protected override void Draw(GameTime gameTime)
         {
+            //What belongs to a session rather than to the setting: the gun, the cluster, the shots and the
+            //glass the cluster hangs from. The main menu shows the scene on its own, with the camera orbiting
+            //it; a pause shows the game exactly as the player left it. And before the first "Play" there is
+            //no cluster at all, which is what the built flag guards against.
+            bool drawGameplay = _gameBuilt && _state != GameState.Menu;
+
             //The occlusion ease and the attach glide are advanced on the draw clock, since both are purely
             //about what is on screen
-            CollectBallInstances((float)gameTime.ElapsedGameTime.TotalSeconds);
+            if (drawGameplay)
+                CollectBallInstances((float)gameTime.ElapsedGameTime.TotalSeconds);
 
             GraphicsDevice.SetRenderTarget(_sceneTarget);
 
@@ -1470,23 +2516,46 @@ namespace BS3D
             //what the previous frame's last pass happened to leave behind.
             GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
 
-            //The city's windows keep their own rhythm off the wall clock — a city's lamps do not stop
-            //because the game is paused
-            _cityRenderer.CityWindowTime = _wallClock;
-            _cityRenderer.Draw(_camera, _city.Buildings, _city.Buildings.Length, _sceneEffectParams);
+            //The setting: the backdrop, then the island standing in it. The two cities are the procedural
+            //skyline under the shared shader's city technique; the other five are the SceneRenderer's
+            //self-lit terrain and water, which need this frame's camera, sun and sky handed over.
+            SceneFrame sceneFrame = BuildSceneFrame();
+
+            //The scene's own point lights (the neon ring, the savanna's campfire) onto the shared instanced
+            //effect, so the island, the gun and the balls take them as well as the towers
+            ApplySceneLights();
+
+            if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
+            {
+                //The city's windows keep their own rhythm off the wall clock — a city's lamps do not stop
+                //because the game is paused
+                _cityRenderer.CityWindowTime = _wallClock;
+                _cityRenderer.Draw(_camera, _city.Buildings, _city.Buildings.Length, _sceneEffectParams);
+            }
+            else _sceneRenderer.DrawEnvironment(_scene, sceneFrame);
 
             //The island is a solid ring, so the nearest face wins on depth and the winding is moot
             GraphicsDevice.RasterizerState = RasterizerState.CullNone;
             _islandRenderer.Draw(_camera, _islandWorld, _sceneEffectParams);
+
+            //The dark well behind the glass drain, in the solid-terrain scenes only: it fills the hole those
+            //shaders cut in the ground, so the drain reads as a deep shaft rather than as a glass ring over
+            //bright sky haze. Opaque and CullNone like the island, and before the glass, which composites
+            //over it. The two cities and the sea have their own canyon or water down there instead.
+            if (IsSolidTerrainScene(_scene)) _pitRenderer.Draw(_camera, _pitWorld, _sceneEffectParams);
+
             GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
 
-            _cannonRenderer.Draw(_camera, CannonWorld(), _sceneEffectParams);
+            if (drawGameplay)
+            {
+                _cannonRenderer.Draw(_camera, CannonWorld(), _sceneEffectParams);
 
-            DrawBallsInstanced();
+                DrawBallsInstanced();
 
-            //Over the opaque scene (which the depth buffer now holds, so the cluster and the gun occlude
-            //them) and additive, so they glow through the glare
-            DrawShotTrails();
+                //Over the opaque scene (which the depth buffer now holds, so the cluster and the gun occlude
+                //them) and additive, so they glow through the glare
+                DrawShotTrails();
+            }
 
             //The drain's gold beads are opaque, so they belong to the opaque scene and go down before the
             //glass the funnel composites over them. A closed convex tube, so CullNone is safe (the nearest
@@ -1499,17 +2568,46 @@ namespace BS3D
             _funnelRenderer.Draw(_camera, _funnelWorld, _sceneEffectParams);
             GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
 
-            //The glass the cluster hangs from, last: it is translucent, so everything it should be seen
-            //through has to be in the depth buffer and the frame already
-            _ceilingRenderer.Draw(_camera, _ceiling.World, _sceneEffectParams);
+            //The glass the cluster hangs from, last of the session's objects: it is translucent, so everything
+            //it should be seen through has to be in the depth buffer and the frame already.
+            if (drawGameplay)
+                _ceilingRenderer.Draw(_camera, _ceiling.World, _sceneEffectParams);
+
+            //The scene's foreground weather — the mountain's snow, the sea's spray, the savanna's flame —
+            //settles over everything, so it goes down in front of what it should hide. A no-op in the two
+            //cities and the desert, which carry none.
+            _sceneRenderer.DrawOverlays(_scene, sceneFrame);
 
             ResolveSceneTarget();
 
             //Display space from here down: the resolve is the frame's one and only exit from linear light,
-            //and both the crosshair and the FPS overlay (a component, so base.Draw puts it out) are sRGB.
-            DrawCrosshair();
+            //and the crosshair, the FPS overlay (a component, so base.Draw puts it out) and the menu are sRGB.
+            if (drawGameplay)
+                DrawCrosshair();
 
             base.Draw(gameTime);
+
+            //The Myra GUI renders last, on top of everything, straight to the back buffer (base.Draw and
+            //ResolveSceneTarget leave it bound). Render also processes Myra's own mouse and keyboard input,
+            //which is why it runs only where the game's own input has stood down — in Menu and Paused.
+            //
+            //While the window is not focused it is laid out and drawn but NOT fed input: Mouse.GetState
+            //reports the button and a window-relative position whether the window has focus or not, so a
+            //click meant for another application that happens to land over where a menu entry is would
+            //otherwise press it — and "Quit" would close a game nobody was looking at.
+            if (_state != GameState.Playing && _desktop != null)
+            {
+                //Refitted here rather than off the resize event, so the one place it can be out of date is
+                //the frame that is about to draw it — a fullscreen switch and a window drag both land here
+                EnsureMenuLayout();
+
+                if (IsActive) _desktop.Render();
+                else
+                {
+                    _desktop.UpdateLayout();
+                    _desktop.RenderVisual();
+                }
+            }
         }
 
         /// <summary>
@@ -2058,8 +3156,19 @@ namespace BS3D
             _funnelRenderer?.Dispose();
             _funnelRimsMesh?.Dispose();
             _funnelRimsRenderer?.Dispose();
+            _pitMesh?.Dispose();
+            _pitRenderer?.Dispose();
             _ceilingMesh?.Dispose();
             _ceilingRenderer?.Dispose();
+
+            //The five self-lit backdrops own their own meshes, particle buffers and effects
+            _sceneRenderer?.Dispose();
+
+            //The menu: the Desktop holds the widget tree, and each FontSystem holds the glyph atlases it
+            //rasterized for the sizes that were asked of it
+            _desktop?.Dispose();
+            _menuFontSystem?.Dispose();
+            _menuFontSystemBold?.Dispose();
 
             //Order matters: ContactEvents unhooks itself from the timestepper, so it has to go before the
             //simulation it hooked into, and the pool it allocated from has to outlive both.
