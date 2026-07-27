@@ -76,8 +76,28 @@ namespace Prazsky.BS3D.Levels
                     throw new InvalidDataException($"'{path}' lists no levels");
 
                 for (int i = 0; i < set.Levels.Count; i++)
-                    if (string.IsNullOrWhiteSpace(set.Levels[i].File))
+                {
+                    LevelSetEntry entry = set.Levels[i];
+
+                    if (string.IsNullOrWhiteSpace(entry.File))
                         throw new InvalidDataException($"'{path}': level {i + 1} names no file");
+
+                    //A rule that is present has to mean something. Left to reach the game, a zero budget is a
+                    //level that is over before it starts and a zero ceiling step is a division by zero or an
+                    //infinite descent — both of which would surface as an unplayable level rather than as the
+                    //bad file they are. Absent is the way to say "no rule"; zero is not a way to say anything.
+                    if (entry.Shots is <= 0)
+                        throw new InvalidDataException(
+                            $"'{path}': level {i + 1} ('{entry.File}') grants {entry.Shots} shots; omit \"shots\" for unlimited");
+
+                    if (entry.MinScore is < 0)
+                        throw new InvalidDataException(
+                            $"'{path}': level {i + 1} ('{entry.File}') has a negative minimum score ({entry.MinScore})");
+
+                    if (entry.CeilingStep is <= 0)
+                        throw new InvalidDataException(
+                            $"'{path}': level {i + 1} ('{entry.File}') steps the ceiling every {entry.CeilingStep} shots; omit \"ceilingStep\" to hold it still");
+                }
 
                 //Captured here rather than at each use: the entries are relative to the set, and the set is
                 //the only thing that knows where it came from
@@ -100,6 +120,26 @@ namespace Prazsky.BS3D.Levels
             string.IsNullOrWhiteSpace(Levels[index].Name)
                 ? Path.GetFileNameWithoutExtension(Levels[index].File)
                 : Levels[index].Name;
+
+        /// <summary>
+        /// One level's rules as a line for a log — what the file actually says, with each absent rule spelled
+        /// out as the thing it means rather than left blank. It lives here so the vocabulary ("unlimited
+        /// shots", "ceiling holds") is written once instead of at every place that reports a level.
+        /// <para>
+        /// It reports only what was <b>authored</b>. Whether an authored budget and an authored ceiling step
+        /// agree with each other cannot be told from here — see <see cref="LevelSetEntry.CeilingStep"/>.
+        /// </para>
+        /// </summary>
+        public string DescribeRules(int index)
+        {
+            LevelSetEntry entry = Levels[index];
+
+            string shots = entry.Shots.HasValue ? $"{entry.Shots.Value} shots" : "unlimited shots";
+            string minScore = entry.MinScore.GetValueOrDefault() > 0 ? $"min score {entry.MinScore.Value}" : "no score gate";
+            string ceiling = entry.CeilingStep.HasValue ? $"ceiling every {entry.CeilingStep.Value}" : "ceiling holds";
+
+            return $"{shots}, {minScore}, {ceiling}";
+        }
 
         /// <summary>
         /// Cheap probe, mirroring <see cref="Level.IsLevelFile"/>: true when the file is a JSON object carrying
@@ -127,7 +167,19 @@ namespace Prazsky.BS3D.Levels
         }
     }
 
-    /// <summary>One level in a <see cref="LevelSet"/>: the file it lives in, and what to call it.</summary>
+    /// <summary>
+    /// One level in a <see cref="LevelSet"/>: the file it lives in, what to call it, and the rules it is
+    /// played under.
+    /// <para>
+    /// The rules live here rather than in the level file because this is the only place that can annotate a
+    /// <b>plain map file</b> — a hand-drawn <c>.json</c> map has nowhere to put metadata of its own, and
+    /// putting the rules in the <see cref="Level"/> format would force every such map to be converted first.
+    /// They are all <b>nullable</b>, and null means "no rule" rather than zero: a set authored before rules
+    /// existed has to keep playing exactly as it did, and a sentinel number cannot say the difference between
+    /// "unlimited" and "none". What each null falls back to is documented at the point it is <i>read</i>, not
+    /// here — the game decides what an absent rule means, and this only records that it is absent.
+    /// </para>
+    /// </summary>
     public sealed class LevelSetEntry
     {
         /// <summary>
@@ -140,5 +192,35 @@ namespace Prazsky.BS3D.Levels
         /// <summary>Display name (optional; the file name stands in when it is missing).</summary>
         [JsonPropertyName("name")]
         public string Name { get; set; }
+
+        /// <summary>
+        /// How many balls the level grants. <b>Null means unlimited</b> — the sandbox the game has today, and
+        /// what every set authored before rules existed keeps. Running out with the field uncleared is one of
+        /// the two ways to lose; the other is <see cref="CeilingStep"/>.
+        /// </summary>
+        [JsonPropertyName("shots")]
+        public int? Shots { get; set; }
+
+        /// <summary>
+        /// The score needed to unlock the <b>next</b> level. Null (or zero) means clearing the field is enough,
+        /// which is what every level starts as — the gate exists so difficulty can be raised level by level as
+        /// the campaign grows, not so it is on everywhere from the start.
+        /// </summary>
+        [JsonPropertyName("minScore")]
+        public int? MinScore { get; set; }
+
+        /// <summary>
+        /// Shots between two descents of the glass ceiling. <b>Null means the ceiling holds still.</b>
+        /// <para>
+        /// This and <see cref="Shots"/> are <b>not independent</b>: the descent is driven by shots and the
+        /// death line is fixed, so the geometry already implies a shot limit of its own. Authoring both
+        /// carelessly leaves one of them dead — either the budget runs out with the ceiling still high, or the
+        /// ceiling arrives with shots to spare. Nothing here can check that, because the implied limit depends
+        /// on the ceiling's travel and the death line, which are the game's geometry and not the set's data;
+        /// the cross-check belongs with whoever moves the ceiling.
+        /// </para>
+        /// </summary>
+        [JsonPropertyName("ceilingStep")]
+        public int? CeilingStep { get; set; }
     }
 }

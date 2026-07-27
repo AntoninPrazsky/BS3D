@@ -1832,7 +1832,15 @@ namespace BS3D
             try
             {
                 _levelSet = LevelSet.Load(path);
-                Console.WriteLine($"[levels] '{_levelSet.Name ?? LevelSet.DefaultFileName}': {_levelSet.Count} level(s), first '{_levelSet.DisplayName(0)}'");
+
+                Console.WriteLine($"[levels] '{_levelSet.Name ?? LevelSet.DefaultFileName}': {_levelSet.Count} level(s)");
+
+                //Every entry's rules, at load rather than as each level comes up: an inconsistently authored
+                //set is then obvious in one place before a single level is played. Nothing reads these values
+                //yet — the budget, the score gate and the descending ceiling are still to come — so what this
+                //reports today is what the file says, not what the game does with it.
+                for (int i = 0; i < _levelSet.Count; i++)
+                    Console.WriteLine($"[levels]   {i + 1}. '{_levelSet.DisplayName(i)}' — {_levelSet.DescribeRules(i)}");
             }
             catch (Exception e)
             {
@@ -1876,7 +1884,8 @@ namespace BS3D
                     }
                     else map = new BallsMap(path);
 
-                    Console.WriteLine($"[levels] Loaded {index + 1}/{_levelSet.Count} '{_levelSet.DisplayName(index)}' from '{path}'");
+                    Console.WriteLine($"[levels] Loaded {index + 1}/{_levelSet.Count} '{_levelSet.DisplayName(index)}' "
+                        + $"({_levelSet.DescribeRules(index)}) from '{path}'");
                 }
                 catch (Exception e)
                 {
