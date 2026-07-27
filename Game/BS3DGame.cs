@@ -1118,6 +1118,15 @@ namespace BS3D
         /// </summary>
         private void UpdateCameraAspect()
         {
+            //The viewport just changed size, so its CENTRE moved — and the aim is a delta measured against
+            //that centre, with the cursor still parked on the old one. Left alone, the frame after an F11
+            //reads a delta of half the screen and slams the barrel into its elevation clamp; the player sees
+            //the gun pointing at the sky and reads it as the switch having broken the view. Dropping the
+            //baseline makes the next frame recentre and apply nothing, which is the same thing EnterPlaying
+            //does for the same reason. Deliberately before the null guard below: this is about the input
+            //state, not the camera, and it holds whether or not a game is running.
+            _mouseAimInitialized = false;
+
             if (_camera == null) return;
 
             _camera.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
