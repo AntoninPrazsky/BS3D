@@ -42,15 +42,23 @@ namespace Prazsky.BS3D.Scoring
         public const int MaxMultiplier = 5;
 
         private readonly int? _shotBudget;
+        private readonly int? _ceilingStep;
 
         /// <param name="shotBudget">
         /// Balls the level grants, or <c>null</c> for unlimited — which is what an entry that authors no
         /// <c>shots</c> rule means. Unlimited leaves <see cref="ShotsRemaining"/> null and
         /// <see cref="OutOfShots"/> false for ever.
         /// </param>
-        public ScoreKeeper(int? shotBudget = null)
+        /// <param name="ceilingStep">
+        /// Shots between two descents of the glass ceiling, or <c>null</c> for a ceiling that holds still —
+        /// which is what an entry that authors no <c>ceilingStep</c> rule means. The descent is driven off
+        /// <see cref="ShotsFired"/> by <see cref="StepCeilingThisShot"/>, so the rule is read here exactly as the
+        /// budget is.
+        /// </param>
+        public ScoreKeeper(int? shotBudget = null, int? ceilingStep = null)
         {
             _shotBudget = shotBudget;
+            _ceilingStep = ceilingStep;
         }
 
         /// <summary>Points awarded so far, streak included.</summary>
@@ -92,6 +100,23 @@ namespace Prazsky.BS3D.Scoring
 
         /// <summary>A ball has left the barrel. Counts against the budget and nothing else.</summary>
         public void Shot() => ShotsFired++;
+
+        /// <summary>
+        /// Whether the shot just fired (after <see cref="Shot"/>) is one that steps the ceiling down. True on
+        /// every <c>ceilingStep</c>-th shot; false when the rule is absent (a ceiling that holds still) or the
+        /// shot count has not reached the next step. Read here rather than in the game so the rule and the budget
+        /// it couples to live in one place — see <see cref="ScoreKeeper"/>'s class doc.
+        /// </summary>
+        public bool StepCeilingThisShot() => _ceilingStep.HasValue && _ceilingStep.Value > 0 && ShotsFired % _ceilingStep.Value == 0;
+
+        /// <summary>
+        /// Shots until the ceiling's next descent, or <c>null</c> when the ceiling holds still. Reads forward,
+        /// like <see cref="Multiplier"/>: it is the number a player is holding against, not the count already gone.
+        /// </summary>
+        public int? ShotsToNextCeiling =>
+            _ceilingStep.HasValue && _ceilingStep.Value > 0
+                ? _ceilingStep.Value - (ShotsFired % _ceilingStep.Value)
+                : null;
 
         /// <summary>
         /// A shot has landed in the lattice. <paramref name="matched"/> is the group it completed and
