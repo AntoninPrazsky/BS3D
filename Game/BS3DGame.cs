@@ -598,6 +598,20 @@ namespace BS3D
         /// </summary>
         private ScoreKeeper _score = new();
 
+        /// <summary>
+        /// What ended the level, set when it ends and read by the result screen. <c>None</c> means the level is
+        /// still being played; <see cref="FinishLevel"/> is what leaves <c>None</c>.
+        /// </summary>
+        private enum LevelOutcome { None, Cleared, Failed }
+
+        private LevelOutcome _pendingOutcome = LevelOutcome.None;
+
+        /// <summary>
+        /// When <see cref="_pendingOutcome"/> is <c>Failed</c>, said plainly: which limit ran out (or which gate
+        /// was missed). A single number is what the result screen has to show a player who did not already know.
+        /// </summary>
+        private string _pendingFailReason;
+
         #endregion
 
         #region The gun and the shot
@@ -721,7 +735,7 @@ namespace BS3D
         //shooting, the game camera) sits behind it, so the menu never has to fight the game for anything.
         private enum GameState { Menu, Playing, Paused }
 
-        private enum MenuScreen { MainMenu, Settings, SceneSelect, About, Pause }
+        private enum MenuScreen { MainMenu, Settings, SceneSelect, About, Pause, Result }
 
         private GameState _state = GameState.Menu;
         private MenuScreen _menuScreen = MenuScreen.MainMenu;
@@ -738,9 +752,9 @@ namespace BS3D
         //own mouse/keyboard input, so it is only called in Menu/Paused, where the game's own input stands down.
         private Desktop _desktop;
 
-        //The five screens, built once at load and swapped into _desktop.Root as the player navigates. Building
-        //them once rather than per frame keeps the menu out of the frame loop's allocation path.
-        private Widget _mainMenuRoot, _settingsRoot, _sceneSelectRoot, _aboutRoot, _pauseRoot;
+        //The screens, built once at load and swapped into _desktop.Root as the player navigates. Building them
+        //once rather than per frame keeps the menu out of the frame loop's allocation path.
+        private Widget _mainMenuRoot, _settingsRoot, _sceneSelectRoot, _aboutRoot, _pauseRoot, _resultRoot;
 
         //Widgets the menu writes back into: the resume entry only exists while there is a session to resume,
         //the settings screen shows each value on its own button, and the scene list marks the one in use.
@@ -748,6 +762,19 @@ namespace BS3D
         private Label _playLabel;
         private Label _fullscreenValue, _ssaaValue, _exposureValue, _skyValue, _fpsValue;
         private readonly Label[] _sceneLabels = new Label[SCENE_COUNT];
+
+        //The result screen's own widgets, written to in RefreshResultScreen from the score snapshot. The heading
+        //states the outcome, the reason says which limit ran out (only on a fail), the breakdown rows account for
+        //the score, and the two buttons are shown or held back depending on whether the level was passed and
+        //whether a next entry exists. Like the resume entry, "held back" means absent, not greyed-out.
+        private Label _resultHeading, _resultReason;
+        private Label _resultMatchedDetail, _resultMatchedValue;
+        private Label _resultOrphanedDetail, _resultOrphanedValue;
+        private Label _resultStreakValue;
+        private Label _resultUnusedDetail, _resultUnusedValue;
+        private Label _resultTotalValue, _resultNeededValue;
+        private Widget _resultBreakdown;
+        private Button _retryButton, _nextLevelButton;
 
         //Inter (SIL OFL), through FontStashSharp. Myra's embedded stylesheet carries a small bitmap font that
         //is fine for a tool panel and much too coarse for a game's title, so the menu brings its own; it is
@@ -1151,9 +1178,10 @@ namespace BS3D
             _sceneSelectRoot = BuildSceneSelectScreen();
             _aboutRoot = BuildAboutScreen();
             _pauseRoot = BuildPauseScreen();
+            _resultRoot = BuildResultScreen();
 
             //Re-asserts the screen the player was on onto the freshly built widgets, and with it everything
-            //ShowMenuScreen keeps in step — the resume entry, the setting values, the marked scene
+            //ShowMenuScreen keeps in step — the resume entry, the setting values, the marked scene, the result
             ShowMenuScreen(_menuScreen);
         }
 
@@ -1223,6 +1251,15 @@ namespace BS3D
                 case MenuScreen.Pause:
                     _desktop.Root = _pauseRoot;
                     break;
+
+                case MenuScreen.Result:
+                    //The breakdown is a snapshot of the score keeper, written onto the screen's labels here
+                    //rather than baked at build — the widget tree is built once and reused every time a level
+                    //ends, and the numbers are different each one. Mirrors how RefreshSettingsLabels writes onto
+                    //the settings buttons after their build.
+                    RefreshResultScreen();
+                    _desktop.Root = _resultRoot;
+                    break;
             }
         }
 
@@ -1276,6 +1313,256 @@ namespace BS3D
             column.Widgets.Add(MenuButton("Quit", Exit));
 
             return ScreenRoot(column, _pauseScrimBrush);
+        }
+
+        /// <summary>
+        /// The end-of-level screen: the one place both ways a level ends (cleared, #56; failed, #58) land, and
+        /// the one place a player is told which happened and chooses what to do about it. It is a pause screen
+        /// with different contents rather than a fourth <see cref="GameState"/> — the freeze, the scrim over a
+        /// stopped frame and Myra owning the input are exactly what <see cref="GameState.Paused"/> already gives.
+        /// </summary>
+        /// <remarks>
+        /// The widget tree is built once and reused for every level end; the numbers and the visible buttons
+        /// change, and are written in <see cref="RefreshResultScreen"/> from the score snapshot, exactly as the
+        /// settings values are written onto their buttons after their build.
+        /// </remarks>
+        private Widget BuildResultScreen()
+        {
+            VerticalStackPanel column = MenuColumn();
+
+            //CLEARED / FAILED / CAMPAIGN COMPLETE — a title's size, like the main menu's name, because this is
+            //the line the screen exists to state.
+            _resultHeading = new Label
+            {
+                Text = string.Empty,
+                Font = _menuFontTitle,
+                TextColor = MENU_TEXT,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = ScaledThickness(0, 0, 0, 30),
+            };
+            column.Widgets.Add(_resultHeading);
+
+            //Which limit ran out, said plainly — only on a fail. Held back (Visible = false) on a cleared level.
+            _resultReason = new Label
+            {
+                Text = string.Empty,
+                Font = _menuFontBody,
+                TextColor = MENU_TEXT_DIM,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = ScaledThickness(0, 0, 0, 30),
+            };
+            column.Widgets.Add(_resultReason);
+
+            //The breakdown: caption · detail · value, the same three-column shape the settings screen uses, so a
+            //number lines up under the number above it and reads at a glance. A plate behind it, because small
+            //text over a frozen scene needs the backing the scrim does not give — the same reason the settings
+            //and about screens carry one. Held back on a fail: a single total teaches nothing, and the only
+            //number a failed level's player cares about is the reason above.
+            _resultBreakdown = Plate(BuildResultBreakdown());
+            column.Widgets.Add(_resultBreakdown);
+
+            column.Widgets.Add(_retryButton = MenuButton("Retry", RetryLevel));
+
+            //Absent rather than disabled when there is no next level to go to or the score did not clear the gate
+            //(see RefreshResultScreen). Retry stays: it is the one thing that always makes sense at a level's end.
+            column.Widgets.Add(_nextLevelButton = MenuButton("Next Level", AdvanceLevel));
+
+            column.Widgets.Add(MenuButton("Main Menu", () =>
+            {
+                //The session is torn down, not kept: a level that has ended is not one to "Continue" into, and
+                //the main menu should offer "Play", not "Continue" into a level that is already finished.
+                TearDownGame();
+                ReturnToMainMenu();
+            }));
+
+            return ScreenRoot(column, _pauseScrimBrush);
+        }
+
+        /// <summary>
+        /// The score breakdown grid: each row a caption, the detail that earned it, and the points it was worth.
+        /// The labels are kept on fields so <see cref="RefreshResultScreen"/> can write the numbers onto them
+        /// without rebuilding the grid — the tree is built once and reused for every level end.
+        /// </summary>
+        private Grid BuildResultBreakdown()
+        {
+            Grid grid = new()
+            {
+                ColumnSpacing = Scaled(48),
+                RowSpacing = Scaled(12),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            };
+            grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));   //caption
+            grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));   //detail (count × worth)
+            grid.ColumnsProportions.Add(new Proportion(ProportionType.Part));   //value, right-aligned by the cell
+
+            AddBreakdownRow(grid, 0, "matched", out _resultMatchedDetail, out _resultMatchedValue);
+            AddBreakdownRow(grid, 1, "orphaned", out _resultOrphanedDetail, out _resultOrphanedValue);
+            AddBreakdownRow(grid, 2, "streak bonus", out _, out _resultStreakValue);
+            AddBreakdownRow(grid, 3, "shots unused", out _resultUnusedDetail, out _resultUnusedValue);
+
+            //The total sits on its own line under the rows — in the value column, so it lines up under the row
+            //totals — in the heading weight, so it reads as the answer rather than as another line of the sum.
+            grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
+            _resultTotalValue = new Label
+            {
+                Text = string.Empty,
+                Font = _menuFontHeading,
+                TextColor = MENU_TEXT,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            Grid.SetColumn(_resultTotalValue, 2);
+            Grid.SetRow(_resultTotalValue, 4);
+            grid.Widgets.Add(_resultTotalValue);
+
+            //The gate the level set, as an aside under the total — "needed 1500" — so a player can see at a
+            //glance whether the score cleared it without having to remember the number. Empty when there is no
+            //gate, which RefreshResultScreen sets to a blank rather than hiding the row.
+            grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
+            _resultNeededValue = new Label
+            {
+                Text = string.Empty,
+                Font = _menuFontSmall,
+                TextColor = MENU_TEXT_DIM,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            Grid.SetColumn(_resultNeededValue, 2);
+            Grid.SetRow(_resultNeededValue, 5);
+            grid.Widgets.Add(_resultNeededValue);
+
+            return grid;
+        }
+
+        private void AddBreakdownRow(Grid grid, int row, string caption, out Label detail, out Label value)
+        {
+            grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
+
+            Label captionLabel = new()
+            {
+                Text = caption,
+                Font = _menuFontBody,
+                TextColor = MENU_TEXT,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            Grid.SetColumn(captionLabel, 0);
+            Grid.SetRow(captionLabel, row);
+            grid.Widgets.Add(captionLabel);
+
+            detail = new Label
+            {
+                Text = string.Empty,
+                Font = _menuFontBody,
+                TextColor = MENU_TEXT_DIM,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            Grid.SetColumn(detail, 1);
+            Grid.SetRow(detail, row);
+            grid.Widgets.Add(detail);
+
+            value = new Label
+            {
+                Text = string.Empty,
+                Font = _menuFontBody,
+                TextColor = MENU_TEXT,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            Grid.SetColumn(value, 2);
+            Grid.SetRow(value, row);
+            grid.Widgets.Add(value);
+        }
+
+        /// <summary>
+        /// Replays the current entry by tearing the session down and building the same level again, so the
+        /// score, the multiplier, the budget and the cluster all start over. <see cref="BuildLevel"/> is the
+        /// real reload the result screen offers as Retry — it is the same path a missed score gate used to take
+        /// inline, now behind a button.
+        /// </summary>
+        private void RetryLevel()
+        {
+            BuildLevel(_levelIndex);
+            EnterPlaying();
+        }
+
+        /// <summary>
+        /// Builds the next entry of the set and drops straight into it. Only ever called from the "Next Level"
+        /// button, which is itself only shown when a next entry exists — see <see cref="RefreshResultScreen"/>.
+        /// </summary>
+        private void AdvanceLevel()
+        {
+            BuildLevel(_levelIndex + 1);
+            EnterPlaying();
+        }
+
+        /// <summary>
+        /// Freezes the session and puts the result screen over the stopped frame, in the same state a pause
+        /// uses: the sim stands still (the early return in <see cref="Update"/>), the heavy scrim dims what is
+        /// behind it, and Myra owns the input. Called when a level ends — see <see cref="FinishLevel"/>.
+        /// </summary>
+        private void ShowResultScreen()
+        {
+            _state = GameState.Paused;
+
+            //RefreshResultScreen runs from inside ShowMenuScreen, so the snapshot is taken the instant the screen
+            //is shown and not a frame later; _score is frozen with the sim, so it does not move again
+            ShowMenuScreen(MenuScreen.Result);
+
+            Console.WriteLine($"[level] Result for '{LevelName(_levelIndex)}': {_pendingOutcome}"
+                + (_pendingOutcome == LevelOutcome.Failed && _pendingFailReason != null ? $" — {_pendingFailReason}" : "")
+                + $", score {_score.Score}");
+        }
+
+        /// <summary>
+        /// Writes the outcome onto the result screen's widgets from the score snapshot — the heading, the reason
+        /// (on a fail), the breakdown rows (on a clear), and the two buttons' visibility. Built once, the tree
+        /// is reused for every level end, so everything the screen says about <i>this</i> end arrives here.
+        /// </summary>
+        private void RefreshResultScreen()
+        {
+            //The screen is built at load, before any level has been played; with nothing to say, say nothing
+            //rather than read fields that are still at their defaults (see RefreshSettingsLabels for the same
+            //guard against running before the first build)
+            if (_resultHeading == null) return;
+
+            bool lastEntry = _levelSet == null || _levelIndex + 1 >= _levelSet.Count;
+            bool cleared = _pendingOutcome == LevelOutcome.Cleared;
+
+            //"Campaign complete" only when there actually was a campaign — a set of more than one level cleared
+            //to its end. A single-level set (or none at all) is just a level cleared, and calling it a campaign's
+            //end overstates what happened and hides the Retry that is still the point of the screen.
+            bool campaignComplete = cleared && lastEntry && _levelSet != null && _levelSet.Count > 1;
+
+            //Brightness, not colour: "FAILED" is the same grey as "CLEARED", and the reason below is what tells
+            //them apart — see the palette comment for why nothing here carries a hue.
+            _resultHeading.Text = campaignComplete ? "CAMPAIGN COMPLETE" : (cleared ? "CLEARED" : "FAILED");
+
+            //The reason is only on a fail. Hidden rather than left blank on a clear, so it takes no space.
+            _resultReason.Text = _pendingOutcome == LevelOutcome.Failed ? _pendingFailReason ?? string.Empty : string.Empty;
+            _resultReason.Visible = _pendingOutcome == LevelOutcome.Failed;
+
+            //The breakdown is only meaningful on a clear: a fail ends the level without awarding the completion
+            //bonus, and the partial numbers would explain a score the reason has already explained.
+            _resultBreakdown.Visible = cleared;
+            if (cleared)
+            {
+                _resultMatchedDetail.Text = $"{_score.MatchedBalls} × {ScoreKeeper.MatchedBallPoints}";
+                _resultMatchedValue.Text = (_score.MatchedBalls * ScoreKeeper.MatchedBallPoints).ToString("N0", CultureInfo.InvariantCulture);
+                _resultOrphanedDetail.Text = $"{_score.OrphanedBalls} × {ScoreKeeper.OrphanedBallPoints}";
+                _resultOrphanedValue.Text = (_score.OrphanedBalls * ScoreKeeper.OrphanedBallPoints).ToString("N0", CultureInfo.InvariantCulture);
+                _resultStreakValue.Text = _score.StreakBonus.ToString("N0", CultureInfo.InvariantCulture);
+                _resultUnusedDetail.Text = _score.ShotsRemaining.HasValue ? $"{_score.ShotsRemaining.Value} × {ScoreKeeper.UnusedShotPoints}" : "—";
+                _resultUnusedValue.Text = _score.CompletionBonus().ToString("N0", CultureInfo.InvariantCulture);
+                _resultTotalValue.Text = _score.Score.ToString("N0", CultureInfo.InvariantCulture);
+
+                int needed = LevelMinScore(_levelIndex);
+                _resultNeededValue.Text = needed > 0 ? $"needed {needed:N0}" : string.Empty;
+            }
+
+            //Next Level is shown only when the level was passed AND there is another entry to go to. Absent,
+            //not disabled, when neither holds — a greyed-out button over a frozen frame is a thing the player
+            //cannot do, which reads as the game being broken rather than as the level being the last.
+            _nextLevelButton.Visible = cleared && !lastEntry;
         }
 
         /// <summary>
@@ -2035,48 +2322,33 @@ namespace BS3D
         }
 
         /// <summary>
-        /// The level is over and the collapse has played out. Three outcomes, and only one of them is going
-        /// forward.
+        /// The level is over and the collapse has played out. It does <b>not</b> act on the outcome — it decides
+        /// which one it was and hands the player the result screen to choose what to do about it. The build,
+        /// the teardown and the advance that used to happen here now live behind the result screen's buttons
+        /// (<see cref="RetryLevel"/>, <see cref="AdvanceLevel"/>), which is what a player actually presses.
         /// <para>
-        /// Every branch here is a placeholder for the result screen of #59, which is where a player will
-        /// actually be <i>told</i> which of the three happened and will choose what to do about it. Until then
-        /// each one does the least surprising thing on its own, and says so in the log — a silent retry would
-        /// otherwise be indistinguishable from a crash that reloaded.
+        /// A cleared field is the only thing that reaches here today. Losing a level (#58) will reach it the
+        /// same way once its lose conditions exist, by setting <see cref="_pendingOutcome"/> and calling
+        /// <see cref="ShowResultScreen"/> directly — this is the seam they were left.
         /// </para>
         /// </summary>
         private void FinishLevel()
         {
             int required = LevelMinScore(_levelIndex);
 
-            //Cleared but not passed: the field is empty and the score is not enough to unlock what is next.
-            //The level is replayed, which is what the result screen will offer as "Retry".
+            //Cleared but short of the gate is a fail the player chose — a sloppy clear — rather than a clear
+            //the game then undoes. The level did not advance, and "Retry" is the way forward.
             if (_score.Score < required)
             {
-                Console.WriteLine($"[level] {_score.Score} short of the {required} needed — replaying '{LevelName(_levelIndex)}'");
-                BuildLevel(_levelIndex);
-                EnterPlaying();
-
-                return;
+                _pendingOutcome = LevelOutcome.Failed;
+                _pendingFailReason = $"score {_score.Score} short of the {required} needed";
             }
-
-            int next = _levelIndex + 1;
-
-            if (_levelSet != null && next < _levelSet.Count)
+            else
             {
-                Console.WriteLine($"[level] Advancing to {next + 1}/{_levelSet.Count} '{_levelSet.DisplayName(next)}'");
-                BuildLevel(next);
-                EnterPlaying();
-
-                return;
+                _pendingOutcome = LevelOutcome.Cleared;
             }
 
-            //Past the last entry. Said plainly and returned to the front end rather than wrapped silently
-            //back to the first level, which reads as a bug rather than as an ending. The session is torn down
-            //so the main menu offers a new game instead of "Continue" into a level that is already finished.
-            Console.WriteLine($"[level] Campaign complete — {_score.Score} on the last level");
-
-            TearDownGame();
-            ReturnToMainMenu();
+            ShowResultScreen();
         }
 
         /// <summary>What to call the level at <paramref name="index"/>, set or no set.</summary>
@@ -2660,11 +2932,18 @@ namespace BS3D
                 if (edgeInputAllowed)
                 {
                     //Escape backs out one level: out of a sub-screen to the screen that opened it, out of the
-                    //pause menu into the game. In the main menu it does nothing — quitting is a menu item, and
-                    //a front end that closes when a key is tapped is one that closes by accident.
-                    if (IsKeyEdge(keyboard, Keys.Escape))
+                    //pause menu into the game. The main menu has no back — quitting is a menu item, and a front
+                    //end that closes when a key is tapped is one that closes by accident.
+                    //
+                    //The result screen has no back either, and for the same reason: the level has already ended,
+                    //so there is nothing to resume into, and "back one level" has no meaning. Retry, Next Level
+                    //and Main Menu are the only ways off it — Escape does nothing, exactly as it does at the
+                    //front end.
+                    if (IsKeyEdge(keyboard, Keys.Escape)
+                        && _menuScreen != MenuScreen.MainMenu
+                        && _menuScreen != MenuScreen.Result)
                     {
-                        if (_menuScreen != MenuScreen.MainMenu && _menuScreen != MenuScreen.Pause)
+                        if (_menuScreen != MenuScreen.Pause)
                             ShowMenuScreen(_state == GameState.Paused ? MenuScreen.Pause : MenuScreen.MainMenu);
                         else if (_state == GameState.Paused) ResumeGame();
                     }
