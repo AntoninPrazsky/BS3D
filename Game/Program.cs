@@ -10,8 +10,11 @@ namespace BS3D
         {
             bool fullscreen = false;
             bool uncappedFps = false;
-            int supersampleFactor = 2;
             float exposure = 0f;
+
+            //Left null when "ssaa=" is absent, which is how the game tells "the player wants two" from "nobody
+            //said" — only the latter may be lowered for a machine that cannot afford the default
+            int? supersampleFactor = null;
 
             foreach (string arg in args)
             {

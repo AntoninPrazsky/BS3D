@@ -125,6 +125,15 @@ namespace BS3D
         private float _exposure;
         private bool _fullscreen;
 
+        /// <summary>
+        /// What supersampling starts at when nobody says otherwise. Two is the look this game is authored for
+        /// — the balls' procedural relief is *shading*, which MSAA does not touch, so the extra samples are
+        /// what keep the fine octaves alive. It is also, on a weak GPU, by far the most expensive thing in the
+        /// frame: measured on an integrated Vega 10, dropping it to 1 nearly tripled the frame rate, while
+        /// cutting the ball count threefold barely moved it. Hence <see cref="TuneQualityToFrameRate"/>.
+        /// </summary>
+        private const int DEFAULT_SUPERSAMPLE_FACTOR = 2;
+
         private RecoilCamera _camera;
 
         //Wall clock. Everything alive in the scene runs off it — the balls' heartbeat, the city's windows —
@@ -908,6 +917,43 @@ namespace BS3D
         private const string GAME_TITLE = "Bubble Shooter 3D";
 
         //Design units: pixels at 2160p, put through Scaled() wherever they reach a widget
+        #region Adaptive quality
+
+        /// <summary>
+        /// True once the supersample factor is not to be touched again: the player named one on the command
+        /// line, the player set one in Settings, the machine proved fast enough, or there is nothing left to
+        /// lower. It is a one-way latch on purpose — a dial that keeps moving under the player is worse than
+        /// one that is merely wrong once.
+        /// </summary>
+        private bool _qualitySettled;
+
+        private float _qualityWarmupLeft = QUALITY_WARMUP_SECONDS;
+        private float _qualityWindowSeconds;
+        private int _qualityWindowFrames;
+
+        /// <summary>Shown on the main menu once, and only if something was actually lowered.</summary>
+        private Label _qualityNotice;
+
+        /// <summary>
+        /// Ignored before this much of the run has passed. The opening frames are shader compiles, the first
+        /// touch of every render target and the window settling, and none of them are what this machine costs
+        /// to draw. Counted in <b>seconds</b> rather than frames deliberately: a fixed frame count is itself a
+        /// function of the frame rate, so on the slow hardware this exists for it would wait the longest.
+        /// </summary>
+        private const float QUALITY_WARMUP_SECONDS = 1.5f;
+
+        /// <summary>How long a verdict is averaged over. Long enough that a single hitched frame cannot cause one.</summary>
+        private const float QUALITY_WINDOW_SECONDS = 1.5f;
+
+        /// <summary>
+        /// Below this, the frame rate is judged bad enough to be worth spending image quality on. Comfortably
+        /// under any display's refresh, so a vsync-capped machine (the normal case) never trips it — 60 Hz
+        /// reads as 60, not as "only just enough".
+        /// </summary>
+        private const float QUALITY_MIN_FPS = 45f;
+
+        #endregion
+
         private const int MENU_BUTTON_WIDTH = 1000;
         private const int SETTING_VALUE_WIDTH = 560;
         private const int ABOUT_TEXT_WIDTH = 1860;
@@ -934,10 +980,18 @@ namespace BS3D
 
         #endregion
 
-        public BS3DGame(bool fullscreen = false, int supersampleFactor = 2, float exposure = DEFAULT_EXPOSURE, bool uncappedFps = false)
+        /// <param name="supersampleFactor">
+        /// <c>null</c> when the player did not say — which is what lets <see cref="TuneQualityToFrameRate"/>
+        /// lower it on hardware that cannot afford the default. An explicit <c>ssaa=</c> is never overridden.
+        /// </param>
+        public BS3DGame(bool fullscreen = false, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE, bool uncappedFps = false)
         {
             _fullscreen = fullscreen;
-            _supersampleFactor = Math.Clamp(supersampleFactor, 1, 4);
+            _supersampleFactor = Math.Clamp(supersampleFactor ?? DEFAULT_SUPERSAMPLE_FACTOR, 1, 4);
+
+            //An explicit factor is the player's decision and settles the question; an absent one leaves the
+            //adaptive path free to measure this machine and lower it
+            _qualitySettled = supersampleFactor.HasValue;
             _exposure = exposure > 0f ? exposure : DEFAULT_EXPOSURE;
             _uncappedFps = uncappedFps;
 
@@ -1337,6 +1391,29 @@ namespace BS3D
             column.Widgets.Add(MenuButton("About", () => ShowMenuScreen(MenuScreen.About)));
             column.Widgets.Add(MenuButton("Quit", Exit));
 
+            //Hidden unless the adaptive path actually lowered something (see TuneQualityToFrameRate). A player
+            //whose machine copes never learns this exists, which is the point: it explains a change they did
+            //not ask for, and is not itself a setting.
+            _qualityNotice = new Label
+            {
+                Text = string.Empty,
+                Font = _menuFontSmall,
+                TextColor = MENU_TEXT_BODY,
+                Wrap = true,
+                Width = Scaled(ABOUT_TEXT_WIDTH),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = ScaledThickness(0, 40, 0, 0),
+
+                //Its own backing, because the front end deliberately has no scrim — the rotating scene is the
+                //point of that screen — and a line of small text over open water or a lit skyline is exactly
+                //what a plate exists for. Buttons carry their own; this is the only prose here that does not.
+                Background = new SolidBrush(MENU_PLATE),
+                Padding = ScaledThickness(34, 18),
+
+                Visible = false,
+            };
+            column.Widgets.Add(_qualityNotice);
+
             return ScreenRoot(column, scrim: null);
         }
 
@@ -1714,15 +1791,13 @@ namespace BS3D
         /// </summary>
         private void CycleSupersampling()
         {
-            _supersampleFactor = _supersampleFactor switch { 1 => 2, 2 => 4, _ => 1 };
+            SetSupersampleFactor(_supersampleFactor switch { 1 => 2, 2 => 4, _ => 1 });
 
-            _tonemapEffect.Parameters["SupersampleFactor"].SetValue(_supersampleFactor);
+            //The player has now said what they want, so the adaptive path stops second-guessing them — and
+            //the notice about what it did has been answered and goes away.
+            _qualitySettled = true;
 
-            //The factor is the scene target's size, so changing it is exactly what makes EnsureSceneTarget
-            //recreate the target rather than recognize it as the one already there
-            EnsureSceneTarget();
-
-            RefreshSettingsLabels();
+            if (_qualityNotice != null) _qualityNotice.Visible = false;
         }
 
         private void CycleExposure()
@@ -3193,7 +3268,11 @@ namespace BS3D
 
             //Only the front end's camera moves. A pause holds the exact frame the player left, camera shake
             //and all — the game is stopped, not merely un-simulated.
-            if (_state == GameState.Menu) UpdateMenuCamera(elapsed);
+            if (_state == GameState.Menu)
+            {
+                UpdateMenuCamera(elapsed);
+                TuneQualityToFrameRate(elapsed);
+            }
 
             base.Update(gameTime);
         }
@@ -3214,6 +3293,96 @@ namespace BS3D
             _camera.FieldOfView = MENU_FOV;
 
             _camera.Update(elapsed);
+        }
+
+        /// <summary>
+        /// Lowers supersampling on a machine that visibly cannot afford it, measured rather than guessed.
+        /// <para>
+        /// The default of 2× costs four times the shaded pixels, and on a weak GPU that is the single biggest
+        /// thing in the frame — measured on an integrated Vega 10, the <b>main menu</b> ran at 13 FPS at 2×
+        /// and the one setting that would fix it was behind a menu the player had to sit through at 13 FPS to
+        /// reach. Something has to notice for them.
+        /// </para>
+        /// <para>
+        /// It notices by <b>timing the frames it is already drawing</b>, not by recognising the adapter. A
+        /// name or vendor list is wrong on the first machine nobody tested — plenty of AMD parts are discrete,
+        /// plenty of Intel ones now are too — and it cannot see the other reasons a frame is slow: a 4K
+        /// display, a laptop on battery, something else eating the GPU. The front end is a fair probe on its
+        /// own: it draws the same city, clouds, glare and tonemap the game does, at the same factor, and it is
+        /// the fixed scene cost rather than the ball count that dominates on this class of hardware (#64).
+        /// </para>
+        /// <para>
+        /// One step per verdict and never upwards. Raising it again on a machine that recovered would put the
+        /// player back where they started, and a quality dial that oscillates is worse than one set too low.
+        /// </para>
+        /// </summary>
+        private void TuneQualityToFrameRate(float elapsed)
+        {
+            if (_qualitySettled) return;
+
+            if (_qualityWarmupLeft > 0f)
+            {
+                _qualityWarmupLeft -= elapsed;
+                return;
+            }
+
+            _qualityWindowSeconds += elapsed;
+            _qualityWindowFrames++;
+
+            if (_qualityWindowSeconds < QUALITY_WINDOW_SECONDS) return;
+
+            float fps = _qualityWindowFrames / _qualityWindowSeconds;
+
+            _qualityWindowSeconds = 0f;
+            _qualityWindowFrames = 0;
+
+            if (fps >= QUALITY_MIN_FPS)
+            {
+                //Fast enough. Stop measuring rather than keep watching: from here the only thing that could
+                //trip it is the player alt-tabbing away, and lowering quality for that would be absurd.
+                _qualitySettled = true;
+                return;
+            }
+
+            int lowered = _supersampleFactor switch { 4 => 2, 2 => 1, _ => 1 };
+
+            Console.WriteLine($"[quality] {fps:F0} FPS in the menu at {_supersampleFactor}x supersampling"
+                + $" — lowering to {lowered}x");
+
+            SetSupersampleFactor(lowered);
+            ShowQualityNotice(lowered);
+
+            //Nothing left to give: 1x already falls back to MSAA, and there is no lower tier to step to.
+            if (_supersampleFactor <= 1) _qualitySettled = true;
+        }
+
+        /// <summary>
+        /// Tells the player what was changed and where to change it back. Once per run, on the main menu —
+        /// which is where they are: the verdict lands about three seconds in.
+        /// </summary>
+        private void ShowQualityNotice(int factor)
+        {
+            if (_qualityNotice == null) return;
+
+            _qualityNotice.Text = $"Antialiasing lowered to {factor}× for a smoother frame rate — change it in Settings.";
+            _qualityNotice.Visible = true;
+        }
+
+        /// <summary>
+        /// The one place the factor changes: the scene target's size is derived from it, and the tonemap has to
+        /// be told how many samples its box filter is averaging.
+        /// </summary>
+        private void SetSupersampleFactor(int factor)
+        {
+            _supersampleFactor = Math.Clamp(factor, 1, 4);
+
+            _tonemapEffect.Parameters["SupersampleFactor"].SetValue(_supersampleFactor);
+
+            //The factor is the scene target's size, so changing it is exactly what makes EnsureSceneTarget
+            //recreate the target rather than recognize it as the one already there
+            EnsureSceneTarget();
+
+            RefreshSettingsLabels();
         }
 
         /// <summary>A key pressed this frame that was not pressed last frame.</summary>
