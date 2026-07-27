@@ -63,7 +63,12 @@ namespace BS3D
         /// stuck without completing a group). The handler reports and does not score: what a landing is worth
         /// is a rule, and rules live in <c>ScoreKeeper</c>.
         /// </summary>
-        public event Action<BallsReleased> BallLanded;
+        /// <remarks>
+        /// The world position is where the ball came to rest in the lattice, which is what a floating score
+        /// wants to rise from: it is the cell the player actually hit, not the raw contact point a diameter
+        /// off it, and not the ball's body position, which the constraints are about to drag.
+        /// </remarks>
+        public event Action<BallsReleased, Vector3> BallLanded;
 
         /// <summary>
         /// Raised once for a shot that is over without having landed — it hit the island, the drain or the
@@ -226,8 +231,9 @@ namespace BS3D
             BallsReleased released = BallsConstraintsBuilder.ReleaseSameTypeCluster(physicsBall, _physicsBalls, _map, _simulation, _fallingBalls);
 
             //Reported whether or not anything fell: a shot that stuck without completing a group is still a
-            //resolved shot, and the streak rule has to hear about it.
-            BallLanded?.Invoke(released);
+            //resolved shot, and the streak rule has to hear about it. Taken before the release above could
+            //have moved anything, and in world frame — the lattice cell the ball landed in.
+            BallLanded?.Invoke(released, placed + _worldOffset);
 
             return true;
         }
