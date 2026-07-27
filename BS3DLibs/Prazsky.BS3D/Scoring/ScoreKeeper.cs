@@ -167,18 +167,31 @@ namespace Prazsky.BS3D.Scoring
         public int CompletionBonus() => ShotsRemaining.GetValueOrDefault() * UnusedShotPoints;
 
         /// <summary>
+        /// The bonus that was actually awarded, and the balls it was awarded for. Recorded rather than
+        /// recomputed, because <b>the level does not stop the instant it is cleared</b>: the collapse is held
+        /// on screen for a beat, and a player who keeps firing into the empty field meanwhile moves
+        /// <see cref="ShotsRemaining"/>. A result screen that calls <see cref="CompletionBonus"/> again when it
+        /// is drawn then prints a row that does not add up to the total above it — which is exactly what it did.
+        /// </summary>
+        public int CompletionBonusAwarded { get; private set; }
+
+        /// <inheritdoc cref="CompletionBonusAwarded"/>
+        public int UnusedShotsAwarded { get; private set; }
+
+        /// <summary>
         /// Adds <see cref="CompletionBonus"/> to the score. Called when a level is actually cleared, and by
         /// nothing else — a failed level gets no bonus, which is most of what makes the bonus mean anything.
         /// </summary>
         /// <returns>What was added.</returns>
         public int AwardCompletionBonus()
         {
-            int bonus = CompletionBonus();
+            UnusedShotsAwarded = ShotsRemaining.GetValueOrDefault();
+            CompletionBonusAwarded = CompletionBonus();
 
-            BaseScore += bonus;
-            Score += bonus;
+            BaseScore += CompletionBonusAwarded;
+            Score += CompletionBonusAwarded;
 
-            return bonus;
+            return CompletionBonusAwarded;
         }
     }
 

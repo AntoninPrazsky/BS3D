@@ -632,13 +632,23 @@ namespace BS3D
         /// </summary>
         private enum LevelOutcome { None, Cleared, Failed }
 
+        /// <summary>
+        /// Which of the two limits ended the level. An enum rather than a message carried through from where
+        /// the loss was detected: the wording is a <b>display</b> concern and belongs on the screen that shows
+        /// it, and a string built at the point of detection ends up carrying the numbers that were convenient
+        /// there — which is how a player came to be shown "a ball at -5,58 &lt;= -5,50". Those figures are
+        /// diagnostics; they belong in the log, and they still go there.
+        /// </summary>
+        private enum LevelFailure { None, OutOfBalls, ClusterReachedLine, ShortOfGate }
+
+        private LevelFailure _pendingFailure;
+
         private LevelOutcome _pendingOutcome = LevelOutcome.None;
 
         /// <summary>
         /// When <see cref="_pendingOutcome"/> is <c>Failed</c>, said plainly: which limit ran out (or which gate
         /// was missed). A single number is what the result screen has to show a player who did not already know.
         /// </summary>
-        private string _pendingFailReason;
 
         #endregion
 
@@ -801,6 +811,7 @@ namespace BS3D
         private Label _resultStreakValue;
         private Label _resultUnusedDetail, _resultUnusedValue;
         private Label _resultTotalValue, _resultNeededValue;
+        private Label _resultFailedScore;
         private Widget _resultBreakdown;
         private Button _retryButton, _nextLevelButton;
 
@@ -1377,9 +1388,22 @@ namespace BS3D
                 Font = _menuFontBody,
                 TextColor = MENU_TEXT_DIM,
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = ScaledThickness(0, 0, 0, 30),
+                Margin = ScaledThickness(0, 0, 0, 12),
             };
             column.Widgets.Add(_resultReason);
+
+            //The score reached, on a fail. The breakdown below is rightly held back — a failed level is awarded
+            //no completion bonus and its partial rows would explain a total nobody is being offered — but the
+            //total itself still has to be said, or the player is told they lost and nothing about how they did.
+            _resultFailedScore = new Label
+            {
+                Text = string.Empty,
+                Font = _menuFontBody,
+                TextColor = MENU_TEXT,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = ScaledThickness(0, 0, 0, 30),
+            };
+            column.Widgets.Add(_resultFailedScore);
 
             //The breakdown: caption · detail · value, the same three-column shape the settings screen uses, so a
             //number lines up under the number above it and reads at a glance. A plate behind it, because small
@@ -1536,8 +1560,7 @@ namespace BS3D
             //is shown and not a frame later; _score is frozen with the sim, so it does not move again
             ShowMenuScreen(MenuScreen.Result);
 
-            Console.WriteLine($"[level] Result for '{LevelName(_levelIndex)}': {_pendingOutcome}"
-                + (_pendingOutcome == LevelOutcome.Failed && _pendingFailReason != null ? $" — {_pendingFailReason}" : "")
+            Console.WriteLine($"[level] Result for '{LevelName(_levelIndex)}': {_pendingOutcome}" + (_pendingOutcome == LevelOutcome.Failed ? $" ({_pendingFailure})" : "")
                 + $", score {_score.Score}");
         }
 
@@ -1565,22 +1588,43 @@ namespace BS3D
             //them apart — see the palette comment for why nothing here carries a hue.
             _resultHeading.Text = campaignComplete ? "CAMPAIGN COMPLETE" : (cleared ? "CLEARED" : "FAILED");
 
-            //The reason is only on a fail. Hidden rather than left blank on a clear, so it takes no space.
-            _resultReason.Text = _pendingOutcome == LevelOutcome.Failed ? _pendingFailReason ?? string.Empty : string.Empty;
-            _resultReason.Visible = _pendingOutcome == LevelOutcome.Failed;
+            //The reason and the score reached are only on a fail. Hidden rather than left blank on a clear, so
+            //they take no space. The reason is worded here and not where the loss was detected: the wording is
+            //a display concern, and a message built at the point of detection carries the figures that were
+            //convenient there — which is how "a ball at -5,58 <= -5,50" once reached a player.
+            bool failed = _pendingOutcome == LevelOutcome.Failed;
 
-            //The breakdown is only meaningful on a clear: a fail ends the level without awarding the completion
-            //bonus, and the partial numbers would explain a score the reason has already explained.
-            _resultBreakdown.Visible = cleared;
-            if (cleared)
+            _resultReason.Text = failed ? FailureText(_pendingFailure) : string.Empty;
+            _resultReason.Visible = failed;
+
+            //Only for a hard loss: a clear short of the gate shows its total in the breakdown below, and saying
+            //it twice on one screen reads as two different numbers until you check that they agree.
+            bool hardLoss = failed && _pendingFailure != LevelFailure.ShortOfGate;
+
+            _resultFailedScore.Text = hardLoss ? $"Score {_score.Score:N0}" : string.Empty;
+            _resultFailedScore.Visible = hardLoss;
+
+            //The breakdown is shown whenever the FIELD was cleared, which includes a clear that fell short of
+            //the gate — there the numbers are the most useful thing on the screen, because they are where the
+            //score the player missed by came from. A hard loss shows none of it: no completion bonus was
+            //awarded, and partial rows would explain a total nobody is being offered.
+            bool fieldCleared = cleared || _pendingFailure == LevelFailure.ShortOfGate;
+
+            _resultBreakdown.Visible = fieldCleared;
+            if (fieldCleared)
             {
                 _resultMatchedDetail.Text = $"{_score.MatchedBalls} × {ScoreKeeper.MatchedBallPoints}";
                 _resultMatchedValue.Text = (_score.MatchedBalls * ScoreKeeper.MatchedBallPoints).ToString("N0", CultureInfo.InvariantCulture);
                 _resultOrphanedDetail.Text = $"{_score.OrphanedBalls} × {ScoreKeeper.OrphanedBallPoints}";
                 _resultOrphanedValue.Text = (_score.OrphanedBalls * ScoreKeeper.OrphanedBallPoints).ToString("N0", CultureInfo.InvariantCulture);
                 _resultStreakValue.Text = _score.StreakBonus.ToString("N0", CultureInfo.InvariantCulture);
-                _resultUnusedDetail.Text = _score.ShotsRemaining.HasValue ? $"{_score.ShotsRemaining.Value} × {ScoreKeeper.UnusedShotPoints}" : "—";
-                _resultUnusedValue.Text = _score.CompletionBonus().ToString("N0", CultureInfo.InvariantCulture);
+                //What was AWARDED, not what recomputing it now would give. The level is held on screen for a
+                //beat after it is cleared, and a player firing into the empty field meanwhile moves the balls
+                //remaining — so a recomputed row does not add up to the total beneath it.
+                _resultUnusedDetail.Text = _score.ShotsRemaining.HasValue
+                    ? $"{_score.UnusedShotsAwarded} × {ScoreKeeper.UnusedShotPoints}"
+                    : "—";
+                _resultUnusedValue.Text = _score.CompletionBonusAwarded.ToString("N0", CultureInfo.InvariantCulture);
                 _resultTotalValue.Text = _score.Score.ToString("N0", CultureInfo.InvariantCulture);
 
                 int needed = LevelMinScore(_levelIndex);
@@ -2428,7 +2472,8 @@ namespace BS3D
 
                         if (ball.BallReference.Pose.Position.Y <= CEILING_DEATH_Y)
                         {
-                            LoseLevel($"the cluster reached the line (a ball at {ball.BallReference.Pose.Position.Y:F2} <= {CEILING_DEATH_Y:F2})");
+                            LoseLevel(LevelFailure.ClusterReachedLine,
+                                $"a ball at {ball.BallReference.Pose.Position.Y:F2} <= {CEILING_DEATH_Y:F2}");
                             return;
                         }
                     }
@@ -2437,7 +2482,8 @@ namespace BS3D
             //fired has had its chance to clear. A ball still in flight could be that chance, and a loss called
             //beneath it would steal the win.
             if (_score.OutOfShots && _shotBalls.Count == 0 && _map.GetBallsCount() > 0)
-                LoseLevel($"out of balls (budget {LevelShotBudget(_levelIndex) ?? -1}, fired {_score.ShotsFired})");
+                LoseLevel(LevelFailure.OutOfBalls,
+                    $"budget {LevelShotBudget(_levelIndex)?.ToString() ?? "unlimited"}, fired {_score.ShotsFired}");
         }
 
         /// <summary>
@@ -2447,17 +2493,36 @@ namespace BS3D
         /// against a simulation that no longer exists. Instead it sets the outcome and hands the player the result
         /// screen, whose Retry button does the real reload — the same screen a cleared level lands on.
         /// </summary>
-        private void LoseLevel(string reason)
+        /// <param name="diagnostic">
+        /// The figures behind the loss. <b>Logged and never shown</b>: what a player needs is which limit ran
+        /// out, and a world-space Y against a death line tells them nothing they can act on.
+        /// </param>
+        private void LoseLevel(LevelFailure failure, string diagnostic)
         {
             //Once only: a descent and a budget can reach their lines on the same frame, and a loss in flight
             //must not stack a second screen onto the first.
             if (_levelLost) return;
             _levelLost = true;
 
+            Console.WriteLine($"[level] Lost '{LevelName(_levelIndex)}': {failure} ({diagnostic}), score {_score.Score}");
+
             _pendingOutcome = LevelOutcome.Failed;
-            _pendingFailReason = reason;
+            _pendingFailure = failure;
             ShowResultScreen();
         }
+
+        /// <summary>
+        /// What the player is told about a loss. The two hard limits carry no figures at all — a world-space Y
+        /// or a budget they already watched run down tells them nothing they can act on. The gate does carry
+        /// one, because the number they missed by is the whole of what it is telling them.
+        /// </summary>
+        private string FailureText(LevelFailure failure) => failure switch
+        {
+            LevelFailure.OutOfBalls => "You ran out of balls.",
+            LevelFailure.ClusterReachedLine => "The cluster reached the line.",
+            LevelFailure.ShortOfGate => $"Cleared — but {LevelMinScore(_levelIndex):N0} was needed to unlock the next level.",
+            _ => string.Empty,
+        };
 
         /// <summary>
         /// The level is over and the collapse has played out. It does <b>not</b> act on the outcome — it decides
@@ -2479,11 +2544,12 @@ namespace BS3D
             if (_score.Score < required)
             {
                 _pendingOutcome = LevelOutcome.Failed;
-                _pendingFailReason = $"score {_score.Score} short of the {required} needed";
+                _pendingFailure = LevelFailure.ShortOfGate;
             }
             else
             {
                 _pendingOutcome = LevelOutcome.Cleared;
+                _pendingFailure = LevelFailure.None;
             }
 
             ShowResultScreen();
