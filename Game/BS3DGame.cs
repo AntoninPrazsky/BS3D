@@ -562,6 +562,27 @@ namespace BS3D
         private InstancedModelRenderer _ceilingRenderer;
         private KinematicBody _ceiling;
 
+        //The descending ceiling — the second of the two pressures that can lose a level, made visible where the
+        //shot budget is made numerical. Every ceilingStep shots the glass steps down by CEILING_DESCENT_PER_STEP,
+        //and with it the cluster (the top level is held to the body by BallSocket constraints, so moving the body
+        //drags the structure along — Bepu does the work). The level is lost the moment any ball crosses the death
+        //line, which is above the gun and the drain so a cluster reaching into them reads as a loss before it
+        //reads as a bug.
+        //
+        //The descent is animated at constant velocity per step rather than teleported: a hundred constrained
+        //bodies jerked in one write can throw the solver, and a short slide lets the contact between a descending
+        //cluster and anything below it resolve. The body is kinematic and this build's integrator does not move
+        //kinematics from their velocity (PoseIntegratorCallbacks.IntegrateVelocityForKinematics is false), so the
+        //slide is driven by writing the pose — in small steps, which is what makes it tolerable to the solver.
+        private const float CEILING_DESCENT_PER_STEP = 0.6f;        //world units the glass drops each step
+        private const float CEILING_DESCENT_SPEED = 1.5f;           //units/sec while a step is sliding in
+        private const float CEILING_DEATH_Y = -5.5f;                //a ball below this has lost the level
+
+        //Where the glass body sits now (_ceilingY) and where it is sliding to (_ceilingTargetY). Equal while at
+        //rest; _ceilingTargetY is lowered by StartCeilingDescent and _ceilingY catches up in UpdateCeilingDescent.
+        private float _ceilingTargetY;
+        private bool _ceilingDescending;
+
         #endregion
 
         #region Levels
@@ -587,6 +608,13 @@ namespace BS3D
         /// </para>
         /// </summary>
         private float _clearedCountdown;
+
+        /// <summary>
+        /// Set the moment a level is lost, and only once — a descent and a spent budget can both reach their line
+        /// on the same frame, and the loss must not fire twice. Cleared back to false by <see cref="BuildLevel"/>,
+        /// which is the real reload that starts a level over.
+        /// </summary>
+        private bool _levelLost;
 
         /// <summary>How long that pause is — long enough for a big collapse to reach the drain and go down it.</summary>
         private const float LEVEL_CLEARED_BEAT = 2.5f;
@@ -2007,6 +2035,52 @@ namespace BS3D
         }
 
         /// <summary>
+        /// Begins one step of the ceiling's descent: lowers the target by <see cref="CEILING_DESCENT_PER_STEP"/>,
+        /// clamped at the death line so an overlong level cannot drive the glass through the gun. The body itself
+        /// does not move here — <see cref="UpdateCeilingDescent"/> slides it to the target, which is what keeps a
+        /// hundred constrained bodies from being jerked in a single write.
+        /// </summary>
+        private void StartCeilingDescent()
+        {
+            //No target to reach if the glass is already as low as it can go — further steps would be a no-op and
+            //a needless log, and clamping here is what stops an inconsistent level (more steps than the geometry
+            //allows) from scraping the body past the death line.
+            if (_ceilingTargetY <= CEILING_DEATH_Y) return;
+
+            _ceilingTargetY = MathF.Max(CEILING_DEATH_Y, _ceilingTargetY - CEILING_DESCENT_PER_STEP);
+            _ceilingDescending = true;
+
+            Console.WriteLine($"[ceiling] Step to {_ceilingTargetY:F2} (death line {CEILING_DEATH_Y:F2})"
+                + $", shots fired {_score.ShotsFired}");
+        }
+
+        /// <summary>
+        /// Slides the ceiling body toward <see cref="_ceilingTargetY"/> at <see cref="CEILING_DESCENT_SPEED"/>,
+        /// one frame's worth at a time, and refreshes the drawn world matrix to match. Called before the physics
+        /// step so the solver works against the moved body this frame, letting the contact between a descending
+        /// cluster and anything below it resolve rather than interpenetrate.
+        /// </summary>
+        private void UpdateCeilingDescent(float elapsed)
+        {
+            if (!_ceilingDescending) return;
+
+            //Equal within a hair means the slide is done — a frame that would otherwise move a thousandth of a
+            //unit and never quite arrive. Snap, stop, and the matrix reflects the final pose exactly.
+            if (MathF.Abs(_ceilingY - _ceilingTargetY) <= CEILING_DESCENT_SPEED * elapsed)
+            {
+                _ceilingY = _ceilingTargetY;
+                _ceilingDescending = false;
+            }
+            else
+            {
+                _ceilingY -= CEILING_DESCENT_SPEED * elapsed;
+            }
+
+            _ceiling.BodyReference.Pose.Position = new System.Numerics.Vector3(0f, _ceilingY, 0f);
+            _ceiling.RefreshWorld();
+        }
+
+        /// <summary>
         /// The island's whole floor, and it is the drain's own surface: the sloped cone plus the flat stone ring
         /// from its rim out to the island's edge, as one triangle mesh. Balls rest on the ring, run down the
         /// cone at its ~55° and drop through the hole; past the ring they fall off the island's edge into the
@@ -2259,9 +2333,9 @@ namespace BS3D
             }
 
             //A fresh scorer per level, holding that entry's rules. Built even when the level fell back to the
-            //built-in map, which then has no rules at all and so an unlimited budget — the same thing an entry
-            //that authors no "shots" means.
-            _score = new ScoreKeeper(LevelShotBudget(index));
+            //built-in map, which then has no rules at all and so an unlimited budget and a still ceiling — the
+            //same thing an entry that authors no "shots" or "ceilingStep" means.
+            _score = new ScoreKeeper(LevelShotBudget(index), LevelCeilingStep(index));
         }
 
         /// <summary>
@@ -2311,7 +2385,7 @@ namespace BS3D
         /// </summary>
         private void CheckLevelCleared()
         {
-            if (_clearedCountdown > 0f || _map.GetBallsCount() > 0) return;
+            if (_levelLost || _clearedCountdown > 0f || _map.GetBallsCount() > 0) return;
 
             int bonus = _score.AwardCompletionBonus();
             _clearedCountdown = LEVEL_CLEARED_BEAT;
@@ -2322,14 +2396,78 @@ namespace BS3D
         }
 
         /// <summary>
+        /// Has the level been lost? The two pressures that lose it — a spent budget with the field uncleared, and
+        /// the ceiling reaching the death line — are decided here, after the physics step, once every shot in
+        /// flight has resolved. Either one alone loses; both are checked because either can be the one a last shot
+        /// earned.
+        /// </summary>
+        /// <remarks>
+        /// The spent budget is tested last — after a possible clear this same frame has run. The last ball of a
+        /// budget may be the one that empties the field, and a loss called before <see cref="OnBallLanded"/> had
+        /// its say would steal that win. So the budget only loses when nothing is in flight and the field is still
+        /// standing. The ceiling, by contrast, is an immediate loss the moment a ball crosses the line — a descent
+        /// can push one there between landings, so it cannot wait on the same event the budget does.
+        /// </remarks>
+        private void CheckLevelLost()
+        {
+            //Already ending — a cleared countdown or a loss in flight. Testing further would re-trigger a loss
+            //on top of a clear or a teardown already underway.
+            if (_clearedCountdown > 0f || _levelLost) return;
+
+            //The ceiling reaching the death line. Live poses are in _physicsBalls (the lattice in _map holds
+            //cells, not bodies); the loop mirrors DrawBallsInstanced, including the null check for cells a
+            //release has emptied.
+            XZLevel size = XZLevel.FromArray(_physicsBalls);
+
+            for (int level = 0; level < size.Level; level++)
+                for (int x = 0; x < size.X; x++)
+                    for (int z = 0; z < size.Z; z++)
+                    {
+                        PhysicsBall ball = _physicsBalls[x, z, level];
+                        if (ball == null) continue;
+
+                        if (ball.BallReference.Pose.Position.Y <= CEILING_DEATH_Y)
+                        {
+                            LoseLevel($"the cluster reached the line (a ball at {ball.BallReference.Pose.Position.Y:F2} <= {CEILING_DEATH_Y:F2})");
+                            return;
+                        }
+                    }
+
+            //The budget spent with the field uncleared — but only once every shot has resolved, so the last ball
+            //fired has had its chance to clear. A ball still in flight could be that chance, and a loss called
+            //beneath it would steal the win.
+            if (_score.OutOfShots && _shotBalls.Count == 0 && _map.GetBallsCount() > 0)
+                LoseLevel($"out of balls (budget {LevelShotBudget(_levelIndex) ?? -1}, fired {_score.ShotsFired})");
+        }
+
+        /// <summary>
+        /// Ends the level as a loss for the stated reason. It does <b>not</b> tear the session down here — a loss
+        /// can be reached from the middle of <see cref="Update"/> (a shot that spends the budget, a frame that
+        /// slides the ceiling past the line), and rebuilding mid-frame would leave the rest of the frame running
+        /// against a simulation that no longer exists. Instead it sets the outcome and hands the player the result
+        /// screen, whose Retry button does the real reload — the same screen a cleared level lands on.
+        /// </summary>
+        private void LoseLevel(string reason)
+        {
+            //Once only: a descent and a budget can reach their lines on the same frame, and a loss in flight
+            //must not stack a second screen onto the first.
+            if (_levelLost) return;
+            _levelLost = true;
+
+            _pendingOutcome = LevelOutcome.Failed;
+            _pendingFailReason = reason;
+            ShowResultScreen();
+        }
+
+        /// <summary>
         /// The level is over and the collapse has played out. It does <b>not</b> act on the outcome — it decides
         /// which one it was and hands the player the result screen to choose what to do about it. The build,
         /// the teardown and the advance that used to happen here now live behind the result screen's buttons
         /// (<see cref="RetryLevel"/>, <see cref="AdvanceLevel"/>), which is what a player actually presses.
         /// <para>
-        /// A cleared field is the only thing that reaches here today. Losing a level (#58) will reach it the
-        /// same way once its lose conditions exist, by setting <see cref="_pendingOutcome"/> and calling
-        /// <see cref="ShowResultScreen"/> directly — this is the seam they were left.
+        /// A cleared field is the only thing that reaches here today; a lost one reaches the same screen through
+        /// <see cref="LoseLevel"/>. Both set the outcome and call <see cref="ShowResultScreen"/>, and the screen
+        /// does the rest.
         /// </para>
         /// </summary>
         private void FinishLevel()
@@ -2375,6 +2513,15 @@ namespace BS3D
             _levelSet != null && index >= 0 && index < _levelSet.Count ? _levelSet.Levels[index].Shots : null;
 
         /// <summary>
+        /// Shots between two descents of the glass ceiling, or null for a ceiling that holds still — which is what
+        /// an absent <c>ceilingStep</c> rule, an index outside the set and a missing set all mean. Mirrors
+        /// <see cref="LevelShotBudget"/>: the nullable rule is read at one site, and this is where absent is given
+        /// its meaning.
+        /// </summary>
+        private int? LevelCeilingStep(int index) =>
+            _levelSet != null && index >= 0 && index < _levelSet.Count ? _levelSet.Levels[index].CeilingStep : null;
+
+        /// <summary>
         /// Derives everything the loaded field's size and depth decide. See <see cref="_clusterWorldOffset"/>
         /// for why the offset has an X and a Z as well as a Y.
         /// </summary>
@@ -2394,6 +2541,9 @@ namespace BS3D
                 -(nearCorner.Z + farCorner.Z) * Constants.HALF);
 
             _ceilingY = FIELD_TOP_Y + CEILING_CLEARANCE;
+            //At rest to start: target equals current, so nothing slides until a step is taken.
+            _ceilingTargetY = _ceilingY;
+            _ceilingDescending = false;
             _clusterCentreY = topLevel * Constants.HALF / Constants.SQRT_TWO + _clusterWorldOffset.Y;
         }
 
@@ -2524,6 +2674,7 @@ namespace BS3D
 
             _gameBuilt = true;
             _clearedCountdown = 0f;
+            _levelLost = false;
         }
 
         /// <summary>
@@ -2893,13 +3044,28 @@ namespace BS3D
             //forever and leaving the gun permanently a hair out of place.
             if (_cannonRecoil > 0f) _cannonRecoil = MathF.Max(0f, _cannonRecoil - CANNON_RECOIL_DECAY * elapsed);
 
+            //Slide the ceiling before the step, so the solver works against the moved body this frame and the
+            //contact between a descending cluster and anything below it resolves rather than interpenetrates.
+            UpdateCeilingDescent(elapsed);
+
             StepPhysics(elapsed);
+
+            //After the step: poses have advanced, so a ball dragged down by the descent is at its new Y now, and a
+            //shot that spent the budget has had its landing. The two losses are checked here rather than only on a
+            //landing, because a descent can push a ball across the death line between landings, and a spent budget
+            //loses only once nothing remains in flight.
+            CheckLevelLost();
+
             UpdateTrails(elapsed);
 
             UpdateCamera(elapsed);
 
             //Last, because FinishLevel may tear the whole session down and build the next one in its place —
             //everything above it this frame would then be running against a simulation that no longer exists.
+            //
+            //A loss needs no entry here: LoseLevel shows the result screen straight away (the same one a clear
+            //lands on), which sets _state = Paused, so the Playing branch — and this tail with it — does not run
+            //again until the player picks Retry or leaves.
             if (_clearedCountdown > 0f)
             {
                 _clearedCountdown -= elapsed;
@@ -3106,6 +3272,12 @@ namespace BS3D
         /// </summary>
         private void Shoot()
         {
+            //The budget is spent, so no more shots leave the barrel — but the level is not lost here. The last
+            //ball fired is still in flight and may be the one that clears the field, and a loss called now would
+            //steal that win. Whether the spent budget actually loses is decided once every shot has resolved,
+            //in CheckLevelLost, against the state of the field then.
+            if (_score.OutOfShots) return;
+
             Vector3 direction = CannonAimDirection();
             Vector3 muzzle = CannonMuzzlePosition();
             BallType type = _magazine[0];
@@ -3125,9 +3297,12 @@ namespace BS3D
 
             //The ball is spent the instant it leaves the barrel. What it *did* takes a physics step or more to
             //resolve, so the budget and the score are driven by different events on purpose — see ScoreKeeper.
-            //Nothing refuses the shot when the budget is empty: that is the lose condition's job, not the
-            //scorer's, and there is no lose condition yet.
             _score.Shot();
+
+            //The same shot drives the ceiling's descent: every ceilingStep-th shot steps the glass down. Checked
+            //after Shot() so ShotsFired includes the one just fired, and the scorer owns the cadence exactly as it
+            //owns the budget — the two pressures are coupled by design, so they are read in one place.
+            if (_score.StepCeilingThisShot()) StartCeilingDescent();
 
             //Registered after the body exists, since a listener is keyed on its collidable reference
             _events.Register(_simulation.Bodies[handle].CollidableReference, _eventHandler);

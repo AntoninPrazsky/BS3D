@@ -5,7 +5,9 @@
   "levels": [
     {
       "file": "One.json",
-      "name": "One"
+      "name": "One",
+      "shots": 30,
+      "ceilingStep": 5
     }
   ]
 }

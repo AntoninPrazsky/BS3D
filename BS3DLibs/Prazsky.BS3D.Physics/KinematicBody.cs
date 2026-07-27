@@ -16,17 +16,31 @@ namespace Prazsky.BS3D.Physics
         public BodyReference BodyReference { get; }
         public BodyHandle BodyHandle { get; }
 
-        /// <summary>World matrix built from the body's pose (rotation and translation) at construction.</summary>
-        public Matrix World { get; }
+        /// <summary>
+        /// World matrix built from the body's pose (rotation and translation). Rebuilt by
+        /// <see cref="RefreshWorld"/> whenever the pose moves — the body is kinematic and may be driven by hand
+        /// (the descending ceiling), so what is drawn has to follow what the simulation holds, or the collidable
+        /// and the glass plate drift apart.
+        /// </summary>
+        public Matrix World { get; private set; }
 
         public KinematicBody(BodyReference bodyReference, BodyHandle bodyHandle)
         {
             BodyReference = bodyReference;
             BodyHandle = bodyHandle;
 
-            World = Matrix.CreateFromQuaternion(
-                new Quaternion(bodyReference.Pose.Orientation.X, bodyReference.Pose.Orientation.Y, bodyReference.Pose.Orientation.Z, bodyReference.Pose.Orientation.W))
-                * Matrix.CreateTranslation(bodyReference.Pose.Position.X, bodyReference.Pose.Position.Y, bodyReference.Pose.Position.Z);
+            World = BuildWorld(bodyReference.Pose);
         }
+
+        /// <summary>
+        /// Rebuilds <see cref="World"/> from the body's current pose. Called each frame the body has moved, after
+        /// the integrator has placed it — the pose is the source of truth, this keeps the drawn matrix in step.
+        /// </summary>
+        public void RefreshWorld() => World = BuildWorld(BodyReference.Pose);
+
+        private static Matrix BuildWorld(BepuPhysics.RigidPose pose) =>
+            Matrix.CreateFromQuaternion(
+                new Quaternion(pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z, pose.Orientation.W))
+                * Matrix.CreateTranslation(pose.Position.X, pose.Position.Y, pose.Position.Z);
     }
 }
