@@ -479,12 +479,23 @@ namespace BS3D
         private const int FALLBACK_SEED = 20260726;
 
         //What the magazine loads when a map carries no balls at all. A real level's colours are read off the
-        //map itself (CollectLevelBallTypes) — loading a colour that is nowhere in the cluster is a shot that
-        //cannot be spent, so the queue can only be built from what is actually up there.
+        //map itself — loading a colour that is nowhere in the cluster is a shot that cannot be spent, so the
+        //queue can only be built from what is actually up there.
         private static readonly BallType[] DEFAULT_BALL_TYPES =
             { BallType.Type1, BallType.Type2, BallType.Type3, BallType.Type4 };
 
-        private BallType[] _levelBallTypes = DEFAULT_BALL_TYPES;
+        /// <summary>
+        /// How many balls of each type are still hanging, indexed by <c>(int)BallType - 1</c>. Recounted off
+        /// the map every time the cluster changes, which is the only thing that can change it: the magazine
+        /// may only ever load a colour whose count is above zero.
+        /// <para>
+        /// Recounted rather than maintained incrementally, deliberately. The walk is the field's cell count —
+        /// 1500 for <c>One.json</c> — and it runs when a shot lands, not per frame; carrying a running total
+        /// through the release path, the attach path and the second-ring fallback would be three places to get
+        /// wrong in exchange for microseconds nobody can measure.
+        /// </para>
+        /// </summary>
+        private readonly int[] _ballsOfType = new int[BALL_TYPE_COUNT];
 
         /// <summary>
         /// Where the lattice frame meets the world, and the <b>only</b> place it does on the drawing side.
@@ -593,6 +604,21 @@ namespace BS3D
 
         private readonly BallType[] _magazine = new BallType[MAGAZINE_SIZE];
         private float _magazineSlide;
+
+        /// <summary>
+        /// The colour a loaded ball is dissolving <i>out of</i>, per slot, and how far through that it is
+        /// (0 = settled, nothing to draw twice). A ball whose colour has just been eliminated from the cluster
+        /// is re-coloured where it sits rather than left to be fired at nothing — see <see cref="Transmute"/>.
+        /// </summary>
+        private readonly BallType[] _magazineFrom = new BallType[MAGAZINE_SIZE];
+        private readonly float[] _magazineTransmute = new float[MAGAZINE_SIZE];
+
+        /// <summary>
+        /// How long a loaded ball takes to change colour. Slow enough to be unmistakably seen — the whole
+        /// point is that the player watches the game help them, and a snap would read as a bug — and short
+        /// enough not to hold up a queue the player is aiming with.
+        /// </summary>
+        private const float TRANSMUTE_SECONDS = 0.75f;
 
         //Several ball diameters a frame: the shot is a streak, not something the eye can follow. That is
         //the intended feel, and it is why the launch smear below exists at all.
@@ -1919,9 +1945,17 @@ namespace BS3D
             //The gun and the lens both move with the field's size, and each is placed off the other
             FitCannonAndGameCameraToLevel();
 
-            _levelBallTypes = CollectLevelBallTypes(_map);
+            RecountBallTypes();
 
-            for (int i = 0; i < MAGAZINE_SIZE; i++) _magazine[i] = RandomBallType();
+            for (int i = 0; i < MAGAZINE_SIZE; i++)
+            {
+                _magazine[i] = RandomBallType();
+
+                //Nothing is mid-transmute in a queue that has just been dealt, and a level loaded over a
+                //session that was would otherwise inherit its half-finished dissolves
+                _magazineTransmute[i] = 0f;
+                _magazineFrom[i] = _magazine[i];
+            }
 
             //A fresh scorer per level, holding that entry's rules. Built even when the level fell back to the
             //built-in map, which then has no rules at all and so an unlimited budget — the same thing an entry
@@ -1936,6 +1970,11 @@ namespace BS3D
         private void OnBallLanded(BallsReleased released)
         {
             ScoreAward award = _score.Landed(released.Matched, released.Orphaned);
+
+            //The cluster just changed — a ball joined it, and a group may have left. Recount before anything
+            //asks what may be loaded, and re-colour whatever is already in the barrel and has just gone dead.
+            RecountBallTypes();
+            Transmute();
 
             //Temporary: until the HUD (#60) exists there is nowhere to show this, and a score that is counted
             //but never seen is indistinguishable from one that is not counted at all. A shot that dropped
@@ -2002,14 +2041,21 @@ namespace BS3D
         }
 
         /// <summary>
-        /// The colours actually hanging in the level, which is the only set the magazine may draw from —
-        /// loading a colour that is nowhere in the cluster is a shot that cannot be spent. An empty map (or a
-        /// level authored with none) falls back to the default four.
+        /// Recounts how many balls of each colour are still hanging. The magazine may only load a colour whose
+        /// count is above zero: a ball of a colour that exists nowhere in the cluster can never match anything,
+        /// so it can only be parked somewhere — which grows the very cluster the player is shrinking, wastes a
+        /// budgeted shot, and in the limit makes a level unwinnable.
+        /// <para>
+        /// A colour with fewer than <see cref="BallsConstraintsBuilder.MINIMUM_CLUSTER_SIZE"/> left is arguably
+        /// already dead weight and could be dropped from the queue early. It is deliberately <b>not</b>: that
+        /// changes which levels are solvable at all, which makes it a difficulty decision rather than this fix.
+        /// </para>
         /// </summary>
-        private static BallType[] CollectLevelBallTypes(BallsMap map)
+        private void RecountBallTypes()
         {
-            List<BallType> types = new();
-            StaticBall[,,] balls = map.GetStaticBallsArray();
+            for (int i = 0; i < _ballsOfType.Length; i++) _ballsOfType[i] = 0;
+
+            StaticBall[,,] balls = _map.GetStaticBallsArray();
             XZLevel size = XZLevel.FromArray(balls);
 
             for (int level = 0; level < size.Level; level++)
@@ -2017,10 +2063,49 @@ namespace BS3D
                     for (int z = 0; z < size.Z; z++)
                     {
                         StaticBall ball = balls[x, z, level];
-                        if (ball != null && !types.Contains(ball.Type)) types.Add(ball.Type);
-                    }
+                        if (ball == null) continue;
 
-            return types.Count > 0 ? types.ToArray() : DEFAULT_BALL_TYPES;
+                        int index = (int)ball.Type - 1;
+                        if (index >= 0 && index < _ballsOfType.Length) _ballsOfType[index]++;
+                    }
+        }
+
+        /// <summary>
+        /// Re-colours every loaded ball whose colour has just been eliminated from the cluster, and starts the
+        /// dissolve that shows it happening.
+        /// <para>
+        /// The alternative — letting a stale queue play out — costs the player up to <see cref="MAGAZINE_SIZE"/>
+        /// shots on colours that cannot match anything, through no fault of their own. This is a game and not a
+        /// simulation, so a ball that is already loaded may simply be re-coloured; the player will notice, and
+        /// noticing is the point, because what they see is the game helping rather than the game cheating them.
+        /// </para>
+        /// <para>
+        /// The colour changes <b>immediately</b> and the dissolve is cosmetic: firing mid-transition must give
+        /// the new colour, never the dead one it is still fading out of. The replacement is drawn at random
+        /// from what survives — picking whichever colour would help most would quietly make the game easier,
+        /// and that is a difficulty decision, not a fix.
+        /// </para>
+        /// </summary>
+        private void Transmute()
+        {
+            for (int slot = 0; slot < MAGAZINE_SIZE; slot++)
+            {
+                int index = (int)_magazine[slot] - 1;
+                if (index >= 0 && index < _ballsOfType.Length && _ballsOfType[index] > 0) continue;
+
+                BallType replacement = RandomBallType();
+                if (replacement == _magazine[slot]) continue; //nothing survives to swap to; leave it alone
+
+                //The ball it is fading OUT of is whatever is on screen now — which for a slot caught
+                //mid-transmute is the colour it was already fading out of, not the one it never finished
+                //becoming. Restarting from the visible colour is what keeps the animation continuous.
+                if (_magazineTransmute[slot] <= 0f) _magazineFrom[slot] = _magazine[slot];
+
+                Console.WriteLine($"[transmute] slot {slot}: {_magazineFrom[slot]} is gone from the cluster -> {replacement}");
+
+                _magazine[slot] = replacement;
+                _magazineTransmute[slot] = 1f;
+            }
         }
 
         #endregion
@@ -2416,6 +2501,12 @@ namespace BS3D
             if (_magazineSlide > 0f) _magazineSlide *= MathF.Exp(-elapsed / MAGAZINE_SLIDE_TAU);
             if (_magazineSlide < 0.001f) _magazineSlide = 0f;
 
+            //And a re-coloured ball dissolves out of its old colour. Linear, so it genuinely finishes rather
+            //than leaving a slot for ever a few pixels short of its new colour.
+            for (int i = 0; i < MAGAZINE_SIZE; i++)
+                if (_magazineTransmute[i] > 0f)
+                    _magazineTransmute[i] = MathF.Max(0f, _magazineTransmute[i] - elapsed / TRANSMUTE_SECONDS);
+
             //The barrel slides home. Linear in the stroke, so it genuinely ends rather than approaching zero
             //forever and leaving the gun permanently a hair out of place.
             if (_cannonRecoil > 0f) _cannonRecoil = MathF.Max(0f, _cannonRecoil - CANNON_RECOIL_DECAY * elapsed);
@@ -2659,8 +2750,18 @@ namespace BS3D
 
         private void AdvanceMagazine()
         {
-            for (int i = 0; i < MAGAZINE_SIZE - 1; i++) _magazine[i] = _magazine[i + 1];
+            //A ball's half-finished transmute rides forward with it: the queue is drawn from these three
+            //arrays in step, so shifting only the colours would leave a slot dissolving out of a colour that
+            //belongs to the ball behind it.
+            for (int i = 0; i < MAGAZINE_SIZE - 1; i++)
+            {
+                _magazine[i] = _magazine[i + 1];
+                _magazineFrom[i] = _magazineFrom[i + 1];
+                _magazineTransmute[i] = _magazineTransmute[i + 1];
+            }
+
             _magazine[MAGAZINE_SIZE - 1] = RandomBallType();
+            _magazineTransmute[MAGAZINE_SIZE - 1] = 0f; //freshly drawn from what is alive; nothing to fade
 
             //Armed at one slot back, so the queue eases forward into the muzzle slot the shot just vacated
             _magazineSlide = 1f;
@@ -3267,11 +3368,33 @@ namespace BS3D
                 world.M41 = position.X;
                 world.M42 = position.Y;
                 world.M43 = position.Z;
-                CollectBallInstance(position, world, _magazine[i], new Vector4(0f, 0f, 0f, 1f));
+
+                //A ball whose colour was eliminated from the cluster is re-coloured where it sits, and the two
+                //colours cross-fade by dithering against each other: the new one arrives (negative) while the
+                //old one goes (positive), and the two cuts are exact complements, so every pixel of the sphere
+                //is written by exactly one of the two draws. Both stay in the opaque path — no sorting, no
+                //muddy overlap. A settled ball is a single draw at zero, which clips nothing.
+                //
+                //_magazineTransmute counts DOWN from 1 (just swapped) to 0 (settled), so the dissolve's own
+                //progress is its complement. Feeding the countdown straight in runs the effect backwards: the
+                //new colour arrives complete on the frame of the swap and the old one is never seen at all.
+                float remaining = _magazineTransmute[i];
+
+                if (remaining > 0f)
+                {
+                    float progress = 1f - remaining;
+
+                    CollectBallInstance(position, world, _magazine[i], new Vector4(0f, 0f, 0f, 1f), -progress);
+                    CollectBallInstance(position, world, _magazineFrom[i], new Vector4(0f, 0f, 0f, 1f), progress);
+                }
+                else CollectBallInstance(position, world, _magazine[i], new Vector4(0f, 0f, 0f, 1f));
             }
         }
 
-        private void CollectBallInstance(Vector3 position, Matrix world, BallType type, Vector4 occlusion)
+        /// <param name="dissolve">
+        /// Zero for every ball but one caught mid-transmute — see <see cref="ModelInstance.Dissolve"/>.
+        /// </param>
+        private void CollectBallInstance(Vector3 position, Matrix world, BallType type, Vector4 occlusion, float dissolve = 0f)
         {
             int typeIndex = (int)type - 1;
             if (typeIndex < 0 || typeIndex >= BALL_TYPE_COUNT) return;
@@ -3295,7 +3418,7 @@ namespace BS3D
                 _ballInstances[bucketIndex] = bucket;
             }
 
-            bucket[count] = new ModelInstance(world, occlusion);
+            bucket[count] = new ModelInstance(world, occlusion, dissolve);
             _ballInstanceCounts[bucketIndex] = count + 1;
         }
 
@@ -3617,12 +3740,32 @@ namespace BS3D
         #endregion
 
         /// <summary>
-        /// What the magazine loads next: one of the colours actually hanging in the loaded level (see
-        /// <see cref="CollectLevelBallTypes"/>), off the unseeded run-to-run generator. Not an instance method
-        /// by accident — the set changes with the level, so it cannot be static the way it was when the
-        /// cluster was a fixed pyramid.
+        /// What the magazine loads next: one of the colours <b>still hanging</b> (see
+        /// <see cref="RecountBallTypes"/>), drawn evenly among them off the unseeded run-to-run generator.
+        /// Not an instance method by accident — the live set changes with every shot that lands, so it cannot
+        /// be static the way it was when the cluster was a fixed pyramid.
         /// </summary>
-        private BallType RandomBallType() => _levelBallTypes[RANDOM.Next(_levelBallTypes.Length)];
+        private BallType RandomBallType()
+        {
+            int live = 0;
+            for (int i = 0; i < _ballsOfType.Length; i++) if (_ballsOfType[i] > 0) live++;
+
+            //An empty cluster — a level authored with no balls, or one the player has just cleared. There is
+            //nothing left to match, so what is loaded cannot matter; the default four keep the barrel full.
+            if (live == 0) return DEFAULT_BALL_TYPES[RANDOM.Next(DEFAULT_BALL_TYPES.Length)];
+
+            int pick = RANDOM.Next(live);
+
+            for (int i = 0; i < _ballsOfType.Length; i++)
+            {
+                if (_ballsOfType[i] <= 0) continue;
+                if (pick == 0) return (BallType)(i + 1);
+
+                pick--;
+            }
+
+            return DEFAULT_BALL_TYPES[0]; //unreachable: pick < live, and live is the count of the loop's hits
+        }
 
         protected override void UnloadContent()
         {

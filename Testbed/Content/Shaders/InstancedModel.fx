@@ -101,6 +101,10 @@ struct InstanceInput
 	float4 WorldRow4 : TEXCOORD4;
 	//XYZ = world-space direction towards the instance's occluders (zero = none), W = base occlusion factor
 	float4 Custom : TEXCOORD5;
+	//How much of this instance has been dithered away: 0 draws it whole, positive eats it away, negative
+	//fills it in. Read by the ball pattern technique alone; every other technique ignores it, and an
+	//unconsumed element in the vertex layout costs nothing.
+	float Dissolve : TEXCOORD6;
 };
 
 struct VertexShaderOutput
@@ -778,7 +782,30 @@ struct PatternVertexShaderOutput
 	float3 WorldNormal : TEXCOORD1;
 	float4 OcclusionData : TEXCOORD2;
 	float3 ObjectPosition : TEXCOORD3;
+	//Flat across the instance; interpolating a constant is free and saves a nointerpolation qualifier
+	float Dissolve : TEXCOORD4;
 };
+
+//How many cells the dissolve breaks the ball's surface into, along each object-space axis. Chunky on
+//purpose: the point is that the old colour visibly goes away in PIXELS rather than fading, so the player
+//can see the game re-colouring a loaded ball instead of a colour silently changing behind their back.
+//
+//Object space rather than screen space, and that is not a stylistic choice: a screen-space dither is laid
+//down at the SUPERSAMPLED resolution and the box filter then averages it back into a smooth cross-fade, so
+//the pixelation the effect exists for would disappear at exactly the settings that make everything else
+//look better. Cells that belong to the ball survive any resolution, and they turn with it.
+static const float DissolveCells = 7.0;
+
+/// A hash with no sin in it, for the same reason the cloud field's has none: sine-based hashes band
+/// differently across drivers. Cheap enough to run unconditionally rather than behind a per-instance
+/// branch, which would diverge within a draw call.
+float DissolveNoise(float3 direction)
+{
+	float3 p = frac(floor(direction * DissolveCells) * 0.1031);
+	p += dot(p, p.yzx + 33.33);
+
+	return frac((p.x + p.y) * p.z);
+}
 
 PatternVertexShaderOutput PatternVS(VertexShaderInput input, InstanceInput instance)
 {
@@ -794,6 +821,7 @@ PatternVertexShaderOutput PatternVS(VertexShaderInput input, InstanceInput insta
 	output.Position = mul(mul(worldPosition, View), Projection);
 	output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
 	output.OcclusionData = instance.Custom;
+	output.Dissolve = instance.Dissolve;
 
 	return output;
 }
@@ -826,6 +854,13 @@ float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 	//units the relief is written in without the shader having to be told how big a ball is
 	float radius = max(length(input.ObjectPosition), 1e-5);
 	float3 direction = input.ObjectPosition / radius;
+
+	//The dissolve cut, before anything else is worth computing. Branchless — a select rather than an if,
+	//because Dissolve varies per instance and a branch on it would diverge inside a single draw call.
+	//At the settled value of 0 this reduces to clip(noise), and the hash is never negative, so every ball
+	//that is not transmuting keeps all of its pixels and pays a handful of ALU for the privilege.
+	float dissolveNoise = DissolveNoise(direction);
+	clip(input.Dissolve >= 0 ? dissolveNoise - input.Dissolve : -input.Dissolve - dissolveNoise);
 
 	//sin(N * azimuth) stays continuous across the atan2 branch cut for integer N, so neither the
 	//value nor its screen-space derivative jumps there and the seam needs no special handling
