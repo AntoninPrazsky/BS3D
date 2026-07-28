@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5C2D91" />
+      <stop offset="100%" stop-color="#1E3A8A" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+    <radialGradient id="redGrad" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#FF8A80" />
+      <stop offset="100%" stop-color="#D50000" />
+    </radialGradient>
+    <radialGradient id="greenGrad" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#B9F6CA" />
+      <stop offset="100%" stop-color="#00C853" />
+    </radialGradient>
+    <radialGradient id="blueGrad" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#82B1FF" />
+      <stop offset="100%" stop-color="#2962FF" />
+    </radialGradient>
+    <radialGradient id="yellowGrad" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#FFFF8D" />
+      <stop offset="100%" stop-color="#FFD600" />
+    </radialGradient>
+    <radialGradient id="purpleGrad" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#EA80FC" />
+      <stop offset="100%" stop-color="#AA00FF" />
+    </radialGradient>
+    <radialGradient id="orangeGrad" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#FFD180" />
+      <stop offset="100%" stop-color="#FF6D00" />
+    </radialGradient>
+  </defs>
+  <rect x="0" y="0" width="256" height="256" rx="48" ry="48" fill="url(#bgGrad)" />
+  <g filter="url(#shadow)">
+    <circle cx="63" cy="193" r="40" fill="url(#redGrad)" />
+    <circle cx="51" cy="181" r="12" fill="white" opacity="0.35" />
+    <circle cx="128" cy="193" r="40" fill="url(#greenGrad)" />
+    <circle cx="116" cy="181" r="12" fill="white" opacity="0.35" />
+    <circle cx="193" cy="193" r="40" fill="url(#blueGrad)" />
+    <circle cx="181" cy="181" r="12" fill="white" opacity="0.35" />
+    <circle cx="96" cy="128" r="40" fill="url(#yellowGrad)" />
+    <circle cx="84" cy="116" r="12" fill="white" opacity="0.35" />
+    <circle cx="160" cy="128" r="40" fill="url(#purpleGrad)" />
+    <circle cx="148" cy="116" r="12" fill="white" opacity="0.35" />
+    <circle cx="128" cy="63" r="40" fill="url(#orangeGrad)" />
+    <circle cx="116" cy="51" r="12" fill="white" opacity="0.35" />
+  </g>
+</svg>

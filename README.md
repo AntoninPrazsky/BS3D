@@ -1,4 +1,4 @@
-![BS3D — Bubble Shooter 3D](/Screenshots/bs3d_logo_8.png)
+![BS3D — Bubble Shooter 3D](/Images/bs3d_logo_8.png)
 
 # BS3D
 
@@ -15,4 +15,4 @@
 
 ## Screenshot
 
-![Screenshot](/Screenshots/screenshot1.png)
+![Screenshot](/Images/screenshot1.png)

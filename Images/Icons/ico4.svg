@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#2A1055" />
+      <stop offset="100%" stop-color="#0A0118" />
+    </radialGradient>
+    <radialGradient id="glowGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FF6D00" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#FF6D00" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="impactGrad" cx="60%" cy="60%" r="65%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="30%" stop-color="#FFAB40" />
+      <stop offset="100%" stop-color="#D50000" />
+    </radialGradient>
+    <radialGradient id="greenGrad" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#B9F6CA" />
+      <stop offset="100%" stop-color="#00C853" />
+    </radialGradient>
+    <radialGradient id="blueGrad" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#82B1FF" />
+      <stop offset="100%" stop-color="#2962FF" />
+    </radialGradient>
+    <linearGradient id="greenTail" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00C853" stop-opacity="0" />
+      <stop offset="100%" stop-color="#00C853" stop-opacity="0.8" />
+    </linearGradient>
+    <linearGradient id="blueTail" x1="100%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#2962FF" stop-opacity="0" />
+      <stop offset="100%" stop-color="#2962FF" stop-opacity="0.8" />
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="256" height="256" rx="48" ry="48" fill="url(#bgGrad)" />
+  <circle cx="128" cy="128" r="120" fill="url(#glowGrad)" />
+  <ellipse cx="40" cy="210" rx="18" ry="70" transform="rotate(-45 40 210)" fill="url(#greenTail)" />
+  <ellipse cx="216" cy="210" rx="18" ry="70" transform="rotate(45 216 210)" fill="url(#blueTail)" />
+  <circle cx="128" cy="128" r="80" fill="url(#impactGrad)" />
+  <circle cx="110" cy="105" r="22" fill="white" opacity="0.3" />
+  <circle cx="72" cy="184" r="40" fill="url(#greenGrad)" />
+  <circle cx="60" cy="172" r="12" fill="white" opacity="0.4" />
+  <circle cx="184" cy="184" r="40" fill="url(#blueGrad)" />
+  <circle cx="172" cy="172" r="12" fill="white" opacity="0.4" />
+  <path d="M 180 70 L 183 62 L 186 70 L 194 73 L 186 76 L 183 84 L 180 76 L 172 73 Z" fill="white" opacity="0.9" />
+  <path d="M 68 68 L 70 63 L 72 68 L 77 70 L 72 72 L 70 77 L 68 72 L 63 70 Z" fill="white" opacity="0.7" />
+  <path d="M 128 220 L 130 215 L 132 220 L 137 222 L 132 224 L 130 229 L 128 224 L 123 222 Z" fill="white" opacity="0.6" />
+</svg>

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#120024" />
+      <stop offset="100%" stop-color="#050008" />
+    </radialGradient>
+    <radialGradient id="glowGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FF00FF" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#FF00FF" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="impactMagentaGrad" cx="50%" cy="50%" r="65%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="25%" stop-color="#FF80FF" />
+      <stop offset="100%" stop-color="#D500F9" />
+    </radialGradient>
+    <radialGradient id="magentaGrad" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#FF80FF" />
+      <stop offset="100%" stop-color="#D500F9" />
+    </radialGradient>
+    <radialGradient id="cyanGrad" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#84FFFF" />
+      <stop offset="100%" stop-color="#00E5FF" />
+    </radialGradient>
+  </defs>
+  <rect x="0" y="0" width="256" height="256" rx="48" ry="48" fill="url(#bgGrad)" />
+  <circle cx="128" cy="63" r="120" fill="url(#glowGrad)" />
+  <circle cx="63" cy="63" r="40" fill="url(#cyanGrad)" />
+  <circle cx="51" cy="51" r="12" fill="white" opacity="0.4" />
+  <circle cx="128" cy="63" r="40" fill="url(#impactMagentaGrad)" />
+  <circle cx="128" cy="63" r="48" fill="none" stroke="#FF80FF" stroke-width="2" opacity="0.6" />
+  <circle cx="193" cy="63" r="40" fill="url(#cyanGrad)" />
+  <circle cx="181" cy="51" r="12" fill="white" opacity="0.4" />
+  <circle cx="96" cy="128" r="40" fill="url(#magentaGrad)" />
+  <circle cx="84" cy="116" r="12" fill="white" opacity="0.4" />
+  <circle cx="160" cy="128" r="40" fill="url(#magentaGrad)" />
+  <circle cx="148" cy="116" r="12" fill="white" opacity="0.4" />
+  <circle cx="128" cy="193" r="40" fill="url(#cyanGrad)" />
+  <circle cx="116" cy="181" r="12" fill="white" opacity="0.4" />
+  <path d="M 165 35 L 168 27 L 171 35 L 179 38 L 171 41 L 168 49 L 165 41 L 157 38 Z" fill="#FF80FF" opacity="0.9" />
+  <path d="M 90 35 L 92 30 L 94 35 L 99 37 L 94 39 L 92 44 L 90 39 L 85 37 Z" fill="#84FFFF" opacity="0.9" />
+  <path d="M 140 100 L 142 95 L 144 100 L 149 102 L 144 104 L 142 109 L 140 104 L 135 102 Z" fill="white" opacity="0.7" />
+</svg>
