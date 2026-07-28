@@ -105,6 +105,9 @@ struct InstanceInput
 	//fills it in. Read by the ball pattern technique alone; every other technique ignores it, and an
 	//unconsumed element in the vertex layout costs nothing.
 	float Dissolve : TEXCOORD6;
+	//How brightly this instance is flaring as the ripple passes through it, 0 = not at all. Read by the
+	//ball pattern technique alone, like Dissolve above.
+	float Ripple : TEXCOORD7;
 };
 
 struct VertexShaderOutput
@@ -213,6 +216,11 @@ float SpecularAmbientStrength;
 //incidence *is* the specular color, so the whole surface reflects the environment in that tint (gold
 //reflects gold), which is what a bare-metal trim needs. Left at 0 unless a renderer sets it.
 float Metalness;
+
+//Light a surface puts out on its own, in linear radiance, added at the end of ShadePixel so every
+//technique that shades through it can use it. Zero everywhere but the glass ceiling as it steps down,
+//which is the one surface in this game that has to announce itself.
+float3 EmissiveTint;
 
 //Normal-incidence reflectance of a dielectric. Stone, marble, glass, vinyl, paint - everything in this
 //scene that is not bare metal - reflects roughly this fraction of what hits it head-on.
@@ -338,6 +346,14 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
 
 	color.rgb += environment * FresnelSchlick(reflectanceAtNormal, dot(worldNormal, eyeVector), surface.Smoothness)
 		* SpecularAmbientStrength * surface.Environment * color.a * occlusion;
+
+	//Light the surface is putting out itself, on top of everything it reflects. Zero for everything except
+	//the glass ceiling as it steps down, which is the one surface in the game that has to announce itself.
+	//
+	//NOT multiplied by color.a, unlike the specular ambient above: alpha is how much of what is BEHIND the
+	//surface comes through, and a pane that is glowing is emitting rather than transmitting. Attenuating it
+	//by the glass's own transparency is what would make a warning on a 35 %-opaque plate almost invisible.
+	color.rgb += EmissiveTint;
 
 	return color;
 }
@@ -745,6 +761,31 @@ float PulseDepth;
 float3 PulseDirection;
 float PulseWavelength;
 
+//How hard a ball flares at the peak of its own ripple, as a multiple of its colour. Zero switches the
+//whole term off - which is what the map editor and the testbed leave it at, since neither has a shot
+//landing in a cluster to start one.
+float RippleStrength;
+
+//How far the flare is carried to white. Enough that it lifts the channels the ball has none of - which is
+//what makes it read as lighting up - while keeping enough hue that a red ball's flare is still warm and
+//short of the point where every ball in the front goes the same featureless white.
+static const float RippleWhiten = 0.5;
+
+//A ripple can carry an alarm instead of the ball's own light, and the SIGN of the per-instance value says
+//which: positive is the ordinary landing wave, negative the alarm. One channel, two meanings, exactly as
+//Dissolve encodes its two directions - and it means a ball can only be in one wave at a time, which is
+//already true of it (the newest wave to reach a ball takes it over).
+//
+//The alarm is a flat red the ball's own colour has no say in: the whole point is that every ball in the
+//wave says the same thing, and a red flare tinted by a green ball is not red.
+static const float3 RippleAlarmColor = float3(1.0, 0.07, 0.05);
+
+//How bright the alarm burns (linear radiance, over GLARE_THRESHOLD so it blooms) and how much of the ball
+//it takes at the peak. Short of 1: leaving a trace of the ball's own shading is what keeps the cluster
+//looking like balls rather than like flat red discs cut out of the frame.
+static const float RippleAlarmBrightness = 1.7;
+static const float RippleAlarmCoverage = 0.95;
+
 //A heart does not beat like a sine. Two pulses per cycle, the second smaller and close behind the
 //first, then a long rest: the lub-dub that reads as alive rather than as a fading lamp.
 float Heartbeat(float t)
@@ -784,6 +825,7 @@ struct PatternVertexShaderOutput
 	float3 ObjectPosition : TEXCOORD3;
 	//Flat across the instance; interpolating a constant is free and saves a nointerpolation qualifier
 	float Dissolve : TEXCOORD4;
+	float Ripple : TEXCOORD5;
 };
 
 //How many cells the dissolve breaks the ball's surface into, along each object-space axis. Chunky on
@@ -822,6 +864,7 @@ PatternVertexShaderOutput PatternVS(VertexShaderInput input, InstanceInput insta
 	output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
 	output.OcclusionData = instance.Custom;
 	output.Dissolve = instance.Dissolve;
+	output.Ripple = instance.Ripple;
 
 	return output;
 }
@@ -921,6 +964,45 @@ float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 	//and emitting through them made half of every ball radiate white light, which is both the wrong color
 	//and the reason they read as washed out. What is alive here is the ball, not its paint job.
 	shaded.rgb += primary * EmissiveStrength * lerp(1 - PulseDepth, 1, beat);
+
+	//And on top of the resting breath, the ripple: the light that runs out through the cluster from
+	//wherever a ball has just landed. WHEN this ball takes its turn was decided on the CPU by walking the
+	//balls that touch each other outwards from the impact, so what arrives here is only how brightly it is
+	//flaring this frame - the walk is a question about the cluster's connectivity, and a wave evaluated
+	//from a world-space distance here would run straight through the holes a played cluster is full of
+	//instead of around them.
+	//
+	//Branched on the UNIFORM, not on the per-instance value: the strength is the same for every instance in
+	//a draw call, so the branch cannot diverge, and a renderer that never ripples pays nothing at all.
+	[branch]
+	if (RippleStrength > 0)
+	{
+		//The flare is mostly WHITE with the ball's hue in it, and that is not a stylistic preference - it is
+		//the only thing that reads. Adding light in the ball's own colour piles it into the one channel that
+		//is already near the top of the ACES curve, so a red ball taking a full-strength flare goes from
+		//bright red to very slightly brighter red and the wave is invisible; measured, it was there in the
+		//instance data at 0.97 and could not be seen on screen at all. Lifting the channels the ball does
+		//NOT have is what turns it white-hot, which is what "lighting up" looks like.
+		//
+		//Normalising the hue to peak 1 first also settles the dark types: primary runs from a full-strength
+		//red down to the 8-ball's 0.045 grey, and multiplying that raw would leave the black balls out of
+		//the wave entirely. Light passing through a cluster does not care what colour the ball under it is.
+		float amount = abs(input.Ripple);
+		float peak = max(primary.r, max(primary.g, primary.b));
+
+		float3 lit = shaded.rgb + lerp(primary / max(peak, 1e-3), 1.0, RippleWhiten) * (RippleStrength * amount);
+
+		//The alarm REPLACES the ball's colour rather than adding to it, and that is the whole difference
+		//between a warning and a wash. Added, a red flare on a green ball is green plus red, which is yellow;
+		//on a red one it is a slightly brighter red, and on black a pale grey - every ball came out a
+		//different pastel and none of them said "red". Blended, the cluster momentarily TURNS red, which is
+		//a thing the player cannot mistake for the scene doing something of its own.
+		float3 alarmed = lerp(shaded.rgb, RippleAlarmColor * RippleAlarmBrightness, amount * RippleAlarmCoverage);
+
+		//A select and not an if, for the reason the dissolve's clip is one: the sign varies PER INSTANCE, so
+		//a branch on it would diverge inside a single draw call. Both sides are a handful of ops.
+		shaded.rgb = input.Ripple < 0 ? alarmed : lit;
+	}
 
 	//The hand-rolled vinyl sheen that used to sit here is gone: it was a Fresnel reflection of the sky,
 	//which ShadePixel's specular ambient now does for every surface with a real dielectric F0 behind it.

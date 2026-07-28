@@ -65,6 +65,25 @@ namespace Prazsky.BS3D.Physics
             RenderOffsetArmed = true;
         }
 
+        /// <summary>
+        /// Seconds into this ball's own flare as the ripple passes through it. It starts <b>negative</b> — a
+        /// countdown to its turn, one step per ball between it and the impact — runs up through the flare, and
+        /// is done once it passes the flare's length.
+        /// <para>
+        /// Kept on the ball for the reason <see cref="Occlusion"/> is: a ball crosses between the structure
+        /// and the falling balls in a single step, and a group cut loose while it was lit should keep glowing
+        /// on its way down rather than snapping dark at the moment it stops being part of the cluster.
+        /// </para>
+        /// </summary>
+        public float RippleTime;
+
+        /// <summary>
+        /// How brightly this ball flares at the peak of its turn, 0 = not lit at all (which is the resting
+        /// state, and what everything the ripple never reached carries). Falls off with distance from the
+        /// impact, so the wave dies away instead of stopping at a hard edge.
+        /// </summary>
+        public float RippleAmplitude;
+
         public void SetEmptyConstraints()
         {
             HandlesTop.Handle1.Value = -1;

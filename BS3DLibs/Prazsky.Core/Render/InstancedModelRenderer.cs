@@ -77,6 +77,8 @@ namespace Prazsky.Core.Render
         private EffectParameter _pulseDepthParam;
         private EffectParameter _pulseDirectionParam;
         private EffectParameter _pulseWavelengthParam;
+        private EffectParameter _rippleStrengthParam;
+        private EffectParameter _emissiveTintParam;
         private EffectParameter _dirLight0DiffuseParam;
         private EffectParameter _dirLight0SpecularParam;
         private EffectParameter _dirLight1DiffuseParam;
@@ -345,6 +347,25 @@ namespace Prazsky.Core.Render
         public float PulseWavelength { get; set; } = 12f;
 
         /// <summary>
+        /// How hard an instance flares at the peak of its <see cref="ModelInstance.Ripple"/>, as a multiple of
+        /// its own colour. <b>Zero — the default — switches the whole term off</b> in the shader, on a branch
+        /// over this uniform rather than over the per-instance value, so a renderer that never ripples pays
+        /// nothing and cannot diverge inside a draw call.
+        /// </summary>
+        public float RippleStrength { get; set; }
+
+        /// <summary>
+        /// Light this surface puts out on its own, in <b>linear</b> radiance, on top of everything it
+        /// reflects — so it is not clamped to 1, and past <c>GLARE_THRESHOLD</c> it blooms. Zero (the default)
+        /// leaves the surface exactly as it was.
+        /// <para>
+        /// It is not attenuated by the material's alpha: alpha is how much of what is <i>behind</i> a surface
+        /// comes through, and a pane that is glowing is emitting rather than transmitting.
+        /// </para>
+        /// </summary>
+        public Vector3 EmissiveTint { get; set; }
+
+        /// <summary>
         /// Sky color of the hemisphere ambient light (received by upward-facing surfaces), in
         /// <b>linear</b> radiance — see <see cref="ColorSpace"/>. It is also the environment the
         /// specular ambient reflects, so it is not clamped to 1: a bright sky legitimately exceeds white.
@@ -514,6 +535,7 @@ namespace Prazsky.Core.Render
             _parallaxScaleParam = _effect.Parameters["ParallaxScale"];
             _specularAmbientStrengthParam = _effect.Parameters["SpecularAmbientStrength"];
             _metalnessParam = _effect.Parameters["Metalness"];
+            _emissiveTintParam = _effect.Parameters["EmissiveTint"];
             _surfaceReliefFrequencyParam = _effect.Parameters["SurfaceReliefFrequency"];
             _surfaceStyleParam = _effect.Parameters["SurfaceStyle"];
             _patternPrimaryColorParam = _effect.Parameters["PatternPrimaryColor"];
@@ -530,6 +552,7 @@ namespace Prazsky.Core.Render
             _pulseDepthParam = _effect.Parameters["PulseDepth"];
             _pulseDirectionParam = _effect.Parameters["PulseDirection"];
             _pulseWavelengthParam = _effect.Parameters["PulseWavelength"];
+            _rippleStrengthParam = _effect.Parameters["RippleStrength"];
             _mainTechnique = _effect.Techniques["InstancedModel"];
             _texturedTechnique = _effect.Techniques["InstancedModelTextured"];
             _triplanarTechnique = _effect.Techniques["InstancedModelTriplanar"];
@@ -711,6 +734,10 @@ namespace Prazsky.Core.Render
             _specularAmbientStrengthParam.SetValue(SpecularAmbientStrength);
             _metalnessParam.SetValue(Metalness);
 
+            //Unconditionally, for Metalness's reason: a glow left over from the renderer drawn before this one
+            //would set the next surface alight
+            _emissiveTintParam.SetValue(EmissiveTint);
+
             for (int i = 0; i < _parts.Length; i++)
             {
                 ref MeshPartData part = ref _parts[i];
@@ -834,6 +861,10 @@ namespace Prazsky.Core.Render
                 _pulseDepthParam.SetValue(PulseDepth);
                 _pulseDirectionParam.SetValue(PulseDirection);
                 _pulseWavelengthParam.SetValue(PulseWavelength);
+
+                //Unconditionally, like Metalness and SpecularAmbientStrength: a value left over from the
+                //renderer drawn before this one would make the next surface flare on somebody else's wave
+                _rippleStrengthParam.SetValue(RippleStrength);
             }
             else if (DetailTexture != null && part.DiffuseColor.W >= 1f)
             {

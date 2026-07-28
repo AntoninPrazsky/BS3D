@@ -400,8 +400,28 @@ namespace BS3D
         private static readonly float BALL_EMISSION = 0.5f;
         private static readonly float BALL_TRANSLUCENCY = 0.35f;
         private static readonly float BALL_PULSE_BEATS_PER_SECOND = 1.1f;
-        private static readonly float BALL_PULSE_DEPTH = 0.55f;
+
+        //How deep the resting heartbeat swings. Turned down from 0.55 once the ripple arrived: the cluster now
+        //has two things to say with its own light, and a breath that swings over half the emission drowns out
+        //the wave that runs through it on every landing. The breath is the idle state and should read as one —
+        //alive, but waiting — and the ripple is the event.
+        private static readonly float BALL_PULSE_DEPTH = 0.38f;
         private static readonly float BALL_PULSE_WAVELENGTH = 14f;
+
+        /// <summary>
+        /// How hard a ball flares as the ripple reaches it, as a multiple of its own colour at full peak. Over
+        /// <c>GLARE_THRESHOLD</c> (0.38) on purpose, so a lit ball blooms — that is what makes the wave read as
+        /// light travelling through the cluster rather than as the balls changing shade.
+        /// <para>
+        /// <b>But only just over</b>, and that is the whole tuning problem here. The number of balls the wave
+        /// has lit at once grows as the square of how far it has got, so a few hops in it is not one bright
+        /// ball but a hundred of them — and at 1.1 that flooded the glare's bright pass, whose six streak arms
+        /// then overlapped into a wash and, added before the ACES curve, blew the entire frame white for a
+        /// frame. It measured as a single sample at 174 mean brightness against a 137 baseline, and it looked
+        /// like a rendering fault rather than an effect.
+        /// </para>
+        /// </summary>
+        private static readonly float BALL_RIPPLE_STRENGTH = 0.85f;
 
         private const float BALL_RADIUS = Constants.HALF;
 
@@ -1030,6 +1050,7 @@ namespace BS3D
                     PulseDepth = BALL_PULSE_DEPTH,
                     PulseDirection = Vector3.Up,
                     PulseWavelength = BALL_PULSE_WAVELENGTH,
+                    RippleStrength = BALL_RIPPLE_STRENGTH,
                     GroundHeight = ISLAND_Y
                 };
             }
