@@ -49,19 +49,47 @@ namespace BS3D.Screens
         {
             float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            _angle += ROTATION_SPEED * elapsed;
-            if (_angle >= MathHelper.TwoPi) _angle -= MathHelper.TwoPi;
+            AdvanceOrbit(elapsed, out Vector3 position, out Vector3 target, out float fieldOfView);
 
             RecoilCamera camera = Game.Camera;
 
-            camera.BasePosition = new Vector3(MathF.Cos(_angle) * CAM_RADIUS, CAM_HEIGHT, MathF.Sin(_angle) * CAM_RADIUS);
-            camera.BaseTarget = new Vector3(0f, TARGET_Y, 0f);
-            camera.FieldOfView = FOV;
+            camera.BasePosition = position;
+            camera.BaseTarget = target;
+            camera.FieldOfView = fieldOfView;
 
             camera.Update(elapsed);
 
             Game.TuneQualityToFrameRate(elapsed);
         }
+
+        /// <summary>
+        /// Advances the orbit and hands back the pose it has reached, without touching the camera.
+        /// <para>
+        /// Shared with <see cref="ResultPage"/>, which flies the camera out onto this very orbit when a level
+        /// ends. <b>One orbit and one angle</b>, deliberately: a second orbit of its own would leave the front
+        /// end at some unrelated bearing, so pressing "Main Menu" off the result screen would cut to a
+        /// different view of the same arena. Sharing it makes that a continuation — the angle the result
+        /// screen leaves is the angle this screen picks up, and the pose at the end of its ease is the pose
+        /// this screen would have set on its own next frame.
+        /// </para>
+        /// </summary>
+        internal void AdvanceOrbit(float elapsed, out Vector3 position, out Vector3 target, out float fieldOfView)
+        {
+            _angle += ROTATION_SPEED * elapsed;
+            if (_angle >= MathHelper.TwoPi) _angle -= MathHelper.TwoPi;
+
+            position = new Vector3(MathF.Cos(_angle) * CAM_RADIUS, CAM_HEIGHT, MathF.Sin(_angle) * CAM_RADIUS);
+            target = new Vector3(0f, TARGET_Y, 0f);
+            fieldOfView = FOV;
+        }
+
+        /// <summary>
+        /// Puts the orbit at the bearing <paramref name="lens"/> already stands on, so a camera flown onto it
+        /// moves straight <i>out</i> from the arena rather than swinging around it. Without this the ease
+        /// would be a chord to wherever the front end was last left — which crosses the island on the way and
+        /// reads as the camera being yanked sideways rather than released.
+        /// </summary>
+        internal void AlignOrbitTo(Vector3 lens) => _angle = MathF.Atan2(lens.Z, lens.X);
 
         /// <summary>
         /// The setting-only frame: the host's pipeline with nothing in the gameplay slots — sky, backdrop,

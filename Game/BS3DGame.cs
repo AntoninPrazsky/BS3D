@@ -467,6 +467,13 @@ namespace BS3D
         private AboutPage _aboutPage;
         private ResultPage _resultPage;
 
+        /// <summary>
+        /// The bottom of the stack, exposed for its <b>orbit</b> alone: the result screen flies the camera out
+        /// onto it when a level ends, so the two share one orbit and one angle rather than each keeping its
+        /// own — see <see cref="BackdropScreen.AdvanceOrbit"/>.
+        /// </summary>
+        internal BackdropScreen Backdrop => _backdrop;
+
         //The Myra host. Rendered as the very last thing in Draw (after the tonemap resolve and base.Draw),
         //straight to the back buffer — the same place the map editor puts it. Render() also processes Myra's
         //own mouse/keyboard input, so it is only called while a menu page is the active screen, where the

@@ -1,5 +1,7 @@
+using Microsoft.Xna.Framework;
 using Myra.Graphics2D.UI;
 using Prazsky.BS3D.Scoring;
+using System;
 using System.Globalization;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
 using Label = Myra.Graphics2D.UI.Label;
@@ -42,6 +44,80 @@ namespace BS3D.Screens
 
             Refresh();
         }
+
+        #region The camera lets go of the gun
+
+        //The level is over, so there is no longer any reason for the lens to sit behind a gun that cannot
+        //fire: it eases back and out onto the front end's own slow orbit, and the arena turns behind the
+        //numbers. That is the whole of the moment — the player has stopped playing and is being shown what
+        //they did, and a frame frozen at eye level behind the barrel says nothing about it.
+        //
+        //Driven from HERE and not from the session, because the session is COVERED by this page and so is no
+        //longer updated at all — it is frozen mid-frame, which is exactly what a pause wants and exactly what
+        //this moment does not. This page is the only screen still running, so it is the only one that can
+        //move anything. (A pause is left alone deliberately: it shows the game exactly as the player left it.)
+
+        /// <summary>
+        /// How long the release takes. Long enough to read as the camera being let go rather than as a cut,
+        /// short enough that it is over well before anyone has finished reading the breakdown.
+        /// </summary>
+        private const float ORBIT_EASE_SECONDS = 2.5f;
+
+        private float _orbitBlend;
+        private Vector3 _fromPosition, _fromTarget;
+        private float _fromFov, _fromRoll;
+
+        /// <summary>
+        /// Captures the pose the level ended on. The move is a plain Lerp away from it, so there is no first
+        /// frame on which anything jumps — the same one-reversible-scalar shape precise aim and the drop
+        /// cinematic use, and for the same reason.
+        /// </summary>
+        public override void Enter()
+        {
+            RecoilCamera camera = Game.Camera;
+
+            _fromPosition = camera.BasePosition;
+            _fromTarget = camera.BaseTarget;
+            _fromFov = camera.FieldOfView;
+            _fromRoll = camera.BaseRoll;
+            _orbitBlend = 0f;
+
+            //Started at the bearing the lens is already on, so the release is straight out from the arena
+            Game.Backdrop.AlignOrbitTo(_fromPosition);
+        }
+
+        public override void Update(GameTime gameTime)
+        {
+            base.Update(gameTime);
+
+            float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            Game.Backdrop.AdvanceOrbit(elapsed, out Vector3 position, out Vector3 target, out float fieldOfView);
+
+            _orbitBlend = MathF.Min(1f, _orbitBlend + elapsed / ORBIT_EASE_SECONDS);
+
+            //Smoothstep, whose derivative is zero at BOTH ends: the camera leaves at rest, because it was
+            //standing still, and arrives at the orbit's own rate, because by then the blend has stopped
+            //changing and the only thing still moving is the orbit itself. A linear blend would start with a
+            //lurch and end with the camera visibly changing speed as it settled.
+            float eased = MathHelper.SmoothStep(0f, 1f, _orbitBlend);
+
+            RecoilCamera camera = Game.Camera;
+
+            camera.BasePosition = Vector3.Lerp(_fromPosition, position, eased);
+            camera.BaseTarget = Vector3.Lerp(_fromTarget, target, eased);
+            camera.FieldOfView = MathHelper.Lerp(_fromFov, fieldOfView, eased);
+
+            //Back to a level horizon: a level can end mid-tilt if a drop cinematic was running, and a result
+            //screen read over a dutched frame reads as a fault
+            camera.BaseRoll = MathHelper.Lerp(_fromRoll, 0f, eased);
+
+            //Also what settles the recoil: the last shot's kick decays here rather than being frozen into the
+            //pose the player is left looking at
+            camera.Update(elapsed);
+        }
+
+        #endregion
 
         protected override Widget BuildTree()
         {

@@ -576,6 +576,13 @@ namespace BS3D.Screens
             //Seeded from the fresh scorer, so a new budget is not read as a ball just spent.
             _hud.Reset(_score);
             _levelLost = false;
+
+            //The outcome has to be cleared here now that it is read for something other than building the
+            //result screen: it gates the HUD, so a level entered with the last one's Failed still standing
+            //would play with no readout at all. It was harmless while ShowResultScreen was its only reader —
+            //that is set and consumed on the same line — which is exactly how a field like this goes stale.
+            _pendingOutcome = LevelOutcome.None;
+            _pendingFailure = LevelFailure.None;
         }
 
         /// <summary>
@@ -2220,7 +2227,14 @@ namespace BS3D.Screens
 
             //Display space from here down: the resolve is the frame's one and only exit from linear light,
             //and the crosshair and the FPS overlay (a component, drawn in base.Draw after this) are sRGB.
-            _hud.Draw(_score, Camera);
+            //Not once the level is over. The result screen states the score itself, so the in-play readout
+            //behind it is the same figure said twice — and worse, the corners are the only thing on the frame
+            //that would still be pinned to the screen while the camera is released and swings out around the
+            //arena. An award caught mid-flight is the visible half of that: it ages on the play clock, which
+            //has stopped, so it would hang frozen and be reprojected against a moving camera, sliding across
+            //the frame on its way to a score nobody is playing for any more.
+            if (_pendingOutcome == LevelOutcome.None) _hud.Draw(_score, Camera);
+
             DrawCrosshair();
         }
 
