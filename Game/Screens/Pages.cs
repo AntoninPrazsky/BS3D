@@ -44,6 +44,19 @@ namespace BS3D.Screens
         internal override void Refresh() => Game.RefreshSettingsLabels();
     }
 
+    /// <summary>
+    /// What Play opens: the level set's entries in play order. It is a page rather than a jump straight into
+    /// the first level because a campaign is a list the player chooses from — and because the alternative,
+    /// showing it only when the set has more than one entry, makes the flow depend on the data and surprises
+    /// the player the day a second level is authored.
+    /// </summary>
+    internal sealed class LevelSelectPage : MenuPage
+    {
+        public LevelSelectPage(BS3DGame game) : base(game) { }
+
+        internal override Widget Root => Game.LevelSelectRoot;
+    }
+
     internal sealed class ScenePage : MenuPage
     {
         public ScenePage(BS3DGame game) : base(game) { }

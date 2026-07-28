@@ -849,9 +849,11 @@ namespace BS3D
         //
         //While a level is being played the stack is EMPTY: the play loop is not a screen yet (see MenuPage).
         private readonly ScreenManager _screens = new();
+        private SplashPage _splashPage;
         private MainMenuPage _mainMenuPage;
         private PausePage _pausePage;
         private SettingsPage _settingsPage;
+        private LevelSelectPage _levelSelectPage;
         private ScenePage _scenePage;
         private AboutPage _aboutPage;
         private ResultPage _resultPage;
@@ -870,12 +872,15 @@ namespace BS3D
 
         //The screens, built once at load and swapped into _desktop.Root as the player navigates. Building them
         //once rather than per frame keeps the menu out of the frame loop's allocation path.
-        private Widget _mainMenuRoot, _settingsRoot, _sceneSelectRoot, _aboutRoot, _pauseRoot, _resultRoot;
+        private Widget _splashRoot, _mainMenuRoot, _levelSelectRoot, _settingsRoot, _sceneSelectRoot, _aboutRoot, _pauseRoot, _resultRoot;
 
         //Widgets the menu writes back into: the resume entry only exists while there is a session to resume,
         //the settings screen shows each value on its own button, and the scene list marks the one in use.
         private Button _resumeButton;
         private Label _playLabel;
+
+        //The splash's one label, whose colour SplashPage fades in and out every frame
+        private Label _splashTitle;
         private Label _fullscreenValue, _ssaaValue, _exposureValue, _skyValue, _fpsValue;
         private readonly Label[] _sceneLabels = new Label[SCENE_COUNT];
 
@@ -1350,18 +1355,21 @@ namespace BS3D
             //Held for the life of the game rather than made per navigation: nothing is allocated on a button
             //press, and Contains<PausePage>() — which is how a shared page knows it is over a stopped game —
             //means something only if there is one pause page rather than a new one each time.
+            _splashPage = new SplashPage(this);
             _mainMenuPage = new MainMenuPage(this);
             _pausePage = new PausePage(this);
             _settingsPage = new SettingsPage(this);
+            _levelSelectPage = new LevelSelectPage(this);
             _scenePage = new ScenePage(this);
             _aboutPage = new AboutPage(this);
             _resultPage = new ResultPage(this);
 
             EnsureMenuLayout();
 
-            //The front end is the bottom of the stack. Pushed after the trees exist, since the page puts its
-            //own tree into the desktop the moment the stack makes it active.
-            _screens.Push(_mainMenuPage);
+            //The game opens on the title card, which replaces itself with the front end once its beat is up.
+            //Pushed after the trees exist, since the page puts its own tree into the desktop the moment the
+            //stack makes it active.
+            _screens.Push(_splashPage);
         }
 
         /// <summary>
@@ -1387,7 +1395,9 @@ namespace BS3D
             _menuFontHeading = _menuFontSystemBold.GetFont(Scaled(MENU_FONT_HEADING));
             _menuFontTitle = _menuFontSystemBold.GetFont(Scaled(MENU_FONT_TITLE));
 
+            _splashRoot = BuildSplashScreen();
             _mainMenuRoot = BuildMainMenuScreen();
+            _levelSelectRoot = BuildLevelSelectScreen();
             _settingsRoot = BuildSettingsScreen();
             _sceneSelectRoot = BuildSceneSelectScreen();
             _aboutRoot = BuildAboutScreen();
@@ -1425,9 +1435,14 @@ namespace BS3D
 
         //The trees the pages show. Exposed rather than passed in, because they are rebuilt at every layout size
         //and a page that held one would be holding last size's widgets.
+        /// <summary>The page the splash hands over to when its beat is up.</summary>
+        internal MainMenuPage MainMenuPage => _mainMenuPage;
+
+        internal Widget SplashRoot => _splashRoot;
         internal Widget MainMenuRoot => _mainMenuRoot;
         internal Widget PauseRoot => _pauseRoot;
         internal Widget SettingsRoot => _settingsRoot;
+        internal Widget LevelSelectRoot => _levelSelectRoot;
         internal Widget SceneSelectRoot => _sceneSelectRoot;
         internal Widget AboutRoot => _aboutRoot;
         internal Widget ResultRoot => _resultRoot;
@@ -1698,7 +1713,7 @@ namespace BS3D
             _resumeButton = MenuButton("Continue", () => StartGame(newGame: false));
             column.Widgets.Add(_resumeButton);
 
-            column.Widgets.Add(MenuButton("Play", () => StartGame(newGame: true), out _playLabel));
+            column.Widgets.Add(MenuButton("Play", () => OpenPage(_levelSelectPage), out _playLabel));
             column.Widgets.Add(MenuButton("Scene", () => OpenPage(_scenePage)));
             column.Widgets.Add(MenuButton("Settings", () => OpenPage(_settingsPage)));
             column.Widgets.Add(MenuButton("About", () => OpenPage(_aboutPage)));
@@ -2255,6 +2270,85 @@ namespace BS3D
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
         };
+
+        /// <summary>
+        /// The title card the game opens on: the name alone over the scene, fading up and away. It carries no
+        /// entries at all — it is a beat, not a screen to be navigated — so it needs no plate and no scrim, and
+        /// the nav walk simply finds nothing on it.
+        /// </summary>
+        private Widget BuildSplashScreen()
+        {
+            VerticalStackPanel column = MenuColumn();
+
+            //Held on a field because the fade is written onto it every frame by SplashPage; the tree itself is
+            //built once per layout size like every other screen's
+            _splashTitle = new Label
+            {
+                Text = GAME_TITLE,
+                Font = _menuFontTitle,
+                TextColor = MENU_TEXT,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            };
+            column.Widgets.Add(_splashTitle);
+
+            return ScreenRoot(column, scrim: null);
+        }
+
+        /// <summary>
+        /// The level picker Play opens: the set's entries in <b>play order</b>, which is the order the file
+        /// lists them in and not a directory listing. Each carries what the set says about it — the budget, the
+        /// gate, the ceiling — because a player choosing a level is choosing its rules as much as its layout.
+        /// <para>
+        /// Built with the rest of the trees, so it is rebuilt at every layout size like they are; the set is
+        /// read once at load (<see cref="LoadLevelSet"/>) and does not change while the game is running.
+        /// </para>
+        /// </summary>
+        private Widget BuildLevelSelectScreen()
+        {
+            VerticalStackPanel column = MenuColumn();
+            column.Widgets.Add(ScreenHeading("LEVEL"));
+
+            if (_levelSet == null || _levelSet.Count == 0)
+            {
+                //A missing or broken set is not fatal anywhere else either — the game falls back to the
+                //built-in cluster — so the picker offers that rather than an empty list and no way forward
+                column.Widgets.Add(MenuButton("Built-in level", () => StartGameAt(0)));
+            }
+            else
+            {
+                for (int i = 0; i < _levelSet.Count; i++)
+                {
+                    //Captured per iteration, not off the loop variable's final value
+                    int index = i;
+
+                    column.Widgets.Add(MenuButton($"{i + 1}.  {_levelSet.DisplayName(i)}", () => StartGameAt(index)));
+
+                    column.Widgets.Add(new Label
+                    {
+                        Text = _levelSet.DescribeRules(i),
+                        Font = _menuFontSmall,
+                        TextColor = MENU_TEXT_DIM,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                    });
+                }
+            }
+
+            column.Widgets.Add(MenuButton("Back", BackFromSubScreen));
+
+            return ScreenRoot(Plate(column), scrim: null);   //set per showing by ShowPage, from the stack
+        }
+
+        /// <summary>
+        /// Writes the splash's fade onto its one label. Alpha rather than <c>Visible</c>, and on the colour
+        /// rather than on the widget, because a colour is the one thing here that is certain to be honoured by
+        /// every Myra version this has been built against.
+        /// </summary>
+        internal void SetSplashFade(float amount)
+        {
+            if (_splashTitle == null) return;
+
+            _splashTitle.TextColor = MENU_TEXT * MathHelper.Clamp(amount, 0f, 1f);
+        }
 
         private Label ScreenHeading(string text) => new()
         {
@@ -3113,6 +3207,17 @@ namespace BS3D
         {
             if (newGame || !_gameBuilt) BuildLevel(0);
 
+            EnterPlaying();
+        }
+
+        /// <summary>
+        /// Starts the level the player picked. Always a fresh build, even if that entry is the one already
+        /// standing: choosing a level off the picker means starting it, not resuming a half-played attempt at
+        /// it — resuming is what Continue is for.
+        /// </summary>
+        private void StartGameAt(int index)
+        {
+            BuildLevel(index);
             EnterPlaying();
         }
 
