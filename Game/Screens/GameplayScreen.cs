@@ -1135,12 +1135,51 @@ namespace BS3D.Screens
                         }
                     }
 
-            //The budget spent with the field uncleared — but only once every shot has resolved, so the last ball
+            //The budget spent with the field uncleared — but only once every shot has RESOLVED, so the last ball
             //fired has had its chance to clear. A ball still in flight could be that chance, and a loss called
-            //beneath it would steal the win.
-            if (_score.OutOfShots && _shotBalls.Count == 0 && _map.GetBallsCount() > 0)
+            //beneath it would steal the win. "Resolved" is the load-bearing word: see AnyShotUndecided.
+            if (_score.OutOfShots && !AnyShotUndecided() && _map.GetBallsCount() > 0)
                 LoseLevel(LevelFailure.OutOfBalls,
-                    $"budget {LevelShotBudget(_levelIndex)?.ToString() ?? "unlimited"}, fired {_score.ShotsFired}");
+                    $"budget {LevelShotBudget(_levelIndex)?.ToString() ?? "unlimited"}, fired {_score.ShotsFired}"
+                    + $", {_shotBalls.Count} spent ball(s) not yet culled");
+        }
+
+        /// <summary>
+        /// Whether any shot is still <b>undecided</b> — in flight, and so still able to reach the cluster and
+        /// clear the field.
+        /// <para>
+        /// Deliberately not <c>_shotBalls.Count == 0</c>, which was the bug behind #66. That list holds shot
+        /// <i>bodies</i>, and a ball is taken out of it only when it attaches or is culled — so a ball that
+        /// comes to rest on the island's stone ring stays in it for the rest of the session, since the game does
+        /// not sleep-cull (see <see cref="RemoveFallenBalls"/> for why not). One such ball parked there made the
+        /// out-of-balls loss unreachable for ever: the HUD read 0 balls left and no result screen ever came up.
+        /// It bit on the authored 30-shot level and not on a 3-shot test set, because the smaller the budget the
+        /// less chance there is of a shot having settled on the stone by the time it runs out.
+        /// </para>
+        /// <para>
+        /// The quantity wanted is already maintained. A ball stops being a contact listener at exactly the
+        /// moment its shot resolves — on attaching, on touching anything static or kinematic, or on being culled
+        /// — and <see cref="Shoot"/> is the only place anything is ever registered, so every listener is a shot
+        /// still in the air. A counter of its own would be a fourth place to keep in step with those three.
+        /// </para>
+        /// </summary>
+        private bool AnyShotUndecided()
+        {
+            //An indexed walk over at most a handful of balls, like the handler's own FindShotBall, and IsListener
+            //is a set lookup — this runs per frame, so neither LINQ nor an allocation belongs here.
+            for (int i = 0; i < _shotBalls.Count; i++)
+            {
+                BodyReference body = _shotBalls[i].BallReference;
+
+                //Awake as well as listening, which closes the one case the listener flag alone does not: a ball
+                //that comes to rest supported by another LOOSE shot ball has touched nothing static or kinematic
+                //and never attached, so nothing ever unregistered it (the handler returns without unregistering
+                //when the other body is neither structure nor ceiling) — yet a sleeping ball is plainly not
+                //going to reach the cluster. A ball in flight is always awake, so this can never hide a live shot.
+                if (_events.IsListener(body.CollidableReference) && body.Awake) return true;
+            }
+
+            return false;
         }
 
         /// <summary>
