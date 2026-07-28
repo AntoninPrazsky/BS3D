@@ -74,6 +74,13 @@ namespace Prazsky.Core.Screens
         }
 
         /// <summary>
+        /// Empties the stack. An empty manager is a legitimate resting state, not an error: a game whose menus
+        /// are all screens but whose play loop is not one spends the whole of a level with nothing on the
+        /// stack, and every screen it left is properly given its <see cref="Screen.Leave"/> on the way out.
+        /// </summary>
+        public void Clear() => _pending.Add((Action.Clear, null, null));
+
+        /// <summary>
         /// Empties the stack and puts this screen on it — going back to the front end from anywhere, without
         /// having to know how deep the player wandered.
         /// </summary>
@@ -162,6 +169,10 @@ namespace Prazsky.Core.Screens
                         Add(screen);
                         break;
 
+                    case Action.Clear:
+                        while (_stack.Count > 0) RemoveTop();
+                        break;
+
                     case Action.Reset:
                         while (_stack.Count > 0) RemoveTop();
                         Add(screen);
@@ -199,6 +210,6 @@ namespace Prazsky.Core.Screens
             top.Manager = null;
         }
 
-        private enum Action { Push, Pop, Replace, Reset, PopTo }
+        private enum Action { Push, Pop, Replace, Clear, Reset, PopTo }
     }
 }

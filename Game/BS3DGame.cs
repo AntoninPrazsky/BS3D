@@ -1,5 +1,6 @@
 using BepuPhysics;
 using BepuPhysics.Collidables;
+using BS3D.Screens;
 using BepuUtilities.Memory;
 using FontStashSharp;
 using Microsoft.Xna.Framework;
@@ -18,6 +19,7 @@ using Prazsky.BS3D.Scoring;
 using Prazsky.Core;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
+using Prazsky.Core.Screens;
 using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
@@ -836,10 +838,23 @@ namespace BS3D
         //shooting, the game camera) sits behind it, so the menu never has to fight the game for anything.
         private enum GameState { Menu, Playing, Paused }
 
-        private enum MenuScreen { MainMenu, Settings, SceneSelect, About, Pause, Result }
-
         private GameState _state = GameState.Menu;
-        private MenuScreen _menuScreen = MenuScreen.MainMenu;
+
+        //The menus, on a stack (Prazsky.Core.Screens). What it replaces is a MenuScreen enum and a switch that
+        //had to work out where the player had come from: "Settings backs out to the pause it was opened from"
+        //and "it dims the frame because that pause is a stopped game" were both asked as _state == Paused,
+        //from two places. On a stack the pause is simply UNDERNEATH settings, so backing out is a pop and the
+        //dimming is a question about the stack. The pages are held rather than made per navigation, so
+        //Contains<PausePage>() means something and nothing is allocated on a button press.
+        //
+        //While a level is being played the stack is EMPTY: the play loop is not a screen yet (see MenuPage).
+        private readonly ScreenManager _screens = new();
+        private MainMenuPage _mainMenuPage;
+        private PausePage _pausePage;
+        private SettingsPage _settingsPage;
+        private ScenePage _scenePage;
+        private AboutPage _aboutPage;
+        private ResultPage _resultPage;
 
         //True once the physics world, the ceiling body and the cluster have been built. They are deferred out
         //of LoadContent and built on the first "Play" — the simulation is the expensive part of starting up,
@@ -1332,7 +1347,21 @@ namespace BS3D
 
             _desktop = new Desktop();
 
+            //Held for the life of the game rather than made per navigation: nothing is allocated on a button
+            //press, and Contains<PausePage>() — which is how a shared page knows it is over a stopped game —
+            //means something only if there is one pause page rather than a new one each time.
+            _mainMenuPage = new MainMenuPage(this);
+            _pausePage = new PausePage(this);
+            _settingsPage = new SettingsPage(this);
+            _scenePage = new ScenePage(this);
+            _aboutPage = new AboutPage(this);
+            _resultPage = new ResultPage(this);
+
             EnsureMenuLayout();
+
+            //The front end is the bottom of the stack. Pushed after the trees exist, since the page puts its
+            //own tree into the desktop the moment the stack makes it active.
+            _screens.Push(_mainMenuPage);
         }
 
         /// <summary>
@@ -1365,9 +1394,10 @@ namespace BS3D
             _pauseRoot = BuildPauseScreen();
             _resultRoot = BuildResultScreen();
 
-            //Re-asserts the screen the player was on onto the freshly built widgets, and with it everything
-            //ShowMenuScreen keeps in step — the resume entry, the setting values, the marked scene, the result
-            ShowMenuScreen(_menuScreen);
+            //Re-asserts the page the player was on onto the freshly built widgets, and with it everything
+            //ShowPage keeps in step — the resume entry, the setting values, the marked scene, the result.
+            //Null while a level is being played, when the stack is deliberately empty.
+            if (_screens.Active is MenuPage page) ShowPage(page);
         }
 
         /// <summary>A 2160p design figure at the viewport's actual size. Never below one pixel.</summary>
@@ -1393,74 +1423,53 @@ namespace BS3D
             return system;
         }
 
+        //The trees the pages show. Exposed rather than passed in, because they are rebuilt at every layout size
+        //and a page that held one would be holding last size's widgets.
+        internal Widget MainMenuRoot => _mainMenuRoot;
+        internal Widget PauseRoot => _pauseRoot;
+        internal Widget SettingsRoot => _settingsRoot;
+        internal Widget SceneSelectRoot => _sceneSelectRoot;
+        internal Widget AboutRoot => _aboutRoot;
+        internal Widget ResultRoot => _resultRoot;
+
         /// <summary>
-        /// Puts a screen up. Everything that has to agree with the game's current state — whether there is a
-        /// session to resume, what each setting reads, which scene is in use — is refreshed here rather than
-        /// per frame, because a screen can only change while it is being shown.
+        /// Puts a page's tree into the shared Myra desktop and brings it up to date. Called by the page itself
+        /// when the stack makes it the active one — which covers a push, a pop, a replace and a reset alike,
+        /// so there is one path here rather than a branch per way of arriving.
         /// </summary>
-        private void ShowMenuScreen(MenuScreen screen)
+        internal void ShowPage(MenuPage page)
         {
-            _menuScreen = screen;
+            //Everything that has to agree with the game's state — the resume entry, the setting values, the
+            //marked scene, the score just earned — is re-read here rather than per frame, because a page can
+            //only change while nobody is looking at it.
+            page.Refresh();
 
-            switch (screen)
-            {
-                case MenuScreen.MainMenu:
-                    //Resuming is only offered when there is something to resume, and the play entry says
-                    //plainly that pressing it again deals a new cluster rather than continuing this one
-                    _resumeButton.Visible = _gameBuilt;
-                    _playLabel.Text = _gameBuilt ? "New Game" : "Play";
-                    _desktop.Root = _mainMenuRoot;
-                    break;
+            //Whether the frame behind is dimmed belongs to where the page was opened from, and the stack is
+            //what knows: light over a scene that is the point of the picture, heavy over a frozen game that
+            //is not. A null background simply draws nothing.
+            page.Root.Background = page.DimsFrame ? _pauseScrimBrush : null;
 
-                case MenuScreen.Settings:
-                    RefreshSettingsLabels();
+            _desktop.Root = page.Root;
 
-                    //The three shared screens are reached from the front end and from a pause alike, and the
-                    //dimming behind them belongs to where they were opened from: light over a scene that is
-                    //the point of the picture, heavy over a frozen game that is not.
-                    _settingsRoot.Background = CurrentScrim();
-                    _desktop.Root = _settingsRoot;
-                    break;
-
-                case MenuScreen.SceneSelect:
-                    MarkSelectedScene();
-                    _sceneSelectRoot.Background = CurrentScrim();
-                    _desktop.Root = _sceneSelectRoot;
-                    break;
-
-                case MenuScreen.About:
-                    _aboutRoot.Background = CurrentScrim();
-                    _desktop.Root = _aboutRoot;
-                    break;
-
-                case MenuScreen.Pause:
-                    _desktop.Root = _pauseRoot;
-                    break;
-
-                case MenuScreen.Result:
-                    //The breakdown is a snapshot of the score keeper, written onto the screen's labels here
-                    //rather than baked at build — the widget tree is built once and reused every time a level
-                    //ends, and the numbers are different each one. Mirrors how RefreshSettingsLabels writes onto
-                    //the settings buttons after their build.
-                    RefreshResultScreen();
-                    _desktop.Root = _resultRoot;
-                    break;
-            }
-
-            //Last, and only here: every branch above has finished deciding which entries this screen actually
-            //shows — the resume entry, Next Level — and the walk reads what is up rather than what was built.
+            //Last: Refresh above has finished deciding which entries this page actually shows — the resume
+            //entry, Next Level — and the walk reads what is up rather than what was built.
             CollectNavEntries();
         }
 
-        /// <summary>
-        /// The dimming a shared screen gets: the pause scrim over a stopped game, and <b>none at all</b> over
-        /// the front end's live scene — see the palette for why. A null background simply draws nothing.
-        /// </summary>
-        private IBrush CurrentScrim() => _state == GameState.Paused ? _pauseScrimBrush : null;
+        /// <summary>Resume entry and play label, which only the main menu has and only it can answer.</summary>
+        internal void RefreshMainMenu()
+        {
+            //Resuming is only offered when there is something to resume, and the play entry says plainly that
+            //pressing it again deals a new cluster rather than continuing this one
+            _resumeButton.Visible = _gameBuilt;
+            _playLabel.Text = _gameBuilt ? "New Game" : "Play";
+        }
 
-        /// <summary>Back out of a sub-screen to whichever menu opened it.</summary>
-        private void BackFromSubScreen() =>
-            ShowMenuScreen(_state == GameState.Paused ? MenuScreen.Pause : MenuScreen.MainMenu);
+        /// <summary>Opens a page over whatever is up. Backing out of it is a pop; nothing has to remember where it came from.</summary>
+        private void OpenPage(MenuPage page) => _screens.Push(page);
+
+        /// <summary>Back out of a sub-page to the page that opened it.</summary>
+        private void BackFromSubScreen() => _screens.Pop();
 
         /// <summary>
         /// One level back, wherever Escape or the pad's B is pressed: out of a sub-screen to the screen that
@@ -1474,11 +1483,12 @@ namespace BS3D
         /// </summary>
         private void MenuBack()
         {
-            if (_menuScreen is MenuScreen.MainMenu or MenuScreen.Result) return;
+            if (_screens.Active is not MenuPage page || !page.CanGoBack) return;
 
-            if (_menuScreen != MenuScreen.Pause)
-                ShowMenuScreen(_state == GameState.Paused ? MenuScreen.Pause : MenuScreen.MainMenu);
-            else if (_state == GameState.Paused) ResumeGame();
+            //The pause's own back is not a pop but a resume: the game has to start running again, and only the
+            //game knows that. Everything else is one level off the stack, whatever opened it.
+            if (page is PausePage) ResumeGame();
+            else _screens.Pop();
         }
 
         #region Menu navigation (pad and arrow keys)
@@ -1689,9 +1699,9 @@ namespace BS3D
             column.Widgets.Add(_resumeButton);
 
             column.Widgets.Add(MenuButton("Play", () => StartGame(newGame: true), out _playLabel));
-            column.Widgets.Add(MenuButton("Scene", () => ShowMenuScreen(MenuScreen.SceneSelect)));
-            column.Widgets.Add(MenuButton("Settings", () => ShowMenuScreen(MenuScreen.Settings)));
-            column.Widgets.Add(MenuButton("About", () => ShowMenuScreen(MenuScreen.About)));
+            column.Widgets.Add(MenuButton("Scene", () => OpenPage(_scenePage)));
+            column.Widgets.Add(MenuButton("Settings", () => OpenPage(_settingsPage)));
+            column.Widgets.Add(MenuButton("About", () => OpenPage(_aboutPage)));
             column.Widgets.Add(MenuButton("Quit", Exit));
 
             //Hidden unless the adaptive path actually lowered something (see TuneQualityToFrameRate). A player
@@ -1726,8 +1736,8 @@ namespace BS3D
 
             column.Widgets.Add(ScreenHeading("PAUSED"));
             column.Widgets.Add(MenuButton("Resume", ResumeGame));
-            column.Widgets.Add(MenuButton("Settings", () => ShowMenuScreen(MenuScreen.Settings)));
-            column.Widgets.Add(MenuButton("Scene", () => ShowMenuScreen(MenuScreen.SceneSelect)));
+            column.Widgets.Add(MenuButton("Settings", () => OpenPage(_settingsPage)));
+            column.Widgets.Add(MenuButton("Scene", () => OpenPage(_scenePage)));
             column.Widgets.Add(MenuButton("Main Menu", ReturnToMainMenu));
             column.Widgets.Add(MenuButton("Quit", Exit));
 
@@ -1936,9 +1946,9 @@ namespace BS3D
         {
             _state = GameState.Paused;
 
-            //RefreshResultScreen runs from inside ShowMenuScreen, so the snapshot is taken the instant the screen
-            //is shown and not a frame later; _score is frozen with the sim, so it does not move again
-            ShowMenuScreen(MenuScreen.Result);
+            //RefreshResultScreen runs from inside ShowPage, so the snapshot is taken the instant the page is
+            //shown and not a frame later; _score is frozen with the sim, so it does not move again
+            _screens.Push(_resultPage);
 
             Console.WriteLine($"[level] Result for '{LevelName(_levelIndex)}': {_pendingOutcome}" + (_pendingOutcome == LevelOutcome.Failed ? $" ({_pendingFailure})" : "")
                 + $", score {_score.Score}");
@@ -1949,7 +1959,7 @@ namespace BS3D
         /// (on a fail), the breakdown rows (on a clear), and the two buttons' visibility. Built once, the tree
         /// is reused for every level end, so everything the screen says about <i>this</i> end arrives here.
         /// </summary>
-        private void RefreshResultScreen()
+        internal void RefreshResultScreen()
         {
             //The screen is built at load, before any level has been played; with nothing to say, say nothing
             //rather than read fields that are still at their defaults (see RefreshSettingsLabels for the same
@@ -2046,7 +2056,7 @@ namespace BS3D
             column.Widgets.Add(grid);
             column.Widgets.Add(MenuButton("Back", BackFromSubScreen));
 
-            return ScreenRoot(Plate(column), CurrentScrim());
+            return ScreenRoot(Plate(column), scrim: null);   //set per showing by ShowPage, from the stack
         }
 
         private void AddSettingRow(Grid grid, int row, string caption, Action onClick, out Label value)
@@ -2074,7 +2084,7 @@ namespace BS3D
         }
 
         /// <summary>Writes the current value onto each setting's button. Cheap, and only run on a change.</summary>
-        private void RefreshSettingsLabels()
+        internal void RefreshSettingsLabels()
         {
             //The display hotkeys work before the menu has been built (LoadContent runs after Initialize), and
             //there is nothing to write onto until it has been
@@ -2144,7 +2154,7 @@ namespace BS3D
             });
             column.Widgets.Add(MenuButton("Back", BackFromSubScreen));
 
-            return ScreenRoot(Plate(column), CurrentScrim());
+            return ScreenRoot(Plate(column), scrim: null);   //set per showing by ShowPage, from the stack
         }
 
         private void ChooseScene(SceneKind scene)
@@ -2158,7 +2168,7 @@ namespace BS3D
         /// not colour: the one in use is stated white and the rest step back to grey, which reads the same over
         /// a neon city and over a snowfield.
         /// </summary>
-        private void MarkSelectedScene()
+        internal void MarkSelectedScene()
         {
             for (int i = 0; i < SCENE_COUNT; i++)
                 _sceneLabels[i].TextColor = (SceneKind)i == _scene ? MENU_TEXT : MENU_TEXT_DIM;
@@ -2184,7 +2194,7 @@ namespace BS3D
 
             column.Widgets.Add(MenuButton("Back", BackFromSubScreen));
 
-            return ScreenRoot(Plate(column), CurrentScrim());
+            return ScreenRoot(Plate(column), scrim: null);   //set per showing by ShowPage, from the stack
         }
 
         private Label AboutParagraph(string text) => new()
@@ -3149,6 +3159,10 @@ namespace BS3D
         {
             _state = GameState.Playing;
 
+            //A level is played with an EMPTY stack: whatever the player navigated through to get here is gone,
+            //and there is nothing left to back out of. Everything on it is properly left on the way out.
+            _screens.Clear();
+
             _mouseAimInitialized = false;
             _adsHeld = false;
 
@@ -3164,7 +3178,7 @@ namespace BS3D
         private void PauseGame()
         {
             _state = GameState.Paused;
-            ShowMenuScreen(MenuScreen.Pause);
+            _screens.Push(_pausePage);
         }
 
         private void ResumeGame() => EnterPlaying();
@@ -3177,7 +3191,10 @@ namespace BS3D
         private void ReturnToMainMenu()
         {
             _state = GameState.Menu;
-            ShowMenuScreen(MenuScreen.MainMenu);
+
+            //Reset rather than Push: the player may be anywhere — the pause, a settings panel over it, the
+            //result screen — and the front end is the BOTTOM of the stack, not another layer on top of it
+            _screens.Reset(_mainMenuPage);
         }
 
         /// <summary>
@@ -3448,6 +3465,13 @@ namespace BS3D
             //The very click that refocuses a windowed game would otherwise read as a fresh press against a
             //stale "released" state and fire an unintended shot, since input is not sampled while inactive.
             bool edgeInputAllowed = IsActive && _wasActive;
+
+            //Applies whatever the last frame queued onto the menu stack. Unconditional, and above the state
+            //split on purpose: entering a level CLEARS the stack, and that runs while the state is already
+            //Playing — left inside the menu branch it would never be applied, and the pause page would still
+            //be sitting there to be pushed a second time on the next pause. Myra runs its click handlers in
+            //Draw, so a page opened by a click lands here on the following frame, which is the deferred design.
+            _screens.Update(gameTime);
 
             //The menu/pause split. Neither state runs any gameplay path — no aiming, no shooting, no physics,
             //no game camera — so the whole of the rest of this method is behind Playing, and Myra owns the
