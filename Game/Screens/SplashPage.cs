@@ -82,6 +82,9 @@ namespace BS3D.Screens
 
         public override void Update(GameTime gameTime)
         {
+            //The shared menu frame first (the base): the display hotkeys work on the title card too
+            base.Update(gameTime);
+
             _age += (float)gameTime.ElapsedGameTime.TotalSeconds;
 
             //Up over the first FADE, held, then away over the last. Written every frame because the tree is
@@ -90,15 +93,19 @@ namespace BS3D.Screens
 
             if (_age >= SECONDS || (_age >= SKIP_AFTER && Skipped()))
             {
-                //Replace rather than Pop: the splash is the BOTTOM of the stack at boot, and the front end
-                //takes its place rather than being revealed under it
+                //Replace rather than Pop: the splash is the only page over the backdrop at boot, so the front
+                //end has to TAKE ITS PLACE — a pop would leave the backdrop standing with no menu on it at
+                //all, and the game would open on a scene the player cannot do anything with.
                 Manager.Replace(Game.MainMenuPage);
             }
         }
 
         /// <summary>
-        /// Any deliberate press. Read as edges against this page's own snapshots rather than through the
-        /// game's, which are the play loop's and are not being kept while a menu is up.
+        /// Any deliberate press. Read as edges against this page's own snapshots rather than the host's, and
+        /// that is still right now that <see cref="Update"/> runs the shared menu chrome (which does keep the
+        /// host's keyboard and pad snapshots): the host tracks no <i>mouse</i> edge at all, and these are
+        /// deliberately frozen at <see cref="Enter"/> until <see cref="SKIP_AFTER"/> passes, so a key already
+        /// down at boot never reads as a skip. Sharing the host's, which move every frame, would lose both.
         /// </summary>
         private bool Skipped()
         {

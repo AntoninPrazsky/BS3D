@@ -74,9 +74,10 @@ namespace Prazsky.Core.Screens
         }
 
         /// <summary>
-        /// Empties the stack. An empty manager is a legitimate resting state, not an error: a game whose menus
-        /// are all screens but whose play loop is not one spends the whole of a level with nothing on the
-        /// stack, and every screen it left is properly given its <see cref="Screen.Leave"/> on the way out.
+        /// Empties the stack. An empty manager is a legitimate resting state, not an error: a host may have
+        /// nothing to show, and a game whose menus are screens before its play loop is one spends a level with
+        /// nothing on the stack. Every screen it left is properly given its <see cref="Screen.Leave"/> on the
+        /// way out.
         /// </summary>
         public void Clear() => _pending.Add((Action.Clear, null, null));
 

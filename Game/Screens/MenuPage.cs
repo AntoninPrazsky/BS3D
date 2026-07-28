@@ -1,4 +1,5 @@
 using FontStashSharp;
+using Microsoft.Xna.Framework;
 using Myra.Graphics2D;
 using Myra.Graphics2D.UI;
 using Prazsky.Core.Screens;
@@ -18,13 +19,39 @@ namespace BS3D.Screens
     /// question about the stack rather than about a state enum somewhere else.
     /// </para>
     /// <para>
-    /// The play loop is deliberately <b>not</b> a screen yet (#65), so the stack is empty for the whole of a
-    /// level. That is a legitimate resting state (see <see cref="ScreenManager.Clear"/>).
+    /// The play loop is a screen too now (<see cref="GameplayScreen"/>, #65), and the two flags below are
+    /// what the whole stack was built for: every page shows the world behind it — the orbiting scene, or a
+    /// stopped game — so it draws what is underneath; and whether what is underneath still <i>runs</i> is
+    /// exactly whether that is a scene or a game.
     /// </para>
     /// </summary>
     internal abstract class MenuPage : Screen
     {
         protected readonly BS3DGame Game;
+
+        /// <summary>
+        /// Always: a menu page is an overlay, never the whole picture. The front end shows the scene turning
+        /// behind it, and a pause shows the game it stopped — the manager goes on drawing down the stack.
+        /// </summary>
+        public override bool DrawsUnderlying => true;
+
+        /// <summary>
+        /// Whether what is underneath keeps running, and the stack itself answers: over the front end's
+        /// backdrop the scene goes on turning, while any page over a <see cref="GameplayScreen"/> — the pause,
+        /// the result screen, settings opened over either — freezes it. This is the case the flag exists for:
+        /// a pause has to <i>draw</i> the game it stopped while stopping it <i>updating</i>.
+        /// </summary>
+        public override bool UpdatesUnderlying => Manager != null && !Manager.Contains<GameplayScreen>();
+
+        /// <summary>
+        /// The shared menu frame — the pointer, Escape and the display hotkeys, the pad navigation — is the
+        /// host's, and exactly one page a frame asks for it: the one the player is actually on. A page under
+        /// another (the pause under settings) still updates, but its input has been taken over.
+        /// </summary>
+        public override void Update(GameTime gameTime)
+        {
+            if (IsActive) Game.UpdateMenuChrome(gameTime);
+        }
 
         private Widget _root;
         private int _builtForLayout = -1;
