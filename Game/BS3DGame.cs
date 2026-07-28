@@ -289,7 +289,7 @@ namespace BS3D
         //Every value of the enum, in its declared order (City, Sea, Savanna, Desert, Mountain, Meadow,
         //NeonCity). Written out rather than counted with Enum.GetValues so nothing walks reflection at load,
         //and so the scene menu's labels below can be indexed by the same number.
-        private const int SCENE_COUNT = 7;
+        internal const int SCENE_COUNT = 7;
 
         private SceneRenderer _sceneRenderer;
 
@@ -870,33 +870,9 @@ namespace BS3D
         //own mouse/keyboard input, so it is only called in Menu/Paused, where the game's own input stands down.
         private Desktop _desktop;
 
-        //The screens, built once at load and swapped into _desktop.Root as the player navigates. Building them
-        //once rather than per frame keeps the menu out of the frame loop's allocation path.
-        private Widget _splashRoot, _mainMenuRoot, _levelSelectRoot, _settingsRoot, _sceneSelectRoot, _aboutRoot, _pauseRoot, _resultRoot;
-
-        //Widgets the menu writes back into: the resume entry only exists while there is a session to resume,
-        //the settings screen shows each value on its own button, and the scene list marks the one in use.
-        private Button _resumeButton;
-        private Label _playLabel;
-
-        //The splash's one label, whose colour SplashPage fades in and out every frame
-        private Label _splashTitle;
-        private Label _fullscreenValue, _ssaaValue, _exposureValue, _skyValue, _fpsValue;
-        private readonly Label[] _sceneLabels = new Label[SCENE_COUNT];
-
-        //The result screen's own widgets, written to in RefreshResultScreen from the score snapshot. The heading
-        //states the outcome, the reason says which limit ran out (only on a fail), the breakdown rows account for
-        //the score, and the two buttons are shown or held back depending on whether the level was passed and
-        //whether a next entry exists. Like the resume entry, "held back" means absent, not greyed-out.
-        private Label _resultHeading, _resultReason;
-        private Label _resultMatchedDetail, _resultMatchedValue;
-        private Label _resultOrphanedDetail, _resultOrphanedValue;
-        private Label _resultStreakValue;
-        private Label _resultUnusedDetail, _resultUnusedValue;
-        private Label _resultTotalValue, _resultNeededValue;
-        private Label _resultFailedScore;
-        private Widget _resultBreakdown;
-        private Button _retryButton, _nextLevelButton;
+        //Each page owns its own widgets now. What is left here is the host's share of the menu: the desktop
+        //the top page's tree is put into, the fonts, the layout scale and the palette — all of which belong to
+        //the frame rather than to any one page.
 
         //The current screen's entries in the order they are drawn, and which one a pad or the arrow keys have
         //landed on. Collected by walking the shown tree rather than registered per button: a list that has to
@@ -944,9 +920,9 @@ namespace BS3D
         //
         //Display-space sRGB throughout: Myra draws to the back buffer, after the frame's one and only exit
         //from linear light.
-        private static readonly Color MENU_TEXT = new(244, 244, 244);        //the active thing on a screen
-        private static readonly Color MENU_TEXT_BODY = new(208, 208, 208);   //prose, a shade under a heading
-        private static readonly Color MENU_TEXT_DIM = new(146, 146, 146);    //asides, always on a dark plate
+        internal static readonly Color MENU_TEXT = new(244, 244, 244);        //the active thing on a screen
+        internal static readonly Color MENU_TEXT_BODY = new(208, 208, 208);   //prose, a shade under a heading
+        internal static readonly Color MENU_TEXT_DIM = new(146, 146, 146);    //asides, always on a dark plate
 
         //Buttons: a dark slab at rest that the pointer lifts a step up the grey ramp, so the highlight is
         //brightness and not hue. Each of these REPLACES the one before it rather than being laid over it
@@ -970,7 +946,7 @@ namespace BS3D
         private static readonly Color PAUSE_SCRIM = new(0, 0, 0, 176);
 
         //Behind prose, where a slab alone cannot hold a line of small text steady over a moving scene
-        private static readonly Color MENU_PLATE = new(0, 0, 0, 190);
+        internal static readonly Color MENU_PLATE = new(0, 0, 0, 190);
 
         //Held rather than made per navigation: the shared screens swap between this and no scrim at all,
         //depending on whether they were opened from the front end or from a pause.
@@ -1005,7 +981,7 @@ namespace BS3D
         /// stays the shorthand the repository, the assembly and this file's namespace are named for; it is
         /// not what the game is called.
         /// </summary>
-        private const string GAME_TITLE = "Bubble Shooter 3D";
+        internal const string GAME_TITLE = "Bubble Shooter 3D";
 
         //Design units: pixels at 2160p, put through Scaled() wherever they reach a widget
         #region Adaptive quality
@@ -1021,9 +997,6 @@ namespace BS3D
         private float _qualityWarmupLeft = QUALITY_WARMUP_SECONDS;
         private float _qualityWindowSeconds;
         private int _qualityWindowFrames;
-
-        /// <summary>Shown on the main menu once, and only if something was actually lowered.</summary>
-        private Label _qualityNotice;
 
         /// <summary>
         /// Ignored before this much of the run has passed. The opening frames are shader compiles, the first
@@ -1078,7 +1051,7 @@ namespace BS3D
 
         //In the declared order of SceneKind (City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity), so the
         //scene list can be indexed by the enum's own value
-        private static readonly string[] SCENE_NAMES =
+        internal static readonly string[] SCENE_NAMES =
             { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City" };
 
         #endregion
@@ -1395,28 +1368,30 @@ namespace BS3D
             _menuFontHeading = _menuFontSystemBold.GetFont(Scaled(MENU_FONT_HEADING));
             _menuFontTitle = _menuFontSystemBold.GetFont(Scaled(MENU_FONT_TITLE));
 
-            _splashRoot = BuildSplashScreen();
-            _mainMenuRoot = BuildMainMenuScreen();
-            _levelSelectRoot = BuildLevelSelectScreen();
-            _settingsRoot = BuildSettingsScreen();
-            _sceneSelectRoot = BuildSceneSelectScreen();
-            _aboutRoot = BuildAboutScreen();
-            _pauseRoot = BuildPauseScreen();
-            _resultRoot = BuildResultScreen();
-
-            //Re-asserts the page the player was on onto the freshly built widgets, and with it everything
-            //ShowPage keeps in step — the resume entry, the setting values, the marked scene, the result.
-            //Null while a level is being played, when the stack is deliberately empty.
+            //The trees themselves are NOT rebuilt here: each page rebuilds its own the next time it is asked
+            //for one, against this generation (MenuLayoutGeneration). A page the player never opens never
+            //builds a tree at all, where this used to rebuild all eight on every step of a window drag.
+            //
+            //Re-asserts the page the player was on, which is what pulls its tree through at the new size, and
+            //with it everything ShowPage keeps in step. Null while a level is being played, when the stack is
+            //deliberately empty.
             if (_screens.Active is MenuPage page) ShowPage(page);
         }
 
-        /// <summary>A 2160p design figure at the viewport's actual size. Never below one pixel.</summary>
-        private int Scaled(int designUnits) => Math.Max(1, (int)MathF.Round(designUnits * _menuScale));
+        /// <summary>
+        /// Bumped whenever the menu is laid out at a new size. A page holds the generation its tree was built
+        /// for and rebuilds when they differ — which is how a rebuild reaches a page that is not on screen at
+        /// the moment the window is resized.
+        /// </summary>
+        internal int MenuLayoutGeneration => _menuBuiltForHeight;
 
-        private Thickness ScaledThickness(int horizontal, int vertical) =>
+        /// <summary>A 2160p design figure at the viewport's actual size. Never below one pixel.</summary>
+        internal int Scaled(int designUnits) => Math.Max(1, (int)MathF.Round(designUnits * _menuScale));
+
+        internal Thickness ScaledThickness(int horizontal, int vertical) =>
             new(Scaled(horizontal), Scaled(vertical));
 
-        private Thickness ScaledThickness(int left, int top, int right, int bottom) =>
+        internal Thickness ScaledThickness(int left, int top, int right, int bottom) =>
             new(Scaled(left), Scaled(top), Scaled(right), Scaled(bottom));
 
         /// <summary>Reads one TTF out of the assembly's own resources into a <see cref="FontSystem"/>.</summary>
@@ -1433,19 +1408,47 @@ namespace BS3D
             return system;
         }
 
-        //The trees the pages show. Exposed rather than passed in, because they are rebuilt at every layout size
-        //and a page that held one would be holding last size's widgets.
         /// <summary>The page the splash hands over to when its beat is up.</summary>
         internal MainMenuPage MainMenuPage => _mainMenuPage;
 
-        internal Widget SplashRoot => _splashRoot;
-        internal Widget MainMenuRoot => _mainMenuRoot;
-        internal Widget PauseRoot => _pauseRoot;
-        internal Widget SettingsRoot => _settingsRoot;
-        internal Widget LevelSelectRoot => _levelSelectRoot;
-        internal Widget SceneSelectRoot => _sceneSelectRoot;
-        internal Widget AboutRoot => _aboutRoot;
-        internal Widget ResultRoot => _resultRoot;
+        //The fonts and the palette are the frame's, not any one page's — every page is set in the same type
+        internal SpriteFontBase MenuFontBody => _menuFontBody;
+        internal SpriteFontBase MenuFontSmall => _menuFontSmall;
+        internal SpriteFontBase MenuFontHeading => _menuFontHeading;
+        internal SpriteFontBase MenuFontTitle => _menuFontTitle;
+
+        //What the pages ask the game about itself. Read-only: a page shows state and asks for an action, and
+        //nothing here lets it write one directly.
+        internal bool HasSession => _gameBuilt;
+        internal bool IsFullscreen => _fullscreen;
+        internal int SupersampleFactor => _supersampleFactor;
+        internal float Exposure => _exposure;
+        internal byte SkyDomeNumber => _skyDome;
+        internal bool IsFpsOverlayVisible => _info.Visible;
+        internal SceneKind Scene => _scene;
+
+        internal int LevelCount => _levelSet?.Count ?? 0;
+        internal string LevelDisplayName(int index) => _levelSet.DisplayName(index);
+        internal string LevelRulesText(int index) => _levelSet.DescribeRules(index);
+
+        //The actions a page's entries invoke. Named for what the player asked for rather than for how it is
+        //done, so a page reads as a list of choices.
+        internal void ContinueGame() => StartGame(newGame: false);
+        internal void OpenLevelSelect() => OpenPage(_levelSelectPage);
+        internal void OpenSceneSelect() => OpenPage(_scenePage);
+        internal void OpenSettings() => OpenPage(_settingsPage);
+        internal void OpenAbout() => OpenPage(_aboutPage);
+
+        /// <summary>
+        /// What the result screen's "Main Menu" does. The session is torn down, not kept: a level that has
+        /// ended is not one to "Continue" into, and the front end should offer "Play" rather than "Continue"
+        /// into a level that is already finished.
+        /// </summary>
+        internal void EndSessionAndReturnToMainMenu()
+        {
+            TearDownGame();
+            ReturnToMainMenu();
+        }
 
         /// <summary>
         /// Puts a page's tree into the shared Myra desktop and brings it up to date. Called by the page itself
@@ -1469,15 +1472,6 @@ namespace BS3D
             //Last: Refresh above has finished deciding which entries this page actually shows — the resume
             //entry, Next Level — and the walk reads what is up rather than what was built.
             CollectNavEntries();
-        }
-
-        /// <summary>Resume entry and play label, which only the main menu has and only it can answer.</summary>
-        internal void RefreshMainMenu()
-        {
-            //Resuming is only offered when there is something to resume, and the play entry says plainly that
-            //pressing it again deals a new cluster rather than continuing this one
-            _resumeButton.Visible = _gameBuilt;
-            _playLabel.Text = _gameBuilt ? "New Game" : "Play";
         }
 
         /// <summary>Opens a page over whatever is up. Backing out of it is a pop; nothing has to remember where it came from.</summary>
@@ -1694,249 +1688,13 @@ namespace BS3D
 
         #endregion
 
-        private Widget BuildMainMenuScreen()
-        {
-            VerticalStackPanel column = MenuColumn();
-
-            //The title carries no plate and no frame: at this size the letters are their own mass, and a
-            //frame around them would be one more thing competing with whichever scene is turning behind it.
-            //"BS3D" is the repository's and the assembly's shorthand; the game's name is spelled out.
-            column.Widgets.Add(new Label
-            {
-                Text = GAME_TITLE,
-                Font = _menuFontTitle,
-                TextColor = MENU_TEXT,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = ScaledThickness(0, 0, 0, 60),
-            });
-
-            _resumeButton = MenuButton("Continue", () => StartGame(newGame: false));
-            column.Widgets.Add(_resumeButton);
-
-            column.Widgets.Add(MenuButton("Play", () => OpenPage(_levelSelectPage), out _playLabel));
-            column.Widgets.Add(MenuButton("Scene", () => OpenPage(_scenePage)));
-            column.Widgets.Add(MenuButton("Settings", () => OpenPage(_settingsPage)));
-            column.Widgets.Add(MenuButton("About", () => OpenPage(_aboutPage)));
-            column.Widgets.Add(MenuButton("Quit", Exit));
-
-            //Hidden unless the adaptive path actually lowered something (see TuneQualityToFrameRate). A player
-            //whose machine copes never learns this exists, which is the point: it explains a change they did
-            //not ask for, and is not itself a setting.
-            _qualityNotice = new Label
-            {
-                Text = string.Empty,
-                Font = _menuFontSmall,
-                TextColor = MENU_TEXT_BODY,
-                Wrap = true,
-                Width = Scaled(ABOUT_TEXT_WIDTH),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = ScaledThickness(0, 40, 0, 0),
-
-                //Its own backing, because the front end deliberately has no scrim — the rotating scene is the
-                //point of that screen — and a line of small text over open water or a lit skyline is exactly
-                //what a plate exists for. Buttons carry their own; this is the only prose here that does not.
-                Background = new SolidBrush(MENU_PLATE),
-                Padding = ScaledThickness(34, 18),
-
-                Visible = false,
-            };
-            column.Widgets.Add(_qualityNotice);
-
-            return ScreenRoot(column, scrim: null);
-        }
-
-        private Widget BuildPauseScreen()
-        {
-            VerticalStackPanel column = MenuColumn();
-
-            column.Widgets.Add(ScreenHeading("PAUSED"));
-            column.Widgets.Add(MenuButton("Resume", ResumeGame));
-            column.Widgets.Add(MenuButton("Settings", () => OpenPage(_settingsPage)));
-            column.Widgets.Add(MenuButton("Scene", () => OpenPage(_scenePage)));
-            column.Widgets.Add(MenuButton("Main Menu", ReturnToMainMenu));
-            column.Widgets.Add(MenuButton("Quit", Exit));
-
-            return ScreenRoot(column, _pauseScrimBrush);
-        }
-
-        /// <summary>
-        /// The end-of-level screen: the one place both ways a level ends (cleared, #56; failed, #58) land, and
-        /// the one place a player is told which happened and chooses what to do about it. It is a pause screen
-        /// with different contents rather than a fourth <see cref="GameState"/> — the freeze, the scrim over a
-        /// stopped frame and Myra owning the input are exactly what <see cref="GameState.Paused"/> already gives.
-        /// </summary>
-        /// <remarks>
-        /// The widget tree is built once and reused for every level end; the numbers and the visible buttons
-        /// change, and are written in <see cref="RefreshResultScreen"/> from the score snapshot, exactly as the
-        /// settings values are written onto their buttons after their build.
-        /// </remarks>
-        private Widget BuildResultScreen()
-        {
-            VerticalStackPanel column = MenuColumn();
-
-            //CLEARED / FAILED / CAMPAIGN COMPLETE — a title's size, like the main menu's name, because this is
-            //the line the screen exists to state.
-            _resultHeading = new Label
-            {
-                Text = string.Empty,
-                Font = _menuFontTitle,
-                TextColor = MENU_TEXT,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = ScaledThickness(0, 0, 0, 30),
-            };
-            column.Widgets.Add(_resultHeading);
-
-            //Which limit ran out, said plainly — only on a fail. Held back (Visible = false) on a cleared level.
-            _resultReason = new Label
-            {
-                Text = string.Empty,
-                Font = _menuFontBody,
-                TextColor = MENU_TEXT_DIM,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = ScaledThickness(0, 0, 0, 12),
-            };
-            column.Widgets.Add(_resultReason);
-
-            //The score reached, on a fail. The breakdown below is rightly held back — a failed level is awarded
-            //no completion bonus and its partial rows would explain a total nobody is being offered — but the
-            //total itself still has to be said, or the player is told they lost and nothing about how they did.
-            _resultFailedScore = new Label
-            {
-                Text = string.Empty,
-                Font = _menuFontBody,
-                TextColor = MENU_TEXT,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = ScaledThickness(0, 0, 0, 30),
-            };
-            column.Widgets.Add(_resultFailedScore);
-
-            //The breakdown: caption · detail · value, the same three-column shape the settings screen uses, so a
-            //number lines up under the number above it and reads at a glance. A plate behind it, because small
-            //text over a frozen scene needs the backing the scrim does not give — the same reason the settings
-            //and about screens carry one. Held back on a fail: a single total teaches nothing, and the only
-            //number a failed level's player cares about is the reason above.
-            _resultBreakdown = Plate(BuildResultBreakdown());
-            column.Widgets.Add(_resultBreakdown);
-
-            column.Widgets.Add(_retryButton = MenuButton("Retry", RetryLevel));
-
-            //Absent rather than disabled when there is no next level to go to or the score did not clear the gate
-            //(see RefreshResultScreen). Retry stays: it is the one thing that always makes sense at a level's end.
-            column.Widgets.Add(_nextLevelButton = MenuButton("Next Level", AdvanceLevel));
-
-            column.Widgets.Add(MenuButton("Main Menu", () =>
-            {
-                //The session is torn down, not kept: a level that has ended is not one to "Continue" into, and
-                //the main menu should offer "Play", not "Continue" into a level that is already finished.
-                TearDownGame();
-                ReturnToMainMenu();
-            }));
-
-            return ScreenRoot(column, _pauseScrimBrush);
-        }
-
-        /// <summary>
-        /// The score breakdown grid: each row a caption, the detail that earned it, and the points it was worth.
-        /// The labels are kept on fields so <see cref="RefreshResultScreen"/> can write the numbers onto them
-        /// without rebuilding the grid — the tree is built once and reused for every level end.
-        /// </summary>
-        private Grid BuildResultBreakdown()
-        {
-            Grid grid = new()
-            {
-                ColumnSpacing = Scaled(48),
-                RowSpacing = Scaled(12),
-                HorizontalAlignment = HorizontalAlignment.Center,
-            };
-            grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));   //caption
-            grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));   //detail (count × worth)
-            grid.ColumnsProportions.Add(new Proportion(ProportionType.Part));   //value, right-aligned by the cell
-
-            AddBreakdownRow(grid, 0, "matched", out _resultMatchedDetail, out _resultMatchedValue);
-            AddBreakdownRow(grid, 1, "orphaned", out _resultOrphanedDetail, out _resultOrphanedValue);
-            AddBreakdownRow(grid, 2, "streak bonus", out _, out _resultStreakValue);
-            AddBreakdownRow(grid, 3, "shots unused", out _resultUnusedDetail, out _resultUnusedValue);
-
-            //The total sits on its own line under the rows — in the value column, so it lines up under the row
-            //totals — in the heading weight, so it reads as the answer rather than as another line of the sum.
-            grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
-            _resultTotalValue = new Label
-            {
-                Text = string.Empty,
-                Font = _menuFontHeading,
-                TextColor = MENU_TEXT,
-                HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            Grid.SetColumn(_resultTotalValue, 2);
-            Grid.SetRow(_resultTotalValue, 4);
-            grid.Widgets.Add(_resultTotalValue);
-
-            //The gate the level set, as an aside under the total — "needed 1500" — so a player can see at a
-            //glance whether the score cleared it without having to remember the number. Empty when there is no
-            //gate, which RefreshResultScreen sets to a blank rather than hiding the row.
-            grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
-            _resultNeededValue = new Label
-            {
-                Text = string.Empty,
-                Font = _menuFontSmall,
-                TextColor = MENU_TEXT_DIM,
-                HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            Grid.SetColumn(_resultNeededValue, 2);
-            Grid.SetRow(_resultNeededValue, 5);
-            grid.Widgets.Add(_resultNeededValue);
-
-            return grid;
-        }
-
-        private void AddBreakdownRow(Grid grid, int row, string caption, out Label detail, out Label value)
-        {
-            grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
-
-            Label captionLabel = new()
-            {
-                Text = caption,
-                Font = _menuFontBody,
-                TextColor = MENU_TEXT,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            Grid.SetColumn(captionLabel, 0);
-            Grid.SetRow(captionLabel, row);
-            grid.Widgets.Add(captionLabel);
-
-            detail = new Label
-            {
-                Text = string.Empty,
-                Font = _menuFontBody,
-                TextColor = MENU_TEXT_DIM,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            Grid.SetColumn(detail, 1);
-            Grid.SetRow(detail, row);
-            grid.Widgets.Add(detail);
-
-            value = new Label
-            {
-                Text = string.Empty,
-                Font = _menuFontBody,
-                TextColor = MENU_TEXT,
-                HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            Grid.SetColumn(value, 2);
-            Grid.SetRow(value, row);
-            grid.Widgets.Add(value);
-        }
-
         /// <summary>
         /// Replays the current entry by tearing the session down and building the same level again, so the
         /// score, the multiplier, the budget and the cluster all start over. <see cref="BuildLevel"/> is the
         /// real reload the result screen offers as Retry — it is the same path a missed score gate used to take
         /// inline, now behind a button.
         /// </summary>
-        private void RetryLevel()
+        internal void RetryLevel()
         {
             BuildLevel(_levelIndex);
             EnterPlaying();
@@ -1946,7 +1704,7 @@ namespace BS3D
         /// Builds the next entry of the set and drops straight into it. Only ever called from the "Next Level"
         /// button, which is itself only shown when a next entry exists — see <see cref="RefreshResultScreen"/>.
         /// </summary>
-        private void AdvanceLevel()
+        internal void AdvanceLevel()
         {
             BuildLevel(_levelIndex + 1);
             EnterPlaying();
@@ -1961,163 +1719,48 @@ namespace BS3D
         {
             _state = GameState.Paused;
 
-            //RefreshResultScreen runs from inside ShowPage, so the snapshot is taken the instant the page is
-            //shown and not a frame later; _score is frozen with the sim, so it does not move again
+            //The figures are handed over as a SNAPSHOT taken now, not read by the screen when it draws. The
+            //level does not stop the instant it is cleared — the collapse is held for a beat and a player who
+            //keeps firing moves the balls remaining — so a screen that re-read the keeper printed a row that
+            //did not add up to the total above it. See LevelResult.
+            bool cleared = _pendingOutcome == LevelOutcome.Cleared;
+            bool lastEntry = _levelSet == null || _levelIndex + 1 >= _levelSet.Count;
+            bool shortOfGate = _pendingOutcome == LevelOutcome.Failed && _pendingFailure == LevelFailure.ShortOfGate;
+
+            _resultPage.Take(new LevelResult(
+                cleared: cleared,
+                failureText: cleared ? null : FailureText(_pendingFailure),
+                shortOfGate: shortOfGate,
+                hasNextLevel: !lastEntry,
+
+                //"Campaign complete" only when there actually was a campaign — a set of more than one level
+                //cleared to its end. A single-level set is just a level cleared, and calling it a campaign's
+                //end overstates what happened and hides the Retry that is still the point of the screen.
+                campaignComplete: cleared && lastEntry && _levelSet != null && _levelSet.Count > 1,
+
+                score: _score.Score,
+                matchedBalls: _score.MatchedBalls,
+                orphanedBalls: _score.OrphanedBalls,
+                streakBonus: _score.StreakBonus,
+                hadBudget: _score.ShotsRemaining.HasValue,
+                unusedShotsAwarded: _score.UnusedShotsAwarded,
+                completionBonusAwarded: _score.CompletionBonusAwarded,
+                neededScore: LevelMinScore(_levelIndex)));
+
             _screens.Push(_resultPage);
 
             Console.WriteLine($"[level] Result for '{LevelName(_levelIndex)}': {_pendingOutcome}" + (_pendingOutcome == LevelOutcome.Failed ? $" ({_pendingFailure})" : "")
                 + $", score {_score.Score}");
         }
 
-        /// <summary>
-        /// Writes the outcome onto the result screen's widgets from the score snapshot — the heading, the reason
-        /// (on a fail), the breakdown rows (on a clear), and the two buttons' visibility. Built once, the tree
-        /// is reused for every level end, so everything the screen says about <i>this</i> end arrives here.
-        /// </summary>
-        internal void RefreshResultScreen()
-        {
-            //The screen is built at load, before any level has been played; with nothing to say, say nothing
-            //rather than read fields that are still at their defaults (see RefreshSettingsLabels for the same
-            //guard against running before the first build)
-            if (_resultHeading == null) return;
 
-            bool lastEntry = _levelSet == null || _levelIndex + 1 >= _levelSet.Count;
-            bool cleared = _pendingOutcome == LevelOutcome.Cleared;
-
-            //"Campaign complete" only when there actually was a campaign — a set of more than one level cleared
-            //to its end. A single-level set (or none at all) is just a level cleared, and calling it a campaign's
-            //end overstates what happened and hides the Retry that is still the point of the screen.
-            bool campaignComplete = cleared && lastEntry && _levelSet != null && _levelSet.Count > 1;
-
-            //Brightness, not colour: "FAILED" is the same grey as "CLEARED", and the reason below is what tells
-            //them apart — see the palette comment for why nothing here carries a hue.
-            _resultHeading.Text = campaignComplete ? "CAMPAIGN COMPLETE" : (cleared ? "CLEARED" : "FAILED");
-
-            //The reason and the score reached are only on a fail. Hidden rather than left blank on a clear, so
-            //they take no space. The reason is worded here and not where the loss was detected: the wording is
-            //a display concern, and a message built at the point of detection carries the figures that were
-            //convenient there — which is how "a ball at -5,58 <= -5,50" once reached a player.
-            bool failed = _pendingOutcome == LevelOutcome.Failed;
-
-            _resultReason.Text = failed ? FailureText(_pendingFailure) : string.Empty;
-            _resultReason.Visible = failed;
-
-            //Only for a hard loss: a clear short of the gate shows its total in the breakdown below, and saying
-            //it twice on one screen reads as two different numbers until you check that they agree.
-            bool hardLoss = failed && _pendingFailure != LevelFailure.ShortOfGate;
-
-            _resultFailedScore.Text = hardLoss ? $"Score {_score.Score:N0}" : string.Empty;
-            _resultFailedScore.Visible = hardLoss;
-
-            //The breakdown is shown whenever the FIELD was cleared, which includes a clear that fell short of
-            //the gate — there the numbers are the most useful thing on the screen, because they are where the
-            //score the player missed by came from. A hard loss shows none of it: no completion bonus was
-            //awarded, and partial rows would explain a total nobody is being offered.
-            bool fieldCleared = cleared || _pendingFailure == LevelFailure.ShortOfGate;
-
-            _resultBreakdown.Visible = fieldCleared;
-            if (fieldCleared)
-            {
-                _resultMatchedDetail.Text = $"{_score.MatchedBalls} × {ScoreKeeper.MatchedBallPoints}";
-                _resultMatchedValue.Text = (_score.MatchedBalls * ScoreKeeper.MatchedBallPoints).ToString("N0", CultureInfo.InvariantCulture);
-                _resultOrphanedDetail.Text = $"{_score.OrphanedBalls} × {ScoreKeeper.OrphanedBallPoints}";
-                _resultOrphanedValue.Text = (_score.OrphanedBalls * ScoreKeeper.OrphanedBallPoints).ToString("N0", CultureInfo.InvariantCulture);
-                _resultStreakValue.Text = _score.StreakBonus.ToString("N0", CultureInfo.InvariantCulture);
-                //What was AWARDED, not what recomputing it now would give. The level is held on screen for a
-                //beat after it is cleared, and a player firing into the empty field meanwhile moves the balls
-                //remaining — so a recomputed row does not add up to the total beneath it.
-                _resultUnusedDetail.Text = _score.ShotsRemaining.HasValue
-                    ? $"{_score.UnusedShotsAwarded} × {ScoreKeeper.UnusedShotPoints}"
-                    : "—";
-                _resultUnusedValue.Text = _score.CompletionBonusAwarded.ToString("N0", CultureInfo.InvariantCulture);
-                _resultTotalValue.Text = _score.Score.ToString("N0", CultureInfo.InvariantCulture);
-
-                int needed = LevelMinScore(_levelIndex);
-                _resultNeededValue.Text = needed > 0 ? $"needed {needed:N0}" : string.Empty;
-            }
-
-            //Next Level is shown only when the level was passed AND there is another entry to go to. Absent,
-            //not disabled, when neither holds — a greyed-out button over a frozen frame is a thing the player
-            //cannot do, which reads as the game being broken rather than as the level being the last.
-            _nextLevelButton.Visible = cleared && !lastEntry;
-        }
-
-        /// <summary>
-        /// The settings. Every value is a button that cycles it rather than a slider or a drop-down: one
-        /// widget kind, one click, and nothing that can be left half-dragged — and each change takes effect
-        /// where it is made, so what the scene behind the panel looks like <i>is</i> the preview.
-        /// </summary>
-        private Widget BuildSettingsScreen()
-        {
-            VerticalStackPanel column = MenuColumn();
-            column.Widgets.Add(ScreenHeading("SETTINGS"));
-
-            Grid grid = new()
-            {
-                ColumnSpacing = Scaled(58),
-                RowSpacing = Scaled(24),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = ScaledThickness(0, 0, 0, 43),
-            };
-            grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
-            grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
-
-            AddSettingRow(grid, 0, "Fullscreen", ToggleFullscreen, out _fullscreenValue);
-            AddSettingRow(grid, 1, "Antialiasing", CycleSupersampling, out _ssaaValue);
-            AddSettingRow(grid, 2, "Exposure", CycleExposure, out _exposureValue);
-            AddSettingRow(grid, 3, "Sky", CycleSkyDome, out _skyValue);
-            AddSettingRow(grid, 4, "FPS counter", ToggleFpsOverlay, out _fpsValue);
-
-            column.Widgets.Add(grid);
-            column.Widgets.Add(MenuButton("Back", BackFromSubScreen));
-
-            return ScreenRoot(Plate(column), scrim: null);   //set per showing by ShowPage, from the stack
-        }
-
-        private void AddSettingRow(Grid grid, int row, string caption, Action onClick, out Label value)
-        {
-            grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
-
-            Label captionLabel = new()
-            {
-                Text = caption,
-                Font = _menuFontBody,
-                TextColor = MENU_TEXT,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-
-            Grid.SetColumn(captionLabel, 0);
-            Grid.SetRow(captionLabel, row);
-            grid.Widgets.Add(captionLabel);
-
-            Button button = MenuButton(string.Empty, onClick, out value);
-            button.Width = Scaled(SETTING_VALUE_WIDTH);
-
-            Grid.SetColumn(button, 1);
-            Grid.SetRow(button, row);
-            grid.Widgets.Add(button);
-        }
-
-        /// <summary>Writes the current value onto each setting's button. Cheap, and only run on a change.</summary>
-        internal void RefreshSettingsLabels()
-        {
-            //The display hotkeys work before the menu has been built (LoadContent runs after Initialize), and
-            //there is nothing to write onto until it has been
-            if (_fullscreenValue == null) return;
-
-            _fullscreenValue.Text = _fullscreen ? "On" : "Off";
-            _ssaaValue.Text = _supersampleFactor == 1 ? "Off" : _supersampleFactor + "×";
-            _exposureValue.Text = _exposure.ToString("0.0", CultureInfo.InvariantCulture);
-            _skyValue.Text = _skyDome.ToString(CultureInfo.InvariantCulture);
-            _fpsValue.Text = _info.Visible ? "On" : "Off";
-        }
 
         /// <summary>
         /// Supersampling, the dominant frame cost at a high resolution and the first dial a weak machine
         /// reaches for. Off means 8× MSAA instead (see <see cref="EnsureSceneTarget"/>) — multisampling
         /// antialiases geometry edges but not shading, so it only earns its memory with supersampling off.
         /// </summary>
-        private void CycleSupersampling()
+        internal void CycleSupersampling()
         {
             SetSupersampleFactor(_supersampleFactor switch { 1 => 2, 2 => 4, _ => 1 });
 
@@ -2125,10 +1768,10 @@ namespace BS3D
             //the notice about what it did has been answered and goes away.
             _qualitySettled = true;
 
-            if (_qualityNotice != null) _qualityNotice.Visible = false;
+            _mainMenuPage.ClearQualityNotice();
         }
 
-        private void CycleExposure()
+        internal void CycleExposure()
         {
             _exposure += EXPOSURE_STEP;
 
@@ -2138,90 +1781,16 @@ namespace BS3D
 
             _tonemapEffect.Parameters["Exposure"].SetValue(_exposure);
 
-            RefreshSettingsLabels();
+            _settingsPage.Refresh();
         }
 
-        private void CycleSkyDome()
+        internal void CycleSkyDome()
         {
             SetSkyDome((byte)(_skyDome == SKY_DOME_COUNT ? 1 : _skyDome + 1));
-            RefreshSettingsLabels();
+            _settingsPage.Refresh();
         }
 
-        private Widget BuildSceneSelectScreen()
-        {
-            VerticalStackPanel column = MenuColumn();
-            column.Widgets.Add(ScreenHeading("SCENE"));
 
-            for (int i = 0; i < SCENE_COUNT; i++)
-            {
-                //Captured per iteration, not off the loop variable's final value
-                SceneKind scene = (SceneKind)i;
-                column.Widgets.Add(MenuButton(SCENE_NAMES[i], () => ChooseScene(scene), out _sceneLabels[i]));
-            }
-
-            column.Widgets.Add(new Label
-            {
-                Text = "Applies at once — the menu and the game both play in it.",
-                Font = _menuFontSmall,
-                TextColor = MENU_TEXT_DIM,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = ScaledThickness(0, 29, 0, 29),
-            });
-            column.Widgets.Add(MenuButton("Back", BackFromSubScreen));
-
-            return ScreenRoot(Plate(column), scrim: null);   //set per showing by ShowPage, from the stack
-        }
-
-        private void ChooseScene(SceneKind scene)
-        {
-            SetScene(scene);
-            MarkSelectedScene();
-        }
-
-        /// <summary>
-        /// Marks the scene in use, so the screen says where you are as well as where you can go. Brightness,
-        /// not colour: the one in use is stated white and the rest step back to grey, which reads the same over
-        /// a neon city and over a snowfield.
-        /// </summary>
-        internal void MarkSelectedScene()
-        {
-            for (int i = 0; i < SCENE_COUNT; i++)
-                _sceneLabels[i].TextColor = (SceneKind)i == _scene ? MENU_TEXT : MENU_TEXT_DIM;
-        }
-
-        private Widget BuildAboutScreen()
-        {
-            VerticalStackPanel column = MenuColumn();
-
-            column.Widgets.Add(ScreenHeading("ABOUT"));
-            column.Widgets.Add(AboutParagraph(
-                GAME_TITLE + " is a 3D bubble shooter: shoot coloured balls at a cluster hanging from a glass ceiling. "
-                + "Three or more of one colour let go and fall — and take with them everything they were the "
-                + "last anchor for."));
-            column.Widgets.Add(AboutParagraph(
-                "Controls:  the mouse aims,  left button or space fires,  right button leans in along the "
-                + "barrel,  A/D traverses the carriage,  Esc pauses,  F11 toggles fullscreen,  F12 hides the "
-                + "FPS counter."));
-            column.Widgets.Add(AboutParagraph(
-                "Built on MonoGame (DirectX 11) and BepuPhysics 2. The scenes, the balls and the city are all "
-                + "procedural — no models, only code. Typeface Inter (SIL OFL 1.1)."));
-            column.Widgets.Add(AboutParagraph("github.com/AntoninPrazsky/BS3D"));
-
-            column.Widgets.Add(MenuButton("Back", BackFromSubScreen));
-
-            return ScreenRoot(Plate(column), scrim: null);   //set per showing by ShowPage, from the stack
-        }
-
-        private Label AboutParagraph(string text) => new()
-        {
-            Text = text,
-            Font = _menuFontSmall,
-            TextColor = MENU_TEXT_BODY,
-            Wrap = true,
-            Width = Scaled(ABOUT_TEXT_WIDTH),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = ScaledThickness(0, 0, 0, 34),
-        };
 
         /// <summary>
         /// A dark plate behind a column that carries actual prose. A scrim alone is not enough for small text
@@ -2230,7 +1799,7 @@ namespace BS3D
         /// step itself, which is all it takes, and a drawn border is one more shape to fight the backdrop.
         /// The button screens need no plate at all — a button carries its own background.
         /// </summary>
-        private Panel Plate(Widget content)
+        internal Panel Plate(Widget content)
         {
             Panel plate = new()
             {
@@ -2250,7 +1819,7 @@ namespace BS3D
         /// scene behind it. <paramref name="scrim"/> is null for every front-end screen — only a pause dims.
         /// The panel itself still stretches, because it is what centres the column and what Myra hit-tests.
         /// </summary>
-        private static Panel ScreenRoot(Widget content, IBrush scrim)
+        internal static Panel ScreenRoot(Widget content, IBrush scrim)
         {
             Panel panel = new()
             {
@@ -2264,93 +1833,15 @@ namespace BS3D
             return panel;
         }
 
-        private VerticalStackPanel MenuColumn() => new()
+        internal VerticalStackPanel MenuColumn() => new()
         {
             Spacing = Scaled(MENU_COLUMN_SPACING),
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
         };
 
-        /// <summary>
-        /// The title card the game opens on: the name alone over the scene, fading up and away. It carries no
-        /// entries at all — it is a beat, not a screen to be navigated — so it needs no plate and no scrim, and
-        /// the nav walk simply finds nothing on it.
-        /// </summary>
-        private Widget BuildSplashScreen()
-        {
-            VerticalStackPanel column = MenuColumn();
 
-            //Held on a field because the fade is written onto it every frame by SplashPage; the tree itself is
-            //built once per layout size like every other screen's
-            _splashTitle = new Label
-            {
-                Text = GAME_TITLE,
-                Font = _menuFontTitle,
-                TextColor = MENU_TEXT,
-                HorizontalAlignment = HorizontalAlignment.Center,
-            };
-            column.Widgets.Add(_splashTitle);
-
-            return ScreenRoot(column, scrim: null);
-        }
-
-        /// <summary>
-        /// The level picker Play opens: the set's entries in <b>play order</b>, which is the order the file
-        /// lists them in and not a directory listing. Each carries what the set says about it — the budget, the
-        /// gate, the ceiling — because a player choosing a level is choosing its rules as much as its layout.
-        /// <para>
-        /// Built with the rest of the trees, so it is rebuilt at every layout size like they are; the set is
-        /// read once at load (<see cref="LoadLevelSet"/>) and does not change while the game is running.
-        /// </para>
-        /// </summary>
-        private Widget BuildLevelSelectScreen()
-        {
-            VerticalStackPanel column = MenuColumn();
-            column.Widgets.Add(ScreenHeading("LEVEL"));
-
-            if (_levelSet == null || _levelSet.Count == 0)
-            {
-                //A missing or broken set is not fatal anywhere else either — the game falls back to the
-                //built-in cluster — so the picker offers that rather than an empty list and no way forward
-                column.Widgets.Add(MenuButton("Built-in level", () => StartGameAt(0)));
-            }
-            else
-            {
-                for (int i = 0; i < _levelSet.Count; i++)
-                {
-                    //Captured per iteration, not off the loop variable's final value
-                    int index = i;
-
-                    column.Widgets.Add(MenuButton($"{i + 1}.  {_levelSet.DisplayName(i)}", () => StartGameAt(index)));
-
-                    column.Widgets.Add(new Label
-                    {
-                        Text = _levelSet.DescribeRules(i),
-                        Font = _menuFontSmall,
-                        TextColor = MENU_TEXT_DIM,
-                        HorizontalAlignment = HorizontalAlignment.Center,
-                    });
-                }
-            }
-
-            column.Widgets.Add(MenuButton("Back", BackFromSubScreen));
-
-            return ScreenRoot(Plate(column), scrim: null);   //set per showing by ShowPage, from the stack
-        }
-
-        /// <summary>
-        /// Writes the splash's fade onto its one label. Alpha rather than <c>Visible</c>, and on the colour
-        /// rather than on the widget, because a colour is the one thing here that is certain to be honoured by
-        /// every Myra version this has been built against.
-        /// </summary>
-        internal void SetSplashFade(float amount)
-        {
-            if (_splashTitle == null) return;
-
-            _splashTitle.TextColor = MENU_TEXT * MathHelper.Clamp(amount, 0f, 1f);
-        }
-
-        private Label ScreenHeading(string text) => new()
+        internal Label ScreenHeading(string text) => new()
         {
             Text = text,
             Font = _menuFontHeading,
@@ -2359,7 +1850,7 @@ namespace BS3D
             Margin = ScaledThickness(0, 0, 0, 43),
         };
 
-        private Button MenuButton(string text, Action onClick) => MenuButton(text, onClick, out _);
+        internal Button MenuButton(string text, Action onClick) => MenuButton(text, onClick, out _);
 
         /// <summary>
         /// One menu entry. Myra's default button style is a framed grey tool button, so every brush is stated
@@ -2368,7 +1859,7 @@ namespace BS3D
         /// the tone step at the button's edge is enough to read it as a control, and a drawn frame over seven
         /// different backdrops is a shape competing with all of them.
         /// </summary>
-        private Button MenuButton(string text, Action onClick, out Label label)
+        internal Button MenuButton(string text, Action onClick, out Label label)
         {
             label = new Label
             {
@@ -3215,7 +2706,7 @@ namespace BS3D
         /// standing: choosing a level off the picker means starting it, not resuming a half-played attempt at
         /// it — resuming is what Continue is for.
         /// </summary>
-        private void StartGameAt(int index)
+        internal void StartGameAt(int index)
         {
             BuildLevel(index);
             EnterPlaying();
@@ -3286,14 +2777,14 @@ namespace BS3D
             _screens.Push(_pausePage);
         }
 
-        private void ResumeGame() => EnterPlaying();
+        internal void ResumeGame() => EnterPlaying();
 
         /// <summary>
         /// Back to the front end. The session is <b>kept</b>, not discarded — the main menu offers to resume it
         /// and to start a new game, which is the difference between a mis-click costing a click and costing a
         /// game. What it does drop is the camera: the menu's own orbit takes over from here.
         /// </summary>
-        private void ReturnToMainMenu()
+        internal void ReturnToMainMenu()
         {
             _state = GameState.Menu;
 
@@ -3409,7 +2900,7 @@ namespace BS3D
         /// the city's day-or-neon switch. The one place a scene change happens, shared by the random pick at
         /// startup and the scene menu.
         /// </summary>
-        private void SetScene(SceneKind scene)
+        internal void SetScene(SceneKind scene)
         {
             _scene = scene;
 
@@ -3801,13 +3292,7 @@ namespace BS3D
         /// Tells the player what was changed and where to change it back. Once per run, on the main menu —
         /// which is where they are: the verdict lands about three seconds in.
         /// </summary>
-        private void ShowQualityNotice(int factor)
-        {
-            if (_qualityNotice == null) return;
-
-            _qualityNotice.Text = $"Antialiasing lowered to {factor}× for a smoother frame rate — change it in Settings.";
-            _qualityNotice.Visible = true;
-        }
+        private void ShowQualityNotice(int factor) => _mainMenuPage.ShowQualityNotice(factor);
 
         /// <summary>
         /// The one place the factor changes: the scene target's size is derived from it, and the tonemap has to
@@ -3823,24 +3308,24 @@ namespace BS3D
             //recreate the target rather than recognize it as the one already there
             EnsureSceneTarget();
 
-            RefreshSettingsLabels();
+            _settingsPage.Refresh();
         }
 
         /// <summary>A key pressed this frame that was not pressed last frame.</summary>
         private bool IsKeyEdge(KeyboardState keyboard, Keys key) =>
             keyboard.IsKeyDown(key) && !_previousKeyboard.IsKeyDown(key);
 
-        private void ToggleFullscreen()
+        internal void ToggleFullscreen()
         {
             _fullscreen = !_fullscreen;
             SetGraphics();
-            RefreshSettingsLabels();
+            _settingsPage.Refresh();
         }
 
-        private void ToggleFpsOverlay()
+        internal void ToggleFpsOverlay()
         {
             _info.Visible = !_info.Visible;
-            RefreshSettingsLabels();
+            _settingsPage.Refresh();
         }
 
         private void UpdateInput(GameTime gameTime, bool edgeInputAllowed, GamePadState pad)

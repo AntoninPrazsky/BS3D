@@ -1,6 +1,8 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Myra.Graphics2D.UI;
+using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
+using Label = Myra.Graphics2D.UI.Label;
 
 namespace BS3D.Screens
 {
@@ -35,11 +37,37 @@ namespace BS3D.Screens
 
         public SplashPage(BS3DGame game) : base(game) { }
 
-        internal override Widget Root => Game.SplashRoot;
-
         //Nothing to go back to, and nothing to dim: the scene turning behind it is the picture
         internal override bool CanGoBack => false;
         internal override bool DimsFrame => false;
+
+        //Held so the fade can be written onto it every frame
+        private Label _title;
+
+        protected override Widget BuildTree()
+        {
+            VerticalStackPanel column = MenuColumn();
+
+            _title = new Label
+            {
+                Text = BS3DGame.GAME_TITLE,
+                Font = FontTitle,
+                TextColor = BS3DGame.MENU_TEXT,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            };
+            column.Widgets.Add(_title);
+
+            return ScreenRoot(column);
+        }
+
+        /// <summary>
+        /// Alpha rather than <c>Visible</c>, and on the colour rather than on the widget, because a colour is
+        /// the one thing here that is certain to be honoured by every Myra version this has been built against.
+        /// </summary>
+        private void Fade(float amount)
+        {
+            if (_title != null) _title.TextColor = BS3DGame.MENU_TEXT * MathHelper.Clamp(amount, 0f, 1f);
+        }
 
         public override void Enter()
         {
@@ -49,7 +77,7 @@ namespace BS3D.Screens
             _previousMouse = Mouse.GetState();
             _previousPad = GamePad.GetState(PlayerIndex.One);
 
-            Game.SetSplashFade(0f);
+            Fade(0f);
         }
 
         public override void Update(GameTime gameTime)
@@ -58,8 +86,7 @@ namespace BS3D.Screens
 
             //Up over the first FADE, held, then away over the last. Written every frame because the tree is
             //rebuilt whenever the window changes size and the fresh label starts at full.
-            Game.SetSplashFade(MathHelper.Clamp(_age / FADE, 0f, 1f)
-                * MathHelper.Clamp((SECONDS - _age) / FADE, 0f, 1f));
+            Fade(MathHelper.Clamp(_age / FADE, 0f, 1f) * MathHelper.Clamp((SECONDS - _age) / FADE, 0f, 1f));
 
             if (_age >= SECONDS || (_age >= SKIP_AFTER && Skipped()))
             {
