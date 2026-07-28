@@ -18,6 +18,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
 using Label = Myra.Graphics2D.UI.Label;
 
@@ -588,9 +589,28 @@ namespace BS3D
         /// </summary>
         private bool _qualitySettled;
 
+        /// <summary>
+        /// Whether the tier was fixed by the player (the command line or the Settings row) rather than reached by
+        /// the probe. A player-fixed tier is the player's decision and is never re-measured; a probe-reached one
+        /// is only this machine's answer for <i>this</i> back-buffer size, so a fullscreen switch — which moves
+        /// the back buffer from 1600×900 to the display's native resolution and back, a fill-rate change of
+        /// several times — re-opens it (see <see cref="ToggleFullscreen"/>).
+        /// </summary>
+        private bool _qualityPinnedByPlayer;
+
         private float _qualityWarmupLeft = QUALITY_WARMUP_SECONDS;
         private float _qualityWindowSeconds;
         private int _qualityWindowFrames;
+
+        /// <summary>
+        /// The frame rate below which the probe spends image quality. Derived from the display's refresh rather
+        /// than fixed, so the target tracks the monitor the player is actually on: a 75 Hz panel wants ~75, a
+        /// 60 Hz one ~60, a 144 Hz one ~144. The probe settles when the machine reaches <see cref="QUALITY_REFRESH_FRACTION"/>
+        /// of it, not when it merely clears 45 — the old fixed floor was tuned to a 60 Hz laptop and left a fast
+        /// card on a 75 Hz panel pinned to High at 37 FPS because 37 was never going to clear a verdict it was
+        /// never measured against (a windowed run had settled the latch first).
+        /// </summary>
+        private float _qualityMinFps = DEFAULT_QUALITY_MIN_FPS;
 
         /// <summary>
         /// Ignored before this much of the run has passed. The opening frames are shader compiles, the first
@@ -604,11 +624,27 @@ namespace BS3D
         private const float QUALITY_WINDOW_SECONDS = 1.5f;
 
         /// <summary>
-        /// Below this, the frame rate is judged bad enough to be worth spending image quality on. Comfortably
-        /// under any display's refresh, so a vsync-capped machine (the normal case) never trips it — 60 Hz
-        /// reads as 60, not as "only just enough".
+        /// Below this, the frame rate is judged bad enough to be worth spending image quality on. Derived from
+        /// the display's refresh at startup (see <see cref="SetQualityMinFpsFromRefresh"/>), so it tracks the
+        /// monitor the player is actually on rather than a single fixed floor. Comfortably under that refresh,
+        /// so a vsync-capped machine (the normal case) never trips it — 75 Hz reads as 75, not as "only just
+        /// enough".
         /// </summary>
-        private const float QUALITY_MIN_FPS = 45f;
+        private const float DEFAULT_QUALITY_MIN_FPS = 45f;
+
+        /// <summary>
+        /// The probe asks for this fraction of the display's refresh. The floor is the refresh <i>minus</i> this
+        /// margin: 75 Hz → 67.5, 60 Hz → 54, 144 Hz → 129.6. The margin keeps a vsync-capped machine from
+        /// tripping the probe on the rounding of its own cap.
+        /// </summary>
+        private const float QUALITY_REFRESH_MARGIN = 0.1f;
+
+        /// <summary>
+        /// A sanity floor on the refresh-derived target, for an adapter that reports nothing sensible (headless,
+        /// a remote session). The number is the old fixed floor — below any common refresh — so behaviour there
+        /// is unchanged.
+        /// </summary>
+        private const float QUALITY_MIN_FPS_FLOOR = 45f;
 
         #endregion
 
@@ -748,9 +784,12 @@ namespace BS3D
             _startupSkyDome = skyDome;
             _logFrameRate = logFrameRate;
 
-            //Either one is the player's decision and settles the question; with neither, the adaptive path is
-            //free to measure this machine and step the tier down
-            _qualitySettled = supersampleFactor.HasValue || quality.HasValue;
+            //Either one is the player's decision and settles the question for good; with neither, the adaptive
+            //path is free to measure this machine and step the tier down. The distinction matters on a fullscreen
+            //switch: a player-pinned tier stays put, a probe-reached one is only this machine's answer for this
+            //back-buffer size and gets re-measured (see ToggleFullscreen).
+            _qualityPinnedByPlayer = supersampleFactor.HasValue || quality.HasValue;
+            _qualitySettled = _qualityPinnedByPlayer;
             _exposure = exposure > 0f ? exposure : DEFAULT_EXPOSURE;
             _uncappedFps = uncappedFps;
 
@@ -784,6 +823,12 @@ namespace BS3D
             //instead of filling it. GraphicsAdapter is valid with no device.
             DisplayMode display = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode;
 
+            //The probe's frame-rate floor follows the display's refresh, so a 75 Hz panel asks for ~75 and a
+            //60 Hz one ~60 rather than the same fixed floor for both. Re-derived on every fullscreen switch
+            //(and harmless on the constructor call), which keeps it honest if the player moves the window to a
+            //different monitor the adapter reports differently.
+            SetQualityMinFpsFromRefresh();
+
             _graphics.PreferredBackBufferWidth = _fullscreen ? display.Width : WINDOW_WIDTH;
             _graphics.PreferredBackBufferHeight = _fullscreen ? display.Height : WINDOW_HEIGHT;
             _graphics.IsFullScreen = _fullscreen;
@@ -803,6 +848,55 @@ namespace BS3D
             //exists, where an empty stack correctly reads as "not playing".
             IsMouseVisible = _screens.Active is not GameplayScreen;
             IsFixedTimeStep = false;
+        }
+
+        /// <summary>
+        /// Sets the probe's frame-rate floor from the display's refresh, less <see cref="QUALITY_REFRESH_MARGIN"/>
+        /// so a vsync-capped machine does not trip it on the rounding of its own cap. The floor is clamped to
+        /// <see cref="QUALITY_MIN_FPS_FLOOR"/> so a headless or remote adapter that reports no refresh keeps the
+        /// old fixed number rather than settling at zero (which would make every run "fast enough" instantly).
+        /// </summary>
+        private void SetQualityMinFpsFromRefresh()
+        {
+            //MonoGame's DisplayMode carries no refresh rate (XNA dropped it, and the DesktopGL/WindowsDX adapter
+            //never re-added one), so the floor would otherwise be a single fixed number for a 60 Hz laptop and a
+            //75 Hz panel alike. user32's EnumDisplaySettings is the same call Win32_VideoController answers to,
+            //and reads the current mode of the adapter the window is on. The struct is laid out by explicit
+            //offset rather than marshalled field-by-field: only dmSize (set so the call accepts the buffer) and
+            //dmDisplayFrequency are read, which keeps it to two pinned, stable Win2000-onwards offsets.
+            float refresh = 0f;
+            if (TryGetCurrentDisplayRefresh(out int hz)) refresh = hz;
+            _qualityMinFps = Math.Max(refresh * (1f - QUALITY_REFRESH_MARGIN), QUALITY_MIN_FPS_FLOOR);
+        }
+
+        //The two DEVMODEW fields this reads. The full struct is ~220 bytes and differs across Windows versions
+        //only in the trailing private/registry fields, so a buffer sized off the current value of dmSize is
+        //always enough; the offsets below are fixed by the public part of the struct and have not moved.
+        private const int ENUM_CURRENT_SETTINGS = unchecked((int)0xFFFFFFFF);
+
+        [StructLayout(LayoutKind.Explicit, Size = 220)]
+        private struct DEVMODE
+        {
+            [FieldOffset(68)] public ushort dmSize;
+            [FieldOffset(184)] public uint dmDisplayFrequency;
+        }
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool EnumDisplaySettings(string deviceName, int modeNum, ref DEVMODE devMode);
+
+        /// <summary>Reads the current refresh rate of the adapter the window is on, in Hz. False on any failure.</summary>
+        private static bool TryGetCurrentDisplayRefresh(out int refreshHz)
+        {
+            refreshHz = 0;
+            DEVMODE dm = default;
+            dm.dmSize = (ushort)Marshal.SizeOf<DEVMODE>();
+            if (!EnumDisplaySettings(null, ENUM_CURRENT_SETTINGS, ref dm)) return false;
+            //0 or 1 are what Windows reports for a projector/TV that did not declare a refresh, and 5 is a
+            //placeholder for "default" — none is a real panel rate, so treat them as "no answer".
+            if (dm.dmDisplayFrequency < 10) return false;
+            refreshHz = (int)dm.dmDisplayFrequency;
+            return true;
         }
 
         private void OnClientSizeChanged()
@@ -2120,7 +2214,7 @@ namespace BS3D
             _qualityWindowSeconds = 0f;
             _qualityWindowFrames = 0;
 
-            if (fps >= QUALITY_MIN_FPS)
+            if (fps >= _qualityMinFps)
             {
                 //Fast enough. Stop measuring rather than keep watching: from here the only thing that could
                 //trip it is the player alt-tabbing away, and lowering quality for that would be absurd.
@@ -2133,7 +2227,7 @@ namespace BS3D
             //at 30 FPS with 40% still on the table.
             QualityLevel lowered = _quality == QualityLevel.High ? QualityLevel.Medium : QualityLevel.Low;
 
-            Console.WriteLine($"[quality] {fps:F0} FPS in the menu at {_quality} — lowering to {lowered}");
+            Console.WriteLine($"[quality] {fps:F0} FPS in the menu at {_quality} (floor {_qualityMinFps:F0}) — lowering to {lowered}");
 
             ApplyQuality(lowered);
             ShowQualityNotice(lowered);
@@ -2160,7 +2254,9 @@ namespace BS3D
             ApplyQuality(_quality switch { QualityLevel.Low => QualityLevel.Medium, QualityLevel.Medium => QualityLevel.High, _ => QualityLevel.Low });
 
             //The player has now said what they want, so the adaptive path stops second-guessing them — and the
-            //notice about what it did has been answered and goes away.
+            //notice about what it did has been answered and goes away. Marked as pinned, so a later fullscreen
+            //switch does not re-open the probe and walk the tier back off their choice.
+            _qualityPinnedByPlayer = true;
             _qualitySettled = true;
 
             _mainMenuPage.ClearQualityNotice();
@@ -2222,6 +2318,21 @@ namespace BS3D
         {
             _fullscreen = !_fullscreen;
             SetGraphics();
+
+            //A fullscreen switch moves the back buffer between 1600×900 and the display's native resolution — a
+            //fill-rate change of several times — so a tier the probe reached for the old size can be wrong for
+            //the new one (the neon city goes from ~110 to ~37 FPS on a 3840×1600 panel, the same machine). The
+            //probe is re-opened, but only when the tier was the probe's verdict rather than the player's: a tier
+            //the player set in Settings or on the command line is their decision and is never overridden. The
+            //warmup lets the new target's first frames settle before the window counts them.
+            if (!_qualityPinnedByPlayer && _qualitySettled && _quality != QualityLevel.High)
+            {
+                _qualitySettled = false;
+                _qualityWarmupLeft = QUALITY_WARMUP_SECONDS;
+                _qualityWindowSeconds = 0f;
+                _qualityWindowFrames = 0;
+            }
+
             _settingsPage.Refresh();
         }
 
