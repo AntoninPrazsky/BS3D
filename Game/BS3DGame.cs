@@ -690,9 +690,16 @@ namespace BS3D
         //resolved per viewport height exactly as the menu's own sizes are. Separate from EnsureMenuLayout,
         //which only runs while a menu is up, and quantized the same way so a window being dragged does not
         //ask the font system for a new atlas every frame.
-        private const int HUD_FONT_SCORE = 110;
-        private const int HUD_FONT_LABEL = 62;
-        private const int HUD_FONT_POPUP = 64;
+        //Authored large on purpose. A HUD in a game is not a data readout — the score and the ball count are
+        //two of the three things the player is actually tracking, and they have to land at a glance while the
+        //eye is in the middle of the frame on the cluster; the corners are empty in both poses, so size costs
+        //nothing here. HUD_FONT_SCORE leaves headroom for the pulse: the score is pivoted on its vertical
+        //centre at HUD_MARGIN + height/2, so at PlayHud's clamped pulse ceiling it must still clear the frame.
+        private const int HUD_FONT_SCORE = 140;
+        private const int HUD_FONT_LABEL = 76;
+        //The awards are read at a glance out on the cluster and then shrink as they fly to the corner, so they
+        //are authored larger still than the score they land on
+        private const int HUD_FONT_POPUP = 112;
 
         private SpriteFontBase _hudFontScore, _hudFontLabel, _hudFontPopup;
         private SpriteFontBase _hudFontScoreBold, _hudFontLabelBold;
@@ -702,6 +709,7 @@ namespace BS3D
         internal SpriteFontBase HudFontLabel => _hudFontLabel;
         internal SpriteFontBase HudFontPopup => _hudFontPopup;
         internal SpriteFontBase HudFontScoreBold => _hudFontScoreBold;
+        internal SpriteFontBase HudFontLabelBold => _hudFontLabelBold;
 
         /// <summary>
         /// Resolves the HUD's fonts for the viewport they are about to be drawn into. Called by the gameplay

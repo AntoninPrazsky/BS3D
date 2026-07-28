@@ -1,7 +1,6 @@
-using BepuPhysics;
+﻿using BepuPhysics;
 using BepuPhysics.Collidables;
 using BepuUtilities.Memory;
-using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -16,7 +15,6 @@ using Prazsky.Core.Screens;
 using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using static Prazsky.BS3D.Physics.Simu;
 
 //BepuUtilities is deliberately NOT imported: it carries its own Matrix and MathHelper, which would make every
@@ -134,48 +132,12 @@ namespace BS3D.Screens
 
         #region The in-play HUD (display space, after the resolve)
 
-        //Drawn with SpriteBatch and the menu's own Inter, not with Myra. Myra is deliberately driven only
-        //while a menu page is up — Desktop.Render also consumes the mouse and the keyboard, and the game
-        //captures the cursor while playing — so putting the HUD in it would mean unpicking exactly the
-        //arrangement that keeps the two from fighting. A per-frame readout is not a widget tree anyway, and
-        //the host's SpriteBatch and white texel are already there for the crosshair.
-        //
-        //Every figure below is a 2160p design unit through Scaled(), like the menu and InfoRenderer's text.
-        private const int HUD_MARGIN = 70;
-        private const int HUD_LINE_GAP = 12;
-
-        //Text over a bright sky or a lit skyline needs its own contrast, and a plate behind a HUD reads as
-        //furniture. One offset dark copy is what a plate would have cost in attention and does not box the
-        //number in — the same problem the menu solves with a plate, solved the way a HUD has to solve it.
-        private const int HUD_SHADOW_OFFSET = 5;
-        private static readonly Color HUD_SHADOW = new(0, 0, 0, 190);
-
-        /// <summary>Balls at or under which the count changes weight — the point at which it is worth planning.</summary>
-        private const int HUD_LOW_BALLS = 5;
-
         /// <summary>
-        /// The score the HUD is <i>showing</i>, which chases <see cref="ScoreKeeper.Score"/> rather than
-        /// matching it. A number that ticks up is what makes a big collapse feel big; one that snaps says the
-        /// same thing and says it in a single frame nobody sees.
+        /// Score, streak, balls left and the awards flying into the corner. Its own class — see
+        /// <see cref="PlayHud"/> for why, and for the whole of how it looks and moves; this screen only feeds it
+        /// the events it animates and gives it the frame to draw into.
         /// </summary>
-        private float _hudScoreShown;
-
-        /// <summary>How fast that chase closes: a fraction of the gap per second, plus a floor so it lands.</summary>
-        private const float HUD_SCORE_CHASE_PER_SECOND = 6f;
-        private const float HUD_SCORE_MIN_RATE = 400f;
-
-        /// <summary>A score floating up from where it was earned, which is what ties the number to the shot.</summary>
-        private struct ScorePopup
-        {
-            public Vector3 World;
-            public string Text;
-            public float Age;
-        }
-
-        private readonly List<ScorePopup> _popups = new();
-
-        private const float POPUP_LIFETIME = 1.3f;
-        private const float POPUP_RISE = 2.2f;   //world units, so it drifts with the cluster it came from
+        private readonly PlayHud _hud;
 
         //The crosshair. No bitmap: four bars struck from the host's 1×1 white texture. It appears only as
         //precise aim leans in, because only then does the lens look along the shot — in the overview a
@@ -547,6 +509,7 @@ namespace BS3D.Screens
         public GameplayScreen(BS3DGame game)
         {
             Game = game;
+            _hud = new PlayHud(game);
 
             //Orbit centre is the field the cluster hangs over; the trunnions sit an axle's height above the
             //island, and the gun stands well inside the island's rim.
@@ -609,9 +572,9 @@ namespace BS3D.Screens
             _clearedCountdown = 0f;
 
             //The HUD carries state of its own across nothing: a new level starts at zero without counting down
-            //to it, and a popup from the level just finished must not float over the one just built.
-            _hudScoreShown = 0f;
-            _popups.Clear();
+            //to it, and a popup from the level just finished must not fly into the score of the one just built.
+            //Seeded from the fresh scorer, so a new budget is not read as a ball just spent.
+            _hud.Reset(_score);
             _levelLost = false;
         }
 
@@ -1058,25 +1021,14 @@ namespace BS3D.Screens
         /// A shot has landed in the lattice, having cut <paramref name="released"/> loose. Zero of both means
         /// it stuck without completing a group, which the scorer treats as a spent shot.
         /// </summary>
-        private void OnBallLanded(BallsReleased released, Vector3 world)
+        private void OnBallLanded(BallsReleased released, Vector3 world, BallType type)
         {
             ScoreAward award = _score.Landed(released.Matched, released.Orphaned);
 
-            //What the shot was worth, floating up from the cell it landed in. The multiplier printed is the
-            //one that was APPLIED, which is why Landed returns it rather than leaving this to read the
-            //property afterwards — by then it has already been raised for the next shot.
-            if (award.Scored)
-                _popups.Add(new ScorePopup
-                {
-                    World = world,
-                    //Invariant, like every other figure the game prints: the machine's locale decides what "N0"
-                    //groups with, and a popup reading "+2 960" beside a corner score reading "2,960" is one
-                    //number written two ways on the same frame
-                    Text = award.Multiplier > 1
-                        ? $"+{award.Points.ToString("N0", CultureInfo.InvariantCulture)} ×{award.Multiplier}"
-                        : "+" + award.Points.ToString("N0", CultureInfo.InvariantCulture),
-                    Age = 0f,
-                });
+            //What the shot was worth, born on the cell it landed in and flown into the corner from there. The
+            //type is the colour of the group it completed — a match is by definition three of one colour
+            //touching — and is what the number is tinted with on the way; see PlayHud.
+            if (award.Scored) _hud.AddAward(world, award, type);
 
             //The cluster just changed — a ball joined it, and a group may have left. Recount before anything
             //asks what may be loaded, and re-colour whatever is already in the barrel and has just gone dead.
@@ -1190,6 +1142,10 @@ namespace BS3D.Screens
 
             int bonus = _score.AwardCompletionBonus();
             _clearedCountdown = LEVEL_CLEARED_BEAT;
+
+            //The bonus has no popup to fly in and land on the readout, so it would otherwise be the one award
+            //the score takes without being hit — it counts up out of nowhere while the collapse plays
+            if (bonus > 0) _hud.FlashScore();
 
             Console.WriteLine($"[level] Cleared '{LevelName(_levelIndex)}' with {_score.Score}"
                 + $" (+{bonus} for {_score.ShotsRemaining?.ToString() ?? "unlimited"} unused)"
@@ -1597,7 +1553,7 @@ namespace BS3D.Screens
             if (!_cinematic.Engaged) CheckLevelLost();
 
             UpdateTrails(elapsed);
-            UpdateHud(elapsed);
+            _hud.Update(elapsed, _score);
 
             UpdateCamera(elapsed);
 
@@ -2264,149 +2220,11 @@ namespace BS3D.Screens
 
             //Display space from here down: the resolve is the frame's one and only exit from linear light,
             //and the crosshair and the FPS overlay (a component, drawn in base.Draw after this) are sRGB.
-            DrawHud();
+            _hud.Draw(_score, Camera);
             DrawCrosshair();
         }
 
-        #region The in-play HUD
-
-        /// <summary>
-        /// Score, streak and balls left, in the corners. The frame's centre belongs to the cluster and its
-        /// bottom to the gun — and precise aim leans the lens in over the barrel, which fills more of it
-        /// still — so the corners are the only space that is free in <b>both</b> poses and at every aspect.
-        /// <para>
-        /// No ceiling counter. The glass coming down at the cluster is meant to be its own warning, and the
-        /// issue that asked for this said to try it without one first; a number counting to the next descent
-        /// is a second way of saying what the player can already see.
-        /// </para>
-        /// </summary>
-        private void DrawHud()
-        {
-            Game.EnsureHudFonts();
-
-            Viewport viewport = GraphicsDevice.Viewport;
-            int margin = Scaled(HUD_MARGIN);
-
-            SpriteBatch batch = Game.OverlayBatch;
-
-            batch.Begin();
-
-            //Score, top right. The FPS line owns the top left (InfoRenderer draws after this, in base.Draw).
-            string score = ((int)MathF.Round(_hudScoreShown)).ToString("N0", CultureInfo.InvariantCulture);
-            Vector2 scoreSize = Game.HudFontScore.MeasureString(score);
-            Vector2 scoreAt = new(viewport.Width - margin - scoreSize.X, margin);
-
-            DrawHudString(Game.HudFontScore, score, scoreAt, BS3DGame.MENU_TEXT);
-
-            //The streak, under it, and only while it is actually running. Held back at ×1 so it reads as
-            //something the player is carrying rather than as part of the furniture — and so that its
-            //disappearance is the feedback that they just broke it.
-            if (_score.Multiplier > 1)
-            {
-                string streak = $"×{_score.Multiplier}";
-                Vector2 streakSize = Game.HudFontLabel.MeasureString(streak);
-
-                DrawHudString(Game.HudFontLabel, streak,
-                    new Vector2(viewport.Width - margin - streakSize.X, scoreAt.Y + scoreSize.Y + Scaled(HUD_LINE_GAP)),
-                    BS3DGame.MENU_TEXT);
-            }
-
-            //Balls left, bottom left — near the gun without being behind it. Nothing at all on a level that
-            //grants an unlimited budget: a resource that cannot run out is not one to plan against.
-            if (_score.ShotsRemaining.HasValue)
-            {
-                int left = _score.ShotsRemaining.Value;
-                bool low = left <= HUD_LOW_BALLS;
-
-                //The distinct state is WEIGHT, not colour — the HUD is greyscale for the same reason the menu
-                //is, and a red number would be the one hue in a game that sits over seven different palettes.
-                SpriteFontBase font = low ? Game.HudFontScoreBold : Game.HudFontScore;
-                string balls = left.ToString(CultureInfo.InvariantCulture);
-                Vector2 ballsSize = font.MeasureString(balls);
-
-                string caption = left == 1 ? "ball left" : "balls left";
-                Vector2 captionSize = Game.HudFontLabel.MeasureString(caption);
-
-                float bottom = viewport.Height - margin;
-
-                DrawHudString(Game.HudFontLabel, caption, new Vector2(margin, bottom - captionSize.Y), BS3DGame.MENU_TEXT_DIM);
-                DrawHudString(font, balls,
-                    new Vector2(margin, bottom - captionSize.Y - Scaled(HUD_LINE_GAP) - ballsSize.Y), BS3DGame.MENU_TEXT);
-            }
-
-            DrawScorePopups(viewport);
-
-            batch.End();
-        }
-
-        /// <summary>
-        /// The scores floating up from where they were earned. Projected per frame rather than fixed on screen
-        /// when they are made: the cluster sways and the camera is knocked about by the recoil, and a number
-        /// pinned to a pixel would come adrift from the ball it belongs to within a few frames.
-        /// </summary>
-        private void DrawScorePopups(Viewport viewport)
-        {
-            for (int i = 0; i < _popups.Count; i++)
-            {
-                ScorePopup popup = _popups[i];
-
-                float life = popup.Age / POPUP_LIFETIME;
-                Vector3 world = popup.World + Vector3.Up * (POPUP_RISE * life);
-                Vector3 screen = viewport.Project(world, Camera.Projection, Camera.View, Matrix.Identity);
-
-                //Behind the lens, or past the far plane: Project still returns a point, and drawing it would
-                //put the number somewhere on screen that has nothing to do with where the ball was
-                if (screen.Z < 0f || screen.Z > 1f) continue;
-
-                //Full for the first half of its life, then away. A number that starts fading immediately is
-                //one the eye never gets to read — the same curve the launch smear uses, for the same reason.
-                float alpha = 1f - MathF.Max(0f, life - 0.5f) * 2f;
-
-                Vector2 size = Game.HudFontPopup.MeasureString(popup.Text);
-
-                DrawHudString(Game.HudFontPopup, popup.Text,
-                    new Vector2(screen.X - size.X * Constants.HALF, screen.Y - size.Y), BS3DGame.MENU_TEXT * alpha);
-            }
-        }
-
-        /// <summary>
-        /// One string with a dark copy behind it. Colours are premultiplied by <c>Color * float</c>, so a faded
-        /// popup's shadow fades with it rather than outliving the text it was drawn for.
-        /// </summary>
-        private void DrawHudString(SpriteFontBase font, string text, Vector2 position, Color color)
-        {
-            float alpha = color.A / 255f;
-
-            Game.OverlayBatch.DrawString(font, text, position + new Vector2(Scaled(HUD_SHADOW_OFFSET)), HUD_SHADOW * alpha);
-            Game.OverlayBatch.DrawString(font, text, position, color);
-        }
-
-        /// <summary>
-        /// Advances the count-up and ages the popups. On the play clock, so both freeze with a pause rather
-        /// than running on behind a menu the player has stopped the game with.
-        /// </summary>
-        private void UpdateHud(float elapsed)
-        {
-            float target = _score.Score;
-
-            if (_hudScoreShown < target)
-            {
-                //A fraction of the remaining gap, which is what makes a big jump start fast and settle, plus a
-                //floor so a small one still lands instead of creeping at it for ever
-                float step = MathF.Max((target - _hudScoreShown) * HUD_SCORE_CHASE_PER_SECOND, HUD_SCORE_MIN_RATE) * elapsed;
-                _hudScoreShown = MathF.Min(target, _hudScoreShown + step);
-            }
-            else _hudScoreShown = target; //a new level resets the score downwards, and that is not a count-up
-
-            for (int i = _popups.Count - 1; i >= 0; i--)
-            {
-                ScorePopup popup = _popups[i];
-                popup.Age += elapsed;
-
-                if (popup.Age >= POPUP_LIFETIME) _popups.RemoveAt(i);
-                else _popups[i] = popup;
-            }
-        }
+        #region The crosshair
 
         /// <summary>
         /// The crosshair, shown only while precise aim is leaning in — that is the only pose whose lens looks

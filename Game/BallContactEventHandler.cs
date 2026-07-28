@@ -67,8 +67,13 @@ namespace BS3D
         /// The world position is where the ball came to rest in the lattice, which is what a floating score
         /// wants to rise from: it is the cell the player actually hit, not the raw contact point a diameter
         /// off it, and not the ball's body position, which the constraints are about to drag.
+        /// <para>
+        /// The type is the shot ball's own, which is also the colour of whatever group it completed — a match is
+        /// three or more of <i>one</i> colour touching, so there is only ever one colour to report. The HUD
+        /// tints the award it flies into the corner with it.
+        /// </para>
         /// </remarks>
-        public event Action<BallsReleased, Vector3> BallLanded;
+        public event Action<BallsReleased, Vector3, BallType> BallLanded;
 
         /// <summary>
         /// Raised once for a shot that is over without having landed — it hit the island, the drain or the
@@ -233,7 +238,7 @@ namespace BS3D
             //Reported whether or not anything fell: a shot that stuck without completing a group is still a
             //resolved shot, and the streak rule has to hear about it. Taken before the release above could
             //have moved anything, and in world frame — the lattice cell the ball landed in.
-            BallLanded?.Invoke(released, placed + _worldOffset);
+            BallLanded?.Invoke(released, placed + _worldOffset, physicsBall.Type);
 
             return true;
         }
