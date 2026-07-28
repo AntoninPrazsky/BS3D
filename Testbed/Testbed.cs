@@ -153,13 +153,6 @@ namespace Testbed
 
         #region Ground
 
-        /// <summary>
-        /// The size the GroundMarble model's texture is authored for. The ground blocks it used to tile are
-        /// gone; it survives as the island disc's triplanar DetailScale (1/this), keeping the marble's grain
-        /// at its authored density.
-        /// </summary>
-        private static readonly float GROUND_BLOCK_SIZE = 30f;
-
         private static readonly float GROUND_PLATEAU_Y = -9f;
 
         /// <summary>
@@ -412,8 +405,9 @@ namespace Testbed
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
         private CitySceneConfig _cityConfig = new();
-        private DiscMesh _arenaDiscMesh;
-        private InstancedModelRenderer _arenaDiscRenderer;
+        private IslandMesh _arenaIslandMesh;
+        private SurfaceTexture _stoneTexture, _concreteTexture;
+        private InstancedModelRenderer _arenaCapRenderer, _arenaBodyRenderer;
         private Microsoft.Xna.Framework.Matrix _arenaDiscWorld;
         private FunnelMesh _funnelMesh;
         private InstancedModelRenderer _funnelRenderer;
@@ -487,18 +481,46 @@ namespace Testbed
         private static readonly Vector3 UNDERWATER_INSCATTER = new(0.015f, 0.06f, 0.09f);
         private const float UNDERWATER_FADE_DEPTH = 7f;
 
-        //The drain funnel is glass; the disc around it is stone (ARENA_MARBLE_COLOR)
+        //The drain funnel is glass; the platform around it is a cast-concrete drum with a dressed stone top
         private static readonly Vector3 ARENA_GLASS_COLOR = new(0.42f, 0.62f, 0.72f);
 
-        private static readonly Vector3 ARENA_MARBLE_COLOR = new(0.58f, 0.56f, 0.54f);
+        //Under the figure the old flat disc carried, and the reason is worth keeping: the photograph it used
+        //to project was black over half its canvas, so it was silently acting as an exposure control. Same
+        //vantage, same nominal albedo, only the texture swapped: the top face measured 151 grey with the
+        //broken photograph and 181 with a texture whose mean is 1 by construction - half a stop brighter for
+        //a number nobody changed. Any albedo carried over from the old surface arrives overexposed.
+        private static readonly Vector3 ARENA_STONE_COLOR = new(0.52f, 0.51f, 0.49f);
 
-        //The arena is a small round stone island now, not a big square plaza: the drain funnel in the centre,
-        //a ring of stone around it out to this radius, then a hard edge (the outer wall drops ARENA_EDGE_HEIGHT)
-        //and the scene beyond. Kept just big enough to stand the funnel in - the whole point is that the scene
-        //(sea, dunes, city...) fills the frame rather than a plaza. The stone ring runs from the funnel's rim
-        //(FUNNEL_TOP_RADIUS) out to here.
+        //Concrete: a plain cool concrete grey, within a hair of the cannon's own steel (CANNON_COLOR) - and
+        //deliberately NOT tuned bluer than that. A vertical face in this world comes back distinctly warm,
+        //because the key light is carried halfway to the horizon colour (SKY_TINT_STRENGTH) and half of the
+        //hemisphere ambient it can see is the ground bounce, which is that horizon again. That is the rig
+        //doing what it exists to do: measured in the same frame, the cannon's steel reads 89,57,35 and this
+        //wall 82,51,31, and the city's facades are the same family. An albedo pushed blue to cancel it would
+        //make the platform the one object in the scene that does not take the light everything else does.
+        //Not darker than the stone it carries, either - a wall that starts dark as well ends up a black band
+        //with no material in it. (See ARENA_STONE_COLOR for why both albedos read lower than they used to.)
+        private static readonly Vector3 ARENA_CONCRETE_COLOR = new(0.45f, 0.47f, 0.50f);
+
+        //The arena is a small round island now, not a big square plaza: the drain funnel in the centre, a
+        //platform around it out to this radius, then its edge and the scene beyond. Kept just big enough to
+        //stand the funnel in - the whole point is that the scene (sea, dunes, city...) fills the frame rather
+        //than a plaza. The stone runs from the funnel's rim (FUNNEL_TOP_RADIUS) out to here.
         private static readonly float ARENA_DISC_RADIUS = 26f;
         private static readonly float ARENA_EDGE_HEIGHT = 5f;
+
+        //Outer edge of the flat, level part of the top: the coping falls away past it, so this and not
+        //ARENA_DISC_RADIUS is where the physics floor ends - otherwise a ball rests on air over the wash.
+        private static readonly float ARENA_FLOOR_RADIUS = IslandMesh.FloorRadius(ARENA_DISC_RADIUS);
+
+        //Twice the drain's facet count. The mouldings are small enough that a coarse ring would show its
+        //corners along the bright chamfer lines, which is exactly where the eye is drawn.
+        private const int ARENA_SEGMENTS = FUNNEL_SEGMENTS * 2;
+
+        //World units one tile of each procedural texture spans, far finer than the 30 the marble photograph
+        //was mapped at - where one tile covered more than half the platform and no grain read at all.
+        private static readonly float ARENA_STONE_SPAN = 4f;
+        private static readonly float ARENA_CONCRETE_SPAN = 3.5f;
 
         //The drain funnel that replaces the recessed centre: a glass cone the shot balls fall into and roll
         //down, dropping through the hole at the bottom - below the map, where the kill plane removes them. The
@@ -988,8 +1010,6 @@ namespace Testbed
 
             #region Ground and ceiling
 
-            _groundModel = Content.Load<Model>("GameObjects/GroundMarble");
-
             RecreateCeilingRenderer(DEFAULT_CEILING_SIZE, DEFAULT_CEILING_SIZE);
 
             BuildGroundAndCeiling();
@@ -1092,7 +1112,8 @@ namespace Testbed
             _skyLitRenderers.Add(_ceilingRenderer);
             _skyLitRenderers.Add(_cannonRenderer);
             if (_cityRenderer != null) _skyLitRenderers.Add(_cityRenderer);
-            if (_arenaDiscRenderer != null) _skyLitRenderers.Add(_arenaDiscRenderer);
+            if (_arenaCapRenderer != null) _skyLitRenderers.Add(_arenaCapRenderer);
+            if (_arenaBodyRenderer != null) _skyLitRenderers.Add(_arenaBodyRenderer);
             if (_funnelRenderer != null) _skyLitRenderers.Add(_funnelRenderer);
             if (_funnelRimsRenderer != null) _skyLitRenderers.Add(_funnelRimsRenderer);
 
@@ -1361,9 +1382,9 @@ namespace Testbed
 
         /// <summary>
         /// Builds the setting: the procedural city (one unit box mesh under a different instance matrix per
-        /// building, which is what keeps the whole skyline to a single draw call) and the round stone island
-        /// the play field stands over — the marble disc, the glass drain funnel, its gold rims and the dark
-        /// pit shaft, each its own procedural mesh and renderer.
+        /// building, which is what keeps the whole skyline to a single draw call) and the round island the
+        /// play field stands over — the platform's stone cap and concrete drum, the glass drain funnel, its
+        /// gold rims and the dark pit shaft, each its own procedural mesh and renderer.
         /// </summary>
         private void BuildCity()
         {
@@ -1374,10 +1395,6 @@ namespace Testbed
             _city = new City(seed: 20260720, arenaHalfExtent: ARENA_DISC_RADIUS, config: _cityConfig);
 
             Console.WriteLine($"[city] {_city.Buildings.Length} buildings, island radius {ARENA_DISC_RADIUS}, floor at {ARENA_Y}");
-
-            //The floor is the same marble the ground blocks were modeled with; the model carries the
-            //texture, so it is taken off the model rather than added to the content project again
-            Texture2D marble = (_groundModel.Meshes[0].Effects[0] as BasicEffect)?.Texture;
 
             _cityRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, Vector3.One, _instancingEffect)
             {
@@ -1394,33 +1411,91 @@ namespace Testbed
                 SpecularAmbientStrength = 0.07f
             };
 
-            //The arena is a small round stone island: the drain funnel in the centre, a ring of stone from
-            //the funnel's rim (FUNNEL_TOP_RADIUS) out to ARENA_DISC_RADIUS, then a hard vertical edge and the
-            //scene beyond. It replaces the big square marble/glass plaza, whose panels ate the whole lower
-            //frame and hid the scene the arena stands in. One mesh, drawn opaque with CullNone (see Draw).
-            _arenaDiscMesh = new DiscMesh(GraphicsDevice, FUNNEL_TOP_RADIUS, ARENA_DISC_RADIUS, ARENA_EDGE_HEIGHT, FUNNEL_SEGMENTS);
-            _arenaDiscRenderer = new InstancedModelRenderer(GraphicsDevice, _arenaDiscMesh, ARENA_MARBLE_COLOR, _instancingEffect)
+            //The arena is a small round island: a cast-concrete drum with a dressed stone top and a moulded
+            //coping around its rim, the drain funnel bored through the middle (IslandMesh owns the whole
+            //cross-section). It replaces the big square marble/glass plaza, whose panels ate the whole lower
+            //frame and hid the scene the arena stands in - and, since the plaza, the plain extruded washer
+            //that read as a cylinder with a hole in it because every edge of it was a raw 90-degree cut.
+            //
+            //Both textures are generated rather than loaded, and that is a fix rather than a flourish: the
+            //marble photograph this used to project covers only the left half of its canvas and the rest is
+            //black, so the triplanar projection multiplied roughly half of the platform by zero at any
+            //detail scale - which is what left the wall reading as a dark band. These tile exactly.
+            _stoneTexture = SurfaceTexture.Stone(GraphicsDevice);
+            _concreteTexture = SurfaceTexture.Concrete(GraphicsDevice);
+
+            _arenaIslandMesh = new IslandMesh(GraphicsDevice, FUNNEL_TOP_RADIUS, ARENA_DISC_RADIUS, ARENA_EDGE_HEIGHT, ARENA_SEGMENTS);
+
+            //The dressed stone: the flat top and the coping that finishes it, coursed into slabs. The detail
+            //texture is what selects the technique that reads any of this - without one the renderer falls
+            //through to the plain one and every relief setting here is silently dead. DetailBoost normalises
+            //the texture to a mean of 1, so it varies the albedo without dimming it and ARENA_STONE_COLOR
+            //stays the honest colour of the stone.
+            _arenaCapRenderer = new InstancedModelRenderer(GraphicsDevice, _arenaIslandMesh.Cap, ARENA_STONE_COLOR, _instancingEffect)
             {
-                //The marble surface: coursed slab relief plus the ground blocks' own marble texture, projected
-                //triplanar (the disc's boxes carry no UVs worth the name). Without a detail texture the renderer
-                //falls through to the plain technique and every relief setting below is silently dead.
                 SurfaceReliefFrequency = 9f,
                 SurfaceReliefStrength = 0.008f,
+
+                //The joint grid is laid out in world X and Z whatever the face, so it also breaks the
+                //coping's own ring into blocks - which is how a coping is actually laid.
                 SlabSize = 2f,
                 SlabJointWidth = 0.025f,
-                SlabJointDepth = 0.04f,
+
+                //Shallower than the old flat disc's joints. The grid is cut on every face, so it also runs
+                //down the coping's own ring - which is right, a coping is laid in blocks - but a groove on a
+                //near-vertical face turns its walls towards the sky, and at the old depth every joint round
+                //the rim came back as a bright wire rather than as a seam.
+                SlabJointDepth = 0.025f,
                 CavityStrength = 0.7f,
-                ReliefShadowStrength = 0.85f,
-                ParallaxScale = 1f,
-                DetailTexture = marble,
+
+                //(No ReliefShadowStrength or ParallaxScale: the triplanar path builds its own height field
+                //and never runs the self-shadow or parallax marches, so both were dead where they used to
+                //be set here.)
+
+                DetailTexture = _stoneTexture.Texture,
                 DetailTextureMapping = DetailMapping.Triplanar,
-                DetailScale = 1f / GROUND_BLOCK_SIZE,
+                DetailScale = 1f / ARENA_STONE_SPAN,
+                DetailBoost = 1f / _stoneTexture.LinearMean,
+                DetailStrength = 0.5f,
 
                 //A floor is seen at a grazing angle almost everywhere except right under your feet, which is
-                //exactly where Fresnel puts the sky reflection at full strength. Left at 1 the marble mirrors
+                //exactly where Fresnel puts the sky reflection at full strength. Left at 1 the stone mirrors
                 //the sky into a white sheet from the middle distance out.
-                SpecularAmbientStrength = 0.4f
+                //
+                //This is also the dial that decides how POLISHED the top reads, and not the albedo: the
+                //specular ambient is not multiplied by albedo (a reflection does not care how dark the
+                //surface under it is), so halving the stone's colour barely dimmed a top face that was
+                //washing out - most of its brightness was this term. Dressed stone is matte.
+                SpecularAmbientStrength = 0.14f
             };
+
+            //The concrete drum. No slab joints - it is cast, not laid - and a coarser, deeper relief than the
+            //dressed stone above it, which is most of what makes the two read as different materials at a
+            //distance where neither texture resolves. Barely reflective, because concrete is not.
+            _arenaBodyRenderer = new InstancedModelRenderer(GraphicsDevice, _arenaIslandMesh.Body, ARENA_CONCRETE_COLOR, _instancingEffect)
+            {
+                //The relief is a sum of sines, and past a certain amplitude the sum stops reading as a rough
+                //surface and starts reading as the waves it is made of - a regular diagonal weave across the
+                //whole drum, which is what a first pass at 0.045 gave. The texture carries the roughness; the
+                //relief only has to break the light over it.
+                SurfaceReliefFrequency = 4.5f,
+                SurfaceReliefStrength = 0.012f,
+                SlabSize = 0f,
+                CavityStrength = 0.85f,
+
+                DetailTexture = _concreteTexture.Texture,
+                DetailTextureMapping = DetailMapping.Triplanar,
+                DetailScale = 1f / ARENA_CONCRETE_SPAN,
+                DetailBoost = 1f / _concreteTexture.LinearMean,
+                DetailStrength = 0.62f,
+
+                //Lower than the stone's, because concrete is rougher and barely reflective. What a vertical
+                //face reflects is the horizon rather than the zenith - the brightest, warmest part of the
+                //dome, and unmultiplied by albedo - so this term is also what would wash the drum out into
+                //one flat sheen and take its material with it.
+                SpecularAmbientStrength = 0.08f
+            };
+
             _arenaDiscWorld = Microsoft.Xna.Framework.Matrix.CreateTranslation(0f, ARENA_Y, 0f);
 
             //The drain funnel in the centre, glass. Its top rim (FUNNEL_TOP_RADIUS) is flush with the stone
@@ -1992,14 +2067,18 @@ namespace Testbed
                 else
                     _sceneRenderer.DrawEnvironment(_scene, sceneFrame);
 
-                //The round stone island, opaque. Drawn CullNone (a solid ring - the nearest face wins on depth,
-                //so the result matches back-face culling and the mesh needs no winding convention); restored after.
-                GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-                _arenaDiscRenderer.Draw(_camera, _arenaDiscWorld, _sceneEffectParams);
+                //The round island, opaque. A closed solid wound clockwise from outside, so it takes the scene's
+                //ordinary back-face culling - and drawing it that way is what would show a winding mistake
+                //rather than hiding one. Two draws because it is two materials: stone cap, concrete drum.
+                _arenaCapRenderer.Draw(_camera, _arenaDiscWorld, _sceneEffectParams);
+                _arenaBodyRenderer.Draw(_camera, _arenaDiscWorld, _sceneEffectParams);
 
                 //The dark pit shaft behind the glass funnel, in the solid-terrain scenes only: it fills the hole
                 //cut in the terrain so the drain reads as a deep well rather than a glass ring over bright haze.
-                //Opaque and CullNone like the island, drawn before the glass funnel (which composites over it).
+                //An open cone rather than a closed solid, so it needs the culling off; drawn before the glass
+                //funnel, which composites over it.
+                GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+
                 if (IsSolidTerrainScene(_scene))
                     _pitRenderer.Draw(_camera, _pitWorld, _sceneEffectParams);
 
@@ -2520,7 +2599,10 @@ namespace Testbed
             //Bepu meshes only collide with a triangle's front (normal) face, and rather than depend on getting
             //the winding right the funnel is made double-sided - a ball can never slip through it. Eight per
             //segment: the sloped cone wall (4) plus the flat stone ring around it (4), from the rim out to
-            //ARENA_DISC_RADIUS - the round island's floor, that balls rest on until they fall off the edge.
+            //ARENA_FLOOR_RADIUS - the round island's floor, that balls rest on until they fall off the edge.
+            //That is the edge of the platform's LEVEL top, not of the platform: the coping falls away over
+            //the last stretch out to ARENA_DISC_RADIUS, and a floor carried out to there would hold a ball
+            //up on air over the wash.
             _bufferPool.Take<Triangle>(segments * 8, out var triangles);
 
             for (int s = 0; s < segments; s++)
@@ -2533,8 +2615,8 @@ namespace Testbed
                 var t1 = Ring(a1, FUNNEL_TOP_RADIUS, 0f);
                 var h0 = Ring(a0, FUNNEL_HOLE_RADIUS, -depth);
                 var h1 = Ring(a1, FUNNEL_HOLE_RADIUS, -depth);
-                var q0 = Ring(a0, ARENA_DISC_RADIUS, 0f);   //flat stone ring's outer edge, on the island's rim
-                var q1 = Ring(a1, ARENA_DISC_RADIUS, 0f);
+                var q0 = Ring(a0, ARENA_FLOOR_RADIUS, 0f);   //flat stone ring's outer edge, where the coping begins
+                var q1 = Ring(a1, ARENA_FLOOR_RADIUS, 0f);
 
                 int b = s * 8;
                 //Cone wall (both faces)
@@ -2561,7 +2643,9 @@ namespace Testbed
         {
             _unitBox?.Dispose();
             _cannonMesh?.Dispose();
-            _arenaDiscMesh?.Dispose();
+            _arenaIslandMesh?.Dispose();
+            _stoneTexture?.Dispose();
+            _concreteTexture?.Dispose();
             _funnelMesh?.Dispose();
             _funnelRimsMesh?.Dispose();
             _pitMesh?.Dispose();

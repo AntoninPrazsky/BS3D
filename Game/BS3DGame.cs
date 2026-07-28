@@ -143,6 +143,18 @@ namespace BS3D
         private EffectParameter _tonemapGlareTextureParam;
         private EffectParameter _tonemapSceneTextureParam;
         private EffectParameter _tonemapSourceTexelSizeParam;
+        private EffectParameter _tonemapUnderwaterAmountParam;
+
+        //Being submerged has to read as being submerged, or the frame is the world unchanged with a water
+        //plane cutting through it. Applied in linear light before the ACES curve, so the drowned scene rolls
+        //through the same highlight response as everything above the surface: the frame is absorbed towards
+        //a blue-green (red goes first, so it blues and dims) and the water's own in-scattered glow added, both
+        //by the amount below. The Testbed's figures unchanged.
+        private static readonly Vector3 UNDERWATER_ABSORB = new(0.10f, 0.42f, 0.52f);
+        private static readonly Vector3 UNDERWATER_INSCATTER = new(0.015f, 0.06f, 0.09f);
+
+        //How far under the mean surface the tint takes to reach full
+        private const float UNDERWATER_FADE_DEPTH = 7f;
         private EffectParameter _skyCameraPositionParam;
 
         private static readonly int GLARE_DOWNSAMPLE = 4;
@@ -279,26 +291,51 @@ namespace BS3D
         private BasicEffectParams _funnelRimEffectParams;
         private Matrix _funnelWorld;
 
-        //The round stone island the gun stands on: a ring of stone from the drain's rim out to its own, then
-        //a hard vertical edge the city falls away past. No physics floor here — the session's drain mesh is
-        //the floor. Const because the session's precise-aim floor (GameplayScreen.ADS_MIN_Y) is derived from
-        //it in a constant expression.
+        //The round platform the gun stands on: a cast-concrete drum with a dressed stone top, a moulded
+        //coping around its rim and the drain bored through the middle (see IslandMesh, which owns the
+        //cross-section). No physics floor here — the session's drain mesh is the floor. Const because the
+        //session's precise-aim floor (GameplayScreen.ADS_MIN_Y) is derived from it in a constant expression.
         internal const float ISLAND_Y = -8.5f;
 
-        //A washer, not a disc: the bore is the drain's mouth and the funnel fills it exactly. Both circles are
-        //drawn at FUNNEL_SEGMENTS facets, so stone and glass meet with no gap for the sky to show through.
+        //The bore is the drain's mouth and the funnel fills it exactly. Both circles are drawn at their own
+        //segment counts, but the gold bead straddles the junction by half a unit, so the fraction of a unit
+        //by which a 128-gon and a 64-gon disagree at radius 14 is nowhere near showing.
         private static readonly float ISLAND_INNER_RADIUS = FUNNEL_TOP_RADIUS;
         internal static readonly float ISLAND_RADIUS = 26f;
-        private static readonly float ISLAND_EDGE_HEIGHT = 5f;
-        private const int ISLAND_SEGMENTS = FUNNEL_SEGMENTS;
-        private static readonly Vector3 ISLAND_COLOR = new(0.58f, 0.56f, 0.54f);
+        //Internal because the drop cinematic treats the platform as the solid it is, and needs its underside
+        internal static readonly float ISLAND_EDGE_HEIGHT = 5f;
 
-        //How many world units one tile of the marble spans. The Testbed derives the same figure from the size
-        //of the ground block the texture was modelled on; here it is what it is — the grain of the stone.
-        private static readonly float ISLAND_DETAIL_SPAN = 30f;
+        //Twice the drain's facet count. The mouldings are small enough that a coarse ring would show its
+        //corners along the bright chamfer lines, which is exactly where the eye is drawn.
+        private const int ISLAND_SEGMENTS = FUNNEL_SEGMENTS * 2;
 
-        private DiscMesh _islandMesh;
-        private InstancedModelRenderer _islandRenderer;
+        //World units one tile of each procedural texture spans. Both are far finer than the 30 the marble
+        //photograph was mapped at, where a single tile covered more than half the platform and there was no
+        //grain to read at all.
+        private static readonly float ISLAND_STONE_SPAN = 4f;
+        private static readonly float ISLAND_CONCRETE_SPAN = 3.5f;
+
+        //Under the figure the old flat disc carried, and the reason is worth keeping: the photograph it used
+        //to project was black over half its canvas, so it was silently acting as an exposure control. Same
+        //vantage, same nominal albedo, only the texture swapped: the top face measured 151 grey with the
+        //broken photograph and 181 with a texture whose mean is 1 by construction — half a stop brighter for
+        //a number nobody changed. Any albedo carried over from the old surface arrives overexposed.
+        private static readonly Vector3 ISLAND_STONE_COLOR = new(0.52f, 0.51f, 0.49f);
+
+        //Concrete: a plain cool concrete grey, within a hair of the cannon's own steel (CANNON_COLOR) — and
+        //deliberately NOT tuned bluer than that. A vertical face in this world comes back distinctly warm,
+        //because the key light is carried halfway to the horizon colour (SKY_TINT_STRENGTH) and half of the
+        //hemisphere ambient it can see is the ground bounce, which is that horizon again. That is the rig
+        //doing what it exists to do: measured in the same frame, the cannon's steel reads 89,57,35 and this
+        //wall 82,51,31, and the city's facades are the same family. An albedo pushed blue to cancel it would
+        //make the platform the one object in the scene that does not take the light everything else does.
+        //Not darker than the stone it carries, either — a wall that starts dark as well ends up a black band
+        //with no material in it. (See ISLAND_STONE_COLOR for why both albedos read lower than they used to.)
+        private static readonly Vector3 ISLAND_CONCRETE_COLOR = new(0.45f, 0.47f, 0.50f);
+
+        private IslandMesh _islandMesh;
+        private SurfaceTexture _stoneTexture, _concreteTexture;
+        private InstancedModelRenderer _islandCapRenderer, _islandBodyRenderer;
         private Matrix _islandWorld;
 
         //The dark pit shaft behind the glass drain, in the four solid-terrain scenes only (the Testbed's own,
@@ -851,8 +888,14 @@ namespace BS3D
             _tonemapEffect.Parameters["SupersampleFactor"].SetValue(_supersampleFactor);
             _tonemapEffect.Parameters["Exposure"].SetValue(_exposure);
 
-            //There is no water in this scene to get under, so the underwater murk is a no-op
-            _tonemapEffect.Parameters["UnderwaterAmount"].SetValue(0f);
+            //The underwater murk, the Testbed's own. Only the sea has water a lens can get under, and until the
+            //drop cinematic arrived nothing here ever went below the island, so this was pinned at zero — now
+            //the shot follows the balls down through the surface and the frame has to say so. The two colours
+            //are constant for the run; only the amount changes, and it is set per frame in ResolveSceneTarget.
+            _tonemapUnderwaterAmountParam = _tonemapEffect.Parameters["UnderwaterAmount"];
+            _tonemapEffect.Parameters["UnderwaterAbsorb"].SetValue(UNDERWATER_ABSORB);
+            _tonemapEffect.Parameters["UnderwaterInscatter"].SetValue(UNDERWATER_INSCATTER);
+            _tonemapUnderwaterAmountParam.SetValue(0f);
 
             CreateFullScreenQuad();
 
@@ -1527,31 +1570,84 @@ namespace BS3D
                 SpecularAmbientStrength = 0.07f
             };
 
-            _islandMesh = new DiscMesh(GraphicsDevice, ISLAND_INNER_RADIUS, ISLAND_RADIUS, ISLAND_EDGE_HEIGHT, ISLAND_SEGMENTS);
-            _islandRenderer = new InstancedModelRenderer(GraphicsDevice, _islandMesh, ISLAND_COLOR, _instancingEffect)
+            //Both textures are generated rather than loaded, and that is a fix rather than a flourish: the
+            //marble photograph this used to project covers only the left half of its canvas and the rest is
+            //black, so the triplanar projection multiplied roughly half of the platform by zero at any
+            //detail scale — which is what left the island a dark grey band. These tile exactly.
+            _stoneTexture = SurfaceTexture.Stone(GraphicsDevice);
+            _concreteTexture = SurfaceTexture.Concrete(GraphicsDevice);
+
+            _islandMesh = new IslandMesh(GraphicsDevice, ISLAND_INNER_RADIUS, ISLAND_RADIUS, ISLAND_EDGE_HEIGHT, ISLAND_SEGMENTS);
+
+            //The dressed stone: the flat top and the coping that finishes it, coursed into slabs. The detail
+            //texture is what selects the technique that reads any of this — without one the renderer falls
+            //through to the plain one and every setting here is silently dead. DetailBoost normalises the
+            //texture to a mean of 1, so it varies the albedo without dimming it and ISLAND_STONE_COLOR stays
+            //the honest colour of the stone.
+            _islandCapRenderer = new InstancedModelRenderer(GraphicsDevice, _islandMesh.Cap, ISLAND_STONE_COLOR, _instancingEffect)
             {
-                //The stone surface, the Testbed's own: coursed slab relief over the marble texture, projected
-                //triplanar because the disc carries no UVs worth the name. The detail texture is what selects
-                //the technique that reads any of this — without one the renderer falls through to the plain
-                //one and every setting here is silently dead, which is exactly what left the island a flat
-                //grey band under the neon.
-                DetailTexture = Content.Load<Texture2D>("GameObjects/Ground_8"),
+                DetailTexture = _stoneTexture.Texture,
                 DetailTextureMapping = DetailMapping.Triplanar,
-                DetailScale = 1f / ISLAND_DETAIL_SPAN,
+                DetailScale = 1f / ISLAND_STONE_SPAN,
+                DetailBoost = 1f / _stoneTexture.LinearMean,
+                DetailStrength = 0.5f,
 
                 SurfaceReliefFrequency = 9f,
                 SurfaceReliefStrength = 0.008f,
+
+                //The joint grid is laid out in world X and Z whatever the face, so it also breaks the
+                //coping's own ring into blocks — which is how a coping is actually laid.
                 SlabSize = 2f,
                 SlabJointWidth = 0.025f,
-                SlabJointDepth = 0.04f,
-                CavityStrength = 0.7f,
-                ReliefShadowStrength = 0.85f,
-                ParallaxScale = 1f,
 
-                //A floor is seen at a grazing angle everywhere except right under your feet, which is
-                //exactly where Fresnel puts the sky reflection at full strength.
-                SpecularAmbientStrength = 0.4f
+                //Shallower than the old flat disc's joints. The grid is cut on every face, so it also runs
+                //down the coping's own ring — which is right, a coping is laid in blocks — but a groove on a
+                //near-vertical face turns its walls towards the sky, and at the old depth every joint round
+                //the rim came back as a bright wire rather than as a seam.
+                SlabJointDepth = 0.025f,
+                CavityStrength = 0.7f,
+
+                //(No ReliefShadowStrength or ParallaxScale: the triplanar path builds its own height field
+                //and never runs the self-shadow or parallax marches, so both were dead where they used to
+                //be set here.)
+
+                //A floor is seen at a grazing angle everywhere except right under your feet, which is exactly
+                //where Fresnel puts the sky reflection at full strength.
+                //
+                //This is also the dial that decides how POLISHED the top reads, and not the albedo: the
+                //specular ambient is not multiplied by albedo (a reflection does not care how dark the
+                //surface under it is), so halving the stone's colour barely dimmed a top face that was
+                //washing out — most of its brightness was this term. Dressed stone is matte.
+                SpecularAmbientStrength = 0.14f
             };
+
+            //The concrete drum. No slab joints — it is cast, not laid — and a coarser, deeper relief than
+            //the dressed stone above it, which is most of what makes the two read as different materials at
+            //a distance where neither texture resolves. Barely reflective, because concrete is not.
+            _islandBodyRenderer = new InstancedModelRenderer(GraphicsDevice, _islandMesh.Body, ISLAND_CONCRETE_COLOR, _instancingEffect)
+            {
+                DetailTexture = _concreteTexture.Texture,
+                DetailTextureMapping = DetailMapping.Triplanar,
+                DetailScale = 1f / ISLAND_CONCRETE_SPAN,
+                DetailBoost = 1f / _concreteTexture.LinearMean,
+                DetailStrength = 0.62f,
+
+                //The relief is a sum of sines, and past a certain amplitude the sum stops reading as a rough
+                //surface and starts reading as the waves it is made of — a regular diagonal weave across the
+                //whole drum, which is what a first pass at 0.045 gave. The texture carries the roughness; the
+                //relief only has to break the light over it.
+                SurfaceReliefFrequency = 4.5f,
+                SurfaceReliefStrength = 0.012f,
+                SlabSize = 0f,
+                CavityStrength = 0.85f,
+
+                //Lower than the stone's, because concrete is rougher and barely reflective. What a vertical
+                //face reflects is the horizon rather than the zenith — the brightest, warmest part of the
+                //dome, and unmultiplied by albedo — so this term is also what would wash the drum out into
+                //one flat sheen and take its material with it.
+                SpecularAmbientStrength = 0.08f
+            };
+
             _islandWorld = Matrix.CreateTranslation(0f, ISLAND_Y, 0f);
 
             //The drain. Its rim is flush with the stone top and meets the disc's bore directly, so it needs no
@@ -1731,7 +1827,8 @@ namespace BS3D
 
             yield return _cannonRenderer;
             yield return _cityRenderer;
-            yield return _islandRenderer;
+            yield return _islandCapRenderer;
+            yield return _islandBodyRenderer;
             yield return _funnelRenderer;
             yield return _funnelRimsRenderer;
 
@@ -2283,14 +2380,19 @@ namespace BS3D
             }
             else _sceneRenderer.DrawEnvironment(_scene, sceneFrame);
 
-            //The island is a solid ring, so the nearest face wins on depth and the winding is moot
+            //The platform is a closed solid wound clockwise from outside, so it takes the scene's ordinary
+            //back-face culling — and drawing it that way is what would show a winding mistake rather than
+            //hiding one. Its stone cap and concrete drum are two draws because they are two materials.
+            _islandCapRenderer.Draw(_camera, _islandWorld, _sceneEffectParams);
+            _islandBodyRenderer.Draw(_camera, _islandWorld, _sceneEffectParams);
+
             GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-            _islandRenderer.Draw(_camera, _islandWorld, _sceneEffectParams);
 
             //The dark well behind the glass drain, in the solid-terrain scenes only: it fills the hole those
             //shaders cut in the ground, so the drain reads as a deep shaft rather than as a glass ring over
-            //bright sky haze. Opaque and CullNone like the island, and before the glass, which composites
-            //over it. The two cities and the sea have their own canyon or water down there instead.
+            //bright sky haze. Opaque, and an open cone rather than a closed solid, so it needs the culling
+            //off above; before the glass, which composites over it. The two cities and the sea have their
+            //own canyon or water down there instead.
             if (IsSolidTerrainScene(_scene)) _pitRenderer.Draw(_camera, _pitWorld, _sceneEffectParams);
 
             GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
@@ -2393,11 +2495,19 @@ namespace BS3D
 
             GraphicsDevice.SetRenderTarget(null);
 
-            //The constants (exposure, glare intensity, supersample factor, the underwater no-op) were set
-            //once in LoadContent and persist on the effect; only what can change goes out per frame
+            //The constants (exposure, glare intensity, supersample factor, the two underwater colours) were
+            //set once in LoadContent and persist on the effect; only what can change goes out per frame
             _tonemapGlareTextureParam.SetValue(_glareStreak);
             _tonemapSceneTextureParam.SetValue(_sceneTarget);
             _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
+
+            //How far under the sea the lens is. Only the sea has water to get under, and only the drop
+            //cinematic ever takes the camera down there — the play camera stands on the island. Measured a
+            //touch above the mean surface so partial submersion already begins to tint, full by
+            //UNDERWATER_FADE_DEPTH; zero everywhere else, which is a no-op in the shader.
+            _tonemapUnderwaterAmountParam.SetValue(_scene == SceneKind.Sea
+                ? MathHelper.Clamp((_sceneRenderer.SeaLevelY + 0.5f - _camera.Position.Y) / UNDERWATER_FADE_DEPTH, 0f, 1f)
+                : 0f);
 
             GraphicsDevice.BlendState = BlendState.Opaque;
             GraphicsDevice.DepthStencilState = DepthStencilState.None;
@@ -2453,7 +2563,10 @@ namespace BS3D
             _unitBox?.Dispose();
             _cityRenderer?.Dispose();
             _islandMesh?.Dispose();
-            _islandRenderer?.Dispose();
+            _islandCapRenderer?.Dispose();
+            _islandBodyRenderer?.Dispose();
+            _stoneTexture?.Dispose();
+            _concreteTexture?.Dispose();
             _funnelMesh?.Dispose();
             _funnelRenderer?.Dispose();
             _funnelRimsMesh?.Dispose();

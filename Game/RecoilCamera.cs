@@ -30,6 +30,17 @@ namespace BS3D
         /// <summary>Vertical field of view in radians, before the recoil's punch.</summary>
         public float FieldOfView { get; set; } = MathHelper.PiOver4;
 
+        /// <summary>
+        /// A deliberate roll of the base pose about the view axis, in radians — a dutch tilt, as opposed to
+        /// the involuntary one <see cref="Shake"/> adds. Zero leaves the horizon level, which is what every
+        /// pose the game sets wants; the drop cinematic is the one caller that tips the frame on purpose.
+        /// <para>
+        /// It rides on the same axis-angle the shake's roll does and is added to it, so a gun fired mid-tilt
+        /// still reads as a kick on top of the tilt rather than replacing it.
+        /// </para>
+        /// </summary>
+        public float BaseRoll { get; set; }
+
         public float AspectRatio { get; set; } = 16f / 9f;
 
         public float NearPlane { get; set; } = 0.05f;
@@ -86,8 +97,10 @@ namespace BS3D
             Vector3 shakenForward = Vector3.Normalize(Vector3.TransformNormal(forward, jitter));
             Vector3 shakenUp = Vector3.TransformNormal(up, jitter);
 
-            //Roll last, about the view axis after pitch and yaw, so it stays a roll of the finished frame
-            shakenUp = Vector3.TransformNormal(shakenUp, Matrix.CreateFromAxisAngle(shakenForward, rotation.Z));
+            //Roll last, about the view axis after pitch and yaw, so it stays a roll of the finished frame.
+            //The deliberate tilt and the kick's own roll are one rotation: they are the same degree of
+            //freedom, and rolling twice about an axis that moved in between is not a roll of anything.
+            shakenUp = Vector3.TransformNormal(shakenUp, Matrix.CreateFromAxisAngle(shakenForward, rotation.Z + BaseRoll));
 
             Position = BasePosition + right * lens.X + up * lens.Y - forward * Shake.RecoilBack;
             Target = Position + shakenForward * distance;

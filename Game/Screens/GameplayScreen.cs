@@ -472,6 +472,15 @@ namespace BS3D.Screens
         private readonly List<PhysicsBall> _shotBalls = new();
         private readonly List<PhysicsBall> _fallingBalls = new();
 
+        //The reward shot for a big collapse: the camera lets go of the gun and follows the wreckage down the
+        //drain. It owns the pose, the time scale and the blend; this screen owns the trigger, the subject and
+        //the fact that the gun does not answer while it is engaged.
+        private readonly DropCinematic _cinematic = new();
+
+        //Which released balls this cinematic is following, by body handle — see TryBeginDropCinematic for why
+        //handles and not list indices, and why recycling cannot bite here.
+        private readonly HashSet<int> _cinematicSubject = new();
+
         //The template a shot is stamped from: the sphere, its inertia and its sleep threshold, built once.
         private BodyDescription _shotBall;
 
@@ -638,6 +647,11 @@ namespace BS3D.Screens
             _cannonRecoil = 0f;
             _magazineSlide = 0f;
             _adsBlend = 0f;
+
+            //A cinematic caught mid-shot by a level ending under it would otherwise hold the camera and the
+            //controls into the next level, and its subject handles belong to a simulation that is now gone
+            _cinematic.Reset();
+            _cinematicSubject.Clear();
 
             //The magazine is not refilled here: its colours belong to a level, and InstallLevel loads the
             //next one's before the queue means anything again
@@ -938,9 +952,14 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The island's whole floor, and it is the drain's own surface: the sloped cone plus the flat stone ring
-        /// from its rim out to the island's edge, as one triangle mesh. Balls rest on the ring, run down the
-        /// cone at its ~55° and drop through the hole; past the ring they fall off the island's edge into the
-        /// city. Either way the kill plane takes them.
+        /// from its rim out to the edge of the platform's level top, as one triangle mesh. Balls rest on the
+        /// ring, run down the cone at its ~55° and drop through the hole; past the ring they fall off the
+        /// island's edge into the city. Either way the kill plane takes them.
+        /// <para>
+        /// The ring stops at <see cref="IslandMesh.FloorRadius"/> and not at the island's own radius: the
+        /// coping falls away over the last stretch, so a floor carried out to the platform's widest point
+        /// would hold a ball up on air over the wash.
+        /// </para>
         /// <para>
         /// Every quad goes in with <b>both</b> windings — eight triangles a segment, not four. A Bepu mesh
         /// triangle only collides on its front face, and rather than depend on getting the winding right for a
@@ -968,8 +987,8 @@ namespace BS3D.Screens
                 System.Numerics.Vector3 t1 = Ring(a1, BS3DGame.FUNNEL_TOP_RADIUS, 0f);
                 System.Numerics.Vector3 h0 = Ring(a0, BS3DGame.FUNNEL_HOLE_RADIUS, -depth);
                 System.Numerics.Vector3 h1 = Ring(a1, BS3DGame.FUNNEL_HOLE_RADIUS, -depth);
-                System.Numerics.Vector3 r0 = Ring(a0, BS3DGame.ISLAND_RADIUS, 0f);
-                System.Numerics.Vector3 r1 = Ring(a1, BS3DGame.ISLAND_RADIUS, 0f);
+                System.Numerics.Vector3 r0 = Ring(a0, IslandMesh.FloorRadius(BS3DGame.ISLAND_RADIUS), 0f);
+                System.Numerics.Vector3 r1 = Ring(a1, IslandMesh.FloorRadius(BS3DGame.ISLAND_RADIUS), 0f);
 
                 int b = s * 8;
 
@@ -1064,7 +1083,88 @@ namespace BS3D.Screens
             RecountBallTypes();
             Transmute();
 
+            //Before the clear test, because a shot that empties the field is the one most worth watching and
+            //CheckLevelCleared starts the countdown that ends the level
+            TryBeginDropCinematic(released);
+
             CheckLevelCleared();
+        }
+
+        /// <summary>
+        /// Hands the camera to <see cref="DropCinematic"/> if this shot cut enough loose to be worth
+        /// watching. The subject is the balls that were just released: <c>ReleaseSameTypeCluster</c> appends
+        /// them to <see cref="_fallingBalls"/>, so they are that list's last
+        /// <c>Matched + Orphaned</c> entries at this instant and nothing else has run in between.
+        /// <para>
+        /// They are held by <b>body handle</b> rather than by index, because the kill plane removes them from
+        /// the list one by one as they go. Bepu recycles a handle once its body is gone, which would let a
+        /// later ball inherit a dead subject's identity — harmless here and only here, because nothing new is
+        /// added to the simulation while a cinematic runs: the gun's controls are locked, so there is no shot
+        /// to land and therefore no further release.
+        /// </para>
+        /// </summary>
+        private void TryBeginDropCinematic(BallsReleased released)
+        {
+            int total = released.Matched + released.Orphaned;
+
+            //Never over a cinematic already running, and never over the end of a level: the result screen is
+            //about to cover this one, and a camera move under it is a move nobody sees.
+            if (total < DropCinematic.MIN_BALLS || _cinematic.Engaged || _levelLost || _clearedCountdown > 0f) return;
+
+            int first = _fallingBalls.Count - total;
+            if (first < 0) return;
+
+            _cinematicSubject.Clear();
+
+            Vector3 centre = Vector3.Zero;
+
+            for (int i = first; i < _fallingBalls.Count; i++)
+            {
+                BodyReference body = _fallingBalls[i].BallReference;
+
+                _cinematicSubject.Add(body.Handle.Value);
+
+                System.Numerics.Vector3 position = body.Pose.Position;
+                centre += new Vector3(position.X, position.Y, position.Z);
+            }
+
+            centre /= total;
+
+            _cinematic.Begin(Game.Scene, centre, Camera.Position, total, RANDOM);
+
+            //One line per cinematic, in the manner of the [level] and [score] lines: it is a rare event, not a
+            //per-frame one, and the shot is rolled — so when one frames badly this is the only record of what
+            //it actually chose.
+            Console.WriteLine($"[cinematic] {total} balls ({released.Matched} matched, {released.Orphaned} orphaned)"
+                + $" from y={centre.Y:F1}, {_cinematic.Describe()}");
+        }
+
+        /// <summary>
+        /// Where the released group is now, averaged over the ones the kill plane has not taken yet. False
+        /// once the last of them is gone, which is what ends the cinematic.
+        /// </summary>
+        private bool TryGetDropCentre(out Vector3 centre)
+        {
+            centre = Vector3.Zero;
+
+            if (_cinematicSubject.Count == 0) return false;
+
+            int found = 0;
+
+            for (int i = 0; i < _fallingBalls.Count; i++)
+            {
+                BodyReference body = _fallingBalls[i].BallReference;
+                if (!_cinematicSubject.Contains(body.Handle.Value)) continue;
+
+                System.Numerics.Vector3 position = body.Pose.Position;
+                centre += new Vector3(position.X, position.Y, position.Z);
+                found++;
+            }
+
+            if (found == 0) return false;
+
+            centre /= found;
+            return true;
         }
 
         /// <summary>A shot is over without having landed. The streak breaks.</summary>
@@ -1470,17 +1570,31 @@ namespace BS3D.Screens
             //forever and leaving the gun permanently a hair out of place.
             if (_cannonRecoil > 0f) _cannonRecoil = MathF.Max(0f, _cannonRecoil - CANNON_RECOIL_DECAY * elapsed);
 
+            //The cinematic reads the balls where the last step left them and answers with this frame's pose and
+            //time scale, so the scale is applied to the very step its own framing was chosen against.
+            _cinematic.Update(elapsed, TryGetDropCentre(out Vector3 dropCentre), dropCentre);
+
+            if (!_cinematic.Engaged) _cinematicSubject.Clear();
+
             //Slide the ceiling before the step, so the solver works against the moved body this frame and the
             //contact between a descending cluster and anything below it resolves rather than interpenetrates.
             UpdateCeilingDescent(elapsed);
 
-            StepPhysics(elapsed);
+            //Slow motion is applied here and nowhere else: the fixed timestep is untouched and only the time
+            //fed to the accumulator is scaled, so a slowed world is exactly as stable as a full-speed one. The
+            //ceiling's descent above is deliberately NOT scaled — it is a rule of the level playing out, not
+            //part of the spectacle, and it is not moving while the gun is locked anyway.
+            StepPhysics(elapsed * _cinematic.TimeScale);
 
             //After the step: poses have advanced, so a ball dragged down by the descent is at its new Y now, and a
             //shot that spent the budget has had its landing. The two losses are checked here rather than only on a
             //landing, because a descent can push a ball across the death line between landings, and a spent budget
             //loses only once nothing remains in flight.
-            CheckLevelLost();
+            //
+            //Held while a cinematic runs. Both endings put the result screen over this one, and a level that
+            //ends mid-collapse takes the collapse the player earned off the screen before they have seen it —
+            //which is the same reason the cleared countdown below waits, and why LEVEL_CLEARED_BEAT exists.
+            if (!_cinematic.Engaged) CheckLevelLost();
 
             UpdateTrails(elapsed);
             UpdateHud(elapsed);
@@ -1492,7 +1606,7 @@ namespace BS3D.Screens
             //
             //A loss needs no entry here: LoseLevel shows the result screen straight away (the same one a clear
             //lands on), which covers this screen and freezes it until the player picks Retry or leaves.
-            if (_clearedCountdown > 0f)
+            if (_clearedCountdown > 0f && !_cinematic.Engaged)
             {
                 _clearedCountdown -= elapsed;
                 if (_clearedCountdown <= 0f) FinishLevel();
@@ -1525,8 +1639,29 @@ namespace BS3D.Screens
                 //F12 hides the FPS overlay, the same key that hides the Testbed's text
                 if (Game.IsKeyEdge(keyboard, Keys.F12)) Game.ToggleFpsOverlay();
 
+                //While the drop cinematic has the camera the gun does not answer, and Space skips the shot
+                //instead of firing. Escape is deliberately NOT the skip: it already means pause, and taking
+                //it would both give one key two meanings and leave the player unable to pause during a
+                //cinematic — the skip belongs with the buttons that mean "yes, go on" (Space, the left mouse
+                //button and the pad's A), which are the ones the hand is already on.
+                if (_cinematic.Engaged)
+                {
+                    if (Game.IsKeyEdge(keyboard, Keys.Space)
+                        || (pad.IsButtonDown(Buttons.A) && !Game.PreviousPad.IsButtonDown(Buttons.A)))
+                        _cinematic.TrySkip();
+
+                    Game.PreviousKeyboard = keyboard;
+                    return;
+                }
+
                 //Space fires; the gamepad fires off its right trigger, read with the aim (below)
                 if (Game.IsKeyEdge(keyboard, Keys.Space)) Shoot();
+            }
+            else if (_cinematic.Engaged)
+            {
+                //Edge input is being held off for a frame after a refocus, but the gun still must not answer
+                Game.PreviousKeyboard = keyboard;
+                return;
             }
 
             //The carriage traverses on A/D — it turns where it stands, it does not walk
@@ -1549,6 +1684,27 @@ namespace BS3D.Screens
             int centreY = GraphicsDevice.Viewport.Height / 2;
 
             MouseState mouse = Mouse.GetState();
+
+            //While the cinematic has the frame the barrel does not move and nothing fires — but the cursor is
+            //still recentred below, so the aim is not handed back a delta measured from wherever the mouse
+            //drifted to during the shot. The left button skips, matching Space and the pad's A.
+            if (_cinematic.Engaged)
+            {
+                if (edgeInputAllowed && _mouseAimInitialized
+                    && mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released)
+                    _cinematic.TrySkip();
+
+                //Forced rather than read: the lean is a hold, so a player still holding the right button when
+                //the cinematic ends gets precise aim back, and one who let go during it does not
+                _adsHeld = false;
+
+                Mouse.SetPosition(centreX, centreY);
+                _mouseAimInitialized = true;
+                _previousMouse = mouse;
+
+                Game.PreviousPad = pad;
+                return;
+            }
 
             if (_mouseAimInitialized)
             {
@@ -1792,9 +1948,27 @@ namespace BS3D.Screens
             Vector3 overviewPosition = GameCameraPositionAt(_gameCameraDistance);
             Vector3 overviewTarget = new(_cannon.OrbitCenter.X, _gameCameraTargetY, _cannon.OrbitCenter.Z);
 
-            Camera.BasePosition = Vector3.Lerp(overviewPosition, AdsCameraPosition(), _adsBlend);
-            Camera.BaseTarget = Vector3.Lerp(overviewTarget, AdsCameraTarget(), _adsBlend);
-            Camera.FieldOfView = MathHelper.Lerp(GAME_FOV, ADS_FOV, _adsBlend);
+            Vector3 position = Vector3.Lerp(overviewPosition, AdsCameraPosition(), _adsBlend);
+            Vector3 target = Vector3.Lerp(overviewTarget, AdsCameraTarget(), _adsBlend);
+            float fov = MathHelper.Lerp(GAME_FOV, ADS_FOV, _adsBlend);
+
+            //And the drop cinematic is a second Lerp over the top of that one, on its own reversible scalar
+            //and for the same reason: at a blend of 0 these three lines return the pose above bit for bit, so
+            //a cinematic that ends — or is skipped halfway — hands the player back exactly the frame the game
+            //would have given them. The tilt rides along, and is the camera's only deliberate roll.
+            float cinematic = _cinematic.Blend;
+
+            if (cinematic > 0f)
+            {
+                position = Vector3.Lerp(position, _cinematic.Position, cinematic);
+                target = Vector3.Lerp(target, _cinematic.Target, cinematic);
+                fov = MathHelper.Lerp(fov, _cinematic.FieldOfView, cinematic);
+            }
+
+            Camera.BasePosition = position;
+            Camera.BaseTarget = target;
+            Camera.FieldOfView = fov;
+            Camera.BaseRoll = _cinematic.Roll * cinematic;
 
             Camera.Update(elapsed);
         }
