@@ -95,9 +95,11 @@ namespace BS3D.Screens
         /// onto the label, because the adaptive path raises it while the front end may not have been built or
         /// shown yet — and because a resize throws the label away.
         /// </summary>
-        internal void ShowQualityNotice(int factor)
+        internal void ShowQualityNotice(QualityLevel quality)
         {
-            _noticeText = $"Antialiasing lowered to {factor}× for a smoother frame rate — change it in Settings.";
+            //Names the tier rather than the supersample factor it used to name: a tier step turns down more than
+            //antialiasing now, and saying "antialiasing" would be telling the player the wrong thing.
+            _noticeText = $"Quality lowered to {quality} for a smoother frame rate — change it in Settings.";
 
             Refresh();
         }

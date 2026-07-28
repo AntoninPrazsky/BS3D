@@ -1,3 +1,4 @@
+using Prazsky.Core.Render;
 using System;
 using System.Globalization;
 
@@ -12,6 +13,17 @@ namespace BS3D
             bool uncappedFps = false;
             float exposure = 0f;
 
+            //Left null when absent, so the game keeps doing what it normally does: a random one of the seven
+            //scenes, and whatever dome that scene wants. Pinning both is what makes a frame-cost measurement
+            //repeatable (see BS3DGame.LogFrameRate) â€” without it every run measures a different backdrop.
+            SceneKind? scene = null;
+            byte? skyDome = null;
+            bool logFrameRate = false;
+
+            //Null means "nobody said", so the adaptive path is free to measure this machine and step the tier
+            //down. Naming one settles it, exactly as naming ssaa= does.
+            QualityLevel? quality = null;
+
             //Left null when "ssaa=" is absent, which is how the game tells "the player wants two" from "nobody
             //said" — only the latter may be lowered for a machine that cannot afford the default
             int? supersampleFactor = null;
@@ -24,10 +36,38 @@ namespace BS3D
                 //"ssaa=<n>" trades sharpness against fill rate; "exposure=<f>" is the renderer's shutter speed
                 else if (arg.StartsWith("ssaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("ssaa=".Length), out int parsedSsaa)) supersampleFactor = parsedSsaa;
                 else if (arg.StartsWith("exposure=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("exposure=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedExposure)) exposure = parsedExposure;
+                //"logfps" writes one frame-rate line a second to stdout; "scene="/"sky=" pin what is being
+                //measured. The scene names are the Testbed's, so one benchmark script drives either executable.
+                else if (string.Equals(arg, "logfps", StringComparison.OrdinalIgnoreCase)) logFrameRate = true;
+                else if (arg.StartsWith("scene=", StringComparison.OrdinalIgnoreCase) && TryParseScene(arg.Substring("scene=".Length), out SceneKind parsedScene)) scene = parsedScene;
+                else if (arg.StartsWith("sky=", StringComparison.OrdinalIgnoreCase) && byte.TryParse(arg.Substring("sky=".Length), out byte parsedSky) && parsedSky >= 1 && parsedSky <= BS3DGame.SKY_DOME_COUNT) skyDome = parsedSky;
+                //"quality=" pins the whole detail tier; "ssaa=" then overrides just its supersample entry.
+                else if (arg.StartsWith("quality=", StringComparison.OrdinalIgnoreCase) && Enum.TryParse(arg.Substring("quality=".Length), ignoreCase: true, out QualityLevel parsedQuality)) quality = parsedQuality;
             }
 
-            using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure, uncappedFps: uncappedFps);
+            using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
+                uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality);
             game.Run();
+        }
+
+        /// <summary>
+        /// The scene names the Testbed's own <c>scene=</c> takes, so a benchmark or a screenshot script written
+        /// against one executable drives the other unchanged. <c>neon</c> rather than <c>neoncity</c> for the
+        /// same reason: it is the name that already exists.
+        /// </summary>
+        private static bool TryParseScene(string name, out SceneKind scene)
+        {
+            switch (name.ToLowerInvariant())
+            {
+                case "city": scene = SceneKind.City; return true;
+                case "sea": scene = SceneKind.Sea; return true;
+                case "savanna": scene = SceneKind.Savanna; return true;
+                case "desert": scene = SceneKind.Desert; return true;
+                case "mountain": scene = SceneKind.Mountain; return true;
+                case "meadow": scene = SceneKind.Meadow; return true;
+                case "neon": scene = SceneKind.NeonCity; return true;
+                default: scene = default; return false;
+            }
         }
     }
 }

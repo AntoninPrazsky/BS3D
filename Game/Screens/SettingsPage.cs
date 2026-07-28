@@ -15,7 +15,7 @@ namespace BS3D.Screens
     {
         private const int VALUE_WIDTH = 560;
 
-        private Label _fullscreenValue, _ssaaValue, _exposureValue, _skyValue, _fpsValue;
+        private Label _fullscreenValue, _qualityValue, _exposureValue, _skyValue, _fpsValue;
 
         public SettingsPage(BS3DGame game) : base(game) { }
 
@@ -35,7 +35,10 @@ namespace BS3D.Screens
             grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));
 
             AddRow(grid, 0, "Fullscreen", Game.ToggleFullscreen, out _fullscreenValue);
-            AddRow(grid, 1, "Antialiasing", Game.CycleSupersampling, out _ssaaValue);
+            //One bundled tier rather than the antialiasing dial it replaces (#63). Supersampling was never a
+            //performance setting — it is tied to a look decision — and it was the only thing here that reached
+            //the rest of the frame at all; the tier reaches the city's per-pixel work and its skyline too.
+            AddRow(grid, 1, "Quality", Game.CycleQuality, out _qualityValue);
             AddRow(grid, 2, "Exposure", Game.CycleExposure, out _exposureValue);
             AddRow(grid, 3, "Sky", Game.CycleSkyDome, out _skyValue);
             AddRow(grid, 4, "FPS counter", Game.ToggleFpsOverlay, out _fpsValue);
@@ -77,7 +80,7 @@ namespace BS3D.Screens
             if (_fullscreenValue == null) return;
 
             _fullscreenValue.Text = Game.IsFullscreen ? "On" : "Off";
-            _ssaaValue.Text = Game.SupersampleFactor == 1 ? "Off" : Game.SupersampleFactor + "×";
+            _qualityValue.Text = Game.Quality.ToString();
             _exposureValue.Text = Game.Exposure.ToString("0.0", CultureInfo.InvariantCulture);
             _skyValue.Text = Game.SkyDomeNumber.ToString(CultureInfo.InvariantCulture);
             _fpsValue.Text = Game.IsFpsOverlayVisible ? "On" : "Off";

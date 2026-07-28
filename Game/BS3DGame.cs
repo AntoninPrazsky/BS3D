@@ -57,6 +57,13 @@ namespace BS3D
         private readonly GraphicsDeviceManager _graphics;
         private readonly bool _uncappedFps;
 
+        //Pinned from the command line for a reproducible measurement. The scene is otherwise a different one of
+        //the seven every launch, which makes any A/B of the frame's cost meaningless — the seven are nothing
+        //like each other in what they cost — and two of them bring a dome of their own, so the dome has to be
+        //pinnable too. Null in both means "as the game normally does it".
+        private readonly SceneKind? _startupScene;
+        private readonly byte? _startupSkyDome;
+
         //Seeded from the command line and then owned by the settings screen: supersampling resizes the scene
         //target (EnsureSceneTarget compares dimensions, so changing the factor is what recreates it) and the
         //exposure is one uniform on the tonemap. Both are the dials a weak machine and a bright monitor reach
@@ -228,6 +235,11 @@ namespace BS3D
         private Effect _instancingEffect;
 
         private readonly CitySceneConfig _cityConfig = new();
+
+        //Fixed, so the skyline is the same city every launch — and so a quality tier that rebuilds it at a
+        //smaller radius produces the same towers, minus the outer rings, rather than a different city
+        private const int CITY_SEED = 20260720;
+
         private City _city;
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
@@ -523,10 +535,19 @@ namespace BS3D
         #region Adaptive quality
 
         /// <summary>
-        /// True once the supersample factor is not to be touched again: the player named one on the command
-        /// line, the player set one in Settings, the machine proved fast enough, or there is nothing left to
-        /// lower. It is a one-way latch on purpose — a dial that keeps moving under the player is worse than
-        /// one that is merely wrong once.
+        /// Which bundle of detail the frame is being drawn at, and the setting the player sees. It starts at
+        /// <see cref="QualityLevel.High"/> — the look the game is authored at — and only ever comes down, either
+        /// because the player asked or because <see cref="TuneQualityToFrameRate"/> measured this machine.
+        /// </summary>
+        private QualityLevel _quality = QualityLevel.High;
+
+        internal QualityLevel Quality => _quality;
+
+        /// <summary>
+        /// True once the quality tier is not to be touched again: the player named one on the command line, the
+        /// player set one in Settings, the machine proved fast enough, or there is nothing left to lower. It is a
+        /// one-way latch on purpose — a dial that keeps moving under the player is worse than one that is merely
+        /// wrong once.
         /// </summary>
         private bool _qualitySettled;
 
@@ -662,14 +683,37 @@ namespace BS3D
         /// <c>null</c> when the player did not say — which is what lets <see cref="TuneQualityToFrameRate"/>
         /// lower it on hardware that cannot afford the default. An explicit <c>ssaa=</c> is never overridden.
         /// </param>
-        public BS3DGame(bool fullscreen = false, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE, bool uncappedFps = false)
+        /// <param name="scene">
+        /// The backdrop to start in, or <c>null</c> for the usual random one of the seven. Pinning it is what
+        /// makes a frame-cost measurement repeatable — see <see cref="LogFrameRate"/>.
+        /// </param>
+        /// <param name="skyDome">The dome to start under, or <c>null</c> to let the scene choose as it normally does.</param>
+        /// <param name="logFrameRate">Write one frame-rate line a second to stdout (the <c>logfps</c> argument).</param>
+        /// <param name="quality">
+        /// The tier to start at, or <c>null</c> to start at <see cref="QualityLevel.High"/> — the look the game is
+        /// authored at — and let <see cref="TuneQualityToFrameRate"/> measure this machine.
+        /// </param>
+        public BS3DGame(bool fullscreen = false, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE,
+            bool uncappedFps = false, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
+            QualityLevel? quality = null)
         {
             _fullscreen = fullscreen;
-            _supersampleFactor = Math.Clamp(supersampleFactor ?? DEFAULT_SUPERSAMPLE_FACTOR, 1, 4);
 
-            //An explicit factor is the player's decision and settles the question; an absent one leaves the
-            //adaptive path free to measure this machine and lower it
-            _qualitySettled = supersampleFactor.HasValue;
+            //The tier owns supersampling, so the tier's factor is taken first and an explicit ssaa= then
+            //overrides that one entry of it — the expert override the benchmark and the screenshot harness use.
+            //The rest of the tier is applied in LoadContent, once the city it also sizes exists.
+            if (quality.HasValue) _quality = quality.Value;
+            _supersampleFactor = QualityPreset.Presets[(int)_quality].SupersampleFactor;
+
+            if (supersampleFactor.HasValue) _supersampleFactor = Math.Clamp(supersampleFactor.Value, 1, 4);
+
+            _startupScene = scene;
+            _startupSkyDome = skyDome;
+            _logFrameRate = logFrameRate;
+
+            //Either one is the player's decision and settles the question; with neither, the adaptive path is
+            //free to measure this machine and step the tier down
+            _qualitySettled = supersampleFactor.HasValue || quality.HasValue;
             _exposure = exposure > 0f ? exposure : DEFAULT_EXPOSURE;
             _uncappedFps = uncappedFps;
 
@@ -878,10 +922,19 @@ namespace BS3D
 
             SetCloudParameters();
 
-            //A different one of the seven every launch, so the front end is not the same picture twice. It
-            //also sets the dome and the city's lighting, and ends in ApplySkyLighting — which is why nothing
-            //derives the light rig before this point.
-            SetScene((SceneKind)RANDOM.Next(SCENE_COUNT));
+            //A different one of the seven every launch, so the front end is not the same picture twice — unless
+            //the command line pinned one. It also sets the dome and the city's lighting, and ends in
+            //ApplySkyLighting, which is why nothing derives the light rig before this point.
+            SetScene(_startupScene ?? (SceneKind)RANDOM.Next(SCENE_COUNT));
+
+            //After SetScene and never before: the sea and the savanna each replace the dome with one of their
+            //own, so an explicit sky= would be silently overridden the other way round. The Testbed's rule.
+            if (_startupSkyDome.HasValue) SetSkyDome(_startupSkyDome.Value);
+
+            //The rest of the tier, now that the city it also sizes exists. The constructor could only take the
+            //supersample factor, since the target and the city are both built here. At the default High this
+            //writes the config's own defaults back over themselves and rebuilds nothing.
+            ApplyQuality(_quality);
 
             EnsureSceneTarget();
 
@@ -1320,22 +1373,6 @@ namespace BS3D
             _screens.Push(_resultPage);
         }
 
-        /// <summary>
-        /// Supersampling, the dominant frame cost at a high resolution and the first dial a weak machine
-        /// reaches for. Off means 8× MSAA instead (see <see cref="EnsureSceneTarget"/>) — multisampling
-        /// antialiases geometry edges but not shading, so it only earns its memory with supersampling off.
-        /// </summary>
-        internal void CycleSupersampling()
-        {
-            SetSupersampleFactor(_supersampleFactor switch { 1 => 2, 2 => 4, _ => 1 });
-
-            //The player has now said what they want, so the adaptive path stops second-guessing them — and
-            //the notice about what it did has been answered and goes away.
-            _qualitySettled = true;
-
-            _mainMenuPage.ClearQualityNotice();
-        }
-
         internal void CycleExposure()
         {
             _exposure += EXPOSURE_STEP;
@@ -1474,7 +1511,7 @@ namespace BS3D
         private void BuildScene()
         {
             _unitBox = new BoxMesh(GraphicsDevice, 1f, 1f, 1f);
-            _city = new City(seed: 20260720, arenaHalfExtent: ISLAND_RADIUS, config: _cityConfig);
+            _city = new City(seed: CITY_SEED, arenaHalfExtent: ISLAND_RADIUS, config: _cityConfig);
 
             //The neon flags are what SetScene switches between the two city lightings; these are only the
             //values they start at, and are overwritten before the first frame is drawn.
@@ -1994,23 +2031,76 @@ namespace BS3D
                 return;
             }
 
-            int lowered = _supersampleFactor switch { 4 => 2, 2 => 1, _ => 1 };
+            //Steps the TIER, not supersampling alone, which is the whole point of #63: on the two city scenes
+            //supersampling is only the first of three measured levers, and stepping it alone left the neon city
+            //at 30 FPS with 40% still on the table.
+            QualityLevel lowered = _quality == QualityLevel.High ? QualityLevel.Medium : QualityLevel.Low;
 
-            Console.WriteLine($"[quality] {fps:F0} FPS in the menu at {_supersampleFactor}x supersampling"
-                + $" — lowering to {lowered}x");
+            Console.WriteLine($"[quality] {fps:F0} FPS in the menu at {_quality} — lowering to {lowered}");
 
-            SetSupersampleFactor(lowered);
+            ApplyQuality(lowered);
             ShowQualityNotice(lowered);
 
-            //Nothing left to give: 1x already falls back to MSAA, and there is no lower tier to step to.
-            if (_supersampleFactor <= 1) _qualitySettled = true;
+            //A tier step rebuilds the city and resizes the scene target, which hitches a frame or two. Left
+            //unarmed, the very next window would measure that hitch and step again on the strength of it.
+            _qualityWarmupLeft = QUALITY_WARMUP_SECONDS;
+
+            //Nothing left to give: Low is the bottom of the ladder.
+            if (_quality == QualityLevel.Low) _qualitySettled = true;
         }
 
         /// <summary>
         /// Tells the player what was changed and where to change it back. Once per run, on the main menu —
         /// which is where they are: the verdict lands about three seconds in.
         /// </summary>
-        private void ShowQualityNotice(int factor) => _mainMenuPage.ShowQualityNotice(factor);
+        private void ShowQualityNotice(QualityLevel quality) => _mainMenuPage.ShowQualityNotice(quality);
+
+        /// <summary>
+        /// Steps the quality tier, which is the setting the player sees. Wraps Low → Medium → High → Low.
+        /// </summary>
+        internal void CycleQuality()
+        {
+            ApplyQuality(_quality switch { QualityLevel.Low => QualityLevel.Medium, QualityLevel.Medium => QualityLevel.High, _ => QualityLevel.Low });
+
+            //The player has now said what they want, so the adaptive path stops second-guessing them — and the
+            //notice about what it did has been answered and goes away.
+            _qualitySettled = true;
+
+            _mainMenuPage.ClearQualityNotice();
+        }
+
+        /// <summary>
+        /// The one place the tier changes — <see cref="SetScene"/>'s rule applied to quality: everything a tier
+        /// touches is written here and nowhere else, so the adaptive probe, the settings row and the command line
+        /// cannot disagree about what a tier means.
+        /// <para>
+        /// The city's dials are pushed to the shader on every city draw (the renderer holds the config by
+        /// reference), so writing them is enough; only the block radius is baked into the generated buildings and
+        /// needs the city rebuilt. The renderer itself is <b>not</b> recreated, so its sky palette survives and no
+        /// <see cref="ApplySkyLighting"/> is owed here.
+        /// </para>
+        /// </summary>
+        internal void ApplyQuality(QualityLevel quality)
+        {
+            _quality = quality;
+
+            QualityPreset preset = QualityPreset.Presets[(int)quality];
+
+            _cityConfig.FacadeGrainStrength = preset.FacadeGrainStrength;
+            _cityConfig.WindowFrameWidth = preset.WindowFrameWidth;
+
+            //Rebuilt only when the count actually changes: the generator walks a block grid and the instance
+            //array is re-uploaded, which is a frame's hitch and not something a tier step should pay for twice.
+            //Null until BuildScene has run, which is the case when the command line pins a tier at startup.
+            if (_city != null && _cityConfig.RadiusBlocks != preset.CityRadiusBlocks)
+            {
+                _cityConfig.RadiusBlocks = preset.CityRadiusBlocks;
+                _city = new City(seed: CITY_SEED, arenaHalfExtent: ISLAND_RADIUS, config: _cityConfig);
+            }
+            else _cityConfig.RadiusBlocks = preset.CityRadiusBlocks;
+
+            SetSupersampleFactor(preset.SupersampleFactor);
+        }
 
         /// <summary>
         /// The one place the factor changes: the scene target's size is derived from it, and the tonemap has to
@@ -2026,7 +2116,9 @@ namespace BS3D
             //recreate the target rather than recognize it as the one already there
             EnsureSceneTarget();
 
-            _settingsPage.Refresh();
+            //Null-conditional because the tier is applied during LoadContent, before the menu pages exist — a
+            //command-line quality= reaches here well before there is a settings row to write the value onto.
+            _settingsPage?.Refresh();
         }
 
         internal void ToggleFullscreen()
@@ -2074,7 +2166,48 @@ namespace BS3D
                     _desktop.RenderVisual();
                 }
             }
+
+            //Last, so it counts a frame that has actually been drawn end to end
+            if (_logFrameRate) LogFrameRate((float)gameTime.ElapsedGameTime.TotalSeconds);
         }
+
+        #region The frame-rate log (benchmarking)
+
+        //Deliberately NOT TuneQualityToFrameRate's window, which is a latching probe: it measures 1.5 s in the
+        //menu and then stops watching on purpose (#62), which is exactly what a benchmark must not do. This
+        //counts presented frames for as long as the process lives, in the menu and in a level alike.
+        //
+        //It exists because nothing could measure this game from a script at all: the frame rate the player sees
+        //is drawn and never logged, and InfoRenderer freezes its counter while the overlay is hidden. #64 asks
+        //which part of the fixed per-frame cost is the expensive one, and that question cannot be answered
+        //without a number a script can read.
+        private readonly bool _logFrameRate;
+        private float _fpsWindow;
+        private int _fpsFrames;
+
+        /// <summary>
+        /// Writes one line a second: the frame rate and every setting that changes what it means, so two runs —
+        /// or two machines — can be compared without having to remember what each was launched with.
+        /// </summary>
+        private void LogFrameRate(float elapsed)
+        {
+            _fpsWindow += elapsed;
+            _fpsFrames++;
+
+            if (_fpsWindow < 1f) return;
+
+            //Divided by the window actually measured rather than assumed to be a second. At the frame rates this
+            //exists to measure a single frame overshoots by more than a tenth of it, and calling that "frames
+            //this second" would be wrong by the same tenth.
+            Console.WriteLine($"[fps] {_fpsFrames / _fpsWindow:F1} — {_scene}, dome {_skyDome}, ssaa {_supersampleFactor}x"
+                + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
+                + $", vsync {(_uncappedFps ? "off" : "on")}");
+
+            _fpsWindow = 0f;
+            _fpsFrames = 0;
+        }
+
+        #endregion
 
         #region The setting's slices (the pipeline the bottom screens run)
 
