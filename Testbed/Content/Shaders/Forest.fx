@@ -1,13 +1,18 @@
-//Draws a forest clearing: a mossy needle-strewn floor ringed by dark green hills, the round stone island
-//standing in the middle of the open ground. Eighth scene variant (cycles ... -> meadow -> forest). The
-//look is a temperate woodland glade - cool low green undergrowth, darker and more shadowed than the
-//meadow, combed by the same wind and shaded by the same drifting clouds. No wildflowers: a forest floor
-//is leaf litter and moss, not a lawn of blooms, so the colour work is in the patchy undergrowth and the
-//fine needle relief rather than in scattered rosettes.
+//Draws a forest clearing: a mossy needle-strewn floor whose hills dress in a dark conifer canopy, the
+//round stone island standing in the middle of the open ground. The eighth SceneKind, and past the end of
+//the NumPad2/V cycle (which still runs % 7, over the seven scenes a map is authored against), so
+//"scene=forest" on the command line is how it is reached. The look is a temperate woodland glade - cool
+//low green undergrowth, darker and more shadowed than the meadow, combed by the same wind and shaded by
+//the same drifting clouds. No wildflowers: a forest floor is leaf litter and moss, not a lawn of blooms,
+//so the colour work is in the patchy undergrowth, the treeline and the fine needle relief rather than in
+//scattered rosettes.
 //
 //Real geometry like the meadow - a camera-centred grid (shared CreateGridMesh on the C# side) displaced
 //by a smooth rolling field, low around the arena and rising into tree-covered hills with distance, its
-//normal taken by finite differences. Drawn in both executables, Shader Model 5.0, no OPENGL branch.
+//normal taken by finite differences. The scattered trees, rocks and stumps that stand ON this floor are
+//the Game's own instanced draws (ForestScatter over SceneRenderer.ForestTerrainHeight, a CPU mirror of
+//TerrainHeight below - keep the two in one change), so the other two executables draw the bare clearing.
+//Drawn in all three executables, Shader Model 5.0, no OPENGL branch.
 
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0
@@ -51,6 +56,12 @@ float3 ForestColor;
 float3 ForestColorDark;
 float AmbientStrength;
 float HorizonHazeDistance;
+
+//The wooded hills: past the clearing the ground dresses in a dark conifer-canopy colour (linear), mottled
+//at grove and crown scale so it reads as treetops rather than dark paint. The scattered tree meshes stop
+//well before the horizon; this is what carries the forest to the skyline. Strength 0 leaves bare hills.
+float3 TreelineColor;
+float TreelineStrength;
 
 //Wind combing the undergrowth: how fast the bright/dark bands travel, how far apart they are, how deep they cut
 float WindRippleSpeed;
@@ -169,8 +180,11 @@ float4 ForestPS(ForestVertexOutput input) : COLOR
 	float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
 
 	//Undergrowth colour: mossy green in broad patches, varying towards the dark needle litter and shadow, so
-	//the floor is not one flat green but mottled the way a real clearing is
-	float patch = CloudNoise(worldPosition.xz * 0.15) * 0.5 + 0.5;
+	//the floor is not one flat green but mottled the way a real clearing is. CloudNoise is gradient noise
+	//that clusters hard around zero - one sigma 0.18, five to ninety-five per cent inside +/-0.3, and only
+	//its extremes near +/-0.8 - so the gain is well over 1 (and the result saturated): at half gain the
+	//patches would move the colour by a fifth and the ACES curve flattens that into one tone.
+	float patch = saturate(CloudNoise(worldPosition.xz * 0.15) * 1.4 + 0.5);
 	float3 floor = lerp(ForestColorDark, ForestColor, patch);
 
 	//Wind combing the undergrowth: bright and dark bands travelling downwind, the clearing's own motion
@@ -179,8 +193,27 @@ float4 ForestPS(ForestVertexOutput input) : COLOR
 
 	//Scattered darker litter patches - the fallen needles and leaf decay that sit between the moss, finer than
 	//the broad colour patches and darker still, so the floor reads as layered ground cover rather than one tone
-	float litter = CloudNoise(worldPosition.xz * 0.6 + 47.0) * 0.5 + 0.5;
-	floor = lerp(floor, ForestColorDark * 0.7, litter * litter * 0.4);
+	//(spread like the patches above, and for the same reason)
+	float litter = saturate(CloudNoise(worldPosition.xz * 0.6 + 47.0) * 1.6 + 0.5);
+	floor = lerp(floor, ForestColorDark * 0.7, litter * litter * 0.5);
+
+	//The wooded hills: away from the clearing the undergrowth gives way to the dark canopy of the trees
+	//covering them. The treeline has its own ramp, tighter and NEARER than the hills': the slopes that
+	//fill the frame are the hills' transition band itself, and a canopy keyed to that full ramp only
+	//arrives where the haze already owns the colour - so this one starts INSIDE the clearing, three
+	//quarters of the way out (under the first scattered trees, which stand in front of it) and is
+	//complete a little past the clearing's edge. Its edge rides the grove noise, so the woods begin on a
+	//ragged line rather than a drawn circle. Two mottle scales: broad grove-sized patches (lit stands
+	//against shadowed ones) and a finer crown-sized grain. Multiplied rather than blended so the canopy
+	//keeps its darks.
+	float grove = saturate(CloudNoise(worldPosition.xz * 0.035 + 11.0) * 1.7 + 0.5);
+	float crowns = saturate(CloudNoise(worldPosition.xz * 0.17 + 73.0) * 1.7 + 0.5);
+	float treeDist = length(worldPosition.xz) + (grove - 0.5) * 40.0;
+	float canopyRamp = smoothstep(ClearingRadius * 0.75, ClearingRadius + ClearingTransition * 0.45, treeDist);
+	//Wide multiplicative swings: after the ACES curve a timid mottle flattens into one tone, and it is
+	//the swing between sunlit stands and shadowed ones that says "treetops" at this distance.
+	float3 canopy = TreelineColor * (0.4 + 1.2 * grove) * (0.55 + 0.9 * crowns);
+	floor = lerp(floor, canopy, canopyRamp * TreelineStrength);
 
 	//Matte forest floor: the sun and the sky hemisphere, dimmed by the shared cloud shadow so the same clouds
 	//that drift across the sky sweep their shadows over the clearing. Lower ambient than the meadow: a clearing
@@ -191,10 +224,20 @@ float4 ForestPS(ForestVertexOutput input) : COLOR
 
 	float3 color = floor * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight);
 
-	//Horizon haze: the distant wooded hills soften into the skyline
+	//Horizon haze in two stages. Straight to the horizon colour - the one stage every other terrain
+	//uses - the dark wooded hills bleach cream long before the skyline and read as bare slopes; what
+	//distant forested ridges actually do is turn BLUE, because the air between scatters skylight. So
+	//the hills first recede into a murk built mostly from the zenith (tinted green so the canopy keeps
+	//reading through it; a fraction of the dome's own colours, so a dusk's murk is dark), and only the
+	//last stretch melts into the horizon itself - reaching it exactly at the haze distance, which is
+	//what keeps the terrain grid's edge invisible against the dome behind it.
 	float dist = distance(CameraPosition, worldPosition);
 	float haze = saturate(dist / HorizonHazeDistance);
-	color = lerp(color, HorizonColor, haze * haze);
+	float3 murk = (ZenithColor * 0.7 + HorizonColor * 0.3) * float3(0.5, 0.65, 0.58);
+	color = lerp(color, murk, saturate(haze * haze * 1.2) * 0.6);
+	float skyward = haze * haze;
+	skyward *= skyward;
+	color = lerp(color, HorizonColor, skyward);
 
 	return float4(color, 1.0);
 }

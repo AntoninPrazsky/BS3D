@@ -417,7 +417,7 @@ namespace Testbed
         private Microsoft.Xna.Framework.Matrix _funnelWorld;
 
         //A dark pit shaft behind the glass funnel, drawn in the solid-terrain scenes only (mountain, meadow,
-        //savanna, desert). The terrain there has its footprint cut out (see TerrainHoleRadius); without a dark
+        //savanna, desert, forest). The terrain there has its footprint cut out (see TerrainHoleRadius); without a dark
         //backing the transparent funnel would just show the bright sky-haze behind the hole and read as a glass
         //ring on the ground, not a drain. This wide dark cone nests the funnel and descends past the kill plane,
         //so the drain reads as a deep, dark well going down into the earth. Not drawn in the sea (water fills it)
@@ -1334,13 +1334,15 @@ namespace Testbed
         }
 
         /// <summary>
-        /// Whether the scene is one of the solid-ground backdrops (mountains, meadow, savanna, desert) whose
-        /// terrain has the island's footprint cut out and needs the dark pit shaft drawn behind the glass funnel.
-        /// The sea (water fills the funnel) and the city/neon (their own canyon falls away below) are excluded.
+        /// Whether the scene is one of the solid-ground backdrops (mountains, meadow, savanna, desert, forest)
+        /// whose terrain has the island's footprint cut out and needs the dark pit shaft drawn behind the glass
+        /// funnel. The sea (water fills the funnel), the city/neon (their own canyon falls away below) and space
+        /// (no ground and a black frame behind the drain) are excluded.
         /// </summary>
         private static bool IsSolidTerrainScene(SceneKind scene) =>
             scene == SceneKind.Mountain || scene == SceneKind.Meadow ||
-            scene == SceneKind.Savanna || scene == SceneKind.Desert;
+            scene == SceneKind.Savanna || scene == SceneKind.Desert ||
+            scene == SceneKind.Forest;
 
         /// <summary>
         /// The per-frame inputs the shared <see cref="SceneRenderer"/> needs, taken from this frame's camera,

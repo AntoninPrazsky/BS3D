@@ -27,18 +27,20 @@ namespace Prazsky.Core.Render
         public StumpMesh(GraphicsDevice graphicsDevice, float radius, float height, int segments = 10)
         {
             float topRadius = radius * 0.78f;
+            float heartwoodY = height * 0.94f;
 
-            //Up the side (bark, irregular), a hard crease at the sawn top, then a shallow inset across the
-            //cut so it is not a knife-edge disc — the heartwood sits a little below the bark rim.
+            //Traced from the heartwood centre out across the sawn cut (facing up), up the shallow inner wall
+            //to the bark rim, then down the irregular bark flank to the ground and in along the buried
+            //underside — the top → outside → underside direction LatheMesh documents. The heartwood sits a
+            //little below the bark rim, so the cut is not a knife-edge disc.
             var profile = new List<LathePoint>
             {
-                new(0f,         0f),
-                new(radius,     0f,      crease: true),    //hard arris at the ground
-                new(radius,     height * 0.4f, wobble: 1f),
-                new(topRadius,  height,  wobble: 0.6f),
-                new(topRadius,  height,  crease: true),    //the saw cut: bark rim, hard edge
-                new(topRadius * 0.86f, height - height * 0.06f),  //heartwood sits just below the rim
-                new(0f,         height - height * 0.06f, crease: true)
+                new(0f,                    heartwoodY, crease: true),
+                new(topRadius * 0.86f,     heartwoodY),                     //the sawn cut, facing the sky
+                new(topRadius,             height,  crease: true),          //bark rim, hard edge
+                new(radius,                height * 0.4f, wobble: 1f),
+                new(radius,                0f,      crease: true),          //hard arris at the ground
+                new(0f,                    0f)
             };
 
             //Less irregular than a rock: bark is rough, but the trunk is still a trunk.

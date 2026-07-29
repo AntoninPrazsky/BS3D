@@ -28,26 +28,35 @@ namespace Prazsky.Core.Render
         /// <param name="graphicsDevice">The device the buffers are created on.</param>
         /// <param name="radius">Half-width of the boulder at its base.</param>
         /// <param name="height">Peak height above the base.</param>
-        /// <param name="segments">Facets around the axis. Few is fine — the irregularity is what breaks the
-        /// silhouette, not the facet count, and a low-poly rock reads as quarried rather than machined.</param>
-        public RockMesh(GraphicsDevice graphicsDevice, float radius, float height, int segments = 8)
+        /// <param name="segments">
+        /// Facets around the axis, and the count is a sampling decision rather than a smoothness one:
+        /// <see cref="LatheMesh.Irregularity"/> runs at 3, 7 and 13 waves per revolution, sampled at exactly
+        /// one angle per facet, so any harmonic past Nyquist folds onto a lower one instead of adding detail.
+        /// Sixteen facets resolve the 3- and the 7-wave terms; the 13-wave term folds onto the 3-cycle
+        /// (identically at eight facets and at sixteen) and merely deepens the tri-lobe. What eight facets cost
+        /// was the 7-wave term, which aliased down to a one-cycle lateral shift — leaving a gently tri-lobed
+        /// dome that reads as a bun rather than a stone, whatever the amplitude was set to. Resolving the
+        /// 13-wave term as well would need more than 26 facets, and about fifty to render it recognisably.
+        /// </param>
+        public RockMesh(GraphicsDevice graphicsDevice, float radius, float height, int segments = 16)
         {
-            //A flattened dome: a flat underside at the ground, a wide low shoulder, and a rounded crown that
-            //sits below the peak radius so the top reads as worn rather than pointed. Every ring carries the
-            //full wobble, so the whole stone is irregular, not just its middle.
+            //A flattened dome: a worn rounded crown, a wide low shoulder, and a flat underside at the ground.
+            //Traced top → outside → underside, the direction LatheMesh documents (the other way the stone is
+            //inside out — same silhouette, far side drawn, shading dark). Every ring carries the full wobble,
+            //so the whole stone is irregular, not just its middle.
             var profile = new List<LathePoint>
             {
-                new(0f,        0f),
-                new(radius,    0f,     crease: true),    //hard arris where the stone meets the ground
-                new(radius,    height * 0.35f, wobble: 1f),
+                new(0f,             height, crease: true),   //worn crown
+                new(radius * 0.5f,  height,         wobble: 1f),
                 new(radius * 0.82f, height * 0.7f,  wobble: 1f),
-                new(radius * 0.5f,  height,        wobble: 1f),
-                new(0f,        height, crease: true)     //closed crown
+                new(radius,         height * 0.35f, wobble: 1f),
+                new(radius,         0f,     crease: true, wobble: 1f),   //hard arris where the stone meets the ground
+                new(0f,             0f)
             };
 
             //The irregularity is a large share of the base radius — enough that two rocks of the same size do
             //not share a silhouette, but not so much the surface self-intersects.
-            _lathe = new LatheMesh(graphicsDevice, profile, segments, irregularityAmplitude: radius * 0.28f);
+            _lathe = new LatheMesh(graphicsDevice, profile, segments, irregularityAmplitude: radius * 0.34f);
         }
 
         public void Dispose() => _lathe.Dispose();

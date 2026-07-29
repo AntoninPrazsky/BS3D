@@ -119,15 +119,25 @@ namespace Prazsky.Core.Render
             //One flat normal per quad. Outward is the tangent around the ring crossed into the tangent
             //along the profile, in that order — check it against the top of a disc: running outward with
             //the ring going counter-clockwise gives +Y, which is the face that should see the sky.
+            //
+            //The ring tangent is taken from whichever of the span's two rings is NOT on the axis. A ring
+            //at radius 0 has all its segments at one point, so its tangent is the zero vector and the
+            //cross product collapses — and the fallback then hands the whole span a +Y normal. That is
+            //correct for a flat top (a disc's first ring is its centre) and wrong for anything that comes
+            //to a point: a cone's tip span took it, and the top third of every conifer was shaded as
+            //though it faced the sky. The two rings of a span cannot both be on the axis unless the span
+            //is degenerate, which the length test below still catches.
             var faceNormals = new Vector3[spans, segments];
 
             for (int span = 0; span < spans; span++)
             {
+                int tangentRing = profile[span].Radius > 1e-6f ? span : span + 1;
+
                 for (int s = 0; s < segments; s++)
                 {
                     int next = (s + 1) % segments;
 
-                    Vector3 alongRing = positions[span, next] - positions[span, s];
+                    Vector3 alongRing = positions[tangentRing, next] - positions[tangentRing, s];
                     Vector3 alongProfile = positions[span + 1, s] - positions[span, s];
                     Vector3 normal = Vector3.Cross(alongRing, alongProfile);
 

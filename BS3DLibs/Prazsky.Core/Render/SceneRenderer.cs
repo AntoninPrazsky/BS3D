@@ -10,11 +10,17 @@ namespace Prazsky.Core.Render
     /// <summary>
     /// Which environment the arena stands in. City is the default; Sea, Savanna, Desert, Mountain, Meadow,
     /// NeonCity and Forest swap the city (and only the city) for open water, a savanna, a Sahara of dunes, a
-    /// snowy range, a flowering meadow, the same city lit up in neon, or a forest clearing. Both the game and
-    /// the map editor cycle these.
+    /// snowy range, a flowering meadow, the same city lit up in neon, or a forest clearing.
     /// <para>
     /// <see cref="Space"/> is the one that is not like the others: it replaces the <b>sky</b> rather than the
     /// ground, so the island floats in deep space and there is no terrain, no horizon and no weather at all.
+    /// </para>
+    /// <para>
+    /// <b>Which of them an executable can reach is not the same question as which it can draw</b> — all three
+    /// draw all of them. The Testbed's NumPad2 and the map editor's V both cycle <c>% 7</c>, i.e. over the seven
+    /// scenes a map is authored against; <see cref="Forest"/> and <see cref="Space"/> sit past the end of that
+    /// cycle, reached in the Testbed with <c>scene=</c>, in the game from its scene menu (or its random launch
+    /// pick), and in the editor only by loading a level whose config names one of them.
     /// </para>
     /// </summary>
     public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space }
@@ -341,8 +347,10 @@ namespace Prazsky.Core.Render
         private const int FOREST_GRID_N = 220;
         private const float FOREST_EXTENT = 1200f;
 
-        //Look/tuning parameters (hills, clearing, forest floor colours, ambient, haze, wind, needle relief,
-        //floor lumps) live in ForestSceneConfig (Trees/Rocks/Stumps for phase 2); read from _forestConfig.
+        //Look/tuning parameters (hills, clearing, forest floor colours, treeline, ambient, haze, wind, needle
+        //relief, floor lumps) live in ForestSceneConfig; read from _forestConfig. Its Trees/Rocks/Stumps
+        //describe the scattered objects, which are the Game's own instanced draws rather than this scene's -
+        //only ForestTerrainHeight below is shared with them, so they stand on the floor this shader draws.
 
         #endregion
 
@@ -953,6 +961,8 @@ namespace Prazsky.Core.Render
             _forestEffect.Parameters["FloorLumpFrequency"].SetValue(_forestConfig.FloorLumpFrequency);
             _forestEffect.Parameters["ForestColor"].SetValue(_forestConfig.ForestColor.ToVector3());
             _forestEffect.Parameters["ForestColorDark"].SetValue(_forestConfig.ForestColorDark.ToVector3());
+            _forestEffect.Parameters["TreelineColor"].SetValue(_forestConfig.TreelineColor.ToVector3());
+            _forestEffect.Parameters["TreelineStrength"].SetValue(_forestConfig.TreelineStrength);
             _forestEffect.Parameters["AmbientStrength"].SetValue(_forestConfig.AmbientStrength);
             _forestEffect.Parameters["HorizonHazeDistance"].SetValue(_forestConfig.HorizonHazeDistance);
             _forestEffect.Parameters["WindDirection"].SetValue(_forestConfig.Wind.ToVector2());

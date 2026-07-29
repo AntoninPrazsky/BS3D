@@ -40,6 +40,7 @@ public class Shot {
   [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
   [DllImport("user32.dll")] public static extern void mouse_event(uint f, uint dx, uint dy, uint d, IntPtr e);
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, IntPtr extra);
+  [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
   public struct RECT { public int Left, Top, Right, Bottom; }
 }
 "@
@@ -71,7 +72,20 @@ Start-Sleep -Seconds $Settle
 $w = $r.Right - $r.Left; $h = $r.Bottom - $r.Top
 $bmp = New-Object System.Drawing.Bitmap $w, $h
 $g = [System.Drawing.Graphics]::FromImage($bmp)
-$g.CopyFromScreen($r.Left, $r.Top, 0, 0, $bmp.Size)
+try {
+    $g.CopyFromScreen($r.Left, $r.Top, 0, 0, $bmp.Size)
+}
+catch {
+    # CopyFromScreen throws an invalid-handle Win32Exception when the desktop is LOCKED (secure desktop).
+    # PrintWindow with PW_RENDERFULLCONTENT (2) grabs the DWM-composed surface instead, D3D content
+    # included, and works while locked - the game keeps rendering, it just is not on screen. Note the
+    # -Keys presses (and the title-bar focus click above) never reach the app while locked, so only
+    # command-line-driven shots are trustworthy then.
+    Write-Warning "CopyFromScreen failed (desktop locked?) - falling back to PrintWindow"
+    $hdc = $g.GetHdc()
+    [Shot]::PrintWindow($hwnd, $hdc, 2) | Out-Null
+    $g.ReleaseHdc($hdc)
+}
 $bmp.Save($Out)
 $g.Dispose(); $bmp.Dispose()
 Write-Output "saved $Out ($w x $h)"
