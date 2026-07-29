@@ -587,9 +587,10 @@ namespace BS3D.Screens
             //game celebrating a level the player has not played yet.
             Game.Fireworks?.Stop();
 
-            //And the theme comes up — from the top, since TearDown above has already stopped it. Every level,
-            //every retry, starts on the downbeat rather than wherever the last one happened to be cut off,
-            //which is the only way a loop this short does not feel arbitrary.
+            //And the theme comes up — from the top, since TearDown above has already stopped it. The previous
+            //result's fanfare goes with it, or a win's brass would still be ringing over the opening of the
+            //next attempt.
+            Game.Music?.StopFanfare();
             Game.Music?.Play();
 
             //The map first: the ceiling's height and footprint come off the field, and the ceiling body has
@@ -1224,6 +1225,11 @@ namespace BS3D.Screens
             //floor kick is a bang nobody hears, and the sudden quiet is itself part of winning.
             Game.Music?.Stop();
 
+            //Into that silence, the fanfare — scaled by the score, so how big a win it was is audible before
+            //the result screen has said a word. It is a separate instance from the theme, so stopping the one
+            //above does not cut this off.
+            Game.Music?.PlayVictory(_score.Score);
+
             //The bonus has no popup to fly in and land on the readout, so it would otherwise be the one award
             //the score takes without being hit — it counts up out of nowhere while the collapse plays
             if (bonus > 0) _hud.FlashScore();
@@ -1342,6 +1348,11 @@ namespace BS3D.Screens
             //The music goes with the level, win or lose. A dance track carrying on cheerfully over a result
             //screen that says the player ran out of balls is the wrong feeling entirely.
             Game.Music?.Stop();
+
+            //The same scaling from the other end: a good score that still lost gets a fuller, more dignified
+            //piece and a poor one gets three thin notes that do not resolve. Losing narrowly and losing badly
+            //should not sound the same.
+            Game.Music?.PlayDefeat(_score.Score);
 
             _pendingOutcome = LevelOutcome.Failed;
             _pendingFailure = failure;

@@ -193,6 +193,17 @@ namespace BS3D
         private const int SECTION_INTRO = 0;
         private const int SECTION_OUTRO = SECTIONS - 1;
 
+        /// <summary>
+        /// The score at which a fanfare is at its fullest. There is no natural maximum to a level's score, so
+        /// this is the one number that decides what "a big win" means — the single dial to turn if the
+        /// fanfares stop matching how the player feels about their result.
+        /// </summary>
+        public const int FANFARE_FULL_SCORE = 6000;
+
+        //Louder than the level's theme: a fanfare is an announcement, not a background, and on a win it has
+        //the fireworks' reports to be heard alongside.
+        private const float FANFARE_VOLUME = 0.55f;
+
         private readonly Random _seeds;
 
         private Task<float[]> _next;      //the pass after the one playing, baking on a background thread
@@ -200,6 +211,12 @@ namespace BS3D
         private SoundEffectInstance _instance;
         private bool _wanted;             //the game wants music; the instance may still be between passes
         private bool _failed;
+
+        //The fanfare is its own instance so it is independent of the loop: Stop() silences the level's theme
+        //without cutting off the piece that is announcing the result.
+        private Task<float[]> _fanfareBake;
+        private SoundEffect _fanfareTrack;
+        private SoundEffectInstance _fanfare;
 
         /// <summary>True while a pass is actually sounding.</summary>
         public bool IsPlaying => _instance != null && _instance.State == SoundState.Playing;
@@ -241,6 +258,46 @@ namespace BS3D
         }
 
         /// <summary>
+        /// The victory fanfare: bright, major, rising, and scaled by how well the player did — a bigger score
+        /// buys more voices, more percussion and a longer, higher final chord, so the music itself tells them
+        /// what kind of win it was before the result screen has said a word.
+        /// </summary>
+        /// <param name="score">The level's final score, weighed against <see cref="FANFARE_FULL_SCORE"/>.</param>
+        public void PlayVictory(int score) => StartFanfare(score, victory: true);
+
+        /// <summary>
+        /// The defeat fanfare: slow, minor, falling. It takes the same scaling from the other end — a good
+        /// score that still lost gets a fuller, more dignified piece, and a poor one gets a thin and bleak
+        /// three notes. Losing badly and losing narrowly should not sound the same.
+        /// </summary>
+        public void PlayDefeat(int score) => StartFanfare(score, victory: false);
+
+        /// <summary>
+        /// Stops whatever fanfare is sounding. Called when a level is built, so the previous result's music
+        /// does not play over the opening of the next attempt.
+        /// </summary>
+        public void StopFanfare()
+        {
+            _fanfareBake = null;
+            _fanfare?.Stop();
+        }
+
+        private void StartFanfare(int score, bool victory)
+        {
+            if (_failed) return;
+
+            //0 for nothing, 1 for a very good result. There is no natural ceiling to a score, so the reference
+            //is a stated constant rather than anything derived — see FANFARE_FULL_SCORE.
+            float intensity = MathHelper.Clamp(score / (float)FANFARE_FULL_SCORE, 0f, 1f);
+            int seed = _seeds.Next();
+
+            //On a background thread, like the track: a fanfare is only a few seconds of PCM, but this fires on
+            //the exact frame a level ends — which is also the frame the camera is released, the fireworks
+            //start and the result screen is being built — and that is the last moment to spend on synthesis.
+            _fanfareBake = Task.Run(() => victory ? BakeVictory(seed, intensity) : BakeDefeat(seed, intensity));
+        }
+
+        /// <summary>
         /// Called once a frame. Its whole job is the handover: a pass is played <b>once</b>, not looped, and
         /// when it ends the next variation — baked on a background thread while this one was playing — takes
         /// over. That is what makes the music genuinely endless rather than a loop that repeats: the player
@@ -253,7 +310,35 @@ namespace BS3D
         /// </summary>
         public void Update()
         {
-            if (!_wanted || _failed) return;
+            if (_failed) return;
+
+            //The fanfare first: it is realized the frame its synthesis finishes, so the piece announcing the
+            //result lands as close to the result as the machine allows.
+            if (_fanfareBake != null && _fanfareBake.IsCompleted)
+            {
+                Task<float[]> ready = _fanfareBake;
+                _fanfareBake = null;
+
+                try
+                {
+                    SoundEffectInstance old = _fanfare;
+                    SoundEffect oldTrack = _fanfareTrack;
+
+                    _fanfareTrack = ToSoundEffect(ready.Result);
+                    _fanfare = _fanfareTrack.CreateInstance();
+                    _fanfare.Volume = FANFARE_VOLUME;
+                    _fanfare.Play();
+
+                    old?.Dispose();
+                    oldTrack?.Dispose();
+                }
+                catch (Exception exception)
+                {
+                    Console.WriteLine($"[music] the fanfare could not be realized: {exception.Message}");
+                }
+            }
+
+            if (!_wanted) return;
             if (_instance != null && _instance.State != SoundState.Stopped) return;
 
             Advance();
@@ -445,6 +530,203 @@ namespace BS3D
             //to anything with a transient in it, and a kick is nothing but transient.
             Limit(mix, targetRms: 0.20f, ceiling: 0.95f);
 
+            return mix;
+        }
+
+        #endregion
+
+        #region The fanfares
+
+        //A major triad and its extensions, as semitone offsets from the piece's root. The victory fanfare is
+        //MAJOR where the level's theme is minor, and that single change of mode does most of the work: after
+        //two minutes in A minor, a major chord is unmistakably "you won" before a note of melody has played.
+        private static readonly int[] MAJOR_TRIAD = { 0, 4, 7, 12 };
+        private static readonly int[] MINOR_TRIAD = { 0, 3, 7, 12 };
+
+        //Steps of room past the last bar, so the closing chord can ring out and fade instead of the buffer
+        //ending under it — without this the pad is cut off mid-sustain and the piece finishes on a click,
+        //which is a poor way to be told anything. Sized off the longest closing note (26 steps from the top of
+        //a 16-step bar, so ten past the end) with a little margin; the pad fades itself to nothing over its
+        //own last half-second, so any more than that is silence nobody hears.
+        private const int FANFARE_TAIL_STEPS = 14;
+
+        /// <summary>
+        /// The victory fanfare. A rising figure over I–IV–V–I, which is the oldest triumphant progression
+        /// there is and still the one the ear reads instantly as an arrival.
+        /// <para>
+        /// <paramref name="intensity"/> (0…1, from the score) does not change the tune — it changes how much
+        /// of the band is playing it. A modest win gets the melody and a pad; a big one adds percussion
+        /// accents, an octave doubling, a sparkle arpeggio over the last chord and a longer, higher finish. The
+        /// player hears how well they did before the result screen has told them.
+        /// </para>
+        /// </summary>
+        private static float[] BakeVictory(int seed, float intensity)
+        {
+            Random random = new(seed);
+
+            //Bright and quick, and rolled so two wins in a row are not the same piece.
+            float bpm = 134f + (float)random.NextDouble() * 16f;
+            float secondsPerStep = 60f / (bpm * STEPS_PER_BEAT);
+            int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
+
+            //Key. Any of these is a bright place to land and none of them is where the level's theme was, so
+            //the fanfare reads as a change of scene rather than as more of the same.
+            int[] roots = { 60, 62, 65, 67 };   //C4, D4, F4, G4
+            int root = roots[random.Next(roots.Length)];
+
+            //Four bars, and a fifth to let the last chord ring when the win was a big one.
+            int bars = intensity > 0.55f ? 5 : 4;
+
+            //Plus room for the last chord to RING OUT. The pad and the lead both fade themselves over their
+            //nominal length, but that length runs past the final bar — without the tail the buffer simply ends
+            //mid-sustain and the fanfare finishes on a click, which is a poor way to be told you won.
+            float[] mix = new float[samplesPerStep * (bars * STEPS_PER_BAR + FANFARE_TAIL_STEPS)];
+
+            //I - IV - V - I, as semitone offsets from the root.
+            int[] degrees = { 0, 5, 7, 0, 0 };
+
+            //Two melodic shapes, so the same win twice does not play the same phrase. Both rise: a fanfare
+            //that falls is a lament, whatever the harmony under it does.
+            int[][] shapes =
+            {
+                new[] { 0, 2, 3, 2 },   //root, fifth, octave, fifth — the bugle call
+                new[] { 1, 2, 3, 3 }    //third, fifth, octave, octave — smoother, more modern
+            };
+            int[] shape = shapes[random.Next(shapes.Length)];
+
+            for (int bar = 0; bar < bars; bar++)
+            {
+                int degree = degrees[bar];
+                int chordRoot = root + degree;
+                bool last = bar == bars - 1;
+
+                int at = bar * STEPS_PER_BAR * samplesPerStep;
+
+                //THE PAD, holding the chord underneath the whole bar. Always present: it is what makes the
+                //fanfare sound like a band rather than like one synth line.
+                foreach (int interval in MAJOR_TRIAD)
+                    Pad(mix, at, chordRoot - 12 + interval, secondsPerStep * (last ? 22f : 15.5f), 0.13f + 0.06f * intensity);
+
+                //THE PICKUP into bar 0: three quick rising notes, which is what turns the first chord into an
+                //arrival instead of just a start.
+                if (bar == 0)
+                    for (int i = 0; i < 3; i++)
+                        Lead(mix, i * samplesPerStep, chordRoot - 12 + MAJOR_TRIAD[i],
+                            secondsPerStep * 1.1f, 0.20f + 0.10f * intensity);
+
+                //THE MELODY. One note on the downbeat and one halfway, except the last bar, which holds.
+                float leadLevel = 0.30f + 0.14f * intensity;
+
+                if (last)
+                {
+                    //The finish: the octave, held, and pushed a fifth higher again when the win was big.
+                    int top = chordRoot + 12 + (intensity > 0.75f ? 7 : 0);
+                    Lead(mix, at, top, secondsPerStep * 14f, leadLevel);
+
+                    if (intensity > 0.4f) Lead(mix, at, chordRoot, secondsPerStep * 14f, leadLevel * 0.6f);
+                }
+                else
+                {
+                    Lead(mix, at, chordRoot + MAJOR_TRIAD[shape[bar]], secondsPerStep * 5f, leadLevel);
+                    Lead(mix, at + 8 * samplesPerStep, chordRoot + MAJOR_TRIAD[(shape[bar] + 1) % 4],
+                        secondsPerStep * 5f, leadLevel * 0.85f);
+
+                    //An octave doubling once the win is worth one — the cheapest way to make a line sound
+                    //bigger without writing a second one.
+                    if (intensity > 0.45f)
+                        Lead(mix, at, chordRoot + 12 + MAJOR_TRIAD[shape[bar]], secondsPerStep * 5f, leadLevel * 0.5f);
+                }
+
+                //PERCUSSION, from a middling win upwards: a kick and a clap on the chord changes, so the piece
+                //has a body as well as a tune.
+                if (intensity > 0.25f)
+                {
+                    Kick(mix, at, 0.7f + 0.3f * intensity);
+                    Clap(mix, at + 8 * samplesPerStep, 0.5f + 0.4f * intensity);
+                }
+
+                //A tom run into the final chord when the win was a big one.
+                if (intensity > 0.8f && bar == bars - 2)
+                    for (int i = 0; i < 4; i++)
+                        Tom(mix, at + (12 + i) * samplesPerStep, 120f + i * 22f, 0.8f);
+
+                //SPARKLE over the last chord: a fast arpeggio climbing away. Only for a good win, and it is
+                //most of what makes one feel like a celebration rather than a resolution.
+                if (last && intensity > 0.6f)
+                    for (int i = 0; i < 12; i++)
+                        Arp(mix, at + i * samplesPerStep, chordRoot + 12 + MAJOR_TRIAD[i % 4] + 12 * (i / 4),
+                            secondsPerStep * 1.4f, 0.12f * intensity);
+            }
+
+            Limit(mix, targetRms: 0.16f + 0.06f * intensity, ceiling: 0.95f);
+            return mix;
+        }
+
+        /// <summary>
+        /// The defeat fanfare: slow, minor and falling, and the exact inverse of the victory one in every
+        /// dimension that matters — mode, direction, tempo and register.
+        /// <para>
+        /// It takes the same <paramref name="intensity"/> from the other end. A good score that still lost gets
+        /// a fuller piece with a harmony under it and a resolution at the bottom; a poor one gets three thin
+        /// notes and no resolution at all. Losing narrowly and losing badly should not sound the same, and the
+        /// difference is what the player is owed for the run they had.
+        /// </para>
+        /// </summary>
+        private static float[] BakeDefeat(int seed, float intensity)
+        {
+            Random random = new(seed);
+
+            //Slow. Half the theme's tempo and less: the piece has to feel like it is running out.
+            float bpm = 62f + (float)random.NextDouble() * 12f;
+            float secondsPerStep = 60f / (bpm * STEPS_PER_BEAT);
+            int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
+
+            int[] roots = { 57, 55, 53, 52 };   //A3, G3, F3, E3 — low, and lower than the victory's
+            int root = roots[random.Next(roots.Length)];
+
+            const int bars = 4;
+            float[] mix = new float[samplesPerStep * (bars * STEPS_PER_BAR + FANFARE_TAIL_STEPS)];
+
+            //i - VI - iv - i: minor, and it sags rather than resolving anywhere bright.
+            int[] degrees = { 0, 8, 5, 0 };
+
+            //The melody falls. Two shapes, both descending, because a rising line under a loss reads as hope
+            //and this is not that.
+            int[][] shapes =
+            {
+                new[] { 3, 2, 1, 0 },   //octave down to the root
+                new[] { 2, 1, 1, 0 }    //fifth, third, third, root — a smaller, more resigned fall
+            };
+            int[] shape = shapes[random.Next(shapes.Length)];
+
+            for (int bar = 0; bar < bars; bar++)
+            {
+                int chordRoot = root + degrees[bar];
+                bool last = bar == bars - 1;
+                int at = bar * STEPS_PER_BAR * samplesPerStep;
+
+                //The pad carries almost the whole piece. Thin when the run was poor, full when it was close.
+                foreach (int interval in MINOR_TRIAD)
+                    Pad(mix, at, chordRoot - 12 + interval, secondsPerStep * (last ? 26f : 16.5f),
+                        0.10f + 0.08f * intensity);
+
+                //One long melody note a bar, falling. No percussion anywhere: a beat would give it momentum,
+                //and momentum is the one thing this must not have.
+                float leadLevel = 0.22f + 0.10f * intensity;
+
+                //The last note is only played if there is something to resolve to — a poor run ends on the
+                //third and simply stops, which leaves it hanging. That unresolved ending is the bleakest thing
+                //in the piece and it costs one condition.
+                if (!last || intensity > 0.35f)
+                    Lead(mix, at, chordRoot + MINOR_TRIAD[shape[bar]], secondsPerStep * (last ? 22f : 13f), leadLevel);
+
+                //A harmony a third under the melody, for a run that deserved better.
+                if (intensity > 0.55f)
+                    Lead(mix, at, chordRoot + MINOR_TRIAD[shape[bar]] - 3, secondsPerStep * (last ? 22f : 13f),
+                        leadLevel * 0.55f);
+            }
+
+            Limit(mix, targetRms: 0.10f + 0.05f * intensity, ceiling: 0.9f);
             return mix;
         }
 
@@ -779,6 +1061,8 @@ namespace BS3D
 
             _instance?.Dispose();
             _track?.Dispose();
+            _fanfare?.Dispose();
+            _fanfareTrack?.Dispose();
         }
     }
 }
