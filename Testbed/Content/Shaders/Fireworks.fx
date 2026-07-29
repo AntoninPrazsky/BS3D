@@ -30,12 +30,15 @@ float3 CameraUp;
 //  ShellColor.a     0 for a dead slot - the whole shell collapses to a degenerate quad and costs no pixels
 //  ShellShape.x     burst radius, .y spark life, .z flatten (1 = a sphere, <1 = a disc, seen edge-on as a ring)
 //  ShellShape.w     twinkle strength
+//  ShellColorB.rgb  the shell's SECOND colour; each spark takes one or the other (see Random.w)
 float4 ShellOrigin[MAX_SHELLS];
 float4 ShellBurst[MAX_SHELLS];
 float4 ShellColor[MAX_SHELLS];
+float4 ShellColorB[MAX_SHELLS];
 float4 ShellShape[MAX_SHELLS];
 
 float SparkSize;      //world half-size of one spark billboard at full brightness
+float SparkStretch;   //how many world units of streak per world unit per second of spark speed
 float Gravity;        //world units per second squared, positive downwards
 
 struct FireworkVertexInput
@@ -82,6 +85,7 @@ FireworkVertexOutput FireworkVS(FireworkVertexInput input)
 	float3 position;
 	float brightness;
 	float size;
+	float3 velocity = float3(0.0, 0.0, 0.0);   //world units per second, for the motion streak
 
 	if (age < 0.0)
 	{
@@ -114,24 +118,31 @@ FireworkVertexOutput FireworkVS(FireworkVertexInput input)
 		float t = age;
 		float u = saturate(t / life);
 
-		//Exponential drag: the sparks expand fast and stall rather than flying off for ever. In closed form,
-		//so a spark's whole path is a pure function of its age - which is what lets the buffer be static.
+		//Exponential drag: the sparks leave hard and stall rather than flying off for ever. In closed form, so
+		//a spark's whole path - and its VELOCITY, which the streak below needs - is a pure function of its
+		//age, which is what lets the buffer be static.
 		const float DRAG = 2.35;
 		float expand = 1.0 - exp(-DRAG * t);
 
-		//And they start ALREADY SPREAD, which matters far more than it sounds. With every spark leaving from
-		//one point, all of them are coincident on the frame the shell goes off: 320 sparks stack additively
-		//into a single pixel-wide sample so bright that the glare pass turns it into a six-armed star, and the
-		//burst reads as a lens artifact rather than as an explosion. Starting them a tenth of the radius out
-		//spreads that same energy over an area from the first frame.
-		const float INITIAL_SPREAD = 0.12;
+		//A small head start, so the sparks are not all mathematically coincident on the burst frame. It is
+		//deliberately tiny now: it used to be an eighth of the radius, which pre-arranged the whole shell into
+		//a formed sphere that then inflated rigidly - a bottle brush on a wire rather than an explosion. The
+		//streak below is what actually spreads the flash's energy now.
+		const float INITIAL_SPREAD = 0.015;
 		float reach = lerp(INITIAL_SPREAD, 1.0, expand);
 
 		float3 direction = input.Spark.xyz;
 		direction.y *= shape.z;   //flattened shells read as rings when the lens is off their plane
 
-		position = burst.xyz + direction * (shape.x * input.Spark.w * reach);
+		float radius = shape.x * input.Spark.w;
+		position = burst.xyz + direction * (radius * reach);
 		position.y -= 0.5 * Gravity * t * t;
+
+		//The derivative of the line above. d(reach)/dt = (1 - INITIAL_SPREAD) * DRAG * e^(-DRAG t), so a spark
+		//leaves at its fastest and slows hard - which is exactly the shape a streak wants, long at the flash
+		//and gone by the time the stars are drifting.
+		velocity = direction * (radius * (1.0 - INITIAL_SPREAD) * DRAG * exp(-DRAG * t));
+		velocity.y -= Gravity * t;
 
 		//Fades over its life, fastest at the end. Squared, because a linear fade on something this bright
 		//holds near-full for most of the life and then drops off a cliff.
@@ -147,20 +158,45 @@ FireworkVertexOutput FireworkVS(FireworkVertexInput input)
 		size = SparkSize * (0.45 + 0.55 * fade) * (0.7 + 0.6 * input.Random.y);
 	}
 
-	//Camera-facing billboard. The basis comes from the CPU, so this is two multiply-adds rather than a cross
-	//product per vertex.
+	//Camera-facing billboard, STRETCHED ALONG ITS OWN MOTION. This is the difference between an explosion and
+	//a cloud of dots drifting outwards: a burning star crossing the sky faster than the eye or a shutter can
+	//resolve is seen as a LINE, and it is those lines radiating from a point that the eye reads as something
+	//blowing apart. A round spark, however many there are, only ever reads as a swarm.
+	//
+	//It also happens to solve the flash: on the burst frame every spark is nearly coincident but moving at its
+	//fastest, so each is drawn at its longest, and the energy that used to stack into one blown-out point is
+	//spread down a hundred separate streaks instead.
 	float2 corner = input.Slot.zw;
-	position += CameraRight * (corner.x * size) + CameraUp * (corner.y * size);
+
+	//The velocity projected onto the screen plane. Its LENGTH is what the streak is scaled by, so a spark
+	//coming straight at the lens has no screen motion and correctly stays a round dot instead of being
+	//stretched along an arbitrary axis.
+	float2 screenVelocity = float2(dot(velocity, CameraRight), dot(velocity, CameraUp));
+	float screenSpeed = length(screenVelocity);
+
+	float2 along = screenSpeed > 1e-4 ? screenVelocity / screenSpeed : float2(1.0, 0.0);
+	float2 across = float2(-along.y, along.x);
+
+	float halfLength = size + screenSpeed * SparkStretch;
+	float halfWidth = size;
+
+	float2 offset = along * (corner.x * halfLength) + across * (corner.y * halfWidth);
+	position += CameraRight * offset.x + CameraUp * offset.y;
 
 	output.Position = mul(mul(float4(position, 1.0), View), Projection);
 	output.Corner = corner;
+
+	//TWO colours per shell, split per spark. A real shell is one chemistry and one colour; a display is not,
+	//and a burst that is half magenta and half gold reads as far more of an event than either alone. The
+	//split is hard rather than a blend, so the two are seen AS two.
+	float3 shellColour = input.Random.w < 0.5 ? colour.rgb : ShellColorB[shell].rgb;
 
 	//The hot core: a spark is white at its brightest and only shows its own colour as it cools. Carrying the
 	//peak to white is what makes a firework read as burning rather than as a coloured dot - the same reason
 	//the cluster's ripple whitens (see "The ripple" in CLAUDE.md), and it matters more here because these
 	//are driven hard into the glare and a saturated hue at that level just clips one channel.
 	float heat = saturate(brightness * 1.35 - 0.35);
-	float3 radiance = lerp(colour.rgb, float3(1.0, 1.0, 1.0) * max(max(colour.r, colour.g), colour.b), heat * 0.7);
+	float3 radiance = lerp(shellColour, float3(1.0, 1.0, 1.0) * max(max(shellColour.r, shellColour.g), shellColour.b), heat * 0.7);
 
 	output.Tint = float4(radiance * brightness, brightness);
 
@@ -169,12 +205,18 @@ FireworkVertexOutput FireworkVS(FireworkVertexInput input)
 
 float4 FireworkPS(FireworkVertexOutput input) : COLOR
 {
-	//A round, soft spark. Squared falloff off the centre gives a small hot core inside a wide halo, which is
-	//what a point of light looks like through any lens - and what blooms convincingly when the glare pass
-	//takes it.
+	//A soft spark. Squared falloff off the centre gives a small hot core inside a wide halo, which is what a
+	//point of light looks like through any lens - and what blooms convincingly when the glare pass takes it.
+	//The quad is stretched along the spark's motion, so in the stretched frame this same round profile draws
+	//an elongated streak with soft ends rather than a rectangle with hard ones.
 	float r2 = dot(input.Corner, input.Corner);
 	float falloff = saturate(1.0 - r2);
 	falloff *= falloff;
+
+	//And the streak is a comet, not a capsule: corner.x runs along the direction of travel, so biasing the
+	//brightness towards +1 puts the hot end at the FRONT and trails it behind. A streak that is equally bright
+	//at both ends reads as a stick; the taper is what says which way it is going.
+	falloff *= 0.45 + 0.55 * saturate(input.Corner.x * 0.5 + 0.5);
 
 	//No clip. Additive blending makes a zero-alpha pixel free, so the spark can fade to nothing smoothly
 	//rather than being cut with a hard edge that sweeps inward as it dims - the trap ShotTrail.fx documents.

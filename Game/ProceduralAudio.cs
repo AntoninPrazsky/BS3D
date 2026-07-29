@@ -355,8 +355,11 @@ namespace BS3D
                 float climb = 1f - (1f - u) * (1f - u);
                 float freq = startHz + (endHz - startHz) * climb;
 
-                //The spin. Proportional to the current pitch, so it stays the same musical width as it rises.
-                freq *= 1f + 0.028f * MathF.Sin(2f * MathF.PI * 7.1f * t);
+                //The spin — a SHIMMER, not a wobble. At 2.8 % and 7 Hz this was a slow, wide warble that read
+                //as "vu-vu-vu-vu" rather than as a whistle: at that rate the ear tracks each swing as its own
+                //note instead of hearing one tone with a texture. Shallow and fast is what a spinning shell
+                //actually does to a tone.
+                freq *= 1f + 0.006f * MathF.Sin(2f * MathF.PI * 16f * t);
 
                 phase += 2f * MathF.PI * freq / SAMPLE_RATE;
 
@@ -369,14 +372,19 @@ namespace BS3D
                 signal[i] += tone * 0.62f * env;
             }
 
-            //The air over the case: noise confined to the band the tone sweeps through, so it reads as part of
-            //the whistle rather than as hiss laid over it.
-            float[] air = BandPass(MakeNoiseArray(samples, seed: 7717), 700f, 4200f);
+            //The fizz. A firework leaving the ground is a burning fuse and a jet of gas before it is a tone at
+            //all, and this layer carries far more of the character than the whistle does — it is what makes
+            //the launch read as "bzzzt-pshhh" rather than as a kettle. Loud enough here to sit alongside the
+            //tone rather than under it, and band-passed wide so it keeps some grit.
+            float[] air = BandPass(MakeNoiseArray(samples, seed: 7717), 450f, 6500f);
             for (int i = 0; i < samples; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
                 float env = MathF.Min(1f, t / 0.05f) * MathF.Min(1f, (duration - t) / 0.28f);
-                signal[i] += air[i] * 0.10f * env;
+
+                //Thickest at the start, where the motor is doing the most work, and thinning as it climbs
+                //away — the reverse of the tone, which is what makes the two read as one object.
+                signal[i] += air[i] * 0.34f * env * (1.25f - 0.6f * (t / duration));
             }
 
             //Barely any room on this one: the shell is climbing away into open sky, and a long tail on a rising
@@ -467,9 +475,11 @@ namespace BS3D
 
             //The roll: the report coming back off everything around. This, more than the reverb, is what puts
             //the burst over a landscape instead of in a box.
-            RollingEcho(signal, taps: 4, firstDelaySeconds: 0.085f, spread: 0.75f, feedback: 0.5f);
+            //Nine taps starting at 23 ms and stretching by an irrational ratio each time: dense enough at the
+            //front to fuse into the bang itself, thinning into a rumble behind it.
+            RollingEcho(signal, taps: 9, firstDelaySeconds: 0.023f, spread: 1.37f, feedback: 0.78f, mix: 0.42f);
 
-            ApplyReverb(signal, roomScale: 1.0f, wet: 0.34f, decay: 0.6f);
+            ApplyReverb(signal, roomScale: 1.0f, wet: 0.42f, decay: 0.7f);
 
             //Driven and softly saturated rather than peak-normalised â€” see Loudness. Normalising this to its
             //crack is exactly what left it a click with a thud behind it.
@@ -715,20 +725,30 @@ namespace BS3D
         /// and water surface around, which the ear reads as a long rolling rumble after the bang. A reverb
         /// alone gives a smooth wash and no roll.
         /// </summary>
-        private static void RollingEcho(float[] signal, int taps, float firstDelaySeconds, float spread, float feedback)
+        private static void RollingEcho(float[] signal, int taps, float firstDelaySeconds, float spread, float feedback, float mix)
         {
             float[] dry = (float[])signal.Clone();
 
+            //Delays are spaced by an IRRATIONAL ratio and start inside the ear's fusion window. Both matter,
+            //and getting them wrong is audible immediately: at four taps 60-85 ms apart the ear resolves each
+            //one as its own event and the report comes out as "bum-bum-bum-bum" — a flutter echo, the sound of
+            //a corridor, not of a firework over a city. Under ~40 ms and closely spaced they fuse into one
+            //event with a tail, and an irrational spacing stops the repeats reinforcing into a pitch.
             for (int tap = 1; tap <= taps; tap++)
             {
-                int delay = (int)(SAMPLE_RATE * firstDelaySeconds * (1f + (tap - 1) * spread));
+                int delay = (int)(SAMPLE_RATE * firstDelaySeconds * MathF.Pow(spread, tap - 1));
                 if (delay >= signal.Length) break;
 
-                float gain = MathF.Pow(feedback, tap);
+                //Scaled by mix as well as by the decay, and that is what keeps the ATTACK at the front. The
+                //first taps land 20-60 ms behind the crack, so at a high gain they add a second wavefront on
+                //top of it: the envelope stops peaking on the first sample and climbs to a maximum a tenth of
+                //a second in, which the ear hears as a soft "whoomph" instead of a hard "BUM". The roll has to
+                //sit clearly UNDER the direct report, not double it.
+                float gain = mix * MathF.Pow(feedback, tap);
 
                 //Each repeat is darker than the last: air and distance take the top off first, which is what
                 //makes the roll recede rather than just repeat.
-                float[] tapSignal = LowPassArray(dry, 2600f / (1f + tap * 0.9f));
+                float[] tapSignal = LowPassArray(dry, 2600f / (1f + tap * 0.55f));
 
                 for (int i = delay; i < signal.Length; i++) signal[i] += tapSignal[i - delay] * gain;
             }

@@ -88,6 +88,7 @@ namespace BS3D
             public Vector3 Origin;
             public Vector3 Burst;
             public Vector3 Color;
+            public Vector3 ColorB;
             public float Age;            //negative while rising, 0 at the burst, then up to Life
             public float Rise;
             public float Radius;
@@ -110,6 +111,7 @@ namespace BS3D
         private readonly Vector4[] _origins = new Vector4[MAX_SHELLS];
         private readonly Vector4[] _bursts = new Vector4[MAX_SHELLS];
         private readonly Vector4[] _colors = new Vector4[MAX_SHELLS];
+        private readonly Vector4[] _colorsB = new Vector4[MAX_SHELLS];
         private readonly Vector4[] _shapes = new Vector4[MAX_SHELLS];
 
         private readonly VertexBuffer _vertexBuffer;
@@ -119,7 +121,7 @@ namespace BS3D
         //Cached parameter handles: the by-name indexer is a linear scan, and these are set every frame.
         private readonly EffectParameter _viewParam, _projectionParam, _cameraPositionParam;
         private readonly EffectParameter _cameraRightParam, _cameraUpParam;
-        private readonly EffectParameter _originParam, _burstParam, _colorParam, _shapeParam;
+        private readonly EffectParameter _originParam, _burstParam, _colorParam, _colorBParam, _shapeParam;
 
         private float _remaining;        //seconds of celebration left to launch into
         private float _untilNextLaunch;
@@ -150,13 +152,20 @@ namespace BS3D
             _originParam = effect.Parameters["ShellOrigin"];
             _burstParam = effect.Parameters["ShellBurst"];
             _colorParam = effect.Parameters["ShellColor"];
+            _colorBParam = effect.Parameters["ShellColorB"];
             _shapeParam = effect.Parameters["ShellShape"];
 
-            //Set once: neither changes for the life of the display. The size is in WORLD units and a burst is
-            //40-90 units up, so it has to be far larger than it sounds — at half a unit a spark is a subpixel
-            //glint from the play camera and the burst disappears.
-            effect.Parameters["SparkSize"].SetValue(1.55f);
+            //Set once: none of these changes for the life of the display. The size is in WORLD units and a
+            //burst is 40-120 units up, so it has to be far larger than it sounds — at half a unit a spark is a
+            //subpixel glint from the play camera and the burst disappears.
+            effect.Parameters["SparkSize"].SetValue(1.3f);
             effect.Parameters["Gravity"].SetValue(9.4f);
+
+            //World units of streak per (world unit per second) of screen-projected spark speed. A spark leaves
+            //the burst at roughly radius * DRAG ≈ 70 u/s, so this draws it as a streak some tens of units long
+            //on the flash frame and shortens it to a dot within a few tenths of a second — the line, then the
+            //break-up, then the drift.
+            effect.Parameters["SparkStretch"].SetValue(0.42f);
 
             _quadCount = MAX_SHELLS * SPARKS_PER_SHELL;
             BuildBuffers(out _vertexBuffer, out _indexBuffer);
@@ -261,11 +270,18 @@ namespace BS3D
 
             float rise = Lerp(RISE_MIN, RISE_MAX, (float)_random.NextDouble());
 
+            //Two colours per shell, and the second is picked to be a DIFFERENT one — a shell that comes out
+            //half gold and half gold is just a gold shell that cost an extra uniform. Stepping a random
+            //distance round the palette rather than re-rolling guarantees it without a rejection loop.
+            int colourA = _random.Next(PALETTE.Length);
+            int colourB = (colourA + 1 + _random.Next(PALETTE.Length - 1)) % PALETTE.Length;
+
             _shells[slot] = new Shell
             {
                 Origin = origin,
                 Burst = burst,
-                Color = PALETTE[_random.Next(PALETTE.Length)] * COLOR_BOOST,
+                Color = PALETTE[colourA] * COLOR_BOOST,
+                ColorB = PALETTE[colourB] * COLOR_BOOST,
                 Age = -rise,
                 Rise = rise,
                 Radius = Lerp(RADIUS_MIN, RADIUS_MAX, (float)_random.NextDouble()),
@@ -307,6 +323,7 @@ namespace BS3D
                 _origins[i] = new Vector4(shell.Origin, shell.Rise);
                 _bursts[i] = new Vector4(shell.Burst, shell.Age);
                 _colors[i] = new Vector4(shell.Color, 1f);
+                _colorsB[i] = new Vector4(shell.ColorB, 1f);
                 _shapes[i] = new Vector4(shell.Radius, shell.Life, shell.Flatten, shell.Twinkle);
             }
 
@@ -326,6 +343,7 @@ namespace BS3D
             _originParam.SetValue(_origins);
             _burstParam.SetValue(_bursts);
             _colorParam.SetValue(_colors);
+            _colorBParam.SetValue(_colorsB);
             _shapeParam.SetValue(_shapes);
 
             BlendState blend = _device.BlendState;
@@ -375,16 +393,28 @@ namespace BS3D
 
                     Vector3 direction = new(MathF.Cos(phi) * r, y, MathF.Sin(phi) * r);
 
-                    //Speed spread. Cubed towards 1, so most sparks reach nearly the full radius and a few lag
-                    //behind: a shell with uniformly random speeds looks like a fuzzy ball rather than a shell.
-                    float speed = 0.55f + 0.45f * MathF.Pow((float)random.NextDouble(), 0.35f);
+                    //And then JITTERED off it, which matters more than the even coverage did. A Fibonacci
+                    //lattice is *too* regular: expanded uniformly it holds its pattern, and the eye picks the
+                    //spiral out as a rigid structure inflating rather than as a thing coming apart — a bottle
+                    //brush on a wire. A quarter-radian of scatter keeps the coverage and destroys the lattice.
+                    direction += new Vector3(
+                        (float)(random.NextDouble() * 2.0 - 1.0),
+                        (float)(random.NextDouble() * 2.0 - 1.0),
+                        (float)(random.NextDouble() * 2.0 - 1.0)) * 0.26f;
+                    direction.Normalize();
+
+                    //Speed spread, and a WIDE one. Bunched near the full radius the shell stays a surface: a
+                    //clean hollow ball, which is a real firework but not one that reads as blowing apart.
+                    //Spread from a third of the radius outwards it is a volume with a bright rim, and the
+                    //sparks visibly separate from each other as it opens.
+                    float speed = 0.34f + 0.66f * MathF.Pow((float)random.NextDouble(), 0.6f);
 
                     Vector4 sparkData = new(direction, speed);
                     Vector4 randomData = new(
                         (float)random.NextDouble(),                    //twinkle phase
                         (float)random.NextDouble(),                    //size jitter
                         (float)spark / SPARKS_PER_SHELL,               //trail rank on the way up
-                        0f);
+                        (float)random.NextDouble());                   //which of the shell's two colours
 
                     for (int corner = 0; corner < 4; corner++)
                     {
