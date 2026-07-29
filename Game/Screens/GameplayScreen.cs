@@ -587,6 +587,11 @@ namespace BS3D.Screens
             //game celebrating a level the player has not played yet.
             Game.Fireworks?.Stop();
 
+            //And the theme comes up — from the top, since TearDown above has already stopped it. Every level,
+            //every retry, starts on the downbeat rather than wherever the last one happened to be cut off,
+            //which is the only way a loop this short does not feel arbitrary.
+            Game.Music?.Play();
+
             //The map first: the ceiling's height and footprint come off the field, and the ceiling body has
             //to exist before the cluster, whose top level is constrained to it.
             _levelIndex = index;
@@ -628,6 +633,10 @@ namespace BS3D.Screens
         /// </summary>
         internal void TearDown()
         {
+            //There is no level any more, so there is no level theme. BuildLevel starts it again; a return to
+            //the main menu leaves it stopped, which is what the front end's silence is for.
+            Game.Music?.Stop();
+
             _events?.Dispose();
             _simulation?.Dispose();
             _threadDispatcher?.Dispose();
@@ -1211,6 +1220,10 @@ namespace BS3D.Screens
             //result screen and the released camera swings through it (see Fireworks).
             Game.Fireworks?.Celebrate(CELEBRATION_SECONDS);
 
+            //And the theme stops dead, so the reports land in silence. A bang competing with a four-to-the-
+            //floor kick is a bang nobody hears, and the sudden quiet is itself part of winning.
+            Game.Music?.Stop();
+
             //The bonus has no popup to fly in and land on the readout, so it would otherwise be the one award
             //the score takes without being hit — it counts up out of nowhere while the collapse plays
             if (bonus > 0) _hud.FlashScore();
@@ -1325,6 +1338,10 @@ namespace BS3D.Screens
             _levelLost = true;
 
             Console.WriteLine($"[level] Lost '{LevelName(_levelIndex)}': {failure} ({diagnostic}), score {_score.Score}");
+
+            //The music goes with the level, win or lose. A dance track carrying on cheerfully over a result
+            //screen that says the player ran out of balls is the wrong feeling entirely.
+            Game.Music?.Stop();
 
             _pendingOutcome = LevelOutcome.Failed;
             _pendingFailure = failure;

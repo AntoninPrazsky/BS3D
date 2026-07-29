@@ -92,6 +92,10 @@ namespace BS3D
         //covers the gameplay screen, which is exactly when the player is watching it.
         private Fireworks _fireworks;
 
+        //The level theme. On the host with the rest of the audio, because it outlives any one session and a
+        //track that restarted from the top on every retry would be exhausting.
+        private ProceduralMusic _music;
+
         //Testing only: the "celebrate" argument, fired once the display exists.
         private readonly bool _startupCelebrate;
 
@@ -112,6 +116,9 @@ namespace BS3D
         /// screen over the session, and a covered screen stops being updated — see <see cref="Fireworks"/>.
         /// </summary>
         internal Fireworks Fireworks => _fireworks;
+
+        /// <summary>The level theme, synthesized at load and looped while a level is being played.</summary>
+        internal ProceduralMusic Music => _music;
 
         /// <summary>The wall clock everything alive runs off, paused or not.</summary>
         internal float WallClock => _wallClock;
@@ -1230,6 +1237,12 @@ namespace BS3D
 
             //Testing only, and deliberately long: it has to outlast a scripted screenshot burst.
             if (_startupCelebrate) _fireworks.Celebrate(90f);
+
+            //The level theme. Baked here with the rest of the audio: it is twenty-six seconds of PCM and the
+            //synthesis is the expensive part, so it happens once at load rather than when Play is pressed.
+            System.Diagnostics.Stopwatch bake = System.Diagnostics.Stopwatch.StartNew();
+            _music = new ProceduralMusic();
+            Console.WriteLine($"[music] baked the level theme in {bake.ElapsedMilliseconds} ms");
 
             BuildMenu();
         }
@@ -3158,6 +3171,7 @@ namespace BS3D
             //The synthesized SFX buffers were built in LoadContent and outlive every session.
             _audio?.Dispose();
             _fireworks?.Dispose();
+            _music?.Dispose();
 
             base.UnloadContent();
         }
