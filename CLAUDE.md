@@ -426,6 +426,13 @@ Every ball that lands sends a wave of light out through the cluster — the ball
 
 ### The ceiling announces itself (Game)
 
+**A step waits for the drop cinematic, and the reason is that it was saying the wrong thing.** The step comes due on the frame a shot is *fired*, but the shot leaves at `SHOOT_SPEED` and lands about a tenth of a second later — so when that shot cut a large group loose, the glass flashing red and driving its alarm wave down the cluster landed **on top of the drop cinematic**. A player who had just made the best shot of the level was shown the game's one punishment animation while watching their reward, and it read as having done something wrong. Nothing was wrong; only the order was.
+
+- `ReleaseCeilingStep` holds a due step for `CEILING_STEP_HOLD` (0.45 s) — long enough for the shot to have landed and a cinematic to have engaged if it is going to — and then for that cinematic to be over. On an ordinary shot the descent still arrives promptly enough to read as the answer to firing.
+- **A count, not a flag.** A level with `ceilingStep` of 1 steps on every shot, and two shots inside the hold must not lose one of them. The hold is re-armed per release rather than shared, so queued steps come down one at a time instead of as a single double-height lurch.
+- It cannot deadlock: the release is gated on a timer and on `_cinematic.Engaged`, never on a shot resolving, so a ball that never comes to rest cannot leave a level unloseable.
+- The `[ceiling]` line carries `waited`, which is the one figure that says whether the deferral did anything. Measured over three played levels: every ordinary step reads `waited 0.45 s` (the minimum), and the two steps that landed on a cinematic read **`waited 1.51 s`**.
+
 The glass stepping down is the pressure the whole `ceilingStep` rule exists to apply, and it was **arriving unnoticed**: a translucent plate sliding a little way down against a sky, while the player's eye is on the cluster, is very nearly invisible. It now says so twice, on the frame it steps.
 
 - **The plate lights up red.** `EmissiveTint` is a `float3` on `InstancedModelRenderer`, added at the end of `ShadePixel` so every technique that shades through it can use it, zero everywhere else. `_ceilingFlash` spikes to 1 on a step and decays **linearly** (the `CameraShake` rule — it genuinely ends), and the tint is scaled by its *square*, so the glass is unmistakable on the frame it steps and has thinned well before the slide finishes. It marks the event; it does not colour the plate for the duration.

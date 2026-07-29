@@ -339,6 +339,18 @@ namespace BS3D.Screens
         //Where the glass body sits now (_ceilingY) and where it is sliding to (_ceilingTargetY). Equal while at
         //rest; _ceilingTargetY is lowered by StartCeilingDescent and _ceilingY catches up in UpdateCeilingDescent.
         private float _ceilingTargetY;
+
+        //Ceiling steps that have come due but are waiting for their moment — see ReleaseCeilingStep. A count,
+        //because a ceilingStep of 1 steps on every shot and two of them inside the hold must not lose one.
+        private int _ceilingStepsPending;
+        private float _ceilingStepHold;
+        private float _ceilingStepWaited;
+
+        //How long a step waits after the shot that earned it. Long enough for that shot to have landed and a
+        //drop cinematic to have engaged if it is going to — the shot leaves at SHOOT_SPEED and lands in about
+        //a tenth of a second, so this is generous — and short enough that on an ordinary shot the descent
+        //still reads as the answer to firing.
+        private const float CEILING_STEP_HOLD = 0.45f;
         private bool _ceilingDescending;
 
         #endregion
@@ -628,8 +640,12 @@ namespace BS3D.Screens
             _pendingFailure = LevelFailure.None;
 
             //The glass is a fresh plate at the top of a fresh field, so nothing about the last level's last
-            //descent should still be glowing on it
+            //descent should still be glowing on it — nor should a step it queued and never got to take come
+            //down on the new one.
             _ceilingFlash = 0f;
+            _ceilingStepsPending = 0;
+            _ceilingStepHold = 0f;
+            _ceilingStepWaited = 0f;
         }
 
         /// <summary>
@@ -934,7 +950,12 @@ namespace BS3D.Screens
         /// does not move here — <see cref="UpdateCeilingDescent"/> slides it to the target, which is what keeps a
         /// hundred constrained bodies from being jerked in a single write.
         /// </summary>
-        private void StartCeilingDescent()
+        /// <param name="waited">
+        /// Seconds the step spent queued before it was let go — on the line because it is the one figure that
+        /// says whether the deferral did anything, and a step that waited seconds is one that sat out a drop
+        /// cinematic (see <see cref="ReleaseCeilingStep"/>).
+        /// </param>
+        private void StartCeilingDescent(float waited)
         {
             //No target to reach if the glass is already as low as it can go — further steps would be a no-op and
             //a needless log, and clamping here is what stops an inconsistent level (more steps than the geometry
@@ -952,7 +973,40 @@ namespace BS3D.Screens
             StartCeilingRipple();
 
             Console.WriteLine($"[ceiling] Step to {_ceilingTargetY:F2} (death line {CEILING_DEATH_Y:F2})"
-                + $", shots fired {_score.ShotsFired}");
+                + $", shots fired {_score.ShotsFired}, waited {waited:F2} s");
+        }
+
+        /// <summary>
+        /// Lets a queued ceiling step go, once it will not be read as a punishment for the shot that earned it.
+        /// <para>
+        /// The step comes due on the <b>frame the shot is fired</b>, but the shot leaves at 200 u/s and lands
+        /// about a tenth of a second later — so the glass flashing red and driving its alarm wave down the
+        /// cluster landed on top of the drop cinematic, and a player who had just cut a large group loose was
+        /// shown the game's one punishment animation while watching their reward. It read as having done
+        /// something wrong. Nothing was wrong; only the order was.
+        /// </para>
+        /// <para>
+        /// So a step waits for two things: a short hold, long enough for the shot to land and a cinematic to
+        /// engage if one is going to, and then for that cinematic to be over. It is a <b>count</b> rather than
+        /// a flag because a level with <c>ceilingStep</c> of 1 steps on every shot, and two shots inside the
+        /// hold must not lose one of them; and the hold is re-armed per release rather than shared, so queued
+        /// steps come down one at a time instead of as a single double-height lurch.
+        /// </para>
+        /// </summary>
+        private void ReleaseCeilingStep(float elapsed)
+        {
+            if (_ceilingStepsPending <= 0) return;
+
+            _ceilingStepWaited += elapsed;
+
+            if (_ceilingStepHold > 0f) _ceilingStepHold -= elapsed;
+            if (_ceilingStepHold > 0f || _cinematic.Engaged) return;
+
+            _ceilingStepsPending--;
+            _ceilingStepHold = CEILING_STEP_HOLD;
+
+            StartCeilingDescent(_ceilingStepWaited);
+            _ceilingStepWaited = 0f;
         }
 
         /// <summary>
@@ -1638,6 +1692,10 @@ namespace BS3D.Screens
 
             if (!_cinematic.Engaged) _cinematicSubject.Clear();
 
+            //A step that came due while the shot was in the air waits here for its moment — see
+            //ReleaseCeilingStep. Before the descent update, so a released step slides on the same frame.
+            ReleaseCeilingStep(elapsed);
+
             //Slide the ceiling before the step, so the solver works against the moved body this frame and the
             //contact between a descending cluster and anything below it resolves rather than interpenetrates.
             UpdateCeilingDescent(elapsed);
@@ -1852,7 +1910,14 @@ namespace BS3D.Screens
             //The same shot drives the ceiling's descent: every ceilingStep-th shot steps the glass down. Checked
             //after Shot() so ShotsFired includes the one just fired, and the scorer owns the cadence exactly as it
             //owns the budget — the two pressures are coupled by design, so they are read in one place.
-            if (_score.StepCeilingThisShot()) StartCeilingDescent();
+            //
+            //QUEUED rather than started, because the shot has not landed yet and the descent must not collide
+            //with what it is about to do — see ReleaseCeilingStep.
+            if (_score.StepCeilingThisShot())
+            {
+                _ceilingStepsPending++;
+                _ceilingStepHold = CEILING_STEP_HOLD;
+            }
 
             //Registered after the body exists, since a listener is keyed on its collidable reference
             _events.Register(_simulation.Bodies[handle].CollidableReference, _eventHandler);
