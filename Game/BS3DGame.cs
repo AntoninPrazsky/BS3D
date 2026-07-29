@@ -84,6 +84,10 @@ namespace BS3D
 
         private RecoilCamera _camera;
 
+        //Procedurally synthesized SFX (shot, landing). Built once in LoadContent and shared by the gameplay
+        //screen and, later, the menu — same pattern as the camera.
+        private ProceduralAudio _audio;
+
         //Wall clock. Everything alive in the scene runs off it — the balls' heartbeat, the city's windows —
         //so none of it is tied to a simulation that may later be paused.
         private float _wallClock;
@@ -92,6 +96,9 @@ namespace BS3D
 
         /// <summary>The one camera. The front end's backdrop orbits it; the gameplay screen poses it while playing.</summary>
         internal RecoilCamera Camera => _camera;
+
+        /// <summary>Procedurally generated SFX, shared by the gameplay screen and the menu.</summary>
+        internal ProceduralAudio Audio => _audio;
 
         /// <summary>The wall clock everything alive runs off, paused or not.</summary>
         internal float WallClock => _wallClock;
@@ -1144,6 +1151,10 @@ namespace BS3D
             //it is made here with the device up; the backdrop is the scene-only frame the menus stand over.
             _backdrop = new BackdropScreen(this);
             _gameplayScreen = new GameplayScreen(this);
+
+            //The SFX are synthesized from raw PCM here, once, so the per-event paths only ever play a buffer —
+            //no asset files, no pipeline step.
+            _audio = new ProceduralAudio();
 
             BuildMenu();
         }
@@ -2933,6 +2944,9 @@ namespace BS3D
             //The session: the simulation, the contact events, the dispatcher, the pool and the shot-trail
             //buffers all live on the gameplay screen now, which disposes them in the order they need
             _gameplayScreen?.DisposeResources();
+
+            //The synthesized SFX buffers were built in LoadContent and outlive every session.
+            _audio?.Dispose();
 
             base.UnloadContent();
         }

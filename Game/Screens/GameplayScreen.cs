@@ -1065,6 +1065,10 @@ namespace BS3D.Screens
         /// </summary>
         private void OnBallLanded(BallLanding landing)
         {
+            //The landing's own sound, before anything is scored: it depends only on the colour that hit and
+            //where, not on what came loose. Panned against the camera so a hit on the left is heard on the left.
+            Game.Audio.PlayLanded(landing.Type, landing.World, Camera);
+
             ScoreAward award = _score.Landed(landing.Released.Matched, landing.Released.Orphaned);
 
             //What the shot was worth, born on the cell it landed in and flown into the corner from there. The
@@ -1810,6 +1814,10 @@ namespace BS3D.Screens
             //Fired, therefore felt. Nothing else in the frame moves the camera, so every wobble the player
             //sees is unambiguously their own shot.
             Camera.Shake.Kick(RECOIL_KICK);
+
+            //Heard as well as felt: the shot's synthesized crack, centred (the muzzle is the lens's own work)
+            //and nudged by a small random pitch so a burst never sounds flat.
+            Game.Audio.PlayShoot();
         }
 
         private void AdvanceMagazine()
