@@ -44,8 +44,8 @@ namespace Prazsky.BS3D.Levels
 
         /// <summary>
         /// The scene backdrop and its full configuration, polymorphic on the "kind" discriminator
-        /// ("sea"/"desert"/"savanna"/"mountain"/"meadow"/"city"). Null leaves the consumer's current
-        /// backdrop untouched (the Testbed keeps whatever scene is up).
+        /// ("sea"/"desert"/"savanna"/"mountain"/"meadow"/"city"/"forest"/"space"). Null leaves the consumer's
+        /// current backdrop untouched (the Testbed keeps whatever scene is up).
         /// </summary>
         [JsonPropertyName("scene")]
         public SceneConfig Scene { get; set; }

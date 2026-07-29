@@ -140,6 +140,12 @@
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/Forest.fx;Shaders/Forest.fx
 
+#begin ../../Testbed/Content/Shaders/Space.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Space.fx;Shaders/Space.fx
+
 #begin ../../Testbed/Content/Skyes/SkyDome13.dae
 /importer:XImporter
 /processor:ModelProcessor

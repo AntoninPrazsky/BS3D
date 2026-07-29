@@ -368,16 +368,17 @@ namespace BS3D
         /// Whether the shot may go <b>under</b> the island. It is a property of the scene and not of the roll,
         /// because it is a question about what is opaque down there.
         /// <para>
-        /// The two cities continue underneath the arena and fall away into a canyon, and the sea is water the
-        /// lens can dive into — in both, the drain's glass is translucent, so from below the balls read right
-        /// through the cone and then pour out of the hole. The four solid-terrain scenes are a flat clearing
-        /// with the island's footprint cut out of it and a <b>near-black pit shaft hugging the glass</b>: the
-        /// ground is a lid, the shaft is opaque, and there is no vantage under there that can see a ball at
-        /// all. Those shots stay over the stone and look down through the mouth, which is the only hole in it.
+        /// The two cities continue underneath the arena and fall away into a canyon, the sea is water the lens
+        /// can dive into, and space is nothing at all — in each, the drain's glass is translucent, so from
+        /// below the balls read right through the cone and then pour out of the hole. The solid-terrain scenes
+        /// are a flat clearing with the island's footprint cut out of it and a <b>near-black pit shaft hugging
+        /// the glass</b>: the ground is a lid, the shaft is opaque, and there is no vantage under there that
+        /// can see a ball at all. Those shots stay over the stone and look down through the mouth, which is
+        /// the only hole in it.
         /// </para>
         /// </summary>
         private static bool OpenBelow(SceneKind scene) =>
-            scene is SceneKind.City or SceneKind.NeonCity or SceneKind.Sea;
+            scene is SceneKind.City or SceneKind.NeonCity or SceneKind.Sea or SceneKind.Space;
 
         /// <summary>
         /// Moves the lens off anything solid it would otherwise sit inside or try to look through. Every rule

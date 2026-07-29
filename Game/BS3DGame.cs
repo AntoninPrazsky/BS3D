@@ -183,6 +183,11 @@ namespace BS3D
         private const byte SEA_SKY_DOME = 13;
         private const byte SAVANNA_SKY_DOME = 14;
 
+        //Space deliberately forces NO dome, unlike those two. Its dome is neither drawn (Space.fx covers the
+        //whole frame) nor read (SpaceLightingConfig states the light rig instead, for the reasons set out
+        //there) — so it is completely inert in that scene, and changing the player's dome behind their back to
+        //no visible effect would be a silent side effect rather than a setting. Whatever is up stays up.
+
         private byte _skyDome = DEFAULT_SKY_DOME;
 
         /// <summary>
@@ -195,9 +200,9 @@ namespace BS3D
         private SceneKind _scene = SceneKind.NeonCity;
 
         //Every value of the enum, in its declared order (City, Sea, Savanna, Desert, Mountain, Meadow,
-        //NeonCity, Forest). Written out rather than counted with Enum.GetValues so nothing walks reflection at
-        //load, and so the scene menu's labels below can be indexed by the same number.
-        internal const int SCENE_COUNT = 8;
+        //NeonCity, Forest, Space). Written out rather than counted with Enum.GetValues so nothing walks
+        //reflection at load, and so the scene menu's labels below can be indexed by the same number.
+        internal const int SCENE_COUNT = 9;
 
         private SceneRenderer _sceneRenderer;
 
@@ -718,10 +723,10 @@ namespace BS3D
         private const float EXPOSURE_MAX = 1.5f;
         private const float EXPOSURE_STEP = 0.2f;
 
-        //In the declared order of SceneKind (City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest),
-        //so the scene list can be indexed by the enum's own value
+        //In the declared order of SceneKind (City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest,
+        //Space), so the scene list can be indexed by the enum's own value
         internal static readonly string[] SCENE_NAMES =
-            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest" };
+            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space" };
 
         #endregion
 
@@ -1092,7 +1097,11 @@ namespace BS3D
             //The five self-lit backdrops, shared with the Testbed and the map editor — one copy of every
             //scene shader, built out of the Testbed's content directory. The hole radius is fixed (the island
             //never moves or resizes here), so it is set once rather than per frame.
-            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content) { TerrainHoleRadius = TERRAIN_HOLE_RADIUS };
+            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content)
+            {
+                TerrainHoleRadius = TERRAIN_HOLE_RADIUS,
+                SupersampleFactor = _supersampleFactor
+            };
 
             BuildScene();
 
@@ -2097,14 +2106,28 @@ namespace BS3D
             _zenithLinear = ColorSpace.SrgbToLinear(_sky.ZenithColor);
             _horizonLinear = ColorSpace.SrgbToLinear(_sky.HorizonColor);
 
+            Vector3 skyAmbient = _zenithLinear * 1.3f;
+            Vector3 groundAmbient = _horizonLinear * 0.75f;      //bounce from below is dimmer than the sky
             Vector3 keyTint = Vector3.Lerp(Vector3.One, _horizonLinear, SKY_TINT_STRENGTH);
             Vector3 backTint = Vector3.Lerp(Vector3.One, _zenithLinear, SKY_TINT_STRENGTH);
+
+            //Space states its own rig, because it draws no dome and a dome-derived one would be a lie — and
+            //the particular lie is expensive: reaching for the darkest dome to get a dark sky halves the sun
+            //through the key tint and takes the metallic drain beads with it. Every other scene's rig is the
+            //dome's, and everything below this — the key light's position, the renderers walked — is shared.
+            if (_sceneRenderer != null && _sceneRenderer.TryGetLightRig(_scene, out SceneLightRig rig))
+            {
+                skyAmbient = rig.SkyAmbient;
+                groundAmbient = rig.GroundAmbient;
+                keyTint = rig.KeyTint;
+                backTint = rig.BackTint;
+            }
 
             foreach (InstancedModelRenderer renderer in SkyLitRenderers())
             {
                 renderer.LinearLightRig = true;
-                renderer.SkyColor = _zenithLinear * 1.3f;
-                renderer.GroundColor = _horizonLinear * 0.75f;   //bounce from below is dimmer than the sky
+                renderer.SkyColor = skyAmbient;
+                renderer.GroundColor = groundAmbient;
                 renderer.KeyLightPosition = -DefaultLighting.Light0Direction * 40f;
                 renderer.SetLightTint(keyTint, backTint);
             }
@@ -2255,6 +2278,16 @@ namespace BS3D
                 _sceneLightPos[0] = _sceneRenderer.SavannaCampfirePosition;
                 _sceneLightColor[0] = _sceneRenderer.CampfireColor(_wallClock);
                 _sceneLightRange[0] = _sceneRenderer.SavannaCampfireRange;
+                count = 1;
+            }
+            else if (_sceneRenderer.TryGetSpacePlanetshine(_scene, out Vector3 shinePosition, out Vector3 shineColor, out float shineRange))
+            {
+                //Planetshine: the light the planet throws back on the island's flank. A real light rather than
+                //more ambient, so it is directional and so the metallic drain beads — which have almost
+                //nothing but reflections to show — get a highlight back out of it.
+                _sceneLightPos[0] = shinePosition;
+                _sceneLightColor[0] = shineColor;
+                _sceneLightRange[0] = shineRange;
                 count = 1;
             }
 
@@ -2461,6 +2494,13 @@ namespace BS3D
 
             _tonemapEffect.Parameters["SupersampleFactor"].SetValue(_supersampleFactor);
 
+            //The space scene sizes its stars in OUTPUT pixels rather than in texels, so it has to be told the
+            //factor too — sized in texels a star would come out four times dimmer on High than on Medium.
+            //Guarded only as insurance against a future caller: every path that reaches here today
+            //(LoadContent's ApplyQuality, the settings row, the adaptive step) runs after the renderer is
+            //constructed. Unlike the settings page below, this is not a live case.
+            if (_sceneRenderer != null) _sceneRenderer.SupersampleFactor = _supersampleFactor;
+
             //The factor is the scene target's size, so changing it is exactly what makes EnsureSceneTarget
             //recreate the target rather than recognize it as the one already there
             EnsureSceneTarget();
@@ -2602,25 +2642,37 @@ namespace BS3D
             //Cleared to the dome's horizon colour rather than a fixed one: at a wide aspect the bottom
             //corners can look below the horizon past both the dome and the island, and there any other
             //colour shows up as a band instead of blending into the hazed skyline.
-            GraphicsDevice.Clear(new Color(_horizonLinear));
+            //Space has no dome and no horizon, so it clears to black instead: Space.fx covers every pixel of
+            //the frame, and black is what would show if it ever did not.
+            GraphicsDevice.Clear(_scene == SceneKind.Space ? Color.Black : new Color(_horizonLinear));
 
             //The weather runs off the same wall clock the balls pulse to, so it keeps drifting whatever the
             //game does. Handed to both shaders from the one field, which is what keeps the cloud the player
             //looks at and the shadow it throws across the cluster the same cloud.
+            //
+            //Space is the one scene with no weather at all: its dome is not drawn (Space.fx covers the frame),
+            //and the cloud coverage is zeroed on the instanced effect so the cluster, island and gun are not
+            //crossed by the shadows of a deck nobody can see — InstancedModel.fx calls CloudSunlight
+            //unconditionally, and a gain left standing from the scene before would go on shadowing this one.
             _clouds.Time = _wallClock;
-            _clouds.ApplyTo(_skyEffect);
-            _clouds.ApplyTo(_instancingEffect);
 
-            _skyCameraPositionParam.SetValue(_camera.Position);
+            if (_scene == SceneKind.Space) _clouds.SuppressOn(_instancingEffect);
+            else
+            {
+                _clouds.ApplyTo(_skyEffect);
+                _clouds.ApplyTo(_instancingEffect);
 
-            //Stated before the frame's first draw rather than only after it. SkyDome.Draw sets the sampler
-            //and the depth state it needs but neither the blend nor the cull mode, and what ran last is the
-            //overlay's SpriteBatch (AlphaBlend, CullCounterClockwise) over the tonemap's full-screen quad
-            //(Opaque, CullNone) — so the dome would be drawn under whichever of them finished the frame.
-            GraphicsDevice.BlendState = BlendState.Opaque;
-            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+                _skyCameraPositionParam.SetValue(_camera.Position);
 
-            _sky.Draw(_camera);
+                //Stated before the frame's first draw rather than only after it. SkyDome.Draw sets the sampler
+                //and the depth state it needs but neither the blend nor the cull mode, and what ran last is the
+                //overlay's SpriteBatch (AlphaBlend, CullCounterClockwise) over the tonemap's full-screen quad
+                //(Opaque, CullNone) — so the dome would be drawn under whichever of them finished the frame.
+                GraphicsDevice.BlendState = BlendState.Opaque;
+                GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+                _sky.Draw(_camera);
+            }
 
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;

@@ -340,7 +340,9 @@ namespace MapEditor
             //The switchable backdrops, drawn exactly as the game draws them. The self-lit ones live in the
             //shared SceneRenderer; the city is one instanced box mesh under the shared city technique, and it
             //takes part in the sky lighting below like the balls do.
-            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content);
+            //SupersampleFactor: the space scene sizes its stars in OUTPUT pixels rather than in texels, so it
+            //has to be told the factor — sized in texels a star would come out four times dimmer at 2x
+            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content) { SupersampleFactor = SUPERSAMPLE_FACTOR };
             _unitBox = new BoxMesh(GraphicsDevice, 1f, 1f, 1f);
             _city = new City(seed: 20260720, arenaHalfExtent: ARENA_HALF_EXTENT, config: _cityConfig);
             _cityRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, Vector3.One, _instancingEffect)
@@ -478,18 +480,33 @@ namespace MapEditor
             //the mood of the sky (the game calls this figure SKY_TINT_STRENGTH; it is the same 0.5)
             Vector3 keyTint = Vector3.Lerp(Vector3.One, _horizonLinear, SCENE_SKY_TINT);
             Vector3 backTint = Vector3.Lerp(Vector3.One, _zenithLinear, SCENE_SKY_TINT);
+            Vector3 skyAmbient = _zenithLinear * 1.3f;
+            Vector3 groundAmbient = _horizonLinear * 0.75f; //Bounce light from below is dimmer than the sky above
+
+            //The space scene states its own rig instead of deriving one from a dome it never draws, so the
+            //editor has to honour it too — otherwise a space level would draw the right sky and light its balls
+            //by the wrong sun, which is the one thing this editor exists to prevent. It is reachable here
+            //despite V cycling only the first seven scenes: loading a LEVEL sets _scene from the level's own
+            //scene kind, so a space level opened with F1 or dropped on the window lands in it.
+            if (_sceneRenderer != null && _sceneRenderer.TryGetLightRig(_scene, out SceneLightRig rig))
+            {
+                skyAmbient = rig.SkyAmbient;
+                groundAmbient = rig.GroundAmbient;
+                keyTint = rig.KeyTint;
+                backTint = rig.BackTint;
+            }
 
             //The balls and the city are lit the same way — the city takes part in the sky rig like every
             //other instanced object (its facades are dark, but its specular ambient reads the sky)
-            foreach (InstancedModelRenderer renderer in _ballRenderers) ApplySkyLightingTo(renderer, keyTint, backTint);
-            if (_cityRenderer != null) ApplySkyLightingTo(_cityRenderer, keyTint, backTint);
+            foreach (InstancedModelRenderer renderer in _ballRenderers) ApplySkyLightingTo(renderer, skyAmbient, groundAmbient, keyTint, backTint);
+            if (_cityRenderer != null) ApplySkyLightingTo(_cityRenderer, skyAmbient, groundAmbient, keyTint, backTint);
         }
 
-        private void ApplySkyLightingTo(InstancedModelRenderer renderer, Vector3 keyTint, Vector3 backTint)
+        private void ApplySkyLightingTo(InstancedModelRenderer renderer, Vector3 skyAmbient, Vector3 groundAmbient, Vector3 keyTint, Vector3 backTint)
         {
             renderer.LinearLightRig = true;
-            renderer.SkyColor = _zenithLinear * 1.3f;
-            renderer.GroundColor = _horizonLinear * 0.75f; //Bounce light from below is dimmer than the sky above
+            renderer.SkyColor = skyAmbient;
+            renderer.GroundColor = groundAmbient;
             renderer.KeyLightPosition = -DefaultLighting.Light0Direction * 40f;
             renderer.SetLightTint(keyTint, backTint);
         }
@@ -821,9 +838,14 @@ namespace MapEditor
             //Clear to the dome's horizon colour (linear), not a fixed blue, so any pixel the hemisphere dome
             //and the finite scene do not cover - the bottom corners at a wide aspect - blends with the hazed
             //skyline instead of showing through as a blue band (same fix as the game).
-            GraphicsDevice.Clear(new Color(_horizonLinear));
+            //Space has no dome and no horizon, so it clears to black instead: Space.fx covers every pixel of
+            //the frame, and black is what would show if it ever did not.
+            GraphicsDevice.Clear(_scene == SceneKind.Space ? Color.Black : new Color(_horizonLinear));
 
-            _sky.Draw(Camera3D);
+            //Space draws no dome either - the full-screen sky pass would only overdraw it. (The editor sets no
+            //cloud uniforms at all, so unlike the game and the Testbed it has no cloud shadow to suppress:
+            //CloudCoverageGain sits at 0 and CloudSunlight already returns a flat 1.)
+            if (_scene != SceneKind.Space) _sky.Draw(Camera3D);
 
             //Stated after the sky (which sets its own depth state): the backdrop and the balls both want
             //alpha blending, depth on and back-face culling. Drawing the selector also leaves additive

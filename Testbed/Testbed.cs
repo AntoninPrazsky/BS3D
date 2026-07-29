@@ -447,6 +447,10 @@ namespace Testbed
         //entering it defaults the dome to a warm one (dome 14 has the warmest gold horizon of the set).
         private const byte SAVANNA_DEFAULT_SKY_DOME = 14;
 
+        //Space deliberately forces NO dome, unlike those two. Its dome is neither drawn (Space.fx covers the
+        //whole frame) nor read (SpaceLightingConfig states the light rig instead, for the reasons set out
+        //there) - so it is completely inert in that scene, and NumPad1 cycling domes in it changes nothing.
+
         //Scene point lights (the savanna's campfire, the neon city's neon) applied to the shared instanced
         //effect each frame, so the balls, island, cannon and city are lit by them on top of the sun and the
         //dome - present under every dome. MAX matches MAX_SCENE_LIGHTS in the shaders.
@@ -787,13 +791,17 @@ namespace Testbed
             _startupCamPos = camPos;
             _startupCamTarget = camTarget;
 
-            //Testing: "scene=sea/savanna/desert/mountain/meadow/neon" picks the starting environment
+            //Testing: "scene=sea/savanna/desert/mountain/meadow/neon/forest/space" picks the starting
+            //environment. Forest and Space are past the end of the NumPad2 cycle (which still runs % 7, so it
+            //stays on the seven scenes a map is authored against), so this is the only way to reach them here.
             if (string.Equals(scene, "sea", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Sea;
             else if (string.Equals(scene, "savanna", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Savanna;
             else if (string.Equals(scene, "desert", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Desert;
             else if (string.Equals(scene, "mountain", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Mountain;
             else if (string.Equals(scene, "meadow", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Meadow;
             else if (string.Equals(scene, "neon", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.NeonCity;
+            else if (string.Equals(scene, "forest", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Forest;
+            else if (string.Equals(scene, "space", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Space;
             _exposure = exposure > 0f ? exposure : DEFAULT_EXPOSURE;
             _windowed = windowed;
             _startupMapPath = startupMapPath;
@@ -1037,7 +1045,9 @@ namespace Testbed
             //The self-lit outdoor backdrops (sea/savanna/desert/mountain/meadow, with the savanna's acacias, the
             //savanna's and desert's birds and the mountain's snow) all live here now, shared with the map editor
             //so a scene looks the same in both
-            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content);
+            //SupersampleFactor: the space scene sizes its stars in OUTPUT pixels rather than in texels, so it
+            //has to be told what ssaa= settled on — sized in texels a star would be four times dimmer at 2x
+            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content) { SupersampleFactor = _supersampleFactor };
 
             //Cut the island's footprint out of the solid terrain scenes so nothing solid shows through the drain
             //and the funnel below the island reads as a drain into a pit, not a bowl in flat ground (the dark pit
@@ -1207,6 +1217,18 @@ namespace Testbed
             //Bounce light from below is dimmer than the sky above
             Vector3 groundColor = Vector3.Lerp(_horizonLinear * 0.75f, OVERCAST_GROUND, _overcast);
 
+            //Space states its own rig, because it draws no dome and a dome-derived one would be a lie — and
+            //the particular lie is expensive: reaching for the darkest dome to get a dark sky halves the sun
+            //through the key tint above and takes the metallic funnel beads with it. The overcast lerp is
+            //bypassed with it, which is right: there is no weather out there to go overcast.
+            if (_sceneRenderer != null && _sceneRenderer.TryGetLightRig(_scene, out SceneLightRig rig))
+            {
+                skyColor = rig.SkyAmbient;
+                groundColor = rig.GroundAmbient;
+                keyTint = rig.KeyTint;
+                backTint = rig.BackTint;
+            }
+
             foreach (InstancedModelRenderer renderer in SkyLitRenderers())
             {
                 renderer.LinearLightRig = true;
@@ -1350,6 +1372,16 @@ namespace Testbed
                 _sceneLightPos[0] = _sceneRenderer.SavannaCampfirePosition;
                 _sceneLightColor[0] = _sceneRenderer.CampfireColor(_pulseSeconds);
                 _sceneLightRange[0] = _sceneRenderer.SavannaCampfireRange;
+                count = 1;
+            }
+            else if (_sceneRenderer.TryGetSpacePlanetshine(_scene, out Vector3 shinePosition, out Vector3 shineColor, out float shineRange))
+            {
+                //Planetshine: the light the planet throws back on the island's flank. A real light rather than
+                //more ambient, so it is directional and so the metallic funnel beads — which have almost
+                //nothing but reflections to show — get a highlight back out of it.
+                _sceneLightPos[0] = shinePosition;
+                _sceneLightColor[0] = shineColor;
+                _sceneLightRange[0] = shineRange;
                 count = 1;
             }
             else if (_scene == SceneKind.NeonCity)
@@ -2025,18 +2057,30 @@ namespace Testbed
             //corners look below the horizon past the terrain's finite edge, and there a fixed clear colour
             //showed through as a blue band. Clearing to the horizon colour makes any such gap blend seamlessly
             //with the hazed skyline the terrain and dome both fade to there, so it is never seen as a seam.
-            GraphicsDevice.Clear(new Color(_horizonLinear));
+            //Space has no dome and no horizon, so it clears to black instead: Space.fx covers every pixel of
+            //the frame, and black is what would show if it ever did not.
+            GraphicsDevice.Clear(_scene == SceneKind.Space ? Color.Black : new Color(_horizonLinear));
 
             //The clouds run off the same wall clock the balls pulse to, so the weather keeps moving while
             //the simulation is paused or slowed. Handed to both shaders from the one field, which is what
             //keeps the cloud you look at and the shadow it throws the same cloud.
+            //
+            //Space is the one scene with no weather at all: the dome is not drawn (Space.fx covers the frame),
+            //and the cloud coverage is zeroed on the instanced effect so the balls, island and cannon are not
+            //crossed by the shadows of a deck nobody can see - InstancedModel.fx calls CloudSunlight
+            //unconditionally, and a gain left standing from the scene before would go on shadowing this one.
             _clouds.Time = _pulseSeconds;
-            _clouds.ApplyTo(_skyEffect);
-            _clouds.ApplyTo(_instancingEffect);
 
-            _skyCameraPositionParam.SetValue(_camera.Position);
+            if (_scene == SceneKind.Space) _clouds.SuppressOn(_instancingEffect);
+            else
+            {
+                _clouds.ApplyTo(_skyEffect);
+                _clouds.ApplyTo(_instancingEffect);
 
-            _sky.Draw(_camera);
+                _skyCameraPositionParam.SetValue(_camera.Position);
+
+                _sky.Draw(_camera);
+            }
 
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;

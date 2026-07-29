@@ -76,21 +76,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         public void ApplyTo(Effect effect)
         {
-            if (!_slotsByEffect.TryGetValue(effect, out EffectSlots slots))
-            {
-                slots = new EffectSlots
-                {
-                    PlaneY = effect.Parameters["CloudPlaneY"],
-                    Scale = effect.Parameters["CloudScale"],
-                    Time = effect.Parameters["CloudTime"],
-                    CoverageBias = effect.Parameters["CloudCoverageBias"],
-                    CoverageGain = effect.Parameters["CloudCoverageGain"],
-                    ShadowFloor = effect.Parameters["CloudShadowFloor"],
-                    ShadowGain = effect.Parameters["CloudShadowGain"],
-                    Wind = effect.Parameters["CloudWind"]
-                };
-                _slotsByEffect.Add(effect, slots);
-            }
+            EffectSlots slots = SlotsOf(effect);
 
             slots.PlaneY?.SetValue(PlaneY);
             slots.Scale?.SetValue(Scale);
@@ -100,6 +86,41 @@ namespace Prazsky.Core.Render
             slots.ShadowFloor?.SetValue(ShadowFloor);
             slots.ShadowGain?.SetValue(ShadowGain);
             slots.Wind?.SetValue(Wind);
+        }
+
+        /// <summary>
+        /// Tells an effect there is no weather at all: a coverage gain of zero, which is the value
+        /// <c>CloudSunlight</c> in <c>Clouds.fxh</c> reads as "full sun, no shadow" and returns a flat 1 for.
+        /// <para>
+        /// A scene with no sky to hang cloud in still shades its balls, island and gun through
+        /// <c>InstancedModel.fx</c>, which calls <c>CloudSunlight</c> unconditionally — so without this the
+        /// space scene would be crossed by the shadows of a cloud deck it does not draw. Zeroing the gain
+        /// rather than skipping <see cref="ApplyTo"/> is what makes it safe on the frame a scene is switched:
+        /// the parameters keep their last value on the effect between frames, so a gain left standing from
+        /// the scene before would go on shadowing the new one.
+        /// </para>
+        /// </summary>
+        public void SuppressOn(Effect effect) => SlotsOf(effect).CoverageGain?.SetValue(0f);
+
+        /// <summary>This effect's cloud parameters, resolved on first use and cached (see <see cref="_slotsByEffect"/>).</summary>
+        private EffectSlots SlotsOf(Effect effect)
+        {
+            if (_slotsByEffect.TryGetValue(effect, out EffectSlots slots)) return slots;
+
+            slots = new EffectSlots
+            {
+                PlaneY = effect.Parameters["CloudPlaneY"],
+                Scale = effect.Parameters["CloudScale"],
+                Time = effect.Parameters["CloudTime"],
+                CoverageBias = effect.Parameters["CloudCoverageBias"],
+                CoverageGain = effect.Parameters["CloudCoverageGain"],
+                ShadowFloor = effect.Parameters["CloudShadowFloor"],
+                ShadowGain = effect.Parameters["CloudShadowGain"],
+                Wind = effect.Parameters["CloudWind"]
+            };
+            _slotsByEffect.Add(effect, slots);
+
+            return slots;
         }
 
         /// <summary>

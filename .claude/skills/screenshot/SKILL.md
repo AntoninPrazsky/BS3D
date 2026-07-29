@@ -36,7 +36,7 @@ Coordinates are world units, `.` decimal, invariant culture. Useful reference po
 The synthetic-NumPad limitation from the `verify` skill still applies — scene and sky are best set on the
 command line, not by pressing NumPad1/2:
 
-- `scene=<city|sea|savanna|desert|mountain|meadow|neon>` — starting environment.
+- `scene=<city|sea|savanna|desert|mountain|meadow|neon|forest|space>` — starting environment. Forest and space are past the end of the NumPad2 cycle, so `scene=` is the only way to reach them in the Testbed.
 - `sky=<1..18>` — starting sky dome. `ssaa=<n>`, `exposure=<f>`, `nocap`, a map path — as in `verify`.
 
 ## `screenshot.ps1`

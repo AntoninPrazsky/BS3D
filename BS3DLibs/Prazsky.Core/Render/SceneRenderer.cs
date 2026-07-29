@@ -12,8 +12,12 @@ namespace Prazsky.Core.Render
     /// NeonCity and Forest swap the city (and only the city) for open water, a savanna, a Sahara of dunes, a
     /// snowy range, a flowering meadow, the same city lit up in neon, or a forest clearing. Both the game and
     /// the map editor cycle these.
+    /// <para>
+    /// <see cref="Space"/> is the one that is not like the others: it replaces the <b>sky</b> rather than the
+    /// ground, so the island floats in deep space and there is no terrain, no horizon and no weather at all.
+    /// </para>
     /// </summary>
-    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest }
+    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space }
 
     /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,
@@ -43,6 +47,29 @@ namespace Prazsky.Core.Render
             SunColor = sunColor;
             Time = time;
             ApplyClouds = applyClouds;
+        }
+    }
+
+    /// <summary>
+    /// A light rig a scene states for itself in place of the one derived from the sky dome — the hemisphere
+    /// ambient from above and below, and the tints the key and back lights take. Only the space scene has one
+    /// (see <see cref="SceneRenderer.TryGetLightRig"/>); every other scene's rig is the dome's. All four are
+    /// <b>linear</b> radiance, already scaled: they are what the renderer's <c>SkyColor</c>/<c>GroundColor</c>
+    /// and <c>SetLightTint</c> take, not something to be scaled again on the way in.
+    /// </summary>
+    public readonly struct SceneLightRig
+    {
+        public readonly Vector3 SkyAmbient;
+        public readonly Vector3 GroundAmbient;
+        public readonly Vector3 KeyTint;
+        public readonly Vector3 BackTint;
+
+        public SceneLightRig(Vector3 skyAmbient, Vector3 groundAmbient, Vector3 keyTint, Vector3 backTint)
+        {
+            SkyAmbient = skyAmbient;
+            GroundAmbient = groundAmbient;
+            KeyTint = keyTint;
+            BackTint = backTint;
         }
     }
 
@@ -78,6 +105,15 @@ namespace Prazsky.Core.Render
         /// the water and fade in the underwater murk.</summary>
         public float SeaLevelY => _seaConfig.LevelY;
 
+        /// <summary>
+        /// How many scene-target texels make one output pixel — the caller's supersampling factor, which only
+        /// the caller knows (the Game's moves with the quality tier). The space scene sizes its stars in
+        /// <b>output</b> pixels off this: sized in texels instead, a star would come out four times dimmer at
+        /// 2× than at 1×, which is the same sky looking different on two quality settings. Left at 1 it is
+        /// simply the no-supersampling case, so a caller that never sets it still gets a correct sky.
+        /// </summary>
+        public int SupersampleFactor { get; set; } = 1;
+
         //Scene configuration. Defaults reproduce the original hard-coded look byte-for-byte; every scene
         //reads its tuning from these instead of constants. Replaced at runtime by Apply(SceneConfig) when a
         //level is loaded (issue #32), which re-pushes the effect parameters and rebuilds the scatter/particle
@@ -88,6 +124,7 @@ namespace Prazsky.Core.Render
         private MountainSceneConfig _mountainConfig = new();
         private MeadowSceneConfig _meadowConfig = new();
         private ForestSceneConfig _forestConfig = new();
+        private SpaceSceneConfig _spaceConfig = new();
 
         #region Sea
 
@@ -309,6 +346,21 @@ namespace Prazsky.Core.Render
 
         #endregion
 
+        #region Space
+
+        private readonly Effect _spaceEffect;
+
+        //No terrain grid: space replaces the SKY, not the ground, so the whole scene is ONE full-screen pass
+        //over a quad already in normalized device coordinates, with the view ray recovered per pixel through
+        //the inverse view-projection. Four corners drawn as a triangle strip, built once.
+        private readonly VertexBuffer _spaceQuad;
+
+        //The handful of parameters that change per frame, resolved once (BestPractices §1: the by-name
+        //indexer is a linear scan). Everything else is pushed by ApplySpaceParameters when a config lands.
+        private readonly EffectParameter _spaceInverseViewProjection, _spaceCameraPosition, _spaceSunDirection, _spaceSupersample;
+
+        #endregion
+
         /// <param name="content">
         /// A content manager whose root holds the scene shaders under <c>Shaders/</c> (both executables build
         /// <c>Sea.fx</c>, <c>Savanna.fx</c>, <c>Birds.fx</c>, <c>Mountain.fx</c>, <c>Snow.fx</c>, <c>Spray.fx</c>, <c>Meadow.fx</c>
@@ -392,6 +444,27 @@ namespace Prazsky.Core.Render
             CreateGridMesh(FOREST_GRID_N, FOREST_EXTENT, out _forestVertexBuffer, out _forestIndexBuffer, out _forestIndexCount);
 
             ApplyForestParameters();
+
+            //--- Space: the ninth scene, and the only one with no ground at all — a full-screen pass whose
+            //quad is already in normalized device coordinates, so nothing transforms it
+            _spaceEffect = content.Load<Effect>("Shaders/Space");
+
+            VertexPosition[] corners =
+            {
+                new(new Vector3(-1f, 1f, 0f)),
+                new(new Vector3(1f, 1f, 0f)),
+                new(new Vector3(-1f, -1f, 0f)),
+                new(new Vector3(1f, -1f, 0f))
+            };
+            _spaceQuad = new VertexBuffer(graphicsDevice, VertexPosition.VertexDeclaration, corners.Length, BufferUsage.WriteOnly);
+            _spaceQuad.SetData(corners);
+
+            _spaceInverseViewProjection = _spaceEffect.Parameters["InverseViewProjection"];
+            _spaceCameraPosition = _spaceEffect.Parameters["CameraPosition"];
+            _spaceSunDirection = _spaceEffect.Parameters["SunDirection"];
+            _spaceSupersample = _spaceEffect.Parameters["SupersampleFactor"];
+
+            ApplySpaceParameters();
         }
 
         #region Scene-config apply (issue #32)
@@ -438,9 +511,83 @@ namespace Prazsky.Core.Render
                     _forestConfig = forest;
                     ApplyForestParameters();
                     break;
+                case SpaceSceneConfig space:
+                    _spaceConfig = space;
+                    ApplySpaceParameters();
+                    break;
                 case CitySceneConfig:
                     break;
             }
+        }
+
+        /// <summary>
+        /// The light rig a scene states for itself instead of taking the sky dome's, and false when it takes
+        /// the dome's like every other one. Only <see cref="SceneKind.Space"/> states one, and it has to:
+        /// it draws no dome, so a dome-derived rig would be a lie — and the specific lie is expensive, because
+        /// the darkest dome halves the sun through the key tint and takes the metallic drain beads with it.
+        /// See <see cref="SpaceLightingConfig"/> for the argument in full.
+        /// <para>
+        /// The caller applies this in its own <c>ApplySkyLighting</c> in place of the four dome-derived
+        /// values, and everything else there — the key light's position, the renderers it walks — is unchanged.
+        /// </para>
+        /// </summary>
+        public bool TryGetLightRig(SceneKind kind, out SceneLightRig rig)
+        {
+            if (kind != SceneKind.Space)
+            {
+                rig = default;
+                return false;
+            }
+
+            SpaceLightingConfig lighting = _spaceConfig.Lighting;
+            rig = new SceneLightRig(
+                lighting.SkyAmbient.ToVector3(),
+                lighting.GroundAmbient.ToVector3(),
+                lighting.KeyTint.ToVector3(),
+                lighting.BackTint.ToVector3());
+
+            return true;
+        }
+
+        /// <summary>
+        /// The space scene's planetshine, as a scene point light the caller can drop into a slot: the light the
+        /// planet throws back onto the island's flank. False when there is no planet, no planetshine or the
+        /// scene is not space.
+        /// <para>
+        /// A point light rather than more ambient, deliberately. Ambient is directionless, so raising it to get
+        /// a coloured flank flattens the whole scene instead; and a real light also puts a highlight back into
+        /// the drain's gold beads, which being metallic have almost nothing but reflections to show. It stands
+        /// far enough off that the falloff barely varies across the island, so it reads as directional.
+        /// </para>
+        /// </summary>
+        public bool TryGetSpacePlanetshine(SceneKind kind, out Vector3 position, out Vector3 color, out float range)
+        {
+            position = Vector3.Zero;
+            color = Vector3.Zero;
+            range = 0f;
+
+            SpacePlanetConfig planet = _spaceConfig.Planet;
+            SpaceLightingConfig lighting = _spaceConfig.Lighting;
+
+            if (kind != SceneKind.Space || lighting.PlanetshineStrength <= 0f || planet.AngularRadiusDegrees <= 0f) return false;
+
+            Vector3 direction = SafeNormal(planet.Direction.ToVector3(), Vector3.Forward);
+
+            position = direction * lighting.PlanetshineDistance;
+
+            //The planet's own colour is what it reflects back, and its pale bands are what most of the disc
+            //is; normalized so the strength alone says how bright the fill is and the colour only says its hue
+            Vector3 albedo = planet.ColorLight.ToVector3();
+            float peak = MathF.Max(MathF.Max(albedo.X, albedo.Y), MathF.Max(albedo.Z, 1e-4f));
+
+            color = albedo / peak * lighting.PlanetshineStrength;
+
+            //The falloff is (1 - d/range)^2, so the light has to stand well inside its own range or it
+            //arrives as nothing. At three times the distance it is 4/9 of full here and varies by a few per
+            //cent across the island, which is what makes a point light stand in for a distant one.
+            range = lighting.PlanetshineDistance * 3f;
+
+            return true;
         }
 
         /// <summary>
@@ -456,6 +603,7 @@ namespace Prazsky.Core.Render
             SceneKind.Mountain => _mountainConfig,
             SceneKind.Meadow => _meadowConfig,
             SceneKind.Forest => _forestConfig,
+            SceneKind.Space => _spaceConfig,
             _ => null,
         };
 
@@ -815,6 +963,109 @@ namespace Prazsky.Core.Render
             _forestEffect.Parameters["NeedleReliefFrequency"].SetValue(_forestConfig.NeedleReliefFrequency);
         }
 
+        /// <summary>
+        /// Pushes the whole space sky at the shader. Everything here is fixed for as long as the config is —
+        /// the sky does not move, there is no wind and no weather — so this runs on a config change and never
+        /// per frame; only the camera, the sun and the supersampling factor go out in <see cref="DrawSpace"/>.
+        /// <para>
+        /// Two conversions happen here rather than in the shader, and both are deliberate. Angles are authored
+        /// in <b>degrees</b> and arrive as radians, because a designer types "twelve degrees across". And the
+        /// directions are normalized — with the galactic core <b>orthogonalised against the pole</b> — so a
+        /// hand-typed pair never has to be exactly perpendicular for the bulge to sit in the plane.
+        /// </para>
+        /// </summary>
+        private void ApplySpaceParameters()
+        {
+            SpaceSceneConfig space = _spaceConfig;
+
+            _spaceEffect.Parameters["VoidColor"].SetValue(space.VoidColor.ToVector3());
+
+            SpaceStarsConfig stars = space.Stars;
+            _spaceEffect.Parameters["StarCellScale"].SetValue(new[] { stars.BrightCellScale, stars.MediumCellScale, stars.FaintCellScale });
+            _spaceEffect.Parameters["StarChance"].SetValue(new[] { stars.BrightChance, stars.MediumChance, stars.FaintChance });
+            _spaceEffect.Parameters["StarPeak"].SetValue(new[] { stars.BrightPeak, stars.MediumPeak, stars.FaintPeak });
+            _spaceEffect.Parameters["StarSpread"].SetValue(stars.Spread);
+            _spaceEffect.Parameters["StarFalloff"].SetValue(stars.Falloff);
+            _spaceEffect.Parameters["StarSpikeThreshold"].SetValue(stars.SpikeThreshold);
+            _spaceEffect.Parameters["StarSpikeLength"].SetValue(stars.SpikeLength);
+
+            SpaceMilkyWayConfig milkyWay = space.MilkyWay;
+            Vector3 pole = SafeNormal(milkyWay.Pole.ToVector3(), Vector3.Up);
+
+            //The bulge has to lie in the galactic plane or the band's brightest part sits off it, so whatever
+            //was typed is projected onto the plane before it is used. If the two happen to be parallel the
+            //projection vanishes, and any direction in the plane will do.
+            Vector3 core = milkyWay.CoreDirection.ToVector3() - pole * Vector3.Dot(milkyWay.CoreDirection.ToVector3(), pole);
+            core = SafeNormal(core, AnyPerpendicular(pole));
+
+            _spaceEffect.Parameters["GalacticPole"].SetValue(pole);
+            _spaceEffect.Parameters["GalacticCore"].SetValue(core);
+            _spaceEffect.Parameters["MilkyWayWidth"].SetValue(milkyWay.Width);
+            _spaceEffect.Parameters["MilkyWayBrightness"].SetValue(milkyWay.Brightness);
+            _spaceEffect.Parameters["MilkyWayColor"].SetValue(milkyWay.Color.ToVector3());
+            _spaceEffect.Parameters["MilkyWayCoreColor"].SetValue(milkyWay.CoreColor.ToVector3());
+            _spaceEffect.Parameters["MilkyWayDust"].SetValue(milkyWay.Dust);
+            _spaceEffect.Parameters["MilkyWayStarBoost"].SetValue(milkyWay.StarBoost);
+
+            SpaceNebulaConfig[] nebulae = { space.NebulaOne, space.NebulaTwo, space.NebulaThree };
+            Vector3[] nebulaDirections = new Vector3[nebulae.Length];
+            Vector3[] nebulaColors = new Vector3[nebulae.Length];
+            Vector4[] nebulaShapes = new Vector4[nebulae.Length];
+
+            for (int i = 0; i < nebulae.Length; i++)
+            {
+                nebulaDirections[i] = SafeNormal(nebulae[i].Direction.ToVector3(), Vector3.Forward);
+                nebulaColors[i] = nebulae[i].Color.ToVector3();
+                nebulaShapes[i] = new Vector4(
+                    MathHelper.ToRadians(nebulae[i].AngularRadiusDegrees),
+                    nebulae[i].Strength,
+                    nebulae[i].DetailScale,
+                    nebulae[i].Warp);
+            }
+
+            _spaceEffect.Parameters["NebulaDirection"].SetValue(nebulaDirections);
+            _spaceEffect.Parameters["NebulaColor"].SetValue(nebulaColors);
+            _spaceEffect.Parameters["NebulaShape"].SetValue(nebulaShapes);
+
+            SpaceGalaxyConfig galaxies = space.Galaxies;
+            _spaceEffect.Parameters["GalaxyCellScale"].SetValue(galaxies.CellScale);
+            _spaceEffect.Parameters["GalaxyChance"].SetValue(galaxies.Chance);
+            _spaceEffect.Parameters["GalaxySize"].SetValue(MathHelper.ToRadians(galaxies.AngularSizeDegrees));
+            _spaceEffect.Parameters["GalaxyBrightness"].SetValue(galaxies.Brightness);
+            _spaceEffect.Parameters["GalaxyColor"].SetValue(galaxies.Color.ToVector3());
+
+            SpacePlanetConfig planet = space.Planet;
+            _spaceEffect.Parameters["PlanetDirection"].SetValue(SafeNormal(planet.Direction.ToVector3(), Vector3.Forward));
+            _spaceEffect.Parameters["PlanetAngularRadius"].SetValue(MathHelper.ToRadians(planet.AngularRadiusDegrees));
+            _spaceEffect.Parameters["PlanetAxis"].SetValue(SafeNormal(planet.Axis.ToVector3(), Vector3.Up));
+            _spaceEffect.Parameters["PlanetColorLight"].SetValue(planet.ColorLight.ToVector3());
+            _spaceEffect.Parameters["PlanetColorDark"].SetValue(planet.ColorDark.ToVector3());
+            _spaceEffect.Parameters["PlanetStormColor"].SetValue(planet.StormColor.ToVector3());
+            _spaceEffect.Parameters["PlanetRimColor"].SetValue(planet.RimColor.ToVector3());
+            _spaceEffect.Parameters["PlanetBandScale"].SetValue(planet.BandScale);
+            _spaceEffect.Parameters["PlanetRimStrength"].SetValue(planet.RimStrength);
+            _spaceEffect.Parameters["PlanetNightAmbient"].SetValue(planet.NightAmbient);
+        }
+
+        /// <summary>
+        /// Normalizes a config direction, falling back to <paramref name="fallback"/> for the degenerate zero
+        /// vector — these are hand-typed values in a JSON file and in a property grid, where a zero is one
+        /// keystroke away, and a NaN direction would take the whole sky with it.
+        /// </summary>
+        private static Vector3 SafeNormal(Vector3 direction, Vector3 fallback) =>
+            direction.LengthSquared() > 1e-8f ? Vector3.Normalize(direction) : fallback;
+
+        /// <summary>
+        /// Some unit vector perpendicular to <paramref name="axis"/>, mirroring <c>Space.fx</c>'s
+        /// <c>BuildFrame</c>: the reference vector is swapped near the pole so the cross product cannot
+        /// degenerate, whatever axis the config states. It is a <see cref="SafeNormal"/> fallback that is
+        /// itself never zero, which the obvious <c>Cross(axis, Vector3.Right)</c> is not — that one collapses
+        /// for an axis along X, and a zero galactic core would flatten the band's whole core gradient rather
+        /// than announcing itself.
+        /// </summary>
+        private static Vector3 AnyPerpendicular(Vector3 axis) =>
+            Vector3.Normalize(Vector3.Cross(MathF.Abs(axis.Y) < 0.9f ? Vector3.Up : Vector3.Right, axis));
+
         #endregion
 
         /// <summary>
@@ -864,10 +1115,15 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Draws the far environment for a natural scene — the sea, the savanna (with its acacias and birds),
-        /// the Sahara dunes (with the same birds), the snowy range or the meadow. A no-op for
-        /// <see cref="SceneKind.City"/>/<see cref="SceneKind.NeonCity"/>,
+        /// the Sahara dunes (with the same birds), the snowy range, the meadow, the forest floor, or deep space.
+        /// A no-op for <see cref="SceneKind.City"/>/<see cref="SceneKind.NeonCity"/>,
         /// which the caller draws itself. Opaque, so it stands in for the city as the thing the arena glass
         /// shows beneath it; it leaves the alpha-blend / back-face-cull state the rest of the opaque scene wants.
+        /// <para>
+        /// <see cref="SceneKind.Space"/> is the one case that also touches the <b>depth</b> state — it is a
+        /// background rather than geometry, so it draws with <see cref="DepthStencilState.None"/> — and it
+        /// therefore restores <see cref="DepthStencilState.Default"/> on the way out as well.
+        /// </para>
         /// </summary>
         public void DrawEnvironment(SceneKind scene, in SceneFrame frame)
         {
@@ -893,6 +1149,9 @@ namespace Prazsky.Core.Render
                     break;
                 case SceneKind.Forest:
                     DrawForest(frame);
+                    break;
+                case SceneKind.Space:
+                    DrawSpace(frame);
                     break;
             }
         }
@@ -1346,8 +1605,46 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
+        /// <summary>
+        /// Draws deep space: one full-screen pass over a quad already in normalized device coordinates, the
+        /// view ray recovered per pixel from the inverse view-projection. The odd one out among these draws,
+        /// and every difference follows from replacing the <b>sky</b> rather than the ground:
+        /// <list type="bullet">
+        /// <item>No grid, no camera snapping and no <c>OriginXZ</c> — there is nothing on the ground to swim.</item>
+        /// <item>No <c>IslandHoleRadius</c> — nothing is cut out, because nothing is drawn under the island.</item>
+        /// <item>No cloud hook — space has no weather, and the caller suppresses the cloud shadow on the
+        /// instanced effect so the island and the balls are not crossed by a deck that is not drawn.</item>
+        /// <item><see cref="DepthStencilState.None"/> rather than the usual depth-writing opaque draw: this is
+        /// the background, so it writes no depth and everything drawn after it simply covers it.</item>
+        /// </list>
+        /// </summary>
+        private void DrawSpace(in SceneFrame frame)
+        {
+            //Row vectors, as everywhere else in this project: a world point goes out through View then
+            //Projection, so a clip-space corner comes back through the inverse of that product.
+            _spaceInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
+            _spaceCameraPosition.SetValue(frame.Camera.Position);
+            _spaceSunDirection.SetValue(frame.SunDirection);
+            _spaceSupersample.SetValue((float)SupersampleFactor);
+
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.DepthStencilState = DepthStencilState.None;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _graphicsDevice.SetVertexBuffer(_spaceQuad);
+            _spaceEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+
+            //Put back what the rest of the opaque scene wants. The depth state especially: left at None, the
+            //island would not occlude the cluster and the whole frame would draw in submission order.
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
         public void Dispose()
         {
+            _spaceQuad?.Dispose();
 
             _seaVertexBuffer?.Dispose();
             _seaIndexBuffer?.Dispose();
