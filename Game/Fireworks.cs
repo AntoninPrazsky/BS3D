@@ -26,7 +26,7 @@ namespace BS3D
     public sealed class Fireworks : IDisposable
     {
         /// <summary>Concurrent shells. Must match <c>MAX_SHELLS</c> in Fireworks.fx.</summary>
-        public const int MAX_SHELLS = 14;
+        public const int MAX_SHELLS = 32;
 
         //Sparks in a shell. The whole buffer is MAX_SHELLS * this quads, which has to stay under the 16-bit
         //index limit of 65 536 vertices — at 320 that is 17 920, comfortably inside it. (CreateGridMesh's own
@@ -37,24 +37,34 @@ namespace BS3D
         //hundred pixels apart and the whole thing reads as three or four lonely glints rather than as an
         //explosion. Spark COUNT and spark SIZE both have to scale with the burst radius or a bigger shell
         //looks emptier than a small one, which is exactly backwards.
-        private const int SPARKS_PER_SHELL = 320;
+        //
+        //At 32 shells this is 6 400 quads, 25 600 vertices — the ceiling here is the 16-bit index buffer, and
+        //MAX_SHELLS * SPARKS_PER_SHELL * 4 must stay under 65 536. Raising either without checking that is how
+        //far triangles quietly start referencing the wrong vertices (the lesson CreateGridMesh's grids taught).
+        private const int SPARKS_PER_SHELL = 200;
 
         //Where the shells are fired from and where they go off. The ring sits outside the island (radius 26)
         //so a launch is never inside the stone, and the burst ceiling is high enough that a burst clears the
         //hanging cluster and reads against open sky rather than through the map.
-        private const float LAUNCH_RING_MIN = 34f, LAUNCH_RING_MAX = 78f;
+        private const float LAUNCH_RING_MIN = 34f, LAUNCH_RING_MAX = 110f;
         private const float LAUNCH_Y = -8f;
-        private const float BURST_Y_MIN = 40f, BURST_Y_MAX = 88f;
+
+        //Spread wide and high, because the brief is a sky FULL of them rather than a few over the arena. The
+        //play camera looks up at the cluster, so bursts below about 40 fall behind it and are never seen; the
+        //ceiling is set by the far plane and by the shells staying large enough to read.
+        private const float BURST_Y_MIN = 44f, BURST_Y_MAX = 122f;
         private const float BURST_SPREAD = 52f;
 
         private const float RISE_MIN = 0.95f, RISE_MAX = 1.45f;
         private const float RADIUS_MIN = 19f, RADIUS_MAX = 40f;
         private const float LIFE_MIN = 1.9f, LIFE_MAX = 3.0f;
 
-        //Seconds between launches. The opening burst of a celebration is deliberately faster than the rest:
-        //the moment the field clears wants everything at once, and then it settles into a rhythm.
-        private const float INTERVAL_OPENING = 0.16f, INTERVAL_STEADY = 0.34f;
-        private const float OPENING_SECONDS = 1.6f;
+        //Seconds between launches. The opening barrage of a celebration is deliberately faster than the rest:
+        //the moment the field clears wants everything at once, and then it settles into a rhythm — but even
+        //the rhythm is dense here, because the brief is "a lot of them". At a steady 0.17 s against a rise of
+        //~1.2 s and a life of ~2.5 s there are around twenty shells in the air at once.
+        private const float INTERVAL_OPENING = 0.07f, INTERVAL_STEADY = 0.17f;
+        private const float OPENING_SECONDS = 2.2f;
 
         //Linear radiance. GLARE_THRESHOLD is 0.55 on luminance and these are meant to be far over it — a
         //firework that does not bloom is a coloured dot. The hues are chosen saturated and then multiplied,
@@ -242,7 +252,7 @@ namespace BS3D
             //The burst drifts from over the launch point rather than being placed independently, so a shell
             //visibly goes up from where it was fired instead of sliding across the sky on its way.
             float burstAngle = launchAngle + (float)(_random.NextDouble() - 0.5) * 0.9f;
-            float burstRadius = launchRadius * 0.55f + (float)_random.NextDouble() * BURST_SPREAD * 0.35f;
+            float burstRadius = launchRadius * 0.75f + (float)_random.NextDouble() * BURST_SPREAD * 0.5f;
 
             Vector3 burst = new(
                 MathF.Cos(burstAngle) * burstRadius,

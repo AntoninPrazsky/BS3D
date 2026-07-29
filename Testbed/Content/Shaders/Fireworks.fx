@@ -15,7 +15,7 @@
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0
 
-#define MAX_SHELLS 14
+#define MAX_SHELLS 32
 
 float4x4 View;
 float4x4 Projection;
