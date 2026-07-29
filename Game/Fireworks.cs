@@ -59,12 +59,15 @@ namespace BS3D
         private const float RADIUS_MIN = 19f, RADIUS_MAX = 40f;
         private const float LIFE_MIN = 1.9f, LIFE_MAX = 3.0f;
 
-        //Seconds between launches. The opening barrage of a celebration is deliberately faster than the rest:
-        //the moment the field clears wants everything at once, and then it settles into a rhythm — but even
-        //the rhythm is dense here, because the brief is "a lot of them". At a steady 0.17 s against a rise of
-        //~1.2 s and a life of ~2.5 s there are around twenty shells in the air at once.
-        private const float INTERVAL_OPENING = 0.07f, INTERVAL_STEADY = 0.17f;
-        private const float OPENING_SECONDS = 2.2f;
+        //Seconds between launches, in three phases. The opening barrage is deliberately the fastest — the
+        //moment the field clears wants everything at once — and it then settles; at a steady 0.17 s against a
+        //rise of ~1.2 s and a life of ~2.5 s there are around twenty shells in the air.
+        //
+        //And then it EASES OFF. The display now runs for a minute so it is still going while the player reads
+        //their score, and a full minute at the barrage's density is exhausting rather than celebratory: past
+        //RELAXED_AFTER it thins to a shell every half-second, which keeps the sky busy without shouting.
+        private const float INTERVAL_OPENING = 0.07f, INTERVAL_STEADY = 0.17f, INTERVAL_RELAXED = 0.52f;
+        private const float OPENING_SECONDS = 2.2f, RELAXED_AFTER = 16f;
 
         //Linear radiance. GLARE_THRESHOLD is 0.55 on luminance and these are meant to be far over it — a
         //firework that does not bloom is a coloured dot. The hues are chosen saturated and then multiplied,
@@ -126,6 +129,8 @@ namespace BS3D
         private float _remaining;        //seconds of celebration left to launch into
         private float _untilNextLaunch;
         private float _sinceStart;
+        private float _delay;            //seconds still to wait before the first shell goes up
+        private bool _popped;            //the opening crack has been played for this celebration
 
         /// <summary>True while anything is still in the air, so a caller can hold a screen until it is over.</summary>
         public bool Active
@@ -176,25 +181,30 @@ namespace BS3D
         /// one is already running — it takes the longer of the two rather than restarting, so a second call
         /// cannot cut a display short.
         /// </summary>
-        public void Celebrate(float seconds)
+        /// <param name="delay">
+        /// Seconds to wait before the first shell goes up. It exists so the victory fanfare gets its opening
+        /// statement to itself: the level ends, brass announces it, and only then does the sky start going off
+        /// — which reads as a celebration answering the announcement rather than as everything happening at
+        /// once and nothing being heard.
+        /// </param>
+        public void Celebrate(float seconds, float delay = 0f)
         {
             bool wasIdle = _remaining <= 0f;
 
-            _remaining = MathF.Max(_remaining, seconds);
+            _remaining = MathF.Max(_remaining, seconds + delay);
             if (!wasIdle) return;
 
             _sinceStart = 0f;
             _untilNextLaunch = 0f;
-
-            //The one sound in the celebration that happens in the room rather than in the sky, and it lands on
-            //the frame the field clears — before the first shell has even left the ground.
-            _audio?.PlayPartyPopper();
+            _delay = delay;
+            _popped = false;
         }
 
         /// <summary>Ends the display and clears anything still in the air. Called when a level is built.</summary>
         public void Stop()
         {
             _remaining = 0f;
+            _delay = 0f;
             for (int i = 0; i < _shells.Length; i++) _shells[i].Active = false;
         }
 
@@ -227,6 +237,25 @@ namespace BS3D
             if (_remaining <= 0f) return;
 
             _remaining -= elapsed;
+
+            //The wait before the first shell.
+            if (_delay > 0f)
+            {
+                _delay -= elapsed;
+                if (_delay > 0f) return;
+            }
+
+            //The popper fires when the display STARTS rather than when the celebration was asked for, because
+            //it is the fireworks' own opening crack — announcing them, not the win, which the fanfare has
+            //already done. Flagged rather than hung off the delay reaching zero: at a delay of nothing that
+            //branch never runs, and the opening crack of a celebration is not something to lose to an edge
+            //case (the `celebrate` test argument asks for exactly that case).
+            if (!_popped)
+            {
+                _popped = true;
+                _audio?.PlayPartyPopper();
+            }
+
             _sinceStart += elapsed;
             _untilNextLaunch -= elapsed;
 
@@ -234,7 +263,10 @@ namespace BS3D
             {
                 Launch(camera);
 
-                float interval = _sinceStart < OPENING_SECONDS ? INTERVAL_OPENING : INTERVAL_STEADY;
+                float interval =
+                    _sinceStart < OPENING_SECONDS ? INTERVAL_OPENING :
+                    _sinceStart < RELAXED_AFTER ? INTERVAL_STEADY : INTERVAL_RELAXED;
+
                 _untilNextLaunch += interval * (0.7f + (float)_random.NextDouble() * 0.6f);
             }
         }

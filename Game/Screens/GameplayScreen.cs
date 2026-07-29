@@ -369,10 +369,17 @@ namespace BS3D.Screens
         /// <summary>How long that pause is — long enough for a big collapse to reach the drain and go down it.</summary>
         private const float LEVEL_CLEARED_BEAT = 2.5f;
 
-        //How long the victory display goes on launching. It deliberately outlasts LEVEL_CLEARED_BEAT by a long
-        //way: the beat only holds the collapse on screen before the result page arrives, and the fireworks are
-        //meant to still be going behind the score the player is reading.
-        private const float CELEBRATION_SECONDS = 9f;
+        //How long the victory display goes on launching, and how long it waits before it starts.
+        //
+        //A full minute, because the display is meant to still be going while the player reads their score and
+        //the released camera swings around the arena — nine seconds ran out while the result screen was still
+        //being read, and a celebration that stops before its audience does reads as the game losing interest.
+        //Fireworks eases its own rhythm off after the opening so a minute is not a minute of barrage.
+        private const float CELEBRATION_SECONDS = 60f;
+
+        //And it hangs back, so the fanfare gets its opening statement to itself: the level ends, brass
+        //announces it, and only then does the sky start going off. Everything at once is nothing heard.
+        private const float CELEBRATION_DELAY = 2.2f;
 
         /// <summary>
         /// The level's score and ball budget. Built fresh for each level from that entry's rules, so it never
@@ -634,9 +641,12 @@ namespace BS3D.Screens
         /// </summary>
         internal void TearDown()
         {
-            //There is no level any more, so there is no level theme. BuildLevel starts it again; a return to
-            //the main menu leaves it stopped, which is what the front end's silence is for.
+            //There is no level any more, so there is no level theme, and no celebration either. BuildLevel
+            //starts the music again; a return to the main menu leaves both stopped. The display outlasts the
+            //result screen by design, so without this a win followed by "Main Menu" would go on bursting over
+            //the front end for the best part of a minute.
             Game.Music?.Stop();
+            Game.Fireworks?.Stop();
 
             _events?.Dispose();
             _simulation?.Dispose();
@@ -1219,7 +1229,7 @@ namespace BS3D.Screens
             //already climbing while the last of the cluster is still falling — the celebration overlaps the
             //moment it is celebrating instead of following it. It runs on the host, so it carries on over the
             //result screen and the released camera swings through it (see Fireworks).
-            Game.Fireworks?.Celebrate(CELEBRATION_SECONDS);
+            Game.Fireworks?.Celebrate(CELEBRATION_SECONDS, CELEBRATION_DELAY);
 
             //And the theme stops dead, so the reports land in silence. A bang competing with a four-to-the-
             //floor kick is a bang nobody hears, and the sudden quiet is itself part of winning.
