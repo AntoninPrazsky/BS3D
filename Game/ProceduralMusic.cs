@@ -1,192 +1,444 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
 using System;
+using System.Threading.Tasks;
 
 namespace BS3D
 {
     /// <summary>
-    /// The level theme: a sixteen-bar eurodance loop synthesized from raw PCM at load and played on a loop.
-    /// No asset, no tracker file, no pipeline step — the score is a handful of arrays and the instruments are
-    /// oscillators, the same line the sound effects, the meshes and the surface textures all take.
+    /// The level theme: a two-minute eurodance track synthesized from raw PCM and played on a loop. No tracker
+    /// file, no asset, no pipeline step — the score is a handful of arrays and the instruments are oscillators,
+    /// the same line the sound effects, the meshes and the surface textures all take.
     /// <para>
-    /// Everything about it is aimed at one thing: being catchy at speed. 146 BPM, a four-on-the-floor kick, an
-    /// off-beat bass, a sixteenth arpeggio and a lead built from ONE rhythmic motif transposed across the
-    /// chords rather than four different phrases — repetition with variation is what a hook is, and a melody
-    /// that never repeats is a melody nobody can hum.
+    /// It is <b>arranged</b> rather than looped: eight sections of eight bars, each one adding or taking away
+    /// parts — an intro that builds, verses, a chorus that is unmistakably the chorus, a breakdown where the
+    /// drums drop out entirely, a build that puts them back, and a last chorus with everything on it. A
+    /// sixteen-bar loop with no sections is a ringtone; what makes a track worth hearing for two minutes is
+    /// that it keeps arriving somewhere.
     /// </para>
     /// </summary>
     public sealed class ProceduralMusic : IDisposable
     {
         private const int SAMPLE_RATE = 44100;
 
-        //146 is up in the range where a four-to-the-floor kick stops reading as a pulse and starts reading as
-        //a dance; much past 150 and the sixteenth arpeggio turns into a buzz.
-        private const float BPM = 146f;
+        //Around 128 rather than the 146 this started at, and rolled per pass inside a narrow band (see
+        //Variation). 146 was fast enough to read as frantic; a slower tempo leaves room for the extra
+        //percussion and for the melody to breathe — the same notes at 128 sound deliberate where at 146 they
+        //sound hurried.
         private const int STEPS_PER_BEAT = 4;      //sixteenths
         private const int STEPS_PER_BAR = 16;
-        private const int BARS = 16;
+
+        private const int BARS_PER_SECTION = 8;
+        private const int SECTIONS = 9;   //intro, verse, chorus, breakdown, verse, chorus, build, chorus, outro
+        private const int BARS = BARS_PER_SECTION * SECTIONS;   //64 bars ≈ 2:00 at 128 BPM
         private const int TOTAL_STEPS = BARS * STEPS_PER_BAR;
 
         /// <summary>Overall level of the music, well under the effects — a soundtrack is not an event.</summary>
         public const float MUSIC_VOLUME = 0.34f;
 
-        //A minor: vi-IV-I-V, the progression underneath a very large fraction of every catchy record ever
-        //made. One chord a bar, four bars round, four times over the loop.
-        private static readonly int[] CHORD_ROOT = { 45, 41, 48, 43 };                 //A2, F2, C3, G2
+        //The chords available to a progression, all diatonic to A minor so any ordering of them is in key.
+        //Each carries its bass root and the four notes the arpeggio and the melody are built from.
+        private static readonly int[] CHORD_ROOT = { 45, 41, 48, 43, 50, 52 };   //Am F C G Dm Em
 
-        //The arpeggio's four notes per chord, low to high. Kept in one octave band so the arp does not leap
-        //register as the chords move under it.
         private static readonly int[][] CHORD_ARP =
         {
             new[] { 57, 60, 64, 69 },   //Am: A3 C4 E4 A4
             new[] { 53, 57, 60, 65 },   //F : F3 A3 C4 F4
             new[] { 60, 64, 67, 72 },   //C : C4 E4 G4 C5
-            new[] { 55, 59, 62, 67 }    //G : G3 B3 D4 G4
+            new[] { 55, 59, 62, 67 },   //G : G3 B3 D4 G4
+            new[] { 62, 65, 69, 74 },   //Dm: D4 F4 A4 D5
+            new[] { 64, 67, 71, 76 }    //Em: E4 G4 B4 E5
         };
 
-        //THE HOOK. One rhythmic figure, transposed onto each chord — which is the whole trick. Four different
-        //phrases over four chords is a tune nobody remembers; the same shape moving under changing harmony is
-        //something the ear has learned by its second time round.
-        //
-        //Steps within the bar that carry a note. The gaps matter as much as the notes: everything lands on or
-        //just after a beat except the one on step 7, and that single syncopation is what stops it marching.
-        private static readonly int[] MOTIF_A_STEPS = { 0, 2, 4, 5, 7, 9, 12 };
-
-        //Scale degrees above each chord's own arp root, as offsets in SEMITONES from the chord's third arp
-        //note (its "home" for the melody). Written per chord rather than as one transposition because a minor
-        //chord and a major one do not take the same intervals.
-        private static readonly int[][] MOTIF_A_NOTES =
+        //The progressions a variation may draw. Every one opens on Am and every one is four bars, so the
+        //melodies below fit all of them without knowing which was chosen.
+        private static readonly int[][] PROGRESSIONS =
         {
-            new[] { 69, 72, 76, 76, 72, 69, 64 },   //over Am
-            new[] { 65, 69, 72, 72, 69, 65, 60 },   //over F
-            new[] { 72, 76, 79, 79, 76, 72, 67 },   //over C
-            new[] { 67, 71, 74, 74, 71, 67, 62 }    //over G
+            new[] { 0, 1, 2, 3 },   //Am F  C  G   — vi-IV-I-V, the classic
+            new[] { 0, 3, 1, 2 },   //Am G  F  C
+            new[] { 0, 4, 1, 3 },   //Am Dm F  G
+            new[] { 0, 2, 4, 3 },   //Am C  Dm G
+            new[] { 0, 5, 1, 3 }    //Am Em F  G
         };
 
-        //The second eight bars: longer notes, higher, fewer of them. A chorus is not a busier verse — it is
-        //usually a SIMPLER one, and the contrast is what makes the loop feel like it has two halves rather
-        //than being one phrase played four times.
-        private static readonly int[] MOTIF_B_STEPS = { 0, 3, 6, 8, 10, 12 };
-
-        private static readonly int[][] MOTIF_B_NOTES =
+        /// <summary>
+        /// One note of a melody, written as a CHORD TONE rather than as a pitch: <see cref="Tone"/> indexes
+        /// the current chord's four notes and <see cref="Octave"/> shifts it in semitones.
+        /// <para>
+        /// Writing the melodies this way is what lets the progression be chosen at random. A melody written as
+        /// absolute pitches only fits the chords it was written over; written as degrees of whatever chord is
+        /// underneath, the same motif transposes itself and is consonant by construction — which is also the
+        /// literal form of "one motif moved across the chords", the thing that made it a hook in the first
+        /// place.
+        /// </para>
+        /// </summary>
+        private readonly struct Note
         {
-            new[] { 76, 81, 79, 76, 72, 69 },   //over Am
-            new[] { 72, 77, 76, 72, 69, 65 },   //over F
-            new[] { 76, 84, 79, 76, 72, 67 },   //over C
-            new[] { 74, 79, 77, 74, 71, 67 }    //over G
+            public readonly int Step, Tone, Octave, Length;
+            public Note(int step, int tone, int octave, int length) { Step = step; Tone = tone; Octave = octave; Length = length; }
+        }
+
+        //THE VERSE. Short notes with gaps in them: it has to leave room, both for the arpeggio underneath and
+        //so that the chorus has somewhere to go. A verse that is already busy and already high gives the
+        //chorus nothing to be bigger than.
+        private static readonly Note[] VERSE =
+        {
+            new(0, 0, 12, 2), new(3, 1, 12, 1), new(4, 2, 12, 2), new(8, 1, 12, 3), new(12, 0, 12, 3)
         };
 
-        //The turnaround: a descending run over the last bar of each eight, which is what hands the loop back
-        //to its own beginning instead of just stopping and starting again.
-        private static readonly int[] FILL_STEPS = { 8, 10, 11, 12, 13, 14, 15 };
-        private static readonly int[] FILL_NOTES = { 79, 77, 76, 74, 72, 71, 69 };
+        //THE CHORUS, and this is what the track exists for: long notes, high, few of them, and a shape that
+        //goes somewhere and comes back. Four bars, each its own line, with the peak held back for the fourth —
+        //everything about it is the opposite of the verse, because that contrast is what makes a chorus a
+        //chorus, not volume and not more notes.
+        private static readonly Note[][] CHORUS =
+        {
+            new[] { new Note(0, 2, 12, 8), new Note(8, 3, 12, 4), new Note(12, 2, 12, 4) },
+            new[] { new Note(0, 3, 12, 8), new Note(8, 2, 12, 4), new Note(12, 1, 12, 4) },
+            new[] { new Note(0, 2, 12, 8), new Note(8, 3, 12, 4), new Note(12, 3, 12, 4) },
+            new[] { new Note(0, 3, 24, 8), new Note(8, 2, 12, 6), new Note(14, 1, 12, 2) }   //the peak, an octave up
+        };
 
-        private readonly SoundEffect _track;
-        private readonly SoundEffectInstance _instance;
+        //A counter-line under the chorus, moving where the chorus holds, so the biggest sections are the
+        //busiest without the melody itself getting busy.
+        private static readonly Note[] COUNTER =
+        {
+            new(4, 1, 0, 2), new(6, 3, 0, 2), new(14, 2, 0, 2)
+        };
 
-        /// <summary>True while the loop is running.</summary>
+        //The turnaround at the end of a section: a descending run down the chord that hands the phrase on.
+        private static readonly Note[] FILL =
+        {
+            new(8, 3, 12, 1), new(10, 2, 12, 1), new(11, 1, 12, 1),
+            new(12, 0, 12, 1), new(13, 3, 0, 1), new(14, 2, 0, 1), new(15, 1, 0, 1)
+        };
+
+        /// <summary>Which melody, if any, a section carries.</summary>
+        private enum LeadPart { None, Verse, Chorus }
+
+        /// <summary>
+        /// Everything a single rendering of the track rolls for itself. The point of it is that no two passes
+        /// are the same piece of music — a loop the player hears for the length of a level has to stop being a
+        /// loop — while every choice stays inside a set that cannot sound wrong: the progressions are all
+        /// diatonic, the melodies are chord tones, the extra notes land on the grid.
+        /// <para>
+        /// Random <i>parameters</i>, never random <i>notes</i>. That distinction is the whole difference
+        /// between variation and noise.
+        /// </para>
+        /// </summary>
+        private readonly struct Variation
+        {
+            public readonly float Bpm;
+            public readonly int Transpose;      //semitones, so the key moves between passes
+            public readonly int[] Progression;
+            public readonly bool ArpDown;       //the arpeggio runs down instead of up
+            public readonly float Embellish;    //chance of an extra melody note in a bar
+            public readonly float Ghost;        //chance of a ghost snare on an off-beat
+
+            public Variation(Random random)
+            {
+                //Around the 128 the arrangement was written at. Wide enough to be felt between passes, narrow
+                //enough that the track is recognisably the same track.
+                Bpm = 122f + (float)random.NextDouble() * 10f;
+
+                //Whole tones and minor thirds only: a random semitone would put successive passes a half-step
+                //apart, which is the one interval that sounds like a mistake rather than like a key change.
+                int[] keys = { -3, -2, 0, 0, 2, 3, 5 };
+                Transpose = keys[random.Next(keys.Length)];
+
+                Progression = PROGRESSIONS[random.Next(PROGRESSIONS.Length)];
+                ArpDown = random.NextDouble() < 0.35;
+                Embellish = 0.18f + (float)random.NextDouble() * 0.22f;
+                Ghost = 0.10f + (float)random.NextDouble() * 0.18f;
+            }
+        }
+
+        /// <summary>What plays during one eight-bar section. The arrangement IS this table.</summary>
+        private readonly struct Section
+        {
+            public readonly bool Kick, Clap, Hats, Ride, Bass, Arp, Pad, Roll;
+            public readonly LeadPart Lead;
+            public readonly float Level;   //overall weight of the section, so a breakdown is quieter as well as emptier
+
+            public Section(bool kick, bool clap, bool hats, bool ride, bool bass, bool arp, bool pad, bool roll,
+                LeadPart lead, float level)
+            {
+                Kick = kick; Clap = clap; Hats = hats; Ride = ride; Bass = bass;
+                Arp = arp; Pad = pad; Roll = roll; Lead = lead; Level = level;
+            }
+        }
+
+        //                                  kick   clap   hats   ride   bass    arp    pad   roll  lead              level
+        private static readonly Section[] ARRANGEMENT =
+        {
+            //0 INTRO. No drums at all for its first half — pad and arpeggio alone, so the track begins by
+            //arriving rather than by already being under way, and the kick landing halfway through is an event.
+            new(true,  false, true,  false, false, true,  true,  false, LeadPart.None,   0.62f),
+            new(true,  true,  true,  false, true,  true,  false, false, LeadPart.Verse,  0.95f),  //1 verse
+            new(true,  true,  true,  true,  true,  true,  false, false, LeadPart.Chorus, 1.00f),  //2 CHORUS
+            //3 breakdown — drums out. Measured at 0.55 this fell to a fifth of the verse's level and a ninth of
+            //its low band, which is not a breakdown but a gap; almost all of that is simply losing the kick and
+            //the bass, which carry most of a mix's energy. The parts that remain are pushed up to compensate,
+            //so the section reads as EMPTIER rather than as quieter — which is what a breakdown is.
+            new(false, false, true,  false, false, true,  true,  false, LeadPart.None,   0.85f),
+            new(true,  true,  true,  false, true,  true,  false, false, LeadPart.Verse,  0.95f),  //4 verse
+            new(true,  true,  true,  true,  true,  true,  false, false, LeadPart.Chorus, 1.00f),  //5 CHORUS
+            new(true,  false, true,  true,  true,  true,  false, true,  LeadPart.None,   0.90f),  //6 build — the roll
+            new(true,  true,  true,  true,  true,  true,  true,  false, LeadPart.Chorus, 1.00f),  //7 CHORUS, everything
+            //8 OUTRO. The parts fall away and a fade is laid over the whole section, so the track ENDS instead
+            //of being cut off. That is what makes the regeneration seamless: the join between one pass and the
+            //next lands in silence, so the frame or two it takes to swap buffers cannot be heard.
+            new(true,  false, true,  false, true,  true,  true,  false, LeadPart.None,   0.70f)
+        };
+
+        private const int SECTION_INTRO = 0;
+        private const int SECTION_OUTRO = SECTIONS - 1;
+
+        private readonly Random _seeds;
+
+        private Task<float[]> _next;      //the pass after the one playing, baking on a background thread
+        private SoundEffect _track;
+        private SoundEffectInstance _instance;
+        private bool _wanted;             //the game wants music; the instance may still be between passes
+        private bool _failed;
+
+        /// <summary>True while a pass is actually sounding.</summary>
         public bool IsPlaying => _instance != null && _instance.State == SoundState.Playing;
 
-        public ProceduralMusic()
+        /// <summary>
+        /// Starts synthesizing the first pass at once, on a background thread. Two minutes of PCM is a couple
+        /// of seconds of arithmetic, and doing it on the loading thread would be two seconds of a black
+        /// window; nothing asks for the track until a level is built, which is several menus later.
+        /// </summary>
+        /// <param name="seed">
+        /// Fixed only for testing — left null the music is different every run, which is the point of it.
+        /// </param>
+        public ProceduralMusic(int? seed = null)
         {
-            float[] mix = Bake();
-
-            _track = ToSoundEffect(mix);
-            _instance = _track.CreateInstance();
-            _instance.IsLooped = true;
-            _instance.Volume = MUSIC_VOLUME;
+            _seeds = seed.HasValue ? new Random(seed.Value) : new Random();
+            _next = StartBake();
         }
 
-        /// <summary>Starts the loop, or does nothing if it is already running.</summary>
+        private Task<float[]> StartBake()
+        {
+            int seed = _seeds.Next();
+            return Task.Run(() => Bake(seed));
+        }
+
+        /// <summary>Starts the music, or does nothing if it is already sounding.</summary>
         public void Play()
         {
-            if (_instance == null || _instance.State == SoundState.Playing) return;
-            _instance.Play();
+            if (_failed) return;
+
+            _wanted = true;
+            if (_instance == null || _instance.State == SoundState.Stopped) Advance();
         }
 
-        /// <summary>Stops the loop and rewinds it, so the next level opens on the downbeat rather than mid-bar.</summary>
-        public void Stop() => _instance?.Stop();
+        /// <summary>Stops the music. The pass baking behind it is kept — it becomes the next one played.</summary>
+        public void Stop()
+        {
+            _wanted = false;
+            _instance?.Stop();
+        }
+
+        /// <summary>
+        /// Called once a frame. Its whole job is the handover: a pass is played <b>once</b>, not looped, and
+        /// when it ends the next variation — baked on a background thread while this one was playing — takes
+        /// over. That is what makes the music genuinely endless rather than a loop that repeats: the player
+        /// never hears the same two minutes twice.
+        /// <para>
+        /// The frame or two the handover costs is exactly why the arrangement ends in a faded <b>outro</b>: the
+        /// join lands in silence, so a gap that would be an audible glitch in the middle of a beat is
+        /// inaudible at the end of a phrase.
+        /// </para>
+        /// </summary>
+        public void Update()
+        {
+            if (!_wanted || _failed) return;
+            if (_instance != null && _instance.State != SoundState.Stopped) return;
+
+            Advance();
+        }
+
+        /// <summary>
+        /// Puts the next baked pass on, or replays the current one if the next is not ready yet — which is the
+        /// right fallback, since the alternative is silence in the middle of a level. Either way another bake
+        /// is started, so there is always one in hand.
+        /// </summary>
+        private void Advance()
+        {
+            //A level that starts without music is a disappointment; a level that will not start because the
+            //synthesis threw is a bug the player cannot get past. Guarded for that reason, and the same one
+            //LoadLevelSet's is.
+            try
+            {
+                if (_next != null && _next.IsCompleted)
+                {
+                    SoundEffectInstance old = _instance;
+                    SoundEffect oldTrack = _track;
+
+                    _track = ToSoundEffect(_next.Result);
+                    _instance = _track.CreateInstance();
+                    _instance.Volume = MUSIC_VOLUME;
+
+                    //Disposed only once the replacement exists, so a failure part-way through leaves the
+                    //previous pass intact and playable rather than leaving the game silent.
+                    old?.Dispose();
+                    oldTrack?.Dispose();
+
+                    _next = StartBake();
+                }
+
+                _instance?.Play();
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine($"[music] the theme could not be realized, playing on without it: {exception.Message}");
+                _failed = true;
+            }
+        }
 
         #region The score
 
         /// <summary>
-        /// Renders the whole loop into one float buffer. Every voice writes into the same mix additively, and
-        /// the lot is soft-limited at the end — a mix that is peak-normalised is one whose loudest single
-        /// coincidence of kick and lead decides how loud everything else is.
+        /// Renders the whole arrangement into one float buffer. Every voice writes into the same mix
+        /// additively, and the lot is soft-limited at the end.
         /// </summary>
-        private static float[] Bake()
+        private static float[] Bake(int seed)
         {
-            float secondsPerStep = 60f / (BPM * STEPS_PER_BEAT);
+            Random random = new(seed);
+            Variation variation = new(random);
+
+            float secondsPerStep = 60f / (variation.Bpm * STEPS_PER_BEAT);
             int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
 
-            //A whole number of samples per step, and the loop's length taken FROM that rather than from the
+            //A whole number of samples per step, and the track's length taken FROM that rather than from the
             //nominal tempo: rounding per step and then trusting the nominal length leaves a fraction of a step
-            //of silence at the seam, which on a loop is an audible hiccup once a bar-cycle.
-            int samples = samplesPerStep * TOTAL_STEPS;
-            float[] mix = new float[samples];
+            //of silence at the seam.
+            float[] mix = new float[samplesPerStep * TOTAL_STEPS];
 
             for (int step = 0; step < TOTAL_STEPS; step++)
             {
                 int at = step * samplesPerStep;
                 int bar = step / STEPS_PER_BAR;
                 int inBar = step % STEPS_PER_BAR;
-                int chord = bar % 4;
+
+                int phrase = bar % 4;                                 //where in the four-bar progression
+                int chord = variation.Progression[phrase];
+
+                int sectionIndex = bar / BARS_PER_SECTION;
+                Section section = ARRANGEMENT[sectionIndex];
+                int barInSection = bar % BARS_PER_SECTION;
+                float level = section.Level;
+
+                int[] arp = CHORD_ARP[chord];
+                int transpose = variation.Transpose;
+
+                bool lastBar = barInSection == BARS_PER_SECTION - 1;
+
+                //The intro holds its drums back for its first half, so the track begins by arriving. The outro
+                //fades over its whole length, which is what lets one pass hand over to the next in silence.
+                bool introQuiet = sectionIndex == SECTION_INTRO && barInSection < 4;
+                float fade = sectionIndex == SECTION_OUTRO
+                    ? 1f - (barInSection * STEPS_PER_BAR + inBar) / (float)(BARS_PER_SECTION * STEPS_PER_BAR)
+                    : 1f;
+
+                level *= fade * fade;
+                if (level <= 0.001f) continue;
 
                 //DRUMS ---------------------------------------------------------------------------------
-                //Four on the floor. The whole genre rests on this one line.
-                if (inBar % 4 == 0) Kick(mix, at);
+                if (section.Kick && !introQuiet && inBar % 4 == 0) Kick(mix, at, level);
 
-                //Clap on two and four, the backbeat.
-                if (inBar == 4 || inBar == 12) Clap(mix, at);
+                if (section.Clap && !introQuiet && (inBar == 4 || inBar == 12)) Clap(mix, at, level);
 
-                //Eighth-note hats, with the off-beats opened up — closed on the beat, open between, which is
-                //what gives the bar its swing without changing a single note's timing.
-                if (inBar % 2 == 0) Hat(mix, at, open: inBar % 4 == 2, level: 0.34f);
+                if (section.Hats && inBar % 2 == 0)
+                    Hat(mix, at, open: inBar % 4 == 2, level: (introQuiet ? 0.16f : 0.30f) * level);
 
-                //A sixteenth run into every bar's last beat: the ear needs telling that the bar is about to
-                //turn over.
-                if (inBar >= 14) Hat(mix, at, open: false, level: 0.22f);
+                //The ride: straight sixteenths, and it is most of what "more beats" means here. Only in the
+                //big sections, because a sixteenth ride running under a breakdown is not a breakdown.
+                if (section.Ride) Hat(mix, at, open: false, level: 0.11f * level);
+
+                //Ghost snares on the off-beats, rolled per bar. This is the variation the ear notices least
+                //and misses most: it is what stops two identical bars sounding sequenced.
+                if (section.Clap && !introQuiet && inBar % 4 == 3 && random.NextDouble() < variation.Ghost)
+                    Snare(mix, at, 0.10f * level);
+
+                //A tom run under the last beat of every section: the ear needs telling that something is about
+                //to change.
+                if (lastBar && inBar >= 12 && !introQuiet) Tom(mix, at, 138f - (inBar - 12) * 16f, level);
+
+                //The build's snare roll: sixteenths that get louder and closer to the change, the oldest trick
+                //in dance music and still the one that works.
+                if (section.Roll)
+                {
+                    float through = (barInSection * STEPS_PER_BAR + inBar) / (float)(BARS_PER_SECTION * STEPS_PER_BAR);
+
+                    //Doubles to thirty-seconds over the last quarter — the acceleration is what sells it.
+                    bool hit = through < 0.75f ? inBar % 4 == 2 : inBar % 2 == 0;
+                    if (hit) Snare(mix, at, 0.18f + 0.55f * through * through);
+                }
 
                 //BASS ----------------------------------------------------------------------------------
-                //Off-beat eighths against the kick. Playing it ON the beat doubles the kick and both go to
-                //mud; playing it between is what makes the two read as a pump.
-                if (inBar % 4 == 2) Bass(mix, at, CHORD_ROOT[chord] + 12, secondsPerStep * 1.7f);
+                if (section.Bass && !introQuiet)
+                {
+                    //Off-beat eighths against the kick. On the beat it doubles the kick and both go to mud;
+                    //between them is what reads as a pump.
+                    if (inBar % 4 == 2) Bass(mix, at, CHORD_ROOT[chord] + 12 + transpose, secondsPerStep * 1.7f, level);
+                    if (inBar == 0) Bass(mix, at, CHORD_ROOT[chord] + transpose, secondsPerStep * 1.4f, level);
 
-                //And a root on the downbeat, short, so the harmony lands with the kick.
-                if (inBar == 0) Bass(mix, at, CHORD_ROOT[chord], secondsPerStep * 1.4f);
+                    //An occasional octave jump on the last sixteenth of a beat. Always the same note, always on
+                    //the grid — only its register is rolled for.
+                    if (inBar % 4 == 3 && random.NextDouble() < variation.Embellish * 0.6f)
+                        Bass(mix, at, CHORD_ROOT[chord] + 24 + transpose, secondsPerStep * 0.8f, level * 0.7f);
+                }
+
+                //PAD -----------------------------------------------------------------------------------
+                //A held chord under the intro, the breakdown, the last chorus and the outro. This is the
+                //"calm": it fills the space the drums leave without putting anything rhythmic in it.
+                if (section.Pad && inBar == 0)
+                    foreach (int note in arp) Pad(mix, at, note + transpose, secondsPerStep * 15.5f, 0.10f * level);
 
                 //ARPEGGIO ------------------------------------------------------------------------------
-                //Straight sixteenths, up and down the chord. This is the engine of the thing: it never stops,
-                //so the track keeps moving even where the melody rests.
-                int[] arp = CHORD_ARP[chord];
-                int arpIndex = inBar % 8;
-                int arpNote = arp[arpIndex < 4 ? arpIndex : 7 - arpIndex];
-                Arp(mix, at, arpNote + 12, secondsPerStep * 0.9f, level: 0.16f);
+                if (section.Arp)
+                {
+                    int arpStep = inBar % 8;
+                    int index = arpStep < 4 ? arpStep : 7 - arpStep;
+                    if (variation.ArpDown) index = 3 - index;
+
+                    Arp(mix, at, arp[index] + 12 + transpose, secondsPerStep * 0.9f, 0.15f * level);
+                }
 
                 //LEAD ----------------------------------------------------------------------------------
-                //Bars 0-6 and 8-14 carry the motif; bars 7 and 15 hand the phrase back with the fill.
-                bool fillBar = bar == 7 || bar == 15;
-                bool chorus = bar >= 8;
+                if (section.Lead == LeadPart.None) continue;
 
-                if (fillBar)
+                if (lastBar)
                 {
-                    int index = Array.IndexOf(FILL_STEPS, inBar);
-                    if (index >= 0) Lead(mix, at, FILL_NOTES[index], secondsPerStep * 1.6f, level: 0.30f);
-                }
-                else
-                {
-                    int[] steps = chorus ? MOTIF_B_STEPS : MOTIF_A_STEPS;
-                    int[] notes = (chorus ? MOTIF_B_NOTES : MOTIF_A_NOTES)[chord];
+                    //The last bar of a section is the turnaround, whatever else that section was doing.
+                    foreach (Note note in FILL)
+                        if (note.Step == inBar)
+                            Lead(mix, at, arp[note.Tone] + note.Octave + transpose, secondsPerStep * 1.6f, 0.30f * level);
 
-                    int index = Array.IndexOf(steps, inBar);
-                    if (index >= 0)
-                    {
-                        //The chorus holds its notes; the verse spits them out. Same instrument, and the
-                        //difference between the two halves is almost entirely this.
-                        float length = secondsPerStep * (chorus ? 2.6f : 1.5f);
-                        Lead(mix, at, notes[index], length, level: chorus ? 0.34f : 0.30f);
-                    }
+                    continue;
                 }
+
+                bool isChorus = section.Lead == LeadPart.Chorus;
+                Note[] line = isChorus ? CHORUS[phrase] : VERSE;
+
+                foreach (Note note in line)
+                    if (note.Step == inBar)
+                        Lead(mix, at, arp[note.Tone] + note.Octave + transpose,
+                            secondsPerStep * (note.Length + 0.6f), (isChorus ? 0.36f : 0.28f) * level);
+
+                if (isChorus)
+                    foreach (Note note in COUNTER)
+                        if (note.Step == inBar)
+                            Arp(mix, at, arp[note.Tone] + note.Octave + transpose,
+                                secondsPerStep * (note.Length + 0.4f), 0.13f * level);
+
+                //An embellishment: one extra chord tone on a step the written line leaves empty. Because it is
+                //drawn from the chord and placed on the grid, it can only ever sound like part of the tune —
+                //which is the rule the whole variation scheme runs on.
+                if (!isChorus && inBar == 6 && random.NextDouble() < variation.Embellish)
+                    Lead(mix, at, arp[3] + 12 + transpose, secondsPerStep * 1.2f, 0.24f * level);
             }
 
             //Soft-limited, not peak-normalised — see ProceduralAudio.Loudness for why that distinction matters
@@ -202,12 +454,12 @@ namespace BS3D
 
         /// <summary>
         /// The kick: a sine whose pitch collapses from 150 Hz to 45 in forty milliseconds, plus a click on the
-        /// very first samples. The pitch envelope IS the kick — a fixed low sine is a hum, and the drop is what
-        /// the ear reads as something being struck.
+        /// first samples. The pitch envelope IS the kick — a fixed low sine is a hum, and the drop is what the
+        /// ear reads as something being struck.
         /// </summary>
-        private static void Kick(float[] mix, int at)
+        private static void Kick(float[] mix, int at, float level)
         {
-            int length = (int)(SAMPLE_RATE * 0.26f);
+            int length = (int)(SAMPLE_RATE * 0.28f);
             float phase = 0f;
 
             for (int i = 0; i < length && at + i < mix.Length; i++)
@@ -217,10 +469,10 @@ namespace BS3D
                 float freq = 45f + 105f * MathF.Exp(-t * 26f);
                 phase += 2f * MathF.PI * freq / SAMPLE_RATE;
 
-                float body = MathF.Sin(phase) * MathF.Exp(-t * 8.5f);
+                float body = MathF.Sin(phase) * MathF.Exp(-t * 7.5f);
                 float click = (i < 90) ? Noise(i, 11) * 0.5f * (1f - i / 90f) : 0f;
 
-                mix[at + i] += (body * 0.95f + click) * 0.9f;
+                mix[at + i] += (body * 0.95f + click) * 0.92f * level;
             }
         }
 
@@ -228,22 +480,22 @@ namespace BS3D
         /// The clap: three noise bursts a few milliseconds apart and then a longer tail. The stutter is what
         /// makes it a clap rather than a snare — a room full of hands does not land on one sample.
         /// </summary>
-        private static void Clap(float[] mix, int at)
+        private static void Clap(float[] mix, int at, float level)
         {
-            int length = (int)(SAMPLE_RATE * 0.22f);
             int[] offsets = { 0, (int)(SAMPLE_RATE * 0.009f), (int)(SAMPLE_RATE * 0.018f) };
 
             foreach (int offset in offsets)
                 for (int i = 0; i < SAMPLE_RATE * 0.03f && at + offset + i < mix.Length; i++)
                 {
                     float t = (float)i / SAMPLE_RATE;
-                    mix[at + offset + i] += BandNoise(i, 1400f, 5200f, 23) * 0.5f * MathF.Exp(-t * 90f);
+                    mix[at + offset + i] += BandNoise(i, 1400f, 5200f, 23) * 0.5f * level * MathF.Exp(-t * 90f);
                 }
 
-            for (int i = 0; i < length && at + i < mix.Length; i++)
+            int tail = (int)(SAMPLE_RATE * 0.22f);
+            for (int i = 0; i < tail && at + i < mix.Length; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
-                mix[at + i] += BandNoise(i, 1100f, 4200f, 29) * 0.26f * MathF.Exp(-t * 22f);
+                mix[at + i] += BandNoise(i, 1100f, 4200f, 29) * 0.26f * level * MathF.Exp(-t * 22f);
             }
         }
 
@@ -260,16 +512,47 @@ namespace BS3D
             }
         }
 
+        /// <summary>A tom, for the fills: the kick's pitch envelope over a shorter, higher, more tuned body.</summary>
+        private static void Tom(float[] mix, int at, float startHz, float level)
+        {
+            int length = (int)(SAMPLE_RATE * 0.2f);
+            float phase = 0f;
+
+            for (int i = 0; i < length && at + i < mix.Length; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                float freq = startHz * 0.55f + startHz * 0.45f * MathF.Exp(-t * 14f);
+                phase += 2f * MathF.PI * freq / SAMPLE_RATE;
+
+                mix[at + i] += (MathF.Sin(phase) * 0.75f + BandNoise(i, 300f, 2400f, 53) * 0.2f)
+                    * 0.55f * level * MathF.Exp(-t * 11f);
+            }
+        }
+
+        /// <summary>The snare, for the build's roll: a tone at 190 Hz under a wide band of noise.</summary>
+        private static void Snare(float[] mix, int at, float level)
+        {
+            int length = (int)(SAMPLE_RATE * 0.13f);
+
+            for (int i = 0; i < length && at + i < mix.Length; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+                float body = MathF.Sin(2f * MathF.PI * 190f * t) * 0.35f;
+
+                mix[at + i] += (body + BandNoise(i, 1200f, 8000f, 61) * 0.8f) * level * MathF.Exp(-t * 34f);
+            }
+        }
+
         /// <summary>
-        /// The bass: a saw run through a one-pole low-pass that opens with the note's own envelope, which is
-        /// the cheapest thing that sounds like a filter sweep and is most of what a dance bass is.
+        /// The bass: a saw through a one-pole low-pass that opens with the note's own envelope — the cheapest
+        /// thing that sounds like a filter sweep, and most of what a dance bass is.
         /// </summary>
-        private static void Bass(float[] mix, int at, int note, float seconds)
+        private static void Bass(float[] mix, int at, int note, float seconds, float level)
         {
             int length = (int)(SAMPLE_RATE * seconds);
             float freq = Frequency(note);
-            float phase = 0f;
-            float lp = 0f;
+            float phase = 0f, lp = 0f;
 
             for (int i = 0; i < length && at + i < mix.Length; i++)
             {
@@ -281,12 +564,8 @@ namespace BS3D
 
                 float saw = PolyBlepSaw(phase, freq / SAMPLE_RATE);
 
-                //Cutoff tracks the envelope: bright on the attack, closing as it decays.
-                float cutoff = 190f + 2600f * env;
-                float alpha = CutoffToAlpha(cutoff);
-                lp += alpha * (saw - lp);
-
-                mix[at + i] += lp * 0.55f * env;
+                lp += CutoffToAlpha(190f + 2600f * env) * (saw - lp);
+                mix[at + i] += lp * 0.55f * level * env;
             }
         }
 
@@ -310,32 +589,63 @@ namespace BS3D
         }
 
         /// <summary>
-        /// The lead: two saws detuned a few cents apart. That beating between them is the whole "supersaw"
-        /// sound the genre is built on, and two oscillators are enough for it — the width comes from the
-        /// detune, not from the count.
+        /// The pad: three detuned saws holding a whole bar under a slow attack and a heavy low-pass. It plays
+        /// where the drums do not, and its only job is to keep the quiet sections from sounding like a fault.
         /// </summary>
-        private static void Lead(float[] mix, int at, int note, float seconds, float level)
+        private static void Pad(float[] mix, int at, int note, float seconds, float level)
         {
             int length = (int)(SAMPLE_RATE * seconds);
             float freq = Frequency(note);
 
-            //About twelve cents apart. Much less and they sound like one flat oscillator; much more and the
-            //beating turns into an out-of-tune chord.
-            float freqA = freq * 0.9965f;
-            float freqB = freq * 1.0035f;
-
-            float phaseA = 0f, phaseB = 0.5f;
+            float[] detune = { 0.994f, 1f, 1.006f };
+            float[] phases = { 0f, 0.33f, 0.66f };
             float lp = 0f;
 
             for (int i = 0; i < length && at + i < mix.Length; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
 
-                //A real attack rather than an instant one, and a long release: the lead is the one voice here
-                //that is supposed to sing rather than to hit.
-                float env = MathF.Min(1f, t / 0.012f) * MathF.Exp(-t * 3.6f);
+                //Slow in and slow out: a pad that starts sharply is a stab.
+                float env = MathF.Min(1f, t / 0.35f) * MathF.Min(1f, (seconds - t) / 0.5f);
+                if (env <= 0f) continue;
 
-                //A slow vibrato that only comes in after the note has settled, which is what a player does.
+                float sum = 0f;
+                for (int d = 0; d < 3; d++)
+                {
+                    float f = freq * detune[d];
+                    phases[d] += f / SAMPLE_RATE;
+                    if (phases[d] >= 1f) phases[d] -= 1f;
+                    sum += PolyBlepSaw(phases[d], f / SAMPLE_RATE);
+                }
+
+                lp += CutoffToAlpha(1500f) * (sum / 3f - lp);
+                mix[at + i] += lp * level * env;
+            }
+        }
+
+        /// <summary>
+        /// The lead: two saws detuned about twelve cents apart. That beating between them is the whole
+        /// "supersaw" the genre is built on, and two oscillators are enough — the width comes from the detune,
+        /// not from the count.
+        /// </summary>
+        private static void Lead(float[] mix, int at, int note, float seconds, float level)
+        {
+            int length = (int)(SAMPLE_RATE * seconds);
+            float freq = Frequency(note);
+
+            float freqA = freq * 0.9965f;
+            float freqB = freq * 1.0035f;
+
+            float phaseA = 0f, phaseB = 0.5f, lp = 0f;
+
+            for (int i = 0; i < length && at + i < mix.Length; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                //Sustains rather than decaying away: the chorus holds notes for half a bar, and an envelope
+                //that has fallen to nothing by then turns a held note into a stab with a long silence after it.
+                float env = MathF.Min(1f, t / 0.012f) * MathF.Min(1f, (seconds - t) / 0.12f) * MathF.Exp(-t * 0.9f);
+
                 float vibrato = 1f + 0.004f * MathF.Sin(2f * MathF.PI * 5.2f * t) * MathF.Min(1f, t / 0.25f);
 
                 phaseA += freqA * vibrato / SAMPLE_RATE; if (phaseA >= 1f) phaseA -= 1f;
@@ -343,9 +653,7 @@ namespace BS3D
 
                 float saw = PolyBlepSaw(phaseA, freqA / SAMPLE_RATE) + PolyBlepSaw(phaseB, freqB / SAMPLE_RATE);
 
-                //Gently low-passed so the top end does not shriek over the arp.
                 lp += CutoffToAlpha(4200f) * (saw * 0.5f - lp);
-
                 mix[at + i] += lp * level * env;
             }
         }
@@ -374,11 +682,7 @@ namespace BS3D
         /// band-limited harmonics it costs the same at any pitch.
         /// </para>
         /// </summary>
-        private static float PolyBlepSaw(float phase, float increment)
-        {
-            float value = 2f * phase - 1f;
-            return value - PolyBlep(phase, increment);
-        }
+        private static float PolyBlepSaw(float phase, float increment) => 2f * phase - 1f - PolyBlep(phase, increment);
 
         /// <summary>A square, anti-aliased the same way — a correction at each of its two edges per cycle.</summary>
         private static float PolyBlepSquare(float phase, float increment)
@@ -420,13 +724,11 @@ namespace BS3D
         }
 
         /// <summary>
-        /// Band-passed noise evaluated a sample at a time, by running two one-pole filters as running state.
-        /// Cheaper than filtering a whole array per hit, and the drums only ever need a few thousand samples.
+        /// Band-passed noise: the difference of two smoothed reads of the same sequence. Not a textbook
+        /// band-pass, but for a hat or a clap the ear is judging the band and the decay, not the skirts.
         /// </summary>
         private static float BandNoise(int i, float low, float high, int seed)
         {
-            //A stateless approximation: the difference of two smoothed noise reads. It is not a textbook
-            //band-pass, but for a hat or a clap the ear is judging the band and the decay, not the skirts.
             float a = 0f, b = 0f;
             float alphaHigh = CutoffToAlpha(high);
             float alphaLow = CutoffToAlpha(low);
@@ -472,6 +774,9 @@ namespace BS3D
 
         public void Dispose()
         {
+            _failed = true;   //so a late Update cannot resurrect it
+            _wanted = false;
+
             _instance?.Dispose();
             _track?.Dispose();
         }

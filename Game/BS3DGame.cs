@@ -1238,11 +1238,10 @@ namespace BS3D
             //Testing only, and deliberately long: it has to outlast a scripted screenshot burst.
             if (_startupCelebrate) _fireworks.Celebrate(90f);
 
-            //The level theme. Baked here with the rest of the audio: it is twenty-six seconds of PCM and the
-            //synthesis is the expensive part, so it happens once at load rather than when Play is pressed.
-            System.Diagnostics.Stopwatch bake = System.Diagnostics.Stopwatch.StartNew();
+            //The level theme. The constructor only starts the synthesis — two minutes of PCM is a couple of
+            //seconds of arithmetic, and it runs on a background thread while the player is still looking at
+            //the splash and the menu (see ProceduralMusic).
             _music = new ProceduralMusic();
-            Console.WriteLine($"[music] baked the level theme in {bake.ElapsedMilliseconds} ms");
 
             BuildMenu();
         }
@@ -2506,6 +2505,11 @@ namespace BS3D
             //covered screen is not updated at all. Driven off the frame's own elapsed time rather than a play
             //clock, so it does not stop when the game does.
             _fireworks?.Update(elapsed, _camera);
+
+            //The music's handover: a pass is played once rather than looped, and this is what puts the next
+            //freshly synthesized variation on when the current one ends (see ProceduralMusic.Update). Up here
+            //with the fireworks and for the same reason — it has to keep running whatever is on the stack.
+            _music?.Update();
 
             //The very click that refocuses a windowed game would otherwise read as a fresh press against a
             //stale "released" state and fire an unintended shot, since input is not sampled while inactive.
