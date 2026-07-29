@@ -8,11 +8,12 @@ using System;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// Which environment the arena stands in. City is the default; Sea, Savanna, Desert, Mountain, Meadow and
-    /// NeonCity swap the city (and only the city) for open water, a savanna, a Sahara of dunes, a snowy range,
-    /// a flowering meadow, or the same city lit up in neon. Both the game and the map editor cycle these.
+    /// Which environment the arena stands in. City is the default; Sea, Savanna, Desert, Mountain, Meadow,
+    /// NeonCity and Forest swap the city (and only the city) for open water, a savanna, a Sahara of dunes, a
+    /// snowy range, a flowering meadow, the same city lit up in neon, or a forest clearing. Both the game and
+    /// the map editor cycle these.
     /// </summary>
-    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity }
+    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest }
 
     /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,
@@ -86,6 +87,7 @@ namespace Prazsky.Core.Render
         private SavannaSceneConfig _savannaConfig = new();
         private MountainSceneConfig _mountainConfig = new();
         private MeadowSceneConfig _meadowConfig = new();
+        private ForestSceneConfig _forestConfig = new();
 
         #region Sea
 
@@ -292,6 +294,21 @@ namespace Prazsky.Core.Render
 
         #endregion
 
+        #region Forest
+
+        private readonly Effect _forestEffect;
+        private readonly VertexBuffer _forestVertexBuffer;
+        private readonly IndexBuffer _forestIndexBuffer;
+        private readonly int _forestIndexCount;
+
+        private const int FOREST_GRID_N = 220;
+        private const float FOREST_EXTENT = 1200f;
+
+        //Look/tuning parameters (hills, clearing, forest floor colours, ambient, haze, wind, needle relief,
+        //floor lumps) live in ForestSceneConfig (Trees/Rocks/Stumps for phase 2); read from _forestConfig.
+
+        #endregion
+
         /// <param name="content">
         /// A content manager whose root holds the scene shaders under <c>Shaders/</c> (both executables build
         /// <c>Sea.fx</c>, <c>Savanna.fx</c>, <c>Birds.fx</c>, <c>Mountain.fx</c>, <c>Snow.fx</c>, <c>Spray.fx</c>, <c>Meadow.fx</c>
@@ -369,6 +386,12 @@ namespace Prazsky.Core.Render
             CreateGridMesh(MEADOW_GRID_N, MEADOW_EXTENT, out _meadowVertexBuffer, out _meadowIndexBuffer, out _meadowIndexCount);
 
             ApplyMeadowParameters();
+
+            //--- Forest: a mossy needle-strewn clearing ringed by wooded hills (the eighth scene)
+            _forestEffect = content.Load<Effect>("Shaders/Forest");
+            CreateGridMesh(FOREST_GRID_N, FOREST_EXTENT, out _forestVertexBuffer, out _forestIndexBuffer, out _forestIndexCount);
+
+            ApplyForestParameters();
         }
 
         #region Scene-config apply (issue #32)
@@ -411,6 +434,10 @@ namespace Prazsky.Core.Render
                     _meadowConfig = meadow;
                     ApplyMeadowParameters();
                     break;
+                case ForestSceneConfig forest:
+                    _forestConfig = forest;
+                    ApplyForestParameters();
+                    break;
                 case CitySceneConfig:
                     break;
             }
@@ -428,6 +455,7 @@ namespace Prazsky.Core.Render
             SceneKind.Savanna => _savannaConfig,
             SceneKind.Mountain => _mountainConfig,
             SceneKind.Meadow => _meadowConfig,
+            SceneKind.Forest => _forestConfig,
             _ => null,
         };
 
@@ -766,6 +794,27 @@ namespace Prazsky.Core.Render
             _meadowEffect.Parameters["FlowerSize"].SetValue(_meadowConfig.Flowers.Size);
         }
 
+        private void ApplyForestParameters()
+        {
+            _forestEffect.Parameters["ForestLevelY"].SetValue(_forestConfig.LevelY);
+            _forestEffect.Parameters["HillHeight"].SetValue(_forestConfig.HillHeight);
+            _forestEffect.Parameters["ClearingRadius"].SetValue(_forestConfig.ClearingRadius);
+            _forestEffect.Parameters["ClearingTransition"].SetValue(_forestConfig.ClearingTransition);
+            _forestEffect.Parameters["ClearingRelief"].SetValue(_forestConfig.ClearingRelief);
+            _forestEffect.Parameters["FloorLumpStrength"].SetValue(_forestConfig.FloorLumpStrength);
+            _forestEffect.Parameters["FloorLumpFrequency"].SetValue(_forestConfig.FloorLumpFrequency);
+            _forestEffect.Parameters["ForestColor"].SetValue(_forestConfig.ForestColor.ToVector3());
+            _forestEffect.Parameters["ForestColorDark"].SetValue(_forestConfig.ForestColorDark.ToVector3());
+            _forestEffect.Parameters["AmbientStrength"].SetValue(_forestConfig.AmbientStrength);
+            _forestEffect.Parameters["HorizonHazeDistance"].SetValue(_forestConfig.HorizonHazeDistance);
+            _forestEffect.Parameters["WindDirection"].SetValue(_forestConfig.Wind.ToVector2());
+            _forestEffect.Parameters["WindRippleSpeed"].SetValue(_forestConfig.WindRippleSpeed);
+            _forestEffect.Parameters["WindRippleFrequency"].SetValue(_forestConfig.WindRippleFrequency);
+            _forestEffect.Parameters["WindRippleStrength"].SetValue(_forestConfig.WindRippleStrength);
+            _forestEffect.Parameters["NeedleReliefStrength"].SetValue(_forestConfig.NeedleReliefStrength);
+            _forestEffect.Parameters["NeedleReliefFrequency"].SetValue(_forestConfig.NeedleReliefFrequency);
+        }
+
         #endregion
 
         /// <summary>
@@ -841,6 +890,9 @@ namespace Prazsky.Core.Render
                     break;
                 case SceneKind.Meadow:
                     DrawMeadow(frame);
+                    break;
+                case SceneKind.Forest:
+                    DrawForest(frame);
                     break;
             }
         }
@@ -991,6 +1043,33 @@ namespace Prazsky.Core.Render
             float gentle = _savannaConfig.ClearingRelief * (MathF.Sin(x * 0.04f + z * 0.03f) + 0.6f * MathF.Sin(x * -0.055f + z * 0.048f + 2.1f));
 
             return _savannaConfig.LevelY + gentle + _savannaConfig.HillHeight * ramp * (rolling * 0.5f + 0.5f);
+        }
+
+        /// <summary>
+        /// The forest terrain height at a world point, mirroring <see cref="ForestSceneConfig"/>'s
+        /// <c>Forest.fx</c> <c>TerrainHeight</c> field. Static and config-taking (rather than reading
+        /// <c>_forestConfig</c>) so the forest scatter can plant trees on the ground the shader draws before
+        /// the renderer itself exists, and so it stays in step with whatever config the caller holds. Keep this
+        /// and the shader's <c>TerrainHeight</c> in the same change: a drift here plants trees underground or
+        /// floating, and there is nothing to catch it but the eye.
+        /// </summary>
+        public static float ForestTerrainHeight(float x, float z, ForestSceneConfig config)
+        {
+            float dist = MathF.Sqrt(x * x + z * z);
+            float ramp = MathHelper.SmoothStep(config.ClearingRadius, config.ClearingRadius + config.ClearingTransition, dist);
+
+            float rolling = 0.5f * MathF.Sin(x * 0.020f + z * 0.015f)
+                + 0.3f * MathF.Sin(x * -0.013f + z * 0.024f + 1.5f)
+                + 0.2f * MathF.Sin(x * 0.031f + z * 0.026f + 3.0f);
+
+            float basin = config.ClearingRelief * MathF.Sin(x * 0.05f + z * 0.035f);
+
+            float f = config.FloorLumpFrequency;
+            float lumps = MathF.Sin(x * f + z * f * 0.7f)
+                + 0.5f * MathF.Sin(x * -f * 0.8f + z * f * 1.1f + 2.0f);
+            float lumpHeight = config.FloorLumpStrength * lumps * (1.0f - ramp * 0.5f);
+
+            return config.LevelY + basin + lumpHeight + config.HillHeight * ramp * (rolling * 0.5f + 0.5f);
         }
 
         /// <summary>
@@ -1231,8 +1310,40 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
+        private void DrawForest(in SceneFrame frame)
+        {
+            float cell = FOREST_EXTENT / (FOREST_GRID_N - 1);
+            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
+            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
+
+            _forestEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
+            _forestEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
+            _forestEffect.Parameters["View"].SetValue(frame.Camera.View);
+            _forestEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
+            _forestEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
+            _forestEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
+            _forestEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
+            _forestEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
+            _forestEffect.Parameters["ForestTime"].SetValue(frame.Time);
+            _forestEffect.Parameters["SunColor"].SetValue(frame.SunColor);
+
+            frame.ApplyClouds?.Invoke(_forestEffect);
+
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _graphicsDevice.SetVertexBuffer(_forestVertexBuffer);
+            _graphicsDevice.Indices = _forestIndexBuffer;
+            _forestEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _forestIndexCount / 3);
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
         public void Dispose()
         {
+
             _seaVertexBuffer?.Dispose();
             _seaIndexBuffer?.Dispose();
             _desertVertexBuffer?.Dispose();
@@ -1253,6 +1364,8 @@ namespace Prazsky.Core.Render
             _sprayIndexBuffer?.Dispose();
             _meadowVertexBuffer?.Dispose();
             _meadowIndexBuffer?.Dispose();
+            _forestVertexBuffer?.Dispose();
+            _forestIndexBuffer?.Dispose();
         }
     }
 }

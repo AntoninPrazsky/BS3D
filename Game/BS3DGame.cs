@@ -195,9 +195,9 @@ namespace BS3D
         private SceneKind _scene = SceneKind.NeonCity;
 
         //Every value of the enum, in its declared order (City, Sea, Savanna, Desert, Mountain, Meadow,
-        //NeonCity). Written out rather than counted with Enum.GetValues so nothing walks reflection at load,
-        //and so the scene menu's labels below can be indexed by the same number.
-        internal const int SCENE_COUNT = 7;
+        //NeonCity, Forest). Written out rather than counted with Enum.GetValues so nothing walks reflection at
+        //load, and so the scene menu's labels below can be indexed by the same number.
+        internal const int SCENE_COUNT = 8;
 
         private SceneRenderer _sceneRenderer;
 
@@ -338,6 +338,20 @@ namespace BS3D
         private SurfaceTexture _stoneTexture, _concreteTexture;
         private InstancedModelRenderer _islandCapRenderer, _islandBodyRenderer;
         private Matrix _islandWorld;
+
+        //The forest scene's scattered trees, rocks and stumps: procedural meshes (bark lathe, foliage sphere,
+        //a rock lathe and a stump lathe) drawn through the shared instanced effect like the city and the
+        //island, so they take the dome's sky lighting, the clouds' shadows and the scene's point lights
+        //automatically. Two tree renderers (trunk + crown) because a tree is two materials — bark and
+        //foliage — and the diffuse tint is a per-draw uniform, not per-instance. The scatter plants them on
+        //the forest floor the terrain shader draws.
+        private SurfaceTexture _barkTexture, _foliageTexture;
+        private TreeMesh _treeMesh;
+        private RockMesh _rockMesh;
+        private StumpMesh _stumpMesh;
+        private InstancedModelRenderer _treeTrunkRenderer, _treeCrownRenderer, _rockRenderer, _stumpRenderer;
+        private ForestScatter _forestScatter;
+        private static readonly int FOREST_SEED = 77125;
 
         //The dark pit shaft behind the glass drain, in the four solid-terrain scenes only (the Testbed's own,
         //figures included). Those scenes are a flat clearing at the island's foot, so their ground plane would
@@ -704,10 +718,10 @@ namespace BS3D
         private const float EXPOSURE_MAX = 1.5f;
         private const float EXPOSURE_STEP = 0.2f;
 
-        //In the declared order of SceneKind (City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity), so the
-        //scene list can be indexed by the enum's own value
+        //In the declared order of SceneKind (City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest),
+        //so the scene list can be indexed by the enum's own value
         internal static readonly string[] SCENE_NAMES =
-            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City" };
+            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest" };
 
         #endregion
 
@@ -1780,6 +1794,101 @@ namespace BS3D
 
             _islandWorld = Matrix.CreateTranslation(0f, ISLAND_Y, 0f);
 
+            #region Forest scatter
+
+            //The forest's scattered trees, rocks and stumps. Procedural meshes (a bark lathe + foliage sphere
+            //for a tree, two lathes for a rock and a stump) drawn through the shared instanced effect, so they
+            //take the dome's sky lighting and the clouds' shadows the same way the island does. The two tree
+            //draws (trunk, crown) share one scatter of world matrices — the crown mesh is built sitting on its
+            //trunk's top, so a single position places both.
+            //
+            //Built once here (the scatter is a fixed default forest, like the city is a fixed default city) and
+            //re-planted if the config ever changes in the same way. The detail texture is what selects the
+            //triplanar technique — without one the renderer falls through to plain and every relief/cavity
+            //setting below is silently dead, as the island's comment warns.
+            ForestSceneConfig forestConfig = (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest);
+            ForestTreeConfig trees = forestConfig.Trees;
+
+            _barkTexture = SurfaceTexture.Bark(GraphicsDevice);
+            _foliageTexture = SurfaceTexture.Foliage(GraphicsDevice);
+
+            _treeMesh = new TreeMesh(GraphicsDevice,
+                trunkBaseRadius: trees.TrunkBaseRadius, trunkTopRadius: trees.TrunkTopRadius, trunkHeight: trees.TrunkHeight,
+                crownRadius: trees.CrownRadius, crownHeight: trees.CrownHeight);
+            _rockMesh = new RockMesh(GraphicsDevice, radius: forestConfig.Rocks.Radius, height: forestConfig.Rocks.Height);
+            _stumpMesh = new StumpMesh(GraphicsDevice, radius: forestConfig.Stumps.Radius, height: forestConfig.Stumps.Height);
+
+            //The trunk: bark projected triplanar (a trunk is a static vertical cylinder, so a world-fixed
+            //projection stays put), with the grain the bark texture's vertical streaks carry. Matte — wood does
+            //not glint — and a coarse relief so the bark catches the light unevenly. SetMeshSurfaceStyle(Wood)
+            //would dress the verticals with timber boards, which is wrong for bark; the bark texture is the
+            //grain, so the surface stays at the default and the texture carries it.
+            _treeTrunkRenderer = new InstancedModelRenderer(GraphicsDevice, _treeMesh.Trunk, Vector3.One, _instancingEffect)
+            {
+                DetailTexture = _barkTexture.Texture,
+                DetailTextureMapping = DetailMapping.Triplanar,
+                DetailScale = 1f / 2.2f,
+                DetailBoost = 1f / _barkTexture.LinearMean,
+                DetailStrength = 0.55f,
+                SurfaceReliefFrequency = 9f,
+                SurfaceReliefStrength = 0.01f,
+                CavityStrength = 0.5f,
+                SpecularAmbientStrength = 0.08f
+            };
+
+            //The canopy: foliage projected triplanar over the bulged sphere, lighter relief than the bark (a
+            //leaf mass is softer than a trunk) and a touch more reflection — a leaf's waxy cuticle catches the
+            //sun where bark does not.
+            _treeCrownRenderer = new InstancedModelRenderer(GraphicsDevice, _treeMesh.Crown, Vector3.One, _instancingEffect)
+            {
+                DetailTexture = _foliageTexture.Texture,
+                DetailTextureMapping = DetailMapping.Triplanar,
+                DetailScale = 1f / 1.6f,
+                DetailBoost = 1f / _foliageTexture.LinearMean,
+                DetailStrength = 0.5f,
+                SurfaceReliefFrequency = 6f,
+                SurfaceReliefStrength = 0.006f,
+                CavityStrength = 0.4f,
+                SpecularAmbientStrength = 0.12f
+            };
+
+            //The rocks: the same dressed-stone setup the island's cap uses (the stone texture, the same
+            //relief and cavity), only rougher — a forest boulder is weathered, not dressed.
+            _rockRenderer = new InstancedModelRenderer(GraphicsDevice, _rockMesh, Vector3.One, _instancingEffect)
+            {
+                DetailTexture = _stoneTexture.Texture,
+                DetailTextureMapping = DetailMapping.Triplanar,
+                DetailScale = 1f / 1.5f,
+                DetailBoost = 1f / _stoneTexture.LinearMean,
+                DetailStrength = 0.6f,
+                SurfaceReliefFrequency = 8f,
+                SurfaceReliefStrength = 0.012f,
+                CavityStrength = 0.7f,
+                SpecularAmbientStrength = 0.12f
+            };
+
+            //The stumps: bark, like the trunk, but flatter — a cut surface has no relief to speak of beyond the
+            //grain, and the heartwood inset the mesh carves reads off the cavity term.
+            _stumpRenderer = new InstancedModelRenderer(GraphicsDevice, _stumpMesh, Vector3.One, _instancingEffect)
+            {
+                DetailTexture = _barkTexture.Texture,
+                DetailTextureMapping = DetailMapping.Triplanar,
+                DetailScale = 1f / 1.8f,
+                DetailBoost = 1f / _barkTexture.LinearMean,
+                DetailStrength = 0.5f,
+                SurfaceReliefFrequency = 7f,
+                SurfaceReliefStrength = 0.008f,
+                CavityStrength = 0.6f,
+                SpecularAmbientStrength = 0.08f
+            };
+
+            //The scatter is planted on the forest floor the terrain shader draws: ForestTerrainHeight mirrors
+            //Forest.fx's height field on the CPU, so a tree's base sits on the ground the player sees.
+            _forestScatter = new ForestScatter(FOREST_SEED, forestConfig,
+                (x, z) => SceneRenderer.ForestTerrainHeight(x, z, forestConfig));
+
+            #endregion
+
             //The drain. Its rim is flush with the stone top and meets the disc's bore directly, so it needs no
             //collar (the 0 argument — the machinery that filled the corners of a square pit is unused here).
             //Drawn translucent and with culling off, so the one-sided cone reads both looking down into it and
@@ -1961,6 +2070,17 @@ namespace BS3D
             yield return _islandBodyRenderer;
             yield return _funnelRenderer;
             yield return _funnelRimsRenderer;
+
+            //The forest scatter, present only in the forest scene but always built: null-checked like the
+            //ceiling, since they are constructed in LoadContent (after a quality step can already have run
+            //ApplySkyLighting once on the way in).
+            if (_treeTrunkRenderer != null)
+            {
+                yield return _treeTrunkRenderer;
+                yield return _treeCrownRenderer;
+                yield return _rockRenderer;
+                yield return _stumpRenderer;
+            }
 
             if (_ceilingRenderer != null) yield return _ceilingRenderer;
         }
@@ -2527,6 +2647,23 @@ namespace BS3D
             }
             else _sceneRenderer.DrawEnvironment(_scene, sceneFrame);
 
+            //The forest's scattered trees, rocks and stumps, drawn after the forest terrain they stand on. The
+            //trunk and crown share one scatter of world matrices (the crown mesh sits on its trunk's top), so
+            //both read the same Trees array; the two are separate draws because their tints differ — bark and
+            //foliage — and the diffuse tint is a per-draw uniform. Each draw is gated on the scatter existing,
+            //which it always does by here but reads more honestly than a bare dereference.
+            if (_scene == SceneKind.Forest && _forestScatter != null)
+            {
+                ForestTreeConfig trees = ((ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest)).Trees;
+                ForestRockConfig rocks = ((ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest)).Rocks;
+                ForestStumpConfig stumps = ((ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest)).Stumps;
+
+                _treeTrunkRenderer.Draw(_camera, _forestScatter.Trees, _forestScatter.Trees.Length, _sceneEffectParams, trees.TrunkColor.ToVector3());
+                _treeCrownRenderer.Draw(_camera, _forestScatter.Trees, _forestScatter.Trees.Length, _sceneEffectParams, trees.FoliageColor.ToVector3());
+                _rockRenderer.Draw(_camera, _forestScatter.Rocks, _forestScatter.Rocks.Length, _sceneEffectParams, rocks.Color.ToVector3());
+                _stumpRenderer.Draw(_camera, _forestScatter.Stumps, _forestScatter.Stumps.Length, _sceneEffectParams, stumps.Color.ToVector3());
+            }
+
             //The platform is a closed solid wound clockwise from outside, so it takes the scene's ordinary
             //back-face culling — and drawing it that way is what would show a winding mistake rather than
             //hiding one. Its stone cap and concrete drum are two draws because they are two materials.
@@ -2714,6 +2851,15 @@ namespace BS3D
             _islandBodyRenderer?.Dispose();
             _stoneTexture?.Dispose();
             _concreteTexture?.Dispose();
+            _treeMesh?.Dispose();
+            _rockMesh?.Dispose();
+            _stumpMesh?.Dispose();
+            _barkTexture?.Dispose();
+            _foliageTexture?.Dispose();
+            _treeTrunkRenderer?.Dispose();
+            _treeCrownRenderer?.Dispose();
+            _rockRenderer?.Dispose();
+            _stumpRenderer?.Dispose();
             _funnelMesh?.Dispose();
             _funnelRenderer?.Dispose();
             _funnelRimsMesh?.Dispose();

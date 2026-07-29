@@ -129,6 +129,12 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/Meadow.fx
 
+#begin Shaders/Forest.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Forest.fx
+
 #begin Shaders/Glare.fx
 /importer:EffectImporter
 /processor:EffectProcessor

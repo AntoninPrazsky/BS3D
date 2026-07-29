@@ -60,6 +60,34 @@ namespace Prazsky.Core.Render
                 aggregateDepth: 0.05f, pitDepth: 0f,
                 tint: new Vector3(1.02f, 1f, 0.972f));
 
+        /// <summary>
+        /// Tree bark: a darker, rougher field than stone, with the vertical furrows that read as bark even on
+        /// a triplanar-projected trunk (the furrows run with the grain rather than around it). The same
+        /// mottle-plus-grain base as <see cref="Stone"/>, overlaid with a vertical streak field whose
+        /// frequency is set apart from the grain so the streaks are visible against it.
+        /// </summary>
+        public static SurfaceTexture Bark(GraphicsDevice graphicsDevice, int size = 512, int seed = 31415) =>
+            new(graphicsDevice, size, seed,
+                mid: 0.78f,
+                broadPeriod: 3, broadContrast: 0.12f,
+                grainPeriod: 56, grainContrast: 0.06f,
+                aggregateDepth: 0.07f, pitDepth: 0.12f,
+                tint: new Vector3(1.04f, 0.99f, 0.86f),
+                streakPeriod: 18, streakContrast: 0.10f);
+
+        /// <summary>
+        /// Foliage: a lighter, finer-grained clumped field for leaf masses — none of bark's vertical grain,
+        /// a softer mottle so a crown reads as a cloud of leaves rather than a textured ball. Used as a
+        /// triplanar modulation over the canopy colour.
+        /// </summary>
+        public static SurfaceTexture Foliage(GraphicsDevice graphicsDevice, int size = 512, int seed = 27182) =>
+            new(graphicsDevice, size, seed,
+                mid: 0.88f,
+                broadPeriod: 5, broadContrast: 0.10f,
+                grainPeriod: 32, grainContrast: 0.05f,
+                aggregateDepth: 0.06f, pitDepth: 0f,
+                tint: new Vector3(0.96f, 1.03f, 0.94f));
+
         /// <param name="size">Edge of the square texture. A power of two, so the mip chain halves cleanly.</param>
         /// <param name="mid">Mean value in sRGB, before the tint.</param>
         /// <param name="broadPeriod">Lattice cells across the texture for the coarsest octave of the mottle.</param>
@@ -70,12 +98,27 @@ namespace Prazsky.Core.Render
         private SurfaceTexture(GraphicsDevice graphicsDevice, int size, int seed, float mid,
             int broadPeriod, float broadContrast, int grainPeriod, float grainContrast,
             float aggregateDepth, float pitDepth, Vector3 tint)
+            //No vertical grain (streakContrast 0) - the plain isotropic surface stone and concrete use.
+            : this(graphicsDevice, size, seed, mid, broadPeriod, broadContrast, grainPeriod, grainContrast,
+                aggregateDepth, pitDepth, tint, streakPeriod: 0, streakContrast: 0f)
+        {
+        }
+
+        /// <param name="streakPeriod">Lattice cells across the texture for a vertical (v-only) streak field.
+        /// 0 leaves the surface ungrained — the isotropic stone/concrete case.</param>
+        /// <param name="streakContrast">How deep the vertical streaks cut. Only applied when
+        /// <paramref name="streakPeriod"/> is non-zero.</param>
+        private SurfaceTexture(GraphicsDevice graphicsDevice, int size, int seed, float mid,
+            int broadPeriod, float broadContrast, int grainPeriod, float grainContrast,
+            float aggregateDepth, float pitDepth, Vector3 tint, int streakPeriod, float streakContrast)
         {
             //The whole chain is built from one linear-space field: a mip is an average of the light its
             //parent stands for, and averaging display-encoded values instead is the same error this
             //renderer converts the light rig and the sky palette on the CPU to avoid.
             var linear = new Vector3[size * size];
             double sum = 0.0;
+
+            bool hasStreaks = streakPeriod > 0 && streakContrast > 0f;
 
             for (int y = 0; y < size; y++)
             {
@@ -93,6 +136,15 @@ namespace Prazsky.Core.Render
                         + broadContrast * (broad - 0.5f)
                         + grainContrast * (grain - 0.5f)
                         - aggregateDepth * Smoothstep(0.58f, 0.78f, aggregate);
+
+                    //Vertical streaks that run with the grain of a trunk rather than around it. Sampled on v
+                    //alone so the streaks are continuous down the texture, which is what makes them read as
+                    //furrows on a triplanar-projected cylinder rather than as another mottle.
+                    if (hasStreaks)
+                    {
+                        float streak = Fbm(0.5f, v, streakPeriod, 3, 0.5f, seed + 38171);
+                        value -= streakContrast * Smoothstep(0.45f, 0.75f, streak);
+                    }
 
                     if (pitDepth > 0f)
                     {
