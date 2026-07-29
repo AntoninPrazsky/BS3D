@@ -541,15 +541,22 @@ namespace BS3D
         private int _navDirection;
         private Point _navMouseAt;
 
-        //Inter (SIL OFL), through FontStashSharp. Myra's embedded stylesheet carries a small bitmap font that
-        //is fine for a tool panel and much too coarse for a game's title, so the menu brings its own; it is
-        //embedded in the assembly, so there is no path to get wrong and nothing to install. Each size is a
-        //separate rasterized atlas, so they are resolved once at load rather than per label.
+        //Anton and Inter (both SIL OFL), through FontStashSharp. Myra's embedded stylesheet carries a small
+        //bitmap font that is fine for a tool panel and much too coarse for a game's title, so the menu brings
+        //its own; they are embedded in the assembly, so there is no path to get wrong and nothing to install.
+        //Each size is a separate rasterized atlas, so they are resolved once at load rather than per label.
         //
-        //Two systems, not two fonts in one: FontStashSharp falls back through a system's fonts glyph by
-        //glyph, so a bold added beside the regular would never be reached — the regular has every glyph.
-        //Picking a weight means picking a system.
-        private FontSystem _menuFontSystem, _menuFontSystemBold;
+        //TWO TYPEFACES BY ROLE, not by weight. Anton is a display face — condensed, black, one weight — and it
+        //is what everything meant to be loud is set in: the title, the menu entries and the HUD. It is the
+        //shippable form of the Impact look (Impact itself is bundled with Windows and not redistributable,
+        //which is the same rule that keeps Segoe UI out of this assembly). Inter stays for the small print —
+        //About's paragraphs, a level's rules, the adaptive-quality note — because a display face is drawn for
+        //headlines and turns to mush at body sizes, which is exactly where those live.
+        //
+        //Three systems, not three fonts in one: FontStashSharp falls back through a system's fonts glyph by
+        //glyph, so a second face added beside the first would never be reached — the first has every glyph.
+        //Picking a face means picking a system.
+        private FontSystem _menuFontSystem, _menuFontSystemBold, _menuFontSystemDisplay;
         private SpriteFontBase _menuFontBody, _menuFontSmall, _menuFontHeading, _menuFontTitle;
 
         //The menu is deliberately GREYSCALE — no hue anywhere, and no coloured frames. It has to sit over
@@ -739,8 +746,8 @@ namespace BS3D
 
         #region The in-play HUD's fonts
 
-        //The HUD is the GameplayScreen's, but its type is the frame's — the same Inter the menu is set in,
-        //resolved per viewport height exactly as the menu's own sizes are. Separate from EnsureMenuLayout,
+        //The HUD is the GameplayScreen's, but its type is the frame's — the same display face the menu's own
+        //loud type is set in, resolved per viewport height exactly as the menu's sizes are. Separate from EnsureMenuLayout,
         //which only runs while a menu is up, and quantized the same way so a window being dragged does not
         //ask the font system for a new atlas every frame.
         //Authored large on purpose. A HUD in a game is not a data readout — the score and the ball count are
@@ -754,15 +761,27 @@ namespace BS3D
         //are authored larger still than the score they land on
         private const int HUD_FONT_POPUP = 112;
 
+        //The balls-left alarm's first step, which used to be a heavier weight and cannot be: the display face
+        //has ONE weight, so a bold slot would resolve to the very same glyphs and the step would vanish in
+        //silence — a documented escalation quietly reduced from three steps to two. It is a size step instead.
+        //Kept modest: it has to read as the number leaning in, not as a second number, and the count is
+        //pivoted on its bottom-left corner (see PlayHud.DrawBallsLeft), so growing it cannot push it off frame
+        //the way the centre-pivoted score would be.
+        private const float HUD_LOW_EMPHASIS = 1.14f;
+
         private SpriteFontBase _hudFontScore, _hudFontLabel, _hudFontPopup;
-        private SpriteFontBase _hudFontScoreBold, _hudFontLabelBold;
+        private SpriteFontBase _hudFontScoreLoud, _hudFontLabelLoud;
         private int _hudFontsForHeight = -1;
 
         internal SpriteFontBase HudFontScore => _hudFontScore;
         internal SpriteFontBase HudFontLabel => _hudFontLabel;
         internal SpriteFontBase HudFontPopup => _hudFontPopup;
-        internal SpriteFontBase HudFontScoreBold => _hudFontScoreBold;
-        internal SpriteFontBase HudFontLabelBold => _hudFontLabelBold;
+
+        /// <summary>The balls-left readout once the budget is low — the same face a step larger. See <see cref="HUD_LOW_EMPHASIS"/>.</summary>
+        internal SpriteFontBase HudFontScoreLoud => _hudFontScoreLoud;
+
+        /// <summary>The caption under a low balls-left readout, grown to match <see cref="HudFontScoreLoud"/>.</summary>
+        internal SpriteFontBase HudFontLabelLoud => _hudFontLabelLoud;
 
         /// <summary>
         /// Resolves the HUD's fonts for the viewport they are about to be drawn into. Called by the gameplay
@@ -776,11 +795,11 @@ namespace BS3D
             _hudFontsForHeight = quantized;
             _menuScale = GraphicsDevice.Viewport.Height / (float)MENU_DESIGN_HEIGHT;
 
-            _hudFontScore = _menuFontSystem.GetFont(Scaled(HUD_FONT_SCORE));
-            _hudFontLabel = _menuFontSystem.GetFont(Scaled(HUD_FONT_LABEL));
-            _hudFontPopup = _menuFontSystem.GetFont(Scaled(HUD_FONT_POPUP));
-            _hudFontScoreBold = _menuFontSystemBold.GetFont(Scaled(HUD_FONT_SCORE));
-            _hudFontLabelBold = _menuFontSystemBold.GetFont(Scaled(HUD_FONT_LABEL));
+            _hudFontScore = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_SCORE));
+            _hudFontLabel = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_LABEL));
+            _hudFontPopup = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_POPUP));
+            _hudFontScoreLoud = _menuFontSystemDisplay.GetFont(Scaled((int)(HUD_FONT_SCORE * HUD_LOW_EMPHASIS)));
+            _hudFontLabelLoud = _menuFontSystemDisplay.GetFont(Scaled((int)(HUD_FONT_LABEL * HUD_LOW_EMPHASIS)));
         }
 
         #endregion
@@ -1173,10 +1192,11 @@ namespace BS3D
         {
             MyraEnvironment.Game = this;
 
-            //Inter (SIL OFL 1.1), embedded in the assembly so there is no path to get wrong and nothing to
-            //install. Myra's own stylesheet carries a small bitmap font, which is fine for a tool panel and
-            //far too coarse for a title. Each size is rasterized into its own atlas by GetFont, so they are
-            //resolved once here rather than per label.
+            //Anton and Inter (both SIL OFL 1.1), embedded in the assembly so there is no path to get wrong and
+            //nothing to install. Myra's own stylesheet carries a small bitmap font, which is fine for a tool
+            //panel and far too coarse for a title. Each size is rasterized into its own atlas by GetFont, so
+            //they are resolved once here rather than per label.
+            _menuFontSystemDisplay = LoadEmbeddedFont("BS3D.Content.Fonts.Anton-Regular.ttf");
             _menuFontSystem = LoadEmbeddedFont("BS3D.Content.Fonts.Inter-Regular.ttf");
             _menuFontSystemBold = LoadEmbeddedFont("BS3D.Content.Fonts.Inter-Bold.ttf");
 
@@ -1222,10 +1242,14 @@ namespace BS3D
 
             //Each size is its own rasterized atlas, so they are asked for once per rebuild and not per label.
             //Quantizing the rebuild is what keeps a drag from asking for a hundred slightly different sizes.
+            //
+            //Split by role, not by weight: the title, the entries a player picks from and a result's headings
+            //are the loud type and are set in the display face; SMALL stays in Inter, because it is the size
+            //About's paragraphs and a level's rules are read at and a condensed display face closes up there.
             _menuFontSmall = _menuFontSystem.GetFont(Scaled(MENU_FONT_SMALL));
-            _menuFontBody = _menuFontSystem.GetFont(Scaled(MENU_FONT_BODY));
-            _menuFontHeading = _menuFontSystemBold.GetFont(Scaled(MENU_FONT_HEADING));
-            _menuFontTitle = _menuFontSystemBold.GetFont(Scaled(MENU_FONT_TITLE));
+            _menuFontBody = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_BODY));
+            _menuFontHeading = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_HEADING));
+            _menuFontTitle = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_TITLE));
 
             //The trees themselves are NOT rebuilt here: each page rebuilds its own the next time it is asked
             //for one, against this generation (MenuLayoutGeneration). A page the player never opens never
@@ -2940,6 +2964,7 @@ namespace BS3D
             _desktop?.Dispose();
             _menuFontSystem?.Dispose();
             _menuFontSystemBold?.Dispose();
+            _menuFontSystemDisplay?.Dispose();
 
             //The session: the simulation, the contact events, the dispatcher, the pool and the shot-trail
             //buffers all live on the gameplay screen now, which disposes them in the order they need

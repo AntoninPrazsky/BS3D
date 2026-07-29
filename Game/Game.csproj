@@ -45,10 +45,13 @@
     <PackageReference Include="Myra" Version="1.6.3" />
   </ItemGroup>
 
-  <!--The menu UI's fonts (Myra renders through FontStashSharp, which needs TTF bytes at runtime). Inter is
-  SIL OFL 1.1, so redistribution is permitted; Segoe UI (the InfoRenderer's spritefont source) is not. Embedded
-  so no on-disk path has to exist at runtime and nothing flows through the MGCB content pipeline.-->
+  <!--The menu UI's fonts (Myra renders through FontStashSharp, which needs TTF bytes at runtime). Anton sets
+  everything meant to be loud (the title, the menu entries, the HUD) and Inter the small print under it. Both
+  are SIL OFL 1.1, so redistribution is permitted and each ships with its licence beside it; Segoe UI (the
+  InfoRenderer's spritefont source) is not, and neither is Impact, which is why the Impact look is Anton.
+  Embedded so no on-disk path has to exist at runtime and nothing flows through the MGCB content pipeline.-->
   <ItemGroup>
+    <EmbeddedResource Include="Content\Fonts\Anton-Regular.ttf" />
     <EmbeddedResource Include="Content\Fonts\Inter-Regular.ttf" />
     <EmbeddedResource Include="Content\Fonts\Inter-Bold.ttf" />
   </ItemGroup>

@@ -532,9 +532,11 @@ namespace BS3D.Screens
         /// an unlimited budget: a resource that cannot run out is not one to plan against.
         /// <para>
         /// The states escalate in three steps rather than one, and only the last of them is a colour. At
-        /// <see cref="HUD_LOW_BALLS"/> the number turns bold and starts to breathe — motion is a stronger alarm
-        /// than hue and it costs the HUD nothing over seven palettes. At <see cref="HUD_CRITICAL_BALLS"/> it
-        /// takes the accent as well, which is the one place the HUD spends colour on something other than gain.
+        /// <see cref="HUD_LOW_BALLS"/> the number grows a step and starts to breathe — motion is a stronger
+        /// alarm than hue and it costs the HUD nothing over seven palettes. At <see cref="HUD_CRITICAL_BALLS"/>
+        /// it takes the accent as well, which is the one place the HUD spends colour on something other than
+        /// gain. (The step was a heavier weight until the readout moved to a single-weight display face; it is
+        /// a size now, for the reason set out at <c>HUD_LOW_EMPHASIS</c>.)
         /// </para>
         /// </summary>
         private void DrawBallsLeft(ScoreKeeper score, Viewport viewport, int margin)
@@ -544,8 +546,8 @@ namespace BS3D.Screens
             bool low = left <= HUD_LOW_BALLS;
             bool critical = left <= HUD_CRITICAL_BALLS;
 
-            SpriteFontBase font = low ? _game.HudFontScoreBold : _game.HudFontScore;
-            SpriteFontBase captionFont = low ? _game.HudFontLabelBold : _game.HudFontLabel;
+            SpriteFontBase font = low ? _game.HudFontScoreLoud : _game.HudFontScore;
+            SpriteFontBase captionFont = low ? _game.HudFontLabelLoud : _game.HudFontLabel;
 
             if (left != _ballsTextFor)
             {
