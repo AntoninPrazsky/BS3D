@@ -88,6 +88,13 @@ namespace BS3D
         //screen and, later, the menu — same pattern as the camera.
         private ProceduralAudio _audio;
 
+        //The victory display. The frame's, not the session's: it has to go on running once the result screen
+        //covers the gameplay screen, which is exactly when the player is watching it.
+        private Fireworks _fireworks;
+
+        //Testing only: the "celebrate" argument, fired once the display exists.
+        private readonly bool _startupCelebrate;
+
         //Wall clock. Everything alive in the scene runs off it — the balls' heartbeat, the city's windows —
         //so none of it is tied to a simulation that may later be paused.
         private float _wallClock;
@@ -99,6 +106,12 @@ namespace BS3D
 
         /// <summary>Procedurally generated SFX, shared by the gameplay screen and the menu.</summary>
         internal ProceduralAudio Audio => _audio;
+
+        /// <summary>
+        /// The victory display. On the host rather than on the session because a cleared level puts the result
+        /// screen over the session, and a covered screen stops being updated — see <see cref="Fireworks"/>.
+        /// </summary>
+        internal Fireworks Fireworks => _fireworks;
 
         /// <summary>The wall clock everything alive runs off, paused or not.</summary>
         internal float WallClock => _wallClock;
@@ -876,11 +889,17 @@ namespace BS3D
         /// The tier to start at, or <c>null</c> to start at <see cref="QualityLevel.High"/> — the look the game is
         /// authored at — and let <see cref="TuneQualityToFrameRate"/> measure this machine.
         /// </param>
+        /// <param name="celebrate">
+        /// Testing only (the <c>celebrate</c> argument): fire the victory display on the front end. Clearing a
+        /// level is the only thing that normally starts it and clearing one cannot be scripted, so this is how
+        /// the fireworks get screenshotted and measured at all.
+        /// </param>
         public BS3DGame(bool fullscreen = false, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE,
             bool uncappedFps = false, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
-            QualityLevel? quality = null)
+            QualityLevel? quality = null, bool celebrate = false)
         {
             _fullscreen = fullscreen;
+            _startupCelebrate = celebrate;
 
             //The tier owns supersampling, so the tier's factor is taken first and an explicit ssaa= then
             //overrides that one entry of it — the expert override the benchmark and the screenshot harness use.
@@ -1204,6 +1223,13 @@ namespace BS3D
             //The SFX are synthesized from raw PCM here, once, so the per-event paths only ever play a buffer —
             //no asset files, no pipeline step.
             _audio = new ProceduralAudio();
+
+            //The victory display. Its one static buffer is built here too, so a cleared level costs nothing
+            //but a handful of uniforms.
+            _fireworks = new Fireworks(GraphicsDevice, Content.Load<Effect>("Shaders/Fireworks"), _audio);
+
+            //Testing only, and deliberately long: it has to outlast a scripted screenshot burst.
+            if (_startupCelebrate) _fireworks.Celebrate(90f);
 
             BuildMenu();
         }
@@ -2462,6 +2488,12 @@ namespace BS3D
             float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
             _wallClock += elapsed;
 
+            //Advanced here, with the wall clock and above the stack, because the celebration outlives the
+            //screen that started it: clearing a level pushes the result page over the gameplay screen, and a
+            //covered screen is not updated at all. Driven off the frame's own elapsed time rather than a play
+            //clock, so it does not stop when the game does.
+            _fireworks?.Update(elapsed, _camera);
+
             //The very click that refocuses a windowed game would otherwise read as a fresh press against a
             //stale "released" state and fire an unintended shot, since input is not sampled while inactive.
             EdgeInputAllowed = IsActive && _wasActive;
@@ -2945,6 +2977,12 @@ namespace BS3D
             //A no-op in the two cities and the desert, which carry no overlay weather
             _sceneRenderer.DrawOverlays(_scene, sceneFrame);
 
+            //The victory display goes last of the scene's own draws and before the resolve, so it is inside the
+            //HDR pass and blooms through the glare like everything else that emits — which is the entire point
+            //of a firework. Drawn from here rather than from a screen so it keeps running once the result page
+            //covers the session (see Fireworks).
+            _fireworks?.Draw(_camera);
+
             ResolveSceneTarget();
         }
 
@@ -3119,6 +3157,7 @@ namespace BS3D
 
             //The synthesized SFX buffers were built in LoadContent and outlive every session.
             _audio?.Dispose();
+            _fireworks?.Dispose();
 
             base.UnloadContent();
         }

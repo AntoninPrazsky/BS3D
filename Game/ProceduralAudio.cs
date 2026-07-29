@@ -31,6 +31,9 @@ namespace BS3D
 
         private readonly SoundEffect _shoot;
         private readonly SoundEffect[] _landed;
+        private readonly SoundEffect _fireworkLaunch;
+        private readonly SoundEffect _fireworkBurst;
+        private readonly SoundEffect _partyPopper;
         private readonly Random _random = new();
 
         public ProceduralAudio()
@@ -38,6 +41,10 @@ namespace BS3D
             _shoot = BakeShoot();
             _landed = new SoundEffect[9];   //indexed by BallType value (1..8); slot 0 unused
             for (int type = 1; type <= 8; type++) _landed[type] = BakeLanded(type);
+
+            _fireworkLaunch = BakeFireworkLaunch();
+            _fireworkBurst = BakeFireworkBurst();
+            _partyPopper = BakePartyPopper();
         }
 
         /// <summary>The shot leaving the barrel: centred, with a small random pitch so a burst never sounds flat.</summary>
@@ -61,10 +68,57 @@ namespace BS3D
         }
 
         /// <summary>
+        /// A shell leaving the ground: the rising whistle, panned where it was fired from. Pitched a little
+        /// each time and, because a whistle is a near-pure tone, pitched <i>widely</i> — two shells going up
+        /// together on the same note read as one loud shell rather than as two.
+        /// </summary>
+        public void PlayFireworkLaunch(Vector3 world, RecoilCamera camera)
+        {
+            float pan = PanFor(world, camera, SKY_PAN_WIDTH, out _);
+            _fireworkLaunch.Play(0.42f * MASTER_VOLUME, NextPitch(0.22f), pan);
+        }
+
+        /// <summary>
+        /// A shell going off. <paramref name="size"/> (0…1) is how big the burst is: it drives the volume and,
+        /// inversely, the pitch — a big shell is a deeper, louder report, which is the whole of how the ear
+        /// tells a large firework from a small one at a distance.
+        /// </summary>
+        public void PlayFireworkBurst(Vector3 world, RecoilCamera camera, float size)
+        {
+            float pan = PanFor(world, camera, SKY_PAN_WIDTH, out float distance);
+
+            //A near-flat distance term. A firework IS far away — that is what it is for — so falling off the
+            //way a landing does would make every burst a whisper; this only separates the near from the far.
+            float volume = (0.55f + 0.45f * size) * (0.75f + 0.25f * MathHelper.Clamp(1f - distance / 260f, 0f, 1f));
+
+            _fireworkBurst.Play(MathHelper.Clamp(volume * MASTER_VOLUME, 0f, 1f),
+                MathHelper.Clamp(NextPitch(0.12f) - size * 0.28f, -1f, 1f), pan);
+        }
+
+        /// <summary>The party popper that opens the celebration: one dry crack of paper and confetti, centred.</summary>
+        public void PlayPartyPopper()
+        {
+            _partyPopper.Play(0.9f * MASTER_VOLUME, NextPitch(0.08f), 0f);
+        }
+
+        /// <summary>
         /// Stereo pan of a world point relative to the camera: project the sound's offset onto the camera's
         /// right axis and clamp. A point straight ahead is 0; one fully to the lens's right is +1.
         /// </summary>
         private static float PanFor(Vector3 world, RecoilCamera camera, out float distance)
+            => PanFor(world, camera, PAN_FULL_WIDTH, out distance);
+
+        /// <summary>
+        /// <inheritdoc cref="PanFor(Vector3, RecoilCamera, out float)"/>
+        /// <para>
+        /// <paramref name="fullWidth"/> is how far off-centre a sound has to be to reach full left/right. It is
+        /// per-source rather than one constant because the two things that make noise here live at completely
+        /// different scales: the cluster spans a couple of dozen units, and a firework bursts a hundred up and
+        /// as far out again — at the cluster's width every shell but the one straight overhead would pan hard
+        /// to one side.
+        /// </para>
+        /// </summary>
+        private static float PanFor(Vector3 world, RecoilCamera camera, float fullWidth, out float distance)
         {
             Vector3 forward = camera.Target - camera.Position;
             float forwardLen = forward.Length();
@@ -78,7 +132,7 @@ namespace BS3D
             distance = toSound.Length();
 
             float lateral = Vector3.Dot(toSound, right);
-            return MathHelper.Clamp(lateral / PAN_FULL_WIDTH, -1f, 1f);
+            return MathHelper.Clamp(lateral / fullWidth, -1f, 1f);
         }
 
         /// <summary>Falls off gently with distance so a far landing is quieter but never inaudible.</summary>
@@ -93,6 +147,9 @@ namespace BS3D
 
         //How far off-centre a sound has to be to reach full left/right pan. Sized to the cluster's span.
         private const float PAN_FULL_WIDTH = 18f;
+
+        //The same, for things happening in the sky. A firework bursts a hundred units up and as far out again.
+        private const float SKY_PAN_WIDTH = 90f;
 
         #region The signal chain
 
@@ -247,6 +304,183 @@ namespace BS3D
         }
 
         /// <summary>
+        /// The shell going up: the rising whistle every firework opens with. It is the one sound here that is
+        /// almost a pure TONE — a whistling shell is a resonant cavity, not an explosion — and that is what
+        /// makes it read against a scene full of broadband noise.
+        /// <list type="bullet">
+        /// <item><b>The rise is the whole effect.</b> The pitch climbs 620 → 1950 Hz over the flight, which is
+        /// what says "going up" without anything on screen having to. It is eased rather than linear so it
+        /// slows as the shell does.</item>
+        /// <item><b>Vibrato, or it reads as a test tone.</b> A few per cent of wobble at ~7 Hz is the shell
+        /// spinning; dead-steady pitch sounds synthetic in a way no amount of harmonics fixes.</item>
+        /// <item><b>A thin noise bed</b> band-passed around the tone: the air over the case. Quiet, but
+        /// without it the whistle sits outside the scene rather than in it.</item>
+        /// </list>
+        /// </summary>
+        private SoundEffect BakeFireworkLaunch()
+        {
+            const float duration = 1.15f;
+            int samples = (int)(SAMPLE_RATE * duration);
+            float[] signal = new float[samples];
+
+            const float startHz = 620f, endHz = 1950f;
+            float phase = 0f;
+
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+                float u = t / duration;
+
+                //Eased rise: fast at first and flattening, like a shell losing speed against gravity.
+                float climb = 1f - (1f - u) * (1f - u);
+                float freq = startHz + (endHz - startHz) * climb;
+
+                //The spin. Proportional to the current pitch, so it stays the same musical width as it rises.
+                freq *= 1f + 0.028f * MathF.Sin(2f * MathF.PI * 7.1f * t);
+
+                phase += 2f * MathF.PI * freq / SAMPLE_RATE;
+
+                //A whistle is nearly a sine; a little second and third keep it from being a lab tone.
+                float tone = MathF.Sin(phase) + 0.22f * MathF.Sin(2f * phase) + 0.06f * MathF.Sin(3f * phase);
+
+                //In fast, hold, then fade as it gets away from the listener — and cut before the burst lands.
+                float env = MathF.Min(1f, t / 0.05f) * MathF.Min(1f, (duration - t) / 0.28f);
+
+                signal[i] += tone * 0.62f * env;
+            }
+
+            //The air over the case: noise confined to the band the tone sweeps through, so it reads as part of
+            //the whistle rather than as hiss laid over it.
+            float[] air = BandPass(MakeNoiseArray(samples, seed: 7717), 700f, 4200f);
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+                float env = MathF.Min(1f, t / 0.05f) * MathF.Min(1f, (duration - t) / 0.28f);
+                signal[i] += air[i] * 0.10f * env;
+            }
+
+            //Barely any room on this one: the shell is climbing away into open sky, and a long tail on a rising
+            //tone smears the pitch into a chord.
+            ApplyReverb(signal, roomScale: 0.55f, wet: 0.16f, decay: 0.20f);
+
+            Normalize(signal, 0.92f);
+            return ToSoundEffect(signal);
+        }
+
+        /// <summary>
+        /// The shell going off, in three parts, because a real report is three things arriving together and
+        /// leaving at different rates:
+        /// <list type="bullet">
+        /// <item><b>The crack</b> — a very short, bright, barely-filtered noise transient. This is the part the
+        /// ear times the event by, and it has to be the first sample: any attack ramp at all turns a bang into
+        /// a whoomph.</item>
+        /// <item><b>The boom</b> — a fast 110 → 38 Hz pitch drop under it, carrying the weight. The same trick
+        /// the cannon's boom uses, an octave lower and slower to decay, because this one is meant to sound big
+        /// and far away rather than close and sharp.</item>
+        /// <item><b>The crackle</b> — the burning stars, and the longest-lived of the three: high band-passed
+        /// noise gated by a fast random stutter so it breaks into individual pops rather than hissing. It
+        /// outlasts the boom by half a second, which is exactly what makes a firework sound like a firework
+        /// and not like a gunshot.</item>
+        /// </list>
+        /// A long, wet reverb over the lot: this happens a hundred units up over an open scene.
+        /// </summary>
+        private SoundEffect BakeFireworkBurst()
+        {
+            const float duration = 1.9f;
+            int samples = (int)(SAMPLE_RATE * duration);
+            float[] signal = new float[samples];
+
+            //The boom.
+            const float pitchDropTime = 0.055f;
+            const float pitchStart = 110f, pitchEnd = 38f;
+            float phase = 0f;
+
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                float freq = t < pitchDropTime
+                    ? pitchStart * MathF.Pow(pitchEnd / pitchStart, t / pitchDropTime)
+                    : pitchEnd;
+
+                phase += 2f * MathF.PI * freq / SAMPLE_RATE;
+
+                float boom = MathF.Sin(phase) + 0.26f * MathF.Sin(2f * phase);
+                signal[i] += boom * 0.7f * MathF.Exp(-t * 3.4f);
+            }
+
+            //Its grit, in the band small speakers can still reproduce.
+            float[] rumble = LowPassArray(MakeNoiseArray(samples, seed: 4231), 165f);
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+                signal[i] += rumble[i] * 0.5f * MathF.Exp(-t * 3.0f);
+            }
+
+            //The crack. No attack ramp on purpose - see the summary.
+            AddNoiseBurst(signal, window: 0.035f, decay: 60f, gain: 1.15f, cutoff: 7000f);
+
+            //The crackling stars. The stutter is what separates this from hiss: a fast, coarse random gate
+            //held for a few milliseconds at a time, so the tail breaks into countable little pops.
+            float[] stars = BandPass(MakeNoiseArray(samples, seed: 9091), 1900f, 7000f);
+            const int holdSamples = 220;   //~5 ms per gate step
+            float gate = 0f;
+
+            for (int i = 0; i < samples; i++)
+            {
+                if (i % holdSamples == 0) gate = Noise(i / holdSamples, 5150) > 0.15f ? 1f : 0.18f;
+
+                float t = (float)i / SAMPLE_RATE;
+
+                //Starts a hair after the crack (the stars have to be thrown before they burn) and decays
+                //slowest of the three.
+                float env = MathF.Min(1f, t / 0.04f) * MathF.Exp(-t * 1.9f);
+                signal[i] += stars[i] * 0.34f * gate * env;
+            }
+
+            ApplyReverb(signal, roomScale: 0.95f, wet: 0.42f, decay: 0.55f);
+
+            Normalize(signal, 0.97f);
+            return ToSoundEffect(signal);
+        }
+
+        /// <summary>
+        /// The party popper that opens the celebration: a dry paper crack and the rustle of confetti after it.
+        /// Deliberately close and dry where the shells are big and wet — it is the one sound in the celebration
+        /// that happens in the room rather than in the sky, which is what makes the shells read as distant.
+        /// </summary>
+        private SoundEffect BakePartyPopper()
+        {
+            const float duration = 0.55f;
+            int samples = (int)(SAMPLE_RATE * duration);
+            float[] signal = new float[samples];
+
+            //The crack of the paper: bright, hard and over almost at once.
+            AddNoiseBurst(signal, window: 0.02f, decay: 130f, gain: 1.0f, cutoff: 9000f);
+
+            //A short body under it so it has a pop rather than a click.
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+                float freq = 220f * MathF.Pow(0.45f, t / 0.05f);
+                signal[i] += MathF.Sin(2f * MathF.PI * freq * t) * 0.45f * MathF.Exp(-t * 40f);
+            }
+
+            //Confetti: a fine, dry rustle falling away. High and quiet, no reverb of its own to speak of.
+            float[] confetti = BandPass(MakeNoiseArray(samples, seed: 2718), 3200f, 9000f);
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+                signal[i] += confetti[i] * 0.20f * MathF.Exp(-t * 6.5f) * MathF.Min(1f, t / 0.02f);
+            }
+
+            ApplyReverb(signal, roomScale: 0.35f, wet: 0.18f, decay: 0.18f);
+
+            Normalize(signal, 0.95f);
+            return ToSoundEffect(signal);
+        }
+
+        /// <summary>
         /// Mixes a short burst of low-passed noise into <paramref name="signal"/> at its start. White noise
         /// alone hisses; the one-pole low-pass rounds it into a transient with mass.
         /// </summary>
@@ -297,10 +531,21 @@ namespace BS3D
         }
 
         /// <summary>An array of deterministic white noise, for layers that need a sustained (if brief) noise source.</summary>
-        private static float[] MakeNoiseArray(int samples)
+        private static float[] MakeNoiseArray(int samples) => MakeNoiseArray(samples, seed: 0);
+
+        /// <summary>
+        /// <inheritdoc cref="MakeNoiseArray(int)"/>
+        /// <para>
+        /// The seed matters whenever one bake mixes <b>two</b> noise layers: <see cref="Noise(int, int)"/> is a
+        /// function of the sample index, so two unseeded layers are the SAME sequence and only differ by how
+        /// they were filtered. Summing two filtered copies of one noise sequence is correlated — it thins out
+        /// and starts to sound like a single filtered source rather than like two separate things happening.
+        /// </para>
+        /// </summary>
+        private static float[] MakeNoiseArray(int samples, int seed)
         {
             float[] noise = new float[samples];
-            for (int i = 0; i < samples; i++) noise[i] = Noise(i);
+            for (int i = 0; i < samples; i++) noise[i] = Noise(i, seed);
             return noise;
         }
 
@@ -419,9 +664,12 @@ namespace BS3D
         }
 
         /// <summary>A cheap deterministic noise source for transients — quality is irrelevant for a few ms of crackle.</summary>
-        private static float Noise(int i)
+        private static float Noise(int i) => Noise(i, 0);
+
+        /// <summary><inheritdoc cref="Noise(int)"/> <paramref name="seed"/> gives an independent sequence — see <see cref="MakeNoiseArray(int, int)"/>.</summary>
+        private static float Noise(int i, int seed)
         {
-            uint h = (uint)(i * 2654435761u) ^ 0x9E3779B9u;
+            uint h = (uint)(i * 2654435761u) ^ 0x9E3779B9u ^ (uint)(seed * 374761393);
             h ^= h >> 13;
             h *= 0x85EBCA6Bu;
             h ^= h >> 16;
@@ -434,6 +682,9 @@ namespace BS3D
         {
             _shoot?.Dispose();
             if (_landed != null) foreach (SoundEffect effect in _landed) effect?.Dispose();
+            _fireworkLaunch?.Dispose();
+            _fireworkBurst?.Dispose();
+            _partyPopper?.Dispose();
         }
     }
 }

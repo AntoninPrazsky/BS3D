@@ -8,6 +8,12 @@
       "name": "One",
       "shots": 30,
       "ceilingStep": 5
+    },
+    {
+      "file": "Two.json",
+      "name": "Two",
+      "shots": 45,
+      "ceilingStep": 4
     }
   ]
 }

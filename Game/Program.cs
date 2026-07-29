@@ -28,6 +28,10 @@ namespace BS3D
             //said" — only the latter may be lowered for a machine that cannot afford the default
             int? supersampleFactor = null;
 
+            //Testing only: start the victory display on the front end, which is otherwise reachable only by
+            //clearing a level.
+            bool celebrate = false;
+
             foreach (string arg in args)
             {
                 if (string.Equals(arg, "fullscreen", StringComparison.OrdinalIgnoreCase)) fullscreen = true;
@@ -43,10 +47,15 @@ namespace BS3D
                 else if (arg.StartsWith("sky=", StringComparison.OrdinalIgnoreCase) && byte.TryParse(arg.Substring("sky=".Length), out byte parsedSky) && parsedSky >= 1 && parsedSky <= BS3DGame.SKY_DOME_COUNT) skyDome = parsedSky;
                 //"quality=" pins the whole detail tier; "ssaa=" then overrides just its supersample entry.
                 else if (arg.StartsWith("quality=", StringComparison.OrdinalIgnoreCase) && Enum.TryParse(arg.Substring("quality=".Length), ignoreCase: true, out QualityLevel parsedQuality)) quality = parsedQuality;
+                //"celebrate" fires the victory display at startup. Clearing a level is the only thing that
+                //normally starts it, and clearing one cannot be scripted, so without this the fireworks can be
+                //neither screenshotted nor measured — the same reason autoshoot and aimshoot exist.
+                else if (string.Equals(arg, "celebrate", StringComparison.OrdinalIgnoreCase)) celebrate = true;
             }
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
-                uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality);
+                uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
+                celebrate: celebrate);
             game.Run();
         }
 

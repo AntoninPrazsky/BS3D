@@ -369,6 +369,11 @@ namespace BS3D.Screens
         /// <summary>How long that pause is — long enough for a big collapse to reach the drain and go down it.</summary>
         private const float LEVEL_CLEARED_BEAT = 2.5f;
 
+        //How long the victory display goes on launching. It deliberately outlasts LEVEL_CLEARED_BEAT by a long
+        //way: the beat only holds the collapse on screen before the result page arrives, and the fireworks are
+        //meant to still be going behind the score the player is reading.
+        private const float CELEBRATION_SECONDS = 9f;
+
         /// <summary>
         /// The level's score and ball budget. Built fresh for each level from that entry's rules, so it never
         /// carries anything across; it holds the rules themselves and this class only feeds it the three events
@@ -576,6 +581,11 @@ namespace BS3D.Screens
         internal void BuildLevel(int index)
         {
             if (IsBuilt) TearDown();
+
+            //Whatever the last level's victory left in the air goes with it. The display lives on the host and
+            //would otherwise still be bursting over the opening seconds of the next level — which reads as the
+            //game celebrating a level the player has not played yet.
+            Game.Fireworks?.Stop();
 
             //The map first: the ceiling's height and footprint come off the field, and the ceiling body has
             //to exist before the cluster, whose top level is constrained to it.
@@ -1194,6 +1204,12 @@ namespace BS3D.Screens
 
             int bonus = _score.AwardCompletionBonus();
             _clearedCountdown = LEVEL_CLEARED_BEAT;
+
+            //The party. Started here rather than when the result screen appears, so the first shells are
+            //already climbing while the last of the cluster is still falling — the celebration overlaps the
+            //moment it is celebrating instead of following it. It runs on the host, so it carries on over the
+            //result screen and the released camera swings through it (see Fireworks).
+            Game.Fireworks?.Celebrate(CELEBRATION_SECONDS);
 
             //The bonus has no popup to fly in and land on the readout, so it would otherwise be the one award
             //the score takes without being hit — it counts up out of nowhere while the collapse plays
