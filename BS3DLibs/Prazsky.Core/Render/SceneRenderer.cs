@@ -1056,7 +1056,12 @@ namespace Prazsky.Core.Render
         public static float ForestTerrainHeight(float x, float z, ForestSceneConfig config)
         {
             float dist = MathF.Sqrt(x * x + z * z);
-            float ramp = MathHelper.SmoothStep(config.ClearingRadius, config.ClearingRadius + config.ClearingTransition, dist);
+            //GLSL smoothstep(edge0, edge1, x) = hermite over the clamped (x-edge0)/(edge1-edge0). MonoGame's
+            //MathHelper.SmoothStep is NOT that: it takes (value1, value2, amount) with amount in 0..1, so
+            //passing it the raw distance (hundreds of units) makes the ramp explode and the scatter plants trees
+            //thousands of units up. Mirroring the savanna's clamp-then-hermite instead, which matches Forest.fx.
+            float t = MathHelper.Clamp((dist - config.ClearingRadius) / config.ClearingTransition, 0f, 1f);
+            float ramp = t * t * (3f - 2f * t);
 
             float rolling = 0.5f * MathF.Sin(x * 0.020f + z * 0.015f)
                 + 0.3f * MathF.Sin(x * -0.013f + z * 0.024f + 1.5f)
