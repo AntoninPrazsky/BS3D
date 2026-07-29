@@ -50,8 +50,10 @@ always passes) is what makes the number a frame cost rather than the display's r
 ## What the game gives you
 
 - `logfps` — one line a second to stdout: the frame rate, the scene, the dome, the supersample factor, the
-  back-buffer size and whether vsync is on. Everything that changes what the number means is on the line, so
-  two runs — or two machines — can be compared without remembering how each was launched.
+  back-buffer size, whether vsync is on, and in the two city scenes `city N/M` — how many of the city's
+  buildings survived the frustum cull from where the camera is standing. Everything that changes what the
+  number means is on the line, so two runs — or two machines — can be compared without remembering how each
+  was launched.
 - `quality=<low|medium|high>` — the bundled detail tier. `ssaa=<n>` is *documented* to then override just its
   supersample entry, and **currently does not**: `LoadContent` calls `ApplyQuality(_quality)` unconditionally,
   whose last line is `SetSupersampleFactor(preset.SupersampleFactor)`, so the tier's factor overwrites the one

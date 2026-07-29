@@ -2108,7 +2108,9 @@ namespace Testbed
                     bool neon = _scene == SceneKind.NeonCity;
                     _cityRenderer.CityNeon = neon ? 1f : 0f;
                     _cityRenderer.CityWindowBrightness = neon ? _cityConfig.NeonLook.WindowBrightness : _cityConfig.WindowBrightness;
-                    _cityRenderer.Draw(_camera, _city.Buildings, _city.Buildings.Length, _sceneEffectParams);
+                    //Frustum-culled and ordered near to far, as the game draws it — see City.PrepareVisible
+                    int visibleBuildings = _city.PrepareVisible(_camera);
+                    _cityRenderer.Draw(_camera, _city.Visible, visibleBuildings, _sceneEffectParams);
                 }
                 else
                     _sceneRenderer.DrawEnvironment(_scene, sceneFrame);

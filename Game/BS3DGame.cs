@@ -266,6 +266,10 @@ namespace BS3D
         private const int CITY_SEED = 20260720;
 
         private City _city;
+
+        //How many of the city's buildings the last frame actually drew, for the logfps line. A frame's worth of
+        //diagnostics, not state anything renders from.
+        private int _cityVisible;
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
 
@@ -2753,9 +2757,16 @@ namespace BS3D
             //Divided by the window actually measured rather than assumed to be a second. At the frame rates this
             //exists to measure a single frame overshoots by more than a tenth of it, and calling that "frames
             //this second" would be wrong by the same tenth.
+            //The city's drawn/total is on the line for the same reason everything else here is: it changes what
+            //the number means, and it is the one figure that says whether the frustum cull is doing anything
+            //from where the camera happens to be standing (see City.PrepareVisible).
+            string city = (_scene == SceneKind.City || _scene == SceneKind.NeonCity) && _city != null
+                ? $", city {_cityVisible}/{_city.Buildings.Length}"
+                : string.Empty;
+
             Console.WriteLine($"[fps] {_fpsFrames / _fpsWindow:F1} — {_scene}, dome {_skyDome}, ssaa {_supersampleFactor}x"
                 + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
-                + $", vsync {(_uncappedFps ? "off" : "on")}");
+                + $", vsync {(_uncappedFps ? "off" : "on")}{city}");
 
             _fpsWindow = 0f;
             _fpsFrames = 0;
@@ -2845,7 +2856,12 @@ namespace BS3D
                 //The city's windows keep their own rhythm off the wall clock — a city's lamps do not stop
                 //because the game is paused
                 _cityRenderer.CityWindowTime = _wallClock;
-                _cityRenderer.Draw(_camera, _city.Buildings, _city.Buildings.Length, _sceneEffectParams);
+
+                //Culled to the frustum and ordered near to far first. The ordering is what pays: the city's
+                //pixel shader is the most expensive in the frame, and in generator order most of what it
+                //shades is a facade another tower is standing in front of. See City.PrepareVisible.
+                _cityVisible = _city.PrepareVisible(_camera);
+                _cityRenderer.Draw(_camera, _city.Visible, _cityVisible, _sceneEffectParams);
             }
             else _sceneRenderer.DrawEnvironment(_scene, sceneFrame);
 
