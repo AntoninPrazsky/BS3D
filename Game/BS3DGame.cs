@@ -2511,6 +2511,12 @@ namespace BS3D
             //with the fireworks and for the same reason — it has to keep running whatever is on the stack.
             _music?.Update();
 
+            //The fireworks give way to the fanfare. Both arrive on the frame a level ends, and a report is
+            //broadband and loud enough to bury a tune under it — the bang is an event, the fanfare is the
+            //point. Read per frame rather than latched, so the ducking lifts by itself when the piece ends.
+            if (_audio != null && _music != null)
+                _audio.FireworkDuck = _music.IsFanfarePlaying ? ProceduralAudio.FIREWORK_DUCKED : 1f;
+
             //The very click that refocuses a windowed game would otherwise read as a fresh press against a
             //stale "released" state and fire an unintended shot, since input is not sampled while inactive.
             EdgeInputAllowed = IsActive && _wasActive;

@@ -222,6 +222,12 @@ namespace BS3D
         public bool IsPlaying => _instance != null && _instance.State == SoundState.Playing;
 
         /// <summary>
+        /// True while a fanfare is sounding. The caller ducks the fireworks under it — see
+        /// <c>ProceduralAudio.FireworkDuck</c>.
+        /// </summary>
+        public bool IsFanfarePlaying => _fanfare != null && _fanfare.State == SoundState.Playing;
+
+        /// <summary>
         /// Starts synthesizing the first pass at once, on a background thread. Two minutes of PCM is a couple
         /// of seconds of arithmetic, and doing it on the loading thread would be two seconds of a black
         /// window; nothing asks for the track until a level is built, which is several menus later.
@@ -569,9 +575,10 @@ namespace BS3D
             float secondsPerStep = 60f / (bpm * STEPS_PER_BEAT);
             int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
 
-            //Key. Any of these is a bright place to land and none of them is where the level's theme was, so
-            //the fanfare reads as a change of scene rather than as more of the same.
-            int[] roots = { 60, 62, 65, 67 };   //C4, D4, F4, G4
+            //Key, and an octave lower than this started. Up at C4-G4 the fanfare was a whistle with a chord
+            //under it; a trombone lives here, and "deep" is a matter of register before it is a matter of
+            //timbre. None of these is where the level's theme was, so it still reads as a change of scene.
+            int[] roots = { 48, 50, 53, 55 };   //C3, D3, F3, G3
             int root = roots[random.Next(roots.Length)];
 
             //Four bars, and a fifth to let the last chord ring when the win was a big one.
@@ -608,11 +615,12 @@ namespace BS3D
                     Pad(mix, at, chordRoot - 12 + interval, secondsPerStep * (last ? 22f : 15.5f), 0.13f + 0.06f * intensity);
 
                 //THE PICKUP into bar 0: three quick rising notes, which is what turns the first chord into an
-                //arrival instead of just a start.
+                //arrival instead of just a start. Overlapping, so it runs INTO the downbeat rather than
+                //stopping just before it.
                 if (bar == 0)
                     for (int i = 0; i < 3; i++)
-                        Lead(mix, i * samplesPerStep, chordRoot - 12 + MAJOR_TRIAD[i],
-                            secondsPerStep * 1.1f, 0.20f + 0.10f * intensity);
+                        Brass(mix, i * samplesPerStep, chordRoot - 12 + MAJOR_TRIAD[i],
+                            secondsPerStep * 1.8f, 0.20f + 0.10f * intensity);
 
                 //THE MELODY. One note on the downbeat and one halfway, except the last bar, which holds.
                 float leadLevel = 0.30f + 0.14f * intensity;
@@ -621,20 +629,26 @@ namespace BS3D
                 {
                     //The finish: the octave, held, and pushed a fifth higher again when the win was big.
                     int top = chordRoot + 12 + (intensity > 0.75f ? 7 : 0);
-                    Lead(mix, at, top, secondsPerStep * 14f, leadLevel);
+                    Brass(mix, at, top, secondsPerStep * 14f, leadLevel);
 
-                    if (intensity > 0.4f) Lead(mix, at, chordRoot, secondsPerStep * 14f, leadLevel * 0.6f);
+                    //The root under it, always — this is the chord landing, and a single line landing alone is
+                    //a melody stopping rather than a piece finishing.
+                    Brass(mix, at, chordRoot, secondsPerStep * 14f, leadLevel * (0.6f + 0.3f * intensity));
                 }
                 else
                 {
-                    Lead(mix, at, chordRoot + MAJOR_TRIAD[shape[bar]], secondsPerStep * 5f, leadLevel);
-                    Lead(mix, at + 8 * samplesPerStep, chordRoot + MAJOR_TRIAD[(shape[bar] + 1) % 4],
-                        secondsPerStep * 5f, leadLevel * 0.85f);
+                    //LENGTH 9 AGAINST AN 8-STEP GAP, which is the whole fix for the piece sounding choppy: at
+                    //five steps each note died in the middle of its own half-bar and left a hole, so the tune
+                    //arrived as a row of separate events. Overlapping them by a step and letting the brass
+                    //release across the join is what makes it legato — one phrase rather than four notes.
+                    Brass(mix, at, chordRoot + MAJOR_TRIAD[shape[bar]], secondsPerStep * 9f, leadLevel);
+                    Brass(mix, at + 8 * samplesPerStep, chordRoot + MAJOR_TRIAD[(shape[bar] + 1) % 4],
+                        secondsPerStep * 9f, leadLevel * 0.85f);
 
                     //An octave doubling once the win is worth one — the cheapest way to make a line sound
                     //bigger without writing a second one.
                     if (intensity > 0.45f)
-                        Lead(mix, at, chordRoot + 12 + MAJOR_TRIAD[shape[bar]], secondsPerStep * 5f, leadLevel * 0.5f);
+                        Brass(mix, at, chordRoot + 12 + MAJOR_TRIAD[shape[bar]], secondsPerStep * 9f, leadLevel * 0.45f);
                 }
 
                 //PERCUSSION, from a middling win upwards: a kick and a clap on the chord changes, so the piece
@@ -681,7 +695,7 @@ namespace BS3D
             float secondsPerStep = 60f / (bpm * STEPS_PER_BEAT);
             int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
 
-            int[] roots = { 57, 55, 53, 52 };   //A3, G3, F3, E3 — low, and lower than the victory's
+            int[] roots = { 45, 43, 41, 40 };   //A2, G2, F2, E2 — low, and lower than the victory's
             int root = roots[random.Next(roots.Length)];
 
             const int bars = 4;
@@ -717,12 +731,16 @@ namespace BS3D
                 //The last note is only played if there is something to resolve to — a poor run ends on the
                 //third and simply stops, which leaves it hanging. That unresolved ending is the bleakest thing
                 //in the piece and it costs one condition.
+                //
+                //Seventeen steps against a sixteen-step bar: each note runs a step past the next one's start,
+                //so the trombone releases across the join and the line is legato rather than a row of separate
+                //sighs. It matters more here than in the victory, because a slow piece leaves bigger holes.
                 if (!last || intensity > 0.35f)
-                    Lead(mix, at, chordRoot + MINOR_TRIAD[shape[bar]], secondsPerStep * (last ? 22f : 13f), leadLevel);
+                    Brass(mix, at, chordRoot + MINOR_TRIAD[shape[bar]], secondsPerStep * (last ? 24f : 17f), leadLevel);
 
                 //A harmony a third under the melody, for a run that deserved better.
                 if (intensity > 0.55f)
-                    Lead(mix, at, chordRoot + MINOR_TRIAD[shape[bar]] - 3, secondsPerStep * (last ? 22f : 13f),
+                    Brass(mix, at, chordRoot + MINOR_TRIAD[shape[bar]] - 3, secondsPerStep * (last ? 24f : 17f),
                         leadLevel * 0.55f);
             }
 
@@ -902,6 +920,75 @@ namespace BS3D
 
                 lp += CutoffToAlpha(1500f) * (sum / 3f - lp);
                 mix[at + i] += lp * level * env;
+            }
+        }
+
+        /// <summary>
+        /// The fanfare's voice: a trombone rather than a synth lead. Four things make it one, and the second
+        /// is the one that actually matters:
+        /// <list type="bullet">
+        /// <item><b>A filter envelope that opens WITH the note.</b> Brass gets brighter as it gets louder —
+        /// blow harder and the harmonics come up — so the cutoff sweeps from a muffled 550 Hz to wide open
+        /// over the attack and settles back as the note holds. A fixed filter over the same oscillators is a
+        /// synth pad; this one line is most of the difference between the two.</item>
+        /// <item><b>A slow speech.</b> ~55 ms of attack, because a trombone does not start instantly, and a
+        /// touch of breath noise across it — the "blat" of the note being articulated.</item>
+        /// <item><b>A sub an octave down</b>, which is the whole of the depth. Three detuned saws alone read as
+        /// bright and thin whatever else is done to them.</item>
+        /// <item><b>It SUSTAINS.</b> No decay to speak of until the release, so a held note is held and
+        /// successive notes run into one another instead of each dying in its own gap.</item>
+        /// </list>
+        /// </summary>
+        private static void Brass(float[] mix, int at, int note, float seconds, float level)
+        {
+            int length = (int)(SAMPLE_RATE * seconds);
+            float freq = Frequency(note);
+
+            //Three saws rather than the lead's two: a section, not a soloist.
+            float[] detune = { 0.9955f, 1f, 1.0045f };
+            float[] phases = { 0f, 0.31f, 0.67f };
+
+            float subPhase = 0f;
+            float lp1 = 0f, lp2 = 0f;
+
+            for (int i = 0; i < length && at + i < mix.Length; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                //Slow in, flat through the middle, and a release that is long enough to overlap the next note.
+                float attack = MathF.Min(1f, t / 0.055f);
+                float release = MathF.Min(1f, (seconds - t) / 0.18f);
+                float env = attack * release;
+                if (env <= 0f) continue;
+
+                //The brass envelope: bright on the way in, settling to a warmer sustain.
+                float bite = MathF.Exp(-t * 5.5f);
+                float cutoff = 550f + 3100f * attack * (0.45f + 0.55f * bite);
+
+                float sum = 0f;
+                for (int d = 0; d < 3; d++)
+                {
+                    float f = freq * detune[d];
+                    phases[d] += f / SAMPLE_RATE;
+                    if (phases[d] >= 1f) phases[d] -= 1f;
+                    sum += PolyBlepSaw(phases[d], f / SAMPLE_RATE);
+                }
+                sum /= 3f;
+
+                //The breath, only across the attack.
+                if (t < 0.07f) sum += Noise(i, 71) * 0.22f * (1f - t / 0.07f);
+
+                //Two poles rather than one: a single pole is 6 dB an octave and leaves the top end hissing
+                //through, which is exactly what stops a saw sounding like an instrument.
+                float alpha = CutoffToAlpha(cutoff);
+                lp1 += alpha * (sum - lp1);
+                lp2 += alpha * (lp1 - lp2);
+
+                //The sub, an octave down. Sine rather than saw: it is there for weight, not for colour.
+                subPhase += 2f * MathF.PI * (freq * 0.5f) / SAMPLE_RATE;
+                float sub = MathF.Sin(subPhase) * 0.5f;
+
+                mix[at + i] += (lp2 + sub) * level * env;
             }
         }
 

@@ -27,6 +27,22 @@ namespace BS3D
         /// <summary>A single master gain applied to every effect. A constant for now; a settings slider later.</summary>
         public const float MASTER_VOLUME = 0.7f;
 
+        /// <summary>
+        /// How much of their normal level the fireworks play at, 1 for full. Ducked while a fanfare is
+        /// sounding, because the two arrive at the same moment and the reports are broadband and loud enough
+        /// to bury a tune underneath them — a bang is an event and the fanfare is the point, so the bang gives
+        /// way. Set per frame by the host from <c>ProceduralMusic.IsFanfarePlaying</c>.
+        /// <para>
+        /// A gain on the <b>next</b> play rather than on the ones already sounding: a `SoundEffect.Play` is
+        /// fire-and-forget with no handle to turn down afterwards, and a burst is short enough that ducking
+        /// only what has yet to start is indistinguishable from ducking everything.
+        /// </para>
+        /// </summary>
+        public float FireworkDuck { get; set; } = 1f;
+
+        /// <summary>What the fireworks drop to while a fanfare plays.</summary>
+        public const float FIREWORK_DUCKED = 0.35f;
+
         private const int SAMPLE_RATE = 44100;
 
         private readonly SoundEffect _shoot;
@@ -77,7 +93,7 @@ namespace BS3D
             //Well under the report. The bang is the event; the whistle only says one is coming, and with a
             //launch every fraction of a second a loud whistle turns the display into a chorus of kettles.
             float pan = PanFor(world, camera, SKY_PAN_WIDTH, out _);
-            _fireworkLaunch.Play(0.22f * MASTER_VOLUME, NextPitch(0.22f), pan);
+            _fireworkLaunch.Play(0.22f * MASTER_VOLUME * FireworkDuck, NextPitch(0.22f), pan);
         }
 
         /// <summary>
@@ -93,7 +109,7 @@ namespace BS3D
             //way a landing does would make every burst a whisper; this only separates the near from the far.
             float volume = (0.85f + 0.15f * size) * (0.8f + 0.2f * MathHelper.Clamp(1f - distance / 260f, 0f, 1f));
 
-            _fireworkBurst.Play(MathHelper.Clamp(volume * MASTER_VOLUME, 0f, 1f),
+            _fireworkBurst.Play(MathHelper.Clamp(volume * MASTER_VOLUME * FireworkDuck, 0f, 1f),
                 MathHelper.Clamp(NextPitch(0.12f) - size * 0.28f, -1f, 1f), pan);
         }
 
