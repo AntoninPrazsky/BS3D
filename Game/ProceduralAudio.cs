@@ -90,10 +90,12 @@ namespace BS3D
         /// </summary>
         public void PlayFireworkLaunch(Vector3 world, RecoilCamera camera)
         {
-            //Well under the report. The bang is the event; the whistle only says one is coming, and with a
-            //launch every fraction of a second a loud whistle turns the display into a chorus of kettles.
+            //FAR under the report, and much further under than it was. The bang is the event; the launch only
+            //says one is coming, and with a shell going up every fraction of a second anything audible enough
+            //to identify turns the display into a chorus of kettles. At this level it is a texture — the sense
+            //that something went up — rather than a sound the ear stops to listen to.
             float pan = PanFor(world, camera, SKY_PAN_WIDTH, out _);
-            _fireworkLaunch.Play(0.22f * MASTER_VOLUME * FireworkDuck, NextPitch(0.22f), pan);
+            _fireworkLaunch.Play(0.08f * MASTER_VOLUME * FireworkDuck, NextPitch(0.3f), pan);
         }
 
         /// <summary>
@@ -352,14 +354,18 @@ namespace BS3D
         /// </summary>
         private SoundEffect BakeFireworkLaunch()
         {
-            const float duration = 1.15f;
+            //SHORT. A launch is a shell leaving a tube, not a vehicle going past: at over a second the tone
+            //had time to be heard AS a tone, and a sustained tone sweeping slowly upward is a siren.
+            const float duration = 0.55f;
             int samples = (int)(SAMPLE_RATE * duration);
             float[] signal = new float[samples];
 
-            //Kept lower than a real firework whistle actually is. A shell's whistle is genuinely piercing, but
-            //it is also thirty metres away and heard once; here it repeats every fraction of a second through
-            //a whole display, and up in the piccolo register that reads as a toy rather than as a firework.
-            const float startHz = 430f, endHz = 1320f;
+            //HIGH, and this was got wrong once in each direction. It began at 620→1950 Hz, was reported as
+            //squeaky and taken down to 430→1320 — but the squeak was never the synthesis, it was the octave
+            //bug in NextPitch (see there), and with that fixed the lowered tone sat in the register of a horn
+            //rather than a firework. A whistling shell is genuinely piercing; up here it reads as one, and it
+            //is the LEVEL rather than the pitch that keeps it from being shrill.
+            const float startHz = 900f, endHz = 2600f;
             float phase = 0f;
 
             for (int i = 0; i < samples; i++)
@@ -382,30 +388,33 @@ namespace BS3D
                 //A whistle is nearly a sine; a little second and third keep it from being a lab tone.
                 float tone = MathF.Sin(phase) + 0.22f * MathF.Sin(2f * phase) + 0.06f * MathF.Sin(3f * phase);
 
-                //In fast, hold, then fade as it gets away from the listener â€” and cut before the burst lands.
-                float env = MathF.Min(1f, t / 0.05f) * MathF.Min(1f, (duration - t) / 0.28f);
+                //Straight in and away almost at once. The old envelope held near full for most of a second,
+                //which is what let the ear settle on the pitch and hear a siren; fading it from the start
+                //means the tone is a departure rather than a note.
+                float env = MathF.Min(1f, t / 0.012f) * MathF.Pow(1f - u, 1.6f);
 
-                signal[i] += tone * 0.62f * env;
+                signal[i] += tone * 0.5f * env;
             }
 
-            //The fizz. A firework leaving the ground is a burning fuse and a jet of gas before it is a tone at
-            //all, and this layer carries far more of the character than the whistle does — it is what makes
-            //the launch read as "bzzzt-pshhh" rather than as a kettle. Loud enough here to sit alongside the
-            //tone rather than under it, and band-passed wide so it keeps some grit.
-            float[] air = BandPass(MakeNoiseArray(samples, seed: 7717), 450f, 6500f);
+            //The fizz, and it now carries the launch rather than accompanying it. A firework leaving the
+            //ground is a burning fuse and a jet of gas before it is a tone at all — this is the sparkler the
+            //whole thing actually is, and pushing the balance this way is what stops the launch being a horn
+            //with a hiss on top. Band-passed high, where a spitting fuse lives.
+            float[] air = BandPass(MakeNoiseArray(samples, seed: 7717), 1400f, 9000f);
             for (int i = 0; i < samples; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
-                float env = MathF.Min(1f, t / 0.05f) * MathF.Min(1f, (duration - t) / 0.28f);
+                float u = t / duration;
 
                 //Thickest at the start, where the motor is doing the most work, and thinning as it climbs
                 //away — the reverse of the tone, which is what makes the two read as one object.
-                signal[i] += air[i] * 0.34f * env * (1.25f - 0.6f * (t / duration));
+                float env = MathF.Min(1f, t / 0.008f) * MathF.Pow(1f - u, 1.2f);
+                signal[i] += air[i] * 0.55f * env;
             }
 
             //Barely any room on this one: the shell is climbing away into open sky, and a long tail on a rising
             //tone smears the pitch into a chord.
-            ApplyReverb(signal, roomScale: 0.55f, wet: 0.16f, decay: 0.20f);
+            ApplyReverb(signal, roomScale: 0.55f, wet: 0.12f, decay: 0.16f);
 
             Normalize(signal, 0.92f);
             return ToSoundEffect(signal);

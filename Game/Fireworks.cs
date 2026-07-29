@@ -55,7 +55,9 @@ namespace BS3D
         private const float BURST_Y_MIN = 44f, BURST_Y_MAX = 122f;
         private const float BURST_SPREAD = 52f;
 
-        private const float RISE_MIN = 0.95f, RISE_MAX = 1.45f;
+        //Shortened to stay tied to the launch sound, which is now half a second: a shell that goes on climbing
+        //for a second after its own hiss has finished reads as two unrelated things. Snappier to watch, too.
+        private const float RISE_MIN = 0.62f, RISE_MAX = 0.95f;
         private const float RADIUS_MIN = 19f, RADIUS_MAX = 40f;
         private const float LIFE_MIN = 1.9f, LIFE_MAX = 3.0f;
 
