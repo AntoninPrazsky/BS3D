@@ -7,7 +7,6 @@
     <AssemblyName>Testbed</AssemblyName>
     <RootNamespace>Testbed</RootNamespace>
     <Copyright>Antonín Pražský</Copyright>
-    <PackageIcon>Icon.ico</PackageIcon>
     <PackageIconUrl />
     <UseWindowsForms>True</UseWindowsForms>
     <ApplicationIcon>Icon.ico</ApplicationIcon>
