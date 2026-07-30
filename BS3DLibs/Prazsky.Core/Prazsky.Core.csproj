@@ -9,7 +9,6 @@
     <PackageTags>monogame input event based listeners</PackageTags>
     <PackageProjectUrl></PackageProjectUrl>
     <RepositoryUrl></RepositoryUrl>
-    <PackageIconUrl></PackageIconUrl>
   </PropertyGroup>
 
   <PropertyGroup>

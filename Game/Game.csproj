@@ -7,7 +7,6 @@
     <AssemblyName>BS3D</AssemblyName>
     <RootNamespace>BS3D</RootNamespace>
     <Copyright>Antonín Pražský</Copyright>
-    <PackageIconUrl />
     <UseWindowsForms>True</UseWindowsForms>
     <ApplicationIcon>Icon.ico</ApplicationIcon>
   </PropertyGroup>

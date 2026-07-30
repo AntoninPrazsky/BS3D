@@ -8,7 +8,6 @@
     <AssemblyName>MapEditor</AssemblyName>
     <RootNamespace>MapEditor</RootNamespace>
     <Copyright>Antonín Pražský</Copyright>
-    <PackageIconUrl />
     <UseWindowsForms>True</UseWindowsForms>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
