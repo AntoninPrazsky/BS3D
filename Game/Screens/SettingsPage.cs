@@ -16,7 +16,7 @@ namespace BS3D.Screens
         private const int VALUE_WIDTH = 560;
 
         private Label _fullscreenValue, _qualityValue, _exposureValue, _skyValue, _fpsValue;
-        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _aberrationValue;
+        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _aberrationValue, _grainValue;
 
         public SettingsPage(BS3DGame game) : base(game) { }
 
@@ -46,13 +46,14 @@ namespace BS3D.Screens
             //The lens's colour fringing at the frame edges — a taste toggle, and instant where it is made,
             //like every row here: the scene behind the panel is the preview.
             AddRow(grid, 5, "Aberration", Game.ToggleAberration, out _aberrationValue);
+            AddRow(grid, 6, "Film grain", Game.ToggleGrain, out _grainValue);
             //The three volume rows (#46) scale the authored mix rather than replacing it — 100 % is the game
             //as tuned, and effects and music each sit under the master. See "The sound" in
             //docs/game-feedback.md for the split.
-            AddRow(grid, 6, "Volume", Game.CycleMasterVolume, out _volumeValue);
-            AddRow(grid, 7, "Effects", Game.CycleSfxVolume, out _effectsValue);
-            AddRow(grid, 8, "Music", Game.CycleMusicVolume, out _musicValue);
-            AddRow(grid, 9, "Ambience", Game.CycleAmbienceVolume, out _ambienceValue);
+            AddRow(grid, 7, "Volume", Game.CycleMasterVolume, out _volumeValue);
+            AddRow(grid, 8, "Effects", Game.CycleSfxVolume, out _effectsValue);
+            AddRow(grid, 9, "Music", Game.CycleMusicVolume, out _musicValue);
+            AddRow(grid, 10, "Ambience", Game.CycleAmbienceVolume, out _ambienceValue);
 
             column.Widgets.Add(grid);
             column.Widgets.Add(MenuButton("Back", GoBack));
@@ -96,6 +97,7 @@ namespace BS3D.Screens
             _skyValue.Text = Game.SkyDomeNumber.ToString(CultureInfo.InvariantCulture);
             _fpsValue.Text = Game.IsFpsOverlayVisible ? "On" : "Off";
             _aberrationValue.Text = Game.IsAberrationEnabled ? "On" : "Off";
+            _grainValue.Text = Game.IsGrainEnabled ? "On" : "Off";
             _volumeValue.Text = FormatVolume(Game.MasterVolume);
             _effectsValue.Text = FormatVolume(Game.SfxVolume);
             _musicValue.Text = FormatVolume(Game.MusicVolume);

@@ -315,6 +315,8 @@ namespace Testbed
         private EffectParameter _tonemapUnderwaterAmountParam;
         private EffectParameter _tonemapUnderwaterAbsorbParam;
         private EffectParameter _tonemapUnderwaterInscatterParam;
+        private EffectParameter _tonemapGrainSeedParam;
+        private EffectParameter _tonemapOutputSizeParam;
 
         #region Clouds
 
@@ -617,6 +619,9 @@ namespace Testbed
         //The lens's colour fringing at the frame edges — the game's default figure, so the Testbed shows
         //what ships (the game alone carries the Settings toggle).
         private static readonly float CHROMATIC_ABERRATION = 0.0016f;
+
+        //The film grain's mid-tone peak, likewise the game's default figure (see FILM_GRAIN there)
+        private static readonly float FILM_GRAIN = 0.05f;
 
         #endregion
 
@@ -1007,8 +1012,11 @@ namespace Testbed
             _glareThresholdParam = _glareEffect.Parameters["GlareThreshold"];
             _glareSourceTexelSizeParam = _glareEffect.Parameters["SourceTexelSize"];
 
-            //Fixed for the whole run (the game alone has the Settings toggle); the value persists on the effect.
+            //Fixed for the whole run (the game alone has the Settings toggles); the values persist on the effect.
             _tonemapEffect.Parameters["ChromaticAberration"].SetValue(CHROMATIC_ABERRATION);
+            _tonemapEffect.Parameters["GrainStrength"].SetValue(FILM_GRAIN);
+            _tonemapGrainSeedParam = _tonemapEffect.Parameters["GrainSeed"];
+            _tonemapOutputSizeParam = _tonemapEffect.Parameters["OutputSize"];
 
             _sceneLightPositionParam = _instancingEffect.Parameters["SceneLightPosition"];
             _sceneLightColorParam = _instancingEffect.Parameters["SceneLightColor"];
@@ -2641,6 +2649,13 @@ namespace Testbed
             _tonemapUnderwaterAmountParam.SetValue(underwater);
             _tonemapUnderwaterAbsorbParam.SetValue(UNDERWATER_ABSORB);
             _tonemapUnderwaterInscatterParam.SetValue(UNDERWATER_INSCATTER);
+
+            //The grain re-rolls every frame and lands one grain per OUTPUT pixel; the modulo keeps the seed
+            //small — the shader takes its fraction, and a float that has grown for an hour has little left.
+            _tonemapGrainSeedParam.SetValue(_pulseSeconds % 64f);
+            _tonemapOutputSizeParam.SetValue(new Vector2(
+                GraphicsDevice.PresentationParameters.BackBufferWidth,
+                GraphicsDevice.PresentationParameters.BackBufferHeight));
 
             GraphicsDevice.BlendState = BlendState.Opaque;
             GraphicsDevice.DepthStencilState = DepthStencilState.None;

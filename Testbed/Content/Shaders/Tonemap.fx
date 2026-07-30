@@ -53,6 +53,16 @@ float GlareIntensity;
 //which is what a real lens does and why the effect reads as "shot through glass" rather than "broken".
 float ChromaticAberration;
 
+//Film grain: a monochrome per-output-pixel modulation re-rolled every frame, applied AFTER the tonemap
+//curve and before the sRGB encode - grain lives on the print, not in the light - and weighted by
+//4*luma*(1-luma), which peaks in the mid-tones and falls to zero at both ends: blacks stay black (no
+//lifted noise floor over the space scene's void) and highlights stay clean, which is where cheap grain
+//gives itself away. Monochrome because film grain is silver halide, not three dyes disagreeing. Zero
+//disables the effect and its branch.
+float GrainStrength;
+float GrainSeed;      //advanced per frame off the wall clock, so the grain never freezes
+float2 OutputSize;    //back-buffer pixels: one grain per OUTPUT pixel, whatever the supersample factor
+
 //Underwater tint. When the camera dips below the sea surface the whole frame is pulled into a blue-green
 //murk so it reads as being submerged rather than showing the world unchanged with a water plane cutting
 //through it. Applied in LINEAR light before the curve, as a cheap water column: the scene is absorbed
@@ -107,6 +117,14 @@ float3 LinearToSrgb(float3 c)
 	c = max(c, 0);
 
 	return lerp(c * 12.92, 1.055 * pow(c, 1.0 / 2.4) - 0.055, step(0.0031308, c));
+}
+
+//One grain: a sine-free hash of the output pixel's cell (Hoskins), branch-safe - no gradients.
+float GrainHash(float2 p)
+{
+	float3 q = frac(p.xyx * 0.1031);
+	q += dot(q, q.yzx + 33.33);
+	return frac((q.x + q.y) * q.z);
 }
 
 //Box filter over the block of source texels one output pixel covers. Offsets run from the block's first
@@ -190,7 +208,21 @@ float4 MainPS(VertexShaderOutput input) : COLOR
 
 	//Averaging happens in linear light, before the curve: averaging tonemapped samples would average
 	//display values, which is the same mistake as compositing in gamma space.
-	return float4(LinearToSrgb(ACESFilmic(color * Exposure)), 1);
+	float3 mapped = ACESFilmic(color * Exposure);
+
+	//The grain, on the tonemapped value (see the uniforms). The seed's fraction shifts the hash lattice
+	//to a fresh position every frame, which is what makes grain read as film rather than as a dirty pane.
+	[branch]
+	if (GrainStrength > 0.0)
+	{
+		float2 cell = floor(input.TexCoord * OutputSize);
+		float grain = GrainHash(cell + frac(GrainSeed * float2(0.7013, 0.9127)) * 289.0) - 0.5;
+		float luma = dot(mapped, float3(0.2126, 0.7152, 0.0722));
+
+		mapped = saturate(mapped + grain * (GrainStrength * 4.0 * luma * (1.0 - luma)));
+	}
+
+	return float4(LinearToSrgb(mapped), 1);
 }
 
 technique Tonemap

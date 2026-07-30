@@ -111,6 +111,9 @@ namespace MapEditor
         //The game's default lens fringing, so a map previews with it too (the toggle is the game's alone).
         private static readonly float CHROMATIC_ABERRATION = 0.0016f;
 
+        //The game's default film grain, for the same reason (see FILM_GRAIN in the game)
+        private static readonly float FILM_GRAIN = 0.05f;
+
         private RenderTarget2D _sceneTarget;
 
         //The bloom pyramid (#69): half down to a thirty-second of the back buffer, bright pass in the head,
@@ -130,6 +133,8 @@ namespace MapEditor
         private EffectParameter _tonemapGlareTextureParam;
         private EffectParameter _tonemapSceneTextureParam;
         private EffectParameter _tonemapSourceTexelSizeParam;
+        private EffectParameter _tonemapGrainSeedParam;
+        private EffectParameter _tonemapOutputSizeParam;
 
         #endregion Post-processing
 
@@ -310,11 +315,14 @@ namespace MapEditor
             _tonemapGlareTextureParam = _tonemapEffect.Parameters["GlareTexture"];
             _tonemapSceneTextureParam = _tonemapEffect.Parameters["SceneTexture"];
             _tonemapSourceTexelSizeParam = _tonemapEffect.Parameters["SourceTexelSize"];
+            _tonemapGrainSeedParam = _tonemapEffect.Parameters["GrainSeed"];
+            _tonemapOutputSizeParam = _tonemapEffect.Parameters["OutputSize"];
 
             //Fixed for the whole run, so they are set exactly once (a parameter's value persists on the effect)
             _glareEffect.Parameters["GlareThreshold"].SetValue(GLARE_THRESHOLD);
             _tonemapEffect.Parameters["GlareIntensity"].SetValue(GLARE_INTENSITY);
             _tonemapEffect.Parameters["ChromaticAberration"].SetValue(CHROMATIC_ABERRATION);
+            _tonemapEffect.Parameters["GrainStrength"].SetValue(FILM_GRAIN);
             _tonemapEffect.Parameters["SupersampleFactor"].SetValue(SUPERSAMPLE_FACTOR);
             _tonemapEffect.Parameters["Exposure"].SetValue(DEFAULT_EXPOSURE);
 
@@ -1056,6 +1064,13 @@ namespace MapEditor
             _tonemapGlareTextureParam.SetValue(_bloomChain[0]);
             _tonemapSceneTextureParam.SetValue(_sceneTarget);
             _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
+
+            //The grain re-rolls every frame and lands one grain per OUTPUT pixel; the modulo keeps the seed
+            //small — the shader takes its fraction, and a float that has grown for an hour has little left
+            _tonemapGrainSeedParam.SetValue(_sceneSeconds % 64f);
+            _tonemapOutputSizeParam.SetValue(new Vector2(
+                GraphicsDevice.PresentationParameters.BackBufferWidth,
+                GraphicsDevice.PresentationParameters.BackBufferHeight));
 
             GraphicsDevice.BlendState = BlendState.Opaque;
             GraphicsDevice.DepthStencilState = DepthStencilState.None;

@@ -193,6 +193,8 @@ namespace BS3D
         private EffectParameter _tonemapSceneTextureParam;
         private EffectParameter _tonemapSourceTexelSizeParam;
         private EffectParameter _tonemapUnderwaterAmountParam;
+        private EffectParameter _tonemapGrainSeedParam;
+        private EffectParameter _tonemapOutputSizeParam;
 
         //Being submerged has to read as being submerged, or the frame is the world unchanged with a water
         //plane cutting through it. Applied in linear light before the ACES curve, so the drowned scene rolls
@@ -218,6 +220,16 @@ namespace BS3D
 
         //On by default; a taste toggle in Settings, like the FPS counter (nothing persists — see docs).
         private bool _aberration = true;
+
+        //Peak film-grain modulation at 50% grey, as a fraction of the display value. The shader weights
+        //the grain by 4*luma*(1-luma), so it peaks in the mid-tones — about ±6/255 at its strongest
+        //here — and vanishes into both black and white: it should read as texture on the print, never
+        //as sensor noise. One monochrome grain per OUTPUT pixel, re-rolled every frame, applied after
+        //the tonemap curve. Off in Settings sets the uniform to 0, which skips the shader's branch.
+        private static readonly float FILM_GRAIN = 0.05f;
+
+        //On by default, the aberration's sibling taste toggle
+        private bool _grain = true;
 
         //Far lower than the streak star's 0.9: the pyramid ACCUMULATES on the way up, so the head carries
         //its own halo plus every wider level's, and the same subjective glow needs a fraction of the gain.
@@ -1285,8 +1297,13 @@ namespace BS3D
             _glareEffect.Parameters["GlareThreshold"].SetValue(GLARE_THRESHOLD);
             _tonemapEffect.Parameters["GlareIntensity"].SetValue(GLARE_INTENSITY);
             _tonemapEffect.Parameters["ChromaticAberration"].SetValue(_aberration ? CHROMATIC_ABERRATION : 0f);
+            _tonemapEffect.Parameters["GrainStrength"].SetValue(_grain ? FILM_GRAIN : 0f);
             _tonemapEffect.Parameters["SupersampleFactor"].SetValue(_supersampleFactor);
             _tonemapEffect.Parameters["Exposure"].SetValue(_exposure);
+
+            //The grain's seed and pixel grid change per frame / with the window, so their scans are done once
+            _tonemapGrainSeedParam = _tonemapEffect.Parameters["GrainSeed"];
+            _tonemapOutputSizeParam = _tonemapEffect.Parameters["OutputSize"];
 
             //The underwater murk, the Testbed's own. Only the sea has water a lens can get under, and until the
             //drop cinematic arrived nothing here ever went below the island, so this was pinned at zero — now
@@ -1561,6 +1578,7 @@ namespace BS3D
         internal float MusicVolume => _musicVolume;
         internal float AmbienceVolume => _ambienceVolume;
         internal bool IsAberrationEnabled => _aberration;
+        internal bool IsGrainEnabled => _grain;
         internal SceneKind Scene => _scene;
 
         internal int LevelCount => _levelSet?.Count ?? 0;
@@ -3066,6 +3084,18 @@ namespace BS3D
             _settingsPage.Refresh();
         }
 
+        /// <summary>
+        /// Toggles the film grain, the aberration's sibling: zero disables the shader's whole branch,
+        /// so Off costs literally nothing. Only the strength is written here — the seed and the pixel
+        /// grid go out per frame in ResolveSceneTarget regardless, and are no-ops while disabled.
+        /// </summary>
+        internal void ToggleGrain()
+        {
+            _grain = !_grain;
+            _tonemapEffect.Parameters["GrainStrength"].SetValue(_grain ? FILM_GRAIN : 0f);
+            _settingsPage.Refresh();
+        }
+
         protected override void Draw(GameTime gameTime)
         {
             //Bottom-up down the stack to the lowest uncovered screen: the backdrop (or the gameplay screen)
@@ -3423,6 +3453,14 @@ namespace BS3D
             _tonemapGlareTextureParam.SetValue(_bloomChain[0]);
             _tonemapSceneTextureParam.SetValue(_sceneTarget);
             _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
+
+            //The grain re-rolls every frame and lands one grain per OUTPUT pixel, so the seed and the
+            //back-buffer size go out here. The modulo keeps the seed small: the shader takes its fraction,
+            //and a float that has grown for an hour has little left to give.
+            _tonemapGrainSeedParam.SetValue(_wallClock % 64f);
+            _tonemapOutputSizeParam.SetValue(new Vector2(
+                GraphicsDevice.PresentationParameters.BackBufferWidth,
+                GraphicsDevice.PresentationParameters.BackBufferHeight));
 
             //How far under the sea the lens is. Only the sea has water to get under, and only the drop
             //cinematic ever takes the camera down there — the play camera stands on the island. Measured a
