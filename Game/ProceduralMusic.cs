@@ -626,12 +626,13 @@ namespace BS3D
         }
 
         /// <summary>
-        /// The front end's piece (#46): the theme's pads with the drums left at the door, and a line of its
-        /// own. Held pad chords over the same diatonic progressions, their root an octave under for warmth, a
-        /// quarter-note line on the lobby's <see cref="Keys"/> — an electric-piano voice, not the theme's
-        /// square Arp, which exposed at this rate read as a touch-tone phone — and a high sparkle every other
-        /// bar: enough motion to say the game is alive, nothing that asks to be listened to. It rolls its own
-        /// tempo, key, progression and line direction from the seed, so no two runs share a lobby.
+        /// The front end's piece (#46): a small arrangement of its own rather than one texture. It opens on
+        /// held pad chords over the theme's diatonic progressions, their root an octave under for warmth,
+        /// with a quarter-note line on the lobby's <see cref="Keys"/> — an electric-piano voice, not the
+        /// theme's square Arp, which exposed at this rate read as a touch-tone phone — and a high sparkle
+        /// every other bar; after two rounds the <b>groove</b> arrives (kick, off-beat hats, the theme's own
+        /// bass figure), a step under the theme's energy so the lobby stays a lobby. It rolls its own tempo,
+        /// key, progression and line direction from the seed, so no two runs share a lobby.
         /// <para>
         /// It is a LOOP, and the seam is closed by construction rather than by luck: the piece is rendered
         /// with a bar of room past the loop point, and whatever rings into that room — a pad's release, an
@@ -656,9 +657,12 @@ namespace BS3D
             int transpose = keys[random.Next(keys.Length)];
             bool arpDown = random.NextDouble() < 0.35;
 
-            //Four times round the four-bar progression — about 38 s at this tempo, long enough that the ear
-            //has let go of the start before the loop returns to it.
-            const int LOOP_BARS = 16;
+            //Two rounds of the progression on pads and keys alone, then the groove for four (asked for after
+            //the lobby was heard: once the opening has said itself a few times, the bass should arrive). The
+            //loop runs about 58 s, and wrapping from the full groove back to the bare opening reads as a
+            //breakdown rather than a restart — the oldest shape dance music has.
+            const int INTRO_BARS = 8;
+            const int LOOP_BARS = 24;
             int loopSamples = samplesPerStep * LOOP_BARS * STEPS_PER_BAR;
             int tailSamples = samplesPerStep * STEPS_PER_BAR;
 
@@ -673,12 +677,29 @@ namespace BS3D
                 int chord = progression[bar % 4];
                 int[] arp = CHORD_ARP[chord];
 
+                bool groove = bar >= INTRO_BARS;
+
                 //The chord, held the bar long, with its root an octave under for the warmth a bass would
                 //otherwise bring.
                 if (inBar == 0)
                 {
                     foreach (int note in arp) Pad(mix, at, note + transpose, secondsPerStep * 15.5f, 0.11f);
                     Pad(mix, at, CHORD_ROOT[chord] - 12 + transpose, secondsPerStep * 15.5f, 0.09f);
+                }
+
+                //The groove: a four-on-the-floor kick, off-beat hats and the theme's own off-beat bass —
+                //unmistakably a beat, still a lobby's: no clap, no ride, no build, and everything a step
+                //under the theme's levels. The kick landing on the section's first downbeat is the arrival,
+                //the intro's own trick.
+                if (groove)
+                {
+                    if (inBar % 4 == 0) Kick(mix, at, 0.55f);
+                    if (inBar % 2 == 0) Hat(mix, at, open: inBar % 4 == 2, level: 0.16f);
+
+                    //The theme's bass figure at the theme's registers: off-beat eighths against the kick
+                    //(on the beat the two double and go to mud), and the root restated on the bar.
+                    if (inBar % 4 == 2) Bass(mix, at, CHORD_ROOT[chord] + 12 + transpose, secondsPerStep * 1.7f, 0.75f);
+                    if (inBar == 0) Bass(mix, at, CHORD_ROOT[chord] + transpose, secondsPerStep * 1.4f, 0.65f);
                 }
 
                 //A quarter-note line on the lobby's keys — half the theme's rate, each note ringing a step
