@@ -814,6 +814,7 @@ namespace BS3D
         private float _masterVolume = 1f;
         private float _sfxVolume = 1f;
         private float _musicVolume = 1f;
+        private float _ambienceVolume = 1f;
 
         //In the declared order of SceneKind (City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest,
         //Space), so the scene list can be indexed by the enum's own value
@@ -1520,6 +1521,7 @@ namespace BS3D
         internal float MasterVolume => _masterVolume;
         internal float SfxVolume => _sfxVolume;
         internal float MusicVolume => _musicVolume;
+        internal float AmbienceVolume => _ambienceVolume;
         internal SceneKind Scene => _scene;
 
         internal int LevelCount => _levelSet?.Count ?? 0;
@@ -1865,6 +1867,13 @@ namespace BS3D
             _settingsPage.Refresh();
         }
 
+        internal void CycleAmbienceVolume()
+        {
+            _ambienceVolume = NextVolume(_ambienceVolume);
+            ApplyVolumes();
+            _settingsPage.Refresh();
+        }
+
         /// <summary>
         /// Steps a volume down a quarter and wraps back to full under zero. Downwards, unlike the exposure
         /// ladder, because the reason to click a volume row at all is almost always "quieter" — upwards, the
@@ -1886,8 +1895,9 @@ namespace BS3D
             _audio.Gain = _masterVolume * _sfxVolume;
             _music.Gain = _masterVolume * _musicVolume;
 
-            //The beds are environment, so they ride the effects row.
-            _ambience.Gain = _masterVolume * _sfxVolume;
+            //The beds have a row of their own: how much atmosphere sits under the music is a taste, and
+            //chaining it to the effects would turn the shot down with it.
+            _ambience.Gain = _masterVolume * _ambienceVolume;
         }
 
         /// <summary>

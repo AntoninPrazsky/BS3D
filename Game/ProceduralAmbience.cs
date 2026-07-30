@@ -24,8 +24,12 @@ namespace BS3D
     /// </summary>
     public sealed class ProceduralAmbience : IDisposable
     {
-        /// <summary>The authored level of the beds, under everything else — atmosphere, not an event.</summary>
-        public const float AMBIENCE_VOLUME = 0.16f;
+        /// <summary>
+        /// The authored level of the beds, under everything else — atmosphere, not an event. Retuned by ear
+        /// from 0.16 to a quarter of it: at 0.16 the beds sat OVER the theme and buried it, and an ambience
+        /// the ear picks out over the music is an ambience that is too loud by definition.
+        /// </summary>
+        public const float AMBIENCE_VOLUME = 0.04f;
 
         //A scene change sweeps the whole backdrop in one frame; the sound follows over this instead, because
         //an atmosphere that cuts is a light switch and one that drags arrives after the scene has.
@@ -62,8 +66,8 @@ namespace BS3D
         }
 
         /// <summary>
-        /// The player's volume settings (master × effects) — the beds are environment, so they ride the
-        /// effects row. Written by the host's <c>ApplyVolumes</c>, the one writer.
+        /// The player's volume settings (master × ambience) — the beds have a row of their own, so taste in
+        /// atmosphere is not chained to the effects. Written by the host's <c>ApplyVolumes</c>, the one writer.
         /// </summary>
         public float Gain
         {

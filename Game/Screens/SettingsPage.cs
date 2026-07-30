@@ -16,7 +16,7 @@ namespace BS3D.Screens
         private const int VALUE_WIDTH = 560;
 
         private Label _fullscreenValue, _qualityValue, _exposureValue, _skyValue, _fpsValue;
-        private Label _volumeValue, _effectsValue, _musicValue;
+        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue;
 
         public SettingsPage(BS3DGame game) : base(game) { }
 
@@ -49,6 +49,7 @@ namespace BS3D.Screens
             AddRow(grid, 5, "Volume", Game.CycleMasterVolume, out _volumeValue);
             AddRow(grid, 6, "Effects", Game.CycleSfxVolume, out _effectsValue);
             AddRow(grid, 7, "Music", Game.CycleMusicVolume, out _musicValue);
+            AddRow(grid, 8, "Ambience", Game.CycleAmbienceVolume, out _ambienceValue);
 
             column.Widgets.Add(grid);
             column.Widgets.Add(MenuButton("Back", GoBack));
@@ -94,6 +95,7 @@ namespace BS3D.Screens
             _volumeValue.Text = FormatVolume(Game.MasterVolume);
             _effectsValue.Text = FormatVolume(Game.SfxVolume);
             _musicValue.Text = FormatVolume(Game.MusicVolume);
+            _ambienceValue.Text = FormatVolume(Game.AmbienceVolume);
         }
 
         /// <summary>"Off" at zero rather than "0 %": silence is a state, not a quantity.</summary>
