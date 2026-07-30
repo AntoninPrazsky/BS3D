@@ -213,20 +213,23 @@ namespace BS3D
 
         //Peak red/blue channel displacement at the frame CORNERS, as a fraction of the frame (the shader
         //grows it quadratically from zero at the centre, so the cluster and the gun stay registered and
-        //only the periphery fringes). Deliberately subtle - at 1600x900 the corner shift is under two
-        //pixels; it should read as a lens, never as a broken display. Off in Settings sets the uniform
-        //to 0, which also skips the shader's whole branch.
-        private static readonly float CHROMATIC_ABERRATION = 0.0016f;
+        //only the periphery fringes). Visible at a glance BY DESIGN: it shipped at 0.0016 first - under
+        //two corner pixels - and nobody ever noticed it, which defeats a taste effect with its own
+        //Settings row. At 1600x900 this is now a ~5 px corner shift (the red-to-blue split is twice
+        //that), a deliberate stylized lens; the centre stays clean either way. Off in Settings sets the
+        //uniform to 0, which also skips the shader's whole branch.
+        private static readonly float CHROMATIC_ABERRATION = 0.004f;
 
         //On by default; a taste toggle in Settings, like the FPS counter (nothing persists — see docs).
         private bool _aberration = true;
 
         //Peak film-grain modulation at 50% grey, as a fraction of the display value. The shader weights
-        //the grain by 4*luma*(1-luma), so it peaks in the mid-tones — about ±6/255 at its strongest
-        //here — and vanishes into both black and white: it should read as texture on the print, never
-        //as sensor noise. One monochrome grain per OUTPUT pixel, re-rolled every frame, applied after
-        //the tonemap curve. Off in Settings sets the uniform to 0, which skips the shader's branch.
-        private static readonly float FILM_GRAIN = 0.05f;
+        //the grain by 4*luma*(1-luma), so it peaks in the mid-tones — about ±12/255 at its strongest
+        //here (raised from 0.05, which was invisible at arm's length) — and vanishes into both black
+        //and white: texture on the print, never sensor noise. One monochrome grain per OUTPUT pixel,
+        //re-rolled every frame, applied after the tonemap curve. Off in Settings sets the uniform to 0,
+        //which skips the shader's branch.
+        private static readonly float FILM_GRAIN = 0.10f;
 
         //On by default, the aberration's sibling taste toggle
         private bool _grain = true;
