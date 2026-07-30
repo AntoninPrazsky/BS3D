@@ -1183,6 +1183,11 @@ namespace BS3D.Screens
             //where, not on what came loose. Panned against the camera so a hit on the left is heard on the left.
             Game.Audio.PlayLanded(landing.Type, landing.World, Camera);
 
+            //What came loose answers separately (#46): the lattice's snap and the freed group popping away,
+            //scaled by how much of it there is. A plain attach stays just the thunk above.
+            int released = landing.Released.Matched + landing.Released.Orphaned;
+            if (released > 0) Game.Audio.PlayRelease(landing.World, Camera, released);
+
             ScoreAward award = _score.Landed(landing.Released.Matched, landing.Released.Orphaned);
 
             //What the shot was worth, born on the cell it landed in and flown into the corner from there. The

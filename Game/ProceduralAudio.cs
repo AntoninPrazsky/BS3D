@@ -66,6 +66,7 @@ namespace BS3D
 
         private readonly SoundEffect _shoot;
         private readonly SoundEffect[] _landed;
+        private readonly SoundEffect _release;
         private readonly SoundEffect _fireworkLaunch;
         private readonly SoundEffect _fireworkBurst;
         private readonly SoundEffect _partyPopper;
@@ -78,6 +79,7 @@ namespace BS3D
             _landed = new SoundEffect[9];   //indexed by BallType value (1..8); slot 0 unused
             for (int type = 1; type <= 8; type++) _landed[type] = BakeLanded(type);
 
+            _release = BakeRelease();
             _fireworkLaunch = BakeFireworkLaunch();
             _fireworkBurst = BakeFireworkBurst();
             _partyPopper = BakePartyPopper();
@@ -102,6 +104,27 @@ namespace BS3D
             float pan = PanFor(world, camera, out float distance);
             float volume = VolumeForDistance(distance) * Level;
             _landed[index].Play(volume, NextPitch(0.1f), pan);
+        }
+
+        /// <summary>
+        /// A group coming loose (#46): the lattice's snap and the freed balls popping away, one after another.
+        /// <paramref name="count"/> is how many balls were cut — matched and orphaned together — and it scales
+        /// the sound the way the firework burst's <c>size</c> does: a bigger release is louder and a shade
+        /// deeper, which is the whole of how the ear tells a great shot from a good one before the score says
+        /// so. Silent path for zero is the caller's business: a plain attach plays only the landing.
+        /// </summary>
+        public void PlayRelease(Vector3 world, RecoilCamera camera, int count)
+        {
+            //What counts as a FULL-SIZE release. The drop cinematic engages at 6 (DropCinematic.MIN_BALLS);
+            //well past that the sound has nothing more to say by getting louder still.
+            const float FULL_COUNT = 15f;
+            float size = MathHelper.Clamp(count / FULL_COUNT, 0f, 1f);
+
+            float pan = PanFor(world, camera, out float distance);
+            float volume = (0.45f + 0.45f * size) * VolumeForDistance(distance);
+
+            _release.Play(MathHelper.Clamp(volume * Level, 0f, 1f),
+                MathHelper.Clamp(NextPitch(0.06f) - size * 0.12f, -1f, 1f), pan);
         }
 
         /// <summary>
@@ -411,6 +434,67 @@ namespace BS3D
 
             //The contact: a very short knock, low-passed so it is a "th" rather than a "ts".
             AddNoiseBurst(signal, window: 0.008f, decay: 160f, gain: 0.8f, cutoff: 3200f);
+
+            Normalize(signal, 0.9f);
+            return ToSoundEffect(signal);
+        }
+
+        /// <summary>
+        /// A group coming loose: the snap of the lattice letting go, then the freed balls popping away one
+        /// after another — a quick rising run of six pops. The pops are <b>band-passed noise, not tones</b>,
+        /// and that is deliberate: the level theme transposes itself per pass (see <c>ProceduralMusic</c>), so
+        /// a melodic run in any fixed key would land wrong against half of them, where a noise pop's "pitch"
+        /// is a gesture the ear reads against nothing. The run rises (release reads as reward, even though the
+        /// balls fall), accelerates slightly, and trails off — the group receding as it goes.
+        /// </summary>
+        private SoundEffect BakeRelease()
+        {
+            const float duration = 0.6f;
+            int samples = (int)(SAMPLE_RATE * duration);
+            float[] signal = new float[samples];
+
+            //The snap at the front: one sharp mid-band crack — the constraints letting go — with a low thump
+            //under it for the body of the break.
+            AddNoiseBurst(signal, window: 0.012f, decay: 120f, gain: 1.0f, cutoff: 5500f);
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+                signal[i] += MathF.Sin(2f * MathF.PI * 140f * t) * 0.3f * MathF.Exp(-t * 40f);
+            }
+
+            //The run: six pops, each a band-passed noise burst with a small sine blip at its centre for body.
+            //Centres climb, gaps shrink a touch (an accelerando reads as "away", a ritardando as "stopping"),
+            //and the last pops sit a little lower in level.
+            float[] noise = MakeNoiseArray(samples);
+            float[] centres = { 800f, 1100f, 1450f, 1850f, 2300f, 2800f };
+            float at = 0.06f;
+
+            for (int pop = 0; pop < centres.Length; pop++)
+            {
+                float centre = centres[pop];
+                float[] band = BandPass(noise, centre * 0.7f, centre * 1.3f);
+
+                int start = (int)(at * SAMPLE_RATE);
+                float gain = 1f - 0.09f * pop;
+
+                for (int i = start; i < samples; i++)
+                {
+                    float t = (float)(i - start) / SAMPLE_RATE;
+                    if (t > 0.12f) break;
+
+                    //A 3 ms attack then a fast decay: a pop, not a hiss.
+                    float env = MathF.Exp(-t * 60f) * MathF.Min(1f, t / 0.003f);
+
+                    signal[i] += band[i] * 0.55f * gain * env;
+                    signal[i] += MathF.Sin(2f * MathF.PI * centre * t) * 0.18f * gain * env;
+                }
+
+                at += 0.062f - 0.004f * pop;
+            }
+
+            //In the scene, so it takes the landing's kind of space — a shade drier, being several small events
+            //rather than one solid contact.
+            ApplyReverb(signal, roomScale: 0.4f, wet: 0.22f, decay: 0.25f);
 
             Normalize(signal, 0.9f);
             return ToSoundEffect(signal);
@@ -891,6 +975,7 @@ namespace BS3D
         {
             _shoot?.Dispose();
             if (_landed != null) foreach (SoundEffect effect in _landed) effect?.Dispose();
+            _release?.Dispose();
             _fireworkLaunch?.Dispose();
             _fireworkBurst?.Dispose();
             _partyPopper?.Dispose();
