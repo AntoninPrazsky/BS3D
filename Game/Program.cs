@@ -36,6 +36,10 @@ namespace BS3D
             //within two ceiling steps of losing it, which can no more be scripted than clearing one can.
             bool lasers = false;
 
+            //Testing only: start with the master volume at zero. A scripted screenshot or benchmark run has
+            //no business making noise, and nothing is persisted, so there is no settings file to pre-set.
+            bool mute = false;
+
             foreach (string arg in args)
             {
                 if (string.Equals(arg, "fullscreen", StringComparison.OrdinalIgnoreCase)) fullscreen = true;
@@ -57,11 +61,13 @@ namespace BS3D
                 else if (string.Equals(arg, "celebrate", StringComparison.OrdinalIgnoreCase)) celebrate = true;
                 //"lasers" pins the floor alarm's laser net on while a level is played, for the same reason.
                 else if (string.Equals(arg, "lasers", StringComparison.OrdinalIgnoreCase)) lasers = true;
+                //"mute" starts silent, for the harnesses; the settings rows can still raise it.
+                else if (string.Equals(arg, "mute", StringComparison.OrdinalIgnoreCase)) mute = true;
             }
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
-                celebrate: celebrate, lasers: lasers);
+                celebrate: celebrate, lasers: lasers, mute: mute);
             game.Run();
         }
 

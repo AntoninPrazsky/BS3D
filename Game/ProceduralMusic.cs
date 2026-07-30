@@ -33,7 +33,10 @@ namespace BS3D
         private const int BARS = BARS_PER_SECTION * SECTIONS;   //64 bars ≈ 2:00 at 128 BPM
         private const int TOTAL_STEPS = BARS * STEPS_PER_BAR;
 
-        /// <summary>Overall level of the music, well under the effects — a soundtrack is not an event.</summary>
+        /// <summary>
+        /// The authored level of the music, well under the effects — a soundtrack is not an event. A constant
+        /// so the balance keeps its tuning; the player's settings rows scale it through <see cref="Gain"/>.
+        /// </summary>
         public const float MUSIC_VOLUME = 0.34f;
 
         //The chords available to a progression, all diatonic to A minor so any ordering of them is in key.
@@ -227,6 +230,25 @@ namespace BS3D
         /// </summary>
         public bool IsFanfarePlaying => _fanfare != null && _fanfare.State == SoundState.Playing;
 
+        private float _gain = 1f;
+
+        /// <summary>
+        /// The player's volume settings (master × music), 1 for the authored level. Written by the host when a
+        /// settings row changes, and pushed onto whatever is already sounding — unlike an effect, a two-minute
+        /// pass and a nine-second fanfare are long enough that "on the next play" would mean minutes late. The
+        /// fields never point at a disposed instance (see <see cref="Advance"/>), so the writes are safe.
+        /// </summary>
+        public float Gain
+        {
+            get => _gain;
+            set
+            {
+                _gain = value;
+                if (_instance != null) _instance.Volume = MUSIC_VOLUME * _gain;
+                if (_fanfare != null) _fanfare.Volume = FANFARE_VOLUME * _gain;
+            }
+        }
+
         /// <summary>
         /// Starts synthesizing the first pass at once, on a background thread. Two minutes of PCM is a couple
         /// of seconds of arithmetic, and doing it on the loading thread would be two seconds of a black
@@ -332,7 +354,7 @@ namespace BS3D
 
                     _fanfareTrack = ToSoundEffect(ready.Result);
                     _fanfare = _fanfareTrack.CreateInstance();
-                    _fanfare.Volume = FANFARE_VOLUME;
+                    _fanfare.Volume = FANFARE_VOLUME * _gain;
                     _fanfare.Play();
 
                     old?.Dispose();
@@ -369,7 +391,7 @@ namespace BS3D
 
                     _track = ToSoundEffect(_next.Result);
                     _instance = _track.CreateInstance();
-                    _instance.Volume = MUSIC_VOLUME;
+                    _instance.Volume = MUSIC_VOLUME * _gain;
 
                     //Disposed only once the replacement exists, so a failure part-way through leaves the
                     //previous pass intact and playable rather than leaving the game silent.

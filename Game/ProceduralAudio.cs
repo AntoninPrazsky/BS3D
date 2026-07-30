@@ -24,8 +24,22 @@ namespace BS3D
     /// </summary>
     public sealed class ProceduralAudio : IDisposable
     {
-        /// <summary>A single master gain applied to every effect. A constant for now; a settings slider later.</summary>
-        public const float MASTER_VOLUME = 0.7f;
+        /// <summary>
+        /// The authored level of the effects mix — what 100 % on the settings rows means. A constant so the
+        /// mix keeps its tuning; the player's rows only ever scale it, through <see cref="Gain"/>.
+        /// </summary>
+        private const float BASE_VOLUME = 0.7f;
+
+        /// <summary>
+        /// The player's volume settings (master × effects), 1 for the authored mix. Written by the host when a
+        /// settings row changes. A gain on the <b>next</b> play rather than on sounds already in flight — the
+        /// <see cref="FireworkDuck"/> reasoning, and nothing here sounds long enough for the difference to be
+        /// heard.
+        /// </summary>
+        public float Gain { get; set; } = 1f;
+
+        //What every play site multiplies by: the authored level under the player's setting.
+        private float Level => BASE_VOLUME * Gain;
 
         /// <summary>
         /// How much of their normal level the fireworks play at, 1 for full. Ducked while a fanfare is
@@ -66,7 +80,7 @@ namespace BS3D
         /// <summary>The shot leaving the barrel: centred, with a small random pitch so a burst never sounds flat.</summary>
         public void PlayShoot()
         {
-            _shoot.Play(MASTER_VOLUME, NextPitch(0.12f), 0f);
+            _shoot.Play(Level, NextPitch(0.12f), 0f);
         }
 
         /// <summary>
@@ -79,7 +93,7 @@ namespace BS3D
             if (index < 1 || index >= _landed.Length || _landed[index] == null) return;
 
             float pan = PanFor(world, camera, out float distance);
-            float volume = VolumeForDistance(distance) * MASTER_VOLUME;
+            float volume = VolumeForDistance(distance) * Level;
             _landed[index].Play(volume, NextPitch(0.1f), pan);
         }
 
@@ -95,7 +109,7 @@ namespace BS3D
             //to identify turns the display into a chorus of kettles. At this level it is a texture — the sense
             //that something went up — rather than a sound the ear stops to listen to.
             float pan = PanFor(world, camera, SKY_PAN_WIDTH, out _);
-            _fireworkLaunch.Play(0.08f * MASTER_VOLUME * FireworkDuck, NextPitch(0.3f), pan);
+            _fireworkLaunch.Play(0.08f * Level * FireworkDuck, NextPitch(0.3f), pan);
         }
 
         /// <summary>
@@ -111,14 +125,14 @@ namespace BS3D
             //way a landing does would make every burst a whisper; this only separates the near from the far.
             float volume = (0.85f + 0.15f * size) * (0.8f + 0.2f * MathHelper.Clamp(1f - distance / 260f, 0f, 1f));
 
-            _fireworkBurst.Play(MathHelper.Clamp(volume * MASTER_VOLUME * FireworkDuck, 0f, 1f),
+            _fireworkBurst.Play(MathHelper.Clamp(volume * Level * FireworkDuck, 0f, 1f),
                 MathHelper.Clamp(NextPitch(0.12f) - size * 0.28f, -1f, 1f), pan);
         }
 
         /// <summary>The party popper that opens the celebration: one dry crack of paper and confetti, centred.</summary>
         public void PlayPartyPopper()
         {
-            _partyPopper.Play(0.9f * MASTER_VOLUME, NextPitch(0.08f), 0f);
+            _partyPopper.Play(0.9f * Level, NextPitch(0.08f), 0f);
         }
 
         /// <summary>

@@ -16,6 +16,7 @@ namespace BS3D.Screens
         private const int VALUE_WIDTH = 560;
 
         private Label _fullscreenValue, _qualityValue, _exposureValue, _skyValue, _fpsValue;
+        private Label _volumeValue, _effectsValue, _musicValue;
 
         public SettingsPage(BS3DGame game) : base(game) { }
 
@@ -42,6 +43,12 @@ namespace BS3D.Screens
             AddRow(grid, 2, "Exposure", Game.CycleExposure, out _exposureValue);
             AddRow(grid, 3, "Sky", Game.CycleSkyDome, out _skyValue);
             AddRow(grid, 4, "FPS counter", Game.ToggleFpsOverlay, out _fpsValue);
+            //The three volume rows (#46) scale the authored mix rather than replacing it — 100 % is the game
+            //as tuned, and effects and music each sit under the master. See "The sound" in
+            //docs/game-feedback.md for the split.
+            AddRow(grid, 5, "Volume", Game.CycleMasterVolume, out _volumeValue);
+            AddRow(grid, 6, "Effects", Game.CycleSfxVolume, out _effectsValue);
+            AddRow(grid, 7, "Music", Game.CycleMusicVolume, out _musicValue);
 
             column.Widgets.Add(grid);
             column.Widgets.Add(MenuButton("Back", GoBack));
@@ -84,6 +91,13 @@ namespace BS3D.Screens
             _exposureValue.Text = Game.Exposure.ToString("0.0", CultureInfo.InvariantCulture);
             _skyValue.Text = Game.SkyDomeNumber.ToString(CultureInfo.InvariantCulture);
             _fpsValue.Text = Game.IsFpsOverlayVisible ? "On" : "Off";
+            _volumeValue.Text = FormatVolume(Game.MasterVolume);
+            _effectsValue.Text = FormatVolume(Game.SfxVolume);
+            _musicValue.Text = FormatVolume(Game.MusicVolume);
         }
+
+        /// <summary>"Off" at zero rather than "0 %": silence is a state, not a quantity.</summary>
+        private static string FormatVolume(float gain)
+            => gain <= 0f ? "Off" : ((int)MathF.Round(gain * 100f)).ToString(CultureInfo.InvariantCulture) + " %";
     }
 }

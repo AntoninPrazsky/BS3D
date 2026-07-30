@@ -797,6 +797,17 @@ namespace BS3D
         private const float EXPOSURE_MAX = 1.5f;
         private const float EXPOSURE_STEP = 0.2f;
 
+        //The ladder the three volume rows walk: quarters from the authored mix down to silence, then back to
+        //full. 100 % is the mix as tuned (the BASE/MUSIC/FANFARE constants in ProceduralAudio and
+        //ProceduralMusic), and the player's gains only ever scale it — so retuning the mix never invalidates
+        //what a setting means.
+        private const float VOLUME_STEP = 0.25f;
+
+        //1 is the authored mix; the "mute" argument starts the master at 0 (see the constructor).
+        private float _masterVolume = 1f;
+        private float _sfxVolume = 1f;
+        private float _musicVolume = 1f;
+
         //In the declared order of SceneKind (City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest,
         //Space), so the scene list can be indexed by the enum's own value
         internal static readonly string[] SCENE_NAMES =
@@ -915,13 +926,18 @@ namespace BS3D
         /// Testing only (the <c>lasers</c> argument): pin the floor alarm's laser net on while a level is
         /// being played — see <see cref="ForceLaserWarning"/>.
         /// </param>
+        /// <param name="mute">
+        /// Testing only (the <c>mute</c> argument): start with the master volume at zero — a scripted
+        /// screenshot or benchmark run has no business making noise. The settings rows can still raise it.
+        /// </param>
         public BS3DGame(bool fullscreen = false, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE,
             bool uncappedFps = false, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
-            QualityLevel? quality = null, bool celebrate = false, bool lasers = false)
+            QualityLevel? quality = null, bool celebrate = false, bool lasers = false, bool mute = false)
         {
             _fullscreen = fullscreen;
             _startupCelebrate = celebrate;
             _startupLasers = lasers;
+            if (mute) _masterVolume = 0f;
 
             //The tier owns supersampling, so the tier's factor is taken first and an explicit ssaa= then
             //overrides that one entry of it — the expert override the benchmark and the screenshot harness use.
@@ -1351,6 +1367,10 @@ namespace BS3D
             //the splash and the menu (see ProceduralMusic).
             _music = new ProceduralMusic();
 
+            //A muted start (the mute argument) has to reach the freshly made subsystems; every later change
+            //comes through the settings rows.
+            ApplyVolumes();
+
             BuildMenu();
         }
 
@@ -1484,6 +1504,9 @@ namespace BS3D
         internal float Exposure => _exposure;
         internal byte SkyDomeNumber => _skyDome;
         internal bool IsFpsOverlayVisible => _info.Visible;
+        internal float MasterVolume => _masterVolume;
+        internal float SfxVolume => _sfxVolume;
+        internal float MusicVolume => _musicVolume;
         internal SceneKind Scene => _scene;
 
         internal int LevelCount => _levelSet?.Count ?? 0;
@@ -1797,6 +1820,51 @@ namespace BS3D
         {
             SetSkyDome((byte)(_skyDome == SKY_DOME_COUNT ? 1 : _skyDome + 1));
             _settingsPage.Refresh();
+        }
+
+        //The three volume rows (#46). Each steps its own gain and takes effect where it is made — the music
+        //keeps playing under the settings page, so what the row does is heard as it is clicked.
+        internal void CycleMasterVolume()
+        {
+            _masterVolume = NextVolume(_masterVolume);
+            ApplyVolumes();
+            _settingsPage.Refresh();
+        }
+
+        internal void CycleSfxVolume()
+        {
+            _sfxVolume = NextVolume(_sfxVolume);
+            ApplyVolumes();
+            _settingsPage.Refresh();
+        }
+
+        internal void CycleMusicVolume()
+        {
+            _musicVolume = NextVolume(_musicVolume);
+            ApplyVolumes();
+            _settingsPage.Refresh();
+        }
+
+        /// <summary>
+        /// Steps a volume down a quarter and wraps back to full under zero. Downwards, unlike the exposure
+        /// ladder, because the reason to click a volume row at all is almost always "quieter" — upwards, the
+        /// first click would be a jump to silence. The epsilon is the exposure wrap's: a mute's 0 sits on the
+        /// ladder already, so only a step below it wraps.
+        /// </summary>
+        private static float NextVolume(float current)
+        {
+            float next = current - VOLUME_STEP;
+            return next < -Constants.THOUSANDTH ? 1f : Math.Max(next, 0f);
+        }
+
+        /// <summary>
+        /// The one place the player's gains reach the audio: effects and music each take master times their
+        /// own row, so the two subsystems cannot disagree about what the master row means.
+        /// </summary>
+        private void ApplyVolumes()
+        {
+            _audio.Gain = _masterVolume * _sfxVolume;
+            _music.Gain = _masterVolume * _musicVolume;
         }
 
         /// <summary>
