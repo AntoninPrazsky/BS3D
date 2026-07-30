@@ -99,6 +99,10 @@ namespace BS3D
         //Whether the front end's music is on — the edge detector for the stack question in Update (#46).
         private bool _menuMusicOn;
 
+        //The scenes' ambient beds (#46): one looping texture per backdrop, crossfaded by SetScene. On the
+        //host with the rest of the audio — the scene is the host's, and its sound runs pause included.
+        private ProceduralAmbience _ambience;
+
         //Testing only: the "celebrate" argument, fired once the display exists.
         private readonly bool _startupCelebrate;
 
@@ -1370,6 +1374,12 @@ namespace BS3D
             //the splash and the menu (see ProceduralMusic).
             _music = new ProceduralMusic();
 
+            //The scene beds. The scene was picked before the audio existed (SetScene runs early in
+            //LoadContent, and its _ambience hook is null-conditional for exactly that), so the pick is
+            //handed over here; every later change reaches it through SetScene like everything else scenic.
+            _ambience = new ProceduralAmbience();
+            _ambience.SetScene(_scene);
+
             //A muted start (the mute argument) has to reach the freshly made subsystems; every later change
             //comes through the settings rows.
             ApplyVolumes();
@@ -1875,6 +1885,9 @@ namespace BS3D
         {
             _audio.Gain = _masterVolume * _sfxVolume;
             _music.Gain = _masterVolume * _musicVolume;
+
+            //The beds are environment, so they ride the effects row.
+            _ambience.Gain = _masterVolume * _sfxVolume;
         }
 
         /// <summary>
@@ -2530,6 +2543,10 @@ namespace BS3D
         {
             _scene = scene;
 
+            //The scene's own sound follows the scene, on the one writer's rule. Null-conditional because the
+            //startup pick runs before LoadContent has built the audio; that first pick is handed over there.
+            _ambience?.SetScene(scene);
+
             //Neither city is drawn by the SceneRenderer — the city is one instanced box mesh under the shared
             //shader's city technique, and its two lightings are a flag and a brightness on the renderer.
             bool neon = scene == SceneKind.NeonCity;
@@ -2705,6 +2722,10 @@ namespace BS3D
             //freshly synthesized variation on when the current one ends (see ProceduralMusic.Update). Up here
             //with the fireworks and for the same reason — it has to keep running whatever is on the stack.
             _music?.Update();
+
+            //The scene's bed and its crossfade, on the wall clock's frame like the clouds: the scene is on
+            //screen whether or not a session stands, so its sound is too, pause included.
+            _ambience?.Update(elapsed);
 
             //Which music the moment wants is the stack question (#46): the front end's loop plays exactly
             //while no session screen is on it. The theme's own lifecycle stays the session's — BuildLevel
@@ -3404,6 +3425,7 @@ namespace BS3D
 
             //The synthesized SFX buffers were built in LoadContent and outlive every session.
             _audio?.Dispose();
+            _ambience?.Dispose();
             _fireworks?.Dispose();
             _music?.Dispose();
 
