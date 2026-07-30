@@ -626,11 +626,12 @@ namespace BS3D
         }
 
         /// <summary>
-        /// The front end's piece (#46): the theme's own instruments with the drums left at the door. Held pad
-        /// chords over the same diatonic progressions, their root an octave under for warmth, a quarter-note
-        /// arpeggio at half the theme's rate, and a high sparkle every other bar — enough motion to say the
-        /// game is alive, nothing that asks to be listened to. It rolls its own tempo, key, progression and
-        /// arp direction from the seed, so no two runs share a lobby.
+        /// The front end's piece (#46): the theme's pads with the drums left at the door, and a line of its
+        /// own. Held pad chords over the same diatonic progressions, their root an octave under for warmth, a
+        /// quarter-note line on the lobby's <see cref="Keys"/> — an electric-piano voice, not the theme's
+        /// square Arp, which exposed at this rate read as a touch-tone phone — and a high sparkle every other
+        /// bar: enough motion to say the game is alive, nothing that asks to be listened to. It rolls its own
+        /// tempo, key, progression and line direction from the seed, so no two runs share a lobby.
         /// <para>
         /// It is a LOOP, and the seam is closed by construction rather than by luck: the piece is rendered
         /// with a bar of room past the loop point, and whatever rings into that room — a pad's release, an
@@ -679,17 +680,20 @@ namespace BS3D
                     Pad(mix, at, CHORD_ROOT[chord] - 12 + transpose, secondsPerStep * 15.5f, 0.09f);
                 }
 
-                //A quarter-note arpeggio — half the theme's rate, and well under the pads.
+                //A quarter-note line on the lobby's keys — half the theme's rate, each note ringing a step
+                //past the next one's start, so the line is a phrase rather than four separate plinks. The
+                //theme's square Arp sat here first and read as a touch-tone phone; see Keys for why.
                 if (inBar % 4 == 0)
                 {
                     int arpStep = (inBar / 4) % 4;
                     int index = arpDown ? 3 - arpStep : arpStep;
-                    Arp(mix, at, arp[index] + 12 + transpose, secondsPerStep * 2.2f, 0.06f);
+                    Keys(mix, at, arp[index] + 12 + transpose, secondsPerStep * 5.5f, 0.12f);
                 }
 
-                //One high sparkle halfway through every other bar.
+                //One high sparkle halfway through every other bar, on the same keys two octaves up — the
+                //tine partial does the glitter up there, quieter than the line it decorates.
                 if (inBar == 8 && bar % 2 == 1)
-                    Arp(mix, at, arp[3] + 24 + transpose, secondsPerStep * 2.5f, 0.045f);
+                    Keys(mix, at, arp[3] + 24 + transpose, secondsPerStep * 6f, 0.07f);
             }
 
             //Close the seam: fold what rings past the loop point back onto the head, then cut to the loop.
@@ -1047,6 +1051,41 @@ namespace BS3D
                 if (phase >= 1f) phase -= 1f;
 
                 mix[at + i] += PolyBlepSquare(phase, freq / SAMPLE_RATE) * level * env;
+            }
+        }
+
+        /// <summary>
+        /// The lobby's keys: an electric-piano voice for the menu piece's line. The theme's <see cref="Arp"/>
+        /// is a bare square with a fast decay — a texture inside a full mix, but exposed at quarter notes over
+        /// nothing but pads it read as a touch-tone phone, because a beep is what a bare square <i>is</i>.
+        /// Four things make this a struck key instead: a fundamental-heavy body (sine plus a soft octave), a
+        /// bright <b>inharmonic</b> "tine" partial that fades several times faster than the body — the attack
+        /// is where the ear decides "piano", and its quick fade is what stops it beeping — a decay long enough
+        /// to carry a slow quarter note instead of plinking into a hole, and a shallow slow tremolo so the
+        /// ring stays alive on the way down.
+        /// </summary>
+        private static void Keys(float[] mix, int at, int note, float seconds, float level)
+        {
+            int length = (int)(SAMPLE_RATE * seconds);
+            float freq = Frequency(note);
+
+            for (int i = 0; i < length && at + i < mix.Length; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                //3 ms in, a long musical ring, a soft release out.
+                float env = MathF.Min(1f, t / 0.003f) * MathF.Exp(-t * 3.2f) * MathF.Min(1f, (seconds - t) / 0.15f);
+                if (env <= 0f) continue;
+
+                float body = MathF.Sin(2f * MathF.PI * freq * t) + 0.35f * MathF.Sin(2f * MathF.PI * freq * 2f * t);
+
+                //The hammer on the tine: slightly OFF the harmonic series (3.93, not 4 — dead in tune it
+                //reads as an organ stop), and gone in a fraction of the body's ring.
+                float tine = 0.55f * MathF.Sin(2f * MathF.PI * freq * 3.93f * t) * MathF.Exp(-t * 9f);
+
+                float tremolo = 1f + 0.06f * MathF.Sin(2f * MathF.PI * 4.6f * t);
+
+                mix[at + i] += (0.62f * body + tine) * env * tremolo * level;
             }
         }
 
