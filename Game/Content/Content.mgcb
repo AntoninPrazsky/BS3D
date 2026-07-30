@@ -1,4 +1,4 @@
-
+﻿
 #----------------------------- Global Properties ----------------------------#
 
 /outputDir:bin/$(Platform)/Content
@@ -18,7 +18,7 @@
 
 # The island's stone. This is the texture the Testbed's GroundMarble model carries; the Testbed loads the
 # whole model and fishes the texture out of its BasicEffect because it also used to draw the model, while
-# the island only ever wanted the image — so it is built here directly as a Texture2D.
+# the island only ever wanted the image â€” so it is built here directly as a Texture2D.
 #begin ../../Testbed/Content/GameObjects/Ground_8.png
 /importer:TextureImporter
 /processor:TextureProcessor
@@ -157,6 +157,13 @@
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/Space.fx;Shaders/Space.fx
+
+#begin ../../Testbed/Content/Shaders/Dream.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Dream.fx;Shaders/Dream.fx
+
 
 #begin ../../Testbed/Content/Skyes/SkyDome13.dae
 /importer:XImporter

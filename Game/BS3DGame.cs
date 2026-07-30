@@ -244,9 +244,9 @@ namespace BS3D
         private SceneKind _scene = SceneKind.NeonCity;
 
         //Every value of the enum, in its declared order (City, Sea, Savanna, Desert, Mountain, Meadow,
-        //NeonCity, Forest, Space). Written out rather than counted with Enum.GetValues so nothing walks
-        //reflection at load, and so the scene menu's labels below can be indexed by the same number.
-        internal const int SCENE_COUNT = 9;
+        //NeonCity, Forest, Space, Dream). Written out rather than counted with Enum.GetValues so nothing
+        //walks reflection at load, and so the scene menu's labels below can be indexed by the same number.
+        internal const int SCENE_COUNT = 10;
 
         private SceneRenderer _sceneRenderer;
 
@@ -649,7 +649,7 @@ namespace BS3D
         private SpriteFontBase _menuFontBody, _menuFontSmall, _menuFontHeading, _menuFontTitle;
 
         //The menu is deliberately GREYSCALE — no hue anywhere, and no coloured frames. It has to sit over
-        //seven backdrops whose palettes are nothing alike (a neon city, an ochre desert, a blue sea, white
+        //ten backdrops whose palettes are nothing alike (a neon city, an ochre desert, a blue sea, white
         //peaks, green meadow), and any accent colour that reads as the game's own over one of them fights
         //the next. Neutral black-to-white belongs over all of them equally: emphasis is carried by
         //brightness and by opacity, which is legible against any hue.
@@ -839,9 +839,9 @@ namespace BS3D
         private float _ambienceVolume = 1f;
 
         //In the declared order of SceneKind (City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest,
-        //Space), so the scene list can be indexed by the enum's own value
+        //Space, Dream), so the scene list can be indexed by the enum's own value
         internal static readonly string[] SCENE_NAMES =
-            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space" };
+            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream" };
 
         #endregion
 
@@ -1354,7 +1354,7 @@ namespace BS3D
 
             SetCloudParameters();
 
-            //A different one of the seven every launch, so the front end is not the same picture twice — unless
+            //A different one of the ten every launch, so the front end is not the same picture twice — unless
             //the command line pinned one. It also sets the dome and the city's lighting, and ends in
             //ApplySkyLighting, which is why nothing derives the light rig before this point.
             SetScene(_startupScene ?? (SceneKind)RANDOM.Next(SCENE_COUNT));
@@ -3148,9 +3148,9 @@ namespace BS3D
             //Cleared to the dome's horizon colour rather than a fixed one: at a wide aspect the bottom
             //corners can look below the horizon past both the dome and the island, and there any other
             //colour shows up as a band instead of blending into the hazed skyline.
-            //Space has no dome and no horizon, so it clears to black instead: Space.fx covers every pixel of
-            //the frame, and black is what would show if it ever did not.
-            GraphicsDevice.Clear(_scene == SceneKind.Space ? Color.Black : new Color(_horizonLinear));
+            //The sky-replacing scenes (space, the dream) have no dome and no horizon, so they clear to black
+            //instead: their pass covers every pixel of the frame, and black is what would show if it ever did not.
+            GraphicsDevice.Clear(SceneRenderer.ReplacesSky(_scene) ? Color.Black : new Color(_horizonLinear));
 
             //The weather runs off the same wall clock the balls pulse to, so it keeps drifting whatever the
             //game does. Handed to both shaders from the one field, which is what keeps the cloud the player
@@ -3162,7 +3162,7 @@ namespace BS3D
             //unconditionally, and a gain left standing from the scene before would go on shadowing this one.
             _clouds.Time = _wallClock;
 
-            if (_scene == SceneKind.Space) _clouds.SuppressOn(_instancingEffect);
+            if (SceneRenderer.ReplacesSky(_scene)) _clouds.SuppressOn(_instancingEffect);
             else
             {
                 _clouds.ApplyTo(_skyEffect);

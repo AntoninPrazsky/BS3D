@@ -802,6 +802,7 @@ namespace Testbed
             else if (string.Equals(scene, "neon", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.NeonCity;
             else if (string.Equals(scene, "forest", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Forest;
             else if (string.Equals(scene, "space", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Space;
+            else if (string.Equals(scene, "dream", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Dream;
             _exposure = exposure > 0f ? exposure : DEFAULT_EXPOSURE;
             _windowed = windowed;
             _startupMapPath = startupMapPath;
@@ -2059,9 +2060,9 @@ namespace Testbed
             //corners look below the horizon past the terrain's finite edge, and there a fixed clear colour
             //showed through as a blue band. Clearing to the horizon colour makes any such gap blend seamlessly
             //with the hazed skyline the terrain and dome both fade to there, so it is never seen as a seam.
-            //Space has no dome and no horizon, so it clears to black instead: Space.fx covers every pixel of
-            //the frame, and black is what would show if it ever did not.
-            GraphicsDevice.Clear(_scene == SceneKind.Space ? Color.Black : new Color(_horizonLinear));
+            //The sky-replacing scenes (space, the dream) have no dome and no horizon, so they clear to black
+            //instead: their pass covers every pixel of the frame, and black is what would show if it ever did not.
+            GraphicsDevice.Clear(SceneRenderer.ReplacesSky(_scene) ? Color.Black : new Color(_horizonLinear));
 
             //The clouds run off the same wall clock the balls pulse to, so the weather keeps moving while
             //the simulation is paused or slowed. Handed to both shaders from the one field, which is what
@@ -2073,7 +2074,7 @@ namespace Testbed
             //unconditionally, and a gain left standing from the scene before would go on shadowing this one.
             _clouds.Time = _pulseSeconds;
 
-            if (_scene == SceneKind.Space) _clouds.SuppressOn(_instancingEffect);
+            if (SceneRenderer.ReplacesSky(_scene)) _clouds.SuppressOn(_instancingEffect);
             else
             {
                 _clouds.ApplyTo(_skyEffect);

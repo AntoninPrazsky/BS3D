@@ -1,4 +1,4 @@
-
+﻿
 #----------------------------- Global Properties ----------------------------#
 
 /outputDir:bin/$(Platform)/Content
@@ -127,6 +127,13 @@
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/Space.fx;Shaders/Space.fx
+
+#begin ../../Testbed/Content/Shaders/Dream.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Dream.fx;Shaders/Dream.fx
+
 
 #begin ../../Testbed/Content/Skyes/SkyDome1.dae
 /importer:XImporter

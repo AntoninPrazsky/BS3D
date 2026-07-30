@@ -41,7 +41,7 @@ namespace BS3D
         //is written in whole cycles of this length, which is half of what makes the seam inaudible.
         private const float LOOP_SECONDS = 16f;
 
-        private const int SCENES = (int)SceneKind.Space + 1;
+        private const int SCENES = (int)SceneKind.Dream + 1;
 
         private Task<float[][]> _bake;
         private SoundEffect[] _beds;
@@ -240,11 +240,21 @@ namespace BS3D
                         t => (0.35f + 0.65f * MathF.Pow(Swell(t, 3, 0f, 0f), 1.5f)) * (0.8f + 0.2f * Cycle(t, 96, 0f)));
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.12f);
 
-                default:
-                    //Space: the void, one very deep and very slow breath per loop, mixed near-subliminal —
-                    //the scene's whole point is silence with weight.
+                case SceneKind.Space:
+                    //The void, one very deep and very slow breath per loop, mixed near-subliminal — the
+                    //scene's whole point is silence with weight.
                     AddBand(mix, seed, 0f, 55f, 1.0f, t => Swell(t, 1, 0.6f, 0f));
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.05f);
+
+                default:
+                    //The dream: an ethereal shimmer. A deep slow drone and a high glassy hiss breathing in
+                    //OPPOSITE phase — as one recedes the other rises, the scene's own contrast — with a mid
+                    //band wandering between them. Filtered noise like everything here: the hallucination is
+                    //in the motion, never in a tone.
+                    AddBand(mix, seed, 0f, 70f, 1.0f, t => Swell(t, 1, 0.45f, 0f));
+                    AddBand(mix, seed + 1, 2600f, 7000f, 0.35f, t => Swell(t, 1, 0.3f, MathF.PI));
+                    AddBand(mix, seed + 2, 350f, 900f, 0.3f, t => Swell(t, 3, 0.4f, 1.1f));
+                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.07f);
             }
         }
 

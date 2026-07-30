@@ -23,7 +23,7 @@ namespace Prazsky.Core.Render
     /// pick), and in the editor only by loading a level whose config names one of them.
     /// </para>
     /// </summary>
-    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space }
+    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream }
 
     /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,
@@ -131,6 +131,7 @@ namespace Prazsky.Core.Render
         private MeadowSceneConfig _meadowConfig = new();
         private ForestSceneConfig _forestConfig = new();
         private SpaceSceneConfig _spaceConfig = new();
+        private DreamSceneConfig _dreamConfig = new();
 
         #region Sea
 
@@ -369,6 +370,15 @@ namespace Prazsky.Core.Render
 
         #endregion
 
+        #region Dream
+
+        //The tenth scene, and the second that replaces the SKY rather than the ground (see Space above): the
+        //same full-screen-quad machinery, sharing _spaceQuad, with its own effect and per-frame parameters.
+        private readonly Effect _dreamEffect;
+        private readonly EffectParameter _dreamInverseViewProjection, _dreamCameraPosition, _dreamTime;
+
+        #endregion
+
         /// <param name="content">
         /// A content manager whose root holds the scene shaders under <c>Shaders/</c> (both executables build
         /// <c>Sea.fx</c>, <c>Savanna.fx</c>, <c>Birds.fx</c>, <c>Mountain.fx</c>, <c>Snow.fx</c>, <c>Spray.fx</c>, <c>Meadow.fx</c>
@@ -453,8 +463,9 @@ namespace Prazsky.Core.Render
 
             ApplyForestParameters();
 
-            //--- Space: the ninth scene, and the only one with no ground at all — a full-screen pass whose
-            //quad is already in normalized device coordinates, so nothing transforms it
+            //--- Space: the ninth scene, and the first of the two with no ground at all (the dream below is
+            //the other) — a full-screen pass whose quad is already in normalized device coordinates, so
+            //nothing transforms it
             _spaceEffect = content.Load<Effect>("Shaders/Space");
 
             VertexPosition[] corners =
@@ -473,7 +484,25 @@ namespace Prazsky.Core.Render
             _spaceSupersample = _spaceEffect.Parameters["SupersampleFactor"];
 
             ApplySpaceParameters();
+
+            //--- Dream: the tenth scene, the second sky-replacing pass. It shares space's quad — a corner
+            //quad in normalized device coordinates has nothing scene-specific about it.
+            _dreamEffect = content.Load<Effect>("Shaders/Dream");
+
+            _dreamInverseViewProjection = _dreamEffect.Parameters["InverseViewProjection"];
+            _dreamCameraPosition = _dreamEffect.Parameters["CameraPosition"];
+            _dreamTime = _dreamEffect.Parameters["DreamTime"];
+
+            ApplyDreamParameters();
         }
+
+        /// <summary>
+        /// True for the scenes that replace the SKY rather than the ground — space and the dream. The caller
+        /// draws no dome and no cloud deck in these, suppresses the cloud shadow on the instanced effect,
+        /// clears to black (the pass covers every pixel; black is what would show if it ever did not), and
+        /// takes the scene's own light rig through <see cref="TryGetLightRig"/>.
+        /// </summary>
+        public static bool ReplacesSky(SceneKind kind) => kind is SceneKind.Space or SceneKind.Dream;
 
         #region Scene-config apply (issue #32)
 
@@ -523,6 +552,10 @@ namespace Prazsky.Core.Render
                     _spaceConfig = space;
                     ApplySpaceParameters();
                     break;
+                case DreamSceneConfig dream:
+                    _dreamConfig = dream;
+                    ApplyDreamParameters();
+                    break;
                 case CitySceneConfig:
                     break;
             }
@@ -541,20 +574,33 @@ namespace Prazsky.Core.Render
         /// </summary>
         public bool TryGetLightRig(SceneKind kind, out SceneLightRig rig)
         {
-            if (kind != SceneKind.Space)
+            switch (kind)
             {
-                rig = default;
-                return false;
+                case SceneKind.Space:
+                    SpaceLightingConfig space = _spaceConfig.Lighting;
+                    rig = new SceneLightRig(
+                        space.SkyAmbient.ToVector3(),
+                        space.GroundAmbient.ToVector3(),
+                        space.KeyTint.ToVector3(),
+                        space.BackTint.ToVector3());
+                    return true;
+
+                //The dream states one for the same reason and one more: its rig is deliberately COLOURED
+                //(violet over teal, a rose key against a cyan fill), so the island, the gun and the balls
+                //sit in the hallucination instead of standing greyly in front of it.
+                case SceneKind.Dream:
+                    DreamLightingConfig dream = _dreamConfig.Lighting;
+                    rig = new SceneLightRig(
+                        dream.SkyAmbient.ToVector3(),
+                        dream.GroundAmbient.ToVector3(),
+                        dream.KeyTint.ToVector3(),
+                        dream.BackTint.ToVector3());
+                    return true;
+
+                default:
+                    rig = default;
+                    return false;
             }
-
-            SpaceLightingConfig lighting = _spaceConfig.Lighting;
-            rig = new SceneLightRig(
-                lighting.SkyAmbient.ToVector3(),
-                lighting.GroundAmbient.ToVector3(),
-                lighting.KeyTint.ToVector3(),
-                lighting.BackTint.ToVector3());
-
-            return true;
         }
 
         /// <summary>
@@ -612,6 +658,7 @@ namespace Prazsky.Core.Render
             SceneKind.Meadow => _meadowConfig,
             SceneKind.Forest => _forestConfig,
             SceneKind.Space => _spaceConfig,
+            SceneKind.Dream => _dreamConfig,
             _ => null,
         };
 
@@ -1057,6 +1104,40 @@ namespace Prazsky.Core.Render
             _spaceEffect.Parameters["PlanetNightAmbient"].SetValue(planet.NightAmbient);
         }
 
+        private void ApplyDreamParameters()
+        {
+            DreamSceneConfig dream = _dreamConfig;
+
+            _dreamEffect.Parameters["DeepColor"].SetValue(dream.DeepColor.ToVector3());
+
+            DreamPaletteConfig palette = dream.Palette;
+            _dreamEffect.Parameters["PaletteA"].SetValue(palette.A.ToVector3());
+            _dreamEffect.Parameters["PaletteB"].SetValue(palette.B.ToVector3());
+            _dreamEffect.Parameters["PaletteC"].SetValue(palette.C.ToVector3());
+            _dreamEffect.Parameters["PaletteD"].SetValue(palette.D.ToVector3());
+
+            DreamBackgroundConfig background = dream.Background;
+            _dreamEffect.Parameters["SwirlScale"].SetValue(background.SwirlScale);
+            _dreamEffect.Parameters["SwirlWarp"].SetValue(background.SwirlWarp);
+            _dreamEffect.Parameters["SwirlSpeedSlow"].SetValue(background.SpeedSlow);
+            _dreamEffect.Parameters["SwirlSpeedFast"].SetValue(background.SpeedFast);
+            _dreamEffect.Parameters["RibbonSharpness"].SetValue(background.RibbonSharpness);
+            _dreamEffect.Parameters["BackgroundBrightness"].SetValue(background.Brightness);
+
+            DreamShapesConfig shapes = dream.Shapes;
+            _dreamEffect.Parameters["ShapeOrbitRadius"].SetValue(shapes.OrbitRadius);
+            _dreamEffect.Parameters["ShapeSize"].SetValue(shapes.Size);
+            _dreamEffect.Parameters["ShapeMorphSpeed"].SetValue(shapes.MorphSpeed);
+            _dreamEffect.Parameters["ShapeEmission"].SetValue(shapes.Emission);
+            _dreamEffect.Parameters["ShapeReflection"].SetValue(shapes.Reflection);
+
+            DreamGlowsConfig glows = dream.Glows;
+            _dreamEffect.Parameters["OrbRadius"].SetValue(glows.OrbRadius);
+            _dreamEffect.Parameters["OrbBrightness"].SetValue(glows.OrbBrightness);
+            _dreamEffect.Parameters["SparkBrightness"].SetValue(glows.SparkBrightness);
+            _dreamEffect.Parameters["SparkSpeed"].SetValue(glows.SparkSpeed);
+        }
+
         /// <summary>
         /// Normalizes a config direction, falling back to <paramref name="fallback"/> for the degenerate zero
         /// vector — these are hand-typed values in a JSON file and in a property grid, where a zero is one
@@ -1130,9 +1211,10 @@ namespace Prazsky.Core.Render
         /// which the caller draws itself. Opaque, so it stands in for the city as the thing the arena glass
         /// shows beneath it; it leaves the alpha-blend / back-face-cull state the rest of the opaque scene wants.
         /// <para>
-        /// <see cref="SceneKind.Space"/> is the one case that also touches the <b>depth</b> state — it is a
-        /// background rather than geometry, so it draws with <see cref="DepthStencilState.None"/> — and it
-        /// therefore restores <see cref="DepthStencilState.Default"/> on the way out as well.
+        /// <see cref="SceneKind.Space"/> and <see cref="SceneKind.Dream"/> are the two cases that also touch
+        /// the <b>depth</b> state — they are backgrounds rather than geometry, so they draw with
+        /// <see cref="DepthStencilState.None"/> — and each restores <see cref="DepthStencilState.Default"/>
+        /// on the way out as well.
         /// </para>
         /// </summary>
         public void DrawEnvironment(SceneKind scene, in SceneFrame frame)
@@ -1162,6 +1244,9 @@ namespace Prazsky.Core.Render
                     break;
                 case SceneKind.Space:
                     DrawSpace(frame);
+                    break;
+                case SceneKind.Dream:
+                    DrawDream(frame);
                     break;
             }
         }
@@ -1656,6 +1741,31 @@ namespace Prazsky.Core.Render
 
             //Put back what the rest of the opaque scene wants. The depth state especially: left at None, the
             //island would not occlude the cluster and the whole frame would draw in submission order.
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// Draws the dream: the second sky-replacing pass, over space's own quad. Everything animated in it
+        /// runs off the frame's wall-clock time — the marbling, the tumbling solids, the orbs' breathing and
+        /// the sparks keep moving while the simulation is paused, like the clouds and the balls' pulse.
+        /// </summary>
+        private void DrawDream(in SceneFrame frame)
+        {
+            _dreamInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
+            _dreamCameraPosition.SetValue(frame.Camera.Position);
+            _dreamTime.SetValue(frame.Time);
+
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.DepthStencilState = DepthStencilState.None;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _graphicsDevice.SetVertexBuffer(_spaceQuad);
+            _dreamEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+
+            //DrawSpace's rule: the depth state left at None would draw the rest of the frame in submission order.
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;

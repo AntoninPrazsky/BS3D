@@ -840,12 +840,12 @@ namespace MapEditor
             //skyline instead of showing through as a blue band (same fix as the game).
             //Space has no dome and no horizon, so it clears to black instead: Space.fx covers every pixel of
             //the frame, and black is what would show if it ever did not.
-            GraphicsDevice.Clear(_scene == SceneKind.Space ? Color.Black : new Color(_horizonLinear));
+            GraphicsDevice.Clear(SceneRenderer.ReplacesSky(_scene) ? Color.Black : new Color(_horizonLinear));
 
             //Space draws no dome either - the full-screen sky pass would only overdraw it. (The editor sets no
             //cloud uniforms at all, so unlike the game and the Testbed it has no cloud shadow to suppress:
             //CloudCoverageGain sits at 0 and CloudSunlight already returns a flat 1.)
-            if (_scene != SceneKind.Space) _sky.Draw(Camera3D);
+            if (!SceneRenderer.ReplacesSky(_scene)) _sky.Draw(Camera3D);
 
             //Stated after the sky (which sets its own depth state): the backdrop and the balls both want
             //alpha blending, depth on and back-face culling. Drawing the selector also leaves additive

@@ -378,7 +378,7 @@ namespace BS3D
         /// </para>
         /// </summary>
         private static bool OpenBelow(SceneKind scene) =>
-            scene is SceneKind.City or SceneKind.NeonCity or SceneKind.Sea or SceneKind.Space;
+            scene is SceneKind.City or SceneKind.NeonCity or SceneKind.Sea or SceneKind.Space or SceneKind.Dream;
 
         /// <summary>
         /// Moves the lens off anything solid it would otherwise sit inside or try to look through. Every rule

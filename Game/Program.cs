@@ -89,6 +89,7 @@ namespace BS3D
                 case "neon": scene = SceneKind.NeonCity; return true;
                 case "forest": scene = SceneKind.Forest; return true;
                 case "space": scene = SceneKind.Space; return true;
+                case "dream": scene = SceneKind.Dream; return true;
                 default: scene = default; return false;
             }
         }
