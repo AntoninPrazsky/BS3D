@@ -631,8 +631,9 @@ namespace BS3D
         /// with a quarter-note line on the lobby's <see cref="Keys"/> — an electric-piano voice, not the
         /// theme's square Arp, which exposed at this rate read as a touch-tone phone — and a high sparkle
         /// every other bar; after two rounds the <b>groove</b> arrives (kick, off-beat hats, the theme's own
-        /// bass figure), a step under the theme's energy so the lobby stays a lobby. It rolls its own tempo,
-        /// key, progression and line direction from the seed, so no two runs share a lobby.
+        /// bass figure), a step under the theme's energy so the lobby stays a lobby; then the <b>refrain</b>
+        /// (<see cref="MENU_HOOK"/>) is stated twice over it and the groove walks it off. It rolls its own
+        /// tempo, key, progression and line direction from the seed, so no two runs share a lobby.
         /// <para>
         /// It is a LOOP, and the seam is closed by construction rather than by luck: the piece is rendered
         /// with a bar of room past the loop point, and whatever rings into that room — a pad's release, an
@@ -641,6 +642,22 @@ namespace BS3D
         /// other bar boundary does and nothing marks it.
         /// </para>
         /// </summary>
+        //THE LOBBY'S REFRAIN, written as chord tones like every melody here, so it transposes itself across
+        //whatever progression the run rolled and is consonant by construction. One syncopated motif per bar —
+        //bounce off the top, land on the third, a two-note pickup into the next bar — stated identically
+        //across the first three chords, which is what makes it a hook rather than a line.
+        private static readonly Note[] MENU_HOOK =
+        {
+            new(0, 3, 12, 4), new(4, 2, 12, 2), new(6, 3, 12, 2), new(8, 1, 12, 6), new(14, 2, 12, 2)
+        };
+
+        //The fourth bar resolves instead of bouncing: up onto the held octave root, so each pass of the hook
+        //ENDS somewhere rather than merely stopping — the difference between a refrain and a loop.
+        private static readonly Note[] MENU_HOOK_CLOSE =
+        {
+            new(0, 3, 12, 4), new(4, 2, 12, 4), new(8, 0, 24, 8)
+        };
+
         private static float[] BakeMenu(int seed)
         {
             Random random = new(seed);
@@ -657,12 +674,15 @@ namespace BS3D
             int transpose = keys[random.Next(keys.Length)];
             bool arpDown = random.NextDouble() < 0.35;
 
-            //Two rounds of the progression on pads and keys alone, then the groove for four (asked for after
-            //the lobby was heard: once the opening has said itself a few times, the bass should arrive). The
-            //loop runs about 58 s, and wrapping from the full groove back to the bare opening reads as a
-            //breakdown rather than a restart — the oldest shape dance music has.
+            //The arrangement, grown by ear in three asks: two rounds of the progression on pads and keys
+            //alone, the groove for two (once the opening has said itself, the bass arrives), the REFRAIN for
+            //two — the hook stated twice over the running groove — and the groove again to walk it off. The
+            //loop runs about 77 s, so the refrain returns now and then rather than nagging, and wrapping from
+            //the full groove back to the bare opening reads as a breakdown rather than a restart.
             const int INTRO_BARS = 8;
-            const int LOOP_BARS = 24;
+            const int REFRAIN_START = 16;
+            const int REFRAIN_END = 24;
+            const int LOOP_BARS = 32;
             int loopSamples = samplesPerStep * LOOP_BARS * STEPS_PER_BAR;
             int tailSamples = samplesPerStep * STEPS_PER_BAR;
 
@@ -678,6 +698,7 @@ namespace BS3D
                 int[] arp = CHORD_ARP[chord];
 
                 bool groove = bar >= INTRO_BARS;
+                bool refrain = bar >= REFRAIN_START && bar < REFRAIN_END;
 
                 //The chord, held the bar long, with its root an octave under for the warmth a bass would
                 //otherwise bring.
@@ -704,8 +725,9 @@ namespace BS3D
 
                 //A quarter-note line on the lobby's keys — half the theme's rate, each note ringing a step
                 //past the next one's start, so the line is a phrase rather than four separate plinks. The
-                //theme's square Arp sat here first and read as a touch-tone phone; see Keys for why.
-                if (inBar % 4 == 0)
+                //theme's square Arp sat here first and read as a touch-tone phone; see Keys for why. It
+                //stands aside for the refrain: two keys lines at once is mud, not counterpoint.
+                if (!refrain && inBar % 4 == 0)
                 {
                     int arpStep = (inBar / 4) % 4;
                     int index = arpDown ? 3 - arpStep : arpStep;
@@ -713,9 +735,22 @@ namespace BS3D
                 }
 
                 //One high sparkle halfway through every other bar, on the same keys two octaves up — the
-                //tine partial does the glitter up there, quieter than the line it decorates.
-                if (inBar == 8 && bar % 2 == 1)
+                //tine partial does the glitter up there, quieter than the line it decorates. It rests over
+                //the refrain too: the hook holds a note exactly where it would land.
+                if (!refrain && inBar == 8 && bar % 2 == 1)
                     Keys(mix, at, arp[3] + 24 + transpose, secondsPerStep * 6f, 0.07f);
+
+                //THE REFRAIN: the hook, a shade over the line's level because it is the one thing here that
+                //asks to be listened to, closing on the held octave every fourth bar.
+                if (refrain)
+                {
+                    Note[] hook = bar % 4 == 3 ? MENU_HOOK_CLOSE : MENU_HOOK;
+
+                    foreach (Note note in hook)
+                        if (note.Step == inBar)
+                            Keys(mix, at, arp[note.Tone] + note.Octave + transpose,
+                                secondsPerStep * (note.Length + 1.5f), 0.15f);
+                }
             }
 
             //Close the seam: fold what rings past the loop point back onto the head, then cut to the loop.
