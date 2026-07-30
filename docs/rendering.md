@@ -4,6 +4,18 @@ How a frame is built: linear radiance in, one tonemap out. Colour management, th
 
 Part of the BS3D documentation. CLAUDE.md holds the project overview, the build commands, the ball grid and the repo-wide conventions, and says which of these documents covers what.
 
+## The noise library (Noise.fxh)
+
+`Testbed/Content/Shaders/Noise.fxh`: gradient noise in 2D and 3D under a quintic fade, fBm with a **rotation between octaves**, ridged fBm (Musgrave's ridge-weighted variant), and jittered Voronoi — both the nearest distance and the **edge field** `F2 − F1`, which is zero exactly on cell borders. Included like `Clouds.fxh`; GPU-only, deliberately — nothing plants objects on these fields, so unlike the cloud noise they need no C# mirror and the hashes are quality-first (Hoskins' sine-free hash, uniform over any domain a scene reaches).
+
+It exists because of a lesson that cost two scenes: **the look of a procedural image is decided by the quality of its fields before anything else.** A sum of plane-wave sines keeps its planes however many terms it has, and the eye names it instantly — the plasma effect of a 1994 demo. It was reported in exactly those words. What separates a modern procedural image from that screensaver is three things, and the library carries all of them:
+
+- **Fractal detail with rotated octaves** — aligned octave lattices read as a grid through the finished field; the rotation is not optional.
+- **Domain warping with noise, twice** — feeding one fBm's output into another's *domain* produces the filaments, eddies and mixing real turbulence has; sines under a sine warp still slide as blobs. And **colour by the warp intermediates**, not the final value alone: where the domain was dragged furthest the fluid "mixed", and shading by that is most of why a warped field reads as a substance with an inside (the dream's marbling does exactly this).
+- **Occlusion and contact** — nothing in a screensaver ever shades anything else. SDF ambient occlusion (probes up the normal), crevice darkening from ridged fields, and normals *perturbed by the field's own gradient* so every light in the scene agrees about where the surface leans (the cavern's rock) are what give procedural elements weight.
+
+The costs are stated per function; callers budget in noise evaluations per pixel. The dream and the cavern spent their way to the look deliberately — see their sections in `docs/scenes.md` for the measured price and how the quality tier absorbs it.
+
 ## Drawing the city near to far (Prazsky.Core)
 
 The city is still **one instanced draw call**, but it is no longer handed the raw generator array: `City.PrepareVisible(camera)` fills a `Visible` scratch array with the buildings inside the frustum, **ordered near to far**, and the three executables draw that. It came out of a report that the game fell under 60 FPS in the city at 3840×1600 fullscreen — which it did, and badly.

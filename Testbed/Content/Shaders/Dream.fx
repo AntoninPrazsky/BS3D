@@ -29,6 +29,8 @@
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0
 
+#include "Noise.fxh"
+
 //How many of each element the sky carries. Fixed at compile time (the loops unroll); the config dials
 //scale their look, not their count.
 #define SHAPE_COUNT 8
@@ -80,35 +82,45 @@ float3 Palette(float t)
 }
 
 //--- The marbling ----------------------------------------------------------------------------------------
-//Sine fields evaluated directly on the 3D view direction. Plane waves on the sphere are smooth bands; the
-//warp bends the direction itself before the bands are read, which is what turns bands into marbling (the
-//space nebulae's lesson: domain warping is the single biggest quality lever a procedural field has).
-float SwirlField(float3 d, float t)
-{
-	float3 w = d + SwirlWarp * float3(
-		sin(d.y * 2.1 * SwirlScale + t),
-		sin(d.z * 1.7 * SwirlScale - t * 0.8),
-		sin(d.x * 2.5 * SwirlScale + t * 0.6));
-
-	return sin(dot(w, float3(0.9, 0.2, 0.4)) * SwirlScale + t)
-		+ 0.6 * sin(dot(w, float3(-0.3, 1.0, 0.5)) * SwirlScale * 1.7 - t * 0.7)
-		+ 0.4 * sin(dot(w, float3(0.5, -0.6, 1.0)) * SwirlScale * 2.3 + t * 0.4);
-}
-
-//The whole background: the slow broad marbling in one palette phase, and thin SHARP ribbons racing through
-//it in another - the scene's fast/slow and soft/sharp contrasts live in the sky itself, not only in the
-//objects hung on it.
+//TWICE-warped fractal noise on the 3D view direction. The first build was a sum of plane-wave sines under
+//a sine warp, and it read as exactly what it was - the plasma effect of a 1994 demo, smooth blobs sliding
+//over each other. Plane waves keep their planes however many are summed; fractal noise has no planes to
+//keep, and feeding one fBm's output into another's DOMAIN (twice) is what produces the filaments, eddies
+//and mixing that real turbulence has. The time rides inside the domains, so the fluid itself evolves
+//rather than a fixed pattern scrolling.
 float3 Background(float3 d)
 {
-	float slow = SwirlField(d, DreamTime * SwirlSpeedSlow);
-	float3 color = Palette(slow * 0.16 + DreamTime * 0.004);
+	float t = DreamTime;
+	float3 p = d * SwirlScale;
 
-	//The ribbons: the same field faster and finer, raised to a power so only its crests survive as thin
-	//travelling filaments. They take the palette half a turn away, so they always contrast with the ground
-	//they cross.
-	float fast = SwirlField(d * 2.6, DreamTime * SwirlSpeedFast + 40.0);
-	float ribbon = pow(saturate(0.5 + 0.5 * fast), RibbonSharpness);
-	color = lerp(color, Palette(slow * 0.16 + 0.5 + DreamTime * 0.004) * 1.6, ribbon * 0.55);
+	//The first warp: three offset fBms driving the domain apart - slow, the broad circulation.
+	float3 q;
+	q.x = Fbm3(p + float3(0.0, 1.7, t * SwirlSpeedSlow), 3);
+	q.y = Fbm3(p + float3(5.2, 8.3, -t * SwirlSpeedSlow * 0.8), 3);
+	q.z = Fbm3(p + float3(9.1, 2.8, t * SwirlSpeedSlow * 0.6), 3);
+
+	//The second warp, off the already-warped domain - the layer that turns smooth drift into mixing.
+	float3 warped = p + SwirlWarp * q;
+	float3 r;
+	r.x = Fbm3(warped * 1.3 + float3(1.7, 9.2, t * SwirlSpeedSlow * 0.5), 3);
+	r.y = Fbm3(warped * 1.3 + float3(8.3, 2.8, -t * SwirlSpeedSlow * 0.4), 3);
+	r.z = Fbm3(warped * 1.3 + float3(4.1, 6.9, t * SwirlSpeedSlow * 0.7), 3);
+
+	float field = Fbm3(p + SwirlWarp * r, 4);
+
+	//Colour: the palette rides the field, and the WARP INTERMEDIATES shade it - where the domain was
+	//dragged furthest the fluid "mixed", so q picks the second palette phase and r darkens the folds.
+	//Colouring by the intermediates rather than the final value alone is most of why warped fBm reads as
+	//a substance with an inside instead of as a flat pattern.
+	float3 color = Palette(field * 0.55 + t * 0.004);
+	color = lerp(color, Palette(field * 0.55 + 0.38 + t * 0.004) * 1.35, saturate(dot(q, q) * 0.35));
+	color *= 0.5 + 0.65 * saturate(length(r) * 0.65);
+
+	//The ribbons: ridged fBm racing through - thin sharp filament networks, the fast half of the sky,
+	//in a palette phase far from the ground they cross.
+	float ribbon = RidgedFbm3(d * SwirlScale * 2.2 + float3(0.0, 0.0, t * SwirlSpeedFast), 3);
+	ribbon = pow(saturate(ribbon - 0.35) * 1.7, RibbonSharpness * 0.45);
+	color += Palette(field * 0.3 + 0.61) * ribbon * 0.9;
 
 	return DeepColor + color * BackgroundBrightness;
 }
@@ -308,17 +320,34 @@ float4 DreamPS(DreamVertexOutput input) : COLOR
 		float3 hit = CameraPosition + direction * bestT;
 		float3 normal = ShapeNormal(hit, bestShape);
 
+		//Ambient occlusion off the solid's own field: four probes up the normal, each asking how much
+		//less room there is than an open surface would have. It is what darkens the torus's inner ring
+		//and the melt seams mid-morph - the CONTACT the first build lacked, whose absence is half of what
+		//separates a modern render from a screensaver (nothing in one ever shades anything else).
+		float occlusion = 0.0;
+		float probe = 1.4;
+		float sizeUnused;
+
+		[unroll]
+		for (int a = 1; a <= 4; a++)
+		{
+			float reach = probe * (float)a;
+			occlusion += (reach - ShapeSdf(hit + normal * reach, bestShape, sizeUnused)) / reach * pow(0.55, (float)a);
+		}
+
+		float ao = saturate(1.0 - 1.3 * occlusion);
+
 		//A solid is lit by the dream itself: its own palette colour glowing from inside, the marbled sky
 		//mirrored off its surface, and a fresnel rim that lifts its silhouette out of the background - the
-		//sharp edge the soft orbs exist to contrast with.
+		//sharp edge the soft orbs exist to contrast with. The emission floor is high (a solid whose
+		//palette phase lands dark would vanish as a silhouette), but the AO is allowed to press even the
+		//emission down: a hallucination has no unlit objects, and still its folds have depth.
 		float3 own = Palette(bestShape * 0.17 + t * 0.010);
 		float fresnel = pow(1.0 - saturate(dot(normal, -direction)), 3.0);
 		float3 mirrored = Background(reflect(direction, normal));
 
-		//The emission floor is high: a solid whose palette phase lands dark would otherwise vanish into
-		//the marbling as a silhouette, and a hallucination has no unlit objects in it.
-		float3 shapeColor = own * ShapeEmission * (0.55 + 0.45 * fresnel)
-			+ mirrored * ShapeReflection * (0.4 + 0.6 * fresnel);
+		float3 shapeColor = own * ShapeEmission * (0.55 + 0.45 * fresnel) * (0.35 + 0.65 * ao)
+			+ mirrored * ShapeReflection * (0.4 + 0.6 * fresnel) * ao;
 
 		//The far solids sink into the marbling rather than popping against it - a touch of the background
 		//over distance, the haze idea with colour instead of grey.

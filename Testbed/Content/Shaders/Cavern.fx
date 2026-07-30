@@ -31,6 +31,7 @@
 #define PS_SHADERMODEL ps_5_0
 
 #include "Clouds.fxh"
+#include "Noise.fxh"
 
 //How many of each element the cavern carries. Fixed at compile time so the loops unroll.
 #define CRYSTAL_COUNT 8
@@ -146,35 +147,71 @@ float3 CrystalLightAt(float3 position)
 	return light * CrystalWallLight;
 }
 
-//Shades a point of the cave shell: layered noise rock, mineral veins, crystal light, distance fog. Written
-//as a function of the hit point and distance because the RIVER calls it a second time along the reflected
-//ray - the water's mirror is the real wall, not an approximation of it.
+//Shades a point of the cave shell: fractal rock under a perturbed normal, real directional light from the
+//crystals, mineral veins, distance fog. Written as a function of the hit point and distance because the
+//RIVER calls it a second time along the reflected ray - the water's mirror is the real wall, not an
+//approximation of it.
 float3 ShadeWall(float3 position, float distanceTravelled)
 {
-	//Two planar projections of the shared 2D gradient noise stand in for a 3D rock field: the walls are
-	//near-vertical (the cylinder), so a wall-tangent projection carries most of the detail and a floor
-	//projection fills the ceiling. Three octaves, spread hard - the CloudNoise rule: gradient noise
-	//clusters around zero and a timid mottle flattens to one tone under the ACES curve.
-	float2 wallUv = float2(atan2(position.z, position.x) * CaveRadius * 0.5, position.y);
-	float rough = CloudNoise(wallUv * 0.020) * 1.5
-		+ 0.5 * CloudNoise(wallUv * 0.055 + 31.0)
-		+ 0.25 * CloudNoise(wallUv * 0.15 + 73.0);
+	//The shell's own normal: down-facing under the ceiling, radial on the wall cylinder.
+	float3 baseNormal = position.y > CaveCeilingY - 0.75
+		? float3(0.0, -1.0, 0.0)
+		: -normalize(float3(position.x, 0.0, position.z));
 
-	float3 rock = RockColor * (0.55 + 0.45 * saturate(rough * 0.8 + 0.5));
+	//The rock's relief: a 3D fBm sampled for its GRADIENT (three extra taps), which tilts the shell's
+	//smooth normal into pitted, folded stone. The first build had only a flat colour mottle, and a wall
+	//whose colour varies while its light does not reads as painted plaster - it is the light picking out
+	//the bumps that says rock, and everything below (the key, the crystal lights) works against this
+	//perturbed normal, which is what makes them all agree about where the surface leans.
+	float3 bumpDomain = position * 0.10;
+	float bump = Fbm3(bumpDomain, 3);
+
+	const float e = 0.18;
+	float3 slope = float3(
+		Fbm3(bumpDomain + float3(e, 0.0, 0.0), 3) - bump,
+		Fbm3(bumpDomain + float3(0.0, e, 0.0), 3) - bump,
+		Fbm3(bumpDomain + float3(0.0, 0.0, e), 3) - bump) / e;
+
+	slope -= baseNormal * dot(slope, baseNormal);
+	float3 normal = normalize(baseNormal - slope * 0.6);
+
+	//The rock's body: broad fractal strata for the albedo, and a ridged crack network pressed DOWN into
+	//it - crevices are darker because light cannot reach into them, the poor man's occlusion.
+	float body = Fbm3(position * 0.045, 4);
+	float3 rock = RockColor * (0.55 + 0.45 * saturate(body * 0.9 + 0.5));
+
+	float crack = RidgedFbm3(position * 0.020, 3);
+	rock *= 1.0 - 0.4 * saturate(crack - 0.3);
 
 	//The mineral veins: the ridges of a noise field - thin where |noise| is small - raised to a power so
 	//only the ridge lines survive, threading the rock the way ore veins follow cracks. They glow gently:
 	//bright enough to read as luminous minerals, far under the crystals they feed.
+	float2 wallUv = float2(atan2(position.z, position.x) * CaveRadius * 0.5, position.y);
 	float veinField = CloudNoise(wallUv * 0.033 + 7.0);
 	float vein = pow(saturate(1.0 - abs(veinField) * 2.6), 6.0);
-	rock += VeinColor * vein;
 
-	//The clusters' pooled light, then the abyss: exponential distance fog into the deep blue-purple, so
-	//the far side of the cavern sinks away instead of presenting a lit wall at every distance.
-	rock += RockColor * CrystalLightAt(position) * 6.0;
+	//The light: a cool key falling from the ceiling gaps against the perturbed normal, and each crystal
+	//as a REAL point light - N dot L towards it over inverse square - so the rock around a magenta
+	//cluster is not merely tinted magenta but LIT from the cluster's side, bumps shadowing away from it.
+	float keyDiffuse = saturate(dot(normal, normalize(float3(0.2, 1.0, 0.15))));
+	float3 shaded = rock * (0.45 + 1.0 * keyDiffuse) + VeinColor * vein;
 
+	[unroll]
+	for (int k = 0; k < CRYSTAL_COUNT; k++)
+	{
+		float fk = (float)k;
+		float3 toCrystal = CrystalCenter(fk) - position;
+		float d2 = dot(toCrystal, toCrystal);
+		float towards = saturate(dot(normal, toCrystal * rsqrt(max(d2, 1e-4))));
+
+		shaded += rock * CrystalColor(fk)
+			* (CrystalPulse(fk) * towards / (1.0 + d2 * 0.0016)) * (CrystalWallLight * 16.0);
+	}
+
+	//The abyss: exponential distance fog into the deep blue-purple, so the far side of the cavern sinks
+	//away instead of presenting a lit wall at every distance.
 	float fog = 1.0 - exp(-distanceTravelled * FogDensity);
-	return lerp(rock, FogColor, fog);
+	return lerp(shaded, FogColor, fog);
 }
 
 //Where the view ray meets the cave shell (the wall cylinder or the ceiling plane), as a distance along the
@@ -272,12 +309,15 @@ float4 CavernPS(CavernVertexOutput input) : COLOR
 		float fresnel = pow(1.0 - saturate(dot(normal, -direction)), 5.0);
 		fresnel = lerp(0.22, 1.0, fresnel);
 
-		//The wave sum's amplitude is 1.95, so it is NORMALIZED before the shaping pow - unnormalized, the
-		//saturate clipped it into broad plateaus and the "caustics" came out as a cyan checkerboard of
-		//solid patches instead of a thread network. Finer scale than the waves themselves: caustics are
-		//the focused image of the surface, always tighter than the surface is.
-		float causticField = WaveHeight(p * 1.4 + 40.0, t * 0.7) / 1.95;
-		float caustic = pow(saturate(0.5 + 0.5 * causticField), 10.0);
+		//Caustics as a CELLULAR EDGE field: the bright net where wavelets focus runs along the borders
+		//between Voronoi cells (VoronoiEdge2 is zero exactly there), which is what real pool caustics
+		//look like - a web around dark cells, not dots and not the sine checkerboard the first two
+		//attempts produced. Two scales drifting against each other so the net never sits still; finer
+		//than the waves themselves, being the focused image of the surface.
+		float2 cp = p * 0.30;
+		float web1 = pow(saturate(1.0 - VoronoiEdge2(cp + float2(t * 0.20, t * 0.14)) * 2.4), 6.0);
+		float web2 = pow(saturate(1.0 - VoronoiEdge2(cp * 1.9 + float2(-t * 0.15, t * 0.11) + 17.0) * 2.4), 6.0);
+		float caustic = web1 + 0.55 * web2;
 		float3 depths = WaterDeepColor
 			+ WaterGlowColor * caustic * CausticStrength
 			+ WaterDeepColor * CrystalLightAt(hit) * 6.0;
@@ -320,7 +360,11 @@ float4 CavernPS(CavernVertexOutput input) : COLOR
 		//dust drifts downward on the shared noise.
 		float fall = saturate((CaveCeilingY - nearest.y) / (CaveCeilingY - WaterLevelY));
 		float envelope = saturate(1.2 - fall * 1.4);
-		float dust = 0.75 + 0.35 * CloudNoise(float2(fr * 9.0, nearest.y * 0.05 + t * 0.35));
+
+		//The dust in the shaft: fractal, and drifting DOWN the beam - a shaft of light is visible only
+		//because of what floats through it, and a single smooth noise read as a slow flicker where an
+		//fBm reads as motes and wisps sinking.
+		float dust = 0.55 + 0.5 * Fbm2(float2(fr * 9.0 + nearest.x * 0.06, nearest.y * 0.07 + t * 0.30), 3);
 		float breathe = 0.7 + 0.3 * sin(t * 0.11 + fr * 2.6);
 
 		color += GodRayColor * (shaft * envelope * dust * breathe * GodRayStrength);
@@ -389,6 +433,20 @@ float4 CavernPS(CavernVertexOutput input) : COLOR
 			tap.yxy * ClusterSdf(local + tap.yxy * e, bestCluster) +
 			tap.xxy * ClusterSdf(local + tap.xxy * e, bestCluster));
 
+		//Ambient occlusion off the cluster's own field - four probes up the normal - so the clefts where
+		//the three octahedra interpenetrate sit visibly deeper than the open faces. Emission is allowed
+		//to dim in them: a crystal glows from inside, but its junctions still swallow light.
+		float occlusion = 0.0;
+
+		[unroll]
+		for (int a = 1; a <= 4; a++)
+		{
+			float reach = 0.9 * (float)a;
+			occlusion += (reach - ClusterSdf(local + normal * reach, bestCluster)) / reach * pow(0.55, (float)a);
+		}
+
+		float ao = saturate(1.0 - 1.2 * occlusion);
+
 		//Lit by its own emission on the pulse, a hard rim at the silhouette, and a facet term keyed to the
 		//god rays' downward light so neighbouring faces take visibly different brightness - the facet
 		//CONTRAST is what says "crystal", not the outline.
@@ -397,7 +455,7 @@ float4 CavernPS(CavernVertexOutput input) : COLOR
 		float rim = pow(1.0 - saturate(dot(normal, -direction)), 2.0);
 		float facetLight = saturate(dot(normal, normalize(float3(0.25, 0.85, 0.2))));
 
-		color = own * (CrystalEmission * pulse * (0.30 + 0.35 * rim + 0.45 * facetLight));
+		color = own * (CrystalEmission * pulse * (0.30 + 0.35 * rim + 0.45 * facetLight) * (0.45 + 0.55 * ao));
 	}
 
 	//--- The spores: slow rising motes, swaying as they climb, wrapping over the cave's height for ever.
