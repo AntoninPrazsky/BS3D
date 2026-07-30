@@ -29,7 +29,7 @@ namespace BS3D.Screens
     /// is handed the keeper each frame and animates what it reads there.
     /// </para>
     /// <para>
-    /// <b>The one accent is amber</b> (<see cref="HUD_ACCENT"/>). The HUD sits over ten scene palettes whose
+    /// <b>The one accent is amber</b> (<see cref="HUD_ACCENT"/>). The HUD sits over eleven scene palettes whose
     /// colours are nothing alike, so a hue that reads as the game's own over one of them fights the next — the
     /// menu is greyscale for exactly this reason. Amber survives all seven because it is the sun's own colour
     /// and every scene already has it, and it is spent on one thing only: <i>gain</i>. Score flash, the streak,

@@ -90,6 +90,7 @@ namespace BS3D
                 case "forest": scene = SceneKind.Forest; return true;
                 case "space": scene = SceneKind.Space; return true;
                 case "dream": scene = SceneKind.Dream; return true;
+                case "cavern": scene = SceneKind.Cavern; return true;
                 default: scene = default; return false;
             }
         }

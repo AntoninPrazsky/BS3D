@@ -244,9 +244,10 @@ namespace BS3D
         private SceneKind _scene = SceneKind.NeonCity;
 
         //Every value of the enum, in its declared order (City, Sea, Savanna, Desert, Mountain, Meadow,
-        //NeonCity, Forest, Space, Dream). Written out rather than counted with Enum.GetValues so nothing
-        //walks reflection at load, and so the scene menu's labels below can be indexed by the same number.
-        internal const int SCENE_COUNT = 10;
+        //NeonCity, Forest, Space, Dream, Cavern). Written out rather than counted with Enum.GetValues so
+        //nothing walks reflection at load, and so the scene menu's labels below can be indexed by the same
+        //number.
+        internal const int SCENE_COUNT = 11;
 
         private SceneRenderer _sceneRenderer;
 
@@ -649,7 +650,7 @@ namespace BS3D
         private SpriteFontBase _menuFontBody, _menuFontSmall, _menuFontHeading, _menuFontTitle;
 
         //The menu is deliberately GREYSCALE — no hue anywhere, and no coloured frames. It has to sit over
-        //ten backdrops whose palettes are nothing alike (a neon city, an ochre desert, a blue sea, white
+        //eleven backdrops whose palettes are nothing alike (a neon city, an ochre desert, a blue sea, white
         //peaks, green meadow), and any accent colour that reads as the game's own over one of them fights
         //the next. Neutral black-to-white belongs over all of them equally: emphasis is carried by
         //brightness and by opacity, which is legible against any hue.
@@ -839,9 +840,9 @@ namespace BS3D
         private float _ambienceVolume = 1f;
 
         //In the declared order of SceneKind (City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest,
-        //Space, Dream), so the scene list can be indexed by the enum's own value
+        //Space, Dream, Cavern), so the scene list can be indexed by the enum's own value
         internal static readonly string[] SCENE_NAMES =
-            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream" };
+            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream", "Cavern" };
 
         #endregion
 
@@ -1354,7 +1355,7 @@ namespace BS3D
 
             SetCloudParameters();
 
-            //A different one of the ten every launch, so the front end is not the same picture twice — unless
+            //A different one of the eleven every launch, so the front end is not the same picture twice — unless
             //the command line pinned one. It also sets the dome and the city's lighting, and ends in
             //ApplySkyLighting, which is why nothing derives the light rig before this point.
             SetScene(_startupScene ?? (SceneKind)RANDOM.Next(SCENE_COUNT));

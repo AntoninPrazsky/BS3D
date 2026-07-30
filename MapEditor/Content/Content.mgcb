@@ -134,6 +134,13 @@
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/Dream.fx;Shaders/Dream.fx
 
+#begin ../../Testbed/Content/Shaders/Cavern.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Cavern.fx;Shaders/Cavern.fx
+
+
 
 #begin ../../Testbed/Content/Skyes/SkyDome1.dae
 /importer:XImporter

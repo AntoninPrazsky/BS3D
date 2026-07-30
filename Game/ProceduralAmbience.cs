@@ -8,8 +8,9 @@ namespace BS3D
 {
     /// <summary>
     /// The scenes' ambient beds (#46): one looping texture per backdrop — surf for the sea, a wind for each
-    /// terrain, a traffic rumble for the cities, a near-subliminal drone for space — synthesized from raw PCM
-    /// at startup like every other sound in the game, and crossfaded when the scene changes.
+    /// terrain, a traffic rumble for the cities, a near-subliminal drone for space, a shimmer for the dream,
+    /// hollow dripping air for the cavern — synthesized from raw PCM at startup like every other sound in
+    /// the game, and crossfaded when the scene changes.
     /// <para>
     /// Everything here is <b>filtered noise, never a tone</b>: a bed sits under the music and the effects for
     /// the whole run, and anything with a pitch would either fight the theme (which transposes itself per
@@ -41,7 +42,7 @@ namespace BS3D
         //is written in whole cycles of this length, which is half of what makes the seam inaudible.
         private const float LOOP_SECONDS = 16f;
 
-        private const int SCENES = (int)SceneKind.Dream + 1;
+        private const int SCENES = (int)SceneKind.Cavern + 1;
 
         private Task<float[][]> _bake;
         private SoundEffect[] _beds;
@@ -246,7 +247,7 @@ namespace BS3D
                     AddBand(mix, seed, 0f, 55f, 1.0f, t => Swell(t, 1, 0.6f, 0f));
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.05f);
 
-                default:
+                case SceneKind.Dream:
                     //The dream: an ethereal shimmer. A deep slow drone and a high glassy hiss breathing in
                     //OPPOSITE phase — as one recedes the other rises, the scene's own contrast — with a mid
                     //band wandering between them. Filtered noise like everything here: the hallucination is
@@ -255,6 +256,16 @@ namespace BS3D
                     AddBand(mix, seed + 1, 2600f, 7000f, 0.35f, t => Swell(t, 1, 0.3f, MathF.PI));
                     AddBand(mix, seed + 2, 350f, 900f, 0.3f, t => Swell(t, 3, 0.4f, 1.1f));
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.07f);
+
+                default:
+                    //The cavern: hollow underground air — a deep near-steady body of it — the river as a
+                    //soft high trickle, and sparse water DRIPS: the crackle machinery slowed right down, a
+                    //few soft taps a second with long tails, which is the sound that says "cave" before
+                    //anything else does.
+                    AddBand(mix, seed, 0f, 90f, 1.0f, t => Swell(t, 2, 0.75f, 0f));
+                    AddBand(mix, seed + 1, 900f, 2600f, 0.28f, t => Swell(t, 3, 0.55f, 0.8f));
+                    AddCrackle(mix, seed + 2, 1200f, 4000f, 0.5f, ratePerSecond: 3f, threshold: 0.86f, tailRate: 60f);
+                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.08f);
             }
         }
 
@@ -291,16 +302,20 @@ namespace BS3D
         }
 
         /// <summary>
-        /// The campfire: band noise gated by a fast random stutter — the firework crackle's trick at a
-        /// hearth's scale. The gate is re-rolled ~47 times a second, which is what turns a steady hiss into
-        /// separate burning snaps.
+        /// Band noise gated by a random stutter — the firework crackle's trick. At the defaults it is the
+        /// savanna's campfire: the gate re-rolled ~47 times a second, which is what turns a steady hiss into
+        /// separate burning snaps. Slowed right down (a few rolls a second, a high threshold, a long tail)
+        /// the same machinery is the cavern's water drips.
         /// </summary>
-        private static void AddCrackle(float[] mix, int seed, float lowCut, float highCut, float gain)
+        private static void AddCrackle(float[] mix, int seed, float lowCut, float highCut, float gain,
+            float ratePerSecond = 47f, float threshold = 0.62f, float tailRate = 220f)
         {
             float alphaHigh = Alpha(highCut);
             float alphaLow = Alpha(lowCut);
             float lpHigh = 0f, lpLow = 0f;
             float gate = 0f;
+
+            int slotSamples = (int)(SAMPLE_RATE / ratePerSecond);
 
             for (int i = 0; i < mix.Length; i++)
             {
@@ -309,11 +324,11 @@ namespace BS3D
                 lpHigh += alphaHigh * (noise - lpHigh);
                 lpLow += alphaLow * (lpHigh - lpLow);
 
-                //A snap opens the gate at once; the gate then falls quickly, so each snap has a tail rather
-                //than a square edge.
-                int slot = i / (SAMPLE_RATE / 47);
-                bool snap = Noise(slot, seed + 9) > 0.62f;
-                gate = snap ? 1f : gate * (1f - 220f / SAMPLE_RATE);
+                //A snap opens the gate at once; the gate then falls, so each snap has a tail rather than a
+                //square edge.
+                int slot = i / slotSamples;
+                bool snap = Noise(slot, seed + 9) > threshold;
+                gate = snap ? 1f : gate * (1f - tailRate / SAMPLE_RATE);
 
                 mix[i] += (lpHigh - lpLow) * gain * gate;
             }

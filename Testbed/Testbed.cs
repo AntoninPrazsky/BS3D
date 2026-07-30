@@ -803,6 +803,7 @@ namespace Testbed
             else if (string.Equals(scene, "forest", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Forest;
             else if (string.Equals(scene, "space", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Space;
             else if (string.Equals(scene, "dream", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Dream;
+            else if (string.Equals(scene, "cavern", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Cavern;
             _exposure = exposure > 0f ? exposure : DEFAULT_EXPOSURE;
             _windowed = windowed;
             _startupMapPath = startupMapPath;

@@ -23,7 +23,7 @@ namespace Prazsky.Core.Render
     /// pick), and in the editor only by loading a level whose config names one of them.
     /// </para>
     /// </summary>
-    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream }
+    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern }
 
     /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,
@@ -132,6 +132,7 @@ namespace Prazsky.Core.Render
         private ForestSceneConfig _forestConfig = new();
         private SpaceSceneConfig _spaceConfig = new();
         private DreamSceneConfig _dreamConfig = new();
+        private CavernSceneConfig _cavernConfig = new();
 
         #region Sea
 
@@ -379,6 +380,14 @@ namespace Prazsky.Core.Render
 
         #endregion
 
+        #region Cavern
+
+        //The eleventh scene, the third sky-replacing pass — the same machinery again.
+        private readonly Effect _cavernEffect;
+        private readonly EffectParameter _cavernInverseViewProjection, _cavernCameraPosition, _cavernTime;
+
+        #endregion
+
         /// <param name="content">
         /// A content manager whose root holds the scene shaders under <c>Shaders/</c> (both executables build
         /// <c>Sea.fx</c>, <c>Savanna.fx</c>, <c>Birds.fx</c>, <c>Mountain.fx</c>, <c>Snow.fx</c>, <c>Spray.fx</c>, <c>Meadow.fx</c>
@@ -494,15 +503,24 @@ namespace Prazsky.Core.Render
             _dreamTime = _dreamEffect.Parameters["DreamTime"];
 
             ApplyDreamParameters();
+
+            //--- Cavern: the eleventh scene, the third sky-replacing pass, on the same shared quad.
+            _cavernEffect = content.Load<Effect>("Shaders/Cavern");
+
+            _cavernInverseViewProjection = _cavernEffect.Parameters["InverseViewProjection"];
+            _cavernCameraPosition = _cavernEffect.Parameters["CameraPosition"];
+            _cavernTime = _cavernEffect.Parameters["CavernTime"];
+
+            ApplyCavernParameters();
         }
 
         /// <summary>
-        /// True for the scenes that replace the SKY rather than the ground — space and the dream. The caller
-        /// draws no dome and no cloud deck in these, suppresses the cloud shadow on the instanced effect,
-        /// clears to black (the pass covers every pixel; black is what would show if it ever did not), and
-        /// takes the scene's own light rig through <see cref="TryGetLightRig"/>.
+        /// True for the scenes that replace the SKY rather than the ground — space, the dream and the
+        /// cavern. The caller draws no dome and no cloud deck in these, suppresses the cloud shadow on the
+        /// instanced effect, clears to black (the pass covers every pixel; black is what would show if it
+        /// ever did not), and takes the scene's own light rig through <see cref="TryGetLightRig"/>.
         /// </summary>
-        public static bool ReplacesSky(SceneKind kind) => kind is SceneKind.Space or SceneKind.Dream;
+        public static bool ReplacesSky(SceneKind kind) => kind is SceneKind.Space or SceneKind.Dream or SceneKind.Cavern;
 
         #region Scene-config apply (issue #32)
 
@@ -556,6 +574,10 @@ namespace Prazsky.Core.Render
                     _dreamConfig = dream;
                     ApplyDreamParameters();
                     break;
+                case CavernSceneConfig cavern:
+                    _cavernConfig = cavern;
+                    ApplyCavernParameters();
+                    break;
                 case CitySceneConfig:
                     break;
             }
@@ -595,6 +617,17 @@ namespace Prazsky.Core.Render
                         dream.GroundAmbient.ToVector3(),
                         dream.KeyTint.ToVector3(),
                         dream.BackTint.ToVector3());
+                    return true;
+
+                //The cavern's is dim and cool — a cave lit by its own bioluminescence, the ground bounce
+                //carrying the river's teal up onto the island's underside.
+                case SceneKind.Cavern:
+                    CavernLightingConfig cavern = _cavernConfig.Lighting;
+                    rig = new SceneLightRig(
+                        cavern.SkyAmbient.ToVector3(),
+                        cavern.GroundAmbient.ToVector3(),
+                        cavern.KeyTint.ToVector3(),
+                        cavern.BackTint.ToVector3());
                     return true;
 
                 default:
@@ -659,6 +692,7 @@ namespace Prazsky.Core.Render
             SceneKind.Forest => _forestConfig,
             SceneKind.Space => _spaceConfig,
             SceneKind.Dream => _dreamConfig,
+            SceneKind.Cavern => _cavernConfig,
             _ => null,
         };
 
@@ -1138,6 +1172,40 @@ namespace Prazsky.Core.Render
             _dreamEffect.Parameters["SparkSpeed"].SetValue(glows.SparkSpeed);
         }
 
+        private void ApplyCavernParameters()
+        {
+            CavernSceneConfig cavern = _cavernConfig;
+
+            CavernRockConfig rock = cavern.Rock;
+            _cavernEffect.Parameters["CaveRadius"].SetValue(rock.CaveRadius);
+            _cavernEffect.Parameters["CaveCeilingY"].SetValue(rock.CeilingY);
+            _cavernEffect.Parameters["RockColor"].SetValue(rock.RockColor.ToVector3());
+            _cavernEffect.Parameters["VeinColor"].SetValue(rock.VeinColor.ToVector3());
+            _cavernEffect.Parameters["FogColor"].SetValue(rock.FogColor.ToVector3());
+            _cavernEffect.Parameters["FogDensity"].SetValue(rock.FogDensity);
+
+            CavernWaterConfig water = cavern.Water;
+            _cavernEffect.Parameters["WaterLevelY"].SetValue(water.LevelY);
+            _cavernEffect.Parameters["WaterDeepColor"].SetValue(water.DeepColor.ToVector3());
+            _cavernEffect.Parameters["WaterGlowColor"].SetValue(water.GlowColor.ToVector3());
+            _cavernEffect.Parameters["WaveScale"].SetValue(water.WaveScale);
+            _cavernEffect.Parameters["WaveSpeed"].SetValue(water.WaveSpeed);
+            _cavernEffect.Parameters["CausticStrength"].SetValue(water.CausticStrength);
+
+            CavernAirConfig air = cavern.Air;
+            _cavernEffect.Parameters["GodRayColor"].SetValue(air.GodRayColor.ToVector3());
+            _cavernEffect.Parameters["GodRayStrength"].SetValue(air.GodRayStrength);
+            _cavernEffect.Parameters["SporeColor"].SetValue(air.SporeColor.ToVector3());
+            _cavernEffect.Parameters["SporeBrightness"].SetValue(air.SporeBrightness);
+
+            CavernCrystalConfig crystals = cavern.Crystals;
+            _cavernEffect.Parameters["CrystalColorA"].SetValue(crystals.ColorA.ToVector3());
+            _cavernEffect.Parameters["CrystalColorB"].SetValue(crystals.ColorB.ToVector3());
+            _cavernEffect.Parameters["CrystalEmission"].SetValue(crystals.Emission);
+            _cavernEffect.Parameters["CrystalPulseSpeed"].SetValue(crystals.PulseSpeed);
+            _cavernEffect.Parameters["CrystalWallLight"].SetValue(crystals.WallLight);
+        }
+
         /// <summary>
         /// Normalizes a config direction, falling back to <paramref name="fallback"/> for the degenerate zero
         /// vector — these are hand-typed values in a JSON file and in a property grid, where a zero is one
@@ -1247,6 +1315,9 @@ namespace Prazsky.Core.Render
                     break;
                 case SceneKind.Dream:
                     DrawDream(frame);
+                    break;
+                case SceneKind.Cavern:
+                    DrawCavern(frame);
                     break;
             }
         }
@@ -1763,6 +1834,31 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.SetVertexBuffer(_spaceQuad);
             _dreamEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+
+            //DrawSpace's rule: the depth state left at None would draw the rest of the frame in submission order.
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// Draws the cavern: the third sky-replacing pass, over space's own quad. Everything animated —
+        /// the river, the god rays' breath, the crystals' pulse, the rising spores — runs off the frame's
+        /// wall-clock time, so the cave keeps living while the simulation is paused.
+        /// </summary>
+        private void DrawCavern(in SceneFrame frame)
+        {
+            _cavernInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
+            _cavernCameraPosition.SetValue(frame.Camera.Position);
+            _cavernTime.SetValue(frame.Time);
+
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.DepthStencilState = DepthStencilState.None;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _graphicsDevice.SetVertexBuffer(_spaceQuad);
+            _cavernEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
 
             //DrawSpace's rule: the depth state left at None would draw the rest of the frame in submission order.
