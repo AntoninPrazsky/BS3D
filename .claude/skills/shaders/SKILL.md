@@ -24,7 +24,7 @@ description: How to add and wire custom HLSL effects (.fx) in BS3D — content p
 ## Existing shader
 
 `Testbed/Content/Shaders/InstancedModel.fx` + `BS3DLibs/Prazsky.Core/Render/InstancedModelRenderer.cs`
-draw all balls (see the "Ball rendering" section in CLAUDE.md). Facts that took effort to get right:
+draw all balls (see the "Ball rendering" section in `docs/rendering.md`). Facts that took effort to get right:
 
 - **Instancing**: per-instance world matrix rides in a second vertex stream as four `Vector4`
   with `VertexElementUsage.TextureCoordinate`, usage indices 1–4 → HLSL `TEXCOORD1..4`.

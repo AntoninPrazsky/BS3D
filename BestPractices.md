@@ -6,8 +6,9 @@ names the incident that taught it, in this codebase, and most were verified by m
 lot took the Testbed's dense stress map (`Dense20x10x15`, 3000 balls, `autoshoot nocap`) from ~242 to
 ~294 FPS on the development laptop with zero visual change.
 
-The scene-specific lore (winding conventions, color management, the cloud architecture, per-scene dials)
-lives in `CLAUDE.md`; this file is the *general* discipline for frame-loop code and shaders.
+The scene-specific lore lives in `CLAUDE.md` and the documents it points at — the winding conventions in
+`CLAUDE.md` itself, colour management and the cloud architecture in `docs/rendering.md`, the per-scene dials
+in `docs/scenes.md`. This file is the *general* discipline for frame-loop code and shaders.
 
 ## 1. Effect parameters and techniques are looked up by linear scan
 

@@ -82,4 +82,4 @@ development machine, and the class of hardware the tiers exist for:
 | sea | 68.5 / 14.6 ms | 125 | 124.5 |
 
 The five terrain scenes are within 15–19 ms of each other and never needed a tier. The two city scenes are
-where the frame goes, and CLAUDE.md's "The quality tier" section has the block-by-block breakdown.
+where the frame goes, and `docs/game-shell.md`'s "The quality tier" section has the block-by-block breakdown.
