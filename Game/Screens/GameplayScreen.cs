@@ -329,8 +329,9 @@ namespace BS3D.Screens
         private const float CEILING_FLASH_SECONDS = 1.1f;
 
         //Linear radiance, well over GLARE_THRESHOLD so the plate blooms rather than merely turning pink. Red
-        //with almost nothing in the other two channels: this is the one alarm in the game and it should not be
-        //mistakable for anything the scene does on its own.
+        //with almost nothing in the other two channels: this is the game's one alarm COLOUR — the ceiling
+        //flash and the floor net both take it (LaserGrid is handed this very constant), so the two read as
+        //one warning at two heights — and it should not be mistakable for anything the scene does on its own.
         //Far over 1, and it has to be: the plate is 35 % opaque, so most of what is seen where the glass is is
         //the sky BEHIND it. At 1.5 the red merely tinted that blue-white and the plate came out pink. The
         //emissive is added on top of the composite, so it is the number that has to out-shout the sky.
@@ -352,6 +353,17 @@ namespace BS3D.Screens
         //still reads as the answer to firing.
         private const float CEILING_STEP_HOLD = 0.45f;
         private bool _ceilingDescending;
+
+        //The floor alarm — the descending ceiling's warning at the other end of the field. The net itself
+        //(geometry, pulse, fades, the linger after the level ends) lives in LaserGrid; this screen owns the
+        //trigger: within LASER_WARN_STEPS more descents of the death line, measured on the same live poses
+        //the loss itself is decided on (see UpdateLaserWarning). The hysteresis keeps a swaying cluster
+        //from flickering it at the threshold — a shot shoves the structure, and a lowest ball bobbing a few
+        //tenths of a unit across the exact line would arm and stand down the net with every swing.
+        private const float LASER_WARN_STEPS = 2f;
+        private const float LASER_WARN_HYSTERESIS = 0.3f;
+
+        private readonly LaserGrid _laserGrid;
 
         #endregion
 
@@ -562,6 +574,11 @@ namespace BS3D.Screens
             for (int i = 0; i < MAGAZINE_SIZE; i++) _magazine[i] = RandomBallType();
 
             CreateShotTrailQuad();
+
+            //The floor alarm's net, loaded like the trail: session content, made here with the device up.
+            //It is handed the ceiling flash's own red — the two are one warning at two heights, and passing
+            //the constant is what keeps them from drifting apart.
+            _laserGrid = new LaserGrid(GraphicsDevice, Game.Content.Load<Effect>("Shaders/LaserGrid"), CEILING_FLASH_COLOR);
         }
 
         //A level is played with nothing above this screen; a pause and the result screen are pushed OVER it
@@ -646,6 +663,10 @@ namespace BS3D.Screens
             _ceilingStepsPending = 0;
             _ceilingStepHold = 0f;
             _ceilingStepWaited = 0f;
+
+            //And no floor alarm either: whatever the last level's ending left lingering over the drain is
+            //not this level's danger.
+            _laserGrid.Reset();
         }
 
         /// <summary>
@@ -710,6 +731,7 @@ namespace BS3D.Screens
 
             _shotTrailVertexBuffer?.Dispose();
             _shotTrailIndexBuffer?.Dispose();
+            _laserGrid.Dispose();
         }
 
         /// <summary>
@@ -872,6 +894,14 @@ namespace BS3D.Screens
             _ceilingTargetY = _ceilingY;
             _ceilingDescending = false;
             _clusterCentreY = topLevel * Constants.HALF / Constants.SQRT_TWO + _clusterWorldOffset.Y;
+
+            //The floor alarm's net, rebuilt at this field's footprint — the same +1 margin the ceiling
+            //plate covers the balls with. It hovers where a ball's SURFACE would touch at the moment of
+            //loss: the death line is compared against ball centres, which sit a radius higher.
+            _laserGrid.Fit(
+                (_map.StageSizeX + 1f) * Constants.HALF,
+                (_map.StageSizeZ + 1f) * Constants.HALF,
+                CEILING_DEATH_Y - Constants.HALF);
         }
 
         /// <summary>
@@ -1316,7 +1346,12 @@ namespace BS3D.Screens
         /// standing. The ceiling, by contrast, is an immediate loss the moment a ball crosses the line — a descent
         /// can push one there between landings, so it cannot wait on the same event the budget does.
         /// </remarks>
-        private void CheckLevelLost()
+        /// <param name="mayLose">
+        /// False while a drop cinematic runs: the walk and the floor alarm still evaluate on this frame's
+        /// poses — the warning is the cluster's own geometry, not part of the spectacle the cinematic holds —
+        /// but neither ending may be declared until the collapse the player earned has been seen.
+        /// </param>
+        private void CheckLevelLost(bool mayLose)
         {
             //Already ending — a cleared countdown or a loss in flight. Testing further would re-trigger a loss
             //on top of a clear or a teardown already underway.
@@ -1324,8 +1359,11 @@ namespace BS3D.Screens
 
             //The ceiling reaching the death line. Live poses are in _physicsBalls (the lattice in _map holds
             //cells, not bodies); the loop mirrors DrawBallsInstanced, including the null check for cells a
-            //release has emptied.
+            //release has emptied. It tracks the minimum rather than stopping at the first offender, because
+            //the floor alarm below wants the cluster's true lowest point on every frame, not only the losing
+            //one — same walk, no second scan.
             XZLevel size = XZLevel.FromArray(_physicsBalls);
+            float lowestBallY = float.MaxValue;
 
             for (int level = 0; level < size.Level; level++)
                 for (int x = 0; x < size.X; x++)
@@ -1334,13 +1372,24 @@ namespace BS3D.Screens
                         PhysicsBall ball = _physicsBalls[x, z, level];
                         if (ball == null) continue;
 
-                        if (ball.BallReference.Pose.Position.Y <= CEILING_DEATH_Y)
-                        {
-                            LoseLevel(LevelFailure.ClusterReachedLine,
-                                $"a ball at {ball.BallReference.Pose.Position.Y:F2} <= {CEILING_DEATH_Y:F2}");
-                            return;
-                        }
+                        float y = ball.BallReference.Pose.Position.Y;
+                        if (y < lowestBallY) lowestBallY = y;
                     }
+
+            //Before the loss test, so the frame that loses also lights the net the loss was promised on —
+            //the result screen then schedules its linger-and-fade.
+            UpdateLaserWarning(lowestBallY);
+
+            //A cinematic defers the endings, never the warning above: the walk already ran on this frame's
+            //poses, and both losses will be re-asked the moment the cinematic lets go.
+            if (!mayLose) return;
+
+            if (lowestBallY <= CEILING_DEATH_Y)
+            {
+                LoseLevel(LevelFailure.ClusterReachedLine,
+                    $"a ball at {lowestBallY:F2} <= {CEILING_DEATH_Y:F2}");
+                return;
+            }
 
             //The budget spent with the field uncleared — but only once every shot has RESOLVED, so the last ball
             //fired has had its chance to clear. A ball still in flight could be that chance, and a loss called
@@ -1349,6 +1398,27 @@ namespace BS3D.Screens
                 LoseLevel(LevelFailure.OutOfBalls,
                     $"budget {LevelShotBudget(_levelIndex)?.ToString() ?? "unlimited"}, fired {_score.ShotsFired}"
                     + $", {_shotBalls.Count} spent ball(s) not yet culled");
+        }
+
+        /// <summary>
+        /// Arms or stands down the floor alarm from the cluster's lowest live ball: on when
+        /// <see cref="LASER_WARN_STEPS"/> more ceiling steps would push it past the death line — the very
+        /// comparison <see cref="CheckLevelLost"/> loses on, two descents early — and off with a little
+        /// hysteresis on the way back up. An empty field's <c>MaxValue</c> stands it down for free. The
+        /// <c>lasers</c> command-line flag pins it on, so the net can be screenshotted without playing a
+        /// level to the brink — the <c>celebrate</c> reasoning, for a session-owned effect.
+        /// <para>
+        /// Evaluated on every frame of a built session, drop cinematic included — the cinematic holds the
+        /// level's <i>endings</i>, not this: the release that engages one is exactly the release that
+        /// rescues a low cluster, and a warning frozen lit would outstay the danger by the whole shot.
+        /// </para>
+        /// </summary>
+        private void UpdateLaserWarning(float lowestBallY)
+        {
+            float threshold = CEILING_DEATH_Y + LASER_WARN_STEPS * CEILING_DESCENT_PER_STEP;
+            if (_laserGrid.Visible) threshold += LASER_WARN_HYSTERESIS;
+
+            _laserGrid.SetVisible(Game.ForceLaserWarning || lowestBallY <= threshold, WallClock);
         }
 
         /// <summary>
@@ -1475,6 +1545,15 @@ namespace BS3D.Screens
         /// </summary>
         private void ShowResultScreen()
         {
+            //The floor alarm has said its piece: from the moment the ending is actually put in front of the
+            //player, a standing net keeps pulsing under the page for a moment and then goes out. Stamped here,
+            //the one funnel both endings come through, and not back where the level logically ended — a clear's
+            //page arrives LEVEL_CLEARED_BEAT after the field empties, plus a whole cinematic when one is
+            //running (the countdown freezes for it), and a linger stamped at the clear was spent before anyone
+            //saw it. Wall-clock stamped, because this screen stops updating the moment the page covers it and
+            //only its draws keep running (see LaserGrid).
+            _laserGrid.NoticeLevelEnded(WallClock);
+
             //The figures are handed over as a SNAPSHOT taken now, not read by the screen when it draws. The
             //level does not stop the instant it is cleared — the collapse is held for a beat and a player who
             //keeps firing moves the balls remaining — so a screen that re-read the keeper printed a row that
@@ -1711,10 +1790,12 @@ namespace BS3D.Screens
             //landing, because a descent can push a ball across the death line between landings, and a spent budget
             //loses only once nothing remains in flight.
             //
-            //Held while a cinematic runs. Both endings put the result screen over this one, and a level that
-            //ends mid-collapse takes the collapse the player earned off the screen before they have seen it —
-            //which is the same reason the cleared countdown below waits, and why LEVEL_CLEARED_BEAT exists.
-            if (!_cinematic.Engaged) CheckLevelLost();
+            //Only the ENDINGS are held while a cinematic runs — both put the result screen over this one, and
+            //a level that ends mid-collapse takes the collapse the player earned off the screen before they
+            //have seen it, which is the same reason the cleared countdown below waits. The floor alarm inside
+            //is NOT held: the release that engages a cinematic is exactly the one that rescues a low cluster,
+            //and a warning frozen lit would blaze across the player's reward for the whole dive down the drain.
+            CheckLevelLost(mayLose: !_cinematic.Engaged);
 
             UpdateTrails(elapsed);
             _hud.Update(elapsed, _score);
@@ -2386,6 +2467,15 @@ namespace BS3D.Screens
             DrawShotTrails();
 
             Game.DrawSettingGlass();
+
+            //The floor alarm, in the trails' states but AFTER the drain's glass and BEFORE the ceiling's,
+            //because the net lies between the two in Y and neither translucent draw can depth-test against
+            //it (the net writes no depth): the funnel is entirely below the net, so a cinematic looking
+            //down the throat has the net in front of the glass — drawn earlier, the cone would wrongly dim
+            //it — while the descending plate is above, so an overhead shot seeing the net through the glass
+            //still gets the plate composited over it. Wall-clock driven, so its pulse and its linger-and-
+            //fade keep running while a result screen covers this screen and only draws still arrive.
+            _laserGrid.Draw(Camera, WallClock);
 
             //The glass the cluster hangs from, last of the session's objects: it is translucent, so everything
             //it should be seen through has to be in the depth buffer and the frame already.

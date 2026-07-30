@@ -99,6 +99,9 @@ namespace BS3D
         //Testing only: the "celebrate" argument, fired once the display exists.
         private readonly bool _startupCelebrate;
 
+        //Testing only: the "lasers" argument, read by the session's warning check every frame.
+        private readonly bool _startupLasers;
+
         //Wall clock. Everything alive in the scene runs off it — the balls' heartbeat, the city's windows —
         //so none of it is tied to a simulation that may later be paused.
         private float _wallClock;
@@ -122,6 +125,13 @@ namespace BS3D
 
         /// <summary>The wall clock everything alive runs off, paused or not.</summary>
         internal float WallClock => _wallClock;
+
+        /// <summary>
+        /// Testing only (the <c>lasers</c> argument): pins the floor alarm's laser net on. Reaching it
+        /// honestly means playing a level to within two ceiling steps of losing it, which can no more be
+        /// scripted than clearing one can — the <c>celebrate</c> reasoning, for the session-owned effect.
+        /// </summary>
+        internal bool ForceLaserWarning => _startupLasers;
 
         /// <summary>
         /// Whether edge-driven input (presses, clicks) may act this frame. False for one frame after focus
@@ -901,12 +911,17 @@ namespace BS3D
         /// level is the only thing that normally starts it and clearing one cannot be scripted, so this is how
         /// the fireworks get screenshotted and measured at all.
         /// </param>
+        /// <param name="lasers">
+        /// Testing only (the <c>lasers</c> argument): pin the floor alarm's laser net on while a level is
+        /// being played — see <see cref="ForceLaserWarning"/>.
+        /// </param>
         public BS3DGame(bool fullscreen = false, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE,
             bool uncappedFps = false, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
-            QualityLevel? quality = null, bool celebrate = false)
+            QualityLevel? quality = null, bool celebrate = false, bool lasers = false)
         {
             _fullscreen = fullscreen;
             _startupCelebrate = celebrate;
+            _startupLasers = lasers;
 
             //The tier owns supersampling, so the tier's factor is taken first and an explicit ssaa= then
             //overrides that one entry of it — the expert override the benchmark and the screenshot harness use.

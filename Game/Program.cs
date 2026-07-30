@@ -32,6 +32,10 @@ namespace BS3D
             //clearing a level.
             bool celebrate = false;
 
+            //Testing only: pin the floor alarm's laser net on. Reaching it honestly means playing a level to
+            //within two ceiling steps of losing it, which can no more be scripted than clearing one can.
+            bool lasers = false;
+
             foreach (string arg in args)
             {
                 if (string.Equals(arg, "fullscreen", StringComparison.OrdinalIgnoreCase)) fullscreen = true;
@@ -51,11 +55,13 @@ namespace BS3D
                 //normally starts it, and clearing one cannot be scripted, so without this the fireworks can be
                 //neither screenshotted nor measured — the same reason autoshoot and aimshoot exist.
                 else if (string.Equals(arg, "celebrate", StringComparison.OrdinalIgnoreCase)) celebrate = true;
+                //"lasers" pins the floor alarm's laser net on while a level is played, for the same reason.
+                else if (string.Equals(arg, "lasers", StringComparison.OrdinalIgnoreCase)) lasers = true;
             }
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
-                celebrate: celebrate);
+                celebrate: celebrate, lasers: lasers);
             game.Run();
         }
 
