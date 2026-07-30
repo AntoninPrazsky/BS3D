@@ -59,11 +59,17 @@ namespace BS3D
 
         private const int SAMPLE_RATE = 44100;
 
+        //The menu's own sounds, well under the game's: a press is confirmation, not an event. The tick is far
+        //quieter still, because a held direction walks the list and the tick repeats with every step.
+        private const float UI_CLICK_VOLUME = 0.4f;
+        private const float UI_TICK_VOLUME = 0.16f;
+
         private readonly SoundEffect _shoot;
         private readonly SoundEffect[] _landed;
         private readonly SoundEffect _fireworkLaunch;
         private readonly SoundEffect _fireworkBurst;
         private readonly SoundEffect _partyPopper;
+        private readonly SoundEffect _uiClick;
         private readonly Random _random = new();
 
         public ProceduralAudio()
@@ -75,6 +81,7 @@ namespace BS3D
             _fireworkLaunch = BakeFireworkLaunch();
             _fireworkBurst = BakeFireworkBurst();
             _partyPopper = BakePartyPopper();
+            _uiClick = BakeUiClick();
         }
 
         /// <summary>The shot leaving the barrel: centred, with a small random pitch so a burst never sounds flat.</summary>
@@ -133,6 +140,27 @@ namespace BS3D
         public void PlayPartyPopper()
         {
             _partyPopper.Play(0.9f * Level, NextPitch(0.08f), 0f);
+        }
+
+        /// <summary>A menu entry being pressed — mouse, pad or keyboard, every path plays this one (#46).</summary>
+        public void PlayUiClick()
+        {
+            _uiClick.Play(UI_CLICK_VOLUME * Level, NextPitch(0.03f), 0f);
+        }
+
+        /// <summary>
+        /// The focus cursor stepping an entry: the click's own buffer pitched up — faster playback is also a
+        /// shorter sound, which is what a step wants — and much quieter (see <see cref="UI_TICK_VOLUME"/>).
+        /// </summary>
+        public void PlayUiTick()
+        {
+            _uiClick.Play(UI_TICK_VOLUME * Level, 0.55f + NextPitch(0.03f), 0f);
+        }
+
+        /// <summary>Backing out — Escape or B: the click pitched down, so leaving sounds lower than entering.</summary>
+        public void PlayUiBack()
+        {
+            _uiClick.Play(UI_CLICK_VOLUME * Level, -0.3f + NextPitch(0.03f), 0f);
         }
 
         /// <summary>
@@ -347,6 +375,42 @@ namespace BS3D
             AddNoiseBurst(signal, window: 0.015f, decay: 90f, gain: 0.9f, cutoff: 4000f);
 
             ApplyReverb(signal, roomScale: 0.4f, wet: 0.26f, decay: 0.22f);
+
+            Normalize(signal, 0.9f);
+            return ToSoundEffect(signal);
+        }
+
+        /// <summary>
+        /// The menu's click: a short, dry "thock" — a felt hammer on wood, not a beep. Three parts, all inside
+        /// 90 ms: a low-passed noise knock (the contact), a fast 900→420 Hz pitch drop (the body — a tone held
+        /// at one frequency here reads as a beep, the landing's attack-then-ring idea at a tenth of the scale),
+        /// and a touch of 150 Hz weight so the press lands rather than taps. <b>Dry on purpose</b>, the party
+        /// popper's reasoning: the UI lives at the player's hand, not out in the scene, so it gets no reverb
+        /// and no pan. One buffer serves all three UI sounds — the step and the back are this, repitched (see
+        /// <see cref="PlayUiTick"/>/<see cref="PlayUiBack"/>).
+        /// </summary>
+        private SoundEffect BakeUiClick()
+        {
+            const float duration = 0.09f;
+            int samples = (int)(SAMPLE_RATE * duration);
+            float[] signal = new float[samples];
+
+            float phase = 0f;
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                //The body: the pitch crashes down over the first 18 ms and then rings out — briefly.
+                float freq = 900f * MathF.Pow(420f / 900f, MathF.Min(1f, t / 0.018f));
+                phase += 2f * MathF.PI * freq / SAMPLE_RATE;
+                signal[i] += MathF.Sin(phase) * 0.5f * MathF.Exp(-t * 70f);
+
+                //The weight: a quiet sub bump, gone almost at once.
+                signal[i] += MathF.Sin(2f * MathF.PI * 150f * t) * 0.25f * MathF.Exp(-t * 90f);
+            }
+
+            //The contact: a very short knock, low-passed so it is a "th" rather than a "ts".
+            AddNoiseBurst(signal, window: 0.008f, decay: 160f, gain: 0.8f, cutoff: 3200f);
 
             Normalize(signal, 0.9f);
             return ToSoundEffect(signal);
@@ -830,6 +894,7 @@ namespace BS3D
             _fireworkLaunch?.Dispose();
             _fireworkBurst?.Dispose();
             _partyPopper?.Dispose();
+            _uiClick?.Dispose();
         }
     }
 }

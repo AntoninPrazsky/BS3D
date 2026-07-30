@@ -1573,6 +1573,9 @@ namespace BS3D
         {
             if (_screens.Active is not MenuPage page || !page.CanGoBack) return;
 
+            //After the guard, so a screen with no back stays silent as well as still.
+            _audio.PlayUiBack();
+
             //The pause's own back is not a plain pop but a resume: the game underneath has to start running
             //again, and ResumeGame is the one door back into it. Everything else is one level off the stack,
             //whatever opened it.
@@ -1748,6 +1751,10 @@ namespace BS3D
             _navIndex = _navIndex < 0
                 ? (direction > 0 ? 0 : _navEntries.Count - 1)
                 : (_navIndex + direction + _navEntries.Count) % _navEntries.Count;
+
+            //Only user input reaches here — a screen change restores the cursor in CollectNavEntries by
+            //assignment, deliberately, so arriving on a page does not tick.
+            _audio.PlayUiTick();
 
             ApplyNavHighlight();
         }
@@ -1961,11 +1968,20 @@ namespace BS3D
                 BorderThickness = new Thickness(0),
             };
 
-            button.Click += (_, _) => onClick();
+            //One wrapper for every input device (#46): the mouse reaches it through Myra's Click, the pad and
+            //the arrow keys through the Tag that ActivateNavEntry invokes — so the press sounds once wherever
+            //it came from, and an entry added later cannot forget its click.
+            Action pressed = () =>
+            {
+                _audio.PlayUiClick();
+                onClick();
+            };
+
+            button.Click += (_, _) => pressed();
 
             //The pad and the arrow keys find their entries by walking the widget tree, which has no way back
             //to this delegate — so it rides on the widget itself. See ActivateNavEntry.
-            button.Tag = onClick;
+            button.Tag = pressed;
 
             return button;
         }
