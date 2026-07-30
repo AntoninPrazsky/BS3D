@@ -780,122 +780,166 @@ namespace BS3D
         private const int FANFARE_TAIL_STEPS = 14;
 
         /// <summary>
-        /// The victory fanfare. A rising figure over I–IV–V–I, which is the oldest triumphant progression
-        /// there is and still the one the ear reads instantly as an arrival.
+        /// The victory fanfare: a eurodance DROP, not a herald's call. The first version was a lone trombone
+        /// rising over a pad — dignified, and reported as exactly that: old, cheap, nothing to dance to. But
+        /// the game's musical language is the theme's eurodance, and in that language a celebration is the
+        /// drop — a four-on-the-floor kick, the off-beat bass pump, and the supersaw lead punching a
+        /// syncopated hook over I–V–vi–IV, the most euphoric progression pop owns. The player just won; the
+        /// music should make them want to dance, not stand to attention.
         /// <para>
-        /// <paramref name="intensity"/> (0…1, from the score) does not change the tune — it changes how much
-        /// of the band is playing it. A modest win gets the melody and a pad; a big one adds percussion
-        /// accents, an octave doubling, a sparkle arpeggio over the last chord and a longer, higher finish. The
-        /// player hears how well they did before the result screen has told them.
+        /// <paramref name="intensity"/> (0…1, from the score) changes how much of the floor is moving, never
+        /// the tune: a modest win gets the kick, the bass and the hook; a bigger one adds claps, hats, the
+        /// sixteenth arpeggio, an octave doubling, the snare-roll build in front and the sparkle run over the
+        /// held finish. The player hears what kind of win it was before the result screen says a word.
         /// </para>
         /// </summary>
         private static float[] BakeVictory(int seed, float intensity)
         {
             Random random = new(seed);
 
-            //Bright and quick, and rolled so two wins in a row are not the same piece.
-            float bpm = 134f + (float)random.NextDouble() * 16f;
+            //The theme's own tempo band, rolled so two wins in a row are not the same piece.
+            float bpm = 128f + (float)random.NextDouble() * 14f;
             float secondsPerStep = 60f / (bpm * STEPS_PER_BEAT);
             int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
 
-            //Key, and an octave lower than this started. Up at C4-G4 the fanfare was a whistle with a chord
-            //under it; a trombone lives here, and "deep" is a matter of register before it is a matter of
-            //timbre. None of these is where the level's theme was, so it still reads as a change of scene.
-            int[] roots = { 48, 50, 53, 55 };   //C3, D3, F3, G3
+            //MAJOR, and back up where the supersaw shines. The old register lesson (down at C3, "deep before
+            //timbre") was a TROMBONE'S lesson and stays true for the defeat below; the theme's own chorus
+            //already proves the supersaw carries this register over a full mix.
+            int[] roots = { 57, 60, 62 };   //A3, C4, D4
             int root = roots[random.Next(roots.Length)];
 
-            //Four bars, and a fifth to let the last chord ring when the win was a big one.
-            int bars = intensity > 0.55f ? 5 : 4;
+            //I–V–vi–IV as triads (semitone offsets from the root): four drop bars, then the held close.
+            //A build bar stands in front once the win is worth announcing.
+            int[][] chords =
+            {
+                new[] { 0, 4, 7 },      //I
+                new[] { 7, 11, 14 },    //V
+                new[] { 9, 12, 16 },    //vi — the one minor bar, which is what makes the IV lift after it
+                new[] { 5, 9, 12 }      //IV
+            };
 
-            //Plus room for the last chord to RING OUT. The pad and the lead both fade themselves over their
-            //nominal length, but that length runs past the final bar — without the tail the buffer simply ends
-            //mid-sustain and the fanfare finishes on a click, which is a poor way to be told you won.
+            int buildBars = intensity > 0.35f ? 1 : 0;
+            const int DROP_BARS = 4;
+            int bars = buildBars + DROP_BARS + 1;   //build, the drop, the held close
+
+            //Plus room for the close to RING OUT — without the tail the buffer ends mid-sustain and the
+            //fanfare finishes on a click, which is a poor way to be told you won.
             float[] mix = new float[samplesPerStep * (bars * STEPS_PER_BAR + FANFARE_TAIL_STEPS)];
 
-            //I - IV - V - I, as semitone offsets from the root.
-            int[] degrees = { 0, 5, 7, 0, 0 };
-
-            //Two melodic shapes, so the same win twice does not play the same phrase. Both rise: a fanfare
-            //that falls is a lament, whatever the harmony under it does.
-            int[][] shapes =
+            //THE HOOK's rhythm: two tresillos per bar — hits on 0,3,6 and 8,11,14, the 3-3-2 clave that is
+            //the most danceable eight counts there are. The melody walks the chord's own tones, top-heavy,
+            //and pushes UP onto the octave at each bar's end; two contours rolled so wins differ.
+            int[] hookSteps = { 0, 3, 6, 8, 11, 14 };
+            int[][] contours =
             {
-                new[] { 0, 2, 3, 2 },   //root, fifth, octave, fifth — the bugle call
-                new[] { 1, 2, 3, 3 }    //third, fifth, octave, octave — smoother, more modern
+                new[] { 2, 1, 2, 1, 2, 3 },   //fifth-third bounce, octave push
+                new[] { 0, 2, 1, 2, 3, 3 }    //root up through the chord, octave held twice
             };
-            int[] shape = shapes[random.Next(shapes.Length)];
+            int[] contour = contours[random.Next(contours.Length)];
 
             for (int bar = 0; bar < bars; bar++)
             {
-                int degree = degrees[bar];
-                int chordRoot = root + degree;
-                bool last = bar == bars - 1;
-
                 int at = bar * STEPS_PER_BAR * samplesPerStep;
+                bool isBuild = bar < buildBars;
+                bool isClose = bar == bars - 1;
+                int dropBar = bar - buildBars;
 
-                //THE PAD, holding the chord underneath the whole bar. Always present: it is what makes the
-                //fanfare sound like a band rather than like one synth line.
-                foreach (int interval in MAJOR_TRIAD)
-                    Pad(mix, at, chordRoot - 12 + interval, secondsPerStep * (last ? 22f : 15.5f), 0.13f + 0.06f * intensity);
-
-                //THE PICKUP into bar 0: three quick rising notes, which is what turns the first chord into an
-                //arrival instead of just a start. Overlapping, so it runs INTO the downbeat rather than
-                //stopping just before it.
-                if (bar == 0)
-                    for (int i = 0; i < 3; i++)
-                        Brass(mix, i * samplesPerStep, chordRoot - 12 + MAJOR_TRIAD[i],
-                            secondsPerStep * 1.8f, 0.20f + 0.10f * intensity);
-
-                //THE MELODY. One note on the downbeat and one halfway, except the last bar, which holds.
-                float leadLevel = 0.30f + 0.14f * intensity;
-
-                if (last)
+                if (isBuild)
                 {
-                    //The finish: the octave, held, and pushed a fifth higher again when the win was big.
-                    int top = chordRoot + 12 + (intensity > 0.75f ? 7 : 0);
-                    Brass(mix, at, top, secondsPerStep * 14f, leadLevel);
+                    //THE BUILD: the theme's own snare roll doubling to thirty-seconds, a sixteenth arpeggio
+                    //ladder climbing two octaves of the tonic, and the kick already walking underneath — one
+                    //bar that says "here it comes", which is half of why a drop lands.
+                    for (int step = 0; step < STEPS_PER_BAR; step++)
+                    {
+                        float through = step / (float)STEPS_PER_BAR;
+                        bool hit = through < 0.75f ? step % 2 == 0 : true;
+                        if (hit) Snare(mix, at + step * samplesPerStep, 0.15f + 0.5f * through * through);
 
-                    //The root under it, always — this is the chord landing, and a single line landing alone is
-                    //a melody stopping rather than a piece finishing.
-                    Brass(mix, at, chordRoot, secondsPerStep * 14f, leadLevel * (0.6f + 0.3f * intensity));
-                }
-                else
-                {
-                    //LENGTH 9 AGAINST AN 8-STEP GAP, which is the whole fix for the piece sounding choppy: at
-                    //five steps each note died in the middle of its own half-bar and left a hole, so the tune
-                    //arrived as a row of separate events. Overlapping them by a step and letting the brass
-                    //release across the join is what makes it legato — one phrase rather than four notes.
-                    Brass(mix, at, chordRoot + MAJOR_TRIAD[shape[bar]], secondsPerStep * 9f, leadLevel);
-                    Brass(mix, at + 8 * samplesPerStep, chordRoot + MAJOR_TRIAD[(shape[bar] + 1) % 4],
-                        secondsPerStep * 9f, leadLevel * 0.85f);
+                        Arp(mix, at + step * samplesPerStep, root + chords[0][step % 3] + 12 * (step / 6),
+                            secondsPerStep * 1.2f, 0.10f + 0.08f * through);
 
-                    //An octave doubling once the win is worth one — the cheapest way to make a line sound
-                    //bigger without writing a second one.
-                    if (intensity > 0.45f)
-                        Brass(mix, at, chordRoot + 12 + MAJOR_TRIAD[shape[bar]], secondsPerStep * 9f, leadLevel * 0.45f);
+                        if (step % 4 == 0) Kick(mix, at + step * samplesPerStep, 0.5f + 0.3f * through);
+                    }
+
+                    continue;
                 }
 
-                //PERCUSSION, from a middling win upwards: a kick and a clap on the chord changes, so the piece
-                //has a body as well as a tune.
-                if (intensity > 0.25f)
+                int[] chord = isClose ? chords[0] : chords[dropBar];
+                int chordRoot = root + chord[0];
+
+                //THE PAD holds the chord under everything, sub root beneath it for the weight the kick rides.
+                foreach (int interval in chord)
+                    Pad(mix, at, root + interval, secondsPerStep * (isClose ? 22f : 15.5f), 0.11f + 0.05f * intensity);
+                Pad(mix, at, chordRoot - 12, secondsPerStep * (isClose ? 22f : 15.5f), 0.10f);
+
+                if (isClose)
                 {
-                    Kick(mix, at, 0.7f + 0.3f * intensity);
-                    Clap(mix, at + 8 * samplesPerStep, 0.5f + 0.4f * intensity);
+                    //THE CLOSE: the tonic landed and HELD — the lead on the octave (a fifth higher again for
+                    //a big win), the last kick on the downbeat, and the sparkle run climbing away over it.
+                    int top = root + 12 + (intensity > 0.75f ? 19 : 12);
+                    Lead(mix, at, top, secondsPerStep * 14f, 0.30f + 0.12f * intensity);
+                    Lead(mix, at, root + 12, secondsPerStep * 14f, 0.22f);
+
+                    Kick(mix, at, 0.8f + 0.2f * intensity);
+
+                    if (intensity > 0.6f)
+                        for (int i = 0; i < 12; i++)
+                            Arp(mix, at + i * samplesPerStep, root + 12 + chord[i % 3] + 12 * (i / 4),
+                                secondsPerStep * 1.4f, 0.12f * intensity);
+
+                    continue;
                 }
 
-                //A tom run into the final chord when the win was a big one.
-                if (intensity > 0.8f && bar == bars - 2)
+                //THE DROP. Four on the floor — ALWAYS, whatever the score: the beat is the celebration now,
+                //not a garnish a modest win goes without.
+                for (int beat = 0; beat < 4; beat++)
+                    Kick(mix, at + beat * 4 * samplesPerStep, 0.75f + 0.25f * intensity);
+
+                //The off-beat bass pump, the theme's own figure: between the kicks, never on them.
+                for (int beat = 0; beat < 4; beat++)
+                    Bass(mix, at + (beat * 4 + 2) * samplesPerStep, chordRoot - 12, secondsPerStep * 1.7f,
+                        0.8f + 0.2f * intensity);
+
+                //Claps on two and four, hats on the eighths with the off-beats open, the sixteenth arpeggio
+                //running through — each arriving as the win grows, so the floor fills with the score.
+                if (intensity > 0.2f)
+                {
+                    Clap(mix, at + 4 * samplesPerStep, 0.5f + 0.3f * intensity);
+                    Clap(mix, at + 12 * samplesPerStep, 0.5f + 0.3f * intensity);
+                }
+
+                if (intensity > 0.35f)
+                    for (int step = 0; step < STEPS_PER_BAR; step += 2)
+                        Hat(mix, at + step * samplesPerStep, open: step % 4 == 2, level: 0.24f);
+
+                if (intensity > 0.45f)
+                    for (int step = 0; step < STEPS_PER_BAR; step += 1)
+                        if (step % 2 == 1)
+                            Arp(mix, at + step * samplesPerStep, root + chord[step % 3] + 12,
+                                secondsPerStep * 0.9f, 0.09f);
+
+                //THE HOOK, on the theme's own supersaw. Notes run a step past the next hit's start (the
+                //legato arithmetic), and the whole line doubles an octave up once the win is worth it.
+                float leadLevel = 0.26f + 0.12f * intensity;
+
+                for (int h = 0; h < hookSteps.Length; h++)
+                {
+                    int gap = (h + 1 < hookSteps.Length ? hookSteps[h + 1] : STEPS_PER_BAR) - hookSteps[h];
+                    int note = root + 12 + (contour[h] < 3 ? chord[contour[h]] : chord[0] + 12);
+
+                    Lead(mix, at + hookSteps[h] * samplesPerStep, note, secondsPerStep * (gap + 1f), leadLevel);
+
+                    if (intensity > 0.5f)
+                        Lead(mix, at + hookSteps[h] * samplesPerStep, note + 12, secondsPerStep * (gap + 1f), leadLevel * 0.4f);
+                }
+
+                //A tom run into the close when the win was a big one.
+                if (intensity > 0.8f && dropBar == DROP_BARS - 1)
                     for (int i = 0; i < 4; i++)
                         Tom(mix, at + (12 + i) * samplesPerStep, 120f + i * 22f, 0.8f);
-
-                //SPARKLE over the last chord: a fast arpeggio climbing away. Only for a good win, and it is
-                //most of what makes one feel like a celebration rather than a resolution.
-                if (last && intensity > 0.6f)
-                    for (int i = 0; i < 12; i++)
-                        Arp(mix, at + i * samplesPerStep, chordRoot + 12 + MAJOR_TRIAD[i % 4] + 12 * (i / 4),
-                            secondsPerStep * 1.4f, 0.12f * intensity);
             }
 
-            Limit(mix, targetRms: 0.16f + 0.06f * intensity, ceiling: 0.95f);
+            Limit(mix, targetRms: 0.17f + 0.06f * intensity, ceiling: 0.95f);
             return mix;
         }
 
