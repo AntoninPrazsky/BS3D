@@ -579,21 +579,22 @@ namespace Testbed
         /// throughout — glare is the one thing in the frame that is meant to be blurry, and running the
         /// streak star at full resolution would cost 193 taps a pixel for no visible gain.
         /// </summary>
-        private RenderTarget2D _glareBright;
-        private RenderTarget2D _glareStreak;
+        private RenderTarget2D[] _bloomChain;
         private Effect _glareEffect;
 
         //Cached in LoadContent like the tonemap's, and for the same reason
         private EffectTechnique _glareBrightPassTechnique;
-        private EffectTechnique _glareStreakTechnique;
+        private EffectTechnique _bloomDownTechnique;
+        private EffectTechnique _bloomUpTechnique;
         private EffectParameter _glareSourceTextureParam;
         private EffectParameter _glareThresholdParam;
         private EffectParameter _glareSourceTexelSizeParam;
-        private EffectParameter _glareStreakLengthParam;
-        private EffectParameter _glareStreakFalloffParam;
         private EffectParameter _skyCameraPositionParam;
 
-        private static readonly int GLARE_DOWNSAMPLE = 4;
+        //Half, quarter, eighth, sixteenth and a thirty-second of the back buffer: five levels reach a halo
+        //about a quarter of the screen wide around a strong source, which is where a glow stops reading as
+        //belonging to the thing that emits it.
+        private static readonly int BLOOM_LEVELS = 5;
 
         /// <summary>
         /// Radiance a pixel has to exceed before it starts to glare. Set high enough that a ball only glares
@@ -603,19 +604,15 @@ namespace Testbed
         /// </summary>
         private static readonly float GLARE_THRESHOLD = 0.55f;
 
-        /// <summary>Length of one streak arm in quarter-resolution texels, and its exponential falloff.</summary>
-        private static readonly float GLARE_STREAK_LENGTH = 34f;
-
-        private static readonly float GLARE_STREAK_FALLOFF = 3.2f;
 
         /// <summary>
-        /// How much of the glare is added back. Kept subtle — the point is to hint that the balls emit light,
-        /// not to draw the eye with a lens star, so it is well below the 2.6 it was tuned to while the spheres
-        /// were drawn inside out (correcting their winding brightened everything above the threshold at once).
-        /// Lowered from 1.3 with the threshold raised, so the stars read as a soft glow on the pulse rather
-        /// than a distinct six-armed cross on every bright thing.
+        /// How much of the bloom is added back. The pyramid ACCUMULATES on the way up — the half-resolution
+        /// head ends carrying its own halo plus every wider level's — so the same subjective glow sits at a
+        /// far lower intensity than the single-pass streak star needed (that one shipped at 0.9). The point
+        /// is unchanged: hint that the balls, the neon and the crystals emit light, without the glow owning
+        /// the frame.
         /// </summary>
-        private static readonly float GLARE_INTENSITY = 0.9f;
+        private static readonly float GLARE_INTENSITY = 0.5f;
 
         #endregion
 
@@ -1000,12 +997,11 @@ namespace Testbed
             _tonemapUnderwaterInscatterParam = _tonemapEffect.Parameters["UnderwaterInscatter"];
 
             _glareBrightPassTechnique = _glareEffect.Techniques["BrightPass"];
-            _glareStreakTechnique = _glareEffect.Techniques["Streak"];
+            _bloomDownTechnique = _glareEffect.Techniques["BloomDown"];
+            _bloomUpTechnique = _glareEffect.Techniques["BloomUp"];
             _glareSourceTextureParam = _glareEffect.Parameters["SourceTexture"];
             _glareThresholdParam = _glareEffect.Parameters["GlareThreshold"];
             _glareSourceTexelSizeParam = _glareEffect.Parameters["SourceTexelSize"];
-            _glareStreakLengthParam = _glareEffect.Parameters["StreakLength"];
-            _glareStreakFalloffParam = _glareEffect.Parameters["StreakFalloff"];
 
             _sceneLightPositionParam = _instancingEffect.Parameters["SceneLightPosition"];
             _sceneLightColorParam = _instancingEffect.Parameters["SceneLightColor"];
@@ -2495,20 +2491,26 @@ namespace Testbed
                 DepthFormat.Depth24Stencil8, _supersampleFactor > 1 ? 0 : MSAA_SAMPLES, RenderTargetUsage.DiscardContents);
 
             //Sized off the back buffer, not off the supersampled target: the glare is blurred anyway, so
-            //it gains nothing from the extra samples and would only cost fill rate to produce them
-            int glareWidth = Math.Max(GraphicsDevice.PresentationParameters.BackBufferWidth / GLARE_DOWNSAMPLE, 1);
-            int glareHeight = Math.Max(GraphicsDevice.PresentationParameters.BackBufferHeight / GLARE_DOWNSAMPLE, 1);
+            //it gains nothing from the extra samples and would only cost fill rate to produce them. Level
+            //zero is HALF the back buffer and each level halves again — together about a third of a back
+            //buffer of HDR memory for the whole pyramid.
+            if (_bloomChain != null) foreach (RenderTarget2D level in _bloomChain) level?.Dispose();
 
-            _glareBright?.Dispose();
-            _glareStreak?.Dispose();
-
-            _glareBright = new RenderTarget2D(GraphicsDevice, glareWidth, glareHeight, false, SurfaceFormat.HdrBlendable, DepthFormat.None);
-            _glareStreak = new RenderTarget2D(GraphicsDevice, glareWidth, glareHeight, false, SurfaceFormat.HdrBlendable, DepthFormat.None);
+            _bloomChain = new RenderTarget2D[BLOOM_LEVELS];
+            for (int i = 0; i < BLOOM_LEVELS; i++)
+            {
+                int levelWidth = Math.Max(GraphicsDevice.PresentationParameters.BackBufferWidth >> (i + 1), 1);
+                int levelHeight = Math.Max(GraphicsDevice.PresentationParameters.BackBufferHeight >> (i + 1), 1);
+                _bloomChain[i] = new RenderTarget2D(GraphicsDevice, levelWidth, levelHeight, false, SurfaceFormat.HdrBlendable, DepthFormat.None);
+            }
         }
 
         /// <summary>
-        /// Extracts what in the scene is bright enough to glare and smears it into a star of streaks.
-        /// Runs between the scene and the tonemap, both passes at quarter resolution.
+        /// Extracts what in the scene is bright enough to glare and spreads it into the bloom pyramid (#69):
+        /// the bright pass lands in the half-resolution head, is downsampled level by level to the
+        /// thirty-second-resolution foot, and each level is then tent-upsampled ADDITIVELY into the one
+        /// above — so the head ends carrying its own tight halo plus every wider one, and the tonemap reads
+        /// just the head. Runs between the scene and the tonemap.
         /// </summary>
         private void DrawGlare()
         {
@@ -2519,20 +2521,38 @@ namespace Testbed
 
             //Techniques and parameters through the references cached in LoadContent — this runs every frame,
             //and the by-name indexers are linear scans. The textures are still set per pass: SourceTexture
-            //switches value between the two passes, and the targets are recreated on every resize.
-            GraphicsDevice.SetRenderTarget(_glareBright);
+            //walks the chain, and the targets are recreated on every resize.
+            GraphicsDevice.SetRenderTarget(_bloomChain[0]);
             _glareEffect.CurrentTechnique = _glareBrightPassTechnique;
             _glareSourceTextureParam.SetValue(_sceneTarget);
             _glareThresholdParam.SetValue(GLARE_THRESHOLD);
             DrawFullScreenQuad(_glareEffect);
 
-            GraphicsDevice.SetRenderTarget(_glareStreak);
-            _glareEffect.CurrentTechnique = _glareStreakTechnique;
-            _glareSourceTextureParam.SetValue(_glareBright);
-            _glareSourceTexelSizeParam.SetValue(new Vector2(1f / _glareBright.Width, 1f / _glareBright.Height));
-            _glareStreakLengthParam.SetValue(GLARE_STREAK_LENGTH);
-            _glareStreakFalloffParam.SetValue(GLARE_STREAK_FALLOFF);
-            DrawFullScreenQuad(_glareEffect);
+            _glareEffect.CurrentTechnique = _bloomDownTechnique;
+
+            for (int i = 1; i < BLOOM_LEVELS; i++)
+            {
+                GraphicsDevice.SetRenderTarget(_bloomChain[i]);
+                _glareSourceTextureParam.SetValue(_bloomChain[i - 1]);
+                _glareSourceTexelSizeParam.SetValue(new Vector2(1f / _bloomChain[i - 1].Width, 1f / _bloomChain[i - 1].Height));
+                DrawFullScreenQuad(_glareEffect);
+            }
+
+            //Back up the pyramid, ADDING each level into the one above. The additive blend is what
+            //accumulates the halos, and it costs no extra target: the down pass's own content is still
+            //sitting in the destination, so the upsample lands on top of it.
+            GraphicsDevice.BlendState = BlendState.Additive;
+            _glareEffect.CurrentTechnique = _bloomUpTechnique;
+
+            for (int i = BLOOM_LEVELS - 1; i >= 1; i--)
+            {
+                GraphicsDevice.SetRenderTarget(_bloomChain[i - 1]);
+                _glareSourceTextureParam.SetValue(_bloomChain[i]);
+                _glareSourceTexelSizeParam.SetValue(new Vector2(1f / _bloomChain[i].Width, 1f / _bloomChain[i].Height));
+                DrawFullScreenQuad(_glareEffect);
+            }
+
+            GraphicsDevice.BlendState = BlendState.Opaque;
         }
 
         private void DrawFullScreenQuad(Effect effect)
@@ -2598,7 +2618,7 @@ namespace Testbed
 
             GraphicsDevice.SetRenderTarget(null);
 
-            _tonemapGlareTextureParam.SetValue(_glareStreak);
+            _tonemapGlareTextureParam.SetValue(_bloomChain[0]);
             _tonemapGlareIntensityParam.SetValue(GLARE_INTENSITY);
             _tonemapSceneTextureParam.SetValue(_sceneTarget);
             _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
@@ -2701,8 +2721,7 @@ namespace Testbed
             _pitMesh?.Dispose();
             _sceneRenderer?.Dispose();
             _sceneTarget?.Dispose();
-            _glareBright?.Dispose();
-            _glareStreak?.Dispose();
+            if (_bloomChain != null) foreach (RenderTarget2D level in _bloomChain) level?.Dispose();
             _fullScreenQuad?.Dispose();
             _shotTrailVertexBuffer?.Dispose();
             _shotTrailIndexBuffer?.Dispose();

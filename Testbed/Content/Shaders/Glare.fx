@@ -1,11 +1,18 @@
 //Turns the brightest parts of the HDR scene into visible glare: a bright pass that keeps only what
-//exceeds a threshold, then a star of directional streaks smeared out of it.
+//exceeds a threshold, then a MULTI-SCALE BLOOM PYRAMID - the bright image downsampled level by level to
+//a thirty-second of the frame and accumulated back up, so a light source wears a halo that is tight and
+//hot at its core and melts away over half the screen at its widest. This replaced a six-armed streak
+//star (#69): a star filter reads as a lens-flare pack from the nineties, where the wide soft pyramid is
+//how every modern renderer spends its glow - and the pyramid's dense sampling also fixed the star's one
+//real fault, small bright points flickering in and out of a sparse quarter-resolution grid.
 //
-//This is deliberately not a physical camera model. Real glare comes from diffraction in a lens or an
-//eye, and reproducing it faithfully would give a faint halo nobody notices. The point here is to make
-//it unmistakable that the balls are light sources rather than lit objects, so the streaks are long,
-//bright and cheerfully exaggerated. Both passes run at quarter resolution - glare is the one thing in
-//the frame that is supposed to be blurry.
+//This is still deliberately not a physical camera model. The point is to make it unmistakable that the
+//balls, the neon, the crystals and the orbs are light sources rather than lit objects; the pyramid just
+//says it in this decade's accent.
+//
+//The down/up kernels are the "dual filter" pair (Bjorge, SIGGRAPH 2015): a 5-tap downsample and a 9-tap
+//tent upsample, each pass at half the previous resolution, additively blended on the way back up. Cheap
+//enough to be invisible in the frame budget and free of the boxy artifacts a plain bilinear chain shows.
 
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0
@@ -21,16 +28,11 @@ sampler2D SourceSampler = sampler_state
 	AddressV = Clamp;
 };
 
-//One texel of the source, so the streaks can walk it in pixel steps
+//One texel of the SOURCE being read (each pass reads the level it consumes, so this changes per pass)
 float2 SourceTexelSize;
 
 //Radiance above which a pixel starts to glare, and how sharply it ramps in past that
 float GlareThreshold;
-
-//Length of a streak arm in source texels (screen space — the quarter-resolution bright pass), and how
-//fast it fades along its length
-float StreakLength;
-float StreakFalloff;
 
 struct VertexShaderOutput
 {
@@ -72,56 +74,58 @@ technique BrightPass
 	}
 };
 
-//Six arms rather than four: an even star reads as a rendering artifact, a six-point one reads as glare.
-//Each arm is walked in fixed steps with an exponential falloff, which is what a diffraction streak
-//actually looks like - bright at the source and trailing off, not a uniform line.
-static const int StreakArms = 6;
-static const int StreakSamples = 16;
-
-float4 StreakPS(VertexShaderOutput input) : COLOR
+//The downsample: four corner taps half a source texel out, around a centre tap weighted as four. The
+//half-texel offsets put every tap on a bilinear seam, so each is already an average of four texels - the
+//13 effective texels per output pixel are what stops a bright dot strobing as it crosses the coarser
+//grid, which is exactly the artifact the old quarter-resolution star suffered.
+float4 BloomDownPS(VertexShaderOutput input) : COLOR
 {
-	//Each arm is normalized against its own weights and the arms are then combined by taking the
-	//brightest, not by averaging them together. Summing every tap and dividing by the total weight of all
-	//six arms - the obvious way to write this - divides each ray by six times the samples it actually
-	//has, and the star collapses into a soft round blob. Taking the max keeps the arms as arms.
-	float3 brightest = 0;
+	float2 h = SourceTexelSize;
 
-	[unroll]
-	for (int arm = 0; arm < StreakArms; arm++)
-	{
-		//Half a turn spread over the arms; each is then walked both ways, since a streak runs out from
-		//its source in both directions
-		float angle = 3.14159265 * arm / StreakArms;
-		float2 direction = float2(cos(angle), sin(angle));
+	float3 sum = tex2D(SourceSampler, input.TexCoord).rgb * 4.0;
+	sum += tex2D(SourceSampler, input.TexCoord + float2(-h.x, -h.y)).rgb;
+	sum += tex2D(SourceSampler, input.TexCoord + float2(h.x, -h.y)).rgb;
+	sum += tex2D(SourceSampler, input.TexCoord + float2(-h.x, h.y)).rgb;
+	sum += tex2D(SourceSampler, input.TexCoord + float2(h.x, h.y)).rgb;
 
-		float3 total = tex2D(SourceSampler, input.TexCoord).rgb;
-		float weightSum = 1;
-
-		[unroll]
-		for (int i = 1; i <= StreakSamples; i++)
-		{
-			float fraction = (float)i / StreakSamples;
-			float weight = exp(-StreakFalloff * fraction);
-
-			float2 offset = direction * (StreakLength * fraction) * SourceTexelSize;
-
-			total += (tex2D(SourceSampler, input.TexCoord + offset).rgb
-				+ tex2D(SourceSampler, input.TexCoord - offset).rgb) * weight;
-
-			weightSum += 2 * weight;
-		}
-
-		brightest = max(brightest, total / weightSum);
-	}
-
-	return float4(brightest, 1);
+	return float4(sum / 8.0, 1);
 }
 
-technique Streak
+technique BloomDown
 {
 	pass P0
 	{
 		VertexShader = compile VS_SHADERMODEL MainVS();
-		PixelShader = compile PS_SHADERMODEL StreakPS();
+		PixelShader = compile PS_SHADERMODEL BloomDownPS();
+	}
+};
+
+//The upsample: a 9-tap tent - four side taps a full texel out, four diagonal taps half a texel out at
+//double weight - drawn ADDITIVELY into the next-larger level, so each level keeps its own detail and
+//gains the wider halo of everything below it. The tent is what keeps the accumulated halo round; a plain
+//bilinear upsample stacks its box footprints into visible squares around every hot point.
+float4 BloomUpPS(VertexShaderOutput input) : COLOR
+{
+	float2 h = SourceTexelSize;
+
+	float3 sum = 0;
+	sum += tex2D(SourceSampler, input.TexCoord + float2(-h.x * 2.0, 0.0)).rgb;
+	sum += tex2D(SourceSampler, input.TexCoord + float2(h.x * 2.0, 0.0)).rgb;
+	sum += tex2D(SourceSampler, input.TexCoord + float2(0.0, -h.y * 2.0)).rgb;
+	sum += tex2D(SourceSampler, input.TexCoord + float2(0.0, h.y * 2.0)).rgb;
+	sum += (tex2D(SourceSampler, input.TexCoord + float2(-h.x, -h.y)).rgb
+		+ tex2D(SourceSampler, input.TexCoord + float2(h.x, -h.y)).rgb
+		+ tex2D(SourceSampler, input.TexCoord + float2(-h.x, h.y)).rgb
+		+ tex2D(SourceSampler, input.TexCoord + float2(h.x, h.y)).rgb) * 2.0;
+
+	return float4(sum / 12.0, 1);
+}
+
+technique BloomUp
+{
+	pass P0
+	{
+		VertexShader = compile VS_SHADERMODEL MainVS();
+		PixelShader = compile PS_SHADERMODEL BloomUpPS();
 	}
 };

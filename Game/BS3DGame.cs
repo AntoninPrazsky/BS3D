@@ -170,8 +170,11 @@ namespace BS3D
         #region Post-processing (linear radiance in, sRGB out — exactly the Testbed's pipeline)
 
         private RenderTarget2D _sceneTarget;
-        private RenderTarget2D _glareBright;
-        private RenderTarget2D _glareStreak;
+
+        //The bloom pyramid (#69): half, quarter, eighth, sixteenth and a thirty-second of the back buffer.
+        //The bright pass lands in the head, is downsampled to the foot and accumulated back up with
+        //additive tent upsamples — the wide soft halo that replaced the six-armed streak star.
+        private RenderTarget2D[] _bloomChain;
 
         private Effect _tonemapEffect;
         private Effect _glareEffect;
@@ -182,7 +185,8 @@ namespace BS3D
         //the trail widths) are set once there and never touched again; the textures and texel sizes still go
         //out per frame through these references, because the render targets are recreated on every resize.
         private EffectTechnique _glareBrightPassTechnique;
-        private EffectTechnique _glareStreakTechnique;
+        private EffectTechnique _bloomDownTechnique;
+        private EffectTechnique _bloomUpTechnique;
         private EffectParameter _glareSourceTextureParam;
         private EffectParameter _glareSourceTexelSizeParam;
         private EffectParameter _tonemapGlareTextureParam;
@@ -202,11 +206,12 @@ namespace BS3D
         private const float UNDERWATER_FADE_DEPTH = 7f;
         private EffectParameter _skyCameraPositionParam;
 
-        private static readonly int GLARE_DOWNSAMPLE = 4;
+        private static readonly int BLOOM_LEVELS = 5;
         private static readonly float GLARE_THRESHOLD = 0.55f;
-        private static readonly float GLARE_STREAK_LENGTH = 34f;
-        private static readonly float GLARE_STREAK_FALLOFF = 3.2f;
-        private static readonly float GLARE_INTENSITY = 0.9f;
+
+        //Far lower than the streak star's 0.9: the pyramid ACCUMULATES on the way up, so the head carries
+        //its own halo plus every wider level's, and the same subjective glow needs a fraction of the gain.
+        private static readonly float GLARE_INTENSITY = 0.5f;
 
         //Only used when supersampling is off: multisampling antialiases geometry edges but not shading, and
         //the balls' procedural relief is shading.
@@ -1251,7 +1256,8 @@ namespace BS3D
             _glareEffect = Content.Load<Effect>("Shaders/Glare");
 
             _glareBrightPassTechnique = _glareEffect.Techniques["BrightPass"];
-            _glareStreakTechnique = _glareEffect.Techniques["Streak"];
+            _bloomDownTechnique = _glareEffect.Techniques["BloomDown"];
+            _bloomUpTechnique = _glareEffect.Techniques["BloomUp"];
             _glareSourceTextureParam = _glareEffect.Parameters["SourceTexture"];
             _glareSourceTexelSizeParam = _glareEffect.Parameters["SourceTexelSize"];
             _tonemapGlareTextureParam = _tonemapEffect.Parameters["GlareTexture"];
@@ -1267,8 +1273,6 @@ namespace BS3D
             //Fixed for the whole run, so they are set exactly once: a parameter's value persists on the
             //effect, and re-sending a constant every frame bought nothing
             _glareEffect.Parameters["GlareThreshold"].SetValue(GLARE_THRESHOLD);
-            _glareEffect.Parameters["StreakLength"].SetValue(GLARE_STREAK_LENGTH);
-            _glareEffect.Parameters["StreakFalloff"].SetValue(GLARE_STREAK_FALLOFF);
             _tonemapEffect.Parameters["GlareIntensity"].SetValue(GLARE_INTENSITY);
             _tonemapEffect.Parameters["SupersampleFactor"].SetValue(_supersampleFactor);
             _tonemapEffect.Parameters["Exposure"].SetValue(_exposure);
@@ -3324,17 +3328,24 @@ namespace BS3D
                 DepthFormat.Depth24Stencil8, _supersampleFactor > 1 ? 0 : MSAA_SAMPLES, RenderTargetUsage.DiscardContents);
 
             //Sized off the back buffer, not the supersampled target: the glare is blurred anyway, so the
-            //extra samples buy nothing and would only cost fill rate to produce
-            int glareWidth = Math.Max(GraphicsDevice.PresentationParameters.BackBufferWidth / GLARE_DOWNSAMPLE, 1);
-            int glareHeight = Math.Max(GraphicsDevice.PresentationParameters.BackBufferHeight / GLARE_DOWNSAMPLE, 1);
+            //extra samples buy nothing and would only cost fill rate to produce. Level zero is HALF the
+            //back buffer and each level halves again — about a third of a back buffer of HDR memory in all.
+            if (_bloomChain != null) foreach (RenderTarget2D level in _bloomChain) level?.Dispose();
 
-            _glareBright?.Dispose();
-            _glareStreak?.Dispose();
-
-            _glareBright = new RenderTarget2D(GraphicsDevice, glareWidth, glareHeight, false, SurfaceFormat.HdrBlendable, DepthFormat.None);
-            _glareStreak = new RenderTarget2D(GraphicsDevice, glareWidth, glareHeight, false, SurfaceFormat.HdrBlendable, DepthFormat.None);
+            _bloomChain = new RenderTarget2D[BLOOM_LEVELS];
+            for (int i = 0; i < BLOOM_LEVELS; i++)
+            {
+                int levelWidth = Math.Max(GraphicsDevice.PresentationParameters.BackBufferWidth >> (i + 1), 1);
+                int levelHeight = Math.Max(GraphicsDevice.PresentationParameters.BackBufferHeight >> (i + 1), 1);
+                _bloomChain[i] = new RenderTarget2D(GraphicsDevice, levelWidth, levelHeight, false, SurfaceFormat.HdrBlendable, DepthFormat.None);
+            }
         }
 
+        /// <summary>
+        /// The bloom pyramid (#69): the bright pass lands in the half-resolution head, is downsampled level
+        /// by level to the foot, and each level is tent-upsampled ADDITIVELY into the one above — the head
+        /// ends carrying its own tight halo plus every wider one, and the tonemap reads just the head.
+        /// </summary>
         private void DrawGlare()
         {
             GraphicsDevice.BlendState = BlendState.Opaque;
@@ -3342,16 +3353,35 @@ namespace BS3D
             GraphicsDevice.RasterizerState = RasterizerState.CullNone;
             GraphicsDevice.SetVertexBuffer(_fullScreenQuad);
 
-            GraphicsDevice.SetRenderTarget(_glareBright);
+            GraphicsDevice.SetRenderTarget(_bloomChain[0]);
             _glareEffect.CurrentTechnique = _glareBrightPassTechnique;
             _glareSourceTextureParam.SetValue(_sceneTarget);
             DrawFullScreenQuad(_glareEffect);
 
-            GraphicsDevice.SetRenderTarget(_glareStreak);
-            _glareEffect.CurrentTechnique = _glareStreakTechnique;
-            _glareSourceTextureParam.SetValue(_glareBright);
-            _glareSourceTexelSizeParam.SetValue(new Vector2(1f / _glareBright.Width, 1f / _glareBright.Height));
-            DrawFullScreenQuad(_glareEffect);
+            _glareEffect.CurrentTechnique = _bloomDownTechnique;
+
+            for (int i = 1; i < BLOOM_LEVELS; i++)
+            {
+                GraphicsDevice.SetRenderTarget(_bloomChain[i]);
+                _glareSourceTextureParam.SetValue(_bloomChain[i - 1]);
+                _glareSourceTexelSizeParam.SetValue(new Vector2(1f / _bloomChain[i - 1].Width, 1f / _bloomChain[i - 1].Height));
+                DrawFullScreenQuad(_glareEffect);
+            }
+
+            //Back up the pyramid, ADDING each level into the one above: the down pass's own content still
+            //sits in the destination, so the upsample accumulates onto it and no extra target is needed.
+            GraphicsDevice.BlendState = BlendState.Additive;
+            _glareEffect.CurrentTechnique = _bloomUpTechnique;
+
+            for (int i = BLOOM_LEVELS - 1; i >= 1; i--)
+            {
+                GraphicsDevice.SetRenderTarget(_bloomChain[i - 1]);
+                _glareSourceTextureParam.SetValue(_bloomChain[i]);
+                _glareSourceTexelSizeParam.SetValue(new Vector2(1f / _bloomChain[i].Width, 1f / _bloomChain[i].Height));
+                DrawFullScreenQuad(_glareEffect);
+            }
+
+            GraphicsDevice.BlendState = BlendState.Opaque;
         }
 
         /// <summary>
@@ -3366,7 +3396,7 @@ namespace BS3D
 
             //The constants (exposure, glare intensity, supersample factor, the two underwater colours) were
             //set once in LoadContent and persist on the effect; only what can change goes out per frame
-            _tonemapGlareTextureParam.SetValue(_glareStreak);
+            _tonemapGlareTextureParam.SetValue(_bloomChain[0]);
             _tonemapSceneTextureParam.SetValue(_sceneTarget);
             _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
 
@@ -3418,8 +3448,7 @@ namespace BS3D
         protected override void UnloadContent()
         {
             _sceneTarget?.Dispose();
-            _glareBright?.Dispose();
-            _glareStreak?.Dispose();
+            if (_bloomChain != null) foreach (RenderTarget2D level in _bloomChain) level?.Dispose();
             _fullScreenQuad?.Dispose();
             _spriteBatch?.Dispose();
             _pixel?.Dispose();

@@ -101,22 +101,27 @@ namespace MapEditor
         private const int SUPERSAMPLE_FACTOR = 2;
         private const float DEFAULT_EXPOSURE = 1.1f;
 
-        private static readonly int GLARE_DOWNSAMPLE = 4;
+        private static readonly int BLOOM_LEVELS = 5;
         private static readonly float GLARE_THRESHOLD = 0.38f;
-        private static readonly float GLARE_STREAK_LENGTH = 34f;
-        private static readonly float GLARE_STREAK_FALLOFF = 3.2f;
-        private static readonly float GLARE_INTENSITY = 1.3f;
+
+        //The pyramid accumulates on the way up (see the Testbed's figure and reasoning), so the intensity
+        //sits far under the old streak star's — and matches the game's, so a map previews with its bloom.
+        private static readonly float GLARE_INTENSITY = 0.5f;
 
         private RenderTarget2D _sceneTarget;
-        private RenderTarget2D _glareBright;
-        private RenderTarget2D _glareStreak;
+
+        //The bloom pyramid (#69): half down to a thirty-second of the back buffer, bright pass in the head,
+        //additive tent upsamples accumulating the halos on the way back up. The Testbed's plumbing exactly.
+        private RenderTarget2D[] _bloomChain;
+
         private Effect _tonemapEffect;
         private Effect _glareEffect;
         private VertexBuffer _fullScreenQuad;
 
         //Cached in LoadContent: the resolve runs every frame, and the by-name indexer is a linear scan
         private EffectTechnique _glareBrightPassTechnique;
-        private EffectTechnique _glareStreakTechnique;
+        private EffectTechnique _bloomDownTechnique;
+        private EffectTechnique _bloomUpTechnique;
         private EffectParameter _glareSourceTextureParam;
         private EffectParameter _glareSourceTexelSizeParam;
         private EffectParameter _tonemapGlareTextureParam;
@@ -295,7 +300,8 @@ namespace MapEditor
             _glareEffect = Content.Load<Effect>("Shaders/Glare");
 
             _glareBrightPassTechnique = _glareEffect.Techniques["BrightPass"];
-            _glareStreakTechnique = _glareEffect.Techniques["Streak"];
+            _bloomDownTechnique = _glareEffect.Techniques["BloomDown"];
+            _bloomUpTechnique = _glareEffect.Techniques["BloomUp"];
             _glareSourceTextureParam = _glareEffect.Parameters["SourceTexture"];
             _glareSourceTexelSizeParam = _glareEffect.Parameters["SourceTexelSize"];
             _tonemapGlareTextureParam = _tonemapEffect.Parameters["GlareTexture"];
@@ -304,8 +310,6 @@ namespace MapEditor
 
             //Fixed for the whole run, so they are set exactly once (a parameter's value persists on the effect)
             _glareEffect.Parameters["GlareThreshold"].SetValue(GLARE_THRESHOLD);
-            _glareEffect.Parameters["StreakLength"].SetValue(GLARE_STREAK_LENGTH);
-            _glareEffect.Parameters["StreakFalloff"].SetValue(GLARE_STREAK_FALLOFF);
             _tonemapEffect.Parameters["GlareIntensity"].SetValue(GLARE_INTENSITY);
             _tonemapEffect.Parameters["SupersampleFactor"].SetValue(SUPERSAMPLE_FACTOR);
             _tonemapEffect.Parameters["Exposure"].SetValue(DEFAULT_EXPOSURE);
@@ -948,20 +952,23 @@ namespace MapEditor
             _sceneTarget = new RenderTarget2D(GraphicsDevice, width, height, false, SurfaceFormat.HdrBlendable,
                 DepthFormat.Depth24Stencil8, SUPERSAMPLE_FACTOR > 1 ? 0 : MSAA_SAMPLES, RenderTargetUsage.DiscardContents);
 
-            //Sized off the back buffer, not the supersampled target: the glare is blurred anyway
-            int glareWidth = Math.Max(GraphicsDevice.PresentationParameters.BackBufferWidth / GLARE_DOWNSAMPLE, 1);
-            int glareHeight = Math.Max(GraphicsDevice.PresentationParameters.BackBufferHeight / GLARE_DOWNSAMPLE, 1);
+            //Sized off the back buffer, not the supersampled target: the glare is blurred anyway. Level zero
+            //is HALF the back buffer and each level halves again.
+            if (_bloomChain != null) foreach (RenderTarget2D level in _bloomChain) level?.Dispose();
 
-            _glareBright?.Dispose();
-            _glareStreak?.Dispose();
-
-            _glareBright = new RenderTarget2D(GraphicsDevice, glareWidth, glareHeight, false, SurfaceFormat.HdrBlendable, DepthFormat.None);
-            _glareStreak = new RenderTarget2D(GraphicsDevice, glareWidth, glareHeight, false, SurfaceFormat.HdrBlendable, DepthFormat.None);
+            _bloomChain = new RenderTarget2D[BLOOM_LEVELS];
+            for (int i = 0; i < BLOOM_LEVELS; i++)
+            {
+                int levelWidth = Math.Max(GraphicsDevice.PresentationParameters.BackBufferWidth >> (i + 1), 1);
+                int levelHeight = Math.Max(GraphicsDevice.PresentationParameters.BackBufferHeight >> (i + 1), 1);
+                _bloomChain[i] = new RenderTarget2D(GraphicsDevice, levelWidth, levelHeight, false, SurfaceFormat.HdrBlendable, DepthFormat.None);
+            }
         }
 
         /// <summary>
-        /// Extracts what is bright enough to glare and smears it into a star of streaks, both passes at
-        /// quarter resolution. Runs between the scene and the tonemap.
+        /// The bloom pyramid (#69): bright pass into the half-resolution head, downsample to the foot, then
+        /// tent-upsample each level ADDITIVELY into the one above; the tonemap reads the head. Runs between
+        /// the scene and the tonemap — the Testbed's plumbing exactly, so a map previews with its bloom.
         /// </summary>
         private void DrawGlare()
         {
@@ -972,16 +979,35 @@ namespace MapEditor
 
             //Techniques and parameters through the references cached in LoadContent (the by-name indexer is
             //a linear scan, and this runs every frame); the constants went out once there
-            GraphicsDevice.SetRenderTarget(_glareBright);
+            GraphicsDevice.SetRenderTarget(_bloomChain[0]);
             _glareEffect.CurrentTechnique = _glareBrightPassTechnique;
             _glareSourceTextureParam.SetValue(_sceneTarget);
             DrawFullScreenQuad(_glareEffect);
 
-            GraphicsDevice.SetRenderTarget(_glareStreak);
-            _glareEffect.CurrentTechnique = _glareStreakTechnique;
-            _glareSourceTextureParam.SetValue(_glareBright);
-            _glareSourceTexelSizeParam.SetValue(new Vector2(1f / _glareBright.Width, 1f / _glareBright.Height));
-            DrawFullScreenQuad(_glareEffect);
+            _glareEffect.CurrentTechnique = _bloomDownTechnique;
+
+            for (int i = 1; i < BLOOM_LEVELS; i++)
+            {
+                GraphicsDevice.SetRenderTarget(_bloomChain[i]);
+                _glareSourceTextureParam.SetValue(_bloomChain[i - 1]);
+                _glareSourceTexelSizeParam.SetValue(new Vector2(1f / _bloomChain[i - 1].Width, 1f / _bloomChain[i - 1].Height));
+                DrawFullScreenQuad(_glareEffect);
+            }
+
+            //Back up the pyramid, ADDING each level into the one above (the down pass's content still sits
+            //in the destination, so the upsample accumulates onto it).
+            GraphicsDevice.BlendState = BlendState.Additive;
+            _glareEffect.CurrentTechnique = _bloomUpTechnique;
+
+            for (int i = BLOOM_LEVELS - 1; i >= 1; i--)
+            {
+                GraphicsDevice.SetRenderTarget(_bloomChain[i - 1]);
+                _glareSourceTextureParam.SetValue(_bloomChain[i]);
+                _glareSourceTexelSizeParam.SetValue(new Vector2(1f / _bloomChain[i].Width, 1f / _bloomChain[i].Height));
+                DrawFullScreenQuad(_glareEffect);
+            }
+
+            GraphicsDevice.BlendState = BlendState.Opaque;
         }
 
         private void DrawFullScreenQuad(Effect effect)
@@ -1023,7 +1049,7 @@ namespace MapEditor
 
             //The constants (exposure, glare intensity, supersample factor) were set once in LoadContent and
             //persist on the effect; only the targets and their texel size can change (a resize recreates them)
-            _tonemapGlareTextureParam.SetValue(_glareStreak);
+            _tonemapGlareTextureParam.SetValue(_bloomChain[0]);
             _tonemapSceneTextureParam.SetValue(_sceneTarget);
             _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
 
@@ -1105,8 +1131,7 @@ namespace MapEditor
         protected override void UnloadContent()
         {
             _sceneTarget?.Dispose();
-            _glareBright?.Dispose();
-            _glareStreak?.Dispose();
+            if (_bloomChain != null) foreach (RenderTarget2D level in _bloomChain) level?.Dispose();
             _fullScreenQuad?.Dispose();
             _sceneRenderer?.Dispose();
             _cityRenderer?.Dispose();
