@@ -7,10 +7,12 @@
 //The caller draws no dome and no cloud deck, suppresses the cloud shadow on the instanced effect, and takes
 //the scene's own light rig (CavernLightingConfig).
 //
-//The scene is ANALYTIC, never marched except where marching is gated and cheap: the cave is a noise-shaded
-//cylinder-and-ceiling shell (a quadratic and a plane), the river is a plane whose REFLECTION is the wall
-//shading function evaluated a second time along the reflected ray - a real mirror of the real cave, where a
-//screen-space approximation would smear - and the crystals are the one raymarched element, gated per
+//The scene is ANALYTIC except where marching earns its keep: the cave is a noise-shaded
+//cylinder-and-ceiling shell (a quadratic and a plane); the river is a MARCHED HEIGHT FIELD near the lens -
+//real waves with real silhouettes, a spectrum spread over a decade of wavelengths like the sea's, fading
+//to the flat plane with distance the way the sea's swell does - whose REFLECTION is the wall shading
+//function evaluated a second time along the reflected ray - a real mirror of the real cave, where a
+//screen-space approximation would smear; and the crystals are the other marched element, gated per
 //cluster by analytic bounding spheres exactly as the dream's solids are. The god rays and the spores are
 //closest-approach glows with no geometry at all.
 //
@@ -54,8 +56,9 @@ float FogDensity;          //exponential distance-fog density
 float WaterLevelY;         //the river's surface plane, well under the island
 float3 WaterDeepColor;     //what the depths transmit (linear, dark)
 float3 WaterGlowColor;     //the bioluminescent glow the crests carry (linear, allowed over the threshold)
-float WaveScale;           //interference-wave frequency across the surface
-float WaveSpeed;
+float WaveScale;           //global frequency multiplier on the wave spectrum (0.16 = the authored look)
+float WaveSpeed;           //global speed multiplier on the spectrum's dispersion (0.8 = the authored look)
+float WaveAmplitude;       //the dominant swell's height in world units; the spectrum weights hang off it
 float CausticStrength;     //the caustic shimmer added where the eye looks into the water
 float3 MistColor;          //the steam standing over the river (linear) - the water's glow diffused
 float MistDensity;         //optical density of the steam AT the water surface, per world unit
@@ -188,12 +191,23 @@ float3 ShadeWall(float3 position, float distanceTravelled)
 	float crack = RidgedFbm3(position * 0.020, 3);
 	rock *= 1.0 - 0.4 * saturate(crack - 0.3);
 
-	//The mineral veins: the ridges of a noise field - thin where |noise| is small - raised to a power so
-	//only the ridge lines survive, threading the rock the way ore veins follow cracks. They glow gently:
-	//bright enough to read as luminous minerals, far under the crystals they feed.
-	float2 wallUv = float2(atan2(position.z, position.x) * CaveRadius * 0.5, position.y);
-	float veinField = CloudNoise(wallUv * 0.033 + 7.0);
-	float vein = pow(saturate(1.0 - abs(veinField) * 2.6), 6.0);
+	//The waterline stain: rock within a few units of the river is WET - darker, as wet stone is - which
+	//absorbs whatever mismatch survives the water's shore band and the steam, and reads as a cave with a
+	//real water level instead of a geometric intersection.
+	rock *= lerp(0.45, 1.0, smoothstep(0.0, 3.0, position.y - WaterLevelY));
+
+	//The mineral veins: ridge lines of a 3D field of WORLD POSITION - thin where |noise| is small, raised
+	//to a power so only the ridge lines survive. This was the one field in the scene that was 2D-
+	//parameterized instead (atan2 of the bearing), and it paid twice: the branch cut stood as a full-
+	//height seam of unrelated pattern down the -X wall (mirrored again by the river), and on the ceiling,
+	//where y is constant, the mapping degenerated to radial spokes converging on a singularity over the
+	//origin. A 3D field has no seam and no pole by construction, and its ceiling slice continues its wall
+	//slice across their junction for free - exactly like the bump, body and crack fields above, which
+	//were 3D from the start. The patch mask keeps the veins THREADING - ore follows some fractures and
+	//leaves others bare - where the unmasked web wallpapered the whole cave with even neon.
+	float veinField = Fbm3(position * 0.022 + 7.0, 3);
+	float vein = pow(saturate(1.0 - abs(veinField) * 2.4), 6.0);
+	vein *= smoothstep(-0.04, 0.36, Fbm3(position * 0.0065 + 13.0, 2));
 
 	//The light: a cool key falling from the ceiling gaps against the perturbed normal, and each crystal
 	//as a REAL point light - N dot L towards it over inverse square - so the rock around a magenta
@@ -229,7 +243,9 @@ float MistAmount(float3 origin, float3 direction, float t, float density)
 {
 	float h0 = max(origin.y - WaterLevelY, 0.0) / MistHeight;
 	float dh = direction.y * t / MistHeight;
-	float column = t * exp(-h0) * (abs(dh) > 1e-3 ? (1.0 - exp(-dh)) / dh : 1.0);
+	//The 1e-4 threshold keeps the near-horizontal select's step at ~5e-5 of the column - far below one
+	//display code either side of the tonemap - where 1e-3 was already a real (if invisible) hard select.
+	float column = t * exp(-h0) * (abs(dh) > 1e-4 ? (1.0 - exp(-dh)) / dh : 1.0);
 
 	return 1.0 - exp(-column * density);
 }
@@ -252,14 +268,43 @@ float CaveShellDistance(float3 origin, float3 direction)
 	return min(tWall, tCeiling);
 }
 
-//The river's wave field: two interference sine sets scrolled against each other. The DERIVATIVE of this
-//(the analytic gradient below) is the water normal - summed sines, never multiplied, the ball relief's
-//crosshatch lesson.
-float WaveHeight(float2 p, float t)
+//--- The river's wave spectrum ----------------------------------------------------------------------------
+//Seven components over a decade of wavelengths, directions fanned so no two are near-parallel - the sea's
+//spectrum shape at the cave's scale. A plain sum-of-sines HEIGHT field (the march below needs height as a
+//function of xz; Gerstner's horizontal pinch would break that), summed and never multiplied, the ball
+//relief's crosshatch lesson. Frequencies ride the deep-water dispersion (w = sqrt(g k)), which is what
+//makes the long swell visibly outrun the chop instead of the whole surface sliding as one sheet.
+#define RIVER_WAVE_COUNT 7
+static const float2 RIVER_DIR[RIVER_WAVE_COUNT] = {
+	float2(0.94, 0.33), float2(-0.48, 0.88), float2(0.82, -0.58), float2(0.15, 0.99),
+	float2(-0.97, -0.24), float2(0.55, 0.84), float2(-0.87, 0.49) };
+static const float RIVER_LEN[RIVER_WAVE_COUNT] = { 26.0, 14.5, 8.8, 5.2, 3.1, 1.9, 1.15 };
+static const float RIVER_AMP[RIVER_WAVE_COUNT] = { 1.0, 0.62, 0.38, 0.22, 0.13, 0.07, 0.045 };
+static const float RIVER_PHASE[RIVER_WAVE_COUNT] = { 0.0, 1.7, 3.9, 2.6, 5.1, 0.8, 4.3 };
+static const float RIVER_AMP_SUM = 2.465;   //the weights above summed: the swell's worst-case reach
+
+//How high the surface stands over the mean plane at p, in world units. The amplitude dies between 70 and
+//170 units of horizontal distance from the lens - the sea's own fade - so the far river is the flat plane
+//again: the march window collapses, the far silhouette cannot alias, and the steam owns that distance
+//anyway. WaveScale and WaveSpeed act as global multipliers around their shipped defaults (0.16 and 0.8
+//map to 1.0), so a config that meant "calmer, slower" still means it.
+float RiverHeight(float2 p, float t)
 {
-	return sin(dot(p, float2(0.9, 0.35)) * WaveScale + t * WaveSpeed)
-		+ 0.6 * sin(dot(p, float2(-0.4, 1.0)) * WaveScale * 1.7 - t * WaveSpeed * 0.8)
-		+ 0.35 * sin(dot(p, float2(0.2, -0.95)) * WaveScale * 2.9 + t * WaveSpeed * 1.3);
+	float freqScale = WaveScale * 6.25;
+	float timeScale = WaveSpeed * 1.25;
+	float fade = 1.0 - smoothstep(70.0, 170.0, length(p - CameraPosition.xz));
+
+	float h = 0.0;
+
+	[unroll]
+	for (int w = 0; w < RIVER_WAVE_COUNT; w++)
+	{
+		float k = 6.2832 / RIVER_LEN[w] * freqScale;
+		float omega = sqrt(9.81 * k) * timeScale;
+		h += RIVER_AMP[w] * sin(dot(p, normalize(RIVER_DIR[w])) * k + t * omega + RIVER_PHASE[w]);
+	}
+
+	return h * (WaveAmplitude * fade);
 }
 
 struct CavernVertexInput
@@ -302,36 +347,85 @@ float4 CavernPS(CavernVertexOutput input) : COLOR
 	[branch]
 	if (tWater < tShell)
 	{
-		//THE RIVER. The wave normal comes from the height field's analytic gradient - the same three sines
-		//differentiated - tilted gently so the mirror stays recognisable rather than shattering.
+		//THE RIVER - displaced geometry now, not a textured plane. Near the lens the ray is MARCHED
+		//against the height field through the band the waves can reach: sixteen fixed steps bracket the
+		//first crossing (the band's bottom is always below the field, so a crossing is guaranteed), one
+		//secant step lands on it - cheap and stable for a field this smooth. The waves get real
+		//silhouettes and catch the glints on their flanks. Past the amplitude fade (RiverHeight) the
+		//band is empty and the plane hit is exact, so the march is skipped outright.
 		tSolid = tWater;
 		float3 hit = CameraPosition + direction * tWater;
 
+		float ampMax = WaveAmplitude * RIVER_AMP_SUM + 0.05;
+		float horizontalAtPlane = tWater * length(direction.xz);
+
+		[branch]
+		if (horizontalAtPlane < 168.0)
+		{
+			float tTop = (WaterLevelY + ampMax - CameraPosition.y) / direction.y;
+			float tBottom = (WaterLevelY - ampMax - CameraPosition.y) / direction.y;
+			float tA = max(tTop, 0.0);
+			float tB = min(tBottom, tShell);
+
+			float tPrev = tA;
+			float fPrev = CameraPosition.y + direction.y * tA - WaterLevelY
+				- RiverHeight(CameraPosition.xz + direction.xz * tA, t);
+
+			[loop]
+			for (int ms = 1; ms <= 16; ms++)
+			{
+				float ti = lerp(tA, tB, ms / 16.0);
+				float fi = CameraPosition.y + direction.y * ti - WaterLevelY
+					- RiverHeight(CameraPosition.xz + direction.xz * ti, t);
+
+				[branch]
+				if (fi < 0.0)
+				{
+					tSolid = tPrev + (ti - tPrev) * fPrev / max(fPrev - fi, 1e-4);
+					break;
+				}
+
+				tPrev = ti;
+				fPrev = fi;
+			}
+
+			hit = CameraPosition + direction * tSolid;
+		}
+
+		//The wave normal: the height field's gradient at FULL strength - this is a real surface now, and
+		//a real surface's mirror is allowed to break up on the chop; the fresnel floor below keeps it
+		//legible. (The old plane damped its fake normal to 0.18 of this, which is half of why it read as
+		//a floor.)
 		float2 p = hit.xz;
-		float e = 0.6;
-		float h = WaveHeight(p, t);
-		float2 grad = float2(WaveHeight(p + float2(e, 0.0), t) - h, WaveHeight(p + float2(0.0, e), t) - h) / e;
-		float3 normal = normalize(float3(-grad.x * 0.18, 1.0, -grad.y * 0.18));
+		const float eW = 0.3;
+		float h = RiverHeight(p, t);
+		float2 grad = float2(RiverHeight(p + float2(eW, 0.0), t) - h, RiverHeight(p + float2(0.0, eW), t) - h) / eW;
+		float3 normal = normalize(float3(-grad.x, 1.0, -grad.y));
 
 		//The reflection is the CAVE, evaluated again along the reflected ray - walls, veins, fog, crystal
 		//light and all. One extra shell test and wall shade per water pixel, and the river genuinely
 		//mirrors the cavern standing over it.
 		float3 bounced = reflect(direction, normal);
-		bounced.y = abs(bounced.y);   //a wave can fold the ray downward; the mirror looks up
+
+		//A wave can fold the reflected ray downward; the mirror looks up. abs() used to fold the IMAGE
+		//back on itself along that locus - a doubled strip of mirrored wall sliding with the waves - so
+		//the fold is a SOFT max against zero now: same guarantee, no reversal, no crease.
+		bounced.y = 0.5 * (bounced.y + sqrt(bounced.y * bounced.y + 0.02));
+		bounced = normalize(bounced);
+
 		float tReflected = CaveShellDistance(hit, bounced);
-		float3 mirrored = ShadeWall(hit + bounced * tReflected, tWater + tReflected);
+		float3 mirrored = ShadeWall(hit + bounced * tReflected, tSolid + tReflected);
 
 		//The mirror shows the steam too: the reflected path starts ON the surface, in the layer's densest
 		//air, so without this the water would reflect a crisper cave than the one standing over it.
 		mirrored = lerp(mirrored, MistColor, MistAmount(hit, bounced, tReflected, MistDensity));
 
-		//Fresnel: grazing looks mirror, steep looks into the water - where the depths transmit their dark
-		//colour, the caustic shimmer plays (the wave crests focused on the riverbed, cheap: the height
-		//field re-read at a second scale, sharpened), and the crystals pool their light. The floor is
-		//high for water: a cave river is a black mirror before it is a window, and at 0.06 the reflection
-		//never read at all from the play camera's angle.
+		//Fresnel: grazing looks mirror, steep looks into the water. The floor sits at 0.25 - HIGH for
+		//water, deliberately: a cave river is a black mirror before it is a window, and the more the
+		//depths (and their caustic web) show through, the more the surface reads as a patterned floor
+		//instead of standing water. The mirror, the crest glow and the glints carry the read.
 		float fresnel = pow(1.0 - saturate(dot(normal, -direction)), 5.0);
-		fresnel = lerp(0.22, 1.0, fresnel);
+		fresnel = lerp(0.25, 1.0, fresnel);
 
 		//Caustics as a CELLULAR EDGE field: the bright net where wavelets focus runs along the borders
 		//between Voronoi cells (VoronoiEdge2 is zero exactly there), which is what real pool caustics
@@ -346,12 +440,35 @@ float4 CavernPS(CavernVertexOutput input) : COLOR
 			+ WaterGlowColor * caustic * CausticStrength
 			+ WaterDeepColor * CrystalLightAt(hit) * 6.0;
 
-		color = lerp(depths, mirrored, fresnel);
+		//The SHORE BAND: over the last few units before the wall the water shows pure mirror. The mirror
+		//of the wall right above the contact converges to that wall by construction, so the two shading
+		//rules meet at a shared value - where the depths and the crest glow converge to nothing on the
+		//rock side, and used to step across the contact circle in a machined edge. The steam only covers
+		//that seam for grazing rays; a steep look at a near shoreline got the raw line.
+		float shore = saturate((CaveRadius - length(p)) * 0.11);
 
-		//The crests carry the bioluminescence itself: the higher the wave stands, the more its organisms
-		//glow - the river's own light. Normalized like the caustics, and for the same reason.
-		float crest = saturate(0.5 + 0.5 * h / 1.95);
-		color += WaterGlowColor * pow(crest, 5.0) * 0.4;
+		color = lerp(mirrored, depths, (1.0 - fresnel) * shore);
+
+		//The crests carry the bioluminescence itself - riding the real marched height now, so the glow
+		//sits on the actual wave tops.
+		float crest = saturate(0.5 + 0.5 * h / max(ampMax, 0.2));
+		color += WaterGlowColor * (pow(crest, 5.0) * 0.5 * shore);
+
+		//And the crystals GLINT on the chop - the cave's stand-in for the sea's sun sparkle: a Blinn lobe
+		//on the wave normal towards each cluster, inverse-square like every other crystal term, riding
+		//the pulse so the sparkles breathe with their sources.
+		[unroll]
+		for (int g = 0; g < CRYSTAL_COUNT; g++)
+		{
+			float fg = (float)g;
+			float3 toGlint = CrystalCenter(fg) - hit;
+			float dg2 = dot(toGlint, toGlint);
+			float3 halfway = normalize(toGlint * rsqrt(max(dg2, 1e-4)) - direction);
+			float glint = pow(saturate(dot(normal, halfway)), 90.0);
+
+			color += CrystalColor(fg)
+				* (glint * CrystalPulse(fg) * (CrystalWallLight * 8.0) / (1.0 + dg2 * 0.0016));
+		}
 	}
 	else
 	{
@@ -360,44 +477,12 @@ float4 CavernPS(CavernVertexOutput input) : COLOR
 		color = ShadeWall(CameraPosition + direction * tShell, tShell);
 	}
 
-	//--- The god rays: vertical shafts from unseen gaps above, as closest-approach glows to fixed vertical
-	//lines - no geometry, no march. Each fades with height below the ceiling (light thins as it falls),
-	//breathes on its own slow cycle, and carries a dust shimmer down its length.
-	[unroll]
-	for (int r = 0; r < RAY_COUNT; r++)
-	{
-		float fr = (float)r;
-		float angle = fr * 1.62 + 0.4;
-		float2 beamXz = float2(cos(angle), sin(angle)) * CaveRadius * (0.30 + 0.14 * frac(fr * 0.53));
-
-		//Closest approach of the view ray to the beam's vertical line, in the XZ plane.
-		float2 oxz = CameraPosition.xz - beamXz;
-		float2 dxz = direction.xz;
-		float along = -dot(oxz, dxz) / max(dot(dxz, dxz), 1e-5);
-		along = clamp(along, 0.0, tSolid);
-		float3 nearest = CameraPosition + direction * along;
-		float2 offset = nearest.xz - beamXz;
-
-		float shaft = exp(-dot(offset, offset) / 90.0);
-
-		//Height envelope: strongest just under the ceiling, gone by the water; the beam breathes and its
-		//dust drifts downward on the shared noise.
-		float fall = saturate((CaveCeilingY - nearest.y) / (CaveCeilingY - WaterLevelY));
-		float envelope = saturate(1.2 - fall * 1.4);
-
-		//The dust in the shaft: fractal, and drifting DOWN the beam - a shaft of light is visible only
-		//because of what floats through it, and a single smooth noise read as a slow flicker where an
-		//fBm reads as motes and wisps sinking.
-		float dust = 0.55 + 0.5 * Fbm2(float2(fr * 9.0 + nearest.x * 0.06, nearest.y * 0.07 + t * 0.30), 3);
-		float breathe = 0.7 + 0.3 * sin(t * 0.11 + fr * 2.6);
-
-		color += GodRayColor * (shaft * envelope * dust * breathe * GodRayStrength);
-	}
-
-	//--- The crystals: the one raymarched element, gated per cluster (the dream's pattern). A cluster is
-	//three interpenetrating octahedra - the sharpest cheap SDF there is, and sharp is what a crystal means -
-	//standing on the wall, marched only when the ray crosses its bounding sphere and only up to the solid
-	//already found.
+	//--- The crystals, gated per cluster (the dream's pattern). A cluster is three interpenetrating
+	//octahedra - the sharpest cheap SDF there is, and sharp is what a crystal means - standing on the
+	//wall, marched only when the ray crosses its bounding sphere and only up to the solid already found.
+	//BEFORE the god rays, deliberately: the crystal branch replaces the pixel wholesale, and when the
+	//shafts were accumulated first, every shaft crossing a cluster was punched out along the crystal's
+	//silhouette - the beam switched off across the outline as the camera orbited.
 	float bestT = tSolid;
 	float bestCluster = -1.0;
 
@@ -482,17 +567,55 @@ float4 CavernPS(CavernVertexOutput input) : COLOR
 		color = own * (CrystalEmission * pulse * (0.30 + 0.35 * rim + 0.45 * facetLight) * (0.45 + 0.55 * ao));
 	}
 
+	//--- The god rays: vertical shafts from unseen gaps above, as closest-approach glows to fixed vertical
+	//lines - no geometry, no march. Each fades with height below the ceiling (light thins as it falls),
+	//breathes on its own slow cycle, and carries a dust shimmer down its length. Clamped to bestT, so a
+	//crystal truncates the beam exactly where its face stands, and the segment in FRONT of the crystal
+	//still glows.
+	[unroll]
+	for (int r = 0; r < RAY_COUNT; r++)
+	{
+		float fr = (float)r;
+		float angle = fr * 1.62 + 0.4;
+		float2 beamXz = float2(cos(angle), sin(angle)) * CaveRadius * (0.30 + 0.14 * frac(fr * 0.53));
+
+		//Closest approach of the view ray to the beam's vertical line, in the XZ plane.
+		float2 oxz = CameraPosition.xz - beamXz;
+		float2 dxz = direction.xz;
+		float along = -dot(oxz, dxz) / max(dot(dxz, dxz), 1e-5);
+		along = clamp(along, 0.0, bestT);
+		float3 nearest = CameraPosition + direction * along;
+		float2 offset = nearest.xz - beamXz;
+
+		float shaft = exp(-dot(offset, offset) / 90.0);
+
+		//Height envelope: strongest just under the ceiling, gone by the water, and C1 the whole way down
+		//(the old clamped ramp put a visible Mach shelf at each end of its ramp - the eye picks derivative
+		//breaks out of a smooth additive glow); the beam breathes and its dust drifts downward.
+		float fall = saturate((CaveCeilingY - nearest.y) / (CaveCeilingY - WaterLevelY));
+		float envelope = 1.0 - smoothstep(0.0, 0.857, fall);
+
+		//The dust in the shaft: fractal, and drifting DOWN the beam - a shaft of light is visible only
+		//because of what floats through it, and a single smooth noise read as a slow flicker where an
+		//fBm reads as motes and wisps sinking.
+		float dust = 0.55 + 0.5 * Fbm2(float2(fr * 9.0 + nearest.x * 0.06, nearest.y * 0.07 + t * 0.30), 3);
+		float breathe = 0.7 + 0.3 * sin(t * 0.11 + fr * 2.6);
+
+		color += GodRayColor * (shaft * envelope * dust * breathe * GodRayStrength);
+	}
+
 	//--- The river's steam, over whatever the ray has gathered so far - the solid it ended on (rock, water
 	//or crystal) and the god rays' lower reaches, which rightly sink into it: the exponential height layer
 	//integrated along the view ray (see MistAmount). An fBm wisp factor on the OPTICAL DEPTH, not on the
 	//blend - so the far shoreline still saturates to a full veil while the mid-water steam visibly drifts -
-	//keeps it steam rather than a uniform grade. The spores are added after: a mote climbs OUT of the layer,
+	//keeps it steam rather than a uniform grade. The wisp is keyed to the RAY DIRECTION, not the hit point:
+	//bestT jumps across every crystal silhouette, and a hit-keyed wisp printed a ghostly crystal-shaped
+	//cutout into the fog behind each cluster. The spores are added after: a mote climbs OUT of the layer,
 	//and stays visible doing it.
-	float3 solidHit = CameraPosition + direction * bestT;
-	float wisp = 0.8 + 0.2 * Fbm2(solidHit.xz * 0.014 + float2(t * 0.05, t * 0.035), 2);
+	float wisp = 0.8 + 0.2 * Fbm2(direction.xz * 2.6 + float2(t * 0.05, t * 0.035), 2);
 	color = lerp(color, MistColor, MistAmount(CameraPosition, direction, bestT, MistDensity * wisp));
 
-	//--- The spores: slow rising motes, swaying as they climb, wrapping over the cave's height for ever.
+	//--- The spores: slow rising motes, swaying as they climb, reborn at the water for ever.
 	//Closest-approach gaussians like the dream's sparks, but SLOW - the cave's stillness is the point.
 	[unroll]
 	for (int s = 0; s < SPORE_COUNT; s++)
@@ -501,20 +624,29 @@ float4 CavernPS(CavernVertexOutput input) : COLOR
 		float lane = frac(fs * 0.618);
 		float riseSpan = CaveCeilingY - WaterLevelY;
 
+		//The climb wraps on a CONTINUOUS envelope: born dark at the water, bright through the middle,
+		//dimmed out just under the ceiling. The raw fmod teleported each mote from the ceiling to the
+		//water at full brightness - a hard pop every few seconds somewhere in view, in a scene whose
+		//whole point is stillness.
+		float phase = frac((fs * 11.0 + t * (1.6 + lane * 1.4)) / riseSpan);
+		float sporeFade = smoothstep(0.0, 0.06, phase) * (1.0 - smoothstep(0.90, 1.0, phase));
+
 		float3 center;
-		center.y = WaterLevelY + fmod(fs * 11.0 + t * (1.6 + lane * 1.4), riseSpan);
+		center.y = WaterLevelY + phase * riseSpan;
 		float swayAngle = fs * 2.4 + t * (0.10 + lane * 0.06);
 		float ringRadius = CaveRadius * (0.25 + 0.55 * frac(fs * 0.373));
 		center.x = cos(swayAngle) * ringRadius + sin(t * 0.5 + fs * 3.1) * 3.0;
 		center.z = sin(swayAngle) * ringRadius + cos(t * 0.43 + fs * 1.7) * 3.0;
 
-		//Closest approach along the ray, clamped to in-front: a mote drifting BEHIND the lens must not
-		//glow through it (the dream's sparks learned the same clamp).
+		//Closest approach along the ray, clamped to in-front AND to the solid: a mote drifting behind the
+		//lens must not glow through it (the dream's sparks learned the clamp), and a mote drifting behind
+		//a CRYSTAL must not shine through the crystal's face - this loop runs after the march, so bestT
+		//is final and the gaussian's tail fades continuously as the mote recedes behind the spar.
 		float3 toSpore = center - CameraPosition;
-		float along = max(dot(toSpore, direction), 0.0);
+		float along = clamp(dot(toSpore, direction), 0.0, bestT);
 		float3 offset = toSpore - direction * along;
 
-		color += SporeColor * (exp(-dot(offset, offset) / 3.0) * SporeBrightness);
+		color += SporeColor * (exp(-dot(offset, offset) / 3.0) * SporeBrightness * sporeFade);
 	}
 
 	//--- The vignette, on the backdrop alone: the cave's corners sink, the glowing centre holds the eye.

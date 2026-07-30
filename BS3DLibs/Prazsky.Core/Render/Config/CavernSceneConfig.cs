@@ -73,14 +73,22 @@ namespace Prazsky.Core.Render
         /// a crest is a smooth area wide enough to bloom steadily).</summary>
         public Rgb GlowColor { get; set; } = new(0.10f, 0.55f, 0.60f);
 
-        /// <summary>Interference-wave frequency across the surface.</summary>
+        /// <summary>Global frequency multiplier on the wave spectrum (0.16 is the authored look — the
+        /// shader maps it to 1.0, so a config that meant "calmer" still means it).</summary>
         public float WaveScale { get; set; } = 0.16f;
 
-        /// <summary>How fast the waves travel.</summary>
+        /// <summary>Global speed multiplier on the spectrum's deep-water dispersion (0.8 = authored).</summary>
         public float WaveSpeed { get; set; } = 0.8f;
 
-        /// <summary>The caustic shimmer where the eye looks into the water rather than across it.</summary>
-        public float CausticStrength { get; set; } = 0.8f;
+        /// <summary>The dominant swell's height in world units; the spectrum's seven components hang off
+        /// it with fixed weights (total reach ≈ 2.5× this). The river is displaced geometry near the
+        /// lens — marched, with real silhouettes — fading to the flat plane with distance like the sea.</summary>
+        public float WaveAmplitude { get; set; } = 0.7f;
+
+        /// <summary>The caustic shimmer where the eye looks into the water rather than across it.
+        /// Turned down from the flat-plane era's 0.8: a web bright enough to carry a textureless plane
+        /// reads as patterned flooring on real waves, which carry themselves.</summary>
+        public float CausticStrength { get; set; } = 0.5f;
 
         /// <summary>The steam standing over the river (linear) — the water's glow diffused, well under the
         /// glare threshold. It earns its keep at the waterline: the analytic wall meets the analytic river
