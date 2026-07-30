@@ -38,6 +38,11 @@ namespace BS3D.Physics
         /// the floor, the ceiling, the muzzle, the kill plane — does; the map's own positions do not, so a
         /// contact is converted down into the lattice frame before the map is asked about it, and the cell it
         /// answers with is converted back up before anything is drawn at it.
+        /// <para>
+        /// It is the offset of the <i>frame</i> and not of any particular ball: the hanging cluster does not sit
+        /// on its lattice, and how far off it is varies through it and changes as it sways. A contact is
+        /// therefore anchored at the ball it was made against as well — see <see cref="ProcessContact"/>.
+        /// </para>
         /// </summary>
         private readonly Vector3 _worldOffset;
 
@@ -94,12 +99,52 @@ namespace BS3D.Physics
 
         /// <summary>
         /// Runs on a Bepu worker thread, inside the timestep. Records and returns — see the class remarks.
+        /// <para>
+        /// <b>This is <see cref="IContactEventHandler.OnTouching"/> and not <c>OnContactAdded</c>, and the
+        /// difference is the whole accuracy of the game.</b> A shot's collidable is built from a bare shape
+        /// index, which gives it <c>ContinuousDetection.Passive</c> — an <i>unbounded speculative margin</i>,
+        /// not a sweep — so the narrow phase generates a contact as soon as the ball's velocity-expanded
+        /// bounding box reaches a cluster ball, up to a whole step of travel before anything is touched.
+        /// <c>OnContactAdded</c> is raised for those speculative contacts too (it is edge-triggered on a
+        /// feature id appearing, and its <c>depth</c> is simply negative), so attaching from there put the ball
+        /// in a cell chosen around a contact that had not happened, against whichever ball the narrow phase
+        /// paired first rather than the one the shot would have reached.
+        /// </para>
+        /// <para>
+        /// Measured before this changed, in a played level at <c>SHOOT_SPEED</c> 200 with a 1/120 s step
+        /// (1.667 units of travel per step): <b>23 of 23</b> attaches fired on a negative depth, mean −1.03 and
+        /// worst −1.60 — bounded by that per-step travel, as the mechanism predicts. The ball was placed a mean
+        /// 1.34 and a worst <b>3.79</b> units from the contact that chose the cell, in a lattice whose cells are
+        /// 1.0 across, with a vertical scatter of −1.8…+2.9 levels. A control run at 60 u/s (0.5 per step) scaled
+        /// every one of those figures by the speed almost exactly: worst depth −0.43, worst placement 1.14.
+        /// </para>
+        /// <para>
+        /// <see cref="ContactEvents"/> raises this only once a manifold contact has <c>depth &gt;= 0</c>, so the
+        /// gate is Bepu's own and there is no tolerance here to tune. It fires every step the pair keeps
+        /// touching, which is deliberate: a refusal (see <see cref="ProcessContact"/>) is then retried on the
+        /// next step as the ball slides, instead of being the ball's one and only chance.
+        /// </para>
         /// </summary>
-        public void OnContactAdded<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold,
-            Vector3 contactOffset, Vector3 contactNormal, float depth, int featureId, int contactIndex, int workerIndex)
+        public void OnTouching<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold,
+            int workerIndex)
             where TManifold : unmanaged, IContactManifold<TManifold>
         {
-            _queuedContacts.Enqueue(new QueuedContact(eventSource, pair, contactOffset));
+            //The deepest contact is the one that describes the touch. A sphere pair has exactly one, so this
+            //is a formality here — but it is the honest way to read a manifold, and the ceiling is a box.
+            float deepest = float.MinValue;
+            System.Numerics.Vector3 offset = default;
+
+            for (int i = 0; i < contactManifold.Count; i++)
+            {
+                contactManifold.GetContact(i, out System.Numerics.Vector3 candidate, out _, out float depth, out _);
+
+                if (depth <= deepest) continue;
+
+                deepest = depth;
+                offset = candidate;
+            }
+
+            _queuedContacts.Enqueue(new QueuedContact(eventSource, pair, offset));
         }
 
         /// <summary>
@@ -179,14 +224,32 @@ namespace BS3D.Physics
             }
             else if (other.Mobility == CollidableMobility.Dynamic && TryFindStructureBall(other.BodyHandle, out PhysicsBall hitBall))
             {
-                placed = _map.PutBallAtClosestEmptyPositionNextTo(mapContact, hitBall.ArrayPosition, out cell, physicsBall.Type);
+                //The lattice frame is NOT a fixed offset from the world, and treating it as one is the second
+                //source of misplaced attaches. The cluster is a soft BallSocket network rather than a rigid
+                //body: the ceiling constraint anchors a ball's top to the plate's underside, which holds the
+                //top level a full unit above its lattice position, and that hangs off towards zero further
+                //down — measured on the structure balls actually hit, +1.10 / +1.03 / +1.02 / +1.00 high in
+                //the cluster against −0.04 lower down. It also sways whenever the cluster is struck. So a
+                //contact converted by _worldOffset alone is compared against ideal cells it can be more than
+                //a level away from, and no constant could correct it.
+                //
+                //The frame is only true AT the ball that was hit, so that is where the contact is anchored:
+                //the drift is measured on that one ball and taken out of the contact. Every candidate cell is
+                //one of its neighbours, so its drift is the right local estimate for all of them, and taking
+                //the whole vector rather than its Y also takes out the sway.
+                Vector3 clusterDrift = ToXna(hitBall.BallReference.Pose.Position)
+                    - (_map.GetRealCenteredPosition(hitBall.ArrayPosition) + _worldOffset);
+
+                Vector3 anchoredContact = mapContact - clusterDrift;
+
+                placed = _map.PutBallAtClosestEmptyPositionNextTo(anchoredContact, hitBall.ArrayPosition, out cell, physicsBall.Type);
 
                 //Nothing free touching the ball it hit. Not an exotic case: the ball a shot reaches first is
                 //on the cluster's outer face, and where that face is the field's own wall there is no cell
                 //beyond it — so the pocket around an edge ball fills after a handful of shots and every ball
                 //after that would be silently eaten. Widen the search by one ring, nearest the contact first;
                 //local by construction, so the ball never lands somewhere it could not have rolled to.
-                if (placed.X == float.MinValue && TryFindCellInSecondRing(mapContact, hitBall.ArrayPosition, out XZLevel ringCell))
+                if (placed.X == float.MinValue && TryFindCellInSecondRing(anchoredContact, hitBall.ArrayPosition, out XZLevel ringCell))
                 {
                     placed = _map.PutBallAt((byte)ringCell.X, (byte)ringCell.Z, (byte)ringCell.Level, physicsBall.Type).Position;
                     cell = ringCell;
