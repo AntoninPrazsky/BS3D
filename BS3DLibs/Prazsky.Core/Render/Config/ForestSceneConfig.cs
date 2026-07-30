@@ -85,7 +85,7 @@ namespace Prazsky.Core.Render
         public float WindRippleStrength { get; set; } = 0.1f;
 
         /// <summary>Fine needle/moss texture amplitude (a normal-tilting height field).</summary>
-        public float NeedleReliefStrength { get; set; } = 0.07f;
+        public float NeedleReliefStrength { get; set; } = 0.10f;
 
         /// <summary>Fine needle/moss texture frequency.</summary>
         public float NeedleReliefFrequency { get; set; } = 1.6f;
@@ -111,8 +111,10 @@ namespace Prazsky.Core.Render
     /// </summary>
     public sealed class ForestTreeConfig
     {
-        /// <summary>Number of trees scattered across the clearing and its hills (both species together).</summary>
-        public int Count { get; set; } = 170;
+        /// <summary>Number of trees scattered across the clearing and its hills (both species together).
+        /// Dense enough that the stands read as woodland rather than parkland — the scatter is instanced and
+        /// measured near-free, so the count is a look decision, not a budget one.</summary>
+        public int Count { get; set; } = 240;
 
         /// <summary>Fraction of the trees that are conifers; the rest are broadleaves.</summary>
         public float ConiferFraction { get; set; } = 0.65f;

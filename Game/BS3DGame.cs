@@ -420,6 +420,28 @@ namespace BS3D
         //luminance and the boost cancel and the tint arrives exactly as passed.
         private static readonly Vector3 SCATTER_MATERIAL_DIFFUSE = Vector3.One * 0.8f;
 
+        //Per-variant foliage tint multipliers, applied to the config's LINEAR colour before it is encoded
+        //for the draw — a real stand is never one green, and two variants side by side should differ in
+        //colour as well as in silhouette. Means sit near 1 so the config colour stays the authored average;
+        //indexed by mesh variant, so they must be at least as long as the variant arrays above.
+        private static readonly Vector3[] CONIFER_TINTS =
+        {
+            new(1f, 1f, 1f),
+            new(0.82f, 0.92f, 0.88f),   //darker, cooler — an older tree in shade
+            new(1.14f, 1.06f, 0.92f),   //warmer — the sunlit edge of the stand
+            new(0.9f, 1.02f, 1.08f),    //the blue-green a spruce reads as
+            new(1.06f, 0.96f, 0.88f),
+            new(0.78f, 0.9f, 0.95f)
+        };
+
+        private static readonly Vector3[] BROADLEAF_TINTS =
+        {
+            new(1f, 1f, 1f),
+            new(1.18f, 1.08f, 0.85f),   //yellow-green — a birch against the oaks
+            new(0.84f, 0.94f, 0.9f),
+            new(1.04f, 1.12f, 0.9f)
+        };
+
         //The scatter's materials. A procedural mesh defaults to the white specular that suits vinyl and
         //glass, and on a dark crown that white highlight is what read as wet obsidian; foliage and bark are
         //matte and a weathered boulder nearly so. Zero cannot be passed for it — a zero specular in
@@ -2142,54 +2164,64 @@ namespace BS3D
             _barkTexture = SurfaceTexture.Bark(GraphicsDevice);
             _foliageTexture = SurfaceTexture.Foliage(GraphicsDevice);
 
-            //Each kind is built at several sets of proportions, and the scatter splits its instances between
-            //them. One mesh per kind is what makes a grove read as one tree stamped out fifty times — a
-            //uniform scale and a yaw do not change a silhouette, and the silhouette is what the eye counts.
-            //The variety is in the MESH rather than in a per-instance stretch because the shader transforms
-            //normals by the world matrix itself, with no inverse transpose, so a non-uniform scale would
-            //shade a squashed tree as though it were still the shape it was authored at. Three spruces, two
-            //broadleaves, three boulders and two stumps: a dozen extra instanced draws over the whole scene,
-            //against a scatter that measured thirteen frames out of nine hundred.
+            //Each kind is built at several sets of proportions AND its own structural seed, and the scatter
+            //splits its instances between them. One mesh per kind is what makes a grove read as one tree
+            //stamped out fifty times — a uniform scale and a yaw do not change a silhouette, and the
+            //silhouette is what the eye counts. The variety is in the MESH rather than in a per-instance
+            //stretch because the shader transforms normals by the world matrix itself, with no inverse
+            //transpose, so a non-uniform scale would shade a squashed tree as though it were still the shape
+            //it was authored at. The seed rolls what proportions cannot: the spruce's tier layout, the
+            //broadleaf's leaf lobes, every part's wobble phase (see TreeMesh) — proportions alone made three
+            //copies of one tree at three sizes, and the eye caught it. Six spruces, four broadleaves, three
+            //boulders and two stumps: some two dozen instanced draws over the whole scene, against a scatter
+            //that measured thirteen frames out of nine hundred.
             _coniferMeshes = new[]
             {
-                NewConifer(trees, 1f, 1f),          //the authored spruce
-                NewConifer(trees, 0.78f, 1.24f),    //a narrow, taller one — the crowded stems of a stand
-                NewConifer(trees, 1.3f, 0.76f)      //a broad, squat one — an old tree with room around it
+                NewConifer(trees, 1f, 1f, seed: 11),          //the authored spruce
+                NewConifer(trees, 0.78f, 1.24f, seed: 23),    //a narrow, taller one — the crowded stems of a stand
+                NewConifer(trees, 1.3f, 0.76f, seed: 37),     //a broad, squat one — an old tree with room around it
+                NewConifer(trees, 0.9f, 1.1f, seed: 41),      //an ordinary tree that is nobody's copy
+                NewConifer(trees, 1.12f, 0.94f, seed: 53),    //slightly stout
+                NewConifer(trees, 0.7f, 1.38f, seed: 67)      //a spire — the one that carries the skyline
             };
 
             _broadleafMeshes = new[]
             {
-                NewBroadleaf(trees, 1f, 1f),        //the authored broadleaf
-                NewBroadleaf(trees, 0.82f, 1.3f)    //narrower and taller, its crown carried higher
+                NewBroadleaf(trees, 1f, 1f, seed: 79),        //the authored broadleaf
+                NewBroadleaf(trees, 0.82f, 1.3f, seed: 83),   //narrower and taller, its crown carried higher
+                NewBroadleaf(trees, 1.22f, 0.85f, seed: 97),  //broad and low — an old oak's spread
+                NewBroadleaf(trees, 0.95f, 1.12f, seed: 101)  //an ordinary tree between them
             };
 
             _rockMeshes = new[]
             {
                 new RockMesh(GraphicsDevice, forestConfig.Rocks.Radius, forestConfig.Rocks.Height),
-                new RockMesh(GraphicsDevice, forestConfig.Rocks.Radius * 1.25f, forestConfig.Rocks.Height * 0.7f),
-                new RockMesh(GraphicsDevice, forestConfig.Rocks.Radius * 0.8f, forestConfig.Rocks.Height * 1.5f)
+                new RockMesh(GraphicsDevice, forestConfig.Rocks.Radius * 1.25f, forestConfig.Rocks.Height * 0.7f, irregularityPhase: 2.1f),
+                new RockMesh(GraphicsDevice, forestConfig.Rocks.Radius * 0.8f, forestConfig.Rocks.Height * 1.5f, irregularityPhase: 4.2f)
             };
 
             _stumpMeshes = new[]
             {
                 new StumpMesh(GraphicsDevice, forestConfig.Stumps.Radius, forestConfig.Stumps.Height),
-                new StumpMesh(GraphicsDevice, forestConfig.Stumps.Radius * 1.3f, forestConfig.Stumps.Height * 0.55f)
+                new StumpMesh(GraphicsDevice, forestConfig.Stumps.Radius * 1.3f, forestConfig.Stumps.Height * 0.55f, irregularityPhase: 3.3f)
             };
 
-            //A species at one set of proportions. The two factors scale the crown's width and its height
-            //against the config's authored figures; the trunk follows the crown's height, so a taller tree is
-            //not a taller crown on the same stump of a trunk.
-            TreeMesh NewConifer(ForestTreeConfig cfg, float width, float height) =>
+            //A species at one set of proportions and one structural roll. The two factors scale the crown's
+            //width and its height against the config's authored figures; the trunk follows the crown's
+            //height, so a taller tree is not a taller crown on the same stump of a trunk.
+            TreeMesh NewConifer(ForestTreeConfig cfg, float width, float height, int seed) =>
                 new(GraphicsDevice, TreeSpecies.Conifer,
                     trunkBaseRadius: cfg.TrunkBaseRadius * width, trunkTopRadius: cfg.TrunkTopRadius * width,
                     trunkHeight: cfg.ConiferTrunkHeight * height,
-                    crownRadius: cfg.ConiferCrownRadius * width, crownHeight: cfg.ConiferCrownHeight * height);
+                    crownRadius: cfg.ConiferCrownRadius * width, crownHeight: cfg.ConiferCrownHeight * height,
+                    seed: seed);
 
-            TreeMesh NewBroadleaf(ForestTreeConfig cfg, float width, float height) =>
+            TreeMesh NewBroadleaf(ForestTreeConfig cfg, float width, float height, int seed) =>
                 new(GraphicsDevice, TreeSpecies.Broadleaf,
                     trunkBaseRadius: cfg.TrunkBaseRadius * width, trunkTopRadius: cfg.TrunkTopRadius * width,
                     trunkHeight: cfg.TrunkHeight * height,
-                    crownRadius: cfg.CrownRadius * width, crownHeight: cfg.CrownHeight * height);
+                    crownRadius: cfg.CrownRadius * width, crownHeight: cfg.CrownHeight * height,
+                    seed: seed);
 
             //A trunk: bark projected triplanar (a trunk is a static vertical cylinder, so a world-fixed
             //projection stays put), with the grain the bark texture's vertical streaks carry, and a coarse
@@ -2478,14 +2510,17 @@ namespace BS3D
         /// screen, and an iterator would allocate one enumerator per kind per frame.
         /// </summary>
         private void DrawScatter(InstancedModelRenderer[] renderers, ModelInstance[][] instances,
-            BasicEffectParams effectParams, Vector3 tint)
+            BasicEffectParams effectParams, Vector3 linearTint, Vector3[] variantTints = null)
         {
             for (int variant = 0; variant < renderers.Length; variant++)
             {
                 ModelInstance[] bucket = instances[variant];
                 if (bucket.Length == 0) continue;   //a variant no instance fell to; Draw would no-op anyway
 
-                renderers[variant].Draw(_camera, bucket, bucket.Length, effectParams, tint);
+                //The variant multipliers work on the LINEAR colour (scaling encoded sRGB is not a scale of
+                //the light), so the encode happens here, per draw, after them.
+                Vector3 tint = variantTints == null ? linearTint : linearTint * variantTints[variant];
+                renderers[variant].Draw(_camera, bucket, bucket.Length, effectParams, ColorSpace.LinearToSrgb(tint));
             }
         }
 
@@ -3188,22 +3223,23 @@ namespace BS3D
 
                 //The config colours are linear radiance, like every scene config's — but they ride the same
                 //material-diffuse uniform the balls' sRGB tints do, which the shader decodes from sRGB at the
-                //tap. So each is encoded once here at the boundary, and the meshes carry
+                //tap. So each is encoded once at the boundary — inside DrawScatter, after the per-variant
+                //tints, which have to work on the linear value — and the meshes carry
                 //SCATTER_MATERIAL_DIFFUSE so the renderer's luminance boost does not then brighten what was
                 //just encoded. Handing the linear values over raw is what turned the first forest's crowns
                 //near-black: decoded as if they were display values, a 0.16 became a 0.02.
-                Vector3 barkColor = ColorSpace.LinearToSrgb(trees.TrunkColor.ToVector3());
+                Vector3 barkColor = trees.TrunkColor.ToVector3();
 
                 DrawScatter(_coniferTrunkRenderers, _forestScatter.Conifers, _barkEffectParams, barkColor);
                 DrawScatter(_coniferCrownRenderers, _forestScatter.Conifers, _foliageEffectParams,
-                    ColorSpace.LinearToSrgb(trees.ConiferColor.ToVector3()));
+                    trees.ConiferColor.ToVector3(), CONIFER_TINTS);
                 DrawScatter(_broadleafTrunkRenderers, _forestScatter.Broadleaves, _barkEffectParams, barkColor);
                 DrawScatter(_broadleafCrownRenderers, _forestScatter.Broadleaves, _foliageEffectParams,
-                    ColorSpace.LinearToSrgb(trees.FoliageColor.ToVector3()));
+                    trees.FoliageColor.ToVector3(), BROADLEAF_TINTS);
                 DrawScatter(_rockRenderers, _forestScatter.Rocks, _rockEffectParams,
-                    ColorSpace.LinearToSrgb(forest.Rocks.Color.ToVector3()));
+                    forest.Rocks.Color.ToVector3());
                 DrawScatter(_stumpRenderers, _forestScatter.Stumps, _barkEffectParams,
-                    ColorSpace.LinearToSrgb(forest.Stumps.Color.ToVector3()));
+                    forest.Stumps.Color.ToVector3());
             }
 
             //The platform is a closed solid wound clockwise from outside, so it takes the scene's ordinary

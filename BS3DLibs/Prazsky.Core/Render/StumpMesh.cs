@@ -24,7 +24,10 @@ namespace Prazsky.Core.Render
         /// <param name="radius">Radius at the base (the top is narrower — a stump flares at the roots).</param>
         /// <param name="height">Height of the cut stump.</param>
         /// <param name="segments">Facets around the axis.</param>
-        public StumpMesh(GraphicsDevice graphicsDevice, float radius, float height, int segments = 10)
+        /// <param name="irregularityPhase">Offsets the wobble pattern, so two stumps of different
+        /// proportions do not undulate identically — see <see cref="LatheMesh"/>.</param>
+        public StumpMesh(GraphicsDevice graphicsDevice, float radius, float height, int segments = 10,
+            float irregularityPhase = 0f)
         {
             float topRadius = radius * 0.78f;
             float heartwoodY = height * 0.94f;
@@ -44,7 +47,8 @@ namespace Prazsky.Core.Render
             };
 
             //Less irregular than a rock: bark is rough, but the trunk is still a trunk.
-            _lathe = new LatheMesh(graphicsDevice, profile, segments, irregularityAmplitude: radius * 0.10f);
+            _lathe = new LatheMesh(graphicsDevice, profile, segments, irregularityAmplitude: radius * 0.10f,
+                irregularityPhase: irregularityPhase);
         }
 
         public void Dispose() => _lathe.Dispose();

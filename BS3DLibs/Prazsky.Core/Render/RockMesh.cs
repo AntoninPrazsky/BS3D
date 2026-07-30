@@ -38,7 +38,10 @@ namespace Prazsky.Core.Render
         /// dome that reads as a bun rather than a stone, whatever the amplitude was set to. Resolving the
         /// 13-wave term as well would need more than 26 facets, and about fifty to render it recognisably.
         /// </param>
-        public RockMesh(GraphicsDevice graphicsDevice, float radius, float height, int segments = 16)
+        /// <param name="irregularityPhase">Offsets the wobble pattern, so two boulders of different
+        /// proportions do not undulate identically — see <see cref="LatheMesh"/>.</param>
+        public RockMesh(GraphicsDevice graphicsDevice, float radius, float height, int segments = 16,
+            float irregularityPhase = 0f)
         {
             //A flattened dome: a worn rounded crown, a wide low shoulder, and a flat underside at the ground.
             //Traced top → outside → underside, the direction LatheMesh documents (the other way the stone is
@@ -56,7 +59,8 @@ namespace Prazsky.Core.Render
 
             //The irregularity is a large share of the base radius — enough that two rocks of the same size do
             //not share a silhouette, but not so much the surface self-intersects.
-            _lathe = new LatheMesh(graphicsDevice, profile, segments, irregularityAmplitude: radius * 0.34f);
+            _lathe = new LatheMesh(graphicsDevice, profile, segments, irregularityAmplitude: radius * 0.34f,
+                irregularityPhase: irregularityPhase);
         }
 
         public void Dispose() => _lathe.Dispose();

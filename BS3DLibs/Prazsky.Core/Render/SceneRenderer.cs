@@ -1332,16 +1332,25 @@ namespace Prazsky.Core.Render
             float t = MathHelper.Clamp((dist - config.ClearingRadius) / config.ClearingTransition, 0f, 1f);
             float ramp = t * t * (3f - 2f * t);
 
-            float rolling = 0.5f * MathF.Sin(x * 0.020f + z * 0.015f)
-                + 0.3f * MathF.Sin(x * -0.013f + z * 0.024f + 1.5f)
-                + 0.2f * MathF.Sin(x * 0.031f + z * 0.026f + 3.0f);
+            //The domain warp, five octaves and the lump mask all mirror Forest.fx's TerrainHeight term for
+            //term — see there for why each exists. Kept in ONE change with the shader.
+            float qx = x + 26f * MathF.Sin(z * 0.011f + 2f);
+            float qz = z + 26f * MathF.Sin(x * 0.013f + 5f);
+
+            float rolling = 0.40f * MathF.Sin(qx * 0.020f + qz * 0.015f)
+                + 0.26f * MathF.Sin(qx * -0.013f + qz * 0.024f + 1.5f)
+                + 0.17f * MathF.Sin(qx * 0.031f + qz * 0.026f + 3.0f)
+                + 0.10f * MathF.Sin(qx * 0.056f + qz * -0.041f + 0.7f)
+                + 0.07f * MathF.Sin(qx * -0.083f + qz * 0.062f + 2.4f);
 
             float basin = config.ClearingRelief * MathF.Sin(x * 0.05f + z * 0.035f);
 
             float f = config.FloorLumpFrequency;
+            float mask = 0.55f + 0.45f * MathF.Sin(x * 0.021f + z * -0.017f + 4f);
             float lumps = MathF.Sin(x * f + z * f * 0.7f)
-                + 0.5f * MathF.Sin(x * -f * 0.8f + z * f * 1.1f + 2.0f);
-            float lumpHeight = config.FloorLumpStrength * lumps * (1.0f - ramp * 0.5f);
+                + 0.5f * MathF.Sin(x * -f * 0.8f + z * f * 1.1f + 2.0f)
+                + 0.35f * MathF.Sin(x * f * 1.9f + z * f * 1.4f + 5.1f);
+            float lumpHeight = config.FloorLumpStrength * lumps * mask * (1.0f - ramp * 0.5f);
 
             return config.LevelY + basin + lumpHeight + config.HillHeight * ramp * (rolling * 0.5f + 0.5f);
         }

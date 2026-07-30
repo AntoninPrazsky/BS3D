@@ -81,8 +81,15 @@ namespace Prazsky.Core.Render
         /// Peak radial displacement, in world units, scaled per ring by <see cref="LathePoint.Wobble"/>.
         /// Zero leaves a true circle of revolution.
         /// </param>
+        /// <param name="irregularityPhase">
+        /// A constant offset into <see cref="Irregularity"/>'s angle and height, so two meshes of the same
+        /// profile do not share a wobble pattern — the forest builds many tree variants, and without this
+        /// every one undulated identically. A constant added to the angle keeps the ring closing (the
+        /// frequencies are whole numbers). <b>Two lathes that share an edge must share the phase</b> (the
+        /// island's stone cap and concrete drum both leave it 0), or the seam opens.
+        /// </param>
         public LatheMesh(GraphicsDevice graphicsDevice, IReadOnlyList<LathePoint> profile, int segments,
-            float irregularityAmplitude = 0f)
+            float irregularityAmplitude = 0f, float irregularityPhase = 0f)
         {
             if (profile == null) throw new ArgumentNullException(nameof(profile));
             if (profile.Count < 2) throw new ArgumentOutOfRangeException(nameof(profile));
@@ -110,7 +117,8 @@ namespace Prazsky.Core.Render
 
                     float radius = point.Radius;
                     if (irregularityAmplitude != 0f && point.Wobble != 0f)
-                        radius += irregularityAmplitude * point.Wobble * Irregularity(angle, point.Y);
+                        radius += irregularityAmplitude * point.Wobble
+                            * Irregularity(angle + irregularityPhase, point.Y + irregularityPhase);
 
                     positions[k, s] = new Vector3(radius * cos[s], point.Y, radius * sin[s]);
                 }
