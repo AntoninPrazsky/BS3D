@@ -73,13 +73,16 @@ development machine, and the class of hardware the tiers exist for:
 
 | Scene | High (ssaa 2) | Medium (ssaa 1) | Low |
 |---|---|---|---|
-| neon city | 9.9 FPS / 103 ms | 30.0 | 43.4 |
-| city | 13.1 / 76 ms | 38.4 | 55.4 |
+| neon city | 36.4 FPS / 27.5 ms | 95.6 | 103.7 |
+| city | 43.4 / 23.0 ms | 108.0 | 119.2 |
 | mountain | 52.3 / 19.1 ms | 80 | — |
 | desert | 59 / 16.9 ms | 92.8 | — |
 | savanna | 60.3 / 16.6 ms | 105.2 | — |
 | meadow | 64.6 / 15.5 ms | 119 | — |
 | sea | 68.5 / 14.6 ms | 125 | 124.5 |
 
-The five terrain scenes are within 15–19 ms of each other and never needed a tier. The two city scenes are
-where the frame goes, and `docs/game-shell.md`'s "The quality tier" section has the block-by-block breakdown.
+The city rows are measured **after** the front-to-back sort (20 s runs; they read 9.9/30.0/43.4 and
+13.1/38.4/55.4 before it — see "Drawing the city near to far" in `docs/rendering.md`); the terrain rows predate
+it and are unaffected, there being no city in them. The five terrain scenes are within 15–19 ms of each other
+and never needed a tier. The two city scenes are still the dearest, and `docs/game-shell.md`'s "The quality
+tier" section has the block-by-block breakdown.

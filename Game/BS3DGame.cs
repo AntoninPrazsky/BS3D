@@ -2806,7 +2806,8 @@ namespace BS3D
             ApplyQuality(lowered);
             ShowQualityNotice(lowered);
 
-            //A tier step rebuilds the city and resizes the scene target, which hitches a frame or two. Left
+            //A tier step resizes the scene target, which hitches a frame or two (it would also rebuild the
+            //city if the tiers still differed in radius — since the sort none does, see QualityLevel). Left
             //unarmed, the very next window would measure that hitch and step again on the strength of it.
             _qualityWarmupLeft = QUALITY_WARMUP_SECONDS;
 
