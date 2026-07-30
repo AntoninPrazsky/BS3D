@@ -16,7 +16,7 @@ namespace BS3D.Screens
         private const int VALUE_WIDTH = 560;
 
         private Label _fullscreenValue, _qualityValue, _exposureValue, _skyValue, _fpsValue;
-        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue;
+        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _aberrationValue;
 
         public SettingsPage(BS3DGame game) : base(game) { }
 
@@ -43,13 +43,16 @@ namespace BS3D.Screens
             AddRow(grid, 2, "Exposure", Game.CycleExposure, out _exposureValue);
             AddRow(grid, 3, "Sky", Game.CycleSkyDome, out _skyValue);
             AddRow(grid, 4, "FPS counter", Game.ToggleFpsOverlay, out _fpsValue);
+            //The lens's colour fringing at the frame edges — a taste toggle, and instant where it is made,
+            //like every row here: the scene behind the panel is the preview.
+            AddRow(grid, 5, "Aberration", Game.ToggleAberration, out _aberrationValue);
             //The three volume rows (#46) scale the authored mix rather than replacing it — 100 % is the game
             //as tuned, and effects and music each sit under the master. See "The sound" in
             //docs/game-feedback.md for the split.
-            AddRow(grid, 5, "Volume", Game.CycleMasterVolume, out _volumeValue);
-            AddRow(grid, 6, "Effects", Game.CycleSfxVolume, out _effectsValue);
-            AddRow(grid, 7, "Music", Game.CycleMusicVolume, out _musicValue);
-            AddRow(grid, 8, "Ambience", Game.CycleAmbienceVolume, out _ambienceValue);
+            AddRow(grid, 6, "Volume", Game.CycleMasterVolume, out _volumeValue);
+            AddRow(grid, 7, "Effects", Game.CycleSfxVolume, out _effectsValue);
+            AddRow(grid, 8, "Music", Game.CycleMusicVolume, out _musicValue);
+            AddRow(grid, 9, "Ambience", Game.CycleAmbienceVolume, out _ambienceValue);
 
             column.Widgets.Add(grid);
             column.Widgets.Add(MenuButton("Back", GoBack));
@@ -92,6 +95,7 @@ namespace BS3D.Screens
             _exposureValue.Text = Game.Exposure.ToString("0.0", CultureInfo.InvariantCulture);
             _skyValue.Text = Game.SkyDomeNumber.ToString(CultureInfo.InvariantCulture);
             _fpsValue.Text = Game.IsFpsOverlayVisible ? "On" : "Off";
+            _aberrationValue.Text = Game.IsAberrationEnabled ? "On" : "Off";
             _volumeValue.Text = FormatVolume(Game.MasterVolume);
             _effectsValue.Text = FormatVolume(Game.SfxVolume);
             _musicValue.Text = FormatVolume(Game.MusicVolume);

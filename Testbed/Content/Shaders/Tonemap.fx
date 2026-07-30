@@ -46,6 +46,13 @@ sampler2D GlareSampler = sampler_state
 
 float GlareIntensity;
 
+//Lateral chromatic aberration: the peak displacement of the red/blue channels at the frame CORNERS, in
+//texcoord units (resolution-independent, the underwater blur's rule), zero disabling the effect and the
+//whole branch with it. It grows with the SQUARE of the distance from the centre, so the middle of the
+//frame - where the cluster and the gun live - stays perfectly registered and only the periphery fringes,
+//which is what a real lens does and why the effect reads as "shot through glass" rather than "broken".
+float ChromaticAberration;
+
 //Underwater tint. When the camera dips below the sea surface the whole frame is pulled into a blue-green
 //murk so it reads as being submerged rather than showing the world unchanged with a water plane cutting
 //through it. Applied in LINEAR light before the curve, as a cheap water column: the scene is absorbed
@@ -102,11 +109,13 @@ float3 LinearToSrgb(float3 c)
 	return lerp(c * 12.92, 1.055 * pow(c, 1.0 / 2.4) - 0.055, step(0.0031308, c));
 }
 
-float4 MainPS(VertexShaderOutput input) : COLOR
+//Box filter over the block of source texels one output pixel covers. Offsets run from the block's first
+//texel center to its last: for a factor of two that is the pixel center plus and minus half a texel, for
+//a factor of one it collapses to a single tap at the center. tex2Dlod rather than tex2D so the aberration
+//branch below may call it - there are no mips here, and a gradient instruction inside a branch is not
+//allowed even when the branch is on a uniform.
+float3 SampleScene(float2 uv)
 {
-	//Box filter over the block of source texels this output pixel covers. Offsets run from the block's
-	//first texel center to its last: for a factor of two that is the pixel center plus and minus half a
-	//texel, for a factor of one it collapses to a single tap at the center.
 	float3 color = 0;
 
 	for (int y = 0; y < SupersampleFactor; y++)
@@ -114,11 +123,37 @@ float4 MainPS(VertexShaderOutput input) : COLOR
 		for (int x = 0; x < SupersampleFactor; x++)
 		{
 			float2 offset = (float2(x, y) + 0.5 - SupersampleFactor * 0.5) * SourceTexelSize;
-			color += tex2D(SceneSampler, input.TexCoord + offset).rgb;
+			color += tex2Dlod(SceneSampler, float4(uv + offset, 0, 0)).rgb;
 		}
 	}
 
-	color /= SupersampleFactor * SupersampleFactor;
+	return color / (SupersampleFactor * SupersampleFactor);
+}
+
+float4 MainPS(VertexShaderOutput input) : COLOR
+{
+	float3 color;
+
+	[branch]
+	if (ChromaticAberration > 0.0)
+	{
+		//The red channel is sampled a touch OUTWARD of the pixel and the blue a touch inward - a lens
+		//magnifies long wavelengths slightly more - along the direction from the frame centre, scaled by
+		//the squared distance so the shift vanishes quadratically towards the middle and reaches
+		//ChromaticAberration exactly at the corners: |fromCentre|*dot there is 1/(2*sqrt(2)), which the
+		//2.828 undoes. Green anchors the geometry: the eye reads luminance mostly from green, so the
+		//image never appears to move when the effect toggles.
+		float2 fromCentre = input.TexCoord - 0.5;
+		float2 shift = fromCentre * dot(fromCentre, fromCentre) * (ChromaticAberration * 2.828);
+
+		color.r = SampleScene(input.TexCoord + shift).r;
+		color.g = SampleScene(input.TexCoord).g;
+		color.b = SampleScene(input.TexCoord - shift).b;
+	}
+	else
+	{
+		color = SampleScene(input.TexCoord);
+	}
 
 	//Underwater peripheral blur: a diver's vision goes soft towards the edges. A cheap 8-tap spiral disc blur
 	//whose radius and blend both grow from 0 at the frame centre out to the corners (edge*edge, so the centre

@@ -108,6 +108,9 @@ namespace MapEditor
         //sits far under the old streak star's — and matches the game's, so a map previews with its bloom.
         private static readonly float GLARE_INTENSITY = 0.5f;
 
+        //The game's default lens fringing, so a map previews with it too (the toggle is the game's alone).
+        private static readonly float CHROMATIC_ABERRATION = 0.0016f;
+
         private RenderTarget2D _sceneTarget;
 
         //The bloom pyramid (#69): half down to a thirty-second of the back buffer, bright pass in the head,
@@ -311,6 +314,7 @@ namespace MapEditor
             //Fixed for the whole run, so they are set exactly once (a parameter's value persists on the effect)
             _glareEffect.Parameters["GlareThreshold"].SetValue(GLARE_THRESHOLD);
             _tonemapEffect.Parameters["GlareIntensity"].SetValue(GLARE_INTENSITY);
+            _tonemapEffect.Parameters["ChromaticAberration"].SetValue(CHROMATIC_ABERRATION);
             _tonemapEffect.Parameters["SupersampleFactor"].SetValue(SUPERSAMPLE_FACTOR);
             _tonemapEffect.Parameters["Exposure"].SetValue(DEFAULT_EXPOSURE);
 

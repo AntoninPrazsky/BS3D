@@ -614,6 +614,10 @@ namespace Testbed
         /// </summary>
         private static readonly float GLARE_INTENSITY = 0.5f;
 
+        //The lens's colour fringing at the frame edges — the game's default figure, so the Testbed shows
+        //what ships (the game alone carries the Settings toggle).
+        private static readonly float CHROMATIC_ABERRATION = 0.0016f;
+
         #endregion
 
         /// <summary>
@@ -1002,6 +1006,9 @@ namespace Testbed
             _glareSourceTextureParam = _glareEffect.Parameters["SourceTexture"];
             _glareThresholdParam = _glareEffect.Parameters["GlareThreshold"];
             _glareSourceTexelSizeParam = _glareEffect.Parameters["SourceTexelSize"];
+
+            //Fixed for the whole run (the game alone has the Settings toggle); the value persists on the effect.
+            _tonemapEffect.Parameters["ChromaticAberration"].SetValue(CHROMATIC_ABERRATION);
 
             _sceneLightPositionParam = _instancingEffect.Parameters["SceneLightPosition"];
             _sceneLightColorParam = _instancingEffect.Parameters["SceneLightColor"];

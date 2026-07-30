@@ -209,6 +209,16 @@ namespace BS3D
         private static readonly int BLOOM_LEVELS = 5;
         private static readonly float GLARE_THRESHOLD = 0.55f;
 
+        //Peak red/blue channel displacement at the frame CORNERS, as a fraction of the frame (the shader
+        //grows it quadratically from zero at the centre, so the cluster and the gun stay registered and
+        //only the periphery fringes). Deliberately subtle - at 1600x900 the corner shift is under two
+        //pixels; it should read as a lens, never as a broken display. Off in Settings sets the uniform
+        //to 0, which also skips the shader's whole branch.
+        private static readonly float CHROMATIC_ABERRATION = 0.0016f;
+
+        //On by default; a taste toggle in Settings, like the FPS counter (nothing persists — see docs).
+        private bool _aberration = true;
+
         //Far lower than the streak star's 0.9: the pyramid ACCUMULATES on the way up, so the head carries
         //its own halo plus every wider level's, and the same subjective glow needs a fraction of the gain.
         private static readonly float GLARE_INTENSITY = 0.5f;
@@ -1274,6 +1284,7 @@ namespace BS3D
             //effect, and re-sending a constant every frame bought nothing
             _glareEffect.Parameters["GlareThreshold"].SetValue(GLARE_THRESHOLD);
             _tonemapEffect.Parameters["GlareIntensity"].SetValue(GLARE_INTENSITY);
+            _tonemapEffect.Parameters["ChromaticAberration"].SetValue(_aberration ? CHROMATIC_ABERRATION : 0f);
             _tonemapEffect.Parameters["SupersampleFactor"].SetValue(_supersampleFactor);
             _tonemapEffect.Parameters["Exposure"].SetValue(_exposure);
 
@@ -1549,6 +1560,7 @@ namespace BS3D
         internal float SfxVolume => _sfxVolume;
         internal float MusicVolume => _musicVolume;
         internal float AmbienceVolume => _ambienceVolume;
+        internal bool IsAberrationEnabled => _aberration;
         internal SceneKind Scene => _scene;
 
         internal int LevelCount => _levelSet?.Count ?? 0;
@@ -3039,6 +3051,18 @@ namespace BS3D
         internal void ToggleFpsOverlay()
         {
             _info.Visible = !_info.Visible;
+            _settingsPage.Refresh();
+        }
+
+        /// <summary>
+        /// Toggles the lens's chromatic aberration. A taste setting: zero disables the shader's whole
+        /// branch, so Off costs literally nothing. Not a per-frame path — the uniform persists on the
+        /// effect, so it is written only here and at load.
+        /// </summary>
+        internal void ToggleAberration()
+        {
+            _aberration = !_aberration;
+            _tonemapEffect.Parameters["ChromaticAberration"].SetValue(_aberration ? CHROMATIC_ABERRATION : 0f);
             _settingsPage.Refresh();
         }
 
