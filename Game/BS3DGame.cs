@@ -96,6 +96,9 @@ namespace BS3D
         //track that restarted from the top on every retry would be exhausting.
         private ProceduralMusic _music;
 
+        //Whether the front end's music is on — the edge detector for the stack question in Update (#46).
+        private bool _menuMusicOn;
+
         //Testing only: the "celebrate" argument, fired once the display exists.
         private readonly bool _startupCelebrate;
 
@@ -2702,6 +2705,34 @@ namespace BS3D
             //freshly synthesized variation on when the current one ends (see ProceduralMusic.Update). Up here
             //with the fireworks and for the same reason — it has to keep running whatever is on the stack.
             _music?.Update();
+
+            //Which music the moment wants is the stack question (#46): the front end's loop plays exactly
+            //while no session screen is on it. The theme's own lifecycle stays the session's — BuildLevel
+            //starts it, TearDown and the level's endings stop it — this only closes the one gap that had no
+            //owner: leaving to the main menu keeps the session but must not keep its music ("it plays while a
+            //level is being played", docs/game-feedback.md), and Continue re-wants the theme because it comes
+            //back WITHOUT a BuildLevel. A fresh build's own Play a moment later is the "already sounding"
+            //no-op, so the two writers cannot fight.
+            if (_music != null)
+            {
+                bool onFrontEnd = !_screens.Contains<GameplayScreen>();
+
+                if (onFrontEnd != _menuMusicOn)
+                {
+                    _menuMusicOn = onFrontEnd;
+
+                    if (onFrontEnd)
+                    {
+                        _music.Stop();
+                        _music.PlayMenu();
+                    }
+                    else
+                    {
+                        _music.StopMenu();
+                        if (_gameplayScreen != null && _gameplayScreen.IsBuilt) _music.Play();
+                    }
+                }
+            }
 
             //The fireworks give way to the fanfare. Both arrive on the frame a level ends, and a report is
             //broadband and loud enough to bury a tune under it — the bang is an event, the fanfare is the

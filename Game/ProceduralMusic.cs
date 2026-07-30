@@ -8,7 +8,8 @@ namespace BS3D
     /// <summary>
     /// The level theme: a two-minute eurodance track synthesized from raw PCM and played on a loop. No tracker
     /// file, no asset, no pipeline step — the score is a handful of arrays and the instruments are oscillators,
-    /// the same line the sound effects, the meshes and the surface textures all take.
+    /// the same line the sound effects, the meshes and the surface textures all take. The same instruments
+    /// also play the result fanfares and the front end's looped piece (see <see cref="BakeMenu"/>).
     /// <para>
     /// It is <b>arranged</b> rather than looped: eight sections of eight bars, each one adding or taking away
     /// parts — an intro that builds, verses, a chorus that is unmistakably the chorus, a breakdown where the
@@ -38,6 +39,12 @@ namespace BS3D
         /// so the balance keeps its tuning; the player's settings rows scale it through <see cref="Gain"/>.
         /// </summary>
         public const float MUSIC_VOLUME = 0.34f;
+
+        /// <summary>
+        /// The front end's piece, under even the theme: a lobby, not a dancefloor. Scaled by <see cref="Gain"/>
+        /// like everything else here.
+        /// </summary>
+        public const float MENU_VOLUME = 0.2f;
 
         //The chords available to a progression, all diatonic to A minor so any ordering of them is in key.
         //Each carries its bass root and the four notes the arpeggio and the melody are built from.
@@ -221,6 +228,14 @@ namespace BS3D
         private SoundEffect _fanfareTrack;
         private SoundEffectInstance _fanfare;
 
+        //The front end's piece (#46). Unlike the theme it is LOOPED rather than regenerated: the menu is
+        //visited for moments rather than minutes, so endless variation buys nothing there — the seam is made
+        //inaudible at bake time instead (see BakeMenu). Baked once per run, so no two runs share a lobby.
+        private Task<float[]> _menuBake;
+        private SoundEffect _menuTrack;
+        private SoundEffectInstance _menu;
+        private bool _menuWanted;
+
         /// <summary>True while a pass is actually sounding.</summary>
         public bool IsPlaying => _instance != null && _instance.State == SoundState.Playing;
 
@@ -246,6 +261,7 @@ namespace BS3D
                 _gain = value;
                 if (_instance != null) _instance.Volume = MUSIC_VOLUME * _gain;
                 if (_fanfare != null) _fanfare.Volume = FANFARE_VOLUME * _gain;
+                if (_menu != null) _menu.Volume = MENU_VOLUME * _gain;
             }
         }
 
@@ -261,6 +277,11 @@ namespace BS3D
         {
             _seeds = seed.HasValue ? new Random(seed.Value) : new Random();
             _next = StartBake();
+
+            //The menu piece bakes alongside the first pass — it is the one wanted first, at the splash, and
+            //it is a fraction of the theme's arithmetic, so it is ready well inside the menu's first seconds.
+            int menuSeed = _seeds.Next();
+            _menuBake = Task.Run(() => BakeMenu(menuSeed));
         }
 
         private Task<float[]> StartBake()
@@ -283,6 +304,26 @@ namespace BS3D
         {
             _wanted = false;
             _instance?.Stop();
+        }
+
+        /// <summary>
+        /// Starts the front end's loop, or marks it wanted if its bake has not landed yet — <see cref="Update"/>
+        /// realizes it the frame it is ready. The host drives this from the one question that decides it:
+        /// whether a session screen is on the stack.
+        /// </summary>
+        public void PlayMenu()
+        {
+            if (_failed) return;
+
+            _menuWanted = true;
+            if (_menu != null && _menu.State != SoundState.Playing) _menu.Play();
+        }
+
+        /// <summary>Stops the front end's loop. Being a loop, stopping and starting again costs nothing.</summary>
+        public void StopMenu()
+        {
+            _menuWanted = false;
+            _menu?.Stop();
         }
 
         /// <summary>
@@ -363,6 +404,29 @@ namespace BS3D
                 catch (Exception exception)
                 {
                     Console.WriteLine($"[music] the fanfare could not be realized: {exception.Message}");
+                }
+            }
+
+            //The menu loop is realized once, the frame its synthesis finishes; being looped, it never needs
+            //another. Guarded like the fanfare, and for the same reason: a lobby that cannot play must not
+            //take the game down with it.
+            if (_menuBake != null && _menuBake.IsCompleted)
+            {
+                Task<float[]> ready = _menuBake;
+                _menuBake = null;
+
+                try
+                {
+                    _menuTrack = ToSoundEffect(ready.Result);
+                    _menu = _menuTrack.CreateInstance();
+                    _menu.IsLooped = true;
+                    _menu.Volume = MENU_VOLUME * _gain;
+
+                    if (_menuWanted) _menu.Play();
+                }
+                catch (Exception exception)
+                {
+                    Console.WriteLine($"[music] the menu piece could not be realized: {exception.Message}");
                 }
             }
 
@@ -559,6 +623,82 @@ namespace BS3D
             Limit(mix, targetRms: 0.20f, ceiling: 0.95f);
 
             return mix;
+        }
+
+        /// <summary>
+        /// The front end's piece (#46): the theme's own instruments with the drums left at the door. Held pad
+        /// chords over the same diatonic progressions, their root an octave under for warmth, a quarter-note
+        /// arpeggio at half the theme's rate, and a high sparkle every other bar — enough motion to say the
+        /// game is alive, nothing that asks to be listened to. It rolls its own tempo, key, progression and
+        /// arp direction from the seed, so no two runs share a lobby.
+        /// <para>
+        /// It is a LOOP, and the seam is closed by construction rather than by luck: the piece is rendered
+        /// with a bar of room past the loop point, and whatever rings into that room — a pad's release, an
+        /// arp's tail — is <b>folded back onto the head</b> before the cut. Continuous play of a loop is
+        /// exactly the head plus the previous pass's ring-out, so the join carries the same overlap every
+        /// other bar boundary does and nothing marks it.
+        /// </para>
+        /// </summary>
+        private static float[] BakeMenu(int seed)
+        {
+            Random random = new(seed);
+
+            //Slow, and rolled inside a narrow band like the theme's. With no kick to carry a tempo this is a
+            //harmonic rhythm more than a beat, and at this rate a bar is a breath.
+            float bpm = 80f + (float)random.NextDouble() * 12f;
+            float secondsPerStep = 60f / (bpm * STEPS_PER_BEAT);
+            int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
+
+            int[] progression = PROGRESSIONS[random.Next(PROGRESSIONS.Length)];
+            int[] keys = { -3, -2, 0, 0, 2, 3, 5 };   //the Variation's own set: whole tones and minor thirds
+            int transpose = keys[random.Next(keys.Length)];
+            bool arpDown = random.NextDouble() < 0.35;
+
+            //Four times round the four-bar progression — about 45 s at this tempo, long enough that the ear
+            //has let go of the start before the loop returns to it.
+            const int LOOP_BARS = 16;
+            int loopSamples = samplesPerStep * LOOP_BARS * STEPS_PER_BAR;
+            int tailSamples = samplesPerStep * STEPS_PER_BAR;
+
+            float[] mix = new float[loopSamples + tailSamples];
+
+            for (int step = 0; step < LOOP_BARS * STEPS_PER_BAR; step++)
+            {
+                int at = step * samplesPerStep;
+                int bar = step / STEPS_PER_BAR;
+                int inBar = step % STEPS_PER_BAR;
+
+                int chord = progression[bar % 4];
+                int[] arp = CHORD_ARP[chord];
+
+                //The chord, held the bar long, with its root an octave under for the warmth a bass would
+                //otherwise bring.
+                if (inBar == 0)
+                {
+                    foreach (int note in arp) Pad(mix, at, note + transpose, secondsPerStep * 15.5f, 0.11f);
+                    Pad(mix, at, CHORD_ROOT[chord] - 12 + transpose, secondsPerStep * 15.5f, 0.09f);
+                }
+
+                //A quarter-note arpeggio — half the theme's rate, and well under the pads.
+                if (inBar % 4 == 0)
+                {
+                    int arpStep = (inBar / 4) % 4;
+                    int index = arpDown ? 3 - arpStep : arpStep;
+                    Arp(mix, at, arp[index] + 12 + transpose, secondsPerStep * 2.2f, 0.06f);
+                }
+
+                //One high sparkle halfway through every other bar.
+                if (inBar == 8 && bar % 2 == 1)
+                    Arp(mix, at, arp[3] + 24 + transpose, secondsPerStep * 2.5f, 0.045f);
+            }
+
+            //Close the seam: fold what rings past the loop point back onto the head, then cut to the loop.
+            float[] loop = new float[loopSamples];
+            Array.Copy(mix, loop, loopSamples);
+            for (int i = 0; i < tailSamples; i++) loop[i] += mix[loopSamples + i];
+
+            Limit(loop, targetRms: 0.12f, ceiling: 0.9f);
+            return loop;
         }
 
         #endregion
@@ -1167,11 +1307,14 @@ namespace BS3D
         {
             _failed = true;   //so a late Update cannot resurrect it
             _wanted = false;
+            _menuWanted = false;
 
             _instance?.Dispose();
             _track?.Dispose();
             _fanfare?.Dispose();
             _fanfareTrack?.Dispose();
+            _menu?.Dispose();
+            _menuTrack?.Dispose();
         }
     }
 }
