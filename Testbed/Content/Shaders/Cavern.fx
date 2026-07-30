@@ -57,6 +57,9 @@ float3 WaterGlowColor;     //the bioluminescent glow the crests carry (linear, a
 float WaveScale;           //interference-wave frequency across the surface
 float WaveSpeed;
 float CausticStrength;     //the caustic shimmer added where the eye looks into the water
+float3 MistColor;          //the steam standing over the river (linear) - the water's glow diffused
+float MistDensity;         //optical density of the steam AT the water surface, per world unit
+float MistHeight;          //e-folding height over which the steam thins (world units)
 
 //--- The god rays -----------------------------------------------------------------------------------------
 float3 GodRayColor;        //cool shaft light (linear)
@@ -153,10 +156,12 @@ float3 CrystalLightAt(float3 position)
 //approximation of it.
 float3 ShadeWall(float3 position, float distanceTravelled)
 {
-	//The shell's own normal: down-facing under the ceiling, radial on the wall cylinder.
-	float3 baseNormal = position.y > CaveCeilingY - 0.75
-		? float3(0.0, -1.0, 0.0)
-		: -normalize(float3(position.x, 0.0, position.z));
+	//The shell's own normal: radial on the wall cylinder, folding smoothly into the down-facing ceiling
+	//over the top twenty-odd units. The two used to meet in a hard select, and the crease cut a sharp lit
+	//line across the veins where wall shading snapped to ceiling shading - rock coves, it does not mitre.
+	float3 wallNormal = -normalize(float3(position.x, 0.0, position.z));
+	float cove = smoothstep(CaveCeilingY - 22.0, CaveCeilingY - 0.5, position.y);
+	float3 baseNormal = normalize(lerp(wallNormal, float3(0.0, -1.0, 0.0), cove));
 
 	//The rock's relief: a 3D fBm sampled for its GRADIENT (three extra taps), which tilts the shell's
 	//smooth normal into pitted, folded stone. The first build had only a flat colour mottle, and a wall
@@ -212,6 +217,21 @@ float3 ShadeWall(float3 position, float distanceTravelled)
 	//away instead of presenting a lit wall at every distance.
 	float fog = 1.0 - exp(-distanceTravelled * FogDensity);
 	return lerp(shaded, FogColor, fog);
+}
+
+//Optical thickness of the river's steam along the first t units of a ray: a fog whose density is `density`
+//at the water surface and thins exponentially with height over MistHeight, integrated in closed form (the
+//classic exponential height fog). Height fog rather than a slab because a slab has a TOP, and its top is a
+//new hard line standing in for the old one. The layer earns its keep at the WATERLINE: the analytic wall
+//meets the analytic river in a machined edge no real cave has, and a ray grazing the surface toward that
+//edge runs its whole length through the densest steam - the seam fades exactly where it was sharpest.
+float MistAmount(float3 origin, float3 direction, float t, float density)
+{
+	float h0 = max(origin.y - WaterLevelY, 0.0) / MistHeight;
+	float dh = direction.y * t / MistHeight;
+	float column = t * exp(-h0) * (abs(dh) > 1e-3 ? (1.0 - exp(-dh)) / dh : 1.0);
+
+	return 1.0 - exp(-column * density);
 }
 
 //Where the view ray meets the cave shell (the wall cylinder or the ceiling plane), as a distance along the
@@ -300,6 +320,10 @@ float4 CavernPS(CavernVertexOutput input) : COLOR
 		bounced.y = abs(bounced.y);   //a wave can fold the ray downward; the mirror looks up
 		float tReflected = CaveShellDistance(hit, bounced);
 		float3 mirrored = ShadeWall(hit + bounced * tReflected, tWater + tReflected);
+
+		//The mirror shows the steam too: the reflected path starts ON the surface, in the layer's densest
+		//air, so without this the water would reflect a crisper cave than the one standing over it.
+		mirrored = lerp(mirrored, MistColor, MistAmount(hit, bounced, tReflected, MistDensity));
 
 		//Fresnel: grazing looks mirror, steep looks into the water - where the depths transmit their dark
 		//colour, the caustic shimmer plays (the wave crests focused on the riverbed, cheap: the height
@@ -457,6 +481,16 @@ float4 CavernPS(CavernVertexOutput input) : COLOR
 
 		color = own * (CrystalEmission * pulse * (0.30 + 0.35 * rim + 0.45 * facetLight) * (0.45 + 0.55 * ao));
 	}
+
+	//--- The river's steam, over whatever the ray has gathered so far - the solid it ended on (rock, water
+	//or crystal) and the god rays' lower reaches, which rightly sink into it: the exponential height layer
+	//integrated along the view ray (see MistAmount). An fBm wisp factor on the OPTICAL DEPTH, not on the
+	//blend - so the far shoreline still saturates to a full veil while the mid-water steam visibly drifts -
+	//keeps it steam rather than a uniform grade. The spores are added after: a mote climbs OUT of the layer,
+	//and stays visible doing it.
+	float3 solidHit = CameraPosition + direction * bestT;
+	float wisp = 0.8 + 0.2 * Fbm2(solidHit.xz * 0.014 + float2(t * 0.05, t * 0.035), 2);
+	color = lerp(color, MistColor, MistAmount(CameraPosition, direction, bestT, MistDensity * wisp));
 
 	//--- The spores: slow rising motes, swaying as they climb, wrapping over the cave's height for ever.
 	//Closest-approach gaussians like the dream's sparks, but SLOW - the cave's stillness is the point.

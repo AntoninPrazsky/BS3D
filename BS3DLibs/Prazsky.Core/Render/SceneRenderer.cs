@@ -1191,6 +1191,9 @@ namespace Prazsky.Core.Render
             _cavernEffect.Parameters["WaveScale"].SetValue(water.WaveScale);
             _cavernEffect.Parameters["WaveSpeed"].SetValue(water.WaveSpeed);
             _cavernEffect.Parameters["CausticStrength"].SetValue(water.CausticStrength);
+            _cavernEffect.Parameters["MistColor"].SetValue(water.MistColor.ToVector3());
+            _cavernEffect.Parameters["MistDensity"].SetValue(water.MistDensity);
+            _cavernEffect.Parameters["MistHeight"].SetValue(water.MistHeight);
 
             CavernAirConfig air = cavern.Air;
             _cavernEffect.Parameters["GodRayColor"].SetValue(air.GodRayColor.ToVector3());

@@ -81,6 +81,18 @@ namespace Prazsky.Core.Render
 
         /// <summary>The caustic shimmer where the eye looks into the water rather than across it.</summary>
         public float CausticStrength { get; set; } = 0.8f;
+
+        /// <summary>The steam standing over the river (linear) — the water's glow diffused, well under the
+        /// glare threshold. It earns its keep at the waterline: the analytic wall meets the analytic river
+        /// in a machined edge no real cave has, and the steam is what swallows it.</summary>
+        public Rgb MistColor { get; set; } = new(0.028f, 0.052f, 0.062f);
+
+        /// <summary>Optical density of the steam at the water surface, per world unit. The layer thins
+        /// exponentially with height (<see cref="MistHeight"/>), so this is its densest air.</summary>
+        public float MistDensity { get; set; } = 0.020f;
+
+        /// <summary>The e-folding height over which the steam thins (world units).</summary>
+        public float MistHeight { get; set; } = 10f;
     }
 
     /// <summary>The cave's air: the god rays and the spores.</summary>
