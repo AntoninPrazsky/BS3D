@@ -644,9 +644,10 @@ namespace BS3D
         {
             Random random = new(seed);
 
-            //Slow, and rolled inside a narrow band like the theme's. With no kick to carry a tempo this is a
-            //harmonic rhythm more than a beat, and at this rate a bar is a breath.
-            float bpm = 80f + (float)random.NextDouble() * 12f;
+            //Unhurried but moving, and rolled inside a narrow band like the theme's. It started at 80–92 and
+            //dragged; up here the line walks instead of trudging, while the pads keep it a lobby rather than
+            //a dancefloor — with no kick this is still a harmonic rhythm more than a beat.
+            float bpm = 94f + (float)random.NextDouble() * 12f;
             float secondsPerStep = 60f / (bpm * STEPS_PER_BEAT);
             int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
 
@@ -655,7 +656,7 @@ namespace BS3D
             int transpose = keys[random.Next(keys.Length)];
             bool arpDown = random.NextDouble() < 0.35;
 
-            //Four times round the four-bar progression — about 45 s at this tempo, long enough that the ear
+            //Four times round the four-bar progression — about 38 s at this tempo, long enough that the ear
             //has let go of the start before the loop returns to it.
             const int LOOP_BARS = 16;
             int loopSamples = samplesPerStep * LOOP_BARS * STEPS_PER_BAR;
