@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
 using System;
 
-namespace BS3D
+namespace BS3D.Effects
 {
     /// <summary>
     /// The floor alarm: a grid of pulsing red laser beams hovering on the plane a ball's surface would

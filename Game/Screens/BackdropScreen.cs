@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
 using Prazsky.Core.Screens;
 using System;

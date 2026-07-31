@@ -1,3 +1,5 @@
+using BS3D.Audio;
+using BS3D.Effects;
 using BS3D.Screens;
 using FontStashSharp;
 using Microsoft.Xna.Framework;

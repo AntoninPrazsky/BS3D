@@ -4,7 +4,7 @@ using Prazsky.Core.Render;
 using System;
 using System.Globalization;
 
-namespace BS3D
+namespace BS3D.Effects
 {
     /// <summary>
     /// The reward shot: when a shot cuts a big enough group loose, the camera lets go of the gun and follows

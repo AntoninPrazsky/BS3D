@@ -4,7 +4,7 @@ using Prazsky.Core.Render;
 using System;
 using System.Threading.Tasks;
 
-namespace BS3D
+namespace BS3D.Audio
 {
     /// <summary>
     /// The scenes' ambient beds (#46): one looping texture per backdrop — surf for the sea, a wind for each

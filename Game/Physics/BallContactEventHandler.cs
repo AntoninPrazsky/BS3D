@@ -9,7 +9,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 
-namespace BS3D
+namespace BS3D.Physics
 {
     /// <summary>
     /// What happens when a shot ball touches something: it is snapped into the free lattice cell nearest the

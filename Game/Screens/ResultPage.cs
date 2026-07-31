@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Myra.Graphics2D.UI;
+using Prazsky.Core.Camera;
 using Prazsky.BS3D.Scoring;
 using System;
 using System.Globalization;

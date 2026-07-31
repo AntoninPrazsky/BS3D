@@ -1,9 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
 using Prazsky.BS3D.GameStructure;
+using Prazsky.Core.Camera;
 using System;
 
-namespace BS3D
+namespace BS3D.Audio
 {
     /// <summary>
     /// Procedurally generated sound effects, synthesized from raw 16-bit PCM at startup and played back cheaply
@@ -96,7 +97,7 @@ namespace BS3D
         /// A ball snapping into the lattice. The <paramref name="type"/> selects a tone (one per colour), and the
         /// world position is panned against the camera so a hit on the left of the field is heard on the left.
         /// </summary>
-        public void PlayLanded(BallType type, Vector3 world, RecoilCamera camera)
+        public void PlayLanded(BallType type, Vector3 world, ICamera camera)
         {
             int index = (int)type;
             if (index < 1 || index >= _landed.Length || _landed[index] == null) return;
@@ -113,7 +114,7 @@ namespace BS3D
         /// deeper, which is the whole of how the ear tells a great shot from a good one before the score says
         /// so. Silent path for zero is the caller's business: a plain attach plays only the landing.
         /// </summary>
-        public void PlayRelease(Vector3 world, RecoilCamera camera, int count)
+        public void PlayRelease(Vector3 world, ICamera camera, int count)
         {
             //What counts as a FULL-SIZE release. The drop cinematic engages at 6 (DropCinematic.MIN_BALLS);
             //well past that the sound has nothing more to say by getting louder still.
@@ -132,7 +133,7 @@ namespace BS3D
         /// each time and, because a whistle is a near-pure tone, pitched <i>widely</i> â€” two shells going up
         /// together on the same note read as one loud shell rather than as two.
         /// </summary>
-        public void PlayFireworkLaunch(Vector3 world, RecoilCamera camera)
+        public void PlayFireworkLaunch(Vector3 world, ICamera camera)
         {
             //FAR under the report, and much further under than it was. The bang is the event; the launch only
             //says one is coming, and with a shell going up every fraction of a second anything audible enough
@@ -147,7 +148,7 @@ namespace BS3D
         /// inversely, the pitch â€” a big shell is a deeper, louder report, which is the whole of how the ear
         /// tells a large firework from a small one at a distance.
         /// </summary>
-        public void PlayFireworkBurst(Vector3 world, RecoilCamera camera, float size)
+        public void PlayFireworkBurst(Vector3 world, ICamera camera, float size)
         {
             float pan = PanFor(world, camera, SKY_PAN_WIDTH, out float distance);
 
@@ -190,11 +191,11 @@ namespace BS3D
         /// Stereo pan of a world point relative to the camera: project the sound's offset onto the camera's
         /// right axis and clamp. A point straight ahead is 0; one fully to the lens's right is +1.
         /// </summary>
-        private static float PanFor(Vector3 world, RecoilCamera camera, out float distance)
+        private static float PanFor(Vector3 world, ICamera camera, out float distance)
             => PanFor(world, camera, PAN_FULL_WIDTH, out distance);
 
         /// <summary>
-        /// <inheritdoc cref="PanFor(Vector3, RecoilCamera, out float)"/>
+        /// <inheritdoc cref="PanFor(Vector3, ICamera, out float)"/>
         /// <para>
         /// <paramref name="fullWidth"/> is how far off-centre a sound has to be to reach full left/right. It is
         /// per-source rather than one constant because the two things that make noise here live at completely
@@ -203,7 +204,7 @@ namespace BS3D
         /// to one side.
         /// </para>
         /// </summary>
-        private static float PanFor(Vector3 world, RecoilCamera camera, float fullWidth, out float distance)
+        private static float PanFor(Vector3 world, ICamera camera, float fullWidth, out float distance)
         {
             Vector3 forward = camera.Target - camera.Position;
             float forwardLen = forward.Length();

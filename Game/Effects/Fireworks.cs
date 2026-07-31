@@ -1,9 +1,10 @@
+using BS3D.Audio;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
 using System;
 
-namespace BS3D
+namespace BS3D.Effects
 {
     /// <summary>
     /// The victory display: shells that rise from around the island, whistle, burst over the arena and rain

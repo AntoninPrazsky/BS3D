@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework.Audio;
 using System;
 using System.Threading.Tasks;
 
-namespace BS3D
+namespace BS3D.Audio
 {
     /// <summary>
     /// The level theme: a two-minute eurodance track synthesized from raw PCM and played on a loop. No tracker

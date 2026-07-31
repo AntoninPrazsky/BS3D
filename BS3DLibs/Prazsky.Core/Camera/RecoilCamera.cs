@@ -1,8 +1,7 @@
 using Microsoft.Xna.Framework;
-using Prazsky.Core.Camera;
 using System;
 
-namespace BS3D
+namespace Prazsky.Core.Camera
 {
     /// <summary>
     /// The game camera: a pose the game sets every frame (<see cref="BasePosition"/> /

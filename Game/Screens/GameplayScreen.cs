@@ -1,6 +1,8 @@
 ﻿using BepuPhysics;
 using BepuPhysics.Collidables;
 using BepuUtilities.Memory;
+using BS3D.Effects;
+using BS3D.Physics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -10,6 +12,7 @@ using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Levels;
 using Prazsky.BS3D.Physics;
 using Prazsky.BS3D.Scoring;
+using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
 using Prazsky.Core.Screens;
 using Prazsky.Core.Tools;
