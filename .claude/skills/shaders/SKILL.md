@@ -71,9 +71,10 @@ draw all balls (see the "Ball rendering" section in `docs/rendering.md`). Facts 
   single-instance draws (`InstancedModelRenderer.Draw(camera, world, effectParams)`); per-part
   material diffuse/emissive/specular and alpha are read from the model's `BasicEffect`s and
   premultiplied by alpha like BasicEffect does. `ModelRenderer` + `BasicEffect` remains only for the
-  MapEditor's selector gizmo (its balls go through the instanced path like the game's). Textured mesh parts (e.g. `GameObjects/GroundMarble.fbx`) automatically use the
+  MapEditor's selector gizmo (its balls go through the instanced path like the game's). Textured mesh parts automatically use the
   `InstancedModelTextured` technique (UVs in TEXCOORD0; same `ShadePixel` lighting, texture
-  modulates the non-specular color like BasicEffect). Models with no texture of their own can instead set
+  modulates the non-specular color like BasicEffect) — a retained library feature with no shipped
+  model on it today (the last one, `GroundMarble.fbx`, was dead content and is deleted). Models with no texture of their own can instead set
   `DetailTexture` (+`DetailScale`/`DetailStrength`/`DetailBoost`) on their renderer — it only
   modulates the material colors — with `DetailTextureMapping` choosing how it lands:
   - `DetailMapping.Triplanar` projects it along the world axes, needing no UVs, plus optional

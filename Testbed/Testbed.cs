@@ -165,7 +165,6 @@ namespace Testbed
 
         #endregion
 
-        private Model _groundModel;
         private KinematicBody _ceiling;
         private TypedIndex _ceilingShapeIndex;
 
@@ -178,7 +177,6 @@ namespace Testbed
         private ThreadDispatcher _threadDispatcher;
         private BufferPool _bufferPool;
 
-        private List<StaticBody> _staticBodies;
         private PhysicsBall[,,] _physicsBalls;
         private BallsMap _map;
 
@@ -874,8 +872,6 @@ namespace Testbed
 
             _cih = new CameraInputHelper(_camera, this);
 
-            _staticBodies = new List<StaticBody>();
-
             _threadDispatcher = new ThreadDispatcher(Environment.ProcessorCount);
             _bufferPool = new BufferPool();
             _events = new ContactEvents(_threadDispatcher, _bufferPool);
@@ -1029,15 +1025,15 @@ namespace Testbed
             //The ground counts into the balls' own ambient occlusion too (dark bellies near the ground)
             foreach (InstancedModelRenderer ballRenderer in _ballRenderers) ballRenderer.GroundHeight = GROUND_TOP_Y;
 
-            #region Ground and ceiling
+            #region Ceiling and scenery
 
             RecreateCeilingRenderer(DEFAULT_CEILING_SIZE, DEFAULT_CEILING_SIZE);
 
-            BuildGroundAndCeiling();
+            BuildCeiling();
 
             BuildCity();
 
-            #endregion Ground and ceiling
+            #endregion Ceiling and scenery
 
             #region Contact events
 
@@ -1577,7 +1573,7 @@ namespace Testbed
             _pitWorld = Microsoft.Xna.Framework.Matrix.CreateTranslation(0f, PIT_TOP_Y, 0f);
         }
 
-        private void BuildGroundAndCeiling()
+        private void BuildCeiling()
         {
             //The wide grid of ground blocks is gone with the big plaza: the round island's only physics floor
             //is the funnel's own mesh - the drain cone plus the flat stone ring around it (BuildFunnelPhysics),
@@ -2667,12 +2663,6 @@ namespace Testbed
                 pass.Apply();
                 GraphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
             }
-        }
-
-        private StaticReference CreateStatic(System.Numerics.Vector3 position, Box boundingBox)
-        {
-            var shape = new CollidableDescription(_simulation.Shapes.Add(boundingBox), 0.1f).Shape;
-            return new StaticReference(_simulation.Statics.Add(new StaticDescription(position, shape)), _simulation.Statics);
         }
 
         /// <summary>
