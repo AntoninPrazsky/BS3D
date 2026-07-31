@@ -125,7 +125,7 @@ it — the cannon keeps its mapped grain and gains casting unevenness the map's 
 ## Supersampling
 
 The Testbed renders the 3D scene into a `_supersampleFactor`× `RenderTarget2D` and box-filters it onto
-the back buffer (`EnsureSceneTarget` / `ResolveSceneTarget`), factor 2 by default, `ssaa=<n>` to override.
+the back buffer (`PostProcessPipeline.EnsureTarget` / `.Resolve`, shared from Prazsky.Core), factor 2 by default, `ssaa=<n>` to override.
 MSAA would not do instead: it antialiases geometry edges only, and the ball relief is *shading*. At factor 2
 a bilinear tap lands exactly on the corner shared by four source pixels, so the resolve is an exact box
 filter; higher factors reach only four of the source pixels and would want a real downsample pass. The

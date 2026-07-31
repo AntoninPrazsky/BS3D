@@ -87,7 +87,9 @@ namespace MapEditor
 
         public InfoRenderer Info { private set; get; }
 
-        private static readonly int MSAA_SAMPLES = 8;
+        //One either/or with supersampling, decided the same way the shared pipeline decides it for the
+        //scene target (PostProcessPipeline.MSAA_SAMPLES)
+        private static readonly int MSAA_SAMPLES = PostProcessPipeline.MSAA_SAMPLES;
 
         #endregion Graphics
 
@@ -101,8 +103,10 @@ namespace MapEditor
         private const int SUPERSAMPLE_FACTOR = 2;
         private const float DEFAULT_EXPOSURE = 1.1f;
 
-        private static readonly int BLOOM_LEVELS = 5;
-        private static readonly float GLARE_THRESHOLD = 0.38f;
+        //0.55 is the figure the game and the Testbed ship (it moved there with the bloom pyramid, #69); the
+        //editor sat at the older 0.38 for a while — a silent drift this section's own comment forbids, found
+        //and fixed while the pipeline was hoisted (#74)
+        private static readonly float GLARE_THRESHOLD = 0.55f;
 
         //The pyramid accumulates on the way up (see the Testbed's figure and reasoning), so the intensity
         //sits far under the old streak star's — and matches the game's, so a map previews with its bloom.
@@ -114,27 +118,10 @@ namespace MapEditor
         //The game's default film grain, for the same reason (see FILM_GRAIN in the game)
         private static readonly float FILM_GRAIN = 0.10f;
 
-        private RenderTarget2D _sceneTarget;
-
-        //The bloom pyramid (#69): half down to a thirty-second of the back buffer, bright pass in the head,
-        //additive tent upsamples accumulating the halos on the way back up. The Testbed's plumbing exactly.
-        private RenderTarget2D[] _bloomChain;
-
-        private Effect _tonemapEffect;
-        private Effect _glareEffect;
-        private VertexBuffer _fullScreenQuad;
-
-        //Cached in LoadContent: the resolve runs every frame, and the by-name indexer is a linear scan
-        private EffectTechnique _glareBrightPassTechnique;
-        private EffectTechnique _bloomDownTechnique;
-        private EffectTechnique _bloomUpTechnique;
-        private EffectParameter _glareSourceTextureParam;
-        private EffectParameter _glareSourceTexelSizeParam;
-        private EffectParameter _tonemapGlareTextureParam;
-        private EffectParameter _tonemapSceneTextureParam;
-        private EffectParameter _tonemapSourceTexelSizeParam;
-        private EffectParameter _tonemapGrainSeedParam;
-        private EffectParameter _tonemapOutputSizeParam;
+        //The HDR scene target, the bloom pyramid (#69), the tonemap resolve and every cached parameter —
+        //one shared copy for all three executables (Prazsky.Core.Render.PostProcessPipeline, #74). What
+        //stays here is the editor's own look figures above, passed in once at load.
+        private PostProcessPipeline _pipeline;
 
         #endregion Post-processing
 
@@ -226,7 +213,7 @@ namespace MapEditor
         {
             Camera3D.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
 
-            EnsureSceneTarget(); //The back buffer just changed size, so the scene target has to follow
+            _pipeline?.EnsureTarget(); //The back buffer just changed size, so the scene target has to follow
 
             Info.RecomputeScale();
         }
@@ -304,29 +291,19 @@ namespace MapEditor
         protected override void LoadContent()
         {
             _instancingEffect = Content.Load<Effect>("Shaders/InstancedModel");
-            _tonemapEffect = Content.Load<Effect>("Shaders/Tonemap");
-            _glareEffect = Content.Load<Effect>("Shaders/Glare");
 
-            _glareBrightPassTechnique = _glareEffect.Techniques["BrightPass"];
-            _bloomDownTechnique = _glareEffect.Techniques["BloomDown"];
-            _bloomUpTechnique = _glareEffect.Techniques["BloomUp"];
-            _glareSourceTextureParam = _glareEffect.Parameters["SourceTexture"];
-            _glareSourceTexelSizeParam = _glareEffect.Parameters["SourceTexelSize"];
-            _tonemapGlareTextureParam = _tonemapEffect.Parameters["GlareTexture"];
-            _tonemapSceneTextureParam = _tonemapEffect.Parameters["SceneTexture"];
-            _tonemapSourceTexelSizeParam = _tonemapEffect.Parameters["SourceTexelSize"];
-            _tonemapGrainSeedParam = _tonemapEffect.Parameters["GrainSeed"];
-            _tonemapOutputSizeParam = _tonemapEffect.Parameters["OutputSize"];
-
-            //Fixed for the whole run, so they are set exactly once (a parameter's value persists on the effect)
-            _glareEffect.Parameters["GlareThreshold"].SetValue(GLARE_THRESHOLD);
-            _tonemapEffect.Parameters["GlareIntensity"].SetValue(GLARE_INTENSITY);
-            _tonemapEffect.Parameters["ChromaticAberration"].SetValue(CHROMATIC_ABERRATION);
-            _tonemapEffect.Parameters["GrainStrength"].SetValue(FILM_GRAIN);
-            _tonemapEffect.Parameters["SupersampleFactor"].SetValue(SUPERSAMPLE_FACTOR);
-            _tonemapEffect.Parameters["Exposure"].SetValue(DEFAULT_EXPOSURE);
-
-            CreateFullScreenQuad();
+            //The pipeline caches its parameters and sets each look value exactly once through the required
+            //initializer — fixed for the whole run here (the game alone has the Settings toggles). See #74.
+            _pipeline = new PostProcessPipeline(GraphicsDevice,
+                Content.Load<Effect>("Shaders/Tonemap"), Content.Load<Effect>("Shaders/Glare"))
+            {
+                GlareThreshold = GLARE_THRESHOLD,
+                GlareIntensity = GLARE_INTENSITY,
+                Exposure = DEFAULT_EXPOSURE,
+                ChromaticAberration = CHROMATIC_ABERRATION,
+                FilmGrain = FILM_GRAIN,
+                SupersampleFactor = SUPERSAMPLE_FACTOR,
+            };
 
             _ballMeshes = new SphereMesh[BALL_LOD_COUNT];
             _ballRenderers = new InstancedModelRenderer[BALL_LOD_COUNT];
@@ -370,7 +347,7 @@ namespace MapEditor
 
             ApplySkyLighting();
 
-            EnsureSceneTarget();
+            _pipeline.EnsureTarget();
 
             BuildSceneConfigPanel();
 
@@ -846,11 +823,11 @@ namespace MapEditor
         {
             CollectBallInstances();
 
-            //The scene is drawn in linear radiance into the HDR target; ResolveSceneTarget box-filters,
+            //The scene is drawn in linear radiance into the HDR target; the pipeline's Resolve box-filters,
             //glares, tonemaps and sRGB-encodes it onto the back buffer. The selector gizmo and the text
             //overlay are drawn after that, in display space, so they stay exactly as authored — the same
             //split the game makes for its aimer and overlay.
-            GraphicsDevice.SetRenderTarget(_sceneTarget);
+            GraphicsDevice.SetRenderTarget(_pipeline.SceneTarget);
             //Clear to the dome's horizon colour (linear), not a fixed blue, so any pixel the hemisphere dome
             //and the finite scene do not cover - the bottom corners at a wide aspect - blends with the hazed
             //skyline instead of showing through as a blue band (same fix as the game).
@@ -884,7 +861,8 @@ namespace MapEditor
             //Falling snow (mountain) settles in front of everything; a no-op for every other scene
             _sceneRenderer.DrawOverlays(_scene, sceneFrame);
 
-            ResolveSceneTarget();
+            //No water in the editor, so the underwater amount is pinned at zero (a no-op in the shader)
+            _pipeline.Resolve(_sceneSeconds, 0f);
 
             //The selector is additive and always on top (depth off), so it belongs after the resolve, in
             //display space, where its BasicEffect colors read the way they were authored
@@ -906,7 +884,7 @@ namespace MapEditor
             base.Draw(gameTime);
 
             //The Myra GUI renders last, on top of everything, straight to the back buffer (base.Draw and
-            //ResolveSceneTarget leave it bound). Render also processes Myra's own mouse/keyboard input.
+            //the pipeline's Resolve leave it bound). Render also processes Myra's own mouse/keyboard input.
             _desktop.Render();
         }
 
@@ -942,147 +920,6 @@ namespace MapEditor
             SCENE_SUN_RADIANCE * Vector3.Lerp(Vector3.One, _horizonLinear, SCENE_SKY_TINT),
             _sceneSeconds,
             null);
-
-        /// <summary>
-        /// Creates the HDR scene target and the quarter-resolution glare targets, or resizes them after a
-        /// window resize or a fullscreen switch. Ported from the Testbed — see its <c>EnsureSceneTarget</c>.
-        /// </summary>
-        private void EnsureSceneTarget()
-        {
-            if (GraphicsDevice == null) return;
-
-            int width = GraphicsDevice.PresentationParameters.BackBufferWidth * SUPERSAMPLE_FACTOR;
-            int height = GraphicsDevice.PresentationParameters.BackBufferHeight * SUPERSAMPLE_FACTOR;
-            if (width <= 0 || height <= 0) return;
-
-            if (_sceneTarget != null && _sceneTarget.Width == width && _sceneTarget.Height == height) return;
-
-            _sceneTarget?.Dispose();
-
-            //Supersampling already averages SUPERSAMPLE_FACTOR^2 samples per output pixel, geometry edges
-            //included, so MSAA on the scene target only earns its memory when supersampling is off
-            _sceneTarget = new RenderTarget2D(GraphicsDevice, width, height, false, SurfaceFormat.HdrBlendable,
-                DepthFormat.Depth24Stencil8, SUPERSAMPLE_FACTOR > 1 ? 0 : MSAA_SAMPLES, RenderTargetUsage.DiscardContents);
-
-            //Sized off the back buffer, not the supersampled target: the glare is blurred anyway. Level zero
-            //is HALF the back buffer and each level halves again.
-            if (_bloomChain != null) foreach (RenderTarget2D level in _bloomChain) level?.Dispose();
-
-            _bloomChain = new RenderTarget2D[BLOOM_LEVELS];
-            for (int i = 0; i < BLOOM_LEVELS; i++)
-            {
-                int levelWidth = Math.Max(GraphicsDevice.PresentationParameters.BackBufferWidth >> (i + 1), 1);
-                int levelHeight = Math.Max(GraphicsDevice.PresentationParameters.BackBufferHeight >> (i + 1), 1);
-                _bloomChain[i] = new RenderTarget2D(GraphicsDevice, levelWidth, levelHeight, false, SurfaceFormat.HdrBlendable, DepthFormat.None);
-            }
-        }
-
-        /// <summary>
-        /// The bloom pyramid (#69): bright pass into the half-resolution head, downsample to the foot, then
-        /// tent-upsample each level ADDITIVELY into the one above; the tonemap reads the head. Runs between
-        /// the scene and the tonemap — the Testbed's plumbing exactly, so a map previews with its bloom.
-        /// </summary>
-        private void DrawGlare()
-        {
-            GraphicsDevice.BlendState = BlendState.Opaque;
-            GraphicsDevice.DepthStencilState = DepthStencilState.None;
-            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-            GraphicsDevice.SetVertexBuffer(_fullScreenQuad);
-
-            //Techniques and parameters through the references cached in LoadContent (the by-name indexer is
-            //a linear scan, and this runs every frame); the constants went out once there
-            GraphicsDevice.SetRenderTarget(_bloomChain[0]);
-            _glareEffect.CurrentTechnique = _glareBrightPassTechnique;
-            _glareSourceTextureParam.SetValue(_sceneTarget);
-            DrawFullScreenQuad(_glareEffect);
-
-            _glareEffect.CurrentTechnique = _bloomDownTechnique;
-
-            for (int i = 1; i < BLOOM_LEVELS; i++)
-            {
-                GraphicsDevice.SetRenderTarget(_bloomChain[i]);
-                _glareSourceTextureParam.SetValue(_bloomChain[i - 1]);
-                _glareSourceTexelSizeParam.SetValue(new Vector2(1f / _bloomChain[i - 1].Width, 1f / _bloomChain[i - 1].Height));
-                DrawFullScreenQuad(_glareEffect);
-            }
-
-            //Back up the pyramid, ADDING each level into the one above (the down pass's content still sits
-            //in the destination, so the upsample accumulates onto it).
-            GraphicsDevice.BlendState = BlendState.Additive;
-            _glareEffect.CurrentTechnique = _bloomUpTechnique;
-
-            for (int i = BLOOM_LEVELS - 1; i >= 1; i--)
-            {
-                GraphicsDevice.SetRenderTarget(_bloomChain[i - 1]);
-                _glareSourceTextureParam.SetValue(_bloomChain[i]);
-                _glareSourceTexelSizeParam.SetValue(new Vector2(1f / _bloomChain[i].Width, 1f / _bloomChain[i].Height));
-                DrawFullScreenQuad(_glareEffect);
-            }
-
-            GraphicsDevice.BlendState = BlendState.Opaque;
-        }
-
-        private void DrawFullScreenQuad(Effect effect)
-        {
-            foreach (EffectPass pass in effect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                GraphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
-            }
-        }
-
-        /// <summary>
-        /// Builds the clip-space quad the glare and tonemap passes draw. Its corners are already in
-        /// normalized device coordinates, so the passes need no transform.
-        /// </summary>
-        private void CreateFullScreenQuad()
-        {
-            VertexPositionTexture[] corners =
-            {
-                new(new Vector3(-1f, 1f, 0f), new Vector2(0f, 0f)),
-                new(new Vector3(1f, 1f, 0f), new Vector2(1f, 0f)),
-                new(new Vector3(-1f, -1f, 0f), new Vector2(0f, 1f)),
-                new(new Vector3(1f, -1f, 0f), new Vector2(1f, 1f))
-            };
-
-            _fullScreenQuad = new VertexBuffer(GraphicsDevice, VertexPositionTexture.VertexDeclaration, corners.Length, BufferUsage.WriteOnly);
-            _fullScreenQuad.SetData(corners);
-        }
-
-        /// <summary>
-        /// Box-filters the supersampled HDR scene onto the back buffer, adds the glare, tonemaps from linear
-        /// radiance and encodes to sRGB. The frame's one and only exit from linear light.
-        /// </summary>
-        private void ResolveSceneTarget()
-        {
-            DrawGlare(); //Reads the scene target, so it has to happen before the back buffer is bound
-
-            GraphicsDevice.SetRenderTarget(null);
-
-            //The constants (exposure, glare intensity, supersample factor) were set once in LoadContent and
-            //persist on the effect; only the targets and their texel size can change (a resize recreates them)
-            _tonemapGlareTextureParam.SetValue(_bloomChain[0]);
-            _tonemapSceneTextureParam.SetValue(_sceneTarget);
-            _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
-
-            //The grain re-rolls every frame and lands one grain per OUTPUT pixel; the modulo keeps the seed
-            //small — the shader takes its fraction, and a float that has grown for an hour has little left
-            _tonemapGrainSeedParam.SetValue(_sceneSeconds % 64f);
-            _tonemapOutputSizeParam.SetValue(new Vector2(
-                GraphicsDevice.PresentationParameters.BackBufferWidth,
-                GraphicsDevice.PresentationParameters.BackBufferHeight));
-
-            GraphicsDevice.BlendState = BlendState.Opaque;
-            GraphicsDevice.DepthStencilState = DepthStencilState.None;
-            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-            GraphicsDevice.SetVertexBuffer(_fullScreenQuad);
-
-            foreach (EffectPass pass in _tonemapEffect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                GraphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
-            }
-        }
 
         private string GetFilePathByDialog(bool save)
         {
@@ -1130,7 +967,9 @@ namespace MapEditor
 
             _graphics.ApplyChanges();
 
-            EnsureSceneTarget(); //The back buffer just changed size, so the scene target has to follow
+            //The back buffer just changed size, so the scene target has to follow. Null-conditional for the
+            //constructor's call, which runs before LoadContent has built the pipeline.
+            _pipeline?.EnsureTarget();
 
             IsMouseVisible = false;
             IsFixedTimeStep = false;
@@ -1149,9 +988,7 @@ namespace MapEditor
 
         protected override void UnloadContent()
         {
-            _sceneTarget?.Dispose();
-            if (_bloomChain != null) foreach (RenderTarget2D level in _bloomChain) level?.Dispose();
-            _fullScreenQuad?.Dispose();
+            _pipeline?.Dispose();
             _sceneRenderer?.Dispose();
             _cityRenderer?.Dispose();
             _unitBox?.Dispose();

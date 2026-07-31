@@ -169,48 +169,18 @@ namespace BS3D
 
         #endregion
 
-        #region Post-processing (linear radiance in, sRGB out — exactly the Testbed's pipeline)
+        #region Post-processing (linear radiance in, sRGB out — the shared pipeline, #74)
 
-        private RenderTarget2D _sceneTarget;
+        //The HDR scene target, the bloom pyramid, the tonemap resolve and every cached parameter live in
+        //Prazsky.Core.Render.PostProcessPipeline now — one copy for all three executables. What stays here
+        //is what is this executable's to decide: the look figures below, the Settings toggles that write
+        //them, and the underwater amount (scene knowledge the pipeline takes as a per-frame scalar).
+        private PostProcessPipeline _pipeline;
 
-        //The bloom pyramid (#69): half, quarter, eighth, sixteenth and a thirty-second of the back buffer.
-        //The bright pass lands in the head, is downsampled to the foot and accumulated back up with
-        //additive tent upsamples — the wide soft halo that replaced the six-armed streak star.
-        private RenderTarget2D[] _bloomChain;
-
-        private Effect _tonemapEffect;
-        private Effect _glareEffect;
-        private VertexBuffer _fullScreenQuad;
-
-        //Cached in LoadContent: the resolve runs every frame and the by-name indexer is a linear scan over
-        //the effect's parameter list. Values that never change after startup (the thresholds, the exposure,
-        //the trail widths) are set once there and never touched again; the textures and texel sizes still go
-        //out per frame through these references, because the render targets are recreated on every resize.
-        private EffectTechnique _glareBrightPassTechnique;
-        private EffectTechnique _bloomDownTechnique;
-        private EffectTechnique _bloomUpTechnique;
-        private EffectParameter _glareSourceTextureParam;
-        private EffectParameter _glareSourceTexelSizeParam;
-        private EffectParameter _tonemapGlareTextureParam;
-        private EffectParameter _tonemapSceneTextureParam;
-        private EffectParameter _tonemapSourceTexelSizeParam;
-        private EffectParameter _tonemapUnderwaterAmountParam;
-        private EffectParameter _tonemapGrainSeedParam;
-        private EffectParameter _tonemapOutputSizeParam;
-
-        //Being submerged has to read as being submerged, or the frame is the world unchanged with a water
-        //plane cutting through it. Applied in linear light before the ACES curve, so the drowned scene rolls
-        //through the same highlight response as everything above the surface: the frame is absorbed towards
-        //a blue-green (red goes first, so it blues and dims) and the water's own in-scattered glow added, both
-        //by the amount below. The Testbed's figures unchanged.
-        private static readonly Vector3 UNDERWATER_ABSORB = new(0.10f, 0.42f, 0.52f);
-        private static readonly Vector3 UNDERWATER_INSCATTER = new(0.015f, 0.06f, 0.09f);
-
-        //How far under the mean surface the tint takes to reach full
+        //How far under the mean surface the underwater tint takes to reach full
         private const float UNDERWATER_FADE_DEPTH = 7f;
         private EffectParameter _skyCameraPositionParam;
 
-        private static readonly int BLOOM_LEVELS = 5;
         private static readonly float GLARE_THRESHOLD = 0.55f;
 
         //Peak red/blue channel displacement at the frame CORNERS, as a fraction of the frame (the shader
@@ -239,10 +209,6 @@ namespace BS3D
         //Far lower than the streak star's 0.9: the pyramid ACCUMULATES on the way up, so the head carries
         //its own halo plus every wider level's, and the same subjective glow needs a fraction of the gain.
         private static readonly float GLARE_INTENSITY = 0.5f;
-
-        //Only used when supersampling is off: multisampling antialiases geometry edges but not shading, and
-        //the balls' procedural relief is shading.
-        private static readonly int MSAA_SAMPLES = 8;
 
         #endregion
 
@@ -558,7 +524,7 @@ namespace BS3D
 
         /// <summary>
         /// How hard a ball flares as the ripple reaches it, as a multiple of its own colour at full peak. Over
-        /// <c>GLARE_THRESHOLD</c> (0.38) on purpose, so a lit ball blooms — that is what makes the wave read as
+        /// <c>GLARE_THRESHOLD</c> on purpose, so a lit ball blooms — that is what makes the wave read as
         /// light travelling through the cluster rather than as the balls changing shade.
         /// <para>
         /// <b>But only just over</b>, and that is the whole tuning problem here. The number of balls the wave
@@ -1066,7 +1032,9 @@ namespace BS3D
 
             _graphics.ApplyChanges();
 
-            EnsureSceneTarget();
+            //Null-conditional for the constructor's call, which runs before LoadContent has built the
+            //pipeline (the old in-class EnsureSceneTarget guarded on GraphicsDevice == null the same way)
+            _pipeline?.EnsureTarget();
 
             //A fullscreen switch resizes the back buffer without necessarily going through the window's own
             //resize event, and both the overlay's scale and the camera's framing are derived from the viewport
@@ -1137,7 +1105,7 @@ namespace BS3D
             //The menu is authored the same way, and refits itself in Draw (EnsureMenuLayout).
             _info?.RecomputeScale();
 
-            EnsureSceneTarget();
+            _pipeline?.EnsureTarget();
         }
 
         /// <summary>
@@ -1279,47 +1247,26 @@ namespace BS3D
         protected override void LoadContent()
         {
             _instancingEffect = Content.Load<Effect>("Shaders/InstancedModel");
-            _tonemapEffect = Content.Load<Effect>("Shaders/Tonemap");
-            _glareEffect = Content.Load<Effect>("Shaders/Glare");
 
-            _glareBrightPassTechnique = _glareEffect.Techniques["BrightPass"];
-            _bloomDownTechnique = _glareEffect.Techniques["BloomDown"];
-            _bloomUpTechnique = _glareEffect.Techniques["BloomUp"];
-            _glareSourceTextureParam = _glareEffect.Parameters["SourceTexture"];
-            _glareSourceTexelSizeParam = _glareEffect.Parameters["SourceTexelSize"];
-            _tonemapGlareTextureParam = _tonemapEffect.Parameters["GlareTexture"];
-            _tonemapSceneTextureParam = _tonemapEffect.Parameters["SceneTexture"];
-            _tonemapSourceTexelSizeParam = _tonemapEffect.Parameters["SourceTexelSize"];
+            //The pipeline caches its parameters and sets each look value exactly once through the required
+            //initializer — the aberration/grain toggles and the exposure ladder write the same properties
+            //later, and everything else about the resolve lives in the class (see #74)
+            _pipeline = new PostProcessPipeline(GraphicsDevice,
+                Content.Load<Effect>("Shaders/Tonemap"), Content.Load<Effect>("Shaders/Glare"))
+            {
+                GlareThreshold = GLARE_THRESHOLD,
+                GlareIntensity = GLARE_INTENSITY,
+                Exposure = _exposure,
+                ChromaticAberration = _aberration ? CHROMATIC_ABERRATION : 0f,
+                FilmGrain = _grain ? FILM_GRAIN : 0f,
+                SupersampleFactor = _supersampleFactor,
+            };
 
             //Re-sent every frame (the savanna's campfire flickers), so the by-name scans are done once here
             _sceneLightPositionParam = _instancingEffect.Parameters["SceneLightPosition"];
             _sceneLightColorParam = _instancingEffect.Parameters["SceneLightColor"];
             _sceneLightRangeParam = _instancingEffect.Parameters["SceneLightRange"];
             _sceneLightCountParam = _instancingEffect.Parameters["SceneLightCount"];
-
-            //Fixed for the whole run, so they are set exactly once: a parameter's value persists on the
-            //effect, and re-sending a constant every frame bought nothing
-            _glareEffect.Parameters["GlareThreshold"].SetValue(GLARE_THRESHOLD);
-            _tonemapEffect.Parameters["GlareIntensity"].SetValue(GLARE_INTENSITY);
-            _tonemapEffect.Parameters["ChromaticAberration"].SetValue(_aberration ? CHROMATIC_ABERRATION : 0f);
-            _tonemapEffect.Parameters["GrainStrength"].SetValue(_grain ? FILM_GRAIN : 0f);
-            _tonemapEffect.Parameters["SupersampleFactor"].SetValue(_supersampleFactor);
-            _tonemapEffect.Parameters["Exposure"].SetValue(_exposure);
-
-            //The grain's seed and pixel grid change per frame / with the window, so their scans are done once
-            _tonemapGrainSeedParam = _tonemapEffect.Parameters["GrainSeed"];
-            _tonemapOutputSizeParam = _tonemapEffect.Parameters["OutputSize"];
-
-            //The underwater murk, the Testbed's own. Only the sea has water a lens can get under, and until the
-            //drop cinematic arrived nothing here ever went below the island, so this was pinned at zero — now
-            //the shot follows the balls down through the surface and the frame has to say so. The two colours
-            //are constant for the run; only the amount changes, and it is set per frame in ResolveSceneTarget.
-            _tonemapUnderwaterAmountParam = _tonemapEffect.Parameters["UnderwaterAmount"];
-            _tonemapEffect.Parameters["UnderwaterAbsorb"].SetValue(UNDERWATER_ABSORB);
-            _tonemapEffect.Parameters["UnderwaterInscatter"].SetValue(UNDERWATER_INSCATTER);
-            _tonemapUnderwaterAmountParam.SetValue(0f);
-
-            CreateFullScreenQuad();
 
             //The overlay's own batch and its one white texel, stretched into each bar of the crosshair
             _spriteBatch = new SpriteBatch(GraphicsDevice);
@@ -1406,7 +1353,7 @@ namespace BS3D
             //writes the config's own defaults back over themselves and rebuilds nothing.
             ApplyQuality(_quality);
 
-            EnsureSceneTarget();
+            _pipeline.EnsureTarget();
 
             //The order the levels are played in, read once here: a broken set is reported at startup rather
             //than at the moment the player presses Play, and the maps themselves are only parsed per level.
@@ -1895,7 +1842,7 @@ namespace BS3D
             //the value is already on the ladder
             if (_exposure > EXPOSURE_MAX + Constants.THOUSANDTH) _exposure = EXPOSURE_MIN;
 
-            _tonemapEffect.Parameters["Exposure"].SetValue(_exposure);
+            _pipeline.Exposure = _exposure;
 
             _settingsPage.Refresh();
         }
@@ -3031,7 +2978,9 @@ namespace BS3D
         {
             _supersampleFactor = Math.Clamp(factor, 1, 4);
 
-            _tonemapEffect.Parameters["SupersampleFactor"].SetValue(_supersampleFactor);
+            //The pipeline's setter writes the tonemap uniform and recreates the scene target in one move —
+            //the factor is the target's size, so changing it is exactly what makes the recreate happen
+            _pipeline.SupersampleFactor = _supersampleFactor;
 
             //The space scene sizes its stars in OUTPUT pixels rather than in texels, so it has to be told the
             //factor too — sized in texels a star would come out four times dimmer on High than on Medium.
@@ -3039,10 +2988,6 @@ namespace BS3D
             //(LoadContent's ApplyQuality, the settings row, the adaptive step) runs after the renderer is
             //constructed. Unlike the settings page below, this is not a live case.
             if (_sceneRenderer != null) _sceneRenderer.SupersampleFactor = _supersampleFactor;
-
-            //The factor is the scene target's size, so changing it is exactly what makes EnsureSceneTarget
-            //recreate the target rather than recognize it as the one already there
-            EnsureSceneTarget();
 
             //Null-conditional because the tier is applied during LoadContent, before the menu pages exist — a
             //command-line quality= reaches here well before there is a settings row to write the value onto.
@@ -3085,7 +3030,7 @@ namespace BS3D
         internal void ToggleAberration()
         {
             _aberration = !_aberration;
-            _tonemapEffect.Parameters["ChromaticAberration"].SetValue(_aberration ? CHROMATIC_ABERRATION : 0f);
+            _pipeline.ChromaticAberration = _aberration ? CHROMATIC_ABERRATION : 0f;
             _settingsPage.Refresh();
         }
 
@@ -3097,7 +3042,7 @@ namespace BS3D
         internal void ToggleGrain()
         {
             _grain = !_grain;
-            _tonemapEffect.Parameters["GrainStrength"].SetValue(_grain ? FILM_GRAIN : 0f);
+            _pipeline.FilmGrain = _grain ? FILM_GRAIN : 0f;
             _settingsPage.Refresh();
         }
 
@@ -3207,7 +3152,7 @@ namespace BS3D
         /// </summary>
         internal SceneFrame BeginSceneDraw()
         {
-            GraphicsDevice.SetRenderTarget(_sceneTarget);
+            GraphicsDevice.SetRenderTarget(_pipeline.SceneTarget);
 
             //Cleared to the dome's horizon colour rather than a fixed one: at a wide aspect the bottom
             //corners can look below the horizon past both the dome and the island, and there any other
@@ -3361,162 +3306,22 @@ namespace BS3D
             //covers the session (see Fireworks).
             _fireworks?.Draw(_camera);
 
-            ResolveSceneTarget();
-        }
-
-        #endregion
-
-        #region Render targets and the resolve
-
-        private void EnsureSceneTarget()
-        {
-            if (GraphicsDevice == null) return;
-
-            int width = GraphicsDevice.PresentationParameters.BackBufferWidth * _supersampleFactor;
-            int height = GraphicsDevice.PresentationParameters.BackBufferHeight * _supersampleFactor;
-
-            if (_sceneTarget != null && _sceneTarget.Width == width && _sceneTarget.Height == height) return;
-
-            _sceneTarget?.Dispose();
-
-            //Supersampling already averages its samples per output pixel, geometry edges included, so MSAA
-            //only earns its memory with supersampling off — which is exactly the ssaa=1 path this used to
-            //leave with no antialiasing of any kind, on the setting a weak machine reaches for first. It goes
-            //on the scene target, never the back buffer: nothing but one resolved quad ever reaches that.
-            _sceneTarget = new RenderTarget2D(GraphicsDevice, width, height, false, SurfaceFormat.HdrBlendable,
-                DepthFormat.Depth24Stencil8, _supersampleFactor > 1 ? 0 : MSAA_SAMPLES, RenderTargetUsage.DiscardContents);
-
-            //Sized off the back buffer, not the supersampled target: the glare is blurred anyway, so the
-            //extra samples buy nothing and would only cost fill rate to produce. Level zero is HALF the
-            //back buffer and each level halves again — about a third of a back buffer of HDR memory in all.
-            if (_bloomChain != null) foreach (RenderTarget2D level in _bloomChain) level?.Dispose();
-
-            _bloomChain = new RenderTarget2D[BLOOM_LEVELS];
-            for (int i = 0; i < BLOOM_LEVELS; i++)
-            {
-                int levelWidth = Math.Max(GraphicsDevice.PresentationParameters.BackBufferWidth >> (i + 1), 1);
-                int levelHeight = Math.Max(GraphicsDevice.PresentationParameters.BackBufferHeight >> (i + 1), 1);
-                _bloomChain[i] = new RenderTarget2D(GraphicsDevice, levelWidth, levelHeight, false, SurfaceFormat.HdrBlendable, DepthFormat.None);
-            }
-        }
-
-        /// <summary>
-        /// The bloom pyramid (#69): the bright pass lands in the half-resolution head, is downsampled level
-        /// by level to the foot, and each level is tent-upsampled ADDITIVELY into the one above — the head
-        /// ends carrying its own tight halo plus every wider one, and the tonemap reads just the head.
-        /// </summary>
-        private void DrawGlare()
-        {
-            GraphicsDevice.BlendState = BlendState.Opaque;
-            GraphicsDevice.DepthStencilState = DepthStencilState.None;
-            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-            GraphicsDevice.SetVertexBuffer(_fullScreenQuad);
-
-            GraphicsDevice.SetRenderTarget(_bloomChain[0]);
-            _glareEffect.CurrentTechnique = _glareBrightPassTechnique;
-            _glareSourceTextureParam.SetValue(_sceneTarget);
-            DrawFullScreenQuad(_glareEffect);
-
-            _glareEffect.CurrentTechnique = _bloomDownTechnique;
-
-            for (int i = 1; i < BLOOM_LEVELS; i++)
-            {
-                GraphicsDevice.SetRenderTarget(_bloomChain[i]);
-                _glareSourceTextureParam.SetValue(_bloomChain[i - 1]);
-                _glareSourceTexelSizeParam.SetValue(new Vector2(1f / _bloomChain[i - 1].Width, 1f / _bloomChain[i - 1].Height));
-                DrawFullScreenQuad(_glareEffect);
-            }
-
-            //Back up the pyramid, ADDING each level into the one above: the down pass's own content still
-            //sits in the destination, so the upsample accumulates onto it and no extra target is needed.
-            GraphicsDevice.BlendState = BlendState.Additive;
-            _glareEffect.CurrentTechnique = _bloomUpTechnique;
-
-            for (int i = BLOOM_LEVELS - 1; i >= 1; i--)
-            {
-                GraphicsDevice.SetRenderTarget(_bloomChain[i - 1]);
-                _glareSourceTextureParam.SetValue(_bloomChain[i]);
-                _glareSourceTexelSizeParam.SetValue(new Vector2(1f / _bloomChain[i].Width, 1f / _bloomChain[i].Height));
-                DrawFullScreenQuad(_glareEffect);
-            }
-
-            GraphicsDevice.BlendState = BlendState.Opaque;
-        }
-
-        /// <summary>
-        /// Box-filters the supersampled HDR scene onto the back buffer, tonemaps it from linear radiance
-        /// into display range and encodes it to sRGB. The frame's one and only exit from linear light.
-        /// </summary>
-        private void ResolveSceneTarget()
-        {
-            DrawGlare(); //Reads the scene target, so it has to happen before the back buffer is bound
-
-            GraphicsDevice.SetRenderTarget(null);
-
-            //The constants (exposure, glare intensity, supersample factor, the two underwater colours) were
-            //set once in LoadContent and persist on the effect; only what can change goes out per frame
-            _tonemapGlareTextureParam.SetValue(_bloomChain[0]);
-            _tonemapSceneTextureParam.SetValue(_sceneTarget);
-            _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
-
-            //The grain re-rolls every frame and lands one grain per OUTPUT pixel, so the seed and the
-            //back-buffer size go out here. The modulo keeps the seed small: the shader takes its fraction,
-            //and a float that has grown for an hour has little left to give.
-            _tonemapGrainSeedParam.SetValue(_wallClock % 64f);
-            _tonemapOutputSizeParam.SetValue(new Vector2(
-                GraphicsDevice.PresentationParameters.BackBufferWidth,
-                GraphicsDevice.PresentationParameters.BackBufferHeight));
-
             //How far under the sea the lens is. Only the sea has water to get under, and only the drop
             //cinematic ever takes the camera down there — the play camera stands on the island. Measured a
             //touch above the mean surface so partial submersion already begins to tint, full by
             //UNDERWATER_FADE_DEPTH; zero everywhere else, which is a no-op in the shader.
-            _tonemapUnderwaterAmountParam.SetValue(_scene == SceneKind.Sea
+            float underwater = _scene == SceneKind.Sea
                 ? MathHelper.Clamp((_sceneRenderer.SeaLevelY + 0.5f - _camera.Position.Y) / UNDERWATER_FADE_DEPTH, 0f, 1f)
-                : 0f);
+                : 0f;
 
-            GraphicsDevice.BlendState = BlendState.Opaque;
-            GraphicsDevice.DepthStencilState = DepthStencilState.None;
-            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-            GraphicsDevice.SetVertexBuffer(_fullScreenQuad);
-
-            DrawFullScreenQuad(_tonemapEffect);
-        }
-
-        private void DrawFullScreenQuad(Effect effect)
-        {
-            foreach (EffectPass pass in effect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                GraphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
-            }
-        }
-
-        /// <summary>
-        /// The quad the post-processing passes draw. Its corners are already in normalized device
-        /// coordinates, so no pass needs a transform of any kind.
-        /// </summary>
-        private void CreateFullScreenQuad()
-        {
-            VertexPositionTexture[] corners =
-            {
-                new(new Vector3(-1f, 1f, 0f), new Vector2(0f, 0f)),
-                new(new Vector3(1f, 1f, 0f), new Vector2(1f, 0f)),
-                new(new Vector3(-1f, -1f, 0f), new Vector2(0f, 1f)),
-                new(new Vector3(1f, -1f, 0f), new Vector2(1f, 1f))
-            };
-
-            _fullScreenQuad = new VertexBuffer(GraphicsDevice, VertexPositionTexture.VertexDeclaration, corners.Length, BufferUsage.WriteOnly);
-            _fullScreenQuad.SetData(corners);
+            _pipeline.Resolve(_wallClock, underwater);
         }
 
         #endregion
 
         protected override void UnloadContent()
         {
-            _sceneTarget?.Dispose();
-            if (_bloomChain != null) foreach (RenderTarget2D level in _bloomChain) level?.Dispose();
-            _fullScreenQuad?.Dispose();
+            _pipeline?.Dispose();
             _spriteBatch?.Dispose();
             _pixel?.Dispose();
 
