@@ -1134,7 +1134,7 @@ namespace Testbed
             FitCeilingToMap(_map);
             FitCannonAndGameCameraToMap();
 
-            _physicsBalls = BallsConstraintsBuilder.BuildBallsStructure(_map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference);
+            _physicsBalls = BallsConstraintsBuilder.BuildBallsStructure(_map.GetStaticBallsArray(), _simulation, _ceiling.BodyReference);
             _eventHandler.PhysicsBalls = _physicsBalls;
 
             RecountBallsAndConstraints();

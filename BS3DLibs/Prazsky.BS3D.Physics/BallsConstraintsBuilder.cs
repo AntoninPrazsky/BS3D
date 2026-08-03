@@ -71,7 +71,10 @@ namespace Prazsky.BS3D.Physics
         /// consistency: applying it twice tears the structure apart on the first timestep.
         /// </para>
         /// </param>
-        public static PhysicsBall[,,] BuildBallsStructure(StaticBall[,,] staticBalls, ref Simulation simulation, BodyReference ceilingReference, Vector3 worldOffset = default)
+        //By value, not by ref: the simulation is only ever read here (it is a class, so the reference is all
+        //that is needed), and the ref it used to take was what stopped a caller passing a property — which
+        //PhysicsWorld's Simulation is, since #76.
+        public static PhysicsBall[,,] BuildBallsStructure(StaticBall[,,] staticBalls, Simulation simulation, BodyReference ceilingReference, Vector3 worldOffset = default)
         {
             if (staticBalls == null) throw new NullReferenceException(nameof(staticBalls));
             if (simulation == null) throw new NullReferenceException(nameof(simulation));

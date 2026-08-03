@@ -1102,7 +1102,7 @@ namespace BS3D.Screens
             //applied to the body positions and to nothing else: the constraint anchors are differences of two
             //grid positions, so the offset cancels out of them.
             _physicsBalls = BallsConstraintsBuilder.BuildBallsStructure(
-                _map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference,
+                _map.GetStaticBallsArray(), _simulation, _ceiling.BodyReference,
                 _clusterWorldOffset.ToNumerics());
 
             //What happens on a hit lives in the handler: the snap into the lattice, the constraints, and the
