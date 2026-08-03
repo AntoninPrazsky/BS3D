@@ -150,6 +150,20 @@ namespace BS3D
         /// </summary>
         internal bool EdgeInputAllowed { get; private set; }
 
+        /// <summary>
+        /// Whether Myra may be fed mouse input this frame. Cleared whenever the top screen changes and set again
+        /// once the left button is seen released, so a page cannot be clicked by a button that was already down
+        /// when it arrived — the menu's counterpart to <see cref="EdgeInputAllowed"/>, and needed for the same
+        /// reason by a different route: Myra holds its own previous-state and only sees input while a page is up,
+        /// so its idea of "released" can be arbitrarily old. Keyboard and pad navigation are deliberately not
+        /// gated on it, so a page under a held button is still operable, just not clickable.
+        /// </summary>
+        private bool _menuClickArmed = true;
+
+        //What the flag above is watching for a change of. Held rather than compared against a screen count, so a
+        //pop straight into a different page of the same depth is still a change.
+        private Screen _lastActiveScreen;
+
         #endregion
 
         #region The overlay (display space, after the resolve)
@@ -2247,6 +2261,26 @@ namespace BS3D
             //a page opened by a click lands here on the following frame, which is the deferred design.
             _screens.Update(gameTime);
 
+            //A page that has just arrived must not be handed a mouse button that was already held down when it
+            //did. Myra keeps its own previous-state and is only fed input while a menu page is on top, so the
+            //first frame a page is drawn it compares a held button against whatever the state was the last time
+            //a menu had input — frames or minutes ago — and reads a press that never happened here. Pausing with
+            //the fire button held does it: Escape pushes the pause page and the still-held click lands on
+            //whichever entry is under the cursor. So the button has to be seen RELEASED once before Myra is fed
+            //anything, which is the same rule _padTriggerReleased applies to a held trigger.
+            //
+            //Polled only while a menu is up, which is exactly when nothing else polls the mouse — the gameplay
+            //screen takes its own snapshot in UpdateAim, and two reads of one device in a frame is the thing
+            //BestPractices.md #5 forbids.
+            if (_screens.Active != _lastActiveScreen)
+            {
+                _lastActiveScreen = _screens.Active;
+                _menuClickArmed = false;
+            }
+
+            if (!_menuClickArmed && _screens.Active is MenuPage && Mouse.GetState().LeftButton == ButtonState.Released)
+                _menuClickArmed = true;
+
             _wasActive = IsActive;
 
             base.Update(gameTime);
@@ -2515,7 +2549,11 @@ namespace BS3D
                 //the frame that is about to draw it — a fullscreen switch and a window drag both land here
                 EnsureMenuLayout();
 
-                if (IsActive) _desktop.Render();
+                //_menuClickArmed is the second reason to draw a page without feeding it input, and the reason it
+                //reuses this branch rather than adding one: a page that has just arrived under a held button is
+                //in exactly the position an unfocused window is in — it must be visible and it must not be
+                //clickable yet. See where the flag is set for what it is guarding against.
+                if (IsActive && _menuClickArmed) _desktop.Render();
                 else
                 {
                     _desktop.UpdateLayout();
