@@ -10,7 +10,6 @@ using Myra.Graphics2D;
 using Myra.Graphics2D.Brushes;
 using Myra.Graphics2D.UI;
 using Prazsky.BS3D;
-using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Levels;
 using Prazsky.Core;
 using Prazsky.Core.Camera;
@@ -413,49 +412,24 @@ namespace BS3D
 
         #endregion
 
-        #region Balls (the renderers; the balls themselves are the session's)
+        #region Balls (the render set; the balls themselves are the session's)
 
-        internal static readonly int BALL_TYPE_COUNT = (int)BallType.Type8;
-
-        private static readonly int[,] BALL_LOD_RESOLUTIONS = { { 32, 24 }, { 16, 12 }, { 10, 7 } };
-        internal static readonly float[] BALL_LOD_DISTANCES = { 15f, 30f };
-        internal static readonly int BALL_LOD_COUNT = 3;
-
-        private static readonly int BALL_PATTERN_GORES = 5;
-        private static readonly float BALL_ALBEDO = 0.5f;
-        private static readonly float BALL_EMISSION = 0.5f;
-        private static readonly float BALL_TRANSLUCENCY = 0.35f;
-        private static readonly float BALL_PULSE_BEATS_PER_SECOND = 1.1f;
-
-        //How deep the resting heartbeat swings. Turned down from 0.55 once the ripple arrived: the cluster now
-        //has two things to say with its own light, and a breath that swings over half the emission drowns out
-        //the wave that runs through it on every landing. The breath is the idle state and should read as one —
-        //alive, but waiting — and the ripple is the event.
-        private static readonly float BALL_PULSE_DEPTH = 0.38f;
-        private static readonly float BALL_PULSE_WAVELENGTH = 14f;
+        //Everything it takes to draw a ball is BallRenderSet's since #76: the three procedural sphere LODs and
+        //the distances they are picked by, the three renderers built on them, every figure of the look (the
+        //albedo, the five-gore beach pattern, the emission and translucency, the heartbeat's rate, depth,
+        //direction and wavelength, the ripple's strength) and the (type × LOD) instance buckets each of which
+        //becomes one instanced draw call. It stood here, in the Testbed's LoadContent and in the map editor,
+        //with the bucket bookkeeping written a fourth time inside the session's own collect walk. Every one of
+        //those figures kept its value and its reasoning; the pulse depth is now picked BY the ripple flag,
+        //which is what keeps the breath from being left loud enough to drown the wave out.
+        private BallRenderSet _balls;
 
         /// <summary>
-        /// How hard a ball flares as the ripple reaches it, as a multiple of its own colour at full peak. Over
-        /// <c>GLARE_THRESHOLD</c> on purpose, so a lit ball blooms — that is what makes the wave read as
-        /// light travelling through the cluster rather than as the balls changing shade.
-        /// <para>
-        /// <b>But only just over</b>, and that is the whole tuning problem here. The number of balls the wave
-        /// has lit at once grows as the square of how far it has got, so a few hops in it is not one bright
-        /// ball but a hundred of them — and at 1.1 that flooded the glare's bright pass, whose six streak arms
-        /// then overlapped into a wash and, added before the ACES curve, blew the entire frame white for a
-        /// frame. It measured as a single sample at 174 mean brightness against a 137 baseline, and it looked
-        /// like a rendering fault rather than an effect.
-        /// </para>
+        /// The ball meshes, renderers and instance buckets — content, like the barrel, so it is built once with
+        /// the device up and outlives every session. The session opens one frame of collection on it per draw
+        /// (<see cref="BallRenderSet.BeginFrame"/>) and hands it every ball there is.
         /// </summary>
-        private static readonly float BALL_RIPPLE_STRENGTH = 0.85f;
-
-        private const float BALL_RADIUS = Constants.HALF;
-
-        private SphereMesh[] _ballMeshes;
-        private InstancedModelRenderer[] _ballRenderers;
-
-        /// <summary>One renderer per LOD; the session buckets its instances against these.</summary>
-        internal InstancedModelRenderer[] BallRenderers => _ballRenderers;
+        internal BallRenderSet Balls => _balls;
 
         #endregion
 
@@ -1183,25 +1157,13 @@ namespace BS3D
 
             #region Balls
 
-            _ballMeshes = new SphereMesh[BALL_LOD_COUNT];
-            _ballRenderers = new InstancedModelRenderer[BALL_LOD_COUNT];
-
-            for (int lod = 0; lod < BALL_LOD_COUNT; lod++)
-            {
-                _ballMeshes[lod] = new SphereMesh(GraphicsDevice, BALL_RADIUS, BALL_LOD_RESOLUTIONS[lod, 0], BALL_LOD_RESOLUTIONS[lod, 1]);
-                _ballRenderers[lod] = new InstancedModelRenderer(GraphicsDevice, _ballMeshes[lod], BALL_ALBEDO * Vector3.One, _instancingEffect)
-                {
-                    PatternGoreCount = BALL_PATTERN_GORES,
-                    EmissiveStrength = BALL_EMISSION,
-                    TranslucencyStrength = BALL_TRANSLUCENCY,
-                    PulseSpeed = BALL_PULSE_BEATS_PER_SECOND,
-                    PulseDepth = BALL_PULSE_DEPTH,
-                    PulseDirection = Vector3.Up,
-                    PulseWavelength = BALL_PULSE_WAVELENGTH,
-                    RippleStrength = BALL_RIPPLE_STRENGTH,
-                    GroundHeight = ArenaIsland.TOP_Y
-                };
-            }
+            //Off the same shared instanced effect as everything else in the scene, which is why it is handed in
+            //rather than loaded: the effect stays the content manager's. ripples: true is this executable alone
+            //— the Testbed and the map editor run no wave through their cluster — and it both switches the
+            //shader's ripple term on and picks the shallower resting breath that keeps the wave visible over
+            //it. The ground the balls' bellies darken against is the island's own top, which is the set's
+            //default and the one thing every ball in this game hangs over.
+            _balls = new BallRenderSet(GraphicsDevice, _instancingEffect, ripples: true);
 
             #endregion
 
@@ -2270,7 +2232,10 @@ namespace BS3D
         /// </summary>
         private IEnumerable<InstancedModelRenderer> SkyLitRenderers()
         {
-            foreach (InstancedModelRenderer ballRenderer in _ballRenderers) yield return ballRenderer;
+            //Sky-lit enrolment is the one thing BallRenderSet exposes its renderers for, and deliberately so:
+            //which renderers take part is each executable's own list with its own reasons, which is why this
+            //walk is here and not in the component.
+            foreach (InstancedModelRenderer ballRenderer in _balls.Renderers) yield return ballRenderer;
 
             yield return _cannonRig.Renderer;
             yield return _cityRenderer;
@@ -2966,8 +2931,9 @@ namespace BS3D
             _spriteBatch?.Dispose();
             _pixel?.Dispose();
 
-            if (_ballMeshes != null) foreach (SphereMesh mesh in _ballMeshes) mesh?.Dispose();
-            if (_ballRenderers != null) foreach (InstancedModelRenderer renderer in _ballRenderers) renderer?.Dispose();
+            //The three sphere meshes and the three renderers' instance buffers, in one call — but not the
+            //shared instancing effect they draw through, which the content manager owns
+            _balls?.Dispose();
 
             //The barrel's mesh and its instance buffer, in one call — but not the shared instancing effect,
             //which the content manager owns and the balls, the city, the island and the ceiling all use

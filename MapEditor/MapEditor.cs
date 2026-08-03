@@ -2,6 +2,7 @@ using MapEditor.GUI;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Prazsky.BS3D;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Input;
@@ -42,24 +43,12 @@ namespace MapEditor
         #region Ball rendering
 
         //The balls are drawn exactly as the game draws them, so that a map looks here the way it will play:
-        //generated sphere LODs picked by camera distance, instanced through the game's own shader.
-        //See the "Ball rendering" section in CLAUDE.md
-        private static readonly int[,] BALL_LOD_RESOLUTIONS = { { 32, 24 }, { 16, 12 }, { 10, 7 } };
-        private static readonly float[] BALL_LOD_DISTANCES = { 15f, 30f };
-        private static readonly int BALL_LOD_COUNT = 3;
-        private static readonly int BALL_TYPE_COUNT = (int)BallType.Type8;   //red/green/blue/white + cyan/magenta/yellow/black
-        private static readonly int BALL_PATTERN_GORES = 5;
-
-        private static readonly float BALL_OCCLUSION_STRENGTH = 0.55f;
-        private static readonly int MAX_BALL_OCCLUDERS = 12;
-
+        //generated sphere LODs picked by camera distance, instanced through the game's own shader. Every figure
+        //of that, the LOD ladder and the instance buckets are BallRenderSet's since #76 — this file held a third
+        //copy of them, and the occlusion divisor a copy is exactly the thing that goes wrong quietly.
+        //See the "Ball rendering" section in CLAUDE.md.
         private Effect _instancingEffect;
-        private SphereMesh[] _ballMeshes;
-        private InstancedModelRenderer[] _ballRenderers;
-
-        //One instance bucket per ball type and LOD level; each bucket becomes a single instanced draw call
-        private readonly ModelInstance[][] _ballInstances = new ModelInstance[BALL_TYPE_COUNT * BALL_LOD_COUNT][];
-        private readonly int[] _ballInstanceCounts = new int[BALL_TYPE_COUNT * BALL_LOD_COUNT];
+        private BallRenderSet _balls;
 
         private SkyDome _sky;
 
@@ -301,18 +290,9 @@ namespace MapEditor
                 SupersampleFactor = SUPERSAMPLE_FACTOR,
             };
 
-            _ballMeshes = new SphereMesh[BALL_LOD_COUNT];
-            _ballRenderers = new InstancedModelRenderer[BALL_LOD_COUNT];
-
-            for (int lod = 0; lod < BALL_LOD_COUNT; lod++)
-            {
-                //Constants.HALF is the ball radius the physics builder uses in the game; the editor has no physics to ask
-                _ballMeshes[lod] = new SphereMesh(GraphicsDevice, Constants.HALF, BALL_LOD_RESOLUTIONS[lod, 0], BALL_LOD_RESOLUTIONS[lod, 1]);
-                _ballRenderers[lod] = new InstancedModelRenderer(GraphicsDevice, _ballMeshes[lod], Vector3.One, _instancingEffect)
-                {
-                    PatternGoreCount = BALL_PATTERN_GORES
-                };
-            }
+            //No ripples here: the landing wave is the game's, and passing false switches the shader's whole
+            //ripple term off on a branch over the uniform, so the editor pays nothing for not having one.
+            _balls = new BallRenderSet(GraphicsDevice, _instancingEffect, ripples: false);
 
             //linearVertexColors: the dome is drawn through BasicEffect into the linear HDR target, so its
             //baked gradient has to be converted from sRGB once at load or the tonemapper reads a gradient of
@@ -480,88 +460,10 @@ namespace MapEditor
             //which is why the scene goes in with the dome.
             _rig.SetSky(_sky, _scene);
 
-            foreach (InstancedModelRenderer renderer in _ballRenderers) _rig.ApplyTo(renderer);
+            foreach (InstancedModelRenderer renderer in _balls.Renderers) _rig.ApplyTo(renderer);
             _rig.ApplyTo(_cityRenderer);
         }
 
-        /// <summary>
-        /// Gathers every ball of the map into the per-type-and-LOD buckets, each of which becomes one instanced
-        /// draw call. The editor map is static, so unlike the game there is nothing to ease: the occlusion is
-        /// simply what the grid says it is.
-        /// </summary>
-        private void CollectBallInstances()
-        {
-            for (int i = 0; i < _ballInstanceCounts.Length; i++) _ballInstanceCounts[i] = 0;
-
-            if (_map == null) return;
-
-            StaticBall[,,] balls = _map.GetStaticBallsArray();
-            XZLevel size = _map.GetStaticBallsArraySize();
-
-            for (byte level = 0; level < size.Level; level++)
-                for (byte x = 0; x < size.X; x++)
-                    for (byte z = 0; z < size.Z; z++)
-                    {
-                        StaticBall ball = balls[x, z, level];
-                        if (ball == null) continue;
-
-                        int occluders = BallsMap.CountOccupiedNeighbors(balls, new XZLevel(x, z, level), size, out Vector3 occlusionSum);
-
-                        CollectBallInstance(ball, new Vector4(
-                            occlusionSum.X / MAX_BALL_OCCLUDERS,
-                            occlusionSum.Y / MAX_BALL_OCCLUDERS,
-                            occlusionSum.Z / MAX_BALL_OCCLUDERS,
-                            1f - BALL_OCCLUSION_STRENGTH * occluders / MAX_BALL_OCCLUDERS));
-                    }
-        }
-
-        private void CollectBallInstance(StaticBall ball, Vector4 occlusionData)
-        {
-            int typeIndex = (int)ball.Type - 1;
-            if (typeIndex < 0 || typeIndex >= BALL_TYPE_COUNT) return;
-
-            //Mesh resolution by distance from the camera
-            float distance = Vector3.Distance(ball.Position, Camera3D.Position);
-            int lod = 0;
-            while (lod < BALL_LOD_DISTANCES.Length && distance > BALL_LOD_DISTANCES[lod]) lod++;
-
-            int bucketIndex = typeIndex * BALL_LOD_COUNT + lod;
-            ModelInstance[] bucket = _ballInstances[bucketIndex];
-            int count = _ballInstanceCounts[bucketIndex];
-
-            if (bucket == null)
-            {
-                bucket = new ModelInstance[256];
-                _ballInstances[bucketIndex] = bucket;
-            }
-            else if (count == bucket.Length)
-            {
-                Array.Resize(ref bucket, bucket.Length * 2);
-                _ballInstances[bucketIndex] = bucket;
-            }
-
-            //Editor balls never rotate, so the position is the whole transformation
-            bucket[count] = new ModelInstance(Matrix.CreateTranslation(ball.Position), occlusionData);
-            _ballInstanceCounts[bucketIndex] = count + 1;
-        }
-
-        private void DrawBallsInstanced()
-        {
-            for (int typeIndex = 0; typeIndex < BALL_TYPE_COUNT; typeIndex++)
-                for (int lod = 0; lod < BALL_LOD_COUNT; lod++)
-                {
-                    int bucketIndex = typeIndex * BALL_LOD_COUNT + lod;
-
-                    _ballRenderers[lod].Draw(Camera3D, _ballInstances[bucketIndex], _ballInstanceCounts[bucketIndex],
-                        BasicEffectParamsProvider.GetEffectByType((BallType)(typeIndex + 1)),
-                        BasicEffectParamsProvider.GetDiffuseTintByType((BallType)(typeIndex + 1)));
-                }
-        }
-
-        /// <summary>
-        /// Looks at the center of the play field from the given direction, from far enough away for the whole
-        /// field to fit on the screen. The direction is expected to be axis aligned, as all six preset views are.
-        /// </summary>
         private void CenterViewOn(Vector3 lookDirection)
         {
             Vector3 half = _aabb.Size * Constants.HALF;
@@ -801,8 +703,6 @@ namespace MapEditor
 
         protected override void Draw(GameTime gameTime)
         {
-            CollectBallInstances();
-
             //The scene is drawn in linear radiance into the HDR target; the pipeline's Resolve box-filters,
             //glares, tonemaps and sRGB-encodes it onto the back buffer. The selector gizmo and the text
             //overlay are drawn after that, in display space, so they stay exactly as authored — the same
@@ -832,7 +732,12 @@ namespace MapEditor
             SceneFrame sceneFrame = BuildSceneFrame();
             DrawScene(sceneFrame);
 
-            DrawBallsInstanced();
+            //The map's balls, through the shared set. BeginFrame hands back a ref struct, which is what keeps
+            //the once-per-frame walk from being anything else: it cannot be stored, so it cannot outlive the
+            //frame it belongs to. A static map has nothing to ease towards, so AddMap simply reads the grid.
+            BallDrawFrame ballFrame = _balls.BeginFrame(Camera3D);
+            ballFrame.AddMap(_map);
+            _balls.Draw(_sceneSeconds);
 
             //The outline is translucent, so it is drawn over the finished scene and does not write depth
             GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
@@ -962,6 +867,7 @@ namespace MapEditor
         protected override void UnloadContent()
         {
             _pipeline?.Dispose();
+            _balls?.Dispose();
             _sceneRenderer?.Dispose();
             _cityRenderer?.Dispose();
             _unitBox?.Dispose();

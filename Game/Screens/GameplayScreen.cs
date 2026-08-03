@@ -1,6 +1,5 @@
 ﻿using BepuPhysics;
 using BepuPhysics.Collidables;
-using BepuUtilities.Memory;
 using BS3D.Effects;
 using BS3D.Physics;
 using Microsoft.Xna.Framework;
@@ -19,12 +18,11 @@ using Prazsky.Core.Screens;
 using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
-using static Prazsky.BS3D.Physics.Simu;
 
 //BepuUtilities is deliberately NOT imported: it carries its own Matrix and MathHelper, which would make every
-//existing use of the XNA ones in this file ambiguous. The one type needed from it is qualified where it is
-//declared. Bepu's own vectors are System.Numerics and are likewise spelled out at each crossing, the
-//convention the Testbed uses (see CLAUDE.md, "Conventions").
+//existing use of the XNA ones in this file ambiguous. Nothing here needs a type out of it any more — the
+//worker pool that was the one such type is PhysicsWorld's since #76. Bepu's own vectors are System.Numerics
+//and are spelled out at each crossing, the convention the Testbed uses (see CLAUDE.md, "Conventions").
 
 namespace BS3D.Screens
 {
@@ -150,12 +148,20 @@ namespace BS3D.Screens
 
         //BepuPhysics 2. The cluster is real: bodies held to each other and to the ceiling by BallSocket
         //constraints, a shot is a body thrown at it, and the island's drain is a collision mesh balls run
-        //down. All of it comes from Prazsky.BS3D.Physics, which the Testbed uses unchanged.
-        private BufferPool _bufferPool;
-        private BepuUtilities.ThreadDispatcher _threadDispatcher;
-        private Simulation _simulation;
-        private ContactEvents _events;
+        //down. All of it comes from Prazsky.BS3D.Physics, which the Testbed uses unchanged — the hardware
+        //itself (the worker pool, the buffer pool, the simulation, the contact stream, the order they are
+        //built and torn down in and the mandatory order inside one step) is PhysicsWorld's since #76. What
+        //stays here is the stepping POLICY below, which is deliberately not the Testbed's.
+        private PhysicsWorld _world;
         private BallContactEventHandler _eventHandler;
+
+        //Each step's contact work, handed to PhysicsWorld.Step as the work that belongs INSIDE the step. Built
+        //once and held rather than written at the call site: a lambda allocates a fresh delegate every time it
+        //is evaluated, and this one is evaluated up to PHYSICS_MAX_STEPS_PER_FRAME times a frame. It reads
+        //_eventHandler out of the field rather than binding the instance the field happens to hold, so it
+        //survives the handler being rebuilt per level. Assigned in the constructor because an instance field
+        //initializer may not reference another instance member (CS0236).
+        private readonly Action _processContacts;
 
         /// <summary>
         /// The physics step, held <b>fixed</b> — and this is the one place the game deliberately does not do
@@ -232,7 +238,7 @@ namespace BS3D.Screens
         /// wrong in exchange for microseconds nobody can measure.
         /// </para>
         /// </summary>
-        private readonly int[] _ballsOfType = new int[BS3DGame.BALL_TYPE_COUNT];
+        private readonly int[] _ballsOfType = new int[BallRenderSet.TYPE_COUNT];
 
         /// <summary>
         /// Where the lattice frame meets the world, and the <b>only</b> place it does on the drawing side.
@@ -487,8 +493,9 @@ namespace BS3D.Screens
         //handles and not list indices, and why recycling cannot bite here.
         private readonly HashSet<int> _cinematicSubject = new();
 
-        //The template a shot is stamped from: the sphere, its inertia and its sleep threshold, built once.
-        private BodyDescription _shotBall;
+        //The template a shot is stamped from — the sphere, its inertia, its bare shape index and its sleep
+        //threshold — is PhysicsWorld's, which stamps a fresh copy per shot rather than holding one and writing
+        //this shot's pose and velocity over the last one's, as this and the Testbed both used to.
 
         /// <summary>The launch smear: anchored at the muzzle, living its own short life while it fades.</summary>
         private struct ShotTrail
@@ -535,22 +542,17 @@ namespace BS3D.Screens
 
         #region Ball instances
 
-        private static readonly float BALL_OCCLUSION_STRENGTH = 0.55f;
-        private static readonly int MAX_BALL_OCCLUDERS = 12;
-
-        //How long a ball takes to reach its new shading. A ball joins or leaves the lattice in one step, so its
-        //occlusion target changes instantly while the ball has not moved — eased, that reads as the light
-        //filling in; taken straight, every ball around a hole a matched group left pops brighter in one frame.
-        private static readonly float BALL_OCCLUSION_EASE_SECONDS = 1f;
-
-        //A landed ball is snapped to the nearest free cell rather than to where it hit, so the constraints drag
-        //its body up to several diameters within a frame or two. Drawing it gliding in from where it actually
-        //hit turns that click into a movement, and costs the simulation nothing.
-        private static readonly float BALL_ATTACH_GLIDE_SECONDS = 0.08f;
-        private static readonly float BALL_ATTACH_GLIDE_DONE_SQUARED = 0.025f * 0.025f;
-
-        private readonly ModelInstance[][] _ballInstances = new ModelInstance[BS3DGame.BALL_TYPE_COUNT * BS3DGame.BALL_LOD_COUNT][];
-        private readonly int[] _ballInstanceCounts = new int[BS3DGame.BALL_TYPE_COUNT * BS3DGame.BALL_LOD_COUNT];
+        //The one walk that turns a simulated cluster into ball instances, shared with the Testbed since #76:
+        //every hanging ball, every shot in flight and every released ball on its way down, each read off its
+        //own body's pose, shaded by what is packed around it and offset by whatever is left of its arrival
+        //glide. Both eases (the occlusion's one-second time constant, the glide's 0.08 s) and the neighbour
+        //occlusion's own figures are its own, and so is the rule the whole thing exists for: every ball is
+        //visited exactly once a frame, because all three of those pieces of state live on the ball itself.
+        //
+        //The ripple hook is what this game adds to it and the Testbed does not — handed over ONCE here rather
+        //than per frame, since a method group written at a per-frame call site builds a fresh delegate every
+        //time it is evaluated.
+        private readonly ClusterCollector _clusterCollector = new(AdvanceRipple);
 
         #endregion
 
@@ -582,6 +584,9 @@ namespace BS3D.Screens
                     _magazineTransmute[slot] = 0f;
                     _magazineFrom[slot] = type;
                 });
+
+            //The work each physics step carries inside it, wired once here for the reason the field states
+            _processContacts = () => _eventHandler.ProcessQueuedContacts();
 
             CreateShotTrailQuad();
 
@@ -680,11 +685,10 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Tears the session down so a new one can be built. The simulation is disposed outright rather than
-        /// emptied ball by ball: the constraints, the bodies, the statics and the per-worker contact queues all
-        /// go with it, and rebuilding is a few milliseconds. The order is <see cref="DisposeResources"/>'s and
-        /// for the same reason — <see cref="ContactEvents"/> unhooks itself from the timestepper, so it has to
-        /// go before the simulation it hooked into, and the pool both allocated from has to outlive the two.
+        /// Tears the session down so a new one can be built. The world is disposed outright rather than emptied
+        /// ball by ball: the constraints, the bodies, the statics and the per-worker contact queues all go with
+        /// it, and rebuilding is a few milliseconds. The <i>order</i> those four go in is
+        /// <see cref="PhysicsWorld.Dispose"/>'s, which is where the reason for it is written down as well.
         /// </summary>
         internal void TearDown()
         {
@@ -695,15 +699,10 @@ namespace BS3D.Screens
             Game.Music?.Stop();
             Game.Fireworks?.Stop();
 
-            _events?.Dispose();
-            _simulation?.Dispose();
-            _threadDispatcher?.Dispose();
-            _bufferPool?.Clear();
+            //Idempotent, which is what this needs: DisposeResources runs it again on the way out of the program
+            _world?.Dispose();
 
-            _events = null;
-            _simulation = null;
-            _threadDispatcher = null;
-            _bufferPool = null;
+            _world = null;
             _eventHandler = null;
             _ceiling = null;
             _map = null;
@@ -925,25 +924,14 @@ namespace BS3D.Screens
         /// </summary>
         private void BuildPhysicsWorld()
         {
-            //One dispatcher and one pool per session. ContactEvents sizes its per-worker queues from the
-            //dispatcher's thread count, so the dispatcher must exist first and must outlive the simulation.
-            _threadDispatcher = new BepuUtilities.ThreadDispatcher(Environment.ProcessorCount);
-            _bufferPool = new BufferPool();
-            _events = new ContactEvents(_threadDispatcher, _bufferPool);
-
-            //Both callback types are structs, copied by value into the simulation; _events survives that
-            //because it is a class reference held inside one of them. SolveDescription is
-            //(velocityIterationCount, substepCount) in that order — eight iterations, one substep — and those
-            //are tuned together with the contact material and the BallSocket spring, so they move together.
-            _simulation = Simulation.Create(
-                _bufferPool,
-                new NarrowPhaseCallbacks(_events),
-                new PoseIntegratorCallbacks(new System.Numerics.Vector3(0f, Constants.EARTH_GRAVITY, 0f)),
-                new SolveDescription(8, 1));
-
-            //No _events.Initialize(_simulation) here: Simulation.Create has already called
-            //NarrowPhaseCallbacks.Initialize, which is what initialises it. Calling it again would hook its
-            //BeforeCollisionDetection handler onto the timestepper a second time.
+            //One world per level, torn down with the session (see TearDown for why the whole simulation goes
+            //rather than being emptied). Everything this used to spell out is PhysicsWorld's: the dispatcher
+            //before the contact stream that sizes its per-worker queues off it, the single ContactEvents
+            //initialisation the simulation's own construction performs (#73 — initialising it a second time
+            //hooks the freshness pass onto the timestepper twice), the solver description tuned together with
+            //the contact material and the BallSocket spring, and the shot template whose bare shape index is
+            //what gives a ball leaving at SHOOT_SPEED continuous collision detection.
+            _world = new PhysicsWorld();
 
             BuildCeilingBody();
 
@@ -955,20 +943,9 @@ namespace BS3D.Screens
             //surface and the drawn one cannot drift apart. The ring stops short of the island's own radius —
             //ArenaIsland.FLOOR_RADIUS is IslandMesh.FloorRadius of it — because the coping falls away over the
             //last stretch, and a floor carried to the widest point would hold a ball up on air over the wash.
-            FunnelPhysics.Build(_simulation, _bufferPool, ArenaIsland.TOP_Y, ArenaIsland.FUNNEL_BOTTOM_Y,
+            FunnelPhysics.Build(_world.Simulation, _world.BufferPool, ArenaIsland.TOP_Y, ArenaIsland.FUNNEL_BOTTOM_Y,
                 ArenaIsland.FUNNEL_TOP_RADIUS, ArenaIsland.FUNNEL_HOLE_RADIUS, ArenaIsland.FLOOR_RADIUS,
                 ArenaIsland.FUNNEL_SEGMENTS);
-
-            //The template every shot is stamped from. The collidable comes from the bare shape index rather
-            //than from a CollidableDescription with a speculative margin, and that is load-bearing: it is what
-            //gives the shot continuous collision detection. At SHOOT_SPEED a ball crosses several diameters in
-            //one step, and a discrete test would let it pass clean through the cluster.
-            Sphere ballShape = new(BallsConstraintsBuilder.BALL_RADIUS);
-            _shotBall = BodyDescription.CreateDynamic(
-                new System.Numerics.Vector3(),
-                ballShape.ComputeInertia(BallsConstraintsBuilder.BALL_MASS),
-                BallsConstraintsBuilder.GetSphereShapeIndex(_simulation),
-                Constants.HUNDREDTH); //sleep threshold, via the implicit conversion to BodyActivityDescription
         }
 
         /// <summary>
@@ -982,14 +959,14 @@ namespace BS3D.Screens
             //be given different numbers.
             Box box = new(CeilingPlate.FootprintFor(_map.StageSizeX), CeilingPlate.THICKNESS,
                 CeilingPlate.FootprintFor(_map.StageSizeZ));
-            TypedIndex shape = _simulation.Shapes.Add(box);
+            TypedIndex shape = _world.Simulation.Shapes.Add(box);
 
-            BodyHandle handle = _simulation.Bodies.Add(BodyDescription.CreateKinematic(
+            BodyHandle handle = _world.Simulation.Bodies.Add(BodyDescription.CreateKinematic(
                 new System.Numerics.Vector3(0f, _ceilingY, 0f),
                 new CollidableDescription(shape, 0.1f),
-                new BodyActivityDescription(Constants.HUNDREDTH)));
+                new BodyActivityDescription(PhysicsWorld.SLEEP_THRESHOLD)));
 
-            _ceiling = new KinematicBody(new BodyReference(handle, _simulation.Bodies), handle);
+            _ceiling = new KinematicBody(new BodyReference(handle, _world.Simulation.Bodies), handle);
         }
 
         /// <summary>
@@ -1102,14 +1079,14 @@ namespace BS3D.Screens
             //applied to the body positions and to nothing else: the constraint anchors are differences of two
             //grid positions, so the offset cancels out of them.
             _physicsBalls = BallsConstraintsBuilder.BuildBallsStructure(
-                _map.GetStaticBallsArray(), _simulation, _ceiling.BodyReference,
+                _map.GetStaticBallsArray(), _world.Simulation, _ceiling.BodyReference,
                 _clusterWorldOffset.ToNumerics());
 
             //What happens on a hit lives in the handler: the snap into the lattice, the constraints, and the
             //match rule. It gets the very list instances the frame draws from, and the same offset, so it can
             //take a world contact down into the grid frame to ask the map about it and bring the answer back up.
-            _eventHandler = new BallContactEventHandler(_simulation, _events, _ceiling, _map, _physicsBalls,
-                _shotBalls, _fallingBalls, _clusterWorldOffset);
+            _eventHandler = new BallContactEventHandler(_world.Simulation, _world.Events, _ceiling, _map,
+                _physicsBalls, _shotBalls, _fallingBalls, _clusterWorldOffset);
 
             //The handler reports what a shot did; what it is worth is the scorer's business. Subscribed on the
             //handler the level just built, and the handler is rebuilt with it, so there is nothing to unhook.
@@ -1120,7 +1097,7 @@ namespace BS3D.Screens
             _eventHandler.ShotSpent += OnShotSpent;
 
             Console.WriteLine($"[game] {_map.GetBallsCount()} balls in the cluster, "
-                + $"{_simulation.Solver.CountConstraints()} constraints");
+                + $"{_world.Simulation.Solver.CountConstraints()} constraints");
         }
 
         #endregion
@@ -1317,10 +1294,10 @@ namespace BS3D.Screens
             if (_clearedCountdown > 0f || _levelLost) return;
 
             //The ceiling reaching the death line. Live poses are in _physicsBalls (the lattice in _map holds
-            //cells, not bodies); the loop mirrors DrawBallsInstanced, including the null check for cells a
-            //release has emptied. It tracks the minimum rather than stopping at the first offender, because
-            //the floor alarm below wants the cluster's true lowest point on every frame, not only the losing
-            //one — same walk, no second scan.
+            //cells, not bodies); the loop mirrors the draw's own walk over the structure (ClusterCollector),
+            //including the null check for cells a release has emptied. It tracks the minimum rather than
+            //stopping at the first offender, because the floor alarm below wants the cluster's true lowest
+            //point on every frame, not only the losing one — same walk, no second scan.
             XZLevel size = XZLevel.FromArray(_physicsBalls);
             float lowestBallY = float.MaxValue;
 
@@ -1412,7 +1389,7 @@ namespace BS3D.Screens
                 //and never attached, so nothing ever unregistered it (the handler returns without unregistering
                 //when the other body is neither structure nor ceiling) — yet a sleeping ball is plainly not
                 //going to reach the cluster. A ball in flight is always awake, so this can never hide a live shot.
-                if (_events.IsListener(body.CollidableReference) && body.Awake) return true;
+                if (_world.Events.IsListener(body.CollidableReference) && body.Awake) return true;
             }
 
             return false;
@@ -1928,14 +1905,16 @@ namespace BS3D.Screens
             Vector3 muzzle = _cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall);
             BallType type = _magazine.Peek();
 
-            _shotBall.Pose.Position = new System.Numerics.Vector3(muzzle.X, muzzle.Y, muzzle.Z);
-            _shotBall.Velocity.Linear = new System.Numerics.Vector3(direction.X, direction.Y, direction.Z) * SHOOT_SPEED;
-
-            BodyHandle handle = _simulation.Bodies.Add(_shotBall);
-
             PhysicsBall ball = new()
             {
-                BallReference = new BodyReference(handle, _simulation.Bodies),
+                //Stamped from the world's shot template, added to the simulation and registered as a contact
+                //listener in one call, in that order — a listener is keyed on a collidable reference, so the
+                //body has to exist first. It is also the ONLY place anything is ever registered, which is what
+                //makes "every listener is a shot still in the air" true (see AnyShotUndecided).
+                BallReference = _world.AddShotBall(
+                    new System.Numerics.Vector3(muzzle.X, muzzle.Y, muzzle.Z),
+                    new System.Numerics.Vector3(direction.X, direction.Y, direction.Z) * SHOOT_SPEED,
+                    _eventHandler),
                 Type = type //the colour the player saw loaded at the muzzle, so aiming for it means something
             };
 
@@ -1956,9 +1935,6 @@ namespace BS3D.Screens
                 _ceilingStepsPending++;
                 _ceilingStepHold = CEILING_STEP_HOLD;
             }
-
-            //Registered after the body exists, since a listener is keyed on its collidable reference
-            _events.Register(_simulation.Bodies[handle].CollidableReference, _eventHandler);
 
             _trails.Add(new ShotTrail { Origin = muzzle, Direction = direction, Color = TrailColorFor(type), Age = 0f });
 
@@ -1997,12 +1973,11 @@ namespace BS3D.Screens
 
             while (_physicsAccumulator >= PHYSICS_TIMESTEP && steps < PHYSICS_MAX_STEPS_PER_FRAME)
             {
-                _simulation.Timestep(PHYSICS_TIMESTEP, _threadDispatcher);
-
-                //Flush first, then handle. Unregistering a listener is only safe once the per-worker adds
-                //collected during the timestep have been applied, and the handler unregisters as it attaches.
-                _events.Flush();
-                _eventHandler.ProcessQueuedContacts();
+                //Whole fixed steps out of the accumulator, which is this game's own policy and deliberately
+                //not the Testbed's one variable step per rendered frame — see PHYSICS_TIMESTEP. The mandatory
+                //Timestep → Flush → contacts order INSIDE each step is PhysicsWorld.Step's, which is why the
+                //work that belongs there is handed over rather than written after the call.
+                _world.Step(PHYSICS_TIMESTEP, _processContacts);
 
                 _physicsAccumulator -= PHYSICS_TIMESTEP;
                 steps++;
@@ -2013,8 +1988,8 @@ namespace BS3D.Screens
             //world run slow for that single frame instead.
             if (steps == PHYSICS_MAX_STEPS_PER_FRAME) _physicsAccumulator = 0f;
 
-            RemoveFallenBalls(_shotBalls, unregisterListeners: true);
-            RemoveFallenBalls(_fallingBalls, unregisterListeners: false);
+            RemoveFallenBalls(_shotBalls, scoreMisses: true);
+            RemoveFallenBalls(_fallingBalls, scoreMisses: false);
         }
 
         /// <summary>
@@ -2036,26 +2011,30 @@ namespace BS3D.Screens
         /// array would delete the cluster.
         /// </para>
         /// </summary>
-        /// <param name="unregisterListeners">True for shot balls, which may still be listening for contacts.</param>
-        private void RemoveFallenBalls(List<PhysicsBall> balls, bool unregisterListeners)
+        /// <param name="scoreMisses">
+        /// True for shot balls, which may still be undecided when they go over the edge. A released ball was
+        /// unregistered when it attached, so it can never be still listening and has no miss to score.
+        /// </param>
+        private void RemoveFallenBalls(List<PhysicsBall> balls, bool scoreMisses)
         {
             for (int i = balls.Count - 1; i >= 0; i--)
             {
                 BodyReference body = balls[i].BallReference;
+
+                //No sleep cull here, deliberately — see the remarks above
                 if (body.Pose.Position.Y >= KILL_PLANE_Y) continue;
 
-                if (unregisterListeners && _events.IsListener(body.CollidableReference))
-                {
-                    //Still listening means the shot never resolved: it missed the island as well as the
-                    //cluster and fell straight past everything into the city. The far rarer of the two misses
-                    //— a shot that strikes the stone is spent the moment it does (see the handler) — but it is
-                    //what makes "every shot resolves exactly once" true rather than nearly true.
-                    _score.Missed();
+                //Unregisters the listener if there still is one and then removes the body, in that one order
+                //that is safe (PhysicsWorld.RetireBall owns it), and answers whether the ball was STILL
+                //LISTENING — which is exactly "this shot resolved as nothing": it missed the island as well as
+                //the cluster and fell straight past everything into the city. The far rarer of the two misses —
+                //a shot that strikes the stone is spent the moment it does (see the handler) — but it is what
+                //makes "every shot resolves exactly once" true rather than nearly true. Not folded into the
+                //condition below: && would short-circuit the retire away for a falling ball.
+                bool wasUndecided = _world.RetireBall(body);
 
-                    _events.Unregister(body.CollidableReference);
-                }
+                if (wasUndecided && scoreMisses) _score.Missed();
 
-                _simulation.Bodies.Remove(body.Handle);
                 balls.RemoveAt(i);
             }
         }
@@ -2218,9 +2197,23 @@ namespace BS3D.Screens
                 return;
             }
 
-            //The occlusion ease and the attach glide are advanced on the draw clock, since both are purely
-            //about what is on screen
-            CollectBallInstances((float)gameTime.ElapsedGameTime.TotalSeconds);
+            //This frame's ball collection, opened here and closed by the one Draw below. It is a ref struct and
+            //lives as a LOCAL, deliberately: BeginFrame is the only thing that can open one, it empties the
+            //buckets on the way and it throws if a second is opened before the first is drawn — which is what
+            //makes "every ball is visited exactly once" structural rather than a rule to remember. The
+            //occlusion ease, the attach glide and the ripple all advance state on the ball itself, so a second
+            //visit would run all three at double speed while the buckets still looked perfectly correct.
+            BallDrawFrame ballFrame = Game.Balls.BeginFrame(Camera);
+
+            //The cluster, the shots in flight and the released balls falling, each off its own body's pose — so
+            //what the player is looking at IS the simulation. On the DRAW clock, since the ease, the glide and
+            //the ripple are all purely about what is on screen.
+            _clusterCollector.Collect(ballFrame, (float)gameTime.ElapsedGameTime.TotalSeconds,
+                _physicsBalls, _shotBalls, _fallingBalls);
+
+            //And the loaded queue into the very same frame — this screen's own loop, because the barrel's bore
+            //and the transmute cross-fade are its own business
+            CollectMagazineBalls(ballFrame);
 
             SceneFrame sceneFrame = Game.BeginSceneDraw();
 
@@ -2228,7 +2221,10 @@ namespace BS3D.Screens
             //the tube that was built and the bore a shot leaves from cannot disagree
             Game.CannonRig.Draw(Camera, _cannon.BarrelWorld(CannonRecoilBack()), Game.SceneEffectParams);
 
-            DrawBallsInstanced();
+            //Everything collected above, as one instanced draw per ball type and LOD level — and the frame's
+            //collection is closed by it. The heartbeat runs on the WALL clock: the balls go on breathing while
+            //a pause has the session frozen, because it is what they are and not something they are doing.
+            Game.Balls.Draw(WallClock);
 
             //Over the opaque scene (which the depth buffer now holds, so the cluster and the gun occlude
             //them) and additive, so they glow through the glare
@@ -2315,115 +2311,15 @@ namespace BS3D.Screens
 
         #region The balls in the frame
 
-        /// <summary>
-        /// Gathers every ball in the frame — the structure, the shots in flight, the ones falling and the queue
-        /// in the barrel — into one bucket per type and LOD, each of which becomes a single instanced draw call.
-        /// The first three come straight off their bodies' poses, so what is drawn <i>is</i> the simulation.
-        /// <para>
-        /// Neighbour-based ambient occlusion is derived here too: a ball buried in the mass is darker than one
-        /// on the outside, which is what makes the cluster read as one body rather than a heap of spheres. It is
-        /// re-derived for every ball every frame rather than for a new arrival alone, because a ball that
-        /// attaches also boxes in each neighbour it arrived next to. Each ball must be visited <b>exactly
-        /// once</b> per frame — the ease and the glide below advance state on the ball itself.
-        /// </para>
-        /// </summary>
-        private void CollectBallInstances(float elapsed)
-        {
-            for (int i = 0; i < _ballInstanceCounts.Length; i++) _ballInstanceCounts[i] = 0;
-
-            //How far towards its target each ball's occlusion moves this frame, and how much of the attach
-            //glide is left after it
-            float ease = elapsed <= 0f ? 1f : MathF.Min(1f, elapsed / BALL_OCCLUSION_EASE_SECONDS);
-            float glide = elapsed <= 0f ? 0f : MathF.Exp(-elapsed / BALL_ATTACH_GLIDE_SECONDS);
-
-            //Hoisted: the array's dimensions do not change, and this is the innermost loop in the frame
-            XZLevel size = XZLevel.FromArray(_physicsBalls);
-
-            for (int level = 0; level < size.Level; level++)
-                for (int x = 0; x < size.X; x++)
-                    for (int z = 0; z < size.Z; z++)
-                    {
-                        PhysicsBall ball = _physicsBalls[x, z, level];
-                        if (ball == null) continue;
-
-                        int occluders = BallsConstraintsBuilder.CountOccupiedNeighbors(
-                            _physicsBalls, new XZLevel(x, z, level), size, out System.Numerics.Vector3 direction);
-
-                        //The direction is a sum of unit vectors, one per occupied neighbour, so it has to be
-                        //divided by the most there can be before the shader reads it as a direction-and-weight.
-                        //Handed over raw it is up to twelve times too long, the shader's dot against it
-                        //saturates over most of the ball, and every surface ball wears a hard black crescent
-                        //instead of the soft inward shading that makes the cluster read as one body.
-                        System.Numerics.Vector4 target = new(
-                            direction / MAX_BALL_OCCLUDERS,
-                            1f - BALL_OCCLUSION_STRENGTH * Math.Min(occluders, MAX_BALL_OCCLUDERS) / MAX_BALL_OCCLUDERS);
-
-                        CollectBallInstance(ball, EaseOcclusion(ball, target, ease), glide, elapsed);
-                    }
-
-            //Indexed rather than foreach: these are List<T> on a per-frame path
-            for (int i = 0; i < _shotBalls.Count; i++)
-                CollectBallInstance(_shotBalls[i], EaseOcclusion(_shotBalls[i], PhysicsBall.UNOCCLUDED, ease), glide, elapsed);
-
-            //The falling balls advance their ripple too: a group cut loose while the wave was passing through
-            //it keeps glowing on its way down rather than snapping dark the instant it stops being cluster
-            for (int i = 0; i < _fallingBalls.Count; i++)
-                CollectBallInstance(_fallingBalls[i], EaseOcclusion(_fallingBalls[i], PhysicsBall.UNOCCLUDED, ease), glide, elapsed);
-
-            CollectMagazineBalls();
-        }
-
-        /// <summary>
-        /// Moves a ball's drawn occlusion towards what its surroundings now call for. A ball joins or leaves the
-        /// lattice in a single step, while it has not moved at all, so taking the new value straight would pop
-        /// its shading — most visibly when a matched group lets go and every ball around the hole brightens at
-        /// once. The <i>first</i> frame a ball is drawn does take it straight, or a freshly built cluster would
-        /// fade into its own shading instead of starting out correct.
-        /// </summary>
-        private static System.Numerics.Vector4 EaseOcclusion(PhysicsBall ball, System.Numerics.Vector4 target, float ease)
-        {
-            if (!ball.OcclusionInitialized)
-            {
-                ball.Occlusion = target;
-                ball.OcclusionInitialized = true;
-            }
-            else ball.Occlusion += (target - ball.Occlusion) * ease;
-
-            return ball.Occlusion;
-        }
-
-        /// <summary>
-        /// One ball, drawn from its body: where the pose puts it, turned the way the pose turns it, plus
-        /// whatever is left of its attach glide.
-        /// </summary>
-        private void CollectBallInstance(PhysicsBall ball, System.Numerics.Vector4 occlusion, float glide, float elapsed)
-        {
-            RigidPose pose = ball.BallReference.Pose;
-
-            //The glide is an offset from the body that decays to nothing, not a smoothed position: the ball
-            //still follows every bit of the structure's swaying meanwhile, so nothing is left over to jump when
-            //it ends. Skipped for exactly one frame after it is armed, because the constraints that drag the
-            //body into its cell have not run yet and offsetting it now would move it the wrong way.
-            if (ball.RenderOffsetArmed) ball.RenderOffsetArmed = false;
-            else if (ball.RenderOffset.LengthSquared() > BALL_ATTACH_GLIDE_DONE_SQUARED) ball.RenderOffset *= glide;
-            else ball.RenderOffset = default;
-
-            System.Numerics.Vector3 drawn = pose.Position + ball.RenderOffset;
-            Vector3 position = new(drawn.X, drawn.Y, drawn.Z);
-
-            //The balls turn now, which is what makes the beach-ball pattern readable — so the world matrix has
-            //to carry the orientation. Built from the quaternion with the translation written into the fourth
-            //row rather than multiplied in by a second 4×4.
-            Matrix world = Matrix.CreateFromQuaternion(
-                new Quaternion(pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z, pose.Orientation.W));
-
-            world.M41 = position.X;
-            world.M42 = position.Y;
-            world.M43 = position.Z;
-
-            CollectBallInstance(position, world, ball.Type, new Vector4(occlusion.X, occlusion.Y, occlusion.Z, occlusion.W),
-                ripple: AdvanceRipple(ball, elapsed));
-        }
+        //The walk that gathers the structure, the shots in flight and the balls falling is ClusterCollector's
+        //(see the field), and the neighbour-based ambient occlusion it shades them with — a ball buried in the
+        //mass is darker than one on the outside, which is what makes the cluster read as one body rather than a
+        //heap of spheres — is derived by BallRenderSet.OcclusionTarget, the only thing that can build that
+        //vector at all. That is where this game's worst ball bug was: the direction is a SUM of unit vectors,
+        //one per occupied neighbour, and this file handed it over undivided, so it was up to twelve times too
+        //long, the shader's dot against it saturated over most of the ball and every surface ball wore a hard
+        //black crescent instead of the soft inward shading. The division cannot be forgotten now, and it must
+        //not be done a second time here.
 
         #region The ripple
 
@@ -2600,9 +2496,11 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Advances one ball's flare and returns how brightly it is burning this frame. Called from the one
-        /// place that visits every ball exactly once a frame, like the occlusion ease and the attach glide, and
-        /// for the same reason: it advances state on the ball itself.
+        /// Advances one ball's flare and returns how brightly it is burning this frame. It advances state on the
+        /// ball itself, exactly as the occlusion ease and the attach glide do, so it must run once per ball per
+        /// frame and no more — which is why it is not called from here at all: it is the hook
+        /// <see cref="ClusterCollector"/> was constructed with (see the field), and that walk is the one place
+        /// every ball is visited exactly once.
         /// </summary>
         private static float AdvanceRipple(PhysicsBall ball, float elapsed)
         {
@@ -2640,8 +2538,14 @@ namespace BS3D.Screens
         /// the player reads the next colour off them. They take the barrel's own basis: drawn unrotated they
         /// would hold a fixed world orientation while the barrel tilts around them, which reads as each
         /// ball skewing in its slot.
+        /// <para>
+        /// Into the same open frame the cluster went into, through the same
+        /// <see cref="BallDrawFrame.Add"/> — but the loop is this screen's own, because which colours are
+        /// loaded, where the bore puts them and the cross-fade below are all questions about this game rather
+        /// than about drawing a ball. Taken as <c>in</c> since the frame is a ref struct.
+        /// </para>
         /// </summary>
-        private void CollectMagazineBalls()
+        private void CollectMagazineBalls(in BallDrawFrame frame)
         {
             //Taken once per frame rather than per ball, so each slot's place is a multiply and an add. The queue
             //rides the barrel, recoil included: it sits in the bore, so it goes back with it — the same stroke
@@ -2665,66 +2569,17 @@ namespace BS3D.Screens
                 //new colour arrives complete on the frame of the swap and the old one is never seen at all.
                 float remaining = _magazineTransmute[i];
 
+                //A ball in the barrel has nothing packed around it, so it carries the same unoccluded vector a
+                //shot in flight does — off the one constant, rather than four literals written out here
                 if (remaining > 0f)
                 {
                     float progress = 1f - remaining;
 
-                    CollectBallInstance(position, world, _magazine.Peek(i), new Vector4(0f, 0f, 0f, 1f), -progress);
-                    CollectBallInstance(position, world, _magazineFrom[i], new Vector4(0f, 0f, 0f, 1f), progress);
+                    frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED, -progress);
+                    frame.Add(_magazineFrom[i], position, world, BallRenderSet.UNOCCLUDED, progress);
                 }
-                else CollectBallInstance(position, world, _magazine.Peek(i), new Vector4(0f, 0f, 0f, 1f));
+                else frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED);
             }
-        }
-
-        /// <param name="dissolve">
-        /// Zero for every ball but one caught mid-transmute — see <see cref="ModelInstance.Dissolve"/>.
-        /// </param>
-        private void CollectBallInstance(Vector3 position, Matrix world, BallType type, Vector4 occlusion,
-            float dissolve = 0f, float ripple = 0f)
-        {
-            int typeIndex = (int)type - 1;
-            if (typeIndex < 0 || typeIndex >= BS3DGame.BALL_TYPE_COUNT) return;
-
-            float distance = Vector3.Distance(position, Camera.Position);
-            int lod = 0;
-            while (lod < BS3DGame.BALL_LOD_DISTANCES.Length && distance > BS3DGame.BALL_LOD_DISTANCES[lod]) lod++;
-
-            int bucketIndex = typeIndex * BS3DGame.BALL_LOD_COUNT + lod;
-            ModelInstance[] bucket = _ballInstances[bucketIndex];
-            int count = _ballInstanceCounts[bucketIndex];
-
-            if (bucket == null)
-            {
-                bucket = new ModelInstance[256];
-                _ballInstances[bucketIndex] = bucket;
-            }
-            else if (count == bucket.Length)
-            {
-                Array.Resize(ref bucket, bucket.Length * 2);
-                _ballInstances[bucketIndex] = bucket;
-            }
-
-            bucket[count] = new ModelInstance(world, occlusion, dissolve, ripple);
-            _ballInstanceCounts[bucketIndex] = count + 1;
-        }
-
-        private void DrawBallsInstanced()
-        {
-            for (int lod = 0; lod < BS3DGame.BALL_LOD_COUNT; lod++) Game.BallRenderers[lod].PulseTime = WallClock;
-
-            for (int typeIndex = 0; typeIndex < BS3DGame.BALL_TYPE_COUNT; typeIndex++)
-                for (int lod = 0; lod < BS3DGame.BALL_LOD_COUNT; lod++)
-                {
-                    int bucketIndex = typeIndex * BS3DGame.BALL_LOD_COUNT + lod;
-                    int count = _ballInstanceCounts[bucketIndex];
-                    if (count == 0) continue;
-
-                    BallType type = (BallType)(typeIndex + 1);
-
-                    Game.BallRenderers[lod].Draw(Camera, _ballInstances[bucketIndex], count,
-                        BasicEffectParamsProvider.GetEffectByType(type),
-                        BasicEffectParamsProvider.GetDiffuseTintByType(type));
-                }
         }
 
         #endregion

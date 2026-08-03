@@ -1,8 +1,6 @@
 using BepuPhysics;
 using BepuPhysics.Collidables;
 using BepuPhysics.CollisionDetection;
-using BepuUtilities;
-using BepuUtilities.Memory;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -24,7 +22,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
-using static Prazsky.BS3D.Physics.Simu;
 using mgKeys = Microsoft.Xna.Framework.Input.Keys;
 
 namespace Testbed
@@ -35,96 +32,33 @@ namespace Testbed
 
         #region Instanced ball rendering (issues #19 and #28)
 
-        private static readonly int BALL_TYPE_COUNT = (int)BallType.Type8;   //red/green/blue/white + cyan/magenta/yellow/black
+        //Everything it takes to draw balls is BallRenderSet's since #76: the three procedural sphere LODs and
+        //the distances they are picked by, the three renderers carrying the albedo, the beach-ball gores, the
+        //emission, the translucency and the heartbeat, the (type × LOD) instance buckets and the one walk that
+        //issues them. It stood here, in the Game and in the map editor — with the bucket bookkeeping written
+        //out a fourth time inside this file alone. The neighbour-based ambient occlusion (issue #40) went with
+        //it: its strength, the twelve-occluder maximum and the one function that DIVIDES the direction sum by
+        //that maximum, which is what makes handing the shader a raw sum impossible. GroundHeight is the
+        //component's own default — ArenaIsland.TOP_Y, the island every ball here hangs over — so the balls'
+        //bellies still darken over the stone with nothing said about it here.
+        private BallRenderSet _balls;
 
-        //Procedurally generated sphere LODs, finest first: {slices, stacks} and the camera distance
-        //up to which each level is used (the last level covers everything beyond the last distance).
-        //Per-pixel lighting shades even the coarse levels smoothly; only the silhouette reveals polygons.
-        private static readonly int[,] BALL_LOD_RESOLUTIONS = { { 32, 24 }, { 16, 12 }, { 10, 7 } };
-        private static readonly float[] BALL_LOD_DISTANCES = { 15f, 30f };
-        private static readonly int BALL_LOD_COUNT = 3;
-
-        //Beach-ball pattern (concept art in issue #43): five gores in the type color, each narrower than
-        //the three the ball started out with, separated by narrower white ones, plus a white polar disc
-        private static readonly int BALL_PATTERN_GORES = 5;
-
-        /// <summary>
-        /// Diffuse reflectance of the ball material, multiplying both pattern colors. It used to be a
-        /// flat 1 — a surface that reflects every photon that reaches it, which nothing real does; white
-        /// vinyl manages about this. In gamma space dropping it muted the colors, which is why it was
-        /// raised in the first place, but that was the wrong composition talking: in linear light this
-        /// scales radiance evenly and takes the glare off without touching the hue or the saturation.
-        /// The one number to nudge if the balls want to be darker or lighter still.
-        /// </summary>
-        private static readonly float BALL_ALBEDO = 0.5f;
-
-        /// <summary>
-        /// How much of its own color a ball radiates. Kept well under 1: the ball should read as lit from
-        /// within, not as a lamp — past about a third it stops looking like a glowing object and starts
-        /// looking like an unlit one with the brightness turned up, because the shading that gives it its
-        /// shape gets drowned out.
-        /// </summary>
-        private static readonly float BALL_EMISSION = 0.5f;
-
-        /// <summary>How much light passes through the shell from a source behind the ball.</summary>
-        private static readonly float BALL_TRANSLUCENCY = 0.35f;
-
-        /// <summary>
-        /// A resting human heart, near enough. Slow on purpose — a fast pulse reads as an alarm rather
-        /// than as something alive and calm.
-        /// </summary>
-        private static readonly float BALL_PULSE_BEATS_PER_SECOND = 1.1f;
-
-        private static readonly float BALL_PULSE_DEPTH = 0.55f;
-
-        /// <summary>
-        /// World units one beat spans as it travels up the cluster. Comparable to the height of a full
-        /// map, so a beat is visibly a wave crossing the structure rather than a uniform flash.
-        /// </summary>
-        private static readonly float BALL_PULSE_WAVELENGTH = 14f;
+        //The one walk over the simulated population — the hanging cluster, the shots in flight and the released
+        //balls on their way down — read off their bodies' poses, shaded by what the grid says is packed around
+        //them, and offset by whatever is left of an arrival glide. ClusterCollector's since #76, along with both
+        //time constants; it stood here as CollectBallInstances and in the Game. It advances state that lives on
+        //the ball itself, which is why the walk is not this file's to write any more: see its remarks and
+        //BallRenderSet.BeginFrame on why every ball must be visited exactly once a frame. No ripple hook — the
+        //landing ripple is the Game's, and a null one costs a test per frame rather than per ball.
+        private readonly ClusterCollector _collector = new();
 
         private float _pulseSeconds;
 
-        private SphereMesh[] _ballMeshes;
-        private InstancedModelRenderer[] _ballRenderers;
-
-        //One instance bucket per ball type and LOD level; each bucket becomes a single instanced draw call
-        private readonly ModelInstance[][] _ballInstances = new ModelInstance[BALL_TYPE_COUNT * BALL_LOD_COUNT][];
-        private readonly int[] _ballInstanceCounts = new int[BALL_TYPE_COUNT * BALL_LOD_COUNT];
-        private readonly int[] _ballLodTotals = new int[BALL_LOD_COUNT];
-
-        /// <summary>
-        /// How dark a fully surrounded ball gets: its lighting is scaled down by up to this fraction
-        /// (neighbor-based ambient occlusion, issue #40).
-        /// </summary>
-        private static readonly float BALL_OCCLUSION_STRENGTH = 0.55f;
-
-        /// <summary>
-        /// The most occluders a ball can have: 12 touching neighbor cells.
-        /// </summary>
-        private static readonly int MAX_BALL_OCCLUDERS = 12;
-
-        /// <summary>
-        /// Time constant of the occlusion easing (roughly three times this to arrive). The occlusion is computed
-        /// from the grid, which changes in a single step - a ball is released, another one attaches - while the
-        /// balls involved have not moved yet, so without the easing they would pop brighter (a released ball and
-        /// the neighbors it leaves behind) or darker (an attached ball and the neighbors it joins) a whole
-        /// frame before anything visibly happened.
-        /// </summary>
-        private static readonly float BALL_OCCLUSION_EASE_SECONDS = 1f;
-
-        /// <summary>
-        /// Time constant of the glide a freshly attached ball is drawn with, and the offset below which the
-        /// glide is dropped (a twentieth of a ball radius is under a pixel at any distance it is drawn from).
-        /// </summary>
-        private static readonly float BALL_ATTACH_GLIDE_SECONDS = 0.08f;
-
-        private static readonly float BALL_ATTACH_GLIDE_DONE_SQUARED = 0.025f * 0.025f;
-
-        //Last frame's statistics: instances drawn (bucket contents, incl. the magazine preview) vs bodies
-        //collected — there is no frustum culling (measured as saving nothing on this scene), so the two
-        //differ by the magazine balls, not by any cull
-        private int _drawnBalls;
+        //Bodies visited by the last collection, held because the autoshoot line logs it from Update while the
+        //walk runs in Draw. The instances actually put out and their split by LOD level are not counted here at
+        //all — BallRenderSet.DrawnCount and .LodTotals are those. There is no frustum culling (measured as
+        //saving nothing on this scene), so the drawn figure differs from this one by the magazine preview and
+        //not by any cull.
         private int _collectedBalls;
 
         #endregion
@@ -160,9 +94,13 @@ namespace Testbed
         /// </summary>
         private static readonly float DEFAULT_CEILING_STAGE_SIZE = 9f;
 
-        private Simulation _simulation;
-        private ThreadDispatcher _threadDispatcher;
-        private BufferPool _bufferPool;
+        //The physics session's own hardware in one object: the worker pool the solver runs on, the buffer pool
+        //everything in the simulation is allocated from, the simulation itself and the contact stream wired into
+        //its narrow phase — four objects with two build orders and one teardown order between them, all of them
+        //PhysicsWorld's since #76 (it stood here and in the Game, value for value). One world for the whole run:
+        //this executable swaps maps inside a live simulation (RemoveCurrentBallsStructure) rather than building
+        //one per level as the Game does, and neither lifetime is written into the component.
+        private PhysicsWorld _world;
 
         private PhysicsBall[,,] _physicsBalls;
         private BallsMap _map;
@@ -425,7 +363,6 @@ namespace Testbed
 
         #region Shooting
 
-        private BodyDescription _shotBall;
         private List<PhysicsBall> _shotBalls;
 
         //Balls released from the structure (matched clusters and balls that lost their connection to the ceiling).
@@ -485,8 +422,14 @@ namespace Testbed
 
         #region Contacts
 
-        private ContactEvents _events;
         private BallContactEventHandler _eventHandler;
+
+        //The per-step contact work PhysicsWorld.Step runs inside each step, built once and held. NOT written at
+        //the call site: a lambda allocates a fresh delegate every time it is evaluated, and this one is evaluated
+        //once per frame. It reads _eventHandler out of the field rather than binding the instance, so it survives
+        //the handler being rebuilt on every map load. Assigned in the constructor rather than here, an instance
+        //field initialiser not being allowed to reference another instance member (CS0236).
+        private readonly Action _processContacts;
 
         #endregion
 
@@ -528,6 +471,10 @@ namespace Testbed
             //Initialize once the camera exists), so a screenshot can be framed from any vantage.
             _startupCamPos = camPos;
             _startupCamTarget = camTarget;
+
+            //One delegate for the whole run (see the field): it is what PhysicsWorld.Step runs after it has
+            //flushed the step's contacts, and an attach changes the body and constraint counts the overlay shows.
+            _processContacts = () => { if (_eventHandler.ProcessQueuedContacts() > 0) RecountBallsAndConstraints(); };
 
             //Testing: "scene=<name>" picks the starting environment, through the one parser every executable
             //now shares (#75 — this was an if/else chain here and a switch in the game, kept in step by hand,
@@ -599,15 +546,11 @@ namespace Testbed
 
             _cih = new CameraInputHelper(_camera, this);
 
-            _threadDispatcher = new ThreadDispatcher(Environment.ProcessorCount);
-            _bufferPool = new BufferPool();
-            _events = new ContactEvents(_threadDispatcher, _bufferPool);
-
-            _simulation = Simulation.Create(
-                _bufferPool,
-                new NarrowPhaseCallbacks(_events),
-                new PoseIntegratorCallbacks(new System.Numerics.Vector3(0, Constants.EARTH_GRAVITY, 0)),
-                new SolveDescription(8, 1));
+            //The dispatcher the contact stream sizes its queues off, that stream, the simulation whose creation is
+            //what initialises it (there is one ContactEvents.Initialize in the program now — issue #73), the
+            //gravity and the solver description tuned together with the contact material and the BallSocket
+            //spring: every one of them is PhysicsWorld's. Built here and kept for the whole run.
+            _world = new PhysicsWorld();
 
             #region Controls
 
@@ -696,24 +639,13 @@ namespace Testbed
         protected override void LoadContent()
         {
             _instancingEffect = Content.Load<Effect>("Shaders/InstancedModel");
-            _ballMeshes = new SphereMesh[BALL_LOD_COUNT];
-            _ballRenderers = new InstancedModelRenderer[BALL_LOD_COUNT];
 
-            for (int lod = 0; lod < BALL_LOD_COUNT; lod++)
-            {
-                _ballMeshes[lod] = new SphereMesh(GraphicsDevice, BallsConstraintsBuilder.BALL_RADIUS, BALL_LOD_RESOLUTIONS[lod, 0], BALL_LOD_RESOLUTIONS[lod, 1]);
-                _ballRenderers[lod] = new InstancedModelRenderer(GraphicsDevice, _ballMeshes[lod], BALL_ALBEDO * Vector3.One, _instancingEffect);
-                _ballRenderers[lod].PatternGoreCount = BALL_PATTERN_GORES;
-
-                //The balls are alive: they radiate their own color on a heartbeat and pass light through
-                //their shell. The beat runs up the cluster rather than firing everywhere at once.
-                _ballRenderers[lod].EmissiveStrength = BALL_EMISSION;
-                _ballRenderers[lod].TranslucencyStrength = BALL_TRANSLUCENCY;
-                _ballRenderers[lod].PulseSpeed = BALL_PULSE_BEATS_PER_SECOND;
-                _ballRenderers[lod].PulseDepth = BALL_PULSE_DEPTH;
-                _ballRenderers[lod].PulseDirection = Vector3.Up;
-                _ballRenderers[lod].PulseWavelength = BALL_PULSE_WAVELENGTH;
-            }
+            //The meshes, the renderers, the look and the buckets in one construction. No ripple here — that wave
+            //is the Game's, and asking for it would also turn the resting heartbeat down to leave room for it
+            //(see BallRenderSet.PULSE_DEPTH_RIPPLING), so the Testbed keeps the deeper breath it always drew. The
+            //shared instancing effect is handed in and never disposed there, the city, the island, the barrel and
+            //the ceiling all drawing through the same copy.
+            _balls = new BallRenderSet(GraphicsDevice, _instancingEffect);
 
             //The pipeline caches its parameters and sets each look value exactly once through the required
             //initializer — fixed for the whole run here (the game alone has the Settings toggles). See #74.
@@ -732,9 +664,6 @@ namespace Testbed
 
             CreateShotTrailQuad();
 
-            //The ground counts into the balls' own ambient occlusion too (dark bellies near the ground)
-            foreach (InstancedModelRenderer ballRenderer in _ballRenderers) ballRenderer.GroundHeight = ArenaIsland.TOP_Y;
-
             #region Ceiling and scenery
 
             _ceilingPlate = new CeilingPlate(GraphicsDevice, _instancingEffect);
@@ -748,8 +677,12 @@ namespace Testbed
 
             #region Contact events
 
-            _eventHandler = new BallContactEventHandler(_simulation, _events, _ceiling, _physicsBalls, _shotBalls, _fallingBalls);
-            _events.Initialize(_simulation);
+            //No Initialize call on the stream: Simulation.Create has already run NarrowPhaseCallbacks.Initialize,
+            //which is what initialises it, and this file used to call it a second time (issue #73) — hooking the
+            //stream's BeforeCollisionDetection handler onto the timestepper twice, so the freshness pass walked
+            //every listener's previous collisions twice on every step for nothing. PhysicsWorld's constructor
+            //owns the one Initialize the program performs.
+            _eventHandler = new BallContactEventHandler(_world.Simulation, _world.Events, _ceiling, _physicsBalls, _shotBalls, _fallingBalls);
 
             #endregion
 
@@ -835,7 +768,9 @@ namespace Testbed
         {
             _skyLitRenderers.Clear();
 
-            foreach (InstancedModelRenderer ballRenderer in _ballRenderers) _skyLitRenderers.Add(ballRenderer);
+            //BallRenderSet.Renderers hands back its own array rather than a read-only view, exactly so this can
+            //be walked every frame without boxing an enumerator (its doc names this caller)
+            foreach (InstancedModelRenderer ballRenderer in _balls.Renderers) _skyLitRenderers.Add(ballRenderer);
 
             _skyLitRenderers.Add(_ceilingPlate.Renderer);
             _skyLitRenderers.Add(_cannonRig.Renderer);
@@ -986,20 +921,22 @@ namespace Testbed
             //edge. A ball that falls past the ring drops off the island's edge into the scene and is culled by
             //the kill plane, exactly as one that runs down the funnel is. The collider is FunnelPhysics' since
             //#75 and is handed the very figures ArenaIsland draws from, so the two cannot drift apart.
-            FunnelPhysics.Build(_simulation, _bufferPool, ArenaIsland.TOP_Y, ArenaIsland.FUNNEL_BOTTOM_Y,
+            //The pool and the simulation come off the world: FunnelPhysics takes its triangles from the pool and
+            //hands them to a mesh the pool's own teardown releases, which is why the pool is exposed at all.
+            FunnelPhysics.Build(_world.Simulation, _world.BufferPool, ArenaIsland.TOP_Y, ArenaIsland.FUNNEL_BOTTOM_Y,
                 ArenaIsland.FUNNEL_TOP_RADIUS, ArenaIsland.FUNNEL_HOLE_RADIUS, ArenaIsland.FLOOR_RADIUS,
                 ArenaIsland.FUNNEL_SEGMENTS);
 
             //The same footprint and thickness the drawn plate was just fitted to, off the one helper
             Box box = new(CeilingPlate.FootprintFor(DEFAULT_CEILING_STAGE_SIZE), CeilingPlate.THICKNESS,
                 CeilingPlate.FootprintFor(DEFAULT_CEILING_STAGE_SIZE));
-            TypedIndex boxShapeIndex = _simulation.Shapes.Add(box);
+            TypedIndex boxShapeIndex = _world.Simulation.Shapes.Add(box);
             _ceilingShapeIndex = boxShapeIndex;
             CollidableDescription collidableDescription = new(boxShapeIndex, 0.1f);
             BodyDescription bodyDescription = BodyDescription.CreateKinematic(new System.Numerics.Vector3(0f, GetCeilingY(10), 0f), collidableDescription, new BodyActivityDescription(Constants.HUNDREDTH));
 
-            BodyHandle topBodyHandle = _simulation.Bodies.Add(in bodyDescription);
-            BodyReference topBodyReference = new(topBodyHandle, _simulation.Bodies);
+            BodyHandle topBodyHandle = _world.Simulation.Bodies.Add(in bodyDescription);
+            BodyReference topBodyReference = new(topBodyHandle, _world.Simulation.Bodies);
 
             _ceiling = new KinematicBody(topBodyReference, topBodyHandle);
         }
@@ -1025,9 +962,9 @@ namespace Testbed
             BodyReference ceilingReference = _ceiling.BodyReference;
             ceilingReference.Pose.Position = new System.Numerics.Vector3(0f, GetCeilingY(map.Levels), 0f);
 
-            TypedIndex newShapeIndex = _simulation.Shapes.Add(new Box(sizeX, CeilingPlate.THICKNESS, sizeZ));
+            TypedIndex newShapeIndex = _world.Simulation.Shapes.Add(new Box(sizeX, CeilingPlate.THICKNESS, sizeZ));
             ceilingReference.SetShape(newShapeIndex);
-            _simulation.Shapes.Remove(_ceilingShapeIndex);
+            _world.Simulation.Shapes.Remove(_ceilingShapeIndex);
             _ceilingShapeIndex = newShapeIndex;
 
             //Recreate the wrapper so its world matrix matches the new pose (the body and handle stay the same);
@@ -1134,7 +1071,7 @@ namespace Testbed
             FitCeilingToMap(_map);
             FitCannonAndGameCameraToMap();
 
-            _physicsBalls = BallsConstraintsBuilder.BuildBallsStructure(_map.GetStaticBallsArray(), _simulation, _ceiling.BodyReference);
+            _physicsBalls = BallsConstraintsBuilder.BuildBallsStructure(_map.GetStaticBallsArray(), _world.Simulation, _ceiling.BodyReference);
             _eventHandler.PhysicsBalls = _physicsBalls;
 
             RecountBallsAndConstraints();
@@ -1167,36 +1104,35 @@ namespace Testbed
                             PhysicsBall ball = _physicsBalls[x, z, level];
                             if (ball == null) continue;
 
-                            _simulation.Bodies.Remove(ball.BallReference.Handle);
+                            //A structure ball never listened for contacts (it was unregistered the moment it
+                            //attached), so this is a plain body removal rather than PhysicsWorld.RetireBall
+                            _world.Simulation.Bodies.Remove(ball.BallReference.Handle);
                             _physicsBalls[x, z, level] = null;
                         }
             }
 
-            RemoveDynamicBalls(_shotBalls, unregisterListeners: true);
-            RemoveDynamicBalls(_fallingBalls, unregisterListeners: false);
+            RemoveDynamicBalls(_shotBalls);
+            RemoveDynamicBalls(_fallingBalls);
         }
 
         /// <summary>
         /// Removes the bodies of the given balls from the simulation and clears the list
         /// (the list instance is shared with <see cref="BallContactEventHandler"/>, so it must be cleared, not replaced).
         /// </summary>
-        private void RemoveDynamicBalls(List<PhysicsBall> balls, bool unregisterListeners)
+        private void RemoveDynamicBalls(List<PhysicsBall> balls)
         {
-            for (int i = 0; i < balls.Count; i++)
-            {
-                BodyReference body = balls[i].BallReference;
-
-                if (unregisterListeners && _events.IsListener(body.CollidableReference)) _events.Unregister(body.CollidableReference);
-
-                _simulation.Bodies.Remove(body.Handle);
-            }
+            //Unregister-then-remove, in that order, is PhysicsWorld.RetireBall's — and it probes for the listener
+            //unconditionally, where this used to be told whether to bother. A released ball is not a listener (it
+            //was unregistered when it attached), so the probe answers false for it anyway, and the flag could only
+            //ever hide a ball that genuinely still was one — leaving a dangling listener behind a removed body.
+            for (int i = 0; i < balls.Count; i++) _world.RetireBall(balls[i].BallReference);
 
             balls.Clear();
         }
 
         private void RecountBallsAndConstraints()
         {
-            _info.CustomText = "Balls on scene: " + (_simulation.Bodies.ActiveSet.Count) + "\nConstraints count: " + _simulation.Solver.CountConstraints();
+            _info.CustomText = "Balls on scene: " + (_world.Simulation.Bodies.ActiveSet.Count) + "\nConstraints count: " + _world.Simulation.Solver.CountConstraints();
         }
 
         /// <summary>
@@ -1211,9 +1147,8 @@ namespace Testbed
         /// balls that fell below <see cref="KILL_PLANE_Y"/> and balls that came to rest on the ground
         /// (their body fell asleep - flying or rolling bodies never sleep).
         /// </summary>
-        /// <param name="unregisterListeners">Pass true for shot balls, which may still be registered as contact listeners.</param>
         /// <returns>Number of removed balls.</returns>
-        private int RemoveFallenBalls(List<PhysicsBall> balls, bool unregisterListeners)
+        private int RemoveFallenBalls(List<PhysicsBall> balls)
         {
             int removed = 0;
 
@@ -1221,11 +1156,16 @@ namespace Testbed
             {
                 BodyReference body = balls[i].BallReference;
 
+                //The sleep cull is deliberately the Testbed's alone: the Game culls on the kill plane only,
+                //because a ball that settles on the island's stone winking out in front of the player reads as a
+                //bug whatever it saves (docs/game-session.md). What the two share to the line is the retire below.
                 if (body.Pose.Position.Y >= KILL_PLANE_Y && body.Awake) continue;
 
-                if (unregisterListeners && _events.IsListener(body.CollidableReference)) _events.Unregister(body.CollidableReference);
-
-                _simulation.Bodies.Remove(body.Handle);
+                //Unregisters the ball's listener if it still has one, then removes the body — that order being
+                //PhysicsWorld.RetireBall's whole point, a listener being keyed on a collidable reference Bepu is
+                //free to hand to the next body added. Its answer (whether the shot was still unresolved) is what
+                //the Game scores a miss on; nothing here keeps score.
+                _world.RetireBall(body);
                 balls.RemoveAt(i);
                 removed++;
 
@@ -1243,9 +1183,9 @@ namespace Testbed
             if (timeStep == 0) timeStep = 1 / 60f;
 
             //Wall-clock time, not simulation time: the balls keep their pulse when the simulation is
-            //paused or slowed (F5, F9), because it is what they are, not something they are doing
+            //paused or slowed (F5, F9), because it is what they are, not something they are doing. It reaches
+            //the three ball renderers as BallRenderSet.Draw's argument, which is why it is not pushed here.
             _pulseSeconds += (float)gameTime.ElapsedGameTime.TotalSeconds;
-            foreach (InstancedModelRenderer ballRenderer in _ballRenderers) ballRenderer.PulseTime = _pulseSeconds;
 
             //Ease the magazine's post-shot slide towards its resting slots. Wall-clock too, so it glides even while
             //the simulation is paused (F5, F9): the balls sliding down a tube is the gun answering the shot, not
@@ -1260,21 +1200,21 @@ namespace Testbed
 
             if (_simulate)
             {
-                if (_slowSimulation) _simulation.Timestep(timeStep * Constants.HUNDREDTH, _threadDispatcher);
-                else _simulation.Timestep(timeStep, _threadDispatcher);
-
-                #region Contact events
-
-                //Flush must run right after the timestep and before ProcessQueuedContacts:
-                //unregistering a listener is only safe once the pending worker adds collected during the timestep have been applied.
-                _events.Flush();
-                if (_eventHandler.ProcessQueuedContacts() > 0) RecountBallsAndConstraints();
-
-                #endregion
+                //ONE step per rendered frame, of whatever the frame took. That is this executable's own stepping
+                //policy and deliberately not the Game's — the Game accumulates the frame time and spends it in
+                //whole fixed steps of 1/120 s, because a step that varies with the display runs the simulation in
+                //slow motion below 60 FPS and Bepu's guidance is to keep it constant ("Physics in the game" in
+                //docs/game-session.md). PhysicsWorld.Step takes one step of exactly the length it is handed and
+                //nothing else, so the divergence stays visible in each caller's own loop; F9's slow motion scales
+                //the dt right here, where the policy lives. What the component owns is the order INSIDE a step —
+                //Timestep, then flush, then the contact work — which is mandatory and per step, not per frame: a
+                //handler may only record what the worker threads saw, the flush is what applies those per-worker
+                //adds, and a contact queued during a step describes a world the next step has already left behind.
+                _world.Step(_slowSimulation ? timeStep * Constants.HUNDREDTH : timeStep, _processContacts);
 
                 #region Fallen balls cleanup
 
-                int removedBalls = RemoveFallenBalls(_shotBalls, unregisterListeners: true) + RemoveFallenBalls(_fallingBalls, unregisterListeners: false);
+                int removedBalls = RemoveFallenBalls(_shotBalls) + RemoveFallenBalls(_fallingBalls);
                 if (removedBalls > 0) RecountBallsAndConstraints();
 
                 #endregion
@@ -1300,7 +1240,7 @@ namespace Testbed
                     {
                         _autoShootElapsed = 0f;
                         ShootBall(new Vector3(RANDOM.Next(-4, 5), RANDOM.Next(4, 11), RANDOM.Next(-4, 5)));
-                        Console.WriteLine($"[autoshoot] FPS: {_info.CurrentFPS}, balls drawn: {_drawnBalls}/{_collectedBalls}, LOD: {string.Join("/", _ballLodTotals)}");
+                        Console.WriteLine($"[autoshoot] FPS: {_info.CurrentFPS}, balls drawn: {_balls.DrawnCount}/{_collectedBalls}, LOD: {string.Join("/", _balls.LodTotals)}");
                     }
                 }
 
@@ -1433,7 +1373,7 @@ namespace Testbed
         {
             if (_physicsBalls == null || _map == null) return;
 
-            if (BallsConstraintsBuilder.ReleaseAllBalls(_physicsBalls, _map, _simulation, _fallingBalls) > 0)
+            if (BallsConstraintsBuilder.ReleaseAllBalls(_physicsBalls, _map, _world.Simulation, _fallingBalls) > 0)
                 RecountBallsAndConstraints();
         }
 
@@ -1446,16 +1386,11 @@ namespace Testbed
             for (byte level = 0; level < size.Level; level++)
                 for (byte x = 0; x < size.X; x++)
                     for (byte z = 0; z < size.Z; z++)
-                        _physicsBalls[x, z, level]?.RemoveAllConstraints(_simulation);
+                        _physicsBalls[x, z, level]?.RemoveAllConstraints(_world.Simulation);
         }
 
         protected override void Draw(GameTime gameTime)
         {
-            if (_draw)
-            {
-                CollectBallInstances((float)gameTime.ElapsedGameTime.TotalSeconds);
-            }
-
             //The scene goes through the HDR target; the aimer and the text overlay are drawn after the
             //resolve, at native resolution and in display space, so they stay exactly as authored instead
             //of being softened by the downsample and bent by the tonemap curve
@@ -1533,7 +1468,26 @@ namespace Testbed
 
                 _cannonRig.Draw(_camera, _cannon.BarrelWorld(), _sceneEffectParams);
 
-                DrawBallsInstanced();
+                //Every ball on the scene, collected and then put out: one instanced draw call per type and LOD
+                //level. BeginFrame empties the buckets and is the only way to fill them, which is what makes the
+                //once-per-frame visit structural rather than a rule to remember — the walk below advances each
+                //ball's occlusion ease and its arrival glide, so a second collection in one frame would run both
+                //at double speed while the drawn frame still looked perfectly correct (see BallRenderSet's
+                //remarks; it throws rather than allow it). A ref struct local by design: it allocates nothing and
+                //cannot be stashed in a field to bucket the next frame's balls against this frame's camera.
+                //
+                //Where this sits in the frame is still this file's: over the opaque scene, so the cluster and the
+                //gun are in the depth buffer, and before the shots' additive smears and the drain's glass.
+                BallDrawFrame frame = _balls.BeginFrame(_camera);
+
+                _collectedBalls = _collector.Collect(frame, (float)gameTime.ElapsedGameTime.TotalSeconds,
+                    _physicsBalls, _shotBalls, _fallingBalls);
+
+                //The loaded queue goes into the same open frame, being balls like any other
+                CollectMagazineBalls(frame);
+
+                //Wall clock, not the simulation's step: the balls keep breathing while it is paused or slowed
+                _balls.Draw(_pulseSeconds);
 
                 //The launch smears trailing the shots, over the opaque scene (which the depth buffer now holds,
                 //so the cluster/cannon/platform occlude them) and additive, so they glow through the glare
@@ -1579,60 +1533,21 @@ namespace Testbed
         }
 
         /// <summary>
-        /// Gathers the instance data of all balls (map structure, shot and falling ones) into the
-        /// per-type-and-LOD buckets drawn by the instanced pass. No camera frustum culling:
-        /// measurements showed it saved nothing on this scene.
+        /// Adds the magazine's queued balls to this frame's collection along the cannon axis: index 0 at the
+        /// muzzle (the spawn point), the rest receding back towards the breech, so the player sees the colour
+        /// that will fire and the ones behind it. Drawn as real balls — the same shader, pattern and emission as
+        /// every other ball, through the same buckets — and unoccluded, a ball in the bore having nothing packed
+        /// around it.
+        /// <para>
+        /// The magazine deliberately stayed with the callers when the rest of the ball drawing was hoisted:
+        /// which colours are loaded, where the bore puts them and (in the Game) the transmute cross-fade are
+        /// three different questions, and none of them is <see cref="BallRenderSet"/>'s.
+        /// </para>
         /// </summary>
-        private void CollectBallInstances(float elapsedSeconds)
-        {
-            for (int i = 0; i < _ballInstanceCounts.Length; i++) _ballInstanceCounts[i] = 0;
-            for (int i = 0; i < BALL_LOD_COUNT; i++) _ballLodTotals[i] = 0;
-            _collectedBalls = 0;
-
-            float ease = 1f - MathF.Exp(-elapsedSeconds / BALL_OCCLUSION_EASE_SECONDS);
-            float glide = 1f - MathF.Exp(-elapsedSeconds / BALL_ATTACH_GLIDE_SECONDS);
-
-            if (_physicsBalls != null)
-            {
-                XZLevel size = XZLevel.FromArray(_physicsBalls);
-
-                for (byte level = 0; level < size.Level; level++)
-                    for (byte x = 0; x < size.X; x++)
-                        for (byte z = 0; z < size.Z; z++)
-                        {
-                            PhysicsBall ball = _physicsBalls[x, z, level];
-                            if (ball == null) continue;
-
-                            //The ceiling plate deliberately does NOT occlude: it is translucent glass, so it
-                            //lets the light through (what keeps a released ball from flashing brighter is the
-                            //occlusion easing below, not this)
-                            int occluders = BallsConstraintsBuilder.CountOccupiedNeighbors(_physicsBalls, ball.ArrayPosition, size, out System.Numerics.Vector3 occlusionSum);
-
-                            System.Numerics.Vector4 occlusionTarget = new(
-                                occlusionSum.X / MAX_BALL_OCCLUDERS,
-                                occlusionSum.Y / MAX_BALL_OCCLUDERS,
-                                occlusionSum.Z / MAX_BALL_OCCLUDERS,
-                                1f - BALL_OCCLUSION_STRENGTH * occluders / MAX_BALL_OCCLUDERS);
-
-                            CollectBallInstance(ball, EaseOcclusion(ball, occlusionTarget, ease), glide);
-                        }
-            }
-
-            //A free-flying ball has nothing packed around it (a shot one never had, so the easing keeps it there)
-            for (int i = 0; i < _shotBalls.Count; i++) CollectBallInstance(_shotBalls[i], EaseOcclusion(_shotBalls[i], PhysicsBall.UNOCCLUDED, ease), glide);
-            for (int i = 0; i < _fallingBalls.Count; i++) CollectBallInstance(_fallingBalls[i], EaseOcclusion(_fallingBalls[i], PhysicsBall.UNOCCLUDED, ease), glide);
-
-            //The loaded queue: drawn as real balls (same shader, pattern and emission) in a line along the
-            //barrel, the next one at the muzzle. They go through the instanced path like every other ball.
-            CollectMagazineBalls();
-        }
-
-        /// <summary>
-        /// Adds the magazine's queued balls as instances along the cannon axis: index 0 at the muzzle (the
-        /// spawn point), the rest receding back towards the breech, so the player sees the colour that will
-        /// fire and the ones behind it.
-        /// </summary>
-        private void CollectMagazineBalls()
+        /// <param name="frame">The collection <see cref="Draw"/> opened, passed along as <c>in</c> rather than
+        /// reopened — a second <see cref="BallRenderSet.BeginFrame"/> in one frame is exactly the double-advance
+        /// this type refuses.</param>
+        private void CollectMagazineBalls(in BallDrawFrame frame)
         {
             //One read of the barrel's pose for the whole queue rather than one per ball, and taken AFTER the gun
             //has been updated this frame - a pose read before the barrel moves makes the queue lag a frame behind
@@ -1641,78 +1556,16 @@ namespace Testbed
             //Testbed animates no recoil, so it passes none.
             BorePose pose = _magazine.Pose(_cannon, _cannonRig.PivotToFrontBall);
 
+            //BallDrawFrame.Add rather than AddOriented: BorePose.SlotWorld has already built the matrix, writing
+            //the slot's translation into the barrel's own basis rather than multiplying one in, and it hands the
+            //position back because the LOD is picked by distance and reading a translation out of a matrix to
+            //measure one is what goes wrong the day something is scaled.
             for (int slot = 0; slot < Magazine.SIZE; slot++)
-                CollectBallInstanceAt(pose.SlotWorld(slot, out Vector3 position), position, _magazine.Peek(slot));
-        }
-
-        /// <summary>
-        /// Adds a single ball instance at a given world matrix and type, unoccluded. Used for the magazine balls,
-        /// which are previews rather than bodies, so they have no pose to read — the matrix comes from
-        /// <see cref="BorePose.SlotWorld"/>, which writes the translation into it rather than multiplying one in,
-        /// and the position comes back with it because the LOD is picked by distance.
-        /// </summary>
-        private void CollectBallInstanceAt(Microsoft.Xna.Framework.Matrix world, Vector3 position, BallType type)
-        {
-            int typeIndex = (int)type - 1;
-            if (typeIndex < 0 || typeIndex >= BALL_TYPE_COUNT) return;
-
-            float distance = Vector3.Distance(position, _camera.Position);
-            int lod = 0;
-            while (lod < BALL_LOD_DISTANCES.Length && distance > BALL_LOD_DISTANCES[lod]) lod++;
-
-            int bucketIndex = typeIndex * BALL_LOD_COUNT + lod;
-            ModelInstance[] bucket = _ballInstances[bucketIndex];
-            int count = _ballInstanceCounts[bucketIndex];
-
-            if (bucket == null)
             {
-                bucket = new ModelInstance[256];
-                _ballInstances[bucketIndex] = bucket;
+                Matrix world = pose.SlotWorld(slot, out Vector3 position);
+
+                frame.Add(_magazine.Peek(slot), position, world, BallRenderSet.UNOCCLUDED);
             }
-            else if (count == bucket.Length)
-            {
-                Array.Resize(ref bucket, bucket.Length * 2);
-                _ballInstances[bucketIndex] = bucket;
-            }
-
-            bucket[count] = new ModelInstance(world, new Vector4(0f, 0f, 0f, 1f));
-            _ballInstanceCounts[bucketIndex] = count + 1;
-        }
-
-        /// <summary>
-        /// Eases a ball's occlusion towards <paramref name="target"/> and returns it in render form.
-        /// A ball rendered for the first time takes the target as it is - only changes happening in front
-        /// of the player are worth easing, a newly built structure has to be shaded right away.
-        /// </summary>
-        private static Vector4 EaseOcclusion(PhysicsBall ball, System.Numerics.Vector4 target, float ease)
-        {
-            ball.Occlusion = ball.OcclusionInitialized ? System.Numerics.Vector4.Lerp(ball.Occlusion, target, ease) : target;
-            ball.OcclusionInitialized = true;
-
-            return ToXna(ball.Occlusion);
-        }
-
-        private static Vector4 ToXna(System.Numerics.Vector4 vector) => new(vector.X, vector.Y, vector.Z, vector.W);
-
-        /// <summary>
-        /// Draws all collected ball instances with GPU instancing: one draw call per ball type and LOD level.
-        /// </summary>
-        private void DrawBallsInstanced()
-        {
-            _drawnBalls = 0;
-            for (int typeIndex = 0; typeIndex < BALL_TYPE_COUNT; typeIndex++)
-                for (int lod = 0; lod < BALL_LOD_COUNT; lod++)
-                {
-                    int bucketIndex = typeIndex * BALL_LOD_COUNT + lod;
-                    int count = _ballInstanceCounts[bucketIndex];
-
-                    _drawnBalls += count;
-                    _ballLodTotals[lod] += count;
-
-                    _ballRenderers[lod].Draw(_camera, _ballInstances[bucketIndex], count,
-                        BasicEffectParamsProvider.GetEffectByType((BallType)(typeIndex + 1)),
-                        BasicEffectParamsProvider.GetDiffuseTintByType((BallType)(typeIndex + 1)));
-                }
         }
 
         /// <summary>
@@ -1760,78 +1613,6 @@ namespace Testbed
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
             GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Position to draw a freshly attached ball at: it eases towards the position of its body, which the
-        /// constraints have already dragged into the cell. Every other ball is drawn where its body is.
-        /// </summary>
-        private static System.Numerics.Vector3 GlideRenderPosition(PhysicsBall ball, System.Numerics.Vector3 bodyPosition, float glide)
-        {
-            //The constraints that drag the body into its cell are only solved by the next timestep, so on this
-            //one frame the body is still where the ball hit and applying the offset would move it the wrong way
-            if (ball.RenderOffsetArmed)
-            {
-                ball.RenderOffsetArmed = false;
-                return bodyPosition;
-            }
-
-            if (ball.RenderOffset == System.Numerics.Vector3.Zero) return bodyPosition;
-
-            ball.RenderOffset *= 1f - glide;
-
-            if (ball.RenderOffset.LengthSquared() < BALL_ATTACH_GLIDE_DONE_SQUARED)
-            {
-                ball.RenderOffset = System.Numerics.Vector3.Zero;
-                return bodyPosition;
-            }
-
-            return bodyPosition + ball.RenderOffset;
-        }
-
-        private void CollectBallInstance(PhysicsBall ball, Vector4 occlusionData, float glide)
-        {
-            _collectedBalls++;
-
-            RigidPose pose = ball.BallReference.Pose;
-            System.Numerics.Vector3 renderPosition = GlideRenderPosition(ball, pose.Position, glide);
-
-            Vector3 position = new(renderPosition.X, renderPosition.Y, renderPosition.Z);
-
-            int typeIndex = (int)ball.Type - 1;
-            if (typeIndex < 0 || typeIndex >= BALL_TYPE_COUNT) return;
-
-            //Mesh resolution by distance from the camera
-            float distance = Vector3.Distance(position, _camera.Position);
-            int lod = 0;
-            while (lod < BALL_LOD_DISTANCES.Length && distance > BALL_LOD_DISTANCES[lod]) lod++;
-
-            int bucketIndex = typeIndex * BALL_LOD_COUNT + lod;
-            ModelInstance[] bucket = _ballInstances[bucketIndex];
-            int count = _ballInstanceCounts[bucketIndex];
-
-            if (bucket == null)
-            {
-                bucket = new ModelInstance[256];
-                _ballInstances[bucketIndex] = bucket;
-            }
-            else if (count == bucket.Length)
-            {
-                Array.Resize(ref bucket, bucket.Length * 2);
-                _ballInstances[bucketIndex] = bucket;
-            }
-
-            //The translation is written into the rotation matrix rather than multiplied in: R × T is exactly
-            //R with its fourth row set to the translation (R's fourth row is (0,0,0,1)), and this runs once
-            //per ball per frame — a full 4×4 multiply here was the hottest needless work in the file
-            Microsoft.Xna.Framework.Matrix world = Microsoft.Xna.Framework.Matrix.CreateFromQuaternion(
-                    new Quaternion(pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z, pose.Orientation.W));
-            world.M41 = renderPosition.X;
-            world.M42 = renderPosition.Y;
-            world.M43 = renderPosition.Z;
-
-            bucket[count] = new ModelInstance(world, occlusionData);
-            _ballInstanceCounts[bucketIndex] = count + 1;
         }
 
         private void SetGraphics(bool windowed = false)
@@ -1894,21 +1675,28 @@ namespace Testbed
             //The rig releases the barrel's buffers AND the renderer's instance buffer - the mesh-only disposal
             //that stood here leaked the latter. Not the shared effect, which the content manager owns.
             _cannonRig?.Dispose();
+            //The three sphere meshes and the three renderers' instance buffers, which nothing here used to
+            //release at all — the set owns them now, so it owns letting them go
+            _balls?.Dispose();
             _island?.Dispose();
             _ceilingPlate?.Dispose();
             _sceneRenderer?.Dispose();
             _pipeline?.Dispose();
             _shotTrailVertexBuffer?.Dispose();
             _shotTrailIndexBuffer?.Dispose();
-            _simulation.Dispose();
-            _threadDispatcher.Dispose();
-            _bufferPool.Clear();
+            //Contact stream, simulation, dispatcher, pool — in that order, which is the reverse of the order they
+            //were built in and PhysicsWorld.Dispose's to get right. It includes the ContactEvents this used to
+            //leak: the stream unhooks itself from the timestepper, so it has to go while the simulation is still
+            //there, and the pool both allocated from has to outlive the two.
+            _world?.Dispose();
         }
 
         private void InitializeShooting()
         {
-            var ballShape = new Sphere(BallsConstraintsBuilder.BALL_RADIUS);
-            _shotBall = BodyDescription.CreateDynamic(new System.Numerics.Vector3(), ballShape.ComputeInertia(BallsConstraintsBuilder.BALL_MASS), BallsConstraintsBuilder.GetSphereShapeIndex(_simulation), Constants.HUNDREDTH);
+            //No shot-ball template here: the body description every shot is stamped from is PhysicsWorld's, built
+            //once with the simulation and copied per shot rather than held as a field and written over. Its bare
+            //shape index (rather than a CollidableDescription with a speculative margin) is what gives the shot
+            //continuous collision detection, which at SHOOT_MULTIPLIER it cannot do without.
             _shotBalls = new List<PhysicsBall>();
             _fallingBalls = new List<PhysicsBall>();
 
@@ -1929,20 +1717,21 @@ namespace Testbed
             var sourcePosition = _gameMode ? _cannon.MuzzlePosition(_cannonRig.PivotToFrontBall) : _camera.Position;
             var shootTarget = targetOverride ?? (_gameMode ? _cannon.AimTarget : _camera.Target);
 
-            _shotBall.Pose.Position = new System.Numerics.Vector3(sourcePosition.X, sourcePosition.Y, sourcePosition.Z);
-
             var direction = shootTarget - sourcePosition;
             direction.Normalize();
             Vector3 launchDirection = direction; //unit, before it is scaled to a velocity below
             direction *= SHOOT_MULTIPLIER;
 
-            _shotBall.Velocity.Linear = new System.Numerics.Vector3(direction.X, direction.Y, direction.Z);
-
-            BodyHandle bodyHandle = _simulation.Bodies.Add(_shotBall);
-
             PhysicsBall ball = new()
             {
-                BallReference = new(bodyHandle, _simulation.Bodies),
+                //Added to the simulation and registered as a contact listener in one call, in that order — a
+                //listener is keyed on a collidable reference, so the body has to exist first. This is the only
+                //place anything is registered, which is what makes "every listener is a shot in the air" true;
+                //RetireBall is the unregister the TODO that stood here asked for.
+                BallReference = _world.AddShotBall(
+                    new System.Numerics.Vector3(sourcePosition.X, sourcePosition.Y, sourcePosition.Z),
+                    new System.Numerics.Vector3(direction.X, direction.Y, direction.Z),
+                    _eventHandler),
                 Type = _magazine.Peek() //The colour the player saw loaded at the muzzle - so aiming for it means something
             };
 
@@ -1955,13 +1744,6 @@ namespace Testbed
             //Give the shot its launch smear: a colour streak at the muzzle, along the shot, fading over
             //TRAIL_LIFETIME (drawn in DrawShotTrails, aged out in Update)
             _shotTrails.Add(new ShotTrail { Origin = sourcePosition, Direction = launchDirection, Age = 0f, Color = TrailColorFor(ball.Type) });
-
-            #region Contact event registration
-
-            //TODO: Unregister when removed from world
-            _events.Register(_simulation.Bodies[bodyHandle].CollidableReference, _eventHandler);
-
-            #endregion
         }
 
         /// <summary>
