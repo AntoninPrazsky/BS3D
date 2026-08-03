@@ -1650,7 +1650,20 @@ namespace BS3D.Screens
                 //two OS queries of the same slot microseconds apart
                 GamePadState pad = GamePad.GetState(PlayerIndex.One);
 
-                UpdateInput(gameTime, Game.EdgeInputAllowed, pad);
+                //A pause takes effect at the top of the NEXT frame, because that is where ScreenManager applies
+                //stack changes — so without stopping here the rest of THIS frame would go on running against a
+                //session the player has just stopped (#79): the aim would take its delta and recentre the
+                //cursor, a left-button edge landing on the same frame would fire a shot, the ceiling would
+                //slide, the simulation would step, and a loss detected here would stack a result screen on top
+                //of the pause page. Everything below tolerates the one-frame stall by construction — it is the
+                //same stall every covered frame already gives it.
+                //
+                //Only the pause path reports true. UpdateInput's other early exits must NOT stop the frame:
+                //they write PreviousKeyboard alone and rely on UpdateAim to write PreviousPad, whereas the
+                //pause path writes both itself. That is what keeps the Escape edge that un-pauses from being
+                //read a second time against a stale snapshot.
+                if (UpdateInput(gameTime, Game.EdgeInputAllowed, pad)) return;
+
                 UpdateAim(gameTime, Game.EdgeInputAllowed, pad);
             }
             else
@@ -1736,7 +1749,13 @@ namespace BS3D.Screens
 
         #region Input
 
-        private void UpdateInput(GameTime gameTime, bool edgeInputAllowed, GamePadState pad)
+        /// <summary>
+        /// This frame's keyboard and pad actions: pause, the window toggles, the shot, the traverse.
+        /// </summary>
+        /// <returns><c>true</c> when the session was <b>paused</b> on this frame, which is the caller's signal
+        /// to run no more of the frame — see the reasoning at the call site. Every other early exit here returns
+        /// <c>false</c>: they hand off to <c>UpdateAim</c>, which owes the frame its <c>PreviousPad</c>.</returns>
+        private bool UpdateInput(GameTime gameTime, bool edgeInputAllowed, GamePadState pad)
         {
             KeyboardState keyboard = Keyboard.GetState();
 
@@ -1750,9 +1769,11 @@ namespace BS3D.Screens
                     Game.PreviousPad = pad;
                     Game.PauseGame();
 
-                    //Nothing else this frame: the game is paused as of now, and firing or traversing on the
-                    //way out would be an action the player asked of a game that has stopped
-                    return;
+                    //Nothing else this frame, here OR in the caller: the game is paused as of now, and firing
+                    //or traversing on the way out would be an action the player asked of a game that has
+                    //stopped. Both snapshots are written above rather than left to UpdateAim, precisely because
+                    //this is the one exit that stops the frame before UpdateAim can run.
+                    return true;
                 }
 
                 if (Game.IsKeyEdge(keyboard, Keys.F11)) Game.ToggleFullscreen();
@@ -1772,7 +1793,7 @@ namespace BS3D.Screens
                         _cinematic.TrySkip();
 
                     Game.PreviousKeyboard = keyboard;
-                    return;
+                    return false;
                 }
 
                 //Space fires; the gamepad fires off its right trigger, read with the aim (below)
@@ -1782,7 +1803,7 @@ namespace BS3D.Screens
             {
                 //Edge input is being held off for a frame after a refocus, but the gun still must not answer
                 Game.PreviousKeyboard = keyboard;
-                return;
+                return false;
             }
 
             //The carriage traverses on A/D — it turns where it stands, it does not walk
@@ -1790,6 +1811,8 @@ namespace BS3D.Screens
             else if (keyboard.IsKeyDown(Keys.D)) _cannon.Orbit(-CANNON_ORBIT_RATE);
 
             Game.PreviousKeyboard = keyboard;
+
+            return false;
         }
 
         /// <summary>
