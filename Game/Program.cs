@@ -15,7 +15,7 @@ namespace BS3D
 
             //Left null when absent, so the game keeps doing what it normally does: a random one of the seven
             //scenes, and whatever dome that scene wants. Pinning both is what makes a frame-cost measurement
-            //repeatable (see BS3DGame.LogFrameRate) â€” without it every run measures a different backdrop.
+            //repeatable (see BS3DGame.LogFrameRate) — without it every run measures a different backdrop.
             SceneKind? scene = null;
             byte? skyDome = null;
             bool logFrameRate = false;
