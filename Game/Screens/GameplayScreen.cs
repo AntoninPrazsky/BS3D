@@ -467,8 +467,6 @@ namespace BS3D.Screens
 
         private float _cannonRecoil;
 
-        private const float MOUSE_AIM_SENSITIVITY = 2.0f;
-        private const float PAD_AIM_RATE = 1.0f;
         private const float CANNON_ORBIT_RATE = 1.0f;
 
         //Balls in flight, and balls that have been let go and are falling. Both are real Bepu bodies with no
@@ -526,8 +524,12 @@ namespace BS3D.Screens
         private static readonly Random RANDOM = new();
 
         private MouseState _previousMouse;
-        private bool _mouseAimInitialized;
         private bool _padTriggerReleased = true;
+
+        //Aiming the gun from the captured cursor and the pad's right stick, both dials and all the arithmetic
+        //shared with the Testbed since #76. It holds the "a captured frame has been seen" flag that gates both
+        //the aim delta and the shot edge.
+        private readonly MouseAim _mouseAim = new();
 
         #endregion
 
@@ -600,12 +602,12 @@ namespace BS3D.Screens
         /// frame while playing and left alone in the menu, so the first frame back would otherwise read the
         /// distance from wherever the player clicked to the viewport centre as an aim delta and yank the
         /// barrel across the field — and the very click that pressed the button would arrive against a stale
-        /// "released" and fire a shot nobody asked for. Clearing <see cref="_mouseAimInitialized"/> skips that
+        /// "released" and fire a shot nobody asked for. <see cref="MouseAim.Invalidate"/> skips that
         /// first frame's aim <i>and</i> its shot test, since both live behind it.
         /// </summary>
         public override void CoveredChanged()
         {
-            _mouseAimInitialized = false;
+            _mouseAim.Invalidate();
             _adsHeld = false;
 
             //A gamepad reports to an unfocused window and to a paused one; both triggers must be released
@@ -1702,7 +1704,7 @@ namespace BS3D.Screens
                 //The cursor belongs to the desktop again as soon as the window is not the one being played:
                 //hidden over an unfocused window it simply disappears wherever the player moves it.
                 Game.IsMouseVisible = true;
-                _mouseAimInitialized = false;
+                _mouseAim.Invalidate();
 
                 //A trigger held while the window was away must be re-released before it fires
                 _padTriggerReleased = false;
@@ -1855,7 +1857,7 @@ namespace BS3D.Screens
             //drifted to during the shot. The left button skips, matching Space and the pad's A.
             if (_cinematic.Engaged)
             {
-                if (edgeInputAllowed && _mouseAimInitialized
+                if (edgeInputAllowed && _mouseAim.Initialized
                     && mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released)
                     _cinematic.TrySkip();
 
@@ -1863,36 +1865,26 @@ namespace BS3D.Screens
                 //the cinematic ends gets precise aim back, and one who let go during it does not
                 _adsHeld = false;
 
-                Mouse.SetPosition(centreX, centreY);
-                _mouseAimInitialized = true;
+                _mouseAim.Recentre(centreX, centreY);
                 _previousMouse = mouse;
 
                 Game.PreviousPad = pad;
                 return;
             }
 
-            if (_mouseAimInitialized)
-            {
-                float dtMillis = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-                if (dtMillis > 0f)
-                {
-                    float invDt = 1f / dtMillis;
-                    float pitch = -(mouse.Y - centreY) * MOUSE_AIM_SENSITIVITY * invDt; //mouse up -> aim up
-                    float yaw = -(mouse.X - centreX) * MOUSE_AIM_SENSITIVITY * invDt;   //mouse left -> yaw left
+            _mouseAim.ApplyCursor(_cannon, mouse, centreX, centreY, gameTime);
 
-                    if (pitch != 0f || yaw != 0f) _cannon.Aim(new Vector2(pitch, yaw), gameTime);
-                }
-
-                if (edgeInputAllowed && mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released)
-                    Shoot();
-            }
+            //The shot edge is gated on the same "a captured frame has been seen" flag the aim is: on the frame
+            //the baseline is dropped there is no aim to fire along yet, so no phantom shot goes off either
+            if (_mouseAim.Initialized && edgeInputAllowed
+                && mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released)
+                Shoot();
 
             //Precise aim is a hold, not an edge, so it is read straight off this frame's state — no
             //edge-input gate: leaning the camera in is not an action that can go off by accident.
             _adsHeld = PreciseAim.ButtonHeld(mouse, pad);
 
-            Mouse.SetPosition(centreX, centreY);
-            _mouseAimInitialized = true;
+            _mouseAim.Recentre(centreX, centreY);
 
             //Only its LeftButton is ever read (the shot's edge test above); the aim delta is measured against
             //the viewport centre, never against this, so the state captured at the top of the method serves
@@ -1900,8 +1892,7 @@ namespace BS3D.Screens
 
             if (pad.IsConnected)
             {
-                if (pad.ThumbSticks.Right.LengthSquared() > 0f)
-                    _cannon.Aim(new Vector2(pad.ThumbSticks.Right.Y, -pad.ThumbSticks.Right.X) * PAD_AIM_RATE, gameTime);
+                MouseAim.ApplyPad(_cannon, pad, gameTime);
 
                 //Gated like the keyboard and the mouse: XInput reports a held trigger whether the window has
                 //focus or not, so without this the click that refocuses the game would arrive alongside a
@@ -2162,7 +2153,7 @@ namespace BS3D.Screens
         /// </summary>
         internal void OnViewportChanged()
         {
-            _mouseAimInitialized = false;
+            _mouseAim.Invalidate();
 
             FitCannonAndGameCameraToLevel();
         }

@@ -211,10 +211,13 @@ namespace Testbed
         //the crosshair is. The lens, its dials and the reversible blend that eases 0->1 while held (0 == the exact
         //game-mode overview pose, bit for bit, so an interrupted hold never snaps) are PreciseAim's since #76 - it
         //stood here and in the Game, every figure identical. What stays here is where the pose is applied and
-        //what it is gated on. _adsMouseInitialized skips the first captured frame so acquiring the cursor never
-        //yanks the aim.
+        //what it is gated on.
         private readonly PreciseAim _preciseAim = new();
-        private bool _adsMouseInitialized = false;
+
+        //Aiming the gun from the captured cursor and the pad's right stick, both dials and all the arithmetic
+        //shared with the Game since #76. It holds the "a captured frame has been seen" flag that skips the first
+        //delta, so acquiring the cursor never yanks the aim.
+        private readonly MouseAim _mouseAim = new();
 
         //Whether the window was active on the previous frame. Edge-driven input (the button actions and the
         //game-mode LMB fire) is skipped the frame focus returns, so the click that refocuses a windowed game is
@@ -472,8 +475,6 @@ namespace Testbed
         //dropped on it (the Game draws only among the colours still hanging, which is why the policy is injected).
         private Magazine _magazine;
 
-        private const float MOUSE_AIM_SENSITIVITY = 2.0f; //aim per pixel after the dt cancellation is 0.001 * this radians (game mode, mouse)
-        private const float PAD_AIM_RATE = 1.0f;          //right-stick aim rate (the stick is already a rate, so no 1/dt)
 
         private SpriteBatch _spriteBatch;
         private Texture2D _aimer;
@@ -664,7 +665,7 @@ namespace Testbed
             if (_gameMode)
             {
                 _cih.ResetMouseModes();       //drop any free-look pan/rotate toggle so it does not resume in game mode
-                _adsMouseInitialized = false; //the first captured frame skips its delta, so grabbing the cursor never jumps the aim
+                _mouseAim.Invalidate();       //the first captured frame skips its delta, so grabbing the cursor never jumps the aim
                 _gameModeAnimStarted = true;
                 _beforeAnimationPosition = _camera.Position;
                 _beforeAnimationTarget = _camera.Target;
@@ -686,7 +687,7 @@ namespace Testbed
                     _beforeAnimationFov = _camera.FieldOfView;
                 }
                 _preciseAim.Reset(); //the lean is dropped with no ease; the exit animation above carries the pose out
-                _adsMouseInitialized = false;
+                _mouseAim.Invalidate();
                 IsMouseVisible = true;
                 _freeModeAnimStarted = true;
             }
@@ -2011,7 +2012,7 @@ namespace Testbed
                 //IsActive gates the capture: the gamepad trigger reads globally through XInput, and losing focus must
                 //free the cursor rather than keep grabbing it (the else branch).
                 if (IsActive && _map != null && !_aimShoot) UpdateMouseAim(gameTime, mouse, pad);
-                else { _adsMouseInitialized = false; IsMouseVisible = true; }
+                else { _mouseAim.Invalidate(); IsMouseVisible = true; }
 
                 //Stepped every frame, held or not: an unheld frame is how the lean eases back out, which is what
                 //makes losing focus a fade rather than a drop. Every gate on the held flag is this file's - IsActive
@@ -2198,12 +2199,11 @@ namespace Testbed
             new(_cannon.OrbitCenter.X, _gameCameraTargetY, _cannon.OrbitCenter.Z);
 
         /// <summary>
-        /// Drives the cannon's aim from the mouse throughout game mode (the overview as well as precise aim; the arrow
-        /// keys are retired). The cursor is hidden and re-centred every frame; the delta is read against the live
-        /// viewport centre (robust to a resize / fullscreen switch) and divided by the frame time, which cancels
-        /// exactly against the frame time <see cref="Cannon.Aim"/> multiplies back in, so the aim moves a fixed amount
-        /// per pixel at any frame rate. The first captured frame is skipped so acquiring the cursor never jumps the
-        /// aim. The gamepad's right stick aims too, fed straight in as a rate.
+        /// Drives the cannon's aim from the mouse throughout game mode (the overview as well as precise aim; the
+        /// arrow keys are retired), and from the pad's right stick. The arithmetic and both dials are
+        /// <see cref="MouseAim"/>'s since #76 — including why the delta is taken against the <b>live</b> viewport
+        /// centre and divided by the frame time. What stays here is the order: the cursor is hidden, the delta
+        /// applied, the cursor re-centred, and only then the pad added.
         /// </summary>
         private void UpdateMouseAim(GameTime gameTime, MouseState mouse, GamePadState pad)
         {
@@ -2212,23 +2212,10 @@ namespace Testbed
 
             IsMouseVisible = false;
 
-            if (_adsMouseInitialized)
-            {
-                float dtMillis = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-                if (dtMillis > 0f)
-                {
-                    float invDt = 1f / dtMillis;
-                    float pitch = -(mouse.Y - cy) * MOUSE_AIM_SENSITIVITY * invDt; //mouse up -> aim up
-                    float yaw = -(mouse.X - cx) * MOUSE_AIM_SENSITIVITY * invDt;    //mouse left -> yaw left
-                    if (pitch != 0f || yaw != 0f) _cannon.Aim(new Vector2(pitch, yaw), gameTime);
-                }
-            }
+            _mouseAim.ApplyCursor(_cannon, mouse, cx, cy, gameTime);
+            _mouseAim.Recentre(cx, cy);
 
-            Mouse.SetPosition(cx, cy);
-            _adsMouseInitialized = true;
-
-            if (pad.IsConnected && pad.ThumbSticks.Right.LengthSquared() > 0f)
-                _cannon.Aim(new Vector2(pad.ThumbSticks.Right.Y, -pad.ThumbSticks.Right.X) * PAD_AIM_RATE, gameTime);
+            MouseAim.ApplyPad(_cannon, pad, gameTime);
         }
     }
 
