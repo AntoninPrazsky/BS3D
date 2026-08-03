@@ -373,23 +373,14 @@ namespace Testbed
         private static readonly float SHOOT_MULTIPLIER = 200f;
         private static readonly Random RANDOM = new();
 
-        //Launch smear: a colour streak left at the muzzle when a ball fires, stretched in the flight direction
-        //and fading over a fraction of a second, to sell how hard the ball leaves the cannon (Shaders/ShotTrail.fx).
-        //Anchored at the muzzle (not following the ball, which attaches in ~0.075s - far too brief to read); one
-        //additive billboard per live smear. Brightest and widest at the leading (far) end, clear of the barrel,
-        //tapering back to the muzzle end, which is mostly hidden behind it - a muzzle-bright streak shows only
-        //its faint tapering tip and reads as a thin thread (the mistake this replaced).
-        private Effect _shotTrailEffect;
-        private VertexBuffer _shotTrailVertexBuffer;
-        private IndexBuffer _shotTrailIndexBuffer;
-        private sealed class ShotTrail { public Vector3 Origin; public Vector3 Direction; public float Age; public Vector3 Color; }
-        private readonly List<ShotTrail> _shotTrails = new();
-        private const float TRAIL_LIFETIME = 0.45f;     //seconds the launch smear lasts - long enough not to be missed
-        private const float TRAIL_LENGTH = 7f;          //world length of the streak, from the muzzle along the shot
-        private const float TRAIL_LEAD_WIDTH = 0.72f;   //half-width at the leading (far) end - bright and clear of the barrel
-        private const float TRAIL_MUZZLE_WIDTH = 0.42f; //half-width at the muzzle end (mostly hidden behind the barrel)
-        private const float TRAIL_BRIGHTNESS = 3.0f;    //radiance boost so the streak glows and blooms through the glare
-        private const float TRAIL_COLOR_FLOOR = 0.12f;  //min peak channel, so even the near-black ball leaves a faint smear
+        //Launch smears: a colour streak left at the muzzle when a ball fires, stretched in the flight direction
+        //and fading over a fraction of a second, to sell how hard the ball leaves the cannon. The streak, its
+        //billboard quad, the six dials it is cut to, the colour rule and the additive depth-read draw are all
+        //LaunchSmears' since #76 - it stood here and in the Game, value for value, and this copy re-sent the two
+        //widths and looked five parameters up by name every frame on top. What stays here is when a smear is
+        //added (ShootBall), when they age (only while the simulation runs - a paused Testbed holds its smears)
+        //and where the draw sits in the frame, which is stated at the call site in Draw.
+        private LaunchSmears _smears;
 
         private Cannon _cannon;
 
@@ -414,9 +405,13 @@ namespace Testbed
 
 
         private SpriteBatch _spriteBatch;
-        private Texture2D _aimer;
-        private Vector2 _aimerPos;
-        private Color _aimerColor = new((byte)255, (byte)255, (byte)255, (byte)64);
+
+        //The crosshair: four procedural bars around a clear centre, Crosshair's since #76. It replaces the
+        //Bitmaps/Aimer.png this file used to load, stretch and re-centre on every resize - the component makes
+        //its own white texel and reads the viewport per frame, so a resize is nothing it has to be told about.
+        //Free mode passes a plain 1 (the shot leaves the lens, so screen centre IS the shot) and game mode the
+        //precise-aim blend, which is the whole of the difference between the two modes' crosshairs.
+        private Crosshair _crosshair;
 
         #endregion
 
@@ -521,7 +516,6 @@ namespace Testbed
         {
             _camera.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
             _info.RecomputeScale();
-            ComputeAimerPosition();
             _pipeline?.EnsureTarget();
             FitCannonAndGameCameraToMap(); //The frustum's width just changed, and the fit is checked on both axes
         }
@@ -662,7 +656,9 @@ namespace Testbed
 
             _sceneLights = new SceneLights(_instancingEffect);
 
-            CreateShotTrailQuad();
+            //The launch smears' billboard quad and every parameter handle the draw needs, in one construction.
+            //The effect is handed in and never disposed there, its lifetime being the content manager's.
+            _smears = new LaunchSmears(GraphicsDevice, Content.Load<Effect>("Shaders/ShotTrail"));
 
             #region Ceiling and scenery
 
@@ -726,9 +722,10 @@ namespace Testbed
             //island's and the ceiling's too.
             _cannonRig = new CannonRig(GraphicsDevice, _instancingEffect, Magazine.SIZE, Magazine.SPACING);
 
-            _aimer = Content.Load<Texture2D>("Bitmaps/Aimer");
+            //The overlay's own batch, and the crosshair's one white texel stretched into each of its four bars
             _spriteBatch = new SpriteBatch(GraphicsDevice);
-            ComputeAimerPosition();
+            _crosshair = new Crosshair(GraphicsDevice);
+
             _pipeline.EnsureTarget();
 
             if (!string.IsNullOrEmpty(_startupMapPath) && File.Exists(_startupMapPath)) DeserializeMapFromFile(_startupMapPath);
@@ -828,11 +825,6 @@ namespace Testbed
             //Refilled every frame into one reused list, and pushed by index, so the per-frame path allocates
             //nothing — this is the caller BestPractices.md §3 records the iterator incident for
             _rig.ApplyTo(SkyLitRenderers());
-        }
-
-        private void ComputeAimerPosition()
-        {
-            _aimerPos = new Vector2(GraphicsDevice.Viewport.Width / 2f - _aimer.Width / 2f, GraphicsDevice.Viewport.Height / 2f - _aimer.Height / 2f);
         }
 
         private void SwitchSkyDome()
@@ -1221,12 +1213,10 @@ namespace Testbed
 
                 #region Shot-trail launch smear
 
-                //Age each muzzle smear and drop it once the launch burst has faded
-                for (int i = _shotTrails.Count - 1; i >= 0; i--)
-                {
-                    _shotTrails[i].Age += (float)gameTime.ElapsedGameTime.TotalSeconds;
-                    if (_shotTrails[i].Age >= TRAIL_LIFETIME) _shotTrails.RemoveAt(i);
-                }
+                //Age each muzzle smear and drop it once the launch burst has faded. Inside the simulation
+                //gate on purpose: a paused Testbed (P) holds the smears where they are, along with the shot
+                //that left them - the Game, whose smears age every frame it updates, does it differently.
+                _smears.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
 
                 #endregion
 
@@ -1391,7 +1381,7 @@ namespace Testbed
 
         protected override void Draw(GameTime gameTime)
         {
-            //The scene goes through the HDR target; the aimer and the text overlay are drawn after the
+            //The scene goes through the HDR target; the crosshair and the text overlay are drawn after the
             //resolve, at native resolution and in display space, so they stay exactly as authored instead
             //of being softened by the downsample and bent by the tonemap curve
             GraphicsDevice.SetRenderTarget(_pipeline.SceneTarget);
@@ -1490,8 +1480,10 @@ namespace Testbed
                 _balls.Draw(_pulseSeconds);
 
                 //The launch smears trailing the shots, over the opaque scene (which the depth buffer now holds,
-                //so the cluster/cannon/platform occlude them) and additive, so they glow through the glare
-                DrawShotTrails();
+                //so the cluster/cannon/platform occlude them) and additive, so they glow through the glare.
+                //It states the three states it needs and puts back exactly what it found, so the frame's
+                //translucent baseline - which the two glass draws below depend on - is still standing here.
+                _smears.Draw(_camera);
 
                 //The drain's gold beads and then its glass, after the shots' smears: the beads are opaque and
                 //belong with the opaque scene, and the glass composites over everything already in the frame.
@@ -1512,22 +1504,12 @@ namespace Testbed
 
             _pipeline.Resolve(_pulseSeconds, underwater);
 
-            //The crosshair: in free mode it marks where a shot from the camera goes; in game mode it appears only
-            //as precise aim engages, fading in with PreciseAim.Blend, and marks the impact point the camera
-            //converges on - the overview's screen centre points at nothing in particular. _aimerPos is kept centred
-            //on resize by ComputeAimerPosition. Color * float scales alpha too, so the crosshair grows in with it.
-            if (!_gameMode)
-            {
-                _spriteBatch.Begin();
-                _spriteBatch.Draw(_aimer, _aimerPos, _aimerColor);
-                _spriteBatch.End();
-            }
-            else if (_preciseAim.Blend > 0.01f)
-            {
-                _spriteBatch.Begin();
-                _spriteBatch.Draw(_aimer, _aimerPos, _aimerColor * _preciseAim.Blend);
-                _spriteBatch.End();
-            }
+            //The crosshair, in display space after the resolve: in free mode it marks where a shot from the camera
+            //goes, so it is simply there (opacity 1); in game mode it appears only as precise aim engages, fading
+            //in with PreciseAim.Blend, and marks the impact point the camera converges on - the overview's screen
+            //centre points at nothing in particular. Everything else about it, the below-0.01 skip included, is
+            //Crosshair's.
+            _crosshair.Draw(_spriteBatch, _gameMode ? _preciseAim.Blend : 1f);
 
             base.Draw(gameTime);
         }
@@ -1568,53 +1550,6 @@ namespace Testbed
             }
         }
 
-        /// <summary>
-        /// Draws each live launch smear: one camera-facing billboard from the muzzle (tail — faint, mostly hidden
-        /// behind the barrel) stretched <see cref="TRAIL_LENGTH"/> along the shot to a bright leading end (head)
-        /// out in the open, coloured by the ball type and fading over <see cref="TRAIL_LIFETIME"/> (~0.45 s). Additive
-        /// and depth-read, like the campfire flame, so it glows and blooms through the glare while the opaque
-        /// scene in front still hides it.
-        /// </summary>
-        private void DrawShotTrails()
-        {
-            if (_shotTrails.Count == 0) return;
-
-            _shotTrailEffect.Parameters["View"].SetValue(_camera.View);
-            _shotTrailEffect.Parameters["Projection"].SetValue(_camera.Projection);
-            _shotTrailEffect.Parameters["CameraPosition"].SetValue(_camera.Position);
-            _shotTrailEffect.Parameters["TrailHeadWidth"].SetValue(TRAIL_LEAD_WIDTH);
-            _shotTrailEffect.Parameters["TrailTailWidth"].SetValue(TRAIL_MUZZLE_WIDTH);
-
-            GraphicsDevice.BlendState = BlendState.Additive;
-            GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-            GraphicsDevice.SetVertexBuffer(_shotTrailVertexBuffer);
-            GraphicsDevice.Indices = _shotTrailIndexBuffer;
-
-            foreach (ShotTrail trail in _shotTrails)
-            {
-                Vector3 head = trail.Origin + trail.Direction * TRAIL_LENGTH;  //leading end, clear of the barrel: bright
-                Vector3 tail = trail.Origin;                                   //muzzle end, mostly hidden by the barrel
-
-                //Hold near-full for most of the life, then drop away at the end (1 - t^2), so the smear stays
-                //clearly visible rather than dimming the instant it appears - the point is that it not be missed
-                float t = trail.Age / TRAIL_LIFETIME;
-                float fade = 1f - t * t;
-
-                _shotTrailEffect.Parameters["TrailHead"].SetValue(head);
-                _shotTrailEffect.Parameters["TrailTail"].SetValue(tail);
-                _shotTrailEffect.Parameters["TrailColor"].SetValue(trail.Color);
-                _shotTrailEffect.Parameters["TrailAlpha"].SetValue(fade);
-
-                _shotTrailEffect.CurrentTechnique.Passes[0].Apply();
-                GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
-            }
-
-            GraphicsDevice.BlendState = BlendState.AlphaBlend;
-            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
         private void SetGraphics(bool windowed = false)
         {
             _graphics.PreferredBackBufferWidth = windowed ? _windowWidth : GraphicsDevice.DisplayMode.Width;
@@ -1644,31 +1579,6 @@ namespace Testbed
             e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = 0;
         }
 
-        /// <summary>
-        /// The shot-trail billboard: a unit quad whose texture channel carries (side in {-1,1}, along in
-        /// {0 tail, 1 head}); the shader places it in world space from each trail's head/tail (ShotTrail.fx).
-        /// The vertex positions are unused, so one shared quad serves every trail.
-        /// </summary>
-        private void CreateShotTrailQuad()
-        {
-            VertexPositionTexture[] corners =
-            {
-                new(Vector3.Zero, new Vector2(-1f, 0f)), //tail, left
-                new(Vector3.Zero, new Vector2(1f, 0f)),  //tail, right
-                new(Vector3.Zero, new Vector2(-1f, 1f)), //head, left
-                new(Vector3.Zero, new Vector2(1f, 1f))   //head, right
-            };
-
-            _shotTrailVertexBuffer = new VertexBuffer(GraphicsDevice, VertexPositionTexture.VertexDeclaration, corners.Length, BufferUsage.WriteOnly);
-            _shotTrailVertexBuffer.SetData(corners);
-
-            short[] indices = { 0, 1, 2, 2, 1, 3 };
-            _shotTrailIndexBuffer = new IndexBuffer(GraphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
-            _shotTrailIndexBuffer.SetData(indices);
-
-            _shotTrailEffect = Content.Load<Effect>("Shaders/ShotTrail");
-        }
-
         protected override void UnloadContent()
         {
             _unitBox?.Dispose();
@@ -1682,8 +1592,11 @@ namespace Testbed
             _ceilingPlate?.Dispose();
             _sceneRenderer?.Dispose();
             _pipeline?.Dispose();
-            _shotTrailVertexBuffer?.Dispose();
-            _shotTrailIndexBuffer?.Dispose();
+            //The smears' shared billboard quad (both buffers) and the crosshair's white texel - not the trail
+            //effect, which the content manager owns
+            _smears?.Dispose();
+            _crosshair?.Dispose();
+            _spriteBatch?.Dispose();
             //Contact stream, simulation, dispatcher, pool — in that order, which is the reverse of the order they
             //were built in and PhysicsWorld.Dispose's to get right. It includes the ContactEvents this used to
             //leak: the stream unhooks itself from the timestepper, so it has to go while the simulation is still
@@ -1728,10 +1641,9 @@ namespace Testbed
                 //listener is keyed on a collidable reference, so the body has to exist first. This is the only
                 //place anything is registered, which is what makes "every listener is a shot in the air" true;
                 //RetireBall is the unregister the TODO that stood here asked for.
-                BallReference = _world.AddShotBall(
-                    new System.Numerics.Vector3(sourcePosition.X, sourcePosition.Y, sourcePosition.Z),
-                    new System.Numerics.Vector3(direction.X, direction.Y, direction.Z),
-                    _eventHandler),
+                //ToNumerics is the framework's own crossing into Bepu's vector type, which this file used to
+                //write out by hand here and call by name two hundred lines below
+                BallReference = _world.AddShotBall(sourcePosition.ToNumerics(), direction.ToNumerics(), _eventHandler),
                 Type = _magazine.Peek() //The colour the player saw loaded at the muzzle - so aiming for it means something
             };
 
@@ -1741,24 +1653,11 @@ namespace Testbed
             _shotBalls.Add(ball);
             RecountBallsAndConstraints();
 
-            //Give the shot its launch smear: a colour streak at the muzzle, along the shot, fading over
-            //TRAIL_LIFETIME (drawn in DrawShotTrails, aged out in Update)
-            _shotTrails.Add(new ShotTrail { Origin = sourcePosition, Direction = launchDirection, Age = 0f, Color = TrailColorFor(ball.Type) });
-        }
-
-        /// <summary>
-        /// The launch-smear colour for a ball type: its diffuse tint decoded to linear, its hue kept but lifted
-        /// to a floor so even the near-black ball leaves a faint smear, then boosted to a glowing radiance so the
-        /// streak reads as energy and blooms through the glare.
-        /// </summary>
-        private static Vector3 TrailColorFor(BallType type)
-        {
-            Vector3 linear = ColorSpace.SrgbToLinear(BasicEffectParamsProvider.GetDiffuseTintByType(type));
-
-            float peak = MathF.Max(linear.X, MathF.Max(linear.Y, linear.Z));
-            if (peak < TRAIL_COLOR_FLOOR) linear *= TRAIL_COLOR_FLOOR / MathF.Max(peak, 1e-4f);
-
-            return linear * TRAIL_BRIGHTNESS;
+            //Give the shot its launch smear: a colour streak at the muzzle, along the shot, fading over its own
+            //short life (aged in Update, drawn in Draw). Only the ball's authored tint is handed over - decoding
+            //it to linear, lifting its peak off the floor and boosting it to a glowing radiance is the smear's
+            //own rule, and it was written out here and in the Game identically until #76.
+            _smears.Add(sourcePosition, launchDirection, BasicEffectParamsProvider.GetDiffuseTintByType(ball.Type));
         }
 
         private void UpdateCannon(GameTime gameTime)

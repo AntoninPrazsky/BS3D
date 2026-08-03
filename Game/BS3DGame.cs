@@ -158,14 +158,13 @@ namespace BS3D
         //display space, with its own SpriteBatch. F12 hides it, as it hides the Testbed's text overlay.
         private InfoRenderer _info;
 
-        //One SpriteBatch and one white texel for everything drawn over the resolve — the gameplay screen's
-        //HUD and crosshair strike their bars and shadows from these. No bitmap: one asset fewer to keep in
-        //step with the Testbed's.
+        //One SpriteBatch for everything drawn over the resolve: the gameplay screen's HUD and its crosshair
+        //both go into this one. The white texel that used to sit beside it went with the crosshair in #76 —
+        //Prazsky.Core.Render.Crosshair makes its own, and it was the texel's only consumer, so the host no
+        //longer holds a texture for a mark it does not draw.
         private SpriteBatch _spriteBatch;
-        private Texture2D _pixel;
 
         internal SpriteBatch OverlayBatch => _spriteBatch;
-        internal Texture2D WhitePixel => _pixel;
 
         #endregion
 
@@ -1150,10 +1149,8 @@ namespace BS3D
             //Nothing is built here — the plate's footprint is the loaded field's, so the first Fit is a level's
             _ceilingPlate = new CeilingPlate(GraphicsDevice, _instancingEffect);
 
-            //The overlay's own batch and its one white texel, stretched into each bar of the crosshair
+            //The overlay's own batch, shared by the HUD and the crosshair the session draws into it
             _spriteBatch = new SpriteBatch(GraphicsDevice);
-            _pixel = new Texture2D(GraphicsDevice, 1, 1);
-            _pixel.SetData(new[] { Color.White });
 
             #region Balls
 
@@ -2929,7 +2926,6 @@ namespace BS3D
         {
             _pipeline?.Dispose();
             _spriteBatch?.Dispose();
-            _pixel?.Dispose();
 
             //The three sphere meshes and the three renderers' instance buffers, in one call — but not the
             //shared instancing effect they draw through, which the content manager owns

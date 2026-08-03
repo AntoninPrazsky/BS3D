@@ -2,6 +2,7 @@ using BepuPhysics;
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
+using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
 
@@ -167,8 +168,9 @@ namespace Prazsky.BS3D.Physics
             RigidPose pose = ball.BallReference.Pose;
             System.Numerics.Vector3 drawnAt = GlidePosition(ball, pose.Position, glideRetained);
 
-            frame.AddOriented(ball.Type, new Vector3(drawnAt.X, drawnAt.Y, drawnAt.Z),
-                new Quaternion(pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z, pose.Orientation.W),
+            //Both crossings out of Bepu's vector types are the shared named ones (Prazsky.Core.Tools), which
+            //this walk used to write out component by component
+            frame.AddOriented(ball.Type, drawnAt.ToXna(), pose.Orientation.ToXna(),
                 EaseOcclusion(ball, occlusionTarget, ease),
                 _advanceRipple == null ? 0f : _advanceRipple(ball, elapsedSeconds));
         }

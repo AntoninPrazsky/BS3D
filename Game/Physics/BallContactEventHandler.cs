@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Physics;
+using Prazsky.Core.Tools;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -164,7 +165,7 @@ namespace BS3D.Physics
             //A manifold offset is relative to the position of the pair's FIRST collidable, not to either
             //body's own — so the world contact is pair.A's position plus the offset, whichever of the two
             //the shot ball happens to be
-            Vector3 worldContact = ToXna(_simulation.Bodies[pair.A.BodyHandle].Pose.Position) + contact.ContactOffset;
+            Vector3 worldContact = _simulation.Bodies[pair.A.BodyHandle].Pose.Position.ToXna() + contact.ContactOffset;
 
             //Everything the map is asked about is in its own lattice frame
             Vector3 mapContact = worldContact - _worldOffset;
@@ -302,7 +303,5 @@ namespace BS3D.Physics
 
             return best.X >= 0;
         }
-
-        private static Vector3 ToXna(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
     }
 }

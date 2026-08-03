@@ -22,7 +22,8 @@ using System.Collections.Generic;
 //BepuUtilities is deliberately NOT imported: it carries its own Matrix and MathHelper, which would make every
 //existing use of the XNA ones in this file ambiguous. Nothing here needs a type out of it any more — the
 //worker pool that was the one such type is PhysicsWorld's since #76. Bepu's own vectors are System.Numerics
-//and are spelled out at each crossing, the convention the Testbed uses (see CLAUDE.md, "Conventions").
+//and every crossing is a named call — MonoGame's own ToNumerics outbound, Prazsky.Core.Tools' matching ToXna
+//inbound (see CLAUDE.md, "Conventions", and that extension's remarks on why not the implicit conversion).
 
 namespace BS3D.Screens
 {
@@ -125,22 +126,17 @@ namespace BS3D.Screens
         /// </summary>
         private readonly PlayHud _hud;
 
-        //The crosshair. No bitmap: four bars struck from the host's 1×1 white texture. It appears only as
-        //precise aim leans in, because only then does the lens look along the shot — in the overview a
-        //screen-centre mark would point at nothing in particular.
+        //The crosshair: four bars around a clear centre, struck from a white texel it makes itself. Its own
+        //component since #76 — the bars, their size on the screen, the premultiplied white they are drawn in
+        //and the skip below a hundredth of an opacity are all Crosshair's, and the Testbed draws the same one
+        //now instead of loading a bitmap. Session-owned, like the laser net: it is made with the device up
+        //and released with the session's own resources, and the host's white texel that existed only to feed
+        //it went with the hoist.
         //
-        //Written as a scale of white rather than as R,G,B,A: SpriteBatch's default AlphaBlend expects
-        //*premultiplied* colour, and a plain (255,255,255,190) is not — it would put full white down and
-        //only partly occlude what is behind it, which is a solid crosshair, not a translucent one. Color's
-        //float multiply scales all four channels, so this stays premultiplied through the blend fade too.
-        private static readonly Color CROSSHAIR_COLOR = Color.White * 0.75f;
-
-        //Authored for a 2160p viewport and scaled down with it, exactly as InfoRenderer's text is, so the
-        //crosshair keeps its size on the screen rather than in pixels
-        private const float CROSSHAIR_SCALE_DIVISOR = 2160f;
-        private const float CROSSHAIR_ARM = 48f;        //length of one bar
-        private const float CROSSHAIR_GAP = 18f;        //clear space at the centre, so the mark never hides what it marks
-        private const float CROSSHAIR_THICKNESS = 5f;
+        //What stays here is when it is shown at all — only as precise aim leans in, because only then does
+        //the lens look along the shot; in the overview a screen-centre mark would point at nothing in
+        //particular — which is the blend handed to Draw.
+        private readonly Crosshair _crosshair;
 
         #endregion
 
@@ -497,36 +493,12 @@ namespace BS3D.Screens
         //threshold — is PhysicsWorld's, which stamps a fresh copy per shot rather than holding one and writing
         //this shot's pose and velocity over the last one's, as this and the Testbed both used to.
 
-        /// <summary>The launch smear: anchored at the muzzle, living its own short life while it fades.</summary>
-        private struct ShotTrail
-        {
-            public Vector3 Origin;
-            public Vector3 Direction;
-            public Vector3 Color;
-            public float Age;
-        }
-
-        private readonly List<ShotTrail> _trails = new();
-
-        private const float TRAIL_LIFETIME = 0.45f;
-        private const float TRAIL_LENGTH = 7f;
-        private const float TRAIL_LEAD_WIDTH = 0.72f;
-        private const float TRAIL_MUZZLE_WIDTH = 0.42f;
-        private const float TRAIL_BRIGHTNESS = 3.0f;
-        private const float TRAIL_COLOR_FLOOR = 0.12f;
-
-        private Effect _shotTrailEffect;
-        private VertexBuffer _shotTrailVertexBuffer;
-        private IndexBuffer _shotTrailIndexBuffer;
-
-        //Cached in CreateShotTrailQuad; the fixed widths are set once there and never re-sent
-        private EffectParameter _trailViewParam;
-        private EffectParameter _trailProjectionParam;
-        private EffectParameter _trailCameraPositionParam;
-        private EffectParameter _trailHeadParam;
-        private EffectParameter _trailTailParam;
-        private EffectParameter _trailColorParam;
-        private EffectParameter _trailAlphaParam;
+        //The launch smears: the streak a shot leaves at the muzzle, anchored there and living its own short
+        //life while it fades. LaunchSmears' since #76 — the billboard, the six dials, the colour rule and the
+        //additive depth-read draw stood here and in the Testbed, value for value. What stays here is when one
+        //is added (Shoot), that they age every frame this screen updates, and where the draw sits in the
+        //frame, which the call site in Draw states.
+        private readonly LaunchSmears _smears;
 
         private static readonly Random RANDOM = new();
 
@@ -588,9 +560,14 @@ namespace BS3D.Screens
             //The work each physics step carries inside it, wired once here for the reason the field states
             _processContacts = () => _eventHandler.ProcessQueuedContacts();
 
-            CreateShotTrailQuad();
+            //The smears' billboard quad and every parameter handle their draw needs, in one construction. The
+            //effect is the content manager's and is never disposed there.
+            _smears = new LaunchSmears(GraphicsDevice, Game.Content.Load<Effect>("Shaders/ShotTrail"));
 
-            //The floor alarm's net, loaded like the trail: session content, made here with the device up.
+            //And the crosshair's own white texel, which the host used to hold for it
+            _crosshair = new Crosshair(GraphicsDevice);
+
+            //The floor alarm's net, loaded like the smears: session content, made here with the device up.
             //It is handed the ceiling flash's own red — the two are one warning at two heights, and passing
             //the constant is what keeps them from drifting apart.
             _laserGrid = new LaserGrid(GraphicsDevice, Game.Content.Load<Effect>("Shaders/LaserGrid"), CEILING_FLASH_COLOR);
@@ -711,7 +688,7 @@ namespace BS3D.Screens
             //Cleared, never reassigned: the contact handler holds these very instances
             _shotBalls.Clear();
             _fallingBalls.Clear();
-            _trails.Clear();
+            _smears.Clear();
 
             _physicsAccumulator = 0f;
             _cannonRecoil = 0f;
@@ -738,8 +715,10 @@ namespace BS3D.Screens
         {
             TearDown();
 
-            _shotTrailVertexBuffer?.Dispose();
-            _shotTrailIndexBuffer?.Dispose();
+            //The smears' shared billboard quad and the crosshair's one texel — not the trail effect, which the
+            //content manager owns
+            _smears.Dispose();
+            _crosshair.Dispose();
             _laserGrid.Dispose();
         }
 
@@ -1178,8 +1157,7 @@ namespace BS3D.Screens
 
                 _cinematicSubject.Add(body.Handle.Value);
 
-                System.Numerics.Vector3 position = body.Pose.Position;
-                centre += new Vector3(position.X, position.Y, position.Z);
+                centre += body.Pose.Position.ToXna();
             }
 
             centre /= total;
@@ -1210,8 +1188,7 @@ namespace BS3D.Screens
                 BodyReference body = _fallingBalls[i].BallReference;
                 if (!_cinematicSubject.Contains(body.Handle.Value)) continue;
 
-                System.Numerics.Vector3 position = body.Pose.Position;
-                centre += new Vector3(position.X, position.Y, position.Z);
+                centre += body.Pose.Position.ToXna();
                 found++;
             }
 
@@ -1740,7 +1717,7 @@ namespace BS3D.Screens
             //and a warning frozen lit would blaze across the player's reward for the whole dive down the drain.
             CheckLevelLost(mayLose: !_cinematic.Engaged);
 
-            UpdateTrails(elapsed);
+            _smears.Update(elapsed);
             _hud.Update(elapsed, _score);
 
             UpdateCamera(elapsed);
@@ -1911,9 +1888,7 @@ namespace BS3D.Screens
                 //listener in one call, in that order — a listener is keyed on a collidable reference, so the
                 //body has to exist first. It is also the ONLY place anything is ever registered, which is what
                 //makes "every listener is a shot still in the air" true (see AnyShotUndecided).
-                BallReference = _world.AddShotBall(
-                    new System.Numerics.Vector3(muzzle.X, muzzle.Y, muzzle.Z),
-                    new System.Numerics.Vector3(direction.X, direction.Y, direction.Z) * SHOOT_SPEED,
+                BallReference = _world.AddShotBall(muzzle.ToNumerics(), direction.ToNumerics() * SHOOT_SPEED,
                     _eventHandler),
                 Type = type //the colour the player saw loaded at the muzzle, so aiming for it means something
             };
@@ -1936,7 +1911,10 @@ namespace BS3D.Screens
                 _ceilingStepHold = CEILING_STEP_HOLD;
             }
 
-            _trails.Add(new ShotTrail { Origin = muzzle, Direction = direction, Color = TrailColorFor(type), Age = 0f });
+            //The shot's launch smear. Only the ball's authored tint goes over: decoding it to linear, lifting
+            //its peak off the floor so even the black ball leaves a mark and boosting it to a glowing radiance
+            //are one rule about how a smear looks, and it lives with the smear.
+            _smears.Add(muzzle, direction, BasicEffectParamsProvider.GetDiffuseTintByType(type));
 
             //The fired ball's slot empties, the queue shifts up, a fresh colour loads at the back and the glide
             //is armed — and the transmute state rides forward with it through the hooks wired in the
@@ -2036,18 +2014,6 @@ namespace BS3D.Screens
                 if (wasUndecided && scoreMisses) _score.Missed();
 
                 balls.RemoveAt(i);
-            }
-        }
-
-        private void UpdateTrails(float elapsed)
-        {
-            for (int i = _trails.Count - 1; i >= 0; i--)
-            {
-                ShotTrail trail = _trails[i];
-                trail.Age += elapsed;
-
-                if (trail.Age >= TRAIL_LIFETIME) _trails.RemoveAt(i);
-                else _trails[i] = trail;
             }
         }
 
@@ -2227,8 +2193,9 @@ namespace BS3D.Screens
             Game.Balls.Draw(WallClock);
 
             //Over the opaque scene (which the depth buffer now holds, so the cluster and the gun occlude
-            //them) and additive, so they glow through the glare
-            DrawShotTrails();
+            //them) and additive, so they glow through the glare. It puts back exactly the states it found,
+            //so the frame's translucent baseline still stands for the glass below.
+            _smears.Draw(Camera);
 
             Game.DrawSettingGlass();
 
@@ -2261,53 +2228,11 @@ namespace BS3D.Screens
             //the frame on its way to a score nobody is playing for any more.
             if (_pendingOutcome == LevelOutcome.None) _hud.Draw(_score, Camera);
 
-            DrawCrosshair();
+            //The crosshair, into the host's overlay batch (the one the HUD above just used): shown only while
+            //precise aim is leaning in, that being the only pose whose lens looks along the shot, and faded up
+            //with the lean rather than snapped on. The gate below a hundredth is the component's own.
+            _crosshair.Draw(Game.OverlayBatch, _preciseAim.Blend);
         }
-
-        #region The crosshair
-
-        /// <summary>
-        /// The crosshair, shown only while precise aim is leaning in — that is the only pose whose lens looks
-        /// along the shot, so it is the only one where a screen-centre mark means anything. Four bars around
-        /// a clear centre, struck from a single white texel; multiplying the colour by the blend scales its
-        /// alpha too, so it fades up with the lean instead of snapping on.
-        /// </summary>
-        private void DrawCrosshair()
-        {
-            float blend = _preciseAim.Blend;
-
-            if (blend <= 0.01f) return;
-
-            Viewport viewport = GraphicsDevice.Viewport;
-
-            float scale = viewport.Height / CROSSHAIR_SCALE_DIVISOR;
-            float arm = CROSSHAIR_ARM * scale;
-            float gap = CROSSHAIR_GAP * scale;
-
-            //A bar authored five units thick is under a pixel on a small window, where rounding down would
-            //leave nothing to draw at all
-            int thickness = Math.Max(1, (int)(CROSSHAIR_THICKNESS * scale));
-            int length = Math.Max(1, (int)arm);
-
-            int centreX = viewport.Width / 2;
-            int centreY = viewport.Height / 2;
-            int inner = (int)gap;
-            int half = thickness / 2;
-
-            Color color = CROSSHAIR_COLOR * blend;
-
-            SpriteBatch batch = Game.OverlayBatch;
-            Texture2D pixel = Game.WhitePixel;
-
-            batch.Begin();
-            batch.Draw(pixel, new Rectangle(centreX - inner - length, centreY - half, length, thickness), color);
-            batch.Draw(pixel, new Rectangle(centreX + inner, centreY - half, length, thickness), color);
-            batch.Draw(pixel, new Rectangle(centreX - half, centreY - inner - length, thickness, length), color);
-            batch.Draw(pixel, new Rectangle(centreX - half, centreY + inner, thickness, length), color);
-            batch.End();
-        }
-
-        #endregion
 
         #region The balls in the frame
 
@@ -2580,103 +2505,6 @@ namespace BS3D.Screens
                 }
                 else frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED);
             }
-        }
-
-        #endregion
-
-        #region The launch smears
-
-        /// <summary>
-        /// The launch smears. A ball leaves at <see cref="SHOOT_SPEED"/> — several diameters a frame — so
-        /// the shot itself is not something the eye can follow; the smear is what sells it. It is anchored
-        /// at the muzzle and lives its own short life rather than following the ball, and its <b>bright,
-        /// wide end is the leading one</b>: the muzzle end is hidden behind the barrel, so a muzzle-bright
-        /// streak shows only its faint tapering tip and reads as a thin thread.
-        /// </summary>
-        private void DrawShotTrails()
-        {
-            if (_trails.Count == 0) return;
-
-            _trailViewParam.SetValue(Camera.View);
-            _trailProjectionParam.SetValue(Camera.Projection);
-            _trailCameraPositionParam.SetValue(Camera.Position);
-
-            GraphicsDevice.BlendState = BlendState.Additive;
-            GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-            GraphicsDevice.SetVertexBuffer(_shotTrailVertexBuffer);
-            GraphicsDevice.Indices = _shotTrailIndexBuffer;
-
-            foreach (ShotTrail trail in _trails)
-            {
-                //Held near-full for most of the life and dropped away at the end (1 - t²), so the smear
-                //does not dim the instant it appears and get missed
-                float t = trail.Age / TRAIL_LIFETIME;
-
-                _trailHeadParam.SetValue(trail.Origin + trail.Direction * TRAIL_LENGTH);
-                _trailTailParam.SetValue(trail.Origin);
-                _trailColorParam.SetValue(trail.Color);
-                _trailAlphaParam.SetValue(1f - t * t);
-
-                _shotTrailEffect.CurrentTechnique.Passes[0].Apply();
-                GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
-            }
-
-            GraphicsDevice.BlendState = BlendState.AlphaBlend;
-            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// The smear's colour: the ball type's diffuse tint decoded to linear, its hue kept but its peak
-        /// lifted to a floor so even the near-black ball leaves a faint grey smear, then boosted over 1 so
-        /// the streak glows and blooms through the glare.
-        /// </summary>
-        private static Vector3 TrailColorFor(BallType type)
-        {
-            Vector3 linear = ColorSpace.SrgbToLinear(BasicEffectParamsProvider.GetDiffuseTintByType(type));
-
-            float peak = MathF.Max(linear.X, MathF.Max(linear.Y, linear.Z));
-            if (peak < TRAIL_COLOR_FLOOR) linear *= TRAIL_COLOR_FLOOR / MathF.Max(peak, 1e-4f);
-
-            return linear * TRAIL_BRIGHTNESS;
-        }
-
-        /// <summary>
-        /// The smear billboard: a unit quad whose texture channel carries (side in {-1,1}, along in {0 tail,
-        /// 1 head}); the shader places it in world space from each trail's head and tail. The vertex
-        /// positions are unused, so one shared quad serves every trail.
-        /// </summary>
-        private void CreateShotTrailQuad()
-        {
-            VertexPositionTexture[] corners =
-            {
-                new(Vector3.Zero, new Vector2(-1f, 0f)), //tail, left
-                new(Vector3.Zero, new Vector2(1f, 0f)),  //tail, right
-                new(Vector3.Zero, new Vector2(-1f, 1f)), //head, left
-                new(Vector3.Zero, new Vector2(1f, 1f))   //head, right
-            };
-
-            _shotTrailVertexBuffer = new VertexBuffer(GraphicsDevice, VertexPositionTexture.VertexDeclaration, corners.Length, BufferUsage.WriteOnly);
-            _shotTrailVertexBuffer.SetData(corners);
-
-            short[] indices = { 0, 1, 2, 2, 1, 3 };
-            _shotTrailIndexBuffer = new IndexBuffer(GraphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
-            _shotTrailIndexBuffer.SetData(indices);
-
-            _shotTrailEffect = Game.Content.Load<Effect>("Shaders/ShotTrail");
-
-            _trailViewParam = _shotTrailEffect.Parameters["View"];
-            _trailProjectionParam = _shotTrailEffect.Parameters["Projection"];
-            _trailCameraPositionParam = _shotTrailEffect.Parameters["CameraPosition"];
-            _trailHeadParam = _shotTrailEffect.Parameters["TrailHead"];
-            _trailTailParam = _shotTrailEffect.Parameters["TrailTail"];
-            _trailColorParam = _shotTrailEffect.Parameters["TrailColor"];
-            _trailAlphaParam = _shotTrailEffect.Parameters["TrailAlpha"];
-
-            //The widths never change; a parameter's value persists on the effect, so once is enough
-            _shotTrailEffect.Parameters["TrailHeadWidth"].SetValue(TRAIL_LEAD_WIDTH);
-            _shotTrailEffect.Parameters["TrailTailWidth"].SetValue(TRAIL_MUZZLE_WIDTH);
         }
 
         #endregion
