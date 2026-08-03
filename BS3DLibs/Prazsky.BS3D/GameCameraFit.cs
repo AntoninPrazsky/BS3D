@@ -107,11 +107,19 @@ namespace Prazsky.BS3D
         public const float CANNON_MAX_REST_ELEVATION = 0.70f;
 
         /// <summary>
-        /// How many times the two solves alternate. Each depends on the other, and it converges on the first
-        /// round: whichever of the three bounds decides the orbit radius, the camera's solve then sees a gun
-        /// whose angular footprint no longer moves — pinned at <see cref="CANNON_CAMERA_STANDOFF"/> from the
-        /// lens when the stand-off binds, and at a constant radius when either lower bound does. The extra
-        /// rounds only cover a field where which bound binds flips between them.
+        /// How many times the two solves alternate, each depending on the other. It very nearly settles on the
+        /// first round — whichever of the three bounds decides the orbit radius, the camera's solve then sees a
+        /// gun whose angular footprint barely moves: pinned at <see cref="CANNON_CAMERA_STANDOFF"/> from the lens
+        /// when the stand-off binds, and at a constant radius when either lower bound does.
+        /// <para>
+        /// <b>But it does not converge on the first round, and saying it did is the mistake worth not repeating
+        /// here.</b> Both pre-hoist copies asserted exactly that in their own comments, and the measurement taken
+        /// while hoisting them says otherwise: a sub-0.1 residual survives to the third round, in <i>both</i>
+        /// directions, because the alternation lands at a marginally different point depending on what round one
+        /// was seeded from. Two figures move at one decimal because of it — see "The gun's hardware, in one copy"
+        /// in docs/testbed.md. So this is 3 for a reason, and dropping it to 1 as dead work would quietly move
+        /// the fit's output on some fields.
+        /// </para>
         /// </summary>
         private const int CONVERGENCE_ROUNDS = 3;
 

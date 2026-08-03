@@ -8,7 +8,7 @@ namespace Prazsky.Core.Tools
     /// MonoGame ships the outbound half as <c>Vector3.ToNumerics()</c>; these are the inbound half, so the
     /// crossing reads the same in both directions and looks like what it is.
     /// <para>
-    /// <b>Why a named call and not the implicit conversion.</b> MonoGame 3.8 also declares
+    /// <b>Why a named call and not the implicit conversion.</b> MonoGame 3.8.5 also declares
     /// <c>implicit operator Vector3(System.Numerics.Vector3)</c>, so assigning one to the other compiles
     /// silently today. That is precisely the objection: with two vector types in one file and only their
     /// namespaces telling them apart, a crossing that is invisible at the call site is how a value ends up in

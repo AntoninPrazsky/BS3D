@@ -32,12 +32,14 @@ namespace Prazsky.BS3D
     /// <para>
     /// <b>And the ambient-occlusion direction cannot be handed over undivided, because there is no code path
     /// that produces one.</b> <see cref="OcclusionTarget"/> is the only way to build the vector the shader
-    /// reads, and it divides. docs/game-session.md: "The ambient-occlusion direction is a sum of unit vectors
-    /// and <b>must</b> be divided by <c>MAX_BALL_OCCLUDERS</c> before the shader sees it. Handed over raw it is
-    /// up to twelve times too long, the shader's dot against it saturates over most of the ball, and every
-    /// surface ball wears a hard-edged black crescent instead of the soft inward shading that makes the cluster
-    /// read as one body rather than a heap of spheres. The Testbed divides […]; the game did not, and it cost
-    /// the cluster its whole look."
+    /// reads, and it divides by <see cref="MAX_OCCLUDERS"/> inside itself. That direction arrives as a
+    /// <i>sum</i> of unit vectors, one per occupied neighbour, so raw it is up to twelve times too long: the
+    /// shader's dot against it then saturates over most of the ball and every surface ball wears a hard-edged
+    /// black crescent instead of the soft inward shading that makes a cluster read as one body rather than a
+    /// heap of spheres. The Game shipped without the division and it cost the cluster its whole look — the
+    /// history is under "The ambient-occlusion direction" in docs/game-session.md. Paraphrased rather than
+    /// quoted on purpose: a verbatim quotation of another file is one more thing that can drift out of step
+    /// with it.
     /// </para>
     /// <para>
     /// <b>A caller with no physics is a first-class caller.</b> The map editor has no bodies, no pulse clock of

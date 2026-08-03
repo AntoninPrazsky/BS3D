@@ -49,7 +49,7 @@ namespace Testbed
         //time constants; it stood here as CollectBallInstances and in the Game. It advances state that lives on
         //the ball itself, which is why the walk is not this file's to write any more: see its remarks and
         //BallRenderSet.BeginFrame on why every ball must be visited exactly once a frame. No ripple hook — the
-        //landing ripple is the Game's, and a null one costs a test per frame rather than per ball.
+        //landing ripple is the Game's, and a null one costs one predicted branch per ball.
         private readonly ClusterCollector _collector = new();
 
         private float _pulseSeconds;
