@@ -104,7 +104,7 @@ namespace Prazsky.Core.Render
     /// The scattered trees of the forest: two species, conifers (a spruce - a tall irregular cone on a short
     /// trunk) and broadleaves (a lumpy bulged canopy on a taller trunk), split by <see cref="ConiferFraction"/>.
     /// The figures here are each species' <b>nominal</b> proportions: the caller builds a few mesh variants
-    /// around them (see the Game's forest scatter region) so a grove is not one tree stamped out fifty times,
+    /// around them (see <see cref="ForestScatterRenderer"/>) so a grove is not one tree stamped out fifty times,
     /// and every variant is its own instanced draw per material — a trunk and a crown, sharing that variant's
     /// scatter of world matrices, since the crown mesh is built sitting on its trunk's top. Clustered, so the
     /// forest reads as groves.

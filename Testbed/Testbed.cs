@@ -254,6 +254,14 @@ namespace Testbed
         //this file's: the three DrawIsland/DrawPit/DrawGlass slices are placed by hand below.
         private ArenaIsland _island;
 
+        //The forest's scattered trees, boulders and stumps — the wood this executable never drew. The terrain
+        //under it was always the shared SceneRenderer's, so the glade was here from the day the scene was built
+        //and only the Game had the trees standing in it; ForestScatterRenderer is that piece hoisted (#75) and
+        //this is the call site it was hoisted for. Every texture, mesh variant, renderer, matte material and
+        //encoded tint is the component's; where the draw sits in the frame and the scene gate on it are this
+        //file's, as the island's slices are.
+        private ForestScatterRenderer _forestScatter;
+
         //Which environment the arena stands in. City is the default; Sea, Savanna, Desert, Mountain, Meadow and
         //NeonCity swap the city (and only the city) for open water, a savanna, a Sahara of dunes, a snowy range,
         //a flowering meadow, or the same city lit up in neon — the round island stays in all seven.
@@ -713,6 +721,16 @@ namespace Testbed
             //leaves this 0 - it draws no island, so nothing is cut and the terrain stays whole under the field's AABB.
             _sceneRenderer.TerrainHoleRadius = ArenaIsland.TERRAIN_HOLE_RADIUS;
 
+            //The wood the forest scene stands in: both procedural textures, the fifteen mesh variants, the
+            //twenty-five renderers and the tints, planted on the very terrain SceneRenderer draws. Here rather
+            //than in BuildCity beside the island, which is where the rest of the setting is made, because it
+            //needs the scene renderer's own forest config and that does not exist until the line above — and it
+            //must be built before the first ApplySkyLighting below, or the whole wood would draw a frame under a
+            //white sky. No stone texture handed in: the component builds one, ArenaIsland's being its private
+            //business. The ambient is the scene's, exactly as the island is given it.
+            _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
+                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY);
+
             _cannon = new Cannon(new Vector3(0f, 5f, 0f), -6.4f, 20f);
 
             //The procedural barrel (the last modeled asset made procedural), cut to hold exactly the loaded queue:
@@ -776,6 +794,13 @@ namespace Testbed
             //shaft, which is a hole in the ground no dome may bleach. Appended rather than enumerated: this
             //list is refilled every frame by the overcast lerp, and an iterator would allocate per call.
             _island?.AppendSkyLitTo(_skyLitRenderers);
+
+            //Every variant of every scattered kind, or a spruce of the variant this missed would stand under the
+            //light rig of whatever dome was up when it was made. Walked as the array ForestScatterRenderer hands
+            //back, for the same reason BallRenderSet.Renderers does above: this list is refilled every frame, and
+            //a foreach over an interface-typed collection would box an enumerator per call.
+            if (_forestScatter != null)
+                foreach (InstancedModelRenderer renderer in _forestScatter.Renderers) _skyLitRenderers.Add(renderer);
 
             return _skyLitRenderers;
         }
@@ -1449,6 +1474,13 @@ namespace Testbed
                 else
                     _sceneRenderer.DrawEnvironment(_scene, sceneFrame);
 
+                //The forest's scattered trees, boulders and stumps: after the terrain they stand on (with depth,
+                //or they would draw through it) and before the island. The state they need is the opaque scene
+                //state stated above — alpha blend, depth test and write, cull counter-clockwise — plus this
+                //frame's point lights, already on the shared effect; the component touches none of it, so the
+                //island's slices below are unaffected.
+                if (_scene == SceneKind.Forest) _forestScatter?.Draw(_camera);
+
                 //The round island, opaque: its stone cap and concrete drum. Then the dark pit shaft behind the
                 //drain, which is drawn in the solid-terrain scenes only and brings its own culling with it.
                 //Each slice owns the states its own geometry needs; where they sit in the frame is this file's
@@ -1589,6 +1621,9 @@ namespace Testbed
             //release at all — the set owns them now, so it owns letting them go
             _balls?.Dispose();
             _island?.Dispose();
+            //Every mesh, renderer and procedural texture of the forest scatter, in one call. It owns its own
+            //stone texture here (none was handed in), so nothing outside it is waiting on this.
+            _forestScatter?.Dispose();
             _ceilingPlate?.Dispose();
             _sceneRenderer?.Dispose();
             _pipeline?.Dispose();

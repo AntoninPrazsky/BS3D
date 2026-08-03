@@ -319,73 +319,17 @@ namespace BS3D
         //below, which is what lets the session put its gun, balls and shot trails between the pit and the glass.
         private ArenaIsland _island;
 
-        //A second stone texture, for the forest's boulders alone. The island's own is ArenaIsland's private
-        //business now, and SurfaceTexture.Stone is deterministic (a fixed default seed), so this is the very
-        //same field the rocks were sharing with the platform before #75 — one more 512² tile in memory and not
-        //a pixel of difference. The concrete is gone with the island, being the drum's and nothing else's.
-        private SurfaceTexture _stoneTexture;
-
-        //The forest scene's scattered trees, rocks and stumps: procedural meshes (a bark lathe under a lathed
-        //cone for a spruce or a bulged sphere for a broadleaf, plus a rock lathe and a stump lathe) drawn
-        //through the shared instanced effect like the city and the island, so they take the dome's sky
-        //lighting, the clouds' shadows and the scene's point lights automatically. A trunk and a crown are two
-        //renderers because they are two materials — bark and foliage — and the diffuse tint is a per-draw
-        //uniform, not per-instance. The scatter plants them on the forest floor the terrain shader draws.
+        //The forest scene's scattered trees, rocks and stumps: every procedural texture, mesh variant,
+        //renderer, matte material and encoded tint of them is ForestScatterRenderer's since #75 — the piece
+        //stood in this file alone, which is the whole reason the Testbed and the map editor drew the forest as a
+        //bare clearing on the very same shared terrain. Built once (a fixed default forest, like the city is a
+        //fixed default city), and it needs no stone texture handed to it: ArenaIsland's copy is that
+        //component's private business and SurfaceTexture.Stone is deterministic, so the one the scatter builds
+        //for its boulders is the very same 512² tile — one more copy in memory and not a pixel of difference.
         //
-        //Each kind is built at several sets of proportions (see LoadContent) and the scatter splits its
-        //instances between them, so a grove is not one tree stamped out fifty times. Every variant is its own
-        //instanced draw, which is why these are arrays rather than single renderers.
-        private SurfaceTexture _barkTexture, _foliageTexture;
-        private TreeMesh[] _coniferMeshes, _broadleafMeshes;
-        private RockMesh[] _rockMeshes;
-        private StumpMesh[] _stumpMeshes;
-        private InstancedModelRenderer[] _coniferTrunkRenderers, _coniferCrownRenderers;
-        private InstancedModelRenderer[] _broadleafTrunkRenderers, _broadleafCrownRenderers;
-        private InstancedModelRenderer[] _rockRenderers, _stumpRenderers;
-        private ForestScatter _forestScatter;
-        private static readonly int FOREST_SEED = 77125;
-
-        //The material diffuse the scatter's meshes are built with, and it is 0.8 rather than white on
-        //purpose: passing a diffuse tint makes the renderer reduce the material colour to its luminance and
-        //multiply by 1.25, a boost calibrated for models whose brightest material is 0.8. On a white
-        //material that lands the tint 1.25x brighter than it was authored — so the encoded colours below
-        //would render half again as bright as the linear radiance the config documents. At 0.8 the
-        //luminance and the boost cancel and the tint arrives exactly as passed.
-        private static readonly Vector3 SCATTER_MATERIAL_DIFFUSE = Vector3.One * 0.8f;
-
-        //Per-variant foliage tint multipliers, applied to the config's LINEAR colour before it is encoded
-        //for the draw — a real stand is never one green, and two variants side by side should differ in
-        //colour as well as in silhouette. Means sit near 1 so the config colour stays the authored average;
-        //indexed by mesh variant, so they must be at least as long as the variant arrays above.
-        private static readonly Vector3[] CONIFER_TINTS =
-        {
-            new(1f, 1f, 1f),
-            new(0.82f, 0.92f, 0.88f),   //darker, cooler — an older tree in shade
-            new(1.14f, 1.06f, 0.92f),   //warmer — the sunlit edge of the stand
-            new(0.9f, 1.02f, 1.08f),    //the blue-green a spruce reads as
-            new(1.06f, 0.96f, 0.88f),
-            new(0.78f, 0.9f, 0.95f)
-        };
-
-        private static readonly Vector3[] BROADLEAF_TINTS =
-        {
-            new(1f, 1f, 1f),
-            new(1.18f, 1.08f, 0.85f),   //yellow-green — a birch against the oaks
-            new(0.84f, 0.94f, 0.9f),
-            new(1.04f, 1.12f, 0.9f)
-        };
-
-        //The scatter's materials. A procedural mesh defaults to the white specular that suits vinyl and
-        //glass, and on a dark crown that white highlight is what read as wet obsidian; foliage and bark are
-        //matte and a weathered boulder nearly so. Zero cannot be passed for it — a zero specular in
-        //BasicEffectParams means "no override" and falls back to the white default — so matte here is a dim
-        //tinted specular at a modest power. The ambient keeps the scene's flat fill.
-        private readonly BasicEffectParams _foliageEffectParams =
-            new(Vector3.One * SCENE_AMBIENT_INTENSITY, new Vector3(0.05f, 0.06f, 0.05f), 10f, Vector3.Zero);
-        private readonly BasicEffectParams _barkEffectParams =
-            new(Vector3.One * SCENE_AMBIENT_INTENSITY, new Vector3(0.07f, 0.06f, 0.05f), 12f, Vector3.Zero);
-        private readonly BasicEffectParams _rockEffectParams =
-            new(Vector3.One * SCENE_AMBIENT_INTENSITY, new Vector3(0.16f, 0.16f, 0.15f), 24f, Vector3.Zero);
+        //What stays this file's: where the draw sits in the frame, the if (_scene == SceneKind.Forest) gate on
+        //it, and the sky-lit enrolment below.
+        private ForestScatterRenderer _forestScatter;
 
         //The scene's own point lights (the neon city's ring of magenta and cyan around the island, the
         //savanna's campfire, space's planetshine) pushed onto the shared instanced effect each frame, so the
@@ -1926,176 +1870,16 @@ namespace BS3D
             //one world matrix are the component's; the ambient is the scene's, so it is handed in.
             _island = new ArenaIsland(GraphicsDevice, _instancingEffect, SCENE_AMBIENT_INTENSITY);
 
-            //The forest's boulders take the same dressed stone the island's cap does (see NewRockRenderer), and
-            //ArenaIsland's copy is its own private business — so the rocks get their own. Generated rather than
-            //loaded, and that is a fix rather than a flourish: the marble photograph this used to project covers
-            //only the left half of its canvas and the rest is black, so the triplanar projection multiplied
-            //roughly half of a surface by zero at any detail scale. This one tiles exactly.
-            _stoneTexture = SurfaceTexture.Stone(GraphicsDevice);
-
-            #region Forest scatter
-
-            //The forest's scattered trees, rocks and stumps. Procedural meshes (a bark lathe + a crown per
-            //species for a tree, two lathes for a rock and a stump) drawn through the shared instanced effect,
-            //so they take the dome's sky lighting and the clouds' shadows the same way the island does. Each
-            //species' two draws (trunk, crown) share one scatter of world matrices — the crown mesh is built
-            //sitting on its trunk's top, so a single position places both.
-            //
-            //Built once here (the scatter is a fixed default forest, like the city is a fixed default city) and
-            //re-planted if the config ever changes in the same way. The detail texture is what selects the
-            //triplanar technique — without one the renderer falls through to plain and every relief/cavity
-            //setting below is silently dead, as the island's comment warns.
-            ForestSceneConfig forestConfig = (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest);
-            ForestTreeConfig trees = forestConfig.Trees;
-
-            _barkTexture = SurfaceTexture.Bark(GraphicsDevice);
-            _foliageTexture = SurfaceTexture.Foliage(GraphicsDevice);
-
-            //Each kind is built at several sets of proportions AND its own structural seed, and the scatter
-            //splits its instances between them. One mesh per kind is what makes a grove read as one tree
-            //stamped out fifty times — a uniform scale and a yaw do not change a silhouette, and the
-            //silhouette is what the eye counts. The variety is in the MESH rather than in a per-instance
-            //stretch because the shader transforms normals by the world matrix itself, with no inverse
-            //transpose, so a non-uniform scale would shade a squashed tree as though it were still the shape
-            //it was authored at. The seed rolls what proportions cannot: the spruce's tier layout, the
-            //broadleaf's leaf lobes, every part's wobble phase (see TreeMesh) — proportions alone made three
-            //copies of one tree at three sizes, and the eye caught it. Six spruces, four broadleaves, three
-            //boulders and two stumps: some two dozen instanced draws over the whole scene, against a scatter
-            //that measured thirteen frames out of nine hundred.
-            _coniferMeshes = new[]
-            {
-                NewConifer(trees, 1f, 1f, seed: 11),          //the authored spruce
-                NewConifer(trees, 0.78f, 1.24f, seed: 23),    //a narrow, taller one — the crowded stems of a stand
-                NewConifer(trees, 1.3f, 0.76f, seed: 37),     //a broad, squat one — an old tree with room around it
-                NewConifer(trees, 0.9f, 1.1f, seed: 41),      //an ordinary tree that is nobody's copy
-                NewConifer(trees, 1.12f, 0.94f, seed: 53),    //slightly stout
-                NewConifer(trees, 0.7f, 1.38f, seed: 67)      //a spire — the one that carries the skyline
-            };
-
-            _broadleafMeshes = new[]
-            {
-                NewBroadleaf(trees, 1f, 1f, seed: 79),        //the authored broadleaf
-                NewBroadleaf(trees, 0.82f, 1.3f, seed: 83),   //narrower and taller, its crown carried higher
-                NewBroadleaf(trees, 1.22f, 0.85f, seed: 97),  //broad and low — an old oak's spread
-                NewBroadleaf(trees, 0.95f, 1.12f, seed: 101)  //an ordinary tree between them
-            };
-
-            _rockMeshes = new[]
-            {
-                new RockMesh(GraphicsDevice, forestConfig.Rocks.Radius, forestConfig.Rocks.Height),
-                new RockMesh(GraphicsDevice, forestConfig.Rocks.Radius * 1.25f, forestConfig.Rocks.Height * 0.7f, irregularityPhase: 2.1f),
-                new RockMesh(GraphicsDevice, forestConfig.Rocks.Radius * 0.8f, forestConfig.Rocks.Height * 1.5f, irregularityPhase: 4.2f)
-            };
-
-            _stumpMeshes = new[]
-            {
-                new StumpMesh(GraphicsDevice, forestConfig.Stumps.Radius, forestConfig.Stumps.Height),
-                new StumpMesh(GraphicsDevice, forestConfig.Stumps.Radius * 1.3f, forestConfig.Stumps.Height * 0.55f, irregularityPhase: 3.3f)
-            };
-
-            //A species at one set of proportions and one structural roll. The two factors scale the crown's
-            //width and its height against the config's authored figures; the trunk follows the crown's
-            //height, so a taller tree is not a taller crown on the same stump of a trunk.
-            TreeMesh NewConifer(ForestTreeConfig cfg, float width, float height, int seed) =>
-                new(GraphicsDevice, TreeSpecies.Conifer,
-                    trunkBaseRadius: cfg.TrunkBaseRadius * width, trunkTopRadius: cfg.TrunkTopRadius * width,
-                    trunkHeight: cfg.ConiferTrunkHeight * height,
-                    crownRadius: cfg.ConiferCrownRadius * width, crownHeight: cfg.ConiferCrownHeight * height,
-                    seed: seed);
-
-            TreeMesh NewBroadleaf(ForestTreeConfig cfg, float width, float height, int seed) =>
-                new(GraphicsDevice, TreeSpecies.Broadleaf,
-                    trunkBaseRadius: cfg.TrunkBaseRadius * width, trunkTopRadius: cfg.TrunkTopRadius * width,
-                    trunkHeight: cfg.TrunkHeight * height,
-                    crownRadius: cfg.CrownRadius * width, crownHeight: cfg.CrownHeight * height,
-                    seed: seed);
-
-            //A trunk: bark projected triplanar (a trunk is a static vertical cylinder, so a world-fixed
-            //projection stays put), with the grain the bark texture's vertical streaks carry, and a coarse
-            //relief so the bark catches the light unevenly. SetMeshSurfaceStyle(Wood) would dress the
-            //verticals with timber boards, which is wrong for bark; the bark texture is the grain, so the
-            //surface stays at the default and the texture carries it. One per species — the two trunks are
-            //different meshes under the same dressing.
-            InstancedModelRenderer NewTrunkRenderer(IProceduralMesh mesh) =>
-                new(GraphicsDevice, mesh, SCATTER_MATERIAL_DIFFUSE, _instancingEffect)
-                {
-                    DetailTexture = _barkTexture.Texture,
-                    DetailTextureMapping = DetailMapping.Triplanar,
-                    DetailScale = 1f / 2.2f,
-                    DetailBoost = 1f / _barkTexture.LinearMean,
-                    DetailStrength = 0.55f,
-                    SurfaceReliefFrequency = 9f,
-                    SurfaceReliefStrength = 0.01f,
-                    CavityStrength = 0.5f,
-                    SpecularAmbientStrength = 0.08f
-                };
-
-            //A canopy: foliage projected triplanar over the crown, lighter relief than the bark (a leaf mass
-            //is softer than a trunk) and only a whisper of sky reflection — a canopy scatters what hits it,
-            //it does not mirror the dome.
-            InstancedModelRenderer NewCrownRenderer(IProceduralMesh mesh) =>
-                new(GraphicsDevice, mesh, SCATTER_MATERIAL_DIFFUSE, _instancingEffect)
-                {
-                    DetailTexture = _foliageTexture.Texture,
-                    DetailTextureMapping = DetailMapping.Triplanar,
-                    DetailScale = 1f / 1.6f,
-                    DetailBoost = 1f / _foliageTexture.LinearMean,
-                    DetailStrength = 0.5f,
-                    SurfaceReliefFrequency = 6f,
-                    SurfaceReliefStrength = 0.006f,
-                    CavityStrength = 0.4f,
-                    SpecularAmbientStrength = 0.06f
-                };
-
-            //The rocks: the same dressed-stone setup the island's cap uses (the stone texture, the same
-            //relief and cavity), only rougher — a forest boulder is weathered, not dressed.
-            InstancedModelRenderer NewRockRenderer(IProceduralMesh mesh) =>
-                new(GraphicsDevice, mesh, SCATTER_MATERIAL_DIFFUSE, _instancingEffect)
-                {
-                    DetailTexture = _stoneTexture.Texture,
-                    DetailTextureMapping = DetailMapping.Triplanar,
-                    DetailScale = 1f / 1.5f,
-                    DetailBoost = 1f / _stoneTexture.LinearMean,
-                    DetailStrength = 0.6f,
-                    SurfaceReliefFrequency = 8f,
-                    SurfaceReliefStrength = 0.012f,
-                    CavityStrength = 0.7f,
-                    SpecularAmbientStrength = 0.12f
-                };
-
-            //The stumps: bark, like the trunks, but flatter — a cut surface has no relief to speak of beyond
-            //the grain, and the heartwood inset the mesh carves reads off the cavity term.
-            InstancedModelRenderer NewStumpRenderer(IProceduralMesh mesh) =>
-                new(GraphicsDevice, mesh, SCATTER_MATERIAL_DIFFUSE, _instancingEffect)
-                {
-                    DetailTexture = _barkTexture.Texture,
-                    DetailTextureMapping = DetailMapping.Triplanar,
-                    DetailScale = 1f / 1.8f,
-                    DetailBoost = 1f / _barkTexture.LinearMean,
-                    DetailStrength = 0.5f,
-                    SurfaceReliefFrequency = 7f,
-                    SurfaceReliefStrength = 0.008f,
-                    CavityStrength = 0.6f,
-                    SpecularAmbientStrength = 0.08f
-                };
-
-            _coniferTrunkRenderers = Array.ConvertAll(_coniferMeshes, m => NewTrunkRenderer(m.Trunk));
-            _coniferCrownRenderers = Array.ConvertAll(_coniferMeshes, m => NewCrownRenderer(m.Crown));
-            _broadleafTrunkRenderers = Array.ConvertAll(_broadleafMeshes, m => NewTrunkRenderer(m.Trunk));
-            _broadleafCrownRenderers = Array.ConvertAll(_broadleafMeshes, m => NewCrownRenderer(m.Crown));
-            _rockRenderers = Array.ConvertAll(_rockMeshes, m => NewRockRenderer(m));
-            _stumpRenderers = Array.ConvertAll(_stumpMeshes, m => NewStumpRenderer(m));
-
-            //The scatter is planted on the forest floor the terrain shader draws: ForestTerrainHeight mirrors
-            //Forest.fx's height field on the CPU, so a tree's base sits on the ground the player sees. It is
-            //told how many variants each kind has so it can hand back one instance array per variant — the
-            //renderer draws a contiguous prefix of what it is given, so the split has to happen here rather
-            //than at the draw.
-            _forestScatter = new ForestScatter(FOREST_SEED, forestConfig,
-                _coniferMeshes.Length, _broadleafMeshes.Length, _rockMeshes.Length, _stumpMeshes.Length,
-                (x, z) => SceneRenderer.ForestTerrainHeight(x, z, forestConfig));
-
-            #endregion
+            //The forest's scattered trees, rocks and stumps, all of it: both procedural textures, the fifteen
+            //mesh variants, the twenty-five renderers with their bark, foliage, stone and sawn-wood dressing,
+            //the matte materials and the tints encoded once from the config. The config is the SceneRenderer's
+            //own instance and is read at build time only, which is all this executable ever needs — nothing
+            //here edits a scene config at runtime, so there is no Replant call in the Game (the map editor's
+            //live grid is the one caller that has to make it). No stone texture handed in: the component builds
+            //its own, since ArenaIsland's is that component's private business. The ambient is the scene's, so
+            //it is handed over as it is to the island.
+            _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
+                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY);
 
             //Note the glass the cluster hangs from is NOT built here: its footprint is the loaded level's
             //field, so RebuildCeilingRenderer fits it (and refits it on every level) — which is why
@@ -2239,56 +2023,20 @@ namespace BS3D
 
             //The island's stone cap and concrete drum, the drain's glass and its two gold beads — but
             //deliberately not its pit shaft, which is a hole in the ground no dome may bleach. Dereferenced
-            //unconditionally, unlike the ceiling and the scatter below: BuildScene makes the island and runs in
-            //LoadContent BEFORE the startup SetScene, which is what first calls ApplySkyLighting, and every
-            //other way here (the scene page, the sky setting, a level's own dome, the session after a refit)
-            //is later still. A guard would be reassurance about something that cannot happen.
+            //unconditionally, unlike the ceiling below: BuildScene makes the island and runs in LoadContent
+            //BEFORE the startup SetScene, which is what first calls ApplySkyLighting, and every other way here
+            //(the scene page, the sky setting, a level's own dome, the session after a refit) is later still.
+            //A guard would be reassurance about something that cannot happen.
             foreach (InstancedModelRenderer renderer in _island.SkyLitRenderers) yield return renderer;
 
-            //The forest scatter, present only in the forest scene but always built: null-checked like the
-            //ceiling, since they are constructed in LoadContent (after a quality step can already have run
-            //ApplySkyLighting once on the way in). Every variant of every kind, or a spruce of the variant
-            //this missed would stand under the light rig of whatever dome was up when it was made.
-            if (_coniferTrunkRenderers != null)
-            {
-                foreach (InstancedModelRenderer renderer in ForestScatterRenderers()) yield return renderer;
-            }
+            //The forest scatter, present only in the forest scene but always built. Every variant of every kind
+            //takes part — the one flat array the component exposes for exactly this — or a spruce of the variant
+            //this missed would stand under the light rig of whatever dome was up when it was made. Dereferenced
+            //unconditionally like the island's, and for the same reason: BuildScene makes it well before the
+            //startup SetScene, which is what first calls ApplySkyLighting.
+            foreach (InstancedModelRenderer renderer in _forestScatter.Renderers) yield return renderer;
 
             if (_ceilingPlate.Renderer != null) yield return _ceilingPlate.Renderer;
-        }
-
-        /// <summary>
-        /// One instanced draw per mesh variant of a scattered kind, each with that variant's own instances.
-        /// A plain indexed loop rather than a zip over the two arrays: it runs every frame the forest is on
-        /// screen, and an iterator would allocate one enumerator per kind per frame.
-        /// </summary>
-        private void DrawScatter(InstancedModelRenderer[] renderers, ModelInstance[][] instances,
-            BasicEffectParams effectParams, Vector3 linearTint, Vector3[] variantTints = null)
-        {
-            for (int variant = 0; variant < renderers.Length; variant++)
-            {
-                ModelInstance[] bucket = instances[variant];
-                if (bucket.Length == 0) continue;   //a variant no instance fell to; Draw would no-op anyway
-
-                //The variant multipliers work on the LINEAR colour (scaling encoded sRGB is not a scale of
-                //the light), so the encode happens here, per draw, after them.
-                Vector3 tint = variantTints == null ? linearTint : linearTint * variantTints[variant];
-                renderers[variant].Draw(_camera, bucket, bucket.Length, effectParams, ColorSpace.LinearToSrgb(tint));
-            }
-        }
-
-        /// <summary>
-        /// Every renderer the forest scatter draws through — each kind at each of its mesh variants. One place,
-        /// so the sky-lighting pass and the disposal cannot fall out of step with the variant lists.
-        /// </summary>
-        private IEnumerable<InstancedModelRenderer> ForestScatterRenderers()
-        {
-            foreach (InstancedModelRenderer r in _coniferTrunkRenderers) yield return r;
-            foreach (InstancedModelRenderer r in _coniferCrownRenderers) yield return r;
-            foreach (InstancedModelRenderer r in _broadleafTrunkRenderers) yield return r;
-            foreach (InstancedModelRenderer r in _broadleafCrownRenderers) yield return r;
-            foreach (InstancedModelRenderer r in _rockRenderers) yield return r;
-            foreach (InstancedModelRenderer r in _stumpRenderers) yield return r;
         }
 
         /// <summary>
@@ -2842,37 +2590,11 @@ namespace BS3D
             }
             else _sceneRenderer.DrawEnvironment(_scene, sceneFrame);
 
-            //The forest's scattered trees, rocks and stumps, drawn after the forest terrain they stand on. One
-            //draw per kind per mesh variant, and per material within a tree: a species' trunk and crown read
-            //that variant's own scatter of world matrices (the crown mesh sits on its trunk's top, so one
-            //position places both), and the two are separate draws because their tints differ — bark and
-            //foliage — and the diffuse tint is a per-draw uniform. Gated on the scatter existing, which it
-            //always does by here but reads more honestly than a bare dereference.
-            if (_scene == SceneKind.Forest && _forestScatter != null)
-            {
-                ForestSceneConfig forest = (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest);
-                ForestTreeConfig trees = forest.Trees;
-
-                //The config colours are linear radiance, like every scene config's — but they ride the same
-                //material-diffuse uniform the balls' sRGB tints do, which the shader decodes from sRGB at the
-                //tap. So each is encoded once at the boundary — inside DrawScatter, after the per-variant
-                //tints, which have to work on the linear value — and the meshes carry
-                //SCATTER_MATERIAL_DIFFUSE so the renderer's luminance boost does not then brighten what was
-                //just encoded. Handing the linear values over raw is what turned the first forest's crowns
-                //near-black: decoded as if they were display values, a 0.16 became a 0.02.
-                Vector3 barkColor = trees.TrunkColor.ToVector3();
-
-                DrawScatter(_coniferTrunkRenderers, _forestScatter.Conifers, _barkEffectParams, barkColor);
-                DrawScatter(_coniferCrownRenderers, _forestScatter.Conifers, _foliageEffectParams,
-                    trees.ConiferColor.ToVector3(), CONIFER_TINTS);
-                DrawScatter(_broadleafTrunkRenderers, _forestScatter.Broadleaves, _barkEffectParams, barkColor);
-                DrawScatter(_broadleafCrownRenderers, _forestScatter.Broadleaves, _foliageEffectParams,
-                    trees.FoliageColor.ToVector3(), BROADLEAF_TINTS);
-                DrawScatter(_rockRenderers, _forestScatter.Rocks, _rockEffectParams,
-                    forest.Rocks.Color.ToVector3());
-                DrawScatter(_stumpRenderers, _forestScatter.Stumps, _barkEffectParams,
-                    forest.Stumps.Color.ToVector3());
-            }
+            //The forest's scattered trees, rocks and stumps, drawn after the forest terrain they stand on and
+            //before the island: one draw per kind per mesh variant, and per material within a tree. The scene
+            //gate stays here because the component draws the wood whenever it is called — where it sits in the
+            //frame and whether this frame wants it at all are this file's business, not its.
+            if (_scene == SceneKind.Forest) _forestScatter.Draw(_camera);
 
             //The round island, opaque: its stone cap and concrete drum. Then the dark well behind the glass
             //drain, which is drawn in the solid-terrain scenes only — it fills the hole those shaders cut in
@@ -2938,20 +2660,11 @@ namespace BS3D
             _cityRenderer?.Dispose();
 
             //The island's three meshes, both of its procedural textures and all five of its renderers, in one
-            //call — everything the component made. The stone texture below is the forest's own copy.
+            //call — everything the component made
             _island?.Dispose();
-            _stoneTexture?.Dispose();
-            //Every variant of every scattered kind. The renderers go through the one enumeration the sky
-            //lighting uses, so a variant added later cannot be lit and then leaked.
-            if (_coniferMeshes != null) foreach (TreeMesh mesh in _coniferMeshes) mesh?.Dispose();
-            if (_broadleafMeshes != null) foreach (TreeMesh mesh in _broadleafMeshes) mesh?.Dispose();
-            if (_rockMeshes != null) foreach (RockMesh mesh in _rockMeshes) mesh?.Dispose();
-            if (_stumpMeshes != null) foreach (StumpMesh mesh in _stumpMeshes) mesh?.Dispose();
-            if (_coniferTrunkRenderers != null)
-                foreach (InstancedModelRenderer renderer in ForestScatterRenderers()) renderer?.Dispose();
 
-            _barkTexture?.Dispose();
-            _foliageTexture?.Dispose();
+            //Every mesh, renderer and procedural texture of the forest scatter, likewise in one call
+            _forestScatter?.Dispose();
             _ceilingPlate?.Dispose();
 
             //The five self-lit backdrops own their own meshes, particle buffers and effects

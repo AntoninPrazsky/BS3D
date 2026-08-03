@@ -351,8 +351,9 @@ namespace Prazsky.Core.Render
 
         //Look/tuning parameters (hills, clearing, forest floor colours, treeline, ambient, haze, wind, needle
         //relief, floor lumps) live in ForestSceneConfig; read from _forestConfig. Its Trees/Rocks/Stumps
-        //describe the scattered objects, which are the Game's own instanced draws rather than this scene's -
-        //only ForestTerrainHeight below is shared with them, so they stand on the floor this shader draws.
+        //describe the scattered objects, which are ForestScatterRenderer's instanced draws rather than this
+        //scene's (they were the Game's alone until #75) - only ForestTerrainHeight below is shared with them,
+        //so they stand on the floor this shader draws.
 
         #endregion
 

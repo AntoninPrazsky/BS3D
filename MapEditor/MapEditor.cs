@@ -132,6 +132,18 @@ namespace MapEditor
         //Not readonly: a loaded level (bs3d-level file) replaces it with the level's city config
         private CitySceneConfig _cityConfig = new();
 
+        //The forest's scattered trees, boulders and stumps, so a forest level previews with the wood standing on
+        //it rather than as a bare clearing. It was the Game's alone until #75, which is why the editor drew the
+        //glade and none of the trees on it even though the terrain under them was always the shared
+        //SceneRenderer's. Every texture, mesh variant, renderer, matte material and encoded tint is the
+        //component's; the draw's place in the frame and the scene gate on it are this file's.
+        //
+        //Built unconditionally, whether or not a forest level is ever loaded — fifteen meshes and twenty-five
+        //instance buffers, the same deal the Game already takes. The forest is reachable here ONLY by loading a
+        //level whose scene is forest: V stops at SceneRenderer.CycleLength, exactly as it does for space, the
+        //dream and the cavern.
+        private ForestScatterRenderer _forestScatter;
+
         //A level dropped or opened is parsed off the render thread (like a map file), but its scene/sky/city
         //application touches GPU resources (Content.Load, buffer rebuilds, a new City), so the parsed level is
         //stashed here and applied on the main thread in Update. See ApplyPendingLevel.
@@ -324,6 +336,13 @@ namespace MapEditor
             //After the scene renderer, because the rig consults it for the scenes that state their own lighting
             _rig = new SkyLightRig(_sceneRenderer);
 
+            //The forest's wood, planted on the very terrain the SceneRenderer above draws. After it, because the
+            //component is built from that renderer's own forest config, and before the sky lighting below, since
+            //fresh renderers have never been told the dome's palette. No stone texture handed in: the editor has
+            //none of its own, so the component builds one for the boulders.
+            _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
+                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY);
+
             ApplySkyLighting();
 
             _pipeline.EnsureTarget();
@@ -415,6 +434,17 @@ namespace MapEditor
                     break;
                 case SceneConfig sceneConfig:
                     _sceneRenderer.Apply(sceneConfig);
+
+                    //A forest edit reaches into the meshes as well as the planting — the tree, boulder and stump
+                    //proportions are baked into them and the three colours into the cached tints — so the wood is
+                    //rebuilt whole rather than merely re-planted, and then re-lit, its renderers all being new.
+                    //This is the one thing the game never needs: nothing there edits a scene config at runtime,
+                    //which is exactly why the component reads the config at build time only.
+                    if (sceneConfig is ForestSceneConfig forest)
+                    {
+                        _forestScatter.Replant(forest);
+                        ApplySkyLighting();
+                    }
                     break;
             }
         }
@@ -446,9 +476,14 @@ namespace MapEditor
         /// derivation is the game's, literally — <see cref="SkyLightRig"/> is the one copy since #75, so a
         /// palette, a tint or a scene's own rig cannot mean one thing here and another in play.
         /// <para>
-        /// Only the enrolment is the editor's own, and it is short: the balls and the city. The city takes part
-        /// like every other instanced object — its facades are dark, but its specular ambient reads the sky.
-        /// There is no island, no drain and no ceiling here to light.
+        /// Only the enrolment is the editor's own, and it is short: the balls, the city and the forest's scatter.
+        /// The city takes part like every other instanced object — its facades are dark, but its specular ambient
+        /// reads the sky. There is no island, no drain and no ceiling here to light.
+        /// </para>
+        /// <para>
+        /// Run again after every <see cref="ForestScatterRenderer.Replant"/>: a re-planted wood is twenty-five
+        /// brand-new renderers, none of which has been told the dome's palette, exactly as a refitted
+        /// <c>CeilingPlate</c> is in the game.
         /// </para>
         /// </summary>
         private void ApplySkyLighting()
@@ -462,6 +497,11 @@ namespace MapEditor
 
             foreach (InstancedModelRenderer renderer in _balls.Renderers) _rig.ApplyTo(renderer);
             _rig.ApplyTo(_cityRenderer);
+
+            //Every variant of every scattered kind, or a spruce of the variant this missed would stand under the
+            //light rig of whatever dome was up when it was made. The array the component hands back, walked
+            //directly, for the reason BallRenderSet.Renderers gives above.
+            foreach (InstancedModelRenderer renderer in _forestScatter.Renderers) _rig.ApplyTo(renderer);
         }
 
         private void CenterViewOn(Vector3 lookDirection)
@@ -682,6 +722,17 @@ namespace MapEditor
                     else
                     {
                         _sceneRenderer.Apply(level.Scene);
+
+                        //A level carries the forest's whole config, so the wood it plants has to be the level's
+                        //and not the default one — the meshes' proportions and the tints' colours as much as the
+                        //counts. Re-lit right here rather than left to the SetSkyDome below (which does call
+                        //ApplySkyLighting): the two belong together, and a component whose lighting depends on
+                        //the order of two later statements is one incident waiting to happen.
+                        if (level.Scene is ForestSceneConfig forest)
+                        {
+                            _forestScatter.Replant(forest);
+                            ApplySkyLighting();
+                        }
                     }
                 }
 
@@ -790,6 +841,12 @@ namespace MapEditor
             }
             else
                 _sceneRenderer.DrawEnvironment(_scene, frame);
+
+            //The forest's scattered trees, boulders and stumps, after the terrain they stand on — with depth, or
+            //they would draw through it. The state is the caller's, and it is already the game's: alpha blend,
+            //depth test and write and counter-clockwise culling into the supersampled HDR target. The component
+            //touches none of it, so the balls drawn after this are unaffected.
+            if (_scene == SceneKind.Forest) _forestScatter?.Draw(Camera3D);
         }
 
         /// <summary>
@@ -870,6 +927,9 @@ namespace MapEditor
             _balls?.Dispose();
             _sceneRenderer?.Dispose();
             _cityRenderer?.Dispose();
+            //Every mesh, renderer and procedural texture of the forest scatter, in one call — its stone texture
+            //included, the editor having handed it none of its own
+            _forestScatter?.Dispose();
             _unitBox?.Dispose();
             _aabb?.Dispose();
             _axisGizmo?.Dispose();
