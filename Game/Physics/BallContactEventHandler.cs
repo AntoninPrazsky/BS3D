@@ -20,7 +20,7 @@ namespace BS3D.Physics
     /// <b>The split between the two halves of this class is the whole point of it.</b> Bepu runs contact
     /// callbacks on its worker threads, from inside <c>Simulation.Timestep</c>; touching the simulation, the
     /// constraint set, the ball map or the listener registrations from there corrupts state the solver is in
-    /// the middle of using. So <see cref="OnContactAdded"/> only <i>records</i> the contact, and
+    /// the middle of using. So <see cref="OnTouching"/> only <i>records</i> the contact, and
     /// <see cref="ProcessQueuedContacts"/> does all the work on the main thread once the step has finished.
     /// </para>
     /// </summary>
