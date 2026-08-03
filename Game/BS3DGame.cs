@@ -842,10 +842,10 @@ namespace BS3D
             //instead of filling it. GraphicsAdapter is valid with no device.
             DisplayMode display = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode;
 
-            //The probe's frame-rate floor follows the display's refresh, so a 75 Hz panel asks for ~75 and a
-            //60 Hz one ~60 rather than the same fixed floor for both. Re-derived on every fullscreen switch
-            //(and harmless on the constructor call), which keeps it honest if the player moves the window to a
-            //different monitor the adapter reports differently.
+            //The probe's frame-rate floor follows the refresh of the monitor the window is on, so a 75 Hz panel
+            //asks for ~75 and a 60 Hz one ~60 rather than the same fixed floor for both. Re-derived on every
+            //fullscreen switch, and the constructor call resolves properly too — MonoGame has built the window
+            //by the time this runs, measured (see TryGetWindowDisplayRefresh).
             SetQualityMinFpsFromRefresh();
 
             _graphics.PreferredBackBufferWidth = _fullscreen ? display.Width : WINDOW_WIDTH;
@@ -881,12 +881,13 @@ namespace BS3D
         {
             //MonoGame's DisplayMode carries no refresh rate (XNA dropped it, and the DesktopGL/WindowsDX adapter
             //never re-added one), so the floor would otherwise be a single fixed number for a 60 Hz laptop and a
-            //75 Hz panel alike. user32's EnumDisplaySettings is the same call Win32_VideoController answers to,
-            //and reads the current mode of the adapter the window is on. The struct is laid out by explicit
+            //75 Hz panel alike. user32's EnumDisplaySettings is the same call Win32_VideoController answers to.
+            //It has to be asked about a NAMED display device: passing null asks for the primary one, which is
+            //not the same question on any machine with two monitors (#81). The struct is laid out by explicit
             //offset rather than marshalled field-by-field: only dmSize (set so the call accepts the buffer) and
             //dmDisplayFrequency are read, which keeps it to two pinned, stable Win2000-onwards offsets.
             float refresh = 0f;
-            if (TryGetCurrentDisplayRefresh(out int hz)) refresh = hz;
+            if (TryGetWindowDisplayRefresh(out int hz)) refresh = hz;
             _qualityMinFps = Math.Max(refresh * (1f - QUALITY_REFRESH_MARGIN), QUALITY_MIN_FPS_FLOOR);
         }
 
@@ -906,13 +907,78 @@ namespace BS3D
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool EnumDisplaySettings(string deviceName, int modeNum, ref DEVMODE devMode);
 
-        /// <summary>Reads the current refresh rate of the adapter the window is on, in Hz. False on any failure.</summary>
-        private static bool TryGetCurrentDisplayRefresh(out int refreshHz)
+        //Which monitor the window is actually on. MONITOR_DEFAULTTONEAREST rather than the NULL variants because
+        //a window is always somewhere: dragged half off the desktop, or onto a monitor that has just been
+        //unplugged, "nearest" is the honest answer and never fails.
+        private const uint MONITOR_DEFAULTTONEAREST = 2;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT { public int Left, Top, Right, Bottom; }
+
+        //szDevice is the whole point of the EX variant — the \\.\DISPLAYn name EnumDisplaySettings wants. The
+        //rects and flags are read by nobody here; they are declared because the struct is passed by value and
+        //cbSize has to match what GetMonitorInfo expects.
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct MONITORINFOEX
+        {
+            public uint cbSize;
+            public RECT rcMonitor;
+            public RECT rcWork;
+            public uint dwFlags;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string szDevice;
+        }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromWindow(IntPtr window, uint flags);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFOEX monitorInfo);
+
+        /// <summary>
+        /// Reads the current refresh rate of the monitor <b>this window is on</b>, in Hz. False on any failure.
+        /// <para>
+        /// It used to pass <c>null</c> to <c>EnumDisplaySettings</c>, which asks for the <b>primary</b> display
+        /// device and not the window's — and the comments claimed otherwise, which is how it survived (#81). On a
+        /// mixed multi-monitor desktop that read the wrong panel in whichever direction the pair happened to be
+        /// arranged: a window on a 144 Hz secondary beside a 60 Hz primary took a floor from 60, and so tolerated
+        /// a frame rate its own monitor shows as visible jank — the exact failure the refresh-derived floor was
+        /// introduced to stop. Reversed, a 60 Hz window was held to a 144 Hz floor and stepped quality down for
+        /// no gain the player could see.
+        /// </para>
+        /// <para>
+        /// Falling back to the primary display when the window cannot be resolved is the old behaviour kept as a
+        /// guard, not a path known to be taken: a floor derived from the wrong panel still beats none, since a
+        /// <c>refresh</c> of 0 clamps to <see cref="QUALITY_MIN_FPS_FLOOR"/> and throws the panel's own rate away
+        /// entirely. It is deliberately not leaning on MonoGame's construction order — though as it happens the
+        /// window <i>is</i> already built when <see cref="SetGraphics"/> runs from the constructor, which was
+        /// measured rather than assumed, so in practice even that first call reads the right monitor.
+        /// </para>
+        /// </summary>
+        private bool TryGetWindowDisplayRefresh(out int refreshHz)
         {
             refreshHz = 0;
+
+            //Null means "the primary display" to EnumDisplaySettings, which is the fallback described above
+            string device = null;
+            IntPtr windowHandle = Window?.Handle ?? IntPtr.Zero;
+
+            if (windowHandle != IntPtr.Zero)
+            {
+                IntPtr monitor = MonitorFromWindow(windowHandle, MONITOR_DEFAULTTONEAREST);
+
+                if (monitor != IntPtr.Zero)
+                {
+                    MONITORINFOEX info = default;
+                    info.cbSize = (uint)Marshal.SizeOf<MONITORINFOEX>();
+
+                    if (GetMonitorInfo(monitor, ref info)) device = info.szDevice;
+                }
+            }
+
             DEVMODE dm = default;
             dm.dmSize = (ushort)Marshal.SizeOf<DEVMODE>();
-            if (!EnumDisplaySettings(null, ENUM_CURRENT_SETTINGS, ref dm)) return false;
+            if (!EnumDisplaySettings(device, ENUM_CURRENT_SETTINGS, ref dm)) return false;
             //0 or 1 are what Windows reports for a projector/TV that did not declare a refresh, and 5 is a
             //placeholder for "default" — none is a real panel rate, so treat them as "no answer".
             if (dm.dmDisplayFrequency < 10) return false;
@@ -923,6 +989,14 @@ namespace BS3D
         private void OnClientSizeChanged()
         {
             UpdateCameraAspect();
+
+            //A window that changed size may also have changed monitor, and the probe's floor is derived from the
+            //refresh of the one it is on (#81). This is the cheap hook rather than the complete one: a window
+            //DRAGGED between two monitors of the same size raises no resize, so its floor stays on the old
+            //panel's rate until the next resize or fullscreen switch. Tracking the move itself would want a
+            //WM_DISPLAYCHANGE/position hook into the WinForms host, which is a lot of surface for a case that
+            //corrects itself the moment anything else about the window changes.
+            SetQualityMinFpsFromRefresh();
 
             //The overlay is authored for 2160p and scaled to the viewport, so a resize has to re-derive it.
             //The menu is authored the same way, and refits itself in Draw (EnsureMenuLayout).
