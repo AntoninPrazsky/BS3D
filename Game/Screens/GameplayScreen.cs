@@ -1,11 +1,11 @@
 ﻿using BepuPhysics;
 using BepuPhysics.Collidables;
-using BepuUtilities.Memory;
 using BS3D.Effects;
 using BS3D.Physics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Prazsky.BS3D;
 using Prazsky.BS3D.GameObjects;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
@@ -18,12 +18,12 @@ using Prazsky.Core.Screens;
 using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
-using static Prazsky.BS3D.Physics.Simu;
 
 //BepuUtilities is deliberately NOT imported: it carries its own Matrix and MathHelper, which would make every
-//existing use of the XNA ones in this file ambiguous. The one type needed from it is qualified where it is
-//declared. Bepu's own vectors are System.Numerics and are likewise spelled out at each crossing, the
-//convention the Testbed uses (see CLAUDE.md, "Conventions").
+//existing use of the XNA ones in this file ambiguous. Nothing here needs a type out of it any more — the
+//worker pool that was the one such type is PhysicsWorld's since #76. Bepu's own vectors are System.Numerics
+//and every crossing is a named call — MonoGame's own ToNumerics outbound, Prazsky.Core.Tools' matching ToXna
+//inbound (see CLAUDE.md, "Conventions", and that extension's remarks on why not the implicit conversion).
 
 namespace BS3D.Screens
 {
@@ -76,31 +76,18 @@ namespace BS3D.Screens
         //barrel and the cluster are close together in the frame, so it can close in on the cluster.
         internal static readonly float GAME_FOV = MathF.PI / 4.2f;
 
-        //Where the lens stands relative to the gun: back from the field centre along the gun's own bearing,
-        //and just below the trunnions, so the player looks up at the hanging cluster past the barrel.
-        private const float CAMERA_HEIGHT = -1.5f;
-
         //How far back the camera stands and how high it aims. Both are SOLVED per level and per display
-        //(FitGameCameraToLevel) rather than tuned, because both of their inputs move underneath a fixed
-        //number: the field is sized per level, and the frustum per display. These defaults only cover the
-        //frames before the first level is installed.
+        //(FitCannonAndGameCameraToLevel, over GameCameraFit.Solve) rather than tuned, because both of their
+        //inputs move underneath a fixed number: the field is sized per level, and the frustum per display.
+        //These defaults only cover the frames before the first level is installed, and nothing seeds itself
+        //off them — the solve seeds round one off where the gun already stands.
+        //
+        //Every dial of the fit is GameCameraFit's, shared with the Testbed since #76: the lens's drop below
+        //the trunnions, the fraction of the frustum it may fill, the gun's stand-off in front of the lens and
+        //the two lower bounds that override it (the field's footprint and the steepest resting aim). Their
+        //whys are on those constants.
         private float _gameCameraDistance = 34f;
         private float _gameCameraTargetY = 3.5f;
-
-        //How much of the frustum the fit is allowed to fill. Under 1 so the field does not sit hard against
-        //the frame's edges, which reads as cropped even when nothing is.
-        private const float GAME_CAMERA_FIT_MARGIN = 0.92f;
-
-        //Where the gun stands relative to the camera, and the two lower bounds that override it. The gun is
-        //placed off the LENS and not off the field, because the magazine showing through its slot is really a
-        //HUD element and has to keep its size on screen — anchoring it to the field lets a large level push
-        //the camera back and shrink the queue with it. The bounds: it must clear the field's own footprint at
-        //every orbit angle (closer, and it stands under the cluster it shoots at), and it must stay far
-        //enough out that its RESTING aim is well inside Cannon's elevation clamp, with headroom to elevate
-        //onto the high cells. Which bound binds changes with the level, so this can never be one number.
-        private const float CANNON_CAMERA_STANDOFF = 15f;
-        private const float CANNON_FIELD_CLEARANCE = 2f;
-        private const float CANNON_MAX_REST_ELEVATION = 0.70f;  //radians, ~40°, against a clamp that reaches ~80°
 
         #endregion
 
@@ -115,20 +102,17 @@ namespace BS3D.Screens
         //where the camera stands (a camera behind the gun is always further out than the gun, so it always
         //sees the cluster flatter than the barrel does), while a lens looking *along* the aim sees whatever
         //the barrel points at, head-on.
-        private static readonly float ADS_FOV = MathF.PI / 5f;  //36°: a 1.19× lean-in on GAME_FOV — a zoom, not a tunnel
-        private const float ADS_BACK = 6f;                      //lens set-back from the muzzle ball, along -aim
-        private const float ADS_RISE = 2f;                      //lens height over the bore: clears the tube, keeps it a low sliver
-        private const float ADS_CONVERGE_MIN = 6f;              //nearest convergence depth (keeps the look-at point off the barrel)
-        private const float ADS_CONVERGE_MAX = 90f;             //farthest, well inside the far plane
-        private const float ADS_BLEND_TAU = 0.08f;              //ease time constant, seconds (~90 % in ~0.18 s) — the _magazineSlide idiom
-        private const float ADS_TRIGGER_THRESHOLD = 0.5f;       //gamepad left-trigger pull that counts as held
-
-        //Aiming steeply up, -aim points downwards and the set-back would drop the lens through the stone
-        //island and show it from underneath. Floored a margin over the island's top instead: from there the
-        //bottom of the frame still looks upwards, so the stone stays out of it.
-        private const float ADS_MIN_Y = BS3DGame.ISLAND_Y + 1f;
-
-        private float _adsBlend;
+        //
+        //The lean itself is PreciseAim's, shared with the Testbed since #76: every dial (the set-back behind
+        //the muzzle, the lift over the bore, the narrower lens, the island floor under it, the convergence
+        //clamp and the ease), the one reversible blend and the held-button read. It hands this frame's pose
+        //back as a VALUE and touches no camera, which is what lets the drop cinematic go on lerping over the
+        //top of it — see UpdateCamera.
+        //
+        //What stays here is the held flag and its gates: the window's focus, a running cinematic and a screen
+        //pushed over this one all clear it, and PreciseAim.Step is called on unheld frames too, which is how
+        //the lean eases out rather than dropping.
+        private readonly PreciseAim _preciseAim = new();
         private bool _adsHeld;
 
         #endregion
@@ -142,22 +126,17 @@ namespace BS3D.Screens
         /// </summary>
         private readonly PlayHud _hud;
 
-        //The crosshair. No bitmap: four bars struck from the host's 1×1 white texture. It appears only as
-        //precise aim leans in, because only then does the lens look along the shot — in the overview a
-        //screen-centre mark would point at nothing in particular.
+        //The crosshair: four bars around a clear centre, struck from a white texel it makes itself. Its own
+        //component since #76 — the bars, their size on the screen, the premultiplied white they are drawn in
+        //and the skip below a hundredth of an opacity are all Crosshair's, and the Testbed draws the same one
+        //now instead of loading a bitmap. Session-owned, like the laser net: it is made with the device up
+        //and released with the session's own resources, and the host's white texel that existed only to feed
+        //it went with the hoist.
         //
-        //Written as a scale of white rather than as R,G,B,A: SpriteBatch's default AlphaBlend expects
-        //*premultiplied* colour, and a plain (255,255,255,190) is not — it would put full white down and
-        //only partly occlude what is behind it, which is a solid crosshair, not a translucent one. Color's
-        //float multiply scales all four channels, so this stays premultiplied through the blend fade too.
-        private static readonly Color CROSSHAIR_COLOR = Color.White * 0.75f;
-
-        //Authored for a 2160p viewport and scaled down with it, exactly as InfoRenderer's text is, so the
-        //crosshair keeps its size on the screen rather than in pixels
-        private const float CROSSHAIR_SCALE_DIVISOR = 2160f;
-        private const float CROSSHAIR_ARM = 48f;        //length of one bar
-        private const float CROSSHAIR_GAP = 18f;        //clear space at the centre, so the mark never hides what it marks
-        private const float CROSSHAIR_THICKNESS = 5f;
+        //What stays here is when it is shown at all — only as precise aim leans in, because only then does
+        //the lens look along the shot; in the overview a screen-centre mark would point at nothing in
+        //particular — which is the blend handed to Draw.
+        private readonly Crosshair _crosshair;
 
         #endregion
 
@@ -165,12 +144,20 @@ namespace BS3D.Screens
 
         //BepuPhysics 2. The cluster is real: bodies held to each other and to the ceiling by BallSocket
         //constraints, a shot is a body thrown at it, and the island's drain is a collision mesh balls run
-        //down. All of it comes from Prazsky.BS3D.Physics, which the Testbed uses unchanged.
-        private BufferPool _bufferPool;
-        private BepuUtilities.ThreadDispatcher _threadDispatcher;
-        private Simulation _simulation;
-        private ContactEvents _events;
+        //down. All of it comes from Prazsky.BS3D.Physics, which the Testbed uses unchanged — the hardware
+        //itself (the worker pool, the buffer pool, the simulation, the contact stream, the order they are
+        //built and torn down in and the mandatory order inside one step) is PhysicsWorld's since #76. What
+        //stays here is the stepping POLICY below, which is deliberately not the Testbed's.
+        private PhysicsWorld _world;
         private BallContactEventHandler _eventHandler;
+
+        //Each step's contact work, handed to PhysicsWorld.Step as the work that belongs INSIDE the step. Built
+        //once and held rather than written at the call site: a lambda allocates a fresh delegate every time it
+        //is evaluated, and this one is evaluated up to PHYSICS_MAX_STEPS_PER_FRAME times a frame. It reads
+        //_eventHandler out of the field rather than binding the instance the field happens to hold, so it
+        //survives the handler being rebuilt per level. Assigned in the constructor because an instance field
+        //initializer may not reference another instance member (CS0236).
+        private readonly Action _processContacts;
 
         /// <summary>
         /// The physics step, held <b>fixed</b> — and this is the one place the game deliberately does not do
@@ -197,7 +184,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Below this a ball has left the game: it has run down the drain and out of the bottom of the funnel,
-        /// or fallen off the island's edge into the city. Well under <see cref="BS3DGame.FUNNEL_BOTTOM_Y"/>, so
+        /// or fallen off the island's edge into the city. Well under <see cref="ArenaIsland.FUNNEL_BOTTOM_Y"/>, so
         /// a ball that goes down the hole falls a visible distance before it is culled rather than winking out
         /// in the mouth of the drain.
         /// </summary>
@@ -247,7 +234,7 @@ namespace BS3D.Screens
         /// wrong in exchange for microseconds nobody can measure.
         /// </para>
         /// </summary>
-        private readonly int[] _ballsOfType = new int[BS3DGame.BALL_TYPE_COUNT];
+        private readonly int[] _ballsOfType = new int[BallRenderSet.TYPE_COUNT];
 
         /// <summary>
         /// Where the lattice frame meets the world, and the <b>only</b> place it does on the drawing side.
@@ -289,16 +276,11 @@ namespace BS3D.Screens
         private BallsMap _map;
         private PhysicsBall[,,] _physicsBalls;
 
-        //Two above the centres of the top level's balls, the Testbed's own figure. The kinematic body and the
-        //drawn glass box both sit here — the box is drawn straight from the body's pose (see KinematicBody),
-        //so the collidable and the thing the player sees cannot drift apart.
-        //
-        //Note the cluster does not settle on the lattice: the ceiling BallSocket anchors a ball's top (local
-        //+0.5) to the plate's bottom face (local -0.5), so the top level comes to rest one unit under the body
-        //and the whole rigid structure with it. Half the clearance this constant looks like it buys is spent
-        //that way, and the top balls end up close under the glass. It is the Testbed's behaviour, kept for
-        //parity; the figure to change if the cluster should hang exactly on its lattice is this one.
-        private const float CEILING_CLEARANCE = 2f;
+        //Where the glass hangs: CeilingPlate.CentreYAbove the field's top level — the plate's own clearance
+        //(CeilingPlate.CLEARANCE, which carries the note about the cluster coming to rest a unit under the
+        //plate rather than settling on its lattice) applied to the base this session picks. The kinematic body
+        //and the drawn glass box both sit here, and the box is drawn straight from the body's pose (see
+        //KinematicBody), so the collidable and the thing the player sees cannot drift apart.
         private float _ceilingY;
 
         private KinematicBody _ceiling;
@@ -440,21 +422,28 @@ namespace BS3D.Screens
 
         private readonly Cannon _cannon;
 
-        internal const int MAGAZINE_SIZE = 5;
-        internal const float MAGAZINE_SPACING = 1.0f;
-        private const float MAGAZINE_SLIDE_TAU = 0.07f;
-        internal const float CANNON_PIVOT_TO_FRONT_BALL = (MAGAZINE_SIZE - 1) * MAGAZINE_SPACING * Constants.HALF;
-
-        private readonly BallType[] _magazine = new BallType[MAGAZINE_SIZE];
-        private float _magazineSlide;
+        //The queue of loaded colours, its post-shot glide and where each loaded ball sits in the bore are all
+        //Magazine's, shared with the Testbed since #76 — as are the two figures the barrel was cut to
+        //(Magazine.SIZE and Magazine.SPACING, which CannonRig derives the tube's length and
+        //CannonRig.PivotToFrontBall from). What stays here is this screen's own two rules: which colours may be
+        //loaded at all (RandomBallType, injected below), and the cross-fade a re-coloured ball dissolves
+        //through. Built in the constructor rather than initialized here, because its hooks write the two
+        //arrays below.
+        private readonly Magazine _magazine;
 
         /// <summary>
         /// The colour a loaded ball is dissolving <i>out of</i>, per slot, and how far through that it is
         /// (0 = settled, nothing to draw twice). A ball whose colour has just been eliminated from the cluster
         /// is re-coloured where it sits rather than left to be fired at nothing — see <see cref="Transmute"/>.
+        /// <para>
+        /// Both are drawn in step with the queue, so both must shift with it — and
+        /// <see cref="Magazine.Advance"/> owns that shift, reporting every <c>(destination, source)</c> pair to
+        /// the hook wired at construction. Shifting only the colours would leave a slot dissolving out of the
+        /// ball behind it.
+        /// </para>
         /// </summary>
-        private readonly BallType[] _magazineFrom = new BallType[MAGAZINE_SIZE];
-        private readonly float[] _magazineTransmute = new float[MAGAZINE_SIZE];
+        private readonly BallType[] _magazineFrom = new BallType[Magazine.SIZE];
+        private readonly float[] _magazineTransmute = new float[Magazine.SIZE];
 
         /// <summary>
         /// How long a loaded ball takes to change colour. Slow enough to be unmistakably seen — the whole
@@ -480,8 +469,6 @@ namespace BS3D.Screens
 
         private float _cannonRecoil;
 
-        private const float MOUSE_AIM_SENSITIVITY = 2.0f;
-        private const float PAD_AIM_RATE = 1.0f;
         private const float CANNON_ORBIT_RATE = 1.0f;
 
         //Balls in flight, and balls that have been let go and are falling. Both are real Bepu bodies with no
@@ -502,66 +489,42 @@ namespace BS3D.Screens
         //handles and not list indices, and why recycling cannot bite here.
         private readonly HashSet<int> _cinematicSubject = new();
 
-        //The template a shot is stamped from: the sphere, its inertia and its sleep threshold, built once.
-        private BodyDescription _shotBall;
+        //The template a shot is stamped from — the sphere, its inertia, its bare shape index and its sleep
+        //threshold — is PhysicsWorld's, which stamps a fresh copy per shot rather than holding one and writing
+        //this shot's pose and velocity over the last one's, as this and the Testbed both used to.
 
-        /// <summary>The launch smear: anchored at the muzzle, living its own short life while it fades.</summary>
-        private struct ShotTrail
-        {
-            public Vector3 Origin;
-            public Vector3 Direction;
-            public Vector3 Color;
-            public float Age;
-        }
-
-        private readonly List<ShotTrail> _trails = new();
-
-        private const float TRAIL_LIFETIME = 0.45f;
-        private const float TRAIL_LENGTH = 7f;
-        private const float TRAIL_LEAD_WIDTH = 0.72f;
-        private const float TRAIL_MUZZLE_WIDTH = 0.42f;
-        private const float TRAIL_BRIGHTNESS = 3.0f;
-        private const float TRAIL_COLOR_FLOOR = 0.12f;
-
-        private Effect _shotTrailEffect;
-        private VertexBuffer _shotTrailVertexBuffer;
-        private IndexBuffer _shotTrailIndexBuffer;
-
-        //Cached in CreateShotTrailQuad; the fixed widths are set once there and never re-sent
-        private EffectParameter _trailViewParam;
-        private EffectParameter _trailProjectionParam;
-        private EffectParameter _trailCameraPositionParam;
-        private EffectParameter _trailHeadParam;
-        private EffectParameter _trailTailParam;
-        private EffectParameter _trailColorParam;
-        private EffectParameter _trailAlphaParam;
+        //The launch smears: the streak a shot leaves at the muzzle, anchored there and living its own short
+        //life while it fades. LaunchSmears' since #76 — the billboard, the six dials, the colour rule and the
+        //additive depth-read draw stood here and in the Testbed, value for value. What stays here is when one
+        //is added (Shoot), that they age every frame this screen updates, and where the draw sits in the
+        //frame, which the call site in Draw states.
+        private readonly LaunchSmears _smears;
 
         private static readonly Random RANDOM = new();
 
         private MouseState _previousMouse;
-        private bool _mouseAimInitialized;
         private bool _padTriggerReleased = true;
+
+        //Aiming the gun from the captured cursor and the pad's right stick, both dials and all the arithmetic
+        //shared with the Testbed since #76. It holds the "a captured frame has been seen" flag that gates both
+        //the aim delta and the shot edge.
+        private readonly MouseAim _mouseAim = new();
 
         #endregion
 
         #region Ball instances
 
-        private static readonly float BALL_OCCLUSION_STRENGTH = 0.55f;
-        private static readonly int MAX_BALL_OCCLUDERS = 12;
-
-        //How long a ball takes to reach its new shading. A ball joins or leaves the lattice in one step, so its
-        //occlusion target changes instantly while the ball has not moved — eased, that reads as the light
-        //filling in; taken straight, every ball around a hole a matched group left pops brighter in one frame.
-        private static readonly float BALL_OCCLUSION_EASE_SECONDS = 1f;
-
-        //A landed ball is snapped to the nearest free cell rather than to where it hit, so the constraints drag
-        //its body up to several diameters within a frame or two. Drawing it gliding in from where it actually
-        //hit turns that click into a movement, and costs the simulation nothing.
-        private static readonly float BALL_ATTACH_GLIDE_SECONDS = 0.08f;
-        private static readonly float BALL_ATTACH_GLIDE_DONE_SQUARED = 0.025f * 0.025f;
-
-        private readonly ModelInstance[][] _ballInstances = new ModelInstance[BS3DGame.BALL_TYPE_COUNT * BS3DGame.BALL_LOD_COUNT][];
-        private readonly int[] _ballInstanceCounts = new int[BS3DGame.BALL_TYPE_COUNT * BS3DGame.BALL_LOD_COUNT];
+        //The one walk that turns a simulated cluster into ball instances, shared with the Testbed since #76:
+        //every hanging ball, every shot in flight and every released ball on its way down, each read off its
+        //own body's pose, shaded by what is packed around it and offset by whatever is left of its arrival
+        //glide. Both eases (the occlusion's one-second time constant, the glide's 0.08 s) and the neighbour
+        //occlusion's own figures are its own, and so is the rule the whole thing exists for: every ball is
+        //visited exactly once a frame, because all three of those pieces of state live on the ball itself.
+        //
+        //The ripple hook is what this game adds to it and the Testbed does not — handed over ONCE here rather
+        //than per frame, since a method group written at a per-frame call site builds a fresh delegate every
+        //time it is evaluated.
+        private readonly ClusterCollector _clusterCollector = new(AdvanceRipple);
 
         #endregion
 
@@ -574,11 +537,37 @@ namespace BS3D.Screens
             //island, and the gun stands well inside the island's rim.
             _cannon = new Cannon(new Vector3(0f, 5f, 0f), -6.4f, 20f);
 
-            for (int i = 0; i < MAGAZINE_SIZE; i++) _magazine[i] = RandomBallType();
+            //The queue's colours are the level's business (RandomBallType draws only among what is still
+            //hanging), so what to load next is injected; the constructor deals a full queue with it, which is
+            //what gives the player something to read from the first frame. The two hooks carry this screen's
+            //transmute state through every shift, so the three arrays stay drawn in step — wired once, here,
+            //since a delegate built per shot would allocate one per round fired.
+            _magazine = new Magazine(RandomBallType,
+                (destination, source) =>
+                {
+                    _magazineFrom[destination] = _magazineFrom[source];
+                    _magazineTransmute[destination] = _magazineTransmute[source];
+                },
+                (slot, type) =>
+                {
+                    //A ball dealt from what is alive has nothing to fade out of. This is also what keeps a
+                    //level loaded over a session that was mid-transmute from inheriting its half-finished
+                    //dissolves: Magazine.Refill fires it for every slot.
+                    _magazineTransmute[slot] = 0f;
+                    _magazineFrom[slot] = type;
+                });
 
-            CreateShotTrailQuad();
+            //The work each physics step carries inside it, wired once here for the reason the field states
+            _processContacts = () => _eventHandler.ProcessQueuedContacts();
 
-            //The floor alarm's net, loaded like the trail: session content, made here with the device up.
+            //The smears' billboard quad and every parameter handle their draw needs, in one construction. The
+            //effect is the content manager's and is never disposed there.
+            _smears = new LaunchSmears(GraphicsDevice, Game.Content.Load<Effect>("Shaders/ShotTrail"));
+
+            //And the crosshair's own white texel, which the host used to hold for it
+            _crosshair = new Crosshair(GraphicsDevice);
+
+            //The floor alarm's net, loaded like the smears: session content, made here with the device up.
             //It is handed the ceiling flash's own red — the two are one warning at two heights, and passing
             //the constant is what keeps them from drifting apart.
             _laserGrid = new LaserGrid(GraphicsDevice, Game.Content.Load<Effect>("Shaders/LaserGrid"), CEILING_FLASH_COLOR);
@@ -595,12 +584,12 @@ namespace BS3D.Screens
         /// frame while playing and left alone in the menu, so the first frame back would otherwise read the
         /// distance from wherever the player clicked to the viewport centre as an aim delta and yank the
         /// barrel across the field — and the very click that pressed the button would arrive against a stale
-        /// "released" and fire a shot nobody asked for. Clearing <see cref="_mouseAimInitialized"/> skips that
+        /// "released" and fire a shot nobody asked for. <see cref="MouseAim.Invalidate"/> skips that
         /// first frame's aim <i>and</i> its shot test, since both live behind it.
         /// </summary>
         public override void CoveredChanged()
         {
-            _mouseAimInitialized = false;
+            _mouseAim.Invalidate();
             _adsHeld = false;
 
             //A gamepad reports to an unfocused window and to a paused one; both triggers must be released
@@ -673,11 +662,10 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Tears the session down so a new one can be built. The simulation is disposed outright rather than
-        /// emptied ball by ball: the constraints, the bodies, the statics and the per-worker contact queues all
-        /// go with it, and rebuilding is a few milliseconds. The order is <see cref="DisposeResources"/>'s and
-        /// for the same reason — <see cref="ContactEvents"/> unhooks itself from the timestepper, so it has to
-        /// go before the simulation it hooked into, and the pool both allocated from has to outlive the two.
+        /// Tears the session down so a new one can be built. The world is disposed outright rather than emptied
+        /// ball by ball: the constraints, the bodies, the statics and the per-worker contact queues all go with
+        /// it, and rebuilding is a few milliseconds. The <i>order</i> those four go in is
+        /// <see cref="PhysicsWorld.Dispose"/>'s, which is where the reason for it is written down as well.
         /// </summary>
         internal void TearDown()
         {
@@ -688,15 +676,10 @@ namespace BS3D.Screens
             Game.Music?.Stop();
             Game.Fireworks?.Stop();
 
-            _events?.Dispose();
-            _simulation?.Dispose();
-            _threadDispatcher?.Dispose();
-            _bufferPool?.Clear();
+            //Idempotent, which is what this needs: DisposeResources runs it again on the way out of the program
+            _world?.Dispose();
 
-            _events = null;
-            _simulation = null;
-            _threadDispatcher = null;
-            _bufferPool = null;
+            _world = null;
             _eventHandler = null;
             _ceiling = null;
             _map = null;
@@ -705,12 +688,12 @@ namespace BS3D.Screens
             //Cleared, never reassigned: the contact handler holds these very instances
             _shotBalls.Clear();
             _fallingBalls.Clear();
-            _trails.Clear();
+            _smears.Clear();
 
             _physicsAccumulator = 0f;
             _cannonRecoil = 0f;
-            _magazineSlide = 0f;
-            _adsBlend = 0f;
+            _magazine.Settle();
+            _preciseAim.Reset();
 
             //A cinematic caught mid-shot by a level ending under it would otherwise hold the camera and the
             //controls into the next level, and its subject handles belong to a simulation that is now gone
@@ -732,8 +715,10 @@ namespace BS3D.Screens
         {
             TearDown();
 
-            _shotTrailVertexBuffer?.Dispose();
-            _shotTrailIndexBuffer?.Dispose();
+            //The smears' shared billboard quad and the crosshair's one texel — not the trail effect, which the
+            //content manager owns
+            _smears.Dispose();
+            _crosshair.Dispose();
             _laserGrid.Dispose();
         }
 
@@ -792,15 +777,10 @@ namespace BS3D.Screens
 
             RecountBallTypes();
 
-            for (int i = 0; i < MAGAZINE_SIZE; i++)
-            {
-                _magazine[i] = RandomBallType();
-
-                //Nothing is mid-transmute in a queue that has just been dealt, and a level loaded over a
-                //session that was would otherwise inherit its half-finished dissolves
-                _magazineTransmute[i] = 0f;
-                _magazineFrom[i] = _magazine[i];
-            }
+            //A whole fresh queue for the new level: its colours belong to a level, and the level the standing
+            //queue was drawn from is gone. Refill deals every slot through the loaded hook, which is what
+            //clears any half-finished dissolve the last session left in one.
+            _magazine.Refill();
 
             //A fresh scorer per level, holding that entry's rules. Built even when the level fell back to the
             //built-in map, which then has no rules at all and so an unlimited budget and a still ceiling — the
@@ -892,18 +872,19 @@ namespace BS3D.Screens
                 FIELD_TOP_Y - topLevel / Constants.SQRT_TWO,
                 -(nearCorner.Z + farCorner.Z) * Constants.HALF);
 
-            _ceilingY = FIELD_TOP_Y + CEILING_CLEARANCE;
+            _ceilingY = CeilingPlate.CentreYAbove(FIELD_TOP_Y);
             //At rest to start: target equals current, so nothing slides until a step is taken.
             _ceilingTargetY = _ceilingY;
             _ceilingDescending = false;
             _clusterCentreY = topLevel * Constants.HALF / Constants.SQRT_TWO + _clusterWorldOffset.Y;
 
-            //The floor alarm's net, rebuilt at this field's footprint — the same +1 margin the ceiling
-            //plate covers the balls with. It hovers where a ball's SURFACE would touch at the moment of
-            //loss: the death line is compared against ball centres, which sit a radius higher.
+            //The floor alarm's net, rebuilt at this field's footprint — asked of CeilingPlate.FootprintFor, so
+            //it is the very margin the glass over the field covers the balls with rather than a second +1
+            //written out here. It hovers where a ball's SURFACE would touch at the moment of loss: the death
+            //line is compared against ball centres, which sit a radius higher.
             _laserGrid.Fit(
-                (_map.StageSizeX + 1f) * Constants.HALF,
-                (_map.StageSizeZ + 1f) * Constants.HALF,
+                CeilingPlate.FootprintFor(_map.StageSizeX) * Constants.HALF,
+                CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF,
                 CEILING_DEATH_Y - Constants.HALF);
         }
 
@@ -922,39 +903,28 @@ namespace BS3D.Screens
         /// </summary>
         private void BuildPhysicsWorld()
         {
-            //One dispatcher and one pool per session. ContactEvents sizes its per-worker queues from the
-            //dispatcher's thread count, so the dispatcher must exist first and must outlive the simulation.
-            _threadDispatcher = new BepuUtilities.ThreadDispatcher(Environment.ProcessorCount);
-            _bufferPool = new BufferPool();
-            _events = new ContactEvents(_threadDispatcher, _bufferPool);
-
-            //Both callback types are structs, copied by value into the simulation; _events survives that
-            //because it is a class reference held inside one of them. SolveDescription is
-            //(velocityIterationCount, substepCount) in that order — eight iterations, one substep — and those
-            //are tuned together with the contact material and the BallSocket spring, so they move together.
-            _simulation = Simulation.Create(
-                _bufferPool,
-                new NarrowPhaseCallbacks(_events),
-                new PoseIntegratorCallbacks(new System.Numerics.Vector3(0f, Constants.EARTH_GRAVITY, 0f)),
-                new SolveDescription(8, 1));
-
-            //No _events.Initialize(_simulation) here: Simulation.Create has already called
-            //NarrowPhaseCallbacks.Initialize, which is what initialises it. Calling it again would hook its
-            //BeforeCollisionDetection handler onto the timestepper a second time.
+            //One world per level, torn down with the session (see TearDown for why the whole simulation goes
+            //rather than being emptied). Everything this used to spell out is PhysicsWorld's: the dispatcher
+            //before the contact stream that sizes its per-worker queues off it, the single ContactEvents
+            //initialisation the simulation's own construction performs (#73 — initialising it a second time
+            //hooks the freshness pass onto the timestepper twice), the solver description tuned together with
+            //the contact material and the BallSocket spring, and the shot template whose bare shape index is
+            //what gives a ball leaving at SHOOT_SPEED continuous collision detection.
+            _world = new PhysicsWorld();
 
             BuildCeilingBody();
-            BuildFunnelPhysics();
 
-            //The template every shot is stamped from. The collidable comes from the bare shape index rather
-            //than from a CollidableDescription with a speculative margin, and that is load-bearing: it is what
-            //gives the shot continuous collision detection. At SHOOT_SPEED a ball crosses several diameters in
-            //one step, and a discrete test would let it pass clean through the cluster.
-            Sphere ballShape = new(BallsConstraintsBuilder.BALL_RADIUS);
-            _shotBall = BodyDescription.CreateDynamic(
-                new System.Numerics.Vector3(),
-                ballShape.ComputeInertia(BallsConstraintsBuilder.BALL_MASS),
-                BallsConstraintsBuilder.GetSphereShapeIndex(_simulation),
-                Constants.HUNDREDTH); //sleep threshold, via the implicit conversion to BodyActivityDescription
+            //The island's whole floor, and it is the drain's own surface: the sloped cone plus the flat stone
+            //ring from its rim out to the edge of the platform's level top. Balls rest on the ring, run down the
+            //cone and drop through the hole; past the ring they fall off the island's edge into the scene, and
+            //either way the kill plane takes them. FunnelPhysics' since #75 (the Testbed had the same eight
+            //triangles a segment), and it is handed the very figures ArenaIsland draws from, so the collided
+            //surface and the drawn one cannot drift apart. The ring stops short of the island's own radius —
+            //ArenaIsland.FLOOR_RADIUS is IslandMesh.FloorRadius of it — because the coping falls away over the
+            //last stretch, and a floor carried to the widest point would hold a ball up on air over the wash.
+            FunnelPhysics.Build(_world.Simulation, _world.BufferPool, ArenaIsland.TOP_Y, ArenaIsland.FUNNEL_BOTTOM_Y,
+                ArenaIsland.FUNNEL_TOP_RADIUS, ArenaIsland.FUNNEL_HOLE_RADIUS, ArenaIsland.FLOOR_RADIUS,
+                ArenaIsland.FUNNEL_SEGMENTS);
         }
 
         /// <summary>
@@ -963,18 +933,19 @@ namespace BS3D.Screens
         /// </summary>
         private void BuildCeilingBody()
         {
-            //Sized to the field with the same one-unit margin the drawn plate has: a field's worth of balls is
-            //one unit wider than its cell count, since odd levels are shifted by half and a radius is another.
-            //The same figures FitCeilingToMap gave the drawn box, so the glass and the collidable agree.
-            Box box = new(_map.StageSizeX + 1f, 1f, _map.StageSizeZ + 1f);
-            TypedIndex shape = _simulation.Shapes.Add(box);
+            //Sized off CeilingPlate's own footprint and thickness — the very figures FitCeilingToMap gave the
+            //drawn box, asked of the one place that applies the margin, so the glass and the collidable cannot
+            //be given different numbers.
+            Box box = new(CeilingPlate.FootprintFor(_map.StageSizeX), CeilingPlate.THICKNESS,
+                CeilingPlate.FootprintFor(_map.StageSizeZ));
+            TypedIndex shape = _world.Simulation.Shapes.Add(box);
 
-            BodyHandle handle = _simulation.Bodies.Add(BodyDescription.CreateKinematic(
+            BodyHandle handle = _world.Simulation.Bodies.Add(BodyDescription.CreateKinematic(
                 new System.Numerics.Vector3(0f, _ceilingY, 0f),
                 new CollidableDescription(shape, 0.1f),
-                new BodyActivityDescription(Constants.HUNDREDTH)));
+                new BodyActivityDescription(PhysicsWorld.SLEEP_THRESHOLD)));
 
-            _ceiling = new KinematicBody(new BodyReference(handle, _simulation.Bodies), handle);
+            _ceiling = new KinematicBody(new BodyReference(handle, _world.Simulation.Bodies), handle);
         }
 
         /// <summary>
@@ -1073,70 +1044,6 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The island's whole floor, and it is the drain's own surface: the sloped cone plus the flat stone ring
-        /// from its rim out to the edge of the platform's level top, as one triangle mesh. Balls rest on the
-        /// ring, run down the cone at its ~55° and drop through the hole; past the ring they fall off the
-        /// island's edge into the city. Either way the kill plane takes them.
-        /// <para>
-        /// The ring stops at <see cref="IslandMesh.FloorRadius"/> and not at the island's own radius: the
-        /// coping falls away over the last stretch, so a floor carried out to the platform's widest point
-        /// would hold a ball up on air over the wash.
-        /// </para>
-        /// <para>
-        /// Every quad goes in with <b>both</b> windings — eight triangles a segment, not four. A Bepu mesh
-        /// triangle only collides on its front face, and rather than depend on getting the winding right for a
-        /// surface that is met from above, from inside the funnel and from underneath, it is made double-sided
-        /// deliberately.
-        /// </para>
-        /// </summary>
-        private void BuildFunnelPhysics()
-        {
-            const int segments = BS3DGame.FUNNEL_SEGMENTS;
-            float depth = BS3DGame.ISLAND_Y - BS3DGame.FUNNEL_BOTTOM_Y;
-
-            //Take gives exactly the requested length, which is what the Mesh constructor is handed; TakeAtLeast
-            //would round the count up and leave uninitialised triangles at the end of the buffer.
-            _bufferPool.Take<Triangle>(segments * 8, out Buffer<Triangle> triangles);
-
-            for (int s = 0; s < segments; s++)
-            {
-                float a0 = (float)(s / (double)segments * Math.PI * 2.0);
-                float a1 = (float)((s + 1) / (double)segments * Math.PI * 2.0);
-
-                //Local space: the rim at y = 0 and the hole at y = -depth, so the static's own pose is what
-                //puts the rim flush with the island's stone top
-                System.Numerics.Vector3 t0 = Ring(a0, BS3DGame.FUNNEL_TOP_RADIUS, 0f);
-                System.Numerics.Vector3 t1 = Ring(a1, BS3DGame.FUNNEL_TOP_RADIUS, 0f);
-                System.Numerics.Vector3 h0 = Ring(a0, BS3DGame.FUNNEL_HOLE_RADIUS, -depth);
-                System.Numerics.Vector3 h1 = Ring(a1, BS3DGame.FUNNEL_HOLE_RADIUS, -depth);
-                System.Numerics.Vector3 r0 = Ring(a0, IslandMesh.FloorRadius(BS3DGame.ISLAND_RADIUS), 0f);
-                System.Numerics.Vector3 r1 = Ring(a1, IslandMesh.FloorRadius(BS3DGame.ISLAND_RADIUS), 0f);
-
-                int b = s * 8;
-
-                //The cone wall, both faces
-                triangles[b] = new Triangle(t0, h0, t1);
-                triangles[b + 1] = new Triangle(t1, h0, h1);
-                triangles[b + 2] = new Triangle(t0, t1, h0);
-                triangles[b + 3] = new Triangle(t1, h1, h0);
-
-                //The flat stone ring from the rim out to the island's edge, both faces
-                triangles[b + 4] = new Triangle(t0, t1, r1);
-                triangles[b + 5] = new Triangle(t0, r1, r0);
-                triangles[b + 6] = new Triangle(t0, r1, t1);
-                triangles[b + 7] = new Triangle(t0, r0, r1);
-            }
-
-            static System.Numerics.Vector3 Ring(float angle, float radius, float y) =>
-                new(radius * MathF.Cos(angle), y, radius * MathF.Sin(angle));
-
-            Mesh mesh = new(triangles, System.Numerics.Vector3.One, _bufferPool);
-            TypedIndex shape = _simulation.Shapes.Add(mesh);
-
-            _simulation.Statics.Add(new StaticDescription(new System.Numerics.Vector3(0f, BS3DGame.ISLAND_Y, 0f), shape));
-        }
-
-        /// <summary>
         /// Mirrors the loaded lattice into Bepu bodies, which is what the frame actually draws, and wires up
         /// the contact handler that catches a shot landing on it.
         /// </summary>
@@ -1151,14 +1058,14 @@ namespace BS3D.Screens
             //applied to the body positions and to nothing else: the constraint anchors are differences of two
             //grid positions, so the offset cancels out of them.
             _physicsBalls = BallsConstraintsBuilder.BuildBallsStructure(
-                _map.GetStaticBallsArray(), ref _simulation, _ceiling.BodyReference,
+                _map.GetStaticBallsArray(), _world.Simulation, _ceiling.BodyReference,
                 _clusterWorldOffset.ToNumerics());
 
             //What happens on a hit lives in the handler: the snap into the lattice, the constraints, and the
             //match rule. It gets the very list instances the frame draws from, and the same offset, so it can
             //take a world contact down into the grid frame to ask the map about it and bring the answer back up.
-            _eventHandler = new BallContactEventHandler(_simulation, _events, _ceiling, _map, _physicsBalls,
-                _shotBalls, _fallingBalls, _clusterWorldOffset);
+            _eventHandler = new BallContactEventHandler(_world.Simulation, _world.Events, _ceiling, _map,
+                _physicsBalls, _shotBalls, _fallingBalls, _clusterWorldOffset);
 
             //The handler reports what a shot did; what it is worth is the scorer's business. Subscribed on the
             //handler the level just built, and the handler is rebuilt with it, so there is nothing to unhook.
@@ -1169,7 +1076,7 @@ namespace BS3D.Screens
             _eventHandler.ShotSpent += OnShotSpent;
 
             Console.WriteLine($"[game] {_map.GetBallsCount()} balls in the cluster, "
-                + $"{_simulation.Solver.CountConstraints()} constraints");
+                + $"{_world.Simulation.Solver.CountConstraints()} constraints");
         }
 
         #endregion
@@ -1250,8 +1157,7 @@ namespace BS3D.Screens
 
                 _cinematicSubject.Add(body.Handle.Value);
 
-                System.Numerics.Vector3 position = body.Pose.Position;
-                centre += new Vector3(position.X, position.Y, position.Z);
+                centre += body.Pose.Position.ToXna();
             }
 
             centre /= total;
@@ -1282,8 +1188,7 @@ namespace BS3D.Screens
                 BodyReference body = _fallingBalls[i].BallReference;
                 if (!_cinematicSubject.Contains(body.Handle.Value)) continue;
 
-                System.Numerics.Vector3 position = body.Pose.Position;
-                centre += new Vector3(position.X, position.Y, position.Z);
+                centre += body.Pose.Position.ToXna();
                 found++;
             }
 
@@ -1366,10 +1271,10 @@ namespace BS3D.Screens
             if (_clearedCountdown > 0f || _levelLost) return;
 
             //The ceiling reaching the death line. Live poses are in _physicsBalls (the lattice in _map holds
-            //cells, not bodies); the loop mirrors DrawBallsInstanced, including the null check for cells a
-            //release has emptied. It tracks the minimum rather than stopping at the first offender, because
-            //the floor alarm below wants the cluster's true lowest point on every frame, not only the losing
-            //one — same walk, no second scan.
+            //cells, not bodies); the loop mirrors the draw's own walk over the structure (ClusterCollector),
+            //including the null check for cells a release has emptied. It tracks the minimum rather than
+            //stopping at the first offender, because the floor alarm below wants the cluster's true lowest
+            //point on every frame, not only the losing one — same walk, no second scan.
             XZLevel size = XZLevel.FromArray(_physicsBalls);
             float lowestBallY = float.MaxValue;
 
@@ -1461,7 +1366,7 @@ namespace BS3D.Screens
                 //and never attached, so nothing ever unregistered it (the handler returns without unregistering
                 //when the other body is neither structure nor ceiling) — yet a sleeping ball is plainly not
                 //going to reach the cluster. A ball in flight is always awake, so this can never hide a live shot.
-                if (_events.IsListener(body.CollidableReference) && body.Awake) return true;
+                if (_world.Events.IsListener(body.CollidableReference) && body.Awake) return true;
             }
 
             return false;
@@ -1660,7 +1565,7 @@ namespace BS3D.Screens
         /// Re-colours every loaded ball whose colour has just been eliminated from the cluster, and starts the
         /// dissolve that shows it happening.
         /// <para>
-        /// The alternative — letting a stale queue play out — costs the player up to <see cref="MAGAZINE_SIZE"/>
+        /// The alternative — letting a stale queue play out — costs the player up to <see cref="Magazine.SIZE"/>
         /// shots on colours that cannot match anything, through no fault of their own. This is a game and not a
         /// simulation, so a ball that is already loaded may simply be re-coloured; the player will notice, and
         /// noticing is the point, because what they see is the game helping rather than the game cheating them.
@@ -1671,25 +1576,32 @@ namespace BS3D.Screens
         /// from what survives — picking whichever colour would help most would quietly make the game easier,
         /// and that is a difficulty decision, not a fix.
         /// </para>
+        /// <para>
+        /// <see cref="Magazine.Recolour"/> deliberately does <b>not</b> fire the loaded hook the constructor
+        /// wired, which is what lets the old colour below stand: a re-coloured ball is precisely the one whose
+        /// previous colour the cross-fade has to keep.
+        /// </para>
         /// </summary>
         private void Transmute()
         {
-            for (int slot = 0; slot < MAGAZINE_SIZE; slot++)
+            for (int slot = 0; slot < Magazine.SIZE; slot++)
             {
-                int index = (int)_magazine[slot] - 1;
+                BallType loaded = _magazine.Peek(slot);
+
+                int index = (int)loaded - 1;
                 if (index >= 0 && index < _ballsOfType.Length && _ballsOfType[index] > 0) continue;
 
                 BallType replacement = RandomBallType();
-                if (replacement == _magazine[slot]) continue; //nothing survives to swap to; leave it alone
+                if (replacement == loaded) continue; //nothing survives to swap to; leave it alone
 
                 //The ball it is fading OUT of is whatever is on screen now — which for a slot caught
                 //mid-transmute is the colour it was already fading out of, not the one it never finished
                 //becoming. Restarting from the visible colour is what keeps the animation continuous.
-                if (_magazineTransmute[slot] <= 0f) _magazineFrom[slot] = _magazine[slot];
+                if (_magazineTransmute[slot] <= 0f) _magazineFrom[slot] = loaded;
 
                 Console.WriteLine($"[transmute] slot {slot}: {_magazineFrom[slot]} is gone from the cluster -> {replacement}");
 
-                _magazine[slot] = replacement;
+                _magazine.Recolour(slot, replacement);
                 _magazineTransmute[slot] = 1f;
             }
         }
@@ -1746,7 +1658,7 @@ namespace BS3D.Screens
                 //The cursor belongs to the desktop again as soon as the window is not the one being played:
                 //hidden over an unfocused window it simply disappears wherever the player moves it.
                 Game.IsMouseVisible = true;
-                _mouseAimInitialized = false;
+                _mouseAim.Invalidate();
 
                 //A trigger held while the window was away must be re-released before it fires
                 _padTriggerReleased = false;
@@ -1759,13 +1671,13 @@ namespace BS3D.Screens
 
             _cannon.Update(gameTime);
 
-            //The queue glides forward into the slot the fired ball left rather than snapping
-            if (_magazineSlide > 0f) _magazineSlide *= MathF.Exp(-elapsed / MAGAZINE_SLIDE_TAU);
-            if (_magazineSlide < 0.001f) _magazineSlide = 0f;
+            //The queue glides forward into the slot the fired ball left rather than snapping. Wall clock, not
+            //the simulation's step: balls sliding down a tube is the gun answering the shot.
+            _magazine.Step(elapsed);
 
             //And a re-coloured ball dissolves out of its old colour. Linear, so it genuinely finishes rather
             //than leaving a slot for ever a few pixels short of its new colour.
-            for (int i = 0; i < MAGAZINE_SIZE; i++)
+            for (int i = 0; i < Magazine.SIZE; i++)
                 if (_magazineTransmute[i] > 0f)
                     _magazineTransmute[i] = MathF.Max(0f, _magazineTransmute[i] - elapsed / TRANSMUTE_SECONDS);
 
@@ -1805,7 +1717,7 @@ namespace BS3D.Screens
             //and a warning frozen lit would blaze across the player's reward for the whole dive down the drain.
             CheckLevelLost(mayLose: !_cinematic.Engaged);
 
-            UpdateTrails(elapsed);
+            _smears.Update(elapsed);
             _hud.Update(elapsed, _score);
 
             UpdateCamera(elapsed);
@@ -1899,7 +1811,7 @@ namespace BS3D.Screens
             //drifted to during the shot. The left button skips, matching Space and the pad's A.
             if (_cinematic.Engaged)
             {
-                if (edgeInputAllowed && _mouseAimInitialized
+                if (edgeInputAllowed && _mouseAim.Initialized
                     && mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released)
                     _cinematic.TrySkip();
 
@@ -1907,36 +1819,26 @@ namespace BS3D.Screens
                 //the cinematic ends gets precise aim back, and one who let go during it does not
                 _adsHeld = false;
 
-                Mouse.SetPosition(centreX, centreY);
-                _mouseAimInitialized = true;
+                _mouseAim.Recentre(centreX, centreY);
                 _previousMouse = mouse;
 
                 Game.PreviousPad = pad;
                 return;
             }
 
-            if (_mouseAimInitialized)
-            {
-                float dtMillis = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-                if (dtMillis > 0f)
-                {
-                    float invDt = 1f / dtMillis;
-                    float pitch = -(mouse.Y - centreY) * MOUSE_AIM_SENSITIVITY * invDt; //mouse up -> aim up
-                    float yaw = -(mouse.X - centreX) * MOUSE_AIM_SENSITIVITY * invDt;   //mouse left -> yaw left
+            _mouseAim.ApplyCursor(_cannon, mouse, centreX, centreY, gameTime);
 
-                    if (pitch != 0f || yaw != 0f) _cannon.Aim(new Vector2(pitch, yaw), gameTime);
-                }
-
-                if (edgeInputAllowed && mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released)
-                    Shoot();
-            }
+            //The shot edge is gated on the same "a captured frame has been seen" flag the aim is: on the frame
+            //the baseline is dropped there is no aim to fire along yet, so no phantom shot goes off either
+            if (_mouseAim.Initialized && edgeInputAllowed
+                && mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released)
+                Shoot();
 
             //Precise aim is a hold, not an edge, so it is read straight off this frame's state — no
             //edge-input gate: leaning the camera in is not an action that can go off by accident.
-            _adsHeld = mouse.RightButton == ButtonState.Pressed || pad.Triggers.Left > ADS_TRIGGER_THRESHOLD;
+            _adsHeld = PreciseAim.ButtonHeld(mouse, pad);
 
-            Mouse.SetPosition(centreX, centreY);
-            _mouseAimInitialized = true;
+            _mouseAim.Recentre(centreX, centreY);
 
             //Only its LeftButton is ever read (the shot's edge test above); the aim delta is measured against
             //the viewport centre, never against this, so the state captured at the top of the method serves
@@ -1944,8 +1846,7 @@ namespace BS3D.Screens
 
             if (pad.IsConnected)
             {
-                if (pad.ThumbSticks.Right.LengthSquared() > 0f)
-                    _cannon.Aim(new Vector2(pad.ThumbSticks.Right.Y, -pad.ThumbSticks.Right.X) * PAD_AIM_RATE, gameTime);
+                MouseAim.ApplyPad(_cannon, pad, gameTime);
 
                 //Gated like the keyboard and the mouse: XInput reports a held trigger whether the window has
                 //focus or not, so without this the click that refocuses the game would arrive alongside a
@@ -1975,18 +1876,20 @@ namespace BS3D.Screens
             //in CheckLevelLost, against the state of the field then.
             if (_score.OutOfShots) return;
 
-            Vector3 direction = CannonAimDirection();
-            Vector3 muzzle = CannonMuzzlePosition();
-            BallType type = _magazine[0];
-
-            _shotBall.Pose.Position = new System.Numerics.Vector3(muzzle.X, muzzle.Y, muzzle.Z);
-            _shotBall.Velocity.Linear = new System.Numerics.Vector3(direction.X, direction.Y, direction.Z) * SHOOT_SPEED;
-
-            BodyHandle handle = _simulation.Bodies.Add(_shotBall);
+            //No recoil in either of these: the shot leaves along the TRUE aim on the frame it is fired, before
+            //the barrel has moved. The stroke below is drawing only — see CannonRecoilBack.
+            Vector3 direction = _cannon.AimDirection;
+            Vector3 muzzle = _cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall);
+            BallType type = _magazine.Peek();
 
             PhysicsBall ball = new()
             {
-                BallReference = new BodyReference(handle, _simulation.Bodies),
+                //Stamped from the world's shot template, added to the simulation and registered as a contact
+                //listener in one call, in that order — a listener is keyed on a collidable reference, so the
+                //body has to exist first. It is also the ONLY place anything is ever registered, which is what
+                //makes "every listener is a shot still in the air" true (see AnyShotUndecided).
+                BallReference = _world.AddShotBall(muzzle.ToNumerics(), direction.ToNumerics() * SHOOT_SPEED,
+                    _eventHandler),
                 Type = type //the colour the player saw loaded at the muzzle, so aiming for it means something
             };
 
@@ -2008,12 +1911,15 @@ namespace BS3D.Screens
                 _ceilingStepHold = CEILING_STEP_HOLD;
             }
 
-            //Registered after the body exists, since a listener is keyed on its collidable reference
-            _events.Register(_simulation.Bodies[handle].CollidableReference, _eventHandler);
+            //The shot's launch smear. Only the ball's authored tint goes over: decoding it to linear, lifting
+            //its peak off the floor so even the black ball leaves a mark and boosting it to a glowing radiance
+            //are one rule about how a smear looks, and it lives with the smear.
+            _smears.Add(muzzle, direction, BasicEffectParamsProvider.GetDiffuseTintByType(type));
 
-            _trails.Add(new ShotTrail { Origin = muzzle, Direction = direction, Color = TrailColorFor(type), Age = 0f });
-
-            AdvanceMagazine();
+            //The fired ball's slot empties, the queue shifts up, a fresh colour loads at the back and the glide
+            //is armed — and the transmute state rides forward with it through the hooks wired in the
+            //constructor, so no slot is left dissolving out of the ball behind it.
+            _magazine.Advance();
 
             //Set, not accumulated: a barrel's recoil stroke restarts from the top with every round, it does
             //not stack up over a burst the way the camera's trauma does.
@@ -2026,25 +1932,6 @@ namespace BS3D.Screens
             //Heard as well as felt: the shot's synthesized crack, centred (the muzzle is the lens's own work)
             //and nudged by a small random pitch so a burst never sounds flat.
             Game.Audio.PlayShoot();
-        }
-
-        private void AdvanceMagazine()
-        {
-            //A ball's half-finished transmute rides forward with it: the queue is drawn from these three
-            //arrays in step, so shifting only the colours would leave a slot dissolving out of a colour that
-            //belongs to the ball behind it.
-            for (int i = 0; i < MAGAZINE_SIZE - 1; i++)
-            {
-                _magazine[i] = _magazine[i + 1];
-                _magazineFrom[i] = _magazineFrom[i + 1];
-                _magazineTransmute[i] = _magazineTransmute[i + 1];
-            }
-
-            _magazine[MAGAZINE_SIZE - 1] = RandomBallType();
-            _magazineTransmute[MAGAZINE_SIZE - 1] = 0f; //freshly drawn from what is alive; nothing to fade
-
-            //Armed at one slot back, so the queue eases forward into the muzzle slot the shot just vacated
-            _magazineSlide = 1f;
         }
 
         #endregion
@@ -2064,12 +1951,11 @@ namespace BS3D.Screens
 
             while (_physicsAccumulator >= PHYSICS_TIMESTEP && steps < PHYSICS_MAX_STEPS_PER_FRAME)
             {
-                _simulation.Timestep(PHYSICS_TIMESTEP, _threadDispatcher);
-
-                //Flush first, then handle. Unregistering a listener is only safe once the per-worker adds
-                //collected during the timestep have been applied, and the handler unregisters as it attaches.
-                _events.Flush();
-                _eventHandler.ProcessQueuedContacts();
+                //Whole fixed steps out of the accumulator, which is this game's own policy and deliberately
+                //not the Testbed's one variable step per rendered frame — see PHYSICS_TIMESTEP. The mandatory
+                //Timestep → Flush → contacts order INSIDE each step is PhysicsWorld.Step's, which is why the
+                //work that belongs there is handed over rather than written after the call.
+                _world.Step(PHYSICS_TIMESTEP, _processContacts);
 
                 _physicsAccumulator -= PHYSICS_TIMESTEP;
                 steps++;
@@ -2080,8 +1966,8 @@ namespace BS3D.Screens
             //world run slow for that single frame instead.
             if (steps == PHYSICS_MAX_STEPS_PER_FRAME) _physicsAccumulator = 0f;
 
-            RemoveFallenBalls(_shotBalls, unregisterListeners: true);
-            RemoveFallenBalls(_fallingBalls, unregisterListeners: false);
+            RemoveFallenBalls(_shotBalls, scoreMisses: true);
+            RemoveFallenBalls(_fallingBalls, scoreMisses: false);
         }
 
         /// <summary>
@@ -2103,39 +1989,31 @@ namespace BS3D.Screens
         /// array would delete the cluster.
         /// </para>
         /// </summary>
-        /// <param name="unregisterListeners">True for shot balls, which may still be listening for contacts.</param>
-        private void RemoveFallenBalls(List<PhysicsBall> balls, bool unregisterListeners)
+        /// <param name="scoreMisses">
+        /// True for shot balls, which may still be undecided when they go over the edge. A released ball was
+        /// unregistered when it attached, so it can never be still listening and has no miss to score.
+        /// </param>
+        private void RemoveFallenBalls(List<PhysicsBall> balls, bool scoreMisses)
         {
             for (int i = balls.Count - 1; i >= 0; i--)
             {
                 BodyReference body = balls[i].BallReference;
+
+                //No sleep cull here, deliberately — see the remarks above
                 if (body.Pose.Position.Y >= KILL_PLANE_Y) continue;
 
-                if (unregisterListeners && _events.IsListener(body.CollidableReference))
-                {
-                    //Still listening means the shot never resolved: it missed the island as well as the
-                    //cluster and fell straight past everything into the city. The far rarer of the two misses
-                    //— a shot that strikes the stone is spent the moment it does (see the handler) — but it is
-                    //what makes "every shot resolves exactly once" true rather than nearly true.
-                    _score.Missed();
+                //Unregisters the listener if there still is one and then removes the body, in that one order
+                //that is safe (PhysicsWorld.RetireBall owns it), and answers whether the ball was STILL
+                //LISTENING — which is exactly "this shot resolved as nothing": it missed the island as well as
+                //the cluster and fell straight past everything into the city. The far rarer of the two misses —
+                //a shot that strikes the stone is spent the moment it does (see the handler) — but it is what
+                //makes "every shot resolves exactly once" true rather than nearly true. Not folded into the
+                //condition below: && would short-circuit the retire away for a falling ball.
+                bool wasUndecided = _world.RetireBall(body);
 
-                    _events.Unregister(body.CollidableReference);
-                }
+                if (wasUndecided && scoreMisses) _score.Missed();
 
-                _simulation.Bodies.Remove(body.Handle);
                 balls.RemoveAt(i);
-            }
-        }
-
-        private void UpdateTrails(float elapsed)
-        {
-            for (int i = _trails.Count - 1; i >= 0; i--)
-            {
-                ShotTrail trail = _trails[i];
-                trail.Age += elapsed;
-
-                if (trail.Age >= TRAIL_LIFETIME) _trails.RemoveAt(i);
-                else _trails[i] = trail;
             }
         }
 
@@ -2151,26 +2029,33 @@ namespace BS3D.Screens
         /// barrel's own axis. The shake is added on top of this pose, never into it.
         /// <para>
         /// That overview is one end of a Lerp; the other is the precise-aim lean over the barrel, and
-        /// <c>_adsBlend</c> is where between them the frame sits. Only the <b>base</b> pose is interpolated,
-        /// so the two never fight: the kick is applied to whatever came out, by the camera itself.
+        /// <see cref="PreciseAim.Blend"/> is where between them the frame sits. Only the <b>base</b> pose is
+        /// interpolated, so the two never fight: the kick is applied to whatever came out, by the camera itself.
         /// </para>
         /// </summary>
         private void UpdateCamera(float elapsed)
         {
-            //The lean into precise aim, eased both ways off one reversible scalar. At 0 the Lerps below
-            //return the overview pose bit for bit, so letting go re-asserts today's framing exactly; the ease
-            //is continuous through an interrupted hold, so there is no state machine and nothing to snap.
-            float adsTarget = _adsHeld ? 1f : 0f;
-            _adsBlend = adsTarget + (_adsBlend - adsTarget) * MathF.Exp(-elapsed / ADS_BLEND_TAU);
-            if (adsTarget == 0f && _adsBlend < 0.002f) _adsBlend = 0f;
-            if (adsTarget == 1f && _adsBlend > 0.998f) _adsBlend = 1f;
+            //The lean into precise aim, eased both ways off one reversible scalar. Stepped on every frame,
+            //held or not: an unheld frame is how the lean eases back out, which is what makes losing focus a
+            //fade rather than a drop. At a blend of 0 the pose below is the overview pose bit for bit, so
+            //letting go re-asserts today's framing exactly and an interrupted hold never snaps.
+            _preciseAim.Step(_adsHeld, elapsed);
 
             Vector3 overviewPosition = GameCameraPositionAt(_gameCameraDistance);
             Vector3 overviewTarget = new(_cannon.OrbitCenter.X, _gameCameraTargetY, _cannon.OrbitCenter.Z);
 
-            Vector3 position = Vector3.Lerp(overviewPosition, AdsCameraPosition(), _adsBlend);
-            Vector3 target = Vector3.Lerp(overviewTarget, AdsCameraTarget(), _adsBlend);
-            float fov = MathHelper.Lerp(GAME_FOV, ADS_FOV, _adsBlend);
+            //Taken as a VALUE, not written into the camera: the cinematic below goes on lerping over it, and
+            //the base pose the shake composes onto is whatever comes out of both. The muzzle and the aim are
+            //read after _cannon.Update this frame, or the lens lags the barrel and reads as jitter — and
+            //without the recoil, which is the barrel's drawing offset and not where it is pointed. The cluster
+            //centre is the whole field's middle, solved once per level: the impact face sweeps that range.
+            AimPose aim = _preciseAim.BlendedPose(overviewPosition, overviewTarget, GAME_FOV,
+                _cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall), _cannon.AimDirection,
+                new Vector3(_cannon.OrbitCenter.X, _clusterCentreY, _cannon.OrbitCenter.Z));
+
+            Vector3 position = aim.Position;
+            Vector3 target = aim.Target;
+            float fov = aim.FieldOfView;
 
             //And the drop cinematic is a second Lerp over the top of that one, on its own reversible scalar
             //and for the same reason: at a blend of 0 these three lines return the pose above bit for bit, so
@@ -2193,84 +2078,17 @@ namespace BS3D.Screens
             Camera.Update(elapsed);
         }
 
-        /// <summary>
-        /// The lens for precise aim: behind the muzzle along the bore and lifted over it, so the camera looks
-        /// down the aim with the barrel a small sliver along the bottom of the frame — grounding, not
-        /// obstruction. Its Y is floored at <see cref="ADS_MIN_Y"/>: aiming steeply up, <c>-aim</c> points
-        /// down and the set-back would otherwise drop the lens through the island and show it from below.
-        /// </summary>
-        private Vector3 AdsCameraPosition()
-        {
-            Vector3 aim = CannonAimDirection();
-            Vector3 lens = CannonMuzzlePosition() - aim * ADS_BACK + AdsCamUp() * ADS_RISE;
-
-            lens.Y = MathF.Max(lens.Y, ADS_MIN_Y);
-
-            return lens;
-        }
-
-        /// <summary>
-        /// What that lens looks at: a point <b>on the shot ray</b> (muzzle + aim · d), so screen centre marks
-        /// where the shot is directed — honest before gravity, since that is the direction the ball leaves
-        /// on. The depth <c>d</c> is the cluster's, clamped: the crosshair is on the ray at any depth, so
-        /// this only centres the small over-the-barrel parallax over the range the impact face sweeps.
-        /// <para>
-        /// The honest limit is that parallax. Because the lens sits <see cref="ADS_RISE"/> above the ray, the
-        /// crosshair is pixel-exact only at <c>d</c> — a nearer impact reads slightly low. Fixing that would
-        /// mean raycasting the cluster for the true first contact and setting <c>d</c> to the hit distance.
-        /// </para>
-        /// </summary>
-        private Vector3 AdsCameraTarget()
-        {
-            Vector3 aim = CannonAimDirection();
-            Vector3 muzzle = CannonMuzzlePosition();
-
-            Vector3 clusterCentre = new(_cannon.OrbitCenter.X, _clusterCentreY, _cannon.OrbitCenter.Z);
-            float d = MathHelper.Clamp(Vector3.Dot(clusterCentre - muzzle, aim), ADS_CONVERGE_MIN, ADS_CONVERGE_MAX);
-
-            return muzzle + aim * d;
-        }
-
-        /// <summary>
-        /// The up the lens is <b>lifted</b> along: world up made perpendicular to the bore, so the lift is
-        /// straight over the barrel at every pitch and yaw and the tube stays a bottom-centre sliver. The
-        /// <b>view</b> up is plain world up — <see cref="RecoilCamera"/> builds its basis from one — which is
-        /// what keeps the horizon level. Well conditioned across <see cref="Cannon"/>'s elevation clamp: at
-        /// its ~80° ceiling the bore is still ~10° off vertical, so |up|² stays around 0.03, far above the
-        /// threshold below; the horizontal fallback only trips within ~0.6° of straight up.
-        /// </summary>
-        private Vector3 AdsCamUp()
-        {
-            Vector3 aim = CannonAimDirection();
-            Vector3 up = Vector3.Up - aim * Vector3.Dot(Vector3.Up, aim);
-
-            return up.LengthSquared() < 1e-4f ? Vector3.Normalize(new Vector3(aim.Z, 0f, -aim.X)) : Vector3.Normalize(up);
-        }
-
         #endregion
 
         #region Fitting the camera and the gun to the level
 
         /// <summary>
-        /// The horizontal direction from the field out towards the gun — the way the camera stands back.
-        /// Deliberately <b>flattened to the horizontal</b>: taken straight from <c>Position - OrbitCenter</c>
-        /// it tilts down by however far the gun stands below the cluster, which eats the camera's height and
-        /// leaves the lens sitting on the barrel's own axis, seeing the gun end-on.
+        /// Where the lens sits for a given stand-off — the overview pose, and the very pose
+        /// <see cref="GameCameraFit.Solve"/> searches over, so the one expression has one home. The bearing it
+        /// stands back along is flattened to the horizontal; the reason is on
+        /// <see cref="Cannon.StandBearing"/>, along with the camera's drop below the trunnions.
         /// </summary>
-        private Vector3 GameCameraBearing()
-        {
-            Vector3 back = _cannon.Position - _cannon.OrbitCenter;
-            back.Y = 0f;
-
-            return back == Vector3.Zero ? Vector3.Backward : Vector3.Normalize(back);
-        }
-
-        /// <summary>The field's centre at ground level: what the camera stands off from and turns about.</summary>
-        private Vector3 FieldCentreGround() => new(_cannon.OrbitCenter.X, 0f, _cannon.OrbitCenter.Z);
-
-        /// <summary>Where the lens sits for a given stand-off — the pose the fit below searches over.</summary>
-        private Vector3 GameCameraPositionAt(float distance) =>
-            FieldCentreGround() + GameCameraBearing() * distance + Vector3.Up * (_cannon.Position.Y + CAMERA_HEIGHT);
+        private Vector3 GameCameraPositionAt(float distance) => GameCameraFit.CameraPosition(_cannon, distance);
 
         /// <summary>
         /// The viewport has changed size or shape under the session: the aim's mouse baseline is stale (the
@@ -2280,159 +2098,44 @@ namespace BS3D.Screens
         /// </summary>
         internal void OnViewportChanged()
         {
-            _mouseAimInitialized = false;
+            _mouseAim.Invalidate();
 
             FitCannonAndGameCameraToLevel();
         }
 
         /// <summary>
-        /// Solves the gun's orbit radius and the camera's stand-off together, since each depends on the other
-        /// — the camera is placed to frame the field <i>and the gun</i>, and the gun is placed a fixed
-        /// distance in front of the camera. Alternating converges at once in practice: at a fixed distance
-        /// from the lens the gun's angular footprint is the same whatever the radius, so the camera's solve
-        /// barely moves after the first round. Run on every level load and every resize.
+        /// Solves the gun's orbit radius and the camera's stand-off and aim height together — each depends on
+        /// the other, since the camera is placed to frame the field <i>and the gun</i> while the gun is placed a
+        /// fixed distance in front of the camera. The whole of it is <see cref="GameCameraFit"/>'s, shared with
+        /// the Testbed since #76; what is left here is the field this level happens to have, the overview lens
+        /// it is framed through, and the three assignments the solve implies. Run on every level load and every
+        /// resize, never per frame.
         /// </summary>
         private void FitCannonAndGameCameraToLevel()
         {
             if (_map == null) return;
 
-            for (int round = 0; round < 3; round++)
-            {
-                FitCannonOrbitToLevel();
-                FitGameCameraToLevel();
-            }
+            //The half-extents are the ceiling plate's own footprint, asked of the one helper that applies the
+            //margin, so the corners that are framed ARE the corners of the glass that is drawn — written out
+            //here again they would silently stop agreeing with the plate and the collidable the moment it is
+            //retuned. bottomY is the field's floor in WORLD Y, and it is the one thing that differs from the
+            //Testbed's caller: there the lattice frame IS the world frame, while here level 0 sits at the
+            //cluster's offset. A deep level's empty growth levels are inside the fitted volume on purpose —
+            //the cluster grows down into them, so they have to be in frame before the first ball lands there.
+            CameraFit fit = GameCameraFit.Solve(_cannon, Game.CannonRig.PivotToFrontBall + Constants.HALF,
+                CeilingPlate.FootprintFor(_map.StageSizeX) * Constants.HALF,
+                CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF,
+                _clusterWorldOffset.Y,
+                CeilingPlate.TopFaceY(_ceilingY), //upper face of the glass, wherever the descent has it now
+                GAME_FOV, Camera.AspectRatio);
+
+            _gameCameraDistance = fit.CameraDistance;
+            _gameCameraTargetY = fit.CameraTargetY;
+            _cannon.OrbitRadius = fit.CannonOrbitRadius; //the one write the solve implies, once, at the end
 
             Console.WriteLine($"[camera] Field {_map.StageSizeX}x{_map.StageSizeZ}x{_map.Levels}, aspect {Camera.AspectRatio:F2}: "
                 + $"camera {_gameCameraDistance:F1} out, aim Y {_gameCameraTargetY:F1}, "
                 + $"gun orbit {_cannon.OrbitRadius:F1} ({_gameCameraDistance - _cannon.OrbitRadius:F1} in front of the lens)");
-        }
-
-        /// <summary>
-        /// Puts the gun <see cref="CANNON_CAMERA_STANDOFF"/> in front of the camera, held off by the two lower
-        /// bounds documented with that constant.
-        /// </summary>
-        private void FitCannonOrbitToLevel()
-        {
-            float halfX = (_map.StageSizeX + 1f) * Constants.HALF;
-            float halfZ = (_map.StageSizeZ + 1f) * Constants.HALF;
-
-            float clearFootprint = MathF.Sqrt(halfX * halfX + halfZ * halfZ) + CANNON_FIELD_CLEARANCE;
-            float clearElevation = (_cannon.OrbitCenter.Y - _cannon.Position.Y) / MathF.Tan(CANNON_MAX_REST_ELEVATION);
-
-            _cannon.OrbitRadius = MathF.Max(_gameCameraDistance - CANNON_CAMERA_STANDOFF,
-                MathF.Max(clearFootprint, clearElevation));
-        }
-
-        /// <summary>
-        /// Places the camera so the whole play field, the glass over it and the gun fit inside the frustum,
-        /// and aims it so they sit centred in it.
-        /// <para>
-        /// This has to be <b>solved</b> rather than tuned, because both of its inputs move. The field is
-        /// sized per level, so a stand-off that frames one crops another off the top of the screen — which is
-        /// exactly what the fixed number it replaces did. And the frustum is sized per display:
-        /// <c>CreatePerspectiveFieldOfView</c> takes the <b>vertical</b> FOV, so a wider screen only adds
-        /// width. That is the behaviour wanted — the field keeps its size on an ultrawide and the extra width
-        /// goes to scenery — but it also means the horizontal fit is generous at 21:9 and tightest on the
-        /// narrowest display, so both axes are checked.
-        /// </para>
-        /// </summary>
-        private void FitGameCameraToLevel()
-        {
-            float halfX = (_map.StageSizeX + 1f) * Constants.HALF;
-            float halfZ = (_map.StageSizeZ + 1f) * Constants.HALF;
-
-            //The field in WORLD Y, which is the one place this differs from the Testbed's own solver: there
-            //the lattice frame IS the world frame, while here level 0 sits at the cluster offset rather than
-            //at zero. A deep level's empty growth levels are inside this on purpose — the cluster grows down
-            //into them, so they have to be in frame before the first ball ever lands there.
-            float bottomY = _clusterWorldOffset.Y;
-            float topY = _ceilingY + Constants.HALF;   //upper face of the ceiling slab
-
-            float verticalHalf = GAME_FOV * Constants.HALF * GAME_CAMERA_FIT_MARGIN;
-            float horizontalHalf = MathF.Atan(MathF.Tan(GAME_FOV * Constants.HALF) * Camera.AspectRatio) * GAME_CAMERA_FIT_MARGIN;
-
-            //Everything fits from far enough away and nothing does from close in, so the smallest distance
-            //that fits can be bisected for. The near bound is the lens right behind the gun.
-            float near = CannonOrbitRadius() + 2f;
-            float far = 400f;
-
-            for (int i = 0; i < 32; i++)
-            {
-                float middle = (near + far) * Constants.HALF;
-                if (GameCameraFitsAt(middle, halfX, halfZ, bottomY, topY, verticalHalf, horizontalHalf, out _)) far = middle;
-                else near = middle;
-            }
-
-            GameCameraFitsAt(far, halfX, halfZ, bottomY, topY, verticalHalf, horizontalHalf, out float axisElevation);
-
-            _gameCameraDistance = far;
-            _gameCameraTargetY = _cannon.Position.Y + CAMERA_HEIGHT + far * MathF.Tan(axisElevation);
-        }
-
-        /// <summary>
-        /// Whether the field, its ceiling and the gun all land inside the frustum with the lens that far out,
-        /// and at what elevation the view axis has to sit for it. Elevations are measured off the horizontal
-        /// and bisected, which is what centres the subject between the top and bottom edges.
-        /// </summary>
-        private bool GameCameraFitsAt(float distance, float halfX, float halfZ, float bottomY, float topY,
-            float verticalHalf, float horizontalHalf, out float axisElevation)
-        {
-            Vector3 back = GameCameraBearing();
-            Vector3 camera = GameCameraPositionAt(distance);
-            Vector3 forward = -back;
-            Vector3 right = Vector3.Cross(Vector3.Up, forward);
-
-            float minElevation = float.MaxValue;
-            float maxElevation = float.MinValue;
-            float maxSide = 0f;
-            bool ahead = true;
-
-            void Consider(Vector3 point)
-            {
-                Vector3 offset = point - camera;
-                float depth = Vector3.Dot(offset, forward);
-
-                //On or behind the lens: there is no angle to measure, and the pose is rejected outright
-                if (depth <= Constants.ONE) { ahead = false; return; }
-
-                float elevation = MathF.Atan2(offset.Y, depth);
-                minElevation = MathF.Min(minElevation, elevation);
-                maxElevation = MathF.Max(maxElevation, elevation);
-                maxSide = MathF.Max(maxSide, MathF.Atan2(MathF.Abs(Vector3.Dot(offset, right)), depth));
-            }
-
-            //The field's eight corners, from the floor of the play space to the top of the glass
-            for (int cornerX = -1; cornerX <= 1; cornerX += 2)
-                for (int cornerZ = -1; cornerZ <= 1; cornerZ += 2)
-                {
-                    Consider(new Vector3(cornerX * halfX, bottomY, cornerZ * halfZ));
-                    Consider(new Vector3(cornerX * halfX, topY, cornerZ * halfZ));
-                }
-
-            //The gun, as a box around its trunnions large enough to hold the barrel at any aim, so the fit
-            //does not change as the player elevates or traverses
-            float reach = CANNON_PIVOT_TO_FRONT_BALL + Constants.HALF;
-            Consider(_cannon.Position + Vector3.Up * reach);
-            Consider(_cannon.Position - Vector3.Up * reach);
-            Consider(_cannon.Position + back * reach);
-            Consider(_cannon.Position - back * reach);
-            Consider(_cannon.Position + right * reach);
-            Consider(_cannon.Position - right * reach);
-
-            axisElevation = (minElevation + maxElevation) * Constants.HALF;
-
-            return ahead
-                && (maxElevation - minElevation) * Constants.HALF <= verticalHalf
-                && maxSide <= horizontalHalf;
-        }
-
-        /// <summary>The gun's horizontal distance from the centre it orbits — its orbit radius.</summary>
-        private float CannonOrbitRadius()
-        {
-            Vector3 offset = _cannon.Position - _cannon.OrbitCenter;
-            offset.Y = 0f;
-
-            return offset.Length();
         }
 
         #endregion
@@ -2460,19 +2163,39 @@ namespace BS3D.Screens
                 return;
             }
 
-            //The occlusion ease and the attach glide are advanced on the draw clock, since both are purely
-            //about what is on screen
-            CollectBallInstances((float)gameTime.ElapsedGameTime.TotalSeconds);
+            //This frame's ball collection, opened here and closed by the one Draw below. It is a ref struct and
+            //lives as a LOCAL, deliberately: BeginFrame is the only thing that can open one, it empties the
+            //buckets on the way and it throws if a second is opened before the first is drawn — which is what
+            //makes "every ball is visited exactly once" structural rather than a rule to remember. The
+            //occlusion ease, the attach glide and the ripple all advance state on the ball itself, so a second
+            //visit would run all three at double speed while the buckets still looked perfectly correct.
+            BallDrawFrame ballFrame = Game.Balls.BeginFrame(Camera);
+
+            //The cluster, the shots in flight and the released balls falling, each off its own body's pose — so
+            //what the player is looking at IS the simulation. On the DRAW clock, since the ease, the glide and
+            //the ripple are all purely about what is on screen.
+            _clusterCollector.Collect(ballFrame, (float)gameTime.ElapsedGameTime.TotalSeconds,
+                _physicsBalls, _shotBalls, _fallingBalls);
+
+            //And the loaded queue into the very same frame — this screen's own loop, because the barrel's bore
+            //and the transmute cross-fade are its own business
+            CollectMagazineBalls(ballFrame);
 
             SceneFrame sceneFrame = Game.BeginSceneDraw();
 
-            Game.CannonRenderer.Draw(Camera, CannonWorld(), Game.SceneEffectParams);
+            //The barrel, drawn with its recoil stroke: the pose is Cannon's and the hardware CannonRig's, so
+            //the tube that was built and the bore a shot leaves from cannot disagree
+            Game.CannonRig.Draw(Camera, _cannon.BarrelWorld(CannonRecoilBack()), Game.SceneEffectParams);
 
-            DrawBallsInstanced();
+            //Everything collected above, as one instanced draw per ball type and LOD level — and the frame's
+            //collection is closed by it. The heartbeat runs on the WALL clock: the balls go on breathing while
+            //a pause has the session frozen, because it is what they are and not something they are doing.
+            Game.Balls.Draw(WallClock);
 
             //Over the opaque scene (which the depth buffer now holds, so the cluster and the gun occlude
-            //them) and additive, so they glow through the glare
-            DrawShotTrails();
+            //them) and additive, so they glow through the glare. It puts back exactly the states it found,
+            //so the frame's translucent baseline still stands for the glass below.
+            _smears.Draw(Camera);
 
             Game.DrawSettingGlass();
 
@@ -2505,163 +2228,23 @@ namespace BS3D.Screens
             //the frame on its way to a score nobody is playing for any more.
             if (_pendingOutcome == LevelOutcome.None) _hud.Draw(_score, Camera);
 
-            DrawCrosshair();
+            //The crosshair, into the host's overlay batch (the one the HUD above just used): shown only while
+            //precise aim is leaning in, that being the only pose whose lens looks along the shot, and faded up
+            //with the lean rather than snapped on. The gate below a hundredth is the component's own.
+            _crosshair.Draw(Game.OverlayBatch, _preciseAim.Blend);
         }
-
-        #region The crosshair
-
-        /// <summary>
-        /// The crosshair, shown only while precise aim is leaning in — that is the only pose whose lens looks
-        /// along the shot, so it is the only one where a screen-centre mark means anything. Four bars around
-        /// a clear centre, struck from a single white texel; multiplying the colour by the blend scales its
-        /// alpha too, so it fades up with the lean instead of snapping on.
-        /// </summary>
-        private void DrawCrosshair()
-        {
-            if (_adsBlend <= 0.01f) return;
-
-            Viewport viewport = GraphicsDevice.Viewport;
-
-            float scale = viewport.Height / CROSSHAIR_SCALE_DIVISOR;
-            float arm = CROSSHAIR_ARM * scale;
-            float gap = CROSSHAIR_GAP * scale;
-
-            //A bar authored five units thick is under a pixel on a small window, where rounding down would
-            //leave nothing to draw at all
-            int thickness = Math.Max(1, (int)(CROSSHAIR_THICKNESS * scale));
-            int length = Math.Max(1, (int)arm);
-
-            int centreX = viewport.Width / 2;
-            int centreY = viewport.Height / 2;
-            int inner = (int)gap;
-            int half = thickness / 2;
-
-            Color color = CROSSHAIR_COLOR * _adsBlend;
-
-            SpriteBatch batch = Game.OverlayBatch;
-            Texture2D pixel = Game.WhitePixel;
-
-            batch.Begin();
-            batch.Draw(pixel, new Rectangle(centreX - inner - length, centreY - half, length, thickness), color);
-            batch.Draw(pixel, new Rectangle(centreX + inner, centreY - half, length, thickness), color);
-            batch.Draw(pixel, new Rectangle(centreX - half, centreY - inner - length, thickness, length), color);
-            batch.Draw(pixel, new Rectangle(centreX - half, centreY + inner, thickness, length), color);
-            batch.End();
-        }
-
-        #endregion
 
         #region The balls in the frame
 
-        /// <summary>
-        /// Gathers every ball in the frame — the structure, the shots in flight, the ones falling and the queue
-        /// in the barrel — into one bucket per type and LOD, each of which becomes a single instanced draw call.
-        /// The first three come straight off their bodies' poses, so what is drawn <i>is</i> the simulation.
-        /// <para>
-        /// Neighbour-based ambient occlusion is derived here too: a ball buried in the mass is darker than one
-        /// on the outside, which is what makes the cluster read as one body rather than a heap of spheres. It is
-        /// re-derived for every ball every frame rather than for a new arrival alone, because a ball that
-        /// attaches also boxes in each neighbour it arrived next to. Each ball must be visited <b>exactly
-        /// once</b> per frame — the ease and the glide below advance state on the ball itself.
-        /// </para>
-        /// </summary>
-        private void CollectBallInstances(float elapsed)
-        {
-            for (int i = 0; i < _ballInstanceCounts.Length; i++) _ballInstanceCounts[i] = 0;
-
-            //How far towards its target each ball's occlusion moves this frame, and how much of the attach
-            //glide is left after it
-            float ease = elapsed <= 0f ? 1f : MathF.Min(1f, elapsed / BALL_OCCLUSION_EASE_SECONDS);
-            float glide = elapsed <= 0f ? 0f : MathF.Exp(-elapsed / BALL_ATTACH_GLIDE_SECONDS);
-
-            //Hoisted: the array's dimensions do not change, and this is the innermost loop in the frame
-            XZLevel size = XZLevel.FromArray(_physicsBalls);
-
-            for (int level = 0; level < size.Level; level++)
-                for (int x = 0; x < size.X; x++)
-                    for (int z = 0; z < size.Z; z++)
-                    {
-                        PhysicsBall ball = _physicsBalls[x, z, level];
-                        if (ball == null) continue;
-
-                        int occluders = BallsConstraintsBuilder.CountOccupiedNeighbors(
-                            _physicsBalls, new XZLevel(x, z, level), size, out System.Numerics.Vector3 direction);
-
-                        //The direction is a sum of unit vectors, one per occupied neighbour, so it has to be
-                        //divided by the most there can be before the shader reads it as a direction-and-weight.
-                        //Handed over raw it is up to twelve times too long, the shader's dot against it
-                        //saturates over most of the ball, and every surface ball wears a hard black crescent
-                        //instead of the soft inward shading that makes the cluster read as one body.
-                        System.Numerics.Vector4 target = new(
-                            direction / MAX_BALL_OCCLUDERS,
-                            1f - BALL_OCCLUSION_STRENGTH * Math.Min(occluders, MAX_BALL_OCCLUDERS) / MAX_BALL_OCCLUDERS);
-
-                        CollectBallInstance(ball, EaseOcclusion(ball, target, ease), glide, elapsed);
-                    }
-
-            //Indexed rather than foreach: these are List<T> on a per-frame path
-            for (int i = 0; i < _shotBalls.Count; i++)
-                CollectBallInstance(_shotBalls[i], EaseOcclusion(_shotBalls[i], PhysicsBall.UNOCCLUDED, ease), glide, elapsed);
-
-            //The falling balls advance their ripple too: a group cut loose while the wave was passing through
-            //it keeps glowing on its way down rather than snapping dark the instant it stops being cluster
-            for (int i = 0; i < _fallingBalls.Count; i++)
-                CollectBallInstance(_fallingBalls[i], EaseOcclusion(_fallingBalls[i], PhysicsBall.UNOCCLUDED, ease), glide, elapsed);
-
-            CollectMagazineBalls();
-        }
-
-        /// <summary>
-        /// Moves a ball's drawn occlusion towards what its surroundings now call for. A ball joins or leaves the
-        /// lattice in a single step, while it has not moved at all, so taking the new value straight would pop
-        /// its shading — most visibly when a matched group lets go and every ball around the hole brightens at
-        /// once. The <i>first</i> frame a ball is drawn does take it straight, or a freshly built cluster would
-        /// fade into its own shading instead of starting out correct.
-        /// </summary>
-        private static System.Numerics.Vector4 EaseOcclusion(PhysicsBall ball, System.Numerics.Vector4 target, float ease)
-        {
-            if (!ball.OcclusionInitialized)
-            {
-                ball.Occlusion = target;
-                ball.OcclusionInitialized = true;
-            }
-            else ball.Occlusion += (target - ball.Occlusion) * ease;
-
-            return ball.Occlusion;
-        }
-
-        /// <summary>
-        /// One ball, drawn from its body: where the pose puts it, turned the way the pose turns it, plus
-        /// whatever is left of its attach glide.
-        /// </summary>
-        private void CollectBallInstance(PhysicsBall ball, System.Numerics.Vector4 occlusion, float glide, float elapsed)
-        {
-            RigidPose pose = ball.BallReference.Pose;
-
-            //The glide is an offset from the body that decays to nothing, not a smoothed position: the ball
-            //still follows every bit of the structure's swaying meanwhile, so nothing is left over to jump when
-            //it ends. Skipped for exactly one frame after it is armed, because the constraints that drag the
-            //body into its cell have not run yet and offsetting it now would move it the wrong way.
-            if (ball.RenderOffsetArmed) ball.RenderOffsetArmed = false;
-            else if (ball.RenderOffset.LengthSquared() > BALL_ATTACH_GLIDE_DONE_SQUARED) ball.RenderOffset *= glide;
-            else ball.RenderOffset = default;
-
-            System.Numerics.Vector3 drawn = pose.Position + ball.RenderOffset;
-            Vector3 position = new(drawn.X, drawn.Y, drawn.Z);
-
-            //The balls turn now, which is what makes the beach-ball pattern readable — so the world matrix has
-            //to carry the orientation. Built from the quaternion with the translation written into the fourth
-            //row rather than multiplied in by a second 4×4.
-            Matrix world = Matrix.CreateFromQuaternion(
-                new Quaternion(pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z, pose.Orientation.W));
-
-            world.M41 = position.X;
-            world.M42 = position.Y;
-            world.M43 = position.Z;
-
-            CollectBallInstance(position, world, ball.Type, new Vector4(occlusion.X, occlusion.Y, occlusion.Z, occlusion.W),
-                ripple: AdvanceRipple(ball, elapsed));
-        }
+        //The walk that gathers the structure, the shots in flight and the balls falling is ClusterCollector's
+        //(see the field), and the neighbour-based ambient occlusion it shades them with — a ball buried in the
+        //mass is darker than one on the outside, which is what makes the cluster read as one body rather than a
+        //heap of spheres — is derived by BallRenderSet.OcclusionTarget, the only thing that can build that
+        //vector at all. That is where this game's worst ball bug was: the direction is a SUM of unit vectors,
+        //one per occupied neighbour, and this file handed it over undivided, so it was up to twelve times too
+        //long, the shader's dot against it saturated over most of the ball and every surface ball wore a hard
+        //black crescent instead of the soft inward shading. The division cannot be forgotten now, and it must
+        //not be done a second time here.
 
         #region The ripple
 
@@ -2838,9 +2421,11 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Advances one ball's flare and returns how brightly it is burning this frame. Called from the one
-        /// place that visits every ball exactly once a frame, like the occlusion ease and the attach glide, and
-        /// for the same reason: it advances state on the ball itself.
+        /// Advances one ball's flare and returns how brightly it is burning this frame. It advances state on the
+        /// ball itself, exactly as the occlusion ease and the attach glide do, so it must run once per ball per
+        /// frame and no more — which is why it is not called from here at all: it is the hook
+        /// <see cref="ClusterCollector"/> was constructed with (see the field), and that walk is the one place
+        /// every ball is visited exactly once.
         /// </summary>
         private static float AdvanceRipple(PhysicsBall ball, float elapsed)
         {
@@ -2878,25 +2463,25 @@ namespace BS3D.Screens
         /// the player reads the next colour off them. They take the barrel's own basis: drawn unrotated they
         /// would hold a fixed world orientation while the barrel tilts around them, which reads as each
         /// ball skewing in its slot.
+        /// <para>
+        /// Into the same open frame the cluster went into, through the same
+        /// <see cref="BallDrawFrame.Add"/> — but the loop is this screen's own, because which colours are
+        /// loaded, where the bore puts them and the cross-fade below are all questions about this game rather
+        /// than about drawing a ball. Taken as <c>in</c> since the frame is a ref struct.
+        /// </para>
         /// </summary>
-        private void CollectMagazineBalls()
+        private void CollectMagazineBalls(in BallDrawFrame frame)
         {
-            Vector3 direction = CannonAimDirection();
+            //Taken once per frame rather than per ball, so each slot's place is a multiply and an add. The queue
+            //rides the barrel, recoil included: it sits in the bore, so it goes back with it — the same stroke
+            //the barrel itself was drawn with, or the balls float out of it. The pose also carries the barrel's
+            //own basis, and each slot's matrix takes it with the translation written straight into its fourth
+            //row rather than multiplied in (see BorePose.SlotWorld).
+            BorePose pose = _magazine.Pose(_cannon, Game.CannonRig.PivotToFrontBall, CannonRecoilBack());
 
-            //The queue rides the barrel, recoil included: it sits in the bore, so it goes back with it
-            Vector3 front = CannonMuzzlePosition() + CannonRecoilOffset();
-
-            //The barrel's basis with the translation written straight in: CannonOrientation() carries zero
-            //translation (Matrix.CreateWorld with Vector3.Zero), so orientation × translation is exactly the
-            //orientation with its fourth row set — no per-ball matrix multiply needed
-            Matrix world = CannonOrientation();
-
-            for (int i = 0; i < MAGAZINE_SIZE; i++)
+            for (int i = 0; i < Magazine.SIZE; i++)
             {
-                Vector3 position = front - direction * ((i + _magazineSlide) * MAGAZINE_SPACING);
-                world.M41 = position.X;
-                world.M42 = position.Y;
-                world.M43 = position.Z;
+                Matrix world = pose.SlotWorld(i, out Vector3 position);
 
                 //A ball whose colour was eliminated from the cluster is re-coloured where it sits, and the two
                 //colours cross-fade by dithering against each other: the new one arrives (negative) while the
@@ -2909,211 +2494,44 @@ namespace BS3D.Screens
                 //new colour arrives complete on the frame of the swap and the old one is never seen at all.
                 float remaining = _magazineTransmute[i];
 
+                //A ball in the barrel has nothing packed around it, so it carries the same unoccluded vector a
+                //shot in flight does — off the one constant, rather than four literals written out here
                 if (remaining > 0f)
                 {
                     float progress = 1f - remaining;
 
-                    CollectBallInstance(position, world, _magazine[i], new Vector4(0f, 0f, 0f, 1f), -progress);
-                    CollectBallInstance(position, world, _magazineFrom[i], new Vector4(0f, 0f, 0f, 1f), progress);
+                    frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED, -progress);
+                    frame.Add(_magazineFrom[i], position, world, BallRenderSet.UNOCCLUDED, progress);
                 }
-                else CollectBallInstance(position, world, _magazine[i], new Vector4(0f, 0f, 0f, 1f));
+                else frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED);
             }
-        }
-
-        /// <param name="dissolve">
-        /// Zero for every ball but one caught mid-transmute — see <see cref="ModelInstance.Dissolve"/>.
-        /// </param>
-        private void CollectBallInstance(Vector3 position, Matrix world, BallType type, Vector4 occlusion,
-            float dissolve = 0f, float ripple = 0f)
-        {
-            int typeIndex = (int)type - 1;
-            if (typeIndex < 0 || typeIndex >= BS3DGame.BALL_TYPE_COUNT) return;
-
-            float distance = Vector3.Distance(position, Camera.Position);
-            int lod = 0;
-            while (lod < BS3DGame.BALL_LOD_DISTANCES.Length && distance > BS3DGame.BALL_LOD_DISTANCES[lod]) lod++;
-
-            int bucketIndex = typeIndex * BS3DGame.BALL_LOD_COUNT + lod;
-            ModelInstance[] bucket = _ballInstances[bucketIndex];
-            int count = _ballInstanceCounts[bucketIndex];
-
-            if (bucket == null)
-            {
-                bucket = new ModelInstance[256];
-                _ballInstances[bucketIndex] = bucket;
-            }
-            else if (count == bucket.Length)
-            {
-                Array.Resize(ref bucket, bucket.Length * 2);
-                _ballInstances[bucketIndex] = bucket;
-            }
-
-            bucket[count] = new ModelInstance(world, occlusion, dissolve, ripple);
-            _ballInstanceCounts[bucketIndex] = count + 1;
-        }
-
-        private void DrawBallsInstanced()
-        {
-            for (int lod = 0; lod < BS3DGame.BALL_LOD_COUNT; lod++) Game.BallRenderers[lod].PulseTime = WallClock;
-
-            for (int typeIndex = 0; typeIndex < BS3DGame.BALL_TYPE_COUNT; typeIndex++)
-                for (int lod = 0; lod < BS3DGame.BALL_LOD_COUNT; lod++)
-                {
-                    int bucketIndex = typeIndex * BS3DGame.BALL_LOD_COUNT + lod;
-                    int count = _ballInstanceCounts[bucketIndex];
-                    if (count == 0) continue;
-
-                    BallType type = (BallType)(typeIndex + 1);
-
-                    Game.BallRenderers[lod].Draw(Camera, _ballInstances[bucketIndex], count,
-                        BasicEffectParamsProvider.GetEffectByType(type),
-                        BasicEffectParamsProvider.GetDiffuseTintByType(type));
-                }
         }
 
         #endregion
 
-        #region The launch smears
+        #region The gun's recoil
+
+        //What used to be the gun's geometry: the barrel's pose — the aim, the muzzle, the basis and the draw
+        //matrix — is Cannon's own since #76, and the tube's figures are CannonRig's. All that is left here is
+        //the stroke, because only this executable animates one.
 
         /// <summary>
-        /// The launch smears. A ball leaves at <see cref="SHOOT_SPEED"/> — several diameters a frame — so
-        /// the shot itself is not something the eye can follow; the smear is what sells it. It is anchored
-        /// at the muzzle and lives its own short life rather than following the ball, and its <b>bright,
-        /// wide end is the leading one</b>: the muzzle end is hidden behind the barrel, so a muzzle-bright
-        /// streak shows only its faint tapering tip and reads as a thin thread.
-        /// </summary>
-        private void DrawShotTrails()
-        {
-            if (_trails.Count == 0) return;
-
-            _trailViewParam.SetValue(Camera.View);
-            _trailProjectionParam.SetValue(Camera.Projection);
-            _trailCameraPositionParam.SetValue(Camera.Position);
-
-            GraphicsDevice.BlendState = BlendState.Additive;
-            GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-            GraphicsDevice.SetVertexBuffer(_shotTrailVertexBuffer);
-            GraphicsDevice.Indices = _shotTrailIndexBuffer;
-
-            foreach (ShotTrail trail in _trails)
-            {
-                //Held near-full for most of the life and dropped away at the end (1 - t²), so the smear
-                //does not dim the instant it appears and get missed
-                float t = trail.Age / TRAIL_LIFETIME;
-
-                _trailHeadParam.SetValue(trail.Origin + trail.Direction * TRAIL_LENGTH);
-                _trailTailParam.SetValue(trail.Origin);
-                _trailColorParam.SetValue(trail.Color);
-                _trailAlphaParam.SetValue(1f - t * t);
-
-                _shotTrailEffect.CurrentTechnique.Passes[0].Apply();
-                GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
-            }
-
-            GraphicsDevice.BlendState = BlendState.AlphaBlend;
-            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// The smear's colour: the ball type's diffuse tint decoded to linear, its hue kept but its peak
-        /// lifted to a floor so even the near-black ball leaves a faint grey smear, then boosted over 1 so
-        /// the streak glows and blooms through the glare.
-        /// </summary>
-        private static Vector3 TrailColorFor(BallType type)
-        {
-            Vector3 linear = ColorSpace.SrgbToLinear(BasicEffectParamsProvider.GetDiffuseTintByType(type));
-
-            float peak = MathF.Max(linear.X, MathF.Max(linear.Y, linear.Z));
-            if (peak < TRAIL_COLOR_FLOOR) linear *= TRAIL_COLOR_FLOOR / MathF.Max(peak, 1e-4f);
-
-            return linear * TRAIL_BRIGHTNESS;
-        }
-
-        /// <summary>
-        /// The smear billboard: a unit quad whose texture channel carries (side in {-1,1}, along in {0 tail,
-        /// 1 head}); the shader places it in world space from each trail's head and tail. The vertex
-        /// positions are unused, so one shared quad serves every trail.
-        /// </summary>
-        private void CreateShotTrailQuad()
-        {
-            VertexPositionTexture[] corners =
-            {
-                new(Vector3.Zero, new Vector2(-1f, 0f)), //tail, left
-                new(Vector3.Zero, new Vector2(1f, 0f)),  //tail, right
-                new(Vector3.Zero, new Vector2(-1f, 1f)), //head, left
-                new(Vector3.Zero, new Vector2(1f, 1f))   //head, right
-            };
-
-            _shotTrailVertexBuffer = new VertexBuffer(GraphicsDevice, VertexPositionTexture.VertexDeclaration, corners.Length, BufferUsage.WriteOnly);
-            _shotTrailVertexBuffer.SetData(corners);
-
-            short[] indices = { 0, 1, 2, 2, 1, 3 };
-            _shotTrailIndexBuffer = new IndexBuffer(GraphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
-            _shotTrailIndexBuffer.SetData(indices);
-
-            _shotTrailEffect = Game.Content.Load<Effect>("Shaders/ShotTrail");
-
-            _trailViewParam = _shotTrailEffect.Parameters["View"];
-            _trailProjectionParam = _shotTrailEffect.Parameters["Projection"];
-            _trailCameraPositionParam = _shotTrailEffect.Parameters["CameraPosition"];
-            _trailHeadParam = _shotTrailEffect.Parameters["TrailHead"];
-            _trailTailParam = _shotTrailEffect.Parameters["TrailTail"];
-            _trailColorParam = _shotTrailEffect.Parameters["TrailColor"];
-            _trailAlphaParam = _shotTrailEffect.Parameters["TrailAlpha"];
-
-            //The widths never change; a parameter's value persists on the effect, so once is enough
-            _shotTrailEffect.Parameters["TrailHeadWidth"].SetValue(TRAIL_LEAD_WIDTH);
-            _shotTrailEffect.Parameters["TrailTailWidth"].SetValue(TRAIL_MUZZLE_WIDTH);
-        }
-
-        #endregion
-
-        #region The gun's geometry
-
-        /// <summary>The direction the gun fires: from the trunnions towards its aim target.</summary>
-        private Vector3 CannonAimDirection() => Vector3.Normalize(_cannon.AimTarget - _cannon.Position);
-
-        /// <summary>
-        /// Where the ball at the head of the queue sits, and so where a shot leaves from: on the barrel
-        /// axis, ahead of the trunnions the barrel turns about.
-        /// </summary>
-        private Vector3 CannonMuzzlePosition() => _cannon.Position + CannonAimDirection() * CANNON_PIVOT_TO_FRONT_BALL;
-
-        /// <summary>
-        /// The barrel's orientation: forward down the aim, with the magazine slot (the mesh's local +Y)
-        /// pinned to <b>world</b> up, so the slit stays on the barrel's upper face and never rolls about
-        /// the bore — the gun sits on a stand that only elevates and traverses.
-        /// </summary>
-        private Matrix CannonOrientation() => Matrix.CreateWorld(Vector3.Zero, CannonAimDirection(), Vector3.Up);
-
-        /// <summary>
-        /// How far the barrel is displaced by its own recoil this instant — straight back along the bore, and
-        /// exactly zero once the stroke is over. Squared rather than linear in the stroke, so the shot throws
+        /// How far back along the bore the barrel is displaced by its own recoil this instant, in world units,
+        /// and exactly zero once the stroke is over. Squared rather than linear in the stroke, so the shot throws
         /// the gun back at once and the return eases off, which is the shape a recoiling barrel has (the same
         /// reasoning as <see cref="CameraShake"/>'s: a linear amplitude spends most of its life mid-stroke and
-        /// reads as a wobble instead of a jolt). Applied where the gun is <b>drawn</b> and nowhere else.
+        /// reads as a wobble instead of a jolt).
+        /// <para>
+        /// Handed to <see cref="Cannon.BarrelWorld"/> and <see cref="Magazine.Pose"/> — which is to say applied
+        /// where the gun is <b>drawn</b> and nowhere else. A shot leaves along the true aim on the frame it is
+        /// fired, before the barrel has moved, so nothing about where a ball goes may depend on this: neither
+        /// <see cref="Shoot"/> nor <see cref="Cannon.AimDirection"/> takes it, and feeding it in there is exactly
+        /// what a reader would "fix". A <b>positive</b> scalar, since the shared pose subtracts it along the
+        /// bore; the shape and the decay stay here because the shared pose owns neither, on purpose.
+        /// </para>
         /// </summary>
-        private Vector3 CannonRecoilOffset() =>
-            _cannonRecoil <= 0f ? Vector3.Zero : CannonAimDirection() * (-CANNON_RECOIL_BACK * _cannonRecoil * _cannonRecoil);
-
-        /// <summary>
-        /// Where the barrel is drawn: its orientation with the recoiled pivot written straight into the
-        /// translation row. <see cref="CannonOrientation"/> carries no translation of its own, so orientation
-        /// × translation is exactly the orientation with that row set — no 4×4 multiply needed.
-        /// </summary>
-        private Matrix CannonWorld()
-        {
-            Matrix world = CannonOrientation();
-            Vector3 pivot = _cannon.Position + CannonRecoilOffset();
-
-            world.M41 = pivot.X;
-            world.M42 = pivot.Y;
-            world.M43 = pivot.Z;
-
-            return world;
-        }
+        private float CannonRecoilBack() =>
+            _cannonRecoil <= 0f ? 0f : CANNON_RECOIL_BACK * _cannonRecoil * _cannonRecoil;
 
         #endregion
     }

@@ -87,7 +87,7 @@ $g = [System.Drawing.Graphics]::FromImage($big); $g.InterpolationMode = 'Nearest
 $g.DrawImage($crop, 0,0,1520,680); $big.Save('shot_crop.png')
 ```
 
-Note the HUD text and aimer draw **after** the tonemap resolve (display space), so they stay sharp and are
+Note the HUD text and the crosshair draw **after** the tonemap resolve (display space), so they stay sharp and are
 never affected by scene-space effects like the underwater blur — don't judge a blur by the overlay.
 
 ## Judging lighting / a dome-dependent change

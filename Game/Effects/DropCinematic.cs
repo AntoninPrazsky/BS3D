@@ -104,9 +104,10 @@ namespace BS3D.Effects
         private const float STALL_SECONDS = 0.9f;
 
         //Heights the arc is measured against. The island's stone and the drain's throat are where the three
-        //interesting things happen, so they are the anchors rather than a linear run to the kill plane.
-        private const float ISLAND_Y = BS3DGame.ISLAND_Y;
-        private const float FUNNEL_BOTTOM_Y = BS3DGame.FUNNEL_BOTTOM_Y;
+        //interesting things happen, so they are the anchors rather than a linear run to the kill plane. Both
+        //stay const, which is why ArenaIsland states them as constants rather than as properties.
+        private const float ISLAND_Y = ArenaIsland.TOP_Y;
+        private const float FUNNEL_BOTTOM_Y = ArenaIsland.FUNNEL_BOTTOM_Y;
 
         //How far clear of the stone a lens is held. Small: it is a guard against the arc grazing the platform,
         //not the thing that decides where the shot stands.
@@ -178,8 +179,9 @@ namespace BS3D.Effects
             _radiusDrain = 21f * scale;
             _radiusOut = 24f * scale;
 
-            //Where the shot may stand, and it is the scene's business rather than the roll's — see OpenBelow.
-            _openBelow = OpenBelow(scene);
+            //Where the shot may stand, and it is the scene's business rather than the roll's — see
+            //SceneRenderer.OpenBelow, which is where the question is answered since #75.
+            _openBelow = SceneRenderer.OpenBelow(scene);
 
             //The arc's shape, and the two families genuinely differ. Both start over the falling group; from
             //there an open scene drops under the island to watch the balls through the glass and out of the
@@ -364,22 +366,15 @@ namespace BS3D.Effects
             TimeScale = MathHelper.Lerp(1f, _slowMotion, into * (1f - outOf));
         }
 
-        /// <summary>
-        /// Whether the shot may go <b>under</b> the island. It is a property of the scene and not of the roll,
-        /// because it is a question about what is opaque down there.
-        /// <para>
-        /// The two cities continue underneath the arena and fall away into a canyon, the sea is water the lens
-        /// can dive into, and space is nothing at all — in each, the drain's glass is translucent, so from
-        /// below the balls read right through the cone and then pour out of the hole. The solid-terrain scenes
-        /// are a flat clearing with the island's footprint cut out of it and a <b>near-black pit shaft hugging
-        /// the glass</b>: the ground is a lid, the shaft is opaque, and there is no vantage under there that
-        /// can see a ball at all. Those shots stay over the stone and look down through the mouth, which is
-        /// the only hole in it.
-        /// </para>
-        /// </summary>
-        private static bool OpenBelow(SceneKind scene) =>
-            scene is SceneKind.City or SceneKind.NeonCity or SceneKind.Sea or SceneKind.Space or SceneKind.Dream
-                or SceneKind.Cavern;
+        //Whether the shot may go UNDER the island is SceneRenderer.OpenBelow since #75, and it is defined there
+        //as the exact complement of IsSolidTerrainScene — the two hand-kept lists this file and the host each
+        //carried are one decision now. The reasoning is the library's in full: the two cities continue
+        //underneath the arena and fall away into a canyon, the sea is water the lens can dive into, and the
+        //three sky-replacing scenes are nothing at all, so from below the balls read through the translucent
+        //cone and then pour out of the hole; the solid-terrain scenes have the island's footprint cut out of a
+        //flat clearing and a near-black pit shaft hugging the glass, so the ground is a lid and there is no
+        //vantage under there that can see a ball. Those shots stay over the stone and look down through the
+        //mouth, which is the only hole in it.
 
         /// <summary>
         /// Moves the lens off anything solid it would otherwise sit inside or try to look through. Every rule
@@ -407,7 +402,7 @@ namespace BS3D.Effects
                 float depth = ISLAND_Y - _pivot.Y;
                 float height = lens.Y - _pivot.Y;
 
-                float maxReach = (BS3DGame.FUNNEL_TOP_RADIUS - MOUTH_MARGIN) * height / depth;
+                float maxReach = (ArenaIsland.FUNNEL_TOP_RADIUS - MOUTH_MARGIN) * height / depth;
 
                 Vector2 flat = new(lens.X, lens.Z);
                 float reach = flat.Length();
@@ -432,10 +427,10 @@ namespace BS3D.Effects
         private static Vector3 PushOutOfIsland(Vector3 lens)
         {
             float top = ISLAND_Y + STONE_CLEARANCE;
-            float bottom = ISLAND_Y - BS3DGame.ISLAND_EDGE_HEIGHT - STONE_CLEARANCE;
+            float bottom = ISLAND_Y - ArenaIsland.EDGE_HEIGHT - STONE_CLEARANCE;
 
             if (lens.Y >= top || lens.Y <= bottom) return lens;
-            if (new Vector2(lens.X, lens.Z).Length() > BS3DGame.ISLAND_RADIUS + STONE_CLEARANCE) return lens;
+            if (new Vector2(lens.X, lens.Z).Length() > ArenaIsland.RADIUS + STONE_CLEARANCE) return lens;
 
             //Only reached with the balls already under the stone (the caller's other branch has them above),
             //so down is the side that keeps them in shot

@@ -11,8 +11,9 @@ namespace Prazsky.Core.Render
         [JsonIgnore]
         public override SceneKind Kind => SceneKind.Mountain;
 
-        /// <summary>Basin floor level Y (the basin stays below the island top, ARENA_Y ≈ -8.5; the old
-        /// -10.7 referent was the square plaza's recessed glass bath, removed with the panel arena).</summary>
+        /// <summary>Basin floor level Y (the basin stays below the island top,
+        /// <see cref="ArenaIsland.TOP_Y"/> = -8.5; the old -10.7 referent was the square plaza's recessed glass
+        /// bath, removed with the panel arena).</summary>
         public float LevelY { get; set; } = -14f;
 
         /// <summary>Peak height far out in the field.</summary>

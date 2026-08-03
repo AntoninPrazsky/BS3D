@@ -21,6 +21,12 @@ namespace Prazsky.Core.Render
     /// octaves of gradient noise built out of nothing but frac, dot and multiply reproduce exactly; a
     /// sine-based hash, which is the usual way to write one, would not.
     /// </para>
+    /// <para>
+    /// The layer's shape is the properties below and its look the constants beside them — one set of both,
+    /// shared by every executable that draws weather, so a dial cannot be tuned in one and forgotten in the
+    /// next. The one figure the clouds visibly borrow from elsewhere is the lit side's radiance: that is the
+    /// light rig's own sun colour, so it is handed to <see cref="ApplyPalette"/> rather than kept here.
+    /// </para>
     /// </summary>
     public sealed class CloudField
     {
@@ -53,6 +59,62 @@ namespace Prazsky.Core.Render
 
         public float ShadowGain { get; set; } = 1.3f;
 
+        //The look, as opposed to the shape above: tuned once and not a dial anything varies at runtime, which
+        //is why these are constants rather than properties. They are pushed by ApplyStaticParameters and
+        //ApplyPalette; the shape is pushed per frame by ApplyTo.
+
+        /// <summary>
+        /// How hard the fine octaves chew at the shape the weather layer drew. Has to be read against
+        /// <see cref="CoverageGain"/>, which is what the weather is multiplied by: at 0.55 against a gain of
+        /// 2.8 the detail was modulating the thickness by about six percent and the clouds came out
+        /// airbrushed. It wants to be a decent fraction of the weather's own amplitude.
+        /// </summary>
+        private static readonly float DetailStrength = 2.5f;
+
+        /// <summary>
+        /// Opacity of the densest cloud, and the elevation over which cloud fades into haze. Well over 1, so
+        /// a cloud reaches solid at about half density and only its edges stay translucent — at 1.15 the whole
+        /// layer was semi-transparent everywhere and read as haze rather than as weather.
+        /// </summary>
+        private static readonly float Opacity = 2.4f;
+
+        private static readonly float HorizonFade = 0.16f;
+
+        /// <summary>How far along the sun the shading looks to decide whether a piece of cloud is backlit.</summary>
+        private static readonly float SunStep = 90f;
+
+        /// <summary>
+        /// How much light a piece of cloud swallows on the way through its own body, and how much the cloud
+        /// between it and the sun swallows first. The body term is the one that matters: it is what turns a
+        /// flat white field into undersides with dark cores and edges the light comes through.
+        /// </summary>
+        private static readonly float SelfAbsorption = 2.5f;
+
+        private static readonly float SunAbsorption = 1f;
+
+        /// <summary>The silver lining: forward scattering towards the sun, and how tightly it hugs it.</summary>
+        private static readonly float SilverStrength = 1.2f;
+
+        private static readonly float SilverPower = 12f;
+
+        /// <summary>
+        /// The shadowed underside, in **linear radiance** — a quantity of light, not an sRGB paint colour, so
+        /// nothing decodes it.
+        /// <para>
+        /// Well below the lit side's radiance rather than a shade under it. The frame goes through an ACES
+        /// curve that compresses the highlights hard, so two linear values close together up there come out of
+        /// the tonemapper as the same white — at 0.45 the undersides were indistinguishable from the tops and
+        /// the whole layer read as flat paper.
+        /// </para>
+        /// </summary>
+        private static readonly Vector3 ShadowColor = new(0.18f, 0.21f, 0.28f);
+
+        /// <summary>
+        /// The shadowed side of a cloud sees no sun at all — only sky — so it takes the zenith colour far more
+        /// completely than any surface the rig lights from two sides.
+        /// </summary>
+        private static readonly float ShadowTintStrength = 0.8f;
+
         /// <summary>
         /// The cloud parameters of one effect, resolved once. A missing parameter stays null and is skipped
         /// on every apply, preserving the contract that a shader declaring only part of the field costs
@@ -61,11 +123,15 @@ namespace Prazsky.Core.Render
         private sealed class EffectSlots
         {
             public EffectParameter PlaneY, Scale, Time, CoverageBias, CoverageGain, ShadowFloor, ShadowGain, Wind;
+
+            public EffectParameter SunColor, ShadowColor, DetailStrength, Opacity, HorizonFade, SunStep,
+                SelfAbsorption, SunAbsorption, SilverStrength, SilverPower, SunDirection;
         }
 
         //Callers apply the field to the same two or three effects every frame, and the by-name indexer is
         //a linear scan over the effect's parameter list (~70 entries on the instanced-model effect) — so
-        //the names are resolved once per effect and the per-frame path is direct SetValue calls.
+        //the whole cloud surface of an effect is resolved by one scan per name per effect, ever, and every
+        //apply path below is direct SetValue calls.
         private readonly Dictionary<Effect, EffectSlots> _slotsByEffect = new();
 
         /// <summary>
@@ -86,6 +152,77 @@ namespace Prazsky.Core.Render
             slots.ShadowFloor?.SetValue(ShadowFloor);
             slots.ShadowGain?.SetValue(ShadowGain);
             slots.Wind?.SetValue(Wind);
+        }
+
+        /// <summary>
+        /// Everything about the clouds that does not change frame to frame, pushed once when the shaders are
+        /// loaded. The per-frame half is <see cref="ApplyTo"/>; the two dome-derived colours are not set here
+        /// because they follow the dome, which is <see cref="ApplyPalette"/>'s job.
+        /// </summary>
+        /// <param name="skyEffect">The sky shader, which draws the cloud and so wants the whole look.</param>
+        /// <param name="instancedEffect">
+        /// The scene shader, which only needs the direction it shadows along — or null for a caller that draws
+        /// a sky and nothing under it. As on every other apply path, an effect declaring just part of the
+        /// cloud surface costs nothing to support.
+        /// </param>
+        /// <param name="sunDirection">
+        /// Towards the sun. Taken as a direction rather than from the rig's <c>KeyLightPosition</c>, which is
+        /// a point forty units off the middle of the arena: near enough that its direction fans right across
+        /// the scene, while a cloud shadow has to arrive in parallel bands over a city hundreds of units wide.
+        /// The rig's key light is what stands in for the sun, so the clouds are lit by whatever lights
+        /// everything under them and the scene is shadowed along the very same direction — one sun, told to
+        /// both shaders from here.
+        /// </param>
+        public void ApplyStaticParameters(Effect skyEffect, Effect instancedEffect, Vector3 sunDirection)
+        {
+            EffectSlots slots = SlotsOf(skyEffect);
+
+            slots.DetailStrength?.SetValue(DetailStrength);
+            slots.Opacity?.SetValue(Opacity);
+            slots.HorizonFade?.SetValue(HorizonFade);
+            slots.SunStep?.SetValue(SunStep);
+            slots.SelfAbsorption?.SetValue(SelfAbsorption);
+            slots.SunAbsorption?.SetValue(SunAbsorption);
+            slots.SilverStrength?.SetValue(SilverStrength);
+            slots.SilverPower?.SetValue(SilverPower);
+            slots.SunDirection?.SetValue(sunDirection);
+
+            if (instancedEffect != null) SlotsOf(instancedEffect).SunDirection?.SetValue(sunDirection);
+        }
+
+        /// <summary>
+        /// Colours the clouds with the dome they hang in — the lit side and the shadowed underside. Re-run on
+        /// every dome and every scene switch, and never per frame.
+        /// <para>
+        /// Every dome was getting the same cold white cloud, and over eighteen skies running from turquoise
+        /// day to blood-red dusk to near-black night it read as a grey smear pasted over the sky rather than
+        /// as weather in it. A cloud has no colour of its own: its lit side is the colour of the sun and its
+        /// underside the colour of the sky.
+        /// </para>
+        /// <para>
+        /// The dome may never change for a given caller, but this is not therefore optional: neither colour
+        /// has a shader-side default, and left unset the whole deck comes out black.
+        /// </para>
+        /// </summary>
+        /// <param name="sunRadiance">
+        /// The lit side's radiance, taken exactly as it comes: it is the sun's own radiance already carried
+        /// towards the dome's horizon colour by the light rig's tint strength — the rig's figures, which stay
+        /// with the rig — and it is bit-for-bit the sun colour the scene shaders are handed for the same
+        /// frame. That identity is the point: the clouds are lit by literally the same light as everything
+        /// under them. There is deliberately no tint or scale applied here to be "restored" later.
+        /// </param>
+        /// <param name="zenithLinear">
+        /// The dome's zenith colour, decoded to linear. The underside sees only sky, so this is what tints it,
+        /// harder than the rig tints anything (<see cref="ShadowTintStrength"/>).
+        /// </param>
+        public void ApplyPalette(Effect skyEffect, Vector3 sunRadiance, Vector3 zenithLinear)
+        {
+            EffectSlots slots = SlotsOf(skyEffect);
+
+            Vector3 skyTint = Vector3.Lerp(Vector3.One, zenithLinear, ShadowTintStrength);
+
+            slots.SunColor?.SetValue(sunRadiance);
+            slots.ShadowColor?.SetValue(ShadowColor * skyTint);
         }
 
         /// <summary>
@@ -116,7 +253,22 @@ namespace Prazsky.Core.Render
                 CoverageGain = effect.Parameters["CloudCoverageGain"],
                 ShadowFloor = effect.Parameters["CloudShadowFloor"],
                 ShadowGain = effect.Parameters["CloudShadowGain"],
-                Wind = effect.Parameters["CloudWind"]
+                Wind = effect.Parameters["CloudWind"],
+
+                SunColor = effect.Parameters["CloudSunColor"],
+                ShadowColor = effect.Parameters["CloudShadowColor"],
+                DetailStrength = effect.Parameters["CloudDetailStrength"],
+                Opacity = effect.Parameters["CloudOpacity"],
+                HorizonFade = effect.Parameters["CloudHorizonFade"],
+                SunStep = effect.Parameters["CloudSunStep"],
+                SelfAbsorption = effect.Parameters["CloudSelfAbsorption"],
+                SunAbsorption = effect.Parameters["CloudSunAbsorption"],
+                SilverStrength = effect.Parameters["CloudSilverStrength"],
+                SilverPower = effect.Parameters["CloudSilverPower"],
+
+                //The one name without the Cloud prefix: the sun is shared with the light rig and the scene
+                //shading, and the clouds only borrow it
+                SunDirection = effect.Parameters["SunDirection"]
             };
             _slotsByEffect.Add(effect, slots);
 

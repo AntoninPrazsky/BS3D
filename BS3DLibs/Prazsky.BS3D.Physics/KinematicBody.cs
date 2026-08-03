@@ -7,7 +7,8 @@ namespace Prazsky.BS3D.Physics
     /// A Bepu kinematic body paired with the world matrix captured from its pose. Deliberately <b>not</b> an
     /// <see cref="Prazsky.Core.Object3D"/>: the only kinematic body is the ceiling, which carries no model of
     /// its own and is drawn procedurally through its own <see cref="Prazsky.Core.Render.InstancedModelRenderer"/>
-    /// (see <c>RecreateCeilingRenderer</c>) using <see cref="World"/> — so the whole <c>Object3D</c> drawing
+    /// (<c>Prazsky.Core.Render.CeilingPlate</c>, which builds that plate per level) using <see cref="World"/>
+    /// — so the whole <c>Object3D</c> drawing
     /// apparatus (model, transformations, <c>Draw</c>, bounding volumes) was dead weight. What is actually used
     /// is the body handle/reference and the pose's world matrix, which is all this holds.
     /// </summary>

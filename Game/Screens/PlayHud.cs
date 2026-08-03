@@ -95,7 +95,7 @@ namespace BS3D.Screens
         /// A scalar resting at 1 that is displaced by a kick and springs back — the whole of the HUD's "this
         /// number just changed" language, and the one primitive the score, the streak and the ball count share.
         /// <para>
-        /// A spring rather than a keyframed curve, for the reason <c>_adsBlend</c> is a blend and not a state
+        /// A spring rather than a keyframed curve, for the reason <see cref="PreciseAim.Blend"/> is a blend and not a state
         /// machine: a second kick landing mid-settle simply adds to the one already in flight, so a burst of
         /// scoring shots reads as one rising swell instead of restarting an animation the eye was following.
         /// The displacement is applied to the <i>position</i> and not to the velocity, so the number jumps at

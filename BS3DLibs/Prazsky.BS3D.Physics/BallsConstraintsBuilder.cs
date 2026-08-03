@@ -71,7 +71,10 @@ namespace Prazsky.BS3D.Physics
         /// consistency: applying it twice tears the structure apart on the first timestep.
         /// </para>
         /// </param>
-        public static PhysicsBall[,,] BuildBallsStructure(StaticBall[,,] staticBalls, ref Simulation simulation, BodyReference ceilingReference, Vector3 worldOffset = default)
+        //By value, not by ref: the simulation is only ever read here (it is a class, so the reference is all
+        //that is needed), and the ref it used to take was what stopped a caller passing a property — which
+        //PhysicsWorld's Simulation is, since #76.
+        public static PhysicsBall[,,] BuildBallsStructure(StaticBall[,,] staticBalls, Simulation simulation, BodyReference ceilingReference, Vector3 worldOffset = default)
         {
             if (staticBalls == null) throw new NullReferenceException(nameof(staticBalls));
             if (simulation == null) throw new NullReferenceException(nameof(simulation));
@@ -153,23 +156,13 @@ namespace Prazsky.BS3D.Physics
             return physicsBalls;
         }
 
-        /// <summary>
-        /// Counts occupied cells among the up-to-12 neighboring cells of the given cell
-        /// (4 on the same level, up to 4 on each adjacent level — the same parity rules as
-        /// <see cref="BallsMap.GetNeighboringCells"/>, but without allocating an enumerator,
-        /// since this runs for every ball every frame). Used for ambient occlusion.
-        /// </summary>
-        /// <param name="occlusionDirection">Sum of the unit vectors pointing at the occupied neighbors
-        /// (touching neighbors are always exactly one ball diameter away, so every contribution has length 1).
-        /// The part of the ball surface facing this direction is the occluded one.</param>
-        public static int CountOccupiedNeighbors(PhysicsBall[,,] balls, XZLevel cell, XZLevel size, out Vector3 occlusionDirection)
-        {
-            int occupied = BallsMap.CountOccupiedNeighbors(balls, cell, size, out Microsoft.Xna.Framework.Vector3 direction);
-
-            occlusionDirection = direction.ToNumerics();
-
-            return occupied;
-        }
+        //The System.Numerics wrapper around BallsMap.CountOccupiedNeighbors that used to stand here is gone with
+        //#76. It was the two executables' entry point into the occlusion count, and once BallRenderSet took that
+        //walk over it had no callers left — but the reason to delete it rather than leave it sitting is sharper
+        //than tidiness: it handed back the occluder direction as the raw SUM of unit vectors, and handing that to
+        //the shader undivided is the mistake that cost the cluster its whole look once already. There is now no
+        //public path to an undivided sum anywhere: BallRenderSet.OcclusionTarget is the only thing that builds
+        //that vector, and it divides.
 
         /// <summary>
         /// Checks whether the freshly attached ball completed a cluster of at least <see cref="MINIMUM_CLUSTER_SIZE"/>

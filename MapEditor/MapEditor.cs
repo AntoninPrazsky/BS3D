@@ -2,6 +2,7 @@ using MapEditor.GUI;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Prazsky.BS3D;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Input;
@@ -42,24 +43,12 @@ namespace MapEditor
         #region Ball rendering
 
         //The balls are drawn exactly as the game draws them, so that a map looks here the way it will play:
-        //generated sphere LODs picked by camera distance, instanced through the game's own shader.
-        //See the "Ball rendering" section in CLAUDE.md
-        private static readonly int[,] BALL_LOD_RESOLUTIONS = { { 32, 24 }, { 16, 12 }, { 10, 7 } };
-        private static readonly float[] BALL_LOD_DISTANCES = { 15f, 30f };
-        private static readonly int BALL_LOD_COUNT = 3;
-        private static readonly int BALL_TYPE_COUNT = (int)BallType.Type8;   //red/green/blue/white + cyan/magenta/yellow/black
-        private static readonly int BALL_PATTERN_GORES = 5;
-
-        private static readonly float BALL_OCCLUSION_STRENGTH = 0.55f;
-        private static readonly int MAX_BALL_OCCLUDERS = 12;
-
+        //generated sphere LODs picked by camera distance, instanced through the game's own shader. Every figure
+        //of that, the LOD ladder and the instance buckets are BallRenderSet's since #76 — this file held a third
+        //copy of them, and the occlusion divisor a copy is exactly the thing that goes wrong quietly.
+        //See the "Ball rendering" section in CLAUDE.md.
         private Effect _instancingEffect;
-        private SphereMesh[] _ballMeshes;
-        private InstancedModelRenderer[] _ballRenderers;
-
-        //One instance bucket per ball type and LOD level; each bucket becomes a single instanced draw call
-        private readonly ModelInstance[][] _ballInstances = new ModelInstance[BALL_TYPE_COUNT * BALL_LOD_COUNT][];
-        private readonly int[] _ballInstanceCounts = new int[BALL_TYPE_COUNT * BALL_LOD_COUNT];
+        private BallRenderSet _balls;
 
         private SkyDome _sky;
 
@@ -143,6 +132,18 @@ namespace MapEditor
         //Not readonly: a loaded level (bs3d-level file) replaces it with the level's city config
         private CitySceneConfig _cityConfig = new();
 
+        //The forest's scattered trees, boulders and stumps, so a forest level previews with the wood standing on
+        //it rather than as a bare clearing. It was the Game's alone until #75, which is why the editor drew the
+        //glade and none of the trees on it even though the terrain under them was always the shared
+        //SceneRenderer's. Every texture, mesh variant, renderer, matte material and encoded tint is the
+        //component's; the draw's place in the frame and the scene gate on it are this file's.
+        //
+        //Built unconditionally, whether or not a forest level is ever loaded — fifteen meshes and twenty-five
+        //instance buffers, the same deal the Game already takes. The forest is reachable here ONLY by loading a
+        //level whose scene is forest: V stops at SceneRenderer.CycleLength, exactly as it does for space, the
+        //dream and the cavern.
+        private ForestScatterRenderer _forestScatter;
+
         //A level dropped or opened is parsed off the render thread (like a map file), but its scene/sky/city
         //application touches GPU resources (Content.Load, buffer rebuilds, a new City), so the parsed level is
         //stashed here and applied on the main thread in Update. See ApplyPendingLevel.
@@ -162,22 +163,18 @@ namespace MapEditor
         //moving the way it does in the game instead of freezing
         private float _sceneSeconds;
 
-        //Cached sky palette in linear radiance, handed to the scenes each frame (set in ApplySkyLighting)
-        private Vector3 _zenithLinear = Vector3.One;
-        private Vector3 _horizonLinear = Vector3.One;
+        //The sky-derived light rig, shared with the game since #75 — the palette in linear radiance, the
+        //hemisphere ambient, the tints and the sun the scenes are shaded by. It used to be a near-mirror of the
+        //game's copy here, constants and all, which is exactly the drift this editor exists to not have.
+        private SkyLightRig _rig;
 
-        //Near-mirrors of the game's scene-lighting constants: the sun radiance and tint give the scenes their
-        //warm sun, and the ambient is the city's. The shaders — the actual look of every scene — are the
-        //shared source. The clearing radius no longer mirrors anything: the game's arena became the round
-        //stone island (ARENA_DISC_RADIUS/ISLAND_RADIUS = 26), so this 60 keeps the editor's towers ~2.3× as
-        //far from the field as they stand in play. Whether to close that to 26 is a look decision, not a sync.
+        //The clearing radius no longer mirrors anything: the game's arena became the round stone island
+        //(ArenaIsland.RADIUS = 26), so this 60 keeps the editor's towers ~2.3× as far from the field as they
+        //stand in play. Whether to close that to 26 is a look decision, not a sync.
         private const float ARENA_HALF_EXTENT = 60f;
         //Window brightness (day + neon) now lives in _cityConfig.WindowBrightness / _cityConfig.NeonLook.WindowBrightness.
         private const float CITY_SPECULAR_AMBIENT = 0.07f;
-        private const float SCENE_SKY_TINT = 0.5f;
         private const float SCENE_AMBIENT_INTENSITY = 0.25f;
-        private static readonly Vector3 SCENE_SUN_RADIANCE = new(1.7f, 1.66f, 1.55f);
-        private static readonly Vector3 SUN_DIRECTION = -DefaultLighting.Light0Direction;
 
         private readonly BasicEffectParams _sceneEffectParams = new(Vector3.One * SCENE_AMBIENT_INTENSITY, Vector3.Zero, 0f, Vector3.Zero);
 
@@ -305,18 +302,9 @@ namespace MapEditor
                 SupersampleFactor = SUPERSAMPLE_FACTOR,
             };
 
-            _ballMeshes = new SphereMesh[BALL_LOD_COUNT];
-            _ballRenderers = new InstancedModelRenderer[BALL_LOD_COUNT];
-
-            for (int lod = 0; lod < BALL_LOD_COUNT; lod++)
-            {
-                //Constants.HALF is the ball radius the physics builder uses in the game; the editor has no physics to ask
-                _ballMeshes[lod] = new SphereMesh(GraphicsDevice, Constants.HALF, BALL_LOD_RESOLUTIONS[lod, 0], BALL_LOD_RESOLUTIONS[lod, 1]);
-                _ballRenderers[lod] = new InstancedModelRenderer(GraphicsDevice, _ballMeshes[lod], Vector3.One, _instancingEffect)
-                {
-                    PatternGoreCount = BALL_PATTERN_GORES
-                };
-            }
+            //No ripples here: the landing wave is the game's, and passing false switches the shader's whole
+            //ripple term off on a branch over the uniform, so the editor pays nothing for not having one.
+            _balls = new BallRenderSet(GraphicsDevice, _instancingEffect, ripples: false);
 
             //linearVertexColors: the dome is drawn through BasicEffect into the linear HDR target, so its
             //baked gradient has to be converted from sRGB once at load or the tonemapper reads a gradient of
@@ -345,6 +333,16 @@ namespace MapEditor
                 SpecularAmbientStrength = CITY_SPECULAR_AMBIENT
             };
 
+            //After the scene renderer, because the rig consults it for the scenes that state their own lighting
+            _rig = new SkyLightRig(_sceneRenderer);
+
+            //The forest's wood, planted on the very terrain the SceneRenderer above draws. After it, because the
+            //component is built from that renderer's own forest config, and before the sky lighting below, since
+            //fresh renderers have never been told the dome's palette. No stone texture handed in: the editor has
+            //none of its own, so the component builds one for the boulders.
+            _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
+                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY);
+
             ApplySkyLighting();
 
             _pipeline.EnsureTarget();
@@ -362,8 +360,15 @@ namespace MapEditor
         /// </summary>
         private void SwitchScene()
         {
-            _scene = (SceneKind)(((int)_scene + 1) % 7);
-            Info.CustomText = $"Scene: {_scene}";
+            _scene = (SceneKind)(((int)_scene + 1) % SceneRenderer.CycleLength);
+            Info.CustomText = $"Scene: {SceneRenderer.SceneName(_scene)}";
+
+            //Re-derive the rig: a scene may state its own lighting instead of the dome's, and V is a scene
+            //change like any other. It was missing here — latent rather than visible, since the cycle stays
+            //inside the seven scenes that all take the dome's, but it became a real bug the moment the cycle
+            //widened or one of those seven stated a rig, and neither is a change anyone would think to check.
+            ApplySkyLighting();
+
             RebindSceneConfigGrid();
         }
 
@@ -429,6 +434,17 @@ namespace MapEditor
                     break;
                 case SceneConfig sceneConfig:
                     _sceneRenderer.Apply(sceneConfig);
+
+                    //A forest edit reaches into the meshes as well as the planting — the tree, boulder and stump
+                    //proportions are baked into them and the three colours into the cached tints — so the wood is
+                    //rebuilt whole rather than merely re-planted, and then re-lit, its renderers all being new.
+                    //This is the one thing the game never needs: nothing there edits a scene config at runtime,
+                    //which is exactly why the component reads the config at build time only.
+                    if (sceneConfig is ForestSceneConfig forest)
+                    {
+                        _forestScatter.Replant(forest);
+                        ApplySkyLighting();
+                    }
                     break;
             }
         }
@@ -456,132 +472,38 @@ namespace MapEditor
         }
 
         /// <summary>
-        /// Derives the ball lighting from the sky dome exactly as the game does: hemisphere ambient (zenith
-        /// color from above, horizon color from below) plus a light rig tinted by the same palette.
+        /// Re-derives the lighting from the sky dome and pushes it onto everything the editor draws. The whole
+        /// derivation is the game's, literally — <see cref="SkyLightRig"/> is the one copy since #75, so a
+        /// palette, a tint or a scene's own rig cannot mean one thing here and another in play.
+        /// <para>
+        /// Only the enrolment is the editor's own, and it is short: the balls, the city and the forest's scatter.
+        /// The city takes part like every other instanced object — its facades are dark, but its specular ambient
+        /// reads the sky. There is no island, no drain and no ceiling here to light.
+        /// </para>
+        /// <para>
+        /// Run again after every <see cref="ForestScatterRenderer.Replant"/>: a re-planted wood is twenty-five
+        /// brand-new renderers, none of which has been told the dome's palette, exactly as a refitted
+        /// <c>CeilingPlate</c> is in the game.
+        /// </para>
         /// </summary>
         private void ApplySkyLighting()
         {
-            //The palette is read off the dome's vertex colors, so it arrives sRGB-encoded. Everything below
-            //scales, tints and lerps it, and none of that means anything until it is radiance — scaling an
-            //sRGB value by 1.3 does not make 1.3 times the light — so it is decoded to linear first, exactly
-            //as the game's ApplySkyLighting does. The renderer works in linear now (LinearLightRig true), and
-            //SkyColor/GroundColor hold linear values.
-            _zenithLinear = ColorSpace.SrgbToLinear(_sky.ZenithColor);
-            _horizonLinear = ColorSpace.SrgbToLinear(_sky.HorizonColor);
+            //A scene that states its own rig — space, the dream, the cavern — has to be honoured here too, or a
+            //level of one would draw the right sky and light its balls by the wrong sun, which is the one thing
+            //this editor exists to prevent. Those scenes are reachable despite V cycling only the first seven:
+            //loading a LEVEL sets _scene from the level's own scene kind. The rig reads the override itself,
+            //which is why the scene goes in with the dome.
+            _rig.SetSky(_sky, _scene);
 
-            //Key/fill lights take on the horizon color, the back light the zenith, so the whole rig follows
-            //the mood of the sky (the game calls this figure SKY_TINT_STRENGTH; it is the same 0.5)
-            Vector3 keyTint = Vector3.Lerp(Vector3.One, _horizonLinear, SCENE_SKY_TINT);
-            Vector3 backTint = Vector3.Lerp(Vector3.One, _zenithLinear, SCENE_SKY_TINT);
-            Vector3 skyAmbient = _zenithLinear * 1.3f;
-            Vector3 groundAmbient = _horizonLinear * 0.75f; //Bounce light from below is dimmer than the sky above
+            foreach (InstancedModelRenderer renderer in _balls.Renderers) _rig.ApplyTo(renderer);
+            _rig.ApplyTo(_cityRenderer);
 
-            //The space scene states its own rig instead of deriving one from a dome it never draws, so the
-            //editor has to honour it too — otherwise a space level would draw the right sky and light its balls
-            //by the wrong sun, which is the one thing this editor exists to prevent. It is reachable here
-            //despite V cycling only the first seven scenes: loading a LEVEL sets _scene from the level's own
-            //scene kind, so a space level opened with F1 or dropped on the window lands in it.
-            if (_sceneRenderer != null && _sceneRenderer.TryGetLightRig(_scene, out SceneLightRig rig))
-            {
-                skyAmbient = rig.SkyAmbient;
-                groundAmbient = rig.GroundAmbient;
-                keyTint = rig.KeyTint;
-                backTint = rig.BackTint;
-            }
-
-            //The balls and the city are lit the same way — the city takes part in the sky rig like every
-            //other instanced object (its facades are dark, but its specular ambient reads the sky)
-            foreach (InstancedModelRenderer renderer in _ballRenderers) ApplySkyLightingTo(renderer, skyAmbient, groundAmbient, keyTint, backTint);
-            if (_cityRenderer != null) ApplySkyLightingTo(_cityRenderer, skyAmbient, groundAmbient, keyTint, backTint);
+            //Every variant of every scattered kind, or a spruce of the variant this missed would stand under the
+            //light rig of whatever dome was up when it was made. The array the component hands back, walked
+            //directly, for the reason BallRenderSet.Renderers gives above.
+            foreach (InstancedModelRenderer renderer in _forestScatter.Renderers) _rig.ApplyTo(renderer);
         }
 
-        private void ApplySkyLightingTo(InstancedModelRenderer renderer, Vector3 skyAmbient, Vector3 groundAmbient, Vector3 keyTint, Vector3 backTint)
-        {
-            renderer.LinearLightRig = true;
-            renderer.SkyColor = skyAmbient;
-            renderer.GroundColor = groundAmbient;
-            renderer.KeyLightPosition = -DefaultLighting.Light0Direction * 40f;
-            renderer.SetLightTint(keyTint, backTint);
-        }
-
-        /// <summary>
-        /// Gathers every ball of the map into the per-type-and-LOD buckets, each of which becomes one instanced
-        /// draw call. The editor map is static, so unlike the game there is nothing to ease: the occlusion is
-        /// simply what the grid says it is.
-        /// </summary>
-        private void CollectBallInstances()
-        {
-            for (int i = 0; i < _ballInstanceCounts.Length; i++) _ballInstanceCounts[i] = 0;
-
-            if (_map == null) return;
-
-            StaticBall[,,] balls = _map.GetStaticBallsArray();
-            XZLevel size = _map.GetStaticBallsArraySize();
-
-            for (byte level = 0; level < size.Level; level++)
-                for (byte x = 0; x < size.X; x++)
-                    for (byte z = 0; z < size.Z; z++)
-                    {
-                        StaticBall ball = balls[x, z, level];
-                        if (ball == null) continue;
-
-                        int occluders = BallsMap.CountOccupiedNeighbors(balls, new XZLevel(x, z, level), size, out Vector3 occlusionSum);
-
-                        CollectBallInstance(ball, new Vector4(
-                            occlusionSum.X / MAX_BALL_OCCLUDERS,
-                            occlusionSum.Y / MAX_BALL_OCCLUDERS,
-                            occlusionSum.Z / MAX_BALL_OCCLUDERS,
-                            1f - BALL_OCCLUSION_STRENGTH * occluders / MAX_BALL_OCCLUDERS));
-                    }
-        }
-
-        private void CollectBallInstance(StaticBall ball, Vector4 occlusionData)
-        {
-            int typeIndex = (int)ball.Type - 1;
-            if (typeIndex < 0 || typeIndex >= BALL_TYPE_COUNT) return;
-
-            //Mesh resolution by distance from the camera
-            float distance = Vector3.Distance(ball.Position, Camera3D.Position);
-            int lod = 0;
-            while (lod < BALL_LOD_DISTANCES.Length && distance > BALL_LOD_DISTANCES[lod]) lod++;
-
-            int bucketIndex = typeIndex * BALL_LOD_COUNT + lod;
-            ModelInstance[] bucket = _ballInstances[bucketIndex];
-            int count = _ballInstanceCounts[bucketIndex];
-
-            if (bucket == null)
-            {
-                bucket = new ModelInstance[256];
-                _ballInstances[bucketIndex] = bucket;
-            }
-            else if (count == bucket.Length)
-            {
-                Array.Resize(ref bucket, bucket.Length * 2);
-                _ballInstances[bucketIndex] = bucket;
-            }
-
-            //Editor balls never rotate, so the position is the whole transformation
-            bucket[count] = new ModelInstance(Matrix.CreateTranslation(ball.Position), occlusionData);
-            _ballInstanceCounts[bucketIndex] = count + 1;
-        }
-
-        private void DrawBallsInstanced()
-        {
-            for (int typeIndex = 0; typeIndex < BALL_TYPE_COUNT; typeIndex++)
-                for (int lod = 0; lod < BALL_LOD_COUNT; lod++)
-                {
-                    int bucketIndex = typeIndex * BALL_LOD_COUNT + lod;
-
-                    _ballRenderers[lod].Draw(Camera3D, _ballInstances[bucketIndex], _ballInstanceCounts[bucketIndex],
-                        BasicEffectParamsProvider.GetEffectByType((BallType)(typeIndex + 1)),
-                        BasicEffectParamsProvider.GetDiffuseTintByType((BallType)(typeIndex + 1)));
-                }
-        }
-
-        /// <summary>
-        /// Looks at the center of the play field from the given direction, from far enough away for the whole
-        /// field to fit on the screen. The direction is expected to be axis aligned, as all six preset views are.
-        /// </summary>
         private void CenterViewOn(Vector3 lookDirection)
         {
             Vector3 half = _aabb.Size * Constants.HALF;
@@ -800,6 +722,17 @@ namespace MapEditor
                     else
                     {
                         _sceneRenderer.Apply(level.Scene);
+
+                        //A level carries the forest's whole config, so the wood it plants has to be the level's
+                        //and not the default one — the meshes' proportions and the tints' colours as much as the
+                        //counts. Re-lit right here rather than left to the SetSkyDome below (which does call
+                        //ApplySkyLighting): the two belong together, and a component whose lighting depends on
+                        //the order of two later statements is one incident waiting to happen.
+                        if (level.Scene is ForestSceneConfig forest)
+                        {
+                            _forestScatter.Replant(forest);
+                            ApplySkyLighting();
+                        }
                     }
                 }
 
@@ -821,8 +754,6 @@ namespace MapEditor
 
         protected override void Draw(GameTime gameTime)
         {
-            CollectBallInstances();
-
             //The scene is drawn in linear radiance into the HDR target; the pipeline's Resolve box-filters,
             //glares, tonemaps and sRGB-encodes it onto the back buffer. The selector gizmo and the text
             //overlay are drawn after that, in display space, so they stay exactly as authored — the same
@@ -833,7 +764,7 @@ namespace MapEditor
             //skyline instead of showing through as a blue band (same fix as the game).
             //Space has no dome and no horizon, so it clears to black instead: Space.fx covers every pixel of
             //the frame, and black is what would show if it ever did not.
-            GraphicsDevice.Clear(SceneRenderer.ReplacesSky(_scene) ? Color.Black : new Color(_horizonLinear));
+            GraphicsDevice.Clear(SceneRenderer.ReplacesSky(_scene) ? Color.Black : new Color(_rig.HorizonLinear));
 
             //Space draws no dome either - the full-screen sky pass would only overdraw it. (The editor sets no
             //cloud uniforms at all, so unlike the game and the Testbed it has no cloud shadow to suppress:
@@ -852,7 +783,12 @@ namespace MapEditor
             SceneFrame sceneFrame = BuildSceneFrame();
             DrawScene(sceneFrame);
 
-            DrawBallsInstanced();
+            //The map's balls, through the shared set. BeginFrame hands back a ref struct, which is what keeps
+            //the once-per-frame walk from being anything else: it cannot be stored, so it cannot outlive the
+            //frame it belongs to. A static map has nothing to ease towards, so AddMap simply reads the grid.
+            BallDrawFrame ballFrame = _balls.BeginFrame(Camera3D);
+            ballFrame.AddMap(_map);
+            _balls.Draw(_sceneSeconds);
 
             //The outline is translucent, so it is drawn over the finished scene and does not write depth
             GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
@@ -905,21 +841,20 @@ namespace MapEditor
             }
             else
                 _sceneRenderer.DrawEnvironment(_scene, frame);
+
+            //The forest's scattered trees, boulders and stumps, after the terrain they stand on — with depth, or
+            //they would draw through it. The state is the caller's, and it is already the game's: alpha blend,
+            //depth test and write and counter-clockwise culling into the supersampled HDR target. The component
+            //touches none of it, so the balls drawn after this are unaffected.
+            if (_scene == SceneKind.Forest) _forestScatter?.Draw(Camera3D);
         }
 
         /// <summary>
-        /// The per-frame inputs the shared <see cref="SceneRenderer"/> needs. No clouds here (the editor draws
-        /// none), so the cloud hook is null and the scenes get full sun; the sun color is its radiance tinted
-        /// by the dome, exactly as the game computes it.
+        /// The per-frame inputs the shared <see cref="SceneRenderer"/> needs, built by the rig that already
+        /// holds five of the six. No clouds here (the editor draws none): the rig's cloud hook was never set, so
+        /// it stays null, the cloud uniforms stay at zero and the scenes get full sun with no shadow.
         /// </summary>
-        private SceneFrame BuildSceneFrame() => new(
-            Camera3D,
-            SUN_DIRECTION,
-            _zenithLinear,
-            _horizonLinear,
-            SCENE_SUN_RADIANCE * Vector3.Lerp(Vector3.One, _horizonLinear, SCENE_SKY_TINT),
-            _sceneSeconds,
-            null);
+        private SceneFrame BuildSceneFrame() => _rig.BuildSceneFrame(Camera3D, _sceneSeconds);
 
         private string GetFilePathByDialog(bool save)
         {
@@ -989,8 +924,12 @@ namespace MapEditor
         protected override void UnloadContent()
         {
             _pipeline?.Dispose();
+            _balls?.Dispose();
             _sceneRenderer?.Dispose();
             _cityRenderer?.Dispose();
+            //Every mesh, renderer and procedural texture of the forest scatter, in one call — its stone texture
+            //included, the editor having handed it none of its own
+            _forestScatter?.Dispose();
             _unitBox?.Dispose();
             _aabb?.Dispose();
             _axisGizmo?.Dispose();

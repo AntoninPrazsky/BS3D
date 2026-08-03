@@ -351,8 +351,9 @@ namespace Prazsky.Core.Render
 
         //Look/tuning parameters (hills, clearing, forest floor colours, treeline, ambient, haze, wind, needle
         //relief, floor lumps) live in ForestSceneConfig; read from _forestConfig. Its Trees/Rocks/Stumps
-        //describe the scattered objects, which are the Game's own instanced draws rather than this scene's -
-        //only ForestTerrainHeight below is shared with them, so they stand on the floor this shader draws.
+        //describe the scattered objects, which are ForestScatterRenderer's instanced draws rather than this
+        //scene's (they were the Game's alone until #75) - only ForestTerrainHeight below is shared with them,
+        //so they stand on the floor this shader draws.
 
         #endregion
 
@@ -522,6 +523,86 @@ namespace Prazsky.Core.Render
         /// </summary>
         public static bool ReplacesSky(SceneKind kind) => kind is SceneKind.Space or SceneKind.Dream or SceneKind.Cavern;
 
+        /// <summary>
+        /// True for the solid-ground backdrops — mountains, meadow, savanna, desert and forest — whose terrain
+        /// is a flat clearing at the island's foot with the island's footprint cut out of it
+        /// (<see cref="TerrainHoleRadius"/>), and which therefore need the dark pit shaft drawn behind the
+        /// drain's glass: a hole alone lets the ~55 %-opaque glass show the bright sky haze straight through
+        /// and the drain reads as a glass ring lying on the ground. The sea fills the drain with water, the two
+        /// cities have their own canyon falling away below the island, and the three sky-replacing scenes
+        /// (<see cref="ReplacesSky"/>) have nothing down there to hide a ball against — none of them needs it.
+        /// <para>
+        /// It existed as a private copy in the Testbed and the Game until #75, and the forest was once missing
+        /// from <b>both</b> — which is the exact failure a duplicated classification invites, and the reason
+        /// this and every other question about a <see cref="SceneKind"/> are answered here.
+        /// </para>
+        /// </summary>
+        public static bool IsSolidTerrainScene(SceneKind kind) =>
+            kind is SceneKind.Mountain or SceneKind.Meadow or SceneKind.Savanna or SceneKind.Desert or SceneKind.Forest;
+
+        /// <summary>
+        /// Whether there is a vantage <b>under</b> the island from which the balls pouring out of the drain can
+        /// still be seen — what the drop cinematic asks before it decides whether to dive beneath the stone or
+        /// stay above it and look down the drain's throat.
+        /// <para>
+        /// It is exactly the complement of <see cref="IsSolidTerrainScene"/>, and that is a consequence rather
+        /// than a coincidence: the pit shaft those scenes need is opaque and near-black, so the very thing that
+        /// makes the drain read from above is what closes the view from below. Defined as the negation so a
+        /// twelfth scene is one decision instead of two silently disagreeing lists — it was two hand-kept sets
+        /// in different files until #75. Split them again only if a scene ever wants the shaft and the dive
+        /// both, and say why on the spot.
+        /// </para>
+        /// </summary>
+        public static bool OpenBelow(SceneKind kind) => !IsSolidTerrainScene(kind);
+
+        /// <summary>How many <see cref="SceneKind"/>s there are; a scene picker and a random pick size off it.</summary>
+        public static int SceneCount => SCENE_NAMES.Length;
+
+        /// <summary>
+        /// How many scenes the Testbed's NumPad2 and the map editor's V walk, which is deliberately <b>not</b>
+        /// <see cref="SceneCount"/>: the cycle stays on the seven scenes a map is authored against, and the
+        /// forest, space, the dream and the cavern sit past its end — reached with <c>scene=</c> on any command
+        /// line, or from the game's own scene menu. Both executables wrote the 7 as a bare literal until #75.
+        /// </summary>
+        public const int CycleLength = 7;
+
+        //In the declared order of SceneKind, so a picker can index it by the enum's own value. "Mountains"
+        //reads better than the singular enum member and is deliberately not "corrected" to match it; the
+        //parse keys below are the singular ones, because those are what a command line already takes.
+        private static readonly string[] SCENE_NAMES =
+            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream", "Cavern" };
+
+        /// <summary>
+        /// The scene's name for a menu or a log line. Display text, not a parse key — see
+        /// <see cref="TryParseScene"/> for the spellings a command line takes.
+        /// </summary>
+        public static string SceneName(SceneKind kind) => SCENE_NAMES[(int)kind];
+
+        /// <summary>
+        /// Parses the names every executable's <c>scene=</c> switch takes, so one benchmark or screenshot
+        /// script drives any of them unchanged — the Testbed grew an if/else chain, the Game a switch and the
+        /// two had to be kept in step by hand until #75. <c>mountain</c> and <c>neon</c> rather than
+        /// <c>mountains</c> and <c>neoncity</c>: they are the names that already existed.
+        /// </summary>
+        public static bool TryParseScene(string name, out SceneKind kind)
+        {
+            switch (name?.ToLowerInvariant())
+            {
+                case "city": kind = SceneKind.City; return true;
+                case "sea": kind = SceneKind.Sea; return true;
+                case "savanna": kind = SceneKind.Savanna; return true;
+                case "desert": kind = SceneKind.Desert; return true;
+                case "mountain": kind = SceneKind.Mountain; return true;
+                case "meadow": kind = SceneKind.Meadow; return true;
+                case "neon": kind = SceneKind.NeonCity; return true;
+                case "forest": kind = SceneKind.Forest; return true;
+                case "space": kind = SceneKind.Space; return true;
+                case "dream": kind = SceneKind.Dream; return true;
+                case "cavern": kind = SceneKind.Cavern; return true;
+                default: kind = default; return false;
+            }
+        }
+
         #region Scene-config apply (issue #32)
 
         /// <summary>
@@ -585,10 +666,12 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The light rig a scene states for itself instead of taking the sky dome's, and false when it takes
-        /// the dome's like every other one. Only <see cref="SceneKind.Space"/> states one, and it has to:
-        /// it draws no dome, so a dome-derived rig would be a lie — and the specific lie is expensive, because
-        /// the darkest dome halves the sun through the key tint and takes the metallic drain beads with it.
-        /// See <see cref="SpaceLightingConfig"/> for the argument in full.
+        /// the dome's like every other one. The <b>sky-replacing</b> scenes state one as a group — space, the
+        /// dream and the cavern (<see cref="ReplacesSky"/>) — each with its own colours, and they have to: they
+        /// draw no dome, so a dome-derived rig would be a lie — and the specific lie is expensive, because the
+        /// darkest dome halves the sun through the key tint and takes the metallic drain beads with it. See
+        /// <see cref="SpaceLightingConfig"/> for the argument in full; it was written when space was the only
+        /// one and this doc went on saying so for two scenes longer than it was true.
         /// <para>
         /// The caller applies this in its own <c>ApplySkyLighting</c> in place of the four dome-derived
         /// values, and everything else there — the key light's position, the renderers it walks — is unchanged.
