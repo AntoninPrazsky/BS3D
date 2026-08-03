@@ -9,6 +9,7 @@ using Myra;
 using Myra.Graphics2D;
 using Myra.Graphics2D.Brushes;
 using Myra.Graphics2D.UI;
+using Prazsky.BS3D;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Levels;
 using Prazsky.Core;
@@ -458,17 +459,16 @@ namespace BS3D
 
         #endregion
 
-        #region The gun's hardware (the mesh; the gun's pose and magazine are the session's)
+        #region The gun's hardware (the barrel; the gun's pose and magazine are the session's)
 
-        private CannonMesh _cannonMesh;
-        private InstancedModelRenderer _cannonRenderer;
+        //The procedural barrel and the renderer that draws it, with every figure the tube is cut to — all of it
+        //CannonRig's since #76, shared with the Testbed. It outlives a session because it is content: the mesh
+        //and the instance buffer are built once with the device up and disposed on the way out.
+        private CannonRig _cannonRig;
 
-        private const float CANNON_BORE_RADIUS = 0.6f;
-        private const float CANNON_WALL_THICKNESS = 0.14f;
-        private const float CANNON_SLOT_HALF_ANGLE = 0.5f;
-        private static readonly Vector3 CANNON_COLOR = new(0.42f, 0.44f, 0.48f);
-
-        internal InstancedModelRenderer CannonRenderer => _cannonRenderer;
+        /// <summary>The barrel, for the session to draw with its own pose and to size the queue's place in the
+        /// bore off (<see cref="CannonRig.PivotToFrontBall"/>).</summary>
+        internal CannonRig CannonRig => _cannonRig;
 
         #endregion
 
@@ -1207,19 +1207,11 @@ namespace BS3D
 
             #region The gun
 
-            //The barrel is modelled about its midpoint, so the world matrix's translation is the pivot: the
-            //queue of loaded balls recedes from a muzzle lip CANNON_PIVOT_TO_FRONT_BALL ahead of it. The
-            //magazine the bore is sized to is the session's (GameplayScreen), which is why its figures live
-            //there.
-            float muzzleZ = -(GameplayScreen.CANNON_PIVOT_TO_FRONT_BALL + Constants.HALF);
-            float breechZ = (GameplayScreen.MAGAZINE_SIZE - 1) * GameplayScreen.MAGAZINE_SPACING - GameplayScreen.CANNON_PIVOT_TO_FRONT_BALL + Constants.HALF;
-
-            _cannonMesh = new CannonMesh(GraphicsDevice, CANNON_BORE_RADIUS, CANNON_WALL_THICKNESS, muzzleZ, breechZ, CANNON_SLOT_HALF_ANGLE, 24);
-            _cannonRenderer = new InstancedModelRenderer(GraphicsDevice, _cannonMesh, CANNON_COLOR, _instancingEffect)
-            {
-                SpecularAmbientStrength = 0.5f,
-                GroundHeight = ArenaIsland.TOP_Y
-            };
+            //The bore is cut to the loaded queue: the rig derives the tube's length, its two lips and the
+            //pivot-to-front-ball distance from the queue's size and spacing, which are Magazine's own figures,
+            //so the barrel that is built and the muzzle a shot leaves from cannot disagree. The instancing
+            //effect is handed in and stays the content manager's — the rig disposes its mesh and renderer only.
+            _cannonRig = new CannonRig(GraphicsDevice, _instancingEffect, Magazine.SIZE, Magazine.SPACING);
 
             #endregion
 
@@ -2280,7 +2272,7 @@ namespace BS3D
         {
             foreach (InstancedModelRenderer ballRenderer in _ballRenderers) yield return ballRenderer;
 
-            yield return _cannonRenderer;
+            yield return _cannonRig.Renderer;
             yield return _cityRenderer;
 
             //The island's stone cap and concrete drum, the drain's glass and its two gold beads — but
@@ -2977,8 +2969,9 @@ namespace BS3D
             if (_ballMeshes != null) foreach (SphereMesh mesh in _ballMeshes) mesh?.Dispose();
             if (_ballRenderers != null) foreach (InstancedModelRenderer renderer in _ballRenderers) renderer?.Dispose();
 
-            _cannonMesh?.Dispose();
-            _cannonRenderer?.Dispose();
+            //The barrel's mesh and its instance buffer, in one call — but not the shared instancing effect,
+            //which the content manager owns and the balls, the city, the island and the ceiling all use
+            _cannonRig?.Dispose();
             _unitBox?.Dispose();
             _cityRenderer?.Dispose();
 

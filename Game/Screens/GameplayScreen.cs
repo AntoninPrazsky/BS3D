@@ -6,6 +6,7 @@ using BS3D.Physics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Prazsky.BS3D;
 using Prazsky.BS3D.GameObjects;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
@@ -76,31 +77,18 @@ namespace BS3D.Screens
         //barrel and the cluster are close together in the frame, so it can close in on the cluster.
         internal static readonly float GAME_FOV = MathF.PI / 4.2f;
 
-        //Where the lens stands relative to the gun: back from the field centre along the gun's own bearing,
-        //and just below the trunnions, so the player looks up at the hanging cluster past the barrel.
-        private const float CAMERA_HEIGHT = -1.5f;
-
         //How far back the camera stands and how high it aims. Both are SOLVED per level and per display
-        //(FitGameCameraToLevel) rather than tuned, because both of their inputs move underneath a fixed
-        //number: the field is sized per level, and the frustum per display. These defaults only cover the
-        //frames before the first level is installed.
+        //(FitCannonAndGameCameraToLevel, over GameCameraFit.Solve) rather than tuned, because both of their
+        //inputs move underneath a fixed number: the field is sized per level, and the frustum per display.
+        //These defaults only cover the frames before the first level is installed, and nothing seeds itself
+        //off them — the solve seeds round one off where the gun already stands.
+        //
+        //Every dial of the fit is GameCameraFit's, shared with the Testbed since #76: the lens's drop below
+        //the trunnions, the fraction of the frustum it may fill, the gun's stand-off in front of the lens and
+        //the two lower bounds that override it (the field's footprint and the steepest resting aim). Their
+        //whys are on those constants.
         private float _gameCameraDistance = 34f;
         private float _gameCameraTargetY = 3.5f;
-
-        //How much of the frustum the fit is allowed to fill. Under 1 so the field does not sit hard against
-        //the frame's edges, which reads as cropped even when nothing is.
-        private const float GAME_CAMERA_FIT_MARGIN = 0.92f;
-
-        //Where the gun stands relative to the camera, and the two lower bounds that override it. The gun is
-        //placed off the LENS and not off the field, because the magazine showing through its slot is really a
-        //HUD element and has to keep its size on screen — anchoring it to the field lets a large level push
-        //the camera back and shrink the queue with it. The bounds: it must clear the field's own footprint at
-        //every orbit angle (closer, and it stands under the cluster it shoots at), and it must stay far
-        //enough out that its RESTING aim is well inside Cannon's elevation clamp, with headroom to elevate
-        //onto the high cells. Which bound binds changes with the level, so this can never be one number.
-        private const float CANNON_CAMERA_STANDOFF = 15f;
-        private const float CANNON_FIELD_CLEARANCE = 2f;
-        private const float CANNON_MAX_REST_ELEVATION = 0.70f;  //radians, ~40°, against a clamp that reaches ~80°
 
         #endregion
 
@@ -115,20 +103,17 @@ namespace BS3D.Screens
         //where the camera stands (a camera behind the gun is always further out than the gun, so it always
         //sees the cluster flatter than the barrel does), while a lens looking *along* the aim sees whatever
         //the barrel points at, head-on.
-        private static readonly float ADS_FOV = MathF.PI / 5f;  //36°: a 1.19× lean-in on GAME_FOV — a zoom, not a tunnel
-        private const float ADS_BACK = 6f;                      //lens set-back from the muzzle ball, along -aim
-        private const float ADS_RISE = 2f;                      //lens height over the bore: clears the tube, keeps it a low sliver
-        private const float ADS_CONVERGE_MIN = 6f;              //nearest convergence depth (keeps the look-at point off the barrel)
-        private const float ADS_CONVERGE_MAX = 90f;             //farthest, well inside the far plane
-        private const float ADS_BLEND_TAU = 0.08f;              //ease time constant, seconds (~90 % in ~0.18 s) — the _magazineSlide idiom
-        private const float ADS_TRIGGER_THRESHOLD = 0.5f;       //gamepad left-trigger pull that counts as held
-
-        //Aiming steeply up, -aim points downwards and the set-back would drop the lens through the stone
-        //island and show it from underneath. Floored a margin over the island's top instead: from there the
-        //bottom of the frame still looks upwards, so the stone stays out of it.
-        private const float ADS_MIN_Y = ArenaIsland.TOP_Y + 1f;
-
-        private float _adsBlend;
+        //
+        //The lean itself is PreciseAim's, shared with the Testbed since #76: every dial (the set-back behind
+        //the muzzle, the lift over the bore, the narrower lens, the island floor under it, the convergence
+        //clamp and the ease), the one reversible blend and the held-button read. It hands this frame's pose
+        //back as a VALUE and touches no camera, which is what lets the drop cinematic go on lerping over the
+        //top of it — see UpdateCamera.
+        //
+        //What stays here is the held flag and its gates: the window's focus, a running cinematic and a screen
+        //pushed over this one all clear it, and PreciseAim.Step is called on unheld frames too, which is how
+        //the lean eases out rather than dropping.
+        private readonly PreciseAim _preciseAim = new();
         private bool _adsHeld;
 
         #endregion
@@ -435,21 +420,28 @@ namespace BS3D.Screens
 
         private readonly Cannon _cannon;
 
-        internal const int MAGAZINE_SIZE = 5;
-        internal const float MAGAZINE_SPACING = 1.0f;
-        private const float MAGAZINE_SLIDE_TAU = 0.07f;
-        internal const float CANNON_PIVOT_TO_FRONT_BALL = (MAGAZINE_SIZE - 1) * MAGAZINE_SPACING * Constants.HALF;
-
-        private readonly BallType[] _magazine = new BallType[MAGAZINE_SIZE];
-        private float _magazineSlide;
+        //The queue of loaded colours, its post-shot glide and where each loaded ball sits in the bore are all
+        //Magazine's, shared with the Testbed since #76 — as are the two figures the barrel was cut to
+        //(Magazine.SIZE and Magazine.SPACING, which CannonRig derives the tube's length and
+        //CannonRig.PivotToFrontBall from). What stays here is this screen's own two rules: which colours may be
+        //loaded at all (RandomBallType, injected below), and the cross-fade a re-coloured ball dissolves
+        //through. Built in the constructor rather than initialized here, because its hooks write the two
+        //arrays below.
+        private readonly Magazine _magazine;
 
         /// <summary>
         /// The colour a loaded ball is dissolving <i>out of</i>, per slot, and how far through that it is
         /// (0 = settled, nothing to draw twice). A ball whose colour has just been eliminated from the cluster
         /// is re-coloured where it sits rather than left to be fired at nothing — see <see cref="Transmute"/>.
+        /// <para>
+        /// Both are drawn in step with the queue, so both must shift with it — and
+        /// <see cref="Magazine.Advance"/> owns that shift, reporting every <c>(destination, source)</c> pair to
+        /// the hook wired at construction. Shifting only the colours would leave a slot dissolving out of the
+        /// ball behind it.
+        /// </para>
         /// </summary>
-        private readonly BallType[] _magazineFrom = new BallType[MAGAZINE_SIZE];
-        private readonly float[] _magazineTransmute = new float[MAGAZINE_SIZE];
+        private readonly BallType[] _magazineFrom = new BallType[Magazine.SIZE];
+        private readonly float[] _magazineTransmute = new float[Magazine.SIZE];
 
         /// <summary>
         /// How long a loaded ball takes to change colour. Slow enough to be unmistakably seen — the whole
@@ -569,7 +561,25 @@ namespace BS3D.Screens
             //island, and the gun stands well inside the island's rim.
             _cannon = new Cannon(new Vector3(0f, 5f, 0f), -6.4f, 20f);
 
-            for (int i = 0; i < MAGAZINE_SIZE; i++) _magazine[i] = RandomBallType();
+            //The queue's colours are the level's business (RandomBallType draws only among what is still
+            //hanging), so what to load next is injected; the constructor deals a full queue with it, which is
+            //what gives the player something to read from the first frame. The two hooks carry this screen's
+            //transmute state through every shift, so the three arrays stay drawn in step — wired once, here,
+            //since a delegate built per shot would allocate one per round fired.
+            _magazine = new Magazine(RandomBallType,
+                (destination, source) =>
+                {
+                    _magazineFrom[destination] = _magazineFrom[source];
+                    _magazineTransmute[destination] = _magazineTransmute[source];
+                },
+                (slot, type) =>
+                {
+                    //A ball dealt from what is alive has nothing to fade out of. This is also what keeps a
+                    //level loaded over a session that was mid-transmute from inheriting its half-finished
+                    //dissolves: Magazine.Refill fires it for every slot.
+                    _magazineTransmute[slot] = 0f;
+                    _magazineFrom[slot] = type;
+                });
 
             CreateShotTrailQuad();
 
@@ -704,8 +714,8 @@ namespace BS3D.Screens
 
             _physicsAccumulator = 0f;
             _cannonRecoil = 0f;
-            _magazineSlide = 0f;
-            _adsBlend = 0f;
+            _magazine.Settle();
+            _preciseAim.Reset();
 
             //A cinematic caught mid-shot by a level ending under it would otherwise hold the camera and the
             //controls into the next level, and its subject handles belong to a simulation that is now gone
@@ -787,15 +797,10 @@ namespace BS3D.Screens
 
             RecountBallTypes();
 
-            for (int i = 0; i < MAGAZINE_SIZE; i++)
-            {
-                _magazine[i] = RandomBallType();
-
-                //Nothing is mid-transmute in a queue that has just been dealt, and a level loaded over a
-                //session that was would otherwise inherit its half-finished dissolves
-                _magazineTransmute[i] = 0f;
-                _magazineFrom[i] = _magazine[i];
-            }
+            //A whole fresh queue for the new level: its colours belong to a level, and the level the standing
+            //queue was drawn from is gone. Refill deals every slot through the loaded hook, which is what
+            //clears any half-finished dissolve the last session left in one.
+            _magazine.Refill();
 
             //A fresh scorer per level, holding that entry's rules. Built even when the level fell back to the
             //built-in map, which then has no rules at all and so an unlimited budget and a still ceiling — the
@@ -1604,7 +1609,7 @@ namespace BS3D.Screens
         /// Re-colours every loaded ball whose colour has just been eliminated from the cluster, and starts the
         /// dissolve that shows it happening.
         /// <para>
-        /// The alternative — letting a stale queue play out — costs the player up to <see cref="MAGAZINE_SIZE"/>
+        /// The alternative — letting a stale queue play out — costs the player up to <see cref="Magazine.SIZE"/>
         /// shots on colours that cannot match anything, through no fault of their own. This is a game and not a
         /// simulation, so a ball that is already loaded may simply be re-coloured; the player will notice, and
         /// noticing is the point, because what they see is the game helping rather than the game cheating them.
@@ -1615,25 +1620,32 @@ namespace BS3D.Screens
         /// from what survives — picking whichever colour would help most would quietly make the game easier,
         /// and that is a difficulty decision, not a fix.
         /// </para>
+        /// <para>
+        /// <see cref="Magazine.Recolour"/> deliberately does <b>not</b> fire the loaded hook the constructor
+        /// wired, which is what lets the old colour below stand: a re-coloured ball is precisely the one whose
+        /// previous colour the cross-fade has to keep.
+        /// </para>
         /// </summary>
         private void Transmute()
         {
-            for (int slot = 0; slot < MAGAZINE_SIZE; slot++)
+            for (int slot = 0; slot < Magazine.SIZE; slot++)
             {
-                int index = (int)_magazine[slot] - 1;
+                BallType loaded = _magazine.Peek(slot);
+
+                int index = (int)loaded - 1;
                 if (index >= 0 && index < _ballsOfType.Length && _ballsOfType[index] > 0) continue;
 
                 BallType replacement = RandomBallType();
-                if (replacement == _magazine[slot]) continue; //nothing survives to swap to; leave it alone
+                if (replacement == loaded) continue; //nothing survives to swap to; leave it alone
 
                 //The ball it is fading OUT of is whatever is on screen now — which for a slot caught
                 //mid-transmute is the colour it was already fading out of, not the one it never finished
                 //becoming. Restarting from the visible colour is what keeps the animation continuous.
-                if (_magazineTransmute[slot] <= 0f) _magazineFrom[slot] = _magazine[slot];
+                if (_magazineTransmute[slot] <= 0f) _magazineFrom[slot] = loaded;
 
                 Console.WriteLine($"[transmute] slot {slot}: {_magazineFrom[slot]} is gone from the cluster -> {replacement}");
 
-                _magazine[slot] = replacement;
+                _magazine.Recolour(slot, replacement);
                 _magazineTransmute[slot] = 1f;
             }
         }
@@ -1703,13 +1715,13 @@ namespace BS3D.Screens
 
             _cannon.Update(gameTime);
 
-            //The queue glides forward into the slot the fired ball left rather than snapping
-            if (_magazineSlide > 0f) _magazineSlide *= MathF.Exp(-elapsed / MAGAZINE_SLIDE_TAU);
-            if (_magazineSlide < 0.001f) _magazineSlide = 0f;
+            //The queue glides forward into the slot the fired ball left rather than snapping. Wall clock, not
+            //the simulation's step: balls sliding down a tube is the gun answering the shot.
+            _magazine.Step(elapsed);
 
             //And a re-coloured ball dissolves out of its old colour. Linear, so it genuinely finishes rather
             //than leaving a slot for ever a few pixels short of its new colour.
-            for (int i = 0; i < MAGAZINE_SIZE; i++)
+            for (int i = 0; i < Magazine.SIZE; i++)
                 if (_magazineTransmute[i] > 0f)
                     _magazineTransmute[i] = MathF.Max(0f, _magazineTransmute[i] - elapsed / TRANSMUTE_SECONDS);
 
@@ -1877,7 +1889,7 @@ namespace BS3D.Screens
 
             //Precise aim is a hold, not an edge, so it is read straight off this frame's state — no
             //edge-input gate: leaning the camera in is not an action that can go off by accident.
-            _adsHeld = mouse.RightButton == ButtonState.Pressed || pad.Triggers.Left > ADS_TRIGGER_THRESHOLD;
+            _adsHeld = PreciseAim.ButtonHeld(mouse, pad);
 
             Mouse.SetPosition(centreX, centreY);
             _mouseAimInitialized = true;
@@ -1919,9 +1931,11 @@ namespace BS3D.Screens
             //in CheckLevelLost, against the state of the field then.
             if (_score.OutOfShots) return;
 
-            Vector3 direction = CannonAimDirection();
-            Vector3 muzzle = CannonMuzzlePosition();
-            BallType type = _magazine[0];
+            //No recoil in either of these: the shot leaves along the TRUE aim on the frame it is fired, before
+            //the barrel has moved. The stroke below is drawing only — see CannonRecoilBack.
+            Vector3 direction = _cannon.AimDirection;
+            Vector3 muzzle = _cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall);
+            BallType type = _magazine.Peek();
 
             _shotBall.Pose.Position = new System.Numerics.Vector3(muzzle.X, muzzle.Y, muzzle.Z);
             _shotBall.Velocity.Linear = new System.Numerics.Vector3(direction.X, direction.Y, direction.Z) * SHOOT_SPEED;
@@ -1957,7 +1971,10 @@ namespace BS3D.Screens
 
             _trails.Add(new ShotTrail { Origin = muzzle, Direction = direction, Color = TrailColorFor(type), Age = 0f });
 
-            AdvanceMagazine();
+            //The fired ball's slot empties, the queue shifts up, a fresh colour loads at the back and the glide
+            //is armed — and the transmute state rides forward with it through the hooks wired in the
+            //constructor, so no slot is left dissolving out of the ball behind it.
+            _magazine.Advance();
 
             //Set, not accumulated: a barrel's recoil stroke restarts from the top with every round, it does
             //not stack up over a burst the way the camera's trauma does.
@@ -1970,25 +1987,6 @@ namespace BS3D.Screens
             //Heard as well as felt: the shot's synthesized crack, centred (the muzzle is the lens's own work)
             //and nudged by a small random pitch so a burst never sounds flat.
             Game.Audio.PlayShoot();
-        }
-
-        private void AdvanceMagazine()
-        {
-            //A ball's half-finished transmute rides forward with it: the queue is drawn from these three
-            //arrays in step, so shifting only the colours would leave a slot dissolving out of a colour that
-            //belongs to the ball behind it.
-            for (int i = 0; i < MAGAZINE_SIZE - 1; i++)
-            {
-                _magazine[i] = _magazine[i + 1];
-                _magazineFrom[i] = _magazineFrom[i + 1];
-                _magazineTransmute[i] = _magazineTransmute[i + 1];
-            }
-
-            _magazine[MAGAZINE_SIZE - 1] = RandomBallType();
-            _magazineTransmute[MAGAZINE_SIZE - 1] = 0f; //freshly drawn from what is alive; nothing to fade
-
-            //Armed at one slot back, so the queue eases forward into the muzzle slot the shot just vacated
-            _magazineSlide = 1f;
         }
 
         #endregion
@@ -2095,26 +2093,33 @@ namespace BS3D.Screens
         /// barrel's own axis. The shake is added on top of this pose, never into it.
         /// <para>
         /// That overview is one end of a Lerp; the other is the precise-aim lean over the barrel, and
-        /// <c>_adsBlend</c> is where between them the frame sits. Only the <b>base</b> pose is interpolated,
-        /// so the two never fight: the kick is applied to whatever came out, by the camera itself.
+        /// <see cref="PreciseAim.Blend"/> is where between them the frame sits. Only the <b>base</b> pose is
+        /// interpolated, so the two never fight: the kick is applied to whatever came out, by the camera itself.
         /// </para>
         /// </summary>
         private void UpdateCamera(float elapsed)
         {
-            //The lean into precise aim, eased both ways off one reversible scalar. At 0 the Lerps below
-            //return the overview pose bit for bit, so letting go re-asserts today's framing exactly; the ease
-            //is continuous through an interrupted hold, so there is no state machine and nothing to snap.
-            float adsTarget = _adsHeld ? 1f : 0f;
-            _adsBlend = adsTarget + (_adsBlend - adsTarget) * MathF.Exp(-elapsed / ADS_BLEND_TAU);
-            if (adsTarget == 0f && _adsBlend < 0.002f) _adsBlend = 0f;
-            if (adsTarget == 1f && _adsBlend > 0.998f) _adsBlend = 1f;
+            //The lean into precise aim, eased both ways off one reversible scalar. Stepped on every frame,
+            //held or not: an unheld frame is how the lean eases back out, which is what makes losing focus a
+            //fade rather than a drop. At a blend of 0 the pose below is the overview pose bit for bit, so
+            //letting go re-asserts today's framing exactly and an interrupted hold never snaps.
+            _preciseAim.Step(_adsHeld, elapsed);
 
             Vector3 overviewPosition = GameCameraPositionAt(_gameCameraDistance);
             Vector3 overviewTarget = new(_cannon.OrbitCenter.X, _gameCameraTargetY, _cannon.OrbitCenter.Z);
 
-            Vector3 position = Vector3.Lerp(overviewPosition, AdsCameraPosition(), _adsBlend);
-            Vector3 target = Vector3.Lerp(overviewTarget, AdsCameraTarget(), _adsBlend);
-            float fov = MathHelper.Lerp(GAME_FOV, ADS_FOV, _adsBlend);
+            //Taken as a VALUE, not written into the camera: the cinematic below goes on lerping over it, and
+            //the base pose the shake composes onto is whatever comes out of both. The muzzle and the aim are
+            //read after _cannon.Update this frame, or the lens lags the barrel and reads as jitter — and
+            //without the recoil, which is the barrel's drawing offset and not where it is pointed. The cluster
+            //centre is the whole field's middle, solved once per level: the impact face sweeps that range.
+            AimPose aim = _preciseAim.BlendedPose(overviewPosition, overviewTarget, GAME_FOV,
+                _cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall), _cannon.AimDirection,
+                new Vector3(_cannon.OrbitCenter.X, _clusterCentreY, _cannon.OrbitCenter.Z));
+
+            Vector3 position = aim.Position;
+            Vector3 target = aim.Target;
+            float fov = aim.FieldOfView;
 
             //And the drop cinematic is a second Lerp over the top of that one, on its own reversible scalar
             //and for the same reason: at a blend of 0 these three lines return the pose above bit for bit, so
@@ -2137,84 +2142,17 @@ namespace BS3D.Screens
             Camera.Update(elapsed);
         }
 
-        /// <summary>
-        /// The lens for precise aim: behind the muzzle along the bore and lifted over it, so the camera looks
-        /// down the aim with the barrel a small sliver along the bottom of the frame — grounding, not
-        /// obstruction. Its Y is floored at <see cref="ADS_MIN_Y"/>: aiming steeply up, <c>-aim</c> points
-        /// down and the set-back would otherwise drop the lens through the island and show it from below.
-        /// </summary>
-        private Vector3 AdsCameraPosition()
-        {
-            Vector3 aim = CannonAimDirection();
-            Vector3 lens = CannonMuzzlePosition() - aim * ADS_BACK + AdsCamUp() * ADS_RISE;
-
-            lens.Y = MathF.Max(lens.Y, ADS_MIN_Y);
-
-            return lens;
-        }
-
-        /// <summary>
-        /// What that lens looks at: a point <b>on the shot ray</b> (muzzle + aim · d), so screen centre marks
-        /// where the shot is directed — honest before gravity, since that is the direction the ball leaves
-        /// on. The depth <c>d</c> is the cluster's, clamped: the crosshair is on the ray at any depth, so
-        /// this only centres the small over-the-barrel parallax over the range the impact face sweeps.
-        /// <para>
-        /// The honest limit is that parallax. Because the lens sits <see cref="ADS_RISE"/> above the ray, the
-        /// crosshair is pixel-exact only at <c>d</c> — a nearer impact reads slightly low. Fixing that would
-        /// mean raycasting the cluster for the true first contact and setting <c>d</c> to the hit distance.
-        /// </para>
-        /// </summary>
-        private Vector3 AdsCameraTarget()
-        {
-            Vector3 aim = CannonAimDirection();
-            Vector3 muzzle = CannonMuzzlePosition();
-
-            Vector3 clusterCentre = new(_cannon.OrbitCenter.X, _clusterCentreY, _cannon.OrbitCenter.Z);
-            float d = MathHelper.Clamp(Vector3.Dot(clusterCentre - muzzle, aim), ADS_CONVERGE_MIN, ADS_CONVERGE_MAX);
-
-            return muzzle + aim * d;
-        }
-
-        /// <summary>
-        /// The up the lens is <b>lifted</b> along: world up made perpendicular to the bore, so the lift is
-        /// straight over the barrel at every pitch and yaw and the tube stays a bottom-centre sliver. The
-        /// <b>view</b> up is plain world up — <see cref="RecoilCamera"/> builds its basis from one — which is
-        /// what keeps the horizon level. Well conditioned across <see cref="Cannon"/>'s elevation clamp: at
-        /// its ~80° ceiling the bore is still ~10° off vertical, so |up|² stays around 0.03, far above the
-        /// threshold below; the horizontal fallback only trips within ~0.6° of straight up.
-        /// </summary>
-        private Vector3 AdsCamUp()
-        {
-            Vector3 aim = CannonAimDirection();
-            Vector3 up = Vector3.Up - aim * Vector3.Dot(Vector3.Up, aim);
-
-            return up.LengthSquared() < 1e-4f ? Vector3.Normalize(new Vector3(aim.Z, 0f, -aim.X)) : Vector3.Normalize(up);
-        }
-
         #endregion
 
         #region Fitting the camera and the gun to the level
 
         /// <summary>
-        /// The horizontal direction from the field out towards the gun — the way the camera stands back.
-        /// Deliberately <b>flattened to the horizontal</b>: taken straight from <c>Position - OrbitCenter</c>
-        /// it tilts down by however far the gun stands below the cluster, which eats the camera's height and
-        /// leaves the lens sitting on the barrel's own axis, seeing the gun end-on.
+        /// Where the lens sits for a given stand-off — the overview pose, and the very pose
+        /// <see cref="GameCameraFit.Solve"/> searches over, so the one expression has one home. The bearing it
+        /// stands back along is flattened to the horizontal; the reason is on
+        /// <see cref="Cannon.StandBearing"/>, along with the camera's drop below the trunnions.
         /// </summary>
-        private Vector3 GameCameraBearing()
-        {
-            Vector3 back = _cannon.Position - _cannon.OrbitCenter;
-            back.Y = 0f;
-
-            return back == Vector3.Zero ? Vector3.Backward : Vector3.Normalize(back);
-        }
-
-        /// <summary>The field's centre at ground level: what the camera stands off from and turns about.</summary>
-        private Vector3 FieldCentreGround() => new(_cannon.OrbitCenter.X, 0f, _cannon.OrbitCenter.Z);
-
-        /// <summary>Where the lens sits for a given stand-off — the pose the fit below searches over.</summary>
-        private Vector3 GameCameraPositionAt(float distance) =>
-            FieldCentreGround() + GameCameraBearing() * distance + Vector3.Up * (_cannon.Position.Y + CAMERA_HEIGHT);
+        private Vector3 GameCameraPositionAt(float distance) => GameCameraFit.CameraPosition(_cannon, distance);
 
         /// <summary>
         /// The viewport has changed size or shape under the session: the aim's mouse baseline is stale (the
@@ -2230,153 +2168,38 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Solves the gun's orbit radius and the camera's stand-off together, since each depends on the other
-        /// — the camera is placed to frame the field <i>and the gun</i>, and the gun is placed a fixed
-        /// distance in front of the camera. Alternating converges at once in practice: at a fixed distance
-        /// from the lens the gun's angular footprint is the same whatever the radius, so the camera's solve
-        /// barely moves after the first round. Run on every level load and every resize.
+        /// Solves the gun's orbit radius and the camera's stand-off and aim height together — each depends on
+        /// the other, since the camera is placed to frame the field <i>and the gun</i> while the gun is placed a
+        /// fixed distance in front of the camera. The whole of it is <see cref="GameCameraFit"/>'s, shared with
+        /// the Testbed since #76; what is left here is the field this level happens to have, the overview lens
+        /// it is framed through, and the three assignments the solve implies. Run on every level load and every
+        /// resize, never per frame.
         /// </summary>
         private void FitCannonAndGameCameraToLevel()
         {
             if (_map == null) return;
 
-            for (int round = 0; round < 3; round++)
-            {
-                FitCannonOrbitToLevel();
-                FitGameCameraToLevel();
-            }
+            //The half-extents are the ceiling plate's own footprint, asked of the one helper that applies the
+            //margin, so the corners that are framed ARE the corners of the glass that is drawn — written out
+            //here again they would silently stop agreeing with the plate and the collidable the moment it is
+            //retuned. bottomY is the field's floor in WORLD Y, and it is the one thing that differs from the
+            //Testbed's caller: there the lattice frame IS the world frame, while here level 0 sits at the
+            //cluster's offset. A deep level's empty growth levels are inside the fitted volume on purpose —
+            //the cluster grows down into them, so they have to be in frame before the first ball lands there.
+            CameraFit fit = GameCameraFit.Solve(_cannon, Game.CannonRig.PivotToFrontBall + Constants.HALF,
+                CeilingPlate.FootprintFor(_map.StageSizeX) * Constants.HALF,
+                CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF,
+                _clusterWorldOffset.Y,
+                CeilingPlate.TopFaceY(_ceilingY), //upper face of the glass, wherever the descent has it now
+                GAME_FOV, Camera.AspectRatio);
+
+            _gameCameraDistance = fit.CameraDistance;
+            _gameCameraTargetY = fit.CameraTargetY;
+            _cannon.OrbitRadius = fit.CannonOrbitRadius; //the one write the solve implies, once, at the end
 
             Console.WriteLine($"[camera] Field {_map.StageSizeX}x{_map.StageSizeZ}x{_map.Levels}, aspect {Camera.AspectRatio:F2}: "
                 + $"camera {_gameCameraDistance:F1} out, aim Y {_gameCameraTargetY:F1}, "
                 + $"gun orbit {_cannon.OrbitRadius:F1} ({_gameCameraDistance - _cannon.OrbitRadius:F1} in front of the lens)");
-        }
-
-        /// <summary>
-        /// Puts the gun <see cref="CANNON_CAMERA_STANDOFF"/> in front of the camera, held off by the two lower
-        /// bounds documented with that constant.
-        /// </summary>
-        private void FitCannonOrbitToLevel()
-        {
-            float halfX = CeilingPlate.FootprintFor(_map.StageSizeX) * Constants.HALF;
-            float halfZ = CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF;
-
-            float clearFootprint = MathF.Sqrt(halfX * halfX + halfZ * halfZ) + CANNON_FIELD_CLEARANCE;
-            float clearElevation = (_cannon.OrbitCenter.Y - _cannon.Position.Y) / MathF.Tan(CANNON_MAX_REST_ELEVATION);
-
-            _cannon.OrbitRadius = MathF.Max(_gameCameraDistance - CANNON_CAMERA_STANDOFF,
-                MathF.Max(clearFootprint, clearElevation));
-        }
-
-        /// <summary>
-        /// Places the camera so the whole play field, the glass over it and the gun fit inside the frustum,
-        /// and aims it so they sit centred in it.
-        /// <para>
-        /// This has to be <b>solved</b> rather than tuned, because both of its inputs move. The field is
-        /// sized per level, so a stand-off that frames one crops another off the top of the screen — which is
-        /// exactly what the fixed number it replaces did. And the frustum is sized per display:
-        /// <c>CreatePerspectiveFieldOfView</c> takes the <b>vertical</b> FOV, so a wider screen only adds
-        /// width. That is the behaviour wanted — the field keeps its size on an ultrawide and the extra width
-        /// goes to scenery — but it also means the horizontal fit is generous at 21:9 and tightest on the
-        /// narrowest display, so both axes are checked.
-        /// </para>
-        /// </summary>
-        private void FitGameCameraToLevel()
-        {
-            float halfX = CeilingPlate.FootprintFor(_map.StageSizeX) * Constants.HALF;
-            float halfZ = CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF;
-
-            //The field in WORLD Y, which is the one place this differs from the Testbed's own solver: there
-            //the lattice frame IS the world frame, while here level 0 sits at the cluster offset rather than
-            //at zero. A deep level's empty growth levels are inside this on purpose — the cluster grows down
-            //into them, so they have to be in frame before the first ball ever lands there.
-            float bottomY = _clusterWorldOffset.Y;
-            float topY = CeilingPlate.TopFaceY(_ceilingY);   //upper face of the ceiling slab
-
-            float verticalHalf = GAME_FOV * Constants.HALF * GAME_CAMERA_FIT_MARGIN;
-            float horizontalHalf = MathF.Atan(MathF.Tan(GAME_FOV * Constants.HALF) * Camera.AspectRatio) * GAME_CAMERA_FIT_MARGIN;
-
-            //Everything fits from far enough away and nothing does from close in, so the smallest distance
-            //that fits can be bisected for. The near bound is the lens right behind the gun.
-            float near = CannonOrbitRadius() + 2f;
-            float far = 400f;
-
-            for (int i = 0; i < 32; i++)
-            {
-                float middle = (near + far) * Constants.HALF;
-                if (GameCameraFitsAt(middle, halfX, halfZ, bottomY, topY, verticalHalf, horizontalHalf, out _)) far = middle;
-                else near = middle;
-            }
-
-            GameCameraFitsAt(far, halfX, halfZ, bottomY, topY, verticalHalf, horizontalHalf, out float axisElevation);
-
-            _gameCameraDistance = far;
-            _gameCameraTargetY = _cannon.Position.Y + CAMERA_HEIGHT + far * MathF.Tan(axisElevation);
-        }
-
-        /// <summary>
-        /// Whether the field, its ceiling and the gun all land inside the frustum with the lens that far out,
-        /// and at what elevation the view axis has to sit for it. Elevations are measured off the horizontal
-        /// and bisected, which is what centres the subject between the top and bottom edges.
-        /// </summary>
-        private bool GameCameraFitsAt(float distance, float halfX, float halfZ, float bottomY, float topY,
-            float verticalHalf, float horizontalHalf, out float axisElevation)
-        {
-            Vector3 back = GameCameraBearing();
-            Vector3 camera = GameCameraPositionAt(distance);
-            Vector3 forward = -back;
-            Vector3 right = Vector3.Cross(Vector3.Up, forward);
-
-            float minElevation = float.MaxValue;
-            float maxElevation = float.MinValue;
-            float maxSide = 0f;
-            bool ahead = true;
-
-            void Consider(Vector3 point)
-            {
-                Vector3 offset = point - camera;
-                float depth = Vector3.Dot(offset, forward);
-
-                //On or behind the lens: there is no angle to measure, and the pose is rejected outright
-                if (depth <= Constants.ONE) { ahead = false; return; }
-
-                float elevation = MathF.Atan2(offset.Y, depth);
-                minElevation = MathF.Min(minElevation, elevation);
-                maxElevation = MathF.Max(maxElevation, elevation);
-                maxSide = MathF.Max(maxSide, MathF.Atan2(MathF.Abs(Vector3.Dot(offset, right)), depth));
-            }
-
-            //The field's eight corners, from the floor of the play space to the top of the glass
-            for (int cornerX = -1; cornerX <= 1; cornerX += 2)
-                for (int cornerZ = -1; cornerZ <= 1; cornerZ += 2)
-                {
-                    Consider(new Vector3(cornerX * halfX, bottomY, cornerZ * halfZ));
-                    Consider(new Vector3(cornerX * halfX, topY, cornerZ * halfZ));
-                }
-
-            //The gun, as a box around its trunnions large enough to hold the barrel at any aim, so the fit
-            //does not change as the player elevates or traverses
-            float reach = CANNON_PIVOT_TO_FRONT_BALL + Constants.HALF;
-            Consider(_cannon.Position + Vector3.Up * reach);
-            Consider(_cannon.Position - Vector3.Up * reach);
-            Consider(_cannon.Position + back * reach);
-            Consider(_cannon.Position - back * reach);
-            Consider(_cannon.Position + right * reach);
-            Consider(_cannon.Position - right * reach);
-
-            axisElevation = (minElevation + maxElevation) * Constants.HALF;
-
-            return ahead
-                && (maxElevation - minElevation) * Constants.HALF <= verticalHalf
-                && maxSide <= horizontalHalf;
-        }
-
-        /// <summary>The gun's horizontal distance from the centre it orbits — its orbit radius.</summary>
-        private float CannonOrbitRadius()
-        {
-            Vector3 offset = _cannon.Position - _cannon.OrbitCenter;
-            offset.Y = 0f;
-
-            return offset.Length();
         }
 
         #endregion
@@ -2410,7 +2233,9 @@ namespace BS3D.Screens
 
             SceneFrame sceneFrame = Game.BeginSceneDraw();
 
-            Game.CannonRenderer.Draw(Camera, CannonWorld(), Game.SceneEffectParams);
+            //The barrel, drawn with its recoil stroke: the pose is Cannon's and the hardware CannonRig's, so
+            //the tube that was built and the bore a shot leaves from cannot disagree
+            Game.CannonRig.Draw(Camera, _cannon.BarrelWorld(CannonRecoilBack()), Game.SceneEffectParams);
 
             DrawBallsInstanced();
 
@@ -2462,7 +2287,9 @@ namespace BS3D.Screens
         /// </summary>
         private void DrawCrosshair()
         {
-            if (_adsBlend <= 0.01f) return;
+            float blend = _preciseAim.Blend;
+
+            if (blend <= 0.01f) return;
 
             Viewport viewport = GraphicsDevice.Viewport;
 
@@ -2480,7 +2307,7 @@ namespace BS3D.Screens
             int inner = (int)gap;
             int half = thickness / 2;
 
-            Color color = CROSSHAIR_COLOR * _adsBlend;
+            Color color = CROSSHAIR_COLOR * blend;
 
             SpriteBatch batch = Game.OverlayBatch;
             Texture2D pixel = Game.WhitePixel;
@@ -2825,22 +2652,16 @@ namespace BS3D.Screens
         /// </summary>
         private void CollectMagazineBalls()
         {
-            Vector3 direction = CannonAimDirection();
+            //Taken once per frame rather than per ball, so each slot's place is a multiply and an add. The queue
+            //rides the barrel, recoil included: it sits in the bore, so it goes back with it — the same stroke
+            //the barrel itself was drawn with, or the balls float out of it. The pose also carries the barrel's
+            //own basis, and each slot's matrix takes it with the translation written straight into its fourth
+            //row rather than multiplied in (see BorePose.SlotWorld).
+            BorePose pose = _magazine.Pose(_cannon, Game.CannonRig.PivotToFrontBall, CannonRecoilBack());
 
-            //The queue rides the barrel, recoil included: it sits in the bore, so it goes back with it
-            Vector3 front = CannonMuzzlePosition() + CannonRecoilOffset();
-
-            //The barrel's basis with the translation written straight in: CannonOrientation() carries zero
-            //translation (Matrix.CreateWorld with Vector3.Zero), so orientation × translation is exactly the
-            //orientation with its fourth row set — no per-ball matrix multiply needed
-            Matrix world = CannonOrientation();
-
-            for (int i = 0; i < MAGAZINE_SIZE; i++)
+            for (int i = 0; i < Magazine.SIZE; i++)
             {
-                Vector3 position = front - direction * ((i + _magazineSlide) * MAGAZINE_SPACING);
-                world.M41 = position.X;
-                world.M42 = position.Y;
-                world.M43 = position.Z;
+                Matrix world = pose.SlotWorld(i, out Vector3 position);
 
                 //A ball whose colour was eliminated from the cluster is re-coloured where it sits, and the two
                 //colours cross-fade by dithering against each other: the new one arrives (negative) while the
@@ -2857,10 +2678,10 @@ namespace BS3D.Screens
                 {
                     float progress = 1f - remaining;
 
-                    CollectBallInstance(position, world, _magazine[i], new Vector4(0f, 0f, 0f, 1f), -progress);
+                    CollectBallInstance(position, world, _magazine.Peek(i), new Vector4(0f, 0f, 0f, 1f), -progress);
                     CollectBallInstance(position, world, _magazineFrom[i], new Vector4(0f, 0f, 0f, 1f), progress);
                 }
-                else CollectBallInstance(position, world, _magazine[i], new Vector4(0f, 0f, 0f, 1f));
+                else CollectBallInstance(position, world, _magazine.Peek(i), new Vector4(0f, 0f, 0f, 1f));
             }
         }
 
@@ -3014,50 +2835,29 @@ namespace BS3D.Screens
 
         #endregion
 
-        #region The gun's geometry
+        #region The gun's recoil
 
-        /// <summary>The direction the gun fires: from the trunnions towards its aim target.</summary>
-        private Vector3 CannonAimDirection() => Vector3.Normalize(_cannon.AimTarget - _cannon.Position);
-
-        /// <summary>
-        /// Where the ball at the head of the queue sits, and so where a shot leaves from: on the barrel
-        /// axis, ahead of the trunnions the barrel turns about.
-        /// </summary>
-        private Vector3 CannonMuzzlePosition() => _cannon.Position + CannonAimDirection() * CANNON_PIVOT_TO_FRONT_BALL;
+        //What used to be the gun's geometry: the barrel's pose — the aim, the muzzle, the basis and the draw
+        //matrix — is Cannon's own since #76, and the tube's figures are CannonRig's. All that is left here is
+        //the stroke, because only this executable animates one.
 
         /// <summary>
-        /// The barrel's orientation: forward down the aim, with the magazine slot (the mesh's local +Y)
-        /// pinned to <b>world</b> up, so the slit stays on the barrel's upper face and never rolls about
-        /// the bore — the gun sits on a stand that only elevates and traverses.
-        /// </summary>
-        private Matrix CannonOrientation() => Matrix.CreateWorld(Vector3.Zero, CannonAimDirection(), Vector3.Up);
-
-        /// <summary>
-        /// How far the barrel is displaced by its own recoil this instant — straight back along the bore, and
-        /// exactly zero once the stroke is over. Squared rather than linear in the stroke, so the shot throws
+        /// How far back along the bore the barrel is displaced by its own recoil this instant, in world units,
+        /// and exactly zero once the stroke is over. Squared rather than linear in the stroke, so the shot throws
         /// the gun back at once and the return eases off, which is the shape a recoiling barrel has (the same
         /// reasoning as <see cref="CameraShake"/>'s: a linear amplitude spends most of its life mid-stroke and
-        /// reads as a wobble instead of a jolt). Applied where the gun is <b>drawn</b> and nowhere else.
+        /// reads as a wobble instead of a jolt).
+        /// <para>
+        /// Handed to <see cref="Cannon.BarrelWorld"/> and <see cref="Magazine.Pose"/> — which is to say applied
+        /// where the gun is <b>drawn</b> and nowhere else. A shot leaves along the true aim on the frame it is
+        /// fired, before the barrel has moved, so nothing about where a ball goes may depend on this: neither
+        /// <see cref="Shoot"/> nor <see cref="Cannon.AimDirection"/> takes it, and feeding it in there is exactly
+        /// what a reader would "fix". A <b>positive</b> scalar, since the shared pose subtracts it along the
+        /// bore; the shape and the decay stay here because the shared pose owns neither, on purpose.
+        /// </para>
         /// </summary>
-        private Vector3 CannonRecoilOffset() =>
-            _cannonRecoil <= 0f ? Vector3.Zero : CannonAimDirection() * (-CANNON_RECOIL_BACK * _cannonRecoil * _cannonRecoil);
-
-        /// <summary>
-        /// Where the barrel is drawn: its orientation with the recoiled pivot written straight into the
-        /// translation row. <see cref="CannonOrientation"/> carries no translation of its own, so orientation
-        /// × translation is exactly the orientation with that row set — no 4×4 multiply needed.
-        /// </summary>
-        private Matrix CannonWorld()
-        {
-            Matrix world = CannonOrientation();
-            Vector3 pivot = _cannon.Position + CannonRecoilOffset();
-
-            world.M41 = pivot.X;
-            world.M42 = pivot.Y;
-            world.M43 = pivot.Z;
-
-            return world;
-        }
+        private float CannonRecoilBack() =>
+            _cannonRecoil <= 0f ? 0f : CANNON_RECOIL_BACK * _cannonRecoil * _cannonRecoil;
 
         #endregion
     }

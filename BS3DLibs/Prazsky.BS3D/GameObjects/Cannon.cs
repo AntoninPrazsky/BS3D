@@ -307,5 +307,144 @@ namespace Prazsky.BS3D.GameObjects
 				* Matrix.CreateRotationY(_rotationToOrbitCenter.Y + _rotationAim.Y)
 				* Matrix.CreateTranslation(Position);
 		}
+
+		#region The barrel's pose
+
+		//Everything below is read off the pose rather than stored: it stood in both executables as a private
+		//helper apiece, value-identical, until #76. It all runs per frame and several times per frame, so none
+		//of it allocates and none of it composes a matrix it could write a row of instead - see the whole
+		//discipline in BestPractices.md.
+		//
+		//Note that none of it is the inherited Object3D.World, which is built from the same pose but as an
+		//Euler pair (RecalculateWorldMatrix above) and is not what the barrel is drawn with: the mesh is
+		//modelled looking down local -Z with its slot on local +Y, which is the basis CreateWorld gives and not
+		//the one CreateRotationX * CreateRotationY does. World is unused by both executables and stays as it is.
+
+		/// <summary>
+		/// The direction the gun fires: from the trunnions (<see cref="Object3D.Position"/>) towards
+		/// <see cref="AimTarget"/>. Pure geometry, and the shot's own direction — a ball leaves along the barrel,
+		/// before gravity. The muzzle lies on this very line, so deriving the muzzle from the pivot rather than
+		/// the other way round moved nothing about where a shot goes.
+		/// <para>
+		/// It deliberately takes <b>no recoil</b>, unlike <see cref="MuzzlePosition"/> and
+		/// <see cref="BarrelWorld"/>: the recoil is <b>drawing only</b>. A shot leaves along the true aim on the
+		/// frame it is fired, before the barrel has moved, so nothing about where a ball goes may depend on it —
+		/// and the launch smear stays anchored at the un-recoiled muzzle, about a unit from the drawn one at the
+		/// peak of the stroke, which is invisible against a seven-unit streak. Feeding the recoil in here is
+		/// precisely the thing a reader would "fix" (see docs/game-session.md, "Recoil and camera shake").
+		/// </para>
+		/// </summary>
+		public Vector3 AimDirection => Vector3.Normalize(AimTarget - Position);
+
+		/// <summary>
+		/// The horizontal direction from <see cref="OrbitCenter"/> out to where the gun stands — the way a
+		/// third-person camera behind it stands back. Deliberately <b>flattened to the horizontal</b>: taken
+		/// straight from <c>Position - OrbitCenter</c> it tilts down by however far the gun stands below the
+		/// cluster (about 30° as both executables place it), which ate most of the camera's back-off downwards,
+		/// cancelled its height and left the lens sitting on the barrel's own axis, seeing the gun end-on with
+		/// the magazine slot along its top edge-on. Flat, the camera's own height is the only thing that decides
+		/// how far the view looks down onto the barrel, which is the point of having one.
+		/// <para>
+		/// Falls back to <see cref="Vector3.Backward"/> in the degenerate case of the gun standing exactly on
+		/// the centre it orbits, so a caller never normalizes a zero vector.
+		/// </para>
+		/// </summary>
+		public Vector3 StandBearing
+		{
+			get
+			{
+				Vector3 back = Position - OrbitCenter;
+				back.Y = 0f;
+
+				return back == Vector3.Zero ? Vector3.Backward : Vector3.Normalize(back);
+			}
+		}
+
+		/// <summary>
+		/// The centre the gun orbits, at ground level: what a third-person camera stands off from and turns
+		/// about. The field's centre, in other words, with the cluster's height dropped out of it.
+		/// </summary>
+		public Vector3 OrbitCenterGround => new(OrbitCenter.X, 0f, OrbitCenter.Z);
+
+		/// <summary>
+		/// Where the ball at the head of the magazine sits, and so where a shot spawns: on the barrel axis,
+		/// <paramref name="pivotToFrontBall"/> ahead of the trunnions along <see cref="AimDirection"/>. Unlike
+		/// the pivot it swings with the aim — it is the muzzle end of a barrel that turns about its middle — so
+		/// the shot leaves from the ball the player was watching rather than from the middle of the tube.
+		/// </summary>
+		/// <param name="pivotToFrontBall">Half the loaded queue's length: how far the head-of-queue ball sits
+		/// ahead of the trunnions. It is the barrel <i>hardware</i>'s figure, not the pose's, so it is handed in
+		/// rather than stored — <see cref="CannonRig.PivotToFrontBall"/> derives it from the magazine the bore
+		/// was sized to, and the magazine itself belongs to the caller.</param>
+		/// <param name="recoilBack">How far back along the bore the barrel is displaced by its own recoil this
+		/// instant, in world units, 0 at rest. A caller-passed scalar on purpose: one executable animates a
+		/// recoil and the other does not, and this owns neither the stroke's shape nor its decay. Drawing only —
+		/// see the note on <see cref="AimDirection"/>. The queue rides in the bore, so a caller drawing the
+		/// loaded balls passes the same value it drew the barrel with, or the balls float out of it.</param>
+		public Vector3 MuzzlePosition(float pivotToFrontBall, float recoilBack = 0f) =>
+			//One normalize and one scale: the two offsets are along the same axis, so they are summed as
+			//scalars first rather than as two vectors
+			Position + AimDirection * (pivotToFrontBall - recoilBack);
+
+		/// <summary>
+		/// The barrel's orientation: forward down the aim, with the magazine slot (the mesh's local +Y) pinned
+		/// to <b>world</b> up, so the slit stays on the barrel's upper face and never rolls about the bore.
+		/// <para>
+		/// An earlier version rolled the slot to face the <b>camera</b> so the loaded queue was always readable,
+		/// but the roll looked wrong in motion: the gun is to sit on a stand that only elevates and traverses,
+		/// and a barrel that spins about its own axis to track the eye reads as unreal. The cost is accepted —
+		/// from the low game camera the player sees the barrel's underside and not always the queue (precise
+		/// aim, whose lens rides over the barrel, still looks into the slot). Note it no longer depends on the
+		/// camera at all.
+		/// </para>
+		/// <para>
+		/// <see cref="Matrix.CreateWorld(Vector3, Vector3, Vector3)"/> orthogonalises world up against the aim,
+		/// so the slit stays on the upper face as the barrel elevates, and the bore is clamped well off vertical
+		/// (<see cref="MinElevation"/>/<see cref="MaxElevation"/>) so world up and the aim are never parallel and
+		/// this never degenerates. The loaded balls take <b>this same basis</b>, which is what stops them
+		/// skewing: drawn unrotated they would hold a fixed world orientation while the barrel tilted around
+		/// them, and the eye reads that mismatch as each ball twisting in its slot.
+		/// </para>
+		/// </summary>
+		public Matrix BarrelOrientation() => Matrix.CreateWorld(Vector3.Zero, AimDirection, Vector3.Up);
+
+		/// <summary>
+		/// The matrix the barrel is drawn with: <see cref="BarrelOrientation"/> about the trunnions. Built from
+		/// the pose rather than being the inherited <see cref="Object3D.World"/>, because the mesh is modelled
+		/// with its muzzle towards local -Z and its slot towards local +Y — which is what
+		/// <see cref="Matrix.CreateWorld(Vector3, Vector3, Vector3)"/> maps to the aim and the up vector, and
+		/// what an Euler pair does not.
+		/// <para>
+		/// The translation is the <b>trunnions</b>: the pins a carriage holds a real gun by, at the barrel's
+		/// point of balance. Aiming leaves <see cref="Object3D.Position"/> alone and only moves
+		/// <see cref="AimTarget"/>, so whatever Position means is what the barrel turns about — with it at the
+		/// muzzle the whole tube and its loaded queue swung from the tip, which is the one place a gun does not
+		/// pivot. The mesh is therefore laid out about its own midpoint (see <see cref="CannonRig"/>), so this
+		/// matrix's translation row <i>is</i> the pivot.
+		/// </para>
+		/// </summary>
+		/// <param name="recoilBack">As for <see cref="MuzzlePosition"/>: the recoil stroke this instant, in
+		/// world units back along the bore, 0 at rest.</param>
+		public Matrix BarrelWorld(float recoilBack = 0f)
+		{
+			Vector3 aim = AimDirection;
+			Vector3 pivot = Position - aim * recoilBack;
+
+			//The orientation with the translation written straight into its fourth row, rather than
+			//orientation * CreateTranslation(pivot). CreateWorld(Vector3.Zero, ...) carries no translation of
+			//its own, so its fourth row is (0,0,0,1) and the product is EXACTLY the orientation with that row
+			//set - bit-exact, not an approximation, and it saves a whole 4x4 multiply on a per-frame path
+			//(BestPractices.md, "Write a translation, do not multiply one in"). The substitution silently breaks
+			//if anyone ever gives the orientation a translation of its own, so it has to stay built here.
+			Matrix world = Matrix.CreateWorld(Vector3.Zero, aim, Vector3.Up);
+
+			world.M41 = pivot.X;
+			world.M42 = pivot.Y;
+			world.M43 = pivot.Z;
+
+			return world;
+		}
+
+		#endregion
 	}
 }
