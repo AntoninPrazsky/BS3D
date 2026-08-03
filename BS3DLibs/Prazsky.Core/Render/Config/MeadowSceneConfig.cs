@@ -12,7 +12,8 @@ namespace Prazsky.Core.Render
         public override SceneKind Kind => SceneKind.Meadow;
 
         /// <summary>Basin the arena sits in, rising into rolling hills with distance; stays below the island
-        /// top (ARENA_Y ≈ -8.5 — the old -10.7 referent was the removed recessed glass bath).</summary>
+        /// top (<see cref="ArenaIsland.TOP_Y"/>, -8.5 — the old -10.7 referent was the removed recessed glass
+        /// bath).</summary>
         public float LevelY { get; set; } = -14f;
 
         /// <summary>Peak height of the rolling hills that rise with distance.</summary>

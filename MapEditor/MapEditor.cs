@@ -162,22 +162,18 @@ namespace MapEditor
         //moving the way it does in the game instead of freezing
         private float _sceneSeconds;
 
-        //Cached sky palette in linear radiance, handed to the scenes each frame (set in ApplySkyLighting)
-        private Vector3 _zenithLinear = Vector3.One;
-        private Vector3 _horizonLinear = Vector3.One;
+        //The sky-derived light rig, shared with the game since #75 — the palette in linear radiance, the
+        //hemisphere ambient, the tints and the sun the scenes are shaded by. It used to be a near-mirror of the
+        //game's copy here, constants and all, which is exactly the drift this editor exists to not have.
+        private SkyLightRig _rig;
 
-        //Near-mirrors of the game's scene-lighting constants: the sun radiance and tint give the scenes their
-        //warm sun, and the ambient is the city's. The shaders — the actual look of every scene — are the
-        //shared source. The clearing radius no longer mirrors anything: the game's arena became the round
-        //stone island (ARENA_DISC_RADIUS/ISLAND_RADIUS = 26), so this 60 keeps the editor's towers ~2.3× as
-        //far from the field as they stand in play. Whether to close that to 26 is a look decision, not a sync.
+        //The clearing radius no longer mirrors anything: the game's arena became the round stone island
+        //(ArenaIsland.RADIUS = 26), so this 60 keeps the editor's towers ~2.3× as far from the field as they
+        //stand in play. Whether to close that to 26 is a look decision, not a sync.
         private const float ARENA_HALF_EXTENT = 60f;
         //Window brightness (day + neon) now lives in _cityConfig.WindowBrightness / _cityConfig.NeonLook.WindowBrightness.
         private const float CITY_SPECULAR_AMBIENT = 0.07f;
-        private const float SCENE_SKY_TINT = 0.5f;
         private const float SCENE_AMBIENT_INTENSITY = 0.25f;
-        private static readonly Vector3 SCENE_SUN_RADIANCE = new(1.7f, 1.66f, 1.55f);
-        private static readonly Vector3 SUN_DIRECTION = -DefaultLighting.Light0Direction;
 
         private readonly BasicEffectParams _sceneEffectParams = new(Vector3.One * SCENE_AMBIENT_INTENSITY, Vector3.Zero, 0f, Vector3.Zero);
 
@@ -345,6 +341,9 @@ namespace MapEditor
                 SpecularAmbientStrength = CITY_SPECULAR_AMBIENT
             };
 
+            //After the scene renderer, because the rig consults it for the scenes that state their own lighting
+            _rig = new SkyLightRig(_sceneRenderer);
+
             ApplySkyLighting();
 
             _pipeline.EnsureTarget();
@@ -362,8 +361,15 @@ namespace MapEditor
         /// </summary>
         private void SwitchScene()
         {
-            _scene = (SceneKind)(((int)_scene + 1) % 7);
-            Info.CustomText = $"Scene: {_scene}";
+            _scene = (SceneKind)(((int)_scene + 1) % SceneRenderer.CycleLength);
+            Info.CustomText = $"Scene: {SceneRenderer.SceneName(_scene)}";
+
+            //Re-derive the rig: a scene may state its own lighting instead of the dome's, and V is a scene
+            //change like any other. It was missing here — latent rather than visible, since the cycle stays
+            //inside the seven scenes that all take the dome's, but it became a real bug the moment the cycle
+            //widened or one of those seven stated a rig, and neither is a change anyone would think to check.
+            ApplySkyLighting();
+
             RebindSceneConfigGrid();
         }
 
@@ -456,52 +462,26 @@ namespace MapEditor
         }
 
         /// <summary>
-        /// Derives the ball lighting from the sky dome exactly as the game does: hemisphere ambient (zenith
-        /// color from above, horizon color from below) plus a light rig tinted by the same palette.
+        /// Re-derives the lighting from the sky dome and pushes it onto everything the editor draws. The whole
+        /// derivation is the game's, literally — <see cref="SkyLightRig"/> is the one copy since #75, so a
+        /// palette, a tint or a scene's own rig cannot mean one thing here and another in play.
+        /// <para>
+        /// Only the enrolment is the editor's own, and it is short: the balls and the city. The city takes part
+        /// like every other instanced object — its facades are dark, but its specular ambient reads the sky.
+        /// There is no island, no drain and no ceiling here to light.
+        /// </para>
         /// </summary>
         private void ApplySkyLighting()
         {
-            //The palette is read off the dome's vertex colors, so it arrives sRGB-encoded. Everything below
-            //scales, tints and lerps it, and none of that means anything until it is radiance — scaling an
-            //sRGB value by 1.3 does not make 1.3 times the light — so it is decoded to linear first, exactly
-            //as the game's ApplySkyLighting does. The renderer works in linear now (LinearLightRig true), and
-            //SkyColor/GroundColor hold linear values.
-            _zenithLinear = ColorSpace.SrgbToLinear(_sky.ZenithColor);
-            _horizonLinear = ColorSpace.SrgbToLinear(_sky.HorizonColor);
+            //A scene that states its own rig — space, the dream, the cavern — has to be honoured here too, or a
+            //level of one would draw the right sky and light its balls by the wrong sun, which is the one thing
+            //this editor exists to prevent. Those scenes are reachable despite V cycling only the first seven:
+            //loading a LEVEL sets _scene from the level's own scene kind. The rig reads the override itself,
+            //which is why the scene goes in with the dome.
+            _rig.SetSky(_sky, _scene);
 
-            //Key/fill lights take on the horizon color, the back light the zenith, so the whole rig follows
-            //the mood of the sky (the game calls this figure SKY_TINT_STRENGTH; it is the same 0.5)
-            Vector3 keyTint = Vector3.Lerp(Vector3.One, _horizonLinear, SCENE_SKY_TINT);
-            Vector3 backTint = Vector3.Lerp(Vector3.One, _zenithLinear, SCENE_SKY_TINT);
-            Vector3 skyAmbient = _zenithLinear * 1.3f;
-            Vector3 groundAmbient = _horizonLinear * 0.75f; //Bounce light from below is dimmer than the sky above
-
-            //The space scene states its own rig instead of deriving one from a dome it never draws, so the
-            //editor has to honour it too — otherwise a space level would draw the right sky and light its balls
-            //by the wrong sun, which is the one thing this editor exists to prevent. It is reachable here
-            //despite V cycling only the first seven scenes: loading a LEVEL sets _scene from the level's own
-            //scene kind, so a space level opened with F1 or dropped on the window lands in it.
-            if (_sceneRenderer != null && _sceneRenderer.TryGetLightRig(_scene, out SceneLightRig rig))
-            {
-                skyAmbient = rig.SkyAmbient;
-                groundAmbient = rig.GroundAmbient;
-                keyTint = rig.KeyTint;
-                backTint = rig.BackTint;
-            }
-
-            //The balls and the city are lit the same way — the city takes part in the sky rig like every
-            //other instanced object (its facades are dark, but its specular ambient reads the sky)
-            foreach (InstancedModelRenderer renderer in _ballRenderers) ApplySkyLightingTo(renderer, skyAmbient, groundAmbient, keyTint, backTint);
-            if (_cityRenderer != null) ApplySkyLightingTo(_cityRenderer, skyAmbient, groundAmbient, keyTint, backTint);
-        }
-
-        private void ApplySkyLightingTo(InstancedModelRenderer renderer, Vector3 skyAmbient, Vector3 groundAmbient, Vector3 keyTint, Vector3 backTint)
-        {
-            renderer.LinearLightRig = true;
-            renderer.SkyColor = skyAmbient;
-            renderer.GroundColor = groundAmbient;
-            renderer.KeyLightPosition = -DefaultLighting.Light0Direction * 40f;
-            renderer.SetLightTint(keyTint, backTint);
+            foreach (InstancedModelRenderer renderer in _ballRenderers) _rig.ApplyTo(renderer);
+            _rig.ApplyTo(_cityRenderer);
         }
 
         /// <summary>
@@ -833,7 +813,7 @@ namespace MapEditor
             //skyline instead of showing through as a blue band (same fix as the game).
             //Space has no dome and no horizon, so it clears to black instead: Space.fx covers every pixel of
             //the frame, and black is what would show if it ever did not.
-            GraphicsDevice.Clear(SceneRenderer.ReplacesSky(_scene) ? Color.Black : new Color(_horizonLinear));
+            GraphicsDevice.Clear(SceneRenderer.ReplacesSky(_scene) ? Color.Black : new Color(_rig.HorizonLinear));
 
             //Space draws no dome either - the full-screen sky pass would only overdraw it. (The editor sets no
             //cloud uniforms at all, so unlike the game and the Testbed it has no cloud shadow to suppress:
@@ -908,18 +888,11 @@ namespace MapEditor
         }
 
         /// <summary>
-        /// The per-frame inputs the shared <see cref="SceneRenderer"/> needs. No clouds here (the editor draws
-        /// none), so the cloud hook is null and the scenes get full sun; the sun color is its radiance tinted
-        /// by the dome, exactly as the game computes it.
+        /// The per-frame inputs the shared <see cref="SceneRenderer"/> needs, built by the rig that already
+        /// holds five of the six. No clouds here (the editor draws none): the rig's cloud hook was never set, so
+        /// it stays null, the cloud uniforms stay at zero and the scenes get full sun with no shadow.
         /// </summary>
-        private SceneFrame BuildSceneFrame() => new(
-            Camera3D,
-            SUN_DIRECTION,
-            _zenithLinear,
-            _horizonLinear,
-            SCENE_SUN_RADIANCE * Vector3.Lerp(Vector3.One, _horizonLinear, SCENE_SKY_TINT),
-            _sceneSeconds,
-            null);
+        private SceneFrame BuildSceneFrame() => _rig.BuildSceneFrame(Camera3D, _sceneSeconds);
 
         private string GetFilePathByDialog(bool save)
         {

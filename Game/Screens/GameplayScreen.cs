@@ -126,7 +126,7 @@ namespace BS3D.Screens
         //Aiming steeply up, -aim points downwards and the set-back would drop the lens through the stone
         //island and show it from underneath. Floored a margin over the island's top instead: from there the
         //bottom of the frame still looks upwards, so the stone stays out of it.
-        private const float ADS_MIN_Y = BS3DGame.ISLAND_Y + 1f;
+        private const float ADS_MIN_Y = ArenaIsland.TOP_Y + 1f;
 
         private float _adsBlend;
         private bool _adsHeld;
@@ -197,7 +197,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Below this a ball has left the game: it has run down the drain and out of the bottom of the funnel,
-        /// or fallen off the island's edge into the city. Well under <see cref="BS3DGame.FUNNEL_BOTTOM_Y"/>, so
+        /// or fallen off the island's edge into the city. Well under <see cref="ArenaIsland.FUNNEL_BOTTOM_Y"/>, so
         /// a ball that goes down the hole falls a visible distance before it is culled rather than winking out
         /// in the mouth of the drain.
         /// </summary>
@@ -289,16 +289,11 @@ namespace BS3D.Screens
         private BallsMap _map;
         private PhysicsBall[,,] _physicsBalls;
 
-        //Two above the centres of the top level's balls, the Testbed's own figure. The kinematic body and the
-        //drawn glass box both sit here — the box is drawn straight from the body's pose (see KinematicBody),
-        //so the collidable and the thing the player sees cannot drift apart.
-        //
-        //Note the cluster does not settle on the lattice: the ceiling BallSocket anchors a ball's top (local
-        //+0.5) to the plate's bottom face (local -0.5), so the top level comes to rest one unit under the body
-        //and the whole rigid structure with it. Half the clearance this constant looks like it buys is spent
-        //that way, and the top balls end up close under the glass. It is the Testbed's behaviour, kept for
-        //parity; the figure to change if the cluster should hang exactly on its lattice is this one.
-        private const float CEILING_CLEARANCE = 2f;
+        //Where the glass hangs: CeilingPlate.CentreYAbove the field's top level — the plate's own clearance
+        //(CeilingPlate.CLEARANCE, which carries the note about the cluster coming to rest a unit under the
+        //plate rather than settling on its lattice) applied to the base this session picks. The kinematic body
+        //and the drawn glass box both sit here, and the box is drawn straight from the body's pose (see
+        //KinematicBody), so the collidable and the thing the player sees cannot drift apart.
         private float _ceilingY;
 
         private KinematicBody _ceiling;
@@ -892,18 +887,19 @@ namespace BS3D.Screens
                 FIELD_TOP_Y - topLevel / Constants.SQRT_TWO,
                 -(nearCorner.Z + farCorner.Z) * Constants.HALF);
 
-            _ceilingY = FIELD_TOP_Y + CEILING_CLEARANCE;
+            _ceilingY = CeilingPlate.CentreYAbove(FIELD_TOP_Y);
             //At rest to start: target equals current, so nothing slides until a step is taken.
             _ceilingTargetY = _ceilingY;
             _ceilingDescending = false;
             _clusterCentreY = topLevel * Constants.HALF / Constants.SQRT_TWO + _clusterWorldOffset.Y;
 
-            //The floor alarm's net, rebuilt at this field's footprint — the same +1 margin the ceiling
-            //plate covers the balls with. It hovers where a ball's SURFACE would touch at the moment of
-            //loss: the death line is compared against ball centres, which sit a radius higher.
+            //The floor alarm's net, rebuilt at this field's footprint — asked of CeilingPlate.FootprintFor, so
+            //it is the very margin the glass over the field covers the balls with rather than a second +1
+            //written out here. It hovers where a ball's SURFACE would touch at the moment of loss: the death
+            //line is compared against ball centres, which sit a radius higher.
             _laserGrid.Fit(
-                (_map.StageSizeX + 1f) * Constants.HALF,
-                (_map.StageSizeZ + 1f) * Constants.HALF,
+                CeilingPlate.FootprintFor(_map.StageSizeX) * Constants.HALF,
+                CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF,
                 CEILING_DEATH_Y - Constants.HALF);
         }
 
@@ -943,7 +939,18 @@ namespace BS3D.Screens
             //BeforeCollisionDetection handler onto the timestepper a second time.
 
             BuildCeilingBody();
-            BuildFunnelPhysics();
+
+            //The island's whole floor, and it is the drain's own surface: the sloped cone plus the flat stone
+            //ring from its rim out to the edge of the platform's level top. Balls rest on the ring, run down the
+            //cone and drop through the hole; past the ring they fall off the island's edge into the scene, and
+            //either way the kill plane takes them. FunnelPhysics' since #75 (the Testbed had the same eight
+            //triangles a segment), and it is handed the very figures ArenaIsland draws from, so the collided
+            //surface and the drawn one cannot drift apart. The ring stops short of the island's own radius —
+            //ArenaIsland.FLOOR_RADIUS is IslandMesh.FloorRadius of it — because the coping falls away over the
+            //last stretch, and a floor carried to the widest point would hold a ball up on air over the wash.
+            FunnelPhysics.Build(_simulation, _bufferPool, ArenaIsland.TOP_Y, ArenaIsland.FUNNEL_BOTTOM_Y,
+                ArenaIsland.FUNNEL_TOP_RADIUS, ArenaIsland.FUNNEL_HOLE_RADIUS, ArenaIsland.FLOOR_RADIUS,
+                ArenaIsland.FUNNEL_SEGMENTS);
 
             //The template every shot is stamped from. The collidable comes from the bare shape index rather
             //than from a CollidableDescription with a speculative margin, and that is load-bearing: it is what
@@ -963,10 +970,11 @@ namespace BS3D.Screens
         /// </summary>
         private void BuildCeilingBody()
         {
-            //Sized to the field with the same one-unit margin the drawn plate has: a field's worth of balls is
-            //one unit wider than its cell count, since odd levels are shifted by half and a radius is another.
-            //The same figures FitCeilingToMap gave the drawn box, so the glass and the collidable agree.
-            Box box = new(_map.StageSizeX + 1f, 1f, _map.StageSizeZ + 1f);
+            //Sized off CeilingPlate's own footprint and thickness — the very figures FitCeilingToMap gave the
+            //drawn box, asked of the one place that applies the margin, so the glass and the collidable cannot
+            //be given different numbers.
+            Box box = new(CeilingPlate.FootprintFor(_map.StageSizeX), CeilingPlate.THICKNESS,
+                CeilingPlate.FootprintFor(_map.StageSizeZ));
             TypedIndex shape = _simulation.Shapes.Add(box);
 
             BodyHandle handle = _simulation.Bodies.Add(BodyDescription.CreateKinematic(
@@ -1070,70 +1078,6 @@ namespace BS3D.Screens
 
             _ceiling.BodyReference.Pose.Position = new System.Numerics.Vector3(0f, _ceilingY, 0f);
             _ceiling.RefreshWorld();
-        }
-
-        /// <summary>
-        /// The island's whole floor, and it is the drain's own surface: the sloped cone plus the flat stone ring
-        /// from its rim out to the edge of the platform's level top, as one triangle mesh. Balls rest on the
-        /// ring, run down the cone at its ~55° and drop through the hole; past the ring they fall off the
-        /// island's edge into the city. Either way the kill plane takes them.
-        /// <para>
-        /// The ring stops at <see cref="IslandMesh.FloorRadius"/> and not at the island's own radius: the
-        /// coping falls away over the last stretch, so a floor carried out to the platform's widest point
-        /// would hold a ball up on air over the wash.
-        /// </para>
-        /// <para>
-        /// Every quad goes in with <b>both</b> windings — eight triangles a segment, not four. A Bepu mesh
-        /// triangle only collides on its front face, and rather than depend on getting the winding right for a
-        /// surface that is met from above, from inside the funnel and from underneath, it is made double-sided
-        /// deliberately.
-        /// </para>
-        /// </summary>
-        private void BuildFunnelPhysics()
-        {
-            const int segments = BS3DGame.FUNNEL_SEGMENTS;
-            float depth = BS3DGame.ISLAND_Y - BS3DGame.FUNNEL_BOTTOM_Y;
-
-            //Take gives exactly the requested length, which is what the Mesh constructor is handed; TakeAtLeast
-            //would round the count up and leave uninitialised triangles at the end of the buffer.
-            _bufferPool.Take<Triangle>(segments * 8, out Buffer<Triangle> triangles);
-
-            for (int s = 0; s < segments; s++)
-            {
-                float a0 = (float)(s / (double)segments * Math.PI * 2.0);
-                float a1 = (float)((s + 1) / (double)segments * Math.PI * 2.0);
-
-                //Local space: the rim at y = 0 and the hole at y = -depth, so the static's own pose is what
-                //puts the rim flush with the island's stone top
-                System.Numerics.Vector3 t0 = Ring(a0, BS3DGame.FUNNEL_TOP_RADIUS, 0f);
-                System.Numerics.Vector3 t1 = Ring(a1, BS3DGame.FUNNEL_TOP_RADIUS, 0f);
-                System.Numerics.Vector3 h0 = Ring(a0, BS3DGame.FUNNEL_HOLE_RADIUS, -depth);
-                System.Numerics.Vector3 h1 = Ring(a1, BS3DGame.FUNNEL_HOLE_RADIUS, -depth);
-                System.Numerics.Vector3 r0 = Ring(a0, IslandMesh.FloorRadius(BS3DGame.ISLAND_RADIUS), 0f);
-                System.Numerics.Vector3 r1 = Ring(a1, IslandMesh.FloorRadius(BS3DGame.ISLAND_RADIUS), 0f);
-
-                int b = s * 8;
-
-                //The cone wall, both faces
-                triangles[b] = new Triangle(t0, h0, t1);
-                triangles[b + 1] = new Triangle(t1, h0, h1);
-                triangles[b + 2] = new Triangle(t0, t1, h0);
-                triangles[b + 3] = new Triangle(t1, h1, h0);
-
-                //The flat stone ring from the rim out to the island's edge, both faces
-                triangles[b + 4] = new Triangle(t0, t1, r1);
-                triangles[b + 5] = new Triangle(t0, r1, r0);
-                triangles[b + 6] = new Triangle(t0, r1, t1);
-                triangles[b + 7] = new Triangle(t0, r0, r1);
-            }
-
-            static System.Numerics.Vector3 Ring(float angle, float radius, float y) =>
-                new(radius * MathF.Cos(angle), y, radius * MathF.Sin(angle));
-
-            Mesh mesh = new(triangles, System.Numerics.Vector3.One, _bufferPool);
-            TypedIndex shape = _simulation.Shapes.Add(mesh);
-
-            _simulation.Statics.Add(new StaticDescription(new System.Numerics.Vector3(0f, BS3DGame.ISLAND_Y, 0f), shape));
         }
 
         /// <summary>
@@ -2313,8 +2257,8 @@ namespace BS3D.Screens
         /// </summary>
         private void FitCannonOrbitToLevel()
         {
-            float halfX = (_map.StageSizeX + 1f) * Constants.HALF;
-            float halfZ = (_map.StageSizeZ + 1f) * Constants.HALF;
+            float halfX = CeilingPlate.FootprintFor(_map.StageSizeX) * Constants.HALF;
+            float halfZ = CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF;
 
             float clearFootprint = MathF.Sqrt(halfX * halfX + halfZ * halfZ) + CANNON_FIELD_CLEARANCE;
             float clearElevation = (_cannon.OrbitCenter.Y - _cannon.Position.Y) / MathF.Tan(CANNON_MAX_REST_ELEVATION);
@@ -2338,15 +2282,15 @@ namespace BS3D.Screens
         /// </summary>
         private void FitGameCameraToLevel()
         {
-            float halfX = (_map.StageSizeX + 1f) * Constants.HALF;
-            float halfZ = (_map.StageSizeZ + 1f) * Constants.HALF;
+            float halfX = CeilingPlate.FootprintFor(_map.StageSizeX) * Constants.HALF;
+            float halfZ = CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF;
 
             //The field in WORLD Y, which is the one place this differs from the Testbed's own solver: there
             //the lattice frame IS the world frame, while here level 0 sits at the cluster offset rather than
             //at zero. A deep level's empty growth levels are inside this on purpose — the cluster grows down
             //into them, so they have to be in frame before the first ball ever lands there.
             float bottomY = _clusterWorldOffset.Y;
-            float topY = _ceilingY + Constants.HALF;   //upper face of the ceiling slab
+            float topY = CeilingPlate.TopFaceY(_ceilingY);   //upper face of the ceiling slab
 
             float verticalHalf = GAME_FOV * Constants.HALF * GAME_CAMERA_FIT_MARGIN;
             float horizontalHalf = MathF.Atan(MathF.Tan(GAME_FOV * Constants.HALF) * Camera.AspectRatio) * GAME_CAMERA_FIT_MARGIN;

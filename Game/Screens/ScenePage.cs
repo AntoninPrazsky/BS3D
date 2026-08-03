@@ -12,7 +12,9 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class ScenePage : MenuPage
     {
-        private readonly Label[] _sceneLabels = new Label[BS3DGame.SCENE_COUNT];
+        //One label per SceneKind, indexed by the enum's own value — the count and the names are
+        //SceneRenderer's since #75, so a twelfth scene reaches this list without being added to it
+        private readonly Label[] _sceneLabels = new Label[SceneRenderer.SceneCount];
 
         public ScenePage(BS3DGame game) : base(game) { }
 
@@ -21,11 +23,11 @@ namespace BS3D.Screens
             VerticalStackPanel column = MenuColumn();
             column.Widgets.Add(ScreenHeading("SCENE"));
 
-            for (int i = 0; i < BS3DGame.SCENE_COUNT; i++)
+            for (int i = 0; i < SceneRenderer.SceneCount; i++)
             {
                 //Captured per iteration, not off the loop variable's final value
                 SceneKind scene = (SceneKind)i;
-                column.Widgets.Add(MenuButton(BS3DGame.SCENE_NAMES[i], () => Choose(scene), out _sceneLabels[i]));
+                column.Widgets.Add(MenuButton(SceneRenderer.SceneName(scene), () => Choose(scene), out _sceneLabels[i]));
             }
 
             column.Widgets.Add(new Label
@@ -56,7 +58,7 @@ namespace BS3D.Screens
         {
             if (_sceneLabels[0] == null) return;
 
-            for (int i = 0; i < BS3DGame.SCENE_COUNT; i++)
+            for (int i = 0; i < SceneRenderer.SceneCount; i++)
                 _sceneLabels[i].TextColor = (SceneKind)i == Game.Scene ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
         }
     }

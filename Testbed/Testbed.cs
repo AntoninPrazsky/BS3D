@@ -131,17 +131,15 @@ namespace Testbed
         #region Scene object rendering (same lit shader as the balls, drawn one instance at a time)
 
         private Effect _instancingEffect;
-        private InstancedModelRenderer _ceilingRenderer;
         private InstancedModelRenderer _cannonRenderer;
 
         /// <summary>
-        /// The ceiling plate is a procedurally generated translucent glass box, rebuilt at the exact
-        /// field size of the loaded map (no model asset, no non-uniform scaling of a fixed mesh).
+        /// The drawn glass ceiling the cluster hangs from: a procedural translucent box rebuilt at the exact
+        /// field size of the loaded map (no model asset, no non-uniform scaling of a fixed mesh). The plate and
+        /// its figures are <see cref="CeilingPlate"/>'s since #75, the game having held the same ones; the
+        /// kinematic body it agrees with is still <see cref="_ceiling"/> below, and still this file's.
         /// </summary>
-        private BoxMesh _ceilingMesh;
-
-        private static readonly Vector3 CEILING_GLASS_COLOR = new(0.55f, 0.75f, 0.85f);
-        private static readonly float CEILING_GLASS_ALPHA = 0.4f;
+        private CeilingPlate _ceilingPlate;
 
         /// <summary>
         /// Lighting parameters shared by all scene objects; the ambient color is set by
@@ -151,27 +149,16 @@ namespace Testbed
 
         #endregion
 
-        #region Ground
-
-        private static readonly float GROUND_PLATEAU_Y = -9f;
-
-        /// <summary>
-        /// Reference height below the island top that the ground-proximity occlusion darkens against: the
-        /// balls' bellies and the downward-facing parts of the scene objects darken as they approach it
-        /// (handed to the shader as GroundHeight). Kept from the old ground-block layout, whose recessed
-        /// centre block's top sat at -9.5.
-        /// </summary>
-        private static readonly float GROUND_TOP_Y = -9.49f;
-
-        #endregion
-
         private KinematicBody _ceiling;
         private TypedIndex _ceilingShapeIndex;
 
         /// <summary>
-        /// Size of the ceiling before a map is loaded.
+        /// Field size the ceiling is fitted to before a map is loaded. A <b>stage</b> size, like the one a map
+        /// reports: the plate's own footprint is this plus <see cref="CeilingPlate.FOOTPRINT_MARGIN"/>, and both
+        /// the drawn plate and the collidable box take it from <see cref="CeilingPlate.FootprintFor"/>, so the
+        /// two cannot be given different numbers.
         /// </summary>
-        private static readonly float DEFAULT_CEILING_SIZE = 10f;
+        private static readonly float DEFAULT_CEILING_STAGE_SIZE = 9f;
 
         private Simulation _simulation;
         private ThreadDispatcher _threadDispatcher;
@@ -306,71 +293,17 @@ namespace Testbed
         /// </summary>
         private readonly CloudField _clouds = new();
 
-        /// <summary>
-        /// How much cloud is over the arena, smoothed: 0 clear, 1 solid. Read straight off the field it
-        /// would jump about as the sample crossed an edge, and the ambient of a whole scene snapping is
-        /// far more noticeable than the cloud that caused it.
-        /// </summary>
-        private float _overcast;
-
-        /// <summary>Seconds the overcast reading takes to catch up — about how long a sky takes to close over.</summary>
-        private static readonly float OVERCAST_RESPONSE_SECONDS = 2.5f;
-
-        /// <summary>How wide a patch of sky the ambient reads, roughly one cloud across.</summary>
+        /// <summary>How wide a patch of sky the ambient reads, roughly one cloud across. A property of the
+        /// cloud field's own scale, which is why it stayed here when the overcast palette and its response
+        /// moved onto <see cref="SkyLightRig"/>.</summary>
         private static readonly float OVERCAST_SAMPLE_RADIUS = 320f;
 
-        /// <summary>The dome's palette, decoded once per dome and re-applied whenever the weather moves.</summary>
-        private Vector3 _zenithLinear = Vector3.One;
-
-        private Vector3 _horizonLinear = Vector3.One;
-
-        /// <summary>
-        /// How hard the fine octaves chew at the shape the weather layer drew. Has to be read against
-        /// <see cref="CLOUD_COVERAGE_GAIN"/>, which is what the weather is multiplied by: at 0.55 against a
-        /// gain of 2.8 the detail was modulating the thickness by about six percent and the clouds came
-        /// out airbrushed. It wants to be a decent fraction of the weather's own amplitude.
-        /// </summary>
-        private static readonly float CLOUD_DETAIL_STRENGTH = 2.5f;
-
-        /// <summary>
-        /// Lit tops and shadowed undersides, in **linear radiance** — these are quantities of light, not
-        /// sRGB paint colors, so nothing decodes them. The sunlit color runs above 1 deliberately: a cloud
-        /// edge with the sun behind it really is brighter than white paper, and saying so is what sends it
-        /// through the same glare and the same highlight roll-off as the balls.
-        /// </summary>
-        private static readonly Vector3 CLOUD_SUN_COLOR = new(1.7f, 1.66f, 1.55f);
-
-        //Well below the sunlit color rather than a shade under it. The frame goes through an ACES curve
-        //that compresses the highlights hard, so two linear values close together up there come out of the
-        //tonemapper as the same white - at 0.45 the undersides were indistinguishable from the tops and
-        //the whole layer read as flat paper.
-        private static readonly Vector3 CLOUD_SHADOW_COLOR = new(0.18f, 0.21f, 0.28f);
-
-        /// <summary>
-        /// Opacity of the densest cloud, and the elevation over which cloud fades into haze. Well over 1,
-        /// so a cloud reaches solid at about half density and only its edges stay translucent — at 1.15 the
-        /// whole layer was semi-transparent everywhere and read as haze rather than as weather.
-        /// </summary>
-        private static readonly float CLOUD_OPACITY = 2.4f;
-
-        private static readonly float CLOUD_HORIZON_FADE = 0.16f;
-
-        /// <summary>How far along the sun the shading looks to decide whether a piece of cloud is backlit.</summary>
-        private static readonly float CLOUD_SUN_STEP = 90f;
-
-        /// <summary>
-        /// How much light a piece of cloud swallows on the way through its own body, and how much the
-        /// cloud between it and the sun swallows first. The body term is the one that matters: it is what
-        /// turns a flat white field into undersides with dark cores and edges the light comes through.
-        /// </summary>
-        private static readonly float CLOUD_SELF_ABSORPTION = 2.5f;
-
-        private static readonly float CLOUD_SUN_ABSORPTION = 1f;
-
-        /// <summary>The silver lining: forward scattering towards the sun, and how tightly it hugs it.</summary>
-        private static readonly float CLOUD_SILVER_STRENGTH = 1.2f;
-
-        private static readonly float CLOUD_SILVER_POWER = 12f;
+        //The cloud LOOK values that used to stand here are CloudField's own since #75 — they were identical to
+        //the game's to the last digit, which is the drift a shared field should never have been able to have.
+        //The weather's shape (plane, scale, wind, coverage) was already the field's. The one figure that went
+        //elsewhere is the lit side's radiance: it is the sun's, not the cloud's, so it is SkyLightRig.SUN_RADIANCE
+        //and reaches the deck as ApplyPalette's argument — the same number SceneFrame carries, which is the whole
+        //point (see SkyLightRig.SunRadianceTinted).
 
         #endregion
 
@@ -380,26 +313,12 @@ namespace Testbed
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
         private CitySceneConfig _cityConfig = new();
-        private IslandMesh _arenaIslandMesh;
-        private SurfaceTexture _stoneTexture, _concreteTexture;
-        private InstancedModelRenderer _arenaCapRenderer, _arenaBodyRenderer;
-        private Microsoft.Xna.Framework.Matrix _arenaDiscWorld;
-        private FunnelMesh _funnelMesh;
-        private InstancedModelRenderer _funnelRenderer;
-        private FunnelRimsMesh _funnelRimsMesh;
-        private InstancedModelRenderer _funnelRimsRenderer;
-        private BasicEffectParams _funnelRimEffectParams;
-        private Microsoft.Xna.Framework.Matrix _funnelWorld;
-
-        //A dark pit shaft behind the glass funnel, drawn in the solid-terrain scenes only (mountain, meadow,
-        //savanna, desert, forest). The terrain there has its footprint cut out (see TerrainHoleRadius); without a dark
-        //backing the transparent funnel would just show the bright sky-haze behind the hole and read as a glass
-        //ring on the ground, not a drain. This wide dark cone nests the funnel and descends past the kill plane,
-        //so the drain reads as a deep, dark well going down into the earth. Not drawn in the sea (water fills it)
-        //or the city (the city's own canyon falls away below the arena).
-        private FunnelMesh _pitMesh;
-        private InstancedModelRenderer _pitRenderer;
-        private Microsoft.Xna.Framework.Matrix _pitWorld;
+        //The whole arena the gun stands on: the stone cap and concrete drum of the round island, the glass drain
+        //bored through its middle, the two gold beads that ring the drain's circles, and the dark pit shaft that
+        //backs the glass in the solid-terrain scenes. Every mesh, texture, renderer and figure of it is
+        //ArenaIsland's since #75 — the game had a copy of the lot, value for value. The frame sequence is still
+        //this file's: the three DrawIsland/DrawPit/DrawGlass slices are placed by hand below.
+        private ArenaIsland _island;
 
         //Which environment the arena stands in. City is the default; Sea, Savanna, Desert, Mountain, Meadow and
         //NeonCity swap the city (and only the city) for open water, a savanna, a Sahara of dunes, a snowy range,
@@ -426,31 +345,15 @@ namespace Testbed
         //whole frame) nor read (SpaceLightingConfig states the light rig instead, for the reasons set out
         //there) - so it is completely inert in that scene, and NumPad1 cycling domes in it changes nothing.
 
-        //Scene point lights (the savanna's campfire, the neon city's neon) applied to the shared instanced
-        //effect each frame, so the balls, island, cannon and city are lit by them on top of the sun and the
-        //dome - present under every dome. MAX matches MAX_SCENE_LIGHTS in the shaders.
-        private const int MAX_SCENE_LIGHTS = 8;
-        private readonly Microsoft.Xna.Framework.Vector3[] _sceneLightPos = new Microsoft.Xna.Framework.Vector3[MAX_SCENE_LIGHTS];
-        private readonly Microsoft.Xna.Framework.Vector3[] _sceneLightColor = new Microsoft.Xna.Framework.Vector3[MAX_SCENE_LIGHTS];
-        private readonly float[] _sceneLightRange = new float[MAX_SCENE_LIGHTS];
+        //The scene's own point lights (the savanna's campfire, the neon city's ring, space's planetshine),
+        //pushed onto the shared instanced effect each frame so the balls, island, cannon and city all take them
+        //on top of the sun and the dome. The slots, the arrays and the change gate are SceneLights' own since
+        //#75 — this and the game held a copy each. The neon ring's figures live in _cityConfig.NeonLook.
+        private SceneLights _sceneLights;
 
-        //Cached in LoadContent: ApplySceneLights runs every frame, and the by-name indexer is a linear scan
-        //over the instanced effect's ~70 parameters. Starts at -1 so the first frame always pushes a count.
-        private EffectParameter _sceneLightPositionParam;
-        private EffectParameter _sceneLightColorParam;
-        private EffectParameter _sceneLightRangeParam;
-        private EffectParameter _sceneLightCountParam;
-        private int _lastSceneLightCount = -1;
-
-        //The neon city's ring of magenta/cyan point lights (count, range, radius, height, colours) now lives in
-        //_cityConfig.NeonLook; the neon branch of ApplySceneLights reads it. Colours are bright linear radiance.
-
-        /// <summary>
-        /// Top of the stone island's surface, read off the physics plateau (<see cref="GROUND_PLATEAU_Y"/>) so
-        /// the drawn floor sits exactly where the balls rest rather than being guessed. The funnel rim and the
-        /// disc's top are flush with it.
-        /// </summary>
-        private static readonly float ARENA_Y = GROUND_PLATEAU_Y + Constants.HALF;
+        //The sky-derived light rig, also shared with the game and the map editor since #75. Built in
+        //LoadContent, after the scene renderer it consults for the scenes that state their own lighting.
+        private SkyLightRig _rig;
 
         //When the free camera dips below the sea surface the whole frame is pulled into a blue-green murk so
         //it reads as being underwater (see Tonemap.fx's underwater block). The murk's two colours live on
@@ -458,85 +361,10 @@ namespace Testbed
         //units below the mean surface. Sea scene only.
         private const float UNDERWATER_FADE_DEPTH = 7f;
 
-        //The drain funnel is glass; the platform around it is a cast-concrete drum with a dressed stone top
-        private static readonly Vector3 ARENA_GLASS_COLOR = new(0.42f, 0.62f, 0.72f);
-
-        //Under the figure the old flat disc carried, and the reason is worth keeping: the photograph it used
-        //to project was black over half its canvas, so it was silently acting as an exposure control. Same
-        //vantage, same nominal albedo, only the texture swapped: the top face measured 151 grey with the
-        //broken photograph and 181 with a texture whose mean is 1 by construction - half a stop brighter for
-        //a number nobody changed. Any albedo carried over from the old surface arrives overexposed.
-        private static readonly Vector3 ARENA_STONE_COLOR = new(0.52f, 0.51f, 0.49f);
-
-        //Concrete: a plain cool concrete grey, within a hair of the cannon's own steel (CANNON_COLOR) - and
-        //deliberately NOT tuned bluer than that. A vertical face in this world comes back distinctly warm,
-        //because the key light is carried halfway to the horizon colour (SKY_TINT_STRENGTH) and half of the
-        //hemisphere ambient it can see is the ground bounce, which is that horizon again. That is the rig
-        //doing what it exists to do: measured in the same frame, the cannon's steel reads 89,57,35 and this
-        //wall 82,51,31, and the city's facades are the same family. An albedo pushed blue to cancel it would
-        //make the platform the one object in the scene that does not take the light everything else does.
-        //Not darker than the stone it carries, either - a wall that starts dark as well ends up a black band
-        //with no material in it. (See ARENA_STONE_COLOR for why both albedos read lower than they used to.)
-        private static readonly Vector3 ARENA_CONCRETE_COLOR = new(0.45f, 0.47f, 0.50f);
-
-        //The arena is a small round island now, not a big square plaza: the drain funnel in the centre, a
-        //platform around it out to this radius, then its edge and the scene beyond. Kept just big enough to
-        //stand the funnel in - the whole point is that the scene (sea, dunes, city...) fills the frame rather
-        //than a plaza. The stone runs from the funnel's rim (FUNNEL_TOP_RADIUS) out to here.
-        private static readonly float ARENA_DISC_RADIUS = 26f;
-        private static readonly float ARENA_EDGE_HEIGHT = 5f;
-
-        //Outer edge of the flat, level part of the top: the coping falls away past it, so this and not
-        //ARENA_DISC_RADIUS is where the physics floor ends - otherwise a ball rests on air over the wash.
-        private static readonly float ARENA_FLOOR_RADIUS = IslandMesh.FloorRadius(ARENA_DISC_RADIUS);
-
-        //Twice the drain's facet count. The mouldings are small enough that a coarse ring would show its
-        //corners along the bright chamfer lines, which is exactly where the eye is drawn.
-        private const int ARENA_SEGMENTS = FUNNEL_SEGMENTS * 2;
-
-        //World units one tile of each procedural texture spans, far finer than the 30 the marble photograph
-        //was mapped at - where one tile covered more than half the platform and no grain read at all.
-        private static readonly float ARENA_STONE_SPAN = 4f;
-        private static readonly float ARENA_CONCRETE_SPAN = 3.5f;
-
-        //The drain funnel that replaces the recessed centre: a glass cone the shot balls fall into and roll
-        //down, dropping through the hole at the bottom - below the map, where the kill plane removes them. The
-        //top rim is flush with the platform and sized to the old bath, so it catches the balls that used to
-        //pile there; the walls are steep (~55 degrees) so the balls run down to the hole rather than resting.
-        private static readonly float FUNNEL_TOP_RADIUS = 14f;   //meets the stone disc's inner hole exactly; the gold rim bead rings the junction
-        private static readonly float FUNNEL_HOLE_RADIUS = 1.8f;
-        private static readonly float FUNNEL_TOP_Y = ARENA_Y;    //rim flush with the platform top
-        private static readonly float FUNNEL_BOTTOM_Y = -27.5f;  //hole ~19 below the rim
-        private const int FUNNEL_SEGMENTS = 64;
-
-        //The funnel is glass, but more opaque than the glass ceiling so it reads clearly as a solid
-        //frosted-glass drain rather than an almost-invisible sheet.
-        private static readonly float FUNNEL_GLASS_ALPHA = 0.55f;
-
-        //The dark pit shaft the funnel drains into in the solid-terrain scenes (see the _pitMesh field). The
-        //terrain's own footprint is cut out (TERRAIN_HOLE_RADIUS, kept just inside the disc's rim so the terrain
-        //tucks under the stone edge with no gap) so nothing solid shows through the drain; this dark cone then
-        //backs the glass. It must HUG the glass funnel - a wide cone would hide behind the disc's stone ring and
-        //leave the bright hole showing through the narrow (radius 14) aperture - so it shares the funnel's mouth
-        //and descends just outside it, a near-black twin dropping well past the kill plane. A ball runs down the
-        //glass into darkness and is culled inside the pit, not against the bright sky. Near-matte (its specular
-        //ambient turned right down) so no dome bleaches the well; the disc's gold rim bead hides the shared mouth.
-        private static readonly float TERRAIN_HOLE_RADIUS = ARENA_DISC_RADIUS - 2f;   //24: the terrain footprint that is cut out
-        private static readonly float PIT_TOP_Y = FUNNEL_TOP_Y;                        //shares the funnel's mouth, right behind the glass
-        private static readonly float PIT_BOTTOM_Y = -46f;                            //below KILL_PLANE_Y, so balls vanish inside the pit
-        private static readonly float PIT_HOLE_RADIUS = 1.2f;                          //nearly closed at the bottom - a dark receding throat
-        private static readonly Vector3 PIT_COLOR = new(0.03f, 0.03f, 0.035f);         //near-black, a touch cool
-
-        //A polished-gold metal bead runs around both circles of the funnel (the wide top rim and the small
-        //bottom hole), which is what makes the glass drain read at a glance. Drawn as two tori with the
-        //metal path (Metalness = 1): the gold diffuse keeps it visible in any scene, the gold specular is
-        //its reflectance so it mirrors the sky in gold, and a tight specular power keeps the highlight sharp.
-        private static readonly Vector3 FUNNEL_RIM_COLOR = new(0.62f, 0.44f, 0.13f);        //warm gold diffuse (sRGB)
-        private static readonly Vector3 FUNNEL_RIM_SPECULAR = new(1f, 0.83f, 0.48f);        //gold reflectance (sRGB)
-        private const float FUNNEL_RIM_SPECULAR_POWER = 80f;                                //polished: a tight highlight
-        private static readonly float FUNNEL_RIM_TOP_TUBE = 0.5f;                           //bead radius at the top rim
-        private static readonly float FUNNEL_RIM_HOLE_TUBE = 0.3f;                          //bead radius at the hole
-        private const int FUNNEL_RIM_TUBE_SEGMENTS = 16;                                    //facets around each bead
+        //Every figure of the arena — the island's radius, edge and segment count, its two albedos and
+        //texture spans, the drain's radii and depth, the gold beads, the dark pit shaft and the terrain
+        //footprint it is cut into — is ArenaIsland's since #75. It stood here as ARENA_*/FUNNEL_*/PIT_* and in
+        //the game as ISLAND_*/FUNNEL_*/PIT_*, the same numbers under two sets of names.
 
         //Window brightness now lives in the city config: _cityConfig.WindowBrightness for the day city (kept
         //under GLARE_THRESHOLD, or a window that glares veils its tower) and _cityConfig.NeonLook.WindowBrightness
@@ -685,9 +513,9 @@ namespace Testbed
         private const float ADS_BACK = 6.0f;              //lens set-back from the muzzle ball along -aim (== pivot - aim*4)
         private const float ADS_RISE = 2.0f;              //lens height above the bore axis; clears the tube (r=0.74) and keeps the sliver low
         //Floor for the ADS lens: aiming steeply up, "behind the muzzle along -aim" is *below* it, so the lens would
-        //otherwise drop through the stone island (top at ARENA_Y) and show it from underneath. Held a margin above
+        //otherwise drop through the stone island (top at ArenaIsland.TOP_Y) and show it from underneath. Held a margin above
         //the island surface - the lens looks up at the cluster from there, so the island stays below the frame.
-        private static readonly float ADS_MIN_Y = ARENA_Y + 1.0f;
+        private static readonly float ADS_MIN_Y = ArenaIsland.TOP_Y + 1.0f;
         private static readonly float ADS_FOV = (float)Math.PI / 5f; //36 degrees, a modest 1.19x zoom over GAME_FOV
         private const float ADS_CONVERGE_MIN = 6f;        //nearest convergence depth (keeps the look target clear of the barrel front)
         private const float ADS_CONVERGE_MAX = 90f;       //farthest (covers the biggest map's cluster, well under FarPlane)
@@ -749,19 +577,12 @@ namespace Testbed
             _startupCamPos = camPos;
             _startupCamTarget = camTarget;
 
-            //Testing: "scene=sea/savanna/desert/mountain/meadow/neon/forest/space" picks the starting
-            //environment. Forest and Space are past the end of the NumPad2 cycle (which still runs % 7, so it
-            //stays on the seven scenes a map is authored against), so this is the only way to reach them here.
-            if (string.Equals(scene, "sea", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Sea;
-            else if (string.Equals(scene, "savanna", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Savanna;
-            else if (string.Equals(scene, "desert", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Desert;
-            else if (string.Equals(scene, "mountain", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Mountain;
-            else if (string.Equals(scene, "meadow", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Meadow;
-            else if (string.Equals(scene, "neon", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.NeonCity;
-            else if (string.Equals(scene, "forest", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Forest;
-            else if (string.Equals(scene, "space", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Space;
-            else if (string.Equals(scene, "dream", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Dream;
-            else if (string.Equals(scene, "cavern", StringComparison.OrdinalIgnoreCase)) _scene = SceneKind.Cavern;
+            //Testing: "scene=<name>" picks the starting environment, through the one parser every executable
+            //now shares (#75 — this was an if/else chain here and a switch in the game, kept in step by hand,
+            //which is exactly what a script driving both cannot afford). An unrecognised name leaves the
+            //default city standing. The four scenes past the end of the NumPad2 cycle — which still walks only
+            //SceneRenderer.CycleLength, the seven a map is authored against — are reachable only this way here.
+            if (SceneRenderer.TryParseScene(scene, out SceneKind startupScene)) _scene = startupScene;
             _exposure = exposure > 0f ? exposure : DEFAULT_EXPOSURE;
             _windowed = windowed;
             _startupMapPath = startupMapPath;
@@ -955,19 +776,17 @@ namespace Testbed
                 SupersampleFactor = _supersampleFactor,
             };
 
-            _sceneLightPositionParam = _instancingEffect.Parameters["SceneLightPosition"];
-            _sceneLightColorParam = _instancingEffect.Parameters["SceneLightColor"];
-            _sceneLightRangeParam = _instancingEffect.Parameters["SceneLightRange"];
-            _sceneLightCountParam = _instancingEffect.Parameters["SceneLightCount"];
+            _sceneLights = new SceneLights(_instancingEffect);
 
             CreateShotTrailQuad();
 
             //The ground counts into the balls' own ambient occlusion too (dark bellies near the ground)
-            foreach (InstancedModelRenderer ballRenderer in _ballRenderers) ballRenderer.GroundHeight = GROUND_TOP_Y;
+            foreach (InstancedModelRenderer ballRenderer in _ballRenderers) ballRenderer.GroundHeight = ArenaIsland.TOP_Y;
 
             #region Ceiling and scenery
 
-            RecreateCeilingRenderer(DEFAULT_CEILING_SIZE, DEFAULT_CEILING_SIZE);
+            _ceilingPlate = new CeilingPlate(GraphicsDevice, _instancingEffect);
+            _ceilingPlate.Fit(DEFAULT_CEILING_STAGE_SIZE, DEFAULT_CEILING_STAGE_SIZE);
 
             BuildCeiling();
 
@@ -989,7 +808,11 @@ namespace Testbed
             _skyEffect = Content.Load<Effect>("Shaders/Sky");
             _sky.Effect = _skyEffect;
             _skyCameraPositionParam = _skyEffect.Parameters["CameraPosition"];
-            SetCloudParameters();
+
+            //Everything about the clouds that does not change frame to frame, pushed once. The per-frame half —
+            //the clock and the camera — goes out in Draw, right before the dome; the two dome-derived colours
+            //follow the dome and are ApplySkyLighting's business.
+            _clouds.ApplyStaticParameters(_skyEffect, _instancingEffect, SkyLightRig.SUN_DIRECTION);
 
             //The self-lit outdoor backdrops (sea/savanna/desert/mountain/meadow, with the savanna's acacias, the
             //savanna's and desert's birds and the mountain's snow) all live here now, shared with the map editor
@@ -998,11 +821,16 @@ namespace Testbed
             //has to be told what ssaa= settled on — sized in texels a star would be four times dimmer at 2x
             _sceneRenderer = new SceneRenderer(GraphicsDevice, Content) { SupersampleFactor = _supersampleFactor };
 
+            //After the scene renderer, which the rig consults for the scenes that state their own lighting. The
+            //cloud hook is captured ONCE here rather than per frame: a method group written at the call site
+            //builds a fresh delegate every time it is evaluated, and this one used to be evaluated in Draw.
+            _rig = new SkyLightRig(_sceneRenderer) { CloudHook = _clouds.ApplyTo };
+
             //Cut the island's footprint out of the solid terrain scenes so nothing solid shows through the drain
             //and the funnel below the island reads as a drain into a pit, not a bowl in flat ground (the dark pit
-            //cone that backs the glass then fills that hole - see TERRAIN_HOLE_RADIUS / _pitMesh). The map editor
+            //cone that backs the glass then fills that hole - see ArenaIsland.TERRAIN_HOLE_RADIUS). The map editor
             //leaves this 0 - it draws no island, so nothing is cut and the terrain stays whole under the field's AABB.
-            _sceneRenderer.TerrainHoleRadius = TERRAIN_HOLE_RADIUS;
+            _sceneRenderer.TerrainHoleRadius = ArenaIsland.TERRAIN_HOLE_RADIUS;
 
             _cannon = new Cannon(new Vector3(0f, 5f, 0f), -6.4f, 20f);
 
@@ -1022,7 +850,7 @@ namespace Testbed
             };
 
             //The ground darkens the downward-facing parts of the scene objects too, like the ball bellies
-            _cannonRenderer.GroundHeight = GROUND_TOP_Y;
+            _cannonRenderer.GroundHeight = ArenaIsland.TOP_Y;
 
             _aimer = Content.Load<Texture2D>("Bitmaps/Aimer");
             _spriteBatch = new SpriteBatch(GraphicsDevice);
@@ -1068,131 +896,42 @@ namespace Testbed
 
             foreach (InstancedModelRenderer ballRenderer in _ballRenderers) _skyLitRenderers.Add(ballRenderer);
 
-            _skyLitRenderers.Add(_ceilingRenderer);
+            _skyLitRenderers.Add(_ceilingPlate.Renderer);
             _skyLitRenderers.Add(_cannonRenderer);
             if (_cityRenderer != null) _skyLitRenderers.Add(_cityRenderer);
-            if (_arenaCapRenderer != null) _skyLitRenderers.Add(_arenaCapRenderer);
-            if (_arenaBodyRenderer != null) _skyLitRenderers.Add(_arenaBodyRenderer);
-            if (_funnelRenderer != null) _skyLitRenderers.Add(_funnelRenderer);
-            if (_funnelRimsRenderer != null) _skyLitRenderers.Add(_funnelRimsRenderer);
+            //The island's cap and drum, the drain's glass and its gold beads — but deliberately not its pit
+            //shaft, which is a hole in the ground no dome may bleach. Appended rather than enumerated: this
+            //list is refilled every frame by the overcast lerp, and an iterator would allocate per call.
+            _island?.AppendSkyLitTo(_skyLitRenderers);
 
             return _skyLitRenderers;
         }
 
         /// <summary>
         /// Derives the scene lighting from the current sky dome (issue #39): every object receives hemisphere
-        /// ambient (zenith color from above, horizon color from below) and the tinted three-light rig,
-        /// so every sky dome gives the whole scene its own mood.
+        /// ambient (zenith colour from above, horizon colour from below) and the tinted three-light rig, so
+        /// every sky dome gives the whole scene its own mood. The derivation itself is
+        /// <see cref="SkyLightRig"/>'s since #75 — it stood here and in the game and in the map editor, palette
+        /// decode, scale factors, tints and scene override alike.
         /// </summary>
         private void ApplySkyLighting()
         {
-            Vector3 zenith = _sky.ZenithColor;
-            Vector3 horizon = _sky.HorizonColor;
-
 #if DEBUG
-            Console.WriteLine($"[sky] Dome {_skyModelNumber}: zenith {zenith}, horizon {horizon}");
+            Console.WriteLine($"[sky] Dome {_skyModelNumber}: zenith {_sky.ZenithColor}, horizon {_sky.HorizonColor}");
 #endif
 
-            //The palette is read off the dome's vertex colors, so it arrives sRGB-encoded. Everything below
-            //this line scales, tints and lerps it, and none of that means anything until it is radiance:
-            //scaling an sRGB value by 1.3 does not make 1.3 times the light. Doing it in display space is
-            //what had the ambient running some 38% brighter than the rig asked for.
-            _zenithLinear = ColorSpace.SrgbToLinear(zenith);
-            _horizonLinear = ColorSpace.SrgbToLinear(horizon);
+            _rig.SetSky(_sky, _scene);
+            _rig.ApplyTo(SkyLitRenderers());
 
-            ApplyCloudPalette();
-            ApplyLightRig();
+            //The clouds' own two colours follow the dome as well, and the lit side is handed the very radiance
+            //the rig gives the scene — one sun, one number (see SkyLightRig.SunRadianceTinted)
+            _clouds.ApplyPalette(_skyEffect, _rig.SunRadianceTinted, _rig.ZenithLinear);
         }
 
         /// <summary>
-        /// How far the key/fill lights are carried towards the horizon color, and the back light towards
-        /// the zenith. The clouds borrow the same figure, being lit by the same rig.
-        /// </summary>
-        private static readonly float SKY_TINT_STRENGTH = 0.5f;
-
-        /// <summary>
-        /// The shadowed side of a cloud sees no sun at all — only sky — so it takes the zenith color far
-        /// more completely than any surface the rig lights from two sides.
-        /// </summary>
-        private static readonly float CLOUD_SHADOW_TINT_STRENGTH = 0.8f;
-
-        /// <summary>
-        /// Colors the clouds with the dome they hang in.
-        /// <para>
-        /// Every dome was getting the same cold white cloud, and over eighteen skies running from turquoise
-        /// day to blood-red dusk to near-black night it read as a grey smear pasted over the sky rather
-        /// than as weather in it. A cloud has no color of its own: its lit side is the color of the sun and
-        /// its underside is the color of the sky. So the lit side takes the same tint the scene's key light
-        /// takes, which means the clouds are lit by literally the same light as everything under them, and
-        /// the underside takes the zenith.
-        /// </para>
-        /// </summary>
-        private void ApplyCloudPalette()
-        {
-            Vector3 sunTint = Vector3.Lerp(Vector3.One, _horizonLinear, SKY_TINT_STRENGTH);
-            Vector3 skyTint = Vector3.Lerp(Vector3.One, _zenithLinear, CLOUD_SHADOW_TINT_STRENGTH);
-
-            _skyEffect.Parameters["CloudSunColor"].SetValue(CLOUD_SUN_COLOR * sunTint);
-            _skyEffect.Parameters["CloudShadowColor"].SetValue(CLOUD_SHADOW_COLOR * skyTint);
-        }
-
-        /// <summary>
-        /// Fully overcast ambient, in linear radiance: grey, and no dimmer than the clear sky it replaces.
-        /// A cloud deck is a big lit diffuse source, so losing the sun does not darken what arrives from
-        /// above so much as spread it out and take the colour out of it.
-        /// </summary>
-        private static readonly Vector3 OVERCAST_SKY = new(0.62f, 0.64f, 0.68f);
-
-        private static readonly Vector3 OVERCAST_GROUND = new(0.34f, 0.35f, 0.37f);
-
-        /// <summary>
-        /// Hands the cached sky palette to every renderer, shaded by how much cloud is overhead.
-        /// <para>
-        /// Only the **ambient** is touched here. The key light is already dimmed per pixel by the cloud
-        /// shadow in the shader, and dimming it again on this side would count the same cloud twice — and
-        /// worse, would darken the scene uniformly, which is precisely the look this is meant to avoid.
-        /// The two halves together are what makes overcast read as *flat*: the sun goes, the sky stays.
-        /// </para>
-        /// </summary>
-        private void ApplyLightRig()
-        {
-            //The key/fill lights (the "sun" side) take on the horizon color, the back light the zenith color,
-            //so the whole light rig follows the mood of the sky instead of just the ambient term
-            Vector3 keyTint = Vector3.Lerp(Vector3.One, _horizonLinear, SKY_TINT_STRENGTH);
-            Vector3 backTint = Vector3.Lerp(Vector3.One, _zenithLinear, SKY_TINT_STRENGTH);
-
-            Vector3 skyColor = Vector3.Lerp(_zenithLinear * 1.3f, OVERCAST_SKY, _overcast);
-
-            //Bounce light from below is dimmer than the sky above
-            Vector3 groundColor = Vector3.Lerp(_horizonLinear * 0.75f, OVERCAST_GROUND, _overcast);
-
-            //Space states its own rig, because it draws no dome and a dome-derived one would be a lie — and
-            //the particular lie is expensive: reaching for the darkest dome to get a dark sky halves the sun
-            //through the key tint above and takes the metallic funnel beads with it. The overcast lerp is
-            //bypassed with it, which is right: there is no weather out there to go overcast.
-            if (_sceneRenderer != null && _sceneRenderer.TryGetLightRig(_scene, out SceneLightRig rig))
-            {
-                skyColor = rig.SkyAmbient;
-                groundColor = rig.GroundAmbient;
-                keyTint = rig.KeyTint;
-                backTint = rig.BackTint;
-            }
-
-            foreach (InstancedModelRenderer renderer in SkyLitRenderers())
-            {
-                renderer.LinearLightRig = true;
-                renderer.SkyColor = skyColor;
-                renderer.GroundColor = groundColor;
-
-                //The "sun": close enough for its direction to visibly differ from object to object
-                renderer.KeyLightPosition = -DefaultLighting.Light0Direction * 40f;
-
-                renderer.SetLightTint(keyTint, backTint);
-            }
-        }
-
-        /// <summary>
-        /// Follows the cloud straight over the arena and hands it to the light rig.
+        /// Follows the cloud straight over the arena and flattens the ambient by it — the Testbed's own half of
+        /// the weather, which the game deliberately leaves out (see <see cref="SkyLightRig.StepOvercast"/>,
+        /// which holds the reasoning for both the mechanism and the omission).
         /// <para>
         /// Overhead, not along the sun ray, and the difference matters: the sun ray is what decides whether
         /// you are standing in a shadow, which the shader already answers per pixel, while what is over
@@ -1208,50 +947,17 @@ namespace Testbed
             //Straight up from the middle of the arena, so the sample is simply where the arena stands —
             //averaged over a patch about as wide as a cloud, since what lights the scene from above is how
             //much of the sky is covered, not what happens to sit over one point of it
-            float overhead = _clouds.CoverAround(Vector2.Zero, OVERCAST_SAMPLE_RADIUS);
+            _rig.StepOvercast(_clouds.CoverAround(Vector2.Zero, OVERCAST_SAMPLE_RADIUS), elapsedSeconds);
 
-            //Exponential, framed in seconds rather than as a per-frame constant, so the response does not
-            //change with the frame rate
-            _overcast = Microsoft.Xna.Framework.MathHelper.Lerp(_overcast, overhead, 1f - MathF.Exp(-elapsedSeconds / OVERCAST_RESPONSE_SECONDS));
-
-            ApplyLightRig();
+            //Refilled every frame into one reused list, and pushed by index, so the per-frame path allocates
+            //nothing — this is the caller BestPractices.md §3 records the iterator incident for
+            _rig.ApplyTo(SkyLitRenderers());
         }
 
         private void ComputeAimerPosition()
         {
             _aimerPos = new Vector2(GraphicsDevice.Viewport.Width / 2f - _aimer.Width / 2f, GraphicsDevice.Viewport.Height / 2f - _aimer.Height / 2f);
         }
-
-        /// <summary>
-        /// Everything about the clouds that does not change frame to frame. The per-frame half — the
-        /// clock and the camera — is set in <see cref="Draw"/>, right before the dome goes out.
-        /// </summary>
-        private void SetCloudParameters()
-        {
-            _skyEffect.Parameters["CloudDetailStrength"].SetValue(CLOUD_DETAIL_STRENGTH);
-
-            //The two cloud colors are not set here: they follow the dome, and ApplySkyLighting sets them
-            //every time it changes
-            _skyEffect.Parameters["CloudOpacity"].SetValue(CLOUD_OPACITY);
-            _skyEffect.Parameters["CloudHorizonFade"].SetValue(CLOUD_HORIZON_FADE);
-            _skyEffect.Parameters["CloudSunStep"].SetValue(CLOUD_SUN_STEP);
-            _skyEffect.Parameters["CloudSelfAbsorption"].SetValue(CLOUD_SELF_ABSORPTION);
-            _skyEffect.Parameters["CloudSunAbsorption"].SetValue(CLOUD_SUN_ABSORPTION);
-            _skyEffect.Parameters["CloudSilverStrength"].SetValue(CLOUD_SILVER_STRENGTH);
-            _skyEffect.Parameters["CloudSilverPower"].SetValue(CLOUD_SILVER_POWER);
-
-            //The rig's key light stands in for the sun, so the clouds are lit by whatever it is lit by,
-            //and the scene is shadowed along the very same direction
-            _skyEffect.Parameters["SunDirection"].SetValue(SUN_DIRECTION);
-            _instancingEffect.Parameters["SunDirection"].SetValue(SUN_DIRECTION);
-        }
-
-        /// <summary>
-        /// Towards the sun. Taken as a direction rather than from <c>KeyLightPosition</c>, which is a point
-        /// forty units off the middle of the arena: near enough that its direction fans right across the
-        /// scene, and cloud shadows have to arrive in parallel bands over a city hundreds of units wide.
-        /// </summary>
-        private static readonly Vector3 SUN_DIRECTION = -DefaultLighting.Light0Direction;
 
         private void SwitchSkyDome()
         {
@@ -1273,95 +979,26 @@ namespace Testbed
 
         private void SwitchScene()
         {
-            _scene = (SceneKind)(((int)_scene + 1) % 7);
+            _scene = (SceneKind)(((int)_scene + 1) % SceneRenderer.CycleLength);
             Console.WriteLine($"[scene] {_scene}");
 
             //The sea reads best under a moody sky and the savanna under a warm golden one, so entering either
-            //defaults its dome (NumPad1 still cycles freely from there). The other scenes keep whatever dome is up.
+            //defaults its dome — and SetSkyDome re-derives the rig on its way, so that arm needs nothing more
+            //(NumPad1 still cycles freely from there). Every other scene keeps whatever dome is up but must
+            //still re-derive: a scene may state its own lighting instead of the dome's, and the rig has to be
+            //told which scene it is standing in. Latent rather than visible while the cycle stays inside the
+            //seven that all take the dome's — which is exactly why it would have gone unnoticed.
             if (_scene == SceneKind.Sea) SetSkyDome(SEA_DEFAULT_SKY_DOME);
             else if (_scene == SceneKind.Savanna) SetSkyDome(SAVANNA_DEFAULT_SKY_DOME);
+            else ApplySkyLighting();
         }
 
         /// <summary>
-        /// Whether the scene is one of the solid-ground backdrops (mountains, meadow, savanna, desert, forest)
-        /// whose terrain has the island's footprint cut out and needs the dark pit shaft drawn behind the glass
-        /// funnel. The sea (water fills the funnel), the city/neon (their own canyon falls away below) and space
-        /// (no ground and a black frame behind the drain) are excluded.
+        /// The per-frame inputs the shared <see cref="SceneRenderer"/> needs. The rig holds five of the six and
+        /// the cloud hook was captured once at load, so this allocates nothing — it used to build a fresh
+        /// delegate and re-derive the sun's tint on every frame of the draw path.
         /// </summary>
-        private static bool IsSolidTerrainScene(SceneKind scene) =>
-            scene == SceneKind.Mountain || scene == SceneKind.Meadow ||
-            scene == SceneKind.Savanna || scene == SceneKind.Desert ||
-            scene == SceneKind.Forest;
-
-        /// <summary>
-        /// The per-frame inputs the shared <see cref="SceneRenderer"/> needs, taken from this frame's camera,
-        /// sun and sky. The sun color is the sun's own radiance tinted by the dome, exactly as the scene
-        /// shaders used to read it inline; the clouds are handed over from the one shared field.
-        /// </summary>
-        private SceneFrame BuildSceneFrame() => new(
-            _camera,
-            SUN_DIRECTION,
-            _zenithLinear,
-            _horizonLinear,
-            CLOUD_SUN_COLOR * Vector3.Lerp(Vector3.One, _horizonLinear, SKY_TINT_STRENGTH),
-            _pulseSeconds,
-            _clouds.ApplyTo);
-
-        /// <summary>
-        /// Builds this frame's scene point lights for the current scene and sets them on the shared instanced
-        /// effect, so the balls, island, cannon and city are lit by the savanna's campfire or the neon city's
-        /// neon on top of the sun and the dome — present under every sky dome. The savanna grass shader sets
-        /// its own copy (in <see cref="SceneRenderer"/>); other scenes have no extra lights (count 0).
-        /// </summary>
-        private void ApplySceneLights()
-        {
-            int count = 0;
-
-            if (_scene == SceneKind.Savanna)
-            {
-                //The campfire, flickering off the same wall clock as its flame
-                _sceneLightPos[0] = _sceneRenderer.SavannaCampfirePosition;
-                _sceneLightColor[0] = _sceneRenderer.CampfireColor(_pulseSeconds);
-                _sceneLightRange[0] = _sceneRenderer.SavannaCampfireRange;
-                count = 1;
-            }
-            else if (_sceneRenderer.TryGetSpacePlanetshine(_scene, out Vector3 shinePosition, out Vector3 shineColor, out float shineRange))
-            {
-                //Planetshine: the light the planet throws back on the island's flank. A real light rather than
-                //more ambient, so it is directional and so the metallic funnel beads — which have almost
-                //nothing but reflections to show — get a highlight back out of it.
-                _sceneLightPos[0] = shinePosition;
-                _sceneLightColor[0] = shineColor;
-                _sceneLightRange[0] = shineRange;
-                count = 1;
-            }
-            else if (_scene == SceneKind.NeonCity)
-            {
-                //A ring of alternating magenta/cyan lights around the island, colouring the near towers and balls
-                var neonLook = _cityConfig.NeonLook;
-                int neonCount = Math.Min(neonLook.LightCount, MAX_SCENE_LIGHTS);
-                for (int i = 0; i < neonCount; i++)
-                {
-                    float a = i / (float)neonCount * Microsoft.Xna.Framework.MathHelper.TwoPi;
-                    _sceneLightPos[i] = new Vector3(MathF.Cos(a) * neonLook.LightRadius, neonLook.LightHeight, MathF.Sin(a) * neonLook.LightRadius);
-                    _sceneLightColor[i] = (i % 2 == 0) ? neonLook.Magenta.ToVector3() : neonLook.Cyan.ToVector3();
-                    _sceneLightRange[i] = neonLook.LightRange;
-                }
-                count = neonCount;
-            }
-
-            //A scene with no lights only needs the count pushed the first time it goes to zero — the arrays
-            //are untouched above when count is 0, so re-sending them every frame was four parameter writes
-            //(and four linear name scans before the references were cached) for values that cannot change
-            if (count == 0 && _lastSceneLightCount == 0) return;
-
-            _sceneLightPositionParam.SetValue(_sceneLightPos);
-            _sceneLightColorParam.SetValue(_sceneLightColor);
-            _sceneLightRangeParam.SetValue(_sceneLightRange);
-            _sceneLightCountParam.SetValue(count);
-
-            _lastSceneLightCount = count;
-        }
+        private SceneFrame BuildSceneFrame() => _rig.BuildSceneFrame(_camera, _pulseSeconds);
 
         /// <summary>
         /// Builds the setting: the procedural city (one unit box mesh under a different instance matrix per
@@ -1375,9 +1012,9 @@ namespace Testbed
 
             //The clearing the city keeps clear of towers is now the round island's radius, so the towers
             //frame the small island closely instead of a big plaza
-            _city = new City(seed: 20260720, arenaHalfExtent: ARENA_DISC_RADIUS, config: _cityConfig);
+            _city = new City(seed: 20260720, arenaHalfExtent: ArenaIsland.RADIUS, config: _cityConfig);
 
-            Console.WriteLine($"[city] {_city.Buildings.Length} buildings, island radius {ARENA_DISC_RADIUS}, floor at {ARENA_Y}");
+            Console.WriteLine($"[city] {_city.Buildings.Length} buildings, island radius {ArenaIsland.RADIUS}, floor at {ArenaIsland.TOP_Y}");
 
             _cityRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, Vector3.One, _instancingEffect)
             {
@@ -1394,134 +1031,27 @@ namespace Testbed
                 SpecularAmbientStrength = 0.07f
             };
 
-            //The arena is a small round island: a cast-concrete drum with a dressed stone top and a moulded
-            //coping around its rim, the drain funnel bored through the middle (IslandMesh owns the whole
-            //cross-section). It replaces the big square marble/glass plaza, whose panels ate the whole lower
-            //frame and hid the scene the arena stands in - and, since the plaza, the plain extruded washer
-            //that read as a cylinder with a hole in it because every edge of it was a raw 90-degree cut.
-            //
-            //Both textures are generated rather than loaded, and that is a fix rather than a flourish: the
-            //marble photograph this used to project covers only the left half of its canvas and the rest is
-            //black, so the triplanar projection multiplied roughly half of the platform by zero at any
-            //detail scale - which is what left the wall reading as a dark band. These tile exactly.
-            _stoneTexture = SurfaceTexture.Stone(GraphicsDevice);
-            _concreteTexture = SurfaceTexture.Concrete(GraphicsDevice);
-
-            _arenaIslandMesh = new IslandMesh(GraphicsDevice, FUNNEL_TOP_RADIUS, ARENA_DISC_RADIUS, ARENA_EDGE_HEIGHT, ARENA_SEGMENTS);
-
-            //The dressed stone: the flat top and the coping that finishes it, coursed into slabs. The detail
-            //texture is what selects the technique that reads any of this - without one the renderer falls
-            //through to the plain one and every relief setting here is silently dead. DetailBoost normalises
-            //the texture to a mean of 1, so it varies the albedo without dimming it and ARENA_STONE_COLOR
-            //stays the honest colour of the stone.
-            _arenaCapRenderer = new InstancedModelRenderer(GraphicsDevice, _arenaIslandMesh.Cap, ARENA_STONE_COLOR, _instancingEffect)
-            {
-                SurfaceReliefFrequency = 9f,
-                SurfaceReliefStrength = 0.008f,
-
-                //The joint grid is laid out in world X and Z whatever the face, so it also breaks the
-                //coping's own ring into blocks - which is how a coping is actually laid.
-                SlabSize = 2f,
-                SlabJointWidth = 0.025f,
-
-                //Shallower than the old flat disc's joints. The grid is cut on every face, so it also runs
-                //down the coping's own ring - which is right, a coping is laid in blocks - but a groove on a
-                //near-vertical face turns its walls towards the sky, and at the old depth every joint round
-                //the rim came back as a bright wire rather than as a seam.
-                SlabJointDepth = 0.025f,
-                CavityStrength = 0.7f,
-
-                //(No ReliefShadowStrength or ParallaxScale: the triplanar path builds its own height field
-                //and never runs the self-shadow or parallax marches, so both were dead where they used to
-                //be set here.)
-
-                DetailTexture = _stoneTexture.Texture,
-                DetailTextureMapping = DetailMapping.Triplanar,
-                DetailScale = 1f / ARENA_STONE_SPAN,
-                DetailBoost = 1f / _stoneTexture.LinearMean,
-                DetailStrength = 0.5f,
-
-                //A floor is seen at a grazing angle almost everywhere except right under your feet, which is
-                //exactly where Fresnel puts the sky reflection at full strength. Left at 1 the stone mirrors
-                //the sky into a white sheet from the middle distance out.
-                //
-                //This is also the dial that decides how POLISHED the top reads, and not the albedo: the
-                //specular ambient is not multiplied by albedo (a reflection does not care how dark the
-                //surface under it is), so halving the stone's colour barely dimmed a top face that was
-                //washing out - most of its brightness was this term. Dressed stone is matte.
-                SpecularAmbientStrength = 0.14f
-            };
-
-            //The concrete drum. No slab joints - it is cast, not laid - and a coarser, deeper relief than the
-            //dressed stone above it, which is most of what makes the two read as different materials at a
-            //distance where neither texture resolves. Barely reflective, because concrete is not.
-            _arenaBodyRenderer = new InstancedModelRenderer(GraphicsDevice, _arenaIslandMesh.Body, ARENA_CONCRETE_COLOR, _instancingEffect)
-            {
-                //The relief is a sum of sines, and past a certain amplitude the sum stops reading as a rough
-                //surface and starts reading as the waves it is made of - a regular diagonal weave across the
-                //whole drum, which is what a first pass at 0.045 gave. The texture carries the roughness; the
-                //relief only has to break the light over it.
-                SurfaceReliefFrequency = 4.5f,
-                SurfaceReliefStrength = 0.012f,
-                SlabSize = 0f,
-                CavityStrength = 0.85f,
-
-                DetailTexture = _concreteTexture.Texture,
-                DetailTextureMapping = DetailMapping.Triplanar,
-                DetailScale = 1f / ARENA_CONCRETE_SPAN,
-                DetailBoost = 1f / _concreteTexture.LinearMean,
-                DetailStrength = 0.62f,
-
-                //Lower than the stone's, because concrete is rougher and barely reflective. What a vertical
-                //face reflects is the horizon rather than the zenith - the brightest, warmest part of the
-                //dome, and unmultiplied by albedo - so this term is also what would wash the drum out into
-                //one flat sheen and take its material with it.
-                SpecularAmbientStrength = 0.08f
-            };
-
-            _arenaDiscWorld = Microsoft.Xna.Framework.Matrix.CreateTranslation(0f, ARENA_Y, 0f);
-
-            //The drain funnel in the centre, glass. Its top rim (FUNNEL_TOP_RADIUS) is flush with the stone
-            //disc and meets the disc's inner hole directly, so it needs no collar (pass 0); it descends to the
-            //hole the balls fall through. Drawn CullNone (see Draw) so it reads both down into it and up through.
-            _funnelMesh = new FunnelMesh(GraphicsDevice, FUNNEL_TOP_RADIUS, FUNNEL_HOLE_RADIUS, FUNNEL_TOP_Y - FUNNEL_BOTTOM_Y, FUNNEL_SEGMENTS, 0f);
-            _funnelRenderer = new InstancedModelRenderer(GraphicsDevice, _funnelMesh, ARENA_GLASS_COLOR, _instancingEffect, FUNNEL_GLASS_ALPHA);
-            _funnelWorld = Microsoft.Xna.Framework.Matrix.CreateTranslation(0f, FUNNEL_TOP_Y, 0f);
-
-            //The gold metal beads around both circles of the funnel, in one mesh (top rim + hole) so one
-            //renderer draws them. Opaque, and metallic (see FUNNEL_RIM_* / Metalness), with the gold specular
-            //passed as an effect-params override so it reflects the sky in gold rather than the default white.
-            _funnelRimsMesh = new FunnelRimsMesh(GraphicsDevice, FUNNEL_TOP_RADIUS, FUNNEL_HOLE_RADIUS,
-                FUNNEL_TOP_Y - FUNNEL_BOTTOM_Y, FUNNEL_RIM_TOP_TUBE, FUNNEL_RIM_HOLE_TUBE, FUNNEL_SEGMENTS, FUNNEL_RIM_TUBE_SEGMENTS);
-            _funnelRimsRenderer = new InstancedModelRenderer(GraphicsDevice, _funnelRimsMesh, FUNNEL_RIM_COLOR, _instancingEffect)
-            {
-                Metalness = 1f,
-                SpecularAmbientStrength = 1f
-            };
-            _funnelRimEffectParams = new BasicEffectParams(Vector3.One * SCENE_AMBIENT_INTENSITY, FUNNEL_RIM_SPECULAR, FUNNEL_RIM_SPECULAR_POWER, Vector3.Zero);
-
-            //The dark pit shaft (terrain scenes only) - a near-black cone sharing the glass funnel's mouth and
-            //descending just outside it, past the kill plane, so the drain reads as a deep dark well rather than a
-            //glass ring over the bright hole cut in the terrain. Reuses FunnelMesh (its wall faces inward-and-up,
-            //so it reads looking down into it); drawn opaque and CullNone before the glass, which composites over
-            //it. Near-matte so no dome bleaches it; the gold rim bead hides the mouth it shares with the funnel.
-            _pitMesh = new FunnelMesh(GraphicsDevice, FUNNEL_TOP_RADIUS, PIT_HOLE_RADIUS, PIT_TOP_Y - PIT_BOTTOM_Y, FUNNEL_SEGMENTS, 0f);
-            _pitRenderer = new InstancedModelRenderer(GraphicsDevice, _pitMesh, PIT_COLOR, _instancingEffect)
-            {
-                SpecularAmbientStrength = 0.03f
-            };
-            _pitWorld = Microsoft.Xna.Framework.Matrix.CreateTranslation(0f, PIT_TOP_Y, 0f);
+            //The arena the gun stands on, all of it: the island's stone cap and concrete drum, the glass
+            //drain bored through the middle, its two gold beads and the dark pit shaft that backs the glass
+            //where the terrain has the island's footprint cut out of it. Meshes, procedural textures,
+            //renderers and world matrices are the component's; the ambient is the scene's, so it is handed in.
+            _island = new ArenaIsland(GraphicsDevice, _instancingEffect, SCENE_AMBIENT_INTENSITY);
         }
 
         private void BuildCeiling()
         {
             //The wide grid of ground blocks is gone with the big plaza: the round island's only physics floor
-            //is the funnel's own mesh - the drain cone plus the flat stone ring around it (BuildFunnelPhysics),
-            //out to ARENA_DISC_RADIUS. A ball that falls past the ring drops off the island's edge into the
-            //scene and is culled by the kill plane, exactly as one that runs down the funnel is.
-            BuildFunnelPhysics();
+            //is the drain's own mesh - the cone plus the flat stone ring around it, out to the island's level
+            //edge. A ball that falls past the ring drops off the island's edge into the scene and is culled by
+            //the kill plane, exactly as one that runs down the funnel is. The collider is FunnelPhysics' since
+            //#75 and is handed the very figures ArenaIsland draws from, so the two cannot drift apart.
+            FunnelPhysics.Build(_simulation, _bufferPool, ArenaIsland.TOP_Y, ArenaIsland.FUNNEL_BOTTOM_Y,
+                ArenaIsland.FUNNEL_TOP_RADIUS, ArenaIsland.FUNNEL_HOLE_RADIUS, ArenaIsland.FLOOR_RADIUS,
+                ArenaIsland.FUNNEL_SEGMENTS);
 
-            Box box = new(DEFAULT_CEILING_SIZE, 1f, DEFAULT_CEILING_SIZE);
+            //The same footprint and thickness the drawn plate was just fitted to, off the one helper
+            Box box = new(CeilingPlate.FootprintFor(DEFAULT_CEILING_STAGE_SIZE), CeilingPlate.THICKNESS,
+                CeilingPlate.FootprintFor(DEFAULT_CEILING_STAGE_SIZE));
             TypedIndex boxShapeIndex = _simulation.Shapes.Add(box);
             _ceilingShapeIndex = boxShapeIndex;
             CollidableDescription collidableDescription = new(boxShapeIndex, 0.1f);
@@ -1534,45 +1064,36 @@ namespace Testbed
         }
 
         /// <summary>
-        /// (Re)builds the procedural glass box of the ceiling at the given size. Called at startup
-        /// and whenever a loaded map resizes the ceiling; the caller must re-apply the sky lighting.
+        /// The ceiling's centre Y: it hovers <see cref="CeilingPlate.CLEARANCE"/> above the centre of the
+        /// top-level balls, whose own Y is (levels - 1)/√2 — a level's height being its index over √2.
         /// </summary>
-        private void RecreateCeilingRenderer(float sizeX, float sizeZ)
-        {
-            _ceilingMesh?.Dispose();
-            _ceilingRenderer?.Dispose();
-
-            _ceilingMesh = new BoxMesh(GraphicsDevice, sizeX, 1f, sizeZ);
-            _ceilingRenderer = new InstancedModelRenderer(GraphicsDevice, _ceilingMesh, CEILING_GLASS_COLOR, _instancingEffect, CEILING_GLASS_ALPHA);
-        }
-
-        /// <summary>
-        /// The ceiling hovers this far above the center of the top-level balls (their Y is (levels - 1)/√2).
-        /// </summary>
-        private static float GetCeilingY(byte levels) => (levels - 1) / Constants.SQRT_TWO + 2f;
+        private static float GetCeilingY(byte levels) => CeilingPlate.CentreYAbove((levels - 1) / Constants.SQRT_TWO);
 
         /// <summary>
         /// Moves and resizes the ceiling so it covers the play field of the given map and sits just above its top level.
         /// The kinematic body is kept (constraints of a previously loaded structure may still reference it);
-        /// only its pose, collision shape and drawn model scale change.
+        /// only its pose, collision shape and drawn plate change.
         /// </summary>
         private void FitCeilingToMap(BallsMap map)
         {
-            float sizeX = map.StageSizeX + 1f; //Odd levels are shifted by +0.5 and balls have radius 0.5, so add a margin
-            float sizeZ = map.StageSizeZ + 1f;
+            //Odd levels are shifted by +0.5 and balls have radius 0.5, so the plate oversails the field by a
+            //margin — one figure, taken from the plate so the collidable and the drawn box cannot disagree
+            float sizeX = CeilingPlate.FootprintFor(map.StageSizeX);
+            float sizeZ = CeilingPlate.FootprintFor(map.StageSizeZ);
 
             BodyReference ceilingReference = _ceiling.BodyReference;
             ceilingReference.Pose.Position = new System.Numerics.Vector3(0f, GetCeilingY(map.Levels), 0f);
 
-            TypedIndex newShapeIndex = _simulation.Shapes.Add(new Box(sizeX, 1f, sizeZ));
+            TypedIndex newShapeIndex = _simulation.Shapes.Add(new Box(sizeX, CeilingPlate.THICKNESS, sizeZ));
             ceilingReference.SetShape(newShapeIndex);
             _simulation.Shapes.Remove(_ceilingShapeIndex);
             _ceilingShapeIndex = newShapeIndex;
 
             //Recreate the wrapper so its world matrix matches the new pose (the body and handle stay the same);
-            //the drawn glass box is regenerated at the exact new size instead of scaling a fixed mesh
+            //the drawn glass box is regenerated at the exact new size instead of scaling a fixed mesh. The
+            //caller re-runs ApplySkyLighting afterwards — the new renderer has never been told the dome.
             _ceiling = new KinematicBody(ceilingReference, _ceiling.BodyHandle);
-            RecreateCeilingRenderer(sizeX, sizeZ);
+            _ceilingPlate.Fit(map.StageSizeX, map.StageSizeZ);
         }
 
         private void LoadBallsMap()
@@ -1641,7 +1162,7 @@ namespace Testbed
                     //The city lives outside the SceneRenderer: regenerate the buildings from the config's
                     //layout and hand the window/neon look to the city renderer
                     _cityConfig = cityConfig;
-                    _city = new City(seed: 20260720, arenaHalfExtent: ARENA_DISC_RADIUS, config: _cityConfig);
+                    _city = new City(seed: 20260720, arenaHalfExtent: ArenaIsland.RADIUS, config: _cityConfig);
                     _cityRenderer.CityConfig = _cityConfig;
                 }
                 else
@@ -1739,7 +1260,7 @@ namespace Testbed
 
         /// <summary>
         /// Y below which a ball is considered fallen out of the world. Set below the funnel's hole
-        /// (<see cref="FUNNEL_BOTTOM_Y"/>) so a ball that drops through it falls a visible distance into the
+        /// (<see cref="ArenaIsland.FUNNEL_BOTTOM_Y"/>) so a ball that drops through it falls a visible distance into the
         /// drop below the platform before it is removed.
         /// </summary>
         private static readonly float KILL_PLANE_Y = -42f;
@@ -1867,7 +1388,7 @@ namespace Testbed
                                 //leave ADS engaged, so the steepest precise-aim view - the one that used to sink the
                                 //lens under the island - sits as a stable frame to inspect or screenshot.
                                 _cannon.AimAt(new Vector3(_cannon.OrbitCenter.X, 100f, _cannon.OrbitCenter.Z));
-                                Console.WriteLine($"[aimshoot] centre-column sweep complete; holding straight-up, ADS lens Y={AdsCameraPosition().Y:F1} (island top {ARENA_Y:F1})");
+                                Console.WriteLine($"[aimshoot] centre-column sweep complete; holding straight-up, ADS lens Y={AdsCameraPosition().Y:F1} (island top {ArenaIsland.TOP_Y:F1})");
                             }
                         }
                     }
@@ -2010,7 +1531,7 @@ namespace Testbed
             //with the hazed skyline the terrain and dome both fade to there, so it is never seen as a seam.
             //The sky-replacing scenes (space, the dream) have no dome and no horizon, so they clear to black
             //instead: their pass covers every pixel of the frame, and black is what would show if it ever did not.
-            GraphicsDevice.Clear(SceneRenderer.ReplacesSky(_scene) ? Color.Black : new Color(_horizonLinear));
+            GraphicsDevice.Clear(SceneRenderer.ReplacesSky(_scene) ? Color.Black : new Color(_rig.HorizonLinear));
 
             //The clouds run off the same wall clock the balls pulse to, so the weather keeps moving while
             //the simulation is paused or slowed. Handed to both shaders from the one field, which is what
@@ -2044,13 +1565,14 @@ namespace Testbed
             if (_draw)
             {
                 //The environment — city, sea or terrain — is the backdrop and the thing seen past the island's
-                //edge both. Either way the only physics floor is the funnel mesh (BuildFunnelPhysics); the
-                //round stone island is the platform, and stays in all seven scenes.
+                //edge both. Either way the only physics floor is the drain's own mesh (FunnelPhysics.Build);
+                //the round stone island is the platform, and stays in every scene.
                 SceneFrame sceneFrame = BuildSceneFrame();
 
-                //Scene point lights (campfire / neon) onto the shared instanced effect, so the balls, island,
-                //cannon and city are lit by them under every dome, on top of the sun and sky
-                ApplySceneLights();
+                //Scene point lights (campfire / neon / planetshine) onto the shared instanced effect, so the
+                //balls, island, cannon and city are lit by them under every dome, on top of the sun and sky.
+                //The clock is the balls' own, so the campfire's light and its flame billboard cannot drift.
+                _sceneLights.Apply(_scene, _sceneRenderer, _cityConfig.NeonLook, _pulseSeconds);
 
                 if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
                 {
@@ -2064,22 +1586,12 @@ namespace Testbed
                 else
                     _sceneRenderer.DrawEnvironment(_scene, sceneFrame);
 
-                //The round island, opaque. A closed solid wound clockwise from outside, so it takes the scene's
-                //ordinary back-face culling - and drawing it that way is what would show a winding mistake
-                //rather than hiding one. Two draws because it is two materials: stone cap, concrete drum.
-                _arenaCapRenderer.Draw(_camera, _arenaDiscWorld, _sceneEffectParams);
-                _arenaBodyRenderer.Draw(_camera, _arenaDiscWorld, _sceneEffectParams);
-
-                //The dark pit shaft behind the glass funnel, in the solid-terrain scenes only: it fills the hole
-                //cut in the terrain so the drain reads as a deep well rather than a glass ring over bright haze.
-                //An open cone rather than a closed solid, so it needs the culling off; drawn before the glass
-                //funnel, which composites over it.
-                GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-                if (IsSolidTerrainScene(_scene))
-                    _pitRenderer.Draw(_camera, _pitWorld, _sceneEffectParams);
-
-                GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+                //The round island, opaque: its stone cap and concrete drum. Then the dark pit shaft behind the
+                //drain, which is drawn in the solid-terrain scenes only and brings its own culling with it.
+                //Each slice owns the states its own geometry needs; where they sit in the frame is this file's
+                //decision, which is the whole reason the component hands them over separately.
+                _island.DrawIsland(_camera, _sceneEffectParams);
+                _island.DrawPit(_camera, _sceneEffectParams, _scene);
 
                 _cannonRenderer.Draw(_camera, CannonWorld(), _sceneEffectParams);
 
@@ -2089,22 +1601,11 @@ namespace Testbed
                 //so the cluster/cannon/platform occlude them) and additive, so they glow through the glare
                 DrawShotTrails();
 
-                //The funnel's gold metal rims: opaque, so drawn with the opaque scene (before the glass, which
-                //then composites over them). A closed convex-tube torus, drawn CullNone (both windings) rather
-                //than relying on the winding - the nearest face wins on depth, so the result matches backface
-                //culling. Restored to the scene's cull mode after.
-                GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-                _funnelRimsRenderer.Draw(_camera, _funnelWorld, _funnelRimEffectParams);
-                GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+                //The drain's gold beads and then its glass, after the shots' smears: the beads are opaque and
+                //belong with the opaque scene, and the glass composites over everything already in the frame.
+                _island.DrawGlass(_camera, _sceneEffectParams);
 
-                //The glass drain funnel. Its wall is a single-sided cone, so it is drawn with culling off to
-                //show both the inside (looking down into it) and the outside (up through the hole); the state
-                //is put back to the scene's cull mode afterwards.
-                GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-                _funnelRenderer.Draw(_camera, _funnelWorld, _sceneEffectParams);
-                GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-
-                _ceilingRenderer.Draw(_camera, _ceiling.World, _sceneEffectParams);
+                _ceilingPlate.Renderer.Draw(_camera, _ceiling.World, _sceneEffectParams);
 
                 //Falling snow settles over everything, so it is drawn last, in front of what it should hide
                 _sceneRenderer.DrawOverlays(_scene, sceneFrame);
@@ -2454,72 +1955,12 @@ namespace Testbed
             _shotTrailEffect = Content.Load<Effect>("Shaders/ShotTrail");
         }
 
-        /// <summary>
-        /// The drain funnel's collision: a triangle-mesh cone (wide rim down to a small hole) placed where the
-        /// centre ground block was. Each triangle is wound so its normal faces inward and up - the concave side
-        /// the balls rest on - so a ball dropped in rolls down the wall to the hole and falls through (the hole
-        /// is wider than a ball, so nothing collides there). Balls that drop through fall past the kill plane
-        /// and are removed. Matches the drawn <see cref="FunnelMesh"/>: top rim at FUNNEL_TOP_Y, hole below it.
-        /// </summary>
-        private void BuildFunnelPhysics()
-        {
-            int segments = FUNNEL_SEGMENTS;
-            float depth = FUNNEL_TOP_Y - FUNNEL_BOTTOM_Y;
-
-            //Two triangles per quad, each added in both windings so the surface blocks a ball from either side:
-            //Bepu meshes only collide with a triangle's front (normal) face, and rather than depend on getting
-            //the winding right the funnel is made double-sided - a ball can never slip through it. Eight per
-            //segment: the sloped cone wall (4) plus the flat stone ring around it (4), from the rim out to
-            //ARENA_FLOOR_RADIUS - the round island's floor, that balls rest on until they fall off the edge.
-            //That is the edge of the platform's LEVEL top, not of the platform: the coping falls away over
-            //the last stretch out to ARENA_DISC_RADIUS, and a floor carried out to there would hold a ball
-            //up on air over the wash.
-            _bufferPool.Take<Triangle>(segments * 8, out var triangles);
-
-            for (int s = 0; s < segments; s++)
-            {
-                float a0 = s / (float)segments * MathF.PI * 2f;
-                float a1 = (s + 1) / (float)segments * MathF.PI * 2f;
-
-                //Local space: top rim at y = 0 (radius FUNNEL_TOP_RADIUS), hole at y = -depth (radius FUNNEL_HOLE_RADIUS)
-                var t0 = Ring(a0, FUNNEL_TOP_RADIUS, 0f);
-                var t1 = Ring(a1, FUNNEL_TOP_RADIUS, 0f);
-                var h0 = Ring(a0, FUNNEL_HOLE_RADIUS, -depth);
-                var h1 = Ring(a1, FUNNEL_HOLE_RADIUS, -depth);
-                var q0 = Ring(a0, ARENA_FLOOR_RADIUS, 0f);   //flat stone ring's outer edge, where the coping begins
-                var q1 = Ring(a1, ARENA_FLOOR_RADIUS, 0f);
-
-                int b = s * 8;
-                //Cone wall (both faces)
-                triangles[b] = new Triangle(t0, h0, t1);
-                triangles[b + 1] = new Triangle(t1, h0, h1);
-                triangles[b + 2] = new Triangle(t0, t1, h0);
-                triangles[b + 3] = new Triangle(t1, h1, h0);
-                //Flat stone ring, funnel rim -> disc edge (both faces)
-                triangles[b + 4] = new Triangle(t0, t1, q1);
-                triangles[b + 5] = new Triangle(t0, q1, q0);
-                triangles[b + 6] = new Triangle(t0, q1, t1);
-                triangles[b + 7] = new Triangle(t0, q0, q1);
-            }
-
-            static System.Numerics.Vector3 Ring(float angle, float radius, float y) =>
-                new(radius * MathF.Cos(angle), y, radius * MathF.Sin(angle));
-
-            var mesh = new Mesh(triangles, System.Numerics.Vector3.One, _bufferPool);
-            var shapeIndex = _simulation.Shapes.Add(mesh);
-            _simulation.Statics.Add(new StaticDescription(new System.Numerics.Vector3(0f, FUNNEL_TOP_Y, 0f), shapeIndex));
-        }
-
         protected override void UnloadContent()
         {
             _unitBox?.Dispose();
             _cannonMesh?.Dispose();
-            _arenaIslandMesh?.Dispose();
-            _stoneTexture?.Dispose();
-            _concreteTexture?.Dispose();
-            _funnelMesh?.Dispose();
-            _funnelRimsMesh?.Dispose();
-            _pitMesh?.Dispose();
+            _island?.Dispose();
+            _ceilingPlate?.Dispose();
             _sceneRenderer?.Dispose();
             _pipeline?.Dispose();
             _shotTrailVertexBuffer?.Dispose();
@@ -2704,9 +2145,12 @@ namespace Testbed
         {
             if (_map == null || _camera == null || _cannon == null) return;
 
-            float halfX = (_map.StageSizeX + 1f) * Constants.HALF;
-            float halfZ = (_map.StageSizeZ + 1f) * Constants.HALF;
-            float topY = GetCeilingY(_map.Levels) + Constants.HALF; //Upper face of the ceiling slab
+            //The plate's own footprint, off the one helper, because these corners ARE the plate's: they are
+            //framed at its top face below, and a margin written out here again would silently stop agreeing
+            //with the drawn plate and the collidable the moment it is retuned
+            float halfX = CeilingPlate.FootprintFor(_map.StageSizeX) * Constants.HALF;
+            float halfZ = CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF;
+            float topY = CeilingPlate.TopFaceY(GetCeilingY(_map.Levels)); //Upper face of the ceiling slab
 
             float verticalHalf = GAME_FOV * Constants.HALF * GAME_CAMERA_FIT_MARGIN;
             float horizontalHalf = MathF.Atan(MathF.Tan(GAME_FOV * Constants.HALF) * _camera.AspectRatio) * GAME_CAMERA_FIT_MARGIN;
@@ -2906,13 +2350,13 @@ namespace Testbed
             Vector3 dir = _cannon.AimTarget - _cannon.Position;
             float gotElevation = MathF.Atan2(dir.Y, MathF.Sqrt(dir.X * dir.X + dir.Z * dir.Z));
 
-            //ADS lens Y against the island top (ARENA_Y): confirms the precise-aim camera stays above the floor
+            //ADS lens Y against the island top (ArenaIsland.TOP_Y): confirms the precise-aim camera stays above the floor
             //even at the steep corner shots, where it used to sink through the stone disc.
             float adsLensY = AdsCameraPosition().Y;
 
             Console.WriteLine($"[aimshoot] {label} ({cell.X},{cell.Z},{cell.Level}) Y={target.Y:F1}: " +
                 $"want {wantedElevation * RAD_TO_DEG:F1} deg, got {gotElevation * RAD_TO_DEG:F1} deg  ->  {(reachable ? "reachable" : "CLAMPED SHORT")}" +
-                $"; ADS lens Y={adsLensY:F1} (island top {ARENA_Y:F1})");
+                $"; ADS lens Y={adsLensY:F1} (island top {ArenaIsland.TOP_Y:F1})");
 
             ShootBall();
         }
@@ -2936,8 +2380,9 @@ namespace Testbed
         {
             if (_map == null || _cannon == null) return;
 
-            float halfX = (_map.StageSizeX + 1f) * Constants.HALF;
-            float halfZ = (_map.StageSizeZ + 1f) * Constants.HALF;
+            //The field's footprint as the ceiling plate measures it, for the same reason as in the camera fit
+            float halfX = CeilingPlate.FootprintFor(_map.StageSizeX) * Constants.HALF;
+            float halfZ = CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF;
 
             float clearFootprint = MathF.Sqrt(halfX * halfX + halfZ * halfZ) + CANNON_FIELD_CLEARANCE;
             float clearElevation = (_cannon.OrbitCenter.Y - _cannon.Position.Y) / MathF.Tan(CANNON_MAX_REST_ELEVATION);

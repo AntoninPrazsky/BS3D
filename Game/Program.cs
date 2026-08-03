@@ -51,7 +51,7 @@ namespace BS3D
                 //"logfps" writes one frame-rate line a second to stdout; "scene="/"sky=" pin what is being
                 //measured. The scene names are the Testbed's, so one benchmark script drives either executable.
                 else if (string.Equals(arg, "logfps", StringComparison.OrdinalIgnoreCase)) logFrameRate = true;
-                else if (arg.StartsWith("scene=", StringComparison.OrdinalIgnoreCase) && TryParseScene(arg.Substring("scene=".Length), out SceneKind parsedScene)) scene = parsedScene;
+                else if (arg.StartsWith("scene=", StringComparison.OrdinalIgnoreCase) && SceneRenderer.TryParseScene(arg.Substring("scene=".Length), out SceneKind parsedScene)) scene = parsedScene;
                 else if (arg.StartsWith("sky=", StringComparison.OrdinalIgnoreCase) && byte.TryParse(arg.Substring("sky=".Length), out byte parsedSky) && parsedSky >= 1 && parsedSky <= BS3DGame.SKY_DOME_COUNT) skyDome = parsedSky;
                 //"quality=" pins the whole detail tier; "ssaa=" then overrides just its supersample entry.
                 else if (arg.StartsWith("quality=", StringComparison.OrdinalIgnoreCase) && Enum.TryParse(arg.Substring("quality=".Length), ignoreCase: true, out QualityLevel parsedQuality)) quality = parsedQuality;
@@ -71,28 +71,8 @@ namespace BS3D
             game.Run();
         }
 
-        /// <summary>
-        /// The scene names the Testbed's own <c>scene=</c> takes, so a benchmark or a screenshot script written
-        /// against one executable drives the other unchanged. <c>neon</c> rather than <c>neoncity</c> for the
-        /// same reason: it is the name that already exists.
-        /// </summary>
-        private static bool TryParseScene(string name, out SceneKind scene)
-        {
-            switch (name.ToLowerInvariant())
-            {
-                case "city": scene = SceneKind.City; return true;
-                case "sea": scene = SceneKind.Sea; return true;
-                case "savanna": scene = SceneKind.Savanna; return true;
-                case "desert": scene = SceneKind.Desert; return true;
-                case "mountain": scene = SceneKind.Mountain; return true;
-                case "meadow": scene = SceneKind.Meadow; return true;
-                case "neon": scene = SceneKind.NeonCity; return true;
-                case "forest": scene = SceneKind.Forest; return true;
-                case "space": scene = SceneKind.Space; return true;
-                case "dream": scene = SceneKind.Dream; return true;
-                case "cavern": scene = SceneKind.Cavern; return true;
-                default: scene = default; return false;
-            }
-        }
+        //The spellings scene= takes are SceneRenderer.TryParseScene's since #75 — the Testbed grew an if/else
+        //chain, this a switch, and the two had to be kept in step by hand so that one benchmark or screenshot
+        //script drives either executable unchanged. That is exactly the agreement one shared parse cannot break.
     }
 }
