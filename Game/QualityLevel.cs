@@ -17,11 +17,14 @@ namespace BS3D
     /// What one tier turns down, and the measured reason for each entry. Every figure below was measured on this
     /// project's weakest development machine — a Ryzen 7 5700U with integrated Radeon graphics, windowed
     /// 1600×900, vsync off, on the front end (#64) — and the numbers quoted are the <b>neon city</b>, which is
-    /// the most expensive of the seven scenes and therefore the one a tier has to be chosen against. The five
-    /// terrain scenes all sit between 15 and 19 ms a frame at <c>High</c> and never needed a tier; the two city
-    /// scenes sat at 77 and 103 ms when the tiers were chosen, and since the front-to-back sort (see "Drawing
-    /// the city near to far" in docs/rendering.md) sit at 23.0 and 27.5 — still the two dearest scenes, and
-    /// still under the probe's floor at <c>High</c> on this machine, so the tier stays.
+    /// the most expensive of the eleven scenes and therefore the one a tier has to be chosen against. The two
+    /// city scenes sat at 77 and 103 ms when the tiers were chosen, and since the front-to-back sort (see
+    /// "Drawing the city near to far" in docs/rendering.md) sit at 23.0 and 27.5 — still the two dearest
+    /// scenes, and still under the probe's floor at <c>High</c> on this machine, so the tier stays. Of the nine
+    /// terrain scenes, the <b>five</b> that existed when this was measured — sea, savanna, desert, mountains,
+    /// meadow — all sat between 15 and 19 ms a frame at <c>High</c> and never needed a tier; forest, space,
+    /// dream and cavern arrived later and have not been through the same measurement, so nothing here claims a
+    /// figure for them.
     /// <para>
     /// <b>The order of magnitude is the scene, not the tier</b>: the neon city against the sea was a spread of
     /// 6.8× on identical settings when the tiers were chosen, and is 1.9× since the sort. That is why the
@@ -35,6 +38,17 @@ namespace BS3D
         /// neon city 2× → 1× is 27.5 ms → 10.5 (it was 103 → 33 before the city's draw order was fixed). At 1×
         /// the scene target falls back to 8× MSAA, so geometry edges stay clean and it is shading detail that is
         /// given up rather than antialiasing as such.
+        /// <para>
+        /// <b>Two is the look this game is authored for</b>, which is why <c>High</c> carries it and why the
+        /// probe exists to take it away rather than the reverse: the balls' procedural relief is *shading*,
+        /// which MSAA does not touch, so the extra samples are what keep the fine octaves alive. It is also, on
+        /// a weak GPU, by far the most expensive thing in the frame — measured on an integrated Vega 10,
+        /// dropping it to 1 nearly tripled the frame rate, while cutting the ball count threefold barely moved
+        /// it. Hence <see cref="BS3DGame.TuneQualityToFrameRate"/>. (This paragraph was the doc on a
+        /// <c>DEFAULT_SUPERSAMPLE_FACTOR</c> constant in the host that nothing read — the tier has been what
+        /// sets the factor for some time. #71 deleted the constant and kept the reasoning here, where the
+        /// number it was documenting actually lives.)
+        /// </para>
         /// </summary>
         public readonly int SupersampleFactor;
 
@@ -99,7 +113,7 @@ namespace BS3D
             new(supersampleFactor: 1, facadeGrainStrength: 0f, windowFrameWidth: 0f, cityRadiusBlocks: 14),
 
             //Medium — 30 FPS on the worst scene, and every scene's full detail. Only supersampling is given up,
-            //which is the one change that reaches all seven scenes.
+            //which is the one change that reaches all eleven scenes.
             new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14),
 
             //High — the look the game was authored at, unchanged.
