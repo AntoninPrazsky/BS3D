@@ -959,6 +959,43 @@ namespace BS3D.Screens
         /// says whether the deferral did anything, and a step that waited seconds is one that sat out a drop
         /// cinematic (see <see cref="ReleaseCeilingStep"/>).
         /// </param>
+        /// <summary>
+        /// Wakes the glass plate and the structure hanging from it, on the frame a descent begins (#78).
+        /// <para>
+        /// The descent moves the plate by writing its pose directly, and a sleeping body does not integrate:
+        /// Bepu will not drag a sleeping cluster down because a kinematic's pose was overwritten under it. The
+        /// cluster is <i>designed</i> to fall asleep between shots — both it and the plate carry
+        /// <see cref="PhysicsWorld.SLEEP_THRESHOLD"/> — so a step coming due over a settled cluster had the
+        /// glass slide straight through it, and the death-line walk read unchanged poses, which meant the
+        /// ceiling-pressure loss could never fire from a settled cluster at all.
+        /// </para>
+        /// <para>
+        /// <b>Both</b> are woken, rather than relying on one to reach the other. Waking a body wakes the whole
+        /// sleeping set it belongs to, so one ball is enough for the cluster — the structure is a single
+        /// connected constraint graph and its whole island comes up with whichever member is touched. Whether
+        /// waking the <i>kinematic</i> plate would have reached the dynamics on its own was deliberately not
+        /// relied on: a kinematic can be referenced by several sleeping sets at once and is not islanded with
+        /// them the way a dynamic is. That is the reason for waking both and not a measurement — this was never
+        /// tested with only the plate woken, because there is no reason to want the weaker guarantee. It runs
+        /// once per step, not per frame.
+        /// </para>
+        /// </summary>
+        private void WakeForDescent()
+        {
+            _world.Simulation.Awakener.AwakenBody(_ceiling.BodyHandle);
+
+            if (_physicsBalls == null) return;
+
+            for (int level = _physicsBalls.GetLength(2) - 1; level >= 0; level--)
+                for (int x = 0; x < _physicsBalls.GetLength(0); x++)
+                    for (int z = 0; z < _physicsBalls.GetLength(1); z++)
+                        if (_physicsBalls[x, z, level] != null)
+                        {
+                            _world.Simulation.Awakener.AwakenBody(_physicsBalls[x, z, level].BallReference.Handle);
+                            return;
+                        }
+        }
+
         private void StartCeilingDescent(float waited)
         {
             //No target to reach if the glass is already as low as it can go — further steps would be a no-op and
@@ -968,6 +1005,10 @@ namespace BS3D.Screens
 
             _ceilingTargetY = MathF.Max(CEILING_DEATH_Y, _ceilingTargetY - CEILING_DESCENT_PER_STEP);
             _ceilingDescending = true;
+
+            //The plate is about to be moved by writing its pose, and both it and the cluster are very likely
+            //asleep — measured asleep, in fact, on a step that came due over a settled cluster (#78)
+            WakeForDescent();
 
             //The descent itself is a slow slide of a translucent plate against a sky, which is very nearly
             //invisible while the player is watching the cluster — the pressure the whole rule exists to apply
