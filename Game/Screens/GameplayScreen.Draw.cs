@@ -117,8 +117,12 @@ namespace BS3D.Screens
                 ? PREVIEW_REFUSED.ToVector3()
                 : BasicEffectParamsProvider.GetDiffuseTintByType(_magazine.Peek(0));
 
+            //Faded out as precise aim leans in, which is the inverse of the crosshair's own opacity: the two are
+            //one signal handed between the modes rather than two competing for the same pixels. Measured need
+            //rather than taste — foreshortened along the bore the dashes pile up over the exact cell they point
+            //at, and in that mode the crosshair on a lens aimed down the shot ray already IS the trajectory.
             _aimBeam.Draw(Camera, _previewMuzzle, _previewBeamEnd, tint, WallClock,
-                openEnded: !_previewReachesCluster);
+                openEnded: !_previewReachesCluster, opacity: 1f - _preciseAim.Blend);
         }
 
         /// <summary>

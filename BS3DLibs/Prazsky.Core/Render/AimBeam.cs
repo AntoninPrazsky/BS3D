@@ -46,17 +46,27 @@ namespace Prazsky.Core.Render
         private const float DASH_FRACTION = 0.42f;
 
         /// <summary>
-        /// Half-width of a dash. A ball's radius is <c>0.5</c>, so this is a line about a fifth of a ball
-        /// across: enough to read at the overview's stand-off, thin enough not to hide the cell it points at.
+        /// Half-width of a dash. A ball's radius is <c>0.5</c>, so this is a line about three-fifths of a ball
+        /// across — which sounds fat and is not: the pixel shader's profile is <c>across²</c>, so only the core
+        /// of that is anywhere near full strength and the edges fall away.
+        /// <para>
+        /// <b>Both this and <see cref="BRIGHTNESS"/> were set by looking, and the first guesses were wrong by a
+        /// lot.</b> 0.085 and 1.35 were reasoned from the ball's radius and from the smear's boost, and the beam
+        /// came out <i>invisible</i> at the overview's stand-off — the mode it exists for. The values here were
+        /// bracketed from the other side: 0.45 and 8 are unmistakable and far too heavy, and these sit between.
+        /// Anything derived from a ball's size rather than from what a few dozen pixels of an additive line
+        /// actually look like over a bright cluster should be expected to be wrong the same way.
+        /// </para>
         /// </summary>
-        private const float WIDTH = 0.085f;
+        private const float WIDTH = 0.15f;
 
         /// <summary>
-        /// Radiance boost. Well under <see cref="LaunchSmears"/>'s, deliberately — the smear is a shot going
-        /// off and should flare, while this is up the whole time the gun is aimed and would be exhausting at
-        /// the same strength. It still sits over 1 so the line glows rather than looking painted on.
+        /// Radiance boost. A little <i>over</i> <see cref="LaunchSmears"/>'s, which is not what one would guess
+        /// — a smear is a shot going off and should flare, while this is up the whole time the gun is aimed — but
+        /// the smear is briefly enormous where this is permanently thin, and a thin additive line over a lit
+        /// cluster needs the radiance to read at all. See <see cref="WIDTH"/> on how both were arrived at.
         /// </summary>
-        private const float BRIGHTNESS = 1.35f;
+        private const float BRIGHTNESS = 3.5f;
 
         /// <summary>Lowest peak channel, so the near-black ball still gives a visible grey line.</summary>
         private const float COLOR_FLOOR = 0.2f;
@@ -82,6 +92,13 @@ namespace Prazsky.Core.Render
         /// see across the field.
         /// </summary>
         private const int MAX_DASHES = 64;
+
+        /// <summary>
+        /// Below this the beam is not drawn at all — an eased fade that has all but reached zero is a row of
+        /// invisible quads and a pile of state changes for nothing. <see cref="Crosshair.MIN_OPACITY"/>'s
+        /// reasoning, for the mark this one hands over to.
+        /// </summary>
+        public const float MIN_OPACITY = 0.01f;
 
         #endregion
 
@@ -133,9 +150,16 @@ namespace Prazsky.Core.Render
         /// wall clock serves — and being the wall clock, the crawl keeps going while a pause holds the session.</param>
         /// <param name="openEnded">True when <paramref name="target"/> is open air rather than something the shot
         /// would hit, which fades the dashes out along the way instead of ending them at a point.</param>
+        /// <param name="opacity">Scales the whole beam. The Game hands over the inverse of its precise-aim blend:
+        /// leaning in over the barrel the lens looks <i>along</i> the bore, so the beam foreshortens into a stack of
+        /// dashes piled over the very cell it is pointing at — and it has nothing to add there, because a crosshair
+        /// on a lens aimed down the shot ray already <b>is</b> the trajectory. Each mode keeps the one signal that
+        /// suits it. At or below <see cref="MIN_OPACITY"/> nothing is drawn and no state is touched.</param>
         public void Draw(ICamera camera, Vector3 muzzle, Vector3 target, Vector3 srgbTint, float phase,
-            bool openEnded)
+            bool openEnded, float opacity = 1f)
         {
+            if (opacity <= MIN_OPACITY) return;
+
             Vector3 axis = target - muzzle;
             float length = axis.Length();
             if (length < SPACING * MIN_DASH_FRACTION) return;
@@ -192,6 +216,8 @@ namespace Prazsky.Core.Render
                     if (t > 0f) alpha = 1f - t * t;
                     if (alpha <= 0f) continue;
                 }
+
+                alpha *= opacity;
 
                 _tailParam.SetValue(muzzle + direction * from);
                 _headParam.SetValue(muzzle + direction * to);
