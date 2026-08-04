@@ -535,6 +535,37 @@ namespace BS3D.Screens
         //the aim delta and the shot edge.
         private readonly MouseAim _mouseAim = new();
 
+        /// <summary>
+        /// Where a shot fired right now would land, answered every frame by the very function that will place it
+        /// (<see cref="ShotPlacement"/>) — see "The landing preview" in <c>docs/game-session.md</c>.
+        /// <para>
+        /// It exists because the field is a <b>box</b>, and a shot at a full pocket in its wall sticks nowhere: the
+        /// ball bounces off, falls through the drain and costs the player a ball from the budget <i>and</i> their
+        /// streak, for a refusal they had no way to see coming (#70). Growing the field instead was considered and
+        /// rejected — there is always an edge somewhere, so the answer is to make the edge legible rather than to
+        /// move it.
+        /// </para>
+        /// </summary>
+        private XZLevel _previewCell;
+
+        /// <summary>Whether <see cref="_previewCell"/> holds a cell — a shot fired now sticks, and there is a ghost to draw.</summary>
+        private bool _previewHasCell;
+
+        /// <summary>
+        /// Whether the aim reaches the cluster at all. Only when it does <b>and</b> <see cref="_previewHasCell"/> is
+        /// false is a refusal <i>certain</i>, which is what the reddened crosshair says.
+        /// <para>
+        /// <b>The ghost is the signal; the crosshair only confirms it.</b> The ghost is drawn exactly when a shot
+        /// sticks, so its absence covers every way one does not — a full pocket, open sky, or the glass by a path
+        /// this preview deliberately does not walk — with no case where it says the wrong thing. The crosshair is
+        /// the explicit version and is only drawn while precise aim is leaning in, because that is the only mode
+        /// where the screen's centre is where the gun points: in the overview the lens looks <i>at</i> the cluster
+        /// rather than along the bore, so a mark in the middle of the screen there would name a spot the barrel is
+        /// not aimed at. Hence the overview gets the ghost alone, which is in the right place by construction.
+        /// </para>
+        /// </summary>
+        private bool _previewReachesCluster;
+
         #endregion
 
         #region Ball instances
@@ -719,6 +750,10 @@ namespace BS3D.Screens
             //and a warning frozen lit would blaze across the player's reward for the whole dive down the drain.
             CheckLevelLost(mayLose: !_cinematic.Engaged);
 
+            //Where a shot fired now would land. After the step, so the ghost sits against the poses the player is
+            //looking at rather than the ones from before this frame's physics.
+            UpdateShotPreview();
+
             _smears.Update(elapsed);
             _hud.Update(elapsed, _score);
 
@@ -777,6 +812,10 @@ namespace BS3D.Screens
             //and the transmute cross-fade are its own business
             CollectMagazineBalls(ballFrame);
 
+            //And the ghost of where the loaded ball would land, into the same frame — it is a ball in the cluster's
+            //own frame, so it is bucketed and LOD-picked with the rest rather than drawn by itself
+            CollectShotPreview(ballFrame);
+
             SceneFrame sceneFrame = Game.BeginSceneDraw();
 
             //The barrel, drawn with its recoil stroke: the pose is Cannon's and the hardware CannonRig's, so
@@ -827,7 +866,12 @@ namespace BS3D.Screens
             //The crosshair, into the host's overlay batch (the one the HUD above just used): shown only while
             //precise aim is leaning in, that being the only pose whose lens looks along the shot, and faded up
             //with the lean rather than snapped on. The gate below a hundredth is the component's own.
-            _crosshair.Draw(Game.OverlayBatch, _preciseAim.Blend);
+            //Reddened only when the refusal is CERTAIN — the aim reaches a ball and neither ring around it has a
+            //free cell. Aiming at open sky leaves it neutral, because a miss the player can already see does not
+            //need a warning, and a warning that cries wolf is one nobody reads. Note the opacity is the ADS blend,
+            //so this mark exists only while the lens looks along the bore; the overview's signal is the ghost.
+            _crosshair.Draw(Game.OverlayBatch, _preciseAim.Blend,
+                _previewReachesCluster && !_previewHasCell ? PREVIEW_REFUSED : null);
         }
 
     }

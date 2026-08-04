@@ -212,60 +212,37 @@ namespace BS3D.Physics
             //the shot ball happens to be
             Vector3 worldContact = _simulation.Bodies[pair.A.BodyHandle].Pose.Position.ToXna() + contact.ContactOffset;
 
-            //Everything the map is asked about is in its own lattice frame
-            Vector3 mapContact = worldContact - _worldOffset;
-
+            //WHICH CELL is ShotPlacement's answer, and deliberately not this file's any more (#70): the aim
+            //preview asks the very same function from the barrel's line every frame, and a preview that is a
+            //second implementation of this rule is a preview that eventually lies about where a shot will go.
+            //Deciding and placing are separate steps for the same reason — the preview must decide without
+            //writing anything into the map.
+            bool solved;
             XZLevel cell;
-            Vector3 placed;
 
             if (other.Mobility == CollidableMobility.Kinematic && other.BodyHandle == _ceiling.BodyHandle)
             {
                 //Straight into the glass, past the whole cluster: it lands on the field's top level
-                placed = _map.PutBallAtClosestEmptyCeilingPosition(mapContact, out cell, physicsBall.Type);
+                solved = ShotPlacement.TrySolveAgainstCeiling(_map, worldContact, _worldOffset, out cell);
             }
             else if (other.Mobility == CollidableMobility.Dynamic && TryFindStructureBall(other.BodyHandle, out PhysicsBall hitBall))
             {
-                //The lattice frame is NOT a fixed offset from the world, and treating it as one is the second
-                //source of misplaced attaches. The cluster is a soft BallSocket network rather than a rigid
-                //body: the ceiling constraint anchors a ball's top to the plate's underside, which holds the
-                //top level a full unit above its lattice position, and that hangs off towards zero further
-                //down — measured on the structure balls actually hit, +1.10 / +1.03 / +1.02 / +1.00 high in
-                //the cluster against −0.04 lower down. It also sways whenever the cluster is struck. So a
-                //contact converted by _worldOffset alone is compared against ideal cells it can be more than
-                //a level away from, and no constant could correct it.
-                //
-                //The frame is only true AT the ball that was hit, so that is where the contact is anchored:
-                //the drift is measured on that one ball and taken out of the contact. Every candidate cell is
-                //one of its neighbours, so its drift is the right local estimate for all of them, and taking
-                //the whole vector rather than its Y also takes out the sway.
-                Vector3 clusterDrift = hitBall.BallReference.Pose.Position.ToXna()
-                    - (_map.GetRealCenteredPosition(hitBall.ArrayPosition) + _worldOffset);
-
-                Vector3 anchoredContact = mapContact - clusterDrift;
-
-                placed = _map.PutBallAtClosestEmptyPositionNextTo(anchoredContact, hitBall.ArrayPosition, out cell, physicsBall.Type);
-
-                //Nothing free touching the ball it hit. Not an exotic case: the ball a shot reaches first is
-                //on the cluster's outer face, and where that face is the field's own wall there is no cell
-                //beyond it — so the pocket around an edge ball fills after a handful of shots and every ball
-                //after that would be silently eaten. Widen the search by one ring, nearest the contact first;
-                //local by construction, so the ball never lands somewhere it could not have rolled to.
-                if (placed.X == float.MinValue && TryFindCellInSecondRing(anchoredContact, hitBall.ArrayPosition, out XZLevel ringCell))
-                {
-                    placed = _map.PutBallAt((byte)ringCell.X, (byte)ringCell.Z, (byte)ringCell.Level, physicsBall.Type).Position;
-                    cell = ringCell;
-                }
+                solved = ShotPlacement.TrySolveAgainstBall(_map, hitBall, worldContact, _worldOffset, out cell);
             }
             else return false; //another loose shot ball, or something with no cell to offer
 
-            //Refusal is reported by the RETURNED position, and testing the cell instead is not equivalent:
-            //PutBallAtClosestEmptyPositionNextTo leaves the cell at -1 when it refuses, but
-            //PutBallAtClosestEmptyCeilingPosition fills the cell in from the rounded contact *before* it checks
-            //whether that cell is inside the field and unoccupied — so a refused ceiling placement comes back
-            //with a perfectly plausible-looking cell. Testing only the cell let an out-of-bounds ceiling hit
-            //through to index the structure array (a crash), and an occupied one overwrite a ball that then
-            //stayed in the simulation for ever, untracked, undrawn and unreleasable.
-            if (placed.X == float.MinValue) return false;
+            //Nothing free in either ring around what it hit, or a ceiling cell outside the field or taken. The
+            //shot does not stick, and that is an answer rather than a fault — see TryFindEmptyCellInSecondRing
+            //on why the search is not simply widened until it succeeds.
+            if (!solved) return false;
+
+            //Only now is anything written. The cell came back valid, so this cannot land out of bounds or on a
+            //live ball — which used to be possible: the old ceiling path filled its out-cell in from the rounded
+            //contact BEFORE testing bounds and occupancy, so a refused placement handed back a plausible-looking
+            //cell, and testing the cell rather than the returned position indexed the structure array out of
+            //bounds (a crash) or overwrote a ball that then stayed in the simulation for ever, untracked,
+            //undrawn and unreleasable.
+            Vector3 placed = _map.PutBallAt((byte)cell.X, (byte)cell.Z, (byte)cell.Level, physicsBall.Type).Position;
 
             physicsBall.ArrayPosition = cell;
 
@@ -334,37 +311,5 @@ namespace BS3D.Physics
             return false;
         }
 
-        /// <summary>
-        /// The free cell nearest <paramref name="mapContact"/> among those touching a ball that itself touches
-        /// <paramref name="hitCell"/> — one ring further out than
-        /// <see cref="BallsMap.PutBallAtClosestEmptyPositionNextTo"/> looks.
-        /// </summary>
-        private bool TryFindCellInSecondRing(Vector3 mapContact, XZLevel hitCell, out XZLevel best)
-        {
-            best = new XZLevel(-1, -1, -1);
-
-            StaticBall[,,] balls = _map.GetStaticBallsArray();
-            XZLevel size = _map.GetStaticBallsArraySize();
-
-            float closest = float.MaxValue;
-
-            foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(hitCell, size))
-            {
-                if (balls[neighbour.X, neighbour.Z, neighbour.Level] == null) continue; //free cells were the first ring's business
-
-                foreach (XZLevel candidate in BallsMap.GetNeighboringCells(neighbour, size))
-                {
-                    if (balls[candidate.X, candidate.Z, candidate.Level] != null) continue;
-
-                    float distance = Vector3.DistanceSquared(_map.GetRealCenteredPosition(candidate), mapContact);
-                    if (distance >= closest) continue;
-
-                    closest = distance;
-                    best = candidate;
-                }
-            }
-
-            return best.X >= 0;
-        }
     }
 }

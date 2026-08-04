@@ -107,13 +107,19 @@ namespace Prazsky.BS3D.GameStructure
             return ComputeCentered(realPos);
         }
 
-        //WIP
-        public Vector3 PutBallAtClosestEmptyCeilingPosition(Vector3 position, out XZLevel arrayPosition, BallType type = BallType.Type4)
+        /// <summary>
+        /// Which top-level cell a ball that reached the ceiling belongs in — the cell <paramref name="position"/>
+        /// rounds to, when that cell is inside the field and free. Reads nothing but occupancy and writes nothing,
+        /// so the same question can be asked before a shot is fired as after it lands (#70).
+        /// </summary>
+        /// <param name="position">Centred (lattice-frame) position, typically the contact point.</param>
+        /// <param name="cell">The cell, <b>only meaningful when this returns <c>true</c></b>.</param>
+        public bool TryFindEmptyCeilingCell(Vector3 position, out XZLevel cell)
         {
             byte level = (byte)(Levels - 1); //Balls hitting the ceiling always land on the top level
             bool isShifted = (level % 2) > 0;
 
-            arrayPosition = new XZLevel(-1, -1, -1);
+            cell = new XZLevel(-1, -1, -1);
 
             Vector3 uncentered = ComputeUncentered(position);
 
@@ -121,20 +127,36 @@ namespace Prazsky.BS3D.GameStructure
 
             //Convert.ToByte rounds to nearest, so [-0.5, byte.MaxValue + 0.5) is exactly the range that
             //maps to a valid byte without overflowing
-            if (uncentered.X < -0.5f || uncentered.X >= 255.5f || uncentered.Z < -0.5f || uncentered.Z >= 255.5f) return new Vector3(float.MinValue);
+            if (uncentered.X < -0.5f || uncentered.X >= 255.5f || uncentered.Z < -0.5f || uncentered.Z >= 255.5f) return false;
 
             byte x = Convert.ToByte(uncentered.X);
             byte z = Convert.ToByte(uncentered.Z);
 
-            arrayPosition.X = x;
-            arrayPosition.Z = z;
-            arrayPosition.Level = level;
-
             if (x >= StageSizeX || z >= StageSizeZ //Outside of map
                 || _balls[x, z, level] != null) //There is already a ball there
-                return new Vector3(float.MinValue);
+                return false;
 
-            return PutBallAt(x, z, level, type).Position;
+            cell = new XZLevel(x, z, level);
+            return true;
+        }
+
+        /// <summary>
+        /// Puts a ball on the top level where <paramref name="position"/> rounds to, or returns a
+        /// <see cref="float.MinValue"/> vector when that cell is outside the field or taken.
+        /// </summary>
+        /// <remarks>
+        /// <paramref name="arrayPosition"/> now comes back invalid on refusal. It used to be filled in from the
+        /// rounded contact <i>before</i> the bounds and occupancy tests, so a refused placement handed back a
+        /// perfectly plausible-looking cell — and a caller that tested the cell rather than the returned position
+        /// indexed the structure array out of bounds (a crash) or overwrote a live ball, which then stayed in the
+        /// simulation for ever, untracked and unreleasable. Both callers correctly test the position, which is why
+        /// tightening this is safe.
+        /// </remarks>
+        public Vector3 PutBallAtClosestEmptyCeilingPosition(Vector3 position, out XZLevel arrayPosition, BallType type = BallType.Type4)
+        {
+            if (!TryFindEmptyCeilingCell(position, out arrayPosition)) return new Vector3(float.MinValue);
+
+            return PutBallAt((byte)arrayPosition.X, (byte)arrayPosition.Z, (byte)arrayPosition.Level, type).Position;
         }
 
         /// <summary>
@@ -225,7 +247,21 @@ namespace Prazsky.BS3D.GameStructure
         /// <returns>Centered position of the placed ball, or a <see cref="float.MinValue"/> vector when no neighboring cell is free.</returns>
         public Vector3 PutBallAtClosestEmptyPositionNextTo(Vector3 position, XZLevel nextTo, out XZLevel arrayPosition, BallType type = BallType.Type4)
         {
-            arrayPosition = new XZLevel(-1, -1, -1);
+            if (!TryFindEmptyCellNextTo(position, nextTo, out arrayPosition)) return new Vector3(float.MinValue);
+
+            return PutBallAt((byte)arrayPosition.X, (byte)arrayPosition.Z, (byte)arrayPosition.Level, type).Position;
+        }
+
+        /// <summary>
+        /// The free cell touching <paramref name="nextTo"/> that is closest to <paramref name="position"/> — the
+        /// <b>first ring</b>. Candidates come from <see cref="GetNeighboringCells"/>, so they are in-bounds by
+        /// construction. Writes nothing, which is what lets the aim preview ask the same question the attach
+        /// asks (#70).
+        /// </summary>
+        /// <param name="cell">The cell, <b>only meaningful when this returns <c>true</c></b>.</param>
+        public bool TryFindEmptyCellNextTo(Vector3 position, XZLevel nextTo, out XZLevel cell)
+        {
+            cell = new XZLevel(-1, -1, -1);
 
             float closestDistanceSquared = float.MaxValue;
 
@@ -238,13 +274,55 @@ namespace Prazsky.BS3D.GameStructure
                 if (distanceSquared < closestDistanceSquared)
                 {
                     closestDistanceSquared = distanceSquared;
-                    arrayPosition = candidate;
+                    cell = candidate;
                 }
             }
 
-            if (arrayPosition.X < 0) return new Vector3(float.MinValue);
+            return cell.X >= 0;
+        }
 
-            return PutBallAt((byte)arrayPosition.X, (byte)arrayPosition.Z, (byte)arrayPosition.Level, type).Position;
+        /// <summary>
+        /// The free cell nearest <paramref name="position"/> among those touching a ball that itself touches
+        /// <paramref name="nextTo"/> — one ring further out than <see cref="TryFindEmptyCellNextTo"/> looks.
+        /// <para>
+        /// It exists because nothing free touching the ball a shot hit is <b>not</b> an exotic case: the ball a
+        /// shot reaches first is on the cluster's outer face, and where that face is the field's own wall there is
+        /// no cell beyond it, so the pocket around an edge ball fills after a handful of shots. Without this every
+        /// shot after that would be silently eaten.
+        /// </para>
+        /// <para>
+        /// <b>Two rings and no more, deliberately.</b> The search is local so that a ball never lands somewhere it
+        /// could not have rolled to — widening it further is how a shot ends up attaching visibly behind what the
+        /// player aimed at, which is the defect #70 was opened for. When both rings are full the honest answer is
+        /// that this shot does not stick, and the aim preview is what tells the player so <i>before</i> they spend
+        /// it rather than after.
+        /// </para>
+        /// </summary>
+        /// <param name="cell">The cell, <b>only meaningful when this returns <c>true</c></b>.</param>
+        public bool TryFindEmptyCellInSecondRing(Vector3 position, XZLevel nextTo, out XZLevel cell)
+        {
+            cell = new XZLevel(-1, -1, -1);
+
+            XZLevel size = new(StageSizeX, StageSizeZ, Levels);
+            float closest = float.MaxValue;
+
+            foreach (XZLevel neighbour in GetNeighboringCells(nextTo, size))
+            {
+                if (_balls[neighbour.X, neighbour.Z, neighbour.Level] == null) continue; //free cells were the first ring's business
+
+                foreach (XZLevel candidate in GetNeighboringCells(neighbour, size))
+                {
+                    if (_balls[candidate.X, candidate.Z, candidate.Level] != null) continue;
+
+                    float distance = Vector3.DistanceSquared(GetRealCenteredPosition(candidate), position);
+                    if (distance >= closest) continue;
+
+                    closest = distance;
+                    cell = candidate;
+                }
+            }
+
+            return cell.X >= 0;
         }
 
         /// <summary>

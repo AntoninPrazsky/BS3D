@@ -71,7 +71,13 @@ namespace Prazsky.Core.Render
         /// <param name="opacity">1 for a crosshair that is simply there, or an eased blend for one leaning
         /// in. Scales the colour, so it fades rather than snapping on; at or below
         /// <see cref="MIN_OPACITY"/> nothing is drawn and no batch is opened.</param>
-        public void Draw(SpriteBatch batch, float opacity = 1f)
+        /// <param name="tint">
+        /// The bars' colour before <paramref name="opacity"/> scales it. Null is the usual near-white. Pass one to
+        /// say something about what is under the mark — the Game reddens it over a shot that cannot stick (#70).
+        /// <b>Give a fully opaque colour</b>: it is multiplied the way <see cref="COLOR"/> is and has to stay
+        /// premultiplied, so an alpha below 255 here would draw full colour and only partly cover what is behind it.
+        /// </param>
+        public void Draw(SpriteBatch batch, float opacity = 1f, Color? tint = null)
         {
             if (opacity <= MIN_OPACITY) return;
 
@@ -89,7 +95,9 @@ namespace Prazsky.Core.Render
             int inner = (int)(GAP * scale);
             int half = thickness / 2;
 
-            Color color = COLOR * opacity;
+            //The same 0.75 the default carries, so a tinted mark sits at the neutral one's weight rather than
+            //jumping forward as well as changing colour
+            Color color = (tint.HasValue ? tint.Value * 0.75f : COLOR) * opacity;
 
             batch.Begin();
             batch.Draw(_texel, new Rectangle(centreX - inner - length, centreY - half, length, thickness), color);
