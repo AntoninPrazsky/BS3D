@@ -1302,6 +1302,11 @@ namespace Testbed
                 #endregion
             }
 
+            //Before CameraMovement below, which is what reads it: assigned after, the fly camera turned with
+            //the PREVIOUS frame's denominator — one frame stale after every frame-time change, and one whole
+            //frame wrong after a resize (#80).
+            _cih.MouseMovementDenominator = timeStep / Constants.THOUSANDTH;
+
             if (IsActive)
             {
                 _cih.RegisterCurrentInputState();
@@ -1325,8 +1330,6 @@ namespace Testbed
                 _wasActive = true;
             }
             else { IsMouseVisible = true; _wasActive = false; }
-
-            _cih.MouseMovementDenominator = timeStep / Constants.THOUSANDTH;
 
             UpdateCannon(gameTime);
 
@@ -1697,28 +1700,39 @@ namespace Testbed
 
         private void UpdateCannon(GameTime gameTime)
         {
+            //Free mode drives no cannon input — A/D belong to the fly camera's strafe and the aim stays parked —
+            //so only the pose easing runs, and a barrel caught mid-traverse settles instead of freezing.
+            //Returning BEFORE the snapshot below is the point: those three GetState calls are real OS queries
+            //(an XInput poll for the pad), _cih already took this frame's set, and free mode — where the Testbed
+            //spends most of its life — was paying both for nothing (#80).
+            if (!_gameMode)
+            {
+                _cannon.Update(gameTime);
+                return;
+            }
+
             //One snapshot of each input device for the whole game-mode frame: every extra GetState call
             //re-queries the OS (a real XInput poll for the pad), and two reads in one frame can even
-            //disagree about a key pressed between them
+            //disagree about a key pressed between them. In game mode this is still a SECOND set after _cih's —
+            //sharing that one means threading CameraInputHelper's snapshot out through a library API, which #80
+            //records as declined: the Testbed is not the product, and the cost is one extra poll per device.
             KeyboardState keyboard = Keyboard.GetState();
             MouseState mouse = Mouse.GetState();
             GamePadState pad = GamePad.GetState(PlayerIndex.One);
 
-            //Orbiting the cannon around the field is on A/D, and only in game mode - in the free fly camera A/D
-            //stay its strafe. W/S are left unused: the gun turns on a carriage, it does not rise or fall. Orbiting
-            //does not touch the aim: the mouse owns it (below) and holds it wherever the player leaves it.
-            if (_gameMode)
-            {
-                if (keyboard.IsKeyDown(mgKeys.A)) _cannon.Orbit(1f);
-                if (keyboard.IsKeyDown(mgKeys.D)) _cannon.Orbit(-1f);
-            }
+            //Orbiting the cannon around the field is on A/D — in the free fly camera A/D stay its strafe, which
+            //is why the free-mode early-out above exists. W/S are left unused: the gun turns on a carriage, it
+            //does not rise or fall. Orbiting does not touch the aim: the mouse owns it (below) and holds it
+            //wherever the player leaves it.
+            if (keyboard.IsKeyDown(mgKeys.A)) _cannon.Orbit(1f);
+            if (keyboard.IsKeyDown(mgKeys.D)) _cannon.Orbit(-1f);
 
             _cannon.Update(gameTime);
 
             //The camera must follow the cannon's pose from THIS frame (after Update above has moved it).
             //Reading the pose before the move made the camera lag one frame behind, so any frame-time
             //fluctuation (shooting, contact processing) showed up as the cannon jittering on screen (#29).
-            if (_gameMode && !_gameModeAnimStarted)
+            if (!_gameModeAnimStarted)
             {
                 //The mouse aims the cannon throughout game mode - in the overview as well as in precise aim (the
                 //arrow keys are retired). The cursor is captured (hidden and re-centred) the whole time we are
@@ -2044,7 +2058,14 @@ namespace Testbed
 
             //The event source is the registered listener, i.e. the shot ball
             BodyHandle shotBallHandle = contact.EventSource.BodyHandle;
-            var physicsBall = ShotBalls.Where(x => x.BallReference.Handle == shotBallHandle).FirstOrDefault(); //Linq is ok since this list should be short
+
+            //An indexed walk rather than LINQ, the Game's FindShotBall reasoning: this runs per queued contact
+            //on the shot path, and Where().FirstOrDefault() allocated a closure and two iterators per call for
+            //a list that rarely holds more than a ball or two (#80)
+            PhysicsBall physicsBall = null;
+            for (int i = 0; i < ShotBalls.Count; i++)
+                if (ShotBalls[i].BallReference.Handle == shotBallHandle) { physicsBall = ShotBalls[i]; break; }
+
             if (physicsBall == null)
             {
 #if DEBUG
