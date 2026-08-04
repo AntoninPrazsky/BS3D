@@ -566,6 +566,23 @@ namespace BS3D.Screens
         /// </summary>
         private bool _previewReachesCluster;
 
+        /// <summary>
+        /// The dashed line of light out of the muzzle, and the two ends it is drawn between. It exists for the
+        /// <b>overview</b>, where there is no crosshair and the barrel's foreshortened angle was the only clue to
+        /// where the gun pointed — and it is what carries the refusal to that mode, since a red beam ending on the
+        /// ball it cannot stick to says what the reddened crosshair says in precise aim.
+        /// </summary>
+        private readonly AimBeam _aimBeam;
+
+        /// <summary>Where the beam starts. Stored rather than recomputed in <c>Draw</c>, so the line, the ghost and the shot cannot disagree about where the bore is.</summary>
+        private Vector3 _previewMuzzle;
+
+        /// <summary>Where it ends: the point a shot would touch, or a reach out along the aim when it would touch nothing.</summary>
+        private Vector3 _previewBeamEnd;
+
+        /// <summary>Whether there is a beam at all — false only before a session is standing and while a cinematic has the gun.</summary>
+        private bool _previewBeamVisible;
+
         #endregion
 
         #region Ball instances
@@ -619,6 +636,11 @@ namespace BS3D.Screens
             //The smears' billboard quad and every parameter handle their draw needs, in one construction. The
             //effect is the content manager's and is never disposed there.
             _smears = new LaunchSmears(GraphicsDevice, Game.Content.Load<Effect>("Shaders/ShotTrail"));
+
+            //The aim beam borrows the SAME effect instance — it is the same billboard between two world points,
+            //and a short segment of it comes out as a dash for free. Sharing it is why both components now push
+            //the trail's two widths per draw instead of once; see AimBeam's remarks.
+            _aimBeam = new AimBeam(GraphicsDevice, Game.Content.Load<Effect>("Shaders/ShotTrail"));
 
             //And the crosshair's own white texel, which the host used to hold for it
             _crosshair = new Crosshair(GraphicsDevice);
@@ -831,6 +853,11 @@ namespace BS3D.Screens
             //them) and additive, so they glow through the glare. It puts back exactly the states it found,
             //so the frame's translucent baseline still stands for the glass below.
             _smears.Draw(Camera);
+
+            //The aim beam in the smears' own slot and states — additive, depth-read — so the cluster and the gun
+            //occlude it and it blooms through the glare with them. After the smears rather than before for one
+            //reason: a shot's flare should sit over the guide that aimed it, not under it.
+            DrawShotPreviewBeam();
 
             Game.DrawSettingGlass();
 

@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D;
 using Prazsky.BS3D.GameObjects;
+using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Physics;
 using Prazsky.Core.Render;
 
@@ -38,6 +39,14 @@ namespace BS3D.Screens
         private static readonly Color PREVIEW_REFUSED = new(236, 74, 74);
 
         /// <summary>
+        /// How far the beam is drawn when the aim reaches nothing at all. Only roughly meaningful: the dashes are
+        /// faded out over the tail of it, so what the number decides is where the line has finished dying rather
+        /// than where it stops. Comfortably past the cluster from the gun's orbit, so the beam never looks cut off
+        /// short of something the player can see.
+        /// </summary>
+        private const float PREVIEW_OPEN_REACH = 24f;
+
+        /// <summary>
         /// Solves where a shot fired this instant would land, from the barrel's own line. Called once a frame,
         /// after the step, so it reads the poses the player is actually looking at.
         /// </summary>
@@ -47,25 +56,69 @@ namespace BS3D.Screens
         /// worthless. The cell then comes from <see cref="ShotPlacement"/>, which is the same call the contact
         /// handler makes when a ball really lands.
         /// <para>
-        /// Silent while a drop cinematic runs, because the gun does not answer at all then, and a ghost sitting in
-        /// the cluster while the player cannot fire would read as a promise that is not being kept.
+        /// <b>Shown exactly when a shot would actually leave the barrel</b>, which is the rule that keeps it from
+        /// promising anything: silent while a drop cinematic runs, because the gun does not answer at all then, and
+        /// silent once <c>_score.OutOfShots</c> — the <i>same</i> test <see cref="Shoot"/> refuses on, so the two
+        /// cannot drift apart. A ghost sitting in the cluster over a budget that is spent would be pointing at a
+        /// landing the player can no longer buy. A level being cleared or lost is deliberately <b>not</b> in the
+        /// list: firing through the collapse is allowed (see the result screen's snapshot), so the preview goes on
+        /// answering for as long as the gun does.
         /// </para>
         /// </remarks>
         private void UpdateShotPreview()
         {
             _previewHasCell = false;
             _previewReachesCluster = false;
+            _previewBeamVisible = false;
 
-            if (_cinematic.Engaged || _physicsBalls == null || _map == null) return;
+            if (_cinematic.Engaged || _score.OutOfShots || _physicsBalls == null || _map == null) return;
+
+            Vector3 muzzle = _cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall);
+            Vector3 aim = _cannon.AimDirection;
+
+            _previewMuzzle = muzzle;
+            _previewBeamVisible = true;
 
             //Both radii, because the shot has one: the grown sphere is what the moving ball's surface sweeps
-            if (!ShotPlacement.TryFindFirstHit(_physicsBalls, _cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall),
-                    _cannon.AimDirection, 2f * BallsConstraintsBuilder.BALL_RADIUS,
-                    out PhysicsBall hit, out Vector3 contact))
+            if (!ShotPlacement.TryFindFirstHit(_physicsBalls, muzzle, aim,
+                    2f * BallsConstraintsBuilder.BALL_RADIUS, out PhysicsBall hit, out Vector3 contact))
+            {
+                //Nothing out there. The beam still goes up, because in the overview it is the ONLY thing saying
+                //where the gun points — but open-ended, so it thins away instead of ending at a phantom.
+                _previewBeamEnd = muzzle + aim * PREVIEW_OPEN_REACH;
                 return;
+            }
 
+            //Ended at the touch and not at the cell: that is where the ball actually stops, and it puts the
+            //line's tip on the surface it strikes rather than pushing it through into the cluster
+            _previewBeamEnd = contact;
             _previewReachesCluster = true;
+
             _previewHasCell = ShotPlacement.TrySolveAgainstBall(_map, hit, contact, _clusterWorldOffset, out _previewCell);
+        }
+
+        /// <summary>
+        /// Draws the aim beam. Coloured by what the far end means — the loaded ball's own tint where the shot
+        /// sticks, <see cref="PREVIEW_REFUSED"/> where it certainly will not.
+        /// </summary>
+        /// <remarks>
+        /// This is what gives the <b>overview</b> the refusal signal the crosshair cannot: the crosshair is only
+        /// drawn while precise aim is leaning in, so without the beam a player at the overview stand-off would see
+        /// the ghost vanish and be told nothing about why. On the wall clock, so the crawl keeps going while a
+        /// pause holds the session — the beam is a thing that is there rather than something the session is doing.
+        /// </remarks>
+        private void DrawShotPreviewBeam()
+        {
+            if (!_previewBeamVisible) return;
+
+            //sRGB in 0…1 either way, which is what the beam decodes: Color.ToVector3 divides by 255, and the
+            //type tints are already in that form — they are what LaunchSmears is handed for the same reason.
+            Vector3 tint = _previewReachesCluster && !_previewHasCell
+                ? PREVIEW_REFUSED.ToVector3()
+                : BasicEffectParamsProvider.GetDiffuseTintByType(_magazine.Peek(0));
+
+            _aimBeam.Draw(Camera, _previewMuzzle, _previewBeamEnd, tint, WallClock,
+                openEnded: !_previewReachesCluster);
         }
 
         /// <summary>

@@ -97,6 +97,10 @@ namespace Prazsky.Core.Render
         //And these three once per frame, for the same reason.
         private readonly EffectParameter _viewParam, _projectionParam, _cameraPositionParam;
 
+        //The two widths, which are constants of this component but not of the effect it shares — see the
+        //constructor on why they are pushed per frame rather than once.
+        private readonly EffectParameter _headWidthParam, _tailWidthParam;
+
         //The one pass of the one technique, resolved once as well. Nothing here ever switches technique, so
         //walking CurrentTechnique.Passes[0] per smear was work with a known answer.
         private readonly EffectPass _pass;
@@ -121,11 +125,14 @@ namespace Prazsky.Core.Render
 
             _pass = shotTrailEffect.CurrentTechnique.Passes[0];
 
-            //The two widths never change, and a parameter's value persists on the effect between frames, so
-            //once is enough — re-sending a compile-time constant per frame is BestPractices.md §1's own
-            //example, with these very two named in it.
-            shotTrailEffect.Parameters["TrailHeadWidth"].SetValue(LEAD_WIDTH);
-            shotTrailEffect.Parameters["TrailTailWidth"].SetValue(MUZZLE_WIDTH);
+            //These two used to be set right here, once, on the reasoning that a compile-time constant need not
+            //be re-sent per frame — BestPractices.md §1's own example names these very two. That reasoning was
+            //correct while this was the only component using the effect and stopped being correct the moment
+            //AimBeam shared it: a parameter's value belongs to the EFFECT rather than to whoever set it, the two
+            //want different widths, and whichever constructor ran last would have decided how both look. So they
+            //go out once per Draw now, which is per frame per component and still not per primitive.
+            _headWidthParam = shotTrailEffect.Parameters["TrailHeadWidth"];
+            _tailWidthParam = shotTrailEffect.Parameters["TrailTailWidth"];
 
             CreateQuad();
         }
@@ -209,6 +216,11 @@ namespace Prazsky.Core.Render
             _viewParam.SetValue(camera.View);
             _projectionParam.SetValue(camera.Projection);
             _cameraPositionParam.SetValue(camera.Position);
+
+            //The smear's own taper, reclaimed from whatever else drew through this effect since — AimBeam shares
+            //it and wants parallel sides. See the constructor.
+            _headWidthParam.SetValue(LEAD_WIDTH);
+            _tailWidthParam.SetValue(MUZZLE_WIDTH);
 
             BlendState blend = _device.BlendState;
             DepthStencilState depth = _device.DepthStencilState;

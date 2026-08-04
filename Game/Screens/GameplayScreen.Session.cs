@@ -142,9 +142,10 @@ namespace BS3D.Screens
         {
             TearDown();
 
-            //The smears' shared billboard quad and the crosshair's one texel — not the trail effect, which the
-            //content manager owns
+            //The smears' and the beam's billboard quads and the crosshair's one texel — not the trail effect,
+            //which the content manager owns and which those two share
             _smears.Dispose();
+            _aimBeam.Dispose();
             _crosshair.Dispose();
             _laserGrid.Dispose();
         }
