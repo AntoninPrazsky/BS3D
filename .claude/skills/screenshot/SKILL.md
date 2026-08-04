@@ -12,7 +12,7 @@ balls, and capturing the window. It uses one reusable script, `screenshot.ps1` (
 ## Build first
 
 ```powershell
-dotnet build C:\Users\panrd\source\repos\BS3D\Testbed.sln   # or MapEditor.sln for the editor
+dotnet build C:\GitHub\Testbed.sln   # or MapEditor.sln for the editor
 ```
 
 The exe is `Testbed\bin\net10.0-windows\Testbed.exe`.
@@ -47,7 +47,7 @@ command line, not by pressing NumPad1/2:
 
 # Drain a full map into the funnel and watch it go down the dark pit (End releases the cluster):
 .\screenshot.ps1 -Out drain.png -Wait 6 -Settle 5 -Keys @('End') `
-    -GameArgs @('C:\Users\panrd\source\repos\BS3D\Testbed\Maps\Full.json','scene=mountain','campos=0,-1,24','camtarget=0,-9,0')
+    -GameArgs @('C:\GitHub\Testbed\Maps\Full.json','scene=mountain','campos=0,-1,24','camtarget=0,-9,0')
 ```
 
 - `-GameArgs` — arguments to `Testbed.exe` (a map path, `scene=`, `sky=`, `campos=`/`camtarget=`, `ssaa=`, ...).

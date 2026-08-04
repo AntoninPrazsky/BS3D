@@ -253,9 +253,10 @@ namespace BS3D.Screens
         /// <summary>
         /// Where the lattice frame meets the world, and the <b>only</b> place it does on the drawing side.
         /// <para>
-        /// Y puts the top of the field at a fixed world height whatever the field's depth: a cell's height is
-        /// its level index over √2, so without this a map with more empty levels below its layout would hang
-        /// that much higher than the camera frames.
+        /// Y hangs the top of the field at <see cref="FIELD_TOP_Y"/> — or higher, when the field is deep
+        /// enough that its bottom level would otherwise start past the death line (see
+        /// <see cref="FIELD_FLOOR_MARGIN"/>): a cell's height is its level index over √2, so without an
+        /// offset every map would hang at its own depth rather than in one frame.
         /// </para>
         /// <para>
         /// X and Z correct the residual half-unit <see cref="BallsMap.Center"/> can leave behind. It offsets
@@ -271,9 +272,11 @@ namespace BS3D.Screens
         private Vector3 _clusterWorldOffset;
 
         /// <summary>
-        /// The height the field's topmost level hangs at, which is what everything else is measured from.
-        /// It is where the previous hard-coded field put its top ((16-1)/√2 − 7/√2 = 8/√2), kept exactly so the
-        /// camera, the gun and the ceiling frame a loaded level the way they framed that one.
+        /// The height the field's topmost level hangs at — for every field shallow enough that hanging it
+        /// here keeps its bottom level clear of the death line; a deeper one is raised past it (see
+        /// <see cref="FIELD_FLOOR_MARGIN"/>). It is where the previous hard-coded field put its top
+        /// ((16-1)/√2 − 7/√2 = 8/√2), kept exactly so the camera, the gun and the ceiling frame a loaded
+        /// level the way they framed that one.
         /// <para>
         /// <b>Its own number, deliberately.</b> It used to be written as
         /// <c>(FALLBACK_FIELD_LEVELS - 1 - FALLBACK_EXTRA_LEVELS) / √2</c>, which arrives at the same 8 and made
@@ -287,6 +290,27 @@ namespace BS3D.Screens
 
         /// <inheritdoc cref="FIELD_TOP_LEVELS"/>
         private static readonly float FIELD_TOP_Y = FIELD_TOP_LEVELS / Constants.SQRT_TWO;
+
+        /// <summary>
+        /// The least the field's <b>bottom</b> level clears the death line by, and what raises a deep field
+        /// past <see cref="FIELD_TOP_Y"/>: a ball's radius, so a ball hung in the field's lowest cell rests
+        /// its surface exactly on the line — alive, one descent from loss. It makes the whole field playable
+        /// by construction, however deep it is, and turns the empty levels an author leaves under a layout
+        /// into the level's starting clearance instead of dead space past the line: pinning the top
+        /// unconditionally meant any field 17 or more levels deep (its bottom more than ~15.8 level-steps
+        /// below its top) <i>started</i> with cells below the line, and a 30-level map was lost on the frame
+        /// it was built, before a shot was fired (a ball at −6.36 against the −5.5 line).
+        /// <para>
+        /// A ball's radius and not more, so that every field that fits under <see cref="FIELD_TOP_Y"/>
+        /// hangs exactly where it always has: the two branches of the max meet at a top level of ~15.07,
+        /// so a field up to 16 levels deep — the fallback's own depth — is pinned unchanged and a 17-level
+        /// one is the first raised. Measured: the fallback and <c>One.json</c> (15 levels) place and solve
+        /// bit-identically to before the rule; <c>Two.json</c>, whose 18 levels were already reaching 0.86
+        /// past the line, hangs 1.36 higher — its ceiling pressure was nominal either way (~13 descents to
+        /// lose before, ~15 after, against a budget that allows 11).
+        /// </para>
+        /// </summary>
+        private const float FIELD_FLOOR_MARGIN = Constants.HALF;
 
         //The middle of the field in world Y, which is what precise aim converges its crosshair on. The whole
         //field rather than the layout hanging at its top, because the cluster grows down into the empty

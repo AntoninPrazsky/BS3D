@@ -116,6 +116,12 @@ namespace BS3D
         //Testing only: the "lasers" argument, read by the session's warning check every frame.
         private readonly bool _startupLasers;
 
+        //Testing only: the "play" argument. Consumed on the first Update rather than at the end of
+        //LoadContent, because the screen manager queues its mutations: BuildMenu's pushes are still pending
+        //there, so StartGame's PopTo<BackdropScreen> would test an empty live stack, silently skip, and
+        //leave the splash buried under the session for the rest of the run.
+        private bool _startupPlay;
+
         //Wall clock. Everything alive in the scene runs off it — the balls' heartbeat, the city's windows —
         //so none of it is tied to a simulation that may later be paused.
         private float _wallClock;
@@ -394,13 +400,22 @@ namespace BS3D
         /// Testing only (the <c>mute</c> argument): start with the master volume at zero — a scripted
         /// screenshot or benchmark run has no business making noise. The settings rows can still raise it.
         /// </param>
+        /// <param name="play">
+        /// Testing only (the <c>play</c> argument): drop straight into the first level, skipping the title
+        /// card and the menu. The session's placement and fit figures only reach stdout once a level is
+        /// built, and building one honestly needs a mouse on a Myra button — which a scripted run does not
+        /// have. The stack ends up exactly as a player's Play click leaves it, so nothing downstream can
+        /// tell the difference.
+        /// </param>
         public BS3DGame(bool fullscreen = false, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE,
             bool uncappedFps = false, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
-            QualityLevel? quality = null, bool celebrate = false, bool lasers = false, bool mute = false)
+            QualityLevel? quality = null, bool celebrate = false, bool lasers = false, bool mute = false,
+            bool play = false)
         {
             _fullscreen = fullscreen;
             _startupCelebrate = celebrate;
             _startupLasers = lasers;
+            _startupPlay = play;
             if (mute) _masterVolume = 0f;
 
             //The tier owns supersampling, so the tier's factor is taken first and an explicit ssaa= then
@@ -897,6 +912,18 @@ namespace BS3D
             //the front end keeps the backdrop turning under itself. Myra runs its click handlers in Draw, so
             //a page opened by a click lands here on the following frame, which is the deferred design.
             _screens.Update(gameTime);
+
+            //Testing only (the play argument): jump into the first level through the very pop-and-push a
+            //player's click takes. After the stack update above, so BuildMenu's queued pushes have been
+            //applied and PopTo<BackdropScreen> sees the backdrop it pops to — the splash is drawn for the
+            //one frame this costs, exactly as a very fast click would leave it. At the end of LoadContent
+            //those pushes were still pending, the PopTo tested an empty live stack and silently skipped,
+            //and the splash stayed buried under the session for the rest of the run.
+            if (_startupPlay)
+            {
+                _startupPlay = false;
+                StartGame(newGame: true);
+            }
 
             //A page that has just arrived must not be handed a mouse button that was already held down when it
             //did. Myra keeps its own previous-state and is only fed input while a menu page is on top, so the

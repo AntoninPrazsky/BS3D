@@ -23,8 +23,9 @@ namespace BS3D.Effects
     /// <b>The arc is driven by the balls, not by a stopwatch.</b> Every framing parameter is a function of
     /// how far the subject has fallen between the height it was released at and the kill plane, so the
     /// camera cannot run ahead of a slow collapse or lag a fast one, and the shot ends when the drop does.
-    /// A wall-clock cap is the only timer, and it exists solely because balls that come to rest on the stone
-    /// ring are never culled and would otherwise hold the camera for ever.
+    /// A wall-clock cap is the only timer, and it exists because a ball the game never culls can still come
+    /// to rest — rarely, now that the stone ring is a dish that rolls a landed ball into the drain, but a
+    /// pile propping itself up near the mouth still can — and would otherwise hold the camera for ever.
     /// </para>
     /// </summary>
     internal sealed class DropCinematic
@@ -73,9 +74,10 @@ namespace BS3D.Effects
         /// </summary>
         public const int MIN_BALLS = 6;
 
-        //Wall-clock ceiling on one shot. It is a backstop rather than a pace: balls that come to rest on the
-        //island's stone ring are never culled (see RemoveFallenBalls), so "the subject is gone" is not a
-        //condition that always arrives.
+        //Wall-clock ceiling on one shot. It is a backstop rather than a pace: the game only culls at the
+        //kill plane (see RemoveFallenBalls), and a ball can still come to rest short of it — rarely since
+        //the stone ring dished, but a pile propping itself up near the drain's mouth still does — so "the
+        //subject is gone" is not a condition that always arrives.
         private const float MAX_SECONDS = 6.5f;
 
         //The camera grabs the frame faster than it gives it back: the grab has to keep up with balls that
@@ -263,8 +265,9 @@ namespace BS3D.Effects
 
         /// <summary>
         /// Has the drop stopped being a drop? The subject descending by less than <see cref="STALL_DROP"/>
-        /// over <see cref="STALL_SECONDS"/> means the last of it has come to rest on the island's stone,
-        /// where nothing will ever remove it (see <c>RemoveFallenBalls</c>) — so waiting for the kill plane
+        /// over <see cref="STALL_SECONDS"/> means the last of it has stopped falling — wedged in a
+        /// slow-draining pile near the drain's mouth, or (rarely, since the stone ring dished) at rest where
+        /// only the kill plane could remove it (see <c>RemoveFallenBalls</c>) — so waiting for that plane
         /// leaves the camera holding on a straggler, which is a shot with nothing in it. It is what a first
         /// pass did, and the sea's last frames were an empty blue rectangle with one ball in the corner.
         /// <para>

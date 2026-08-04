@@ -934,15 +934,17 @@ namespace Testbed
         private void BuildCeiling()
         {
             //The wide grid of ground blocks is gone with the big plaza: the round island's only physics floor
-            //is the drain's own mesh - the cone plus the flat stone ring around it, out to the island's level
-            //edge. A ball that falls past the ring drops off the island's edge into the scene and is culled by
-            //the kill plane, exactly as one that runs down the funnel is. The collider is FunnelPhysics' since
-            //#75 and is handed the very figures ArenaIsland draws from, so the two cannot drift apart.
+            //is the drain's own mesh - the cone plus the dished stone ring around it, out to the island's
+            //walkable edge; the dish rolls a landed ball into the glass instead of parking it. A ball that
+            //falls past the ring drops off the island's edge into the scene and is culled by the kill plane,
+            //exactly as one that runs down the funnel is. The collider is FunnelPhysics' since #75 and is
+            //handed the very figures ArenaIsland draws from - the dish's depth included - so the two cannot
+            //drift apart.
             //The pool and the simulation come off the world: FunnelPhysics takes its triangles from the pool and
             //hands them to a mesh the pool's own teardown releases, which is why the pool is exposed at all.
             FunnelPhysics.Build(_world.Simulation, _world.BufferPool, ArenaIsland.TOP_Y, ArenaIsland.FUNNEL_BOTTOM_Y,
                 ArenaIsland.FUNNEL_TOP_RADIUS, ArenaIsland.FUNNEL_HOLE_RADIUS, ArenaIsland.FLOOR_RADIUS,
-                ArenaIsland.FUNNEL_SEGMENTS);
+                ArenaIsland.DISH_DEPTH, ArenaIsland.FUNNEL_SEGMENTS);
 
             //The same footprint and thickness the drawn plate was just fitted to, off the one helper
             Box box = new(CeilingPlate.FootprintFor(DEFAULT_CEILING_STAGE_SIZE), CeilingPlate.THICKNESS,
