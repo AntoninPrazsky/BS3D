@@ -647,7 +647,10 @@ namespace Testbed
             //(see BallRenderSet.PULSE_DEPTH_RIPPLING), so the Testbed keeps the deeper breath it always drew. The
             //shared instancing effect is handed in and never disposed there, the city, the island, the barrel and
             //the ceiling all drawing through the same copy.
-            _balls = new BallRenderSet(GraphicsDevice, _instancingEffect);
+            //SupersampleFactor, for the same reason the scene renderer is told it below: the dissolve's dither
+            //cell is authored in output pixels, so unscaled it would be averaged away by the tonemap's box filter.
+            //Set at construction rather than on a hook, the factor here being fixed for the run by the command line.
+            _balls = new BallRenderSet(GraphicsDevice, _instancingEffect) { SupersampleFactor = _supersampleFactor };
 
             //The pipeline caches its parameters and sets each look value exactly once through the required
             //initializer — fixed for the whole run here (the game alone has the Settings toggles). See #74.

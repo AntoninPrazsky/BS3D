@@ -304,7 +304,11 @@ namespace MapEditor
 
             //No ripples here: the landing wave is the game's, and passing false switches the shader's whole
             //ripple term off on a branch over the uniform, so the editor pays nothing for not having one.
-            _balls = new BallRenderSet(GraphicsDevice, _instancingEffect, ripples: false);
+            //SupersampleFactor, for the same reason the scene renderer is told it below: the dissolve's dither cell
+            //is authored in output pixels, so unscaled it would be averaged away by the tonemap's box filter. The
+            //editor draws no dissolving ball today (no magazine, no landing preview), so this is here to keep the
+            //three callers saying the same thing rather than to fix anything visible here.
+            _balls = new BallRenderSet(GraphicsDevice, _instancingEffect, ripples: false) { SupersampleFactor = SUPERSAMPLE_FACTOR };
 
             //linearVertexColors: the dome is drawn through BasicEffect into the linear HDR target, so its
             //baked gradient has to be converted from sRGB once at load or the tonemapper reads a gradient of

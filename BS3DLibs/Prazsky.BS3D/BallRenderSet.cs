@@ -11,7 +11,7 @@ using System.Collections.Generic;
 namespace Prazsky.BS3D
 {
     /// <summary>
-    /// Everything it takes to draw balls: the three procedural sphere LODs, the three
+    /// Everything it takes to draw balls: the procedural sphere LODs and the
     /// <see cref="InstancedModelRenderer"/>s built on them with every figure of the balls' look, the
     /// (type × LOD) instance buckets each of which becomes exactly one <c>DrawInstancedPrimitives</c> call, and
     /// the one walk that issues them. It stood in all three executables — the Testbed's and the Game's
@@ -62,7 +62,7 @@ namespace Prazsky.BS3D
     /// </summary>
     public sealed class BallRenderSet : IDisposable
     {
-        #region The eight types and the three LODs
+        #region The eight types and the LOD ladder
 
         /// <summary>
         /// How many ball colours there are: red/green/blue/white plus cyan/magenta/yellow/black. It sizes the
@@ -81,23 +81,79 @@ namespace Prazsky.BS3D
         public const float BALL_RADIUS = Constants.HALF;
 
         //Procedurally generated sphere LODs, finest first: {slices, stacks}. Per-pixel lighting shades even the
-        //coarse levels smoothly, so only the silhouette reveals the polygons - which is why the coarsest is as
-        //coarse as it is.
-        private static readonly int[,] LOD_RESOLUTIONS = { { 32, 24 }, { 16, 12 }, { 10, 7 } };
+        //coarse levels smoothly, so only the SILHOUETTE reveals the polygons - which is the one thing the ladder
+        //below is calibrated against, and the only thing worth calibrating it against.
+        //
+        //Stacks are half the slices throughout, which is the balanced ratio and not a saving made by eye: slices
+        //divide 360 degrees around the equator while stacks divide 180 from pole to pole, so equal angular steps
+        //want stacks = slices / 2. It matters because BOTH bound the silhouette - a sphere's outline is a full
+        //circle whose left and right extremes fall on slice boundaries and whose top and bottom fall on stack
+        //boundaries - so at this ratio one number (the slice count) describes the whole outline. The ladder this
+        //replaced ran 4:3 ({32,24}, {16,12}, {10,7}), which spent a third more triangles on stacks that were
+        //already finer than the slices they were paired with.
+        private static readonly int[,] LOD_RESOLUTIONS = { { 64, 32 }, { 40, 20 }, { 24, 12 }, { 14, 7 } };
 
-        //The camera distance up to which each level is used; the last level covers everything beyond the last
-        //distance, so there is one fewer of these than there are levels.
-        private static readonly float[] LOD_DISTANCES = { 15f, 30f };
-
-        //Squared once at class load, because the pick compares against Vector3.DistanceSquared: monotone in the
-        //distance, so it picks the same level, and it saves a square root per ball per frame (3000 of them on
-        //the stress map). Derived from LOD_DISTANCES rather than written out again - two arrays of the same
-        //figures is precisely the drift this file exists to end.
-        private static readonly float[] LOD_DISTANCES_SQUARED = SquareEach(LOD_DISTANCES);
+        /// <summary>
+        /// How far a level's silhouette may fall short of a true circle before the next finer one is used, in
+        /// <b>display</b> pixels. It is the whole of the ladder's calibration: every threshold below is derived
+        /// from it and from the slice counts above, so there is no second table of distances to drift out of step
+        /// with the meshes.
+        /// <para>
+        /// A polygonal outline sags off the circle it approximates by <c>r · (1 − cos(π / slices))</c> at the
+        /// middle of each segment, which projects to <c>projectedRadius · (1 − cos(π / slices))</c> pixels
+        /// whatever the distance and the lens — so a budget in pixels is the natural form, and the thresholds
+        /// come out of inverting it.
+        /// </para>
+        /// <para>
+        /// <b>Calibrated against the defect it fixes.</b> The ladder this replaced was keyed on raw camera
+        /// distance with its coarsest level (10 slices) covering everything past 30 units, and the Game's play
+        /// camera stands 33 out — so <i>every</i> ball in a played level was drawn at the coarsest mesh
+        /// available. Measured on a 1616×939 window that is a projected radius of ~18 px and a sag of
+        /// <b>0.88 px</b>, which is plainly faceted on screen: the outlines break into countable straight runs
+        /// and the dark balls on the cluster's edge show corners against the sky. 0.35 is 2.5× inside that, with
+        /// the margin deliberate — faceting is a <i>systematic</i> deviation the eye follows along an edge
+        /// rather than isolated noise, so it is noticed well below the threshold where a single pixel of error
+        /// would be.
+        /// </para>
+        /// </summary>
+        private const float SILHOUETTE_BUDGET_PIXELS = 0.35f;
 
         /// <summary>How many mesh resolutions there are. Derived from <c>LOD_RESOLUTIONS</c>, so adding a row
-        /// to that table is the whole of adding a level (and one more entry to the distances).</summary>
+        /// to that table is the whole of adding a level — the thresholds follow from it.</summary>
         public static readonly int LodCount = LOD_RESOLUTIONS.GetLength(0);
+
+        /// <summary>
+        /// The projected ball radius, in display pixels, at or above which each level is used — one fewer than
+        /// there are levels, the coarsest covering everything smaller.
+        /// <para>
+        /// Entry <c>i</c> is the largest projected radius at which level <c>i + 1</c> is still inside
+        /// <see cref="SILHOUETTE_BUDGET_PIXELS"/>: a ball is drawn at level <c>i</c> exactly when the next
+        /// coarser level would no longer do. That is why this is derived and not written out — it is a statement
+        /// about <c>LOD_RESOLUTIONS</c>, and a hand-written copy of it would go stale the first time a row of
+        /// that table moved. With the table above it comes out at {113.5, 40.9, 14.0}.
+        /// </para>
+        /// </summary>
+        private static readonly float[] LOD_MIN_PIXEL_RADIUS = AdequateUpTo(LOD_RESOLUTIONS);
+
+        /// <summary>
+        /// The largest projected radius, in display pixels, at which a sphere of this many slices still keeps
+        /// its silhouette sag inside <see cref="SILHOUETTE_BUDGET_PIXELS"/>. Skips the finest level: nothing is
+        /// ever chosen for being too big for level 0, which covers everything above the last threshold.
+        /// </summary>
+        private static float[] AdequateUpTo(int[,] resolutions)
+        {
+            float[] limits = new float[resolutions.GetLength(0) - 1];
+
+            for (int lod = 0; lod < limits.Length; lod++)
+            {
+                //The NEXT level down is the one whose adequacy this threshold is about
+                int slices = resolutions[lod + 1, 0];
+
+                limits[lod] = SILHOUETTE_BUDGET_PIXELS / (1f - MathF.Cos(MathF.PI / slices));
+            }
+
+            return limits;
+        }
 
         #endregion
 
@@ -131,6 +187,25 @@ namespace Prazsky.BS3D
 
         /// <summary>How much light passes through the shell from a source behind the ball.</summary>
         private const float TRANSLUCENCY = 0.35f;
+
+        /// <summary>
+        /// How wide one cell of the dissolve's dither is, in <b>display</b> pixels — the blocks a ball being
+        /// re-coloured goes away in, and the ones the landing preview's ghost is cut into. The shader wants it in
+        /// target pixels, which <see cref="DissolveCellTargetPixels"/> converts to.
+        /// <para>
+        /// A block of the screen and not a cube of the world, which is the whole point: cells in the ball's own
+        /// object space turn with it and take its perspective, so they read as lumpy three-dimensional mottling
+        /// of the surface rather than as pixelation of the picture, which is what the effect is saying.
+        /// </para>
+        /// <para>
+        /// Three and not one. One display pixel is the literal floor and it does survive the resolve — every
+        /// target sample inside it decides alike — but a one-pixel cut at any modern resolution is read by the
+        /// eye as a haze or a film grain, i.e. as the ball being <i>faint</i>, which is precisely the reading
+        /// the dither was chosen over a transparency to avoid. Three is the smallest that still says "pixels"
+        /// at 2160p, and it is the one number to turn if the blocks want to be chunkier.
+        /// </para>
+        /// </summary>
+        private const float DISSOLVE_DISPLAY_PIXELS = 3f;
 
         /// <summary>
         /// A resting human heart, near enough. Slow on purpose — a fast pulse reads as an alarm rather than as
@@ -233,10 +308,10 @@ namespace Prazsky.BS3D
         #region The instance buckets
 
         //One bucket per (type, LOD) pair, each becoming a single instanced draw call. Allocated lazily - most
-        //frames touch a handful of the twenty-four, and a map of one colour touches three - and doubled when a
+        //frames touch a handful of the thirty-two, and a map of one colour touches four - and doubled when a
         //bucket fills, so the arrays settle at whatever the scene actually needs within the first few frames
         //and nothing is allocated per frame after that. 256 is a couple of levels of a full map: big enough
-        //that the common case never grows, small enough that twenty-four of them cost nothing.
+        //that the common case never grows, small enough that thirty-two of them cost nothing.
         private const int BUCKET_INITIAL_CAPACITY = 256;
 
         private readonly ModelInstance[][] _buckets;
@@ -252,6 +327,19 @@ namespace Prazsky.BS3D
         //both, deliberately: it makes the two guards below the same guard. The LODs were picked against this
         //camera's position, so it is also the camera the buckets must be drawn with.
         private ICamera _frameCamera;
+
+        //Held for the two things the frame has to ask the device rather than the caller: the BACK BUFFER's
+        //height, which is the display resolution the silhouette budget is stated in, and the bound viewport's,
+        //which during the scene pass is the supersampled target and so gives the dither its pixel size. Both are
+        //read per frame rather than cached, so a resize, a fullscreen switch and a quality change all just work.
+        private readonly GraphicsDevice _device;
+
+        //This frame's LOD_MIN_PIXEL_RADIUS turned into squared camera distances - the form the per-ball pick
+        //wants, since it compares against Vector3.DistanceSquared and a square root per ball per frame is 3000
+        //of them on the stress map. Allocated once and refilled by BeginFrame: the projection changes every
+        //frame (precise aim leans the lens in, the recoil punches the FOV), so these cannot be static, but
+        //nothing about them may allocate either.
+        private readonly float[] _lodDistanceSquared;
 
         /// <param name="instancingEffect">The shared <c>InstancedModel.fx</c>. Handed in and never disposed
         /// here: the content manager owns its lifetime and the city, the island, the barrel and the ceiling all
@@ -269,6 +357,8 @@ namespace Prazsky.BS3D
         public BallRenderSet(GraphicsDevice graphicsDevice, Effect instancingEffect, bool ripples = false,
             float groundHeight = ArenaIsland.TOP_Y)
         {
+            _device = graphicsDevice ?? throw new ArgumentNullException(nameof(graphicsDevice));
+
             _meshes = new SphereMesh[LodCount];
             _renderers = new InstancedModelRenderer[LodCount];
 
@@ -295,6 +385,7 @@ namespace Prazsky.BS3D
             _buckets = new ModelInstance[TYPE_COUNT * LodCount][];
             _counts = new int[TYPE_COUNT * LodCount];
             _lodTotals = new int[LodCount];
+            _lodDistanceSquared = new float[LOD_MIN_PIXEL_RADIUS.Length];
         }
 
         /// <summary>
@@ -308,6 +399,28 @@ namespace Prazsky.BS3D
         /// </para>
         /// </summary>
         public InstancedModelRenderer[] Renderers => _renderers;
+
+        /// <summary>
+        /// How many pixels of the scene's render target make one pixel of the finished picture — the caller's
+        /// supersampling factor. It exists for exactly one thing: sizing the dissolve's dither cell, which is
+        /// authored in <see cref="DISSOLVE_DISPLAY_PIXELS"/> of the <i>display</i> while the shader can only
+        /// measure the target it is drawing into.
+        /// <para>
+        /// The same shape as <see cref="SceneRenderer.SupersampleFactor"/>, deliberately — the space scene sizes
+        /// its stars in output pixels for the same reason and is told the same way, so this is one more consumer
+        /// of a number the three executables already keep. Left unset it is 1, which is right for a caller that
+        /// does not supersample and merely coarse for one that does; it cannot be wrong in the direction that
+        /// breaks the effect, since only a cell <i>under</i> a display pixel is averaged away by the resolve.
+        /// </para>
+        /// <para>
+        /// Asked of the caller rather than measured off the device, though the ratio of the bound viewport to the
+        /// back buffer would give it: <see cref="BeginFrame"/> runs <b>before</b> the scene target is bound in the
+        /// Game and <b>after</b> it in the Testbed and the map editor, so what a device read means here depends on
+        /// which executable is asking — the same asymmetry that makes the LOD pick read the back buffer's size,
+        /// which is true whatever is bound (see <see cref="SolveLodDistances"/>).
+        /// </para>
+        /// </summary>
+        public int SupersampleFactor { get; set; } = 1;
 
         /// <summary>
         /// Instances put out by the last <see cref="Draw"/> — bucket contents, the magazine preview included.
@@ -353,7 +466,69 @@ namespace Prazsky.BS3D
             for (int i = 0; i < _counts.Length; i++) _counts[i] = 0;
             for (int lod = 0; lod < _lodTotals.Length; lod++) _lodTotals[lod] = 0;
 
+            SolveLodDistances(camera);
+
             return new BallDrawFrame(this, camera.Position);
+        }
+
+        /// <summary>
+        /// Turns this frame's <see cref="LOD_MIN_PIXEL_RADIUS"/> into the squared camera distances the per-ball
+        /// pick compares against, so the pick itself stays the two-compare scan it has always been while the
+        /// thresholds it scans are stated in pixels.
+        /// </summary>
+        /// <remarks>
+        /// <b>Why the pick is on projected size and not on raw distance.</b> A distance ladder is a statement
+        /// about one camera, and there are three cameras here — the Testbed's free lens that can sit on top of a
+        /// ball, the map editor's, and the Game's play lens fixed a solved 33-odd units out. The old ladder was
+        /// calibrated for the first and put every ball of a played level on the coarsest mesh in the third
+        /// (see <see cref="SILHOUETTE_BUDGET_PIXELS"/>). Projected size is the thing the eye actually judges, and
+        /// a threshold in pixels is true for every lens, every window and every display at once.
+        /// <para>
+        /// The scale comes out of the projection matrix rather than a field of view, and that is what makes it
+        /// free and what makes it correct: <c>Projection.M22</c> is <c>1 / tan(fov / 2)</c> for every
+        /// <see cref="Matrix.CreatePerspectiveFieldOfView"/>, and <c>RecoilCamera</c> rebuilds its projection
+        /// each frame with precise aim's narrower lens and the recoil's FOV punch already folded in — so leaning
+        /// in over the barrel raises the ball's projected size and sharpens its mesh with no wiring at all.
+        /// A point at depth <c>d</c> and height <c>h</c> lands at NDC <c>h · M22 / d</c>, and NDC spans the
+        /// viewport height over 2, so a ball's projected radius in pixels is
+        /// <c>BALL_RADIUS · M22 · height / (2 · d)</c> — inverted here for the distance at which it equals a
+        /// threshold.
+        /// </para>
+        /// <para>
+        /// <b>The height is the back buffer's, not the render target's</b>, and that is the one subtle choice.
+        /// The scene is drawn into a supersampled target and box-filtered down, so what the player sees is a
+        /// display pixel — and a facet is a <i>systematic</i> deviation of the outline that averaging softens
+        /// but does not remove, unlike the stair-stepping supersampling is there for. Budgeting in target pixels
+        /// would therefore make the balls finer the moment supersampling was turned up, for no visible gain, and
+        /// coarser on the weak machine that turned it off, where the outline is on show.
+        /// </para>
+        /// <para>
+        /// It also happens to be the only reading that is <i>safe</i> here, and that is worth knowing before
+        /// anyone reaches for <c>Viewport</c> instead. The back buffer's size is true whatever is bound; the
+        /// viewport's is not, and the three executables do not agree about what is bound at this moment. The Game
+        /// collects its balls <b>before</b> it binds the supersampled scene target, while the Testbed and the map
+        /// editor bind it first and collect after — so a viewport read would mean the display in one and the
+        /// supersampled target in the other two, and the same ladder would sit at different thresholds in each.
+        /// </para>
+        /// <para>
+        /// Distance and not depth, deliberately: an off-axis ball is further from the eye than its depth, so its
+        /// projected size is slightly <i>over</i>-estimated and it may take a finer mesh than it strictly needs.
+        /// That is the harmless direction, and it costs one subtraction per ball instead of a view transform.
+        /// </para>
+        /// </remarks>
+        private void SolveLodDistances(ICamera camera)
+        {
+            //Half the back buffer's height times the projection's vertical scale: pixels per world unit at unit
+            //depth, which divided by a threshold in pixels is the distance at which a ball shrinks to it.
+            float pixelScale = BALL_RADIUS * camera.Projection.M22
+                * _device.PresentationParameters.BackBufferHeight * Constants.HALF;
+
+            for (int lod = 0; lod < _lodDistanceSquared.Length; lod++)
+            {
+                float distance = pixelScale / LOD_MIN_PIXEL_RADIUS[lod];
+
+                _lodDistanceSquared[lod] = distance * distance;
+            }
         }
 
         /// <summary>
@@ -381,7 +556,16 @@ namespace Prazsky.BS3D
 
             DrawnCount = 0;
 
-            for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseTime = wallClockSeconds;
+            //The dither's cell, converted from the display pixels it is authored in to the target pixels the
+            //shader can measure. Clamped at 1 so a caller that reported a nonsense factor still cuts on whole
+            //target pixels rather than dividing the screen position by zero.
+            float dissolvePixels = DISSOLVE_DISPLAY_PIXELS * Math.Max(1, SupersampleFactor);
+
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                _renderers[lod].PulseTime = wallClockSeconds;
+                _renderers[lod].DissolvePixelSize = dissolvePixels;
+            }
 
             for (int typeIndex = 0; typeIndex < TYPE_COUNT; typeIndex++)
                 for (int lod = 0; lod < LodCount; lod++)
@@ -401,7 +585,7 @@ namespace Prazsky.BS3D
         }
 
         /// <summary>
-        /// Releases the three sphere meshes and the three renderers' instance buffers. <b>Not</b> the effect,
+        /// Releases every sphere mesh and every renderer's instance buffer. <b>Not</b> the effect,
         /// which the content manager owns and everything else in the scene shares.
         /// </summary>
         public void Dispose()
@@ -414,12 +598,13 @@ namespace Prazsky.BS3D
         }
 
         //Mesh resolution by distance from the camera: the first level whose reach covers this ball, and the
-        //coarsest for everything past the last reach. A linear scan over two thresholds, which beats anything
-        //cleverer at this length.
-        internal static int LodFor(float distanceSquared)
+        //coarsest for everything past the last reach. A linear scan over three thresholds, which beats anything
+        //cleverer at this length. The reaches are this frame's, solved from the projected-size thresholds by
+        //SolveLodDistances - which is why this is no longer static.
+        internal int LodFor(float distanceSquared)
         {
             int lod = 0;
-            while (lod < LOD_DISTANCES_SQUARED.Length && distanceSquared > LOD_DISTANCES_SQUARED[lod]) lod++;
+            while (lod < _lodDistanceSquared.Length && distanceSquared > _lodDistanceSquared[lod]) lod++;
 
             return lod;
         }
@@ -445,14 +630,6 @@ namespace Prazsky.BS3D
 
             bucket[count] = instance;
             _counts[bucketIndex] = count + 1;
-        }
-
-        private static float[] SquareEach(float[] values)
-        {
-            float[] squares = new float[values.Length];
-            for (int i = 0; i < values.Length; i++) squares[i] = values[i] * values[i];
-
-            return squares;
         }
     }
 
@@ -504,7 +681,7 @@ namespace Prazsky.BS3D
             int typeIndex = (int)type - 1;
             if (typeIndex < 0 || typeIndex >= BallRenderSet.TYPE_COUNT) return;
 
-            _set.Store(typeIndex, BallRenderSet.LodFor(Vector3.DistanceSquared(position, _eye)),
+            _set.Store(typeIndex, _set.LodFor(Vector3.DistanceSquared(position, _eye)),
                 new ModelInstance(world, occlusion, dissolve, ripple));
         }
 
@@ -533,7 +710,7 @@ namespace Prazsky.BS3D
             world.M42 = position.Y;
             world.M43 = position.Z;
 
-            _set.Store(typeIndex, BallRenderSet.LodFor(Vector3.DistanceSquared(position, _eye)),
+            _set.Store(typeIndex, _set.LodFor(Vector3.DistanceSquared(position, _eye)),
                 new ModelInstance(world, occlusion, 0f, ripple));
         }
 

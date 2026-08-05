@@ -73,6 +73,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _emissiveStrengthParam;
         private EffectParameter _translucencyStrengthParam;
         private EffectParameter _pulseTimeParam;
+        private EffectParameter _dissolvePixelSizeParam;
         private EffectParameter _pulseSpeedParam;
         private EffectParameter _pulseDepthParam;
         private EffectParameter _pulseDirectionParam;
@@ -327,6 +328,25 @@ namespace Prazsky.Core.Render
         /// <summary>Seconds since the scene started; drives <see cref="PulseSpeed"/>.</summary>
         public float PulseTime { get; set; }
 
+        /// <summary>
+        /// Width of one cell of the patterned surface's dissolve dither, in pixels of the <b>currently bound
+        /// render target</b>. The dissolve is what a ball being re-coloured or a ghost of a landing is drawn
+        /// with (the per-instance <c>Dissolve</c> element), and this is the size of the blocks it cuts away in.
+        /// <para>
+        /// Target pixels and not display pixels, because that is what the shader can measure — it reads the
+        /// pixel's own <c>SV_POSITION</c>, which is in the bound target's space. A caller that supersamples has
+        /// to multiply the display-pixel size it actually wants by its supersampling factor, or the resolve's
+        /// box filter averages the dither back into a smooth fade and the pixelation the effect exists for
+        /// disappears at exactly the settings that make everything else look better. <c>BallRenderSet.Draw</c>
+        /// does that from the device itself and is the only thing that sets this.
+        /// </para>
+        /// <para>
+        /// Defaults to 1 rather than 0 so an unset renderer cuts on single target pixels instead of dividing by
+        /// zero — a fine grain is a wrong look, an infinity is a black ball.
+        /// </para>
+        /// </summary>
+        public float DissolvePixelSize { get; set; } = 1f;
+
         /// <summary>Beats per second of the emissive pulse.</summary>
         public float PulseSpeed { get; set; } = 1f;
 
@@ -548,6 +568,7 @@ namespace Prazsky.Core.Render
             _emissiveStrengthParam = _effect.Parameters["EmissiveStrength"];
             _translucencyStrengthParam = _effect.Parameters["TranslucencyStrength"];
             _pulseTimeParam = _effect.Parameters["PulseTime"];
+            _dissolvePixelSizeParam = _effect.Parameters["DissolvePixelSize"];
             _pulseSpeedParam = _effect.Parameters["PulseSpeed"];
             _pulseDepthParam = _effect.Parameters["PulseDepth"];
             _pulseDirectionParam = _effect.Parameters["PulseDirection"];
@@ -857,6 +878,7 @@ namespace Prazsky.Core.Render
                 _emissiveStrengthParam.SetValue(EmissiveStrength);
                 _translucencyStrengthParam.SetValue(TranslucencyStrength);
                 _pulseTimeParam.SetValue(PulseTime);
+                _dissolvePixelSizeParam.SetValue(DissolvePixelSize);
                 _pulseSpeedParam.SetValue(PulseSpeed);
                 _pulseDepthParam.SetValue(PulseDepth);
                 _pulseDirectionParam.SetValue(PulseDirection);

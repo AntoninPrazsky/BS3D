@@ -828,22 +828,30 @@ struct PatternVertexShaderOutput
 	float Ripple : TEXCOORD5;
 };
 
-//How many cells the dissolve breaks the ball's surface into, along each object-space axis. Chunky on
-//purpose: the point is that the old colour visibly goes away in PIXELS rather than fading, so the player
-//can see the game re-colouring a loaded ball instead of a colour silently changing behind their back.
+//How wide one cell of the dissolve's dither is, in pixels of the CURRENTLY BOUND target. The caller sends
+//the display-pixel size it wants multiplied by however much the scene is supersampled, so the cell is a
+//block of the finished image whatever the render resolution - see BallRenderSet.Draw, which is the one
+//thing that sets it, the dissolve being read by the ball technique alone.
 //
-//Object space rather than screen space, and that is not a stylistic choice: a screen-space dither is laid
-//down at the SUPERSAMPLED resolution and the box filter then averages it back into a smooth cross-fade, so
-//the pixelation the effect exists for would disappear at exactly the settings that make everything else
-//look better. Cells that belong to the ball survive any resolution, and they turn with it.
-static const float DissolveCells = 7.0;
+//It is a SCREEN-space dither, and the reason is what the effect is for: the old colour has to visibly go
+//away in PIXELS rather than fading, so the player sees the game re-colouring a loaded ball instead of a
+//colour quietly changing behind their back. Cells in the ball's own object space - which is what this was,
+//7 of them along each axis - are cubes in the world: they turn with the ball, they take its perspective,
+//and what they read as on screen is a lumpy three-dimensional mottling of the surface rather than
+//pixelation of the picture. The measured trap that argued for object space was real but was an argument
+//against the WRONG screen-space form: a cell one TARGET pixel across is averaged straight back into a
+//smooth cross-fade by the box filter that resolves a supersampled frame. A cell a whole display pixel or
+//more across is not, because every target sample inside it takes the same decision - which is exactly what
+//scaling this by the supersampling factor buys.
+float DissolvePixelSize;
 
 /// A hash with no sin in it, for the same reason the cloud field's has none: sine-based hashes band
 /// differently across drivers. Cheap enough to run unconditionally rather than behind a per-instance
-/// branch, which would diverge within a draw call.
-float DissolveNoise(float3 direction)
+/// branch, which would diverge within a draw call. Two-dimensional now that the cell is a block of the
+/// screen; the swizzle to three components is the usual way this hash family reaches one output.
+float DissolveNoise(float2 cell)
 {
-	float3 p = frac(floor(direction * DissolveCells) * 0.1031);
+	float3 p = frac(cell.xyx * float3(0.1031, 0.1030, 0.0973));
 	p += dot(p, p.yzx + 33.33);
 
 	return frac((p.x + p.y) * p.z);
@@ -902,7 +910,11 @@ float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 	//because Dissolve varies per instance and a branch on it would diverge inside a single draw call.
 	//At the settled value of 0 this reduces to clip(noise), and the hash is never negative, so every ball
 	//that is not transmuting keeps all of its pixels and pays a handful of ALU for the privilege.
-	float dissolveNoise = DissolveNoise(direction);
+	//
+	//The cell is a block of the SCREEN, so input.Position is read as what SV_POSITION is in a pixel shader:
+	//the pixel's centre in target pixels. Snapped to the block grid with floor, so every target sample
+	//inside one block hashes the same and the resolve cannot average the dither away (see DissolvePixelSize).
+	float dissolveNoise = DissolveNoise(floor(input.Position.xy / DissolvePixelSize));
 	clip(input.Dissolve >= 0 ? dissolveNoise - input.Dissolve : -input.Dissolve - dissolveNoise);
 
 	//sin(N * azimuth) stays continuous across the atan2 branch cut for integer N, so neither the

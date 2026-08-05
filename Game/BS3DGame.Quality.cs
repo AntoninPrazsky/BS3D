@@ -248,6 +248,13 @@ namespace BS3D
             //constructed. Unlike the settings page below, this is not a live case.
             if (_sceneRenderer != null) _sceneRenderer.SupersampleFactor = _supersampleFactor;
 
+            //And the balls, for the dissolve's dither: its cell is authored in DISPLAY pixels and the shader can
+            //only measure the target it draws into, so a cell that is not scaled by the factor is averaged
+            //straight back into a smooth fade by the tonemap's box filter — which is the whole effect gone at
+            //exactly the quality tier that turns supersampling up. Guarded like the renderer above, and for the
+            //same reason: every path that reaches here today runs after the set is constructed.
+            if (_balls != null) _balls.SupersampleFactor = _supersampleFactor;
+
             //Null-conditional because the tier is applied during LoadContent, before the menu pages exist — a
             //command-line quality= reaches here well before there is a settings row to write the value onto.
             _settingsPage?.Refresh();
