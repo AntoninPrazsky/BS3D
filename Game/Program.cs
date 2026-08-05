@@ -40,6 +40,11 @@ namespace BS3D
             //no business making noise, and nothing is persisted, so there is no settings file to pre-set.
             bool mute = false;
 
+            //Testing only: drop straight into the first level, skipping the title card and the menu. The
+            //session's placement and physics write their figures to stdout only once a level is built, and
+            //building one honestly takes a mouse on a Myra button — which a scripted run does not have.
+            bool play = false;
+
             foreach (string arg in args)
             {
                 if (string.Equals(arg, "fullscreen", StringComparison.OrdinalIgnoreCase)) fullscreen = true;
@@ -63,11 +68,13 @@ namespace BS3D
                 else if (string.Equals(arg, "lasers", StringComparison.OrdinalIgnoreCase)) lasers = true;
                 //"mute" starts silent, for the harnesses; the settings rows can still raise it.
                 else if (string.Equals(arg, "mute", StringComparison.OrdinalIgnoreCase)) mute = true;
+                //"play" skips the front end into the first level, so a session's figures can be measured at all.
+                else if (string.Equals(arg, "play", StringComparison.OrdinalIgnoreCase)) play = true;
             }
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
-                celebrate: celebrate, lasers: lasers, mute: mute);
+                celebrate: celebrate, lasers: lasers, mute: mute, play: play);
             game.Run();
         }
 

@@ -26,8 +26,8 @@ namespace Prazsky.Core.Render
     /// the alpha, the thickness, the footprint margin and the clearance were identical in both copies, so
     /// they are this component's own constants. The one figure that genuinely differs — how high the plate
     /// hangs — is not a look value at all: the Testbed derives it from the loaded map's depth while the Game
-    /// pins its field's top level to a fixed world height, so <see cref="CentreYAbove"/> takes that base from
-    /// the caller instead of computing it from a level count.
+    /// solves its field's top against the death line per level, so <see cref="CentreYAbove"/> takes that
+    /// base from the caller instead of computing it from a level count.
     /// </para>
     /// <para>
     /// The plate owns no content: the caller loads <c>Shaders/InstancedModel</c> through its own
@@ -130,8 +130,8 @@ namespace Prazsky.Core.Render
         /// <para>
         /// The base is the caller's on purpose, and the clearance is all that is shared. The Testbed takes it
         /// from the loaded map (a level's height is its index over √2, so its plate rises with the map's
-        /// depth); the Game pins its field's top level to a fixed world height whatever its depth, because
-        /// otherwise a map with more empty growth levels would hang that much higher than the camera frames.
+        /// depth); the Game hangs its field's top at a fixed world height and raises only a field deep enough
+        /// that its bottom level would otherwise start past the death line (its <c>FIELD_FLOOR_MARGIN</c>).
         /// </para>
         /// </summary>
         public static float CentreYAbove(float fieldTopY) => fieldTopY + CLEARANCE;

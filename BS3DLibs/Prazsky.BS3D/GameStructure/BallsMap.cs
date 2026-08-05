@@ -415,6 +415,22 @@ namespace Prazsky.BS3D.GameStructure
 
         public XZLevel GetStaticBallsArraySize() => XZLevel.FromArray(_balls);
 
+        /// <summary>
+        /// The lowest level index holding at least one ball — how deep the layout actually reaches, as
+        /// opposed to how deep the field is. An empty map answers with the top level: the caller is asking
+        /// how far down the layout hangs, and an empty one hangs nowhere.
+        /// </summary>
+        public byte GetLowestOccupiedLevel()
+        {
+            for (byte level = 0; level < Levels; level++)
+                for (byte x = 0; x < StageSizeX; x++)
+                    for (byte z = 0; z < StageSizeZ; z++)
+                        if (_balls[x, z, level] != null)
+                            return level;
+
+            return (byte)(Levels - 1);
+        }
+
         public void Clear()
         {
             if (_balls == null) return;

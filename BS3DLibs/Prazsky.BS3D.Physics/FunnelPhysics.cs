@@ -8,11 +8,13 @@ namespace Prazsky.BS3D.Physics
 {
     /// <summary>
     /// The island's whole physics floor, and it is the drain's own surface: the sloped glass cone from its rim
-    /// down to the hole, plus the flat stone ring from that rim out to the edge of the platform's level top, as
-    /// one Bepu triangle mesh. Balls rest on the ring, run down the cone at its ~55° and drop through the hole;
-    /// past the ring they fall off the island's edge into whatever the scene has below it. Either way the
-    /// caller's kill plane takes them. Nothing else about the island collides — the drawn stone, the coping and
-    /// the drum are visual only.
+    /// down to the hole, plus the stone ring from that rim out to the edge of the platform's walkable top, as
+    /// one Bepu triangle mesh. The ring is a shallow <b>dish</b> — level at its outer arris and falling
+    /// <c>dishDepth</c> to the rim — so a ball that lands on it rolls to the glass (Bepu spheres carry no
+    /// rolling resistance; friction resists sliding, not rolling), runs down the cone at its ~55° and drops
+    /// through the hole; past the ring it falls off the island's edge into whatever the scene has below it.
+    /// Either way the caller's kill plane takes it. Nothing else about the island collides — the drawn stone,
+    /// the coping and the drum are visual only.
     /// <para>
     /// It existed line-for-line in the Testbed and in the Game's session until #75, down to the same eight
     /// triangles a segment, and the two had drifted only in the arithmetic used for the segment angle (one in
@@ -38,21 +40,26 @@ namespace Prazsky.BS3D.Physics
         /// <param name="simulation">The simulation the static is added to.</param>
         /// <param name="bufferPool">The pool the triangle buffer is taken from. The caller keeps ownership: the
         /// buffer is handed to the <see cref="Mesh"/> and released by the pool's own teardown, not here.</param>
-        /// <param name="topY">World Y of the rim — the island's top surface, which the rim is flush with. The
-        /// static's pose is what puts the locally-built cone there.</param>
+        /// <param name="topY">World Y of the stone top's outer arris — the highest circle of the dish, where
+        /// the ring meets the coping. The static's pose is what puts the locally-built surface there; the rim
+        /// sits <paramref name="dishDepth"/> below it.</param>
         /// <param name="bottomY">World Y of the hole the balls fall through. Well above the kill plane, so a
         /// ball that drops through falls a visible distance before it is culled.</param>
         /// <param name="topRadius">The rim's radius, i.e. the drain's mouth. The hole below it is wider than a
         /// ball, so nothing collides there.</param>
         /// <param name="holeRadius">The bottom hole's radius.</param>
-        /// <param name="floorRadius">Outer radius of the flat stone ring, which is the edge of the platform's
-        /// <b>level</b> top rather than of the platform: the coping falls away over the last stretch out to the
-        /// island's own radius, and a floor carried out to the widest point would hold a ball up on air over
-        /// the wash. <c>IslandMesh.FloorRadius</c> is what answers this — computed once by the caller, since
-        /// this library cannot see Prazsky.Core's meshes.</param>
+        /// <param name="floorRadius">Outer radius of the stone ring, which is the edge of the platform's
+        /// <b>walkable</b> top rather than of the platform: the coping falls away over the last stretch out to
+        /// the island's own radius, and a floor carried out to the widest point would hold a ball up on air
+        /// over the wash. <c>IslandMesh.FloorRadius</c> is what answers this — computed once by the caller,
+        /// since this library cannot see Prazsky.Core's meshes.</param>
+        /// <param name="dishDepth">How far the ring falls from <paramref name="floorRadius"/> (at
+        /// <paramref name="topY"/>) to the rim — the dish that rolls a landed ball into the drain. Must be the
+        /// very figure the drawn stone was dished by (<c>ArenaIsland.DISH_DEPTH</c>), or balls rest on air
+        /// over the drawn surface.</param>
         /// <param name="segments">Angular tessellation, matched to the drawn funnel's own.</param>
         public static void Build(Simulation simulation, BufferPool bufferPool, float topY, float bottomY,
-            float topRadius, float holeRadius, float floorRadius, int segments)
+            float topRadius, float holeRadius, float floorRadius, float dishDepth, int segments)
         {
             float depth = topY - bottomY;
 
@@ -65,13 +72,13 @@ namespace Prazsky.BS3D.Physics
                 float a0 = s / (float)segments * MathF.PI * 2f;
                 float a1 = (s + 1) / (float)segments * MathF.PI * 2f;
 
-                //Local space: the rim at y = 0 and the hole at y = -depth, so the static's own pose is what
-                //puts the rim flush with the island's stone top
-                Vector3 t0 = Ring(a0, topRadius, 0f);
-                Vector3 t1 = Ring(a1, topRadius, 0f);
+                //Local space: the dish's outer arris at y = 0, the rim dishDepth below it and the hole at
+                //y = -depth, so the static's own pose is what puts the arris flush with the island's stone top
+                Vector3 t0 = Ring(a0, topRadius, -dishDepth);
+                Vector3 t1 = Ring(a1, topRadius, -dishDepth);
                 Vector3 h0 = Ring(a0, holeRadius, -depth);
                 Vector3 h1 = Ring(a1, holeRadius, -depth);
-                Vector3 r0 = Ring(a0, floorRadius, 0f);   //the flat ring's outer edge, where the coping begins
+                Vector3 r0 = Ring(a0, floorRadius, 0f);   //the dish's outer edge, where the coping begins
                 Vector3 r1 = Ring(a1, floorRadius, 0f);
 
                 int b = s * 8;
@@ -82,7 +89,7 @@ namespace Prazsky.BS3D.Physics
                 triangles[b + 2] = new Triangle(t0, t1, h0);
                 triangles[b + 3] = new Triangle(t1, h1, h0);
 
-                //The flat stone ring from the rim out to the island's level edge, both faces
+                //The dished stone ring from the rim up to the island's outer arris, both faces
                 triangles[b + 4] = new Triangle(t0, t1, r1);
                 triangles[b + 5] = new Triangle(t0, r1, r0);
                 triangles[b + 6] = new Triangle(t0, r1, t1);

@@ -36,17 +36,18 @@ namespace BS3D.Screens
 
             BuildCeilingBody();
 
-            //The island's whole floor, and it is the drain's own surface: the sloped cone plus the flat stone
-            //ring from its rim out to the edge of the platform's level top. Balls rest on the ring, run down the
-            //cone and drop through the hole; past the ring they fall off the island's edge into the scene, and
-            //either way the kill plane takes them. FunnelPhysics' since #75 (the Testbed had the same eight
-            //triangles a segment), and it is handed the very figures ArenaIsland draws from, so the collided
-            //surface and the drawn one cannot drift apart. The ring stops short of the island's own radius —
+            //The island's whole floor, and it is the drain's own surface: the sloped cone plus the dished
+            //stone ring from its rim out to the edge of the platform's walkable top. A ball that lands on the
+            //ring rolls down its dish into the glass, runs down the cone and drops through the hole; past the
+            //ring it falls off the island's edge into the scene, and either way the kill plane takes it.
+            //FunnelPhysics' since #75 (the Testbed had the same eight triangles a segment), and it is handed
+            //the very figures ArenaIsland draws from — the dish's depth included — so the collided surface and
+            //the drawn one cannot drift apart. The ring stops short of the island's own radius —
             //ArenaIsland.FLOOR_RADIUS is IslandMesh.FloorRadius of it — because the coping falls away over the
             //last stretch, and a floor carried to the widest point would hold a ball up on air over the wash.
             FunnelPhysics.Build(_world.Simulation, _world.BufferPool, ArenaIsland.TOP_Y, ArenaIsland.FUNNEL_BOTTOM_Y,
                 ArenaIsland.FUNNEL_TOP_RADIUS, ArenaIsland.FUNNEL_HOLE_RADIUS, ArenaIsland.FLOOR_RADIUS,
-                ArenaIsland.FUNNEL_SEGMENTS);
+                ArenaIsland.DISH_DEPTH, ArenaIsland.FUNNEL_SEGMENTS);
         }
 
         #region The simulation's frame
@@ -91,11 +92,13 @@ namespace BS3D.Screens
         /// the game parts company with the Testbed. The Testbed also culls any ball whose body has gone to
         /// sleep, i.e. come to rest anywhere, which is cheap and keeps the scene tidy but means a ball that
         /// settles on the island's stone winks out in front of the player. A ball vanishing while it is plainly
-        /// in shot reads as a bug, whatever it saves. So a ball that comes to rest on the stone ring stays
-        /// there and stays visible; the cost is that such balls accumulate over a session. It is a small cost:
-        /// they fall asleep, and a sleeping body leaves Bepu's active set, so it is drawn but barely simulated —
-        /// and most of them never rest at all, since anything inside the funnel's rim runs down its ~55° wall
-        /// and out through the hole.
+        /// in shot reads as a bug, whatever it saves. So a ball that does come to rest stays there and stays
+        /// visible — a rare case now rather than the routine one: the stone ring is a dish
+        /// (<see cref="ArenaIsland.DISH_DEPTH"/>), so a ball that lands on it rolls into the drain and leaves
+        /// through the hole instead of accumulating over the session, and anything inside the funnel's rim
+        /// runs down its ~55° wall the way it always did. What can still rest is a pile propping itself up
+        /// near the mouth; those fall asleep, and a sleeping body leaves Bepu's active set, so they are drawn
+        /// but barely simulated.
         /// </para>
         /// <para>
         /// Only ever handed <see cref="_shotBalls"/> and <see cref="_fallingBalls"/>. Handing it the structure

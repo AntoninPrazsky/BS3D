@@ -295,12 +295,21 @@ namespace BS3D.Screens
             Vector3 nearCorner = _map.GetRealCenteredPosition(new XZLevel(0, 0, topLevel));
             Vector3 farCorner = _map.GetRealCenteredPosition(new XZLevel(size.X - 1, size.Z - 1, topLevel));
 
+            //Where the field's topmost level hangs: FIELD_TOP_Y, the frame every field is hung in — unless
+            //the field is deep enough that its bottom level would start past the death line, in which case
+            //the whole field is raised just enough that it does not (see FIELD_FLOOR_MARGIN, which is also
+            //where the one map this moves is accounted for). The depth that matters is the FIELD's, not the
+            //layout's: every cell has to be reachable without ending the level, or the empty levels an
+            //author left as growth room are a trap instead of a clearance.
+            float fieldTopY = MathF.Max(FIELD_TOP_Y,
+                CEILING_DEATH_Y + FIELD_FLOOR_MARGIN + topLevel / Constants.SQRT_TWO);
+
             _clusterWorldOffset = new Vector3(
                 -(nearCorner.X + farCorner.X) * Constants.HALF,
-                FIELD_TOP_Y - topLevel / Constants.SQRT_TWO,
+                fieldTopY - topLevel / Constants.SQRT_TWO,
                 -(nearCorner.Z + farCorner.Z) * Constants.HALF);
 
-            _ceilingY = CeilingPlate.CentreYAbove(FIELD_TOP_Y);
+            _ceilingY = CeilingPlate.CentreYAbove(fieldTopY);
             //At rest to start: target equals current, so nothing slides until a step is taken.
             _ceilingTargetY = _ceilingY;
             _ceilingDescending = false;
@@ -314,6 +323,14 @@ namespace BS3D.Screens
                 CeilingPlate.FootprintFor(_map.StageSizeX) * Constants.HALF,
                 CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF,
                 CEILING_DEATH_Y - Constants.HALF);
+
+            //One line per level load, in the manner of [camera]: where the field ended up against the death
+            //line, and how much air the layout's lowest ball starts with — the figure an author sizing a
+            //deep map actually wants, and the record of whether the raise above fired.
+            float lowestBallY = _map.GetLowestOccupiedLevel() / Constants.SQRT_TWO + _clusterWorldOffset.Y;
+            Console.WriteLine($"[field] {_map.StageSizeX}x{_map.StageSizeZ}x{_map.Levels}: top Y {fieldTopY:F2}"
+                + (fieldTopY > FIELD_TOP_Y ? " (raised off the line)" : "") + $", floor Y {_clusterWorldOffset.Y:F2}"
+                + $", lowest ball Y {lowestBallY:F2} ({lowestBallY - CEILING_DEATH_Y:F2} above the line)");
         }
 
         /// <summary>
@@ -332,9 +349,10 @@ namespace BS3D.Screens
         {
             //The lattice mirrored into bodies, one per occupied cell, constrained to its neighbours and — on
             //the top level — to the ceiling. The offset is what creates them where the cluster is drawn: a
-            //BallsMap reckons in its own grid frame and this game draws that frame lower (and, for an odd
-            //field, half a cell across — see _clusterWorldOffset), so the empty levels below the layout do
-            //not raise it. The bodies have to be in world coordinates because everything else the simulation
+            //BallsMap reckons in its own grid frame, whose level 0 sits at y = 0 however deep the field is,
+            //and this game hangs that frame where FitFieldToMap decided (and, for an odd field, half a cell
+            //across — see _clusterWorldOffset). The bodies have to be in world coordinates because everything
+            //else the simulation
             //touches is — the floor, the ceiling, the muzzle a shot leaves from, the kill plane. It is
             //applied to the body positions and to nothing else: the constraint anchors are differences of two
             //grid positions, so the offset cancels out of them.

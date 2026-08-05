@@ -9,8 +9,8 @@ namespace Prazsky.Core.Render
     /// coping around its rim and a drain bored through the middle. It replaces the plain extruded washer
     /// the arena used to be — a cylinder with a hole, whose every edge was a raw 90° cut.
     /// <para>
-    /// <b>Two meshes, because it is two materials.</b> <see cref="Cap"/> is the dressed stone — the flat
-    /// top the balls rest on and the coping that finishes it — and <see cref="Body"/> is the rough
+    /// <b>Two meshes, because it is two materials.</b> <see cref="Cap"/> is the dressed stone — the dished
+    /// top the balls roll down and the coping that finishes it — and <see cref="Body"/> is the rough
     /// concrete under it: the wall, the string course, the base and the bore's shaft. A colour is a
     /// per-draw uniform, so one mesh could only ever be one material; splitting the profile at the
     /// coping's drip is what lets the stone be stone and the concrete be concrete. They are built from one
@@ -22,11 +22,18 @@ namespace Prazsky.Core.Render
     /// chamfer takes the sky and draws a bright ring, and the underside of the coping's overhang takes the
     /// ground and draws a dark one. That pair of lines around the rim is most of the difference between a
     /// platform and an extruded circle. Every one of them is cut <i>below</i> the top plane, because the
-    /// physics floor is a flat disc at y = 0 and anything raised above it would be a lip that balls pass
-    /// straight through.
+    /// physics floor mirrors the walkable top exactly (its outer arris at y = 0) and anything raised above
+    /// it would be a lip that balls pass straight through.
     /// </para>
     /// <para>
-    /// Origin is the centre of the top face (y = 0); the solid descends to y = -height.
+    /// <b>The walkable top is a shallow dish, not a flat disc</b>: level at its outer arris
+    /// (<see cref="FloorRadius"/>, y = 0) and falling <c>dishDepth</c> to the bore's lip, so a ball that
+    /// lands on the stone rolls into the drain instead of coming to rest on it. The collision floor a
+    /// caller builds (<c>FunnelPhysics.Build</c>) has to be given the same <c>dishDepth</c>, or balls rest
+    /// on air over the drawn stone.
+    /// </para>
+    /// <para>
+    /// Origin is the centre of the top face's outer arris (y = 0); the solid descends to y = -height.
     /// </para>
     /// </summary>
     public sealed class IslandMesh : IDisposable
@@ -38,14 +45,14 @@ namespace Prazsky.Core.Render
         public LatheMesh Body { get; private set; }
 
         /// <summary>
-        /// How far in from the outer radius the flat top ends and the coping's fall begins. The physics
+        /// How far in from the outer radius the walkable top ends and the coping's fall begins. The physics
         /// floor should stop here rather than at the outer radius, or a ball rests on air over the wash.
         /// </summary>
         public const float COPING_WIDTH = 1.3f;
 
         /// <summary>
-        /// Outer radius of the flat, level part of the top — the disc that is actually walkable, and what
-        /// a collision mesh built for this platform should use as its own outer edge.
+        /// Outer radius of the walkable part of the top — the dish's own arris, the one circle of it that
+        /// sits at y = 0 — and what a collision mesh built for this platform should use as its outer edge.
         /// </summary>
         public static float FloorRadius(float outerRadius) => outerRadius - COPING_WIDTH;
 
@@ -64,21 +71,25 @@ namespace Prazsky.Core.Render
         /// <param name="outerRadius">Radius of the coping's outer face — the platform's widest point.</param>
         /// <param name="height">Drop from the top face to the underside.</param>
         /// <param name="segments">Facets around the platform.</param>
-        public IslandMesh(GraphicsDevice graphicsDevice, float boreRadius, float outerRadius, float height, int segments)
+        /// <param name="dishDepth">How far the walkable top falls from its outer arris
+        /// (<see cref="FloorRadius"/>, y = 0) to the bore's lip — the dish that rolls a landed ball into
+        /// the drain. The bore's lip, and with it the drain's rim, sits this far below y = 0.</param>
+        public IslandMesh(GraphicsDevice graphicsDevice, float boreRadius, float outerRadius, float height, int segments,
+            float dishDepth)
         {
             float r = outerRadius;
 
-            //The stone, from the bore outward. The top face is flat and level out to the coping, then
-            //falls: a small chamfer off the face, a wash across the coping's head and a bullnose turning
-            //down into its vertical face. The three run smoothly into one another so the nose reads round;
-            //the arris where the flat top ends is a crease, or the last span of the floor would shade as a
-            //curve and the top would look domed.
+            //The stone, from the bore outward. The top face is a shallow dish rising from the bore's lip to
+            //its arris at the coping, then falls: a small chamfer off the face, a wash across the coping's
+            //head and a bullnose turning down into its vertical face. The three run smoothly into one
+            //another so the nose reads round; the arris where the walkable top ends is a crease, or the
+            //last span of the floor would shade as a curve and the top would look domed.
             //(A lathe's two end points crease by construction — they have no span across the junction to
             //be smoothed with — so only the creases in the middle of a run are marked.)
             var cap = new List<LathePoint>
             {
-                new(boreRadius,      0f),                     //the bore's lip, under the drain's gold bead
-                new(r - COPING_WIDTH, 0f,    crease: true),   //the flat top ends; everything past here falls away
+                new(boreRadius,      -dishDepth),             //the bore's lip, under the drain's gold bead
+                new(r - COPING_WIDTH, 0f,    crease: true),   //the dish's arris; everything past here falls away
                 new(r - 1.05f,       -0.12f),                 //chamfer off the face onto the coping
                 new(r - 0.34f,       -0.22f),                 //the coping's wash - a shallow fall to shed water
                 new(r - 0.12f,       -0.36f),                 //the bullnose begins to turn down
@@ -112,7 +123,7 @@ namespace Prazsky.Core.Render
                 new(r - 0.2f,        -height, crease: true,    wobble: 0.35f), //its foot, all but flush with the coping
                 new(boreRadius + 0.4f, -height, crease: true),                  //the underside
                 new(boreRadius,      -height + 0.4f, crease: true),             //chamfer up into the bore
-                new(boreRadius,      0f)                                        //the shaft, closing on the cap
+                new(boreRadius,      -dishDepth)                                //the shaft, closing on the cap's lip
             };
 
             Cap = new LatheMesh(graphicsDevice, cap, segments);

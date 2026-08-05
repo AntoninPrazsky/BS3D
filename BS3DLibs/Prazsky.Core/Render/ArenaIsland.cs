@@ -41,8 +41,8 @@ namespace Prazsky.Core.Render
     /// <b>The collision floor is not here</b>, because <c>Prazsky.Core</c> cannot reference BepuPhysics: it is
     /// <c>Prazsky.BS3D.Physics.FunnelPhysics.Build</c>, which wants exactly <see cref="TOP_Y"/>,
     /// <see cref="FUNNEL_BOTTOM_Y"/>, <see cref="FUNNEL_TOP_RADIUS"/>, <see cref="FUNNEL_HOLE_RADIUS"/>,
-    /// <see cref="FLOOR_RADIUS"/> and <see cref="FUNNEL_SEGMENTS"/>. Hand it those and the drawn surface and
-    /// the collided one cannot drift.
+    /// <see cref="FLOOR_RADIUS"/>, <see cref="DISH_DEPTH"/> and <see cref="FUNNEL_SEGMENTS"/>. Hand it those
+    /// and the drawn surface and the collided one cannot drift.
     /// </para>
     /// <para>
     /// The component owns no content: the caller loads <c>Shaders/InstancedModel</c> through its own
@@ -54,11 +54,13 @@ namespace Prazsky.Core.Render
     public sealed class ArenaIsland : IDisposable
     {
         /// <summary>
-        /// The plane the whole assembly is built on, and the one figure both executables now read. The drawn
-        /// top face of the stone (<see cref="IslandMesh"/>'s origin is the centre of its top face, so this is
-        /// the translation in the world matrix), the drain's rim, the pit's mouth and the flat ring of the
-        /// collision floor are <b>all</b> this plane by construction — which is what the Testbed's two extra
-        /// aliases <c>FUNNEL_TOP_Y</c> and <c>PIT_TOP_Y</c> were saying, and why they are not carried over.
+        /// The plane the whole assembly is built on, and the one figure both executables now read: the stone
+        /// top's <b>outer arris</b> (<see cref="IslandMesh"/>'s y = 0, so this is the translation in the
+        /// island's world matrix), from which the walkable top dishes down <see cref="DISH_DEPTH"/> to the
+        /// drain — so the drain's rim, its gold bead and the pit's mouth all share the <i>lower</i> plane
+        /// <c>TOP_Y - DISH_DEPTH</c>, and the collision floor runs between the two by construction. (The
+        /// Testbed's old aliases <c>FUNNEL_TOP_Y</c>/<c>PIT_TOP_Y</c> named a single flush plane; the dish is
+        /// why there are two now, and <see cref="DISH_DEPTH"/> is the whole difference between them.)
         /// <para>
         /// It is also the <b>ground-proximity darkening anchor</b> the balls' and the gun's renderers are
         /// given (<see cref="InstancedModelRenderer.GroundHeight"/>), and adopting it there is a
@@ -89,9 +91,10 @@ namespace Prazsky.Core.Render
         public const float EDGE_HEIGHT = 5f;
 
         /// <summary>
-        /// Outer edge of the flat, level part of the top: the coping falls away past it, so this and not
-        /// <see cref="RADIUS"/> is where a collision floor has to end — otherwise a ball rests on air over
-        /// the wash. It is exactly what <c>FunnelPhysics.Build</c>'s <c>floorRadius</c> wants.
+        /// Outer edge of the walkable top — the dish's own arris, the one circle of it at <see cref="TOP_Y"/>:
+        /// the coping falls away past it, so this and not <see cref="RADIUS"/> is where a collision floor has
+        /// to end — otherwise a ball rests on air over the wash. It is exactly what
+        /// <c>FunnelPhysics.Build</c>'s <c>floorRadius</c> wants.
         /// <para>
         /// <c>static readonly</c> and not <c>const</c> only because <see cref="IslandMesh.FloorRadius"/> is a
         /// method call; nothing derives from it in a constant expression.
@@ -146,13 +149,26 @@ namespace Prazsky.Core.Render
 
         //The drain funnel that replaces the recessed centre: a glass cone the shot balls fall into and roll
         //down, dropping through the hole at the bottom — below the map, where the caller's kill plane removes
-        //them. The top rim is flush with the stone (TOP_Y) and sized to the old bath, so it catches the balls
-        //that used to pile there; the walls are steep (~55 degrees) so the balls run down to the hole rather
+        //them. The top rim sits at the foot of the stone dish (TOP_Y - DISH_DEPTH) and is sized to the old
+        //bath, so it catches the balls the dish rolls in; the walls are steep (~55 degrees) so the balls run down to the hole rather
         //than resting.
         public const float FUNNEL_TOP_RADIUS = 14f;   //the mouth; the island's bore is cut to exactly this, and the gold bead rings the junction
         public const float FUNNEL_HOLE_RADIUS = 1.8f; //the hole at the bottom, comfortably wider than a ball
-        public const float FUNNEL_BOTTOM_Y = -27.5f;  //~19 below the rim: a wall steep enough to run a ball down
+        public const float FUNNEL_BOTTOM_Y = -27.5f;  //~18 below the rim: a wall steep enough to run a ball down
         public const int FUNNEL_SEGMENTS = 64;
+
+        /// <summary>
+        /// How far the stone top falls from its outer arris (<see cref="FLOOR_RADIUS"/>, which stays at
+        /// <see cref="TOP_Y"/>) to the drain's mouth: the walkable ring is a shallow dish (~6.4° over the
+        /// 10.7-unit run), so a ball that lands on the stone rolls into the glass and out through the hole
+        /// instead of coming to rest — on a big map most released balls used to land on the flat ring and
+        /// simply stay there, and the wider the field the smaller the share the drain ever swallowed. Bepu
+        /// spheres carry no rolling resistance (friction resists sliding, not rolling), so this grade is
+        /// plenty; the drain's rim, its gold bead and the pit's mouth all sit this far below
+        /// <see cref="TOP_Y"/>, and <c>FunnelPhysics.Build</c> must be handed the same figure or balls rest
+        /// on air over the drawn stone.
+        /// </summary>
+        public const float DISH_DEPTH = 1.2f;
 
         //The drain funnel is glass; the platform around it is a cast-concrete drum with a dressed stone top
         public static readonly Vector3 FUNNEL_GLASS_COLOR = new(0.42f, 0.62f, 0.72f);
@@ -209,11 +225,13 @@ namespace Prazsky.Core.Render
         private readonly FunnelMesh _pitMesh;
         private readonly InstancedModelRenderer _pitRenderer;
 
-        //One matrix, not three. The island's top face, the drain's rim and the pit's mouth are all flush with
-        //TOP_Y and all centred on the world origin, so the three world matrices both executables carried
-        //(_arenaDiscWorld/_islandWorld, _funnelWorld, _pitWorld) were the same translation written out three
-        //times. Built once here and never touched again — nothing in this piece moves.
+        //Two matrices, two planes. The island's own mesh is built about the stone top's outer arris (TOP_Y),
+        //while the drain family — the glass, its gold beads and the pit — shares the dish's low inner lip
+        //(TOP_Y - DISH_DEPTH), each mesh laying its mouth at its own local y = 0. Before the dish all four
+        //were flush at TOP_Y and this was one translation; DISH_DEPTH is the whole difference. Built once
+        //here and never touched again — nothing in this piece moves.
         private readonly Matrix _world;
+        private readonly Matrix _drainWorld;
 
         //The renderers that take the sky palette, in draw order, as a fixed array built once. The pit is
         //absent on purpose (see the class remarks and SkyLightRig's own).
@@ -258,9 +276,9 @@ namespace Prazsky.Core.Render
             _stoneTexture = SurfaceTexture.Stone(device);
             _concreteTexture = SurfaceTexture.Concrete(device);
 
-            _islandMesh = new IslandMesh(device, FUNNEL_TOP_RADIUS, RADIUS, EDGE_HEIGHT, SEGMENTS);
+            _islandMesh = new IslandMesh(device, FUNNEL_TOP_RADIUS, RADIUS, EDGE_HEIGHT, SEGMENTS, DISH_DEPTH);
 
-            //The dressed stone: the flat top and the coping that finishes it, coursed into slabs. The detail
+            //The dressed stone: the dished top and the coping that finishes it, coursed into slabs. The detail
             //texture is what selects the technique that reads any of this — without one the renderer falls
             //through to the plain technique and every relief setting here is silently dead. DetailBoost
             //normalises the texture to a mean of 1, so it varies the albedo without dimming it and
@@ -330,13 +348,15 @@ namespace Prazsky.Core.Render
                 SpecularAmbientStrength = 0.08f
             };
 
-            //The drain funnel in the centre, glass. Its rim (FUNNEL_TOP_RADIUS) is flush with the stone top
-            //and meets the island's bore directly, so it needs no collar (the 0 argument — the machinery
-            //that filled the corners of a square pit is unused here); it descends to the hole the balls fall
-            //through. Drawn translucent and with culling off (see DrawGlass) so the one-sided cone reads
-            //both looking down into it and up through the hole, and it joins the caller's sky-lit list so
-            //its sheen takes the dome like everything else.
-            float funnelHeight = TOP_Y - FUNNEL_BOTTOM_Y;
+            //The drain funnel in the centre, glass. Its rim (FUNNEL_TOP_RADIUS) is flush with the stone
+            //dish's low inner lip — TOP_Y - DISH_DEPTH, the plane _drainWorld puts it on — and meets the
+            //island's bore directly, so it needs no collar (the 0 argument — the machinery that filled the
+            //corners of a square pit is unused here); it descends to the hole the balls fall through, which
+            //stays at FUNNEL_BOTTOM_Y whatever the dish takes off the top. Drawn translucent and with
+            //culling off (see DrawGlass) so the one-sided cone reads both looking down into it and up
+            //through the hole, and it joins the caller's sky-lit list so its sheen takes the dome like
+            //everything else.
+            float funnelHeight = TOP_Y - DISH_DEPTH - FUNNEL_BOTTOM_Y;
 
             _funnelMesh = new FunnelMesh(device, FUNNEL_TOP_RADIUS, FUNNEL_HOLE_RADIUS, funnelHeight, FUNNEL_SEGMENTS, 0f);
             _funnelRenderer = new InstancedModelRenderer(device, _funnelMesh, FUNNEL_GLASS_COLOR, instancingEffect, FUNNEL_GLASS_ALPHA);
@@ -364,13 +384,15 @@ namespace Prazsky.Core.Render
             //and is drawn opaque and CullNone before the glass, which composites over it. Deliberately NOT
             //enrolled in the caller's sky lighting, and near-matte, so no dome bleaches the inside of a hole
             //in the ground; the gold rim bead hides the mouth it shares with the funnel.
-            _pitMesh = new FunnelMesh(device, FUNNEL_TOP_RADIUS, PIT_HOLE_RADIUS, TOP_Y - PIT_BOTTOM_Y, FUNNEL_SEGMENTS, 0f);
+            _pitMesh = new FunnelMesh(device, FUNNEL_TOP_RADIUS, PIT_HOLE_RADIUS, TOP_Y - DISH_DEPTH - PIT_BOTTOM_Y,
+                FUNNEL_SEGMENTS, 0f);
             _pitRenderer = new InstancedModelRenderer(device, _pitMesh, PIT_COLOR, instancingEffect)
             {
                 SpecularAmbientStrength = 0.03f
             };
 
             _world = Matrix.CreateTranslation(0f, TOP_Y, 0f);
+            _drainWorld = Matrix.CreateTranslation(0f, TOP_Y - DISH_DEPTH, 0f);
 
             _skyLit = new[] { _capRenderer, _bodyRenderer, _funnelRenderer, _funnelRimsRenderer };
         }
@@ -435,7 +457,7 @@ namespace Prazsky.Core.Render
         {
             _device.RasterizerState = RasterizerState.CullNone;
 
-            if (SceneRenderer.IsSolidTerrainScene(scene)) _pitRenderer.Draw(camera, _world, sceneParams);
+            if (SceneRenderer.IsSolidTerrainScene(scene)) _pitRenderer.Draw(camera, _drainWorld, sceneParams);
 
             _device.RasterizerState = RasterizerState.CullCounterClockwise;
         }
@@ -458,8 +480,8 @@ namespace Prazsky.Core.Render
         {
             _device.RasterizerState = RasterizerState.CullNone;
 
-            _funnelRimsRenderer.Draw(camera, _world, _funnelRimEffectParams);
-            _funnelRenderer.Draw(camera, _world, sceneParams);
+            _funnelRimsRenderer.Draw(camera, _drainWorld, _funnelRimEffectParams);
+            _funnelRenderer.Draw(camera, _drainWorld, sceneParams);
 
             _device.RasterizerState = RasterizerState.CullCounterClockwise;
         }
