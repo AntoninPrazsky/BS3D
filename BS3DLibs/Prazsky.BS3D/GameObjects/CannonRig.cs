@@ -8,19 +8,21 @@ using System;
 namespace Prazsky.BS3D
 {
     /// <summary>
-    /// The gun's <b>hardware</b>: the procedural barrel and the instanced renderer that draws it, with every
-    /// figure the tube is cut to. It stood in both executables — the Testbed's <c>LoadContent</c> and the Game's
-    /// <c>BS3DGame.LoadContent</c> — value-for-value identical down to the segment count and the steel's colour,
-    /// until #76.
+    /// The gun's <b>hardware</b>: the procedural barrel, the pane of glass glazing its loading window and the
+    /// instanced renderers that draw them, with every figure the tube is cut to. It stood in both executables —
+    /// the Testbed's <c>LoadContent</c> and the Game's <c>BS3DGame.LoadContent</c> — value-for-value identical
+    /// down to the segment count and the steel's colour, until #76.
     /// <para>
     /// The barrel has to stay a <b>tube</b> with only a slit along the top, or it reads as an open trough. The
     /// slit is there for the <b>magazine</b>: the queue of loaded balls nests in the bore and only a strip of
     /// each shows through, which is enough to read its colour — and you cannot aim a shot whose colour you
     /// cannot see. So the slot's width is not a look, it is how much of the queue reads, and it has to keep
-    /// reading from a camera that is not straight above the barrel. The breech — the end the player's camera
-    /// looks at — is <b>closed</b>: a dome carrying a cascabel knob, hiding the chamber the freshest round
-    /// waits out the post-shot glide in (<see cref="CHAMBER_DEPTH"/>), where an open hole used to mirror the
-    /// muzzle's.
+    /// reading from a camera that is not straight above the barrel. The slit is <b>glazed</b>, with the ball at
+    /// the muzzle notched out of the pane: the glass is what tells the player which round fires next, by
+    /// covering the four that do not (see "The slot's glazing" below and <see cref="CannonGlassMesh"/>). The
+    /// breech — the end the player's camera looks at — is <b>closed</b>: a dome carrying a cascabel knob,
+    /// hiding the chamber the freshest round waits out the post-shot glide in (<see cref="CHAMBER_DEPTH"/>),
+    /// where an open hole used to mirror the muzzle's.
     /// </para>
     /// <para>
     /// <b>It owns no content.</b> The instancing <see cref="Effect"/> is handed in and is emphatically not
@@ -60,6 +62,48 @@ namespace Prazsky.BS3D
         /// invisible from anywhere but straight above, which is nowhere the game's camera ever stands.
         /// </summary>
         public const float SLOT_HALF_ANGLE = 0.5f;
+
+        #region The slot's glazing
+
+        //The window is GLAZED: a pane of the ceiling's own blue glass fills it, with the head-of-queue ball
+        //notched out of the pane's front edge, so the round about to fire is open to the air while the four
+        //behind it read through glass (CannonGlassMesh carries the geometry and the reasons). It is the gun
+        //saying which ball fires next by covering every ball but that one - no mark on the HUD, and nothing
+        //that has to be kept in step with the queue: the notch is cut at the front slot, and the queue glides
+        //through it.
+        //
+        //The glass's COLOUR and ALPHA are CeilingPlate's, by reference and not by a second copy of them: the
+        //plate the cluster hangs from and the pane over the bore are the same material, and a retune of one is
+        //a retune of both. Only the sky reflection is the pane's own, for the measured reason below. Note what
+        //the alpha costs here that it does not cost overhead - the queue's colours are what the next shots are
+        //planned on (Magazine's remarks: you cannot aim a shot whose colour you cannot see), so if a loaded
+        //ball ever reads too dim, that is the second figure to break out of the ceiling's.
+
+        //Radial thickness of the pane. Seated on the bore, so its outer face stands at BORE_RADIUS + this,
+        //which has to stay under the slimmest steel the window crosses (the chase dip, outer - 0.075, i.e.
+        //0.665 at the shipped bore and wall) or the glass proves proud of the tube it is set into.
+        private const float GLASS_THICKNESS = 0.05f;
+
+        //The reveal the pane is held off the window's steel by on both cheeks and at the lip the window ends
+        //at. Not a look: a glass face flush with a steel one is two coplanar surfaces fighting over the depth
+        //buffer, which flickers. It reads as the shadow line of a pane seated in a frame, which is what it is.
+        private const float GLASS_SEAT = 0.02f;
+
+        //Steps across the pane, which are also the steps round the notch's ellipse - the oval is the curve the
+        //eye reads on this prop, so it gets more of them than the tube's own wall does.
+        private const int GLASS_SEGMENTS = 16;
+
+        //How much of the dome the pane reflects, and the ONE figure the ceiling's plate does not lend it: well
+        //under the full strength every other surface here takes. Measured rather than tasted - at the game
+        //camera the barrel is seen from behind and slightly above, which is a GRAZING angle across this pane,
+        //and grazing is exactly where the shader's Fresnel term takes the sky reflection to its maximum. At the
+        //plate's own full strength the pane came out an opaque blue sheet from the one vantage the game
+        //actually plays from: the queue's colours were gone, and a window that hides the queue is a window
+        //with no reason to exist (Magazine's remarks). The plate has no such duty - nothing is read THROUGH
+        //it - which is why it can keep the full reflection and this cannot.
+        private const float GLASS_SPECULAR_AMBIENT = 0.55f;
+
+        #endregion
 
         /// <summary>
         /// How deep the chamber runs behind the breech face — exactly a ball radius, and deliberately so,
@@ -172,6 +216,9 @@ namespace Prazsky.BS3D
         private CannonMesh _mesh;
         private InstancedModelRenderer _renderer;
 
+        private CannonGlassMesh _glassMesh;
+        private InstancedModelRenderer _glassRenderer;
+
         private GunCarriageMesh _carriageMesh;
         private InstancedModelRenderer _carriageRenderer;
         private GunWheelMesh _wheelMesh;
@@ -200,8 +247,12 @@ namespace Prazsky.BS3D
 
             //The slot stops a chamber's depth ahead of the breech face, and the dome behind that face hides a
             //cavity of the same depth: the hood and the nest the parked round waits under (CHAMBER_DEPTH).
+            //One local rather than the expression twice: the glazing below has to end at the very lip the
+            //window ends at, and two copies of it are two things free to drift.
+            float slotEndZ = breechZ - CHAMBER_DEPTH;
+
             _mesh = new CannonMesh(graphicsDevice, BORE_RADIUS, WALL_THICKNESS, muzzleZ, breechZ, SLOT_HALF_ANGLE,
-                breechZ - CHAMBER_DEPTH, CHAMBER_DEPTH, WALL_SEGMENTS);
+                slotEndZ, CHAMBER_DEPTH, WALL_SEGMENTS);
 
             //Since the dome and its cascabel, the breech side outreaches the muzzle side — taken off the mesh
             //actually built, so the tube that is drawn and the box that frames it cannot disagree
@@ -214,6 +265,20 @@ namespace Prazsky.BS3D
             _renderer = new InstancedModelRenderer(graphicsDevice, _mesh, STEEL_COLOR, instancingEffect)
             {
                 SpecularAmbientStrength = SPECULAR_AMBIENT_STRENGTH
+            };
+
+            //The window's glazing, cut to the very figures the window was: the front ball's centre is exactly
+            //PivotToFrontBall ahead of the trunnions (which is what that figure means), so the notch is over
+            //the round that fires by construction rather than by agreement — and it ends at the same lip.
+            _glassMesh = new CannonGlassMesh(graphicsDevice, BORE_RADIUS, GLASS_THICKNESS, GLASS_SEAT,
+                SLOT_HALF_ANGLE, slotEndZ, -PivotToFrontBall, BALL_RADIUS, GLASS_SEGMENTS);
+
+            //The ceiling's glass, both figures of it — see the region above. Its ground-darkening anchor rides
+            //the stone under the gun (DrawGlass); the one thing that is NOT the plate's is the sky reflection.
+            _glassRenderer = new InstancedModelRenderer(graphicsDevice, _glassMesh, CeilingPlate.GLASS_COLOR,
+                instancingEffect, CeilingPlate.GLASS_ALPHA)
+            {
+                SpecularAmbientStrength = GLASS_SPECULAR_AMBIENT
             };
 
             //The carriage under the tube: the frame the trunnions ride in and the pair of wheels the advance
@@ -258,6 +323,13 @@ namespace Prazsky.BS3D
         /// </summary>
         public InstancedModelRenderer Renderer => _renderer;
 
+        /// <summary>
+        /// The glazing's renderer, for the same sky-lighting enrolment as <see cref="Renderer"/> — and it wants
+        /// it more than the steel does: a pane of glass is mostly the sky it reflects, and one left out of the
+        /// rig would hold a white dome's palette under every scene.
+        /// </summary>
+        public InstancedModelRenderer GlassRenderer => _glassRenderer;
+
         /// <summary>The carriage frame's renderer, for the same sky-lighting enrolment as <see cref="Renderer"/>.</summary>
         public InstancedModelRenderer CarriageRenderer => _carriageRenderer;
 
@@ -278,6 +350,28 @@ namespace Prazsky.BS3D
                 ArenaIsland.FloorHeightAt(MathF.Sqrt(world.M41 * world.M41 + world.M43 * world.M43));
 
             _renderer.Draw(camera, world, effectParams);
+        }
+
+        /// <summary>
+        /// Draws the pane that glazes the loading window. <b>Translucent, so where it goes in the frame is the
+        /// caller's and it does not go with <see cref="Draw"/></b>: everything it is meant to be seen through —
+        /// the loaded queue above all — has to be in the depth buffer and in the frame first, under
+        /// <see cref="BlendState.AlphaBlend"/>. Both executables draw it last of their translucent surfaces,
+        /// after the drain's glass and the ceiling's, because it is far and away the nearest of the three and a
+        /// nearer pane composited first is a nearer pane the farther ones bleed through.
+        /// </summary>
+        /// <param name="world">The <b>same</b> pose the barrel was drawn with this frame, recoil stroke and all
+        /// (<see cref="GameObjects.Cannon.BarrelWorld"/>) — pass anything else and the glass slides along the
+        /// tube it is set into. Which is why callers take the matrix into a local and hand it to both.</param>
+        public void DrawGlass(ICamera camera, Matrix world, BasicEffectParams effectParams)
+        {
+            //The same per-frame ground anchor as Draw's, off the same translation and for the same reason: the
+            //pane is part of the gun, so it has to be darkened against the stone the gun stands on and not
+            //against one the walk has left behind
+            _glassRenderer.GroundHeight =
+                ArenaIsland.FloorHeightAt(MathF.Sqrt(world.M41 * world.M41 + world.M43 * world.M43));
+
+            _glassRenderer.Draw(camera, world, effectParams);
         }
 
         /// <summary>
@@ -333,6 +427,11 @@ namespace Prazsky.BS3D
             _mesh = null;
             _renderer?.Dispose();
             _renderer = null;
+
+            _glassMesh?.Dispose();
+            _glassMesh = null;
+            _glassRenderer?.Dispose();
+            _glassRenderer = null;
 
             _carriageMesh?.Dispose();
             _carriageMesh = null;

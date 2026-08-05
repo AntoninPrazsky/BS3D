@@ -792,6 +792,7 @@ namespace Testbed
 
             _skyLitRenderers.Add(_ceilingPlate.Renderer);
             _skyLitRenderers.Add(_cannonRig.Renderer);
+            _skyLitRenderers.Add(_cannonRig.GlassRenderer);
             _skyLitRenderers.Add(_cannonRig.CarriageRenderer);
             _skyLitRenderers.Add(_cannonRig.WheelRenderer);
             if (_cityRenderer != null) _skyLitRenderers.Add(_cityRenderer);
@@ -1498,7 +1499,11 @@ namespace Testbed
                 _island.DrawIsland(_camera, _sceneEffectParams);
                 _island.DrawPit(_camera, _sceneEffectParams, _scene);
 
-                _cannonRig.Draw(_camera, _cannon.BarrelWorld(), _sceneEffectParams);
+                //Into a local because the glazing further down is drawn with the very same pose — it is set into
+                //this tube, so the one matrix serves both rather than being built twice a frame
+                Matrix barrelWorld = _cannon.BarrelWorld();
+
+                _cannonRig.Draw(_camera, barrelWorld, _sceneEffectParams);
                 _cannonRig.DrawCarriage(_camera, _cannon.CarriageWorld(), _cannon.AdvanceTravel, _sceneEffectParams);
 
                 //Every ball on the scene, collected and then put out: one instanced draw call per type and LOD
@@ -1533,6 +1538,11 @@ namespace Testbed
                 _island.DrawGlass(_camera, _sceneEffectParams);
 
                 _ceilingPlate.Renderer.Draw(_camera, _ceiling.World, _sceneEffectParams);
+
+                //The gun's own glass last of the three, because it is far and away the nearest: the loaded queue
+                //is behind it and in the depth buffer by now, and so are the drain's cone and the ceiling's plate
+                //the barrel is seen against. Composited first it would let both of those bleed through it.
+                _cannonRig.DrawGlass(_camera, barrelWorld, _sceneEffectParams);
 
                 //Falling snow settles over everything, so it is drawn last, in front of what it should hide
                 _sceneRenderer.DrawOverlays(_scene, sceneFrame);

@@ -887,7 +887,12 @@ namespace BS3D.Screens
             //the tube that was built and the bore a shot leaves from cannot disagree. The carriage under it
             //deliberately takes no recoil — the tube slides in the cradle, the carriage holds its ground —
             //and its wheels are spun by the advance walk's own covered distance.
-            Game.CannonRig.Draw(Camera, _cannon.BarrelWorld(CannonRecoilBack()), Game.SceneEffectParams);
+            //Into a local because the window's glazing is drawn with the very same pose further down — it is set
+            //into this tube, so the one pose serves both rather than being built a second time from a second
+            //read of the stroke, which is one more thing that could ever come out differently.
+            Matrix barrelWorld = _cannon.BarrelWorld(CannonRecoilBack());
+
+            Game.CannonRig.Draw(Camera, barrelWorld, Game.SceneEffectParams);
             Game.CannonRig.DrawCarriage(Camera, _cannon.CarriageWorld(), _cannon.AdvanceTravel, Game.SceneEffectParams);
 
             //Everything collected above, as one instanced draw per ball type and LOD level — and the frame's
@@ -923,6 +928,12 @@ namespace BS3D.Screens
             Game.CeilingRenderer.EmissiveTint = CEILING_FLASH_COLOR * (_ceilingFlash * _ceilingFlash);
 
             Game.CeilingRenderer.Draw(Camera, _ceiling.World, Game.SceneEffectParams);
+
+            //And the gun's own glass after all of them, because it is far and away the nearest translucent
+            //surface in the frame: the loaded queue it covers is in the depth buffer by now, and so are the
+            //drain's cone and the descending plate the barrel is seen against — composited first, this pane
+            //would let both of those bleed through it. Drawn with the barrel's own pose, recoil and all.
+            Game.CannonRig.DrawGlass(Camera, barrelWorld, Game.SceneEffectParams);
 
             Game.FinishSceneDraw(sceneFrame);
 
