@@ -38,41 +38,123 @@ namespace Prazsky.BS3D.Physics
         /// neighbours, so its drift is the right local estimate for all of them, and taking the whole vector rather
         /// than just its Y takes out the sway with it.
         /// </para>
+        /// <para>
+        /// <b><paramref name="worldOffset"/> cancels out of the decision entirely</b>, and that is worth knowing
+        /// rather than tidying away: substitute the drift and the anchored contact reduces to
+        /// <c>worldContact − hitBallPose + idealHit</c>. So the cell this answers was already immune to anything
+        /// that moves the whole cluster — the descending glass ceiling included, which drags the structure a
+        /// <c>CEILING_DESCENT_PER_STEP</c> further off its lattice with every step. What was <i>not</i> immune was
+        /// the world position drawn at that cell, which is why the drift is now an output as well: see
+        /// <see cref="CellWorldPosition"/>.
+        /// </para>
         /// </remarks>
         /// <param name="map">The field. <b>Read only</b> — this decides, it does not place.</param>
         /// <param name="hitBall">The structure ball the shot touched, live pose and all.</param>
         /// <param name="worldContact">Where the touch happened, in world space.</param>
         /// <param name="worldOffset">The lattice-to-world offset the cluster was built with.</param>
         /// <param name="cell">The cell, <b>only meaningful when this returns <c>true</c></b>.</param>
+        /// <param name="clusterDrift">
+        /// How far the cluster hangs off its lattice <i>here, right now</i> — measured on the ball that was hit
+        /// and therefore the local truth for every cell around it. Handed back rather than kept private because
+        /// it is the only thing that turns the answered cell into a world position: see
+        /// <see cref="CellWorldPosition"/>, which is what the ghost, the arrival glide and the landing report
+        /// are all placed by. Zero when this returns <c>false</c>.
+        /// </param>
         public static bool TrySolveAgainstBall(BallsMap map, PhysicsBall hitBall, Vector3 worldContact,
-            Vector3 worldOffset, out XZLevel cell)
+            Vector3 worldOffset, out XZLevel cell, out Vector3 clusterDrift)
         {
             cell = new XZLevel(-1, -1, -1);
+            clusterDrift = Vector3.Zero;
+
             if (map == null || hitBall == null) return false;
 
-            Vector3 clusterDrift = hitBall.BallReference.Pose.Position.ToXna()
+            Vector3 drift = hitBall.BallReference.Pose.Position.ToXna()
                 - (map.GetRealCenteredPosition(hitBall.ArrayPosition) + worldOffset);
 
-            Vector3 anchoredContact = worldContact - worldOffset - clusterDrift;
+            Vector3 anchoredContact = worldContact - worldOffset - drift;
 
             //The first ring, then one ring further out. Both rings full means the shot does not stick, and that
             //is the answer rather than a failure - see TryFindEmptyCellInSecondRing on why it is not three rings.
-            return map.TryFindEmptyCellNextTo(anchoredContact, hitBall.ArrayPosition, out cell)
-                || map.TryFindEmptyCellInSecondRing(anchoredContact, hitBall.ArrayPosition, out cell);
+            if (!map.TryFindEmptyCellNextTo(anchoredContact, hitBall.ArrayPosition, out cell)
+                && !map.TryFindEmptyCellInSecondRing(anchoredContact, hitBall.ArrayPosition, out cell))
+                return false;
+
+            //Published only once there is a cell for it to place, so the two out parameters carry the same
+            //contract as each other and as TrySolveAgainstCeiling's: on a refusal neither means anything. The
+            //drift itself is a property of the ball that was hit and would be perfectly well defined here, which
+            //is exactly why it is withheld - a caller reading it past a false return would be placing a ghost at
+            //a cell of (-1, -1, -1).
+            clusterDrift = drift;
+            return true;
         }
 
         /// <summary>
         /// Which cell a shot that reached the glass lands in — straight up past the whole cluster, so the field's
         /// top level. False when the cell it rounds to is outside the field or already taken.
         /// </summary>
+        /// <remarks>
+        /// The <i>choice</i> reads only X and Z (<see cref="BallsMap.TryFindEmptyCeilingCell"/> pins the level to
+        /// the field's top and throws the contact's Y away), and the plate only ever moves in Y — so nothing about
+        /// where a ball attaching to the glass lands depends on how far the ceiling has come down. The drift below
+        /// does, and it is the whole reason this takes the plate's live height.
+        /// </remarks>
+        /// <param name="ceilingCentreY">
+        /// Centre Y of the glass plate <b>as it stands now</b>, not where the level hung it — the body's own pose.
+        /// A level walks the plate down and the cluster with it, so this is what keeps the drift honest as the
+        /// descent accumulates.
+        /// </param>
+        /// <param name="clusterDrift">
+        /// How far the top level hangs off its lattice, from the plate's own height rather than from a ball —
+        /// there is no hit ball on this path, and a ball attaching to the glass is going to end up exactly where
+        /// the ceiling anchor puts it (<see cref="BallsConstraintsBuilder.CeilingRestY"/>). Zero when this
+        /// returns <c>false</c>. See <see cref="CellWorldPosition"/> for what it is for.
+        /// </param>
         public static bool TrySolveAgainstCeiling(BallsMap map, Vector3 worldContact, Vector3 worldOffset,
-            out XZLevel cell)
+            float ceilingCentreY, out XZLevel cell, out Vector3 clusterDrift)
         {
             cell = new XZLevel(-1, -1, -1);
-            if (map == null) return false;
+            clusterDrift = Vector3.Zero;
 
-            return map.TryFindEmptyCeilingCell(worldContact - worldOffset, out cell);
+            if (map == null) return false;
+            if (!map.TryFindEmptyCeilingCell(worldContact - worldOffset, out cell)) return false;
+
+            //Vertical only: the plate never moves in X or Z, so the cell's own lattice X/Z are already right.
+            clusterDrift = new Vector3(0f,
+                BallsConstraintsBuilder.CeilingRestY(ceilingCentreY)
+                    - (map.GetRealCenteredPosition(cell).Y + worldOffset.Y),
+                0f);
+
+            return true;
         }
+
+        /// <summary>
+        /// Where a solved cell actually <b>is</b>, in world space, as the cluster hangs this instant: the cell's
+        /// ideal lattice position, taken up into the world frame and then corrected by the local drift the solve
+        /// measured.
+        /// </summary>
+        /// <remarks>
+        /// It exists because the ideal lattice position is <i>not</i> where a ball in that cell comes to rest, and
+        /// treating it as though it were is a defect that grows over a level rather than a small constant error.
+        /// Two things move the cluster off its lattice. The structure hangs from the plate by an anchor that holds
+        /// the top level a ball diameter under it, so at rest the cluster is already stretched — measured in #70 as
+        /// +1.10 at the top decaying to −0.04 deep down. And the glass <b>descends</b>: every step drags the whole
+        /// structure a further <c>CEILING_DESCENT_PER_STEP</c> down while the lattice stays exactly where the level
+        /// hung it, so by the end of an authored level the two are the better part of ten levels apart.
+        /// <para>
+        /// Everything a solved cell is drawn or reported at goes through here, for the reason the type exists at
+        /// all: the ghost of the landing preview, the glide a landed ball is drawn arriving with, and the world
+        /// position the landing is announced at (the thunk's panning, the award's birth point). Placed from the
+        /// lattice alone, the ghost floated where the cluster used to hang, the glide launched the ball from
+        /// several diameters below its own impact, and the award flew in from above the cluster's roof.
+        /// </para>
+        /// <para>
+        /// <paramref name="worldOffset"/> and the offset folded into <paramref name="clusterDrift"/> cancel, so
+        /// this is really "the hit ball's live pose plus the cell's lattice offset from it". Both are taken anyway,
+        /// because a caller holding one and not the other would have to know that to be safe.
+        /// </para>
+        /// </remarks>
+        public static Vector3 CellWorldPosition(BallsMap map, XZLevel cell, Vector3 worldOffset, Vector3 clusterDrift)
+            => map.GetRealCenteredPosition(cell) + worldOffset + clusterDrift;
 
         /// <summary>
         /// The first structure ball a shot leaving <paramref name="origin"/> along <paramref name="direction"/>

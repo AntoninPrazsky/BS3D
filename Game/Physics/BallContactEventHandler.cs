@@ -44,6 +44,14 @@ namespace BS3D.Physics
         /// on its lattice, and how far off it is varies through it and changes as it sways. A contact is
         /// therefore anchored at the ball it was made against as well — see <see cref="ProcessContact"/>.
         /// </para>
+        /// <para>
+        /// <b>And this offset alone is not enough to bring a cell back up</b>, which is what makes it a snapshot
+        /// worth being careful with: it is fixed for the session, while the glass ceiling <i>descends</i> over a
+        /// level and drags the whole structure down with it. Nothing here is drawn or announced from
+        /// <c>cell + this</c> any more — every such position goes through
+        /// <see cref="ShotPlacement.CellWorldPosition"/> with the drift the solve measured, which is the term that
+        /// carries the descent.
+        /// </para>
         /// </summary>
         private readonly Vector3 _worldOffset;
 
@@ -220,14 +228,23 @@ namespace BS3D.Physics
             bool solved;
             XZLevel cell;
 
+            //And WHERE that cell is, which the cell itself does not say: the lattice is where the level hung the
+            //field, while the structure hangs stretched under the glass and is dragged further down with every
+            //descent. Both branches answer it, each from what it has — the hit ball's own pose, or the plate's.
+            Vector3 clusterDrift;
+
             if (other.Mobility == CollidableMobility.Kinematic && other.BodyHandle == _ceiling.BodyHandle)
             {
-                //Straight into the glass, past the whole cluster: it lands on the field's top level
-                solved = ShotPlacement.TrySolveAgainstCeiling(_map, worldContact, _worldOffset, out cell);
+                //Straight into the glass, past the whole cluster: it lands on the field's top level. The plate's
+                //live centre, not the height the level hung it at — a ball attaching after six descents comes to
+                //rest six descents lower, and that is the only thing the descent changes here.
+                solved = ShotPlacement.TrySolveAgainstCeiling(_map, worldContact, _worldOffset,
+                    _ceiling.BodyReference.Pose.Position.Y, out cell, out clusterDrift);
             }
             else if (other.Mobility == CollidableMobility.Dynamic && TryFindStructureBall(other.BodyHandle, out PhysicsBall hitBall))
             {
-                solved = ShotPlacement.TrySolveAgainstBall(_map, hitBall, worldContact, _worldOffset, out cell);
+                solved = ShotPlacement.TrySolveAgainstBall(_map, hitBall, worldContact, _worldOffset, out cell,
+                    out clusterDrift);
             }
             else return false; //another loose shot ball, or something with no cell to offer
 
@@ -242,7 +259,15 @@ namespace BS3D.Physics
             //cell, and testing the cell rather than the returned position indexed the structure array out of
             //bounds (a crash) or overwrote a ball that then stayed in the simulation for ever, untracked,
             //undrawn and unreleasable.
-            Vector3 placed = _map.PutBallAt((byte)cell.X, (byte)cell.Z, (byte)cell.Level, physicsBall.Type).Position;
+            _map.PutBallAt((byte)cell.X, (byte)cell.Z, (byte)cell.Level, physicsBall.Type);
+
+            //Where the ball will actually come to rest, which is the cell taken up into the frame the cluster is
+            //hanging in this instant rather than into the one the level hung the lattice in. The map's own returned
+            //position (the raw centred lattice cell) used to be offset and used directly for both of the things
+            //below, and both drifted with the ceiling: with the glass eleven steps down on Two.json that is ~6.6
+            //units, so the glide launched the ball from that far BELOW its own impact and the award was born above
+            //the cluster's roof. See ShotPlacement.CellWorldPosition.
+            Vector3 restPosition = ShotPlacement.CellWorldPosition(_map, cell, _worldOffset, clusterDrift);
 
             physicsBall.ArrayPosition = cell;
 
@@ -257,8 +282,9 @@ namespace BS3D.Physics
             //The ball is snapped to the nearest free cell rather than to where it hit, so the constraints
             //below drag its body across up to several diameters within a frame or two. Drawing it gliding in
             //from where it actually hit hides that click without touching the simulation. Armed before the
-            //constraints exist, and in world frame, which is where the body is.
-            physicsBall.StartRenderGlide((placed + _worldOffset).ToNumerics());
+            //constraints exist, and in world frame, which is where the body is — the LIVE one, or the glide is
+            //measured against a cell the cluster no longer hangs at and moves the ball the wrong way.
+            physicsBall.StartRenderGlide(restPosition.ToNumerics());
 
             //Anchors come from the ideal lattice and are rotated into each body's current local frame, so
             //they are right even after the simulation has been running for a while
@@ -272,8 +298,10 @@ namespace BS3D.Physics
 
             //Reported whether or not anything fell: a shot that stuck without completing a group is still a
             //resolved shot, and the streak rule has to hear about it. Taken before the release above could
-            //have moved anything, and in world frame — the lattice cell the ball landed in.
-            BallLanded?.Invoke(new BallLanding(released, placed + _worldOffset, physicsBall.Type, cell));
+            //have moved anything, and in world frame — where the cell the ball landed in actually is, since
+            //everything downstream of this position is heard or seen at it (the thunk's panning, the award's
+            //flight) and none of it may be placed where the cluster merely used to hang.
+            BallLanded?.Invoke(new BallLanding(released, restPosition, physicsBall.Type, cell));
 
             return true;
         }

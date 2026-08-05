@@ -385,6 +385,19 @@ namespace Prazsky.BS3D.Physics
             return ConnectBallToCeiling(physicsBall, ceilingReference, simulation, physicsBall.BallReference.Pose.Position);
         }
 
+        /// <summary>
+        /// World Y a ball held by <see cref="ConnectBallToCeiling"/> comes to rest at, given the plate's centre Y.
+        /// The anchor pair below is what decides it: the ball's own top (local <c>+BALL_RADIUS</c>) is tied to a
+        /// point <c>BALL_RADIUS</c> under the plate's <i>centre</i> — under its centre and not its underside, so
+        /// the plate's thickness has no say — which leaves the ball's centre a whole diameter below that centre.
+        /// <para>
+        /// Exposed because it is the only way to know where the top level of a hanging cluster actually is without
+        /// asking a body. A caller that walks the plate down over a level (the Game's descending ceiling) needs it
+        /// to place anything at a top-level cell: the lattice does not move with the glass, and the structure does.
+        /// </para>
+        /// </summary>
+        public static float CeilingRestY(float ceilingCentreY) => ceilingCentreY - 2f * BALL_RADIUS;
+
         public static ConstraintHandle ConnectBallToCeiling(PhysicsBall physicsBall, BodyReference ceilingReference, Simulation simulation, Vector3 ceilingPosition)
         {
             Vector3 offsetBall = WorldToLocalOffset(physicsBall.BallReference.Pose.Orientation, new Vector3(0f, BALL_RADIUS, 0f));

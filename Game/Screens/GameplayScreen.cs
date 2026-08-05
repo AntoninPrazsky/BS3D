@@ -593,6 +593,20 @@ namespace BS3D.Screens
         private bool _previewHasCell;
 
         /// <summary>
+        /// How far the cluster hangs off its lattice where <see cref="_previewCell"/> is — measured on the very ball
+        /// the aim reaches, and handed back by the same call that answers the cell.
+        /// <para>
+        /// It is what makes the ghost obey the <b>ceiling</b>. A cell is an index into a lattice this session hung
+        /// once (<see cref="_clusterWorldOffset"/>); the balls are wherever the descending glass has since dragged
+        /// them, <see cref="CEILING_DESCENT_PER_STEP"/> per step, plus the stretch the structure hangs with and
+        /// whatever the last shot set swaying. None of that is in the lattice, and a ghost placed from the lattice
+        /// alone drifted out of the cluster as a level went on. It also covers the sway and the resting stretch,
+        /// because all three are the same quantity — see <see cref="ShotPlacement.CellWorldPosition"/>.
+        /// </para>
+        /// </summary>
+        private Vector3 _previewDrift;
+
+        /// <summary>
         /// Whether the aim reaches the cluster at all. Only when it does <b>and</b> <see cref="_previewHasCell"/> is
         /// false is a refusal <i>certain</i>, which is what the reddened crosshair says.
         /// <para>

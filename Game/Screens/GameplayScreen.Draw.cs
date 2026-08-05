@@ -38,6 +38,41 @@ namespace BS3D.Screens
         /// </summary>
         private const float PREVIEW_DISSOLVE = 0.5f;
 
+        /// <summary>
+        /// How far the ghost's dissolve swings either side of <see cref="PREVIEW_DISSOLVE"/>, and how often —
+        /// the <b>blink</b>, and it is the ghost telling the truth about itself.
+        /// <para>
+        /// <b>Measured, because the honest answer turned out to be worse than the docs assumed.</b> Fired with
+        /// Space, which leaves along the bit-identical pose the ghost was solved from — so with input staleness
+        /// excluded entirely and only the physics left — 26 shots produced 10 landings of which
+        /// <b>3 landed in the cell the ghost showed</b>. Five of the seven misses were one cell or one level away,
+        /// which still points at the right pocket; two were three levels and two levels out, which does not. The
+        /// causes are structural and none of them is a bug to fix: the shot crosses 1.667 units per physics step
+        /// at <see cref="SHOOT_SPEED"/> so the touch is reported up to a step late and the ball has slid around
+        /// the struck surface by then; a glancing pass the analytic sweep counts can fall entirely between two
+        /// step boundaries, leaving a <i>different ball</i> to anchor the solve and therefore a different ring of
+        /// candidate cells; and once the first ring is full the second ring scores some thirty cells two levels
+        /// wide by plain distance, which multiplies every one of those perturbations.
+        /// </para>
+        /// <para>
+        /// So the ghost may not stand still and be read as a promise. A <b>smooth swing rather than a hard
+        /// on/off</b>: the ghost has a second job — its colour is what answers "does it stick next to two more of
+        /// its own" — and a ball that is absent half the time cannot be read for that. It also has to live beside
+        /// a heartbeat: the cluster breathes at <c>BallRenderSet</c>'s 1.1 Hz, so this is deliberately faster,
+        /// enough to read as unsettled rather than as alive. On the <b>wall clock</b>, like the beam's crawl and
+        /// that heartbeat, because it is what the ghost <i>is</i> and not something the session is doing.
+        /// </para>
+        /// <para>
+        /// The depth is what makes it unmissable at the overview stand-off, where the ghost is a few dozen pixels
+        /// — the same argument that set <see cref="PREVIEW_DISSOLVE"/> itself. At ±0.22 the ball swings between
+        /// mostly-there and mostly-gone; much less and the swing is lost in the dither's own noise at that size.
+        /// </para>
+        /// </summary>
+        private const float PREVIEW_BLINK_DEPTH = 0.22f;
+
+        /// <inheritdoc cref="PREVIEW_BLINK_DEPTH"/>
+        private const float PREVIEW_BLINK_HZ = 2.2f;
+
         /// <summary>Red, for a crosshair over a shot that will not stick. Display space — the overlay is after the resolve.</summary>
         private static readonly Color PREVIEW_REFUSED = new(236, 74, 74);
 
@@ -97,7 +132,11 @@ namespace BS3D.Screens
             _previewBeamEnd = contact;
             _previewReachesCluster = true;
 
-            _previewHasCell = ShotPlacement.TrySolveAgainstBall(_map, hit, contact, _clusterWorldOffset, out _previewCell);
+            //The drift comes back with the cell because the cell alone does not say where anything is: the lattice
+            //is where the level HUNG the field, and the cluster is wherever the glass has since dragged it. See
+            //_previewDrift, and ShotPlacement.CellWorldPosition for the two things that separate the two.
+            _previewHasCell = ShotPlacement.TrySolveAgainstBall(_map, hit, contact, _clusterWorldOffset,
+                out _previewCell, out _previewDrift);
         }
 
         /// <summary>
@@ -137,19 +176,36 @@ namespace BS3D.Screens
         /// not only "does this stick" but "does it stick <i>next to two more of its own</i>", and a grey ghost
         /// answers the first while hiding the second.
         /// <para>
-        /// Drawn at the cell's <b>ideal</b> lattice position, not offset by the local sway the solve took out. The
-        /// ghost is where the ball will come to rest once its constraints have settled, which is the cell, and
-        /// chasing the sway would make it jitter against a cluster that is still moving.
+        /// Drawn in the cluster's <b>live</b> frame (<see cref="ShotPlacement.CellWorldPosition"/>) and not at the
+        /// cell's ideal lattice position, which it was until the descending ceiling proved that those are not the
+        /// same thing. The lattice is where <see cref="FitFieldToMap"/> hung the field once; the cluster is
+        /// wherever the glass has since dragged it, <see cref="CEILING_DESCENT_PER_STEP"/> at a time — so a ghost
+        /// pinned to the lattice climbed away from the cluster as a level went on, until on
+        /// <c>Two.json</c>'s eleven descents it was floating some nine levels above the pocket it claimed to be
+        /// in. It also takes out the stretch the structure hangs with at rest, which is over a level's worth at
+        /// the top of the cluster and was already putting the ghost beside its pocket rather than in it.
+        /// </para>
+        /// <para>
+        /// The local drift is taken <i>whole</i> rather than only its vertical part, so the ghost sways with the
+        /// pocket it sits in instead of standing still while the balls around it move. That is the point of
+        /// measuring it at the ball that was hit: it is the same drift the cell was chosen with, so the ghost
+        /// cannot be somewhere the decision did not mean.
         /// </para>
         /// </remarks>
         private void CollectShotPreview(in BallDrawFrame frame)
         {
             if (!_previewHasCell) return;
 
-            Vector3 position = _map.GetRealCenteredPosition(_previewCell) + _clusterWorldOffset;
+            Vector3 position = ShotPlacement.CellWorldPosition(_map, _previewCell, _clusterWorldOffset, _previewDrift);
+
+            //And the blink: the ghost swings between mostly-there and mostly-gone rather than standing still,
+            //because standing still would be a promise it cannot keep — 3 of 10 measured landings hit the cell it
+            //showed. See PREVIEW_BLINK_DEPTH for the measurement and for why this is a swing and not an on/off.
+            float dissolve = PREVIEW_DISSOLVE
+                + PREVIEW_BLINK_DEPTH * MathF.Sin(MathHelper.TwoPi * PREVIEW_BLINK_HZ * WallClock);
 
             frame.Add(_magazine.Peek(0), position, Matrix.CreateTranslation(position),
-                BallRenderSet.UNOCCLUDED, PREVIEW_DISSOLVE);
+                BallRenderSet.UNOCCLUDED, dissolve);
         }
 
         #endregion
