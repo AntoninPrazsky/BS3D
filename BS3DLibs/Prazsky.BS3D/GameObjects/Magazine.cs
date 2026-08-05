@@ -67,8 +67,8 @@ namespace Prazsky.BS3D
 
         /// <summary>
         /// How far apart the loaded balls sit along the bore, in world units: a ball diameter, so the queue is a
-        /// line of balls touching one another with no gaps to read as missing rounds. The barrel's muzzle and
-        /// breech lips are closed a ball radius beyond the end balls' centres, so the queue is exactly enclosed
+        /// line of balls touching one another with no gaps to read as missing rounds. The barrel's muzzle lip
+        /// and breech face sit a ball radius beyond the end balls' centres, so the queue is exactly enclosed
         /// — change this and the tube's ends follow it through <see cref="CannonRig"/>.
         /// </summary>
         public const float SPACING = 1f;
@@ -123,8 +123,10 @@ namespace Prazsky.BS3D
         /// <summary>
         /// How far the queue is still displaced <i>backwards</i> from its resting slots, in slots: 1 the instant
         /// a ball fires — every ball drawn one slot back, so the muzzle slot is empty — easing to 0 as the balls
-        /// glide into place. It is what keeps the advance from snapping, and it is the only reason
-        /// <see cref="Step"/> exists. Nothing outside needs it: the placement below already applies it.
+        /// glide into place. (Every ball but the freshest: its share is clamped to the breech chamber it waits
+        /// in — see <see cref="BorePose.SlotPosition"/>.) It is what keeps the advance from snapping, and it is
+        /// the only reason <see cref="Step"/> exists. Nothing outside needs it: the placement below already
+        /// applies it.
         /// </summary>
         public float Slide { get; private set; }
 
@@ -299,8 +301,25 @@ namespace Prazsky.BS3D
         /// Where one loaded ball sits: <paramref name="slot"/> slots back from the muzzle along the bore, plus
         /// whatever of the post-shot glide is left — during the slide each ball is drawn <c>(slot + slide)</c>
         /// slots back, so it eases forward by one slot into the place the fired ball vacated.
+        /// <para>
+        /// All but the freshest, that is. The full displacement would deal the tail round a whole slot behind
+        /// the tube — which the once-open breech used to absorb, and the dome that closed it would have the
+        /// ball materialise through steel — so the last slot's share of the slide is clamped to the chamber
+        /// the dome hides (<see cref="CannonRig.CHAMBER_DEPTH"/>): the round waits parked half a ball back,
+        /// its back hemisphere nested in the cavity and its front hidden under the hood the slot stops short
+        /// by, and pulls out into view once the ball ahead has glided clear of its slot. While both are under
+        /// the hood the two interpenetrate, invisibly — the handoff at the clamp is seamless because the park
+        /// depth, the hood's length and the cavity's depth are the same figure.
+        /// </para>
         /// </summary>
-        public Vector3 SlotPosition(int slot) => _front - _alongBore * ((slot + _slide) * Magazine.SPACING);
+        public Vector3 SlotPosition(int slot)
+        {
+            float slide = slot == Magazine.SIZE - 1
+                ? MathF.Min(_slide, CannonRig.CHAMBER_DEPTH / Magazine.SPACING)
+                : _slide;
+
+            return _front - _alongBore * ((slot + slide) * Magazine.SPACING);
+        }
 
         /// <summary>
         /// The matrix one loaded ball is drawn with, and its position, which the caller needs anyway to pick a

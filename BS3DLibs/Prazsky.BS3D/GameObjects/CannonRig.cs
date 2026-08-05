@@ -17,7 +17,10 @@ namespace Prazsky.BS3D
     /// slit is there for the <b>magazine</b>: the queue of loaded balls nests in the bore and only a strip of
     /// each shows through, which is enough to read its colour — and you cannot aim a shot whose colour you
     /// cannot see. So the slot's width is not a look, it is how much of the queue reads, and it has to keep
-    /// reading from a camera that is not straight above the barrel.
+    /// reading from a camera that is not straight above the barrel. The breech — the end the player's camera
+    /// looks at — is <b>closed</b>: a dome carrying a cascabel knob, hiding the chamber the freshest round
+    /// waits out the post-shot glide in (<see cref="CHAMBER_DEPTH"/>), where an open hole used to mirror the
+    /// muzzle's.
     /// </para>
     /// <para>
     /// <b>It owns no content.</b> The instancing <see cref="Effect"/> is handed in and is emphatically not
@@ -58,13 +61,27 @@ namespace Prazsky.BS3D
         /// </summary>
         public const float SLOT_HALF_ANGLE = 0.5f;
 
+        /// <summary>
+        /// How deep the chamber runs behind the breech face — exactly a ball radius, and deliberately so,
+        /// because three lengths are this one figure: the dome's inner cavity (nesting the parked round's back
+        /// hemisphere, grazing at the apex), the hood the slot stops short of the breech face by (the parked
+        /// round's front half hides under it, flush with the slot's back edge), and how far behind its resting
+        /// slot the magazine parks the freshest round while the post-shot glide runs
+        /// (<see cref="BorePose.SlotPosition"/> clamps its share of the slide on this). The glide is why the
+        /// breech used to be open: the fresh round was dealt a whole slot behind the tube and slid in through
+        /// the hole. The dome that closed the hole works only because these three agree, so they are one
+        /// constant rather than three.
+        /// </summary>
+        public const float CHAMBER_DEPTH = BALL_RADIUS;
+
         //Angular segments across the solid wall arc. Enough that the tube's silhouette reads as round at the
         //size it is drawn - it is a foreground prop a few units from the lens, and there is exactly one of it.
         private const int WALL_SEGMENTS = 24;
 
         //The ball radius, which is what closes the tube flush with the outer surface of the balls at either end:
-        //the muzzle lip sits this far ahead of the head-of-queue ball's centre and the breech this far behind the
-        //last one's, so the loaded queue is exactly enclosed with no lip cutting through a ball.
+        //the muzzle lip sits this far ahead of the head-of-queue ball's centre and the breech face this far
+        //behind the last one's, so the loaded queue is exactly enclosed with nothing cutting through a ball —
+        //the dome and the chamber it hides lie beyond that face.
         private const float BALL_RADIUS = Constants.HALF;
 
         //Steel grey, in sRGB - the shader linearizes it, like every other material colour in this project.
@@ -96,6 +113,15 @@ namespace Prazsky.BS3D
 
         private const float CHEEK_INNER_X = BORE_RADIUS + WALL_THICKNESS + 0.04f; //hugging the tube, never clipping it
         private const float CHEEK_THICKNESS = 0.14f;
+
+        //The trunnion pins the cheeks visibly hold the tube by: buried into the barrel's wall (never its bore)
+        //and proud of the plates' outer faces by a boss. They are the CARRIAGE's, not the tube's, and that is
+        //load-bearing: a pin is coaxial with the elevation axis, so a fixed one looks identical as the tube
+        //elevates — but the Game's recoil slides the tube, and pins riding it would visibly tear along the
+        //plates that hold them.
+        private const float TRUNNION_RADIUS = 0.17f;
+        private const float TRUNNION_INNER_X = BORE_RADIUS + 0.02f;                     //inside the wall at every aim
+        private const float TRUNNION_OUTER_X = CHEEK_INNER_X + CHEEK_THICKNESS + 0.06f; //the boss past the plate
         private const float CHEEK_TOP_Y = 0.2f;     //a little above the trunnion axis the plates hold
         private const float CHEEK_HALF_LENGTH = 0.85f;
 
@@ -172,8 +198,14 @@ namespace Prazsky.BS3D
             float muzzleZ = -(PivotToFrontBall + BALL_RADIUS);
             float breechZ = (magazineSize - 1) * magazineSpacing - PivotToFrontBall + BALL_RADIUS;
 
+            //The slot stops a chamber's depth ahead of the breech face, and the dome behind that face hides a
+            //cavity of the same depth: the hood and the nest the parked round waits under (CHAMBER_DEPTH).
             _mesh = new CannonMesh(graphicsDevice, BORE_RADIUS, WALL_THICKNESS, muzzleZ, breechZ, SLOT_HALF_ANGLE,
-                WALL_SEGMENTS);
+                breechZ - CHAMBER_DEPTH, CHAMBER_DEPTH, WALL_SEGMENTS);
+
+            //Since the dome and its cascabel, the breech side outreaches the muzzle side — taken off the mesh
+            //actually built, so the tube that is drawn and the box that frames it cannot disagree
+            BarrelReach = MathF.Max(-muzzleZ, _mesh.PoleZ);
 
             //The ground darkens the barrel's underside just as it darkens the ball bellies. No GroundHeight
             //is set here: the gun stands on the island's DISH, so the height it is darkened against is the
@@ -187,7 +219,8 @@ namespace Prazsky.BS3D
             //The carriage under the tube: the frame the trunnions ride in and the pair of wheels the advance
             //walk (W/S) rolls. Sized off the barrel's own figures, so a retuned bore moves the cheeks with it.
             _carriageMesh = new GunCarriageMesh(graphicsDevice, CHEEK_INNER_X, CHEEK_THICKNESS, CHEEK_TOP_Y,
-                AXLE_DROP, CHEEK_HALF_LENGTH, AXLE_RADIUS, WHEEL_TRACK + HUB_HALF_WIDTH * 0.5f, TRAIL_END);
+                AXLE_DROP, CHEEK_HALF_LENGTH, AXLE_RADIUS, WHEEL_TRACK + HUB_HALF_WIDTH * 0.5f, TRAIL_END,
+                TRUNNION_RADIUS, TRUNNION_INNER_X, TRUNNION_OUTER_X);
 
             _carriageRenderer = new InstancedModelRenderer(graphicsDevice, _carriageMesh, FRAME_COLOR, instancingEffect)
             {
@@ -210,6 +243,14 @@ namespace Prazsky.BS3D
         /// caller, so the barrel that was built and the muzzle that is fired from cannot disagree.
         /// </summary>
         public float PivotToFrontBall { get; }
+
+        /// <summary>
+        /// How far the barrel reaches from the trunnions at its furthest, whichever end that is — since the
+        /// breech dome and cascabel, the breech side. What <c>GameCameraFit</c>'s box around the gun is sized
+        /// off (each caller hands it to <c>Solve</c> as <c>cannonReach</c>), so the fit frames the cascabel
+        /// rather than cropping it at the bottom of the frame.
+        /// </summary>
+        public float BarrelReach { get; }
 
         /// <summary>
         /// The renderer, exposed for the one thing <see cref="Draw"/> cannot do for a caller: enrolling it in

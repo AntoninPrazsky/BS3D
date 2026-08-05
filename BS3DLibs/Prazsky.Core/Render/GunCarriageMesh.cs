@@ -5,8 +5,9 @@ using System;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// The gun carriage's frame, one mesh: two cheek plates the barrel's trunnions ride in, the axle the
-    /// wheels turn on, and a <b>split trail</b> — two beams diverging down and back. The split is not a look:
+    /// The gun carriage's frame, one mesh: two cheek plates with the trunnion pins they visibly hold the
+    /// barrel by, the axle the wheels turn on, and a <b>split trail</b> — two beams diverging down and back.
+    /// The split is not a look:
     /// the barrel is modelled about its trunnions with half its length behind them, so at high elevation the
     /// breech sweeps down and back exactly where a single central trail would stand, and the recoil stroke
     /// throws it further still — the breech has to dip <i>between</i> the trail's legs, which is what a split
@@ -19,9 +20,13 @@ namespace Prazsky.Core.Render
     /// of this mesh — they spin, this does not.
     /// </para>
     /// <para>
-    /// Origin quirk worth naming: nothing here touches y = 0 — the frame hangs entirely below the trunnion
-    /// axis it is drawn at, and how far below (the axle drop) is the caller's figure, arriving as
-    /// <paramref name="axleDrop"/> so the frame and the wheels it was sized around cannot drift apart.
+    /// Origin quirk worth naming: the trunnion pins are the only thing here on y = 0 — the rest of the frame
+    /// hangs entirely below the trunnion axis it is drawn at, and how far below (the axle drop) is the
+    /// caller's figure, arriving as <paramref name="axleDrop"/> so the frame and the wheels it was sized
+    /// around cannot drift apart. The pins live on <i>this</i> mesh and not the barrel's, and that is
+    /// load-bearing: they are coaxial with the elevation axis, so a fixed pin looks identical however the
+    /// tube elevates — but the Game's recoil slides the tube, and pins riding it would visibly tear along
+    /// the plates that hold them.
     /// </para>
     /// </summary>
     public class GunCarriageMesh : IProceduralMesh, IDisposable
@@ -44,9 +49,13 @@ namespace Prazsky.Core.Render
         /// <param name="trailEnd">Where the +X side's trail leg ends, in the carriage's own frame
         /// (x &gt; 0 outward, y &lt; 0 below the trunnions, z &gt; 0 back); the other leg mirrors it in X.
         /// The legs run from the cheeks' lower rear corners to here.</param>
+        /// <param name="trunnionRadius">The trunnion pins' radius.</param>
+        /// <param name="trunnionInnerX">Where each pin's buried end sits off the barrel's axis — inside the
+        /// tube's wall (over the bore, under the outer profile) at every aim, so the joint never shows.</param>
+        /// <param name="trunnionOuterX">Where each pin's boss ends, proud of the cheek's outer face.</param>
         public GunCarriageMesh(GraphicsDevice graphicsDevice, float cheekInnerX, float cheekThickness,
             float cheekTopY, float axleDrop, float cheekHalfLength, float axleRadius, float axleHalfLength,
-            Vector3 trailEnd)
+            Vector3 trailEnd, float trunnionRadius, float trunnionInnerX, float trunnionOuterX)
         {
             MeshBuilder builder = new();
 
@@ -79,6 +88,11 @@ namespace Prazsky.Core.Render
                 //The leg's foot: a small spade plate standing across the end, the detail that says the trail
                 //is meant to bite ground rather than merely stop
                 builder.AddBox(end + direction * 0.06f, sideways * 0.16f, upright * 0.16f, direction * 0.05f);
+
+                //The trunnion pin through this cheek: from inside the barrel's wall out to a boss proud of
+                //the plate, on the elevation axis itself — which is why it can sit still while the tube turns
+                builder.AddTubeX(new Vector3(side * (trunnionInnerX + trunnionOuterX) * 0.5f, 0f, 0f),
+                    (trunnionOuterX - trunnionInnerX) * 0.5f, trunnionRadius, AXLE_SEGMENTS);
             }
 
             //The axle, through both cheeks and into the wheels' hubs

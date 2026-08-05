@@ -49,10 +49,10 @@ namespace Prazsky.BS3D
     /// retuned. The ceiling's height, which they derive differently (the Testbed from the map's level count,
     /// the Game from a plate that slides down during play). The pre-first-load defaults for the stand-off and
     /// the aim height, which only cover the frames before a field exists. The <c>[camera]</c> log line, which
-    /// names the field's dimensions — something this never learns. And the gun's barrel length
-    /// (<see cref="Solve"/>'s <c>cannonReach</c>): identical in both, but its owner is the gun's geometry,
-    /// shared with the mesh build and the muzzle position, and hoisting it into the fit would give one number
-    /// two homes.
+    /// names the field's dimensions — something this never learns. And the gun's barrel reach
+    /// (<see cref="Solve"/>'s <c>cannonReach</c>): its owner is the gun's geometry — both callers pass
+    /// <c>CannonRig.BarrelReach</c>, read off the mesh actually built — and hoisting it into the fit would
+    /// give one number two homes.
     /// </para>
     /// </summary>
     public static class GameCameraFit
@@ -208,7 +208,8 @@ namespace Prazsky.BS3D
         /// height from its own candidate radius, the dish deciding it.</param>
         /// <param name="cannonReach">Half-extent of the box the gun is framed as: large enough to hold the
         /// barrel at any aim, so the fit does not change as the player elevates or traverses. Both callers pass
-        /// their barrel's half-length (the pivot-to-front-ball distance plus a ball radius).</param>
+        /// <c>CannonRig.BarrelReach</c> — the trunnions-to-cascabel-pole distance, the tube's longer half since
+        /// the dome closed the breech.</param>
         /// <param name="halfX">Half the field's footprint in X, <b>as the ceiling plate measures it</b> — off
         /// <c>CeilingPlate.FootprintFor</c>, never a margin written out again at the call site.</param>
         /// <param name="halfZ">Half the field's footprint in Z, from the same helper.</param>

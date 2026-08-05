@@ -737,7 +737,7 @@ namespace Testbed
             _cannon = new Cannon(new Vector3(0f, 5f, 0f), 20f);
 
             //The procedural barrel (the last modeled asset made procedural), cut to hold exactly the loaded queue:
-            //a muzzle lip just ahead of the front ball, a breech just behind the last one. The rig is told only how
+            //a muzzle lip just ahead of the front ball, the domed breech closing just behind the last one. The rig is told only how
             //many slots there are and how far apart, because that is all the tube's length is; the shared
             //InstancedModel effect is handed in and never disposed there, being the balls', the city's, the
             //island's and the ceiling's too.
@@ -1825,7 +1825,7 @@ namespace Testbed
             //CeilingPlate helper because those corners ARE the plate's — a margin written out here again would
             //silently stop agreeing with the drawn plate and the collidable the moment it is retuned.
             CameraFit fit = GameCameraFit.Solve(_cannon,
-                _cannonRig.PivotToFrontBall + Constants.HALF,
+                _cannonRig.BarrelReach,
                 CeilingPlate.FootprintFor(_map.StageSizeX) * Constants.HALF,
                 CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF,
                 0f,

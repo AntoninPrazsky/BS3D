@@ -7,15 +7,15 @@ namespace Prazsky.Core.Render
 {
     /// <summary>
     /// Accumulates triangles for a procedural mesh and turns them into GPU buffers — the small builder the
-    /// gun's carriage and wheels are made with. It carries <see cref="CannonMesh"/>'s one load-bearing trick
-    /// as a service: every triangle is added with the <b>face normal it is meant to show</b>, and the winding
-    /// is corrected against it, so a composite of boxes, tubes and tori cannot come out inside-out piece by
-    /// piece (the trap CLAUDE.md's winding convention documents — nothing disappears, the far side is drawn,
-    /// and only the shading says so).
+    /// gun's barrel, carriage and wheels are made with. It carries one load-bearing trick as a service: every
+    /// triangle is added with the <b>face normal it is meant to show</b>, and the winding is corrected against
+    /// it, so a composite of boxes, tubes and tori cannot come out inside-out piece by piece (the trap
+    /// CLAUDE.md's winding convention documents — nothing disappears, the far side is drawn, and only the
+    /// shading says so).
     /// <para>
     /// Internal on purpose: it is a construction detail of the meshes in this namespace, not a modelling API.
-    /// <see cref="CannonMesh"/> predates it and keeps its own copy of the correction; the shapes here serve
-    /// the newer composite meshes.
+    /// The trick began as <see cref="CannonMesh"/>'s own; that mesh predates the builder and moved onto it
+    /// when the breech dome reshaped it.
     /// </para>
     /// </summary>
     internal sealed class MeshBuilder

@@ -123,7 +123,7 @@ namespace BS3D.Screens
             //Testbed's caller: there the lattice frame IS the world frame, while here level 0 sits at the
             //cluster's offset. A deep level's empty growth levels are inside the fitted volume on purpose —
             //the cluster grows down into them, so they have to be in frame before the first ball lands there.
-            CameraFit fit = GameCameraFit.Solve(_cannon, Game.CannonRig.PivotToFrontBall + Constants.HALF,
+            CameraFit fit = GameCameraFit.Solve(_cannon, Game.CannonRig.BarrelReach,
                 CeilingPlate.FootprintFor(_map.StageSizeX) * Constants.HALF,
                 CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF,
                 _clusterWorldOffset.Y,
