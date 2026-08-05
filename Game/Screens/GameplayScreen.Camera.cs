@@ -58,6 +58,15 @@ namespace BS3D.Screens
             Vector3 target = aim.Target;
             float fov = aim.FieldOfView;
 
+            //The cluster profile's right-axis is taken from THIS pose — the gameplay lens the player is aiming
+            //with — before the cinematic blend below swings it away. Resolved here once so the HUD does not
+            //rebuild the basis, and so a drop cinematic does not turn the profile's cluster as it films.
+            Vector3 gpForward = target - position;
+            float gpLen = gpForward.Length();
+            Vector3 gpForwardN = gpLen > 1e-4f ? gpForward / gpLen : Vector3.Forward;
+            Vector3 gpRight = Vector3.Cross(gpForwardN, Vector3.Up);
+            _gameplayCameraRight = gpRight.LengthSquared() > 1e-6f ? Vector3.Normalize(gpRight) : Vector3.Right;
+
             //And the drop cinematic is a second Lerp over the top of that one, on its own reversible scalar
             //and for the same reason: at a blend of 0 these three lines return the pose above bit for bit, so
             //a cinematic that ends — or is skipped halfway — hands the player back exactly the frame the game

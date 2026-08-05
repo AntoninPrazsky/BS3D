@@ -8,6 +8,9 @@ obj/
 # JetBrains Rider
 .idea/
 
+# ZCode agent working directory (screenshots, logs)
+.zcode/
+
 # Project specific
 /LEVELS
 

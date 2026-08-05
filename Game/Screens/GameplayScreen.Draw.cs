@@ -2,8 +2,11 @@ using Microsoft.Xna.Framework;
 using Prazsky.BS3D;
 using Prazsky.BS3D.GameObjects;
 using Prazsky.BS3D.GameStructure;
+using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Physics;
 using Prazsky.Core.Render;
+using Prazsky.Core.Tools;
+using System;
 
 namespace BS3D.Screens
 {
@@ -210,6 +213,78 @@ namespace BS3D.Screens
                 }
                 else frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED);
             }
+        }
+
+        #endregion
+
+        #region The cluster profile
+
+        /// <summary>
+        /// Builds the cluster profile the HUD draws as a side cut, from the live body poses and the ceiling's
+        /// current state. Walks <see cref="_physicsBalls"/> exactly the way the loss check and the instance
+        /// collection do — same null-check, same XZLevel sizing — so the cut's balls are the cluster the frame
+        /// draws, this frame. Writes into the reused <see cref="_profileBalls"/> backing array and returns its
+        /// occupied length through <paramref name="count"/>, so the caller can hand the HUD a span of exactly
+        /// that — no per-frame allocation on the gameplay path.
+        /// </summary>
+        private PlayHud.ClusterProfile BuildClusterProfile(out int count)
+        {
+            count = 0;
+
+            //No session standing (the one frame the HUD draws over the fallback setting). count stays 0, so the
+            //span built at the call site is empty by construction — and `new ReadOnlySpan<T>(null, 0, 0)` is
+            //defined to return an empty span, so _profileBalls being null here is safe.
+            if (_physicsBalls == null)
+                return new PlayHud.ClusterProfile
+                {
+                    CeilingY = CeilingPlate.CentreYAbove(FIELD_TOP_Y),
+                    DeathY = CEILING_DEATH_Y,
+                    HalfDepth = FieldHalfDiagonal(),
+                    CameraRight = _gameplayCameraRight,
+                };
+
+            XZLevel size = XZLevel.FromArray(_physicsBalls);
+
+            for (int level = 0; level < size.Level; level++)
+                for (int x = 0; x < size.X; x++)
+                    for (int z = 0; z < size.Z; z++)
+                    {
+                        PhysicsBall ball = _physicsBalls[x, z, level];
+                        if (ball == null) continue;
+
+                        //The drawn position, render-offset included — the same position the instance collection
+                        //draws, so a ball gliding into its cell glides in the cut too.
+                        System.Numerics.Vector3 pose = ball.BallReference.Pose.Position + ball.RenderOffset;
+
+                        _profileBalls[count++] = new PlayHud.BallMarker
+                        {
+                            World = new Vector3(pose.X, pose.Y, pose.Z),
+                            Type = ball.Type,
+                        };
+                    }
+
+            return new PlayHud.ClusterProfile
+            {
+                CeilingY = _ceilingY,
+                CeilingFlash = _ceilingFlash,
+                DeathY = CEILING_DEATH_Y,
+                HalfDepth = FieldHalfDiagonal(),
+                CameraRight = _gameplayCameraRight,
+            };
+        }
+
+        /// <summary>
+        /// Half the field's diagonal in world units — the furthest a ball's projection onto the camera's right
+        /// axis can reach from the centre, and so the span the HUD's horizontal axis maps across. The same
+        /// footprint arithmetic <see cref="FitCannonAndGameCameraToLevel"/> uses to frame the field's corners.
+        /// </summary>
+        private float FieldHalfDiagonal()
+        {
+            if (_map == null) return 1f;
+
+            float halfX = CeilingPlate.FootprintFor(_map.StageSizeX) * Constants.HALF;
+            float halfZ = CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF;
+            return MathF.Sqrt(halfX * halfX + halfZ * halfZ);
         }
 
         #endregion

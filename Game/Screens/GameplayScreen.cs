@@ -325,6 +325,19 @@ namespace BS3D.Screens
         private BallsMap _map;
         private PhysicsBall[,,] _physicsBalls;
 
+        //Reusable backing array for the HUD's cluster profile: one entry per ball the frame could draw, filled
+        //from the live poses in Draw and handed to the HUD as a span. Sized to the field's cell count and kept
+        //across frames — the cluster profile is per-frame, but the array it fills is not. No per-frame allocation.
+        private PlayHud.BallMarker[] _profileBalls;
+
+        //The cluster profile's horizontal axis is the GAMEPLAY camera's right vector — the lens the player aims
+        //with, not whatever a drop cinematic has swung the lens to. A cinematic blends the camera away from the
+        //overview pose (UpdateCamera Lerps towards _cinematic.Position/Target), and the profile drawn from that
+        //swung lens would turn the cluster's outline as the shot played out, which reads as the HUD shaking
+        //rather than as the cluster turning. So this holds the right vector of the pose BEFORE the cinematic blend,
+        //updated every frame, and the profile reads it instead of the live camera. See BuildClusterProfile.
+        private Vector3 _gameplayCameraRight = Vector3.Right;
+
         //Where the glass hangs: CeilingPlate.CentreYAbove the field's top level — the plate's own clearance
         //(CeilingPlate.CLEARANCE, which carries the note about the cluster coming to rest a unit under the
         //plate rather than settling on its lattice) applied to the base this session picks. The kinematic body
@@ -921,7 +934,12 @@ namespace BS3D.Screens
             //arena. An award caught mid-flight is the visible half of that: it ages on the play clock, which
             //has stopped, so it would hang frozen and be reprojected against a moving camera, sliding across
             //the frame on its way to a score nobody is playing for any more.
-            if (_pendingOutcome == LevelOutcome.None) _hud.Draw(_score, Camera);
+            if (_pendingOutcome == LevelOutcome.None)
+            {
+                PlayHud.ClusterProfile profile = BuildClusterProfile(out int ballCount);
+                _hud.Draw(_score, Camera, in profile,
+                    new ReadOnlySpan<PlayHud.BallMarker>(_profileBalls, 0, ballCount));
+            }
 
             //The crosshair, into the host's overlay batch (the one the HUD above just used): shown only while
             //precise aim is leaning in, that being the only pose whose lens looks along the shot, and faded up

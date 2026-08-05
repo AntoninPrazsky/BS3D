@@ -360,6 +360,11 @@ namespace BS3D.Screens
                 _map.GetStaticBallsArray(), _world.Simulation, _ceiling.BodyReference,
                 _clusterWorldOffset.ToNumerics());
 
+            //The profile's backing array: one slot per cell, so the worst case (every cell occupied) is covered
+            //without a resize. Grown only if the field grew, so a level of the same size reuses the same array.
+            int cellCount = _map.StageSizeX * _map.StageSizeZ * _map.Levels;
+            if (_profileBalls == null || _profileBalls.Length < cellCount) _profileBalls = new PlayHud.BallMarker[cellCount];
+
             //What happens on a hit lives in the handler: the snap into the lattice, the constraints, and the
             //match rule. It gets the very list instances the frame draws from, and the same offset, so it can
             //take a world contact down into the grid frame to ask the map about it and bring the answer back up.

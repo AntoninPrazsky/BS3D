@@ -43,9 +43,28 @@ namespace BS3D.Screens
     {
         private readonly BS3DGame _game;
 
+        //A 1×1 white texel the cluster profile draws its bars and discs from. The old WhitePixel on BS3DGame was
+        //retired in #76 (the crosshair got its own); rather than reach across to one, the HUD owns its own, made
+        //lazily on the first draw when the device is guaranteed live. Tiny and lives with the HUD's lifetime.
+        private Texture2D _pixel;
+
         internal PlayHud(BS3DGame game) => _game = game;
 
         private int Scaled(int designUnits) => _game.Scaled(designUnits);
+
+        /// <summary>The HUD's own 1×1 white texel, created on first use.</summary>
+        private Texture2D Pixel
+        {
+            get
+            {
+                if (_pixel == null)
+                {
+                    _pixel = new Texture2D(_game.GraphicsDevice, 1, 1);
+                    _pixel.SetData(new[] { Color.White });
+                }
+                return _pixel;
+            }
+        }
 
         #region Layout and palette
 
@@ -292,6 +311,85 @@ namespace BS3D.Screens
 
         #endregion
 
+        #region The cluster profile (a side cut of the field)
+
+        //The glass coming down at the cluster was its own warning by design, but in practice a translucent plate
+        //sliding against a sky is nearly invisible while the eye is on the cluster — the ceiling flash and the
+        //floor laser net both say so already, yet neither makes it obvious WHERE the glass stands relative to the
+        //cluster and the death line. The side cut does: it is the one place the player can read the whole threat
+        //at a glance. See docs/game-feedback.md "The in-play HUD" — the earlier "No ceiling counter" line is the
+        //rule this exists to relax, for exactly the reason it foresaw.
+
+        /// <summary>
+        /// One ball's sample for the profile: where it sits in the cluster and what colour it is. Drawn straight
+        /// off the live body poses the same frame the instanced balls are, so what the profile shows IS the
+        /// simulation — a swaying cluster sways in the cut too.
+        /// </summary>
+        public struct BallMarker
+        {
+            public Vector3 World;
+            public BallType Type;
+        }
+
+        /// <summary>
+        /// Everything the profile needs to draw, built by the session from its own private state (this HUD owns
+        /// no simulation). The live balls are passed alongside (as a span) because a span cannot live in a struct
+        /// field — they are the session's reused backing array, handed in for this one draw.
+        /// </summary>
+        public struct ClusterProfile
+        {
+            /// <summary>World Y of the glass right now (it slides between the top and the death line).</summary>
+            public float CeilingY;
+
+            /// <summary>0…1, decaying: how recently the glass stepped. Drives the glass bar's red flash.</summary>
+            public float CeilingFlash;
+
+            /// <summary>World Y a ball centre must not cross — the loss line.</summary>
+            public float DeathY;
+
+            /// <summary>
+            /// Half the field's diagonal in world units — the furthest a ball's projection onto the camera's right
+            /// axis can reach from the centre. Derived from the field footprint by the session, so the horizontal
+            /// axis maps to the cluster's actual width rather than a fudge that goes stale when a level's footprint
+            /// changes (a ball at a field corner lands at the panel's edge, not bunched at its centre).
+            /// </summary>
+            public float HalfDepth;
+
+            /// <summary>The gameplay camera's right axis (NOT the cinematic lens), so the cut does not turn while
+            /// a drop cinematic swings the camera — the profile reads the pose the player aims with, frozen.</summary>
+            public Vector3 CameraRight;
+        }
+
+        //Layout, in 2160p design units through Scaled() like everything else. A panel down the left edge — the
+        //only space free in BOTH poses between the FPS line (top-left) and the balls-left readout (bottom-left).
+        //FIXED size, so it does not shift as the cluster grows and shrinks: the glass's descent is what moves,
+        //the frame that holds it does not. No border, no label, no backing plate — the balls and bars draw straight
+        //over the scene, which keeps the panel from reading as a box plastered over the world.
+        private const int PROFILE_WIDTH = 200;
+        private const int PROFILE_HEIGHT = 1300;             //taller than any cluster, capped to the viewport gap
+        private const int PROFILE_MARGIN = HUD_MARGIN;       //clears the frame edge like the corner text does
+
+        //The glass bar and the death line, in design units. Both thick enough to read as deliberate marks at the
+        //panel's scale — a 2-pixel line over a lit skyline is sub-pixel and gone.
+        private const int PROFILE_GLASS_THICKNESS = 16;
+        private const int PROFILE_DEATH_THICKNESS = 10;
+
+        //The field's vertical extent, mirrored from GameplayScreen (which owns the real constants privately).
+        //The panel frames the WHOLE field — death line at the bottom to the glass's resting place at the top —
+        //so the glass's descent reads against the full distance it has to fall. FIELD_TOP_Y changed in the #72
+        //refactor (8/√2 ≈ 5.66); if GameplayScreen retunes it, this must follow.
+        private const float FIELD_TOP_Y = 5.6569f;          // FIELD_TOP_LEVELS (8) / √2
+        private const float CEILING_CLEARANCE = 2f;
+
+        //The profile's red is a display-range red that shares the ceiling flash's hue: the 3D plate glows at
+        //6.0/0.15/0.1 in LINEAR radiance because it has to out-shout the sky behind it, while this marker sits
+        //over the scene and only has to read as the game's one alarm — so a hand-picked display colour in the same
+        //red family, not a derived conversion. It shares that hue with the floor laser net and the 3D flash, so
+        //the three are one warning said three ways.
+        private static readonly Color PROFILE_ALARM = new(220, 60, 50);
+
+        #endregion
+
         #region Lifetime
 
         /// <summary>
@@ -447,15 +545,20 @@ namespace BS3D.Screens
         #region Draw
 
         /// <summary>
-        /// Score, streak and balls left, in the corners. The frame's centre belongs to the cluster and its
-        /// bottom to the gun — and precise aim leans the lens in over the barrel, which fills more of it still —
-        /// so the corners are the only space free in <b>both</b> poses and at every aspect.
+        /// Score, streak and balls left, in the corners, and the cluster's side cut down the left edge. The
+        /// frame's centre belongs to the cluster and its bottom to the gun — and precise aim leans the lens in
+        /// over the barrel, which fills more of it still — so the corners are the only space free in <b>both</b>
+        /// poses and at every aspect, and the narrow strip between them down the left edge is where the side cut
+        /// lives.
         /// <para>
-        /// No ceiling counter. The glass coming down at the cluster is meant to be its own warning; a number
-        /// counting to the next descent is a second way of saying what the player can already see.
+        /// The side cut is the ceiling warning made spatial. The 3D glass sliding against a sky is nearly
+        /// invisible (see docs/game-feedback.md "The ceiling announces itself"), the floor laser net says only
+        /// that the end is near, and neither shows WHERE the glass stands. The cut does: the glass bar, the
+        /// cluster hanging under it, and the death line are all in one frame, so a descent reads as the bar
+        /// closing on the balls.
         /// </para>
         /// </summary>
-        internal void Draw(ScoreKeeper score, ICamera camera)
+        internal void Draw(ScoreKeeper score, ICamera camera, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls)
         {
             _game.EnsureHudFonts();
 
@@ -464,6 +567,10 @@ namespace BS3D.Screens
 
             SpriteBatch batch = _game.OverlayBatch;
             batch.Begin();
+
+            //The side cut, drawn first so the corner readouts and any incoming award pass over it rather than
+            //under it — the same reason DrawAwards is last in this block.
+            DrawClusterProfile(viewport, in profile, balls);
 
             //The score, top right — the FPS line owns the top left (InfoRenderer draws after this, in
             //base.Draw). Its right edge is the pivot everything above hangs off, so the margin holds while the
@@ -713,6 +820,143 @@ namespace BS3D.Screens
             //Behind the lens, or past the far plane: Project still returns a point, and drawing it would put the
             //number somewhere on screen that has nothing to do with where the ball was
             return projected.Z >= 0f && projected.Z <= 1f;
+        }
+
+        /// <summary>
+        /// The cluster's side cut: a narrow vertical strip down the left edge, showing the glass ceiling as a
+        /// bar, the cluster's balls as dots, and the death line at the bottom. A descending ceiling reads here
+        /// as the bar closing on the balls — the spatial warning the 3D glass sliding against a sky is not.
+        /// <para>
+        /// The horizontal position of each ball is its projection onto the camera's <b>right</b> axis (the same
+        /// projection a sound is panned by), so the cut is a true side view from where the player stands: as the
+        /// gun orbits, the cluster's outline turns in the cut the way it does on screen. The vertical position is
+        /// world Y mapped linearly from the top of the field to the death line.
+        /// </para>
+        /// <para>
+        /// Drawn inside the corner readouts' own <c>Begin/End</c> block (default SpriteBatch state) and first in
+        /// it, so the numbers pass over it rather than under. The balls are drawn procedurally (no circle
+        /// texture), and no per-frame allocations are made: the markers read straight off the span the session
+        /// already filled.
+        /// </para>
+        /// </summary>
+        private void DrawClusterProfile(Viewport viewport, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls)
+        {
+            //Copied off the `in` parameter into plain locals: a local function cannot capture an `in` parameter,
+            //and these are everything the projections below read off the profile.
+            float ceilingY = profile.CeilingY;
+            float deathY = profile.DeathY;
+            Vector3 cameraRight = profile.CameraRight;
+            float flash = profile.CeilingFlash;
+            float halfDepth = profile.HalfDepth;
+
+            //The panel spans the full field height, FIXED — it does not resize with the cluster. A panel that grew
+            //and shrank as balls were shot and matched read as something wrong with the HUD rather than as the
+            //field's frame, and it shifted under the eye every shot. The glass's descent is what moves; the panel
+            //that frames it holds still. The vertical extent is the gameplay field the glass travels: its resting
+            //place at the top down to the death line at the bottom.
+            float topY = FIELD_TOP_Y + CEILING_CLEARANCE;
+            float bottomY = deathY;
+            float span = topY - bottomY;
+            if (span < 0.5f) return;
+
+            int width = Scaled(PROFILE_WIDTH);
+            int margin = Scaled(PROFILE_MARGIN);
+
+            //Centred vertically in the gap between the FPS line and the balls-left readout, capped to fit.
+            int maxHeight = viewport.Height - 2 * margin;
+            int panelHeight = Math.Min(maxHeight, Scaled(PROFILE_HEIGHT));
+            int panelX = margin;
+            int panelTop = (viewport.Height - panelHeight) / 2;
+            if (panelHeight <= width) return;
+
+            //ISOTROPIC scale: the same pixels-per-world-unit on both axes, so the cluster keeps its true
+            //proportions and the balls sit at their real spacing (a ball is 1 unit across, levels are 1/√2 apart).
+            //halfDepth is the field's half-diagonal — the depth the side cut sees as the camera orbits.
+            float safeDepth = halfDepth > 0.001f ? halfDepth : 1f;
+            float scaleForHeight = panelHeight / span;
+            float scaleForWidth = width / (2f * safeDepth);
+            float pixelsPerUnit = MathF.Min(scaleForHeight, scaleForWidth);
+
+            float centerX = panelX + width * 0.5f;
+            float centerY = panelTop + panelHeight * 0.5f;
+            float midY = (topY + bottomY) * 0.5f;
+
+            float WorldToPanelY(float worldY) => centerY + (midY - worldY) * pixelsPerUnit;
+
+            float WorldToPanelX(Vector3 world)
+            {
+                float offset = Vector3.Dot(world, cameraRight);
+                return centerX + Math.Clamp(offset, -safeDepth, safeDepth) * pixelsPerUnit;
+            }
+
+            //A ball is 1 world unit across (radius 0.5). At this scale that is its drawn diameter, so the markers
+            //sit edge-to-edge the way the real cluster actually packs.
+            float markerRadius = pixelsPerUnit * 0.5f;
+
+            SpriteBatch batch = _game.OverlayBatch;
+            Texture2D pixel = Pixel;
+
+            //No backing plate: the balls and the bars draw straight over the scene, which keeps the panel from
+            //reading as a box plastered over the world. The markers carry their own contrast (their colours,
+            //lifted towards white for the dark types).
+
+            //The glass bar at its current height — NEUTRAL (the menu's own text colour) at rest, so it reads as
+            //the ceiling the balls hang from rather than as a warning. It takes the alarm's red only on the flash,
+            //squared exactly as the 3D plate's EmissiveTint is scaled by _ceilingFlash²: unmistakable on the frame
+            //it steps, back to neutral before the slide finishes.
+            int glassThickness = Math.Max(3, Scaled(PROFILE_GLASS_THICKNESS));
+            float flash2 = flash * flash;
+            Color glassColor = Color.Lerp(BS3DGame.MENU_TEXT, PROFILE_ALARM, flash2);
+            int glassY = (int)MathF.Round(WorldToPanelY(ceilingY));
+            batch.Draw(pixel, new Rectangle(panelX, glassY - glassThickness / 2, width, glassThickness), glassColor);
+
+            //The cluster's balls, drawn as PROCEDURAL circles — no texture. Each is a stack of horizontal bars
+            //(one per scanline of the disc), whose widths are the circle's half-chord at that height. A texture
+            //needed premultiplied alpha to lose its white square and a separate asset to keep in step; a circle
+            //built from the 1×1 pixel needs neither, and is exact at any size.
+            for (int i = 0; i < balls.Length; i++)
+            {
+                BallMarker marker = balls[i];
+                float px = WorldToPanelX(marker.World);
+                float py = WorldToPanelY(marker.World.Y);
+
+                DrawDisc(pixel, batch, px, py, markerRadius, TypeColor(marker.Type));
+            }
+
+            //The death line at the bottom — the one place the alarm's red is ALWAYS shown, because it IS the
+            //warning: the line a ball must not cross. Drawn last so it sits over anything that has reached it.
+            int deathThickness = Math.Max(2, Scaled(PROFILE_DEATH_THICKNESS));
+            int deathLineY = (int)MathF.Round(WorldToPanelY(deathY));
+            batch.Draw(pixel, new Rectangle(panelX, deathLineY - deathThickness / 2, width, deathThickness), PROFILE_ALARM);
+        }
+
+        /// <summary>
+        /// A filled disc drawn as a stack of horizontal bars — one per pixel row — each as wide as the circle's
+        /// half-chord at that height. Built from the host's single white texel, so there is no circle texture to
+        /// generate, premultiply or keep in step: the disc is exact at any radius and needs no alpha tricks to lose
+        /// a square (it is only ever the bars it is made of).
+        /// </summary>
+        private static void DrawDisc(Texture2D pixel, SpriteBatch batch, float cx, float cy, float radius, Color color)
+        {
+            int r = (int)MathF.Round(radius);
+            if (r < 1)
+            {
+                //Sub-pixel: a single point is an honest marker, not a one-pixel circle that rounds away to nothing.
+                batch.Draw(pixel, new Vector2(cx - 0.5f, cy - 0.5f), color);
+                return;
+            }
+
+            float r2 = radius * radius;
+
+            for (int dy = -r; dy <= r; dy++)
+            {
+                //Half the chord at this row: √(r² − dy²). The bar spans the full width of the disc here.
+                float half = MathF.Sqrt(r2 - dy * dy);
+                int w = (int)MathF.Round(half * 2f);
+                if (w <= 0) continue;
+
+                batch.Draw(pixel, new Rectangle((int)MathF.Round(cx - half), (int)MathF.Round(cy + dy), w, 1), color);
+            }
         }
 
         #endregion
