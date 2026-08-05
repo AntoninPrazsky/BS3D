@@ -731,7 +731,9 @@ namespace Testbed
             _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
                 (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY);
 
-            _cannon = new Cannon(new Vector3(0f, 5f, 0f), -6.4f, 20f);
+            //The trunnion height is the carriage's own figure: where the wheels' radius and the axle's drop
+            //put the pins for the wheels to graze the island's arris plane (see CannonRig.TRUNNION_HEIGHT)
+            _cannon = new Cannon(new Vector3(0f, 5f, 0f), CannonRig.TRUNNION_HEIGHT, 20f);
 
             //The procedural barrel (the last modeled asset made procedural), cut to hold exactly the loaded queue:
             //a muzzle lip just ahead of the front ball, a breech just behind the last one. The rig is told only how
@@ -789,6 +791,8 @@ namespace Testbed
 
             _skyLitRenderers.Add(_ceilingPlate.Renderer);
             _skyLitRenderers.Add(_cannonRig.Renderer);
+            _skyLitRenderers.Add(_cannonRig.CarriageRenderer);
+            _skyLitRenderers.Add(_cannonRig.WheelRenderer);
             if (_cityRenderer != null) _skyLitRenderers.Add(_cityRenderer);
             //The island's cap and drum, the drain's glass and its gold beads — but deliberately not its pit
             //shaft, which is a hole in the ground no dome may bleach. Appended rather than enumerated: this
@@ -1494,6 +1498,7 @@ namespace Testbed
                 _island.DrawPit(_camera, _sceneEffectParams, _scene);
 
                 _cannonRig.Draw(_camera, _cannon.BarrelWorld(), _sceneEffectParams);
+                _cannonRig.DrawCarriage(_camera, _cannon.CarriageWorld(), _cannon.AdvanceTravel, _sceneEffectParams);
 
                 //Every ball on the scene, collected and then put out: one instanced draw call per type and LOD
                 //level. BeginFrame empties the buckets and is the only way to fill them, which is what makes the
@@ -1722,12 +1727,16 @@ namespace Testbed
             MouseState mouse = Mouse.GetState();
             GamePadState pad = GamePad.GetState(PlayerIndex.One);
 
-            //Orbiting the cannon around the field is on A/D — in the free fly camera A/D stay its strafe, which
-            //is why the free-mode early-out above exists. W/S are left unused: the gun turns on a carriage, it
-            //does not rise or fall. Orbiting does not touch the aim: the mouse owns it (below) and holds it
-            //wherever the player leaves it.
+            //Orbiting the cannon around the field is on A/D and walking it towards the field and back on W/S —
+            //in the free fly camera all four stay the camera's own, which is why the free-mode early-out above
+            //exists. Walking closes on the cluster (a steeper shot up into its underside) or backs off for a
+            //flatter one; the ends of the walk are rubber (Cannon.ADVANCE_EASE_ZONE), not stops. Neither
+            //movement touches the aim: the mouse owns it (below) and holds it wherever the player leaves it.
             if (keyboard.IsKeyDown(mgKeys.A)) _cannon.Orbit(1f);
             if (keyboard.IsKeyDown(mgKeys.D)) _cannon.Orbit(-1f);
+
+            if (keyboard.IsKeyDown(mgKeys.W)) _cannon.Advance(1f);
+            if (keyboard.IsKeyDown(mgKeys.S)) _cannon.Advance(-1f);
 
             _cannon.Update(gameTime);
 
@@ -1829,9 +1838,14 @@ namespace Testbed
             //no longer parks it at every intermediate guess of the alternation
             _cannon.OrbitRadius = fit.CannonOrbitRadius;
 
+            //And the walk the player gets around that rest (W/S in game mode), after OrbitRadius on purpose:
+            //assigning the radius parks the gun at rest, and the range clamps against wherever it stands
+            _cannon.SetAdvanceRange(fit.CannonMinRadius, fit.CannonMaxRadius);
+
             Console.WriteLine($"[camera] Field {_map.StageSizeX}x{_map.StageSizeZ}x{_map.Levels}, aspect {_camera.AspectRatio:F2}: " +
                 $"camera {_gameCameraDistance:F1} out, aim Y {_gameCameraTargetY:F1}, " +
-                $"cannon orbit {_cannon.OrbitRadius:F1} ({_gameCameraDistance - _cannon.OrbitRadius:F1} in front of the camera)");
+                $"cannon orbit {_cannon.OrbitRadius:F1} ({_gameCameraDistance - _cannon.OrbitRadius:F1} in front of the camera" +
+                $", walk {fit.CannonMinRadius:F1}..{fit.CannonMaxRadius:F1})");
         }
 
         private const float RAD_TO_DEG = 180f / MathF.PI;

@@ -22,8 +22,8 @@ namespace BS3D.Screens
                 + "last anchor for."));
             column.Widgets.Add(Paragraph(
                 "Controls:  the mouse aims,  left button or space fires,  right button leans in along the "
-                + "barrel,  A/D traverses the carriage,  Esc pauses,  F11 toggles fullscreen,  F12 hides the "
-                + "FPS counter."));
+                + "barrel,  A/D traverses the carriage,  W/S walks it towards the field and back,  Esc pauses,  "
+                + "F11 toggles fullscreen,  F12 hides the FPS counter."));
             column.Widgets.Add(Paragraph(
                 "Built on MonoGame (DirectX 11) and BepuPhysics 2. The scenes, the balls and the city are all "
                 + "procedural — no models, only code. Typeface Inter (SIL OFL 1.1)."));
