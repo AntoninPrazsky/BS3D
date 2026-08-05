@@ -279,7 +279,7 @@ namespace BS3D
 
             //The clouds' own two colours follow the dome as well, and the lit side is handed the very radiance
             //the rig gives the scene — one sun, one number (see SkyLightRig.SunRadianceTinted)
-            _clouds.ApplyPalette(_skyEffect, _rig.SunRadianceTinted, _rig.ZenithLinear);
+            _clouds.ApplyPalette(_skyEffect, _rig.SunRadianceTinted, _rig.ZenithLinear, _rig.HorizonLinear);
         }
 
         /// <summary>

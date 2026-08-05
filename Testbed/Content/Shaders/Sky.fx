@@ -44,6 +44,11 @@ float CloudSunAbsorption;
 float CloudSilverStrength;
 float CloudSilverPower;
 
+//The billow: how hard the field's slope tilts the underside's normal (world units of hang per unit of
+//thickness, roughly), and how hard the tilted facets swing the light that lands on them
+float CloudFormStrength;
+float CloudShapeStrength;
+
 struct SkyVertexInput
 {
 	float4 Position : POSITION0;
@@ -90,8 +95,10 @@ float4 SkyPS(SkyVertexOutput input) : COLOR
 	float footprint = length(fwidth(hit));
 
 	//Thickness for the shading, coverage for the compositing. They are the same number until the cloud
-	//goes solid, and everything interesting about a cloud's interior happens after that.
-	float thickness = CloudThickness(hit, footprint);
+	//goes solid, and everything interesting about a cloud's interior happens after that. The yz half is
+	//the field's slope, and it is what the billow below is made of.
+	float3 thicknessD = CloudThicknessD(hit, footprint);
+	float thickness = thicknessD.x;
 	float density = saturate(thickness);
 
 	//What the sun had to come through to reach this piece of cloud: the cloud's own body, plus whatever
@@ -106,8 +113,20 @@ float4 SkyPS(SkyVertexOutput input) : COLOR
 	float2 towardsSun = SunDirection.xz * CloudSunStep;
 	float swallowed = thickness * CloudSelfAbsorption + CloudCover(hit + towardsSun) * CloudSunAbsorption;
 
-	float sunlight = exp(-swallowed);
-	float3 lit = lerp(CloudShadowColor, CloudSunColor, sunlight);
+	//The billow, and it is what makes the deck read as a body rather than as a map of its own density:
+	//the underside is treated as a surface hanging CloudFormStrength-deep off the plane where the field
+	//is thick, its downward normal tilts with the field's slope, and facets leaning towards the sun's
+	//azimuth catch light the flat wash never showed. "relief" is zero on a flat stretch by construction
+	//(the flat normal's dot with the sun is exactly -SunDirection.y), so the Beer-Lambert shading keeps
+	//its authored look there and the slopes swing about it - brighter into the sun, darker away - with
+	//the swing's throw on CloudShapeStrength. Unclamped above one on purpose: a sunward lobe edge is
+	//genuinely brighter than the flat lit top beside it, and saturate would cut exactly that off.
+	float3 nor = normalize(float3(-CloudFormStrength * thicknessD.y, -1.0, -CloudFormStrength * thicknessD.z));
+	float relief = dot(nor, SunDirection) + SunDirection.y;
+	float shape = max(1.0 + CloudShapeStrength * relief, 0.0);
+
+	float sunlight = exp(-swallowed) * shape;
+	float3 lit = lerp(CloudShadowColor, CloudSunColor, saturate(sunlight));
 
 	//Forward scattering. Looking towards the sun through a thin edge is the whole reason a cloud ever
 	//looks like anything other than grey wool, so it gets its own term rather than being left to the

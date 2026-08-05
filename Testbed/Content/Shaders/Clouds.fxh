@@ -68,6 +68,38 @@ float CloudNoise(float2 p)
 	return lerp(lerp(a, b, u.x), lerp(c, d, u.x), u.y);
 }
 
+//Gradient noise again, carrying its analytic derivative (value in x, d/dworld in yz). The sky shader
+//shades the deck off this field's slope, and an analytic derivative is both cheaper and cleaner than
+//re-evaluating the field three times: the finite-difference version pays two full extra fbm walks and
+//still hands back a derivative one step stale. GPU-only - the CPU mirror never shades, so it never
+//needs this, and CloudNoise above stays the one function the two sides keep in step.
+float3 CloudNoiseD(float2 p)
+{
+	float2 cell = floor(p);
+	float2 f = p - cell;
+
+	//Quintic and its derivative - the same fade CloudNoise uses, or the two would disagree
+	float2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+	float2 du = 30.0 * f * f * (f * (f - 2.0) + 1.0);
+
+	float2 ga = CloudHash22(cell + float2(0, 0));
+	float2 gb = CloudHash22(cell + float2(1, 0));
+	float2 gc = CloudHash22(cell + float2(0, 1));
+	float2 gd = CloudHash22(cell + float2(1, 1));
+
+	float va = dot(ga, f - float2(0, 0));
+	float vb = dot(gb, f - float2(1, 0));
+	float vc = dot(gc, f - float2(0, 1));
+	float vd = dot(gd, f - float2(1, 1));
+
+	float3 result;
+	result.x = va + u.x * (vb - va) + u.y * (vc - va) + u.x * u.y * (va - vb - vc + vd);
+	result.yz = ga + u.x * (gb - ga) + u.y * (gc - ga) + u.x * u.y * (ga - gb - gc + gd)
+		+ du * (float2(u.y, u.x) * (va - vb - vc + vd) + float2(vb, vc) - va);
+
+	return result;
+}
+
 //The weather layer: two octaves drifting at different speeds, so the sky evolves instead of sliding past
 //as one rigid sheet. Keep this in step with CloudField.Weather on the C# side.
 float CloudWeather(float2 world)
@@ -80,21 +112,48 @@ float CloudWeather(float2 world)
 	return w;
 }
 
+//The weather layer with its slope - the same two octaves as CloudWeather, value-identical by
+//construction (same taps, same weights), plus the derivative the shading wants. Sky-shader only:
+//nothing the CPU or the shadow reads ever touches a derivative.
+float3 CloudWeatherD(float2 world)
+{
+	float2 drift = CloudWind * CloudTime;
+
+	float3 n1 = CloudNoiseD((world + drift) * CloudScale);
+	float3 n2 = CloudNoiseD((world + drift * 1.6) * CloudScale * 2.7 + 31.4);
+
+	return float3(
+		0.62 * n1.x + 0.38 * n2.x,
+		0.62 * CloudScale * n1.yz + 0.38 * CloudScale * 2.7 * n2.yz);
+}
+
 //0 = clear sky, 1 = solid cloud.
 float CloudCover(float2 world)
 {
 	return saturate((CloudWeather(world) + CloudCoverageBias) * CloudCoverageGain);
 }
 
-//The fine octaves. Each fades against its own wavelength using the pixel's footprint on the cloud plane,
-//the way every other procedural feature in this project does - and here the fade earns its keep twice
-//over, because towards the horizon the view ray runs nearly parallel to the plane, the footprint
-//explodes, and the detail washes out into haze on its own without a special case for it.
-float CloudDetail(float2 world, float footprint)
+//How much the character field below swings the detail strength either way. A character of one kind of
+//cloud everywhere is precisely what made the deck read as one material: every bank had the same grain,
+//so the eye had nothing to tell one cloud from the next by.
+float CloudCharacterStrength;
+
+//The fine octaves, with the slope of the first four. Each fades against its own wavelength using the
+//pixel's footprint on the cloud plane, the way every other procedural feature in this project does - and
+//here the fade earns its keep twice over, because towards the horizon the view ray runs nearly parallel
+//to the plane, the footprint explodes, and the detail washes out into haze on its own without a special
+//case for it.
+//
+//The derivative deliberately stops at the fourth octave: a gradient scales with its octave's frequency,
+//so summed to the end the finest grain would own the whole slope and the shaded form would fizz - the
+//normal wants the shape of the lobes, the value wants the grain on them, and the two want different
+//parts of the spectrum. (The same reasoning as iq's fbmd_8, which accumulates half its octaves' values
+//and only a quarter of their derivatives.)
+float3 CloudDetailD(float2 world, float footprint)
 {
 	float2 drift = CloudWind * CloudTime;
 
-	float sum = 0.0;
+	float3 sum = float3(0.0, 0.0, 0.0);
 	float amplitude = 0.5;
 
 	//Starting only three times over the weather layer rather than six leaves no gap between the two:
@@ -102,12 +161,18 @@ float CloudDetail(float2 world, float footprint)
 	//the grain on its edge, and a cloud is mostly made of what happens in between.
 	float frequency = CloudScale * 3.0;
 
+	//Seven octaves, not five: the fifth bottomed out at a wavelength of ~7 world units, which from the
+	//arena subtends tens of pixels - the deck's "low resolution" read was exactly this. Two more take
+	//the grain to ~1.5 units, and the footprint fade already owns the question of where they may show.
 	[unroll]
-	for (int octave = 0; octave < 5; octave++)
+	for (int octave = 0; octave < 7; octave++)
 	{
 		float resolvable = saturate(1.0 - footprint * frequency * 1.2);
 
-		sum += amplitude * resolvable * CloudNoise((world + drift * (1.0 + octave * 0.4)) * frequency + octave * 17.3);
+		float3 n = CloudNoiseD((world + drift * (1.0 + octave * 0.4)) * frequency + octave * 17.3);
+
+		sum.x += amplitude * resolvable * n.x;
+		if (octave < 4) sum.yz += amplitude * resolvable * frequency * n.yz;
 
 		//Falling off slower than the usual half leaves more of the sum in the fine octaves, which is
 		//where the lobes along a cloud's edge come from; at a half the first octave drowns the rest and
@@ -119,21 +184,27 @@ float CloudDetail(float2 world, float footprint)
 	return sum;
 }
 
-//How deep the cloud is here, and deliberately **not** clamped: past 1 the difference between solid and
-//very solid is the only thing left to shade a cloud's interior by, and clamping it is what turns a bank
-//into a flat grey wash with a nice edge. Opacity clamps, shading must not.
-float CloudThickness(float2 world, float footprint)
+//How deep the cloud is here (x) and which way the field slopes (yz), and the depth deliberately **not**
+//clamped: past 1 the difference between solid and very solid is the only thing left to shade a cloud's
+//interior by, and clamping it is what turns a bank into a flat grey wash with a nice edge. Opacity
+//clamps, shading must not.
+//
+//The character tap is what makes two banks in one sky different animals: a third, very low octave -
+//far below the weather layer, so it selects whole clouds rather than patches of one - swings the detail
+//strength about its authored value, and a bank the character smiles on comes out shredded and fibrous
+//where its neighbour stays rounded and dense. GPU-only like the detail: nothing the shadow or the light
+//rig reads ever sees it.
+float3 CloudThicknessD(float2 world, float footprint)
 {
-	float weather = (CloudWeather(world) + CloudCoverageBias) * CloudCoverageGain;
+	float3 weather = CloudWeatherD(world);
+	float3 detail = CloudDetailD(world, footprint);
 
-	return max(weather + CloudDetail(world, footprint) * CloudDetailStrength, 0.0);
-}
+	float character = CloudNoise((world + CloudWind * CloudTime * 0.8) * CloudScale * 0.37 + 113.7);
+	float strength = CloudDetailStrength * (1.0 + CloudCharacterStrength * character);
 
-//What covers the sky: the thickness clamped. Detail only moves the edges, since where the weather layer
-//is already solid or already clear the clamp swallows it.
-float CloudDensity(float2 world, float footprint)
-{
-	return saturate(CloudThickness(world, footprint));
+	float thickness = (weather.x + CloudCoverageBias) * CloudCoverageGain + detail.x * strength;
+
+	return float3(max(thickness, 0.0), weather.yz * CloudCoverageGain + detail.yz * strength);
 }
 
 //How much of the sun still reaches a point in the world. Branchless on purpose past the early-out: the

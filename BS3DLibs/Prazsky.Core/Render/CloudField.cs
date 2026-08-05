@@ -36,8 +36,11 @@ namespace Prazsky.Core.Render
         /// <summary>Noise units per world unit; the reciprocal is roughly one weather feature across.</summary>
         public float Scale { get; set; } = 1f / 450f;
 
-        /// <summary>Wind, in world units per second.</summary>
-        public Vector2 Wind { get; set; } = new(9f, 4f);
+        /// <summary>Wind, in world units per second. Halved from the original (9, 4): with the deck's new
+        /// billow shading and finer grain the same drift read as time-lapse — a sculpted cloud shows its
+        /// motion far more plainly than a soft wash did, so the speed that suited the wash was retuned by
+        /// looking, not because anything about the wind itself changed.</summary>
+        public Vector2 Wind { get; set; } = new(4.5f, 2f);
 
         /// <summary>Wall clock driving the wind, in seconds.</summary>
         public float Time { get; set; }
@@ -69,7 +72,7 @@ namespace Prazsky.Core.Render
         /// 2.8 the detail was modulating the thickness by about six percent and the clouds came out
         /// airbrushed. It wants to be a decent fraction of the weather's own amplitude.
         /// </summary>
-        private static readonly float DetailStrength = 2.5f;
+        private static readonly float DetailStrength = 2.3f;
 
         /// <summary>
         /// Opacity of the densest cloud, and the elevation over which cloud fades into haze. Well over 1, so
@@ -96,6 +99,36 @@ namespace Prazsky.Core.Render
         private static readonly float SilverStrength = 1.2f;
 
         private static readonly float SilverPower = 12f;
+
+        /// <summary>
+        /// The billow: how deep the underside is treated as hanging off the plane where the field is thick
+        /// (the field's slope times this tilts the shaded normal), and how hard the tilted facets swing the
+        /// light that lands on them. Zero for either returns the flat Beer-Lambert wash the deck had before
+        /// it was given a form — which is exactly what it looked like: a map of its own density, no body.
+        /// </summary>
+        private static readonly float FormStrength = 60f;
+
+        private static readonly float ShapeStrength = 1.4f;
+
+        /// <summary>
+        /// How far the per-cloud character field swings the detail strength either way (0.7 = ±70 %). One
+        /// grain everywhere is what made every bank the same animal; the character octave sits far below the
+        /// weather layer, so it picks whole clouds, and a bank it lands high on comes out shredded and
+        /// fibrous next to a rounded, dense neighbour. At 0.45 the swing was invisible against the base
+        /// strength — every bank still wore the same fleece — so it was widened until two kinds of cloud
+        /// genuinely coexist in one frame.
+        /// </summary>
+        private static readonly float CharacterStrength = 0.7f;
+
+        /// <summary>
+        /// How much further the clouds' lit side is carried towards the dome's horizon colour than the rig
+        /// already carried it. The rig's sun keeps most of its daylight radiance under every dome — the
+        /// scene under it needs a working key light even at dusk — but a cloud is <b>in</b> the sky, and a
+        /// deck lit with daylight grey over the neon city's dusk dome read as pasted on (issue #50). The
+        /// second lerp both hues the lit side towards the dome's own evening and scales it down with a dark
+        /// horizon; over a bright near-white day horizon it is close to a no-op.
+        /// </summary>
+        private static readonly float SunTintStrength = 0.5f;
 
         /// <summary>
         /// The shadowed underside, in **linear radiance** — a quantity of light, not an sRGB paint colour, so
@@ -125,7 +158,8 @@ namespace Prazsky.Core.Render
             public EffectParameter PlaneY, Scale, Time, CoverageBias, CoverageGain, ShadowFloor, ShadowGain, Wind;
 
             public EffectParameter SunColor, ShadowColor, DetailStrength, Opacity, HorizonFade, SunStep,
-                SelfAbsorption, SunAbsorption, SilverStrength, SilverPower, SunDirection;
+                SelfAbsorption, SunAbsorption, SilverStrength, SilverPower, SunDirection,
+                FormStrength, ShapeStrength, CharacterStrength;
         }
 
         //Callers apply the field to the same two or three effects every frame, and the by-name indexer is
@@ -185,6 +219,9 @@ namespace Prazsky.Core.Render
             slots.SunAbsorption?.SetValue(SunAbsorption);
             slots.SilverStrength?.SetValue(SilverStrength);
             slots.SilverPower?.SetValue(SilverPower);
+            slots.FormStrength?.SetValue(FormStrength);
+            slots.ShapeStrength?.SetValue(ShapeStrength);
+            slots.CharacterStrength?.SetValue(CharacterStrength);
             slots.SunDirection?.SetValue(sunDirection);
 
             if (instancedEffect != null) SlotsOf(instancedEffect).SunDirection?.SetValue(sunDirection);
@@ -205,23 +242,31 @@ namespace Prazsky.Core.Render
         /// </para>
         /// </summary>
         /// <param name="sunRadiance">
-        /// The lit side's radiance, taken exactly as it comes: it is the sun's own radiance already carried
-        /// towards the dome's horizon colour by the light rig's tint strength — the rig's figures, which stay
-        /// with the rig — and it is bit-for-bit the sun colour the scene shaders are handed for the same
-        /// frame. That identity is the point: the clouds are lit by literally the same light as everything
-        /// under them. There is deliberately no tint or scale applied here to be "restored" later.
+        /// The lit side's radiance as the rig hands it out: the sun's own radiance already carried towards
+        /// the dome's horizon colour by the light rig's tint strength — the rig's figures, which stay with
+        /// the rig — and bit-for-bit the sun colour the scene shaders are handed for the same frame. The
+        /// clouds carry it <b>further</b> towards the dome than the scene does (<see cref="SunTintStrength"/>,
+        /// applied here against <paramref name="horizonLinear"/>): the scene under a dusk dome still needs a
+        /// working key light, but a cloud is in the sky itself, and a deck keeping daylight radiance over a
+        /// dark dome is exactly what issue #50 filed. Over a bright day horizon the extra lerp is near a
+        /// no-op, so the day domes keep their look.
         /// </param>
         /// <param name="zenithLinear">
         /// The dome's zenith colour, decoded to linear. The underside sees only sky, so this is what tints it,
         /// harder than the rig tints anything (<see cref="ShadowTintStrength"/>).
         /// </param>
-        public void ApplyPalette(Effect skyEffect, Vector3 sunRadiance, Vector3 zenithLinear)
+        /// <param name="horizonLinear">
+        /// The dome's horizon colour, decoded to linear — what the lit side is carried further towards, hue
+        /// and brightness both, so a dark dome dims its clouds instead of only recolouring them.
+        /// </param>
+        public void ApplyPalette(Effect skyEffect, Vector3 sunRadiance, Vector3 zenithLinear, Vector3 horizonLinear)
         {
             EffectSlots slots = SlotsOf(skyEffect);
 
             Vector3 skyTint = Vector3.Lerp(Vector3.One, zenithLinear, ShadowTintStrength);
+            Vector3 domeTint = Vector3.Lerp(Vector3.One, horizonLinear, SunTintStrength);
 
-            slots.SunColor?.SetValue(sunRadiance);
+            slots.SunColor?.SetValue(sunRadiance * domeTint);
             slots.ShadowColor?.SetValue(ShadowColor * skyTint);
         }
 
@@ -265,6 +310,9 @@ namespace Prazsky.Core.Render
                 SunAbsorption = effect.Parameters["CloudSunAbsorption"],
                 SilverStrength = effect.Parameters["CloudSilverStrength"],
                 SilverPower = effect.Parameters["CloudSilverPower"],
+                FormStrength = effect.Parameters["CloudFormStrength"],
+                ShapeStrength = effect.Parameters["CloudShapeStrength"],
+                CharacterStrength = effect.Parameters["CloudCharacterStrength"],
 
                 //The one name without the Cloud prefix: the sun is shared with the light rig and the scene
                 //shading, and the clouds only borrow it
