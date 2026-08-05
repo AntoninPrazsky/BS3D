@@ -241,6 +241,8 @@ namespace BS3D
             foreach (InstancedModelRenderer ballRenderer in _balls.Renderers) yield return ballRenderer;
 
             yield return _cannonRig.Renderer;
+            yield return _cannonRig.CarriageRenderer;
+            yield return _cannonRig.WheelRenderer;
             yield return _cityRenderer;
 
             //The island's stone cap and concrete drum, the drain's glass and its two gold beads — but

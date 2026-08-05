@@ -107,6 +107,21 @@ namespace Prazsky.BS3D
         public const float CANNON_MAX_REST_ELEVATION = 0.70f;
 
         /// <summary>
+        /// How far the player may walk the gun from its solved rest radius, either way (W/S — see
+        /// <see cref="Cannon.Advance"/>). A fixed stroke rather than a per-level fraction, so the walk feels
+        /// the same on every map, and bounded twice at the near end: the range's minimum never crosses the
+        /// field-footprint clearance (the one bound that is about geometry rather than feel — a gun under the
+        /// cluster is shooting at its own ceiling). The <b>elevation</b> bound is deliberately NOT applied to
+        /// the range: walking in past <see cref="CANNON_MAX_REST_ELEVATION"/> steepens the resting aim and
+        /// pulls the highest near cells out of the clamp's reach, and that trade is the player's to make and
+        /// walk back out of — the rest pose the level opens on is still placed by the full three-bound solve.
+        /// At the far end the stroke also keeps the magazine readable: the camera does not follow the walk, so
+        /// the gun may close to <see cref="CANNON_CAMERA_STANDOFF"/> − stroke = 11 units of the lens and no
+        /// nearer (when the stand-off bound was the one that placed it).
+        /// </summary>
+        public const float CANNON_ADVANCE_STROKE = 4f;
+
+        /// <summary>
         /// How many times the two solves alternate, each depending on the other. It very nearly settles on the
         /// first round — whichever of the three bounds decides the orbit radius, the camera's solve then sees a
         /// gun whose angular footprint barely moves: pinned at <see cref="CANNON_CAMERA_STANDOFF"/> from the lens
@@ -183,13 +198,20 @@ namespace Prazsky.BS3D
             //elevation bound is measured against. World-framed on both sides, so the Y frame does not enter.
             float aimRise = cannon.OrbitCenter.Y - cannon.Position.Y;
 
+            //Hoisted out of the alternation: the footprint clearance is a bound of the rest radius AND the
+            //near end of the advance range below, and writing it twice is how the two would drift.
+            float clearFootprint = MathF.Sqrt(halfX * halfX + halfZ * halfZ) + CANNON_FIELD_CLEARANCE;
+
             //Round one is seeded off where the gun stands now rather than off the caller's last stand-off,
             //which is what keeps this from wanting a ninth parameter for a field the caller owns. It is the
             //same seed either way: the gun was itself placed CANNON_CAMERA_STANDOFF in front of the previous
             //solve's lens, and where a lower bound had held it further out instead, that same bound is about to
-            //hold it there again below. Read off the property, not re-derived: both copies measured the orbit
-            //radius back out of the gun's position with a sqrt (issue #72), and the setter is the only thing
-            //that ever moves the gun, always along the orbit, so the property IS that distance.
+            //hold it there again below. Since the advance walk arrived the gun may also stand up to
+            //CANNON_ADVANCE_STROKE off that rest when a mid-level re-solve lands — still only a seed: the
+            //bounds decide where the alternation settles, to within its documented sub-0.1 residual. Read off
+            //the property, not re-derived: both copies measured the orbit radius back out of the gun's
+            //position with a sqrt (issue #72), and the walk and the setter both move the gun only along the
+            //orbit, so the property IS that distance.
             float orbitRadius = cannon.OrbitRadius;
             float distance = orbitRadius + CANNON_CAMERA_STANDOFF;
 
@@ -198,20 +220,24 @@ namespace Prazsky.BS3D
 
             for (int round = 0; round < CONVERGENCE_ROUNDS; round++)
             {
-                orbitRadius = SolveOrbitRadius(distance, halfX, halfZ, aimRise);
+                orbitRadius = SolveOrbitRadius(distance, clearFootprint, aimRise);
                 distance = problem.SolveStandOff(orbitRadius, out targetY);
             }
 
-            return new CameraFit(distance, targetY, orbitRadius);
+            //The walk the player gets around that rest: a fixed stroke either way, its near end held off the
+            //field's footprint by the same clearance the rest radius itself respects — see
+            //CANNON_ADVANCE_STROKE for what deliberately does and does not bound it.
+            return new CameraFit(distance, targetY, orbitRadius,
+                MathF.Max(clearFootprint, orbitRadius - CANNON_ADVANCE_STROKE),
+                orbitRadius + CANNON_ADVANCE_STROKE);
         }
 
         /// <summary>
         /// Puts the gun <see cref="CANNON_CAMERA_STANDOFF"/> in front of the camera, held off by the two lower
         /// bounds documented with that constant.
         /// </summary>
-        private static float SolveOrbitRadius(float cameraDistance, float halfX, float halfZ, float aimRise)
+        private static float SolveOrbitRadius(float cameraDistance, float clearFootprint, float aimRise)
         {
-            float clearFootprint = MathF.Sqrt(halfX * halfX + halfZ * halfZ) + CANNON_FIELD_CLEARANCE;
             float clearElevation = aimRise / MathF.Tan(CANNON_MAX_REST_ELEVATION);
 
             return MathF.Max(cameraDistance - CANNON_CAMERA_STANDOFF, MathF.Max(clearFootprint, clearElevation));
@@ -359,9 +385,10 @@ namespace Prazsky.BS3D
     }
 
     /// <summary>
-    /// What the fit decided: how far back the camera stands, how high it aims, and how far out the gun orbits.
-    /// A readonly struct, so a solve allocates nothing — and a value rather than three assignments, so the gun
-    /// is moved once, by the caller, after the solve has finished with it.
+    /// What the fit decided: how far back the camera stands, how high it aims, how far out the gun orbits and
+    /// how far the player may walk it from there. A readonly struct, so a solve allocates nothing — and a
+    /// value rather than four assignments, so the gun is moved once, by the caller, after the solve has
+    /// finished with it.
     /// </summary>
     public readonly struct CameraFit
     {
@@ -374,11 +401,21 @@ namespace Prazsky.BS3D
         /// <summary>What to assign to <see cref="Cannon.OrbitRadius"/> — the one write the solve implies.</summary>
         public readonly float CannonOrbitRadius;
 
-        public CameraFit(float cameraDistance, float cameraTargetY, float cannonOrbitRadius)
+        /// <summary>Near end of the advance walk (W) — hand both ends to <see cref="Cannon.SetAdvanceRange"/>
+        /// with the radius above. See <see cref="GameCameraFit.CANNON_ADVANCE_STROKE"/> for the bounds.</summary>
+        public readonly float CannonMinRadius;
+
+        /// <summary>Far end of the advance walk (S).</summary>
+        public readonly float CannonMaxRadius;
+
+        public CameraFit(float cameraDistance, float cameraTargetY, float cannonOrbitRadius,
+            float cannonMinRadius, float cannonMaxRadius)
         {
             CameraDistance = cameraDistance;
             CameraTargetY = cameraTargetY;
             CannonOrbitRadius = cannonOrbitRadius;
+            CannonMinRadius = cannonMinRadius;
+            CannonMaxRadius = cannonMaxRadius;
         }
     }
 }

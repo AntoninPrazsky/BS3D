@@ -132,11 +132,18 @@ namespace BS3D.Screens
 
             _gameCameraDistance = fit.CameraDistance;
             _gameCameraTargetY = fit.CameraTargetY;
-            _cannon.OrbitRadius = fit.CannonOrbitRadius; //the one write the solve implies, once, at the end
+
+            //The two writes the solve implies, once, at the end: the rest radius, then the walk the player
+            //gets around it (W/S). The order matters — OrbitRadius parks the gun at rest, and SetAdvanceRange
+            //clamps against wherever it stands and kills any glide still running — so a re-solve mid-level (a
+            //resize) also resets a stroke in progress, the same reset the aim's baseline takes on the event.
+            _cannon.OrbitRadius = fit.CannonOrbitRadius;
+            _cannon.SetAdvanceRange(fit.CannonMinRadius, fit.CannonMaxRadius);
 
             Console.WriteLine($"[camera] Field {_map.StageSizeX}x{_map.StageSizeZ}x{_map.Levels}, aspect {Camera.AspectRatio:F2}: "
                 + $"camera {_gameCameraDistance:F1} out, aim Y {_gameCameraTargetY:F1}, "
-                + $"gun orbit {_cannon.OrbitRadius:F1} ({_gameCameraDistance - _cannon.OrbitRadius:F1} in front of the lens)");
+                + $"gun orbit {_cannon.OrbitRadius:F1} ({_gameCameraDistance - _cannon.OrbitRadius:F1} in front of the lens"
+                + $", walk {fit.CannonMinRadius:F1}..{fit.CannonMaxRadius:F1})");
         }
 
         #endregion
