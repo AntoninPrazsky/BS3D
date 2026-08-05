@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D.GameObjects;
+using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
 
@@ -23,8 +24,10 @@ namespace Prazsky.BS3D
     /// the one place the two callers genuinely differ: in the Testbed the lattice frame <i>is</i> the world
     /// frame, so the field's floor is <c>y = 0</c>, while in the Game level 0 sits at the cluster's world
     /// offset. "Levels in the game" in docs/game-session.md records it: <i>"The one thing that differs from the
-    /// Testbed's copy is the Y frame."</i> Everything else this reads off the gun is already world-framed (its
-    /// trunnion height, its orbit centre), so nothing else had to be opened up.
+    /// Testbed's copy is the Y frame."</i> Everything else this reads off the gun is already world-framed
+    /// (its orbit centre; its trunnion height it does not read so much as re-derive — the gun stands on the
+    /// island's dish, so the height is <c>CannonRig.TrunnionHeightAt</c> of whatever radius the round is
+    /// considering), so nothing else had to be opened up.
     /// </para>
     /// <para>
     /// <b>Pure, and no <see cref="Cannon"/> is touched.</b> The solve alternates — the lens is placed to frame
@@ -114,12 +117,27 @@ namespace Prazsky.BS3D
         /// cluster is shooting at its own ceiling). The <b>elevation</b> bound is deliberately NOT applied to
         /// the range: walking in past <see cref="CANNON_MAX_REST_ELEVATION"/> steepens the resting aim and
         /// pulls the highest near cells out of the clamp's reach, and that trade is the player's to make and
-        /// walk back out of — the rest pose the level opens on is still placed by the full three-bound solve.
-        /// At the far end the stroke also keeps the magazine readable: the camera does not follow the walk, so
-        /// the gun may close to <see cref="CANNON_CAMERA_STANDOFF"/> − stroke = 11 units of the lens and no
+        /// walk back out of — the rest pose the level opens on is still placed by the full four-bound solve.
+        /// At the far end the stroke also keeps the magazine readable: the camera does not follow the walk —
+        /// not even in height, see <see cref="LENS_FLOOR_Y"/> — so the gun may close to
+        /// <see cref="CANNON_CAMERA_STANDOFF"/> − stroke = 11 units of the lens and no
         /// nearer (when the stand-off bound was the one that placed it).
         /// </summary>
         public const float CANNON_ADVANCE_STROKE = 4f;
+
+        /// <summary>
+        /// Clearance the gun's stand keeps outside the drain's mouth (<c>ArenaIsland.FUNNEL_TOP_RADIUS</c>),
+        /// bounding the rest radius and the walk's near end both: the wheels must stay on stone, never roll
+        /// out over the glass funnel the released balls fall through. It is 1.5 and not a hair because of two
+        /// measured figures, both about the gold bead that rings the mouth (tube 0.5 about the rim circle, so
+        /// it bulges ~0.45 proud of the dish out to radius ~14.45): a wheel of <c>CannonRig</c>'s radius
+        /// resting nearer than ~1.1 outside the mouth leans its leading face into that bulge, and at full
+        /// traverse (±45°) the carriage's inner wheel swings up to <c>WHEEL_TRACK · sin 45° ≈ 1.06</c> inside
+        /// the stand's own radius. 1.5 clears the bead in the radial stance and keeps the traversed inner
+        /// wheel's contact on stone at once — the muzzle overhanging the glass at the near end is deliberate
+        /// and reads as leaning over the drain; the wheels crossing the gold curb would read as driving in.
+        /// </summary>
+        public const float CANNON_DRAIN_CLEARANCE = 1.5f;
 
         /// <summary>
         /// How many times the two solves alternate, each depending on the other. It very nearly settles on the
@@ -145,6 +163,22 @@ namespace Prazsky.BS3D
         private const float FAR_BOUND = 400f;
         private const float NEAR_BOUND_MARGIN = 2f;
 
+        //The overview lens's floor: the height it has when the gun stands at the island's outer arris — the
+        //stance every gun had before the dish, so it is exactly the lens height the whole overview was tuned
+        //at. The gun rides the dish down (up to DISH_DEPTH below the arris near the drain) and the lens
+        //deliberately does NOT ride with it: CAMERA_HEIGHT puts it 1.5 below the trunnions, which against a
+        //sunken gun is below the arris itself — from out past the island's edge the lens then looks AT the
+        //coping instead of over it, and the stone swallowed the bottom half of the frame (measured; it reads
+        //as lying on the ground). Floored here, the overview holds the height it always had, the walk does
+        //not bob the camera, and the gun visibly sinks and climbs the dish within a steady frame.
+        private static readonly float LENS_FLOOR_Y =
+            CannonRig.TrunnionHeightAt(ArenaIsland.FLOOR_RADIUS) + CAMERA_HEIGHT;
+
+        //One home for the lens's height rule: LensPositionAt and the solved aim height must apply the same
+        //floor or the camera would aim about a lens it does not stand at.
+        private static float LensHeightFor(float trunnionY) =>
+            MathF.Max(trunnionY + CAMERA_HEIGHT, LENS_FLOOR_Y);
+
 
         /// <summary>
         /// Where the lens sits for a given stand-off — the pose the fit searches over, and the same pose the
@@ -169,8 +203,9 @@ namespace Prazsky.BS3D
         /// whole point rather than tidiness.
         /// </para>
         /// </summary>
-        /// <param name="cannon">The gun being placed. Only its orbit centre, its trunnion height and its
-        /// current orbit radius are read — the last of them purely to seed the first round.</param>
+        /// <param name="cannon">The gun being placed. Only its orbit centre and its current orbit radius and
+        /// height are read — the latter two purely to seed the first round; every later round re-derives the
+        /// height from its own candidate radius, the dish deciding it.</param>
         /// <param name="cannonReach">Half-extent of the box the gun is framed as: large enough to hold the
         /// barrel at any aim, so the fit does not change as the player elevates or traverses. Both callers pass
         /// their barrel's half-length (the pivot-to-front-ball distance plus a ball radius).</param>
@@ -189,18 +224,15 @@ namespace Prazsky.BS3D
             float bottomY, float topY, float verticalFov, float aspectRatio)
         {
             Problem problem = new(
-                cannon.OrbitCenterGround, cannon.StandBearing, cannon.Position.Y, cannonReach,
+                cannon.OrbitCenterGround, cannon.StandBearing, cannonReach,
                 halfX, halfZ, bottomY, topY,
                 verticalFov * Constants.HALF * FIT_MARGIN,
                 MathF.Atan(MathF.Tan(verticalFov * Constants.HALF) * aspectRatio) * FIT_MARGIN);
 
-            //How high the gun looks up from its trunnions to the centre it aims at, which is what the resting
-            //elevation bound is measured against. World-framed on both sides, so the Y frame does not enter.
-            float aimRise = cannon.OrbitCenter.Y - cannon.Position.Y;
-
-            //Hoisted out of the alternation: the footprint clearance is a bound of the rest radius AND the
-            //near end of the advance range below, and writing it twice is how the two would drift.
+            //Hoisted out of the alternation: the footprint and drain clearances each bound the rest radius
+            //AND the near end of the advance range below, and writing either twice is how the two would drift.
             float clearFootprint = MathF.Sqrt(halfX * halfX + halfZ * halfZ) + CANNON_FIELD_CLEARANCE;
+            float clearDrain = ArenaIsland.FUNNEL_TOP_RADIUS + CANNON_DRAIN_CLEARANCE;
 
             //Round one is seeded off where the gun stands now rather than off the caller's last stand-off,
             //which is what keeps this from wanting a ninth parameter for a field the caller owns. It is the
@@ -211,36 +243,52 @@ namespace Prazsky.BS3D
             //bounds decide where the alternation settles, to within its documented sub-0.1 residual. Read off
             //the property, not re-derived: both copies measured the orbit radius back out of the gun's
             //position with a sqrt (issue #72), and the walk and the setter both move the gun only along the
-            //orbit, so the property IS that distance.
+            //orbit, so the property IS that distance. The trunnion height is seeded the same way — the gun
+            //stands on the island's dish, so its height is a function of its radius (CannonRig
+            //.TrunnionHeightAt), re-derived below from each round's radius exactly as Cannon itself will
+            //re-seat it when the caller assigns the result.
             float orbitRadius = cannon.OrbitRadius;
             float distance = orbitRadius + CANNON_CAMERA_STANDOFF;
+            float trunnionY = cannon.Position.Y;
 
             //Overwritten by every round below; the compiler cannot know CONVERGENCE_ROUNDS is never zero.
             float targetY = 0f;
 
             for (int round = 0; round < CONVERGENCE_ROUNDS; round++)
             {
-                orbitRadius = SolveOrbitRadius(distance, clearFootprint, aimRise);
-                distance = problem.SolveStandOff(orbitRadius, out targetY);
+                //How high the gun looks up from its trunnions to the centre it aims at, which is what the
+                //resting elevation bound is measured against. World-framed on both sides, so the Y frame does
+                //not enter. Inside the alternation since the dish: the trunnions ride it, so the rise is a
+                //function of the radius the previous round settled on — the elevation bound is
+                //self-referential through the dish's profile, and the alternation resolves that coupling the
+                //same way it resolves the lens–gun one (it contracts at ~0.13 a round, the dish's grade over
+                //tan(CANNON_MAX_REST_ELEVATION), so three rounds settle it well past the documented residual).
+                float aimRise = cannon.OrbitCenter.Y - trunnionY;
+
+                orbitRadius = SolveOrbitRadius(distance, clearFootprint, clearDrain, aimRise);
+                trunnionY = CannonRig.TrunnionHeightAt(orbitRadius);
+                distance = problem.SolveStandOff(orbitRadius, trunnionY, out targetY);
             }
 
             //The walk the player gets around that rest: a fixed stroke either way, its near end held off the
-            //field's footprint by the same clearance the rest radius itself respects — see
-            //CANNON_ADVANCE_STROKE for what deliberately does and does not bound it.
+            //field's footprint and the drain's mouth by the same clearances the rest radius itself respects —
+            //see CANNON_ADVANCE_STROKE for what deliberately does and does not bound it.
             return new CameraFit(distance, targetY, orbitRadius,
-                MathF.Max(clearFootprint, orbitRadius - CANNON_ADVANCE_STROKE),
+                MathF.Max(MathF.Max(clearFootprint, clearDrain), orbitRadius - CANNON_ADVANCE_STROKE),
                 orbitRadius + CANNON_ADVANCE_STROKE);
         }
 
         /// <summary>
-        /// Puts the gun <see cref="CANNON_CAMERA_STANDOFF"/> in front of the camera, held off by the two lower
-        /// bounds documented with that constant.
+        /// Puts the gun <see cref="CANNON_CAMERA_STANDOFF"/> in front of the camera, held off by the three
+        /// lower bounds documented with that constant and <see cref="CANNON_DRAIN_CLEARANCE"/>.
         /// </summary>
-        private static float SolveOrbitRadius(float cameraDistance, float clearFootprint, float aimRise)
+        private static float SolveOrbitRadius(float cameraDistance, float clearFootprint, float clearDrain,
+            float aimRise)
         {
             float clearElevation = aimRise / MathF.Tan(CANNON_MAX_REST_ELEVATION);
 
-            return MathF.Max(cameraDistance - CANNON_CAMERA_STANDOFF, MathF.Max(clearFootprint, clearElevation));
+            return MathF.Max(cameraDistance - CANNON_CAMERA_STANDOFF,
+                MathF.Max(clearDrain, MathF.Max(clearFootprint, clearElevation)));
         }
 
         /// <summary>
@@ -250,13 +298,15 @@ namespace Prazsky.BS3D
         /// expression cannot drift into two versions.
         /// </summary>
         private static Vector3 LensPositionAt(Vector3 centreGround, Vector3 bearing, float trunnionY, float distance) =>
-            centreGround + bearing * distance + Vector3.Up * (trunnionY + CAMERA_HEIGHT);
+            centreGround + bearing * distance + Vector3.Up * LensHeightFor(trunnionY);
 
         /// <summary>
         /// Where the gun's trunnions stand at a candidate orbit radius. This is exactly what
         /// <see cref="Cannon.OrbitRadius"/>'s setter would slide the gun to — it moves along the current orbit
-        /// angle and leaves the trunnion height alone — computed instead of assigned, which is what lets the
-        /// alternation walk candidates without touching the scene.
+        /// angle and re-seats the height on the island's dish, which is why <paramref name="trunnionY"/>
+        /// arrives already derived from the candidate radius (<c>CannonRig.TrunnionHeightAt</c>, the same
+        /// figure the setter would land on) — computed instead of assigned, which is what lets the alternation
+        /// walk candidates without touching the scene.
         /// </summary>
         private static Vector3 CannonPositionAt(Vector3 centreGround, Vector3 bearing, float trunnionY, float orbitRadius) =>
             centreGround + bearing * orbitRadius + Vector3.Up * trunnionY;
@@ -270,7 +320,6 @@ namespace Prazsky.BS3D
         {
             private readonly Vector3 _centreGround;
             private readonly Vector3 _bearing;
-            private readonly float _trunnionY;
             private readonly float _cannonReach;
             private readonly float _halfX;
             private readonly float _halfZ;
@@ -279,12 +328,11 @@ namespace Prazsky.BS3D
             private readonly float _verticalHalf;
             private readonly float _horizontalHalf;
 
-            internal Problem(Vector3 centreGround, Vector3 bearing, float trunnionY, float cannonReach,
+            internal Problem(Vector3 centreGround, Vector3 bearing, float cannonReach,
                 float halfX, float halfZ, float bottomY, float topY, float verticalHalf, float horizontalHalf)
             {
                 _centreGround = centreGround;
                 _bearing = bearing;
-                _trunnionY = trunnionY;
                 _cannonReach = cannonReach;
                 _halfX = halfX;
                 _halfZ = halfZ;
@@ -297,9 +345,12 @@ namespace Prazsky.BS3D
             /// <summary>
             /// The smallest stand-off at which everything fits, and the aim height that goes with it.
             /// </summary>
+            /// <param name="trunnionY">The gun's height at <paramref name="orbitRadius"/> — a per-round
+            /// argument rather than an invariant of the problem, because the trunnions ride the island's dish
+            /// and so move with the very radius the alternation is walking.</param>
             /// <param name="targetY">World Y the camera looks at, over the field's centre: the axis elevation
             /// carried out to the stand-off it was solved at.</param>
-            internal float SolveStandOff(float orbitRadius, out float targetY)
+            internal float SolveStandOff(float orbitRadius, float trunnionY, out float targetY)
             {
                 //Everything fits from far enough away and nothing does from close in, so the smallest distance
                 //that fits can be bisected for. The near bound is the lens right behind the gun.
@@ -309,13 +360,13 @@ namespace Prazsky.BS3D
                 for (int i = 0; i < BISECTION_STEPS; i++)
                 {
                     float middle = (near + far) * Constants.HALF;
-                    if (FitsAt(middle, orbitRadius, out _)) far = middle;
+                    if (FitsAt(middle, orbitRadius, trunnionY, out _)) far = middle;
                     else near = middle;
                 }
 
-                FitsAt(far, orbitRadius, out float axisElevation);
+                FitsAt(far, orbitRadius, trunnionY, out float axisElevation);
 
-                targetY = _trunnionY + CAMERA_HEIGHT + far * MathF.Tan(axisElevation);
+                targetY = LensHeightFor(trunnionY) + far * MathF.Tan(axisElevation);
 
                 return far;
             }
@@ -325,11 +376,11 @@ namespace Prazsky.BS3D
             /// out, and at what elevation the view axis has to sit for it. Elevations are measured off the
             /// horizontal and bisected, which is what centres the subject between the top and bottom edges.
             /// </summary>
-            private bool FitsAt(float distance, float orbitRadius, out float axisElevation)
+            private bool FitsAt(float distance, float orbitRadius, float trunnionY, out float axisElevation)
             {
                 //Copied into locals before the local function below, so it captures nothing but locals
                 Vector3 back = _bearing;
-                Vector3 camera = LensPositionAt(_centreGround, back, _trunnionY, distance);
+                Vector3 camera = LensPositionAt(_centreGround, back, trunnionY, distance);
                 Vector3 forward = -back;
                 Vector3 right = Vector3.Cross(Vector3.Up, forward);
 
@@ -366,7 +417,7 @@ namespace Prazsky.BS3D
 
                 //The gun, as a box around its trunnions large enough to hold the barrel at any aim, so the fit
                 //does not change as the player elevates or traverses
-                Vector3 cannon = CannonPositionAt(_centreGround, back, _trunnionY, orbitRadius);
+                Vector3 cannon = CannonPositionAt(_centreGround, back, trunnionY, orbitRadius);
 
                 Consider(cannon + Vector3.Up * _cannonReach);
                 Consider(cannon - Vector3.Up * _cannonReach);

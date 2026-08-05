@@ -45,7 +45,6 @@ namespace Prazsky.BS3D.GameObjects
 		public Vector3 AimTarget;
 		public readonly Vector3 OrbitCenter;
 
-		private readonly float _trunnionHeight;
 		private float _orbitRadius;
 
 		private float _orbitAngle = Constants.HALF_PI;
@@ -72,21 +71,17 @@ namespace Prazsky.BS3D.GameObjects
 		private float _resetAimStep = 0f;
 		private Vector2 _resetAimFrom = Vector2.Zero;
 
-		/// <param name="trunnionHeight">
-		/// Height of <see cref="Object3D.Position"/>, which is the barrel's pivot - the trunnions the drawn
-		/// carriage holds it by (see <see cref="CarriageWorld"/> and <c>CannonRig</c>'s carriage figures) -
-		/// and not a point on the barrel's surface, so this sits an axle's height above whatever the gun
-		/// ends up standing on rather than at the floor itself.
-		/// </param>
-		public Cannon(Vector3 orbitCenter, float trunnionHeight, float orbitRadius = 20f)
+		public Cannon(Vector3 orbitCenter, float orbitRadius = 20f)
 		{
 			//The cannon is drawn procedurally now (a CannonMesh with the loaded balls shown in its magazine),
 			//so this holds only the pose: where it orbits, where it aims and its World matrix. Position is
 			//the trunnions, at the barrel's midpoint - elevating turns the barrel about them, raising the
-			//muzzle and dropping the breech, so the gun stays where it stands. The renderer builds its own
-			//look-at world from Position and AimTarget, and derives the muzzle from them.
+			//muzzle and dropping the breech, so the gun stays where it stands. Its height is not a caller's
+			//figure any more: the gun stands on the island's dished stone, so Position.Y is re-seated off
+			//the orbit radius on every move (CannonRig.TrunnionHeightAt - the local floor plus the stack
+			//the carriage hangs below the pins). The renderer builds its own look-at world from Position
+			//and AimTarget, and derives the muzzle from them.
 			OrbitCenter = orbitCenter;
-			_trunnionHeight = trunnionHeight;
 			_orbitRadius = orbitRadius;
 
 			//Degenerate until SetAdvanceRange: a gun nobody gave room to walk in stays where it is put
@@ -198,9 +193,11 @@ namespace Prazsky.BS3D.GameObjects
 		/// <see cref="SetAdvanceRange"/> granted. The walk is radial (along the line the gun rests facing),
 		/// not along a traversed barrel: traverse turns the aim, never the ground the carriage covers.
 		/// Standing closer steepens the resting aim (the whole point: the underside cells want a shot from
-		/// below), standing further flattens it; the camera does not follow, so the gun visibly advances on
-		/// the cluster in frame. Same per-held-frame ±1 protocol as <see cref="Orbit"/>, same ramp, glide and
-		/// reversal brake — and the ends are rubber, not stops: see <see cref="ADVANCE_EASE_ZONE"/>.
+		/// below — and the dish steepens it a second way, carrying the trunnions downhill as the gun walks
+		/// in); the camera does not follow, not even in height (<c>GameCameraFit</c> floors its lens at the
+		/// arris-stance height), so the gun visibly advances on the cluster in frame and sinks down the dish
+		/// within a steady frame. Same per-held-frame ±1 protocol as <see cref="Orbit"/>, same ramp, glide
+		/// and reversal brake — and the ends are rubber, not stops: see <see cref="ADVANCE_EASE_ZONE"/>.
 		/// </summary>
 		public void Advance(float delta)
 		{
@@ -347,12 +344,17 @@ namespace Prazsky.BS3D.GameObjects
 			var x = OrbitCenter.X + (_orbitRadius * (float)Math.Cos(_orbitAngle));
 			var z = OrbitCenter.Z + (_orbitRadius * (float)Math.Sin(_orbitAngle));
 
-			Position = new(x, Position.Y, z);
+			//Y is re-seated with every move: the stone under the gun is the island's dish, so walking in
+			//(W) carries the carriage downhill toward the drain and walking out (S) back up — the wheels
+			//stay on the stone instead of grazing a plane the dish has fallen away from. An orbit (A/D)
+			//holds the radius, so it recomputes the same height and moves nothing vertically.
+			Position = new(x, CannonRig.TrunnionHeightAt(_orbitRadius), z);
 
-			//The gun just moved, and the resting pitch moved with it — walking in steepens it — while the
-			//aimed offset stayed put. Re-clamped against the fresh rest, or a maxed aim walked inward rides
-			//the rising rest past MaxElevation until the next mouse twitch snaps it back; near enough the
-			//centre the total would cross vertical, where the barrel's world-up basis degenerates.
+			//The gun just moved, and the resting pitch moved with it — walking in steepens it (now twice
+			//over: the radius shortens AND the trunnions ride the dish down) — while the aimed offset
+			//stayed put. Re-clamped against the fresh rest, or a maxed aim walked inward rides the rising
+			//rest past MaxElevation until the next mouse twitch snaps it back; near enough the centre the
+			//total would cross vertical, where the barrel's world-up basis degenerates.
 			UpdateRestRotation();
 			EnsureAimInBounds();
 
@@ -362,7 +364,7 @@ namespace Prazsky.BS3D.GameObjects
 
 		private void CalculateInitialPositionAndAimTarget()
 		{
-			Position = new Vector3(OrbitCenter.X, _trunnionHeight, OrbitCenter.Z + _orbitRadius);
+			Position = new Vector3(OrbitCenter.X, CannonRig.TrunnionHeightAt(_orbitRadius), OrbitCenter.Z + _orbitRadius);
 			AimTarget = Vector3.Normalize(OrbitCenter);
 
 			RecalculateWorldMatrix();
@@ -563,16 +565,22 @@ namespace Prazsky.BS3D.GameObjects
 		public Matrix BarrelOrientation() => Matrix.CreateWorld(Vector3.Zero, AimDirection, Vector3.Up);
 
 		/// <summary>
-		/// The matrix the carriage is drawn with: <b>level</b> under the trunnions, yawed to the aim's heading
-		/// and never pitched with it — the whole point of trunnions is that the tube elevates in the cradle
-		/// while the carriage stays flat on its wheels. Traversing therefore slews the carriage (a field gun is
-		/// turned whole), elevating does not touch it, and the recoil does not either: the tube slides in the
+		/// The matrix the carriage is drawn with: seated on the stone under the trunnions and yawed to the
+		/// aim's heading, but never pitched with the <b>aim</b> — the whole point of trunnions is that the
+		/// tube elevates in the cradle while the carriage sits on its wheels. What does pitch it is the
+		/// <b>ground</b>: the island's walkable top is a dish, so the stance's up is the stone's own normal
+		/// where the gun stands (<c>CannonRig.StanceGradeAt</c> — nose down toward the drain, easing level
+		/// across the arris over the carriage's own footprint) rather than world up. Traversing still slews
+		/// the carriage whole (a field gun is turned whole; slewed oblique to the dish's radial grade the
+		/// basis takes the slope as part pitch, part roll, exactly as a rigid carriage standing oblique on a
+		/// grade does), elevating does not touch it, and the recoil does not either: the tube slides in the
 		/// cradle (<see cref="BarrelWorld"/> takes the stroke), the carriage holds its ground.
 		/// <para>
 		/// The heading comes off <see cref="AimDirection"/> flattened rather than off the yaw angles, so the
 		/// carriage faces exactly where the drawn barrel faces by construction; the elevation clamps keep the
-		/// aim well off vertical, so the flattened vector never degenerates. Same fourth-row translation trick
-		/// as <see cref="BarrelWorld"/>, same reasoning (BestPractices.md §6).
+		/// aim well off vertical, so the flattened vector never degenerates — and dropping it onto the stance
+		/// plane cannot degenerate either, the grade being a few degrees at most. Same fourth-row translation
+		/// trick as <see cref="BarrelWorld"/>, same reasoning (BestPractices.md §6).
 		/// </para>
 		/// </summary>
 		public Matrix CarriageWorld()
@@ -581,7 +589,21 @@ namespace Prazsky.BS3D.GameObjects
 			heading.Y = 0f;
 			heading = Vector3.Normalize(heading);
 
-			Matrix world = Matrix.CreateWorld(Vector3.Zero, heading, Vector3.Up);
+			//The stance's basis: the dished stone rises outward by the grade, so its normal leans inward
+			//off world up by exactly that much (a height field's normal is Up minus its gradient), and the
+			//heading is dropped onto the stance plane so the nose pitches downhill instead of the leading
+			//wheels digging into stone. Off the dish the grade is zero and this is world up untouched.
+			float grade = CannonRig.StanceGradeAt(_orbitRadius);
+
+			Vector3 up = Vector3.Up;
+
+			if (grade != 0f)
+			{
+				up = Vector3.Normalize(Vector3.Up - StandBearing * grade);
+				heading = Vector3.Normalize(heading - up * Vector3.Dot(heading, up));
+			}
+
+			Matrix world = Matrix.CreateWorld(Vector3.Zero, heading, up);
 
 			world.M41 = Position.X;
 			world.M42 = Position.Y;

@@ -50,15 +50,18 @@ namespace Prazsky.BS3D
         public static readonly float FOV = MathF.PI / 5f;
 
         /// <summary>
-        /// Floor for the lens's Y. Aiming steeply up, <c>-aim</c> points downwards and the set-back would drop
-        /// the lens through the stone island and show it from underneath; floored a margin over the island's top
-        /// instead, from where the bottom of the frame still looks upwards and the stone stays out of it.
-        /// <para>
-        /// A <c>const</c> expression, which is why <see cref="ArenaIsland.TOP_Y"/> is a <c>const</c> on the
-        /// library type rather than a property — see its own class remarks.
-        /// </para>
+        /// Clearance the lens keeps over the stone directly below it. Aiming steeply up, <c>-aim</c> points
+        /// downwards and the set-back would drop the lens through the stone island and show it from
+        /// underneath; it is floored this far over the stone that is actually there
+        /// (<see cref="ArenaIsland.FloorHeightAt"/> at the lens's own footprint — the island never moves, so
+        /// a world position's XZ length is its radius on it), from where the bottom of the frame still looks
+        /// upwards and the stone stays out of it. It used to be one fixed floor a unit over the island's
+        /// arris plane, and since the gun stands on the island's <b>dish</b> no single height serves: that
+        /// floor sat <i>above</i> the trunnions of a gun standing near the drain (the lean would have pinned
+        /// against it and stopped following the barrel), while one cut low enough for the drain would let a
+        /// lens near the arris sink into the higher stone there.
         /// </summary>
-        public const float MIN_Y = ArenaIsland.TOP_Y + 1f;
+        public const float FLOOR_CLEARANCE = 1f;
 
         /// <summary>
         /// 0 is the exact overview pose, 1 is fully leaned in. Each executable's crosshair reads it — the Game
@@ -122,14 +125,15 @@ namespace Prazsky.BS3D
         }
 
         /// <summary>
-        /// The leaned lens: back from the muzzle along the aim and lifted over the bore, with its Y floored at
-        /// <see cref="MIN_Y"/>.
+        /// The leaned lens: back from the muzzle along the aim and lifted over the bore, with its Y floored
+        /// <see cref="FLOOR_CLEARANCE"/> over the stone under it.
         /// </summary>
         public static Vector3 LensPosition(Vector3 muzzle, Vector3 aim)
         {
             Vector3 lens = muzzle - aim * BACK + LensUp(aim) * RISE;
 
-            lens.Y = MathF.Max(lens.Y, MIN_Y);
+            lens.Y = MathF.Max(lens.Y,
+                ArenaIsland.FloorHeightAt(MathF.Sqrt(lens.X * lens.X + lens.Z * lens.Z)) + FLOOR_CLEARANCE);
 
             return lens;
         }

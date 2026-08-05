@@ -32,10 +32,10 @@ namespace Prazsky.Core.Render
     /// </para>
     /// <para>
     /// <b>Every figure is a constant on this type rather than a configurable record</b>, and that is load
-    /// bearing rather than lazy: <c>GameplayScreen.ADS_MIN_Y = ArenaIsland.TOP_Y + 1f</c> and the drop
-    /// cinematic's own <c>const float ISLAND_Y</c> are <i>constant expressions</i>, which will not compile
-    /// against a property. Nothing has ever varied any of these per instance, so a config record would be
-    /// speculative generality bought by breaking two consumers.
+    /// bearing rather than lazy: the drop cinematic's <c>const float ISLAND_Y = ArenaIsland.TOP_Y</c> is a
+    /// <i>constant expression</i>, which will not compile against a property. Nothing has ever varied any
+    /// of these per instance, so a config record would be speculative generality bought by breaking a
+    /// consumer.
     /// </para>
     /// <para>
     /// <b>The collision floor is not here</b>, because <c>Prazsky.Core</c> cannot reference BepuPhysics: it is
@@ -169,6 +169,26 @@ namespace Prazsky.Core.Render
         /// on air over the drawn stone.
         /// </summary>
         public const float DISH_DEPTH = 1.2f;
+
+        /// <summary>
+        /// World Y of the walkable stone at a horizontal distance <paramref name="radius"/> from the
+        /// island's centre — which is the world origin: the island never moves, so a world position's own
+        /// XZ length is its radius here. <see cref="TOP_Y"/> at and past the outer arris
+        /// (<see cref="FLOOR_RADIUS"/>) — beyond it the coping falls away and then nothing, but a gun
+        /// orbiting off the island (a big map does that) holds the arris plane, the one plane the eye takes
+        /// for the ground there — falling linearly by <see cref="DISH_DEPTH"/> to the drain's mouth
+        /// (<see cref="FUNNEL_TOP_RADIUS"/>), and held at the mouth's rim inside it, where there is no stone
+        /// at all, only glass. The dish is a single straight lathe span and the cap has no radial
+        /// irregularity (only the concrete drum wobbles — see <see cref="IslandMesh"/>), so this <b>is</b>
+        /// the drawn surface and the collided one, exactly, to within their faceting.
+        /// </summary>
+        public static float FloorHeightAt(float radius)
+        {
+            if (radius >= FLOOR_RADIUS) return TOP_Y;
+            if (radius <= FUNNEL_TOP_RADIUS) return TOP_Y - DISH_DEPTH;
+
+            return TOP_Y - DISH_DEPTH * (FLOOR_RADIUS - radius) / (FLOOR_RADIUS - FUNNEL_TOP_RADIUS);
+        }
 
         //The drain funnel is glass; the platform around it is a cast-concrete drum with a dressed stone top
         public static readonly Vector3 FUNNEL_GLASS_COLOR = new(0.42f, 0.62f, 0.72f);

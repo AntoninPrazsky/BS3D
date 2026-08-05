@@ -634,10 +634,11 @@ namespace BS3D.Screens
             Game = game;
             _hud = new PlayHud(game);
 
-            //Orbit centre is the field the cluster hangs over; the trunnion height is the carriage's own
-            //figure — where the wheels' radius and the axle's drop put the pins for the wheels to graze the
-            //island's arris plane (see CannonRig.TRUNNION_HEIGHT).
-            _cannon = new Cannon(new Vector3(0f, 5f, 0f), CannonRig.TRUNNION_HEIGHT, 20f);
+            //Orbit centre is the field the cluster hangs over. No trunnion height goes in: the gun stands on
+            //the island's dished stone, so its height is the carriage's own figure of its radius
+            //(CannonRig.TrunnionHeightAt) and the pose re-seats it on every move — the wheels stay on the
+            //stone wherever the walk stands.
+            _cannon = new Cannon(new Vector3(0f, 5f, 0f), 20f);
 
             //The queue's colours are the level's business (RandomBallType draws only among what is still
             //hanging), so what to load next is injected; the constructor deals a full queue with it, which is

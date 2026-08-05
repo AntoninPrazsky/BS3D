@@ -731,9 +731,10 @@ namespace Testbed
             _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
                 (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY);
 
-            //The trunnion height is the carriage's own figure: where the wheels' radius and the axle's drop
-            //put the pins for the wheels to graze the island's arris plane (see CannonRig.TRUNNION_HEIGHT)
-            _cannon = new Cannon(new Vector3(0f, 5f, 0f), CannonRig.TRUNNION_HEIGHT, 20f);
+            //No trunnion height goes in: the gun stands on the island's dished stone, so its height is the
+            //carriage's own figure of its radius (CannonRig.TrunnionHeightAt) and the pose re-seats it on
+            //every move — walking in carries the wheels down the dish, walking out back up
+            _cannon = new Cannon(new Vector3(0f, 5f, 0f), 20f);
 
             //The procedural barrel (the last modeled asset made procedural), cut to hold exactly the loaded queue:
             //a muzzle lip just ahead of the front ball, a breech just behind the last one. The rig is told only how
@@ -1793,8 +1794,9 @@ namespace Testbed
 
         /// <summary>
         /// Where the precise-aim lens sits this instant, for the two "aimshoot" diagnostics that check it stays
-        /// above the stone island (<see cref="ArenaIsland.TOP_Y"/>) at the steep corner shots, where it used to
-        /// sink through the disc. The floor that holds it there is <see cref="PreciseAim.MIN_Y"/>.
+        /// above the stone island at the steep corner shots, where it used to sink through the disc. The floor
+        /// that holds it there is <see cref="PreciseAim.FLOOR_CLEARANCE"/> over the local stone
+        /// (<see cref="ArenaIsland.FloorHeightAt"/>).
         /// </summary>
         private Vector3 PreciseAimLens() =>
             PreciseAim.LensPosition(_cannon.MuzzlePosition(_cannonRig.PivotToFrontBall), _cannon.AimDirection);

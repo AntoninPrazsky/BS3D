@@ -78,11 +78,12 @@ namespace Prazsky.BS3D
 
         //The carriage: the frame the barrel's trunnions ride in and the wheels it walks on (W/S — see
         //Cannon.Advance). Everything below is in the carriage's own frame, relative to the trunnions, and
-        //the one figure that reaches outside it is the wheels' ground line — which is why TRUNNION_HEIGHT
-        //below is defined off these figures rather than the other way round: the gun has no collider and
-        //nothing else to stand on (the stone below dishes away, and on a big map the orbit leaves the island
-        //entirely), so grazing the one plane the eye takes for the ground is what makes the float read as
-        //standing.
+        //the one figure that reaches outside it is the wheels' ground line — which is why TrunnionHeightAt
+        //below is defined off these figures rather than the other way round: the gun has no collider, so
+        //where the wheels touch is a drawing fact, and the stone they touch is the island's dished top
+        //(ArenaIsland.FloorHeightAt). Past the arris there is nothing to stand on at all (on a big map the
+        //orbit leaves the island entirely), and there the stance holds the arris plane — the one plane the
+        //eye takes for the ground.
         private const float WHEEL_RADIUS = 1.15f;   //outer radius, rim tube included
         private const float WHEEL_TUBE = 0.11f;     //the felloe's half-thickness
         private const float HUB_RADIUS = 0.17f;
@@ -99,19 +100,39 @@ namespace Prazsky.BS3D
         private const float CHEEK_HALF_LENGTH = 0.85f;
 
         //Where the split trail's +X leg ends (mirrored for the other): outward past the wheel, down to just
-        //over the arris plane, and back behind the breech's recoil sweep — the split exists because the
-        //breech dips exactly where one central beam would stand (see GunCarriageMesh).
+        //over the wheels' ground plane, and back behind the breech's recoil sweep — the split exists because
+        //the breech dips exactly where one central beam would stand (see GunCarriageMesh).
         private static readonly Vector3 TRAIL_END = new(1.55f, -1.9f, 3.05f);
 
         /// <summary>
-        /// Where the trunnions belong for the wheels to touch ground: the carriage hangs
-        /// <see cref="AXLE_DROP"/> + <see cref="WHEEL_RADIUS"/> below them, so their height is the island's
-        /// arris plane (<c>ArenaIsland.TOP_Y</c>) plus that stack. Both executables construct their
-        /// <c>Cannon</c> with this, which makes the wheels' graze true <b>by construction</b> — it used to be
-        /// a −6.4 literal in each, tied to these figures only by a comment — and resizing the wheels now
-        /// moves the gun, exactly as it would a real carriage.
+        /// Where the trunnions belong for the wheels to touch the ground the gun actually stands over: the
+        /// stone at its radius (<see cref="ArenaIsland.FloorHeightAt"/> — the walkable top is a dish, not a
+        /// plane) plus the stack the carriage hangs below the pins (<see cref="AXLE_DROP"/> +
+        /// <see cref="WHEEL_RADIUS"/>). <c>Cannon</c> re-seats its own Y through this on every move, which
+        /// makes the wheels' contact true <b>by construction</b> wherever the walk stands — it used to be a
+        /// constant cut to the island's outer arris plane, which read as standing only at the arris itself:
+        /// everywhere the dish had fallen away below the wheels the gun visibly floated, and the shipped
+        /// small maps stand it near the drain, where the fall is the whole <c>DISH_DEPTH</c>. Resizing the
+        /// wheels still moves the gun, exactly as it would a real carriage.
         /// </summary>
-        public const float TRUNNION_HEIGHT = ArenaIsland.TOP_Y + AXLE_DROP + WHEEL_RADIUS;
+        public static float TrunnionHeightAt(float orbitRadius) =>
+            ArenaIsland.FloorHeightAt(orbitRadius) + AXLE_DROP + WHEEL_RADIUS;
+
+        /// <summary>
+        /// The ground's rise per unit of radius under the standing carriage, taken as the <b>secant across
+        /// the stance's own footprint</b> — from the wheels' contact at <paramref name="orbitRadius"/> to
+        /// the trail's feet <see cref="TRAIL_END"/>.Z further out — rather than the surface's derivative at
+        /// a point: a rigid carriage bridging the dish's arris stands at the slope between its two contacts,
+        /// so taking the secant eases the pitch across that crease over the carriage's own length instead of
+        /// snapping it as the wheels roll over. Positive (the dish rises outward), and exactly the dish's
+        /// ~6.4° grade while the whole stance is on it; zero once the whole stance is at or past the arris,
+        /// which keeps a big-map orbit — off the island entirely — level, as it always was.
+        /// <c>Cannon.CarriageWorld</c> turns it into the stance's basis; the barrel is deliberately not
+        /// touched by it (the tube elevates about the trunnions in world frame, wherever the cradle leans).
+        /// </summary>
+        public static float StanceGradeAt(float orbitRadius) =>
+            (ArenaIsland.FloorHeightAt(orbitRadius + TRAIL_END.Z) - ArenaIsland.FloorHeightAt(orbitRadius))
+                / TRAIL_END.Z;
 
         //The woodwork and the ironwork: a warm matte wood for the wheels, a darker iron than the barrel's
         //steel for the frame — the barrel keeps its sheen, the undercarriage barely reflects.
@@ -154,13 +175,13 @@ namespace Prazsky.BS3D
             _mesh = new CannonMesh(graphicsDevice, BORE_RADIUS, WALL_THICKNESS, muzzleZ, breechZ, SLOT_HALF_ANGLE,
                 WALL_SEGMENTS);
 
+            //The ground darkens the barrel's underside just as it darkens the ball bellies. No GroundHeight
+            //is set here: the gun stands on the island's DISH, so the height it is darkened against is the
+            //stone under wherever the walk has it standing — Draw and DrawCarriage anchor it per frame off
+            //the pose's own translation, and a load-time value would only be overwritten.
             _renderer = new InstancedModelRenderer(graphicsDevice, _mesh, STEEL_COLOR, instancingEffect)
             {
-                SpecularAmbientStrength = SPECULAR_AMBIENT_STRENGTH,
-
-                //The ground darkens the barrel's underside just as it darkens the ball bellies, and the gun
-                //stands on the island, so the height it is darkened against is the island's top face
-                GroundHeight = ArenaIsland.TOP_Y
+                SpecularAmbientStrength = SPECULAR_AMBIENT_STRENGTH
             };
 
             //The carriage under the tube: the frame the trunnions ride in and the pair of wheels the advance
@@ -170,8 +191,7 @@ namespace Prazsky.BS3D
 
             _carriageRenderer = new InstancedModelRenderer(graphicsDevice, _carriageMesh, FRAME_COLOR, instancingEffect)
             {
-                SpecularAmbientStrength = FRAME_SPECULAR_AMBIENT,
-                GroundHeight = ArenaIsland.TOP_Y
+                SpecularAmbientStrength = FRAME_SPECULAR_AMBIENT
             };
 
             _wheelMesh = new GunWheelMesh(graphicsDevice, WHEEL_RADIUS, WHEEL_TUBE, HUB_RADIUS, HUB_HALF_WIDTH,
@@ -179,8 +199,7 @@ namespace Prazsky.BS3D
 
             _wheelRenderer = new InstancedModelRenderer(graphicsDevice, _wheelMesh, WHEEL_COLOR, instancingEffect)
             {
-                SpecularAmbientStrength = WHEEL_SPECULAR_AMBIENT,
-                GroundHeight = ArenaIsland.TOP_Y
+                SpecularAmbientStrength = WHEEL_SPECULAR_AMBIENT
             };
         }
 
@@ -207,8 +226,18 @@ namespace Prazsky.BS3D
         /// <summary>Draws the barrel, as a single instance so it takes the same hemisphere ambient, positional
         /// key light and per-pixel shading as the instanced balls around it.</summary>
         /// <param name="world">This frame's pose, from <see cref="GameObjects.Cannon.BarrelWorld"/>.</param>
-        public void Draw(ICamera camera, Matrix world, BasicEffectParams effectParams) =>
+        public void Draw(ICamera camera, Matrix world, BasicEffectParams effectParams)
+        {
+            //The ground-darkening anchor rides the stone actually under the gun: the walk carries the
+            //carriage down the island's dish, and against the fixed arris plane this used to anchor to, a
+            //gun standing at the drain's mouth sat the whole DISH_DEPTH below the anchor and the darkening
+            //term saturated over everything below the trunnions. The pose's translation is where the gun
+            //stands, so the floor is read off it rather than grown into a parameter every caller must pass.
+            _renderer.GroundHeight =
+                ArenaIsland.FloorHeightAt(MathF.Sqrt(world.M41 * world.M41 + world.M43 * world.M43));
+
             _renderer.Draw(camera, world, effectParams);
+        }
 
         /// <summary>
         /// Draws the carriage under the barrel: the frame as one instance, the two wheels as one two-instance
@@ -216,14 +245,22 @@ namespace Prazsky.BS3D
         /// caller draws that.
         /// </summary>
         /// <param name="carriageWorld">This frame's pose, from <see cref="GameObjects.Cannon.CarriageWorld"/> —
-        /// level, yawed with the aim, and deliberately without the recoil the barrel takes: the tube slides in
-        /// the cradle, the carriage holds its ground.</param>
+        /// seated on the stone it stands over, yawed with the aim, and deliberately without the recoil the
+        /// barrel takes: the tube slides in the cradle, the carriage holds its ground.</param>
         /// <param name="advanceTravel"><see cref="GameObjects.Cannon.AdvanceTravel"/>: signed ground covered,
-        /// positive toward the field. The wheels' angle is <c>travel / radius</c>, so they turn exactly as fast
-        /// as the ground passes and slow into the walk's rubber ends with it.</param>
+        /// positive toward the field. The wheels' angle is <c>travel / radius</c>, so they turn as fast as the
+        /// ground passes and slow into the walk's rubber ends with it. (The travel is the walk's horizontal
+        /// step; on the dish's ~6.4° grade the true rolled arc is ~0.6 % longer, which no eye reads off a
+        /// spoked wheel.)</param>
         public void DrawCarriage(ICamera camera, Matrix carriageWorld, float advanceTravel,
             BasicEffectParams effectParams)
         {
+            //Same per-frame ground anchor as Draw's, off the same translation, for the same reason
+            float ground = ArenaIsland.FloorHeightAt(
+                MathF.Sqrt(carriageWorld.M41 * carriageWorld.M41 + carriageWorld.M43 * carriageWorld.M43));
+            _carriageRenderer.GroundHeight = ground;
+            _wheelRenderer.GroundHeight = ground;
+
             _carriageRenderer.Draw(camera, carriageWorld, effectParams);
 
             //Walking toward the field is motion along local -Z; rolling with it takes the wheel's top the same
