@@ -74,8 +74,64 @@ namespace Prazsky.BS3D
         //texture: the barrel is plain steel whose whole sheen is this specular ambient reflecting the dome.
         private const float SPECULAR_AMBIENT_STRENGTH = 0.5f;
 
+        #region The carriage's figures
+
+        //The carriage: the frame the barrel's trunnions ride in and the wheels it walks on (W/S — see
+        //Cannon.Advance). Everything below is in the carriage's own frame, relative to the trunnions, and
+        //the one figure that reaches outside it is the wheels' ground line — which is why TRUNNION_HEIGHT
+        //below is defined off these figures rather than the other way round: the gun has no collider and
+        //nothing else to stand on (the stone below dishes away, and on a big map the orbit leaves the island
+        //entirely), so grazing the one plane the eye takes for the ground is what makes the float read as
+        //standing.
+        private const float WHEEL_RADIUS = 1.15f;   //outer radius, rim tube included
+        private const float WHEEL_TUBE = 0.11f;     //the felloe's half-thickness
+        private const float HUB_RADIUS = 0.17f;
+        private const float HUB_HALF_WIDTH = 0.12f;
+        private const int WHEEL_SPOKES = 8;
+        private const float WHEEL_TRACK = 1.5f;     //each wheel's centre off the barrel's axis
+
+        private const float AXLE_DROP = 0.95f;      //the axle line below the trunnions
+        private const float AXLE_RADIUS = 0.13f;
+
+        private const float CHEEK_INNER_X = BORE_RADIUS + WALL_THICKNESS + 0.04f; //hugging the tube, never clipping it
+        private const float CHEEK_THICKNESS = 0.14f;
+        private const float CHEEK_TOP_Y = 0.2f;     //a little above the trunnion axis the plates hold
+        private const float CHEEK_HALF_LENGTH = 0.85f;
+
+        //Where the split trail's +X leg ends (mirrored for the other): outward past the wheel, down to just
+        //over the arris plane, and back behind the breech's recoil sweep — the split exists because the
+        //breech dips exactly where one central beam would stand (see GunCarriageMesh).
+        private static readonly Vector3 TRAIL_END = new(1.55f, -1.9f, 3.05f);
+
+        /// <summary>
+        /// Where the trunnions belong for the wheels to touch ground: the carriage hangs
+        /// <see cref="AXLE_DROP"/> + <see cref="WHEEL_RADIUS"/> below them, so their height is the island's
+        /// arris plane (<c>ArenaIsland.TOP_Y</c>) plus that stack. Both executables construct their
+        /// <c>Cannon</c> with this, which makes the wheels' graze true <b>by construction</b> — it used to be
+        /// a −6.4 literal in each, tied to these figures only by a comment — and resizing the wheels now
+        /// moves the gun, exactly as it would a real carriage.
+        /// </summary>
+        public const float TRUNNION_HEIGHT = ArenaIsland.TOP_Y + AXLE_DROP + WHEEL_RADIUS;
+
+        //The woodwork and the ironwork: a warm matte wood for the wheels, a darker iron than the barrel's
+        //steel for the frame — the barrel keeps its sheen, the undercarriage barely reflects.
+        private static readonly Vector3 WHEEL_COLOR = new(0.40f, 0.29f, 0.19f);
+        private static readonly Vector3 FRAME_COLOR = new(0.30f, 0.30f, 0.33f);
+        private const float WHEEL_SPECULAR_AMBIENT = 0.08f;
+        private const float FRAME_SPECULAR_AMBIENT = 0.22f;
+
+        #endregion
+
         private CannonMesh _mesh;
         private InstancedModelRenderer _renderer;
+
+        private GunCarriageMesh _carriageMesh;
+        private InstancedModelRenderer _carriageRenderer;
+        private GunWheelMesh _wheelMesh;
+        private InstancedModelRenderer _wheelRenderer;
+
+        //The two wheels of one draw, refilled per frame — the array is reused, never reallocated
+        private readonly ModelInstance[] _wheelInstances = new ModelInstance[2];
 
         /// <param name="instancingEffect">The shared <c>InstancedModel.fx</c>. Handed in, never disposed — see
         /// the class remarks.</param>
@@ -106,6 +162,26 @@ namespace Prazsky.BS3D
                 //stands on the island, so the height it is darkened against is the island's top face
                 GroundHeight = ArenaIsland.TOP_Y
             };
+
+            //The carriage under the tube: the frame the trunnions ride in and the pair of wheels the advance
+            //walk (W/S) rolls. Sized off the barrel's own figures, so a retuned bore moves the cheeks with it.
+            _carriageMesh = new GunCarriageMesh(graphicsDevice, CHEEK_INNER_X, CHEEK_THICKNESS, CHEEK_TOP_Y,
+                AXLE_DROP, CHEEK_HALF_LENGTH, AXLE_RADIUS, WHEEL_TRACK + HUB_HALF_WIDTH * 0.5f, TRAIL_END);
+
+            _carriageRenderer = new InstancedModelRenderer(graphicsDevice, _carriageMesh, FRAME_COLOR, instancingEffect)
+            {
+                SpecularAmbientStrength = FRAME_SPECULAR_AMBIENT,
+                GroundHeight = ArenaIsland.TOP_Y
+            };
+
+            _wheelMesh = new GunWheelMesh(graphicsDevice, WHEEL_RADIUS, WHEEL_TUBE, HUB_RADIUS, HUB_HALF_WIDTH,
+                WHEEL_SPOKES);
+
+            _wheelRenderer = new InstancedModelRenderer(graphicsDevice, _wheelMesh, WHEEL_COLOR, instancingEffect)
+            {
+                SpecularAmbientStrength = WHEEL_SPECULAR_AMBIENT,
+                GroundHeight = ArenaIsland.TOP_Y
+            };
         }
 
         /// <summary>
@@ -122,11 +198,52 @@ namespace Prazsky.BS3D
         /// </summary>
         public InstancedModelRenderer Renderer => _renderer;
 
+        /// <summary>The carriage frame's renderer, for the same sky-lighting enrolment as <see cref="Renderer"/>.</summary>
+        public InstancedModelRenderer CarriageRenderer => _carriageRenderer;
+
+        /// <summary>The wheels' renderer, for the same sky-lighting enrolment as <see cref="Renderer"/>.</summary>
+        public InstancedModelRenderer WheelRenderer => _wheelRenderer;
+
         /// <summary>Draws the barrel, as a single instance so it takes the same hemisphere ambient, positional
         /// key light and per-pixel shading as the instanced balls around it.</summary>
         /// <param name="world">This frame's pose, from <see cref="GameObjects.Cannon.BarrelWorld"/>.</param>
         public void Draw(ICamera camera, Matrix world, BasicEffectParams effectParams) =>
             _renderer.Draw(camera, world, effectParams);
+
+        /// <summary>
+        /// Draws the carriage under the barrel: the frame as one instance, the two wheels as one two-instance
+        /// draw, spun by how much ground the advance walk has covered. Drawn with the barrel, wherever the
+        /// caller draws that.
+        /// </summary>
+        /// <param name="carriageWorld">This frame's pose, from <see cref="GameObjects.Cannon.CarriageWorld"/> —
+        /// level, yawed with the aim, and deliberately without the recoil the barrel takes: the tube slides in
+        /// the cradle, the carriage holds its ground.</param>
+        /// <param name="advanceTravel"><see cref="GameObjects.Cannon.AdvanceTravel"/>: signed ground covered,
+        /// positive toward the field. The wheels' angle is <c>travel / radius</c>, so they turn exactly as fast
+        /// as the ground passes and slow into the walk's rubber ends with it.</param>
+        public void DrawCarriage(ICamera camera, Matrix carriageWorld, float advanceTravel,
+            BasicEffectParams effectParams)
+        {
+            _carriageRenderer.Draw(camera, carriageWorld, effectParams);
+
+            //Walking toward the field is motion along local -Z; rolling with it takes the wheel's top the same
+            //way, which about the +X axle is a negative rotation. Wrapped per circumference before the divide,
+            //so a long session's travel cannot walk the angle out into float noise.
+            float roll = -(advanceTravel % (MathHelper.TwoPi * WHEEL_RADIUS)) / WHEEL_RADIUS;
+
+            //One rotation built once; each wheel writes its own place on the axle into the fourth row and the
+            //pair composes with the carriage pose — the two genuine matrix multiplies this prop costs per frame
+            Matrix wheel = Matrix.CreateRotationX(roll);
+            wheel.M42 = -AXLE_DROP;
+
+            wheel.M41 = -WHEEL_TRACK;
+            _wheelInstances[0] = new ModelInstance(wheel * carriageWorld, new Vector4(0f, 0f, 0f, 1f));
+
+            wheel.M41 = WHEEL_TRACK;
+            _wheelInstances[1] = new ModelInstance(wheel * carriageWorld, new Vector4(0f, 0f, 0f, 1f));
+
+            _wheelRenderer.Draw(camera, _wheelInstances, 2, effectParams);
+        }
 
         /// <summary>
         /// Releases the barrel's buffers and the renderer's instance buffer. <b>Not</b> the effect, which the
@@ -138,6 +255,16 @@ namespace Prazsky.BS3D
             _mesh = null;
             _renderer?.Dispose();
             _renderer = null;
+
+            _carriageMesh?.Dispose();
+            _carriageMesh = null;
+            _carriageRenderer?.Dispose();
+            _carriageRenderer = null;
+
+            _wheelMesh?.Dispose();
+            _wheelMesh = null;
+            _wheelRenderer?.Dispose();
+            _wheelRenderer = null;
         }
     }
 }

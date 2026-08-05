@@ -96,9 +96,15 @@ namespace BS3D.Screens
                 return false;
             }
 
-            //The carriage traverses on A/D — it turns where it stands, it does not walk
+            //The carriage traverses on A/D and walks on W/S: turning orbits the field, walking closes on it —
+            //standing nearer steepens the shot up into the cluster's underside, standing further flattens it.
+            //Both are holds at the same ±1 protocol, and the walk's ends are rubber (Cannon.ADVANCE_EASE_ZONE),
+            //not stops.
             if (keyboard.IsKeyDown(Keys.A)) _cannon.Orbit(CANNON_ORBIT_RATE);
             else if (keyboard.IsKeyDown(Keys.D)) _cannon.Orbit(-CANNON_ORBIT_RATE);
+
+            if (keyboard.IsKeyDown(Keys.W)) _cannon.Advance(CANNON_ADVANCE_RATE);
+            else if (keyboard.IsKeyDown(Keys.S)) _cannon.Advance(-CANNON_ADVANCE_RATE);
 
             Game.PreviousKeyboard = keyboard;
 

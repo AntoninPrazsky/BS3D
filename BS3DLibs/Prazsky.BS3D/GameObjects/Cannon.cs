@@ -27,6 +27,21 @@ namespace Prazsky.BS3D.GameObjects
 		//Traverse (yaw) the aim may swing either side of the resting heading, in radians (±45°).
 		public const float MaxTraverse = Constants.QUARTER_PI;
 
+		/// <summary>
+		/// How far from either end of the advance range the carriage starts to cushion, in world units: within
+		/// this zone the stroke's speed scales down linearly with the room left, which makes the approach to an
+		/// end <b>exponential</b> — the gun eases asymptotically onto the stop and never strikes it. The rubber
+		/// is one-sided by construction: reversing out of a cushion reads the room towards the <i>other</i> end,
+		/// which is large, so the way back answers at full speed with no dead travel.
+		/// </summary>
+		public const float ADVANCE_EASE_ZONE = 1.5f;
+
+		//Full advance speed in units per millisecond (~5 u/s): the whole of a typical 8-unit range in under
+		//two seconds, ramped by the same acceleration idiom the orbit uses so the two movements feel like one
+		//carriage. The speed is a scale on the same _delta protocol Orbit takes, so a caller passes ±1 per
+		//held frame here exactly as it does there.
+		private static readonly float ADVANCE_SPEED = 0.005f;
+
 		public Vector3 AimTarget;
 		public readonly Vector3 OrbitCenter;
 
@@ -43,14 +58,25 @@ namespace Prazsky.BS3D.GameObjects
 		private float _acceleration = 0f;
 		private bool _braking = false;
 
+		//The advance stroke's own glide, the orbit's idiom over again on purpose (see Advance). The range is
+		//seeded degenerate (min = max = the seed radius), so a caller that never hands one over has a gun that
+		//simply does not walk — there is no meaningful default: the range is solved per level off the field's
+		//footprint (GameCameraFit), which this type never learns.
+		private float _advanceMin, _advanceMax;
+		private float _advanceDelta = 0f;
+		private float _advanceDeltaLastSet = 0f;
+		private float _advanceAcceleration = 0f;
+		private bool _advanceBraking = false;
+
 		private bool _resettingAim = false;
 		private float _resetAimStep = 0f;
 		private Vector2 _resetAimFrom = Vector2.Zero;
 
 		/// <param name="trunnionHeight">
-		/// Height of <see cref="Object3D.Position"/>, which is the barrel's pivot - the trunnions a carriage
-		/// would hold it by - and not a point on the barrel's surface, so this sits an axle's height above
-		/// whatever the gun ends up standing on rather than at the floor itself.
+		/// Height of <see cref="Object3D.Position"/>, which is the barrel's pivot - the trunnions the drawn
+		/// carriage holds it by (see <see cref="CarriageWorld"/> and <c>CannonRig</c>'s carriage figures) -
+		/// and not a point on the barrel's surface, so this sits an axle's height above whatever the gun
+		/// ends up standing on rather than at the floor itself.
 		/// </param>
 		public Cannon(Vector3 orbitCenter, float trunnionHeight, float orbitRadius = 20f)
 		{
@@ -62,6 +88,10 @@ namespace Prazsky.BS3D.GameObjects
 			OrbitCenter = orbitCenter;
 			_trunnionHeight = trunnionHeight;
 			_orbitRadius = orbitRadius;
+
+			//Degenerate until SetAdvanceRange: a gun nobody gave room to walk in stays where it is put
+			_advanceMin = orbitRadius;
+			_advanceMax = orbitRadius;
 
 			Initialize();
 		}
@@ -89,9 +119,36 @@ namespace Prazsky.BS3D.GameObjects
 			{
 				MoveCircular(gameTime);
 				_acceleration -= ACCELERATION_DELTA * (_braking ? 4f : 2f) * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+				//Floored: the decrement overshoots zero on the glide's last frame, and a negative value left
+				//standing is a wrong-way factor in the next press's first steps — the reversal guard reads
+				//"acceleration > 0" and lets the new sign in while the old momentum is still below zero
+				if (_acceleration < 0f) _acceleration = 0f;
 			}
 
 			_delta = 0f;
+
+			//The advance stroke, stepped by the very idiom the orbit above uses — ramp while held, glide out
+			//on release, brake harder on a reversal — so walking and turning read as one carriage
+			if (_advanceAcceleration <= 0f) _advanceBraking = false;
+
+			if (Math.Sign(_advanceDelta) != 0)
+			{
+				MoveRadial(gameTime);
+				if (_advanceAcceleration < 1f) _advanceAcceleration += ACCELERATION_DELTA * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+			}
+
+			if (_advanceDelta == 0f && _advanceAcceleration > 0f)
+			{
+				MoveRadial(gameTime);
+				_advanceAcceleration -= ACCELERATION_DELTA * (_advanceBraking ? 4f : 2f) * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+				//Same floor as the orbit's above, and here the leak was visible: a negative remnant drove the
+				//gun and rolled the wheels against the next held key for its first frames
+				if (_advanceAcceleration < 0f) _advanceAcceleration = 0f;
+			}
+
+			_advanceDelta = 0f;
 
 			//Eased aim reset (queued by ResetAim on leaving game mode): swing the barrel smoothly back to its rest
 			//direction over ~1s rather than snapping - the smooth return the orbit parking used to have. Runs in any
@@ -135,6 +192,54 @@ namespace Prazsky.BS3D.GameObjects
 			_deltaLastSet = delta;
 		}
 
+		/// <summary>
+		/// Walks the carriage in towards the field's centre — for a positive <paramref name="delta"/> (W) —
+		/// and back out for a negative one (S), by sliding the orbit radius within the range
+		/// <see cref="SetAdvanceRange"/> granted. The walk is radial (along the line the gun rests facing),
+		/// not along a traversed barrel: traverse turns the aim, never the ground the carriage covers.
+		/// Standing closer steepens the resting aim (the whole point: the underside cells want a shot from
+		/// below), standing further flattens it; the camera does not follow, so the gun visibly advances on
+		/// the cluster in frame. Same per-held-frame ±1 protocol as <see cref="Orbit"/>, same ramp, glide and
+		/// reversal brake — and the ends are rubber, not stops: see <see cref="ADVANCE_EASE_ZONE"/>.
+		/// </summary>
+		public void Advance(float delta)
+		{
+			if (Math.Sign(delta) != Math.Sign(_advanceDeltaLastSet) && _advanceAcceleration > 0f)
+			{
+				_advanceBraking = true;
+				return;
+			}
+
+			_advanceDelta = delta;
+			_advanceDeltaLastSet = delta;
+		}
+
+		/// <summary>
+		/// The radii the advance stroke may walk between, solved per level (see
+		/// <c>GameCameraFit.Solve</c> — the near end keeps the gun clear of the field's footprint, and the
+		/// stroke is capped so the magazine keeps a readable size against a lens that does not follow).
+		/// Clamps the gun into the range immediately, so a range handed over after
+		/// <see cref="OrbitRadius"/> cannot leave it standing outside its own walk.
+		/// </summary>
+		public void SetAdvanceRange(float min, float max)
+		{
+			_advanceMin = min;
+			_advanceMax = Math.Max(min, max);
+
+			//A fresh range means a fresh stand: any glide still running belonged to the walk the old range
+			//framed, and left alive it would carry the gun off the rest the caller has just parked it at
+			_advanceAcceleration = 0f;
+			_advanceDelta = 0f;
+			_advanceBraking = false;
+
+			float clamped = Math.Clamp(_orbitRadius, _advanceMin, _advanceMax);
+			if (clamped != _orbitRadius)
+			{
+				_orbitRadius = clamped;
+				MoveToOrbitAngle();
+			}
+		}
+
 		public void Aim(Vector2 rotation, GameTime gameTime)
 		{
 			_resettingAim = false; //taking the aim by hand interrupts any eased return in progress
@@ -166,6 +271,7 @@ namespace Prazsky.BS3D.GameObjects
 			_rotationAim = Vector2.Zero;
 			_acceleration = 0f;
 			_resettingAim = false;
+			_advanceAcceleration = 0f;
 
 			Initialize();
 		}
@@ -195,12 +301,60 @@ namespace Prazsky.BS3D.GameObjects
 			MoveToOrbitAngle();
 		}
 
+		/// <summary>
+		/// One frame of the advance stroke: the glide's step, scaled by how much room is left towards the end
+		/// being approached. The scale is <b>linear in the room</b> over the last <see cref="ADVANCE_EASE_ZONE"/>
+		/// units, which makes the position converge on the end exponentially — the rubber the ends are made of:
+		/// the closer the gun gets the slower it moves, it never arrives and it never jolts. A step away from a
+		/// cushion reads the room towards the opposite end instead, so backing out answers at once.
+		/// </summary>
+		private void MoveRadial(GameTime gameTime)
+		{
+			//Positive step walks toward the field, i.e. shrinks the radius
+			float step = ADVANCE_SPEED * _advanceAcceleration * _advanceDeltaLastSet
+				* (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+			if (step == 0f) return;
+
+			float room = step > 0f ? _orbitRadius - _advanceMin : _advanceMax - _orbitRadius;
+			if (room <= 0f) return;
+
+			float cushion = Math.Min(room / ADVANCE_EASE_ZONE, 1f);
+
+			//The exponential approach cannot cross the end at ordinary frame times; the clamp catches float
+			//dust and the one real crossing an oversized step can make — a hitched frame's dt is unbounded,
+			//and past step = ADVANCE_EASE_ZONE the cushioned step exceeds the room it was scaled by
+			float moved = _orbitRadius;
+			_orbitRadius = Math.Clamp(_orbitRadius - step * cushion, _advanceMin, _advanceMax);
+
+			//What the wheels see: ground actually covered, cushion and all, signed + toward the field
+			AdvanceTravel += moved - _orbitRadius;
+
+			MoveToOrbitAngle();
+		}
+
+		/// <summary>
+		/// Ground the advance stroke has covered, in world units, signed — positive toward the field — and
+		/// accumulated over the walk's whole life, cushioned ends included. It exists for the carriage's
+		/// wheels: rolled by <c>travel / wheel radius</c> they turn exactly as fast as the ground passes under
+		/// them, and they slow into the rubber at an end precisely because this is the <i>moved</i> distance,
+		/// not the held time. Deliberately not advanced by the orbit (A/D): a carriage slewed sideways is
+		/// dragged, not rolled, and wheels that spin while the gun crabs sideways read as broken.
+		/// </summary>
+		public float AdvanceTravel { get; private set; }
+
 		private void MoveToOrbitAngle()
 		{
 			var x = OrbitCenter.X + (_orbitRadius * (float)Math.Cos(_orbitAngle));
 			var z = OrbitCenter.Z + (_orbitRadius * (float)Math.Sin(_orbitAngle));
 
 			Position = new(x, Position.Y, z);
+
+			//The gun just moved, and the resting pitch moved with it — walking in steepens it — while the
+			//aimed offset stayed put. Re-clamped against the fresh rest, or a maxed aim walked inward rides
+			//the rising rest past MaxElevation until the next mouse twitch snaps it back; near enough the
+			//centre the total would cross vertical, where the barrel's world-up basis degenerates.
+			UpdateRestRotation();
+			EnsureAimInBounds();
 
 			RecalculateRotation();
 			RecalculateWorldMatrix();
@@ -407,6 +561,34 @@ namespace Prazsky.BS3D.GameObjects
 		/// </para>
 		/// </summary>
 		public Matrix BarrelOrientation() => Matrix.CreateWorld(Vector3.Zero, AimDirection, Vector3.Up);
+
+		/// <summary>
+		/// The matrix the carriage is drawn with: <b>level</b> under the trunnions, yawed to the aim's heading
+		/// and never pitched with it — the whole point of trunnions is that the tube elevates in the cradle
+		/// while the carriage stays flat on its wheels. Traversing therefore slews the carriage (a field gun is
+		/// turned whole), elevating does not touch it, and the recoil does not either: the tube slides in the
+		/// cradle (<see cref="BarrelWorld"/> takes the stroke), the carriage holds its ground.
+		/// <para>
+		/// The heading comes off <see cref="AimDirection"/> flattened rather than off the yaw angles, so the
+		/// carriage faces exactly where the drawn barrel faces by construction; the elevation clamps keep the
+		/// aim well off vertical, so the flattened vector never degenerates. Same fourth-row translation trick
+		/// as <see cref="BarrelWorld"/>, same reasoning (BestPractices.md §6).
+		/// </para>
+		/// </summary>
+		public Matrix CarriageWorld()
+		{
+			Vector3 heading = AimDirection;
+			heading.Y = 0f;
+			heading = Vector3.Normalize(heading);
+
+			Matrix world = Matrix.CreateWorld(Vector3.Zero, heading, Vector3.Up);
+
+			world.M41 = Position.X;
+			world.M42 = Position.Y;
+			world.M43 = Position.Z;
+
+			return world;
+		}
 
 		/// <summary>
 		/// The matrix the barrel is drawn with: <see cref="BarrelOrientation"/> about the trunnions. Built from

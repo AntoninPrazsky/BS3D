@@ -520,6 +520,10 @@ namespace BS3D.Screens
 
         private const float CANNON_ORBIT_RATE = 1.0f;
 
+        //The walk's held rate, the same ±1 protocol as the orbit's — the speed itself is the shared
+        //Cannon.ADVANCE_SPEED, so the walk feels the same in the Testbed
+        private const float CANNON_ADVANCE_RATE = 1.0f;
+
         //Balls in flight, and balls that have been let go and are falling. Both are real Bepu bodies with no
         //constraints; the difference is only that a shot ball still listens for its contacts, because it can
         //still attach to the structure, while a released one is finished with and merely falls.
@@ -630,9 +634,10 @@ namespace BS3D.Screens
             Game = game;
             _hud = new PlayHud(game);
 
-            //Orbit centre is the field the cluster hangs over; the trunnions sit an axle's height above the
-            //island, and the gun stands well inside the island's rim.
-            _cannon = new Cannon(new Vector3(0f, 5f, 0f), -6.4f, 20f);
+            //Orbit centre is the field the cluster hangs over; the trunnion height is the carriage's own
+            //figure — where the wheels' radius and the axle's drop put the pins for the wheels to graze the
+            //island's arris plane (see CannonRig.TRUNNION_HEIGHT).
+            _cannon = new Cannon(new Vector3(0f, 5f, 0f), CannonRig.TRUNNION_HEIGHT, 20f);
 
             //The queue's colours are the level's business (RandomBallType draws only among what is still
             //hanging), so what to load next is injected; the constructor deals a full queue with it, which is
@@ -865,8 +870,11 @@ namespace BS3D.Screens
             SceneFrame sceneFrame = Game.BeginSceneDraw();
 
             //The barrel, drawn with its recoil stroke: the pose is Cannon's and the hardware CannonRig's, so
-            //the tube that was built and the bore a shot leaves from cannot disagree
+            //the tube that was built and the bore a shot leaves from cannot disagree. The carriage under it
+            //deliberately takes no recoil — the tube slides in the cradle, the carriage holds its ground —
+            //and its wheels are spun by the advance walk's own covered distance.
             Game.CannonRig.Draw(Camera, _cannon.BarrelWorld(CannonRecoilBack()), Game.SceneEffectParams);
+            Game.CannonRig.DrawCarriage(Camera, _cannon.CarriageWorld(), _cannon.AdvanceTravel, Game.SceneEffectParams);
 
             //Everything collected above, as one instanced draw per ball type and LOD level — and the frame's
             //collection is closed by it. The heartbeat runs on the WALL clock: the balls go on breathing while
