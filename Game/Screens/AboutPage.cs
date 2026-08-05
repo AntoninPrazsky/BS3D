@@ -17,17 +17,15 @@ namespace BS3D.Screens
 
             column.Widgets.Add(ScreenHeading("ABOUT"));
             column.Widgets.Add(Paragraph(
-                BS3DGame.GAME_TITLE + " is a 3D bubble shooter: shoot coloured balls at a cluster hanging from a glass ceiling. "
-                + "Three or more of one colour let go and fall — and take with them everything they were the "
-                + "last anchor for."));
+                text: BS3DGame.GAME_TITLE + " is a 3D arcade puzzle. Aim, match, and collapse color clusters hanging beneath a glass ceiling. "
+                                          + "Matching three or more drops them—severing everything anchored below."));
             column.Widgets.Add(Paragraph(
-                "Controls:  the mouse aims,  left button or space fires,  right button leans in along the "
-                + "barrel,  A/D traverses the carriage,  W/S walks it towards the field and back,  Esc pauses,  "
-                + "F11 toggles fullscreen,  F12 hides the FPS counter."));
+                text: "Controls: Mouse aims, Left Click or Space fires, Right Click leans along the barrel, "
+                      + "A/D traverses the carriage, W/S adjusts depth, Esc pauses, F11 toggles fullscreen, F12 hides the FPS counter."));
             column.Widgets.Add(Paragraph(
-                "Built on MonoGame (DirectX 11) and BepuPhysics 2. The scenes, the balls and the city are all "
-                + "procedural — no models, only code. Typeface Inter (SIL OFL 1.1)."));
-            column.Widgets.Add(Paragraph("github.com/AntoninPrazsky/BS3D"));
+                text: "Built on MonoGame (DirectX 11) and BepuPhysics 2. Everything—scenes, spheres, and the city—is procedural. "
+                      + "No 3D models, only pure code. Typeface Inter (SIL OFL 1.1)."));
+            column.Widgets.Add(Paragraph(text: "github.com/AntoninPrazsky/BS3D"));
 
             column.Widgets.Add(MenuButton("Back", GoBack));
 
