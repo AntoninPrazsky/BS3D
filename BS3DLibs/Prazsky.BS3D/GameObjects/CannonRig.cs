@@ -65,19 +65,66 @@ namespace Prazsky.BS3D
 
         #region The slot's glazing
 
-        //The window is GLAZED: a pane of the ceiling's own blue glass fills it, with the head-of-queue ball
-        //notched out of the pane's front edge, so the round about to fire is open to the air while the four
-        //behind it read through glass (CannonGlassMesh carries the geometry and the reasons). It is the gun
-        //saying which ball fires next by covering every ball but that one - no mark on the HUD, and nothing
-        //that has to be kept in step with the queue: the notch is cut at the front slot, and the queue glides
-        //through it.
+        //The window is GLAZED: a pane of deep blue glass fills it, with the head-of-queue ball notched out of
+        //the pane's front edge, so the round about to fire is open to the air while the four behind it read
+        //through glass (CannonGlassMesh carries the geometry and the reasons). It is the gun saying which ball
+        //fires next by covering every ball but that one - no mark on the HUD, and nothing that has to be kept
+        //in step with the queue: the notch is cut at the front slot, and the queue glides through it.
         //
-        //The glass's COLOUR and ALPHA are CeilingPlate's, by reference and not by a second copy of them: the
-        //plate the cluster hangs from and the pane over the bore are the same material, and a retune of one is
-        //a retune of both. Only the sky reflection is the pane's own, for the measured reason below. Note what
-        //the alpha costs here that it does not cost overhead - the queue's colours are what the next shots are
-        //planned on (Magazine's remarks: you cannot aim a shot whose colour you cannot see), so if a loaded
-        //ball ever reads too dim, that is the second figure to break out of the ceiling's.
+        //The glass's COLOUR and ALPHA were CeilingPlate's, by reference, until the pane was looked at from the
+        //vantage the game plays from and turned out not to READ: a pale colour at a low alpha subtracts about
+        //as much light as it adds back, so the four covered rounds came out very slightly hazed and nothing
+        //more. A window nobody notices says nothing about which round fires next, which is the only reason
+        //this pane exists. So both are the pane's own now, joining the sky reflection that always was - and
+        //they part from the plate's in opposite directions at once, the colour down and the alpha up, which
+        //is why one pair of constants could never have served both. See GLASS_COLOR and GLASS_ALPHA below.
+        //
+        //The plate and the pane are still the same MATERIAL; what differs is the duty. Nothing is read through
+        //the plate, so it may be a pale tint that mostly announces itself by its own sheen. Everything about
+        //this pane is read through it, so it has to work by TRANSMISSION: what it takes away is the whole
+        //signal, and what it adds back is what destroys it.
+        //
+        //Which is the trap in this material, and the reason a darker colour and a higher alpha go together
+        //rather than either alone. The shader decodes the material colour PREMULTIPLIED by alpha
+        //(SrgbToLinear(DiffuseColor.rgb), and InstancedModelRenderer.Draw hands it colour x alpha), then
+        //AlphaBlend adds it over the frame times (1 - alpha). So the pane is one constant veil plus a fraction
+        //of what is behind it. The veil is an ADD, and an add is what flattens hue: a pale veil over a red
+        //ball puts as much blue and green into it as red, and the queue's colours are exactly what the next
+        //shots are planned on (Magazine's remarks: you cannot aim a shot whose colour you cannot see). The
+        //multiply is the safe half - it dims every channel in proportion and leaves the hue alone. Hence a
+        //DARK glass at a HIGHER alpha: the darkening does the work, the veil only tints it cold, and a ball
+        //under this pane is a dimmer ball of its own colour rather than a bluer ball of no colour.
+
+        //The pane's own diffuse colour: a deep, cold blue where the plate's is a pale one
+        //(CeilingPlate.GLASS_COLOR). Dark on purpose and not for taste - it is the veil the paragraph above
+        //is about, so every bit of lightness in it is lightness added to a ball whose colour has to survive
+        //being read through it. Blue on purpose too, and far more saturated than the plate's: there is little
+        //of it, and what there is has to say "glass" rather than "shadow" on its own.
+        //
+        //What matters is this colour TIMES the alpha, and each channel of it separately, which is the thing
+        //that is easy to get wrong here: the shader is handed the product. Deepening the blue while raising
+        //the alpha left the blue channel's product almost exactly where it started (0.85 x 0.4 against
+        //0.50 x 0.62), so the pane turned markedly bluer and barely darker - measured on a glazed ball, the
+        //blue channel moved by four levels out of 173. Every channel has to come down, the blue included; the
+        //saturation is in the RATIO the channels keep, not in leaving one of them high.
+        private static readonly Vector3 GLASS_COLOR = new(0.10f, 0.19f, 0.34f);
+
+        //How much of the frame behind the pane it keeps out: well over the plate's 0.4, so a covered round
+        //loses about a third of the light it kept before and the round in the notch stands clear of the four
+        //behind it. This is the figure that actually does the job, and it is also the one that costs - it is
+        //bounded above by the queue staying legible, not by looks, and the balls dimmest to begin with (the
+        //dark types) are what bound it: a black round is identified by its white gores alone, and a pane
+        //dark enough to swallow those turns its slot from "a black round" into "an empty slot". Retune it
+        //against a full magazine and not an empty bore.
+        //
+        //And retune it knowing WHAT IS ACTUALLY BEHIND IT from the game camera, which is not what the notch
+        //suggests. Drawn opaque for a moment as a test, the pane fills the whole slot from that vantage: the
+        //barrel hides its own muzzle end, so the open round shows only as the small ellipse of its cap at the
+        //very top of the window and everything else in the queue is read THROUGH the glass. So this figure
+        //dims the entire queue to buy contrast on one ellipse. That is the trade, and it is why the answer is
+        //a pane that is dark and CLEAR rather than one that is merely thick - see GLASS_COLOR above and
+        //GLASS_SKY_REFLECTION below, both of which buy the same contrast without spending legibility.
+        private const float GLASS_ALPHA = 0.62f;
 
         //Radial thickness of the pane. Seated on the bore, so its outer face stands at BORE_RADIUS + this,
         //which has to stay under the slimmest steel the window crosses (the chase dip, outer - 0.075, i.e.
@@ -93,15 +140,31 @@ namespace Prazsky.BS3D
         //eye reads on this prop, so it gets more of them than the tube's own wall does.
         private const int GLASS_SEGMENTS = 16;
 
-        //How much of the dome the pane reflects, and the ONE figure the ceiling's plate does not lend it: well
-        //under the full strength every other surface here takes. Measured rather than tasted - at the game
-        //camera the barrel is seen from behind and slightly above, which is a GRAZING angle across this pane,
-        //and grazing is exactly where the shader's Fresnel term takes the sky reflection to its maximum. At the
-        //plate's own full strength the pane came out an opaque blue sheet from the one vantage the game
-        //actually plays from: the queue's colours were gone, and a window that hides the queue is a window
-        //with no reason to exist (Magazine's remarks). The plate has no such duty - nothing is read THROUGH
-        //it - which is why it can keep the full reflection and this cannot.
-        private const float GLASS_SPECULAR_AMBIENT = 0.55f;
+        //How much of the dome the pane reflects, and the figure that has to be held DOWN while the two above
+        //are pushed up. Measured rather than tasted - at the game camera the barrel is seen from behind and
+        //slightly above, which is a GRAZING angle across this pane, and grazing is exactly where the shader's
+        //Fresnel term takes the sky reflection to its maximum (0.04 head-on, but 0.67 at a cosine of 0.08 and
+        //a full mirror edge-on). At the full strength every other surface here takes, the pane came out an
+        //opaque blue sheet from the one vantage the game actually plays from: the queue's colours were gone,
+        //and a window that hides the queue is a window with no reason to exist (Magazine's remarks). The plate
+        //has no such duty - nothing is read THROUGH it - which is why it can keep the full reflection and this
+        //cannot.
+        //
+        //Written as a PRODUCT because the product is what the frame sees. The shader multiplies the reflected
+        //environment by the material alpha as well (ShadePixel: "* color.a"), so this dial and GLASS_ALPHA are
+        //not independent: the alpha raised to darken the pane would have brightened its sky reflection by the
+        //very same factor, and at a grazing angle put back exactly the veil the darkening was meant to take
+        //away. Stating the product is what stops that happening by the side door.
+        //
+        //And it is well down on the 0.22 the pane shipped with, which is the second thing the retune found.
+        //From the game camera this reflection, not the glass's own colour, is the LARGEST term the pane adds -
+        //at that cosine it is worth more than the whole diffuse body of the pane - and being a reflection of
+        //the sky it is achromatic and pale. That is what a pane made of it looks like: not glass but HAZE,
+        //balls that read slightly out of focus rather than balls read through something. The tint can only
+        //show once the pale wash over it is down, so the darkening and this cut are one change and not two.
+        private const float GLASS_SKY_REFLECTION = 0.13f;
+
+        private const float GLASS_SPECULAR_AMBIENT = GLASS_SKY_REFLECTION / GLASS_ALPHA;
 
         #endregion
 
@@ -273,10 +336,11 @@ namespace Prazsky.BS3D
             _glassMesh = new CannonGlassMesh(graphicsDevice, BORE_RADIUS, GLASS_THICKNESS, GLASS_SEAT,
                 SLOT_HALF_ANGLE, slotEndZ, -PivotToFrontBall, BALL_RADIUS, GLASS_SEGMENTS);
 
-            //The ceiling's glass, both figures of it — see the region above. Its ground-darkening anchor rides
-            //the stone under the gun (DrawGlass); the one thing that is NOT the plate's is the sky reflection.
-            _glassRenderer = new InstancedModelRenderer(graphicsDevice, _glassMesh, CeilingPlate.GLASS_COLOR,
-                instancingEffect, CeilingPlate.GLASS_ALPHA)
+            //The pane's own three figures — a deeper blue, a higher alpha and a sky reflection held down
+            //against that alpha, all three for the reasons in the region above. Its ground-darkening anchor
+            //rides the stone under the gun (DrawGlass).
+            _glassRenderer = new InstancedModelRenderer(graphicsDevice, _glassMesh, GLASS_COLOR,
+                instancingEffect, GLASS_ALPHA)
             {
                 SpecularAmbientStrength = GLASS_SPECULAR_AMBIENT
             };
