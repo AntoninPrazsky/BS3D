@@ -32,6 +32,9 @@ namespace Prazsky.Core.Render
         /// <summary>The starfield: three layers, coarse to fine.</summary>
         public SpaceStarsConfig Stars { get; set; } = new();
 
+        /// <summary>The volume the island is inside — the one layer with depth rather than only a direction.</summary>
+        public SpaceVolumeConfig Volume { get; set; } = new();
+
         /// <summary>The galactic band and its dust lanes.</summary>
         public SpaceMilkyWayConfig MilkyWay { get; set; } = new();
 
@@ -134,6 +137,59 @@ namespace Prazsky.Core.Render
     /// deep sky is actually made of. Cell scale is cells per unit of cube-face chart, so it is a density: the
     /// count over the whole sphere is roughly <c>6 · (2 · CellScale)² · Chance</c>.
     /// </summary>
+    /// <summary>
+    /// The volume the island floats <b>inside</b>: a folded kaleidoscopic field marched along the view ray from
+    /// the camera's own position, so it has parallax and the rest of this scene does not. Every other layer here
+    /// is a function of the view direction alone, which is what made the sky read as a painted dome; this is the
+    /// one thing in it with a front and a back. See <c>Space.fx</c>'s <c>StarNestVolume</c> for the field itself
+    /// and for what the step and iteration counts cost.
+    /// </summary>
+    public sealed class SpaceVolumeConfig
+    {
+        /// <summary>
+        /// Overall brightness of the web. <b>Zero switches the march off entirely</b> — a uniform branch skips
+        /// it, so nothing is paid for it — and restores the scene to exactly the painted sky it was before.
+        /// </summary>
+        public float Strength { get; set; } = 1.0f;
+
+        /// <summary>
+        /// World units to field units on the way in, and so <b>the parallax dial</b>. The field's cells are 0.85
+        /// units across and the march covers about one cell of depth, so this sets how much of a cell the camera
+        /// crosses as it moves: at this value the ~66 units of a full menu orbit come out as about a third of a
+        /// cell, which is enough that the near web visibly slides against the far one without the structure
+        /// changing identity as you watch. Raise it and the field boils as the camera moves; drop it to zero and
+        /// the layer is back to being a picture.
+        /// </summary>
+        public float Scale { get; set; } = 0.0042f;
+
+        /// <summary>
+        /// Field units per second the eye drifts through the volume. It is what sells "in space" while the
+        /// camera is standing still — with the play camera parked, parallax has nothing to work with. Slow
+        /// enough that it is never the thing being watched: at this rate the eye crosses a cell in about four
+        /// minutes.
+        /// </summary>
+        public float Drift { get; set; } = 0.0035f;
+
+        /// <summary>
+        /// How much of the field's own colour survives against its luminance. The depth ramp inside the march
+        /// (near cool, far warm) is violent, and left raw the web is a rainbow rather than a nebula.
+        /// </summary>
+        public float Saturation { get; set; } = 0.85f;
+
+        /// <summary>
+        /// How hard the web swallows the sky behind it. It is the difference between something the sky is seen
+        /// through and a decal laid over it — the same argument the nebulae's own transmittance is there for —
+        /// and it is deliberately gentle, because the stars behind are half of what says the web is close.
+        /// </summary>
+        public float Opacity { get; set; } = 2.6f;
+
+        /// <summary>
+        /// Tint over the whole layer (linear), for pulling it towards the palette the rest of the scene is
+        /// authored in. Cool and a little violet: the field's own ramp already supplies the warm end.
+        /// </summary>
+        public Rgb Tint { get; set; } = new(0.78f, 0.72f, 1.05f);
+    }
+
     public sealed class SpaceStarsConfig
     {
         /// <summary>Cells per chart unit of the bright layer.</summary>

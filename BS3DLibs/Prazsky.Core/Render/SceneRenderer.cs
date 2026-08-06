@@ -368,7 +368,7 @@ namespace Prazsky.Core.Render
 
         //The handful of parameters that change per frame, resolved once (BestPractices §1: the by-name
         //indexer is a linear scan). Everything else is pushed by ApplySpaceParameters when a config lands.
-        private readonly EffectParameter _spaceInverseViewProjection, _spaceCameraPosition, _spaceSunDirection, _spaceSupersample;
+        private readonly EffectParameter _spaceInverseViewProjection, _spaceCameraPosition, _spaceSunDirection, _spaceSupersample, _spaceTime;
 
         #endregion
 
@@ -492,6 +492,7 @@ namespace Prazsky.Core.Render
             _spaceCameraPosition = _spaceEffect.Parameters["CameraPosition"];
             _spaceSunDirection = _spaceEffect.Parameters["SunDirection"];
             _spaceSupersample = _spaceEffect.Parameters["SupersampleFactor"];
+            _spaceTime = _spaceEffect.Parameters["SpaceTime"];
 
             ApplySpaceParameters();
 
@@ -818,6 +819,8 @@ namespace Prazsky.Core.Render
             _desertEffect.Parameters["DustSpeed"].SetValue(_desertConfig.DustSpeed);
             _desertEffect.Parameters["DustStart"].SetValue(_desertConfig.DustStart);
             _desertEffect.Parameters["SandColor"].SetValue(_desertConfig.SandColor.ToVector3());
+            _desertEffect.Parameters["SandColorPale"].SetValue(_desertConfig.SandColorPale.ToVector3());
+            _desertEffect.Parameters["SheenStrength"].SetValue(_desertConfig.SheenStrength);
             _desertEffect.Parameters["AmbientStrength"].SetValue(_desertConfig.AmbientStrength);
             _desertEffect.Parameters["WindDirection"].SetValue(_desertConfig.Wind.ToVector2());
             _desertEffect.Parameters["HorizonHazeDistance"].SetValue(_desertConfig.HorizonHazeDistance);
@@ -1153,6 +1156,16 @@ namespace Prazsky.Core.Render
             SpaceSceneConfig space = _spaceConfig;
 
             _spaceEffect.Parameters["VoidColor"].SetValue(space.VoidColor.ToVector3());
+
+            //The volume the island is inside — the one layer of this scene with depth rather than only a
+            //direction, and so the only one the camera can move through (see Space.fx's StarNestVolume)
+            SpaceVolumeConfig volume = space.Volume;
+            _spaceEffect.Parameters["VolumeStrength"].SetValue(volume.Strength);
+            _spaceEffect.Parameters["VolumeScale"].SetValue(volume.Scale);
+            _spaceEffect.Parameters["VolumeDrift"].SetValue(volume.Drift);
+            _spaceEffect.Parameters["VolumeSaturation"].SetValue(volume.Saturation);
+            _spaceEffect.Parameters["VolumeOpacity"].SetValue(volume.Opacity);
+            _spaceEffect.Parameters["VolumeTint"].SetValue(volume.Tint.ToVector3());
 
             SpaceStarsConfig stars = space.Stars;
             _spaceEffect.Parameters["StarCellScale"].SetValue(new[] { stars.BrightCellScale, stars.MediumCellScale, stars.FaintCellScale });
@@ -1888,6 +1901,10 @@ namespace Prazsky.Core.Render
             _spaceCameraPosition.SetValue(frame.Camera.Position);
             _spaceSunDirection.SetValue(frame.SunDirection);
             _spaceSupersample.SetValue((float)SupersampleFactor);
+
+            //The only animated thing in a long-exposure sky: the eye's slow drift through the volume it is
+            //inside. Wall clock, like every other scene's, so it keeps moving while the simulation is paused.
+            _spaceTime.SetValue(frame.Time);
 
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.DepthStencilState = DepthStencilState.None;

@@ -50,6 +50,19 @@ float SupersampleFactor;
 //zodiacal floor, and a frame that goes to zero looks like a hole rather than like distance.
 float3 VoidColor;
 
+//Wall clock (seconds), for the volume's slow drift. Nothing else in this scene moves — a long-exposure sky
+//has nothing to animate — which is why this arrived with the volume rather than with the scene.
+float SpaceTime;
+
+//--- The volume the island is inside -----------------------------------------------------------------
+//See StarNestVolume. Strength 0 skips the march outright and restores the scene to its painted-dome self.
+float VolumeStrength;
+float VolumeScale;        //world units -> field units on the way in; this is the parallax dial
+float VolumeDrift;        //field units per second the eye slides through it
+float VolumeSaturation;
+float VolumeOpacity;      //how hard the web swallows the sky behind it
+float3 VolumeTint;
+
 //--- Stars -------------------------------------------------------------------------------------------
 //Three layers, coarse to fine. One star per cell of a cube-face lattice, jittered inside its own cell and
 //kept clear of the cell edge by its own radius, so a single cell lookup is enough and no lattice shows -
@@ -424,6 +437,170 @@ float3 Nebulae(float3 dir, out float transmittance)
 }
 
 //=====================================================================================================
+//The volume the island is INSIDE
+//=====================================================================================================
+
+//Everything above this point is a function of the view DIRECTION and nothing else, and that is exactly what
+//made this scene read as a painted dome rather than as a place: the camera's position enters the shader only
+//to build the ray. Move the camera and not one pixel changes; turn it and the whole picture slides rigidly,
+//near and far together. A starfield is entitled to behave that way - real stars have no parallax worth
+//drawing - but it means the scene had no depth of its own to be inside of.
+//
+//This layer is the one thing here that is marched THROUGH. Steps are taken along the ray from the camera's
+//own position, so structure a step away moves across the frame faster than structure ten steps away: real
+//parallax, from real depth, and it is the whole reason the layer exists. The drop cinematic diving under the
+//island is where it pays most, but even the menu's slow orbit now moves through something.
+//
+//The field is Pablo Roman Andrioli's "Star Nest" (MIT licensed, hence usable rather than merely admirable),
+//and the shape of it is worth understanding before it is retuned. Space is folded into mirrored cells by
+//`abs(TILE - fmod(p, 2*TILE))`, which repeats the volume for free and mirrors at every cell wall so no seam
+//shows. Inside a cell an iterated map `p = abs(p)/dot(p,p) - FORMULA` runs: a sphere inversion (which turns
+//the space inside out about the unit sphere, sending near points far and far points near), a fold into the
+//positive octant, and a translate. Iterated, that is a kaleidoscopic IFS whose attractor is a filigree of
+//sheets and filaments - and what is drawn is not the attractor's position but how far the point MOVED at each
+//iteration, summed. Points near the attractor move little and points far from it move a lot, so the sum is
+//an inside-out distance field, and the filaments come out as the dark tracery inside a glowing web.
+//
+//What was changed from the original, and why:
+//  - the volume is entered at the CAMERA rather than at a time-driven position, which is the point above;
+//  - it is rotated into a basis of its own, so the fold's axes do not line up with the world's and the cell
+//    walls do not read as a grid squared up with the island and the gun;
+//  - the world is scaled down hard on the way in (VolumeScale). The cells are 0.85 units across in the
+//    field's own space while this scene's island is 26 across and its camera stands 33 out, so feeding world
+//    coordinates in raw would fly the camera through thousands of cells and the whole thing would boil;
+//  - it carries an EXTINCTION, which the original has no need of because it draws nothing behind itself. Here
+//    the stars are behind it, and a bright web that lets every star shine through its densest knots reads as
+//    a decal over the sky rather than as something the sky is seen through.
+//
+//Cost is why the step and iteration counts are here as constants rather than dials: they are the shader's
+//whole budget, they multiply, and a dial invites setting them somewhere that drops the frame rate off a
+//cliff. The original runs 20 steps of 17 iterations - 340 evaluations of the formula for every pixel of the
+//frame - which is a Shadertoy's budget and not a backdrop's. See the measured figures in docs/scenes.md.
+//Eight steps and ten iterations, and the step count in particular is nearly free to cut: each step's
+//contribution is multiplied by VOLUME_DISTANCE_FADING, so the geometric series 0.76^r has already spent 93 %
+//of its total by the eighth step and the eleventh adds 4 %. Marching further is paying full price for a
+//contribution that is below the dither. Measured from the same vantage at ssaa 2, against the painted sky
+//this was added to (60.4 FPS): 11 steps x 12 iterations gives 29.5 FPS, i.e. +105 % frame time, which is a
+//backdrop taking the frame over; 8 x 10 gives 36.5, i.e. +65 %, and the difference between the two is not
+//visible side by side. Cutting the STEPS further is a bad trade even though it is the cheaper knob - the
+//march's depth is what the layer exists for, so eight steps of 0.13 is the depth of volume there is to be
+//inside of, and six would be spending the feature to save its own cost.
+static const int VOLUME_STEPS = 8;
+static const int VOLUME_ITERATIONS = 10;
+
+static const float VOLUME_TILE = 0.85;
+static const float VOLUME_FORMULA = 0.53;
+static const float VOLUME_STEP_SIZE = 0.13;
+
+//How much of the previous step's light survives one step further out. Under 1, so the far end of the march
+//contributes less than the near end - which is the depth cue the whole layer is for, and it doubles as the
+//march's own horizon so there is no hard end to it.
+static const float VOLUME_DISTANCE_FADING = 0.76;
+
+//The original's "dark matter": where the summed movement is LOW the point is near the attractor, and those
+//regions are made to absorb rather than emit. It is what keeps the web from filling in to a fog.
+static const float VOLUME_DARK_MATTER = 0.30;
+
+//How much of the flat between-filaments haze is kept. See where it is used for why it is a fraction.
+static const float VOLUME_HAZE = 0.22;
+
+//A fixed basis, orthonormal to about three decimals, that shares no axis with the world's. Baked as a
+//constant because it never changes and the compiler folds it into the multiplies.
+static const float3x3 VOLUME_BASIS = float3x3(
+	0.5749, 0.7385, 0.3502,
+	-0.7906, 0.4180, 0.4463,
+	0.2115, -0.5292, 0.8218);
+
+//The volume, marched from the eye. Returns its emission; `transmittance` is what of the sky behind survives.
+float3 StarNestVolume(float3 dir, float3 eye, out float transmittance)
+{
+	transmittance = 1.0;
+
+	//A branch on a UNIFORM, so it cannot diverge, and there are no derivatives anywhere inside this
+	//function - which is what makes it safe to skip the whole march when the layer is switched off. That
+	//matters: at strength 0 this is the most expensive thing in the frame doing nothing.
+	[branch]
+	if (VolumeStrength <= 0.0) return 0.0;
+
+	float3 rayDirection = mul(VOLUME_BASIS, dir);
+
+	//The eye, scaled down into the field's own space, plus the slow drift. The offset is the original's own
+	//starting point, kept because the field is not homogeneous - some places in it are far more interesting
+	//than others, and this is a place that was chosen by someone who looked.
+	float3 rayOrigin = mul(VOLUME_BASIS, eye * VolumeScale)
+		+ float3(1.0, 0.5, 0.5)
+		+ SpaceTime * VolumeDrift * float3(2.0, 1.0, -1.0);
+
+	float s = 0.1;
+	float fade = 1.0;
+	float3 accumulated = 0.0;
+
+	for (int r = 0; r < VOLUME_STEPS; r++)
+	{
+		float3 p = rayOrigin + s * rayDirection * 0.5;
+
+		//The mirrored tiling fold
+		p = abs(VOLUME_TILE - fmod(p, VOLUME_TILE * 2.0));
+
+		float previousLength = 0.0;
+		float activity = 0.0;
+
+		[unroll]
+		for (int i = 0; i < VOLUME_ITERATIONS; i++)
+		{
+			p = abs(p) / dot(p, p) - VOLUME_FORMULA;
+
+			float currentLength = length(p);
+			activity += abs(currentLength - previousLength);
+			previousLength = currentLength;
+		}
+
+		float dark = max(0.0, VOLUME_DARK_MATTER - activity * activity * 0.001);
+
+		//Cubed, which is the original's contrast: the web has to be mostly dark with bright filaments, and a
+		//linear sum of movement is mostly middling grey.
+		activity *= activity * activity;
+
+		//The absorbing regions are only allowed to act past the first few steps. Applied from the first, the
+		//cell the camera is standing in would dim the entire frame every time the fold put a dense patch
+		//against the lens.
+		fade *= (r > 4) ? (1.0 - dark) : 1.0;
+
+		//A flat term as well as the coloured one: the milky haze between the filaments, which is what makes
+		//it a medium rather than a set of curves hanging in a vacuum.
+		//
+		//Scaled down hard from the original's full `v += fade`, and this is the one number that had to change
+		//for the layer to belong to THIS scene rather than replace it. That term is a constant lift over every
+		//pixel of the frame - the series sums to about 3.7 - and at full weight it took the void from the 3 or
+		//4 display codes this scene is authored around up to a uniform grey, which swallowed the Milky Way's
+		//band and both bright nebulae whole. In Star Nest it is free to do that because there is nothing else
+		//in the frame. Here the haze has to be the thin stuff BETWEEN the filaments and nothing more.
+		accumulated += fade * VOLUME_HAZE;
+
+		//Coloured BY DEPTH along the ray - s, s squared, s to the fourth - so the near web comes out cool and
+		//the far one warm. It is a cheap trick standing in for scattering, and it is most of why the field
+		//reads as having a front and a back.
+		accumulated += float3(s, s * s, s * s * s * s) * activity * 0.0015 * fade;
+
+		fade *= VOLUME_DISTANCE_FADING;
+		s += VOLUME_STEP_SIZE;
+	}
+
+	//Pull the saturation back towards its own luminance: the depth ramp above is violent, and left raw the
+	//field is a rainbow rather than a nebula.
+	float3 volume = lerp(length(accumulated), accumulated, VolumeSaturation) * 0.01;
+
+	volume *= VolumeTint * VolumeStrength;
+
+	//And the extinction, off the emission's own luminance rather than a second accumulator: where the web is
+	//bright it is also dense, so this is very nearly free and cannot disagree with what is drawn. Reciprocal
+	//rather than linear so it can never go negative however hard the strength is turned up.
+	transmittance = 1.0 / (1.0 + dot(volume, float3(0.30, 0.59, 0.11)) * VolumeOpacity);
+
+	return volume;
+}
+
+//=====================================================================================================
 //Distant galaxies
 //=====================================================================================================
 
@@ -618,6 +795,16 @@ float4 SpacePS(SpaceVertexOutput input) : COLOR
 	stars += StarLayer(dir, pixelAngle, StarCellScale[2], StarChance[2] * density, StarPeak[2], false);
 
 	sky += stars * lerp(1.0, dustExtinction, 0.75) * lerp(1.0, nebulaTransmittance, 0.85);
+
+	//The volume last of the sky, and that ordering is what makes it read as being IN FRONT of all of it. It is
+	//the only layer here with a position rather than just a direction, so it is the only one that can be
+	//between the eye and the rest — everything above is at infinity by construction. Its extinction is applied
+	//to the whole accumulated sky rather than to the stars alone: the Milky Way and the nebulae are behind it
+	//too, and a web that dims the stars while the band shines through it undimmed reads as two skies.
+	float volumeTransmittance;
+	float3 volume = StarNestVolume(dir, CameraPosition, volumeTransmittance);
+
+	sky = sky * volumeTransmittance + volume;
 
 	//A fine dither. The void and the band's outskirts are enormous areas crossed by a very shallow
 	//gradient - a few dozen display codes over a whole screen - which is exactly where an 8-bit back

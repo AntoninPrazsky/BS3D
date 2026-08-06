@@ -41,8 +41,23 @@ namespace Prazsky.Core.Render
         /// <summary>Blown dust veil: distance over which it thickens towards the horizon.</summary>
         public float DustStart { get; set; } = 240f;
 
-        /// <summary>Warm sand reflectance (linear). Also reused in-shader as the dust colour.</summary>
+        /// <summary>Warm sand reflectance (linear) — the ochre of the ripple troughs. Also reused in-shader as the dust colour.</summary>
         public Rgb SandColor { get; set; } = new(0.55f, 0.38f, 0.18f);
+
+        /// <summary>
+        /// The bleached pale tone (linear) the sand mixes towards in patches — the colour of a sun-scoured
+        /// crest. Sand is never one colour, and one colour is exactly what this scene looked like before:
+        /// a broad noise field mixes the two, so the dunes carry patches instead of reading as a lit floor.
+        /// Warmer than white on purpose, so a patch of it is still sand rather than a bald spot.
+        /// </summary>
+        public Rgb SandColorPale { get; set; } = new(0.82f, 0.68f, 0.44f);
+
+        /// <summary>
+        /// How hard the sun glints off the sand at a grazing angle. Quartz grains are little mirrors, so sand
+        /// is near-matte rather than matte: with the sun low, a dune's crest lines carry a sheen. A wide lobe,
+        /// because the reflection is off a million grains facing every way — 0 is the old flat-matte look.
+        /// </summary>
+        public float SheenStrength { get; set; } = 0.35f;
 
         /// <summary>How much of the sky's hemisphere light fills the flats.</summary>
         public float AmbientStrength { get; set; } = 0.65f;
