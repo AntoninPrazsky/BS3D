@@ -18,9 +18,24 @@ namespace BS3D.Audio
     /// beep of a first pass and gives it body, weight and a tail.
     /// </para>
     /// <para>
-    /// Every play is nudged by a small random pitch, the landed sound is chosen by ball type and panned against
-    /// the camera, and the reverb decays independently per render — so no two shots and no two landings sound
-    /// exactly alike.
+    /// Every play is nudged by a small random pitch, the landed sound is chosen by ball type, and the reverb
+    /// decays independently per render — so no two shots and no two landings sound exactly alike.
+    /// </para>
+    /// <para>
+    /// <b>The five sounds that have a place in the world are placed there</b> (#75): the shot leaves the
+    /// muzzle, a landing sounds at the cell it stuck to, a release at the cell that broke, and a shell whistles
+    /// and bursts where it actually is. They go through <see cref="Speak"/> onto a <see cref="VoiceRing"/> and
+    /// are positioned by X3DAudio from a real <see cref="AudioEmitter"/> against a real
+    /// <see cref="AudioListener"/> posed from the camera — an <i>angle</i> to the source rather than the
+    /// hand-rolled projection onto the lens's right axis that came before it. The four that have no emitting
+    /// object — the party popper and the three UI sounds — stay fire-and-forget and dead centre, deliberately.
+    /// </para>
+    /// <para>
+    /// <b>Direction from the hardware, distance from the game.</b> X3DAudio's own attenuation is switched off
+    /// (see <see cref="DISTANCE_PLATEAU"/>) so it contributes placement and nothing else, and the distance laws
+    /// stay exactly where they were written — <see cref="VolumeForDistance"/>'s floor, the shot's flat level and
+    /// the burst's near-flat term are all untouched. That is the whole reason to prefer this over handing the
+    /// mix to the platform: none of those three is expressible through <c>Apply3D</c> at all.
     /// </para>
     /// </summary>
     public sealed class ProceduralAudio : IDisposable
@@ -28,14 +43,40 @@ namespace BS3D.Audio
         /// <summary>
         /// The authored level of the effects mix — what 100 % on the settings rows means. A constant so the
         /// mix keeps its tuning; the player's rows only ever scale it, through <see cref="Gain"/>.
+        /// <para>
+        /// <b>Raised from 0.7 when the effects went positional, and it buys back only half of what that cost.</b>
+        /// X3DAudio's output matrix sums to 1 in every direction — measured, at every distance and on both
+        /// stereo and 5.1 — where the pan law it replaces wrote <i>both</i> channels at full for a centred
+        /// sound. A centred sound is therefore 6.02 dB quieter through <c>Apply3D</c>, and only 3.10 dB of that
+        /// is recoverable, because <see cref="SoundEffectInstance.Volume"/> throws above 1. A sound at the edge
+        /// of the field loses nothing (both laws write [0, 1] hard over), so the shift is position-dependent and
+        /// no single constant can undo it. If the effects end up sitting too low under the bed and the theme,
+        /// the honest fix is the other end — <c>AMBIENCE_VOLUME</c>, <c>MUSIC_VOLUME</c>, <c>MENU_VOLUME</c> and
+        /// <c>FANFARE_VOLUME</c> each times ~0.71 — and that is an ear's call, not arithmetic.
+        /// </para>
         /// </summary>
-        private const float BASE_VOLUME = 0.7f;
+        private const float BASE_VOLUME = 1f;
+
+        /// <summary>
+        /// What the sounds that never reach an emitter are trimmed by. Exactly the old <see cref="BASE_VOLUME"/>,
+        /// and that is the point: the popper and the UI still play through the platform's centre-hot pan law, so
+        /// undoing the lift above leaves them at precisely the level they were authored and heard at. Without it
+        /// they would be the only thing in the game to get 3.10 dB <i>louder</i> while everything else dropped.
+        /// </summary>
+        private const float NON_SPATIAL_TRIM = 0.7f;
 
         /// <summary>
         /// The player's volume settings (master × effects), 1 for the authored mix. Written by the host when a
         /// settings row changes. A gain on the <b>next</b> play rather than on sounds already in flight — the
         /// <see cref="FireworkDuck"/> reasoning, and nothing here sounds long enough for the difference to be
         /// heard.
+        /// <para>
+        /// The five spatial sounds do now have handles that could be turned down mid-flight (see
+        /// <see cref="VoiceRing"/>), so the reason this stays a next-play gain has changed even though the
+        /// behaviour has not: walking 32 burst voices every frame to write a volume that is almost always the
+        /// same one is exactly the per-frame work the render-hygiene rules forbid, for a difference that lasts
+        /// as long as one report.
+        /// </para>
         /// </summary>
         public float Gain { get; set; } = 1f;
 
@@ -48,9 +89,9 @@ namespace BS3D.Audio
         /// to bury a tune underneath them — a bang is an event and the fanfare is the point, so the bang gives
         /// way. Set per frame by the host from <c>ProceduralMusic.IsFanfarePlaying</c>.
         /// <para>
-        /// A gain on the <b>next</b> play rather than on the ones already sounding: a `SoundEffect.Play` is
-        /// fire-and-forget with no handle to turn down afterwards, and a burst is short enough that ducking
-        /// only what has yet to start is indistinguishable from ducking everything.
+        /// A gain on the <b>next</b> play rather than on the ones already sounding: a burst is short enough that
+        /// ducking only what has yet to start is indistinguishable from ducking everything, and the alternative
+        /// is a per-frame walk over every voice in the burst ring — see <see cref="Gain"/>.
         /// </para>
         /// </summary>
         public float FireworkDuck { get; set; } = 1f;
@@ -74,8 +115,79 @@ namespace BS3D.Audio
         private readonly SoundEffect _uiClick;
         private readonly Random _random = new();
 
+        //The voices the five positional sounds are spoken through — one ring per buffer, every instance built
+        //here and reused for the life of the process. Sizes are in RING SIZES below.
+        private readonly VoiceRing _shootRing;
+        private readonly VoiceRing[] _landedRings;
+        private readonly VoiceRing _releaseRing;
+        private readonly VoiceRing _launchRing;
+        private readonly VoiceRing _burstRing;
+
+        //The ears and the mouth: one of each for the whole process, mutated in place and never re-newed. There
+        //is exactly one camera in the game, so there is exactly one listener.
+        private readonly AudioListener _listener = new();
+        private readonly AudioEmitter _emitter = new();
+
+        //The listener's basis, kept beside it because Speak needs it every time and AudioListener stores only
+        //what X3DAudio wants. Rebuilt once a frame by UpdateListener.
+        private Vector3 _listenerForward = Vector3.Forward;
+        private Vector3 _listenerRight = Vector3.Right;
+        private Vector3 _listenerUp = Vector3.Up;
+
+        //False until the camera has been posed at least once — see UpdateListener.
+        private bool _listenerValid;
+
+        #region Ring sizes
+
+        //How many voices each sound gets. Every one of these is a measured peak of CONCURRENT sounds, not a
+        //guess, and the failure mode of being short is the ring cutting its own oldest voice short (audible,
+        //recoverable) rather than dropping a sound (neither) — see VoiceRing.Take.
+
+        //A shot is 0.65 s and nothing limits the fire rate: Shoot() is edge-triggered off the key, the mouse
+        //and the pad trigger alike, so four voices covers anything up to ~6 shots a second, which is faster
+        //than the gun can be usefully aimed.
+        private const int SHOOT_VOICES = 4;
+
+        //A landing is 0.30 s and there is one ring PER BALL TYPE, so three each is three simultaneous landings
+        //of the same colour — well past what a single shot can cause.
+        private const int LANDED_VOICES = 3;
+
+        //A release is 0.6 s and only one group can come loose per landing.
+        private const int RELEASE_VOICES = 3;
+
+        //The whistle is 0.55 s, and it is the OPENING BARRAGE that sizes this rather than the steady state: at
+        //the start of a display every shell slot is free, so shells go up at INTERVAL_OPENING (~14 a second)
+        //until the slots run out, not at the recycling rate the display settles into. Simulated over the real
+        //schedule, the peak is ten whistles at once.
+        private const int LAUNCH_VOICES = 12;
+
+        //A report is 2.6 s, and during the barrage all MAX_SHELLS shells report inside one such window — so the
+        //peak is the shell count itself, by construction. Its margin is already slightly NEGATIVE: a shell slot
+        //can free and refire in RISE_MIN + LIFE_MIN = 2.52 s, inside the 2.6 s report, so in the worst case a
+        //report loses its last ~80 ms — which is reverb tail, under everything else in a barrage, and inaudible.
+        //A longer burst bake or a shorter shell life eats into real sound, silently.
+        private const int BURST_VOICES = 32;   //Fireworks.MAX_SHELLS
+
+        #endregion
+
         public ProceduralAudio()
         {
+            //THE PLATEAU, SET ONCE. X3DAudio's own attenuation is a 1/d curve past the emitter's curve scaler,
+            //and at the default scaler of 1 a landing 28 units out would come back 29 dB down — which is
+            //precisely what VolumeForDistance's floor and the burst's near-flat term were written to avoid.
+            //Measured: at this scaler the output matrix sums to exactly 1.0000 from 0 to 500 units and in every
+            //direction, so the hardware contributes placement and NOTHING ELSE and every distance law in this
+            //file survives verbatim. It is a plateau radius rather than an off switch (the curve does bite, at
+            //20 000 units), and varying it per source would quietly put an inverse-square curve back on top of
+            //ours — which is why it is written here, once, and nowhere else.
+            SoundEffect.DistanceScale = DISTANCE_PLATEAU;
+
+            //Doppler is refused, not merely unused. No velocity is ever written, so the factor would be 1
+            //anyway — but the lens is not a head: the ADS lean moves it at ~140 units a second, 40 % of the
+            //speed of sound, and the orbit at ~28. A listener velocity would detune everything sounding the
+            //instant the player leans in or holds a turn, which is an artifact of a camera and not a sound.
+            SoundEffect.DopplerScale = 0f;
+
             _shoot = BakeShoot();
             _landed = new SoundEffect[9];   //indexed by BallType value (1..8); slot 0 unused
             for (int type = 1; type <= 8; type++) _landed[type] = BakeLanded(type);
@@ -85,26 +197,50 @@ namespace BS3D.Audio
             _fireworkBurst = BakeFireworkBurst();
             _partyPopper = BakePartyPopper();
             _uiClick = BakeUiClick();
+
+            //The voices, all of them, here — an XAudio2 source voice apiece and a few ms of load. The popper
+            //and the UI need none: they never reach an emitter.
+            _shootRing = new VoiceRing(_shoot, SHOOT_VOICES);
+            _landedRings = new VoiceRing[_landed.Length];
+            for (int type = 1; type <= 8; type++) _landedRings[type] = new VoiceRing(_landed[type], LANDED_VOICES);
+
+            _releaseRing = new VoiceRing(_release, RELEASE_VOICES);
+            _launchRing = new VoiceRing(_fireworkLaunch, LAUNCH_VOICES);
+            _burstRing = new VoiceRing(_fireworkBurst, BURST_VOICES);
         }
 
-        /// <summary>The shot leaving the barrel: centred, with a small random pitch so a burst never sounds flat.</summary>
-        public void PlayShoot()
+        /// <summary>
+        /// The shot leaving the barrel, spoken from the <paramref name="muzzle"/> the ball and the launch smear
+        /// are spawned at — so the crack, the round and the streak cannot disagree about where the shot left.
+        /// <para>
+        /// Its level is deliberately <b>flat</b>, with no distance term: the gun is the player's own hardware
+        /// rather than something happening out in the scene, and walking it in and out with W/S must not make
+        /// the game's most frequent sound swell and duck. The muzzle sits a dozen-odd units dead ahead of the
+        /// lens, so what the placement buys is the barrel's swing — a small, honest drift off centre as the gun
+        /// is turned, and nothing more.
+        /// </para>
+        /// </summary>
+        public void PlayShoot(Vector3 muzzle)
         {
-            _shoot.Play(Level, NextPitch(0.12f), 0f);
+            Speak(_shootRing, muzzle, NEAR_WIDEN, Level, NextPitch(0.12f));
         }
 
         /// <summary>
         /// A ball snapping into the lattice. The <paramref name="type"/> selects a tone (one per colour), and the
-        /// world position is panned against the camera so a hit on the left of the field is heard on the left.
+        /// sound is spoken from the cell it stuck to, so a hit on the left of the field is heard on the left.
+        /// <para>
+        /// It stays at the solved cell rather than following the ball's own settling glide, and the level still
+        /// falls off with the <b>true</b> distance to a floor — the widening below moves the stereo image and
+        /// never the loudness.
+        /// </para>
         /// </summary>
-        public void PlayLanded(BallType type, Vector3 world, ICamera camera)
+        public void PlayLanded(BallType type, Vector3 world)
         {
             int index = (int)type;
-            if (index < 1 || index >= _landed.Length || _landed[index] == null) return;
+            if (index < 1 || index >= _landed.Length || _landedRings[index] == null) return;
 
-            float pan = PanFor(world, camera, out float distance);
-            float volume = VolumeForDistance(distance) * Level;
-            _landed[index].Play(volume, NextPitch(0.1f), pan);
+            float volume = VolumeForDistance(DistanceTo(world)) * Level;
+            Speak(_landedRings[index], world, NEAR_WIDEN, volume, NextPitch(0.1f));
         }
 
         /// <summary>
@@ -114,33 +250,37 @@ namespace BS3D.Audio
         /// deeper, which is the whole of how the ear tells a great shot from a good one before the score says
         /// so. Silent path for zero is the caller's business: a plain attach plays only the landing.
         /// </summary>
-        public void PlayRelease(Vector3 world, ICamera camera, int count)
+        /// <remarks>
+        /// Spoken from the cell that broke and left there, deliberately, rather than following the group down:
+        /// over the 0.6 s the sound lasts the freed balls fall under two units, straight down — and the stereo
+        /// image is a horizontal bearing, which height does not enter at all. Tracking it would cost a held
+        /// voice and an <c>Apply3D</c> every frame for a difference that cannot be heard.
+        /// </remarks>
+        public void PlayRelease(Vector3 world, int count)
         {
             //What counts as a FULL-SIZE release. The drop cinematic engages at 6 (DropCinematic.MIN_BALLS);
             //well past that the sound has nothing more to say by getting louder still.
             const float FULL_COUNT = 15f;
             float size = MathHelper.Clamp(count / FULL_COUNT, 0f, 1f);
 
-            float pan = PanFor(world, camera, out float distance);
-            float volume = (0.45f + 0.45f * size) * VolumeForDistance(distance);
+            float volume = (0.45f + 0.45f * size) * VolumeForDistance(DistanceTo(world));
 
-            _release.Play(MathHelper.Clamp(volume * Level, 0f, 1f),
-                MathHelper.Clamp(NextPitch(0.06f) - size * 0.12f, -1f, 1f), pan);
+            Speak(_releaseRing, world, NEAR_WIDEN, MathHelper.Clamp(volume * Level, 0f, 1f),
+                MathHelper.Clamp(NextPitch(0.06f) - size * 0.12f, -1f, 1f));
         }
 
         /// <summary>
-        /// A shell leaving the ground: the rising whistle, panned where it was fired from. Pitched a little
+        /// A shell leaving the ground: the rising whistle, spoken from the point it was fired from. Pitched a little
         /// each time and, because a whistle is a near-pure tone, pitched <i>widely</i> — two shells going up
         /// together on the same note read as one loud shell rather than as two.
         /// </summary>
-        public void PlayFireworkLaunch(Vector3 world, ICamera camera)
+        public void PlayFireworkLaunch(Vector3 world)
         {
             //FAR under the report, and much further under than it was. The bang is the event; the launch only
             //says one is coming, and with a shell going up every fraction of a second anything audible enough
             //to identify turns the display into a chorus of kettles. At this level it is a texture — the sense
             //that something went up — rather than a sound the ear stops to listen to.
-            float pan = PanFor(world, camera, SKY_PAN_WIDTH, out _);
-            _fireworkLaunch.Play(0.08f * Level * FireworkDuck, NextPitch(0.3f), pan);
+            Speak(_launchRing, world, SKY_WIDEN, 0.08f * Level * FireworkDuck, NextPitch(0.3f));
         }
 
         /// <summary>
@@ -148,28 +288,39 @@ namespace BS3D.Audio
         /// inversely, the pitch — a big shell is a deeper, louder report, which is the whole of how the ear
         /// tells a large firework from a small one at a distance.
         /// </summary>
-        public void PlayFireworkBurst(Vector3 world, ICamera camera, float size)
+        public void PlayFireworkBurst(Vector3 world, float size)
         {
-            float pan = PanFor(world, camera, SKY_PAN_WIDTH, out float distance);
-
             //A near-flat distance term. A firework IS far away — that is what it is for — so falling off the
             //way a landing does would make every burst a whisper; this only separates the near from the far.
+            float distance = DistanceTo(world);
             float volume = (0.85f + 0.15f * size) * (0.8f + 0.2f * MathHelper.Clamp(1f - distance / 260f, 0f, 1f));
 
-            _fireworkBurst.Play(MathHelper.Clamp(volume * Level * FireworkDuck, 0f, 1f),
-                MathHelper.Clamp(NextPitch(0.12f) - size * 0.28f, -1f, 1f), pan);
+            Speak(_burstRing, world, SKY_WIDEN, MathHelper.Clamp(volume * Level * FireworkDuck, 0f, 1f),
+                MathHelper.Clamp(NextPitch(0.12f) - size * 0.28f, -1f, 1f));
         }
 
-        /// <summary>The party popper that opens the celebration: one dry crack of paper and confetti, centred.</summary>
+        /// <summary>
+        /// The party popper that opens the celebration: one dry crack of paper and confetti, centred — and
+        /// centred by construction rather than by arithmetic, since it never reaches an emitter. Deliberately
+        /// close where the shells are big and wet, which is what makes the shells read as distant.
+        /// </summary>
         public void PlayPartyPopper()
         {
-            _partyPopper.Play(0.9f * Level, NextPitch(0.08f), 0f);
+            _partyPopper.Play(0.9f * Level * NON_SPATIAL_TRIM, NextPitch(0.08f), 0f);
         }
 
-        /// <summary>A menu entry being pressed — mouse, pad or keyboard, every path plays this one (#46).</summary>
+        /// <summary>
+        /// A menu entry being pressed — mouse, pad or keyboard, every path plays this one (#46).
+        /// <para>
+        /// The three UI sounds are the one group that stays fire-and-forget and unplaced on purpose: the menu
+        /// lives at the player's hand, not out in the scene, and the backdrop behind it is orbiting the very
+        /// camera a listener would be posed from — so an emitter here would make the game's own clicks sweep
+        /// left and right with the scenery.
+        /// </para>
+        /// </summary>
         public void PlayUiClick()
         {
-            _uiClick.Play(UI_CLICK_VOLUME * Level, NextPitch(0.03f), 0f);
+            _uiClick.Play(UI_CLICK_VOLUME * Level * NON_SPATIAL_TRIM, NextPitch(0.03f), 0f);
         }
 
         /// <summary>
@@ -178,48 +329,170 @@ namespace BS3D.Audio
         /// </summary>
         public void PlayUiTick()
         {
-            _uiClick.Play(UI_TICK_VOLUME * Level, 0.55f + NextPitch(0.03f), 0f);
+            _uiClick.Play(UI_TICK_VOLUME * Level * NON_SPATIAL_TRIM, 0.55f + NextPitch(0.03f), 0f);
         }
 
         /// <summary>Backing out — Escape or B: the click pitched down, so leaving sounds lower than entering.</summary>
         public void PlayUiBack()
         {
-            _uiClick.Play(UI_CLICK_VOLUME * Level, -0.3f + NextPitch(0.03f), 0f);
+            _uiClick.Play(UI_CLICK_VOLUME * Level * NON_SPATIAL_TRIM, -0.3f + NextPitch(0.03f), 0f);
         }
 
-        /// <summary>
-        /// Stereo pan of a world point relative to the camera: project the sound's offset onto the camera's
-        /// right axis and clamp. A point straight ahead is 0; one fully to the lens's right is +1.
-        /// </summary>
-        private static float PanFor(Vector3 world, ICamera camera, out float distance)
-            => PanFor(world, camera, PAN_FULL_WIDTH, out distance);
+        #region Where the ear is, and where the sound is
 
         /// <summary>
-        /// <inheritdoc cref="PanFor(Vector3, ICamera, out float)"/>
+        /// Poses the listener from the camera. Called once a frame by the host, unconditionally — the fireworks
+        /// and the menu both make noise with no session standing, so the ears cannot belong to the session.
         /// <para>
-        /// <paramref name="fullWidth"/> is how far off-centre a sound has to be to reach full left/right. It is
-        /// per-source rather than one constant because the two things that make noise here live at completely
-        /// different scales: the cluster spans a couple of dozen units, and a firework bursts a hundred up and
-        /// as far out again — at the cluster's width every shell but the one straight overhead would pan hard
-        /// to one side.
+        /// <b>The lens's own shaken pose</b>, so a report heard while the camera is being knocked about agrees
+        /// with the frame it is drawn in. The forward axis is recovered from the target, which for the game's
+        /// camera <i>is</i> the post-shake view direction by construction.
+        /// </para>
+        /// <para>
+        /// <b>The up axis is crossed from WORLD up rather than taken from the camera</b>, and that is a decision
+        /// rather than an oversight. It costs nothing audible — the largest roll the game produces, the drop
+        /// cinematic's dutch tilt, moves a sound at the edge of the field by hundredths of a decibel, because
+        /// the stereo image is a horizontal bearing — and it buys two things: the soundfield can never be left
+        /// tipped by a roll the camera is still carrying from a screen the player has since left, and the basis
+        /// stays the one the HUD's cluster profile is built on.
         /// </para>
         /// </summary>
-        private static float PanFor(Vector3 world, ICamera camera, float fullWidth, out float distance)
+        public void UpdateListener(ICamera camera)
         {
-            Vector3 forward = camera.Target - camera.Position;
-            float forwardLen = forward.Length();
-            Vector3 forwardN = forwardLen > 1e-4f ? forward / forwardLen : Vector3.Forward;
+            Vector3 position = camera.Position;
+            Vector3 toTarget = camera.Target - position;
 
-            //The same basis the camera builds in RecoilCamera.Recalculate (right-handed: forward × up).
-            Vector3 right = Vector3.Cross(forwardN, Vector3.Up);
+            float length = toTarget.Length();
+            if (length <= 1e-4f) return;
+
+            Vector3 forward = toTarget / length;
+
+            //The same basis GameplayScreen builds its cluster profile on: right-handed, crossed against world
+            //up, with a fallback for a lens pointed straight down its own up axis.
+            Vector3 right = Vector3.Cross(forward, Vector3.Up);
             right = right.LengthSquared() > 1e-6f ? Vector3.Normalize(right) : Vector3.Right;
+            Vector3 up = Vector3.Normalize(Vector3.Cross(right, forward));
 
-            Vector3 toSound = world - camera.Position;
-            distance = toSound.Length();
+            //A NaN or an infinity reaching X3DAudio silences the WHOLE audio graph — every voice, permanently,
+            //with no exception raised and no way back. So the pose is gated: anything that is not finite leaves
+            //the last good one standing rather than being written.
+            if (!Finite(position) || !Finite(forward) || !Finite(up)) return;
 
-            float lateral = Vector3.Dot(toSound, right);
-            return MathHelper.Clamp(lateral / fullWidth, -1f, 1f);
+            _listener.Position = position;
+            _listener.Forward = forward;
+
+            //X3DAudio does NOT normalise the orientation it is handed and does not validate it either: an up
+            //vector of the wrong length silently skews the whole image, and a degenerate one collapses it to
+            //dead centre. The normalisation above is load-bearing — do not "simplify" the cross product away.
+            _listener.Up = up;
+
+            _listenerForward = forward;
+            _listenerRight = right;
+            _listenerUp = up;
+
+            //Only now. Until the camera has been posed once — the first Update of a run, where it still holds
+            //its default degenerate pose — there is no trustworthy place to hear from, and Speak plays centred.
+            _listenerValid = true;
         }
+
+        /// <summary>
+        /// Plays a sound <b>at a place</b>: takes a voice from <paramref name="ring"/>, puts the emitter where
+        /// the sound is and hands the pair to X3DAudio.
+        /// <para>
+        /// <b>The call order is the whole of its correctness.</b> <c>Apply3D</c> writes the voice's output
+        /// matrix <i>and</i> its frequency ratio, so the pitch must be set <b>after</b> it or every random
+        /// nudge and every size-encoded offset in this file is silently wiped. <c>Volume</c> is a separate
+        /// setting and is safe anywhere. <c>Pan</c> must <b>never</b> be written on a placed voice: it writes
+        /// the same matrix <c>Apply3D</c> does, so one assignment throws the placement away. The fallback below
+        /// writes it precisely because there is <i>no</i> placement to throw away yet — with no listener there
+        /// is nothing to place against, and Pan is the only way left to address that matrix.
+        /// </para>
+        /// <para>
+        /// Nothing resets a reused voice's matrix between plays, so <c>Apply3D</c> is re-applied on every take
+        /// rather than only when the position has moved — a slot replayed without it would sound at the
+        /// <i>previous</i> event's position.
+        /// </para>
+        /// </summary>
+        private void Speak(VoiceRing ring, Vector3 world, float widen, float volume, float pitch)
+        {
+            SoundEffectInstance voice = ring.Take();
+
+            if (!_listenerValid)
+            {
+                //No trustworthy pose yet — which today means the first frame of a run and nothing else, since
+                //_listenerValid is latched once and never cleared. Pan is the only way to address the output
+                //matrix before there is a listener to place against, and it centres the sound; the trim matches
+                //the centre-hot law it restores, see NON_SPATIAL_TRIM. If _listenerValid is ever made
+                //resettable, note that this branch would then be reached with a placement already on the slot,
+                //which Pan does happen to overwrite — but that is not why it is written here.
+                voice.Pan = 0f;
+                voice.Volume = MathHelper.Clamp(volume * NON_SPATIAL_TRIM, 0f, 1f);
+                voice.Pitch = MathHelper.Clamp(pitch, -1f, 1f);
+                voice.Play();
+                return;
+            }
+
+            //A coincident emitter is safe (it comes back as an even spread); a non-finite one is not — see the
+            //gate in UpdateListener for what a NaN costs.
+            _emitter.Position = Finite(world) ? Placed(world, widen) : _listener.Position;
+
+            voice.Volume = MathHelper.Clamp(volume, 0f, 1f);
+            voice.Apply3D(_listener, _emitter);
+
+            //After Apply3D, always. And still clamped to ±1, even though an instance would accept ten octaves
+            //where Play's overload would not: this is the file where a pitch written as a multiplier once put
+            //the entire game an octave sharp, and the guard rail that caught it is gone.
+            voice.Pitch = MathHelper.Clamp(pitch, -1f, 1f);
+            voice.Play();
+        }
+
+        /// <summary>
+        /// Where to put the emitter so the sound lands where the <i>ear</i> expects it. Two corrections, both
+        /// applied in the listener's own frame and both to the bearing alone — the distance every caller
+        /// attenuates by is taken from the true position, never from this.
+        /// <list type="bullet">
+        /// <item><b>The near field is widened</b> by <paramref name="widen"/>, by shortening the leg along the
+        /// view axis. A cluster ten units across seen from thirty subtends about twenty degrees, so the honest
+        /// bearing of a landing is <i>narrower</i> than the image the mix has had all along; without this the
+        /// change would read as the stereo collapsing. Sources at or behind the lens pass through untouched,
+        /// since dividing a negative forward leg would swing them through the listener.</item>
+        /// <item><b>Overhead is folded towards the middle.</b> A stereo image carries a horizontal bearing and
+        /// nothing else, so a shell almost directly above the lens has a bearing decided by a few units of
+        /// horizontal offset — it would crack out of one speaker while the player is looking straight up at it.
+        /// Scaling the sideways leg by the cosine of the elevation is what every height channel's downmix does,
+        /// and it leaves anything near the horizon exactly where it is.</item>
+        /// </list>
+        /// </summary>
+        private Vector3 Placed(Vector3 world, float widen)
+        {
+            Vector3 to = world - _listener.Position;
+
+            float ahead = Vector3.Dot(to, _listenerForward);
+            float side = Vector3.Dot(to, _listenerRight);
+            float above = Vector3.Dot(to, _listenerUp);
+
+            //Only ahead of the lens, and only when there is something to widen.
+            if (widen > 1f && ahead > 0f) ahead /= widen;
+
+            float length = to.Length();
+            if (length > 1e-4f)
+            {
+                //cos(elevation) from sin, with no trigonometry: 1 on the horizon, 0 straight overhead.
+                float sinElevation = MathHelper.Clamp(MathF.Abs(above) / length, 0f, 1f);
+                side *= MathF.Sqrt(1f - sinElevation * sinElevation);
+            }
+
+            return _listener.Position + _listenerForward * ahead + _listenerRight * side + _listenerUp * above;
+        }
+
+        /// <summary>How far the sound is from the ear, in a straight line — the true distance, never the placed one.</summary>
+        private float DistanceTo(Vector3 world) => Vector3.Distance(world, _listener.Position);
+
+        /// <summary>Whether every component is a real number. The guard against a silent, permanent global mute.</summary>
+        private static bool Finite(Vector3 v)
+            => float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Z);
+
+        #endregion
 
         /// <summary>Falls off gently with distance so a far landing is quieter but never inaudible.</summary>
         private static float VolumeForDistance(float distance)
@@ -243,11 +516,21 @@ namespace BS3D.Audio
         /// </summary>
         private float NextPitch(float amplitude) => (float)(_random.NextDouble() * 2.0 - 1.0) * amplitude;
 
-        //How far off-centre a sound has to be to reach full left/right pan. Sized to the cluster's span.
-        private const float PAN_FULL_WIDTH = 18f;
+        //How far a source may be before X3DAudio's own 1/d attenuation starts to bite. Enormous on purpose:
+        //this is a PLATEAU, not an off switch, and it is what lets every distance law in this file survive the
+        //move to positional audio unchanged. See the constructor for the measurement.
+        private const float DISTANCE_PLATEAU = 10000f;
 
-        //The same, for things happening in the sky. A firework bursts a hundred units up and as far out again.
-        private const float SKY_PAN_WIDTH = 90f;
+        //How much the near field's bearing is exaggerated — the cluster, the muzzle, a release. This replaces
+        //PAN_FULL_WIDTH (18) and is the honest form of the same tuning: an angle is scale-invariant where a
+        //sideways DISTANCE is not, which is why the old law needed a second constant for the sky and this does
+        //not. At 1.9 the edge of the field lands within a fraction of a decibel of the image the mix has always
+        //had. Set it to 1 for the plain geometric truth — which is narrower, and was tried.
+        private const float NEAR_WIDEN = 1.9f;
+
+        //And the sky's, which is none: a shell really is far out to one side, and the truth up there is already
+        //wider than the old SKY_PAN_WIDTH (90) made it. Exaggerating it as well would blow the celebration open.
+        private const float SKY_WIDEN = 1f;
 
         #region The signal chain
 
@@ -974,6 +1257,13 @@ namespace BS3D.Audio
 
         public void Dispose()
         {
+            //Voices first, buffers second: an instance holds a voice onto the buffer it was made from.
+            _shootRing?.Dispose();
+            if (_landedRings != null) foreach (VoiceRing ring in _landedRings) ring?.Dispose();
+            _releaseRing?.Dispose();
+            _launchRing?.Dispose();
+            _burstRing?.Dispose();
+
             _shoot?.Dispose();
             if (_landed != null) foreach (SoundEffect effect in _landed) effect?.Dispose();
             _release?.Dispose();

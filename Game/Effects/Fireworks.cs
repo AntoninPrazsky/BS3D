@@ -215,7 +215,20 @@ namespace BS3D.Effects
         /// Advances every shell, launches new ones while the celebration lasts, and plays the report of any
         /// that crosses from rising to burst on this frame.
         /// </summary>
-        public void Update(float elapsed, RecoilCamera camera)
+        /// <remarks>
+        /// It needs no camera any more (#75): a shell's noise is made at the shell's own position and the ears
+        /// are the host's, posed once a frame from the one camera there is.
+        /// <para>
+        /// A report is placed once and then left, and the listener does <b>not</b> stand still under it — the
+        /// gameplay screen is frozen beneath the result page, but that page is the one screen still running and
+        /// it swings the released camera around the arena for the whole display (and the <c>celebrate</c>
+        /// argument runs over the orbiting backdrop instead). Over the 2.6 s a report lasts, that is a few
+        /// degrees of bearing on a burst forty to a hundred and twenty units up — the same trade the release
+        /// makes, and tracking it would cost a held voice and an <c>Apply3D</c> every frame for a drift the ear
+        /// has nothing to compare against.
+        /// </para>
+        /// </remarks>
+        public void Update(float elapsed)
         {
             for (int i = 0; i < _shells.Length; i++)
             {
@@ -231,7 +244,7 @@ namespace BS3D.Effects
 
                     //Size drives the volume and, inversely, the pitch — a big shell is a deeper, louder report
                     float size = MathHelper.Clamp((_shells[i].Radius - RADIUS_MIN) / (RADIUS_MAX - RADIUS_MIN), 0f, 1f);
-                    _audio?.PlayFireworkBurst(_shells[i].Burst, camera, size);
+                    _audio?.PlayFireworkBurst(_shells[i].Burst, size);
                 }
 
                 if (_shells[i].Age > _shells[i].Life) _shells[i].Active = false;
@@ -264,7 +277,7 @@ namespace BS3D.Effects
 
             while (_untilNextLaunch <= 0f)
             {
-                Launch(camera);
+                Launch();
 
                 float interval =
                     _sinceStart < OPENING_SECONDS ? INTERVAL_OPENING :
@@ -275,7 +288,7 @@ namespace BS3D.Effects
         }
 
         /// <summary>Fires one shell into a free slot, if there is one, and whistles it up.</summary>
-        private void Launch(RecoilCamera camera)
+        private void Launch()
         {
             int slot = -1;
             for (int i = 0; i < _shells.Length; i++)
@@ -332,7 +345,7 @@ namespace BS3D.Effects
                 Reported = false
             };
 
-            _audio?.PlayFireworkLaunch(origin, camera);
+            _audio?.PlayFireworkLaunch(origin);
         }
 
         /// <summary>

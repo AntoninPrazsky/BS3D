@@ -50,6 +50,18 @@ kind that accumulates unnoticed:
 - Watch also: LINQ in Update/Draw, closures capturing locals, `params` arrays, boxing structs through
   interfaces. None were found hot — keep it that way.
 
+**One knowing exception, bounded and written down so the next reader finds the exception rather than the
+violation.** `SoundEffectInstance.Apply3D` allocates inside the framework — MonoGame calls SharpDX's
+allocating `Calculate` overload, and the allocation-free one is not reachable from game code. Measured at
+~430 B per call (mono into stereo). It is accepted because it is bounded to **one call per sound event and
+never per frame**: a handful a second in play, and — from the fireworks' own constants, two calls per shell —
+a peak of ~28 a second through the 2.2 s opening barrage, settling to ~12/s and then ~4/s, about 390 calls
+over a whole 60 s display. That bound is the whole of its safety, and it holds only while nothing tracks a
+*moving* emitter —
+the moment something calls `Apply3D` every frame to follow a source, this becomes a per-frame allocation
+like any other and the rule applies again. `ProceduralAudio.Speak` is the only call site in the process,
+deliberately, so there is one place to check.
+
 ## 4. No console I/O on load or gameplay paths
 
 A console `WriteLine` with an attached console is a synchronized, formatted OS call — around a millisecond.

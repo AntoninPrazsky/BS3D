@@ -38,13 +38,16 @@ namespace BS3D.Screens
         private void OnBallLanded(BallLanding landing)
         {
             //The landing's own sound, before anything is scored: it depends only on the colour that hit and
-            //where, not on what came loose. Panned against the camera so a hit on the left is heard on the left.
-            Game.Audio.PlayLanded(landing.Type, landing.World, Camera);
+            //where, not on what came loose. Spoken from the cell it stuck to — the same solved position the
+            //award is born on below — so a hit on the left of the field is heard on the left. The camera is no
+            //longer passed: the listener is the host's, posed once a frame from the one camera there is.
+            Game.Audio.PlayLanded(landing.Type, landing.World);
 
             //What came loose answers separately (#46): the lattice's snap and the freed group popping away,
-            //scaled by how much of it there is. A plain attach stays just the thunk above.
+            //scaled by how much of it there is. A plain attach stays just the thunk above. It sounds from the
+            //cell that broke and stays there rather than following the group down — see PlayRelease.
             int released = landing.Released.Matched + landing.Released.Orphaned;
-            if (released > 0) Game.Audio.PlayRelease(landing.World, Camera, released);
+            if (released > 0) Game.Audio.PlayRelease(landing.World, released);
 
             ScoreAward award = _score.Landed(landing.Released.Matched, landing.Released.Orphaned);
 

@@ -252,9 +252,13 @@ namespace BS3D.Screens
             //sees is unambiguously their own shot.
             Camera.Shake.Kick(RECOIL_KICK);
 
-            //Heard as well as felt: the shot's synthesized crack, centred (the muzzle is the lens's own work)
-            //and nudged by a small random pitch so a burst never sounds flat.
-            Game.Audio.PlayShoot();
+            //Heard as well as felt, and heard FROM THE MUZZLE — the same point the round is spawned at above
+            //and the same one the smear is drawn from, so the crack, the ball and the streak cannot disagree
+            //about where the shot left. The muzzle sits a dozen-odd units dead ahead of the lens, so what this
+            //buys is the barrel's swing: the crack drifts a little off centre as the gun is turned and no
+            //further. Its level stays flat with no distance term, so walking the gun in with W/S cannot make
+            //the game's most frequent sound swell. Nudged by a small random pitch so a burst never sounds flat.
+            Game.Audio.PlayShoot(muzzle);
         }
 
         #endregion

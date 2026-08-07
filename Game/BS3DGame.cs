@@ -854,11 +854,22 @@ namespace BS3D
             float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
             _wallClock += elapsed;
 
+            //The ears, before anything can make a noise this frame. Up here and unconditional for the same
+            //reason the fireworks are: sound is made with no session standing — a whole celebration of it over
+            //a frozen gameplay screen, and the menu's own clicks over an orbiting backdrop — so the listener
+            //cannot belong to the session either. There is one camera for the whole process, so there is one
+            //listener, valid across every level rebuild.
+            //
+            //It is posed from the pose the previous frame was DRAWN from (the stack poses the camera further
+            //down), which is exactly the staleness the panning it replaces already had: half a unit at sixty
+            //frames a second. Nothing is gained by moving it, and correctness would be lost.
+            _audio?.UpdateListener(_camera);
+
             //Advanced here, with the wall clock and above the stack, because the celebration outlives the
             //screen that started it: clearing a level pushes the result page over the gameplay screen, and a
             //covered screen is not updated at all. Driven off the frame's own elapsed time rather than a play
             //clock, so it does not stop when the game does.
-            _fireworks?.Update(elapsed, _camera);
+            _fireworks?.Update(elapsed);
 
             //The music's handover: a pass is played once rather than looped, and this is what puts the next
             //freshly synthesized variation on when the current one ends (see ProceduralMusic.Update). Up here
