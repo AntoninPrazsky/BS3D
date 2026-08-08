@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Bash(git clean)",
+      "Bash(git clean *)",
+      "Bash(git reset --hard)",
+      "Bash(git reset --hard *)",
+      "PowerShell(git clean)",
+      "PowerShell(git clean *)",
+      "PowerShell(git reset --hard)",
+      "PowerShell(git reset --hard *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/guard-destructive-git.sh\"",
+            "statusMessage": "Checking for destructive git"
+          }
+        ]
+      }
+    ]
+  }
+}
