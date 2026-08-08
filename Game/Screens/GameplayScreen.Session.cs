@@ -75,6 +75,10 @@ namespace BS3D.Screens
             _pendingOutcome = LevelOutcome.None;
             _pendingFailure = LevelFailure.None;
 
+            //The drop cinematic's bar is the biggest release of the level being played, so it starts over
+            //with the level — otherwise the last one's best would follow the player into this one
+            _biggestDrop = 0;
+
             //The glass is a fresh plate at the top of a fresh field, so nothing about the last level's last
             //descent should still be glowing on it — nor should a step it queued and never got to take come
             //down on the new one.

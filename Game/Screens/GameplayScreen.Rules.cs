@@ -91,9 +91,21 @@ namespace BS3D.Screens
         {
             int total = released.Matched + released.Orphaned;
 
+            //Big enough to be a spectacle at all, and bigger than anything this level has already shown the
+            //player — see DropCinematic.MustBeatBestBy for why the second half cannot be a fixed count.
+            bool worthWatching = total >= DropCinematic.MIN_BALLS
+                                 && total >= _biggestDrop * DropCinematic.MustBeatBestBy;
+
+            //Raised by every release, including the ones refused below: a collapse the player watched happen
+            //has moved what "big" means here, whether or not the camera went with it.
+            int previousBest = _biggestDrop;
+            if (total > _biggestDrop) _biggestDrop = total;
+
+            if (!worthWatching) return;
+
             //Never over a cinematic already running, and never over the end of a level: the result screen is
             //about to cover this one, and a camera move under it is a move nobody sees.
-            if (total < DropCinematic.MIN_BALLS || _cinematic.Engaged || _levelLost || _clearedCountdown > 0f) return;
+            if (_cinematic.Engaged || _levelLost || _clearedCountdown > 0f) return;
 
             int first = _fallingBalls.Count - total;
             if (first < 0) return;
@@ -117,9 +129,10 @@ namespace BS3D.Screens
 
             //One line per cinematic, in the manner of the [level] and [score] lines: it is a rare event, not a
             //per-frame one, and the shot is rolled — so when one frames badly this is the only record of what
-            //it actually chose.
+            //it actually chose. It carries the bar it beat as well, because "why did that one fire and not the
+            //last one" is now a question about the level's history rather than about a constant.
             Console.WriteLine($"[cinematic] {total} balls ({released.Matched} matched, {released.Orphaned} orphaned)"
-                + $" from y={centre.Y:F1}, {_cinematic.Describe()}");
+                + $" beat a best of {previousBest}, from y={centre.Y:F1}, {_cinematic.Describe()}");
         }
 
         /// <summary>

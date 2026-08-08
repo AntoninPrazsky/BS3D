@@ -258,8 +258,10 @@ namespace BS3D.Audio
         /// </remarks>
         public void PlayRelease(Vector3 world, int count)
         {
-            //What counts as a FULL-SIZE release. The drop cinematic engages at 6 (DropCinematic.MIN_BALLS);
-            //well past that the sound has nothing more to say by getting louder still.
+            //What counts as a FULL-SIZE release: well past this the sound has nothing more to say by getting
+            //louder still. Deliberately independent of the drop cinematic's bar, which is a level's own best
+            //(DropCinematic.MustBeatBestBy) — the ear has no history, and a fifteen-ball collapse should sound
+            //the same whether or not the camera decided it was the biggest one yet.
             const float FULL_COUNT = 15f;
             float size = MathHelper.Clamp(count / FULL_COUNT, 0f, 1f);
 

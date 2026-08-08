@@ -251,6 +251,14 @@ namespace BS3D.Screens
         private readonly int[] _ballsOfType = new int[BallRenderSet.TYPE_COUNT];
 
         /// <summary>
+        /// The biggest single release of <b>this</b> level so far, which is the bar the drop cinematic has to
+        /// clear (see <see cref="DropCinematic.MustBeatBestBy"/>). Per level and cleared by
+        /// <see cref="BuildLevel"/>: carried across, a small level played after Crown would never show one,
+        /// and "big" has to mean big <i>here</i> rather than big in the campaign.
+        /// </summary>
+        private int _biggestDrop;
+
+        /// <summary>
         /// Where the lattice frame meets the world, and the <b>only</b> place it does on the drawing side.
         /// <para>
         /// Y hangs the top of the field at <see cref="FIELD_TOP_Y"/> — or higher, when the field is deep
