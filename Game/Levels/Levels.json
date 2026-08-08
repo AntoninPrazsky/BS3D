@@ -14,6 +14,37 @@
       "name": "Two",
       "shots": 45,
       "ceilingStep": 4
+    },
+    {
+      "file": "Three.json",
+      "name": "Bullseye",
+      "shots": 40,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Four.json",
+      "name": "Mosaic",
+      "shots": 56,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Five.json",
+      "name": "Pinwheel",
+      "shots": 44,
+      "ceilingStep": 9
+    },
+    {
+      "file": "Six.json",
+      "name": "Crown",
+      "shots": 44,
+      "ceilingStep": 9
+    },
+    {
+      "file": "Seven.json",
+      "name": "Gem",
+      "shots": 44,
+      "ceilingStep": 9
     }
-  ]
+  ],
+  "Count": 7
 }
