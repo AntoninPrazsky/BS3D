@@ -18,10 +18,20 @@ namespace BS3D.Screens
     {
         public LevelSelectPage(BS3DGame game) : base(game) { }
 
+        /// <summary>
+        /// What the page needs around the list — the heading and its margin, the Back button, and the plate's
+        /// padding top and bottom. In the same 2160p design units the rest of the menu is authored in.
+        /// </summary>
+        private const int LIST_SURROUNDINGS = 460;
+
         protected override Widget BuildTree()
         {
+            VerticalStackPanel page = MenuColumn();
+            page.Widgets.Add(ScreenHeading("LEVEL"));
+
+            //The entries scroll; the heading and Back do not — a campaign is as long as it is, and the way
+            //out of the page must not be the thing that scrolled off the bottom of it
             VerticalStackPanel column = MenuColumn();
-            column.Widgets.Add(ScreenHeading("LEVEL"));
 
             int count = Game.LevelCount;
 
@@ -50,9 +60,10 @@ namespace BS3D.Screens
                 }
             }
 
-            column.Widgets.Add(MenuButton("Back", GoBack));
+            page.Widgets.Add(MenuScroll(column, LIST_SURROUNDINGS));
+            page.Widgets.Add(MenuButton("Back", GoBack));
 
-            return ScreenRoot(Plate(column));
+            return ScreenRoot(Plate(page));
         }
     }
 }

@@ -10,12 +10,6 @@
       "ceilingStep": 5
     },
     {
-      "file": "Two.json",
-      "name": "Two",
-      "shots": 45,
-      "ceilingStep": 4
-    },
-    {
       "file": "Three.json",
       "name": "Bullseye",
       "shots": 40,
@@ -44,7 +38,31 @@
       "name": "Gem",
       "shots": 44,
       "ceilingStep": 9
+    },
+    {
+      "file": "Eight.json",
+      "name": "Prism",
+      "shots": 60,
+      "ceilingStep": 6
+    },
+    {
+      "file": "Nine.json",
+      "name": "Static",
+      "shots": 60,
+      "ceilingStep": 5
+    },
+    {
+      "file": "Ten.json",
+      "name": "Column",
+      "shots": 90,
+      "ceilingStep": 5
+    },
+    {
+      "file": "Two.json",
+      "name": "Two",
+      "shots": 45,
+      "ceilingStep": 4
     }
   ],
-  "Count": 7
+  "Count": 10
 }

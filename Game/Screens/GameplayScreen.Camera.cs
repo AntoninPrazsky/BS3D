@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D;
+using Prazsky.BS3D.GameObjects;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
@@ -132,11 +133,15 @@ namespace BS3D.Screens
             //Testbed's caller: there the lattice frame IS the world frame, while here level 0 sits at the
             //cluster's offset. A deep level's empty growth levels are inside the fitted volume on purpose —
             //the cluster grows down into them, so they have to be in frame before the first ball lands there.
+            //And topY is the top of what is FRAMED, which is the glass on every field up to FRAMED_LEVELS
+            //deep — every level that exists — and the top of the window on anything taller. A tall level's
+            //glass hangs above the frame and descends into it; framing it would stand the camera back far
+            //enough to fit a column that is mostly not in play yet, and shrink the part that is.
             CameraFit fit = GameCameraFit.Solve(_cannon, Game.CannonRig.BarrelReach,
                 CeilingPlate.FootprintFor(_map.StageSizeX) * Constants.HALF,
                 CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF,
                 _clusterWorldOffset.Y,
-                CeilingPlate.TopFaceY(_ceilingY), //upper face of the glass, wherever the descent has it now
+                FramedTopY(),
                 GAME_FOV, Camera.AspectRatio);
 
             _gameCameraDistance = fit.CameraDistance;
@@ -149,10 +154,60 @@ namespace BS3D.Screens
             _cannon.OrbitRadius = fit.CannonOrbitRadius;
             _cannon.SetAdvanceRange(fit.CannonMinRadius, fit.CannonMaxRadius);
 
-            Console.WriteLine($"[camera] Field {_map.StageSizeX}x{_map.StageSizeZ}x{_map.Levels}, aspect {Camera.AspectRatio:F2}: "
+            Console.WriteLine($"[camera] Field {_map.StageSizeX}x{_map.StageSizeZ}x{_map.Levels}"
+                + (FieldIsTallerThanFrame ? $" (framing its lowest {FRAMED_LEVELS} to y {FramedTopY():F1})" : string.Empty)
+                + $", aspect {Camera.AspectRatio:F2}: "
                 + $"camera {_gameCameraDistance:F1} out, aim Y {_gameCameraTargetY:F1}, "
                 + $"gun orbit {_cannon.OrbitRadius:F1} ({_gameCameraDistance - _cannon.OrbitRadius:F1} in front of the lens"
                 + $", walk {fit.CannonMinRadius:F1}..{fit.CannonMaxRadius:F1})");
+
+            LogAimReachability();
+        }
+
+        /// <summary>
+        /// Whether the gun, where the fit has just put it, can be aimed at every cell of this field — the
+        /// check that says a level is finishable before anyone tries to finish it.
+        /// <para>
+        /// <b>The Testbed's <c>aimcheck</c> stopped answering this the day levels could be taller than the
+        /// camera frames.</b> That check runs against the Testbed's own fit, which frames the whole field
+        /// however deep it is and therefore stands the gun far enough back to see it: on <c>Column</c> it
+        /// reported an orbit of 40.3 and a comfortable 43°, while the Game — framing the lowest sixteen
+        /// levels — orbits at 15.5, less than half as far out, and asks a far steeper angle of the same
+        /// cells. A verification that measures a geometry the player never plays is worse than none, so the
+        /// executable that owns the geometry reports it.
+        /// </para>
+        /// </summary>
+        private void LogAimReachability()
+        {
+            AimReachabilityResult reach = AimReachability.Check(
+                _map, _cannon.OrbitRadius, _cannon.Position.Y, Cannon.MaxElevation);
+
+            const float RAD_TO_DEG = 180f / MathF.PI;
+
+            Console.WriteLine($"[aimcheck] steepest cell ({reach.WorstCell.X},{reach.WorstCell.Z},{reach.WorstCell.Level})"
+                + $" at Y={reach.WorstCellY:F1} needs {reach.WorstElevation * RAD_TO_DEG:F1} deg"
+                + $" of the clamp's {Cannon.MaxElevation * RAD_TO_DEG:F1}  ->  "
+                + (reach.Pass
+                    ? "PASS"
+                    : $"FAIL - {reach.UnreachableCells}/{reach.TotalCells} cells out of reach (unfinishable)"));
+        }
+
+        /// <summary>
+        /// The world Y the camera frames up to: the upper face of the glass, or the top of the window when
+        /// the field is taller than <see cref="FRAMED_LEVELS"/>.
+        /// <para>
+        /// It reads the glass at its <b>current</b> height, which is what a mid-level re-solve (a resize)
+        /// wants — but the cap is measured from the field's floor and does not move, so a tall level's frame
+        /// is the same before and after a descent. That is the point: the camera holds still and the column
+        /// comes down through it.
+        /// </para>
+        /// </summary>
+        private float FramedTopY()
+        {
+            float glass = CeilingPlate.TopFaceY(_ceilingY);
+            float window = _clusterWorldOffset.Y + (FRAMED_LEVELS - 1) / Constants.SQRT_TWO;
+
+            return MathF.Min(glass, window);
         }
 
         #endregion

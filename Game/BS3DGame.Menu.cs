@@ -670,6 +670,45 @@ namespace BS3D
             return panel;
         }
 
+        /// <summary>
+        /// Wraps a column that may be taller than the window in a scroller, bounded to what is left of the
+        /// viewport once the things around it have their room. Everything else on a page is short by
+        /// construction; a level list is as long as the campaign, and the tenth level made the picker overrun
+        /// the window — its last two entries <i>and the Back button</i> were off the bottom with no way to
+        /// reach any of them.
+        /// <para>
+        /// The heading and Back deliberately stay <b>outside</b> it: the way out of a page must not be the
+        /// thing that scrolled away. Bounded at build time off the live viewport, which is correct because a
+        /// resize rebuilds the tree (see <c>MenuPage.Root</c>).
+        /// </para>
+        /// <para>
+        /// <b>The pad and the arrow keys do not scroll it.</b> They find entries by walking the widget tree
+        /// (see <see cref="ApplyNavHighlight"/>), so they will happily highlight one that is out of view. The
+        /// mouse wheel is the way through a long list today; making the walk scroll its entry into view is
+        /// the fix, and it belongs with the navigation rather than here.
+        /// </para>
+        /// </summary>
+        /// <param name="reservedDesignUnits">Height the page needs around the scroller — its heading, its
+        /// Back button and the plate's padding — in the same 2160p design units everything else here uses.</param>
+        internal ScrollViewer MenuScroll(Widget content, int reservedDesignUnits)
+        {
+            //Floored, so a window too short for the reserve gives a usable scroller rather than a zero-height
+            //one that hides the list completely
+            int available = GraphicsDevice.Viewport.Height - Scaled(reservedDesignUnits);
+
+            return new ScrollViewer
+            {
+                Content = content,
+                ShowHorizontalScrollBar = false,
+                MaxHeight = Math.Max(Scaled(MENU_SCROLL_MIN_HEIGHT), available),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+        }
+
+        /// <summary>The least a <see cref="MenuScroll"/> may be bounded to, however short the window.</summary>
+        private const int MENU_SCROLL_MIN_HEIGHT = 400;
+
         internal VerticalStackPanel MenuColumn() => new()
         {
             Spacing = Scaled(MENU_COLUMN_SPACING),

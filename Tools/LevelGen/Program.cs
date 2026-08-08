@@ -69,9 +69,11 @@ namespace BS3D.Tools.LevelGen
 
             Console.WriteLine($"Writing to {_outDir}");
 
+            //In play order. The gentle pattern levels first, then the two that ask for real aim — see
+            //WriteLevelSet for where One and Two sit around them.
             Design[] designs =
             {
-                Bullseye(), Mosaic(), Pinwheel(), Crown(), Gem()
+                Bullseye(), Mosaic(), Pinwheel(), Crown(), Gem(), Prism(), Static(), Column()
             };
 
             bool ok = true;
@@ -105,9 +107,15 @@ namespace BS3D.Tools.LevelGen
         }
 
         /// <summary>
-        /// Rewrites the set that orders the levels. The two hand-drawn levels that came before this pack
-        /// keep their own rules verbatim — they are authored content and this generator has no opinion
-        /// about them; it only appends the pattern levels after them.
+        /// Rewrites the set that orders the levels. The two hand-drawn levels keep their own rules verbatim —
+        /// they are authored content and this generator has no opinion about them — but it does decide where
+        /// they sit: <b>One opens the campaign and Two closes it</b>.
+        /// <para>
+        /// Two used to be second and is the hardest level in the game by a distance: twelve wide, eighteen
+        /// deep, six colours in 3×3 blocks rolled per level so nothing is ever a big easy plate, on 45 shots
+        /// against a ceiling stepping every 4. Meeting that second is meeting the wall before the game has
+        /// taught anything, and it is the level worth finishing last.
+        /// </para>
         /// </summary>
         private static void WriteLevelSet(Design[] designs)
         {
@@ -117,7 +125,6 @@ namespace BS3D.Tools.LevelGen
                 Levels = new List<LevelSetEntry>
                 {
                     new() { File = "One.json", Name = "One", Shots = 30, CeilingStep = 5 },
-                    new() { File = "Two.json", Name = "Two", Shots = 45, CeilingStep = 4 },
                 },
             };
 
@@ -129,6 +136,8 @@ namespace BS3D.Tools.LevelGen
                     Shots = d.Shots,
                     CeilingStep = d.CeilingStep,
                 });
+
+            set.Levels.Add(new LevelSetEntry { File = "Two.json", Name = "Two", Shots = 45, CeilingStep = 4 });
 
             string path = Path.Combine(_outDir, LevelSet.DefaultFileName);
             set.Save(path);
@@ -271,6 +280,97 @@ namespace BS3D.Tools.LevelGen
                 new[] { BallType.Type7, BallType.Type3, BallType.Type5 }),
         };
 
+        /// <summary>
+        /// A stepped cone tiled in 2×2×1 blocks of five colours — the first level of the pack that has to be
+        /// aimed rather than triggered. Everything before it is built out of plates and wedges of dozens;
+        /// here a block is four balls and there are five colours to draw from, so the useful ball arrives a
+        /// fifth of the time and clears four when it does.
+        /// </summary>
+        private static Design Prism() => new()
+        {
+            File = "Eight.json",
+            Name = "Prism",
+            Grid = 13,
+            Depth = 6,
+            Scene = new CavernSceneConfig(),
+            Sky = 13,
+            Shots = 60,
+            CeilingStep = 6,
+            //Stepped, so the silhouette is not another cylinder and the lower steps are reachable early
+            Occupied = (r, ang, i, depth) => r <= 5.5f - (depth - 1 - i) * 0.55f,
+            //One level per block rather than two: it halves the group and is the whole difference in feel
+            //between this and Mosaic, which is otherwise the same idea two steps gentler.
+            BlockColour = (x, z, i) => Scatter(x / 2, z / 2, i,
+                new[] { BallType.Type1, BallType.Type2, BallType.Type3, BallType.Type5, BallType.Type7 }),
+        };
+
+        /// <summary>
+        /// The hardest of the generated set and the one that stands in front of Two: a full cylinder, blocks
+        /// of four, and <b>six</b> colours scattered so no two neighbouring blocks agree by design. There is
+        /// no plate to trigger anywhere on it — every shot is a shot at four balls, and the ceiling steps
+        /// every five while you take them.
+        /// </summary>
+        private static Design Static() => new()
+        {
+            File = "Nine.json",
+            Name = "Static",
+            Grid = 13,
+            //Four deep and not six. The difficulty here is the six colours and the four-ball group, not the
+            //tonnage: six deep came out at 555 balls, half again as many as Two, and the pack has a weak
+            //laptop to run on. Four keeps it in Two's family at ~370 while every shot still costs the same.
+            Depth = 4,
+            Scene = new SpaceSceneConfig(),
+            Sky = 1,
+            Shots = 60,
+            CeilingStep = 5,
+            Occupied = (r, ang, i, depth) => r <= 5.5f,
+            BlockColour = (x, z, i) => Scatter(x / 2, z / 2, i,
+                new[] { BallType.Type1, BallType.Type2, BallType.Type3, BallType.Type5, BallType.Type6, BallType.Type7 }),
+        };
+
+        /// <summary>
+        /// The first <b>tall</b> level: a column reaching up out of shot, played from the bottom as the glass
+        /// brings it down. The camera frames only the lowest <c>FRAMED_LEVELS</c> of a field this deep (see
+        /// <c>GameplayScreen.FRAMED_LEVELS</c>), so the level's length is its height rather than its
+        /// footprint, and the player never sees the top of what they are working through.
+        /// <para>
+        /// <b>Narrow on purpose.</b> Nine wide against the pack's thirteen: the column is four times the
+        /// depth, so at thirteen it would be well over a thousand constrained bodies, and a tall level is
+        /// meant to last through its height and not through its mass. Nine also keeps the whole visible face
+        /// within an easy traverse, which matters when the interesting cells are all at the bottom.
+        /// </para>
+        /// <para>
+        /// The descent is the ordinary <c>ceilingStep</c> and no new mechanic — but it is doing a second job
+        /// here. On every other level it is the pressure; on this one it is also how the level is <i>fed</i>,
+        /// so it is set fast (every 3) against a large budget. That coupling is the thing to watch when this
+        /// is tuned: a step too slow leaves the player with nothing in reach, and too fast is a level that
+        /// arrives at the death line with most of its column still overhead.
+        /// </para>
+        /// </summary>
+        private static Design Column() => new()
+        {
+            File = "Ten.json",
+            Name = "Column",
+            Grid = 9,
+            //The whole point. FIELD_LEVELS is 16 everywhere else; this field is 34 deep, of which 24 carry
+            //balls — a layout half again as tall as an ordinary level's entire field, and the camera frames
+            //16 of it. The ten empty levels under it are the usual growth room.
+            Depth = 24,
+            FieldLevels = 34,
+            Scene = new MountainSceneConfig(),
+            Sky = 1,
+            Shots = 90,
+            CeilingStep = 5,
+            //Five cells across, against the pack's eleven. Twenty-four levels of a thirteen-wide disc would
+            //be well over a thousand constrained bodies; this is ~500, in Two's family, and a tall level is
+            //meant to last through its height rather than its mass.
+            Occupied = (r, ang, i, depth) => r <= 2.6f,
+            //Bands two levels thick around four colours: reading the column is reading what is coming, and a
+            //band is a group of ~50, so the descent keeps handing the player something worth hitting
+            Colour = (r, ang, i, depth) => Band(i / 2,
+                new[] { BallType.Type1, BallType.Type5, BallType.Type7, BallType.Type3 }),
+        };
+
         #endregion
 
         #region Colour helpers
@@ -281,6 +381,29 @@ namespace BS3D.Tools.LevelGen
             palette[(int)MathF.Floor(r / 1.9f) % palette.Length];
 
         private static BallType Band(int band, BallType[] palette) => palette[band % palette.Length];
+
+        /// <summary>
+        /// A colour per block that looks unpatterned but is a pure function of the block's coordinates, so a
+        /// level is the same every time it is played. An integer hash rather than a <see cref="Random"/>
+        /// walked in loop order: the walk's order is an implementation detail of the emitter, and a layout
+        /// that changes when that loop is reordered is a layout nobody can reason about.
+        /// <para>
+        /// Deliberately NOT anti-clustered. Two neighbouring blocks that happen to agree merge into a group
+        /// of eight, and those accidents are the level's only breathing room — a scatter forced to alternate
+        /// would be uniformly four everywhere, which is a grind rather than a difficulty.
+        /// </para>
+        /// </summary>
+        private static BallType Scatter(int blockX, int blockZ, int level, BallType[] palette)
+        {
+            //Odd multipliers well apart in magnitude, then a couple of xorshift rounds: enough mixing that
+            //neighbouring blocks land on unrelated colours, and cheap enough not to matter at generation time
+            uint h = (uint)(blockX * 73856093 ^ blockZ * 19349663 ^ level * 83492791);
+            h ^= h >> 13;
+            h *= 2654435761;
+            h ^= h >> 16;
+
+            return palette[h % (uint)palette.Length];
+        }
 
         //Angular wedges. twist shears the boundary with radius, which is what turns a cross into a spiral.
         private static BallType Sector(float ang, float twist, int sectors, BallType[] palette)
@@ -300,11 +423,12 @@ namespace BS3D.Tools.LevelGen
         {
             byte n = design.Grid;
             byte depth = design.Depth;
-            byte offset = (byte)(FIELD_LEVELS - depth);
+            byte fieldLevels = design.FieldLevels;
+            byte offset = (byte)(fieldLevels - depth);
 
             if (offset % 2 != 0)
                 throw new InvalidOperationException(
-                    $"{design.File}: field {FIELD_LEVELS} less layout {depth} is an odd offset; the loader would " +
+                    $"{design.File}: field {fieldLevels} less layout {depth} is an odd offset; the loader would " +
                     "extend the field by one level to keep the level parity and the design would not sit where it was drawn");
 
             //One world axis for every layer. The shifted (odd) levels put their cells on it exactly; the
@@ -352,7 +476,7 @@ namespace BS3D.Tools.LevelGen
                     }
             }
 
-            int repaired = RepairLonelyBalls(balls, n, depth, offset);
+            int repaired = RepairLonelyBalls(balls, n, depth, offset, fieldLevels);
 
             Level level = new()
             {
@@ -360,7 +484,7 @@ namespace BS3D.Tools.LevelGen
                 Author = "BS3D",
                 SkyDome = design.Sky,
                 Scene = design.Scene,
-                Map = new BallPositionTypes { StageSizeX = n, StageSizeZ = n, Levels = FIELD_LEVELS, Balls = balls },
+                Map = new BallPositionTypes { StageSizeX = n, StageSizeZ = n, Levels = fieldLevels, Balls = balls },
             };
 
             string path = Path.Combine(_outDir, design.File);
@@ -383,11 +507,11 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         /// <returns>How many balls were recoloured, which is the number that says whether a design is being
         /// rounded off at its edges or quietly rewritten.</returns>
-        private static int RepairLonelyBalls(BallPositionType[,,] balls, byte n, byte depth, byte offset)
+        private static int RepairLonelyBalls(BallPositionType[,,] balls, byte n, byte depth, byte offset, byte fieldLevels)
         {
             //Repaired on a map rather than on the array: the neighbour rule and the parity that drives it are
             //BallsMap's, and a second copy of them here is a second place for them to be wrong
-            BallsMap map = new(new BallPositionTypes { StageSizeX = n, StageSizeZ = n, Levels = FIELD_LEVELS, Balls = balls });
+            BallsMap map = new(new BallPositionTypes { StageSizeX = n, StageSizeZ = n, Levels = fieldLevels, Balls = balls });
             StaticBall[,,] array = map.GetStaticBallsArray();
             XZLevel size = new(map.StageSizeX, map.StageSizeZ, map.Levels);
 
@@ -593,6 +717,13 @@ namespace BS3D.Tools.LevelGen
             public string Name;
             public byte Grid;
             public byte Depth;
+
+            /// <summary>
+            /// How deep the play field is. <see cref="FIELD_LEVELS"/> for every ordinary level — the deepest
+            /// field the game hangs at its standard height and frames whole — and larger only for a tall one,
+            /// which is framed from its floor up and reaches out of shot.
+            /// </summary>
+            public byte FieldLevels = FIELD_LEVELS;
             public SceneConfig Scene;
             public byte Sky;
             public int Shots;
