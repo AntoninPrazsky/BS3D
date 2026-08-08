@@ -21,9 +21,11 @@
   <ItemGroup>
     <PackageReference Include="BepuPhysics" Version="2.5.0-beta.29" />
     <PackageReference Include="BepuUtilities" Version="2.5.0-beta.29" />
-    <!--Compile-time only: both MonoGame platform packages ship the same MonoGame.Framework assembly,
-        so keeping this private lets each executable pick its own backend (Testbed WindowsDX, MapEditor
-        DesktopGL) without the two packages colliding over the same output file.-->
+    <!--Compile-time only: both MonoGame platform packages ship an assembly named MonoGame.Framework, so
+        keeping this private stops it reaching any executable's output folder and lets each of them pick its
+        own backend (all three are WindowsDX today). An executable must reference exactly ONE of the two —
+        two of them is not a build error, NuGet just picks a winner for the output folder, and if that is not
+        the backend the content was compiled for the exe dies on its first effect. See Game.csproj.-->
     <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5" PrivateAssets="all" />
   </ItemGroup>
 </Project>

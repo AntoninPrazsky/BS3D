@@ -127,8 +127,11 @@ namespace BS3D
         //Built once and shared by every entry. A brush holds no per-widget state, and the focus highlight
         //swaps an entry between the first two of these rather than minting a brush per frame.
         private static readonly IBrush MENU_BUTTON_BRUSH = new SolidBrush(MENU_BUTTON);
-        private static readonly IBrush MENU_BUTTON_OVER_BRUSH = new SolidBrush(MENU_BUTTON_OVER);
         private static readonly IBrush MENU_BUTTON_PRESSED_BRUSH = new SolidBrush(MENU_BUTTON_PRESSED);
+
+        //The one of the three that is not a button's alone: AboutPage's link is a Label, not a Button, and it
+        //answers the pointer with this same wash so the two read as one gesture rather than two inventions.
+        internal static readonly IBrush MENU_BUTTON_OVER_BRUSH = new SolidBrush(MENU_BUTTON_OVER);
 
         //A pause dims the whole frame, because what is behind it is a stopped game and the menu is the thing
         //to look at. The front end does NOT: there the rotating scene is the point of the screen, and a
