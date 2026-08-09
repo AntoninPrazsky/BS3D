@@ -7,6 +7,7 @@ using Prazsky.BS3D.Physics;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
+using System.Collections.Generic;
 
 namespace BS3D.Screens
 {
@@ -276,12 +277,27 @@ namespace BS3D.Screens
         #region The cluster profile
 
         /// <summary>
+        /// Slots kept in <c>_profileBalls</c> beyond the field's own cell count, for the balls in the air that
+        /// no cell holds. Only the shots can exceed the cells (a released group has already left the cluster
+        /// array), and the kill plane culls a missed shot a beat after it passes — so this is far past what any
+        /// fire rate can hold in flight at once. <see cref="AddBallsInFlight"/> bounds its write regardless.
+        /// </summary>
+        private const int PROFILE_FLIGHT_HEADROOM = 64;
+
+        /// <summary>
         /// Builds the cluster profile the HUD draws as a side cut, from the live body poses and the ceiling's
         /// current state. Walks <see cref="_physicsBalls"/> exactly the way the loss check and the instance
         /// collection do — same null-check, same XZLevel sizing — so the cut's balls are the cluster the frame
         /// draws, this frame. Writes into the reused <see cref="_profileBalls"/> backing array and returns its
         /// occupied length through <paramref name="count"/>, so the caller can hand the HUD a span of exactly
         /// that — no per-frame allocation on the gameplay path.
+        /// <para>
+        /// The balls <b>in the air</b> are walked too, off <see cref="_shotBalls"/> and <see cref="_fallingBalls"/>
+        /// — the two lists the cluster array by definition does not hold. Without them (#89) a shot was invisible
+        /// on the panel for its whole flight and appeared only once it had attached, which is precisely the
+        /// stretch the panel is worth watching: the panel's subject is where the glass stands against the
+        /// cluster, and a ball on its way to becoming part of that is part of the answer.
+        /// </para>
         /// </summary>
         private PlayHud.ClusterProfile BuildClusterProfile(out int count)
         {
@@ -319,6 +335,9 @@ namespace BS3D.Screens
                         };
                     }
 
+            AddBallsInFlight(_shotBalls, ref count);
+            AddBallsInFlight(_fallingBalls, ref count);
+
             return new PlayHud.ClusterProfile
             {
                 CeilingY = _ceilingY,
@@ -328,6 +347,35 @@ namespace BS3D.Screens
                 HalfDepth = FieldHalfDiagonal(),
                 CameraRight = _gameplayCameraRight,
             };
+        }
+
+        /// <summary>
+        /// Appends one list of loose balls to the profile: the shots still climbing at the cluster, or the balls
+        /// the cluster has let go of on their way to the drain. Marked <see cref="PlayHud.BallMarker.InFlight"/>,
+        /// which is what has the HUD draw them as rings rather than as cluster.
+        /// <para>
+        /// The bound is a guard and not an expectation: <see cref="_profileBalls"/> is sized at load with room
+        /// for these (see <c>PROFILE_FLIGHT_HEADROOM</c>), so the check never fires — but the two lists are the
+        /// one input to this walk whose length is not fixed by the field, and dropping a marker off the end of
+        /// the panel is a far better failure than writing past the array.
+        /// </para>
+        /// </summary>
+        private void AddBallsInFlight(List<PhysicsBall> balls, ref int count)
+        {
+            for (int i = 0; i < balls.Count && count < _profileBalls.Length; i++)
+            {
+                PhysicsBall ball = balls[i];
+                if (ball == null) continue;
+
+                System.Numerics.Vector3 pose = ball.BallReference.Pose.Position + ball.RenderOffset;
+
+                _profileBalls[count++] = new PlayHud.BallMarker
+                {
+                    World = new Vector3(pose.X, pose.Y, pose.Z),
+                    Type = ball.Type,
+                    InFlight = true,
+                };
+            }
         }
 
         /// <summary>

@@ -329,6 +329,15 @@ namespace BS3D.Screens
         {
             public Vector3 World;
             public BallType Type;
+
+            /// <summary>
+            /// Whether this ball is still in the air — a shot on its way up to the cluster, or one the cluster
+            /// has just let go of on its way down to the drain — rather than part of the hanging structure.
+            /// Drawn as a RING instead of a filled disc, because the panel exists to show where the glass
+            /// stands against the cluster and a ball that is not attached yet is not part of that answer: it
+            /// has to be visible without being counted by the eye as cluster.
+            /// </summary>
+            public bool InFlight;
         }
 
         /// <summary>
@@ -373,9 +382,25 @@ namespace BS3D.Screens
         //FIXED size, so it does not shift as the cluster grows and shrinks: the glass's descent is what moves,
         //the frame that holds it does not. No border, no label, no backing plate — the balls and bars draw straight
         //over the scene, which keeps the panel from reading as a box plastered over the world.
-        private const int PROFILE_WIDTH = 200;
-        private const int PROFILE_HEIGHT = 1300;             //taller than any cluster, capped to the viewport gap
+        //
+        //WIDTH IS THE ONLY LEVER on how big the cut reads, and #89 ("the panel reads as tiny") was the width
+        //alone. The scale is isotropic — min(panelHeight/span, width/(2·halfDepth)) — and the two are nowhere
+        //near each other: the field spans 13.16 world units vertically against a half-diagonal of 9.2 to 12.7,
+        //so at the old 200 the width term gave 10.9 px per unit where the height term offered 98.8, and the
+        //cut was drawn nine times smaller than its own panel. A ball came out 11 px across at 2160p; at 480 it
+        //is 26, and the whole cut 344 px tall instead of 143. Raising the height did and does nothing at all.
+        private const int PROFILE_WIDTH = 480;
+
+        //Only ever a CAP, and one that cannot bite: it bounds panelHeight, which feeds a scale term the width
+        //term always wins (see above) and a centre that works out to the viewport's own middle whatever this
+        //is. It stays because it still bounds the one guard below — and because the day the width term stops
+        //binding, this is what would take over.
+        private const int PROFILE_HEIGHT = 1300;
         private const int PROFILE_MARGIN = HUD_MARGIN;       //clears the frame edge like the corner text does
+
+        //How much of an in-flight ball's marker is hollowed out to make it a ring. Enough that the ring reads as
+        //an outline rather than as a slightly dented disc, little enough that the type colour still carries.
+        private const float PROFILE_FLIGHT_RING = 0.42f;
 
         //The glass bar and the death line, in design units. Both thick enough to read as deliberate marks at the
         //panel's scale — a 2-pixel line over a lit skyline is sub-pixel and gone.
@@ -934,10 +959,21 @@ namespace BS3D.Screens
             for (int i = 0; i < balls.Length; i++)
             {
                 BallMarker marker = balls[i];
+
+                //Held to the panel's own window. A ball in flight is the only marker that can be outside it —
+                //the gun stands on the island, well BELOW the death line, so a shot spends the first half of
+                //its climb under the panel's floor, and a spent one falls back out the same way. Drawn
+                //unclamped it would sit under the death line, which on this panel means exactly one thing:
+                //lost. Culled, the shot simply appears as it enters the field, which is when it starts to
+                //matter. Cluster balls cannot fail this — a cluster ball below the death line has ended the
+                //level — so the test costs nothing where it never fires.
+                if (marker.World.Y < bottomY || marker.World.Y > topY) continue;
+
                 float px = WorldToPanelX(marker.World);
                 float py = WorldToPanelY(marker.World.Y);
 
-                DrawDisc(pixel, batch, px, py, markerRadius, TypeColor(marker.Type));
+                DrawDisc(pixel, batch, px, py, markerRadius, TypeColor(marker.Type),
+                    marker.InFlight ? markerRadius * (1f - PROFILE_FLIGHT_RING) : 0f);
             }
 
             //The death line at the bottom — the one place the alarm's red is ALWAYS shown, because it IS the
@@ -952,18 +988,31 @@ namespace BS3D.Screens
         /// half-chord at that height. Built from the host's single white texel, so there is no circle texture to
         /// generate, premultiply or keep in step: the disc is exact at any radius and needs no alpha tricks to lose
         /// a square (it is only ever the bars it is made of).
+        /// <para>
+        /// <paramref name="innerRadius"/> above zero hollows it into a RING, which is how an in-flight ball is
+        /// told apart from a settled one. It is the same scan, with the rows that cross the hole drawing their
+        /// two remaining segments instead of one — so there is one primitive here rather than two that could
+        /// drift apart, and a ring costs no more per row than a disc.
+        /// </para>
         /// </summary>
-        private static void DrawDisc(Texture2D pixel, SpriteBatch batch, float cx, float cy, float radius, Color color)
+        private static void DrawDisc(Texture2D pixel, SpriteBatch batch, float cx, float cy, float radius,
+            Color color, float innerRadius = 0f)
         {
             int r = (int)MathF.Round(radius);
             if (r < 1)
             {
                 //Sub-pixel: a single point is an honest marker, not a one-pixel circle that rounds away to nothing.
+                //A ring has nothing left to hollow at this size either, so it draws the same point.
                 batch.Draw(pixel, new Vector2(cx - 0.5f, cy - 0.5f), color);
                 return;
             }
 
             float r2 = radius * radius;
+
+            //Never let the ring close up into a disc or thin to nothing: below a pixel of wall the hole simply
+            //is not drawn, which is the honest end of a ring rather than a row of stray dots.
+            float inner = innerRadius > 0f && radius - innerRadius >= 1f ? innerRadius : 0f;
+            float inner2 = inner * inner;
 
             for (int dy = -r; dy <= r; dy++)
             {
@@ -972,7 +1021,23 @@ namespace BS3D.Screens
                 int w = (int)MathF.Round(half * 2f);
                 if (w <= 0) continue;
 
-                batch.Draw(pixel, new Rectangle((int)MathF.Round(cx - half), (int)MathF.Round(cy + dy), w, 1), color);
+                int y = (int)MathF.Round(cy + dy);
+                int left = (int)MathF.Round(cx - half);
+
+                //Outside the hole (or no hole at all): one bar, the full chord.
+                if (inner <= 0f || dy * dy >= inner2)
+                {
+                    batch.Draw(pixel, new Rectangle(left, y, w, 1), color);
+                    continue;
+                }
+
+                //Across the hole: the two walls the row is left with, each the gap between the two chords.
+                float innerHalf = MathF.Sqrt(inner2 - dy * dy);
+                int wall = (int)MathF.Round(half - innerHalf);
+                if (wall <= 0) continue;
+
+                batch.Draw(pixel, new Rectangle(left, y, wall, 1), color);
+                batch.Draw(pixel, new Rectangle((int)MathF.Round(cx + innerHalf), y, wall, 1), color);
             }
         }
 
