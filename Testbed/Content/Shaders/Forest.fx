@@ -73,6 +73,15 @@ float WindRippleStrength;
 float NeedleReliefStrength;
 float NeedleReliefFrequency;
 
+//Procedural tree-shadow tuning (ForestShadow). The cell is the spacing of the virtual trees the hash grid
+//plants; it sits inside the scattered wood's own spacing so the two read as the same forest rather than two
+//different ones laid over each other. Reach is how far down-sun a crown's shadow is searched - past it the
+//shadow has thinned to nothing and the march stops.
+static const float FOREST_SHADOW_CELL = 9.0;
+static const float FOREST_SHADOW_REACH = 22.0;
+static const float FOREST_SHADOW_MIN_H = 5.0;
+static const float FOREST_SHADOW_MAX_H = 11.0;
+
 float Hash21(float2 p)
 {
 	p = frac(p * float2(123.34, 456.21));
@@ -188,7 +197,120 @@ float3 TerrainNormal(float2 p)
 	float hx = TerrainHeight(p + float2(e, 0.0));
 	float hz = TerrainHeight(p + float2(0.0, e));
 
-	return normalize(float3(-(hx - h) / e, 1.0, -(hz - h) / e));
+	return normalize(float3(-(hx - h) / e,1.0, -(hz - h) / e));
+}
+
+//Fractional Brownian motion on the shared gradient noise (CloudNoise, Clouds.fxh) - four octaves, each band-
+//limited against the pixel's footprint the way every other procedural feature in this project is (NeedleRelief,
+//CloudDetailD): one global fade would have to be tuned for the finest octave and would flatten the coarse ones
+//at arm's length, while per-octave fades let each drop out exactly where the pixels stop resolving it. Amplitudes
+//sum to 1 so the result sits in roughly the same range as a single CloudNoise tap (after its own spread/saturate).
+//Replaces the hand-spread single-frequency noise taps the floor colour used to read off: a single octave reads as
+//smooth patches, four sum to the broken, organic mottle a real forest floor has.
+float ForestFbm(float2 p, float footprint)
+{
+	float sum = 0.0;
+	float amplitude = 0.5;
+	float frequency = 1.0;
+
+	[unroll]
+	for (int octave = 0; octave < 4; octave++)
+	{
+		float resolvable = saturate(1.0 - footprint * frequency * 0.9);
+		sum += amplitude * resolvable * CloudNoise(p * frequency + octave * 29.7);
+		amplitude *= 0.5;
+		frequency *= 2.1;
+	}
+
+	return sum;
+}
+
+//Perturbs a surface normal with a triplanar FBM field, after dr2's VaryNf: three taps of the field on the
+//planes perpendicular to the normal (yz, zx, xy), differenced against the central tap, folded back into the
+//normal the way a tangent-space bump would be. This is a SECOND, finer layer over PerturbNormalFromHeight: the
+//relief tilts the normal along the needle/moss waves, this one adds the broken micro-relief that a single
+//frequency cannot. TerrainNormal itself is untouched - it must stay the gradient of TerrainHeight, which the
+//scatter plants trees on.
+float3 VaryNormal(float3 p, float3 n, float frequency, float strength, float footprint)
+{
+	float2 e = float2(0.1, 0.0);
+
+	float c = ForestFbm(p.yz * frequency, footprint);
+	float gx = ForestFbm((p + e.xyy).yz * frequency, footprint) - c;
+	float gy = ForestFbm((p + e.yxy).zx * frequency, footprint) - c;
+	float gz = ForestFbm((p + e.yyx).xy * frequency, footprint) - c;
+	float3 g = float3(gx, gy, gz);
+
+	return normalize(n + strength * (g - n * dot(n, g)));
+}
+
+//Procedural tree shadows on the forest floor, after dr2's ObjSShadow but without a distance field: the trees
+//are VIRTUAL, placed by a hash grid (CloudHash22) the way dr2's SetTrParms places one per hex cell, rather than
+//the instanced meshes' real positions - the terrain shader does not know where those stand, and passing ~240 of
+//them in is a limit and a cost this does not need. What the floor gets is shadow that READS as woods: dappled
+//where the canopy is open, denser under a stand, swept down-sun the way a real shadow is. The scatter's real
+//trees stand closer in (inside ClearingRadius) where density is 0, so the two never argue about who shadows whom.
+//
+//A cell holds one tree: a hash picks its offset within the cell, its height and its crown radius. The shadow is
+//the closest approach of the sun ray to that tree's trunk axis, tested against the crown radius at the height the
+//ray passes it - a cylinder+sphere stand-in for the crown, cheap and analytic. A short march across the grid
+//cells the sun ray walks through catches the trees it could actually pass behind.
+float ForestShadow(float3 worldPosition, float3 sunDir, float density)
+{
+	//A flat clearing (density 0) is in full sun: the wood's trees stand outside it, and the procedural wood
+	//begins where density rises. This one is NOT the uniform branch CLAUDE.md's convention describes - density
+	//is canopyRamp, which varies per pixel - so it does diverge, along the one ring of pixels at the clearing's
+	//edge where neighbours disagree. It is still the right shape: the march below has no gradient ops in it (no
+	//sampling, only arithmetic and CloudHash22), so nothing here needs neighbouring lanes to have taken it, and
+	//the whole clearing interior - most of the floor the player ever sees up close - skips the march outright.
+	[branch]
+	if (density <= 0.001) return 1.0;
+
+	float grid = FOREST_SHADOW_CELL;          //world units between virtual trees
+	float3 ro = worldPosition;
+
+	//Walk the sun ray across the grid in small steps, accumulating the deepest shadow any tree casts. The step
+	//is a fraction of the cell so a tree between two samples is not skipped; the march is short because a crown's
+	//shadow reaches only so far down-sun.
+	float shadow = 1.0;
+	float maxStep = FOREST_SHADOW_REACH;
+	float step = grid * 0.35;
+	float t = step;
+
+	[loop]
+	for (int i = 0; i < 10; i++)
+	{
+		if (t > maxStep) break;
+
+		float3 p = ro + sunDir * t;
+
+		//The cell the ray has walked into, and that cell's single tree.
+		float2 cell = floor(p.xz / grid);
+		float2 h = CloudHash22(cell * 7.0 + 13.0);
+		float2 treeXZ = (cell + 0.5 + 0.36 * h) * grid;
+		float treeHeight = FOREST_SHADOW_MIN_H + h.x * (FOREST_SHADOW_MAX_H - FOREST_SHADOW_MIN_H);
+
+		//Closest approach of the sun ray (from the shaded point) to the tree's trunk axis (the line straight up
+		//through treeXZ), in the horizontal plane only - the shadow a vertical trunk throws is what this measures.
+		float2 toTree = treeXZ - ro.xz;
+		float along = dot(toTree, sunDir.xz);
+		float2 perp = toTree - along * sunDir.xz;
+		float closestDist = length(perp);
+
+		//The crown is a disc at treeHeight; the ray passes that height at rayHeight. Shadow if the ray is under
+		//the crown at the horizontal point it crosses it - softened across the crown's radius for a penumbra.
+		float rayHeight = ro.y + along / max(sunDir.xz.x * sunDir.xz.x + sunDir.xz.y * sunDir.xz.y, 0.0001) * sunDir.y;
+		float crownRadius = lerp(treeHeight * 0.35, treeHeight * 0.55, h.y);
+
+		float under = saturate((crownRadius - closestDist) / crownRadius);
+		float atHeight = smoothstep(treeHeight * 0.3, treeHeight, rayHeight);
+		shadow = min(shadow, 1.0 - under * atHeight * 0.75);
+
+		t += step;
+	}
+
+	//Density shapes how deep the shadow lands: a clearing (0) is untouched, full wood (1) gets the lot.
+	return lerp(1.0, shadow, density);
 }
 
 float4 ForestPS(ForestVertexOutput input) : COLOR
@@ -205,22 +327,34 @@ float4 ForestPS(ForestVertexOutput input) : COLOR
 	float relief = NeedleRelief(worldPosition.xz, footprint);
 	float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
 
+	//A second, finer relief layer over the needle waves: triplanar FBM perturbs the normal with the broken
+	//micro-relief a single frequency cannot (VaryNormal, after dr2's VaryNf). Where the needle relief is the
+	//comb the wind reads on, this is the rough moss-and-root grain that stops the floor shading flat. Lighter
+	//than the needle relief itself, and band-limited through ForestFbm so the near floor gets the detail and the
+	//far ridge does not shimmer.
+	normal = VaryNormal(worldPosition, normal, 1.8, 0.35, footprint);
+
 	//Undergrowth colour: mossy green in broad patches, varying towards the dark needle litter and shadow, so
-	//the floor is not one flat green but mottled the way a real clearing is. CloudNoise is gradient noise
-	//that clusters hard around zero - one sigma 0.18, five to ninety-five per cent inside +/-0.3, and only
-	//its extremes near +/-0.8 - so the gain is well over 1 (and the result saturated): at half gain the
-	//patches would move the colour by a fifth and the ACES curve flattens that into one tone.
-	float patch = saturate(CloudNoise(worldPosition.xz * 0.15) * 1.4 + 0.5);
-	float3 floor = lerp(ForestColorDark, ForestColor, patch);
+	//the floor is not one flat green but mottled the way a real clearing is. ForestFbm (four octaves of the shared
+	//gradient noise) replaces the single CloudNoise tap a single octave reads as: smooth patches, where four sum
+	//to the broken organic mottle a real forest floor has. Spread and saturated the same way as before - CloudNoise
+	//clusters hard around zero (one sigma 0.18, 5-95% inside +/-0.3), so the gain is well over 1.
+	float patch = saturate(ForestFbm(worldPosition.xz * 0.15, footprint) * 1.4 + 0.5);
+
+	//Slope drives the colour the way it does on a real bank: flats keep the moss (cool green, ForestColor),
+	//slopes wash to bare earth and litter (warm-dark, ForestColorDark dimmed). dr2 mixes by vn.y the same way;
+	//without it the floor reads as one material however it is lit, because the colour never answers the form.
+	float slope = smoothstep(0.55, 0.85, baseNormal.y);
+	float3 floor = lerp(ForestColorDark * 0.8, ForestColor, patch * slope);
 
 	//Wind combing the undergrowth: bright and dark bands travelling downwind, the clearing's own motion
 	float wind = sin(dot(worldPosition.xz, WindDirection) * WindRippleFrequency + ForestTime * WindRippleSpeed);
 	floor *= 1.0 + wind * WindRippleStrength;
 
 	//Scattered darker litter patches - the fallen needles and leaf decay that sit between the moss, finer than
-	//the broad colour patches and darker still, so the floor reads as layered ground cover rather than one tone
-	//(spread like the patches above, and for the same reason)
-	float litter = saturate(CloudNoise(worldPosition.xz * 0.6 + 47.0) * 1.6 + 0.5);
+	//the broad colour patches and darker still, so the floor reads as layered ground cover rather than one tone.
+	//ForestFbm at a finer scale, the same spread-and-saturate.
+	float litter = saturate(ForestFbm(worldPosition.xz * 0.6 + 47.0, footprint) * 1.6 + 0.5);
 	floor = lerp(floor, ForestColorDark * 0.7, litter * litter * 0.5);
 
 	//Needle-scale colour grain, the finest layer: twigs, cones and litter flecks at arm's length, gone by
@@ -255,13 +389,16 @@ float4 ForestPS(ForestVertexOutput input) : COLOR
 	floor = lerp(floor, canopy, canopyRamp * TreelineStrength);
 
 	//Matte forest floor: the sun and the sky hemisphere, dimmed by the shared cloud shadow so the same clouds
-	//that drift across the sky sweep their shadows over the clearing. Lower ambient than the meadow: a clearing
-	//is shaded by the trees around it, not open sky.
+	//that drift across the sky sweep their shadows over the clearing, AND by the procedural tree shadow so the
+	//woods cast their own dapple. The tree shadow's density rides the canopy ramp - 0 in the open clearing (the
+	//scatter's real trees stand there, and theirs is the only shadow that should show), rising to full under the
+	//procedural wood beyond it. Lower ambient than the meadow: a clearing is shaded by the trees around it.
 	float sunlight = CloudSunlight(worldPosition, SunDirection);
+	float treeShadow = ForestShadow(worldPosition, SunDirection, canopyRamp);
 	float ndotl = saturate(dot(normal, SunDirection));
 	float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
 
-	float3 color = floor * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight);
+	float3 color = floor * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight * treeShadow);
 
 	//Horizon haze in two stages. Straight to the horizon colour - the one stage every other terrain
 	//uses - the dark wooded hills bleach cream long before the skyline and read as bare slopes; what
