@@ -68,8 +68,10 @@ namespace Prazsky.Core.Render
     /// <summary>The mountain's falling snow: a static buffer of billboard flakes animated in the vertex shader.</summary>
     public sealed class SnowConfig
     {
-        /// <summary>Number of falling snow flakes in the buffer.</summary>
-        public int FlakeCount { get; set; } = 1400;
+        /// <summary>Number of falling snow flakes in the buffer. Was 1400, at nearly twice the flake size and
+        /// half again the opacity — a flake now covers well under half the screen it used to and shows through
+        /// far more, so it takes twice as many of them to leave a veil rather than a sprinkle.</summary>
+        public int FlakeCount { get; set; } = 2800;
 
         /// <summary>The volume the flakes fill around the camera.</summary>
         public Vec3 BoxSize { get; set; } = new(70f, 55f, 70f);
@@ -83,8 +85,24 @@ namespace Prazsky.Core.Render
         /// <summary>How far a flake sways as it falls.</summary>
         public float Sway { get; set; } = 1.2f;
 
-        /// <summary>The flake size in world units.</summary>
-        public float FlakeSize { get; set; } = 0.13f;
+        /// <summary>The flake size in world units. Was 0.13, which put a flake 23 pixels across at eighteen
+        /// units out — a ball is one unit wide, and that is the size a flake was competing with.</summary>
+        public float FlakeSize { get; set; } = 0.085f;
+
+        /// <summary>How fast a flake tumbles, in radians per second before its own ±40% variation.</summary>
+        public float Spin { get; set; } = 1.1f;
+
+        /// <summary>How deep the six arms of a flake's silhouette are cut, at the spikiest. A flake draws a
+        /// hexagonal crystal rather than a disc because a feathered circle is what a lit sphere looks like,
+        /// which is how the snow came to read as falling balls (#85).</summary>
+        public float Lobing { get; set; } = 0.30f;
+
+        /// <summary>Distance from the lens a flake reaches full strength at; nearer than a quarter of it, it is
+        /// invisible. Snow this close to a camera is out of focus, and a crisp near flake reads as a ball.</summary>
+        public float NearFade { get; set; } = 7f;
+
+        /// <summary>How much a flake glints as it turns broadside to the light, twice per tumble.</summary>
+        public float Twinkle { get; set; } = 0.25f;
 
         /// <summary>Bright cool white. Its Rec. 709 luminance (~0.76) sits over GLARE_THRESHOLD (0.55 in the
         /// game), so a large near flake can bloom slightly; in practice a flake's few pixels are diluted by
@@ -92,7 +110,9 @@ namespace Prazsky.Core.Render
         /// glowing orbs.</summary>
         public Rgb FlakeColor { get; set; } = new(0.72f, 0.76f, 0.82f);
 
-        /// <summary>Snow flake opacity.</summary>
-        public float Opacity { get; set; } = 0.9f;
+        /// <summary>Snow flake opacity. Was 0.9 — near enough opaque that a flake was a solid white coin, and
+        /// the feathered rim that was meant to soften it gets crushed back to white by the tonemap wherever
+        /// the flake crosses something dark. Snow reads as snow at well under half that.</summary>
+        public float Opacity { get; set; } = 0.6f;
     }
 }
