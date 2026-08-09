@@ -73,7 +73,7 @@ namespace BS3D.Tools.LevelGen
             //WriteLevelSet for where One and Two sit around them.
             Design[] designs =
             {
-                Bullseye(), Mosaic(), Pinwheel(), Crown(), Gem(), Prism(), Static(), Column()
+                One(), Bullseye(), Mosaic(), Pinwheel(), Crown(), Gem(), Prism(), Static(), Column()
             };
 
             bool ok = true;
@@ -107,9 +107,10 @@ namespace BS3D.Tools.LevelGen
         }
 
         /// <summary>
-        /// Rewrites the set that orders the levels. The two hand-drawn levels keep their own rules verbatim —
-        /// they are authored content and this generator has no opinion about them — but it does decide where
-        /// they sit: <b>One opens the campaign and Two closes it</b>.
+        /// Rewrites the set that orders the levels. <b>One opens the campaign and Two closes it</b>; One is a
+        /// design here now (the author asked for it regenerated, see <see cref="One"/>) and states its own
+        /// rules with the rest, while Two is still hand-drawn and keeps its rules verbatim — it is authored
+        /// content and this generator has no opinion about it beyond where it sits.
         /// <para>
         /// Two used to be second and is the hardest level in the game by a distance: twelve wide, eighteen
         /// deep, six colours in 3×3 blocks rolled per level so nothing is ever a big easy plate, on 45 shots
@@ -119,14 +120,7 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private static void WriteLevelSet(Design[] designs)
         {
-            LevelSet set = new()
-            {
-                Name = "Bubble Shooter 3D",
-                Levels = new List<LevelSetEntry>
-                {
-                    new() { File = "One.json", Name = "One", Shots = 30, CeilingStep = 5 },
-                },
-            };
+            LevelSet set = new() { Name = "Bubble Shooter 3D" };
 
             foreach (Design d in designs)
                 set.Levels.Add(new LevelSetEntry
@@ -153,6 +147,58 @@ namespace BS3D.Tools.LevelGen
         }
 
         #region The designs
+
+        /// <summary>
+        /// The campaign's opener: a full square slab against the glass with a round pyramid tapering to a
+        /// point under it. It replaces the hand-drawn <c>One.json</c>, at the author's request and for two
+        /// reasons they gave — the pyramid had a <b>tail</b>, and it had no sky of its own.
+        /// <para>
+        /// The tail was real and is gone. The old layout narrowed from a 100-ball slab down to a single ball
+        /// nine levels below it and then <b>widened again</b>, to 4, 8, 12, 25 and 16 — sixty-five balls
+        /// hanging under the point, which reads as something stuck to the pyramid rather than as part of it.
+        /// The point is now the bottom of the level.
+        /// </para>
+        /// <para>
+        /// Two things came free with the regeneration. The old field was 10 wide against a slab occupying
+        /// x 0…9 — <b>no lateral margin at all</b>, the wall trap that made shots bounce off the flanks of
+        /// the pattern pack; twelve gives it the clear column every other level now has. And a plain map file
+        /// carries no scene, so One played in whichever backdrop the player last picked; as a level file it
+        /// opens the game in the savanna under the warmest dome of the set (14, the one the Testbed itself
+        /// defaults that scene to).
+        /// </para>
+        /// <para>
+        /// Four colours in concentric rings, which is a deliberate simplification: the old One used
+        /// <b>eight</b>, and the magazine draws evenly among the colours still alive, so the wanted ball
+        /// arrived one time in eight — a harder draw than anything after it, on the level that teaches the
+        /// game. Rings also keep several colours on the slab, which is the anchor layer, so no single ball
+        /// can cut the whole level loose.
+        /// </para>
+        /// </summary>
+        private static Design One() => new()
+        {
+            File = "One.json",
+            Name = "One",
+            Grid = 12,
+            Depth = 10,
+            Scene = new SavannaSceneConfig(),
+            Sky = 14,
+            Shots = 30,
+            CeilingStep = 5,
+            //The slab is SQUARE and everything under it is round, which is the shape the old One had and the
+            //reason this reads as a pyramid hanging off a plate rather than as a cone. The square extent is
+            //recovered from the polar pair the emitter passes: max(|cos|,|sin|) scaled by the radius is the
+            //Chebyshev distance, i.e. the half-extent of the square the point sits on.
+            Occupied = (r, ang, i, depth) => i == depth - 1
+                ? Chebyshev(r, ang) <= 4.5f
+                : r <= 0.4f + i * 0.375f,
+            //Each shape gets rings of its OWN kind — square ones on the square slab, round ones on the round
+            //pyramid. Round rings over the whole thing was the first try and it left the slab's four corners
+            //poking out past the last round ring into a ring of their own: ten balls of a fourth colour, in
+            //threes, in the corners, on the level that teaches the game. Squared, the slab's outermost ring
+            //is a proper border and the palette is three honest colours.
+            Colour = (r, ang, i, depth) => Ring(i == depth - 1 ? Chebyshev(r, ang) : r,
+                new[] { BallType.Type1, BallType.Type7, BallType.Type4 }),
+        };
 
         /// <summary>
         /// A stepped cone hanging point-down, coloured in concentric rings: a target seen from underneath,
@@ -386,6 +432,15 @@ namespace BS3D.Tools.LevelGen
             palette[(int)MathF.Floor(r / 1.9f) % palette.Length];
 
         private static BallType Band(int band, BallType[] palette) => palette[band % palette.Length];
+
+        /// <summary>
+        /// The square (Chebyshev) half-extent of a point the emitter hands over in polar form — the distance
+        /// a <b>square</b> shape measures in, as opposed to <see cref="Ring"/>'s round one. Recovered from
+        /// the pair rather than passed as a third argument: every design but the slab wants the round radius,
+        /// and a shape function taking both would have to ignore one of them at every call site.
+        /// </summary>
+        private static float Chebyshev(float r, float ang) =>
+            r * MathF.Max(MathF.Abs(MathF.Cos(ang)), MathF.Abs(MathF.Sin(ang)));
 
         /// <summary>
         /// A colour per block that looks unpatterned but is a pure function of the block's coordinates, so a
