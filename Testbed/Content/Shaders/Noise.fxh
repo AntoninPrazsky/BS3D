@@ -96,6 +96,31 @@ float Fbm2(float2 p, int octaves)
 	return value;
 }
 
+//Fbm2 with each octave faded out as its own period approaches the pixel, so a field drawn on something
+//SMALL on screen loses its detail rather than crawling. `footprint` is the pixel's size in the field's own
+//units - the domain p is sampled at - so a caller that scales its domain by a frequency scales its
+//footprint by the same frequency; take it from ddx/ddy of that domain, outside any divergent branch.
+//An octave of period 1/frequency needs a footprint under half of it, and the fade reaches zero exactly
+//there. Note this costs the field VARIANCE with distance, which is the point: the mottle flattens out
+//instead of turning into a shimmer. Cost: Fbm2 plus two ALU an octave.
+
+float Fbm2BandLimited(float2 p, int octaves, float footprint)
+{
+	float value = 0.0;
+	float amplitude = 0.5;
+	float frequency = 1.0;
+
+	for (int i = 0; i < octaves; i++)
+	{
+		value += amplitude * saturate(1.0 - 2.0 * frequency * footprint) * GradientNoise2(p);
+		p = mul(NOISE_ROTATE2, p) * 2.02;
+		frequency *= 2.02;
+		amplitude *= 0.5;
+	}
+
+	return value;
+}
+
 float Fbm3(float3 p, int octaves)
 {
 	float value = 0.0;
