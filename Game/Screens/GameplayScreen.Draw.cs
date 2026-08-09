@@ -323,6 +323,7 @@ namespace BS3D.Screens
             {
                 CeilingY = _ceilingY,
                 CeilingFlash = _ceilingFlash,
+                CeilingFeeding = _ceilingFlashIsFeed,
                 DeathY = CEILING_DEATH_Y,
                 HalfDepth = FieldHalfDiagonal(),
                 CameraRight = _gameplayCameraRight,

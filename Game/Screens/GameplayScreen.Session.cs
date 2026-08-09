@@ -93,6 +93,7 @@ namespace BS3D.Screens
             _feedStepsQueued = 0;
             _ceilingFeedStepsQueued = 0;
             _ceilingFlashColor = CEILING_FLASH_COLOR;
+            _ceilingFlashIsFeed = false;
 
             //And no floor alarm either: whatever the last level's ending left lingering over the drain is
             //not this level's danger.

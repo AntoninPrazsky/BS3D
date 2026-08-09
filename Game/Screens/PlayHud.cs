@@ -341,8 +341,16 @@ namespace BS3D.Screens
             /// <summary>World Y of the glass right now (it slides between the top and the death line).</summary>
             public float CeilingY;
 
-            /// <summary>0…1, decaying: how recently the glass stepped. Drives the glass bar's red flash.</summary>
+            /// <summary>0…1, decaying: how recently the glass stepped. Drives the glass bar's flash.</summary>
             public float CeilingFlash;
+
+            /// <summary>
+            /// Whether that step was a <b>feed</b> — a tall level handing over more of its column because the
+            /// player cleared a lot of it — rather than the shot count's pressure. The bar takes the alarm's
+            /// red only for the latter; nothing has gone wrong in the former and the profile must not be the
+            /// one place still shouting about it.
+            /// </summary>
+            public bool CeilingFeeding;
 
             /// <summary>World Y a ball centre must not cross — the loss line.</summary>
             public float DeathY;
@@ -387,6 +395,14 @@ namespace BS3D.Screens
         //red family, not a derived conversion. It shares that hue with the floor laser net and the 3D flash, so
         //the three are one warning said three ways.
         private static readonly Color PROFILE_ALARM = new(220, 60, 50);
+
+        /// <summary>
+        /// And the other thing a descent can mean, in the same display-space spirit: a deep blue for a step
+        /// the game gave the player because they cleared a great deal of a tall column. The 3D plate and the
+        /// cluster's wave already say it in linear radiance; this profile was the one place left still
+        /// flashing red at good play.
+        /// </summary>
+        private static readonly Color PROFILE_FEED = new(58, 104, 235);
 
         #endregion
 
@@ -906,7 +922,8 @@ namespace BS3D.Screens
             //it steps, back to neutral before the slide finishes.
             int glassThickness = Math.Max(3, Scaled(PROFILE_GLASS_THICKNESS));
             float flash2 = flash * flash;
-            Color glassColor = Color.Lerp(BS3DGame.MENU_TEXT, PROFILE_ALARM, flash2);
+            Color glassColor = Color.Lerp(BS3DGame.MENU_TEXT,
+                profile.CeilingFeeding ? PROFILE_FEED : PROFILE_ALARM, flash2);
             int glassY = (int)MathF.Round(WorldToPanelY(ceilingY));
             batch.Draw(pixel, new Rectangle(panelX, glassY - glassThickness / 2, width, glassThickness), glassColor);
 

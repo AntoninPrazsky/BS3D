@@ -343,14 +343,20 @@ namespace BS3D.Screens
         /// How many levels above a tall column's <b>underside</b> the gun may be aimed — the working band,
         /// and the dial that decides whether a tall level is a climb or a formality.
         /// <para>
-        /// Three, because the aim first reached the top of the framed window (sixteen levels) and that made
-        /// the height decorative: a band cut high in the window orphans the whole visible column beneath it,
-        /// so the tallest level in the game could be taken in two or three shots. Held to a band just above
-        /// the underside, the column has to be eaten from the bottom and <see cref="FeedTallColumn"/> — which
+        /// It first reached the top of the framed window (sixteen levels) and that made the height
+        /// decorative: a band cut high in the window orphans the whole visible column beneath it, so the
+        /// tallest level in the game could be taken in two or three shots. Held to a band just above the
+        /// underside, the column has to be eaten from the bottom and <see cref="FeedTallColumn"/> — which
         /// keeps that underside at the height the level hung it — is what hands over the next of it.
         /// </para>
+        /// <para>
+        /// <b>Five, tried at three.</b> Three was the first tightening and it was measured too tight in play:
+        /// it holds the aim to very nearly the underside itself, which reads as the gun being unable to look
+        /// up rather than as the column being tall. Two more levels give the shot somewhere to go without
+        /// putting a whole band's worth of orphaning back in reach.
+        /// </para>
         /// </summary>
-        private const int TALL_AIM_HEADROOM_LEVELS = 3;
+        private const int TALL_AIM_HEADROOM_LEVELS = 5;
 
         /// <summary>
         /// A little over the steepest shot a tall level's working band actually needs, in radians (~3°), so
@@ -466,19 +472,33 @@ namespace BS3D.Screens
         /// the glass lighting up rather than as the sky changing.
         /// </para>
         /// </summary>
-        private static readonly Vector3 CEILING_FEED_COLOR = new(0.35f, 2.2f, 6f);
+        /// <para>
+        /// <b>Deep blue and not a bright one.</b> The first pairing carried enough green (2.2 against the
+        /// blue's 6) to come out cyan-white over a lit sky, which reads as the glass being <i>blown out</i>
+        /// rather than as it saying something — the same washing the red's own doc warns about from the other
+        /// end. Nearly all the green is gone, and the blue keeps the level it needs to be seen through a
+        /// 35 %-opaque plate.
+        /// </para>
+        private static readonly Vector3 CEILING_FEED_COLOR = new(0.04f, 0.5f, 5f);
 
         /// <summary>The flat colour the cluster's ripple carries, as opposed to the plate's own emissive.</summary>
         private static readonly Vector3 RIPPLE_ALARM_COLOR = new(1f, 0.07f, 0.05f);
 
         /// <inheritdoc cref="CEILING_FEED_COLOR"/>
-        private static readonly Vector3 RIPPLE_FEED_COLOR = new(0.12f, 0.45f, 1f);
+        private static readonly Vector3 RIPPLE_FEED_COLOR = new(0.02f, 0.1f, 1f);
 
         /// <summary>
         /// Which of the two the glass and the wave are currently saying. Set the instant a descent is started
         /// and read while it is on screen, because the flash and the ripple outlive the call that began them.
         /// </summary>
         private Vector3 _ceilingFlashColor = CEILING_FLASH_COLOR;
+
+        /// <summary>
+        /// Whether the flash currently on screen is a feed rather than pressure. The colour above is what the
+        /// 3D plate needs; this is what the <b>HUD</b> needs, which picks its own display-space colour rather
+        /// than converting a linear radiance — see <c>PlayHud.PROFILE_ALARM</c> for why.
+        /// </summary>
+        private bool _ceilingFlashIsFeed;
 
         //Where the glass body sits now (_ceilingY) and where it is sliding to (_ceilingTargetY). Equal while at
         //rest; _ceilingTargetY is lowered by StartCeilingDescent and _ceilingY catches up in UpdateCeilingDescent.

@@ -119,6 +119,7 @@ namespace BS3D.Screens
             bool feeding = _ceilingFeedStepsQueued > 0;
             if (feeding) _ceilingFeedStepsQueued--;
 
+            _ceilingFlashIsFeed = feeding;
             _ceilingFlashColor = feeding ? CEILING_FEED_COLOR : CEILING_FLASH_COLOR;
             Game.Balls.RippleAlarmColor = feeding ? RIPPLE_FEED_COLOR : RIPPLE_ALARM_COLOR;
 
