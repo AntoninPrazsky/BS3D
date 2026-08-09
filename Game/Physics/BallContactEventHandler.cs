@@ -246,12 +246,30 @@ namespace BS3D.Physics
                 solved = ShotPlacement.TrySolveAgainstBall(_map, hitBall, worldContact, _worldOffset, out cell,
                     out clusterDrift);
             }
-            else return false; //another loose shot ball, or something with no cell to offer
+            else
+            {
+                //Another loose shot ball, or a released one on its way to the drain: neither is in the
+                //structure, so neither has a cell to offer and the shot bounces off it. A rare-event line in
+                //the manner of [cinematic] — a refusal happens a handful of times a level at worst, and when
+                //one is reported from play this is the only thing that says which of the two kinds it was.
+                Console.WriteLine($"[shot] bounced off a loose ball (mobility {other.Mobility})");
+                return false;
+            }
 
             //Nothing free in either ring around what it hit, or a ceiling cell outside the field or taken. The
             //shot does not stick, and that is an answer rather than a fault — see TryFindEmptyCellInSecondRing
             //on why the search is not simply widened until it succeeds.
-            if (!solved) return false;
+            if (!solved)
+            {
+                //The "both rings full" refusal, and on a level with empty growth room under the cluster it
+                //should be all but impossible — so when it fires it is nearly always saying that the layout
+                //reaches the field's WALL, where a flank ball has no lateral neighbour to offer. That is
+                //exactly what it said the first time it was switched on: one refusal in 34 varied-angle shots
+                //on Pinwheel, whose disc was drawn to the edge of its field. LevelGen refuses that shape now
+                //(LateralMargin), and this line is what would catch the next one.
+                Console.WriteLine("[shot] bounced: no free cell in either ring");
+                return false;
+            }
 
             //Only now is anything written. The cell came back valid, so this cannot land out of bounds or on a
             //live ball — which used to be possible: the old ceiling path filled its out-cell in from the rounded

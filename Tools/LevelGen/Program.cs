@@ -163,7 +163,7 @@ namespace BS3D.Tools.LevelGen
         {
             File = "Three.json",
             Name = "Bullseye",
-            Grid = 13,
+            Grid = 15,
             Depth = 4,
             Scene = new MeadowSceneConfig(),
             //Dome 1 is the only clear blue one in the set; most of the rest are warm or magenta, and over
@@ -187,7 +187,7 @@ namespace BS3D.Tools.LevelGen
         {
             File = "Four.json",
             Name = "Mosaic",
-            Grid = 11,
+            Grid = 13,
             Depth = 6,
             Scene = new SeaSceneConfig(),
             //The sea mirrors the dome, so a bright one gives it a flat sandy horizon rather than water —
@@ -213,7 +213,7 @@ namespace BS3D.Tools.LevelGen
         {
             File = "Five.json",
             Name = "Pinwheel",
-            Grid = 13,
+            Grid = 15,
             Depth = 4,
             Scene = new DesertSceneConfig(),
             Sky = 7,
@@ -233,7 +233,7 @@ namespace BS3D.Tools.LevelGen
         {
             File = "Six.json",
             Name = "Crown",
-            Grid = 13,
+            Grid = 15,
             Depth = 6,
             Scene = new MountainSceneConfig(),
             Sky = 10,
@@ -255,7 +255,12 @@ namespace BS3D.Tools.LevelGen
         {
             File = "Seven.json",
             Name = "Gem",
-            Grid = 13,
+            //Seventeen where the round designs need fifteen, and the diamond is why: a taxicab rim of m = 7
+            //reaches seven whole cells along each axis, where a round radius of 5.5 reaches five. Fifteen
+            //put the four points of the diamond exactly ON the field wall — no lateral margin at all, the
+            //trap LateralMargin now refuses. Widening the field keeps the shape, which is the thing worth
+            //keeping here; capping the rim at m = 5 would have cost the gem two rings of its widest face.
+            Grid = 17,
             Depth = 6,
             Scene = new DreamSceneConfig(),
             Sky = 13,
@@ -290,7 +295,7 @@ namespace BS3D.Tools.LevelGen
         {
             File = "Eight.json",
             Name = "Prism",
-            Grid = 13,
+            Grid = 15,
             Depth = 6,
             Scene = new CavernSceneConfig(),
             Sky = 13,
@@ -314,7 +319,7 @@ namespace BS3D.Tools.LevelGen
         {
             File = "Nine.json",
             Name = "Static",
-            Grid = 13,
+            Grid = 15,
             //Four deep and not six. The difficulty here is the six colours and the four-ball group, not the
             //tonnage: six deep came out at 555 balls, half again as many as Two, and the pack has a weak
             //laptop to run on. Four keeps it in Two's family at ~370 while every shot still costs the same.
@@ -351,7 +356,7 @@ namespace BS3D.Tools.LevelGen
         {
             File = "Ten.json",
             Name = "Column",
-            Grid = 9,
+            Grid = 11,
             //The whole point. FIELD_LEVELS is 16 everywhere else; this field is 34 deep, of which 24 carry
             //balls — a layout half again as tall as an ordinary level's entire field, and the camera frames
             //16 of it. The ten empty levels under it are the usual growth room.
@@ -611,6 +616,9 @@ namespace BS3D.Tools.LevelGen
 
             int total = map.GetBallsCount();
 
+            int margin = LateralMargin(map);
+            Console.WriteLine($"    lateral margin: {(margin >= 1 ? $"{margin} free cell(s) all round" : "NONE - the layout is ON the field wall")}");
+
             LonelyReport lonely = FindLonelyBalls(map);
             Console.WriteLine($"    reachable in one ball: {(lonely.Alone == 0 ? "all" : $"NO - {lonely.Alone} STAND ALONE")}"
                               + $" (in pairs {lonely.Paired}, primed {total - lonely.Alone - lonely.Paired})"
@@ -632,7 +640,52 @@ namespace BS3D.Tools.LevelGen
                                   + (percent >= ONE_SHOT_PERCENT ? "  <-- ONE-SHOT LEVEL" : string.Empty));
             }
 
-            return disconnected == 0 && lonely.Alone == 0 && !oneShot;
+            return disconnected == 0 && lonely.Alone == 0 && !oneShot && margin >= 1;
+        }
+
+        /// <summary>
+        /// How many empty columns of field the layout leaves on its tightest side — <b>the room a shot has to
+        /// land in when it arrives at the cluster's flank</b>, and the check that was missing when this pack
+        /// was written.
+        /// <para>
+        /// The field is a box. A ball on the cluster's side face that is also on the field's <i>wall</i> has
+        /// no lateral neighbours at all: if the cells under it are taken, a shot into that pocket finds
+        /// nothing in either ring, does not stick, bounces off and costs a ball and the streak. It is a
+        /// documented trap ("The landing preview, and why the field's edge needed one" in
+        /// <c>docs/game-session.md</c>) and every disc here walked straight into it — a radius of 5.5 in a
+        /// 13-wide field reaches the wall on the unshifted levels, and the Gem's taxicab rim reached it on
+        /// all four sides. It was reported from play as "the ball bounced instead of sticking", on Pinwheel
+        /// and on Static, and reproduced at one refusal in 34 varied-angle shots.
+        /// </para>
+        /// <para>
+        /// One free column is enough: it gives every flank ball a lateral neighbour to offer. It is bought by
+        /// widening the FIELD rather than by shrinking the shape — the shapes are what the level looks like
+        /// and they were kept deliberately — which costs a slightly wider glass plate and a slightly longer
+        /// camera stand-off, and nothing else.
+        /// </para>
+        /// </summary>
+        private static int LateralMargin(BallsMap map)
+        {
+            StaticBall[,,] array = map.GetStaticBallsArray();
+            int minX = int.MaxValue, maxX = int.MinValue, minZ = int.MaxValue, maxZ = int.MinValue;
+
+            for (byte l = 0; l < map.Levels; l++)
+                for (byte x = 0; x < map.StageSizeX; x++)
+                    for (byte z = 0; z < map.StageSizeZ; z++)
+                    {
+                        if (array[x, z, l] == null) continue;
+
+                        if (x < minX) minX = x;
+                        if (x > maxX) maxX = x;
+                        if (z < minZ) minZ = z;
+                        if (z > maxZ) maxZ = z;
+                    }
+
+            if (minX == int.MaxValue) return int.MaxValue; //an empty layout is all margin
+
+            return Math.Min(
+                Math.Min(minX, map.StageSizeX - 1 - maxX),
+                Math.Min(minZ, map.StageSizeZ - 1 - maxZ));
         }
 
         /// <summary>
