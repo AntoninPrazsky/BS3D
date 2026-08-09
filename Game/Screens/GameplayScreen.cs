@@ -268,6 +268,14 @@ namespace BS3D.Screens
         private int _feedStepsQueued;
 
         /// <summary>
+        /// How many of the steps still waiting in <c>_ceilingStepsPending</c> were asked for by the feed
+        /// rather than by the shot count — which is what decides whether the glass flashes red or blue when
+        /// one of them comes down. A count and not a flag: the two kinds can be queued together (a landing
+        /// that both spends a shot and clears a band), and they come down one at a time.
+        /// </summary>
+        private int _ceilingFeedStepsQueued;
+
+        /// <summary>
         /// Where the lattice frame meets the world, and the <b>only</b> place it does on the drawing side.
         /// <para>
         /// Y hangs the top of the field at <see cref="FIELD_TOP_Y"/> — or higher, when the field is deep
@@ -330,6 +338,26 @@ namespace BS3D.Screens
         /// </para>
         /// </summary>
         private const int FRAMED_LEVELS = 16;
+
+        /// <summary>
+        /// How many levels above a tall column's <b>underside</b> the gun may be aimed — the working band,
+        /// and the dial that decides whether a tall level is a climb or a formality.
+        /// <para>
+        /// Three, because the aim first reached the top of the framed window (sixteen levels) and that made
+        /// the height decorative: a band cut high in the window orphans the whole visible column beneath it,
+        /// so the tallest level in the game could be taken in two or three shots. Held to a band just above
+        /// the underside, the column has to be eaten from the bottom and <see cref="FeedTallColumn"/> — which
+        /// keeps that underside at the height the level hung it — is what hands over the next of it.
+        /// </para>
+        /// </summary>
+        private const int TALL_AIM_HEADROOM_LEVELS = 3;
+
+        /// <summary>
+        /// A little over the steepest shot a tall level's working band actually needs, in radians (~3°), so
+        /// the player is not fighting the clamp on the very cell the limit was solved for. Small on purpose:
+        /// every degree of it is a degree further up the unseen column.
+        /// </summary>
+        private const float TALL_AIM_MARGIN = 0.05f;
 
         /// <summary>Whether this level is deeper than the camera frames — a tall, descending one.</summary>
         private bool FieldIsTallerThanFrame => _map != null && _map.Levels > FRAMED_LEVELS;
@@ -426,6 +454,31 @@ namespace BS3D.Screens
         //the sky BEHIND it. At 1.5 the red merely tinted that blue-white and the plate came out pink. The
         //emissive is added on top of the composite, so it is the number that has to out-shout the sky.
         private static readonly Vector3 CEILING_FLASH_COLOR = new(6f, 0.15f, 0.1f);
+
+        /// <summary>
+        /// What the glass says instead when the descent is a <b>feed</b> — a tall level handing the player
+        /// more of its column because they have just cleared a lot of it. Cold blue-white rather than red,
+        /// and the reason is the whole point of separating them: nothing has gone wrong. The player has
+        /// played well and the game is answering; a red flash there tells them off for it.
+        /// <para>
+        /// Balanced the same way <see cref="CEILING_FLASH_COLOR"/> is and for the same reason — the plate is
+        /// 35 % opaque and the emissive is added over the sky behind it — so this is bright enough to read as
+        /// the glass lighting up rather than as the sky changing.
+        /// </para>
+        /// </summary>
+        private static readonly Vector3 CEILING_FEED_COLOR = new(0.35f, 2.2f, 6f);
+
+        /// <summary>The flat colour the cluster's ripple carries, as opposed to the plate's own emissive.</summary>
+        private static readonly Vector3 RIPPLE_ALARM_COLOR = new(1f, 0.07f, 0.05f);
+
+        /// <inheritdoc cref="CEILING_FEED_COLOR"/>
+        private static readonly Vector3 RIPPLE_FEED_COLOR = new(0.12f, 0.45f, 1f);
+
+        /// <summary>
+        /// Which of the two the glass and the wave are currently saying. Set the instant a descent is started
+        /// and read while it is on screen, because the flash and the ripple outlive the call that began them.
+        /// </summary>
+        private Vector3 _ceilingFlashColor = CEILING_FLASH_COLOR;
 
         //Where the glass body sits now (_ceilingY) and where it is sliding to (_ceilingTargetY). Equal while at
         //rest; _ceilingTargetY is lowered by StartCeilingDescent and _ceilingY catches up in UpdateCeilingDescent.
@@ -982,7 +1035,7 @@ namespace BS3D.Screens
             //it should be seen through has to be in the depth buffer and the frame already.
             //Squared, so the glass is unmistakable on the frame it steps and has thinned well before the slide
             //ends — it marks the event rather than colouring the plate for the duration
-            Game.CeilingRenderer.EmissiveTint = CEILING_FLASH_COLOR * (_ceilingFlash * _ceilingFlash);
+            Game.CeilingRenderer.EmissiveTint = _ceilingFlashColor * (_ceilingFlash * _ceilingFlash);
 
             Game.CeilingRenderer.Draw(Camera, _ceiling.World, Game.SceneEffectParams);
 

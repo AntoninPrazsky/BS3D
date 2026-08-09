@@ -406,6 +406,22 @@ namespace Prazsky.BS3D
         public InstancedModelRenderer[] Renderers => _renderers;
 
         /// <summary>
+        /// The flat colour the cluster flares in when a wave carries the ceiling's meaning rather than a
+        /// landing's — red by default, which is what a descent forced on the player is. Set it before
+        /// starting a wave that means something else; a tall level's glass steps down to <i>hand</i> the
+        /// player more of its column, and that is not an alarm.
+        /// <para>
+        /// One value for the whole set, which is honest: a ball can only be in one wave at a time (the
+        /// newest to reach it takes it over), so there is never a frame with two meanings in the cluster.
+        /// </para>
+        /// </summary>
+        public Vector3 RippleAlarmColor
+        {
+            get => _renderers[0].RippleAlarmColor;
+            set { foreach (InstancedModelRenderer renderer in _renderers) renderer.RippleAlarmColor = value; }
+        }
+
+        /// <summary>
         /// How many pixels of the scene's render target make one pixel of the finished picture — the caller's
         /// supersampling factor. It exists for exactly one thing: sizing the dissolve's dither cell, which is
         /// authored in <see cref="DISSOLVE_DISPLAY_PIXELS"/> of the <i>display</i> while the shader can only

@@ -79,6 +79,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _pulseDirectionParam;
         private EffectParameter _pulseWavelengthParam;
         private EffectParameter _rippleStrengthParam;
+        private EffectParameter _rippleAlarmColorParam;
         private EffectParameter _emissiveTintParam;
         private EffectParameter _dirLight0DiffuseParam;
         private EffectParameter _dirLight0SpecularParam;
@@ -375,6 +376,20 @@ namespace Prazsky.Core.Render
         public float RippleStrength { get; set; }
 
         /// <summary>
+        /// The flat colour a <b>negative</b> <see cref="ModelInstance.Ripple"/> flares in — the wave's other
+        /// meaning, which carries no trace of the ball's own colour on purpose so every ball in it says the
+        /// same thing. Linear radiance, and it is scaled by the shader's own brightness, so this is a hue and
+        /// not a level.
+        /// <para>
+        /// Red by default, which is what it always was and what a <i>threat</i> should look like. It is a
+        /// property rather than a constant because the same wave is used for something that is not a threat:
+        /// a tall level's glass steps down to hand the player more of the column when they have cleared a
+        /// lot of it, and a red flash there reads as being told off for playing well.
+        /// </para>
+        /// </summary>
+        public Vector3 RippleAlarmColor { get; set; } = new(1f, 0.07f, 0.05f);
+
+        /// <summary>
         /// Light this surface puts out on its own, in <b>linear</b> radiance, on top of everything it
         /// reflects — so it is not clamped to 1, and past <c>GLARE_THRESHOLD</c> it blooms. Zero (the default)
         /// leaves the surface exactly as it was.
@@ -574,6 +589,7 @@ namespace Prazsky.Core.Render
             _pulseDirectionParam = _effect.Parameters["PulseDirection"];
             _pulseWavelengthParam = _effect.Parameters["PulseWavelength"];
             _rippleStrengthParam = _effect.Parameters["RippleStrength"];
+            _rippleAlarmColorParam = _effect.Parameters["RippleAlarmColor"];
             _mainTechnique = _effect.Techniques["InstancedModel"];
             _texturedTechnique = _effect.Techniques["InstancedModelTextured"];
             _triplanarTechnique = _effect.Techniques["InstancedModelTriplanar"];
@@ -885,8 +901,10 @@ namespace Prazsky.Core.Render
                 _pulseWavelengthParam.SetValue(PulseWavelength);
 
                 //Unconditionally, like Metalness and SpecularAmbientStrength: a value left over from the
-                //renderer drawn before this one would make the next surface flare on somebody else's wave
+                //renderer drawn before this one would make the next surface flare on somebody else's wave —
+                //and, since the colour joined it, in somebody else's colour
                 _rippleStrengthParam.SetValue(RippleStrength);
+                _rippleAlarmColorParam.SetValue(RippleAlarmColor);
             }
             else if (DetailTexture != null && part.DiffuseColor.W >= 1f)
             {

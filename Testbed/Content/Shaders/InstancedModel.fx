@@ -776,9 +776,15 @@ static const float RippleWhiten = 0.5;
 //Dissolve encodes its two directions - and it means a ball can only be in one wave at a time, which is
 //already true of it (the newest wave to reach a ball takes it over).
 //
-//The alarm is a flat red the ball's own colour has no say in: the whole point is that every ball in the
-//wave says the same thing, and a red flare tinted by a green ball is not red.
-static const float3 RippleAlarmColor = float3(1.0, 0.07, 0.05);
+//The flare is a flat colour the ball's own has no say in: the whole point is that every ball in the wave
+//says the same thing, and a red flare tinted by a green ball is not red.
+//
+//A UNIFORM and not a constant, because the wave has two meanings and they must not look alike. A descent
+//the ceiling forces on the player is a threat and burns red; a descent the game hands them because they
+//just cleared a great deal of a tall column is a REWARD arriving, and a red flash there tells them off for
+//playing well. The caller states the colour with the wave. InstancedModelRenderer sets it unconditionally
+//and defaults it to the red, so a renderer nobody has told is still saying "alarm" rather than black.
+float3 RippleAlarmColor;
 
 //How bright the alarm burns (linear radiance, over GLARE_THRESHOLD so it blooms) and how much of the ball
 //it takes at the peak. Short of 1: leaving a trace of the ball's own shading is what keeps the cluster

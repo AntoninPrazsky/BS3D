@@ -108,12 +108,25 @@ namespace BS3D.Screens
 
             //The descent itself is a slow slide of a translucent plate against a sky, which is very nearly
             //invisible while the player is watching the cluster — the pressure the whole rule exists to apply
-            //was arriving unnoticed. So the glass says it: it lights up red, and drives a red wave down
-            //through every ball hanging on it.
+            //was arriving unnoticed. So the glass says it: it lights up, and drives a wave down through every
+            //ball hanging on it.
+            //
+            //In WHICH colour is the difference between a threat and a reward. A step the shot count forced is
+            //the pressure and burns red. A step the FEED asked for is a tall level handing over more of its
+            //column because the player just cleared a great deal of it — nothing has gone wrong, and a red
+            //flash there tells them off for playing well. Feed steps are spent first, so a landing that
+            //queues both kinds says the good news first.
+            bool feeding = _ceilingFeedStepsQueued > 0;
+            if (feeding) _ceilingFeedStepsQueued--;
+
+            _ceilingFlashColor = feeding ? CEILING_FEED_COLOR : CEILING_FLASH_COLOR;
+            Game.Balls.RippleAlarmColor = feeding ? RIPPLE_FEED_COLOR : RIPPLE_ALARM_COLOR;
+
             _ceilingFlash = 1f;
             StartCeilingRipple();
 
             Console.WriteLine($"[ceiling] Step to {_ceilingTargetY:F2} (death line {CEILING_DEATH_Y:F2})"
+                + $", {(feeding ? "feeding" : "pressure")}"
                 + $", shots fired {_score.ShotsFired}, waited {waited:F2} s");
         }
 
@@ -182,6 +195,12 @@ namespace BS3D.Screens
             _feedStepsQueued += owed;
             _ceilingStepsPending += owed;
             _ceilingStepHold = CEILING_STEP_HOLD;
+
+            //And these ones do not read as an alarm. A descent the ceiling forces on the player is a threat
+            //and burns red; this one is the game handing over more of the column BECAUSE they cleared a lot
+            //of it, so the glass and the wave go cold blue instead. Set here rather than at the descent,
+            //because by the time a queued step comes down the reason it was queued is gone.
+            _ceilingFeedStepsQueued += owed;
 
             //A rare-event line like the rest of the [ceiling] family: it fires when a band goes, not per
             //frame, and it is the one figure that says whether the feed is keeping up with the player.

@@ -56,8 +56,16 @@ namespace Prazsky.BS3D
         /// hangs at 18.3, and called a level unfinishable that finishes.
         /// </para>
         /// </param>
+        /// <param name="horizontalLimit">
+        /// How far from the orbit centre a cell has to be within to be asked about. Unbounded by default,
+        /// which is right for a field the cluster fills. A <b>tall</b> level is deliberately a narrow column
+        /// inside a wider field, and the field's corners are growth room a ball can never occupy — asking
+        /// whether the gun can look up at an empty corner is asking about a cell no shot will ever need, and
+        /// on Column it was the only thing failing the check.
+        /// </param>
         public static AimReachabilityResult Check(BallsMap map, float orbitRadius, float trunnionsY,
-            float maxElevation, int highestLevel = int.MaxValue, Vector3 worldOffset = default)
+            float maxElevation, int highestLevel = int.MaxValue, Vector3 worldOffset = default,
+            float horizontalLimit = float.MaxValue)
         {
             if (map == null) throw new ArgumentNullException(nameof(map));
 
@@ -74,6 +82,8 @@ namespace Prazsky.BS3D
                     {
                         Vector3 world = map.GetRealCenteredPosition(new XZLevel(x, z, level)) + worldOffset;
                         float cellHorizontal = MathF.Sqrt(world.X * world.X + world.Z * world.Z);
+
+                        if (cellHorizontal > horizontalLimit) continue;
 
                         //Facing shot: the gun on the same side as the cell, so the horizontal separation is the
                         //smallest it can be and the elevation the steepest. Floored at 1 so a cell directly under

@@ -91,6 +91,8 @@ namespace BS3D.Screens
             //the installed map rather than being a constant — see FeedTallColumn
             _feedFloorLevel = _map.GetLowestOccupiedLevel();
             _feedStepsQueued = 0;
+            _ceilingFeedStepsQueued = 0;
+            _ceilingFlashColor = CEILING_FLASH_COLOR;
 
             //And no floor alarm either: whatever the last level's ending left lingering over the drain is
             //not this level's danger.

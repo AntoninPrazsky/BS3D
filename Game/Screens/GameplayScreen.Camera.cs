@@ -1,6 +1,8 @@
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D;
 using Prazsky.BS3D.GameObjects;
+using Prazsky.BS3D.GameStructure;
+using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
@@ -181,18 +183,20 @@ namespace BS3D.Screens
         /// </summary>
         private void LogAimReachability()
         {
-            //On a tall field only the framed window is asked about, and against the limit the gun is actually
-            //held to there. Its upper levels are unreachable now BY DESIGN — that is what the elevation limit
-            //enforces and what the descent undoes — so asking about them returns "unfinishable" for a level
-            //that finishes perfectly well. What matters is that everything in play can be reached.
+            //On a tall field the question is asked of the WORKING BAND — the underside plus the aim's
+            //headroom — and against the limit the gun is actually held to there. Everything above that band
+            //is unreachable now by design; the descent is what brings it into the band, and asking about it
+            //where it currently hangs returns "unfinishable" for a level that finishes. The band is not a
+            //tautology: it can still fail, and would if the gun stood too close to look up at its own top.
             AimReachabilityResult reach = AimReachability.Check(
                 _map, _cannon.OrbitRadius, _cannon.Position.Y, _cannon.ElevationLimit,
-                FieldIsTallerThanFrame ? FRAMED_LEVELS - 1 : int.MaxValue,
-                _clusterWorldOffset);
+                FieldIsTallerThanFrame ? TallAimBandTop() : int.MaxValue,
+                _clusterWorldOffset,
+                FieldIsTallerThanFrame ? TallAimHorizontalLimit() : float.MaxValue);
 
             const float RAD_TO_DEG = 180f / MathF.PI;
 
-            Console.WriteLine($"[aimcheck]{(FieldIsTallerThanFrame ? " (framed window only)" : string.Empty)}"
+            Console.WriteLine($"[aimcheck]{(FieldIsTallerThanFrame ? " (the working band only)" : string.Empty)}"
                 + $" steepest cell ({reach.WorstCell.X},{reach.WorstCell.Z},{reach.WorstCell.Level})"
                 + $" at Y={reach.WorstCellY:F1} needs {reach.WorstElevation * RAD_TO_DEG:F1} deg"
                 + $" of the limit's {_cannon.ElevationLimit * RAD_TO_DEG:F1}  ->  "
@@ -223,12 +227,71 @@ namespace BS3D.Screens
         {
             if (!FieldIsTallerThanFrame) return Cannon.MaxElevation;
 
-            //Floored at 1 for the same reason AimReachability floors it: a cell under the carriage must not
-            //divide the angle by nothing.
-            float nearest = MathF.Max(_cannon.OrbitRadius - FieldHalfDiagonal(), 1f);
-            float rise = FramedTopY() - _cannon.Position.Y;
+            //Asked of AimReachability rather than derived alongside it, and that is the point: the limit and
+            //the check that polices it are then the SAME arithmetic and cannot disagree. Written by hand they
+            //did — a limit measured to the cluster's near edge came out 1.4 degrees under what the check then
+            //demanded of the ring around it, and the level reported itself unfinishable by a hair.
+            //
+            //WorstElevation is what the steepest cell in the working band needs and does not depend on the
+            //clamp it is compared against, so passing the gun's full range here asks "how steep does this
+            //level actually get", not "does it fit".
+            AimReachabilityResult needed = AimReachability.Check(
+                _map, _cannon.OrbitRadius, _cannon.Position.Y, Cannon.MaxElevation,
+                TallAimBandTop(), _clusterWorldOffset, TallAimHorizontalLimit());
 
-            return MathF.Atan2(rise, nearest);
+            return MathF.Min(Cannon.MaxElevation, needed.WorstElevation + TALL_AIM_MARGIN);
+        }
+
+        /// <summary>The topmost level a tall level's gun is solved and policed for — the working band's roof.</summary>
+        private int TallAimBandTop() => _map.GetLowestOccupiedLevel() + TALL_AIM_HEADROOM_LEVELS;
+
+        /// <summary>
+        /// How far out the working band reaches: the cluster's own half-extent plus the ring a shot can land
+        /// in around it. Beyond that a tall level's field is growth room no ball occupies, and asking whether
+        /// the gun can look up at an empty corner is asking about a cell no shot will ever need.
+        /// </summary>
+        private float TallAimHorizontalLimit() => OccupiedHalfExtent() + 1f;
+
+        /// <summary>
+        /// The highest point a tall level's gun may be aimed at: the column's <b>underside</b> plus
+        /// <see cref="TALL_AIM_HEADROOM_LEVELS"/>. Not the top of the framed window, which is what this
+        /// reached first and was far too generous — the whole column could be taken in two or three shots,
+        /// because a band cut high in the window orphans the entire visible column under it, and the level's
+        /// height stopped meaning anything. Held to a working band just above the underside, the player has
+        /// to eat the column from the bottom and the descent is what hands them the next of it.
+        /// </summary>
+        private float TallAimCeilingY() =>
+            _map.GetLowestOccupiedLevel() / Constants.SQRT_TWO + _clusterWorldOffset.Y
+            + TALL_AIM_HEADROOM_LEVELS / Constants.SQRT_TWO;
+
+        /// <summary>
+        /// How far the occupied cells reach horizontally from the gun's orbit centre — the cluster's own
+        /// half-extent, as opposed to the field's. Walked over the map rather than taken off the footprint
+        /// because a tall level is deliberately narrow inside a wider field, and it is the balls the gun has
+        /// to reach. Runs on a level load and a resize, never per frame.
+        /// </summary>
+        private float OccupiedHalfExtent()
+        {
+            StaticBall[,,] balls = _map.GetStaticBallsArray();
+            float furthest = 0f;
+
+            for (byte level = 0; level < _map.Levels; level++)
+                for (byte x = 0; x < _map.StageSizeX; x++)
+                    for (byte z = 0; z < _map.StageSizeZ; z++)
+                    {
+                        if (balls[x, z, level] == null) continue;
+
+                        //Through the cluster offset, exactly as AimReachability measures: BallsMap.Center
+                        //centres on the TOP level's own bounding box, which for a narrow column inside a
+                        //wide field leaves the lattice several units off the axis the gun orbits — three of
+                        //them on Column. Measured without it, the column's half-extent came out at 7.1
+                        //instead of 2.8, the elevation limit at 52 degrees instead of 40, and the horizontal
+                        //bound below wide enough to filter almost nothing.
+                        Vector3 cell = _map.GetRealCenteredPosition(new XZLevel(x, z, level)) + _clusterWorldOffset;
+                        furthest = MathF.Max(furthest, MathF.Sqrt(cell.X * cell.X + cell.Z * cell.Z));
+                    }
+
+            return furthest;
         }
 
         /// <summary>
