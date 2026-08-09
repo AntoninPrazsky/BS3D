@@ -574,7 +574,12 @@ namespace BS3D.Tools.LevelGen
         /// <b>The boundary between the outer two SWINGS with the angle around the axis, and that is what makes
         /// this a level rather than one shot.</b> Ringed by radius alone each layer is a single connected
         /// piece from pole to pole - the skin measured 604 balls in one group, 62 % of the cluster, so the
-        /// first lucky yellow ball ended it (played: one shot cleared the level with 36 of 48 shots unused).
+        /// first lucky yellow ball ended it. <b>Played, three runs each, 24 shots a run with the aim spread
+        /// between shots: ringed by radius alone the level was cleared every run, in 2, 4 and 8 shots of 48;
+        /// with the swing, two of the three runs were still going at 24.</b> (A first attempt at that
+        /// measurement spread the aim so wide that every shot missed the field outright - 24 shots, zero
+        /// contacts of any kind - which any level survives. A scripted play-through is only a datum once the
+        /// shots are confirmed to be landing.)
         /// <see cref="ONION_SWING"/> carries the boundary past the surface at <see cref="ONION_STAVES"/>
         /// angles and back inside the heart's own radius between them, so the two outer layers interlock as
         /// <i>staves</i>: white reaches daylight where the boundary swings out, cutting the skin there, and
