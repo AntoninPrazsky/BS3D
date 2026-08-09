@@ -5,69 +5,101 @@
   "author": "BS3D",
   "sky": 13,
   "scene": {
-    "kind": "sea",
-    "LevelY": -13,
-    "WaterDeep": {
-      "R": 0.02,
-      "G": 0.05,
-      "B": 0.07
-    },
-    "WaterShallow": {
-      "R": 0.07,
-      "G": 0.17,
-      "B": 0.19
-    },
-    "WaveAmplitude": 0.6,
-    "WaveSteepness": 0.95,
-    "WaveSpeed": 1.2,
-    "WaveFadeStart": 340,
-    "WaveFadeEnd": 780,
-    "ChopAmplitude": 0.16,
-    "ChopFrequency": 1,
-    "ChopSpeed": 1.6,
-    "Wind": {
-      "X": 0.94,
-      "Y": 0.34
-    },
-    "SunGlintStrength": 12,
-    "SunGlintPower": 500,
-    "FoamJacobianThreshold": 0.5,
-    "FoamStrength": 1.1,
-    "FoamCrestStart": 0.72,
-    "FoamCrestStrength": 0.7,
-    "FoamColor": {
-      "R": 0.8,
-      "G": 0.85,
-      "B": 0.9
-    },
-    "SssStrength": 0.7,
-    "SssColor": {
-      "R": 0.15,
-      "G": 0.55,
-      "B": 0.5
-    },
-    "HorizonHazeDistance": 700,
-    "Spray": {
-      "ParticleCount": 2000,
-      "BoxSize": {
-        "X": 200,
-        "Y": 16,
-        "Z": 200
+    "kind": "cavern",
+    "Rock": {
+      "CaveRadius": 240,
+      "CeilingY": 95,
+      "RockColor": {
+        "R": 0.03,
+        "G": 0.036,
+        "B": 0.052
       },
-      "LevelYAboveSea": 2,
-      "Wind": {
-        "X": 30,
-        "Y": 11
+      "VeinColor": {
+        "R": 0.05,
+        "G": 0.14,
+        "B": 0.16
       },
-      "Rise": 3,
-      "Turbulence": 1.6,
-      "DropletSize": 0.12,
-      "Color": {
-        "R": 0.33,
-        "G": 0.37,
-        "B": 0.43
+      "FogColor": {
+        "R": 0.01,
+        "G": 0.008,
+        "B": 0.026
       },
-      "Opacity": 0.38
+      "FogDensity": 0.0045
+    },
+    "Water": {
+      "LevelY": -34,
+      "DeepColor": {
+        "R": 0.008,
+        "G": 0.024,
+        "B": 0.03
+      },
+      "GlowColor": {
+        "R": 0.1,
+        "G": 0.55,
+        "B": 0.6
+      },
+      "WaveScale": 0.16,
+      "WaveSpeed": 0.8,
+      "WaveAmplitude": 0.7,
+      "CausticStrength": 0.5,
+      "MistColor": {
+        "R": 0.028,
+        "G": 0.052,
+        "B": 0.062
+      },
+      "MistDensity": 0.02,
+      "MistHeight": 10
+    },
+    "Air": {
+      "GodRayColor": {
+        "R": 0.1,
+        "G": 0.13,
+        "B": 0.12
+      },
+      "GodRayStrength": 0.9,
+      "SporeColor": {
+        "R": 0.3,
+        "G": 0.42,
+        "B": 0.2
+      },
+      "SporeBrightness": 0.8
+    },
+    "Crystals": {
+      "ColorA": {
+        "R": 0.1,
+        "G": 0.85,
+        "B": 1
+      },
+      "ColorB": {
+        "R": 0.95,
+        "G": 0.15,
+        "B": 0.9
+      },
+      "Emission": 1.6,
+      "PulseSpeed": 0.5,
+      "WallLight": 0.55
+    },
+    "Lighting": {
+      "SkyAmbient": {
+        "R": 0.045,
+        "G": 0.055,
+        "B": 0.075
+      },
+      "GroundAmbient": {
+        "R": 0.02,
+        "G": 0.055,
+        "B": 0.06
+      },
+      "KeyTint": {
+        "R": 0.88,
+        "G": 0.98,
+        "B": 1.06
+      },
+      "BackTint": {
+        "R": 0.95,
+        "G": 0.72,
+        "B": 1
+      }
     }
   },
   "map": {

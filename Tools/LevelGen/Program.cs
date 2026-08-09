@@ -235,10 +235,11 @@ namespace BS3D.Tools.LevelGen
             Name = "Mosaic",
             Grid = 13,
             Depth = 6,
-            Scene = new SeaSceneConfig(),
-            //The sea mirrors the dome, so a bright one gives it a flat sandy horizon rather than water —
-            //measured, under dome 1 the whole sea read as tan. 13 is the violet/teal dusk the Testbed
-            //already defaults the sea to (SEA_DEFAULT_SKY_DOME), and the mosaic's CMY pops against it.
+            //A dark room for the brightest cluster in the game. It played over the sea, which was the wrong
+            //pairing twice over: the sea mirrors its dome, so it is a large area of whatever the sky is doing
+            //and never a backdrop, and against a lit dusk the CMY blocks had nothing to be vivid against.
+            //The cavern is enclosed and dark, so the mosaic is the only saturated thing in the frame.
+            Scene = new CavernSceneConfig(),
             Sky = 13,
             //The one design that has to be worked rather than triggered: its best shot takes 24 of 387
             //balls, so it wants a budget nearer two shots per block than the four-shot cascades elsewhere
@@ -282,7 +283,11 @@ namespace BS3D.Tools.LevelGen
             Grid = 15,
             Depth = 6,
             Scene = new MountainSceneConfig(),
-            Sky = 10,
+            //Dome 8, a deep violet dusk, and not the 10 this shipped with. Under 10 the peaks came out pale
+            //sand against a candy-pink sky and the whole frame read as kitsch; under 8 they read as snow and
+            //the sky as weather, which is the same scene doing what it was built to do. The crown's gold and
+            //red carry against a dark sky, where against pink they were competing with it.
+            Sky = 8,
             Shots = 44,
             CeilingStep = 9,
             Occupied = (r, ang, i, depth) => r >= 2.9f && r <= 5.5f,
@@ -343,15 +348,18 @@ namespace BS3D.Tools.LevelGen
             Name = "Prism",
             Grid = 15,
             Depth = 6,
-            Scene = new CavernSceneConfig(),
+            Scene = new SeaSceneConfig(),
             Sky = 13,
             Shots = 60,
             CeilingStep = 6,
             //Stepped, so the silhouette is not another cylinder and the lower steps are reachable early
             Occupied = (r, ang, i, depth) => r <= 5.5f - (depth - 1 - i) * 0.55f,
-            //One level per block rather than two: it halves the group and is the whole difference in feel
-            //between this and Mosaic, which is otherwise the same idea two steps gentler.
-            BlockColour = (x, z, i) => Scatter(x / 2, z / 2, i,
+            //Blocks TWO levels tall (x / 2, z / 2, i / 2), where this shipped with one. One level made the
+            //group four balls, and against five colours that is a shot for every four — the widest step is
+            //the last thing left standing and it took two dozen shots on its own, which is the "the last
+            //storey drags" this was reported as. Two levels doubles every group to eight without touching
+            //the shape or the palette, which are the parts worth keeping.
+            BlockColour = (x, z, i) => Scatter(x / 2, z / 2, i / 2,
                 new[] { BallType.Type1, BallType.Type2, BallType.Type3, BallType.Type5, BallType.Type7 }),
         };
 

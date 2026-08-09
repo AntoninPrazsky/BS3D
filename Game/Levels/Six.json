@@ -3,7 +3,7 @@
   "version": 1,
   "name": "Crown",
   "author": "BS3D",
-  "sky": 10,
+  "sky": 8,
   "scene": {
     "kind": "mountain",
     "LevelY": -14,
