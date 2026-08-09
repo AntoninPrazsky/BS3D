@@ -24,6 +24,35 @@ namespace Prazsky.BS3D.GameObjects
 		public const float MinElevation = -0.10f;
 		public const float MaxElevation = 1.40f;
 
+		/// <summary>
+		/// The up-elevation the gun may actually be aimed to, which is <see cref="MaxElevation"/> — what the
+		/// hardware can do — unless a level lowers it. Everything that clamps or tests an aim uses this;
+		/// <see cref="MaxElevation"/> stays the gun's own capability and is what a reachability check measures
+		/// the mount against.
+		/// <para>
+		/// It exists for the <b>tall</b> levels, whose column reaches up out of the camera's frame. There the
+		/// full 80° lets the player aim at balls they cannot see and shoot blind into the part of the level
+		/// that has not arrived yet; the game lowers this to the steepest aim that still reaches the top of
+		/// what is framed. Clamped into the gun's own range on the way in, so a caller cannot hand it an
+		/// elevation the mount does not have — or, by passing something huge, quietly remove the limit.
+		/// </para>
+		/// </summary>
+		public float ElevationLimit
+		{
+			get => _elevationLimit;
+			set
+			{
+				_elevationLimit = Math.Clamp(value, MinElevation, MaxElevation);
+
+				//The standing aim may already be steeper than the new limit — a level installed under a gun
+				//left pointing up, or a mid-level re-solve — and nothing else would bring it down until the
+				//next mouse movement
+				EnsureAimInBounds();
+			}
+		}
+
+		private float _elevationLimit = MaxElevation;
+
 		//Traverse (yaw) the aim may swing either side of the resting heading, in radians (±45°).
 		public const float MaxTraverse = Constants.QUARTER_PI;
 
@@ -412,7 +441,7 @@ namespace Prazsky.BS3D.GameObjects
 			float desiredHeading = (float)Math.Atan2(d.X, d.Z);
 			requiredTraverse = MathHelper.WrapAngle(desiredHeading - MathHelper.Pi - _rotationToOrbitCenter.Y);
 
-			return requiredElevation >= MinElevation && requiredElevation <= MaxElevation
+			return requiredElevation >= MinElevation && requiredElevation <= ElevationLimit
 				&& requiredTraverse >= -MaxTraverse && requiredTraverse <= MaxTraverse;
 		}
 
@@ -446,11 +475,11 @@ namespace Prazsky.BS3D.GameObjects
 			var actualXRotation = _rotationAim.X + _rotationToOrbitCenter.X;
 
 			if (actualXRotation >= MinElevation
-				&& actualXRotation <= MaxElevation
+				&& actualXRotation <= _elevationLimit
 				&& _rotationAim.Y >= -MaxTraverse
 				&& _rotationAim.Y <= MaxTraverse) return;
 
-			var x = Math.Clamp(actualXRotation, MinElevation, MaxElevation) - _rotationToOrbitCenter.X;
+			var x = Math.Clamp(actualXRotation, MinElevation, _elevationLimit) - _rotationToOrbitCenter.X;
 			var y = Math.Clamp(_rotationAim.Y, -MaxTraverse, MaxTraverse);
 
 			_rotationAim = new Vector2(x, y);

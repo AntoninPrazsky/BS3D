@@ -87,6 +87,11 @@ namespace BS3D.Screens
             _ceilingStepHold = 0f;
             _ceilingStepWaited = 0f;
 
+            //Where this level hangs its underside is what a tall one is fed back down to, so it is read off
+            //the installed map rather than being a constant — see FeedTallColumn
+            _feedFloorLevel = _map.GetLowestOccupiedLevel();
+            _feedStepsQueued = 0;
+
             //And no floor alarm either: whatever the last level's ending left lingering over the drain is
             //not this level's danger.
             _laserGrid.Reset();

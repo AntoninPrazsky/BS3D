@@ -71,6 +71,10 @@ namespace BS3D.Screens
             //CheckLevelCleared starts the countdown that ends the level
             TryBeginDropCinematic(landing.Released);
 
+            //And the cluster has just changed, which is the only thing that can put a tall level's underside
+            //out of reach
+            FeedTallColumn();
+
             CheckLevelCleared();
         }
 

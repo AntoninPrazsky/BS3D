@@ -153,13 +153,15 @@ namespace BS3D.Screens
             //resize) also resets a stroke in progress, the same reset the aim's baseline takes on the event.
             _cannon.OrbitRadius = fit.CannonOrbitRadius;
             _cannon.SetAdvanceRange(fit.CannonMinRadius, fit.CannonMaxRadius);
+            _cannon.ElevationLimit = SolveElevationLimit();
 
             Console.WriteLine($"[camera] Field {_map.StageSizeX}x{_map.StageSizeZ}x{_map.Levels}"
                 + (FieldIsTallerThanFrame ? $" (framing its lowest {FRAMED_LEVELS} to y {FramedTopY():F1})" : string.Empty)
                 + $", aspect {Camera.AspectRatio:F2}: "
                 + $"camera {_gameCameraDistance:F1} out, aim Y {_gameCameraTargetY:F1}, "
                 + $"gun orbit {_cannon.OrbitRadius:F1} ({_gameCameraDistance - _cannon.OrbitRadius:F1} in front of the lens"
-                + $", walk {fit.CannonMinRadius:F1}..{fit.CannonMaxRadius:F1})");
+                + $", walk {fit.CannonMinRadius:F1}..{fit.CannonMaxRadius:F1})"
+                + $", elevation limit {_cannon.ElevationLimit * (180f / MathF.PI):F1} deg");
 
             LogAimReachability();
         }
@@ -179,17 +181,54 @@ namespace BS3D.Screens
         /// </summary>
         private void LogAimReachability()
         {
+            //On a tall field only the framed window is asked about, and against the limit the gun is actually
+            //held to there. Its upper levels are unreachable now BY DESIGN — that is what the elevation limit
+            //enforces and what the descent undoes — so asking about them returns "unfinishable" for a level
+            //that finishes perfectly well. What matters is that everything in play can be reached.
             AimReachabilityResult reach = AimReachability.Check(
-                _map, _cannon.OrbitRadius, _cannon.Position.Y, Cannon.MaxElevation);
+                _map, _cannon.OrbitRadius, _cannon.Position.Y, _cannon.ElevationLimit,
+                FieldIsTallerThanFrame ? FRAMED_LEVELS - 1 : int.MaxValue,
+                _clusterWorldOffset);
 
             const float RAD_TO_DEG = 180f / MathF.PI;
 
-            Console.WriteLine($"[aimcheck] steepest cell ({reach.WorstCell.X},{reach.WorstCell.Z},{reach.WorstCell.Level})"
+            Console.WriteLine($"[aimcheck]{(FieldIsTallerThanFrame ? " (framed window only)" : string.Empty)}"
+                + $" steepest cell ({reach.WorstCell.X},{reach.WorstCell.Z},{reach.WorstCell.Level})"
                 + $" at Y={reach.WorstCellY:F1} needs {reach.WorstElevation * RAD_TO_DEG:F1} deg"
-                + $" of the clamp's {Cannon.MaxElevation * RAD_TO_DEG:F1}  ->  "
+                + $" of the limit's {_cannon.ElevationLimit * RAD_TO_DEG:F1}  ->  "
                 + (reach.Pass
                     ? "PASS"
                     : $"FAIL - {reach.UnreachableCells}/{reach.TotalCells} cells out of reach (unfinishable)"));
+        }
+
+        /// <summary>
+        /// How steeply the gun may be aimed on this level: its full <see cref="Cannon.MaxElevation"/> on any
+        /// field the camera frames whole, and only as far as the <b>top of the window</b> on a tall one.
+        /// <para>
+        /// A tall level's column reaches up out of shot, and with the full 80° the player can aim at balls
+        /// they cannot see — shooting blind into the part of the level that has not arrived yet, which reads
+        /// as the level being cheatable rather than as a rule. The limit is the same geometry
+        /// <see cref="AimReachability"/> measures with, run backwards: the steepest <i>facing</i> shot, from
+        /// the gun's stand-off to the field's nearest corner, that still reaches the framed top. So
+        /// everything inside the window stays reachable — including the near edge, which is the steepest
+        /// legitimate shot there is — and nothing above it is.
+        /// </para>
+        /// <para>
+        /// Solved with the fit rather than authored per level, because both of its inputs are the fit's: the
+        /// orbit radius and the window follow the field's size, so a number written into the level file would
+        /// stop agreeing with the geometry the first time either moved.
+        /// </para>
+        /// </summary>
+        private float SolveElevationLimit()
+        {
+            if (!FieldIsTallerThanFrame) return Cannon.MaxElevation;
+
+            //Floored at 1 for the same reason AimReachability floors it: a cell under the carriage must not
+            //divide the angle by nothing.
+            float nearest = MathF.Max(_cannon.OrbitRadius - FieldHalfDiagonal(), 1f);
+            float rise = FramedTopY() - _cannon.Position.Y;
+
+            return MathF.Atan2(rise, nearest);
         }
 
         /// <summary>

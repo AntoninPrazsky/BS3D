@@ -259,6 +259,15 @@ namespace BS3D.Screens
         private int _biggestDrop;
 
         /// <summary>
+        /// The lowest occupied level the tall level was authored with — the height its underside is <b>fed
+        /// back down to</b> as the player clears it. See <see cref="FeedTallColumn"/>.
+        /// </summary>
+        private byte _feedFloorLevel;
+
+        /// <summary>How many descents the feed has already asked for, so it never asks for the same one twice.</summary>
+        private int _feedStepsQueued;
+
+        /// <summary>
         /// Where the lattice frame meets the world, and the <b>only</b> place it does on the drawing side.
         /// <para>
         /// Y hangs the top of the field at <see cref="FIELD_TOP_Y"/> — or higher, when the field is deep
