@@ -199,18 +199,32 @@ namespace Prazsky.Core.Render
         /// </summary>
         public const float FUNNEL_GLASS_ALPHA = 0.55f;
 
-        //A polished-gold metal bead runs around both circles of the funnel (the wide top rim and the small
-        //bottom hole), which is what makes the glass drain read at a glance — it rings exactly the junction
-        //where the stone meets the glass. Drawn as two tori with the metal path (Metalness = 1): the gold
-        //diffuse keeps it visible under any dome, the gold specular is its reflectance so it mirrors the sky
-        //in gold rather than in the 4 % dielectric white every other surface reflects it with, and a tight
-        //specular power keeps the highlight sharp.
+        //A polished-gold band runs around both circles of the funnel (the wide top rim and the small bottom
+        //hole), which is what makes the glass drain read at a glance — it rings exactly the junction where
+        //the stone meets the glass. Drawn with the metal path (Metalness = 1): the gold diffuse keeps it
+        //visible under any dome, the gold specular is its reflectance so it mirrors the sky in gold rather
+        //than in the 4 % dielectric white every other surface reflects it with, and a tight specular power
+        //keeps the highlight sharp.
+        //
+        //It lies FLAT on the surface it rings rather than standing proud of it — the top band on the stone
+        //dish, the bottom one on the glass cone — see FunnelRimsMesh on why a raised bead was the wrong
+        //shape at the one junction every released ball rolls across (#94).
         public static readonly Vector3 FUNNEL_RIM_COLOR = new(0.62f, 0.44f, 0.13f);   //warm gold diffuse (sRGB)
         public static readonly Vector3 FUNNEL_RIM_SPECULAR = new(1f, 0.83f, 0.48f);   //gold reflectance (sRGB)
         public const float FUNNEL_RIM_SPECULAR_POWER = 80f;                           //polished: a tight highlight
-        public const float FUNNEL_RIM_TOP_TUBE = 0.5f;                                //bead radius at the mouth
-        public const float FUNNEL_RIM_HOLE_TUBE = 0.3f;                               //bead radius at the hole
-        public const int FUNNEL_RIM_TUBE_SEGMENTS = 16;                                //facets around each bead
+
+        //Radial widths, carried over from the tori these replaced: each band is as wide as its bead was
+        //across, so the gold reads at the size the drain was tuned to look right at.
+        public const float FUNNEL_RIM_TOP_WIDTH = 1f;                                 //band width at the mouth
+        public const float FUNNEL_RIM_HOLE_WIDTH = 0.6f;                              //band width at the hole
+
+        /// <summary>
+        /// Rise per unit of radius of the walkable dish, going outwards from the drain's mouth to the outer
+        /// arris — the same straight span <see cref="FloorHeightAt"/> interpolates along, as the one figure
+        /// rather than as a second copy of it. It is what lets the top gold band lie on the stone instead of
+        /// hovering horizontally over a sloped surface.
+        /// </summary>
+        public static readonly float DISH_GRADE = DISH_DEPTH / (FLOOR_RADIUS - FUNNEL_TOP_RADIUS);
 
         //The dark pit shaft behind the glass drain, drawn in the solid-terrain scenes only
         //(SceneRenderer.IsSolidTerrainScene: mountains, meadow, savanna, desert, forest). Those scenes are a
@@ -381,12 +395,14 @@ namespace Prazsky.Core.Render
             _funnelMesh = new FunnelMesh(device, FUNNEL_TOP_RADIUS, FUNNEL_HOLE_RADIUS, funnelHeight, FUNNEL_SEGMENTS, 0f);
             _funnelRenderer = new InstancedModelRenderer(device, _funnelMesh, FUNNEL_GLASS_COLOR, instancingEffect, FUNNEL_GLASS_ALPHA);
 
-            //Both gold beads in one mesh (built in the funnel's own local space), so one renderer draws them
+            //Both gold bands in one mesh (built in the funnel's own local space), so one renderer draws them
             //and they share the one world matrix. Opaque, so they go down with the opaque scene before the
             //glass the funnel composites over them; metallic (see FUNNEL_RIM_* / Metalness), with the gold
-            //specular riding in as a per-draw effect-params override rather than the scene's white.
+            //specular riding in as a per-draw effect-params override rather than the scene's white. The dish
+            //grade goes in because the top band lies on the stone, which is the one surface here the mesh
+            //cannot work out from the funnel's own figures.
             _funnelRimsMesh = new FunnelRimsMesh(device, FUNNEL_TOP_RADIUS, FUNNEL_HOLE_RADIUS, funnelHeight,
-                FUNNEL_RIM_TOP_TUBE, FUNNEL_RIM_HOLE_TUBE, FUNNEL_SEGMENTS, FUNNEL_RIM_TUBE_SEGMENTS);
+                FUNNEL_RIM_TOP_WIDTH, FUNNEL_RIM_HOLE_WIDTH, DISH_GRADE, FUNNEL_SEGMENTS);
 
             _funnelRimsRenderer = new InstancedModelRenderer(device, _funnelRimsMesh, FUNNEL_RIM_COLOR, instancingEffect)
             {
