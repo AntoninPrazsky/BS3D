@@ -35,7 +35,7 @@
     "AmbientStrength": 0.6,
     "HorizonHazeDistance": 500,
     "Snow": {
-      "FlakeCount": 1400,
+      "FlakeCount": 2800,
       "BoxSize": {
         "X": 70,
         "Y": 55,
@@ -47,13 +47,17 @@
         "Y": 1.5
       },
       "Sway": 1.2,
-      "FlakeSize": 0.13,
+      "FlakeSize": 0.085,
+      "Spin": 1.1,
+      "Lobing": 0.3,
+      "NearFade": 7,
+      "Twinkle": 0.25,
       "FlakeColor": {
         "R": 0.72,
         "G": 0.76,
         "B": 0.82
       },
-      "Opacity": 0.9
+      "Opacity": 0.6
     }
   },
   "map": {

@@ -307,7 +307,7 @@ namespace Prazsky.Core.Render
         private VertexBuffer _snowVertexBuffer;
         private IndexBuffer _snowIndexBuffer;
 
-        //Snowfall parameters (flake count/size/colour/opacity, box, fall speed, wind, sway) now live in
+        //Snowfall parameters (flake count/size/shape/colour/opacity, box, fall speed, wind, sway) now live in
         //MountainSceneConfig.Snow (SnowConfig); SceneRenderer reads them from _mountainConfig.Snow.
 
         #endregion
@@ -1013,6 +1013,10 @@ namespace Prazsky.Core.Render
             _snowEffect.Parameters["SnowWind"].SetValue(_mountainConfig.Snow.Wind.ToVector2());
             _snowEffect.Parameters["SnowSway"].SetValue(_mountainConfig.Snow.Sway);
             _snowEffect.Parameters["FlakeSize"].SetValue(_mountainConfig.Snow.FlakeSize);
+            _snowEffect.Parameters["SnowSpin"].SetValue(_mountainConfig.Snow.Spin);
+            _snowEffect.Parameters["SnowLobing"].SetValue(_mountainConfig.Snow.Lobing);
+            _snowEffect.Parameters["SnowNearFade"].SetValue(_mountainConfig.Snow.NearFade);
+            _snowEffect.Parameters["SnowTwinkle"].SetValue(_mountainConfig.Snow.Twinkle);
             _snowEffect.Parameters["SnowColor"].SetValue(_mountainConfig.Snow.FlakeColor.ToVector3());
             _snowEffect.Parameters["SnowOpacity"].SetValue(_mountainConfig.Snow.Opacity);
         }
