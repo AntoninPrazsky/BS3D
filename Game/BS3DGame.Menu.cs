@@ -367,6 +367,27 @@ namespace BS3D
         internal string LevelDisplayName(int index) => _levelSet.DisplayName(index);
         internal string LevelRulesText(int index) => _levelSet.DescribeRules(index);
 
+        /// <summary>
+        /// Names the level being played in the window's title bar, and restores the plain
+        /// <see cref="GAME_TITLE"/> when there is none. Numbered as the picker numbers it, so "the fourth
+        /// one" means the same thing in both places.
+        /// <para>
+        /// It is for <b>talking about</b> a level rather than for playing one: the HUD deliberately carries
+        /// no level name — a name is not something a player reads mid-shot — but a title bar is legible in a
+        /// screenshot and in a window list, which is exactly what is wanted when a level is being reported on.
+        /// </para>
+        /// <para>
+        /// Out-of-range falls back to the plain title, which is the fallback pyramid's case: no set was read,
+        /// so there is no entry to name and the picker's own "Built-in level" wording is not repeated here.
+        /// A level whose <i>file</i> failed to parse still shows its entry's name while the pyramid plays,
+        /// and that is the level the player chose — the failure has its own <c>[levels]</c> line.
+        /// </para>
+        /// </summary>
+        internal void ShowLevelInTitle(int index) =>
+            Window.Title = index >= 0 && index < LevelCount
+                ? $"{GAME_TITLE} — {index + 1}. {LevelDisplayName(index)}"
+                : GAME_TITLE;
+
         //The actions a page's entries invoke. Named for what the player asked for rather than for how it is
         //done, so a page reads as a list of choices.
         internal void ContinueGame() => StartGame(newGame: false);
