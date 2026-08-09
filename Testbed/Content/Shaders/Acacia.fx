@@ -9,6 +9,10 @@
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0
 
+//For the crown's leaf mottle. It used to be a hash of floor(UV * 11) - one value held flat across each cell
+//of an 11x11 grid, with a hard step at every cell edge, which is a checkerboard drawn on every tree (#97).
+#include "Noise.fxh"
+
 float4x4 View;
 float4x4 Projection;
 float3 CameraPosition;
@@ -37,14 +41,17 @@ struct AcaciaVertexOutput
 	float4 Position : SV_POSITION;
 	float2 UV : TEXCOORD0;      //u across the billboard [-1,1], v up it [0,1]
 	float2 Kind : TEXCOORD1;    //(per-plant random 0..1, isBush 0/1)
+	float2 Dapple : TEXCOORD2;  //the leaf mottle's domain: plant-local WORLD units, pre-scaled and offset
 };
 
-float Hash21(float2 p)
-{
-	p = frac(p * float2(123.34, 456.21));
-	p += dot(p, p + 45.32);
-	return frac(p.x * p.y);
-}
+//The crown's leaf mottle. Coarsest octave in cycles per WORLD unit, so a leaf clump is a fixed size in the
+//scene: a crown is 9 to 15.6 units across and 2.3 to 3.8 thick, which at 1.2 puts roughly eleven to nineteen
+//clumps across it and three to five through its thickness. MEAN and STRENGTH are the mottle's centre and its
+//spread about it - the mean is the old dapple's exactly (0.78 + 0.22 * uniform), so the savanna's trees keep
+//the brightness they were tuned to and only their texture changes.
+static const float DAPPLE_FREQUENCY = 1.2;
+static const float DAPPLE_MEAN = 0.89;
+static const float DAPPLE_STRENGTH = 1.0;
 
 AcaciaVertexOutput AcaciaVS(AcaciaVertexInput input)
 {
@@ -71,6 +78,14 @@ AcaciaVertexOutput AcaciaVS(AcaciaVertexInput input)
 	output.UV = input.Data.xy;
 	output.Kind = float2(rand, isBush);
 
+	//The mottle is laid out in the plant's OWN world-unit extent, not in UV: in UV a big tree would get the
+	//same number of bigger clumps as a small one (so every plant reads the same size), and the billboard is
+	//not square, so a round clump would come out stretched. Offset per plant through a hash rather than off
+	//`rand` directly - the plants' randoms are only ~1/Count apart, which off a straight multiple would land
+	//neighbouring trees inside one noise cell wearing the same pattern.
+	float2 plantOffset = NoiseHash22(float2(rand, rand * 3.7 + 1.0)) * 100.0;
+	output.Dapple = float2(input.Data.x * w, input.Data.y * h) * DAPPLE_FREQUENCY + plantOffset;
+
 	return output;
 }
 
@@ -80,6 +95,12 @@ float4 AcaciaPS(AcaciaVertexOutput input) : COLOR
 	float v = input.UV.y; //[0,1], 0 at the foot, 1 at the top
 	float rand = input.Kind.x;
 	float isBush = input.Kind.y;
+
+	//The mottle's pixel footprint, in the mottle's own units, taken HERE - before the clip and before the
+	//crown/trunk branch below. Both of those diverge inside a quad (the trunk runs up the middle of the crown,
+	//and the cutout edge crosses it everywhere), and the derivatives of a quad whose lanes took different
+	//paths are undefined; off a linear interpolant taken up front they are exact.
+	float dappleFootprint = max(length(ddx(input.Dapple)), length(ddy(input.Dapple)));
 
 	//Wobble the silhouette a little per plant so no two read identical and the edge is not a clean arc
 	float wob = 0.06 * sin(u * 9.0 + rand * 30.0);
@@ -120,8 +141,12 @@ float4 AcaciaPS(AcaciaVertexOutput input) : COLOR
 	if (inCrown > 0.5)
 	{
 		//Per-plant green, dappled with a leafy texture so the crown is not one flat colour. Bushes drier/olive.
+		//Three octaves: past the third the features are under a fifth of a world unit and the band limit has
+		//them out before they can be seen. The mottle needs more amplitude than the old cell hash carried, not
+		//less - what made a 6% cell hash visible at all was its hard EDGES, and a smooth field of that spread
+		//reads as no mottle whatsoever, which is a flat green blob for a crown.
 		float3 leaf = lerp(CanopyColor, CanopyColorDry, rand * (isBush > 0.5 ? 1.0 : 0.7) + isBush * 0.2);
-		float dapple = 0.78 + 0.22 * Hash21(floor(input.UV * 11.0) + rand * 17.0);
+		float dapple = DAPPLE_MEAN + DAPPLE_STRENGTH * Fbm2BandLimited(input.Dapple, 3, dappleFootprint);
 		color = leaf * (ambient * 0.9 + SunColor * 0.5) * crownShade * dapple;
 	}
 	else
