@@ -422,6 +422,12 @@ namespace BS3D.Screens
         //KinematicBody), so the collidable and the thing the player sees cannot drift apart.
         private float _ceilingY;
 
+        //Where the glass hangs at REST, i.e. _ceilingY before the level's first descent — solved per level with
+        //the field's top, so it carries the raise a deep field gets off the death line. The HUD's cluster
+        //profile frames itself against this, and kept its own hardcoded copy of the unraised figure until a
+        //27-level field put the whole cluster above the panel's top (see PlayHud.ClusterProfile.TopY).
+        private float _ceilingRestY;
+
         private KinematicBody _ceiling;
 
         //The descending ceiling — the second of the two pressures that can lose a level, made visible where the

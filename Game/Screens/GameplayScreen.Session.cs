@@ -322,6 +322,9 @@ namespace BS3D.Screens
                 -(nearCorner.Z + farCorner.Z) * Constants.HALF);
 
             _ceilingY = CeilingPlate.CentreYAbove(fieldTopY);
+            //Kept, because _ceilingY is about to start descending and the HUD's profile has to go on framing
+            //the whole fall against where the glass STARTED — raise included.
+            _ceilingRestY = _ceilingY;
             //At rest to start: target equals current, so nothing slides until a step is taken.
             _ceilingTargetY = _ceilingY;
             _ceilingDescending = false;

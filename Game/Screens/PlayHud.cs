@@ -365,6 +365,21 @@ namespace BS3D.Screens
             public float DeathY;
 
             /// <summary>
+            /// World Y of the glass at <b>rest</b> — the top of the panel, and the height the descent is read
+            /// against. Handed over by the session rather than mirrored here, because it is <i>not</i> a
+            /// constant: a field deep enough that its bottom level would start past the death line is raised
+            /// bodily until it clears, and every level of it with it.
+            /// <para>
+            /// It used to be a private <c>FIELD_TOP_Y + CEILING_CLEARANCE</c> copied out of
+            /// <c>GameplayScreen</c>, with a comment asking whoever retuned the original to remember this one.
+            /// The copy was not merely fragile, it was already wrong: on Onion — 27 levels, raised some nine
+            /// units — the whole cluster sat ABOVE this panel's top, and the per-ball cull below dropped
+            /// nearly all of it, so the player saw a sliver of a bulb that fills the sky.
+            /// </para>
+            /// </summary>
+            public float TopY;
+
+            /// <summary>
             /// Half the field's diagonal in world units — the furthest a ball's projection onto the camera's right
             /// axis can reach from the centre. Derived from the field footprint by the session, so the horizontal
             /// axis maps to the cluster's actual width rather than a fudge that goes stale when a level's footprint
@@ -406,13 +421,6 @@ namespace BS3D.Screens
         //panel's scale — a 2-pixel line over a lit skyline is sub-pixel and gone.
         private const int PROFILE_GLASS_THICKNESS = 16;
         private const int PROFILE_DEATH_THICKNESS = 10;
-
-        //The field's vertical extent, mirrored from GameplayScreen (which owns the real constants privately).
-        //The panel frames the WHOLE field — death line at the bottom to the glass's resting place at the top —
-        //so the glass's descent reads against the full distance it has to fall. FIELD_TOP_Y changed in the #72
-        //refactor (8/√2 ≈ 5.66); if GameplayScreen retunes it, this must follow.
-        private const float FIELD_TOP_Y = 5.6569f;          // FIELD_TOP_LEVELS (8) / √2
-        private const float CEILING_CLEARANCE = 2f;
 
         //The profile's red is a display-range red that shares the ceiling flash's hue: the 3D plate glows at
         //6.0/0.15/0.1 in LINEAR radiance because it has to out-shout the sky behind it, while this marker sits
@@ -894,8 +902,9 @@ namespace BS3D.Screens
             //and shrank as balls were shot and matched read as something wrong with the HUD rather than as the
             //field's frame, and it shifted under the eye every shot. The glass's descent is what moves; the panel
             //that frames it holds still. The vertical extent is the gameplay field the glass travels: its resting
-            //place at the top down to the death line at the bottom.
-            float topY = FIELD_TOP_Y + CEILING_CLEARANCE;
+            //place at the top down to the death line at the bottom — and that resting place is the SESSION's,
+            //because a deep field is raised bodily off the death line (see ClusterProfile.TopY).
+            float topY = profile.TopY;
             float bottomY = deathY;
             float span = topY - bottomY;
             if (span < 0.5f) return;

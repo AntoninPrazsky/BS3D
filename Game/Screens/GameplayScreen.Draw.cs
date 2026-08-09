@@ -316,6 +316,7 @@ namespace BS3D.Screens
                 return new PlayHud.ClusterProfile
                 {
                     CeilingY = CeilingPlate.CentreYAbove(FIELD_TOP_Y),
+                    TopY = CeilingPlate.CentreYAbove(FIELD_TOP_Y),
                     DeathY = CEILING_DEATH_Y,
                     HalfDepth = FieldHalfDiagonal(),
                     CameraRight = _gameplayCameraRight,
@@ -349,6 +350,7 @@ namespace BS3D.Screens
                 CeilingY = _ceilingY,
                 CeilingFlash = _ceilingFlash,
                 CeilingFeeding = _ceilingFlashIsFeed,
+                TopY = _ceilingRestY,
                 DeathY = CEILING_DEATH_Y,
                 HalfDepth = FieldHalfDiagonal(),
                 CameraRight = _gameplayCameraRight,
