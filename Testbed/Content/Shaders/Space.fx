@@ -298,12 +298,24 @@ float3 MilkyWayGlow(float3 dir, float band, out float dustExtinction)
 //Stars
 //=====================================================================================================
 
+//Radiance under which a cut in a star's profile cannot be seen, and so the distance the margin below has
+//to hold clear. One code of an 8-bit back buffer is about 3e-4 of linear radiance at the bottom of the sRGB
+//curve, so this is a third of a code - under the dither the sky is already broken up with.
+static const float STAR_CUT = 1e-4;
+
 //One layer. A single cell lookup: the star is jittered inside its own cell but held its own radius clear
 //of the edges, so it can never straddle a boundary and the eight neighbours never have to be sampled.
 //
 //The core is sized in OUTPUT pixels rather than in texels or in radians, which is what keeps it identical
 //on every supersampling setting and always at least one texel across - a star drawn smaller than a texel
 //crawls and scintillates as the camera turns, and in vacuum a star is the one thing that must NOT twinkle.
+//
+//That margin is the whole of #88 ("the stars read as arranged in a grid"). It is subtracted from BOTH ends
+//of the cell, so a star may only land in the middle `1 - 2 * margin` of it, and under about half a cell of
+//that box the spacing between neighbours stops looking random and the lattice shows through. The margin is
+//in cell units while the star is sized in pixels, so the box closes as the cells get smaller on screen -
+//which is why this was reported from a laptop and is invisible at 4K, and why both figures below are
+//derived from what a star actually reaches rather than assumed.
 float3 StarLayer(float3 dir, float pixelAngle, float scale, float chance, float peak, bool spikes)
 {
 	float3 chart = CubeChart(dir);
@@ -327,7 +339,12 @@ float3 StarLayer(float3 dir, float pixelAngle, float scale, float chance, float 
 	//Brightness climbs steeply towards the faint end, so the layer is thousands of faint stars with a
 	//handful of obvious ones rather than a wall of identical dots. Hotter stars are the brighter ones,
 	//which is both true and what makes the bright few read blue-white against a warmer field.
-	float magnitude = pow(rollB.x, StarFalloff);
+	//
+	//Spelled out as exp(log()) rather than as pow(), which is what pow compiles to anyway, because the
+	//margin below wants log(magnitude) as well and this way it shares the one logarithm.
+	float logRoll = log(max(rollB.x, 1e-6));
+	float magnitude = exp(StarFalloff * logRoll);
+
 	float3 tint = StarTint(saturate(rollB.y * (1.1 - 0.75 * magnitude)));
 
 	//A brighter star is drawn a little wider as well as a little brighter. Physically a star is a point
@@ -336,11 +353,25 @@ float3 StarLayer(float3 dir, float pixelAngle, float scale, float chance, float 
 	//with some of them turned up. The floor is what keeps the smallest of them from crawling.
 	float core = max(StarSpread * SupersampleFactor, 0.62) * pixelCells * (1.0 + magnitude * 0.9);
 
+	//Whether THIS star draws spikes, decided here rather than at the spike block below, because the margin
+	//turns on it: a spiked star needs 5.8x the room a plain one does, and only 4.2% of the coarse layer is
+	//over the threshold. Charging the layer's flag to all of it - which is what this did - capped 96.8% of
+	//the coarse layer's stars at 1366x768 and 46.9% at 1920x1080 on the menu's 60-degree camera, i.e. held
+	//almost every bright star in the middle third of its cell. Per star, that is 1.4% and 1.6%.
+	bool drawSpikes = spikes && magnitude > StarSpikeThreshold;
+
+	//How far the gaussian reaches before it is under STAR_CUT: exp(-r^2) * peak * magnitude = STAR_CUT.
+	//This was a flat three radii, the same distance for a 0.50-peak star at full magnitude and for a faint
+	//one at a hundredth of it - and on the fine layer, whose cells are only about ten pixels across at
+	//1920x1080, three radii of a star that peaks at 0.16 is a third of the cell. Solving it per star costs
+	//one sqrt over the logarithm the magnitude already took, and takes the typical case to about 2.2 radii.
+	float reachRadii = sqrt(max(log(peak / STAR_CUT) + StarFalloff * logRoll, 1.0));
+
 	//Held clear of the cell edge by however far this star actually reaches, so nothing is ever clipped by the
-	//boundary of the one cell being sampled. Three core radii is enough for the gaussian, but a SPIKED star
-	//throws arms StarSpikeLength core radii out and needs far more room - at three radii its arms were cut
-	//dead straight where they crossed into the next cell, at about two thirds of their brightness.
-	float margin = min(spikes ? core * StarSpikeLength * 2.5 : core * 3.0, 0.34);
+	//boundary of the one cell being sampled. A SPIKED star throws arms StarSpikeLength core radii out and
+	//needs far more room - at three radii its arms were cut dead straight where they crossed into the next
+	//cell, at about two thirds of their brightness.
+	float margin = min(drawSpikes ? core * StarSpikeLength * 2.5 : core * reachRadii, 0.34);
 
 	//REMAPPED into the safe box, not clamped into it. A clamp piles every roll outside the box onto the two
 	//margin lines themselves - at a typical margin that is a third of all stars sitting on four lines per
@@ -361,9 +392,12 @@ float3 StarLayer(float3 dir, float pixelAngle, float scale, float chance, float 
 	//nearly double GLARE_THRESHOLD - and so became the one thing in this sky the glare samples stochastically
 	//and pops on and off, which is precisely the artifact the spikes are drawn here to avoid. A max is also
 	//the physically sensible reading: a diffraction spike is the star's own light spread out, not extra light.
-	if (spikes && magnitude > StarSpikeThreshold)
+	if (drawSpikes)
 	{
-		float reach = core * StarSpikeLength;
+		//Shortened when the margin above hit its cap, rather than left to run past the cell and be cut there:
+		//a clipped arm ends in a straight line on the cell boundary, which is the lattice drawn out in full,
+		//and a shortened one is only shorter. Below the cap this is exactly core * StarSpikeLength.
+		float reach = min(core * StarSpikeLength, margin * (1.0 / 2.5));
 		float2 along = abs(offset);
 
 		float horizontal = exp(-along.x / reach) * exp(-(along.y * along.y) / (core * core));
@@ -625,8 +659,11 @@ float3 Galaxies(float3 dir, float pixelAngle)
 	float pixelCells = pixelAngle * jacobian * GalaxyCellScale;
 	float size = max(GalaxySize * (0.55 + 1.5 * rollB.x) * jacobian * GalaxyCellScale, pixelCells * 1.6);
 
+	//Remapped into the safe box rather than clamped into it, for the reason StarLayer states above: a clamp
+	//piles every roll that falls outside the box onto the two margin lines themselves, and at this layer's
+	//margins that is about a fifth of all galaxies sitting on four straight lines per cell.
 	float margin = min(size * 2.2, 0.4);
-	float2 centre = cell + clamp(rollA.yz, margin, 1.0 - margin);
+	float2 centre = cell + margin + rollA.yz * (1.0 - 2.0 * margin);
 
 	//Rotate into the galaxy's own axes and squash one of them: an ellipse on the sky is a disc seen at an
 	//angle, and edge-on ones are what make a field of them read as galaxies rather than as fuzzy stars.
