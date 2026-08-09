@@ -379,7 +379,13 @@ namespace BS3D.Screens
 
             //The profile's backing array: one slot per cell, so the worst case (every cell occupied) is covered
             //without a resize. Grown only if the field grew, so a level of the same size reuses the same array.
-            int cellCount = _map.StageSizeX * _map.StageSizeZ * _map.Levels;
+            //
+            //Plus headroom for the balls in the AIR, which are not in the field's cells: a released group has
+            //left the cluster array by the time it is falling, so it is only the shots that can push past the
+            //cell count, and the kill plane culls those a beat after they miss. The headroom is far past what
+            //the fire rate can hold in flight at once, and BuildClusterProfile guards the write regardless —
+            //this is what keeps the guard from ever firing, not what makes overrunning safe.
+            int cellCount = _map.StageSizeX * _map.StageSizeZ * _map.Levels + PROFILE_FLIGHT_HEADROOM;
             if (_profileBalls == null || _profileBalls.Length < cellCount) _profileBalls = new PlayHud.BallMarker[cellCount];
 
             //What happens on a hit lives in the handler: the snap into the lattice, the constraints, and the
