@@ -73,7 +73,7 @@ namespace BS3D.Tools.LevelGen
             //WriteLevelSet for where One and Two sit around them.
             Design[] designs =
             {
-                One(), Bullseye(), Mosaic(), Pinwheel(), Crown(), Gem(), Prism(), Static(), Column()
+                One(), Bullseye(), Mosaic(), Pinwheel(), Crown(), Gem(), Prism(), Static(), Column(), Onion()
             };
 
             bool ok = true;
@@ -430,6 +430,52 @@ namespace BS3D.Tools.LevelGen
                 new[] { BallType.Type1, BallType.Type5, BallType.Type7, BallType.Type3 }),
         };
 
+        /// <summary>
+        /// A sphere hanging whole from the glass - the roundest shape the lattice can make - coloured like a
+        /// halved onion: a yellow skin around a white bulk around a small green heart, peeled from the
+        /// outside in as the player clears it.
+        /// <para>
+        /// <see cref="SphereDistance"/> is true 3D distance from the sphere's own centre, with the level
+        /// index scaled by <c>1/sqrt(2)</c> to match <c>BallsMap.GetRealPosition</c>'s vertical spacing - a
+        /// radius built from <c>i</c> and <c>r</c> untouched comes out an egg, stretched along Y, because a
+        /// level is not one lattice unit tall. <see cref="Depth"/> and the field's own centre are chosen so
+        /// the sphere's north and south poles land exactly on the layout's top and bottom levels.
+        /// </para>
+        /// <para>
+        /// The skin cannot wrap the whole sphere: the top layer is the one bonded to the glass, and a top
+        /// layer of one colour anchors everything under it to that colour's single group (the rule every
+        /// design here answers - see <see cref="Validate"/>). A true 3D shell also narrows to a single point
+        /// at each pole, so whichever colour that point falls in becomes the entire cap. <see cref="OnionShell"/>
+        /// answers both at once: it rings each level by its <b>own</b> radius rather than by distance from
+        /// the sphere's centre, so every level - however small its own cap is - shows the same green-centre,
+        /// white-ring, yellow-rim proportions the equator does. That is also just what a real onion's rings
+        /// look like at any height: narrower near the root and stem, never absent.
+        /// </para>
+        /// </summary>
+        private static Design Onion() => new()
+        {
+            File = "Eleven.json",
+            Name = "Onion",
+            Grid = 15,
+            //One short of the true round number (see SphereDistance's own remarks): a mathematically exact
+            //sphere at this radius wants Depth 16, whose top and bottom layers are then single points too
+            //narrow to reliably carry all three colours (the annulus a lattice this coarse needs to land a
+            //ball in it). Fifteen trims a hair off each pole instead - a slightly flattened onion, which is
+            //closer to a real one's shape than a mathematical sphere is anyway.
+            Depth = 15,
+            //At the generous end of the pack's usual growth room (12, matching Bullseye/Pinwheel/Static):
+            //the sphere's own bottom pole already reaches the layout's own floor, unlike every stepped-cone
+            //design here, which tapers to its point several levels above the layout ends - so this design
+            //has no such margin built in above the field's own growth room and wants the full amount of it.
+            FieldLevels = 27,
+            Scene = new ForestSceneConfig(),
+            Sky = 3,
+            Shots = 48,
+            CeilingStep = 8,
+            Occupied = (r, ang, i, depth) => SphereDistance(r, i, depth) <= ONION_RADIUS,
+            Colour = (r, ang, i, depth) => OnionShell(r, ang, i, depth),
+        };
+
         #endregion
 
         #region Colour helpers
@@ -480,6 +526,79 @@ namespace BS3D.Tools.LevelGen
             int index = (int)MathF.Floor(turns * sectors);
             index = ((index % sectors) + sectors) % sectors;     //MathF.Floor of a negative turns
             return palette[index % palette.Length];
+        }
+
+        //The onion's own geometry. See Onion() for why the two distances differ.
+        private const float ONION_RADIUS = 5.5f;
+        private const float INV_SQRT_TWO = 0.70710678f;
+
+        //Where the two colour boundaries sit, as a share of the level's own radius, and how far the outer one
+        //swings with the angle around the axis. See OnionShell for why the swing exists and what it has to
+        //cross at both ends to work.
+        private const float ONION_HEART = 0.28f;
+        private const float ONION_BULK = 0.60f;
+        private const float ONION_STAVES = 6f;
+        private const float ONION_SWING = 0.50f;
+
+        //BOTH boundaries swing, and the inner one has to go negative at the trough or the white simply wraps
+        //around the heart and is one piece again: an angular gap a couple of cells wide out at the rim is
+        //no gap at all by the time it has narrowed to the axis, so a rib that stops at the heart's edge
+        //never actually separates anything. Measured: swinging the outer boundary alone cut the skin from
+        //604 to 158 and left the white one group of 408 (42 % of the cluster).
+        private const float ONION_SWING_HEART = 0.42f;
+
+        //A level index's vertical world offset from the layout's own centre, in the same units r is
+        //already in (BallsMap.GetRealPosition puts a level at Y = level / sqrt(2)).
+        private static float OnionVertical(int i, int depth) => (i - (depth - 1) * HALF) * INV_SQRT_TWO;
+
+        private static float SphereDistance(float r, int i, int depth)
+        {
+            float dy = OnionVertical(i, depth);
+            return MathF.Sqrt(r * r + dy * dy);
+        }
+
+        /// <summary>
+        /// Green heart, white bulk, yellow skin - ringed by <b>each level's own radius</b> rather than by
+        /// true 3D distance from the sphere's centre. The two agree at the equator, where a level's own
+        /// radius already is the sphere's, and it is everywhere else that the difference matters: a true
+        /// 3D shell narrows to nothing at the poles, so whichever ring the pole's own tiny point happens to
+        /// fall in becomes the ENTIRE top layer - the one bonded to the glass - and a single-colour anchor
+        /// is the trap every design in this pack has to answer (see <see cref="Validate"/>). Ringed by its
+        /// own radius instead, every level, however small, shows the same green-centre/white-ring/yellow-rim
+        /// proportions the equator does, which is also just what a real onion's rings look like from any
+        /// height - narrower near the root and stem, never absent. It is what keeps the heart's own colour
+        /// standing in one piece straight up the middle from pole to pole, directly bonded to the glass at
+        /// the top without ever having to pass through the white around it - and the same for the skin at
+        /// its own rim - so peeling any one layer off never stands the other two on nothing.
+        /// <para>
+        /// <b>The boundary between the outer two SWINGS with the angle around the axis, and that is what makes
+        /// this a level rather than one shot.</b> Ringed by radius alone each layer is a single connected
+        /// piece from pole to pole - the skin measured 604 balls in one group, 62 % of the cluster, so the
+        /// first lucky yellow ball ended it (played: one shot cleared the level with 36 of 48 shots unused).
+        /// <see cref="ONION_SWING"/> carries the boundary past the surface at <see cref="ONION_STAVES"/>
+        /// angles and back inside the heart's own radius between them, so the two outer layers interlock as
+        /// <i>staves</i>: white reaches daylight where the boundary swings out, cutting the skin there, and
+        /// yellow reaches the core where it swings in, cutting the white. Each stave still runs the full
+        /// height, so each is bonded to the glass on its own and the anchor rule above is untouched - and a
+        /// bulb of interlocking segments is what an onion actually looks like cut across.
+        /// </para>
+        /// </summary>
+        private static BallType OnionShell(float r, float ang, int i, int depth)
+        {
+            float dy = OnionVertical(i, depth);
+            float capRadius = MathF.Sqrt(MathF.Max(0f, ONION_RADIUS * ONION_RADIUS - dy * dy));
+            float shell = capRadius > 0f ? r / capRadius * ONION_RADIUS : 0f;
+
+            //One swing drives both boundaries. Past 1 the white breaks the surface and cuts the skin; below 0
+            //BOTH boundaries vanish and the yellow runs from rim to axis, which is the only thing that cuts
+            //the white - and the heart with it, into wedges that each still stand the full height.
+            float swing = MathF.Cos(ONION_STAVES * ang);
+            float heart = ONION_HEART + ONION_SWING_HEART * swing;
+            float bulk = ONION_BULK + ONION_SWING * swing;
+
+            if (shell <= ONION_RADIUS * heart) return BallType.Type2; //green heart
+            if (shell <= ONION_RADIUS * bulk) return BallType.Type4;  //white bulk
+            return BallType.Type7;                                    //yellow skin
         }
 
         #endregion
