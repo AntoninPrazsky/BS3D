@@ -27,7 +27,7 @@
       "B": 0.14
     },
     "RockSlope": 0.3,
-    "SnowSlope": 0.95,
+    "SnowSlope": 0.78,
     "SnowlineLow": -15,
     "SnowlineHigh": 50,
     "RockReliefStrength": 0.5,
