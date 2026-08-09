@@ -40,8 +40,11 @@ namespace Prazsky.Core.Render
         /// <summary>Lower normal.y of the snow-slope band; below this the face sheds snow to bare rock.</summary>
         public float RockSlope { get; set; } = 0.30f;
 
-        /// <summary>Upper normal.y of the snow-slope band; flat/gentle faces above this keep snow.</summary>
-        public float SnowSlope { get; set; } = 0.95f;
+        /// <summary>Upper normal.y of the snow-slope band; flat/gentle faces above this keep snow. Was 0.95,
+        /// which needed a face within 18° of flat — fine on the old smooth massing, but #86's ridged field is
+        /// steeper wherever it matters (p99 slope 3.72 against 2.48) and at 0.95 the snow retreated into the
+        /// gullies, leaving a bare rock range in a scene it snows in.</summary>
+        public float SnowSlope { get; set; } = 0.78f;
 
         /// <summary>Altitude below which the snowline is bare rock.</summary>
         public float SnowlineLow { get; set; } = -15f;

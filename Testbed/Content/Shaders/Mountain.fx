@@ -2,19 +2,26 @@
 //distance into an alpine haze. Fifth scene variant (NumPad2); the island stands in the basin and snow
 //falls over it (Snow.fx).
 //
-//Reworked for realism (the first version was smooth low-poly white lumps): a finer camera-centred grid
-//(360 a side, drawn through a 32-bit index buffer - see CreateGridMesh; a 16-bit one wrapped at 65k
-//vertices and stretched the far peaks into dark bands across the sky) carries the massing, its per-vertex
-//finite-difference normal interpolated as the smooth base. On top of it a fine ROCK RELIEF perturbs the
-//normal per pixel (band-limited against the footprint) so the rock faces read as rough stone, not flat
-//shading. And the snow is no longer a clean slope line: it lies by slope AND altitude, with an irregular,
-//noisy snowline and patchy rock beneath, so the range reads as rock with snow on it rather than one white
-//blanket. Camera-centred grid snapped to its cell so it does not swim. Shader Model 5.0.
+//A camera-centred grid (360 a side, drawn through a 32-bit index buffer - see CreateGridMesh; a 16-bit one
+//wrapped at 65k vertices and stretched the far peaks into dark bands across the sky) carries the massing,
+//its per-vertex finite-difference normal interpolated as the smooth base. On top of it a fine ROCK RELIEF
+//perturbs the normal per pixel (band-limited against the footprint) so the rock faces read as rough stone,
+//not flat shading. And the snow is no longer a clean slope line: it lies by slope AND altitude, with an
+//irregular, noisy snowline and patchy rock beneath, so the range reads as rock with snow on it rather than
+//one white blanket. Camera-centred grid snapped to its cell so it does not swim. Shader Model 5.0.
+//
+//What decides how the peaks read is the FIELD, not the grid - see MountainField, and #86, which was filed
+//against the tessellation and turned out to be about the field the grid was oversampling ninefold.
 
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0
 
 #include "Clouds.fxh"
+
+//The shared noise library, for the ridged fractal field the massing is built from. Its opening states this
+//scene's own defect: a sum of plane-wave sines keeps its planes however many terms it has, and that is what
+//the range was made of until #86.
+#include "Noise.fxh"
 
 float4x4 View;
 float4x4 Projection;
@@ -56,14 +63,38 @@ float RockReliefFrequency;
 float AmbientStrength;
 float HorizonHazeDistance;
 
-//Ridged mountain field, roughly [0,1]: octaves of 1-|sin| (whose sharp maxima are ridge lines), a big smooth
-//one for the massing down to fine ones that cut crags into it.
+//How far apart the first octave's ridges run, in world units; each octave after it halves that. Five puts
+//the finest at about 8 units, which the vertex grid's 3.34-unit cell (MOUNTAIN_EXTENT / (MOUNTAIN_GRID_N - 1))
+//still carries - a crest the grid cannot hold does not come out finer, it comes out jagged.
+static const float MOUNTAIN_RIDGE_SPACING = 130.0;
+static const int MOUNTAIN_FIELD_OCTAVES = 5;
+
+//RidgedFbm2 sits high and narrow: measured over the annulus the peaks occupy, mean 0.70 with a standard
+//deviation of 0.13, against the plane-wave field's 0.36 and 0.17. Used raw it therefore lifts the whole
+//basin and leaves shallow dips in it - a white blanket, not a range. Dropping the floor out and cubing what
+//is left puts the terrain back on the height distribution the rest of the scene is tuned against (median
+//0.30 and p95 0.67, against the old field's 0.35 and 0.66, so MountainHeight and the snowline both stand),
+//and the curve is the ridged look itself: valleys flatten, crests keep their height. Measured slope bears
+//that out - the median falls from 0.77 to 0.67 while the p99 rises from 2.48 to 3.72.
+static const float MOUNTAIN_FIELD_FLOOR = 0.24;
+static const float MOUNTAIN_FIELD_SPAN = 0.72;
+
+//Ridged mountain field, roughly [0,1]: a network of crests with the detail gathered onto them, big enough in
+//its first octave to mass the range and fine enough in its last to break the skyline.
+//
+//This was four octaves of 1-|sin(dot(p, direction))| until #86, and both of that construction's failures
+//were on the screen at once. Plane waves keep their planes: every face carried the same long straight
+//corrugations, which read as sand ripples rather than rock. And the finest octave's ridges ran about thirty
+//units apart - so an eighty-two-unit peak had three features from base to summit and its outline against the
+//sky was a smooth simple cone. Nothing about that was the tessellation's fault: the vertex grid samples every
+//3.34 units and was oversampling the field ninefold. Noise.fxh's header calls this exact construction out and
+//exists to replace it; the mountain was the scene that never got converted.
 float MountainField(float2 p)
 {
-	return 0.42 * (1.0 - abs(sin(dot(p, float2(0.031, 0.019)))))
-		+ 0.28 * (1.0 - abs(sin(dot(p, float2(-0.017, 0.036)) + 1.1)))
-		+ 0.18 * (1.0 - abs(sin(dot(p, float2(0.045, 0.052)) + 2.3)))
-		+ 0.12 * (1.0 - abs(sin(dot(p, float2(-0.083, 0.061)) + 3.7)));
+	float ridged = RidgedFbm2(p / MOUNTAIN_RIDGE_SPACING, MOUNTAIN_FIELD_OCTAVES);
+	float shaped = saturate((ridged - MOUNTAIN_FIELD_FLOOR) / MOUNTAIN_FIELD_SPAN);
+
+	return shaped * shaped * shaped;
 }
 
 //The terrain displacement at a world XZ: a gentle basin around the arena (world origin) rising into peaks
