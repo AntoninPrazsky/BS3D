@@ -175,10 +175,16 @@ namespace Prazsky.BS3D.Physics
         /// </para>
         /// <para>
         /// The one thing it cannot promise is the stepped simulation's own answer. The shot travels in discrete
-        /// steps (1.667 world units at <c>SHOOT_SPEED</c> against a 1/120 s step) and attaches on the first step
-        /// that overlaps, so the touch is up to one step late; and the cluster goes on swaying during the ~0.1 s
-        /// of flight. Both are small against a cell of 1.0, and both were measured in #70 — but this is why the
-        /// preview is a ghost rather than a promise.
+        /// steps (1.667 world units at <c>SHOOT_SPEED</c> against a 1/120 s step), and the cluster goes on
+        /// swaying during the ~0.1 s of flight. Both are small against a cell of 1.0, and both were measured in
+        /// #70 — but this is why the preview is a ghost rather than a promise.
+        /// <para>
+        /// The step term is the smaller of the two now: the shot's collidable is <b>swept</b>
+        /// (<see cref="PhysicsWorld"/>'s constructor, and the measurement that forced it), so the contact is
+        /// placed at the solved time of impact inside the step rather than wherever the first overlapping step
+        /// happened to leave the ball. #70's figures predate that change and have not been re-measured against
+        /// it, so read them as the worst case rather than the current one.
+        /// </para>
         /// </para>
         /// </remarks>
         /// <param name="balls">The live structure. Null entries are cells a release has emptied.</param>

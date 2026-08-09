@@ -110,14 +110,11 @@ namespace BS3D.Physics
         /// Runs on a Bepu worker thread, inside the timestep. Records and returns — see the class remarks.
         /// <para>
         /// <b>This is <see cref="IContactEventHandler.OnTouching"/> and not <c>OnContactAdded</c>, and the
-        /// difference is the whole accuracy of the game.</b> A shot's collidable is built from a bare shape
-        /// index, which gives it <c>ContinuousDetection.Passive</c> — an <i>unbounded speculative margin</i>,
-        /// not a sweep — so the narrow phase generates a contact as soon as the ball's velocity-expanded
-        /// bounding box reaches a cluster ball, up to a whole step of travel before anything is touched.
-        /// <c>OnContactAdded</c> is raised for those speculative contacts too (it is edge-triggered on a
-        /// feature id appearing, and its <c>depth</c> is simply negative), so attaching from there put the ball
-        /// in a cell chosen around a contact that had not happened, against whichever ball the narrow phase
-        /// paired first rather than the one the shot would have reached.
+        /// difference is the whole accuracy of the game.</b> <c>OnContactAdded</c> is edge-triggered on a
+        /// feature id appearing and is raised for <i>speculative</i> contacts too, whose <c>depth</c> is simply
+        /// negative — so attaching from there put the ball in a cell chosen around a contact that had not
+        /// happened, against whichever ball the narrow phase paired first rather than the one the shot would
+        /// have reached.
         /// </para>
         /// <para>
         /// Measured before this changed, in a played level at <c>SHOOT_SPEED</c> 200 with a 1/120 s step
@@ -126,6 +123,14 @@ namespace BS3D.Physics
         /// 1.34 and a worst <b>3.79</b> units from the contact that chose the cell, in a lattice whose cells are
         /// 1.0 across, with a vertical scatter of −1.8…+2.9 levels. A control run at 60 u/s (0.5 per step) scaled
         /// every one of those figures by the speed almost exactly: worst depth −0.43, worst placement 1.14.
+        /// </para>
+        /// <para>
+        /// <b>Those figures are the reason the shot's collidable is swept rather than merely speculative.</b>
+        /// The shot used to be stamped from a bare shape index, i.e. <c>ContinuousDetection.Passive</c> — an
+        /// unbounded speculative margin — and on a cluster whose face the shot meets at a glance that margin
+        /// turns the ball away with the manifold never reaching <c>depth &gt;= 0</c>, so this method is never
+        /// raised and the shot cannot land at all. It is <see cref="PhysicsWorld"/>'s constructor that fixes
+        /// it, and the measurement that forced it is recorded there.
         /// </para>
         /// <para>
         /// <see cref="ContactEvents"/> raises this only once a manifold contact has <c>depth &gt;= 0</c>, so the

@@ -114,6 +114,17 @@ namespace Prazsky.BS3D.Physics
         public const int SUBSTEP_COUNT = 1;
 
         /// <summary>
+        /// How finely the shot's sweep hunts its time of impact, and how close it has to get before it stops.
+        /// A millisecond of the step and a thousandth of a unit: far below the frame the result is used in,
+        /// and cheap because only the handful of balls in flight are swept at all — the cluster and the
+        /// falling balls keep Bepu's discrete default.
+        /// </summary>
+        private const float SWEEP_MINIMUM_TIMESTEP = 1e-3f;
+
+        /// <inheritdoc cref="SWEEP_MINIMUM_TIMESTEP"/>
+        private const float SWEEP_CONVERGENCE_THRESHOLD = 1e-3f;
+
+        /// <summary>
         /// Squared velocity under which a shot ball's body is allowed to fall asleep — the same figure
         /// <see cref="BallsConstraintsBuilder"/> gives the structure's balls and the ceiling body. A ball that
         /// has come to rest on the stone leaves Bepu's active set and is then drawn but barely simulated, which
@@ -181,18 +192,43 @@ namespace Prazsky.BS3D.Physics
                 new Simu.PoseIntegratorCallbacks(new Vector3(0f, gravityY, 0f)),
                 new SolveDescription(VELOCITY_ITERATION_COUNT, SUBSTEP_COUNT));
 
-            //The template a shot is stamped from. The collidable comes from the bare shape index rather than
-            //from a CollidableDescription with a speculative margin, and that is load-bearing rather than
-            //sloppy: it is what gives the shot continuous collision detection. At the shot speeds both
-            //executables use a ball crosses several diameters in one step, and a discrete test would let it
-            //pass clean through the cluster. The shape index is the shared sphere's, so a shot ball and a
-            //structure ball are the same collidable to Bepu.
+            //The template a shot is stamped from, and its collidable is SWEPT.
+            //
+            //It used to be built from the bare shape index, and the comment here claimed that was what gave
+            //the shot continuous collision detection. It is not: a bare index gives Bepu's DEFAULT, which is
+            //ContinuousDetection.Passive — an unbounded speculative margin and no sweep. OnTouching's own
+            //remarks in BallContactEventHandler said so all along, so the two comments contradicted each
+            //other and the wrong one was the one next to the code.
+            //
+            //Passive does stop a shot passing clean through the cluster. It is NOT enough to make the shot
+            //LAND: an unbounded margin generates the contact up to a whole step of travel early, from a
+            //normal taken at a configuration the ball has not reached, and the solver can turn the ball away
+            //with the manifold never reaching depth >= 0 — which is the gate ContactEvents raises OnTouching
+            //on. The attach is then never attempted; the ball is deflected and flies on to stick alone at the
+            //edge of the glass. Reported from play, on Static, in exactly those words.
+            //
+            //MEASURED, on Static (370 balls, 1773 constraints), 20 shots a run, four runs each, shots fired
+            //along a fixed aim into the standing cluster:
+            //  bare index (Passive) — 0 contacts of ANY kind and 0 attaches, in all four runs. The level is
+            //                         not merely harder, it is unplayable: nothing the player fires can stick.
+            //  swept (below)        — 13 to 14 attaches per run, all four runs, and 0 shots reaching the glass.
+            //The failure is geometry-specific, which is why it was reported against one level: the same
+            //measurement on One attaches under both, so a rig that only plays the opening level sees nothing.
+            //
+            //A sweep finds the time of impact and puts the contact where the ball actually arrives, so the
+            //depth reaches zero at the right place and on the right step. The margin is bounded to the
+            //structure's own figure as well, since unbounded is what generated the early contact.
             Sphere ballShape = new(BallsConstraintsBuilder.BALL_RADIUS);
+
+            CollidableDescription shotCollidable = new(
+                BallsConstraintsBuilder.GetSphereShapeIndex(Simulation),
+                0f, BallsConstraintsBuilder.SPECULATIVE_MARGIN,
+                ContinuousDetection.Continuous(SWEEP_MINIMUM_TIMESTEP, SWEEP_CONVERGENCE_THRESHOLD));
 
             _shotBallTemplate = BodyDescription.CreateDynamic(
                 new Vector3(),
                 ballShape.ComputeInertia(BallsConstraintsBuilder.BALL_MASS),
-                BallsConstraintsBuilder.GetSphereShapeIndex(Simulation),
+                shotCollidable,
                 SLEEP_THRESHOLD); //via the implicit conversion to BodyActivityDescription
         }
 

@@ -30,7 +30,7 @@ namespace BS3D.Screens
             //before the contact stream that sizes its per-worker queues off it, the single ContactEvents
             //initialisation the simulation's own construction performs (#73 — initialising it a second time
             //hooks the freshness pass onto the timestepper twice), the solver description tuned together with
-            //the contact material and the BallSocket spring, and the shot template whose bare shape index is
+            //the contact material and the BallSocket spring, and the shot template whose SWEPT collidable is
             //what gives a ball leaving at SHOOT_SPEED continuous collision detection.
             _world = new PhysicsWorld();
 

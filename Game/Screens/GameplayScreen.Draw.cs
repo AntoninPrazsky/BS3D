@@ -48,11 +48,17 @@ namespace BS3D.Screens
         /// <b>3 landed in the cell the ghost showed</b>. Five of the seven misses were one cell or one level away,
         /// which still points at the right pocket; two were three levels and two levels out, which does not. The
         /// causes are structural and none of them is a bug to fix: the shot crosses 1.667 units per physics step
-        /// at <see cref="SHOOT_SPEED"/> so the touch is reported up to a step late and the ball has slid around
-        /// the struck surface by then; a glancing pass the analytic sweep counts can fall entirely between two
-        /// step boundaries, leaving a <i>different ball</i> to anchor the solve and therefore a different ring of
-        /// candidate cells; and once the first ring is full the second ring scores some thirty cells two levels
-        /// wide by plain distance, which multiplies every one of those perturbations.
+        /// at <see cref="SHOOT_SPEED"/>, so the ball can have slid around the struck surface by the time the
+        /// touch is reported; a glancing pass the analytic sweep counts can leave a <i>different ball</i> to
+        /// anchor the solve and therefore a different ring of candidate cells; and once the first ring is full
+        /// the second ring scores some thirty cells two levels wide by plain distance, which multiplies every
+        /// one of those perturbations.
+        /// </para>
+        /// <para>
+        /// These 26 shots predate the shot collidable becoming <b>swept</b> (see <see cref="PhysicsWorld"/>'s
+        /// constructor), which places the contact at the solved time of impact rather than at the first
+        /// overlapping step and so removes part of the first cause above. They have not been re-measured
+        /// against it — the blink below is set from the worst case, which is the safe direction to be wrong in.
         /// </para>
         /// <para>
         /// So the ghost may not stand still and be read as a promise. A <b>smooth swing rather than a hard

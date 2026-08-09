@@ -15,7 +15,17 @@ namespace Prazsky.BS3D.Physics
         public static readonly float BALL_RADIUS = Constants.HALF;
         public static readonly float BALL_MASS = Constants.ONE;
 
-        private static readonly float SPECULATIVE_MARGIN = 0.1f; //TODO: Study what this value does exactly and how can it be optimized
+        /// <summary>
+        /// How far apart two collidables may still be and have a contact generated between them, so the
+        /// solver can start resisting before they actually touch rather than after they overlap.
+        /// <para>
+        /// A tenth of a unit here — a fifth of a ball's radius — which is the structure's figure and, since
+        /// the shot was swept, the shot's as well: <see cref="PhysicsWorld"/> bounds the shot's margin to
+        /// this instead of leaving it unbounded, because an unbounded margin is what let a contact be
+        /// generated a whole step of travel before the ball arrived.
+        /// </para>
+        /// </summary>
+        public const float SPECULATIVE_MARGIN = 0.1f;
 
         /// <summary>
         /// Threshold of squared velocity under which the body is allowed to go to sleep.

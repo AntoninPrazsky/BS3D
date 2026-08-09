@@ -1666,9 +1666,9 @@ namespace Testbed
         private void InitializeShooting()
         {
             //No shot-ball template here: the body description every shot is stamped from is PhysicsWorld's, built
-            //once with the simulation and copied per shot rather than held as a field and written over. Its bare
-            //shape index (rather than a CollidableDescription with a speculative margin) is what gives the shot
-            //continuous collision detection, which at SHOOT_MULTIPLIER it cannot do without.
+            //once with the simulation and copied per shot rather than held as a field and written over. Its SWEPT
+            //collidable — a bounded speculative margin plus ContinuousDetection.Continuous — is what gives the
+            //shot continuous collision detection, which at SHOOT_MULTIPLIER it cannot do without.
             _shotBalls = new List<PhysicsBall>();
             _fallingBalls = new List<PhysicsBall>();
 
