@@ -435,6 +435,12 @@ namespace BS3D.Screens
             //only its draws keep running (see LaserGrid).
             _laserGrid.NoticeLevelEnded(WallClock);
 
+            //Smears age in Update and draw in Draw, and from here only the draws keep running — so one still
+            //mid-fade would hang at a fixed alpha for as long as the result page is up, while the page's own
+            //camera turns around it. Dropped rather than converted to wall clock: a level that has ended has
+            //no shot worth still showing.
+            _smears.Clear();
+
             //The figures are handed over as a SNAPSHOT taken now, not read by the screen when it draws. The
             //level does not stop the instant it is cleared — the collapse is held for a beat and a player who
             //keeps firing moves the balls remaining — so a screen that re-read the keeper printed a row that
