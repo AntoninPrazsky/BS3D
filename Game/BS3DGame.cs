@@ -821,6 +821,11 @@ namespace BS3D
         {
             _screens.PopTo<BackdropScreen>();
             _screens.Push(_gameplayScreen);
+
+            //And the title bar names the level. Here rather than in BuildLevel because this — not the build —
+            //is what "a level is being played" means: every entry into play comes through it (a first Play, a
+            //pick off the list, Continue, Retry, Next Level), and only ReturnToMainMenu undoes it.
+            ShowLevelInTitle(_gameplayScreen.LevelIndex);
         }
 
         /// <summary>Puts the pause menu over the frame the player was looking at; the stack freezes the game under it.</summary>
@@ -845,6 +850,11 @@ namespace BS3D
             //wherever they wandered.
             _screens.PopTo<BackdropScreen>();
             _screens.Push(_mainMenuPage);
+
+            //The title bar stops naming a level, even though the session is kept: it names what the window is
+            //SHOWING, and this window is showing the front end. The kept session is offered as Continue, which
+            //comes back through EnterPlaying and puts the name back up.
+            ShowLevelInTitle(-1);
         }
 
         #endregion

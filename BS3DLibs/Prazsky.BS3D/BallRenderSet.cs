@@ -198,14 +198,19 @@ namespace Prazsky.BS3D
         /// of the surface rather than as pixelation of the picture, which is what the effect is saying.
         /// </para>
         /// <para>
-        /// Three and not one. One display pixel is the literal floor and it does survive the resolve — every
-        /// target sample inside it decides alike — but a one-pixel cut at any modern resolution is read by the
-        /// eye as a haze or a film grain, i.e. as the ball being <i>faint</i>, which is precisely the reading
-        /// the dither was chosen over a transparency to avoid. Three is the smallest that still says "pixels"
-        /// at 2160p, and it is the one number to turn if the blocks want to be chunkier.
+        /// One display pixel — the literal floor, and it survives the resolve because every target sample
+        /// inside one display pixel decides alike (that is what multiplying by the supersample factor buys).
+        /// <para>
+        /// <b>It was three, on the argument that one would read as a haze or a film grain</b> — as the ball
+        /// being <i>faint</i>, which is the reading the dither was chosen over a transparency to avoid. Played
+        /// rather than reasoned about, that came out the other way round: at three the blocks are coarse
+        /// enough to read as a <i>mosaic laid over</i> the ball instead of as the ball resolving, and the
+        /// author asked for a cell that matches a monitor pixel. The old prediction is kept here because it is
+        /// the thing to re-test if the transition ever stops reading as pixels at all — it is a claim about
+        /// how a display size looks, and the display is what decides it.
         /// </para>
         /// </summary>
-        private const float DISSOLVE_DISPLAY_PIXELS = 3f;
+        private const float DISSOLVE_DISPLAY_PIXELS = 1f;
 
         /// <summary>
         /// A resting human heart, near enough. Slow on purpose — a fast pulse reads as an alarm rather than as

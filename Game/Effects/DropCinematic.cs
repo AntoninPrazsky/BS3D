@@ -68,11 +68,34 @@ namespace BS3D.Effects
         #region Dials
 
         /// <summary>
-        /// How many released balls a shot has to cut loose before it earns a cinematic. Matched and orphaned
-        /// together: a shot that drops three of its own colour and brings six more down with it is exactly
-        /// the shot worth watching, and the scorer already pays double for the orphans.
+        /// The floor under <see cref="MustBeatBestBy"/>: below this many released balls a shot is not a
+        /// spectacle however early in the level it lands. Matched and orphaned together — a shot that drops
+        /// three of its own colour and brings nine more down with it is exactly the shot worth watching, and
+        /// the scorer already pays double for the orphans.
         /// </summary>
-        public const int MIN_BALLS = 6;
+        public const int MIN_BALLS = 12;
+
+        /// <summary>
+        /// How much a drop has to beat the level's biggest so far to earn a cinematic — the rest of the
+        /// trigger, and the part that makes it rare.
+        /// <para>
+        /// <b>A fixed count cannot do this job, and the pattern levels are the proof.</b> The threshold was
+        /// six, and on <c>One.json</c> that measured as three cinematics in ninety seconds because most shots
+        /// there drop fewer. The pack that followed is built out of large primed groups — Pinwheel drops 92
+        /// balls on a good shot, Crown 72, Bullseye 100 — so six fired on essentially every shot that landed,
+        /// and the reward for a good shot became the tax on every shot. Raising the number cannot fix it
+        /// either: any figure that keeps Pinwheel rare is one Mosaic (whose best possible shot is 24) can
+        /// never reach, and a level that never shows one is as wrong as a level that always does.
+        /// </para>
+        /// <para>
+        /// So the bar is the player's own best this level, which needs no per-level authoring and no
+        /// re-tuning when a level is added: <b>"the biggest thing you have done here yet"</b> is what "big"
+        /// means, whatever the level is made of. The margin stops a level whose drops creep upwards from
+        /// firing on every one of them; the first qualifying drop of a level always fires, because there is
+        /// no record to beat and one cinematic early is how the effect introduces itself.
+        /// </para>
+        /// </summary>
+        public const float MustBeatBestBy = 1.25f;
 
         //Wall-clock ceiling on one shot. It is a backstop rather than a pace: the game only culls at the
         //kill plane (see RemoveFallenBalls), and a ball can still come to rest short of it — rarely since

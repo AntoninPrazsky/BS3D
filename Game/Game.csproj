@@ -39,6 +39,13 @@
     <PackageReference Include="BepuUtilities" Version="2.5.0-beta.29" />
     <PackageReference Include="FontStashSharp.MonoGame" Version="1.5.6" />
     <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.5" />
+    <!--Exactly ONE MonoGame platform package, and it has to be the one Content.mgcb builds for. Both packages
+    ship an assembly named MonoGame.Framework.dll, so referencing both is an error nowhere in the build: NuGet
+    quietly picks one of them for the output folder, and it picked DesktopGL. Everything compiled with zero
+    warnings and the exe died on its first Load<Effect> with "This MGFX effect was built for a different
+    platform!" — the content is /platform:Windows (DX11, SM 5.0) and an OpenGL runtime cannot read an MGFX
+    header stamped DirectX. The libraries reference the other package PrivateAssets="all" so it stops at the
+    compile and never reaches here; see Prazsky.Core.csproj.-->
     <PackageReference Include="MonoGame.Framework.WindowsDX" Version="3.8.5" />
     <PackageReference Include="Myra" Version="1.6.3" />
   </ItemGroup>

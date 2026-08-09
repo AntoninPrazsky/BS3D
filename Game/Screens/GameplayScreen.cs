@@ -251,6 +251,23 @@ namespace BS3D.Screens
         private readonly int[] _ballsOfType = new int[BallRenderSet.TYPE_COUNT];
 
         /// <summary>
+        /// The biggest single release of <b>this</b> level so far, which is the bar the drop cinematic has to
+        /// clear (see <see cref="DropCinematic.MustBeatBestBy"/>). Per level and cleared by
+        /// <see cref="BuildLevel"/>: carried across, a small level played after Crown would never show one,
+        /// and "big" has to mean big <i>here</i> rather than big in the campaign.
+        /// </summary>
+        private int _biggestDrop;
+
+        /// <summary>
+        /// The lowest occupied level the tall level was authored with — the height its underside is <b>fed
+        /// back down to</b> as the player clears it. See <see cref="FeedTallColumn"/>.
+        /// </summary>
+        private byte _feedFloorLevel;
+
+        /// <summary>How many descents the feed has already asked for, so it never asks for the same one twice.</summary>
+        private int _feedStepsQueued;
+
+        /// <summary>
         /// Where the lattice frame meets the world, and the <b>only</b> place it does on the drawing side.
         /// <para>
         /// Y hangs the top of the field at <see cref="FIELD_TOP_Y"/> — or higher, when the field is deep
@@ -290,6 +307,32 @@ namespace BS3D.Screens
 
         /// <inheritdoc cref="FIELD_TOP_LEVELS"/>
         private static readonly float FIELD_TOP_Y = FIELD_TOP_LEVELS / Constants.SQRT_TWO;
+
+        /// <summary>
+        /// The tallest slice of field the camera will frame, in levels. A field this deep or shallower is
+        /// framed <b>whole</b>, exactly as it always was; a deeper one is framed from its floor up to here
+        /// and the rest of it — the cluster's upper reaches and the glass plate hanging over them — is simply
+        /// above the frame.
+        /// <para>
+        /// It exists so a level can be <b>tall</b>. Without it <see cref="GameCameraFit"/> does the only
+        /// honest thing with a taller field and stands further back to fit it, which shrinks the balls until
+        /// a forty-level column is a smudge and the gun a speck: a level three times as deep is a level
+        /// rendered a third the size, and the depth buys nothing. Capped, the depth buys exactly what it
+        /// should — a column that reaches up out of shot and comes down as the glass descends, so the level's
+        /// length is its height and not its footprint.
+        /// </para>
+        /// <para>
+        /// <b>Sixteen because that is the deepest field that is framed whole today</b> (see
+        /// <see cref="FIELD_FLOOR_MARGIN"/>: the two branches of the hang meet at a 16-level field). So this
+        /// cap changes nothing about any level that exists — One, Two and the whole pattern pack solve
+        /// bit-identically — and the window a tall level is played through is the very frame every other
+        /// level is played in, rather than a second set of camera figures to tune.
+        /// </para>
+        /// </summary>
+        private const int FRAMED_LEVELS = 16;
+
+        /// <summary>Whether this level is deeper than the camera frames — a tall, descending one.</summary>
+        private bool FieldIsTallerThanFrame => _map != null && _map.Levels > FRAMED_LEVELS;
 
         /// <summary>
         /// The least the field's <b>bottom</b> level clears the death line by, and what raises a deep field

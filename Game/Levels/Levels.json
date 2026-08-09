@@ -10,10 +10,59 @@
       "ceilingStep": 5
     },
     {
+      "file": "Three.json",
+      "name": "Bullseye",
+      "shots": 40,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Four.json",
+      "name": "Mosaic",
+      "shots": 56,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Five.json",
+      "name": "Pinwheel",
+      "shots": 44,
+      "ceilingStep": 9
+    },
+    {
+      "file": "Six.json",
+      "name": "Crown",
+      "shots": 44,
+      "ceilingStep": 9
+    },
+    {
+      "file": "Seven.json",
+      "name": "Gem",
+      "shots": 44,
+      "ceilingStep": 9
+    },
+    {
+      "file": "Eight.json",
+      "name": "Prism",
+      "shots": 60,
+      "ceilingStep": 6
+    },
+    {
+      "file": "Nine.json",
+      "name": "Static",
+      "shots": 60,
+      "ceilingStep": 5
+    },
+    {
+      "file": "Ten.json",
+      "name": "Column",
+      "shots": 90,
+      "ceilingStep": 5
+    },
+    {
       "file": "Two.json",
       "name": "Two",
       "shots": 45,
       "ceilingStep": 4
     }
-  ]
+  ],
+  "Count": 10
 }

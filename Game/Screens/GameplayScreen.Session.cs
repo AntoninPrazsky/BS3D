@@ -75,6 +75,10 @@ namespace BS3D.Screens
             _pendingOutcome = LevelOutcome.None;
             _pendingFailure = LevelFailure.None;
 
+            //The drop cinematic's bar is the biggest release of the level being played, so it starts over
+            //with the level — otherwise the last one's best would follow the player into this one
+            _biggestDrop = 0;
+
             //The glass is a fresh plate at the top of a fresh field, so nothing about the last level's last
             //descent should still be glowing on it — nor should a step it queued and never got to take come
             //down on the new one.
@@ -82,6 +86,11 @@ namespace BS3D.Screens
             _ceilingStepsPending = 0;
             _ceilingStepHold = 0f;
             _ceilingStepWaited = 0f;
+
+            //Where this level hangs its underside is what a tall one is fed back down to, so it is read off
+            //the installed map rather than being a constant — see FeedTallColumn
+            _feedFloorLevel = _map.GetLowestOccupiedLevel();
+            _feedStepsQueued = 0;
 
             //And no floor alarm either: whatever the last level's ending left lingering over the drain is
             //not this level's danger.
@@ -313,7 +322,12 @@ namespace BS3D.Screens
             //At rest to start: target equals current, so nothing slides until a step is taken.
             _ceilingTargetY = _ceilingY;
             _ceilingDescending = false;
-            _clusterCentreY = topLevel * Constants.HALF / Constants.SQRT_TWO + _clusterWorldOffset.Y;
+            //Where precise aim converges its crosshair: the middle of the play space in world Y. On a field
+            //taller than the camera frames that is the middle of the FRAMED window and not of the field —
+            //the lens converging halfway up a forty-level column would be aiming at balls the player cannot
+            //see, let alone reach.
+            int centredLevels = Math.Min((int)topLevel, FRAMED_LEVELS - 1);
+            _clusterCentreY = centredLevels * Constants.HALF / Constants.SQRT_TWO + _clusterWorldOffset.Y;
 
             //The floor alarm's net, rebuilt at this field's footprint — asked of CeilingPlate.FootprintFor, so
             //it is the very margin the glass over the field covers the balls with rather than a second +1

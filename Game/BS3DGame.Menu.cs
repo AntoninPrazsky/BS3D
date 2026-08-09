@@ -127,8 +127,11 @@ namespace BS3D
         //Built once and shared by every entry. A brush holds no per-widget state, and the focus highlight
         //swaps an entry between the first two of these rather than minting a brush per frame.
         private static readonly IBrush MENU_BUTTON_BRUSH = new SolidBrush(MENU_BUTTON);
-        private static readonly IBrush MENU_BUTTON_OVER_BRUSH = new SolidBrush(MENU_BUTTON_OVER);
         private static readonly IBrush MENU_BUTTON_PRESSED_BRUSH = new SolidBrush(MENU_BUTTON_PRESSED);
+
+        //The one of the three that is not a button's alone: AboutPage's link is a Label, not a Button, and it
+        //answers the pointer with this same wash so the two read as one gesture rather than two inventions.
+        internal static readonly IBrush MENU_BUTTON_OVER_BRUSH = new SolidBrush(MENU_BUTTON_OVER);
 
         //A pause dims the whole frame, because what is behind it is a stopped game and the menu is the thing
         //to look at. The front end does NOT: there the rotating scene is the point of the screen, and a
@@ -363,6 +366,27 @@ namespace BS3D
         internal int LevelCount => _levelSet?.Count ?? 0;
         internal string LevelDisplayName(int index) => _levelSet.DisplayName(index);
         internal string LevelRulesText(int index) => _levelSet.DescribeRules(index);
+
+        /// <summary>
+        /// Names the level being played in the window's title bar, and restores the plain
+        /// <see cref="GAME_TITLE"/> when there is none. Numbered as the picker numbers it, so "the fourth
+        /// one" means the same thing in both places.
+        /// <para>
+        /// It is for <b>talking about</b> a level rather than for playing one: the HUD deliberately carries
+        /// no level name — a name is not something a player reads mid-shot — but a title bar is legible in a
+        /// screenshot and in a window list, which is exactly what is wanted when a level is being reported on.
+        /// </para>
+        /// <para>
+        /// Out-of-range falls back to the plain title, which is the fallback pyramid's case: no set was read,
+        /// so there is no entry to name and the picker's own "Built-in level" wording is not repeated here.
+        /// A level whose <i>file</i> failed to parse still shows its entry's name while the pyramid plays,
+        /// and that is the level the player chose — the failure has its own <c>[levels]</c> line.
+        /// </para>
+        /// </summary>
+        internal void ShowLevelInTitle(int index) =>
+            Window.Title = index >= 0 && index < LevelCount
+                ? $"{GAME_TITLE} — {index + 1}. {LevelDisplayName(index)}"
+                : GAME_TITLE;
 
         //The actions a page's entries invoke. Named for what the player asked for rather than for how it is
         //done, so a page reads as a list of choices.
@@ -666,6 +690,45 @@ namespace BS3D
 
             return panel;
         }
+
+        /// <summary>
+        /// Wraps a column that may be taller than the window in a scroller, bounded to what is left of the
+        /// viewport once the things around it have their room. Everything else on a page is short by
+        /// construction; a level list is as long as the campaign, and the tenth level made the picker overrun
+        /// the window — its last two entries <i>and the Back button</i> were off the bottom with no way to
+        /// reach any of them.
+        /// <para>
+        /// The heading and Back deliberately stay <b>outside</b> it: the way out of a page must not be the
+        /// thing that scrolled away. Bounded at build time off the live viewport, which is correct because a
+        /// resize rebuilds the tree (see <c>MenuPage.Root</c>).
+        /// </para>
+        /// <para>
+        /// <b>The pad and the arrow keys do not scroll it.</b> They find entries by walking the widget tree
+        /// (see <see cref="ApplyNavHighlight"/>), so they will happily highlight one that is out of view. The
+        /// mouse wheel is the way through a long list today; making the walk scroll its entry into view is
+        /// the fix, and it belongs with the navigation rather than here.
+        /// </para>
+        /// </summary>
+        /// <param name="reservedDesignUnits">Height the page needs around the scroller — its heading, its
+        /// Back button and the plate's padding — in the same 2160p design units everything else here uses.</param>
+        internal ScrollViewer MenuScroll(Widget content, int reservedDesignUnits)
+        {
+            //Floored, so a window too short for the reserve gives a usable scroller rather than a zero-height
+            //one that hides the list completely
+            int available = GraphicsDevice.Viewport.Height - Scaled(reservedDesignUnits);
+
+            return new ScrollViewer
+            {
+                Content = content,
+                ShowHorizontalScrollBar = false,
+                MaxHeight = Math.Max(Scaled(MENU_SCROLL_MIN_HEIGHT), available),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+        }
+
+        /// <summary>The least a <see cref="MenuScroll"/> may be bounded to, however short the window.</summary>
+        private const int MENU_SCROLL_MIN_HEIGHT = 400;
 
         internal VerticalStackPanel MenuColumn() => new()
         {

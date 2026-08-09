@@ -134,6 +134,61 @@ namespace BS3D.Screens
         /// steps come down one at a time instead of as a single double-height lurch.
         /// </para>
         /// </summary>
+        /// <summary>
+        /// Brings a tall level's column back down to where the player can shoot it. Asked on every landing,
+        /// which is the only thing that can change the cluster.
+        /// <para>
+        /// <b>On a tall level the descent is not only the pressure, it is how the level is delivered</b> — and
+        /// a delivery driven by the shot count is the wrong shape, because how much of the column a shot
+        /// takes is not a function of how many shots were fired. One good ball into a band can cut fifty
+        /// loose and lift the underside four levels in an instant; a fixed cadence then leaves the player
+        /// staring at a ceiling of empty lattice with the next band still overhead, and the level stalls.
+        /// So the feed answers the <i>state</i>: however far the underside has climbed since the level was
+        /// authored, the glass owes that many descents, and it is asked for them the moment it happens.
+        /// </para>
+        /// <para>
+        /// It only ever adds descents. The shot-driven <c>ceilingStep</c> still runs underneath it and is
+        /// still the pressure — the feed cannot relieve it, cannot raise the glass, and cannot push the
+        /// cluster past the death line either: it brings the underside back to a height the level started
+        /// at and stops, so what it hands the player is the same clearance they opened with.
+        /// </para>
+        /// <para>
+        /// The steps are <b>queued</b> rather than taken, so a cascade that owes ten of them pours down one
+        /// at a time through <see cref="ReleaseCeilingStep"/>'s hold rather than arriving as one lurch — and
+        /// so a feed landing on a drop cinematic waits it out like any other step.
+        /// </para>
+        /// </summary>
+        private void FeedTallColumn()
+        {
+            if (!FieldIsTallerThanFrame || _map == null) return;
+
+            //An empty map answers GetLowestOccupiedLevel with the field's TOP level — "the layout hangs
+            //nowhere" — which reads here as the underside having climbed the whole field and queues a descent
+            //for every level of it. Measured: 20 steps on the frame the column was cleared. There is nothing
+            //left to feed, and the level is about to end anyway.
+            if (_map.GetBallsCount() == 0) return;
+
+            byte lowest = _map.GetLowestOccupiedLevel();
+            if (lowest <= _feedFloorLevel) return;
+
+            //How far the underside has climbed out of reach, in world units, and how many whole descents
+            //cover it. Whole ones only: a part-step owed now is owed again next landing, and rounding up
+            //would walk the glass down a little further than the level was ever cleared.
+            float risen = (lowest - _feedFloorLevel) / Constants.SQRT_TWO;
+            int owed = (int)(risen / CEILING_DESCENT_PER_STEP) - _feedStepsQueued;
+
+            if (owed <= 0) return;
+
+            _feedStepsQueued += owed;
+            _ceilingStepsPending += owed;
+            _ceilingStepHold = CEILING_STEP_HOLD;
+
+            //A rare-event line like the rest of the [ceiling] family: it fires when a band goes, not per
+            //frame, and it is the one figure that says whether the feed is keeping up with the player.
+            Console.WriteLine($"[ceiling] feeding {owed} step(s): the underside has climbed to level {lowest}, "
+                + $"{risen:F1} above where the level hung it");
+        }
+
         private void ReleaseCeilingStep(float elapsed)
         {
             if (_ceilingStepsPending <= 0) return;

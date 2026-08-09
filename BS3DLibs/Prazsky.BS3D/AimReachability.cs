@@ -34,20 +34,45 @@ namespace Prazsky.BS3D
         /// <param name="orbitRadius">How far out the gun's carriage orbits the field's centre.</param>
         /// <param name="trunnionsY">The height the barrel pivots at — the shot's origin in Y.</param>
         /// <param name="maxElevation">The gun's up-elevation clamp. A cell needing more than this is unreachable.</param>
-        public static AimReachabilityResult Check(BallsMap map, float orbitRadius, float trunnionsY, float maxElevation)
+        /// <param name="highestLevel">
+        /// The topmost level to test. Defaults to every level, which is the right question for a field that
+        /// is played whole. It is <b>not</b> the right question for a field taller than the camera frames:
+        /// there the column reaches up out of shot and is delivered by the descending glass, so its upper
+        /// levels are unreachable <i>now</i> by design and will be at the bottom of the frame by the time
+        /// they matter. Asked of the whole of such a field the answer is "unfinishable", which is false —
+        /// the caller passes the top of the window instead, and the question becomes the one worth asking:
+        /// can the gun reach everything that is <i>in play</i>?
+        /// </param>
+        /// <param name="worldOffset">
+        /// Where the lattice sits in the world. Zero — the default — is the Testbed's case, where the lattice
+        /// frame <i>is</i> the world frame; the Game hangs level 0 at its cluster offset and must pass it.
+        /// <para>
+        /// <b>Only Y matters and all three are taken anyway</b>, because the horizontal term is measured from
+        /// the gun's orbit centre and the field is centred on it — so X and Z cancel today and would not if a
+        /// field were ever hung off-axis. Getting this wrong is quiet and expensive: without it the Game's
+        /// cells are measured at their lattice heights, which on a deep field is several units above where
+        /// they actually hang, and every required elevation comes out too steep. That is exactly what the
+        /// Game's first <c>[aimcheck]</c> line did — it reported a tall level's top cell at Y 23.3 when it
+        /// hangs at 18.3, and called a level unfinishable that finishes.
+        /// </para>
+        /// </param>
+        public static AimReachabilityResult Check(BallsMap map, float orbitRadius, float trunnionsY,
+            float maxElevation, int highestLevel = int.MaxValue, Vector3 worldOffset = default)
         {
             if (map == null) throw new ArgumentNullException(nameof(map));
+
+            int top = Math.Min(map.Levels - 1, highestLevel);
 
             int total = 0, unreachable = 0;
             float worstElevation = float.MinValue;
             XZLevel worstCell = default;
             float worstY = 0f;
 
-            for (byte level = 0; level < map.Levels; level++)
+            for (byte level = 0; level <= top; level++)
                 for (byte x = 0; x < map.StageSizeX; x++)
                     for (byte z = 0; z < map.StageSizeZ; z++)
                     {
-                        Vector3 world = map.GetRealCenteredPosition(new XZLevel(x, z, level));
+                        Vector3 world = map.GetRealCenteredPosition(new XZLevel(x, z, level)) + worldOffset;
                         float cellHorizontal = MathF.Sqrt(world.X * world.X + world.Z * world.Z);
 
                         //Facing shot: the gun on the same side as the cell, so the horizontal separation is the
