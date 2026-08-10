@@ -16,6 +16,12 @@ float3 FlamePosition; //Base of the flame on the ground
 float FlameSize;
 float FlameTime;
 
+//Per-fire rate stretch, 1 for the first fire and a few per cent more for each one after it. The caller
+//already offsets FlameTime per fire; on its own that would leave every flame licking the IDENTICAL pattern
+//a moment apart, which the eye reads as one wave travelling round the island as soon as two are in shot.
+//Stretching the rates as well means no two are ever running the same shape, however long they burn.
+float FlameSeed;
+
 struct FlameVertexInput
 {
 	float4 Position : POSITION0; //ignored; the flame is one billboard at FlamePosition
@@ -52,9 +58,14 @@ float4 FlamePS(FlameVertexOutput input) : COLOR
 	float u = input.UV.x; //[-1,1]
 	float v = input.UV.y; //[0,1], 0 at the base
 
-	//A tongue that narrows upward, its centre wobbling on the wall clock so it licks and flickers
-	float wob = 0.18 * sin(v * 6.0 - FlameTime * 9.0) + 0.10 * sin(v * 11.0 + FlameTime * 13.0);
-	float width = (1.0 - v) * (0.85 + 0.15 * sin(FlameTime * 7.0));
+	//A tongue that narrows upward, its centre wobbling on the wall clock so it licks and flickers. Every
+	//rate is stretched by FlameSeed, so each fire of the ring has its own gait rather than the ring beating
+	//together; the vertical frequencies are stretched too, so the tongues differ in SHAPE and not only in
+	//timing - two flames the same height with the same number of kinks in them read as copies however far
+	//apart their phases are.
+	float r = FlameSeed;
+	float wob = 0.18 * sin(v * 6.0 * r - FlameTime * 9.0 * r) + 0.10 * sin(v * 11.0 * r + FlameTime * 13.0 * r);
+	float width = (1.0 - v) * (0.85 + 0.15 * sin(FlameTime * 7.0 * r));
 
 	float d = abs(u - wob) / max(width, 1e-3);
 	float body = saturate(1.0 - d);

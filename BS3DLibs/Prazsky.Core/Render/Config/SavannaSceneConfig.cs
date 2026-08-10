@@ -1,10 +1,10 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Prazsky.Core.Render
 {
     /// <summary>
     /// Configuration of the savanna backdrop: open golden grassland rolling into low rises, combed by
-    /// wind, dotted with acacia trees, warmed by a campfire, under the shared flock of birds.
+    /// wind, dotted with acacia trees, ringed by campfires around the island, under the shared flock of birds.
     /// </summary>
     public sealed class SavannaSceneConfig : SceneConfig
     {
@@ -62,7 +62,7 @@ namespace Prazsky.Core.Render
         /// <summary>Scattered acacia trees and low bushes.</summary>
         public AcaciaConfig Acacia { get; set; } = new();
 
-        /// <summary>The campfire point light and its visible flame billboard.</summary>
+        /// <summary>The ring of campfires: their point lights and their visible flame billboards.</summary>
         public CampfireConfig Campfire { get; set; } = new();
 
         /// <summary>The shared flock of birds circling overhead.</summary>
@@ -73,7 +73,7 @@ namespace Prazsky.Core.Render
     public sealed class AcaciaConfig
     {
         /// <summary>Number of scattered acacia trees and low bushes.</summary>
-        public int Count { get; set; } = 120;
+        public int Count { get; set; } = 8;
 
         /// <summary>Fraction of the scatter that are low bushes rather than trees.</summary>
         public float BushFraction { get; set; } = 0.45f;
@@ -107,15 +107,39 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
-    /// The savanna's campfire: a real point light warming the grass and the island, plus the visible
-    /// additive flame billboard. Ground position is XZ; the Y is derived live — SavannaTerrainHeight(x, z)
-    /// + <see cref="HeightAboveTerrain"/> on every read of SavannaCampfirePosition — so a GroundXZ or
-    /// terrain edit in the editor moves the fire without a re-apply.
+    /// The savanna's campfires: a ring of them around the island, each a real point light warming the grass
+    /// and the stone plus its own visible additive flame billboard. Positions are XZ; every Y is derived live
+    /// — SavannaTerrainHeight(x, z) + <see cref="HeightAboveTerrain"/> on every read of
+    /// SavannaCampfirePosition — so a GroundXZ or terrain edit in the editor moves the fires without a
+    /// re-apply.
+    /// <para>
+    /// Everything but the position is shared by the whole ring: they are the same kind of fire, and a range
+    /// or a colour per fire would be a config nobody could tune. What is <b>not</b> shared is the phase — see
+    /// <c>SceneRenderer.CampfireColor</c> and <c>Flame.fx</c>'s <c>FlameSeed</c>, which give each fire its own
+    /// clock and its own gait so the ring does not beat in unison.
+    /// </para>
     /// </summary>
     public sealed class CampfireConfig
     {
-        /// <summary>Campfire ground position (XZ) just off the island, chosen to sit in the low game camera's view.</summary>
+        /// <summary>
+        /// Ground position (XZ) of the <b>first</b> fire, just off the island. The rest of the ring is derived
+        /// from it — see <see cref="Count"/> — so this one value still says everything it used to: how far out
+        /// the fires stand, and which way the ring is turned. A config saved when there was only ever one fire
+        /// therefore still places that fire exactly where it stood.
+        /// </summary>
         public Vec2 GroundXZ { get; set; } = new(28f, -18f);
+
+        /// <summary>
+        /// How many fires ring the island, evenly spaced on the circle <see cref="GroundXZ"/> sits on and
+        /// starting at it. Each is a real point light as well as a flame, so this is <b>capped at
+        /// <c>SceneLights.MaxLights</c></b> (8, the shader's own array size) — eight fires spend the whole
+        /// scene-light budget, which the savanna can afford because it is the only thing in it that lights.
+        /// <para>
+        /// One is the old single campfire and still valid. The ring exists because a lone fire lit one flank
+        /// of the island and left the rest of the walk the gun makes in flat dome light.
+        /// </para>
+        /// </summary>
+        public int Count { get; set; } = 8;
 
         /// <summary>Height above the terrain at that spot (the light/flame sits just above the ground).</summary>
         public float HeightAboveTerrain { get; set; } = 0.2f;

@@ -276,20 +276,58 @@ namespace Prazsky.Core.Render
         //SavannaSceneConfig.Campfire (CampfireConfig). Position/range/colour stay public (the Testbed sets the
         //same point light on the balls and island) but are now instance members derived from the config.
 
-        /// <summary>The campfire's world position: the config's ground XZ, lifted to the terrain height there.</summary>
-        public Vector3 SavannaCampfirePosition => new(
-            _savannaConfig.Campfire.GroundXZ.X,
-            SavannaTerrainHeight(_savannaConfig.Campfire.GroundXZ.X, _savannaConfig.Campfire.GroundXZ.Y) + _savannaConfig.Campfire.HeightAboveTerrain,
-            _savannaConfig.Campfire.GroundXZ.Y);
+        /// <summary>
+        /// How many campfires ring the island, capped to the scene-light budget the shaders' arrays are sized
+        /// for. Every caller that walks the fires — the grass's lights, the balls' and island's lights, and
+        /// the flame billboards — counts with this one.
+        /// </summary>
+        public int SavannaCampfireCount => Math.Clamp(_savannaConfig.Campfire.Count, 1, SceneLights.MaxLights);
 
-        /// <summary>The campfire point-light range (quadratic distance falloff).</summary>
+        /// <summary>
+        /// The world position of fire <paramref name="index"/>: evenly spaced around the circle the config's
+        /// <c>GroundXZ</c> sits on, starting at it, and lifted to the terrain height where it lands.
+        /// <para>
+        /// The radius and the ring's rotation both come out of that one config point rather than being fields
+        /// of their own, which is what lets a config written when there was a single fire keep placing that
+        /// fire exactly where it stood. The Y is derived live, so a terrain edit in the editor moves every
+        /// fire with the ground.
+        /// </para>
+        /// </summary>
+        public Vector3 SavannaCampfirePosition(int index)
+        {
+            Vec2 anchor = _savannaConfig.Campfire.GroundXZ;
+
+            float radius = MathF.Sqrt(anchor.X * anchor.X + anchor.Y * anchor.Y);
+            float angle = MathF.Atan2(anchor.Y, anchor.X) + index * MathHelper.TwoPi / SavannaCampfireCount;
+
+            float x = MathF.Cos(angle) * radius;
+            float z = MathF.Sin(angle) * radius;
+
+            return new Vector3(x, SavannaTerrainHeight(x, z) + _savannaConfig.Campfire.HeightAboveTerrain, z);
+        }
+
+        /// <summary>The campfire point-light range (quadratic distance falloff), shared by every fire.</summary>
         public float SavannaCampfireRange => _savannaConfig.Campfire.Range;
 
-        /// <summary>The flickering campfire colour at a wall-clock time, so the grass light, the balls light
-        /// and the flame all pulse together.</summary>
-        public Vector3 CampfireColor(float time)
+        /// <summary>
+        /// The flickering colour of fire <paramref name="index"/> at a wall-clock time, so its grass light,
+        /// its light on the balls and its flame all pulse together.
+        /// <para>
+        /// <b>Each fire burns on its own clock.</b> The index offsets the time and also stretches the rates by
+        /// a few per cent, so the ring never beats in unison — an offset alone would leave eight fires running
+        /// the identical pattern a moment apart, which the eye picks up as a rotating wave around the island
+        /// the moment two of them are in shot together.
+        /// </para>
+        /// </summary>
+        public Vector3 CampfireColor(float time, int index)
         {
-            float flicker = 0.72f + 0.28f * (0.5f * MathF.Sin(time * 11f) + 0.3f * MathF.Sin(time * 17f + 1.3f) + 0.2f * MathF.Sin(time * 7f));
+            //Irrational-ish stride, so no two fires land on the same phase and the ring does not repeat after
+            //a few of them however many there are.
+            float t = time + index * 3.77f;
+            float rate = 1f + index * 0.031f;
+
+            float flicker = 0.72f + 0.28f * (0.5f * MathF.Sin(t * 11f * rate) + 0.3f * MathF.Sin(t * 17f * rate + 1.3f) + 0.2f * MathF.Sin(t * 7f * rate));
+
             return _savannaConfig.Campfire.BaseColor.ToVector3() * flicker;
         }
 
@@ -1637,14 +1675,20 @@ namespace Prazsky.Core.Render
             _savannaEffect.Parameters["SavannaTime"].SetValue(frame.Time);
             _savannaEffect.Parameters["SunColor"].SetValue(frame.SunColor);
 
-            //The campfire lights the grass around it (a real point light, present under every dome)
-            _savannaLightPos[0] = SavannaCampfirePosition;
-            _savannaLightColor[0] = CampfireColor(frame.Time);
-            _savannaLightRange[0] = SavannaCampfireRange;
+            //The ring of campfires lights the grass around it (real point lights, present under every dome)
+            int fires = SavannaCampfireCount;
+
+            for (int fire = 0; fire < fires; fire++)
+            {
+                _savannaLightPos[fire] = SavannaCampfirePosition(fire);
+                _savannaLightColor[fire] = CampfireColor(frame.Time, fire);
+                _savannaLightRange[fire] = SavannaCampfireRange;
+            }
+
             _savannaEffect.Parameters["SceneLightPosition"].SetValue(_savannaLightPos);
             _savannaEffect.Parameters["SceneLightColor"].SetValue(_savannaLightColor);
             _savannaEffect.Parameters["SceneLightRange"].SetValue(_savannaLightRange);
-            _savannaEffect.Parameters["SceneLightCount"].SetValue(1);
+            _savannaEffect.Parameters["SceneLightCount"].SetValue(fires);
 
             frame.ApplyClouds?.Invoke(_savannaEffect);
 
@@ -1747,19 +1791,22 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the campfire's visible flame: one billboard at <see cref="SavannaCampfirePosition"/>, a
+        /// Draws the visible flames: one billboard per fire at its <see cref="SavannaCampfirePosition"/>, a
         /// procedural flickering flame in the shader, drawn additively and depth-read (the terrain or platform
-        /// in front hides it) but writing no depth. The light it casts is a separate scene point light. Savanna
-        /// scene only, drawn last with the overlays.
+        /// in front hides one) but writing no depth. The light each casts is a separate scene point light.
+        /// Savanna scene only, drawn last with the overlays.
+        /// <para>
+        /// A draw per fire rather than one instanced pass: it is two triangles each, eight of them at most,
+        /// once a frame and only in this scene — and the alternative is an instance buffer and a vertex format
+        /// for a quad that already has neither. What varies per fire is two uniforms.
+        /// </para>
         /// </summary>
         private void DrawFlame(in SceneFrame frame)
         {
             _flameEffect.Parameters["View"].SetValue(frame.Camera.View);
             _flameEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
             _flameEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _flameEffect.Parameters["FlamePosition"].SetValue(SavannaCampfirePosition);
             _flameEffect.Parameters["FlameSize"].SetValue(_savannaConfig.Campfire.FlameSize);
-            _flameEffect.Parameters["FlameTime"].SetValue(frame.Time);
 
             _graphicsDevice.BlendState = BlendState.Additive;
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
@@ -1767,8 +1814,25 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.SetVertexBuffer(_flameVertexBuffer);
             _graphicsDevice.Indices = _flameIndexBuffer;
-            _flameEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
+
+            //Cached out of the loop: the by-name indexer is a linear scan, and this runs once per fire per
+            //frame (BestPractices.md §1). Not fields, because nothing else in this class touches them.
+            EffectParameter flamePosition = _flameEffect.Parameters["FlamePosition"];
+            EffectParameter flameSeed = _flameEffect.Parameters["FlameSeed"];
+            EffectParameter flameTime = _flameEffect.Parameters["FlameTime"];
+
+            for (int fire = 0; fire < SavannaCampfireCount; fire++)
+            {
+                flamePosition.SetValue(SavannaCampfirePosition(fire));
+
+                //The same stride and rate stretch CampfireColor uses, so a flame and the light it casts are
+                //the one fire rather than two things that happen to be in the same place.
+                flameSeed.SetValue(1f + fire * 0.031f);
+                flameTime.SetValue(frame.Time + fire * 3.77f);
+
+                _flameEffect.CurrentTechnique.Passes[0].Apply();
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
+            }
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;

@@ -97,12 +97,17 @@ namespace Prazsky.Core.Render
             //read it as one, and do not write a fourth branch that relies on being tested last.
             if (scene == SceneKind.Savanna)
             {
-                //The campfire on the grass just off the island, flickering off the same wall clock its flame
-                //billboard does — one clock, so the light and the fire cannot fall out of step
-                _lightPosition[0] = sceneRenderer.SavannaCampfirePosition;
-                _lightColor[0] = sceneRenderer.CampfireColor(wallClock);
-                _lightRange[0] = sceneRenderer.SavannaCampfireRange;
-                count = 1;
+                //The ring of campfires on the grass around the island, each flickering off the same wall clock
+                //its own flame billboard does — one clock, so a light and its fire cannot fall out of step,
+                //and each fire's own phase, so the ring does not beat in unison.
+                count = sceneRenderer.SavannaCampfireCount;
+
+                for (int fire = 0; fire < count; fire++)
+                {
+                    _lightPosition[fire] = sceneRenderer.SavannaCampfirePosition(fire);
+                    _lightColor[fire] = sceneRenderer.CampfireColor(wallClock, fire);
+                    _lightRange[fire] = sceneRenderer.SavannaCampfireRange;
+                }
             }
             else if (sceneRenderer.TryGetSpacePlanetshine(scene, out Vector3 shinePosition, out Vector3 shineColor, out float shineRange))
             {
