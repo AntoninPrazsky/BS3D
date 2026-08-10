@@ -121,6 +121,25 @@ float Fbm2BandLimited(float2 p, int octaves, float footprint)
 	return value;
 }
 
+//Fbm2BandLimited on a domain STRETCHED along `along`, so the field has a GRAIN. Isotropic noise has none by
+//construction, and a surface relief without one reads as gravel rather than as anything lying over - which
+//is exactly what is missing when a family of plane-wave sines is replaced by noise, since one of those sines
+//always dominated and supplied a direction for free. `stretch` is how many times longer a feature is along
+//the axis than across it; 1 is plain Fbm2BandLimited. `along` need not be normalised, and a zero vector is
+//legal (it falls back to +X rather than to the NaN normalize() would give, which would take the whole
+//surface's shading with it).
+//
+//The footprint is the caller's as usual, and the stretch only ever makes the domain COARSER along one axis,
+//so the caller's unstretched footprint stays an honest bound for both. Cost: Fbm2BandLimited plus a
+//normalize and two dots.
+float Fbm2Combed(float2 p, float2 along, float stretch, int octaves, float footprint)
+{
+	float2 axis = dot(along, along) > 1e-6 ? normalize(along) : float2(1.0, 0.0);
+	float2 across = float2(-axis.y, axis.x);
+
+	return Fbm2BandLimited(float2(dot(p, axis) / stretch, dot(p, across)), octaves, footprint);
+}
+
 float Fbm3(float3 p, int octaves)
 {
 	float value = 0.0;

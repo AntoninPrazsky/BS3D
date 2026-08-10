@@ -12,6 +12,7 @@
 #define PS_SHADERMODEL ps_5_0
 
 #include "Clouds.fxh"
+#include "Noise.fxh"
 
 float4x4 View;
 float4x4 Projection;
@@ -130,17 +131,27 @@ float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height
 	return normalize(abs(determinant) * normal - surfaceGradient);
 }
 
+//How far the grass is stretched ALONG the wind, and the gain that carries fBm to the amplitude the two
+//crossed sines here used to have. Its own values rather than the savanna's, though both start at the same
+//figures: this is a lush lawn where that is dry veld, and the two scenes are meant to differ. See the
+//savanna's copy for what each number is answering.
+static const float GRASS_COMB_STRETCH = 2.6;
+static const float GRASS_FBM_GAIN = 5.0;
+
 //A fine grass texture that drifts on the wind, band-limited against the footprint so it fades to smooth
-//green towards the horizon instead of aliasing
+//green towards the horizon instead of aliasing.
+//
+//THREE OCTAVES OF GRADIENT NOISE, not the two crossed plane-wave sines this used to be — the meadow carried
+//a line-for-line copy of the savanna's field, so it carried its diamond lattice too (#117 was filed against
+//the savanna alone; the copy here was found while fixing it). Two plane waves crossing ARE a lattice, and
+//these crossed at 93.4 degrees, so it was very nearly square and read in perspective as a field of diamonds.
+//The mechanism is Noise.fxh's Fbm2Combed now, one copy for both scenes; what stays per scene is the tuning.
 float GrassRelief(float2 xz, float footprint)
 {
-	float2 p = xz + WindDirection * MeadowTime * 0.7;
 	float f = GrassReliefFrequency;
+	float2 p = (xz + WindDirection * MeadowTime * 0.7) * f;
 
-	float h = 0.6 * sin(dot(p, normalize(float2(0.9, 0.3))) * f)
-		+ 0.4 * sin(dot(p, normalize(float2(-0.4, 1.0))) * f * 1.8);
-
-	return h * saturate(1.0 - footprint * f / 3.14159265) * GrassReliefStrength;
+	return Fbm2Combed(p, WindDirection, GRASS_COMB_STRETCH, 3, footprint * f) * GRASS_FBM_GAIN * GrassReliefStrength;
 }
 
 float4 MeadowPS(MeadowVertexOutput input) : COLOR

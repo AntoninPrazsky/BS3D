@@ -15,6 +15,7 @@
 #define PS_SHADERMODEL ps_5_0
 
 #include "Clouds.fxh"
+#include "Noise.fxh"
 
 float4x4 View;
 float4x4 Projection;
@@ -124,17 +125,42 @@ float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height
 	return normalize(abs(determinant) * normal - surfaceGradient);
 }
 
+//How far the grass is stretched ALONG the wind. The comb is what the two crossed sines below used to supply
+//for free - one of them dominated, so the field had a grain - and isotropic noise has no grain at all: it
+//reads as gravel rather than as grass lying over. Stretching the domain along the wind elongates the
+//features the same way, which is the look, without a single plane wave in it.
+static const float GRASS_COMB_STRETCH = 2.6;
+
+//The gain that carries fBm to the amplitude the sines had. NOT cosmetic, and NOT to be folded into
+//GrassReliefStrength, which is the authored dial and means the same thing in both scenes: two crossed sines
+//have an RMS near 0.51 (0.6 and 0.4 in quadrature), while three octaves of Fbm2 sum to about 0.10 - gradient
+//noise clusters hard around zero, one sigma 0.18, and the octave weights add in quadrature. Carrying the old
+//strength over unchanged would have made the relief a fifth of what it was, which on a normal-tilting field
+//is the effect gone rather than the effect softened. This is the trap #97 hit on the acacia crowns.
+static const float GRASS_FBM_GAIN = 5.0;
+
 //Fine grass texture that drifts on the wind, band-limited against the footprint so it fades to smooth grass
-//towards the horizon rather than aliasing
+//towards the horizon rather than aliasing.
+//
+//THREE OCTAVES OF GRADIENT NOISE, not the two crossed plane-wave sines this used to be. Two plane waves
+//crossing ARE a lattice - that is what their interference is - and these crossed at 93.4 degrees, so the
+//lattice was very nearly square and read in perspective as a field of diamonds across the middle distance
+//(#117). At GrassReliefFrequency 2 the two periods were 3.14 and 1.75 world units, which is the scale the
+//diamonds appeared at. It showed as strongly as it did because the field feeds PerturbNormalFromHeight, so
+//it tilts the NORMAL and lands in the shading rather than merely in the colour.
+//
+//This is the failure Noise.fxh's own opening documents - "a sum of plane-wave sines keeps its planes however
+//many terms it has" - and the one #86 removed from Mountain.fx's peaks. Two terms is the smallest case of
+//it, and being only two they never even get the chance to hide each other. Octaves of gradient noise on a
+//rotated domain have no planes to keep.
 float GrassRelief(float2 xz, float footprint)
 {
-	float2 p = xz + WindDirection * SavannaTime * 0.7;
 	float f = GrassReliefFrequency;
+	float2 p = (xz + WindDirection * SavannaTime * 0.7) * f;
 
-	float h = 0.6 * sin(dot(p, normalize(float2(0.9, 0.3))) * f)
-		+ 0.4 * sin(dot(p, normalize(float2(-0.4, 1.0))) * f * 1.8);
-
-	return h * saturate(1.0 - footprint * f / 3.14159265) * GrassReliefStrength;
+	//Combed along the wind, and the footprint scaled by the same factor the domain is — Fbm2BandLimited's
+	//stated contract, which Fbm2Combed passes straight through.
+	return Fbm2Combed(p, WindDirection, GRASS_COMB_STRETCH, 3, footprint * f) * GRASS_FBM_GAIN * GrassReliefStrength;
 }
 
 float4 SavannaPS(SavannaVertexOutput input) : COLOR
