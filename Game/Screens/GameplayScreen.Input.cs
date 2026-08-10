@@ -244,9 +244,9 @@ namespace BS3D.Screens
             //constructor, so no slot is left dissolving out of the ball behind it.
             _magazine.Advance();
 
-            //Set, not accumulated: a barrel's recoil stroke restarts from the top with every round, it does
-            //not stack up over a burst the way the camera's trauma does.
-            _cannonRecoil = 1f;
+            //The gun's own answer — the tube thrown back in its cradle, the carriage lurching a beat behind
+            //it (#115). The stroke and both responses are the shared Cannon's; this is only the trigger.
+            _cannon.KickRecoil();
 
             //Fired, therefore felt. Nothing else in the frame moves the camera, so every wobble the player
             //sees is unambiguously their own shot.

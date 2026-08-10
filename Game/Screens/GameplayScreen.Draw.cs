@@ -244,11 +244,11 @@ namespace BS3D.Screens
         private void CollectMagazineBalls(in BallDrawFrame frame)
         {
             //Taken once per frame rather than per ball, so each slot's place is a multiply and an add. The queue
-            //rides the barrel, recoil included: it sits in the bore, so it goes back with it — the same stroke
-            //the barrel itself was drawn with, or the balls float out of it. The pose also carries the barrel's
-            //own basis, and each slot's matrix takes it with the translation written straight into its fourth
-            //row rather than multiplied in (see BorePose.SlotWorld).
-            BorePose pose = _magazine.Pose(_cannon, Game.CannonRig.PivotToFrontBall, CannonRecoilBack());
+            //rides the barrel, recoil included: it sits in the bore, so it goes back with it — off the gun's own
+            //stroke since #115 (Pose reads Cannon.DrawnMuzzlePosition), so the balls and the tube cannot
+            //disagree. The pose also carries the barrel's own basis, and each slot's matrix takes it with the
+            //translation written straight into its fourth row rather than multiplied in (see BorePose.SlotWorld).
+            BorePose pose = _magazine.Pose(_cannon, Game.CannonRig.PivotToFrontBall);
 
             for (int i = 0; i < Magazine.SIZE; i++)
             {

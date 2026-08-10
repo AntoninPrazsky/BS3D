@@ -314,30 +314,10 @@ namespace BS3D.Screens
 
         #endregion
 
-        #region The gun's recoil
-
-        //What used to be the gun's geometry: the barrel's pose — the aim, the muzzle, the basis and the draw
-        //matrix — is Cannon's own since #76, and the tube's figures are CannonRig's. All that is left here is
-        //the stroke, because only this executable animates one.
-
-        /// <summary>
-        /// How far back along the bore the barrel is displaced by its own recoil this instant, in world units,
-        /// and exactly zero once the stroke is over. Squared rather than linear in the stroke, so the shot throws
-        /// the gun back at once and the return eases off, which is the shape a recoiling barrel has (the same
-        /// reasoning as <see cref="CameraShake"/>'s: a linear amplitude spends most of its life mid-stroke and
-        /// reads as a wobble instead of a jolt).
-        /// <para>
-        /// Handed to <see cref="Cannon.BarrelWorld"/> and <see cref="Magazine.Pose"/> — which is to say applied
-        /// where the gun is <b>drawn</b> and nowhere else. A shot leaves along the true aim on the frame it is
-        /// fired, before the barrel has moved, so nothing about where a ball goes may depend on this: neither
-        /// <see cref="Shoot"/> nor <see cref="Cannon.AimDirection"/> takes it, and feeding it in there is exactly
-        /// what a reader would "fix". A <b>positive</b> scalar, since the shared pose subtracts it along the
-        /// bore; the shape and the decay stay here because the shared pose owns neither, on purpose.
-        /// </para>
-        /// </summary>
-        private float CannonRecoilBack() =>
-            _cannonRecoil <= 0f ? 0f : CANNON_RECOIL_BACK * _cannonRecoil * _cannonRecoil;
-
-        #endregion
+        //The gun's recoil stroke used to live here as the one piece of the gun that was still this
+        //executable's (only the Game animated one). It is Cannon's own since #115 — the carriage's later,
+        //smaller response needed the same clock as the tube's slide, and two responses off one clock only
+        //stay one clock if the gun owns it. What remains this file's is the CAMERA's share of the shot,
+        //above (CannonRecoilBack's reasoning — squared stroke, drawing only — moved with it).
     }
 }

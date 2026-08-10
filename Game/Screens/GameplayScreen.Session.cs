@@ -130,7 +130,6 @@ namespace BS3D.Screens
             _smears.Clear();
 
             _physicsAccumulator = 0f;
-            _cannonRecoil = 0f;
             _magazine.Settle();
             _preciseAim.Reset();
 

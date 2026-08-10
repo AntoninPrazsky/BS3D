@@ -263,14 +263,12 @@ namespace Prazsky.BS3D
         /// <param name="pivotToFrontBall">How far ahead of the trunnions the head-of-queue ball sits —
         /// <see cref="CannonRig.PivotToFrontBall"/>, which the rig derives from the very
         /// <see cref="SIZE"/>/<see cref="SPACING"/> above.</param>
-        /// <param name="recoilBack">The barrel's recoil stroke this instant, in world units back along the bore,
-        /// 0 at rest. The queue rides <i>in</i> the bore, so pass the same value the barrel is drawn with or the
-        /// balls float out of it. Drawing only: a shot leaves along the true aim on the frame it is fired, before
-        /// any of this.</param>
-        public BorePose Pose(Cannon cannon, float pivotToFrontBall, float recoilBack = 0f) =>
-            //Three reads of the pose per frame rather than per ball, which is the whole reason this is taken once
-            //and handed back as a value
-            new(cannon.BarrelOrientation(), cannon.MuzzlePosition(pivotToFrontBall, recoilBack),
+        public BorePose Pose(Cannon cannon, float pivotToFrontBall) =>
+            //Three reads of the pose per frame rather than per ball, which is the whole reason this is taken
+            //once and handed back as a value. The DRAWN muzzle, recoil and all (#115): the queue rides in the
+            //bore that is drawn, and taking the pose off the gun's own state — rather than off a scalar every
+            //caller had to remember to pass — is what makes the balls and the tube unable to disagree.
+            new(cannon.BarrelOrientation(), cannon.DrawnMuzzlePosition(pivotToFrontBall),
                 cannon.AimDirection, Slide);
     }
 

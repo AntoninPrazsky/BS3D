@@ -444,14 +444,15 @@ namespace Prazsky.BS3D
         /// caller draws that.
         /// </summary>
         /// <param name="carriageWorld">This frame's pose, from <see cref="GameObjects.Cannon.CarriageWorld"/> —
-        /// seated on the stone it stands over, yawed with the aim, and deliberately without the recoil the
-        /// barrel takes: the tube slides in the cradle, the carriage holds its ground.</param>
-        /// <param name="advanceTravel"><see cref="GameObjects.Cannon.AdvanceTravel"/>: signed ground covered,
-        /// positive toward the field. The wheels' angle is <c>travel / radius</c>, so they turn as fast as the
-        /// ground passes and slow into the walk's rubber ends with it. (The travel is the walk's horizontal
-        /// step; on the dish's ~6.4° grade the true rolled arc is ~0.6 % longer, which no eye reads off a
-        /// spoked wheel.)</param>
-        public void DrawCarriage(ICamera camera, Matrix carriageWorld, float advanceTravel,
+        /// seated on the stone it stands over, yawed with the aim, and since #115 carrying the recoil's own
+        /// smaller, later shove: the tube slides in the cradle and the undercarriage answers a beat behind it.</param>
+        /// <param name="wheelTravel"><see cref="GameObjects.Cannon.WheelTravel"/>: signed ground covered,
+        /// positive toward the field — the advance walk's stroke plus the recoil's backward shove, so the
+        /// wheels roll with everything that actually moves them (#115). The angle is <c>travel / radius</c>,
+        /// so they turn as fast as the ground passes and slow into the walk's rubber ends with it. (The travel
+        /// is the horizontal step; on the dish's ~6.4° grade the true rolled arc is ~0.6 % longer, which no
+        /// eye reads off a spoked wheel.)</param>
+        public void DrawCarriage(ICamera camera, Matrix carriageWorld, float wheelTravel,
             BasicEffectParams effectParams)
         {
             //Same per-frame ground anchor as Draw's, off the same translation, for the same reason
@@ -465,7 +466,7 @@ namespace Prazsky.BS3D
             //Walking toward the field is motion along local -Z; rolling with it takes the wheel's top the same
             //way, which about the +X axle is a negative rotation. Wrapped per circumference before the divide,
             //so a long session's travel cannot walk the angle out into float noise.
-            float roll = -(advanceTravel % (MathHelper.TwoPi * WHEEL_RADIUS)) / WHEEL_RADIUS;
+            float roll = -(wheelTravel % (MathHelper.TwoPi * WHEEL_RADIUS)) / WHEEL_RADIUS;
 
             //One rotation built once; each wheel writes its own place on the axle into the fourth row and the
             //pair composes with the carriage pose — the two genuine matrix multiplies this prop costs per frame
