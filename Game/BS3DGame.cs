@@ -287,6 +287,13 @@ namespace BS3D
         /// </summary>
         private LevelSet _levelSet;
 
+        /// <summary>
+        /// The player's bests over the set — the stars and scores unlocks are gated on (#92, #111). Loaded
+        /// beside the set and null exactly when the set is: progress measures a campaign, and the fallback
+        /// pyramid is not one.
+        /// </summary>
+        private PlayerProgress _progress;
+
         private const string LEVELS_DIRECTORY = "Levels";
 
         /// <summary>The set the session installs its levels from. Null when none could be read.</summary>
@@ -787,10 +794,19 @@ namespace BS3D
 
                 Console.WriteLine($"[levels] '{_levelSet.Name ?? LevelSet.DefaultFileName}': {_levelSet.Count} level(s)");
 
+                //The player's bests, from beside the set — which is also why it is in this try and not its
+                //own: with no set there is no campaign to have progressed through. Lenient where the set's
+                //loader throws (a first run has no save, and a corrupt one must cost stars, never the game).
+                _progress = PlayerProgress.Load(Path.Combine(_levelSet.Directory, PlayerProgress.DefaultFileName));
+
+                Console.WriteLine($"[progress] {_progress.TotalStars} star(s), best total {_progress.TotalScore}"
+                    + $" over {_progress.Levels.Count} cleared level(s)");
+
                 //Every entry's rules, at load rather than as each level comes up: an inconsistently authored
                 //set is then obvious in one place before a single level is played.
                 for (int i = 0; i < _levelSet.Count; i++)
-                    Console.WriteLine($"[levels]   {i + 1}. '{_levelSet.DisplayName(i)}' — {_levelSet.DescribeRules(i)}");
+                    Console.WriteLine($"[levels]   {i + 1}. '{_levelSet.DisplayName(i)}' — {_levelSet.DescribeRules(i)}"
+                        + (LevelMinStars(i) > 0 ? $", unlocks at {LevelMinStars(i)} star(s)" : ""));
             }
             catch (Exception e)
             {
@@ -798,6 +814,55 @@ namespace BS3D
                 //has a level of its own to fall back on, so this is a log line and not a crash.
                 Console.WriteLine($"[levels] No level set at '{path}' ({e.Message}); using the built-in level");
                 _levelSet = null;
+            }
+        }
+
+        /// <summary>
+        /// Records a cleared level's score and stars into the player's progress and writes it to disk, there
+        /// and then — the game has no other save point, and progress lost to a crash later would be progress
+        /// the player watched themselves earn. Each best only ever rises (<see cref="PlayerProgress.Record"/>).
+        /// </summary>
+        /// <returns>Whether anything improved — what the result screen's "new best" line reads.</returns>
+        internal bool RecordLevelResult(int index, int score, int stars)
+        {
+            if (_progress == null || _levelSet == null || index < 0 || index >= _levelSet.Count) return false;
+
+            bool improved = _progress.Record(_levelSet.Levels[index].File, score, stars);
+
+            if (improved) SaveProgress();
+
+            return improved;
+        }
+
+        /// <summary>
+        /// Back to zero stars and no bests — the settings row's action (#92: useful for testing as much as
+        /// for a player who wants a fresh start). The locks in the picker follow the totals, so levels close
+        /// again with it; the session being played is left alone.
+        /// </summary>
+        internal void ResetProgress()
+        {
+            if (_progress == null) return;
+
+            _progress.Reset();
+            SaveProgress();
+
+            Console.WriteLine("[progress] Reset to zero");
+        }
+
+        /// <summary>
+        /// One writer for the save, so the failure handling is in one place: an unwritable file costs the
+        /// write and is said in the log, never the session — the progress object stands and the next record
+        /// tries again.
+        /// </summary>
+        private void SaveProgress()
+        {
+            try
+            {
+                _progress.Save();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"[progress] Could not save '{_progress.Path}': {e.Message}");
             }
         }
 

@@ -209,6 +209,10 @@ namespace BS3D.Screens
             _map = map ?? BuildFallbackMap();
             _map.Center();
 
+            //The star rating's yardstick, taken while the level is still whole — clearing it is emptying the
+            //map, so this is the last moment the count exists to be read
+            _initialBallCount = _map.GetBallsCount();
+
             FitFieldToMap();
             FitCeilingToMap();
 

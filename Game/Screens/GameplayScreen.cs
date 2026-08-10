@@ -582,6 +582,13 @@ namespace BS3D.Screens
         private ScoreKeeper _score = new();
 
         /// <summary>
+        /// How many balls the level <b>started</b> with — the floor the star rating measures the score
+        /// against (<see cref="StarRating.Rate"/>). Captured at install, because by the time a rating is
+        /// wanted the map is empty: that is what clearing means, and the count is unrecoverable then.
+        /// </summary>
+        private int _initialBallCount;
+
+        /// <summary>
         /// What ended the level, set when it ends and read by the result screen. <c>None</c> means the level is
         /// still being played; <see cref="FinishLevel"/> is what leaves <c>None</c>.
         /// </summary>
@@ -594,7 +601,7 @@ namespace BS3D.Screens
         /// there — which is how a player came to be shown "a ball at -5,58 &lt;= -5,50". Those figures are
         /// diagnostics; they belong in the log, and they still go there.
         /// </summary>
-        private enum LevelFailure { None, OutOfBalls, ClusterReachedLine, ShortOfGate }
+        private enum LevelFailure { None, OutOfBalls, ClusterReachedLine }
 
         private LevelFailure _pendingFailure;
 

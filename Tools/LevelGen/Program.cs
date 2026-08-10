@@ -122,16 +122,28 @@ namespace BS3D.Tools.LevelGen
         {
             LevelSet set = new() { Name = "Bubble Shooter 3D" };
 
-            foreach (Design d in designs)
+            for (int i = 0; i < designs.Length; i++)
+            {
+                Design d = designs[i];
+
                 set.Levels.Add(new LevelSetEntry
                 {
                     File = d.File,
                     Name = d.Name,
                     Shots = d.Shots,
                     CeilingStep = d.CeilingStep,
+                    MinStars = MinStarsAt(i),
                 });
+            }
 
-            set.Levels.Add(new LevelSetEntry { File = "Two.json", Name = "Two", Shots = 45, CeilingStep = 4 });
+            set.Levels.Add(new LevelSetEntry
+            {
+                File = "Two.json",
+                Name = "Two",
+                Shots = 45,
+                CeilingStep = 4,
+                MinStars = MinStarsAt(designs.Length),
+            });
 
             string path = Path.Combine(_outDir, LevelSet.DefaultFileName);
             set.Save(path);
@@ -143,8 +155,31 @@ namespace BS3D.Tools.LevelGen
             Console.WriteLine();
             Console.WriteLine($"=== {LevelSet.DefaultFileName}: {loaded.Count} levels ===");
             for (int i = 0; i < loaded.Count; i++)
-                Console.WriteLine($"  {i + 1}. {loaded.DisplayName(i),-12} {loaded.DescribeRules(i)}");
+            {
+                int gate = loaded.Levels[i].MinStars.GetValueOrDefault();
+
+                Console.WriteLine($"  {i + 1}. {loaded.DisplayName(i),-12} {loaded.DescribeRules(i)}"
+                    + (gate > 0 ? $", unlocks at {gate} star(s)" : ", open from the start"));
+            }
         }
+
+        /// <summary>
+        /// The unlock ramp, a function of the entry's <b>position in the set</b> rather than of any design —
+        /// which level a gate guards is a property of the order, and a design moved in the order should carry
+        /// its new place's gate, not its old one. In the campaign's star currency (see
+        /// <c>Prazsky.BS3D.Scoring.StarRating</c>): the opener is free, the second level asks only that
+        /// something was cleared, and from the third on the ramp climbs two stars per level. Clearing every
+        /// prior level once (one star each) opens the first three gates on its own; past that, par clears
+        /// (two stars) keep the road open with no replays, and only a player scraping by on one-star clears
+        /// goes back for a better one. The most a player can hold at entry <paramref name="index"/> is
+        /// <c>4 × index</c>, so the steepest gate still asks under half of what is on the table.
+        /// </summary>
+        private static int? MinStarsAt(int index) => index switch
+        {
+            0 => null,
+            1 => 1,
+            _ => 2 * (index - 1),
+        };
 
         #region The designs
 

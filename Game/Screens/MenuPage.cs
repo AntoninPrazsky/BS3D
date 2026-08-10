@@ -2,8 +2,10 @@ using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Myra.Graphics2D;
 using Myra.Graphics2D.UI;
+using Prazsky.BS3D.Scoring;
 using Prazsky.Core.Screens;
 using System;
+using System.Text;
 using Label = Myra.Graphics2D.UI.Label;
 
 namespace BS3D.Screens
@@ -159,6 +161,27 @@ namespace BS3D.Screens
         protected SpriteFontBase FontBody => Game.MenuFontBody;
         protected SpriteFontBase FontSmall => Game.MenuFontSmall;
         protected SpriteFontBase FontTitle => Game.MenuFontTitle;
+        protected SpriteFontBase FontStars => Game.MenuFontStars;
+
+        /// <summary>
+        /// A star rating as text — ★ for each star earned, ☆ for the rest of the
+        /// <see cref="StarRating.MAX"/> — so the picker's small rows and the result's headline speak one
+        /// vocabulary. It must be drawn with <see cref="FontStars"/> or <see cref="FontSmall"/>: the glyphs
+        /// live in Inter, and the display face the loud type is set in has neither.
+        /// </summary>
+        /// <param name="gap">Between the glyphs — the result's headline opens them up, the picker stays tight.</param>
+        protected static string StarText(int earned, string gap = "")
+        {
+            StringBuilder row = new(StarRating.MAX * (1 + gap.Length));
+
+            for (int i = 0; i < StarRating.MAX; i++)
+            {
+                if (i > 0) row.Append(gap);
+                row.Append(i < earned ? '★' : '☆');
+            }
+
+            return row.ToString();
+        }
 
         #endregion
     }

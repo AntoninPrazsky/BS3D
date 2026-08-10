@@ -13,62 +13,71 @@
       "file": "Three.json",
       "name": "Bullseye",
       "shots": 40,
+      "minStars": 1,
       "ceilingStep": 8
     },
     {
       "file": "Four.json",
       "name": "Mosaic",
       "shots": 56,
+      "minStars": 2,
       "ceilingStep": 8
     },
     {
       "file": "Five.json",
       "name": "Pinwheel",
       "shots": 44,
+      "minStars": 4,
       "ceilingStep": 9
     },
     {
       "file": "Six.json",
       "name": "Crown",
       "shots": 44,
+      "minStars": 6,
       "ceilingStep": 9
     },
     {
       "file": "Seven.json",
       "name": "Gem",
       "shots": 44,
+      "minStars": 8,
       "ceilingStep": 9
     },
     {
       "file": "Eight.json",
       "name": "Prism",
       "shots": 60,
+      "minStars": 10,
       "ceilingStep": 6
     },
     {
       "file": "Nine.json",
       "name": "Static",
       "shots": 60,
+      "minStars": 12,
       "ceilingStep": 5
     },
     {
       "file": "Ten.json",
       "name": "Column",
       "shots": 90,
+      "minStars": 14,
       "ceilingStep": 5
     },
     {
       "file": "Eleven.json",
       "name": "Onion",
       "shots": 48,
+      "minStars": 16,
       "ceilingStep": 8
     },
     {
       "file": "Two.json",
       "name": "Two",
       "shots": 45,
+      "minStars": 18,
       "ceilingStep": 4
     }
-  ],
-  "Count": 11
+  ]
 }

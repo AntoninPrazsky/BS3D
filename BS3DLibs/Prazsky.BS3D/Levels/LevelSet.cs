@@ -49,6 +49,9 @@ namespace Prazsky.BS3D.Levels
         [JsonIgnore]
         public string Directory { get; private set; }
 
+        //Ignored, or STJ serializes the read-only property and every saved set carries a "Count" that the
+        //loader then has to shrug off — which is exactly what the generated Levels.json used to do
+        [JsonIgnore]
         public int Count => Levels?.Count ?? 0;
 
         private static readonly JsonSerializerOptions Options = new()
@@ -90,9 +93,9 @@ namespace Prazsky.BS3D.Levels
                         throw new InvalidDataException(
                             $"'{path}': level {i + 1} ('{entry.File}') grants {entry.Shots} shots; omit \"shots\" for unlimited");
 
-                    if (entry.MinScore is < 0)
+                    if (entry.MinStars is < 0)
                         throw new InvalidDataException(
-                            $"'{path}': level {i + 1} ('{entry.File}') has a negative minimum score ({entry.MinScore})");
+                            $"'{path}': level {i + 1} ('{entry.File}') unlocks at a negative star count ({entry.MinStars})");
 
                     if (entry.CeilingStep is <= 0)
                         throw new InvalidDataException(
@@ -135,10 +138,11 @@ namespace Prazsky.BS3D.Levels
             LevelSetEntry entry = Levels[index];
 
             string shots = entry.Shots.HasValue ? $"{entry.Shots.Value} shots" : "unlimited shots";
-            string minScore = entry.MinScore.GetValueOrDefault() > 0 ? $"min score {entry.MinScore.Value}" : "no score gate";
             string ceiling = entry.CeilingStep.HasValue ? $"ceiling every {entry.CeilingStep.Value}" : "ceiling holds";
 
-            return $"{shots}, {minScore}, {ceiling}";
+            //The unlock gate is deliberately not in this line: these are the rules a level is PLAYED under,
+            //and the gate is over by the time one is — the picker presents it on the locked entry itself
+            return $"{shots}, {ceiling}";
         }
 
         /// <summary>
@@ -202,12 +206,18 @@ namespace Prazsky.BS3D.Levels
         public int? Shots { get; set; }
 
         /// <summary>
-        /// The score needed to unlock the <b>next</b> level. Null (or zero) means clearing the field is enough,
-        /// which is what every level starts as — the gate exists so difficulty can be raised level by level as
-        /// the campaign grows, not so it is on everywhere from the start.
+        /// The <b>total stars</b> the campaign must have collected before <i>this</i> level unlocks
+        /// (see <c>PlayerProgress.TotalStars</c>). Null (or zero) means the level is open from the start.
+        /// <para>
+        /// It replaced a per-level <c>minScore</c> gate that no shipped set ever authored: a raw score is
+        /// meaningless to a player as a target, while stars are the very thing the result screen headlines —
+        /// and gating on the campaign's <i>total</i> makes every level played contribute, instead of one
+        /// number on one level deciding everything (#111). On the entry it locks rather than on the entry
+        /// before it, so the picker can read each level's own gate straight off it.
+        /// </para>
         /// </summary>
-        [JsonPropertyName("minScore")]
-        public int? MinScore { get; set; }
+        [JsonPropertyName("minStars")]
+        public int? MinStars { get; set; }
 
         /// <summary>
         /// Shots between two descents of the glass ceiling. <b>Null means the ceiling holds still.</b>
