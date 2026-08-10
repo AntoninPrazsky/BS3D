@@ -87,17 +87,19 @@ namespace BS3D
 
             //A fullscreen switch moves the back buffer between 1600×900 and the display's native resolution — a
             //fill-rate change of several times — so a tier the probe reached for the old size can be wrong for
-            //the new one (the neon city goes from ~110 to ~37 FPS on a 3840×1600 panel, the same machine). The
-            //probe is re-opened, but only when the tier was the probe's verdict rather than the player's: a tier
-            //the player set in Settings or on the command line is their decision and is never overridden. The
-            //warmup lets the new target's first frames settle before the window counts them.
-            if (!_qualityPinnedByPlayer && _qualitySettled && _quality != QualityLevel.High)
-            {
-                _qualitySettled = false;
-                _qualityWarmupLeft = QUALITY_WARMUP_SECONDS;
-                _qualityWindowSeconds = 0f;
-                _qualityWindowFrames = 0;
-            }
+            //the new one (the neon city goes from ~110 to ~37 FPS on a 3840×1600 panel, the same machine).
+            //
+            //It used to re-open only when the tier was already BELOW High (#123), which excluded the one tier
+            //that most needs re-measuring after the back buffer grows five-fold: High is where the frame is
+            //dearest and where 2× supersampling sits on top of it. Nothing in the reasoning above was ever
+            //specific to Medium or Low — a High verdict is just as much "this machine's answer for THIS back
+            //buffer size". The same shape as #121, where the latch closed over the lightest scene of the
+            //session and kept that verdict for the heaviest.
+            //
+            //ReopenQualityProbe carries the rest: a tier the player set in Settings or on the command line is
+            //their decision and is never overridden, and the warm-up lets the new target's first frames settle
+            //before the window counts them.
+            ReopenQualityProbe();
 
             _settingsPage.Refresh();
         }
