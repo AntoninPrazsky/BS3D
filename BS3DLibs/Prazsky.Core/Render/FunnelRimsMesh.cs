@@ -20,8 +20,16 @@ namespace Prazsky.Core.Render
     /// collides the smooth cone and the smooth dished stone and says so in its own class doc, so the bead was
     /// a bump the ball rolled straight through. Laid flat the gold reads the same at a glance — it is the
     /// colour and the metal that make the drain legible, not the cross-section — and it now agrees with the
-    /// surface a ball is on. It is also 16× less geometry: two rings of quads instead of two full double-
-    /// revolved tori.
+    /// surface a ball is on. It is also far less geometry than the tori: a few rings of quads.
+    /// </para>
+    /// <para>
+    /// <b>Since #109 each band is a shallow crown rather than a plane</b>: its two edges sink
+    /// <see cref="EDGE_SINK"/> into the surfaces they meet and its mid-width rises <see cref="SURFACE_LIFT"/>,
+    /// because a flat band floating at its anti-z-fight lift showed, from the shallow angle the play camera
+    /// actually has, a sliver of the surface under its inner edge — a stone/shadow strip between the gold and
+    /// the glass, at the very junction the gold exists to mark. A buried edge cannot be seen under from any
+    /// angle; the crown keeps the lift, so nothing is coplanar and the z-fight stays solved; and at a tenth
+    /// of the old bead's height it is still nothing a crossing ball shows a step on.
     /// </para>
     /// </summary>
     public class FunnelRimsMesh : IProceduralMesh, IDisposable
@@ -32,12 +40,26 @@ namespace Prazsky.Core.Render
         public BoundingSphere BoundingSphere { get; }
 
         /// <summary>
-        /// How far each band is lifted off the surface it lies on, along that surface's own normal. Coplanar
-        /// geometry z-fights, and the fight is the whole width of the ring rather than a fringe — so this is
-        /// not optional. It is a tenth of a ball radius: far too little to read as a bead (the tube it
-        /// replaced was ten times this), and far too little for a ball crossing it to show a step.
+        /// How far each band's <b>crown</b> — its mid-width line — rises off the surface it lies on, along
+        /// that surface's own normal. Coplanar geometry z-fights, and the fight is the whole width of the
+        /// ring rather than a fringe — so some lift is not optional. It is a tenth of a ball radius: far too
+        /// little to read as a bead (the tube it replaced was ten times this), and far too little for a ball
+        /// crossing it to show a step.
         /// </summary>
         private const float SURFACE_LIFT = 0.05f;
+
+        /// <summary>
+        /// How far each band's two <b>edges</b> sink below that same surface (#109). The whole band used to
+        /// float at <see cref="SURFACE_LIFT"/>, and a floating edge is a shelf: seen at the shallow angle the
+        /// play camera actually has, the parallax under the inner edge exposed a sliver of the surface below
+        /// — a stone or shadow strip between the gold and the glass, at the one junction the gold exists to
+        /// mark. Buried edges cannot be seen under from any angle, and the band between them is a shallow
+        /// crown rather than a plane, so nowhere is it coplanar with the surface it crosses — the z-fight the
+        /// lift exists for stays solved. Deep enough that the coarser facets of the surfaces it meets
+        /// (the island's bore is a finer polygon than the funnel's — chord dips of a few thousandths) stay
+        /// under it everywhere.
+        /// </summary>
+        private const float EDGE_SINK = 0.04f;
 
         /// <param name="topRadius">Inner radius of the top band — the funnel mouth, where the stone ends.</param>
         /// <param name="holeRadius">Inner radius of the bottom band — the drain hole.</param>
@@ -53,8 +75,8 @@ namespace Prazsky.Core.Render
         public FunnelRimsMesh(GraphicsDevice graphicsDevice, float topRadius, float holeRadius, float height,
             float topWidth, float holeWidth, float dishGrade, int segments)
         {
-            var vertices = new VertexPositionNormalTexture[segments * 2 * 2];
-            var indices = new short[segments * 6 * 2];
+            var vertices = new VertexPositionNormalTexture[segments * 3 * 2];
+            var indices = new short[segments * 12 * 2];
             int v = 0, i = 0;
 
             //The cone's own rise per unit of radius, which is the grade the bottom band lies at. Guarded
@@ -65,43 +87,76 @@ namespace Prazsky.Core.Render
             AddBand(0f, topRadius, topWidth, dishGrade);
             AddBand(-height, holeRadius, holeWidth, coneGrade);
 
+            //Three rings per band, not two (#109): the edges sink EDGE_SINK below the surface and the
+            //mid-width crown rises SURFACE_LIFT above it, so the band is a shallow crown whose edges are
+            //buried in the stone and the glass — a buried edge cannot be seen under from any angle, which is
+            //what retires the stone/shadow strip the old floating plane showed at the mouth. The cross-
+            //section's own slope is folded into each ring's normal, so the crown shades as the low rounded
+            //metal band it now is.
             void AddBand(float innerY, float innerRadius, float width, float grade)
             {
                 int baseV = v;
 
-                //The surface rises by `grade` per unit outwards, so its tangent along the radial is
-                //(1, grade) in the (radius, y) plane and the upward normal is (-grade, 1), normalised.
-                float invLength = 1f / (float)Math.Sqrt(1.0 + grade * (double)grade);
-                float normalRadial = -grade * invLength, normalY = invLength;
+                float halfWidth = width * Constants.HALF;
+                float archSlope = (SURFACE_LIFT + EDGE_SINK) / halfWidth;
 
+                float crownRadius = innerRadius + halfWidth;
+                float crownY = innerY + halfWidth * grade;
                 float outerRadius = innerRadius + width;
                 float outerY = innerY + width * grade;
+
+                //The surface rises by `grade` per unit outwards, so its tangent along the radial is
+                //(1, grade) in the (radius, y) plane and the upward normal is (-grade, 1), normalised. The
+                //surface normal carries the sink/lift offsets; the ring normals below add the crown's own
+                //slope on the inner half and subtract it on the outer, so the arch reads in the light.
+                float invLength = 1f / (float)Math.Sqrt(1.0 + grade * (double)grade);
+                float surfaceRadial = -grade * invLength, surfaceY = invLength;
+
+                RingNormal(grade + archSlope, out float innerNormalRadial, out float innerNormalY);
+                RingNormal(grade, out float crownNormalRadial, out float crownNormalY);
+                RingNormal(grade - archSlope, out float outerNormalRadial, out float outerNormalY);
 
                 for (int s = 0; s < segments; s++)
                 {
                     float u = (float)(s / (double)segments * Math.PI * 2.0);
                     float cosU = (float)Math.Cos(u), sinU = (float)Math.Sin(u);
 
-                    Vector3 normal = new(normalRadial * cosU, normalY, normalRadial * sinU);
-                    Vector3 lift = normal * SURFACE_LIFT;
+                    Vector3 sink = new Vector3(surfaceRadial * cosU, surfaceY, surfaceRadial * sinU) * -EDGE_SINK;
+                    Vector3 lift = new Vector3(surfaceRadial * cosU, surfaceY, surfaceRadial * sinU) * SURFACE_LIFT;
 
-                    Vector3 inner = new Vector3(innerRadius * cosU, innerY, innerRadius * sinU) + lift;
-                    Vector3 outer = new Vector3(outerRadius * cosU, outerY, outerRadius * sinU) + lift;
+                    Vector3 inner = new Vector3(innerRadius * cosU, innerY, innerRadius * sinU) + sink;
+                    Vector3 crown = new Vector3(crownRadius * cosU, crownY, crownRadius * sinU) + lift;
+                    Vector3 outer = new Vector3(outerRadius * cosU, outerY, outerRadius * sinU) + sink;
 
                     float uv = s / (float)segments;
-                    vertices[v++] = new VertexPositionNormalTexture(inner, normal, new Vector2(uv, 0f));
-                    vertices[v++] = new VertexPositionNormalTexture(outer, normal, new Vector2(uv, 1f));
+                    vertices[v++] = new VertexPositionNormalTexture(inner,
+                        new Vector3(innerNormalRadial * cosU, innerNormalY, innerNormalRadial * sinU), new Vector2(uv, 0f));
+                    vertices[v++] = new VertexPositionNormalTexture(crown,
+                        new Vector3(crownNormalRadial * cosU, crownNormalY, crownNormalRadial * sinU), new Vector2(uv, 0.5f));
+                    vertices[v++] = new VertexPositionNormalTexture(outer,
+                        new Vector3(outerNormalRadial * cosU, outerNormalY, outerNormalRadial * sinU), new Vector2(uv, 1f));
                 }
 
                 for (int s = 0; s < segments; s++)
                 {
                     int sNext = (s + 1) % segments;
-                    int i00 = baseV + s * 2, i01 = baseV + s * 2 + 1;
-                    int i10 = baseV + sNext * 2, i11 = baseV + sNext * 2 + 1;
+                    int i00 = baseV + s * 3, i01 = baseV + s * 3 + 1, i02 = baseV + s * 3 + 2;
+                    int i10 = baseV + sNext * 3, i11 = baseV + sNext * 3 + 1, i12 = baseV + sNext * 3 + 2;
 
                     indices[i++] = (short)i00; indices[i++] = (short)i10; indices[i++] = (short)i11;
                     indices[i++] = (short)i00; indices[i++] = (short)i11; indices[i++] = (short)i01;
+                    indices[i++] = (short)i01; indices[i++] = (short)i11; indices[i++] = (short)i12;
+                    indices[i++] = (short)i01; indices[i++] = (short)i12; indices[i++] = (short)i02;
                 }
+            }
+
+            //The upward normal of a surface rising `grade` per unit of radius: (-grade, 1) in the
+            //(radius, y) plane, normalised — the same construction the flat band used for its one grade.
+            static void RingNormal(float grade, out float radial, out float y)
+            {
+                float invLength = 1f / (float)Math.Sqrt(1.0 + grade * (double)grade);
+                radial = -grade * invLength;
+                y = invLength;
             }
 
             PrimitiveCount = indices.Length / 3;
