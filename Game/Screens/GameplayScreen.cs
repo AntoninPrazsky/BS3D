@@ -529,7 +529,10 @@ namespace BS3D.Screens
         //the loss itself is decided on (see UpdateLaserWarning). The hysteresis keeps a swaying cluster
         //from flickering it at the threshold — a shot shoves the structure, and a lowest ball bobbing a few
         //tenths of a unit across the exact line would arm and stand down the net with every swing.
-        private const float LASER_WARN_STEPS = 2f;
+        //Three descents, up from two (#110): playtesting said the net came on too close to the loss to be
+        //tracked before it mattered — at the set's cadences a descent is 4–9 shots, so the extra step buys
+        //roughly that many shots of watching it approach.
+        private const float LASER_WARN_STEPS = 3f;
         private const float LASER_WARN_HYSTERESIS = 0.3f;
 
         private readonly LaserGrid _laserGrid;
