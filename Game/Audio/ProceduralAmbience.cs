@@ -42,7 +42,10 @@ namespace BS3D.Audio
         //is written in whole cycles of this length, which is half of what makes the seam inaudible.
         private const float LOOP_SECONDS = 16f;
 
-        private const int SCENES = (int)SceneKind.Moon + 1;
+        //One bed per SceneKind, counted where every other question about a SceneKind is answered rather than
+        //as "the last member + 1" — that spelling had to be edited by hand for every new scene, and the one
+        //time it is forgotten the last scene in the enum gets no bed at all.
+        private static readonly int SCENES = SceneRenderer.SceneCount;
 
         private Task<float[][]> _bake;
         private SoundEffect[] _beds;
@@ -61,7 +64,7 @@ namespace BS3D.Audio
 
         public ProceduralAmbience()
         {
-            //All twelve beds bake on one background task — they are a fraction of one music pass's
+            //Every scene's bed bakes on one background task — they are a fraction of one music pass's
             //arithmetic, and nothing needs them until the first frame of the scene is already on screen.
             _bake = Task.Run(BakeAll);
         }
@@ -158,7 +161,7 @@ namespace BS3D.Audio
         #region The beds
 
         /// <summary>
-        /// All twelve beds. Each is layered band-passed noise under envelopes written as whole cycles per loop,
+        /// One bed per scene. Each is layered band-passed noise under envelopes written as whole cycles per loop,
         /// rendered one second past the loop point and <b>folded back onto the head</b> (equal-power), so the
         /// noise content is continuous across the seam the same way the envelopes are.
         /// </summary>
@@ -267,17 +270,35 @@ namespace BS3D.Audio
                     AddCrackle(mix, seed + 2, 1200f, 4000f, 0.5f, ratePerSecond: 3f, threshold: 0.86f, tailRate: 60f);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.08f);
 
-                default:
-                    //The Moon, and whatever comes after it until it is given a bed of its own — this arm
-                    //was the cavern's `default:` until #125, which is exactly how a thirteenth scene would
-                    //have silently played cave drips. The Moon: vacuum. Even quieter than space's void and
-                    //with none of its breath — a near-static sub-bass presence (the pressure of a helmet,
-                    //not a wind; wind is the one thing this scene cannot have) under the faintest, slowest
-                    //high hiss, more suggestion than sound. The quietest bed in the set, deliberately: the
-                    //stillest scene in the game should be the one the ear notices least.
+                case SceneKind.Moon:
+                    //Vacuum. Even quieter than space's void and with none of its breath — a near-static
+                    //sub-bass presence (the pressure of a helmet, not a wind; wind is the one thing this
+                    //scene cannot have) under the faintest, slowest high hiss, more suggestion than sound.
+                    //The quietest bed in the set, deliberately: the stillest scene in the game should be the
+                    //one the ear notices least.
                     AddBand(mix, seed, 0f, 45f, 1.0f, t => 0.85f + 0.15f * Cycle(t, 1, 0f));
                     AddBand(mix, seed + 1, 5000f, 9000f, 0.06f, t => Swell(t, 1, 0.6f, MathF.PI / 2f));
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.035f);
+
+                case SceneKind.Outback:
+                    //Hot, still air over red ground. The wind is thinner even than the Sahara's — there is
+                    //nothing out here for it to move — and over it the shrill of cicadas, which is what heat
+                    //actually sounds like: a narrow high band under a fast tremolo, the chorus swelling and
+                    //dying twice a loop rather than droning flat.
+                    AddBand(mix, seed, 200f, 900f, 1.0f, t => Swell(t, 2, 0.72f, 0f));
+                    AddBand(mix, seed + 1, 4200f, 5200f, 0.22f,
+                        t => Swell(t, 2, 0.25f, 0.7f) * (0.6f + 0.4f * Cycle(t, 160, 0f)));
+                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.115f);
+
+                default:
+                    //A NEW SCENE LANDS HERE, AND IT IS MEANT TO BE OBVIOUS. This arm was the cavern's until
+                    //#125 gave the Moon its own, and it was the Moon's until #112 gave the outback one — each
+                    //time, a new scene silently inherited an atmosphere written for somewhere else (cave
+                    //drips on the Moon, then vacuum over the outback), which is a fault nobody reports
+                    //because it sounds like something. It is a near-silent neutral bed now: audibly missing
+                    //rather than plausibly wrong, so the next scene's author hears the gap on the first run.
+                    AddBand(mix, seed, 60f, 900f, 1.0f, t => Swell(t, 2, 0.7f, 0f));
+                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.02f);
             }
         }
 

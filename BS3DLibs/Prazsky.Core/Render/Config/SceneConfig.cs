@@ -28,6 +28,7 @@ namespace Prazsky.Core.Render
     [JsonDerivedType(typeof(DreamSceneConfig), "dream")]
     [JsonDerivedType(typeof(CavernSceneConfig), "cavern")]
     [JsonDerivedType(typeof(MoonSceneConfig), "moon")]
+    [JsonDerivedType(typeof(OutbackSceneConfig), "outback")]
     public abstract class SceneConfig
     {
         /// <summary>Which backdrop this config drives. Derived from the concrete type; not serialized.</summary>

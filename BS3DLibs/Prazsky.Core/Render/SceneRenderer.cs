@@ -10,8 +10,9 @@ namespace Prazsky.Core.Render
 {
     /// <summary>
     /// Which environment the arena stands in. City is the default; Sea, Savanna, Desert, Mountain, Meadow,
-    /// NeonCity and Forest swap the city (and only the city) for open water, a savanna, a Sahara of dunes, a
-    /// snowy range, a flowering meadow, the same city lit up in neon, or a forest clearing.
+    /// NeonCity, Forest and Outback swap the city (and only the city) for open water, a savanna, a Sahara of
+    /// dunes, a snowy range, a flowering meadow, the same city lit up in neon, a forest clearing, or the
+    /// red-rock Australian outback.
     /// <para>
     /// <see cref="Space"/> is the one that is not like the others: it replaces the <b>sky</b> rather than the
     /// ground, so the island floats in deep space and there is no terrain, no horizon and no weather at all.
@@ -25,8 +26,14 @@ namespace Prazsky.Core.Render
     /// cycle, reached in the Testbed with <c>scene=</c>, in the game from its scene menu (or its random launch
     /// pick), and in the editor only by loading a level whose config names one of them.
     /// </para>
+    /// <para>
+    /// <b>New kinds are appended, never inserted.</b> Nothing persists the enum numerically — a level stores
+    /// its backdrop as a <see cref="SceneConfig"/> under a string discriminator — but the declared order is
+    /// what the scene picker, <see cref="SceneRenderer.SceneName"/> and the ambience bed all index by, and
+    /// <see cref="SceneRenderer.CycleLength"/> is a prefix of it.
+    /// </para>
     /// </summary>
-    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon }
+    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon, Outback }
 
     /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,
@@ -183,6 +190,7 @@ namespace Prazsky.Core.Render
         private DreamSceneConfig _dreamConfig = new();
         private CavernSceneConfig _cavernConfig = new();
         private MoonSceneConfig _moonConfig = new();
+        private OutbackSceneConfig _outbackConfig = new();
 
         #region Sea
 
@@ -218,6 +226,26 @@ namespace Prazsky.Core.Render
 
         //Look/tuning parameters (dune height, clearing, ripples, dust, sand colour, wind, haze) now live in
         //DesertSceneConfig; SceneRenderer reads them from _desertConfig.
+
+        #endregion
+
+        #region Outback
+
+        private readonly Effect _outbackEffect;
+        private readonly VertexBuffer _outbackVertexBuffer;
+        private readonly IndexBuffer _outbackIndexBuffer;
+        private readonly int _outbackIndexCount;
+
+        //The monoliths are geometry, not a painted horizon, so this grid carries a silhouette rather than only
+        //a shaded surface — which is what sets the density. At 400 over 1000 the cell is 2.5 world units and a
+        //formation's flank falls its whole height over some eight of them, which the mesh can hold; the same
+        //flank on the desert's 360 grid would fall over seven. Above 255 a side, so CreateGridMesh's 32-bit
+        //index buffer is load-bearing here (the mountain's lesson — a 16-bit one wraps silently).
+        private const int OUTBACK_GRID_N = 400;
+        private const float OUTBACK_EXTENT = 1000f;
+
+        //Look/tuning parameters (plain, monoliths, rock and ground materials, dust, shimmer) live in
+        //OutbackSceneConfig; SceneRenderer reads them from _outbackConfig.
 
         #endregion
 
@@ -337,7 +365,7 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        #region Birds (savanna and desert scenes)
+        #region Birds (savanna, desert and outback scenes)
 
         private readonly Effect _birdsEffect;
         private DynamicVertexBuffer _birdVertexBuffer;
@@ -347,7 +375,7 @@ namespace Prazsky.Core.Render
         private float[] _birdRadius, _birdAltitude, _birdOrbitSpeed, _birdOrbitPhase, _birdFlapSpeed, _birdFlapPhase, _birdBobSpeed;
 
         //Flock parameters (count, wingspan, aspect, bob, colour, flock centre) now live in BirdsConfig, shared
-        //by the savanna and desert configs; DrawBirds reads the active scene's Birds config each frame. The
+        //by the savanna, desert and outback configs; DrawBirds reads the active scene's Birds config each frame. The
         //shared buffer and per-bird orbit state are sized once from the savanna config's count.
 
         //One camera-facing quad per bird; Data carries (u along the wingspan, v vertical, flap phase).
@@ -532,6 +560,13 @@ namespace Prazsky.Core.Render
 
             ApplyDesertParameters();
 
+            //--- Outback (#112): the desert's machinery with rock on it — the same flat lattice, displaced into
+            //a near-flat spinifex plain with red monoliths standing on a jittered single-cell lattice
+            _outbackEffect = content.Load<Effect>("Shaders/Outback");
+            CreateGridMesh(OUTBACK_GRID_N, OUTBACK_EXTENT, out _outbackVertexBuffer, out _outbackIndexBuffer, out _outbackIndexCount);
+
+            ApplyOutbackParameters();
+
             //--- Savanna: a flat lattice the shader displaces into gentle grassland (per-pixel normal, no grid)
             _savannaEffect = content.Load<Effect>("Shaders/Savanna");
             CreateGridMesh(SAVANNA_GRID_N, SAVANNA_EXTENT, out _savannaVertexBuffer, out _savannaIndexBuffer, out _savannaIndexCount);
@@ -676,7 +711,7 @@ namespace Prazsky.Core.Render
             kind is SceneKind.Space or SceneKind.Dream or SceneKind.Cavern or SceneKind.Moon;
 
         /// <summary>
-        /// True for the solid-ground backdrops — mountains, meadow, savanna, desert and forest — whose terrain
+        /// True for the solid-ground backdrops — mountains, meadow, savanna, desert, forest and outback — whose terrain
         /// is a flat clearing at the island's foot with the island's footprint cut out of it
         /// (<see cref="TerrainHoleRadius"/>), and which therefore need the dark pit shaft drawn behind the
         /// drain's glass: a hole alone lets the ~55 %-opaque glass show what is behind it straight through
@@ -697,7 +732,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         public static bool IsSolidTerrainScene(SceneKind kind) =>
             kind is SceneKind.Mountain or SceneKind.Meadow or SceneKind.Savanna or SceneKind.Desert
-                or SceneKind.Forest or SceneKind.Moon;
+                or SceneKind.Forest or SceneKind.Moon or SceneKind.Outback;
 
         /// <summary>
         /// Whether there is a vantage <b>under</b> the island from which the balls pouring out of the drain can
@@ -729,7 +764,7 @@ namespace Prazsky.Core.Render
         //reads better than the singular enum member and is deliberately not "corrected" to match it; the
         //parse keys below are the singular ones, because those are what a command line already takes.
         private static readonly string[] SCENE_NAMES =
-            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream", "Cavern", "Moon" };
+            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream", "Cavern", "Moon", "Outback" };
 
         /// <summary>
         /// The scene's name for a menu or a log line. Display text, not a parse key — see
@@ -759,6 +794,7 @@ namespace Prazsky.Core.Render
                 case "dream": kind = SceneKind.Dream; return true;
                 case "cavern": kind = SceneKind.Cavern; return true;
                 case "moon": kind = SceneKind.Moon; return true;
+                case "outback": kind = SceneKind.Outback; return true;
                 default: kind = default; return false;
             }
         }
@@ -784,14 +820,19 @@ namespace Prazsky.Core.Render
                 case DesertSceneConfig desert:
                     _desertConfig = desert; //terrain params re-pushed below; birds read per frame from the config
                     ApplyDesertParameters();
-                    BuildBirdBuffers();     //the shared flock is sized from both arid scenes' counts, so the desert's own count is honoured
+                    BuildBirdBuffers();     //the shared flock is sized from all three arid scenes' counts, so the desert's own count is honoured
+                    break;
+                case OutbackSceneConfig outback:
+                    _outbackConfig = outback;
+                    ApplyOutbackParameters();
+                    BuildBirdBuffers();     //the shared flock is sized from all three arid scenes' counts
                     break;
                 case SavannaSceneConfig savanna:
                     _savannaConfig = savanna;
                     ApplySavannaParameters();
                     ApplyAcaciaParameters();
                     BuildAcaciaBuffers();   //tree positions depend on the terrain, so the terrain change rebuilds them
-                    BuildBirdBuffers();     //the shared flock is sized from both arid scenes' counts
+                    BuildBirdBuffers();     //the shared flock is sized from all three arid scenes' counts
                     break;
                 case MountainSceneConfig mountain:
                     _mountainConfig = mountain;
@@ -988,6 +1029,7 @@ namespace Prazsky.Core.Render
             SceneKind.Dream => _dreamConfig,
             SceneKind.Cavern => _cavernConfig,
             SceneKind.Moon => _moonConfig,
+            SceneKind.Outback => _outbackConfig,
             _ => null,
         };
 
@@ -1035,6 +1077,49 @@ namespace Prazsky.Core.Render
             _desertEffect.Parameters["AmbientStrength"].SetValue(_desertConfig.AmbientStrength);
             _desertEffect.Parameters["WindDirection"].SetValue(_desertConfig.Wind.ToVector2());
             _desertEffect.Parameters["HorizonHazeDistance"].SetValue(_desertConfig.HorizonHazeDistance);
+        }
+
+        private void ApplyOutbackParameters()
+        {
+            OutbackTerrainConfig terrain = _outbackConfig.Terrain;
+            OutbackSurfaceConfig surface = _outbackConfig.Surface;
+            OutbackAirConfig air = _outbackConfig.Air;
+
+            _outbackEffect.Parameters["OutbackLevelY"].SetValue(terrain.LevelY);
+            _outbackEffect.Parameters["PlainRelief"].SetValue(terrain.PlainRelief);
+            _outbackEffect.Parameters["ClearingRadius"].SetValue(terrain.ClearingRadius);
+            _outbackEffect.Parameters["ClearingTransition"].SetValue(terrain.ClearingTransition);
+
+            //The spacings divide a world position in the shader, so a zero would take the whole terrain with it
+            //(a NaN height field is a mesh that vanishes, and the property grid is one keystroke from a zero).
+            _outbackEffect.Parameters["RockSpacing"].SetValue(MathF.Max(terrain.RockSpacing, 1f));
+            _outbackEffect.Parameters["RockChance"].SetValue(terrain.RockChance);
+            _outbackEffect.Parameters["RockHeight"].SetValue(terrain.RockHeight);
+            _outbackEffect.Parameters["OutcropSpacing"].SetValue(MathF.Max(terrain.OutcropSpacing, 1f));
+            _outbackEffect.Parameters["OutcropChance"].SetValue(terrain.OutcropChance);
+            _outbackEffect.Parameters["OutcropHeight"].SetValue(terrain.OutcropHeight);
+
+            _outbackEffect.Parameters["RockColorDeep"].SetValue(surface.RockColorDeep.ToVector3());
+            _outbackEffect.Parameters["RockColorBright"].SetValue(surface.RockColorBright.ToVector3());
+            _outbackEffect.Parameters["VarnishColor"].SetValue(surface.VarnishColor.ToVector3());
+            _outbackEffect.Parameters["VarnishStrength"].SetValue(surface.VarnishStrength);
+            _outbackEffect.Parameters["VarnishGloss"].SetValue(surface.VarnishGloss);
+            _outbackEffect.Parameters["RibCount"].SetValue(surface.RibCount);
+            _outbackEffect.Parameters["RibDepth"].SetValue(surface.RibDepth);
+            _outbackEffect.Parameters["RockRelief"].SetValue(surface.RockRelief);
+            _outbackEffect.Parameters["SoilColor"].SetValue(surface.SoilColor.ToVector3());
+            _outbackEffect.Parameters["SoilColorPale"].SetValue(surface.SoilColorPale.ToVector3());
+            _outbackEffect.Parameters["SpinifexColor"].SetValue(surface.SpinifexColor.ToVector3());
+            _outbackEffect.Parameters["SpinifexSpacing"].SetValue(MathF.Max(surface.SpinifexSpacing, 0.05f));
+            _outbackEffect.Parameters["SpinifexCover"].SetValue(surface.SpinifexCover);
+            _outbackEffect.Parameters["SpinifexRelief"].SetValue(surface.SpinifexRelief);
+            _outbackEffect.Parameters["AmbientStrength"].SetValue(surface.AmbientStrength);
+
+            _outbackEffect.Parameters["HazeTint"].SetValue(air.HazeTint.ToVector3());
+            _outbackEffect.Parameters["DustStrength"].SetValue(air.DustStrength);
+            _outbackEffect.Parameters["HorizonHazeDistance"].SetValue(air.HorizonHazeDistance);
+            _outbackEffect.Parameters["HeatShimmer"].SetValue(air.HeatShimmer);
+            _outbackEffect.Parameters["WindDirection"].SetValue(air.Wind.ToVector2());
         }
 
         private void ApplySavannaParameters()
@@ -1182,9 +1267,9 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// (Re)builds the shared bird flock. The savanna and desert scenes draw from the one buffer, so it is
-        /// sized to the larger of the two configs' counts — otherwise a desert level's flock would be silently
-        /// capped to the savanna's count (and vice versa, since neither scene rebuilds on a NumPad2 switch).
+        /// (Re)builds the shared bird flock. The savanna, desert and outback scenes draw from the one buffer, so
+        /// it is sized to the largest of the three configs' counts — otherwise a desert level's flock would be
+        /// silently capped to the savanna's count (and so on, since no scene rebuilds on a NumPad2 switch).
         /// <see cref="DrawBirds"/> caps its draw to the active scene's count; colour/size/centre are read per
         /// frame from that scene's Birds config. Deterministic seed, so the flock is the same every run.
         /// </summary>
@@ -1193,7 +1278,7 @@ namespace Prazsky.Core.Render
             _birdVertexBuffer?.Dispose();
             _birdIndexBuffer?.Dispose();
 
-            int birdCount = Math.Max(_savannaConfig.Birds.Count, _desertConfig.Birds.Count);
+            int birdCount = Math.Max(_savannaConfig.Birds.Count, Math.Max(_desertConfig.Birds.Count, _outbackConfig.Birds.Count));
             _birdVertices = new BirdVertex[birdCount * 4];
             _birdVertexBuffer = new DynamicVertexBuffer(_graphicsDevice, BirdVertex.Declaration, birdCount * 4, BufferUsage.WriteOnly);
 
@@ -1739,6 +1824,10 @@ namespace Prazsky.Core.Render
                     DrawDesert(frame);
                     DrawBirds(frame, _desertConfig.Birds);
                     break;
+                case SceneKind.Outback:
+                    DrawOutback(frame);
+                    DrawBirds(frame, _outbackConfig.Birds);
+                    break;
                 case SceneKind.Mountain:
                     DrawMountain(frame);
                     break;
@@ -1844,6 +1933,43 @@ namespace Prazsky.Core.Render
             _graphicsDevice.Indices = _desertIndexBuffer;
             _desertEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _desertIndexCount / 3);
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// Draws the outback (#112): the grid pinned to the camera (snapped to a cell so the land does not
+        /// swim), carrying a near-flat spinifex plain with red monoliths displaced into it, shaded per-pixel by
+        /// the current dome and shadowed by the shared cloud field. Like the desert it has no point lights, so
+        /// it sets none; unlike the desert its terrain carries a real silhouette, which is why the grid is finer.
+        /// </summary>
+        private void DrawOutback(in SceneFrame frame)
+        {
+            float cell = OUTBACK_EXTENT / (OUTBACK_GRID_N - 1);
+            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
+            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
+
+            _outbackEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
+            _outbackEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
+            _outbackEffect.Parameters["View"].SetValue(frame.Camera.View);
+            _outbackEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
+            _outbackEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
+            _outbackEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
+            _outbackEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
+            _outbackEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
+            _outbackEffect.Parameters["OutbackTime"].SetValue(frame.Time);
+            _outbackEffect.Parameters["SunColor"].SetValue(frame.SunColor);
+
+            frame.ApplyClouds?.Invoke(_outbackEffect);
+
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _graphicsDevice.SetVertexBuffer(_outbackVertexBuffer);
+            _graphicsDevice.Indices = _outbackIndexBuffer;
+            _outbackEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _outbackIndexCount / 3);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
@@ -2038,7 +2164,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Draws the flock: each bird circles the config's flock centre on its own slow orbit, built into a
         /// camera-facing billboard here and flapped in the shader. Alpha-blended and depth-tested (the terrain
-        /// or the platform in front hides one) but writing no depth. Called in the savanna and desert scenes,
+        /// or the platform in front hides one) but writing no depth. Called in the savanna, desert and outback scenes,
         /// which share the one flock buffer; <paramref name="birds"/> is the active scene's flock config and
         /// its count is capped to the shared buffer's size.
         /// </summary>
@@ -2415,6 +2541,8 @@ namespace Prazsky.Core.Render
             _seaIndexBuffer?.Dispose();
             _desertVertexBuffer?.Dispose();
             _desertIndexBuffer?.Dispose();
+            _outbackVertexBuffer?.Dispose();
+            _outbackIndexBuffer?.Dispose();
             _savannaVertexBuffer?.Dispose();
             _savannaIndexBuffer?.Dispose();
             _acaciaVertexBuffer?.Dispose();
