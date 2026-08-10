@@ -497,13 +497,13 @@ namespace Prazsky.Core.Render
         private readonly EffectParameter _moonInverseViewProjection, _moonView, _moonProjection,
             _moonCameraPosition, _moonSunDirection, _moonSupersample, _moonOriginXZ, _moonHoleRadius;
 
-        //The extent is set by where the curvature horizon stands, not by haze reach like the atmospheric
-        //siblings: at the default Curvature (8e-5) the horizon closes by occlusion ~360-450 units out from
-        //the play and menu cameras, so ground past ±600 can never be seen. The grid itself runs past the
-        //Game camera's 500-unit far plane (corners ~848 out) — what the curvature guarantees is that the
-        //far-plane cut lands BEYOND the occluding horizon, where it is already hidden; a curvature loose
-        //enough to leave the cut visible puts a dead-level, camera-locked clip line where the horizon
-        //should be.
+        //The extent is set by where the horizon stands, not by haze reach like the atmospheric siblings: the
+        //highland belt crests ~310 units out and the curvature (8e-5) closes everything behind it by
+        //occlusion, so ground past ±600 can never be seen. The grid itself runs past the Game camera's
+        //500-unit far plane (corners ~848 out) — what the crest and the curvature guarantee together is that
+        //the far-plane cut lands BEYOND the occluding skyline, where it is already hidden; a curvature loose
+        //enough to leave the cut visible puts a dead-level, camera-locked clip line through the belt's
+        //saddles.
         private const int MOON_GRID_N = 360;
         private const float MOON_EXTENT = 1200f;
 
@@ -1518,6 +1518,10 @@ namespace Prazsky.Core.Render
             _moonEffect.Parameters["ClearingRadius"].SetValue(terrain.ClearingRadius);
             _moonEffect.Parameters["ClearingTransition"].SetValue(terrain.ClearingTransition);
             _moonEffect.Parameters["CraterAmplitude"].SetValue(terrain.CraterAmplitude);
+            _moonEffect.Parameters["HighlandHeight"].SetValue(terrain.HighlandHeight);
+            _moonEffect.Parameters["HighlandInnerRadius"].SetValue(terrain.HighlandInnerRadius);
+            _moonEffect.Parameters["HighlandCrestRadius"].SetValue(terrain.HighlandCrestRadius);
+            _moonEffect.Parameters["HighlandSaddleFloor"].SetValue(terrain.HighlandSaddleFloor);
             _moonEffect.Parameters["Curvature"].SetValue(terrain.Curvature);
             _moonEffect.Parameters["RegolithColor"].SetValue(terrain.RegolithColor.ToVector3());
             _moonEffect.Parameters["RegolithColorPale"].SetValue(terrain.RegolithColorPale.ToVector3());

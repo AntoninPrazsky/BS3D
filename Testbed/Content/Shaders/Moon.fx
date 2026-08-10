@@ -86,12 +86,38 @@ float ClearingTransition;
 //Peak height of the crater field out in the far field (world units over the whole three-octave sum).
 float CraterAmplitude;
 
-//The planet's curvature: the height field drops Curvature * distance^2, which is what closes the horizon.
-//1/(2R) of the small world being stood on - at the shipped 8e-5 the "moon" has a radius of 6.25 km and the
-//horizon stands 360-450 units out from the play and menu cameras. That places it INSIDE the Game camera's
-//500-unit far plane, which is the constraint the value is sized against: halve it and the far plane cuts
-//the terrain before the curvature can occlude it, putting a dead-level, camera-locked clip line where the
-//horizon should be (MoonSceneConfig.Curvature carries the same warning).
+//The highland belt: the massifs that ring the mare the island stands on, and the ONLY part of this scene the
+//play camera can see. The reason is geometric and worth stating where the figures are: the gameplay lens sits
+//at GameCameraFit.LENS_FLOOR_Y = -7.9, which is 0.6 units over the island's own deck plane
+//(ArenaIsland.TOP_Y = -8.5), so the deck occludes every ray steeper than ~atan(0.6 / distance-to-the-far-arris)
+//- half a degree of depression at a full map's stand-off. A curved plain's skyline sits 2*sqrt(eyeHeight *
+//Curvature) BELOW the eye - 2.4 degrees at the shipped figures - which is far under that line, so the first
+//build of this scene played as a black sky over bare stone with no ground in it anywhere. Neither obvious dial
+//reaches: raising MoonLevelY keeps the skyline below the deck even with the plain flush against it (0.8 deg at
+//zero eye height), and slackening Curvature runs into the 500-unit far plane long before the skyline clears
+//(see the warning on Curvature). What clears the deck is RELIEF THAT STANDS ABOVE THE LENS - which is exactly
+//why the atmospheric siblings' ground is visible at all: the desert's 14-unit dunes crest at y = +0.5, eight
+//units over the same lens.
+//
+//So the mare is a basin with a rim, as most of them are: the ground climbs from HighlandInnerRadius to
+//HighlandCrestRadius, and past the crest the curvature takes over again and closes the horizon as before -
+//quadratic growth against a saturated rise, so the elevation falls monotonically outward and the far-plane cut
+//stays hidden behind the crest, which is the constraint MOON_EXTENT and Curvature were sized against.
+float HighlandHeight;        //the belt's full rise over the plain at its crest (world units)
+float HighlandInnerRadius;   //where the ground starts to climb - well past the crater plain's clearing ramp
+float HighlandCrestRadius;   //where it reaches HighlandHeight; the skyline stands here
+float HighlandSaddleFloor;   //0..1, the fraction of the height the LOWEST saddle keeps (see HighlandBelt)
+
+//The planet's curvature: the height field drops Curvature * distance^2, which is what closes the horizon
+//PAST the highland belt. 1/(2R) of the small world being stood on - at the shipped 8e-5 the "moon" has a
+//radius of 6.25 km. The skyline itself is the belt's crest at HighlandCrestRadius, not the curvature bulge:
+//the bulge alone put the horizon 360-450 units out and 2.4 degrees BELOW the play camera's eye, where the
+//island's own deck hides it (the HighlandHeight block has the geometry). What the curvature still does is
+//everything past the crest - quadratic drop against the belt's saturated rise, so the ground's elevation
+//falls monotonically outward from the crest and the far-plane cut stays behind it. That places the cut
+//INSIDE the occluded region, which is the constraint the value is sized against: halve it and the far plane
+//cuts the terrain before the curvature can occlude it, putting a dead-level, camera-locked clip line through
+//the saddles of the belt (MoonSceneConfig.Curvature carries the same warning).
 float Curvature;
 
 //Regolith reflectance (linear): the dark grey of the plains and the paler grey of fresh ejecta. The real
@@ -245,10 +271,42 @@ float MareBase(float2 p)
 	return GradientNoise2(p * 0.011) * 0.65 + GradientNoise2(p * 0.031 + 7.3) * 0.35;
 }
 
+//The highland belt's rise at a world point (see the HighlandHeight block for why the scene has one at all).
+//The ring is shaped into peaks and saddles by `mare` - MareBase's own two octaves, which MoonHeight has
+//already paid for - rather than by octaves of its own, and that reuse is the whole reason the belt is
+//affordable. MoonHeight is evaluated FOUR times a pixel (the vertex tap plus the normal's three), so a
+//private two-octave shape here cost eight extra gradient noises per pixel and measured 2.0 ms of an 18.9 ms
+//frame at ssaa 2 on the reference APU - 12% of the frame for a silhouette this field can carry for nothing.
+//
+//What the reuse buys back is a correlation: where the massif stands high, the mare undulation under the
+//craters runs high too. It is invisible and can stay that way - MareBase moves the plain by
+//CraterAmplitude * 0.18, about two units, against the belt's forty, and the belt only exists 190 units out
+//where the plain's own swells are far below the eye.
+//
+//The shape is mapped into [HighlandSaddleFloor, 1] rather than allowed to reach zero: a saddle that drops to
+//the plain is a notch the eye looks straight THROUGH, onto ground the crest was there to occlude, and at a
+//shallow enough angle that is the far plane's cut. At the shipped 0.5 the lowest saddle still stands over a
+//degree above the lens, and everything past the crest reads under it.
+float HighlandBelt(float2 p, float dist, float mare)
+{
+	//0.75 stretches MareBase's usual +-0.7 swing across the whole 0..1 span, so the belt actually reaches its
+	//full height somewhere; the little that clips at either end flattens the highest massifs into plateaus,
+	//which is what a highland IS.
+	float shape = saturate(mare * 0.75 + 0.5);
+
+	//The rise and the shape MULTIPLY rather than add: where the shape is low the massif both starts later and
+	//ends lower, so the belt's inner edge is as ragged as its crest. An additive shape would ring the plain
+	//with one circle at one radius - the lathe-turned bowl rim.
+	return HighlandHeight
+		* smoothstep(HighlandInnerRadius, HighlandCrestRadius, dist)
+		* lerp(HighlandSaddleFloor, 1.0, shape);
+}
+
 //The full displaced height at a world point: flat at MoonLevelY inside the clearing around the island,
-//rising into cratered ground with distance, the whole surface falling away with the square of the distance
-//so the horizon closes. Tapped to displace the vertex (VS) and, thrice, for the per-pixel normal (PS) -
-//the one field, so the silhouette and the shading can never drift apart.
+//rising into cratered ground with distance, climbing again into the highland belt that rings the mare, the
+//whole surface falling away with the square of the distance so the horizon closes. Tapped to displace the
+//vertex (VS) and, thrice, for the per-pixel normal (PS) - the one field, so the silhouette and the shading
+//can never drift apart.
 //
 //The ejecta output is only read in the pixel shader's own tap; the vertex shader ignores it (the compiler
 //strips the dead half there).
@@ -257,12 +315,20 @@ float MoonHeight(float2 p, out float ejecta)
 	float dist = length(p);
 	float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, dist);
 
-	float field = CraterField(p, ejecta) + MareBase(p) * 0.18;
+	//One MareBase evaluation, two consumers: the plain's gentle undulation under the craters, and the shape
+	//of the highland belt out past them (see HighlandBelt for why it borrows this field rather than rolling
+	//its own).
+	float mare = MareBase(p);
+	float field = CraterField(p, ejecta) + mare * 0.18;
 
 	//The curvature is OUTSIDE the ramp: the clearing must stay flat where the island's physics floor is,
 	//but the fall of the horizon is the planet's, not the field's, and ramping it would put a crease at
 	//the clearing's edge. Inside ClearingRadius the drop is under a hundredth of a unit - nothing.
-	return MoonLevelY + CraterAmplitude * ramp * field - Curvature * dist * dist;
+	//
+	//The belt is outside it too, and has its own inner radius well past the clearing's, so the flat ground
+	//under the island's physics floor stays exactly as flat as it was.
+	return MoonLevelY + CraterAmplitude * ramp * field + HighlandBelt(p, dist, mare)
+		- Curvature * dist * dist;
 }
 
 struct MoonTerrainVertexInput
