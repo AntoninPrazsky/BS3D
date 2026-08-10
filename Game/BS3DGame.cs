@@ -72,7 +72,13 @@ namespace BS3D
         private const float CAMERA_SHAKE_SCALE = 0.45f;
 
         private readonly GraphicsDeviceManager _graphics;
-        private readonly bool _uncappedFps;
+
+        //Whether presentation is uncapped (vsync off). Seeded by the "nocap" launch argument — which stays,
+        //as the benchmark's way of starting with the cap off without a trip through the menus — and a
+        //Settings row since #124 (ToggleFpsLimit), which is why it is no longer readonly. Both writers go
+        //through SetGraphics: SynchronizeWithVerticalRetrace and the PresentationInterval each read this
+        //flag, the latter through PreparingDeviceSettings when ApplyChanges resets the device.
+        private bool _uncappedFps;
 
         //Pinned from the command line for a reproducible measurement. The scene is otherwise a different one of
         //the eleven every launch, which makes any A/B of the frame's cost meaningless — they are nothing like

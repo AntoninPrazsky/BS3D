@@ -15,7 +15,7 @@ namespace BS3D.Screens
     {
         private const int VALUE_WIDTH = 560;
 
-        private Label _fullscreenValue, _qualityValue, _exposureValue, _skyValue, _fpsValue;
+        private Label _fullscreenValue, _qualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
         private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _aberrationValue, _grainValue;
         private Label _progressValue;
 
@@ -51,20 +51,24 @@ namespace BS3D.Screens
             AddRow(grid, 2, "Exposure", Game.CycleExposure, out _exposureValue);
             AddRow(grid, 3, "Sky", Game.CycleSkyDome, out _skyValue);
             AddRow(grid, 4, "FPS counter", Game.ToggleFpsOverlay, out _fpsValue);
+            //The presentation cap (#124): synced to the monitor's refresh (frames nobody can see cost only
+            //heat) or unlimited — the "nocap" launch argument's toggle, in the menu so a benchmarking session
+            //is not the only way to lift it.
+            AddRow(grid, 5, "FPS limit", Game.ToggleFpsLimit, out _fpsLimitValue);
             //The lens's colour fringing at the frame edges — a taste toggle, and instant where it is made,
             //like every row here: the scene behind the panel is the preview.
-            AddRow(grid, 5, "Aberration", Game.ToggleAberration, out _aberrationValue);
-            AddRow(grid, 6, "Film grain", Game.ToggleGrain, out _grainValue);
+            AddRow(grid, 6, "Aberration", Game.ToggleAberration, out _aberrationValue);
+            AddRow(grid, 7, "Film grain", Game.ToggleGrain, out _grainValue);
             //The three volume rows (#46) scale the authored mix rather than replacing it — 100 % is the game
             //as tuned, and effects and music each sit under the master. See "The sound" in
             //docs/game-feedback.md for the split.
-            AddRow(grid, 7, "Volume", Game.CycleMasterVolume, out _volumeValue);
-            AddRow(grid, 8, "Effects", Game.CycleSfxVolume, out _effectsValue);
-            AddRow(grid, 9, "Music", Game.CycleMusicVolume, out _musicValue);
-            AddRow(grid, 10, "Ambience", Game.CycleAmbienceVolume, out _ambienceValue);
+            AddRow(grid, 8, "Volume", Game.CycleMasterVolume, out _volumeValue);
+            AddRow(grid, 9, "Effects", Game.CycleSfxVolume, out _effectsValue);
+            AddRow(grid, 10, "Music", Game.CycleMusicVolume, out _musicValue);
+            AddRow(grid, 11, "Ambience", Game.CycleAmbienceVolume, out _ambienceValue);
             //The campaign back to zero stars (#92) — for testing as much as for a fresh start. The resting
             //value shows the star total the click would erase; the click itself is two-step (see _resetArmed).
-            AddRow(grid, 11, "Reset progress", OnResetProgress, out _progressValue);
+            AddRow(grid, 12, "Reset progress", OnResetProgress, out _progressValue);
 
             column.Widgets.Add(grid);
             column.Widgets.Add(MenuButton("Back", GoBack));
@@ -107,6 +111,9 @@ namespace BS3D.Screens
             _exposureValue.Text = Game.Exposure.ToString("0.0", CultureInfo.InvariantCulture);
             _skyValue.Text = Game.SkyDomeNumber.ToString(CultureInfo.InvariantCulture);
             _fpsValue.Text = Game.IsFpsOverlayVisible ? "On" : "Off";
+            //"Monitor", not a number: the cap is whatever the panel refreshes at, and naming the rate here
+            //would go stale the moment the window lands on another monitor
+            _fpsLimitValue.Text = Game.IsFpsUncapped ? "Unlimited" : "Monitor";
             _aberrationValue.Text = Game.IsAberrationEnabled ? "On" : "Off";
             _grainValue.Text = Game.IsGrainEnabled ? "On" : "Off";
             _volumeValue.Text = FormatVolume(Game.MasterVolume);

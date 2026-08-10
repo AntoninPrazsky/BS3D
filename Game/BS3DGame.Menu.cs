@@ -363,6 +363,7 @@ namespace BS3D
         internal float Exposure => _exposure;
         internal byte SkyDomeNumber => _skyDome;
         internal bool IsFpsOverlayVisible => _info.Visible;
+        internal bool IsFpsUncapped => _uncappedFps;
         internal float MasterVolume => _masterVolume;
         internal float SfxVolume => _sfxVolume;
         internal float MusicVolume => _musicVolume;

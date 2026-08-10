@@ -111,6 +111,27 @@ namespace BS3D
         }
 
         /// <summary>
+        /// Switches the frame-rate cap between the monitor's refresh (vsync — the default: frames nobody can
+        /// see cost only heat) and unlimited (#124). The same <c>SetGraphics</c> pass a fullscreen switch takes
+        /// re-applies it at runtime: <c>SynchronizeWithVerticalRetrace</c> and the <c>PresentationInterval</c>
+        /// both read the one flag, the latter through <c>PreparingDeviceSettings</c> when <c>ApplyChanges</c>
+        /// resets the device. The <c>nocap</c> launch argument seeds the same flag and stays — the benchmark
+        /// wants the cap off without a trip through the menus.
+        /// <para>
+        /// Deliberately no <c>ReopenQualityProbe</c>, unlike the fullscreen toggle: the cap changes what the
+        /// frame rate is allowed to <i>read</i>, not what a frame costs — uncapping can only raise the
+        /// measurement, and capping floors it at the refresh, which the probe's floor sits comfortably under
+        /// by construction (<c>SetQualityMinFpsFromRefresh</c>).
+        /// </para>
+        /// </summary>
+        internal void ToggleFpsLimit()
+        {
+            _uncappedFps = !_uncappedFps;
+            SetGraphics();
+            _settingsPage.Refresh();
+        }
+
+        /// <summary>
         /// Toggles the lens's chromatic aberration. A taste setting: zero disables the shader's whole
         /// branch, so Off costs literally nothing. Not a per-frame path — the uniform persists on the
         /// effect, so it is written only here and at load.
