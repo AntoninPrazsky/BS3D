@@ -1807,6 +1807,7 @@ namespace Prazsky.Core.Render
             _flameEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
             _flameEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
             _flameEffect.Parameters["FlameSize"].SetValue(_savannaConfig.Campfire.FlameSize);
+            _flameEffect.Parameters["FlameHeightScale"].SetValue(_savannaConfig.Campfire.FlameHeightScale);
 
             _graphicsDevice.BlendState = BlendState.Additive;
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;

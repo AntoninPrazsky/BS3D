@@ -147,8 +147,25 @@ namespace Prazsky.Core.Render
         /// <summary>Point-light range (quadratic distance falloff).</summary>
         public float Range { get; set; } = 32f;
 
-        /// <summary>Size of the visible additive flame billboard.</summary>
+        /// <summary>Width of the visible additive flame billboard (its half-width in world units).</summary>
         public float FlameSize { get; set; } = 2.3f;
+
+        /// <summary>
+        /// The billboard's height as a multiple of <see cref="FlameSize"/>. <b>Separate from the width on
+        /// purpose</b>, and the reason is the game's own camera: it sits low, about level with the island's
+        /// stone, while the fires stand on grass roughly five units below it. At the shader's old fixed 2.4
+        /// the flames were 5.5 units tall and cleared the stone by barely half a unit — from the play camera
+        /// all that showed of a fire was the tip of one. Growing <see cref="FlameSize"/> instead would have
+        /// raised the tips by widening the fires into bonfires.
+        /// <para>
+        /// Six was chosen from the play camera against 4.5 and 8: at 4.5 a flame is present but slight, and at
+        /// 8 it stops reading as a fire and becomes a beam standing in the sky. It does make a flame ~14 units
+        /// tall — taller than the acacias, which are 9 — and that is accepted rather than overlooked: these
+        /// fires are 33 units out and the eye judges them against the island beside them, not against a tree
+        /// at the horizon.
+        /// </para>
+        /// </summary>
+        public float FlameHeightScale { get; set; } = 6.0f;
 
         /// <summary>Warm fire colour in LINEAR radiance, kept bright (over 1) so it casts real warm light, not a tint.</summary>
         public Rgb BaseColor { get; set; } = new(2.4f, 1.0f, 0.32f);

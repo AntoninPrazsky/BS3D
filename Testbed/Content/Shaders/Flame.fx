@@ -14,6 +14,12 @@ float3 CameraPosition;
 
 float3 FlamePosition; //Base of the flame on the ground
 float FlameSize;
+
+//The billboard's height, as a multiple of FlameSize. A uniform rather than the 2.4 that used to be written
+//here, because height and width have to move independently: the game's camera sits about level with the
+//island's stone while the fires stand on grass some five units below it, so a flame has to be tall to be
+//seen at all - and a flame made tall by growing FlameSize is a bonfire.
+float FlameHeightScale;
 float FlameTime;
 
 //Per-fire rate stretch, 1 for the first fire and a few per cent more for each one after it. The caller
@@ -44,7 +50,7 @@ FlameVertexOutput FlameVS(FlameVertexInput input)
 	float3 up = float3(0.0, 1.0, 0.0);
 
 	float w = FlameSize;
-	float h = FlameSize * 2.4;
+	float h = FlameSize * FlameHeightScale;
 	float3 world = FlamePosition + right * (input.Data.x * w) + up * (input.Data.y * h);
 
 	output.Position = mul(mul(float4(world, 1.0), View), Projection);
