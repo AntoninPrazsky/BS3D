@@ -188,7 +188,7 @@ namespace BS3D.Screens
         /// same thing. The lattice is where <see cref="FitFieldToMap"/> hung the field once; the cluster is
         /// wherever the glass has since dragged it, <see cref="CEILING_DESCENT_PER_STEP"/> at a time — so a ghost
         /// pinned to the lattice climbed away from the cluster as a level went on, until on
-        /// <c>Two.json</c>'s eleven descents it was floating some nine levels above the pocket it claimed to be
+        /// <c>Colossus.json</c>'s eleven descents it was floating some nine levels above the pocket it claimed to be
         /// in. It also takes out the stretch the structure hangs with at rest, which is over a level's worth at
         /// the top of the cluster and was already putting the ghost beside its pocket rather than in it.
         /// </para>

@@ -287,7 +287,7 @@ namespace BS3D.Physics
             //Where the ball will actually come to rest, which is the cell taken up into the frame the cluster is
             //hanging in this instant rather than into the one the level hung the lattice in. The map's own returned
             //position (the raw centred lattice cell) used to be offset and used directly for both of the things
-            //below, and both drifted with the ceiling: with the glass eleven steps down on Two.json that is ~6.6
+            //below, and both drifted with the ceiling: with the glass eleven steps down on Colossus.json that is ~6.6
             //units, so the glide launched the ball from that far BELOW its own impact and the award was born above
             //the cluster's roof. See ShotPlacement.CellWorldPosition.
             Vector3 restPosition = ShotPlacement.CellWorldPosition(_map, cell, _worldOffset, clusterDrift);

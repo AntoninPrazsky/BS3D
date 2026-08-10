@@ -332,7 +332,7 @@ namespace BS3D.Screens
         /// <para>
         /// <b>Sixteen because that is the deepest field that is framed whole today</b> (see
         /// <see cref="FIELD_FLOOR_MARGIN"/>: the two branches of the hang meet at a 16-level field). So this
-        /// cap changes nothing about any level that exists — One, Two and the whole pattern pack solve
+        /// cap changes nothing about any level that exists — One, Colossus and the whole pattern pack solve
         /// bit-identically — and the window a tall level is played through is the very frame every other
         /// level is played in, rather than a second set of camera figures to tune.
         /// </para>
@@ -382,7 +382,7 @@ namespace BS3D.Screens
         /// hangs exactly where it always has: the two branches of the max meet at a top level of ~15.07,
         /// so a field up to 16 levels deep — the fallback's own depth — is pinned unchanged and a 17-level
         /// one is the first raised. Measured: the fallback and <c>One.json</c> (15 levels) place and solve
-        /// bit-identically to before the rule; <c>Two.json</c>, whose 18 levels were already reaching 0.86
+        /// bit-identically to before the rule; <c>Colossus.json</c>, whose 18 levels were already reaching 0.86
         /// past the line, hangs 1.36 higher — its ceiling pressure was nominal either way (~13 descents to
         /// lose before, ~15 after, against a budget that allows 11).
         /// </para>

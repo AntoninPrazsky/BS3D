@@ -73,8 +73,8 @@
       "ceilingStep": 8
     },
     {
-      "file": "Two.json",
-      "name": "Two",
+      "file": "Colossus.json",
+      "name": "Colossus",
       "shots": 45,
       "minStars": 18,
       "ceilingStep": 4

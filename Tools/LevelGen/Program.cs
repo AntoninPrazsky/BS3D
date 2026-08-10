@@ -23,7 +23,7 @@ namespace BS3D.Tools.LevelGen
     /// </para>
     /// <para>
     /// <c>dotnet run --project Tools\LevelGen\LevelGen.csproj [output directory]</c>. Rewrites
-    /// <c>Levels.json</c> too, One and Two included, so run it whole rather than for one level.
+    /// <c>Levels.json</c> too, One and Colossus included, so run it whole rather than for one level.
     /// </para>
     /// </summary>
     internal static class Program
@@ -70,7 +70,7 @@ namespace BS3D.Tools.LevelGen
             Console.WriteLine($"Writing to {_outDir}");
 
             //In play order. The gentle pattern levels first, then the two that ask for real aim — see
-            //WriteLevelSet for where One and Two sit around them.
+            //WriteLevelSet for where One and Colossus sit around them.
             Design[] designs =
             {
                 One(), Bullseye(), Mosaic(), Pinwheel(), Crown(), Gem(), Prism(), Static(), Column(), Onion()
@@ -107,15 +107,16 @@ namespace BS3D.Tools.LevelGen
         }
 
         /// <summary>
-        /// Rewrites the set that orders the levels. <b>One opens the campaign and Two closes it</b>; One is a
-        /// design here now (the author asked for it regenerated, see <see cref="One"/>) and states its own
-        /// rules with the rest, while Two is still hand-drawn and keeps its rules verbatim — it is authored
+        /// Rewrites the set that orders the levels. <b>One opens the campaign and Colossus closes it</b>; One
+        /// is a design here now (the author asked for it regenerated, see <see cref="One"/>) and states its own
+        /// rules with the rest, while Colossus is still hand-drawn and keeps its rules verbatim — it is authored
         /// content and this generator has no opinion about it beyond where it sits.
         /// <para>
-        /// Two used to be second and is the hardest level in the game by a distance: twelve wide, eighteen
-        /// deep, six colours in 3×3 blocks rolled per level so nothing is ever a big easy plate, on 45 shots
-        /// against a ceiling stepping every 4. Meeting that second is meeting the wall before the game has
-        /// taught anything, and it is the level worth finishing last.
+        /// Colossus (once "Two", back when it was the second level) is the hardest level in the game by a
+        /// distance: twelve wide, eighteen deep, six colours in 3×3 blocks rolled per level so nothing is ever
+        /// a big easy plate, on 45 shots against a ceiling stepping every 4. Meeting that second was meeting
+        /// the wall before the game had taught anything, so it moved to close the set — and the move gave it
+        /// its own authored scene and sky (the Moon) the way every other level has one.
         /// </para>
         /// </summary>
         private static void WriteLevelSet(Design[] designs)
@@ -138,8 +139,8 @@ namespace BS3D.Tools.LevelGen
 
             set.Levels.Add(new LevelSetEntry
             {
-                File = "Two.json",
-                Name = "Two",
+                File = "Colossus.json",
+                Name = "Colossus",
                 Shots = 45,
                 CeilingStep = 4,
                 MinStars = MinStarsAt(designs.Length),
@@ -399,7 +400,7 @@ namespace BS3D.Tools.LevelGen
         };
 
         /// <summary>
-        /// The hardest of the generated set and the one that stands in front of Two: a full cylinder, blocks
+        /// The hardest of the generated set and the one that stands in front of Colossus: a full cylinder, blocks
         /// of four, and <b>six</b> colours scattered so no two neighbouring blocks agree by design. There is
         /// no plate to trigger anywhere on it — every shot is a shot at four balls, and the ceiling steps
         /// every five while you take them.
@@ -410,8 +411,8 @@ namespace BS3D.Tools.LevelGen
             Name = "Static",
             Grid = 15,
             //Four deep and not six. The difficulty here is the six colours and the four-ball group, not the
-            //tonnage: six deep came out at 555 balls, half again as many as Two, and the pack has a weak
-            //laptop to run on. Four keeps it in Two's family at ~370 while every shot still costs the same.
+            //tonnage: six deep came out at 555 balls, half again as many as Colossus, and the pack has a weak
+            //laptop to run on. Four keeps it in Colossus's family at ~370 while every shot still costs the same.
             Depth = 4,
             Scene = new SpaceSceneConfig(),
             Sky = 1,
@@ -456,7 +457,7 @@ namespace BS3D.Tools.LevelGen
             Shots = 90,
             CeilingStep = 5,
             //Five cells across, against the pack's eleven. Twenty-four levels of a thirteen-wide disc would
-            //be well over a thousand constrained bodies; this is ~500, in Two's family, and a tall level is
+            //be well over a thousand constrained bodies; this is ~500, in Colossus's family, and a tall level is
             //meant to last through its height rather than its mass.
             Occupied = (r, ang, i, depth) => r <= 2.6f,
             //Bands two levels thick around four colours: reading the column is reading what is coming, and a
