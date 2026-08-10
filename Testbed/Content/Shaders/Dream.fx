@@ -37,6 +37,9 @@
 #define ORB_COUNT 7
 #define SPARK_COUNT 14
 
+//What the reduced program carries instead - see DreamScene.
+#define SPARK_COUNT_REDUCED 4
+
 float4x4 InverseViewProjection;
 float3 CameraPosition;
 float DreamTime;
@@ -88,23 +91,26 @@ float3 Palette(float t)
 //keep, and feeding one fBm's output into another's DOMAIN (twice) is what produces the filaments, eddies
 //and mixing that real turbulence has. The time rides inside the domains, so the fluid itself evolves
 //rather than a fixed pattern scrolling.
-float3 Background(float3 d)
+//`warpOctaves` is 3 on the authored scene and 2 on the reduced program. It is the ONE reduction in this file
+//that pays on its own - measured 4.40 -> 4.08 ms - and the reason is that it is the only one touching EVERY
+//pixel rather than only the pixels a solid was hit on. See DreamScene for the rest of that sweep.
+float3 Background(float3 d, int warpOctaves)
 {
 	float t = DreamTime;
 	float3 p = d * SwirlScale;
 
 	//The first warp: three offset fBms driving the domain apart - slow, the broad circulation.
 	float3 q;
-	q.x = Fbm3(p + float3(0.0, 1.7, t * SwirlSpeedSlow), 3);
-	q.y = Fbm3(p + float3(5.2, 8.3, -t * SwirlSpeedSlow * 0.8), 3);
-	q.z = Fbm3(p + float3(9.1, 2.8, t * SwirlSpeedSlow * 0.6), 3);
+	q.x = Fbm3(p + float3(0.0, 1.7, t * SwirlSpeedSlow), warpOctaves);
+	q.y = Fbm3(p + float3(5.2, 8.3, -t * SwirlSpeedSlow * 0.8), warpOctaves);
+	q.z = Fbm3(p + float3(9.1, 2.8, t * SwirlSpeedSlow * 0.6), warpOctaves);
 
 	//The second warp, off the already-warped domain - the layer that turns smooth drift into mixing.
 	float3 warped = p + SwirlWarp * q;
 	float3 r;
-	r.x = Fbm3(warped * 1.3 + float3(1.7, 9.2, t * SwirlSpeedSlow * 0.5), 3);
-	r.y = Fbm3(warped * 1.3 + float3(8.3, 2.8, -t * SwirlSpeedSlow * 0.4), 3);
-	r.z = Fbm3(warped * 1.3 + float3(4.1, 6.9, t * SwirlSpeedSlow * 0.7), 3);
+	r.x = Fbm3(warped * 1.3 + float3(1.7, 9.2, t * SwirlSpeedSlow * 0.5), warpOctaves);
+	r.y = Fbm3(warped * 1.3 + float3(8.3, 2.8, -t * SwirlSpeedSlow * 0.4), warpOctaves);
+	r.z = Fbm3(warped * 1.3 + float3(4.1, 6.9, t * SwirlSpeedSlow * 0.7), warpOctaves);
 
 	float field = Fbm3(p + SwirlWarp * r, 4);
 
@@ -221,12 +227,27 @@ DreamVertexOutput DreamVS(DreamVertexInput input)
 	return output;
 }
 
-float4 DreamPS(DreamVertexOutput input) : COLOR
+//`detail` is an ordinary argument passed a LITERAL by each entry point below, so it constant-folds and each
+//comes out a separate program with its own register allocation - the forest's and the cavern's mechanism,
+//and for the same measured reason. Front end, 1600x900, desktop GPU, dome 13, nocap, against 4.40 ms:
+//
+//  Background() dropped from the reflection   4.42 ms   (nothing)
+//  sparks 14 -> 4                             4.47      (nothing)
+//  spark trail 3 -> 1 sample                  4.43      (nothing)
+//  warp octaves 3 -> 2                        4.08      (0.32 - the one single that pays)
+//  reflection + sparks                        3.62
+//  reflection + trail                         3.72
+//  all four                                   3.15
+//
+//The pass is occupancy-bound like the other two, so single reductions are worth nothing - except the warp
+//octaves, which are the only thing here evaluated on every pixel rather than only where a solid was hit.
+//The reduced program therefore takes all four.
+float4 DreamScene(DreamVertexOutput input, bool detail)
 {
 	float3 direction = normalize(input.Ray);
 	float t = DreamTime;
 
-	float3 color = Background(direction);
+	float3 color = Background(direction, detail ? 3 : 2);
 
 	//--- The soft orbs: huge, slow, blurred - luminous presences breathing through the marbling. Each takes
 	//its own palette phase and swells on its own cycle, so at any moment some are waxing while others fade.
@@ -249,13 +270,13 @@ float4 DreamPS(DreamVertexOutput input) : COLOR
 	//spark's own recent path make the head a comet: the trail is what reads as speed at any frame rate, the
 	//fireworks' lesson.
 	[unroll]
-	for (int s = 0; s < SPARK_COUNT; s++)
+	for (int s = 0; s < (detail ? SPARK_COUNT : SPARK_COUNT_REDUCED); s++)
 	{
 		float fs = (float)s;
 		float rate = SparkSpeed * (0.7 + 0.6 * frac(fs * 0.617));
 
 		[unroll]
-		for (int trail = 0; trail < 3; trail++)
+		for (int trail = 0; trail < (detail ? 3 : 1); trail++)
 		{
 			float tt = t - (float)trail * 0.06;
 			float3 center = float3(
@@ -344,7 +365,12 @@ float4 DreamPS(DreamVertexOutput input) : COLOR
 		//emission down: a hallucination has no unlit objects, and still its folds have depth.
 		float3 own = Palette(bestShape * 0.17 + t * 0.010);
 		float fresnel = pow(1.0 - saturate(dot(normal, -direction)), 3.0);
-		float3 mirrored = Background(reflect(direction, normal));
+		//The reduced program mirrors a flat DeepColor rather than re-running the whole background. It is half of
+		//the cheapest pair that pays anything at all (see DreamScene), and the solids are rounded and
+		//semi-matte - a first-order warp is already past what a reflection at that curvature resolves.
+		float3 mirrored = DeepColor;
+
+		if (detail) mirrored = Background(reflect(direction, normal), 3);
 
 		float3 shapeColor = own * ShapeEmission * (0.55 + 0.45 * fresnel) * (0.35 + 0.65 * ao)
 			+ mirrored * ShapeReflection * (0.4 + 0.6 * fresnel) * ao;
@@ -358,11 +384,26 @@ float4 DreamPS(DreamVertexOutput input) : COLOR
 	return float4(color, 1.0);
 }
 
+//Two programs from one body, as the forest floor and the cavern have. "DreamReduced" drops the background's
+//second evaluation in the reflection, most of the sparks, two thirds of each spark's trail and one octave
+//off both warp layers. The caller picks by tier through SceneRenderer.SceneDetail.
+float4 DreamPS(DreamVertexOutput input) : COLOR { return DreamScene(input, true); }
+float4 DreamReducedPS(DreamVertexOutput input) : COLOR { return DreamScene(input, false); }
+
 technique Dream
 {
 	pass P0
 	{
 		VertexShader = compile VS_SHADERMODEL DreamVS();
 		PixelShader = compile PS_SHADERMODEL DreamPS();
+	}
+};
+
+technique DreamReduced
+{
+	pass P0
+	{
+		VertexShader = compile VS_SHADERMODEL DreamVS();
+		PixelShader = compile PS_SHADERMODEL DreamReducedPS();
 	}
 };

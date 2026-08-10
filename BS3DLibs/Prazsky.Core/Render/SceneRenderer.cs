@@ -1214,6 +1214,11 @@ namespace Prazsky.Core.Render
             //The cavern's pair is the water's second wall shade and the spore count — see CavernScene. Both
             //effects are loaded in the constructor, so neither is null by the time anything writes SceneDetail.
             _cavernEffect.CurrentTechnique = _cavernEffect.Techniques[_sceneDetail > 0.5f ? "Cavern" : "CavernReduced"];
+
+            //The dream's four: the background's second evaluation in the reflection, most of the sparks, most
+            //of each spark's trail, and an octave off both warp layers — the last being the only reduction in
+            //any of these three scenes that pays on its own, since it is the only one on every pixel.
+            _dreamEffect.CurrentTechnique = _dreamEffect.Techniques[_sceneDetail > 0.5f ? "Dream" : "DreamReduced"];
         }
 
         private void SelectForestTechnique() =>
