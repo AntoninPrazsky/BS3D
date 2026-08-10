@@ -39,6 +39,23 @@ command line, not by pressing NumPad1/2:
 - `scene=<city|sea|savanna|desert|mountain|meadow|neon|forest|space|dream|cavern|moon>` — starting environment. Everything past `neon` sits past the end of the NumPad2 cycle, so `scene=` is the only way to reach those in the Testbed.
 - `sky=<1..18>` — starting sky dome. `ssaa=<n>`, `exposure=<f>`, `nocap`, a map path — as in `verify`.
 
+## Capturing at a higher resolution: `width=` / `height=`
+
+A windowed screenshot is only ever as big as the window, so to judge detail the way it reads at the
+desktop's play resolution, set the back buffer directly rather than relying on the 1600×900 default:
+
+```powershell
+.\screenshot.ps1 -Out kong.png -GameArgs @('scene=mountain','width=3840','height=2160','campos=0,-1,40','camtarget=0,-9,0')
+```
+
+- `width=<n>` / `height=<n>` — windowed back buffer size, overriding 1600×900. The capture is then that many
+  pixels across. Pairs with `ssaa=<n>` (internal sharpness) but is separate from it: `ssaa` changes the
+  supersampled render target that is box-filtered back down, `width`/`height` change what is presented and
+  captured.
+- **Caveat:** the capture still uses `GetWindowRect` + `CopyFromScreen`, so a window wider than the physical
+  monitor is clipped to the monitor — this gets a 4K capture on a 4K (or larger) panel, but not on a sub-4K
+  laptop display. A true decoupled off-screen capture is not yet wired up.
+
 ## `screenshot.ps1`
 
 ```powershell

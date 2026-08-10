@@ -3,7 +3,7 @@
 #   .\screenshot.ps1 -Out shot.png -GameArgs @('scene=mountain','campos=0,-18,24','camtarget=0,-8,0')
 #   .\screenshot.ps1 -Out drained.png -GameArgs @('scene=mountain','Maps\Full.json') -Keys @('End') -Wait 10
 #
-# -GameArgs : arguments passed to Testbed.exe (a map path, scene=, sky=, campos=/camtarget=, ssaa=, exposure=, nocap...)
+# -GameArgs : arguments passed to Testbed.exe (a map path, scene=, sky=, campos=/camtarget=, ssaa=, exposure=, nocap, width=/height=...)
 # -Keys     : key names sent to the window after launch, in order (see $KEYS below): view presets D1..D6, F5 (stop
 #             sim), F10 (game mode), F12 (hide overlay), End (release all balls), Space (shoot). Sent via scan code
 #             because SDL reads the scan code, not the virtual key.
