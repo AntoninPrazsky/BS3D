@@ -211,7 +211,7 @@ namespace BS3D.Screens
 
             Console.WriteLine($"[level] Cleared '{LevelName(_levelIndex)}' with {_score.Score}"
                 + $" (+{bonus} for {_score.ShotsRemaining?.ToString() ?? "unlimited"} unused)"
-                + $", needed {LevelMinScore(_levelIndex)}");
+                + $", {StarRating.Rate(_score.Score, _initialBallCount)} star(s)");
         }
 
         /// <summary>
@@ -375,15 +375,13 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// What the player is told about a loss. The two hard limits carry no figures at all — a world-space Y
-        /// or a budget they already watched run down tells them nothing they can act on. The gate does carry
-        /// one, because the number they missed by is the whole of what it is telling them.
+        /// What the player is told about a loss. The two limits carry no figures at all — a world-space Y
+        /// or a budget they already watched run down tells them nothing they can act on.
         /// </summary>
-        private string FailureText(LevelFailure failure) => failure switch
+        private static string FailureText(LevelFailure failure) => failure switch
         {
             LevelFailure.OutOfBalls => "You ran out of balls.",
             LevelFailure.ClusterReachedLine => "The cluster reached the line.",
-            LevelFailure.ShortOfGate => $"Cleared — but {LevelMinScore(_levelIndex):N0} was needed to unlock the next level.",
             _ => string.Empty,
         };
 
@@ -401,20 +399,12 @@ namespace BS3D.Screens
         /// </summary>
         private void FinishLevel()
         {
-            int required = LevelMinScore(_levelIndex);
-
-            //Cleared but short of the gate is a fail the player chose — a sloppy clear — rather than a clear
-            //the game then undoes. The level did not advance, and "Retry" is the way forward.
-            if (_score.Score < required)
-            {
-                _pendingOutcome = LevelOutcome.Failed;
-                _pendingFailure = LevelFailure.ShortOfGate;
-            }
-            else
-            {
-                _pendingOutcome = LevelOutcome.Cleared;
-                _pendingFailure = LevelFailure.None;
-            }
+            //Clearing the field IS passing the level, without a further test: the per-level score gate this
+            //used to weigh (ShortOfGate) is retired with #111 — a clear always rates at least one star, and
+            //whether the NEXT level opens is the star total's question, answered on the result screen rather
+            //than by failing a level the player just watched themselves win.
+            _pendingOutcome = LevelOutcome.Cleared;
+            _pendingFailure = LevelFailure.None;
 
             ShowResultScreen();
         }
@@ -447,13 +437,22 @@ namespace BS3D.Screens
             //did not add up to the total above it. See LevelResult.
             bool cleared = _pendingOutcome == LevelOutcome.Cleared;
             bool lastEntry = Game.LevelSet == null || _levelIndex + 1 >= Game.LevelSet.Count;
-            bool shortOfGate = _pendingOutcome == LevelOutcome.Failed && _pendingFailure == LevelFailure.ShortOfGate;
+
+            //The rating and the record, at the one funnel both endings come through. Recorded BEFORE the
+            //unlock below is read, so the stars this clear just earned already count towards the next
+            //level's gate — a clear that pushes the total over it unlocks Next Level on this very screen.
+            int stars = cleared ? StarRating.Rate(_score.Score, _initialBallCount) : 0;
+            bool newBest = cleared && Game.RecordLevelResult(_levelIndex, _score.Score, stars);
 
             Game.PresentResult(new LevelResult(
                 cleared: cleared,
                 failureText: cleared ? null : FailureText(_pendingFailure),
-                shortOfGate: shortOfGate,
+                stars: stars,
+                newBest: newBest,
                 hasNextLevel: !lastEntry,
+                nextLevelUnlocked: !lastEntry && Game.IsLevelUnlocked(_levelIndex + 1),
+                nextLevelMinStars: lastEntry ? 0 : Game.LevelMinStars(_levelIndex + 1),
+                totalStars: Game.TotalStars,
 
                 //"Campaign complete" only when there actually was a campaign — a set of more than one level
                 //cleared to its end. A single-level set is just a level cleared, and calling it a campaign's
@@ -466,26 +465,16 @@ namespace BS3D.Screens
                 streakBonus: _score.StreakBonus,
                 hadBudget: _score.ShotsRemaining.HasValue,
                 unusedShotsAwarded: _score.UnusedShotsAwarded,
-                completionBonusAwarded: _score.CompletionBonusAwarded,
-                neededScore: LevelMinScore(_levelIndex)));
+                completionBonusAwarded: _score.CompletionBonusAwarded));
 
             Console.WriteLine($"[level] Result for '{LevelName(_levelIndex)}': {_pendingOutcome}" + (_pendingOutcome == LevelOutcome.Failed ? $" ({_pendingFailure})" : "")
-                + $", score {_score.Score}");
+                + $", score {_score.Score}"
+                + (cleared ? $", {stars} star(s){(newBest ? ", new best" : "")}, {Game.TotalStars} total" : ""));
         }
 
         /// <summary>What to call the level at <paramref name="index"/>, set or no set.</summary>
         private string LevelName(int index) =>
             Game.LevelSet != null && index >= 0 && index < Game.LevelSet.Count ? Game.LevelSet.DisplayName(index) : "the built-in level";
-
-        /// <summary>
-        /// The score the entry at <paramref name="index"/> demands before the <b>next</b> level unlocks. Zero —
-        /// what an absent rule, a missing set and an index outside it all mean — leaves clearing the field
-        /// enough on its own, which is what every level is until one opts into the gate.
-        /// </summary>
-        private int LevelMinScore(int index) =>
-            Game.LevelSet != null && index >= 0 && index < Game.LevelSet.Count
-                ? Game.LevelSet.Levels[index].MinScore.GetValueOrDefault()
-                : 0;
 
         /// <summary>
         /// The ball budget the entry at <paramref name="index"/> grants, or null for unlimited — which is what

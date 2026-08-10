@@ -17,8 +17,16 @@ namespace BS3D.Screens
 
         private Label _fullscreenValue, _qualityValue, _exposureValue, _skyValue, _fpsValue;
         private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _aberrationValue, _grainValue;
+        private Label _progressValue;
+
+        //The reset row asks twice. One click on a row that erases every star is an accident waiting beside
+        //ten rows that are safe to click freely — so the first click only arms it and shows "Sure?", the
+        //second wipes, and opening the page anew (Enter) stands it down again.
+        private bool _resetArmed;
 
         public SettingsPage(BS3DGame game) : base(game) { }
+
+        public override void Enter() => _resetArmed = false;
 
         protected override Widget BuildTree()
         {
@@ -54,6 +62,9 @@ namespace BS3D.Screens
             AddRow(grid, 8, "Effects", Game.CycleSfxVolume, out _effectsValue);
             AddRow(grid, 9, "Music", Game.CycleMusicVolume, out _musicValue);
             AddRow(grid, 10, "Ambience", Game.CycleAmbienceVolume, out _ambienceValue);
+            //The campaign back to zero stars (#92) — for testing as much as for a fresh start. The resting
+            //value shows the star total the click would erase; the click itself is two-step (see _resetArmed).
+            AddRow(grid, 11, "Reset progress", OnResetProgress, out _progressValue);
 
             column.Widgets.Add(grid);
             column.Widgets.Add(MenuButton("Back", GoBack));
@@ -102,6 +113,28 @@ namespace BS3D.Screens
             _effectsValue.Text = FormatVolume(Game.SfxVolume);
             _musicValue.Text = FormatVolume(Game.MusicVolume);
             _ambienceValue.Text = FormatVolume(Game.AmbienceVolume);
+            //In words, not the ★ glyph the picker uses: the value column is set in the display face like
+            //every row here, and Anton simply has no star glyph — FontStashSharp would drop it and leave a
+            //bare number (which is exactly how this line first rendered).
+            _progressValue.Text = _resetArmed ? "Sure?"
+                : Game.TotalStars == 1 ? "1 star" : $"{Game.TotalStars} stars";
+        }
+
+        /// <summary>
+        /// The two-step reset: armed by the first click, done by the second. The page-local state is the
+        /// whole mechanism — the host's <see cref="BS3DGame.ResetProgress"/> is only ever called once the
+        /// player has said it twice.
+        /// </summary>
+        private void OnResetProgress()
+        {
+            if (_resetArmed)
+            {
+                _resetArmed = false;
+                Game.ResetProgress();
+            }
+            else _resetArmed = true;
+
+            Refresh();
         }
 
         /// <summary>"Off" at zero rather than "0 %": silence is a state, not a quantity.</summary>

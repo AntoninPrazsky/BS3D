@@ -20,12 +20,12 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class ResultPage : MenuPage
     {
-        private Label _heading, _reason, _bareScore;
+        private Label _heading, _stars, _newBest, _reason, _bareScore;
         private Label _matchedDetail, _matchedValue;
         private Label _orphanedDetail, _orphanedValue;
         private Label _streakValue;
         private Label _unusedDetail, _unusedValue;
-        private Label _totalValue, _neededValue;
+        private Label _totalValue, _unlockNote;
         private Widget _breakdown;
         private Button _nextLevelButton;
 
@@ -136,6 +136,31 @@ namespace BS3D.Screens
             };
             column.Widgets.Add(_heading);
 
+            //The star rating, straight under the verdict — the headline a player reads at a glance where the
+            //score below is the arithmetic (#111). Set in Inter (FontStars), not the display face: Anton has
+            //no ★/☆ glyphs at all, and FontStashSharp would draw blanks. Opened up with spaces so four glyphs
+            //read as a rating rather than as a word.
+            _stars = new Label
+            {
+                Text = string.Empty,
+                Font = FontStars,
+                TextColor = BS3DGame.MENU_TEXT,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = ScaledThickness(0, 0, 0, 12),
+            };
+            column.Widgets.Add(_stars);
+
+            //Under the stars, and only when a best actually moved: a line that is always there says nothing.
+            _newBest = new Label
+            {
+                Text = "New best",
+                Font = FontSmall,
+                TextColor = BS3DGame.MENU_TEXT_DIM,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = ScaledThickness(0, 0, 0, 12),
+            };
+            column.Widgets.Add(_newBest);
+
             //Which limit ran out, said plainly — only on a fail. Held back (Visible = false) on a cleared level.
             _reason = new Label
             {
@@ -213,20 +238,23 @@ namespace BS3D.Screens
             Grid.SetRow(_totalValue, 4);
             grid.Widgets.Add(_totalValue);
 
-            //The gate the level set, as an aside under the total — "needed 1500" — so a player can see at a
-            //glance whether the score cleared it without having to remember the number.
+            //The one gate left, as an aside under the total: the NEXT level's star requirement, shown only
+            //when the total falls short of it — which is also exactly when the Next Level button is absent,
+            //so the note is what explains the absence. Spanning the grid, because it is a sentence about the
+            //campaign rather than another line of the sum.
             grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
-            _neededValue = new Label
+            _unlockNote = new Label
             {
                 Text = string.Empty,
                 Font = FontSmall,
                 TextColor = BS3DGame.MENU_TEXT_DIM,
-                HorizontalAlignment = HorizontalAlignment.Right,
+                HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            Grid.SetColumn(_neededValue, 2);
-            Grid.SetRow(_neededValue, 5);
-            grid.Widgets.Add(_neededValue);
+            Grid.SetColumn(_unlockNote, 0);
+            Grid.SetColumnSpan(_unlockNote, 3);
+            Grid.SetRow(_unlockNote, 5);
+            grid.Widgets.Add(_unlockNote);
 
             return grid;
         }
@@ -279,6 +307,13 @@ namespace BS3D.Screens
             //them apart — see the palette comment for why nothing here carries a hue.
             _heading.Text = _result.CampaignComplete ? "CAMPAIGN COMPLETE" : (_result.Cleared ? "CLEARED" : "FAILED");
 
+            //Stars only on a clear. A failed level shows NO row rather than four hollow glyphs: a loss is not
+            //a rating of zero, and an empty rating under "FAILED" reads as scorn.
+            _stars.Text = _result.Cleared ? StarText(_result.Stars, " ") : string.Empty;
+            _stars.Visible = _result.Cleared;
+
+            _newBest.Visible = _result.Cleared && _result.NewBest;
+
             //The reason and the score reached are only on a fail. Hidden rather than left blank on a clear, so
             //they take no space. The reason is worded where the result is built and not where the loss was
             //detected: a message built at the point of detection carries the figures that were convenient
@@ -307,15 +342,20 @@ namespace BS3D.Screens
                 _unusedValue.Text = _result.CompletionBonusAwarded.ToString("N0", CultureInfo.InvariantCulture);
                 _totalValue.Text = _result.Score.ToString("N0", CultureInfo.InvariantCulture);
 
-                _neededValue.Text = _result.NeededScore > 0
-                    ? $"needed {_result.NeededScore.ToString("N0", CultureInfo.InvariantCulture)}"
+                //Only when the road ahead is actually shut — which is also when the Next Level button below
+                //is absent, so this line is the absence explained rather than a number always on display.
+                bool nextLocked = _result.HasNextLevel && !_result.NextLevelUnlocked;
+                _unlockNote.Text = nextLocked
+                    ? $"Next level unlocks at {_result.NextLevelMinStars} ★ — you have {_result.TotalStars}"
                     : string.Empty;
+                _unlockNote.Visible = nextLocked;
             }
 
-            //Next Level is shown only when the level was passed AND there is another entry to go to. Absent,
-            //not disabled, when neither holds — a greyed-out button over a frozen frame is a thing the player
-            //cannot do, which reads as the game being broken rather than as the level being the last.
-            _nextLevelButton.Visible = _result.Cleared && _result.HasNextLevel;
+            //Next Level is shown only when the level was cleared, there is another entry to go to AND the
+            //star total opens it. Absent, not disabled, when any of that fails — a greyed-out button over a
+            //frozen frame is a thing the player cannot do, which reads as the game being broken rather than
+            //as the campaign asking for more stars (the note above says that in words).
+            _nextLevelButton.Visible = _result.Cleared && _result.HasNextLevel && _result.NextLevelUnlocked;
         }
     }
 }

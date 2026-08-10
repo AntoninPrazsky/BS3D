@@ -101,7 +101,7 @@ namespace BS3D
         //glyph, so a second face added beside the first would never be reached — the first has every glyph.
         //Picking a face means picking a system.
         private FontSystem _menuFontSystem, _menuFontSystemBold, _menuFontSystemDisplay;
-        private SpriteFontBase _menuFontBody, _menuFontSmall, _menuFontHeading, _menuFontTitle;
+        private SpriteFontBase _menuFontBody, _menuFontSmall, _menuFontHeading, _menuFontTitle, _menuFontStars;
 
         //The menu is deliberately GREYSCALE — no hue anywhere, and no coloured frames. It has to sit over
         //eleven backdrops whose palettes are nothing alike (a neon city, an ochre desert, a blue sea, white
@@ -200,6 +200,12 @@ namespace BS3D
         private const int MENU_FONT_HEADING = 124;
         private const int MENU_FONT_TITLE = 170;
 
+        //The result screen's star rating — a headline, but set in INTER at a heading's size rather than in
+        //the display face like every other loud thing here: Anton carries no ★/☆ glyphs at all (checked in
+        //the font, not assumed), and FontStashSharp would draw blanks where the rating should be. A size is
+        //its own atlas, hence its own constant and its own GetFont below.
+        private const int MENU_FONT_STARS = 116;
+
         //The exposure ladder the settings button walks. Centred on DEFAULT_EXPOSURE, wide enough either way
         //to matter on a dim laptop panel and on a bright monitor without ever crushing or blowing the frame.
         private const float EXPOSURE_MIN = 0.7f;
@@ -290,6 +296,7 @@ namespace BS3D
             _menuFontBody = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_BODY));
             _menuFontHeading = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_HEADING));
             _menuFontTitle = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_TITLE));
+            _menuFontStars = _menuFontSystem.GetFont(Scaled(MENU_FONT_STARS));
 
             //The trees themselves are NOT rebuilt here: each page rebuilds its own the next time it is asked
             //for one, against this generation (MenuLayoutGeneration). A page the player never opens never
@@ -346,6 +353,7 @@ namespace BS3D
         internal SpriteFontBase MenuFontSmall => _menuFontSmall;
         internal SpriteFontBase MenuFontHeading => _menuFontHeading;
         internal SpriteFontBase MenuFontTitle => _menuFontTitle;
+        internal SpriteFontBase MenuFontStars => _menuFontStars;
 
         //What the pages ask the game about itself. Read-only: a page shows state and asks for an action, and
         //nothing here lets it write one directly.
@@ -366,6 +374,31 @@ namespace BS3D
         internal int LevelCount => _levelSet?.Count ?? 0;
         internal string LevelDisplayName(int index) => _levelSet.DisplayName(index);
         internal string LevelRulesText(int index) => _levelSet.DescribeRules(index);
+
+        /// <summary>All the stars collected across the campaign — the currency unlocks are weighed in.</summary>
+        internal int TotalStars => _progress?.TotalStars ?? 0;
+
+        /// <summary>The best stars one entry has earned, or 0 for a level never cleared.</summary>
+        internal int LevelStars(int index) =>
+            _progress != null && _levelSet != null && index >= 0 && index < _levelSet.Count
+                ? _progress.StarsFor(_levelSet.Levels[index].File)
+                : 0;
+
+        /// <summary>
+        /// The total stars the entry demands before it unlocks. Zero — an absent rule, a missing set and an
+        /// index outside it — means open from the start, which is the read site the nullable rule is
+        /// documented against, like the budget's and the ceiling's in <c>GameplayScreen.Rules.cs</c>.
+        /// </summary>
+        internal int LevelMinStars(int index) =>
+            _levelSet != null && index >= 0 && index < _levelSet.Count
+                ? _levelSet.Levels[index].MinStars.GetValueOrDefault()
+                : 0;
+
+        /// <summary>
+        /// Whether the entry may be played yet. A missing set (the built-in level) and an unauthored gate are
+        /// both open, so the gate only ever bites where a set said it should.
+        /// </summary>
+        internal bool IsLevelUnlocked(int index) => TotalStars >= LevelMinStars(index);
 
         /// <summary>
         /// Names the level being played in the window's title bar, and restores the plain
