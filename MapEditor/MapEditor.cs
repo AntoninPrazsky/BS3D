@@ -506,6 +506,11 @@ namespace MapEditor
             //light rig of whatever dome was up when it was made. The array the component hands back, walked
             //directly, for the reason BallRenderSet.Renderers gives above.
             foreach (InstancedModelRenderer renderer in _forestScatter.Renderers) _rig.ApplyTo(renderer);
+
+            //And the wood's own pigments, which the rig above cannot reach — see ForestScatterRenderer.
+            //ShiftTowardsSky (#108). This is the executable the symptom is quickest to see in: B cycles the
+            //domes over a parked forest.
+            _forestScatter.ApplySkyTint(_rig.KeyTint);
         }
 
         private void CenterViewOn(Vector3 lookDirection)

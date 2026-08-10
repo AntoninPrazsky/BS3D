@@ -132,6 +132,15 @@ namespace Prazsky.Core.Render
 
         private readonly BasicEffectParams _foliageEffectParams, _barkEffectParams, _rockEffectParams;
 
+        /// <summary>
+        /// How far a pigment is carried towards the dome's hue by <see cref="ApplySkyTint"/>. A third: enough
+        /// that a sunset warms the wood and a cold dome cools it unmistakably, and far enough short of 1 that
+        /// a spruce is still recognisably a spruce rather than whatever colour the sky happens to be. It is
+        /// the same figure and the same idea as <c>SkyLightRig.SKY_TINT_STRENGTH</c>, which lerps the key
+        /// light half of the way to the horizon rather than all of it, and for the same reason.
+        /// </summary>
+        private const float SKY_TINT_STRENGTH = 0.34f;
+
         //Everything below is derived from the config, so all of it is rebuilt by Replant and none of it can be
         //readonly. The mesh variants: a bark lathe under a lathed tiered cone for a spruce or a lobed sphere
         //for a broadleaf, plus a rock lathe and a stump lathe.
@@ -155,6 +164,16 @@ namespace Prazsky.Core.Render
         private Vector3[] _coniferTrunkTints, _coniferCrownTints;
         private Vector3[] _broadleafTrunkTints, _broadleafCrownTints;
         private Vector3[] _rockTints, _stumpTints;
+
+        //The dome hue the tints above were last encoded against, so re-encoding is skipped on every frame the
+        //dome has not moved — which is nearly all of them, since ApplySkyTint is called from the same
+        //per-frame pass the overcast lerp drives. Starts white, which is "no shift" and matches a caller that
+        //never calls it at all.
+        private Vector3 _skyTint = Vector3.One;
+
+        //The authored linear colours, kept because the encoded tints above can no longer be re-derived from
+        //themselves: the sky shift is applied on the way in, so re-encoding needs the originals.
+        private Vector3 _barkColorLinear, _coniferColorLinear, _foliageColorLinear, _rockColorLinear, _stumpColorLinear;
 
         private ForestScatter _scatter;
 
@@ -411,14 +430,13 @@ namespace Prazsky.Core.Render
 
             //The trunks of both species share the bark colour; the stumps have a lighter wood of their own,
             //being mostly the pale sawn face. Only the two canopies take per-variant multipliers.
-            Vector3 barkColor = trees.TrunkColor.ToVector3();
+            _barkColorLinear = trees.TrunkColor.ToVector3();
+            _coniferColorLinear = trees.ConiferColor.ToVector3();
+            _foliageColorLinear = trees.FoliageColor.ToVector3();
+            _rockColorLinear = config.Rocks.Color.ToVector3();
+            _stumpColorLinear = config.Stumps.Color.ToVector3();
 
-            _coniferTrunkTints = EncodeTints(barkColor, _coniferMeshes.Length, null);
-            _coniferCrownTints = EncodeTints(trees.ConiferColor.ToVector3(), _coniferMeshes.Length, CONIFER_TINTS);
-            _broadleafTrunkTints = EncodeTints(barkColor, _broadleafMeshes.Length, null);
-            _broadleafCrownTints = EncodeTints(trees.FoliageColor.ToVector3(), _broadleafMeshes.Length, BROADLEAF_TINTS);
-            _rockTints = EncodeTints(config.Rocks.Color.ToVector3(), _rockMeshes.Length, null);
-            _stumpTints = EncodeTints(config.Stumps.Color.ToVector3(), _stumpMeshes.Length, null);
+            EncodeAllTints();
 
             //Planted on the forest floor the terrain shader draws: ForestTerrainHeight mirrors Forest.fx's
             //height field on the CPU, so a tree's base sits on the ground the player sees. The scatter is told
@@ -451,17 +469,88 @@ namespace Prazsky.Core.Render
         /// <param name="variants">How many mesh variants the kind has.</param>
         /// <param name="variantTints">Per-variant multipliers on the linear colour, or null for a kind whose
         /// variants all take the config colour as it stands (the bark and the stone).</param>
-        private static Vector3[] EncodeTints(Vector3 linearColor, int variants, Vector3[] variantTints)
+        private Vector3[] EncodeTints(Vector3 linearColor, int variants, Vector3[] variantTints)
         {
             var tints = new Vector3[variants];
 
             for (int variant = 0; variant < variants; variant++)
             {
                 Vector3 linear = variantTints == null ? linearColor : linearColor * variantTints[variant];
-                tints[variant] = ColorSpace.LinearToSrgb(linear);
+                tints[variant] = ColorSpace.LinearToSrgb(ShiftTowardsSky(linear));
             }
 
             return tints;
+        }
+
+        /// <summary>
+        /// Moves a pigment part of the way towards the dome's own hue, <b>at its own brightness</b>.
+        /// <para>
+        /// <b>Why a colour needs shifting at all when the lighting already carries the dome.</b> It does carry
+        /// it — the rig tints the key light and the hemisphere ambient, and the wood is enrolled for both in
+        /// all three executables. The trouble is the pigment: the authored foliage is
+        /// <c>(0.042, 0.115, 0.026)</c> linear, whose red and blue channels are near zero, so a coloured light
+        /// has almost nothing to multiply there and the crowns stay the same green under every sky while the
+        /// ground around them turns with the dome (#108). Proved by making the pigment neutral grey for one
+        /// run: the very same trees then took a sunset dome fully, salmon-pink, with not a line of the
+        /// lighting path changed. A saturated pigment not taking a coloured light is correct physics — it is
+        /// simply not the picture this scene wants, so the pigment is what has to move.
+        /// </para>
+        /// <para>
+        /// Brightness is preserved deliberately: the shift rescales the dome's tint to the pigment's own
+        /// luminance before blending, so a dark dome cannot darken the wood and a bright one cannot light it.
+        /// What changes is hue alone, which is what "takes the scene's mood" means and all it should mean.
+        /// </para>
+        /// </summary>
+        private Vector3 ShiftTowardsSky(Vector3 linear)
+        {
+            float tintLuminance = _skyTint.X * 0.2126f + _skyTint.Y * 0.7152f + _skyTint.Z * 0.0722f;
+            if (tintLuminance <= 1e-4f) return linear;
+
+            float luminance = linear.X * 0.2126f + linear.Y * 0.7152f + linear.Z * 0.0722f;
+            Vector3 domeHued = _skyTint * (luminance / tintLuminance);
+
+            return Vector3.Lerp(linear, domeHued, SKY_TINT_STRENGTH);
+        }
+
+        //Re-encodes every tint table from the authored linear colours. Cheap and rare: six small arrays,
+        //twenty-five entries between them, run at build, at a replant and when the dome's hue actually moves.
+        private void EncodeAllTints()
+        {
+            //The trunks of both species share the bark colour; the stumps have a lighter wood of their own,
+            //being mostly the pale sawn face. Only the two canopies take per-variant multipliers.
+            _coniferTrunkTints = EncodeTints(_barkColorLinear, _coniferMeshes.Length, null);
+            _coniferCrownTints = EncodeTints(_coniferColorLinear, _coniferMeshes.Length, CONIFER_TINTS);
+            _broadleafTrunkTints = EncodeTints(_barkColorLinear, _broadleafMeshes.Length, null);
+            _broadleafCrownTints = EncodeTints(_foliageColorLinear, _broadleafMeshes.Length, BROADLEAF_TINTS);
+            _rockTints = EncodeTints(_rockColorLinear, _rockMeshes.Length, null);
+            _stumpTints = EncodeTints(_stumpColorLinear, _stumpMeshes.Length, null);
+        }
+
+        /// <summary>
+        /// Tells the wood which sky it is standing under, so its pigments can take that sky's hue — see
+        /// <see cref="ShiftTowardsSky"/> for why the lighting alone cannot do it. Call it from the same place
+        /// the sky light rig is applied; the executables all have one.
+        /// </summary>
+        /// <param name="domeTint">
+        /// The dome's tint, in linear radiance — <c>SkyLightRig.KeyTint</c> is what every caller passes, so the
+        /// wood shifts by the very tint the sun over it is taking. White means no shift.
+        /// </param>
+        /// <remarks>
+        /// Guarded on the value, because this is called from a per-frame pass (the overcast lerp re-applies the
+        /// rig every frame) and re-encoding twenty-five tints every frame for a dome that has not moved is
+        /// exactly the kind of per-frame arithmetic the tint cache exists to avoid.
+        /// </remarks>
+        public void ApplySkyTint(Vector3 domeTint)
+        {
+            if (domeTint == _skyTint) return;
+
+            //Stored before the guard below rather than after it, so a tint that arrives while there is nothing
+            //to encode is remembered rather than dropped — the next Build reads it and the wood comes up
+            //already under the right sky. Nothing calls it that early today (Build runs in the constructor);
+            //this is the ordering that stays correct if something ever does.
+            _skyTint = domeTint;
+
+            if (_coniferMeshes != null) EncodeAllTints();
         }
 
         //One instanced draw per mesh variant of a scattered kind, each with that variant's own instances and

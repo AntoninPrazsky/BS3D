@@ -830,6 +830,12 @@ namespace Testbed
             _rig.SetSky(_sky, _scene);
             _rig.ApplyTo(SkyLitRenderers());
 
+            //And the wood's own pigments, which the rig above cannot reach: a saturated green has almost no
+            //red or blue for a coloured light to multiply, so the crowns stayed the same green under every
+            //dome while the ground turned (#108). Guarded inside on the tint, so this is free on the frames
+            //the dome has not moved — which is all of them but the switch.
+            _forestScatter?.ApplySkyTint(_rig.KeyTint);
+
             //The clouds' own two colours follow the dome as well, and the lit side is handed the very radiance
             //the rig gives the scene — one sun, one number (see SkyLightRig.SunRadianceTinted)
             _clouds.ApplyPalette(_skyEffect, _rig.SunRadianceTinted, _rig.ZenithLinear, _rig.HorizonLinear);

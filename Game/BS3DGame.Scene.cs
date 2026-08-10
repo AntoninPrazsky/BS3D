@@ -278,6 +278,10 @@ namespace BS3D
 
             foreach (InstancedModelRenderer renderer in SkyLitRenderers()) _rig.ApplyTo(renderer);
 
+            //And the wood's own pigments, which the rig above cannot reach — see ForestScatterRenderer.
+            //ShiftTowardsSky (#108). Guarded inside on the tint, so it is free every frame but a dome switch.
+            _forestScatter?.ApplySkyTint(_rig.KeyTint);
+
             //The clouds' own two colours follow the dome as well, and the lit side is handed the very radiance
             //the rig gives the scene — one sun, one number (see SkyLightRig.SunRadianceTinted)
             _clouds.ApplyPalette(_skyEffect, _rig.SunRadianceTinted, _rig.ZenithLinear, _rig.HorizonLinear);
