@@ -60,7 +60,7 @@ namespace BS3D.Screens
 
             camera.Update(elapsed);
 
-            Game.TuneQualityToFrameRate(elapsed);
+            Game.TuneQualityToFrameRate(elapsed, "menu");
         }
 
         /// <summary>

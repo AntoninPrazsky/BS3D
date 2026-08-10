@@ -127,7 +127,12 @@ namespace BS3D
         /// player back where they started, and a quality dial that oscillates is worse than one set too low.
         /// </para>
         /// </summary>
-        internal void TuneQualityToFrameRate(float elapsed)
+        /// <param name="elapsed">The frame's real time, unscaled — a slowed world still costs what it costs.</param>
+        /// <param name="where">
+        /// What is being judged, for the log line: "menu" or "level". Named by the caller because the probe
+        /// cannot see which screen is on top, and the distinction is the whole point of the second caller.
+        /// </param>
+        internal void TuneQualityToFrameRate(float elapsed, string where)
         {
             if (_qualitySettled) return;
 
@@ -149,8 +154,17 @@ namespace BS3D
 
             if (fps >= _qualityMinFps)
             {
-                //Fast enough. Stop measuring rather than keep watching: from here the only thing that could
-                //trip it is the player alt-tabbing away, and lowering quality for that would be absurd.
+                //Fast enough for what is on screen NOW. The latch closes here rather than the probe watching
+                //for ever — a dial that keeps moving under the player is worse than one merely set wrong once
+                //— and it is re-opened deliberately, by whoever changes what a frame costs: the fullscreen
+                //switch, and the building of a level (see ReopenQualityProbe).
+                //
+                //It used to close for the whole session, on the reasoning that "the only thing that could trip
+                //it is the player alt-tabbing away". That was wrong by a factor of two on the real thing: the
+                //verdict lands about three seconds in, on the MENU, which has no cluster in it, while the
+                //heaviest thing the game draws is a level — and the shipped set runs from 225 balls to 959.
+                //Onion cleared the menu at High and then played the whole level at 37.5 FPS on a 75 Hz panel,
+                //exactly half refresh, with nothing left watching to take it down to the Medium that holds 75.
                 _qualitySettled = true;
                 return;
             }
@@ -160,7 +174,11 @@ namespace BS3D
             //at 30 FPS with 40% still on the table.
             QualityLevel lowered = _quality == QualityLevel.High ? QualityLevel.Medium : QualityLevel.Low;
 
-            Console.WriteLine($"[quality] {fps:F0} FPS in the menu at {_quality} (floor {_qualityMinFps:F0}) — lowering to {lowered}");
+            //Named by the caller rather than assumed to be the menu, which is what this line used to say: the
+            //probe judges a level's frame too now, and which of the two it caught is the first thing a reader
+            //of this line wants — a step taken in play means the level is heavier than the front end, which is
+            //a fact about the level and not about the machine.
+            Console.WriteLine($"[quality] {fps:F0} FPS in the {where} at {_quality} (floor {_qualityMinFps:F0}) — lowering to {lowered}");
 
             ApplyQuality(lowered);
             ShowQualityNotice(lowered);
@@ -175,8 +193,34 @@ namespace BS3D
         }
 
         /// <summary>
+        /// Re-opens the latch so the next window is judged afresh, for a change that makes a frame cost
+        /// something other than what the last verdict was measured against. <b>A tier the player chose is never
+        /// re-opened</b> — that is their decision, and <see cref="_qualityPinnedByPlayer"/> is what says so.
+        /// <para>
+        /// Called when a <b>level is built</b>, which is the case the probe could not see at all while it only
+        /// ran under the front end: the menu has no cluster in it, the shipped set runs from 225 balls to 959,
+        /// and the tier that clears the lightest frame of the session was being kept for the heaviest.
+        /// </para>
+        /// <para>
+        /// Deliberately unconditional on the current tier, unlike the fullscreen switch's own re-open, which
+        /// takes it only when the tier is already below <see cref="QualityLevel.High"/>. High is precisely the
+        /// tier this case has to be able to catch.
+        /// </para>
+        /// </summary>
+        internal void ReopenQualityProbe()
+        {
+            if (_qualityPinnedByPlayer) return;
+
+            _qualitySettled = false;
+            _qualityWarmupLeft = QUALITY_WARMUP_SECONDS;
+            _qualityWindowSeconds = 0f;
+            _qualityWindowFrames = 0;
+        }
+
+        /// <summary>
         /// Tells the player what was changed and where to change it back. Once per run, on the main menu —
-        /// which is where they are: the verdict lands about three seconds in.
+        /// which is where they will see it: the verdict usually lands about three seconds in, on the front end,
+        /// but a level's own verdict lands while they are playing and the notice waits on the menu for them.
         /// </summary>
         private void ShowQualityNotice(QualityLevel quality) => _mainMenuPage.ShowQualityNotice(quality);
 
@@ -226,7 +270,10 @@ namespace BS3D
             }
             else _cityConfig.RadiusBlocks = preset.CityRadiusBlocks;
 
-            SetSupersampleFactor(preset.SupersampleFactor);
+            //The tier owns supersampling unless the command line pinned it, which is the one case the tier must
+            //not write over — see _supersampleOverride. A tier step still changes everything else it owns, so a
+            //pinned factor does not freeze the rest of the ladder.
+            SetSupersampleFactor(_supersampleOverride ?? preset.SupersampleFactor);
         }
 
         /// <summary>

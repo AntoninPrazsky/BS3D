@@ -939,6 +939,16 @@ namespace BS3D.Screens
             //part of the spectacle, and it is not moving while the gun is locked anyway.
             StepPhysics(elapsed * _cinematic.TimeScale);
 
+            //And the frame this level actually costs, judged where it is paid. The probe used to run under the
+            //front end alone, so the tier was settled against a scene with no cluster in it and kept for one
+            //with up to 959 balls — Onion cleared the menu at High and then played at exactly half refresh
+            //(#121). The level's own build re-opened the latch; this is what closes it again, on evidence.
+            //
+            //REAL elapsed, not the scaled step above: a slowed world costs what it costs to draw. And not while
+            //a cinematic runs — it is the heaviest and least typical moment of a level, and a verdict taken on
+            //a collapse would spend image quality for the rest of the session on a second and a half of it.
+            if (Game.IsActive && !_cinematic.Engaged) Game.TuneQualityToFrameRate(elapsed, "level");
+
             //After the step: poses have advanced, so a ball dragged down by the descent is at its new Y now, and a
             //shot that spent the budget has had its landing. The two losses are checked here rather than only on a
             //landing, because a descent can push a ball across the death line between landings, and a spent budget

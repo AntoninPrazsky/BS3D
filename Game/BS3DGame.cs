@@ -86,6 +86,15 @@ namespace BS3D
         //exposure is one uniform on the tonemap. Both are the dials a weak machine and a bright monitor reach
         //for first, which is exactly why they are in the menu rather than only in argv.
         private int _supersampleFactor;
+
+        //An explicit ssaa= from the command line, and null when nobody said. The tier owns supersampling, so
+        //ApplyQuality writes the factor — and used to write it over the override on the very next line of
+        //startup, because the constructor honoured ssaa= and LoadContent then applied the tier on top. That
+        //made the flag the benchmark and screenshot harnesses exist to use a no-op whenever a tier was named
+        //with it, and worse than a no-op: two runs differing only in ssaa= rendered identical frames and read
+        //as "supersampling is free here" (#122).
+        private readonly int? _supersampleOverride;
+
         private float _exposure;
         private bool _fullscreen;
 
@@ -424,7 +433,13 @@ namespace BS3D
             if (quality.HasValue) _quality = quality.Value;
             _supersampleFactor = QualityPreset.Presets[(int)_quality].SupersampleFactor;
 
-            if (supersampleFactor.HasValue) _supersampleFactor = Math.Clamp(supersampleFactor.Value, 1, 4);
+            //Kept as well as applied: the tier is applied again in LoadContent (and again on every adaptive
+            //step), and each of those would otherwise put the tier's factor back over this one.
+            if (supersampleFactor.HasValue)
+            {
+                _supersampleOverride = Math.Clamp(supersampleFactor.Value, 1, 4);
+                _supersampleFactor = _supersampleOverride.Value;
+            }
 
             _startupScene = scene;
             _startupSkyDome = skyDome;

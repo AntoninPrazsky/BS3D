@@ -407,6 +407,12 @@ namespace BS3D.Screens
 
             Console.WriteLine($"[game] {_map.GetBallsCount()} balls in the cluster, "
                 + $"{_world.Simulation.Solver.CountConstraints()} constraints");
+
+            //The frame has just become as expensive as it gets, so whatever the probe settled on against the
+            //front end is a verdict about a different picture — see BS3DGame.ReopenQualityProbe. Per level and
+            //not per session: the set runs from 225 balls to 959, so the cheap ones may hold a tier the heavy
+            //ones cannot, and the answer is only ever "this level, this machine, this back buffer".
+            Game.ReopenQualityProbe();
         }
 
         #endregion
