@@ -41,6 +41,11 @@ float SeaTime;
 float2 OriginXZ;
 float SeaLevelY;
 
+//Radius of the island's footprint cut out of the surface around the world origin, so the sea does not run
+//through the drain funnel's open throat. 0 keeps it all (the map editor draws no island). See IslandHoleRadius
+//in the terrain shaders, which cut the same footprint for the same reason.
+float IslandHoleRadius;
+
 //Deep body color of the water and the paler shade its up-facing faces take, both linear and both treated
 //as reflectances - they are multiplied by the sky's own light below, so night water goes dark.
 float3 WaterColorDeep;
@@ -251,6 +256,9 @@ float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height
 float4 SeaPS(SeaVertexOutput input) : COLOR
 {
 	float3 worldPosition = input.WorldPosition;
+
+	//Cut the island's footprint out of the surface (see IslandHoleRadius). 0 in the map editor keeps it all.
+	clip(length(worldPosition.xz) - IslandHoleRadius);
 
 	float3 toEye = CameraPosition - worldPosition;
 	float dist = length(toEye);

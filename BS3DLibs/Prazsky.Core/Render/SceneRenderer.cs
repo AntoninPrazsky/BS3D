@@ -102,11 +102,12 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Radius of the arena platform's footprint, cut out of every solid terrain scene (mountains, meadow,
-        /// savanna, desert) around the world origin so the drain funnel below the island reads as a drain into a
-        /// pit rather than a bowl in flat ground - the flat clearing otherwise slices across the funnel just
-        /// below its rim, hiding its depth and swallowing the balls falling through. The Testbed sets this to the
-        /// island's radius; the map editor draws no island, so it leaves it 0 (the default) and nothing is cut.
-        /// The water scenes are not cut - the funnel draining into the sea is fine as it is.
+        /// savanna, desert) and out of the sea around the world origin so the drain funnel below the island
+        /// reads as a drain into a pit rather than a bowl in flat ground - the flat clearing otherwise slices
+        /// across the funnel just below its rim, hiding its depth and swallowing the balls falling through, and
+        /// the sea otherwise runs its wave mesh straight through the funnel's open throat (#132). The Testbed
+        /// sets this to the island's radius; the map editor draws no island, so it leaves it 0 (the default) and
+        /// nothing is cut.
         /// </summary>
         public float TerrainHoleRadius { get; set; }
 
@@ -1787,6 +1788,7 @@ namespace Prazsky.Core.Render
             float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
 
             _seaEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
+            _seaEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
             _seaEffect.Parameters["View"].SetValue(frame.Camera.View);
             _seaEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
             _seaEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
