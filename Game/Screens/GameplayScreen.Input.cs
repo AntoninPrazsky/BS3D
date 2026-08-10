@@ -117,6 +117,14 @@ namespace BS3D.Screens
         /// frame time <see cref="Cannon.Aim"/> multiplies back in — so the aim moves a fixed amount per
         /// pixel at any frame rate. Firing is read from the same state, so the click and the aim cannot
         /// disagree about the frame they happened in.
+        /// <para>
+        /// <b>All of that waits on the player clicking in the picture (#99.)</b> A frame that warps the pointer
+        /// back to the middle is a frame in which the window cannot be dragged by its title bar, resized, or
+        /// left for another application — the pointer never reaches any of them. So the capture is a state the
+        /// player enters: <see cref="_cursorCaptured"/> is false on arrival and after every focus loss, and
+        /// nothing here touches the cursor until a left click lands inside the viewport. Everything the pad
+        /// does is independent of it and keeps working with the pointer free.
+        /// </para>
         /// </summary>
         private void UpdateAim(GameTime gameTime, bool edgeInputAllowed, GamePadState pad)
         {
@@ -124,6 +132,25 @@ namespace BS3D.Screens
             int centreY = GraphicsDevice.Viewport.Height / 2;
 
             MouseState mouse = Mouse.GetState();
+
+            //The click that takes the cursor. Gated on edgeInputAllowed like every other edge, which is what
+            //keeps the click that merely brings the window forward from also capturing — that one lands on a
+            //frame the window was not active for, and a fresh press is then needed. Inside the VIEWPORT, since
+            //a MouseState reads negative and past-the-edge coordinates perfectly happily when the pointer is
+            //over the title bar or another window, and those clicks are precisely the ones to leave alone.
+            if (!_cursorCaptured && edgeInputAllowed
+                && mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released
+                && mouse.X >= 0 && mouse.X < GraphicsDevice.Viewport.Width
+                && mouse.Y >= 0 && mouse.Y < GraphicsDevice.Viewport.Height)
+            {
+                _cursorCaptured = true;
+
+                //The capturing click must not also fire a shot, and it does not — Invalidate drops the aim's
+                //baseline, and the shot edge sits behind that same flag, so the swallow falls out of what is
+                //already there rather than needing a rule of its own. Recentre at the foot of this method puts
+                //the flag back up, so the frame after this one aims normally.
+                _mouseAim.Invalidate();
+            }
 
             //While the cinematic has the frame the barrel does not move and nothing fires — but the cursor is
             //still recentred below, so the aim is not handed back a delta measured from wherever the mouse
@@ -138,26 +165,28 @@ namespace BS3D.Screens
                 //the cinematic ends gets precise aim back, and one who let go during it does not
                 _adsHeld = false;
 
-                _mouseAim.Recentre(centreX, centreY);
+                if (_cursorCaptured) _mouseAim.Recentre(centreX, centreY);
                 _previousMouse = mouse;
 
                 Game.PreviousPad = pad;
                 return;
             }
 
-            _mouseAim.ApplyCursor(_cannon, mouse, centreX, centreY, gameTime);
+            if (_cursorCaptured) _mouseAim.ApplyCursor(_cannon, mouse, centreX, centreY, gameTime);
 
             //The shot edge is gated on the same "a captured frame has been seen" flag the aim is: on the frame
             //the baseline is dropped there is no aim to fire along yet, so no phantom shot goes off either
-            if (_mouseAim.Initialized && edgeInputAllowed
+            if (_cursorCaptured && _mouseAim.Initialized && edgeInputAllowed
                 && mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released)
                 Shoot();
 
             //Precise aim is a hold, not an edge, so it is read straight off this frame's state — no
-            //edge-input gate: leaning the camera in is not an action that can go off by accident.
-            _adsHeld = PreciseAim.ButtonHeld(mouse, pad);
+            //edge-input gate: leaning the camera in is not an action that can go off by accident. With the
+            //cursor still free the right button is the desktop's, so only the pad's trigger can lean in: a
+            //default MouseState reads every button released, which is exactly "ask the pad alone".
+            _adsHeld = _cursorCaptured ? PreciseAim.ButtonHeld(mouse, pad) : PreciseAim.ButtonHeld(default, pad);
 
-            _mouseAim.Recentre(centreX, centreY);
+            if (_cursorCaptured) _mouseAim.Recentre(centreX, centreY);
 
             //Only its LeftButton is ever read (the shot's edge test above); the aim delta is measured against
             //the viewport centre, never against this, so the state captured at the top of the method serves

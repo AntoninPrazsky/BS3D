@@ -701,6 +701,11 @@ namespace BS3D.Screens
         private MouseState _previousMouse;
         private bool _padTriggerReleased = true;
 
+        //Whether the cursor is the aim's or the desktop's (#99). False on arrival and after every focus loss:
+        //the pointer is only taken once the player has clicked inside the game's own picture, and until then
+        //the window can be dragged by its title bar, resized, or left alone for another application.
+        private bool _cursorCaptured;
+
         //Aiming the gun from the captured cursor and the pad's right stick, both dials and all the arithmetic
         //shared with the Testbed since #76. It holds the "a captured frame has been seen" flag that gates both
         //the aim delta and the shot edge.
@@ -862,7 +867,16 @@ namespace BS3D.Screens
             _padTriggerReleased = false;
             Game.PreviousPad = GamePad.GetState(PlayerIndex.One);
 
-            Game.IsMouseVisible = false;
+            //Play is arrived at with the cursor FREE since #99, and taken by the player's first click in the
+            //picture — a resume is exactly the case that makes this matter, since the click that pressed
+            //"Resume" is itself in the client area. The mouse is snapshotted here for the same reason the pad
+            //is: the capture is a press EDGE, so a button still held from that click must be measured against
+            //a baseline that already knows it is down, or the first frame back would capture off a press that
+            //happened on a menu. Same hazard, and the same fix, as the menu's own _menuClickArmed.
+            _cursorCaptured = false;
+            _previousMouse = Mouse.GetState();
+
+            Game.IsMouseVisible = true;
         }
 
         public override void Update(GameTime gameTime)
@@ -873,7 +887,9 @@ namespace BS3D.Screens
 
             if (Game.IsActive)
             {
-                Game.IsMouseVisible = false;
+                //Hidden only once the aim actually holds the cursor (#99). While it does not, this is the
+                //pointer the player manages the window with, and it has to be visible to be usable.
+                Game.IsMouseVisible = !_cursorCaptured;
 
                 //One XInput poll for the whole frame: UpdateInput and UpdateAim used to each poll the pad,
                 //two OS queries of the same slot microseconds apart
@@ -898,8 +914,11 @@ namespace BS3D.Screens
             else
             {
                 //The cursor belongs to the desktop again as soon as the window is not the one being played:
-                //hidden over an unfocused window it simply disappears wherever the player moves it.
+                //hidden over an unfocused window it simply disappears wherever the player moves it. Since #99
+                //the capture is dropped with it, so coming back does not re-take the pointer on its own — the
+                //click that brings the window forward is the one gesture the old behaviour ate.
                 Game.IsMouseVisible = true;
+                _cursorCaptured = false;
                 _mouseAim.Invalidate();
 
                 //A trigger held while the window was away must be re-released before it fires

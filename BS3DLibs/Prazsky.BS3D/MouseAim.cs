@@ -8,8 +8,12 @@ namespace Prazsky.BS3D
     /// Aiming the gun from a captured cursor, and from the pad's right stick. It stood in both executables with
     /// the same two dials and the same arithmetic until #76.
     /// <para>
-    /// The cursor is hidden and re-centred every frame, so what the aim reads is a <b>delta</b> from the
-    /// viewport's centre rather than a position. Three things about that are load-bearing:
+    /// While the cursor is held, it is hidden and re-centred every frame, so what the aim reads is a
+    /// <b>delta</b> from the viewport's centre rather than a position. <b>When</b> it is held is the caller's
+    /// question, not this class's: the Testbed holds it for as long as a session runs, while the Game takes it
+    /// on the player's first click in the picture and gives it back on every focus loss (#99), so that the
+    /// window can still be moved and resized. Nothing here changes either way — a caller that does not want
+    /// the cursor simply does not call <see cref="Recentre"/>. Three things about the delta are load-bearing:
     /// </para>
     /// <list type="bullet">
     /// <item><description>The delta is divided by the frame time, which cancels exactly against the frame time
