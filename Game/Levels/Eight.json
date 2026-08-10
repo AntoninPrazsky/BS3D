@@ -33,7 +33,7 @@
     "SunGlintPower": 500,
     "FoamJacobianThreshold": 0.5,
     "FoamStrength": 1.1,
-    "FoamCrestStart": 0.72,
+    "FoamCrestStart": 0.6,
     "FoamCrestStrength": 0.7,
     "FoamColor": {
       "R": 0.8,

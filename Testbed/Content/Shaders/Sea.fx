@@ -16,6 +16,7 @@
 #define PS_SHADERMODEL ps_5_0
 
 #include "Clouds.fxh"
+#include "Noise.fxh"
 
 float4x4 View;
 float4x4 Projection;
@@ -101,6 +102,15 @@ static const float  WAVE_LEN[6]   = { 52.0, 33.0, 21.0, 13.0, 8.5, 5.5 };
 static const float  WAVE_AMP[6]   = { 1.0, 0.72, 0.5, 0.34, 0.22, 0.14 };
 static const float  WAVE_STEEP[6] = { 0.9, 0.95, 1.0, 1.0, 1.0, 1.0 };
 static const float  WAVE_PHASE[6] = { 0.0, 1.7, 3.1, 4.2, 5.5, 0.9 };
+
+//The foam streaks' fabric (#128): lanes per world unit, how many times longer a lane runs along a crest
+//than across it, and the crest line itself - crests run PERPENDICULAR to their wave's travel, so this is
+//the normalized perpendicular of WAVE_DIR[0], the dominant swell every other wave is fanned around.
+//Static rather than config dials: they are what foam IS here, not a mood - the mood (how much, where it
+//may start) stays on the config as FoamStrength/FoamCrestStart/FoamCrestStrength, exactly as before.
+static const float FOAM_STREAK_FREQUENCY = 0.55;
+static const float FOAM_STREAK_STRETCH = 5.0;
+static const float2 FOAM_STREAK_ALONG = float2(-0.3303, 0.9438);
 
 struct SeaVertexInput
 {
@@ -286,13 +296,27 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
 	float glint = pow(saturate(dot(reflected, SunDirection)), SunGlintPower) * SunGlintStrength * sunlight;
 	color += glint * SunColor;
 
-	//Whitecap foam: where the Gerstner Jacobian folds (fold) and where a crest rises past FoamCrestStart,
-	//broken up by the shared cloud noise so it is flecks and streaks, not a clean painted band. Foam is a
-	//near-white matte cap lit by the sun and the sky, not a mirror, so it composites over the water color.
-	float crestFoam = saturate((input.Foam.y - FoamCrestStart) / max(1.0 - FoamCrestStart, 1e-3)) * FoamCrestStrength;
-	float foam = saturate(max(input.Foam.x * FoamStrength, crestFoam));
-	float foamNoise = saturate(CloudNoise(worldPosition.xz * 0.25 + WindDirection * SeaTime * ChopSpeed * 0.5) * 0.7 + 0.4);
-	foam *= foamNoise * chopFade;
+	//Whitecap foam. Two per-vertex signals say where foam may LIVE - the Jacobian fold (the wave genuinely
+	//breaking) and the crest gate (high on the combined swell) - and neither may draw its own silhouette:
+	//both are smooth interpolated scalars, and thresholding the crest height painted the round white blobs
+	//#128 was opened for. Where the six fanned waves constructively interfere, their sum is a localized
+	//round bump, and a height threshold on a round bump is a disc - a white ball drifting with the phase
+	//speed, which is exactly how it was reported. So the gates set only the foam DENSITY, and the visible
+	//shape comes from a streak field: band-limited fbm combed along the dominant swell's crest line
+	//(Fbm2Combed, the grass relief's idiom), advected downwind, so foam reads as wind-torn lanes riding
+	//the crests. The density slides the streak threshold - more energy widens the lanes toward a connected
+	//cap rather than brightening a disc - and the field fades against the pixel footprint, so the far sea
+	//loses the pattern smoothly instead of shimmering (the fade costs variance, which the horizon haze
+	//covers anyway). Foam stays a near-white matte cap lit by sun and sky, composited over the water.
+	float crestGate = saturate((input.Foam.y - FoamCrestStart) / max(1.0 - FoamCrestStart, 1e-3));
+	float density = saturate(max(input.Foam.x * FoamStrength, crestGate * FoamCrestStrength));
+
+	float2 foamDomain = (worldPosition.xz + WindDirection * SeaTime * ChopSpeed * 0.5) * FOAM_STREAK_FREQUENCY;
+	float streaks = Fbm2Combed(foamDomain, FOAM_STREAK_ALONG, FOAM_STREAK_STRETCH, 4,
+		footprint * FOAM_STREAK_FREQUENCY) + 0.5;
+
+	float foam = min(1.0, density * 1.15)
+		* smoothstep(0.60 - density * 0.45, 0.70 - density * 0.30, streaks) * chopFade;
 	float3 foamCol = FoamColor * (ambient + SunColor * sunlight * saturate(dot(normal, SunDirection)) * 0.7);
 	color = lerp(color, foamCol, foam);
 

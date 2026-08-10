@@ -60,8 +60,15 @@ namespace Prazsky.Core.Render
         /// <summary>Strength of the fold-driven foam.</summary>
         public float FoamStrength { get; set; } = 1.1f;
 
-        /// <summary>Where on a crest the height-driven foam begins (0..1).</summary>
-        public float FoamCrestStart { get; set; } = 0.72f;
+        /// <summary>
+        /// Where on a crest the height-driven foam begins (0..1, on the combined swell height). Lowered from
+        /// 0.72 with #128: at 0.72 the gate only opened where several waves constructively interfered — which
+        /// is a localized round bump, and is why the old height-thresholded foam painted round white blobs —
+        /// while 0.6 opens on the dominant swell's own ordinary crests. The gate no longer draws any shape of
+        /// its own (it only sets the density of the streak field in <c>Sea.fx</c>), so opening it wider makes
+        /// whitecap lanes more frequent, not discs bigger.
+        /// </summary>
+        public float FoamCrestStart { get; set; } = 0.6f;
 
         /// <summary>Strength of the crest-height foam.</summary>
         public float FoamCrestStrength { get; set; } = 0.7f;
