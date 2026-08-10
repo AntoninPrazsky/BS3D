@@ -11,6 +11,10 @@ obj/
 # ZCode agent working directory (screenshots, logs)
 .zcode/
 
+# Agent scratch: before/after screenshots and throwaway capture scripts. Deliberately NOT the place for
+# anything that is data — a level saved out of the MapEditor lands in Game/Levels and must be git added.
+.tmp/
+
 # Project specific
 /LEVELS
 
