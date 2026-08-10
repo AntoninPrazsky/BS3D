@@ -104,6 +104,11 @@ namespace BS3D
         private float _exposure;
         private bool _fullscreen;
 
+        //The client size the window last had while windowed — what SetGraphics restores instead of the
+        //windowed default (#137). Seeded with that default, which is therefore what the constructor's own
+        //pass applies, before there is a window whose size could be read.
+        private Point _windowedSize = new(WINDOW_WIDTH, WINDOW_HEIGHT);
+
         private RecoilCamera _camera;
 
         //Procedurally synthesized SFX (shot, landing). Built once in LoadContent and shared by the gameplay
@@ -520,8 +525,14 @@ namespace BS3D
             //by the time this runs, measured (see TryGetWindowDisplayRefresh).
             SetQualityMinFpsFromRefresh();
 
-            _graphics.PreferredBackBufferWidth = _fullscreen ? display.Width : WINDOW_WIDTH;
-            _graphics.PreferredBackBufferHeight = _fullscreen ? display.Height : WINDOW_HEIGHT;
+            //Windowed, the size is the PLAYER'S: they can drag the window's edge or maximize it from the title
+            //bar, and neither of those is _fullscreen — that flag is F11's own switch and nothing else. Stating
+            //the windowed default here on every pass instead meant any caller of this method (found on the
+            //FPS-limit toggle, #137) shrank the swap chain back to 1600×900 underneath a window the OS does not
+            //shrink with it: the maximized window stayed, the resolution inside it dropped, and moving the
+            //window — which resyncs the swap chain to the client area — was what appeared to "fix" it.
+            _graphics.PreferredBackBufferWidth = _fullscreen ? display.Width : _windowedSize.X;
+            _graphics.PreferredBackBufferHeight = _fullscreen ? display.Height : _windowedSize.Y;
             _graphics.IsFullScreen = _fullscreen;
             _graphics.SynchronizeWithVerticalRetrace = !_uncappedFps;
 
@@ -545,6 +556,14 @@ namespace BS3D
 
         private void OnClientSizeChanged()
         {
+            //Where the size SetGraphics restores comes from (#137): whatever the player last left the window
+            //at, maximized or dragged to any size at all. Only while windowed — the pass that goes fullscreen
+            //raises this event at the display's size, and recording that would bring the game back OUT of
+            //fullscreen into a window the size of the screen. The zero guard is the minimize, which raises it
+            //too and would otherwise leave a zero-sized back buffer waiting for the next settings toggle.
+            if (!_fullscreen && Window.ClientBounds.Width > 0 && Window.ClientBounds.Height > 0)
+                _windowedSize = new Point(Window.ClientBounds.Width, Window.ClientBounds.Height);
+
             UpdateCameraAspect();
 
             //A window that changed size may also have changed monitor, and the probe's floor is derived from the
