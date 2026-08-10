@@ -742,7 +742,13 @@ namespace BS3D
             //than at the moment the player presses Play, and the maps themselves are only parsed per level.
             LoadLevelSet();
 
-            Console.WriteLine($"[game] {_city.Buildings.Length} buildings, scene {_scene}, dome {_skyDome}");
+            //The building count only belongs on this line for the scenes that actually draw the city; for the
+            //other nine it is just how many sit in memory, and printing it beside an unrelated scene name reads
+            //as though that scene has buildings in it (the draw call gates on the same check: BS3DGame.Scene.cs).
+            string city = (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
+                ? $"{_city.Buildings.Length} buildings, "
+                : string.Empty;
+            Console.WriteLine($"[game] {city}scene {_scene}, dome {_skyDome}");
 
             //The two non-page screens. The gameplay screen loads its own content (the shot-trail effect), so
             //it is made here with the device up; the backdrop is the scene-only frame the menus stand over.
