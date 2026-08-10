@@ -138,6 +138,14 @@ float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height
 static const float GRASS_COMB_STRETCH = 2.6;
 static const float GRASS_FBM_GAIN = 5.0;
 
+//The rosettes' form (#127), as fractions of a flower's own world size: how high a petal domes, how much
+//the golden eye rises over the petals, and how hard the grass darkens in the contact ring just outside
+//the rim. The flowers' fabric rather than a mood — the mood dials (density, spacing, size) stay on the
+//config — and the heights are fractions so a big rosette is proportionally domed rather than uniformly.
+static const float FLOWER_PETAL_RELIEF = 0.20;
+static const float FLOWER_EYE_RELIEF = 0.16;
+static const float FLOWER_CONTACT_SHADOW = 0.22;
+
 //A fine grass texture that drifts on the wind, band-limited against the footprint so it fades to smooth
 //green towards the horizon instead of aliasing.
 //
@@ -164,21 +172,11 @@ float4 MeadowPS(MeadowVertexOutput input) : COLOR
 	float3 baseNormal = normalize(input.WorldNormal);
 	float footprint = length(fwidth(worldPosition.xz));
 
-	//Fine grass texture tilts the normal, so the grass catches the light unevenly and the wind reads on it
-	float relief = GrassRelief(worldPosition.xz, footprint);
-	float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
-
-	//Grass color, varied in broad patches so the field is not one flat green
-	float patch = CloudNoise(worldPosition.xz * 0.15) * 0.5 + 0.5;
-	float3 grass = lerp(GrassColorDark, GrassColor, patch);
-
-	//Wind combing the grass: bright and dark bands travelling downwind, the meadow's own motion
-	float wind = sin(dot(worldPosition.xz, WindDirection) * WindRippleFrequency + MeadowTime * WindRippleSpeed);
-	grass *= 1.0 + wind * WindRippleStrength;
-
 	//Wildflowers: little rosettes rather than dots — a ring of petals around a bright eye, each with its
 	//own petal count, size, rotation and colour. One per grid cell that draws one, faded against the
-	//footprint so the distant meadow stays clean green instead of a shimmer.
+	//footprint so the distant meadow stays clean green instead of a shimmer. Evaluated BEFORE the normal
+	//since #127: a flower is no longer only an albedo swap — it has a height of its own, and that height
+	//goes through the very perturbation the grass relief rides.
 	float2 cell = floor(worldPosition.xz / FlowerSpacing);
 	float2 within = frac(worldPosition.xz / FlowerSpacing);
 	float present = step(1.0 - FlowerDensity, Hash21(cell));
@@ -207,11 +205,47 @@ float4 MeadowPS(MeadowVertexOutput input) : COLOR
 	float flowerMask = present * (1.0 - smoothstep(petalEdge - aa, petalEdge + aa, radius)) * resolvable;
 	float centreMask = 1.0 - smoothstep(centreEdge - aa, centreEdge + aa, radius);
 
+	//The rosette's own height (#127): each petal a dome — full mid-petal, falling to nothing at the
+	//scalloped rim, dipping in the gaps between petals (the lobes term) — and the eye a raised boss over
+	//them. In WORLD units like the grass relief it is summed with, so the perturbation's derivatives read
+	//both as one surface; scaled by the flower's own world size, so a big flower is proportionally domed.
+	//Zero by construction at the cell border (the profile dies at the rim, and the rim never reaches the
+	//border), so the per-cell hashes cannot tear the height field where cells meet.
+	float petalProfile = saturate(1.0 - radius / max(petalEdge, 1e-4));
+	float eyeDome = 1.0 - smoothstep(0.0, centreEdge * 1.4, radius);
+	float flowerRelief = present * resolvable * size * FlowerSpacing
+		* (FLOWER_PETAL_RELIEF * petalProfile * (0.35 + 0.65 * lobes) + FLOWER_EYE_RELIEF * eyeDome);
+
+	//Fine grass texture tilts the normal — and the rosette tilts it with it, one height field through one
+	//perturbation, so a flower catches the sun on its own domes instead of wearing the ground's shading
+	float relief = GrassRelief(worldPosition.xz, footprint);
+	float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief + flowerRelief);
+
+	//Grass color, varied in broad patches so the field is not one flat green
+	float patch = CloudNoise(worldPosition.xz * 0.15) * 0.5 + 0.5;
+	float3 grass = lerp(GrassColorDark, GrassColor, patch);
+
+	//Wind combing the grass: bright and dark bands travelling downwind, the meadow's own motion
+	float wind = sin(dot(worldPosition.xz, WindDirection) * WindRippleFrequency + MeadowTime * WindRippleSpeed);
+	grass *= 1.0 + wind * WindRippleStrength;
+
 	//White daisies, yellow buttercups, the odd pink one - all with a warm golden eye
 	float pick = Hash21(cell + 13.7);
 	float3 petalColor = pick < 0.5 ? float3(0.96, 0.96, 0.92)
 		: (pick < 0.80 ? float3(0.97, 0.88, 0.28) : float3(0.90, 0.45, 0.68));
-	float3 flowerColor = lerp(petalColor, float3(0.98, 0.74, 0.12), centreMask);
+
+	//The face of a petal against its rim (#127): a cheap occlusion gradient — the face keeps its colour,
+	//the scalloped rim falls into shade, the eye brightens at its very centre — so a rosette reads as a
+	//form even where the light is flat. The normal above carries the real shape; this carries the ambient
+	//half the hemisphere term is too broad to give.
+	float3 flowerColor = petalColor * (0.80 + 0.28 * petalProfile);
+	flowerColor = lerp(flowerColor, float3(0.98, 0.74, 0.12) * (0.9 + 0.35 * eyeDome), centreMask);
+
+	//And a hint of the flower standing OVER the grass: a narrow contact shadow just outside the petals.
+	//Inside the rosette it darkens grass the petals then replace, which leaves exactly the AA fringe of
+	//the rim reading as the petal's own cast edge.
+	float contact = present * resolvable * (1.0 - smoothstep(petalEdge, petalEdge * 1.45, radius));
+	grass *= 1.0 - FLOWER_CONTACT_SHADOW * contact;
 
 	grass = lerp(grass, flowerColor, flowerMask);
 
