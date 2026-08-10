@@ -540,6 +540,17 @@ namespace BS3D
                 return;
             }
 
+            //A scroller's content is not among an IContainer's Widgets, so it has to be descended into by
+            //name — without this the level picker's entries were invisible to the pad and the arrow keys,
+            //and the first Down landed on Back, the one button outside the scroller (#91 is where that was
+            //finally SEEN, on a page whose focus is spelled out in a detail line; the scrolling list before
+            //it had the same hole and nothing that made it visible).
+            if (widget is ScrollViewer scroller)
+            {
+                CollectNavEntries(scroller.Content);
+                return;
+            }
+
             //Myra keeps a container's real child list internal, so the walk goes through the public
             //multiple-items interface — which is every container this menu is built from (Panel,
             //VerticalStackPanel, Grid). A Label or an Image simply has no children and ends the branch.
@@ -569,6 +580,13 @@ namespace BS3D
                 _navEntries[i].Background = rest;
                 _navEntries[i].OverBackground = cursorUp ? rest : MENU_BUTTON_OVER_BRUSH;
             }
+
+            //A page may present the focused entry somewhere other than on the entry itself — the level
+            //picker's detail line spells out the tile the cursor stands on (#91) — so the active page is told
+            //which button that is. Null when the pointer took over; the page's own hover events carry that
+            //half, so between the two exactly one device feeds the detail at a time, like the highlight.
+            if (_screens.Active is MenuPage page)
+                page.NavFocusChanged(cursorUp && _navIndex < _navEntries.Count ? _navEntries[_navIndex] : null);
         }
 
         /// <summary>
@@ -736,10 +754,12 @@ namespace BS3D
         /// resize rebuilds the tree (see <c>MenuPage.Root</c>).
         /// </para>
         /// <para>
-        /// <b>The pad and the arrow keys do not scroll it.</b> They find entries by walking the widget tree
-        /// (see <see cref="ApplyNavHighlight"/>), so they will happily highlight one that is out of view. The
-        /// mouse wheel is the way through a long list today; making the walk scroll its entry into view is
-        /// the fix, and it belongs with the navigation rather than here.
+        /// <b>The pad and the arrow keys do not scroll it.</b> They reach the entries inside it —
+        /// <see cref="CollectNavEntries(Widget)"/> descends into the scroller's content by name, which it did
+        /// not until #91 (the content is not among an <c>IContainer</c>'s <c>Widgets</c>, so everything in
+        /// here was simply invisible to the walk and the first Down landed on Back) — but a focused entry out
+        /// of view stays out of view. The mouse wheel is the way through an overlong page today; making the
+        /// walk scroll its entry into view is the fix, and it belongs with the navigation rather than here.
         /// </para>
         /// </summary>
         /// <param name="reservedDesignUnits">Height the page needs around the scroller — its heading, its
@@ -799,11 +819,41 @@ namespace BS3D
                 VerticalAlignment = VerticalAlignment.Center,
             };
 
+            Button button = MenuClickable(label, onClick);
+
+            button.Width = Scaled(MENU_BUTTON_WIDTH);
+            button.Padding = ScaledThickness(43, 18);
+
+            return button;
+        }
+
+        /// <summary>
+        /// A tile-shaped menu entry (#91): <see cref="MenuButton"/>'s behaviour around the caller's own
+        /// content, sized by the caller — the level picker's grid is built out of these. What makes it a menu
+        /// entry rather than merely a button is everything <see cref="MenuClickable"/> carries: the shared
+        /// brushes the focus highlight swaps by identity, the click sound, and the <c>Tag</c> the pad
+        /// activates through.
+        /// </summary>
+        internal Button MenuTile(Widget content, Action onClick, int designWidth, int designHeight)
+        {
+            Button button = MenuClickable(content, onClick);
+
+            button.Width = Scaled(designWidth);
+            button.Height = Scaled(designHeight);
+            button.Padding = ScaledThickness(18, 12);
+
+            return button;
+        }
+
+        /// <summary>
+        /// The behaviour every clickable menu entry shares, whatever its shape: the palette's brushes, the
+        /// cleared border, and one press wrapper for every input device.
+        /// </summary>
+        private Button MenuClickable(Widget content, Action onClick)
+        {
             Button button = new()
             {
-                Content = label,
-                Width = Scaled(MENU_BUTTON_WIDTH),
-                Padding = ScaledThickness(43, 18),
+                Content = content,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 //Shared rather than one brush per button: a brush is a paint recipe with no state of its own,
                 //and the focus highlight swaps between these two by identity (see ApplyNavHighlight)
