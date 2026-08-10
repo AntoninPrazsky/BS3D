@@ -330,14 +330,24 @@ namespace BS3D.Screens
         /// length is its height and not its footprint.
         /// </para>
         /// <para>
-        /// <b>Sixteen because that is the deepest field that is framed whole today</b> (see
-        /// <see cref="FIELD_FLOOR_MARGIN"/>: the two branches of the hang meet at a 16-level field). So this
-        /// cap changes nothing about any level that exists — One, Colossus and the whole pattern pack solve
-        /// bit-identically — and the window a tall level is played through is the very frame every other
-        /// level is played in, rather than a second set of camera figures to tune.
+        /// <b>It was sixteen — the deepest field framed whole</b> (see <see cref="FIELD_FLOOR_MARGIN"/>: the two
+        /// branches of the hang meet at a 16-level field), chosen so the cap changed nothing about any level
+        /// that existed. <b>Eighteen since #135</b>, and the two extra levels are not a retune but the spending
+        /// of frame that was being wasted: <see cref="GameCameraFit"/> used to reserve a whole barrel's length
+        /// <i>below</i> the gun's trunnions, a pose the tube cannot strike, and reclaiming it freed 1.14 world
+        /// units — 1.6 levels — at the bottom of the frame. Rounded to two, which is what makes Two (18 levels)
+        /// framed whole rather than clipped by a hair.
+        /// </para>
+        /// <para>
+        /// Levels no deeper than this are untouched by both changes <b>by construction</b>: <c>FramedTopY</c>
+        /// is a <c>min</c> against the glass, so on a field the glass already sits under the window it is the
+        /// glass that binds, and the window moving up cannot be seen. What the pair buys is levels 17 and 18 of
+        /// every tall field — measured against a cluster reaching 11 levels above the old window on Onion, so
+        /// it is a dent in that and not a cure; standing back to frame such a column whole is the thing this
+        /// cap exists to refuse.
         /// </para>
         /// </summary>
-        private const int FRAMED_LEVELS = 16;
+        private const int FRAMED_LEVELS = 18;
 
         /// <summary>
         /// How many levels above a tall column's <b>underside</b> the gun may be aimed — the working band,

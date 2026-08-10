@@ -421,7 +421,16 @@ namespace Prazsky.BS3D
                 Vector3 cannon = CannonPositionAt(_centreGround, back, trunnionY, orbitRadius);
 
                 Consider(cannon + Vector3.Up * _cannonReach);
-                Consider(cannon - Vector3.Up * _cannonReach);
+
+                //Downwards the gun reaches its WHEELS and stops: the tube only ever elevates, so a point a
+                //whole barrel's length under the trunnions is a pose it cannot strike. Reserving frame for it
+                //cost 1.14 units of nothing — measured on Onion, where the frame's lower bound sat at -10.51
+                //against a ground line of -9.37 — and because the frame's TOP is capped (FRAMED_LEVELS), that
+                //reservation and not the field was deciding how little of a tall cluster fitted (#135). The
+                //ground line is asked of the island rather than written out here: CannonRig.TrunnionHeightAt
+                //is this same expression read the other way, so the two cannot drift apart as the dish is
+                //retuned. Upwards the full reach stands — the barrel really can point there.
+                Consider(new Vector3(cannon.X, ArenaIsland.FloorHeightAt(orbitRadius), cannon.Z));
                 Consider(cannon + back * _cannonReach);
                 Consider(cannon - back * _cannonReach);
                 Consider(cannon + right * _cannonReach);
