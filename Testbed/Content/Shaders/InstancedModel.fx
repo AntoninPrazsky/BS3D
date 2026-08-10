@@ -851,6 +851,16 @@ struct PatternVertexShaderOutput
 //scaling this by the supersampling factor buys.
 float DissolvePixelSize;
 
+//Submerge fade for a ball sinking below the sea (only pushed on the sea scene; SeaFadeDepth <= 0 disables
+//it everywhere else). A ball that misses falls past the platform into the water, and the opaque sea surface
+//hides it the instant it crosses - this fades it instead, blending its lit colour toward the deep-water tint
+//and its alpha down over a shallow band below SeaLevelY so it reads as dimming into dark water rather than
+//vanishing in one frame (#131). The sea itself stops writing depth (DrawSea) so the ball reaches this path at
+//all; without that it would be depth-killed under the surface plane before the pixel shader ran.
+float SeaLevelY;
+float SeaFadeDepth;
+float3 SeaSubmergeTint;
+
 /// A hash with no sin in it, for the same reason the cloud field's has none: sine-based hashes band
 /// differently across drivers. Cheap enough to run unconditionally rather than behind a per-instance
 /// branch, which would diverge within a draw call. Two-dimensional now that the cell is a block of the
@@ -1026,6 +1036,17 @@ float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 	//which ShadePixel's specular ambient now does for every surface with a real dielectric F0 behind it.
 	//Two Fresnel sky terms stacked on one sphere - where a grazing angle covers most of what you can see
 	//of it - is what was bleaching the balls out under a bright dome.
+
+	//Submerge fade: a ball below the sea level dims into the deep-water tint and becomes transparent over a
+	//shallow band, so it reads as sinking into dark water rather than being cut off by the opaque surface
+	//(see SeaLevelY). Disabled (a no-op) off the sea scene, where SeaFadeDepth is pushed <= 0.
+	if (SeaFadeDepth > 0.0)
+	{
+		float submerge = saturate((SeaLevelY - input.WorldPosition.y) / SeaFadeDepth);
+		shaded.rgb = lerp(shaded.rgb, SeaSubmergeTint, submerge);
+		shaded.a *= 1.0 - submerge;
+	}
+
 	return shaded;
 }
 

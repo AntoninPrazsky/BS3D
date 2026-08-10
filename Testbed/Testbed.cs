@@ -1466,6 +1466,9 @@ namespace Testbed
                 _sky.Draw(_camera);
             }
 
+            //The sea's submerge fade for missed balls — a no-op off the sea scene (see SceneRenderer.ApplySeaSubmerge).
+            _sceneRenderer.ApplySeaSubmerge(_instancingEffect, _scene);
+
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 

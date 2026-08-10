@@ -123,6 +123,32 @@ namespace Prazsky.Core.Render
         public float SeaLevelY => _seaConfig.LevelY;
 
         /// <summary>
+        /// Pushes the sea's submerge-fade uniforms onto the shared instancing effect, so a missed ball dims into
+        /// dark water rather than vanishing the instant it crosses the surface (#131). A no-op (SeaFadeDepth = 0,
+        /// which the shader gates the whole fade on) on every scene but the sea, where it sets the level, the
+        /// deep-water tint and the band over which a ball fades out. The mirror of <see cref="CloudField.ApplyTo"/>
+        /// for a sea-specific uniform set the ball shader needs.
+        /// </summary>
+        public void ApplySeaSubmerge(Effect effect, SceneKind scene)
+        {
+            var p = effect.Parameters;
+            if (scene != SceneKind.Sea)
+            {
+                p["SeaFadeDepth"]?.SetValue(0f);
+                return;
+            }
+
+            p["SeaLevelY"].SetValue(_seaConfig.LevelY);
+            p["SeaFadeDepth"].SetValue(SEA_SUBMERGE_FADE);
+            p["SeaSubmergeTint"].SetValue(_seaConfig.WaterDeep.ToVector3());
+        }
+
+        /// <summary>World units below the sea surface over which a missed ball fades from solid to gone — short,
+        /// so it reads as being swallowed by the water rather than lingering under it. The kill plane that finally
+        /// removes a fallen ball is far below this, so the ball is gone from the screen long before the sim drops it.</summary>
+        private const float SEA_SUBMERGE_FADE = 3f;
+
+        /// <summary>
         /// How many scene-target texels make one output pixel — the caller's supersampling factor, which only
         /// the caller knows (the Game's moves with the quality tier). The space scene sizes its stars in
         /// <b>output</b> pixels off this: sized in texels instead, a star would come out four times dimmer at
@@ -1891,6 +1917,11 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+            //Depth-read, not depth-write: a missed ball falls through the surface and the sea has to stop
+            //claiming the depth under the waterline so the ball's own pixels run (and fade) instead of being
+            //depth-killed by the surface plane. The island draws after this and is opaque, so it still writes
+            //and owns its own depth; only the open water gives the depth up (#131).
+            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
 
             _graphicsDevice.SetVertexBuffer(_seaVertexBuffer);
             _graphicsDevice.Indices = _seaIndexBuffer;
@@ -1899,6 +1930,7 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
         }
 
         /// <summary>
