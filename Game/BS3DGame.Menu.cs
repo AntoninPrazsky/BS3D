@@ -104,7 +104,7 @@ namespace BS3D
         private SpriteFontBase _menuFontBody, _menuFontSmall, _menuFontHeading, _menuFontTitle, _menuFontStars;
 
         //The menu is deliberately GREYSCALE — no hue anywhere, and no coloured frames. It has to sit over
-        //eleven backdrops whose palettes are nothing alike (a neon city, an ochre desert, a blue sea, white
+        //twelve backdrops whose palettes are nothing alike (a neon city, an ochre desert, a blue sea, white
         //peaks, green meadow), and any accent colour that reads as the game's own over one of them fights
         //the next. Neutral black-to-white belongs over all of them equally: emphasis is carried by
         //brightness and by opacity, which is legible against any hue.

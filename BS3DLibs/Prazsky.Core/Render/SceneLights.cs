@@ -13,9 +13,9 @@ namespace Prazsky.Core.Render
     /// these lights under whatever sky dome is up. It existed line-for-line in both the Testbed and the Game
     /// until #75.
     /// <para>
-    /// Three of the eleven scenes carry lights: the savanna's campfire, the neon city's ring of magenta and
-    /// cyan, and space's planetshine. The other eight push a count of zero once and then cost nothing —
-    /// see the early-out in <see cref="Apply"/>.
+    /// Four of the twelve scenes carry lights: the savanna's campfire, the neon city's ring of magenta and
+    /// cyan, space's planetshine and the Moon's earthshine. The other eight push a count of zero once and
+    /// then cost nothing — see the early-out in <see cref="Apply"/>.
     /// </para>
     /// <para>
     /// <b>The savanna grass shader's copy is deliberately not this one.</b>
@@ -91,10 +91,10 @@ namespace Prazsky.Core.Render
         {
             int count = 0;
 
-            //The three guards below are mutually exclusive by construction — a scene is the savanna, or the
-            //neon city, or space (TryGetSpacePlanetshine returns false for every kind but SceneKind.Space),
-            //and no SceneKind satisfies two of them. So this order is an order and not a precedence: do not
-            //read it as one, and do not write a fourth branch that relies on being tested last.
+            //The four guards below are mutually exclusive by construction — a scene is the savanna, or the
+            //neon city, or space, or the Moon (each TryGet returns false for every kind but its own), and no
+            //SceneKind satisfies two of them. So this order is an order and not a precedence: do not read it
+            //as one, and do not write a fifth branch that relies on being tested last.
             if (scene == SceneKind.Savanna)
             {
                 //The ring of campfires on the grass around the island, each flickering off the same wall clock
@@ -117,6 +117,15 @@ namespace Prazsky.Core.Render
                 _lightPosition[0] = shinePosition;
                 _lightColor[0] = shineColor;
                 _lightRange[0] = shineRange;
+                count = 1;
+            }
+            else if (sceneRenderer.TryGetMoonEarthshine(scene, out Vector3 earthPosition, out Vector3 earthColor, out float earthRange))
+            {
+                //Earthshine: the planetshine's argument at the Earth's colour — the cool fill the Earth
+                //throws back onto the island, directional and able to put a highlight into the gold beads.
+                _lightPosition[0] = earthPosition;
+                _lightColor[0] = earthColor;
+                _lightRange[0] = earthRange;
                 count = 1;
             }
             else if (scene == SceneKind.NeonCity)

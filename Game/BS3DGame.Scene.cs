@@ -7,7 +7,7 @@ using System.Collections.Generic;
 namespace BS3D
 {
     /// <summary>
-    /// The host's half of <b>the setting</b> — the sky, the eleven backdrops, the city, the island and its
+    /// The host's half of <b>the setting</b> — the sky, the twelve backdrops, the city, the island and its
     /// drain, the forest scatter, the clouds, the light rig and the scene's own lamps. All of it outlives a
     /// session, which is why it is the host's and not <see cref="Screens.GameplayScreen"/>'s (#65), and since
     /// #75 the drawn things themselves live in <c>Prazsky.Core</c> in one copy — what is here is the wiring:
@@ -42,9 +42,9 @@ namespace BS3D
         private byte _skyDome = DEFAULT_SKY_DOME;
 
         /// <summary>
-        /// Which of the eleven settings the frame stands in — the backdrop the menu's camera orbits and the
+        /// Which of the twelve settings the frame stands in — the backdrop the menu's camera orbits and the
         /// one the game is then played in, since the player picks it from the menu and it stays picked. The
-        /// city and the neon city are the procedural <see cref="City"/> under two lightings; the other nine
+        /// city and the neon city are the procedural <see cref="City"/> under two lightings; the other ten
         /// are the shared <see cref="SceneRenderer"/>'s self-lit backdrops, the same ones the Testbed and the
         /// map editor draw. The count is <see cref="SceneRenderer.SceneCount"/>, which is where to read it.
         /// </summary>
@@ -367,7 +367,7 @@ namespace BS3D
             //Cleared to the dome's horizon colour rather than a fixed one: at a wide aspect the bottom
             //corners can look below the horizon past both the dome and the island, and there any other
             //colour shows up as a band instead of blending into the hazed skyline.
-            //The sky-replacing scenes (space, the dream) have no dome and no horizon, so they clear to black
+            //The sky-replacing scenes (space, the dream, the cavern, the Moon) have no dome, so they clear to black
             //instead: their pass covers every pixel of the frame, and black is what would show if it ever did not.
             GraphicsDevice.Clear(SceneRenderer.ReplacesSky(_scene) ? Color.Black : new Color(_rig.HorizonLinear));
 

@@ -29,9 +29,9 @@ namespace BS3D.Screens
     /// is handed the keeper each frame and animates what it reads there.
     /// </para>
     /// <para>
-    /// <b>The one accent is amber</b> (<see cref="HUD_ACCENT"/>). The HUD sits over eleven scene palettes whose
+    /// <b>The one accent is amber</b> (<see cref="HUD_ACCENT"/>). The HUD sits over twelve scene palettes whose
     /// colours are nothing alike, so a hue that reads as the game's own over one of them fights the next — the
-    /// menu is greyscale for exactly this reason. Amber survives all seven because it is the sun's own colour
+    /// menu is greyscale for exactly this reason. Amber survives them all because it is the sun's own colour
     /// and every scene already has it, and it is spent on one thing only: <i>gain</i>. Score flash, the streak,
     /// the destination a popup turns into, and the last two balls, which is the other moment worth looking at.
     /// The only other colour in the HUD is the popup's at birth — the colour of the balls that were actually

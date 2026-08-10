@@ -9,7 +9,7 @@ Companion to `verify` (build/launch) and `screenshot` (framing a shot). This one
 
 ```powershell
 dotnet build C:\GitHub\Game.sln
-.\benchmark.ps1                                      # the 9-scene sweep at ssaa 1 and 2
+.\benchmark.ps1                                      # the 12-scene sweep at ssaa 1 and 2
 .\benchmark.ps1 -Scenes neon -Ssaa 0 -Extra @('quality=low')
 .\benchmark.ps1 -Scenes neon -Ssaa 2 -Seconds 20     # longer window on a noisy machine
 ```
@@ -59,7 +59,7 @@ always passes) is what makes the number a frame cost rather than the display's r
   whose last line is `SetSupersampleFactor(preset.SupersampleFactor)`, so the tier's factor overwrites the one
   the command line asked for. Check the `[fps]` line's own `ssaa Nx` before believing any A/B that varies it —
   an ssaa 1-vs-2 sweep silently measures 2× twice.
-- `scene=<city|sea|savanna|desert|mountain|meadow|neon|forest|space>`, `sky=<1..18>` — pin the backdrop. The scene names are
+- `scene=<city|sea|savanna|desert|mountain|meadow|neon|forest|space|dream|cavern|moon>`, `sky=<1..18>` — pin the backdrop. The scene names are
   the Testbed's, so a script written against one executable drives the other.
 
 The measurement is wall-clock and cannot split CPU from GPU (MonoGame exposes no GPU timer queries). The cheap
