@@ -643,7 +643,7 @@ namespace BS3D
                 //long before there is a renderer to write onto), so a startup at anything but High would
                 //otherwise draw the full-price floor until the next tier change — which on a pinned tier never
                 //comes.
-                TerrainDetail = _quality == QualityLevel.High ? 1f : 0f
+                SceneDetail = _quality == QualityLevel.High ? 1f : 0f
             };
 
             //After the scene renderer, which the rig consults for the scenes that state their own lighting. The

@@ -122,9 +122,10 @@ namespace Prazsky.Core.Render
         public int SupersampleFactor { get; set; } = 1;
 
         /// <summary>
-        /// Whether the terrain shaders may draw their <b>expensive extras</b> — today the forest floor's
-        /// triplanar normal variation and its procedural tree shadows, which together are the whole of what
-        /// that floor's second pass costs. 1 is the authored look; 0 is the reduced one.
+        /// Whether the scene shaders may draw their <b>expensive extras</b> — the forest floor's triplanar
+        /// normal variation and its procedural tree shadows, and the cavern's full wall shading inside the
+        /// water's reflection together with its full spore count. 1 is the authored look; 0 is the reduced
+        /// one, and each scene that has a reduced program compiles it as a second technique.
         /// <para>
         /// A plain number rather than a quality enum for <see cref="SupersampleFactor"/>'s reason: the tier
         /// lives in the Game and this library cannot see it, so the host converts. Left at 1, a caller that
@@ -132,31 +133,38 @@ namespace Prazsky.Core.Render
         /// where the scene is tuned and looked at.
         /// </para>
         /// <para>
-        /// <b>Measured</b>, front end at 1600×900 on the desktop GPU (forest, dome 13, nocap): the two extras
-        /// together cost <b>2.69 → 2.09 ms</b>. Cutting either one <i>alone</i> saves nothing at all — 2.71
-        /// and 2.72 — because the pass is occupancy-bound rather than work-bound, which is exactly why this is
-        /// one switch over both rather than a dial per feature. See "The forest" in docs/scenes.md.
+        /// <b>Measured</b>, front end at 1600×900 on the desktop GPU, dome 13, nocap. Forest: the two extras
+        /// together cost <b>2.69 → 2.09 ms</b>, and cutting either one <i>alone</i> saves nothing at all —
+        /// 2.71 and 2.72. Cavern: <b>4.98 → 3.33 ms</b>, and again every single reduction is worth nothing
+        /// (5.01 without the reflection's wall shading, 5.02 at one spore instead of 28, 4.97 with the river
+        /// search halved, 5.01 with the crystal march cut by ten steps).
+        /// </para>
+        /// <para>
+        /// <b>Both scenes are occupancy-bound rather than work-bound</b>, which is the whole reason this is one
+        /// switch per scene rather than a dial per feature: only crossing back over the threshold buys
+        /// anything, so a pair of removals is the smallest useful step and a third adds nothing (the cavern
+        /// measures 3.33 for two and 3.31 for four). See "The forest" and "The cavern" in docs/scenes.md.
         /// </para>
         /// </summary>
-        public float TerrainDetail
+        public float SceneDetail
         {
-            get => _terrainDetail;
+            get => _sceneDetail;
             set
             {
-                if (value == _terrainDetail) return;
+                if (value == _sceneDetail) return;
 
-                _terrainDetail = value;
+                _sceneDetail = value;
 
                 //Selected HERE and not only in ApplyForestParameters, which runs from the constructor and on a
                 //config change and so had already run by the time a host set this — the first wiring set the
                 //property, never re-selected, and drew the full-price floor at every tier while looking
                 //perfectly correct. Caught by making the reduced technique output flat red for one run: the
                 //floor stayed green.
-                SelectForestTechnique();
+                SelectDetailTechniques();
             }
         }
 
-        private float _terrainDetail = 1f;
+        private float _sceneDetail = 1f;
 
         //Scene configuration. Defaults reproduce the original hard-coded look byte-for-byte; every scene
         //reads its tuning from these instead of constants. Replaced at runtime by Apply(SceneConfig) when a
@@ -1197,10 +1205,19 @@ namespace Prazsky.Core.Render
         /// Points the forest effect at the full floor or the reduced one. By <b>technique</b> and not by a
         /// uniform the shader branches on: what the reduced floor gives up is occupancy, and a runtime branch
         /// skips the work while keeping the registers that cost it — measured, a uniform branch saved 0.02 ms
-        /// of the 0.60 the separate program saves. See <see cref="TerrainDetail"/>.
+        /// of the 0.60 the separate program saves. See <see cref="SceneDetail"/>.
         /// </summary>
+        private void SelectDetailTechniques()
+        {
+            SelectForestTechnique();
+
+            //The cavern's pair is the water's second wall shade and the spore count — see CavernScene. Both
+            //effects are loaded in the constructor, so neither is null by the time anything writes SceneDetail.
+            _cavernEffect.CurrentTechnique = _cavernEffect.Techniques[_sceneDetail > 0.5f ? "Cavern" : "CavernReduced"];
+        }
+
         private void SelectForestTechnique() =>
-            _forestEffect.CurrentTechnique = _forestEffect.Techniques[_terrainDetail > 0.5f ? "Forest" : "ForestReduced"];
+            _forestEffect.CurrentTechnique = _forestEffect.Techniques[_sceneDetail > 0.5f ? "Forest" : "ForestReduced"];
 
         private void ApplyForestParameters()
         {

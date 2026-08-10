@@ -40,6 +40,10 @@
 #define RAY_COUNT 4
 #define SPORE_COUNT 28
 
+//What the reduced program carries instead. See CavernScene's `detail` parameter for why the spore count and
+//the water's reflected wall shading are cut TOGETHER and why nothing else here is cut at all.
+#define SPORE_COUNT_REDUCED 8
+
 float4x4 InverseViewProjection;
 float3 CameraPosition;
 float CavernTime;
@@ -332,7 +336,21 @@ CavernVertexOutput CavernVS(CavernVertexInput input)
 	return output;
 }
 
-float4 CavernPS(CavernVertexOutput input) : COLOR
+//`detail` is an ordinary argument passed a LITERAL by each entry point below, so it constant-folds and each
+//comes out a separate program with its own register allocation. That last part is the point: this pass is
+//OCCUPANCY-bound, not work-bound, and the measurements say so plainly. Front end, 1600x900, desktop GPU,
+//dome 13, nocap - the full scene is 4.98 ms, and every single reduction on its own is worth NOTHING:
+//
+//  reflection's wall shading dropped   5.01 ms
+//  spores 28 -> 1                      5.02
+//  river search 16 -> 8 steps          4.97
+//  crystal march 24 -> 14, step 0.75   5.01
+//
+//while the PAIR of the reflection and the spores measures 3.33, and adding the river and the crystal cuts on
+//top of that gives 3.31 - nothing further. So the reduced program drops exactly that pair and leaves the
+//river and the crystals at full quality, which is the opposite of the order the issue's fix sketch ranked
+//them in (#102). A dial per feature would have bought nothing at all.
+float4 CavernScene(CavernVertexOutput input, bool detail)
 {
 	float3 direction = normalize(input.Ray);
 	float t = CavernTime;
@@ -414,7 +432,14 @@ float4 CavernPS(CavernVertexOutput input) : COLOR
 		bounced = normalize(bounced);
 
 		float tReflected = CaveShellDistance(hit, bounced);
-		float3 mirrored = ShadeWall(hit + bounced * tReflected, tSolid + tReflected);
+
+		//The reduced program skips the second full wall shade and reflects the mist instead. It costs less
+		//than it sounds: the very next line lerps this towards MistColor by the reflected path's own mist
+		//amount, and that path starts ON the water in the layer's densest air - so at any distance the
+		//mirrored wall was already most of the way to this colour.
+		float3 mirrored = MistColor;
+
+		if (detail) mirrored = ShadeWall(hit + bounced * tReflected, tSolid + tReflected);
 
 		//The mirror shows the steam too: the reflected path starts ON the surface, in the layer's densest
 		//air, so without this the water would reflect a crisper cave than the one standing over it.
@@ -618,7 +643,7 @@ float4 CavernPS(CavernVertexOutput input) : COLOR
 	//--- The spores: slow rising motes, swaying as they climb, reborn at the water for ever.
 	//Closest-approach gaussians like the dream's sparks, but SLOW - the cave's stillness is the point.
 	[unroll]
-	for (int s = 0; s < SPORE_COUNT; s++)
+	for (int s = 0; s < (detail ? SPORE_COUNT : SPORE_COUNT_REDUCED); s++)
 	{
 		float fs = (float)s;
 		float lane = frac(fs * 0.618);
@@ -657,11 +682,26 @@ float4 CavernPS(CavernVertexOutput input) : COLOR
 	return float4(color, 1.0);
 }
 
+//Two programs from one body, as the forest floor has. "Cavern" is the authored scene; "CavernReduced" drops
+//the water's second wall shade and most of the spores - the pair that has to go together. The caller picks
+//by tier through SceneRenderer.SceneDetail.
+float4 CavernPS(CavernVertexOutput input) : COLOR { return CavernScene(input, true); }
+float4 CavernReducedPS(CavernVertexOutput input) : COLOR { return CavernScene(input, false); }
+
 technique Cavern
 {
 	pass P0
 	{
 		VertexShader = compile VS_SHADERMODEL CavernVS();
 		PixelShader = compile PS_SHADERMODEL CavernPS();
+	}
+};
+
+technique CavernReduced
+{
+	pass P0
+	{
+		VertexShader = compile VS_SHADERMODEL CavernVS();
+		PixelShader = compile PS_SHADERMODEL CavernReducedPS();
 	}
 };
