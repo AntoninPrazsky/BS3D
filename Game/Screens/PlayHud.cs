@@ -339,6 +339,15 @@ namespace BS3D.Screens
             /// has to be visible without being counted by the eye as cluster.
             /// </summary>
             public bool InFlight;
+
+            /// <summary>
+            /// Whether the body is actually moving <b>downwards</b> this frame. It is what tells a shot still
+            /// climbing at the cluster from one that has been let go or has missed and is on its way to the
+            /// drain — the two are otherwise the same thing to this panel, and they must not be drawn the same
+            /// way under the death line (see the cull in <c>DrawClusterProfile</c>). Read from the live body
+            /// rather than remembered, so the profile stays what it is: rebuilt from scratch every frame.
+            /// </summary>
+            public bool Falling;
         }
 
         /// <summary>
@@ -417,6 +426,22 @@ namespace BS3D.Screens
         //How much of an in-flight ball's marker is hollowed out to make it a ring. Enough that the ring reads as
         //an outline rather than as a slightly dented disc, little enough that the type colour still carries.
         private const float PROFILE_FLIGHT_RING = 0.42f;
+
+        /// <summary>
+        /// How far below the death line a falling ball goes on being drawn, fading to nothing over the distance
+        /// (#134). In <b>world units</b>, like everything else the panel measures, so it is the same fall at
+        /// every resolution — about 22 px at a 1600×900 client and 52 at 2160p, which stays inside the space
+        /// under the panel.
+        /// <para>
+        /// It is a distance and not a duration, which means the dissolve lasts as long as the ball's own speed
+        /// says it should: a ball let go just over the line crawls out, one arriving from the top of the field
+        /// snaps out. That is the honest reading, and it is also what keeps the panel stateless — a timed fade
+        /// would have to remember each ball. A missed shot falling back out was measured crossing at <b>7.4
+        /// units a second</b>, which is <b>16 frames</b> of visible dissolve at 60 — the alphas logged out of
+        /// the draw ran 0.73 down to 0.04 in even steps. Faster arrivals are shorter in proportion.
+        /// </para>
+        /// </summary>
+        private const float PROFILE_SINK_FADE = 2f;
 
         //The death line, in design units — thick enough to read as a deliberate mark at the panel's scale, since
         //a 2-pixel line over a lit skyline is sub-pixel and gone. It is a THRESHOLD and not a thing, so it has no
@@ -989,19 +1014,36 @@ namespace BS3D.Screens
             {
                 BallMarker marker = balls[i];
 
-                //Held to the panel's own window. A ball in flight is the only marker that can be outside it —
-                //the gun stands on the island, well BELOW the death line, so a shot spends the first half of
-                //its climb under the panel's floor, and a spent one falls back out the same way. Drawn
-                //unclamped it would sit under the death line, which on this panel means exactly one thing:
-                //lost. Culled, the shot simply appears as it enters the field, which is when it starts to
-                //matter. Cluster balls cannot fail this — a cluster ball below the death line has ended the
-                //level — so the test costs nothing where it never fires.
-                if (marker.World.Y < bottomY || marker.World.Y > topY) continue;
+                //Above the panel's window is a plain cull. Cluster balls cannot fail it, and a shot only ever
+                //reaches up there past the glass, where it has nothing to say.
+                if (marker.World.Y > topY) continue;
+
+                //Under the death line, two different balls arrive here and only one of them may be drawn.
+                //A shot on its way UP starts under the line — the gun stands on the island, well below it — and
+                //drawing it there would say the one thing this panel's floor means: lost. A ball on its way
+                //DOWN has crossed for real, and cutting it dead on the frame it crosses is the pop #134 is
+                //about, when the ball is in fact still falling for another 36 units before KILL_PLANE_Y takes
+                //it. So it goes on falling out of the panel and dissolves over PROFILE_SINK_FADE.
+                //
+                //Which of the two this is comes off the body's own velocity (BallMarker.Falling), not off the
+                //list it came from: a shot that missed is still in _shotBalls on the way back down. Cluster
+                //balls cannot get here at all — one below the death line has ended the level.
+                float sink = bottomY - marker.World.Y;
+                float alpha = 1f;
+
+                if (sink > 0f)
+                {
+                    if (!marker.Falling || sink >= PROFILE_SINK_FADE) continue;
+
+                    alpha = 1f - sink / PROFILE_SINK_FADE;
+                }
 
                 float px = WorldToPanelX(marker.World);
                 float py = WorldToPanelY(marker.World.Y);
 
-                DrawDisc(pixel, batch, px, py, markerRadius, TypeColor(marker.Type),
+                //Multiplied through all four channels, which is the premultiplied alpha this batch's default
+                //AlphaBlend wants — the same way the broken streak fades out.
+                DrawDisc(pixel, batch, px, py, markerRadius, TypeColor(marker.Type) * alpha,
                     marker.InFlight ? markerRadius * (1f - PROFILE_FLIGHT_RING) : 0f);
             }
 

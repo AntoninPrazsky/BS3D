@@ -382,6 +382,11 @@ namespace BS3D.Screens
                     World = new Vector3(pose.X, pose.Y, pose.Z),
                     Type = ball.Type,
                     InFlight = true,
+
+                    //Which way it is going, not which list it came from: a shot that missed is still in
+                    //_shotBalls on the way back down, so the list cannot answer this. The panel's floor cull
+                    //turns on it (#134).
+                    Falling = ball.BallReference.Velocity.Linear.Y < 0f,
                 };
             }
         }
