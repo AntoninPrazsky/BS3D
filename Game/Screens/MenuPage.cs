@@ -157,11 +157,12 @@ namespace BS3D.Screens
         protected Panel Plate(Widget content) => Game.Plate(content);
 
         /// <summary>
-        /// The page centred over the whole frame. The scrim is <b>not</b> passed: it is set per showing by
-        /// <see cref="BS3DGame.ShowPage"/> from <see cref="DimsFrame"/>, since the same page dims over a pause
-        /// and does not over the front end.
+        /// The page centred over the whole frame. It carries no scrim of its own: whether the frame dims is
+        /// still <see cref="DimsFrame"/>'s answer, but the wash itself is the host's own quad since #114 —
+        /// Myra's background paint stops short of the viewport's bottom edge, and the strip it left undimmed
+        /// was the bug.
         /// </summary>
-        protected Panel ScreenRoot(Widget content) => BS3DGame.ScreenRoot(content, scrim: null);
+        protected Panel ScreenRoot(Widget content) => BS3DGame.ScreenRoot(content);
 
         /// <summary>One level back off the stack — what every sub-page's "Back" entry does.</summary>
         protected void GoBack() => Manager.Pop();

@@ -137,14 +137,15 @@ namespace BS3D
         //to look at. The front end does NOT: there the rotating scene is the point of the screen, and a
         //full-screen wash over it throws away the one thing that screen exists to show. Its legibility comes
         //from the widgets instead — the entries are near-opaque slabs and the prose sits on a plate.
-        private static readonly Color PAUSE_SCRIM = new(0, 0, 0, 176);
+        //
+        //Drawn by the HOST's own batch since #114, not as the Myra root's background: Myra's paint stops a
+        //couple of rows short of the viewport's bottom edge (see the scrim block in Draw for the measurement),
+        //which left a thin strip of undimmed arena across the bottom of every dimmed page.
+        internal static readonly Color PAUSE_SCRIM = new(0, 0, 0, 176);
 
         //Behind prose, where a slab alone cannot hold a line of small text steady over a moving scene
         internal static readonly Color MENU_PLATE = new(0, 0, 0, 190);
 
-        //Held rather than made per navigation: the shared screens swap between this and no scrim at all,
-        //depending on whether they were opened from the front end or from a pause.
-        private readonly SolidBrush _pauseScrimBrush = new(PAUSE_SCRIM);
 
         /// <summary>
         /// The height the menu is laid out for, in the same spirit as <see cref="InfoRenderer"/>'s overlay:
@@ -453,11 +454,10 @@ namespace BS3D
             //only change while nobody is looking at it.
             page.Refresh();
 
-            //Whether the frame behind is dimmed belongs to where the page was opened from, and the stack is
-            //what knows: light over a scene that is the point of the picture, heavy over a frozen game that
-            //is not. A null background simply draws nothing.
-            page.Root.Background = page.DimsFrame ? _pauseScrimBrush : null;
-
+            //Whether the frame behind is dimmed still belongs to where the page was opened from, and the
+            //stack is still what knows (DimsFrame) — but the scrim itself is the host's quad since #114,
+            //asked per frame in Draw rather than set onto the root here: Myra's own background paint stops
+            //short of the viewport's bottom edge, and the strip it left undimmed is the very bug.
             _desktop.Root = page.Root;
 
             //Last: Refresh above has finished deciding which entries this page actually shows — the resume
@@ -725,15 +725,14 @@ namespace BS3D
         }
 
         /// <summary>
-        /// A screen: the column of widgets centred over the whole frame, optionally on a scrim that dims the
-        /// scene behind it. <paramref name="scrim"/> is null for every front-end screen — only a pause dims.
-        /// The panel itself still stretches, because it is what centres the column and what Myra hit-tests.
+        /// A screen: the column of widgets centred over the whole frame. It carries <b>no background</b> —
+        /// the scrim a dimming page wants is the host's own quad since #114 (see the scrim block in Draw) —
+        /// but the panel still stretches, because it is what centres the column and what Myra hit-tests.
         /// </summary>
-        internal static Panel ScreenRoot(Widget content, IBrush scrim)
+        internal static Panel ScreenRoot(Widget content)
         {
             Panel panel = new()
             {
-                Background = scrim,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Stretch,
             };
