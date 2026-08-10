@@ -106,6 +106,14 @@ namespace BS3D.Screens
         internal virtual void Refresh() { }
 
         /// <summary>
+        /// The pad/arrow focus cursor has moved onto <paramref name="focused"/> (null: it went down — the
+        /// pointer is driving, whose hover the page's own events see). Raised by the host's
+        /// <c>ApplyNavHighlight</c>, for the page that presents the focused entry somewhere other than on the
+        /// entry itself — the level picker's detail line (#91). Most pages need nothing here.
+        /// </summary>
+        internal virtual void NavFocusChanged(Button focused) { }
+
+        /// <summary>
         /// Whether this page dims the frame behind it. A pause dims hard, because what is behind it is a
         /// stopped game; the front end does not dim at all, because the rotating scene is the point of that
         /// screen. A page shared between the two — settings, scene, about — asks the <b>stack</b> whether a
