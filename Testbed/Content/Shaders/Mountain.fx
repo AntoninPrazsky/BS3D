@@ -168,14 +168,17 @@ float RockOctave(float2 xz, float2 dir, float frequency, float footprint)
 	return sin(dot(xz, dir) * frequency) * resolvable;
 }
 
-//A few crossed octaves of rough rock texture
-float RockRelief(float2 xz, float footprint)
+//A few crossed octaves of rough rock texture, with a fine 4th octave so the relief reaches crag-scale rather
+//than stopping at broad undulation (the first three alone top out near 2.6 ball-diameters across, which reads
+//as swell, not grain - #140). The 4th is band-limited out by RockOctave's footprint guard before it aliases.
+float RockRelief(float2 xz, float2 footprint)
 {
 	float f = RockReliefFrequency;
 
-	float h = 0.5 * RockOctave(xz, normalize(float2(0.9, 0.4)), f, footprint)
-		+ 0.3 * RockOctave(xz, normalize(float2(-0.5, 0.85)), f * 1.9, footprint)
-		+ 0.2 * RockOctave(xz, normalize(float2(0.3, -0.95)), f * 3.6, footprint);
+	float h = 0.46 * RockOctave(xz, normalize(float2(0.9, 0.4)), f, footprint)
+		+ 0.28 * RockOctave(xz, normalize(float2(-0.5, 0.85)), f * 1.9, footprint)
+		+ 0.16 * RockOctave(xz, normalize(float2(0.3, -0.95)), f * 3.6, footprint)
+		+ 0.10 * RockOctave(xz, normalize(float2(-0.8, -0.55)), f * 7.0, footprint);
 
 	return h * RockReliefStrength;
 }
@@ -215,6 +218,15 @@ float4 MountainPS(MountainVertexOutput input) : COLOR
 	//Rock varies between a dark and a lighter grey-brown in patches, so the faces are not one flat colour
 	float rockPatch = saturate(CloudNoise(worldPosition.xz * 0.08 + 21.0) * 0.5 + 0.5);
 	float3 rock = lerp(RockColor, RockColorLight, rockPatch * detailFade);
+
+	//Fine per-pixel rock grain, the cue Desert.fx's sand added that "a floor with no fine albedo change still
+	//looks airbrushed however it is lit" (docs/scenes.md). One hash per pixel over a fine world lattice,
+	//band-limited against the footprint the same way as the relief so it fades to smooth before its cells reach
+	//pixel size (a hard-edged per-cell value is its own aliasing source) and stays off the distant ranges with
+	//the rest of the detail. Only on the rock, not the snow it sits beside.
+	float rockGrainFade = saturate(1.0 - footprint * 120.0) * detailFade;
+	rock *= 1.0 + NoiseHash22(floor(worldPosition.xz * 60.0)).x * 0.14 * rockGrainFade;
+
 	float3 albedo = lerp(rock, SnowColor, snow);
 
 	float sunlight = CloudSunlight(worldPosition, SunDirection);
