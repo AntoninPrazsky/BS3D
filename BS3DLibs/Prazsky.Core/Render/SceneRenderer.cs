@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Tools;
 using System;
+using System.Collections.Generic;
 
 namespace Prazsky.Core.Render
 {
@@ -881,39 +882,73 @@ namespace Prazsky.Core.Render
             }
 
             BirdVertex[] acaciaVertices = new BirdVertex[ac.Count * 4];
+
+            //What is already standing, so the next plant can be kept out of it. The savanna had the forest's
+            //bug and for the same reason (#108): plants were placed independently, and with 82 % of them
+            //clumping around a centre whose density rises inwards, two landing on top of each other was the
+            //expected case. The rule is ScatterSpacing's, one copy with the forest's.
+            List<ScatterSpacing.Footprint> standing = new(ac.Count);
+
             for (int i = 0; i < ac.Count; i++)
             {
-                float x, z;
-                if (acaciaRng.NextDouble() < 0.82) //most plants clump around a cluster centre
+                //Rolled BEFORE the position, because the position now depends on how wide this plant is: a
+                //bush needs a third of a tree's room and should not be pushed out as though it needed all of
+                //it. These are the very draws Acacia.fx sizes the billboard from — a tree is
+                //TreeWidth * (0.75 + 0.55 * rand) half-wide and a bush TreeWidth * (0.35 + 0.30 * rand), so
+                //the footprint here is the one the shader actually draws rather than an estimate of it.
+                float rand = (float)acaciaRng.NextDouble();
+                bool isBush = acaciaRng.NextDouble() < ac.BushFraction;
+                float packed = isBush ? 1f + rand : rand;
+                float halfWidth = isBush
+                    ? ac.Width * (0.35f + 0.30f * rand)
+                    : ac.Width * (0.75f + 0.55f * rand);
+
+                float x = 0f, z = 0f;
+                float bestClearance = float.NegativeInfinity;
+
+                for (int attempt = 0; attempt < ScatterSpacing.TRIES; attempt++)
                 {
-                    int c = acaciaRng.Next(ac.Clusters);
-                    float off = (float)acaciaRng.NextDouble();
-                    float d = off * off * ac.ClusterSpread; //denser towards the centre
-                    float da = (float)acaciaRng.NextDouble() * MathHelper.TwoPi;
-                    x = clusterX[c] + MathF.Cos(da) * d;
-                    z = clusterZ[c] + MathF.Sin(da) * d;
-                }
-                else //the odd solitary plant, anywhere in the ring
-                {
-                    float a = (float)acaciaRng.NextDouble() * MathHelper.TwoPi;
-                    float r = ac.MinRadius + (float)acaciaRng.NextDouble() * (ac.MaxRadius - ac.MinRadius);
-                    x = MathF.Cos(a) * r;
-                    z = MathF.Sin(a) * r;
+                    float cx, cz;
+                    if (acaciaRng.NextDouble() < 0.82) //most plants clump around a cluster centre
+                    {
+                        int c = acaciaRng.Next(ac.Clusters);
+                        float off = (float)acaciaRng.NextDouble();
+                        float d = off * off * ac.ClusterSpread; //denser towards the centre
+                        float da = (float)acaciaRng.NextDouble() * MathHelper.TwoPi;
+                        cx = clusterX[c] + MathF.Cos(da) * d;
+                        cz = clusterZ[c] + MathF.Sin(da) * d;
+                    }
+                    else //the odd solitary plant, anywhere in the ring
+                    {
+                        float a = (float)acaciaRng.NextDouble() * MathHelper.TwoPi;
+                        float r = ac.MinRadius + (float)acaciaRng.NextDouble() * (ac.MaxRadius - ac.MinRadius);
+                        cx = MathF.Cos(a) * r;
+                        cz = MathF.Sin(a) * r;
+                    }
+
+                    //Keep clear of the island
+                    float dist = MathF.Sqrt(cx * cx + cz * cz);
+                    if (dist < ac.MinRadius && dist > 0.01f)
+                    {
+                        cx *= ac.MinRadius / dist;
+                        cz *= ac.MinRadius / dist;
+                    }
+
+                    float clearance = ScatterSpacing.Clearance(cx, cz, halfWidth, standing);
+
+                    if (clearance > bestClearance)
+                    {
+                        bestClearance = clearance;
+                        x = cx;
+                        z = cz;
+                    }
+
+                    if (clearance >= 0f) break;
                 }
 
-                //Keep clear of the island
-                float dist = MathF.Sqrt(x * x + z * z);
-                if (dist < ac.MinRadius && dist > 0.01f)
-                {
-                    x *= ac.MinRadius / dist;
-                    z *= ac.MinRadius / dist;
-                }
+                standing.Add(new ScatterSpacing.Footprint(x, z, halfWidth));
 
                 Vector3 basePos = new(x, SavannaTerrainHeight(x, z), z);
-
-                //Packed random: [0,1) a tree, [1,2) a bush
-                float rand = (float)acaciaRng.NextDouble();
-                float packed = acaciaRng.NextDouble() < ac.BushFraction ? 1f + rand : rand;
 
                 int v = i * 4;
                 acaciaVertices[v] = new BirdVertex(basePos, new Vector3(-1f, 0f, packed));

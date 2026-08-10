@@ -1,5 +1,6 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using System;
+using System.Collections.Generic;
 
 namespace Prazsky.Core.Render
 {
@@ -48,6 +49,23 @@ namespace Prazsky.Core.Render
         //A stump was cut where it grew, so it keeps a tree's modest lean.
         private const float STUMP_LEAN = 0.07f;
 
+        /// <summary>
+        /// The horizontal radius of each kind at scale 1, which is what two instances have to clear between
+        /// them. Taken from the crown radii the meshes are actually built at
+        /// (<c>ForestTreeConfig.CrownRadius</c> 3.1 and <c>ConiferCrownRadius</c> 2.6) rather than guessed —
+        /// the crown is the widest part of a tree and the only part whose overlap the eye catches.
+        /// </summary>
+        private const float BROADLEAF_FOOTPRINT = 3.1f;
+
+        /// <inheritdoc cref="BROADLEAF_FOOTPRINT"/>
+        private const float CONIFER_FOOTPRINT = 2.6f;
+
+        /// <inheritdoc cref="BROADLEAF_FOOTPRINT"/>
+        private const float ROCK_FOOTPRINT = 1.6f;
+
+        /// <inheritdoc cref="BROADLEAF_FOOTPRINT"/>
+        private const float STUMP_FOOTPRINT = 1.1f;
+
         /// <param name="seed">Scatter seed; the same seed always gives the same forest.</param>
         /// <param name="config">The forest's scatter configuration (counts, sizes, cluster count, radii).</param>
         /// <param name="coniferVariants">How many conifer meshes the caller built; the conifers are split
@@ -73,14 +91,29 @@ namespace Prazsky.Core.Render
             //real mixed wood grows.
             int coniferCount = (int)MathF.Round(trees.Count * MathHelper.Clamp(trees.ConiferFraction, 0f, 1f));
 
+            //ONE list across both tree calls, which is the whole point of it being a parameter: the two
+            //species are scattered separately (for the groves), so a per-call list would have let every
+            //spruce stand inside a broadleaf and only stopped each species colliding with itself. The
+            //trees are what the eye counts, so rocks and stumps are left out of it — a boulder or a stump
+            //at the foot of a tree is what a wood looks like, and holding them off would push them into
+            //the open, which is the worse picture.
+            List<ScatterSpacing.Footprint> trunks = new(trees.Count);
+
             Conifers = Scatter(coniferCount, trees.MinRadius, trees.MaxRadius, trees.Clusters, trees.ClusterSpread,
-                trees.MinScale, trees.MaxScale, TREE_LEAN, coniferVariants, terrainHeight, rng);
+                trees.MinScale, trees.MaxScale, TREE_LEAN, coniferVariants, terrainHeight, rng,
+                CONIFER_FOOTPRINT, trunks);
             Broadleaves = Scatter(trees.Count - coniferCount, trees.MinRadius, trees.MaxRadius, trees.Clusters, trees.ClusterSpread,
-                trees.MinScale, trees.MaxScale, TREE_LEAN, broadleafVariants, terrainHeight, rng);
+                trees.MinScale, trees.MaxScale, TREE_LEAN, broadleafVariants, terrainHeight, rng,
+                BROADLEAF_FOOTPRINT, trunks);
+
+            //Their own lists: a pile of boulders in one spot reads as a pile, but a boulder inside another
+            //boulder reads as a bug, and the same for stumps.
             Rocks = Scatter(rocks.Count, rocks.MinRadius, rocks.MaxRadius, rocks.Clusters, rocks.ClusterSpread,
-                rocks.MinScale, rocks.MaxScale, ROCK_TUMBLE, rockVariants, terrainHeight, rng);
+                rocks.MinScale, rocks.MaxScale, ROCK_TUMBLE, rockVariants, terrainHeight, rng,
+                ROCK_FOOTPRINT, new List<ScatterSpacing.Footprint>(rocks.Count));
             Stumps = Scatter(stumps.Count, stumps.MinRadius, stumps.MaxRadius, stumps.Clusters, stumps.ClusterSpread,
-                stumps.MinScale, stumps.MaxScale, STUMP_LEAN, stumpVariants, terrainHeight, rng);
+                stumps.MinScale, stumps.MaxScale, STUMP_LEAN, stumpVariants, terrainHeight, rng,
+                STUMP_FOOTPRINT, new List<ScatterSpacing.Footprint>(stumps.Count));
         }
 
         //One clumped scatter of <count> instances between <minRadius> and <maxRadius> from the world origin,
@@ -92,7 +125,8 @@ namespace Prazsky.Core.Render
         //stream, so the same seed no longer plants the rocks and stumps of the single-species forest.
         private static ModelInstance[][] Scatter(int count, float minRadius, float maxRadius,
             int clusters, float clusterSpread, float minScale, float maxScale, float maxLean,
-            int variants, Func<float, float, float> terrainHeight, Random rng)
+            int variants, Func<float, float, float> terrainHeight, Random rng,
+            float footprint, List<ScatterSpacing.Footprint> occupied)
         {
             if (variants < 1) throw new ArgumentOutOfRangeException(nameof(variants));
 
@@ -116,34 +150,61 @@ namespace Prazsky.Core.Render
 
             for (int i = 0; i < count; i++)
             {
-                float x, z;
-                if (rng.NextDouble() < 0.82f) //most instances clump around a cluster centre
-                {
-                    int c = rng.Next(clusters);
-                    float off = (float)rng.NextDouble();
-                    float d = off * off * clusterSpread; //denser towards the centre
-                    float da = (float)rng.NextDouble() * MathHelper.TwoPi;
-                    x = clusterX[c] + MathF.Cos(da) * d;
-                    z = clusterZ[c] + MathF.Sin(da) * d;
-                }
-                else //the odd solitary instance, anywhere in the ring
-                {
-                    float a = (float)rng.NextDouble() * MathHelper.TwoPi;
-                    float r = minRadius + (float)rng.NextDouble() * (maxRadius - minRadius);
-                    x = MathF.Cos(a) * r;
-                    z = MathF.Sin(a) * r;
-                }
-
-                //Keep clear of the island the arena stands on: push anything that fell inside the inner
-                //radius back out to it, rather than rejecting it (the count is what it is).
-                float dist = MathF.Sqrt(x * x + z * z);
-                if (dist < minRadius && dist > 0.01f)
-                {
-                    x *= minRadius / dist;
-                    z *= minRadius / dist;
-                }
-
                 float scale = minScale + (float)rng.NextDouble() * (maxScale - minScale);
+                float wantRadius = footprint * scale;
+
+                //Try a few positions and keep the roomiest. Nothing here rejects an instance outright: the
+                //count is authored, and a forest that quietly plants 180 of the 240 trees it was asked for
+                //would be a worse bug than the overlap this exists to stop (#108). Before this there was no
+                //separation test at all — instances were placed independently, and since 82% of them clump
+                //around a cluster centre with the density rising towards it, two landing on top of each
+                //other was the expected case rather than bad luck.
+                float x = 0f, z = 0f;
+                float bestClearance = float.NegativeInfinity;
+
+                for (int attempt = 0; attempt < ScatterSpacing.TRIES; attempt++)
+                {
+                    float cx, cz;
+                    if (rng.NextDouble() < 0.82f) //most instances clump around a cluster centre
+                    {
+                        int c = rng.Next(clusters);
+                        float off = (float)rng.NextDouble();
+                        float d = off * off * clusterSpread; //denser towards the centre
+                        float da = (float)rng.NextDouble() * MathHelper.TwoPi;
+                        cx = clusterX[c] + MathF.Cos(da) * d;
+                        cz = clusterZ[c] + MathF.Sin(da) * d;
+                    }
+                    else //the odd solitary instance, anywhere in the ring
+                    {
+                        float a = (float)rng.NextDouble() * MathHelper.TwoPi;
+                        float r = minRadius + (float)rng.NextDouble() * (maxRadius - minRadius);
+                        cx = MathF.Cos(a) * r;
+                        cz = MathF.Sin(a) * r;
+                    }
+
+                    //Keep clear of the island the arena stands on: push anything that fell inside the inner
+                    //radius back out to it, rather than rejecting it (the count is what it is).
+                    float dist = MathF.Sqrt(cx * cx + cz * cz);
+                    if (dist < minRadius && dist > 0.01f)
+                    {
+                        cx *= minRadius / dist;
+                        cz *= minRadius / dist;
+                    }
+
+                    float clearance = ScatterSpacing.Clearance(cx, cz, wantRadius, occupied);
+
+                    if (clearance > bestClearance)
+                    {
+                        bestClearance = clearance;
+                        x = cx;
+                        z = cz;
+                    }
+
+                    if (clearance >= 0f) break; //room enough; no need to look further
+                }
+
+                occupied.Add(new ScatterSpacing.Footprint(x, z, wantRadius));
+
                 float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
 
                 //Sunk a little below the sampled height: the floor is lumpy and the sample is one point, so
