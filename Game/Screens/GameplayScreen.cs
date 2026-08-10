@@ -652,13 +652,11 @@ namespace BS3D.Screens
         //two shots in quick succession accumulate straight back up to the response that was too strong.
         private const float RECOIL_KICK = 1f;
 
-        //The gun's own recoil: the barrel is thrown straight back along its bore and slides home again,
-        //carrying the balls loaded in it. Drawing only — a shot leaves along the true aim on the frame it is
-        //fired, before any of this, so nothing about where a ball goes depends on it.
-        private const float CANNON_RECOIL_BACK = 1.15f;  //how far back at the peak, world units (a little over one ball diameter)
-        private const float CANNON_RECOIL_DECAY = 4.2f;  //how fast it comes home, per second (1 ÷ this is the stroke: ~0.24 s)
-
-        private float _cannonRecoil;
+        //The gun's own recoil — the tube thrown back along its bore, and since #115 the undercarriage's
+        //smaller, later shove under it — is the shared Cannon's now (Cannon.RECOIL_BACK/RECOIL_DECAY/
+        //CARRIAGE_RECOIL_BACK): two responses off one clock only stay one clock if the gun owns it. This
+        //executable keeps the clock's ticks — KickRecoil in Shoot, StepRecoil in Update — and the whole of
+        //it stays drawing only: a shot leaves along the true aim on the frame it is fired, before any of it.
 
         private const float CANNON_ORBIT_RATE = 1.0f;
 
@@ -922,9 +920,10 @@ namespace BS3D.Screens
                 if (_magazineTransmute[i] > 0f)
                     _magazineTransmute[i] = MathF.Max(0f, _magazineTransmute[i] - elapsed / TRANSMUTE_SECONDS);
 
-            //The barrel slides home. Linear in the stroke, so it genuinely ends rather than approaching zero
-            //forever and leaving the gun permanently a hair out of place.
-            if (_cannonRecoil > 0f) _cannonRecoil = MathF.Max(0f, _cannonRecoil - CANNON_RECOIL_DECAY * elapsed);
+            //The gun slides home — the tube in its cradle and the carriage under it, both off the one stroke
+            //the shared Cannon owns since #115. Wall clock, like the magazine's glide above and for the same
+            //reason: the recoil is the gun answering the shot, not the simulation.
+            _cannon.StepRecoil(elapsed);
 
             //The cinematic reads the balls where the last step left them and answers with this frame's pose and
             //time scale, so the scale is applied to the very step its own framing was chosen against.
@@ -1038,15 +1037,16 @@ namespace BS3D.Screens
 
             //The barrel, drawn with its recoil stroke: the pose is Cannon's and the hardware CannonRig's, so
             //the tube that was built and the bore a shot leaves from cannot disagree. The carriage under it
-            //deliberately takes no recoil — the tube slides in the cradle, the carriage holds its ground —
-            //and its wheels are spun by the advance walk's own covered distance.
+            //takes the stroke's own smaller, later share since #115 — the tube slides in the cradle and the
+            //undercarriage lurches a beat behind it — and its wheels roll with everything that moves them,
+            //the advance walk and that shove both (Cannon.WheelTravel).
             //Into a local because the window's glazing is drawn with the very same pose further down — it is set
             //into this tube, so the one pose serves both rather than being built a second time from a second
             //read of the stroke, which is one more thing that could ever come out differently.
-            Matrix barrelWorld = _cannon.BarrelWorld(CannonRecoilBack());
+            Matrix barrelWorld = _cannon.BarrelWorld();
 
             Game.CannonRig.Draw(Camera, barrelWorld, Game.SceneEffectParams);
-            Game.CannonRig.DrawCarriage(Camera, _cannon.CarriageWorld(), _cannon.AdvanceTravel, Game.SceneEffectParams);
+            Game.CannonRig.DrawCarriage(Camera, _cannon.CarriageWorld(), _cannon.WheelTravel, Game.SceneEffectParams);
 
             //Everything collected above, as one instanced draw per ball type and LOD level — and the frame's
             //collection is closed by it. The heartbeat runs on the WALL clock: the balls go on breathing while

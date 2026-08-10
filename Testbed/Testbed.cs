@@ -1226,6 +1226,10 @@ namespace Testbed
             //something the physics is doing.
             _magazine.Step((float)gameTime.ElapsedGameTime.TotalSeconds);
 
+            //And the recoil slides home on the same clock, for the same reason — the stroke is the shared
+            //Cannon's since #115, this is only its tick
+            _cannon.StepRecoil((float)gameTime.ElapsedGameTime.TotalSeconds);
+
             //The city runs off the same wall clock, and for the same reason: its windows are lit by people
             //who do not care whether the simulation is running
             _cityRenderer.CityWindowTime = _pulseSeconds;
@@ -1513,7 +1517,7 @@ namespace Testbed
                 Matrix barrelWorld = _cannon.BarrelWorld();
 
                 _cannonRig.Draw(_camera, barrelWorld, _sceneEffectParams);
-                _cannonRig.DrawCarriage(_camera, _cannon.CarriageWorld(), _cannon.AdvanceTravel, _sceneEffectParams);
+                _cannonRig.DrawCarriage(_camera, _cannon.CarriageWorld(), _cannon.WheelTravel, _sceneEffectParams);
 
                 //Every ball on the scene, collected and then put out: one instanced draw call per type and LOD
                 //level. BeginFrame empties the buckets and is the only way to fill them, which is what makes the
@@ -1714,6 +1718,11 @@ namespace Testbed
 
             //Advance the magazine: the fired ball's slot empties, the queue shifts up and a new one loads
             _magazine.Advance();
+
+            //The gun's own answer (#115): the tube thrown back in its cradle, the carriage lurching a beat
+            //behind it — both the shared Cannon's, drawing only. Only where the GUN fired: a free-mode shot
+            //leaves the camera, and a rain of test balls must not rattle a gun that did nothing.
+            if (_gameMode) _cannon.KickRecoil();
 
             _shotBalls.Add(ball);
             RecountBallsAndConstraints();

@@ -299,6 +299,10 @@ namespace Prazsky.BS3D.GameObjects
 			_resettingAim = false;
 			_advanceAcceleration = 0f;
 
+			//A restarted gun stands at rest: a stroke caught mid-flight by a teardown must not carry into
+			//the next session's first frame
+			_recoilPhase = 0f;
+
 			Initialize();
 		}
 
@@ -367,6 +371,99 @@ namespace Prazsky.BS3D.GameObjects
 		/// dragged, not rolled, and wheels that spin while the gun crabs sideways read as broken.
 		/// </summary>
 		public float AdvanceTravel { get; private set; }
+
+		#region The recoil stroke
+
+		//The gun's answer to its own shot, and DRAWING ONLY — the true pose (AimDirection, MuzzlePosition)
+		//never takes it, so nothing about where a ball goes can depend on it. It lives on the gun rather than
+		//with a caller because two parts of the gun answer the one event (#115): the tube slides in its
+		//cradle, and the undercarriage takes a smaller, later share of the same shock — two responses off one
+		//clock, which only stays one clock if the gun owns it. The caller keeps the clock's ticks: each
+		//executable calls KickRecoil when it fires and StepRecoil where it ages the magazine's glide.
+
+		/// <summary>How far the tube is thrown back along the bore at the stroke's peak, in world units — a
+		/// little over one ball diameter.</summary>
+		public const float RECOIL_BACK = 1.15f;
+
+		/// <summary>How fast the stroke plays out, per second: 1 ÷ this is the whole stroke, ~0.24 s.</summary>
+		public const float RECOIL_DECAY = 4.2f;
+
+		/// <summary>
+		/// How far the whole undercarriage is shoved back at <i>its</i> peak, in world units — deliberately a
+		/// fraction of <see cref="RECOIL_BACK"/> (#115): the recoil mechanism the tube slides in swallows most
+		/// of the shock, and the carriage and wheels show only what leaks past it.
+		/// </summary>
+		public const float CARRIAGE_RECOIL_BACK = 0.22f;
+
+		//1 at the shot, eased linearly to 0 by StepRecoil — linear so the stroke genuinely ends rather than
+		//approaching zero for ever and leaving the gun permanently a hair out of place
+		private float _recoilPhase;
+
+		/// <summary>
+		/// A round has left the barrel. Set, not accumulated: a recoil stroke restarts from the top with every
+		/// round, it does not stack up over a burst the way a camera's trauma does.
+		/// </summary>
+		public void KickRecoil() => _recoilPhase = 1f;
+
+		/// <summary>
+		/// Plays the stroke out. Each executable calls it where it ages the gun's other animation, the
+		/// magazine's glide — the gun owns the strokes' shapes, the caller the clock they run on.
+		/// </summary>
+		public void StepRecoil(float elapsedSeconds)
+		{
+			if (_recoilPhase > 0f) _recoilPhase = MathF.Max(0f, _recoilPhase - RECOIL_DECAY * elapsedSeconds);
+		}
+
+		/// <summary>
+		/// How far back along the bore the tube is displaced this instant, in world units, exactly zero at
+		/// rest. Squared rather than linear in the phase, so the shot throws the tube back at once and the
+		/// return eases off — the shape a recoiling barrel has (the same reasoning as <c>CameraShake</c>'s:
+		/// a linear amplitude spends most of its life mid-stroke and reads as a wobble instead of a jolt).
+		/// </summary>
+		public float BarrelRecoilBack => RECOIL_BACK * _recoilPhase * _recoilPhase;
+
+		/// <summary>
+		/// How far back along its heading the undercarriage is shoved this instant, in world units (#115).
+		/// Zero at the shot itself and zero again at rest, peaking about 0.07 s in: the hump <c>4s(1−s)</c>
+		/// over the tube's own normalized stroke <c>s</c>, so the carriage answers a beat <b>after</b> the
+		/// tube — the mechanism takes the hit first and the frame shows what leaks through — and settles
+		/// softly while the tube is still sliding home. One phase drives both, so they cannot drift.
+		/// </summary>
+		public float CarriageRecoilBack
+		{
+			get
+			{
+				float s = _recoilPhase * _recoilPhase;
+
+				return CARRIAGE_RECOIL_BACK * 4f * s * (1f - s);
+			}
+		}
+
+		/// <summary>
+		/// What the wheels roll by: the advance walk's ground plus the recoil's own backward shove — the
+		/// carriage genuinely moves, and wheels that held still through it would read as skidding. This is
+		/// what a caller hands <c>CannonRig.DrawCarriage</c> instead of raw <see cref="AdvanceTravel"/>.
+		/// </summary>
+		public float WheelTravel => AdvanceTravel - CarriageRecoilBack;
+
+		/// <summary>
+		/// The undercarriage's displacement as a world-space vector: back along the same stance-projected
+		/// heading the carriage's basis is built from, so the wheels slide along the stone they stand on.
+		/// The tube rides its carriage, so <see cref="BarrelWorld"/> and <see cref="DrawnMuzzlePosition"/>
+		/// take this too — displaced off any other point, the trunnion pins would tear out of the cheeks
+		/// that visibly hold them.
+		/// </summary>
+		private Vector3 CarriageRecoilOffset()
+		{
+			float back = CarriageRecoilBack;
+			if (back <= 0f) return Vector3.Zero;
+
+			StanceBasis(out Vector3 heading, out _);
+
+			return heading * -back;
+		}
+
+		#endregion
 
 		private void MoveToOrbitAngle()
 		{
@@ -511,12 +608,14 @@ namespace Prazsky.BS3D.GameObjects
 		/// before gravity. The muzzle lies on this very line, so deriving the muzzle from the pivot rather than
 		/// the other way round moved nothing about where a shot goes.
 		/// <para>
-		/// It deliberately takes <b>no recoil</b>, unlike <see cref="MuzzlePosition"/> and
-		/// <see cref="BarrelWorld"/>: the recoil is <b>drawing only</b>. A shot leaves along the true aim on the
-		/// frame it is fired, before the barrel has moved, so nothing about where a ball goes may depend on it —
-		/// and the launch smear stays anchored at the un-recoiled muzzle, about a unit from the drawn one at the
-		/// peak of the stroke, which is invisible against a seven-unit streak. Feeding the recoil in here is
-		/// precisely the thing a reader would "fix" (see docs/game-session.md, "Recoil and camera shake").
+		/// It deliberately takes <b>no recoil</b> — neither does <see cref="MuzzlePosition"/>, and only the
+		/// drawn pose (<see cref="BarrelWorld"/>, <see cref="CarriageWorld"/>,
+		/// <see cref="DrawnMuzzlePosition"/>) does: the recoil is <b>drawing only</b>. A shot leaves along the
+		/// true aim on the frame it is fired, before the barrel has moved, so nothing about where a ball goes
+		/// may depend on it — and the launch smear stays anchored at the un-recoiled muzzle, about a unit from
+		/// the drawn one at the peak of the stroke, which is invisible against a seven-unit streak. Feeding the
+		/// recoil in here is precisely the thing a reader would "fix" (see docs/game-session.md, "Recoil and
+		/// camera shake").
 		/// </para>
 		/// </summary>
 		public Vector3 AimDirection => Vector3.Normalize(AimTarget - Position);
@@ -561,15 +660,20 @@ namespace Prazsky.BS3D.GameObjects
 		/// ahead of the trunnions. It is the barrel <i>hardware</i>'s figure, not the pose's, so it is handed in
 		/// rather than stored — <see cref="CannonRig.PivotToFrontBall"/> derives it from the magazine the bore
 		/// was sized to, and the magazine itself belongs to the caller.</param>
-		/// <param name="recoilBack">How far back along the bore the barrel is displaced by its own recoil this
-		/// instant, in world units, 0 at rest. A caller-passed scalar on purpose: one executable animates a
-		/// recoil and the other does not, and this owns neither the stroke's shape nor its decay. Drawing only —
-		/// see the note on <see cref="AimDirection"/>. The queue rides in the bore, so a caller drawing the
-		/// loaded balls passes the same value it drew the barrel with, or the balls float out of it.</param>
-		public Vector3 MuzzlePosition(float pivotToFrontBall, float recoilBack = 0f) =>
-			//One normalize and one scale: the two offsets are along the same axis, so they are summed as
-			//scalars first rather than as two vectors
-			Position + AimDirection * (pivotToFrontBall - recoilBack);
+		public Vector3 MuzzlePosition(float pivotToFrontBall) =>
+			Position + AimDirection * pivotToFrontBall;
+
+		/// <summary>
+		/// The muzzle as <b>drawn</b> this instant: the true <see cref="MuzzlePosition"/> carried back by the
+		/// whole recoil — the tube's slide along the bore and the undercarriage's shove under it (#115). It is
+		/// the point the loaded queue hangs off (<c>Magazine.Pose</c>), because the queue rides in the bore
+		/// that is drawn; everything that decides where a shot goes keeps reading <see cref="MuzzlePosition"/>,
+		/// which takes no recoil at all — see the note on <see cref="AimDirection"/>.
+		/// </summary>
+		public Vector3 DrawnMuzzlePosition(float pivotToFrontBall) =>
+			//The bore-axis offsets summed as scalars first (one normalize, one scale); the carriage's shove
+			//is along a different axis and has to come in as the vector it is
+			Position + AimDirection * (pivotToFrontBall - BarrelRecoilBack) + CarriageRecoilOffset();
 
 		/// <summary>
 		/// The barrel's orientation: forward down the aim, with the magazine slot (the mesh's local +Y) pinned
@@ -602,8 +706,9 @@ namespace Prazsky.BS3D.GameObjects
 		/// across the arris over the carriage's own footprint) rather than world up. Traversing still slews
 		/// the carriage whole (a field gun is turned whole; slewed oblique to the dish's radial grade the
 		/// basis takes the slope as part pitch, part roll, exactly as a rigid carriage standing oblique on a
-		/// grade does), elevating does not touch it, and the recoil does not either: the tube slides in the
-		/// cradle (<see cref="BarrelWorld"/> takes the stroke), the carriage holds its ground.
+		/// grade does), and elevating does not touch it. The recoil <b>does</b>, since #115, as its own
+		/// smaller and later response: the tube slides in the cradle (<see cref="BarrelWorld"/> takes that
+		/// stroke) and the whole undercarriage takes <see cref="CarriageRecoilBack"/>'s shove under it.
 		/// <para>
 		/// The heading comes off <see cref="AimDirection"/> flattened rather than off the yaw angles, so the
 		/// carriage faces exactly where the drawn barrel faces by construction; the elevation clamps keep the
@@ -614,31 +719,48 @@ namespace Prazsky.BS3D.GameObjects
 		/// </summary>
 		public Matrix CarriageWorld()
 		{
-			Vector3 heading = AimDirection;
+			StanceBasis(out Vector3 heading, out Vector3 up);
+
+			Matrix world = Matrix.CreateWorld(Vector3.Zero, heading, up);
+
+			//The recoil's shove, in the translation alone: the whole undercarriage slides back and home
+			//along the heading it faces (#115). The seat's height is deliberately not re-derived over the
+			//slide — the dish's grade over CARRIAGE_RECOIL_BACK is under three hundredths of a unit, far
+			//below anything the eye holds a briefly lurching carriage to.
+			Vector3 pivot = Position + heading * -CarriageRecoilBack;
+
+			world.M41 = pivot.X;
+			world.M42 = pivot.Y;
+			world.M43 = pivot.Z;
+
+			return world;
+		}
+
+		/// <summary>
+		/// The stance's basis: the heading the carriage faces (the aim flattened) and the up it stands on
+		/// (the dished stone's own normal), each projected against the other — extracted from
+		/// <see cref="CarriageWorld"/> unchanged, so the recoil's displacement
+		/// (<see cref="CarriageRecoilOffset"/>) rides the very axes the carriage is drawn on.
+		/// </summary>
+		private void StanceBasis(out Vector3 heading, out Vector3 up)
+		{
+			heading = AimDirection;
 			heading.Y = 0f;
 			heading = Vector3.Normalize(heading);
 
-			//The stance's basis: the dished stone rises outward by the grade, so its normal leans inward
-			//off world up by exactly that much (a height field's normal is Up minus its gradient), and the
-			//heading is dropped onto the stance plane so the nose pitches downhill instead of the leading
-			//wheels digging into stone. Off the dish the grade is zero and this is world up untouched.
+			//The dished stone rises outward by the grade, so its normal leans inward off world up by exactly
+			//that much (a height field's normal is Up minus its gradient), and the heading is dropped onto
+			//the stance plane so the nose pitches downhill instead of the leading wheels digging into stone.
+			//Off the dish the grade is zero and this is world up untouched.
 			float grade = CannonRig.StanceGradeAt(_orbitRadius);
 
-			Vector3 up = Vector3.Up;
+			up = Vector3.Up;
 
 			if (grade != 0f)
 			{
 				up = Vector3.Normalize(Vector3.Up - StandBearing * grade);
 				heading = Vector3.Normalize(heading - up * Vector3.Dot(heading, up));
 			}
-
-			Matrix world = Matrix.CreateWorld(Vector3.Zero, heading, up);
-
-			world.M41 = Position.X;
-			world.M42 = Position.Y;
-			world.M43 = Position.Z;
-
-			return world;
 		}
 
 		/// <summary>
@@ -656,12 +778,15 @@ namespace Prazsky.BS3D.GameObjects
 		/// matrix's translation row <i>is</i> the pivot.
 		/// </para>
 		/// </summary>
-		/// <param name="recoilBack">As for <see cref="MuzzlePosition"/>: the recoil stroke this instant, in
-		/// world units back along the bore, 0 at rest.</param>
-		public Matrix BarrelWorld(float recoilBack = 0f)
+		public Matrix BarrelWorld()
 		{
 			Vector3 aim = AimDirection;
-			Vector3 pivot = Position - aim * recoilBack;
+
+			//The tube's own slide in the cradle, back along the bore — and under it the whole gun's shove,
+			//back along the carriage's heading: the tube rides its carriage (#115), so the pins the cheeks
+			//visibly hold it by stay married to the cradle through the stroke. Both are the gun's own state
+			//(BarrelRecoilBack/CarriageRecoilBack), and both are drawing only — see AimDirection.
+			Vector3 pivot = Position - aim * BarrelRecoilBack + CarriageRecoilOffset();
 
 			//The orientation with the translation written straight into its fourth row, rather than
 			//orientation * CreateTranslation(pivot). CreateWorld(Vector3.Zero, ...) carries no translation of
