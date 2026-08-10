@@ -340,7 +340,7 @@ namespace Testbed
 
         //The lens's colour fringing at the frame edges — the game's default figure, so the Testbed shows
         //what ships (the game alone carries the Settings toggle).
-        private static readonly float CHROMATIC_ABERRATION = 0.004f;
+        private static readonly float CHROMATIC_ABERRATION = 0.0015f;
 
         //The film grain's mid-tone peak, likewise the game's default figure (see FILM_GRAIN there)
         private static readonly float FILM_GRAIN = 0.10f;

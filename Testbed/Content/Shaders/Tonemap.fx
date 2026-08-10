@@ -53,6 +53,15 @@ float GlareIntensity;
 //which is what a real lens does and why the effect reads as "shot through glass" rather than "broken".
 float ChromaticAberration;
 
+//How many samples the spectrum is walked in below. THREE, which is what the three point samples this
+//replaced already cost, so the fix is free: each tap is a full SampleScene, and measured on the sea from a
+//fixed camera the resolve runs 1.50 ms at three taps, 1.60 at five and 1.69 at seven. Five and seven are not
+//distinguishable from three by eye at the strength this ships at, so the extra 0.10 ms buys nothing.
+//Must not go below three: the weights below are triangles centred on 0, 0.5 and 1, so a single tap lands on
+//the green centre alone and the red and blue weights come out zero - which divides by zero and renders the
+//whole frame green. Measured that way round by accident, which is how it is known.
+#define ABERRATION_TAPS 3
+
 //Film grain: a monochrome per-output-pixel modulation re-rolled every frame, applied AFTER the tonemap
 //curve and before the sRGB encode - grain lives on the print, not in the light - and weighted by
 //4*luma*(1-luma), which peaks in the mid-tones and falls to zero at both ends: blacks stay black (no
@@ -164,9 +173,34 @@ float4 MainPS(VertexShaderOutput input) : COLOR
 		float2 fromCentre = input.TexCoord - 0.5;
 		float2 shift = fromCentre * dot(fromCentre, fromCentre) * (ChromaticAberration * 2.828);
 
-		color.r = SampleScene(input.TexCoord + shift).r;
-		color.g = SampleScene(input.TexCoord).g;
-		color.b = SampleScene(input.TexCoord - shift).b;
+		//SPECTRAL, rather than one point sample per channel. Sampling R, G and B at three fixed offsets does
+		//not blur an edge into a fringe - it makes THREE DISPLACED COPIES of it, one per channel, and on a
+		//line thinner than a pixel that is what the eye reads: three separate coloured lines. The island
+		//cap's slab joints are the most regular field of such lines in this game and they read as a
+		//flickering rainbow lattice because of it (#126). Four changes to the joint field itself moved that
+		//artifact not at all; forcing this effect to zero removed it completely.
+		//
+		//A real lens disperses a CONTINUUM, so each channel is an integral across its own band rather than
+		//one sample from a point. Walking the shift and weighting each tap into RGB by overlapping triangles
+		//is that integral. At three taps it costs exactly what the three point samples cost, and it does two
+		//things they did not: the red and blue lobes land at 2/3 of the shift instead of all of it, and
+		//GREEN - which carries the luminance edge the eye actually reads - is averaged across the whole
+		//span instead of being taken from the centre alone.
+		float3 spectral = 0.0;
+		float3 weightSum = 0.0;
+
+		[unroll]
+		for (int c = 0; c < ABERRATION_TAPS; c++)
+		{
+			//0 at the outward (red) end of the shift, 1 at the inward (blue) end.
+			float f = (c + 0.5) / ABERRATION_TAPS;
+			float3 weight = saturate(1.0 - abs(f - float3(0.0, 0.5, 1.0)) * 2.0);
+
+			spectral += SampleScene(input.TexCoord + shift * (1.0 - 2.0 * f)) * weight;
+			weightSum += weight;
+		}
+
+		color = spectral / weightSum;
 	}
 	else
 	{

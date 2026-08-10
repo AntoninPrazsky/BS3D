@@ -218,12 +218,24 @@ namespace BS3D
 
         //Peak red/blue channel displacement at the frame CORNERS, as a fraction of the frame (the shader
         //grows it quadratically from zero at the centre, so the cluster and the gun stay registered and
-        //only the periphery fringes). Visible at a glance BY DESIGN: it shipped at 0.0016 first - under
-        //two corner pixels - and nobody ever noticed it, which defeats a taste effect with its own
-        //Settings row. At 1600x900 this is now a ~5 px corner shift (the red-to-blue split is twice
-        //that), a deliberate stylized lens; the centre stays clean either way. Off in Settings sets the
-        //uniform to 0, which also skips the shader's whole branch.
-        private static readonly float CHROMATIC_ABERRATION = 0.004f;
+        //only the periphery fringes). Off in Settings sets the uniform to 0, which also skips the shader's
+        //whole branch.
+        //
+        //THIS NUMBER HAS BEEN ROUND THE HOUSES. It shipped at 0.0016 - under two corner pixels - and was
+        //raised to 0.004 because nobody ever noticed it, which defeats a taste effect with its own Settings
+        //row. At 0.004 it was noticed for the wrong reason: a ~5 px corner shift, with the red-to-blue split
+        //twice that, tears any line thinner than a pixel into three separate coloured copies, and the island
+        //cap's slab joints are a whole regular FIELD of such lines. That is what #126 was filed about.
+        //
+        //So it is back near the figure that was once called invisible - but the effect it drives is not the
+        //same one. Tonemap.fx samples the spectrum across the shift now instead of taking one point per
+        //channel, so green is averaged over the whole span and the red and blue lobes land at two thirds of
+        //it: a soft colour wash at the periphery rather than three thin copies. Measured by eye on the
+        //island's joints from a fixed camera: clean at 0.0015, fringing again at 0.002, and at 0.004 the
+        //spectral version is still much too strong. What was NOT measured is the other half of the old
+        //argument - whether this now reads at a glance the way 0.0016 failed to - so if it wants to be
+        //louder, this constant is the dial and the joints are what to check it against.
+        private static readonly float CHROMATIC_ABERRATION = 0.0015f;
 
         //On by default; a taste toggle in Settings, like the FPS counter (nothing persists — see docs).
         private bool _aberration = true;

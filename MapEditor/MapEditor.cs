@@ -102,7 +102,7 @@ namespace MapEditor
         private static readonly float GLARE_INTENSITY = 0.5f;
 
         //The game's default lens fringing, so a map previews with it too (the toggle is the game's alone).
-        private static readonly float CHROMATIC_ABERRATION = 0.004f;
+        private static readonly float CHROMATIC_ABERRATION = 0.0015f;
 
         //The game's default film grain, for the same reason (see FILM_GRAIN in the game)
         private static readonly float FILM_GRAIN = 0.10f;
