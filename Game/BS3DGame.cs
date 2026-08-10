@@ -636,7 +636,14 @@ namespace BS3D
             _sceneRenderer = new SceneRenderer(GraphicsDevice, Content)
             {
                 TerrainHoleRadius = ArenaIsland.TERRAIN_HOLE_RADIUS,
-                SupersampleFactor = _supersampleFactor
+                SupersampleFactor = _supersampleFactor,
+
+                //Seeded here as well as written by ApplyQuality, for the same reason the factor beside it is:
+                //the tier is applied once in LoadContent BEFORE this exists (a command-line quality= reaches it
+                //long before there is a renderer to write onto), so a startup at anything but High would
+                //otherwise draw the full-price floor until the next tier change — which on a pinned tier never
+                //comes.
+                TerrainDetail = _quality == QualityLevel.High ? 1f : 0f
             };
 
             //After the scene renderer, which the rig consults for the scenes that state their own lighting. The

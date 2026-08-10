@@ -73,6 +73,14 @@ float WindRippleStrength;
 float NeedleReliefStrength;
 float NeedleReliefFrequency;
 
+//The floor's two expensive extras - the triplanar normal variation and the procedural tree shadows - are
+//switched by TECHNIQUE rather than by a uniform, and they go together. Both facts are measured rather than
+//tidy. Front end, 1600x900, desktop GPU, forest under dome 13, nocap: all on 2.69 ms, both gone 2.09.
+//Cutting either one ALONE saves NOTHING - 2.71 without the normal variation, 2.72 without the shadows - and
+//dropping the floor's FBM from four octaves to two saves nothing either (2.71). The pass is occupancy-bound
+//rather than work-bound, which is what makes a per-feature dial useless here, and what makes a runtime
+//branch useless too: see ForestPS's `detail` parameter for the 2.72-against-2.09 that settled it.
+
 //Procedural tree-shadow tuning (ForestShadow). The cell is the spacing of the virtual trees the hash grid
 //plants; it sits inside the scattered wood's own spacing so the two read as the same forest rather than two
 //different ones laid over each other. Reach is how far down-sun a crown's shadow is searched - past it the
@@ -313,7 +321,19 @@ float ForestShadow(float3 worldPosition, float3 sunDir, float density)
 	return lerp(1.0, shadow, density);
 }
 
-float4 ForestPS(ForestVertexOutput input) : COLOR
+//`detail` is an ordinary function argument passed a LITERAL by each of the two entry points below, so it is
+//constant-folded at compile time and each of them comes out a SEPARATE PROGRAM - the reduced one with the
+//expensive halves gone and, crucially, with its own register allocation.
+//
+//It began as a `float FloorDetail` uniform with two [branch]es on it, which measured EXACTLY NOTHING: 2.72 ms
+//against the full look's 2.70, where deleting the same two pieces of code measures 2.09. That is what an
+//occupancy-bound pass does - the register footprint is decided for the whole shader when it is compiled, so
+//a runtime branch skips the WORK and keeps the REGISTERS, and the occupancy that was the real limit never
+//rises. A cost of that shape can only be bought back by compiling a different program.
+//
+//And it is two entry points rather than the tidier `compile PS_SHADERMODEL ForestPS(true)`: MGFX cannot
+//parse a uniform argument in a compile statement ("Unexpected token 't' found. Expected CloseParenthesis").
+float4 ForestFloor(ForestVertexOutput input, bool detail)
 {
 	float3 worldPosition = input.WorldPosition;
 
@@ -332,7 +352,10 @@ float4 ForestPS(ForestVertexOutput input) : COLOR
 	//comb the wind reads on, this is the rough moss-and-root grain that stops the floor shading flat. Lighter
 	//than the needle relief itself, and band-limited through ForestFbm so the near floor gets the detail and the
 	//far ridge does not shimmer.
-	normal = VaryNormal(worldPosition, normal, 1.8, 0.35, footprint);
+	//Behind FloorDetail: one of the two extras the reduced tier gives up. What is lost is the near floor's
+	//micro-grain, which the band limit has already faded to nothing a short way out - so the reduced floor is
+	//the same picture beyond arm's length and a slightly smoother one underfoot.
+	if (detail) normal = VaryNormal(worldPosition, normal, 1.8, 0.35, footprint);
 
 	//Undergrowth colour: mossy green in broad patches, varying towards the dark needle litter and shadow, so
 	//the floor is not one flat green but mottled the way a real clearing is. ForestFbm (four octaves of the shared
@@ -394,7 +417,13 @@ float4 ForestPS(ForestVertexOutput input) : COLOR
 	//scatter's real trees stand there, and theirs is the only shadow that should show), rising to full under the
 	//procedural wood beyond it. Lower ambient than the meadow: a clearing is shaded by the trees around it.
 	float sunlight = CloudSunlight(worldPosition, SunDirection);
-	float treeShadow = ForestShadow(worldPosition, SunDirection, canopyRamp);
+
+	//The other extra behind FloorDetail. The cloud shadow above is NOT given up with it: that one is shared
+	//with every other scene and costs a fraction of this, and a clearing with no drifting shade at all reads
+	//as a different weather rather than as a cheaper frame.
+	float treeShadow = 1.0;
+
+	if (detail) treeShadow = ForestShadow(worldPosition, SunDirection, canopyRamp);
 	float ndotl = saturate(dot(normal, SunDirection));
 	float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
 
@@ -418,11 +447,26 @@ float4 ForestPS(ForestVertexOutput input) : COLOR
 	return float4(color, 1.0);
 }
 
+//Two programs from one body. "Forest" is the authored floor; "ForestReduced" is the same floor without the
+//triplanar normal variation and without the procedural tree shadows - the pair that has to go together,
+//since removing either alone saves nothing. The caller picks by tier; SceneRenderer.TerrainDetail decides.
+float4 ForestPS(ForestVertexOutput input) : COLOR { return ForestFloor(input, true); }
+float4 ForestReducedPS(ForestVertexOutput input) : COLOR { return ForestFloor(input, false); }
+
 technique Forest
 {
 	pass P0
 	{
 		VertexShader = compile VS_SHADERMODEL ForestVS();
 		PixelShader = compile PS_SHADERMODEL ForestPS();
+	}
+};
+
+technique ForestReduced
+{
+	pass P0
+	{
+		VertexShader = compile VS_SHADERMODEL ForestVS();
+		PixelShader = compile PS_SHADERMODEL ForestReducedPS();
 	}
 };

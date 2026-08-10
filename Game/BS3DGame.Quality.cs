@@ -270,6 +270,15 @@ namespace BS3D
             }
             else _cityConfig.RadiusBlocks = preset.CityRadiusBlocks;
 
+            //The forest floor's two expensive extras: the authored look at High, and given up below it. The
+            //first thing in this project a tier changes INSIDE a scene shader rather than around it — until
+            //now the tier reached the frame only through supersampling and the city's two per-pixel dials, and
+            //the one per-scene switch the docs mention (QualityPreset.CloudSlices) belonged to a cloud
+            //experiment that was rejected and never existed in the code. See SceneRenderer.TerrainDetail for
+            //the measurement, and why it is one switch over both extras rather than a dial per feature.
+            //Null until BuildScene has run, exactly like the city above.
+            if (_sceneRenderer != null) _sceneRenderer.TerrainDetail = quality == QualityLevel.High ? 1f : 0f;
+
             //The tier owns supersampling unless the command line pinned it, which is the one case the tier must
             //not write over — see _supersampleOverride. A tier step still changes everything else it owns, so a
             //pinned factor does not freeze the rest of the ladder.
