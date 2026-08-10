@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Scoring;
 using Prazsky.Core.Camera;
+using Prazsky.Core.Render;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -417,10 +418,15 @@ namespace BS3D.Screens
         //an outline rather than as a slightly dented disc, little enough that the type colour still carries.
         private const float PROFILE_FLIGHT_RING = 0.42f;
 
-        //The glass bar and the death line, in design units. Both thick enough to read as deliberate marks at the
-        //panel's scale — a 2-pixel line over a lit skyline is sub-pixel and gone.
-        private const int PROFILE_GLASS_THICKNESS = 16;
+        //The death line, in design units — thick enough to read as a deliberate mark at the panel's scale, since
+        //a 2-pixel line over a lit skyline is sub-pixel and gone. It is a THRESHOLD and not a thing, so it has no
+        //world thickness to be drawn at; the glass does, and is drawn at its own (see DrawClusterProfile).
         private const int PROFILE_DEATH_THICKNESS = 10;
+
+        //The least the glass bar may thin to, whatever the panel's scale. Same argument as the death line's own
+        //floor: on a short window pixelsPerUnit gets small, and the bar the whole panel is read against must not
+        //be the thing that disappears.
+        private const int PROFILE_GLASS_MIN_THICKNESS = 3;
 
         //The profile's red is a display-range red that shares the ceiling flash's hue: the 3D plate glows at
         //6.0/0.15/0.1 in LINEAR radiance because it has to out-shout the sky behind it, while this marker sits
@@ -954,7 +960,21 @@ namespace BS3D.Screens
             //the ceiling the balls hang from rather than as a warning. It takes the alarm's red only on the flash,
             //squared exactly as the 3D plate's EmissiveTint is scaled by _ceilingFlash²: unmistakable on the frame
             //it steps, back to neutral before the slide finishes.
-            int glassThickness = Math.Max(3, Scaled(PROFILE_GLASS_THICKNESS));
+            //Drawn at the plate's OWN thickness, at the panel's own scale (#133). Everything else here is a
+            //literal isotropic read of the world — a ball is one unit across and drawn one unit across — and this
+            //bar was the one mark that was not: a fixed pixel figure with no relation to CeilingPlate.THICKNESS.
+            //Being drawn thinner than the glass really is, its underside floated ABOVE where the glass's underside
+            //actually is, and it was that shortfall alone that put a gap under the topmost balls: at rest they
+            //hang FLUSH, the ball's top surface and the plate's underside agreeing to 0.001 of a unit (measured,
+            //7.156 against 7.157 on One). At the 1600×900 client the bar came out 7 px where the plate is 11, and
+            //the 2 px left over is exactly the gap the panel was showing.
+            //
+            //CLEARANCE is not what a first look suggests, and the trap is worth recording: it places the plate 2
+            //units over the field's topmost level, but that is the layout's GRID position, and the constraints
+            //then pull the cluster 0.272 up to hang off the glass. A probe on the first frame therefore reports a
+            //gap of 0.273 that no player ever sees — sample after the cluster has settled.
+            int glassThickness = Math.Max(PROFILE_GLASS_MIN_THICKNESS,
+                (int)MathF.Round(CeilingPlate.THICKNESS * pixelsPerUnit));
             float flash2 = flash * flash;
             Color glassColor = Color.Lerp(BS3DGame.MENU_TEXT,
                 profile.CeilingFeeding ? PROFILE_FEED : PROFILE_ALARM, flash2);
