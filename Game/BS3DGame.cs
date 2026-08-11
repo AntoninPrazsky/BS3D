@@ -533,6 +533,12 @@ namespace BS3D
             //window — which resyncs the swap chain to the client area — was what appeared to "fix" it.
             _graphics.PreferredBackBufferWidth = _fullscreen ? display.Width : _windowedSize.X;
             _graphics.PreferredBackBufferHeight = _fullscreen ? display.Height : _windowedSize.Y;
+
+            //Borderless fullscreen, not a DXGI mode switch (#157): minimizing exclusive fullscreen tears
+            //down the swap chain's fullscreen state, and with no Activated/Deactivated handling anywhere
+            //the window never came back. The back buffer is the display's size above either way, so
+            //borderless shows the identical picture — there is just no display mode to lose.
+            _graphics.HardwareModeSwitch = false;
             _graphics.IsFullScreen = _fullscreen;
             _graphics.SynchronizeWithVerticalRetrace = !_uncappedFps;
 
