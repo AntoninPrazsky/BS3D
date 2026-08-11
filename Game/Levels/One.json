@@ -38,7 +38,7 @@
     "GrassReliefStrength": 0.05,
     "GrassReliefFrequency": 2,
     "Acacia": {
-      "Count": 120,
+      "Count": 8,
       "BushFraction": 0.45,
       "Width": 6,
       "Height": 9,
@@ -67,9 +67,11 @@
         "X": 28,
         "Y": -18
       },
+      "Count": 8,
       "HeightAboveTerrain": 0.2,
       "Range": 32,
       "FlameSize": 2.3,
+      "FlameHeightScale": 6,
       "BaseColor": {
         "R": 2.4,
         "G": 1,
