@@ -32,7 +32,14 @@ namespace BS3D.Audio
         /// one shared dance floor, this one differs in harmony and in TIME, which is what makes it a third
         /// language rather than a third accent.
         /// </summary>
-        Nocturne
+        Nocturne,
+
+        /// <summary>
+        /// The fourth (#164): a Moravian brass band — oom-pah, a clarinet on the tune, nine sections and
+        /// ~2:20 a pass, in B flat with its <b>trio a fourth up</b>. The form's own modulation is what makes
+        /// it a fourth piece rather than a fourth chord pool.
+        /// </summary>
+        Dechovka
     }
 
     /// <summary>
@@ -345,6 +352,7 @@ namespace BS3D.Audio
             {
                 MusicTheme.Bohemia => BakeBohemia(seed),
                 MusicTheme.Nocturne => BakeJazz(seed),
+                MusicTheme.Dechovka => BakeDechovka(seed),
                 _ => Bake(seed),
             });
         }
@@ -398,6 +406,7 @@ namespace BS3D.Audio
                     case "pulse": return MusicTheme.Pulse;
                     case "bohemia": return MusicTheme.Bohemia;
                     case "nocturne": return MusicTheme.Nocturne;
+                    case "dechovka": return MusicTheme.Dechovka;
                 }
 
             return (MusicTheme)(((index % THEME_COUNT) + THEME_COUNT) % THEME_COUNT);
@@ -1438,6 +1447,303 @@ namespace BS3D.Audio
 
         #endregion
 
+        #region Dechovka — the fourth theme (#164)
+
+        //A MORAVIAN BRASS BAND. The other three are a dance floor, an orchestra over a dance floor, and a jazz
+        //trio; this is a village band, and two things make it one rather than "a polka preset".
+        //
+        //THE OOM-PAH IS THE WHOLE TEXTURE, and it is a division of labour rather than a rhythm: the tuba takes
+        //every beat alternating ROOT and FIFTH, and the mid brass answers on every off-beat eighth with the
+        //chord. Neither ever plays where the other does. That interlock is what a band actually sounds like
+        //from across a square, and it is why this piece needs no drum part to feel like it is marching.
+        //
+        //THE TRIO MODULATES TO THE SUBDOMINANT, which is the form's own signature and the reason this is a
+        //fourth piece rather than a fourth chord pool. A march or a polka states its strains, then goes to a
+        //trio a fourth up and softer — the moment the band drops its volume and the clarinet takes over is the
+        //single most recognisable event in the idiom, and it costs one transpose applied to a flag.
+        //
+        //B flat major, because that is the key brass bands are built in: the instruments are pitched in it and
+        //the whole literature sits there. Plain triads, with a seventh only on the dominant - polka harmony is
+        //not where its interest lives, and dressing it up in Nocturne's extensions would make it a different
+        //piece wearing a hat.
+
+        //The tuba's own register, an octave and a half under the chords.
+        private static readonly int[] DECHOVKA_ROOT = { 34, 39, 41, 43, 36, 36 };   //Bb Eb F Gm Cm C7
+
+        private static readonly int[][] DECHOVKA_ARP =
+        {
+            new[] { 58, 62, 65, 70 },   //0 Bb   I
+            new[] { 63, 67, 70, 75 },   //1 Eb   IV
+            new[] { 65, 69, 72, 75 },   //2 F7   V7 — the one seventh, and it is the only chord that must resolve
+            new[] { 67, 70, 74, 79 },   //3 Gm   vi
+            new[] { 60, 63, 67, 72 },   //4 Cm   ii
+            new[] { 60, 64, 67, 70 }    //5 C7   V/V — the one accidental in the piece, an E natural
+        };
+
+        //Four bars, cadential, and every one of them ENDS AT HOME. A polka is not a piece that wanders: the
+        //phrase is a sentence with a full stop, which is what lets a dancer hear where it will land.
+        private static readonly int[][] DECHOVKA_PROGRESSIONS =
+        {
+            new[] { 0, 0, 2, 0 },   //Bb Bb F7 Bb — the plainest, and the most common in the literature
+            new[] { 0, 1, 2, 0 },   //Bb Eb F7 Bb
+            new[] { 0, 3, 2, 0 },   //Bb Gm F7 Bb
+            new[] { 0, 4, 2, 0 },   //Bb Cm F7 Bb — the ii, which is as sophisticated as this gets
+            new[] { 0, 5, 2, 0 }    //Bb C7 F7 Bb — the secondary dominant, the one bit of colour
+        };
+
+        private enum DechovkaPart { None, Strain, Trio }
+
+        //THE STRAIN: the tune the band plays at you. Short notes, on the beat, stepwise and cheerful — a polka
+        //melody is meant to be whistled back after one hearing, so it does almost nothing clever.
+        private static readonly Note[][] DECHOVKA_STRAIN =
+        {
+            new[] { new Note(0, 0, 12, 2), new Note(2, 1, 12, 2), new Note(4, 2, 12, 4), new Note(8, 1, 12, 2), new Note(10, 0, 12, 6) },
+            new[] { new Note(0, 1, 12, 2), new Note(2, 2, 12, 2), new Note(4, 3, 12, 4), new Note(8, 2, 12, 2), new Note(10, 1, 12, 6) },
+            new[] { new Note(0, 2, 12, 2), new Note(2, 1, 12, 2), new Note(4, 0, 12, 4), new Note(8, 1, 12, 4), new Note(12, 2, 12, 4) },
+            new[] { new Note(0, 3, 12, 4), new Note(4, 2, 12, 4), new Note(8, 1, 12, 2), new Note(10, 0, 12, 6) }
+        };
+
+        //THE TRIO TUNE: longer notes, higher, and legato where the strain is clipped. It has to sound like a
+        //relief after two strains of oom-pah or the modulation buys nothing.
+        private static readonly Note[][] DECHOVKA_TRIO =
+        {
+            new[] { new Note(0, 2, 12, 8), new Note(8, 3, 12, 8) },
+            new[] { new Note(0, 3, 12, 6), new Note(6, 2, 12, 4), new Note(10, 1, 12, 6) },
+            new[] { new Note(0, 1, 12, 8), new Note(8, 2, 12, 8) },
+            new[] { new Note(0, 3, 24, 10), new Note(10, 2, 12, 6) }
+        };
+
+        private readonly struct DechovkaSection
+        {
+            public readonly bool Drum, Snare, Tuba, Pah, Counter;
+            public readonly DechovkaPart Part;
+            public readonly bool Trio;        //everything in this section sounds a fourth up, and softer
+            public readonly float Level;
+
+            public DechovkaSection(bool drum, bool snare, bool tuba, bool pah, bool counter,
+                DechovkaPart part, bool trio, float level)
+            {
+                Drum = drum; Snare = snare; Tuba = tuba; Pah = pah; Counter = counter;
+                Part = part; Trio = trio; Level = level;
+            }
+        }
+
+        //The form, and it is the idiom's own rather than a pop one: strain, strain, second strain, second
+        //strain, TRIO, trio, strain home. Nine sections, ~2:20 a pass at these tempi.
+        //
+        //                                 drum  snare  tuba   pah  count  part                    trio  level
+        private static readonly DechovkaSection[] DECHOVKA_ARRANGEMENT =
+        {
+            //0 The band counts itself in: oom-pah and drum, no tune yet.
+            new(true,  true,  true,  true,  false, DechovkaPart.None,   false, 0.80f),
+            //1 FIRST STRAIN.
+            new(true,  true,  true,  true,  false, DechovkaPart.Strain, false, 0.95f),
+            //2 Repeated, with the counter-line under it — a band repeats a strain and adds a part to it.
+            new(true,  true,  true,  true,  true,  DechovkaPart.Strain, false, 1.00f),
+            //3 SECOND STRAIN.
+            new(true,  true,  true,  true,  false, DechovkaPart.Strain, false, 0.96f),
+            //4 Repeated with the counter.
+            new(true,  true,  true,  true,  true,  DechovkaPart.Strain, false, 1.00f),
+            //5 TRIO, a fourth up and SOFTER — no snare, no counter. The band dropping its volume here is the
+            //most recognisable single moment in the idiom, and it is the reason the form exists.
+            new(true,  false, true,  true,  false, DechovkaPart.Trio,   true,  0.78f),
+            //6 Trio repeated, the counter back under it and the snare returning.
+            new(true,  true,  true,  true,  true,  DechovkaPart.Trio,   true,  0.90f),
+            //7 HOME. The first strain again in the home key, everything playing — the return is the point.
+            new(true,  true,  true,  true,  true,  DechovkaPart.Strain, false, 1.00f),
+            //8 OUTRO, falling away so the join to the next pass lands in silence like the other three.
+            new(true,  true,  true,  true,  false, DechovkaPart.None,   false, 0.70f)
+        };
+
+        /// <summary>A trio is a fourth above the strains — five semitones, the subdominant.</summary>
+        private const int TRIO_SHIFT = 5;
+
+        /// <summary>How far to each side the answering "pah" sits, and how wide one desk of it spreads.</summary>
+        private const float PAN_BAND_ANSWER = 0.5f;
+        private const float PAN_BAND_DESK = 0.22f;
+
+        //Where the two clarinet desks sit. They carry the tune in thirds, so they are the piece's one pair of
+        //genuinely different signals and therefore the whole of its width.
+        //
+        //They are NOT symmetric, and the asymmetry is doing a job: the second desk plays under the first
+        //(0.78 of its level), so seating them at equal distances left the band leaning 0.72 dB towards the
+        //louder one. The firsts sit nearer the middle and the seconds further out — which is how a band is
+        //actually seated, and which brings the two sides back level without touching either part's volume.
+        private const float PAN_CLARINET_FIRST = -0.42f;
+        private const float PAN_CLARINET_SECOND = 0.66f;
+
+        /// <summary>
+        /// What one rendering of <see cref="MusicTheme.Dechovka"/> rolls. A polka's tempo band is narrow and
+        /// fast: below it the dance stops working and above it the oom-pah turns into a blur.
+        /// </summary>
+        private readonly struct DechovkaVariation
+        {
+            public readonly float Bpm;
+            public readonly int Transpose;
+            public readonly int[] Progression;
+            public readonly float Embellish;
+
+            public DechovkaVariation(Random random)
+            {
+                Bpm = 116f + (float)random.NextDouble() * 16f;   //116-132
+
+                int[] steps = { -3, -2, 0, 2 };
+                Transpose = steps[random.Next(steps.Length)];
+
+                Progression = DECHOVKA_PROGRESSIONS[random.Next(DECHOVKA_PROGRESSIONS.Length)];
+                Embellish = 0.35f + (float)random.NextDouble() * 0.35f;
+            }
+        }
+
+        /// <summary>
+        /// Dechovka (#164): a Moravian brass band. Nine sections, ~2:20 a pass, in B flat with a trio in the
+        /// subdominant. It adds one voice — the clarinet — and takes its tuba from <see cref="Brass"/> played
+        /// low, which is what a tuba is.
+        /// </summary>
+        private static float[] BakeDechovka(int seed)
+        {
+            Random random = new(seed);
+            DechovkaVariation variation = new(random);
+
+            float secondsPerStep = 60f / (variation.Bpm * STEPS_PER_BEAT);
+            int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
+
+            int sectionOutro = DECHOVKA_ARRANGEMENT.Length - 1;
+            int totalSteps = DECHOVKA_ARRANGEMENT.Length * STEPS_PER_SECTION;
+
+            float[] mix = NewMix(samplesPerStep * (totalSteps + STEPS_PER_BAR));
+
+            for (int step = 0; step < totalSteps; step++)
+            {
+                int at = step * samplesPerStep;
+                int bar = step / STEPS_PER_BAR;
+                int inBar = step % STEPS_PER_BAR;
+
+                int phrase = bar % 4;
+                int chord = variation.Progression[phrase];
+
+                int sectionIndex = bar / BARS_PER_SECTION;
+                DechovkaSection section = DECHOVKA_ARRANGEMENT[sectionIndex];
+                int barInSection = bar % BARS_PER_SECTION;
+
+                int[] arp = DECHOVKA_ARP[chord];
+                int root = DECHOVKA_ROOT[chord];
+
+                //The trio's fourth rides on the pass's own transpose, so the modulation is a property of the
+                //FORM and the key is a property of the roll — the two never have to know about each other.
+                int transpose = variation.Transpose + (section.Trio ? TRIO_SHIFT : 0);
+
+                float fade = sectionIndex == sectionOutro
+                    ? 1f - (barInSection * STEPS_PER_BAR + inBar) / (float)STEPS_PER_SECTION
+                    : 1f;
+
+                float level = section.Level * fade * fade;
+                if (level <= 0.001f) continue;
+
+                //THE DRUM ---------------------------------------------------------------------------------
+                //Bass drum on the beat, snare between: the village band's whole kit, and it is deliberately
+                //plain. Everything interesting here is in the oom-pah, not on the drums.
+                if (section.Drum && inBar % 8 == 0) Kick(mix, at, 0.75f * level);
+                if (section.Snare && (inBar == 4 || inBar == 12)) Snare(mix, at, 0.16f * level);
+
+                //THE OOM ----------------------------------------------------------------------------------
+                //Every beat, alternating root and fifth. The alternation is not decoration: a tuba part that
+                //repeated the root would sit still, and the fifth is what makes the bass line walk in place.
+                if (section.Tuba && inBar % 4 == 0)
+                {
+                    bool onFifth = (inBar / 4) % 2 == 1;
+                    int note = root + transpose + (onFifth ? 7 : 0);
+
+                    //Short, so the note is stopped before the "pah" answers it - the gap between them IS the
+                    //texture, and a tuba held through the off-beat turns the whole thing to porridge.
+                    Brass(mix, at, note, secondsPerStep * 2.6f, 0.62f * level);
+                }
+
+                //THE PAH ----------------------------------------------------------------------------------
+                //The chord, on every off-beat eighth, never where the tuba is. Clipped short for the same
+                //reason.
+                //
+                //ANTIPHONAL: successive "pah"s answer from opposite sides of the stand, which is both how a
+                //band is actually seated and the only thing that gives this piece an image at all. Seating the
+                //chord's notes SYMMETRICALLY across the field — the pad's idiom, and the first thing tried
+                //here — turned out to buy almost nothing: four simultaneous voices placed evenly about the
+                //centre sum back to the centre, and with the tuba and the bass drum both anchored there by the
+                //low-end rule the whole band measured 0.03 side/mid, i.e. mono. Alternating in TIME is
+                //asymmetric in a way a spread chord is not, and it is the same trick Pulse's ping-ponged arp
+                //uses for the same reason.
+                if (section.Pah && inBar % 4 == 2)
+                {
+                    float side = (inBar / 4) % 2 == 0 ? -PAN_BAND_ANSWER : PAN_BAND_ANSWER;
+
+                    for (int voice = 0; voice < arp.Length; voice++)
+                        Brass(mix, at, arp[voice] + transpose - 12, secondsPerStep * 1.7f, 0.115f * level,
+                            pan: side + ChordPan(voice, arp.Length, PAN_BAND_DESK));
+                }
+
+                //THE COUNTER-LINE ------------------------------------------------------------------------
+                //A second brass part moving in longer notes under the tune, added when a strain repeats. It is
+                //the cheapest way a band gets bigger the second time through without getting louder.
+                //Seated on the RIGHT, opposite the clarinet: it is the part that answers the tune, and putting
+                //both on one side leaned the whole piece a full decibel (measured). Two answering parts belong
+                //on two sides, which is also where the players would be standing.
+                if (section.Counter && inBar == 0)
+                    Brass(mix, at, arp[1] + transpose - 12, secondsPerStep * 7.5f, 0.14f * level,
+                        pan: PAN_BRASS_SPREAD);
+
+                //THE TUNE ---------------------------------------------------------------------------------
+                if (section.Part == DechovkaPart.None) continue;
+
+                Note[] line = section.Part == DechovkaPart.Strain
+                    ? DECHOVKA_STRAIN[phrase]
+                    : DECHOVKA_TRIO[phrase];
+
+                foreach (Note note in line)
+                {
+                    if (note.Step != inBar) continue;
+
+                    int pitch = arp[note.Tone] + note.Octave + transpose;
+
+                    //TWO CLARINETS IN THIRDS, one either side, and this is the idiom's own scoring rather than
+                    //a stereo trick — a village band's clarinets play the tune in parallel thirds, and it is
+                    //what the melody of a polka sounds like. It is also the only thing that gives this piece
+                    //an image, and the reason is #119's: width comes from genuinely DIFFERENT signals, not
+                    //from one signal at two levels. Everything tried before this failed for that reason — the
+                    //chord seated symmetrically summed back to the centre, and answering it across the stand
+                    //moved nothing, because Brass anchors its own sub to the middle whatever its pan says.
+                    //Centred as a PAIR, so the tune still sits in the middle where a lead belongs.
+                    float voiceLevel = (section.Trio ? 0.34f : 0.30f) * level;
+                    float held = secondsPerStep * (note.Length + 0.8f);
+
+                    Clarinet(mix, at, pitch, held, voiceLevel, pan: PAN_CLARINET_FIRST);
+
+                    //The lower desk, a third under in the CHORD rather than by a fixed interval — so it is
+                    //consonant by construction, the same rule every melody in this file is written by.
+                    int below = note.Tone - 1;
+                    int harmony = below >= 0
+                        ? arp[below] + note.Octave + transpose
+                        : arp[arp.Length - 1] + note.Octave + transpose - 12;
+
+                    Clarinet(mix, at, harmony, held, voiceLevel * 0.78f, pan: PAN_CLARINET_SECOND);
+                }
+
+                //A grace note into the next beat, rolled per pass: the ornament a clarinettist puts in without
+                //being asked, and the one place this piece is allowed to be showy.
+                if (section.Part == DechovkaPart.Strain && inBar == 14
+                    && random.NextDouble() < variation.Embellish)
+                {
+                    Clarinet(mix, at, arp[0] + 12 + transpose - 2, secondsPerStep * 1.2f, 0.16f * level);
+                }
+            }
+
+            //The same target the other three take: a band playing in a square is not quieter than a dance
+            //track, and a level step between two entries of one set is the thing this number exists to avoid.
+            Limit(mix, targetRms: 0.20f, ceiling: 0.95f);
+
+            return mix;
+        }
+
+        #endregion
+
         #region The front end's piece
 
         /// <summary>
@@ -2133,6 +2439,63 @@ namespace BS3D.Audio
 
                 lp += CutoffToAlpha(190f + 2600f * env) * (saw - lp);
                 Add(mix, at + i, lp * 0.55f * level * env, gainLeft, gainRight);
+            }
+        }
+
+        /// <summary>
+        /// The clarinet (#164): the voice a village band is recognised by, and the one thing in Dechovka that
+        /// could not be borrowed. It is built on the fact that a clarinet is a <b>cylindrical pipe stopped at
+        /// one end</b>, which is not a timbre choice but an acoustic one:
+        /// <list type="bullet">
+        /// <item><b>Odd harmonics only</b>, which is what a stopped pipe resonates and what makes the low
+        /// register sound hollow and woody rather than bright. A square wave is exactly that spectrum, so this
+        /// is the one voice here that wants a square and not a saw — the same oscillator the DOS-era
+        /// <see cref="Arp"/> uses, put to the opposite purpose.</item>
+        /// <item><b>It SUSTAINS.</b> A reed is blown, not struck: no decay to speak of until the release, or
+        /// a melody line comes out as a row of separate plinks instead of a phrase.</item>
+        /// <item><b>Breath across the attack</b> — a fifth of a second of quiet noise. Without it the note
+        /// starts from mathematical silence, which is the single thing that gives a synthesised wind
+        /// instrument away.</item>
+        /// <item><b>Vibrato that arrives late.</b> A player leans into a held note rather than starting with
+        /// it, exactly as the string section does.</item>
+        /// </list>
+        /// </summary>
+        /// <param name="pan">Which desk it is playing from — the pair sits either side of the tune's centre.</param>
+        private static void Clarinet(float[] mix, int at, int note, float seconds, float level, float pan = PAN_CENTRE)
+        {
+            int length = (int)(SAMPLE_RATE * seconds);
+            int frames = Frames(mix);
+            float freq = Frequency(note);
+            float phase = 0f, lp = 0f;
+
+            PanGains(pan, out float gainLeft, out float gainRight);
+
+            for (int i = 0; i < length && at + i < frames; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                //Blown: ~30 ms to speak, flat through the middle, and a release long enough that consecutive
+                //notes of a phrase run into one another.
+                float attack = MathF.Min(1f, t / 0.03f);
+                float release = MathF.Min(1f, (seconds - t) / 0.09f);
+                float env = attack * release;
+                if (env <= 0f) continue;
+
+                float vibrato = 1f + 0.004f * MathF.Sin(2f * MathF.PI * 5.4f * t)
+                    * MathF.Min(1f, MathF.Max(0f, (t - 0.12f) / 0.3f));
+
+                phase += freq * vibrato / SAMPLE_RATE;
+                if (phase >= 1f) phase -= 1f;
+
+                //The pipe: a square for its odd harmonics, then a low-pass that opens only a little with the
+                //envelope. A clarinet gets louder without getting much brighter, which is most of why it does
+                //not read as a synth lead.
+                float square = PolyBlepSquare(phase, freq / SAMPLE_RATE);
+                lp += CutoffToAlpha(1100f + 900f * env) * (square - lp);
+
+                float breath = t < 0.2f ? Noise(i, 131) * 0.09f * (1f - t / 0.2f) : 0f;
+
+                Add(mix, at + i, (lp * 0.8f + breath) * level * env, gainLeft, gainRight);
             }
         }
 
