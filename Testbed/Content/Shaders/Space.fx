@@ -297,8 +297,15 @@ float3 Nebulae(float3 dir, out float transmittance)
 //
 //The field is Pablo Roman Andrioli's "Star Nest" (MIT licensed, hence usable rather than merely admirable),
 //and the shape of it is worth understanding before it is retuned. Space is folded into mirrored cells by
-//`abs(TILE - fmod(p, 2*TILE))`, which repeats the volume for free and mirrors at every cell wall so no seam
-//shows. Inside a cell an iterated map `p = abs(p)/dot(p,p) - FORMULA` runs: a sphere inversion (which turns
+//the triangle wave `2T * abs(frac(p / 2T) - 0.5)`, which repeats the volume for free and mirrors at every
+//cell wall so no seam shows. It is spelled with frac rather than as the original's `abs(T - mod(p, 2T))`,
+//because the original is GLSL and GLSL mod is floor-based where HLSL fmod truncates toward zero: ported
+//naively, the fold stopped mirroring below zero and JUMPED by the full 2T period at every p = -2T*k
+//(k >= 1). The drift walks p.z down through those planes - the first crossing derived at 483-772 s of
+//play at the shipped camera, a circle per march step sweeping the sky - photographed in #147 at a pinned
+//661 s, where the circles stack into one hard, frame-crossing step. The fix and the identity between the
+//two spellings are worked through there. Inside a cell an iterated map
+//`p = abs(p)/dot(p,p) - FORMULA` runs: a sphere inversion (which turns
 //the space inside out about the unit sphere, sending near points far and far points near), a fold into the
 //positive octant, and a translate. Iterated, that is a kaleidoscopic IFS whose attractor is a filigree of
 //sheets and filaments - and what is drawn is not the attractor's position but how far the point MOVED at each
@@ -383,8 +390,9 @@ float3 StarNestVolume(float3 dir, float3 eye, out float transmittance)
 	{
 		float3 p = rayOrigin + s * rayDirection * 0.5;
 
-		//The mirrored tiling fold
-		p = abs(VOLUME_TILE - fmod(p, VOLUME_TILE * 2.0));
+		//The mirrored tiling fold: a triangle wave over [0, TILE], continuous and mirrored for every real
+		//input. NOT fmod - that truncates toward zero and breaks the fold below zero (see the header, #147).
+		p = VOLUME_TILE * 2.0 * abs(frac(p / (VOLUME_TILE * 2.0)) - 0.5);
 
 		float previousLength = 0.0;
 		float activity = 0.0;
