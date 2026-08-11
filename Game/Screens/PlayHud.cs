@@ -296,7 +296,6 @@ namespace BS3D.Screens
         private const float POPUP_BIRTH_SCALE = 0.15f;  //where that pop starts from — near nothing, so it bursts in
         private const float POPUP_RISE = 2.2f;          //world units over the hold, so it drifts with the cluster
         private const float POPUP_ARRIVE_SCALE = 0.62f; //shrinking as it goes is most of what reads as distance
-        private const float POPUP_TINT_TO_WHITE = 0.3f; //how far a ball's hue is carried to white to stay legible
         private const int POPUP_SUFFIX_GAP = 10;
 
         //Motion blur. A real per-pixel blur would want a shader over the resolved frame, and SpriteBatch will
@@ -978,8 +977,8 @@ namespace BS3D.Screens
             Texture2D pixel = Pixel;
 
             //No backing plate: the balls and the bars draw straight over the scene, which keeps the panel from
-            //reading as a box plastered over the world. The markers carry their own contrast (their colours,
-            //lifted towards white for the dark types).
+            //reading as a box plastered over the world. The markers carry their own contrast (their colours as
+            //the lit ball actually shows them — see TypeColor — the dark types kept visible by the baked sheen).
 
             //The glass bar at its current height — NEUTRAL (the menu's own text colour) at rest, so it reads as
             //the ceiling the balls hang from rather than as a warning. It takes the alarm's red only on the flash,
@@ -1198,22 +1197,66 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The HUD colour of a ball type: its own hue, lifted to full brightness and carried part of the way to
-        /// white. Taken raw, half the eight are far too dark to read as text over a lit skyline — the 8-ball is
-        /// a 0.045 grey — and the launch smear hit this exact wall and solved it the same way: keep the hue,
-        /// raise the peak. Black has no hue to keep and comes out near-white, which is honest.
+        /// The HUD colour of a ball type: what the ball's coloured gores actually show on screen, baked once
+        /// through the render pipeline's own transform — the tint linearized the way the pattern shader does,
+        /// lit at a nominal level, run through the tonemap's ACES curve and encoded to sRGB (#153). The old
+        /// peak-normalize-and-lerp-to-white kept the hue but discarded every colour's relative darkness, and
+        /// the 8-ball's (0.045, 0.045, 0.05) near-black came out an almost-white (0.93, 0.93, 1).
         /// </summary>
         private static Color TypeColor(BallType type)
         {
-            Vector3 tint = BasicEffectParamsProvider.GetDiffuseTintByType(type);
-            float peak = MathF.Max(tint.X, MathF.Max(tint.Y, tint.Z));
-
-            if (peak > 0.001f) tint /= peak;
-
-            tint = Vector3.Lerp(tint, Vector3.One, POPUP_TINT_TO_WHITE);
-
-            return new Color(tint.X, tint.Y, tint.Z);
+            int index = (int)type;
+            return index < TYPE_COLORS.Length ? TYPE_COLORS[index] : Color.White;
         }
+
+        //The nominal light the bake shines on a tint, plus the ambient sheen every ball wears on top of its
+        //own colour. Calibrated against a screenshot of the real cluster (meadow, its default dome): the
+        //baked red lands at (208, 46, 46) where the ball's gores measure (211, 44, 36), green (55, 208, 55)
+        //against (38, 198, 35) — and the 8-ball keeps a readable (28, 28, 29) instead of vanishing, the sheen
+        //standing in for the rim light the real ball is never seen without.
+        private const float TYPE_LIT = 0.5f;
+        private const float TYPE_SHEEN = 0.02f;
+
+        //Indexed by the raw BallType byte (0 is unused — an empty cell is null, not a type), sized off the
+        //enum so a ninth colour is baked the day it exists rather than falling to the fallback white.
+        private static readonly Color[] TYPE_COLORS = BakeTypeColors();
+
+        private static Color[] BakeTypeColors()
+        {
+            BallType[] types = Enum.GetValues<BallType>();
+
+            byte highest = 0;
+            foreach (BallType type in types) highest = Math.Max(highest, (byte)type);
+
+            Color[] colors = new Color[highest + 1];
+
+            foreach (BallType type in types)
+            {
+                Vector3 albedo = SrgbToLinear(BasicEffectParamsProvider.GetDiffuseTintByType(type));
+                Vector3 mapped = AcesFilmic(albedo * TYPE_LIT + new Vector3(TYPE_SHEEN));
+
+                colors[(byte)type] = new Color(LinearToSrgb(mapped.X), LinearToSrgb(mapped.Y), LinearToSrgb(mapped.Z));
+            }
+
+            return colors;
+        }
+
+        /// <summary>
+        /// The pattern shader's own linearization of a gore colour (Jim Hejl's cubic fit of the sRGB curve,
+        /// <c>InstancedModel.fx</c>) — the bake mirrors it so the HUD starts from the very albedo the ball is lit with.
+        /// </summary>
+        private static Vector3 SrgbToLinear(Vector3 c) =>
+            c * (c * (c * 0.305306011f + new Vector3(0.682171111f)) + new Vector3(0.012522878f));
+
+        /// <summary>Krzysztof Narkowicz's ACES fit, per channel — the tonemap resolve's curve (<c>Tonemap.fx</c>).</summary>
+        private static Vector3 AcesFilmic(Vector3 x) => new(AcesChannel(x.X), AcesChannel(x.Y), AcesChannel(x.Z));
+
+        private static float AcesChannel(float x) =>
+            Math.Clamp(x * (2.51f * x + 0.03f) / (x * (2.43f * x + 0.59f) + 0.14f), 0f, 1f);
+
+        /// <summary>The resolve's exact piecewise sRGB encode (<c>Tonemap.fx</c>), one channel.</summary>
+        private static float LinearToSrgb(float c) =>
+            c <= 0.0031308f ? c * 12.92f : 1.055f * MathF.Pow(c, 1f / 2.4f) - 0.055f;
 
         #endregion
     }
