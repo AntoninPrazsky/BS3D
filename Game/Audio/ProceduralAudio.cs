@@ -109,7 +109,6 @@ namespace BS3D.Audio
         //The star cue sits above the click: it is the reward the level was played for, not a menu noise, and it
         //plays over a stopped world with nothing else sounding.
         private const float STAR_VOLUME = 0.55f;
-        private const float STAR_PITCH_STEP = 0.19f;   //~2.3 semitones a star; four of them stay inside a fifth
         private const float STAR_FINAL_LIFT = 1.15f;
 
         private readonly SoundEffect _shoot;
@@ -353,15 +352,28 @@ namespace BS3D.Audio
         /// <paramref name="total"/> earned. Unplaced like the other UI sounds, and for the same reason.
         /// <para>
         /// <b>The run rises, which is what makes a rating something you HEAR being counted</b> rather than the
-        /// same note four times. The step is a little over two semitones, so even a four-star run stays inside
-        /// a fifth — wider and the top of it stops sounding like the same instrument as the bottom. Unlike the
-        /// release's pops this one is deliberately a TONE: it is the only sound in the game that plays over a
-        /// stopped world with no music under it, so there is nothing for a noise gesture to read against.
+        /// same note four times. Unlike the release's pops this one is deliberately a TONE rather than a noise
+        /// gesture.
+        /// </para>
+        /// <para>
+        /// <b>It does NOT play into silence, and #158 is what that mistake cost.</b> This file used to say it
+        /// was "the only sound in the game that plays over a stopped world with no music under it" — which was
+        /// wrong when it was written: the victory fanfare is started the instant the field clears, before the
+        /// result screen even exists, so every star lands inside its ~9 seconds. A fixed 880 Hz root stepping
+        /// by ~2.3 semitones is in no key at all, and it agreed with the piece only when that piece happened
+        /// to roll A. The pitch is the CALLER's now, taken from what the fanfare actually rolled.
         /// </para>
         /// </summary>
-        public void PlayStarEarned(int index, int total)
+        /// <param name="semitones">
+        /// How far off the baked A5 to sound it — the caller works this out from the fanfare that is playing
+        /// underneath (#158), so the chime is a chord tone of the piece's own key rather than a fixed pitch
+        /// that only agreed with it when it happened to roll A. <b>Clamped to ±12 by the platform</b>:
+        /// <c>SoundEffect.Play</c>'s pitch is in octaves over −1…1, so a caller must keep its own arithmetic
+        /// inside an octave rather than assume any offset can be reached.
+        /// </param>
+        public void PlayStarEarned(int index, int total, float semitones)
         {
-            float pitch = MathHelper.Clamp(index * STAR_PITCH_STEP + NextPitch(0.015f), -1f, 1f);
+            float pitch = MathHelper.Clamp(semitones / 12f + NextPitch(0.015f), -1f, 1f);
 
             //The last star of the run lands a shade louder — an arrival rather than one more step. It is the
             //only thing that separates the fourth star of a four-star clear from the third of a three.
@@ -777,7 +789,14 @@ namespace BS3D.Audio
             int samples = (int)(SAMPLE_RATE * duration);
             float[] signal = new float[samples];
 
-            float[] ratios = { 1f, 2.756f, 5.404f, 8.933f };
+            //TUBULAR BELL, not a free bar (#158). The first version used a free bar's ratios (1, 2.76, 5.40,
+            //8.93) because they are what "struck metal" means acoustically — and that was right for the sound
+            //this was designed to make, which was one played into SILENCE. It is not played into silence: the
+            //victory fanfare is still going when the result screen appears, and a stack of inharmonic partials
+            //over a tonal piece is dissonant in whatever key that piece rolled. A tubular bell's partials are
+            //very nearly 1:2:3, which is the same spectrum a note has, so it can sit inside harmony; the 4.2
+            //on top is the one inharmonic term and is what keeps it a bell rather than an organ pipe.
+            float[] ratios = { 1f, 2f, 3f, 4.2f };
             float[] gains = { 1f, 0.5f, 0.26f, 0.12f };
             float[] decays = { 5.5f, 8f, 12f, 17f };
 
