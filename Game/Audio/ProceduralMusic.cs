@@ -597,7 +597,7 @@ namespace BS3D.Audio
             //A whole number of samples per step, and the track's length taken FROM that rather than from the
             //nominal tempo: rounding per step and then trusting the nominal length leaves a fraction of a step
             //of silence at the seam.
-            float[] mix = new float[samplesPerStep * totalSteps];
+            float[] mix = NewMix(samplesPerStep * totalSteps);
 
             for (int step = 0; step < totalSteps; step++)
             {
@@ -638,7 +638,7 @@ namespace BS3D.Audio
 
                 //The ride: straight sixteenths, and it is most of what "more beats" means here. Only in the
                 //big sections, because a sixteenth ride running under a breakdown is not a breakdown.
-                if (section.Ride) Hat(mix, at, open: false, level: 0.11f * level);
+                if (section.Ride) Hat(mix, at, open: false, level: 0.11f * level, pan: PAN_RIDE);
 
                 //Ghost snares on the off-beats, rolled per bar. This is the variation the ear notices least
                 //and misses most: it is what stops two identical bars sounding sequenced.
@@ -678,7 +678,10 @@ namespace BS3D.Audio
                 //A held chord under the intro, the breakdown, the last chorus and the outro. This is the
                 //"calm": it fills the space the drums leave without putting anything rhythmic in it.
                 if (section.Pad && inBar == 0)
-                    foreach (int note in arp) Pad(mix, at, note + transpose, secondsPerStep * 15.5f, 0.10f * level);
+                    //Seated across the field by voice, so the held chord opens out instead of stacking up
+                    for (int voice = 0; voice < arp.Length; voice++)
+                        Pad(mix, at, arp[voice] + transpose, secondsPerStep * 15.5f, 0.10f * level,
+                            pan: ChordPan(voice, arp.Length, PAN_PAD_SPREAD));
 
                 //ARPEGGIO ------------------------------------------------------------------------------
                 if (section.Arp)
@@ -687,7 +690,10 @@ namespace BS3D.Audio
                     int index = arpStep < 4 ? arpStep : 7 - arpStep;
                     if (variation.ArpDown) index = 3 - index;
 
-                    Arp(mix, at, arp[index] + 12 + transpose, secondsPerStep * 0.9f, 0.15f * level);
+                    //Ping-ponged on alternate sixteenths (#119): the arp never stops, so this is what keeps
+                    //the image moving through the melody's rests rather than only under its notes.
+                    Arp(mix, at, arp[index] + 12 + transpose, secondsPerStep * 0.9f, 0.15f * level,
+                        pan: (arpStep % 2 == 0) ? -PAN_ARP : PAN_ARP);
                 }
 
                 //LEAD ----------------------------------------------------------------------------------
@@ -920,7 +926,7 @@ namespace BS3D.Audio
             int sectionOutro = BOHEMIA_ARRANGEMENT.Length - 1;
             int totalSteps = BOHEMIA_ARRANGEMENT.Length * STEPS_PER_SECTION;
 
-            float[] mix = new float[samplesPerStep * totalSteps];
+            float[] mix = NewMix(samplesPerStep * totalSteps);
 
             for (int step = 0; step < totalSteps; step++)
             {
@@ -960,7 +966,7 @@ namespace BS3D.Audio
                 if (section.Hats && inBar % 2 == 0)
                     Hat(mix, at, open: inBar % 4 == 2, level: 0.26f * level);
 
-                if (section.Ride) Hat(mix, at, open: false, level: 0.10f * level);
+                if (section.Ride) Hat(mix, at, open: false, level: 0.10f * level, pan: PAN_RIDE);
 
                 //THE TIMPANI. On the bar's downbeat, tuned to the chord's own root two octaves down, so it is
                 //playing the harmony rather than marking time — which is the whole reason this piece has a
@@ -1016,7 +1022,9 @@ namespace BS3D.Audio
 
                 //PAD -----------------------------------------------------------------------------------
                 if (section.Pad && inBar == 0)
-                    foreach (int note in arp) Pad(mix, at, note + transpose, secondsPerStep * 15.5f, 0.07f * level);
+                    for (int voice = 0; voice < arp.Length; voice++)
+                        Pad(mix, at, arp[voice] + transpose, secondsPerStep * 15.5f, 0.07f * level,
+                            pan: ChordPan(voice, arp.Length, PAN_PAD_SPREAD));
 
                 //BRASS ---------------------------------------------------------------------------------
                 //The pillars: the chord root low and long under the downbeat, and the fifth above it in the
@@ -1025,7 +1033,11 @@ namespace BS3D.Audio
                 {
                     Brass(mix, at, root + 12 + transpose, secondsPerStep * 7.2f, 0.16f * level);
 
-                    if (section.Ride) Brass(mix, at, arp[2] + transpose, secondsPerStep * 7.2f, 0.10f * level);
+                    //The upper voice takes a seat; the pillar above it stays centre, being the piece's harmonic
+                    //floor rather than a line in a section.
+                    if (section.Ride)
+                        Brass(mix, at, arp[2] + transpose, secondsPerStep * 7.2f, 0.10f * level,
+                            pan: PAN_BRASS_SPREAD);
                 }
 
                 //ARPEGGIO ------------------------------------------------------------------------------
@@ -1035,7 +1047,9 @@ namespace BS3D.Audio
                     int index = arpStep < 4 ? arpStep : 7 - arpStep;
                     if (variation.ArpDown) index = 3 - index;
 
-                    Arp(mix, at, arp[index] + 12 + transpose, secondsPerStep * 0.9f, 0.13f * level);
+                    //Ping-ponged as Pulse's is — the same figure wants the same treatment in both pieces
+                    Arp(mix, at, arp[index] + 12 + transpose, secondsPerStep * 0.9f, 0.13f * level,
+                        pan: (arpStep % 2 == 0) ? -PAN_ARP : PAN_ARP);
                 }
 
                 //THE LINE ------------------------------------------------------------------------------
@@ -1165,7 +1179,7 @@ namespace BS3D.Audio
             int loopSamples = samplesPerStep * LOOP_BARS * STEPS_PER_BAR;
             int tailSamples = samplesPerStep * STEPS_PER_BAR;
 
-            float[] mix = new float[loopSamples + tailSamples];
+            float[] mix = NewMix(loopSamples + tailSamples);
 
             for (int step = 0; step < LOOP_BARS * STEPS_PER_BAR; step++)
             {
@@ -1183,7 +1197,12 @@ namespace BS3D.Audio
                 //otherwise bring.
                 if (inBar == 0)
                 {
-                    foreach (int note in arp) Pad(mix, at, note + transpose, secondsPerStep * 15.5f, 0.11f);
+                    for (int voice = 0; voice < arp.Length; voice++)
+                        Pad(mix, at, arp[voice] + transpose, secondsPerStep * 15.5f, 0.11f,
+                            pan: ChordPan(voice, arp.Length, PAN_PAD_SPREAD));
+
+                    //The root an octave under is the lobby's bass, so it stays in the middle with the rest of
+                    //the low end rather than taking a seat in the chord above it.
                     Pad(mix, at, CHORD_ROOT[chord] - 12 + transpose, secondsPerStep * 15.5f, 0.09f);
                 }
 
@@ -1233,9 +1252,11 @@ namespace BS3D.Audio
             }
 
             //Close the seam: fold what rings past the loop point back onto the head, then cut to the loop.
-            float[] loop = new float[loopSamples];
-            Array.Copy(mix, loop, loopSamples);
-            for (int i = 0; i < tailSamples; i++) loop[i] += mix[loopSamples + i];
+            //Both counts are FRAMES, so every index into the interleaved buffer is twice one — the fold has to
+            //carry both channels of the tail onto both channels of the head or the seam opens in one ear only.
+            float[] loop = NewMix(loopSamples);
+            Array.Copy(mix, loop, loopSamples * 2);
+            for (int i = 0; i < tailSamples * 2; i++) loop[i] += mix[loopSamples * 2 + i];
 
             Limit(loop, targetRms: 0.12f, ceiling: 0.9f);
             return loop;
@@ -1303,7 +1324,7 @@ namespace BS3D.Audio
 
             //Plus room for the close to RING OUT — without the tail the buffer ends mid-sustain and the
             //fanfare finishes on a click, which is a poor way to be told you won.
-            float[] mix = new float[samplesPerStep * (bars * STEPS_PER_BAR + FANFARE_TAIL_STEPS)];
+            float[] mix = NewMix(samplesPerStep * (bars * STEPS_PER_BAR + FANFARE_TAIL_STEPS));
 
             //THE HOOK's rhythm: two tresillos per bar — hits on 0,3,6 and 8,11,14, the 3-3-2 clave that is
             //the most danceable eight counts there are. The melody walks the chord's own tones, top-heavy,
@@ -1335,7 +1356,8 @@ namespace BS3D.Audio
                         if (hit) Snare(mix, at + step * samplesPerStep, 0.15f + 0.5f * through * through);
 
                         Arp(mix, at + step * samplesPerStep, root + chords[0][step % 3] + 12 * (step / 6),
-                            secondsPerStep * 1.2f, 0.10f + 0.08f * through);
+                            secondsPerStep * 1.2f, 0.10f + 0.08f * through,
+                            pan: (step % 2 == 0) ? -PAN_ARP : PAN_ARP);
 
                         if (step % 4 == 0) Kick(mix, at + step * samplesPerStep, 0.5f + 0.3f * through);
                     }
@@ -1347,8 +1369,11 @@ namespace BS3D.Audio
                 int chordRoot = root + chord[0];
 
                 //THE PAD holds the chord under everything, sub root beneath it for the weight the kick rides.
-                foreach (int interval in chord)
-                    Pad(mix, at, root + interval, secondsPerStep * (isClose ? 22f : 15.5f), 0.11f + 0.05f * intensity);
+                for (int voice = 0; voice < chord.Length; voice++)
+                    Pad(mix, at, root + chord[voice], secondsPerStep * (isClose ? 22f : 15.5f),
+                        0.11f + 0.05f * intensity, pan: ChordPan(voice, chord.Length, PAN_PAD_SPREAD));
+
+                //The sub root stays centre: it is the weight the kick rides, not a voice of the chord
                 Pad(mix, at, chordRoot - 12, secondsPerStep * (isClose ? 22f : 15.5f), 0.10f);
 
                 if (isClose)
@@ -1364,7 +1389,8 @@ namespace BS3D.Audio
                     if (intensity > 0.6f)
                         for (int i = 0; i < 12; i++)
                             Arp(mix, at + i * samplesPerStep, root + 12 + chord[i % 3] + 12 * (i / 4),
-                                secondsPerStep * 1.4f, 0.12f * intensity);
+                                secondsPerStep * 1.4f, 0.12f * intensity,
+                                pan: (i % 2 == 0) ? -PAN_ARP : PAN_ARP);
 
                     continue;
                 }
@@ -1395,7 +1421,8 @@ namespace BS3D.Audio
                     for (int step = 0; step < STEPS_PER_BAR; step += 1)
                         if (step % 2 == 1)
                             Arp(mix, at + step * samplesPerStep, root + chord[step % 3] + 12,
-                                secondsPerStep * 0.9f, 0.09f);
+                                secondsPerStep * 0.9f, 0.09f,
+                                pan: (step % 4 == 1) ? -PAN_ARP : PAN_ARP);
 
                 //THE HOOK, on the theme's own supersaw. Notes run a step past the next hit's start (the
                 //legato arithmetic), and the whole line doubles an octave up once the win is worth it.
@@ -1445,7 +1472,7 @@ namespace BS3D.Audio
             int root = roots[random.Next(roots.Length)];
 
             const int bars = 4;
-            float[] mix = new float[samplesPerStep * (bars * STEPS_PER_BAR + FANFARE_TAIL_STEPS)];
+            float[] mix = NewMix(samplesPerStep * (bars * STEPS_PER_BAR + FANFARE_TAIL_STEPS));
 
             //i - VI - iv - i: minor, and it sags rather than resolving anywhere bright.
             int[] degrees = { 0, 8, 5, 0 };
@@ -1466,9 +1493,9 @@ namespace BS3D.Audio
                 int at = bar * STEPS_PER_BAR * samplesPerStep;
 
                 //The pad carries almost the whole piece. Thin when the run was poor, full when it was close.
-                foreach (int interval in MINOR_TRIAD)
-                    Pad(mix, at, chordRoot - 12 + interval, secondsPerStep * (last ? 26f : 16.5f),
-                        0.10f + 0.08f * intensity);
+                for (int voice = 0; voice < MINOR_TRIAD.Length; voice++)
+                    Pad(mix, at, chordRoot - 12 + MINOR_TRIAD[voice], secondsPerStep * (last ? 26f : 16.5f),
+                        0.10f + 0.08f * intensity, pan: ChordPan(voice, MINOR_TRIAD.Length, PAN_PAD_SPREAD));
 
                 //One long melody note a bar, falling. No percussion anywhere: a beat would give it momentum,
                 //and momentum is the one thing this must not have.
@@ -1481,17 +1508,143 @@ namespace BS3D.Audio
                 //Seventeen steps against a sixteen-step bar: each note runs a step past the next one's start,
                 //so the trombone releases across the join and the line is legato rather than a row of separate
                 //sighs. It matters more here than in the victory, because a slow piece leaves bigger holes.
+                //The melody stays CENTRE, the lead's own rule: it is the tune. It was seated to one side of a
+                //symmetric pair first, and that is a trap this arrangement sets — the harmony below is
+                //conditional, so on any run under the threshold the melody sang alone from one speaker and the
+                //whole piece leaned 1.4 dB (measured). A part that may play alone cannot take half a pair's seat.
                 if (!last || intensity > 0.35f)
-                    Brass(mix, at, chordRoot + MINOR_TRIAD[shape[bar]], secondsPerStep * (last ? 24f : 17f), leadLevel);
+                    Brass(mix, at, chordRoot + MINOR_TRIAD[shape[bar]], secondsPerStep * (last ? 24f : 17f),
+                        leadLevel);
 
-                //A harmony a third under the melody, for a run that deserved better.
+                //A harmony a third under the melody, for a run that deserved better. This one is the part that
+                //moves off centre — it only ever sounds WITH the melody, so it reads as a second player beside
+                //the first rather than as the tune wandering, and at 0.55 of the level it barely tilts the piece.
                 if (intensity > 0.55f)
                     Brass(mix, at, chordRoot + MINOR_TRIAD[shape[bar]] - 3, secondsPerStep * (last ? 24f : 17f),
-                        leadLevel * 0.55f);
+                        leadLevel * 0.55f, pan: PAN_BRASS_SPREAD);
             }
 
             Limit(mix, targetRms: 0.10f + 0.05f * intensity, ceiling: 0.9f);
             return mix;
+        }
+
+        #endregion
+
+        #region The stereo image (#119)
+
+        //Every piece here was baked dead centre: one mono buffer every voice summed into, so a two-minute
+        //arrangement of a dozen instruments played back as a single point between the speakers. The buffer is
+        //INTERLEAVED STEREO now — frame n is mix[2n] left, mix[2n + 1] right — and each instrument has a seat.
+        //
+        //Two rules decide the seating, and the second is the one that is easy to get wrong.
+        //
+        //LOW STAYS CENTRE. The kick, the bass and the timpani are panned nowhere at all. Below roughly 200 Hz
+        //the ear takes almost no direction from level difference (the wavelength dwarfs the head), so panning
+        //them buys no width — and it costs: a hard-panned low end loses half its power the moment anything
+        //downmixes to mono, which is every laptop and phone speaker this game will ever be played on. The
+        //snare sits with them because the backbeat is what the kick is answered by, and a centre it wanders
+        //from reads as the mix drifting. Per docs/game-feedback.md, 61-70 % of the energy of these pieces is
+        //below 200 Hz, so this rule is most of the mix by energy and none of it by width.
+        //
+        //WIDTH COMES FROM WHAT IS ALREADY DETUNED. The lead is two saws twelve cents apart and the string
+        //section is seven; those were written to beat against each other, and beating voices pulled APART is
+        //the oldest width there is — far wider than moving a finished mono note off centre, because the two
+        //sides are genuinely different signals rather than the same one at two levels. So those two spread
+        //internally (their detuned voices take their own seats) while the NOTE stays where it was.
+        //
+        //Nothing here is randomised per pass. A pass rolls its tempo, key and progression (see "Random
+        //parameters, never random notes"); where the hi-hat sits is not a composition decision, and an image
+        //that moved between passes would read as the mix being unstable rather than as variation.
+
+        /// <summary>How far off centre a thing sits: -1 hard left, 0 centre, +1 hard right.</summary>
+        private const float PAN_CENTRE = 0f;
+
+        //The kit, seated as a kit is: hats to one side, the ride answering them from the other. Modest —
+        //hard-panned cymbals are a 1960s artifact and read as a fault on headphones.
+        private const float PAN_HAT = 0.34f;
+        private const float PAN_RIDE = -0.30f;
+
+        //The arp ping-pongs between these on alternate sixteenths, which is the one width effect this genre
+        //is actually built on. It never stops running (see "The parts are arranged around the kick"), so it
+        //is also what keeps the image alive through the melody's rests.
+        private const float PAN_ARP = 0.62f;
+
+        //Left of the middle, opposite the hats — but not far. In the lobby piece the keys ARE the line, and a
+        //part carrying a piece on its own tilts the whole thing as far as it is moved: at -0.38 the loop
+        //measured 0.47 dB left overall. Enough to separate them from the hats, little enough that the piece
+        //still sits in the middle.
+        private const float PAN_KEYS = -0.24f;
+
+        //The seated sections: a spread applied ACROSS THE NOTES of a chord rather than to the section as a
+        //whole, so a held chord occupies the field the way players on a stage do instead of arriving as one
+        //wide blur. PitchPan turns a note into its seat.
+        private const float PAN_PAD_SPREAD = 0.55f;
+        private const float PAN_BRASS_SPREAD = 0.40f;
+
+        /// <summary>How far apart the string section's seven detuned voices are seated — the widest thing here.</summary>
+        private const float PAN_STRINGS_SPREAD = 0.85f;
+
+        /// <summary>How far apart the supersaw's two detuned saws sit. The note itself stays centred.</summary>
+        private const float PAN_LEAD_SPREAD = 0.55f;
+
+        /// <summary>The clap's three bursts land across the field — a room full of hands is not one point.</summary>
+        private const float PAN_CLAP_SPREAD = 0.45f;
+
+        /// <summary>A tom fill travels across the kit as it descends, which is what a fill on real toms does.</summary>
+        private const float PAN_TOM_SPREAD = 0.5f;
+
+        /// <summary>
+        /// A pan (-1…+1) as the pair of gains it becomes. <b>Constant power</b> (the sine/cosine law, not a
+        /// linear crossfade): the two gains square to 1 rather than summing to it, so a part panned off centre
+        /// keeps the loudness it had in the middle. A linear law dips about 3 dB at the extremes, which on the
+        /// ping-ponging arp would read as the part getting quieter every other sixteenth.
+        /// <para>
+        /// Called once per note, never per sample — the gains are constant for the whole of a note.
+        /// </para>
+        /// </summary>
+        private static void PanGains(float pan, out float gainLeft, out float gainRight)
+        {
+            float angle = (MathHelper.Clamp(pan, -1f, 1f) * 0.5f + 0.5f) * MathF.PI * 0.5f;
+
+            gainLeft = MathF.Cos(angle);
+            gainRight = MathF.Sin(angle);
+        }
+
+        /// <summary>
+        /// Seats voice <paramref name="voice"/> of a <paramref name="voices"/>-note chord, evenly and
+        /// symmetrically across <paramref name="spread"/>: the bottom note to one side, the top to the other,
+        /// a lone note dead centre.
+        /// <para>
+        /// <b>It is the voice's INDEX and deliberately not its pitch.</b> Seating by pitch was tried first and
+        /// is a trap: every pass rolls its own key (see "Random parameters, never random notes"), so a seat
+        /// derived from the note number rotates with the transpose, and the same chord shape lands in a
+        /// different place in every pass — an image that moves between passes, which reads as the mix being
+        /// unstable rather than as variation. It also leaves the whole piece leaning to whichever side the
+        /// key happened to put the chord tones on. The index carries neither problem: it is a property of the
+        /// arrangement, which is the same in every pass.
+        /// </para>
+        /// </summary>
+        private static float ChordPan(int voice, int voices, float spread) =>
+            voices <= 1 ? PAN_CENTRE : ((voice / (float)(voices - 1)) * 2f - 1f) * spread;
+
+        /// <summary>How many stereo frames the mix holds — its length is two floats per frame.</summary>
+        private static int Frames(float[] mix) => mix.Length / 2;
+
+        /// <summary>A mix buffer for <paramref name="frames"/> stereo frames.</summary>
+        private static float[] NewMix(int frames) => new float[frames * 2];
+
+        /// <summary>
+        /// Adds one sample to one frame of the interleaved mix, at a gain pair from <see cref="PanGains"/>.
+        /// <b>This is the one place the interleaving is stated</b> — every instrument writes through it, so
+        /// none of them has to know the layout, and a voice that grew a second channel of its own (the lead,
+        /// the strings) simply calls it twice.
+        /// </summary>
+        private static void Add(float[] mix, int frame, float value, float gainLeft, float gainRight)
+        {
+            int offset = frame * 2;
+
+            mix[offset] += value * gainLeft;
+            mix[offset + 1] += value * gainRight;
         }
 
         #endregion
@@ -1506,9 +1659,13 @@ namespace BS3D.Audio
         private static void Kick(float[] mix, int at, float level)
         {
             int length = (int)(SAMPLE_RATE * 0.28f);
+            int frames = Frames(mix);
             float phase = 0f;
 
-            for (int i = 0; i < length && at + i < mix.Length; i++)
+            //Dead centre, and the clearest case of the rule: this is the lowest thing in the piece.
+            PanGains(PAN_CENTRE, out float gainLeft, out float gainRight);
+
+            for (int i = 0; i < length && at + i < frames; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
 
@@ -1518,7 +1675,7 @@ namespace BS3D.Audio
                 float body = MathF.Sin(phase) * MathF.Exp(-t * 7.5f);
                 float click = (i < 90) ? Noise(i, 11) * 0.5f * (1f - i / 90f) : 0f;
 
-                mix[at + i] += (body * 0.95f + click) * 0.92f * level;
+                Add(mix, at + i, (body * 0.95f + click) * 0.92f * level, gainLeft, gainRight);
             }
         }
 
@@ -1530,31 +1687,55 @@ namespace BS3D.Audio
         {
             int[] offsets = { 0, (int)(SAMPLE_RATE * 0.009f), (int)(SAMPLE_RATE * 0.018f) };
 
-            foreach (int offset in offsets)
-                for (int i = 0; i < SAMPLE_RATE * 0.03f && at + offset + i < mix.Length; i++)
+            //The three bursts land in three PLACES as well as at three times, which is the same observation
+            //the stutter itself came from: a room full of hands is not one point either in time or in space.
+            float[] pans = { -PAN_CLAP_SPREAD, PAN_CLAP_SPREAD, -PAN_CLAP_SPREAD * 0.4f };
+
+            int frames = Frames(mix);
+
+            for (int burst = 0; burst < offsets.Length; burst++)
+            {
+                int offset = offsets[burst];
+                PanGains(pans[burst], out float burstLeft, out float burstRight);
+
+                for (int i = 0; i < SAMPLE_RATE * 0.03f && at + offset + i < frames; i++)
                 {
                     float t = (float)i / SAMPLE_RATE;
-                    mix[at + offset + i] += BandNoise(i, 1400f, 5200f, 23) * 0.5f * level * MathF.Exp(-t * 90f);
+                    Add(mix, at + offset + i, BandNoise(i, 1400f, 5200f, 23) * 0.5f * level * MathF.Exp(-t * 90f),
+                        burstLeft, burstRight);
                 }
+            }
+
+            //The tail is the room the three landed in, so it sits in the middle of them rather than to a side
+            PanGains(PAN_CENTRE, out float tailLeft, out float tailRight);
 
             int tail = (int)(SAMPLE_RATE * 0.22f);
-            for (int i = 0; i < tail && at + i < mix.Length; i++)
+            for (int i = 0; i < tail && at + i < frames; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
-                mix[at + i] += BandNoise(i, 1100f, 4200f, 29) * 0.26f * level * MathF.Exp(-t * 22f);
+                Add(mix, at + i, BandNoise(i, 1100f, 4200f, 29) * 0.26f * level * MathF.Exp(-t * 22f),
+                    tailLeft, tailRight);
             }
         }
 
         /// <summary>The hat: high noise, very short closed and a good deal longer open.</summary>
-        private static void Hat(float[] mix, int at, bool open, float level)
+        /// <param name="pan">
+        /// Where on the kit it is. Defaults to the hats' own seat; the ride passes <see cref="PAN_RIDE"/>, so
+        /// the two answer each other across the field instead of both arriving from the same spot.
+        /// </param>
+        private static void Hat(float[] mix, int at, bool open, float level, float pan = PAN_HAT)
         {
             float decay = open ? 26f : 95f;
             int length = (int)(SAMPLE_RATE * (open ? 0.16f : 0.05f));
+            int frames = Frames(mix);
 
-            for (int i = 0; i < length && at + i < mix.Length; i++)
+            PanGains(pan, out float gainLeft, out float gainRight);
+
+            for (int i = 0; i < length && at + i < frames; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
-                mix[at + i] += BandNoise(i, 6000f, 15000f, 37) * level * MathF.Exp(-t * decay);
+                Add(mix, at + i, BandNoise(i, 6000f, 15000f, 37) * level * MathF.Exp(-t * decay),
+                    gainLeft, gainRight);
             }
         }
 
@@ -1562,17 +1743,24 @@ namespace BS3D.Audio
         private static void Tom(float[] mix, int at, float startHz, float level)
         {
             int length = (int)(SAMPLE_RATE * 0.2f);
+            int frames = Frames(mix);
             float phase = 0f;
 
-            for (int i = 0; i < length && at + i < mix.Length; i++)
+            //Seated by its PITCH, so the descending fill the arrangement writes (138 Hz down in steps of 16)
+            //travels across the kit as it falls — which is what a fill on real toms does, and it costs the
+            //caller nothing to say. The band here spans roughly 60-140 Hz of start pitch.
+            PanGains(MathHelper.Clamp((startHz - 100f) / 60f, -1f, 1f) * PAN_TOM_SPREAD,
+                out float gainLeft, out float gainRight);
+
+            for (int i = 0; i < length && at + i < frames; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
 
                 float freq = startHz * 0.55f + startHz * 0.45f * MathF.Exp(-t * 14f);
                 phase += 2f * MathF.PI * freq / SAMPLE_RATE;
 
-                mix[at + i] += (MathF.Sin(phase) * 0.75f + BandNoise(i, 300f, 2400f, 53) * 0.2f)
-                    * 0.55f * level * MathF.Exp(-t * 11f);
+                Add(mix, at + i, (MathF.Sin(phase) * 0.75f + BandNoise(i, 300f, 2400f, 53) * 0.2f)
+                    * 0.55f * level * MathF.Exp(-t * 11f), gainLeft, gainRight);
             }
         }
 
@@ -1580,13 +1768,19 @@ namespace BS3D.Audio
         private static void Snare(float[] mix, int at, float level)
         {
             int length = (int)(SAMPLE_RATE * 0.13f);
+            int frames = Frames(mix);
 
-            for (int i = 0; i < length && at + i < mix.Length; i++)
+            //With the kick: the backbeat is what the kick is answered by, and a centre it wanders from reads
+            //as the whole mix drifting rather than as width.
+            PanGains(PAN_CENTRE, out float gainLeft, out float gainRight);
+
+            for (int i = 0; i < length && at + i < frames; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
                 float body = MathF.Sin(2f * MathF.PI * 190f * t) * 0.35f;
 
-                mix[at + i] += (body + BandNoise(i, 1200f, 8000f, 61) * 0.8f) * level * MathF.Exp(-t * 34f);
+                Add(mix, at + i, (body + BandNoise(i, 1200f, 8000f, 61) * 0.8f) * level * MathF.Exp(-t * 34f),
+                    gainLeft, gainRight);
             }
         }
 
@@ -1597,10 +1791,15 @@ namespace BS3D.Audio
         private static void Bass(float[] mix, int at, int note, float seconds, float level)
         {
             int length = (int)(SAMPLE_RATE * seconds);
+            int frames = Frames(mix);
             float freq = Frequency(note);
             float phase = 0f, lp = 0f;
 
-            for (int i = 0; i < length && at + i < mix.Length; i++)
+            //Centre with the kick, and for the mono-collapse reason above rather than for taste: this is the
+            //part that has to survive a phone speaker intact.
+            PanGains(PAN_CENTRE, out float gainLeft, out float gainRight);
+
+            for (int i = 0; i < length && at + i < frames; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
                 float env = MathF.Min(1f, t / 0.004f) * MathF.Exp(-t * 6.5f);
@@ -1611,18 +1810,25 @@ namespace BS3D.Audio
                 float saw = PolyBlepSaw(phase, freq / SAMPLE_RATE);
 
                 lp += CutoffToAlpha(190f + 2600f * env) * (saw - lp);
-                mix[at + i] += lp * 0.55f * level * env;
+                Add(mix, at + i, lp * 0.55f * level * env, gainLeft, gainRight);
             }
         }
 
         /// <summary>The arpeggio: a plain square, short and quiet. The DOS-era voice, and it is meant to sound like one.</summary>
-        private static void Arp(float[] mix, int at, int note, float seconds, float level)
+        /// <param name="pan">
+        /// Where this note sits. The arrangement ping-pongs it (see <see cref="PAN_ARP"/>) — the sixteenths
+        /// never stop, so this is what keeps the image moving through the melody's rests.
+        /// </param>
+        private static void Arp(float[] mix, int at, int note, float seconds, float level, float pan = PAN_ARP)
         {
             int length = (int)(SAMPLE_RATE * seconds);
+            int frames = Frames(mix);
             float freq = Frequency(note);
             float phase = 0f;
 
-            for (int i = 0; i < length && at + i < mix.Length; i++)
+            PanGains(pan, out float gainLeft, out float gainRight);
+
+            for (int i = 0; i < length && at + i < frames; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
                 float env = MathF.Min(1f, t / 0.002f) * MathF.Exp(-t * 15f);
@@ -1630,7 +1836,7 @@ namespace BS3D.Audio
                 phase += freq / SAMPLE_RATE;
                 if (phase >= 1f) phase -= 1f;
 
-                mix[at + i] += PolyBlepSquare(phase, freq / SAMPLE_RATE) * level * env;
+                Add(mix, at + i, PolyBlepSquare(phase, freq / SAMPLE_RATE) * level * env, gainLeft, gainRight);
             }
         }
 
@@ -1647,9 +1853,14 @@ namespace BS3D.Audio
         private static void Keys(float[] mix, int at, int note, float seconds, float level)
         {
             int length = (int)(SAMPLE_RATE * seconds);
+            int frames = Frames(mix);
             float freq = Frequency(note);
 
-            for (int i = 0; i < length && at + i < mix.Length; i++)
+            //Left of centre, opposite the hats: in the lobby piece the keys carry the line over almost nothing
+            //else, so giving them their own side is most of what stops that piece sounding like one speaker.
+            PanGains(PAN_KEYS, out float gainLeft, out float gainRight);
+
+            for (int i = 0; i < length && at + i < frames; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
 
@@ -1665,7 +1876,7 @@ namespace BS3D.Audio
 
                 float tremolo = 1f + 0.06f * MathF.Sin(2f * MathF.PI * 4.6f * t);
 
-                mix[at + i] += (0.62f * body + tine) * env * tremolo * level;
+                Add(mix, at + i, (0.62f * body + tine) * env * tremolo * level, gainLeft, gainRight);
             }
         }
 
@@ -1673,16 +1884,25 @@ namespace BS3D.Audio
         /// The pad: three detuned saws holding a whole bar under a slow attack and a heavy low-pass. It plays
         /// where the drums do not, and its only job is to keep the quiet sections from sounding like a fault.
         /// </summary>
-        private static void Pad(float[] mix, int at, int note, float seconds, float level)
+        /// <param name="pan">
+        /// Where this note of the chord sits — the caller seats them with <see cref="ChordPan"/>, so a chord
+        /// laid down one note at a time comes out spread across the field rather than stacked on one spot.
+        /// The pad is what holds the quiet sections, and a wide one is the difference between those sections
+        /// sounding empty and sounding open.
+        /// </param>
+        private static void Pad(float[] mix, int at, int note, float seconds, float level, float pan = PAN_CENTRE)
         {
             int length = (int)(SAMPLE_RATE * seconds);
+            int frames = Frames(mix);
             float freq = Frequency(note);
+
+            PanGains(pan, out float gainLeft, out float gainRight);
 
             float[] detune = { 0.994f, 1f, 1.006f };
             float[] phases = { 0f, 0.33f, 0.66f };
             float lp = 0f;
 
-            for (int i = 0; i < length && at + i < mix.Length; i++)
+            for (int i = 0; i < length && at + i < frames; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
 
@@ -1700,7 +1920,7 @@ namespace BS3D.Audio
                 }
 
                 lp += CutoffToAlpha(1500f) * (sum / 3f - lp);
-                mix[at + i] += lp * level * env;
+                Add(mix, at + i, lp * level * env, gainLeft, gainRight);
             }
         }
 
@@ -1720,7 +1940,8 @@ namespace BS3D.Audio
         /// successive notes run into one another instead of each dying in its own gap.</item>
         /// </list>
         /// </summary>
-        private static void Brass(float[] mix, int at, int note, float seconds, float level)
+        /// <param name="pan">Where in the section it sits; a lone line stays centred.</param>
+        private static void Brass(float[] mix, int at, int note, float seconds, float level, float pan = PAN_CENTRE)
         {
             int length = (int)(SAMPLE_RATE * seconds);
             float freq = Frequency(note);
@@ -1732,7 +1953,15 @@ namespace BS3D.Audio
             float subPhase = 0f;
             float lp1 = 0f, lp2 = 0f;
 
-            for (int i = 0; i < length && at + i < mix.Length; i++)
+            int frames = Frames(mix);
+
+            //The section takes the seat the caller gives it — but its SUB does not. That octave-down sine is
+            //the weight of the voice and sits under 100 Hz for most of the range this plays, which is exactly
+            //the band the seating rules keep in the middle, so it is written separately below.
+            PanGains(pan, out float gainLeft, out float gainRight);
+            PanGains(PAN_CENTRE, out float subLeft, out float subRight);
+
+            for (int i = 0; i < length && at + i < frames; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
 
@@ -1769,7 +1998,8 @@ namespace BS3D.Audio
                 subPhase += 2f * MathF.PI * (freq * 0.5f) / SAMPLE_RATE;
                 float sub = MathF.Sin(subPhase) * 0.5f;
 
-                mix[at + i] += (lp2 + sub) * level * env;
+                Add(mix, at + i, lp2 * level * env, gainLeft, gainRight);
+                Add(mix, at + i, sub * level * env, subLeft, subRight);
             }
         }
 
@@ -1806,9 +2036,23 @@ namespace BS3D.Audio
             float[] phases = { 0.11f, 0.42f, 0.77f, 0f, 0.29f, 0.63f, 0.91f };
             float[] vibRate = { 4.7f, 5.1f, 5.4f, 4.9f, 5.6f, 5.0f, 4.4f };
 
-            float lp1 = 0f, lp2 = 0f;
+            //THE WIDEST THING IN EITHER PIECE, and it costs nothing that was not already being computed. These
+            //seven voices were detuned to beat against one another; seating them across the stage makes the
+            //beating a MOVEMENT across the field rather than a wobble at one point, which is the whole
+            //difference between a sample of a string section and the sound of one. Index 3 is the in-tune
+            //voice and sits in the middle, exactly as the detune table has it.
+            //
+            //Two filter states, because the two sides are now genuinely different signals — running one filter
+            //on the sum and panning the result afterwards would give the same wobble at one point again.
+            float lp1L = 0f, lp2L = 0f, lp1R = 0f, lp2R = 0f;
 
-            for (int i = 0; i < length && at + i < mix.Length; i++)
+            float[] voiceLeft = new float[7], voiceRight = new float[7];
+            for (int d = 0; d < 7; d++)
+                PanGains((d - 3) / 3f * PAN_STRINGS_SPREAD, out voiceLeft[d], out voiceRight[d]);
+
+            int frames = Frames(mix);
+
+            for (int i = 0; i < length && at + i < frames; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
 
@@ -1820,20 +2064,27 @@ namespace BS3D.Audio
                 //Leaning into the note: no vibrato at the attack, full by about a third of a second.
                 float lean = 0.0042f * MathF.Min(1f, MathF.Max(0f, (t - 0.12f) / 0.34f));
 
-                float sum = 0f;
+                float sumLeft = 0f, sumRight = 0f;
                 for (int d = 0; d < 7; d++)
                 {
                     float f = freq * detune[d] * (1f + lean * MathF.Sin(2f * MathF.PI * vibRate[d] * t + d));
                     phases[d] += f / SAMPLE_RATE;
                     if (phases[d] >= 1f) phases[d] -= 1f;
-                    sum += PolyBlepSaw(phases[d], f / SAMPLE_RATE);
+
+                    float saw = PolyBlepSaw(phases[d], f / SAMPLE_RATE);
+                    sumLeft += saw * voiceLeft[d];
+                    sumRight += saw * voiceRight[d];
                 }
 
                 float alpha = CutoffToAlpha(700f + 2600f * env);
-                lp1 += alpha * (sum / 7f - lp1);
-                lp2 += alpha * (lp1 - lp2);
+                lp1L += alpha * (sumLeft / 7f - lp1L);
+                lp2L += alpha * (lp1L - lp2L);
+                lp1R += alpha * (sumRight / 7f - lp1R);
+                lp2R += alpha * (lp1R - lp2R);
 
-                mix[at + i] += lp2 * level * env;
+                //Already panned per voice, so this writes the two channels straight rather than through a pan
+                Add(mix, at + i, lp2L * level * env, 1f, 0f);
+                Add(mix, at + i, lp2R * level * env, 0f, 1f);
             }
         }
 
@@ -1851,10 +2102,15 @@ namespace BS3D.Audio
         private static void Timpani(float[] mix, int at, int note, float level)
         {
             int length = (int)(SAMPLE_RATE * 1.5f);
+            int frames = Frames(mix);
             float freq = Frequency(note);
             float phase = 0f, harmonic = 0f;
 
-            for (int i = 0; i < length && at + i < mix.Length; i++)
+            //Centre with the kick and the bass: it plays the bass of a cadence an octave under the root, which
+            //is the lowest pitched thing in Bohemia and squarely inside the band the seating rules anchor.
+            PanGains(PAN_CENTRE, out float gainLeft, out float gainRight);
+
+            for (int i = 0; i < length && at + i < frames; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
 
@@ -1871,7 +2127,7 @@ namespace BS3D.Audio
                 //The stick, and only at the very start.
                 float crack = t < 0.012f ? BandNoise(i, 900f, 6000f, 83) * 0.5f * (1f - t / 0.012f) : 0f;
 
-                mix[at + i] += (body * 0.8f + crack) * level;
+                Add(mix, at + i, (body * 0.8f + crack) * level, gainLeft, gainRight);
             }
         }
 
@@ -1888,9 +2144,21 @@ namespace BS3D.Audio
             float freqA = freq * 0.9965f;
             float freqB = freq * 1.0035f;
 
-            float phaseA = 0f, phaseB = 0.5f, lp = 0f;
+            float phaseA = 0f, phaseB = 0.5f;
 
-            for (int i = 0; i < length && at + i < mix.Length; i++)
+            //The supersaw's width, and the reason it is done HERE rather than by panning the finished note:
+            //the twelve cents between these two saws is what the voice is built on (see "The lead is two saws
+            //detuned about twelve cents apart"), so pulling them apart makes the beating sweep between the
+            //speakers. The NOTE stays centred — the lead is the tune, and a tune that wanders is a fault.
+            //A filter each, or the two would be summed back to one signal before they were ever separated.
+            float lpA = 0f, lpB = 0f;
+
+            PanGains(-PAN_LEAD_SPREAD, out float leftA, out float rightA);
+            PanGains(PAN_LEAD_SPREAD, out float leftB, out float rightB);
+
+            int frames = Frames(mix);
+
+            for (int i = 0; i < length && at + i < frames; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
 
@@ -1903,10 +2171,12 @@ namespace BS3D.Audio
                 phaseA += freqA * vibrato / SAMPLE_RATE; if (phaseA >= 1f) phaseA -= 1f;
                 phaseB += freqB * vibrato / SAMPLE_RATE; if (phaseB >= 1f) phaseB -= 1f;
 
-                float saw = PolyBlepSaw(phaseA, freqA / SAMPLE_RATE) + PolyBlepSaw(phaseB, freqB / SAMPLE_RATE);
+                float alpha = CutoffToAlpha(4200f);
+                lpA += alpha * (PolyBlepSaw(phaseA, freqA / SAMPLE_RATE) * 0.5f - lpA);
+                lpB += alpha * (PolyBlepSaw(phaseB, freqB / SAMPLE_RATE) * 0.5f - lpB);
 
-                lp += CutoffToAlpha(4200f) * (saw * 0.5f - lp);
-                mix[at + i] += lp * level * env;
+                Add(mix, at + i, lpA * level * env, leftA, rightA);
+                Add(mix, at + i, lpB * level * env, leftB, rightB);
             }
         }
 
@@ -1995,7 +2265,17 @@ namespace BS3D.Audio
             return a - b;
         }
 
-        /// <summary>Drives the mix to a target RMS and saturates it softly — the music's own limiter.</summary>
+        /// <summary>
+        /// Drives the mix to a target RMS and saturates it softly — the music's own limiter.
+        /// <para>
+        /// It reads the interleaved stereo buffer as one signal, and that is deliberate rather than incidental
+        /// (#119): the RMS is taken across both channels and the drive it derives is a <b>single number
+        /// applied to every sample</b>, so the stereo image cannot move. A limiter that measured and drove the
+        /// two channels independently would turn every loud moment on one side into a level change on that
+        /// side alone, which is the image pumping — the classic way to wreck a mix while making each channel
+        /// individually correct. If this ever grows a real envelope follower, the gain must stay linked.
+        /// </para>
+        /// </summary>
         private static void Limit(float[] signal, float targetRms, float ceiling)
         {
             double sum = 0.0;
@@ -2019,7 +2299,9 @@ namespace BS3D.Audio
                 pcm[i * 2 + 1] = (byte)((v >> 8) & 0xff);
             }
 
-            return new SoundEffect(pcm, SAMPLE_RATE, AudioChannels.Mono);
+            //Stereo since #119. The buffer is already interleaved left-then-right, which is exactly the layout
+            //16-bit PCM wants, so the loop above needs no notion of channels — only this line does.
+            return new SoundEffect(pcm, SAMPLE_RATE, AudioChannels.Stereo);
         }
 
         #endregion
