@@ -29,9 +29,23 @@ namespace Prazsky.BS3D.Scoring
 
         //Score as a multiple of the floor (MatchedBallPoints × the level's balls, the least any clear can
         //score — so every threshold is > 1, and 1 star is "cleared" by construction rather than by a rule.
+        //
+        //MEASURED, not reasoned, since #173 — which is what the summary above always asked for. A harness
+        //drives the real ScoreKeeper over all thirteen shipped levels at several play styles, and the band it
+        //found is what these three sit in:
+        //
+        //  ~1.9   the whole budget spent with one shot in three missing — the worst a clear can realistically be
+        //  ~5.0   the whole budget spent cleanly, never missing: patient rather than skilful
+        //  6.5-7.9 cleared in a handful of shots without missing
+        //
+        //So 2 stars is unchanged at 1.8 (a scrappy clear still earns one), 3 stars moves 3.0 -> 4.0 so that a
+        //clean grind lands there rather than at the top, and 4 stars moves 4.5 -> 6.0, which now takes
+        //EFFICIENCY and not merely patience. Before #173 the top of that band was unreachable by fast play and
+        //handed to slow play instead: the rating rose with the number of shots taken on every level in the
+        //pack. Retune these against the harness, not against intuition — that is the mistake being corrected.
         public const float TWO_STAR_FLOOR_MULTIPLE = 1.8f;
-        public const float THREE_STAR_FLOOR_MULTIPLE = 3.0f;
-        public const float FOUR_STAR_FLOOR_MULTIPLE = 4.5f;
+        public const float THREE_STAR_FLOOR_MULTIPLE = 4.0f;
+        public const float FOUR_STAR_FLOOR_MULTIPLE = 6.0f;
 
         /// <summary>
         /// The stars a <b>cleared</b> level's <paramref name="score"/> earned, 1 to <see cref="MAX"/>.

@@ -242,7 +242,7 @@ namespace BS3D.Screens
             //A fresh scorer per level, holding that entry's rules. Built even when the level fell back to the
             //built-in map, which then has no rules at all and so an unlimited budget and a still ceiling — the
             //same thing an entry that authors no "shots" or "ceilingStep" means.
-            _score = new ScoreKeeper(LevelShotBudget(index), LevelCeilingStep(index));
+            _score = new ScoreKeeper(LevelShotBudget(index), LevelCeilingStep(index), _initialBallCount);
         }
 
         /// <summary>

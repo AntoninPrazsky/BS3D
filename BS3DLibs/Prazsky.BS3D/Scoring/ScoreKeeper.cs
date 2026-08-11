@@ -32,7 +32,11 @@ namespace Prazsky.BS3D.Scoring
         /// </summary>
         public const int OrphanedBallPoints = 20;
 
-        /// <summary>Each ball still unfired when a level is cleared. Efficiency has to be worth something.</summary>
+        /// <summary>
+        /// Each ball still unfired when a level is cleared, when the level's own size is not known. Efficiency
+        /// has to be worth something — see <see cref="UnusedShotValue"/> for what replaced this flat figure
+        /// wherever the size <i>is</i> known, and why it had to.
+        /// </summary>
         public const int UnusedShotPoints = 50;
 
         /// <summary>
@@ -41,8 +45,30 @@ namespace Prazsky.BS3D.Scoring
         /// </summary>
         public const int MaxMultiplier = 5;
 
+        /// <summary>
+        /// How much the streak gains per landing. <b>Two, not one, and #173 is why.</b> The multiplier
+        /// multiplies every point a shot scores, and a level's total base points barely change with how it is
+        /// cleared — every ball drops either way — so the score is really <c>base × the average multiplier</c>,
+        /// and the ×1 start is <i>amortised over the shot count</i>. A long grind spends almost all of its
+        /// shots at the cap and averages near 5; a four-shot clear averaged 2.5. That made the rating rise
+        /// with the number of shots taken on <b>all thirteen shipped levels</b> — ordered backwards against
+        /// skill. Climbing by two shortens the ramp to two landings and most of that dilution with it.
+        /// </summary>
+        public const int MultiplierStep = 2;
+
+        /// <summary>
+        /// What one unused shot is worth, as a multiple of <b>the balls an average shot of this level would
+        /// have cleared</b>. A flat figure could not do this job: 50 points is a fifth of an average shot on
+        /// One and a fiftieth of one on Onion, so it meant something different on every level and far too
+        /// little on all of them. Tied to the level's own size it is the same statement everywhere — "not
+        /// needing a shot is worth several shots" — which is what makes efficiency able to outweigh a streak
+        /// the player could otherwise farm by taking longer.
+        /// </summary>
+        public const int UnusedShotWorthInShots = 4;
+
         private readonly int? _shotBudget;
         private readonly int? _ceilingStep;
+        private readonly int _levelBalls;
 
         /// <param name="shotBudget">
         /// Balls the level grants, or <c>null</c> for unlimited — which is what an entry that authors no
@@ -55,11 +81,27 @@ namespace Prazsky.BS3D.Scoring
         /// <see cref="ShotsFired"/> by <see cref="StepCeilingThisShot"/>, so the rule is read here exactly as the
         /// budget is.
         /// </param>
-        public ScoreKeeper(int? shotBudget = null, int? ceilingStep = null)
+        /// <param name="levelBalls">
+        /// How many balls the level started with, which is what sizes <see cref="UnusedShotValue"/>. Zero or
+        /// unknown falls back to the flat <see cref="UnusedShotPoints"/>, so a caller that cannot say — the
+        /// built-in fallback cluster, a test — still scores rather than dividing by nothing.
+        /// </param>
+        public ScoreKeeper(int? shotBudget = null, int? ceilingStep = null, int levelBalls = 0)
         {
             _shotBudget = shotBudget;
             _ceilingStep = ceilingStep;
+            _levelBalls = levelBalls;
         }
+
+        /// <summary>
+        /// What one unused shot is worth on <i>this</i> level: <see cref="UnusedShotWorthInShots"/> times the
+        /// balls an average shot of it would have cleared. Falls back to the flat <see cref="UnusedShotPoints"/>
+        /// when the level's size or budget is unknown.
+        /// </summary>
+        public int UnusedShotValue =>
+            _levelBalls > 0 && _shotBudget is > 0
+                ? UnusedShotWorthInShots * MatchedBallPoints * _levelBalls / _shotBudget.Value
+                : UnusedShotPoints;
 
         /// <summary>Points awarded so far, streak included.</summary>
         public int Score { get; private set; }
@@ -145,7 +187,7 @@ namespace Prazsky.BS3D.Scoring
             //Awarded first, raised after: the shot that starts a streak scores at ×1 and it is *continuing*
             //that pays. Raising first would make a single lucky shot worth double and there would be no streak
             //to speak of.
-            if (Multiplier < MaxMultiplier) Multiplier++;
+            if (Multiplier < MaxMultiplier) Multiplier = Math.Min(MaxMultiplier, Multiplier + MultiplierStep);
 
             return new ScoreAward(basePoints * applied, applied);
         }
@@ -164,7 +206,7 @@ namespace Prazsky.BS3D.Scoring
         /// What clearing the level right now would add for the balls left unfired. Zero on an unlimited
         /// budget — there is no efficiency to reward when nothing was scarce.
         /// </summary>
-        public int CompletionBonus() => ShotsRemaining.GetValueOrDefault() * UnusedShotPoints;
+        public int CompletionBonus() => ShotsRemaining.GetValueOrDefault() * UnusedShotValue;
 
         /// <summary>
         /// The bonus that was actually awarded, and the balls it was awarded for. Recorded rather than

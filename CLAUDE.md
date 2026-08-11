@@ -29,11 +29,14 @@ Testbed.exe C:\GitHub\Testbed\Maps\Full.json
 
 There are four solutions: `BS3DLibs.sln` (libraries only), `Testbed.sln`, `MapEditor.sln` and `Game.sln` (each executable plus the libraries it uses). There are no test projects and no lint configuration.
 
-Besides the three executables there is one **tool**, `Tools/LevelGen` (in `Game.sln`): the generator that writes the game's pattern levels and the checks that say a generated level is playable before anyone plays it. It is a plain `net10.0` console app with no graphics device — see "The level generator" in `docs/formats-and-tools.md`.
+Besides the three executables there are two **tools**, both in `Game.sln` and both plain `net10.0` console apps with no graphics device. `Tools/LevelGen` is the generator that writes the game's pattern levels and the checks that say a generated level is playable before anyone plays it. `Tools/ScoreSim` plays every shipped level several ways through the real `ScoreKeeper`/`StarRating` and refuses a scoring rule that rates them wrongly — it exists because #173 found the star rating ordered backwards against skill on every level, a fault no individual number showed. Both exit non-zero on a failure so they can go in front of a commit; see "The level generator" and "The scoring simulator" in `docs/formats-and-tools.md`.
 
 ```powershell
 # Regenerate the pattern levels and the level set
 dotnet run --project C:\GitHub\Tools\LevelGen\LevelGen.csproj
+
+# Check the scoring still rates the shipped levels the right way round
+dotnet run --project C:\GitHub\Tools\ScoreSim\ScoreSim.csproj
 ```
 
 MonoGame content (`Content/Content.mgcb` in each executable) is compiled automatically during build by `MonoGame.Content.Builder.Task`; editing the .mgcb itself is normally done with the MonoGame Pipeline Tool. **Each executable needs its own `.config/dotnet-tools.json`** pinning the `mgcb` tool — the content build shells out to `dotnet mgcb`, and the manifest search walks up from the *project* directory, so a new executable without one fails the content build with "Nenašel se soubor manifestu" even though its siblings build fine (`dotnet tool restore` once after adding it). All three executables target `net10.0-windows` and pull in WinForms (WindowsDX hosts its window on it), so they are Windows-only; the libraries target plain `net10.0`.
