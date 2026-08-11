@@ -44,6 +44,9 @@ namespace BS3D.Audio
     {
         private const int SAMPLE_RATE = 44100;
 
+        /// <summary>How many compositions there are, read off the enum so adding one needs nothing here.</summary>
+        private static readonly int THEME_COUNT = Enum.GetValues(typeof(MusicTheme)).Length;
+
         //Around 128 rather than the 146 this started at, and rolled per pass inside a narrow band (see
         //Variation). 146 was fast enough to read as frantic; a slower tempo leaves room for the extra
         //percussion and for the melody to breathe — the same notes at 128 sound deliberate where at 146 they
@@ -240,7 +243,17 @@ namespace BS3D.Audio
         private readonly Random _seeds;
 
         private MusicTheme _theme;        //which composition passes are rendered from; see SetTheme
-        private Task<float[]> _next;      //the pass after the one playing, baking on a background thread
+
+        /// <summary>
+        /// One pass in hand <b>per composition</b>, not one in total (#120). With two pieces alternating by
+        /// level, a change of theme is what happens at nearly every level boundary rather than once in a
+        /// session, so a single slot meant every boundary threw away the pass it held and paid for a fresh
+        /// bake in silence — and a Bohemia pass costs <b>12.6 s</b> to render on the development desktop
+        /// against Pulse's 2.7 s (its string section is seven detuned oscillators with their own vibrato per
+        /// note, where Pulse's heaviest voice is two). A slot each costs one more pending buffer, ~35 MB,
+        /// and buys a switch the player does not hear as a hole.
+        /// </summary>
+        private readonly Task<float[]>[] _next = new Task<float[]>[THEME_COUNT];
         private SoundEffect _track;
         private SoundEffectInstance _instance;
         private bool _wanted;             //the game wants music; the instance may still be between passes
@@ -290,9 +303,11 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// Starts synthesizing the first pass at once, on a background thread. Two minutes of PCM is a couple
-        /// of seconds of arithmetic, and doing it on the loading thread would be two seconds of a black
-        /// window; nothing asks for the track until a level is built, which is several menus later.
+        /// Starts synthesizing a first pass of <b>every</b> composition at once, on background threads. Minutes
+        /// of PCM is seconds of arithmetic, and doing it on the loading thread would be seconds of a black
+        /// window; nothing asks for a pass until a level is built, which is several menus later — and that same
+        /// argument is why the second piece is baked here too rather than when a level first asks for it. The
+        /// player reaches level two several minutes in; its pass has been ready since the splash.
         /// </summary>
         /// <param name="seed">
         /// Fixed only for testing — left null the music is different every run, which is the point of it.
@@ -300,18 +315,23 @@ namespace BS3D.Audio
         public ProceduralMusic(int? seed = null)
         {
             _seeds = seed.HasValue ? new Random(seed.Value) : new Random();
-            _next = StartBake();
 
-            //The menu piece bakes alongside the first pass — it is the one wanted first, at the splash, and
-            //it is a fraction of the theme's arithmetic, so it is ready well inside the menu's first seconds.
+            for (int theme = 0; theme < THEME_COUNT; theme++) _next[theme] = StartBake((MusicTheme)theme);
+
+            //The menu piece bakes alongside them — it is the one wanted first, at the splash, and it is a
+            //fraction of a theme's arithmetic, so it is ready well inside the menu's first seconds.
             int menuSeed = _seeds.Next();
             _menuBake = Task.Run(() => BakeMenu(menuSeed));
         }
 
-        private Task<float[]> StartBake()
+        /// <summary>
+        /// Starts a pass of one named composition. The theme is a parameter rather than read off
+        /// <see cref="_theme"/> inside the task, so a bake cannot be retargeted by a change of theme that
+        /// happens while it runs.
+        /// </summary>
+        private Task<float[]> StartBake(MusicTheme theme)
         {
             int seed = _seeds.Next();
-            MusicTheme theme = _theme;
 
             return Task.Run(() => theme == MusicTheme.Bohemia ? BakeBohemia(seed) : Bake(seed));
         }
@@ -320,11 +340,13 @@ namespace BS3D.Audio
         /// Which composition the next pass is rendered from (#120). Called from the level's own install, so a
         /// level set alternates pieces rather than replaying one for an evening.
         /// <para>
-        /// Changing it throws away <b>both</b> the pass in hand and the one loaded but not sounding, and that
-        /// second half is the part worth stating: <see cref="Advance"/>'s fallback is to replay the loaded pass
-        /// when the next is not ready, which is right in the middle of a level and wrong here — it would play
-        /// the previous level's piece for its whole length. Two seconds of silence while the new one bakes is
-        /// the better failure, and <see cref="Update"/> starts it the frame it lands.
+        /// The <b>sounding</b> pass is dropped outright: <see cref="Advance"/>'s fallback is to replay what is
+        /// loaded when the next is not ready, which is right in the middle of a level and wrong here — it would
+        /// play the previous level's piece for its whole length. What is <b>not</b> dropped is the pass baking
+        /// for the other composition (see <see cref="_next"/>): each has a slot of its own, so the piece this
+        /// level wants is normally already in hand and <see cref="Update"/> puts it on the same frame. It is
+        /// only ever silent here if the pass has not finished baking, which after the first level of a session
+        /// cannot happen — the one for this piece has been rendering since the last boundary.
         /// </para>
         /// </summary>
         public void SetTheme(MusicTheme theme)
@@ -332,7 +354,10 @@ namespace BS3D.Audio
             if (_failed || theme == _theme) return;
 
             _theme = theme;
-            _next = StartBake();
+
+            //Only if nothing is already baking for it: the pass rendered while the other piece was playing is
+            //exactly the one wanted here, and starting a second would throw it away and pay for it in silence.
+            _next[(int)theme] ??= StartBake(theme);
 
             _instance?.Stop();
             _instance?.Dispose();
@@ -361,9 +386,7 @@ namespace BS3D.Audio
                     case "bohemia": return MusicTheme.Bohemia;
                 }
 
-            int count = Enum.GetValues(typeof(MusicTheme)).Length;
-
-            return (MusicTheme)(((index % count) + count) % count);
+            return (MusicTheme)(((index % THEME_COUNT) + THEME_COUNT) % THEME_COUNT);
         }
 
         /// <summary>Starts the music, or does nothing if it is already sounding.</summary>
@@ -524,12 +547,14 @@ namespace BS3D.Audio
             //LoadLevelSet's is.
             try
             {
-                if (_next != null && _next.IsCompleted)
+                Task<float[]> next = _next[(int)_theme];
+
+                if (next != null && next.IsCompleted)
                 {
                     SoundEffectInstance old = _instance;
                     SoundEffect oldTrack = _track;
 
-                    _track = ToSoundEffect(_next.Result);
+                    _track = ToSoundEffect(next.Result);
                     _instance = _track.CreateInstance();
                     _instance.Volume = MUSIC_VOLUME * _gain;
 
@@ -538,7 +563,9 @@ namespace BS3D.Audio
                     old?.Dispose();
                     oldTrack?.Dispose();
 
-                    _next = StartBake();
+                    //Into this composition's own slot, so it is the pass waiting when a level of this piece
+                    //comes round again — which is the whole reason the slots are per theme.
+                    _next[(int)_theme] = StartBake(_theme);
                 }
 
                 _instance?.Play();

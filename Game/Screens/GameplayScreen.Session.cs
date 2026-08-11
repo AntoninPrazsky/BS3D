@@ -43,16 +43,22 @@ namespace BS3D.Screens
             //game celebrating a level the player has not played yet.
             Game.Fireworks?.Stop();
 
-            //And the theme comes up — from the top, since TearDown above has already stopped it. The previous
-            //result's fanfare goes with it, or a win's brass would still be ringing over the opening of the
-            //next attempt.
+            //The previous result's fanfare goes now, or a win's brass would still be ringing over the opening
+            //of the next attempt. The theme itself comes up further down — after the install, which is what
+            //picks the piece.
             Game.Music?.StopFanfare();
-            Game.Music?.Play();
 
             //The map first: the ceiling's height and footprint come off the field, and the ceiling body has
             //to exist before the cluster, whose top level is constrained to it.
             _levelIndex = index;
             InstallLevel(_levelIndex);
+
+            //And the theme comes up — from the top, since TearDown above has already stopped it — but only
+            //now, because InstallLevel is where SetTheme says which of the two pieces this level plays.
+            //Started before it, Play would put a pass of the OUTGOING piece on and SetTheme would stop it a
+            //moment later: a level set that alternates would open every level with a fragment of the previous
+            //level's music, and spend the pass it had in hand doing it.
+            Game.Music?.Play();
 
             BuildPhysicsWorld();
             BuildCluster();
