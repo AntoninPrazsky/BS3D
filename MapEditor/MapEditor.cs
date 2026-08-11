@@ -787,6 +787,11 @@ namespace MapEditor
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
             GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
 
+            //The sea's submerge fade for missed balls — a no-op off the sea scene (see SceneRenderer.ApplySeaSubmerge).
+            //The editor draws the balls exactly as the game does, and since #131 the sea is depth-read, so without
+            //this the editor inherits the depth-read half and none of the fade half (#143).
+            _sceneRenderer.ApplySeaSubmerge(_instancingEffect, _scene);
+
             //The chosen environment stands in for what the game draws where the city would be. It is drawn
             //before the balls so the cluster reads in front of it; the snow (mountain) comes after, in front.
             SceneFrame sceneFrame = BuildSceneFrame();
