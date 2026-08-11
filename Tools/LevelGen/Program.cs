@@ -48,7 +48,11 @@ namespace BS3D.Tools.LevelGen
         /// How much of the cluster one shot may take before the level stops being a level. Not 100: a design
         /// whose best shot leaves a handful of balls standing is still over on the first lucky ball, and the
         /// two banded designs that failed this took 100% exactly, so the margin costs nothing and catches
-        /// the near misses. The pack runs 5–38%.
+        /// the near misses. The pack runs 4–52%, and the top of that band is the three pictures: a drawn
+        /// symbol IS one connected group by construction, so a picture level's own colour drops more of the
+        /// wall at once than any solid of revolution does. That is the deliberate decision this margin leaves
+        /// room for rather than a design that slipped through — on a level whose point is being recognised,
+        /// the symbol coming away in one piece is the reward.
         /// </summary>
         private const int ONE_SHOT_PERCENT = 90;
 
@@ -73,7 +77,10 @@ namespace BS3D.Tools.LevelGen
             //WriteLevelSet for where One and Colossus sit around them.
             Design[] designs =
             {
-                One(), Heart(), Bullseye(), Mosaic(), Pinwheel(), Crown(), Gem(), Prism(), Static(), Column(), Onion()
+                //The three pictures are interleaved with the geometric levels rather than run together: they
+                //are all gentle by design, and three easy levels back to back is a lull rather than a ramp.
+                One(), Heart(), Bullseye(), Smiley(), Mosaic(), Star(), Pinwheel(), Crown(), Gem(),
+                Prism(), Static(), Column(), Onion()
             };
 
             bool ok = true;
@@ -253,35 +260,80 @@ namespace BS3D.Tools.LevelGen
         /// row one group holding the whole thing up, and one matching ball takes the level.
         /// </para>
         /// </summary>
-        private static Design Heart() => new()
+        /// <summary>
+        /// One picture level: a flat wall the size of its own <paramref name="bitmap"/>, hanging in a
+        /// <paramref name="grid"/>-wide field. The bitmap's own dimensions are the wall's, so a symbol is
+        /// added by drawing it and nothing else — there is no second place to keep its size in step.
+        /// </summary>
+        /// <param name="symbol">What <c>#</c> is drawn in.</param>
+        /// <param name="accent">What <c>o</c> is drawn in — a symbol's own detail, like a face's features.</param>
+        /// <param name="background">
+        /// The wall behind it, laid down as a 2×2 check of these. <b>Never one colour</b>: see the region's
+        /// remarks and the drop test — a flat background makes the wall's top row a single group holding the
+        /// whole picture up.
+        /// </param>
+        private static Design Picture(string file, string name, SceneConfig scene, byte sky,
+            int shots, int ceilingStep, string[] bitmap, byte grid,
+            BallType symbol, BallType accent, BallType[] background)
         {
-            File = "Heart.json",
-            Name = "Heart",
-            Grid = HEART_GRID,
-            //14 rows for 11 columns: levels sit 1/sqrt(2) apart against a cell pitch of 1, so a picture drawn
-            //square comes out squashed, and this comes out very nearly square. Even, because the field is 16
-            //and an odd difference would have the loader extend it and move the drawing off where it was put.
-            Depth = HEART_DEPTH,
-            Scene = new MeadowSceneConfig(),
-            Sky = 1,
-            //Easy means a budget that forgives, not merely a simple shape: 60 shots against a cluster this
-            //size, and a ceiling that steps rarely enough that the picture can be read while it is played.
-            Shots = 60,
-            CeilingStep = 10,
-            OccupiedBlock = (x, z, i, depth) => OnWall(x, z, i, depth, HEART_WIDTH, HEART_GRID, out _, out _),
-            BlockColour = (x, z, i) =>
+            int width = bitmap[0].Length;
+
+            //Even by construction here: the field is 16 and an odd difference would have the loader extend it
+            //a level and move the drawing off where it was put. A bitmap with an odd number of rows is caught
+            //by the emitter's own offset check rather than silently drawn in the wrong place.
+            byte depth = (byte)bitmap.Length;
+
+            return new Design
             {
-                OnWall(x, z, i, HEART_DEPTH, HEART_WIDTH, HEART_GRID, out int column, out int row);
+                File = file,
+                Name = name,
+                Grid = grid,
+                Depth = depth,
+                Scene = scene,
+                Sky = sky,
+                Shots = shots,
+                CeilingStep = ceilingStep,
+                OccupiedBlock = (x, z, i, d) => OnWall(x, z, i, d, width, grid, out _, out _),
+                BlockColour = (x, z, i) =>
+                {
+                    OnWall(x, z, i, depth, width, grid, out int column, out int row);
 
-                return Symbol(HEART, column, row)
-                    ? BallType.Type1
-                    : Band((column / 2) + (row / 2), new[] { BallType.Type4, BallType.Type7 });
-            },
-        };
+                    char pixel = PixelAt(bitmap, column, row);
 
-        private const int HEART_GRID = 15;
-        private const int HEART_DEPTH = 14;
-        private const int HEART_WIDTH = 13;
+                    return pixel == '#' ? symbol
+                        : pixel == 'o' ? accent
+                        : Band((column / 2) + (row / 2), background);
+                },
+            };
+        }
+
+        /// <summary>
+        /// A heart. Easy on purpose — a budget that forgives, and a ceiling slow enough that the picture can
+        /// be read while it is played — because the point of it is to be recognised rather than aimed through.
+        /// </summary>
+        private static Design Heart() => Picture("Heart.json", "Heart", new MeadowSceneConfig(), sky: 1,
+            shots: 60, ceilingStep: 10, HEART, grid: 15,
+            symbol: BallType.Type1, accent: BallType.Type1,
+            background: new[] { BallType.Type4, BallType.Type7 });
+
+        /// <summary>
+        /// A smiley: a yellow face with black eyes and a smile, over a blue-and-white sky check. The one
+        /// picture here with an <b>accent</b> colour — a symbol with detail inside it rather than a
+        /// silhouette — which is why <see cref="Picture"/> knows about two symbol characters and not one.
+        /// </summary>
+        private static Design Smiley() => Picture("Smiley.json", "Smiley", new SavannaSceneConfig(), sky: 14,
+            shots: 60, ceilingStep: 10, SMILEY, grid: 15,
+            symbol: BallType.Type7, accent: BallType.Type8,
+            background: new[] { BallType.Type3, BallType.Type4 });
+
+        /// <summary>
+        /// A five-pointed star, yellow over a night check — the one picture drawn against the space backdrop,
+        /// which is the only scene in the game whose own sky is already a star field.
+        /// </summary>
+        private static Design Star() => Picture("Star.json", "Star", new SpaceSceneConfig(), sky: 13,
+            shots: 55, ceilingStep: 9, STAR, grid: 15,
+            symbol: BallType.Type7, accent: BallType.Type7,
+            background: new[] { BallType.Type3, BallType.Type5 });
 
         private static Design Bullseye() => new()
         {
@@ -612,13 +664,15 @@ namespace BS3D.Tools.LevelGen
         private const int PICTURE_THICKNESS = 2;
 
         /// <summary>
-        /// Reads a bitmap written as text — <c>#</c> is the symbol, anything else the background. Rows are
-        /// top-first, so the array reads in source exactly as the level reads in the game, which is the whole
-        /// reason for spelling a picture out rather than solving it from a formula: a mistake in it is visible
-        /// in the diff.
+        /// Reads a bitmap written as text — <c>#</c> is the symbol, <c>o</c> its accent, anything else the
+        /// background. Rows are top-first, so the array reads in source exactly as the level reads in the
+        /// game, which is the whole reason for spelling a picture out rather than solving it from a formula:
+        /// a mistake in it is visible in the diff.
         /// </summary>
-        private static bool Symbol(string[] bitmap, int column, int row) =>
-            row >= 0 && row < bitmap.Length && column >= 0 && column < bitmap[row].Length && bitmap[row][column] == '#';
+        private static char PixelAt(string[] bitmap, int column, int row) =>
+            row >= 0 && row < bitmap.Length && column >= 0 && column < bitmap[row].Length
+                ? bitmap[row][column]
+                : '.';
 
         /// <summary>
         /// A heart, 13 columns by 14 rows. Two rules shape it, and the drop test taught the second one.
@@ -649,6 +703,57 @@ namespace BS3D.Tools.LevelGen
             "....#####....",
             ".....###.....",
             ".....###.....",
+        };
+
+        /// <summary>
+        /// A smiley, 13 by 14. The eyes and the smile are the <c>o</c> accent, drawn <b>inside</b> the face
+        /// rather than cut out of it — a hole in the face would be background, and background enclosed by the
+        /// symbol is a pocket the wall's own background cannot reach.
+        /// <para>
+        /// Both features are two cells wide everywhere for the lonely-ball rule, the smile's turned-up ends
+        /// included: one-cell corners would be a pair apiece, which stands but asks the player for two landed
+        /// balls to clear rather than one.
+        /// </para>
+        /// </summary>
+        private static readonly string[] SMILEY =
+        {
+            ".............",
+            ".............",
+            "....#####....",
+            "...#######...",
+            "..#########..",
+            "..##oo#oo##..",
+            "..##oo#oo##..",
+            "..#########..",
+            "..#########..",
+            "..#oo###oo#..",
+            "..##ooooo##..",
+            "..#########..",
+            "...#######...",
+            "....#####....",
+        };
+
+        /// <summary>
+        /// A five-pointed star, 13 by 14: the point up, the arms across, and two legs under it. The hardest
+        /// of the three to keep above the lonely-ball floor — a star is nothing but places where the shape
+        /// comes to a point — so every arm and leg is two cells wide and the tip is three.
+        /// </summary>
+        private static readonly string[] STAR =
+        {
+            ".............",
+            ".............",
+            ".....###.....",
+            ".....###.....",
+            "....#####....",
+            "..#########..",
+            "..#########..",
+            "...#######...",
+            "....#####....",
+            "....#####....",
+            "....##.##....",
+            "...##...##...",
+            "...##...##...",
+            "..##.....##..",
         };
 
         #endregion
