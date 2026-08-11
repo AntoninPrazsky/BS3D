@@ -2006,7 +2006,16 @@ namespace BS3D.Audio
         //which is a poor way to be told anything. Sized off the longest closing note (26 steps from the top of
         //a 16-step bar, so ten past the end) with a little margin; the pad fades itself to nothing over its
         //own last half-second, so any more than that is silence nobody hears.
-        private const int FANFARE_TAIL_STEPS = 14;
+        //ONE PER PIECE, and that split is the whole point of the pair. The room a fanfare needs past its last
+        //bar is decided by its own LONGEST closing note, so a single number for both is a number that fits
+        //neither: #185 cut it to 8 for the victory — whose pad now stops at 14 steps, so 8 is ample — and that
+        //same cut truncated the DEFEAT's closing pad, which is held 26 steps from the top of its last bar and
+        //therefore needs 10 past the end before its own half-second fade is even reached. Measured at the
+        //shared 8: the defeat's last five milliseconds sat at 37-39 % of the piece's own peak, i.e. it was
+        //cut off mid-note — a click, which is exactly the fault these constants exist to prevent. At 14 both
+        //pieces measure 0.0 %. Change either only against the piece's own longest note.
+        private const int VICTORY_TAIL_STEPS = 8;
+        private const int DEFEAT_TAIL_STEPS = 14;
 
         /// <summary>
         /// The victory fanfare: a eurodance DROP, not a herald's call. The first version was a lone trombone
@@ -2035,8 +2044,8 @@ namespace BS3D.Audio
             //already proves the supersaw carries this register over a full mix.
             int root = shape.Root;
 
-            //I–V–vi–IV as triads (semitone offsets from the root): four drop bars, then the held close.
-            //A build bar stands in front once the win is worth announcing.
+            //I–V–vi–IV as triads (semitone offsets from the root), then the held close. A build bar stands in
+            //front once the win is worth announcing.
             int[][] chords =
             {
                 new[] { 0, 4, 7 },      //I
@@ -2045,13 +2054,28 @@ namespace BS3D.Audio
                 new[] { 5, 9, 12 }      //IV
             };
 
-            int buildBars = intensity > 0.35f ? 1 : 0;
-            const int DROP_BARS = 4;
+            //WHICH of them the shortened drop plays, and it is not simply the first three (#185). Taking bars
+            //0-1-2 would give I–V–vi and drop the IV entirely — losing the one chord the vi exists to set up,
+            //which is the lift the whole progression is written for. I–vi–IV keeps the shape that matters:
+            //home, the minor turn, and the lift out of it onto the close.
+            int[] dropChords = { 0, 2, 3 };
+
+            //TIGHTENED IN #185, which reported the piece as forced rather than punchy — and the report was
+            //about LENGTH and DENSITY, not about the eurodance identity, so the drop stays and everything
+            //around it is cut back. Three bars rather than four, and the extra build bar reserved for a
+            //genuinely big win instead of any score over a third of the reference: at 0.35 almost every
+            //non-trivial clear got it, which is how an ordinary win came to run for nearly thirteen seconds.
+            //
+            //Worth reading against the class doc above: the version BEFORE this one was reported as "old,
+            //cheap, nothing to dance to". The two complaints bound the target between bare and busy rather
+            //than cancelling out, so this trims the drop without going back to a herald's call.
+            int buildBars = intensity > 0.75f ? 1 : 0;
+            const int DROP_BARS = 3;
             int bars = buildBars + DROP_BARS + 1;   //build, the drop, the held close
 
             //Plus room for the close to RING OUT — without the tail the buffer ends mid-sustain and the
             //fanfare finishes on a click, which is a poor way to be told you won.
-            float[] mix = NewMix(samplesPerStep * (bars * STEPS_PER_BAR + FANFARE_TAIL_STEPS));
+            float[] mix = NewMix(samplesPerStep * (bars * STEPS_PER_BAR + VICTORY_TAIL_STEPS));
 
             //THE HOOK's rhythm: two tresillos per bar — hits on 0,3,6 and 8,11,14, the 3-3-2 clave that is
             //the most danceable eight counts there are. The melody walks the chord's own tones, top-heavy,
@@ -2092,29 +2116,38 @@ namespace BS3D.Audio
                     continue;
                 }
 
-                int[] chord = isClose ? chords[0] : chords[dropBar];
+                int[] chord = isClose ? chords[0] : chords[dropChords[dropBar]];
                 int chordRoot = root + chord[0];
 
                 //THE PAD holds the chord under everything, sub root beneath it for the weight the kick rides.
+                //Shorter than it was and struck rather than swelled (#185): at 15.5/22 steps it was still
+                //ringing a bar and a half after the hook had finished, which is most of what read as the
+                //fanfare outstaying itself, and a 0.35 s swell under a drop arrives after the beat it is
+                //supposed to land on.
+                const float PadAttack = 0.12f;
+
                 for (int voice = 0; voice < chord.Length; voice++)
-                    Pad(mix, at, root + chord[voice], secondsPerStep * (isClose ? 22f : 15.5f),
-                        0.11f + 0.05f * intensity, pan: ChordPan(voice, chord.Length, PAN_PAD_SPREAD));
+                    Pad(mix, at, root + chord[voice], secondsPerStep * (isClose ? 14f : 10f),
+                        0.11f + 0.05f * intensity, pan: ChordPan(voice, chord.Length, PAN_PAD_SPREAD),
+                        attack: PadAttack);
 
                 //The sub root stays centre: it is the weight the kick rides, not a voice of the chord
-                Pad(mix, at, chordRoot - 12, secondsPerStep * (isClose ? 22f : 15.5f), 0.10f);
+                Pad(mix, at, chordRoot - 12, secondsPerStep * (isClose ? 14f : 10f), 0.10f, attack: PadAttack);
 
                 if (isClose)
                 {
                     //THE CLOSE: the tonic landed and HELD — the lead on the octave (a fifth higher again for
                     //a big win), the last kick on the downbeat, and the sparkle run climbing away over it.
                     int top = root + 12 + (intensity > 0.75f ? 19 : 12);
-                    Lead(mix, at, top, secondsPerStep * 14f, 0.30f + 0.12f * intensity);
-                    Lead(mix, at, root + 12, secondsPerStep * 14f, 0.22f);
+                    Lead(mix, at, top, secondsPerStep * 9f, 0.30f + 0.12f * intensity);
+                    Lead(mix, at, root + 12, secondsPerStep * 9f, 0.22f);
 
                     Kick(mix, at, 0.8f + 0.2f * intensity);
 
-                    if (intensity > 0.6f)
-                        for (int i = 0; i < 12; i++)
+                    //The sparkle run is the last thing to arrive and the first to be cut: eight steps rather
+                    //than twelve, and only for a genuinely big win.
+                    if (intensity > 0.75f)
+                        for (int i = 0; i < 8; i++)
                             Arp(mix, at + i * samplesPerStep, root + 12 + chord[i % 3] + 12 * (i / 4),
                                 secondsPerStep * 1.4f, 0.12f * intensity,
                                 pan: (i % 2 == 0) ? -PAN_ARP : PAN_ARP);
@@ -2134,17 +2167,22 @@ namespace BS3D.Audio
 
                 //Claps on two and four, hats on the eighths with the off-beats open, the sixteenth arpeggio
                 //running through — each arriving as the win grows, so the floor fills with the score.
-                if (intensity > 0.2f)
+                //
+                //SPACED FURTHER APART in #185. At 0.2/0.35/0.45/0.5 all four of these stacked on top of the
+                //kick, the bass and the pad by an intensity of about a half — a BELOW-average score — so seven
+                //voices at once was the ordinary case rather than the exceptional one. Spread over 0.3 to 0.8,
+                //an ordinary win now gets the floor and the hook and a big one gets the lot.
+                if (intensity > 0.3f)
                 {
                     Clap(mix, at + 4 * samplesPerStep, 0.5f + 0.3f * intensity);
                     Clap(mix, at + 12 * samplesPerStep, 0.5f + 0.3f * intensity);
                 }
 
-                if (intensity > 0.35f)
+                if (intensity > 0.5f)
                     for (int step = 0; step < STEPS_PER_BAR; step += 2)
                         Hat(mix, at + step * samplesPerStep, open: step % 4 == 2, level: 0.24f);
 
-                if (intensity > 0.45f)
+                if (intensity > 0.7f)
                     for (int step = 0; step < STEPS_PER_BAR; step += 1)
                         if (step % 2 == 1)
                             Arp(mix, at + step * samplesPerStep, root + chord[step % 3] + 12,
@@ -2162,7 +2200,7 @@ namespace BS3D.Audio
 
                     Lead(mix, at + hookSteps[h] * samplesPerStep, note, secondsPerStep * (gap + 1f), leadLevel);
 
-                    if (intensity > 0.5f)
+                    if (intensity > 0.8f)
                         Lead(mix, at + hookSteps[h] * samplesPerStep, note + 12, secondsPerStep * (gap + 1f), leadLevel * 0.4f);
                 }
 
@@ -2196,7 +2234,7 @@ namespace BS3D.Audio
             int root = shape.Root;
 
             const int bars = 4;
-            float[] mix = NewMix(samplesPerStep * (bars * STEPS_PER_BAR + FANFARE_TAIL_STEPS));
+            float[] mix = NewMix(samplesPerStep * (bars * STEPS_PER_BAR + DEFEAT_TAIL_STEPS));
 
             //i - VI - iv - i: minor, and it sags rather than resolving anywhere bright.
             int[] degrees = { 0, 8, 5, 0 };
@@ -2726,7 +2764,15 @@ namespace BS3D.Audio
         /// The pad is what holds the quiet sections, and a wide one is the difference between those sections
         /// sounding empty and sounding open.
         /// </param>
-        private static void Pad(float[] mix, int at, int note, float seconds, float level, float pan = PAN_CENTRE)
+        /// <param name="attack">
+        /// How long it takes to speak. The default is the swell a pad wants under a quiet section; the victory
+        /// fanfare passes a much faster one (#185), because there the same voice is being used as a <b>hit</b>
+        /// and a 0.35 s swell under a drop reads as the music arriving late. It is a parameter and not a new
+        /// value because this voice is shared by all four pieces, and every one of them but the fanfare wants
+        /// the slow one.
+        /// </param>
+        private static void Pad(float[] mix, int at, int note, float seconds, float level,
+            float pan = PAN_CENTRE, float attack = 0.35f)
         {
             int length = (int)(SAMPLE_RATE * seconds);
             int frames = Frames(mix);
@@ -2743,7 +2789,7 @@ namespace BS3D.Audio
                 float t = (float)i / SAMPLE_RATE;
 
                 //Slow in and slow out: a pad that starts sharply is a stab.
-                float env = MathF.Min(1f, t / 0.35f) * MathF.Min(1f, (seconds - t) / 0.5f);
+                float env = MathF.Min(1f, t / attack) * MathF.Min(1f, (seconds - t) / 0.5f);
                 if (env <= 0f) continue;
 
                 float sum = 0f;
