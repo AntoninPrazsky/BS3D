@@ -179,7 +179,7 @@ namespace BS3D.Audio
             int loopSamples = (int)(SAMPLE_RATE * LOOP_SECONDS);
             int tailSamples = SAMPLE_RATE;   //one second of ring past the loop point, folded back below
 
-            float[] mix = new float[loopSamples + tailSamples];
+            float[] mix = NewMix(loopSamples + tailSamples);
 
             //Seeds are per scene and per layer, because two layers fed the same sequence differ only in how
             //they were filtered, and summing two filtered copies of one sequence is correlated — the
@@ -191,63 +191,83 @@ namespace BS3D.Audio
                 case SceneKind.Sea:
                     //The wash: big low swells, two waves per loop. The foam follows a quarter turn behind —
                     //the hiss of a wave arrives after its weight.
-                    AddBand(mix, seed, 0f, 420f, 1.0f, t => Swell(t, 2, 0.35f, 0f));
-                    AddBand(mix, seed + 1, 900f, 3200f, 0.5f, t => Square(Swell(t, 2, 0.15f, -MathF.PI / 2f)));
+                    //
+                    //The width follows the same shape as the sound: the swell's weight is a broad low body of
+                    //air and keeps a middle, where the FOAM is the part that is genuinely all around you.
+                    AddBand(mix, seed, 0f, 420f, 1.0f, t => Swell(t, 2, 0.35f, 0f), WIDTH_AIR);
+                    AddBand(mix, seed + 1, 900f, 3200f, 0.5f, t => Square(Swell(t, 2, 0.15f, -MathF.PI / 2f)), WIDTH_AROUND);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.16f);
 
                 case SceneKind.Savanna:
                     //A warm wind, wandering on two incommensurate-feeling cycles, and the campfire the scene
                     //visibly carries: a crackle of band noise gated by a fast random stutter, the firework
                     //crackle's trick at a hearth's scale.
-                    AddBand(mix, seed, 100f, 650f, 1.0f, t => 0.55f + 0.25f * Cycle(t, 3, 0f) + 0.2f * Cycle(t, 5, 1.3f));
-                    AddCrackle(mix, seed + 1, 1500f, 5000f, 0.3f);
+                    //
+                    //The fire is an OBJECT in the scene and the one thing here with a place, so its snaps are
+                    //kept to a narrow spread — a hearth a few feet across, not a ring of fires around the
+                    //player, which is what a wide scatter of snaps would say.
+                    AddBand(mix, seed, 100f, 650f, 1.0f,
+                        t => 0.55f + 0.25f * Cycle(t, 3, 0f) + 0.2f * Cycle(t, 5, 1.3f), WIDTH_AIR);
+                    AddCrackle(mix, seed + 1, 1500f, 5000f, 0.3f, spread: 0.35f);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.13f);
 
                 case SceneKind.Desert:
                     //A dry, steady wind, thinner than the savanna's, with the faintest whistle over it.
-                    AddBand(mix, seed, 250f, 1200f, 1.0f, t => Swell(t, 2, 0.8f, 0f));
-                    AddBand(mix, seed + 1, 1700f, 2100f, 0.18f, t => Square(Swell(t, 3, 0.3f, 2.1f)));
+                    AddBand(mix, seed, 250f, 1200f, 1.0f, t => Swell(t, 2, 0.8f, 0f), WIDTH_AIR);
+                    AddBand(mix, seed + 1, 1700f, 2100f, 0.18f, t => Square(Swell(t, 3, 0.3f, 2.1f)), WIDTH_AROUND);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.11f);
 
                 case SceneKind.Mountain:
                     //Cold gusts — the swell squared, so the wind arrives in waves rather than breathing — with
-                    //thin air hissing on the same gusts.
-                    AddBand(mix, seed, 80f, 900f, 1.0f, t => Square(Swell(t, 3, 0.25f, 0f)));
-                    AddBand(mix, seed + 1, 2000f, 6000f, 0.22f, t => Swell(t, 3, 0.4f, 0f));
+                    //thin air hissing on the same gusts. The widest bed in the set: an exposed basin is the one
+                    //place here with nothing at all between the player and the weather.
+                    AddBand(mix, seed, 80f, 900f, 1.0f, t => Square(Swell(t, 3, 0.25f, 0f)), WIDTH_AROUND);
+                    AddBand(mix, seed + 1, 2000f, 6000f, 0.22f, t => Swell(t, 3, 0.4f, 0f), WIDTH_AROUND);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.14f);
 
                 case SceneKind.Meadow:
-                    //A gentle breeze and a high insect shimmer under a light, fast tremolo.
-                    AddBand(mix, seed, 120f, 500f, 0.9f, t => Swell(t, 2, 0.6f, 0f));
-                    AddBand(mix, seed + 1, 3800f, 6500f, 0.16f, t => Swell(t, 1, 0.5f, 0f) * (0.75f + 0.25f * Cycle(t, 128, 0f)));
+                    //A gentle breeze and a high insect shimmer under a light, fast tremolo. The insects are a
+                    //chorus with no source — the one layer in the set that should have no middle at all.
+                    AddBand(mix, seed, 120f, 500f, 0.9f, t => Swell(t, 2, 0.6f, 0f), WIDTH_AIR);
+                    AddBand(mix, seed + 1, 3800f, 6500f, 0.16f,
+                        t => Swell(t, 1, 0.5f, 0f) * (0.75f + 0.25f * Cycle(t, 128, 0f)), WIDTH_AROUND);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.10f);
 
                 case SceneKind.City:
                     //Distant traffic: a deep rumble that never quite settles, and a mid murmur over it.
-                    AddBand(mix, seed, 0f, 180f, 1.0f, t => Swell(t, 2, 0.7f, 0f));
-                    AddBand(mix, seed + 1, 150f, 450f, 0.35f, t => Swell(t, 3, 0.75f, 0.9f));
+                    //
+                    //The rumble is held NEAR the middle and the murmur opened out, which is the general rule
+                    //for the low bands here: a very low sound gives the ear almost no direction anyway, so
+                    //decorrelating it buys little image and costs the most on a mono downmix.
+                    AddBand(mix, seed, 0f, 180f, 1.0f, t => Swell(t, 2, 0.7f, 0f), WIDTH_NEAR);
+                    AddBand(mix, seed + 1, 150f, 450f, 0.35f, t => Swell(t, 3, 0.75f, 0.9f), WIDTH_AIR);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.12f);
 
                 case SceneKind.NeonCity:
                     //The same city a few hours later: the rumble quieter, a steady electric hum in a narrow
                     //band (noise, not a tone — mains hum as texture), and a whisper of neon fizz on top.
-                    AddBand(mix, seed, 0f, 160f, 1.0f, t => Swell(t, 2, 0.75f, 0f));
-                    AddBand(mix, seed + 1, 100f, 150f, 0.55f, _ => 1f);
-                    AddBand(mix, seed + 2, 3000f, 8000f, 0.08f, t => Swell(t, 5, 0.5f, 0f));
+                    //The hum stays close: it is a sign a few metres away, not weather.
+                    AddBand(mix, seed, 0f, 160f, 1.0f, t => Swell(t, 2, 0.75f, 0f), WIDTH_NEAR);
+                    AddBand(mix, seed + 1, 100f, 150f, 0.55f, _ => 1f, WIDTH_CLOSE);
+                    AddBand(mix, seed + 2, 3000f, 8000f, 0.08f, t => Swell(t, 5, 0.5f, 0f), WIDTH_AROUND);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.12f);
 
                 case SceneKind.Forest:
                     //Leaves answering gusts: the rustle band swells with the wind (raised to a power, so calm
-                    //is genuinely calm) and flutters finely on top; a soft low wind under it.
-                    AddBand(mix, seed, 100f, 400f, 0.6f, t => Swell(t, 2, 0.6f, 0f));
+                    //is genuinely calm) and flutters finely on top; a soft low wind under it. The rustle is the
+                    //canopy, which is above and around the player on every side — wide as the mountain's gusts.
+                    AddBand(mix, seed, 100f, 400f, 0.6f, t => Swell(t, 2, 0.6f, 0f), WIDTH_AIR);
                     AddBand(mix, seed + 1, 800f, 4200f, 1.0f,
-                        t => (0.35f + 0.65f * MathF.Pow(Swell(t, 3, 0f, 0f), 1.5f)) * (0.8f + 0.2f * Cycle(t, 96, 0f)));
+                        t => (0.35f + 0.65f * MathF.Pow(Swell(t, 3, 0f, 0f), 1.5f)) * (0.8f + 0.2f * Cycle(t, 96, 0f)),
+                        WIDTH_AROUND);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.12f);
 
                 case SceneKind.Space:
                     //The void, one very deep and very slow breath per loop, mixed near-subliminal — the
-                    //scene's whole point is silence with weight.
-                    AddBand(mix, seed, 0f, 55f, 1.0f, t => Swell(t, 1, 0.6f, 0f));
+                    //scene's whole point is silence with weight. It stays nearly a POINT, and that is the
+                    //case that says width is not a quality dial: an enveloping void is a contradiction, and a
+                    //bed the player suddenly notices is a bed that is too loud whatever its level says.
+                    AddBand(mix, seed, 0f, 55f, 1.0f, t => Swell(t, 1, 0.6f, 0f), WIDTH_CLOSE);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.05f);
 
                 case SceneKind.Dream:
@@ -255,9 +275,13 @@ namespace BS3D.Audio
                     //OPPOSITE phase — as one recedes the other rises, the scene's own contrast — with a mid
                     //band wandering between them. Filtered noise like everything here: the hallucination is
                     //in the motion, never in a tone.
-                    AddBand(mix, seed, 0f, 70f, 1.0f, t => Swell(t, 1, 0.45f, 0f));
-                    AddBand(mix, seed + 1, 2600f, 7000f, 0.35f, t => Swell(t, 1, 0.3f, MathF.PI));
-                    AddBand(mix, seed + 2, 350f, 900f, 0.3f, t => Swell(t, 3, 0.4f, 1.1f));
+                    //
+                    //The width is put on the SAME contrast: the drone stays close and the shimmer is the
+                    //widest thing in the bed, so as the pair breathes the image opens and closes with it. This
+                    //is the scene that gains most from stereo, because its whole idea was already a pair.
+                    AddBand(mix, seed, 0f, 70f, 1.0f, t => Swell(t, 1, 0.45f, 0f), WIDTH_NEAR);
+                    AddBand(mix, seed + 1, 2600f, 7000f, 0.35f, t => Swell(t, 1, 0.3f, MathF.PI), WIDTH_AROUND);
+                    AddBand(mix, seed + 2, 350f, 900f, 0.3f, t => Swell(t, 3, 0.4f, 1.1f), WIDTH_AIR);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.07f);
 
                 case SceneKind.Cavern:
@@ -265,9 +289,14 @@ namespace BS3D.Audio
                     //soft high trickle, and sparse water DRIPS: the crackle machinery slowed right down, a
                     //few soft taps a second with long tails, which is the sound that says "cave" before
                     //anything else does.
-                    AddBand(mix, seed, 0f, 90f, 1.0f, t => Swell(t, 2, 0.75f, 0f));
-                    AddBand(mix, seed + 1, 900f, 2600f, 0.28f, t => Swell(t, 3, 0.55f, 0.8f));
-                    AddCrackle(mix, seed + 2, 1200f, 4000f, 0.5f, ratePerSecond: 3f, threshold: 0.86f, tailRate: 60f);
+                    //The drips get the WIDEST scatter in the set, and they are the reason this scene wanted
+                    //stereo at all: a drip is a point event with a place, so each one landing somewhere new is
+                    //what turns a hollow noise into a room with a roof over it. The air itself stays near the
+                    //middle — a cave encloses, and widening the body of it would read as being outdoors.
+                    AddBand(mix, seed, 0f, 90f, 1.0f, t => Swell(t, 2, 0.75f, 0f), WIDTH_NEAR);
+                    AddBand(mix, seed + 1, 900f, 2600f, 0.28f, t => Swell(t, 3, 0.55f, 0.8f), WIDTH_AIR);
+                    AddCrackle(mix, seed + 2, 1200f, 4000f, 0.5f, ratePerSecond: 3f, threshold: 0.86f,
+                        tailRate: 60f, spread: 0.95f);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.08f);
 
                 case SceneKind.Moon:
@@ -276,8 +305,10 @@ namespace BS3D.Audio
                     //scene cannot have) under the faintest, slowest high hiss, more suggestion than sound.
                     //The quietest bed in the set, deliberately: the stillest scene in the game should be the
                     //one the ear notices least.
-                    AddBand(mix, seed, 0f, 45f, 1.0f, t => 0.85f + 0.15f * Cycle(t, 1, 0f));
-                    AddBand(mix, seed + 1, 5000f, 9000f, 0.06f, t => Swell(t, 1, 0.6f, MathF.PI / 2f));
+                    //Both layers stay close, for the reason the scene exists: there is no air out there to
+                    //carry a sound around anybody. Space's rule, harder.
+                    AddBand(mix, seed, 0f, 45f, 1.0f, t => 0.85f + 0.15f * Cycle(t, 1, 0f), WIDTH_CLOSE);
+                    AddBand(mix, seed + 1, 5000f, 9000f, 0.06f, t => Swell(t, 1, 0.6f, MathF.PI / 2f), WIDTH_CLOSE);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.035f);
 
                 case SceneKind.Outback:
@@ -285,9 +316,11 @@ namespace BS3D.Audio
                     //nothing out here for it to move — and over it the shrill of cicadas, which is what heat
                     //actually sounds like: a narrow high band under a fast tremolo, the chorus swelling and
                     //dying twice a loop rather than droning flat.
-                    AddBand(mix, seed, 200f, 900f, 1.0f, t => Swell(t, 2, 0.72f, 0f));
+                    //The cicadas are the meadow's insects again and want the same treatment: a chorus with no
+                    //source, coming from every direction at once.
+                    AddBand(mix, seed, 200f, 900f, 1.0f, t => Swell(t, 2, 0.72f, 0f), WIDTH_AIR);
                     AddBand(mix, seed + 1, 4200f, 5200f, 0.22f,
-                        t => Swell(t, 2, 0.25f, 0.7f) * (0.6f + 0.4f * Cycle(t, 160, 0f)));
+                        t => Swell(t, 2, 0.25f, 0.7f) * (0.6f + 0.4f * Cycle(t, 160, 0f)), WIDTH_AROUND);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.115f);
 
                 default:
@@ -297,10 +330,86 @@ namespace BS3D.Audio
                     //drips on the Moon, then vacuum over the outback), which is a fault nobody reports
                     //because it sounds like something. It is a near-silent neutral bed now: audibly missing
                     //rather than plausibly wrong, so the next scene's author hears the gap on the first run.
-                    AddBand(mix, seed, 60f, 900f, 1.0f, t => Swell(t, 2, 0.7f, 0f));
+                    //Narrow as well as quiet: this arm is meant to be conspicuously featureless, and an
+                    //enveloping placeholder would be one more thing that sounds deliberate.
+                    AddBand(mix, seed, 60f, 900f, 1.0f, t => Swell(t, 2, 0.7f, 0f), WIDTH_CLOSE);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.02f);
             }
         }
+
+        #region The stereo image (#146)
+
+        //The beds were baked mono: surf, wind and traffic all arriving from one point between the speakers.
+        //They are interleaved stereo now — frame n is mix[2n] left, mix[2n + 1] right.
+        //
+        //THE MUSIC'S TECHNIQUE DOES NOT WORK HERE, and reaching for it is the trap this was written around.
+        //#119 got the music's width by SEATING instruments: pan a voice and it moves. A bed is filtered noise,
+        //and panning noise does not widen it — it moves the point it comes from. Two channels carrying the
+        //same sequence at different levels are still one source, wherever the ear puts it.
+        //
+        //Width for noise is DECORRELATION: the two sides have to be genuinely different sequences. That is
+        //nearly free here, because Noise(i, seed) is a pure function of the index and two seeds are already
+        //uncorrelated by construction — the same property BakeScene already spends a seed per layer for.
+        //
+        //Each layer therefore draws a SHARED sequence and two sides of its own, and mixes them constant-power:
+        //
+        //    left  = shared*cos(theta) + uniqueLeft *sin(theta)      theta = width * pi/2
+        //    right = shared*cos(theta) + uniqueRight*sin(theta)
+        //
+        //which gives an inter-channel correlation of exactly cos^2(theta) and, because the three sequences are
+        //independent and unit-variance, leaves the power of each channel at 1 for every width. So width is a
+        //dial that changes the IMAGE and not the level — which matters more here than anywhere else in the
+        //game, the beds' authored level having been settled by ear once already (see AMBIENCE_VOLUME).
+        //
+        //Width 0 is the old mono bed exactly; width 1 is fully decorrelated. Summing a fully decorrelated bed
+        //to mono costs 3 dB against a centred one and cancels nothing, which is the honest trade and is
+        //measured rather than assumed.
+
+        /// <summary>How far apart the two sides of a layer are drawn: 0 is the old mono bed, 1 fully decorrelated.</summary>
+        private const float WIDTH_MONO = 0f;
+
+        //A drone, a vacuum or a near-silent neutral bed is supposed to read as ENCLOSED. Wide is not
+        //automatically better: a bed that suddenly surrounds the player is a bed being noticed, and this
+        //file's own rule is that a bed which is noticed is too loud. Space and the Moon stay nearly a point.
+        private const float WIDTH_CLOSE = 0.2f;
+
+        /// <summary>An object in the scene rather than the air in it — a hearth, a rumble with a direction.</summary>
+        private const float WIDTH_NEAR = 0.45f;
+
+        /// <summary>The default for air: open, but still with a middle to it.</summary>
+        private const float WIDTH_AIR = 0.75f;
+
+        /// <summary>Weather that is genuinely all around — surf, gusts, a chorus of insects.</summary>
+        private const float WIDTH_AROUND = 0.95f;
+
+        /// <summary>How many stereo frames the mix holds — its length is two floats per frame.</summary>
+        private static int Frames(float[] mix) => mix.Length / 2;
+
+        /// <summary>A mix buffer for <paramref name="frames"/> stereo frames.</summary>
+        private static float[] NewMix(int frames) => new float[frames * 2];
+
+        /// <summary>
+        /// The two gains a width becomes: how much of the shared sequence each side keeps, and how much of its
+        /// own it adds. They square to 1 together, so a layer's level is the same at every width.
+        /// </summary>
+        private static void WidthGains(float width, out float shared, out float unique)
+        {
+            float theta = MathHelper.Clamp(width, 0f, 1f) * MathF.PI * 0.5f;
+
+            shared = MathF.Cos(theta);
+            unique = MathF.Sin(theta);
+        }
+
+        /// <summary>Adds a sample to each side of one frame. The one place the interleaving is stated.</summary>
+        private static void Add(float[] mix, int frame, float left, float right)
+        {
+            int offset = frame * 2;
+
+            mix[offset] += left;
+            mix[offset + 1] += right;
+        }
+
+        #endregion
 
         /// <summary>A raised cosine running <paramref name="cycles"/> whole cycles per loop, from <paramref name="floor"/> to 1.</summary>
         private static float Swell(float t, int cycles, float floor, float phase)
@@ -317,20 +426,44 @@ namespace BS3D.Audio
         /// crude by filter standards and exactly enough for a texture; <paramref name="lowCut"/> of zero
         /// degenerates to a plain low-pass.
         /// </summary>
-        private static void AddBand(float[] mix, int seed, float lowCut, float highCut, float gain, Func<float, float> envelope)
+        /// <param name="width">
+        /// How far apart the two sides are drawn (see the stereo region). The filtering runs <b>per side</b>
+        /// and not on a summed source: the whole point is that the two channels are different sequences, and
+        /// filtering one sequence and splitting it afterwards would put them back to being the same one.
+        /// </param>
+        private static void AddBand(float[] mix, int seed, float lowCut, float highCut, float gain,
+            Func<float, float> envelope, float width = WIDTH_AIR)
         {
             float alphaHigh = Alpha(highCut);
             float alphaLow = Alpha(lowCut);
-            float lpHigh = 0f, lpLow = 0f;
 
-            for (int i = 0; i < mix.Length; i++)
+            float lpHighL = 0f, lpLowL = 0f, lpHighR = 0f, lpLowR = 0f;
+
+            WidthGains(width, out float shared, out float unique);
+
+            //Offsets, not seed + 1: the callers already spend consecutive seeds on their own layers, so a side
+            //drawn at seed + 1 would be the very next layer's sequence and the two would be correlated for a
+            //reason nobody would ever look for.
+            int seedLeft = seed + 5101, seedRight = seed + 9173;
+
+            int frames = Frames(mix);
+
+            for (int i = 0; i < frames; i++)
             {
-                float noise = Noise(i, seed);
+                float common = Noise(i, seed) * shared;
 
-                lpHigh += alphaHigh * (noise - lpHigh);
-                lpLow += alphaLow * (lpHigh - lpLow);
+                float noiseL = common + Noise(i, seedLeft) * unique;
+                float noiseR = common + Noise(i, seedRight) * unique;
 
-                mix[i] += (lpHigh - lpLow) * gain * envelope((float)i / SAMPLE_RATE);
+                lpHighL += alphaHigh * (noiseL - lpHighL);
+                lpLowL += alphaLow * (lpHighL - lpLowL);
+
+                lpHighR += alphaHigh * (noiseR - lpHighR);
+                lpLowR += alphaLow * (lpHighR - lpLowR);
+
+                float level = gain * envelope((float)i / SAMPLE_RATE);
+
+                Add(mix, i, (lpHighL - lpLowL) * level, (lpHighR - lpLowR) * level);
             }
         }
 
@@ -340,8 +473,14 @@ namespace BS3D.Audio
         /// separate burning snaps. Slowed right down (a few rolls a second, a high threshold, a long tail)
         /// the same machinery is the cavern's water drips.
         /// </summary>
+        /// <param name="spread">
+        /// How far across the field successive snaps land. <b>This one really is panned</b>, unlike the washes
+        /// (see the stereo region): a snap is a point event — one burning knot, one falling drop — so it HAS a
+        /// place, and giving each its own is worth more than widening the air it happens in. Each snap holds
+        /// its side for its whole tail, so a drip does not slide across the room while it rings.
+        /// </param>
         private static void AddCrackle(float[] mix, int seed, float lowCut, float highCut, float gain,
-            float ratePerSecond = 47f, float threshold = 0.62f, float tailRate = 220f)
+            float ratePerSecond = 47f, float threshold = 0.62f, float tailRate = 220f, float spread = 0.7f)
         {
             float alphaHigh = Alpha(highCut);
             float alphaLow = Alpha(lowCut);
@@ -350,7 +489,13 @@ namespace BS3D.Audio
 
             int slotSamples = (int)(SAMPLE_RATE / ratePerSecond);
 
-            for (int i = 0; i < mix.Length; i++)
+            //Where the snap that is currently ringing sits. Constant power, so a snap at the edge is as loud
+            //as one in the middle - otherwise the fire would flicker in level as well as in place.
+            float gainLeft = MathF.Sqrt(0.5f), gainRight = MathF.Sqrt(0.5f);
+
+            int frames = Frames(mix);
+
+            for (int i = 0; i < frames; i++)
             {
                 float noise = Noise(i, seed);
 
@@ -361,9 +506,23 @@ namespace BS3D.Audio
                 //square edge.
                 int slot = i / slotSamples;
                 bool snap = Noise(slot, seed + 9) > threshold;
+
+                if (snap)
+                {
+                    //Rolled from the slot's own index, so it is stable across bakes and lands differently for
+                    //each snap. A third seed, clear of the gate's own seed + 9.
+                    float pan = Noise(slot, seed + 4271) * spread;
+                    float angle = (pan * 0.5f + 0.5f) * MathF.PI * 0.5f;
+
+                    gainLeft = MathF.Cos(angle);
+                    gainRight = MathF.Sin(angle);
+                }
+
                 gate = snap ? 1f : gate * (1f - tailRate / SAMPLE_RATE);
 
-                mix[i] += (lpHigh - lpLow) * gain * gate;
+                float value = (lpHigh - lpLow) * gain * gate;
+
+                Add(mix, i, value * gainLeft, value * gainRight);
             }
         }
 
@@ -384,15 +543,30 @@ namespace BS3D.Audio
         /// under an equal-power ramp, the result is cut to the loop, and the whole bed is scaled to the
         /// target RMS — plain scaling, these are textures with no transient to protect.
         /// </summary>
+        /// <remarks>
+        /// <paramref name="loopSamples"/> and <paramref name="tailSamples"/> are counted in <b>frames</b>, so
+        /// every index into the interleaved buffer is twice one and the ramp's weight is shared by a frame's
+        /// two channels. Fold one channel and not the other and the seam opens <i>in one ear only</i>, which
+        /// is markedly harder to notice than a seam in both — the same trap the menu piece's fold sets.
+        /// <para>
+        /// The level is set from the RMS of the whole interleaved buffer and applied as <b>one scale</b>. Both
+        /// halves of that matter: measuring per channel and scaling each to the target would silently undo the
+        /// width (it would force the two sides to the same level however differently they were drawn), and it
+        /// is what keeps the authored <see cref="AMBIENCE_VOLUME"/> meaning what it meant when it was tuned.
+        /// </para>
+        /// </remarks>
         private static float[] Seal(float[] mix, int loopSamples, int tailSamples, float targetRms)
         {
-            float[] loop = new float[loopSamples];
-            Array.Copy(mix, loop, loopSamples);
+            float[] loop = NewMix(loopSamples);
+            Array.Copy(mix, loop, loopSamples * 2);
 
             for (int i = 0; i < tailSamples; i++)
             {
                 float w = (float)i / tailSamples;
-                loop[i] = loop[i] * MathF.Sqrt(w) + mix[loopSamples + i] * MathF.Sqrt(1f - w);
+                float head = MathF.Sqrt(w), tail = MathF.Sqrt(1f - w);
+
+                loop[i * 2] = loop[i * 2] * head + mix[(loopSamples + i) * 2] * tail;
+                loop[i * 2 + 1] = loop[i * 2 + 1] * head + mix[(loopSamples + i) * 2 + 1] * tail;
             }
 
             double sum = 0;
@@ -419,7 +593,13 @@ namespace BS3D.Audio
                 pcm[i * 2 + 1] = (byte)((sample >> 8) & 0xFF);
             }
 
-            return new SoundEffect(pcm, SAMPLE_RATE, AudioChannels.Mono);
+            //Stereo since #146. The buffer is already interleaved left-then-right, which is the layout 16-bit
+            //PCM wants, so the loop above needs no notion of channels — only this line does.
+            //
+            //Safe HERE and not in ProceduralAudio: a bed plays through a plain SoundEffectInstance, where the
+            //effects are placed by Apply3D, which takes a MONO source. Stereo there would not widen them, it
+            //would take their placement away — so this is not a change to copy across to that file.
+            return new SoundEffect(pcm, SAMPLE_RATE, AudioChannels.Stereo);
         }
 
         #endregion
