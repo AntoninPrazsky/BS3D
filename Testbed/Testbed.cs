@@ -116,7 +116,6 @@ namespace Testbed
         private CameraInputHelper _cih;
 
         private SkyDome _sky;
-        private Model _skyModel;
         private byte _skyModelNumber = 1;
 
         //An explicit "sky=<n>" on the command line pins the starting dome over a startup level's own dome (the
@@ -124,8 +123,8 @@ namespace Testbed
         //level opened at runtime (F2/drag-drop) still takes its own dome.
         private bool _skyFromCommandLine;
 
-        /// <summary>Number of <c>Skyes/SkyDome*.dae</c> assets the game cycles through.</summary>
-        private const byte SKY_DOME_COUNT = 18;
+        /// <summary>Number of sky palettes the game cycles through — <see cref="SkyDome.Count"/>'s.</summary>
+        private const byte SKY_DOME_COUNT = SkyDome.Count;
 
         private ButtonAction[] _actions;
 
@@ -693,9 +692,8 @@ namespace Testbed
 
             #endregion
 
-            _skyModel = Content.Load<Model>("Skyes/SkyDome" + _skyModelNumber);
-            //The dome's vertex colors are sRGB; the target it is drawn into is linear
-            _sky = new SkyDome(_skyModel, GraphicsDevice, linearVertexColors: true);
+            //The dome's palette is sRGB; the target it is drawn into is linear
+            _sky = new SkyDome(GraphicsDevice, _skyModelNumber, linearVertexColors: true);
 
             _skyEffect = Content.Load<Effect>("Shaders/Sky");
             _sky.Effect = _skyEffect;
@@ -879,8 +877,7 @@ namespace Testbed
         private void SetSkyDome(byte number)
         {
             _skyModelNumber = number;
-            _skyModel = Content.Load<Model>("Skyes/SkyDome" + _skyModelNumber);
-            _sky.SkyDomeModel = _skyModel;
+            _sky.DomeNumber = number;
 
             ApplySkyLighting();
         }
@@ -1085,7 +1082,7 @@ namespace Testbed
 
             //The level's dome wins over any scene-entry default (NumPad1 still cycles freely from here), except
             //an explicit command-line sky= pins the startup dome — see _skyFromCommandLine
-            if (!_skyFromCommandLine) SetSkyDome(Math.Clamp(level.SkyDome, (byte)1, (byte)18));
+            if (!_skyFromCommandLine) SetSkyDome(Math.Clamp(level.SkyDome, (byte)1, SKY_DOME_COUNT));
 
             Console.WriteLine($"[level] Loaded '{level.Name ?? Path.GetFileName(filePath)}': scene={_scene}, sky={_skyModelNumber}, balls={_map.GetBallsCount()}");
         }
@@ -1668,6 +1665,9 @@ namespace Testbed
             //effect, which the content manager owns
             _smears?.Dispose();
             _crosshair?.Dispose();
+            //The dome's two buffers and its owned BasicEffect — not the sky effect, which the content
+            //manager owns
+            _sky?.Dispose();
             _spriteBatch?.Dispose();
             //Contact stream, simulation, dispatcher, pool — in that order, which is the reverse of the order they
             //were built in and PhysicsWorld.Dispose's to get right. It includes the ContactEvents this used to

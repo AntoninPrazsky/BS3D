@@ -53,7 +53,7 @@ namespace MapEditor
         private SkyDome _sky;
 
         //The game ships eighteen sky domes and starts on the first one
-        private static readonly int SKY_DOME_COUNT = 18;
+        private static readonly int SKY_DOME_COUNT = SkyDome.Count;
         private int _skyDomeNumber = 1;
 
         #endregion Ball rendering
@@ -313,7 +313,7 @@ namespace MapEditor
             //linearVertexColors: the dome is drawn through BasicEffect into the linear HDR target, so its
             //baked gradient has to be converted from sRGB once at load or the tonemapper reads a gradient of
             //display values as radiance. The game does the same; the editor used to skip it, drawing in gamma.
-            _sky = new SkyDome(Content.Load<Model>("Skyes/SkyDome" + _skyDomeNumber), GraphicsDevice, linearVertexColors: true);
+            _sky = new SkyDome(GraphicsDevice, _skyDomeNumber, linearVertexColors: true);
 
 			//10 levels for the initial ball layout plus empty levels at the bottom for the structure to grow into
 			_map = new BallsMap(10, 10, 15);
@@ -468,7 +468,7 @@ namespace MapEditor
         private void SetSkyDome(int number)
         {
             _skyDomeNumber = number;
-            _sky.SkyDomeModel = Content.Load<Model>("Skyes/SkyDome" + _skyDomeNumber);
+            _sky.DomeNumber = number;
 
             ApplySkyLighting();
 
@@ -944,6 +944,8 @@ namespace MapEditor
             //Every mesh, renderer and procedural texture of the forest scatter, in one call — its stone texture
             //included, the editor having handed it none of its own
             _forestScatter?.Dispose();
+            //The dome's two buffers and its owned BasicEffect (the editor's only dome draw path)
+            _sky?.Dispose();
             _unitBox?.Dispose();
             _aabb?.Dispose();
             _axisGizmo?.Dispose();

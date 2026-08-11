@@ -1,203 +1,171 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
-using System.Collections.Generic;
+using System;
+using System.Runtime.InteropServices;
 
 namespace Prazsky.Core
 {
-	public class SkyDome
+	/// <summary>
+	/// The sky: one procedurally built dome mesh and a stored palette per sky (#113). The eighteen skies
+	/// used to be eighteen .dae models built by three content pipelines; they were one shared geometry that
+	/// only ever differed in vertex colour, so the geometry now lives here once (<c>SkyDome.Data.cs</c>,
+	/// captured byte-for-byte from the built models) and a sky is just a palette entry. Everything
+	/// observable is unchanged: the vertex layout, the triangle order (and so the winding the Testbed's and
+	/// the editor's inherited cull state depends on), the sRGB palette the light rig decodes, the
+	/// sRGB-to-linear buffer rewrite, and both draw paths.
+	/// </summary>
+	public partial class SkyDome : IDisposable
 	{
-		public Model SkyDomeModel
-		{
-			get
-			{
-				return _skyDomeModel;
-			}
-			set
-			{
-				_skyDomeModel = value;
-				InitializeModel();
-			}
-		}
+		/// <summary>How many skies there are — the palette table's length, counted 1-based by callers.</summary>
+		public const byte Count = 18;
 
-		public GraphicsDevice GraphicsDevice { get; set; }
+		private const int VERTEX_COUNT = 92;
+		private const int TRIANGLE_COUNT = 180;
 
 		/// <summary>
-		/// Draws the dome with this effect instead of the <see cref="BasicEffect"/> the model carries,
-		/// which is how the Testbed puts procedural clouds over the baked gradient. The effect is expected
-		/// to declare <c>World</c>, <c>View</c> and <c>Projection</c>; everything else it needs is the
-		/// caller's business and is set on the effect directly. Leave it null for the plain gradient —
-		/// the map editor does, and does not build a sky shader at all.
+		/// The exact layout the content pipeline used to emit for the dome models, kept so the buffer stays
+		/// byte-identical to what shipped: position, normal, colour, stride 28.
 		/// </summary>
-		public Effect Effect { get; set; }
+		[StructLayout(LayoutKind.Sequential)]
+		private struct DomeVertex : IVertexType
+		{
+			public Vector3 Position;
+			public Vector3 Normal;
+			public Color Color;
 
-		private Model _skyDomeModel;
+			public static readonly VertexDeclaration Declaration = new(
+				new VertexElement(0, VertexElementFormat.Vector3, VertexElementUsage.Position, 0),
+				new VertexElement(12, VertexElementFormat.Vector3, VertexElementUsage.Normal, 0),
+				new VertexElement(24, VertexElementFormat.Color, VertexElementUsage.Color, 0));
 
-		private Matrix[] _skyDomeTransforms;
+			readonly VertexDeclaration IVertexType.VertexDeclaration => Declaration;
+		}
 
+		private readonly GraphicsDevice _graphicsDevice;
 		private readonly bool _linearVertexColors;
 
-		/// <summary>
-		/// Vertex buffers whose colors have already been converted to linear. The content manager caches
-		/// models, so cycling back to a dome hands back the very same buffers, and without this they would
-		/// be converted a second time and the sky would darken with every pass through the list.
-		/// </summary>
-		private static readonly HashSet<VertexBuffer> LinearizedBuffers = new();
+		//The CPU copy the palette is written into on every dome change; reused, so a change allocates nothing.
+		private readonly DomeVertex[] _vertices = new DomeVertex[VERTEX_COUNT];
 
+		private VertexBuffer _vertexBuffer;
+		private IndexBuffer _indexBuffer;
+
+		//The Effect == null draw path used to run through the BasicEffects the content pipeline baked from
+		//the .dae's white material; this instance replicates that state (unlit vertex colour, verbatim).
+		private BasicEffect _basicEffect;
+
+		private Effect _effect;
+		private EffectParameter _worldParam;
+		private EffectParameter _viewParam;
+		private EffectParameter _projectionParam;
+		private EffectPass _effectPass;
+
+		private int _domeNumber;
+
+		/// <summary>
+		/// Draws the dome with this effect instead of the owned <see cref="BasicEffect"/>, which is how the
+		/// Testbed and the game put procedural clouds over the baked gradient. The effect is expected to
+		/// declare <c>World</c>, <c>View</c> and <c>Projection</c> (cached here on assignment — the by-name
+		/// indexer is a linear scan and this draws every frame); everything else it needs is the caller's
+		/// business and is set on the effect directly. Leave it null for the plain gradient — the map editor
+		/// does, and does not build a sky shader at all.
+		/// </summary>
+		public Effect Effect
+		{
+			get => _effect;
+			set
+			{
+				_effect = value;
+				_worldParam = value?.Parameters["World"];
+				_viewParam = value?.Parameters["View"];
+				_projectionParam = value?.Parameters["Projection"];
+				_effectPass = value?.CurrentTechnique.Passes[0];
+			}
+		}
+
+		/// <summary>
+		/// Which sky is up, 1-based like the level format's <c>"sky"</c> byte. Assignment rewrites the
+		/// vertex colours from the palette and re-extracts <see cref="ZenithColor"/>/<see cref="HorizonColor"/> —
+		/// the contract the hosts' SetSkyDome paths rely on before re-deriving the light rig. Cheap enough
+		/// to set redundantly (the game does, on every scene change): 92 vertices recoloured and re-uploaded.
+		/// </summary>
+		public int DomeNumber
+		{
+			get => _domeNumber;
+			set
+			{
+				if (value < 1 || value > Count)
+					throw new ArgumentOutOfRangeException(nameof(value), value, $"Sky dome numbers run 1..{Count}.");
+
+				_domeNumber = value;
+				ApplyPalette();
+			}
+		}
+
+		/// <summary>Average vertex colour near the top of the dome, sRGB (see <see cref="HorizonColor"/>).</summary>
+		public Vector3 ZenithColor { get; private set; }
+
+		/// <summary>
+		/// Average vertex colour near the base of the dome. Both palette colours stay sRGB deliberately:
+		/// the caller decodes them to linear on the CPU (ApplySkyLighting, through ColorSpace.SrgbToLinear)
+		/// along with the rest of the light rig — extracted after the buffer's own linearization they would
+		/// be decoded twice. Only the drawn geometry, which the effects write into the HDR target without
+		/// knowing about any of this, is converted (see <see cref="ApplyPalette"/>).
+		/// </summary>
+		public Vector3 HorizonColor { get; private set; }
+
+		/// <param name="domeNumber">The starting sky, 1..<see cref="Count"/>.</param>
 		/// <param name="linearVertexColors">
-		/// Converts the dome's vertex colors from sRGB to linear once, at load. Set this when the caller
-		/// renders into a linear HDR target and tonemaps at the end of the frame — every current executable
-		/// does; leave it off only for a caller drawing straight to an 8-bit back buffer in gamma space.
+		/// Converts the dome's vertex colors from sRGB to linear when the buffer is (re)built. Set this when
+		/// the caller renders into a linear HDR target and tonemaps at the end of the frame — every current
+		/// executable does; leave it off only for a caller drawing straight to an 8-bit back buffer in gamma
+		/// space.
 		/// </param>
-		public SkyDome(Model skyDome, GraphicsDevice graphicsDevice, bool linearVertexColors = false)
+		public SkyDome(GraphicsDevice graphicsDevice, int domeNumber, bool linearVertexColors = false)
 		{
+			_graphicsDevice = graphicsDevice;
 			_linearVertexColors = linearVertexColors;
-			_skyDomeModel = skyDome;
-			InitializeModel();
-			GraphicsDevice = graphicsDevice;
-		}
 
-		/// <summary>
-		/// Average vertex color near the top of the dome. White when the dome has no vertex color channel.
-		/// </summary>
-		public Vector3 ZenithColor { get; private set; } = Vector3.One;
-
-		/// <summary>
-		/// Average vertex color near the base of the dome. White when the dome has no vertex color channel.
-		/// </summary>
-		public Vector3 HorizonColor { get; private set; } = Vector3.One;
-
-		private void InitializeModel()
-		{
-			_skyDomeTransforms = new Matrix[SkyDomeModel.Bones.Count];
-			SkyDomeModel.CopyAbsoluteBoneTransformsTo(_skyDomeTransforms);
-
-			//Order matters: the palette is read first and stays in sRGB, because the caller decodes it to
-			//linear on the CPU (ApplySkyLighting, through ColorSpace.SrgbToLinear) along with the rest of
-			//the light rig — read after LinearizeVertexColors it would be decoded twice. Only the geometry,
-			//which BasicEffect writes into the HDR target without knowing about any of this, is converted here.
-			ExtractSkyColors();
-
-			if (_linearVertexColors) LinearizeVertexColors();
-		}
-
-		/// <summary>
-		/// Rewrites the dome's vertex colors from sRGB to linear, in place. The domes are drawn through
-		/// <see cref="BasicEffect"/>, which has no notion of a color space and would otherwise write the
-		/// display encoding straight into a linear target, leaving the tonemapper to treat a gradient of
-		/// display values as if it were radiance.
-		/// </summary>
-		private void LinearizeVertexColors()
-		{
-			HashSet<VertexBuffer> processed = new();
-
-			foreach (ModelMesh mesh in _skyDomeModel.Meshes)
+			for (int i = 0; i < VERTEX_COUNT; i++)
 			{
-				foreach (ModelMeshPart part in mesh.MeshParts)
-				{
-					VertexBuffer buffer = part.VertexBuffer;
-					if (buffer == null || !processed.Add(buffer) || !LinearizedBuffers.Add(buffer)) continue;
-
-					int stride = buffer.VertexDeclaration.VertexStride;
-					int colorOffset = -1;
-
-					foreach (VertexElement element in buffer.VertexDeclaration.GetVertexElements())
-					{
-						if (element.VertexElementUsage == VertexElementUsage.Color && element.VertexElementFormat == VertexElementFormat.Color)
-							colorOffset = element.Offset;
-					}
-
-					if (colorOffset < 0) continue;
-
-					byte[] data = new byte[buffer.VertexCount * stride];
-					buffer.GetData(data);
-
-					for (int i = 0; i < buffer.VertexCount; i++)
-					{
-						int channel = i * stride + colorOffset;
-
-						//RGB only - the fourth byte is alpha, which is a coverage fraction and never encoded
-						for (int c = 0; c < 3; c++) data[channel + c] = SrgbToLinearByte(data[channel + c]);
-					}
-
-					buffer.SetData(data);
-				}
-			}
-		}
-
-		/// <summary>
-		/// The exact sRGB decoding curve, quantized back to a byte. Eight bits of linear light crush the
-		/// darks badly in principle, but the domes are smooth gradients that never go near black, and
-		/// keeping the vertex format untouched avoids rebuilding every dome's buffers.
-		/// </summary>
-		private static byte SrgbToLinearByte(byte encoded)
-		{
-			float c = encoded / 255f;
-			float linear = c <= 0.04045f ? c / 12.92f : (float)System.Math.Pow((c + 0.055f) / 1.055f, 2.4f);
-
-			return (byte)System.Math.Round(MathHelper.Clamp(linear, 0f, 1f) * 255f);
-		}
-
-		/// <summary>
-		/// Recovers the sky palette from the dome geometry: the domes are untextured vertex-colored
-		/// gradients, so averaging the vertex colors of the top band gives the zenith color and
-		/// averaging the bottom band gives the horizon color. Used to tint the scene lighting.
-		/// </summary>
-		private void ExtractSkyColors()
-		{
-			List<(float y, Vector3 color)> vertices = new();
-			HashSet<VertexBuffer> processed = new();
-
-			foreach (ModelMesh mesh in _skyDomeModel.Meshes)
-			{
-				foreach (ModelMeshPart part in mesh.MeshParts)
-				{
-					VertexBuffer buffer = part.VertexBuffer;
-					if (buffer == null || !processed.Add(buffer)) continue;
-
-					int stride = buffer.VertexDeclaration.VertexStride;
-					int positionOffset = -1;
-					int colorOffset = -1;
-
-					foreach (VertexElement element in buffer.VertexDeclaration.GetVertexElements())
-					{
-						if (element.VertexElementUsage == VertexElementUsage.Position && element.VertexElementFormat == VertexElementFormat.Vector3)
-							positionOffset = element.Offset;
-						if (element.VertexElementUsage == VertexElementUsage.Color && element.VertexElementFormat == VertexElementFormat.Color)
-							colorOffset = element.Offset;
-					}
-
-					if (positionOffset < 0 || colorOffset < 0) continue;
-
-					byte[] data = new byte[buffer.VertexCount * stride];
-					buffer.GetData(data);
-
-					for (int i = 0; i < buffer.VertexCount; i++)
-					{
-						int vertexStart = i * stride;
-						float y = System.BitConverter.ToSingle(data, vertexStart + positionOffset + sizeof(float));
-						Vector3 color = new(
-							data[vertexStart + colorOffset] / 255f,
-							data[vertexStart + colorOffset + 1] / 255f,
-							data[vertexStart + colorOffset + 2] / 255f);
-
-						vertices.Add((y, color));
-					}
-				}
+				_vertices[i].Position = new Vector3(GEOMETRY[i * 6], GEOMETRY[i * 6 + 1], GEOMETRY[i * 6 + 2]);
+				_vertices[i].Normal = new Vector3(GEOMETRY[i * 6 + 3], GEOMETRY[i * 6 + 4], GEOMETRY[i * 6 + 5]);
 			}
 
-			if (vertices.Count == 0)
-			{
-				ZenithColor = Vector3.One;
-				HorizonColor = Vector3.One;
-				return;
-			}
+			_vertexBuffer = new VertexBuffer(graphicsDevice, DomeVertex.Declaration, VERTEX_COUNT, BufferUsage.WriteOnly);
+			_indexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, INDICES.Length, BufferUsage.WriteOnly);
+			_indexBuffer.SetData(INDICES);
 
+			//What the content pipeline used to bake from the .dae's white phong material: unlit vertex
+			//colour, verbatim (diffuse (1,1,1) and alpha 1 are BasicEffect's own defaults; lighting and
+			//texturing are off by default). The specular the material carried was inert with lighting off.
+			_basicEffect = new BasicEffect(graphicsDevice) { VertexColorEnabled = true };
+
+			DomeNumber = domeNumber;
+		}
+
+		/// <summary>
+		/// Writes the current dome's palette into the vertices and re-uploads the buffer. The palette is
+		/// read for <see cref="ZenithColor"/>/<see cref="HorizonColor"/> first, in sRGB; only then are the
+		/// buffer's colours converted to linear (when asked to) — the same order the Model-based load used,
+		/// and for the same reason (the palette's consumer decodes it itself). Rewriting from the stored
+		/// sRGB table every time also makes the conversion idempotent by construction, which the old code
+		/// needed a static already-linearized guard for, the content manager handing back cached buffers.
+		/// </summary>
+		private void ApplyPalette()
+		{
+			string palette = PALETTES[_domeNumber - 1];
+
+			//The extraction the light rig was tuned against, reproduced exactly: thresholds from the mesh's
+			//own vertical extent, colours as byte/255 floats, averaged in vertex order (float accumulation
+			//order matters for bit-equality with the values every recorded look was derived under).
 			float minY = float.MaxValue;
 			float maxY = float.MinValue;
 
-			foreach ((float y, _) in vertices)
+			for (int i = 0; i < VERTEX_COUNT; i++)
 			{
+				float y = _vertices[i].Position.Y;
 				if (y < minY) minY = y;
 				if (y > maxY) maxY = y;
 			}
@@ -211,84 +179,110 @@ namespace Prazsky.Core
 			int zenithCount = 0;
 			int horizonCount = 0;
 
-			foreach ((float y, Vector3 color) in vertices)
+			for (int i = 0; i < VERTEX_COUNT; i++)
 			{
+				byte r = HexByte(palette, i * 6);
+				byte g = HexByte(palette, i * 6 + 2);
+				byte b = HexByte(palette, i * 6 + 4);
+
+				Vector3 color = new(r / 255f, g / 255f, b / 255f);
+				float y = _vertices[i].Position.Y;
+
 				if (y >= zenithThreshold) { zenithSum += color; zenithCount++; }
 				if (y <= horizonThreshold) { horizonSum += color; horizonCount++; }
+
+				//RGB only ever gets encoded - the fourth byte is alpha, a coverage fraction, and stays opaque
+				if (_linearVertexColors)
+				{
+					r = SrgbToLinearByte(r);
+					g = SrgbToLinearByte(g);
+					b = SrgbToLinearByte(b);
+				}
+
+				_vertices[i].Color = new Color(r, g, b, byte.MaxValue);
 			}
 
-			ZenithColor = zenithCount > 0 ? zenithSum / zenithCount : Vector3.One;
-			HorizonColor = horizonCount > 0 ? horizonSum / horizonCount : Vector3.One;
+			ZenithColor = zenithSum / zenithCount;
+			HorizonColor = horizonSum / horizonCount;
+
+			_vertexBuffer.SetData(_vertices);
 		}
+
+		/// <summary>
+		/// The exact sRGB decoding curve, quantized back to a byte. Eight bits of linear light crush the
+		/// darks badly in principle, but the domes are smooth gradients that never go near black, and
+		/// keeping the byte-sized vertex colour avoids widening every vertex.
+		/// </summary>
+		private static byte SrgbToLinearByte(byte encoded)
+		{
+			float c = encoded / 255f;
+			float linear = c <= 0.04045f ? c / 12.92f : (float)Math.Pow((c + 0.055f) / 1.055f, 2.4f);
+
+			return (byte)Math.Round(MathHelper.Clamp(linear, 0f, 1f) * 255f);
+		}
+
+		private static byte HexByte(string hex, int index) => (byte)((Nibble(hex[index]) << 4) | Nibble(hex[index + 1]));
+
+		private static int Nibble(char c) => c <= '9' ? c - '0' : c - 'A' + 10;
 
 		public void Draw(ICamera camera)
 		{
 			//The framework's cached states, never fresh instances: this runs every frame in all three
 			//executables, and a state object constructed here backs a native D3D11 state that is never
 			//disposed — per-frame construction is a steady leak of finalizer-queue objects.
-			GraphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
-			GraphicsDevice.DepthStencilState = DepthStencilState.None;
+			_graphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
+			_graphicsDevice.DepthStencilState = DepthStencilState.None;
 
-			if (Effect == null) DrawWithModelEffects(camera); else DrawWithCustomEffect(camera);
+			if (_effect == null) DrawWithBasicEffect(camera); else DrawWithCustomEffect(camera);
 
-			GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+			_graphicsDevice.DepthStencilState = DepthStencilState.Default;
 		}
 
-		/// <summary>The original path: the dome's own <see cref="BasicEffect"/>s, gradient and nothing else.</summary>
-		private void DrawWithModelEffects(ICamera camera)
+		/// <summary>The plain path: the owned <see cref="BasicEffect"/>, gradient and nothing else.</summary>
+		private void DrawWithBasicEffect(ICamera camera)
 		{
-			int skyDomeModelMeshesCount = _skyDomeModel.Meshes.Count;
-			for (int i = 0; i < skyDomeModelMeshesCount; i++)
-			{
-				ModelMesh mesh = _skyDomeModel.Meshes[i];
+			_basicEffect.World = Matrix.CreateTranslation(camera.Position);
+			_basicEffect.View = camera.View;
+			_basicEffect.Projection = camera.Projection;
 
-				//The bone transform goes in exactly once (it used to be multiplied in twice, which only
-				//rendered correctly because the domes' bones are identity — the custom-effect path below
-				//has always applied it once, and the two must agree on any future dome)
-				Matrix worldMatrix = _skyDomeTransforms[mesh.ParentBone.Index] * Matrix.CreateTranslation(camera.Position);
+			_graphicsDevice.SetVertexBuffer(_vertexBuffer);
+			_graphicsDevice.Indices = _indexBuffer;
 
-				int effectsCount = mesh.Effects.Count;
-				for (int j = 0; j < effectsCount; j++)
-				{
-					BasicEffect effect = (BasicEffect)mesh.Effects[j];
-					effect.World = worldMatrix;
-					effect.View = camera.View;
-					effect.Projection = camera.Projection;
-				}
-				mesh.Draw();
-			}
+			_basicEffect.CurrentTechnique.Passes[0].Apply();
+			_graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, TRIANGLE_COUNT);
 		}
 
 		/// <summary>
-		/// Issues the dome's mesh parts against <see cref="Effect"/> by hand, since ModelMesh.Draw would
-		/// use the effects the model came with. The dome is translated to the camera every frame, which is
-		/// what puts it at infinity — and it is also what lets the sky shader recover the view ray as
-		/// nothing more than the world position minus the camera.
+		/// Issues the dome against <see cref="Effect"/>. The dome is translated to the camera every frame,
+		/// which is what puts it at infinity — and it is also what lets the sky shader recover the view ray
+		/// as nothing more than the world position minus the camera. (The loaded models carried an identity
+		/// bone transform on top of this; there is deliberately no equivalent left to multiply in.)
 		/// </summary>
 		private void DrawWithCustomEffect(ICamera camera)
 		{
-			EffectParameter world = Effect.Parameters["World"];
-			EffectParameter view = Effect.Parameters["View"];
-			EffectParameter projection = Effect.Parameters["Projection"];
+			_worldParam.SetValue(Matrix.CreateTranslation(camera.Position));
+			_viewParam.SetValue(camera.View);
+			_projectionParam.SetValue(camera.Projection);
 
-			view.SetValue(camera.View);
-			projection.SetValue(camera.Projection);
+			_graphicsDevice.SetVertexBuffer(_vertexBuffer);
+			_graphicsDevice.Indices = _indexBuffer;
 
-			foreach (ModelMesh mesh in _skyDomeModel.Meshes)
-			{
-				world.SetValue(_skyDomeTransforms[mesh.ParentBone.Index] * Matrix.CreateTranslation(camera.Position));
+			_effectPass.Apply();
+			_graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, TRIANGLE_COUNT);
+		}
 
-				foreach (ModelMeshPart part in mesh.MeshParts)
-				{
-					if (part.PrimitiveCount == 0) continue;
-
-					GraphicsDevice.SetVertexBuffer(part.VertexBuffer, part.VertexOffset);
-					GraphicsDevice.Indices = part.IndexBuffer;
-
-					Effect.CurrentTechnique.Passes[0].Apply();
-					GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount);
-				}
-			}
+		/// <summary>
+		/// Both buffers and the owned <see cref="BasicEffect"/> — never <see cref="Effect"/>, which the
+		/// caller's content manager owns.
+		/// </summary>
+		public void Dispose()
+		{
+			_vertexBuffer?.Dispose();
+			_vertexBuffer = null;
+			_indexBuffer?.Dispose();
+			_indexBuffer = null;
+			_basicEffect?.Dispose();
+			_basicEffect = null;
 		}
 	}
 }

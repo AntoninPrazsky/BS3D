@@ -95,8 +95,9 @@ draw all balls (see the "Ball rendering" section in `docs/rendering.md`). Facts 
   plaid once tiled — mix directions for a mottled, direction-free surface. Blender FBX gotchas: exported texture
   paths may be relative to the .blend (patch to resolve from the FBX's own directory, or export
   with Path Mode: Strip Path), and Blender cm units make models 100× too big — fix with
-  `/processorParam:Scale=0.01` in Content.mgcb. Sky domes are `Skyes/SkyDome1..18.dae`, switched with NumPad1,
-  drawn by `SkyDome` (Prazsky.Core) — the place to sample zenith/horizon colors for #39.
+  `/processorParam:Scale=0.01` in Content.mgcb. Sky domes are procedural since #113 — one shared dome
+  geometry and eighteen stored palettes in `SkyDome`/`SkyDome.Data.cs` (Prazsky.Core), switched with
+  NumPad1; `SkyDome` is still the place to sample zenith/horizon colors for #39.
 
 ## Procedural surface relief on the scene objects
 

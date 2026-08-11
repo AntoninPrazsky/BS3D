@@ -712,7 +712,7 @@ namespace BS3D
 
             _skyEffect = Content.Load<Effect>("Shaders/Sky");
             _skyCameraPositionParam = _skyEffect.Parameters["CameraPosition"];
-            _sky = new SkyDome(Content.Load<Model>("Skyes/SkyDome" + _skyDome), GraphicsDevice, linearVertexColors: true)
+            _sky = new SkyDome(GraphicsDevice, _skyDome, linearVertexColors: true)
             {
                 Effect = _skyEffect
             };
@@ -1226,6 +1226,10 @@ namespace BS3D
             //The barrel's mesh and its instance buffer, in one call â€” but not the shared instancing effect,
             //which the content manager owns and the balls, the city, the island and the ceiling all use
             _cannonRig?.Dispose();
+
+            //The dome's two buffers and its owned BasicEffect â€” not the sky effect, which the content
+            //manager owns
+            _sky?.Dispose();
             _unitBox?.Dispose();
             _cityRenderer?.Dispose();
 
