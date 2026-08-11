@@ -117,7 +117,11 @@ float3 StarLayer(float3 dir, float pixelAngle, float scale, float chance, float 
 	float3 chart = CubeChart(dir);
 	float2 p = chart.xy * scale;
 
-	float pixelCells = pixelAngle * CubeJacobian(chart.xy) * scale;
+	//sec^2(theta) off the face centre, and it is wanted twice: once to size the star in chart units, and once
+	//to undo the chart's own anisotropy where the profile is measured (#87)
+	float jacobian = CubeJacobian(chart.xy);
+
+	float pixelCells = pixelAngle * jacobian * scale;
 
 	float2 cell = floor(p);
 
@@ -175,8 +179,30 @@ float3 StarLayer(float3 dir, float pixelAngle, float scale, float chance, float 
 	float2 centre = cell + margin + rollA.yz * (1.0 - 2.0 * margin);
 
 	float2 offset = p - centre;
-	float distance2 = dot(offset, offset);
 
+	//ROUND IN THE SKY, not round in the chart (#87). The chart is uv = tan(angle) about the face centre, and
+	//it does not stretch the same way in every direction: per chart unit the view direction turns by
+	//cos^2(theta) radially but only cos(theta) tangentially. `core` is sized in pixelCells, which carries the
+	//jacobian sec^2(theta) — so it gets the RADIAL angular size exactly right (sec^2 * cos^2 = 1, which is the
+	//whole point of measuring the footprint on the direction) and thereby leaves the TANGENTIAL one a factor
+	//sec(theta) too large. A circle drawn here is an ellipse on the sky: 1.41:1 at the middle of a face edge
+	//and 1.73:1 at a face corner, growing smoothly between. That is what the report of "a seam near a cube-face
+	//corner" is made of — three faces meet there, so a whole neighbourhood of the sky is at the worst of it at
+	//once, and the stars stop being points and become dashes all leaning the same way.
+	//
+	//Measuring the distance with the tangential component scaled by sec(theta) makes the profile round in ANGLE
+	//instead. Written as the closed form rather than by building a radial basis, which is what makes it free:
+	//substituting the radial/tangential split into r^2 + t^2 * sec^2 collapses to this, with no normalize, no
+	//divide and no branch — and at a face centre chart.xy is zero and the jacobian is one, so it reduces to
+	//exactly the dot(offset, offset) it replaces, bit for bit.
+	float along = dot(offset, chart.xy);
+	float distance2 = dot(offset, offset) * jacobian - along * along;
+
+	//The margin above is left measuring the ISOTROPIC reach, which is now an over-estimate tangentially rather
+	//than an under-estimate — so no star can be cut by the cell boundary, which is the only thing it has to
+	//guarantee. Tightening it per axis would buy back a little jitter room exactly where the cap binds, and is
+	//the obvious next move on the lattice-pinning below; it is not made here because it moves every star in the
+	//sky and #87 is about the elongation.
 	float profile = exp(-distance2 / (core * core));
 
 	//Diffraction spikes, on the brightest few of the coarse layer only. They are drawn here rather than left

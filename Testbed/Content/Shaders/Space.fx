@@ -475,11 +475,34 @@ float3 Galaxies(float3 dir, float pixelAngle)
 	float margin = min(size * 2.2, 0.4);
 	float2 centre = cell + margin + rollA.yz * (1.0 - 2.0 * margin);
 
+	float2 offset = p - centre;
+
+	//Into a frame where a chart distance is proportional to an ANGULAR one, before the galaxy's own ellipse is
+	//built on top (#87). The chart is uv = tan(angle), which turns the view direction by cos^2(theta) per chart
+	//unit radially but only cos(theta) tangentially, so a circle measured here is an ellipse on the sky —
+	//1.41:1 at the middle of a face edge and 1.73:1 at a face corner, always combed about the face centre.
+	//StarLayer gets this for free as a closed form, because it only needs the squared distance; a galaxy is
+	//deliberately elliptical at an angle of its own, so it needs the corrected VECTOR and pays a normalize.
+	//
+	//The squashed axis compounds with it, which is why leaving this out was easy to miss: a galaxy that is
+	//already a random ellipse of up to 3.6:1 hides an extra 1.73 well — until a corner, where the whole knot of
+	//them combs the same way and the eye reads it as structure in the sky rather than as a field of discs.
+	//`size` is left riding the jacobian: |offset| after this correction is the angular distance times J, and
+	//size carries J too, so the J cancels out of `radius` and a galaxy keeps its angular size everywhere.
+	//
+	//At a face centre chart.xy is zero and rootJacobian is one, so the whole term is multiplied by zero and the
+	//arbitrary fallback axis cannot show — and it fades in continuously, since (rootJacobian - 1) goes to zero
+	//with |chart.xy|.
+	float chartRadius2 = dot(chart.xy, chart.xy);
+	float2 radialDir = chartRadius2 > 1e-12 ? chart.xy * rsqrt(chartRadius2) : float2(1.0, 0.0);
+	float rootJacobian = sqrt(jacobian);
+
+	offset = rootJacobian * offset - (rootJacobian - 1.0) * dot(offset, radialDir) * radialDir;
+
 	//Rotate into the galaxy's own axes and squash one of them: an ellipse on the sky is a disc seen at an
 	//angle, and edge-on ones are what make a field of them read as galaxies rather than as fuzzy stars.
 	float angle = rollB.y * 6.2831853;
 	float2 axis = float2(cos(angle), sin(angle));
-	float2 offset = p - centre;
 	float2 local = float2(dot(offset, axis), dot(offset, float2(-axis.y, axis.x)) / (0.28 + 0.72 * rollB.z));
 
 	float radius = length(local) / size;
