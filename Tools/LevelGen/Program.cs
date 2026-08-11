@@ -48,7 +48,11 @@ namespace BS3D.Tools.LevelGen
         /// How much of the cluster one shot may take before the level stops being a level. Not 100: a design
         /// whose best shot leaves a handful of balls standing is still over on the first lucky ball, and the
         /// two banded designs that failed this took 100% exactly, so the margin costs nothing and catches
-        /// the near misses. The pack runs 5–38%.
+        /// the near misses. The pack runs 4–52%, and the top of that band is the three pictures: a drawn
+        /// symbol IS one connected group by construction, so a picture level's own colour drops more of the
+        /// wall at once than any solid of revolution does. That is the deliberate decision this margin leaves
+        /// room for rather than a design that slipped through — on a level whose point is being recognised,
+        /// the symbol coming away in one piece is the reward.
         /// </summary>
         private const int ONE_SHOT_PERCENT = 90;
 
@@ -73,7 +77,10 @@ namespace BS3D.Tools.LevelGen
             //WriteLevelSet for where One and Colossus sit around them.
             Design[] designs =
             {
-                One(), Bullseye(), Mosaic(), Pinwheel(), Crown(), Gem(), Prism(), Static(), Column(), Onion()
+                //The three pictures are interleaved with the geometric levels rather than run together: they
+                //are all gentle by design, and three easy levels back to back is a lull rather than a ramp.
+                One(), Heart(), Bullseye(), Smiley(), Mosaic(), Star(), Pinwheel(), Crown(), Gem(),
+                Prism(), Static(), Column(), Onion()
             };
 
             bool ok = true;
@@ -241,6 +248,93 @@ namespace BS3D.Tools.LevelGen
         /// and a flight of coloured steps seen from the side. Three colours, each ring one solid shell, so
         /// every ring is already a group of dozens waiting for one matching ball to touch it.
         /// </summary>
+        /// <summary>
+        /// A heart drawn across a flat hanging wall (#130) — the first level in the pack that is a
+        /// <b>picture</b> rather than a solid of revolution, and the first whose shape is read off a bitmap
+        /// instead of solved from a radius. Gentle on purpose: a generous shot budget, a slow ceiling and
+        /// three colours, in One's spirit, because the point of it is to be recognised rather than aimed
+        /// through.
+        /// <para>
+        /// The background is a 2×2 check of two colours and not one flat colour, which is the rule the
+        /// picture region states and the drop test enforces: a single-colour background makes the wall's top
+        /// row one group holding the whole thing up, and one matching ball takes the level.
+        /// </para>
+        /// </summary>
+        /// <summary>
+        /// One picture level: a flat wall the size of its own <paramref name="bitmap"/>, hanging in a
+        /// <paramref name="grid"/>-wide field. The bitmap's own dimensions are the wall's, so a symbol is
+        /// added by drawing it and nothing else — there is no second place to keep its size in step.
+        /// </summary>
+        /// <param name="symbol">What <c>#</c> is drawn in.</param>
+        /// <param name="accent">What <c>o</c> is drawn in — a symbol's own detail, like a face's features.</param>
+        /// <param name="background">
+        /// The wall behind it, laid down as a 2×2 check of these. <b>Never one colour</b>: see the region's
+        /// remarks and the drop test — a flat background makes the wall's top row a single group holding the
+        /// whole picture up.
+        /// </param>
+        private static Design Picture(string file, string name, SceneConfig scene, byte sky,
+            int shots, int ceilingStep, string[] bitmap, byte grid,
+            BallType symbol, BallType accent, BallType[] background)
+        {
+            int width = bitmap[0].Length;
+
+            //Even by construction here: the field is 16 and an odd difference would have the loader extend it
+            //a level and move the drawing off where it was put. A bitmap with an odd number of rows is caught
+            //by the emitter's own offset check rather than silently drawn in the wrong place.
+            byte depth = (byte)bitmap.Length;
+
+            return new Design
+            {
+                File = file,
+                Name = name,
+                Grid = grid,
+                Depth = depth,
+                Scene = scene,
+                Sky = sky,
+                Shots = shots,
+                CeilingStep = ceilingStep,
+                OccupiedBlock = (x, z, i, d) => OnWall(x, z, i, d, width, grid, out _, out _),
+                BlockColour = (x, z, i) =>
+                {
+                    OnWall(x, z, i, depth, width, grid, out int column, out int row);
+
+                    char pixel = PixelAt(bitmap, column, row);
+
+                    return pixel == '#' ? symbol
+                        : pixel == 'o' ? accent
+                        : Band((column / 2) + (row / 2), background);
+                },
+            };
+        }
+
+        /// <summary>
+        /// A heart. Easy on purpose — a budget that forgives, and a ceiling slow enough that the picture can
+        /// be read while it is played — because the point of it is to be recognised rather than aimed through.
+        /// </summary>
+        private static Design Heart() => Picture("Heart.json", "Heart", new MeadowSceneConfig(), sky: 1,
+            shots: 60, ceilingStep: 10, HEART, grid: 15,
+            symbol: BallType.Type1, accent: BallType.Type1,
+            background: new[] { BallType.Type4, BallType.Type7 });
+
+        /// <summary>
+        /// A smiley: a yellow face with black eyes and a smile, over a blue-and-white sky check. The one
+        /// picture here with an <b>accent</b> colour — a symbol with detail inside it rather than a
+        /// silhouette — which is why <see cref="Picture"/> knows about two symbol characters and not one.
+        /// </summary>
+        private static Design Smiley() => Picture("Smiley.json", "Smiley", new SavannaSceneConfig(), sky: 14,
+            shots: 60, ceilingStep: 10, SMILEY, grid: 15,
+            symbol: BallType.Type7, accent: BallType.Type8,
+            background: new[] { BallType.Type3, BallType.Type4 });
+
+        /// <summary>
+        /// A five-pointed star, yellow over a night check — the one picture drawn against the space backdrop,
+        /// which is the only scene in the game whose own sky is already a star field.
+        /// </summary>
+        private static Design Star() => Picture("Star.json", "Star", new SpaceSceneConfig(), sky: 13,
+            shots: 55, ceilingStep: 9, STAR, grid: 15,
+            symbol: BallType.Type7, accent: BallType.Type7,
+            background: new[] { BallType.Type3, BallType.Type5 });
+
         private static Design Bullseye() => new()
         {
             File = "Three.json",
@@ -523,6 +617,147 @@ namespace BS3D.Tools.LevelGen
 
         private static BallType Band(int band, BallType[] palette) => palette[band % palette.Length];
 
+        #region Pictures (#130)
+
+        //A level that reads as a PICTURE rather than as a solid of revolution. It is a flat wall hanging in
+        //the field with a symbol drawn across it, and four facts about the lattice decide how one is drawn.
+        //
+        //THE PICTURE PLANE IS (x, LEVEL), and the wall is thin in Z. The gun starts at +Z looking at the
+        //origin (Cannon.CalculateInitialPositionAndAimTarget), so X runs across the screen and the level axis
+        //runs up it: a wall spanning those two is the one the player sees face-on. Spanning X and Z instead
+        //would draw the picture on the floor, seen edge-on from the gun.
+        //
+        //IT IS TWO CELLS THICK, not one. A cell touches its four orthogonal neighbours on its own level and
+        //up to four on each adjacent one, and WHICH diagonal offsets those are depends on the level's parity
+        //- so a wall one cell thick in Z has half its vertical neighbours reaching to a Z that is not there.
+        //Two cells thick is the thinnest wall that is a solid slab whatever the parity, and it doubles every
+        //group, which is what keeps the strokes above the lonely-ball floor.
+        //
+        //ROWS ARE SHORTER THAN COLUMNS ARE WIDE. Levels sit 1/sqrt(2) apart vertically against a cell pitch
+        //of 1 horizontally, so a bitmap drawn square comes out squashed to 71% of its height. A picture is
+        //therefore drawn about 1.4x TALLER in rows than it is meant to look - the hearts below are 14 rows
+        //for 11 columns and come out very nearly square.
+        //
+        //THE BACKGROUND CANNOT BE ONE COLOUR. The wall's top row is the anchor layer, and a background that
+        //is a single colour makes that row a single group holding the whole picture up: one matching ball
+        //takes the level (Validate's drop test, the trap Mosaic and Gem both hit first). The background is a
+        //2x2 check of two colours for exactly the reason Mosaic's blocks are.
+
+        /// <summary>
+        /// Where a picture's own <c>(column, row)</c> sits in the lattice, and whether a cell is on the wall
+        /// at all. Row 0 is the TOP of the picture, which is layout level <c>depth - 1</c> — the anchor layer,
+        /// so a bitmap is written the way it is seen, top line first.
+        /// </summary>
+        private static bool OnWall(int x, int z, int i, int depth, int width, int grid, out int column, out int row)
+        {
+            //Centred across the grid, and two cells deep about the middle of it
+            int x0 = (grid - width) / 2;
+            int z0 = (grid - PICTURE_THICKNESS) / 2;
+
+            column = x - x0;
+            row = depth - 1 - i;
+
+            return column >= 0 && column < width && z >= z0 && z < z0 + PICTURE_THICKNESS;
+        }
+
+        /// <summary>How deep a picture wall is, in cells. See the region's remarks for why it is not one.</summary>
+        private const int PICTURE_THICKNESS = 2;
+
+        /// <summary>
+        /// Reads a bitmap written as text — <c>#</c> is the symbol, <c>o</c> its accent, anything else the
+        /// background. Rows are top-first, so the array reads in source exactly as the level reads in the
+        /// game, which is the whole reason for spelling a picture out rather than solving it from a formula:
+        /// a mistake in it is visible in the diff.
+        /// </summary>
+        private static char PixelAt(string[] bitmap, int column, int row) =>
+            row >= 0 && row < bitmap.Length && column >= 0 && column < bitmap[row].Length
+                ? bitmap[row][column]
+                : '.';
+
+        /// <summary>
+        /// A heart, 13 columns by 14 rows. Two rules shape it, and the drop test taught the second one.
+        /// <list type="bullet">
+        /// <item><b>Every stroke is at least two cells wide</b> in both directions — the lonely-ball rule (a
+        /// one-cell diagonal run is a string of balls that touch nothing at all), which a drawn symbol walks
+        /// straight into wherever it curves or comes to a point. The first draft ended in a one-cell tip.</item>
+        /// <item><b>The symbol never reaches an edge, and the top two rows are background.</b> The first
+        /// draft filled the wall's full width and touched its top row, which made the heart one connected
+        /// group of 208 holding everything under it up: dropping it took <b>93 % of the level in one shot</b>.
+        /// Background down both sides and across the top is what keeps the wall hanging when the symbol goes,
+        /// and it is the same shape of trap the background's own check answers from the other side.</item>
+        /// </list>
+        /// </summary>
+        private static readonly string[] HEART =
+        {
+            ".............",
+            ".............",
+            "...##...##...",
+            "..####.####..",
+            "..#########..",
+            "..#########..",
+            "..#########..",
+            "..#########..",
+            "...#######...",
+            "...#######...",
+            "....#####....",
+            "....#####....",
+            ".....###.....",
+            ".....###.....",
+        };
+
+        /// <summary>
+        /// A smiley, 13 by 14. The eyes and the smile are the <c>o</c> accent, drawn <b>inside</b> the face
+        /// rather than cut out of it — a hole in the face would be background, and background enclosed by the
+        /// symbol is a pocket the wall's own background cannot reach.
+        /// <para>
+        /// Both features are two cells wide everywhere for the lonely-ball rule, the smile's turned-up ends
+        /// included: one-cell corners would be a pair apiece, which stands but asks the player for two landed
+        /// balls to clear rather than one.
+        /// </para>
+        /// </summary>
+        private static readonly string[] SMILEY =
+        {
+            ".............",
+            ".............",
+            "....#####....",
+            "...#######...",
+            "..#########..",
+            "..##oo#oo##..",
+            "..##oo#oo##..",
+            "..#########..",
+            "..#########..",
+            "..#oo###oo#..",
+            "..##ooooo##..",
+            "..#########..",
+            "...#######...",
+            "....#####....",
+        };
+
+        /// <summary>
+        /// A five-pointed star, 13 by 14: the point up, the arms across, and two legs under it. The hardest
+        /// of the three to keep above the lonely-ball floor — a star is nothing but places where the shape
+        /// comes to a point — so every arm and leg is two cells wide and the tip is three.
+        /// </summary>
+        private static readonly string[] STAR =
+        {
+            ".............",
+            ".............",
+            ".....###.....",
+            ".....###.....",
+            "....#####....",
+            "..#########..",
+            "..#########..",
+            "...#######...",
+            "....#####....",
+            "....#####....",
+            "....##.##....",
+            "...##...##...",
+            "...##...##...",
+            "..##.....##..",
+        };
+
+        #endregion
+
         /// <summary>
         /// The square (Chebyshev) half-extent of a point the emitter hands over in polar form — the distance
         /// a <b>square</b> shape measures in, as opposed to <see cref="Ring"/>'s round one. Recovered from
@@ -679,8 +914,9 @@ namespace BS3D.Tools.LevelGen
                         float manhattan = MathF.Abs(dx) + MathF.Abs(dz);
                         float ang = MathF.Atan2(dz, dx);
 
-                        bool occupied = design.OccupiedManhattan != null
-                            ? design.OccupiedManhattan(manhattan, i, depth)
+                        bool occupied =
+                            design.OccupiedBlock != null ? design.OccupiedBlock(x, z, i, depth)
+                            : design.OccupiedManhattan != null ? design.OccupiedManhattan(manhattan, i, depth)
                             : design.Occupied(r, ang, i, depth);
 
                         if (!occupied) continue;
@@ -1010,6 +1246,14 @@ namespace BS3D.Tools.LevelGen
 
             /// <summary>Taxicab radius instead, for the designs whose cross-section is a diamond.</summary>
             public Func<float, int, int, bool> OccupiedManhattan;
+
+            /// <summary>
+            /// Raw lattice indices instead (x, z, layout level, layout depth), for a design that is
+            /// <b>drawn</b> rather than solved from a radius (#130). Every other shape here is a solid of
+            /// revolution or a taxicab shape and reads a centred distance; a picture is a bitmap and needs
+            /// the indices themselves, exactly as <see cref="BlockColour"/> already does for colour.
+            /// </summary>
+            public Func<int, int, int, int, bool> OccupiedBlock;
 
             //Exactly one of the three is set. They differ in what the pattern is a function of — the
             //centred polar frame, the centred taxicab one, or the raw lattice indices — and a design that

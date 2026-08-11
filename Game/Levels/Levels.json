@@ -10,73 +10,94 @@
       "ceilingStep": 5
     },
     {
+      "file": "Heart.json",
+      "name": "Heart",
+      "shots": 60,
+      "minStars": 1,
+      "ceilingStep": 10
+    },
+    {
       "file": "Three.json",
       "name": "Bullseye",
       "shots": 40,
-      "minStars": 1,
+      "minStars": 2,
       "ceilingStep": 8
+    },
+    {
+      "file": "Smiley.json",
+      "name": "Smiley",
+      "shots": 60,
+      "minStars": 4,
+      "ceilingStep": 10
     },
     {
       "file": "Four.json",
       "name": "Mosaic",
       "shots": 56,
-      "minStars": 2,
+      "minStars": 6,
       "ceilingStep": 8
+    },
+    {
+      "file": "Star.json",
+      "name": "Star",
+      "shots": 55,
+      "minStars": 8,
+      "ceilingStep": 9
     },
     {
       "file": "Five.json",
       "name": "Pinwheel",
       "shots": 44,
-      "minStars": 4,
+      "minStars": 10,
       "ceilingStep": 9
     },
     {
       "file": "Six.json",
       "name": "Crown",
       "shots": 44,
-      "minStars": 6,
+      "minStars": 12,
       "ceilingStep": 9
     },
     {
       "file": "Seven.json",
       "name": "Gem",
       "shots": 44,
-      "minStars": 8,
+      "minStars": 14,
       "ceilingStep": 9
     },
     {
       "file": "Eight.json",
       "name": "Prism",
       "shots": 60,
-      "minStars": 10,
+      "minStars": 16,
       "ceilingStep": 6
     },
     {
       "file": "Nine.json",
       "name": "Static",
       "shots": 60,
-      "minStars": 12,
+      "minStars": 18,
       "ceilingStep": 5
     },
     {
       "file": "Ten.json",
       "name": "Column",
       "shots": 90,
-      "minStars": 14,
+      "minStars": 20,
       "ceilingStep": 5
     },
     {
       "file": "Eleven.json",
       "name": "Onion",
       "shots": 48,
-      "minStars": 16,
+      "minStars": 22,
       "ceilingStep": 8
     },
     {
       "file": "Colossus.json",
       "name": "Colossus",
       "shots": 45,
-      "minStars": 18,
+      "minStars": 24,
       "ceilingStep": 4
     }
   ]
