@@ -7,6 +7,7 @@ using Myra.Graphics2D;
 using Myra.Graphics2D.Brushes;
 using Myra.Graphics2D.UI;
 using Prazsky.BS3D;
+using Prazsky.BS3D.Scoring;
 using Prazsky.Core.Render;
 using Prazsky.Core.Screens;
 using System;
@@ -114,6 +115,34 @@ namespace BS3D
         internal static readonly Color MENU_TEXT = new(244, 244, 244);        //the active thing on a screen
         internal static readonly Color MENU_TEXT_BODY = new(208, 208, 208);   //prose, a shade under a heading
         internal static readonly Color MENU_TEXT_DIM = new(146, 146, 146);    //asides, always on a dark plate
+
+        //The ONE deliberate exception to the greyscale rule above: the star rating (#139). Three things make
+        //it safe where an accent anywhere else is not. It is a READOUT of what the player earned rather than
+        //menu chrome — the hue IS the information, and brightness cannot carry it, because all four tiers have
+        //to read as "good" and a scale that dims towards the best one says the opposite. It never floats over
+        //a backdrop: the result screen dims the whole frame (ResultPage.DimsFrame) and the picker's stars sit
+        //on a tile's own near-opaque slab, so these are read against black in both places rather than against
+        //a neon city or a desert. And it is the medal vocabulary the player already knows, which is worth more
+        //here than consistency with the chrome — four neutral glyphs cannot say "bronze" or "diamond" at all.
+        internal static readonly Color STAR_EMPTY = new(92, 92, 92);          //a slot not earned; recedes under the plate
+        private static readonly Color STAR_BRONZE = new(205, 116, 58);
+        private static readonly Color STAR_SILVER = new(190, 201, 216);       //cooled off MENU_TEXT, or it reads as plain type
+        private static readonly Color STAR_GOLD = new(247, 199, 74);
+        private static readonly Color STAR_DIAMOND = new(140, 236, 255);      //above gold: the one cold, bright tier
+
+        /// <summary>
+        /// The colour a rating of <paramref name="stars"/> is drawn in — the whole earned row takes it, so the
+        /// tier reads at a glance rather than having to be counted. Anything outside 1..<see cref="StarRating.MAX"/>
+        /// is not a rating (a failed level is shown no stars at all) and takes the empty slot's grey.
+        /// </summary>
+        internal static Color StarTierColor(int stars) => stars switch
+        {
+            1 => STAR_BRONZE,
+            2 => STAR_SILVER,
+            3 => STAR_GOLD,
+            4 => STAR_DIAMOND,
+            _ => STAR_EMPTY,
+        };
 
         //Buttons: a dark slab at rest that the pointer lifts a step up the grey ramp, so the highlight is
         //brightness and not hue. Each of these REPLACES the one before it rather than being laid over it

@@ -5,7 +5,6 @@ using Myra.Graphics2D.UI;
 using Prazsky.BS3D.Scoring;
 using Prazsky.Core.Screens;
 using System;
-using System.Text;
 using Label = Myra.Graphics2D.UI.Label;
 
 namespace BS3D.Screens
@@ -172,25 +171,24 @@ namespace BS3D.Screens
         protected SpriteFontBase FontTitle => Game.MenuFontTitle;
         protected SpriteFontBase FontStars => Game.MenuFontStars;
 
+        //The rating's two glyphs, shared so the picker's small rows and the result's headline cannot drift
+        //apart. They must be drawn with FontStars or FontSmall: the glyphs live in Inter, and the display face
+        //the loud type is set in carries neither — FontStashSharp would silently draw blanks.
+        protected const char STAR_FILLED = '★';
+        protected const char STAR_HOLLOW = '☆';
+
         /// <summary>
-        /// A star rating as text — ★ for each star earned, ☆ for the rest of the
-        /// <see cref="StarRating.MAX"/> — so the picker's small rows and the result's headline speak one
-        /// vocabulary. It must be drawn with <see cref="FontStars"/> or <see cref="FontSmall"/>: the glyphs
-        /// live in Inter, and the display face the loud type is set in has neither.
+        /// The filled run of a rating — one ★ per star earned. It is drawn <b>separately from the hollow
+        /// remainder</b> (<see cref="StarsRemaining"/>) rather than as one string, because since #139 the two
+        /// halves are different colours everywhere they appear: the earned run carries the tier's colour
+        /// (<see cref="BS3DGame.StarTierColor"/>) and the remainder recedes to <see cref="BS3DGame.STAR_EMPTY"/>.
         /// </summary>
-        /// <param name="gap">Between the glyphs — the result's headline opens them up, the picker stays tight.</param>
-        protected static string StarText(int earned, string gap = "")
-        {
-            StringBuilder row = new(StarRating.MAX * (1 + gap.Length));
+        protected static string StarsEarned(int earned) =>
+            new(STAR_FILLED, Math.Clamp(earned, 0, StarRating.MAX));
 
-            for (int i = 0; i < StarRating.MAX; i++)
-            {
-                if (i > 0) row.Append(gap);
-                row.Append(i < earned ? '★' : '☆');
-            }
-
-            return row.ToString();
-        }
+        /// <summary>The hollow remainder of a rating — what is left of <see cref="StarRating.MAX"/>.</summary>
+        protected static string StarsRemaining(int earned) =>
+            new(STAR_HOLLOW, StarRating.MAX - Math.Clamp(earned, 0, StarRating.MAX));
 
         #endregion
     }

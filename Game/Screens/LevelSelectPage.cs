@@ -44,7 +44,8 @@ namespace BS3D.Screens
         private readonly List<Button> _tiles = new();
         private readonly List<Label> _tileNumbers = new();
         private readonly List<Label> _tileNames = new();
-        private readonly List<Label> _tileStars = new();
+        private readonly List<Label> _tileStarsEarned = new();
+        private readonly List<Label> _tileStarsRest = new();
         private Label _totalStars, _detail;
 
         //Which entry the detail line is speaking for, -1 for none. Held so a MouseLeft can tell "the pointer
@@ -56,7 +57,8 @@ namespace BS3D.Screens
             _tiles.Clear();
             _tileNumbers.Clear();
             _tileNames.Clear();
-            _tileStars.Clear();
+            _tileStarsEarned.Clear();
+            _tileStarsRest.Clear();
             _detailIndex = -1;
 
             VerticalStackPanel page = MenuColumn();
@@ -161,13 +163,18 @@ namespace BS3D.Screens
 
             //Stars, the lock's price, or empty — written by Refresh. Inter for the ★/☆ glyphs, which the
             //display face above does not carry.
-            Label stars = new()
-            {
-                Font = FontSmall,
-                TextColor = BS3DGame.MENU_TEXT_DIM,
-                HorizontalAlignment = HorizontalAlignment.Center,
-            };
-            content.Widgets.Add(stars);
+            //
+            //Two labels rather than one string, because since #139 a rating's earned run and its hollow
+            //remainder are different colours — the tier's and the empty grey — and one Label is one colour.
+            //The lock's price goes in the first and leaves the second empty: it is a sentence, not a rating.
+            HorizontalStackPanel starRow = new() { HorizontalAlignment = HorizontalAlignment.Center };
+
+            Label starsEarned = new() { Font = FontSmall, TextColor = BS3DGame.MENU_TEXT_DIM };
+            Label starsRest = new() { Font = FontSmall, TextColor = BS3DGame.STAR_EMPTY };
+
+            starRow.Widgets.Add(starsEarned);
+            starRow.Widgets.Add(starsRest);
+            content.Widgets.Add(starRow);
 
             Button tile = Game.MenuTile(content, () => Game.StartGameAt(index), TILE_WIDTH, TILE_HEIGHT);
 
@@ -179,7 +186,8 @@ namespace BS3D.Screens
             _tiles.Add(tile);
             _tileNumbers.Add(number);
             _tileNames.Add(name);
-            _tileStars.Add(stars);
+            _tileStarsEarned.Add(starsEarned);
+            _tileStarsRest.Add(starsRest);
 
             return tile;
         }
@@ -216,10 +224,16 @@ namespace BS3D.Screens
 
                 //The bottom line earns its place or stays empty: stars once there are any (an untouched
                 //campaign is not a wall of hollow glyphs), the price on a lock, nothing on an open level
-                //not yet cleared.
-                _tileStars[i].Text = !unlocked
-                    ? $"Locked · {Game.LevelMinStars(i)} ★"
-                    : stars > 0 ? StarText(stars) : string.Empty;
+                //not yet cleared. The earned run carries the tier's colour, the same one the result screen
+                //struck those stars in — so a level the player took to gold still reads gold here.
+                bool rated = unlocked && stars > 0;
+
+                _tileStarsEarned[i].Text = !unlocked
+                    ? $"Locked · {Game.LevelMinStars(i)} {STAR_FILLED}"
+                    : rated ? StarsEarned(stars) : string.Empty;
+                _tileStarsEarned[i].TextColor = rated ? BS3DGame.StarTierColor(stars) : BS3DGame.MENU_TEXT_DIM;
+
+                _tileStarsRest[i].Text = rated ? StarsRemaining(stars) : string.Empty;
             }
         }
 
