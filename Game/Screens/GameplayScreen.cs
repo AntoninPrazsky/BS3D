@@ -710,9 +710,11 @@ namespace BS3D.Screens
         private MouseState _previousMouse;
         private bool _padTriggerReleased = true;
 
-        //Whether the cursor is the aim's or the desktop's (#99). False on arrival and after every focus loss:
-        //the pointer is only taken once the player has clicked inside the game's own picture, and until then
-        //the window can be dragged by its title bar, resized, or left alone for another application.
+        //Whether the cursor is the aim's or the desktop's (#99, #154). Taken on arrival at play when the
+        //pointer is already in the picture — pressing the menu entry that put this screen on top is the
+        //opt-in — and given back on every focus loss, after which it is only re-taken by a click inside the
+        //game's own picture: until then the window can be dragged by its title bar, resized, or left alone
+        //for another application.
         private bool _cursorCaptured;
 
         //Aiming the gun from the captured cursor and the pad's right stick, both dials and all the arithmetic
@@ -876,16 +878,30 @@ namespace BS3D.Screens
             _padTriggerReleased = false;
             Game.PreviousPad = GamePad.GetState(PlayerIndex.One);
 
-            //Play is arrived at with the cursor FREE since #99, and taken by the player's first click in the
-            //picture — a resume is exactly the case that makes this matter, since the click that pressed
-            //"Resume" is itself in the client area. The mouse is snapshotted here for the same reason the pad
-            //is: the capture is a press EDGE, so a button still held from that click must be measured against
-            //a baseline that already knows it is down, or the first frame back would capture off a press that
-            //happened on a menu. Same hazard, and the same fix, as the menu's own _menuClickArmed.
-            _cursorCaptured = false;
-            _previousMouse = Mouse.GetState();
+            //Arriving here IS the player's opt-in (#154): every way onto the top of the stack — Play, a level
+            //tile, Resume, Retry, Next Level — is a menu entry the player just pressed, so the aim takes the
+            //cursor at once instead of demanding one more click in the picture, which #99's arrive-free rule
+            //cost every level start. Only a pointer already IN the picture, though: the entry may just as
+            //well have been pressed by the pad or the arrow keys with the mouse parked on another monitor,
+            //and warping in a pointer nobody offered is exactly the hostage-taking #99 exists to prevent —
+            //the pad neither needs nor notices the capture, and a free pointer is re-taken by a click in the
+            //picture as ever. The bounds test is the capture click's own, for its reason: a MouseState reads
+            //coordinates over the title bar or another window quite happily. #99's two hazards are both still
+            //answered: the pressing click cannot fire a shot, because the shot edge sits behind Invalidate's
+            //dropped baseline and is measured against the mouse snapshot below, which already knows the
+            //button is down (same hazard, and the same fix, as the menu's own _menuClickArmed); and the aim
+            //cannot yank, because ApplyCursor applies nothing until the first Recentre has re-based the
+            //delta. A mid-play focus loss is not this path — Update's inactive branch frees the cursor, and
+            //THAT recovery still takes the click. An arrival with the window unfocused stays free too: there
+            //is no press to read intent from.
+            MouseState mouse = Mouse.GetState();
 
-            Game.IsMouseVisible = true;
+            _cursorCaptured = Game.IsActive
+                && mouse.X >= 0 && mouse.X < GraphicsDevice.Viewport.Width
+                && mouse.Y >= 0 && mouse.Y < GraphicsDevice.Viewport.Height;
+            _previousMouse = mouse;
+
+            Game.IsMouseVisible = !_cursorCaptured;
         }
 
         public override void Update(GameTime gameTime)
