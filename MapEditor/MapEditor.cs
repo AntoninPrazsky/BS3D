@@ -364,7 +364,17 @@ namespace MapEditor
         /// </summary>
         private void SwitchScene()
         {
-            _scene = (SceneKind)(((int)_scene + 1) % SceneRenderer.CycleLength);
+            //The cycle is deliberately only SceneRenderer.CycleLength long — the seven scenes a map is authored
+            //against — but it has to be enterable from OUTSIDE it, and (index + 1) % 7 was not: a level whose
+            //config names the forest, space, the dream, the cavern, the Moon or the outback puts _scene past the
+            //cycle's end, and the modulo then landed wherever the arithmetic fell rather than at a boundary. From
+            //a forest level (index 7) the first V came out at the SEA, three scenes deep, so the four entries
+            //before it could not be reached without four more presses — in the one program whose whole job is
+            //previewing a map against every backdrop it might play in. Anything off the end restarts the cycle at
+            //the city now. The same one-liner in the Testbed was fixed with #73; this is its other copy.
+            int next = (int)_scene + 1;
+            _scene = (SceneKind)(next < SceneRenderer.CycleLength ? next : 0);
+
             Info.CustomText = $"Scene: {SceneRenderer.SceneName(_scene)}";
 
             //Re-derive the rig: a scene may state its own lighting instead of the dome's, and V is a scene
