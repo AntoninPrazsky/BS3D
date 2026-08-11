@@ -276,7 +276,59 @@ namespace BS3D.Audio
 
         //The fanfare is its own instance so it is independent of the loop: Stop() silences the level's theme
         //without cutting off the piece that is announcing the result.
-        private Task<float[]> _fanfareBake;
+        /// <summary>
+        /// What a fanfare rolled for itself, so something else can play <b>in tune with it</b> (#158). The
+        /// result screen's star chime needs this and nothing else does: it sounds while the fanfare is still
+        /// going, and a fixed-pitch chime is only in tune when the piece happens to have rolled the one key it
+        /// was baked in.
+        /// </summary>
+        public readonly struct FanfareShape
+        {
+            public readonly int Root;        //MIDI note the piece is in
+            public readonly float Bpm;
+            public readonly bool Victory;    //major, and the only kind the stars ever sound over
+
+            public FanfareShape(int root, float bpm, bool victory)
+            {
+                Root = root; Bpm = bpm; Victory = victory;
+            }
+        }
+
+        private Task<(float[] Pcm, FanfareShape Shape)> _fanfareBake;
+        private FanfareShape _fanfareShape;
+
+        //Wall clock since the fanfare actually started SOUNDING, which is what a beat grid has to be measured
+        //from. It cannot be taken from the bake: the piece is synthesized on a background thread and realized
+        //whenever that finishes, which on a slow machine is a good fraction of a second later.
+        private readonly System.Diagnostics.Stopwatch _fanfareClock = new();
+
+        private bool _fanfareShapeKnown;
+
+        /// <summary>
+        /// The pending or sounding fanfare's key and tempo — false when there is none at all.
+        /// <para>
+        /// <b>It is answered as soon as the fanfare is ASKED FOR, not when it becomes audible</b>, and that
+        /// distinction is the whole of #158's fix. The piece is synthesized on a background thread and takes
+        /// <i>seconds</i> on a weak machine — measured at over three here — while the result screen opens on
+        /// the frame the level cleared. Anything that waited for the sound before deciding what to play with
+        /// it would wait longer than the player will, so the key is rolled up front and only the beat grid
+        /// needs the audio.
+        /// </para>
+        /// </summary>
+        /// <param name="secondsSounding">
+        /// How long it has actually been playing, or <b>negative when it has not started</b> — the caller can
+        /// pitch itself either way, but may only align to a beat when this is real.
+        /// </param>
+        public bool TryGetFanfare(out FanfareShape shape, out float secondsSounding)
+        {
+            shape = _fanfareShape;
+
+            secondsSounding = _fanfareClock.IsRunning && IsFanfarePlaying
+                ? (float)_fanfareClock.Elapsed.TotalSeconds
+                : -1f;
+
+            return _fanfareShapeKnown;
+        }
         private SoundEffect _fanfareTrack;
         private SoundEffectInstance _fanfare;
 
@@ -470,7 +522,34 @@ namespace BS3D.Audio
         public void StopFanfare()
         {
             _fanfareBake = null;
+            _fanfareShapeKnown = false;
+            _fanfareClock.Reset();
             _fanfare?.Stop();
+        }
+
+        /// <summary>
+        /// Rolls a fanfare's key and tempo off <paramref name="random"/>, which the bake then carries on with.
+        /// It is one method rather than a copy in each baker because the two must not drift: the shape handed
+        /// to whatever plays along with the piece has to be the shape the piece was actually built from.
+        /// </summary>
+        private static FanfareShape RollFanfare(Random random, bool victory)
+        {
+            if (victory)
+            {
+                //The theme's own tempo band, rolled so two wins in a row are not the same piece, and MAJOR
+                //up where the supersaw shines.
+                float bpm = 128f + (float)random.NextDouble() * 14f;
+                int[] roots = { 57, 60, 62 };   //A3, C4, D4
+
+                return new FanfareShape(roots[random.Next(roots.Length)], bpm, victory: true);
+            }
+
+            //Slow. Half the theme's tempo and less: the piece has to feel like it is running out, and low —
+            //lower than the victory's.
+            float defeatBpm = 62f + (float)random.NextDouble() * 12f;
+            int[] defeatRoots = { 45, 43, 41, 40 };   //A2, G2, F2, E2
+
+            return new FanfareShape(defeatRoots[random.Next(defeatRoots.Length)], defeatBpm, victory: false);
         }
 
         private void StartFanfare(int score, bool victory)
@@ -485,7 +564,24 @@ namespace BS3D.Audio
             //On a background thread, like the track: a fanfare is only a few seconds of PCM, but this fires on
             //the exact frame a level ends — which is also the frame the camera is released, the fireworks
             //start and the result screen is being built — and that is the last moment to spend on synthesis.
-            _fanfareBake = Task.Run(() => victory ? BakeVictory(seed, intensity) : BakeDefeat(seed, intensity));
+            //The key and tempo are rolled HERE, on the calling thread, and only the rendering goes to the
+            //background — so anything that has to agree with this piece can know what it is immediately
+            //rather than waiting seconds for the audio (#158). The same Random then carries on inside the
+            //bake, so the rest of the piece rolls exactly as it did when these two were rolled in there.
+            Random random = new(seed);
+            FanfareShape shape = RollFanfare(random, victory);
+
+            _fanfareShape = shape;
+            _fanfareShapeKnown = true;
+
+            _fanfareBake = Task.Run(() =>
+            {
+                float[] pcm = victory
+                    ? BakeVictory(random, intensity, shape)
+                    : BakeDefeat(random, intensity, shape);
+
+                return (pcm, shape);
+            });
         }
 
         /// <summary>
@@ -507,7 +603,7 @@ namespace BS3D.Audio
             //result lands as close to the result as the machine allows.
             if (_fanfareBake != null && _fanfareBake.IsCompleted)
             {
-                Task<float[]> ready = _fanfareBake;
+                Task<(float[] Pcm, FanfareShape Shape)> ready = _fanfareBake;
                 _fanfareBake = null;
 
                 try
@@ -515,10 +611,15 @@ namespace BS3D.Audio
                     SoundEffectInstance old = _fanfare;
                     SoundEffect oldTrack = _fanfareTrack;
 
-                    _fanfareTrack = ToSoundEffect(ready.Result);
+                    _fanfareTrack = ToSoundEffect(ready.Result.Pcm);
                     _fanfare = _fanfareTrack.CreateInstance();
                     _fanfare.Volume = FANFARE_VOLUME * _gain;
                     _fanfare.Play();
+
+                    //Started HERE and not where the bake was asked for: this is the frame it becomes audible,
+                    //and the beat grid anything else lines up to has to be measured from that.
+                    _fanfareShape = ready.Result.Shape;
+                    _fanfareClock.Restart();
 
                     old?.Dispose();
                     oldTrack?.Dispose();
@@ -1921,20 +2022,18 @@ namespace BS3D.Audio
         /// held finish. The player hears what kind of win it was before the result screen says a word.
         /// </para>
         /// </summary>
-        private static float[] BakeVictory(int seed, float intensity)
+        private static float[] BakeVictory(Random random, float intensity, FanfareShape shape)
         {
-            Random random = new(seed);
-
-            //The theme's own tempo band, rolled so two wins in a row are not the same piece.
-            float bpm = 128f + (float)random.NextDouble() * 14f;
+            //Key and tempo are the caller's now (RollFanfare), so whatever plays along with this piece knows
+            //them the moment it is asked for rather than when it finishes rendering — see TryGetFanfare.
+            float bpm = shape.Bpm;
             float secondsPerStep = 60f / (bpm * STEPS_PER_BEAT);
             int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
 
             //MAJOR, and back up where the supersaw shines. The old register lesson (down at C3, "deep before
             //timbre") was a TROMBONE'S lesson and stays true for the defeat below; the theme's own chorus
             //already proves the supersaw carries this register over a full mix.
-            int[] roots = { 57, 60, 62 };   //A3, C4, D4
-            int root = roots[random.Next(roots.Length)];
+            int root = shape.Root;
 
             //I–V–vi–IV as triads (semitone offsets from the root): four drop bars, then the held close.
             //A build bar stands in front once the win is worth announcing.
@@ -2087,17 +2186,14 @@ namespace BS3D.Audio
         /// difference is what the player is owed for the run they had.
         /// </para>
         /// </summary>
-        private static float[] BakeDefeat(int seed, float intensity)
+        private static float[] BakeDefeat(Random random, float intensity, FanfareShape shape)
         {
-            Random random = new(seed);
-
-            //Slow. Half the theme's tempo and less: the piece has to feel like it is running out.
-            float bpm = 62f + (float)random.NextDouble() * 12f;
+            //Key and tempo are the caller's — see BakeVictory and TryGetFanfare.
+            float bpm = shape.Bpm;
             float secondsPerStep = 60f / (bpm * STEPS_PER_BEAT);
             int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
 
-            int[] roots = { 45, 43, 41, 40 };   //A2, G2, F2, E2 — low, and lower than the victory's
-            int root = roots[random.Next(roots.Length)];
+            int root = shape.Root;
 
             const int bars = 4;
             float[] mix = NewMix(samplesPerStep * (bars * STEPS_PER_BAR + FANFARE_TAIL_STEPS));
@@ -2112,7 +2208,7 @@ namespace BS3D.Audio
                 new[] { 3, 2, 1, 0 },   //octave down to the root
                 new[] { 2, 1, 1, 0 }    //fifth, third, third, root — a smaller, more resigned fall
             };
-            int[] shape = shapes[random.Next(shapes.Length)];
+            int[] fall = shapes[random.Next(shapes.Length)];   //renamed off "shape": the out parameter owns that name now
 
             for (int bar = 0; bar < bars; bar++)
             {
@@ -2141,14 +2237,14 @@ namespace BS3D.Audio
                 //conditional, so on any run under the threshold the melody sang alone from one speaker and the
                 //whole piece leaned 1.4 dB (measured). A part that may play alone cannot take half a pair's seat.
                 if (!last || intensity > 0.35f)
-                    Brass(mix, at, chordRoot + MINOR_TRIAD[shape[bar]], secondsPerStep * (last ? 24f : 17f),
+                    Brass(mix, at, chordRoot + MINOR_TRIAD[fall[bar]], secondsPerStep * (last ? 24f : 17f),
                         leadLevel);
 
                 //A harmony a third under the melody, for a run that deserved better. This one is the part that
                 //moves off centre — it only ever sounds WITH the melody, so it reads as a second player beside
                 //the first rather than as the tune wandering, and at 0.55 of the level it barely tilts the piece.
                 if (intensity > 0.55f)
-                    Brass(mix, at, chordRoot + MINOR_TRIAD[shape[bar]] - 3, secondsPerStep * (last ? 24f : 17f),
+                    Brass(mix, at, chordRoot + MINOR_TRIAD[fall[bar]] - 3, secondsPerStep * (last ? 24f : 17f),
                         leadLevel * 0.55f, pan: PAN_BRASS_SPREAD);
             }
 
