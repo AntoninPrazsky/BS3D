@@ -106,6 +106,12 @@ namespace BS3D.Audio
         private const float UI_CLICK_VOLUME = 0.4f;
         private const float UI_TICK_VOLUME = 0.16f;
 
+        //The star cue sits above the click: it is the reward the level was played for, not a menu noise, and it
+        //plays over a stopped world with nothing else sounding.
+        private const float STAR_VOLUME = 0.55f;
+        private const float STAR_PITCH_STEP = 0.19f;   //~2.3 semitones a star; four of them stay inside a fifth
+        private const float STAR_FINAL_LIFT = 1.15f;
+
         private readonly SoundEffect _shoot;
         private readonly SoundEffect[] _landed;
         private readonly SoundEffect _release;
@@ -113,6 +119,7 @@ namespace BS3D.Audio
         private readonly SoundEffect _fireworkBurst;
         private readonly SoundEffect _partyPopper;
         private readonly SoundEffect _uiClick;
+        private readonly SoundEffect _starEarned;
         private readonly Random _random = new();
 
         //The voices the five positional sounds are spoken through — one ring per buffer, every instance built
@@ -197,6 +204,7 @@ namespace BS3D.Audio
             _fireworkBurst = BakeFireworkBurst();
             _partyPopper = BakePartyPopper();
             _uiClick = BakeUiClick();
+            _starEarned = BakeStarEarned();
 
             //The voices, all of them, here — an XAudio2 source voice apiece and a few ms of load. The popper
             //and the UI need none: they never reach an emitter.
@@ -338,6 +346,28 @@ namespace BS3D.Audio
         public void PlayUiBack()
         {
             _uiClick.Play(UI_CLICK_VOLUME * Level * NON_SPATIAL_TRIM, -0.3f + NextPitch(0.03f), 0f);
+        }
+
+        /// <summary>
+        /// One star of the result screen's rating landing (#139), <paramref name="index"/> counted from 0 of
+        /// <paramref name="total"/> earned. Unplaced like the other UI sounds, and for the same reason.
+        /// <para>
+        /// <b>The run rises, which is what makes a rating something you HEAR being counted</b> rather than the
+        /// same note four times. The step is a little over two semitones, so even a four-star run stays inside
+        /// a fifth — wider and the top of it stops sounding like the same instrument as the bottom. Unlike the
+        /// release's pops this one is deliberately a TONE: it is the only sound in the game that plays over a
+        /// stopped world with no music under it, so there is nothing for a noise gesture to read against.
+        /// </para>
+        /// </summary>
+        public void PlayStarEarned(int index, int total)
+        {
+            float pitch = MathHelper.Clamp(index * STAR_PITCH_STEP + NextPitch(0.015f), -1f, 1f);
+
+            //The last star of the run lands a shade louder — an arrival rather than one more step. It is the
+            //only thing that separates the fourth star of a four-star clear from the third of a three.
+            float volume = STAR_VOLUME * (index == total - 1 ? STAR_FINAL_LIFT : 1f);
+
+            _starEarned.Play(MathHelper.Clamp(volume * Level * NON_SPATIAL_TRIM, 0f, 1f), pitch, 0f);
         }
 
         #region Where the ear is, and where the sound is
@@ -720,6 +750,50 @@ namespace BS3D.Audio
 
             //The contact: a very short knock, low-passed so it is a "th" rather than a "ts".
             AddNoiseBurst(signal, window: 0.008f, decay: 160f, gain: 0.8f, cutoff: 3200f);
+
+            Normalize(signal, 0.9f);
+            return ToSoundEffect(signal);
+        }
+
+        /// <summary>
+        /// A star landing on the result screen: a small struck chime — bright, clean, and over quickly enough
+        /// that four of them in a row is a run rather than a chord.
+        /// <list type="bullet">
+        /// <item><b>Inharmonic partials, not a harmonic stack.</b> Struck metal rings at ratios near a free
+        /// bar's (1, 2.76, 5.40, 8.93) and not at whole multiples of the root, and that is the whole
+        /// difference between a bell and an organ pipe — a harmonic stack here read as a game-show buzzer.</item>
+        /// <item><b>The high partials die first</b>, as they do in real metal, so the sound is bright at the
+        /// strike and mellows as it rings out instead of hissing evenly all the way down.</item>
+        /// <item><b>Two milliseconds of noise at the front</b> is the hammer meeting the metal. Without it the
+        /// tone fades <i>up</i> out of silence however steep the envelope is, which is the one thing that
+        /// gives a synthesised bell away.</item>
+        /// </list>
+        /// </summary>
+        private SoundEffect BakeStarEarned()
+        {
+            const float duration = 0.8f;
+            const float root = 880f;
+
+            int samples = (int)(SAMPLE_RATE * duration);
+            float[] signal = new float[samples];
+
+            float[] ratios = { 1f, 2.756f, 5.404f, 8.933f };
+            float[] gains = { 1f, 0.5f, 0.26f, 0.12f };
+            float[] decays = { 5.5f, 8f, 12f, 17f };
+
+            for (int partial = 0; partial < ratios.Length; partial++)
+            {
+                float frequency = root * ratios[partial];
+
+                for (int i = 0; i < samples; i++)
+                {
+                    float t = (float)i / SAMPLE_RATE;
+                    signal[i] += MathF.Sin(2f * MathF.PI * frequency * t) * gains[partial] * MathF.Exp(-t * decays[partial]);
+                }
+            }
+
+            //The hammer: a very short, bright tick, so the tone is struck rather than faded up
+            AddNoiseBurst(signal, window: 0.002f, decay: 400f, gain: 0.35f, cutoff: 9000f);
 
             Normalize(signal, 0.9f);
             return ToSoundEffect(signal);
@@ -1273,6 +1347,7 @@ namespace BS3D.Audio
             _fireworkBurst?.Dispose();
             _partyPopper?.Dispose();
             _uiClick?.Dispose();
+            _starEarned?.Dispose();
         }
     }
 }

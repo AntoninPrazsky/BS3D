@@ -20,7 +20,12 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class ResultPage : MenuPage
     {
-        private Label _heading, _stars, _newBest, _reason, _bareScore;
+        private Label _heading, _newBest, _reason, _bareScore;
+
+        //One widget per slot rather than one string of glyphs: a Label's glyphs cannot be scaled, coloured or
+        //timed apart from each other, and the reveal needs all three per star (#139).
+        private readonly Label[] _starSlots = new Label[StarRating.MAX];
+        private HorizontalStackPanel _starRow;
         private Label _matchedDetail, _matchedValue;
         private Label _orphanedDetail, _orphanedValue;
         private Label _streakValue;
@@ -83,6 +88,13 @@ namespace BS3D.Screens
             _fromRoll = camera.BaseRoll;
             _orbitBlend = 0f;
 
+            //The reveal is timed from the page opening, so it restarts on every arrival — a retry that earned
+            //a different rating has to show that rating being earned, not a row already sitting there.
+            _revealClock = 0f;
+            _starsAnnounced = 0;
+            _revealSettled = false;
+            ApplyStars();
+
             //Started at the bearing the lens is already on, so the release is straight out from the arena
             Game.Backdrop.AlignOrbitTo(_fromPosition);
         }
@@ -92,6 +104,16 @@ namespace BS3D.Screens
             base.Update(gameTime);
 
             float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            if (!_revealSettled)
+            {
+                _revealClock += elapsed;
+                AnnounceLandedStars();
+                ApplyStars();
+
+                //One last pass has just run at or past the end, so the row is on its exact resting values
+                if (_revealClock >= REVEAL_TOTAL_SECONDS) _revealSettled = true;
+            }
 
             Game.Backdrop.AdvanceOrbit(elapsed, out Vector3 position, out Vector3 target, out float fieldOfView);
 
@@ -120,6 +142,131 @@ namespace BS3D.Screens
 
         #endregion
 
+        #region The stars arrive one at a time
+
+        //A rating that is simply THERE when the page opens is a line of text; the same rating landing one star
+        //at a time, each with its own cue, is the reward the level was played for (#139). The row is four slots
+        //wide from the first frame and only the glyph, the colour and the scale change, so nothing under it
+        //moves as the stars arrive — a breakdown that shuffled down the screen mid-reveal would undo the point.
+        //
+        //Driven from here for the same reason the camera release is: this page is the only screen still being
+        //updated, the session under it being covered and therefore frozen.
+
+        //A slot holds one glyph, so the shared chars are wanted as strings here. Built once rather than per
+        //frame: ApplyStars runs every frame the page is up, and Label.Text takes a string.
+        private static readonly string HOLLOW = STAR_HOLLOW.ToString();
+        private static readonly string FILLED = STAR_FILLED.ToString();
+
+        /// <summary>A beat before the first star, so the verdict above it is read first rather than competing.</summary>
+        private const float REVEAL_DELAY_SECONDS = 0.45f;
+
+        /// <summary>Between one star landing and the next. Long enough to count them, short enough not to wait.</summary>
+        private const float REVEAL_STEP_SECONDS = 0.3f;
+
+        /// <summary>One star's own travel, from oversized to seated.</summary>
+        private const float REVEAL_PUNCH_SECONDS = 0.34f;
+
+        /// <summary>How large a star starts, as a multiple of its seated size.</summary>
+        private const float REVEAL_START_SCALE = 2.4f;
+
+        //Where the punch settles back FROM: it overshoots a little past its resting size so it lands rather
+        //than merely stopping. Kept small - a big rebound reads as rubber, not as a medal being struck.
+        private const float REVEAL_UNDERSHOOT = 0.92f;
+        private const float REVEAL_SETTLE_FROM = 0.66f;
+
+        /// <summary>
+        /// When the last slot has finished settling — past this nothing in the row is moving, which is what
+        /// <see cref="_revealSettled"/> uses to stop touching it.
+        /// </summary>
+        private const float REVEAL_TOTAL_SECONDS =
+            REVEAL_DELAY_SECONDS + (StarRating.MAX - 1) * REVEAL_STEP_SECONDS + REVEAL_PUNCH_SECONDS;
+
+        private float _revealClock;
+        private int _starsAnnounced;
+
+        //Once the row has settled it is left alone. Writing a Label's Text and TextColor every frame for the
+        //rest of the page's life is per-frame work for a row that has stopped changing — and Myra invalidates
+        //a measure on a text write, so it is not free (BestPractices.md's per-frame hygiene). The page then
+        //sits on the result screen doing nothing but the camera, which is what it did before this existed.
+        private bool _revealSettled;
+
+        /// <summary>
+        /// One star's scale at <paramref name="progress"/> through its own punch. Nearly all the travel is
+        /// spent in the first few frames — that is what makes it read as a star being <i>struck</i> into the
+        /// slot rather than drifting down into it — and the last third eases the overshoot out so it comes to
+        /// rest instead of stopping dead.
+        /// </summary>
+        private static float PunchScale(float progress)
+        {
+            if (progress < REVEAL_SETTLE_FROM)
+            {
+                //Ease-out cubic over the drop from oversized down through the resting size
+                float k = progress / REVEAL_SETTLE_FROM;
+                return MathHelper.Lerp(REVEAL_START_SCALE, REVEAL_UNDERSHOOT, 1f - MathF.Pow(1f - k, 3f));
+            }
+
+            return MathHelper.SmoothStep(REVEAL_UNDERSHOOT, 1f,
+                (progress - REVEAL_SETTLE_FROM) / (1f - REVEAL_SETTLE_FROM));
+        }
+
+        /// <summary>When star <paramref name="index"/> (0-based) lands, in seconds since the page opened.</summary>
+        private static float RevealTimeOf(int index) => REVEAL_DELAY_SECONDS + index * REVEAL_STEP_SECONDS;
+
+        /// <summary>
+        /// Writes the whole row from <see cref="_revealClock"/>, so it is the clock and not a per-frame edit
+        /// that decides what is on screen — which is what lets a resize rebuild the tree mid-reveal and have
+        /// the new one come up exactly where the old one was.
+        /// </summary>
+        private void ApplyStars()
+        {
+            if (_starRow == null) return;
+
+            //A failed level shows NO row rather than four hollow glyphs: a loss is not a rating of zero, and an
+            //empty rating under "FAILED" reads as scorn.
+            _starRow.Visible = _result.Cleared;
+            if (!_result.Cleared) return;
+
+            //The whole earned row takes the tier's colour, so the rating reads as one achievement at a glance
+            //instead of as four glyphs that have to be counted
+            Color tier = BS3DGame.StarTierColor(_result.Stars);
+
+            for (int i = 0; i < _starSlots.Length; i++)
+            {
+                Label slot = _starSlots[i];
+                bool landed = i < _result.Stars && _revealClock >= RevealTimeOf(i);
+
+                if (!landed)
+                {
+                    slot.Text = HOLLOW;
+                    slot.TextColor = BS3DGame.STAR_EMPTY;
+                    slot.Scale = Vector2.One;
+                    continue;
+                }
+
+                slot.Text = FILLED;
+                slot.TextColor = tier;
+                slot.Scale = new Vector2(PunchScale(MathF.Min(1f, (_revealClock - RevealTimeOf(i)) / REVEAL_PUNCH_SECONDS)));
+            }
+        }
+
+        /// <summary>
+        /// Plays one cue per star as it lands, at most one per star for the life of the page. A while loop
+        /// rather than a per-frame equality test because a frame long enough to skip a whole step still owes
+        /// the player every sound — on the class of machine the quality probe exists for, that frame happens.
+        /// </summary>
+        private void AnnounceLandedStars()
+        {
+            if (!_result.Cleared) return;
+
+            while (_starsAnnounced < _result.Stars && _revealClock >= RevealTimeOf(_starsAnnounced))
+            {
+                Game.Audio?.PlayStarEarned(_starsAnnounced, _result.Stars);
+                _starsAnnounced++;
+            }
+        }
+
+        #endregion
+
         protected override Widget BuildTree()
         {
             VerticalStackPanel column = MenuColumn();
@@ -138,17 +285,31 @@ namespace BS3D.Screens
 
             //The star rating, straight under the verdict — the headline a player reads at a glance where the
             //score below is the arithmetic (#111). Set in Inter (FontStars), not the display face: Anton has
-            //no ★/☆ glyphs at all, and FontStashSharp would draw blanks. Opened up with spaces so four glyphs
-            //read as a rating rather than as a word.
-            _stars = new Label
+            //no ★/☆ glyphs at all, and FontStashSharp would draw blanks. Opened up so four glyphs read as a
+            //rating rather than as a word — by the row's own spacing now that they are four widgets.
+            _starRow = new HorizontalStackPanel
             {
-                Text = string.Empty,
-                Font = FontStars,
-                TextColor = BS3DGame.MENU_TEXT,
+                Spacing = Scaled(26),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 12),
             };
-            column.Widgets.Add(_stars);
+
+            for (int i = 0; i < _starSlots.Length; i++)
+            {
+                _starSlots[i] = new Label
+                {
+                    Text = HOLLOW,
+                    Font = FontStars,
+                    TextColor = BS3DGame.STAR_EMPTY,
+
+                    //About its own centre, or a star punching in from 2.4× would swing in from its top-left
+                    //corner and shoulder the row along instead of growing in place.
+                    TransformOrigin = new Vector2(0.5f, 0.5f),
+                };
+                _starRow.Widgets.Add(_starSlots[i]);
+            }
+
+            column.Widgets.Add(_starRow);
 
             //Under the stars, and only when a best actually moved: a line that is always there says nothing.
             _newBest = new Label
@@ -304,13 +465,12 @@ namespace BS3D.Screens
             if (_heading == null) return;
 
             //Brightness, not colour: "FAILED" is the same grey as "CLEARED", and the reason below is what tells
-            //them apart — see the palette comment for why nothing here carries a hue.
+            //them apart — see the palette comment for why the chrome carries no hue. The star row below is the
+            //one deliberate exception on this page, and the reason it is one is recorded there.
             _heading.Text = _result.CampaignComplete ? "CAMPAIGN COMPLETE" : (_result.Cleared ? "CLEARED" : "FAILED");
 
-            //Stars only on a clear. A failed level shows NO row rather than four hollow glyphs: a loss is not
-            //a rating of zero, and an empty rating under "FAILED" reads as scorn.
-            _stars.Text = _result.Cleared ? StarText(_result.Stars, " ") : string.Empty;
-            _stars.Visible = _result.Cleared;
+            //Stars only on a clear, and written from the reveal clock rather than set here — see ApplyStars
+            ApplyStars();
 
             _newBest.Visible = _result.Cleared && _result.NewBest;
 
