@@ -24,7 +24,15 @@ namespace BS3D.Audio
         /// tuned drum over it — a statement, a second subject and a coda that brings it back, twelve sections
         /// and ~3:20 a pass.
         /// </summary>
-        Bohemia
+        Bohemia,
+
+        /// <summary>
+        /// The third (#162): smooth jazz — sevenths and ninths on a <b>swung</b> grid, a walking bass and a
+        /// Rhodes carrying the tune, nine sections and ~3:00 a pass. Where the other two differ in mode over
+        /// one shared dance floor, this one differs in harmony and in TIME, which is what makes it a third
+        /// language rather than a third accent.
+        /// </summary>
+        Nocturne
     }
 
     /// <summary>
@@ -333,7 +341,12 @@ namespace BS3D.Audio
         {
             int seed = _seeds.Next();
 
-            return Task.Run(() => theme == MusicTheme.Bohemia ? BakeBohemia(seed) : Bake(seed));
+            return Task.Run(() => theme switch
+            {
+                MusicTheme.Bohemia => BakeBohemia(seed),
+                MusicTheme.Nocturne => BakeJazz(seed),
+                _ => Bake(seed),
+            });
         }
 
         /// <summary>
@@ -384,6 +397,7 @@ namespace BS3D.Audio
                 {
                     case "pulse": return MusicTheme.Pulse;
                     case "bohemia": return MusicTheme.Bohemia;
+                    case "nocturne": return MusicTheme.Nocturne;
                 }
 
             return (MusicTheme)(((index % THEME_COUNT) + THEME_COUNT) % THEME_COUNT);
@@ -1116,6 +1130,314 @@ namespace BS3D.Audio
 
         #endregion
 
+        #region Nocturne — the third theme (#162)
+
+        //SMOOTH JAZZ, and what makes it a third pool rather than a third mood is HARMONY and TIME, not timbre.
+        //Pulse is A natural minor over four-on-the-floor; Bohemia is D Dorian over the same floor. Both are
+        //triads on a straight grid. This is sevenths and ninths on a SWUNG grid, which is a different language
+        //rather than a different accent — and it is the reason this piece needed almost no new synthesis: the
+        //genre's identity is in the chords and the placement, both of which are tables.
+        //
+        //It is in C major, deliberately the plainest key in the set: the colour here comes from the extensions
+        //and the ii-V motion, and a piece whose whole point is its harmony should not also be fighting a key.
+
+        //Roots for the walking bass, low and close together so the walk steps rather than leaps.
+        private static readonly int[] JAZZ_ROOT = { 36, 38, 40, 41, 43, 45, 47, 45 };   //C D E F G A B A(7)
+
+        //Close-position sevenths around middle C. Every one is a FOUR-note chord where Pulse and Bohemia use
+        //triads-plus-octave, and that is the single biggest reason this reads as jazz: the seventh is not a
+        //decoration here, it is the chord. They have to work both held (Pad) and broken (Arp), which is why
+        //they stay in close position rather than spreading into the rootless voicings a pianist would use.
+        private static readonly int[][] JAZZ_ARP =
+        {
+            new[] { 60, 64, 67, 71 },   //0 Cmaj7  C  E  G  B
+            new[] { 62, 65, 69, 72 },   //1 Dm7    D  F  A  C
+            new[] { 64, 67, 71, 74 },   //2 Em7    E  G  B  D
+            new[] { 65, 69, 72, 76 },   //3 Fmaj7  F  A  C  E
+            new[] { 67, 71, 74, 77 },   //4 G7     G  B  D  F   — the dominant, the only chord with a tritone
+            new[] { 69, 72, 76, 79 },   //5 Am7    A  C  E  G
+            new[] { 71, 74, 77, 81 },   //6 Bm7b5  B  D  F  A
+            new[] { 69, 73, 76, 79 }    //7 A7     A  C# E  G   — secondary dominant; the C# is the one accidental
+        };
+
+        //Every one is built on ii-V motion, which is what the idiom is made of. Three resolve onto the tonic
+        //and two turn back round instead, so a four-bar round can either land or keep going — the difference
+        //between a piece that sits still and one that circles.
+        private static readonly int[][] JAZZ_PROGRESSIONS =
+        {
+            new[] { 1, 4, 0, 0 },   //Dm7 G7  Cmaj7 Cmaj7 — the ii-V-I, stated plainly
+            new[] { 1, 4, 0, 5 },   //Dm7 G7  Cmaj7 Am7   — lands, then leans to the relative minor
+            new[] { 0, 5, 1, 4 },   //Cmaj7 Am7 Dm7 G7    — the turnaround; ends ON the dominant, so it circles
+            new[] { 3, 4, 0, 5 },   //Fmaj7 G7 Cmaj7 Am7  — the plagal opening
+            new[] { 6, 7, 1, 4 }    //Bm7b5 A7 Dm7 G7     — the minor ii-V into the major one, the darkest of the five
+        };
+
+        private enum JazzPart { None, Head, Bridge }
+
+        //THE HEAD: long, few, and mostly on the extensions rather than the root. Written as chord tones like
+        //everything else here, so index 3 IS the seventh of whatever is underneath — which is why this tune
+        //sounds like jazz over any of the five progressions rather than only over the one it was written on.
+        private static readonly Note[][] JAZZ_HEAD =
+        {
+            new[] { new Note(0, 3, 0, 6), new Note(6, 2, 0, 4), new Note(12, 1, 0, 4) },
+            new[] { new Note(0, 2, 0, 8), new Note(10, 3, 0, 6) },
+            new[] { new Note(0, 3, 12, 6), new Note(6, 2, 0, 6), new Note(12, 0, 12, 4) },
+            new[] { new Note(0, 1, 12, 10), new Note(10, 3, 0, 6) }
+        };
+
+        //THE BRIDGE: higher, and it moves in steps where the head leaps — the same relation Bohemia's second
+        //subject has to its theme, and for the same reason. It is what the middle of the form is for.
+        private static readonly Note[][] JAZZ_BRIDGE =
+        {
+            new[] { new Note(0, 2, 12, 4), new Note(4, 3, 12, 4), new Note(8, 2, 12, 8) },
+            new[] { new Note(0, 1, 12, 4), new Note(4, 2, 12, 4), new Note(8, 3, 12, 8) },
+            new[] { new Note(0, 3, 12, 6), new Note(6, 2, 12, 4), new Note(12, 1, 12, 4) },
+            new[] { new Note(0, 0, 12, 12) }
+        };
+
+        private readonly struct JazzSection
+        {
+            public readonly bool Kick, Ride, Brush, Bass, Pad, Comp;
+            public readonly JazzPart Part;
+            public readonly float Level;
+
+            public JazzSection(bool kick, bool ride, bool brush, bool bass, bool pad, bool comp,
+                JazzPart part, float level)
+            {
+                Kick = kick; Ride = ride; Brush = brush; Bass = bass; Pad = pad; Comp = comp;
+                Part = part; Level = level;
+            }
+        }
+
+        //Nine sections, and the form is the genre's own rather than a pop one: head, head, solo, head. What
+        //changes between them is DENSITY, not volume — this is the one piece here that never gets loud.
+        //
+        //                              kick   ride  brush  bass   pad   comp  part            level
+        private static readonly JazzSection[] JAZZ_ARRANGEMENT =
+        {
+            //0 INTRO. Keys comping alone over a held pad: the chords stated before anything counts time.
+            new(false, false, false, false, true,  true,  JazzPart.None,   0.55f),
+            //1 The bass walks in. Still no ride — the walk IS the time here, which is how the idiom does it.
+            new(false, false, false, true,  true,  true,  JazzPart.None,   0.72f),
+            //2 HEAD, the full trio: walk, ride, brushes.
+            new(true,  true,  true,  true,  false, true,  JazzPart.Head,   0.90f),
+            //3 HEAD repeated — a jazz form states its tune twice before it does anything with it.
+            new(true,  true,  true,  true,  false, true,  JazzPart.Head,   0.92f),
+            //4 BRIDGE.
+            new(true,  true,  true,  true,  true,  true,  JazzPart.Bridge, 0.95f),
+            //5 SOLO. No written tune at all: the comp and the walk carry it, which is what a solo section IS.
+            //Leaving the melody out is the arrangement's boldest move and the cheapest.
+            new(true,  true,  true,  true,  false, true,  JazzPart.None,   0.88f),
+            //6 HEAD again, out of the solo.
+            new(true,  true,  true,  true,  false, true,  JazzPart.Head,   0.94f),
+            //7 BRIDGE, fullest.
+            new(true,  true,  true,  true,  true,  true,  JazzPart.Bridge, 1.00f),
+            //8 OUTRO. Everything falls away under the fade, so the join to the next pass lands in silence
+            //exactly as the other two pieces' do.
+            new(false, false, true,  true,  true,  true,  JazzPart.None,   0.62f)
+        };
+
+        /// <summary>
+        /// What one rendering of <see cref="MusicTheme.Nocturne"/> rolls. The same rule as the other two —
+        /// random parameters, never random notes — at the slowest tempi in the set, because swung eighths at
+        /// a dance tempo stop swinging and start sounding merely early.
+        /// </summary>
+        private readonly struct JazzVariation
+        {
+            public readonly float Bpm;
+            public readonly int Transpose;
+            public readonly int[] Progression;
+            public readonly float Embellish;
+
+            public JazzVariation(Random random)
+            {
+                Bpm = 88f + (float)random.NextDouble() * 16f;   //88-104
+
+                //Whole tones and minor thirds only, the rule Pulse states: a random semitone would put two
+                //passes a half-step apart, the one interval that sounds like a mistake rather than a key.
+                int[] steps = { -3, -2, 0, 2, 3 };
+                Transpose = steps[random.Next(steps.Length)];
+
+                Progression = JAZZ_PROGRESSIONS[random.Next(JAZZ_PROGRESSIONS.Length)];
+                Embellish = 0.3f + (float)random.NextDouble() * 0.4f;
+            }
+        }
+
+        /// <summary>
+        /// How late a swung off-beat eighth lands, as a fraction of a sixteenth. <b>This is the single thing
+        /// that makes the piece jazz rather than slow pop</b>, and it is worth more than any of the chord
+        /// tables: the same notes on a straight grid read as a ballad. Two thirds of the way to the next
+        /// sixteenth is the triplet feel a swing eighth actually is (2:1); a little under it, because a fully
+        /// mechanical 2:1 reads as a shuffle rather than as a swing.
+        /// </summary>
+        private const float SWING = 0.62f;
+
+        /// <summary>
+        /// Where a step lands once the swing is applied. Only the off-beat EIGHTHS move — steps 2, 6, 10, 14
+        /// of the bar. The sixteenths between them are left where they are: swinging those too is what makes
+        /// a shuffle, and a walking bass on the beat must not move at all or the time itself wobbles.
+        /// </summary>
+        private static int SwungAt(int step, int samplesPerStep)
+        {
+            bool offBeatEighth = step % 4 == 2;
+
+            return step * samplesPerStep + (offBeatEighth ? (int)(samplesPerStep * (SWING - 0.5f) * 2f) : 0);
+        }
+
+        /// <summary>
+        /// The walking bass: one note on every beat, and the line WALKS — it steps to a neighbour or slides
+        /// chromatically into the next chord rather than restating the root. That motion is the genre's
+        /// backbone, and it is why this piece has a bass part written as an algorithm instead of as a figure.
+        /// <para>
+        /// Beat 0 is always the chord's root, so the harmony is never in doubt; beats 1 and 2 take chord tones
+        /// from the voicing above; beat 3 is the <b>approach</b> — a semitone under the next chord's root,
+        /// which is the one note that makes a walk sound inevitable rather than merely busy.
+        /// </para>
+        /// </summary>
+        private static int WalkingNote(int beat, int[] arp, int root, int nextRoot)
+        {
+            switch (beat)
+            {
+                case 0: return root;
+                case 1: return root + (arp[1] - arp[0]);          //up to the third, in the chord's own spacing
+                case 2: return root + (arp[2] - arp[0]);          //and the fifth
+                default: return nextRoot - 1;                     //the chromatic approach from below
+            }
+        }
+
+        /// <summary>
+        /// Nocturne (#162): smooth jazz — a trio playing sevenths on a swung grid. Nine sections, ~3:00 a pass.
+        /// It shares every instrument with the other two pieces except the bass, and that one exception is the
+        /// point: a dance bass is a saw held through a filter, and a walking bass is <i>plucked</i>.
+        /// </summary>
+        private static float[] BakeJazz(int seed)
+        {
+            Random random = new(seed);
+            JazzVariation variation = new(random);
+
+            float secondsPerStep = 60f / (variation.Bpm * STEPS_PER_BEAT);
+            int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
+
+            int sectionOutro = JAZZ_ARRANGEMENT.Length - 1;
+            int totalSteps = JAZZ_ARRANGEMENT.Length * STEPS_PER_SECTION;
+
+            //A bar of room past the end, so a note struck on the last beat rings out instead of being cut
+            float[] mix = NewMix(samplesPerStep * (totalSteps + STEPS_PER_BAR));
+
+            for (int step = 0; step < totalSteps; step++)
+            {
+                int at = SwungAt(step, samplesPerStep);
+                int bar = step / STEPS_PER_BAR;
+                int inBar = step % STEPS_PER_BAR;
+
+                int phrase = bar % 4;
+                int chord = variation.Progression[phrase];
+                int nextChord = variation.Progression[(phrase + 1) % 4];
+
+                int sectionIndex = bar / BARS_PER_SECTION;
+                JazzSection section = JAZZ_ARRANGEMENT[sectionIndex];
+                int barInSection = bar % BARS_PER_SECTION;
+
+                int[] arp = JAZZ_ARP[chord];
+                int root = JAZZ_ROOT[chord];
+                int transpose = variation.Transpose;
+
+                float fade = sectionIndex == sectionOutro
+                    ? 1f - (barInSection * STEPS_PER_BAR + inBar) / (float)STEPS_PER_SECTION
+                    : 1f;
+
+                float level = section.Level * fade * fade;
+                if (level <= 0.001f) continue;
+
+                //DRUMS -----------------------------------------------------------------------------------
+                //The kick is FEATHERED, not driven: quiet, on one and three, felt rather than heard. A jazz
+                //kick that lands like Pulse's would make the whole thing a pop song in a dinner jacket.
+                if (section.Kick && inBar % 8 == 0) Kick(mix, at, 0.28f * level);
+
+                //The ride is the time-keeper here, and its pattern is the idiom's own: beat, then the swung
+                //"and" of the beat, on two and four. Straight eighths all the way through would be a rock hat.
+                if (section.Ride)
+                {
+                    if (inBar % 4 == 0) Hat(mix, at, open: false, level: 0.16f * level, pan: PAN_RIDE);
+                    if (inBar == 6 || inBar == 14) Hat(mix, at, open: false, level: 0.11f * level, pan: PAN_RIDE);
+                }
+
+                //Brushes on two and four: the clap's noise burst at a fraction of its level, which is close
+                //enough to a brush's swish once it is this quiet, and one voice this piece did not need to add.
+                if (section.Brush && (inBar == 4 || inBar == 12)) Clap(mix, at, 0.22f * level);
+
+                //THE WALK --------------------------------------------------------------------------------
+                if (section.Bass && inBar % 4 == 0)
+                {
+                    int beat = inBar / 4;
+                    int note = WalkingNote(beat, arp, root, JAZZ_ROOT[nextChord]) + transpose;
+
+                    //Just short of the beat: a walking bass note is stopped by the next one, which is what
+                    //gives the line its pulse rather than a legato drone.
+                    UprightBass(mix, at, note, secondsPerStep * 3.4f, 0.85f * level);
+                }
+
+                //THE COMP --------------------------------------------------------------------------------
+                //Keys, off the beat and sparse. Comping is defined by where it does NOT play: on the beat it
+                //would double the walk and the two would fight for the same slot.
+                //Its four notes are seated ACROSS the field rather than all on the keys' own seat: a chord is
+                //what two hands are doing at once, and stacking it on one spot is also what was left of the
+                //piece's lean once the tune moved to the middle.
+                if (section.Comp && (inBar == 2 || inBar == 10))
+                {
+                    for (int voice = 0; voice < arp.Length; voice++)
+                        Keys(mix, at, arp[voice] + transpose - 12, secondsPerStep * 5.5f, 0.085f * level,
+                            pan: ChordPan(voice, arp.Length, PAN_PAD_SPREAD));
+                }
+
+                //An extra stab on the "and" of four, rolled per pass — the one place this piece is allowed to
+                //be busy, and it is what stops eight bars of comping being eight identical bars.
+                if (section.Comp && inBar == 14 && random.NextDouble() < variation.Embellish)
+                {
+                    for (int voice = 0; voice < arp.Length; voice++)
+                        Keys(mix, at, arp[voice] + transpose - 12, secondsPerStep * 2.5f, 0.06f * level,
+                            pan: ChordPan(voice, arp.Length, PAN_PAD_SPREAD));
+                }
+
+                //THE PAD ---------------------------------------------------------------------------------
+                if (section.Pad && inBar == 0)
+                    for (int voice = 0; voice < arp.Length; voice++)
+                        Pad(mix, at, arp[voice] + transpose - 12, secondsPerStep * 15.5f, 0.075f * level,
+                            pan: ChordPan(voice, arp.Length, PAN_PAD_SPREAD));
+
+                //THE TUNE --------------------------------------------------------------------------------
+                if (section.Part == JazzPart.None) continue;
+
+                Note[] line = section.Part == JazzPart.Head ? JAZZ_HEAD[phrase] : JAZZ_BRIDGE[phrase];
+
+                foreach (Note note in line)
+                {
+                    if (note.Step != inBar) continue;
+
+                    int pitch = arp[note.Tone] + note.Octave + transpose;
+
+                    //On the Keys rather than the supersaw: the Rhodes IS the mellow lead this genre wants,
+                    //and it was already here for the lobby's line. The one voice the piece did not have to
+                    //invent, which is most of why this theme cost a table and a bass rather than a synth.
+                    //
+                    //CENTRED, unlike the comp above it: this voice plays both parts here, and leaving the tune
+                    //on the keys' own left seat leaned the whole piece 1.9 dB (measured). The soloist stands
+                    //in the middle and the accompanist sits to one side, which is also how the trio would.
+                    Keys(mix, at, pitch, secondsPerStep * (note.Length + 1.5f), 0.30f * level, pan: PAN_CENTRE);
+                }
+            }
+
+            //The SAME target the other two take, and that is not a detail: this piece is quieter by
+            //arrangement — a trio against a dance floor and an orchestra — and letting it also be quieter by
+            //level would put a 2 dB drop between two levels of one set. It measured exactly that at 0.16
+            //before this number was matched to Pulse's. The intimacy has to come from what is playing.
+            Limit(mix, targetRms: 0.20f, ceiling: 0.95f);
+
+            return mix;
+        }
+
+        #endregion
+
         #region The front end's piece
 
         /// <summary>
@@ -1814,6 +2136,56 @@ namespace BS3D.Audio
             }
         }
 
+        /// <summary>
+        /// The upright bass (#162): the one voice Nocturne had to add, and the reason is the attack rather
+        /// than the pitch. <see cref="Bass"/> is a saw held open through a filter that sweeps with the note —
+        /// a dance bass, and what it does is <i>sustain</i>. A double bass is <b>plucked</b>: the string is
+        /// pulled and released, so almost all of the sound is in the first fifty milliseconds and what follows
+        /// is a woody body dying away. Four things make it one:
+        /// <list type="bullet">
+        /// <item><b>A triangle, not a saw.</b> A gut-and-wood string is nearly all fundamental with a little
+        /// odd harmonic over it; a saw has every harmonic and comes out as a synth however it is filtered.</item>
+        /// <item><b>The pluck is a separate transient</b> — a few milliseconds of filtered noise, the finger
+        /// leaving the string — because a bass with no finger noise reads as a sine and not as a player.</item>
+        /// <item><b>The filter closes as the note decays</b> rather than opening: a plucked string loses its
+        /// top end first, which is the opposite of the dance bass's sweep and is most of the difference.</item>
+        /// <item><b>It is centred</b>, with the low-end rule the stereo region states.</item>
+        /// </list>
+        /// </summary>
+        private static void UprightBass(float[] mix, int at, int note, float seconds, float level)
+        {
+            int length = (int)(SAMPLE_RATE * seconds);
+            int frames = Frames(mix);
+            float freq = Frequency(note);
+            float phase = 0f, lp = 0f;
+
+            PanGains(PAN_CENTRE, out float gainLeft, out float gainRight);
+
+            for (int i = 0; i < length && at + i < frames; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                //Struck at once and gone steadily: a plucked string has no attack to speak of and no sustain.
+                float env = MathF.Min(1f, t / 0.006f) * MathF.Exp(-t * 3.2f);
+                if (env <= 0.0005f) break;
+
+                phase += freq / SAMPLE_RATE;
+                if (phase >= 1f) phase -= 1f;
+
+                //Triangle from the phase: |2x-1| folded, which is a pure odd-harmonic shape with the harmonics
+                //falling off as 1/n^2 - the string's own spectrum, near enough, and free of the saw's buzz.
+                float triangle = 4f * MathF.Abs(phase - 0.5f) - 1f;
+
+                //The body closes down as it dies. Starting near 900 Hz and settling towards 200 is what makes
+                //it read as wood rather than as a filter sweep in the other direction.
+                lp += CutoffToAlpha(200f + 700f * env) * (triangle - lp);
+
+                float pluck = t < 0.012f ? Noise(i, 97) * 0.28f * (1f - t / 0.012f) : 0f;
+
+                Add(mix, at + i, (lp * 0.9f + pluck) * level * env, gainLeft, gainRight);
+            }
+        }
+
         /// <summary>The arpeggio: a plain square, short and quiet. The DOS-era voice, and it is meant to sound like one.</summary>
         /// <param name="pan">
         /// Where this note sits. The arrangement ping-pongs it (see <see cref="PAN_ARP"/>) — the sixteenths
@@ -1850,7 +2222,12 @@ namespace BS3D.Audio
         /// to carry a slow quarter note instead of plinking into a hole, and a shallow slow tremolo so the
         /// ring stays alive on the way down.
         /// </summary>
-        private static void Keys(float[] mix, int at, int note, float seconds, float level)
+        /// <param name="pan">
+        /// Where it sits. Defaults to the keys' own seat — but Nocturne plays the comp AND the tune on this
+        /// one voice, and leaving both on that seat leaned the whole piece 1.9 dB left (measured). A part that
+        /// carries a piece on its own belongs in the middle; it is the accompanist that moves.
+        /// </param>
+        private static void Keys(float[] mix, int at, int note, float seconds, float level, float pan = PAN_KEYS)
         {
             int length = (int)(SAMPLE_RATE * seconds);
             int frames = Frames(mix);
@@ -1858,7 +2235,7 @@ namespace BS3D.Audio
 
             //Left of centre, opposite the hats: in the lobby piece the keys carry the line over almost nothing
             //else, so giving them their own side is most of what stops that piece sounding like one speaker.
-            PanGains(PAN_KEYS, out float gainLeft, out float gainRight);
+            PanGains(pan, out float gainLeft, out float gainRight);
 
             for (int i = 0; i < length && at + i < frames; i++)
             {
