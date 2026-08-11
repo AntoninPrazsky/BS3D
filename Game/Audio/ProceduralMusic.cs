@@ -6,6 +6,28 @@ using System.Threading.Tasks;
 namespace BS3D.Audio
 {
     /// <summary>
+    /// Which composition a level plays (#120). Not a style setting and not a mood: each is a separate piece of
+    /// music with its own mode, its own tunes and its own form, sharing only this file's instruments and its
+    /// one rule — random parameters, never random notes.
+    /// <para>
+    /// A small curated pool rather than anything generative, deliberately. Both pieces are hand-arranged by ear
+    /// against measurements, and that craft is exactly what composing from scratch at runtime would lose.
+    /// </para>
+    /// </summary>
+    public enum MusicTheme
+    {
+        /// <summary>The original: eurodance, A minor, nine sections, ~2:00 a pass. Level One's theme.</summary>
+        Pulse,
+
+        /// <summary>
+        /// The second (#120): D Dorian over the same dance floor, with a string section, brass pillars and a
+        /// tuned drum over it — a statement, a second subject and a coda that brings it back, twelve sections
+        /// and ~3:20 a pass.
+        /// </summary>
+        Bohemia
+    }
+
+    /// <summary>
     /// The level theme: a two-minute eurodance track synthesized from raw PCM and played on a loop. No tracker
     /// file, no asset, no pipeline step — the score is a handful of arrays and the instruments are oscillators,
     /// the same line the sound effects, the meshes and the surface textures all take. The same instruments
@@ -29,10 +51,12 @@ namespace BS3D.Audio
         private const int STEPS_PER_BEAT = 4;      //sixteenths
         private const int STEPS_PER_BAR = 16;
 
+        //Both compositions are eight bars to a section; how MANY sections is each one's own business, and is
+        //read off its own arrangement table rather than stated here — Pulse is nine (~2:00) and Bohemia twelve
+        //(~3:20), and a shared SECTIONS constant is exactly the thing that would have quietly truncated the
+        //second one to the first one's length.
         private const int BARS_PER_SECTION = 8;
-        private const int SECTIONS = 9;   //intro, verse, chorus, breakdown, verse, chorus, build, chorus, outro
-        private const int BARS = BARS_PER_SECTION * SECTIONS;   //64 bars ≈ 2:00 at 128 BPM
-        private const int TOTAL_STEPS = BARS * STEPS_PER_BAR;
+        private const int STEPS_PER_SECTION = BARS_PER_SECTION * STEPS_PER_BAR;
 
         /// <summary>
         /// The authored level of the music, well under the effects — a soundtrack is not an event. A constant
@@ -201,7 +225,6 @@ namespace BS3D.Audio
         };
 
         private const int SECTION_INTRO = 0;
-        private const int SECTION_OUTRO = SECTIONS - 1;
 
         /// <summary>
         /// The score at which a fanfare is at its fullest. There is no natural maximum to a level's score, so
@@ -216,6 +239,7 @@ namespace BS3D.Audio
 
         private readonly Random _seeds;
 
+        private MusicTheme _theme;        //which composition passes are rendered from; see SetTheme
         private Task<float[]> _next;      //the pass after the one playing, baking on a background thread
         private SoundEffect _track;
         private SoundEffectInstance _instance;
@@ -287,7 +311,59 @@ namespace BS3D.Audio
         private Task<float[]> StartBake()
         {
             int seed = _seeds.Next();
-            return Task.Run(() => Bake(seed));
+            MusicTheme theme = _theme;
+
+            return Task.Run(() => theme == MusicTheme.Bohemia ? BakeBohemia(seed) : Bake(seed));
+        }
+
+        /// <summary>
+        /// Which composition the next pass is rendered from (#120). Called from the level's own install, so a
+        /// level set alternates pieces rather than replaying one for an evening.
+        /// <para>
+        /// Changing it throws away <b>both</b> the pass in hand and the one loaded but not sounding, and that
+        /// second half is the part worth stating: <see cref="Advance"/>'s fallback is to replay the loaded pass
+        /// when the next is not ready, which is right in the middle of a level and wrong here — it would play
+        /// the previous level's piece for its whole length. Two seconds of silence while the new one bakes is
+        /// the better failure, and <see cref="Update"/> starts it the frame it lands.
+        /// </para>
+        /// </summary>
+        public void SetTheme(MusicTheme theme)
+        {
+            if (_failed || theme == _theme) return;
+
+            _theme = theme;
+            _next = StartBake();
+
+            _instance?.Stop();
+            _instance?.Dispose();
+            _track?.Dispose();
+            _instance = null;
+            _track = null;
+        }
+
+        /// <summary>The composition a level asks for by name, falling back to the pool's own rotation.</summary>
+        /// <param name="named">
+        /// The level file's <c>music</c> field, or null when it names none. Parsed rather than cast, for the
+        /// reason the scene names are: it is a hand-editable file, and an unknown spelling has to mean "the
+        /// default" rather than an exception.
+        /// </param>
+        /// <param name="index">
+        /// The level's place in the set, which is what picks when nothing is named. Cycling by position is why
+        /// no level file has to say anything at all to get variety — and why level one still opens on
+        /// <see cref="MusicTheme.Pulse"/>, the piece it was written for.
+        /// </param>
+        public static MusicTheme ThemeFor(string named, int index)
+        {
+            if (!string.IsNullOrWhiteSpace(named))
+                switch (named.Trim().ToLowerInvariant())
+                {
+                    case "pulse": return MusicTheme.Pulse;
+                    case "bohemia": return MusicTheme.Bohemia;
+                }
+
+            int count = Enum.GetValues(typeof(MusicTheme)).Length;
+
+            return (MusicTheme)(((index % count) + count) % count);
         }
 
         /// <summary>Starts the music, or does nothing if it is already sounding.</summary>
@@ -488,12 +564,15 @@ namespace BS3D.Audio
             float secondsPerStep = 60f / (variation.Bpm * STEPS_PER_BEAT);
             int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
 
+            int sectionOutro = ARRANGEMENT.Length - 1;
+            int totalSteps = ARRANGEMENT.Length * STEPS_PER_SECTION;
+
             //A whole number of samples per step, and the track's length taken FROM that rather than from the
             //nominal tempo: rounding per step and then trusting the nominal length leaves a fraction of a step
             //of silence at the seam.
-            float[] mix = new float[samplesPerStep * TOTAL_STEPS];
+            float[] mix = new float[samplesPerStep * totalSteps];
 
-            for (int step = 0; step < TOTAL_STEPS; step++)
+            for (int step = 0; step < totalSteps; step++)
             {
                 int at = step * samplesPerStep;
                 int bar = step / STEPS_PER_BAR;
@@ -515,8 +594,8 @@ namespace BS3D.Audio
                 //The intro holds its drums back for its first half, so the track begins by arriving. The outro
                 //fades over its whole length, which is what lets one pass hand over to the next in silence.
                 bool introQuiet = sectionIndex == SECTION_INTRO && barInSection < 4;
-                float fade = sectionIndex == SECTION_OUTRO
-                    ? 1f - (barInSection * STEPS_PER_BAR + inBar) / (float)(BARS_PER_SECTION * STEPS_PER_BAR)
+                float fade = sectionIndex == sectionOutro
+                    ? 1f - (barInSection * STEPS_PER_BAR + inBar) / (float)STEPS_PER_SECTION
                     : 1f;
 
                 level *= fade * fade;
@@ -547,7 +626,7 @@ namespace BS3D.Audio
                 //in dance music and still the one that works.
                 if (section.Roll)
                 {
-                    float through = (barInSection * STEPS_PER_BAR + inBar) / (float)(BARS_PER_SECTION * STEPS_PER_BAR);
+                    float through = (barInSection * STEPS_PER_BAR + inBar) / (float)STEPS_PER_SECTION;
 
                     //Doubles to thirty-seconds over the last quarter — the acceleration is what sells it.
                     bool hit = through < 0.75f ? inBar % 4 == 2 : inBar % 2 == 0;
@@ -624,6 +703,379 @@ namespace BS3D.Audio
 
             return mix;
         }
+
+        #endregion
+
+        #region Bohemia — the second theme (#120)
+
+        //D DORIAN, and the mode is the whole point of a second pool. Pulse is A natural minor, whose colour is
+        //the flat sixth; Dorian raises that sixth — here the B natural inside the G major chord — which is the
+        //sound of the folk idiom this piece is written after. One chord is the difference between "minor" and
+        //"modal", and it is the MAJOR chord a step below the relative major, i.e. the one nobody expects.
+        //
+        //The roots are voiced so the cadence Bb -> C -> Dm walks UP by whole steps in the bass (46, 48, 50),
+        //which is the most heroic move harmony owns and is why they sit where they do rather than at whatever
+        //octave was nearest.
+        private static readonly int[] BOHEMIA_ROOT = { 50, 43, 46, 48, 41, 45 };   //Dm G Bb C F Am
+
+        private static readonly int[][] BOHEMIA_ARP =
+        {
+            new[] { 62, 65, 69, 74 },   //Dm: D4 F4 A4 D5
+            new[] { 55, 59, 62, 67 },   //G : G3 B3 D4 G4   — the Dorian major IV
+            new[] { 58, 62, 65, 70 },   //Bb: Bb3 D4 F4 Bb4
+            new[] { 60, 64, 67, 72 },   //C : C4 E4 G4 C5
+            new[] { 53, 57, 60, 65 },   //F : F3 A3 C4 F4
+            new[] { 57, 60, 64, 69 }    //Am: A3 C4 E4 A4
+        };
+
+        //Every one opens on the tonic and three of the five end on C, the flat seventh, which resolves up a
+        //whole step onto the Dm at the top of the loop — so the four-bar round cadences rather than merely
+        //restarting. That is what a progression has to do in a piece with an arch over it.
+        private static readonly int[][] BOHEMIA_PROGRESSIONS =
+        {
+            new[] { 0, 4, 2, 3 },   //Dm F  Bb C  — i ♭III ♭VI ♭VII, the climb
+            new[] { 0, 1, 2, 3 },   //Dm G  Bb C  — the Dorian IV, then the climb
+            new[] { 0, 5, 2, 3 },   //Dm Am Bb C
+            new[] { 0, 3, 4, 1 },   //Dm C  F  G  — the modal turn, ending bright
+            new[] { 0, 2, 3, 0 }    //Dm Bb C  Dm — the cadence stated inside the round
+        };
+
+        //THE THEME: a four-bar sentence, which is what makes it hummable and what Pulse's chorus is not.
+        //Statement (bar 0), the SAME rhythmic cell a step higher (bar 1 — a sequence, and the single oldest
+        //trick for making a tune sound inevitable), an answer that falls (bar 2), and the climax an octave up
+        //(bar 3). Long notes and few of them: this is meant to be the tune the player leaves humming.
+        private static readonly Note[][] BOHEMIA_THEME =
+        {
+            new[] { new Note(0, 0, 12, 6), new Note(6, 1, 12, 2), new Note(8, 2, 12, 8) },
+            new[] { new Note(0, 1, 12, 6), new Note(6, 2, 12, 2), new Note(8, 3, 12, 8) },
+            new[] { new Note(0, 3, 12, 4), new Note(4, 2, 12, 4), new Note(8, 1, 12, 8) },
+            new[] { new Note(0, 3, 24, 10), new Note(10, 2, 24, 3), new Note(13, 3, 12, 3) }
+        };
+
+        //THE SECOND SUBJECT, and a piece with an arch needs one: somewhere to go that is not the tune and not
+        //a hole. Everything about it is the theme's opposite — stepwise where the theme leaps, two notes to a
+        //bar where the theme has three, and played by the keys under strings rather than by the lead. It comes
+        //back in the coda over the full floor, which is the moment the whole arrangement is built towards.
+        private static readonly Note[][] BOHEMIA_SECOND =
+        {
+            new[] { new Note(0, 2, 12, 10), new Note(10, 1, 12, 6) },
+            new[] { new Note(0, 0, 12, 8), new Note(8, 1, 12, 8) },
+            new[] { new Note(0, 2, 12, 10), new Note(10, 3, 12, 6) },
+            new[] { new Note(0, 2, 12, 12), new Note(12, 0, 12, 4) }
+        };
+
+        //The verse: busier, so the theme has somewhere to arrive from. Same contract as Pulse's.
+        private static readonly Note[] BOHEMIA_VERSE =
+        {
+            new(0, 0, 12, 2), new(2, 2, 12, 2), new(4, 1, 12, 3),
+            new(8, 3, 12, 2), new(11, 2, 12, 1), new(12, 1, 12, 4)
+        };
+
+        //The turnaround, and it RISES where Pulse's falls — an eight-note scale run up into the next section.
+        //A descending fill hands a phrase on; an ascending one throws it.
+        private static readonly Note[] BOHEMIA_FILL =
+        {
+            new(8, 0, 0, 1), new(9, 1, 0, 1), new(10, 2, 0, 1), new(11, 3, 0, 1),
+            new(12, 0, 12, 1), new(13, 1, 12, 1), new(14, 2, 12, 1), new(15, 3, 12, 1)
+        };
+
+        /// <summary>Which line, if any, a Bohemia section carries — and the voice follows from it.</summary>
+        private enum BohemiaPart { None, Verse, Theme, Second }
+
+        /// <summary>
+        /// What plays during one eight-bar section of <see cref="MusicTheme.Bohemia"/>. It carries more flags
+        /// than Pulse's <see cref="Section"/> because it has more to arrange: a string section, a brass
+        /// underpinning and a tuned drum, none of which the dance track has any use for.
+        /// </summary>
+        private readonly struct BohemiaSection
+        {
+            public readonly bool Kick, HalfKick, Clap, Hats, Ride, Bass, Arp, Pad, Str, Brass, Timp, Roll;
+            public readonly BohemiaPart Part;
+            public readonly bool PartOnStrings;   //the line is bowed rather than played by the lead
+            public readonly float Level;
+
+            public BohemiaSection(bool kick, bool halfKick, bool clap, bool hats, bool ride, bool bass, bool arp,
+                bool pad, bool str, bool brass, bool timp, bool roll, BohemiaPart part, bool partOnStrings, float level)
+            {
+                Kick = kick; HalfKick = halfKick; Clap = clap; Hats = hats; Ride = ride; Bass = bass;
+                Arp = arp; Pad = pad; Str = str; Brass = brass; Timp = timp; Roll = roll;
+                Part = part; PartOnStrings = partOnStrings; Level = level;
+            }
+        }
+
+        //TWELVE sections against Pulse's nine, and the extra three are the reason this exists: a statement
+        //before the floor arrives, a second subject in the middle, and a coda that brings it back. Roughly
+        //3:20 a pass at the tempi below.
+        //
+        //                                   kick  half   clap  hats  ride  bass   arp   pad   str  brass timp  roll  part                    bowed  level
+        private static readonly BohemiaSection[] BOHEMIA_ARRANGEMENT =
+        {
+            //0 INTRO. No kit and no bass at all: a timpani on the downbeat under a held string chord, which is
+            //how a symphonic piece tells you it has started. The pad fills under it.
+            new(false, false, false, false, false, false, false, true,  true,  false, true,  false, BohemiaPart.None,   false, 0.60f),
+            //1 STATEMENT. The tune, BOWED, over a half-time kick — the floor is not here yet, and the theme
+            //arriving before the beat does is what makes the beat's arrival mean something.
+            new(false, true,  false, true,  false, false, true,  false, true,  true,  true,  false, BohemiaPart.Theme,  true,  0.86f),
+            //2 VERSE. The floor arrives whole: four on the floor, the off-beat bass pump, the sixteenth arp.
+            new(true,  false, true,  true,  false, true,  true,  false, true,  false, false, false, BohemiaPart.Verse,  false, 0.95f),
+            //3 CHORUS. The theme on the lead with the strings under it and brass on the pillars.
+            new(true,  false, true,  true,  true,  true,  true,  false, true,  true,  true,  false, BohemiaPart.Theme,  false, 1.00f),
+            //4 SECOND SUBJECT. Kick out. Not a breakdown — a different tune, which is a far better reason to
+            //take the drums away than a gap is.
+            new(false, false, false, true,  false, false, true,  true,  true,  false, false, false, BohemiaPart.Second, false, 0.82f),
+            //5 VERSE, the floor back under it.
+            new(true,  false, true,  true,  false, true,  true,  false, true,  false, false, false, BohemiaPart.Verse,  false, 0.95f),
+            //6 CHORUS.
+            new(true,  false, true,  true,  true,  true,  true,  false, true,  true,  true,  false, BohemiaPart.Theme,  false, 1.00f),
+            //7 DEVELOPMENT. Drums out, the theme bowed and bare over a timpani pulse — the piece looking at its
+            //own tune rather than playing it.
+            new(false, false, false, false, false, false, true,  true,  true,  false, true,  false, BohemiaPart.Theme,  true,  0.84f),
+            //8 BUILD. The roll, the timpani accelerating under it, no melody — everything pointing forwards.
+            new(true,  false, false, true,  true,  true,  true,  false, true,  false, true,  true,  BohemiaPart.None,   false, 0.92f),
+            //9 CLIMAX. Everything at once, the theme doubled by the strings.
+            new(true,  false, true,  true,  true,  true,  true,  true,  true,  true,  true,  false, BohemiaPart.Theme,  false, 1.00f),
+            //10 CODA. The second subject returned over the full floor — the quiet middle tune made the big one,
+            //which is the single most reliable way a piece can end up somewhere it started out from.
+            new(true,  false, true,  true,  true,  true,  true,  true,  true,  true,  true,  false, BohemiaPart.Second, false, 0.98f),
+            //11 OUTRO. Falls away under a fade, so the handover to the next pass lands in silence exactly as
+            //Pulse's does.
+            new(false, true,  false, true,  false, true,  true,  true,  true,  false, true,  false, BohemiaPart.None,   false, 0.70f)
+        };
+
+        /// <summary>
+        /// What one rendering of <see cref="MusicTheme.Bohemia"/> rolls for itself. The same rule as
+        /// <see cref="Variation"/> — random parameters, never random notes — at a slower band of tempi, because
+        /// a piece carrying held string chords and a tuned drum needs the room and reads as grand at a speed
+        /// where it would read as merely slow without them.
+        /// </summary>
+        private readonly struct BohemiaVariation
+        {
+            public readonly float Bpm;
+            public readonly int Transpose;
+            public readonly int[] Progression;
+            public readonly bool ArpDown;
+            public readonly float Embellish;
+            public readonly float Flam;      //chance of a grace note ahead of a timpani stroke
+
+            public BohemiaVariation(Random random)
+            {
+                Bpm = 112f + (float)random.NextDouble() * 10f;
+
+                int[] keys = { -3, -2, 0, 0, 2, 3, 5 };
+                Transpose = keys[random.Next(keys.Length)];
+
+                Progression = BOHEMIA_PROGRESSIONS[random.Next(BOHEMIA_PROGRESSIONS.Length)];
+                ArpDown = random.NextDouble() < 0.35;
+                Embellish = 0.16f + (float)random.NextDouble() * 0.20f;
+                Flam = 0.18f + (float)random.NextDouble() * 0.24f;
+            }
+        }
+
+        /// <summary>
+        /// Renders <see cref="MusicTheme.Bohemia"/>: the second level theme (#120), a modal piece with a real
+        /// arch over a dance floor. It shares this file's instruments, its chord-tone melodies and its limiter
+        /// with <see cref="Bake"/> and nothing else — its own mode, its own tunes, its own twelve-section form.
+        /// <para>
+        /// The floor is deliberately kept underneath it rather than replaced. BS3D's musical language is the
+        /// eurodance of the first theme; a purely orchestral piece would be a better piece of music and a worse
+        /// piece of <i>this game</i>, and the player switching levels should hear a second work by the same
+        /// hand, not a second soundtrack.
+        /// </para>
+        /// </summary>
+        private static float[] BakeBohemia(int seed)
+        {
+            Random random = new(seed);
+            BohemiaVariation variation = new(random);
+
+            float secondsPerStep = 60f / (variation.Bpm * STEPS_PER_BEAT);
+            int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
+
+            int sectionOutro = BOHEMIA_ARRANGEMENT.Length - 1;
+            int totalSteps = BOHEMIA_ARRANGEMENT.Length * STEPS_PER_SECTION;
+
+            float[] mix = new float[samplesPerStep * totalSteps];
+
+            for (int step = 0; step < totalSteps; step++)
+            {
+                int at = step * samplesPerStep;
+                int bar = step / STEPS_PER_BAR;
+                int inBar = step % STEPS_PER_BAR;
+
+                int phrase = bar % 4;
+                int chord = variation.Progression[phrase];
+
+                int sectionIndex = bar / BARS_PER_SECTION;
+                BohemiaSection section = BOHEMIA_ARRANGEMENT[sectionIndex];
+                int barInSection = bar % BARS_PER_SECTION;
+
+                int[] arp = BOHEMIA_ARP[chord];
+                int root = BOHEMIA_ROOT[chord];
+                int transpose = variation.Transpose;
+
+                bool lastBar = barInSection == BARS_PER_SECTION - 1;
+
+                float fade = sectionIndex == sectionOutro
+                    ? 1f - (barInSection * STEPS_PER_BAR + inBar) / (float)STEPS_PER_SECTION
+                    : 1f;
+
+                float level = section.Level * fade * fade;
+                if (level <= 0.001f) continue;
+
+                //DRUMS ---------------------------------------------------------------------------------
+                if (section.Kick && inBar % 4 == 0) Kick(mix, at, level);
+
+                //The statement's half-time kick: beats one and three only. It is the same drum saying "this is
+                //not the dance yet", and it costs one flag.
+                if (section.HalfKick && inBar % 8 == 0) Kick(mix, at, 0.85f * level);
+
+                if (section.Clap && (inBar == 4 || inBar == 12)) Clap(mix, at, level);
+
+                if (section.Hats && inBar % 2 == 0)
+                    Hat(mix, at, open: inBar % 4 == 2, level: 0.26f * level);
+
+                if (section.Ride) Hat(mix, at, open: false, level: 0.10f * level);
+
+                //THE TIMPANI. On the bar's downbeat, tuned to the chord's own root two octaves down, so it is
+                //playing the harmony rather than marking time — which is the whole reason this piece has a
+                //pitched drum and Pulse does not.
+                if (section.Timp && inBar == 0)
+                {
+                    //A grace note a sixteenth ahead of the stroke, rolled per bar. A flam is what a timpanist
+                    //does instead of playing a bar-line exactly, and it is the one thing that stops a drum on
+                    //every downbeat sounding like a metronome with a pitch.
+                    if (random.NextDouble() < variation.Flam && at >= samplesPerStep)
+                        Timpani(mix, at - samplesPerStep, root - 12 + transpose, 0.22f * level);
+
+                    Timpani(mix, at, root - 12 + transpose, 0.62f * level);
+                }
+
+                //The cadence stroke: the fourth bar of every phrase gets a second timpani on beat three, which
+                //is where the harmony is turning back to the tonic.
+                if (section.Timp && phrase == 3 && inBar == 8)
+                    Timpani(mix, at, root - 12 + transpose, 0.40f * level);
+
+                if (lastBar && inBar >= 12 && (section.Kick || section.HalfKick))
+                    Tom(mix, at, 138f - (inBar - 12) * 16f, level);
+
+                if (section.Roll)
+                {
+                    float through = (barInSection * STEPS_PER_BAR + inBar) / (float)STEPS_PER_SECTION;
+
+                    bool hit = through < 0.75f ? inBar % 4 == 2 : inBar % 2 == 0;
+                    if (hit) Snare(mix, at, 0.18f + 0.55f * through * through);
+
+                    //The timpani accelerates with the roll: every bar in the first half, every half bar in the
+                    //second. A build that only gets louder is a fade run backwards.
+                    if (inBar == 0 || (through > 0.5f && inBar == 8))
+                        Timpani(mix, at, root - 12 + transpose, (0.35f + 0.45f * through) * level);
+                }
+
+                //BASS ----------------------------------------------------------------------------------
+                if (section.Bass)
+                {
+                    if (inBar % 4 == 2) Bass(mix, at, root + 12 + transpose, secondsPerStep * 1.7f, level);
+                    if (inBar == 0) Bass(mix, at, root + transpose, secondsPerStep * 1.4f, level);
+
+                    if (inBar % 4 == 3 && random.NextDouble() < variation.Embellish * 0.6f)
+                        Bass(mix, at, root + 24 + transpose, secondsPerStep * 0.8f, level * 0.7f);
+                }
+
+                //STRINGS -------------------------------------------------------------------------------
+                //The bed: the whole chord held across the bar. It is what the piece stands on, and it is at a
+                //low level per note precisely because there are four of them sounding at once.
+                if (section.Str && inBar == 0)
+                    foreach (int note in arp)
+                        Strings(mix, at, note + transpose, secondsPerStep * 15.4f, 0.055f * level);
+
+                //PAD -----------------------------------------------------------------------------------
+                if (section.Pad && inBar == 0)
+                    foreach (int note in arp) Pad(mix, at, note + transpose, secondsPerStep * 15.5f, 0.07f * level);
+
+                //BRASS ---------------------------------------------------------------------------------
+                //The pillars: the chord root low and long under the downbeat, and the fifth above it in the
+                //biggest sections. Brass here is architecture rather than melody — it is what the tune leans on.
+                if (section.Brass && inBar == 0)
+                {
+                    Brass(mix, at, root + 12 + transpose, secondsPerStep * 7.2f, 0.16f * level);
+
+                    if (section.Ride) Brass(mix, at, arp[2] + transpose, secondsPerStep * 7.2f, 0.10f * level);
+                }
+
+                //ARPEGGIO ------------------------------------------------------------------------------
+                if (section.Arp)
+                {
+                    int arpStep = inBar % 8;
+                    int index = arpStep < 4 ? arpStep : 7 - arpStep;
+                    if (variation.ArpDown) index = 3 - index;
+
+                    Arp(mix, at, arp[index] + 12 + transpose, secondsPerStep * 0.9f, 0.13f * level);
+                }
+
+                //THE LINE ------------------------------------------------------------------------------
+                if (section.Part == BohemiaPart.None) continue;
+
+                if (lastBar)
+                {
+                    foreach (Note note in BOHEMIA_FILL)
+                        if (note.Step == inBar)
+                            Lead(mix, at, arp[note.Tone] + note.Octave + transpose, secondsPerStep * 1.5f, 0.28f * level);
+
+                    continue;
+                }
+
+                Note[] line = section.Part switch
+                {
+                    BohemiaPart.Theme => BOHEMIA_THEME[phrase],
+                    BohemiaPart.Second => BOHEMIA_SECOND[phrase],
+                    _ => BOHEMIA_VERSE
+                };
+
+                foreach (Note note in line)
+                {
+                    if (note.Step != inBar) continue;
+
+                    int pitch = arp[note.Tone] + note.Octave + transpose;
+                    float seconds = secondsPerStep * (note.Length + 0.6f);
+
+                    if (section.PartOnStrings)
+                    {
+                        //Bowed, and doubled an octave down: a single string line up in the lead's register is
+                        //thin, and the octave underneath is what a section actually sounds like.
+                        Strings(mix, at, pitch, seconds, 0.20f * level);
+                        Strings(mix, at, pitch - 12, seconds, 0.13f * level);
+                    }
+                    else if (section.Part == BohemiaPart.Second)
+                    {
+                        //The lyrical subject is struck rather than blown: the keys state it and the strings
+                        //hold under it, which is the orchestration that tells the ear this is the other tune.
+                        Keys(mix, at, pitch, seconds, 0.30f * level);
+                        if (section.Str) Strings(mix, at, pitch - 12, seconds, 0.11f * level);
+                    }
+                    else
+                    {
+                        Lead(mix, at, pitch, seconds, (section.Part == BohemiaPart.Theme ? 0.34f : 0.27f) * level);
+
+                        //The climax doubles the tune with the section an octave down — the one place both
+                        //families play the same notes, which is what makes it the climax.
+                        if (section.Part == BohemiaPart.Theme && section.Pad)
+                            Strings(mix, at, pitch - 12, seconds, 0.15f * level);
+                    }
+                }
+
+                //One extra chord tone in the gap the verse leaves, on the grid and drawn from the chord — the
+                //same rule the whole variation scheme runs on.
+                if (section.Part == BohemiaPart.Verse && inBar == 6 && random.NextDouble() < variation.Embellish)
+                    Lead(mix, at, arp[3] + 12 + transpose, secondsPerStep * 1.2f, 0.22f * level);
+            }
+
+            Limit(mix, targetRms: 0.20f, ceiling: 0.95f);
+
+            return mix;
+        }
+
+        #endregion
+
+        #region The front end's piece
 
         /// <summary>
         /// The front end's piece (#46): a small arrangement of its own rather than one texture. It opens on
@@ -1291,6 +1743,108 @@ namespace BS3D.Audio
                 float sub = MathF.Sin(subPhase) * 0.5f;
 
                 mix[at + i] += (lp2 + sub) * level * env;
+            }
+        }
+
+        /// <summary>
+        /// The string section (#120), and it is the one voice <see cref="MusicTheme.Bohemia"/> could not be
+        /// written without: everything else in this file is a dance instrument, and a piece meant to sound
+        /// symphonic played entirely on them is a dance track with pretensions.
+        /// <para>
+        /// Four things separate a section from the <see cref="Pad"/>'s three detuned saws, and the first two do
+        /// most of the work:
+        /// </para>
+        /// <list type="bullet">
+        /// <item><b>Seven oscillators spread UNEVENLY.</b> Evenly spaced detunes beat against each other at one
+        /// rate and read as a chorus effect on one instrument; irrational-ish spacings give the dense,
+        /// directionless shimmer of many players who each missed the pitch by their own amount.</item>
+        /// <item><b>The vibrato is per oscillator and FADES IN.</b> A section does not start vibrating — the
+        /// players lean into the note — and if they all leaned at the same rate it would be one violinist
+        /// through a chorus pedal. Each has its own rate near 5 Hz and its own phase.</item>
+        /// <item><b>A bow, not a key.</b> ~110 ms of attack shaped so the note arrives rather than starts, and
+        /// a release long enough that successive notes overlap into a line.</item>
+        /// <item><b>Two poles, and the cutoff rides the envelope</b> — a section played louder is brighter, the
+        /// same reason <see cref="Brass"/> sweeps. One pole leaves the top hissing, which is what stops a bank
+        /// of saws sounding like an instrument.</item>
+        /// </list>
+        /// </summary>
+        private static void Strings(float[] mix, int at, int note, float seconds, float level)
+        {
+            int length = (int)(SAMPLE_RATE * seconds);
+            float freq = Frequency(note);
+
+            //Uneven on purpose (see the remarks): no two gaps here are the same, so no single beat frequency
+            //dominates and the ensemble has no rate the ear can lock onto.
+            float[] detune = { 0.9931f, 0.9968f, 0.9989f, 1f, 1.0013f, 1.0041f, 1.0074f };
+            float[] phases = { 0.11f, 0.42f, 0.77f, 0f, 0.29f, 0.63f, 0.91f };
+            float[] vibRate = { 4.7f, 5.1f, 5.4f, 4.9f, 5.6f, 5.0f, 4.4f };
+
+            float lp1 = 0f, lp2 = 0f;
+
+            for (int i = 0; i < length && at + i < mix.Length; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                float attack = MathF.Min(1f, t / 0.11f);
+                float release = MathF.Min(1f, (seconds - t) / 0.30f);
+                float env = attack * attack * release;   //squared, so the bow speaks rather than steps in
+                if (env <= 0f) continue;
+
+                //Leaning into the note: no vibrato at the attack, full by about a third of a second.
+                float lean = 0.0042f * MathF.Min(1f, MathF.Max(0f, (t - 0.12f) / 0.34f));
+
+                float sum = 0f;
+                for (int d = 0; d < 7; d++)
+                {
+                    float f = freq * detune[d] * (1f + lean * MathF.Sin(2f * MathF.PI * vibRate[d] * t + d));
+                    phases[d] += f / SAMPLE_RATE;
+                    if (phases[d] >= 1f) phases[d] -= 1f;
+                    sum += PolyBlepSaw(phases[d], f / SAMPLE_RATE);
+                }
+
+                float alpha = CutoffToAlpha(700f + 2600f * env);
+                lp1 += alpha * (sum / 7f - lp1);
+                lp2 += alpha * (lp1 - lp2);
+
+                mix[at + i] += lp2 * level * env;
+            }
+        }
+
+        /// <summary>
+        /// The timpani (#120): the drum a symphonic piece announces itself with, and the one percussion voice
+        /// here that carries a PITCH — so it can play the bass of a cadence rather than merely mark a beat.
+        /// <para>
+        /// It is not <see cref="Tom"/> with a lower number. A tom is 200 ms of skin; a kettle is a tuned
+        /// membrane over a resonating bowl, so this holds its pitch (the sweep settles within a fifth of a
+        /// second instead of falling through the note) and rings for well over a second, and the stick's noise
+        /// is a brief crack across the attack rather than a band running through the body. The long ring is the
+        /// whole point: it is what fills the bar under a held string chord, and a short one reads as a floor tom.
+        /// </para>
+        /// </summary>
+        private static void Timpani(float[] mix, int at, int note, float level)
+        {
+            int length = (int)(SAMPLE_RATE * 1.5f);
+            float freq = Frequency(note);
+            float phase = 0f, harmonic = 0f;
+
+            for (int i = 0; i < length && at + i < mix.Length; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                //A short sweep that SETTLES: the head is tightest at the strike and relaxes onto the tuned
+                //pitch. A kettle that keeps falling is a tom.
+                float f = freq * (1f + 0.16f * MathF.Exp(-t * 26f));
+                phase += 2f * MathF.PI * f / SAMPLE_RATE;
+                harmonic += 2f * MathF.PI * f * 2.9f / SAMPLE_RATE;   //inharmonic, as a real head's modes are
+
+                //The bowl rings long; its overtone dies fast, which is what leaves a clean low note behind.
+                float body = MathF.Sin(phase) * MathF.Exp(-t * 1.7f)
+                    + MathF.Sin(harmonic) * 0.18f * MathF.Exp(-t * 9f);
+
+                //The stick, and only at the very start.
+                float crack = t < 0.012f ? BandNoise(i, 900f, 6000f, 83) * 0.5f * (1f - t / 0.012f) : 0f;
+
+                mix[at + i] += (body * 0.8f + crack) * level;
             }
         }
 

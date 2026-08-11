@@ -1,3 +1,4 @@
+using BS3D.Audio;
 using BS3D.Physics;
 using BepuPhysics;
 using Microsoft.Xna.Framework;
@@ -176,6 +177,11 @@ namespace BS3D.Screens
             LevelSet levelSet = Game.LevelSet;
             BallsMap map = null;
 
+            //Which piece this level plays (#120). Set before anything else is installed and left alone if the
+            //file names none, so the set's own rotation decides — and set even when the load fails below, since
+            //the fallback map is still level `index` and should sound like it.
+            string namedTheme = null;
+
             if (levelSet != null && index >= 0 && index < levelSet.Count)
             {
                 string path = levelSet.ResolvePath(index);
@@ -192,6 +198,7 @@ namespace BS3D.Screens
 
                         if (level.Scene != null) Game.SetScene(level.Scene.Kind);
                         Game.SetSkyDome(Math.Clamp(level.SkyDome, (byte)1, BS3DGame.SKY_DOME_COUNT));
+                        namedTheme = level.Music;
                     }
                     else map = new BallsMap(path);
 
@@ -204,6 +211,8 @@ namespace BS3D.Screens
                     map = null;
                 }
             }
+
+            Game.Music?.SetTheme(ProceduralMusic.ThemeFor(namedTheme, index));
 
             _map = map ?? BuildFallbackMap();
             _map.Center();

@@ -50,6 +50,19 @@ namespace Prazsky.BS3D.Levels
         [JsonPropertyName("scene")]
         public SceneConfig Scene { get; set; }
 
+        /// <summary>
+        /// Which composition this level plays (#120) — <c>"pulse"</c> or <c>"bohemia"</c>. Null, which is the
+        /// normal case, leaves it to the set's own rotation: a level's position picks the piece, so a set has
+        /// variety without a single file having to say anything. Name one only to pin it.
+        /// <para>
+        /// A string rather than an enum on purpose: the music lives in the game executable and this format is
+        /// the shared library's, so the name is a parse key exactly as a scene's is
+        /// (<c>ProceduralMusic.ThemeFor</c>), and an unknown spelling falls back rather than throwing.
+        /// </para>
+        /// </summary>
+        [JsonPropertyName("music")]
+        public string Music { get; set; }
+
         /// <summary>The ball map, in the same shape as a legacy map file (sx/sz/l/b).</summary>
         [JsonPropertyName("map")]
         public BallPositionTypes Map { get; set; }
