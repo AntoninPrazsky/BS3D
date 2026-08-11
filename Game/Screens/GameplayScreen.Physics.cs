@@ -1,5 +1,4 @@
 using BepuPhysics;
-using BS3D.Physics;
 using Prazsky.BS3D.Physics;
 using Prazsky.Core.Render;
 using System.Collections.Generic;

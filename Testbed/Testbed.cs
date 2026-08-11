@@ -20,7 +20,6 @@ using System.IO;
 using System.Text;
 using System.Windows.Forms;
 using Testbed.Diagnostics;
-using Testbed.Physics;
 using mgKeys = Microsoft.Xna.Framework.Input.Keys;
 
 namespace Testbed
@@ -603,16 +602,12 @@ namespace Testbed
 
             #endregion Ceiling and scenery
 
-            #region Contact events
-
-            //No Initialize call on the stream: Simulation.Create has already run NarrowPhaseCallbacks.Initialize,
-            //which is what initialises it, and this file used to call it a second time (issue #73) — hooking the
-            //stream's BeforeCollisionDetection handler onto the timestepper twice, so the freshness pass walked
-            //every listener's previous collisions twice on every step for nothing. PhysicsWorld's constructor
-            //owns the one Initialize the program performs.
-            _eventHandler = new BallContactEventHandler(_world.Simulation, _world.Events, _ceiling, _physicsBalls, _shotBalls, _fallingBalls);
-
-            #endregion
+            //No Initialize call on the contact stream anywhere in this file: Simulation.Create has already run
+            //NarrowPhaseCallbacks.Initialize, which is what initialises it, and this used to call it a second
+            //time (issue #73) — hooking the stream's BeforeCollisionDetection handler onto the timestepper twice,
+            //so the freshness pass walked every listener's previous collisions twice on every step for nothing.
+            //PhysicsWorld's constructor owns the one Initialize the program performs. The handler itself is built
+            //per map load rather than here (InstallMap, #68): it holds the field it resolves contacts against.
 
             //The dome's palette is sRGB; the target it is drawn into is linear
             _sky = new SkyDome(GraphicsDevice, _skyModelNumber, linearVertexColors: true);
@@ -1066,19 +1061,25 @@ namespace Testbed
 
             _map = map;
             _map.Center();
-            _eventHandler.Map = _map;
 
             FitCeilingToMap(_map);
             FitCannonAndGameCameraToMap();
 
-            //The wrapper FitCeilingToMap just replaced, pushed on beside the map: the handler held the one it was
-            //constructed with, and while the body and handle it reads outlive the replacement — which is why it
-            //never misbehaved — a single later read of Ceiling.World would have made it a real bug with nothing
-            //on the line to hint at it (#73).
-            _eventHandler.Ceiling = _ceiling;
-
             _physicsBalls = BallsConstraintsBuilder.BuildBallsStructure(_map.GetStaticBallsArray(), _world.Simulation, _ceiling.BodyReference);
-            _eventHandler.PhysicsBalls = _physicsBalls;
+
+            //Built fresh for the field it resolves contacts against, the way the Game builds one per level (#68).
+            //It used to be made once in LoadContent with the map, the structure array and the ceiling pushed onto
+            //it afterwards — three mutable fields, of which the ceiling was quietly wrong: FitCeilingToMap above
+            //replaces the whole KinematicBody wrapper, and #73 had to add a setter to keep the handler in step.
+            //Rebuilding removes the whole class of staleness instead of pushing each field as it changes, and it
+            //is safe precisely because RemoveCurrentBallsStructure above retired every ball in flight, so no
+            //listener registered against the previous handler outlives it.
+            //Vector3.Zero is the lattice-to-world offset: here the lattice frame IS the world frame (the field's
+            //floor sits at y = 0 and there is no death line to hang it off), where the Game hangs each field
+            //where its own fit decided. Nothing is subscribed to the handler's two events — what a landing is
+            //worth is a rule, and this executable keeps no score.
+            _eventHandler = new BallContactEventHandler(_world.Simulation, _world.Events, _ceiling, _map,
+                _physicsBalls, _shotBalls, _fallingBalls, Vector3.Zero);
 
             InvalidateBallCounts();
 

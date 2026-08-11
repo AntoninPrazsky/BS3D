@@ -1,5 +1,4 @@
 using BS3D.Audio;
-using BS3D.Physics;
 using BepuPhysics;
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D.GameObjects;

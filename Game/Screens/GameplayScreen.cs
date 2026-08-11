@@ -1,7 +1,6 @@
 ﻿using BepuPhysics;
 using BepuPhysics.Collidables;
 using BS3D.Effects;
-using BS3D.Physics;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;

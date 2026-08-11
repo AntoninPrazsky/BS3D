@@ -140,24 +140,17 @@ namespace Prazsky.BS3D.GameStructure
             return true;
         }
 
-        /// <summary>
-        /// Puts a ball on the top level where <paramref name="position"/> rounds to, or returns a
-        /// <see cref="float.MinValue"/> vector when that cell is outside the field or taken.
-        /// </summary>
-        /// <remarks>
-        /// <paramref name="arrayPosition"/> now comes back invalid on refusal. It used to be filled in from the
-        /// rounded contact <i>before</i> the bounds and occupancy tests, so a refused placement handed back a
-        /// perfectly plausible-looking cell — and a caller that tested the cell rather than the returned position
-        /// indexed the structure array out of bounds (a crash) or overwrote a live ball, which then stayed in the
-        /// simulation for ever, untracked and unreleasable. Both callers correctly test the position, which is why
-        /// tightening this is safe.
-        /// </remarks>
-        public Vector3 PutBallAtClosestEmptyCeilingPosition(Vector3 position, out XZLevel arrayPosition, BallType type = BallType.Type4)
-        {
-            if (!TryFindEmptyCeilingCell(position, out arrayPosition)) return new Vector3(float.MinValue);
-
-            return PutBallAt((byte)arrayPosition.X, (byte)arrayPosition.Z, (byte)arrayPosition.Level, type).Position;
-        }
+        //The "decide and write in one call" pair that used to sit here — PutBallAtClosestEmptyCeilingPosition and
+        //PutBallAtClosestEmptyPositionNextTo, one over TryFindEmptyCeilingCell above and one over
+        //TryFindEmptyCellNextTo below — is gone with #68. Their last caller was the Testbed's own contact
+        //handler, and that is the copy #68 merged away; the shared handler asks ShotPlacement to decide and then
+        //places the answer itself, in two steps. That separation is #70's whole point, so having the combined
+        //form still standing was an invitation to undo it: a caller of the combined form cannot let the aim
+        //preview ask the identical question, because asking would move a ball. The refusal convention was the
+        //other trap the removed remarks recorded — both signalled failure with a float.MinValue position while
+        //ALSO handing back a plausible-looking cell, and a caller that tested the cell rather than the position
+        //indexed the structure out of bounds or overwrote a live ball that then stayed in the simulation for
+        //ever, untracked and unreleasable. TryFind* answer with a bool, so that cannot be got wrong.
 
         /// <summary>
         /// Enumerates all in-bounds cells that geometrically touch the given cell: four on the same level and up to four
@@ -234,22 +227,6 @@ namespace Prazsky.BS3D.GameStructure
             }
 
             return occupied;
-        }
-
-        /// <summary>
-        /// Puts a ball into the empty cell neighboring the <paramref name="nextTo"/> cell that is closest to the given position.
-        /// Candidate cells come from <see cref="GetNeighboringCells"/>.
-        /// </summary>
-        /// <param name="position">Centered (world) position the new ball should be placed closest to, typically the contact point.</param>
-        /// <param name="nextTo">Cell of the existing ball that was hit.</param>
-        /// <param name="arrayPosition">Cell the ball was placed into.</param>
-        /// <param name="type">Type of the placed ball.</param>
-        /// <returns>Centered position of the placed ball, or a <see cref="float.MinValue"/> vector when no neighboring cell is free.</returns>
-        public Vector3 PutBallAtClosestEmptyPositionNextTo(Vector3 position, XZLevel nextTo, out XZLevel arrayPosition, BallType type = BallType.Type4)
-        {
-            if (!TryFindEmptyCellNextTo(position, nextTo, out arrayPosition)) return new Vector3(float.MinValue);
-
-            return PutBallAt((byte)arrayPosition.X, (byte)arrayPosition.Z, (byte)arrayPosition.Level, type).Position;
         }
 
         /// <summary>

@@ -4,13 +4,12 @@ using BepuPhysics.CollisionDetection;
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
-using Prazsky.BS3D.Physics;
 using Prazsky.Core.Tools;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 
-namespace BS3D.Physics
+namespace Prazsky.BS3D.Physics
 {
     /// <summary>
     /// What happens when a shot ball touches something: it is snapped into the free lattice cell nearest the
@@ -23,6 +22,42 @@ namespace BS3D.Physics
     /// constraint set, the ball map or the listener registrations from there corrupts state the solver is in
     /// the middle of using. So <see cref="OnTouching"/> only <i>records</i> the contact, and
     /// <see cref="ProcessQueuedContacts"/> does all the work on the main thread once the step has finished.
+    /// </para>
+    /// <para>
+    /// <b>One copy since #68</b>, and it was two for a long time — this flow, its two helpers and its call
+    /// sequence stood in <c>Game/Physics/</c> and again inside <c>Testbed.cs</c>, where #73 at least got it into
+    /// a file of its own. The stated cost of that was exact: "a fix or a rule change made in one — the
+    /// second-ring search, say — silently misses the other." What made merging them a <i>gameplay</i> change
+    /// rather than a file move is that the two were not the same rule, and this copy is the Game's, so the
+    /// Testbed's contact path changed rather than moved. The three differences, each of which the Game had right:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><b>It listens on <see cref="OnTouching"/>, not <c>OnContactAdded</c></b>, so it never attaches off a
+    /// speculative contact — see that method, which carries the measurement.</item>
+    /// <item><b><see cref="ShotPlacement"/> decides the cell and this places it</b>, in two steps, where the
+    /// Testbed asked <c>BallsMap</c> to decide and write at once. Deciding without writing is what lets the aim
+    /// preview ask the identical question every frame (#70), and it is why the two <c>BallsMap</c> methods that
+    /// did both — <c>PutBallAtClosestEmptyCeilingPosition</c> and <c>PutBallAtClosestEmptyPositionNextTo</c> —
+    /// are gone with this: they had no other caller, and their own remarks recorded the bug the shape invites.</item>
+    /// <item><b>A shot resolves exactly once</b>, reported through <see cref="BallLanded"/> and
+    /// <see cref="ShotSpent"/>. The Testbed subscribes to neither and nothing there keeps score, so it takes the
+    /// events as two null checks per landing.</item>
+    /// </list>
+    /// <para>
+    /// What is <b>not</b> shared, deliberately: the pairing of a <see cref="BallsMap"/> with its
+    /// <see cref="PhysicsBall"/> array. #68's "one owner for the map+physics pairing" would mean reshaping
+    /// <see cref="BallsConstraintsBuilder"/>'s whole static API and every walk over the structure in both
+    /// programs — the ripple, the loss check, the cluster profile, the aim preview, the teardown — and none of
+    /// that is where the duplication was. The defect #68 names is fixed by there being one contact rule; the
+    /// threading of two parameters is a wider change with nothing broken under it, so it is not made here.
+    /// </para>
+    /// <para>
+    /// Both callers build one <b>per field</b> and let the previous one go — the Game per level, the Testbed per
+    /// map load (it swaps maps inside a live simulation). That is why every field here is <c>readonly</c>: #73
+    /// had to give the Testbed's copy a settable ceiling, because <c>FitCeilingToMap</c> replaces the
+    /// <see cref="KinematicBody"/> wrapper on every load and the handler went on holding the old one. Rebuilding
+    /// removes the whole class of staleness instead of pushing each field as it changes, and it is safe because a
+    /// map load retires every ball in flight first, so no listener outlives the handler it was registered with.
     /// </para>
     /// </summary>
     public sealed class BallContactEventHandler : IContactEventHandler
@@ -51,6 +86,12 @@ namespace BS3D.Physics
         /// <c>cell + this</c> any more — every such position goes through
         /// <see cref="ShotPlacement.CellWorldPosition"/> with the drift the solve measured, which is the term that
         /// carries the descent.
+        /// </para>
+        /// <para>
+        /// <b>The Testbed passes <see cref="Vector3.Zero"/> here</b>, and that is not a special case to work
+        /// around: its lattice frame <i>is</i> the world frame (the field's floor sits at y = 0 and there is no
+        /// death line to hang it off), so every conversion below reduces to an identity for it while the code
+        /// stays one copy. The Game hangs each field where its own fit decided, so its offset is real.
         /// </para>
         /// </summary>
         private readonly Vector3 _worldOffset;

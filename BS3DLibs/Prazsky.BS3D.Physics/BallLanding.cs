@@ -1,9 +1,8 @@
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
-using Prazsky.BS3D.Physics;
 
-namespace BS3D.Physics
+namespace Prazsky.BS3D.Physics
 {
     /// <summary>
     /// What a shot did when it landed in the lattice — everything the game needs to answer for one attach, in
