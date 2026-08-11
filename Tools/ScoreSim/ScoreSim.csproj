@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>ScoreSim</AssemblyName>
+    <RootNamespace>BS3D.Tools.ScoreSim</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--Compile-time only, exactly as LevelGen and the libraries take it: this tool needs the types the
+        libraries expose, not a graphics backend. It draws nothing and opens no window, so it is plain
+        net10.0 and runs anywhere the libraries build rather than only on Windows.-->
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BS3DLibs\Prazsky.BS3D\Prazsky.BS3D.csproj" />
+    <ProjectReference Include="..\..\BS3DLibs\Prazsky.Core\Prazsky.Core.csproj" />
+  </ItemGroup>
+</Project>
