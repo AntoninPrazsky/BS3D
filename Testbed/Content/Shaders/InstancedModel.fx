@@ -160,6 +160,18 @@ float3 SceneLightColor[MAX_SCENE_LIGHTS];
 float SceneLightRange[MAX_SCENE_LIGHTS];
 int SceneLightCount;
 
+//Submerge fade for anything sinking below the sea (only pushed on the sea scene; SeaFadeDepth <= 0 disables
+//it everywhere else). A ball that misses falls past the platform into the water, and the opaque sea surface
+//hides it the instant it crosses - this fades it instead, blending its lit colour toward the deep-water tint
+//and its alpha down over a shallow band below SeaLevelY so it reads as dimming into dark water rather than
+//vanishing in one frame (#131). The sea itself stops writing depth (DrawSea) so the ball reaches this path at
+//all; without that it would be depth-killed under the surface plane before the pixel shader ran. Declared
+//with the shared uniforms because two paths read it: PatternPS for the balls, and MainPS for the drain's
+//glass and gold below the pool standing in the drain (#132).
+float SeaLevelY;
+float SeaFadeDepth;
+float3 SeaSubmergeTint;
+
 void AddSceneLights(float3 worldPosition, float3 worldNormal, float3 eyeVector, inout float3 diffuse, inout float3 specular)
 {
 	[loop]
@@ -369,7 +381,23 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
 float4 MainPS(VertexShaderOutput input) : COLOR
 {
 	//Untextured, unrelieved parts: nothing to shadow itself and no pits to darken
-	return ShadePixel(input.WorldPosition, input.WorldNormal, input.OcclusionData, float4(1, 1, 1, 1), 1, 1);
+	float4 shaded = ShadePixel(input.WorldPosition, input.WorldNormal, input.OcclusionData, float4(1, 1, 1, 1), 1, 1);
+
+	//Submerge fade, the balls' #131 treatment for the plain-material surfaces: in the sea scene the drain's
+	//glass cone and its bottom gold band continue below the pool standing in the drain (#132), draw AFTER
+	//the water, and the water writes no depth — so without this the submerged glass would composite over
+	//the pool's surface from underneath it across the whole disc. The faded colour is scaled towards zero
+	//with the alpha, exactly as PatternPS does and for the reason its comment gives: this output rides
+	//premultiplied alpha, and an alpha fade alone would leave the vanished glass ADDING its lit colour over
+	//the water instead of disappearing into it. A no-op off the sea scene, where SeaFadeDepth is pushed <= 0.
+	if (SeaFadeDepth > 0.0)
+	{
+		float submerge = saturate((SeaLevelY - input.WorldPosition.y) / SeaFadeDepth);
+		shaded.rgb = lerp(shaded.rgb, SeaSubmergeTint, submerge) * (1.0 - submerge);
+		shaded.a *= 1.0 - submerge;
+	}
+
+	return shaded;
 }
 
 technique InstancedModel
@@ -851,16 +879,6 @@ struct PatternVertexShaderOutput
 //scaling this by the supersampling factor buys.
 float DissolvePixelSize;
 
-//Submerge fade for a ball sinking below the sea (only pushed on the sea scene; SeaFadeDepth <= 0 disables
-//it everywhere else). A ball that misses falls past the platform into the water, and the opaque sea surface
-//hides it the instant it crosses - this fades it instead, blending its lit colour toward the deep-water tint
-//and its alpha down over a shallow band below SeaLevelY so it reads as dimming into dark water rather than
-//vanishing in one frame (#131). The sea itself stops writing depth (DrawSea) so the ball reaches this path at
-//all; without that it would be depth-killed under the surface plane before the pixel shader ran.
-float SeaLevelY;
-float SeaFadeDepth;
-float3 SeaSubmergeTint;
-
 /// A hash with no sin in it, for the same reason the cloud field's has none: sine-based hashes band
 /// differently across drivers. Cheap enough to run unconditionally rather than behind a per-instance
 /// branch, which would diverge within a draw call. Two-dimensional now that the cell is a block of the
@@ -1040,10 +1058,16 @@ float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 	//Submerge fade: a ball below the sea level dims into the deep-water tint and becomes transparent over a
 	//shallow band, so it reads as sinking into dark water rather than being cut off by the opaque surface
 	//(see SeaLevelY). Disabled (a no-op) off the sea scene, where SeaFadeDepth is pushed <= 0.
+	//
+	//The colour is scaled towards zero WITH the alpha, not only lerped to the tint: this output rides
+	//premultiplied alpha, and a fade that leaves rgb standing turns every faded pixel ADDITIVE. One sinking
+	//ball hides it (the residue is the near-black tint, once), but a released cluster piles hundreds of
+	//half-sunk balls into the pool standing in the drain (#132), and their residues stack into a pale glowing
+	//mush over the dark water. Found the moment the pool gave them something dark to stack against.
 	if (SeaFadeDepth > 0.0)
 	{
 		float submerge = saturate((SeaLevelY - input.WorldPosition.y) / SeaFadeDepth);
-		shaded.rgb = lerp(shaded.rgb, SeaSubmergeTint, submerge);
+		shaded.rgb = lerp(shaded.rgb, SeaSubmergeTint, submerge) * (1.0 - submerge);
 		shaded.a *= 1.0 - submerge;
 	}
 

@@ -3,7 +3,9 @@
 //occlude each other, not the flat mirror the first version was. On top of the wave geometry the pixel
 //shader adds fine wind chop, a Fresnel sky reflection, a sun glint, subsurface scattering that lights the
 //crests from behind, and whitecap foam where the waves fold. It is the second scene variant (NumPad2
-//cycles the seven scenes); the round stone island stays as the platform floating on it.
+//cycles the seven scenes); the round stone island stays as the platform floating on it, and the drain
+//funnel bored through it holds a standing pool of the same water — dead calm, meeting the glass in a
+//capillary rim — where the cone crosses the mean level (#132; see FunnelPoolRadius and the calm ramp).
 //
 //It shares the whole scene toolkit with Desert.fx/Mountain.fx/Meadow.fx: the grid is recentred on the
 //camera each frame and snapped to a cell on the CPU (OriginXZ) so the surface never swims; the dome is a
@@ -45,6 +47,13 @@ float SeaLevelY;
 //through the drain funnel's open throat. 0 keeps it all (the map editor draws no island). See IslandHoleRadius
 //in the terrain shaders, which cut the same footprint for the same reason.
 float IslandHoleRadius;
+
+//Radius of the pool standing INSIDE the drain (#132): where the funnel's glass cone crosses the sea's mean
+//level, buried a hair into the glass (see DrawSea, which derives it from ArenaIsland's own figures). The cut
+//above is an annulus now, not a disc: water inside this radius is kept — calmed to a standstill by the calm
+//ramp below — so the drain holds standing water instead of going bone dry, and only the ring hidden inside
+//the island's stone is clipped. Ignored wherever IslandHoleRadius is 0 (the map editor), where nothing is cut.
+float FunnelPoolRadius;
 
 //Deep body color of the water and the paler shade its up-facing faces take, both linear and both treated
 //as reflectances - they are multiplied by the sky's own light below, so night water goes dark.
@@ -116,6 +125,18 @@ static const float  WAVE_PHASE[6] = { 0.0, 1.7, 3.1, 4.2, 5.5, 0.9 };
 static const float FOAM_STREAK_FREQUENCY = 0.55;
 static const float FOAM_STREAK_STRETCH = 5.0;
 static const float2 FOAM_STREAK_ALONG = float2(-0.3303, 0.9438);
+
+//The island's shelter (#132). The swell dies over CALM_BAND world units approaching IslandHoleRadius from
+//the open sea, so the pool in the drain is dead flat geometry and the last visible water at the island's
+//foot laps rather than breaks. The band is about one grid cell (SEA_EXTENT / SEA_GRID_N ≈ 4.2), deliberately:
+//every vertex a pool-edge triangle can touch is then fully calm, so the pool's clipped rim cannot breathe
+//with the swell. Inside the pool a POOL_CHOP fraction of the wind chop survives as a fine capillary ripple,
+//and over the last MENISCUS_BAND before the glass the normal is tilted up toward the wall — the capillary
+//climb that reads as water meeting glass instead of a razor-cut disc.
+static const float CALM_BAND = 4.0;
+static const float POOL_CHOP = 0.18;
+static const float MENISCUS_BAND = 0.9;
+static const float MENISCUS_TILT = 0.35;
 
 struct SeaVertexInput
 {
@@ -199,10 +220,16 @@ SeaVertexOutput SeaVS(SeaVertexInput input)
 	float restDist = distance(CameraPosition.xz, restXZ);
 	float ampScale = saturate(1.0 - (restDist - WaveFadeStart) / max(WaveFadeEnd - WaveFadeStart, 1.0));
 
+	//The island's shelter (#132): the swell dies completely under the stone, so the pool standing in the
+	//drain is exactly the flat rest grid at SeaLevelY. Keyed on the REST position — displacement is zero
+	//wherever it matters, so the pixel shader sees the same radius. IslandHoleRadius 0 (the map editor)
+	//makes this saturate to 0 and the open sea is untouched.
+	float calm = saturate((IslandHoleRadius - length(restXZ)) / CALM_BAND);
+
 	float3 disp;
 	float3 normal;
 	float fold, crest;
-	OceanSurface(restXZ, ampScale, disp, normal, fold, crest);
+	OceanSurface(restXZ, ampScale * (1.0 - calm), disp, normal, fold, crest);
 
 	float3 worldPosition = float3(restXZ.x + disp.x, SeaLevelY + disp.y, restXZ.y + disp.z);
 
@@ -257,8 +284,17 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
 {
 	float3 worldPosition = input.WorldPosition;
 
-	//Cut the island's footprint out of the surface (see IslandHoleRadius). 0 in the map editor keeps it all.
-	clip(length(worldPosition.xz) - IslandHoleRadius);
+	//Cut the ring of the island's footprint out of the surface, keeping BOTH sides of it: the open sea past
+	//IslandHoleRadius and the pool standing inside the drain (#132) — max() keeps a pixel that survives on
+	//either count. Only the annulus between them, hidden inside the island's stone, is discarded. 0 in the
+	//map editor keeps it all: r - 0 is never negative, whatever the pool radius says.
+	float r = length(worldPosition.xz);
+	clip(max(r - IslandHoleRadius, FunnelPoolRadius - r));
+
+	//How deep into the island's shelter this pixel is: 1 across the whole pool, 0 on the open sea and in the
+	//map editor. The vertex shader keyed the same ramp on the rest position; the two agree wherever it
+	//matters because the calm water is exactly where the displacement is zero.
+	float calm = saturate((IslandHoleRadius - r) / CALM_BAND);
 
 	float3 toEye = CameraPosition - worldPosition;
 	float dist = length(toEye);
@@ -267,10 +303,19 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
 	float footprint = length(fwidth(worldPosition.xz));
 
 	//Fine chop tilts the Gerstner normal; it carries the close-up sparkle and breaks the big waves into a
-	//surface. Faded with the same distance ramp as the geometry so the far water is smooth.
+	//surface. Faded with the same distance ramp as the geometry so the far water is smooth. In the pool it
+	//is damped to a POOL_CHOP fraction — the sheltered water keeps a fine capillary ripple, nothing more.
 	float chopFade = saturate(1.0 - (dist - WaveFadeStart) / max(WaveFadeEnd - WaveFadeStart, 1.0));
-	float chop = ChopHeight(worldPosition.xz, footprint) * chopFade;
+	float chop = ChopHeight(worldPosition.xz, footprint) * chopFade * lerp(1.0, POOL_CHOP, calm);
 	float3 normal = PerturbNormalFromHeight(normalize(input.WorldNormal), worldPosition, chop);
+
+	//Capillary climb at the glass (#132): over the last MENISCUS_BAND before the pool's edge the surface
+	//reads as curling up the wall — the normal tilts away from the outward radial, so the rim catches the
+	//sky at a different angle than the flat pool and the water meets the glass in a soft bright ring rather
+	//than a razor-cut circle. Scaled by calm, so the open sea (and the map editor) never sees it.
+	float meniscus = saturate(1.0 - (FunnelPoolRadius - r) / MENISCUS_BAND) * calm;
+	float2 outward = worldPosition.xz / max(r, 1e-3);
+	normal = normalize(normal - float3(outward.x, 0.0, outward.y) * (meniscus * meniscus * MENISCUS_TILT));
 
 	//How much sun reaches this patch through the clouds - the very field the whole scene is shadowed by
 	float sunlight = CloudSunlight(worldPosition, SunDirection);
@@ -287,16 +332,19 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
 	float fresnel = 0.02 + 0.98 * pow(1.0 - saturate(dot(normal, viewDir)), 5.0);
 
 	//Body color: deep water lit by the sky above it (so a night sea goes dark), the up-facing faces a touch
-	//paler. Water has almost no light of its own; what you see into it is skylight scattered back out.
+	//paler. Water has almost no light of its own; what you see into it is skylight scattered back out. The
+	//pool is biased towards the deep colour: its normal points straight up, which would pick the palest mix
+	//of all, and a still column of water standing in a drain reads dark, not pale.
 	float3 ambient = (ZenithColor + HorizonColor) * 0.5;
-	float3 body = lerp(WaterColorDeep, WaterColorShallow, saturate(normal.y) * 0.5) * ambient + ZenithColor * 0.05;
+	float shallowMix = saturate(normal.y) * 0.5 * (1.0 - 0.8 * calm);
+	float3 body = lerp(WaterColorDeep, WaterColorShallow, shallowMix) * ambient + ZenithColor * 0.05;
 
 	float3 color = lerp(body, reflection, fresnel);
 
 	//Subsurface scattering: a crest glows when the sun is behind it and the eye looks into the water. The
 	//classic cheap term - looking towards the sun, strongest on the raised faces of the waves, snuffed by cloud.
 	float backlight = pow(saturate(dot(viewDir, -SunDirection)), 4.0);
-	float sss = backlight * saturate(input.Foam.y * 2.0 - 0.5) * SssStrength * sunlight;
+	float sss = backlight * saturate(input.Foam.y * 2.0 - 0.5) * SssStrength * sunlight * (1.0 - calm);
 	color += SssColor * SunColor * sss;
 
 	//Sun glint: a sharp spark where the reflected ray points at the sun, sparkling across the chop facets,
@@ -316,8 +364,11 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
 	//cap rather than brightening a disc - and the field fades against the pixel footprint, so the far sea
 	//loses the pattern smoothly instead of shimmering (the fade costs variance, which the horizon haze
 	//covers anyway). Foam stays a near-white matte cap lit by sun and sky, composited over the water.
+	//(1 - calm) kills the foam in the pool outright: the damped Gerstner sum already gives it no fold and no
+	//crest, but the crest signal parks at 0.5 when the amplitudes are zero, and a config with FoamCrestStart
+	//under that would lay foam lanes across dead-still water.
 	float crestGate = saturate((input.Foam.y - FoamCrestStart) / max(1.0 - FoamCrestStart, 1e-3));
-	float density = saturate(max(input.Foam.x * FoamStrength, crestGate * FoamCrestStrength));
+	float density = saturate(max(input.Foam.x * FoamStrength, crestGate * FoamCrestStrength)) * (1.0 - calm);
 
 	float2 foamDomain = (worldPosition.xz + WindDirection * SeaTime * ChopSpeed * 0.5) * FOAM_STREAK_FREQUENCY;
 	float streaks = Fbm2Combed(foamDomain, FOAM_STREAK_ALONG, FOAM_STREAK_STRETCH, 4,

@@ -112,9 +112,11 @@ namespace Prazsky.Core.Render
         /// savanna, desert) and out of the sea around the world origin so the drain funnel below the island
         /// reads as a drain into a pit rather than a bowl in flat ground - the flat clearing otherwise slices
         /// across the funnel just below its rim, hiding its depth and swallowing the balls falling through, and
-        /// the sea otherwise runs its wave mesh straight through the funnel's open throat (#132). The Testbed
-        /// sets this to the island's radius; the map editor draws no island, so it leaves it 0 (the default) and
-        /// nothing is cut.
+        /// the sea otherwise runs its wave mesh straight through the funnel's open throat (#132). The sea's cut
+        /// is an annulus rather than the full disc: inside the funnel the water survives as a calm standing
+        /// pool where the glass cone crosses the mean level (see the pool derivation in <c>DrawSea</c>). The
+        /// Testbed sets this to the island's radius; the map editor draws no island, so it leaves it 0 (the
+        /// default) and nothing is cut.
         /// </summary>
         public float TerrainHoleRadius { get; set; }
 
@@ -231,6 +233,12 @@ namespace Prazsky.Core.Render
         //chop is added per pixel. (Grid density is the natural Low/Med/High/Ultra dial once graphics settings land.)
         private const int SEA_GRID_N = 380;
         private const float SEA_EXTENT = 1600f;
+
+        //How far the pool's edge is buried INTO the drain's glass cone (world units): the water's rim ends
+        //inside the wall rather than a chord-width short of it, so the funnel's 64-segment faceting can never
+        //open a sliver of sky between the water and the glass — the same buried-edge reasoning as the gold
+        //bands' EDGE_SINK (#109). See the pool derivation in DrawSea (#132).
+        private const float POOL_WALL_BIAS = 0.15f;
 
         //Look/tuning parameters (water level & colours, waves, chop, wind, sun glint, foam, subsurface, haze)
         //now live in SeaSceneConfig; SceneRenderer reads them from _seaConfig (spray via _seaConfig.Spray).
@@ -1902,8 +1910,21 @@ namespace Prazsky.Core.Render
             float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
             float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
 
+            //The pool standing in the drain (#132): the cut around the island keeps a calm disc of water
+            //where the funnel's glass cone crosses the mean level, and discards only the annulus hidden
+            //inside the island's stone. The radius is the cone's own at LevelY — the same straight span
+            //FunnelMesh is built from, so the water and the glass cannot drift — buried POOL_WALL_BIAS into
+            //the glass so no sliver of the wall shows under the water's edge (the buried-edge lesson of
+            //#109). Clamping the span keeps a config that floods the rim or sits below the hole sane. With
+            //TerrainHoleRadius 0 (the map editor) the shader cuts nothing and ignores this figure entirely.
+            float drainRimY = ArenaIsland.TOP_Y - ArenaIsland.DISH_DEPTH;
+            float poolT = Math.Clamp((drainRimY - _seaConfig.LevelY) / (drainRimY - ArenaIsland.FUNNEL_BOTTOM_Y), 0f, 1f);
+            float poolRadius = MathHelper.Lerp(ArenaIsland.FUNNEL_TOP_RADIUS, ArenaIsland.FUNNEL_HOLE_RADIUS, poolT)
+                + POOL_WALL_BIAS;
+
             _seaEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
             _seaEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
+            _seaEffect.Parameters["FunnelPoolRadius"].SetValue(poolRadius);
             _seaEffect.Parameters["View"].SetValue(frame.Camera.View);
             _seaEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
             _seaEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
