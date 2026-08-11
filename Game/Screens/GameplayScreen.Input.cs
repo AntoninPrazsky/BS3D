@@ -121,10 +121,11 @@ namespace BS3D.Screens
         /// <b>All of that waits on the capture, which is a state the player enters (#99).</b> A frame that
         /// warps the pointer back to the middle is a frame in which the window cannot be dragged by its title
         /// bar, resized, or left for another application — the pointer never reaches any of them. Arriving at
-        /// play takes it at once, the menu press that put the screen on top being the opt-in (#154); after a
-        /// focus loss <see cref="_cursorCaptured"/> is false, and nothing here touches the cursor until a
-        /// left click lands inside the viewport. Everything the pad does is independent of it and keeps
-        /// working with the pointer free.
+        /// play with the pointer already in the picture takes it at once, the menu press that put the screen
+        /// on top being the opt-in (#154) — a pad or keyboard arrival with the mouse parked elsewhere stays
+        /// free; after a focus loss <see cref="_cursorCaptured"/> is false, and nothing here touches the
+        /// cursor until a left click lands inside the viewport. Everything the pad does is independent of it
+        /// and keeps working with the pointer free.
         /// </para>
         /// </summary>
         private void UpdateAim(GameTime gameTime, bool edgeInputAllowed, GamePadState pad)
