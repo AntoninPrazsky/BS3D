@@ -1,6 +1,5 @@
 using BepuPhysics;
 using BepuPhysics.Collidables;
-using BepuPhysics.CollisionDetection;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -16,17 +15,17 @@ using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Windows.Forms;
+using Testbed.Diagnostics;
+using Testbed.Physics;
 using mgKeys = Microsoft.Xna.Framework.Input.Keys;
 
 namespace Testbed
 {
-    public class Testbed : Game
+    public partial class Testbed : Game
     {
         private BasicCamera3D _camera;
 
@@ -182,11 +181,7 @@ namespace Testbed
 
         #region Graphics
 
-        private int _windowWidth;
-        private int _windowHeight;
-
         private GraphicsDeviceManager _graphics;
-        private bool _windowed;
 
         private InfoRenderer _info;
 
@@ -353,7 +348,6 @@ namespace Testbed
         /// </summary>
         private readonly float _exposure;
 
-        private readonly bool _uncappedFps;
         //Narrow, because dropping the camera to the floor collapsed the angle it has to span: from up behind
         //the gun the barrel and the cluster were 57 degrees apart and the FOV had to be wide enough to hold
         //both, which left the map itself a small patch in a very wide frame. From down here they are some 14
@@ -435,96 +429,63 @@ namespace Testbed
 
         #endregion
 
-        //Map file to load right after startup (e.g. passed on the command line); mainly for testing
-        private readonly string _startupMapPath;
+        /// <summary>
+        /// Everything the command line said, parsed once by <see cref="TestOptions.Parse"/> and held whole. It
+        /// was fourteen constructor parameters copied into fourteen fields until #73, i.e. the same list written
+        /// out three times over two files; the two figures that are <b>normalised</b> rather than merely stored
+        /// (<see cref="_supersampleFactor"/>'s clamp and <see cref="_exposure"/>'s default) keep fields of their
+        /// own, and everything else is read from here at the one place that wants it.
+        /// </summary>
+        private readonly TestOptions _options;
 
-        //Testing: an initial free-camera pose ("campos="/"camtarget=" on the command line), applied once in
-        //Initialize so a screenshot can be framed from any vantage (e.g. under the sea, or in on the drain)
-        private readonly Vector3? _startupCamPos;
-        private readonly Vector3? _startupCamTarget;
-
-        //Testing mode: shoots a ball at a random spot of the structure every second ("autoshoot" on the command line)
-        private readonly bool _autoShoot;
-        private float _autoShootElapsed;
-
-        //Testing (see Program.cs): "aimcheck" logs, per loaded map, whether the cannon's elevation/traverse clamps
-        //let it aim at every cell; "aimshoot" then auto-enters game mode and fires up the field's centre column so
-        //the whole aim -> clamp -> shoot path is exercised, logging the elevation each shot wanted versus what it got.
-        private readonly bool _aimCheck;
-        private readonly bool _aimShoot;
-        private float _aimShootElapsed;
-        private int _aimShootIndex = -1;                       //-1 until the game-mode entry animation finishes; then 0..AIM_SHOOT_STEPS
-        private const int AIM_SHOOT_COLUMN_STEPS = 6;          //samples up the centre column, bottom to top
-        private const int AIM_SHOOT_STEPS = AIM_SHOOT_COLUMN_STEPS + 4; //then the four top corners (the steepest facing shots)
-        private const float AIM_SHOOT_INTERVAL = 0.6f;         //seconds between shots, so they do not pile up mid-flight
-
-        //Testing mode: loads this map on top of the running one after a delay ("switchmap=<path>" on the command line);
-        //exercises the map re-loading path that the F2 dialog and file drag-and-drop use
-        private readonly string _switchMapPath;
-        private float _switchMapElapsed;
-        private bool _switchMapDone;
-        private static readonly float SWITCH_MAP_DELAY_SECONDS = 10f;
+        //The three test harnesses (#73), each null unless its switch was given, each ticked from one line of
+        //Update. They used to be nine fields and four inline blocks in Update — a cadence, an index and an
+        //"already done" flag apiece, interleaved with the frame's real work. What stays this file's is the
+        //CLI lines' wording, which .claude/skills/verify greps: see AutoShootOnce below and the drivers' own
+        //remarks. Built in LoadContent, the aim sweep needing a gun that does not exist before it.
+        private AutoShootDriver _autoShootDriver;
+        private AimShootDriver _aimShootDriver;
+        private SwitchMapDriver _switchMapDriver;
 
         //The windowed default is 16:9, the narrowest aspect the game targets (desktop and Xbox, 3840x2160 to
         //3840x1600), so what is framed in a window is the tightest case and a wider display only adds width
-        public Testbed(bool windowed = true, int windowWidth = 1600, int windowHeight = 900, string startupMapPath = null, bool autoShoot = false, bool aimCheck = false, bool aimShoot = false, string switchMapPath = null, byte skyNumber = 0, bool uncappedFps = false, int supersampleFactor = 2, float exposure = DEFAULT_EXPOSURE, string scene = null, Vector3? camPos = null, Vector3? camTarget = null)
+        public Testbed(TestOptions options)
         {
-            //Testing: "campos=x,y,z"/"camtarget=x,y,z" place and aim the free camera at startup (applied in
-            //Initialize once the camera exists), so a screenshot can be framed from any vantage.
-            _startupCamPos = camPos;
-            _startupCamTarget = camTarget;
+            _options = options;
 
             //One delegate for the whole run (see the field): it is what PhysicsWorld.Step runs after it has
             //flushed the step's contacts, and an attach changes the body and constraint counts the overlay shows.
-            _processContacts = () => { if (_eventHandler.ProcessQueuedContacts() > 0) RecountBallsAndConstraints(); };
+            _processContacts = () => { if (_eventHandler.ProcessQueuedContacts() > 0) InvalidateBallCounts(); };
 
             //Testing: "scene=<name>" picks the starting environment, through the one parser every executable
             //now shares (#75 — this was an if/else chain here and a switch in the game, kept in step by hand,
             //which is exactly what a script driving both cannot afford). An unrecognised name leaves the
-            //default city standing. The four scenes past the end of the NumPad2 cycle — which still walks only
+            //default city standing. The six scenes past the end of the NumPad2 cycle — which still walks only
             //SceneRenderer.CycleLength, the seven a map is authored against — are reachable only this way here.
-            if (SceneRenderer.TryParseScene(scene, out SceneKind startupScene)) _scene = startupScene;
-            _exposure = exposure > 0f ? exposure : DEFAULT_EXPOSURE;
-            _windowed = windowed;
-            _startupMapPath = startupMapPath;
-            _autoShoot = autoShoot;
-            _aimCheck = aimCheck;
-            _aimShoot = aimShoot;
-            _switchMapPath = switchMapPath;
-            _uncappedFps = uncappedFps; //Testing: "nocap" on the command line disables vsync so real rendering headroom can be measured
-            _supersampleFactor = Math.Clamp(supersampleFactor, 1, 4); //Testing: "ssaa=<n>" on the command line trades sharpness against fill rate
-            _skyFromCommandLine = skyNumber >= 1 && skyNumber <= SKY_DOME_COUNT;
-            if (_skyFromCommandLine) _skyModelNumber = skyNumber; //Testing: "sky=<n>" on the command line picks the starting sky dome
+            if (SceneRenderer.TryParseScene(options.Scene, out SceneKind startupScene)) _scene = startupScene;
+            _exposure = options.Exposure > 0f ? options.Exposure : DEFAULT_EXPOSURE;
+            _supersampleFactor = Math.Clamp(options.SupersampleFactor, 1, 4); //"ssaa=<n>" trades sharpness against fill rate
+            _skyFromCommandLine = options.SkyNumber >= 1 && options.SkyNumber <= SKY_DOME_COUNT;
+            if (_skyFromCommandLine) _skyModelNumber = options.SkyNumber; //Testing: "sky=<n>" on the command line picks the starting sky dome
             else if (_scene == SceneKind.Sea) _skyModelNumber = SEA_DEFAULT_SKY_DOME; //The sea scene defaults to a darker dome (unless sky= overrode it above)
             else if (_scene == SceneKind.Savanna) _skyModelNumber = SAVANNA_DEFAULT_SKY_DOME; //The savanna defaults to a warm golden dome
 
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;
-        
-            Content.RootDirectory = "Content";
 
-            _windowWidth = windowWidth;
-            _windowHeight = windowHeight;
+            Content.RootDirectory = "Content";
 
             Window.AllowUserResizing = true;
             Window.ClientSizeChanged += Window_ClientSizeChanged;
             Window.FileDrop += Window_FileDrop;
 
-            SetGraphics(_windowed);
+            SetGraphics(options.Windowed);
         }
 
         private void Window_FileDrop(object sender, FileDropEventArgs e)
         {
             if (e.Files == null || e.Files.Length <= 0 || string.IsNullOrEmpty(e.Files[0])) return;
             DeserializeMapFromFile(e.Files[0]);
-        }
-
-        private void Window_ClientSizeChanged(object sender, EventArgs e)
-        {
-            _camera.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
-            _info.RecomputeScale();
-            _pipeline?.EnsureTarget();
-            FitCannonAndGameCameraToMap(); //The frustum's width just changed, and the fit is checked on both axes
         }
 
         protected override void Initialize()
@@ -535,10 +496,10 @@ namespace Testbed
 
             //Testing camera pose from the command line: position, then aim (the Target setter rebuilds the view
             //and the look angles, so mouse-look carries on from there). Target defaults to the arena at the origin.
-            if (_startupCamPos.HasValue)
+            if (_options.CamPos.HasValue)
             {
-                _camera.Position = _startupCamPos.Value;
-                _camera.Target = _startupCamTarget ?? Vector3.Zero;
+                _camera.Position = _options.CamPos.Value;
+                _camera.Target = _options.CamTarget ?? Vector3.Zero;
             }
 
             //"\uE7FC" is the "Game" glyph (gamepad) in the Segoe MDL2 Assets icon font
@@ -596,45 +557,6 @@ namespace Testbed
             InitializeShooting();
 
             base.Initialize();
-        }
-
-        private void SwitchGameMode(bool gameMode)
-        {
-            if (_gameMode == gameMode) return;
-            if (_gameModeAnimStarted || _freeModeAnimStarted) return;
-
-            _gameMode = gameMode;
-            _info.ShowIcon = gameMode;
-
-            if (_gameMode)
-            {
-                _cih.ResetMouseModes();       //drop any free-look pan/rotate toggle so it does not resume in game mode
-                _mouseAim.Invalidate();       //the first captured frame skips its delta, so grabbing the cursor never jumps the aim
-                _gameModeAnimStarted = true;
-                _beforeAnimationPosition = _camera.Position;
-                _beforeAnimationTarget = _camera.Target;
-            }
-            else
-            {
-                //Ease the aim back to its rest direction (~1s SmoothStep in Cannon.Update, not a snap) so the
-                //gun is not left cocked at the last mouse aim - the aim persists within game mode, but a fresh
-                //session starts neutral. Leaves the orbit position alone.
-                _cannon.ResetAim();
-
-                //Leaving game mode while precise aim is engaged: capture the leaned pose so the free-mode exit eases
-                //it out to the overview pose (position, target and FOV), instead of snapping ~30 units in one frame.
-                _freeExitFromAds = _preciseAim.Blend > 0f;
-                if (_freeExitFromAds)
-                {
-                    _beforeAnimationPosition = _camera.Position;
-                    _beforeAnimationTarget = _camera.Target;
-                    _beforeAnimationFov = _camera.FieldOfView;
-                }
-                _preciseAim.Reset(); //the lean is dropped with no ease; the exit animation above carries the pose out
-                _mouseAim.Invalidate();
-                IsMouseVisible = true;
-                _freeModeAnimStarted = true;
-            }
         }
 
         protected override void LoadContent()
@@ -750,7 +672,9 @@ namespace Testbed
 
             _pipeline.EnsureTarget();
 
-            if (!string.IsNullOrEmpty(_startupMapPath) && File.Exists(_startupMapPath)) DeserializeMapFromFile(_startupMapPath);
+            BuildTestHarnesses();
+
+            if (!string.IsNullOrEmpty(_options.StartupMapPath) && File.Exists(_options.StartupMapPath)) DeserializeMapFromFile(_options.StartupMapPath);
 
             //Start playable even with nothing on the command line (and as a fallback if a startup map failed to
             //load): an empty field the player can aim and shoot into right away. Without a map _map stays null,
@@ -765,7 +689,44 @@ namespace Testbed
 
             //Testing: the aim-and-shoot scan needs to be in game mode (a shot then leaves the cannon along its aim
             //rather than the free camera). Kick off the entry animation now; the sweep waits for it in Update.
-            if (_aimShoot) SwitchGameMode(true);
+            if (_aimShootDriver != null) SwitchGameMode(true);
+        }
+
+        /// <summary>
+        /// Builds whichever of the three test harnesses the command line asked for (#73). Here rather than in
+        /// <see cref="Initialize"/> because the aim sweep needs the gun: it reads
+        /// <see cref="CannonRig.PivotToFrontBall"/>, and neither the <see cref="Cannon"/> nor its rig exists
+        /// until a few lines above. Before the startup map is installed, though — <see cref="InstallMap"/>
+        /// pushes the field onto the sweep and runs the <c>aimcheck</c> report.
+        /// <para>
+        /// Each is <b>null unless its switch was given</b>, which is what the one-line ticks in
+        /// <see cref="Update"/> test against; there is no "enabled" flag anywhere, so a harness that exists is a
+        /// harness that runs. The delegates go in here, once — written at the tick instead they would allocate a
+        /// fresh delegate on every frame of the run (BestPractices.md §3).
+        /// </para>
+        /// </summary>
+        private void BuildTestHarnesses()
+        {
+            if (_options.AutoShoot) _autoShootDriver = new AutoShootDriver(AutoShootOnce);
+
+            if (_options.AimShoot) _aimShootDriver = new AimShootDriver(_cannon, _cannonRig.PivotToFrontBall, () => ShootBall());
+
+            if (!string.IsNullOrEmpty(_options.SwitchMapPath))
+                _switchMapDriver = new SwitchMapDriver(_options.SwitchMapPath, DeserializeMapFromFile);
+        }
+
+        /// <summary>
+        /// One <c>autoshoot</c> shot and the line that reports it. The <b>cadence and the target box are
+        /// <see cref="AutoShootDriver"/>'s</b> and this is the half that stays here, because every figure on the
+        /// line belongs to this executable's own renderers — and because
+        /// <c>[autoshoot] FPS: …, balls drawn: …</c> is a CLI surface <c>.claude/skills/verify</c> greps, so its
+        /// wording is a contract that belongs with the program that publishes it.
+        /// </summary>
+        private void AutoShootOnce(Vector3 target)
+        {
+            ShootBall(target);
+
+            Console.WriteLine($"[autoshoot] FPS: {_info.CurrentFPS}, balls drawn: {_balls.DrawnCount}/{_collectedBalls}, LOD: {string.Join("/", _balls.LodTotals)}");
         }
 
         /// <summary>
@@ -884,7 +845,15 @@ namespace Testbed
 
         private void SwitchScene()
         {
-            _scene = (SceneKind)(((int)_scene + 1) % SceneRenderer.CycleLength);
+            //The cycle is deliberately only SceneRenderer.CycleLength long — the seven scenes a map is authored
+            //against — but it has to be entered from OUTSIDE it too, and (index + 1) % 7 could not do that (#73):
+            //started from a scene reached with scene=, the modulo landed wherever the arithmetic fell rather than
+            //at a cycle boundary, so NumPad2 from the forest (index 7) came out at the SEA, three scenes deep,
+            //and the four cycle entries before it were unreachable without pressing it four more times. Anything
+            //off the end restarts the cycle at the city instead.
+            int next = (int)_scene + 1;
+            _scene = (SceneKind)(next < SceneRenderer.CycleLength ? next : 0);
+
             Console.WriteLine($"[scene] {_scene}");
 
             //The sea reads best under a moody sky and the savanna under a warm golden one, so entering either
@@ -1102,14 +1071,25 @@ namespace Testbed
             FitCeilingToMap(_map);
             FitCannonAndGameCameraToMap();
 
+            //The wrapper FitCeilingToMap just replaced, pushed on beside the map: the handler held the one it was
+            //constructed with, and while the body and handle it reads outlive the replacement — which is why it
+            //never misbehaved — a single later read of Ceiling.World would have made it a real bug with nothing
+            //on the line to hint at it (#73).
+            _eventHandler.Ceiling = _ceiling;
+
             _physicsBalls = BallsConstraintsBuilder.BuildBallsStructure(_map.GetStaticBallsArray(), _world.Simulation, _ceiling.BodyReference);
             _eventHandler.PhysicsBalls = _physicsBalls;
 
-            RecountBallsAndConstraints();
+            InvalidateBallCounts();
 
             ApplySkyLighting(); //FitCeilingToMap recreated the ceiling renderer, which starts without the sky palette
 
-            if (_aimCheck) LogAimReachability();
+            //The harness follows the field for the same reason the handler does: this executable swaps maps
+            //inside a live session, so a sweep that captured one at construction would walk a field that is no
+            //longer loaded. aimcheck runs without aimshoot, hence the static report and the separate gate.
+            if (_aimShootDriver != null) _aimShootDriver.Map = _map;
+
+            if (_options.AimCheck) AimShootDriver.LogReachability(_map, _cannon.OrbitRadius, _cannon.Position.Y);
         }
 
         /// <summary>
@@ -1161,488 +1141,35 @@ namespace Testbed
             balls.Clear();
         }
 
-        private void RecountBallsAndConstraints()
-        {
-            _info.CustomText = "Balls on scene: " + (_world.Simulation.Bodies.ActiveSet.Count) + "\nConstraints count: " + _world.Simulation.Solver.CountConstraints();
-        }
+        //Whether the overlay's body/constraint line is out of date. Starts true so the first visible frame states
+        //the counts rather than an empty line.
+        private bool _ballCountsDirty = true;
 
         /// <summary>
-        /// Y below which a ball is considered fallen out of the world. Set below the funnel's hole
-        /// (<see cref="ArenaIsland.FUNNEL_BOTTOM_Y"/>) so a ball that drops through it falls a visible distance into the
-        /// drop below the platform before it is removed.
+        /// Notes that the simulation's population has changed. <b>Deferred rather than counted on the spot
+        /// (#73)</b>: this used to be the count itself, and each of the five things that can move the population
+        /// — an attach, a cull, a shot, a map load, a release — walked <see cref="Solver.CountConstraints"/> over
+        /// every constraint batch in the solver and composed two strings, whether or not anyone could see the
+        /// result. A cascade that releases a cluster does all five in one frame. Now the frame that draws pays
+        /// once, and only if the overlay is up.
         /// </summary>
-        private static readonly float KILL_PLANE_Y = -42f;
+        private void InvalidateBallCounts() => _ballCountsDirty = true;
 
         /// <summary>
-        /// Removes balls that can no longer affect gameplay from the simulation and from the given list:
-        /// balls that fell below <see cref="KILL_PLANE_Y"/> and balls that came to rest on the ground
-        /// (their body fell asleep - flying or rolling bodies never sleep).
-        /// </summary>
-        /// <returns>Number of removed balls.</returns>
-        private int RemoveFallenBalls(List<PhysicsBall> balls)
-        {
-            int removed = 0;
-
-            for (int i = balls.Count - 1; i >= 0; i--)
-            {
-                BodyReference body = balls[i].BallReference;
-
-                //The sleep cull is deliberately the Testbed's alone: the Game culls on the kill plane only,
-                //because a ball that settles on the island's stone winking out in front of the player reads as a
-                //bug whatever it saves (docs/game-session.md). What the two share to the line is the retire below.
-                if (body.Pose.Position.Y >= KILL_PLANE_Y && body.Awake) continue;
-
-                //Unregisters the ball's listener if it still has one, then removes the body — that order being
-                //PhysicsWorld.RetireBall's whole point, a listener being keyed on a collidable reference Bepu is
-                //free to hand to the next body added. Its answer (whether the shot was still unresolved) is what
-                //the Game scores a miss on; nothing here keeps score.
-                _world.RetireBall(body);
-                balls.RemoveAt(i);
-                removed++;
-
-#if DEBUG
-                Console.WriteLine("Removed a fallen ball from the simulation");
-#endif
-            }
-
-            return removed;
-        }
-
-        protected override void Update(GameTime gameTime)
-        {
-            float timeStep = Math.Min((float)gameTime.ElapsedGameTime.TotalSeconds, 1 / 60f);
-            if (timeStep == 0) timeStep = 1 / 60f;
-
-            //Wall-clock time, not simulation time: the balls keep their pulse when the simulation is
-            //paused or slowed (F5, F9), because it is what they are, not something they are doing. It reaches
-            //the three ball renderers as BallRenderSet.Draw's argument, which is why it is not pushed here.
-            _pulseSeconds += (float)gameTime.ElapsedGameTime.TotalSeconds;
-
-            //Ease the magazine's post-shot slide towards its resting slots. Wall-clock too, so it glides even while
-            //the simulation is paused (F5, F9): the balls sliding down a tube is the gun answering the shot, not
-            //something the physics is doing.
-            _magazine.Step((float)gameTime.ElapsedGameTime.TotalSeconds);
-
-            //And the recoil slides home on the same clock, for the same reason — the stroke is the shared
-            //Cannon's since #115, this is only its tick
-            _cannon.StepRecoil((float)gameTime.ElapsedGameTime.TotalSeconds);
-
-            //The city runs off the same wall clock, and for the same reason: its windows are lit by people
-            //who do not care whether the simulation is running
-            _cityRenderer.CityWindowTime = _pulseSeconds;
-
-            UpdateOvercast((float)gameTime.ElapsedGameTime.TotalSeconds);
-
-            if (_simulate)
-            {
-                //ONE step per rendered frame, of whatever the frame took. That is this executable's own stepping
-                //policy and deliberately not the Game's — the Game accumulates the frame time and spends it in
-                //whole fixed steps of 1/120 s, because a step that varies with the display runs the simulation in
-                //slow motion below 60 FPS and Bepu's guidance is to keep it constant ("Physics in the game" in
-                //docs/game-session.md). PhysicsWorld.Step takes one step of exactly the length it is handed and
-                //nothing else, so the divergence stays visible in each caller's own loop; F9's slow motion scales
-                //the dt right here, where the policy lives. What the component owns is the order INSIDE a step —
-                //Timestep, then flush, then the contact work — which is mandatory and per step, not per frame: a
-                //handler may only record what the worker threads saw, the flush is what applies those per-worker
-                //adds, and a contact queued during a step describes a world the next step has already left behind.
-                _world.Step(_slowSimulation ? timeStep * Constants.HUNDREDTH : timeStep, _processContacts);
-
-                #region Fallen balls cleanup
-
-                int removedBalls = RemoveFallenBalls(_shotBalls) + RemoveFallenBalls(_fallingBalls);
-                if (removedBalls > 0) RecountBallsAndConstraints();
-
-                #endregion
-
-                #region Shot-trail launch smear
-
-                //Age each muzzle smear and drop it once the launch burst has faded. Inside the simulation
-                //gate on purpose: a paused Testbed (P) holds the smears where they are, along with the shot
-                //that left them - the Game, whose smears age every frame it updates, does it differently.
-                _smears.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
-
-                #endregion
-
-                #region Auto shooting (testing)
-
-                if (_autoShoot && _map != null)
-                {
-                    _autoShootElapsed += (float)gameTime.ElapsedGameTime.TotalSeconds;
-
-                    if (_autoShootElapsed >= 1f)
-                    {
-                        _autoShootElapsed = 0f;
-                        ShootBall(new Vector3(RANDOM.Next(-4, 5), RANDOM.Next(4, 11), RANDOM.Next(-4, 5)));
-                        Console.WriteLine($"[autoshoot] FPS: {_info.CurrentFPS}, balls drawn: {_balls.DrawnCount}/{_collectedBalls}, LOD: {string.Join("/", _balls.LodTotals)}");
-                    }
-                }
-
-                //Automated aim-and-shoot scan up the field's centre column (testing). Waits for the game-mode
-                //entry animation to finish, then fires one shot per interval, aiming the cannon at each height
-                //via Cannon.AimAt and logging the elevation wanted vs the elevation the clamp allowed.
-                if (_aimShoot && _map != null && _gameMode && !_gameModeAnimStarted && !_freeModeAnimStarted)
-                {
-                    if (_aimShootIndex == -1) { _aimShootIndex = 0; _aimShootElapsed = AIM_SHOOT_INTERVAL; }
-
-                    if (_aimShootIndex < AIM_SHOOT_STEPS)
-                    {
-                        _aimShootElapsed += (float)gameTime.ElapsedGameTime.TotalSeconds;
-
-                        if (_aimShootElapsed >= AIM_SHOOT_INTERVAL)
-                        {
-                            _aimShootElapsed = 0f;
-                            AimShootStep(_aimShootIndex);
-                            _aimShootIndex++;
-                            if (_aimShootIndex >= AIM_SHOOT_STEPS)
-                            {
-                                //Sweep done: hold the barrel aimed straight up (clamped to MaxElevation, ~80°) and
-                                //leave ADS engaged, so the steepest precise-aim view - the one that used to sink the
-                                //lens under the island - sits as a stable frame to inspect or screenshot.
-                                _cannon.AimAt(new Vector3(_cannon.OrbitCenter.X, 100f, _cannon.OrbitCenter.Z));
-                                Console.WriteLine($"[aimshoot] centre-column sweep complete; holding straight-up, ADS lens Y={PreciseAimLens().Y:F1} (island top {ArenaIsland.TOP_Y:F1})");
-                            }
-                        }
-                    }
-                }
-
-                if (_switchMapPath != null && !_switchMapDone)
-                {
-                    _switchMapElapsed += (float)gameTime.ElapsedGameTime.TotalSeconds;
-
-                    if (_switchMapElapsed >= SWITCH_MAP_DELAY_SECONDS)
-                    {
-                        _switchMapDone = true;
-                        Console.WriteLine($"[switchmap] Loading {_switchMapPath}");
-                        DeserializeMapFromFile(_switchMapPath);
-                    }
-                }
-
-                #endregion
-            }
-
-            //Before CameraMovement below, which is what reads it: assigned after, the fly camera turned with
-            //the PREVIOUS frame's denominator — one frame stale after every frame-time change, and one whole
-            //frame wrong after a resize (#80).
-            _cih.MouseMovementDenominator = timeStep / Constants.THOUSANDTH;
-
-            if (IsActive)
-            {
-                _cih.RegisterCurrentInputState();
-
-                //Skip edge-driven input the frame focus returns: while the window was inactive the input state was
-                //not registered, so the click (or key) that refocuses would otherwise read as a fresh press against
-                //a stale "released". RegisterPreviousInputState below re-syncs it, so edges resume next frame.
-                if (_wasActive)
-                {
-                    foreach (var action in _actions) if (_cih.PressedOnce(action.Key, action.Button)) action.Method();
-
-                    //In game mode the left mouse button fires, completing the shooter idiom (hold RMB to aim, click
-                    //to shoot); Space still fires too. The free-cam mouse look is gated off in game mode (last
-                    //argument), so the right button means "precise aim" there instead of toggling rotate/pan.
-                    if (_gameMode && _cih.PressedOnceMouse(leftButton: true, middleButton: false, rightButton: false)) ShootBall();
-                }
-
-                _cih.Update(gameTime);
-                _cih.CameraMovement(gameTime, !_gameMode, !_gameMode);
-                _cih.RegisterPreviousInputState();
-                _wasActive = true;
-            }
-            else { IsMouseVisible = true; _wasActive = false; }
-
-            UpdateCannon(gameTime);
-
-            #region Game mode animation
-
-            if (_gameModeAnimStarted && _gameMode)
-            {
-                _camera.Position = Vector3.SmoothStep(_beforeAnimationPosition, GetCanonOffsettedPos(), _gameModeAnimStep);
-                _camera.Target = Vector3.SmoothStep(_beforeAnimationTarget, GetCannonOffsettedTarget(), _gameModeAnimStep * 2f);
-                _camera.FieldOfView = Microsoft.Xna.Framework.MathHelper.SmoothStep(FREE_FOV, GAME_FOV, _gameModeAnimStep);
-
-                _gameModeAnimStep += ANIMATION_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-
-                if (_gameModeAnimStep > Constants.ONE)
-                {
-                    _gameModeAnimStep = 0;
-                    _gameModeAnimStarted = false;
-                }
-            }
-
-            if (_freeModeAnimStarted && !_gameMode)
-            {
-                if (_freeExitFromAds)
-                {
-                    //Leaving straight from precise aim: ease the whole leaned pose out to the overview pose over the
-                    //same animation that widens the FOV, so the camera does not teleport the ~30 units between them.
-                    _camera.FieldOfView = Microsoft.Xna.Framework.MathHelper.SmoothStep(_beforeAnimationFov, FREE_FOV, _gameModeAnimStep);
-                    _camera.Position = Vector3.SmoothStep(_beforeAnimationPosition, GetCanonOffsettedPos(), _gameModeAnimStep);
-                    _camera.Target = Vector3.SmoothStep(_beforeAnimationTarget, GetCannonOffsettedTarget(), _gameModeAnimStep);
-                }
-                else
-                {
-                    //Plain overview -> free exit: the camera is already at the overview pose, so only the FOV widens.
-                    _camera.FieldOfView = Microsoft.Xna.Framework.MathHelper.SmoothStep(GAME_FOV, FREE_FOV, _gameModeAnimStep);
-                }
-
-                _gameModeAnimStep += ANIMATION_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-
-                if (_gameModeAnimStep > 1f)
-                {
-                    _gameModeAnimStep = 0;
-                    _freeModeAnimStarted = false;
-                    _freeExitFromAds = false;
-                }
-            }
-
-            #endregion
-
-            base.Update(gameTime);
-        }
-
-        /// <summary>
-        /// Debug action (End): releases the whole hanging structure at once. The balls move into
-        /// <see cref="_fallingBalls"/>, so <see cref="RemoveFallenBalls"/> culls them once they come
-        /// to rest — leaving them in <see cref="_physicsBalls"/> kept the pile on the ground alive
-        /// (and generating contact constraints) forever.
-        /// </summary>
-        private void ReleaseAllBalls()
-        {
-            if (_physicsBalls == null || _map == null) return;
-
-            if (BallsConstraintsBuilder.ReleaseAllBalls(_physicsBalls, _map, _world.Simulation, _fallingBalls) > 0)
-                RecountBallsAndConstraints();
-        }
-
-        private void RemoveAllConstraints()
-        {
-            if (_physicsBalls == null || _physicsBalls.Rank != 3) return;
-
-            XZLevel size = XZLevel.FromArray(_physicsBalls);
-
-            for (byte level = 0; level < size.Level; level++)
-                for (byte x = 0; x < size.X; x++)
-                    for (byte z = 0; z < size.Z; z++)
-                        _physicsBalls[x, z, level]?.RemoveAllConstraints(_world.Simulation);
-        }
-
-        protected override void Draw(GameTime gameTime)
-        {
-            //The scene goes through the HDR target; the crosshair and the text overlay are drawn after the
-            //resolve, at native resolution and in display space, so they stay exactly as authored instead
-            //of being softened by the downsample and bent by the tonemap curve
-            GraphicsDevice.SetRenderTarget(_pipeline.SceneTarget);
-
-            //Clear to the current dome's HORIZON colour (linear), not a fixed blue. The dome is a hemisphere
-            //model translated to the camera and drawn without depth, so it covers everything above the
-            //horizon; below it the terrain covers what it reaches. But at a wide aspect (21:9) the bottom
-            //corners look below the horizon past the terrain's finite edge, and there a fixed clear colour
-            //showed through as a blue band. Clearing to the horizon colour makes any such gap blend seamlessly
-            //with the hazed skyline the terrain and dome both fade to there, so it is never seen as a seam.
-            //The sky-replacing scenes (space, the dream) have no dome and no horizon, so they clear to black
-            //instead: their pass covers every pixel of the frame, and black is what would show if it ever did not.
-            GraphicsDevice.Clear(SceneRenderer.ReplacesSky(_scene) ? Color.Black : new Color(_rig.HorizonLinear));
-
-            //The clouds run off the same wall clock the balls pulse to, so the weather keeps moving while
-            //the simulation is paused or slowed. Handed to both shaders from the one field, which is what
-            //keeps the cloud you look at and the shadow it throws the same cloud.
-            //
-            //Space is the one scene with no weather at all: the dome is not drawn (Space.fx covers the frame),
-            //and the cloud coverage is zeroed on the instanced effect so the balls, island and cannon are not
-            //crossed by the shadows of a deck nobody can see - InstancedModel.fx calls CloudSunlight
-            //unconditionally, and a gain left standing from the scene before would go on shadowing this one.
-            _clouds.Time = _pulseSeconds;
-
-            if (SceneRenderer.ReplacesSky(_scene)) _clouds.SuppressOn(_instancingEffect);
-            else
-            {
-                _clouds.ApplyTo(_skyEffect);
-                _clouds.ApplyTo(_instancingEffect);
-
-                _skyCameraPositionParam.SetValue(_camera.Position);
-
-                _sky.Draw(_camera);
-            }
-
-            //The sea's submerge fade for missed balls — a no-op off the sea scene (see SceneRenderer.ApplySeaSubmerge).
-            _sceneRenderer.ApplySeaSubmerge(_instancingEffect, _scene);
-
-            GraphicsDevice.BlendState = BlendState.AlphaBlend;
-            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-
-            //Stated rather than inherited. The last thing to touch the rasterizer in a frame is the
-            //SpriteBatch drawing the overlay, which leaves its own state behind, and the tonemap pass
-            //before it leaves CullNone - so what the scene culled depended on which of them ran last.
-            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-
-            if (_draw)
-            {
-                //The environment — city, sea or terrain — is the backdrop and the thing seen past the island's
-                //edge both. Either way the only physics floor is the drain's own mesh (FunnelPhysics.Build);
-                //the round stone island is the platform, and stays in every scene.
-                SceneFrame sceneFrame = BuildSceneFrame();
-
-                //Scene point lights (campfire / neon / planetshine) onto the shared instanced effect, so the
-                //balls, island, cannon and city are lit by them under every dome, on top of the sun and sky.
-                //The clock is the balls' own, so the campfire's light and its flame billboard cannot drift.
-                _sceneLights.Apply(_scene, _sceneRenderer, _cityConfig.NeonLook, _pulseSeconds);
-
-                if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
-                {
-                    bool neon = _scene == SceneKind.NeonCity;
-                    _cityRenderer.CityNeon = neon ? 1f : 0f;
-                    _cityRenderer.CityWindowBrightness = neon ? _cityConfig.NeonLook.WindowBrightness : _cityConfig.WindowBrightness;
-                    //Frustum-culled and ordered near to far, as the game draws it — see City.PrepareVisible
-                    int visibleBuildings = _city.PrepareVisible(_camera);
-                    _cityRenderer.Draw(_camera, _city.Visible, visibleBuildings, _sceneEffectParams);
-                }
-                else
-                    _sceneRenderer.DrawEnvironment(_scene, sceneFrame);
-
-                //The forest's scattered trees, boulders and stumps: after the terrain they stand on (with depth,
-                //or they would draw through it) and before the island. The state they need is the opaque scene
-                //state stated above — alpha blend, depth test and write, cull counter-clockwise — plus this
-                //frame's point lights, already on the shared effect; the component touches none of it, so the
-                //island's slices below are unaffected.
-                if (_scene == SceneKind.Forest) _forestScatter?.Draw(_camera);
-
-                //The round island, opaque: its stone cap and concrete drum. Then the dark pit shaft behind the
-                //drain, which is drawn in the solid-terrain scenes only and brings its own culling with it.
-                //Each slice owns the states its own geometry needs; where they sit in the frame is this file's
-                //decision, which is the whole reason the component hands them over separately.
-                _island.DrawIsland(_camera, _sceneEffectParams);
-                _island.DrawPit(_camera, _sceneEffectParams, _scene);
-
-                //Into a local because the glazing further down is drawn with the very same pose — it is set into
-                //this tube, so the one matrix serves both rather than being built twice a frame
-                Matrix barrelWorld = _cannon.BarrelWorld();
-
-                _cannonRig.Draw(_camera, barrelWorld, _sceneEffectParams);
-                _cannonRig.DrawCarriage(_camera, _cannon.CarriageWorld(), _cannon.WheelTravel, _sceneEffectParams);
-
-                //Every ball on the scene, collected and then put out: one instanced draw call per type and LOD
-                //level. BeginFrame empties the buckets and is the only way to fill them, which is what makes the
-                //once-per-frame visit structural rather than a rule to remember — the walk below advances each
-                //ball's occlusion ease and its arrival glide, so a second collection in one frame would run both
-                //at double speed while the drawn frame still looked perfectly correct (see BallRenderSet's
-                //remarks; it throws rather than allow it). A ref struct local by design: it allocates nothing and
-                //cannot be stashed in a field to bucket the next frame's balls against this frame's camera.
-                //
-                //Where this sits in the frame is still this file's: over the opaque scene, so the cluster and the
-                //gun are in the depth buffer, and before the shots' additive smears and the drain's glass.
-                BallDrawFrame frame = _balls.BeginFrame(_camera);
-
-                _collectedBalls = _collector.Collect(frame, (float)gameTime.ElapsedGameTime.TotalSeconds,
-                    _physicsBalls, _shotBalls, _fallingBalls);
-
-                //The loaded queue goes into the same open frame, being balls like any other
-                CollectMagazineBalls(frame);
-
-                //Wall clock, not the simulation's step: the balls keep breathing while it is paused or slowed
-                _balls.Draw(_pulseSeconds);
-
-                //The launch smears trailing the shots, over the opaque scene (which the depth buffer now holds,
-                //so the cluster/cannon/platform occlude them) and additive, so they glow through the glare.
-                //It states the three states it needs and puts back exactly what it found, so the frame's
-                //translucent baseline - which the two glass draws below depend on - is still standing here.
-                _smears.Draw(_camera);
-
-                //The drain's gold beads and then its glass, after the shots' smears: the beads are opaque and
-                //belong with the opaque scene, and the glass composites over everything already in the frame.
-                _island.DrawGlass(_camera, _sceneEffectParams);
-
-                _ceilingPlate.Renderer.Draw(_camera, _ceiling.World, _sceneEffectParams);
-
-                //The gun's own glass last of the three, because it is far and away the nearest: the loaded queue
-                //is behind it and in the depth buffer by now, and so are the drain's cone and the ceiling's plate
-                //the barrel is seen against. Composited first it would let both of those bleed through it.
-                _cannonRig.DrawGlass(_camera, barrelWorld, _sceneEffectParams);
-
-                //Falling snow settles over everything, so it is drawn last, in front of what it should hide
-                _sceneRenderer.DrawOverlays(_scene, sceneFrame);
-            }
-
-            //Underwater murk: only the sea has water the camera can get under. Ramp it in by how far the lens
-            //is below the mean surface (a touch above it, so partial submersion already begins to tint), full
-            //by UNDERWATER_FADE_DEPTH down. Zero (a no-op in the shader) in every other scene.
-            float underwater = _scene == SceneKind.Sea
-                ? Math.Clamp((_sceneRenderer.SeaLevelY + 0.5f - _camera.Position.Y) / UNDERWATER_FADE_DEPTH, 0f, 1f)
-                : 0f;
-
-            _pipeline.Resolve(_pulseSeconds, underwater);
-
-            //The crosshair, in display space after the resolve: in free mode it marks where a shot from the camera
-            //goes, so it is simply there (opacity 1); in game mode it appears only as precise aim engages, fading
-            //in with PreciseAim.Blend, and marks the impact point the camera converges on - the overview's screen
-            //centre points at nothing in particular. Everything else about it, the below-0.01 skip included, is
-            //Crosshair's.
-            _crosshair.Draw(_spriteBatch, _gameMode ? _preciseAim.Blend : 1f);
-
-            base.Draw(gameTime);
-        }
-
-        /// <summary>
-        /// Adds the magazine's queued balls to this frame's collection along the cannon axis: index 0 at the
-        /// muzzle (the spawn point), the rest receding back towards the breech, so the player sees the colour
-        /// that will fire and the ones behind it. Drawn as real balls — the same shader, pattern and emission as
-        /// every other ball, through the same buckets — and unoccluded, a ball in the bore having nothing packed
-        /// around it.
+        /// Rebuilds the overlay's count line if it is stale, called once per frame from <see cref="Update"/>.
         /// <para>
-        /// The magazine deliberately stayed with the callers when the rest of the ball drawing was hoisted:
-        /// which colours are loaded, where the bore puts them and (in the Game) the transmute cross-fade are
-        /// three different questions, and none of them is <see cref="BallRenderSet"/>'s.
+        /// The <see cref="InfoRenderer.Visible"/> test comes <b>before</b> the flag is cleared on purpose: with
+        /// the overlay hidden (F12) the counts are simply not computed, and the dirt is left standing so the
+        /// first frame after F12 brings it back states the truth instead of whatever the line last said.
         /// </para>
         /// </summary>
-        /// <param name="frame">The collection <see cref="Draw"/> opened, passed along as <c>in</c> rather than
-        /// reopened — a second <see cref="BallRenderSet.BeginFrame"/> in one frame is exactly the double-advance
-        /// this type refuses.</param>
-        private void CollectMagazineBalls(in BallDrawFrame frame)
+        private void RefreshBallCounts()
         {
-            //One read of the barrel's pose for the whole queue rather than one per ball, and taken AFTER the gun
-            //has been updated this frame - a pose read before the barrel moves makes the queue lag a frame behind
-            //the tube it is supposed to be inside, which reads as jitter. The balls take the barrel's own basis,
-            //which is what stops them skewing in their slots, and the slide is already applied per slot. The
-            //Testbed animates no recoil, so it passes none.
-            BorePose pose = _magazine.Pose(_cannon, _cannonRig.PivotToFrontBall);
+            if (!_ballCountsDirty || !_info.Visible) return;
 
-            //BallDrawFrame.Add rather than AddOriented: BorePose.SlotWorld has already built the matrix, writing
-            //the slot's translation into the barrel's own basis rather than multiplying one in, and it hands the
-            //position back because the LOD is picked by distance and reading a translation out of a matrix to
-            //measure one is what goes wrong the day something is scaled.
-            for (int slot = 0; slot < Magazine.SIZE; slot++)
-            {
-                Matrix world = pose.SlotWorld(slot, out Vector3 position);
+            _ballCountsDirty = false;
 
-                frame.Add(_magazine.Peek(slot), position, world, BallRenderSet.UNOCCLUDED);
-            }
-        }
-
-        private void SetGraphics(bool windowed = false)
-        {
-            _graphics.PreferredBackBufferWidth = windowed ? _windowWidth : GraphicsDevice.DisplayMode.Width;
-            _graphics.PreferredBackBufferHeight = windowed ? _windowHeight : GraphicsDevice.DisplayMode.Height;
-            _graphics.IsFullScreen = !windowed;
-
-            _graphics.SynchronizeWithVerticalRetrace = !_uncappedFps;
-
-            _graphics.ApplyChanges();
-
-            //Null-conditional for the constructor's call, which runs before LoadContent has built the
-            //pipeline (the old in-class EnsureSceneTarget guarded on GraphicsDevice == null the same way)
-            _pipeline?.EnsureTarget();
-
-            IsMouseVisible = false;
-            IsFixedTimeStep = false;
-        }
-
-        private void Graphics_PreparingDeviceSettings(object sender, PreparingDeviceSettingsEventArgs e)
-        {
-            e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = _uncappedFps ? PresentInterval.Immediate : PresentInterval.One;
-            e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.HiDef;
-
-            //The 3D scene never reaches the back buffer any more — it goes through the HDR target and
-            //arrives as one already-resolved full-screen quad — so multisampling the back buffer would
-            //cost memory and antialias nothing. Any MSAA now belongs on the scene target itself.
-            e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = 0;
+            _info.CustomText = "Balls on scene: " + (_world.Simulation.Bodies.ActiveSet.Count) + "\nConstraints count: " + _world.Simulation.Solver.CountConstraints();
         }
 
         protected override void UnloadContent()
@@ -1676,138 +1203,6 @@ namespace Testbed
             _world?.Dispose();
         }
 
-        private void InitializeShooting()
-        {
-            //No shot-ball template here: the body description every shot is stamped from is PhysicsWorld's, built
-            //once with the simulation and copied per shot rather than held as a field and written over. Its SWEPT
-            //collidable — a bounded speculative margin plus ContinuousDetection.Continuous — is what gives the
-            //shot continuous collision detection, which at SHOOT_MULTIPLIER it cannot do without.
-            _shotBalls = new List<PhysicsBall>();
-            _fallingBalls = new List<PhysicsBall>();
-
-            //The constructor deals a full queue, so the player has something to read from the first frame. The
-            //next-colour policy is handed in and no hooks are: the Testbed has no per-slot state to carry through
-            //an advance (the colour transmutation is the Game's).
-            _magazine = new Magazine(RandomBallType);
-        }
-
-        private static BallType RandomBallType() =>
-            (BallType)RANDOM.Next((int)BallType.Type1, (int)BallType.Type8 + 1);
-
-        private void ShootBall(Vector3? targetOverride = null)
-        {
-            //In game mode the shot leaves from the ball the player watched sitting at the head of the queue,
-            //not from the pivot in the middle of the barrel, so the drawn ball and the physics one that
-            //replaces it are at the same place and the shot reads as that ball leaving the bore
-            var sourcePosition = _gameMode ? _cannon.MuzzlePosition(_cannonRig.PivotToFrontBall) : _camera.Position;
-            var shootTarget = targetOverride ?? (_gameMode ? _cannon.AimTarget : _camera.Target);
-
-            var direction = shootTarget - sourcePosition;
-            direction.Normalize();
-            Vector3 launchDirection = direction; //unit, before it is scaled to a velocity below
-            direction *= SHOOT_MULTIPLIER;
-
-            PhysicsBall ball = new()
-            {
-                //Added to the simulation and registered as a contact listener in one call, in that order — a
-                //listener is keyed on a collidable reference, so the body has to exist first. This is the only
-                //place anything is registered, which is what makes "every listener is a shot in the air" true;
-                //RetireBall is the unregister the TODO that stood here asked for.
-                //ToNumerics is the framework's own crossing into Bepu's vector type, which this file used to
-                //write out by hand here and call by name two hundred lines below
-                BallReference = _world.AddShotBall(sourcePosition.ToNumerics(), direction.ToNumerics(), _eventHandler),
-                Type = _magazine.Peek() //The colour the player saw loaded at the muzzle - so aiming for it means something
-            };
-
-            //Advance the magazine: the fired ball's slot empties, the queue shifts up and a new one loads
-            _magazine.Advance();
-
-            //The gun's own answer (#115): the tube thrown back in its cradle, the carriage lurching a beat
-            //behind it — both the shared Cannon's, drawing only. Only where the GUN fired: a free-mode shot
-            //leaves the camera, and a rain of test balls must not rattle a gun that did nothing.
-            if (_gameMode) _cannon.KickRecoil();
-
-            _shotBalls.Add(ball);
-            RecountBallsAndConstraints();
-
-            //Give the shot its launch smear: a colour streak at the muzzle, along the shot, fading over its own
-            //short life (aged in Update, drawn in Draw). Only the ball's authored tint is handed over - decoding
-            //it to linear, lifting its peak off the floor and boosting it to a glowing radiance is the smear's
-            //own rule, and it was written out here and in the Game identically until #76.
-            _smears.Add(sourcePosition, launchDirection, BasicEffectParamsProvider.GetDiffuseTintByType(ball.Type));
-        }
-
-        private void UpdateCannon(GameTime gameTime)
-        {
-            //Free mode drives no cannon input — A/D belong to the fly camera's strafe and the aim stays parked —
-            //so only the pose easing runs, and a barrel caught mid-traverse settles instead of freezing.
-            //Returning BEFORE the snapshot below is the point: those three GetState calls are real OS queries
-            //(an XInput poll for the pad), _cih already took this frame's set, and free mode — where the Testbed
-            //spends most of its life — was paying both for nothing (#80).
-            if (!_gameMode)
-            {
-                _cannon.Update(gameTime);
-                return;
-            }
-
-            //One snapshot of each input device for the whole game-mode frame: every extra GetState call
-            //re-queries the OS (a real XInput poll for the pad), and two reads in one frame can even
-            //disagree about a key pressed between them. In game mode this is still a SECOND set after _cih's —
-            //sharing that one means threading CameraInputHelper's snapshot out through a library API, which #80
-            //records as declined: the Testbed is not the product, and the cost is one extra poll per device.
-            KeyboardState keyboard = Keyboard.GetState();
-            MouseState mouse = Mouse.GetState();
-            GamePadState pad = GamePad.GetState(PlayerIndex.One);
-
-            //Orbiting the cannon around the field is on A/D and walking it towards the field and back on W/S —
-            //in the free fly camera all four stay the camera's own, which is why the free-mode early-out above
-            //exists. Walking closes on the cluster (a steeper shot up into its underside) or backs off for a
-            //flatter one; the ends of the walk are rubber (Cannon.ADVANCE_EASE_ZONE), not stops. Neither
-            //movement touches the aim: the mouse owns it (below) and holds it wherever the player leaves it.
-            if (keyboard.IsKeyDown(mgKeys.A)) _cannon.Orbit(1f);
-            if (keyboard.IsKeyDown(mgKeys.D)) _cannon.Orbit(-1f);
-
-            if (keyboard.IsKeyDown(mgKeys.W)) _cannon.Advance(1f);
-            if (keyboard.IsKeyDown(mgKeys.S)) _cannon.Advance(-1f);
-
-            _cannon.Update(gameTime);
-
-            //The camera must follow the cannon's pose from THIS frame (after Update above has moved it).
-            //Reading the pose before the move made the camera lag one frame behind, so any frame-time
-            //fluctuation (shooting, contact processing) showed up as the cannon jittering on screen (#29).
-            if (!_gameModeAnimStarted)
-            {
-                //The mouse aims the cannon throughout game mode - in the overview as well as in precise aim (the
-                //arrow keys are retired). The cursor is captured (hidden and re-centred) the whole time we are
-                //actively playing, and the mouse delta drives Cannon.Aim before the pose is read so the camera does
-                //not lag it (#29). Precise aim (RMB / left trigger) changes nothing about the aiming - it only leans
-                //the camera in over the barrel and down the aim.
-                //IsActive gates the capture: the gamepad trigger reads globally through XInput, and losing focus must
-                //free the cursor rather than keep grabbing it (the else branch).
-                if (IsActive && _map != null && !_aimShoot) UpdateMouseAim(gameTime, mouse, pad);
-                else { _mouseAim.Invalidate(); IsMouseVisible = true; }
-
-                //Stepped every frame, held or not: an unheld frame is how the lean eases back out, which is what
-                //makes losing focus a fade rather than a drop. Every gate on the held flag is this file's - IsActive
-                //(the gamepad trigger reads globally through XInput, and an alt-tabbed window must not stay leaned
-                //in), the free-mode exit animation, and a loaded field.
-                bool adsHeld = IsActive && !_freeModeAnimStarted && _map != null && PreciseAim.ButtonHeld(mouse, pad);
-                _preciseAim.Step(adsHeld, (float)gameTime.ElapsedGameTime.TotalSeconds);
-
-                //The muzzle is read after _cannon.Update above, for the same reason the camera pose is (#29). The
-                //cluster centre is this file's own derivation off the loaded map - PreciseAim deliberately does not
-                //learn what a map is.
-                AimPose aim = _preciseAim.BlendedPose(GetCanonOffsettedPos(), GetCannonOffsettedTarget(), GAME_FOV,
-                    _cannon.MuzzlePosition(_cannonRig.PivotToFrontBall), _cannon.AimDirection, ClusterCentre());
-
-                //The order FOV -> Position -> Target is required: the Target setter rebuilds the view last, with
-                //world up (which is also where the ADS lens's view up comes from for free).
-                _camera.FieldOfView = aim.FieldOfView;
-                _camera.Position = aim.Position;
-                _camera.Target = aim.Target;
-            }
-        }
-
         /// <summary>
         /// The middle of the hanging cluster: the depth <see cref="PreciseAim.LensTarget"/> converges its look-at
         /// point at, so the screen-centre crosshair marks where the shot is actually directed. Derived here from
@@ -1822,15 +1217,6 @@ namespace Testbed
 
             return new Vector3(_cannon.OrbitCenter.X, clusterY, _cannon.OrbitCenter.Z);
         }
-
-        /// <summary>
-        /// Where the precise-aim lens sits this instant, for the two "aimshoot" diagnostics that check it stays
-        /// above the stone island at the steep corner shots, where it used to sink through the disc. The floor
-        /// that holds it there is <see cref="PreciseAim.FLOOR_CLEARANCE"/> over the local stone
-        /// (<see cref="ArenaIsland.FloorHeightAt"/>).
-        /// </summary>
-        private Vector3 PreciseAimLens() =>
-            PreciseAim.LensPosition(_cannon.MuzzlePosition(_cannonRig.PivotToFrontBall), _cannon.AimDirection);
 
         /// <summary>
         /// Where the game camera stands: back from the field's centre along the horizontal bearing out to the gun,
@@ -1881,91 +1267,6 @@ namespace Testbed
                 $", walk {fit.CannonMinRadius:F1}..{fit.CannonMaxRadius:F1})");
         }
 
-        private const float RAD_TO_DEG = 180f / MathF.PI;
-
-        /// <summary>
-        /// Diagnostic ("aimcheck"): reports whether the cannon can be aimed at every cell of the loaded map, which
-        /// is what makes a level finishable. The clean shot at a cell is from the orbit angle that <i>faces</i> it
-        /// (the cell on the near side): the ball rises from the gun straight to it over open ground. The opposite
-        /// angle is geometrically shallower but fires across the whole hanging cluster, so it is obstructed for
-        /// anything high — this facing angle is the one that actually has to fit the elevation clamp. It steepens
-        /// with height and with distance out from the field's axis, so the top corners of a large map bind. Logs
-        /// the steepest required facing elevation against the clamp and a PASS/FAIL.
-        /// </summary>
-        private void LogAimReachability()
-        {
-            if (_map == null || _cannon == null) return;
-
-            float orbitRadius = _cannon.OrbitRadius;
-            float trunnionsY = _cannon.Position.Y;
-
-            //The test itself is AimReachability's since #76 — a pure function of the map and the gun's orbit, so
-            //the map editor can ask it before saving a level rather than a script having to read a console line.
-            //The three lines below stay here on purpose: they are a CLI surface .claude/skills/verify documents,
-            //so their exact wording is a contract and belongs with the executable that publishes it.
-            AimReachabilityResult reach = AimReachability.Check(_map, orbitRadius, trunnionsY, Cannon.MaxElevation);
-
-            string verdict = reach.Pass
-                ? "PASS - every cell can be shot while facing it"
-                : $"FAIL - {reach.UnreachableCells}/{reach.TotalCells} cells need more up-elevation than the clamp allows (unfinishable)";
-
-            Console.WriteLine($"[aimcheck] Field {_map.StageSizeX}x{_map.StageSizeZ}x{_map.Levels}: cannon orbit R={orbitRadius:F1}, trunnions Y={trunnionsY:F1}");
-            Console.WriteLine($"[aimcheck]   elevation clamp [{Cannon.MinElevation * RAD_TO_DEG:F1}, {Cannon.MaxElevation * RAD_TO_DEG:F1}] deg, traverse +/-{Cannon.MaxTraverse * RAD_TO_DEG:F0} deg");
-            Console.WriteLine($"[aimcheck]   steepest cell ({reach.WorstCell.X},{reach.WorstCell.Z},{reach.WorstCell.Level}) at Y={reach.WorstCellY:F1} needs {reach.WorstElevation * RAD_TO_DEG:F1} deg facing elevation  ->  {verdict}");
-        }
-
-        /// <summary>
-        /// One step of the "aimshoot" scan. Steps 0..N-1 walk up the field's centre column; the last four are its
-        /// top corners, the steepest facing shots. For each the carriage is orbited to face the cell and the cannon
-        /// aimed at it, then a shot is fired through the normal game-mode path (so any attach is reported by the
-        /// usual contact logging). Logs the elevation the aim asked for against what the clamp allowed, so a shot
-        /// held short by the clamp is obvious.
-        /// </summary>
-        private void AimShootStep(int step)
-        {
-            byte topLevel = (byte)(_map.Levels - 1);
-            XZLevel cell;
-            string label;
-
-            if (step < AIM_SHOOT_COLUMN_STEPS)
-            {
-                byte level = (byte)(topLevel * step / (AIM_SHOOT_COLUMN_STEPS - 1));
-                cell = new XZLevel(_map.StageSizeX / 2, _map.StageSizeZ / 2, level);
-                label = "centre";
-            }
-            else
-            {
-                byte lastX = (byte)(_map.StageSizeX - 1), lastZ = (byte)(_map.StageSizeZ - 1);
-                cell = (step - AIM_SHOOT_COLUMN_STEPS) switch
-                {
-                    0 => new XZLevel(0, 0, topLevel),
-                    1 => new XZLevel(lastX, 0, topLevel),
-                    2 => new XZLevel(0, lastZ, topLevel),
-                    _ => new XZLevel(lastX, lastZ, topLevel),
-                };
-                label = "top corner";
-            }
-
-            Vector3 target = _map.GetRealCenteredPosition(cell);
-
-            _cannon.OrbitToFace(target); //stand facing the cell so the shot is the clean, steep facing one
-            bool reachable = _cannon.CanAimAt(target, out float wantedElevation, out _);
-            _cannon.AimAt(target);
-
-            Vector3 dir = _cannon.AimTarget - _cannon.Position;
-            float gotElevation = MathF.Atan2(dir.Y, MathF.Sqrt(dir.X * dir.X + dir.Z * dir.Z));
-
-            //ADS lens Y against the island top (ArenaIsland.TOP_Y): confirms the precise-aim camera stays above the floor
-            //even at the steep corner shots, where it used to sink through the stone disc.
-            float adsLensY = PreciseAimLens().Y;
-
-            Console.WriteLine($"[aimshoot] {label} ({cell.X},{cell.Z},{cell.Level}) Y={target.Y:F1}: " +
-                $"want {wantedElevation * RAD_TO_DEG:F1} deg, got {gotElevation * RAD_TO_DEG:F1} deg  ->  {(reachable ? "reachable" : "CLAMPED SHORT")}" +
-                $"; ADS lens Y={adsLensY:F1} (island top {ArenaIsland.TOP_Y:F1})");
-
-            ShootBall();
-        }
-
         /// <summary>
         /// What the game camera looks at: the centre of the field, so the map is the thing framed and it
         /// holds still. The view deliberately does **not** ride the aim. The two controls split cleanly -
@@ -1976,254 +1277,7 @@ namespace Testbed
         /// </summary>
         private Vector3 GetCannonOffsettedTarget() =>
             new(_cannon.OrbitCenter.X, _gameCameraTargetY, _cannon.OrbitCenter.Z);
-
-        /// <summary>
-        /// Drives the cannon's aim from the mouse throughout game mode (the overview as well as precise aim; the
-        /// arrow keys are retired), and from the pad's right stick. The arithmetic and both dials are
-        /// <see cref="MouseAim"/>'s since #76 — including why the delta is taken against the <b>live</b> viewport
-        /// centre and divided by the frame time. What stays here is the order: the cursor is hidden, the delta
-        /// applied, the cursor re-centred, and only then the pad added.
-        /// </summary>
-        private void UpdateMouseAim(GameTime gameTime, MouseState mouse, GamePadState pad)
-        {
-            int cx = GraphicsDevice.Viewport.Width / 2;
-            int cy = GraphicsDevice.Viewport.Height / 2;
-
-            IsMouseVisible = false;
-
-            _mouseAim.ApplyCursor(_cannon, mouse, cx, cy, gameTime);
-            _mouseAim.Recentre(cx, cy);
-
-            MouseAim.ApplyPad(_cannon, pad, gameTime);
-        }
     }
-
-    #region Contact event
-
-    //WIP
-    public class BallContactEventHandler : IContactEventHandler
-    {
-        public Simulation Simulation;
-        private ContactEvents _contactEvents;
-        private KinematicBody _ceiling;
-        public BallsMap Map;
-        public PhysicsBall[,,] PhysicsBalls;
-        public List<PhysicsBall> ShotBalls;
-        public List<PhysicsBall> FallingBalls;
-
-        public BallContactEventHandler(Simulation simulation, ContactEvents contactEvents, KinematicBody ceiling, PhysicsBall[,,] physicsBalls, List<PhysicsBall> shotBalls, List<PhysicsBall> fallingBalls)
-        {
-            Simulation = simulation;
-            _contactEvents = contactEvents;
-            _ceiling = ceiling;
-            PhysicsBalls = physicsBalls;
-            ShotBalls = shotBalls;
-            FallingBalls = fallingBalls;
-        }
-
-        //Contact callbacks run inside Simulation.Timestep, potentially from multiple worker threads at once.
-        //Mutating the simulation (constraints, velocities) or the ContactEvents listener set from there corrupts state
-        //the solver and the event system are using (this used to cause occasional NullReferenceExceptions).
-        //Contacts are therefore only recorded here and processed on the main thread by ProcessQueuedContacts after the timestep.
-        private readonly ConcurrentQueue<QueuedContact> _queuedContacts = new();
-
-        private readonly struct QueuedContact
-        {
-            public readonly CollidableReference EventSource;
-            public readonly CollidablePair Pair;
-            public readonly Vector3 ContactOffset;
-            public readonly Vector3 ContactNormal;
-            public readonly float Depth;
-            public readonly int FeatureId;
-            public readonly int ContactIndex;
-            public readonly int WorkerIndex;
-
-            public QueuedContact(CollidableReference eventSource, CollidablePair pair, Vector3 contactOffset, Vector3 contactNormal,
-                float depth, int featureId, int contactIndex, int workerIndex)
-            {
-                EventSource = eventSource;
-                Pair = pair;
-                ContactOffset = contactOffset;
-                ContactNormal = contactNormal;
-                Depth = depth;
-                FeatureId = featureId;
-                ContactIndex = contactIndex;
-                WorkerIndex = workerIndex;
-            }
-        }
-
-        public void OnContactAdded<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold,
-            Vector3 contactOffset, Vector3 contactNormal, float depth, int featureId, int contactIndex, int workerIndex) where TManifold : unmanaged, IContactManifold<TManifold>
-        {
-            _queuedContacts.Enqueue(new QueuedContact(eventSource, pair, contactOffset, contactNormal, depth, featureId, contactIndex, workerIndex));
-        }
-
-        /// <summary>
-        /// Processes contacts recorded during the last timestep. Must be called from the main thread while the simulation is not stepping,
-        /// after <see cref="ContactEvents.Flush"/>.
-        /// </summary>
-        /// <returns>Number of balls attached to the ceiling.</returns>
-        public int ProcessQueuedContacts()
-        {
-            int attachedBalls = 0;
-            while (_queuedContacts.TryDequeue(out QueuedContact contact))
-                if (ProcessContact(contact)) attachedBalls++;
-            return attachedBalls;
-        }
-
-        private bool ProcessContact(in QueuedContact contact)
-        {
-            CollidablePair pair = contact.Pair;
-
-#if DEBUG
-            Console.WriteLine(" → Ball collided!");
-            Console.WriteLine(nameof(contact.EventSource) + " : " + contact.EventSource.ToString());
-            Console.WriteLine(nameof(pair.A) + " : " + pair.A.ToString());
-            Console.WriteLine(nameof(pair.B) + " : " + pair.B.ToString());
-            Console.WriteLine(nameof(contact.ContactOffset) + " : " + contact.ContactOffset.ToString());
-            Console.WriteLine(nameof(contact.ContactNormal) + " : " + contact.ContactNormal.ToString());
-            Console.WriteLine(nameof(contact.Depth) + " : " + contact.Depth.ToString());
-            Console.WriteLine(nameof(contact.FeatureId) + " : " + contact.FeatureId.ToString());
-            Console.WriteLine(nameof(contact.ContactIndex) + " : " + contact.ContactIndex.ToString());
-            Console.WriteLine(nameof(contact.WorkerIndex) + " : " + contact.WorkerIndex.ToString());
-            Console.WriteLine();
-#endif
-
-            //Once ball touches the ground or ceiling, unregister collision event
-            //TODO: This might be possible to do by checking if the Static/Kinematic body is specific object (ground block, ceiling block by BodyReference)
-            if (pair.A.Mobility == CollidableMobility.Static || pair.B.Mobility == CollidableMobility.Static ||
-                pair.A.Mobility == CollidableMobility.Kinematic || pair.B.Mobility == CollidableMobility.Kinematic)
-            {
-                //A single timestep can queue several contacts for the same ball, so the listener may have been unregistered by a previous one
-                if (pair.A.Mobility == CollidableMobility.Dynamic && _contactEvents.IsListener(pair.A)) _contactEvents.Unregister(pair.A);
-                if (pair.B.Mobility == CollidableMobility.Dynamic && _contactEvents.IsListener(pair.B)) _contactEvents.Unregister(pair.B);
-            }
-
-            if (Map == null)
-            {
-                Console.WriteLine("Map is null\n");
-                return false;
-            }
-
-            //The event source is the registered listener, i.e. the shot ball
-            BodyHandle shotBallHandle = contact.EventSource.BodyHandle;
-
-            //An indexed walk rather than LINQ, the Game's FindShotBall reasoning: this runs per queued contact
-            //on the shot path, and Where().FirstOrDefault() allocated a closure and two iterators per call for
-            //a list that rarely holds more than a ball or two (#80)
-            PhysicsBall physicsBall = null;
-            for (int i = 0; i < ShotBalls.Count; i++)
-                if (ShotBalls[i].BallReference.Handle == shotBallHandle) { physicsBall = ShotBalls[i]; break; }
-
-            if (physicsBall == null)
-            {
-#if DEBUG
-                Console.WriteLine("Ball already attached or no longer tracked as shot, skipping");
-#endif
-                return false;
-            }
-
-            CollidableReference other = pair.A.Packed == contact.EventSource.Packed ? pair.B : pair.A;
-
-            #region Find a free cell for the ball
-
-            Vector3 allowedPosition;
-            XZLevel arrayPosition;
-
-            if (other.Mobility == CollidableMobility.Kinematic && other.BodyHandle == _ceiling.BodyHandle)
-            {
-#if DEBUG
-                Console.WriteLine(" → CEILING HIT");
-#endif
-                allowedPosition = Map.PutBallAtClosestEmptyCeilingPosition(contact.ContactOffset, out arrayPosition, physicsBall.Type);
-            }
-            else if (other.Mobility == CollidableMobility.Dynamic && TryFindMapBall(other.BodyHandle, out PhysicsBall hitBall))
-            {
-#if DEBUG
-                Console.WriteLine(" → STRUCTURE BALL HIT");
-#endif
-                //Manifold offsets are relative to the position of the pair's first collidable
-                var worldContact = Simulation.Bodies[pair.A.BodyHandle].Pose.Position + contact.ContactOffset.ToNumerics();
-                allowedPosition = Map.PutBallAtClosestEmptyPositionNextTo(worldContact, hitBall.ArrayPosition, out arrayPosition, physicsBall.Type);
-            }
-            else return false; //Ground, a loose shot ball, …
-
-            if (allowedPosition.X == float.MinValue)
-            {
-#if DEBUG
-                Console.WriteLine("Outside of the map or every neighboring cell already occupied by another ball");
-#endif
-                return false;
-            }
-
-#if DEBUG
-            Console.WriteLine("Ball placed at: " + allowedPosition);
-#endif
-
-            #endregion
-
-            #region Attach the ball to the structure
-
-            physicsBall.ArrayPosition = arrayPosition;
-
-            ShotBalls.Remove(physicsBall); //Not shot anymore
-
-            PhysicsBalls[arrayPosition.X, arrayPosition.Z, arrayPosition.Level] = physicsBall; //Part of the map now
-
-            physicsBall.BallReference.Velocity.Linear = default; //Removing velocity from the shot
-            physicsBall.BallReference.Velocity.Angular = default; //Also stop spinning, so the freshly created constraint anchors are not dragged around by residual rotation
-
-            //The ball is snapped to the nearest free cell rather than to where it hit, so the constraints created
-            //below drag it across up to several ball diameters within a frame or two. Drawing it gliding in from
-            //where it actually hit hides that click without touching the simulation.
-            physicsBall.StartRenderGlide(allowedPosition.ToNumerics());
-
-            //Constraint anchors are computed from the static map grid (ideal positions) and rotated into each body's current local frame,
-            //so they are correct even after the simulation has been running
-            BallsConstraintsBuilder.AttachBallToStructure(physicsBall, PhysicsBalls, Map, Simulation, _ceiling.BodyReference);
-
-            //Attached to the structure – no need to listen for its contacts anymore
-            if (_contactEvents.IsListener(contact.EventSource)) _contactEvents.Unregister(contact.EventSource);
-
-            #region Same-type cluster removal
-
-            BallsReleased releasedBalls = BallsConstraintsBuilder.ReleaseSameTypeCluster(physicsBall, PhysicsBalls, Map, Simulation, FallingBalls);
-
-#if DEBUG
-            if (releasedBalls.Any) Console.WriteLine($"Released a cluster of type {physicsBall.Type}: {releasedBalls}");
-#endif
-
-            #endregion
-
-            #endregion
-
-            return true;
-        }
-
-        private bool TryFindMapBall(BodyHandle handle, out PhysicsBall ball)
-        {
-            ball = null;
-            if (PhysicsBalls == null) return false;
-
-            XZLevel size = XZLevel.FromArray(PhysicsBalls);
-
-            for (byte level = 0; level < size.Level; level++)
-                for (byte x = 0; x < size.X; x++)
-                    for (byte z = 0; z < size.Z; z++)
-                    {
-                        PhysicsBall candidate = PhysicsBalls[x, z, level];
-                        if (candidate != null && candidate.BallReference.Handle == handle)
-                        {
-                            ball = candidate;
-                            return true;
-                        }
-                    }
-
-            return false;
-        }
-    }
-
-    #endregion
 }
 
 /*
