@@ -195,14 +195,16 @@ float3 StarLayer(float3 dir, float pixelAngle, float scale, float chance, float 
 	//substituting the radial/tangential split into r^2 + t^2 * sec^2 collapses to this, with no normalize, no
 	//divide and no branch — and at a face centre chart.xy is zero and the jacobian is one, so it reduces to
 	//exactly the dot(offset, offset) it replaces, bit for bit.
-	float along = dot(offset, chart.xy);
-	float distance2 = dot(offset, offset) * jacobian - along * along;
+	//NOT named `along`: the spike block below already has a float2 of that name, and a float here would be
+	//shadowed by it inside the branch rather than clash — which compiles, and leaves the next reader of the
+	//arms unsure which `along` they are looking at.
+	float radialDot = dot(offset, chart.xy);
+	float distance2 = dot(offset, offset) * jacobian - radialDot * radialDot;
 
 	//The margin above is left measuring the ISOTROPIC reach, which is now an over-estimate tangentially rather
 	//than an under-estimate — so no star can be cut by the cell boundary, which is the only thing it has to
-	//guarantee. Tightening it per axis would buy back a little jitter room exactly where the cap binds, and is
-	//the obvious next move on the lattice-pinning below; it is not made here because it moves every star in the
-	//sky and #87 is about the elongation.
+	//guarantee. Tightening it per axis would buy back a little jitter room exactly where the cap binds; it is
+	//not done here because it moves every star in the sky and #87 is about the elongation.
 	float profile = exp(-distance2 / (core * core));
 
 	//Diffraction spikes, on the brightest few of the coarse layer only. They are drawn here rather than left
@@ -220,6 +222,14 @@ float3 StarLayer(float3 dir, float pixelAngle, float scale, float chance, float 
 		//a clipped arm ends in a straight line on the cell boundary, which is the lattice drawn out in full,
 		//and a shortened one is only shorter. Below the cap this is exactly core * StarSpikeLength.
 		float reach = min(core * StarSpikeLength, margin * (1.0 / 2.5));
+
+		//These arms are the ONE thing in this function still measured in raw chart axes, so #87's correction
+		//above does not reach them: the core is round in the sky now while the four arms are still stretched
+		//tangentially by sec(theta), up to 1.73:1 at a face corner. Left that way deliberately for now. Only
+		//stars over StarSpikeThreshold draw them (~1.3 % of coarse cells), a diffraction cross is an artifact
+		//of the optics rather than a shape on the sky, and correcting it properly means running the arms in the
+		//corrected frame — which needs the corrected VECTOR, not the scalar closed form above, and so costs an
+		//rsqrt in the hottest function of the sky pass. Worth doing with the per-axis margin, not before it.
 		float2 along = abs(offset);
 
 		float horizontal = exp(-along.x / reach) * exp(-(along.y * along.y) / (core * core));
