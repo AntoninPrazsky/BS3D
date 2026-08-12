@@ -290,11 +290,11 @@ namespace Testbed
         //LoadContent, after the scene renderer it consults for the scenes that state their own lighting.
         private SkyLightRig _rig;
 
-        //When the free camera dips below the sea surface the whole frame is pulled into a blue-green murk so
-        //it reads as being underwater (see Tonemap.fx's underwater block). The murk's two colours live on
-        //PostProcessPipeline; what stays scene knowledge here is the ramp — full effect this many world
-        //units below the mean surface. Sea scene only.
-        private const float UNDERWATER_FADE_DEPTH = 7f;
+        //When the free camera dips below the sea surface the whole frame is pulled into a blue-green murk so it
+        //reads as being underwater (see Tonemap.fx's underwater block). The murk's two colours live on
+        //PostProcessPipeline and its ramp — this file's own constant until #159 — is
+        //SceneRenderer.LensSubmergedAmount's, along with the Game's identical copy: the ball shader's submerge
+        //fade is released by exactly that figure now, and two effects that hand over must read one expression.
 
         //Every figure of the arena — the island's radius, edge and segment count, its two albedos and
         //texture spans, the drain's radii and depth, the gold beads, the dark pit shaft and the terrain

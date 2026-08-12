@@ -131,7 +131,12 @@ namespace Prazsky.Core.Render
         /// deep-water tint and the band over which a ball fades out. The mirror of <see cref="CloudField.ApplyTo"/>
         /// for a sea-specific uniform set the ball shader needs.
         /// </summary>
-        public void ApplySeaSubmerge(Effect effect, SceneKind scene)
+        /// <param name="lensSubmerged">
+        /// How far the <b>lens</b> is under the water, 0–1, from <see cref="LensSubmergedAmount"/> — the same
+        /// number the caller hands the tonemap for its murk. The fade is released by exactly this (#159), so the
+        /// two effects hand over rather than one of them leaning on the other being there: see the shader.
+        /// </param>
+        public void ApplySeaSubmerge(Effect effect, SceneKind scene, float lensSubmerged)
         {
             var p = effect.Parameters;
             if (scene != SceneKind.Sea)
@@ -143,11 +148,46 @@ namespace Prazsky.Core.Render
             p["SeaLevelY"].SetValue(_seaConfig.LevelY);
             p["SeaFadeDepth"].SetValue(SEA_SUBMERGE_FADE);
             p["SeaSubmergeTint"].SetValue(_seaConfig.WaterDeep.ToVector3());
+            p["SeaLensSubmerged"].SetValue(lensSubmerged);
         }
 
+        /// <summary>
+        /// How far the <b>lens</b> is under the sea, 0 above the surface to 1 well below it — <b>the</b> figure
+        /// for that question, asked by the tonemap's underwater murk and by the ball shader's submerge fade, so
+        /// the two cannot disagree about whether the camera is in the water (#159).
+        /// <para>
+        /// It lived twice, once in each host, together with a second copy of the 7-unit band; that was harmless
+        /// while only the murk read it and became a hazard the moment the fade did too — a fade released on one
+        /// reading of "submerged" and a tint arriving on another is the pair of effects visibly disagreeing.
+        /// Zero off the sea, the only scene with water a camera can get under.
+        /// </para>
+        /// <para>
+        /// Measured a touch <b>above</b> the mean level (the 0.5), so partial submersion already begins to
+        /// count: the surface is a wave field displaced by up to ±0.76 units, so a lens exactly at the mean is
+        /// as likely to be inside a crest as in a trough's air, and the allowance is what keeps the answer from
+        /// flickering as the swell passes.
+        /// </para>
+        /// </summary>
+        public float LensSubmergedAmount(SceneKind scene, Vector3 cameraPosition) =>
+            scene == SceneKind.Sea
+                ? MathHelper.Clamp((_seaConfig.LevelY + 0.5f - cameraPosition.Y) / UNDERWATER_FADE_DEPTH, 0f, 1f)
+                : 0f;
+
+        /// <summary>
+        /// How far under the surface the lens has to be for the water to read as fully closed over it — the
+        /// murk's own ramp, and since #159 the fade's release as well.
+        /// </summary>
+        private const float UNDERWATER_FADE_DEPTH = 7f;
+
         /// <summary>World units below the sea surface over which a missed ball fades from solid to gone — short,
-        /// so it reads as being swallowed by the water rather than lingering under it. The kill plane that finally
-        /// removes a fallen ball is far below this, so the ball is gone from the screen long before the sim drops it.</summary>
+        /// so it reads as being swallowed by the water rather than lingering under it.
+        /// <para>
+        /// It used to say the kill plane is far enough below this that a ball is off the screen long before the
+        /// simulation drops it. That holds only while the lens is <b>above</b> the water: since #159 the fade is
+        /// released as the camera goes under, so a ball watched from down there stays drawn all the way to the
+        /// kill plane and is culled in one frame when it arrives. That pop is real, it is not this constant's to
+        /// fix, and five other <c>OpenBelow</c> scenes have always shown it — see the issue filed for it.
+        /// </para></summary>
         private const float SEA_SUBMERGE_FADE = 3f;
 
         /// <summary>

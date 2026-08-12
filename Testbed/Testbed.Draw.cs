@@ -62,7 +62,10 @@ namespace Testbed
             }
 
             //The sea's submerge fade for missed balls — a no-op off the sea scene (see SceneRenderer.ApplySeaSubmerge).
-            _sceneRenderer.ApplySeaSubmerge(_instancingEffect, _scene);
+            //It takes how far the LENS is under the water: since #159 the fade is released by exactly what the
+            //murk at the resolve below takes over, and both read the one answer.
+            _sceneRenderer.ApplySeaSubmerge(_instancingEffect, _scene,
+                _sceneRenderer.LensSubmergedAmount(_scene, _camera.Position));
 
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
@@ -159,12 +162,11 @@ namespace Testbed
                 _sceneRenderer.DrawOverlays(_scene, sceneFrame);
             }
 
-            //Underwater murk: only the sea has water the camera can get under. Ramp it in by how far the lens
-            //is below the mean surface (a touch above it, so partial submersion already begins to tint), full
-            //by UNDERWATER_FADE_DEPTH down. Zero (a no-op in the shader) in every other scene.
-            float underwater = _scene == SceneKind.Sea
-                ? Math.Clamp((_sceneRenderer.SeaLevelY + 0.5f - _camera.Position.Y) / UNDERWATER_FADE_DEPTH, 0f, 1f)
-                : 0f;
+            //Underwater murk: only the sea has water the camera can get under, and zero (a no-op in the shader)
+            //in every other scene. SceneRenderer's answer since #159 rather than this file's own arithmetic — the
+            //ball shader's submerge fade is released by the same figure this tint arrives with, and two effects
+            //that hand over cannot be reading two copies of one expression (this and the Game's were exactly that).
+            float underwater = _sceneRenderer.LensSubmergedAmount(_scene, _camera.Position);
 
             //And nothing ever takes this frame out of focus: the defocus is the game's end-of-level effect,
             //and the testbed has no level that ends. Zero is a no-op in the shader and its targets are never
