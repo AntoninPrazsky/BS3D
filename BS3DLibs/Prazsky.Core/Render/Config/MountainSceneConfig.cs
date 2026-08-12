@@ -52,10 +52,28 @@ namespace Prazsky.Core.Render
         /// <summary>Altitude above which the snowline is snow.</summary>
         public float SnowlineHigh { get; set; } = 50f;
 
-        /// <summary>Fine rock relief: peak height of the normal-tilting height field on the rock faces.</summary>
+        /// <summary>
+        /// Fine rock relief: peak height of the normal-tilting height field on the rock faces.
+        /// <para>
+        /// <b>Unchanged by #170 on purpose</b>, though the field under it is not the one it was authored
+        /// against: the four crossed sines became rotated fBm, whose amplitude for the same nominal figure is
+        /// some three times lower, and that conversion is a named gain in the shader (<c>ROCK_FBM_GAIN</c>)
+        /// rather than a new value here. #117 settled it that way round in the savanna and the reason is this
+        /// number's <i>other</i> readers: a level pins it in its scene config — two of the shipped ones do —
+        /// and a hand-built level nobody has seen may pin it too, so moving the default would leave every one
+        /// of them holding a figure that now means a fifth of the relief.
+        /// </para>
+        /// </summary>
         public float RockReliefStrength { get; set; } = 0.5f;
 
-        /// <summary>Fine rock relief: features per world unit.</summary>
+        /// <summary>
+        /// Fine rock relief: the coarsest feature's <b>angular</b> frequency, so a feature is <c>2π/f</c> world
+        /// units across — about 10.5 at 0.6, with each of the four octaves halving that. It is stated here
+        /// because the units are not obvious and the comment that stood said "features per world unit", which
+        /// would make it 1.7: the field was four sines of <c>sin(dot(xz, dir) · f)</c> and is fBm on a domain
+        /// scaled by <c>f/2π</c> since #170, so the figure means the same thing in both and neither is
+        /// per-unit. A level that pins it in its scene config is pinning this.
+        /// </summary>
         public float RockReliefFrequency { get; set; } = 0.6f;
 
         /// <summary>Sky-hemisphere ambient strength.</summary>

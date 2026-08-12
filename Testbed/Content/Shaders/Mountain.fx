@@ -160,27 +160,54 @@ float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height
 	return normalize(max(abs(determinant), 1e-4) * normal - surfaceGradient);
 }
 
-//One rock-relief octave, band-limited against the pixel footprint so the crags fade to smooth towards the
-//horizon rather than aliasing
-float RockOctave(float2 xz, float2 dir, float frequency, float footprint)
+//Rough rock texture, and it is FRACTAL NOISE and not crossed sines - which it was until #170, the third and
+//last instance of that defect this project has found. #86 took MountainField's own massing off the same
+//construction and #117 did the same for the savanna's GrassRelief; this was the one left, and #140 even added
+//a fourth sine ONTO it rather than replacing it.
+//
+//A family of plane waves keeps its planes however many terms it has (Noise.fxh's own header says it), so the
+//four octaves - periods 2*pi/f, i.e. about 10.5, 5.5, 2.9 and 1.5 world units at RockReliefFrequency's 0.6 -
+//interfered into a legible PLAID over the snow. Captured before it was touched: a cross-hatch in the interior
+//of the snowfield, which is also what separates it from snowNoise below (that one would wobble the snow's
+//EDGE, not lay a lattice over its middle). It reached the snow because the slope term that scales this floors
+//at 0.4 rather than at zero on up-facing ground - see the call site - so flat snow took 40 % of it, and a
+//relief feeds the NORMAL, which is the strongest way to make a pattern visible.
+//
+//Four octaves of ROTATED gradient noise instead: no shared axis, so there is no lattice to read. COMBED along
+//one axis (Fbm2Combed), because isotropic noise has no grain and a relief without one reads as gravel rather
+//than as rock lying in beds - the direction the dominant sine used to supply for free, kept as ROCK_GRAIN.
+//Four and not the two or three the report suggested: the finest sine was added to reach crag scale, and it is
+//the fourth octave that still reaches it (coarsest ~10.5 world units down to ~1.3, the old spectrum's span).
+static const float2 ROCK_GRAIN = float2(0.9, 0.4);
+static const float ROCK_STRETCH = 2.4;
+static const float TWO_PI = 6.2831853;
+
+//The amplitude the swap had to buy back, and it is a GAIN here rather than a new RockReliefStrength - #117's
+//own choice in the savanna, and for a reason this scene has too: levels pin that figure in their scene config
+//(two of the shipped ones do, and a hand-built level nobody has seen may), so moving it would leave them all
+//holding a number that now means a fifth of the relief.
+//
+//About three, and both halves of it are real. The four sines' weights (0.46/0.28/0.16/0.10) put their RMS near
+//0.41 where four octaves of Fbm2BandLimited come to about 0.20 - gradient noise spends its time well inside
+//its extremes where a sine sits near them - and for equal amplitude and period a sine is half again as steep,
+//which matters because it is the field's SLOPE and not its height that tilts the normal. Confirmed by eye
+//against the old field from the same camera: the relief reads as strongly as it did, and irregularly.
+static const float ROCK_FBM_GAIN = 3.0;
+
+//The authored frequency is CONVERTED rather than reinterpreted, and that is the one thing here that could
+//quietly change the look: the config's figure is a sine's angular frequency (period 2*pi/f) where a noise
+//field wants a domain scale (a feature is about 1/scale across), so it goes in divided by 2*pi and the
+//coarsest feature stays exactly where it was authored. Passing f straight in would make every feature 6.3x
+//finer and take the broad undulation out of the terrain.
+float RockRelief(float2 xz, float footprint)
 {
-	float resolvable = saturate(1.0 - footprint * frequency / 3.14159265);
-	return sin(dot(xz, dir) * frequency) * resolvable;
-}
+	float scale = RockReliefFrequency / TWO_PI;
 
-//A few crossed octaves of rough rock texture, with a fine 4th octave so the relief reaches crag-scale rather
-//than stopping at broad undulation (the first three alone top out near 2.6 ball-diameters across, which reads
-//as swell, not grain - #140). The 4th is band-limited out by RockOctave's footprint guard before it aliases.
-float RockRelief(float2 xz, float2 footprint)
-{
-	float f = RockReliefFrequency;
-
-	float h = 0.46 * RockOctave(xz, normalize(float2(0.9, 0.4)), f, footprint)
-		+ 0.28 * RockOctave(xz, normalize(float2(-0.5, 0.85)), f * 1.9, footprint)
-		+ 0.16 * RockOctave(xz, normalize(float2(0.3, -0.95)), f * 3.6, footprint)
-		+ 0.10 * RockOctave(xz, normalize(float2(-0.8, -0.55)), f * 7.0, footprint);
-
-	return h * RockReliefStrength;
+	//The footprint goes in scaled by the same figure, which is Fbm2BandLimited's contract: it wants the
+	//pixel's size in the domain's own units, and that is what fades each octave out as its period approaches
+	//the pixel - the job RockOctave's own `resolvable` guard used to do for the sines.
+	return Fbm2Combed(xz * scale, ROCK_GRAIN, ROCK_STRETCH, 4, footprint * scale)
+		* (RockReliefStrength * ROCK_FBM_GAIN);
 }
 
 float4 MountainPS(MountainVertexOutput input) : COLOR
