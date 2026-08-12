@@ -56,24 +56,37 @@ desktop's play resolution, set the back buffer directly rather than relying on t
   monitor is clipped to the monitor — this gets a 4K capture on a 4K (or larger) panel, but not on a sub-4K
   laptop display. A true decoupled off-screen capture is not yet wired up.
 
-## A LOCKED desktop cannot be screenshotted at all — measured
+## What a capture can silently be instead of the game — all measured 2026-08-12
 
-`screenshot.ps1` falls back to `PrintWindow` with `PW_RENDERFULLCONTENT` when `CopyFromScreen` throws, and the
-note there claimed that works while the desktop is locked. **It does not, measured 2026-08-12** (Windows 11,
-WindowsDX/DX11): `PrintWindow` returned the window's *frame* — title bar, borders — with a **blank white client
-area**, eleven captures in a row byte-identical, because a flip-model D3D11 swap chain has no GDI surface to
-print. And `CopyFromScreen` grabs the **lock screen**, since that is genuinely what is on the desktop; it is
-also the reason it sometimes throws an invalid-handle `Win32Exception` and sometimes quietly succeeds with the
-wrong picture. `Get-Process LogonUI` is the check for the state.
+`CopyFromScreen` copies **a rectangle of the screen**, not a window. Everything below follows from that one
+sentence, and each of these was a wasted round of shots before it was believed.
 
-Nor do the `-Keys` presses or the focus click reach the app. So while the session is locked there is **no
-scripted way to see this game's picture**. Two ways out, in order of cost:
+- **A LOCKED desktop gives you the lock screen.** It is genuinely what is on the desktop at that rectangle.
+  Sometimes the call throws an invalid-handle `Win32Exception` instead (the secure desktop), so a batch can
+  half-fail and half-succeed *with the wrong picture* — which is what it did. `Get-Process LogonUI` is the
+  check for the state. The `-Keys` presses and the focus click do not reach the app while locked either, so a
+  key-driven shot is worthless then even if the pixels look plausible.
+- **An UNLOCKED desktop gives you whatever window is on top of that rectangle.** A shot came back with this
+  agent's own terminal in it, at the game window's exact rect, because the title-bar focus click had landed on
+  another window in front of it. The game does not have to be minimized for this — merely covered.
+- **So look at every capture before drawing a conclusion from it**, and treat a batch where anything could
+  have taken focus as suspect. A contaminated shot is not blank or obviously broken; it is a perfectly sharp
+  picture of the wrong thing.
 
-- Unlock the desktop and screenshot normally. Everything above works.
-- Have the app save its own frame: `GraphicsDevice.GetBackBufferData<Color>(pixels)` at the end of `Draw` into
-  a `Texture2D` and `SaveAsPng`. Verified working while locked (it is the swap chain's own back buffer, so no
-  screen is involved) — that is how the result screen's defocus was judged. It is not wired into the game, so
-  it means a temporary patch; keep it out of the commit.
+**`PrintWindow` with `PW_RENDERFULLCONTENT` is the fallback and it is UNRELIABLE rather than either working or
+not.** Measured the same day on the same machine: against **`BS3D.exe` it returned the window frame with a
+blank white client area** — eleven captures byte-identical, the flip-model D3D11 swap chain having no GDI
+surface to print — and against **`Testbed.exe` it returned the real picture**, twice, while the desktop was
+locked. Nothing in the two apps' device setup explains the difference, so the honest rule is: it may work,
+and a `PrintWindow` capture has to be *looked at* before it is trusted. (An earlier version of this section
+claimed it never works, on the `BS3D.exe` half of that evidence alone.)
+
+The one route that has never lied: **have the app save its own frame.**
+`GraphicsDevice.GetBackBufferData<Color>(pixels)` at the end of `Draw`, into a `Texture2D`, then `SaveAsPng`.
+No screen is involved — it is the swap chain's own back buffer — so it is immune to the lock screen, to focus,
+to occlusion and to a window wider than the panel. It is how the result screen's defocus was judged while the
+session was locked. It is not wired into either executable, so it means a temporary patch; keep it out of the
+commit.
 
 ## `screenshot.ps1`
 
