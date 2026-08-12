@@ -16,7 +16,11 @@ namespace BS3D.Audio
     /// </summary>
     public enum MusicTheme
     {
-        /// <summary>The original: eurodance, A minor, nine sections, ~2:00 a pass. Level One's theme.</summary>
+        /// <summary>
+        /// The original: eurodance, A minor, ten sections, ~2:30 a pass. Level One's theme, and since #186 a
+        /// piece with a floor under it (<see cref="SubBass"/>), two sections that are not a dance floor at all,
+        /// and one harmonic shock at the last drop.
+        /// </summary>
         Pulse,
 
         /// <summary>
@@ -48,11 +52,12 @@ namespace BS3D.Audio
     /// the same line the sound effects, the meshes and the surface textures all take. The same instruments
     /// also play the result fanfares and the front end's looped piece (see <see cref="BakeMenu"/>).
     /// <para>
-    /// It is <b>arranged</b> rather than looped: eight sections of eight bars, each one adding or taking away
-    /// parts — an intro that builds, verses, a chorus that is unmistakably the chorus, a breakdown where the
-    /// drums drop out entirely, a build that puts them back, and a last chorus with everything on it. A
-    /// sixteen-bar loop with no sections is a ringtone; what makes a track worth hearing for two minutes is
-    /// that it keeps arriving somewhere.
+    /// It is <b>arranged</b> rather than looped: ten sections of eight bars, each one adding or taking away
+    /// parts — a prelude with no drums in it at all, an intro that builds, verses, a chorus that is
+    /// unmistakably the chorus, a breeze where the floor drops away and the keys take the tune, a build that
+    /// puts everything back, a last chorus arrived at through a silence and one borrowed chord, and an outro
+    /// that sheds the kit. A sixteen-bar loop with no sections is a ringtone; what makes a track worth
+    /// hearing for two minutes is that it keeps arriving somewhere.
     /// </para>
     /// </summary>
     public sealed class ProceduralMusic : IDisposable
@@ -164,8 +169,27 @@ namespace BS3D.Audio
             new(12, 0, 12, 1), new(13, 3, 0, 1), new(14, 2, 0, 1), new(15, 1, 0, 1)
         };
 
+        //THE BREEZE (#186): the piece's second tune, and the reason it exists is that a dance track with one
+        //tune has only volume to make a quiet section out of. This one is carried by the KEYS over a pad and
+        //the sustained floor, with no kit under it — it opens the piece, it is what the breakdown plays
+        //instead of hats, and it walks the outro off, so the ear meets it three times.
+        //
+        //Everything about it is the chorus's opposite in the way the chorus is the verse's: it sits an octave
+        //LOWER (no Octave shift at all, i.e. in the chord's own register), moves by step where the chorus
+        //leaps, and the shape is a four-bar sentence — state, the same cell a step higher, an answer that
+        //falls, and a held note to rest on. That is the shape Bohemia's theme is built on, and the reason to
+        //borrow it here is exactly what that piece proved: a tune with somewhere to get to is what stops a
+        //quiet section reading as a hole in the track.
+        private static readonly Note[][] BREEZE =
+        {
+            new[] { new Note(0, 1, 0, 6),  new Note(8, 2, 0, 7) },
+            new[] { new Note(0, 2, 0, 6),  new Note(8, 3, 0, 7) },
+            new[] { new Note(0, 3, 0, 4),  new Note(6, 2, 0, 5), new Note(12, 1, 0, 4) },
+            new[] { new Note(0, 0, 12, 13) }
+        };
+
         /// <summary>Which melody, if any, a section carries.</summary>
-        private enum LeadPart { None, Verse, Chorus }
+        private enum LeadPart { None, Verse, Chorus, Breeze }
 
         /// <summary>
         /// Everything a single rendering of the track rolls for itself. The point of it is that no two passes
@@ -207,42 +231,81 @@ namespace BS3D.Audio
         /// <summary>What plays during one eight-bar section. The arrangement IS this table.</summary>
         private readonly struct Section
         {
-            public readonly bool Kick, Clap, Hats, Ride, Bass, Arp, Pad, Roll;
+            public readonly bool Kick, Clap, Hats, Ride, Bass, Sub, Arp, Pad, Roll;
             public readonly LeadPart Lead;
             public readonly float Level;   //overall weight of the section, so a breakdown is quieter as well as emptier
 
-            public Section(bool kick, bool clap, bool hats, bool ride, bool bass, bool arp, bool pad, bool roll,
-                LeadPart lead, float level)
+            public Section(bool kick, bool clap, bool hats, bool ride, bool bass, bool sub, bool arp, bool pad,
+                bool roll, LeadPart lead, float level)
             {
                 Kick = kick; Clap = clap; Hats = hats; Ride = ride; Bass = bass;
-                Arp = arp; Pad = pad; Roll = roll; Lead = lead; Level = level;
+                Sub = sub; Arp = arp; Pad = pad; Roll = roll; Lead = lead; Level = level;
             }
         }
 
-        //                                  kick   clap   hats   ride   bass    arp    pad   roll  lead              level
+        //THE FORM, and #186 is what set it. The complaint was that the piece read as primitive and aimed at
+        //small children, and the measurement said where that came from: the kick was on in eight sections of
+        //nine — every one but the breakdown — and the sixteenth arpeggio in all nine, so the track ran at full
+        //rhythmic density for almost its whole length whatever the Level column said. What was added is not a
+        //dial but AIR — a prelude and a breeze that carry no kit at all and a second tune instead of one, an
+        //outro that sheds it, and one silence before the last drop. The kick now plays in six sections of ten
+        //and half of a seventh.
+        //
+        //                                  kick   clap   hats   ride   bass    sub    arp    pad   roll  lead              level
         private static readonly Section[] ARRANGEMENT =
         {
-            //0 INTRO. No drums at all for its first half — pad and arpeggio alone, so the track begins by
-            //arriving rather than by already being under way, and the kick landing halfway through is an event.
-            new(true,  false, true,  false, false, true,  true,  false, LeadPart.None,   0.62f),
-            new(true,  true,  true,  false, true,  true,  false, false, LeadPart.Verse,  0.95f),  //1 verse
-            new(true,  true,  true,  true,  true,  true,  false, false, LeadPart.Chorus, 1.00f),  //2 CHORUS
-            //3 breakdown — drums out. Measured at 0.55 this fell to a fifth of the verse's level and a ninth of
-            //its low band, which is not a breakdown but a gap; almost all of that is simply losing the kick and
-            //the bass, which carry most of a mix's energy. The parts that remain are pushed up to compensate,
-            //so the section reads as EMPTIER rather than as quieter — which is what a breakdown is.
-            new(false, false, true,  false, false, true,  true,  false, LeadPart.None,   0.85f),
-            new(true,  true,  true,  false, true,  true,  false, false, LeadPart.Verse,  0.95f),  //4 verse
-            new(true,  true,  true,  true,  true,  true,  false, false, LeadPart.Chorus, 1.00f),  //5 CHORUS
-            new(true,  false, true,  true,  true,  true,  false, true,  LeadPart.None,   0.90f),  //6 build — the roll
-            new(true,  true,  true,  true,  true,  true,  true,  false, LeadPart.Chorus, 1.00f),  //7 CHORUS, everything
-            //8 OUTRO. The parts fall away and a fade is laid over the whole section, so the track ENDS instead
-            //of being cut off. That is what makes the regeneration seamless: the join between one pass and the
-            //next lands in silence, so the frame or two it takes to swap buffers cannot be heard.
-            new(true,  false, true,  false, true,  true,  true,  false, LeadPart.None,   0.70f)
+            //0 PRELUDE. No kit under it at all: the pad, the sustained floor and the keys stating the breeze,
+            //with the tom run that ends every section the only struck thing in it — and there it is the kit
+            //being announced rather than played. A dance track that opens on its own floor rather than on its
+            //drums is the whole of the "dignity" the report asked for, and it costs nothing but patience —
+            //fifteen seconds of a two-and-a-half minute piece, at the one place a listener will grant them.
+            new(false, false, false, false, false, true,  false, true,  false, LeadPart.Breeze, 0.55f),
+            //1 INTRO. No drums at all for its first half — pad and arpeggio over the floor, so the track
+            //begins by arriving rather than by already being under way, and the kick landing halfway is an event.
+            new(true,  false, true,  false, false, true,  true,  true,  false, LeadPart.None,   0.62f),
+            new(true,  true,  true,  false, true,  true,  true,  false, false, LeadPart.Verse,  0.95f),  //2 verse
+            new(true,  true,  true,  true,  true,  true,  true,  false, false, LeadPart.Chorus, 1.00f),  //3 CHORUS
+            //4 BREEZE — the drums AND the arpeggio out, and the keys' tune in. Measured at 0.55 this section
+            //fell to a fifth of the verse's level and a ninth of its low band, which is not a breakdown but a
+            //gap; almost all of that is simply losing the kick and the bass, which carry most of a mix's
+            //energy. The parts that remain are pushed up to compensate, so it reads as EMPTIER rather than as
+            //quieter — and since #186 the floor stays under it, so what is emptied is the kit and not the
+            //bottom of the piece.
+            new(false, false, false, false, false, true,  false, true,  false, LeadPart.Breeze, 0.85f),
+            new(true,  true,  true,  false, true,  true,  true,  false, false, LeadPart.Verse,  0.95f),  //5 verse
+            new(true,  true,  true,  true,  true,  true,  true,  false, false, LeadPart.Chorus, 1.00f),  //6 CHORUS
+            new(true,  false, true,  true,  true,  true,  true,  false, true,  LeadPart.None,   0.90f),  //7 build — the roll
+            new(true,  true,  true,  true,  true,  true,  true,  true,  false, LeadPart.Chorus, 1.00f),  //8 CHORUS, everything
+            //9 OUTRO. The kit is gone and the breeze comes back over the floor, under a fade laid across the
+            //whole section, so the track ENDS instead of being cut off. That is what makes the regeneration
+            //seamless: the join between one pass and the next lands in silence, so the frame or two it takes
+            //to swap buffers cannot be heard. It used to fade out with the kick still going, which is a hand
+            //on a fader rather than an ending.
+            new(false, false, false, false, false, true,  true,  true,  false, LeadPart.Breeze, 0.70f)
         };
 
-        private const int SECTION_INTRO = 0;
+        //The intro is section ONE since #186 — the prelude took the top of the piece — and this is the one
+        //section that holds its own drums back, so it is named rather than counted.
+        private const int SECTION_INTRO = 1;
+
+        //THE SHOCK (#186), and it is one event in one place: the report asked for something rare and climactic
+        //rather than the per-bar Embellish/Ghost rolls, which fire in nearly every bar and are therefore
+        //texture and not surprise. The build's last bar STOPS three beats early, and what lands in the hole is
+        //a chord from outside the piece: E MAJOR, the harmonic-minor dominant, whose G# is the one note two
+        //minutes of strictly diatonic A minor has not played. It resolves onto the Am the final chorus opens on
+        //— guaranteed, since every progression in the pool starts there — so the surprise is a cadence and not
+        //a wrong note, which is the difference between a shock and a mistake.
+        //
+        //It is scored for BRASS, the one voice this piece never otherwise uses. A part heard once is an event
+        //by construction; the same chord on the lead would be the piece getting louder.
+        private const int SECTION_BUILD = 7;
+
+        private const int SHOCK_CUT = 4;     //step of the build's last bar where everything stops dead
+        private const int SHOCK_STEP = 10;   //the stab, deliberately off the beat rather than on it
+        private const float SHOCK_RING = 6f; //steps it rings, i.e. right up to the drop
+
+        private static readonly int[] SHOCK_ARP = { 52, 56, 59, 64 };   //E major: E3 G#3 B3 E4
+        private const int SHOCK_ROOT = 40;                              //E2, in the floor's own register
 
         /// <summary>
         /// The score at which a fanfare is at its fullest. There is no natural maximum to a level's score, so
@@ -752,6 +815,53 @@ namespace BS3D.Audio
                 level *= fade * fade;
                 if (level <= 0.001f) continue;
 
+                //THE FLOOR (#186) ----------------------------------------------------------------------
+                //One sustained note a chord, an octave under the root, held across the whole bar. This is what
+                //"a real bass" turned out to mean here: the piece already had a Bass, but it is a PLUCK gone
+                //in about 150 ms, so the low end was felt for a fraction of a beat in four and nothing at all
+                //held the bottom of the mix. The off-beat pump deliberately stays where it is, an octave up —
+                //writing it down here instead would have doubled this note and turned both to mud. A floor
+                //under a pump is how the genre is actually arranged; a pump alone is what a demo sounds like.
+                //
+                //It DUCKS to the beat wherever a kick is playing (see SubBass) — a sustained sine and a kick
+                //sharing an octave otherwise cancel each other at whatever phase they happen to meet at, and
+                //the duck is both the fix and the pump the ear expects. Where there is no kick it holds flat,
+                //which is the whole reason the quiet sections still have a bottom.
+                if (section.Sub && inBar == 0)
+                {
+                    //Held PAST the bar line, so one chord's floor is still releasing while the next one's is
+                    //already speaking. Ended ON the line instead, the release and the attack leave a hole at
+                    //every bar line — measured at a quarter of the level in the drumless sections, where
+                    //there is nothing else to cover it, which reads as the bass pulsing once a bar. The one
+                    //exception is the build's last bar, where the note is cut to the stop: otherwise the
+                    //shock's silence would be a silence with a bass note lying across it.
+                    bool shockBar = sectionIndex == SECTION_BUILD && lastBar;
+                    float held = shockBar ? SHOCK_CUT - 0.4f : STEPS_PER_BAR + 0.4f;
+
+                    SubBass(mix, at, CHORD_ROOT[chord] - 12 + transpose, secondsPerStep * held, 0.21f * level,
+                        duck: section.Kick && !introQuiet ? 0.55f : 0f,
+                        beatSeconds: secondsPerStep * STEPS_PER_BEAT);
+                }
+
+                //THE SHOCK (#186) ----------------------------------------------------------------------
+                //The stop and the borrowed chord before the last drop; the constants carry the reasoning.
+                if (sectionIndex == SECTION_BUILD && lastBar && inBar >= SHOCK_CUT)
+                {
+                    if (inBar == SHOCK_STEP)
+                    {
+                        for (int voice = 0; voice < SHOCK_ARP.Length; voice++)
+                            Brass(mix, at, SHOCK_ARP[voice] + transpose, secondsPerStep * SHOCK_RING, 0.16f * level,
+                                pan: ChordPan(voice, SHOCK_ARP.Length, PAN_BRASS_SPREAD));
+
+                        //Undamped: this one is not answering a kick, because there is no kick left to answer.
+                        SubBass(mix, at, SHOCK_ROOT + transpose, secondsPerStep * SHOCK_RING, 0.42f * level,
+                            duck: 0f, beatSeconds: 0f);
+                    }
+
+                    //Everything else in the bar is the silence, which is the half of it that does the work.
+                    continue;
+                }
+
                 //DRUMS ---------------------------------------------------------------------------------
                 if (section.Kick && !introQuiet && inBar % 4 == 0) Kick(mix, at, level);
 
@@ -822,6 +932,21 @@ namespace BS3D.Audio
 
                 //LEAD ----------------------------------------------------------------------------------
                 if (section.Lead == LeadPart.None) continue;
+
+                //The breeze is taken first, ahead of the turnaround below: its sections have no kit to hand a
+                //phrase on from, and the FILL is a supersaw run down the chord — precisely the voice these
+                //sections exist to be a rest from. It is CENTRED and not on the keys' own seat, which is the
+                //rule Nocturne's lean measured out the hard way: whatever may be the only thing sounding
+                //belongs in the middle, and in the prelude this is the only thing sounding.
+                if (section.Lead == LeadPart.Breeze)
+                {
+                    foreach (Note note in BREEZE[phrase])
+                        if (note.Step == inBar)
+                            Keys(mix, at, arp[note.Tone] + note.Octave + transpose,
+                                secondsPerStep * (note.Length + 0.5f), 0.30f * level, pan: PAN_CENTRE);
+
+                    continue;
+                }
 
                 if (lastBar)
                 {
@@ -2602,6 +2727,62 @@ namespace BS3D.Audio
 
                 lp += CutoffToAlpha(190f + 2600f * env) * (saw - lp);
                 Add(mix, at + i, lp * 0.55f * level * env, gainLeft, gainRight);
+            }
+        }
+
+        /// <summary>
+        /// The floor (#186): a sustained low note, and the answer to "there is no real bass in this piece".
+        /// <see cref="Bass"/> is not one — it is a <b>pluck</b>, an exponential gone in about 150 ms, so what
+        /// it gives is a pump and not a bottom. This holds a whole bar.
+        /// <list type="bullet">
+        /// <item><b>A sine with a short harmonic ladder over it</b> (a second at 0.24, a third at 0.08), and
+        /// the ladder is not colour — it is audibility. The fundamental here runs 37–82 Hz, which a laptop or
+        /// a phone speaker simply does not reproduce; the harmonics do, and the ear reconstructs the missing
+        /// fundamental from them. A pure sine is the "correct" sub and is silent on most of the hardware this
+        /// will be played on.</item>
+        /// <item><b>It ducks to the beat.</b> A sustained note in the kick's own octave meets it at whatever
+        /// phase it happens to and either doubles or cancels — the classic way a mix loses its low end while
+        /// every part is individually right. Ducking is the genre's own answer and it is also the pump the ear
+        /// expects, so the fix and the effect are the same line. <paramref name="duck"/> is 0 wherever no kick
+        /// is playing, and then this holds dead flat, which is what gives the drumless sections a bottom.</item>
+        /// <item><b>It is centred</b>, by the low-end rule the stereo region states, and more plainly than
+        /// anything else here: it is the lowest sustained thing in the piece.</item>
+        /// </list>
+        /// </summary>
+        /// <param name="duck">How far it drops on each beat, 0 for not at all.</param>
+        /// <param name="beatSeconds">The beat it ducks to; ignored when <paramref name="duck"/> is 0.</param>
+        private static void SubBass(float[] mix, int at, int note, float seconds, float level,
+            float duck, float beatSeconds)
+        {
+            int length = (int)(SAMPLE_RATE * seconds);
+            int frames = Frames(mix);
+            float freq = Frequency(note);
+            float phase = 0f;
+
+            PanGains(PAN_CENTRE, out float gainLeft, out float gainRight);
+
+            for (int i = 0; i < length && at + i < frames; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                //Long enough in not to click at these frequencies (a 20 ms ramp is under a cycle and a half at
+                //55 Hz), flat through the middle, and out over a tenth of a second so one chord's floor reaches
+                //the next one's rather than leaving a hole on every bar line.
+                float env = MathF.Min(1f, t / 0.02f) * MathF.Min(1f, (seconds - t) / 0.1f);
+                if (env <= 0f) continue;
+
+                if (duck > 0f && beatSeconds > 0f)
+                {
+                    float sinceBeat = t - MathF.Floor(t / beatSeconds) * beatSeconds;
+                    env *= 1f - duck * MathF.Exp(-sinceBeat * 9f);
+                }
+
+                phase += 2f * MathF.PI * freq / SAMPLE_RATE;
+                if (phase >= MathF.Tau) phase -= MathF.Tau;   //wrapped whole, so the harmonics below stay continuous
+
+                float body = MathF.Sin(phase) + 0.24f * MathF.Sin(phase * 2f) + 0.08f * MathF.Sin(phase * 3f);
+
+                Add(mix, at + i, body * level * env, gainLeft, gainRight);
             }
         }
 
