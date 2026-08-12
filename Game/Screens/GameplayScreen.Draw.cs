@@ -221,6 +221,69 @@ namespace BS3D.Screens
 
         #endregion
 
+        #region The round that fires next
+
+        //THE ONE THE PLAYER IS ABOUT TO FIRE HAS TO BE THE ONE THEY CAN SEE, and it was the hardest of the five
+        //(#175): two testers, independently, read a colour off the wrong ball and fired expecting a match that
+        //could not happen. The cause is geometry and it cannot be fixed by geometry. From the stance the game is
+        //actually played from — and from precise aim, which is the same stance leant in — the barrel HIDES ITS
+        //OWN MUZZLE END: the open round shows only as the small ellipse of its cap at the top of the window,
+        //while the ball behind it, under glass, is the large clearly-coloured thing that dominates the opening.
+        //Verified by eye before anything was changed, from precise aim on a built level: a thin crescent of the
+        //firing round above a full dome of the next one.
+        //
+        //Nothing could be handed to the notch to fix that. Its reach is already a ball radius, which lands
+        //exactly on the seam where the front ball parts from the next (see CannonGlassMesh), and reaching
+        //FURTHER back would begin uncovering the second ball — the opposite of the signal wanted. The balls
+        //touch by construction (Magazine.SPACING is one diameter, so the queue reads as a full magazine rather
+        //than one with gaps in it), so there is no strip of open bore between them to widen either.
+        //
+        //So the round is MARKED instead, and the channel for it was already wired end to end: ModelInstance's
+        //ripple, which the cluster's landing wave rides and which the Game alone switches on (BallRenderSet's
+        //`ripples`). A positive ripple adds mostly-white light to a ball — see the shader's own note on why
+        //white and not the ball's hue — so slot 0 breathes brighter than its neighbours and the sliver, however
+        //small, is the thing in the window that MOVES. A static cue of any kind is what failed here.
+
+        /// <summary>
+        /// How much light the round at the muzzle carries at rest, as a ripple amount. Well under the value at
+        /// which a ball starts to bloom through the glare (<c>BallRenderSet</c>'s own ripple strength scales
+        /// this, and its whole tuning problem is that a lit ball is just over the threshold): the mark must say
+        /// "this one" and must not bleach the colour it exists to let the player read.
+        /// </summary>
+        private const float MUZZLE_MARK_BASE = 0.20f;
+
+        /// <summary>How far the mark swings either side of <see cref="MUZZLE_MARK_BASE"/> — never to zero, so
+        /// the round is never briefly unmarked, and never far enough to read as a fault.</summary>
+        private const float MUZZLE_MARK_SWING = 0.10f;
+
+        /// <summary>
+        /// How often it breathes. Deliberately its own rate: the balls' own heartbeat is at
+        /// <c>BallRenderSet</c>'s 1.1 Hz and the landing ghost blinks at 2.2, so this sits between them and on
+        /// neither's harmonic — a marker that beat with the cluster would read as part of it.
+        /// </summary>
+        private const float MUZZLE_MARK_HZ = 1.6f;
+
+        /// <summary>
+        /// The mark the muzzle round carries this frame, or zero when no shot would leave the barrel at all.
+        /// <para>
+        /// The gate is <see cref="_previewBeamVisible"/>, which is exactly the question "would a shot leave the
+        /// barrel this instant" — the ghost and the aim beam are drawn on the same answer, and it is refused on
+        /// the same three things <see cref="Shoot"/> refuses on (a drop cinematic, a spent budget, a decided
+        /// level). Marking a round the player can no longer fire would be the same broken promise the ghost was
+        /// taken out of the frozen frame for.
+        /// </para>
+        /// <para>
+        /// On the <b>wall</b> clock, like the ghost's blink and the balls' own breath: it is a thing the round
+        /// <i>is</i>, not something the session is doing, so it keeps breathing while a pause holds the frame.
+        /// </para>
+        /// </summary>
+        private float MuzzleMark() =>
+            _previewBeamVisible
+                ? MUZZLE_MARK_BASE + MUZZLE_MARK_SWING * MathF.Sin(MathHelper.TwoPi * MUZZLE_MARK_HZ * WallClock)
+                : 0f;
+
+        #endregion
+
         #region The balls in the frame
 
         //The walk that gathers the structure, the shots in flight and the balls falling is ClusterCollector's
@@ -254,9 +317,16 @@ namespace BS3D.Screens
             //translation written straight into its fourth row rather than multiplied in (see BorePose.SlotWorld).
             BorePose pose = _magazine.Pose(_cannon, Game.CannonRig.PivotToFrontBall);
 
+            //Once per frame rather than per slot: it is one number and only slot 0 ever takes it (#175)
+            float muzzleMark = MuzzleMark();
+
             for (int i = 0; i < Magazine.SIZE; i++)
             {
                 Matrix world = pose.SlotWorld(i, out Vector3 position);
+
+                //The round that fires next is marked and the queue behind it is not — see the region above for
+                //why a mark is what this needs and why the glass could not be asked to do it
+                float mark = i == 0 ? muzzleMark : 0f;
 
                 //A ball whose colour was eliminated from the cluster is re-coloured where it sits, and the two
                 //colours cross-fade by dithering against each other: the new one arrives (negative) while the
@@ -271,14 +341,16 @@ namespace BS3D.Screens
 
                 //A ball in the barrel has nothing packed around it, so it carries the same unoccluded vector a
                 //shot in flight does — off the one constant, rather than four literals written out here
+                //Both halves of a transmute take the mark, or the muzzle round would flicker between marked and
+                //plain across the dither's two complementary cuts while it re-coloured itself
                 if (remaining > 0f)
                 {
                     float progress = 1f - remaining;
 
-                    frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED, -progress);
-                    frame.Add(_magazineFrom[i], position, world, BallRenderSet.UNOCCLUDED, progress);
+                    frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED, -progress, mark);
+                    frame.Add(_magazineFrom[i], position, world, BallRenderSet.UNOCCLUDED, progress, mark);
                 }
-                else frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED);
+                else frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED, 0f, mark);
             }
         }
 
