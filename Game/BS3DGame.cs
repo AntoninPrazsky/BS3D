@@ -142,6 +142,12 @@ namespace BS3D
         //leave the splash buried under the session for the rest of the run.
         private bool _startupPlay;
 
+        //Testing only: the "result" argument, consumed on the first Update for the "play" reason above — the
+        //page has to go over a stack that exists. It is how the end-of-level moment gets looked at at all:
+        //everything about it (the released camera, the star reveal, the arena going out of focus) only happens
+        //once a level has been won or lost, and neither can be scripted — the "celebrate" reasoning again.
+        private bool _startupResult;
+
         //Wall clock. Everything alive in the scene runs off it â€” the balls' heartbeat, the city's windows â€”
         //so none of it is tied to a simulation that may later be paused.
         private float _wallClock;
@@ -451,15 +457,23 @@ namespace BS3D
         /// have. The stack ends up exactly as a player's Play click leaves it, so nothing downstream can
         /// tell the difference.
         /// </param>
+        /// <param name="result">
+        /// Testing only (the <c>result</c> argument): put a cleared level's result screen over the front end.
+        /// Everything that happens at a level's end — the camera letting go of the gun, the stars landing one
+        /// at a time, the arena going out of focus behind the page — can otherwise only be reached by winning
+        /// or losing a level, which can no more be scripted than clearing one can. Pair it with
+        /// <paramref name="celebrate"/> for the whole moment: fireworks over an arena going soft.
+        /// </param>
         public BS3DGame(bool fullscreen = false, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE,
             bool uncappedFps = false, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
             QualityLevel? quality = null, bool celebrate = false, bool lasers = false, bool mute = false,
-            bool play = false)
+            bool play = false, bool result = false)
         {
             _fullscreen = fullscreen;
             _startupCelebrate = celebrate;
             _startupLasers = lasers;
             _startupPlay = play;
+            _startupResult = result;
             if (mute) _masterVolume = 0f;
 
             //The tier owns supersampling, so the tier's factor is taken first and an explicit ssaa= then
@@ -814,9 +828,11 @@ namespace BS3D
         }
 
         /// <summary>
-        /// Puts the result screen over the stopped frame, in the same state a pause uses: the session goes on
-        /// being drawn underneath (the page draws what is under it) while no longer updating, the heavy scrim
-        /// dims it, and Myra owns the input. Called by the session when a level ends.
+        /// Puts the result screen over the stopped frame, in the same state a pause uses <b>but one</b>: the
+        /// session goes on being drawn underneath (the page draws what is under it) while no longer updating,
+        /// and Myra owns the input — and the frame behind is <i>not</i> dimmed, because a level's ending is
+        /// worth watching where a pause is not (see <see cref="ResultPage.DimsFrame"/>). Called by the session
+        /// when a level ends, and by the <c>result</c> test argument.
         /// </summary>
         internal void PresentResult(LevelResult result)
         {
@@ -1089,6 +1105,25 @@ namespace BS3D
             {
                 _startupPlay = false;
                 StartGame(newGame: true);
+            }
+
+            //And the same for the result screen, over whatever is on the stack — the front end, unless "play"
+            //above has just put a level under it. The figures are a plausible clear rather than zeros: the page
+            //lays out its breakdown from them, and a screen of dashes would not be the screen being looked at.
+            //
+            //Held back until the TITLE CARD has gone, which is not a nicety: the splash hands over with a
+            //Replace (it is the only page over the backdrop at boot, so it has to take its own place), and a
+            //Replace pops whatever is on top — so a result page pushed at boot was silently swallowed by the
+            //main menu arriving 2.6 s later. Measured that way round, which is how it is known.
+            if (_startupResult && !_screens.Contains<SplashPage>())
+            {
+                _startupResult = false;
+
+                PresentResult(new LevelResult(cleared: true, failureText: null, stars: 3, newBest: true,
+                    hasNextLevel: true, nextLevelUnlocked: true, nextLevelMinStars: 1, totalStars: 3,
+                    campaignComplete: false,
+                    score: 4820, matchedBalls: 96, orphanedBalls: 24, streakBonus: 640,
+                    hadBudget: true, unusedShotsAwarded: 7, completionBonusAwarded: 350));
             }
 
             //A page that has just arrived must not be handed a mouse button that was already held down when it

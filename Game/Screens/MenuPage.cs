@@ -121,6 +121,19 @@ namespace BS3D.Screens
         internal virtual bool DimsFrame => Manager != null && Manager.Contains<PausePage>();
 
         /// <summary>
+        /// How far the scene behind this page has gone <b>out of focus</b>, 0–1 — the frame's own defocus,
+        /// mixed in by the tonemap (<see cref="Prazsky.Core.Render.PostProcessPipeline.Resolve"/>). Zero for
+        /// every page but the result screen, which is the one moment a page would rather soften what is behind
+        /// it than darken it: see "The arena goes out of focus" in <see cref="ResultPage"/>.
+        /// <para>
+        /// Asked of the <b>active</b> screen only, at resolve time, so it is the value this page's own
+        /// <c>Update</c> left this frame — a page that is not on top is not updated, and its answer would be
+        /// however long ago it was covered.
+        /// </para>
+        /// </summary>
+        internal virtual float FrameBlur => 0f;
+
+        /// <summary>
         /// Putting the tree into the shared Myra desktop is done here, on <see cref="Screen.CoveredChanged"/>
         /// alone, and that is enough for every transition: the manager raises it on whichever page ends up on
         /// top after a frame's pushes and pops have been applied, so a push, a pop, a replace and a reset all

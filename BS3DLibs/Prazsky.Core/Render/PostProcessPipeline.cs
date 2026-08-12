@@ -10,7 +10,9 @@ namespace Prazsky.Core.Render
     /// pyramid (#69), and the tonemap resolve — box filter, glare add, exposure, the ACES curve, film grain,
     /// then the sRGB encode. The scene renders into <see cref="SceneTarget"/> in linear radiance and leaves
     /// it exactly once, in <see cref="Resolve"/>; everything drawn after that (overlays, HUD, gizmos) is in
-    /// display space.
+    /// display space. The one optional stage is the <b>defocus</b> — the whole frame taken out of focus by a
+    /// caller's amount, built on demand out of the very same target and mixed in by the resolve (see the
+    /// DEFOCUS block below).
     /// <para>
     /// The look values are <c>required</c> on purpose: every one of them is a per-executable decision (the
     /// map editor runs a different glare threshold than the game shipped, the game alone toggles the lens
@@ -49,6 +51,32 @@ namespace Prazsky.Core.Render
         private static readonly Vector3 UNDERWATER_ABSORB = new(0.10f, 0.42f, 0.52f);
         private static readonly Vector3 UNDERWATER_INSCATTER = new(0.015f, 0.06f, 0.09f);
 
+        //THE DEFOCUS: the whole frame taken out of focus by a caller's amount, for the moment a level ends
+        //(the game's result screen). It is the frame going soft and not the frame being dimmed, which
+        //is the point of it — the fireworks go on flaring and the camera goes on swinging around the island,
+        //and the numbers over them are read against an arena that has stopped competing for the eye.
+        //
+        //Everything about it is sized off the back buffer at a QUARTER per axis, and that divisor is the
+        //whole trick: a tap's spacing there reaches four back-buffer pixels, so the thirteen-tap kernel in
+        //Glare.fx spans a width no full-resolution blur could afford, and the bilinear upsample the tonemap's
+        //read performs costs nothing on an image that is blurred anyway. The scene comes down to it in two
+        //dual-filter steps rather than one, so each working texel is an average of the whole block it stands
+        //for instead of a sparse sample of it.
+        private const int DEFOCUS_DIVISOR = 4;
+
+        //Peak spacing between the blur's taps, in working-resolution texels — so the reach at full effect is
+        //6 taps * this * DEFOCUS_DIVISOR back-buffer pixels either side, and the sigma about a third of that.
+        //Kept near one texel: the working image already averages a DEFOCUS_DIVISOR-wide block per texel, and
+        //taps spread much wider than what each of them covers would show as separate ghosts of a bright point
+        //rather than as one smooth spread of it.
+        private const float DEFOCUS_MAX_STEP = 1.4f;
+
+        //How far into the ramp the blurred copy has fully taken over. It is deliberately EARLY: a mix held at
+        //a middling value is the sharp frame and its own blur visible at once, which reads as a double
+        //exposure, so the crossfade is got out of the way while the blur is still narrow and the rest of the
+        //ramp is the radius growing — one image going soft, which is what a lens does.
+        private const float DEFOCUS_MIX_IN = 0.3f;
+
         private readonly GraphicsDevice _device;
         private readonly Effect _tonemapEffect;
         private readonly Effect _glareEffect;
@@ -66,6 +94,12 @@ namespace Prazsky.Core.Render
         //six-armed streak star.
         private RenderTarget2D[] _bloomChain;
 
+        //The defocus's four targets, all in linear radiance like the scene they hold: the halfway step down,
+        //the working copy at DEFOCUS_DIVISOR, and the two halves of the separable blur over it. Created
+        //LAZILY (see EnsureDefocusChain) — the effect is one executable's, and the two that never ask for it
+        //never pay the memory.
+        private RenderTarget2D _defocusHalf, _defocusSmall, _defocusAcross, _defocusBlurred;
+
         private VertexBuffer _fullScreenQuad;
 
         //Cached in the constructor: the resolve runs every frame and the by-name indexer is a linear scan
@@ -75,9 +109,13 @@ namespace Prazsky.Core.Render
         private readonly EffectTechnique _glareBrightPassTechnique;
         private readonly EffectTechnique _bloomDownTechnique;
         private readonly EffectTechnique _bloomUpTechnique;
+        private readonly EffectTechnique _defocusBlurTechnique;
         private readonly EffectParameter _glareSourceTextureParam;
         private readonly EffectParameter _glareSourceTexelSizeParam;
         private readonly EffectParameter _glareThresholdParam;
+        private readonly EffectParameter _blurStepParam;
+        private readonly EffectParameter _tonemapDefocusTextureParam;
+        private readonly EffectParameter _tonemapDefocusAmountParam;
         private readonly EffectParameter _tonemapGlareTextureParam;
         private readonly EffectParameter _tonemapGlareIntensityParam;
         private readonly EffectParameter _tonemapSceneTextureParam;
@@ -97,6 +135,11 @@ namespace Prazsky.Core.Render
         private float _filmGrain;
         private int _supersampleFactor = 1;
 
+        //What the tonemap was last told the defocus mix is. Held so the uniform is written on the frames it
+        //actually moves — which in play is none of them, the effect being off — per the caching discipline in
+        //BestPractices.md. The starting value is the zero the constructor sends.
+        private float _defocusMix;
+
         public PostProcessPipeline(GraphicsDevice device, Effect tonemapEffect, Effect glareEffect)
         {
             _device = device;
@@ -106,9 +149,13 @@ namespace Prazsky.Core.Render
             _glareBrightPassTechnique = glareEffect.Techniques["BrightPass"];
             _bloomDownTechnique = glareEffect.Techniques["BloomDown"];
             _bloomUpTechnique = glareEffect.Techniques["BloomUp"];
+            _defocusBlurTechnique = glareEffect.Techniques["DefocusBlur"];
             _glareSourceTextureParam = glareEffect.Parameters["SourceTexture"];
             _glareSourceTexelSizeParam = glareEffect.Parameters["SourceTexelSize"];
             _glareThresholdParam = glareEffect.Parameters["GlareThreshold"];
+            _blurStepParam = glareEffect.Parameters["BlurStep"];
+            _tonemapDefocusTextureParam = tonemapEffect.Parameters["DefocusTexture"];
+            _tonemapDefocusAmountParam = tonemapEffect.Parameters["DefocusAmount"];
             _tonemapGlareTextureParam = tonemapEffect.Parameters["GlareTexture"];
             _tonemapGlareIntensityParam = tonemapEffect.Parameters["GlareIntensity"];
             _tonemapSceneTextureParam = tonemapEffect.Parameters["SceneTexture"];
@@ -125,6 +172,11 @@ namespace Prazsky.Core.Render
             tonemapEffect.Parameters["UnderwaterAbsorb"].SetValue(UNDERWATER_ABSORB);
             tonemapEffect.Parameters["UnderwaterInscatter"].SetValue(UNDERWATER_INSCATTER);
             _tonemapUnderwaterAmountParam.SetValue(0f);
+
+            //And the defocus starts off. Stated rather than assumed: an unwritten uniform is whatever the
+            //compiled constant buffer happens to hold, and the one it gates is a texture that does not exist
+            //yet — the chain is not built until something first asks to blur.
+            _tonemapDefocusAmountParam.SetValue(0f);
 
             CreateFullScreenQuad();
         }
@@ -251,8 +303,16 @@ namespace Prazsky.Core.Render
         /// left to give.</param>
         /// <param name="underwaterAmount">How submerged the lens is, 0–1; zero is a no-op in the shader.
         /// Scene knowledge (which scene has water, where its surface is) stays with the caller.</param>
-        public void Resolve(float clockSeconds, float underwaterAmount)
+        /// <param name="defocusAmount">How far the frame has gone out of focus, 0–1; zero is a no-op in the
+        /// shader and skips the blur's passes entirely, so a frame that is not blurring pays nothing. Whose
+        /// moment it is and how it is timed stays with the caller — see the DEFOCUS block at the top.</param>
+        public void Resolve(float clockSeconds, float underwaterAmount, float defocusAmount)
         {
+            //Before the glare, though either order would do: both read the scene target and neither writes
+            //the other's, and all that is required of both is that they run while the back buffer is still
+            //unbound. The glare is left to go last so it is the pass that leaves the states the resolve wants.
+            if (defocusAmount > 0f) DrawDefocus(defocusAmount);
+
             DrawGlare();
 
             _device.SetRenderTarget(null);
@@ -271,6 +331,17 @@ namespace Prazsky.Core.Render
                 _device.PresentationParameters.BackBufferHeight));
 
             _tonemapUnderwaterAmountParam.SetValue(underwaterAmount);
+
+            //How much of the blurred copy shows. Reached early on purpose (see DEFOCUS_MIX_IN), and written
+            //only when it moves — so an unblurred frame, which is every frame of play, sends nothing at all.
+            //The texture itself is bound where it can change, in EnsureDefocusChain, and not here.
+            float defocusMix = defocusAmount > 0f ? Math.Min(1f, defocusAmount / DEFOCUS_MIX_IN) : 0f;
+
+            if (defocusMix != _defocusMix)
+            {
+                _defocusMix = defocusMix;
+                _tonemapDefocusAmountParam.SetValue(defocusMix);
+            }
 
             _device.BlendState = BlendState.Opaque;
             _device.DepthStencilState = DepthStencilState.None;
@@ -323,6 +394,110 @@ namespace Prazsky.Core.Render
             _device.BlendState = BlendState.Opaque;
         }
 
+        /// <summary>
+        /// Builds the blurred copy of the scene the tonemap mixes in: two dual-filter steps down to the
+        /// working resolution, then the separable Gaussian across it and down it. Reads the same HDR scene
+        /// target the glare does and writes only its own four.
+        /// </summary>
+        /// <param name="amount">How far the effect has come, 0–1. It drives the blur's <b>width</b> here,
+        /// where <see cref="Resolve"/> uses it for the mix — two curves off one dial, deliberately, and the
+        /// reason is in <see cref="DEFOCUS_MIX_IN"/>.</param>
+        private void DrawDefocus(float amount)
+        {
+            EnsureDefocusChain();
+
+            _device.BlendState = BlendState.Opaque;
+            _device.DepthStencilState = DepthStencilState.None;
+            _device.RasterizerState = RasterizerState.CullNone;
+            _device.SetVertexBuffer(_fullScreenQuad);
+
+            _glareEffect.CurrentTechnique = _bloomDownTechnique;
+
+            DrawDefocusStepDown(_sceneTarget, _defocusHalf);
+            DrawDefocusStepDown(_defocusHalf, _defocusSmall);
+
+            //The separable Gaussian: across, then down. The spacing is what grows with the effect and the tap
+            //count is fixed — see Glare.fx's DefocusBlur for why round that way. Each pass reads what the
+            //previous one wrote and writes a target of its own, so nothing is ever a pass's source and its
+            //destination at once.
+            float step = amount * DEFOCUS_MAX_STEP;
+
+            _glareEffect.CurrentTechnique = _defocusBlurTechnique;
+
+            _device.SetRenderTarget(_defocusAcross);
+            _glareSourceTextureParam.SetValue(_defocusSmall);
+            _blurStepParam.SetValue(new Vector2(step / _defocusSmall.Width, 0f));
+            DrawFullScreenQuad(_glareEffect);
+
+            _device.SetRenderTarget(_defocusBlurred);
+            _glareSourceTextureParam.SetValue(_defocusAcross);
+            _blurStepParam.SetValue(new Vector2(0f, step / _defocusAcross.Height));
+            DrawFullScreenQuad(_glareEffect);
+        }
+
+        /// <summary>
+        /// One step of the way down to the defocus's working resolution, through the bloom's own 5-tap
+        /// downsample.
+        /// </summary>
+        /// <remarks>
+        /// The kernel's four corner taps are placed off the <b>destination's</b> texel and not the source's,
+        /// which is the one thing this could get wrong: that kernel is written for a source at exactly twice
+        /// the destination, where one source texel is half a destination texel — but the scene target is
+        /// <see cref="SupersampleFactor"/> times larger again, so offsets sized off it would sample a corner
+        /// of the block an output texel stands for and alias the rest of it away.
+        /// </remarks>
+        private void DrawDefocusStepDown(RenderTarget2D source, RenderTarget2D destination)
+        {
+            _device.SetRenderTarget(destination);
+            _glareSourceTextureParam.SetValue(source);
+            _glareSourceTexelSizeParam.SetValue(new Vector2(0.5f / destination.Width, 0.5f / destination.Height));
+            DrawFullScreenQuad(_glareEffect);
+        }
+
+        /// <summary>
+        /// (Re)creates the defocus chain, sized off the back buffer. Called from <see cref="DrawDefocus"/> and
+        /// nowhere else, which is what makes it <b>lazy</b>: the effect belongs to one executable's end-of-level
+        /// screen, so the map editor and the testbed never build these targets at all. The size test carries a
+        /// resize as well — a window that changed shape while nothing was blurring simply gets a new chain on
+        /// the first frame that is, which is also the one frame the allocation could ever be noticed on, and it
+        /// is a frame whose blur is still at nothing.
+        /// </summary>
+        private void EnsureDefocusChain()
+        {
+            int width = Math.Max(_device.PresentationParameters.BackBufferWidth / DEFOCUS_DIVISOR, 1);
+            int height = Math.Max(_device.PresentationParameters.BackBufferHeight / DEFOCUS_DIVISOR, 1);
+
+            if (_defocusBlurred != null && _defocusBlurred.Width == width && _defocusBlurred.Height == height) return;
+
+            _defocusHalf?.Dispose();
+            _defocusSmall?.Dispose();
+            _defocusAcross?.Dispose();
+            _defocusBlurred?.Dispose();
+
+            //Half of the back buffer, whatever the divisor is, since it is only the halfway house the
+            //dual-filter kernel wants on the way down
+            _defocusHalf = NewDefocusTarget(
+                Math.Max(_device.PresentationParameters.BackBufferWidth / 2, 1),
+                Math.Max(_device.PresentationParameters.BackBufferHeight / 2, 1));
+
+            _defocusSmall = NewDefocusTarget(width, height);
+            _defocusAcross = NewDefocusTarget(width, height);
+            _defocusBlurred = NewDefocusTarget(width, height);
+
+            //Bound here, where it can change, rather than per frame in the resolve: this is the only moment
+            //the tonemap's defocus texture is ever a different object, and a rebuild that left the shader
+            //pointing at the disposed one would show as a blurred frame going black on a resize.
+            _tonemapDefocusTextureParam.SetValue(_defocusBlurred);
+        }
+
+        /// <summary>
+        /// One of the defocus's targets: HDR like the scene it holds — it is the same linear radiance, blurred
+        /// — with no depth buffer and no multisampling, every one of them being written whole by a full-screen
+        /// quad.
+        /// </summary>
+        private RenderTarget2D NewDefocusTarget(int width, int height) =>
+            new(_device, width, height, false, SurfaceFormat.HdrBlendable, DepthFormat.None);
+
         private void DrawFullScreenQuad(Effect effect)
         {
             foreach (EffectPass pass in effect.CurrentTechnique.Passes)
@@ -355,6 +530,13 @@ namespace Prazsky.Core.Render
         {
             _sceneTarget?.Dispose();
             if (_bloomChain != null) foreach (RenderTarget2D level in _bloomChain) level?.Dispose();
+
+            //Null in an executable that never blurred — see EnsureDefocusChain
+            _defocusHalf?.Dispose();
+            _defocusSmall?.Dispose();
+            _defocusAcross?.Dispose();
+            _defocusBlurred?.Dispose();
+
             _fullScreenQuad?.Dispose();
         }
     }

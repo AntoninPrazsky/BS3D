@@ -482,7 +482,13 @@ namespace BS3D
                 ? MathHelper.Clamp((_sceneRenderer.SeaLevelY + 0.5f - _camera.Position.Y) / UNDERWATER_FADE_DEPTH, 0f, 1f)
                 : 0f;
 
-            _pipeline.Resolve(_wallClock, underwater);
+            //And how far the frame has gone out of focus, which is the active PAGE's answer and nobody else's
+            //(MenuPage.FrameBlur — only the result screen ever gives one). Asked here rather than tracked in a
+            //field of this class: the ramp belongs to the page whose moment it is, and that page is also the
+            //only screen still being updated while it runs.
+            float defocus = _screens.Active is Screens.MenuPage page ? page.FrameBlur : 0f;
+
+            _pipeline.Resolve(_wallClock, underwater, defocus);
         }
 
         #endregion
