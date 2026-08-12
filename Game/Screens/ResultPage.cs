@@ -518,8 +518,19 @@ namespace BS3D.Screens
 
             //The breakdown: caption · detail · value, the same three-column shape the settings screen uses, so a
             //number lines up under the number above it and reads at a glance. A plate behind it, because small
-            //text over a frozen scene needs the backing the scrim does not give.
+            //text over a lit, turning arena needs a backing of its own — and since #178 there is no scrim under
+            //it at all, so the plate is the whole of what holds these numbers.
             _breakdown = Plate(BuildBreakdown());
+
+            //Cut to the same width as the entries below it (#179). It is the one plate in the game that stands
+            //BESIDE buttons rather than under them (see BS3DGame.Plate), and left to size itself it wrapped a
+            //few short numbers — a panel visibly narrower than every control under it, in the same centred
+            //stack, which read as a fourth button that could not be pressed. MinWidth rather than Width, so the
+            //unlock note underneath the total is free to be longer than the column rather than being clipped
+            //to it: Myra applies both to the measured size with the padding already in, so at the minimum the
+            //plate's edges land exactly on the buttons'.
+            _breakdown.MinWidth = ColumnWidth;
+
             column.Widgets.Add(_breakdown);
 
             column.Widgets.Add(MenuButton("Retry", Game.RetryLevel));

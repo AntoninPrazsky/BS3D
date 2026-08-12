@@ -172,8 +172,19 @@ namespace BS3D
         //which left a thin strip of undimmed arena across the bottom of every dimmed page.
         internal static readonly Color PAUSE_SCRIM = new(0, 0, 0, 176);
 
-        //Behind prose, where a slab alone cannot hold a line of small text steady over a moving scene
-        internal static readonly Color MENU_PLATE = new(0, 0, 0, 190);
+        //Behind prose, where a slab alone cannot hold a line of small text steady over a moving scene — and
+        //LIGHTER than a button, which is the rule rather than the taste (#179): a plate only informs, so it
+        //must not carry a control's weight. It was near-black at 190, a step off MENU_BUTTON's own (11, 11, 11,
+        //212), and on the result screen — the one page where a plate is a SIBLING of the buttons rather than
+        //the card they sit on — the score table read as a fourth, unclickable button in the stack.
+        //
+        //On the grey ramp it sits between a button's rest and its hover (11 < 42 < 72 < 120 pressed), which is
+        //deliberate and is as far as it can go: past the hover step a static panel would read as the entry the
+        //pointer is on. Nothing disambiguates the two by tone alone, and nothing has to — a hover is transient
+        //and under the pointer, where this holds a table and never moves. The opacity goes up with the tone
+        //because the panel has to be its own surface now that the result screen carries no scrim: at 190 a
+        //quarter of a bright blurred sky came through the numbers.
+        internal static readonly Color MENU_PLATE = new(42, 42, 42, 214);
 
 
         /// <summary>
@@ -209,6 +220,15 @@ namespace BS3D
 
         private const int MENU_BUTTON_WIDTH = 1000;
         private const int MENU_COLUMN_SPACING = 26;
+
+        /// <summary>
+        /// The width of a menu column in <b>pixels at the layout in force</b> — the figure every entry is cut
+        /// to (<see cref="MenuButton"/> sets it as an explicit <c>Width</c>), exposed so anything else that has
+        /// to line up in the same stack can be cut to the same one rather than to a second copy of the number.
+        /// The result screen's score panel is what asked for it (#179): it is the only plate that stands beside
+        /// the buttons instead of under them, and auto-sizing to a few short numbers left it visibly narrower.
+        /// </summary>
+        internal int MenuColumnWidth => Scaled(MENU_BUTTON_WIDTH);
 
         //Held direction repeats: one step, a pause long enough that a deliberate single press stays single,
         //then a steady walk. Both are wall-clock seconds and not frame counts, or the list would run faster on
@@ -732,11 +752,20 @@ namespace BS3D
         #endregion
 
         /// <summary>
-        /// A dark plate behind a column that carries actual prose. A scrim alone is not enough for small text
+        /// A plate behind a column that carries actual prose. A scrim alone is not enough for small text
         /// over a moving scene — every line lands on a different background — and darkening the whole scrim
         /// would throw away the scene the screen is standing in. No frame: the edge of the plate is the tone
         /// step itself, which is all it takes, and a drawn border is one more shape to fight the backdrop.
         /// The button screens need no plate at all — a button carries its own background.
+        /// <para>
+        /// It comes out <b>wider than the column it holds</b> everywhere but one page, and that is what makes
+        /// its width worth a word: About, Settings, the scene picker and the level picker wrap their <i>whole
+        /// page</i> in one — buttons included — so the plate is the card and is wider than everything on it by
+        /// its own padding. The result screen is the exception: there it holds only the score table and stands
+        /// as a <b>sibling</b> of the buttons in the same stack, which is why that one call site pins its width
+        /// to <see cref="MenuColumnWidth"/> (#179). The tone step that separates a plate from a control is
+        /// <see cref="MENU_PLATE"/>'s own business.
+        /// </para>
         /// </summary>
         internal Panel Plate(Widget content)
         {
