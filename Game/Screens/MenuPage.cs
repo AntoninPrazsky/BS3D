@@ -176,6 +176,12 @@ namespace BS3D.Screens
         protected Panel Plate(Widget content) => Game.Plate(content);
 
         /// <summary>
+        /// The width every entry in a menu column is cut to, in pixels at the layout in force — for anything a
+        /// page puts in that same stack that has to line up with them. See <see cref="BS3DGame.MenuColumnWidth"/>.
+        /// </summary>
+        protected int ColumnWidth => Game.MenuColumnWidth;
+
+        /// <summary>
         /// The page centred over the whole frame. It carries no scrim of its own: whether the frame dims is
         /// still <see cref="DimsFrame"/>'s answer, but the wash itself is the host's own quad since #114 —
         /// Myra's background paint stops short of the viewport's bottom edge, and the strip it left undimmed
