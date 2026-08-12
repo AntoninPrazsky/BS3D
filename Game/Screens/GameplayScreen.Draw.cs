@@ -103,11 +103,15 @@ namespace BS3D.Screens
         /// <para>
         /// <b>Shown exactly when a shot would actually leave the barrel</b>, which is the rule that keeps it from
         /// promising anything: silent while a drop cinematic runs, because the gun does not answer at all then, and
-        /// silent once <c>_score.OutOfShots</c> — the <i>same</i> test <see cref="Shoot"/> refuses on, so the two
-        /// cannot drift apart. A ghost sitting in the cluster over a budget that is spent would be pointing at a
-        /// landing the player can no longer buy. A level being cleared or lost is deliberately <b>not</b> in the
-        /// list: firing through the collapse is allowed (see the result screen's snapshot), so the preview goes on
-        /// answering for as long as the gun does.
+        /// silent once <c>_score.OutOfShots</c> or once the level is decided — the <i>same</i> two tests
+        /// <see cref="Shoot"/> refuses on, so the two cannot drift apart. A ghost sitting in the cluster over a
+        /// spent budget, or over a level already won or lost, points at a landing the player can no longer buy.
+        /// </para>
+        /// <para>
+        /// The decided level was deliberately <b>not</b> in that list while firing through the collapse was
+        /// allowed. #177 stopped allowing it, so this followed in the same change — and it is what takes the
+        /// beam and the ghost out of the frozen frame the result screen is read over, rather than leaving a
+        /// line of light aimed at a level that is over.
         /// </para>
         /// </remarks>
         private void UpdateShotPreview()
@@ -116,7 +120,7 @@ namespace BS3D.Screens
             _previewReachesCluster = false;
             _previewBeamVisible = false;
 
-            if (_cinematic.Engaged || _score.OutOfShots || _physicsBalls == null || _map == null) return;
+            if (_cinematic.Engaged || _score.OutOfShots || LevelDecided || _physicsBalls == null || _map == null) return;
 
             Vector3 muzzle = _cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall);
             Vector3 aim = _cannon.AimDirection;
