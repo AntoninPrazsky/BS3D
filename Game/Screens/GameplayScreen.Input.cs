@@ -224,6 +224,14 @@ namespace BS3D.Screens
         /// </summary>
         private void Shoot()
         {
+            //The level is already decided — cleared and waiting out LEVEL_CLEARED_BEAT, or lost. The gun stops
+            //answering the instant the outcome is settled rather than when the result screen finally covers
+            //this one, which is a whole beat later and longer still under a drop cinematic: a shot fired into
+            //that beat is spent against a level the player has already won, and it goes on to land and resolve
+            //contacts on a field nobody is playing any more (#177). Same shape as the pause frame's #79, and
+            //the same reason it has to be checked here — there is no covering screen to lean on this early.
+            if (LevelDecided) return;
+
             //The budget is spent, so no more shots leave the barrel — but the level is not lost here. The last
             //ball fired is still in flight and may be the one that clears the field, and a loss called now would
             //steal that win. Whether the spent budget actually loses is decided once every shot has resolved,

@@ -574,6 +574,19 @@ namespace BS3D.Screens
         /// <summary>How long that pause is — long enough for a big collapse to reach the drain and go down it.</summary>
         private const float LEVEL_CLEARED_BEAT = 2.5f;
 
+        /// <summary>
+        /// The level's outcome is settled: the field has emptied and the beat above is running, or the level
+        /// has been lost. Nothing belonging to <i>playing</i> the level may happen past this — no shot leaves
+        /// the barrel, no preview promises one, and nothing in the magazine changes colour (#176, #177).
+        /// <para>
+        /// It has to be asked at the input and at the landing themselves rather than left to the result
+        /// screen's <c>UpdatesUnderlying</c>, which is what stops the frame for a pause (#79): a clear pushes
+        /// no screen at all for <see cref="LEVEL_CLEARED_BEAT"/> seconds — longer while a drop cinematic holds
+        /// the countdown — and this screen goes on updating normally for the whole of that beat.
+        /// </para>
+        /// </summary>
+        private bool LevelDecided => _levelLost || _clearedCountdown > 0f;
+
         //How long the victory display goes on launching, and how long it waits before it starts.
         //
         //A full minute, because the display is meant to still be going while the player reads their score and

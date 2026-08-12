@@ -63,8 +63,25 @@ namespace BS3D.Screens
 
             //The cluster just changed — a ball joined it, and a group may have left. Recount before anything
             //asks what may be loaded, and re-colour whatever is already in the barrel and has just gone dead.
-            RecountBallTypes();
-            Transmute();
+            //
+            //Not once the level is decided (#176). The census is only ever read to answer what may be loaded
+            //next, and nothing loads any more, so all that would still run is the transmute's deliberately
+            //visible dissolve — the queue re-colouring itself in front of a player who has already won. A
+            //landing can still arrive here that late even with the gun shut (#177): a shot fired before the
+            //field emptied may still be in the air when it does, and an empty field's own ceiling will take it.
+            if (!LevelDecided)
+            {
+                RecountBallTypes();
+
+                //And nothing to transmute TO is the winning landing itself, which LevelDecided cannot see: the
+                //release has already emptied the map, but CheckLevelCleared only arms the countdown at the foot
+                //of this method. Measured on a one-colour test level, every clear re-coloured three to five of
+                //the five loaded slots to a default the instant the field went — the case #176 is reached
+                //through on EVERY clear, not only on the late landing its report describes. Not a special case for
+                //the ending either: a queue cannot be re-coloured towards a live colour when none is left, and
+                //RandomBallType's own empty-cluster branch is the one that would answer here.
+                if (AnyBallTypeAlive()) Transmute();
+            }
 
             //Before the clear test, because a shot that empties the field is the one most worth watching and
             //CheckLevelCleared starts the countdown that ends the level
@@ -108,7 +125,7 @@ namespace BS3D.Screens
 
             //Never over a cinematic already running, and never over the end of a level: the result screen is
             //about to cover this one, and a camera move under it is a move nobody sees.
-            if (_cinematic.Engaged || _levelLost || _clearedCountdown > 0f) return;
+            if (_cinematic.Engaged || LevelDecided) return;
 
             int first = _fallingBalls.Count - total;
             if (first < 0) return;
@@ -176,15 +193,16 @@ namespace BS3D.Screens
         /// with no balls won before the player had fired a shot, and would keep declaring it.
         /// </para>
         /// <para>
-        /// The completion bonus is awarded <b>now</b> rather than when the level actually ends, so that shots
-        /// fired into the empty field during the pause below cannot eat the balls the player finished with.
-        /// A shot still in flight at this moment is harmless: there is nothing left for it to hit, and the
-        /// body goes with the simulation when the next level replaces it.
+        /// The completion bonus is awarded <b>now</b> rather than when the level actually ends, so nothing
+        /// happening during the pause below can eat the balls the player finished with. Since #177 no shot can
+        /// be fired into that pause at all — <see cref="Shoot"/> refuses the moment the level is decided — so
+        /// the two agree rather than this one carrying the whole weight. A shot still in flight at this moment
+        /// is harmless to the count either way: it was spent when it left the barrel.
         /// </para>
         /// </summary>
         private void CheckLevelCleared()
         {
-            if (_levelLost || _clearedCountdown > 0f || _map.GetBallsCount() > 0) return;
+            if (LevelDecided || _map.GetBallsCount() > 0) return;
 
             int bonus = _score.AwardCompletionBonus();
             _clearedCountdown = LEVEL_CLEARED_BEAT;
@@ -235,7 +253,7 @@ namespace BS3D.Screens
         {
             //Already ending — a cleared countdown or a loss in flight. Testing further would re-trigger a loss
             //on top of a clear or a teardown already underway.
-            if (_clearedCountdown > 0f || _levelLost) return;
+            if (LevelDecided) return;
 
             //The ceiling reaching the death line. Live poses are in _physicsBalls (the lattice in _map holds
             //cells, not bodies); the loop mirrors the draw's own walk over the structure (ClusterCollector),
@@ -566,6 +584,17 @@ namespace BS3D.Screens
                 _magazine.Recolour(slot, replacement);
                 _magazineTransmute[slot] = 1f;
             }
+        }
+
+        /// <summary>
+        /// Whether anything at all is still hanging, off the census <see cref="RecountBallTypes"/> has just
+        /// taken — so it costs a walk over eight counters rather than a second walk over the field.
+        /// </summary>
+        private bool AnyBallTypeAlive()
+        {
+            for (int i = 0; i < _ballsOfType.Length; i++) if (_ballsOfType[i] > 0) return true;
+
+            return false;
         }
 
         /// <summary>
