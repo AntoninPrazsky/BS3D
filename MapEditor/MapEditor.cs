@@ -800,7 +800,11 @@ namespace MapEditor
             //The sea's submerge fade for missed balls — a no-op off the sea scene (see SceneRenderer.ApplySeaSubmerge).
             //The editor draws the balls exactly as the game does, and since #131 the sea is depth-read, so without
             //this the editor inherits the depth-read half and none of the fade half (#143).
-            _sceneRenderer.ApplySeaSubmerge(_instancingEffect, _scene);
+            //The lens is reported as never submerged, and that is correct here rather than a shortcut: the fade
+            //is released by what the tonemap's murk takes over (#159), and the editor pins that murk to zero
+            //(see the Resolve call) — so a released fade there would be a release with nothing behind it. The
+            //editor's flying camera therefore keeps the fade it has always had, whatever depth it swims to.
+            _sceneRenderer.ApplySeaSubmerge(_instancingEffect, _scene, 0f);
 
             //The chosen environment stands in for what the game draws where the city would be. It is drawn
             //before the balls so the cluster reads in front of it; the snow (mountain) comes after, in front.

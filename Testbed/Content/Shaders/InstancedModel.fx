@@ -172,6 +172,31 @@ float SeaLevelY;
 float SeaFadeDepth;
 float3 SeaSubmergeTint;
 
+//...and the fade is RELEASED as the LENS goes under with it (#159), by exactly the amount the tonemap's own
+//underwater murk arrives with. What the effect is for is a ball seen from ABOVE, through the surface: the water
+//column between the eye and the ball is what dims it. Once the camera is down there too the murk owns the
+//frame, and dissolving individual objects inside it as well is one water effect too many.
+//
+//It was not academic. Sea is one of the scenes the drop cinematic can film from BELOW (SceneRenderer's
+//OpenBelow), and that shot deliberately swings the eye well under the surface to follow the released cluster
+//down the drain - so the one thing the cinematic exists to show faded to nothing exactly while it was being
+//shown, on a level that ships.
+//
+//THE HANDOVER IS THE WHOLE OF THE FIX'S CORRECTNESS, and the first attempt got it wrong in a way worth keeping
+//here. It released the fade over a 1.5-unit band measured from EyePosition, which put the release ABOVE the
+//surface: at a tenth of a unit over the water the fade was already 93 % gone, and since DrawSea gives up its
+//depth write, the whole submerged drain shaft then drew straight THROUGH the standing pool - the exact
+//composite MainPS's copy of this block was added to prevent (#132). The band also claimed the murk was behind
+//it and the murk is 7 % in at that height (its own ramp is 7 units, not 1.5), and it read nothing at all in the
+//map editor, which pins the murk to zero.
+//
+//So the release is not a band of its own: it is 1 - SeaLensSubmerged, where that uniform is the SAME number the
+//caller hands PostProcessPipeline.Resolve for the murk (SceneRenderer.LensSubmergedAmount). Above the water it
+//is 0 and the fade is untouched, so #131's sinking ball and #132's pool are bit-for-bit what they were; under
+//it the two effects hand over at one rate by construction rather than one leaning on the other being there;
+//and the map editor passes 0, which is correct there precisely because it has no murk to hand over to.
+float SeaLensSubmerged;
+
 void AddSceneLights(float3 worldPosition, float3 worldNormal, float3 eyeVector, inout float3 diffuse, inout float3 specular)
 {
 	[loop]
@@ -392,7 +417,14 @@ float4 MainPS(VertexShaderOutput input) : COLOR
 	//the water instead of disappearing into it. A no-op off the sea scene, where SeaFadeDepth is pushed <= 0.
 	if (SeaFadeDepth > 0.0)
 	{
-		float submerge = saturate((SeaLevelY - input.WorldPosition.y) / SeaFadeDepth);
+		//Times what the murk has NOT taken over yet, so the fade releases as the camera goes under (#159) - see
+		//SeaLensSubmerged, which is 0 above the water, so everything above it is untouched. Folded into
+		//`submerge` rather than applied after, so the colour and the alpha keep taking the SAME figure: this
+		//output is premultiplied, and two fades that could disagree is exactly how a vanished surface starts
+		//ADDING its colour instead of leaving. Both copies of this block are identical, character for character.
+		float submerge = saturate((SeaLevelY - input.WorldPosition.y) / SeaFadeDepth)
+			* (1.0 - SeaLensSubmerged);
+
 		shaded.rgb = lerp(shaded.rgb, SeaSubmergeTint, submerge) * (1.0 - submerge);
 		shaded.a *= 1.0 - submerge;
 	}
@@ -1066,7 +1098,14 @@ float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 	//mush over the dark water. Found the moment the pool gave them something dark to stack against.
 	if (SeaFadeDepth > 0.0)
 	{
-		float submerge = saturate((SeaLevelY - input.WorldPosition.y) / SeaFadeDepth);
+		//Times what the murk has NOT taken over yet, so the fade releases as the camera goes under (#159) - see
+		//SeaLensSubmerged, which is 0 above the water, so everything above it is untouched. Folded into
+		//`submerge` rather than applied after, so the colour and the alpha keep taking the SAME figure: this
+		//output is premultiplied, and two fades that could disagree is exactly how a vanished surface starts
+		//ADDING its colour instead of leaving. Both copies of this block are identical, character for character.
+		float submerge = saturate((SeaLevelY - input.WorldPosition.y) / SeaFadeDepth)
+			* (1.0 - SeaLensSubmerged);
+
 		shaded.rgb = lerp(shaded.rgb, SeaSubmergeTint, submerge) * (1.0 - submerge);
 		shaded.a *= 1.0 - submerge;
 	}

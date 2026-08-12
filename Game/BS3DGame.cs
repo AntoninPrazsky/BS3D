@@ -223,12 +223,12 @@ namespace BS3D
 
         //The HDR scene target, the bloom pyramid, the tonemap resolve and every cached parameter live in
         //Prazsky.Core.Render.PostProcessPipeline now â€” one copy for all three executables. What stays here
-        //is what is this executable's to decide: the look figures below, the Settings toggles that write
-        //them, and the underwater amount (scene knowledge the pipeline takes as a per-frame scalar).
+        //is what is this executable's to decide: the look figures below and the Settings toggles that write
+        //them. The underwater amount used to be here too, as this file's own arithmetic; it is
+        //SceneRenderer.LensSubmergedAmount since #159, because the ball shader's submerge fade is released by
+        //the same figure and two effects that hand over cannot read two copies of one expression.
         private PostProcessPipeline _pipeline;
 
-        //How far under the mean surface the underwater tint takes to reach full
-        private const float UNDERWATER_FADE_DEPTH = 7f;
         private EffectParameter _skyCameraPositionParam;
 
         private static readonly float GLARE_THRESHOLD = 0.55f;

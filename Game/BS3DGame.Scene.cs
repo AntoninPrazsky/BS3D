@@ -400,7 +400,10 @@ namespace BS3D
             }
 
             //The sea's submerge fade for missed balls — a no-op off the sea scene (see SceneRenderer.ApplySeaSubmerge).
-            _sceneRenderer.ApplySeaSubmerge(_instancingEffect, _scene);
+            //It takes how far the LENS is under the water, because since #159 the fade is released by exactly what
+            //the tonemap's murk takes over (the same call answers both, at the resolve below).
+            _sceneRenderer.ApplySeaSubmerge(_instancingEffect, _scene,
+                _sceneRenderer.LensSubmergedAmount(_scene, _camera.Position));
 
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
@@ -474,13 +477,15 @@ namespace BS3D
             //covers the session (see Fireworks).
             _fireworks?.Draw(_camera);
 
-            //How far under the sea the lens is. Only the sea has water to get under, and only the drop
-            //cinematic ever takes the camera down there — the play camera stands on the island. Measured a
-            //touch above the mean surface so partial submersion already begins to tint, full by
-            //UNDERWATER_FADE_DEPTH; zero everywhere else, which is a no-op in the shader.
-            float underwater = _scene == SceneKind.Sea
-                ? MathHelper.Clamp((_sceneRenderer.SeaLevelY + 0.5f - _camera.Position.Y) / UNDERWATER_FADE_DEPTH, 0f, 1f)
-                : 0f;
+            //How far under the sea the lens is. Only the sea has water to get under, and only the drop cinematic
+            //ever takes the camera down there — the play camera stands on the island. Zero everywhere else, which
+            //is a no-op in the shader.
+            //
+            //It is SceneRenderer's answer since #159, not this file's arithmetic: the ball shader's submerge fade
+            //is released by the same figure the murk arrives with (see ApplySeaSubmerge above), and two effects
+            //that have to hand over cannot be reading two copies of one expression — this one and the Testbed's
+            //were already two.
+            float underwater = _sceneRenderer.LensSubmergedAmount(_scene, _camera.Position);
 
             //And how far the frame has gone out of focus, which is the active PAGE's answer and nobody else's
             //(MenuPage.FrameBlur — only the result screen ever gives one). Asked here rather than tracked in a
