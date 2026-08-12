@@ -122,16 +122,23 @@ namespace BS3D.Screens
 
         /// <summary>
         /// How far the scene behind this page has gone <b>out of focus</b>, 0–1 — the frame's own defocus,
-        /// mixed in by the tonemap (<see cref="Prazsky.Core.Render.PostProcessPipeline.Resolve"/>). Zero for
-        /// every page but the result screen, which is the one moment a page would rather soften what is behind
-        /// it than darken it: see "The arena goes out of focus" in <see cref="ResultPage"/>.
+        /// mixed in by the tonemap (<see cref="Prazsky.Core.Render.PostProcessPipeline.Resolve"/>). Two pages
+        /// answer with something: the result screen, which lets the arena go soft a few seconds after a level
+        /// ends, and the pause, which does it at once (#178).
         /// <para>
-        /// Asked of the <b>active</b> screen only, at resolve time, so it is the value this page's own
-        /// <c>Update</c> left this frame — a page that is not on top is not updated, and its answer would be
-        /// however long ago it was covered.
+        /// The default is <b>the pause's own answer if a pause is underneath</b> — the shape
+        /// <see cref="DimsFrame"/> already uses, and the same question: Settings or the scene picker opened
+        /// from a pause is still standing over a stopped game, and a frame that snapped back into focus as
+        /// the panel opened would undo the point of blurring it. It reads the pause's ramp rather than a flat
+        /// 1 so that opening a panel <i>during</i> that third of a second does not skip it.
+        /// </para>
+        /// <para>
+        /// Asked of the <b>active</b> screen only, at resolve time. That is why the two ramps that exist are
+        /// clocked the way they are: the result screen is the only screen still updating while it is up, and
+        /// the pause is stamped against the wall clock precisely because a panel over it stops it updating.
         /// </para>
         /// </summary>
-        internal virtual float FrameBlur => 0f;
+        internal virtual float FrameBlur => Manager?.Find<PausePage>()?.FrameBlur ?? 0f;
 
         /// <summary>
         /// Putting the tree into the shared Myra desktop is done here, on <see cref="Screen.CoveredChanged"/>
