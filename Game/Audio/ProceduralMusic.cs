@@ -2018,6 +2018,13 @@ namespace BS3D.Audio
         private const int DEFEAT_TAIL_STEPS = 14;
 
         /// <summary>
+        /// Above this the loss was close enough to deserve the <b>fuller</b> piece: the harmony under the
+        /// melody, and since #190 a fourth bar to carry it. One constant for both, so "the run deserved better"
+        /// is a single step the piece grows by rather than two thresholds that could drift apart.
+        /// </summary>
+        private const float DEFEAT_FULLER = 0.55f;
+
+        /// <summary>
         /// The victory fanfare: a eurodance DROP, not a herald's call. The first version was a lone trombone
         /// rising over a pad — dignified, and reported as exactly that: old, cheap, nothing to dance to. But
         /// the game's musical language is the theme's eurodance, and in that language a celebration is the
@@ -2219,9 +2226,14 @@ namespace BS3D.Audio
         /// dimension that matters — mode, direction, tempo and register.
         /// <para>
         /// It takes the same <paramref name="intensity"/> from the other end. A good score that still lost gets
-        /// a fuller piece with a harmony under it and a resolution at the bottom; a poor one gets three thin
-        /// notes and no resolution at all. Losing narrowly and losing badly should not sound the same, and the
-        /// difference is what the player is owed for the run they had.
+        /// a fuller piece — a fourth bar, a harmony under the melody and a resolution at the bottom; a poor one
+        /// gets a couple of thin notes over three bars and no resolution at all. Losing narrowly and losing
+        /// badly should not sound the same, and the difference is what the player is owed for the run they had.
+        /// </para>
+        /// <para>
+        /// Since #190 that difference is the piece's <b>length</b> as well as its density: it ran four bars
+        /// whatever had happened, which at this tempo measured 17.5 s over a screen that had just said the
+        /// player lost. See the bar count for why the time can only come out of the bars.
         /// </para>
         /// </summary>
         private static float[] BakeDefeat(Random random, float intensity, FanfareShape shape)
@@ -2233,7 +2245,14 @@ namespace BS3D.Audio
 
             int root = shape.Root;
 
-            const int bars = 4;
+            //THE LENGTH IS THE INTENSITY'S NOW, not a constant (#190). It ran four bars at 62-74 BPM whatever
+            //the run had been — a measured 17.5 s over a screen that has just told the player they lost, and
+            //nearly twice the victory's own length once #185 had shortened that. Only the bars can pay for it:
+            //the tempo is the piece's whole character (it has to feel like it is running out) and the tail is
+            //what stops it ending on a click. So three bars for a loss, and the fourth only where the run was
+            //close enough to have earned the fuller piece — the SAME threshold that puts the harmony under the
+            //melody, so the piece grows in one step rather than by two figures that could drift apart.
+            int bars = intensity > DEFEAT_FULLER ? 4 : 3;
             float[] mix = NewMix(samplesPerStep * (bars * STEPS_PER_BAR + DEFEAT_TAIL_STEPS));
 
             //i - VI - iv - i: minor, and it sags rather than resolving anywhere bright.
@@ -2250,7 +2269,17 @@ namespace BS3D.Audio
 
             for (int bar = 0; bar < bars; bar++)
             {
-                int chordRoot = root + degrees[bar];
+                //WHICH bar goes when there are three: the third, its chord and its melody note together. The iv
+                //is a step on the way home, where the VI before it is the sag the whole piece is written round
+                //and the i after it is the landing — so a three-bar i - VI - i still sags and still lands, and
+                //the melody still falls (3-2-0 or 2-1-0 against the four-bar 3-2-1-0). Dropping the VI instead
+                //would leave a plain plagal cadence with none of the piece's colour. #185 settled the same
+                //question for the victory's I-V-vi-IV from the other end and kept the chord the progression
+                //exists for; this is that rule applied to a falling one. The four-bar arrays above stay the
+                //canonical statement of the progression rather than being re-authored per length.
+                int source = bars == 4 || bar < 2 ? bar : bar + 1;
+
+                int chordRoot = root + degrees[source];
                 bool last = bar == bars - 1;
                 int at = bar * STEPS_PER_BAR * samplesPerStep;
 
@@ -2275,14 +2304,14 @@ namespace BS3D.Audio
                 //conditional, so on any run under the threshold the melody sang alone from one speaker and the
                 //whole piece leaned 1.4 dB (measured). A part that may play alone cannot take half a pair's seat.
                 if (!last || intensity > 0.35f)
-                    Brass(mix, at, chordRoot + MINOR_TRIAD[fall[bar]], secondsPerStep * (last ? 24f : 17f),
+                    Brass(mix, at, chordRoot + MINOR_TRIAD[fall[source]], secondsPerStep * (last ? 24f : 17f),
                         leadLevel);
 
                 //A harmony a third under the melody, for a run that deserved better. This one is the part that
                 //moves off centre — it only ever sounds WITH the melody, so it reads as a second player beside
                 //the first rather than as the tune wandering, and at 0.55 of the level it barely tilts the piece.
-                if (intensity > 0.55f)
-                    Brass(mix, at, chordRoot + MINOR_TRIAD[fall[bar]] - 3, secondsPerStep * (last ? 24f : 17f),
+                if (intensity > DEFEAT_FULLER)
+                    Brass(mix, at, chordRoot + MINOR_TRIAD[fall[source]] - 3, secondsPerStep * (last ? 24f : 17f),
                         leadLevel * 0.55f, pan: PAN_BRASS_SPREAD);
             }
 
