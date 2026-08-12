@@ -206,7 +206,8 @@ namespace BS3D
         #region The overlay (display space, after the resolve)
 
         //FPS. A DrawableGameComponent, so the component list draws it in base.Draw â€” last of everything, in
-        //display space, with its own SpriteBatch. F12 hides it, as it hides the Testbed's text overlay.
+        //display space, with its own SpriteBatch. F10 hides it (it was F12, which the screenshot took in #191;
+        //the Testbed's own text overlay is still on F12).
         private InfoRenderer _info;
 
         //One SpriteBatch for everything drawn over the resolve: the gameplay screen's HUD and its crosshair
@@ -464,16 +465,22 @@ namespace BS3D
         /// or losing a level, which can no more be scripted than clearing one can. Pair it with
         /// <paramref name="celebrate"/> for the whole moment: fireworks over an arena going soft.
         /// </param>
+        /// <param name="shotSeconds">
+        /// Testing only (the <c>shot=</c> argument): wall-clock seconds after start at which to save a PNG of
+        /// the frame, or null for none. It is the trigger F12 cannot be — a locked desktop takes no keystrokes
+        /// — and the one that makes a shot repeatable. See <c>BS3DGame.Screenshot.cs</c>.
+        /// </param>
         public BS3DGame(bool fullscreen = false, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE,
             bool uncappedFps = false, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
             QualityLevel? quality = null, bool celebrate = false, bool lasers = false, bool mute = false,
-            bool play = false, bool result = false)
+            bool play = false, bool result = false, float[] shotSeconds = null)
         {
             _fullscreen = fullscreen;
             _startupCelebrate = celebrate;
             _startupLasers = lasers;
             _startupPlay = play;
             _startupResult = result;
+            _shotSchedule = shotSeconds;
             if (mute) _masterVolume = 0f;
 
             //The tier owns supersampling, so the tier's factor is taken first and an explicit ssaa= then
@@ -1207,6 +1214,11 @@ namespace BS3D
 
             //Last, so it counts a frame that has actually been drawn end to end
             if (_logFrameRate) LogFrameRate((float)gameTime.ElapsedGameTime.TotalSeconds);
+
+            //And after even that, so a saved frame is the finished one — the scene, the overlay and whatever
+            //page is over them (#191). It reads the back buffer, so it has to be the last thing in the frame
+            //that touches the device.
+            ServiceScreenshots();
         }
 
         #region The frame-rate log (benchmarking)

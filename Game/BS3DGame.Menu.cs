@@ -973,10 +973,12 @@ namespace BS3D
                 //Escape backs out one level; MenuBack owns which screens have a back at all
                 if (IsKeyEdge(keyboard, Keys.Escape)) MenuBack();
 
-                //The same two display keys the game has, because a player who wants windowed mode or no
-                //FPS line wants them before pressing Play as much as after
+                //The same three display keys the game has, because a player who wants windowed mode, no FPS
+                //line or a picture of the title card wants them before pressing Play as much as after.
+                //F10/F11/F12 = overlay, fullscreen, shot; F12 took the shot and moved the overlay down (#191).
+                if (IsKeyEdge(keyboard, Keys.F10)) ToggleFpsOverlay();
                 if (IsKeyEdge(keyboard, Keys.F11)) ToggleFullscreen();
-                if (IsKeyEdge(keyboard, Keys.F12)) ToggleFpsOverlay();
+                if (IsKeyEdge(keyboard, Keys.F12)) RequestScreenshot();
             }
 
             //After the keys above, so an Escape and a B press in the same frame cannot both act, and

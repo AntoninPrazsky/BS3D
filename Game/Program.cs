@@ -1,5 +1,6 @@
 using Prazsky.Core.Render;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 
 namespace BS3D
@@ -50,6 +51,11 @@ namespace BS3D
             //or losing one, which cannot be scripted any more than clearing one can.
             bool result = false;
 
+            //Testing only: wall-clock seconds at which the game saves a PNG of its own frame. Null means the
+            //argument was absent, which is every run but a scripted one. F12 does the same thing by hand — but
+            //only this trigger survives a LOCKED desktop, which takes no keystrokes at all (#191).
+            float[] shotSeconds = null;
+
             foreach (string arg in args)
             {
                 if (string.Equals(arg, "fullscreen", StringComparison.OrdinalIgnoreCase)) fullscreen = true;
@@ -78,12 +84,37 @@ namespace BS3D
                 //"result" puts a cleared level's result screen up; with "celebrate" that is the whole
                 //end-of-level moment, fireworks and all, over an arena that goes out of focus behind it.
                 else if (string.Equals(arg, "result", StringComparison.OrdinalIgnoreCase)) result = true;
+                //"shot=<t1,t2,…>" saves a PNG of the frame at those wall-clock seconds. Parsed leniently on
+                //purpose — a malformed entry is dropped and the rest stand, the way an unknown scene name
+                //falls back rather than throwing: this is a diagnostic, and it must never be the reason a
+                //scripted run fails to start.
+                else if (arg.StartsWith("shot=", StringComparison.OrdinalIgnoreCase))
+                    shotSeconds = ParseSeconds(arg.Substring("shot=".Length));
             }
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
-                celebrate: celebrate, lasers: lasers, mute: mute, play: play, result: result);
+                celebrate: celebrate, lasers: lasers, mute: mute, play: play, result: result, shotSeconds: shotSeconds);
             game.Run();
+        }
+
+        /// <summary>
+        /// The <c>shot=</c> list: comma-separated seconds, invariant culture like every other numeric argument
+        /// here. Kept in ASKED order rather than sorted — a caller who writes them out of order is telling the
+        /// run something, and the schedule is walked forward — but an entry that will not parse is dropped
+        /// rather than throwing, and an empty result comes back as null so the game sees "no schedule" instead
+        /// of an empty one to test every frame.
+        /// </summary>
+        private static float[] ParseSeconds(string list)
+        {
+            string[] parts = list.Split(',');
+            var seconds = new List<float>(parts.Length);
+
+            foreach (string part in parts)
+                if (float.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out float value) && value >= 0f)
+                    seconds.Add(value);
+
+            return seconds.Count > 0 ? seconds.ToArray() : null;
         }
 
         //The spellings scene= takes are SceneRenderer.TryParseScene's since #75 — the Testbed grew an if/else
