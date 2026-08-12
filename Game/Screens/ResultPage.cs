@@ -42,7 +42,17 @@ namespace BS3D.Screens
         public ResultPage(BS3DGame game) : base(game) { }
 
         internal override bool CanGoBack => false;
-        internal override bool DimsFrame => true;
+
+        /// <summary>
+        /// <b>No.</b> It dimmed hard once, on the pause screen's argument — a page over a stopped game — and
+        /// that argument does not hold here: a pause is a game put down mid-move, where this is the game's
+        /// own ending playing out. The fireworks are climbing, the camera is swinging out around the island and
+        /// the cluster is still falling through the drain, and a scrim at
+        /// <see cref="BS3DGame.PAUSE_SCRIM"/>'s weight put all of it behind smoked glass at the exact moment it
+        /// was worth watching. What holds the numbers legible over a lit, moving arena instead is the frame
+        /// going out of focus a few seconds in — see the region below.
+        /// </summary>
+        internal override bool DimsFrame => false;
 
         /// <summary>Takes the figures the level ended on. Called once, as the page is pushed.</summary>
         internal void Take(LevelResult result)
@@ -89,6 +99,10 @@ namespace BS3D.Screens
             _fromRoll = camera.BaseRoll;
             _orbitBlend = 0f;
 
+            //And the arena is sharp again on every arrival, for the reveal's reason: a retry lands back here
+            //through this same page, and it owes the next ending the same few seconds in focus as the first
+            _blurClock = 0f;
+
             //The reveal is timed from the page opening, so it restarts on every arrival — a retry that earned
             //a different rating has to show that rating being earned, not a row already sitting there.
             _revealClock = 0f;
@@ -114,6 +128,10 @@ namespace BS3D.Screens
             base.Update(gameTime);
 
             float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            //The defocus's whole state: FrameBlur is a pure function of it, so the host reads what this frame
+            //left rather than a value written from two places (see the region above)
+            _blurClock += elapsed;
 
             if (!_revealSettled)
             {
@@ -156,6 +174,50 @@ namespace BS3D.Screens
             //pose the player is left looking at
             camera.Update(elapsed);
         }
+
+        #endregion
+
+        #region The arena goes out of focus
+
+        //The frame behind this page is not dimmed (see DimsFrame) — so for the first few seconds the ending is
+        //simply WATCHED: the shells go up, the camera lets go of the gun and swings out around the island, and
+        //the page's own lines sit over a lit arena. Then the arena softens out of focus underneath them, until
+        //what is left is colour and glow with no edges to compete with the text. The frame's own light is doing
+        //it (PostProcessPipeline's defocus, mixed in before the tonemap curve), which is why a blurred firework
+        //stays a glowing orb rather than a grey smudge.
+        //
+        //Driven from here, like the camera release and the star reveal above and for the same reason: the
+        //session under this page is covered and therefore frozen, so this is the only screen still updating.
+
+        /// <summary>
+        /// How long the arena stays sharp. It sits past both of the things this page does on arrival — the
+        /// camera's release (<see cref="ORBIT_EASE_SECONDS"/>) and the last star landing
+        /// (<see cref="RevealTotalSeconds"/>, about 2 s) — so nothing is blurred while it is still arriving,
+        /// and the softening reads as the moment settling rather than as a transition out of it.
+        /// </summary>
+        private const float BLUR_DELAY_SECONDS = 3.4f;
+
+        /// <summary>
+        /// How long the frame takes to go fully soft. Slow on purpose: at half this the arena reads as being
+        /// snatched away, where over four seconds the eye follows one image losing its edges — which is the
+        /// effect, and it is only worth having if it is watchable.
+        /// </summary>
+        private const float BLUR_EASE_SECONDS = 4f;
+
+        /// <summary>
+        /// Since the page opened. A clock of its own rather than the reveal's, which latches
+        /// (<see cref="_revealSettled"/>) long before this has started.
+        /// </summary>
+        private float _blurClock;
+
+        /// <summary>
+        /// Smoothstepped, so the frame leaves focus and arrives at full blur with the rate at zero at both
+        /// ends: a linear ramp starts with a visible lurch out of a still image, and the eye reads the moment
+        /// it stops as sharply as the moment it starts. <see cref="MathHelper.SmoothStep"/> clamps its own
+        /// input, so the delay before it and the rest of the page's life after it both come out flat.
+        /// </summary>
+        internal override float FrameBlur =>
+            MathHelper.SmoothStep(0f, 1f, (_blurClock - BLUR_DELAY_SECONDS) / BLUR_EASE_SECONDS);
 
         #endregion
 

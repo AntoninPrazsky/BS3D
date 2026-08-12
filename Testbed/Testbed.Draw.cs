@@ -166,7 +166,10 @@ namespace Testbed
                 ? Math.Clamp((_sceneRenderer.SeaLevelY + 0.5f - _camera.Position.Y) / UNDERWATER_FADE_DEPTH, 0f, 1f)
                 : 0f;
 
-            _pipeline.Resolve(_pulseSeconds, underwater);
+            //And nothing ever takes this frame out of focus: the defocus is the game's end-of-level effect,
+            //and the testbed has no level that ends. Zero is a no-op in the shader and its targets are never
+            //even built (see PostProcessPipeline.EnsureDefocusChain).
+            _pipeline.Resolve(_pulseSeconds, underwater, 0f);
 
             //The crosshair, in display space after the resolve: in free mode it marks where a shot from the camera
             //goes, so it is simply there (opacity 1); in game mode it appears only as precise aim engages, fading

@@ -45,6 +45,11 @@ namespace BS3D
             //building one honestly takes a mouse on a Myra button — which a scripted run does not have.
             bool play = false;
 
+            //Testing only: put a cleared level's result screen up at startup. A level's ending — the released
+            //camera, the stars landing, the arena going out of focus — is otherwise only reachable by winning
+            //or losing one, which cannot be scripted any more than clearing one can.
+            bool result = false;
+
             foreach (string arg in args)
             {
                 if (string.Equals(arg, "fullscreen", StringComparison.OrdinalIgnoreCase)) fullscreen = true;
@@ -70,11 +75,14 @@ namespace BS3D
                 else if (string.Equals(arg, "mute", StringComparison.OrdinalIgnoreCase)) mute = true;
                 //"play" skips the front end into the first level, so a session's figures can be measured at all.
                 else if (string.Equals(arg, "play", StringComparison.OrdinalIgnoreCase)) play = true;
+                //"result" puts a cleared level's result screen up; with "celebrate" that is the whole
+                //end-of-level moment, fireworks and all, over an arena that goes out of focus behind it.
+                else if (string.Equals(arg, "result", StringComparison.OrdinalIgnoreCase)) result = true;
             }
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
-                celebrate: celebrate, lasers: lasers, mute: mute, play: play);
+                celebrate: celebrate, lasers: lasers, mute: mute, play: play, result: result);
             game.Run();
         }
 

@@ -821,8 +821,9 @@ namespace MapEditor
             //Falling snow (mountain) settles in front of everything; a no-op for every other scene
             _sceneRenderer.DrawOverlays(_scene, sceneFrame);
 
-            //No water in the editor, so the underwater amount is pinned at zero (a no-op in the shader)
-            _pipeline.Resolve(_sceneSeconds, 0f);
+            //No water in the editor, so the underwater amount is pinned at zero (a no-op in the shader) — and
+            //no level to end, so the defocus is pinned at zero with it and its targets are never built
+            _pipeline.Resolve(_sceneSeconds, 0f, 0f);
 
             //The selector is additive and always on top (depth off), so it belongs after the resolve, in
             //display space, where its BasicEffect colors read the way they were authored
