@@ -56,6 +56,25 @@ desktop's play resolution, set the back buffer directly rather than relying on t
   monitor is clipped to the monitor — this gets a 4K capture on a 4K (or larger) panel, but not on a sub-4K
   laptop display. A true decoupled off-screen capture is not yet wired up.
 
+## A LOCKED desktop cannot be screenshotted at all — measured
+
+`screenshot.ps1` falls back to `PrintWindow` with `PW_RENDERFULLCONTENT` when `CopyFromScreen` throws, and the
+note there claimed that works while the desktop is locked. **It does not, measured 2026-08-12** (Windows 11,
+WindowsDX/DX11): `PrintWindow` returned the window's *frame* — title bar, borders — with a **blank white client
+area**, eleven captures in a row byte-identical, because a flip-model D3D11 swap chain has no GDI surface to
+print. And `CopyFromScreen` grabs the **lock screen**, since that is genuinely what is on the desktop; it is
+also the reason it sometimes throws an invalid-handle `Win32Exception` and sometimes quietly succeeds with the
+wrong picture. `Get-Process LogonUI` is the check for the state.
+
+Nor do the `-Keys` presses or the focus click reach the app. So while the session is locked there is **no
+scripted way to see this game's picture**. Two ways out, in order of cost:
+
+- Unlock the desktop and screenshot normally. Everything above works.
+- Have the app save its own frame: `GraphicsDevice.GetBackBufferData<Color>(pixels)` at the end of `Draw` into
+  a `Texture2D` and `SaveAsPng`. Verified working while locked (it is the swap chain's own back buffer, so no
+  screen is involved) — that is how the result screen's defocus was judged. It is not wired into the game, so
+  it means a temporary patch; keep it out of the commit.
+
 ## `screenshot.ps1`
 
 ```powershell
