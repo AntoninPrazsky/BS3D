@@ -44,8 +44,8 @@ namespace BS3D.Screens
         internal override bool CanGoBack => false;
 
         /// <summary>
-        /// <b>No.</b> It dimmed hard once, on the pause screen's argument — a page over a stopped game — and
-        /// that argument does not hold here: a pause is a game put down mid-move, where this is the game's
+        /// <b>No</b> (#178). It dimmed hard once, on the pause screen's argument — a page over a stopped game
+        /// — and that argument does not hold here: a pause is a game put down mid-move, where this is the game's
         /// own ending playing out. The fireworks are climbing, the camera is swinging out around the island and
         /// the cluster is still falling through the drain, and a scrim at
         /// <see cref="BS3DGame.PAUSE_SCRIM"/>'s weight put all of it behind smoked glass at the exact moment it

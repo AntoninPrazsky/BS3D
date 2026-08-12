@@ -51,10 +51,11 @@ namespace Prazsky.Core.Render
         private static readonly Vector3 UNDERWATER_ABSORB = new(0.10f, 0.42f, 0.52f);
         private static readonly Vector3 UNDERWATER_INSCATTER = new(0.015f, 0.06f, 0.09f);
 
-        //THE DEFOCUS: the whole frame taken out of focus by a caller's amount, for the moment a level ends
-        //(the game's result screen). It is the frame going soft and not the frame being dimmed, which
-        //is the point of it — the fireworks go on flaring and the camera goes on swinging around the island,
-        //and the numbers over them are read against an arena that has stopped competing for the eye.
+        //THE DEFOCUS: the whole frame taken out of focus by a caller's amount, for the moment a level ends and
+        //for a pause over one (the game's result and pause screens, #178). It is the frame going soft rather
+        //than the frame being dimmed, which is the point of it — the fireworks go on flaring and the camera
+        //goes on swinging around the island, and the numbers over them are read against an arena that has
+        //stopped competing for the eye.
         //
         //Everything about it is sized off the back buffer at a QUARTER per axis, and that divisor is the
         //whole trick: a tap's spacing there reaches four back-buffer pixels, so the thirteen-tap kernel in
