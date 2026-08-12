@@ -172,6 +172,27 @@ float SeaLevelY;
 float SeaFadeDepth;
 float3 SeaSubmergeTint;
 
+//...and the fade is RELEASED as the LENS goes under with it (#159). What the effect is for is a ball seen from
+//ABOVE, through the surface: the water column between the eye and the ball is what dims it. Once the camera is
+//down there too that column is gone - the ball is beside the lens in the same water, and the frame is already
+//tinted for being submerged by the tonemap's own murk - so fading it there is a fade with nothing behind it.
+//
+//It was not academic. Sea is one of the two scenes the drop cinematic can film from BELOW (SceneRenderer's
+//OpenBelow), and that shot deliberately swings the eye well under the surface to follow the released cluster
+//down the drain - so the one thing the cinematic exists to show faded to nothing exactly while it was being
+//shown, on a level that ships.
+//
+//Taken from EyePosition, which every caller already pushes from camera.Position for the specular, rather than
+//as a new uniform carrying the pipeline's own "how submerged the lens is" (PostProcessPipeline.Resolve's
+//underwaterAmount): that scalar answers HOW DEEP, over a band tuned for the murk's own fade-in, where this asks
+//only WHETHER the eye has crossed - and plumbing it would put a new parameter on ApplySeaSubmerge and make the
+//map editor compute a figure it has no other use for. Derived here, the editor's flying camera gets it free.
+//
+//The band is short and the ramp is what keeps it smooth: at 1.5 world units above the surface the fade is at
+//full strength, at the surface it is gone, and a lens hovering just over the water gets the part-way value
+//rather than a step as it dips.
+static const float SEA_FADE_LENS_BAND = 1.5;
+
 void AddSceneLights(float3 worldPosition, float3 worldNormal, float3 eyeVector, inout float3 diffuse, inout float3 specular)
 {
 	[loop]
@@ -392,7 +413,14 @@ float4 MainPS(VertexShaderOutput input) : COLOR
 	//the water instead of disappearing into it. A no-op off the sea scene, where SeaFadeDepth is pushed <= 0.
 	if (SeaFadeDepth > 0.0)
 	{
-		float submerge = saturate((SeaLevelY - input.WorldPosition.y) / SeaFadeDepth);
+		//Times the lens's own share, so the fade releases as the camera goes under with it (#159) - see
+		//SEA_FADE_LENS_BAND. Folded into `submerge` rather than applied after, so the colour and the alpha keep
+		//taking the SAME figure: this output is premultiplied, and two fades that could disagree is exactly how
+		//a vanished surface starts ADDING its colour instead of leaving. Both copies of this block are
+		//deliberately identical, character for character.
+		float submerge = saturate((SeaLevelY - input.WorldPosition.y) / SeaFadeDepth)
+			* saturate((EyePosition.y - SeaLevelY) / SEA_FADE_LENS_BAND);
+
 		shaded.rgb = lerp(shaded.rgb, SeaSubmergeTint, submerge) * (1.0 - submerge);
 		shaded.a *= 1.0 - submerge;
 	}
@@ -1066,7 +1094,14 @@ float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 	//mush over the dark water. Found the moment the pool gave them something dark to stack against.
 	if (SeaFadeDepth > 0.0)
 	{
-		float submerge = saturate((SeaLevelY - input.WorldPosition.y) / SeaFadeDepth);
+		//Times the lens's own share, so the fade releases as the camera goes under with it (#159) - see
+		//SEA_FADE_LENS_BAND. Folded into `submerge` rather than applied after, so the colour and the alpha keep
+		//taking the SAME figure: this output is premultiplied, and two fades that could disagree is exactly how
+		//a vanished surface starts ADDING its colour instead of leaving. Both copies of this block are
+		//deliberately identical, character for character.
+		float submerge = saturate((SeaLevelY - input.WorldPosition.y) / SeaFadeDepth)
+			* saturate((EyePosition.y - SeaLevelY) / SEA_FADE_LENS_BAND);
+
 		shaded.rgb = lerp(shaded.rgb, SeaSubmergeTint, submerge) * (1.0 - submerge);
 		shaded.a *= 1.0 - submerge;
 	}
