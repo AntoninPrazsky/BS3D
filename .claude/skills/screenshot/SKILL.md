@@ -81,12 +81,30 @@ locked. Nothing in the two apps' device setup explains the difference, so the ho
 and a `PrintWindow` capture has to be *looked at* before it is trusted. (An earlier version of this section
 claimed it never works, on the `BS3D.exe` half of that evidence alone.)
 
-The one route that has never lied: **have the app save its own frame.**
-`GraphicsDevice.GetBackBufferData<Color>(pixels)` at the end of `Draw`, into a `Texture2D`, then `SaveAsPng`.
-No screen is involved — it is the swap chain's own back buffer — so it is immune to the lock screen, to focus,
-to occlusion and to a window wider than the panel. It is how the result screen's defocus was judged while the
-session was locked. It is not wired into either executable, so it means a temporary patch; keep it out of the
-commit.
+The one route that has never lied: **have the app save its own frame** — the swap chain's own back buffer, so
+no screen is involved and it is immune to the lock screen, to focus, to occlusion and to a window wider than
+the panel.
+
+**In the Game this is built in since #191** and is the way to photograph `BS3D.exe`:
+
+```powershell
+# Two shots of the result screen as its defocus ramps, no keys, no focus, works locked:
+C:\GitHub\Game\bin\net10.0-windows\BS3D.exe result celebrate mute scene=meadow quality=medium shot=3.5,8
+```
+
+- **`shot=<t1,t2,…>`** — wall-clock seconds after start, one PNG each. This is the trigger that survives a
+  locked desktop and the one that makes a shot repeatable.
+- **`F12`** does the same by hand (`F10` is the FPS overlay now, `F11` still fullscreen). It cannot be scripted
+  while the desktop is locked, which is the whole reason `shot=` exists.
+- They land in `Screenshots\` beside the exe as `bs3d-<yyyyMMdd-HHmmss>-<scene>.png`, and each prints one
+  `[shot] <path>` line to stdout — grep that rather than guessing the name.
+- The shot is the frame **as presented**: FPS line, HUD, whatever menu page is up. `F10` first for a clean
+  plate. The frame that takes a shot is long (~0.1 s at 1600×900), so never put this on a per-frame path.
+
+**The Testbed has no such writer** — it has the camera arguments instead (`campos`/`camtarget`), which is why
+it stays the framing rig and why an external capture is still the only way to see it. If a Testbed run has to
+be seen through a locked desktop, `GetBackBufferData` + `SaveAsPng` as a temporary patch at the end of its
+`Draw` is the same ten lines; keep it out of the commit.
 
 ## `screenshot.ps1`
 

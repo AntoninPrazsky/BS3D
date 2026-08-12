@@ -24,7 +24,8 @@ namespace BS3D.Screens
                                           + "Matching three or more drops them—severing everything anchored below."));
             column.Widgets.Add(Paragraph(
                 text: "Controls: Mouse aims, Left Click or Space fires, Right Click leans along the barrel, "
-                      + "A/D traverses the carriage, W/S adjusts depth, Esc pauses, F11 toggles fullscreen, F12 hides the FPS counter."));
+                      + "A/D traverses the carriage, W/S adjusts depth, Esc pauses, F10 hides the FPS counter, "
+                      + "F11 toggles fullscreen, F12 saves a screenshot."));
             column.Widgets.Add(Paragraph(
                 text: "Built on MonoGame (DirectX 11) and BepuPhysics 2. Everything—from the spheres to the city—is procedural. "
                       + "No 3D models, only pure code. Typefaces Anton and Inter (both SIL OFL 1.1)."));

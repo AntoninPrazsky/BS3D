@@ -68,8 +68,15 @@ namespace BS3D.Screens
 
                 if (Game.IsKeyEdge(keyboard, Keys.F11)) Game.ToggleFullscreen();
 
-                //F12 hides the FPS overlay, the same key that hides the Testbed's text
-                if (Game.IsKeyEdge(keyboard, Keys.F12)) Game.ToggleFpsOverlay();
+                //F10 hides the FPS overlay. It was F12 — the key that also hides the Testbed's text — until
+                //#191 gave F12 to the screenshot, which is where a hand reaches for one; F11 could not be
+                //given up for it, being fullscreen in all three executables.
+                if (Game.IsKeyEdge(keyboard, Keys.F10)) Game.ToggleFpsOverlay();
+
+                //And F12 saves the frame the player is looking at, mid-shot and mid-cinematic included: it is
+                //a request served at the end of the NEXT Draw, so what lands in the file is the frame this
+                //press belongs to rather than the one already presented (see BS3DGame.Screenshot).
+                if (Game.IsKeyEdge(keyboard, Keys.F12)) Game.RequestScreenshot();
 
                 //While the drop cinematic has the camera the gun does not answer, and Space skips the shot
                 //instead of firing. Escape is deliberately NOT the skip: it already means pause, and taking
