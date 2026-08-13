@@ -197,6 +197,15 @@ float3 SeaSubmergeTint;
 //and the map editor passes 0, which is correct there precisely because it has no murk to hand over to.
 float SeaLensSubmerged;
 
+//Fade band above the kill plane (#192): the host deletes a fallen ball the instant its body crosses this
+//height, with nothing to soften it - in the six OpenBelow scenes the drop cinematic can put the lens below
+//the island, so that cull happens in shot, at full brightness, one frame from solid to gone. Pushed
+//unconditionally, once a frame, by whichever host owns the physics kill plane (SceneRenderer.ApplyKillPlaneFade);
+//the map editor never calls it, so KillPlaneFadeDepth stays at its compiled default of 0, which the gate below
+//reads as off. Read by PatternPS alone - this cull only ever touches a ball, never the island or the drain glass.
+float KillPlaneY;
+float KillPlaneFadeDepth;
+
 void AddSceneLights(float3 worldPosition, float3 worldNormal, float3 eyeVector, inout float3 diffuse, inout float3 specular)
 {
 	[loop]
@@ -1108,6 +1117,18 @@ float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 
 		shaded.rgb = lerp(shaded.rgb, SeaSubmergeTint, submerge) * (1.0 - submerge);
 		shaded.a *= 1.0 - submerge;
+	}
+
+	//The kill plane's own fade (#192), same shape as the sea's just above and applied on top of it - there is
+	//no tint to sink into here, only nothing, so the colour is scaled straight towards zero WITH the alpha
+	//rather than lerped towards one. A no-op off every scene the map editor draws, where KillPlaneFadeDepth is
+	//left at its compiled default of 0.
+	if (KillPlaneFadeDepth > 0.0)
+	{
+		float killFade = saturate((input.WorldPosition.y - KillPlaneY) / KillPlaneFadeDepth);
+
+		shaded.rgb *= killFade;
+		shaded.a *= killFade;
 	}
 
 	return shaded;

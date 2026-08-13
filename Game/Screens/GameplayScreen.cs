@@ -201,7 +201,13 @@ namespace BS3D.Screens
         /// a ball that goes down the hole falls a visible distance before it is culled rather than winking out
         /// in the mouth of the drain.
         /// </summary>
-        private static readonly float KILL_PLANE_Y = -42f;
+        /// <remarks>
+        /// Internal rather than private since #192: the plane is this screen's own physics rule, but the fade
+        /// that softens the cull is pushed once a frame by <see cref="BS3DGame.BeginSceneDraw"/> — which runs
+        /// for the front end too, so it needs the value even on frames this screen never draws — rather than
+        /// duplicated as a second literal there.
+        /// </remarks>
+        internal static readonly float KILL_PLANE_Y = -42f;
 
         #endregion
 
