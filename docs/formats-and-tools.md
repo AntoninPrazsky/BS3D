@@ -82,7 +82,7 @@ The pack's one-shot band now runs **6–52 %**, and it is worth knowing what is 
 
 `Validate` cannot tell whether the thing looks like the intended picture, which is exactly what the `screenshot` skill is for; all three were checked in the running game before they were called done.
 
-It exits non-zero when any level fails, so it can be put in front of a commit. What it cannot check is whether the result *looks* good: that is `.claude/skills/screenshot`, and two of the five domes were picked wrong by eye and only a screenshot said so. `AimReachability` (whether the gun can reach every cell) is the Testbed's `aimcheck`, not this tool's — it needs the solved gun orbit, which needs a graphics device.
+It exits non-zero when any level fails, so it can be put in front of a commit. What it cannot check is whether the result *looks* good: that is `.claude/skills/screenshot`, and it is not a formality — **two of the Gallery's own designs were refused by it after passing every gate**, and the third of them was dropped outright (see the picture bullets above). `AimReachability` (whether the gun can reach every cell) is the Testbed's `aimcheck`, not this tool's — it needs the solved gun orbit, which needs a graphics device. Both were run over the whole of #194's new content: every new design was looked at in the running Testbed in its own scene and dome, and all eleven **PASS** `aimcheck`, the steepest being Chest's corner cell at 69.9° of a 80.2° clamp.
 
 ## The map editor at a glance
 
