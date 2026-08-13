@@ -99,6 +99,14 @@ float3 StarTint(float temperature)
 //curve, so this is a third of a code - under the dither the sky is already broken up with.
 static const float STAR_CUT = 1e-4;
 
+//The level a spike arm has fallen to by the time it reaches its own cell wall: both branches of `margin`
+//below land the wall at exactly 2.5 e-folding lengths (uncapped by construction, capped because reach =
+//margin / 2.5), so every arm used to terminate at exp(-2.5) = 8.21 % of its amplitude, in a straight cut.
+//The taper below subtracts this floor off and renormalises, so the arm reaches exactly zero AT the wall
+//instead of being cut dead at 8.21 % there - a straight cut is a square step the eye reads as the lattice
+//drawn out, where a taper to zero is not (#148).
+static const float STAR_SPIKE_FLOOR = exp(-2.5);
+
 //One layer. A single cell lookup: the star is jittered inside its own cell but held its own radius clear
 //of the edges, so it can never straddle a boundary and the eight neighbours never have to be sampled.
 //
@@ -232,8 +240,14 @@ float3 StarLayer(float3 dir, float pixelAngle, float scale, float chance, float 
 		//rsqrt in the hottest function of the sky pass. Worth doing with the per-axis margin, not before it.
 		float2 along = abs(offset);
 
-		float horizontal = exp(-along.x / reach) * exp(-(along.y * along.y) / (core * core));
-		float vertical = exp(-along.y / reach) * exp(-(along.x * along.x) / (core * core));
+		//Tapered to zero at exactly 2.5 e-folding lengths (STAR_SPIKE_FLOOR above), which is the cell wall
+		//both branches of `margin` land on - so the arm ends in a smooth taper instead of the straight cut a
+		//raw exp(-along/reach) leaves at 8.21 % there. Renormalised by 1/(1-floor) so the peak at along = 0
+		//stays 1 and the MAX-with-core ceiling below is unchanged. (#148)
+		float horizontal = max(exp(-along.x / reach) - STAR_SPIKE_FLOOR, 0.0)
+			* (1.0 / (1.0 - STAR_SPIKE_FLOOR)) * exp(-(along.y * along.y) / (core * core));
+		float vertical = max(exp(-along.y / reach) - STAR_SPIKE_FLOOR, 0.0)
+			* (1.0 / (1.0 - STAR_SPIKE_FLOOR)) * exp(-(along.x * along.x) / (core * core));
 
 		float strength = (magnitude - StarSpikeThreshold) / max(1.0 - StarSpikeThreshold, 1e-3);
 
