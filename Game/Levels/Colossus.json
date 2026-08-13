@@ -3,10 +3,11 @@
   "version": 1,
   "name": "Colossus",
   "author": "BS3D",
-  "sky": 2,
+  "sky": 13,
   "scene": {
     "kind": "moon"
   },
+  "music": "pulse",
   "map": {
     "sx": 12,
     "sz": 12,

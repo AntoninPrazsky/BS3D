@@ -3,41 +3,99 @@
   "version": 1,
   "name": "Heart",
   "author": "BS3D",
-  "sky": 1,
+  "sky": 14,
   "scene": {
-    "kind": "meadow",
-    "LevelY": -14,
-    "HillHeight": 40,
-    "ClearingRadius": 95,
-    "ClearingTransition": 140,
-    "ClearingRelief": 1.5,
-    "GrassColor": {
-      "R": 0.14,
-      "G": 0.46,
-      "B": 0.05
+    "kind": "savanna",
+    "LevelY": -13.5,
+    "HillHeight": 34,
+    "ClearingRadius": 90,
+    "ClearingTransition": 130,
+    "ClearingRelief": 1.6,
+    "GrassSavanna": {
+      "R": 0.13,
+      "G": 0.33,
+      "B": 0.06
     },
-    "GrassColorDark": {
-      "R": 0.08,
-      "G": 0.27,
-      "B": 0.04
+    "GrassDry": {
+      "R": 0.4,
+      "G": 0.31,
+      "B": 0.1
+    },
+    "GrassBare": {
+      "R": 0.26,
+      "G": 0.15,
+      "B": 0.08
     },
     "AmbientStrength": 0.7,
-    "HorizonHazeDistance": 580,
     "Wind": {
-      "X": 0.82,
-      "Y": 0.57
+      "X": 0.86,
+      "Y": 0.51
     },
-    "WindRippleSpeed": 1.4,
-    "WindRippleFrequency": 0.15,
-    "WindRippleStrength": 0.12,
+    "HorizonHazeDistance": 520,
+    "WindRippleSpeed": 1.2,
+    "WindRippleFrequency": 0.14,
+    "WindRippleStrength": 0.1,
     "GrassReliefStrength": 0.05,
     "GrassReliefFrequency": 2,
-    "Flowers": {
-      "Density": 0.16,
-      "Spacing": 2.2,
-      "Size": 0.22
+    "Acacia": {
+      "Count": 8,
+      "BushFraction": 0.45,
+      "Width": 6,
+      "Height": 9,
+      "MinRadius": 42,
+      "MaxRadius": 340,
+      "Clusters": 24,
+      "ClusterSpread": 30,
+      "CanopyColor": {
+        "R": 0.09,
+        "G": 0.17,
+        "B": 0.05
+      },
+      "CanopyDry": {
+        "R": 0.22,
+        "G": 0.22,
+        "B": 0.07
+      },
+      "TrunkColor": {
+        "R": 0.09,
+        "G": 0.06,
+        "B": 0.035
+      }
+    },
+    "Campfire": {
+      "GroundXZ": {
+        "X": 28,
+        "Y": -18
+      },
+      "Count": 8,
+      "HeightAboveTerrain": 0.2,
+      "Range": 32,
+      "FlameSize": 2.3,
+      "FlameHeightScale": 6,
+      "BaseColor": {
+        "R": 2.4,
+        "G": 1,
+        "B": 0.32
+      }
+    },
+    "Birds": {
+      "Count": 9,
+      "Wingspan": 6,
+      "Aspect": 0.55,
+      "Bob": 2.5,
+      "Color": {
+        "R": 0.02,
+        "G": 0.017,
+        "B": 0.014
+      },
+      "FlockCenter": {
+        "X": -20,
+        "Y": 34,
+        "Z": -75
+      }
     }
   },
+  "music": "dechovka",
   "map": {
     "sx": 15,
     "sz": 15,
