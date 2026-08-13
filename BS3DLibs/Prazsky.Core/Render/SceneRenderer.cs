@@ -179,6 +179,39 @@ namespace Prazsky.Core.Render
         /// </summary>
         private const float UNDERWATER_FADE_DEPTH = 7f;
 
+        /// <summary>
+        /// Pushes the fade band above the kill plane onto the shared instancing effect (#192), so a ball
+        /// dissolves over the last few units before the host is about to delete it rather than winking out in
+        /// the one frame its body crosses the plane. Unconditional and scene-independent, unlike
+        /// <see cref="ApplySeaSubmerge"/>: the plane is not any one scene's, it is the host's own physics rule
+        /// (a missed ball falling out of the world), so the fade is pushed the same way every frame regardless
+        /// of what is on screen. The pop it covers only ever showed in the six <see cref="OpenBelow"/> scenes,
+        /// where the drop cinematic can put the lens below the island and film the whole fall; every solid
+        /// terrain scene hides a falling ball behind the ground long before it gets this close, so pushing it
+        /// there too is harmless. The map editor never calls this — it has no simulated ball to fade — and
+        /// <c>KillPlaneFadeDepth</c> stays at its compiled default of 0 there, which the shader's own gate
+        /// reads as off.
+        /// </summary>
+        /// <param name="killPlaneY">
+        /// The host's own kill-plane height (the Game's <c>GameplayScreen.KILL_PLANE_Y</c>, the Testbed's own
+        /// copy of the same value) — handed in rather than owned here, the way the sea level is not: each
+        /// host's stepping policy is deliberately its own (see CLAUDE.md's "Prazsky.BS3D.Physics" remarks).
+        /// </param>
+        public void ApplyKillPlaneFade(Effect effect, float killPlaneY)
+        {
+            var p = effect.Parameters;
+            p["KillPlaneY"].SetValue(killPlaneY);
+            p["KillPlaneFadeDepth"].SetValue(KILL_PLANE_FADE_DEPTH);
+        }
+
+        /// <summary>
+        /// How many world units above the kill plane a falling ball fades out over — see
+        /// <see cref="ApplyKillPlaneFade"/>. Wider than the sea's own <see cref="SEA_SUBMERGE_FADE"/> (3): there
+        /// is no water here to slow a ball first, so by the time one nears the plane it can be falling several
+        /// units a second, and too shallow a band would still read as a pop, only a slightly later one.
+        /// </summary>
+        private const float KILL_PLANE_FADE_DEPTH = 6f;
+
         /// <summary>World units below the sea surface over which a missed ball fades from solid to gone — short,
         /// so it reads as being swallowed by the water rather than lingering under it.
         /// <para>

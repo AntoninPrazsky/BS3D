@@ -67,6 +67,10 @@ namespace Testbed
             _sceneRenderer.ApplySeaSubmerge(_instancingEffect, _scene,
                 _sceneRenderer.LensSubmergedAmount(_scene, _camera.Position));
 
+            //The kill plane's own fade for a ball about to be culled (#192) — scene-independent and pushed
+            //every frame, unlike the sea's own: see SceneRenderer.ApplyKillPlaneFade.
+            _sceneRenderer.ApplyKillPlaneFade(_instancingEffect, KILL_PLANE_Y);
+
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 

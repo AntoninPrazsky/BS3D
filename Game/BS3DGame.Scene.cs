@@ -405,6 +405,12 @@ namespace BS3D
             _sceneRenderer.ApplySeaSubmerge(_instancingEffect, _scene,
                 _sceneRenderer.LensSubmergedAmount(_scene, _camera.Position));
 
+            //The kill plane's own fade for a ball about to be culled (#192) — scene-independent and pushed every
+            //frame, including on the front end, which has no ball anywhere near it: see
+            //SceneRenderer.ApplyKillPlaneFade and GameplayScreen.KILL_PLANE_Y's own remarks on why this asks the
+            //screen for the value rather than keeping a second copy of it here.
+            _sceneRenderer.ApplyKillPlaneFade(_instancingEffect, Screens.GameplayScreen.KILL_PLANE_Y);
+
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
