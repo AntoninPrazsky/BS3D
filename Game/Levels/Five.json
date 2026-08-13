@@ -3,53 +3,42 @@
   "version": 1,
   "name": "Pinwheel",
   "author": "BS3D",
-  "sky": 7,
+  "sky": 1,
   "scene": {
-    "kind": "desert",
-    "LevelY": -13.5,
-    "DuneAmplitude": 14,
-    "ClearingRadius": 80,
-    "ClearingTransition": 120,
-    "RippleAmplitude": 0.1,
-    "RippleFrequency": 1.6,
-    "RippleSpeed": 1.4,
-    "DustStrength": 0.3,
-    "DustSpeed": 6,
-    "DustStart": 240,
-    "SandColor": {
-      "R": 0.55,
-      "G": 0.38,
-      "B": 0.18
+    "kind": "meadow",
+    "LevelY": -14,
+    "HillHeight": 40,
+    "ClearingRadius": 95,
+    "ClearingTransition": 140,
+    "ClearingRelief": 1.5,
+    "GrassColor": {
+      "R": 0.14,
+      "G": 0.46,
+      "B": 0.05
     },
-    "SandColorPale": {
-      "R": 0.82,
-      "G": 0.68,
-      "B": 0.44
+    "GrassColorDark": {
+      "R": 0.08,
+      "G": 0.27,
+      "B": 0.04
     },
-    "SheenStrength": 0.35,
-    "AmbientStrength": 0.65,
+    "AmbientStrength": 0.7,
+    "HorizonHazeDistance": 580,
     "Wind": {
-      "X": 0.86,
-      "Y": 0.51
+      "X": 0.82,
+      "Y": 0.57
     },
-    "HorizonHazeDistance": 420,
-    "Birds": {
-      "Count": 9,
-      "Wingspan": 6,
-      "Aspect": 0.55,
-      "Bob": 2.5,
-      "Color": {
-        "R": 0.02,
-        "G": 0.017,
-        "B": 0.014
-      },
-      "FlockCenter": {
-        "X": -20,
-        "Y": 34,
-        "Z": -75
-      }
+    "WindRippleSpeed": 1.4,
+    "WindRippleFrequency": 0.15,
+    "WindRippleStrength": 0.12,
+    "GrassReliefStrength": 0.05,
+    "GrassReliefFrequency": 2,
+    "Flowers": {
+      "Density": 0.16,
+      "Spacing": 2.2,
+      "Size": 0.22
     }
   },
+  "music": "pulse",
   "map": {
     "sx": 15,
     "sz": 15,

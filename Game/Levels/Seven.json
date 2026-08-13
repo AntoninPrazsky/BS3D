@@ -3,80 +3,42 @@
   "version": 1,
   "name": "Gem",
   "author": "BS3D",
-  "sky": 13,
+  "sky": 1,
   "scene": {
-    "kind": "dream",
-    "DeepColor": {
-      "R": 0.012,
-      "G": 0.006,
-      "B": 0.028
+    "kind": "meadow",
+    "LevelY": -14,
+    "HillHeight": 40,
+    "ClearingRadius": 95,
+    "ClearingTransition": 140,
+    "ClearingRelief": 1.5,
+    "GrassColor": {
+      "R": 0.14,
+      "G": 0.46,
+      "B": 0.05
     },
-    "Palette": {
-      "A": {
-        "R": 0.42,
-        "G": 0.36,
-        "B": 0.44
-      },
-      "B": {
-        "R": 0.38,
-        "G": 0.34,
-        "B": 0.4
-      },
-      "C": {
-        "R": 1,
-        "G": 1,
-        "B": 1
-      },
-      "D": {
-        "R": 0,
-        "G": 0.33,
-        "B": 0.67
-      }
+    "GrassColorDark": {
+      "R": 0.08,
+      "G": 0.27,
+      "B": 0.04
     },
-    "Background": {
-      "SwirlScale": 2.6,
-      "SwirlWarp": 0.55,
-      "SpeedSlow": 0.05,
-      "SpeedFast": 0.6,
-      "RibbonSharpness": 7,
-      "Brightness": 0.24
+    "AmbientStrength": 0.7,
+    "HorizonHazeDistance": 580,
+    "Wind": {
+      "X": 0.82,
+      "Y": 0.57
     },
-    "Shapes": {
-      "OrbitRadius": 130,
-      "Size": 16,
-      "MorphSpeed": 0.22,
-      "Emission": 0.85,
-      "Reflection": 0.9
-    },
-    "Glows": {
-      "OrbRadius": 26,
-      "OrbBrightness": 0.85,
-      "SparkBrightness": 0.65,
-      "SparkSpeed": 0.55
-    },
-    "Lighting": {
-      "SkyAmbient": {
-        "R": 0.11,
-        "G": 0.06,
-        "B": 0.14
-      },
-      "GroundAmbient": {
-        "R": 0.03,
-        "G": 0.07,
-        "B": 0.075
-      },
-      "KeyTint": {
-        "R": 1.06,
-        "G": 0.92,
-        "B": 1.08
-      },
-      "BackTint": {
-        "R": 0.62,
-        "G": 0.95,
-        "B": 1.05
-      }
+    "WindRippleSpeed": 1.4,
+    "WindRippleFrequency": 0.15,
+    "WindRippleStrength": 0.12,
+    "GrassReliefStrength": 0.05,
+    "GrassReliefFrequency": 2,
+    "Flowers": {
+      "Density": 0.16,
+      "Spacing": 2.2,
+      "Size": 0.22
     }
   },
+  "music": "pulse",
   "map": {
     "sx": 17,
     "sz": 17,

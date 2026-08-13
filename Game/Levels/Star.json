@@ -3,187 +3,99 @@
   "version": 1,
   "name": "Star",
   "author": "BS3D",
-  "sky": 13,
+  "sky": 14,
   "scene": {
-    "kind": "space",
-    "VoidColor": {
-      "R": 0.003,
-      "G": 0.0038,
-      "B": 0.0068
+    "kind": "savanna",
+    "LevelY": -13.5,
+    "HillHeight": 34,
+    "ClearingRadius": 90,
+    "ClearingTransition": 130,
+    "ClearingRelief": 1.6,
+    "GrassSavanna": {
+      "R": 0.13,
+      "G": 0.33,
+      "B": 0.06
     },
-    "Stars": {
-      "BrightCellScale": 14,
-      "BrightChance": 0.3,
-      "BrightPeak": 0.5,
-      "MediumCellScale": 42,
-      "MediumChance": 0.32,
-      "MediumPeak": 0.3,
-      "FaintCellScale": 110,
-      "FaintChance": 0.4,
-      "FaintPeak": 0.16,
-      "Spread": 0.62,
-      "Falloff": 3.4,
-      "SpikeThreshold": 0.86,
-      "SpikeLength": 7
+    "GrassDry": {
+      "R": 0.4,
+      "G": 0.31,
+      "B": 0.1
     },
-    "Volume": {
-      "Strength": 1,
-      "Scale": 0.0042,
-      "Drift": 0.0035,
-      "Saturation": 0.85,
-      "Opacity": 2.6,
-      "Tint": {
-        "R": 0.78,
-        "G": 0.72,
-        "B": 1.05
-      }
+    "GrassBare": {
+      "R": 0.26,
+      "G": 0.15,
+      "B": 0.08
     },
-    "MilkyWay": {
-      "Pole": {
-        "X": 0.36,
-        "Y": 0.79,
-        "Z": 0.5
-      },
-      "CoreDirection": {
-        "X": 0.42,
-        "Y": -0.22,
-        "Z": -0.88
-      },
-      "Width": 0.135,
-      "Brightness": 0.115,
-      "Color": {
-        "R": 0.62,
-        "G": 0.7,
-        "B": 0.92
-      },
-      "CoreColor": {
-        "R": 1,
-        "G": 0.86,
-        "B": 0.64
-      },
-      "Dust": 0.88,
-      "StarBoost": 2.6
+    "AmbientStrength": 0.7,
+    "Wind": {
+      "X": 0.86,
+      "Y": 0.51
     },
-    "NebulaOne": {
-      "Direction": {
-        "X": -0.18,
-        "Y": 0.26,
-        "Z": -0.95
+    "HorizonHazeDistance": 520,
+    "WindRippleSpeed": 1.2,
+    "WindRippleFrequency": 0.14,
+    "WindRippleStrength": 0.1,
+    "GrassReliefStrength": 0.05,
+    "GrassReliefFrequency": 2,
+    "Acacia": {
+      "Count": 8,
+      "BushFraction": 0.45,
+      "Width": 6,
+      "Height": 9,
+      "MinRadius": 42,
+      "MaxRadius": 340,
+      "Clusters": 24,
+      "ClusterSpread": 30,
+      "CanopyColor": {
+        "R": 0.09,
+        "G": 0.17,
+        "B": 0.05
       },
-      "Color": {
-        "R": 1,
-        "G": 0.23,
-        "B": 0.38
+      "CanopyDry": {
+        "R": 0.22,
+        "G": 0.22,
+        "B": 0.07
       },
-      "AngularRadiusDegrees": 27,
-      "Strength": 0.78,
-      "DetailScale": 5.4,
-      "Warp": 1.5
-    },
-    "NebulaTwo": {
-      "Direction": {
-        "X": 0.74,
-        "Y": 0.14,
-        "Z": 0.66
-      },
-      "Color": {
-        "R": 0.16,
-        "G": 0.88,
-        "B": 0.8
-      },
-      "AngularRadiusDegrees": 21,
-      "Strength": 0.52,
-      "DetailScale": 7.1,
-      "Warp": 1.8
-    },
-    "NebulaThree": {
-      "Direction": {
-        "X": -0.55,
-        "Y": -0.42,
-        "Z": 0.72
-      },
-      "Color": {
-        "R": 0.34,
-        "G": 0.48,
-        "B": 1
-      },
-      "AngularRadiusDegrees": 17,
-      "Strength": 0.44,
-      "DetailScale": 8.6,
-      "Warp": 1.3
-    },
-    "Galaxies": {
-      "CellScale": 9,
-      "Chance": 0.16,
-      "AngularSizeDegrees": 0.12,
-      "Brightness": 0.2,
-      "Color": {
-        "R": 1,
-        "G": 0.93,
-        "B": 0.82
-      }
-    },
-    "Planet": {
-      "Direction": {
-        "X": -0.484,
-        "Y": 0.407,
-        "Z": -0.775
-      },
-      "AngularRadiusDegrees": 10,
-      "Axis": {
-        "X": 0.16,
-        "Y": 0.96,
-        "Z": 0.22
-      },
-      "ColorLight": {
-        "R": 0.5,
-        "G": 0.43,
-        "B": 0.32
-      },
-      "ColorDark": {
-        "R": 0.26,
-        "G": 0.19,
-        "B": 0.13
-      },
-      "StormColor": {
-        "R": 0.58,
-        "G": 0.25,
-        "B": 0.15
-      },
-      "RimColor": {
-        "R": 0.52,
-        "G": 0.64,
-        "B": 0.92
-      },
-      "BandScale": 7,
-      "RimStrength": 0.3,
-      "NightAmbient": 0.045
-    },
-    "Lighting": {
-      "SkyAmbient": {
-        "R": 0.052,
+      "TrunkColor": {
+        "R": 0.09,
         "G": 0.06,
-        "B": 0.098
+        "B": 0.035
+      }
+    },
+    "Campfire": {
+      "GroundXZ": {
+        "X": 28,
+        "Y": -18
       },
-      "GroundAmbient": {
-        "R": 0.026,
-        "G": 0.026,
-        "B": 0.032
-      },
-      "KeyTint": {
-        "R": 1,
+      "Count": 8,
+      "HeightAboveTerrain": 0.2,
+      "Range": 32,
+      "FlameSize": 2.3,
+      "FlameHeightScale": 6,
+      "BaseColor": {
+        "R": 2.4,
         "G": 1,
-        "B": 1.06
+        "B": 0.32
+      }
+    },
+    "Birds": {
+      "Count": 9,
+      "Wingspan": 6,
+      "Aspect": 0.55,
+      "Bob": 2.5,
+      "Color": {
+        "R": 0.02,
+        "G": 0.017,
+        "B": 0.014
       },
-      "BackTint": {
-        "R": 0.7,
-        "G": 0.76,
-        "B": 1
-      },
-      "PlanetshineStrength": 0.16,
-      "PlanetshineDistance": 420
+      "FlockCenter": {
+        "X": -20,
+        "Y": 34,
+        "Z": -75
+      }
     }
   },
+  "music": "dechovka",
   "map": {
     "sx": 15,
     "sz": 15,

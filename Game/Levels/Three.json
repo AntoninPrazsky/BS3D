@@ -38,6 +38,7 @@
       "Size": 0.22
     }
   },
+  "music": "pulse",
   "map": {
     "sx": 15,
     "sz": 15,
