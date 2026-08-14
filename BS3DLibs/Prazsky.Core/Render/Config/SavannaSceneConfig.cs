@@ -72,8 +72,16 @@ namespace Prazsky.Core.Render
     /// <summary>Scattered acacia trees and low bushes over the savanna (upright billboards planted on the ground).</summary>
     public sealed class AcaciaConfig
     {
-        /// <summary>Number of scattered acacia trees and low bushes.</summary>
-        public int Count { get; set; } = 8;
+        /// <summary>
+        /// Number of scattered acacia trees and low bushes. Was 8 from the scene's first days until #168 —
+        /// over the same-sized ring the forest's 240 trees scatter across, eight plants (three of them
+        /// bushes) read as an empty plain with a speck on it, and there were three times as many cluster
+        /// centres as plants. The pass is one static billboard buffer, so the count is a look decision
+        /// rather than a budget one (the forest's own doc says the same of its 240); 64 keeps the savanna
+        /// about a quarter of the forest's density — dotted and open, the way a savanna reads — while a
+        /// grove actually gets its 4–5 trees.
+        /// </summary>
+        public int Count { get; set; } = 64;
 
         /// <summary>Fraction of the scatter that are low bushes rather than trees.</summary>
         public float BushFraction { get; set; } = 0.45f;
@@ -90,8 +98,14 @@ namespace Prazsky.Core.Render
         /// <summary>Outer radius of the scatter ring.</summary>
         public float MaxRadius { get; set; } = 340f;
 
-        /// <summary>Number of cluster centres plants gather around.</summary>
-        public int Clusters { get; set; } = 24;
+        /// <summary>
+        /// Number of cluster centres plants gather around. Halved with #168's count raise (24 → 12): a
+        /// cluster centre the scatter mostly lands around is a grove only if plants actually reach it, and
+        /// at the old ratio most centres got zero — now each of the twelve takes ~4–5 of the 64, so the
+        /// clumps read as groves rather than as pairs of trees standing near a place a grove could have
+        /// been.
+        /// </summary>
+        public int Clusters { get; set; } = 12;
 
         /// <summary>Spread of plants around each cluster centre.</summary>
         public float ClusterSpread { get; set; } = 30f;
