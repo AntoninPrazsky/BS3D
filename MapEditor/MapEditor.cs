@@ -869,7 +869,9 @@ namespace MapEditor
                 _cityRenderer.Draw(Camera3D, _city.Visible, visibleBuildings, _sceneEffectParams);
             }
             else
-                _sceneRenderer.DrawEnvironment(_scene, frame);
+                //The target goes in so the cavern and the dream can be shaded at the back buffer's size and
+                //scaled up (#155) — the editor draws the scenes exactly as the game does, this one included.
+                _sceneRenderer.DrawEnvironment(_scene, frame, _pipeline.SceneTarget);
 
             //The forest's scattered trees, boulders and stumps, after the terrain they stand on — with depth, or
             //they would draw through it. The state is the caller's, and it is already the game's: alpha blend,

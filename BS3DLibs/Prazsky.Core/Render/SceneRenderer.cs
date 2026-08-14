@@ -627,6 +627,12 @@ namespace Prazsky.Core.Render
         //which is why the by-name lookup must not be paid per draw.
         private readonly EffectTechnique _moonSkyTechnique, _moonTerrainTechnique;
 
+        //The back-buffer-sized target the cavern and the dream are shaded into before being scaled up into the
+        //caller's supersampled one, and the batch that scales them. Built on first use and rebuilt only when
+        //the back buffer changes size — never per frame. See DrawBackdropAtDisplayResolution.
+        private RenderTarget2D _backdropTarget;
+        private SpriteBatch _backdropBatch;
+
         //Per-frame parameters, resolved once (BestPractices §1). The sky pass wants the inverse
         //view-projection and the terrain pass the plain pair, so both are cached; everything else is pushed
         //by ApplyMoonParameters when a config lands. No time parameter: nothing on the Moon moves.
@@ -1915,8 +1921,17 @@ namespace Prazsky.Core.Render
         /// <see cref="DepthStencilState.Default"/> on the way out.
         /// </para>
         /// </summary>
-        public void DrawEnvironment(SceneKind scene, in SceneFrame frame)
+        public void DrawEnvironment(SceneKind scene, in SceneFrame frame, RenderTarget2D sceneTarget = null)
         {
+            //The two full-screen analytic backdrops that are worth more than the frame can afford get shaded
+            //at the back buffer's own size and scaled up; every other scene draws straight into whatever the
+            //caller bound. See DrawBackdropAtDisplayResolution for what that trades and why it is these two.
+            if (sceneTarget != null && SupersampleFactor > 1 && (scene == SceneKind.Cavern || scene == SceneKind.Dream))
+            {
+                DrawBackdropAtDisplayResolution(scene, frame, sceneTarget);
+                return;
+            }
+
             switch (scene)
             {
                 case SceneKind.Sea:
@@ -2568,6 +2583,80 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// Shades a sky-replacing backdrop into a target the size of the <b>back buffer</b> and scales it up
+        /// into the caller's supersampled scene target, which is a quarter of the pixels at <c>ssaa 2</c> and a
+        /// sixteenth at <c>4</c>. What it gives up is the backdrop's <i>supersampling</i> — not its resolution:
+        /// the cave still comes out at every pixel the display has, and the balls, the arena and the gun drawn
+        /// over it keep every sample they had, because they are still drawn into the full-size target.
+        /// <para>
+        /// <b>Why this and not another feature cut.</b> Measured on the reference 6900 XT at a fixed camera,
+        /// 1600×900: the cavern pass costs 1.5 ms at ssaa 1, 5.2 at 2 and 21.0 at 4 — 4.04× for 4× the pixels
+        /// across the top step, and a fitted fixed cost of essentially zero. It is pure fill, so pixel count is
+        /// the only dial that moves it, which is the same finding #102 reached from the other side when every
+        /// individual feature it removed saved nothing. At fullscreen <c>High</c> the scene measured 21.0 ms
+        /// against a 6.4 ms frame without it, and <see cref="SceneDetail"/>'s reduced program — the cut #155
+        /// asked for, already in the code since #102 — is a 0.715× that lands at 16.8 ms, i.e. 59 FPS. Only the
+        /// resolution reaches 75.
+        /// </para>
+        /// <para>
+        /// <b>It is these two scenes and not all four that replace the sky.</b> Space sizes its stars in
+        /// <i>output</i> pixels off <see cref="SupersampleFactor"/> (see that property), so shading it into a
+        /// smaller target would change how big and how bright its stars come out — and it costs 0.7 ms over a
+        /// bare frame anyway, so there is nothing to buy. The Moon draws its sky depth-read behind real
+        /// terrain, so it is not a full-screen pass at all by the time it is shaded.
+        /// </para>
+        /// <para>
+        /// The blit restores the states the opaque scene expects, exactly as the direct path does — the
+        /// backdrop's own draw does it too, but it does it while the small target is still bound, and
+        /// <see cref="SpriteBatch"/> then leaves its own behind.
+        /// </para>
+        /// </summary>
+        private void DrawBackdropAtDisplayResolution(SceneKind scene, in SceneFrame frame, RenderTarget2D sceneTarget)
+        {
+            int width = _graphicsDevice.PresentationParameters.BackBufferWidth;
+            int height = _graphicsDevice.PresentationParameters.BackBufferHeight;
+
+            //A minimized window reports a zero back buffer and a zero-sized target is a device error — the
+            //same guard PostProcessPipeline.EnsureTarget carries, for the same reason. Falling through draws
+            //the backdrop at full price, which is correct and merely expensive.
+            if (width > 0 && height > 0 && (_backdropTarget == null || _backdropTarget.Width != width || _backdropTarget.Height != height))
+            {
+                _backdropTarget?.Dispose();
+
+                //Linear radiance like the target it feeds, and no depth: the pass runs with the depth state
+                //off, so there is nothing to write.
+                _backdropTarget = new RenderTarget2D(_graphicsDevice, width, height, false, SurfaceFormat.HdrBlendable,
+                    DepthFormat.None, 0, RenderTargetUsage.DiscardContents);
+            }
+
+            if (_backdropTarget == null)
+            {
+                if (scene == SceneKind.Cavern) DrawCavern(frame); else DrawDream(frame);
+                return;
+            }
+
+            _graphicsDevice.SetRenderTarget(_backdropTarget);
+
+            if (scene == SceneKind.Cavern) DrawCavern(frame); else DrawDream(frame);
+
+            _graphicsDevice.SetRenderTarget(sceneTarget);
+
+            _backdropBatch ??= new SpriteBatch(_graphicsDevice);
+
+            //Opaque because the backdrop is the frame's ground floor and covers every pixel of it; linear
+            //clamp because a bilinear stretch of a smooth analytic field is what makes this cost nothing to
+            //look at, and point sampling would show the smaller grid as blocks.
+            _backdropBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp,
+                DepthStencilState.None, RasterizerState.CullNone);
+            _backdropBatch.Draw(_backdropTarget, new Rectangle(0, 0, sceneTarget.Width, sceneTarget.Height), Color.White);
+            _backdropBatch.End();
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
         /// Draws the cavern: the third sky-replacing pass, over space's own quad. Everything animated —
         /// the river, the god rays' breath, the crystals' pulse, the rising spores — runs off the frame's
         /// wall-clock time, so the cave keeps living while the simulation is paused.
@@ -2662,6 +2751,9 @@ namespace Prazsky.Core.Render
         public void Dispose()
         {
             _spaceQuad?.Dispose();
+
+            _backdropTarget?.Dispose();
+            _backdropBatch?.Dispose();
 
             _seaVertexBuffer?.Dispose();
             _seaIndexBuffer?.Dispose();

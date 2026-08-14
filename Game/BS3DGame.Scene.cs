@@ -440,7 +440,10 @@ namespace BS3D
                 _cityVisible = _city.PrepareVisible(_camera);
                 _cityRenderer.Draw(_camera, _city.Visible, _cityVisible, _sceneEffectParams);
             }
-            else _sceneRenderer.DrawEnvironment(_scene, sceneFrame);
+            //The target goes in so the cavern and the dream can be shaded at the back buffer's size and scaled
+            //up (#155). Passed rather than remembered, so it cannot be the one the pipeline held before a
+            //resize, a fullscreen switch or a quality step replaced it.
+            else _sceneRenderer.DrawEnvironment(_scene, sceneFrame, _pipeline.SceneTarget);
 
             //The forest's scattered trees, rocks and stumps, drawn after the forest terrain they stand on and
             //before the island: one draw per kind per mesh variant, and per material within a tree. The scene
