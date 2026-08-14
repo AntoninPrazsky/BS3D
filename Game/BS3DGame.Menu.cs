@@ -144,14 +144,46 @@ namespace BS3D
             _ => STAR_EMPTY,
         };
 
-        //Buttons: a dark slab at rest that the pointer lifts a step up the grey ramp, so the highlight is
-        //brightness and not hue. Each of these REPLACES the one before it rather than being laid over it
-        //(Myra picks one brush per state), so they all have to be opaque enough to hide the scene behind
-        //them — a translucent hover would show the backdrop through the entry the pointer is on, which is
-        //exactly the one that has to read clearly. They stay dark, because the label on top of them is white.
-        private static readonly Color MENU_BUTTON = new(11, 11, 11, 212);
-        private static readonly Color MENU_BUTTON_OVER = new(72, 72, 72, 232);
-        private static readonly Color MENU_BUTTON_PRESSED = new(120, 120, 120, 240);
+        //Buttons: GLASS at rest since #216, that the pointer fills in a step up the grey ramp — so the
+        //highlight is still brightness and not hue, and what the entry gains under the pointer is solidity
+        //as well as tone. Each of these REPLACES the one before it rather than being laid over it (Myra picks
+        //one brush per state), so the hover has to be opaque on its own account: it is the entry that has to
+        //read clearest, and the label on top of it is near-white.
+        //
+        //THESE ARE PREMULTIPLIED, and the whole block is unreadable until that is said. Myra paints through
+        //SpriteBatch's default AlphaBlend, so a brush composites as `rgb + dst * (1 - a/255)`: the RGB is the
+        //light the slab ADDS and the alpha is only how much of the scene it BLOCKS. A colour here is therefore
+        //not "grey V at opacity A" — it is grey V*A. The figures below are written as that product, and the
+        //grey each one means is named, or the next lighter tone gets typed in unmultiplied and comes out milky
+        //over a bright sky. (#179 measured this from the other side without naming it: alpha 190 let "a
+        //quarter" of a blurred sky through the plate, which is exactly 1 - 190/255.)
+        //
+        //#216 was "the buttons are too dark", and it has exactly one solution rather than a dial to turn, for a
+        //reason that only shows on the SETTINGS page. A control has to be legible in three places at once, and
+        //the three pull against each other:
+        //
+        //  · over a BRIGHT SKY it must still block enough light to hold near-white type (desert, sea, moon);
+        //  · over a DARK SCENE it must read as a surface at all (space, cavern);
+        //  · on a PLATE it must read as a control — and a plate is a mid-dark panel, so the slab has to stand
+        //    a clear step away from MENU_PLATE's own tone, in one direction or the other.
+        //
+        //That third one is what makes this binary. Every settings value, both pickers' entries and About's
+        //link sit ON a plate, and a tone anywhere near the plate's own is invisible there — tried, and the
+        //value buttons vanished into the card. So a control is either well BELOW the plate (near-black, which
+        //is what #216 was filed about) or well ABOVE it. There is no modest version in between, and the ask
+        //is for lighter, so these cross over: the plate is now the recessed panel and the controls are the
+        //raised things on it. That INVERTS #179's tone order rather than keeping it — see MENU_PLATE below,
+        //where the reversal is argued, and note that #179's own goal (a panel that cannot be mistaken for a
+        //control) is served better this way round than it was by making the panel the lighter of the two.
+        //
+        //Some transparency is spent as well as tone, because the complaint is really the six black bars the
+        //front end stacked over its own scene (#217): a quarter of the backdrop comes through the rest state.
+        //It cannot be much more than a quarter — the label is near-white, so a slab that stops blocking the
+        //scene stops holding its own type, and at a quarter the worst case in the game (white type over a
+        //blown sky) still measures about 4:1.
+        private static readonly Color MENU_BUTTON = new(55, 55, 55, 191);           //grey 73, 75 % — a quarter through
+        private static readonly Color MENU_BUTTON_OVER = new(104, 104, 104, 230);   //grey 116, 90 %
+        private static readonly Color MENU_BUTTON_PRESSED = new(132, 132, 132, 240);//grey 140, 94 %
 
         //Built once and shared by every entry. A brush holds no per-widget state, and the focus highlight
         //swaps an entry between the first two of these rather than minting a brush per frame.
@@ -165,7 +197,7 @@ namespace BS3D
         //A pause dims the whole frame, because what is behind it is a stopped game and the menu is the thing
         //to look at. The front end does NOT: there the rotating scene is the point of the screen, and a
         //full-screen wash over it throws away the one thing that screen exists to show. Its legibility comes
-        //from the widgets instead — the entries are near-opaque slabs and the prose sits on a plate.
+        //from the widgets instead — the entries carry their own glass and the prose sits on a plate.
         //
         //Drawn by the HOST's own batch since #114, not as the Myra root's background: Myra's paint stops a
         //couple of rows short of the viewport's bottom edge (see the scrim block in Draw for the measurement),
@@ -173,17 +205,26 @@ namespace BS3D
         internal static readonly Color PAUSE_SCRIM = new(0, 0, 0, 176);
 
         //Behind prose, where a slab alone cannot hold a line of small text steady over a moving scene — and
-        //LIGHTER than a button, which is the rule rather than the taste (#179): a plate only informs, so it
-        //must not carry a control's weight. It was near-black at 190, a step off MENU_BUTTON's own (11, 11, 11,
-        //212), and on the result screen — the one page where a plate is a SIBLING of the buttons rather than
-        //the card they sit on — the score table read as a fourth, unclickable button in the stack.
+        //NOT a control's weight, which is the rule rather than the taste (#179): a plate only informs. It was
+        //near-black at 190, a step off MENU_BUTTON's own (11, 11, 11, 212) of the time, and on the result
+        //screen — the one page where a plate is a SIBLING of the buttons rather than the card they sit on —
+        //the score table read as a fourth, unclickable button in the stack.
         //
-        //On the grey ramp it sits between a button's rest and its hover (11 < 42 < 72 < 120 pressed), which is
-        //deliberate and is as far as it can go: past the hover step a static panel would read as the entry the
-        //pointer is on. Nothing disambiguates the two by tone alone, and nothing has to — a hover is transient
-        //and under the pointer, where this holds a table and never moves. The opacity goes up with the tone
-        //because the panel has to be its own surface now that the result screen carries no scrim: at 190 a
-        //quarter of a bright blurred sky came through the numbers.
+        //#179 bought that by making the PLATE the lighter of the two (11 < 42 < 72 hover < 120 pressed), and
+        //#216 turns that order upside down: a control is grey 73 now and this is grey 50, so the panel is the
+        //RECESSED surface and the controls are raised on it. The rule survives the inversion and is better
+        //served by it — what #179 actually wanted is a panel that cannot be mistaken for a control, and "the
+        //card is darker than the things on it" is the reading every player already has, where "the card is
+        //lighter" only worked as long as a button was near-black. The step is what matters and not its sign:
+        //about 20 of tone, measured on the card rather than assumed, in both directions from the plate.
+        //
+        //The figure below did NOT move for it, and that is the point of stating this here: the tone is #179's
+        //and the reason it can stay is that the controls moved past it rather than towards it.
+        //
+        //The opacity stays where #179 measured it, and that is the half of this constant that is load-bearing:
+        //the panel has to be its own surface, because the result screen carries no scrim and the small print
+        //on it is the one type here that is not near-white Anton. At 190 a quarter of a bright blurred sky came
+        //through the numbers — see the premultiplied note above for why that fraction is exactly 1 - 190/255.
         internal static readonly Color MENU_PLATE = new(42, 42, 42, 214);
 
 
@@ -934,8 +975,9 @@ namespace BS3D
 
         /// <summary>
         /// One menu entry. Myra's default button style is a framed grey tool button, so every brush is stated
-        /// here instead: dark glass at rest, and the pointer <b>lifts</b> it with a wash of white rather than
-        /// tinting it — see the palette above for why nothing in this menu carries a hue. No border either:
+        /// here instead: a mid-grey slab with a quarter of the scene through it at rest, which the pointer
+        /// <b>lifts</b> rather than tinting — see the palette above for why nothing in this menu carries a hue
+        /// and why a control is now the lighter of it and a plate. No border either:
         /// the tone step at the button's edge is enough to read it as a control, and a drawn frame over seven
         /// different backdrops is a shape competing with all of them.
         /// </summary>
