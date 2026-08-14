@@ -61,6 +61,11 @@ always passes) is what makes the number a frame cost rather than the display's r
   an ssaa 1-vs-2 sweep silently measures 2× twice.
 - `scene=<city|sea|savanna|desert|mountain|meadow|neon|forest|space|dream|cavern|moon>`, `sky=<1..18>` — pin the backdrop. The scene names are
   the Testbed's, so a script written against one executable drives the other.
+- `play` — skip the front end into the **first** level, and `level=<n|name>` into any other (its 1-based place
+  in the set, as the title bar numbers it, or its name: `level=Colossus`, `level=11`). **The front end is not
+  the game**: it has no cluster, no gun, no HUD and no simulation, and `docs/game-shell.md` names that blind
+  spot for the adaptive probe too. A backdrop that clears 75 FPS empty says nothing about the same backdrop
+  with 959 balls hanging over it, which is what #166 and #167 were each left unable to answer.
 
 ## The Testbed measures too, and it is the one that can aim
 

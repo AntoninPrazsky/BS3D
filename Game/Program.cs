@@ -46,6 +46,10 @@ namespace BS3D
             //building one honestly takes a mouse on a Myra button — which a scripted run does not have.
             bool play = false;
 
+            //Testing only: which level "play" should open, as a 1-based place in the set or as a name. Null
+            //means the argument was absent, and then "play" opens the first level as it always has.
+            string level = null;
+
             //Testing only: put a cleared level's result screen up at startup. A level's ending — the released
             //camera, the stars landing, the arena going out of focus — is otherwise only reachable by winning
             //or losing one, which cannot be scripted any more than clearing one can.
@@ -81,6 +85,11 @@ namespace BS3D
                 else if (string.Equals(arg, "mute", StringComparison.OrdinalIgnoreCase)) mute = true;
                 //"play" skips the front end into the first level, so a session's figures can be measured at all.
                 else if (string.Equals(arg, "play", StringComparison.OrdinalIgnoreCase)) play = true;
+                //"level=<n|name>" does the same for any entry of the set — its 1-based place, as the title bar
+                //numbers it, or its name. "play" reaches the first level only, which is the lightest one there
+                //is, so a frame with a real cluster in it could not be measured at all: #167 asked for a level
+                //"near the shipped set's 959-ball end" and there was no way to ask for one.
+                else if (arg.StartsWith("level=", StringComparison.OrdinalIgnoreCase)) level = arg.Substring("level=".Length);
                 //"result" puts a cleared level's result screen up; with "celebrate" that is the whole
                 //end-of-level moment, fireworks and all, over an arena that goes out of focus behind it.
                 else if (string.Equals(arg, "result", StringComparison.OrdinalIgnoreCase)) result = true;
@@ -94,7 +103,8 @@ namespace BS3D
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
-                celebrate: celebrate, lasers: lasers, mute: mute, play: play, result: result, shotSeconds: shotSeconds);
+                celebrate: celebrate, lasers: lasers, mute: mute, play: play, result: result, shotSeconds: shotSeconds,
+                level: level);
             game.Run();
         }
 
