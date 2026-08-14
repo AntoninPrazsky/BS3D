@@ -103,6 +103,7 @@ namespace BS3D
         //Picking a face means picking a system.
         private FontSystem _menuFontSystem, _menuFontSystemBold, _menuFontSystemDisplay;
         private SpriteFontBase _menuFontBody, _menuFontSmall, _menuFontHeading, _menuFontTitle, _menuFontStars;
+        private SpriteFontBase _menuFontGameTitle, _menuFontFrontEntry;
 
         //The menu is deliberately GREYSCALE — no hue anywhere, and no coloured frames. It has to sit over
         //twelve backdrops whose palettes are nothing alike (a neon city, an ochre desert, a blue sea, white
@@ -291,6 +292,22 @@ namespace BS3D
         private const int MENU_FONT_HEADING = 124;
         private const int MENU_FONT_TITLE = 170;
 
+        //The front end gets its own two sizes rather than growing the shared pair, and that is a constraint
+        //rather than tidiness (#217). MENU_FONT_BODY is every button in the game, and the SETTINGS page is
+        //what bounds it: thirteen rows once ran off the bottom of the window and took Back with them (#138),
+        //and its column already stands close to the design height at the size above. MENU_FONT_TITLE is
+        //shared too — the splash's card and the result screen's headings, one of which is the whole of
+        //"CAMPAIGN COMPLETE". So the one page that wants to be loud is loud by itself, and the pages that
+        //have a height budget keep theirs.
+        //
+        //240 sets the whole of GAME_TITLE in about 30 % of a 16:9 frame's width — measured off a 1600x900
+        //capture (483 of 1600 px, i.e. ~1160 design units), not estimated from an em box, Anton being far
+        //more condensed than a count of letters suggests. That clears every aspect anyone plays at with room
+        //to spare, and it has to be checked rather than assumed whenever either figure moves: Myra does not
+        //shrink text to fit and Wrap is off, so a title too wide for its frame clips silently.
+        private const int MENU_FONT_GAME_TITLE = 240;
+        private const int MENU_FONT_FRONT_ENTRY = 108;
+
         //The result screen's star rating — a headline, but set in INTER at a heading's size rather than in
         //the display face like every other loud thing here: Anton carries no ★/☆ glyphs at all (checked in
         //the font, not assumed), and FontStashSharp would draw blanks where the rating should be. A size is
@@ -391,6 +408,10 @@ namespace BS3D
             _menuFontTitle = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_TITLE));
             _menuFontStars = _menuFontSystem.GetFont(Scaled(MENU_FONT_STARS));
 
+            //The front end's own two, for the one page with no height budget to keep (#217)
+            _menuFontGameTitle = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_GAME_TITLE));
+            _menuFontFrontEntry = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_FRONT_ENTRY));
+
             //The trees themselves are NOT rebuilt here: each page rebuilds its own the next time it is asked
             //for one, against this generation (MenuLayoutGeneration). A page the player never opens never
             //builds a tree at all, where this used to rebuild all eight on every step of a window drag.
@@ -447,6 +468,7 @@ namespace BS3D
         internal SpriteFontBase MenuFontHeading => _menuFontHeading;
         internal SpriteFontBase MenuFontTitle => _menuFontTitle;
         internal SpriteFontBase MenuFontStars => _menuFontStars;
+        internal SpriteFontBase MenuFontGameTitle => _menuFontGameTitle;
 
         //What the pages ask the game about itself. Read-only: a page shows state and asks for an action, and
         //nothing here lets it write one directly.
@@ -897,11 +919,19 @@ namespace BS3D
         }
 
         /// <summary>
-        /// A screen: the column of widgets centred over the whole frame. It carries <b>no background</b> —
-        /// the scrim a dimming page wants is the host's own quad since #114 (see the scrim block in Draw) —
-        /// but the panel still stretches, because it is what centres the column and what Myra hit-tests.
+        /// A screen: the page's widgets over the whole frame. It carries <b>no background</b> — the scrim a
+        /// dimming page wants is the host's own quad since #114 (see the scrim block in Draw) — but the panel
+        /// still stretches, because it is what places its children and what Myra hit-tests.
+        /// <para>
+        /// One child is the usual case and it is a centred column. Several is the front end since #217, which
+        /// is laid out as a <b>composition</b> instead of a stack: a Myra <c>Panel</c> arranges every child
+        /// against the full client rectangle by that child's own alignment, so a title pinned top-right and a
+        /// column pinned bottom-left are two children here rather than a grid. They are added in the order the
+        /// <b>pad and the arrow keys</b> should step through, since <c>CollectNavEntries</c> follows the order
+        /// widgets were added and not where they landed.
+        /// </para>
         /// </summary>
-        internal static Panel ScreenRoot(Widget content)
+        internal static Panel ScreenRoot(params Widget[] content)
         {
             Panel panel = new()
             {
@@ -909,7 +939,7 @@ namespace BS3D
                 VerticalAlignment = VerticalAlignment.Stretch,
             };
 
-            panel.Widgets.Add(content);
+            foreach (Widget child in content) panel.Widgets.Add(child);
 
             return panel;
         }
@@ -972,6 +1002,36 @@ namespace BS3D
         };
 
         internal Button MenuButton(string text, Action onClick) => MenuButton(text, onClick, out _);
+
+        internal Button FrontEndEntry(string text, Action onClick) => FrontEndEntry(text, onClick, out _);
+
+        /// <summary>
+        /// A front-end entry: <see cref="MenuButton"/>'s behaviour in the main menu's own larger type, with its
+        /// label against the <b>left</b> edge of the slab (#217). Everything that makes it a menu entry rather
+        /// than a button — the shared brushes the focus highlight swaps by identity, the click sound, the
+        /// <c>Tag</c> the pad activates through — comes from the same <see cref="MenuClickable"/> core, so this
+        /// cannot drift away from the entries on every other page.
+        /// <para>
+        /// Its own method rather than parameters on <see cref="MenuButton"/>: exactly one page is laid out this
+        /// way, and an alignment argument on the call every other page makes would be a knob nobody turns. The
+        /// slab keeps <see cref="MENU_BUTTON_WIDTH"/> — deliberately, so the front end and a pause read as the
+        /// same control differently placed, and because that figure is also what the result screen's score
+        /// plate is pinned to (#179) and must not become "the front end's width".
+        /// </para>
+        /// </summary>
+        internal Button FrontEndEntry(string text, Action onClick, out Label label)
+        {
+            Button entry = MenuButton(text, onClick, out label);
+
+            label.Font = _menuFontFrontEntry;
+            label.HorizontalAlignment = HorizontalAlignment.Left;
+
+            //Opened up with the type: MenuButton's padding is cut for the shared body size, and at this one the
+            //label sat tight against the slab's edges.
+            entry.Padding = ScaledThickness(56, 22);
+
+            return entry;
+        }
 
         /// <summary>
         /// One menu entry. Myra's default button style is a framed grey tool button, so every brush is stated
