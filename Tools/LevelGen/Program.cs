@@ -34,6 +34,43 @@ namespace BS3D.Tools.LevelGen
         // the empty levels under it are the room shot balls attach into.
         private const byte FIELD_LEVELS = 16;
 
+        // The pictures' own, and it is a LEVER ON HANGING HEIGHT rather than on growth room (#203). A field
+        // is hung at FIELD_TOP_Y unless it is deep enough that its bottom level would start past the death
+        // line, in which case GameplayScreen.FitFieldToMap raises the WHOLE field until the floor clears the
+        // line by FIELD_FLOOR_MARGIN — so past 16 levels, adding depth pushes the layout UP rather than
+        // leaving room under it. That is the only lever a design has on how much air its lowest row starts
+        // with, the layout always hanging at the top of its field.
+        //
+        // The pictures needed one. A wall is 14 rows in a field of 16, so its lowest ball started 1.96 above
+        // the line by centre and 1.46 by surface, where every other level in the pack has at least 2.88 and
+        // most have 7 to 8.5 (measured off the game's own [field] line, all five). Three things followed from
+        // that, and the third is the one that says this was a fault rather than a tight margin.
+        //
+        // The floor alarm arms at CEILING_DEATH_Y + 3 steps of 0.6, i.e. -3.70, and these walls START at
+        // -3.54 — 0.16 from lighting the net, on a cluster whose own comment budgets "a few tenths of a unit"
+        // of bob for a shove. A stalk left dangling two lattice levels under the wall sat at -4.95, one shove
+        // or one descent from the line. And an UNTOUCHED wall crossed the line on its FOURTH descent
+        // (1.96 / 0.6 = 3.3) against a budget that buys SIX on every one of the five — 60 shots stepping
+        // every 10, 55 every 9, 48 every 8 — so the ceiling could end these levels before their own budget
+        // ran out. That is the shape of the bug: not a level that is hard, a level whose two clocks disagree.
+        //
+        // Measured after, on all five (the [field] line again): top Y 5.66 -> 7.02, and it now reports
+        // "raised off the line" because the raise is what does the work; floor -4.95 -> -5.00; lowest ball
+        // -3.54 -> -2.17, i.e. 1.96 -> 3.33 above the line by centre and 1.46 -> 2.83 by surface. An untouched
+        // wall now survives five descents and crosses on the sixth, which is where the budget ends anyway.
+        // The raise costs about 2.3 degrees of the gun's elevation budget — [aimcheck]'s steepest cell moves
+        // from (0,0,14) at 67.3/69.9 deg to (0,0,16) at 69.6/72.0 of the same 80.2 limit — so all five still
+        // PASS with roughly eight degrees spare. GameCameraFit re-solves a hair closer (30.8 -> 30.7 out on
+        // the 15-wide pictures, 31.5 -> 31.4 on the 17-wide), which is not a visible change in ball size.
+        //
+        // 18 is the figure and it is also the CEILING: GameplayScreen.FRAMED_LEVELS is 18 and its test is
+        // "Levels > FRAMED_LEVELS", so 20 would quietly turn a picture into a tall level, fed by
+        // FeedTallColumn and aim-clamped by TALL_AIM_HEADROOM. 18 - 14 = 4 is even, which is what keeps every
+        // row's level parity — and therefore the drawing itself — exactly where it was; the emitter refuses
+        // an odd offset rather than drawing it shifted. If the air this buys is ever not enough, the next
+        // lever is fewer bitmap rows, which means redrawing the pictures.
+        private const byte PICTURE_FIELD_LEVELS = 18;
+
         private const float HALF = 0.5f;
 
         /// <summary>
@@ -473,9 +510,9 @@ namespace BS3D.Tools.LevelGen
         {
             int width = bitmap[0].Length;
 
-            //Even by construction here: the field is 16 and an odd difference would have the loader extend it
-            //a level and move the drawing off where it was put. A bitmap with an odd number of rows is caught
-            //by the emitter's own offset check rather than silently drawn in the wrong place.
+            //Even by construction here: the field is PICTURE_FIELD_LEVELS and an odd difference would have the
+            //loader extend it a level and move the drawing off where it was put. A bitmap with an odd number of
+            //rows is caught by the emitter's own offset check rather than silently drawn in the wrong place.
             byte depth = (byte)bitmap.Length;
 
             return new Design
@@ -484,6 +521,10 @@ namespace BS3D.Tools.LevelGen
                 Name = name,
                 Grid = grid,
                 Depth = depth,
+                //Deeper than an ordinary level's, which is what HANGS THE WALL HIGHER rather than what leaves
+                //room under it (#203) — see PICTURE_FIELD_LEVELS for why the two are the same dial past 16,
+                //and for the measured air a picture used to start with.
+                FieldLevels = PICTURE_FIELD_LEVELS,
                 Scene = scene,
                 Sky = sky,
                 Music = music,
