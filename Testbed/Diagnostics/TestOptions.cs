@@ -54,6 +54,15 @@ namespace Testbed.Diagnostics
         public bool LogFrameRate { get; private set; }
 
         /// <summary>
+        /// <c>nopost</c>: zero the film grain and the chromatic aberration, so a screenshot shows what the
+        /// scene shaders actually drew. Both sit on top of every pixel after the tonemap — the grain re-rolls
+        /// per output pixel every frame, which makes two captures of an unchanged scene differ almost
+        /// everywhere, and the aberration splits high-contrast edges towards the frame's periphery. They are
+        /// part of the authored image, so judge the <i>final</i> look with them back on.
+        /// </summary>
+        public bool NoPostEffects { get; private set; }
+
+        /// <summary>
         /// <c>arena=&lt;list&gt;</c>: which members of the arena are drawn (see <see cref="ArenaMembers"/>),
         /// so #151's isolation — take one member out of the frame and measure again — can be run at all.
         /// Everything, as the game draws it, unless the argument says otherwise.
@@ -112,6 +121,7 @@ namespace Testbed.Diagnostics
                 //recognise falls through to StartupMapPath below, so passing it before now made the Testbed
                 //try to load a map called "logfps".
                 else if (string.Equals(arg, "logfps", StringComparison.OrdinalIgnoreCase)) options.LogFrameRate = true;
+                else if (string.Equals(arg, "nopost", StringComparison.OrdinalIgnoreCase)) options.NoPostEffects = true;
                 else if (arg.StartsWith("arena=", StringComparison.OrdinalIgnoreCase)) options.Arena = ParseArenaMembers(arg.Substring("arena=".Length));
                 else if (arg.StartsWith("switchmap=", StringComparison.OrdinalIgnoreCase)) options.SwitchMapPath = arg.Substring("switchmap=".Length);
                 else if (arg.StartsWith("sky=", StringComparison.OrdinalIgnoreCase) && byte.TryParse(arg.Substring("sky=".Length), out byte parsedSky)) options.SkyNumber = parsedSky;

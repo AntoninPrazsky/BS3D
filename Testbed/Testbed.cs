@@ -580,8 +580,14 @@ namespace Testbed
                 GlareThreshold = GLARE_THRESHOLD,
                 GlareIntensity = GLARE_INTENSITY,
                 Exposure = _exposure,
-                ChromaticAberration = CHROMATIC_ABERRATION,
-                FilmGrain = FILM_GRAIN,
+                //Both zeroed by "nopost", which is what makes an A/B of a shader change readable at all: the
+                //grain re-rolls a modulation on every output pixel every frame, so two captures of an
+                //unchanged scene differ in over 90 % of their pixels and a diff says nothing. The aberration
+                //is the other half — it splits every high-contrast edge towards the frame's periphery, and it
+                //once absorbed four straight attempts at a slab-joint artefact that was never in the shader
+                //under investigation. Each zero skips its branch in Tonemap.fx outright.
+                ChromaticAberration = _options.NoPostEffects ? 0f : CHROMATIC_ABERRATION,
+                FilmGrain = _options.NoPostEffects ? 0f : FILM_GRAIN,
                 SupersampleFactor = _supersampleFactor,
             };
 
