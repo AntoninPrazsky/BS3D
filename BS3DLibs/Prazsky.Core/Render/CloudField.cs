@@ -15,6 +15,12 @@ namespace Prazsky.Core.Render
     /// the header of <c>Shaders/Clouds.fxh</c>, which this file is the mirror of.
     /// </para>
     /// <para>
+    /// The sun disc drawn in the sky shader since #220 is pushed from here too, for the same reason: the
+    /// disc, the silver lining and the cloud shadow all answer one sun, and one push telling all of them is
+    /// what keeps it so. The disc occludes behind the deck because it is added to the dome before the deck
+    /// composites over it — see <c>Shaders/Sky.fx</c>.
+    /// </para>
+    /// <para>
     /// Only the coarse <see cref="Weather"/> layer is mirrored here. The fine octaves exist solely in the
     /// sky shader, and nothing the CPU or the shadow does looks at them — which is exactly why the usual
     /// problem with an effect like this, keeping a CPU noise and a GPU noise in step, does not arise. Two
@@ -149,6 +155,24 @@ namespace Prazsky.Core.Render
         private static readonly float ShadowTintStrength = 0.8f;
 
         /// <summary>
+        /// The sun disc's angular radius, and half the width its edge fades over. Deliberately far larger
+        /// than the true sun's quarter degree: the frame goes through the glare pass, whose sparse sampling
+        /// grid flickers on a small bright thing (the Moon's Earth had to stay under the glare threshold
+        /// for exactly this reason, and it is ~30 px across), while a disc hot and wide enough to be
+        /// sampled coherently blooms steadily instead. Sized by looking, like every figure here.
+        /// </summary>
+        private static readonly float SunDiscAngularRadius = MathHelper.ToRadians(1.6f);
+
+        private static readonly float SunDiscEdgeAngle = MathHelper.ToRadians(0.5f);
+
+        /// <summary>
+        /// How many times the rig's sun radiance the disc emits. The lit side of a cloud is the sun's
+        /// light after the deck has swallowed most of it, so the source itself has to be well over it —
+        /// and well over the glare threshold, or the sun is in the sky and nothing blooms it.
+        /// </summary>
+        private static readonly float SunDiscRadiance = 4f;
+
+        /// <summary>
         /// The cloud parameters of one effect, resolved once. A missing parameter stays null and is skipped
         /// on every apply, preserving the contract that a shader declaring only part of the field costs
         /// nothing to support.
@@ -159,7 +183,7 @@ namespace Prazsky.Core.Render
 
             public EffectParameter SunColor, ShadowColor, DetailStrength, Opacity, HorizonFade, SunStep,
                 SelfAbsorption, SunAbsorption, SilverStrength, SilverPower, SunDirection,
-                FormStrength, ShapeStrength, CharacterStrength;
+                FormStrength, ShapeStrength, CharacterStrength, SunDiscCos, SunDiscEdge, SunDiscColor;
         }
 
         //Callers apply the field to the same two or three effects every frame, and the by-name indexer is
@@ -223,6 +247,8 @@ namespace Prazsky.Core.Render
             slots.ShapeStrength?.SetValue(ShapeStrength);
             slots.CharacterStrength?.SetValue(CharacterStrength);
             slots.SunDirection?.SetValue(sunDirection);
+            slots.SunDiscCos?.SetValue(MathF.Cos(SunDiscAngularRadius));
+            slots.SunDiscEdge?.SetValue(MathF.Sin(SunDiscAngularRadius) * SunDiscEdgeAngle);
 
             if (instancedEffect != null) SlotsOf(instancedEffect).SunDirection?.SetValue(sunDirection);
         }
@@ -268,6 +294,12 @@ namespace Prazsky.Core.Render
 
             slots.SunColor?.SetValue(sunRadiance * domeTint);
             slots.ShadowColor?.SetValue(ShadowColor * skyTint);
+
+            //The sun disc takes the sun's radiance straight, without the second lerp towards the horizon the
+            //clouds' lit side gets: a cloud is a lit surface and the sun is the source, and carrying the disc
+            //towards the dome's evening is how the sun of a dusk dome would end up the colour of the dusk —
+            //the rig's own first carry (already inside sunRadiance) is as tinted as the source itself gets.
+            slots.SunDiscColor?.SetValue(sunRadiance * SunDiscRadiance);
         }
 
         /// <summary>
@@ -316,7 +348,10 @@ namespace Prazsky.Core.Render
 
                 //The one name without the Cloud prefix: the sun is shared with the light rig and the scene
                 //shading, and the clouds only borrow it
-                SunDirection = effect.Parameters["SunDirection"]
+                SunDirection = effect.Parameters["SunDirection"],
+                SunDiscCos = effect.Parameters["SunDiscCos"],
+                SunDiscEdge = effect.Parameters["SunDiscEdge"],
+                SunDiscColor = effect.Parameters["SunDiscColor"]
             };
             _slotsByEffect.Add(effect, slots);
 

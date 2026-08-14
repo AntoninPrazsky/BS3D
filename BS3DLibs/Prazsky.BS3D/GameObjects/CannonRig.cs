@@ -17,9 +17,11 @@ namespace Prazsky.BS3D
     /// slit is there for the <b>magazine</b>: the queue of loaded balls nests in the bore and only a strip of
     /// each shows through, which is enough to read its colour — and you cannot aim a shot whose colour you
     /// cannot see. So the slot's width is not a look, it is how much of the queue reads, and it has to keep
-    /// reading from a camera that is not straight above the barrel. The slit is <b>glazed</b>, with the ball at
-    /// the muzzle notched out of the pane: the glass is what tells the player which round fires next, by
-    /// covering the four that do not (see "The slot's glazing" below and <see cref="CannonGlassMesh"/>). The
+    /// reading from a camera that is not straight above the barrel. The slit is <b>glazed</b>, with the front of
+    /// the queue notched out of the pane so the round that fires next is never read through glass — which since
+    /// #204 means the second round is open as well, so the pane no longer identifies the first on its own and
+    /// the breathing mark on slot 0 does (#175, the Game's own <c>MUZZLE_MARK_*</c> in
+    /// <c>GameplayScreen.Draw</c>; see "The slot's glazing" below and <see cref="CannonGlassMesh"/>). The
     /// breech — the end the player's camera looks at — is <b>closed</b>: a dome carrying a cascabel knob,
     /// hiding the chamber the freshest round waits out the post-shot glide in (<see cref="CHAMBER_DEPTH"/>),
     /// where an open hole used to mirror the muzzle's.
@@ -139,6 +141,37 @@ namespace Prazsky.BS3D
         //Steps across the pane, which are also the steps round the notch's ellipse - the oval is the curve the
         //eye reads on this prop, so it gets more of them than the tube's own wall does.
         private const int GLASS_SEGMENTS = 16;
+
+        //How far back along the bore the notch reaches at the pane's centreline, from the front ball's centre.
+        //A BALL RADIUS until #204, which put the rim on the seam between the first two rounds at the centreline
+        //and on the front ball's own centre plane at the cheeks: the front ball's extent, exactly, which is what
+        //it was meant to be and which hid that ball anyway.
+        //
+        //The mistake was measuring the opening along the BORE when nobody looks along the bore. A player looks
+        //from the precise-aim lens, which PreciseAim stands RISE (2) above and BACK (6) behind the front ball's
+        //centre - Cannon.MuzzlePosition being that centre and not the muzzle face. From (0, 2, 4) in this
+        //frame, with the front ball at (0, 0, -2) and the pane's outer face at BORE_RADIUS + GLASS_THICKNESS
+        //(0.65), the sight line grazing the old rim at (0, 0.65, -1.5) passed the ball at a closest approach of
+        //0.512 against its radius of 0.5. It MISSED the ball by 0.012, so every part of the round about to fire
+        //was read through the pane and none of it through open air.
+        //
+        //Three ball radii clears it, and the figure is bounded on both sides rather than chosen. Below: the
+        //upper silhouette of the front ball, seen from that lens, crosses the pane's outer radius at z = -1.456,
+        //so the rim has to sit behind that - which a reach of 1.5 does, landing it at -0.5. Above: the QUEUE is
+        //what limits it, not the glass. The same lens's line tangent to the second round's crown (that ball
+        //centred at z = -1) descends at 16.47 deg and crosses the outer radius at z = -0.567, so cutting back
+        //past roughly there uncovers nothing further - the second ball is already in the way. 1.5 sits just
+        //behind it with 0.067 to spare, which is the whole of what can be shown and no more.
+        //
+        //Expressed against BALL_RADIUS rather than as 1.5 because that is what it means: the seam between the
+        //third round and the second, one ball back from where the rim used to be. It necessarily uncovers the
+        //second round, and #204 licenses exactly that - "it is fine if it also uncovers the second ball; the key
+        //requirement is that the first ball is never hidden". One consequence belongs with the change rather than
+        //with whoever finds it: with two rounds open at the top of the window, #175's breathing mark on slot 0
+        //stops being a reinforcement of what the pane said and becomes the only thing that says it. That mark is
+        //the GAME's, not this rig's - MUZZLE_MARK_BASE/SWING/HZ in GameplayScreen.Draw - so nothing here can
+        //keep the two in step, and it must not be removed as redundant on the strength of the pane.
+        private const float GLASS_NOTCH_REACH = 3f * BALL_RADIUS;
 
         //How much of the dome the pane reflects, and the figure that has to be held DOWN while the two above
         //are pushed up. Measured rather than tasted - at the game camera the barrel is seen from behind and
@@ -334,7 +367,7 @@ namespace Prazsky.BS3D
             //PivotToFrontBall ahead of the trunnions (which is what that figure means), so the notch is over
             //the round that fires by construction rather than by agreement — and it ends at the same lip.
             _glassMesh = new CannonGlassMesh(graphicsDevice, BORE_RADIUS, GLASS_THICKNESS, GLASS_SEAT,
-                SLOT_HALF_ANGLE, slotEndZ, -PivotToFrontBall, BALL_RADIUS, GLASS_SEGMENTS);
+                SLOT_HALF_ANGLE, slotEndZ, -PivotToFrontBall, BALL_RADIUS, GLASS_NOTCH_REACH, GLASS_SEGMENTS);
 
             //The pane's own three figures — a deeper blue, a higher alpha and a sky reflection held down
             //against that alpha, all three for the reasons in the region above. Its ground-darkening anchor

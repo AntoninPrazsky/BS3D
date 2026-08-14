@@ -2,16 +2,39 @@ using Myra.Graphics2D.Brushes;
 using Myra.Graphics2D.UI;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
 using Label = Myra.Graphics2D.UI.Label;
+using VerticalAlignment = Myra.Graphics2D.UI.VerticalAlignment;
 
 namespace BS3D.Screens
 {
     /// <summary>
     /// The front end. No back — quitting is an entry on it, and a menu that closes when a key is tapped is one
     /// that closes by accident. It never dims: the scene turning behind it is the whole point of the screen.
+    /// <para>
+    /// <b>It is the one page laid out as a composition rather than as a stack (#217)</b>, and that follows from
+    /// the line above. Every other page is a centred column, which is right for a panel that has the frame's
+    /// attention — but the centre of this frame is where the island, the drain and the turning scene are, and a
+    /// centred column of entries with the game's name centred over it covered exactly the thing the page exists
+    /// to show. The name is pinned top-right and the entries bottom-left, so the middle is left to the scene
+    /// and the two blocks of type balance across the diagonal. The pause and both pickers deliberately stay
+    /// centred: what is behind a pause is a stopped game rather than a view worth keeping clear, and a picker is
+    /// a grid that wants the whole frame.
+    /// </para>
     /// </summary>
     internal sealed class MainMenuPage : MenuPage
     {
-        private const int NOTICE_WIDTH = 1860;
+        /// <summary>
+        /// How far the composition is held off the frame's edges, in the 2160p design units everything else on
+        /// the page is authored in. One figure for both corners, so the name's distance from its edges and the
+        /// column's from its own are the same measurement rather than two that drifted apart.
+        /// </summary>
+        private const int FRONT_INSET = 130;
+
+        /// <summary>
+        /// The quality notice's wrap width. Narrower than it was when it sat under a centred column: in the
+        /// bottom-left stack it is read against the entries beside it, and a paragraph twice their width read
+        /// as the page's subject rather than as a footnote to a change nobody asked for.
+        /// </summary>
+        private const int NOTICE_WIDTH = 1240;
 
         private Button _resumeButton;
         private Label _playLabel;
@@ -28,32 +51,36 @@ namespace BS3D.Screens
 
         protected override Widget BuildTree()
         {
-            VerticalStackPanel column = MenuColumn();
-
             //The title carries no plate and no frame: at this size the letters are their own mass, and a
             //frame around them would be one more thing competing with whichever scene is turning behind it.
             //"BS3D" is the repository's and the assembly's shorthand; the game's name is spelled out.
-            column.Widgets.Add(new Label
+            Label title = new()
             {
                 Text = BS3DGame.GAME_TITLE,
-                Font = FontTitle,
+                Font = FontGameTitle,
                 TextColor = BS3DGame.MENU_TEXT,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = ScaledThickness(0, 0, 0, 60),
-            });
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = ScaledThickness(0, FRONT_INSET, FRONT_INSET, 0),
+            };
 
-            _resumeButton = MenuButton("Continue", Game.ContinueGame);
-            column.Widgets.Add(_resumeButton);
+            VerticalStackPanel column = MenuColumn();
 
-            column.Widgets.Add(MenuButton("Play", Game.OpenLevelSelect, out _playLabel));
-            column.Widgets.Add(MenuButton("Scene", Game.OpenSceneSelect));
-            column.Widgets.Add(MenuButton("Settings", Game.OpenSettings));
-            column.Widgets.Add(MenuButton("About", Game.OpenAbout));
-            column.Widgets.Add(MenuButton("Quit", Game.Exit));
+            //MenuColumn is centred, which is what every other page wants; this one hangs off the bottom-left
+            //corner instead. Set here rather than as another argument on the shared helper — one page does
+            //this, and a knob nobody else turns is a knob that goes stale.
+            column.HorizontalAlignment = HorizontalAlignment.Left;
+            column.VerticalAlignment = VerticalAlignment.Bottom;
+            column.Margin = ScaledThickness(FRONT_INSET, 0, 0, FRONT_INSET);
 
             //Hidden unless the adaptive path actually lowered something (see TuneQualityToFrameRate). A player
             //whose machine copes never learns this exists, which is the point: it explains a change they did
             //not ask for, and is not itself a setting.
+            //
+            //ABOVE the entries rather than under them, which it was while the column was centred. The stack
+            //hangs off the bottom now, so height added anywhere in it pushes everything above that point up:
+            //as the last child this would have shifted all six entries the moment the probe spoke, and a menu
+            //that moves under the pointer is worse than a notice in an odd place.
             _qualityNotice = new Label
             {
                 Text = string.Empty,
@@ -61,8 +88,8 @@ namespace BS3D.Screens
                 TextColor = BS3DGame.MENU_TEXT_BODY,
                 Wrap = true,
                 Width = Scaled(NOTICE_WIDTH),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = ScaledThickness(0, 40, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = ScaledThickness(0, 0, 0, 40),
 
                 //Its own backing, because the front end deliberately has no scrim — the rotating scene is the
                 //point of that screen — and a line of small text over open water or a lit skyline is exactly
@@ -74,7 +101,19 @@ namespace BS3D.Screens
             };
             column.Widgets.Add(_qualityNotice);
 
-            return ScreenRoot(column);
+            _resumeButton = FrontEndEntry("Continue", Game.ContinueGame);
+            column.Widgets.Add(_resumeButton);
+
+            column.Widgets.Add(FrontEndEntry("Play", Game.OpenLevelSelect, out _playLabel));
+            column.Widgets.Add(FrontEndEntry("Scene", Game.OpenSceneSelect));
+            column.Widgets.Add(FrontEndEntry("Settings", Game.OpenSettings));
+            column.Widgets.Add(FrontEndEntry("About", Game.OpenAbout));
+            column.Widgets.Add(FrontEndEntry("Quit", Game.Exit));
+
+            //The title first, because CollectNavEntries walks the tree in the order widgets were ADDED rather
+            //than where they landed — it holds no buttons, so what this really fixes is that the entries keep
+            //their own order behind it.
+            return ScreenRoot(title, column);
         }
 
         internal override void Refresh()

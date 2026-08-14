@@ -132,6 +132,10 @@ namespace BS3D.Effects
         private float _remaining;        //seconds of celebration left to launch into
         private float _untilNextLaunch;
         private float _sinceStart;
+
+        //How long this display's fastest phase lasts. A field rather than the constant, because a block
+        //milestone asks for a longer barrage than an ordinary clear does - see Celebrate.
+        private float _opening = OPENING_SECONDS;
         private float _delay;            //seconds still to wait before the first shell goes up
         private bool _popped;            //the opening crack has been played for this celebration
 
@@ -190,11 +194,24 @@ namespace BS3D.Effects
         /// — which reads as a celebration answering the announcement rather than as everything happening at
         /// once and nothing being heard.
         /// </param>
-        public void Celebrate(float seconds, float delay = 0f)
+        /// <param name="openingSeconds">
+        /// How long the fastest phase lasts, overriding <see cref="OPENING_SECONDS"/>. It is the one dial that
+        /// makes a display read as <b>bigger</b> rather than merely longer (#184): the density is already at its
+        /// maximum in the opening barrage, and the player is looking at the sky in the first seconds and reading
+        /// their score by the time it has eased off — so a longer total changes what nobody is watching, where a
+        /// longer opening changes the only part they see. Zero or less keeps the default.
+        /// </param>
+        public void Celebrate(float seconds, float delay = 0f, float openingSeconds = 0f)
         {
             bool wasIdle = _remaining <= 0f;
 
             _remaining = MathF.Max(_remaining, seconds + delay);
+
+            //Taken on the LONGER one for the same reason the duration is: a second call must not be able to cut
+            //a display short, and a block milestone landing on top of an ordinary clear's display is exactly
+            //that call. Held outside the wasIdle gate below, which only initialises a display that is starting.
+            _opening = MathF.Max(_opening, openingSeconds > 0f ? openingSeconds : OPENING_SECONDS);
+
             if (!wasIdle) return;
 
             _sinceStart = 0f;
@@ -208,6 +225,7 @@ namespace BS3D.Effects
         {
             _remaining = 0f;
             _delay = 0f;
+            _opening = OPENING_SECONDS;
             for (int i = 0; i < _shells.Length; i++) _shells[i].Active = false;
         }
 
@@ -280,7 +298,7 @@ namespace BS3D.Effects
                 Launch();
 
                 float interval =
-                    _sinceStart < OPENING_SECONDS ? INTERVAL_OPENING :
+                    _sinceStart < _opening ? INTERVAL_OPENING :
                     _sinceStart < RELAXED_AFTER ? INTERVAL_STEADY : INTERVAL_RELAXED;
 
                 _untilNextLaunch += interval * (0.7f + (float)_random.NextDouble() * 0.6f);

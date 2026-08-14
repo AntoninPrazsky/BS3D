@@ -35,6 +35,43 @@ namespace BS3D.Tools.LevelGen
         // the empty levels under it are the room shot balls attach into.
         private const byte FIELD_LEVELS = 16;
 
+        // The pictures' own, and it is a LEVER ON HANGING HEIGHT rather than on growth room (#203). A field
+        // is hung at FIELD_TOP_Y unless it is deep enough that its bottom level would start past the death
+        // line, in which case GameplayScreen.FitFieldToMap raises the WHOLE field until the floor clears the
+        // line by FIELD_FLOOR_MARGIN — so past 16 levels, adding depth pushes the layout UP rather than
+        // leaving room under it. That is the only lever a design has on how much air its lowest row starts
+        // with, the layout always hanging at the top of its field.
+        //
+        // The pictures needed one. A wall is 14 rows in a field of 16, so its lowest ball started 1.96 above
+        // the line by centre and 1.46 by surface, where every other level in the pack has at least 2.88 and
+        // most have 7 to 8.5 (measured off the game's own [field] line, all five). Three things followed from
+        // that, and the third is the one that says this was a fault rather than a tight margin.
+        //
+        // The floor alarm arms at CEILING_DEATH_Y + 3 steps of 0.6, i.e. -3.70, and these walls START at
+        // -3.54 — 0.16 from lighting the net, on a cluster whose own comment budgets "a few tenths of a unit"
+        // of bob for a shove. A stalk left dangling two lattice levels under the wall sat at -4.95, one shove
+        // or one descent from the line. And an UNTOUCHED wall crossed the line on its FOURTH descent
+        // (1.96 / 0.6 = 3.3) against a budget that buys SIX on every one of the five — 60 shots stepping
+        // every 10, 55 every 9, 48 every 8 — so the ceiling could end these levels before their own budget
+        // ran out. That is the shape of the bug: not a level that is hard, a level whose two clocks disagree.
+        //
+        // Measured after, on all five (the [field] line again): top Y 5.66 -> 7.02, and it now reports
+        // "raised off the line" because the raise is what does the work; floor -4.95 -> -5.00; lowest ball
+        // -3.54 -> -2.17, i.e. 1.96 -> 3.33 above the line by centre and 1.46 -> 2.83 by surface. An untouched
+        // wall now survives five descents and crosses on the sixth, which is where the budget ends anyway.
+        // The raise costs about 2.3 degrees of the gun's elevation budget — [aimcheck]'s steepest cell moves
+        // from (0,0,14) at 67.3/69.9 deg to (0,0,16) at 69.6/72.0 of the same 80.2 limit — so all five still
+        // PASS with roughly eight degrees spare. GameCameraFit re-solves a hair closer (30.8 -> 30.7 out on
+        // the 15-wide pictures, 31.5 -> 31.4 on the 17-wide), which is not a visible change in ball size.
+        //
+        // 18 is the figure and it is also the CEILING: GameplayScreen.FRAMED_LEVELS is 18 and its test is
+        // "Levels > FRAMED_LEVELS", so 20 would quietly turn a picture into a tall level, fed by
+        // FeedTallColumn and aim-clamped by TALL_AIM_HEADROOM. 18 - 14 = 4 is even, which is what keeps every
+        // row's level parity — and therefore the drawing itself — exactly where it was; the emitter refuses
+        // an odd offset rather than drawing it shifted. If the air this buys is ever not enough, the next
+        // lever is fewer bitmap rows, which means redrawing the pictures.
+        private const byte PICTURE_FIELD_LEVELS = 18;
+
         private const float HALF = 0.5f;
 
         /// <summary>
@@ -78,15 +115,35 @@ namespace BS3D.Tools.LevelGen
         //leaving it null used to cost. Named after the block rather than after the piece because that is the
         //thing being decided: if a block's music is ever changed it is changed HERE, once, and not five times.
         //
-        //Four pieces exist (#163 would be a fifth) against SIX blocks since #207, so two are reprised. Pulse
-        //is the one that always was: the campaign opens on the piece Level One has always played and the finale
-        //brings it back. The Coil is the second, and it takes Nocturne - the only one of the four that is not
-        //adjacent to itself once the desert sits at block 3, and the piece a sunset over the dunes actually
-        //wants (a swung grid and sevenths, see MusicTheme.Nocturne). If #163's rock ballad ever lands, THIS is
-        //the block with the weaker claim on a reprise and the one to give it to.
+        //FIVE pieces against SIX blocks since #207, so exactly one is reprised, and it is the bookend: the
+        //campaign opens on the piece Level One has always played and the finale brings it back. That reprise
+        //was FORCED while four pieces existed; it is a choice now, and it is kept because a reprise at the end
+        //is a real musical idea where "every block gets its own" is only tidy.
+        //
+        //The Coil takes Ember, and that is #163 and #207 answering each other. #163 landed the rock ballad with
+        //no block using it; #207 wrote, when it still had to reprise Nocturne here, that this was the block with
+        //the weaker claim on a reprise and the one to give the ballad to when it landed. Both are now true at
+        //once, so the desert gets the amplifier and Nocturne is left to the Reveal alone.
+        /// <summary>
+        /// What each block is <b>called</b>, written onto every entry of it as <c>LevelSetEntry.Block</c> so the
+        /// game can celebrate finishing one by name (#184). Indexed by block, so the order here IS the order of
+        /// the catalogue's own six groups.
+        /// <para>
+        /// Set from the entry's <b>position</b> where <see cref="Design.Music"/> is set on each design, and the
+        /// asymmetry is not an oversight: a theme is written into the level <i>file</i>, so it has to be a
+        /// property of the design, while a block is written into the <i>set</i>, which is built from positions.
+        /// Deriving it from the position also makes the blocks contiguous and equal by construction, which is
+        /// the one thing <c>LevelSet.Load</c> refuses a file for getting wrong.
+        /// </para>
+        /// </summary>
+        private static readonly string[] BLOCK_NAMES =
+        {
+            "The Meadow", "The Gallery", "The Coil", "The Tower", "The Reveal", "The Quarry"
+        };
+
         private const string MUSIC_RINGS = "pulse";
         private const string MUSIC_GALLERY = "dechovka";
-        private const string MUSIC_COIL = "nocturne";
+        private const string MUSIC_COIL = "ember";
         private const string MUSIC_TOWER = "bohemia";
         private const string MUSIC_REVEAL = "nocturne";
         private const string MUSIC_QUARRY = "pulse";
@@ -154,7 +211,18 @@ namespace BS3D.Tools.LevelGen
 
                 //4. THE MOUNTAINS - "The Tower". The layout is deeper than the camera frames, so a level's
                 //length is its height and it is worked from the underside up as the glass hands it down.
-                Crown(), Horn(), Column(), Helix(), Lean(),
+                //
+                //COLUMN OPENS IT since #206, where Crown did before, and that reverses the reasoning written
+                //into Crown itself (see its Sky comment, rewritten with this). The block's stated style is "the
+                //layout is deeper than the camera frames", and Crown is the one member that is NOT: it is the
+                //only 16-level field here, framed whole. Opening on it therefore spent the chapter's first
+                //level on the one that does not demonstrate what the chapter is. Column is the plainest tall
+                //level in the game — a column reaching out of shot, no second idea in it — so it states the
+                //block's premise in its first minute. The cost is that it is also the LARGEST budget in the
+                //game (90 shots, ceiling every 5), so the chapter opens on its longest level; Crown moving to
+                //second keeps its teaching intact, the axis and the drain up the middle of it reading just as
+                //well behind the premise as ahead of it.
+                Column(), Crown(), Horn(), Helix(), Lean(),
 
                 //5. THE CAVERN - "The Reveal". An outer body with a differently-shaped thing standing inside
                 //it; clearing the outside is the payoff (#161).
@@ -240,6 +308,7 @@ namespace BS3D.Tools.LevelGen
                 {
                     File = d.File,
                     Name = d.Name,
+                    Block = BlockNameAt(i),
                     Shots = d.Shots,
                     CeilingStep = d.CeilingStep,
                     MinStars = MinStarsAt(i),
@@ -250,6 +319,7 @@ namespace BS3D.Tools.LevelGen
             {
                 File = "Colossus.json",
                 Name = "Colossus",
+                Block = BlockNameAt(designs.Length),
                 Shots = 45,
                 CeilingStep = 4,
                 MinStars = MinStarsAt(designs.Length),
@@ -266,13 +336,33 @@ namespace BS3D.Tools.LevelGen
             Console.WriteLine($"=== {LevelSet.DefaultFileName}: {loaded.Count} levels in blocks of {BLOCK_SIZE} ===");
             for (int i = 0; i < loaded.Count; i++)
             {
-                if (i % BLOCK_SIZE == 0) Console.WriteLine($"  --- block {i / BLOCK_SIZE + 1} {DescribeBlock(loaded, i)}");
+                if (i % BLOCK_SIZE == 0)
+                    Console.WriteLine($"  --- block {loaded.BlockNumber(i)}/{loaded.BlockCount}"
+                                      + $" '{loaded.BlockName(i) ?? "unnamed"}' {DescribeBlock(loaded, i)}");
 
                 int gate = loaded.Levels[i].MinStars.GetValueOrDefault();
 
                 Console.WriteLine($"  {i + 1,2}. {loaded.DisplayName(i),-12} {loaded.DescribeRules(i)}"
                     + (gate > 0 ? $", unlocks at {gate} star(s)" : ", open from the start"));
             }
+        }
+
+        /// <summary>
+        /// Which block the entry at <paramref name="index"/> belongs to. A plain division, because the campaign's
+        /// blocks are equal and contiguous by construction here — see <see cref="BLOCK_NAMES"/>. It throws rather
+        /// than wrapping if the catalogue outgrows the names: a set whose last block silently reopened the first
+        /// one is a file <c>LevelSet.Load</c> refuses, and finding that out here is cheaper.
+        /// </summary>
+        private static string BlockNameAt(int index)
+        {
+            int block = index / BLOCK_SIZE;
+
+            if (block >= BLOCK_NAMES.Length)
+                throw new InvalidOperationException(
+                    $"entry {index + 1} falls in block {block + 1} but only {BLOCK_NAMES.Length} block names are "
+                    + "stated; add one to BLOCK_NAMES for every group of BLOCK_SIZE the catalogue grows by");
+
+            return BLOCK_NAMES[block];
         }
 
         /// <summary>
@@ -441,9 +531,9 @@ namespace BS3D.Tools.LevelGen
         {
             int width = bitmap[0].Length;
 
-            //Even by construction here: the field is 16 and an odd difference would have the loader extend it
-            //a level and move the drawing off where it was put. A bitmap with an odd number of rows is caught
-            //by the emitter's own offset check rather than silently drawn in the wrong place.
+            //Even by construction here: the field is PICTURE_FIELD_LEVELS and an odd difference would have the
+            //loader extend it a level and move the drawing off where it was put. A bitmap with an odd number of
+            //rows is caught by the emitter's own offset check rather than silently drawn in the wrong place.
             byte depth = (byte)bitmap.Length;
 
             return new Design
@@ -452,6 +542,10 @@ namespace BS3D.Tools.LevelGen
                 Name = name,
                 Grid = grid,
                 Depth = depth,
+                //Deeper than an ordinary level's, which is what HANGS THE WALL HIGHER rather than what leaves
+                //room under it (#203) — see PICTURE_FIELD_LEVELS for why the two are the same dial past 16,
+                //and for the measured air a picture used to start with.
+                FieldLevels = PICTURE_FIELD_LEVELS,
                 Scene = scene,
                 Sky = sky,
                 Music = music,
@@ -778,10 +872,14 @@ namespace BS3D.Tools.LevelGen
             //sand against a candy-pink sky and the whole frame read as kitsch; under 8 they read as snow and
             //the sky as weather, which is the same scene doing what it was built to do. The crown's gold and
             //red carry against a dark sky, where against pink they were competing with it. Since #194 that dome
-            //is the whole Tower block's, for this level's own reason — and this level OPENS the block because it
-            //is the one member the camera frames whole: a hollow ring teaches the axis, and the drain visible
-            //straight up the middle of it teaches why the axis matters, before four levels that reach out of
-            //shot ask the player to work one.
+            //is the whole Tower block's, for this level's own reason.
+            //
+            //It USED to open the block as well, because it is the one member the camera frames whole: a hollow
+            //ring teaches the axis, and the drain visible straight up the middle of it teaches why the axis
+            //matters. #206 turned that round, and the argument it lost to is that the very same fact — being
+            //framed whole — makes this the one level in the block that does not show what the block IS. It
+            //sits second now and teaches exactly as it did; what it no longer does is stand in front of the
+            //block's premise. See the play order for the whole of it.
             Sky = 8,
             Music = MUSIC_TOWER,
             Shots = 44,
@@ -1049,10 +1147,16 @@ namespace BS3D.Tools.LevelGen
         /// its column still overhead.
         /// </para>
         /// <para>
-        /// Since #194 it is the middle level of the Tower block rather than a lone tall level in a flat ramp,
-        /// and it is the block's <b>endurance</b> beat: the largest budget, the plainest silhouette, and a
-        /// colour rule that is nothing but reading what is coming. <see cref="Horn"/> before it and
-        /// <see cref="Helix"/> and <see cref="Lean"/> after it are each tall in a way this one is not.
+        /// Since #194 it belongs to the Tower block rather than standing as a lone tall level in a flat ramp,
+        /// and it is that block's <b>endurance</b> beat: the largest budget, the plainest silhouette, and a
+        /// colour rule that is nothing but reading what is coming. <see cref="Crown"/>, <see cref="Horn"/>,
+        /// <see cref="Helix"/> and <see cref="Lean"/> are each tall — or, in Crown's case, deliberately not —
+        /// in a way this one is not.
+        /// <para>
+        /// It <b>opens</b> the block since #206, where it was its middle level. Being the plainest of them is
+        /// what qualifies it: the chapter's premise is a layout deeper than the camera frames, and this states
+        /// that premise with no second idea in it. What the move costs is that the chapter now opens on the
+        /// longest level in the game, which is the thing to weigh if the block is ever paced again (#98).
         /// </para>
         /// </summary>
         private static Design Column() => new()
@@ -3475,7 +3579,8 @@ namespace BS3D.Tools.LevelGen
             /// before this — and which is exactly why the order could not be rearranged without silently
             /// rescoring the campaign. Naming it pins it. An unknown spelling falls back to that same
             /// rotation rather than throwing, so a typo here is a level that quietly plays the wrong piece:
-            /// the four names are <c>pulse</c>, <c>bohemia</c>, <c>nocturne</c> and <c>dechovka</c>.
+            /// the five names are <c>pulse</c>, <c>bohemia</c>, <c>nocturne</c>, <c>dechovka</c> and
+            /// <c>ember</c> (#163's rock ballad, which the Coil took in #207).
             /// </para>
             /// </summary>
             public string Music;

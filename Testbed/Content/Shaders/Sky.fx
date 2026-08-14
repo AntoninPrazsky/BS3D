@@ -44,6 +44,15 @@ float CloudSunAbsorption;
 float CloudSilverStrength;
 float CloudSilverPower;
 
+//The sun itself, until now implied everywhere and drawn nowhere (issue #220): an analytic disc on the very
+//direction the clouds already shade by and the scene already shadows along - the same push tells all three,
+//from CloudField.ApplyStaticParameters. The disc's angular radius as a cosine and half its edge width in
+//cosine units, so the pixel shader is one dot product and a smoothstep; the colour follows the dome and so
+//is pushed per dome with the cloud palette (ApplyPalette), not here.
+float SunDiscCos;
+float SunDiscEdge;
+float3 SunDiscColor;
+
 //The billow: how hard the field's slope tilts the underside's normal (world units of hang per unit of
 //thickness, roughly), and how hard the tilted facets swing the light that lands on them
 float CloudFormStrength;
@@ -81,6 +90,15 @@ float4 SkyPS(SkyVertexOutput input) : COLOR
 
 	//The dome is translated to the camera every frame, so this is the view ray and nothing else
 	float3 direction = normalize(input.WorldPosition - CameraPosition);
+
+	//The sun disc, added to the dome's gradient BEFORE the deck composites over it, which is what puts it
+	//behind the weather for free: a cloud in front of the sun is exactly a cloud drawn over these pixels,
+	//so the disc dims under a translucent edge and vanishes under a solid one - the same field occludes it
+	//that shades it, and the "one field, every consumer" contract holds without a second ray march. The
+	//disc sits well clear of the horizon at the rig's one direction (elevation ~35 degrees), so nothing
+	//here has to guard against it crossing the skyline.
+	float sunDisc = smoothstep(SunDiscCos - SunDiscEdge, SunDiscCos + SunDiscEdge, dot(direction, SunDirection));
+	sky += SunDiscColor * sunDisc;
 
 	//Where this ray crosses the cloud plane. Guarded rather than branched, and the guard is generous:
 	//by the time the ray is this shallow the horizon fade below has taken the cloud out anyway.

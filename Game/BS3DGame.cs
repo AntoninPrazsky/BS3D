@@ -153,6 +153,12 @@ namespace BS3D
         //once a level has been won or lost, and neither can be scripted — the "celebrate" reasoning again.
         private bool _startupResult;
 
+        //Testing only: the "blockdone" argument, which makes the "result" page above a BLOCK milestone instead of
+        //an ordinary clear (#184). Same reasoning as "celebrate" and "result", one step further along: finishing a
+        //block needs every level of a five-level chapter cleared, so the moment cannot be reached in a scripted
+        //run at all — and it is the one thing about the milestone that has to be LOOKED at rather than asserted.
+        private readonly bool _startupBlockDone;
+
         //Wall clock. Everything alive in the scene runs off it â€” the balls' heartbeat, the city's windows â€”
         //so none of it is tied to a simulation that may later be paused.
         private float _wallClock;
@@ -478,7 +484,8 @@ namespace BS3D
         public BS3DGame(bool fullscreen = false, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE,
             bool uncappedFps = false, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
             QualityLevel? quality = null, bool celebrate = false, bool lasers = false, bool mute = false,
-            bool play = false, bool result = false, float[] shotSeconds = null, string level = null)
+            bool play = false, bool result = false, bool blockDone = false, float[] shotSeconds = null,
+            string level = null)
         {
             _fullscreen = fullscreen;
             _startupCelebrate = celebrate;
@@ -488,6 +495,7 @@ namespace BS3D
             //Naming a level means playing it, so "level=" implies "play" rather than needing it alongside
             _startupPlay = play || level != null;
             _startupResult = result;
+            _startupBlockDone = blockDone;
             _shotSchedule = shotSeconds;
             if (mute) _masterVolume = 0f;
 
@@ -1166,6 +1174,11 @@ namespace BS3D
                 PresentResult(new LevelResult(cleared: true, failureText: null, stars: 3, newBest: true,
                     hasNextLevel: true, nextLevelUnlocked: true, nextLevelMinStars: 1, totalStars: 3,
                     campaignComplete: false,
+                    //"blockdone" borrows the third block's own name, so the milestone is looked at with a real
+                    //chapter's title in it rather than a placeholder that would read as one
+                    blockComplete: _startupBlockDone,
+                    blockName: _startupBlockDone ? (LevelBlockName(12) ?? "The Tower") : null,
+                    blockNumber: 3, blockCount: Math.Max(3, BlockCount),
                     score: 4820, matchedBalls: 96, orphanedBalls: 24, streakBonus: 640,
                     hadBudget: true, unusedShotsAwarded: 7, completionBonusAwarded: 350));
             }

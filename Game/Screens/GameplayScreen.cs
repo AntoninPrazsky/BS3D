@@ -571,6 +571,15 @@ namespace BS3D.Screens
         private float _clearedCountdown;
 
         /// <summary>
+        /// Whether the clear that just happened is the one that finishes its <b>block</b> (#184) — decided in
+        /// <see cref="CheckLevelCleared"/>, where the celebration starts, and read again by
+        /// <see cref="ShowResultScreen"/> a beat later so the page, the fireworks and the fanfare cannot
+        /// disagree about what the player just did. Never set on a loss, and cleared by <see cref="BuildLevel"/>
+        /// with the rest of a level's state.
+        /// </summary>
+        private bool _blockCompleted;
+
+        /// <summary>
         /// Set the moment a level is lost, and only once — a descent and a spent budget can both reach their line
         /// on the same frame, and the loss must not fire twice. Cleared back to false by <see cref="BuildLevel"/>,
         /// which is the real reload that starts a level over.
@@ -604,6 +613,14 @@ namespace BS3D.Screens
         //And it hangs back, so the fanfare gets its opening statement to itself: the level ends, brass
         //announces it, and only then does the sky start going off. Everything at once is nothing heard.
         private const float CELEBRATION_DELAY = 2.2f;
+
+        //How long the fireworks' fastest phase runs when a whole BLOCK of levels has just been finished
+        //(#184), against the 2.2 s an ordinary clear takes. Nearly three times the barrage, and it is the
+        //opening rather than the total for the reason Fireworks.Celebrate states: the opening is the part the
+        //player is looking at. Eight seconds is about a hundred and fifteen shells at INTERVAL_OPENING, which
+        //is more than the 32 concurrent ones the shader carries - so the sky stays saturated for the whole of
+        //it rather than filling and emptying.
+        private const float BLOCK_CELEBRATION_OPENING = 8f;
 
         /// <summary>
         /// The level's score and ball budget. Built fresh for each level from that entry's rules, so it never

@@ -103,6 +103,7 @@ namespace BS3D
         //Picking a face means picking a system.
         private FontSystem _menuFontSystem, _menuFontSystemBold, _menuFontSystemDisplay;
         private SpriteFontBase _menuFontBody, _menuFontSmall, _menuFontHeading, _menuFontTitle, _menuFontStars;
+        private SpriteFontBase _menuFontGameTitle, _menuFontFrontEntry;
 
         //The menu is deliberately GREYSCALE — no hue anywhere, and no coloured frames. It has to sit over
         //twelve backdrops whose palettes are nothing alike (a neon city, an ochre desert, a blue sea, white
@@ -144,14 +145,46 @@ namespace BS3D
             _ => STAR_EMPTY,
         };
 
-        //Buttons: a dark slab at rest that the pointer lifts a step up the grey ramp, so the highlight is
-        //brightness and not hue. Each of these REPLACES the one before it rather than being laid over it
-        //(Myra picks one brush per state), so they all have to be opaque enough to hide the scene behind
-        //them — a translucent hover would show the backdrop through the entry the pointer is on, which is
-        //exactly the one that has to read clearly. They stay dark, because the label on top of them is white.
-        private static readonly Color MENU_BUTTON = new(11, 11, 11, 212);
-        private static readonly Color MENU_BUTTON_OVER = new(72, 72, 72, 232);
-        private static readonly Color MENU_BUTTON_PRESSED = new(120, 120, 120, 240);
+        //Buttons: GLASS at rest since #216, that the pointer fills in a step up the grey ramp — so the
+        //highlight is still brightness and not hue, and what the entry gains under the pointer is solidity
+        //as well as tone. Each of these REPLACES the one before it rather than being laid over it (Myra picks
+        //one brush per state), so the hover has to be opaque on its own account: it is the entry that has to
+        //read clearest, and the label on top of it is near-white.
+        //
+        //THESE ARE PREMULTIPLIED, and the whole block is unreadable until that is said. Myra paints through
+        //SpriteBatch's default AlphaBlend, so a brush composites as `rgb + dst * (1 - a/255)`: the RGB is the
+        //light the slab ADDS and the alpha is only how much of the scene it BLOCKS. A colour here is therefore
+        //not "grey V at opacity A" — it is grey V*A. The figures below are written as that product, and the
+        //grey each one means is named, or the next lighter tone gets typed in unmultiplied and comes out milky
+        //over a bright sky. (#179 measured this from the other side without naming it: alpha 190 let "a
+        //quarter" of a blurred sky through the plate, which is exactly 1 - 190/255.)
+        //
+        //#216 was "the buttons are too dark", and it has exactly one solution rather than a dial to turn, for a
+        //reason that only shows on the SETTINGS page. A control has to be legible in three places at once, and
+        //the three pull against each other:
+        //
+        //  · over a BRIGHT SKY it must still block enough light to hold near-white type (desert, sea, moon);
+        //  · over a DARK SCENE it must read as a surface at all (space, cavern);
+        //  · on a PLATE it must read as a control — and a plate is a mid-dark panel, so the slab has to stand
+        //    a clear step away from MENU_PLATE's own tone, in one direction or the other.
+        //
+        //That third one is what makes this binary. Every settings value, both pickers' entries and About's
+        //link sit ON a plate, and a tone anywhere near the plate's own is invisible there — tried, and the
+        //value buttons vanished into the card. So a control is either well BELOW the plate (near-black, which
+        //is what #216 was filed about) or well ABOVE it. There is no modest version in between, and the ask
+        //is for lighter, so these cross over: the plate is now the recessed panel and the controls are the
+        //raised things on it. That INVERTS #179's tone order rather than keeping it — see MENU_PLATE below,
+        //where the reversal is argued, and note that #179's own goal (a panel that cannot be mistaken for a
+        //control) is served better this way round than it was by making the panel the lighter of the two.
+        //
+        //Some transparency is spent as well as tone, because the complaint is really the six black bars the
+        //front end stacked over its own scene (#217): a quarter of the backdrop comes through the rest state.
+        //It cannot be much more than a quarter — the label is near-white, so a slab that stops blocking the
+        //scene stops holding its own type, and at a quarter the worst case in the game (white type over a
+        //blown sky) still measures about 4:1.
+        private static readonly Color MENU_BUTTON = new(55, 55, 55, 191);           //grey 73, 75 % — a quarter through
+        private static readonly Color MENU_BUTTON_OVER = new(104, 104, 104, 230);   //grey 116, 90 %
+        private static readonly Color MENU_BUTTON_PRESSED = new(132, 132, 132, 240);//grey 140, 94 %
 
         //Built once and shared by every entry. A brush holds no per-widget state, and the focus highlight
         //swaps an entry between the first two of these rather than minting a brush per frame.
@@ -165,7 +198,7 @@ namespace BS3D
         //A pause dims the whole frame, because what is behind it is a stopped game and the menu is the thing
         //to look at. The front end does NOT: there the rotating scene is the point of the screen, and a
         //full-screen wash over it throws away the one thing that screen exists to show. Its legibility comes
-        //from the widgets instead — the entries are near-opaque slabs and the prose sits on a plate.
+        //from the widgets instead — the entries carry their own glass and the prose sits on a plate.
         //
         //Drawn by the HOST's own batch since #114, not as the Myra root's background: Myra's paint stops a
         //couple of rows short of the viewport's bottom edge (see the scrim block in Draw for the measurement),
@@ -173,17 +206,26 @@ namespace BS3D
         internal static readonly Color PAUSE_SCRIM = new(0, 0, 0, 176);
 
         //Behind prose, where a slab alone cannot hold a line of small text steady over a moving scene — and
-        //LIGHTER than a button, which is the rule rather than the taste (#179): a plate only informs, so it
-        //must not carry a control's weight. It was near-black at 190, a step off MENU_BUTTON's own (11, 11, 11,
-        //212), and on the result screen — the one page where a plate is a SIBLING of the buttons rather than
-        //the card they sit on — the score table read as a fourth, unclickable button in the stack.
+        //NOT a control's weight, which is the rule rather than the taste (#179): a plate only informs. It was
+        //near-black at 190, a step off MENU_BUTTON's own (11, 11, 11, 212) of the time, and on the result
+        //screen — the one page where a plate is a SIBLING of the buttons rather than the card they sit on —
+        //the score table read as a fourth, unclickable button in the stack.
         //
-        //On the grey ramp it sits between a button's rest and its hover (11 < 42 < 72 < 120 pressed), which is
-        //deliberate and is as far as it can go: past the hover step a static panel would read as the entry the
-        //pointer is on. Nothing disambiguates the two by tone alone, and nothing has to — a hover is transient
-        //and under the pointer, where this holds a table and never moves. The opacity goes up with the tone
-        //because the panel has to be its own surface now that the result screen carries no scrim: at 190 a
-        //quarter of a bright blurred sky came through the numbers.
+        //#179 bought that by making the PLATE the lighter of the two (11 < 42 < 72 hover < 120 pressed), and
+        //#216 turns that order upside down: a control is grey 73 now and this is grey 50, so the panel is the
+        //RECESSED surface and the controls are raised on it. The rule survives the inversion and is better
+        //served by it — what #179 actually wanted is a panel that cannot be mistaken for a control, and "the
+        //card is darker than the things on it" is the reading every player already has, where "the card is
+        //lighter" only worked as long as a button was near-black. The step is what matters and not its sign:
+        //about 20 of tone, measured on the card rather than assumed, in both directions from the plate.
+        //
+        //The figure below did NOT move for it, and that is the point of stating this here: the tone is #179's
+        //and the reason it can stay is that the controls moved past it rather than towards it.
+        //
+        //The opacity stays where #179 measured it, and that is the half of this constant that is load-bearing:
+        //the panel has to be its own surface, because the result screen carries no scrim and the small print
+        //on it is the one type here that is not near-white Anton. At 190 a quarter of a bright blurred sky came
+        //through the numbers — see the premultiplied note above for why that fraction is exactly 1 - 190/255.
         internal static readonly Color MENU_PLATE = new(42, 42, 42, 214);
 
 
@@ -250,11 +292,29 @@ namespace BS3D
         private const int MENU_FONT_HEADING = 124;
         private const int MENU_FONT_TITLE = 170;
 
+        //The front end gets its own two sizes rather than growing the shared pair, and that is a constraint
+        //rather than tidiness (#217). MENU_FONT_BODY is every button in the game, and the SETTINGS page is
+        //what bounds it: thirteen rows once ran off the bottom of the window and took Back with them (#138),
+        //and its column already stands close to the design height at the size above. MENU_FONT_TITLE is
+        //shared too — the splash's card and the result screen's headings, one of which is the whole of
+        //"CAMPAIGN COMPLETE". So the one page that wants to be loud is loud by itself, and the pages that
+        //have a height budget keep theirs.
+        //
+        //240 sets the whole of GAME_TITLE in about 30 % of a 16:9 frame's width — measured off a 1600x900
+        //capture (483 of 1600 px, i.e. ~1160 design units), not estimated from an em box, Anton being far
+        //more condensed than a count of letters suggests. That clears every aspect anyone plays at with room
+        //to spare, and it has to be checked rather than assumed whenever either figure moves: Myra does not
+        //shrink text to fit and Wrap is off, so a title too wide for its frame clips silently.
+        private const int MENU_FONT_GAME_TITLE = 240;
+        private const int MENU_FONT_FRONT_ENTRY = 108;
+
         //The result screen's star rating — a headline, but set in INTER at a heading's size rather than in
         //the display face like every other loud thing here: Anton carries no ★/☆ glyphs at all (checked in
         //the font, not assumed), and FontStashSharp would draw blanks where the rating should be. A size is
-        //its own atlas, hence its own constant and its own GetFont below.
-        private const int MENU_FONT_STARS = 116;
+        //its own atlas, hence its own constant and its own GetFont below. Above HEADING now (#199): at 116
+        //the rating read as body text wearing star glyphs — it is the headline a player reads at a glance
+        //(#111), and at play distance four glyphs need title-adjacent weight to be read as one.
+        private const int MENU_FONT_STARS = 140;
 
         //The exposure ladder the settings button walks. Centred on DEFAULT_EXPOSURE, wide enough either way
         //to matter on a dim laptop panel and on a bright monitor without ever crushing or blowing the frame.
@@ -348,6 +408,10 @@ namespace BS3D
             _menuFontTitle = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_TITLE));
             _menuFontStars = _menuFontSystem.GetFont(Scaled(MENU_FONT_STARS));
 
+            //The front end's own two, for the one page with no height budget to keep (#217)
+            _menuFontGameTitle = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_GAME_TITLE));
+            _menuFontFrontEntry = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_FRONT_ENTRY));
+
             //The trees themselves are NOT rebuilt here: each page rebuilds its own the next time it is asked
             //for one, against this generation (MenuLayoutGeneration). A page the player never opens never
             //builds a tree at all, where this used to rebuild all eight on every step of a window drag.
@@ -404,6 +468,7 @@ namespace BS3D
         internal SpriteFontBase MenuFontHeading => _menuFontHeading;
         internal SpriteFontBase MenuFontTitle => _menuFontTitle;
         internal SpriteFontBase MenuFontStars => _menuFontStars;
+        internal SpriteFontBase MenuFontGameTitle => _menuFontGameTitle;
 
         //What the pages ask the game about itself. Read-only: a page shows state and asks for an action, and
         //nothing here lets it write one directly.
@@ -450,6 +515,77 @@ namespace BS3D
         /// both open, so the gate only ever bites where a set said it should.
         /// </summary>
         internal bool IsLevelUnlocked(int index) => TotalStars >= LevelMinStars(index);
+
+        #region The campaign's blocks (#184)
+
+        /// <summary>What the block containing <paramref name="index"/> is called, or null when it is in none.</summary>
+        internal string LevelBlockName(int index) =>
+            _levelSet != null && index >= 0 && index < _levelSet.Count ? _levelSet.BlockName(index) : null;
+
+        /// <summary>Which block the entry is in, counting from 1 — the "3" of "block 3 of 5".</summary>
+        internal int LevelBlockNumber(int index) =>
+            _levelSet != null && index >= 0 && index < _levelSet.Count ? _levelSet.BlockNumber(index) : 0;
+
+        /// <summary>How many blocks the campaign is in — the "5".</summary>
+        internal int BlockCount => _levelSet?.BlockCount ?? 0;
+
+        /// <summary>
+        /// Whether <b>every</b> level of the block containing <paramref name="index"/> has been cleared — which
+        /// is what finishing a block means, and it is deliberately not "the last level of the block was cleared".
+        /// <para>
+        /// The picker gates on the campaign's star <i>total</i>, not on the previous level, so a block can be
+        /// played out of order: six stars from the first two levels open the fifth, and a player who takes it
+        /// early has not finished the block. Asking whether the whole run is cleared is right however they got
+        /// there, and it also makes the milestone survive a player who leaves one level for later and comes back
+        /// to it — that return clear is the one that completes the block, which is exactly when it should fire.
+        /// </para>
+        /// <para>
+        /// A level counts as cleared when it holds at least one star, which is the same test the picker's tiles
+        /// read. A set with no blocks has every entry in a run of one, so this is simply "was this level
+        /// cleared" there, and <see cref="Prazsky.BS3D.Levels.LevelSet.HasBlocks"/> is what keeps a milestone
+        /// from being claimed for it.
+        /// </para>
+        /// </summary>
+        internal bool IsBlockComplete(int index)
+        {
+            if (_levelSet == null || _progress == null || index < 0 || index >= _levelSet.Count) return false;
+
+            _levelSet.BlockRange(index, out int first, out int last);
+
+            for (int i = first; i <= last; i++)
+                if (_progress.StarsFor(_levelSet.Levels[i].File) <= 0) return false;
+
+            return true;
+        }
+
+        /// <summary>
+        /// Whether clearing <paramref name="index"/> <b>right now</b> would finish its block — every other level
+        /// of the chapter already cleared, and the chapter not already finished. It is the question the game
+        /// actually has at the moment a field empties, which is <i>before</i> the clear has been recorded, so
+        /// <see cref="IsBlockComplete"/> would answer it one level short.
+        /// <para>
+        /// The "not already finished" half is what makes a <b>replay</b> an ordinary clear. Take a block whose
+        /// five levels are all cleared and play the third again: every other level is cleared, so the first test
+        /// passes on its own and the milestone would fire every time the player went back for a better rating.
+        /// </para>
+        /// </summary>
+        internal bool WouldCompleteBlock(int index)
+        {
+            if (_levelSet == null || _progress == null || index < 0 || index >= _levelSet.Count) return false;
+            if (!_levelSet.HasBlocks || IsBlockComplete(index)) return false;
+
+            _levelSet.BlockRange(index, out int first, out int last);
+
+            for (int i = first; i <= last; i++)
+                if (i != index && _progress.StarsFor(_levelSet.Levels[i].File) <= 0) return false;
+
+            return true;
+        }
+
+        /// <summary>Whether the set is chaptered at all; false leaves the game playing exactly as it did.</summary>
+        internal bool CampaignHasBlocks => _levelSet?.HasBlocks ?? false;
+
+        #endregion
 
         /// <summary>
         /// Names the level being played in the window's title bar, and restores the plain
@@ -783,11 +919,19 @@ namespace BS3D
         }
 
         /// <summary>
-        /// A screen: the column of widgets centred over the whole frame. It carries <b>no background</b> —
-        /// the scrim a dimming page wants is the host's own quad since #114 (see the scrim block in Draw) —
-        /// but the panel still stretches, because it is what centres the column and what Myra hit-tests.
+        /// A screen: the page's widgets over the whole frame. It carries <b>no background</b> — the scrim a
+        /// dimming page wants is the host's own quad since #114 (see the scrim block in Draw) — but the panel
+        /// still stretches, because it is what places its children and what Myra hit-tests.
+        /// <para>
+        /// One child is the usual case and it is a centred column. Several is the front end since #217, which
+        /// is laid out as a <b>composition</b> instead of a stack: a Myra <c>Panel</c> arranges every child
+        /// against the full client rectangle by that child's own alignment, so a title pinned top-right and a
+        /// column pinned bottom-left are two children here rather than a grid. They are added in the order the
+        /// <b>pad and the arrow keys</b> should step through, since <c>CollectNavEntries</c> follows the order
+        /// widgets were added and not where they landed.
+        /// </para>
         /// </summary>
-        internal static Panel ScreenRoot(Widget content)
+        internal static Panel ScreenRoot(params Widget[] content)
         {
             Panel panel = new()
             {
@@ -795,7 +939,7 @@ namespace BS3D
                 VerticalAlignment = VerticalAlignment.Stretch,
             };
 
-            panel.Widgets.Add(content);
+            foreach (Widget child in content) panel.Widgets.Add(child);
 
             return panel;
         }
@@ -859,10 +1003,41 @@ namespace BS3D
 
         internal Button MenuButton(string text, Action onClick) => MenuButton(text, onClick, out _);
 
+        internal Button FrontEndEntry(string text, Action onClick) => FrontEndEntry(text, onClick, out _);
+
+        /// <summary>
+        /// A front-end entry: <see cref="MenuButton"/>'s behaviour in the main menu's own larger type, with its
+        /// label against the <b>left</b> edge of the slab (#217). Everything that makes it a menu entry rather
+        /// than a button — the shared brushes the focus highlight swaps by identity, the click sound, the
+        /// <c>Tag</c> the pad activates through — comes from the same <see cref="MenuClickable"/> core, so this
+        /// cannot drift away from the entries on every other page.
+        /// <para>
+        /// Its own method rather than parameters on <see cref="MenuButton"/>: exactly one page is laid out this
+        /// way, and an alignment argument on the call every other page makes would be a knob nobody turns. The
+        /// slab keeps <see cref="MENU_BUTTON_WIDTH"/> — deliberately, so the front end and a pause read as the
+        /// same control differently placed, and because that figure is also what the result screen's score
+        /// plate is pinned to (#179) and must not become "the front end's width".
+        /// </para>
+        /// </summary>
+        internal Button FrontEndEntry(string text, Action onClick, out Label label)
+        {
+            Button entry = MenuButton(text, onClick, out label);
+
+            label.Font = _menuFontFrontEntry;
+            label.HorizontalAlignment = HorizontalAlignment.Left;
+
+            //Opened up with the type: MenuButton's padding is cut for the shared body size, and at this one the
+            //label sat tight against the slab's edges.
+            entry.Padding = ScaledThickness(56, 22);
+
+            return entry;
+        }
+
         /// <summary>
         /// One menu entry. Myra's default button style is a framed grey tool button, so every brush is stated
-        /// here instead: dark glass at rest, and the pointer <b>lifts</b> it with a wash of white rather than
-        /// tinting it — see the palette above for why nothing in this menu carries a hue. No border either:
+        /// here instead: a mid-grey slab with a quarter of the scene through it at rest, which the pointer
+        /// <b>lifts</b> rather than tinting — see the palette above for why nothing in this menu carries a hue
+        /// and why a control is now the lighter of it and a plate. No border either:
         /// the tone step at the button's edge is enough to read it as a control, and a drawn frame over seven
         /// different backdrops is a shape competing with all of them.
         /// </summary>

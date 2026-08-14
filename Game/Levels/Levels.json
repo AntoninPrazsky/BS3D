@@ -6,12 +6,14 @@
     {
       "file": "One.json",
       "name": "One",
+      "block": "The Meadow",
       "shots": 30,
       "ceilingStep": 5
     },
     {
       "file": "Three.json",
       "name": "Bullseye",
+      "block": "The Meadow",
       "shots": 40,
       "minStars": 1,
       "ceilingStep": 8
@@ -19,6 +21,7 @@
     {
       "file": "Toadstool.json",
       "name": "Toadstool",
+      "block": "The Meadow",
       "shots": 44,
       "minStars": 2,
       "ceilingStep": 9
@@ -26,6 +29,7 @@
     {
       "file": "Five.json",
       "name": "Pinwheel",
+      "block": "The Meadow",
       "shots": 44,
       "minStars": 4,
       "ceilingStep": 9
@@ -33,6 +37,7 @@
     {
       "file": "Seven.json",
       "name": "Gem",
+      "block": "The Meadow",
       "shots": 44,
       "minStars": 6,
       "ceilingStep": 9
@@ -40,6 +45,7 @@
     {
       "file": "Heart.json",
       "name": "Heart",
+      "block": "The Gallery",
       "shots": 60,
       "minStars": 8,
       "ceilingStep": 10
@@ -47,6 +53,7 @@
     {
       "file": "Smiley.json",
       "name": "Smiley",
+      "block": "The Gallery",
       "shots": 60,
       "minStars": 10,
       "ceilingStep": 10
@@ -54,6 +61,7 @@
     {
       "file": "Star.json",
       "name": "Star",
+      "block": "The Gallery",
       "shots": 55,
       "minStars": 12,
       "ceilingStep": 9
@@ -61,6 +69,7 @@
     {
       "file": "Elephant.json",
       "name": "Elephant",
+      "block": "The Gallery",
       "shots": 48,
       "minStars": 14,
       "ceilingStep": 8
@@ -68,6 +77,7 @@
     {
       "file": "Zebra.json",
       "name": "Zebra",
+      "block": "The Gallery",
       "shots": 48,
       "minStars": 16,
       "ceilingStep": 8
@@ -75,6 +85,7 @@
     {
       "file": "Rope.json",
       "name": "Rope",
+      "block": "The Coil",
       "shots": 40,
       "minStars": 18,
       "ceilingStep": 8
@@ -82,6 +93,7 @@
     {
       "file": "Minaret.json",
       "name": "Minaret",
+      "block": "The Coil",
       "shots": 44,
       "minStars": 20,
       "ceilingStep": 8
@@ -89,6 +101,7 @@
     {
       "file": "Basket.json",
       "name": "Basket",
+      "block": "The Coil",
       "shots": 48,
       "minStars": 22,
       "ceilingStep": 7
@@ -96,6 +109,7 @@
     {
       "file": "Pendulum.json",
       "name": "Pendulum",
+      "block": "The Coil",
       "shots": 52,
       "minStars": 24,
       "ceilingStep": 7
@@ -103,34 +117,39 @@
     {
       "file": "Knot.json",
       "name": "Knot",
+      "block": "The Coil",
       "shots": 50,
       "minStars": 26,
       "ceilingStep": 6
     },
     {
+      "file": "Ten.json",
+      "name": "Column",
+      "block": "The Tower",
+      "shots": 90,
+      "minStars": 28,
+      "ceilingStep": 5
+    },
+    {
       "file": "Six.json",
       "name": "Crown",
+      "block": "The Tower",
       "shots": 44,
-      "minStars": 28,
+      "minStars": 30,
       "ceilingStep": 9
     },
     {
       "file": "Horn.json",
       "name": "Horn",
+      "block": "The Tower",
       "shots": 80,
-      "minStars": 30,
-      "ceilingStep": 6
-    },
-    {
-      "file": "Ten.json",
-      "name": "Column",
-      "shots": 90,
       "minStars": 32,
-      "ceilingStep": 5
+      "ceilingStep": 6
     },
     {
       "file": "Helix.json",
       "name": "Helix",
+      "block": "The Tower",
       "shots": 66,
       "minStars": 34,
       "ceilingStep": 5
@@ -138,6 +157,7 @@
     {
       "file": "Lean.json",
       "name": "Lean",
+      "block": "The Tower",
       "shots": 78,
       "minStars": 36,
       "ceilingStep": 6
@@ -145,6 +165,7 @@
     {
       "file": "Eleven.json",
       "name": "Onion",
+      "block": "The Reveal",
       "shots": 48,
       "minStars": 38,
       "ceilingStep": 8
@@ -152,6 +173,7 @@
     {
       "file": "Chest.json",
       "name": "Chest",
+      "block": "The Reveal",
       "shots": 56,
       "minStars": 40,
       "ceilingStep": 9
@@ -159,6 +181,7 @@
     {
       "file": "Fossil.json",
       "name": "Fossil",
+      "block": "The Reveal",
       "shots": 36,
       "minStars": 42,
       "ceilingStep": 9
@@ -166,6 +189,7 @@
     {
       "file": "Mango.json",
       "name": "Mango",
+      "block": "The Reveal",
       "shots": 36,
       "minStars": 44,
       "ceilingStep": 7
@@ -173,6 +197,7 @@
     {
       "file": "Lantern.json",
       "name": "Lantern",
+      "block": "The Reveal",
       "shots": 58,
       "minStars": 46,
       "ceilingStep": 7
@@ -180,6 +205,7 @@
     {
       "file": "Four.json",
       "name": "Mosaic",
+      "block": "The Quarry",
       "shots": 56,
       "minStars": 48,
       "ceilingStep": 8
@@ -187,6 +213,7 @@
     {
       "file": "Eight.json",
       "name": "Prism",
+      "block": "The Quarry",
       "shots": 60,
       "minStars": 50,
       "ceilingStep": 6
@@ -194,6 +221,7 @@
     {
       "file": "Hopper.json",
       "name": "Hopper",
+      "block": "The Quarry",
       "shots": 60,
       "minStars": 52,
       "ceilingStep": 6
@@ -201,6 +229,7 @@
     {
       "file": "Nine.json",
       "name": "Static",
+      "block": "The Quarry",
       "shots": 60,
       "minStars": 54,
       "ceilingStep": 5
@@ -208,6 +237,7 @@
     {
       "file": "Colossus.json",
       "name": "Colossus",
+      "block": "The Quarry",
       "shots": 45,
       "minStars": 56,
       "ceilingStep": 4

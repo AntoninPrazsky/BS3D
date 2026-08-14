@@ -21,7 +21,7 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class ResultPage : MenuPage
     {
-        private Label _heading, _newBest, _reason, _bareScore;
+        private Label _heading, _milestone, _newBest, _reason, _bareScore;
 
         //One widget per slot rather than one string of glyphs: a Label's glyphs cannot be scaled, coloured or
         //timed apart from each other, and the reveal needs all three per star (#139).
@@ -456,13 +456,29 @@ namespace BS3D.Screens
             };
             column.Widgets.Add(_heading);
 
+            //A finished block's own line, under the chapter's name in the heading and only on the milestone
+            //(#184). It is where the block gets to be a place rather than a number: the heading says THE TOWER
+            //and this says which of how many that was, so the player learns the campaign's shape from finishing
+            //one of it rather than from counting tiles in the picker. Held back on every ordinary clear.
+            _milestone = new Label
+            {
+                Text = string.Empty,
+                Font = FontBody,
+                TextColor = BS3DGame.MENU_TEXT_BODY,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = ScaledThickness(0, 0, 0, 26),
+            };
+            column.Widgets.Add(_milestone);
+
             //The star rating, straight under the verdict — the headline a player reads at a glance where the
             //score below is the arithmetic (#111). Set in Inter (FontStars), not the display face: Anton has
             //no ★/☆ glyphs at all, and FontStashSharp would draw blanks. Opened up so four glyphs read as a
             //rating rather than as a word — by the row's own spacing now that they are four widgets.
             _starRow = new HorizontalStackPanel
             {
-                Spacing = Scaled(26),
+                //Opened with the glyphs (#199): at 140 px each, the same 26 of spacing read as a word again —
+                //the gaps have to grow with the type for four stars to read as a rating.
+                Spacing = Scaled(34),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 12),
             };
@@ -485,10 +501,13 @@ namespace BS3D.Screens
             column.Widgets.Add(_starRow);
 
             //Under the stars, and only when a best actually moved: a line that is always there says nothing.
+            //Body, not small (#199): the one label on this screen that says the run beat every run before it
+            //was the quietest thing on it — dim in colour to stay secondary, but a size that carries at play
+            //distance.
             _newBest = new Label
             {
                 Text = "New best",
-                Font = FontSmall,
+                Font = FontBody,
                 TextColor = BS3DGame.MENU_TEXT_DIM,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 12),
@@ -651,7 +670,21 @@ namespace BS3D.Screens
             //Brightness, not colour: "FAILED" is the same grey as "CLEARED", and the reason below is what tells
             //them apart — see the palette comment for why the chrome carries no hue. The star row below is the
             //one deliberate exception on this page, and the reason it is one is recorded there.
-            _heading.Text = _result.CampaignComplete ? "CAMPAIGN COMPLETE" : (_result.Cleared ? "CLEARED" : "FAILED");
+            //A finished BLOCK takes the chapter's own name as the heading (#184) — "THE TOWER" where an ordinary
+            //clear says "CLEARED". It is the milestone's whole presentation problem in one line: a heading that
+            //said "BLOCK COMPLETE" would be the same shape of change as CAMPAIGN COMPLETE was, a different string
+            //over an identical page, and the thing worth telling the player is WHICH chapter they just closed.
+            //Upper-cased here rather than authored in caps, so a set can name its blocks in prose.
+            _heading.Text = _result.CampaignComplete ? "CAMPAIGN COMPLETE"
+                : _result.BlockComplete && !string.IsNullOrWhiteSpace(_result.BlockName) ? _result.BlockName.ToUpperInvariant()
+                : _result.Cleared ? "CLEARED" : "FAILED";
+
+            //And under it, where that chapter sat. Only on the milestone: on any other ending the line would be
+            //stating a fact about a block nobody has just finished.
+            _milestone.Text = _result.BlockComplete
+                ? $"Block {_result.BlockNumber} of {_result.BlockCount} complete"
+                : string.Empty;
+            _milestone.Visible = _result.BlockComplete;
 
             //Stars only on a clear, and written from the reveal clock rather than set here — see ApplyStars
             ApplyStars();
