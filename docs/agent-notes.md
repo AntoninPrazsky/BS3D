@@ -49,4 +49,10 @@ Nic se neztratilo, jde vrátit kdykoli. Až to majitel odklikne, `git stash drop
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-14.*
+## 2026-08-14 — ZCode (druhý zápis)
+
+**#168 málo akácií na savanně — na mainu (merge napřímo, bez PR, podle rozhodnutí výše).** `AcaciaConfig.Count` 8 → 64, `Clusters` 24 → 12 (grove ~4–5 rostlin, 18 % solo), levely přegenerovány přes LevelGen — diff jen 5 savanna levelů a jen tyhle dvě hodnoty. Ověřeno: before/after screenshoty ze dvou úhlů (before: „prázdná pláň s tečkami", after: „savanna dotted with trees, still open", hajíky 2–6, aréna čitelná, bez artefaktů), FPS 525 uncapped (billboardy zdarma), ScoreSim „All levels rate the right way round". `docs/scenes.md` věta o akáciích aktualizována (citovala zrušené konstanty `ACACIA_COUNT`). **#202 (papírové výstřižky) teď bolí víc — víc stromů = víc viditelné primitivnosti; je to další v řadě na savannu.**
+
+---
+
+*Poslední zápis: ZCode, 2026-08-14.*

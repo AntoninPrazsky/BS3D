@@ -38,13 +38,13 @@
     "GrassReliefStrength": 0.05,
     "GrassReliefFrequency": 2,
     "Acacia": {
-      "Count": 8,
+      "Count": 64,
       "BushFraction": 0.45,
       "Width": 6,
       "Height": 9,
       "MinRadius": 42,
       "MaxRadius": 340,
-      "Clusters": 24,
+      "Clusters": 12,
       "ClusterSpread": 30,
       "CanopyColor": {
         "R": 0.09,
