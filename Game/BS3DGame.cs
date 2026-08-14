@@ -120,6 +120,10 @@ namespace BS3D
         //covers the gameplay screen, which is exactly when the player is watching it.
         private Fireworks _fireworks;
 
+        //The campaign's closing confetti (#215), on the frame for the same reason and alongside the display
+        //rather than instead of it: finishing the whole set is the one ending that gets both.
+        private Confetti _confetti;
+
         //The level theme. On the host with the rest of the audio, because it outlives any one session and a
         //track that restarted from the top on every retry would be exhausting.
         private ProceduralMusic _music;
@@ -133,6 +137,9 @@ namespace BS3D
 
         //Testing only: the "celebrate" argument, fired once the display exists.
         private readonly bool _startupCelebrate;
+
+        //Testing only: the "confetti" argument, fired once the field exists (#215).
+        private readonly bool _startupConfetti;
 
         //Testing only: the "lasers" argument, read by the session's warning check every frame.
         private readonly bool _startupLasers;
@@ -176,6 +183,13 @@ namespace BS3D
         /// screen over the session, and a covered screen stops being updated â€” see <see cref="Fireworks"/>.
         /// </summary>
         internal Fireworks Fireworks => _fireworks;
+
+        /// <summary>
+        /// The campaign's closing confetti (#215). On the host for the reason <see cref="Fireworks"/> is, and
+        /// separate from it because the campaign's ending is a different <i>kind</i> of celebration rather than
+        /// a bigger one — see <see cref="Confetti"/>.
+        /// </summary>
+        internal Confetti Confetti => _confetti;
 
         /// <summary>The level theme, synthesized at load and looped while a level is being played.</summary>
         internal ProceduralMusic Music => _music;
@@ -454,6 +468,11 @@ namespace BS3D
         /// level is the only thing that normally starts it and clearing one cannot be scripted, so this is how
         /// the fireworks get screenshotted and measured at all.
         /// </param>
+        /// <param name="confetti">
+        /// Testing only (the <c>confetti</c> argument): start the campaign's closing confetti on the front end
+        /// (#215). One step further along <paramref name="celebrate"/>'s reasoning than <paramref name="blockDone"/>
+        /// is: a block milestone needs five levels played to reach honestly, where this needs the whole campaign.
+        /// </param>
         /// <param name="lasers">
         /// Testing only (the <c>lasers</c> argument): pin the floor alarm's laser net on while a level is
         /// being played â€” see <see cref="ForceLaserWarning"/>.
@@ -483,12 +502,13 @@ namespace BS3D
         /// </param>
         public BS3DGame(bool fullscreen = false, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE,
             bool uncappedFps = false, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
-            QualityLevel? quality = null, bool celebrate = false, bool lasers = false, bool mute = false,
-            bool play = false, bool result = false, bool blockDone = false, float[] shotSeconds = null,
-            string level = null)
+            QualityLevel? quality = null, bool celebrate = false, bool confetti = false, bool lasers = false,
+            bool mute = false, bool play = false, bool result = false, bool blockDone = false,
+            float[] shotSeconds = null, string level = null)
         {
             _fullscreen = fullscreen;
             _startupCelebrate = celebrate;
+            _startupConfetti = confetti;
             _startupLasers = lasers;
             _startupLevel = level;
 
@@ -806,8 +826,17 @@ namespace BS3D
             //but a handful of uniforms.
             _fireworks = new Fireworks(GraphicsDevice, Content.Load<Effect>("Shaders/Fireworks"), _audio);
 
+            //And the campaign's confetti, whose one static buffer is built here for the same reason (#215).
+            _confetti = new Confetti(GraphicsDevice, Content.Load<Effect>("Shaders/Confetti"));
+
             //Testing only, and deliberately long: it has to outlast a scripted screenshot burst.
             if (_startupCelebrate) _fireworks.Celebrate(90f);
+
+            //"confetti" asks for the campaign's ending on the front end. Clearing the last level of the set is
+            //the only thing that normally starts it, and that cannot be scripted at all — it is `celebrate`'s
+            //reasoning one step further along again, past even `blockdone`: a block milestone needs five levels
+            //played, where this needs the whole campaign.
+            if (_startupConfetti) _confetti.Celebrate(90f);
 
             //The level theme. The constructor only starts the synthesis â€” two minutes of PCM is a couple of
             //seconds of arithmetic, and it runs on a background thread while the player is still looking at
@@ -1091,6 +1120,7 @@ namespace BS3D
             //covered screen is not updated at all. Driven off the frame's own elapsed time rather than a play
             //clock, so it does not stop when the game does.
             _fireworks?.Update(elapsed);
+            _confetti?.Update(elapsed);
 
             //The music's handover: a pass is played once rather than looped, and this is what puts the next
             //freshly synthesized variation on when the current one ends (see ProceduralMusic.Update). Up here
@@ -1362,6 +1392,7 @@ namespace BS3D
             _audio?.Dispose();
             _ambience?.Dispose();
             _fireworks?.Dispose();
+            _confetti?.Dispose();
             _music?.Dispose();
 
             base.UnloadContent();

@@ -486,6 +486,13 @@ namespace BS3D
             //covers the session (see Fireworks).
             _fireworks?.Draw(_camera);
 
+            //The confetti after them, and inside the same HDR pass for the opposite half of that reason: the
+            //paper does NOT emit, and being tonemapped with the rest of the frame is what keeps it looking lit
+            //rather than luminous — the glare threshold is what decides which of its broadside flashes glint.
+            //After the fireworks rather than before because it is alpha-blended over what is behind it and the
+            //shells are additive light in the sky, so a piece of paper crossing one should cover it (#215).
+            _confetti?.Draw(_camera);
+
             //How far under the sea the lens is. Only the sea has water to get under, and only the drop cinematic
             //ever takes the camera down there — the play camera stands on the island. Zero everywhere else, which
             //is a no-op in the shader.

@@ -41,6 +41,7 @@ namespace BS3D.Screens
             //would otherwise still be bursting over the opening seconds of the next level — which reads as the
             //game celebrating a level the player has not played yet.
             Game.Fireworks?.Stop();
+            Game.Confetti?.Stop();
 
             //The previous result's fanfare goes now, or a win's brass would still be ringing over the opening
             //of the next attempt. The theme itself comes up further down — after the install, which is what
@@ -83,6 +84,7 @@ namespace BS3D.Screens
 
             //With it, or a Retry after a block milestone would celebrate the chapter a second time
             _blockCompleted = false;
+            _campaignCompleted = false;
 
             //The drop cinematic's bar is the biggest release of the level being played, so it starts over
             //with the level — otherwise the last one's best would follow the player into this one
@@ -123,6 +125,7 @@ namespace BS3D.Screens
             //the front end for the best part of a minute.
             Game.Music?.Stop();
             Game.Fireworks?.Stop();
+            Game.Confetti?.Stop();
 
             //Idempotent, which is what this needs: DisposeResources runs it again on the way out of the program
             _world?.Dispose();

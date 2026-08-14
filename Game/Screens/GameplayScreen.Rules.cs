@@ -218,6 +218,16 @@ namespace BS3D.Screens
             //which is an ordinary clear because that is what it is.
             _blockCompleted = Game.WouldCompleteBlock(_levelIndex);
 
+            //AND WHETHER IT FINISHES THE CAMPAIGN (#215), here for the identical reason and expressed once so
+            //that the page cannot answer a different question from the confetti. "Complete" only when there
+            //actually was a campaign — a set of more than one level cleared to its end — because a single-level
+            //set is just a level cleared, and calling that the end of a campaign overstates it.
+            //
+            //Cheap and knowable this early: unlike the block, which has to look at every level of a run, this
+            //is the last entry of the set, and this clear is the clear.
+            _campaignCompleted = Game.LevelSet != null && Game.LevelSet.Count > 1
+                                 && _levelIndex + 1 >= Game.LevelSet.Count;
+
             //The party. Started here rather than when the result screen appears, so the first shells are
             //already climbing while the last of the cluster is still falling — the celebration overlaps the
             //moment it is celebrating instead of following it. It runs on the host, so it carries on over the
@@ -228,6 +238,15 @@ namespace BS3D.Screens
             //off they are reading their score. See Fireworks.Celebrate's own remarks.
             Game.Fireworks?.Celebrate(CELEBRATION_SECONDS, CELEBRATION_DELAY,
                 _blockCompleted ? BLOCK_CELEBRATION_OPENING : 0f);
+
+            //And the confetti, but only for the campaign's own ending (#215). This is the one beat that is not
+            //a dial on the display: #184 had already established that a celebration is made to read as BIGGER
+            //by lengthening its opening, and by the time a block completes that dial is at eight seconds of an
+            //already-maximum density — there is nothing above it. So the last ending gets a different KIND of
+            //thing rather than more of the same, and it runs alongside the fireworks rather than instead of
+            //them. No delay of its own: the fanfare's opening statement is already protected by the display's,
+            //and paper starting to fall is not a sound.
+            if (_campaignCompleted) Game.Confetti?.Celebrate(CONFETTI_SECONDS);
 
             //And the theme stops dead, so the reports land in silence. A bang competing with a four-to-the-
             //floor kick is a bang nobody hears, and the sudden quiet is itself part of winning.
@@ -495,10 +514,13 @@ namespace BS3D.Screens
                 nextLevelMinStars: lastEntry ? 0 : Game.LevelMinStars(_levelIndex + 1),
                 totalStars: Game.TotalStars,
 
-                //"Campaign complete" only when there actually was a campaign — a set of more than one level
-                //cleared to its end. A single-level set is just a level cleared, and calling it a campaign's
-                //end overstates what happened and hides the Retry that is still the point of the screen.
-                campaignComplete: cleared && lastEntry && Game.LevelSet != null && Game.LevelSet.Count > 1,
+                //"Campaign complete", read off the decision CheckLevelCleared already took rather than derived
+                //again (#215) — the confetti has been falling on it for a beat by now, and the rule that only a
+                //set of more than one level cleared to its end counts as a campaign lives there, once. Still
+                //gated on `cleared` here because that decision is only ever taken on a clear: a LOSS on the last
+                //level reaches this line with the flag from no clear at all, and it must not say the campaign is
+                //over. (Which is also why it is cleared with the rest of a level's state in BuildLevel.)
+                campaignComplete: cleared && _campaignCompleted,
 
                 //The block milestone (#184), read off the decision CheckLevelCleared already took rather than
                 //asked again: the record above has been written by now, so re-asking would answer a different
