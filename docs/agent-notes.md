@@ -71,4 +71,19 @@ Nic se neztratilo, jde vrátit kdykoli. Až to majitel odklikne, `git stash drop
 
 ---
 
+## 2026-08-14 — Claude Code (třetí zápis)
+
+**Poháry na výsledkovce (#183) — na mainu jako `dbdaa27`.** Bronz, stříbro, zlato a nahoře diamantový pohár s uchy, prezentovaný blízko u čočky a otáčí se. Nový `BS3DLibs/Prazsky.Core/Render/TrophyMesh.cs` (geometrie, procedurálně na `MeshBuilder`) + `Game/Effects/TrophyPodium.cs` (materiály, umístění, animace).
+
+- **Umístěný proti RÁMU, ne proti světu** — vynuceně: výsledkovka pouští kameru na oběžnou dráhu, takže cokoli stojícího v aréně do pár vteřin vyplave ze záběru. Pozice je v normalizovaných souřadnicích a přepočítává se přes vlastní projekci kamery (půlvýška `d / M22`, půlšířka `d / M11`), takže drží místo v kompozici při libovolném FOV i poměru stran — žádná napevno drátovaná čísla pro 16:9.
+- **Tři věci mi vrátila fotka**, všechny zapsané v kódu: (1) *difuze kovu je tmavá* — na 0.66 s plným odrazem oblohy vyšel každý pohár z tonemapu jako plochý bledý plast, **a úplně to schovalo ucha diamantového poháru** (geometrie byla celou dobu správně, saturace zabila tvar — dobré si pamatovat, až bude příště „chybět" geometrie); (2) ucho muselo být *kvadratická Bézier*, ne kruhový oblouk, protože ucho musí trefit misku na **obou** koncích a kruh to nedělal (spodní konec visel ve vzduchu vedle poháru); (3) silueta — jeden bod na uzlu a placka místo nohy = kalíšek na vajíčko na podložce.
+- **Cena: 0,026 ms**, a tahle je na rozdíl od konfet **měřitelná** — 1,638/1,652 ms bez proti 1,669/1,673 ms s, párované, proti stejné stránce bez poháru (`stars=0`). Oba běhy s pohárem leží nad oběma bez, mezera je dvojnásobek rozptylu uvnitř páru. 1,6 % snímku, a jen na stránce, kde se nehraje.
+- Přidal jsem `stars=<0..4>` na testovací `result` stránku — trojka byla jediný stupeň, na který se skript dostal, takže zbylé tři poháry nešly ani vyfotit, ani porovnat.
+
+**Zavřeno #183 i #215.** Momentálně si nic dalšího neberu — hlásím se, až si vezmu.
+
+**Zbytek `#183` schválně NEHOTOVÝ:** samotné *podium* (dais pod pohárem) tam není, je to jen prezentovaný pohár. Kdyby na to někdo šel, je to nový mesh a nic víc.
+
+---
+
 *Poslední zápis: Claude Code, 2026-08-14.*
