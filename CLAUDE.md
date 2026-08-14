@@ -8,6 +8,8 @@ It is the overview: the project, how to build and run it, the one data structure
 
 BS3D is a 3D Puzzle-Bobble-style game (shoot balls at a hanging 3D cluster of balls) built with MonoGame and BepuPhysics 2. Repo: https://github.com/AntoninPrazsky/BS3D — tasks are tracked in GitHub issues.
 
+**Finished work lands on main immediately** (the owner's standing instruction): once a task is done and verified, its PR is merged to main right away — work sitting on a side branch is work the owner cannot see.
+
 There are **three executables**: the **Testbed** (where every system was built and is still tuned), the **MapEditor**, and **Game** — the shipping product, founded deliberately small on top of the libraries the other two already share (see `docs/game-session.md`).
 
 All three run on **MonoGame.Framework.WindowsDX** (DirectX 11, Shader Model 5.0). MapEditor used to be on **DesktopGL**, where MojoShader capped shaders at Shader Model 3.0 and everything 5.0-only in the shared `InstancedModel.fx` had to sit behind `#if OPENGL` — it was moved to WindowsDX so it can render the balls exactly as the game does (full linear + tonemap parity, see "The map editor's render pipeline" in `docs/formats-and-tools.md`). There is no OPENGL build of any shader now, and the `#if OPENGL` branches are gone. The three libraries reference MonoGame with `PrivateAssets="all"` so the package does not flow to consumers, and each executable brings its own reference (all now the same WindowsDX package). MapEditor and Game build `Testbed/Content/Shaders/InstancedModel.fx` (and `Tonemap.fx`, `Glare.fx`, the scene shaders, the sky domes' `Sky.fx`, …) out of the Testbed content directory, so there is one copy of each shader and a change reaches every executable at once.
