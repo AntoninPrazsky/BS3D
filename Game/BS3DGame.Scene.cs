@@ -477,6 +477,28 @@ namespace BS3D
         /// </summary>
         internal void FinishSceneDraw(SceneFrame sceneFrame)
         {
+            //The won cup (#183), first of the frame's close and so BEFORE the weather and both celebrations:
+            //it is an opaque object a few units from the lens, and snow, fireworks and confetti all belong in
+            //front of it rather than behind. States are stated rather than inherited, for the reason the
+            //Testbed states its rasterizer before the scene — what ran last here is the scene's own draw and
+            //it does not promise anything (see the winding note in CLAUDE.md).
+            if (_trophy != null && _trophy.Active)
+            {
+                BlendState blend = GraphicsDevice.BlendState;
+                DepthStencilState depth = GraphicsDevice.DepthStencilState;
+                RasterizerState raster = GraphicsDevice.RasterizerState;
+
+                GraphicsDevice.BlendState = BlendState.Opaque;
+                GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+                GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+
+                _trophy.Draw(_camera);
+
+                GraphicsDevice.BlendState = blend;
+                GraphicsDevice.DepthStencilState = depth;
+                GraphicsDevice.RasterizerState = raster;
+            }
+
             //A no-op in the two cities and the desert, which carry no overlay weather
             _sceneRenderer.DrawOverlays(_scene, sceneFrame);
 

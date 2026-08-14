@@ -121,6 +121,26 @@ namespace BS3D.Screens
 
             //Started at the bearing the lens is already on, so the release is straight out from the arena
             Game.Backdrop.AlignOrbitTo(_fromPosition);
+
+            //And the cup (#183), on the rating this ending earned. Presented from HERE rather than from
+            //CheckLevelCleared, which is where the fireworks and the fanfare start, and the difference is the
+            //point: those two answer the level ENDING, which happens a beat before this page exists, where the
+            //cup answers the RATING — and the rating is not decided until ShowResultScreen has written the
+            //record. A loss shows nothing, because LevelResult.Stars is zero on one.
+            Game.Trophy?.Present(_result.Cleared ? _result.Stars : 0);
+        }
+
+        /// <summary>
+        /// The cup belongs to this page and goes with it (#183). <c>BuildLevel</c> and <c>TearDown</c> already
+        /// take it away on the two routes a player leaves by, but neither runs on the one route a <b>test</b>
+        /// leaves by — the <c>result</c> argument puts this page over the front end with no session under it at
+        /// all — and a cup left turning over the main menu would be exactly the fault the fireworks' own
+        /// <c>TearDown</c> exists to prevent.
+        /// </summary>
+        public override void Leave()
+        {
+            base.Leave();
+            Game.Trophy?.Hide();
         }
 
         public override void Update(GameTime gameTime)

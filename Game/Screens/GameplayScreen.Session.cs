@@ -42,6 +42,7 @@ namespace BS3D.Screens
             //game celebrating a level the player has not played yet.
             Game.Fireworks?.Stop();
             Game.Confetti?.Stop();
+            Game.Trophy?.Hide();
 
             //The previous result's fanfare goes now, or a win's brass would still be ringing over the opening
             //of the next attempt. The theme itself comes up further down — after the install, which is what
@@ -126,6 +127,7 @@ namespace BS3D.Screens
             Game.Music?.Stop();
             Game.Fireworks?.Stop();
             Game.Confetti?.Stop();
+            Game.Trophy?.Hide();
 
             //Idempotent, which is what this needs: DisposeResources runs it again on the way out of the program
             _world?.Dispose();

@@ -124,6 +124,10 @@ namespace BS3D
         //rather than instead of it: finishing the whole set is the one ending that gets both.
         private Confetti _confetti;
 
+        //The cup the player just won (#183). On the frame because it is drawn inside the scene's own HDR pass,
+        //which is the host's; the result page owns only the decision to show one.
+        private TrophyPodium _trophy;
+
         //The level theme. On the host with the rest of the audio, because it outlives any one session and a
         //track that restarted from the top on every retry would be exhausting.
         private ProceduralMusic _music;
@@ -140,6 +144,10 @@ namespace BS3D
 
         //Testing only: the "confetti" argument, fired once the field exists (#215).
         private readonly bool _startupConfetti;
+
+        //Testing only: the "stars=" argument, which sets the rating the test result page reports (#183) and so
+        //which of the four trophy cups it presents. Null leaves the authored three.
+        private readonly int? _startupResultStars;
 
         //Testing only: the "lasers" argument, read by the session's warning check every frame.
         private readonly bool _startupLasers;
@@ -190,6 +198,12 @@ namespace BS3D
         /// a bigger one — see <see cref="Confetti"/>.
         /// </summary>
         internal Confetti Confetti => _confetti;
+
+        /// <summary>
+        /// The trophy cup shown on the result screen (#183). On the host because it is drawn in the scene's
+        /// HDR pass; the result page decides which tier and when — see <see cref="TrophyPodium"/>.
+        /// </summary>
+        internal TrophyPodium Trophy => _trophy;
 
         /// <summary>The level theme, synthesized at load and looped while a level is being played.</summary>
         internal ProceduralMusic Music => _music;
@@ -504,11 +518,12 @@ namespace BS3D
             bool uncappedFps = false, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
             QualityLevel? quality = null, bool celebrate = false, bool confetti = false, bool lasers = false,
             bool mute = false, bool play = false, bool result = false, bool blockDone = false,
-            float[] shotSeconds = null, string level = null)
+            int? resultStars = null, float[] shotSeconds = null, string level = null)
         {
             _fullscreen = fullscreen;
             _startupCelebrate = celebrate;
             _startupConfetti = confetti;
+            _startupResultStars = resultStars;
             _startupLasers = lasers;
             _startupLevel = level;
 
@@ -829,6 +844,11 @@ namespace BS3D
             //And the campaign's confetti, whose one static buffer is built here for the same reason (#215).
             _confetti = new Confetti(GraphicsDevice, Content.Load<Effect>("Shaders/Confetti"));
 
+            //The trophy cups (#183). Both meshes are built once here — a few thousand triangles apiece — so a
+            //cleared level costs one draw call and nothing else. It borrows the scene's own instancing effect
+            //and ambient, so the cup is lit by the same rig as the island it is presented over.
+            _trophy = new TrophyPodium(GraphicsDevice, _instancingEffect, SCENE_AMBIENT_INTENSITY);
+
             //Testing only, and deliberately long: it has to outlast a scripted screenshot burst.
             if (_startupCelebrate) _fireworks.Celebrate(90f);
 
@@ -1121,6 +1141,7 @@ namespace BS3D
             //clock, so it does not stop when the game does.
             _fireworks?.Update(elapsed);
             _confetti?.Update(elapsed);
+            _trophy?.Update(elapsed);
 
             //The music's handover: a pass is played once rather than looped, and this is what puts the next
             //freshly synthesized variation on when the current one ends (see ProceduralMusic.Update). Up here
@@ -1201,8 +1222,14 @@ namespace BS3D
             {
                 _startupResult = false;
 
-                PresentResult(new LevelResult(cleared: true, failureText: null, stars: 3, newBest: true,
-                    hasNextLevel: true, nextLevelUnlocked: true, nextLevelMinStars: 1, totalStars: 3,
+                //The rating is 3 unless "stars=" said otherwise (#183). It exists because the trophy cup is a
+                //function of the rating and there are four of them: three is the only one a test could reach,
+                //so the other three cups could be neither photographed nor compared against each other. Same
+                //reasoning as "blockdone" — a state a real play-through reaches only by being GOOD at the game.
+                int testStars = Math.Clamp(_startupResultStars ?? 3, 0, Prazsky.BS3D.Scoring.StarRating.MAX);
+
+                PresentResult(new LevelResult(cleared: true, failureText: null, stars: testStars, newBest: true,
+                    hasNextLevel: true, nextLevelUnlocked: true, nextLevelMinStars: 1, totalStars: testStars,
                     campaignComplete: false,
                     //"blockdone" borrows the third block's own name, so the milestone is looked at with a real
                     //chapter's title in it rather than a placeholder that would read as one
@@ -1393,6 +1420,7 @@ namespace BS3D
             _ambience?.Dispose();
             _fireworks?.Dispose();
             _confetti?.Dispose();
+            _trophy?.Dispose();
             _music?.Dispose();
 
             base.UnloadContent();
