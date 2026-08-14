@@ -451,6 +451,77 @@ namespace BS3D
         /// </summary>
         internal bool IsLevelUnlocked(int index) => TotalStars >= LevelMinStars(index);
 
+        #region The campaign's blocks (#184)
+
+        /// <summary>What the block containing <paramref name="index"/> is called, or null when it is in none.</summary>
+        internal string LevelBlockName(int index) =>
+            _levelSet != null && index >= 0 && index < _levelSet.Count ? _levelSet.BlockName(index) : null;
+
+        /// <summary>Which block the entry is in, counting from 1 — the "3" of "block 3 of 5".</summary>
+        internal int LevelBlockNumber(int index) =>
+            _levelSet != null && index >= 0 && index < _levelSet.Count ? _levelSet.BlockNumber(index) : 0;
+
+        /// <summary>How many blocks the campaign is in — the "5".</summary>
+        internal int BlockCount => _levelSet?.BlockCount ?? 0;
+
+        /// <summary>
+        /// Whether <b>every</b> level of the block containing <paramref name="index"/> has been cleared — which
+        /// is what finishing a block means, and it is deliberately not "the last level of the block was cleared".
+        /// <para>
+        /// The picker gates on the campaign's star <i>total</i>, not on the previous level, so a block can be
+        /// played out of order: six stars from the first two levels open the fifth, and a player who takes it
+        /// early has not finished the block. Asking whether the whole run is cleared is right however they got
+        /// there, and it also makes the milestone survive a player who leaves one level for later and comes back
+        /// to it — that return clear is the one that completes the block, which is exactly when it should fire.
+        /// </para>
+        /// <para>
+        /// A level counts as cleared when it holds at least one star, which is the same test the picker's tiles
+        /// read. A set with no blocks has every entry in a run of one, so this is simply "was this level
+        /// cleared" there, and <see cref="Prazsky.BS3D.Levels.LevelSet.HasBlocks"/> is what keeps a milestone
+        /// from being claimed for it.
+        /// </para>
+        /// </summary>
+        internal bool IsBlockComplete(int index)
+        {
+            if (_levelSet == null || _progress == null || index < 0 || index >= _levelSet.Count) return false;
+
+            _levelSet.BlockRange(index, out int first, out int last);
+
+            for (int i = first; i <= last; i++)
+                if (_progress.StarsFor(_levelSet.Levels[i].File) <= 0) return false;
+
+            return true;
+        }
+
+        /// <summary>
+        /// Whether clearing <paramref name="index"/> <b>right now</b> would finish its block — every other level
+        /// of the chapter already cleared, and the chapter not already finished. It is the question the game
+        /// actually has at the moment a field empties, which is <i>before</i> the clear has been recorded, so
+        /// <see cref="IsBlockComplete"/> would answer it one level short.
+        /// <para>
+        /// The "not already finished" half is what makes a <b>replay</b> an ordinary clear. Take a block whose
+        /// five levels are all cleared and play the third again: every other level is cleared, so the first test
+        /// passes on its own and the milestone would fire every time the player went back for a better rating.
+        /// </para>
+        /// </summary>
+        internal bool WouldCompleteBlock(int index)
+        {
+            if (_levelSet == null || _progress == null || index < 0 || index >= _levelSet.Count) return false;
+            if (!_levelSet.HasBlocks || IsBlockComplete(index)) return false;
+
+            _levelSet.BlockRange(index, out int first, out int last);
+
+            for (int i = first; i <= last; i++)
+                if (i != index && _progress.StarsFor(_levelSet.Levels[i].File) <= 0) return false;
+
+            return true;
+        }
+
+        /// <summary>Whether the set is chaptered at all; false leaves the game playing exactly as it did.</summary>
+        internal bool CampaignHasBlocks => _levelSet?.HasBlocks ?? false;
+
+        #endregion
+
         /// <summary>
         /// Names the level being played in the window's title bar, and restores the plain
         /// <see cref="GAME_TITLE"/> when there is none. Numbered as the picker numbers it, so "the fourth

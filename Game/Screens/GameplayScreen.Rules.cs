@@ -207,11 +207,27 @@ namespace BS3D.Screens
             int bonus = _score.AwardCompletionBonus();
             _clearedCountdown = LEVEL_CLEARED_BEAT;
 
+            //WHETHER THIS CLEAR FINISHES A BLOCK, decided ONCE and here (#184). Here because the celebration
+            //starts here and the result page arrives LEVEL_CLEARED_BEAT later, so a decision taken on the page
+            //would reach the fireworks and the fanfare too late to change either. Once because all three have to
+            //agree: a page that says a chapter is finished over an ordinary barrage and an ordinary fanfare is
+            //three components disagreeing about what just happened.
+            //
+            //Asked before the record is written (that happens in ShowResultScreen), so it is "would this clear
+            //complete it" rather than "is it complete" — and it is false on a replay of a block already finished,
+            //which is an ordinary clear because that is what it is.
+            _blockCompleted = Game.WouldCompleteBlock(_levelIndex);
+
             //The party. Started here rather than when the result screen appears, so the first shells are
             //already climbing while the last of the cluster is still falling — the celebration overlaps the
             //moment it is celebrating instead of following it. It runs on the host, so it carries on over the
             //result screen and the released camera swings through it (see Fireworks).
-            Game.Fireworks?.Celebrate(CELEBRATION_SECONDS, CELEBRATION_DELAY);
+            //
+            //A finished block takes a LONGER OPENING BARRAGE rather than a longer display: the density is already
+            //at its maximum in the opening, and that is the part the player is watching — by the time it eases
+            //off they are reading their score. See Fireworks.Celebrate's own remarks.
+            Game.Fireworks?.Celebrate(CELEBRATION_SECONDS, CELEBRATION_DELAY,
+                _blockCompleted ? BLOCK_CELEBRATION_OPENING : 0f);
 
             //And the theme stops dead, so the reports land in silence. A bang competing with a four-to-the-
             //floor kick is a bang nobody hears, and the sudden quiet is itself part of winning.
@@ -219,8 +235,9 @@ namespace BS3D.Screens
 
             //Into that silence, the fanfare — scaled by the score, so how big a win it was is audible before
             //the result screen has said a word. It is a separate instance from the theme, so stopping the one
-            //above does not cut this off.
-            Game.Music?.PlayVictory(_score.Score);
+            //above does not cut this off. A finished block takes it at full intensity whatever the last level
+            //scored, because the milestone is the chapter and not that level.
+            Game.Music?.PlayVictory(_score.Score, grand: _blockCompleted);
 
             //The bonus has no popup to fly in and land on the readout, so it would otherwise be the one award
             //the score takes without being hit — it counts up out of nowhere while the collapse plays
@@ -228,7 +245,14 @@ namespace BS3D.Screens
 
             Console.WriteLine($"[level] Cleared '{LevelName(_levelIndex)}' with {_score.Score}"
                 + $" (+{bonus} for {_score.ShotsRemaining?.ToString() ?? "unlimited"} unused)"
-                + $", {StarRating.Rate(_score.Score, _initialBallCount)} star(s)");
+                + $", {StarRating.Rate(_score.Score, _initialBallCount)} star(s)"
+                //The milestone, on the line that already reports the clear. It is the only way a play-through
+                //says whether the block fired, since the decision is invisible until the page arrives — and it
+                //names the block either way, so a milestone that did NOT fire says which chapter is still open.
+                + (Game.CampaignHasBlocks
+                    ? $" [block {Game.LevelBlockNumber(_levelIndex)}/{Game.BlockCount}"
+                      + $" '{Game.LevelBlockName(_levelIndex)}'{(_blockCompleted ? " COMPLETE" : string.Empty)}]"
+                    : string.Empty));
         }
 
         /// <summary>
@@ -475,6 +499,15 @@ namespace BS3D.Screens
                 //cleared to its end. A single-level set is just a level cleared, and calling it a campaign's
                 //end overstates what happened and hides the Retry that is still the point of the screen.
                 campaignComplete: cleared && lastEntry && Game.LevelSet != null && Game.LevelSet.Count > 1,
+
+                //The block milestone (#184), read off the decision CheckLevelCleared already took rather than
+                //asked again: the record above has been written by now, so re-asking would answer a different
+                //question — and the fireworks and the fanfare have been running on that decision for a beat
+                //already. LevelResult itself suppresses it when the campaign completes.
+                blockComplete: _blockCompleted,
+                blockName: Game.LevelBlockName(_levelIndex),
+                blockNumber: Game.LevelBlockNumber(_levelIndex),
+                blockCount: Game.BlockCount,
 
                 score: _score.Score,
                 matchedBalls: _score.MatchedBalls,

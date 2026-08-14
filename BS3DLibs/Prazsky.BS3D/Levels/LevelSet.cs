@@ -100,6 +100,17 @@ namespace Prazsky.BS3D.Levels
                     if (entry.CeilingStep is <= 0)
                         throw new InvalidDataException(
                             $"'{path}': level {i + 1} ('{entry.File}') steps the ceiling every {entry.CeilingStep} shots; omit \"ceilingStep\" to hold it still");
+
+                    //A block is a STRETCH of the campaign, so the same name may not open a second run later on:
+                    //that is either a typo or a milestone that fires twice, and both are better refused at the
+                    //file than explained in play. Checked against the entry two back and beyond rather than by
+                    //collecting names, because what is illegal is specifically a name RETURNING after it stopped.
+                    if (!string.IsNullOrWhiteSpace(entry.Block) && i > 0 && set.Levels[i - 1].Block != entry.Block)
+                        for (int earlier = 0; earlier < i - 1; earlier++)
+                            if (set.Levels[earlier].Block == entry.Block)
+                                throw new InvalidDataException(
+                                    $"'{path}': level {i + 1} ('{entry.File}') reopens block '{entry.Block}', "
+                                    + $"which already ran at level {earlier + 1}; a block must be consecutive");
                 }
 
                 //Captured here rather than at each use: the entries are relative to the set, and the set is
@@ -123,6 +134,82 @@ namespace Prazsky.BS3D.Levels
             string.IsNullOrWhiteSpace(Levels[index].Name)
                 ? Path.GetFileNameWithoutExtension(Levels[index].File)
                 : Levels[index].Name;
+
+        #region Blocks (#184)
+
+        //A block is a run of consecutive entries sharing LevelSetEntry.Block, and these five queries are the
+        //whole of reading one. They WALK the run on every call rather than caching a table, for one reason worth
+        //stating: a set is built in memory as often as it is loaded (LevelGen writes one it never loads back
+        //through Load), so anything computed in Load would be absent exactly where a tool needs it and present
+        //where the game does. A block is five entries in the shipped set and these are called at a level's end
+        //and when the picker is built, never per frame.
+
+        /// <summary>
+        /// Whether this set is chaptered at all — whether any entry names a block. A set that does not is played
+        /// exactly as it was before #184, with no milestone anywhere.
+        /// </summary>
+        [JsonIgnore]
+        public bool HasBlocks
+        {
+            get
+            {
+                for (int i = 0; i < Count; i++)
+                    if (!string.IsNullOrWhiteSpace(Levels[i].Block)) return true;
+
+                return false;
+            }
+        }
+
+        /// <summary>The block <paramref name="index"/> belongs to, or null when it is in none.</summary>
+        public string BlockName(int index) =>
+            string.IsNullOrWhiteSpace(Levels[index].Block) ? null : Levels[index].Block;
+
+        /// <summary>
+        /// The bounds of the block <paramref name="index"/> sits in, both inclusive. An entry naming no block is
+        /// its own run of one, which is what makes every caller's arithmetic hold without a special case.
+        /// </summary>
+        public void BlockRange(int index, out int first, out int last)
+        {
+            first = index;
+            while (first > 0 && SameBlock(first - 1, index)) first--;
+
+            last = index;
+            while (last + 1 < Count && SameBlock(last + 1, index)) last++;
+        }
+
+        /// <summary>Which block <paramref name="index"/> is in, counting from 1, and how many there are.</summary>
+        public int BlockNumber(int index)
+        {
+            int number = 1;
+
+            for (int i = 1; i <= index; i++)
+                if (!SameBlock(i, i - 1)) number++;
+
+            return number;
+        }
+
+        /// <summary>
+        /// Whether two entries are in the <b>same</b> block. Both must NAME one and name the same one — an unnamed
+        /// entry is in no block, so it is never in the same one as anything, not even as the next unnamed entry
+        /// beside it.
+        /// <para>
+        /// That last clause is the whole of this method, and it is here because the obvious spelling was wrong. A
+        /// plain <c>Levels[i].Block == Levels[j].Block</c> makes <c>null == null</c> true, so every entry of a set
+        /// naming no blocks at all merged into <b>one</b> run: <see cref="BlockRange"/> handed back the whole
+        /// campaign for level 1 of a two-level set, and <see cref="BlockCount"/> said 1 where the comment on it
+        /// says a set naming none has as many blocks as levels. Nothing live read it — both callers in the game
+        /// are gated on <see cref="HasBlocks"/> — which is exactly why it would have sat there: the contract was
+        /// wrong while the game was right by luck.
+        /// </para>
+        /// </summary>
+        private bool SameBlock(int a, int b) =>
+            !string.IsNullOrWhiteSpace(Levels[a].Block) && Levels[a].Block == Levels[b].Block;
+
+        /// <summary>How many blocks the set is in — runs of entries, so a set naming none has as many as levels.</summary>
+        [JsonIgnore]
+        public int BlockCount => Count == 0 ? 0 : BlockNumber(Count - 1);
+
+        #endregion
 
         /// <summary>
         /// One level's rules as a line for a log — what the file actually says, with each absent rule spelled
@@ -196,6 +283,31 @@ namespace Prazsky.BS3D.Levels
         /// <summary>Display name (optional; the file name stands in when it is missing).</summary>
         [JsonPropertyName("name")]
         public string Name { get; set; }
+
+        /// <summary>
+        /// Which <b>block</b> — chapter, if you like — this level belongs to (#184). A run of
+        /// <i>consecutive</i> entries carrying the same name is one block; null on every entry, which is what
+        /// every set authored before this said, means the set has no blocks and nothing celebrates one.
+        /// <para>
+        /// <b>A name on the entry rather than a size on the set</b>, and there were three candidates. A
+        /// <c>blockSize</c> would have been cheapest, but it can only make blocks that are all the same length
+        /// and it gives the player's milestone nothing to be called — "BLOCK 3 COMPLETE" is a number, where
+        /// "THE TOWER COMPLETE" is a place. Grouping by the levels' own <c>scene</c> would need no new field at
+        /// all, but a scene is a property of the level <i>file</i> and the grouping is a property of the
+        /// <i>order</i>, so two sets sharing a level could not chapter it differently — and it would name a
+        /// block after its backdrop, which is a coincidence of this campaign rather than a rule. The name here
+        /// says what the grouping is <b>for</b>, sits with the other per-entry rules for the reason this type's
+        /// own remarks give, and needs no arithmetic to read.
+        /// </para>
+        /// <para>
+        /// <b>Consecutive is enforced</b> by <see cref="LevelSet.Load"/>: the same name may not open a second
+        /// run later in the set. A block is a stretch of the campaign, so a name appearing in two places is
+        /// either a typo or a milestone that would fire twice, and both are worth refusing at the file rather
+        /// than explaining in play.
+        /// </para>
+        /// </summary>
+        [JsonPropertyName("block")]
+        public string Block { get; set; }
 
         /// <summary>
         /// How many balls the level grants. <b>Null means unlimited</b> — the sandbox the game has today, and
