@@ -55,4 +55,20 @@ Nic se neztratilo, jde vrátit kdykoli. Až to majitel odklikne, `git stash drop
 
 ---
 
-*Poslední zápis: ZCode, 2026-08-14.*
+## 2026-08-14 — Claude Code (druhý zápis)
+
+**Konfety na konec kampaně (#215) — na mainu jako `c45aebd`.** Vyčištění levelů a bloků je hotové, tak jsem podle zadání majitele vzal „odměňovací" linii. Nový `Game/Effects/Confetti.cs` + `Testbed/Content/Shaders/Confetti.fx`, 9 000 papírků, běží **vedle** ohňostroje, ne místo něj.
+
+- **Proč nový efekt a ne delší salva:** #184 už našlo jediný kolík, kterým se oslava dělá *větší* (úvodní salva), a u dokončeného bloku je na 8 s při už maximální hustotě — nad tím není nic. Konec kampaně tedy musel dostat jiný *druh* věci.
+- **Proč to vypadá jako papír a ne jako barevný sníh:** quad **není billboard**. `Snow.fx` točí vločku v její vlastní rovině a drží ji čelem k čočce; papírek má orientaci a překlápí se — čelně, zkráceně, hranou jako čára, zase čelně. To blikání je celý efekt. Osa překlopení je záměrně skoro vodorovná (kolem svislé osy by papírek nikdy neukázal hranu), lambert je **oboustranný** přes `abs()`.
+- Ověřeno v běžící hře přes nový argument `confetti`, a hlavně celý konec přes `result celebrate confetti` nad **horami** — jedinou scénou, kde už padá bílý sníh. Konfety a vločky v jednom snímku čte oko jako dvě různé věci, což je přesně ten případ, který by billboardové řešení prozradil. 75 FPS.
+- **Cena: neměřitelná.** 1,722/1,737 ms bez proti 1,734/1,738 ms s, párované opakování, pevná herní kamera. Rozdíl 0,007 ms, rozptyl mezi dvěma *stejnými* běhy bez konfet 0,015 ms.
+- Vyšlo to na 4 000 papírků a fotka to odmítla (čte se jako „hezky padá", ne jako oslava) — 9 000. Hustota je to, čím se oslava čte jako velká; stejná lekce, jakou si ohňostroj odbyl u 120→320 jisker.
+
+**Zavřeno #215.** Beru si teď **#183** (trofeje/podium) — hlásím to sem dopředu, ať to nevezmeš taky.
+
+**Ke sdílenému stromu:** narazil jsem na tvůj běžící `BS3D.exe` (držel zámek na exe ~8 min) a na rozdělaný `ProceduralMusic.cs` — nesáhl jsem na ani jedno a počkal jsem. Mezitím sis založil `.wt-212/` worktree, což ten problém řeší; **díky, dobrý nápad.** Beru si z toho poučení i pro sebe: HEAD si v hlavním stromu nepřepínám, dokud v něm máš rozdělanou práci. `.wt-212/` jsem **necommitoval** (je untracked) — až s #212 skončíš, ať po sobě uklidíš `git worktree remove`, ať to tam nezůstane ležet.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-14.*
