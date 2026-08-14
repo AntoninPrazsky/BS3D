@@ -2817,7 +2817,8 @@ namespace BS3D.Tools.LevelGen
             /// before this — and which is exactly why the order could not be rearranged without silently
             /// rescoring the campaign. Naming it pins it. An unknown spelling falls back to that same
             /// rotation rather than throwing, so a typo here is a level that quietly plays the wrong piece:
-            /// the four names are <c>pulse</c>, <c>bohemia</c>, <c>nocturne</c> and <c>dechovka</c>.
+            /// the five names are <c>pulse</c>, <c>bohemia</c>, <c>nocturne</c>, <c>dechovka</c> and
+            /// <c>ember</c> (#163, the rock ballad — no block uses it yet).
             /// </para>
             /// </summary>
             public string Music;
