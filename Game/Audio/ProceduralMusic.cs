@@ -10,7 +10,7 @@ namespace BS3D.Audio
     /// music with its own mode, its own tunes and its own form, sharing only this file's instruments and its
     /// one rule — random parameters, never random notes.
     /// <para>
-    /// A small curated pool rather than anything generative, deliberately. Both pieces are hand-arranged by ear
+    /// A small curated pool rather than anything generative, deliberately. Every piece is hand-arranged by ear
     /// against measurements, and that craft is exactly what composing from scratch at runtime would lose.
     /// </para>
     /// </summary>
@@ -43,7 +43,16 @@ namespace BS3D.Audio
         /// ~2:20 a pass, in B flat with its <b>trio a fourth up</b>. The form's own modulation is what makes
         /// it a fourth piece rather than a fourth chord pool.
         /// </summary>
-        Dechovka
+        Dechovka,
+
+        /// <summary>
+        /// The fifth (#163): a rock ballad — <b>power chords</b> through a distorted guitar, half-time under
+        /// the verses and full time in the choruses, ten sections and ~2:25 a pass, in E minor. Where the
+        /// other four differ in mode, harmony or time, this one differs in <b>gain</b>: the build is the
+        /// amplifier being pushed rather than a fader being raised, and the chords have no third in them
+        /// because distortion is what decides which intervals may be played at all.
+        /// </summary>
+        Ember
     }
 
     /// <summary>
@@ -74,8 +83,8 @@ namespace BS3D.Audio
         private const int STEPS_PER_BEAT = 4;      //sixteenths
         private const int STEPS_PER_BAR = 16;
 
-        //Both compositions are eight bars to a section; how MANY sections is each one's own business, and is
-        //read off its own arrangement table rather than stated here — Pulse is nine (~2:00) and Bohemia twelve
+        //Every composition is eight bars to a section; how MANY sections is each one's own business, and is
+        //read off its own arrangement table rather than stated here — Pulse is ten (~2:30) and Bohemia twelve
         //(~3:20), and a shared SECTIONS constant is exactly the thing that would have quietly truncated the
         //second one to the first one's length.
         private const int BARS_PER_SECTION = 8;
@@ -468,6 +477,7 @@ namespace BS3D.Audio
                 MusicTheme.Bohemia => BakeBohemia(seed),
                 MusicTheme.Nocturne => BakeJazz(seed),
                 MusicTheme.Dechovka => BakeDechovka(seed),
+                MusicTheme.Ember => BakeEmber(seed),
                 _ => Bake(seed),
             });
         }
@@ -522,6 +532,7 @@ namespace BS3D.Audio
                     case "bohemia": return MusicTheme.Bohemia;
                     case "nocturne": return MusicTheme.Nocturne;
                     case "dechovka": return MusicTheme.Dechovka;
+                    case "ember": return MusicTheme.Ember;
                 }
 
             return (MusicTheme)(((index % THEME_COUNT) + THEME_COUNT) % THEME_COUNT);
@@ -1970,6 +1981,455 @@ namespace BS3D.Audio
 
         #endregion
 
+        #region Ember — the fifth theme (#163)
+
+        //A ROCK BALLAD, and what makes it a fifth piece rather than a fifth chord pool is GAIN. Pulse and
+        //Bohemia differ in mode over one dance floor, Nocturne in harmony and in time, Dechovka in its form;
+        //this one differs in the amplifier. Three consequences follow from that one fact, and each of them is
+        //a decision the other four pieces never had to make.
+        //
+        //THE CHORDS HAVE NO THIRD IN THEM. Distortion is a non-linearity, so notes played into one do not
+        //merely add — they multiply, and the sum and difference tones of every pair land back in the signal.
+        //A fifth is a 3:2 ratio and its intermodulation products are the same notes again an octave or two
+        //away; a major third is 5:4 and its products are not, which is why a driven third turns to porridge
+        //and a driven fifth turns to a wall. Rock plays root-fifth-octave because of what the amp does to
+        //anything else, and this piece plays them for the same reason. The chord's third is left to the pad,
+        //the keys and the tune, which are clean.
+        //
+        //THE BUILD IS THE GAIN AND NOT THE FADER. Every section carries a Drive: a picked 1.1 in the verses,
+        //a crunch of 4.5 in the pre-chorus, 9 in the choruses and 11 under the solo. The waveshaper is
+        //normalised at its output, so pushing it changes the SPECTRUM and not the level — a chorus is louder
+        //because it has more harmonics and more parts in it, which is the lesson every measurement in this
+        //file keeps arriving at from a different direction.
+        //
+        //THE TIME HALVES AND DOUBLES. The verses are HALF-TIME — the snare on the third beat alone, so a bar
+        //notated at ~134 is felt at ~67 — and the choruses put the backbeat on two and four, which doubles the
+        //felt tempo with no dial moved. That is what a power ballad's chorus actually does, and it is also
+        //what keeps sixteenths available for the fills at a tempo that feels like seventy.
+        //
+        //E minor, because the lowest note on a guitar is E2 and that is why so much of this music lives there.
+
+        //The guitar's own roots, low on the neck and inside a fifth of one another, so the progression walks
+        //rather than leaps. The bass plays these as written and the floor an octave under them.
+        private static readonly int[] EMBER_ROOT = { 40, 48, 43, 50, 45, 47 };   //Em C G D Am Bm
+
+        //Root-position triads plus the octave, in the register the pad and the tune share. The tune indexes
+        //them as chord tones like every melody in this file, so tone 0 is always the root of whatever is
+        //underneath — which is what lets the progression be rolled per pass.
+        private static readonly int[][] EMBER_ARP =
+        {
+            new[] { 52, 55, 59, 64 },   //0 Em  E3 G3 B3 E4
+            new[] { 60, 64, 67, 72 },   //1 C   C4 E4 G4 C5
+            new[] { 55, 59, 62, 67 },   //2 G   G3 B3 D4 G4
+            new[] { 62, 66, 69, 74 },   //3 D   D4 F#4 A4 D5
+            new[] { 57, 60, 64, 69 },   //4 Am  A3 C4 E4 A4
+            new[] { 59, 62, 66, 71 }    //5 Bm  B3 D4 F#4 B4
+        };
+
+        //Four bars, every one opening at home. The last of the five is the one worth naming: it uses the MINOR
+        //v, and the piece has no raised leading tone anywhere. Rock is modal — the flat seventh is its colour,
+        //and a D sharp under an E minor would be a classical cadence in a piece that has not earned one. It is
+        //the exact opposite of Pulse's shock, which borrows that leading tone once and makes an event of it.
+        private static readonly int[][] EMBER_PROGRESSIONS =
+        {
+            new[] { 0, 1, 2, 3 },   //Em C  G  D   — i VI III VII, the ballad progression itself
+            new[] { 0, 2, 1, 3 },   //Em G  C  D
+            new[] { 0, 4, 1, 3 },   //Em Am C  D
+            new[] { 0, 3, 4, 1 },   //Em D  Am C   — the falling one
+            new[] { 0, 2, 5, 3 }    //Em G  Bm D   — the minor v, and no leading tone in it
+        };
+
+        private enum EmberPart { None, Verse, Chorus, Solo }
+
+        //THE VERSE, carried by the keys: stepwise, in the chord's own register, and it starts AFTER the
+        //downbeat in three bars of four, because a sung line breathes where a synth line does not. Short
+        //notes and a lot of them against the chorus's long ones — the same contrast Pulse's verse is written
+        //for, at half the speed.
+        private static readonly Note[][] EMBER_VERSE =
+        {
+            new[] { new Note(2, 0, 0, 3), new Note(6, 1, 0, 3), new Note(10, 2, 0, 5) },
+            new[] { new Note(2, 1, 0, 3), new Note(6, 0, 0, 3), new Note(10, 1, 0, 6) },
+            new[] { new Note(2, 2, 0, 3), new Note(6, 1, 0, 3), new Note(10, 3, 0, 5) },
+            new[] { new Note(0, 2, 0, 6), new Note(8, 1, 0, 7) }
+        };
+
+        //THE CHORUS, on the driven guitar and an octave up: climb, hold, the same cell a step higher, and one
+        //note held through the last bar. The sequence in the third bar is the oldest trick there is for making
+        //a tune sound inevitable, and it is the one Bohemia's theme is built on; what is different here is the
+        //fourth bar, which is a single note where every other piece in this file puts a phrase. A ballad's
+        //hook is the note the singer holds, and holding it is what the section is arranged around.
+        private static readonly Note[][] EMBER_CHORUS =
+        {
+            new[] { new Note(0, 0, 12, 6), new Note(6, 1, 12, 4), new Note(10, 2, 12, 6) },
+            new[] { new Note(0, 3, 12, 12), new Note(12, 2, 12, 4) },
+            new[] { new Note(0, 1, 12, 6), new Note(6, 2, 12, 4), new Note(10, 3, 12, 6) },
+            new[] { new Note(0, 2, 12, 15) }
+        };
+
+        //THE SOLO, and a rock ballad without one is a pop song. It is the chorus's material moving: sixteenths
+        //where the tune holds, the top of the range where the tune sits under it, and it lands on a held note
+        //of its own so the final chorus arrives out of a ring rather than out of a run.
+        //
+        //It stays inside a guitar's actual range — arp[3] + 12 tops out at D6, which is the twenty-second fret
+        //of the top string. That is the file's own lesson about register belonging to the instrument, and the
+        //reason the peak is not written an octave higher the way Pulse's chorus is: Pulse's peak is a synth.
+        private static readonly Note[][] EMBER_SOLO =
+        {
+            new[] { new Note(0, 3, 12, 2), new Note(2, 2, 12, 2), new Note(4, 1, 12, 3), new Note(8, 2, 12, 3), new Note(12, 3, 12, 4) },
+            new[] { new Note(0, 2, 12, 2), new Note(2, 3, 12, 4), new Note(8, 1, 12, 2), new Note(10, 2, 12, 6) },
+            new[] { new Note(0, 3, 12, 3), new Note(4, 2, 12, 2), new Note(6, 3, 12, 2), new Note(8, 2, 12, 3), new Note(12, 1, 12, 4) },
+            new[] { new Note(0, 3, 12, 11), new Note(12, 2, 12, 4) }
+        };
+
+        //The picking pattern, one note to an eighth: the thumb takes the bass string at each half-bar and the
+        //fingers walk the chord between. Every ballad opens on this texture, and here it is also the only
+        //thing sounding before the drums arrive and the last thing left after they go.
+        private static readonly int[] EMBER_PICK = { 0, 1, 2, 3, 0, 2, 1, 3 };
+
+        private readonly struct EmberSection
+        {
+            public readonly bool Kit;      //drums at all
+            public readonly bool Full;     //full time rather than half — the backbeat on two and four
+            public readonly bool Bass, Floor, Clean, Power, Pad, Str;
+            public readonly EmberPart Part;
+            public readonly float Drive;   //how hard the amp is pushed; read by the power chords and the lead
+            public readonly float Level;
+
+            public EmberSection(bool kit, bool full, bool bass, bool floor, bool clean, bool power, bool pad,
+                bool str, EmberPart part, float drive, float level)
+            {
+                Kit = kit; Full = full; Bass = bass; Floor = floor; Clean = clean;
+                Power = power; Pad = pad; Str = str; Part = part; Drive = drive; Level = level;
+            }
+        }
+
+        //The form is the idiom's own: intro, verse, pre-chorus, CHORUS, verse, pre-chorus, CHORUS, solo,
+        //CHORUS, outro. Ten sections, ~2:25 a pass. Everything the genre does with dynamics is in this table
+        //and in the Drive column beside it — the verses drop back to a picked guitar under a half-time kit,
+        //the pre-chorus puts the amp into crunch, and the chorus doubles the backbeat and opens the gain.
+        //
+        //                                 kit    full   bass  floor  clean  power  pad    str   part               drive  level
+        private static readonly EmberSection[] EMBER_ARRANGEMENT =
+        {
+            //0 INTRO. The picked guitar and a pad over the floor, no kit at all — the piece states its chords
+            //on the instrument it is about, and the drums arriving in the verse is the first event in it.
+            new(false, false, false, true,  true,  false, true,  false, EmberPart.None,   1.1f, 0.55f),
+            //1 VERSE. Half-time: the snare on the third beat alone, which is the whole of why a piece at 134
+            //feels like a piece at 67. The tune is on the keys and the guitar is still clean.
+            new(true,  false, true,  true,  true,  false, true,  false, EmberPart.Verse,  1.1f, 0.82f),
+            //2 PRE-CHORUS. The amp comes up and the power chords arrive under the same tune and the same
+            //half-time kit — so what changes going into the chorus is the gain and the time, and neither of
+            //them is a volume. The tom fill across this section's last bar is written by the bake rather than
+            //flagged here (see the fill below).
+            new(true,  false, true,  true,  true,  true,  true,  false, EmberPart.Verse,  4.5f, 0.92f),
+            //3 CHORUS. Full time, both rhythm guitars, the crash on the downbeat and the tune on the lead.
+            new(true,  true,  true,  true,  false, true,  true,  false, EmberPart.Chorus, 9f,   1.00f),
+            //4 VERSE. Back down, and the drop after a chorus is what makes the next one bigger. The floor and
+            //the pad stay: a section that is quiet rather than absent is the thing #186 measured on Pulse.
+            new(true,  false, true,  true,  true,  false, true,  false, EmberPart.Verse,  1.1f, 0.84f),
+            //5 PRE-CHORUS.
+            new(true,  false, true,  true,  true,  true,  true,  false, EmberPart.Verse,  4.5f, 0.94f),
+            //6 CHORUS.
+            new(true,  true,  true,  true,  false, true,  true,  false, EmberPart.Chorus, 9f,   1.00f),
+            //7 SOLO, with the string section arriving under it. The strings are held back for the last third
+            //of the piece deliberately — it is what the idiom does, and it is the one way left to make the
+            //final chorus bigger than the two that came before it without touching a level.
+            new(true,  true,  true,  true,  false, true,  true,  true,  EmberPart.Solo,   11f,  1.00f),
+            //8 CHORUS, the last one and the fullest: the tune back over the strings.
+            new(true,  true,  true,  true,  false, true,  true,  true,  EmberPart.Chorus, 9f,   1.00f),
+            //9 OUTRO. The kit and the wall are gone and the picked guitar is left alone over the fade, so the
+            //piece ends where it started and the join to the next pass lands in silence like the other four.
+            new(false, false, false, true,  true,  false, true,  false, EmberPart.None,   1.1f, 0.60f)
+        };
+
+        /// <summary>The picked guitar's amp, and it is a constant: the clean part stays clean all the way
+        /// through, and it is the <i>other</i> guitar that is driven. Not zero — a valve amp at the edge of
+        /// breakup is what "clean" means on this instrument, and a perfectly linear one sounds like a DI.</summary>
+        private const float EMBER_CLEAN_DRIVE = 1.1f;
+
+        //The two rhythm guitars, wide and opposite. This is the piece's whole image and it is #119's rule
+        //stated in the idiom's own practice: a rock mix double-tracks the rhythm part and puts the two takes
+        //hard either side, and it works because they are two PERFORMANCES — different tuning by a hair,
+        //different pick attack, different phase — rather than one signal at two levels.
+        private const float PAN_GUITAR_SPREAD = 0.78f;
+
+        //The picked guitar is double-tracked too, narrower than the wall. It was ONE guitar at -0.38 first,
+        //answered by the keys on the right, and the piece measured 0.51 dB left against a set that holds
+        //0.15: the intro and the outro have no keys in them at all, so a third of the piece was a lone part
+        //sitting off centre with nothing opposite it. Two takes either side is the fix that keeps the width —
+        //centring it would have made the intro mono — and it is the same thing the wall does one gain up.
+        private const float PAN_GUITAR_PICKED = 0.45f;
+
+        /// <summary>The crash, opposite the ride: the two cymbals of a chorus, one either side of the kit.</summary>
+        private const float PAN_CRASH = 0.26f;
+
+        /// <summary>
+        /// What one rendering of <see cref="MusicTheme.Ember"/> rolls. The tempo band is the piece's one
+        /// oddity: it is <b>notated</b> at 128–140 and <b>felt</b> at half that, because the verses put the
+        /// snare on the third beat alone. A ballad written at 67 would leave a sixteenth two thirds of a
+        /// second long, which is too coarse a grid for a fill or a solo to be played on.
+        /// </summary>
+        private readonly struct EmberVariation
+        {
+            public readonly float Bpm;
+            public readonly int Transpose;
+            public readonly int[] Progression;
+            public readonly float Embellish;   //chance of the bass filling into the next bar
+
+            public EmberVariation(Random random)
+            {
+                Bpm = 128f + (float)random.NextDouble() * 12f;   //128-140, felt as 64-70
+
+                //Whole tones and minor thirds only, the rule Pulse states.
+                int[] steps = { -3, -2, 0, 0, 2, 3 };
+                Transpose = steps[random.Next(steps.Length)];
+
+                Progression = EMBER_PROGRESSIONS[random.Next(EMBER_PROGRESSIONS.Length)];
+                Embellish = 0.25f + (float)random.NextDouble() * 0.30f;
+            }
+        }
+
+        /// <summary>
+        /// Ember (#163): a rock ballad. Ten sections, ~2:25 a pass, in E minor, and it adds two voices — the
+        /// electric guitar it is written for and the crash its choruses arrive on. Everything else is the
+        /// kit, the bass, the floor, the keys, the pad and the string section the other four pieces already
+        /// play.
+        /// </summary>
+        private static float[] BakeEmber(int seed)
+        {
+            Random random = new(seed);
+            EmberVariation variation = new(random);
+
+            float secondsPerStep = 60f / (variation.Bpm * STEPS_PER_BEAT);
+            int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
+
+            int sectionOutro = EMBER_ARRANGEMENT.Length - 1;
+            int totalSteps = EMBER_ARRANGEMENT.Length * STEPS_PER_SECTION;
+
+            //A bar of room past the end: the last chorus's crash rings for well over a second, and a cymbal
+            //cut off mid-wash is the click the fanfares' own tail constants exist to prevent.
+            float[] mix = NewMix(samplesPerStep * (totalSteps + STEPS_PER_BAR));
+
+            for (int step = 0; step < totalSteps; step++)
+            {
+                int at = step * samplesPerStep;
+                int bar = step / STEPS_PER_BAR;
+                int inBar = step % STEPS_PER_BAR;
+
+                int phrase = bar % 4;
+                int chord = variation.Progression[phrase];
+
+                int sectionIndex = bar / BARS_PER_SECTION;
+                EmberSection section = EMBER_ARRANGEMENT[sectionIndex];
+                int barInSection = bar % BARS_PER_SECTION;
+
+                int[] arp = EMBER_ARP[chord];
+                int root = EMBER_ROOT[chord];
+                int transpose = variation.Transpose;
+
+                bool lastBar = barInSection == BARS_PER_SECTION - 1;
+
+                float fade = sectionIndex == sectionOutro
+                    ? 1f - (barInSection * STEPS_PER_BAR + inBar) / (float)STEPS_PER_SECTION
+                    : 1f;
+
+                float level = section.Level * fade * fade;
+                if (level <= 0.001f) continue;
+
+                //THE FILL is written where it is NEEDED rather than flagged in the table: it belongs in the
+                //last bar before the time doubles, which the arrangement already states by putting Full on
+                //the next section. So the two pre-choruses get it and the chorus that runs into the solo does
+                //not — both correct, and neither is a column anybody has to keep in step.
+                bool intoFullTime = !section.Full
+                    && sectionIndex + 1 < EMBER_ARRANGEMENT.Length
+                    && EMBER_ARRANGEMENT[sectionIndex + 1].Full;
+
+                bool filling = intoFullTime && lastBar && inBar >= 8;
+
+                //THE KIT ----------------------------------------------------------------------------------
+                if (section.Kit)
+                {
+                    if (section.Full)
+                    {
+                        //Full time: the backbeat on two and four with a kick answering it either side. The
+                        //felt tempo doubles here, and that — not a fader — is what a chorus opening up IS.
+                        if (inBar == 0 || inBar == 6 || inBar == 8 || inBar == 14) Kick(mix, at, 0.95f * level);
+                        if (inBar == 4 || inBar == 12) Snare(mix, at, 0.32f * level);
+
+                        //The ride rather than the hats: a rock chorus is ridden, and the ride's own seat is
+                        //across the kit from where the verses' hats were.
+                        if (inBar % 2 == 0) Hat(mix, at, open: false, level: 0.13f * level, pan: PAN_RIDE);
+
+                        //The crash on the first downbeat of the section and again halfway through it: the
+                        //arrival is worth announcing once and reminding of once, and a crash on every bar is
+                        //a drummer nobody wants to record.
+                        //Struck about as hard as the snare — measured, 0.7 puts its peak where a backbeat's
+                        //is, and a crash a drummer has to be asked to hit is not what a chorus arrives on.
+                        if (inBar == 0 && barInSection % 4 == 0) Crash(mix, at, 0.7f * level);
+                    }
+                    else if (!filling)
+                    {
+                        //HALF TIME. The snare on the third beat alone is the entire trick: the bar is notated
+                        //at ~134 and felt at ~67, so the piece is slow without a slow grid under it.
+                        if (inBar == 0 || inBar == 10) Kick(mix, at, 0.9f * level);
+                        if (inBar == 8) Snare(mix, at, 0.30f * level);
+                        if (inBar % 2 == 0) Hat(mix, at, open: inBar == 14, level: 0.20f * level);
+                    }
+
+                    //THE CRESCENDO FILL. Eighths, then sixteenths, and louder as it goes — a fill accelerates
+                    //and grows, which is what makes it a hand-off rather than a decoration. Tom seats itself
+                    //by pitch, so a descending run travels across the kit on its own.
+                    if (filling)
+                    {
+                        float through = (inBar - 8) / 7f;
+                        bool hit = inBar >= 12 || inBar % 2 == 0;   //eighths for a beat, then sixteenths
+
+                        if (inBar == 8) Snare(mix, at, 0.30f * level);
+                        if (hit) Tom(mix, at, 150f - (inBar - 8) * 11f, (0.55f + 0.85f * through) * level);
+                    }
+
+                    //A short run off the end of a full-time section, so a chorus hands on rather than stops.
+                    if (section.Full && lastBar && inBar >= 13)
+                        Tom(mix, at, 132f - (inBar - 13) * 18f, 0.9f * level);
+                }
+
+                //THE FLOOR --------------------------------------------------------------------------------
+                //Held a whole bar and a little past it, ducking to whichever pulse the drummer is playing —
+                //every beat under a full-time chorus, every OTHER beat under a half-time verse. The duck
+                //follows the kick because the duck exists to keep the two out of each other's way (#186), so
+                //a piece whose kick pattern halves has to halve it too.
+                if (section.Floor && inBar == 0)
+                {
+                    SubBass(mix, at, root - 12 + transpose, secondsPerStep * (STEPS_PER_BAR + 0.4f),
+                        0.26f * level,
+                        duck: section.Kit ? 0.5f : 0f,
+                        beatSeconds: secondsPerStep * (section.Full ? 4f : 8f));
+                }
+
+                //THE BASS ---------------------------------------------------------------------------------
+                //Quarter notes under a chorus and half notes under a verse: the bass player doubles up with
+                //the drummer, which is the same event in another register.
+                if (section.Bass)
+                {
+                    bool onBeat = section.Full ? inBar % 4 == 0 : inBar % 8 == 0;
+                    if (onBeat) Bass(mix, at, root + transpose, secondsPerStep * 3.4f, level);
+
+                    //The fill into the next bar, up to the fifth. Rolled per pass, so it is variation rather
+                    //than a figure the ear learns.
+                    if (inBar == 14 && random.NextDouble() < variation.Embellish)
+                        Bass(mix, at, root + 7 + transpose, secondsPerStep * 1.6f, 0.8f * level);
+                }
+
+                //THE PAD ----------------------------------------------------------------------------------
+                //An octave under the chord tables, out of the lead's way: the tune is written at arp + 12 and
+                //a pad in the same octave as its own melody is mud rather than support.
+                if (section.Pad && inBar == 0)
+                    for (int voice = 0; voice < arp.Length; voice++)
+                        Pad(mix, at, arp[voice] - 12 + transpose, secondsPerStep * 15.5f, 0.075f * level,
+                            pan: ChordPan(voice, arp.Length, PAN_PAD_SPREAD));
+
+                //THE STRINGS ------------------------------------------------------------------------------
+                if (section.Str && inBar == 0)
+                    foreach (int note in arp)
+                        Strings(mix, at, note + transpose, secondsPerStep * 15.4f, 0.05f * level);
+
+                //THE WALL ---------------------------------------------------------------------------------
+                //Two guitars, two takes, hard either side, struck on the bar and again on the half — a ballad
+                //RINGS where a rock song chugs, so the chord is let sound and re-struck rather than played in
+                //eighths. Both are power chords: root, fifth, octave, and the Guitar voice sums them into one
+                //waveshaper because that is where the sound comes from (see its own remarks).
+                if (section.Power && (inBar == 0 || inBar == 8))
+                {
+                    float held = secondsPerStep * (STEPS_PER_BAR * 0.5f + 1.2f);
+                    float hit = (inBar == 0 ? 0.30f : 0.25f) * level;
+
+                    //Which take sits on which side alternates with every strike, and that is not a taste — it
+                    //is what a measurement forced. Two takes seated symmetrically do not balance: the piece
+                    //read 0.2 dB left with both of them at ±0.78 and the wall on its own measuring 0.3 dB
+                    //RIGHT, which is arithmetic until the cross-term is written down. The bass and the floor
+                    //play the guitar's own root, so each take is CORRELATED with what is in the middle, and
+                    //the two correlations differ (the takes are detuned either side of the pitch, so they
+                    //beat against the centre at different rates). What leans the mix is that cross-term and
+                    //not either take's level. Swapping the sides twice a bar cancels it, and it is inaudible
+                    //by construction — both sides carry the same chord either way, and the two differ by
+                    //under five cents of tuning.
+                    int left = inBar == 0 ? 0 : 1;
+
+                    Guitar(mix, at, root + transpose, held, hit, section.Drive,
+                        power: true, take: left, pan: -PAN_GUITAR_SPREAD);
+                    Guitar(mix, at, root + transpose, held, hit, section.Drive,
+                        power: true, take: 1 - left, pan: PAN_GUITAR_SPREAD);
+                }
+
+                //THE PICKED GUITAR ------------------------------------------------------------------------
+                //Let ring: every note lasts more than twice the gap to the next one, so the pattern is a wash
+                //and not eight plinks. That overlap is the whole texture and it costs nothing but length.
+                if (section.Clean && inBar % 2 == 0)
+                {
+                    int eighth = inBar / 2;
+                    bool thumb = eighth % 4 == 0;
+                    int pitch = arp[EMBER_PICK[eighth]] - (thumb ? 12 : 0) + transpose;
+                    float picked = (thumb ? 0.16f : 0.12f) * level;
+
+                    //Sides alternate note by note, for the reason the wall's do — and the half-bar is folded
+                    //in, so that the two THUMB notes, which are the loud ones, do not both land on the same
+                    //take. Alternating on the note index alone put them there and measured 0.34 dB of lean in
+                    //the verses; what has to alternate is the energy and not the count.
+                    int left = (eighth % 2) ^ (eighth / 4);
+
+                    Guitar(mix, at, pitch, secondsPerStep * 4.6f, picked, EMBER_CLEAN_DRIVE,
+                        take: left, pan: -PAN_GUITAR_PICKED);
+                    Guitar(mix, at, pitch, secondsPerStep * 4.6f, picked, EMBER_CLEAN_DRIVE,
+                        take: 1 - left, pan: PAN_GUITAR_PICKED);
+                }
+
+                //THE TUNE ---------------------------------------------------------------------------------
+                if (section.Part == EmberPart.None) continue;
+
+                Note[] line = section.Part switch
+                {
+                    EmberPart.Chorus => EMBER_CHORUS[phrase],
+                    EmberPart.Solo => EMBER_SOLO[phrase],
+                    _ => EMBER_VERSE[phrase]
+                };
+
+                foreach (Note note in line)
+                {
+                    if (note.Step != inBar) continue;
+
+                    int pitch = arp[note.Tone] + note.Octave + transpose;
+
+                    //Legato, by the arithmetic the fanfares record: every note runs past the next one's start,
+                    //so a phrase releases across its own joins instead of arriving as a row of events.
+                    float held = secondsPerStep * (note.Length + 1.2f);
+
+                    if (section.Part == EmberPart.Verse)
+                    {
+                        //The verse is sung, and the keys are what sings it — CENTRED, off their own seat,
+                        //because here they are the tune and the rule this file learned on Nocturne is that
+                        //whatever carries a piece alone belongs in the middle. The guitar either side of it
+                        //is what the width is for.
+                        Keys(mix, at, pitch, held, 0.24f * level, pan: PAN_CENTRE);
+                    }
+                    else
+                    {
+                        //The lead guitar, and it is CENTRED: it is the only thing carrying the tune, and the
+                        //rule this file learned twice is that whatever may be alone belongs in the middle.
+                        //The wall either side of it is what makes that read as wide rather than as narrow.
+                        Guitar(mix, at, pitch, held, 0.26f * level, section.Drive);
+                    }
+                }
+            }
+
+            //The set's own target. A ballad is not quieter than a polka; what makes it a ballad is what is in
+            //it, and a level step between two entries of one set is the thing this number exists to prevent.
+            Limit(mix, targetRms: 0.20f, ceiling: 0.95f);
+
+            return mix;
+        }
+
+        #endregion
+
         #region The front end's piece
 
         /// <summary>
@@ -2701,6 +3161,36 @@ namespace BS3D.Audio
         }
 
         /// <summary>
+        /// The crash (#163): the cymbal a chorus arrives on, and it is <see cref="Hat"/>'s own material with a
+        /// hundred times the ring — the difference between the two voices is the envelope and the band, not
+        /// the source. Two envelopes over one another: the strike, gone in a tenth of a second, and the wash
+        /// under it, which is still sounding a second and a half later. A short crash is an open hat, and a
+        /// crash without the low body under it is a hiss rather than a struck plate.
+        /// </summary>
+        private static void Crash(float[] mix, int at, float level, float pan = PAN_CRASH)
+        {
+            int length = (int)(SAMPLE_RATE * 1.6f);
+            int frames = Frames(mix);
+            float body = 0f;
+
+            PanGains(pan, out float gainLeft, out float gainRight);
+
+            for (int i = 0; i < length && at + i < frames; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                //The plate: the strike on top of the wash, both of the same noise.
+                float top = BandNoise(i, 3000f, 15000f, 137) * (0.55f * MathF.Exp(-t * 24f) + 0.45f * MathF.Exp(-t * 1.9f));
+
+                //The bell under it, one pole rather than a second band — the ear is judging that there IS
+                //something low here, not where its skirts are.
+                body += CutoffToAlpha(1400f) * (Noise(i, 139) - body);
+
+                Add(mix, at + i, (top + body * 0.5f * MathF.Exp(-t * 3.4f)) * level, gainLeft, gainRight);
+            }
+        }
+
+        /// <summary>
         /// The bass: a saw through a one-pole low-pass that opens with the note's own envelope — the cheapest
         /// thing that sounds like a filter sweep, and most of what a dance bass is.
         /// </summary>
@@ -3269,6 +3759,105 @@ namespace BS3D.Audio
 
                 Add(mix, at + i, lpA * level * env, leftA, rightA);
                 Add(mix, at + i, lpB * level * env, leftB, rightB);
+            }
+        }
+
+        /// <summary>
+        /// The electric guitar (#163): the one voice here whose spectrum is set by what happens <b>after</b>
+        /// the oscillators rather than by which oscillator it is. Everything else in this file shapes a
+        /// waveform and filters it; this one drives a waveform into a non-linearity, which <i>adds</i>
+        /// harmonics that were never generated — and that difference is the whole instrument.
+        /// <list type="bullet">
+        /// <item><b>The strings are summed before the drive, never after.</b> A non-linearity multiplies as
+        /// well as adds, so two notes played into one produce their sum and difference tones as well as
+        /// themselves. That is why <paramref name="power"/> renders the whole chord here instead of the
+        /// arrangement calling this three times: driving each note separately and mixing the results is a
+        /// mix of three guitars, and it is a completely different sound.</item>
+        /// <item><b>Which is also why the chord has no third in it.</b> Root, fifth and octave are 2:3:4, so
+        /// every intermodulation product lands on a note already in the chord; a major third is 5:4 and its
+        /// products do not. A driven power chord is a wall and a driven triad is porridge — rock's harmony
+        /// follows from its amplifier, and this voice is where that is enforced.</item>
+        /// <item><b>Filtered before the amp and filtered after it</b>, because a guitar rig is a tone control,
+        /// then a valve stage, then a speaker in a box. The pre-filter keeps the saw's top harmonics out of
+        /// the waveshaper (drive them and the result is fizz rather than grind); the two-pole cabinet at 4 kHz
+        /// is what stops the output sounding like a distortion pedal into a desk. The cabinet's <b>high-pass
+        /// at 110 Hz</b> is load-bearing in the mix rather than in the tone: it is what lets a wall of
+        /// guitars sit over the bass and the floor instead of on top of them.</item>
+        /// <item><b>The output is normalised by the drive.</b> <c>tanh(drive · x) / tanh(drive)</c> keeps the
+        /// peak where it was, so pushing the amp changes the spectrum and not the level — which is what makes
+        /// the arrangement's Drive column a musical dial rather than a second fader.</item>
+        /// <item><b>Distortion is compression, so a driven note sustains.</b> The decay falls with the drive:
+        /// a picked clean note is gone in a couple of seconds and a saturated one holds. That is one line and
+        /// it is most of why the choruses feel bigger than the verses.</item>
+        /// </list>
+        /// </summary>
+        /// <param name="drive">How hard the amp is pushed: ~1 is a valve at the edge of breakup, 4-5 crunch,
+        /// 9-11 a saturated lead.</param>
+        /// <param name="power">Render the root, the fifth and the octave through one waveshaper.</param>
+        /// <param name="take">
+        /// Which of two performances this is. The rhythm part is <b>double-tracked</b> — the same chord played
+        /// twice and seated hard either side — and the takes are tuned a hair apart and start at different
+        /// points in their cycles, so the two sides are genuinely different signals. That is #119's rule
+        /// (width comes from different signals, never from one signal at two levels) arriving as the idiom's
+        /// own studio practice.
+        /// </param>
+        private static void Guitar(float[] mix, int at, int note, float seconds, float level, float drive,
+            bool power = false, int take = 0, float pan = PAN_CENTRE)
+        {
+            int length = (int)(SAMPLE_RATE * seconds);
+            int frames = Frames(mix);
+
+            float stretch = take == 0 ? 0.9986f : 1.0013f;
+            int strings = power ? 3 : 1;
+
+            float[] freq = { Frequency(note) * stretch, Frequency(note + 7) * stretch, Frequency(note + 12) * stretch };
+            float[] phase = take == 0 ? new[] { 0f, 0.37f, 0.71f } : new[] { 0.19f, 0.83f, 0.44f };
+
+            float decay = 2.6f / (1f + 0.5f * drive);
+            float normalise = 1f / MathF.Tanh(drive * 1.6f);
+
+            float pre = 0f, cab1 = 0f, cab2 = 0f, low = 0f;
+            float cabAlpha = CutoffToAlpha(4000f), toneAlpha = CutoffToAlpha(2600f), lowAlpha = CutoffToAlpha(110f);
+
+            PanGains(pan, out float gainLeft, out float gainRight);
+
+            for (int i = 0; i < length && at + i < frames; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                float env = MathF.Min(1f, t / 0.004f) * MathF.Min(1f, (seconds - t) / 0.09f) * MathF.Exp(-t * decay);
+                if (env <= 0f) continue;
+
+                //A held single note is leaned into; a chord is not — a guitarist vibratos the tune and lets
+                //the wall stand still.
+                float vibrato = power
+                    ? 1f
+                    : 1f + 0.005f * MathF.Sin(2f * MathF.PI * 5.6f * t)
+                        * MathF.Min(1f, MathF.Max(0f, (t - 0.18f) / 0.35f));
+
+                float sum = 0f;
+                for (int s = 0; s < strings; s++)
+                {
+                    float f = freq[s] * vibrato;
+                    phase[s] += f / SAMPLE_RATE;
+                    if (phase[s] >= 1f) phase[s] -= 1f;
+                    sum += PolyBlepSaw(phase[s], f / SAMPLE_RATE);
+                }
+                sum /= strings;
+
+                //The plectrum, and it goes in BEFORE the amp: a pick attack driven with the note is part of
+                //the sound, where one added afterwards is a click laid over it.
+                if (t < 0.01f) sum += Noise(i, 149 + take) * 0.35f * (1f - t / 0.01f);
+
+                pre += toneAlpha * (sum - pre);
+
+                float driven = MathF.Tanh(pre * drive * 1.6f) * normalise;
+
+                cab1 += cabAlpha * (driven - cab1);
+                cab2 += cabAlpha * (cab1 - cab2);
+                low += lowAlpha * (cab2 - low);
+
+                Add(mix, at + i, (cab2 - low) * level * env, gainLeft, gainRight);
             }
         }
 
