@@ -3380,7 +3380,11 @@ namespace BS3D.Audio
 
                 //Struck at once and gone steadily: a plucked string has no attack to speak of and no sustain.
                 float env = MathF.Min(1f, t / 0.006f) * MathF.Exp(-t * 3.2f);
-                if (env <= 0.0005f) break;
+
+                //Skipped, not stopped: an envelope with an attack ramp is zero BEFORE its peak, so a break
+                //here ended the note on its first sample and the walk was silent from #162 until #218. The
+                //loop is bounded by `seconds` anyway; the guard only zeroes inaudible samples.
+                if (env <= 0.0005f) continue;
 
                 phase += freq / SAMPLE_RATE;
                 if (phase >= 1f) phase -= 1f;
@@ -3534,7 +3538,10 @@ namespace BS3D.Audio
                 //the high partials go, over a tail that is still ringing when the attack is long gone.
                 float env = MathF.Min(1f, t / 0.002f) * (0.78f * MathF.Exp(-t * 3.4f) + 0.22f * MathF.Exp(-t * 0.55f))
                     * MathF.Min(1f, (seconds - t) / 0.12f);
-                if (env <= 0.0006f) break;
+
+                //The same lesson #218 taught UprightBass, this voice's own fault the first time around: the
+                //2 ms attack ramp is zero on the first samples, so a break here shipped a silent piano.
+                if (env <= 0.0006f) continue;
 
                 //The felt hammer: low, dull and over in ten milliseconds, fed into the same closing filter
                 //as the string so it thumps rather than ticks. One hammer, both strings.
