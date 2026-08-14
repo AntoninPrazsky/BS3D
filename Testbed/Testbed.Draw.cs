@@ -101,7 +101,10 @@ namespace Testbed
                     _cityRenderer.Draw(_camera, _city.Visible, visibleBuildings, _sceneEffectParams);
                 }
                 else
-                    _sceneRenderer.DrawEnvironment(_scene, sceneFrame);
+                    //The target goes in so the cavern and the dream can be shaded at the back buffer's size and
+                    //scaled up (#155). Passed rather than remembered, so it cannot be the one the pipeline held
+                    //before a resize or a supersample change replaced it.
+                    _sceneRenderer.DrawEnvironment(_scene, sceneFrame, _pipeline.SceneTarget);
 
                 //The forest's scattered trees, boulders and stumps: after the terrain they stand on (with depth,
                 //or they would draw through it) and before the island. The state they need is the opaque scene
