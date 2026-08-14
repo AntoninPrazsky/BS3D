@@ -83,11 +83,51 @@
       "ceilingStep": 8
     },
     {
+      "file": "Rope.json",
+      "name": "Rope",
+      "block": "The Coil",
+      "shots": 40,
+      "minStars": 18,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Minaret.json",
+      "name": "Minaret",
+      "block": "The Coil",
+      "shots": 44,
+      "minStars": 20,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Basket.json",
+      "name": "Basket",
+      "block": "The Coil",
+      "shots": 48,
+      "minStars": 22,
+      "ceilingStep": 7
+    },
+    {
+      "file": "Pendulum.json",
+      "name": "Pendulum",
+      "block": "The Coil",
+      "shots": 52,
+      "minStars": 24,
+      "ceilingStep": 7
+    },
+    {
+      "file": "Knot.json",
+      "name": "Knot",
+      "block": "The Coil",
+      "shots": 50,
+      "minStars": 26,
+      "ceilingStep": 6
+    },
+    {
       "file": "Ten.json",
       "name": "Column",
       "block": "The Tower",
       "shots": 90,
-      "minStars": 18,
+      "minStars": 28,
       "ceilingStep": 5
     },
     {
@@ -95,7 +135,7 @@
       "name": "Crown",
       "block": "The Tower",
       "shots": 44,
-      "minStars": 20,
+      "minStars": 30,
       "ceilingStep": 9
     },
     {
@@ -103,7 +143,7 @@
       "name": "Horn",
       "block": "The Tower",
       "shots": 80,
-      "minStars": 22,
+      "minStars": 32,
       "ceilingStep": 6
     },
     {
@@ -111,7 +151,7 @@
       "name": "Helix",
       "block": "The Tower",
       "shots": 66,
-      "minStars": 24,
+      "minStars": 34,
       "ceilingStep": 5
     },
     {
@@ -119,7 +159,7 @@
       "name": "Lean",
       "block": "The Tower",
       "shots": 78,
-      "minStars": 26,
+      "minStars": 36,
       "ceilingStep": 6
     },
     {
@@ -127,7 +167,7 @@
       "name": "Onion",
       "block": "The Reveal",
       "shots": 48,
-      "minStars": 28,
+      "minStars": 38,
       "ceilingStep": 8
     },
     {
@@ -135,7 +175,7 @@
       "name": "Chest",
       "block": "The Reveal",
       "shots": 56,
-      "minStars": 30,
+      "minStars": 40,
       "ceilingStep": 9
     },
     {
@@ -143,7 +183,7 @@
       "name": "Fossil",
       "block": "The Reveal",
       "shots": 36,
-      "minStars": 32,
+      "minStars": 42,
       "ceilingStep": 9
     },
     {
@@ -151,7 +191,7 @@
       "name": "Mango",
       "block": "The Reveal",
       "shots": 36,
-      "minStars": 34,
+      "minStars": 44,
       "ceilingStep": 7
     },
     {
@@ -159,7 +199,7 @@
       "name": "Lantern",
       "block": "The Reveal",
       "shots": 58,
-      "minStars": 36,
+      "minStars": 46,
       "ceilingStep": 7
     },
     {
@@ -167,7 +207,7 @@
       "name": "Mosaic",
       "block": "The Quarry",
       "shots": 56,
-      "minStars": 38,
+      "minStars": 48,
       "ceilingStep": 8
     },
     {
@@ -175,7 +215,7 @@
       "name": "Prism",
       "block": "The Quarry",
       "shots": 60,
-      "minStars": 40,
+      "minStars": 50,
       "ceilingStep": 6
     },
     {
@@ -183,7 +223,7 @@
       "name": "Hopper",
       "block": "The Quarry",
       "shots": 60,
-      "minStars": 42,
+      "minStars": 52,
       "ceilingStep": 6
     },
     {
@@ -191,7 +231,7 @@
       "name": "Static",
       "block": "The Quarry",
       "shots": 60,
-      "minStars": 44,
+      "minStars": 54,
       "ceilingStep": 5
     },
     {
@@ -199,7 +239,7 @@
       "name": "Colossus",
       "block": "The Quarry",
       "shots": 45,
-      "minStars": 46,
+      "minStars": 56,
       "ceilingStep": 4
     }
   ]

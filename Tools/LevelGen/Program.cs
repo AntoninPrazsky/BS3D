@@ -2,6 +2,7 @@ using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Levels;
 using Prazsky.Core.Render;
+using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -109,23 +110,24 @@ namespace BS3D.Tools.LevelGen
         /// <summary>How many levels are in one block. See <see cref="Main"/> for what a block is (#194).</summary>
         private const int BLOCK_SIZE = 5;
 
-        //THE FIVE BLOCKS' THEMES (#194). A block's piece is named on every level of it, so the music changes
+        //THE BLOCKS' THEMES (#194). A block's piece is named on every level of it, so the music changes
         //when the chapter does and not when the level does - see Design.Music for what naming it buys and what
         //leaving it null used to cost. Named after the block rather than after the piece because that is the
         //thing being decided: if a block's music is ever changed it is changed HERE, once, and not five times.
         //
-        //Five blocks, and the Quarry REPRISES Pulse rather than taking a piece of its own: the campaign opens on
-        //the piece Level One has always played and the finale brings it back.
+        //FIVE pieces against SIX blocks since #207, so exactly one is reprised, and it is the bookend: the
+        //campaign opens on the piece Level One has always played and the finale brings it back. That reprise
+        //was FORCED while four pieces existed; it is a choice now, and it is kept because a reprise at the end
+        //is a real musical idea where "every block gets its own" is only tidy.
         //
-        //That was forced when it was written, because four pieces existed. It is a CHOICE now — #163 landed
-        //Ember, the rock ballad, so there is a fifth and no block uses it. Whether the Moon should take it
-        //instead of the reprise is a question for whoever has heard both against that scene, not one to settle
-        //by arithmetic: a reprise at the end is a real musical idea and "every block gets its own" is only tidy.
-        //Changing it is one token here.
+        //The Coil takes Ember, and that is #163 and #207 answering each other. #163 landed the rock ballad with
+        //no block using it; #207 wrote, when it still had to reprise Nocturne here, that this was the block with
+        //the weaker claim on a reprise and the one to give the ballad to when it landed. Both are now true at
+        //once, so the desert gets the amplifier and Nocturne is left to the Reveal alone.
         /// <summary>
         /// What each block is <b>called</b>, written onto every entry of it as <c>LevelSetEntry.Block</c> so the
         /// game can celebrate finishing one by name (#184). Indexed by block, so the order here IS the order of
-        /// the catalogue's own five groups.
+        /// the catalogue's own six groups.
         /// <para>
         /// Set from the entry's <b>position</b> where <see cref="Design.Music"/> is set on each design, and the
         /// asymmetry is not an oversight: a theme is written into the level <i>file</i>, so it has to be a
@@ -136,11 +138,12 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private static readonly string[] BLOCK_NAMES =
         {
-            "The Meadow", "The Gallery", "The Tower", "The Reveal", "The Quarry"
+            "The Meadow", "The Gallery", "The Coil", "The Tower", "The Reveal", "The Quarry"
         };
 
         private const string MUSIC_RINGS = "pulse";
         private const string MUSIC_GALLERY = "dechovka";
+        private const string MUSIC_COIL = "ember";
         private const string MUSIC_TOWER = "bohemia";
         private const string MUSIC_REVEAL = "nocturne";
         private const string MUSIC_QUARRY = "pulse";
@@ -166,10 +169,18 @@ namespace BS3D.Tools.LevelGen
             //one statable style, and it is contiguous — so a fixed chunk of BLOCK_SIZE by position IS a block,
             //which is what #184's block-completion celebration needs and what a flat list could not give it.
             //
-            //The campaign's light drains out of it as it goes: green noon, gold afternoon, violet dusk,
-            //underground dark, airless black. Difficulty ramps with it, and so does how much of each block is
-            //new — one new level in the first block, then two, three, four, and one again at the finale, which
-            //closes on the hardest content the pack already had.
+            //The campaign's light drains out of it as it goes: green noon, gold afternoon, the desert's cool
+            //late light, violet dusk, underground dark, airless black. Difficulty ramps with it, and so does
+            //how much of each block is new — one new level in the first block, then two, five, three, four,
+            //and one again at the finale, which closes on the hardest content the pack already had.
+            //
+            //THE COIL IS INSERTED AT 3 RATHER THAN APPENDED (#207), and both halves of that are decisions.
+            //Appending it would have put a bright hot chapter after the airless black one and taken the last
+            //word off Colossus, which is the level the whole ramp is built to arrive at; slotted third, the
+            //desert is the step the light was missing between the savanna's gold and the mountains' violet.
+            //Nothing had to be retuned to move eleven levels down the order, because the unlock ramp
+            //is a function of POSITION and not of any design — see MinStarsAt, which was written that way for
+            //exactly this.
             //
             //ONE RECORDED DECISION IS REVERSED HERE and it is worth naming rather than leaving to be noticed.
             //The three pictures used to be deliberately INTERLEAVED with the geometric levels, "because they
@@ -191,7 +202,14 @@ namespace BS3D.Tools.LevelGen
                 //2. THE SAVANNA - "The Gallery". Flat drawn walls, read off a bitmap written in the source.
                 Heart(), Smiley(), Star(), Elephant(), Zebra(),
 
-                //3. THE MOUNTAINS - "The Tower". The layout is deeper than the camera frames, so a level's
+                //3. THE DESERT - "The Coil" (#207). Every layout here hangs on SLENDER LINKS, so the cluster
+                //springs and swings instead of sitting there: strands twisted round each other, a ledge winding
+                //round a thin core, a woven shell, a weight on four ropes, a closed loop. The one block whose
+                //style is a statement about the PHYSICS rather than about the silhouette — and the block that
+                //finally plays in the desert, which no level did.
+                Rope(), Minaret(), Basket(), Pendulum(), Knot(),
+
+                //4. THE MOUNTAINS - "The Tower". The layout is deeper than the camera frames, so a level's
                 //length is its height and it is worked from the underside up as the glass hands it down.
                 //
                 //COLUMN OPENS IT since #206, where Crown did before, and that reverses the reasoning written
@@ -206,11 +224,11 @@ namespace BS3D.Tools.LevelGen
                 //well behind the premise as ahead of it.
                 Column(), Crown(), Horn(), Helix(), Lean(),
 
-                //4. THE CAVERN - "The Reveal". An outer body with a differently-shaped thing standing inside
+                //5. THE CAVERN - "The Reveal". An outer body with a differently-shaped thing standing inside
                 //it; clearing the outside is the payoff (#161).
                 Onion(), Chest(), Fossil(), Mango(), Lantern(),
 
-                //5. THE MOON - "The Quarry". Chunky lattice-aligned blocks of colour, five or six of them, and
+                //6. THE MOON - "The Quarry". Chunky lattice-aligned blocks of colour, five or six of them, and
                 //no plate to trigger anywhere: every shot is a shot at a handful of balls. Colossus closes it,
                 //and closes the campaign, from WriteLevelSet.
                 Mosaic(), Prism(), Hopper(), Static()
@@ -247,8 +265,9 @@ namespace BS3D.Tools.LevelGen
         }
 
         /// <summary>
-        /// Rewrites the set that orders the levels — since #194 as <b>five blocks of <see cref="BLOCK_SIZE"/></b>
-        /// rather than one flat ramp of fourteen. <b>One opens the campaign and Colossus closes it</b>; One is a
+        /// Rewrites the set that orders the levels — since #194 as <b>blocks of <see cref="BLOCK_SIZE"/></b>
+        /// rather than one flat ramp of fourteen, and six of them since #207 added the desert. <b>One opens the
+        /// campaign and Colossus closes it</b>; One is a
         /// design here now (the author asked for it regenerated, see <see cref="One"/>) and states its own rules
         /// with the rest, while Colossus is still hand-drawn and keeps its rules verbatim — it is authored
         /// content and this generator has no opinion about it beyond where it sits.
@@ -262,9 +281,11 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// <b>Colossus is the one level whose music this tool cannot pin</b>, because it does not write the file:
         /// its <c>"music"</c> field is authored in <c>Colossus.json</c> itself, and it has to say the Quarry's
-        /// theme or the level falls back to the positional rotation and plays whatever position 25 happens to
-        /// give. It agreed by luck before this was noticed (24 % 4 is 0, which is Pulse, which is the Quarry's
-        /// theme) — exactly the silent coupling to the order that #194 exists to remove. Its <c>"sky"</c> was
+        /// theme or the level falls back to the positional rotation and plays whatever its position happens to
+        /// give. It agreed by luck before this was noticed (at 25 entries, 24 % 4 is 0, which is Pulse, which is
+        /// the Quarry's theme) — exactly the silent coupling to the order that #194 exists to remove, and
+        /// <b>#207 has now spent that luck</b>: at 30 entries the rotation would hand position 30 Bohemia, so the
+        /// authored field is the only reason the finale still plays its own block's piece. Its <c>"sky"</c> was
         /// moved from 2 to the block's 13 in the same edit: the number is <b>inert</b> on the Moon (one of the
         /// four sky-replacing scenes, #142) so it cannot be seen either way, and matching it is what keeps
         /// <see cref="DescribeBlock"/> from permanently reporting a difference nothing can render.
@@ -388,12 +409,12 @@ namespace BS3D.Tools.LevelGen
         /// goes back for a better one. The most a player can hold at entry <paramref name="index"/> is
         /// <c>4 × index</c>, so the steepest gate still asks under half of what is on the table.
         /// <para>
-        /// <b>The ramp is unchanged by #194 and that was checked rather than assumed</b>, because it now runs to
-        /// twenty-five entries instead of fourteen. The property that has to hold is the par one: a player who
-        /// two-stars every level ahead of entry <i>i</i> holds <c>2i</c> against a gate of <c>2(i − 1)</c>, which
-        /// clears it by two at every position, however long the set is. At the last entry the gate is 46 against
-        /// the 96 four-star clears would have banked — still the "under half" above, so nothing needed retuning
-        /// and no gate had to be made block-aware.
+        /// <b>The ramp is unchanged by #194 and again by #207, and that was checked rather than assumed</b>,
+        /// because it now runs to thirty entries instead of the fourteen it was written for. The property that
+        /// has to hold is the par one: a player who two-stars every level ahead of entry <i>i</i> holds
+        /// <c>2i</c> against a gate of <c>2(i − 1)</c>, which clears it by two at every position, however long
+        /// the set is. At the last entry the gate is 56 against the 116 four-star clears would have banked —
+        /// still the "under half" above, so nothing needed retuning and no gate had to be made block-aware.
         /// </para>
         /// </summary>
         private static int? MinStarsAt(int index) => index switch
@@ -1676,6 +1697,351 @@ namespace BS3D.Tools.LevelGen
 
         #endregion
 
+        #region The coiled levels (#207)
+
+        //Helix was the level the author singled out - "right after launch it bounces like a spring, which
+        //looks great and finally exploits the physics potential of the game" - and this block is the ask that
+        //came out of it: MORE of that, variously interconnected, and in the desert, which no level used.
+        //
+        //WHAT MAKES A LAYOUT SPRING is not its silhouette, it is how few and how slender the links holding it
+        //up are. The cluster is one Bepu body per ball tied to its neighbours by BallSocket constraints and to
+        //the glass along the field's top level, so a wide solid slab is stiff by construction and a long thin
+        //member is not. That is the whole style of the block, and it is also its one structural danger, because
+        //slender links are exactly what the drop test refuses: everything below a severed link is orphaned.
+        //Every design here therefore carries a SECOND load path, and what that second path is differs per level:
+        //
+        //  Rope     - three strands that periodically pinch together, so each hangs off the other two.
+        //  Minaret  - a ledge and the core it winds round, tied at every level: cut either and the other holds.
+        //  Basket   - two families of ribs winding opposite ways, so the shell is a mesh and not a set of lines.
+        //  Pendulum - four ropes in two colours, so no one colour can cut the weight loose.
+        //  Knot     - a CLOSED loop touching the glass three times: one cut leaves an arc, not a falling piece.
+        //
+        //None of them is tall. That is deliberate and it is the Tower's boundary being respected rather than an
+        //oversight - "the layout is deeper than the camera frames" is that block's whole statement, and a second
+        //block of tall levels would take it away. These are framed whole and swing inside the frame.
+
+        /// <summary>
+        /// The desert's field: eighteen deep against a layout of <see cref="DUNES_DEPTH"/>, which is the same
+        /// arithmetic <see cref="REVEAL_FIELD_LEVELS"/> arrives at and a different reason for it.
+        /// <para>
+        /// A field deeper than sixteen is <b>raised off the death line</b> rather than pinned at
+        /// <c>FIELD_TOP_Y</c> (seventeen is the first depth raised), so the cluster hangs 1.36 higher and its
+        /// lowest layout ball starts 4.74 above the line instead of 3.38. On a block whose whole point is that
+        /// the cluster <i>swings</i>, that clearance is not a luxury: #203 is the same fact arriving as a bug
+        /// report on the picture levels, where gravity pulls part of the layout down into a narrow stalk and
+        /// the stalk crosses the line. Six empty levels under the layout are the room that swing needs.
+        /// </para>
+        /// <para>
+        /// <b>Eighteen and not twenty</b>, for the Reveal's reason as much as this one: <c>FRAMED_LEVELS</c> is
+        /// 18, so an 18-level field is the deepest one still framed <b>whole</b>, and a block of levels the
+        /// camera framed from the floor up would be a second Tower.
+        /// </para>
+        /// </summary>
+        private const byte DUNES_FIELD_LEVELS = 18;
+
+        /// <summary>
+        /// How deep a coiled layout is drawn. Twelve leaves the six empty levels <see cref="DUNES_FIELD_LEVELS"/>
+        /// is chosen for, and the offset it implies is even, which <see cref="Emit"/> requires. Only
+        /// <see cref="Pendulum"/> departs from it, and says why.
+        /// </summary>
+        private const byte DUNES_DEPTH = 12;
+
+        /// <summary>
+        /// The dome the whole block hangs under: a <b>cool turquoise sky over warm sand</b>, the desert's own
+        /// late light. Picked by looking, against 2, 10, 11, 16 and 18, and on two things a palette table
+        /// cannot say.
+        /// <para>
+        /// <b>It has to be a dome no other block owns.</b> The meadow's 1 is a clear blue day and the
+        /// mountains' 8 a pink violet, and every warm-sunset candidate here turned out to be a <i>pink</i> one
+        /// in play — 2, 10 and 18 all read within a hair of the mountains, because a dome's fiery lower rings
+        /// sit below the horizon where the scene's own terrain covers them, and only its upper rings are ever
+        /// seen. Six is the one dome in the eighteen that is cool where the ground is warm, which is the
+        /// desert postcard and belongs to nothing else.
+        /// </para>
+        /// <para>
+        /// <b>And the balls have to read against it.</b> 16 (a near-black zenith over pale sand) is the most
+        /// striking frame of the six and makes the cluster pop hardest, and it was passed over for the
+        /// campaign's light: it is darker than the violet dusk that follows it, so the block after this one
+        /// would be a step back into the light. Six keeps the drain going — green noon, gold afternoon, the
+        /// desert's cool late light, violet dusk, underground dark, airless black.
+        /// </para>
+        /// </summary>
+        private const byte DUNES_SKY = 6;
+
+        /// <summary>
+        /// Four strands twisted about a common axis, <b>pinching together and spreading apart</b> as they climb.
+        /// It opens the block because it is the shape closest to <see cref="Helix"/> — the player is meant to
+        /// recognise the register at once — and the one line that separates them is worth stating: Helix's two
+        /// strands are tied by <i>manufactured</i> rungs at a fixed spacing, where these four tie <b>themselves</b>,
+        /// wherever the weave brings them together.
+        /// <para>
+        /// Each strand's angle carries two terms. <see cref="ROPE_TWIST"/> is the steady spin the whole rope
+        /// makes, and <see cref="ROPE_WEAVE"/> is a slow oscillation given a quarter turn of phase per strand —
+        /// so the four do not move together, and their angular separation breathes about its resting 90°. Where
+        /// two of them come closest their discs overlap and the strands are one body; where they are furthest
+        /// apart the rope is four separate lines with daylight between them, which is the whole reason it swings.
+        /// </para>
+        /// <para>
+        /// <b>The weave amplitude is the load-bearing number</b> and it is bounded on both sides. Too little and
+        /// the strands never meet, which is four chains hanging side by side and a level that ends on the first
+        /// colour cut near the glass. Too much and they fuse into one blob and the level is a cylinder. 0.60 rad
+        /// puts the closest approach at 41°, a chord of 2.12 against two strand radii of 2.6 — an overlap of
+        /// half a cell, which is a touch and not a merge. Opposite strands never come nearer than 111°, so the
+        /// rope has a hole down the middle rather than a core.
+        /// </para>
+        /// <para>
+        /// <b>It shipped first as THREE strands of 1.6 at a radius of 2.5, and a photograph refused it.</b> Every
+        /// gate passed — 285 balls, margin 2, nothing alone, nothing recoloured — and in the running game it was
+        /// a shapeless column with no twist visible anywhere in it: at 120° apart, centres 4.3 apart and strands
+        /// 3.2 across leave barely a cell between neighbours, and the lattice rounds that away. The check that
+        /// catches this is the <c>screenshot</c> skill and nothing else here can. Four thinner strands on a wider
+        /// circle cost thirty balls and bought the shape.
+        /// </para>
+        /// <para>
+        /// Measured: 252 balls — the lightest level of the block, and lighter than anything in the pack but One
+        /// and Bullseye — margin 2, nothing alone, nothing in a pair, nothing recoloured. Best single shots 9 %,
+        /// 9 %, 8 % and 8 % on groups of 21–23, which is as even as this pack gets.
+        /// </para>
+        /// </summary>
+        private static Design Rope() => new()
+        {
+            File = "Rope.json",
+            Name = "Rope",
+            Grid = 13,
+            Depth = DUNES_DEPTH,
+            FieldLevels = DUNES_FIELD_LEVELS,
+            Scene = new DesertSceneConfig(),
+            Sky = DUNES_SKY,
+            Music = MUSIC_COIL,
+            Shots = 40,
+            CeilingStep = 8,
+            Occupied = (r, ang, i, depth) => RopeStrand(r, ang, i) != 0,
+            //Courses along each strand rather than an ink per strand: a whole strand in one ink is a group of
+            //sixty and a third of the level goes on one ball. The course is rolled by TWO against four inks and
+            //the strand index by one, which is Lantern's rule and the same arithmetic: neighbouring strands
+            //differ by one at every level, and a strand meeting its neighbour ACROSS a course boundary differs
+            //by one or three. Rolled by one instead — which is what this shipped with first — that diagonal
+            //neighbour is the same ink, and the three courses of a colour fuse into one group of 64.
+            Colour = (r, ang, i, depth) => Band(2 * (i / ROPE_COURSE) + RopeStrand(r, ang, i),
+                new[] { BallType.Type1, BallType.Type7, BallType.Type2, BallType.Type5 }),
+        };
+
+        /// <summary>
+        /// A slender core with a <b>ledge winding round it</b> — the spiral minaret at Samarra, which is a
+        /// desert building and the one shape in the pack that is two things at once. The core is what hangs off
+        /// the glass and the ramp is what swings, and they are tied along the ramp's whole inner edge at every
+        /// level, which is what makes the pair safe: <b>they are two load paths, not one</b>. Cut a course of
+        /// the core and everything under it still hangs by the ramp; cut a run of the ramp and it still hangs
+        /// by the core.
+        /// <para>
+        /// That redundancy is stated in the palettes and not only in the geometry. The core is coloured out of
+        /// <b>its own two inks</b> and the ramp out of three others, so no group can ever span both — a core
+        /// course and the ramp beside it are always different colours, and a shot that takes one cannot take
+        /// the other with it.
+        /// </para>
+        /// <para>
+        /// The wedge is 63° against a turn of 40° a level, so consecutive courses of the ramp still overlap by
+        /// 23°. Under 40° they would not overlap at all and the ramp would be a stack of separate shelves
+        /// hanging off the core, which is a different level and a worse one.
+        /// </para>
+        /// <para>
+        /// <b>The first cut ran the wedge at 82° and it did not read as a ramp.</b> A quarter of the ring at
+        /// every level, over the 1.3 turns a twelve-level layout allows, photographs as scattered lumps rather
+        /// than as one thing winding — the same failure <see cref="Rope"/> had and the same check that found it.
+        /// A ribbon needs to be narrow and long, so the wedge came in to 63° and <see cref="MINARET_OUTER"/>
+        /// went out from 4.6 to 5.3 in the same change; that costs nothing, since a 15-wide field carries
+        /// anything under 5.5 at margin 2.
+        /// </para>
+        /// <para>
+        /// Measured: 293 balls, margin 2, nothing alone, nothing in a pair, nothing recoloured, and the
+        /// <b>flattest colour spread in the whole pack</b> — best single shots 15 %, 14 %, 14 %, 13 %, 14 %.
+        /// That evenness is the two-palette rule paying out rather than luck: five inks over a shape whose two
+        /// parts are coloured independently cannot pile up on one of them.
+        /// </para>
+        /// </summary>
+        private static Design Minaret() => new()
+        {
+            File = "Minaret.json",
+            Name = "Minaret",
+            Grid = 15,
+            Depth = DUNES_DEPTH,
+            FieldLevels = DUNES_FIELD_LEVELS,
+            Scene = new DesertSceneConfig(),
+            Sky = DUNES_SKY,
+            Music = MUSIC_COIL,
+            Shots = 44,
+            CeilingStep = 8,
+            Occupied = (r, ang, i, depth) => r <= MINARET_CORE || MinaretRamp(r, ang, i),
+            Colour = (r, ang, i, depth) => r <= MINARET_CORE
+                ? Band(i / MINARET_COURSE_CORE, new[] { BallType.Type4, BallType.Type3 })
+                : Band(i / MINARET_COURSE_RAMP, new[] { BallType.Type1, BallType.Type7, BallType.Type6 }),
+        };
+
+        /// <summary>
+        /// A <b>hollow woven shell</b>: two families of ribs on one cylinder, one winding up to the right and
+        /// one up to the left, crossing wherever they meet. It is the block's answer to the question the other
+        /// four dodge — what a coiled level looks like when it is <i>enclosed</i> rather than a set of lines —
+        /// and it is the springiest thing here, because a two-cell wall with holes in it can breathe.
+        /// <para>
+        /// <b>The weave is its own safety.</b> Every crossing is a join, so the shell is a mesh: there is no
+        /// single cut anywhere below the rim that separates a piece of it from the glass, and the drop test
+        /// reads it as one of the tightest levels in the pack rather than one of the loosest.
+        /// </para>
+        /// <para>
+        /// <b>The rim is not decoration.</b> The top <see cref="BASKET_RIM"/> levels are a solid course all the
+        /// way round, because the ribs alone reach the glass at six small patches and a basket hanging by six
+        /// patches is a basket that tears. It is coloured by <i>sector</i> for the reason the whole block
+        /// exists: one ink round the rim is one group holding the entire level, which is the anchor trap in its
+        /// purest form. Six sectors over four inks leaves no two neighbours alike, wrap included.
+        /// </para>
+        /// <para>
+        /// Measured: 280 balls, margin 2, nothing alone, nothing in a pair, nothing recoloured, best single
+        /// shots <b>7 %, 9 %, 10 % and 11 %</b> — the tightest level of the block by a distance and near the
+        /// bottom of the pack's whole band, which is the mesh doing exactly what it is for. It is also the
+        /// lightest here, so the figure to watch in play is the budget rather than the groups.
+        /// </para>
+        /// <para>
+        /// <b>Thirteen wide and not fifteen.</b> The shell reaches 4.4, which leaves three free columns in a
+        /// 15-wide field — a wider glass plate and a longer camera stand-off bought for nothing. Thirteen is
+        /// the narrowest field that still gives <see cref="LateralMargin"/> the two columns it wants here.
+        /// </para>
+        /// </summary>
+        private static Design Basket() => new()
+        {
+            File = "Basket.json",
+            Name = "Basket",
+            Grid = 13,
+            Depth = DUNES_DEPTH,
+            FieldLevels = DUNES_FIELD_LEVELS,
+            Scene = new DesertSceneConfig(),
+            Sky = DUNES_SKY,
+            Music = MUSIC_COIL,
+            Shots = 48,
+            CeilingStep = 7,
+            Occupied = (r, ang, i, depth) =>
+                BasketWall(r) && (BasketIsRim(i, depth) || BasketRib(ang, i) != 0),
+            Colour = (r, ang, i, depth) =>
+            {
+                BallType[] palette = { BallType.Type1, BallType.Type7, BallType.Type2, BallType.Type5 };
+
+                return BasketIsRim(i, depth)
+                    ? Band(BasketSector(ang), palette)
+                    : Band(BasketRib(ang, i) + i / BASKET_COURSE, palette);
+            },
+        };
+
+        /// <summary>
+        /// A weight hanging from the glass on <b>four ropes</b> — the block's pendulum, and the one level here
+        /// whose swing the player can start on purpose, because a shot into the bulb shoves a mass that is held
+        /// by almost nothing.
+        /// <para>
+        /// <b>Two inks over four ropes, opposite ropes alike.</b> One ink per rope would be four colours spent
+        /// on the thinnest thing in the level; one ink over all four would hand a single shot the whole weight.
+        /// Paired diagonally, a colour taken cuts two ropes and leaves the other two — the bulb keeps hanging,
+        /// on half the suspension it had, from two corners instead of four. Nothing is orphaned and the level
+        /// visibly gets worse to aim at, which is the best thing a shot can do.
+        /// </para>
+        /// <para>
+        /// The bulb is coloured in <see cref="Mosaic"/>'s 3×3×3 masonry rather than in gores. Gores were tried
+        /// on paper and are the wrong rule for a solid of revolution hanging by its shoulders: every gore
+        /// converges on the pole, so opposite gores of one ink meet there and become a single group spanning
+        /// the whole body. Blocks have no pole.
+        /// </para>
+        /// <para>
+        /// <b>Fourteen deep and not <see cref="DUNES_DEPTH"/></b>: the ropes are the level, and six levels of
+        /// rope over an eight-level bulb reads as a lamp sitting on a shelf rather than as a weight on a line.
+        /// The offset stays even, which is what <see cref="Emit"/> requires.
+        /// </para>
+        /// <para>
+        /// Measured: 384 balls — the heaviest of the block — margin 2, nothing standing alone, <b>2 in pairs
+        /// and 1 recoloured</b>, all three at the same cell on the bulb's crown, where a 3×3×3 block is clipped
+        /// by the ellipsoid down to a sliver. That is the repair pass's own remit and the count is at the low
+        /// end of what the pack ships (Prism 4 in pairs, Static 14). Best single shots 10 %, 11 %, 15 %, 20 %
+        /// and 10 %; the 20 % is a rope pair, which is the shot this level is designed around.
+        /// </para>
+        /// </summary>
+        private static Design Pendulum() => new()
+        {
+            File = "Pendulum.json",
+            Name = "Pendulum",
+            Grid = PENDULUM_GRID,
+            Depth = 14,
+            FieldLevels = DUNES_FIELD_LEVELS,
+            Scene = new DesertSceneConfig(),
+            Sky = DUNES_SKY,
+            Music = MUSIC_COIL,
+            Shots = 52,
+            CeilingStep = 7,
+            OccupiedBlock = (x, z, i, depth) => PendulumRope(x, z, i) != 0 || PendulumBulb(x, z, i),
+            BlockColour = (x, z, i) =>
+            {
+                int rope = PendulumRope(x, z, i);
+
+                //The rope wins in the shoulder, where rope and bulb overlap, so a rope reads as entering the
+                //weight rather than as stopping on top of it
+                if (rope != 0) return rope is 1 or 4 ? BallType.Type1 : BallType.Type7;
+
+                return Band(x / 3 + z / 3 + i / 3,
+                    new[] { BallType.Type3, BallType.Type4, BallType.Type5 });
+            },
+        };
+
+        /// <summary>
+        /// A <b>trefoil</b> — the (2, 3) torus knot — hanging from the three points where it touches the glass.
+        /// It closes the block and it is the only <i>closed loop</i> in the game: every other layout in the pack
+        /// has ends, and a loop is the one topology on which a single cut cannot drop anything at all. Take an
+        /// arc out anywhere and what is left is still an arc hanging off the other two anchors.
+        /// <para>
+        /// That is what buys the level its difficulty. Six arcs over three inks means no ink holds more than a
+        /// sixth of the knot and the three anchors are three different colours by construction (the loop's
+        /// three high points fall in arcs 0, 2 and 4), so <b>nothing here cascades</b>: it is worked round the
+        /// loop a group at a time, which is why it carries the block's loosest shot budget against its smallest
+        /// groups.
+        /// </para>
+        /// <para>
+        /// <b>The knot is hung by its top and not by its middle.</b> The layout's top level is the one bonded to
+        /// the glass, so the vertical mapping puts <see cref="KNOT_RISE"/> — the curve's own highest point —
+        /// exactly on it. Centred instead, the top level would be empty and the whole level would hang off
+        /// nothing; the loader would build it and it would fall on the first frame.
+        /// </para>
+        /// <para>
+        /// It is drawn as the set of cells within <see cref="KNOT_TUBE"/> of a curve sampled
+        /// <see cref="KNOT_SAMPLES"/> times, which is the one shape here that cannot be solved from a radius.
+        /// <see cref="KNOT_MINOR"/> must stay clear of <see cref="KNOT_TUBE"/>: the loop passes its own far side
+        /// at twice the minor radius, so a tube fatter than that welds the crossings shut and the pretzel
+        /// becomes a lump.
+        /// </para>
+        /// <para>
+        /// Measured: 325 balls, margin 2, nothing alone, nothing in a pair, nothing recoloured, best single
+        /// shots 11 %, 8 % and 10 % on three inks carrying 122, 106 and 97 balls. <b>A fatter tube was tried
+        /// and refused</b>: at 1.3 the same knot is 400 balls, which is the weight this level would rather
+        /// have, but the extra quarter cell welds enough crossings that twelve arcs no longer colour on three
+        /// inks at all — see <see cref="KNOT_INKS"/> for the contact graph both figures come off. A fourth ink
+        /// on the block's last level costs more than seventy-five balls are worth.
+        /// </para>
+        /// </summary>
+        private static Design Knot() => new()
+        {
+            File = "Knot.json",
+            Name = "Knot",
+            Grid = 15,
+            Depth = DUNES_DEPTH,
+            FieldLevels = DUNES_FIELD_LEVELS,
+            Scene = new DesertSceneConfig(),
+            Sky = DUNES_SKY,
+            Music = MUSIC_COIL,
+            Shots = 50,
+            CeilingStep = 6,
+            Occupied = (r, ang, i, depth) => KnotDistance(r, ang, i, depth, out _) <= KNOT_TUBE,
+            Colour = (r, ang, i, depth) =>
+            {
+                KnotDistance(r, ang, i, depth, out int arc);
+                return Band(KNOT_INKS[arc], new[] { BallType.Type1, BallType.Type7, BallType.Type3 });
+            },
+        };
+
+        #endregion
+
         #endregion
 
         #region Colour helpers
@@ -2508,6 +2874,334 @@ namespace BS3D.Tools.LevelGen
 
         #endregion
 
+        #region The coiled levels' own geometry (#207)
+
+        /// <summary>
+        /// An angle folded back into −π…π, so a difference between two of them is the <b>short</b> way round.
+        /// Every shape in this block is a window on an angle that turns with the level, and without this the
+        /// window silently stops working the first time the turn passes π.
+        /// </summary>
+        private static float WrapAngle(float angle)
+        {
+            float wrapped = angle % MathF.Tau;
+
+            if (wrapped > MathF.PI) wrapped -= MathF.Tau;
+            else if (wrapped < -MathF.PI) wrapped += MathF.Tau;
+
+            return wrapped;
+        }
+
+        //THE ROPE'S OWN GEOMETRY, and its one hard lesson: a rope has to have DAYLIGHT in it. The first cut ran
+        //three strands of 1.6 at a radius of 2.5, which passes every gate and photographs as a shapeless
+        //column - at 120 degrees apart, centres 4.3 apart and strands 3.2 wide leave barely a cell between
+        //them, and the lattice rounds that away. Four strands of 1.3 at 3.0 leave 1.6 cells of sky between
+        //neighbours at rest, which is what makes them read as four things twisted together.
+        private const int ROPE_STRANDS = 4;
+        private const float ROPE_RADIUS = 3.0f;
+        private const float ROPE_STRAND = 1.3f;
+
+        //The steady spin: 0.05 turns a level is 18 degrees, which walks a strand centre 0.94 cells. Added to
+        //the weave's own worst 0.79 that is 1.73 against a strand 2.6 across, so consecutive levels of one
+        //strand always overlap - which is the only thing making a strand a strand rather than a stack of discs.
+        private const float ROPE_TWIST = 0.05f;
+
+        //The weave: how far a strand's angle swings either side of its resting quarter turn, and how fast.
+        //See Rope() for why the amplitude is bounded on both sides; the rate is what keeps the per-level walk
+        //inside what the strand's own width can bridge.
+        private const float ROPE_WEAVE = 0.60f;
+        private const float ROPE_WEAVE_RATE = 0.07f;
+
+        /// <summary>How many levels one ink of a strand runs for. See <see cref="Rope"/>.</summary>
+        private const int ROPE_COURSE = 4;
+
+        /// <summary>Where strand <paramref name="k"/> points at layout level <paramref name="i"/>.</summary>
+        private static float RopeAngle(int k, int i)
+        {
+            float phase = (float)k / ROPE_STRANDS;
+            return MathF.Tau * (phase + ROPE_TWIST * i) + ROPE_WEAVE * MathF.Sin(MathF.Tau * (ROPE_WEAVE_RATE * i + phase));
+        }
+
+        /// <summary>
+        /// Which strand owns a cell — 1…<see cref="ROPE_STRANDS"/>, or 0 for none. Where two strands overlap the
+        /// lower index wins, which matters only to the colouring and is what makes a pinch read as one strand
+        /// passing in front of the other rather than as a seam down the middle of the merge.
+        /// </summary>
+        private static int RopeStrand(float r, float ang, int i)
+        {
+            float x = r * MathF.Cos(ang);
+            float z = r * MathF.Sin(ang);
+
+            for (int k = 0; k < ROPE_STRANDS; k++)
+            {
+                float theta = RopeAngle(k, i);
+                float dx = x - ROPE_RADIUS * MathF.Cos(theta);
+                float dz = z - ROPE_RADIUS * MathF.Sin(theta);
+
+                if (dx * dx + dz * dz <= ROPE_STRAND * ROPE_STRAND) return k + 1;
+            }
+
+            return 0;
+        }
+
+        //The minaret's own geometry. The core is a slim column - 1.6 is four cells across on an unshifted level
+        //and nine on a shifted one, which is the thinnest radius that is a solid column whatever the parity -
+        //and the ramp is the wedge outside it, out to MINARET_OUTER. 4.6 leaves margin 1 in a 15-wide field.
+        private const float MINARET_CORE = 1.6f;
+        private const float MINARET_OUTER = 5.3f;
+
+        //0.11 turns a level is 40 degrees, so the ramp makes 1.3 turns over the layout: enough that the player
+        //can see it wind, and slow enough that the wedge below still overlaps the one above (see MINARET_WEDGE).
+        private const float MINARET_TURN = 0.11f;
+
+        //Half the ramp's angular width, in radians - 31.5 degrees, against a turn of 40 degrees a level, so
+        //consecutive courses still overlap by 23. It was 41 degrees and that is what a photograph refused: a
+        //wedge 82 wide is nearly a quarter of the ring at every level, and a quarter of a ring on 1.3 turns
+        //reads as scattered lumps rather than as one ramp winding. Narrow it and lengthen it - MINARET_OUTER
+        //went out to 5.3 in the same change - and the ribbon appears.
+        private const float MINARET_WEDGE = 0.55f;
+
+        //How many levels one ink runs for, in the core and on the ramp. They differ so the two never change
+        //colour on the same level, which would put a seam straight through the join they are tied at.
+        private const int MINARET_COURSE_CORE = 4;
+        private const int MINARET_COURSE_RAMP = 3;
+
+        /// <summary>Whether a cell is on the ramp: outside the core, inside the rim, and inside the turning wedge.</summary>
+        private static bool MinaretRamp(float r, float ang, int i)
+        {
+            if (r <= MINARET_CORE || r > MINARET_OUTER) return false;
+
+            return MathF.Abs(WrapAngle(ang - MathF.Tau * MINARET_TURN * i)) <= MINARET_WEDGE;
+        }
+
+        //The basket's own geometry: one cylinder of BASKET_RADIUS with a wall BASKET_WALL either side of it, so
+        //the shell is two cells thick and reaches 4.4 - margin 2 in a 15-wide field.
+        private const float BASKET_RADIUS = 3.4f;
+        private const float BASKET_WALL = 1.0f;
+
+        //Three ribs in each family, 120 degrees apart, winding 0.045 turns a level in opposite directions. The
+        //two families close on each other at 32 degrees a level, so a rib crosses one of the other family every
+        //fourth level - the diamond of the weave is about four levels tall and a quarter of the shell wide.
+        private const int BASKET_RIBS = 3;
+        private const float BASKET_TURN = 0.045f;
+
+        /// <summary>Half a rib's angular width, in radians — 2.0 cells at <see cref="BASKET_RADIUS"/>.</summary>
+        private const float BASKET_RIB = 0.30f;
+
+        /// <summary>How many levels at the glass are a solid course all round. See <see cref="Basket"/>.</summary>
+        private const int BASKET_RIM = 2;
+
+        /// <summary>How many levels one ink of a rib runs for.</summary>
+        private const int BASKET_COURSE = 4;
+
+        /// <summary>How many sectors the rim is coloured in — six over four inks leaves no two neighbours alike.</summary>
+        private const int BASKET_SECTORS = 6;
+
+        private static bool BasketWall(float r) => MathF.Abs(r - BASKET_RADIUS) <= BASKET_WALL;
+
+        private static bool BasketIsRim(int i, int depth) => i >= depth - BASKET_RIM;
+
+        private static int BasketSector(float ang) =>
+            (int)MathF.Floor((ang + MathF.PI) / (MathF.Tau / BASKET_SECTORS)) % BASKET_SECTORS;
+
+        /// <summary>
+        /// Which rib owns a cell: 1…<see cref="BASKET_RIBS"/> for the family winding one way,
+        /// <see cref="BASKET_RIBS"/>+1… for the family winding the other, 0 for the holes between them. A cell
+        /// at a crossing belongs to the first family, which is what draws one rib passing over the other.
+        /// </summary>
+        private static int BasketRib(float ang, int i)
+        {
+            float twist = MathF.Tau * BASKET_TURN * i;
+
+            for (int k = 0; k < BASKET_RIBS; k++)
+            {
+                float seat = MathF.Tau * k / BASKET_RIBS;
+
+                if (MathF.Abs(WrapAngle(ang - seat - twist)) <= BASKET_RIB) return k + 1;
+                if (MathF.Abs(WrapAngle(ang - seat + twist)) <= BASKET_RIB) return BASKET_RIBS + k + 1;
+            }
+
+            return 0;
+        }
+
+        //The pendulum's own geometry. The grid is stated here as well as on the design because the rope and the
+        //bulb are drawn on the RAW lattice indices and have to find the field's axis themselves - Lean's reason,
+        //and the same trap if the two numbers ever disagree.
+        private const byte PENDULUM_GRID = 13;
+
+        //Each rope hangs over a corner of a square of side 2*2.4, and is a disc of 1.15 - four or five cells a
+        //level, which is the thinnest column that is solid whatever the parity. The pair reaches 3.55.
+        private const float PENDULUM_ROPE_SEAT = 2.4f;
+        private const float PENDULUM_ROPE = 1.15f;
+
+        /// <summary>
+        /// The lowest level a rope is drawn on. Below the bulb's shoulder the ropes would hang <i>outside</i>
+        /// the weight down its flanks, which reads as a cage and not as a suspension.
+        /// </summary>
+        private const int PENDULUM_SHOULDER = 5;
+
+        //The bulb: an ellipsoid of horizontal radius 3.8 (margin 2 in a 13-wide field) and a vertical
+        //semi-axis of four LEVELS, centred at 3.5 so it spans the layout's lowest eight and its shoulder
+        //reaches 3.52 out at level 5 - wider there than the ropes' own 3.39, so the two meet by construction.
+        private const float PENDULUM_BULB = 3.8f;
+        private const float PENDULUM_BULB_HALF = 4f;
+        private const float PENDULUM_BULB_CENTRE = 3.5f;
+
+        /// <summary>
+        /// The emitter's own centred offsets, rebuilt from the raw indices — the <c>x + shift - axis</c> line
+        /// for line, with the shift taken off the layout index, which is the same parity as the field level
+        /// because <see cref="Emit"/> refuses an odd offset (see <see cref="Lean"/>).
+        /// </summary>
+        private static void PendulumOffsets(int x, int z, int i, out float dx, out float dz)
+        {
+            float axis = (PENDULUM_GRID - 1) * HALF + HALF;
+            float shift = (i % 2) * HALF;
+
+            dx = x + shift - axis;
+            dz = z + shift - axis;
+        }
+
+        /// <summary>
+        /// Which rope owns a cell — 1…4 by quadrant, 0 for none. The pairing that matters is diagonal: 1 and 4
+        /// are opposite corners and so are 2 and 3, which is what <see cref="Pendulum"/>'s two inks are for.
+        /// </summary>
+        private static int PendulumRope(int x, int z, int i)
+        {
+            if (i < PENDULUM_SHOULDER) return 0;
+
+            PendulumOffsets(x, z, i, out float dx, out float dz);
+
+            float ex = dx - (dx > 0f ? PENDULUM_ROPE_SEAT : -PENDULUM_ROPE_SEAT);
+            float ez = dz - (dz > 0f ? PENDULUM_ROPE_SEAT : -PENDULUM_ROPE_SEAT);
+
+            if (ex * ex + ez * ez > PENDULUM_ROPE * PENDULUM_ROPE) return 0;
+
+            return 1 + (dx > 0f ? 1 : 0) + (dz > 0f ? 2 : 0);
+        }
+
+        private static bool PendulumBulb(int x, int z, int i)
+        {
+            PendulumOffsets(x, z, i, out float dx, out float dz);
+
+            float rise = (i - PENDULUM_BULB_CENTRE) / PENDULUM_BULB_HALF;
+
+            return (dx * dx + dz * dz) / (PENDULUM_BULB * PENDULUM_BULB) + rise * rise <= 1f;
+        }
+
+        //The knot's own geometry: the (2, 3) torus knot, which winds twice round the major circle while it goes
+        //three times round the minor one. KNOT_RISE is the minor circle's VERTICAL half-axis and is much larger
+        //than KNOT_MINOR, its radial one - the torus the knot is drawn on is a tall ellipse in cross-section,
+        //because a round one at this major radius would be a flat pretzel lying on its side.
+        private const float KNOT_MAJOR = 2.6f;
+        private const float KNOT_MINOR = 1.6f;
+        private const float KNOT_RISE = 3.6f;
+
+        /// <summary>
+        /// How far from the curve a cell may sit and still be part of the knot. Must stay under
+        /// <see cref="KNOT_MINOR"/> — see <see cref="Knot"/> for what a fatter tube welds shut.
+        /// </summary>
+        private const float KNOT_TUBE = 1.15f;
+
+        /// <summary>How finely the curve is sampled. At 1440 the samples are 0.02 apart, well under a cell.</summary>
+        private const int KNOT_SAMPLES = 1440;
+
+        /// <summary>How many arcs the loop is coloured in. See <see cref="KNOT_INKS"/> for why twelve.</summary>
+        private const int KNOT_ARCS = 12;
+
+        /// <summary>
+        /// Which ink each arc takes — <b>a table and not a modulo</b>, because of the one thing about a knot
+        /// that no formula on the parameter can express: <b>it touches itself</b>. Arcs half a loop apart are
+        /// neighbours in the field, so every such touch has to fall on a colour boundary or the two arcs are
+        /// one group, and which arcs touch is a property of the curve rather than of the arithmetic.
+        /// <para>
+        /// The first cut coloured six arcs by <c>arc % 3</c> and measured <b>33 %</b> best shots against an
+        /// expected 12 %, every ink reading as a single group: the loop had welded itself into three pieces.
+        /// The two families of touch that do it are the far side (<c>t</c> and <c>t + π</c> share an angle
+        /// about the axis and pass <c>2 × KNOT_MINOR</c> apart) and the axis itself (three times a lap the
+        /// curve swings in to <c>KNOT_MAJOR − KNOT_MINOR</c>, all three passes at the same height and 120°
+        /// apart, so they are <i>mutually</i> in reach — a triangle no <c>% 3</c> can satisfy).
+        /// </para>
+        /// <para>
+        /// <b>The table was solved against the touches this knot actually has, not against those two rules</b>,
+        /// and that mattered: measured on the emitted cells there are ten touching arc pairs, nine of them
+        /// between arcs that are not loop neighbours at all — half again as many as the two families predict.
+        /// Twelve arcs are what let it be solved on three inks, because the rounding in
+        /// <see cref="KnotDistance"/> puts every touch at an arc's <b>centre</b> rather than astride a
+        /// boundary. It also lands the knot's three <b>anchors</b> — the high points at arcs 1, 5 and 9, the
+        /// only cells touching the glass — on three different inks, so no shot can take two of them.
+        /// </para>
+        /// <para>
+        /// <b>It is tied to the four numbers above.</b> Change <see cref="KNOT_MAJOR"/>, <see cref="KNOT_MINOR"/>,
+        /// <see cref="KNOT_RISE"/> or <see cref="KNOT_TUBE"/> and the contact graph changes with them; the
+        /// figure that says so is the tool's own <b>largest standing group</b>, which is 36 here — about a
+        /// twelfth of the level, i.e. one arc. Anything appreciably larger means two arcs have fused and the
+        /// table needs re-solving rather than nudging.
+        /// </para>
+        /// </summary>
+        private static readonly int[] KNOT_INKS = { 0, 1, 0, 2, 1, 0, 2, 1, 0, 2, 1, 2 };
+
+        private static readonly Vector3[] KNOT_CURVE = BuildKnotCurve();
+
+        private static Vector3[] BuildKnotCurve()
+        {
+            Vector3[] curve = new Vector3[KNOT_SAMPLES];
+
+            for (int s = 0; s < KNOT_SAMPLES; s++)
+            {
+                float t = MathF.Tau * s / KNOT_SAMPLES;
+                float radius = KNOT_MAJOR + KNOT_MINOR * MathF.Cos(3f * t);
+
+                curve[s] = new Vector3(
+                    radius * MathF.Cos(2f * t),
+                    KNOT_RISE * MathF.Sin(3f * t),
+                    radius * MathF.Sin(2f * t));
+            }
+
+            return curve;
+        }
+
+        /// <summary>
+        /// How far a cell is from the knot, and which of <see cref="KNOT_ARCS"/> arcs it is nearest — the one
+        /// walk that answers both, since the occupancy and the colouring must not be able to disagree about
+        /// which part of the loop a ball belongs to.
+        /// <para>
+        /// The height is measured <b>down from the layout's top level</b> and the curve's own apex is put there:
+        /// see <see cref="Knot"/> for why hanging it by its middle would build a level that falls.
+        /// </para>
+        /// </summary>
+        private static float KnotDistance(float r, float ang, int i, int depth, out int arc)
+        {
+            float x = r * MathF.Cos(ang);
+            float z = r * MathF.Sin(ang);
+            float y = (i - (depth - 1)) / Constants.SQRT_TWO + KNOT_RISE;
+
+            float best = float.MaxValue;
+            int nearest = 0;
+
+            for (int s = 0; s < KNOT_SAMPLES; s++)
+            {
+                Vector3 point = KNOT_CURVE[s];
+
+                float dx = x - point.X;
+                float dy = y - point.Y;
+                float dz = z - point.Z;
+                float squared = dx * dx + dy * dy + dz * dz;
+
+                if (squared >= best) continue;
+
+                best = squared;
+                nearest = s;
+            }
+
+            //Rounded to the NEAREST arc rather than floored into one, so an arc is centred on its own share of
+            //the loop. That is what puts the curve's six self-touches at arc centres instead of astride
+            //boundaries, which is the whole premise KNOT_INKS is solved under
+            arc = (int)MathF.Round((float)nearest * KNOT_ARCS / KNOT_SAMPLES) % KNOT_ARCS;
+
+            return MathF.Sqrt(best);
+        }
+
+        #endregion
+
         #endregion
 
         #region Emitting one design
@@ -2886,7 +3580,7 @@ namespace BS3D.Tools.LevelGen
             /// rescoring the campaign. Naming it pins it. An unknown spelling falls back to that same
             /// rotation rather than throwing, so a typo here is a level that quietly plays the wrong piece:
             /// the five names are <c>pulse</c>, <c>bohemia</c>, <c>nocturne</c>, <c>dechovka</c> and
-            /// <c>ember</c> (#163, the rock ballad — no block uses it yet).
+            /// <c>ember</c> (#163's rock ballad, which the Coil took in #207).
             /// </para>
             /// </summary>
             public string Music;
