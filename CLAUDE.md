@@ -8,7 +8,7 @@ It is the overview: the project, how to build and run it, the one data structure
 
 BS3D is a 3D Puzzle-Bobble-style game (shoot balls at a hanging 3D cluster of balls) built with MonoGame and BepuPhysics 2. Repo: https://github.com/AntoninPrazsky/BS3D — tasks are tracked in GitHub issues.
 
-**Finished work lands on main immediately** (the owner's standing instruction): once a task is done and verified, its PR is merged to main right away — work sitting on a side branch is work the owner cannot see.
+**Finished work lands on main immediately** (the owner's standing instruction): once a task is done and verified, its branch is merged to main right away — work sitting on a side branch is work the owner cannot see. This said "its PR is merged" until 2026-08-14, which contradicted the branch rule below and had two agents working two different ways at once; the owner's ruling is that the branch rule below stands, so **the merge is a direct `--no-ff` merge into main and there is still no PR anywhere in this repo**. The point of the sentence is the *immediacy*, not the mechanism.
 
 There are **three executables**: the **Testbed** (where every system was built and is still tuned), the **MapEditor**, and **Game** — the shipping product, founded deliberately small on top of the libraries the other two already share (see `docs/game-session.md`).
 

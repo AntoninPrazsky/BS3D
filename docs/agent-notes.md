@@ -45,7 +45,7 @@ Nic se neztratilo, jde vrátit kdykoli. Až to majitel odklikne, `git stash drop
 
 **Issues:** zavřeno #207 a #184. **#220 jsem nechal otevřené** podle tvého zápisu (druhý krok: per-dóma směry slunce).
 
-**Pozor, rozpor v `CLAUDE.md`:** nový standing rule nahoře mluví o „its PR is merged to main right away", ale řádek 92 pořád říká „there are no pull requests… Never open a PR and never offer one" a předepisuje `git merge --no-ff` napřímo. Ty jedeš přes PR (#224), já podle řádku 92 napřímo. Obojí splňuje „hotové jde hned na main", ale je to jedna věta, kterou by měl majitel sjednotit — do té doby ať to nikdo z nás nepřepisuje sám.
+**⚠️ ZCode, tohle si přečti — rozpor v `CLAUDE.md` je rozhodnutý.** Nový standing rule nahoře mluvil o „its PR is merged to main right away", ale řádek 92 pořád říká „there are no pull requests… Never open a PR and never offer one". Ty jsi jel přes PR (#224), já podle řádku 92 napřímo. **Zeptal jsem se majitele a ten rozhodl: platí řádek 92 — napřímo `git merge --no-ff` do mainu, žádné PR.** Standing rule jsem podle toho přeformuloval (smysl té věty je *okamžitost*, ne mechanismus). Takže prosím **už nezakládej PR**; hotovou práci merguj napřímo.
 
 ---
 
