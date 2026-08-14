@@ -51,6 +51,24 @@ namespace BS3D.Screens
 
         internal PlayHud(BS3DGame game) => _game = game;
 
+        /// <summary>
+        /// Testing only (the <c>streak=</c> argument): the multiplier the streak readout should <b>show</b>,
+        /// overriding the keeper's. Null — every real run — reads the keeper as it always did.
+        /// <para>
+        /// It is deliberately a <i>display</i> override and touches no scoring: pinning the keeper's own
+        /// multiplier would change what a shot is worth, and a test lever that alters the thing being tested is
+        /// worse than no lever. It exists because the capped state added in #180 cannot be reached by a script
+        /// at all — it needs <see cref="ScoreKeeper.MaxMultiplier"/> consecutive scoring shots, i.e. somebody
+        /// actually being good at the game — so without it the top tier could be neither photographed nor
+        /// compared against the tier below it. Same reasoning as <c>celebrate</c>, <c>lasers</c> and
+        /// <c>stars=</c>.
+        /// </para>
+        /// </summary>
+        internal int? ForcedMultiplier { get; set; }
+
+        /// <summary>The multiplier the HUD works from — the keeper's, unless a test has pinned one.</summary>
+        private int MultiplierOf(ScoreKeeper score) => ForcedMultiplier ?? score.Multiplier;
+
         private int Scaled(int designUnits) => _game.Scaled(designUnits);
 
         /// <summary>The HUD's own 1×1 white texel, created on first use.</summary>
@@ -225,6 +243,11 @@ namespace BS3D.Screens
         private int _streakTextFor = -1;
         private string _streakText = "×1";
 
+        //The same string split into single-character strings, rebuilt only when the text is (#180). The capped
+        //badge is drawn glyph by glyph so a sweep can travel along it, and a substring per character per frame
+        //would be exactly the per-frame allocation the rest of this block exists to avoid.
+        private string[] _streakGlyphs = { "×", "1" };
+
         /// <summary>
         /// Balls left as of the previous frame, so a decrement can be seen. −1 means "no baseline yet", which is
         /// what a level that has just been built has: seeding the count would otherwise punch on frame one.
@@ -239,6 +262,64 @@ namespace BS3D.Screens
         private float _streakBrokenAge;
         private const float STREAK_BREAK_TIME = 0.45f;
         private const int STREAK_BREAK_FALL = 44;       //design units it slides down as it goes
+
+        //THE CAP IS ITS OWN TIER (#180). Below MaxMultiplier the streak warms towards the one accent and that is
+        //the whole of it, which is why a x5 used to read as a slightly hotter x2 — climb is normalised 0..1
+        //against the cap, so the ramp has nowhere higher to go BY CONSTRUCTION. What it needed was not a hotter
+        //amber but a different state, and this is it: at the cap the number changes FACE (the loud label, so it
+        //stops being the smallest figure on the HUD), takes a travelling spectrum instead of a flat colour, and
+        //flares once on arrival.
+        //
+        //A spectrum here does NOT reopen the palette-clash problem the single-accent rule was written against,
+        //and the reason is that the rule is about what the HUD WEARS. Amber is worn continuously over thirteen
+        //scenes and so has to survive all of them; this is two glyphs in one corner, only at the cap, only while
+        //a perfect streak is being held, and it is gone the moment a shot misses. It is the rarest state the
+        //in-play HUD has, and the one moment worth spending colour the HUD does not otherwise own.
+        private bool _streakCapped;
+        private float _streakCapFlare;                  //1 at the moment of capping, decaying to 0
+
+        //Seconds for one full sweep of the ramp, and the phase each glyph is offset by. The stagger is what
+        //makes it TRAVEL rather than the whole number changing colour together — a figure that pulses through
+        //hues in unison reads as a fault, where a sweep running along it reads as energy moving through it.
+        private const float STREAK_CAP_CYCLE = 1.15f;
+
+        //A sixth of the ramp per glyph. It was a third, and at that spacing the two characters of a badge sat
+        //two full stops apart and read as two unrelated colours rather than as one sweep passing through — the
+        //stagger has to be small enough that neighbouring glyphs are neighbours on the ramp as well.
+        private const float STREAK_CAP_STAGGER = 0.16f;
+
+        //The one-shot flare when the cap is reached: an extra kick on the spring the streak already uses, and
+        //a brief compounding of the glow on top of it. Short, because it marks the arrival — the sweep is what
+        //carries the state afterwards.
+        private const float STREAK_CAP_KICK = 1.5f;
+        private const float STREAK_CAP_FLARE_TIME = 0.6f;
+        private const int STREAK_CAP_GLOW_PASSES = 4;   //on top of HUD_GLOW_PASSES, at the flare's peak
+
+        //And the glow a capped streak carries once the flare has gone. The pulse's own heat ENDS — it is the
+        //"this just changed" signal — but the cap does not, so without a floor a held x5 would stop glowing
+        //between shots and drop back to looking like an ordinary readout in a brighter font.
+        private const float STREAK_CAP_GLOW_FLOOR = 0.58f;
+
+        //THE RAMP IS A HOT ARC AND NOT A RAINBOW, and that is a measured decision rather than a tasteful one.
+        //It ran the full wheel first — red, orange, yellow, green, cyan, violet — and the cool half FAILED
+        //exactly as the single-accent rule predicts: photographed over the meadow, the cyan stop was very
+        //nearly invisible against the sky, so the badge blinked out for a third of every sweep. That is the
+        //palette-clash problem the class doc records, arriving on the one element allowed to break the rule.
+        //
+        //So the arc runs red -> orange -> gold -> white-hot -> pink -> magenta, which is the warm half plus the
+        //magentas: every stop holds against a blue sky, against the meadow's green, against grey stone and
+        //against the Moon's black, and there is no stop that any backdrop can swallow. It still reads as the
+        //accent BOILING OVER rather than as an unrelated rainbow bolted onto the corner, which is the right
+        //thing for it to say — and the white-hot stop is what makes it read as heat rather than as decoration.
+        private static readonly Color[] STREAK_CAP_RAMP =
+        {
+            new(255, 104, 92),     //red
+            new(255, 168, 60),     //orange
+            new(255, 226, 118),    //gold
+            new(255, 252, 236),    //white-hot
+            new(255, 150, 214),    //pink
+            new(240, 108, 176)     //magenta
+        };
 
         /// <summary>
         /// Seconds this level has been played, for the low-ball breathing. On the play clock, so it holds still
@@ -488,6 +569,8 @@ namespace BS3D.Screens
             _ballsShown = score.ShotsRemaining ?? -1;
             _multiplierShown = score.Multiplier;
             _streakBroken = 0;
+            _streakCapped = score.Multiplier >= ScoreKeeper.MaxMultiplier;
+            _streakCapFlare = 0f;
             _clock = 0f;
         }
 
@@ -588,9 +671,23 @@ namespace BS3D.Screens
 
         private void WatchStreak(float elapsed, ScoreKeeper score)
         {
-            int multiplier = score.Multiplier;
+            int multiplier = MultiplierOf(score);
 
             if (multiplier > _multiplierShown && multiplier > 1) _streakPulse.Kick(STREAK_KICK);
+
+            //REACHING THE CAP is its own event, and it is taken on the transition rather than on the state so a
+            //streak held at x5 across a dozen shots flares once and then simply runs. The extra kick lands on
+            //the same spring the ordinary climb kicked a line above, and springs ADD (see Pulse) — so capping
+            //reads as one bigger swell rather than as a second animation restarting the first.
+            bool capped = multiplier >= ScoreKeeper.MaxMultiplier;
+
+            if (capped && !_streakCapped) _streakCapFlare = 1f;
+            if (capped && !_streakCapped) _streakPulse.Kick(STREAK_CAP_KICK);
+
+            _streakCapped = capped;
+
+            if (_streakCapFlare > 0f)
+                _streakCapFlare = MathF.Max(0f, _streakCapFlare - elapsed / STREAK_CAP_FLARE_TIME);
 
             if (multiplier == 1 && _multiplierShown > 1)
             {
@@ -686,31 +783,64 @@ namespace BS3D.Screens
         /// </summary>
         private void DrawStreak(ScoreKeeper score, Viewport viewport, int margin, float top)
         {
-            int multiplier = score.Multiplier > 1 ? score.Multiplier : _streakBroken;
+            int shown = MultiplierOf(score);
+            int multiplier = shown > 1 ? shown : _streakBroken;
             if (multiplier <= 1) return;
 
-            bool broken = score.Multiplier <= 1;
+            bool broken = shown <= 1;
             float fade = broken ? 1f - _streakBrokenAge / STREAK_BREAK_TIME : 1f;
 
             if (multiplier != _streakTextFor)
             {
                 _streakTextFor = multiplier;
                 _streakText = "×" + multiplier.ToString(CultureInfo.InvariantCulture);
+
+                //Split once, here, rather than per frame: the capped badge is drawn glyph by glyph, and a
+                //substring per character per frame would be a managed allocation on the gameplay path.
+                _streakGlyphs = new string[_streakText.Length];
+                for (int i = 0; i < _streakText.Length; i++) _streakGlyphs[i] = _streakText[i].ToString();
             }
+
+            //THE CAP IS A DIFFERENT STATE, not a hotter shade of the same one (#180). A streak that has just
+            //broken is never capped however high it got: what is on screen then is the loss, and dressing the
+            //number in its reward as it falls away would say the opposite of what is happening.
+            bool capped = !broken && multiplier >= ScoreKeeper.MaxMultiplier;
+
+            //The loud face at the cap, so the multiplier stops being the smallest figure on the HUD at exactly
+            //the moment it is the most worth reading — which was half of what #180 was about.
+            SpriteFontBase font = capped ? _game.HudFontLabelLoud : _game.HudFontLabel;
 
             //How hot the streak is running, over the whole range the rule allows — so the ramp keeps meaning
             //the same thing if MaxMultiplier is ever retuned
             float climb = (multiplier - 1f) / MathF.Max(1f, ScoreKeeper.MaxMultiplier - 1f);
             Color colour = Color.Lerp(BS3DGame.MENU_TEXT, HUD_ACCENT, climb);
 
-            Vector2 size = _game.HudFontLabel.MeasureString(_streakText);
+            Vector2 size = font.MeasureString(_streakText);
             float drop = broken ? (1f - fade) * Scaled(STREAK_BREAK_FALL) : 0f;
             Vector2 anchor = new(viewport.Width - margin, top + size.Y * 0.5f + drop);
 
             float scale = _streakPulse.Scale * (broken ? MathHelper.Lerp(0.8f, 1f, fade) : 1f);
 
-            DrawPulsed(_game.HudFontLabel, _streakText, anchor, new Vector2(1f, 0.5f), scale,
-                colour * fade, broken ? 0f : _streakPulse.Heat);
+            if (!capped)
+            {
+                DrawPulsed(font, _streakText, anchor, new Vector2(1f, 0.5f), scale,
+                    colour * fade, broken ? 0f : _streakPulse.Heat);
+                return;
+            }
+
+            //Capped: the glow first, compounded by the arrival flare and tinted from the sweep's own current
+            //colour so the halo belongs to the number rather than staying amber under a violet glyph. The glow
+            //is floored at a value of its own, because the pulse's heat ends and the cap does not — a capped
+            //streak that stopped glowing between shots would drop back to looking ordinary.
+            Vector2 at = anchor - size * new Vector2(1f, 0.5f) * scale;
+            float phase = _clock / STREAK_CAP_CYCLE;
+
+            float flare = _streakCapFlare * _streakCapFlare;
+            float glow = MathF.Max(_streakPulse.Heat, STREAK_CAP_GLOW_FLOOR + flare * (1f - STREAK_CAP_GLOW_FLOOR));
+            int passes = HUD_GLOW_PASSES + (int)MathF.Round(STREAK_CAP_GLOW_PASSES * flare);
+
+            DrawGlow(font, _streakText, at, size, scale, glow, SampleCapRamp(phase), passes);
+            DrawGradientString(font, _streakGlyphs, at, scale, phase, fade);
         }
 
         /// <summary>
@@ -1127,30 +1257,82 @@ namespace BS3D.Screens
             Vector2 size = font.MeasureString(text);
             Vector2 at = anchor - size * pivot * scale;
 
-            if (glow > 0.01f)
-            {
-                Vector2 glowScale = new(scale * HUD_GLOW_SCALE);
-                int blur = Math.Max(1, Scaled(HUD_GLOW_BLUR));
-
-                //Centred on the text rather than pivoted with it: a halo is light coming off the glyphs, so it
-                //grows about them, where anchoring it to the same corner would slide it off as the number
-                //swells. It has to be centred by its OWN measurement and not by the text's: a blurred glyph is
-                //a larger bitmap with its own render offset, so drawing it from the text's origin puts the halo
-                //down and to the right of the number it belongs to — which looked like a stray glow beside the
-                //score rather than the score glowing.
-                Vector2 haloSize = font.MeasureString(text, null, 0f, 0f, FontSystemEffect.Blurry, blur);
-                Vector2 glowAt = at + (size * scale - haloSize * glowScale) * 0.5f;
-
-                //Squared, so the halo is a flare on the frame the number lands and has thinned well before the
-                //spring finishes settling — it marks the hit, it does not accompany the motion
-                Color halo = HUD_ACCENT * (glow * glow);
-
-                for (int i = 0; i < HUD_GLOW_PASSES; i++)
-                    _game.OverlayBatch.DrawString(font, text, glowAt, halo, 0f, Vector2.Zero,
-                        glowScale, 0f, 0f, 0f, TextStyle.None, FontSystemEffect.Blurry, blur);
-            }
-
+            DrawGlow(font, text, at, size, scale, glow, HUD_ACCENT, HUD_GLOW_PASSES);
             DrawString(font, text, at, colour, scale);
+        }
+
+        /// <summary>
+        /// The halo behind a number that has just changed — a blurred copy of the same string, which is
+        /// FontStashSharp's own <see cref="FontSystemEffect.Blurry"/> and so costs one atlas variant rather than
+        /// anything per frame. Split out of <see cref="DrawPulsed"/> for #180: the capped streak draws its own
+        /// text glyph by glyph, so it needs the glow without the flat-coloured string that used to come with it.
+        /// </summary>
+        private void DrawGlow(SpriteFontBase font, string text, Vector2 at, Vector2 size, float scale,
+            float glow, Color tint, int passes)
+        {
+            if (glow <= 0.01f || passes <= 0) return;
+
+            Vector2 glowScale = new(scale * HUD_GLOW_SCALE);
+            int blur = Math.Max(1, Scaled(HUD_GLOW_BLUR));
+
+            //Centred on the text rather than pivoted with it: a halo is light coming off the glyphs, so it
+            //grows about them, where anchoring it to the same corner would slide it off as the number
+            //swells. It has to be centred by its OWN measurement and not by the text's: a blurred glyph is
+            //a larger bitmap with its own render offset, so drawing it from the text's origin puts the halo
+            //down and to the right of the number it belongs to — which looked like a stray glow beside the
+            //score rather than the score glowing.
+            Vector2 haloSize = font.MeasureString(text, null, 0f, 0f, FontSystemEffect.Blurry, blur);
+            Vector2 glowAt = at + (size * scale - haloSize * glowScale) * 0.5f;
+
+            //Squared, so the halo is a flare on the frame the number lands and has thinned well before the
+            //spring finishes settling — it marks the hit, it does not accompany the motion
+            Color halo = tint * (glow * glow);
+
+            for (int i = 0; i < passes; i++)
+                _game.OverlayBatch.DrawString(font, text, glowAt, halo, 0f, Vector2.Zero,
+                    glowScale, 0f, 0f, 0f, TextStyle.None, FontSystemEffect.Blurry, blur);
+        }
+
+        /// <summary>
+        /// One string drawn <b>glyph by glyph</b>, each taking its own point on <see cref="STREAK_CAP_RAMP"/>,
+        /// so a sweep travels along the number instead of the whole of it changing colour together (#180).
+        /// </summary>
+        /// <remarks>
+        /// Advancing by each glyph's own measured width drops kerning between the pairs, which for the two or
+        /// three characters of a multiplier badge is under a pixel and is the price of the effect — it is not
+        /// worth a glyph-positioning API to recover, and it is stated here so the next person does not go
+        /// looking for a bug when a capped badge sits a hair wider than the same string drawn flat.
+        /// </remarks>
+        private void DrawGradientString(SpriteFontBase font, string[] glyphs, Vector2 position, float scale,
+            float phase, float alpha)
+        {
+            float x = position.X;
+
+            for (int i = 0; i < glyphs.Length; i++)
+            {
+                Color colour = SampleCapRamp(phase - i * STREAK_CAP_STAGGER) * alpha;
+                DrawString(font, glyphs[i], new Vector2(x, position.Y), colour, scale);
+
+                x += font.MeasureString(glyphs[i]).X * scale;
+            }
+        }
+
+        /// <summary>
+        /// Samples the capped streak's ramp at a wrapped phase, interpolating between neighbours so the sweep
+        /// is continuous rather than stepping between six flat colours.
+        /// </summary>
+        private static Color SampleCapRamp(float phase)
+        {
+            int count = STREAK_CAP_RAMP.Length;
+
+            //Wrapped into 0…1 the way that survives a negative phase, which the per-glyph stagger produces
+            float wrapped = phase - MathF.Floor(phase);
+            float scaled = wrapped * count;
+
+            int index = (int)scaled;
+            float blend = scaled - index;
+
+            return Color.Lerp(STREAK_CAP_RAMP[index % count], STREAK_CAP_RAMP[(index + 1) % count], blend);
         }
 
         /// <summary>

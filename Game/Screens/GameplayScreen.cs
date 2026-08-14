@@ -858,7 +858,13 @@ namespace BS3D.Screens
         public GameplayScreen(BS3DGame game)
         {
             Game = game;
-            _hud = new PlayHud(game);
+            _hud = new PlayHud(game)
+            {
+                //Testing only (the "streak=" argument): pins what the multiplier readout SHOWS, so the capped
+                //state added in #180 can be looked at. It cannot be reached by a script — it takes five
+                //consecutive scoring shots — and it changes no scoring, only the display. See PlayHud.
+                ForcedMultiplier = game.ForcedStreak
+            };
 
             //Orbit centre is the field the cluster hangs over. No trunnion height goes in: the gun stands on
             //the island's dished stone, so its height is the carriage's own figure of its radius
