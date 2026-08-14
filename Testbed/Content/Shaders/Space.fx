@@ -646,7 +646,13 @@ float4 SpacePS(SpaceVertexOutput input) : COLOR
 	//This pixel's angular footprint, measured on the DIRECTION rather than on any chart of it. The
 	//direction is continuous everywhere, so this number is too - which is what lets stars and galaxies
 	//sit on a cube lattice without its twelve seams showing as rings of wrongly sized dots.
-	float pixelAngle = max(length(fwidth(dir)), 1e-6);
+	//
+	//The footprint itself is the FROBENIUS norm of the screen-to-direction Jacobian, sqrt(||ddx||^2 +
+	//||ddy||^2), NOT length(fwidth(dir)): fwidth is the componentwise L1 sum |ddx|+|ddy|, which turns
+	//with the screen axes against the world and over-measures the footprint by between sqrt(2) and 2.
+	//Frobenius is isotropic in that rotation, so the core sized in pixels below does not swell and shrink
+	//as the camera bears (#150).
+	float pixelAngle = max(sqrt(dot(ddx(dir), ddx(dir)) + dot(ddy(dir), ddy(dir))), 1e-6);
 
 	//A very slow, very faint large-scale mottle on the void: the zodiacal light and the airglow. It does
 	//almost nothing except stop the empty sky reading as a flat fill.

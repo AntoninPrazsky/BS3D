@@ -583,8 +583,10 @@ float4 MoonSkyPS(MoonSkyVertexOutput input) : COLOR
 	float3 dir = normalize(input.Ray);
 
 	//This pixel's angular footprint, measured on the DIRECTION rather than on any chart of it (continuous
-	//everywhere, so the cube lattice's twelve seams never show - Space.fx's rule).
-	float pixelAngle = max(length(fwidth(dir)), 1e-6);
+	//everywhere, so the cube lattice's twelve seams never show - Space.fx's rule) and as the FROBENIUS norm
+	//of the screen-to-direction Jacobian rather than fwidth's L1 sum, which is isotropic in the camera's
+	//bearing (Space.fx has the why - #150).
+	float pixelAngle = max(sqrt(dot(ddx(dir), ddx(dir)) + dot(ddy(dir), ddy(dir))), 1e-6);
 
 	float3 sky = VoidColor;
 
