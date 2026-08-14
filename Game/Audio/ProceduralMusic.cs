@@ -32,7 +32,8 @@ namespace BS3D.Audio
 
         /// <summary>
         /// The third (#162): smooth jazz — sevenths and ninths on a <b>swung</b> grid, a walking bass and a
-        /// Rhodes carrying the tune, nine sections and ~3:00 a pass. Where the other two differ in mode over
+        /// piano carrying the tune (the Rhodes's seat until #210 — a tine that bright over a quiet trio read
+        /// as a glockenspiel), nine sections and ~3:00 a pass. Where the other two differ in mode over
         /// one shared dance floor, this one differs in harmony and in TIME, which is what makes it a third
         /// language rather than a third accent.
         /// </summary>
@@ -1651,14 +1652,15 @@ namespace BS3D.Audio
 
                     int pitch = arp[note.Tone] + note.Octave + transpose;
 
-                    //On the Keys rather than the supersaw: the Rhodes IS the mellow lead this genre wants,
-                    //and it was already here for the lobby's line. The one voice the piece did not have to
-                    //invent, which is most of why this theme cost a table and a bass rather than a synth.
+                    //On the piano (#210), the one voice this theme had to invent after all: the tune began on
+                    //the Rhodes because that voice was already here and IS the mellow lead this genre wants —
+                    //but a tine that bright, exposed over nothing but a walk and brushes, reads as a
+                    //glockenspiel. The Rhodes keeps the comp below; the soloist changed instruments.
                     //
-                    //CENTRED, unlike the comp above it: this voice plays both parts here, and leaving the tune
-                    //on the keys' own left seat leaned the whole piece 1.9 dB (measured). The soloist stands
-                    //in the middle and the accompanist sits to one side, which is also how the trio would.
-                    Keys(mix, at, pitch, secondsPerStep * (note.Length + 1.5f), 0.30f * level, pan: PAN_CENTRE);
+                    //CENTRED, as it was on the Keys: leaving the tune on an off-centre seat leaned the whole
+                    //piece 1.9 dB (measured). The soloist stands in the middle and the accompanist sits to
+                    //one side, which is also how the trio would.
+                    Piano(mix, at, pitch, secondsPerStep * (note.Length + 1.5f), 0.30f * level, pan: PAN_CENTRE);
                 }
             }
 
@@ -2503,6 +2505,13 @@ namespace BS3D.Audio
         /// <summary>How far apart the supersaw's two detuned saws sit. The note itself stays centred.</summary>
         private const float PAN_LEAD_SPREAD = 0.55f;
 
+        /// <summary>
+        /// How far apart the piano's two beating strings sit — barely, by the standard of this file. The note
+        /// stays centred (#119: width comes from what is already detuned); the strings of one unison are
+        /// centimetres apart on the frame, not metres in the room, and a piano is one point on the stage.
+        /// </summary>
+        private const float PAN_PIANO_SPREAD = 0.16f;
+
         /// <summary>The clap's three bursts land across the field — a room full of hands is not one point.</summary>
         private const float PAN_CLAP_SPREAD = 0.45f;
 
@@ -2961,6 +2970,95 @@ namespace BS3D.Audio
                 float tremolo = 1f + 0.06f * MathF.Sin(2f * MathF.PI * 4.6f * t);
 
                 Add(mix, at + i, (0.62f * body + tine) * env * tremolo * level, gainLeft, gainRight);
+            }
+        }
+
+        /// <summary>
+        /// The piano (#210): Nocturne's lead. The tune went on <see cref="Keys"/> when the theme was written,
+        /// which cost nothing and was meant to read as a Rhodes — but a Rhodes's bright inharmonic tine,
+        /// exposed at 0.30 over nothing but a walk and brushes, reads as a glockenspiel (#210), so the piece
+        /// that had "almost no new synthesis" grew its one new voice after all. What makes it a piano rather
+        /// than a louder Keys is the STRING, and the string brings three things a tine has none of: partials
+        /// stretched <b>sharp</b> by the string's own stiffness (n·√(1+B·n²), not n — a piano is slightly out
+        /// of tune with itself, and dead in tune is the organ stop the tine's own comment warns about), each
+        /// partial dying at its own rate so the note <b>darkens</b> as it rings instead of fading evenly, and
+        /// two strings a couple of cents apart — which beat, faster and faster in the upper partials, and
+        /// that shimmer is most of how the ear names the instrument at all. Over it a felt hammer (a few
+        /// milliseconds of dull thump) and the <see cref="UprightBass"/> trick, a filter that closes as the
+        /// note dies: a struck string dulls, it does not switch off.
+        /// </summary>
+        /// <param name="pan">
+        /// Where the note sits. Nocturne plays the tune dead centre — the soloist stands in the middle and
+        /// the accompanist sits to one side, the seating the Rhodes's own comment records, and for the same
+        /// measured reason: a part carrying a piece on its own tilts it as far as it is moved. The two
+        /// strings spread <see cref="PAN_PIANO_SPREAD"/> apart around that seat on their own (#119), so the
+        /// beat reads as width inside the note rather than as the note moving.
+        /// </param>
+        private static void Piano(float[] mix, int at, int note, float seconds, float level, float pan = PAN_CENTRE)
+        {
+            int length = (int)(SAMPLE_RATE * seconds);
+            int frames = Frames(mix);
+            float freq = Frequency(note);
+
+            //Two strings ±0.12 % apart (about two cents), starting out of phase so the beat is there from
+            //the first cycle. The detune is per STRING and not per partial, so the beat rate climbs with n
+            //exactly as it does on the instrument — the shimmy is faster at the top of the spectrum — and
+            //each string takes its own seat and its own closing filter, so the two sides are genuinely
+            // different signals rather than one at two levels.
+            float[] stringDetune = { 0.9988f, 1.0012f };
+            float[] stringPhase = { 0f, 0.37f };
+
+            float[] gainLeft = new float[2];
+            float[] gainRight = new float[2];
+            for (int s = 0; s < 2; s++)
+                PanGains(pan + (s == 0 ? -PAN_PIANO_SPREAD : PAN_PIANO_SPREAD), out gainLeft[s], out gainRight[s]);
+
+            //The stretched partials and their slopes, both fixed for the whole note: frequency n·√(1+B·n²),
+            //amplitude falling as 1/(n·√n), decay quickening with n. That last column is the note
+            //darkening — by the tail only the low partials are left, which is why a long piano note
+            //ends rounder than it began.
+            float[] partialFreq = new float[7];
+            float[] partialAmp = new float[7];
+            float[] partialDecay = new float[7];
+            for (int n = 1; n <= 7; n++)
+            {
+                partialFreq[n - 1] = n * freq * MathF.Sqrt(1f + 0.0004f * n * n);
+                partialAmp[n - 1] = 1f / (n * MathF.Sqrt(n));
+                partialDecay[n - 1] = 0.7f + 0.5f * n;
+            }
+
+            float[] lp = { 0f, 0f };
+
+            for (int i = 0; i < length && at + i < frames; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                //2 ms of hammer, then the two-stage death a struck string dies in: a fast early slope as
+                //the high partials go, over a tail that is still ringing when the attack is long gone.
+                float env = MathF.Min(1f, t / 0.002f) * (0.78f * MathF.Exp(-t * 3.4f) + 0.22f * MathF.Exp(-t * 0.55f))
+                    * MathF.Min(1f, (seconds - t) / 0.12f);
+                if (env <= 0.0006f) break;
+
+                //The felt hammer: low, dull and over in ten milliseconds, fed into the same closing filter
+                //as the string so it thumps rather than ticks. One hammer, both strings.
+                float hammer = t < 0.01f ? BandNoise(i, 60f, 1800f, 41) * 0.34f * (1f - t / 0.01f) : 0f;
+
+                //Closing as it dies (the UprightBass trick, an octave up): bright at the strike, settled
+                //towards the round tail.
+                float alpha = CutoffToAlpha(500f + 7500f * env);
+
+                for (int s = 0; s < 2; s++)
+                {
+                    float value = 0f;
+
+                    for (int n = 0; n < 7; n++)
+                        value += partialAmp[n] * MathF.Exp(-t * partialDecay[n])
+                            * MathF.Sin(2f * MathF.PI * partialFreq[n] * stringDetune[s] * t + stringPhase[s]);
+
+                    lp[s] += alpha * (value * 0.55f + hammer * 0.5f - lp[s]);
+
+                    Add(mix, at + i, lp[s] * env * level, gainLeft[s], gainRight[s]);
+                }
             }
         }
 
