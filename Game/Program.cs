@@ -55,6 +55,11 @@ namespace BS3D
             //or losing one, which cannot be scripted any more than clearing one can.
             bool result = false;
 
+            //Testing only: make that result page a BLOCK milestone rather than an ordinary clear (#184). A block
+            //is finished only when every level of a five-level chapter is cleared, so where a single clear merely
+            //cannot be scripted, this cannot be reached at all without playing the campaign.
+            bool blockDone = false;
+
             //Testing only: wall-clock seconds at which the game saves a PNG of its own frame. Null means the
             //argument was absent, which is every run but a scripted one. F12 does the same thing by hand — but
             //only this trigger survives a LOCKED desktop, which takes no keystrokes at all (#191).
@@ -93,6 +98,10 @@ namespace BS3D
                 //"result" puts a cleared level's result screen up; with "celebrate" that is the whole
                 //end-of-level moment, fireworks and all, over an arena that goes out of focus behind it.
                 else if (string.Equals(arg, "result", StringComparison.OrdinalIgnoreCase)) result = true;
+                //"blockdone" makes that page a BLOCK milestone rather than an ordinary clear (#184). One step
+                //further along the same reasoning: finishing a block needs every level of a five-level chapter
+                //cleared, so unlike a single clear it cannot be reached in a scripted run at all.
+                else if (string.Equals(arg, "blockdone", StringComparison.OrdinalIgnoreCase)) blockDone = true;
                 //"shot=<t1,t2,…>" saves a PNG of the frame at those wall-clock seconds. Parsed leniently on
                 //purpose — a malformed entry is dropped and the rest stand, the way an unknown scene name
                 //falls back rather than throwing: this is a diagnostic, and it must never be the reason a
@@ -103,8 +112,8 @@ namespace BS3D
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
-                celebrate: celebrate, lasers: lasers, mute: mute, play: play, result: result, shotSeconds: shotSeconds,
-                level: level);
+                celebrate: celebrate, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone,
+                shotSeconds: shotSeconds, level: level);
             game.Run();
         }
 

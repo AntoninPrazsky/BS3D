@@ -55,6 +55,22 @@ namespace BS3D.Screens
         /// </summary>
         public readonly bool CampaignComplete;
 
+        /// <summary>
+        /// This clear was the one that finished its <b>block</b> (#184) — every level of the chapter cleared, and
+        /// it was not already so before this one. The transition and not the state, so replaying the last level
+        /// of a block already finished is an ordinary clear, which is what it is.
+        /// <para>
+        /// False on a set that names no blocks, and false when <see cref="CampaignComplete"/> is true: the last
+        /// block completing is also the campaign completing, and two milestones at once is one too many. The
+        /// bigger of the two wins and the screen says so.
+        /// </para>
+        /// </summary>
+        public readonly bool BlockComplete;
+
+        /// <summary>What the finished block is called, and where it sits — only meaningful with <see cref="BlockComplete"/>.</summary>
+        public readonly string BlockName;
+        public readonly int BlockNumber, BlockCount;
+
         public readonly int Score, MatchedBalls, OrphanedBalls, StreakBonus;
 
         /// <summary>False on a level that granted unlimited shots, where there is no efficiency to reward.</summary>
@@ -66,6 +82,7 @@ namespace BS3D.Screens
         public LevelResult(bool cleared, string failureText, int stars, bool newBest,
             bool hasNextLevel, bool nextLevelUnlocked, int nextLevelMinStars, int totalStars,
             bool campaignComplete,
+            bool blockComplete, string blockName, int blockNumber, int blockCount,
             int score, int matchedBalls, int orphanedBalls, int streakBonus,
             bool hadBudget, int unusedShotsAwarded, int completionBonusAwarded)
         {
@@ -78,6 +95,13 @@ namespace BS3D.Screens
             NextLevelMinStars = nextLevelMinStars;
             TotalStars = totalStars;
             CampaignComplete = campaignComplete;
+
+            //Never both. The last block finishing IS the campaign finishing, and the screen has one heading.
+            BlockComplete = blockComplete && !campaignComplete;
+            BlockName = blockName;
+            BlockNumber = blockNumber;
+            BlockCount = blockCount;
+
             Score = score;
             MatchedBalls = matchedBalls;
             OrphanedBalls = orphanedBalls;

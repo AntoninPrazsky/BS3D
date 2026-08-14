@@ -570,7 +570,13 @@ namespace BS3D.Audio
         /// what kind of win it was before the result screen has said a word.
         /// </summary>
         /// <param name="score">The level's final score, weighed against <see cref="FANFARE_FULL_SCORE"/>.</param>
-        public void PlayVictory(int score) => StartFanfare(score, victory: true);
+        /// <param name="grand">
+        /// Play it at <b>full</b> intensity whatever the score was — every voice, all the percussion and the long
+        /// high final chord. It is what a finished block of levels takes (#184): the milestone is the chapter and
+        /// not the last level of it, so a chapter closed on a scraped two-star clear must not sound like a poor
+        /// win. There is nothing new to synthesise for it — the scaling already tops out here.
+        /// </param>
+        public void PlayVictory(int score, bool grand = false) => StartFanfare(score, victory: true, grand: grand);
 
         /// <summary>
         /// The defeat fanfare: slow, minor, falling. It takes the same scaling from the other end — a good
@@ -616,13 +622,14 @@ namespace BS3D.Audio
             return new FanfareShape(defeatRoots[random.Next(defeatRoots.Length)], defeatBpm, victory: false);
         }
 
-        private void StartFanfare(int score, bool victory)
+        private void StartFanfare(int score, bool victory, bool grand = false)
         {
             if (_failed) return;
 
             //0 for nothing, 1 for a very good result. There is no natural ceiling to a score, so the reference
-            //is a stated constant rather than anything derived — see FANFARE_FULL_SCORE.
-            float intensity = MathHelper.Clamp(score / (float)FANFARE_FULL_SCORE, 0f, 1f);
+            //is a stated constant rather than anything derived — see FANFARE_FULL_SCORE. A grand fanfare skips
+            //the weighing entirely and takes the top of the same scale — see PlayVictory.
+            float intensity = grand ? 1f : MathHelper.Clamp(score / (float)FANFARE_FULL_SCORE, 0f, 1f);
             int seed = _seeds.Next();
 
             //On a background thread, like the track: a fanfare is only a few seconds of PCM, but this fires on

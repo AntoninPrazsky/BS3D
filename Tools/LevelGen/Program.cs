@@ -79,6 +79,23 @@ namespace BS3D.Tools.LevelGen
         //
         //Four pieces exist (#163 would be a fifth) against five blocks, so exactly one is reprised, and it is
         //Pulse: the campaign opens on the piece Level One has always played and the finale brings it back.
+        /// <summary>
+        /// What each block is <b>called</b>, written onto every entry of it as <c>LevelSetEntry.Block</c> so the
+        /// game can celebrate finishing one by name (#184). Indexed by block, so the order here IS the order of
+        /// the catalogue's own five groups.
+        /// <para>
+        /// Set from the entry's <b>position</b> where <see cref="Design.Music"/> is set on each design, and the
+        /// asymmetry is not an oversight: a theme is written into the level <i>file</i>, so it has to be a
+        /// property of the design, while a block is written into the <i>set</i>, which is built from positions.
+        /// Deriving it from the position also makes the blocks contiguous and equal by construction, which is
+        /// the one thing <c>LevelSet.Load</c> refuses a file for getting wrong.
+        /// </para>
+        /// </summary>
+        private static readonly string[] BLOCK_NAMES =
+        {
+            "The Meadow", "The Gallery", "The Tower", "The Reveal", "The Quarry"
+        };
+
         private const string MUSIC_RINGS = "pulse";
         private const string MUSIC_GALLERY = "dechovka";
         private const string MUSIC_TOWER = "bohemia";
@@ -216,6 +233,7 @@ namespace BS3D.Tools.LevelGen
                 {
                     File = d.File,
                     Name = d.Name,
+                    Block = BlockNameAt(i),
                     Shots = d.Shots,
                     CeilingStep = d.CeilingStep,
                     MinStars = MinStarsAt(i),
@@ -226,6 +244,7 @@ namespace BS3D.Tools.LevelGen
             {
                 File = "Colossus.json",
                 Name = "Colossus",
+                Block = BlockNameAt(designs.Length),
                 Shots = 45,
                 CeilingStep = 4,
                 MinStars = MinStarsAt(designs.Length),
@@ -242,13 +261,33 @@ namespace BS3D.Tools.LevelGen
             Console.WriteLine($"=== {LevelSet.DefaultFileName}: {loaded.Count} levels in blocks of {BLOCK_SIZE} ===");
             for (int i = 0; i < loaded.Count; i++)
             {
-                if (i % BLOCK_SIZE == 0) Console.WriteLine($"  --- block {i / BLOCK_SIZE + 1} {DescribeBlock(loaded, i)}");
+                if (i % BLOCK_SIZE == 0)
+                    Console.WriteLine($"  --- block {loaded.BlockNumber(i)}/{loaded.BlockCount}"
+                                      + $" '{loaded.BlockName(i) ?? "unnamed"}' {DescribeBlock(loaded, i)}");
 
                 int gate = loaded.Levels[i].MinStars.GetValueOrDefault();
 
                 Console.WriteLine($"  {i + 1,2}. {loaded.DisplayName(i),-12} {loaded.DescribeRules(i)}"
                     + (gate > 0 ? $", unlocks at {gate} star(s)" : ", open from the start"));
             }
+        }
+
+        /// <summary>
+        /// Which block the entry at <paramref name="index"/> belongs to. A plain division, because the campaign's
+        /// blocks are equal and contiguous by construction here — see <see cref="BLOCK_NAMES"/>. It throws rather
+        /// than wrapping if the catalogue outgrows the names: a set whose last block silently reopened the first
+        /// one is a file <c>LevelSet.Load</c> refuses, and finding that out here is cheaper.
+        /// </summary>
+        private static string BlockNameAt(int index)
+        {
+            int block = index / BLOCK_SIZE;
+
+            if (block >= BLOCK_NAMES.Length)
+                throw new InvalidOperationException(
+                    $"entry {index + 1} falls in block {block + 1} but only {BLOCK_NAMES.Length} block names are "
+                    + "stated; add one to BLOCK_NAMES for every group of BLOCK_SIZE the catalogue grows by");
+
+            return BLOCK_NAMES[block];
         }
 
         /// <summary>
