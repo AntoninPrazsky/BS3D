@@ -83,11 +83,19 @@
       "ceilingStep": 8
     },
     {
+      "file": "Ten.json",
+      "name": "Column",
+      "block": "The Tower",
+      "shots": 90,
+      "minStars": 18,
+      "ceilingStep": 5
+    },
+    {
       "file": "Six.json",
       "name": "Crown",
       "block": "The Tower",
       "shots": 44,
-      "minStars": 18,
+      "minStars": 20,
       "ceilingStep": 9
     },
     {
@@ -95,16 +103,8 @@
       "name": "Horn",
       "block": "The Tower",
       "shots": 80,
-      "minStars": 20,
-      "ceilingStep": 6
-    },
-    {
-      "file": "Ten.json",
-      "name": "Column",
-      "block": "The Tower",
-      "shots": 90,
       "minStars": 22,
-      "ceilingStep": 5
+      "ceilingStep": 6
     },
     {
       "file": "Helix.json",

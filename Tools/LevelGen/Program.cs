@@ -156,7 +156,18 @@ namespace BS3D.Tools.LevelGen
 
                 //3. THE MOUNTAINS - "The Tower". The layout is deeper than the camera frames, so a level's
                 //length is its height and it is worked from the underside up as the glass hands it down.
-                Crown(), Horn(), Column(), Helix(), Lean(),
+                //
+                //COLUMN OPENS IT since #206, where Crown did before, and that reverses the reasoning written
+                //into Crown itself (see its Sky comment, rewritten with this). The block's stated style is "the
+                //layout is deeper than the camera frames", and Crown is the one member that is NOT: it is the
+                //only 16-level field here, framed whole. Opening on it therefore spent the chapter's first
+                //level on the one that does not demonstrate what the chapter is. Column is the plainest tall
+                //level in the game — a column reaching out of shot, no second idea in it — so it states the
+                //block's premise in its first minute. The cost is that it is also the LARGEST budget in the
+                //game (90 shots, ceiling every 5), so the chapter opens on its longest level; Crown moving to
+                //second keeps its teaching intact, the axis and the drain up the middle of it reading just as
+                //well behind the premise as ahead of it.
+                Column(), Crown(), Horn(), Helix(), Lean(),
 
                 //4. THE CAVERN - "The Reveal". An outer body with a differently-shaped thing standing inside
                 //it; clearing the outside is the payoff (#161).
@@ -799,10 +810,14 @@ namespace BS3D.Tools.LevelGen
             //sand against a candy-pink sky and the whole frame read as kitsch; under 8 they read as snow and
             //the sky as weather, which is the same scene doing what it was built to do. The crown's gold and
             //red carry against a dark sky, where against pink they were competing with it. Since #194 that dome
-            //is the whole Tower block's, for this level's own reason — and this level OPENS the block because it
-            //is the one member the camera frames whole: a hollow ring teaches the axis, and the drain visible
-            //straight up the middle of it teaches why the axis matters, before four levels that reach out of
-            //shot ask the player to work one.
+            //is the whole Tower block's, for this level's own reason.
+            //
+            //It USED to open the block as well, because it is the one member the camera frames whole: a hollow
+            //ring teaches the axis, and the drain visible straight up the middle of it teaches why the axis
+            //matters. #206 turned that round, and the argument it lost to is that the very same fact — being
+            //framed whole — makes this the one level in the block that does not show what the block IS. It
+            //sits second now and teaches exactly as it did; what it no longer does is stand in front of the
+            //block's premise. See the play order for the whole of it.
             Sky = 8,
             Music = MUSIC_TOWER,
             Shots = 44,
@@ -1070,10 +1085,16 @@ namespace BS3D.Tools.LevelGen
         /// its column still overhead.
         /// </para>
         /// <para>
-        /// Since #194 it is the middle level of the Tower block rather than a lone tall level in a flat ramp,
-        /// and it is the block's <b>endurance</b> beat: the largest budget, the plainest silhouette, and a
-        /// colour rule that is nothing but reading what is coming. <see cref="Horn"/> before it and
-        /// <see cref="Helix"/> and <see cref="Lean"/> after it are each tall in a way this one is not.
+        /// Since #194 it belongs to the Tower block rather than standing as a lone tall level in a flat ramp,
+        /// and it is that block's <b>endurance</b> beat: the largest budget, the plainest silhouette, and a
+        /// colour rule that is nothing but reading what is coming. <see cref="Crown"/>, <see cref="Horn"/>,
+        /// <see cref="Helix"/> and <see cref="Lean"/> are each tall — or, in Crown's case, deliberately not —
+        /// in a way this one is not.
+        /// <para>
+        /// It <b>opens</b> the block since #206, where it was its middle level. Being the plainest of them is
+        /// what qualifies it: the chapter's premise is a layout deeper than the camera frames, and this states
+        /// that premise with no second idea in it. What the move costs is that the chapter now opens on the
+        /// longest level in the game, which is the thing to weigh if the block is ever paced again (#98).
         /// </para>
         /// </summary>
         private static Design Column() => new()
