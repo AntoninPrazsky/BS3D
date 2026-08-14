@@ -73,108 +73,143 @@
       "ceilingStep": 8
     },
     {
+      "file": "Rope.json",
+      "name": "Rope",
+      "shots": 40,
+      "minStars": 18,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Minaret.json",
+      "name": "Minaret",
+      "shots": 44,
+      "minStars": 20,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Basket.json",
+      "name": "Basket",
+      "shots": 48,
+      "minStars": 22,
+      "ceilingStep": 7
+    },
+    {
+      "file": "Pendulum.json",
+      "name": "Pendulum",
+      "shots": 52,
+      "minStars": 24,
+      "ceilingStep": 7
+    },
+    {
+      "file": "Knot.json",
+      "name": "Knot",
+      "shots": 50,
+      "minStars": 26,
+      "ceilingStep": 6
+    },
+    {
       "file": "Six.json",
       "name": "Crown",
       "shots": 44,
-      "minStars": 18,
+      "minStars": 28,
       "ceilingStep": 9
     },
     {
       "file": "Horn.json",
       "name": "Horn",
       "shots": 80,
-      "minStars": 20,
+      "minStars": 30,
       "ceilingStep": 6
     },
     {
       "file": "Ten.json",
       "name": "Column",
       "shots": 90,
-      "minStars": 22,
+      "minStars": 32,
       "ceilingStep": 5
     },
     {
       "file": "Helix.json",
       "name": "Helix",
       "shots": 66,
-      "minStars": 24,
+      "minStars": 34,
       "ceilingStep": 5
     },
     {
       "file": "Lean.json",
       "name": "Lean",
       "shots": 78,
-      "minStars": 26,
+      "minStars": 36,
       "ceilingStep": 6
     },
     {
       "file": "Eleven.json",
       "name": "Onion",
       "shots": 48,
-      "minStars": 28,
+      "minStars": 38,
       "ceilingStep": 8
     },
     {
       "file": "Chest.json",
       "name": "Chest",
       "shots": 56,
-      "minStars": 30,
+      "minStars": 40,
       "ceilingStep": 9
     },
     {
       "file": "Fossil.json",
       "name": "Fossil",
       "shots": 36,
-      "minStars": 32,
+      "minStars": 42,
       "ceilingStep": 9
     },
     {
       "file": "Mango.json",
       "name": "Mango",
       "shots": 36,
-      "minStars": 34,
+      "minStars": 44,
       "ceilingStep": 7
     },
     {
       "file": "Lantern.json",
       "name": "Lantern",
       "shots": 58,
-      "minStars": 36,
+      "minStars": 46,
       "ceilingStep": 7
     },
     {
       "file": "Four.json",
       "name": "Mosaic",
       "shots": 56,
-      "minStars": 38,
+      "minStars": 48,
       "ceilingStep": 8
     },
     {
       "file": "Eight.json",
       "name": "Prism",
       "shots": 60,
-      "minStars": 40,
+      "minStars": 50,
       "ceilingStep": 6
     },
     {
       "file": "Hopper.json",
       "name": "Hopper",
       "shots": 60,
-      "minStars": 42,
+      "minStars": 52,
       "ceilingStep": 6
     },
     {
       "file": "Nine.json",
       "name": "Static",
       "shots": 60,
-      "minStars": 44,
+      "minStars": 54,
       "ceilingStep": 5
     },
     {
       "file": "Colossus.json",
       "name": "Colossus",
       "shots": 45,
-      "minStars": 46,
+      "minStars": 56,
       "ceilingStep": 4
     }
   ]
