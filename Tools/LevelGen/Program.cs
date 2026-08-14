@@ -732,34 +732,112 @@ namespace BS3D.Tools.LevelGen
         };
 
         /// <summary>
-        /// A hollow ring six levels tall, in vertical bars of colour — a crown, with the drain visible
-        /// straight up through the middle of it. The hole is the point: a shot fired up the axis goes
-        /// clean through, so the player has to work the ring rather than spray at the centre.
+        /// A crown: a hollow ring in vertical bars of colour, tapering gently wider toward the top, with six
+        /// pointed teeth rising a pair of levels above the band — one per bar — each tipped with a magenta
+        /// accent. The drain is still visible straight up the middle (the inner radius never closes), so a shot
+        /// fired up the axis still goes clean through and the player still has to work the ring rather than
+        /// spray at the centre. The teeth are the silhouette read: a plain constant-radius ring read as a
+        /// napkin ring, plainer than its neighbours despite carrying more balls (#174), so the band now tapers
+        /// the way <see cref="Bullseye"/> and <see cref="Prism"/> do and the teeth extend it upward, narrowing
+        /// to the accent — the same shape a crown is, in the same occupancy arithmetic the other solids of
+        /// revolution already use. See <see cref="CrownOccupied"/> and <see cref="CrownColour"/> for the band,
+        /// the teeth and the tip.
         /// </summary>
         private static Design Crown() => new()
         {
             File = "Six.json",
             Name = "Crown",
             Grid = 15,
-            Depth = 6,
+            Depth = 8,
             Scene = new MountainSceneConfig(),
             //Dome 8, a deep violet dusk, and not the 10 this shipped with. Under 10 the peaks came out pale
             //sand against a candy-pink sky and the whole frame read as kitsch; under 8 they read as snow and
             //the sky as weather, which is the same scene doing what it was built to do. The crown's gold and
             //red carry against a dark sky, where against pink they were competing with it. Since #194 that dome
             //is the whole Tower block's, for this level's own reason — and this level OPENS the block because it
-            //is the one member the camera frames whole: a hollow ring six levels deep teaches the axis, and the
-            //drain visible straight up the middle of it teaches why the axis matters, before four levels that
-            //reach out of shot ask the player to work one.
+            //is the one member the camera frames whole: a hollow ring teaches the axis, and the drain visible
+            //straight up the middle of it teaches why the axis matters, before four levels that reach out of
+            //shot ask the player to work one.
             Sky = 8,
             Music = MUSIC_TOWER,
             Shots = 44,
             CeilingStep = 9,
-            Occupied = (r, ang, i, depth) => r >= 2.9f && r <= 5.5f,
-            //Six bars around the ring, three colours alternating: neighbouring bars never share a colour
-            Colour = (r, ang, i, depth) => Sector(ang, 0f, 6,
-                new[] { BallType.Type7, BallType.Type3, BallType.Type1, BallType.Type7, BallType.Type3, BallType.Type1 }),
+            Occupied = CrownOccupied,
+            Colour = CrownColour,
         };
+
+        //Crown's shape, in layout levels (i = 0 at the bottom, depth-1 at the anchor bonded to the glass).
+        //The band occupies i = 0..CROWN_BAND_TOP; the teeth rise the two levels above it, their tips on the
+        //anchor level. The inner radius never closes, so the drain up the axis survives every level.
+        private const int CROWN_SECTORS = 6;
+        private const int CROWN_BAND_TOP = 5;
+        private const float CROWN_INNER = 2.9f;
+        private const float CROWN_BAND_OUTER = 5.3f;       //widest at the band's own top, tapering down from it
+        private const float CROWN_BAND_TAPER = 0.15f;      //per layout level below the band top
+        private const float CROWN_TOOTH_INNER = 3.0f;
+        private const float CROWN_TOOTH_OUTER = 5.0f;
+        private const float CROWN_TOOTH_HALFFRAC = 0.28f;  //~34° — a chunky body the tip tapers out of
+        private const float CROWN_TIP_INNER = 3.3f;
+        private const float CROWN_TIP_OUTER = 4.8f;
+        private const float CROWN_TIP_HALFFRAC = 0.25f;    //30° — narrower than the body, reads as the point
+        private static readonly BallType CROWN_ACCENT = BallType.Type6;   //magenta — not in the bar palette
+        private static readonly BallType[] CROWN_BARS =
+        {
+            BallType.Type7, BallType.Type3, BallType.Type1,
+            BallType.Type7, BallType.Type3, BallType.Type1,
+        };
+
+        /// <summary>
+        /// Crown's occupancy: a gently tapering band (the ring itself, with the drain up the middle), six
+        /// teeth rising above it — one per bar — and each tooth narrowing to a tip on the anchor level. The
+        /// band's outer radius uses the same <c>(top − i) · taper</c> idiom <see cref="Bullseye"/> and
+        /// <see cref="Prism"/> do; the teeth reuse <see cref="Sector"/>'s own <c>+0.5</c> framing through
+        /// <see cref="InCrownToothWedge"/>. The tip lives on the anchor level, so it bonds straight to the
+        /// glass — no tooth floats.
+        /// </summary>
+        private static bool CrownOccupied(float r, float ang, int i, int depth)
+        {
+            if (i <= CROWN_BAND_TOP)
+                return r >= CROWN_INNER && r <= CROWN_BAND_OUTER - (CROWN_BAND_TOP - i) * CROWN_BAND_TAPER;
+
+            //The tooth tip on the anchor level: the narrowest, outermost point of each tooth, drawn in the
+            //accent colour by CrownColour. Kept to >=2 cells by CROWN_TIP_HALFFRAC/OUTER so it is its own
+            //connected group and not a lonely ball the repair pass would recolour back into the bar.
+            if (i == depth - 1)
+                return r >= CROWN_TIP_INNER && r <= CROWN_TIP_OUTER && InCrownToothWedge(ang, CROWN_TIP_HALFFRAC);
+
+            //The tooth body one level below the tip: wider, in the bar's own colour, so it extends that bar
+            //upward into the tooth and the tooth reads as the bar growing into a point rather than as a
+            //separate stud sat on top of the ring.
+            return r >= CROWN_TOOTH_INNER && r <= CROWN_TOOTH_OUTER && InCrownToothWedge(ang, CROWN_TOOTH_HALFFRAC);
+        }
+
+        /// <summary>
+        /// Crown's colour: the bar palette everywhere except the tooth tips, which take the accent — a set
+        /// jewel at each point, distinct from the bar it grows out of, so the points read as deliberate
+        /// marks rather than as the bar colour trailing off into the tooth.
+        /// </summary>
+        private static BallType CrownColour(float r, float ang, int i, int depth)
+        {
+            if (i == depth - 1 && InCrownToothWedge(ang, CROWN_TIP_HALFFRAC))
+                return CROWN_ACCENT;
+
+            return Sector(ang, 0f, CROWN_SECTORS, CROWN_BARS);
+        }
+
+        /// <summary>
+        /// Whether <paramref name="ang"/> falls within the middle of a Crown sector — i.e. within a tooth,
+        /// since one tooth sits at each sector's centre (where the bars are). <paramref name="halfFrac"/> is
+        /// half the tooth's width as a fraction of the sector (0.5 would fill the whole sector, 0 the
+        /// boundary line), built on <see cref="SectorIndex"/>'s own <c>+0.5</c> framing so the tooth and the
+        /// bar share the same centre.
+        /// </summary>
+        private static bool InCrownToothWedge(float ang, float halfFrac)
+        {
+            float turns = (ang / MathF.Tau) + 0.5f;
+            float frac = turns * CROWN_SECTORS - MathF.Floor(turns * CROWN_SECTORS);
+            return frac >= 0.5f - halfFrac && frac <= 0.5f + halfFrac;
+        }
 
         /// <summary>
         /// An octahedron hanging point-down, cut into concentric diamond rings — the angular answer to
