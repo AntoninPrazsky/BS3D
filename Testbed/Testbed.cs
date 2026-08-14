@@ -905,6 +905,10 @@ namespace Testbed
             //where the terrain has the island's footprint cut out of it. Meshes, procedural textures,
             //renderers and world matrices are the component's; the ambient is the scene's, so it is handed in.
             _island = new ArenaIsland(GraphicsDevice, _instancingEffect, SCENE_AMBIENT_INTENSITY);
+
+            //All of it unless "arena=" says otherwise, which only a measurement run does — #151 needs each
+            //member taken out of the frame in turn, and there was no way to do that from outside the class
+            _island.Members = _options.Arena;
         }
 
         private void BuildCeiling()
