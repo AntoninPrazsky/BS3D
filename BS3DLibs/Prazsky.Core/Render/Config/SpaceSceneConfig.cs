@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json.Serialization;
 
 namespace Prazsky.Core.Render
@@ -192,8 +193,15 @@ namespace Prazsky.Core.Render
 
     public sealed class SpaceStarsConfig
     {
-        /// <summary>Cells per chart unit of the bright layer.</summary>
-        public float BrightCellScale { get; set; } = 14f;
+        /// <summary>Cells per chart unit of the bright layer. Rounded to a whole number on set: a star can
+        /// be held clear of a cell boundary only when the face edge lands ON one, which takes an integer cell
+        /// scale — the no-straddle guarantee the whole lattice rests on (#149, docs/scenes.md).</summary>
+        private float _brightCellScale = 14f;
+        public float BrightCellScale
+        {
+            get => _brightCellScale;
+            set => _brightCellScale = MathF.Round(value);
+        }
 
         /// <summary>Fraction of the bright layer's cells carrying a star.</summary>
         public float BrightChance { get; set; } = 0.30f;
@@ -201,8 +209,14 @@ namespace Prazsky.Core.Render
         /// <summary>Peak linear radiance of the bright layer's brightest star.</summary>
         public float BrightPeak { get; set; } = 0.50f;
 
-        /// <summary>Cells per chart unit of the middle layer.</summary>
-        public float MediumCellScale { get; set; } = 42f;
+        /// <summary>Cells per chart unit of the middle layer. Rounded to a whole number on set, for the same
+        /// no-straddle reason as <see cref="BrightCellScale"/> (#149).</summary>
+        private float _mediumCellScale = 42f;
+        public float MediumCellScale
+        {
+            get => _mediumCellScale;
+            set => _mediumCellScale = MathF.Round(value);
+        }
 
         /// <summary>Fraction of the middle layer's cells carrying a star.</summary>
         public float MediumChance { get; set; } = 0.32f;
@@ -210,8 +224,14 @@ namespace Prazsky.Core.Render
         /// <summary>Peak linear radiance of the middle layer's brightest star.</summary>
         public float MediumPeak { get; set; } = 0.30f;
 
-        /// <summary>Cells per chart unit of the faint layer.</summary>
-        public float FaintCellScale { get; set; } = 110f;
+        /// <summary>Cells per chart unit of the faint layer. Rounded to a whole number on set, for the same
+        /// no-straddle reason as <see cref="BrightCellScale"/> (#149).</summary>
+        private float _faintCellScale = 110f;
+        public float FaintCellScale
+        {
+            get => _faintCellScale;
+            set => _faintCellScale = MathF.Round(value);
+        }
 
         /// <summary>Fraction of the faint layer's cells carrying a star.</summary>
         public float FaintChance { get; set; } = 0.40f;
@@ -328,8 +348,14 @@ namespace Prazsky.Core.Render
     /// </summary>
     public sealed class SpaceGalaxyConfig
     {
-        /// <summary>Cells per chart unit. Coarse — galaxies are rare compared with stars.</summary>
-        public float CellScale { get; set; } = 9f;
+        /// <summary>Cells per chart unit. Coarse — galaxies are rare compared with stars. Rounded to a whole
+        /// number on set for the same no-straddle reason as the stars' own cell scales (#149).</summary>
+        private float _cellScale = 9f;
+        public float CellScale
+        {
+            get => _cellScale;
+            set => _cellScale = MathF.Round(value);
+        }
 
         /// <summary>Fraction of cells carrying a galaxy.</summary>
         public float Chance { get; set; } = 0.16f;
