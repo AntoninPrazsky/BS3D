@@ -7,19 +7,33 @@ namespace Prazsky.Core.Render
 {
     /// <summary>
     /// The pane that glazes the cannon's loading window: a thin, curved shell of glass set into the rebate
-    /// <see cref="CannonMesh"/> cuts along the top of the tube, with the <b>head-of-queue ball's own extent
-    /// notched out of its front edge</b>. So the round that is about to fire is open to the air and the four
-    /// queued behind it read through blue glass — which is the whole point of the pane: it says which ball
-    /// fires next without a mark on the HUD, by covering every ball but that one.
+    /// <see cref="CannonMesh"/> cuts along the top of the tube, with the <b>round that fires next notched out
+    /// of its front edge</b> — open to the air, where the rest of the queue reads through blue glass.
     /// <para>
-    /// The notch is <b>half an ellipse</b>, semi-axes a ball radius along the bore and the pane's full
-    /// half-width across it, centred on the front ball. It is a half and not a whole because there is no room
-    /// for the other half: the queue is enclosed exactly, the muzzle face sitting one ball radius ahead of the
-    /// front ball's centre (see <see cref="CannonMesh"/>), so glass ahead of the notch would have to fit in a
-    /// gap of zero. The ellipse therefore opens forward through the muzzle face and its rim curves round the
-    /// <i>back</i> of the front ball, landing at rest exactly where that ball parts from the one behind it —
-    /// which is what makes the post-shot glide read: the next round slides out from under the glass into the
-    /// notch as it takes the muzzle slot.
+    /// The notch is <b>half an ellipse</b>, its semi-axis across the pane being the pane's full half-width and
+    /// its rim reaching <paramref name="notchReach"/> back along the bore from the front ball's centre. It is a
+    /// half and not a whole because there is no room for the other half: the queue is enclosed exactly, the
+    /// muzzle face sitting one ball radius ahead of the front ball's centre (see <see cref="CannonMesh"/>), so
+    /// glass ahead of the notch would have to fit in a gap of zero. The ellipse therefore opens forward through
+    /// the muzzle face and its rim curves round the <i>back</i> of the queue.
+    /// </para>
+    /// <para>
+    /// <b>How far back it reaches is the caller's figure, and #204 is why it is not simply a ball radius.</b>
+    /// It was: the rim landed on the front ball's centre plane at the pane's cheeks and where that ball parts
+    /// from the one behind it at the centreline. That reads correctly on the prop and hid the front ball anyway,
+    /// because a player does not look along the bore — they look from the precise-aim lens, which stands above
+    /// and behind the muzzle. From there the sight line grazing the old rim passed the front ball at a closest
+    /// approach of 0.512 against its radius of 0.5: it missed the ball by 0.012, so <i>nothing</i> of the round
+    /// about to fire was seen through open air and all of it was read through the pane. The issue reported "at
+    /// best a slice"; the geometry says none. The reach is a derived constant on the rig now
+    /// (<c>CannonRig.GLASS_NOTCH_REACH</c>), sized so no part of the front ball is behind glass from any angle
+    /// across the window and the lens's own sight line clears the rim as well — which necessarily uncovers the
+    /// second round too, and the issue licenses exactly that.
+    /// </para>
+    /// <para>
+    /// So the pane no longer says on its own which ball fires next, and what does is #175's breathing mark on
+    /// the muzzle slot. <b>That mark is now load-bearing rather than a reinforcement</b>: with two rounds open
+    /// at the top of the window it is the only thing that distinguishes the first from the second.
     /// </para>
     /// <para>
     /// It is a shell rather than a surface: an outer face, the underside seen up the bore through the muzzle,
@@ -53,15 +67,21 @@ namespace Prazsky.Core.Render
         /// (<c>CannonRig.SLOT_HALF_ANGLE</c>); the pane spans it less the reveal.</param>
         /// <param name="slotEndZ">Where the window stops, towards the breech; the pane stops the reveal ahead
         /// of it.</param>
-        /// <param name="frontBallZ">Z of the head-of-queue ball's centre — the notch's own centre, so the
-        /// opening and the ball it uncovers cannot disagree.</param>
-        /// <param name="ballRadius">The notch's semi-axis along the bore: a ball radius, so the opening is the
-        /// front ball's own extent.</param>
+        /// <param name="frontBallZ">Z of the head-of-queue ball's centre — what the notch is measured from, so
+        /// the opening and the ball it uncovers cannot disagree.</param>
+        /// <param name="ballRadius">One loaded ball's radius. The rim lands a radius back from the front ball's
+        /// centre at the pane's <b>cheeks</b>, which is the seam between the first two rounds, so nothing of the
+        /// front ball is behind glass at any angle across the window.</param>
+        /// <param name="notchReach">How far back along the bore the rim reaches at the pane's <b>centreline</b>,
+        /// from the front ball's centre — see the class remarks and #204. Must be at least
+        /// <paramref name="ballRadius"/>; at exactly that the notch degenerates to a straight cut on the seam,
+        /// and beyond it the difference is the ellipse's own semi-axis along the bore.</param>
         /// <param name="segments">Steps across the pane, which are also the steps around the notch's ellipse
         /// (they are one and the same boundary) — the notch is the curve the eye reads, so this is its
         /// smoothness rather than the barrel's.</param>
         public CannonGlassMesh(GraphicsDevice graphicsDevice, float boreRadius, float thickness, float seat,
-            float slotHalfAngle, float slotEndZ, float frontBallZ, float ballRadius, int segments)
+            float slotHalfAngle, float slotEndZ, float frontBallZ, float ballRadius, float notchReach,
+            int segments)
         {
             float inner = boreRadius;
             float outer = boreRadius + thickness;
@@ -74,10 +94,10 @@ namespace Prazsky.Core.Render
             int spans = Math.Max(4, segments);
 
             //One station per step of the ellipse's own parameter, ψ from −π/2 to +π/2: across the pane the
-            //angle runs as sin ψ and the notch's edge stands (ball radius × cos ψ) behind the front ball's
-            //centre, which is the ellipse. Parametrised that way rather than by the angle so the stations
-            //stay even round the curve — sampling the angle evenly and solving for Z gives a boundary whose
-            //steps grow without bound at the pane's edges, where the ellipse turns to run along the bore.
+            //angle runs as sin ψ and the notch's edge stands (boreHalf × cos ψ) behind the SEAM the rim lands
+            //on at the cheeks, which is the ellipse. Parametrised that way rather than by the angle so the
+            //stations stay even round the curve — sampling the angle evenly and solving for Z gives a boundary
+            //whose steps grow without bound at the pane's edges, where the ellipse turns to run along the bore.
             var dirs = new Vector3[spans + 1];
             var frontZ = new float[spans + 1];
             var rimNormals = new Vector3[spans + 1];
@@ -85,6 +105,15 @@ namespace Prazsky.Core.Render
             //The ellipse's semi-axis across the pane, as an arc length at the face the notch is read on — the
             //aspect the rim's own normals are turned by
             float arcHalf = halfAngle * outer;
+
+            //Where the rim sits at the cheeks, and its semi-axis along the bore from there. The ellipse is
+            //OFFSET rather than merely wider (#204): the cheeks stay on the first seam of the queue, which is
+            //what keeps the front ball clear of glass at every angle across the window, and the centreline
+            //reaches notchReach back from the front ball's centre, which is what clears the precise-aim lens's
+            //own sight line. Clamped at zero so a reach of exactly a ball radius degenerates to a straight cut
+            //on the seam instead of turning the ellipse inside out.
+            float seamZ = frontBallZ + ballRadius;
+            float boreHalf = MathF.Max(notchReach - ballRadius, 0f);
 
             for (int i = 0; i <= spans; i++)
             {
@@ -95,18 +124,30 @@ namespace Prazsky.Core.Render
                 float angle = Constants.HALF_PI + halfAngle * sin;
 
                 dirs[i] = new Vector3(MathF.Cos(angle), MathF.Sin(angle), 0f);
-                frontZ[i] = frontBallZ + ballRadius * cos;
+                frontZ[i] = seamZ + boreHalf * cos;
 
                 //The rim faces INTO the notch, which is the ellipse's inward normal: the gradient of
-                //(s/arcHalf)² + (z/ballRadius)² at the station, negated. At the deepest point that is
+                //(s/arcHalf)² + (z/boreHalf)² at the station, negated. At the deepest point that is
                 //straight down the bore towards the muzzle; at the pane's edges it is purely across the slot,
                 //the boundary running along the bore there — which is also why the rim and the long edge meet
-                //without a sliver. Written as the gradient times both semi-axes — (sin·ballRadius, cos·arcHalf)
-                //rather than (sin/arcHalf, cos/ballRadius) — which is the same direction with no divide, so a
+                //without a sliver. Written as the gradient times both semi-axes — (sin·boreHalf, cos·arcHalf)
+                //rather than (sin/arcHalf, cos/boreHalf) — which is the same direction with no divide, so a
                 //degenerate span cannot put an infinity into a normal.
+                //
+                //It has to be boreHalf and NOT ballRadius, which is the one thing #204 could have got wrong
+                //silently: the semi-axis along the bore stopped being a ball radius when the ellipse was
+                //offset, and a normal computed from the old one would light a rim whose shape it no longer
+                //describes — wrong shading on the very curve this pane is read by, with nothing missing.
                 Vector3 tangent = new(-dirs[i].Y, dirs[i].X, 0f);
+                Vector3 gradient = tangent * (sin * boreHalf) + new Vector3(0f, 0f, cos * arcHalf);
 
-                rimNormals[i] = -Vector3.Normalize(tangent * (sin * ballRadius) + new Vector3(0f, 0f, cos * arcHalf));
+                //A reach of exactly a ball radius leaves boreHalf at zero, and then the gradient vanishes at
+                //the cheeks alone (sin = ±1, cos = 0) where every other station still has its Z term. That is
+                //the flat-cut case, whose rim faces straight down the bore at every station, so it is answered
+                //rather than normalized — the old ellipse could not reach zero on either axis and this one can.
+                rimNormals[i] = gradient.LengthSquared() > 0f
+                    ? -Vector3.Normalize(gradient)
+                    : Vector3.Forward;
             }
 
             MeshBuilder builder = new();
@@ -144,23 +185,26 @@ namespace Prazsky.Core.Render
                     Vector3.Backward, Vector3.Backward, Vector3.Backward, Vector3.Backward, Vector3.Backward);
             }
 
-            //The two long edges, each facing the window cheek it is seated against. They start at the front
-            //ball's centre plane, the ellipse having landed there.
+            //The two long edges, each facing the window cheek it is seated against. They start on the first
+            //seam of the queue, the ellipse having landed there (it landed on the front ball's own centre plane
+            //until #204, which is precisely what left that ball glazed).
             AddSideEdge(builder, dirs[0], inner, outer, frontZ[0], backZ, outward: -1f);
             AddSideEdge(builder, dirs[spans], inner, outer, frontZ[spans], backZ, outward: +1f);
 
             (VertexBuffer, IndexBuffer, PrimitiveCount) = builder.Build(graphicsDevice);
 
             //Axis-centred and conservative, like the barrel's: the pane hugs the tube, so a sphere about the
-            //bore's own axis costs nothing anyone measures
+            //bore's own axis costs nothing anyone measures. Measured from the front ball's centre rather than
+            //from where the glass now actually starts, which only makes it looser and therefore still correct.
             float halfLength = (backZ - frontBallZ) * Constants.HALF;
 
             BoundingSphere = new BoundingSphere(new Vector3(0f, 0f, (frontBallZ + backZ) * Constants.HALF),
                 MathF.Sqrt(outer * outer + halfLength * halfLength));
         }
 
-        /// <summary>One long edge of the pane: a pane-thick quad at a fixed angle, from the front ball's centre
-        /// plane back to the pane's end, facing out of the window towards the cheek it is seated against.</summary>
+        /// <summary>One long edge of the pane: a pane-thick quad at a fixed angle, from where the rim lands at
+        /// the cheeks back to the pane's end, facing out of the window towards the cheek it is seated
+        /// against.</summary>
         private static void AddSideEdge(MeshBuilder builder, Vector3 radial, float inner, float outer,
             float frontZ, float backZ, float outward)
         {
