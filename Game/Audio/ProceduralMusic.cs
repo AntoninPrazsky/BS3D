@@ -1470,7 +1470,11 @@ namespace BS3D.Audio
         private static readonly JazzSection[] JAZZ_ARRANGEMENT =
         {
             //0 INTRO. Keys comping alone over a held pad: the chords stated before anything counts time.
-            new(false, false, false, false, true,  true,  JazzPart.None,   0.55f),
+            //The dial is 0.88 and not the 0.55 it was authored at, and #218 is why: this section has two
+            //voices in it and every other one has a walking bass, so when the bass came back the limiter's
+            //drive fell and the intro went with it — measured 0.030 against the heads' 0.21, which is 17 dB
+            //and a listener reaching for the volume knob. Trimming a thin section UP is what the dial is for.
+            new(false, false, false, false, true,  true,  JazzPart.None,   0.88f),
             //1 The bass walks in. Still no ride — the walk IS the time here, which is how the idiom does it.
             new(false, false, false, true,  true,  true,  JazzPart.None,   0.72f),
             //2 HEAD, the full trio: walk, ride, brushes.
@@ -1628,7 +1632,7 @@ namespace BS3D.Audio
 
                     //Just short of the beat: a walking bass note is stopped by the next one, which is what
                     //gives the line its pulse rather than a legato drone.
-                    UprightBass(mix, at, note, secondsPerStep * 3.4f, 0.85f * level);
+                    UprightBass(mix, at, note, secondsPerStep * 3.4f, 0.55f * level);
                 }
 
                 //THE COMP --------------------------------------------------------------------------------
