@@ -253,8 +253,10 @@ namespace BS3D
         //The result screen's star rating — a headline, but set in INTER at a heading's size rather than in
         //the display face like every other loud thing here: Anton carries no ★/☆ glyphs at all (checked in
         //the font, not assumed), and FontStashSharp would draw blanks where the rating should be. A size is
-        //its own atlas, hence its own constant and its own GetFont below.
-        private const int MENU_FONT_STARS = 116;
+        //its own atlas, hence its own constant and its own GetFont below. Above HEADING now (#199): at 116
+        //the rating read as body text wearing star glyphs — it is the headline a player reads at a glance
+        //(#111), and at play distance four glyphs need title-adjacent weight to be read as one.
+        private const int MENU_FONT_STARS = 140;
 
         //The exposure ladder the settings button walks. Centred on DEFAULT_EXPOSURE, wide enough either way
         //to matter on a dim laptop panel and on a bright monitor without ever crushing or blowing the frame.

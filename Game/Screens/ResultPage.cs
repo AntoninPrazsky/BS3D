@@ -476,7 +476,9 @@ namespace BS3D.Screens
             //rating rather than as a word — by the row's own spacing now that they are four widgets.
             _starRow = new HorizontalStackPanel
             {
-                Spacing = Scaled(26),
+                //Opened with the glyphs (#199): at 140 px each, the same 26 of spacing read as a word again —
+                //the gaps have to grow with the type for four stars to read as a rating.
+                Spacing = Scaled(34),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 12),
             };
@@ -499,10 +501,13 @@ namespace BS3D.Screens
             column.Widgets.Add(_starRow);
 
             //Under the stars, and only when a best actually moved: a line that is always there says nothing.
+            //Body, not small (#199): the one label on this screen that says the run beat every run before it
+            //was the quietest thing on it — dim in colour to stay secondary, but a size that carries at play
+            //distance.
             _newBest = new Label
             {
                 Text = "New best",
-                Font = FontSmall,
+                Font = FontBody,
                 TextColor = BS3DGame.MENU_TEXT_DIM,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 12),
