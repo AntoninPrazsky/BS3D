@@ -77,8 +77,14 @@ namespace BS3D.Tools.LevelGen
         //leaving it null used to cost. Named after the block rather than after the piece because that is the
         //thing being decided: if a block's music is ever changed it is changed HERE, once, and not five times.
         //
-        //Four pieces exist (#163 would be a fifth) against five blocks, so exactly one is reprised, and it is
-        //Pulse: the campaign opens on the piece Level One has always played and the finale brings it back.
+        //Five blocks, and the Quarry REPRISES Pulse rather than taking a piece of its own: the campaign opens on
+        //the piece Level One has always played and the finale brings it back.
+        //
+        //That was forced when it was written, because four pieces existed. It is a CHOICE now — #163 landed
+        //Ember, the rock ballad, so there is a fifth and no block uses it. Whether the Moon should take it
+        //instead of the reprise is a question for whoever has heard both against that scene, not one to settle
+        //by arithmetic: a reprise at the end is a real musical idea and "every block gets its own" is only tidy.
+        //Changing it is one token here.
         /// <summary>
         /// What each block is <b>called</b>, written onto every entry of it as <c>LevelSetEntry.Block</c> so the
         /// game can celebrate finishing one by name (#184). Indexed by block, so the order here IS the order of
