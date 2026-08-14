@@ -19,6 +19,7 @@ using Prazsky.Core.Screens;
 using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
@@ -141,6 +142,10 @@ namespace BS3D
         //there, so StartGame's PopTo<BackdropScreen> would test an empty live stack, silently skip, and
         //leave the splash buried under the session for the rest of the run.
         private bool _startupPlay;
+
+        //Testing only: the "level=" argument — which entry _startupPlay should open, as a 1-based place in the
+        //set or as a name. Null means "the first one", which is what play alone has always done.
+        private readonly string _startupLevel;
 
         //Testing only: the "result" argument, consumed on the first Update for the "play" reason above — the
         //page has to go over a stack that exists. It is how the end-of-level moment gets looked at at all:
@@ -473,12 +478,15 @@ namespace BS3D
         public BS3DGame(bool fullscreen = false, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE,
             bool uncappedFps = false, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
             QualityLevel? quality = null, bool celebrate = false, bool lasers = false, bool mute = false,
-            bool play = false, bool result = false, float[] shotSeconds = null)
+            bool play = false, bool result = false, float[] shotSeconds = null, string level = null)
         {
             _fullscreen = fullscreen;
             _startupCelebrate = celebrate;
             _startupLasers = lasers;
-            _startupPlay = play;
+            _startupLevel = level;
+
+            //Naming a level means playing it, so "level=" implies "play" rather than needing it alongside
+            _startupPlay = play || level != null;
             _startupResult = result;
             _shotSchedule = shotSeconds;
             if (mute) _masterVolume = 0f;
@@ -979,6 +987,33 @@ namespace BS3D
         }
 
         /// <summary>
+        /// Which entry the <c>level=</c> argument names: a <b>1-based place</b> in the set, as the title bar
+        /// numbers it and the picker lists it, or a <b>name</b> — either the entry's own or its file's, matched
+        /// case-insensitively. Out of range or unrecognised falls back to the first level and says so on a
+        /// <c>[levels]</c> line, the same leniency the rest of the command line takes: a diagnostic must never
+        /// be the reason a scripted run fails to start.
+        /// </summary>
+        private int ResolveStartupLevel(string level)
+        {
+            int count = LevelCount;
+
+            if (int.TryParse(level, NumberStyles.Integer, CultureInfo.InvariantCulture, out int place))
+            {
+                if (place >= 1 && place <= count) return place - 1;
+            }
+            else
+            {
+                for (int i = 0; i < count; i++)
+                    if (string.Equals(_levelSet.DisplayName(i), level, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(Path.GetFileNameWithoutExtension(_levelSet.Levels[i].File), level, StringComparison.OrdinalIgnoreCase))
+                        return i;
+            }
+
+            Console.WriteLine($"[levels] No level '{level}' in the set of {count}; starting the first instead");
+            return 0;
+        }
+
+        /// <summary>
         /// Puts the session on the stack, over the standing backdrop and with nothing above it â€” whatever the
         /// player navigated through to get here is popped on the way. The input hygiene a (re)entry needs â€”
         /// the cleared mouse-aim baseline, the re-polled pad â€” lives on the screen itself
@@ -1111,7 +1146,9 @@ namespace BS3D
             if (_startupPlay)
             {
                 _startupPlay = false;
-                StartGame(newGame: true);
+
+                if (_startupLevel == null) StartGame(newGame: true);
+                else StartGameAt(ResolveStartupLevel(_startupLevel));
             }
 
             //And the same for the result screen, over whatever is on the stack — the front end, unless "play"
