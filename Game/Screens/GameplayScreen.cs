@@ -580,6 +580,15 @@ namespace BS3D.Screens
         private bool _blockCompleted;
 
         /// <summary>
+        /// Whether the clear that just happened is the one that finishes the whole <b>campaign</b> (#215) —
+        /// decided in <see cref="CheckLevelCleared"/> beside <see cref="_blockCompleted"/> and for the identical
+        /// reason: the confetti starts there, so a decision taken on the result page would reach it a beat too
+        /// late. <see cref="ShowResultScreen"/> then reads this rather than asking again, which is what stops
+        /// the page and the celebration answering two subtly different questions.
+        /// </summary>
+        private bool _campaignCompleted;
+
+        /// <summary>
         /// Set the moment a level is lost, and only once — a descent and a spent budget can both reach their line
         /// on the same frame, and the loss must not fire twice. Cleared back to false by <see cref="BuildLevel"/>,
         /// which is the real reload that starts a level over.
@@ -621,6 +630,14 @@ namespace BS3D.Screens
         //is more than the 32 concurrent ones the shader carries - so the sky stays saturated for the whole of
         //it rather than filling and emptying.
         private const float BLOCK_CELEBRATION_OPENING = 8f;
+
+        //How long the campaign's closing confetti keeps falling (#215). LONGER than the fireworks' minute, and
+        //that is the point rather than an accident: the display eases its density off after sixteen seconds
+        //because a minute of barrage is exhausting, so by the time the player is reading the last score of the
+        //campaign the sky has gone quiet — and the ending that deserves the most is the one that was thinning
+        //out. Paper is the opposite kind of subject: it costs nothing to keep falling, it never shouts, and a
+        //player who sits on the final screen should still be in it. Confetti fades itself out at the end.
+        private const float CONFETTI_SECONDS = 105f;
 
         /// <summary>
         /// The level's score and ball budget. Built fresh for each level from that entry's rules, so it never

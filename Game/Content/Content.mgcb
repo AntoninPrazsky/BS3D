@@ -54,6 +54,12 @@
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/Fireworks.fx;Shaders/Fireworks.fx
 
+#begin ../../Testbed/Content/Shaders/Confetti.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Confetti.fx;Shaders/Confetti.fx
+
 #begin ../../Testbed/Content/Shaders/LaserGrid.fx
 /importer:EffectImporter
 /processor:EffectProcessor
