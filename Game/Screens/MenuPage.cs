@@ -166,6 +166,11 @@ namespace BS3D.Screens
 
         protected Button MenuButton(string text, Action onClick, out Label label) => Game.MenuButton(text, onClick, out label);
 
+        protected Button FrontEndEntry(string text, Action onClick) => Game.FrontEndEntry(text, onClick);
+
+        protected Button FrontEndEntry(string text, Action onClick, out Label label) =>
+            Game.FrontEndEntry(text, onClick, out label);
+
         protected VerticalStackPanel MenuColumn() => Game.MenuColumn();
 
         protected ScrollViewer MenuScroll(Widget content, int reservedDesignUnits) =>
@@ -182,12 +187,13 @@ namespace BS3D.Screens
         protected int ColumnWidth => Game.MenuColumnWidth;
 
         /// <summary>
-        /// The page centred over the whole frame. It carries no scrim of its own: whether the frame dims is
-        /// still <see cref="DimsFrame"/>'s answer, but the wash itself is the host's own quad since #114 —
-        /// Myra's background paint stops short of the viewport's bottom edge, and the strip it left undimmed
-        /// was the bug.
+        /// The page over the whole frame — one centred column on every page but the front end, which pins
+        /// several children by their own alignment instead (#217). It carries no scrim of its own: whether the
+        /// frame dims is still <see cref="DimsFrame"/>'s answer, but the wash itself is the host's own quad
+        /// since #114 — Myra's background paint stops short of the viewport's bottom edge, and the strip it
+        /// left undimmed was the bug.
         /// </summary>
-        protected Panel ScreenRoot(Widget content) => BS3DGame.ScreenRoot(content);
+        protected Panel ScreenRoot(params Widget[] content) => BS3DGame.ScreenRoot(content);
 
         /// <summary>One level back off the stack — what every sub-page's "Back" entry does.</summary>
         protected void GoBack() => Manager.Pop();
@@ -196,6 +202,13 @@ namespace BS3D.Screens
         protected SpriteFontBase FontSmall => Game.MenuFontSmall;
         protected SpriteFontBase FontTitle => Game.MenuFontTitle;
         protected SpriteFontBase FontStars => Game.MenuFontStars;
+
+        /// <summary>
+        /// The front end's own, bigger than <see cref="FontTitle"/> because the game's name on the first screen
+        /// anybody sees has no height budget to share — where <c>FontTitle</c> also sets the splash's card and
+        /// the result screen's headings, which do (#217).
+        /// </summary>
+        protected SpriteFontBase FontGameTitle => Game.MenuFontGameTitle;
 
         //The rating's two glyphs, shared so the picker's small rows and the result's headline cannot drift
         //apart. They must be drawn with FontStars or FontSmall: the glyphs live in Inter, and the display face
