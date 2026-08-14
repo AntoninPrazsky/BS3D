@@ -1463,7 +1463,11 @@ namespace BS3D.Audio
         private static readonly JazzSection[] JAZZ_ARRANGEMENT =
         {
             //0 INTRO. Keys comping alone over a held pad: the chords stated before anything counts time.
-            new(false, false, false, false, true,  true,  JazzPart.None,   0.55f),
+            //The dial is 0.88 and not the 0.55 it was authored at, and #218 is why: this section has two
+            //voices in it and every other one has a walking bass, so when the bass came back the limiter's
+            //drive fell and the intro went with it — measured 0.030 against the heads' 0.21, which is 17 dB
+            //and a listener reaching for the volume knob. Trimming a thin section UP is what the dial is for.
+            new(false, false, false, false, true,  true,  JazzPart.None,   0.88f),
             //1 The bass walks in. Still no ride — the walk IS the time here, which is how the idiom does it.
             new(false, false, false, true,  true,  true,  JazzPart.None,   0.72f),
             //2 HEAD, the full trio: walk, ride, brushes.
@@ -1621,7 +1625,7 @@ namespace BS3D.Audio
 
                     //Just short of the beat: a walking bass note is stopped by the next one, which is what
                     //gives the line its pulse rather than a legato drone.
-                    UprightBass(mix, at, note, secondsPerStep * 3.4f, 0.85f * level);
+                    UprightBass(mix, at, note, secondsPerStep * 3.4f, 0.55f * level);
                 }
 
                 //THE COMP --------------------------------------------------------------------------------
@@ -3372,8 +3376,17 @@ namespace BS3D.Audio
                 float t = (float)i / SAMPLE_RATE;
 
                 //Struck at once and gone steadily: a plucked string has no attack to speak of and no sustain.
-                float env = MathF.Min(1f, t / 0.006f) * MathF.Exp(-t * 3.2f);
-                if (env <= 0.0005f) break;
+                //
+                //THE EARLY-OUT READS THE DECAY AND NOT THE ENVELOPE, and that is not a style choice (#218):
+                //the attack ramp is zero at t = 0, so a `break` on the whole envelope fired on the FIRST
+                //SAMPLE of every note and this voice wrote nothing at all — Nocturne played with no walking
+                //bass in it from #162 until this was measured. The decay term is monotone and starts at 1, so
+                //it can only fire where it is meant to. A `break` is only ever safe on a value that is
+                //already past its peak; every voice here that guards on the envelope uses `continue`.
+                float decay = MathF.Exp(-t * 3.2f);
+                if (decay <= 0.0005f) break;
+
+                float env = MathF.Min(1f, t / 0.006f) * decay;
 
                 phase += freq / SAMPLE_RATE;
                 if (phase >= 1f) phase -= 1f;
@@ -3525,9 +3538,15 @@ namespace BS3D.Audio
 
                 //2 ms of hammer, then the two-stage death a struck string dies in: a fast early slope as
                 //the high partials go, over a tail that is still ringing when the attack is long gone.
-                float env = MathF.Min(1f, t / 0.002f) * (0.78f * MathF.Exp(-t * 3.4f) + 0.22f * MathF.Exp(-t * 0.55f))
-                    * MathF.Min(1f, (seconds - t) / 0.12f);
-                if (env <= 0.0006f) break;
+                //
+                //The early-out reads the two-stage decay alone, for the reason <see cref="UprightBass"/>
+                //records at length (#218): with the 2 ms attack ramp in it, the guard was zero at t = 0 and
+                //this voice broke out of its loop on the first sample of every note. Nocturne's tune moved
+                //onto it in #210 and has been silent since.
+                float decay = 0.78f * MathF.Exp(-t * 3.4f) + 0.22f * MathF.Exp(-t * 0.55f);
+                if (decay <= 0.0006f) break;
+
+                float env = MathF.Min(1f, t / 0.002f) * decay * MathF.Min(1f, (seconds - t) / 0.12f);
 
                 //The felt hammer: low, dull and over in ten milliseconds, fed into the same closing filter
                 //as the string so it thumps rather than ticks. One hammer, both strings.
