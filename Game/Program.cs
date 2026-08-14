@@ -68,6 +68,10 @@ namespace BS3D
             //presents (#183). Null leaves the authored three — the only one a test could otherwise reach.
             int? resultStars = null;
 
+            //Testing only: what the HUD's multiplier readout shows (#180). The capped state takes five
+            //consecutive scoring shots to reach honestly, so it is otherwise unphotographable.
+            int? streak = null;
+
             //Testing only: wall-clock seconds at which the game saves a PNG of its own frame. Null means the
             //argument was absent, which is every run but a scripted one. F12 does the same thing by hand — but
             //only this trigger survives a LOCKED desktop, which takes no keystrokes at all (#191).
@@ -98,6 +102,9 @@ namespace BS3D
                 //"stars=<0..4>" rates that result page, which is the only way to see the other three trophy
                 //cups (#183): reaching a four-star clear honestly means being good at the game, not scripting it.
                 else if (arg.StartsWith("stars=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("stars=".Length), out int parsedStars)) resultStars = parsedStars;
+                //"streak=<n>" pins what the HUD's multiplier shows (#180) — the display only, never the
+                //scoring, so the lever cannot alter the thing it is there to look at.
+                else if (arg.StartsWith("streak=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("streak=".Length), out int parsedStreak)) streak = parsedStreak;
                 //"lasers" pins the floor alarm's laser net on while a level is played, for the same reason.
                 else if (string.Equals(arg, "lasers", StringComparison.OrdinalIgnoreCase)) lasers = true;
                 //"mute" starts silent, for the harnesses; the settings rows can still raise it.
@@ -126,7 +133,7 @@ namespace BS3D
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
-                celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone, resultStars: resultStars,
+                celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone, resultStars: resultStars, streak: streak,
                 shotSeconds: shotSeconds, level: level);
             game.Run();
         }

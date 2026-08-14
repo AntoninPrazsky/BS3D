@@ -149,6 +149,9 @@ namespace BS3D
         //which of the four trophy cups it presents. Null leaves the authored three.
         private readonly int? _startupResultStars;
 
+        //Testing only: the "streak=" argument, which pins what the HUD's multiplier readout shows (#180).
+        private readonly int? _startupStreak;
+
         //Testing only: the "lasers" argument, read by the session's warning check every frame.
         private readonly bool _startupLasers;
 
@@ -217,6 +220,14 @@ namespace BS3D
         /// scripted than clearing one can â€” the <c>celebrate</c> reasoning, for the session-owned effect.
         /// </summary>
         internal bool ForceLaserWarning => _startupLasers;
+
+        /// <summary>
+        /// Testing only (the <c>streak=</c> argument): the multiplier the HUD's streak readout should show,
+        /// or null for the keeper's own. It exists because #180's capped state takes five consecutive scoring
+        /// shots to reach, which is the <c>celebrate</c> reasoning again — and it changes the display only,
+        /// never the scoring, so the lever cannot alter the thing it is there to look at.
+        /// </summary>
+        internal int? ForcedStreak => _startupStreak;
 
         /// <summary>
         /// Whether edge-driven input (presses, clicks) may act this frame. False for one frame after focus
@@ -518,12 +529,13 @@ namespace BS3D
             bool uncappedFps = false, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
             QualityLevel? quality = null, bool celebrate = false, bool confetti = false, bool lasers = false,
             bool mute = false, bool play = false, bool result = false, bool blockDone = false,
-            int? resultStars = null, float[] shotSeconds = null, string level = null)
+            int? resultStars = null, int? streak = null, float[] shotSeconds = null, string level = null)
         {
             _fullscreen = fullscreen;
             _startupCelebrate = celebrate;
             _startupConfetti = confetti;
             _startupResultStars = resultStars;
+            _startupStreak = streak;
             _startupLasers = lasers;
             _startupLevel = level;
 
