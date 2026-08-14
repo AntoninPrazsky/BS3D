@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Prazsky.Core.Render;
 using System;
 using System.Globalization;
 
@@ -43,6 +44,30 @@ namespace Testbed.Diagnostics
 
         /// <summary><c>nocap</c>: no vsync, so real rendering headroom can be measured.</summary>
         public bool UncappedFps { get; private set; }
+
+        /// <summary>
+        /// <c>logfps</c>: one <c>[fps]</c> line a second to stdout, in the Game's own wording — so
+        /// <c>.claude/skills/benchmark</c>'s script drives either executable and their numbers are comparable.
+        /// Until this existed the Testbed's only frame-rate line came out of <c>autoshoot</c>, which fires a
+        /// ball a second to produce it, and the overlay's counter freezes whenever the overlay is hidden.
+        /// </summary>
+        public bool LogFrameRate { get; private set; }
+
+        /// <summary>
+        /// <c>nopost</c>: zero the film grain and the chromatic aberration, so a screenshot shows what the
+        /// scene shaders actually drew. Both sit on top of every pixel after the tonemap — the grain re-rolls
+        /// per output pixel every frame, which makes two captures of an unchanged scene differ almost
+        /// everywhere, and the aberration splits high-contrast edges towards the frame's periphery. They are
+        /// part of the authored image, so judge the <i>final</i> look with them back on.
+        /// </summary>
+        public bool NoPostEffects { get; private set; }
+
+        /// <summary>
+        /// <c>arena=&lt;list&gt;</c>: which members of the arena are drawn (see <see cref="ArenaMembers"/>),
+        /// so #151's isolation — take one member out of the frame and measure again — can be run at all.
+        /// Everything, as the game draws it, unless the argument says otherwise.
+        /// </summary>
+        public ArenaMembers Arena { get; private set; } = ArenaMembers.All;
 
         /// <summary><c>sky=&lt;n&gt;</c>: the starting dome, pinned over a startup level's own. 0 = unset.</summary>
         public byte SkyNumber { get; private set; }
@@ -91,6 +116,13 @@ namespace Testbed.Diagnostics
                 else if (string.Equals(arg, "aimcheck", StringComparison.OrdinalIgnoreCase)) options.AimCheck = true;
                 else if (string.Equals(arg, "aimshoot", StringComparison.OrdinalIgnoreCase)) { options.AimShoot = true; options.AimCheck = true; }
                 else if (string.Equals(arg, "nocap", StringComparison.OrdinalIgnoreCase)) options.UncappedFps = true;
+                //"logfps" is the Game's spelling deliberately, so one benchmark script drives either
+                //executable. It also has to be read here rather than ignored: an argument this parse does not
+                //recognise falls through to StartupMapPath below, so passing it before now made the Testbed
+                //try to load a map called "logfps".
+                else if (string.Equals(arg, "logfps", StringComparison.OrdinalIgnoreCase)) options.LogFrameRate = true;
+                else if (string.Equals(arg, "nopost", StringComparison.OrdinalIgnoreCase)) options.NoPostEffects = true;
+                else if (arg.StartsWith("arena=", StringComparison.OrdinalIgnoreCase)) options.Arena = ParseArenaMembers(arg.Substring("arena=".Length));
                 else if (arg.StartsWith("switchmap=", StringComparison.OrdinalIgnoreCase)) options.SwitchMapPath = arg.Substring("switchmap=".Length);
                 else if (arg.StartsWith("sky=", StringComparison.OrdinalIgnoreCase) && byte.TryParse(arg.Substring("sky=".Length), out byte parsedSky)) options.SkyNumber = parsedSky;
                 else if (arg.StartsWith("ssaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("ssaa=".Length), out int parsedSsaa)) options.SupersampleFactor = parsedSsaa;
@@ -106,6 +138,32 @@ namespace Testbed.Diagnostics
             }
 
             return options;
+        }
+
+        //Parses the arena member list: names of ArenaMembers, comma-separated, each added or - with a leading
+        //'-' - removed, left to right. So "arena=all,-glass" draws everything but the drain's glass and
+        //"arena=cap" only the stone top. Subtraction is the form the isolation actually wants (take ONE member
+        //out of an otherwise complete frame and measure again), which is why "all" is a name rather than the
+        //implied starting point. Lenient like the rest of the parse: an unreadable name is skipped.
+        private static ArenaMembers ParseArenaMembers(string list)
+        {
+            ArenaMembers members = ArenaMembers.None;
+
+            foreach (string token in list.Split(','))
+            {
+                string name = token.Trim();
+                if (name.Length == 0) continue;
+
+                bool remove = name[0] == '-';
+                if (remove) name = name.Substring(1);
+
+                if (!Enum.TryParse(name, ignoreCase: true, out ArenaMembers one)) continue;
+
+                if (remove) members &= ~one;
+                else members |= one;
+            }
+
+            return members;
         }
 
         //Parses "x,y,z" (invariant, so a decimal point) into a Vector3

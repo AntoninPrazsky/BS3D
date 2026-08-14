@@ -185,6 +185,45 @@ namespace Testbed
             _crosshair.Draw(_spriteBatch, _gameMode ? _preciseAim.Blend : 1f);
 
             base.Draw(gameTime);
+
+            //Last, so it counts a frame that has actually been drawn end to end (the Game logs it from the
+            //same place, for the same reason)
+            if (_options.LogFrameRate) LogFrameRate((float)gameTime.ElapsedGameTime.TotalSeconds);
+        }
+
+        //The Game's counter restated rather than shared, because there is nothing to share it through: both are
+        //a field pair and six lines against their own host's state. What matters is that the LINE is identical
+        //in shape, so .claude/skills/benchmark reads either executable with one regex.
+        //
+        //Deliberately not InfoRenderer.CurrentFPS, which is what the overlay draws: that counter stops
+        //advancing while the overlay is hidden (F12), and a benchmark run hides it.
+        private float _fpsWindow;
+        private int _fpsFrames;
+
+        /// <summary>
+        /// One line a second: the frame rate and every setting that changes what it means, so two runs — or two
+        /// machines, or this executable against the Game — can be compared without remembering how each was
+        /// launched. The arena's members are on it for the same reason the Game puts the city's drawn/total
+        /// count on its own: it is a measurement run's whole subject, and a number taken with a member missing
+        /// means something different from one taken with all five.
+        /// </summary>
+        private void LogFrameRate(float elapsed)
+        {
+            _fpsWindow += elapsed;
+            _fpsFrames++;
+
+            if (_fpsWindow < 1f) return;
+
+            //Divided by the window actually measured rather than assumed to be a second: at the frame rates
+            //this exists to measure, one frame overshoots it by more than a tenth
+            //The clamped factor rather than the argument's: "ssaa=9" runs at 4, and the line has to say what
+            //was actually shaded or it misreports the one setting that moves the number most
+            Console.WriteLine($"[fps] {_fpsFrames / _fpsWindow:F1} — {_scene}, dome {_skyModelNumber}, ssaa {_supersampleFactor}x"
+                + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
+                + $", vsync {(_options.UncappedFps ? "off" : "on")}, arena {_island.Members}, balls {_collectedBalls}");
+
+            _fpsWindow = 0f;
+            _fpsFrames = 0;
         }
 
         /// <summary>

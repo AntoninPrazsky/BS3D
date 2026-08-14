@@ -62,6 +62,27 @@ always passes) is what makes the number a frame cost rather than the display's r
 - `scene=<city|sea|savanna|desert|mountain|meadow|neon|forest|space|dream|cavern|moon>`, `sky=<1..18>` — pin the backdrop. The scene names are
   the Testbed's, so a script written against one executable drives the other.
 
+## The Testbed measures too, and it is the one that can aim
+
+`logfps` is the Testbed's as well now (#151), writing the same `[fps]` line, so `benchmark.ps1 -Exe …\Testbed.exe`
+works unchanged. Before that the Testbed's only frame-rate line came out of `autoshoot`, which fires a ball a
+second to produce it, and the overlay's own counter stops advancing while the overlay is hidden — which a
+benchmark run does. Note an argument the Testbed does **not** recognise falls through to its startup map path,
+so `logfps` used to make it try to load a map called "logfps" rather than fail.
+
+What the Testbed has and the Game has not is `campos=x,y,z` / `camtarget=x,y,z` — a **fixed** camera. The
+Game's front end orbits, so its absolute figures are one arc of an orbit (above); pin the camera and an A/B is
+the same pixels twice. It also has `width=`/`height=`, and `ssaa=` up to 4: 1600×900 at ssaa 4 shades 23.0 Mpix,
+within 7 % of fullscreen 3840×1600 at ssaa 2, so a small window can carry a 4K-class `High` load. That matters
+because at 1600×900 ssaa 2 the reference desktop runs the arena view at ~550 FPS, which measures what the CPU
+can submit and nothing about the frame.
+
+- `arena=<list>` — which members of the arena are drawn: `cap`, `drum`, `pit`, `rims`, `glass`, plus `all` and
+  `none`, comma-separated, a leading `-` removing. `arena=all,-cap` is the form an isolation wants. The `[fps]`
+  line names the surviving members for the same reason it names everything else on it. #151's whole answer came
+  out of this one argument — the stone cap is 88 % of the arena's cost at a play camera, and the translucent
+  drain everyone suspected is nothing.
+
 The measurement is wall-clock and cannot split CPU from GPU (MonoGame exposes no GPU timer queries). The cheap
 discriminator is to run the same pin at two `ssaa` values: if the frame time does not scale with the pixel
 count, the candidate is CPU- or draw-call-bound and turning pixel work off will not help it.

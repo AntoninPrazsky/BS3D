@@ -587,9 +587,9 @@ namespace Prazsky.Core.Render
 
         //A trunk: bark projected triplanar (a trunk is a static vertical cylinder, so a world-fixed projection
         //stays put), with the grain the bark texture's vertical streaks carry, and a coarse relief so the bark
-        //catches the light unevenly. SetMeshSurfaceStyle(Wood) would dress the verticals with timber boards,
-        //which is wrong for bark; the bark texture is the grain, so the surface stays at the default and the
-        //texture carries it. One per species — the two trunks are different meshes under the same dressing.
+        //catches the light unevenly. The bark texture is the grain — which is why the sawn-timber surface style
+        //this once declined to declare was no loss when #151 deleted it along with the rest of the castle's
+        //construction patterns. One per species — the two trunks are different meshes under the same dressing.
         private InstancedModelRenderer NewTrunkRenderer(IProceduralMesh mesh) =>
             new(_device, mesh, SCATTER_MATERIAL_DIFFUSE, _instancingEffect)
             {

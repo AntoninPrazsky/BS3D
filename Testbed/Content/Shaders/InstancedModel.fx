@@ -476,13 +476,6 @@ float ReliefShadowStrength;
 //Depth range the parallax march covers, as a fraction of the relief amplitude (0 = off)
 float ParallaxScale;
 
-//How much surface one screen pixel covers, in world units. This is the yardstick every relief feature
-//is band-limited against, and it is why supersampling buys real detail: more samples shrink it.
-float PixelFootprint(float3 worldPosition)
-{
-	return length(ddx(worldPosition)) + length(ddy(worldPosition));
-}
-
 //One octave, band-limited on the spot: a wave of this frequency spans 2 * pi / f of whatever space it
 //is evaluated in, so it is faded out as a pixel grows towards half of that — its Nyquist limit.
 //Attenuating each octave against its own wavelength, rather than the whole field against the finest
@@ -1156,13 +1149,6 @@ float DetailStrength;
 //Brightness compensation so a mid-gray detail texture does not darken the whole material
 float DetailBoost;
 
-//How strongly the procedural construction pattern shows on vertical triplanar surfaces (0 = plain)
-float MasonryStrength;
-
-//What the mesh being drawn is made of: 0 plain, 1 coursed stone, 2 sawn timber. Matches SurfaceStyle
-//on the renderer, which reads it off the model's own mesh names.
-float SurfaceStyle;
-
 //Tangent-space normal map paired with the detail texture, and how far it tilts the surface normal
 texture NormalMapTexture;
 sampler2D NormalMapSampler = sampler_state
@@ -1252,61 +1238,12 @@ technique InstancedModelDetailUV
 };
 
 //Stone block coursing drawn on the vertical surfaces (world units)
-static const float BrickWidth = 3.0;
-static const float BrickHeight = 1.4;
-static const float MortarWidth = 0.09;
-static const float MortarDarkness = 0.62;
-
-//How far the mortar sits behind the block faces and how wide the bevel running down to it is, both in
-//world units. Giving the joint a real width rather than letting it collapse into a one-pixel crease is
-//what makes it read as a recess instead of a dark line.
-static const float MortarDepth = 0.055;
-static const float MortarBevel = 0.07;
-
-//Distance to the nearest joint, in world units; p is a vertical wall plane.
-//Every other course is offset by half a block, like real coursed masonry.
-float BrickJointDistance(float2 p)
-{
-	float row = floor(p.y / BrickHeight);
-	float2 cell = float2(frac((p.x + row * BrickWidth * 0.5) / BrickWidth), frac(p.y / BrickHeight));
-
-	//Distance to the nearest cell border, back in world units
-	float2 border = min(cell, 1 - cell) * float2(BrickWidth, BrickHeight);
-
-	return min(border.x, border.y);
-}
-
-//0 in a mortar joint, 1 inside a block
-float BrickMask(float distanceToJoint)
-{
-	//Screen-space derivative keeps the joint edge soft and fades it out at long range instead of shimmering
-	float soft = max(fwidth(distanceToJoint), 0.02);
-
-	return smoothstep(MortarWidth - soft, MortarWidth + soft, distanceToJoint);
-}
-
-//Sawn timber: upright boards with a chamfer between them (world units)
-static const float BoardWidth = 0.42;
-static const float BoardGrooveWidth = 0.05;
-static const float BoardGrooveDepth = 0.05;
-static const float BoardDarkness = 0.72;
-
-//Distance to the nearest gap between boards, in world units. p runs across the boards.
-float BoardSeamDistance(float p)
-{
-	return abs(frac(p / BoardWidth) - 0.5) * BoardWidth;
-}
-
-//Long grain of the timber: the same octaves as the stone, but squashed hard along the board so the
-//waves stretch into fibers running its length instead of reading as isotropic mottling.
-float WoodGrain(float3 worldPosition, float3 dpdx, float3 dpdy)
-{
-	//The derivatives are squashed along with the position, or the band limit would be measured in a
-	//different space than the waves it is limiting
-	float3 squash = float3(1.0, 0.14, 1.0);
-
-	return SurfaceReliefWorld(worldPosition * squash, SurfaceReliefFrequency * 2.2, dpdx * squash, dpdy * squash);
-}
+//Headroom the cavity term carries above the relief's own amplitude, in world units. It was the depth the
+//castle's mortar joints were sunk to, and it is kept at that exact figure because the cavity range is the
+//one place the construction patterns reached that survives them: every surface in the game has been shaded
+//through this number since the joints themselves stopped being drawn, so rounding it away would change the
+//look of all of them for nothing.
+static const float CavityHeadroom = 0.055;
 
 float4 TriplanarPS(VertexShaderOutput input) : COLOR
 {
@@ -1325,52 +1262,18 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
 		+ SrgbToLinear(tex2D(TextureSampler, p.xz).rgb) * blend.y
 		+ SrgbToLinear(tex2D(TextureSampler, p.xy).rgb) * blend.z;
 
-	//Construction patterns land on the vertical faces only (roofs and other Y-facing surfaces stay plain)
-	float verticalWeight = (blend.x + blend.z) * MasonryStrength;
-	float sideWeight = max(blend.x + blend.z, 0.001);
-	float footprint = PixelFootprint(input.WorldPosition);
-
-	//Coursed stone. The joints are cut, not painted: sinking the mortar behind the block faces is what
-	//makes every course light and shadow from the side as the sun moves across the castle. Faded on the
-	//pixel footprint like the octaves are, against the bevel that sets the groove's own width.
-	float jointDistanceZY = BrickJointDistance(input.WorldPosition.zy);
-	float jointDistanceXY = BrickJointDistance(input.WorldPosition.xy);
-
-	float brick = (BrickMask(jointDistanceZY) * blend.x + BrickMask(jointDistanceXY) * blend.z) / sideWeight;
-	float stoneShade = lerp(MortarDarkness, 1, brick);
-	float stoneGroove = (1 - smoothstep(MortarWidth, MortarWidth + MortarBevel, (jointDistanceZY * blend.x + jointDistanceXY * blend.z) / sideWeight))
-		* saturate(1 - footprint / MortarBevel);
-
-	//Sawn timber. The boards run up the wall, so their seams are spaced across it — along whichever
-	//horizontal axis the face is turned towards.
-	float boardSeamDistance = (BoardSeamDistance(input.WorldPosition.z) * blend.x + BoardSeamDistance(input.WorldPosition.x) * blend.z) / sideWeight;
-	float boardSoft = max(fwidth(boardSeamDistance), 0.004);
-	float woodShade = lerp(BoardDarkness, 1, smoothstep(BoardGrooveWidth - boardSoft, BoardGrooveWidth + boardSoft, boardSeamDistance));
-	float woodGroove = (1 - smoothstep(0, BoardGrooveWidth, boardSeamDistance)) * saturate(1 - footprint / BoardGrooveWidth);
-
-	//Pick the style branchlessly: the derivatives below need every pixel of a quad to have walked the
-	//same path, and SurfaceStyle is a uniform, so a branch would save nothing anyway.
-	float isWood = step(1.5, SurfaceStyle);
-	float isPatterned = step(0.5, SurfaceStyle) * verticalWeight;
-
 	float3 dpdx = ddx(input.WorldPosition);
 	float3 dpdy = ddy(input.WorldPosition);
 
-	float grain = lerp(SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy), WoodGrain(input.WorldPosition, dpdx, dpdy) * SurfaceReliefStrength, isWood);
-	float groove = lerp(stoneGroove * MortarDepth, woodGroove * BoardGrooveDepth, isWood);
+	float height = SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy);
 
-	float shade = lerp(1, lerp(stoneShade, woodShade, isWood), isPatterned);
-	float height = grain - groove * isPatterned;
-
-	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength) * shade;
+	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 	float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
 
-	//This path builds its own height field (masonry courses, board seams) rather than going through
-	//SceneSurfaceHeight, so the generic marches would be reading a different surface than the one drawn
-	//here. Cavity shading needs only the height and applies cleanly; sinking the mortar joints into
-	//shadow is most of what the marches would have bought on a wall anyway.
-	float cavityRange = max(SurfaceReliefStrength + MortarDepth, 1e-6);
-	float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + MortarDepth) / (cavityRange + SurfaceReliefStrength)));
+	//Cavity shading needs only the height and applies cleanly, so this path runs it instead of the generic
+	//relief marches — which would be reading a different surface than the one drawn here.
+	float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
+	float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
 
 	return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
 }

@@ -38,6 +38,19 @@ command line, not by pressing NumPad1/2:
 
 - `scene=<city|sea|savanna|desert|mountain|meadow|neon|forest|space|dream|cavern|moon>` — starting environment. Everything past `neon` sits past the end of the NumPad2 cycle, so `scene=` is the only way to reach those in the Testbed.
 - `sky=<1..18>` — starting sky dome. `ssaa=<n>`, `exposure=<f>`, `nocap`, a map path — as in `verify`.
+- `nopost` — zero the film grain and the chromatic aberration. **Pass it for any A/B of a shader change.**
+  Both sit on top of every pixel after the tonemap, and the grain re-rolls per output pixel every frame, so
+  two captures of an *unchanged* scene differ in over 90 % of their pixels — a diff without it says nothing
+  at all. The aberration is the other half, and it once absorbed four straight attempts at a slab-joint
+  artefact that was never in the shader being changed. Turn it back off before judging the *final* look:
+  both are part of the authored image.
+- `arena=<list>` — which members of the arena are drawn (`cap`, `drum`, `pit`, `rims`, `glass`, `all`,
+  `none`; a leading `-` removes). For framing rather than measuring, `arena=none` is how to photograph a
+  scene with nothing of the island in front of it.
+
+Even with `nopost`, animated content still differs between two captures: the space scene's slow drift, the
+cloud deck and the shadow it casts on everything, and the magazine's pulsing balls. Diff a region that holds
+none of them, or choose a scene with no weather.
 
 ## Capturing at a higher resolution: `width=` / `height=`
 

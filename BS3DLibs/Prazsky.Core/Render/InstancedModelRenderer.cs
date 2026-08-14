@@ -58,7 +58,6 @@ namespace Prazsky.Core.Render
         private EffectParameter _detailScaleParam;
         private EffectParameter _detailStrengthParam;
         private EffectParameter _detailBoostParam;
-        private EffectParameter _masonryStrengthParam;
         private EffectParameter _normalMapParam;
         private EffectParameter _normalStrengthParam;
         private EffectParameter _surfaceReliefStrengthParam;
@@ -88,7 +87,6 @@ namespace Prazsky.Core.Render
         private EffectParameter _dirLight2DiffuseParam;
         private EffectParameter _dirLight2SpecularParam;
         private EffectParameter _surfaceReliefFrequencyParam;
-        private EffectParameter _surfaceStyleParam;
         private EffectParameter _patternPrimaryColorParam;
         private EffectParameter _patternSecondaryColorParam;
         private EffectParameter _patternGoreCountParam;
@@ -178,22 +176,6 @@ namespace Prazsky.Core.Render
 
         /// <summary>Brightness compensation so a mid-gray detail texture does not darken the material.</summary>
         public float DetailBoost { get; set; } = 1f;
-
-        /// <summary>
-        /// How strongly the procedural construction pattern of a mesh's <see cref="SurfaceStyle"/> shows
-        /// on vertical surfaces (0 = plain material). Only applies to <see cref="Render.DetailMapping.Triplanar"/>.
-        /// </summary>
-        public float MasonryStrength { get; set; }
-
-        private readonly Dictionary<string, SurfaceStyle> _meshStyles = new();
-
-        /// <summary>
-        /// Declares what a named mesh of the model is made of. Meshes left undeclared fall back to
-        /// <see cref="SurfaceStyle.Masonry"/>, which is the behavior a stone-all-over model had before
-        /// styles existed. Names are the model's own mesh names, so a model that is several materials
-        /// at once (a castle of stone walls, a timber door and glazing) can say so.
-        /// </summary>
-        public void SetMeshSurfaceStyle(string meshName, SurfaceStyle style) => _meshStyles[meshName] = style;
 
         /// <summary>
         /// Optional tangent-space normal map accompanying <see cref="DetailTexture"/>, giving the surface
@@ -558,7 +540,6 @@ namespace Prazsky.Core.Render
             _detailScaleParam = _effect.Parameters["DetailScale"];
             _detailStrengthParam = _effect.Parameters["DetailStrength"];
             _detailBoostParam = _effect.Parameters["DetailBoost"];
-            _masonryStrengthParam = _effect.Parameters["MasonryStrength"];
             _normalMapParam = _effect.Parameters["NormalMapTexture"];
             _normalStrengthParam = _effect.Parameters["NormalStrength"];
             _surfaceReliefStrengthParam = _effect.Parameters["SurfaceReliefStrength"];
@@ -572,7 +553,6 @@ namespace Prazsky.Core.Render
             _metalnessParam = _effect.Parameters["Metalness"];
             _emissiveTintParam = _effect.Parameters["EmissiveTint"];
             _surfaceReliefFrequencyParam = _effect.Parameters["SurfaceReliefFrequency"];
-            _surfaceStyleParam = _effect.Parameters["SurfaceStyle"];
             _patternPrimaryColorParam = _effect.Parameters["PatternPrimaryColor"];
             _patternSecondaryColorParam = _effect.Parameters["PatternSecondaryColor"];
             _patternGoreCountParam = _effect.Parameters["PatternGoreCount"];
@@ -781,13 +761,6 @@ namespace Prazsky.Core.Render
 
                 _boneParam.SetValue(part.BoneTransform);
 
-                //What this mesh is made of, so a timber door does not come out clad in stone courses
-                SurfaceStyle style = part.MeshName != null && _meshStyles.TryGetValue(part.MeshName, out SurfaceStyle declared)
-                    ? declared
-                    : SurfaceStyle.Masonry;
-
-                _surfaceStyleParam.SetValue((float)(int)style);
-
                 Vector3 diffuse = new(part.DiffuseColor.X, part.DiffuseColor.Y, part.DiffuseColor.Z);
 
                 //With the beach-ball pattern the tint colors the pattern instead of the material:
@@ -919,7 +892,6 @@ namespace Prazsky.Core.Render
                 _detailScaleParam.SetValue(DetailScale);
                 _detailStrengthParam.SetValue(DetailStrength);
                 _detailBoostParam.SetValue(DetailBoost);
-                _masonryStrengthParam.SetValue(MasonryStrength);
 
                 if (useNormalMap)
                 {

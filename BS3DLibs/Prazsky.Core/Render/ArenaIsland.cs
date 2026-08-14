@@ -7,6 +7,47 @@ using System.Collections.Generic;
 namespace Prazsky.Core.Render
 {
     /// <summary>
+    /// Which of the arena's five members <see cref="ArenaIsland"/> puts out — a <b>measurement</b> surface, not
+    /// a look setting, and the only thing on this type that is not a fixed figure.
+    /// <para>
+    /// It exists because #151 could not otherwise be answered. The arena measured at roughly 27 ms of a 42 ms
+    /// frame on the weakest machine, in every scene, and every candidate for <i>which</i> member carries that
+    /// — the stone's seven-octave relief, the triplanar taps, the translucent drain over an opaque pit both
+    /// drawn <see cref="RasterizerState.CullNone"/>, the metallic beads — was a suspect with no way to take it
+    /// out of the frame and look. #155 is the standing reminder of why guessing is not enough: removing
+    /// Cavern's entire second <c>ShadeWall</c> call moved its frame time by 0.03 ms.
+    /// </para>
+    /// <para>
+    /// The Testbed's <c>arena=</c> argument drives it (<c>arena=all,-glass</c> and so on). Nothing else sets
+    /// it, so every shipped frame draws <see cref="All"/>.
+    /// </para>
+    /// </summary>
+    [Flags]
+    public enum ArenaMembers
+    {
+        /// <summary>Nothing at all — the arena's whole contribution to the frame, in one subtraction.</summary>
+        None = 0,
+
+        /// <summary>The dressed stone top and the coping that finishes it (<see cref="IslandMesh.Cap"/>).</summary>
+        Cap = 1,
+
+        /// <summary>The cast-concrete drum under the stone (<see cref="IslandMesh.Body"/>).</summary>
+        Drum = 2,
+
+        /// <summary>The dark pit shaft behind the glass — drawn in the solid-terrain scenes only either way.</summary>
+        Pit = 4,
+
+        /// <summary>The two polished-gold beads ringing the drain's circles.</summary>
+        Rims = 8,
+
+        /// <summary>The translucent glass drain funnel.</summary>
+        Glass = 16,
+
+        /// <summary>Every member, which is what the game always draws.</summary>
+        All = Cap | Drum | Pit | Rims | Glass
+    }
+
+    /// <summary>
     /// The arena the game is played on, drawn: the round stone island — a cast-concrete drum with a dressed
     /// stone top and a moulded coping (<see cref="IslandMesh"/>) — the glass drain funnel bored through its
     /// middle, the two polished-gold beads that ring the drain's circles, and the dark pit shaft that backs
@@ -448,6 +489,17 @@ namespace Prazsky.Core.Render
         public IReadOnlyList<InstancedModelRenderer> SkyLitRenderers => _skyLit;
 
         /// <summary>
+        /// Which members the three draw slices actually put out. <see cref="ArenaMembers.All"/> in every
+        /// shipped frame — only the Testbed's <c>arena=</c> argument moves it, to isolate what #151 measured.
+        /// <para>
+        /// A member left out is left out of the <i>draw</i> only: it keeps its mesh, its renderer and its
+        /// place in <see cref="SkyLitRenderers"/>, so a sweep changes what the frame costs and nothing else
+        /// about the run. The five tests cost one predictable branch each per frame.
+        /// </para>
+        /// </summary>
+        public ArenaMembers Members { get; set; } = ArenaMembers.All;
+
+        /// <summary>
         /// Appends the same four renderers to the caller's own enrolment list, walked by index so the call
         /// allocates nothing at all — for the Testbed, whose list is refilled every frame (see
         /// <see cref="SkyLitRenderers"/> for why that distinction is worth two members).
@@ -469,8 +521,8 @@ namespace Prazsky.Core.Render
         /// </summary>
         public void DrawIsland(ICamera camera, BasicEffectParams sceneParams)
         {
-            _capRenderer.Draw(camera, _world, sceneParams);
-            _bodyRenderer.Draw(camera, _world, sceneParams);
+            if ((Members & ArenaMembers.Cap) != 0) _capRenderer.Draw(camera, _world, sceneParams);
+            if ((Members & ArenaMembers.Drum) != 0) _bodyRenderer.Draw(camera, _world, sceneParams);
         }
 
         /// <summary>
@@ -493,7 +545,8 @@ namespace Prazsky.Core.Render
         {
             _device.RasterizerState = RasterizerState.CullNone;
 
-            if (SceneRenderer.IsSolidTerrainScene(scene)) _pitRenderer.Draw(camera, _drainWorld, sceneParams);
+            if (SceneRenderer.IsSolidTerrainScene(scene) && (Members & ArenaMembers.Pit) != 0)
+                _pitRenderer.Draw(camera, _drainWorld, sceneParams);
 
             _device.RasterizerState = RasterizerState.CullCounterClockwise;
         }
@@ -516,8 +569,8 @@ namespace Prazsky.Core.Render
         {
             _device.RasterizerState = RasterizerState.CullNone;
 
-            _funnelRimsRenderer.Draw(camera, _drainWorld, _funnelRimEffectParams);
-            _funnelRenderer.Draw(camera, _drainWorld, sceneParams);
+            if ((Members & ArenaMembers.Rims) != 0) _funnelRimsRenderer.Draw(camera, _drainWorld, _funnelRimEffectParams);
+            if ((Members & ArenaMembers.Glass) != 0) _funnelRenderer.Draw(camera, _drainWorld, sceneParams);
 
             _device.RasterizerState = RasterizerState.CullCounterClockwise;
         }
