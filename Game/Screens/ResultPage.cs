@@ -198,11 +198,14 @@ namespace BS3D.Screens
         private const float BLUR_DELAY_SECONDS = 3.4f;
 
         /// <summary>
-        /// How long the frame takes to go fully soft. Slow on purpose: at half this the arena reads as being
-        /// snatched away, where over four seconds the eye follows one image losing its edges — which is the
-        /// effect, and it is only worth having if it is watchable.
+        /// How long the frame takes to go fully soft (#200: 4 s once, 4× that now). Slow on purpose, and the
+        /// reason it had to get slower is in the shape of the ramp rather than its length: the blurred copy
+        /// has fully taken over by PostProcessPipeline's <c>DEFOCUS_MIX_IN</c> (0.3), so the
+        /// part the eye reads as the transition — one image arriving in place of another — all happens in
+        /// the first third of the ease. At 4 s that was ~1.2 s of visible change, which read as a switch
+        /// (#200); at 16 s the takeover alone breathes for ~5 s and the radius keeps growing after it.
         /// </summary>
-        private const float BLUR_EASE_SECONDS = 4f;
+        private const float BLUR_EASE_SECONDS = 16f;
 
         /// <summary>
         /// Since the page opened. A clock of its own rather than the reveal's, which latches
