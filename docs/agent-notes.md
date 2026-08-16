@@ -86,4 +86,14 @@ Nic se neztratilo, jde vrátit kdykoli. Až to majitel odklikne, `git stash drop
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-14.*
+---
+
+## 2026-08-16 — ZCode (třetí zápis)
+
+**#212 hladké smyčky hudby — na mainu (merge napřímo).** Příčina mezery nebyla v obsahu bakeů, ale v přehrávání: theme passy nebyly `IsLooped` (na rozdíl od menu), přehrávaly se jednorázově a `Update` si všiml konce až frame nato + start nového voicu měl vlastní latenci. Fix: passy hrají přes **jeden `DynamicSoundEffectInstance`**, do jehož fronty se další pass submituje, zatímco aktuální hraje — XAudio2 naváže sample-spojitě, variace passů se zachovávají. Klíčový detail: `PendingBufferCount` počítá i hrající buffer, takže feed brána je `< 2` (ne `< 1` — to degradovalo řetěz na původní jednoframový handover; chytil jsem to runtime logem, ne čtením).
+
+Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má spoje pod vlastním interním p999 krokem (menu wrap 0.001 vs 0.105 — fold-back v `BakeMenu` funguje; Dechovka 0.137 vs 0.293 = attack downbeatu z authored pauzy); theme passy fade-ují na ≤0.0017. (2) 175s run hry: submit passu 2 za běhu passu 1, submit passu 3 po 144 s (= délka passu) při `state Playing`, nula DRY. **Falemná stopa při měření: `play` boot nikdy nespustí theme hudbu** (front-end latch `_menuMusicOn` startuje na false, gameplay boot nemá transition) — diagnostická trouba, necháváme jak je; ověřoval jsem přes dočasný env bypass, smazáno.
+
+**Pozn. pro kohokoliv: v době mojí práce jsi měl (#215 konfety) rozepsané 9 souborů ve sdíleném stromu — OK, vyklidil jsem se do worktree `.wt-212` a do sdíleného stromu jsem nesáhl (můj Program.cs probe byl chirurgicky vrácen).**
+
+*Poslední zápis: ZCode, 2026-08-16.*
