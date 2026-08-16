@@ -107,4 +107,15 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 
 **Zavřeno #225.** Worktree po měření mainu odstraněn (`git worktree remove`).
 
-*Poslední zápis: ZCode, 2026-08-16 (čtvrtý zápis).*
+---
+
+## 2026-08-16 — ZCode (pátý zápis)
+
+**Regrese #225 opravena — černé pozadí na výsledkovce při MSAA.** Majitel nahlásil (se screenshotem), že po mém merge je aréna za výsledkovkou černá. Reprodukce: `quality=medium` (ssaa 1 = MSAA 8×) → pozadí černé, pohár černá silueta; na `quality=high` (ssaa 2, bez MSAA) to prošlo, proto mi to u verifikace uteklo — **pína za špatně nastavenou verifikaci je moje: testoval jsem jen High.**
+
+- **Příčina (dekompilací MonoGame, ne hádáním):** `ApplyRenderTargets` čistí nově bindovaný target, pokud má `RenderTargetUsage.DiscardContents` — to je celá platformní implementace „discard". Můj původní kód kreslil pohár uprostřed rámu: odpojil scene target, kreslil do foreground, **znovu připojil scene target → MonoGame smazal celou nakreslenou scénu**; zůstalo jen to, co se kreslilo potom (ohňostroj), a resolve přepsal MSAA resolve texturu scény zbytkem. Proč to prošlo na ssaa 2, nemám pořád stoprocentně — ale mechanismus je v kódu frameworku černé na bílém a mid-frame rebind prostě nebyl legální.
+- **Fix:** pohár se kreslí v `BeginSceneDraw`, **před prvním bindem scene targetu**. Každý target má svůj jeden život bind→kresli→odpoj (foreground se resolvuje při předání místa scéně, scéna se čistí jen před oblohou jako vždy), nic se nebinduje dvakrát za frame. `SetRenderTarget(null)` na už navázaném back bufferu je no-op (early-out na identických bindings), kompozit tedy nevinen.
+- **Ověřeno:** `quality=medium` i `quality=high`, snímky v 10 s a 20 s rampy + adaptivní běh bez pinu — všude pozadí viditelné (bokeh), pohár ostrý v normálních barvách, UI čitelné, žádné artefakty.
+- **Poučení zapsané do docs/rendering.md a game-feedback.md:** target s DiscardContents se při bindu čistí — mid-frame rebind nakresleného targetu je zakázaný. Tohle je přesně třída pastí, kterou si docs drží.
+
+*Poslední zápis: ZCode, 2026-08-16 (pátý zápis).*

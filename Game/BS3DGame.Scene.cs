@@ -362,6 +362,50 @@ namespace BS3D
         /// </summary>
         internal SceneFrame BeginSceneDraw()
         {
+            //The won cup (#183), drawn since #225 into the pipeline's SHARP FOREGROUND target rather than
+            // the scene, and FIRST — before the scene target is bound — for a reason that cost a black
+            // result screen to learn: binding a target whose usage is DiscardContents CLEARS it (that is
+            // MonoGame's discard), so re-binding the scene mid-frame to route around the cup wiped
+            // everything already drawn into it. Drawing the cup before the scene's own bind keeps every
+            // target on the one bind-draw-unbind lifecycle the framework promises: the foreground is
+            // resolved the moment the scene takes its place, the scene is cleared only ahead of the sky
+            // the way it always was, and nothing is ever bound twice in one frame.
+            //
+            //Why a separate target at all: the result page's defocus takes everything the HDR pass holds,
+            // and the one object it must not take is the cup being presented. Out here the blur is built
+            // from a scene the cup is not in — so no blurred copy of it stands behind the sharp one — and
+            // the cup is composited back over the resolved frame in FinishSceneDraw, through the same
+            // exposure, curve and grain, losing nothing but the softening; its glints still glare, because
+            // the resolve feeds the foreground layer's own bright pass into the bloom pyramid. One thing
+            // the layer does flip: the weather and the celebrations stay in the HDR scene and are
+            // therefore BEHIND the cup, where the cup's old place in the pass had snow and confetti cross
+            // in front of it — the presented object reads as the nearest thing either way, which is what
+            // #225 asked for. States are stated rather than inherited, for the reason the Testbed states
+            // its rasterizer before the scene — what ran last here is last frame's resolve and it does not
+            // promise anything (see the winding note in CLAUDE.md).
+            if (_trophy != null && _trophy.Active)
+            {
+                BlendState blend = GraphicsDevice.BlendState;
+                DepthStencilState depth = GraphicsDevice.DepthStencilState;
+                RasterizerState raster = GraphicsDevice.RasterizerState;
+
+                GraphicsDevice.SetRenderTarget(_pipeline.ForegroundTarget);
+
+                //Transparent, not black: the target's alpha is the coverage the composite blends by, and
+                //it has to say "nothing presented here" everywhere the cup is not
+                GraphicsDevice.Clear(Color.Transparent);
+
+                GraphicsDevice.BlendState = BlendState.Opaque;
+                GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+                GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+
+                _trophy.Draw(_camera);
+
+                GraphicsDevice.BlendState = blend;
+                GraphicsDevice.DepthStencilState = depth;
+                GraphicsDevice.RasterizerState = raster;
+            }
+
             GraphicsDevice.SetRenderTarget(_pipeline.SceneTarget);
 
             //Cleared to the dome's horizon colour rather than a fixed one: at a wide aspect the bottom
@@ -477,48 +521,10 @@ namespace BS3D
         /// </summary>
         internal void FinishSceneDraw(SceneFrame sceneFrame)
         {
-            //The won cup (#183), drawn since #225 into the pipeline's SHARP FOREGROUND target rather than
-            // the scene: the result page's defocus takes everything the HDR pass holds, and the one object
-            // it must not take is the cup being presented. Out here the blur is built from a scene the cup
-            // is not in — so no blurred copy of it stands behind the sharp one — and the cup is composited
-            // back over the resolved frame below, through the same exposure, curve and grain, losing
-            // nothing but the softening; its glints still glare, because the resolve feeds the foreground
-            // layer's own bright pass into the bloom pyramid. One thing the move does flip: the weather and
-            // the celebrations below stay in the HDR scene and are therefore BEHIND the cup now, where the
-            // cup's old place in the pass had snow and confetti cross in front of it — the presented object
-            // reads as the nearest thing either way, which is what #225 asked for. States are stated rather
-            // than inherited, for the reason the Testbed states its rasterizer before the scene — what ran
-            // last here is the scene's own draw and it does not promise anything (see the winding note in
-            // CLAUDE.md).
-            RenderTarget2D foreground = null;
-
-            if (_trophy != null && _trophy.Active)
-            {
-                BlendState blend = GraphicsDevice.BlendState;
-                DepthStencilState depth = GraphicsDevice.DepthStencilState;
-                RasterizerState raster = GraphicsDevice.RasterizerState;
-
-                foreground = _pipeline.ForegroundTarget;
-                GraphicsDevice.SetRenderTarget(foreground);
-
-                //Transparent, not black: the target's alpha is the coverage the composite blends by, and
-                //it has to say "nothing presented here" everywhere the cup is not
-                GraphicsDevice.Clear(Color.Transparent);
-
-                GraphicsDevice.BlendState = BlendState.Opaque;
-                GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-                GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-
-                _trophy.Draw(_camera);
-
-                GraphicsDevice.BlendState = blend;
-                GraphicsDevice.DepthStencilState = depth;
-                GraphicsDevice.RasterizerState = raster;
-
-                //Back into the scene target for the weather and the celebrations, which are the HDR pass's
-                // business and were never the cup's to take with it
-                GraphicsDevice.SetRenderTarget(_pipeline.SceneTarget);
-            }
+            //The cup's layer, filled by BeginSceneDraw if a cup is up this frame. Asked for here rather
+            // than carried in a field: the pair of slices is one pipeline, and what the frame's close
+            // consumes is what its opening produced.
+            RenderTarget2D foreground = _trophy != null && _trophy.Active ? _pipeline.ForegroundTarget : null;
 
             //A no-op in the two cities and the desert, which carry no overlay weather
             _sceneRenderer.DrawOverlays(_scene, sceneFrame);
