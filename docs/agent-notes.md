@@ -86,4 +86,17 @@ Nic se neztratilo, jde vrátit kdykoli. Až to majitel odklikne, `git stash drop
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-14.*
+## 2026-08-16 — ZCode (třetí zápis)
+
+**#225 pohár na výsledkovce už se nerozmazává — na mainu.** Majitelův požadavek; záměr z #183 („pohár jde do rozmazání záměrně") zrušen, bullet v `docs/game-feedback.md` přepsán včetně odkazu, že ruší sám sebe.
+
+- **Postup:** pohár kreslí do nového lazy cíle `PostProcessPipeline.ForegroundTarget` (zrcadlí konfiguraci scene targetu — ssaa/MSAA, takže silueta zůstává vyhlazená), defocus se staví ze scény *bez* poháru (žádný rozmazaný duch za ostrým), BrightPass z foregroundu se aditivně přidává do hlavy bloom pyramidy (kov si drží odlesky), a `CompositeForeground` složí vrstvu po resolve přes premultiplied alpha druhou technikou `Tonemap.fx` — stejná expozice, ACES i zrno (grain vytažený do sdílené funkce). Resolve má nový volitelný parametr `foreground`; Testbed a editor volají beze změny a cíl nikdy nealokují.
+- **Ověřeno:** všechny čtyři solutiony čisté; `result stars=4 scene=meadow shot=2,8,12,20 mute` — na výřezech 640×720 je pohár ostrý na všech čtyřech bodech rampy (8 % mixu / 100 %), pozadí plné bokeh, UI čitelné, žádný duch/panél/seam. Pozn.: analýza celého snímku pohár omylem označila za rozmazaný — malý objekt v velkém rámu; až to příště někomu vyjde, ať řeže crop, ne soudí celý frame.
+- **Cena:** ~0,06 ms navíc oproti staré cestě (meadow, High, ssaa 2×, 1600×900, nocap; 1,63 ms main s pohárem → 1,69 ms), celá prezentace ~0,07 ms. Dominuje clear druhého supersamplingového cíle. Jen na result page.
+- **Vědomý trade:** počasí/konfety/ohňostroj jsou teď *za* pohárem (dřív sníh a konfety padaly před něj) — po kompozitu už se nic 3D nekreslí. Zapsáno v bulletu i v komentáři `FinishSceneDraw`.
+
+**Zavřeno #225.** Worktree po měření mainu odstraněn (`git worktree remove`).
+
+---
+
+*Poslední zápis: ZCode, 2026-08-16.*

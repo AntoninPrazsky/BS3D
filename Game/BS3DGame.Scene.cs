@@ -477,16 +477,33 @@ namespace BS3D
         /// </summary>
         internal void FinishSceneDraw(SceneFrame sceneFrame)
         {
-            //The won cup (#183), first of the frame's close and so BEFORE the weather and both celebrations:
-            //it is an opaque object a few units from the lens, and snow, fireworks and confetti all belong in
-            //front of it rather than behind. States are stated rather than inherited, for the reason the
-            //Testbed states its rasterizer before the scene — what ran last here is the scene's own draw and
-            //it does not promise anything (see the winding note in CLAUDE.md).
+            //The won cup (#183), drawn since #225 into the pipeline's SHARP FOREGROUND target rather than
+            // the scene: the result page's defocus takes everything the HDR pass holds, and the one object
+            // it must not take is the cup being presented. Out here the blur is built from a scene the cup
+            // is not in — so no blurred copy of it stands behind the sharp one — and the cup is composited
+            // back over the resolved frame below, through the same exposure, curve and grain, losing
+            // nothing but the softening; its glints still glare, because the resolve feeds the foreground
+            // layer's own bright pass into the bloom pyramid. One thing the move does flip: the weather and
+            // the celebrations below stay in the HDR scene and are therefore BEHIND the cup now, where the
+            // cup's old place in the pass had snow and confetti cross in front of it — the presented object
+            // reads as the nearest thing either way, which is what #225 asked for. States are stated rather
+            // than inherited, for the reason the Testbed states its rasterizer before the scene — what ran
+            // last here is the scene's own draw and it does not promise anything (see the winding note in
+            // CLAUDE.md).
+            RenderTarget2D foreground = null;
+
             if (_trophy != null && _trophy.Active)
             {
                 BlendState blend = GraphicsDevice.BlendState;
                 DepthStencilState depth = GraphicsDevice.DepthStencilState;
                 RasterizerState raster = GraphicsDevice.RasterizerState;
+
+                foreground = _pipeline.ForegroundTarget;
+                GraphicsDevice.SetRenderTarget(foreground);
+
+                //Transparent, not black: the target's alpha is the coverage the composite blends by, and
+                //it has to say "nothing presented here" everywhere the cup is not
+                GraphicsDevice.Clear(Color.Transparent);
 
                 GraphicsDevice.BlendState = BlendState.Opaque;
                 GraphicsDevice.DepthStencilState = DepthStencilState.Default;
@@ -497,6 +514,10 @@ namespace BS3D
                 GraphicsDevice.BlendState = blend;
                 GraphicsDevice.DepthStencilState = depth;
                 GraphicsDevice.RasterizerState = raster;
+
+                //Back into the scene target for the weather and the celebrations, which are the HDR pass's
+                // business and were never the cup's to take with it
+                GraphicsDevice.SetRenderTarget(_pipeline.SceneTarget);
             }
 
             //A no-op in the two cities and the desert, which carry no overlay weather
@@ -528,10 +549,17 @@ namespace BS3D
             //And how far the frame has gone out of focus, which is the active PAGE's answer and nobody else's
             //(MenuPage.FrameBlur — only the result screen ever gives one). Asked here rather than tracked in a
             //field of this class: the ramp belongs to the page whose moment it is, and that page is also the
-            //only screen still being updated while it runs.
+            //only screen still being updated while it runs. The foreground layer goes in with it — not for
+            //the defocus, which never sees it, but for the glare, whose pyramid it still feeds.
             float defocus = _screens.Active is Screens.MenuPage page ? page.FrameBlur : 0f;
 
-            _pipeline.Resolve(_wallClock, underwater, defocus);
+            _pipeline.Resolve(_wallClock, underwater, defocus, foreground);
+
+            //And the cup back on top of the resolved frame, in display space now but through the same curve,
+            //so the only difference from its old life inside the HDR pass is that the defocus stopped
+            //reaching it. First thing after the resolve and so under everything display-space that follows —
+            //the HUD, the page and its panels belong over the cup, not under it.
+            if (foreground != null) _pipeline.CompositeForeground(foreground);
         }
 
         #endregion

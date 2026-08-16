@@ -26,16 +26,17 @@ namespace BS3D.Effects
     /// place in the frame at any field of view and any aspect ratio rather than drifting off the side of an
     /// ultrawide.
     /// </para>
-    /// <para>
-    /// <b>It goes soft with the rest of the frame</b>, and that is deliberate rather than a limitation. It is
-    /// drawn inside the HDR pass, so it is lit, tonemapped and bloomed exactly as the arena is — which is what
-    /// "extremely shiny" costs nothing to get here — and the result page's defocus therefore takes it too. That
-    /// is #178's own argument arriving at the one object it most obviously applies to: the ending is watched
-    /// first and softened afterwards, and the cup is the thing being watched. It has the frame sharp to itself
-    /// for <c>BLUR_DELAY_SECONDS</c> (3.4 s) — longer than its own reveal — and by the time the frame is soft
-    /// the player is reading the breakdown, which is precisely when a mirror-finish object turning in the
-    /// corner of the eye should stop competing for attention.
-    /// </para>
+/// <para>
+/// <b>It holds focus while the rest of the frame goes soft</b> (#225, reversing this class's own first
+/// answer, which had the cup soften with the arena and called that deliberate). It is drawn into the
+/// pipeline's sharp foreground layer rather than the HDR scene, so the result page's defocus melts the
+/// arena, the fireworks and the confetti into bokeh <b>behind</b> the cup while the cup itself stays
+/// crisp — #178's argument is that the ending is watched first and softened afterwards, and the cup is
+/// the thing being watched. The move changes nothing about its light: the layer holds linear radiance
+/// like the scene, the composite pass tonemaps it through the same exposure, ACES curve and film grain,
+/// and its bright pass still feeds the bloom pyramid — so "extremely shiny" still costs nothing to get
+/// here, and the metal keeps the glare its finishes were tuned against.
+/// </para>
     /// </summary>
     public sealed class TrophyPodium : IDisposable
     {
@@ -57,8 +58,8 @@ namespace BS3D.Effects
         private const float SIZE = 1.25f;
 
         //The reveal. Shorter than the camera's release (ORBIT_EASE_SECONDS, 2.5) so the cup has arrived by the
-        //time the lens stops moving, and far shorter than the defocus delay, so it is fully formed and sharp
-        //for a good two seconds before anything softens.
+        //time the lens stops moving, and far shorter than the defocus delay, so it is fully formed and holding
+        //the frame to itself for a good two seconds before the arena starts going soft behind it.
         private const float REVEAL_SECONDS = 0.9f;
 
         //THE DANCE. A slow turn so every side of the cup is seen and the handles read as handles, a bob, and a

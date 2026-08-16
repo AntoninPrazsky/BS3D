@@ -12,7 +12,8 @@ namespace Prazsky.Core.Render
     /// it exactly once, in <see cref="Resolve"/>; everything drawn after that (overlays, HUD, gizmos) is in
     /// display space. The one optional stage is the <b>defocus</b> — the whole frame taken out of focus by a
     /// caller's amount, built on demand out of the very same target and mixed in by the resolve (see the
-    /// DEFOCUS block below).
+    /// DEFOCUS block below) — with one exemption: the <b>sharp foreground</b> layer, a second HDR target for
+    /// the one object a caller wants presented over the softening frame rather than softened with it.
     /// <para>
     /// The look values are <c>required</c> on purpose: every one of them is a per-executable decision (the
     /// map editor runs a different glare threshold than the game shipped, the game alone toggles the lens
@@ -101,6 +102,15 @@ namespace Prazsky.Core.Render
         //never pay the memory.
         private RenderTarget2D _defocusHalf, _defocusSmall, _defocusAcross, _defocusBlurred;
 
+        //THE SHARP FOREGROUND: a second HDR layer the defocus cannot reach (#225). The game's result page
+        //presents the won cup over an arena the defocus is melting into bokeh, and the cup is the thing
+        //being watched — so it draws here instead of into the scene, the blur is built from a scene that
+        //does not contain it (no blurred ghost standing behind the sharp cup), and
+        // <see cref="CompositeForeground"/> tonemaps it onto the resolved frame after the fact, through the
+        //same exposure, curve and grain. Created as LAZILY as the defocus chain, and for the same reason:
+        //only one executable's one page ever shows it.
+        private RenderTarget2D _foregroundTarget;
+
         private VertexBuffer _fullScreenQuad;
 
         //Cached in the constructor: the resolve runs every frame and the by-name indexer is a linear scan
@@ -111,12 +121,15 @@ namespace Prazsky.Core.Render
         private readonly EffectTechnique _bloomDownTechnique;
         private readonly EffectTechnique _bloomUpTechnique;
         private readonly EffectTechnique _defocusBlurTechnique;
+        private readonly EffectTechnique _tonemapTechnique;
+        private readonly EffectTechnique _foregroundCompositeTechnique;
         private readonly EffectParameter _glareSourceTextureParam;
         private readonly EffectParameter _glareSourceTexelSizeParam;
         private readonly EffectParameter _glareThresholdParam;
         private readonly EffectParameter _blurStepParam;
         private readonly EffectParameter _tonemapDefocusTextureParam;
         private readonly EffectParameter _tonemapDefocusAmountParam;
+        private readonly EffectParameter _tonemapForegroundTextureParam;
         private readonly EffectParameter _tonemapGlareTextureParam;
         private readonly EffectParameter _tonemapGlareIntensityParam;
         private readonly EffectParameter _tonemapSceneTextureParam;
@@ -141,6 +154,18 @@ namespace Prazsky.Core.Render
         //BestPractices.md. The starting value is the zero the constructor sends.
         private float _defocusMix;
 
+        //The composite's blend: the foreground layer rides PREMULTIPLIED alpha (an opaque write's colour is
+        //its full colour whatever partial coverage antialiasing left the sample), so covering the frame is
+        //source as-is plus destination by what the coverage has not taken. Static rather than per frame,
+        //like every state object here — see BestPractices.md.
+        private static readonly BlendState PremultipliedForegroundBlend = new()
+        {
+            ColorSourceBlend = Blend.One,
+            ColorDestinationBlend = Blend.InverseSourceAlpha,
+            AlphaSourceBlend = Blend.One,
+            AlphaDestinationBlend = Blend.InverseSourceAlpha
+        };
+
         public PostProcessPipeline(GraphicsDevice device, Effect tonemapEffect, Effect glareEffect)
         {
             _device = device;
@@ -151,12 +176,15 @@ namespace Prazsky.Core.Render
             _bloomDownTechnique = glareEffect.Techniques["BloomDown"];
             _bloomUpTechnique = glareEffect.Techniques["BloomUp"];
             _defocusBlurTechnique = glareEffect.Techniques["DefocusBlur"];
+            _tonemapTechnique = tonemapEffect.Techniques["Tonemap"];
+            _foregroundCompositeTechnique = tonemapEffect.Techniques["ForegroundComposite"];
             _glareSourceTextureParam = glareEffect.Parameters["SourceTexture"];
             _glareSourceTexelSizeParam = glareEffect.Parameters["SourceTexelSize"];
             _glareThresholdParam = glareEffect.Parameters["GlareThreshold"];
             _blurStepParam = glareEffect.Parameters["BlurStep"];
             _tonemapDefocusTextureParam = tonemapEffect.Parameters["DefocusTexture"];
             _tonemapDefocusAmountParam = tonemapEffect.Parameters["DefocusAmount"];
+            _tonemapForegroundTextureParam = tonemapEffect.Parameters["ForegroundTexture"];
             _tonemapGlareTextureParam = tonemapEffect.Parameters["GlareTexture"];
             _tonemapGlareIntensityParam = tonemapEffect.Parameters["GlareIntensity"];
             _tonemapSceneTextureParam = tonemapEffect.Parameters["SceneTexture"];
@@ -251,6 +279,41 @@ namespace Prazsky.Core.Render
         public RenderTarget2D SceneTarget => _sceneTarget;
 
         /// <summary>
+        /// The sharp foreground layer's own HDR target (see the SHARP FOREGROUND block at the top): the
+        /// caller binds it, clears it transparent and draws the one object the defocus must not take.
+        /// Configured exactly like the scene's own target — supersampled or multisampled by the same rule,
+        /// so the object's edges come out as antialiased as they were inside the HDR pass, and the
+        /// composite's box filter reads them the same way — and as lazy about existing: the getter builds it
+        /// on first use and carries a resize the same way <see cref="EnsureDefocusChain"/> does, so the
+        /// executables that never present one never allocate it.
+        /// </summary>
+        public RenderTarget2D ForegroundTarget
+        {
+            get
+            {
+                int width = _device.PresentationParameters.BackBufferWidth * _supersampleFactor;
+                int height = _device.PresentationParameters.BackBufferHeight * _supersampleFactor;
+
+                //The minimized-window guard is EnsureTarget's own reasoning: a zero-sized target is a
+                //device error, and the restore path asks again anyway.
+                if (width <= 0 || height <= 0) return _foregroundTarget;
+
+                if (_foregroundTarget == null || _foregroundTarget.Width != width || _foregroundTarget.Height != height)
+                {
+                    _foregroundTarget?.Dispose();
+
+                    //MSAA with supersampling off and none with it on, exactly as the scene target: the
+                    //layer's silhouette is the one thing the composite's coverage read has to get right,
+                    //and the rule's whole point is that geometry edges stay antialiased either way.
+                    _foregroundTarget = new RenderTarget2D(_device, width, height, false, SurfaceFormat.HdrBlendable,
+                        DepthFormat.Depth24Stencil8, _supersampleFactor > 1 ? 0 : MSAA_SAMPLES, RenderTargetUsage.DiscardContents);
+                }
+
+                return _foregroundTarget;
+            }
+        }
+
+        /// <summary>
         /// (Re)creates the scene target and the bloom chain when their dimensions no longer match the back
         /// buffer × <see cref="SupersampleFactor"/>. Call from every path that resizes the back buffer —
         /// load, resize, fullscreen switch — the early-out makes redundant calls free.
@@ -307,14 +370,19 @@ namespace Prazsky.Core.Render
         /// <param name="defocusAmount">How far the frame has gone out of focus, 0–1; zero is a no-op in the
         /// shader and skips the blur's passes entirely, so a frame that is not blurring pays nothing. Whose
         /// moment it is and how it is timed stays with the caller — see the DEFOCUS block at the top.</param>
-        public void Resolve(float clockSeconds, float underwaterAmount, float defocusAmount)
+        /// <param name="foreground">The sharp foreground layer this frame's <see cref="ForegroundTarget"/>
+        /// holds, or null when nothing is being presented. Not the defocus's business — the layer is never
+        /// in the scene the blur reads — but the glare's: the pass below feeds the layer's own bright pass
+        /// into the bloom pyramid, so the object keeps the glints it was lit for. Null, which is every
+        /// frame of every executable but one page of the game's, skips it and costs nothing.</param>
+        public void Resolve(float clockSeconds, float underwaterAmount, float defocusAmount, Texture2D foreground = null)
         {
             //Before the glare, though either order would do: both read the scene target and neither writes
             //the other's, and all that is required of both is that they run while the back buffer is still
             //unbound. The glare is left to go last so it is the pass that leaves the states the resolve wants.
             if (defocusAmount > 0f) DrawDefocus(defocusAmount);
 
-            DrawGlare();
+            DrawGlare(foreground);
 
             _device.SetRenderTarget(null);
 
@@ -353,11 +421,47 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// Composites the sharp foreground layer over the resolved frame — the layer's own exit from linear
+        /// light, run by the same effect and the same figures (exposure, ACES, grain, sRGB) as the resolve
+        /// itself, so all the move out of the HDR pass changed about the object is that the defocus no
+        /// longer takes it. Call immediately after <see cref="Resolve"/> handed it the layer: the composite
+        /// samples with the texel size the resolve just sent, which is the layer's own (the two targets are
+        /// the same size by construction), and it draws on top of everything the resolve left behind.
+        /// </summary>
+        /// <param name="foreground">The layer this frame drew into <see cref="ForegroundTarget"/>. What is
+        /// being presented is the caller's knowledge; where it lives is the pipeline's.</param>
+        public void CompositeForeground(Texture2D foreground)
+        {
+            _device.SetRenderTarget(null);
+
+            //The technique goes back to the resolve's own afterwards, and for a real reason rather than
+            //tidiness: nothing else in this class ever sets it, so a composite that left its own behind
+            //would have the next frame's resolve quietly resolving with it.
+            _device.BlendState = PremultipliedForegroundBlend;
+            _device.DepthStencilState = DepthStencilState.None;
+            _device.RasterizerState = RasterizerState.CullNone;
+            _device.SetVertexBuffer(_fullScreenQuad);
+
+            _tonemapForegroundTextureParam.SetValue(foreground);
+            _tonemapEffect.CurrentTechnique = _foregroundCompositeTechnique;
+            DrawFullScreenQuad(_tonemapEffect);
+            _tonemapEffect.CurrentTechnique = _tonemapTechnique;
+
+            //The blend especially: the resolve leaves Opaque behind on purpose, and every caller after
+            //this draws expecting it
+            _device.BlendState = BlendState.Opaque;
+        }
+
+        /// <summary>
         /// The bloom pyramid (#69): the bright pass lands in the half-resolution head, is downsampled level
         /// by level to the foot, and each level is tent-upsampled ADDITIVELY into the one above — the head
         /// ends carrying its own tight halo plus every wider one, and the tonemap reads just the head.
         /// </summary>
-        private void DrawGlare()
+        /// <param name="foreground">The sharp foreground layer, if a frame is presenting one: bright-passed
+        /// ADDITIVELY into the head the scene's own bright pass has just filled, so its glints ride the same
+        /// pyramid with the same threshold as everything that emits. Safe to add because
+        /// <c>BrightPassPS</c> keeps only the excess over the threshold, which is never negative.</param>
+        private void DrawGlare(Texture2D foreground)
         {
             _device.BlendState = BlendState.Opaque;
             _device.DepthStencilState = DepthStencilState.None;
@@ -368,6 +472,17 @@ namespace Prazsky.Core.Render
             _glareEffect.CurrentTechnique = _glareBrightPassTechnique;
             _glareSourceTextureParam.SetValue(_sceneTarget);
             DrawFullScreenQuad(_glareEffect);
+
+            //The sharp foreground's glints, before the down pass so they widen through the whole pyramid
+            //exactly as the scene's own do — this is the one thing the move out of the HDR pass would
+            //otherwise have cost the presented object.
+            if (foreground != null)
+            {
+                _device.BlendState = BlendState.Additive;
+                _glareSourceTextureParam.SetValue(foreground);
+                DrawFullScreenQuad(_glareEffect);
+                _device.BlendState = BlendState.Opaque;
+            }
 
             _glareEffect.CurrentTechnique = _bloomDownTechnique;
 
@@ -532,11 +647,13 @@ namespace Prazsky.Core.Render
             _sceneTarget?.Dispose();
             if (_bloomChain != null) foreach (RenderTarget2D level in _bloomChain) level?.Dispose();
 
-            //Null in an executable that never blurred — see EnsureDefocusChain
+            //Null in an executable that never blurred — see EnsureDefocusChain. The foreground target's
+            //null is the same story in an executable that never presented anything over the defocus
             _defocusHalf?.Dispose();
             _defocusSmall?.Dispose();
             _defocusAcross?.Dispose();
             _defocusBlurred?.Dispose();
+            _foregroundTarget?.Dispose();
 
             _fullScreenQuad?.Dispose();
         }
