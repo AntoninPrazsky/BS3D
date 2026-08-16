@@ -342,9 +342,21 @@ namespace BS3D.Audio
         /// and buys a switch the player does not hear as a hole.
         /// </summary>
         private readonly Task<float[]>[] _next = new Task<float[]>[THEME_COUNT];
-        private SoundEffect _track;
-        private SoundEffectInstance _instance;
-        private bool _wanted;             //the game wants music; the instance may still be between passes
+
+        /// <summary>
+        /// The chain the passes play through since #212: one <see cref="DynamicSoundEffectInstance"/> whose
+        /// queue is fed the next pass while the current one is still sounding, so XAudio2 starts buffer N+1
+        /// the sample buffer N ends — the handover the per-frame <c>State</c> poll could never give (a frame
+        /// or two of dead air between passes was #212's whole complaint, and no polling loop can be tighter
+        /// than its own frame). It is a <b>chain and not a loop</b> on purpose: each submitted pass is a fresh
+        /// variation, which <c>IsLooped</c> on one buffer would trade away for a gapless repeat of the same
+        /// two minutes. The queue holds at most one pass ahead of the sounding one
+        /// (<see cref="DynamicSoundEffectInstance.PendingBufferCount"/> stays under 2 — it counts the
+        /// sounding buffer too, so its two are one playing and one waiting), which is all the feed ever
+        /// needs: a bake takes seconds and a pass lasts minutes.
+        /// </summary>
+        private DynamicSoundEffectInstance _voice;
+        private bool _wanted;             //the game wants music; the chain may be mid-pass
         private bool _failed;
 
         //The fanfare is its own instance so it is independent of the loop: Stop() silences the level's theme
@@ -414,7 +426,7 @@ namespace BS3D.Audio
         private bool _menuWanted;
 
         /// <summary>True while a pass is actually sounding.</summary>
-        public bool IsPlaying => _instance != null && _instance.State == SoundState.Playing;
+        public bool IsPlaying => _voice != null && _voice.State == SoundState.Playing;
 
         /// <summary>
         /// True while a fanfare is sounding. The caller ducks the fireworks under it — see
@@ -436,7 +448,7 @@ namespace BS3D.Audio
             set
             {
                 _gain = value;
-                if (_instance != null) _instance.Volume = MUSIC_VOLUME * _gain;
+                if (_voice != null) _voice.Volume = MUSIC_VOLUME * _gain;
                 if (_fanfare != null) _fanfare.Volume = FANFARE_VOLUME * _gain;
                 if (_menu != null) _menu.Volume = MENU_VOLUME * _gain;
             }
@@ -487,13 +499,13 @@ namespace BS3D.Audio
         /// Which composition the next pass is rendered from (#120). Called from the level's own install, so a
         /// level set alternates pieces rather than replaying one for an evening.
         /// <para>
-        /// The <b>sounding</b> pass is dropped outright: <see cref="Advance"/>'s fallback is to replay what is
-        /// loaded when the next is not ready, which is right in the middle of a level and wrong here — it would
-        /// play the previous level's piece for its whole length. What is <b>not</b> dropped is the pass baking
-        /// for the other composition (see <see cref="_next"/>): each has a slot of its own, so the piece this
-        /// level wants is normally already in hand and <see cref="Update"/> puts it on the same frame. It is
-        /// only ever silent here if the pass has not finished baking, which after the first level of a session
-        /// cannot happen — the one for this piece has been rendering since the last boundary.
+        /// The <b>sounding</b> chain is dropped outright: its passes belong to the piece that was playing,
+        /// and letting it run on would play the previous level's piece for minutes. What is <b>not</b> dropped
+        /// is the pass baking for the other composition (see <see cref="_next"/>): each has a slot of its
+        /// own, so the piece this level wants is normally already in hand and <see cref="Update"/> builds the
+        /// new chain from it the same frame. It is only ever silent here if the pass has not finished baking,
+        /// which after the first level of a session cannot happen — the one for this piece has been rendering
+        /// since the last boundary.
         /// </para>
         /// </summary>
         public void SetTheme(MusicTheme theme)
@@ -506,11 +518,10 @@ namespace BS3D.Audio
             //exactly the one wanted here, and starting a second would throw it away and pay for it in silence.
             _next[(int)theme] ??= StartBake(theme);
 
-            _instance?.Stop();
-            _instance?.Dispose();
-            _track?.Dispose();
-            _instance = null;
-            _track = null;
+            //The chain is torn down rather than re-aimed: its queued passes belong to the theme it was built
+            //for, and the next Update builds a fresh one from this theme's ready pass.
+            _voice?.Dispose();
+            _voice = null;
         }
 
         /// <summary>The composition a level asks for by name, falling back to the pool's own rotation.</summary>
@@ -545,14 +556,20 @@ namespace BS3D.Audio
             if (_failed) return;
 
             _wanted = true;
-            if (_instance == null || _instance.State == SoundState.Stopped) Advance();
+            if (_voice == null) Advance();
         }
 
-        /// <summary>Stops the music. The pass baking behind it is kept — it becomes the next one played.</summary>
+        /// <summary>
+        /// Stops the music. The pass baking behind it is kept — it becomes the next one played. The chain is
+        /// torn down with it, for the same reason <see cref="SetTheme"/> tears its own down: a stopped chain's
+        /// queue belongs to a moment that has passed, and <see cref="Play"/> starts a fresh one from the pass
+        /// in hand.
+        /// </summary>
         public void Stop()
         {
             _wanted = false;
-            _instance?.Stop();
+            _voice?.Dispose();
+            _voice = null;
         }
 
         /// <summary>
@@ -667,15 +684,13 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// Called once a frame. Its whole job is the handover: a pass is played <b>once</b>, not looped, and
-        /// when it ends the next variation — baked on a background thread while this one was playing — takes
-        /// over. That is what makes the music genuinely endless rather than a loop that repeats: the player
-        /// never hears the same two minutes twice.
-        /// <para>
-        /// The frame or two the handover costs is exactly why the arrangement ends in a faded <b>outro</b>: the
-        /// join lands in silence, so a gap that would be an audible glitch in the middle of a beat is
-        /// inaudible at the end of a phrase.
-        /// </para>
+        /// Called once a frame. Its whole job is the feed: the chain plays <b>pass after pass</b>, each one
+        /// submitted to the voice's queue while the one before it is still sounding, and what the frame does
+        /// is hand over the pass whose bake finished. That is what makes the music genuinely endless rather
+        /// than a loop that repeats: the player never hears the same two minutes twice — and since #212 they
+        /// do not hear the join either, because XAudio2 starts the queued pass the sample the sounding one
+        /// ends, where the old per-frame <c>State</c> poll could only notice a finished pass on the frame
+        /// after it and leave a frame or two of dead air in the gap (#212's whole complaint).
         /// </summary>
         public void Update()
         {
@@ -736,15 +751,40 @@ namespace BS3D.Audio
             }
 
             if (!_wanted) return;
-            if (_instance != null && _instance.State != SoundState.Stopped) return;
+            if (_voice == null)
+            {
+                Advance();
+                return;
+            }
 
-            Advance();
+            //The feed: submit the finished pass onto the voice's queue, and only while fewer than two buffers
+            //sit on it — <see cref="DynamicSoundEffectInstance.PendingBufferCount"/> counts the sounding
+            //buffer too (buffers leave the queue when they FINISH, not when they start), so the gate's two
+            //are one playing and one held ahead of it, which is all the chain ever needs: a bake is seconds,
+            //a pass is minutes, and a third would be tens of MB paying for nothing. A pass whose bake lands
+            //while the queue is full simply waits in its slot; the frames after the sounding pass ends pick
+            //it up the moment the queue drains.
+            Task<float[]> next = _next[(int)_theme];
+            if (next != null && next.IsCompleted && _voice.PendingBufferCount < 2)
+            {
+                try
+                {
+                    _voice.SubmitBuffer(ToPcm(next.Result));
+                    _next[(int)_theme] = StartBake(_theme);
+                }
+                catch (Exception exception)
+                {
+                    Console.WriteLine($"[music] the next pass could not be chained, playing on without it: {exception.Message}");
+                    _failed = true;
+                }
+            }
         }
 
         /// <summary>
-        /// Puts the next baked pass on, or replays the current one if the next is not ready yet — which is the
-        /// right fallback, since the alternative is silence in the middle of a level. Either way another bake
-        /// is started, so there is always one in hand.
+        /// Builds the chain's head: a fresh voice with the theme's ready pass submitted onto it, the next
+        /// bake started behind that, and playback begun. Called from <see cref="Play"/> and from
+        /// <see cref="Update"/> while the chain's head does not exist yet; the passes after the first arrive
+        /// through <see cref="Update"/>'s feed, never through here.
         /// </summary>
         private void Advance()
         {
@@ -755,26 +795,26 @@ namespace BS3D.Audio
             {
                 Task<float[]> next = _next[(int)_theme];
 
-                if (next != null && next.IsCompleted)
-                {
-                    SoundEffectInstance old = _instance;
-                    SoundEffect oldTrack = _track;
+                //The first pass is not in hand yet (its bake still running, which is only ever the first
+                //seconds of a session). Nothing to build from and nothing to replay — Update retries every
+                //frame and builds the chain the moment the bake lands.
+                if (next == null || !next.IsCompleted) return;
 
-                    _track = ToSoundEffect(next.Result);
-                    _instance = _track.CreateInstance();
-                    _instance.Volume = MUSIC_VOLUME * _gain;
+                DynamicSoundEffectInstance old = _voice;
 
-                    //Disposed only once the replacement exists, so a failure part-way through leaves the
-                    //previous pass intact and playable rather than leaving the game silent.
-                    old?.Dispose();
-                    oldTrack?.Dispose();
+                _voice = new DynamicSoundEffectInstance(SAMPLE_RATE, AudioChannels.Stereo);
+                _voice.Volume = MUSIC_VOLUME * _gain;
+                _voice.SubmitBuffer(ToPcm(next.Result));
 
-                    //Into this composition's own slot, so it is the pass waiting when a level of this piece
-                    //comes round again — which is the whole reason the slots are per theme.
-                    _next[(int)_theme] = StartBake(_theme);
-                }
+                //Disposed only once the replacement exists, so a failure part-way through leaves the
+                //previous chain intact and playable rather than leaving the game silent.
+                old?.Dispose();
 
-                _instance?.Play();
+                //Into this composition's own slot, so it is the pass waiting when a level of this piece
+                //comes round again — which is the whole reason the slots are per theme.
+                _next[(int)_theme] = StartBake(_theme);
+
+                _voice.Play();
             }
             catch (Exception exception)
             {
@@ -4085,7 +4125,13 @@ namespace BS3D.Audio
             for (int i = 0; i < signal.Length; i++) signal[i] = MathF.Tanh(signal[i] * drive) * ceiling;
         }
 
-        private static SoundEffect ToSoundEffect(float[] signal)
+        /// <summary>
+        /// The 16-bit stereo PCM the XAudio2 side of every bake plays: the interleaved float mix clamped and
+        /// scaled to shorts. One conversion for both of its callers — the one-shot <see cref="SoundEffect"/>
+        /// buffers and the chain's <see cref="DynamicSoundEffectInstance"/> submissions — so the two can not
+        /// drift in format.
+        /// </summary>
+        private static byte[] ToPcm(float[] signal)
         {
             byte[] pcm = new byte[signal.Length * 2];
 
@@ -4096,9 +4142,14 @@ namespace BS3D.Audio
                 pcm[i * 2 + 1] = (byte)((v >> 8) & 0xff);
             }
 
+            return pcm;
+        }
+
+        private static SoundEffect ToSoundEffect(float[] signal)
+        {
             //Stereo since #119. The buffer is already interleaved left-then-right, which is exactly the layout
-            //16-bit PCM wants, so the loop above needs no notion of channels — only this line does.
-            return new SoundEffect(pcm, SAMPLE_RATE, AudioChannels.Stereo);
+            //16-bit PCM wants, so the conversion above needs no notion of channels — only this line does.
+            return new SoundEffect(ToPcm(signal), SAMPLE_RATE, AudioChannels.Stereo);
         }
 
         #endregion
@@ -4109,8 +4160,7 @@ namespace BS3D.Audio
             _wanted = false;
             _menuWanted = false;
 
-            _instance?.Dispose();
-            _track?.Dispose();
+            _voice?.Dispose();
             _fanfare?.Dispose();
             _fanfareTrack?.Dispose();
             _menu?.Dispose();
