@@ -105,6 +105,25 @@ sampler2D DefocusSampler = sampler_state
 	AddressV = Clamp;
 };
 
+//The sharp foreground layer (#225): linear radiance in its own target, put there precisely so the
+//defocus above cannot reach it — the result page presents the won cup over an arena that is melting
+//into bokeh, and the cup is the thing being watched. It is composited AFTER the resolve, over the
+//finished frame, by the ForegroundComposite technique at the foot of this file — the whole reason it
+//is sampled HERE rather than left to the back buffer's own blend is the coverage: the layer's alpha
+//is how much of it covers each pixel, and the box filter below has to average that coverage exactly
+//as it averages the scene's colour, or a supersampled cup would grow a hard halo of its own edge.
+//Point sampling for the same reason as the scene's own read: the filter walks exact texel centers.
+texture ForegroundTexture;
+sampler2D ForegroundSampler = sampler_state
+{
+	Texture = <ForegroundTexture>;
+	MinFilter = Point;
+	MagFilter = Point;
+	MipFilter = None;
+	AddressU = Clamp;
+	AddressV = Clamp;
+};
+
 struct VertexShaderOutput
 {
 	float4 Position : SV_POSITION;
@@ -154,6 +173,24 @@ float GrainHash(float2 p)
 	return frac((q.x + q.y) * q.z);
 }
 
+//The grain, lifted out of MainPS whole when the foreground composite needed it too: grain lives on the
+//PRINT, not in the light, so every pixel that leaves this file through the curve leaves through the
+//grain as well - a composited layer with none would read as pasted onto the frame rather than in it.
+float3 ApplyGrain(float3 mapped, float2 texCoord)
+{
+	[branch]
+	if (GrainStrength > 0.0)
+	{
+		float2 cell = floor(texCoord * OutputSize);
+		float grain = GrainHash(cell + frac(GrainSeed * float2(0.7013, 0.9127)) * 289.0) - 0.5;
+		float luma = dot(mapped, float3(0.2126, 0.7152, 0.0722));
+
+		mapped = saturate(mapped + grain * (GrainStrength * 4.0 * luma * (1.0 - luma)));
+	}
+
+	return mapped;
+}
+
 //Box filter over the block of source texels one output pixel covers. Offsets run from the block's first
 //texel center to its last: for a factor of two that is the pixel center plus and minus half a texel, for
 //a factor of one it collapses to a single tap at the center. tex2Dlod rather than tex2D so the aberration
@@ -173,6 +210,26 @@ float3 SampleScene(float2 uv)
 	}
 
 	return color / (SupersampleFactor * SupersampleFactor);
+}
+
+//The same box filter over the sharp foreground layer, returning the coverage in the alpha the scene's
+//own read throws away. The layer rides PREMULTIPLIED alpha — an opaque shader write carries the pixel's
+//full colour whatever partial coverage antialiasing leaves it, and averaging premultiplied samples is
+//the one averaging that composites correctly afterwards — so the composite keeps the rgb as it stands.
+float4 SampleForeground(float2 uv)
+{
+	float4 layer = 0;
+
+	for (int y = 0; y < SupersampleFactor; y++)
+	{
+		for (int x = 0; x < SupersampleFactor; x++)
+		{
+			float2 offset = (float2(x, y) + 0.5 - SupersampleFactor * 0.5) * SourceTexelSize;
+			layer += tex2Dlod(ForegroundSampler, float4(uv + offset, 0, 0));
+		}
+	}
+
+	return layer / (SupersampleFactor * SupersampleFactor);
 }
 
 float4 MainPS(VertexShaderOutput input) : COLOR
@@ -272,17 +329,31 @@ float4 MainPS(VertexShaderOutput input) : COLOR
 
 	//The grain, on the tonemapped value (see the uniforms). The seed's fraction shifts the hash lattice
 	//to a fresh position every frame, which is what makes grain read as film rather than as a dirty pane.
-	[branch]
-	if (GrainStrength > 0.0)
-	{
-		float2 cell = floor(input.TexCoord * OutputSize);
-		float grain = GrainHash(cell + frac(GrainSeed * float2(0.7013, 0.9127)) * 289.0) - 0.5;
-		float luma = dot(mapped, float3(0.2126, 0.7152, 0.0722));
-
-		mapped = saturate(mapped + grain * (GrainStrength * 4.0 * luma * (1.0 - luma)));
-	}
+	mapped = ApplyGrain(mapped, input.TexCoord);
 
 	return float4(LinearToSrgb(mapped), 1);
+}
+
+//The sharp foreground layer's own exit from linear light (#225): the same exposure, the same ACES
+//curve, the same grain and the same sRGB encode as the frame it lands on, so that all the move out of
+//the HDR pass changed about the cup is that the defocus no longer takes it. The output alpha is the
+//layer's own box-filtered coverage, and the pipeline draws this through premultiplied blending
+//(One / InverseSourceAlpha): tonemapping a premultiplied edge and blending it by its coverage is the
+//standard resolve, and it is why the edge stays as soft here as it was inside the HDR pass.
+//
+//Two things the resolve gives the frame are deliberately NOT here. The glare is not, because the layer
+//already fed the bloom pyramid its own bright pass — its halo arrives under and around these pixels
+//with the frame's, and adding it again would double it. And the underwater murk is not, because the
+//layer exists to hold one presented object out of an effect that belongs to the whole frame; nothing
+//the game presents through it ever stands in water.
+float4 ForegroundCompositePS(VertexShaderOutput input) : COLOR
+{
+	float4 layer = SampleForeground(input.TexCoord);
+
+	float3 mapped = ACESFilmic(layer.rgb * Exposure);
+	mapped = ApplyGrain(mapped, input.TexCoord);
+
+	return float4(LinearToSrgb(mapped), layer.a);
 }
 
 technique Tonemap
@@ -291,5 +362,14 @@ technique Tonemap
 	{
 		VertexShader = compile VS_SHADERMODEL MainVS();
 		PixelShader = compile PS_SHADERMODEL MainPS();
+	}
+};
+
+technique ForegroundComposite
+{
+	pass P0
+	{
+		VertexShader = compile VS_SHADERMODEL MainVS();
+		PixelShader = compile PS_SHADERMODEL ForegroundCompositePS();
 	}
 };

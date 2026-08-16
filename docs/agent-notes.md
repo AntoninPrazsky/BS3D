@@ -86,8 +86,6 @@ Nic se neztratilo, jde vrátit kdykoli. Až to majitel odklikne, `git stash drop
 
 ---
 
----
-
 ## 2026-08-16 — ZCode (třetí zápis)
 
 **#212 hladké smyčky hudby — na mainu (merge napřímo).** Příčina mezery nebyla v obsahu bakeů, ale v přehrávání: theme passy nebyly `IsLooped` (na rozdíl od menu), přehrávaly se jednorázově a `Update` si všiml konce až frame nato + start nového voicu měl vlastní latenci. Fix: passy hrají přes **jeden `DynamicSoundEffectInstance`**, do jehož fronty se další pass submituje, zatímco aktuální hraje — XAudio2 naváže sample-spojitě, variace passů se zachovávají. Klíčový detail: `PendingBufferCount` počítá i hrající buffer, takže feed brána je `< 2` (ne `< 1` — to degradovalo řetěz na původní jednoframový handover; chytil jsem to runtime logem, ne čtením).
@@ -96,4 +94,17 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 
 **Pozn. pro kohokoliv: v době mojí práce jsi měl (#215 konfety) rozepsané 9 souborů ve sdíleném stromu — OK, vyklidil jsem se do worktree `.wt-212` a do sdíleného stromu jsem nesáhl (můj Program.cs probe byl chirurgicky vrácen).**
 
-*Poslední zápis: ZCode, 2026-08-16.*
+---
+
+## 2026-08-16 — ZCode (čtvrtý zápis)
+
+**#225 pohár na výsledkovce už se nerozmazává — na mainu.** Majitelův požadavek; záměr z #183 („pohár jde do rozmazání záměrně") zrušen, bullet v `docs/game-feedback.md` přepsán včetně odkazu, že ruší sám sebe.
+
+- **Postup:** pohár kreslí do nového lazy cíle `PostProcessPipeline.ForegroundTarget` (zrcadlí konfiguraci scene targetu — ssaa/MSAA, takže silueta zůstává vyhlazená), defocus se staví ze scény *bez* poháru (žádný rozmazaný duch za ostrým), BrightPass z foregroundu se aditivně přidává do hlavy bloom pyramidy (kov si drží odlesky), a `CompositeForeground` složí vrstvu po resolve přes premultiplied alpha druhou technikou `Tonemap.fx` — stejná expozice, ACES i zrno (grain vytažený do sdílené funkce). Resolve má nový volitelný parametr `foreground`; Testbed a editor volají beze změny a cíl nikdy nealokují.
+- **Ověřeno:** všechny čtyři solutiony čisté; `result stars=4 scene=meadow shot=2,8,12,20 mute` — na výřezech 640×720 je pohár ostrý na všech čtyřech bodech rampy (8 % mixu / 100 %), pozadí plné bokeh, UI čitelné, žádný duch/panél/seam. Pozn.: analýza celého snímku pohár omylem označila za rozmazaný — malý objekt v velkém rámu; až to příště někomu vyjde, ať řeže crop, ne soudí celý frame.
+- **Cena:** ~0,06 ms navíc oproti staré cestě (meadow, High, ssaa 2×, 1600×900, nocap; 1,63 ms main s pohárem → 1,69 ms), celá prezentace ~0,07 ms. Dominuje clear druhého supersamplingového cíle. Jen na result page.
+- **Vědomý trade:** počasí/konfety/ohňostroj jsou teď *za* pohárem (dřív sníh a konfety padaly před něj) — po kompozitu už se nic 3D nekreslí. Zapsáno v bulletu i v komentáři `FinishSceneDraw`.
+
+**Zavřeno #225.** Worktree po měření mainu odstraněn (`git worktree remove`).
+
+*Poslední zápis: ZCode, 2026-08-16 (čtvrtý zápis).*
