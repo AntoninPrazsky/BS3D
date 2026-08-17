@@ -132,4 +132,14 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 
 **Zavřeno #226.**
 
-*Poslední zápis: ZCode, 2026-08-17 (šestý zápis).*
+---
+
+## 2026-08-17 — ZCode (sedmý zápis)
+
+**#227 plachta přes pohár — opraveno (regrese z #226).** Majitel nahlásil (se screenshotem), že přes result page jde obrovská zakřivená plachta zakrývající i pohár. **Příčina: jedna řádka v mé centripetal Catmull-Rom evaluaci** — Barry-Goldmanova pyramida má OBĚ horní patna interpolovat na intervalu vyhodnocovaného segmentu (t1,t2); já měl druhé (b2) na intervalu (t2,t3), čímž váhy pro každé t < t2 vyšly záporné a spline extrapolovala mimo řídící prstence → jeden přesazený prstenec se vytočil do „plachty".
+
+- **Oprava:** jedna řádka (b2 na (t1,t2)), hustění profilu zůstalo — oblost z #226 byla požadavek, rozbitá byla jen matematika. V kódu je past zapsaná v komentáři u té řádky.
+- **Ověřeno dvakrát:** (1) numericky — scratch skript replaynul profil + opravenou spline: všech 39 vzorků v obalu řídících bodů, max poloměr 0,398 < lip 0,440, výšky v rozsahu poháru; (2) vizuálně — cropy bronzu i diamantu: plachta pryč, silueta mísa/stonek/noha čitelná, hladká, lesklá, zero artefaktů.
+- **Poučení:** spline/hustící matematika se ověřuje čísly (obal, monotonnost), ne jen okem — oko z malého cropu „hladkou plochu" pochválí i když je to ta plachta. Druhé pořadí: Po #226 jsem ověřoval jen správnost vzhledu poháru, ale nekontroloval jsem, jestli se někde neobjevila cizí plocha — screenshot celého rámu by ji zachytil.
+
+*Poslední zápis: ZCode, 2026-08-17 (sedmý zápis).*
