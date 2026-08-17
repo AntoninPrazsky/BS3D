@@ -44,36 +44,52 @@ namespace BS3D.Effects
         public const int TIERS = 4;
 
         //WHERE IT SITS IN THE FRAME, in normalised device coordinates: -1 is the left edge and the bottom, +1
-        //the right and the top. Left of centre and a little low, which is the one part of the result page that
-        //stays clear — the heading, the stars, the breakdown panel and the three buttons are all centred, and
-        //the arena's own horizon sits across the middle.
-        private const float NDC_X = -0.60f, NDC_Y = -0.22f;
+        //the right and the top. Left of centre and low: the heading, the stars, the breakdown panel and the
+        //three buttons are all centred, and since #226 the cup is TALL ENOUGH TO REACH INTO THEM — a reward
+        //does not apologise for its size, and the one that runs right up to the page it sits on reads as
+        //handed over rather than exhibited in a case beside it.
+        private const float NDC_X = -0.60f, NDC_Y = -0.30f;
 
-        //How far in front of the lens. Near enough to be the biggest thing in the frame, far enough that the
-        //gun the camera is still sitting behind on the first frames of the page cannot intersect it.
+        //How far in front of the lens the dolly is CENTRED. The old clearance reason (the gun still in frame
+        //on the first seconds) died with #225's own layer: the cup is composited over everything, so there
+        //is no depth it can intersect. What the distance does now is centre the approach below.
         private const float DISTANCE = 3.1f;
 
+        //THE DOLLY (#226): the cup genuinely approaches and recedes — the DISTANCE moves, the world matrix
+        //is not scaled to fake it — and because the NDC anchor below is worked out from the live distance,
+        //the cup holds its place in the composition while its perspective changes, which is exactly what a
+        //real dolly-in does. Three quarters of a unit either way: at the near end the cup is most of the
+        //frame's height and its handles swing wide of the score panel's edge, at the far end it is still
+        //nearly half of it, and the swing between them is the "here it is" of the presentation repeating
+        //for as long as the page is up. Slow against the dance, so the two motions read as one object
+        //doing two things rather than a camera shake.
+        private const float DOLLY_RATE = 0.8f, DOLLY_DEPTH = 0.75f;
+
         //World height of the cup at rest. Read against DISTANCE and the NDC placement rather than on its own:
-        //at a 45-degree vertical field this fills about a third of the frame's height.
-        private const float SIZE = 1.25f;
+        //at the result page's released field of view this stands about half the frame's height at the
+        //dolly's centre, and the dolly carries it from nearly half to three quarters and back.
+        private const float SIZE = 2.0f;
 
         //The reveal. Shorter than the camera's release (ORBIT_EASE_SECONDS, 2.5) so the cup has arrived by the
         //time the lens stops moving, and far shorter than the defocus delay, so it is fully formed and holding
         //the frame to itself for a good two seconds before the arena starts going soft behind it.
         private const float REVEAL_SECONDS = 0.9f;
 
-        //THE DANCE. A slow turn so every side of the cup is seen and the handles read as handles, a bob, and a
-        //lean that PRECESSES rather than swinging in one plane — the lean is applied about the cup's own Z and
+        //THE DANCE. A turn so every side of the cup is seen and the handles read as handles, a bob, and
+        //a lean that PRECESSES rather than swinging in one plane — the lean is applied about the cup's own Z and
         //the turn about its Y afterwards, so the tilt travels around the axis instead of rocking like a
         //metronome. A cup that merely spins reads as a menu prop; the wobble is what makes it look held up.
-        private const float SPIN_RATE = 0.85f;          //radians a second
-        private const float BOB_RATE = 1.9f, BOB_DEPTH = 0.055f;
-        private const float LEAN_RATE = 0.7f, LEAN_ANGLE = 0.085f;
+        //#226 turned all of it up: this is a game's reward moment, not a catalogue, and the lean that was
+        //5 degrees is 17, the turn is half again as fast, and the dolly above is the fourth motion. Extreme
+        //is the brief.
+        private const float SPIN_RATE = 1.3f;          //radians a second
+        private const float BOB_RATE = 1.7f, BOB_DEPTH = 0.11f;
+        private const float LEAN_RATE = 0.9f, LEAN_ANGLE = 0.30f;
 
         //How hard the cup lands. The scale overshoots and settles rather than easing flatly to one: an object
-        //presented to a player is thrown up rather than faded in, and a fifth over is the difference between
-        //"it appeared" and "here".
-        private const float OVERSHOOT = 0.20f;
+        //presented to a player is thrown up rather than faded in, and over a third extra is the difference
+        //between "it appeared" and "HERE".
+        private const float OVERSHOOT = 0.35f;
 
         private readonly TrophyMesh _plainMesh, _handledMesh;
         private readonly InstancedModelRenderer[] _renderers = new InstancedModelRenderer[TIERS + 1];
@@ -120,24 +136,24 @@ namespace BS3D.Effects
             //The specular POWER climbs with the tier, which is most of what says "better": a bronze cup is a
             //cast, slightly rough thing with a broad highlight, and a diamond one is polished to a point.
 
-            //Bronze: a cast, warm, slightly rough metal.
+            //Bronze: a cast, warm metal — the ROUGHEST finish of the four, and still a polish no prop gets.
             AddTier(device, instancingEffect, 1, _plainMesh,
                 diffuse: new Vector3(0.330f, 0.170f, 0.070f),
-                specular: new Vector3(0.85f, 0.52f, 0.28f), power: 45f,
-                specularAmbient: 0.20f, emissive: Vector3.Zero, ambient);
+                specular: new Vector3(0.85f, 0.52f, 0.28f), power: 80f,
+                specularAmbient: 0.30f, emissive: Vector3.Zero, ambient);
 
             //Silver: neutral, and the tightest highlight of the three plain cups.
             AddTier(device, instancingEffect, 2, _plainMesh,
                 diffuse: new Vector3(0.400f, 0.415f, 0.450f),
-                specular: new Vector3(0.88f, 0.90f, 0.95f), power: 95f,
-                specularAmbient: 0.24f, emissive: Vector3.Zero, ambient);
+                specular: new Vector3(0.88f, 0.90f, 0.95f), power: 160f,
+                specularAmbient: 0.36f, emissive: Vector3.Zero, ambient);
 
             //Gold: the funnel rims' hue, which is the one metal this game has already tuned against every
             //dome — no reason to invent a second one — but at a metal's diffuse rather than a band's.
             AddTier(device, instancingEffect, 3, _plainMesh,
                 diffuse: new Vector3(0.470f, 0.320f, 0.080f),
-                specular: new Vector3(0.98f, 0.78f, 0.40f), power: 80f,
-                specularAmbient: 0.24f, emissive: Vector3.Zero, ambient);
+                specular: new Vector3(0.98f, 0.78f, 0.40f), power: 140f,
+                specularAmbient: 0.36f, emissive: Vector3.Zero, ambient);
 
             //Diamond: the top tier, and the only one that is not simply a better metal. It takes the HANDLED
             //mesh, so it is told apart by its SHAPE before any colour has been read — which matters because
@@ -147,8 +163,8 @@ namespace BS3D.Effects
             //out of the glare pass as a white blob with no shape left in it at all.
             AddTier(device, instancingEffect, 4, _handledMesh,
                 diffuse: new Vector3(0.300f, 0.470f, 0.560f),
-                specular: new Vector3(0.96f, 0.99f, 1.00f), power: 150f,
-                specularAmbient: 0.30f, emissive: new Vector3(0.020f, 0.045f, 0.060f), ambient);
+                specular: new Vector3(0.96f, 0.99f, 1.00f), power: 280f,
+                specularAmbient: 0.45f, emissive: new Vector3(0.020f, 0.045f, 0.060f), ambient);
         }
 
         private void AddTier(GraphicsDevice device, Effect effect, int tier, TrophyMesh mesh,
@@ -211,14 +227,21 @@ namespace BS3D.Effects
             Vector3 forward = -new Vector3(view.M13, view.M23, view.M33);
 
             Matrix projection = camera.Projection;
-            float halfHeight = DISTANCE / projection.M22;
-            float halfWidth = DISTANCE / projection.M11;
 
             //Smoothstep on the reveal, then the overshoot: the scale passes one and comes back, which is what
             //makes it land rather than arrive. Sin(pi*t) is zero at both ends, so nothing has to be clamped
-            //and the cup is exactly SIZE once the reveal is done.
+            //and the cup is exactly SIZE once the reveal is done. Computed first because the dolly below is
+            //eased in with it.
             float eased = MathHelper.SmoothStep(0f, 1f, _reveal);
             float scale = SIZE * eased * (1f + OVERSHOOT * MathF.Sin(MathF.PI * eased));
+
+            //The dolly (#226), and everything below is derived from where it has got to: a real approach
+            //and recede along the lens's own forward axis, eased in with the reveal so the cup ARRIVES at
+            //the centre distance rather than appearing somewhere along the swing.
+            float distance = DISTANCE + MathF.Sin(_clock * DOLLY_RATE) * DOLLY_DEPTH * eased;
+
+            float halfHeight = distance / projection.M22;
+            float halfWidth = distance / projection.M11;
 
             //And it rises into its place, from a little under it. Tied to the same eased value, so there is
             //one motion rather than two that can disagree about when they finished.
@@ -226,7 +249,7 @@ namespace BS3D.Effects
             float bob = MathF.Sin(_clock * BOB_RATE) * BOB_DEPTH * eased;
 
             Vector3 position = camera.Position
-                + forward * DISTANCE
+                + forward * distance
                 + right * (NDC_X * halfWidth)
                 + up * (NDC_Y * halfHeight + rise + bob);
 

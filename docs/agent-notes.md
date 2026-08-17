@@ -118,4 +118,18 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 - **Ověřeno:** `quality=medium` i `quality=high`, snímky v 10 s a 20 s rampy + adaptivní běh bez pinu — všude pozadí viditelné (bokeh), pohár ostrý v normálních barvách, UI čitelné, žádné artefakty.
 - **Poučení zapsané do docs/rendering.md a game-feedback.md:** target s DiscardContents se při bindu čistí — mid-frame rebind nakresleného targetu je zakázaný. Tohle je přesně třída pastí, kterou si docs drží.
 
-*Poslední zápis: ZCode, 2026-08-16 (pátý zápis).*
+---
+
+## 2026-08-17 — ZCode (šestý zápis)
+
+**#226 pohár prezentovaný nahlas — na mainu.** Majitelův požadavek po #225: mnohem vyšší (klidně do UI), lesklejší, „oblejší — moc low-res", a řádně animovaný (skutečné přibližování/oddalování, naklápění, „všechno může být extrémní").
+
+- **Oblé:** autorovaný profil byl hranatý — boční silueta JE profil a pět rovných běhů mezi creases četlo jako chordy nízkopoly modelu. `TrophyMesh.DensifyProfile` dělí hladké běhy přes centripetal Catmull-Rom (3 vzorky/span, autorské ringy nedotčeny, creases ostré), osa 48→64 facetů, ucho 14/22→20/28. **Pozor: MeshBuilder účtuje 6 vrcholů na quad a strop má short.MaxValue — handled pohár na 4 vzorky/span přetekl (34 752 vrcholů), na 3 vzorky je ~30,5 k s rezervou.**
+- **Výška/animace:** SIZE 1,25→2,0 (při uvolněném FOV výsledkovky ~polovina rámu, dolly 0,75 jednotky kolem 3,1 → 40–70 % výšky rámu; NDC_Y −0,22→−0,30, lip sahá do panelu), **DOLLY je skutečná vzdálenost** (ne scale), náklon 5°→17°, spin ×1,5, bob zdvojnásoben, overshoot 20→35 %. Původní důvod clearance proti kanonu (3,1) je od #225 mrtvý — kompozit nemá s čím kolidovat, vzdálenost teď jen centruje dolly.
+- **Lesk:** SpecularAmbientStrength 0,20–0,30 → 0,30–0,45, powers ~×3 (80/160/140/280); žebřík „litá bronz → vyleštěný diamant" zůstává, jen každá příčka je výš. Diamant ověřen proti „white blob" — prošel.
+- **Ověřeno:** bronz i diamant, blízká i vzdálená fáze dolly (crop analýza: 2/3 vs 1/2 cropu, náklon viditelný, silueta hladká, lesk, ucha, zero artefaktů). **Pozn. k metodě: odhady výšky z CELÉHO snímku analytorem kolísaly (1/4 až 2/3) — soudit jen výřezy.**
+- **Cena:** celá prezentace ~0,24 ms (1,60 bez / 1,84 s pohárem, High/ssaa 2; fill rate při půl až 2/3 obrazovky + ~10k tris oproti 2,8k). Jen result page.
+
+**Zavřeno #226.**
+
+*Poslední zápis: ZCode, 2026-08-17 (šestý zápis).*
