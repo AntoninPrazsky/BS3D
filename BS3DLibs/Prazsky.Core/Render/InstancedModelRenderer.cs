@@ -69,6 +69,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _parallaxScaleParam;
         private EffectParameter _specularAmbientStrengthParam;
         private EffectParameter _metalnessParam;
+        private EffectParameter _specularAlphaWeightParam;
         private EffectParameter _emissiveStrengthParam;
         private EffectParameter _translucencyStrengthParam;
         private EffectParameter _pulseTimeParam;
@@ -256,6 +257,21 @@ namespace Prazsky.Core.Render
         /// surface reflects the sky in that tint (gold reflects gold). Used by the funnel's gold rims.
         /// </summary>
         public float Metalness { get; set; }
+
+        /// <summary>
+        /// How far this material's specular terms — the direct highlight and the reflected environment —
+        /// are attenuated by its own alpha. 1 (the default, and what every opaque surface wants because
+        /// alpha is 1 there anyway) scales both by the material alpha, which is what the shader always did.
+        /// <b>0 leaves them at full strength, which is what a transparent surface actually does</b>: alpha
+        /// says how much of what is behind a surface comes through, and a reflection is light coming off the
+        /// front of it — the same argument <see cref="EmissiveTint"/> already makes for a glowing pane.
+        /// <para>
+        /// Set to 0 by the result screen's crystal trophy (#228) and nothing else. Attenuated, a
+        /// 38 %-transparent cup keeps 38 % of its own sparkle and reads as a coloured film; unattenuated,
+        /// the sky flares off it and the frame behind it still shows through, which is cut glass.
+        /// </para>
+        /// </summary>
+        public float SpecularAlphaWeight { get; set; } = 1f;
 
         /// <summary>
         /// Number of primary-colored gores of the procedural beach-ball pattern (segments around
@@ -551,6 +567,7 @@ namespace Prazsky.Core.Render
             _parallaxScaleParam = _effect.Parameters["ParallaxScale"];
             _specularAmbientStrengthParam = _effect.Parameters["SpecularAmbientStrength"];
             _metalnessParam = _effect.Parameters["Metalness"];
+            _specularAlphaWeightParam = _effect.Parameters["SpecularAlphaWeight"];
             _emissiveTintParam = _effect.Parameters["EmissiveTint"];
             _surfaceReliefFrequencyParam = _effect.Parameters["SurfaceReliefFrequency"];
             _patternPrimaryColorParam = _effect.Parameters["PatternPrimaryColor"];
@@ -750,6 +767,11 @@ namespace Prazsky.Core.Render
             _parallaxScaleParam.SetValue(ParallaxScale);
             _specularAmbientStrengthParam.SetValue(SpecularAmbientStrength);
             _metalnessParam.SetValue(Metalness);
+
+            //Unconditionally, for Metalness's own reason: the one renderer that turns this off is the crystal
+            //cup, and a zero left standing on the shared effect would strip every following surface's
+            //reflection of the alpha it is supposed to be scaled by
+            _specularAlphaWeightParam.SetValue(SpecularAlphaWeight);
 
             //Unconditionally, for Metalness's reason: a glow left over from the renderer drawn before this one
             //would set the next surface alight

@@ -263,6 +263,19 @@ float SpecularAmbientStrength;
 //reflects gold), which is what a bare-metal trim needs. Left at 0 unless a renderer sets it.
 float Metalness;
 
+//How far the two specular terms are attenuated by the material's own ALPHA. 1 - what every renderer sets
+//unless it says otherwise, and what every surface in this game did before there was a dial - scales both
+//by color.a. 0 leaves them at full strength, which is what a TRANSPARENT surface actually does: alpha is
+//how much of what is BEHIND a surface comes through, and a reflection is light coming off the FRONT of it
+//- exactly the argument the EmissiveTint line at the end of ShadePixel already makes for a glowing pane.
+//
+//It exists for the result screen's crystal cup (#228). Written into a premultiplied target, an
+//unattenuated reflection composites as light ADDED over the background rather than as a fraction of a
+//surface, which is the whole look of cut glass: the sky flares off the bowl and the frame behind it still
+//shows through. Attenuated, a 38%-transparent cup keeps 38% of its own sparkle and reads as a coloured
+//film rather than as crystal.
+float SpecularAlphaWeight;
+
 //Light a surface puts out on its own, in linear radiance, added at the end of ShadePixel so every
 //technique that shades through it can use it. Zero everywhere but the glass ceiling as it steps down,
 //which is the one surface in this game that has to announce itself.
@@ -365,8 +378,13 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
 	//encoding of the texture is still an established fact rather than an assumption
 	float4 color = float4((diffuse * SrgbToLinear(DiffuseColor.rgb) * diffuseOcclusion + hemisphere * SrgbToLinear(AmbientColor) * occlusion + SrgbToLinear(EmissiveColor)) * texColor.rgb, DiffuseColor.a * texColor.a);
 
+	//What the specular terms are scaled by: the surface's own coverage, or a flat 1 for a surface that
+	//declares its reflection is not something transparency takes away (see SpecularAlphaWeight). At the
+	//weight of 1 every renderer sets, this is color.a and the two lines below are unchanged.
+	float specularAlpha = lerp(1.0, color.a, SpecularAlphaWeight);
+
 	float3 linearSpecular = SrgbToLinear(SpecularColor);
-	color.rgb += specular * linearSpecular * surface.Highlight * color.a * occlusion;
+	color.rgb += specular * linearSpecular * surface.Highlight * specularAlpha * occlusion;
 
 	//Specular ambient: the sky reflected off the surface, which the renderer simply never had. The
 	//direct lights gave every material one highlight from one lamp, and that is a plastic look no
@@ -391,7 +409,7 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
 	float3 reflectanceAtNormal = lerp(DielectricF0 * linearSpecular, linearSpecular, Metalness);
 
 	color.rgb += environment * FresnelSchlick(reflectanceAtNormal, dot(worldNormal, eyeVector), surface.Smoothness)
-		* SpecularAmbientStrength * surface.Environment * color.a * occlusion;
+		* SpecularAmbientStrength * surface.Environment * specularAlpha * occlusion;
 
 	//Light the surface is putting out itself, on top of everything it reflects. Zero for everything except
 	//the glass ceiling as it steps down, which is the one surface in the game that has to announce itself.
