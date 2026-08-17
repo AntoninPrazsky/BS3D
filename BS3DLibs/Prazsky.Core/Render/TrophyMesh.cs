@@ -40,13 +40,31 @@ namespace Prazsky.Core.Render
         // <see cref="DensifyProfile"/>) into a curve; three samples per span turns the whole profile from
         //23 rings into 62 without a single authored coordinate moving. Three rather than more because the
         //builder writes SIX vertices a quad and the handled cup has to stay under its 16-bit index ceiling
-        //— at three samples the bowl's flare is sixteen curved spans, which is round at presentation size
-        //with a fifth of the ceiling to spare.
+        //— at three samples the bowl's flare is sixteen curved spans, which is round at presentation size.
+        //The handled cup comes to exactly 30 000 vertices (10 000 triangles) against a ceiling of 32 767,
+        //so this is the last subdivision that fits: four samples a span overflowed it outright.
         private const int PROFILE_SUBDIVISIONS = 3;
 
         //Facets around the handle's own tube, and steps along its arc. Fewer than the body's: a handle is
         //a fifth of the bowl's diameter, so the same angular error is a fifth of the pixels.
         private const int HANDLE_SIDES = 20, HANDLE_STEPS = 28;
+
+        //THE HANDLE'S ROOTS ARE BURIED, AND THE BOWL'S WALL IS THINNER THAN THE TUBE. Those two facts do not
+        //fit together at full thickness, and the cup shipped with the lower roots half out in the open: the
+        //end ring's lowest point stood 0.020 OUTSIDE the bowl, which is what a player sees as a cut pipe
+        //hanging off the side of the trophy. There is no anchor anywhere on this profile that buries a
+        //0.042 disc — the bowl's wall is about 0.05 thick where a handle can reach it and its solid base is
+        //barely 0.04 deep under the floor — so the tube TAPERS towards each root, and the roots are planted
+        //where the taper fits: both end rings are now at least 0.012 inside the body and no part of the tube
+        //comes within 0.012 of the bowl's hollow (verified against the DENSIFIED profile, which is the
+        //surface that is actually drawn, rather than against the authored rings).
+        //
+        //The taper is short enough that it is spent before the tube leaves the cup: the centreline crosses
+        //the surface about 7 % along the sweep, where the radius is already back to 0.036, so what shows
+        //outside is a handle of very nearly full thickness narrowing slightly as it enters — which is what a
+        //cast root looks like — and not a stalk.
+        private const float HANDLE_ROOT_RADIUS = 0.026f;
+        private const float HANDLE_ROOT_SPAN = 0.12f;
 
         /// <summary>
         /// One ring of the body's cross-section. <paramref name="Crease"/> keeps the runs above and below it
@@ -102,11 +120,17 @@ namespace Prazsky.Core.Render
         //the control point is then free to say how far the handle bows out without moving either.
         //
         //It also came out too small the first time. Clearing the bowl by a tenth of a unit reads as a rib
-        //stuck on the side; the bow reaches about 0.54 against a bowl of 0.35 at that height, so there is real
+        //stuck on the side; the bow reaches about 0.60 against a bowl of 0.35 at that height, so there is real
         //daylight under it and it reads as something a hand could go through.
-        private static readonly Vector2 HANDLE_LOW = new(0.225f, 0.620f);    //buried in the bowl's lower wall
+        //
+        //"Buried" was a claim rather than a fact until #228 measured it — see HANDLE_ROOT_RADIUS. The LOW
+        //anchor is now down in the bowl's solid base, under the floor of the cup rather than in the thin
+        //wall beside it, which is the only part of this profile with depth in it; the bow is carried out to
+        //compensate, so the handle's own silhouette is a shade WIDER than the one that shipped rather than
+        //smaller, and the visible root simply starts a little lower on the flare.
+        private static readonly Vector2 HANDLE_LOW = new(0.105f, 0.548f);    //buried in the bowl's solid base
         private static readonly Vector2 HANDLE_HIGH = new(0.400f, 0.930f);   //and in its upper wall
-        private static readonly Vector2 HANDLE_BOW = new(0.860f, 0.780f);    //the control point, well outboard
+        private static readonly Vector2 HANDLE_BOW = new(0.920f, 0.780f);    //the control point, well outboard
         private const float HANDLE_TUBE_RADIUS = 0.042f;
 
         public VertexBuffer VertexBuffer { get; private set; }
@@ -305,6 +329,17 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// The tube's radius at <paramref name="t"/> along the sweep: <see cref="HANDLE_TUBE_RADIUS"/> along
+        /// the arc, easing down to <see cref="HANDLE_ROOT_RADIUS"/> over the last
+        /// <see cref="HANDLE_ROOT_SPAN"/> at each end — see that constant for why the roots have to be
+        /// thinner than the handle. Smoothstepped rather than lerped so the taper meets the full tube with no
+        /// crease in it; <see cref="MathHelper.SmoothStep(float, float, float)"/> clamps its own amount, so
+        /// the whole middle of the sweep falls out at the full radius.
+        /// </summary>
+        private static float TubeRadius(float t) =>
+            MathHelper.SmoothStep(HANDLE_ROOT_RADIUS, HANDLE_TUBE_RADIUS, MathF.Min(t, 1f - t) / HANDLE_ROOT_SPAN);
+
+        /// <summary>
         /// One handle: a circular tube swept along a Bézier arc standing in the plane of the cup's axis and
         /// <paramref name="side"/>'s X. The sweep's frame is fixed rather than parallel-transported, because
         /// the path is planar — Z is always perpendicular to it, so there is no twist to accumulate and none
@@ -314,6 +349,10 @@ namespace Prazsky.Core.Render
         {
             Vector3[,] ring = new Vector3[HANDLE_STEPS + 1, HANDLE_SIDES];
             Vector3[,] ringNormal = new Vector3[HANDLE_STEPS + 1, HANDLE_SIDES];
+
+            //The two roots' own discs, kept so the caps below can be laid on them
+            Vector3 lowCentre = Vector3.Zero, lowFacing = Vector3.Zero;
+            Vector3 highCentre = Vector3.Zero, highFacing = Vector3.Zero;
 
             for (int step = 0; step <= HANDLE_STEPS; step++)
             {
@@ -332,6 +371,8 @@ namespace Prazsky.Core.Render
                 Vector3 axis1 = Vector3.UnitZ;                              //out of the arc's plane
                 Vector3 axis2 = Vector3.Normalize(Vector3.Cross(tangent, axis1));
 
+                float radius = TubeRadius(t);
+
                 for (int i = 0; i < HANDLE_SIDES; i++)
                 {
                     float phi = i / (float)HANDLE_SIDES * MathHelper.TwoPi;
@@ -339,12 +380,14 @@ namespace Prazsky.Core.Render
 
                     Vector3 normal = axis1 * cp + axis2 * sp;
                     ringNormal[step, i] = normal;
-                    ring[step, i] = centre + normal * HANDLE_TUBE_RADIUS;
+                    ring[step, i] = centre + normal * radius;
                 }
+
+                if (step == 0) (lowCentre, lowFacing) = (centre, -tangent);
+                else if (step == HANDLE_STEPS) (highCentre, highFacing) = (centre, tangent);
             }
 
-            //The wall. The ends are left OPEN on purpose: both are buried inside the bowl's wall, and a cap
-            //there is triangles nobody can see.
+            //The wall
             for (int step = 0; step < HANDLE_STEPS; step++)
                 for (int i = 0; i < HANDLE_SIDES; i++)
                 {
@@ -360,6 +403,29 @@ namespace Prazsky.Core.Render
                         ringNormal[step + 1, j], ringNormal[step + 1, i],
                         face);
                 }
+
+            //And the two roots CLOSED. They were left open while "both ends are buried" was an assumption
+            //and a cap there was triangles nobody could see; since #228 it is a measured fact, and the caps
+            //go on anyway for a reason the assumption never covered — the DIAMOND cup is crystal now, so
+            //everything inside the body is on show, and an open end reads through the glass as a cut pipe
+            //with the far side of the room visible down its bore. Forty triangles a handle.
+            AddRootCap(builder, ring, 0, lowCentre, lowFacing);
+            AddRootCap(builder, ring, HANDLE_STEPS, highCentre, highFacing);
+        }
+
+        /// <summary>
+        /// Closes one end of a handle with a triangle fan from the root disc's own centre, facing
+        /// <paramref name="facing"/> — the sweep's tangent, reversed at the low end so both caps look out of
+        /// the tube rather than along it.
+        /// </summary>
+        private static void AddRootCap(MeshBuilder builder, Vector3[,] ring, int step, Vector3 centre, Vector3 facing)
+        {
+            for (int i = 0; i < HANDLE_SIDES; i++)
+            {
+                int j = (i + 1) % HANDLE_SIDES;
+
+                builder.AddTriangle(centre, ring[step, i], ring[step, j], facing, facing, facing, facing);
+            }
         }
 
         public void Dispose()

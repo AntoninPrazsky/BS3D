@@ -382,7 +382,10 @@ namespace BS3D
             // in front of it — the presented object reads as the nearest thing either way, which is what
             // #225 asked for. States are stated rather than inherited, for the reason the Testbed states
             // its rasterizer before the scene — what ran last here is last frame's resolve and it does not
-            // promise anything (see the winding note in CLAUDE.md).
+            // promise anything (see the winding note in CLAUDE.md). WHICH states is the cup's own call
+            // since #228: only it knows whether the tier up is a solid metal or a pane of crystal, and the
+            // two want different blending and different depth (see TrophyPodium.Draw). What stays here is
+            // the save and restore around it, because the frame that follows is this file's.
             if (_trophy != null && _trophy.Active)
             {
                 BlendState blend = GraphicsDevice.BlendState;
@@ -392,12 +395,9 @@ namespace BS3D
                 GraphicsDevice.SetRenderTarget(_pipeline.ForegroundTarget);
 
                 //Transparent, not black: the target's alpha is the coverage the composite blends by, and
-                //it has to say "nothing presented here" everywhere the cup is not
+                //it has to say "nothing presented here" everywhere the cup is not — and, for the crystal
+                //tier, how much of the cup is there everywhere it is
                 GraphicsDevice.Clear(Color.Transparent);
-
-                GraphicsDevice.BlendState = BlendState.Opaque;
-                GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-                GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
 
                 _trophy.Draw(_camera);
 

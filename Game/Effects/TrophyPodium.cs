@@ -9,7 +9,7 @@ namespace BS3D.Effects
     /// <summary>
     /// The cup the player just won (#183): a trophy presented close to the lens on the result screen, turning
     /// and swaying, in one of four tiers taken from the level's star rating — Bronze, Silver, Gold and, at the
-    /// top, a Diamond cup with handles.
+    /// top, a Diamond cup with handles, which since #228 is <b>crystal</b> rather than a fourth metal.
     /// <para>
     /// It is the third beat of an ending that already had two. The fanfare states the win, the fireworks
     /// answer it <c>CELEBRATION_DELAY</c> later, and the result page arrives with the numbers; what none of
@@ -36,6 +36,15 @@ namespace BS3D.Effects
 /// like the scene, the composite pass tonemaps it through the same exposure, ACES curve and film grain,
 /// and its bright pass still feeds the bloom pyramid — so "extremely shiny" still costs nothing to get
 /// here, and the metal keeps the glare its finishes were tuned against.
+/// </para>
+/// <para>
+/// <b>And the top tier is see-through</b> (#228). The layer is composited over the resolved frame through
+/// premultiplied alpha, so a cup that writes an alpha below one lets the frame <i>underneath</i> through —
+/// and what is underneath, on this page, is the defocused arena with its fireworks and its confetti. The
+/// crystal therefore costs nothing beyond its own draw: the bokeh the result page was already building
+/// shows through the bowl, moving. It is also why a translucent tier had to wait for #225's layer to
+/// exist — inside the HDR pass the cup would have been transparent to a scene that was about to be
+/// blurred <i>with</i> it.
 /// </para>
     /// </summary>
     public sealed class TrophyPodium : IDisposable
@@ -91,9 +100,14 @@ namespace BS3D.Effects
         //between "it appeared" and "HERE".
         private const float OVERSHOOT = 0.35f;
 
+        private readonly GraphicsDevice _device;
         private readonly TrophyMesh _plainMesh, _handledMesh;
         private readonly InstancedModelRenderer[] _renderers = new InstancedModelRenderer[TIERS + 1];
         private readonly BasicEffectParams[] _materials = new BasicEffectParams[TIERS + 1];
+
+        //Which tiers are glass, so Draw can state the states each wants. Filled by AddTier off the alpha it
+        //was given, rather than being a second list of the same fact.
+        private readonly bool[] _translucent = new bool[TIERS + 1];
 
         private int _tier;              //0 = nothing to show
         private float _reveal;          //0..1
@@ -108,6 +122,7 @@ namespace BS3D.Effects
         /// </param>
         public TrophyPodium(GraphicsDevice device, Effect instancingEffect, float ambientIntensity)
         {
+            _device = device;
             _plainMesh = new TrophyMesh(device, handles: false);
             _handledMesh = new TrophyMesh(device, handles: true);
 
@@ -155,27 +170,74 @@ namespace BS3D.Effects
                 specular: new Vector3(0.98f, 0.78f, 0.40f), power: 140f,
                 specularAmbient: 0.36f, emissive: Vector3.Zero, ambient);
 
-            //Diamond: the top tier, and the only one that is not simply a better metal. It takes the HANDLED
-            //mesh, so it is told apart by its SHAPE before any colour has been read — which matters because
-            //the three below it differ only in hue, and hue is the first thing a dark scene takes away. It
-            //carries a small emissive term as well, so it is the one cup that is faintly a light source rather
-            //than only a reflector; small, because the first pass had it at three times this and the cup came
-            //out of the glare pass as a white blob with no shape left in it at all.
+            //Diamond: the top tier, and the only one that is not a metal at all. It takes the HANDLED mesh, so
+            //it is told apart by its SHAPE before any colour has been read — which matters because the three
+            //below it differ only in hue, and hue is the first thing a dark scene takes away. It carries a
+            //small emissive term as well, so it is the one cup that is faintly a light source rather than only
+            //a reflector; small, because the first pass had it at three times this and the cup came out of the
+            //glare pass as a white blob with no shape left in it at all.
+            //
+            //SINCE #228 IT IS CRYSTAL: a little blue and genuinely transparent, so the defocused arena goes on
+            //moving through the bowl while the cup holds the frame. Three figures make that read as cut glass
+            //rather than as a faded decal, and none of them would work alone:
+            //
+            // * the ALPHA. Just over a third, per surface — and the cup is a closed solid drawn with its depth
+            //   WRITE off (see Draw), so a look through the bowl crosses its near wall and its far inside and
+            //   lands at about 60 % while the stem, one wall thick, stays at a third. Glass that gets denser
+            //   where there is more of it is most of what says glass, and it falls straight out of the
+            //   geometry rather than being authored.
+            // * the METALNESS, which is not "a bit metallic": the shader lerps normal-incidence reflectance
+            //   from its 4 % dielectric F0 towards the specular colour, and this lands it near 0.10 — between
+            //   window glass at 0.04 and lead crystal's own 0.055, leaning towards the diamond it is named
+            //   for (0.17, n = 2.42) without going there, because a flat white environment reflected at
+            //   diamond's F0 is a veil. So the face is nearly clear and the edges mirror, which is Fresnel
+            //   and is the entire shape language of glass; a metal reflects the same at every angle and
+            //   would be a mirror with a hole in it.
+            // * and the reflection NOT being attenuated by the transparency (SpecularAlphaWeight, set in
+            //   AddTier below). At 38 % alpha the metal path would have kept 38 % of its sparkle, which is a
+            //   coloured film. Unattenuated it is light added over a background that still shows through.
+            //
+            //WHERE THE BLUE HAS TO COME FROM, which is not where it looks like it should. The diffuse is
+            //premultiplied by the alpha and then sRGB-DECODED by the shader, and both of those crush it: a
+            //diffuse of 0.34 at 38 % alpha reaches the light as 0.13, which decodes to 0.015 of linear
+            //radiance — a body colour that is, to the eye, black. The first crystal was authored at a
+            //sensible-looking blue and came out a white ghost for exactly that reason. So the diffuse is
+            //authored HIGH (it is a colour at 38 % of itself, not a colour), and a small EMISSIVE TINT
+            //carries the rest: that one is added in linear radiance, is not premultiplied and is not
+            //decoded, so it is the only term on this material that survives at full strength — and a tint
+            //that glows faintly from inside the glass rather than only appearing where a lamp hits it is
+            //what the cup wants anyway.
+            //
+            //The specular stays near white, because a highlight on clear glass is the colour of the lamp
+            //and not of the glass, and the reflected environment is turned WAY down from the metals': this
+            //cup is not enrolled in the sky rig, so its environment is a flat white 1 with no image in it,
+            //and a flat reflection at a metal's strength is not a mirror — it is a milky veil over
+            //everything the crystal is supposed to be showing through.
             AddTier(device, instancingEffect, 4, _handledMesh,
-                diffuse: new Vector3(0.300f, 0.470f, 0.560f),
-                specular: new Vector3(0.96f, 0.99f, 1.00f), power: 280f,
-                specularAmbient: 0.45f, emissive: new Vector3(0.020f, 0.045f, 0.060f), ambient);
+                diffuse: new Vector3(0.620f, 0.820f, 1.000f),
+                specular: new Vector3(0.78f, 0.90f, 1.00f), power: 320f,
+                specularAmbient: 0.30f, emissive: new Vector3(0.020f, 0.045f, 0.060f), ambient,
+                metalness: 0.06f, alpha: 0.38f, emissiveTint: new Vector3(0.016f, 0.055f, 0.110f));
         }
 
         private void AddTier(GraphicsDevice device, Effect effect, int tier, TrophyMesh mesh,
-            Vector3 diffuse, Vector3 specular, float power, float specularAmbient, Vector3 emissive, Vector3 ambient)
+            Vector3 diffuse, Vector3 specular, float power, float specularAmbient, Vector3 emissive, Vector3 ambient,
+            float metalness = 1f, float alpha = 1f, Vector3 emissiveTint = default)
         {
-            _renderers[tier] = new InstancedModelRenderer(device, mesh, diffuse, effect)
+            _renderers[tier] = new InstancedModelRenderer(device, mesh, diffuse, effect, alpha)
             {
-                Metalness = 1f,
-                SpecularAmbientStrength = specularAmbient
+                Metalness = metalness,
+                SpecularAmbientStrength = specularAmbient,
+                EmissiveTint = emissiveTint,
+
+                //A translucent tier's reflection is not something its transparency takes away — see
+                //InstancedModelRenderer.SpecularAlphaWeight. Derived from the alpha rather than passed
+                //separately: an opaque tier is at alpha 1 and cannot tell the difference, so there is no
+                //second dial here that could disagree with the first.
+                SpecularAlphaWeight = alpha < 1f ? 0f : 1f
             };
 
+            _translucent[tier] = alpha < 1f;
             _materials[tier] = new BasicEffectParams(ambient, specular, power, emissive);
         }
 
@@ -216,10 +278,25 @@ namespace BS3D.Effects
         /// half-width <c>d / M11</c>, whatever the field of view and whatever the window shape. So the cup
         /// holds its place in the composition on a 4:3 laptop panel and on an ultrawide alike, and it survives
         /// the field of view being changed by the release without a line of code knowing about it.
+        /// <para>
+        /// <b>The draw states are stated here rather than by the caller</b>, because this class is the only
+        /// thing that knows whether the tier being presented is a solid metal or a pane of crystal, and the
+        /// two want different ones. The crystal's depth WRITE is off on purpose: with it on, only the nearest
+        /// surface of each pixel survives and the cup is one flat film, where off, every front face blends —
+        /// so a look through the bowl finds its far inside, and the far handle shows through the body, which
+        /// is what looking through crystal is. Nothing else is ever drawn into this layer, so there is
+        /// nothing for the cup to sort against but itself.
+        /// </para>
         /// </remarks>
         public void Draw(ICamera camera)
         {
             if (_tier <= 0) return;
+
+            bool glass = _translucent[_tier];
+
+            _device.BlendState = glass ? BlendState.AlphaBlend : BlendState.Opaque;
+            _device.DepthStencilState = glass ? DepthStencilState.DepthRead : DepthStencilState.Default;
+            _device.RasterizerState = RasterizerState.CullCounterClockwise;
 
             Matrix view = camera.View;
             Vector3 right = new(view.M11, view.M21, view.M31);
