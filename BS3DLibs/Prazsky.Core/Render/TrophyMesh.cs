@@ -28,13 +28,25 @@ namespace Prazsky.Core.Render
         public const float HEIGHT = 1f;
 
         //Facets around the axis. A trophy is presented CLOSE and is the one object on screen the player is
-        //asked to look at, so it cannot be the twelve or sixteen a scattered prop gets away with — a faceted
-        //silhouette on a mirror-finish surface reads as a low-poly model rather than as metal.
-        private const int SEGMENTS = 48;
+        //asked to look at — and since #226 it stands most of the frame's height tall — so it cannot be the
+        //twelve or sixteen a scattered prop gets away with: a faceted silhouette on a mirror-finish surface
+        //reads as a low-poly model rather than as metal.
+        private const int SEGMENTS = 64;
 
-        //Facets around the handle's own tube, and steps along its arc. Fewer than the body's: a handle is a
-        //fifth of the bowl's diameter, so the same angular error is a fifth of the pixels.
-        private const int HANDLE_SIDES = 14, HANDLE_STEPS = 22;
+        //THE PROFILE'S OWN RESOLUTION, which the segment count cannot give: the silhouette seen side-on is
+        //the profile, and the authored rings are few enough that the bowl's flare read as five straight
+        //chords — at a third of the frame that passed, at presentation size it read as low-poly however
+        //many facets the axis had. The smooth runs between creases are therefore SUBDIVIDED (see
+        // <see cref="DensifyProfile"/>) into a curve; three samples per span turns the whole profile from
+        //23 rings into 62 without a single authored coordinate moving. Three rather than more because the
+        //builder writes SIX vertices a quad and the handled cup has to stay under its 16-bit index ceiling
+        //— at three samples the bowl's flare is sixteen curved spans, which is round at presentation size
+        //with a fifth of the ceiling to spare.
+        private const int PROFILE_SUBDIVISIONS = 3;
+
+        //Facets around the handle's own tube, and steps along its arc. Fewer than the body's: a handle is
+        //a fifth of the bowl's diameter, so the same angular error is a fifth of the pixels.
+        private const int HANDLE_SIDES = 20, HANDLE_STEPS = 28;
 
         /// <summary>
         /// One ring of the body's cross-section. <paramref name="Crease"/> keeps the runs above and below it
@@ -132,6 +144,71 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// Subdivides the profile's smooth spans into curves, leaving every span that touches a CREASE
+        /// straight — a crease is an edge someone chose (the lip turning over, the plinth's courses), and a
+        /// curve driven through it would round that choice away. The samples come from a CENTRIPETAL
+        /// Catmull-Rom through the neighbouring rings: centripetal rather than uniform because the authored
+        /// rings sit at wildly uneven spacings — hundredths apart through the plinth, tenths along the
+        //bowl's flare — and a uniform parameterization through spacing like that bulges where a section
+        //changes gear, which on a mirror finish is a dent the eye finds at once.
+        /// </summary>
+        private static Ring[] DensifyProfile()
+        {
+            List<Ring> dense = new(PROFILE.Length * (PROFILE_SUBDIVISIONS + 1));
+
+            for (int i = 0; i < PROFILE.Length - 1; i++)
+            {
+                dense.Add(PROFILE[i]);
+
+                if (PROFILE[i].Crease || PROFILE[i + 1].Crease) continue;
+
+                Vector2 p0 = RingPoint(Math.Max(0, i - 1));
+                Vector2 p1 = RingPoint(i);
+                Vector2 p2 = RingPoint(i + 1);
+                Vector2 p3 = RingPoint(Math.Min(PROFILE.Length - 1, i + 2));
+
+                for (int s = 1; s <= PROFILE_SUBDIVISIONS; s++)
+                {
+                    Vector2 sample = CentripetalCatmullRom(p0, p1, p2, p3, s / (float)(PROFILE_SUBDIVISIONS + 1));
+                    dense.Add(new Ring(sample.X, sample.Y));
+                }
+            }
+
+            dense.Add(PROFILE[^1]);
+            return dense.ToArray();
+
+            static Vector2 RingPoint(int index) => new(PROFILE[index].Radius, PROFILE[index].Y);
+        }
+
+        /// <summary>
+        /// One point of a centripetal Catmull-Rom spline (Barry–Goldman), evaluated at <paramref name="t"/>
+        /// across the segment <paramref name="p1"/>–<paramref name="p2"/> with <paramref name="p0"/> and
+        /// <paramref name="p3"/> lending the tangents. Clamped callers (repeating an end ring) make the
+        /// tangent one-sided, which is what the profile's first and last spans want.
+        /// </summary>
+        private static Vector2 CentripetalCatmullRom(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t)
+        {
+            //Centripetal knots: each interval's length is the SQUARE ROOT of the distance it spans, so the
+            //parameter slows down through tight sections instead of swinging through them. The epsilon
+            //keeps a coincident pair (a clamped end) from dividing by zero.
+            float t0 = 0f;
+            float t1 = MathF.Sqrt((p1 - p0).Length()) + 1e-6f;
+            float t2 = t1 + MathF.Sqrt((p2 - p1).Length()) + 1e-6f;
+            float t3 = t2 + MathF.Sqrt((p3 - p2).Length()) + 1e-6f;
+
+            float tt = t1 + t * (t2 - t1);
+
+            Vector2 a1 = p0 * ((t1 - tt) / (t1 - t0)) + p1 * ((tt - t0) / (t1 - t0));
+            Vector2 a2 = p1 * ((t2 - tt) / (t2 - t1)) + p2 * ((tt - t1) / (t2 - t1));
+            Vector2 a3 = p2 * ((t3 - tt) / (t3 - t2)) + p3 * ((tt - t2) / (t3 - t2));
+
+            Vector2 b1 = a1 * ((t2 - tt) / (t2 - t1)) + a2 * ((tt - t1) / (t2 - t1));
+            Vector2 b2 = a2 * ((t3 - tt) / (t3 - t2)) + a3 * ((tt - t2) / (t3 - t2));
+
+            return b1 * ((t2 - tt) / (t2 - t1)) + b2 * ((tt - t1) / (t2 - t1));
+        }
+
+        /// <summary>
         /// Revolves <see cref="PROFILE"/> about the Y axis. Normals are computed from the profile rather than
         /// from the triangles: for a segment running <c>(dr, dy)</c> in the (radius, y) plane the outward
         /// normal is <c>(dy, -dr)</c> — the tangent turned so its radial part points away from the axis, which
@@ -139,27 +216,30 @@ namespace Prazsky.Core.Render
         /// </summary>
         private static void BuildBody(MeshBuilder builder)
         {
-            int spans = PROFILE.Length - 1;
+            //The densified section, not the authored one — the authored rings are the shape's meaning, this
+            //is the shape itself
+            Ring[] profile = DensifyProfile();
+            int spans = profile.Length - 1;
 
             //Per-span normal in the (radial, y) plane, then per-ring normals either side of each ring. They
             //differ only at a crease, which is exactly what a crease is.
             Vector2[] spanNormal = new Vector2[spans];
             for (int s = 0; s < spans; s++)
             {
-                float dr = PROFILE[s + 1].Radius - PROFILE[s].Radius;
-                float dy = PROFILE[s + 1].Y - PROFILE[s].Y;
+                float dr = profile[s + 1].Radius - profile[s].Radius;
+                float dy = profile[s + 1].Y - profile[s].Y;
                 spanNormal[s] = Vector2.Normalize(new Vector2(dy, -dr));
             }
 
-            Vector2[] below = new Vector2[PROFILE.Length];   //the normal a ring shows to the span under it
-            Vector2[] above = new Vector2[PROFILE.Length];   //and to the span over it
+            Vector2[] below = new Vector2[profile.Length];   //the normal a ring shows to the span under it
+            Vector2[] above = new Vector2[profile.Length];   //and to the span over it
 
-            for (int i = 0; i < PROFILE.Length; i++)
+            for (int i = 0; i < profile.Length; i++)
             {
                 Vector2 lower = spanNormal[Math.Max(0, i - 1)];
                 Vector2 upper = spanNormal[Math.Min(spans - 1, i)];
 
-                if (PROFILE[i].Crease)
+                if (profile[i].Crease)
                 {
                     below[i] = lower;
                     above[i] = upper;
@@ -175,7 +255,7 @@ namespace Prazsky.Core.Render
 
             for (int s = 0; s < spans; s++)
             {
-                Ring low = PROFILE[s], high = PROFILE[s + 1];
+                Ring low = profile[s], high = profile[s + 1];
 
                 //A span with no length in either direction would give a degenerate quad and a zero normal
                 if (low.Radius == high.Radius && low.Y == high.Y) continue;
