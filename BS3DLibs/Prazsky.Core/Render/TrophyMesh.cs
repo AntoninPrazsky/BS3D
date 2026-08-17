@@ -203,7 +203,14 @@ namespace Prazsky.Core.Render
             Vector2 a3 = p2 * ((t3 - tt) / (t3 - t2)) + p3 * ((tt - t2) / (t3 - t2));
 
             Vector2 b1 = a1 * ((t2 - tt) / (t2 - t1)) + a2 * ((tt - t1) / (t2 - t1));
-            Vector2 b2 = a2 * ((t3 - tt) / (t3 - t2)) + a3 * ((tt - t2) / (t3 - t2));
+
+            //The one line this file got wrong the first time (#227): BOTH upper rows of the pyramid are
+            //interpolated on the EVALUATED segment's own interval (t1, t2) — b2 is a mix of a2 and a3 at
+            //the same fraction b1 mixes a1 and a2, not at a3's own fraction on (t2, t3). Parameterized
+            //that way — the way it briefly shipped — the weights go negative for every t below t2, the
+            //spline extrapolates outside its control rings instead of interpolating between them, and one
+            //oversized ring sweeps into a sail that covers the cup.
+            Vector2 b2 = a2 * ((t2 - tt) / (t2 - t1)) + a3 * ((tt - t1) / (t2 - t1));
 
             return b1 * ((t2 - tt) / (t2 - t1)) + b2 * ((tt - t1) / (t2 - t1));
         }
