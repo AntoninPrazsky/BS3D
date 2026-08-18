@@ -62,15 +62,18 @@ namespace Prazsky.BS3D
     /// </summary>
     public sealed class BallRenderSet : IDisposable
     {
-        #region The eight types and the LOD ladder
+        #region The ball types and the LOD ladder
 
         /// <summary>
-        /// How many ball colours there are: red/green/blue/white plus cyan/magenta/yellow/black. It sizes the
-        /// instance buckets, bounds the draw walk, and is what a caller counting balls per colour wants
-        /// (the Game's live census). <c>const</c>, because an enum cast is a constant expression and callers
-        /// size arrays with it.
+        /// How many ball colours there are: red/green/blue/white plus cyan/magenta/yellow/black, and since
+        /// #152 orange/brown/silver/navy/olive. It sizes the instance buckets, bounds the draw walk, and is
+        /// what a caller counting balls per colour wants (the Game's live census). The count itself is
+        /// <see cref="BallTypes.Count"/>, derived from the enum — this used to be a hand-pinned
+        /// <c>const (int)BallType.Type8</c>, and a member added without repointing it existed in logic and
+        /// physics but was silently never drawn. Every consumer sizes, bounds or wraps at runtime, so
+        /// nothing needed the compile-time constant.
         /// </summary>
-        public const int TYPE_COUNT = (int)BallType.Type8;
+        public static readonly int TYPE_COUNT = BallTypes.Count;
 
         /// <summary>
         /// The drawn radius. The same <see cref="Constants.HALF"/> that
@@ -313,10 +316,10 @@ namespace Prazsky.BS3D
         #region The instance buckets
 
         //One bucket per (type, LOD) pair, each becoming a single instanced draw call. Allocated lazily - most
-        //frames touch a handful of the thirty-two, and a map of one colour touches four - and doubled when a
+        //frames touch a handful of the fifty-two, and a map of one colour touches four - and doubled when a
         //bucket fills, so the arrays settle at whatever the scene actually needs within the first few frames
         //and nothing is allocated per frame after that. 256 is a couple of levels of a full map: big enough
-        //that the common case never grows, small enough that thirty-two of them cost nothing.
+        //that the common case never grows, small enough that fifty-two of them cost nothing.
         private const int BUCKET_INITIAL_CAPACITY = 256;
 
         private readonly ModelInstance[][] _buckets;
@@ -684,7 +687,7 @@ namespace Prazsky.BS3D
         /// Buckets one ball whose world matrix the caller already holds — the loaded queue, whose placement
         /// comes off <see cref="BorePose.SlotWorld"/> and carries the barrel's own basis.
         /// <para>
-        /// A colour outside the eight types is dropped in silence, which is deliberate and is the check every
+        /// A colour outside the known types is dropped in silence, which is deliberate and is the check every
         /// collector in this project has always made: a zero <see cref="BallType"/> is not a colour (the enum
         /// starts at 1, and an empty map cell is a null ball rather than a type 0), and there is nothing useful
         /// to draw for one.

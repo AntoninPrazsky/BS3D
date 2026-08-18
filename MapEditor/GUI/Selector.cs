@@ -16,6 +16,9 @@ namespace MapEditor.GUI
         private BallType _ActiveBallType = BallType.Type1;
         private readonly ICamera _camera;
 
+        /// <summary>The type the next placed ball gets — read by the host's cycle keys (#152).</summary>
+        public BallType ActiveBallType => _ActiveBallType;
+
         public Selector(ContentManager contentManager, BallsMap ballsMap, ICamera camera)
         {
             _camera = camera;
@@ -43,7 +46,6 @@ namespace MapEditor.GUI
         public void ChangeBallType(BallType ballType)
         {
             _ActiveBallType = ballType;
-            Console.WriteLine($"Ball type set to: {ballType.ToString()}");
         }
 
         public void RemoveBall()

@@ -30,7 +30,7 @@ namespace Prazsky.BS3D
     /// </para>
     /// <para>
     /// <b>What loads next is injected, and neither policy lives here.</b> The Testbed draws uniformly from all
-    /// eight types — its cluster is whatever map was dropped on it. The Game draws only among the colours
+    /// thirteen types — its cluster is whatever map was dropped on it. The Game draws only among the colours
     /// <i>still hanging</i>, because a ball of a colour that exists nowhere in the cluster can never match
     /// anything: it can only be parked, which grows the very cluster the player is shrinking, wastes a budgeted
     /// shot and in the limit makes a level unwinnable (docs/game-session.md). Answering that needs the live count

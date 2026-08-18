@@ -399,7 +399,7 @@ namespace Testbed
         //so the player can see what is coming and aim for it. The queue, the glide that carries it forward after
         //a shot and the invariant that it never empties are Magazine's since #76 - it stood here and in the Game
         //with the size, the spacing and the ease constant identical. What stays here is the next-colour policy it
-        //is built with: RandomBallType, uniform over all eight, because the Testbed's cluster is whatever map was
+        //is built with: RandomBallType, uniform over all thirteen, because the Testbed's cluster is whatever map was
         //dropped on it (the Game draws only among the colours still hanging, which is why the policy is injected).
         private Magazine _magazine;
 
