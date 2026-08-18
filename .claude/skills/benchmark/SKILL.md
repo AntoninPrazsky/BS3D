@@ -26,8 +26,8 @@ Each of these has actually happened; the first two are the expensive ones.
    capped near 50 FPS and that cap quietly becomes your measurement. The script clicks the title bar for this
    reason alone — do not pass `-NoFocus` unless the frame rate is well under 50 either way.
 2. **Letting the adaptive path move under you.** With neither `quality=` nor `ssaa=` named, the game measures
-   the machine and steps the tier down about three seconds in — which reads as a spectacular win for whatever
-   you were testing. Always pin one.
+   the machine and steps the tier down once the frame rate settles (a few seconds in, later on a machine that
+   ramps slowly) — which reads as a spectacular win for whatever you were testing. Always pin one.
 3. **Not pinning the scene.** The backdrop is a different one of the seven every launch and they span 6.8× in
    cost, so two unpinned runs are not comparable at all. `scene=` and `sky=` both matter: the sea and the
    savanna each force a dome of their own, so pin `sky=` after.

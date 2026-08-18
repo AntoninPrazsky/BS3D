@@ -6,8 +6,9 @@ namespace BS3D
 {
     /// <summary>
     /// The <b>adaptive-quality probe</b> and the tier it settles on: the frame-rate floor taken from the
-    /// monitor the window is actually on, the warmup that keeps a cold shader cache from reading as a slow
-    /// machine, the two latches that stop it oscillating, and what a tier actually changes.
+    /// monitor the window is actually on, the warmup that skips the opening hitch, the <b>ramp gate</b> that
+    /// holds the verdict until the frame rate has stopped climbing (a GPU spinning its clocks up reads slow),
+    /// the two latches that stop it oscillating, and what a tier actually changes.
     /// </summary>
     /// <remarks>
     /// Split out of <c>BS3DGame.cs</c> in #71, where it was a region nested inside the menu's — which is what
@@ -49,6 +50,15 @@ namespace BS3D
         private int _qualityWindowFrames;
 
         /// <summary>
+        /// The frame rate the previous verdict window came out at, or 0 before there is one. The downward step
+        /// is gated on this: a window more than <see cref="QUALITY_RAMP_FRACTION"/> faster than the one before
+        /// it is a GPU still spinning up rather than the machine's steady answer, so it only rolls the
+        /// measurement forward. Zeroed whenever a fresh measurement phase begins — a tier step re-arming the
+        /// warm-up, or the probe being re-opened.
+        /// </summary>
+        private float _qualityPrevWindowFps;
+
+        /// <summary>
         /// The frame rate below which the probe spends image quality. Derived from the display's refresh rather
         /// than fixed, so the target tracks the monitor the player is actually on: a 75 Hz panel wants ~75, a
         /// 60 Hz one ~60, a 144 Hz one ~144. The probe settles when the machine reaches <see cref="QUALITY_REFRESH_FRACTION"/>
@@ -62,7 +72,9 @@ namespace BS3D
         /// Ignored before this much of the run has passed. The opening frames are shader compiles, the first
         /// touch of every render target and the window settling, and none of them are what this machine costs
         /// to draw. Counted in <b>seconds</b> rather than frames deliberately: a fixed frame count is itself a
-        /// function of the frame rate, so on the slow hardware this exists for it would wait the longest.
+        /// function of the frame rate, so on the slow hardware this exists for it would wait the longest. It no
+        /// longer has to cover the GPU's clock ramp — that is the ramp gate's job (<see cref="QUALITY_RAMP_FRACTION"/>),
+        /// because the ramp is not a fixed length and this is.
         /// </summary>
         private const float QUALITY_WARMUP_SECONDS = 1.5f;
 
@@ -91,6 +103,17 @@ namespace BS3D
         /// is unchanged.
         /// </summary>
         private const float QUALITY_MIN_FPS_FLOOR = 45f;
+
+        /// <summary>
+        /// How much faster than the previous verdict window a window may be and still be judged the machine's
+        /// steady frame rate rather than a GPU still ramping its clocks. Below this, consecutive windows differ
+        /// only by measurement and orbit noise — the plateau; a genuine spin-up climbs far faster (measured at
+        /// 10 %+ per window on the desktop this was tuned against, against a plateau noise of about 2 %). The
+        /// tier is stepped down only once the frame rate has flattened to within it, so the probe never spends
+        /// image quality on a ramp-up window — which a fixed warm-up alone could not prevent, the warm-up being
+        /// a fixed length and the ramp not (see <see cref="TuneQualityToFrameRate"/>).
+        /// </summary>
+        private const float QUALITY_RAMP_FRACTION = 0.03f;
 
         #endregion
 
@@ -161,11 +184,27 @@ namespace BS3D
                 //
                 //It used to close for the whole session, on the reasoning that "the only thing that could trip
                 //it is the player alt-tabbing away". That was wrong by a factor of two on the real thing: the
-                //verdict lands about three seconds in, on the MENU, which has no cluster in it, while the
+                //verdict lands once the frame rate settles, on the MENU, which has no cluster in it, while the
                 //heaviest thing the game draws is a level — and the shipped set runs from 225 balls to 959.
                 //Onion cleared the menu at High and then played the whole level at 37.5 FPS on a 75 Hz panel,
                 //exactly half refresh, with nothing left watching to take it down to the Medium that holds 75.
                 _qualitySettled = true;
+                return;
+            }
+
+            //Below the floor — but a GPU still spinning its clocks up reads below it too, and stepping the tier
+            //on a ramp-up window is the wrong drop this gate exists to stop. Measured on the desktop this was
+            //tuned against: the Forest holds High at the 60 FPS vsync cap once warm, yet climbs 46 → 50 → 57 →
+            //60 over the first four seconds, and a verdict taken at three read 52 and spent a tier the machine
+            //did not need. So a downward step waits until the frame rate has PLATEAUED — a window still more
+            //than QUALITY_RAMP_FRACTION faster than the one before it is the ramp, not the machine, and only
+            //rolls the measurement forward. The first window has no predecessor (prev is 0), so it always reads
+            //as still-climbing: a drop therefore takes at least two windows, never one. The warm-up cannot do
+            //this on its own — it is a fixed length and the ramp is not, and the slow hardware this exists for
+            //is the slowest to climb.
+            if (fps > _qualityPrevWindowFps * (1f + QUALITY_RAMP_FRACTION))
+            {
+                _qualityPrevWindowFps = fps;
                 return;
             }
 
@@ -185,8 +224,11 @@ namespace BS3D
 
             //A tier step resizes the scene target, which hitches a frame or two (it would also rebuild the
             //city if the tiers still differed in radius — since the sort none does, see QualityLevel). Left
-            //unarmed, the very next window would measure that hitch and step again on the strength of it.
+            //unarmed, the very next window would measure that hitch and step again on the strength of it. The
+            //ramp tracker is cleared with it, so the new tier's first window is judged from a clean slate
+            //rather than against the old tier's plateau.
             _qualityWarmupLeft = QUALITY_WARMUP_SECONDS;
+            _qualityPrevWindowFps = 0f;
 
             //Nothing left to give: Low is the bottom of the ladder.
             if (_quality == QualityLevel.Low) _qualitySettled = true;
@@ -215,12 +257,14 @@ namespace BS3D
             _qualityWarmupLeft = QUALITY_WARMUP_SECONDS;
             _qualityWindowSeconds = 0f;
             _qualityWindowFrames = 0;
+            _qualityPrevWindowFps = 0f;
         }
 
         /// <summary>
         /// Tells the player what was changed and where to change it back. Once per run, on the main menu —
-        /// which is where they will see it: the verdict usually lands about three seconds in, on the front end,
-        /// but a level's own verdict lands while they are playing and the notice waits on the menu for them.
+        /// which is where they will see it: the verdict lands once the frame rate settles, a few seconds in on
+        /// the front end (longer on a machine that ramps slowly), but a level's own verdict lands while they are
+        /// playing and the notice waits on the menu for them.
         /// </summary>
         private void ShowQualityNotice(QualityLevel quality) => _mainMenuPage.ShowQualityNotice(quality);
 

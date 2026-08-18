@@ -1342,9 +1342,10 @@ namespace BS3D
 
         #region The frame-rate log (benchmarking)
 
-        //Deliberately NOT TuneQualityToFrameRate's window, which is a latching probe: it measures 1.5 s in the
-        //menu and then stops watching on purpose (#62), which is exactly what a benchmark must not do. This
-        //counts presented frames for as long as the process lives, in the menu and in a level alike.
+        //Deliberately NOT TuneQualityToFrameRate's window, which is a latching probe: it measures the menu
+        //until the frame rate settles and then stops watching on purpose (#62), which is exactly what a
+        //benchmark must not do. This counts presented frames for as long as the process lives, in the menu and
+        //in a level alike.
         //
         //It exists because nothing could measure this game from a script at all: the frame rate the player sees
         //is drawn and never logged, and InfoRenderer freezes its counter while the overlay is hidden. #64 asks
