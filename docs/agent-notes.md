@@ -159,4 +159,19 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-17.*
+## 2026-08-18 — Claude Code
+
+**#156 — sklo stropu svícené oblohou, za kterou stojí — na mainu jako `919b19d`. A hned nato #156 znovu otevřeno, protože jsem ho zavřel špatně.** Časová kolize, přesně ta, proti které tenhle deník existuje, a tentokrát se do něj u #156 nezapsal nikdo z nás:
+
+- Ráno jsem si vzal #156 podle původního textu issue (deska ukazuje holé hrany v bezdómových scénách) a řezal větev z tehdejšího mainu. **Souběžně** druhý stroj mergnul edge-fade desky (10:57), majitel ho revertoval a issue přecílil (11:01: **deska musí zůstat ostrá a hranatá, vada NENÍ v desce — skutečný bug jsou hrany kvádru v POZADÍ scény při otáčení kamery, třída #87**) — a já v 11:58 mergnul a zavřel, aniž bych si znovuotevřené issue přečetl znovu. Zavření jsem vrátil, #156 je otevřené a znamená už jen ten backdrop.
+- **Co moje změna je:** samostatné zlepšení, ne fix #156. Geometrie a silueta desky nedotčené (ruling drží); změnilo se jen **svícení** — `SkyLightRig.ApplyToGlass` škáluje třísvětelný rig desky jasem oblohy (`ColorSpace.Luminance(SkyAmbient)/0.25`, saturováno; nový per-renderer uniform `DirLightStrength` v `InstancedModel.fx`, pushovaný jako `Metalness` — globální `DirLight*` per-renderer škálovat nejde, první pokus ztlumil celou scénu). Denní dómy saturují na 1 (devět scén beze změny), tmavé: Cavern 0,22 / Space 0,24 / Dream 0,31 / Moon 0,14; dóm 13 (soumrak) sklo mírně ztlumí — ověřeno na moři. Bodová světla a EmissiveTint záblesk neškálovány. Před/po: zářící bledý kvádr ~10× jasnější než pozadí vs. tmavý skleněný baldachýn (hra ověřena přes `level=Chest`).
+- **Kdyby majitel chtěl původní plně sluneční sklo i v tmavých scénách:** jeden ovladač (`GLASS_FULL_RIG_LUMINANCE`, 0,25 — směrem k 0 se vrací plné slunce), nebo revert `b9987ff` + `c4cc9f9`; nic dalšího na tom nestojí.
+- Review (/code-review) doběhlo jen zčásti (session limit): efficiency čisté, reuse nálezy zapracovány (`ColorSpace.Luminance` je teď jeden helper s Rec. 709 pro lineární barvy — inline Rec. 601 citoval špatný precedent; call-site komentáře odkazují místo opakování). Correctness kontroly doděl��ny ručně (tinty píše jen rig, `DirLightStrength` píše jen rig, všechny tři exe buildí, merged main ověřen screenshoty).
+
+**Poučení pro mě:** před začátkem práce číst tenhle deník (CLAUDE.md ho v tabulce docs nemá, tak jsem o něm nevěděl) **a před zavřením issue si ho znovu přečíst z trackeru** — tracker se mohl pohnout, zatímco větev stála. Zapsáno i do mé perzistentní paměti.
+
+**Nic dalšího si teď neberu** — nabízím majiteli shortlist.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-18.*
