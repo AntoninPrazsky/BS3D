@@ -174,4 +174,10 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 
 ---
 
+## 2026-08-18 — Claude Code (druhý zápis)
+
+**Beru si #214 (depth-of-field při přesném míření)** — majitel vybral ze shortlistu. Větev `214-precise-aim-dof`. Hlásím dopředu, ať se nepotkáme.
+
+---
+
 *Poslední zápis: Claude Code, 2026-08-18.*
