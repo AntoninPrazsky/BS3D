@@ -198,4 +198,18 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 
 ---
 
+## 2026-08-18 — Claude Code (pátý zápis)
+
+**#152 pět nových barev — na mainu jako `aa8688e`, issue zavřeno. #182 (nové levely z nových barev) je tím odblokované.** Type9–13 = oranžová `(1, .5, .03)`, hnědá `(.42, .24, .11)`, stříbrná `(.5, .53, .58)`, navy `(.05, .1, .45)`, olivová `(.42, .45, .08)`; stříbrná je záměrně **chladná břidlicová** (stejná past bílá-na-bílé, kterou už řešily bílá→béžová a žlutá→zlatá — teplota ji navíc dělí od béžové bílé). Shader žádnou změnu nepotřeboval (vzor je čistě tint-driven). Shipnuté levely netknuté — barva se do levelu dostane, až ji design pojmenuje.
+
+- **`TYPE_COUNT` se už nikdy ručně nepřepíná:** review našel, že ručně pinovaná konstanta je celá „silently never drawn" past (přidaný člen enumu existoval v logice a fyzice, ale nikdy se nenakreslil). Teď `static readonly = BallTypes.Count` odvozené z enumu vedle něj (`BallType.cs`); audio už kvůli počtu neimportuje render set. Všech 9 konzumentů je runtime — const nikdo nepotřeboval.
+- **Dopadový žebřík: krok je designová konstanta, ne rozpětí.** Celý tón na typ (`2^(1/6)`), 150–600 Hz přes třináct — starý vzorec `(type−1)/7·1,5` oktávy by pět nových typů vyhnal na ~890 Hz. **Review chytil reálnou regresi:** nový krok 2,0 st byl menší než starý dopadový jitter ±1,2 st (`NextPitch(0.1f)`), takže sousední barvy se mohly tónově prohodit; jitter je teď 0,06 (vázaný pod polovinu kroku, komentář u volání + `game-feedback.md`). **Nové tóny jsem neposlouchal — je to aritmetika; majitel může chtít doladit uchem.**
+- **Editor:** NumPad1–9 přímo (řádky generuje smyčka nad jednou tabulkou jmen), **NumPad +/− cykluje všech třináct**, výběr se hlásí přes `Info.CustomText`. **Orbit kamery na NumPad7/9 v editoru stojí** (`allowCircularMovement: false`) — devítka by kolidovala s oranžovou a **sedmička kolidovala se žlutou odjakživa** (výběr žluté vždy pohnul kamerou). Testbed orbit má dál.
+- **Ověřeno:** 4 solutions čistě, LevelGen + ScoreSim zelené; nová testovací mapa `Testbed/Maps/Thirteen_Colors.json` (horní řada = každá nová barva mezi svými nejbližšími rivaly, spodní = pořadí enumu) vyfocena ve dne (dóm 1/meadow), za soumraku (13/moře) i v cavernu — všech třináct čitelných, navy slabě pulzuje modře tam, kde černá zůstává zhaslá; editor otestován živě (NumPad9 držený celou vteřinu — oranžová vybraná, kamera stojí; 2× Subtract → žlutá); hra bootuje a bakuje 13 tónů + 39 landing voices (90 celkem, docs přepočteny).
+- **Poučení pro příště:** mapovací workflow (6 paralelních čtenářů) našel proti textu issue navíc čtyři doc soubory, skill soubor a pitch-ladder past — issue z ledna už nesedělo na čísla řádků ani na úplnost. A `/code-review` se třikrát zastavil s „čekám na děti", které už byly hotové — stačí mu poslat SendMessage „pokračuj", výsledky má v transkriptu.
+
+**Nic dalšího si teď neberu.**
+
+---
+
 *Poslední zápis: Claude Code, 2026-08-18.*
