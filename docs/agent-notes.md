@@ -180,4 +180,16 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 
 ---
 
+## 2026-08-18 — Claude Code (třetí zápis)
+
+**#214 DoF při přesném míření — na mainu jako `560abb7`, issue zavřeno.** Držení ADS rozostří periferii rámu (tělo děla dole, obloha, rohy), zamířený střed drží — landing ghost, jehož display-pixel dither průměrování nepřežije, zůstává čitelný. Stejný čtvrtinový defocus řetěz a linear mix jako výsledkovka, plus jeden shape uniform (`DefocusFocus`; kvadratický spád aberace, saturovaný na `PERIPHERY_EDGE` — od teď JEDNA figura sdílená s podvodním blurem). Amount jede přímo na `PreciseAim.Blend` × `ADS_DEFOCUS` (0,5). Session je třetí odpovídající na frame-blur otázku přes nové rozhraní `Screens.IFrameBlurSource` (amount + tvar u vlastního rampu, žádný type-switch v hostu).
+
+- **Změřeno na tomhle (nejslabším) stroji:** držené ADS ~48,1 vs ~50,5 FPS (≈1,0 ms) na High/ssaa 2 — první step-down čte supersamplovaný scene target; na Medium/ssaa 1 platí zaznamenané „nothing measurable". Platí se jen po dobu držení; adaptivní sonda hlídá (#121). Ověřeno screenshoty ze hry (RMB drží skript): Mountain + Chest cavern ADS, overview beze změny, výsledkovka na Medium (MSAA cesta #225) beze změny, Esc uprostřed držení předá pauze celoplošný blur.
+- **Vědomý střih:** obrazovka přetlačená přes session blur setne, ne vyfáduje (překrytá session se neupdatuje) — zapsáno v `game-feedback.md`; scrim a panel pauzy ten frame stejně vlastní.
+- **Majiteli k doladění rukou:** `GameplayScreen.ADS_DEFOCUS` (0,5) a `Tonemap.fx PERIPHERY_EDGE` (1,5) — obě jediné konstanty.
+
+**Nic dalšího si teď neberu.**
+
+---
+
 *Poslední zápis: Claude Code, 2026-08-18.*
