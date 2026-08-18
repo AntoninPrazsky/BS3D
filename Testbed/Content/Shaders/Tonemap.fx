@@ -87,13 +87,23 @@ float3 UnderwaterInscatter;   //linear add: the ambient water glow, so the murk 
 //the corners. Resolution-independent, so the blur looks the same at 720p and 4K.
 static const float UNDERWATER_BLUR_RADIUS = 0.014;
 
-//The end-of-level defocus: a heavily blurred copy of this very scene, built by the pipeline out of the
+//The defocus: a heavily blurred copy of this very scene, built by the pipeline out of the
 //target this pass reads (PostProcessPipeline.DrawDefocus) at a quarter of the back buffer per axis. So it
 //is the same light, and it is mixed in HERE - in linear radiance, before the curve - which is the whole
 //reason a blurred firework stays a glowing orb: averaging tonemapped pixels would spread a spark's clipped
 //white into the dark around it and give a grey smudge. The glare is added AFTER, so bright things go on
 //blooming through a frame that has gone soft. Zero disables the effect and its branch.
 float DefocusAmount;
+
+//How much the defocus is bent into a LENS instead of a wash: 0 = the whole frame takes DefocusAmount
+//alike (the result page and the pause, where nothing in the scene is being read), 1 = precise aim's
+//periphery-only falloff (#214) - zero dead centre and growing with the SQUARE of the distance, exactly
+//the aberration's rule and for the same reason: the centre of the frame is where the aimed cluster and
+//its landing ghost live, and the ghost's display-pixel dissolve dither does not survive being averaged.
+//The falloff shares the underwater blur's edge figure below, both being the same statement about where
+//a lens goes soft.
+float DefocusFocus;
+static const float DEFOCUS_FOCUS_EDGE = 1.5;
 texture DefocusTexture;
 sampler2D DefocusSampler = sampler_state
 {
@@ -308,10 +318,17 @@ float4 MainPS(VertexShaderOutput input) : COLOR
 	//The defocus (see the uniforms), over the sharp frame. What GROWS with the effect is the blurred copy's
 	//own radius; this is only how much of it shows, and the pipeline has it reach 1 early - so what the eye
 	//follows from there is one image going soft rather than two images crossfading. Branch on a uniform, so
-	//the whole frame takes the same path and it costs nothing in play; tex2Dlod for the reason above.
+	//the whole frame takes the same path and an unblurred frame costs nothing; tex2Dlod for the reason above.
 	[branch]
 	if (DefocusAmount > 0.0)
-		color = lerp(color, tex2Dlod(DefocusSampler, float4(input.TexCoord, 0, 0)).rgb, DefocusAmount);
+	{
+		//DefocusFocus (see its declaration) holds the centre of the frame in focus for precise aim; at 0
+		//the lerp is the identity and the whole frame takes DefocusAmount, exactly as before #214
+		float edge = saturate(length(input.TexCoord - 0.5) * DEFOCUS_FOCUS_EDGE);
+		float blend = DefocusAmount * lerp(1.0, edge * edge, DefocusFocus);
+
+		color = lerp(color, tex2Dlod(DefocusSampler, float4(input.TexCoord, 0, 0)).rgb, blend);
+	}
 
 	//Glare goes in here, in linear light and before the curve. Added after the curve it would look like
 	//a decal; added here it pushes the pixels it lands on up the highlight roll-off, so a glaring ball

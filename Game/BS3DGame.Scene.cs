@@ -555,14 +555,23 @@ namespace BS3D
             //were already two.
             float underwater = _sceneRenderer.LensSubmergedAmount(_scene, _camera.Position);
 
-            //And how far the frame has gone out of focus, which is the active PAGE's answer and nobody else's
-            //(MenuPage.FrameBlur — only the result screen ever gives one). Asked here rather than tracked in a
-            //field of this class: the ramp belongs to the page whose moment it is, and that page is also the
-            //only screen still being updated while it runs. The foreground layer goes in with it — not for
-            //the defocus, which never sees it, but for the glare, whose pyramid it still feeds.
-            float defocus = _screens.Active is Screens.MenuPage page ? page.FrameBlur : 0f;
+            //And how far the frame has gone out of focus, which is the ACTIVE screen's answer and nobody
+            //else's. Asked here rather than tracked in a field of this class: the ramp belongs to the screen
+            //whose moment it is, and that screen is also the only one still being updated while it runs. A
+            //page blurs the whole frame (MenuPage.FrameBlur — the result screen and the pause); the session
+            //blurs only the periphery, precise aim's lens holding the aimed centre in focus (#214,
+            //GameplayScreen.FrameDefocus — the shape is the resolve's defocusFocus). The foreground layer
+            //goes in with it — not for the defocus, which never sees it, but for the glare, whose pyramid it
+            //still feeds.
+            float defocus, defocusFocus;
+            switch (_screens.Active)
+            {
+                case Screens.MenuPage page: defocus = page.FrameBlur; defocusFocus = 0f; break;
+                case Screens.GameplayScreen play: defocus = play.FrameDefocus; defocusFocus = 1f; break;
+                default: defocus = 0f; defocusFocus = 0f; break;
+            }
 
-            _pipeline.Resolve(_wallClock, underwater, defocus, foreground);
+            _pipeline.Resolve(_wallClock, underwater, defocus, defocusFocus, foreground);
 
             //And the cup back on top of the resolved frame, in display space now but through the same curve,
             //so the only difference from its old life inside the HDR pass is that the defocus stopped

@@ -128,6 +128,22 @@ namespace BS3D.Screens
         private readonly PreciseAim _preciseAim = new();
         private bool _adsHeld;
 
+        //Peak defocus amount at a full lean (#214) — what the periphery reaches while the frame's centre is
+        //held in focus by the shape (PostProcessPipeline.Resolve's defocusFocus; the falloff itself lives in
+        //Tonemap.fx). Well under the result page's 1: at 1 the edges are a field of colour and glow, which is
+        //a page over a finished level, not a lens being aimed — ADS is a lean-in, not a scope, and its blur
+        //has to match that restraint. The blur's radius scales with this too, not only its mix.
+        private const float ADS_DEFOCUS = 0.5f;
+
+        /// <summary>
+        /// How far this frame has gone out of focus for precise aim, 0 to <see cref="ADS_DEFOCUS"/> — the
+        /// session's answer to the same question <c>MenuPage.FrameBlur</c> answers for a page, asked by
+        /// <see cref="BS3DGame.FinishSceneDraw"/> when this screen is the active one. It rides the ADS
+        /// blend directly: the lean and the focus are one gesture, they land and release together, and every
+        /// gate that clears the lean (a cinematic, a covering screen, a lost window) clears the blur with it.
+        /// </summary>
+        internal float FrameDefocus => _preciseAim.Blend * ADS_DEFOCUS;
+
         #endregion
 
         #region The in-play HUD (display space, after the resolve)
