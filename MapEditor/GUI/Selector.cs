@@ -46,7 +46,6 @@ namespace MapEditor.GUI
         public void ChangeBallType(BallType ballType)
         {
             _ActiveBallType = ballType;
-            Console.WriteLine($"Ball type set to: {ballType.ToString()}");
         }
 
         public void RemoveBall()

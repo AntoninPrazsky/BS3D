@@ -21,6 +21,7 @@ using MyraPropertyGrid = Myra.Graphics2D.UI.Properties.PropertyGrid;
 using MyraLabel = Myra.Graphics2D.UI.Label;
 using MyraHAlign = Myra.Graphics2D.UI.HorizontalAlignment;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -228,7 +229,7 @@ namespace MapEditor
 
             #region Controls
 
-            _actions = new ButtonAction[]
+            var actions = new List<ButtonAction>
             {
                 new(mgKeys.Up, Buttons.DPadUp, () => _selector.Move(Vector3.Forward), "Move selector forward"),
                 new(mgKeys.Down, Buttons.DPadDown,() => _selector.Move(Vector3.Backward), "Move selector backward"),
@@ -240,15 +241,20 @@ namespace MapEditor
                 new(mgKeys.Space, Buttons.A,() => _selector.PutBall(), "Put ball"),
                 new(mgKeys.Delete, Buttons.B,() => _selector.RemoveBall(), "Remove ball"),
 
-                new(mgKeys.NumPad1,() => SetBallType(BallType.Type1), $"Change ball type to 1 ({BALL_TYPE_NAMES[0]})"),
-                new(mgKeys.NumPad2,() => SetBallType(BallType.Type2), $"Change ball type to 2 ({BALL_TYPE_NAMES[1]})"),
-                new(mgKeys.NumPad3,() => SetBallType(BallType.Type3), $"Change ball type to 3 ({BALL_TYPE_NAMES[2]})"),
-				new(mgKeys.NumPad4,() => SetBallType(BallType.Type4), $"Change ball type to 4 ({BALL_TYPE_NAMES[3]})"),
-                new(mgKeys.NumPad5,() => SetBallType(BallType.Type5), $"Change ball type to 5 ({BALL_TYPE_NAMES[4]})"),
-                new(mgKeys.NumPad6,() => SetBallType(BallType.Type6), $"Change ball type to 6 ({BALL_TYPE_NAMES[5]})"),
-                new(mgKeys.NumPad7,() => SetBallType(BallType.Type7), $"Change ball type to 7 ({BALL_TYPE_NAMES[6]})"),
-                new(mgKeys.NumPad8,() => SetBallType(BallType.Type8), $"Change ball type to 8 ({BALL_TYPE_NAMES[7]})"),
-                new(mgKeys.NumPad9,() => SetBallType(BallType.Type9), $"Change ball type to 9 ({BALL_TYPE_NAMES[8]})"),
+            };
+
+            //One row per direct-key colour: NumPad1..NumPad9 and Type1..Type9 are both consecutive values,
+            //so the nine bindings are one loop over the name table rather than nine rows whose three digits
+            //(key, type, name index) would have to be kept agreeing by hand.
+            for (int i = 0; i < 9; i++)
+            {
+                BallType type = (BallType)(i + 1);
+                actions.Add(new((mgKeys)((int)mgKeys.NumPad1 + i), () => SetBallType(type),
+                    $"Change ball type to {(int)type} ({BALL_TYPE_NAMES[i]})"));
+            }
+
+            actions.AddRange(new ButtonAction[]
+            {
                 //Thirteen types outgrew the numpad's digits (#152): brown, silver, navy and olive have no
                 //direct key and are reached by cycling. The wrap makes the two keys a complete picker on
                 //their own; the digits above stay as shortcuts into the first nine.
@@ -279,7 +285,9 @@ namespace MapEditor
                 new(mgKeys.F2, LoadJson, "Load map or level from file (JSON)"),
                 new(mgKeys.F3, NewMap, "New map (choose play field size)"),
                 new(mgKeys.F4, SaveLevel, "Save level: map + current scene + sky (JSON)"),
-            };
+            });
+
+            _actions = actions.ToArray();
 
             StringBuilder builder = new();
             foreach (var act in _actions) builder.Append(string.Format("{0,-9} {1}\n", act.Key.ToString(), act.Description));
@@ -303,13 +311,18 @@ namespace MapEditor
         private void SetBallType(BallType type)
         {
             _selector.ChangeBallType(type);
-            Info.CustomText = $"Ball type {(int)type} ({BALL_TYPE_NAMES[(int)type - 1]})";
+
+            //The fallback keeps a keypress from crashing the editor when BallType has grown a member whose
+            //name row is not here yet — the cycle reaches every enum value the moment the enum has it
+            int index = (int)type - 1;
+            string name = index < BALL_TYPE_NAMES.Length ? BALL_TYPE_NAMES[index] : type.ToString();
+            Info.CustomText = $"Ball type {(int)type} ({name})";
         }
 
         private void CycleBallType(int step)
         {
-            //The +TYPE_COUNT keeps the modulo positive when stepping back off type 1
-            int index = ((int)_selector.ActiveBallType - 1 + step + BallRenderSet.TYPE_COUNT) % BallRenderSet.TYPE_COUNT;
+            //The +Count keeps the modulo positive when stepping back off type 1
+            int index = ((int)_selector.ActiveBallType - 1 + step + BallTypes.Count) % BallTypes.Count;
             SetBallType((BallType)(index + 1));
         }
 
@@ -612,7 +625,10 @@ namespace MapEditor
             if (!guiHasKeyboard)
                 foreach (var action in _actions) if (_cih.PressedOnce(action.Key, action.Button)) action.Method();
 
-            if (!guiHasKeyboard && !guiHasMouse) _cih.CameraMovement(gameTime);
+            //No circular camera movement: its NumPad7/9 orbit keys are ball types here (7 recoloured the
+            //selector on every orbit press long before #152 put orange on 9). Mouse rotation and D1-D6 views
+            //cover what the orbit did.
+            if (!guiHasKeyboard && !guiHasMouse) _cih.CameraMovement(gameTime, allowCircularMovement: false);
             _cih.RegisterPreviousInputState();
             
             _cih.Update(gameTime);

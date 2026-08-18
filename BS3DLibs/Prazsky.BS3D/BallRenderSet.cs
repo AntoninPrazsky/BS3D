@@ -67,12 +67,13 @@ namespace Prazsky.BS3D
         /// <summary>
         /// How many ball colours there are: red/green/blue/white plus cyan/magenta/yellow/black, and since
         /// #152 orange/brown/silver/navy/olive. It sizes the instance buckets, bounds the draw walk, and is
-        /// what a caller counting balls per colour wants (the Game's live census). <c>const</c>, because an
-        /// enum cast is a constant expression and callers size arrays with it — which is also why it must be
-        /// repointed whenever <see cref="BallType"/> gains a last member, or the new colours exist in logic
-        /// and physics but are silently never drawn.
+        /// what a caller counting balls per colour wants (the Game's live census). The count itself is
+        /// <see cref="BallTypes.Count"/>, derived from the enum — this used to be a hand-pinned
+        /// <c>const (int)BallType.Type8</c>, and a member added without repointing it existed in logic and
+        /// physics but was silently never drawn. Every consumer sizes, bounds or wraps at runtime, so
+        /// nothing needed the compile-time constant.
         /// </summary>
-        public const int TYPE_COUNT = (int)BallType.Type13;
+        public static readonly int TYPE_COUNT = BallTypes.Count;
 
         /// <summary>
         /// The drawn radius. The same <see cref="Constants.HALF"/> that

@@ -1,4 +1,6 @@
-﻿namespace Prazsky.BS3D.GameStructure
+﻿using System;
+
+namespace Prazsky.BS3D.GameStructure
 {
     public enum BallType : byte
     {
@@ -22,5 +24,16 @@
 
         // The colours live in BasicEffectParamsProvider (GetDiffuseTintByType / GetEffectByType); value 0 is
         // unused (empty cells are null, not a type). Serialized as the raw byte, so a map keeps its colours.
+    }
+
+    /// <summary>
+    /// The one count of how many ball colours there are, derived from the enum itself so a new member can
+    /// never be forgotten by a copy (#152 found the count hand-pinned in the render set, where a member
+    /// added without repointing it existed in logic and physics but was silently never drawn). The values
+    /// are contiguous from 1, so the member count is also the highest value.
+    /// </summary>
+    public static class BallTypes
+    {
+        public static readonly int Count = Enum.GetValues<BallType>().Length;
     }
 }
