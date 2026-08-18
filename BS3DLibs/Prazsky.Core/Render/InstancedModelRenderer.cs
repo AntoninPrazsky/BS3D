@@ -81,9 +81,6 @@ namespace Prazsky.Core.Render
         private EffectParameter _rippleStrengthParam;
         private EffectParameter _rippleAlarmColorParam;
         private EffectParameter _emissiveTintParam;
-        private EffectParameter _plateEdgeFadeParam;
-        private EffectParameter _plateHalfExtentParam;
-        private EffectParameter _plateEdgeBandParam;
         private EffectParameter _dirLight0DiffuseParam;
         private EffectParameter _dirLight0SpecularParam;
         private EffectParameter _dirLight1DiffuseParam;
@@ -402,21 +399,6 @@ namespace Prazsky.Core.Render
         public Vector3 EmissiveTint { get; set; }
 
         /// <summary>
-        /// The ceiling plate's edge fade (#156): 0 (the default) leaves a surface solid to its edges; positive
-        /// fades this surface's glass to nothing towards the box's XZ rim, so the ceiling plate's straight
-        /// rectangular silhouette does not show as a hard shape where no sky dome sits behind it (the four
-        /// ReplacesSky scenes). Only <see cref="CeilingPlate"/> turns it on; every other renderer leaves it 0,
-        /// so the shader branch skips it and no plate figure leaks onto the next draw. Needs <see cref="PlateHalfExtent"/>.
-        /// </summary>
-        public float PlateEdgeFade { get; set; }
-
-        /// <summary>The box's object-space XZ half-size, so the edge fade knows where its rim is. See <see cref="PlateEdgeFade"/>.</summary>
-        public Vector2 PlateHalfExtent { get; set; }
-
-        /// <summary>Fraction of the half-extent over which the glass fades out at the rim. See <see cref="PlateEdgeFade"/>.</summary>
-        public float PlateEdgeBand { get; set; }
-
-        /// <summary>
         /// Sky color of the hemisphere ambient light (received by upward-facing surfaces), in
         /// <b>linear</b> radiance — see <see cref="ColorSpace"/>. It is also the environment the
         /// specular ambient reflects, so it is not clamped to 1: a bright sky legitimately exceeds white.
@@ -587,9 +569,6 @@ namespace Prazsky.Core.Render
             _metalnessParam = _effect.Parameters["Metalness"];
             _specularAlphaWeightParam = _effect.Parameters["SpecularAlphaWeight"];
             _emissiveTintParam = _effect.Parameters["EmissiveTint"];
-            _plateEdgeFadeParam = _effect.Parameters["PlateEdgeFade"];
-            _plateHalfExtentParam = _effect.Parameters["PlateHalfExtent"];
-            _plateEdgeBandParam = _effect.Parameters["PlateEdgeBand"];
             _surfaceReliefFrequencyParam = _effect.Parameters["SurfaceReliefFrequency"];
             _patternPrimaryColorParam = _effect.Parameters["PatternPrimaryColor"];
             _patternSecondaryColorParam = _effect.Parameters["PatternSecondaryColor"];
@@ -797,13 +776,6 @@ namespace Prazsky.Core.Render
             //Unconditionally, for Metalness's reason: a glow left over from the renderer drawn before this one
             //would set the next surface alight
             _emissiveTintParam.SetValue(EmissiveTint);
-
-            //The ceiling plate's edge fade, unconditional for the same reason: a fade left standing on the
-            //shared effect would eat the rim of every surface drawn after the plate. 0 on every renderer but
-            //the plate, so the shader branch skips it (#156).
-            _plateEdgeFadeParam.SetValue(PlateEdgeFade);
-            _plateHalfExtentParam.SetValue(PlateHalfExtent);
-            _plateEdgeBandParam.SetValue(PlateEdgeBand);
 
             for (int i = 0; i < _parts.Length; i++)
             {
