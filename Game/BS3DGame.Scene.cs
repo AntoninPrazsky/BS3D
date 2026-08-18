@@ -555,14 +555,20 @@ namespace BS3D
             //were already two.
             float underwater = _sceneRenderer.LensSubmergedAmount(_scene, _camera.Position);
 
-            //And how far the frame has gone out of focus, which is the active PAGE's answer and nobody else's
-            //(MenuPage.FrameBlur — only the result screen ever gives one). Asked here rather than tracked in a
-            //field of this class: the ramp belongs to the page whose moment it is, and that page is also the
-            //only screen still being updated while it runs. The foreground layer goes in with it — not for
-            //the defocus, which never sees it, but for the glare, whose pyramid it still feeds.
-            float defocus = _screens.Active is Screens.MenuPage page ? page.FrameBlur : 0f;
+            //And how far the frame has gone out of focus — the ACTIVE screen's answer and nobody else's,
+            //amount and shape together (Screens.IFrameBlurSource: a page blurs the whole frame, the session
+            //blurs precise aim's periphery only, #214). Asked here rather than tracked in a field of this
+            //class: the ramp belongs to the screen whose moment it is, and that screen is also the only one
+            //still being updated while it runs. The foreground layer goes in with it — not for the defocus,
+            //which never sees it, but for the glare, whose pyramid it still feeds.
+            float defocus = 0f, defocusFocus = 0f;
+            if (_screens.Active is Screens.IFrameBlurSource focusSource)
+            {
+                defocus = focusSource.FrameBlur;
+                defocusFocus = focusSource.FrameBlurFocus;
+            }
 
-            _pipeline.Resolve(_wallClock, underwater, defocus, foreground);
+            _pipeline.Resolve(_wallClock, underwater, defocus, defocusFocus, foreground);
 
             //And the cup back on top of the resolved frame, in display space now but through the same curve,
             //so the only difference from its old life inside the HDR pass is that the defocus stopped

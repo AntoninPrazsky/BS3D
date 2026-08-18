@@ -61,7 +61,7 @@ namespace BS3D.Screens
     /// ripple is the nearest.
     /// </para>
     /// </summary>
-    internal sealed partial class GameplayScreen : Screen
+    internal sealed partial class GameplayScreen : Screen, IFrameBlurSource
     {
         private readonly BS3DGame Game;
 
@@ -127,6 +127,24 @@ namespace BS3D.Screens
         //the lean eases out rather than dropping.
         private readonly PreciseAim _preciseAim = new();
         private bool _adsHeld;
+
+        //Peak defocus amount at a full lean (#214) — what the periphery reaches while the frame's centre is
+        //held in focus by the shape (PostProcessPipeline.Resolve's defocusFocus; the falloff itself lives in
+        //Tonemap.fx). Well under the result page's 1: at 1 the edges are a field of colour and glow, which is
+        //a page over a finished level, not a lens being aimed — ADS is a lean-in, not a scope, and its blur
+        //has to match that restraint. The blur's radius scales with this too, not only its mix.
+        private const float ADS_DEFOCUS = 0.5f;
+
+        //The session's IFrameBlurSource answer — the same question MenuPage.FrameBlur answers for a page,
+        //asked by BS3DGame.FinishSceneDraw while this screen is the active one. The amount rides the ADS
+        //blend directly: the lean and the focus are one gesture, they land and release together, and the
+        //gates that clear the lean while this screen stays active (a cinematic, a lost window) take the
+        //blur out with it on the blend's own ease. A screen pushed OVER this one is the exception — a
+        //covered session stops updating, so its answer simply stops being asked and the incoming page's
+        //ramp starts from sharp (see "The end of a level goes out of focus" in docs/game-feedback.md).
+        //The shape is 1: precise aim's periphery-only lens, the aimed centre held in focus.
+        float IFrameBlurSource.FrameBlur => _preciseAim.Blend * ADS_DEFOCUS;
+        float IFrameBlurSource.FrameBlurFocus => 1f;
 
         #endregion
 

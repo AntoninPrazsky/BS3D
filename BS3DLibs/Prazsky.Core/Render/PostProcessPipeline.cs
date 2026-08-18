@@ -129,6 +129,7 @@ namespace Prazsky.Core.Render
         private readonly EffectParameter _blurStepParam;
         private readonly EffectParameter _tonemapDefocusTextureParam;
         private readonly EffectParameter _tonemapDefocusAmountParam;
+        private readonly EffectParameter _tonemapDefocusFocusParam;
         private readonly EffectParameter _tonemapForegroundTextureParam;
         private readonly EffectParameter _tonemapGlareTextureParam;
         private readonly EffectParameter _tonemapGlareIntensityParam;
@@ -150,9 +151,16 @@ namespace Prazsky.Core.Render
         private int _supersampleFactor = 1;
 
         //What the tonemap was last told the defocus mix is. Held so the uniform is written on the frames it
-        //actually moves — which in play is none of them, the effect being off — per the caching discipline in
-        //BestPractices.md. The starting value is the zero the constructor sends.
+        //actually moves, per the caching discipline in BestPractices.md: a frame with no blur up — most of
+        //play — sends nothing, and a held precise aim (#214, the one in-play caller) settles at its peak and
+        //stops writing too; only the eases in between move it. The starting value is the zero the
+        //constructor sends.
         private float _defocusMix;
+
+        //And what it was last told the focus shape is (see Resolve's defocusFocus), held for the same reason:
+        //the figure moves only when the frame's answerer changes — a page's whole-frame blur against precise
+        //aim's periphery-only one — which is a handful of frames per session.
+        private float _defocusFocus;
 
         //The composite's blend: the foreground layer rides PREMULTIPLIED alpha (an opaque write's colour is
         //its full colour whatever partial coverage antialiasing left the sample), so covering the frame is
@@ -184,6 +192,7 @@ namespace Prazsky.Core.Render
             _blurStepParam = glareEffect.Parameters["BlurStep"];
             _tonemapDefocusTextureParam = tonemapEffect.Parameters["DefocusTexture"];
             _tonemapDefocusAmountParam = tonemapEffect.Parameters["DefocusAmount"];
+            _tonemapDefocusFocusParam = tonemapEffect.Parameters["DefocusFocus"];
             _tonemapForegroundTextureParam = tonemapEffect.Parameters["ForegroundTexture"];
             _tonemapGlareTextureParam = tonemapEffect.Parameters["GlareTexture"];
             _tonemapGlareIntensityParam = tonemapEffect.Parameters["GlareIntensity"];
@@ -202,10 +211,11 @@ namespace Prazsky.Core.Render
             tonemapEffect.Parameters["UnderwaterInscatter"].SetValue(UNDERWATER_INSCATTER);
             _tonemapUnderwaterAmountParam.SetValue(0f);
 
-            //And the defocus starts off. Stated rather than assumed: an unwritten uniform is whatever the
-            //compiled constant buffer happens to hold, and the one it gates is a texture that does not exist
-            //yet — the chain is not built until something first asks to blur.
+            //And the defocus starts off, whole-frame shaped. Stated rather than assumed: an unwritten uniform
+            //is whatever the compiled constant buffer happens to hold, and the one it gates is a texture that
+            //does not exist yet — the chain is not built until something first asks to blur.
             _tonemapDefocusAmountParam.SetValue(0f);
+            _tonemapDefocusFocusParam.SetValue(0f);
 
             CreateFullScreenQuad();
         }
@@ -370,12 +380,18 @@ namespace Prazsky.Core.Render
         /// <param name="defocusAmount">How far the frame has gone out of focus, 0–1; zero is a no-op in the
         /// shader and skips the blur's passes entirely, so a frame that is not blurring pays nothing. Whose
         /// moment it is and how it is timed stays with the caller — see the DEFOCUS block at the top.</param>
+        /// <param name="defocusFocus">How much the blur is bent into a lens instead of a wash, 0–1: at 0 the
+        /// whole frame takes <paramref name="defocusAmount"/> alike (the result page and the pause), at 1 the
+        /// mix is zero dead centre and grows with the square of the distance out to the frame's edge —
+        /// precise aim's shape (#214), which softens the gun's near body and the sky while the aimed cluster
+        /// and its landing ghost stay perfectly registered. Which shape a moment wants belongs to the caller,
+        /// like the amount itself; meaningless while the amount is zero.</param>
         /// <param name="foreground">The sharp foreground layer this frame's <see cref="ForegroundTarget"/>
         /// holds, or null when nothing is being presented. Not the defocus's business — the layer is never
         /// in the scene the blur reads — but the glare's: the pass below feeds the layer's own bright pass
         /// into the bloom pyramid, so the object keeps the glints it was lit for. Null, which is every
         /// frame of every executable but one page of the game's, skips it and costs nothing.</param>
-        public void Resolve(float clockSeconds, float underwaterAmount, float defocusAmount, Texture2D foreground = null)
+        public void Resolve(float clockSeconds, float underwaterAmount, float defocusAmount, float defocusFocus = 0f, Texture2D foreground = null)
         {
             //Before the glare, though either order would do: both read the scene target and neither writes
             //the other's, and all that is required of both is that they run while the back buffer is still
@@ -410,6 +426,15 @@ namespace Prazsky.Core.Render
             {
                 _defocusMix = defocusMix;
                 _tonemapDefocusAmountParam.SetValue(defocusMix);
+            }
+
+            //The shape moves only when the answerer changes (a page's whole-frame wash against precise aim's
+            //periphery-only lens), so it is written the same way. Left as last told while the amount is zero:
+            //the shader never reads it behind a zero amount's branch.
+            if (defocusAmount > 0f && defocusFocus != _defocusFocus)
+            {
+                _defocusFocus = defocusFocus;
+                _tonemapDefocusFocusParam.SetValue(defocusFocus);
             }
 
             _device.BlendState = BlendState.Opaque;
