@@ -113,6 +113,16 @@ namespace BS3D.Screens
         internal virtual void NavFocusChanged(Button focused) { }
 
         /// <summary>
+        /// The brush a <b>resting</b> entry on this page is painted with — the one the host's
+        /// <c>ApplyNavHighlight</c> rests every unfocused entry to. It has to be asked here rather than assumed,
+        /// because that highlight repaints each entry's background every pass and would otherwise paint the one
+        /// shared grey over any page that wanted something else. The front end overrides it to almost nothing —
+        /// its entries are large unplated Anton that carries itself like the title beside it — where every other
+        /// page keeps <see cref="BS3DGame.MENU_BUTTON_BRUSH"/>, the slab a control needs to read as one on a plate.
+        /// </summary>
+        internal virtual IBrush EntryRestBrush => BS3DGame.MENU_BUTTON_BRUSH;
+
+        /// <summary>
         /// Whether this page dims the frame behind it. A pause dims hard, because what is behind it is a
         /// stopped game; the front end does not dim at all, because the rotating scene is the point of that
         /// screen. A page shared between the two — settings, scene, about — asks the <b>stack</b> whether a
