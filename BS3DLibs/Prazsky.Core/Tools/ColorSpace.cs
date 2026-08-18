@@ -30,6 +30,17 @@ namespace Prazsky.Core.Tools
         public static Vector3 LinearToSrgb(Vector3 color) =>
             new(LinearToSrgb(color.X), LinearToSrgb(color.Y), LinearToSrgb(color.Z));
 
+        /// <summary>
+        /// Luminance of a <b>linear-radiance</b> color, Rec. 709 weights — how bright the colour reads,
+        /// as one figure. This is the repo's weighting for linear values everywhere it takes one (the
+        /// forest's pigment shift, Tonemap.fx, Outback.fx); it was written out inline at each site until
+        /// #156 added a third copy and made it a helper. Rec. 601 appears once in the codebase and on a
+        /// different domain (an sRGB-authored material diffuse, <c>InstancedModelRenderer</c>'s pattern
+        /// tint) — do not unify that one into this.
+        /// </summary>
+        public static float Luminance(Vector3 linear) =>
+            linear.X * 0.2126f + linear.Y * 0.7152f + linear.Z * 0.0722f;
+
         public static float LinearToSrgb(float channel) =>
             channel <= 0.0031308f ? channel * 12.92f : 1.055f * MathF.Pow(channel, 1f / 2.4f) - 0.055f;
     }

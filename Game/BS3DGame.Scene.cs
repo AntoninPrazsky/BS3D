@@ -276,10 +276,9 @@ namespace BS3D
 
             foreach (InstancedModelRenderer renderer in SkyLitRenderers()) _rig.ApplyTo(renderer);
 
-            //The ceiling glass hangs against the sky itself, so it takes the glass push — the directional
-            //lights scaled by the sky's own brightness, which is what keeps the plate from standing as a
-            //sunlit slab over a dark backdrop (#156, SkyLightRig.ApplyToGlass). Null through a level load's
-            //refit window; the push tolerates it, and the session re-runs this once the plate is refitted.
+            //The glass push (SkyLightRig.ApplyToGlass holds the why — the plate stands against the sky,
+            //#156). Null through a level load's refit window; the push tolerates it, and the session
+            //re-runs this once the plate is refitted.
             _rig.ApplyToGlass(_ceilingPlate.Renderer);
 
             //And the wood's own pigments, which the rig above cannot reach — see ForestScatterRenderer.

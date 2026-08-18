@@ -242,10 +242,11 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Sky-ambient luminance (Rec. 601, in linear radiance) at and above which glass standing against the
-        /// sky keeps the full three-light rig — about what a daylight dome's zenith derives to, so the day
-        /// scenes are untouched by <see cref="ApplyToGlass"/>. The sky-replacing scenes' stated rigs sit near
-        /// a fifth of it and the Moon's near a seventh, which is what actually dims their glass.
+        /// Sky-ambient luminance (<see cref="ColorSpace.Luminance"/>, in linear radiance) at and above which
+        /// glass standing against the sky keeps the full three-light rig — about what a daylight dome's
+        /// zenith derives to, so the day scenes are untouched by <see cref="ApplyToGlass"/>. The
+        /// sky-replacing scenes' stated rigs sit near a fifth of it and the Moon's near a seventh, which is
+        /// what actually dims their glass.
         /// </summary>
         private const float GLASS_FULL_RIG_LUMINANCE = 0.25f;
 
@@ -283,11 +284,8 @@ namespace Prazsky.Core.Render
 
             ApplyTo(renderer);
 
-            //Rec. 601 luma, the repo's own figure for "how bright does this colour read" (the balls' pattern
-            //tint uses the same weights); the ambient is linear radiance, so this is a luminance.
-            float skyLuminance = SkyAmbient.X * 0.299f + SkyAmbient.Y * 0.587f + SkyAmbient.Z * 0.114f;
-
-            renderer.DirLightStrength = MathF.Min(1f, skyLuminance / GLASS_FULL_RIG_LUMINANCE);
+            renderer.DirLightStrength =
+                MathF.Min(1f, ColorSpace.Luminance(SkyAmbient) / GLASS_FULL_RIG_LUMINANCE);
         }
 
         /// <summary>

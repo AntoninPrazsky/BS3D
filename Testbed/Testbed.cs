@@ -791,9 +791,7 @@ namespace Testbed
             _rig.SetSky(_sky, _scene);
             _rig.ApplyTo(SkyLitRenderers());
 
-            //The ceiling glass hangs against the sky itself, so it takes the glass push — the directional
-            //lights scaled by the sky's own brightness, which is what keeps the plate from standing as a
-            //sunlit slab over a dark backdrop (#156, SkyLightRig.ApplyToGlass).
+            //The glass push (SkyLightRig.ApplyToGlass holds the why — the plate stands against the sky, #156)
             _rig.ApplyToGlass(_ceilingPlate.Renderer);
 
             //And the wood's own pigments, which the rig above cannot reach: a saturated green has almost no
@@ -832,9 +830,8 @@ namespace Testbed
             //nothing — this is the caller BestPractices.md §3 records the iterator incident for
             _rig.ApplyTo(SkyLitRenderers());
 
-            //The overcast lerp moved the ambient the glass push scales by, so the glass follows the weather
-            //here exactly as it follows the dome in ApplySkyLighting (an overcast sky is bright, so this
-            //keeps the plate's full rig — see SkyLightRig.ApplyToGlass).
+            //Re-pushed here because the lerp above moved the very ambient the glass push scales by (see
+            //SkyLightRig.ApplyToGlass; an overcast sky is bright, so the plate keeps its full rig)
             _rig.ApplyToGlass(_ceilingPlate.Renderer);
         }
 
