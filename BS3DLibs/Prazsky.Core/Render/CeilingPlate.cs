@@ -84,6 +84,14 @@ namespace Prazsky.Core.Render
         /// </summary>
         public const float CLEARANCE = 2f;
 
+        /// <summary>
+        /// The fraction of the plate's half-extent over which its glass fades out at the rim (#156), softening
+        /// the box's straight silhouette where no sky dome hides it — the four <c>SceneRenderer.ReplacesSky</c>
+        /// scenes draw nothing behind it whose gradient would. Enough to break the hard edge; the centre, where
+        /// the cluster hangs, stays fully solid, and over a dome the edges were already hidden so it shows there.
+        /// </summary>
+        private const float PLATE_EDGE_BAND = 0.25f;
+
         private readonly GraphicsDevice _device;
         private readonly Effect _instancingEffect;
 
@@ -174,6 +182,15 @@ namespace Prazsky.Core.Render
 
             _mesh = new BoxMesh(_device, FootprintFor(stageSizeX), THICKNESS, FootprintFor(stageSizeZ));
             Renderer = new InstancedModelRenderer(_device, _mesh, GLASS_COLOR, _instancingEffect, GLASS_ALPHA);
+
+            //Soften the plate's rectangular silhouette (#156): with no sky dome behind it in the four
+            //ReplacesSky scenes, the box's straight edges showed plainly against the dark backdrop. The renderer
+            //fades the glass to nothing over the outer PLATE_EDGE_BAND of the box, taken from the plate's OWN
+            //footprint — so no caller has to know the scene, and every executable that draws a plate gets it.
+            //A no-op over a dome, where the gradient's contrast already hid the edges.
+            Renderer.PlateEdgeFade = 1f;
+            Renderer.PlateHalfExtent = new Vector2(FootprintFor(stageSizeX) * Constants.HALF, FootprintFor(stageSizeZ) * Constants.HALF);
+            Renderer.PlateEdgeBand = PLATE_EDGE_BAND;
         }
 
         /// <summary>

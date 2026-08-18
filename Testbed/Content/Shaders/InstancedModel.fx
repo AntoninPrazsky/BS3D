@@ -116,6 +116,8 @@ struct VertexShaderOutput
 	float3 WorldPosition : TEXCOORD0;
 	float3 WorldNormal : TEXCOORD1;
 	float4 OcclusionData : TEXCOORD2;
+	//Object space (mesh space), read only by the ceiling plate's edge fade in MainPS (#156)
+	float3 ObjectPosition : TEXCOORD3;
 };
 
 VertexShaderOutput MainVS(VertexShaderInput input, InstanceInput instance)
@@ -125,13 +127,17 @@ VertexShaderOutput MainVS(VertexShaderInput input, InstanceInput instance)
 	//Rows are stored in the same layout as an XNA row-major matrix, so no transpose is needed
 	float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
 
-	float4 worldPosition = mul(mul(input.Position, Bone), world);
+	float4 bonePosition = mul(input.Position, Bone);
+	float4 worldPosition = mul(bonePosition, world);
 
 	output.WorldPosition = worldPosition.xyz;
 	output.Position = mul(mul(worldPosition, View), Projection);
 	//Bone and instance transforms are rotation + translation (+ uniform scale at most), so the adjoint transpose is not needed
 	output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
 	output.OcclusionData = instance.Custom;
+	//Object space (Bone applied), for the ceiling plate's edge fade alone (#156); the plate's Bone is identity
+	//so this is the centred box's own coordinates
+	output.ObjectPosition = bonePosition.xyz;
 
 	return output;
 }
@@ -196,6 +202,17 @@ float3 SeaSubmergeTint;
 //it the two effects hand over at one rate by construction rather than one leaning on the other being there;
 //and the map editor passes 0, which is correct there precisely because it has no murk to hand over to.
 float SeaLensSubmerged;
+
+//The ceiling plate's edge fade (#156): the plate is a BoxMesh, and its straight rectangular silhouette showed
+//plainly in the four ReplacesSky scenes (Space, Dream, Cavern, Moon), which draw no sky dome behind it whose
+//gradient hides the edges the way it does for the terrain scenes. MainPS fades the plate's glass to nothing
+//towards the box's object-space XZ rim so the silhouette goes soft instead. PlateEdgeFade is 0 on every surface
+//but the plate (the renderer pushes 0 for all of them, like EmissiveTint), so MainPS's branch skips it and no
+//plate figure leaks onto the next draw; PlateHalfExtent is the box's object XZ half-size and PlateEdgeBand the
+//fraction of it over which the alpha falls off.
+float PlateEdgeFade;
+float2 PlateHalfExtent;
+float PlateEdgeBand;
 
 //Fade band above the kill plane (#192): the host deletes a fallen ball the instant its body crosses this
 //height, with nothing to soften it - in the six OpenBelow scenes the drop cinematic can put the lens below
@@ -454,6 +471,18 @@ float4 MainPS(VertexShaderOutput input) : COLOR
 
 		shaded.rgb = lerp(shaded.rgb, SeaSubmergeTint, submerge) * (1.0 - submerge);
 		shaded.a *= 1.0 - submerge;
+	}
+
+	//The ceiling plate softens its own rectangular silhouette by fading its glass out towards the box's XZ rim
+	//(#156). Premultiplied like the submerge fade above, so colour and alpha take the SAME figure - a fade that
+	//left rgb standing would turn the vanished edge additive. A no-op (0) on every other plain-material surface.
+	if (PlateEdgeFade > 0.0)
+	{
+		float2 rim = abs(input.ObjectPosition.xz) / max(PlateHalfExtent, 1e-3);
+		float edge = max(rim.x, rim.y);                      //0 at the centre, 1 at the box's XZ edge
+		float fade = lerp(1.0, 1.0 - smoothstep(1.0 - PlateEdgeBand, 1.0, edge), PlateEdgeFade);
+		shaded.rgb *= fade;
+		shaded.a *= fade;
 	}
 
 	return shaded;
