@@ -61,7 +61,7 @@ namespace BS3D.Screens
     /// ripple is the nearest.
     /// </para>
     /// </summary>
-    internal sealed partial class GameplayScreen : Screen
+    internal sealed partial class GameplayScreen : Screen, IFrameBlurSource
     {
         private readonly BS3DGame Game;
 
@@ -135,14 +135,16 @@ namespace BS3D.Screens
         //has to match that restraint. The blur's radius scales with this too, not only its mix.
         private const float ADS_DEFOCUS = 0.5f;
 
-        /// <summary>
-        /// How far this frame has gone out of focus for precise aim, 0 to <see cref="ADS_DEFOCUS"/> — the
-        /// session's answer to the same question <c>MenuPage.FrameBlur</c> answers for a page, asked by
-        /// <see cref="BS3DGame.FinishSceneDraw"/> when this screen is the active one. It rides the ADS
-        /// blend directly: the lean and the focus are one gesture, they land and release together, and every
-        /// gate that clears the lean (a cinematic, a covering screen, a lost window) clears the blur with it.
-        /// </summary>
-        internal float FrameDefocus => _preciseAim.Blend * ADS_DEFOCUS;
+        //The session's IFrameBlurSource answer — the same question MenuPage.FrameBlur answers for a page,
+        //asked by BS3DGame.FinishSceneDraw while this screen is the active one. The amount rides the ADS
+        //blend directly: the lean and the focus are one gesture, they land and release together, and the
+        //gates that clear the lean while this screen stays active (a cinematic, a lost window) take the
+        //blur out with it on the blend's own ease. A screen pushed OVER this one is the exception — a
+        //covered session stops updating, so its answer simply stops being asked and the incoming page's
+        //ramp starts from sharp (see "The end of a level goes out of focus" in docs/game-feedback.md).
+        //The shape is 1: precise aim's periphery-only lens, the aimed centre held in focus.
+        float IFrameBlurSource.FrameBlur => _preciseAim.Blend * ADS_DEFOCUS;
+        float IFrameBlurSource.FrameBlurFocus => 1f;
 
         #endregion
 

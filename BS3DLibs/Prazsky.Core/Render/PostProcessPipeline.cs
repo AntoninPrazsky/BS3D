@@ -151,8 +151,10 @@ namespace Prazsky.Core.Render
         private int _supersampleFactor = 1;
 
         //What the tonemap was last told the defocus mix is. Held so the uniform is written on the frames it
-        //actually moves — which in play is none of them, the effect being off — per the caching discipline in
-        //BestPractices.md. The starting value is the zero the constructor sends.
+        //actually moves, per the caching discipline in BestPractices.md: a frame with no blur up — most of
+        //play — sends nothing, and a held precise aim (#214, the one in-play caller) settles at its peak and
+        //stops writing too; only the eases in between move it. The starting value is the zero the
+        //constructor sends.
         private float _defocusMix;
 
         //And what it was last told the focus shape is (see Resolve's defocusFocus), held for the same reason:

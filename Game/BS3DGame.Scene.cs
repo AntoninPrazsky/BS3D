@@ -555,20 +555,17 @@ namespace BS3D
             //were already two.
             float underwater = _sceneRenderer.LensSubmergedAmount(_scene, _camera.Position);
 
-            //And how far the frame has gone out of focus, which is the ACTIVE screen's answer and nobody
-            //else's. Asked here rather than tracked in a field of this class: the ramp belongs to the screen
-            //whose moment it is, and that screen is also the only one still being updated while it runs. A
-            //page blurs the whole frame (MenuPage.FrameBlur — the result screen and the pause); the session
-            //blurs only the periphery, precise aim's lens holding the aimed centre in focus (#214,
-            //GameplayScreen.FrameDefocus — the shape is the resolve's defocusFocus). The foreground layer
-            //goes in with it — not for the defocus, which never sees it, but for the glare, whose pyramid it
-            //still feeds.
-            float defocus, defocusFocus;
-            switch (_screens.Active)
+            //And how far the frame has gone out of focus — the ACTIVE screen's answer and nobody else's,
+            //amount and shape together (Screens.IFrameBlurSource: a page blurs the whole frame, the session
+            //blurs precise aim's periphery only, #214). Asked here rather than tracked in a field of this
+            //class: the ramp belongs to the screen whose moment it is, and that screen is also the only one
+            //still being updated while it runs. The foreground layer goes in with it — not for the defocus,
+            //which never sees it, but for the glare, whose pyramid it still feeds.
+            float defocus = 0f, defocusFocus = 0f;
+            if (_screens.Active is Screens.IFrameBlurSource focusSource)
             {
-                case Screens.MenuPage page: defocus = page.FrameBlur; defocusFocus = 0f; break;
-                case Screens.GameplayScreen play: defocus = play.FrameDefocus; defocusFocus = 1f; break;
-                default: defocus = 0f; defocusFocus = 0f; break;
+                defocus = focusSource.FrameBlur;
+                defocusFocus = focusSource.FrameBlurFocus;
             }
 
             _pipeline.Resolve(_wallClock, underwater, defocus, defocusFocus, foreground);

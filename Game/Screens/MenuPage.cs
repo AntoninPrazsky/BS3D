@@ -26,7 +26,7 @@ namespace BS3D.Screens
     /// exactly whether that is a scene or a game.
     /// </para>
     /// </summary>
-    internal abstract class MenuPage : Screen
+    internal abstract class MenuPage : Screen, IFrameBlurSource
     {
         protected readonly BS3DGame Game;
 
@@ -149,6 +149,11 @@ namespace BS3D.Screens
         /// </para>
         /// </summary>
         internal virtual float FrameBlur => Manager?.Find<PausePage>()?.FrameBlur ?? 0f;
+
+        //The IFrameBlurSource surface: a page's blur is the virtual above, and a page always blurs the
+        //whole frame alike — the periphery-only shape is the session's (see GameplayScreen's own answer)
+        float IFrameBlurSource.FrameBlur => FrameBlur;
+        float IFrameBlurSource.FrameBlurFocus => 0f;
 
         /// <summary>
         /// Putting the tree into the shared Myra desktop is done here, on <see cref="Screen.CoveredChanged"/>

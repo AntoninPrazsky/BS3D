@@ -87,6 +87,12 @@ float3 UnderwaterInscatter;   //linear add: the ambient water glow, so the murk 
 //the corners. Resolution-independent, so the blur looks the same at 720p and 4K.
 static const float UNDERWATER_BLUR_RADIUS = 0.014;
 
+//Where a lens's periphery starts to go soft: the texcoord-distance-from-centre multiplier whose saturate
+//reaches 1 two thirds of the way to a corner. ONE figure on purpose, read by both peripheral falloffs -
+//the underwater blur's and precise aim's defocus focus (#214) - because they are the same statement about
+//the same lens; retune it and both move together.
+static const float PERIPHERY_EDGE = 1.5;
+
 //The defocus: a heavily blurred copy of this very scene, built by the pipeline out of the
 //target this pass reads (PostProcessPipeline.DrawDefocus) at a quarter of the back buffer per axis. So it
 //is the same light, and it is mixed in HERE - in linear radiance, before the curve - which is the whole
@@ -97,13 +103,11 @@ float DefocusAmount;
 
 //How much the defocus is bent into a LENS instead of a wash: 0 = the whole frame takes DefocusAmount
 //alike (the result page and the pause, where nothing in the scene is being read), 1 = precise aim's
-//periphery-only falloff (#214) - zero dead centre and growing with the SQUARE of the distance, exactly
-//the aberration's rule and for the same reason: the centre of the frame is where the aimed cluster and
-//its landing ghost live, and the ghost's display-pixel dissolve dither does not survive being averaged.
-//The falloff shares the underwater blur's edge figure below, both being the same statement about where
-//a lens goes soft.
+//periphery-only falloff (#214) - zero dead centre and growing with the square of the distance (the
+//aberration's quadratic growth, saturated at PERIPHERY_EDGE's band like the underwater blur), because
+//the centre of the frame is where the aimed cluster and its landing ghost live, and the ghost's
+//display-pixel dissolve dither does not survive being averaged.
 float DefocusFocus;
-static const float DEFOCUS_FOCUS_EDGE = 1.5;
 texture DefocusTexture;
 sampler2D DefocusSampler = sampler_state
 {
@@ -298,7 +302,7 @@ float4 MainPS(VertexShaderOutput input) : COLOR
 	//path (no divergence) and it costs nothing above water; tex2Dlod reads level 0 (there are no mips here).
 	if (UnderwaterAmount > 0.0)
 	{
-		float edge = saturate(length(input.TexCoord - 0.5) * 1.5);
+		float edge = saturate(length(input.TexCoord - 0.5) * PERIPHERY_EDGE);
 		float blend = UnderwaterAmount * edge * edge;
 		float radius = blend * UNDERWATER_BLUR_RADIUS;
 
@@ -324,7 +328,7 @@ float4 MainPS(VertexShaderOutput input) : COLOR
 	{
 		//DefocusFocus (see its declaration) holds the centre of the frame in focus for precise aim; at 0
 		//the lerp is the identity and the whole frame takes DefocusAmount, exactly as before #214
-		float edge = saturate(length(input.TexCoord - 0.5) * DEFOCUS_FOCUS_EDGE);
+		float edge = saturate(length(input.TexCoord - 0.5) * PERIPHERY_EDGE);
 		float blend = DefocusAmount * lerp(1.0, edge * edge, DefocusFocus);
 
 		color = lerp(color, tex2Dlod(DefocusSampler, float4(input.TexCoord, 0, 0)).rgb, blend);
