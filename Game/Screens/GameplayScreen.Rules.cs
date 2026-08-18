@@ -643,7 +643,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Whether anything at all is still hanging, off the census <see cref="RecountBallTypes"/> has just
-        /// taken — so it costs a walk over eight counters rather than a second walk over the field.
+        /// taken — so it costs a walk over the type counters rather than a second walk over the field.
         /// </summary>
         private bool AnyBallTypeAlive()
         {

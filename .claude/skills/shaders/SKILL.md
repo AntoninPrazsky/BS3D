@@ -39,7 +39,7 @@ draw all balls (see the "Ball rendering" section in `docs/rendering.md`). Facts 
   does the same, so ambient changes (hemisphere ambient for #39) belong on the C# side or need a new uniform.
 - **Materials**: the ball model (`Balls/DebugSphere.dae`) has ~6 mesh parts with different material
   diffuse colors (beach-ball patches); the renderer reads them from the model's `BasicEffect`s at load.
-  Per-type tint (eight types: red/green/blue/white + cyan/magenta/yellow/black) comes from `BasicEffectParamsProvider` (ambient+specular only).
+  Per-type tint (thirteen types: red/green/blue/white + cyan/magenta/yellow/black + orange/brown/silver/navy/olive) comes from `BasicEffectParamsProvider` (ambient+specular only).
 - **Beach-ball pattern**: balls use the `InstancedModelPattern` technique — procedural gores +
   polar discs evaluated in *object space* (so the pattern turns with the ball; rotation stays
   readable), antialiased with `fwidth` so distant balls don't shimmer. Enabled by

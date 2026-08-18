@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
+using Prazsky.BS3D;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Camera;
 using System;
@@ -195,8 +196,8 @@ namespace BS3D.Audio
             SoundEffect.DopplerScale = 0f;
 
             _shoot = BakeShoot();
-            _landed = new SoundEffect[9];   //indexed by BallType value (1..8); slot 0 unused
-            for (int type = 1; type <= 8; type++) _landed[type] = BakeLanded(type);
+            _landed = new SoundEffect[BallRenderSet.TYPE_COUNT + 1];   //indexed by BallType value; slot 0 unused
+            for (int type = 1; type <= BallRenderSet.TYPE_COUNT; type++) _landed[type] = BakeLanded(type);
 
             _release = BakeRelease();
             _fireworkLaunch = BakeFireworkLaunch();
@@ -209,7 +210,7 @@ namespace BS3D.Audio
             //and the UI need none: they never reach an emitter.
             _shootRing = new VoiceRing(_shoot, SHOOT_VOICES);
             _landedRings = new VoiceRing[_landed.Length];
-            for (int type = 1; type <= 8; type++) _landedRings[type] = new VoiceRing(_landed[type], LANDED_VOICES);
+            for (int type = 1; type <= BallRenderSet.TYPE_COUNT; type++) _landedRings[type] = new VoiceRing(_landed[type], LANDED_VOICES);
 
             _releaseRing = new VoiceRing(_release, RELEASE_VOICES);
             _launchRing = new VoiceRing(_fireworkLaunch, LAUNCH_VOICES);
@@ -699,10 +700,14 @@ namespace BS3D.Audio
             int samples = (int)(SAMPLE_RATE * duration);
             float[] signal = new float[samples];
 
-            //Eight steps across a low register, so adjacent colours sit a tone apart rather than a fraction the
-            //ear cannot tell apart.
+            //One step per ball type across a low register, adjacent colours exactly a whole tone apart
+            //(2^(1/6) per step) rather than a fraction the ear cannot tell apart. The step is the design
+            //constant, not the span: thirteen types run 150-600 Hz, still a thunk's register, and another
+            //type would simply extend the ladder. (The old ladder divided a fixed 1.5-octave span by the
+            //type count in disguise - five more types would either have shrunk every step below audibility
+            //or, with the divisor kept, pushed the top types out of the low register entirely.)
             const float root = 150f;
-            float freq = root * MathF.Pow(2f, (type - 1) / 7f * 1.5f);
+            float freq = root * MathF.Pow(2f, (type - 1) / 6f);
 
             for (int i = 0; i < samples; i++)
             {

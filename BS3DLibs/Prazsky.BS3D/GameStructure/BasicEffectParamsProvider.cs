@@ -27,6 +27,14 @@ namespace Prazsky.BS3D.GameStructure
         public static BasicEffectParams ColorYellow = new BasicEffectParams(new Vector3(0.3f, 0.3f, 0f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
         public static BasicEffectParams ColorBlack = new BasicEffectParams(new Vector3(0.02f, 0.02f, 0.02f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
 
+        //The five #152 types, ambient again a dark version of each colour. The darker the ball (navy, olive,
+        //brown), the smaller the ambient - like black's above, their form leans on the highlight and the gores.
+        public static BasicEffectParams ColorOrange = new BasicEffectParams(new Vector3(0.3f, 0.15f, 0f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
+        public static BasicEffectParams ColorBrown = new BasicEffectParams(new Vector3(0.15f, 0.08f, 0.03f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
+        public static BasicEffectParams ColorSilver = new BasicEffectParams(new Vector3(0.12f, 0.13f, 0.15f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
+        public static BasicEffectParams ColorNavy = new BasicEffectParams(new Vector3(0.02f, 0.04f, 0.2f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
+        public static BasicEffectParams ColorOlive = new BasicEffectParams(new Vector3(0.12f, 0.13f, 0.02f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
+
         /// <summary>
         /// Multiplier applied to the ball model's material diffuse colors to give the ball its type color.
         /// (Historically the type color came from a broad colored specular sheen; with a proper glossy
@@ -67,6 +75,29 @@ namespace Prazsky.BS3D.GameStructure
                     //emission is near-nothing, so it is the one ball that stays dark while the rest pulse.
                     return new Vector3(0.045f, 0.045f, 0.05f); //black
 
+                case BallType.Type9:
+                    //The green channel sits halfway between red's 0.2 and gold's 0.82, so the orange
+                    //splits the two colours it lives between instead of drifting into either
+                    return new Vector3(1f, 0.5f, 0.03f);    //orange
+
+                case BallType.Type10:
+                    return new Vector3(0.42f, 0.24f, 0.11f); //brown
+
+                case BallType.Type11:
+                    //A cool slate rather than a light silver: the gore trap again (see Type4), and the
+                    //blue cast is what separates it from the warm beige the white ball is drawn as
+                    return new Vector3(0.5f, 0.53f, 0.58f);  //silver
+
+                case BallType.Type12:
+                    //Far darker than Type3's blue, and bright enough over black that the emission
+                    //pulse still reads blue where the black ball stays dark
+                    return new Vector3(0.05f, 0.1f, 0.45f);  //navy blue
+
+                case BallType.Type13:
+                    //Dark and yellow-leaning against Type2's vivid green, saturated so the gores
+                    //do not wash out (the same reasoning as the gold above)
+                    return new Vector3(0.42f, 0.45f, 0.08f); //olive green
+
                 default:
                     return Vector3.One;
             }
@@ -99,6 +130,21 @@ namespace Prazsky.BS3D.GameStructure
 
                 case BallType.Type8:
                     return ColorBlack;
+
+                case BallType.Type9:
+                    return ColorOrange;
+
+                case BallType.Type10:
+                    return ColorBrown;
+
+                case BallType.Type11:
+                    return ColorSilver;
+
+                case BallType.Type12:
+                    return ColorNavy;
+
+                case BallType.Type13:
+                    return ColorOlive;
 
                 default:
                     return null;

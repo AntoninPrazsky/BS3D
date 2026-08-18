@@ -240,14 +240,20 @@ namespace MapEditor
                 new(mgKeys.Space, Buttons.A,() => _selector.PutBall(), "Put ball"),
                 new(mgKeys.Delete, Buttons.B,() => _selector.RemoveBall(), "Remove ball"),
 
-                new(mgKeys.NumPad1,() => _selector.ChangeBallType(BallType.Type1), "Change ball type to 1 (red)"),
-                new(mgKeys.NumPad2,() => _selector.ChangeBallType(BallType.Type2), "Change ball type to 2 (green)"),
-                new(mgKeys.NumPad3,() => _selector.ChangeBallType(BallType.Type3), "Change ball type to 3 (blue)"),
-				new(mgKeys.NumPad4,() => _selector.ChangeBallType(BallType.Type4), "Change ball type to 4 (white)"),
-                new(mgKeys.NumPad5,() => _selector.ChangeBallType(BallType.Type5), "Change ball type to 5 (cyan)"),
-                new(mgKeys.NumPad6,() => _selector.ChangeBallType(BallType.Type6), "Change ball type to 6 (magenta)"),
-                new(mgKeys.NumPad7,() => _selector.ChangeBallType(BallType.Type7), "Change ball type to 7 (yellow)"),
-                new(mgKeys.NumPad8,() => _selector.ChangeBallType(BallType.Type8), "Change ball type to 8 (black)"),
+                new(mgKeys.NumPad1,() => SetBallType(BallType.Type1), $"Change ball type to 1 ({BALL_TYPE_NAMES[0]})"),
+                new(mgKeys.NumPad2,() => SetBallType(BallType.Type2), $"Change ball type to 2 ({BALL_TYPE_NAMES[1]})"),
+                new(mgKeys.NumPad3,() => SetBallType(BallType.Type3), $"Change ball type to 3 ({BALL_TYPE_NAMES[2]})"),
+				new(mgKeys.NumPad4,() => SetBallType(BallType.Type4), $"Change ball type to 4 ({BALL_TYPE_NAMES[3]})"),
+                new(mgKeys.NumPad5,() => SetBallType(BallType.Type5), $"Change ball type to 5 ({BALL_TYPE_NAMES[4]})"),
+                new(mgKeys.NumPad6,() => SetBallType(BallType.Type6), $"Change ball type to 6 ({BALL_TYPE_NAMES[5]})"),
+                new(mgKeys.NumPad7,() => SetBallType(BallType.Type7), $"Change ball type to 7 ({BALL_TYPE_NAMES[6]})"),
+                new(mgKeys.NumPad8,() => SetBallType(BallType.Type8), $"Change ball type to 8 ({BALL_TYPE_NAMES[7]})"),
+                new(mgKeys.NumPad9,() => SetBallType(BallType.Type9), $"Change ball type to 9 ({BALL_TYPE_NAMES[8]})"),
+                //Thirteen types outgrew the numpad's digits (#152): brown, silver, navy and olive have no
+                //direct key and are reached by cycling. The wrap makes the two keys a complete picker on
+                //their own; the digits above stay as shortcuts into the first nine.
+                new(mgKeys.Add,() => CycleBallType(+1), "Next ball type (10-13 have no direct key)"),
+                new(mgKeys.Subtract,() => CycleBallType(-1), "Previous ball type"),
 
 				new(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
 				new(mgKeys.F11, () => SetGraphics(_graphics.IsFullScreen), "Fullscreen/windowed"),
@@ -283,6 +289,28 @@ namespace MapEditor
             #endregion
 
             base.Initialize();
+        }
+
+        //One copy of the colour names in the editor: the direct keys' hint descriptions and the cycle keys'
+        //on-screen feedback both read it, so a colour added to BallType shows up here by adding one row.
+        //Ordered by BallType value, index = value - 1.
+        private static readonly string[] BALL_TYPE_NAMES =
+        {
+            "red", "green", "blue", "white", "cyan", "magenta", "yellow", "black",
+            "orange", "brown", "silver", "navy blue", "olive green",
+        };
+
+        private void SetBallType(BallType type)
+        {
+            _selector.ChangeBallType(type);
+            Info.CustomText = $"Ball type {(int)type} ({BALL_TYPE_NAMES[(int)type - 1]})";
+        }
+
+        private void CycleBallType(int step)
+        {
+            //The +TYPE_COUNT keeps the modulo positive when stepping back off type 1
+            int index = ((int)_selector.ActiveBallType - 1 + step + BallRenderSet.TYPE_COUNT) % BallRenderSet.TYPE_COUNT;
+            SetBallType((BallType)(index + 1));
         }
 
         protected override void LoadContent()

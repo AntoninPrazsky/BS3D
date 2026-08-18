@@ -43,7 +43,7 @@ namespace Testbed
         }
 
         private static BallType RandomBallType() =>
-            (BallType)RANDOM.Next((int)BallType.Type1, (int)BallType.Type8 + 1);
+            (BallType)RANDOM.Next((int)BallType.Type1, (int)BallType.Type13 + 1);
 
         private void ShootBall(Vector3? targetOverride = null)
         {
