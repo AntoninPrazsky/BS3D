@@ -380,16 +380,26 @@ namespace Prazsky.Core.Render
         #region Acacia (savanna scene only)
 
         private readonly Effect _acaciaEffect;
-        private VertexBuffer _acaciaVertexBuffer;
-        private IndexBuffer _acaciaIndexBuffer;
 
-        //Scattered acacia trees and low bushes over the savanna: upright billboards positioned on the ground
-        //here, drawn as a flat-topped tree or a rounded clump in the shader. Alpha-tested and depth-writing, so
-        //they occlude the terrain and each other. Plants gather in clumps (as they do on a real savanna) around
-        //a set of cluster centres, with a few solitary ones. One buffer carries both: the packed random is
-        //[0,1) for a tree and [1,2) for a bush.
-        //Acacia scatter parameters (count, bush fraction, size, radii, clusters, canopy/trunk colours) now live
-        //in SavannaSceneConfig.Acacia (AcaciaConfig); SceneRenderer reads them from _savannaConfig.Acacia.
+        //Cached effect parameters for the per-frame instanced draw (the by-name indexer is a linear scan).
+        private EffectParameter _acaciaViewParam, _acaciaProjectionParam, _acaciaCameraParam,
+            _acaciaSunDirectionParam, _acaciaSunColorParam, _acaciaZenithParam, _acaciaHorizonParam,
+            _acaciaDiffuseParam, _acaciaDappleParam;
+
+        //Real 3D acacia geometry (#202): a few tree variants (a bark trunk under a wide flat-topped umbrella
+        //canopy) and a few bush variants (a low rounded clump), each its own instanced draw so a grove is not
+        //one shape stamped out. Plants gather in clumps around a set of cluster centres, as they do on a real
+        //savanna, with a few solitary ones. Replaces the flat billboard that read as a paper cutout — a surface
+        //of revolution has volume from every angle. Scatter parameters live in SavannaSceneConfig.Acacia.
+        private AcaciaMesh[] _acaciaTreeMeshes;
+        private FoliageMesh[] _acaciaBushMeshes;
+        private ModelInstance[][] _acaciaTreeInstances;    //per tree variant; canopy and trunk share the matrices
+        private ModelInstance[][] _acaciaBushInstances;    //per bush variant
+        private float[] _acaciaTreeDryness;                //per tree variant: how far its canopy is towards the dry green
+        private DynamicVertexBuffer _acaciaInstanceBuffer; //shared, re-uploaded per draw (SetDataOptions.Discard)
+
+        //Canopy/trunk colours, stored from the config so the per-draw DiffuseColor can be set as each part draws.
+        private Vector3 _acaciaCanopyColor, _acaciaCanopyDry, _acaciaTrunkColor;
 
         #endregion
 
@@ -689,6 +699,15 @@ namespace Prazsky.Core.Render
             //--- Acacia: a static billboard buffer of trees scattered over the savanna, positioned on the
             //ground (SavannaTerrainHeight mirrors the shader's field) and drawn as a flat-topped tree in Acacia.fx
             _acaciaEffect = content.Load<Effect>("Shaders/Acacia");
+            _acaciaViewParam = _acaciaEffect.Parameters["View"];
+            _acaciaProjectionParam = _acaciaEffect.Parameters["Projection"];
+            _acaciaCameraParam = _acaciaEffect.Parameters["CameraPosition"];
+            _acaciaSunDirectionParam = _acaciaEffect.Parameters["SunDirection"];
+            _acaciaSunColorParam = _acaciaEffect.Parameters["SunColor"];
+            _acaciaZenithParam = _acaciaEffect.Parameters["ZenithColor"];
+            _acaciaHorizonParam = _acaciaEffect.Parameters["HorizonColor"];
+            _acaciaDiffuseParam = _acaciaEffect.Parameters["DiffuseColor"];
+            _acaciaDappleParam = _acaciaEffect.Parameters["DappleStrength"];
             ApplyAcaciaParameters();
             BuildAcaciaBuffers();
 
@@ -1258,24 +1277,58 @@ namespace Prazsky.Core.Render
         private void ApplyAcaciaParameters()
         {
             AcaciaConfig ac = _savannaConfig.Acacia;
-            _acaciaEffect.Parameters["TreeWidth"].SetValue(ac.Width);
-            _acaciaEffect.Parameters["TreeHeight"].SetValue(ac.Height);
-            _acaciaEffect.Parameters["CanopyColor"].SetValue(ac.CanopyColor.ToVector3());
-            _acaciaEffect.Parameters["CanopyColorDry"].SetValue(ac.CanopyDry.ToVector3());
-            _acaciaEffect.Parameters["TrunkColor"].SetValue(ac.TrunkColor.ToVector3());
+            //Stored rather than pushed: the colours are the per-draw DiffuseColor now (the canopy green, its
+            //drier shade, and the trunk brown), set as each mesh part draws in DrawAcacias.
+            _acaciaCanopyColor = ac.CanopyColor.ToVector3();
+            _acaciaCanopyDry = ac.CanopyDry.ToVector3();
+            _acaciaTrunkColor = ac.TrunkColor.ToVector3();
         }
 
         /// <summary>
-        /// (Re)builds the acacia scatter: cluster centres, per-plant positions on the terrain and the
-        /// billboard buffers. Deterministic seed, so the same config always gives the same savanna.
+        /// (Re)builds the acacia scatter: the tree and bush mesh variants and the per-variant instance
+        /// matrices, each plant planted on the terrain in a clump around a cluster centre (or, for a few,
+        /// solo). The meshes are real 3D geometry now (#202), so this rebuilds them too — a plant's height
+        /// comes off the ground it stands on, so a terrain change re-plants the whole scatter. Deterministic
+        /// seed, so the same config always gives the same savanna.
         /// </summary>
         private void BuildAcaciaBuffers()
         {
-            _acaciaVertexBuffer?.Dispose();
-            _acaciaIndexBuffer?.Dispose();
+            DisposeAcacia();
 
             AcaciaConfig ac = _savannaConfig.Acacia;
-            Random acaciaRng = new(90125);
+            Random rng = new(90125);
+
+            //A handful of variants of each kind, built at rolled proportions and structural seeds, so a grove
+            //is a mix rather than one tree stamped out — the eye reads the repeat before it reads the tree
+            //(the forest's own lesson). ac.Width is the canopy half-width the billboard was cut to; the 3D tree
+            //keeps that footprint, with a slim trunk a fraction of it and a canopy a fraction of the height.
+            const int TREE_VARIANTS = 4, BUSH_VARIANTS = 2;
+            _acaciaTreeMeshes = new AcaciaMesh[TREE_VARIANTS];
+            _acaciaTreeDryness = new float[TREE_VARIANTS];
+            for (int m = 0; m < TREE_VARIANTS; m++)
+            {
+                float w = 0.8f + 0.45f * (float)rng.NextDouble();
+                float h = 0.85f + 0.4f * (float)rng.NextDouble();
+                _acaciaTreeMeshes[m] = new AcaciaMesh(_graphicsDevice,
+                    trunkRadius: ac.Width * 0.09f * w,
+                    treeHeight: ac.Height * h,
+                    canopyRadius: ac.Width * w,
+                    seed: 4100 + m);
+                _acaciaTreeDryness[m] = (float)rng.NextDouble();
+            }
+
+            _acaciaBushMeshes = new FoliageMesh[BUSH_VARIANTS];
+            for (int m = 0; m < BUSH_VARIANTS; m++)
+            {
+                float br = ac.Width * (0.5f + 0.2f * (float)rng.NextDouble());
+                float bh = ac.Height * (0.22f + 0.08f * (float)rng.NextDouble());
+                _acaciaBushMeshes[m] = new FoliageMesh(_graphicsDevice, br, bh, centreY: bh, seed: 4200 + m);
+            }
+
+            var treeBuckets = new List<ModelInstance>[TREE_VARIANTS];
+            for (int m = 0; m < TREE_VARIANTS; m++) treeBuckets[m] = new List<ModelInstance>();
+            var bushBuckets = new List<ModelInstance>[BUSH_VARIANTS];
+            for (int m = 0; m < BUSH_VARIANTS; m++) bushBuckets[m] = new List<ModelInstance>();
 
             //Cluster centres the plants gather around, so the savanna reads as clumps of trees rather than an
             //even scatter. A minority of plants are placed solo.
@@ -1283,33 +1336,26 @@ namespace Prazsky.Core.Render
             float[] clusterZ = new float[ac.Clusters];
             for (int c = 0; c < ac.Clusters; c++)
             {
-                float ca = (float)acaciaRng.NextDouble() * MathHelper.TwoPi;
-                float cr = ac.MinRadius + (float)acaciaRng.NextDouble() * (ac.MaxRadius - ac.MinRadius);
+                float ca = (float)rng.NextDouble() * MathHelper.TwoPi;
+                float cr = ac.MinRadius + (float)rng.NextDouble() * (ac.MaxRadius - ac.MinRadius);
                 clusterX[c] = MathF.Cos(ca) * cr;
                 clusterZ[c] = MathF.Sin(ca) * cr;
             }
 
-            BirdVertex[] acaciaVertices = new BirdVertex[ac.Count * 4];
-
-            //What is already standing, so the next plant can be kept out of it. The savanna had the forest's
-            //bug and for the same reason (#108): plants were placed independently, and with 82 % of them
-            //clumping around a centre whose density rises inwards, two landing on top of each other was the
-            //expected case. The rule is ScatterSpacing's, one copy with the forest's.
+            //What is already standing, so the next plant can be kept out of it — ScatterSpacing's rule, one
+            //copy with the forest's (#108): with most plants clumping around a centre whose density rises
+            //inwards, two landing on top of each other is the expected case without it.
             List<ScatterSpacing.Footprint> standing = new(ac.Count);
 
             for (int i = 0; i < ac.Count; i++)
             {
-                //Rolled BEFORE the position, because the position now depends on how wide this plant is: a
-                //bush needs a third of a tree's room and should not be pushed out as though it needed all of
-                //it. These are the very draws Acacia.fx sizes the billboard from — a tree is
-                //TreeWidth * (0.75 + 0.55 * rand) half-wide and a bush TreeWidth * (0.35 + 0.30 * rand), so
-                //the footprint here is the one the shader actually draws rather than an estimate of it.
-                float rand = (float)acaciaRng.NextDouble();
-                bool isBush = acaciaRng.NextDouble() < ac.BushFraction;
-                float packed = isBush ? 1f + rand : rand;
-                float halfWidth = isBush
-                    ? ac.Width * (0.35f + 0.30f * rand)
-                    : ac.Width * (0.75f + 0.55f * rand);
+                //Rolled BEFORE the position, because the position depends on how wide this plant is: a bush
+                //needs a third of a tree's room and should not be pushed out as though it needed all of it.
+                float rand = (float)rng.NextDouble();
+                bool isBush = rng.NextDouble() < ac.BushFraction;
+                //A per-plant uniform scale around 1, so one variant mesh reads as several trees.
+                float sizeScale = isBush ? 0.7f + 0.6f * rand : 0.8f + 0.5f * rand;
+                float halfWidth = (isBush ? ac.Width * 0.5f : ac.Width) * sizeScale;
 
                 float x = 0f, z = 0f;
                 float bestClearance = float.NegativeInfinity;
@@ -1317,19 +1363,19 @@ namespace Prazsky.Core.Render
                 for (int attempt = 0; attempt < ScatterSpacing.TRIES; attempt++)
                 {
                     float cx, cz;
-                    if (acaciaRng.NextDouble() < 0.82) //most plants clump around a cluster centre
+                    if (rng.NextDouble() < 0.82) //most plants clump around a cluster centre
                     {
-                        int c = acaciaRng.Next(ac.Clusters);
-                        float off = (float)acaciaRng.NextDouble();
+                        int c = rng.Next(ac.Clusters);
+                        float off = (float)rng.NextDouble();
                         float d = off * off * ac.ClusterSpread; //denser towards the centre
-                        float da = (float)acaciaRng.NextDouble() * MathHelper.TwoPi;
+                        float da = (float)rng.NextDouble() * MathHelper.TwoPi;
                         cx = clusterX[c] + MathF.Cos(da) * d;
                         cz = clusterZ[c] + MathF.Sin(da) * d;
                     }
                     else //the odd solitary plant, anywhere in the ring
                     {
-                        float a = (float)acaciaRng.NextDouble() * MathHelper.TwoPi;
-                        float r = ac.MinRadius + (float)acaciaRng.NextDouble() * (ac.MaxRadius - ac.MinRadius);
+                        float a = (float)rng.NextDouble() * MathHelper.TwoPi;
+                        float r = ac.MinRadius + (float)rng.NextDouble() * (ac.MaxRadius - ac.MinRadius);
                         cx = MathF.Cos(a) * r;
                         cz = MathF.Sin(a) * r;
                     }
@@ -1358,25 +1404,40 @@ namespace Prazsky.Core.Render
 
                 Vector3 basePos = new(x, SavannaTerrainHeight(x, z), z);
 
-                int v = i * 4;
-                acaciaVertices[v] = new BirdVertex(basePos, new Vector3(-1f, 0f, packed));
-                acaciaVertices[v + 1] = new BirdVertex(basePos, new Vector3(1f, 0f, packed));
-                acaciaVertices[v + 2] = new BirdVertex(basePos, new Vector3(-1f, 1f, packed));
-                acaciaVertices[v + 3] = new BirdVertex(basePos, new Vector3(1f, 1f, packed));
-            }
-            _acaciaVertexBuffer = new VertexBuffer(_graphicsDevice, BirdVertex.Declaration, acaciaVertices.Length, BufferUsage.WriteOnly);
-            _acaciaVertexBuffer.SetData(acaciaVertices);
+                //The plant's own frame: a small lean off vertical (a leaning tree reads as a tree, a tilted one
+                //as a felled one — the forest's TREE_LEAN), a free yaw, the uniform size, and planted on the
+                //ground. Scale first so it stays uniform, then the tilt and spin, then the translation.
+                float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
+                float lean = 0.06f * (float)rng.NextDouble();
+                float leanDir = (float)rng.NextDouble() * MathHelper.TwoPi;
+                Matrix world = Matrix.CreateScale(sizeScale)
+                    * Matrix.CreateFromAxisAngle(new Vector3(MathF.Cos(leanDir), 0f, MathF.Sin(leanDir)), lean)
+                    * Matrix.CreateRotationY(yaw)
+                    * Matrix.CreateTranslation(basePos);
+                var instance = new ModelInstance(world, Vector4.Zero);
 
-            short[] acaciaIndices = new short[ac.Count * 6];
-            for (int i = 0; i < ac.Count; i++)
-            {
-                int v = i * 4;
-                int o = i * 6;
-                acaciaIndices[o] = (short)v; acaciaIndices[o + 1] = (short)(v + 1); acaciaIndices[o + 2] = (short)(v + 2);
-                acaciaIndices[o + 3] = (short)(v + 2); acaciaIndices[o + 4] = (short)(v + 1); acaciaIndices[o + 5] = (short)(v + 3);
+                if (isBush) bushBuckets[rng.Next(BUSH_VARIANTS)].Add(instance);
+                else treeBuckets[rng.Next(TREE_VARIANTS)].Add(instance);
             }
-            _acaciaIndexBuffer = new IndexBuffer(_graphicsDevice, IndexElementSize.SixteenBits, acaciaIndices.Length, BufferUsage.WriteOnly);
-            _acaciaIndexBuffer.SetData(acaciaIndices);
+
+            _acaciaTreeInstances = new ModelInstance[TREE_VARIANTS][];
+            for (int m = 0; m < TREE_VARIANTS; m++) _acaciaTreeInstances[m] = treeBuckets[m].ToArray();
+            _acaciaBushInstances = new ModelInstance[BUSH_VARIANTS][];
+            for (int m = 0; m < BUSH_VARIANTS; m++) _acaciaBushInstances[m] = bushBuckets[m].ToArray();
+        }
+
+        /// <summary>
+        /// Disposes the acacia meshes and the shared instance buffer — called on a rebuild (a terrain or config
+        /// change re-plants the scatter) and on the renderer's own <see cref="Dispose"/>.
+        /// </summary>
+        private void DisposeAcacia()
+        {
+            if (_acaciaTreeMeshes != null) foreach (AcaciaMesh mesh in _acaciaTreeMeshes) mesh?.Dispose();
+            if (_acaciaBushMeshes != null) foreach (FoliageMesh mesh in _acaciaBushMeshes) mesh?.Dispose();
+            _acaciaInstanceBuffer?.Dispose();
+            _acaciaInstanceBuffer = null;
+            _acaciaTreeMeshes = null;
+            _acaciaBushMeshes = null;
         }
 
         /// <summary>
@@ -2227,29 +2288,71 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the scattered acacia trees: the static billboard buffer, each tree faced upright towards the
-        /// camera and drawn as a flat-topped tree in the shader. Alpha-tested and depth-writing (not blended),
-        /// so trees occlude the terrain and each other correctly. Savanna scene only, after the terrain.
+        /// Draws the scattered acacia trees and bushes: real 3D geometry (#202), one instanced draw per mesh
+        /// variant per material — a tree's canopy (dappled green) and its trunk (brown) share the variant's
+        /// per-plant matrices, a bush is its canopy alone. Shaded from the scene's own sun and dome, so a tree
+        /// sits in the savanna's light. Opaque and depth-writing; savanna scene only, after the terrain.
         /// </summary>
         private void DrawAcacias(in SceneFrame frame)
         {
-            _acaciaEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _acaciaEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _acaciaEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _acaciaEffect.Parameters["SunColor"].SetValue(frame.SunColor);
-            _acaciaEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
-            _acaciaEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
+            _acaciaViewParam.SetValue(frame.Camera.View);
+            _acaciaProjectionParam.SetValue(frame.Camera.Projection);
+            _acaciaCameraParam.SetValue(frame.Camera.Position);
+            _acaciaSunDirectionParam.SetValue(frame.SunDirection);
+            _acaciaSunColorParam.SetValue(frame.SunColor);
+            _acaciaZenithParam.SetValue(frame.ZenithLinear);
+            _acaciaHorizonParam.SetValue(frame.HorizonLinear);
 
             _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default; //depth write on: alpha-tested foliage
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise; //real solids, wound like every lathe
 
-            _graphicsDevice.SetVertexBuffer(_acaciaVertexBuffer);
-            _graphicsDevice.Indices = _acaciaIndexBuffer;
+            //Trees: the canopy (dappled green, per-variant drier or greener) then the trunk (plain brown), both
+            //off the one set of per-plant matrices.
+            for (int m = 0; m < _acaciaTreeMeshes.Length; m++)
+            {
+                ModelInstance[] instances = _acaciaTreeInstances[m];
+                if (instances.Length == 0) continue;
+
+                Vector3 canopy = Vector3.Lerp(_acaciaCanopyColor, _acaciaCanopyDry, _acaciaTreeDryness[m] * 0.7f);
+                DrawAcaciaPart(_acaciaTreeMeshes[m].Canopy, instances, canopy, dappleStrength: 0.6f);
+                DrawAcaciaPart(_acaciaTreeMeshes[m].Wood, instances, _acaciaTrunkColor, dappleStrength: 0f);
+            }
+
+            //Bushes: the canopy alone, drier and dappled.
+            for (int m = 0; m < _acaciaBushMeshes.Length; m++)
+            {
+                ModelInstance[] instances = _acaciaBushInstances[m];
+                if (instances.Length == 0) continue;
+                DrawAcaciaPart(_acaciaBushMeshes[m], instances, _acaciaCanopyDry, dappleStrength: 0.5f);
+            }
+        }
+
+        /// <summary>
+        /// One instanced draw of a mesh part with its per-draw material: the instances are re-uploaded to the
+        /// one shared dynamic buffer (<see cref="SetDataOptions.Discard"/>, so the GPU is not stalled on the
+        /// last draw), the mesh's vertices bound at stream 0 and the instances at stream 1 — exactly as
+        /// <see cref="InstancedModelRenderer"/> does it.
+        /// </summary>
+        private void DrawAcaciaPart(IProceduralMesh mesh, ModelInstance[] instances, Vector3 diffuse, float dappleStrength)
+        {
+            if (_acaciaInstanceBuffer == null || _acaciaInstanceBuffer.VertexCount < instances.Length)
+            {
+                _acaciaInstanceBuffer?.Dispose();
+                _acaciaInstanceBuffer = new DynamicVertexBuffer(_graphicsDevice, ModelInstance.VertexDeclaration,
+                    instances.Length, BufferUsage.WriteOnly);
+            }
+            _acaciaInstanceBuffer.SetData(instances, 0, instances.Length, SetDataOptions.Discard);
+
+            _acaciaDiffuseParam.SetValue(diffuse);
+            _acaciaDappleParam.SetValue(dappleStrength);
             _acaciaEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _savannaConfig.Acacia.Count * 2);
 
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+            _graphicsDevice.SetVertexBuffers(
+                new VertexBufferBinding(mesh.VertexBuffer, 0, 0),
+                new VertexBufferBinding(_acaciaInstanceBuffer, 0, 1));
+            _graphicsDevice.Indices = mesh.IndexBuffer;
+            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, instances.Length);
         }
 
         /// <summary>
@@ -2763,8 +2866,7 @@ namespace Prazsky.Core.Render
             _outbackIndexBuffer?.Dispose();
             _savannaVertexBuffer?.Dispose();
             _savannaIndexBuffer?.Dispose();
-            _acaciaVertexBuffer?.Dispose();
-            _acaciaIndexBuffer?.Dispose();
+            DisposeAcacia();
             _flameVertexBuffer?.Dispose();
             _flameIndexBuffer?.Dispose();
             _birdVertexBuffer?.Dispose();

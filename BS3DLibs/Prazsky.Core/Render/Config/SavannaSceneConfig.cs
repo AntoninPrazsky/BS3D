@@ -73,15 +73,12 @@ namespace Prazsky.Core.Render
     public sealed class AcaciaConfig
     {
         /// <summary>
-        /// Number of scattered acacia trees and low bushes. Was 8 from the scene's first days until #168 —
-        /// over the same-sized ring the forest's 240 trees scatter across, eight plants (three of them
-        /// bushes) read as an empty plain with a speck on it, and there were three times as many cluster
-        /// centres as plants. The pass is one static billboard buffer, so the count is a look decision
-        /// rather than a budget one (the forest's own doc says the same of its 240); 64 keeps the savanna
-        /// about a quarter of the forest's density — dotted and open, the way a savanna reads — while a
-        /// grove actually gets its 4–5 trees.
+        /// Number of scattered acacia trees and low bushes. 8 until #168, then 64; raised to 120 with #202,
+        /// when the trees became real 3D geometry and a denser savanna was asked for — still dotted and open
+        /// rather than a forest, but the plain no longer reads as empty. The scatter is instanced, so the
+        /// count is a look decision rather than a budget one (the forest's 240 make the same point).
         /// </summary>
-        public int Count { get; set; } = 64;
+        public int Count { get; set; } = 120;
 
         /// <summary>Fraction of the scatter that are low bushes rather than trees.</summary>
         public float BushFraction { get; set; } = 0.45f;
@@ -99,13 +96,11 @@ namespace Prazsky.Core.Render
         public float MaxRadius { get; set; } = 340f;
 
         /// <summary>
-        /// Number of cluster centres plants gather around. Halved with #168's count raise (24 → 12): a
-        /// cluster centre the scatter mostly lands around is a grove only if plants actually reach it, and
-        /// at the old ratio most centres got zero — now each of the twelve takes ~4–5 of the 64, so the
-        /// clumps read as groves rather than as pairs of trees standing near a place a grove could have
-        /// been.
+        /// Number of cluster centres plants gather around, so the scatter reads as groves rather than an even
+        /// field. Raised 12 → 20 with the count (#202), keeping each grove its ~5–6 trees rather than packing
+        /// the higher count into the same twelve clumps.
         /// </summary>
-        public int Clusters { get; set; } = 12;
+        public int Clusters { get; set; } = 20;
 
         /// <summary>Spread of plants around each cluster centre.</summary>
         public float ClusterSpread { get; set; } = 30f;
