@@ -392,7 +392,7 @@ namespace Prazsky.Core.Render
         //savanna, with a few solitary ones. Replaces the flat billboard that read as a paper cutout — a surface
         //of revolution has volume from every angle. Scatter parameters live in SavannaSceneConfig.Acacia.
         private AcaciaMesh[] _acaciaTreeMeshes;
-        private LatheMesh[] _acaciaBushMeshes;
+        private FoliageMesh[] _acaciaBushMeshes;
         private ModelInstance[][] _acaciaTreeInstances;    //per tree variant; canopy and trunk share the matrices
         private ModelInstance[][] _acaciaBushInstances;    //per bush variant
         private float[] _acaciaTreeDryness;                //per tree variant: how far its canopy is towards the dry green
@@ -1310,20 +1310,20 @@ namespace Prazsky.Core.Render
                 float w = 0.8f + 0.45f * (float)rng.NextDouble();
                 float h = 0.85f + 0.4f * (float)rng.NextDouble();
                 _acaciaTreeMeshes[m] = new AcaciaMesh(_graphicsDevice,
-                    trunkBaseRadius: ac.Width * 0.10f * w,
-                    trunkTopRadius: ac.Width * 0.06f * w,
-                    trunkHeight: ac.Height * 0.6f * h,
+                    trunkRadius: ac.Width * 0.09f * w,
+                    treeHeight: ac.Height * h,
                     canopyRadius: ac.Width * w,
-                    canopyThickness: ac.Height * 0.34f * h,
                     seed: 4100 + m);
                 _acaciaTreeDryness[m] = (float)rng.NextDouble();
             }
 
-            _acaciaBushMeshes = new LatheMesh[BUSH_VARIANTS];
+            _acaciaBushMeshes = new FoliageMesh[BUSH_VARIANTS];
             for (int m = 0; m < BUSH_VARIANTS; m++)
-                _acaciaBushMeshes[m] = BuildBushMesh(
-                    ac.Width * (0.45f + 0.15f * (float)rng.NextDouble()),
-                    ac.Height * (0.24f + 0.08f * (float)rng.NextDouble()), 4200 + m, rng);
+            {
+                float br = ac.Width * (0.5f + 0.2f * (float)rng.NextDouble());
+                float bh = ac.Height * (0.22f + 0.08f * (float)rng.NextDouble());
+                _acaciaBushMeshes[m] = new FoliageMesh(_graphicsDevice, br, bh, centreY: bh, seed: 4200 + m);
+            }
 
             var treeBuckets = new List<ModelInstance>[TREE_VARIANTS];
             for (int m = 0; m < TREE_VARIANTS; m++) treeBuckets[m] = new List<ModelInstance>();
@@ -1427,34 +1427,13 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// A savanna bush: a low, wide, rounded clump of foliage — a squashed dome on the ground, no trunk. A
-        /// <see cref="LatheMesh"/> like the canopy, but domed rather than umbrella'd, wobbled so it does not
-        /// read as a scoop of ice cream. Drawn with the canopy's dappled foliage material.
-        /// </summary>
-        private LatheMesh BuildBushMesh(float radius, float height, int seed, Random rng)
-        {
-            float phase = seed * 2.39996f;
-            var profile = new List<LathePoint>
-            {
-                new(0f,             height,         wobble: 0.5f),
-                new(radius * 0.55f, height * 0.82f, wobble: 0.8f),
-                new(radius,         height * 0.28f, wobble: 1f),   //widest low down — a mound, not a ball
-                new(radius * 0.7f,  0f,             wobble: 0.7f),
-                new(0f,             0f)
-            };
-            return new LatheMesh(_graphicsDevice, profile, segments: 12,
-                irregularityAmplitude: radius * (0.14f + 0.07f * (float)rng.NextDouble()),
-                irregularityPhase: phase);
-        }
-
-        /// <summary>
         /// Disposes the acacia meshes and the shared instance buffer — called on a rebuild (a terrain or config
         /// change re-plants the scatter) and on the renderer's own <see cref="Dispose"/>.
         /// </summary>
         private void DisposeAcacia()
         {
             if (_acaciaTreeMeshes != null) foreach (AcaciaMesh mesh in _acaciaTreeMeshes) mesh?.Dispose();
-            if (_acaciaBushMeshes != null) foreach (LatheMesh mesh in _acaciaBushMeshes) mesh?.Dispose();
+            if (_acaciaBushMeshes != null) foreach (FoliageMesh mesh in _acaciaBushMeshes) mesh?.Dispose();
             _acaciaInstanceBuffer?.Dispose();
             _acaciaInstanceBuffer = null;
             _acaciaTreeMeshes = null;
@@ -2337,7 +2316,7 @@ namespace Prazsky.Core.Render
 
                 Vector3 canopy = Vector3.Lerp(_acaciaCanopyColor, _acaciaCanopyDry, _acaciaTreeDryness[m] * 0.7f);
                 DrawAcaciaPart(_acaciaTreeMeshes[m].Canopy, instances, canopy, dappleStrength: 0.6f);
-                DrawAcaciaPart(_acaciaTreeMeshes[m].Trunk, instances, _acaciaTrunkColor, dappleStrength: 0f);
+                DrawAcaciaPart(_acaciaTreeMeshes[m].Wood, instances, _acaciaTrunkColor, dappleStrength: 0f);
             }
 
             //Bushes: the canopy alone, drier and dappled.
