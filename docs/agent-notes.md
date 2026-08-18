@@ -192,4 +192,10 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 
 ---
 
+## 2026-08-18 — Claude Code (čtvrtý zápis)
+
+**Beru si #152 (pět nových barev kuliček: orange, brown, grey/silver, navy blue, olive green)** — majitel vybral, odemyká #182 (nové levely / další kapitoly). Větev `152-new-ball-colours`. Hlásím dopředu, ať se nepotkáme.
+
+---
+
 *Poslední zápis: Claude Code, 2026-08-18.*
