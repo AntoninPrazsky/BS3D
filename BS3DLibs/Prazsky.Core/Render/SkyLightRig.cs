@@ -227,7 +227,8 @@ namespace Prazsky.Core.Render
             }
         }
 
-        /// <summary>Pushes the rig onto one renderer, and nothing else.</summary>
+        /// <summary>Pushes the rig onto one renderer, and nothing else — at full strength, which it states
+        /// explicitly so a renderer moved between this and <see cref="ApplyToGlass"/> carries no leftover.</summary>
         public void ApplyTo(InstancedModelRenderer renderer)
         {
             if (renderer == null) return;
@@ -236,7 +237,57 @@ namespace Prazsky.Core.Render
             renderer.SkyColor = SkyAmbient;
             renderer.GroundColor = GroundAmbient;
             renderer.KeyLightPosition = KeyLightPosition;
+            renderer.DirLightStrength = 1f;
             renderer.SetLightTint(KeyTint, BackTint);
+        }
+
+        /// <summary>
+        /// Sky-ambient luminance (Rec. 601, in linear radiance) at and above which glass standing against the
+        /// sky keeps the full three-light rig — about what a daylight dome's zenith derives to, so the day
+        /// scenes are untouched by <see cref="ApplyToGlass"/>. The sky-replacing scenes' stated rigs sit near
+        /// a fifth of it and the Moon's near a seventh, which is what actually dims their glass.
+        /// </summary>
+        private const float GLASS_FULL_RIG_LUMINANCE = 0.25f;
+
+        /// <summary>
+        /// Pushes the rig onto a <b>translucent renderer that stands against the sky itself</b> — the ceiling
+        /// glass plate — with the three directional lights scaled by how bright that sky is
+        /// (<see cref="SkyAmbient"/>'s luminance over <see cref="GLASS_FULL_RIG_LUMINANCE"/>, saturated).
+        /// <para>
+        /// What hides the plate's straight edges in a dome scene is not a treatment on the plate but the dome
+        /// itself: the glass is lit from the very palette that shows through it, so its 40 % term tracks the
+        /// 60 % show-through in hue and brightness. The sky-replacing scenes broke that pact from the other
+        /// side — their rigs deliberately keep the sun at full strength so a dark scene does not take the
+        /// balls and the drain's gold beads with it (see <see cref="SetSky"/>), and that undimmed key on the
+        /// glass made the plate a bright slab over a near-black backdrop, hard box edges and all (#156). This
+        /// push restores the pact for the one surface whose backdrop <i>is</i> the sky: opaque objects keep
+        /// their authored sun, the glass follows the sky it is seen against. A dusk dome dims its glass the
+        /// same way, by the same measure, with no scene knowledge in here.
+        /// </para>
+        /// <para>
+        /// Only the three-light rig is scaled, and through the renderer's own
+        /// <see cref="InstancedModelRenderer.DirLightStrength"/> — the tints themselves are the shared
+        /// effect's DirLight* colors, one set for the whole scene, so scaling them here would dim every
+        /// renderer drawn after the glass (which is exactly what the first cut of this did). The hemisphere
+        /// ambient and the Fresnel sky reflection already follow the rig's own colours, the scene point
+        /// lights stay at full strength (a cave's own glow still reaches the pane), and the emissive
+        /// step-down flash is deliberately untouched — it is added after lighting (see <c>EmissiveTint</c> in
+        /// InstancedModel.fx) and reads better, not worse, on a dark pane. Which renderer is "the glass
+        /// against the sky" stays the caller's decision, like the enrolment lists themselves: the rig still
+        /// never learns what a ceiling is.
+        /// </para>
+        /// </summary>
+        public void ApplyToGlass(InstancedModelRenderer renderer)
+        {
+            if (renderer == null) return;
+
+            ApplyTo(renderer);
+
+            //Rec. 601 luma, the repo's own figure for "how bright does this colour read" (the balls' pattern
+            //tint uses the same weights); the ambient is linear radiance, so this is a luminance.
+            float skyLuminance = SkyAmbient.X * 0.299f + SkyAmbient.Y * 0.587f + SkyAmbient.Z * 0.114f;
+
+            renderer.DirLightStrength = MathF.Min(1f, skyLuminance / GLASS_FULL_RIG_LUMINANCE);
         }
 
         /// <summary>

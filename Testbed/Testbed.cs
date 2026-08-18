@@ -741,9 +741,11 @@ namespace Testbed
         private readonly List<InstancedModelRenderer> _skyLitRenderers = new();
 
         /// <summary>
-        /// Every renderer that takes part in the sky-derived lighting: the ball LODs plus the scene objects.
-        /// Refilled on every call (into one reused list, so per-frame callers allocate nothing), which keeps
-        /// it correct across renderer recreation — the ceiling's, for one, is rebuilt on every map load.
+        /// Every renderer that takes part in the sky-derived lighting <b>at full strength</b> — the ceiling
+        /// glass is deliberately not here: it stands against the sky itself and takes the rig through
+        /// <see cref="SkyLightRig.ApplyToGlass"/> wherever this list is pushed. Refilled on every call (into
+        /// one reused list, so per-frame callers allocate nothing), which keeps it correct across any
+        /// renderer recreation.
         /// </summary>
         private List<InstancedModelRenderer> SkyLitRenderers()
         {
@@ -753,7 +755,6 @@ namespace Testbed
             //be walked every frame without boxing an enumerator (its doc names this caller)
             foreach (InstancedModelRenderer ballRenderer in _balls.Renderers) _skyLitRenderers.Add(ballRenderer);
 
-            _skyLitRenderers.Add(_ceilingPlate.Renderer);
             _skyLitRenderers.Add(_cannonRig.Renderer);
             _skyLitRenderers.Add(_cannonRig.GlassRenderer);
             _skyLitRenderers.Add(_cannonRig.CarriageRenderer);
@@ -790,6 +791,11 @@ namespace Testbed
             _rig.SetSky(_sky, _scene);
             _rig.ApplyTo(SkyLitRenderers());
 
+            //The ceiling glass hangs against the sky itself, so it takes the glass push — the directional
+            //lights scaled by the sky's own brightness, which is what keeps the plate from standing as a
+            //sunlit slab over a dark backdrop (#156, SkyLightRig.ApplyToGlass).
+            _rig.ApplyToGlass(_ceilingPlate.Renderer);
+
             //And the wood's own pigments, which the rig above cannot reach: a saturated green has almost no
             //red or blue for a coloured light to multiply, so the crowns stayed the same green under every
             //dome while the ground turned (#108). Guarded inside on the tint, so this is free on the frames
@@ -825,6 +831,11 @@ namespace Testbed
             //Refilled every frame into one reused list, and pushed by index, so the per-frame path allocates
             //nothing — this is the caller BestPractices.md §3 records the iterator incident for
             _rig.ApplyTo(SkyLitRenderers());
+
+            //The overcast lerp moved the ambient the glass push scales by, so the glass follows the weather
+            //here exactly as it follows the dome in ApplySkyLighting (an overcast sky is bright, so this
+            //keeps the plate's full rig — see SkyLightRig.ApplyToGlass).
+            _rig.ApplyToGlass(_ceilingPlate.Renderer);
         }
 
         private void SwitchSkyDome()
