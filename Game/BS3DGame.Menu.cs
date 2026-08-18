@@ -186,10 +186,27 @@ namespace BS3D
         private static readonly Color MENU_BUTTON_OVER = new(104, 104, 104, 230);   //grey 116, 90 %
         private static readonly Color MENU_BUTTON_PRESSED = new(132, 132, 132, 240);//grey 140, 94 %
 
+        //The front end alone drops its REST slab almost to nothing. The three tones above earn their keep on a
+        //PLATE — every settings value, both pickers' entries and About's link sit on one, and a slab has to
+        //stand a clear step off the plate's own tone to read as a control on it — but the front end has neither
+        //a plate nor small print: its entries are the game's name's own Anton at 108, and that type holds itself
+        //over any backdrop exactly as the unplated title does two corners away. So the six grey bars #217
+        //stacked over the turning scene were legibility the front end paid for and did not spend. The rest slab
+        //is kept only as a whisper for the hover to lift from; the resting entry is all but the label alone.
+        //Pure transparency (RGB 0) so it only darkens and never milks a bright sky, and hover and pressed stay
+        //the SHARED tones below, so pointing at a front-end entry still lifts the same slab every other page shows.
+        private static readonly Color MENU_FRONT_BUTTON = new(0, 0, 0, 40);         //black, ~16 % — a breath of a slab
+
         //Built once and shared by every entry. A brush holds no per-widget state, and the focus highlight
-        //swaps an entry between the first two of these rather than minting a brush per frame.
-        private static readonly IBrush MENU_BUTTON_BRUSH = new SolidBrush(MENU_BUTTON);
+        //swaps an entry between the first two of these rather than minting a brush per frame. MENU_BUTTON_BRUSH
+        //is internal because the pages name it: it is a page's default EntryRestBrush, the tone the pad-focus
+        //highlight rests every unfocused entry to.
+        internal static readonly IBrush MENU_BUTTON_BRUSH = new SolidBrush(MENU_BUTTON);
         private static readonly IBrush MENU_BUTTON_PRESSED_BRUSH = new SolidBrush(MENU_BUTTON_PRESSED);
+
+        //The front end's own rest brush, named by MainMenuPage as its EntryRestBrush so the focus highlight
+        //rests each unfocused entry to a whisper instead of the shared grey. See MENU_FRONT_BUTTON.
+        internal static readonly IBrush MENU_FRONT_BUTTON_BRUSH = new SolidBrush(MENU_FRONT_BUTTON);
 
         //The one of the three that is not a button's alone: AboutPage's link is a Label, not a Button, and it
         //answers the pointer with this same wash so the two read as one gesture rather than two inventions.
@@ -759,9 +776,15 @@ namespace BS3D
             //UpdateMenuNavigation), which restores the hover in the same pass.
             bool cursorUp = _navIndex >= 0;
 
+            //The resting tone is the PAGE's, not a fixed grey: the front end rests its entries almost to nothing
+            //(MainMenuPage.EntryRestBrush → MENU_FRONT_BUTTON_BRUSH), every other page to the shared slab. This
+            //loop repaints every nav entry each pass, so without asking the page it would paint the shared grey
+            //straight back over the front end's own rest the moment the pad or the pointer moved.
+            IBrush entryRest = (_screens.Active as MenuPage)?.EntryRestBrush ?? MENU_BUTTON_BRUSH;
+
             for (int i = 0; i < _navEntries.Count; i++)
             {
-                IBrush rest = i == _navIndex ? MENU_BUTTON_OVER_BRUSH : MENU_BUTTON_BRUSH;
+                IBrush rest = i == _navIndex ? MENU_BUTTON_OVER_BRUSH : entryRest;
 
                 _navEntries[i].Background = rest;
                 _navEntries[i].OverBackground = cursorUp ? rest : MENU_BUTTON_OVER_BRUSH;
@@ -1029,6 +1052,11 @@ namespace BS3D
             //Opened up with the type: MenuButton's padding is cut for the shared body size, and at this one the
             //label sat tight against the slab's edges.
             entry.Padding = ScaledThickness(56, 22);
+
+            //The front end's entries alone rest at MENU_FRONT_BUTTON — barely a slab — where every other page's
+            //MenuButton keeps the shared grey. Set here so the first frame is right; ApplyNavHighlight then keeps
+            //it, reading the brush off the active page (MainMenuPage.EntryRestBrush) rather than assuming grey.
+            entry.Background = MENU_FRONT_BUTTON_BRUSH;
 
             return entry;
         }

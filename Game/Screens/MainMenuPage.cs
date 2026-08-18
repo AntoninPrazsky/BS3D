@@ -1,3 +1,4 @@
+using Myra.Graphics2D;
 using Myra.Graphics2D.Brushes;
 using Myra.Graphics2D.UI;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
@@ -48,6 +49,10 @@ namespace BS3D.Screens
 
         internal override bool CanGoBack => false;
         internal override bool DimsFrame => false;
+
+        //The front end rests its entries almost to nothing — big unplated type needs no slab, and the six grey
+        //bars over the turning scene were the point of the complaint. See BS3DGame.MENU_FRONT_BUTTON.
+        internal override IBrush EntryRestBrush => BS3DGame.MENU_FRONT_BUTTON_BRUSH;
 
         protected override Widget BuildTree()
         {
