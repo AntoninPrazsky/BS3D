@@ -213,8 +213,8 @@ namespace BS3D
                 (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY);
 
             //Note the glass the cluster hangs from is NOT built here: its footprint is the loaded level's
-            //field, so RebuildCeilingRenderer fits it (and refits it on every level) — which is why
-            //SkyLitRenderers tolerates a null ceiling renderer and ApplySkyLighting runs again after a load.
+            //field, so RebuildCeilingRenderer fits it (and refits it on every level) — which is why the
+            //glass push tolerates a null renderer and ApplySkyLighting runs again after a load.
         }
 
         /// <summary>
@@ -229,9 +229,9 @@ namespace BS3D
             _ceilingPlate.Fit(stageSizeX, stageSizeZ);
 
         /// <summary>
-        /// Every renderer that takes its lighting from the sky dome. The ceiling's is the one that can be
-        /// missing: it is refitted at each level's footprint, so before the first level is installed — and for
-        /// the moment inside a load when the old one has gone — there is none.
+        /// Every renderer that takes its lighting from the sky dome <b>at full strength</b>. The ceiling glass
+        /// is deliberately not among them: it stands against the sky itself, so it takes the rig through
+        /// <see cref="SkyLightRig.ApplyToGlass"/> instead (see <see cref="ApplySkyLighting"/>).
         /// </summary>
         private IEnumerable<InstancedModelRenderer> SkyLitRenderers()
         {
@@ -260,8 +260,6 @@ namespace BS3D
             //unconditionally like the island's, and for the same reason: BuildScene makes it well before the
             //startup SetScene, which is what first calls ApplySkyLighting.
             foreach (InstancedModelRenderer renderer in _forestScatter.Renderers) yield return renderer;
-
-            if (_ceilingPlate.Renderer != null) yield return _ceilingPlate.Renderer;
         }
 
         /// <summary>
@@ -277,6 +275,11 @@ namespace BS3D
             _rig.SetSky(_sky, _scene);
 
             foreach (InstancedModelRenderer renderer in SkyLitRenderers()) _rig.ApplyTo(renderer);
+
+            //The glass push (SkyLightRig.ApplyToGlass holds the why — the plate stands against the sky,
+            //#156). Null through a level load's refit window; the push tolerates it, and the session
+            //re-runs this once the plate is refitted.
+            _rig.ApplyToGlass(_ceilingPlate.Renderer);
 
             //And the wood's own pigments, which the rig above cannot reach — see ForestScatterRenderer.
             //ShiftTowardsSky (#108). Guarded inside on the tint, so it is free every frame but a dome switch.

@@ -503,11 +503,10 @@ namespace Prazsky.Core.Render
         /// </summary>
         private Vector3 ShiftTowardsSky(Vector3 linear)
         {
-            float tintLuminance = _skyTint.X * 0.2126f + _skyTint.Y * 0.7152f + _skyTint.Z * 0.0722f;
+            float tintLuminance = ColorSpace.Luminance(_skyTint);
             if (tintLuminance <= 1e-4f) return linear;
 
-            float luminance = linear.X * 0.2126f + linear.Y * 0.7152f + linear.Z * 0.0722f;
-            Vector3 domeHued = _skyTint * (luminance / tintLuminance);
+            Vector3 domeHued = _skyTint * (ColorSpace.Luminance(linear) / tintLuminance);
 
             return Vector3.Lerp(linear, domeHued, SKY_TINT_STRENGTH);
         }

@@ -70,6 +70,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _specularAmbientStrengthParam;
         private EffectParameter _metalnessParam;
         private EffectParameter _specularAlphaWeightParam;
+        private EffectParameter _dirLightStrengthParam;
         private EffectParameter _emissiveStrengthParam;
         private EffectParameter _translucencyStrengthParam;
         private EffectParameter _pulseTimeParam;
@@ -272,6 +273,17 @@ namespace Prazsky.Core.Render
         /// </para>
         /// </summary>
         public float SpecularAlphaWeight { get; set; } = 1f;
+
+        /// <summary>
+        /// How much of the three-light rig (key, fill, back — DirLight0–2) reaches this renderer's surface,
+        /// 1 by default. This is per-renderer where the tints cannot be: <see cref="SetLightTint"/> writes
+        /// the shared effect's DirLight* colors, one set of values for the whole scene, so a dimmed tint on
+        /// one renderer would dim every renderer drawn after it. The ceiling glass — a pane whose backdrop is
+        /// the sky itself — is dimmed to that sky's own brightness through this figure instead (#156,
+        /// <c>SkyLightRig.ApplyToGlass</c>). The scene point lights are deliberately not scaled by it: they
+        /// sit on top of the rig in the shader, and a cave's own glow still reaches a pane under a dark sky.
+        /// </summary>
+        public float DirLightStrength { get; set; } = 1f;
 
         /// <summary>
         /// Number of primary-colored gores of the procedural beach-ball pattern (segments around
@@ -568,6 +580,7 @@ namespace Prazsky.Core.Render
             _specularAmbientStrengthParam = _effect.Parameters["SpecularAmbientStrength"];
             _metalnessParam = _effect.Parameters["Metalness"];
             _specularAlphaWeightParam = _effect.Parameters["SpecularAlphaWeight"];
+            _dirLightStrengthParam = _effect.Parameters["DirLightStrength"];
             _emissiveTintParam = _effect.Parameters["EmissiveTint"];
             _surfaceReliefFrequencyParam = _effect.Parameters["SurfaceReliefFrequency"];
             _patternPrimaryColorParam = _effect.Parameters["PatternPrimaryColor"];
@@ -776,6 +789,10 @@ namespace Prazsky.Core.Render
             //Unconditionally, for Metalness's reason: a glow left over from the renderer drawn before this one
             //would set the next surface alight
             _emissiveTintParam.SetValue(EmissiveTint);
+
+            //Unconditionally, for Metalness's reason again: the one renderer that dims this is the ceiling
+            //glass, and its figure left standing would put the rest of the scene under the same dark sky
+            _dirLightStrengthParam.SetValue(DirLightStrength);
 
             for (int i = 0; i < _parts.Length; i++)
             {

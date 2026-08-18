@@ -104,10 +104,11 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The plate's renderer, exposed because the light rig is the scene's and not the plate's: the caller
-        /// enrols it in its own sky-lighting pass, draws it in its own frame sequence (the draw order is a
-        /// per-executable decision and does not move in here), and reaches through it for
-        /// <see cref="InstancedModelRenderer.EmissiveTint"/> — which is how the Game flashes the glass on the
-        /// frame the ceiling steps down.
+        /// lights it in its own sky-lighting pass (through <c>SkyLightRig.ApplyToGlass</c> — the plate stands
+        /// against the sky, so its directional lights follow the sky's own brightness, #156), draws it in its
+        /// own frame sequence (the draw order is a per-executable decision and does not move in here), and
+        /// reaches through it for <see cref="InstancedModelRenderer.EmissiveTint"/> — which is how the Game
+        /// flashes the glass on the frame the ceiling steps down.
         /// <para>
         /// <b>Null until the first <see cref="Fit"/></b>, and again for the moment inside a level load when
         /// the old one has gone: a footprint that comes off the loaded field cannot be known before one is

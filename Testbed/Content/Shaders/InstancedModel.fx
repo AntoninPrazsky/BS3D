@@ -281,6 +281,14 @@ float SpecularAlphaWeight;
 //which is the one surface in this game that has to announce itself.
 float3 EmissiveTint;
 
+//How much of the three-light rig (key, fill, back) reaches this surface, 1 for everything but the glass
+//ceiling. Per-renderer where the DirLight* colors cannot be: those are one set of values for the whole
+//scene, so dimming them for one surface would dim every surface drawn after it. The ceiling glass stands
+//against the sky itself and is dimmed to the sky's own brightness through this instead (#156,
+//SkyLightRig.ApplyToGlass). Deliberately not applied to the scene point lights: a neon sign or the
+//cavern's crystals light a nearby pane regardless of how dark the sky over it is.
+float DirLightStrength;
+
 //Normal-incidence reflectance of a dielectric. Stone, marble, glass, vinyl, paint - everything in this
 //scene that is not bare metal - reflects roughly this fraction of what hits it head-on.
 static const float DielectricF0 = 0.04;
@@ -365,6 +373,11 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
 
 	AddLight(-DirLight1Direction, DirLight1DiffuseColor, DirLight1SpecularColor, worldNormal, eyeVector, diffuse, specular);
 	AddLight(-DirLight2Direction, DirLight2DiffuseColor, DirLight2SpecularColor, worldNormal, eyeVector, diffuse, specular);
+
+	//The whole three-light rig, and only it: the scene lights below stay at full strength (see the
+	//declaration - this is the glass ceiling's per-renderer dimmer, and a cave's own glow still reaches it)
+	diffuse *= DirLightStrength;
+	specular *= DirLightStrength;
 
 	//Scene point lights (fire, neon, ...) on top of the sun and sky - present under every dome
 	AddSceneLights(worldPosition, worldNormal, eyeVector, diffuse, specular);
