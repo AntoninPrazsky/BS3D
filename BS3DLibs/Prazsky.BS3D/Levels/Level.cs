@@ -8,20 +8,32 @@ using System.Text.Json.Serialization;
 namespace Prazsky.BS3D.Levels
 {
     /// <summary>
-    /// A complete level (issue #32): the ball map plus everything that reproduces its look — the scene
-    /// backdrop with its full <see cref="SceneConfig"/> (issue #44), the sky dome and metadata. Serialized
+    /// A complete level (issue #32): the ball map plus everything that reproduces its look — the scene it
+    /// plays in, the sky dome and metadata. Serialized
     /// with System.Text.Json, like the plain map files since the Newtonsoft migration (issue #38). A level
     /// file is a JSON object marked by <c>"format": "bs3d-level"</c>, which is how <see cref="IsLevelFile"/>
     /// tells it from a plain map file — both use the .json extension.
     ///
     /// The ceiling, the physics statics and the cannon/camera placement are deliberately not stored:
     /// they are all derived from the map size at load (FitCeilingToMap / FitCannonAndGameCameraToMap).
+    /// Neither are the scene's parameters, since format version 2: a level names its scene and the scene's
+    /// look is fixed in code (the <see cref="SceneConfig"/> class defaults) — version 1 serialized the whole
+    /// config into every file, and every shipped file turned out to carry pure defaults, tens of kilobytes
+    /// of them restating what the code already said. A level only carries what cannot be re-derived.
     /// The format is versioned so more can be added later (lighting overrides, audio, par/scoring…).
     /// </summary>
     public sealed class Level
     {
         public const string FormatMarker = "bs3d-level";
-        public const int CurrentVersion = 1;
+
+        /// <summary>
+        /// 2 since the scene became a name: version 1 stored <c>"scene"</c> as a full polymorphic
+        /// <see cref="SceneConfig"/> object. The reader takes both shapes
+        /// (<see cref="SceneNameJsonConverter"/>), so old files load unchanged; the bump exists for the other
+        /// direction, so a build older than the change refuses a new file with a plain versioned message
+        /// instead of a polymorphism exception out of the serializer.
+        /// </summary>
+        public const int CurrentVersion = 2;
 
         /// <summary>File-type marker; always <see cref="FormatMarker"/> in a valid level file.</summary>
         [JsonPropertyName("format")]
@@ -43,12 +55,15 @@ namespace Prazsky.BS3D.Levels
         public byte SkyDome { get; set; } = 1;
 
         /// <summary>
-        /// The scene backdrop and its full configuration, polymorphic on the "kind" discriminator
-        /// ("sea"/"desert"/"savanna"/"mountain"/"meadow"/"city"/"forest"/"space"). Null leaves the consumer's
-        /// current backdrop untouched (the Testbed keeps whatever scene is up).
+        /// The scene backdrop, by name — the same parse keys the <c>scene=</c> command line takes
+        /// (<see cref="SceneRenderer.TryParseScene"/>; <c>"neon"</c> for the neon city). The scene's
+        /// parameters are fixed in code, so the name is all a level says about its backdrop. Null — absent,
+        /// or an unknown spelling, the music field's leniency — leaves the consumer's current backdrop
+        /// untouched (the Testbed keeps whatever scene is up).
         /// </summary>
         [JsonPropertyName("scene")]
-        public SceneConfig Scene { get; set; }
+        [JsonConverter(typeof(SceneNameJsonConverter))]
+        public SceneKind? Scene { get; set; }
 
         /// <summary>
         /// Which composition this level plays (#120) — <c>"pulse"</c>, <c>"bohemia"</c>, <c>"nocturne"</c>,
@@ -68,11 +83,13 @@ namespace Prazsky.BS3D.Levels
         [JsonPropertyName("map")]
         public BallPositionTypes Map { get; set; }
 
+        //AllowOutOfOrderMetadataProperties stood here while the scene was polymorphic, so a hand-edited file
+        //that did not keep the "kind" discriminator first still loaded. Nothing in a level is polymorphic
+        //since format 2 — a legacy scene object is read by SceneNameJsonConverter's own JsonDocument, never
+        //by the serializer's metadata machinery — so the option would be a switch guarding nothing.
         private static readonly JsonSerializerOptions Options = new()
         {
             WriteIndented = true,
-            //Hand-edited files may not keep the "kind" discriminator as the first property
-            AllowOutOfOrderMetadataProperties = true,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         };
 

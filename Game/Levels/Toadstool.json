@@ -1,43 +1,10 @@
 {
   "format": "bs3d-level",
-  "version": 1,
+  "version": 2,
   "name": "Toadstool",
   "author": "BS3D",
   "sky": 1,
-  "scene": {
-    "kind": "meadow",
-    "LevelY": -14,
-    "HillHeight": 40,
-    "ClearingRadius": 95,
-    "ClearingTransition": 140,
-    "ClearingRelief": 1.5,
-    "GrassColor": {
-      "R": 0.14,
-      "G": 0.46,
-      "B": 0.05
-    },
-    "GrassColorDark": {
-      "R": 0.08,
-      "G": 0.27,
-      "B": 0.04
-    },
-    "AmbientStrength": 0.7,
-    "HorizonHazeDistance": 580,
-    "Wind": {
-      "X": 0.82,
-      "Y": 0.57
-    },
-    "WindRippleSpeed": 1.4,
-    "WindRippleFrequency": 0.15,
-    "WindRippleStrength": 0.12,
-    "GrassReliefStrength": 0.05,
-    "GrassReliefFrequency": 2,
-    "Flowers": {
-      "Density": 0.16,
-      "Spacing": 2.2,
-      "Size": 0.22
-    }
-  },
+  "scene": "meadow",
   "music": "pulse",
   "map": {
     "sx": 15,

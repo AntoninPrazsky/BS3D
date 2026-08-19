@@ -1,12 +1,10 @@
 {
   "format": "bs3d-level",
-  "version": 1,
+  "version": 2,
   "name": "Colossus",
   "author": "BS3D",
   "sky": 13,
-  "scene": {
-    "kind": "moon"
-  },
+  "scene": "moon",
   "music": "pulse",
   "map": {
     "sx": 12,

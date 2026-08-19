@@ -1,107 +1,10 @@
 {
   "format": "bs3d-level",
-  "version": 1,
+  "version": 2,
   "name": "Onion",
   "author": "BS3D",
   "sky": 13,
-  "scene": {
-    "kind": "cavern",
-    "Rock": {
-      "CaveRadius": 240,
-      "CeilingY": 95,
-      "RockColor": {
-        "R": 0.03,
-        "G": 0.036,
-        "B": 0.052
-      },
-      "VeinColor": {
-        "R": 0.05,
-        "G": 0.14,
-        "B": 0.16
-      },
-      "FogColor": {
-        "R": 0.01,
-        "G": 0.008,
-        "B": 0.026
-      },
-      "FogDensity": 0.0045
-    },
-    "Water": {
-      "LevelY": -34,
-      "DeepColor": {
-        "R": 0.008,
-        "G": 0.024,
-        "B": 0.03
-      },
-      "GlowColor": {
-        "R": 0.1,
-        "G": 0.55,
-        "B": 0.6
-      },
-      "WaveScale": 0.16,
-      "WaveSpeed": 0.8,
-      "WaveAmplitude": 0.7,
-      "CausticStrength": 0.5,
-      "MistColor": {
-        "R": 0.028,
-        "G": 0.052,
-        "B": 0.062
-      },
-      "MistDensity": 0.02,
-      "MistHeight": 10
-    },
-    "Air": {
-      "GodRayColor": {
-        "R": 0.1,
-        "G": 0.13,
-        "B": 0.12
-      },
-      "GodRayStrength": 0.9,
-      "SporeColor": {
-        "R": 0.3,
-        "G": 0.42,
-        "B": 0.2
-      },
-      "SporeBrightness": 0.8
-    },
-    "Crystals": {
-      "ColorA": {
-        "R": 0.1,
-        "G": 0.85,
-        "B": 1
-      },
-      "ColorB": {
-        "R": 0.95,
-        "G": 0.15,
-        "B": 0.9
-      },
-      "Emission": 1.6,
-      "PulseSpeed": 0.5,
-      "WallLight": 0.55
-    },
-    "Lighting": {
-      "SkyAmbient": {
-        "R": 0.045,
-        "G": 0.055,
-        "B": 0.075
-      },
-      "GroundAmbient": {
-        "R": 0.02,
-        "G": 0.055,
-        "B": 0.06
-      },
-      "KeyTint": {
-        "R": 0.88,
-        "G": 0.98,
-        "B": 1.06
-      },
-      "BackTint": {
-        "R": 0.95,
-        "G": 0.72,
-        "B": 1
-      }
-    }
-  },
+  "scene": "cavern",
   "music": "nocturne",
   "map": {
     "sx": 15,

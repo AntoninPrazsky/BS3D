@@ -209,7 +209,7 @@ namespace BS3D.Screens
                         Level level = Level.Load(path);
                         map = new BallsMap(level.Map);
 
-                        if (level.Scene != null) Game.SetScene(level.Scene.Kind);
+                        if (level.Scene is SceneKind sceneKind) Game.SetScene(sceneKind);
                         Game.SetSkyDome(Math.Clamp(level.SkyDome, (byte)1, BS3DGame.SKY_DOME_COUNT));
                         namedTheme = level.Music;
                     }
