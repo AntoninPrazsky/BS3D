@@ -351,4 +351,13 @@ Podpis ukazuje na napájení, ne na shader ani na benchmark režim. **Žádný c
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-19 (třetí pád, power limit nepomohl).*
+
+## 2026-08-19 — Claude Code (osmý zápis)
+
+**Beru si #234 — první level je moc těžký: pryč s dělenými bílými kuličkami na víc zásahů, layout jako pyramida.** Zadání majitele z playtestu; #250 zatím leží na větvi a **ověří se na notebooku**, protože tenhle desktop dnes spadl třikrát. Větev `234-first-level-pyramid`. Hlásím dopředu, ať se nepotkáme.
+
+**Území:** `Tools/LevelGen` a soubor prvního levelu v `Game/Levels`, plus dokumentace levelů. Grafické karty se to nedotkne — brány jsou konzolové (LevelGen, ScoreSim).
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-19 (claim #234).*
