@@ -241,6 +241,46 @@
       "shots": 45,
       "minStars": 56,
       "ceilingStep": 4
+    },
+    {
+      "file": "Comet.json",
+      "name": "Comet",
+      "block": "The Nebula",
+      "shots": 56,
+      "minStars": 58,
+      "ceilingStep": 6
+    },
+    {
+      "file": "Vortex.json",
+      "name": "Vortex",
+      "block": "The Nebula",
+      "shots": 64,
+      "minStars": 60,
+      "ceilingStep": 6
+    },
+    {
+      "file": "Carousel.json",
+      "name": "Carousel",
+      "block": "The Nebula",
+      "shots": 72,
+      "minStars": 62,
+      "ceilingStep": 5
+    },
+    {
+      "file": "Wishbone.json",
+      "name": "Wishbone",
+      "block": "The Nebula",
+      "shots": 54,
+      "minStars": 64,
+      "ceilingStep": 5
+    },
+    {
+      "file": "Garland.json",
+      "name": "Garland",
+      "block": "The Nebula",
+      "shots": 54,
+      "minStars": 66,
+      "ceilingStep": 4
     }
   ]
 }
