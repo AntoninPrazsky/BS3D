@@ -744,6 +744,10 @@ namespace BS3D
             //Nothing is built here â€” the plate's footprint is the loaded field's, so the first Fit is a level's
             _ceilingPlate = new CeilingPlate(GraphicsDevice, _instancingEffect);
 
+            //The menu's own glass over the backdrop's preview map (#249) — a second plate, so the front end
+            //never refits the session's: a kept session continues drawing the one its level fitted.
+            _menuCeilingPlate = new CeilingPlate(GraphicsDevice, _instancingEffect);
+
             //The overlay's own batch, shared by the HUD and the crosshair the session draws into it
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
@@ -1122,6 +1126,10 @@ namespace BS3D
             //wherever they wandered.
             _screens.PopTo<BackdropScreen>();
             _screens.Push(_mainMenuPage);
+
+            //A fresh promise on every return: the backdrop rolls another random map, so the front end never
+            //hangs the map just played back over the player as if it were the next one (#249).
+            _backdrop.RollPreviewMap();
 
             //The title bar stops naming a level, even though the session is kept: it names what the window is
             //SHOWING, and this window is showing the front end. The kept session is offered as Continue, which

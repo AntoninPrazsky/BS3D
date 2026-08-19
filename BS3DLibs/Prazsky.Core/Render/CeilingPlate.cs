@@ -20,15 +20,17 @@ namespace Prazsky.Core.Render
     /// <see cref="Fit"/> — and draws the plate from that body's own pose. Then the glass and the collidable
     /// cannot disagree.
     /// </para>
-    /// <para>
-    /// The plate has no per-executable look values, which is why nothing here is <c>required</c> (contrast
-    /// <see cref="PostProcessPipeline"/>, whose every look value is a per-executable decision): the colour,
-    /// the alpha, the thickness, the footprint margin and the clearance were identical in both copies, so
-    /// they are this component's own constants. The one figure that genuinely differs — how high the plate
-    /// hangs — is not a look value at all: the Testbed derives it from the loaded map's depth while the Game
-    /// solves its field's top against the death line per level, so <see cref="CentreYAbove"/> takes that
-    /// base from the caller instead of computing it from a level count.
-    /// </para>
+        /// <para>
+        /// The plate has no per-executable look values, which is why nothing here is <c>required</c> (contrast
+        /// <see cref="PostProcessPipeline"/>, whose every look value is a per-executable decision): the colour,
+        /// the thickness, the footprint margin and the clearance were identical in both copies, so they are
+        /// this component's own constants. The one look value that has since grown a second reader is the
+        /// <b>alpha</b> — the menu's preview plate fits at a stronger one (#249, see <see cref="Fit"/>) — and
+        /// the one figure that genuinely differs, how high the plate hangs, is not a look value at all: the
+        /// Testbed derives it from the loaded map's depth while the Game solves its field's top against the
+        /// death line per level, so <see cref="CentreYAbove"/> takes that base from the caller instead of
+        /// computing it from a level count.
+        /// </para>
     /// <para>
     /// The plate owns no content: the caller loads <c>Shaders/InstancedModel</c> through its own
     /// <c>ContentManager</c> (the libraries have no content pipeline — see CLAUDE.md) and hands the compiled
@@ -168,13 +170,17 @@ namespace Prazsky.Core.Render
         /// </summary>
         /// <param name="stageSizeX">Cell count of the field along X, margin not included.</param>
         /// <param name="stageSizeZ">Cell count of the field along Z, margin not included.</param>
-        public void Fit(float stageSizeX, float stageSizeZ)
+        /// <param name="alpha">The glass's opacity. <see cref="GLASS_ALPHA"/> by default, and every played
+        /// field takes the default; the one caller that does not is the menu's preview plate (#249), whose
+        /// slab has to read as present under a bright sky at a nearly level camera — furniture it can afford
+        /// to whisper, a display piece cannot.</param>
+        public void Fit(float stageSizeX, float stageSizeZ, float alpha = GLASS_ALPHA)
         {
             _mesh?.Dispose();
             Renderer?.Dispose();
 
             _mesh = new BoxMesh(_device, FootprintFor(stageSizeX), THICKNESS, FootprintFor(stageSizeZ));
-            Renderer = new InstancedModelRenderer(_device, _mesh, GLASS_COLOR, _instancingEffect, GLASS_ALPHA);
+            Renderer = new InstancedModelRenderer(_device, _mesh, GLASS_COLOR, _instancingEffect, alpha);
         }
 
         /// <summary>

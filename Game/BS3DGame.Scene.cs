@@ -156,12 +156,30 @@ namespace BS3D
         //tolerates that.
         private CeilingPlate _ceilingPlate;
 
+        //The menu's own plate, over the backdrop's PREVIEW map instead of a played field. A second instance
+        //rather than a refit of the one above, because a kept session (Continue) never reinstalls its level:
+        //refitting the shared plate for a preview would leave that session drawing glass cut to another
+        //field's footprint. Fitted at whatever the backdrop last rolled, so like the session's it starts
+        //without a renderer and only the backdrop's own draw ever asks for it (#249).
+        private CeilingPlate _menuCeilingPlate;
+
+        //The menu plate's opacity: clearly present glass rather than the played field's whisper. The menu
+        //camera looks at the field almost level, from 44 units out, so a 0.4 slab against a bright sky all
+        //but disappears — and the owner's ask was that this ceiling BE seen.
+        private const float MENU_CEILING_ALPHA = 0.7f;
+
         /// <summary>
         /// The glass plate's renderer, or null before the first level is installed: the session reaches through
         /// it for <see cref="InstancedModelRenderer.EmissiveTint"/> — how the glass flashes on the frame the
         /// ceiling steps down — and draws it from its own kinematic body's pose.
         /// </summary>
         internal InstancedModelRenderer CeilingRenderer => _ceilingPlate.Renderer;
+
+        /// <summary>
+        /// The menu plate's renderer, or null before the backdrop has rolled a map. The backdrop is also its
+        /// only drawer — the session never sees this plate, it has the one its own level fitted.
+        /// </summary>
+        internal InstancedModelRenderer MenuCeilingRenderer => _menuCeilingPlate.Renderer;
 
         #endregion
 
@@ -229,6 +247,16 @@ namespace BS3D
             _ceilingPlate.Fit(stageSizeX, stageSizeZ);
 
         /// <summary>
+        /// <see cref="RebuildCeilingRenderer"/> for the menu's plate: refits the backdrop's glass to the preview
+        /// map's footprint, at the menu's own opacity — the played field's 0.4 whispers under a nearly level
+        /// camera against a bright sky, and this plate is a display piece, not furniture (#249). The same
+        /// sky-lighting caveat applies — <see cref="ApplySkyLighting"/> has to run after this, and the backdrop
+        /// does so as it rolls.
+        /// </summary>
+        internal void RebuildMenuCeilingRenderer(float stageSizeX, float stageSizeZ) =>
+            _menuCeilingPlate.Fit(stageSizeX, stageSizeZ, MENU_CEILING_ALPHA);
+
+        /// <summary>
         /// Every renderer that takes its lighting from the sky dome <b>at full strength</b>. The ceiling glass
         /// is deliberately not among them: it stands against the sky itself, so it takes the rig through
         /// <see cref="SkyLightRig.ApplyToGlass"/> instead (see <see cref="ApplySkyLighting"/>).
@@ -280,6 +308,10 @@ namespace BS3D
             //#156). Null through a level load's refit window; the push tolerates it, and the session
             //re-runs this once the plate is refitted.
             _rig.ApplyToGlass(_ceilingPlate.Renderer);
+
+            //The menu's glass with it (#249) — the same sky it stands against, the same refit-window null,
+            //the same tolerance on the push.
+            _rig.ApplyToGlass(_menuCeilingPlate.Renderer);
 
             //And the wood's own pigments, which the rig above cannot reach — see ForestScatterRenderer.
             //ShiftTowardsSky (#108). Guarded inside on the tint, so it is free every frame but a dome switch.
@@ -344,9 +376,10 @@ namespace BS3D
         #region The setting's slices (the pipeline the bottom screens run)
 
         /// <summary>
-        /// The setting on its own — the whole pipeline with both gameplay slots empty. It is what the front
-        /// end looks at, and it is also what the <see cref="GameplayScreen"/> falls back to on the one frame
-        /// it is still on the stack with no session left to draw.
+        /// The setting on its own — the whole pipeline with both gameplay slots empty. Since #249 it is only
+        /// what the <see cref="GameplayScreen"/> falls back to on the one frame it is still on the stack with
+        /// no session left to draw: the front end itself has outgrown it, the backdrop slicing the pipeline
+        /// open to hang a preview cluster in the slot.
         /// </summary>
         internal void DrawSetting()
         {
