@@ -64,6 +64,15 @@ namespace BS3D.Tools.LevelGen
         // PASS with roughly eight degrees spare. GameCameraFit re-solves a hair closer (30.8 -> 30.7 out on
         // the 15-wide pictures, 31.5 -> 31.4 on the 17-wide), which is not a visible change in ball size.
         //
+        // EVERY FIGURE ABOVE IS AGAINST THE DEATH LINE AT -5.5, where it stood until it was lowered onto the
+        // island (GameplayScreen.CEILING_DEATH_Y is ArenaIsland.TOP_Y + 1 now, after a report that a cluster
+        // which merely SWUNG dipped under it a few shots into a level). Re-measured after that move: an
+        // 18-level field is no longer raised at all - it is pinned at FIELD_TOP_Y again and hangs 1.36 lower
+        // - and a picture's lowest ball starts 3.96 above the line instead of 3.33, which is 6.6 descents
+        // against a budget that buys six. The depth still does what it was chosen for; two of the three units
+        // of air now come from the line rather than from the raise, and the aimcheck cost the raise used to
+        // charge is gone with it (the steepest cell needs 60.5 deg of the 80.2 limit, not 69.6).
+        //
         // 18 is the figure and it is also the CEILING: GameplayScreen.FRAMED_LEVELS is 18 and its test is
         // "Levels > FRAMED_LEVELS", so 20 would quietly turn a picture into a tall level, fed by
         // FeedTallColumn and aim-clamped by TALL_AIM_HEADROOM. 18 - 14 = 4 is even, which is what keeps every
@@ -2589,9 +2598,9 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// Measured: 482 balls in 38 groups (1.37 shots a group, the tightest in the block), margin 1, nothing
         /// alone, 4 recoloured; counts 41–108, best single shots 2–8 %. Hung unshot for 35 s in the running
-        /// game. It is also the shallowest clearance in the block — 3.33 above the line, five and a half
-        /// descents against a budget that buys under six — so an untouched globe reaches the line just as the
-        /// balls run out, which is the pressure the campaign's last level is meant to end under.
+        /// game. It is also the shallowest clearance in the block — 3.96 above the line, 6.6 descents against
+        /// a budget that buys 5.8 — so the ceiling is still on the campaign's last level's shoulder all the way
+        /// down, which is the pressure it is meant to end under, and it no longer arrives first.
         /// </para>
         /// </summary>
         private static Design Globe() => new()
@@ -3987,9 +3996,11 @@ namespace BS3D.Tools.LevelGen
         //THE BLOCK'S FIELD. Eighteen for every level of it, which is two things at once: the deepest field
         //the camera frames whole (GameplayScreen.FRAMED_LEVELS), so an object is never clipped, and the room
         //the ceiling descends into - the empty levels UNDER a layout are a level's clearance, and a 12-deep
-        //solid in an 18-level field leaves six of them, about eight descents. That is the Reveal's own
-        //arithmetic and the budgets here are priced against it: a level whose two clocks disagree is the
-        //fault PICTURE_FIELD_LEVELS was written to record.
+        //solid in an 18-level field leaves six of them, nine descents. That is the Reveal's own arithmetic and
+        //the budgets here are priced against it: a level whose two clocks disagree is the fault
+        //PICTURE_FIELD_LEVELS was written to record. (Eight descents when this block was built, nine since the
+        //death line was lowered onto the island - the block's clearances are 3.96 to 8.21 now, all of them
+        //over what their budgets spend, so nothing here is ended by the ceiling before its balls run out.)
         private const byte ARCADE_FIELD = 18;
 
         //The block's dome. Unlike the three sky-replacing blocks before it the neon city has a real sky over

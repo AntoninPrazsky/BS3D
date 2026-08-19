@@ -271,4 +271,16 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-19 (Arcade).*
+## 2026-08-19 — Claude Code (čtvrtý zápis)
+
+**Čára smrti posunuta dolů: `CEILING_DEATH_Y` −5,5 → `ArenaIsland.TOP_Y + 1` (−7,5).** Zadání majitele: čára byla moc vysoko a klastr se pod ni po pár výstřelech jen *zhoupnul* a level okamžitě skončil. Teď leží jednu jednotku nad rimem trychtýře, takže označuje ústí odtoku, a je vyjádřená **proti ostrovu**, ne jako samostatné číslo.
+
+- **Ta jednotka je laserové sítě, ne čáry.** Síť se staví na `linie − 0,5` (kde by byl POVRCH ztracené kuličky), takže při menším odstupu se kreslí uvnitř kamenné čepičky ostrova (−8,5). Proto +1 a ne +0,5. Ověřeno fotkou s `lasers`.
+- **Co se posunulo samo:** pole ≤ 18 pater se **přestala zvedat** nad čáru (větve `max` se potkávají na ~17,9 místo ~15,07), takže visí o 1,36 níž a mají o 2 jednotky víc vzduchu; **zvednutá (tall) pole mají rozestup nezměněný** — jejich podlaha je vždy radius nad čarou, takže se posunula jen jejich světová Y (Comet top 17,92 → 14,92, rozestup pořád 7,57).
+- **Změřeno (`[field]`):** One 4,79 → 6,79 nad čarou; obrázky (Heart) 3,33 → 3,96; Coil (Rope) 4,74 → 5,38; Arcade 3,96–8,21 (Cube 5,38, Ziggurat/Donut 8,21, Globe 3,96). **Nikde už strop nedojede k čáře dřív, než dojdou míčky** — nejtěsnější je Globe, 6,6 sestupů proti rozpočtu na 5,8. Aimcheck PASS a levněji než dřív (nejstrmější buňka 60,5° z 80,2 místo 69,6°, protože zmizelo zvednutí pole).
+- **Rozpočty ani `ceilingStep` jsem NEMĚNIL** — tlak stropu je teď všude měkčí, což je přesně to, oč šlo; u mělkých layoutů (Ziggurat, Donut: 13,7 sestupů proti ~8 utraceným) je strop nově spíš kulisa. Kdyby to majiteli vadilo, páka je `ceilingStep` u těch dvou.
+- **Opravená čísla** (jinak by tiše lhala): `FIELD_FLOOR_MARGIN` a `PICTURE_FIELD_LEVELS` doc, figury Arcade, `docs/game-session.md`, `docs/formats-and-tools.md` (#203 i Coil), `docs/game-feedback.md` — a při té příležitosti i práh laserové sítě, který dokumentace uváděla jako „dva kroky", zatímco `LASER_WARN_STEPS` je 3. Historické figury proti staré čáře jsou ponechané, ale označené jako „proti −5,5".
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-19 (čára smrti).*
