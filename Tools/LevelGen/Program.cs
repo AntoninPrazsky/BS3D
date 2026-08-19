@@ -438,7 +438,7 @@ namespace BS3D.Tools.LevelGen
             {
                 Level level = Level.Load(Path.Combine(_outDir, set.Levels[i].File));
 
-                string thisScene = level.Scene?.Kind.ToString() ?? "(none)";
+                string thisScene = level.Scene?.ToString() ?? "(none)";
                 string thisMusic = level.Music ?? "(rotation)";
 
                 if (scene == null) { scene = thisScene; sky = level.SkyDome; music = thisMusic; }
@@ -525,7 +525,7 @@ namespace BS3D.Tools.LevelGen
             Name = "One",
             Grid = 12,
             Depth = 10,
-            Scene = new MeadowSceneConfig(),
+            Scene = SceneKind.Meadow,
             Sky = 1,
             Music = MUSIC_RINGS,
             Shots = 30,
@@ -582,7 +582,7 @@ namespace BS3D.Tools.LevelGen
         /// whole picture up. Two is the gentle case; three or four quarters every background group and thins the
         /// magazine's draw with it, at the cost of nothing but the entries in this array.
         /// </param>
-        private static Design Picture(string file, string name, SceneConfig scene, byte sky, string music,
+        private static Design Picture(string file, string name, SceneKind scene, byte sky, string music,
             int shots, int ceilingStep, string[] bitmap, byte grid,
             BallType[] symbol, BallType[] background)
         {
@@ -634,7 +634,7 @@ namespace BS3D.Tools.LevelGen
         /// A heart. Easy on purpose — a budget that forgives, and a ceiling slow enough that the picture can
         /// be read while it is played — because the point of it is to be recognised rather than aimed through.
         /// </summary>
-        private static Design Heart() => Picture("Heart.json", "Heart", new SavannaSceneConfig(), sky: 14,
+        private static Design Heart() => Picture("Heart.json", "Heart", SceneKind.Savanna, sky: 14,
             MUSIC_GALLERY, shots: 60, ceilingStep: 10, HEART, grid: 15,
             symbol: new[] { BallType.Type1 },
             background: new[] { BallType.Type4, BallType.Type7 });
@@ -646,7 +646,7 @@ namespace BS3D.Tools.LevelGen
         /// however many the bitmap uses now (<see cref="SYMBOL_INK"/>), which is what lets
         /// <see cref="Elephant"/>'s three inks and <see cref="Zebra"/>'s stripes be the Gallery's hard end.
         /// </summary>
-        private static Design Smiley() => Picture("Smiley.json", "Smiley", new SavannaSceneConfig(), sky: 14,
+        private static Design Smiley() => Picture("Smiley.json", "Smiley", SceneKind.Savanna, sky: 14,
             MUSIC_GALLERY, shots: 60, ceilingStep: 10, SMILEY, grid: 15,
             symbol: new[] { BallType.Type7, BallType.Type8 },
             background: new[] { BallType.Type3, BallType.Type4 });
@@ -660,7 +660,7 @@ namespace BS3D.Tools.LevelGen
         /// night-blue check hanging in gold daylight, which the block's own sky makes read as a lantern rather
         /// than as a constellation — a different picture, not a worse one.
         /// </summary>
-        private static Design Star() => Picture("Star.json", "Star", new SavannaSceneConfig(), sky: 14,
+        private static Design Star() => Picture("Star.json", "Star", SceneKind.Savanna, sky: 14,
             MUSIC_GALLERY, shots: 55, ceilingStep: 9, STAR, grid: 15,
             symbol: new[] { BallType.Type7 },
             background: new[] { BallType.Type3, BallType.Type5 });
@@ -705,7 +705,7 @@ namespace BS3D.Tools.LevelGen
         /// being two cells thick in Z (so a group of eight) rather than anything about the drawing.
         /// </para>
         /// </summary>
-        private static Design Zebra() => Picture("Zebra.json", "Zebra", new SavannaSceneConfig(), sky: 14,
+        private static Design Zebra() => Picture("Zebra.json", "Zebra", SceneKind.Savanna, sky: 14,
             MUSIC_GALLERY, shots: 48, ceilingStep: 8, ZEBRA, grid: 17,
             symbol: new[] { BallType.Type4, BallType.Type8 },
             background: new[] { BallType.Type3, BallType.Type5 });
@@ -733,7 +733,7 @@ namespace BS3D.Tools.LevelGen
         /// ears and the trunk hang off the check around them.
         /// </para>
         /// </summary>
-        private static Design Elephant() => Picture("Elephant.json", "Elephant", new SavannaSceneConfig(), sky: 14,
+        private static Design Elephant() => Picture("Elephant.json", "Elephant", SceneKind.Savanna, sky: 14,
             MUSIC_GALLERY, shots: 48, ceilingStep: 8, ELEPHANT, grid: 17,
             symbol: new[] { BallType.Type5, BallType.Type3, BallType.Type8 },
             background: new[] { BallType.Type7, BallType.Type1 });
@@ -772,7 +772,7 @@ namespace BS3D.Tools.LevelGen
             Name = "Bullseye",
             Grid = 15,
             Depth = 4,
-            Scene = new MeadowSceneConfig(),
+            Scene = SceneKind.Meadow,
             //Dome 1 is the only clear blue one in the set; most of the rest are warm or magenta, and over
             //green hills those read as a clash rather than as weather. A red-and-gold target wants that blue.
             //Since #194 that is the whole block's dome and not just this level's: the block's scene and sky
@@ -808,7 +808,7 @@ namespace BS3D.Tools.LevelGen
             //drives the whole light rig, so the CMY blocks are still the only saturated thing in the frame. What
             //is given up is "enclosed" — a cavern wraps the cluster and the Moon puts it against a horizon — and
             //that was never the part doing the work here.
-            Scene = new MoonSceneConfig(),
+            Scene = SceneKind.Moon,
             Sky = 13,
             //The one design that has to be worked rather than triggered: its best shot takes 24 of 387
             //balls, so it wants a budget nearer two shots per block than the four-shot cascades elsewhere
@@ -865,7 +865,7 @@ namespace BS3D.Tools.LevelGen
             //Ten deep, of which the cap is the top five and the stalk the bottom five. Even by necessity — the
             //field is 16 and Emit refuses an odd offset — and it leaves the six empty levels of growth room.
             Depth = 10,
-            Scene = new MeadowSceneConfig(),
+            Scene = SceneKind.Meadow,
             Sky = 1,
             Music = MUSIC_RINGS,
             Shots = 44,
@@ -896,7 +896,7 @@ namespace BS3D.Tools.LevelGen
             Name = "Pinwheel",
             Grid = 15,
             Depth = 4,
-            Scene = new MeadowSceneConfig(),
+            Scene = SceneKind.Meadow,
             Sky = 1,
             Music = MUSIC_RINGS,
             Shots = 44,
@@ -924,7 +924,7 @@ namespace BS3D.Tools.LevelGen
             Name = "Crown",
             Grid = 15,
             Depth = 8,
-            Scene = new MountainSceneConfig(),
+            Scene = SceneKind.Mountain,
             //Dome 8, a deep violet dusk, and not the 10 this shipped with. Under 10 the peaks came out pale
             //sand against a candy-pink sky and the whole frame read as kitsch; under 8 they read as snow and
             //the sky as weather, which is the same scene doing what it was built to do. The crown's gold and
@@ -1041,7 +1041,7 @@ namespace BS3D.Tools.LevelGen
             //move untouched. Under a clear blue dome the octahedron reads as cut glass in daylight, which plays
             //to the one thing this shape is documented for: a silhouette that reads from any angle wants a plain
             //sky behind it rather than a violet fog.
-            Scene = new MeadowSceneConfig(),
+            Scene = SceneKind.Meadow,
             Sky = 1,
             Music = MUSIC_RINGS,
             Shots = 44,
@@ -1081,7 +1081,7 @@ namespace BS3D.Tools.LevelGen
             //it — and it gave up something: the sea mirrors its dome, so it is a large area of whatever the sky
             //is doing rather than a backdrop, which is the same objection Mosaic's own comment makes about
             //having played there. Five colours in blocks of eight want a ground that stays still behind them.
-            Scene = new MoonSceneConfig(),
+            Scene = SceneKind.Moon,
             Sky = 13,
             Music = MUSIC_QUARRY,
             Shots = 60,
@@ -1115,7 +1115,7 @@ namespace BS3D.Tools.LevelGen
             //Space until #194, and the Moon is the same airless family with a ground under it — which is what
             //this level wanted from space and did not get: six colours of small blocks against nothing at all
             //read as noise floating in a void, where the Moon's lit horizon gives the cluster somewhere to be.
-            Scene = new MoonSceneConfig(),
+            Scene = SceneKind.Moon,
             Sky = 13,
             Music = MUSIC_QUARRY,
             Shots = 60,
@@ -1165,7 +1165,7 @@ namespace BS3D.Tools.LevelGen
             //Thirteen, as Mosaic has, for a wall reaching 4.75: one free column all round
             Grid = 13,
             Depth = 6,
-            Scene = new MoonSceneConfig(),
+            Scene = SceneKind.Moon,
             Sky = 13,
             Music = MUSIC_QUARRY,
             //Prism's pair of numbers: ten steps of ceiling against the ten empty field levels under a six-deep
@@ -1226,7 +1226,7 @@ namespace BS3D.Tools.LevelGen
             //18 of it (GameplayScreen.FRAMED_LEVELS). The ten empty levels under it are the usual growth room.
             Depth = 24,
             FieldLevels = 34,
-            Scene = new MountainSceneConfig(),
+            Scene = SceneKind.Mountain,
             //Dome 8, the block's, where this shipped under 1. Nothing here argued for 1; dome 8 is Crown's
             //measured pairing (see Crown) and a block is one place at one hour.
             Sky = 8,
@@ -1286,7 +1286,7 @@ namespace BS3D.Tools.LevelGen
             //it came from was never argued for, and the cavern is the one scene the pack documents as chosen for
             //being dark and enclosed — which is what a reveal wants, since it makes the cluster the only lit
             //thing in the frame. It inherits that pairing from Mosaic, which vacated it for the Moon.
-            Scene = new CavernSceneConfig(),
+            Scene = SceneKind.Cavern,
             //Inert here: the cavern is one of the four sky-replacing scenes, so this number pins nothing but
             //what the settings row cycles from (SceneRenderer.ReplacesSky, #142).
             Sky = 13,
@@ -1370,7 +1370,7 @@ namespace BS3D.Tools.LevelGen
             Name = "Chest",
             Grid = CHEST_GRID,
             Depth = CHEST_DEPTH,
-            Scene = new CavernSceneConfig(),
+            Scene = SceneKind.Cavern,
             //Inert in the cavern (SceneRenderer.ReplacesSky, #142); the block's number, as Onion states it
             Sky = 13,
             Music = MUSIC_REVEAL,
@@ -1431,7 +1431,7 @@ namespace BS3D.Tools.LevelGen
             Name = "Fossil",
             Grid = FOSSIL_GRID,
             Depth = FOSSIL_DEPTH,
-            Scene = new CavernSceneConfig(),
+            Scene = SceneKind.Cavern,
             Sky = 13,
             Music = MUSIC_REVEAL,
             //The slowest ceiling in the block, because this is the one level whose payoff has to be LOOKED at to
@@ -1492,7 +1492,7 @@ namespace BS3D.Tools.LevelGen
             //which is also the descent room: five ceiling steps at 0.6 each against the 4.79 world units the
             //lowest ball starts above the death line.
             Depth = 10,
-            Scene = new CavernSceneConfig(),
+            Scene = SceneKind.Cavern,
             Sky = 13,
             Music = MUSIC_REVEAL,
             //Five colours is the hardest draw in the block and this is its last level. A clean clear is 18 to 22
@@ -1549,7 +1549,7 @@ namespace BS3D.Tools.LevelGen
             Grid = 13,
             Depth = 10,
             FieldLevels = REVEAL_FIELD_LEVELS,
-            Scene = new CavernSceneConfig(),
+            Scene = SceneKind.Cavern,
             Sky = 13,
             Music = MUSIC_REVEAL,
             //The finest grain in the block - panes of a dozen rather than plates - so the longest budget of the
@@ -1622,7 +1622,7 @@ namespace BS3D.Tools.LevelGen
             //Ten levels of growth room under the layout, as Column has. Eight layout levels sit inside the
             //camera's window at the start, and those eight are the stalk - the bell is the part nobody has seen.
             FieldLevels = 30,
-            Scene = new MountainSceneConfig(),
+            Scene = SceneKind.Mountain,
             Sky = 8,
             Music = MUSIC_TOWER,
             Shots = 80,
@@ -1674,7 +1674,7 @@ namespace BS3D.Tools.LevelGen
             Grid = 13,
             Depth = 24,
             FieldLevels = 34,
-            Scene = new MountainSceneConfig(),
+            Scene = SceneKind.Mountain,
             Sky = 8,
             Music = MUSIC_TOWER,
             Shots = 66,
@@ -1742,7 +1742,7 @@ namespace BS3D.Tools.LevelGen
             Grid = LEAN_GRID,
             Depth = 24,
             FieldLevels = 34,
-            Scene = new MountainSceneConfig(),
+            Scene = SceneKind.Mountain,
             Sky = 8,
             Music = MUSIC_TOWER,
             Shots = 78,
@@ -1869,7 +1869,7 @@ namespace BS3D.Tools.LevelGen
             Grid = 13,
             Depth = DUNES_DEPTH,
             FieldLevels = DUNES_FIELD_LEVELS,
-            Scene = new DesertSceneConfig(),
+            Scene = SceneKind.Desert,
             Sky = DUNES_SKY,
             Music = MUSIC_COIL,
             Shots = 40,
@@ -1925,7 +1925,7 @@ namespace BS3D.Tools.LevelGen
             Grid = 15,
             Depth = DUNES_DEPTH,
             FieldLevels = DUNES_FIELD_LEVELS,
-            Scene = new DesertSceneConfig(),
+            Scene = SceneKind.Desert,
             Sky = DUNES_SKY,
             Music = MUSIC_COIL,
             Shots = 44,
@@ -1972,7 +1972,7 @@ namespace BS3D.Tools.LevelGen
             Grid = 13,
             Depth = DUNES_DEPTH,
             FieldLevels = DUNES_FIELD_LEVELS,
-            Scene = new DesertSceneConfig(),
+            Scene = SceneKind.Desert,
             Sky = DUNES_SKY,
             Music = MUSIC_COIL,
             Shots = 48,
@@ -2026,7 +2026,7 @@ namespace BS3D.Tools.LevelGen
             Grid = PENDULUM_GRID,
             Depth = 14,
             FieldLevels = DUNES_FIELD_LEVELS,
-            Scene = new DesertSceneConfig(),
+            Scene = SceneKind.Desert,
             Sky = DUNES_SKY,
             Music = MUSIC_COIL,
             Shots = 52,
@@ -2086,7 +2086,7 @@ namespace BS3D.Tools.LevelGen
             Grid = 15,
             Depth = DUNES_DEPTH,
             FieldLevels = DUNES_FIELD_LEVELS,
-            Scene = new DesertSceneConfig(),
+            Scene = SceneKind.Desert,
             Sky = DUNES_SKY,
             Music = MUSIC_COIL,
             Shots = 50,
@@ -2155,7 +2155,7 @@ namespace BS3D.Tools.LevelGen
             Grid = 11,
             Depth = 22,
             FieldLevels = 32,
-            Scene = new SpaceSceneConfig(),
+            Scene = SceneKind.Space,
             Sky = NEBULA_SKY,
             Music = MUSIC_NEBULA,
             Shots = 56,
@@ -2192,7 +2192,7 @@ namespace BS3D.Tools.LevelGen
             Grid = 12,
             Depth = 20,
             FieldLevels = 30,
-            Scene = new SpaceSceneConfig(),
+            Scene = SceneKind.Space,
             Sky = NEBULA_SKY,
             Music = MUSIC_NEBULA,
             Shots = 64,
@@ -2227,7 +2227,7 @@ namespace BS3D.Tools.LevelGen
             Grid = 11,
             Depth = 24,
             FieldLevels = 34,
-            Scene = new SpaceSceneConfig(),
+            Scene = SceneKind.Space,
             Sky = NEBULA_SKY,
             Music = MUSIC_NEBULA,
             Shots = 72,
@@ -2269,7 +2269,7 @@ namespace BS3D.Tools.LevelGen
             Grid = 13,
             Depth = 22,
             FieldLevels = 32,
-            Scene = new SpaceSceneConfig(),
+            Scene = SceneKind.Space,
             Sky = NEBULA_SKY,
             Music = MUSIC_NEBULA,
             Shots = 54,
@@ -2321,7 +2321,7 @@ namespace BS3D.Tools.LevelGen
             Grid = 12,
             Depth = 20,
             FieldLevels = 30,
-            Scene = new SpaceSceneConfig(),
+            Scene = SceneKind.Space,
             Sky = NEBULA_SKY,
             Music = MUSIC_NEBULA,
             Shots = 54,
@@ -3907,7 +3907,7 @@ namespace BS3D.Tools.LevelGen
             //The music is echoed back off the LOADED level rather than off the design, like the scene and the
             //dome beside it: a theme that failed to reach the file is a level that plays the wrong piece and
             //nothing else says so — the fallback is silent by design (see Design.Music)
-            Console.WriteLine($"--- {design.File} '{loaded.Name}' ({loaded.Scene.Kind}, sky {loaded.SkyDome}"
+            Console.WriteLine($"--- {design.File} '{loaded.Name}' ({loaded.Scene?.ToString() ?? "(none)"}, sky {loaded.SkyDome}"
                               + $", {loaded.Music ?? "no theme named"}) {fileSize / 1024} kB");
             Console.WriteLine($"    field {map.StageSizeX}x{map.StageSizeZ}x{map.Levels}, layout {design.Depth} deep, "
                               + $"{map.GetBallsCount()} balls, lowest occupied level {map.GetLowestOccupiedLevel()}");
@@ -4076,7 +4076,7 @@ namespace BS3D.Tools.LevelGen
             /// which is framed from its floor up and reaches out of shot.
             /// </summary>
             public byte FieldLevels = FIELD_LEVELS;
-            public SceneConfig Scene;
+            public SceneKind Scene;
             public byte Sky;
 
             /// <summary>

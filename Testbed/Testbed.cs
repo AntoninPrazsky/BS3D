@@ -1033,8 +1033,8 @@ namespace Testbed
         }
 
         /// <summary>
-        /// Loads a level: its map through the same path a plain map file takes, then the scene backdrop with
-        /// its full config and the sky dome. The file is parsed completely before the current structure is
+        /// Loads a level: its map through the same path a plain map file takes, then the scene backdrop it
+        /// names and the sky dome. The file is parsed completely before the current structure is
         /// torn down, so a broken file leaves the running game untouched.
         /// </summary>
         private void LoadLevel(string filePath)
@@ -1044,27 +1044,18 @@ namespace Testbed
 
             InstallMap(map);
 
-            if (level.Scene != null)
-            {
-                _scene = level.Scene.Kind;
-
-                if (level.Scene is CitySceneConfig cityConfig)
-                {
-                    //The city lives outside the SceneRenderer: regenerate the buildings from the config's
-                    //layout and hand the window/neon look to the city renderer
-                    _cityConfig = cityConfig;
-                    _city = new City(seed: 20260720, arenaHalfExtent: ArenaIsland.RADIUS, config: _cityConfig);
-                    _cityRenderer.CityConfig = _cityConfig;
-                }
-                else
-                {
-                    _sceneRenderer.Apply(level.Scene);
-                }
-            }
+            //A level names its scene and nothing more (format 2): the scene's parameters are fixed in code,
+            //so switching to it is exactly what the NumPad2 cycle does — set the kind and draw. The city
+            //needs nothing either: the default city stands from startup, and the draw derives day/neon from
+            //_scene per frame.
+            if (level.Scene is SceneKind sceneKind) _scene = sceneKind;
 
             //The level's dome wins over any scene-entry default (NumPad1 still cycles freely from here), except
-            //an explicit command-line sky= pins the startup dome — see _skyFromCommandLine
+            //an explicit command-line sky= pins the startup dome — see _skyFromCommandLine. The rig re-derives
+            //either way (SetSkyDome does it on its way): the scene just changed, and a scene may state its own
+            //lighting instead of the dome's — SwitchScene's rule, held here too.
             if (!_skyFromCommandLine) SetSkyDome(Math.Clamp(level.SkyDome, (byte)1, SKY_DOME_COUNT));
+            else ApplySkyLighting();
 
             Console.WriteLine($"[level] Loaded '{level.Name ?? Path.GetFileName(filePath)}': scene={_scene}, sky={_skyModelNumber}, balls={_map.GetBallsCount()}");
         }

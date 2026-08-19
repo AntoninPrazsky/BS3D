@@ -1,55 +1,10 @@
 {
   "format": "bs3d-level",
-  "version": 1,
+  "version": 2,
   "name": "Knot",
   "author": "BS3D",
   "sky": 6,
-  "scene": {
-    "kind": "desert",
-    "LevelY": -13.5,
-    "DuneAmplitude": 14,
-    "ClearingRadius": 80,
-    "ClearingTransition": 120,
-    "RippleAmplitude": 0.1,
-    "RippleFrequency": 1.6,
-    "RippleSpeed": 1.4,
-    "DustStrength": 0.3,
-    "DustSpeed": 6,
-    "DustStart": 240,
-    "SandColor": {
-      "R": 0.55,
-      "G": 0.38,
-      "B": 0.18
-    },
-    "SandColorPale": {
-      "R": 0.82,
-      "G": 0.68,
-      "B": 0.44
-    },
-    "SheenStrength": 0.35,
-    "AmbientStrength": 0.65,
-    "Wind": {
-      "X": 0.86,
-      "Y": 0.51
-    },
-    "HorizonHazeDistance": 420,
-    "Birds": {
-      "Count": 9,
-      "Wingspan": 6,
-      "Aspect": 0.55,
-      "Bob": 2.5,
-      "Color": {
-        "R": 0.02,
-        "G": 0.017,
-        "B": 0.014
-      },
-      "FlockCenter": {
-        "X": -20,
-        "Y": 34,
-        "Z": -75
-      }
-    }
-  },
+  "scene": "desert",
   "music": "ember",
   "map": {
     "sx": 15,

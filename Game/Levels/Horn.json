@@ -1,65 +1,10 @@
 {
   "format": "bs3d-level",
-  "version": 1,
+  "version": 2,
   "name": "Horn",
   "author": "BS3D",
   "sky": 8,
-  "scene": {
-    "kind": "mountain",
-    "LevelY": -14,
-    "Height": 82,
-    "ClearingRadius": 95,
-    "ClearingTransition": 110,
-    "ClearingRelief": 1.5,
-    "SnowColor": {
-      "R": 0.9,
-      "G": 0.93,
-      "B": 0.99
-    },
-    "RockColor": {
-      "R": 0.08,
-      "G": 0.07,
-      "B": 0.065
-    },
-    "RockColorLight": {
-      "R": 0.2,
-      "G": 0.17,
-      "B": 0.14
-    },
-    "RockSlope": 0.3,
-    "SnowSlope": 0.78,
-    "SnowlineLow": -15,
-    "SnowlineHigh": 50,
-    "RockReliefStrength": 0.5,
-    "RockReliefFrequency": 0.6,
-    "AmbientStrength": 0.6,
-    "HorizonHazeDistance": 500,
-    "Snow": {
-      "FlakeCount": 2800,
-      "BoxSize": {
-        "X": 70,
-        "Y": 55,
-        "Z": 70
-      },
-      "FallSpeed": 9,
-      "Wind": {
-        "X": 4,
-        "Y": 1.5
-      },
-      "Sway": 1.2,
-      "FlakeSize": 0.085,
-      "Spin": 1.1,
-      "Lobing": 0.3,
-      "NearFade": 7,
-      "Twinkle": 0.25,
-      "FlakeColor": {
-        "R": 0.72,
-        "G": 0.76,
-        "B": 0.82
-      },
-      "Opacity": 0.6
-    }
-  },
+  "scene": "mountain",
   "music": "bohemia",
   "map": {
     "sx": 13,

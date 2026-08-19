@@ -127,10 +127,16 @@ namespace MapEditor
         private SceneRenderer _sceneRenderer;
         private SceneKind _scene = SceneKind.City;
 
+        //What a loaded level carried beyond the editor's own state, held so F4 writes it back — a round-trip
+        //through the editor used to silently unpin a level's theme. Cleared when a fresh map or a plain map
+        //file replaces the level.
+        private string _levelMusic;
+        private string _levelAuthor;
+
         private City _city;
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
-        //Not readonly: a loaded level (bs3d-level file) replaces it with the level's city config
+        //The city's fixed parameters; the G panel edits them live for tuning, nothing persists them
         private CitySceneConfig _cityConfig = new();
 
         //The forest's scattered trees, boulders and stumps, so a forest level previews with the wood standing on
@@ -475,7 +481,7 @@ namespace MapEditor
             if (isCity) _cityConfig.Neon = _scene == SceneKind.NeonCity; //show the config's Neon matching the current view
 
             _sceneConfigGrid.Object = isCity ? _cityConfig : _sceneRenderer.GetSceneConfig(_scene);
-            _sceneConfigHeader.Text = $"{_scene}  —  edit to preview live  (G: hide)";
+            _sceneConfigHeader.Text = $"{_scene}  —  edit to preview live; not saved  (G: hide)";
         }
 
         /// <summary>Re-applies the edited scene config so the backdrop updates in place.</summary>
@@ -599,6 +605,10 @@ namespace MapEditor
             _selector.UpdateBallsBap(_map);
             _aabb.FitToMap(_map);
 
+            //A fresh map is not the loaded level any more — F4 must not write a stale theme onto it
+            _levelMusic = null;
+            _levelAuthor = null;
+
             Info.CustomText = $"New map {dialog.StageSizeX} x {dialog.StageSizeZ} x {dialog.Levels}";
         }
 
@@ -652,10 +662,11 @@ namespace MapEditor
         }
 
         /// <summary>
-        /// Saves the current state as a level file (issue #32): the map plus the active scene backdrop with its
-        /// full config and the sky dome, so it reloads looking exactly as it does now — in the game as well as
-        /// here. The scene config comes from the shared <see cref="SceneRenderer"/> for the self-lit scenes and
-        /// from the editor's own <see cref="CitySceneConfig"/> for the city (its Neon flag set from the view).
+        /// Saves the current state as a level file (issue #32): the map, the NAME of the active scene and the
+        /// sky dome — a level names its scene and the scene's parameters are fixed in code (format 2), so
+        /// there is no config to write. What a loaded level carried beyond the editor's own state — its
+        /// theme, its author — is written back, so a round-trip through the editor no longer silently unpins
+        /// a level's music (the trap `docs/formats-and-tools.md` used to record).
         /// </summary>
         private void SaveLevel()
         {
@@ -664,22 +675,13 @@ namespace MapEditor
             string filePath = GetFilePathByDialog(true);
             if (string.IsNullOrEmpty(filePath)) return;
 
-            SceneConfig sceneConfig;
-            if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
-            {
-                _cityConfig.Neon = _scene == SceneKind.NeonCity; //the saved config's Kind must match the current view
-                sceneConfig = _cityConfig;
-            }
-            else
-            {
-                sceneConfig = _sceneRenderer.GetSceneConfig(_scene);
-            }
-
             Level level = new()
             {
                 Name = Path.GetFileNameWithoutExtension(filePath),
+                Author = _levelAuthor,
                 SkyDome = (byte)_skyDomeNumber,
-                Scene = sceneConfig,
+                Scene = _scene,
+                Music = _levelMusic,
                 Map = _map.ToBallPositionTypes(),
             };
 
@@ -738,6 +740,10 @@ namespace MapEditor
                 //The loaded map may have different play field dimensions
                 _selector.UpdateBallsBap(_map);
                 _aabb.FitToMap(_map);
+
+                //A plain map carries no theme or author — F4 must not write the previous level's onto it
+                _levelMusic = null;
+                _levelAuthor = null;
             }
             catch (Exception e)
             {
@@ -751,7 +757,7 @@ namespace MapEditor
 
         /// <summary>
         /// Applies a level parsed off the render thread, on the main thread: swaps in its map (so the selector
-        /// and field outline follow the new field), applies the scene backdrop with its full config and sets
+        /// and field outline follow the new field), switches to the scene backdrop it names and sets
         /// the sky dome — so a level previews in the editor exactly the way it plays. A no-op when nothing is
         /// pending. Mirrors the Testbed's LoadLevel, minus the physics/cannon/camera the game derives.
         /// </summary>
@@ -770,39 +776,20 @@ namespace MapEditor
                 _selector.UpdateBallsBap(_map);
                 _aabb.FitToMap(_map);
 
-                if (level.Scene != null)
-                {
-                    _scene = level.Scene.Kind;
+                //A level names its scene and nothing more (format 2): the scene's parameters are fixed in
+                //code and already live in the renderer's defaults, so switching to it is what the V cycle
+                //does — set the kind. The default city and forest stand from startup.
+                if (level.Scene is SceneKind sceneKind) _scene = sceneKind;
 
-                    if (level.Scene is CitySceneConfig cityConfig)
-                    {
-                        //The city lives outside the SceneRenderer: regenerate the buildings from the config's
-                        //layout and hand the config to the city renderer (which reads the brightness per frame)
-                        _cityConfig = cityConfig;
-                        _city = new City(seed: 20260720, arenaHalfExtent: ARENA_HALF_EXTENT, config: _cityConfig);
-                        _cityRenderer.CityConfig = _cityConfig;
-                    }
-                    else
-                    {
-                        _sceneRenderer.Apply(level.Scene);
-
-                        //A level carries the forest's whole config, so the wood it plants has to be the level's
-                        //and not the default one — the meshes' proportions and the tints' colours as much as the
-                        //counts. Re-lit right here rather than left to the SetSkyDome below (which does call
-                        //ApplySkyLighting): the two belong together, and a component whose lighting depends on
-                        //the order of two later statements is one incident waiting to happen.
-                        if (level.Scene is ForestSceneConfig forest)
-                        {
-                            _forestScatter.Replant(forest);
-                            ApplySkyLighting();
-                        }
-                    }
-                }
+                //Capture what the file carried that the editor does not otherwise know, so F4 writes it back
+                //and a round-trip through the editor no longer silently unpins a level's theme
+                _levelMusic = level.Music;
+                _levelAuthor = level.Author;
 
                 //The level's dome wins over whatever is up (the sky key still cycles freely from here)
                 SetSkyDome(Math.Clamp((int)level.SkyDome, 1, SKY_DOME_COUNT));
 
-                //Point the live editor at the loaded level's scene config
+                //Point the live tuning panel at the named scene's config (and sync the city's Neon flag)
                 RebindSceneConfigGrid();
 
                 string levelName = string.IsNullOrEmpty(level.Name) ? "Untitled" : level.Name;
