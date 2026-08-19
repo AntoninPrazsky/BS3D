@@ -755,7 +755,18 @@ namespace Prazsky.BS3D
         /// </summary>
         /// <param name="map">The map, or null before one is loaded — in which case nothing is added.</param>
         /// <returns>How many balls were bucketed.</returns>
-        public int AddMap(BallsMap map)
+        public int AddMap(BallsMap map) => AddMap(map, Vector3.Zero);
+
+        /// <summary>
+        /// <see cref="AddMap(BallsMap)"/> hung at an offset: the grid frame a map stores its balls in is not
+        /// the world frame a field is played in, and this is the whole of the difference. The menu's backdrop
+        /// is the caller — it hands the very offset a session derives for the same map, so the preview hangs
+        /// exactly where the map will hang when it is played.
+        /// </summary>
+        /// <param name="map">The map, or null before one is loaded — in which case nothing is added.</param>
+        /// <param name="worldOffset">Added to every ball's grid-frame position, XZ and Y alike.</param>
+        /// <returns>How many balls were bucketed.</returns>
+        public int AddMap(BallsMap map, Vector3 worldOffset)
         {
             if (map == null) return 0;
 
@@ -775,7 +786,8 @@ namespace Prazsky.BS3D
                         int occluders = BallsMap.CountOccupiedNeighbors(balls, new XZLevel(x, z, level), size,
                             out Vector3 occluderDirectionSum);
 
-                        Add(ball.Type, ball.Position, Matrix.CreateTranslation(ball.Position),
+                        Vector3 position = ball.Position + worldOffset;
+                        Add(ball.Type, position, Matrix.CreateTranslation(position),
                             BallRenderSet.OcclusionTarget(occluders, occluderDirectionSum));
 
                         added++;
