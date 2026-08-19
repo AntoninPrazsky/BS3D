@@ -115,10 +115,14 @@ namespace BS3D.Tools.LevelGen
         //leaving it null used to cost. Named after the block rather than after the piece because that is the
         //thing being decided: if a block's music is ever changed it is changed HERE, once, and not five times.
         //
-        //FIVE pieces against SIX blocks since #207, so exactly one is reprised, and it is the bookend: the
-        //campaign opens on the piece Level One has always played and the finale brings it back. That reprise
-        //was FORCED while four pieces existed; it is a choice now, and it is kept because a reprise at the end
-        //is a real musical idea where "every block gets its own" is only tidy.
+        //FIVE pieces against SEVEN blocks since #182, so two are reprised. The first is the bookend #207
+        //chose: the campaign opens on the piece Level One has always played and the Quarry brings it back —
+        //that reprise was FORCED while four pieces existed; it is a choice now, and it is kept because a
+        //reprise at the end of the original ramp is a real musical idea where "every block gets its own" is
+        //only tidy. The second is the Nebula taking Nocturne: a seventh block against five pieces makes a
+        //second reprise unavoidable short of composing (#229's job, not this one's), and night jazz over the
+        //void is the piece whose register fits — a desk decision, one constant to change if the owner's ear
+        //disagrees.
         //
         //The Coil takes Ember, and that is #163 and #207 answering each other. #163 landed the rock ballad with
         //no block using it; #207 wrote, when it still had to reprise Nocturne here, that this was the block with
@@ -127,7 +131,7 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// What each block is <b>called</b>, written onto every entry of it as <c>LevelSetEntry.Block</c> so the
         /// game can celebrate finishing one by name (#184). Indexed by block, so the order here IS the order of
-        /// the catalogue's own six groups.
+        /// the catalogue's own seven groups.
         /// <para>
         /// Set from the entry's <b>position</b> where <see cref="Design.Music"/> is set on each design, and the
         /// asymmetry is not an oversight: a theme is written into the level <i>file</i>, so it has to be a
@@ -138,7 +142,7 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private static readonly string[] BLOCK_NAMES =
         {
-            "The Meadow", "The Gallery", "The Coil", "The Tower", "The Reveal", "The Quarry"
+            "The Meadow", "The Gallery", "The Coil", "The Tower", "The Reveal", "The Quarry", "The Nebula"
         };
 
         private const string MUSIC_RINGS = "pulse";
@@ -147,6 +151,7 @@ namespace BS3D.Tools.LevelGen
         private const string MUSIC_TOWER = "bohemia";
         private const string MUSIC_REVEAL = "nocturne";
         private const string MUSIC_QUARRY = "pulse";
+        private const string MUSIC_NEBULA = "nocturne";
 
         /// <summary>Where the levels are written. Set once in <see cref="Main"/>, read by everything below.</summary>
         private static string _outDir;
@@ -170,9 +175,10 @@ namespace BS3D.Tools.LevelGen
             //which is what #184's block-completion celebration needs and what a flat list could not give it.
             //
             //The campaign's light drains out of it as it goes: green noon, gold afternoon, the desert's cool
-            //late light, violet dusk, underground dark, airless black. Difficulty ramps with it, and so does
-            //how much of each block is new — one new level in the first block, then two, five, three, four,
-            //and one again at the finale, which closes on the hardest content the pack already had.
+            //late light, violet dusk, underground dark, airless black — and since #182, past the black, deep
+            //space. Difficulty ramps with it, and so does how much of each block is new — one new level in
+            //the first block, then two, five, three, four, one at the Quarry, and five again in the Nebula,
+            //which closes on the one level that plays every colour the game has.
             //
             //THE COIL IS INSERTED AT 3 RATHER THAN APPENDED (#207), and both halves of that are decisions.
             //Appending it would have put a bright hot chapter after the airless black one and taken the last
@@ -181,6 +187,17 @@ namespace BS3D.Tools.LevelGen
             //Nothing had to be retuned to move eleven levels down the order, because the unlock ramp
             //is a function of POSITION and not of any design — see MinStarsAt, which was written that way for
             //exactly this.
+            //
+            //THE NEBULA IS APPENDED, and that reverses the second half of #207's reasoning deliberately (the
+            //owner's ask, #182): the campaign's last word moves off Colossus onto the Nebula's finale. The
+            //first half survives intact, because the block is not a bright chapter after the airless black
+            //one — space is the step PAST airless black, the ramp continuing outward rather than turning
+            //back. Colossus keeps every rule it had and closes the Quarry; what it hands over is only the
+            //campaign-complete moment. The Nebula's designs live in their own array below rather than in this
+            //one, because WriteLevelSet appends Colossus after everything in THIS array — five designs added
+            //here would land Colossus at the tail of the NEBULA's five and file Comet under the Quarry. The
+            //blocks would still be contiguous (names fall out of positions, nothing refuses the set); they
+            //would celebrate the wrong levels.
             //
             //ONE RECORDED DECISION IS REVERSED HERE and it is worth naming rather than leaving to be noticed.
             //The three pictures used to be deliberately INTERLEAVED with the geometric levels, "because they
@@ -230,14 +247,27 @@ namespace BS3D.Tools.LevelGen
 
                 //6. THE MOON - "The Quarry". Chunky lattice-aligned blocks of colour, five or six of them, and
                 //no plate to trigger anywhere: every shot is a shot at a handful of balls. Colossus closes it,
-                //and closes the campaign, from WriteLevelSet.
+                //from WriteLevelSet.
                 Mosaic(), Prism(), Hopper(), Static()
             };
 
+            //7. THE NEBULA (#182) - the arena in deep space, and the block the five #152 colours arrive in,
+            //one or two per level until the finale plays all thirteen. Every level is TALL and OPEN in the
+            //Helix's sense - the silhouette turns and changes as it descends, so the player reads what is
+            //coming - and each is a different KIND of tall, the Tower's own rule (#160). See the block's
+            //region for why a second tall block exists at all when the Coil recorded that only the Tower
+            //should be one. The block lives in its own array because WriteLevelSet appends Colossus after
+            //everything in the array above: five designs added THERE would still make contiguous blocks
+            //(the names fall out of positions, so nothing refuses the set) but would misfile them - Comet
+            //labelled the Quarry's, Colossus labelled the Nebula's, and THE QUARRY COMPLETE celebrating on
+            //the wrong level. Only DescribeBlock's non-gating MIXED print would show it.
+            Design[] nebula = { Comet(), Vortex(), Carousel(), Wishbone(), Garland() };
+
             bool ok = true;
             foreach (Design design in designs) ok &= Emit(design);
+            foreach (Design design in nebula) ok &= Emit(design);
 
-            WriteLevelSet(designs);
+            WriteLevelSet(designs, nebula);
 
             //A non-zero exit so this can be put in front of a commit: a level that fails the checks is a
             //level that plays wrong, and the whole point of generating them is that nobody has to notice
@@ -266,11 +296,17 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// Rewrites the set that orders the levels — since #194 as <b>blocks of <see cref="BLOCK_SIZE"/></b>
-        /// rather than one flat ramp of fourteen, and six of them since #207 added the desert. <b>One opens the
-        /// campaign and Colossus closes it</b>; One is a
+        /// rather than one flat ramp of fourteen, six of them since #207 added the desert and seven since #182
+        /// appended the Nebula. <b>One opens the campaign, Colossus closes the Quarry, and the Nebula's finale
+        /// closes the campaign</b> (#182 — the owner moved the last word deliberately; the campaign-complete
+        /// celebration rides the set's last entry and moves with it). One is a
         /// design here now (the author asked for it regenerated, see <see cref="One"/>) and states its own rules
         /// with the rest, while Colossus is still hand-drawn and keeps its rules verbatim — it is authored
-        /// content and this generator has no opinion about it beyond where it sits.
+        /// content and this generator has no opinion about it beyond where it sits. The Nebula's designs arrive
+        /// as the second array, appended after Colossus, because the Quarry's five entries are four designs plus
+        /// that hand-drawn finale — five more designs in the first array would push Colossus out of the Quarry
+        /// and misfile both blocks' members (still contiguous, so nothing would refuse the set; the milestones
+        /// would simply fire on the wrong levels).
         /// <para>
         /// Colossus (once "Two", back when it was the second level) is the hardest level in the game by a
         /// distance: twelve wide, eighteen deep, six colours in 3×3 blocks rolled per level so nothing is ever
@@ -282,10 +318,11 @@ namespace BS3D.Tools.LevelGen
         /// <b>Colossus is the one level whose music this tool cannot pin</b>, because it does not write the file:
         /// its <c>"music"</c> field is authored in <c>Colossus.json</c> itself, and it has to say the Quarry's
         /// theme or the level falls back to the positional rotation and plays whatever its position happens to
-        /// give. It agreed by luck before this was noticed (at 25 entries, 24 % 4 is 0, which is Pulse, which is
-        /// the Quarry's theme) — exactly the silent coupling to the order that #194 exists to remove, and
-        /// <b>#207 has now spent that luck</b>: at 30 entries the rotation would hand position 30 Bohemia, so the
-        /// authored field is the only reason the finale still plays its own block's piece. Its <c>"sky"</c> was
+        /// give. It agreed by luck before this was noticed (at 25 entries and four pieces, 24 % 4 was 0, which
+        /// is Pulse, which is the Quarry's theme) — exactly the silent coupling to the order that #194 exists
+        /// to remove, and <b>that luck is spent twice over</b> (the journal records both): with five pieces
+        /// 24 % 5 is 4 and at Colossus's position 29 % 5 is also 4, both Ember, so the
+        /// authored field is the only reason the Quarry's finale still plays its own block's piece. Its <c>"sky"</c> was
         /// moved from 2 to the block's 13 in the same edit: the number is <b>inert</b> on the Moon (one of the
         /// four sky-replacing scenes, #142) so it cannot be seen either way, and matching it is what keeps
         /// <see cref="DescribeBlock"/> from permanently reporting a difference nothing can render.
@@ -296,7 +333,7 @@ namespace BS3D.Tools.LevelGen
         /// have, and no gate anywhere refuses it.
         /// </para>
         /// </summary>
-        private static void WriteLevelSet(Design[] designs)
+        private static void WriteLevelSet(Design[] designs, Design[] nebula)
         {
             LevelSet set = new() { Name = "Bubble Shooter 3D" };
 
@@ -324,6 +361,25 @@ namespace BS3D.Tools.LevelGen
                 CeilingStep = 4,
                 MinStars = MinStarsAt(designs.Length),
             });
+
+            //The Nebula, after the hand-drawn finale above — see the method doc for why it cannot sit in the
+            //first array. Positions continue where Colossus left off, so the block name and the unlock gates
+            //fall out of the same two position functions as everything else's.
+            for (int i = 0; i < nebula.Length; i++)
+            {
+                Design d = nebula[i];
+                int index = designs.Length + 1 + i;
+
+                set.Levels.Add(new LevelSetEntry
+                {
+                    File = d.File,
+                    Name = d.Name,
+                    Block = BlockNameAt(index),
+                    Shots = d.Shots,
+                    CeilingStep = d.CeilingStep,
+                    MinStars = MinStarsAt(index),
+                });
+            }
 
             string path = Path.Combine(_outDir, LevelSet.DefaultFileName);
             set.Save(path);
@@ -409,12 +465,13 @@ namespace BS3D.Tools.LevelGen
         /// goes back for a better one. The most a player can hold at entry <paramref name="index"/> is
         /// <c>4 × index</c>, so the steepest gate still asks under half of what is on the table.
         /// <para>
-        /// <b>The ramp is unchanged by #194 and again by #207, and that was checked rather than assumed</b>,
-        /// because it now runs to thirty entries instead of the fourteen it was written for. The property that
-        /// has to hold is the par one: a player who two-stars every level ahead of entry <i>i</i> holds
-        /// <c>2i</c> against a gate of <c>2(i − 1)</c>, which clears it by two at every position, however long
-        /// the set is. At the last entry the gate is 56 against the 116 four-star clears would have banked —
-        /// still the "under half" above, so nothing needed retuning and no gate had to be made block-aware.
+        /// <b>The ramp is unchanged by #194, by #207 and again by #182, and that was checked rather than
+        /// assumed</b>, because it now runs to thirty-five entries instead of the fourteen it was written for.
+        /// The property that has to hold is the par one: a player who two-stars every level ahead of entry
+        /// <i>i</i> holds <c>2i</c> against a gate of <c>2(i − 1)</c>, which clears it by two at every
+        /// position, however long the set is. At the last entry the gate is 66 against the 136 four-star
+        /// clears would have banked — still the "under half" above, so nothing needed retuning and no gate
+        /// had to be made block-aware.
         /// </para>
         /// </summary>
         private static int? MinStarsAt(int index) => index switch
@@ -1718,7 +1775,9 @@ namespace BS3D.Tools.LevelGen
         //
         //None of them is tall. That is deliberate and it is the Tower's boundary being respected rather than an
         //oversight - "the layout is deeper than the camera frames" is that block's whole statement, and a second
-        //block of tall levels would take it away. These are framed whole and swing inside the frame.
+        //block of tall levels would take it away. These are framed whole and swing inside the frame. (#182 has
+        //since reversed that boundary deliberately - the Nebula is a second tall block, at the owner's ask, and
+        //its region says why the Tower's statement survives it. This block's reasoning stays as it was made.)
 
         /// <summary>
         /// The desert's field: eighteen deep against a layout of <see cref="DUNES_DEPTH"/>, which is the same
@@ -2037,6 +2096,247 @@ namespace BS3D.Tools.LevelGen
             {
                 KnotDistance(r, ang, i, depth, out int arc);
                 return Band(KNOT_INKS[arc], new[] { BallType.Type1, BallType.Type7, BallType.Type3 });
+            },
+        };
+
+        #endregion
+
+        #region The nebula levels (#182)
+
+        //THE SEVENTH BLOCK: the arena hanging in deep space, past the Quarry's airless black — the light ramp
+        //continuing outward rather than turning back, which is what lets a block sit after the Moon at all
+        //(#207 refused a BRIGHT one there, and that half of its reasoning stands). It is the second tall
+        //block, and that reverses the Coil's recorded rule that only the Tower should be one — deliberately,
+        //because it is the owner's ask (#182: tall, in the Helix's style) and because what this block states
+        //is not the Tower's premise. The Tower's statement is "the layout is deeper than the camera frames";
+        //the Nebula's is "the five #152 colours arrive", one or two per level until the finale plays all
+        //thirteen, and every silhouette here is OPEN — strands, walls and beads the player reads a whole turn
+        //of, never a solid mass.
+        //
+        //Every level is a different KIND of tall (the Tower's own #160 rule, kept):
+        //  Comet    - a head with a tail: the mass is at the TOP and a single strand hangs from it.
+        //  Vortex   - a hollow wall around nothing, its window and its panes turning as they descend.
+        //  Carousel - three rails and their decks: the mass is a repeating FRAME, not any body.
+        //  Wishbone - a trunk that FORKS: one descending front becomes two the gun alternates between.
+        //  Garland  - beads on two counter-turning strands: the mass is in PACKETS, and every packet is its
+        //             own colour - all thirteen of them, which is the finale's whole difficulty.
+        //
+        //The colour debuts, and who each stands next to (the #152 rival pairs, met deliberately):
+        //  Comet    orange       - between red and gold, its own rivals, in the head's wedges.
+        //  Vortex   brown        - against orange one pane over.
+        //  Carousel silver       - banded against white and black on the neighbouring rails.
+        //  Wishbone navy + olive - the two bulbs, on arms segmented in blue/cyan and green/white.
+        //  Garland  all five     - among all thirteen.
+
+        /// <summary>
+        /// A comet hanging head-up: a round coma pressed against the glass and a single tail winding three
+        /// quarters of a turn down from under it, thinning as it goes — the block's opener and the gentlest
+        /// statement of its style. The head is wedged in three colours the way the Meadow's plates taught (a
+        /// wedge is dozens of balls, so the opener still pays out big), and <b>orange debuts in the middle
+        /// wedge, flanked by red and gold</b> — its own rivals (#152), met as neighbouring plates before any
+        /// level asks for them told apart at speed.
+        /// <para>
+        /// The anchor lesson of <see cref="Horn"/> sideways: the head's wedges run the full body, so peeling
+        /// one never stands the others on nothing, and the tail hangs from whichever wedges its root touches.
+        /// A tail segment cut drops only the tail below it — the shallowest cascade in the block, which is
+        /// the right depth for its first level.
+        /// </para>
+        /// <para>
+        /// Measured: 299 balls, margin 1, nothing alone or paired, nothing recoloured; best single shots
+        /// 22 %, 9 %, 19 % and 26 % — plate-sized payoffs, the opener's job. Stable hanging unshot for 40 s
+        /// in the running game (the tail carries only its own weight; the sag that sank the first Garland
+        /// never threatened it).
+        /// </para>
+        /// </summary>
+        private static Design Comet() => new()
+        {
+            File = "Comet.json",
+            Name = "Comet",
+            Grid = 11,
+            Depth = 22,
+            FieldLevels = 32,
+            Scene = new SpaceSceneConfig(),
+            Sky = NEBULA_SKY,
+            Music = MUSIC_NEBULA,
+            Shots = 56,
+            CeilingStep = 6,
+            Occupied = (r, ang, i, depth) =>
+                CometHead(r, i, depth) <= COMET_HEAD_RADIUS || CometTail(r, ang, i, depth),
+            Colour = (r, ang, i, depth) =>
+                CometHead(r, i, depth) <= COMET_HEAD_RADIUS
+                    ? Sector(ang, 0f, 3, new[] { BallType.Type1, BallType.Type9, BallType.Type7 })
+                    : Band((depth - 1 - i) / COMET_TAIL_SEGMENT,
+                        new[] { BallType.Type4, BallType.Type9, BallType.Type7, BallType.Type1 }),
+        };
+
+        /// <summary>
+        /// A hollow funnel wall around nothing — the one level here whose inside is EMPTY, so every shot is a
+        /// shot at a curved two-cell wall, and the wall turns as it descends: a window a few cells wide
+        /// corkscrews down it, and the colouring is panes that follow the same twist (<see cref="Lantern"/>'s
+        /// course-roll trick sheared by height), so nothing on it is either a horizontal band (the
+        /// <see cref="DropTest"/> trap) or a vertical stave of dozens. <b>Brown debuts one pane over from
+        /// orange</b>, the warm pair of #152, on the scene whose void backdrop keeps every warm tone legible.
+        /// The wall pinches slightly toward its tip, so the silhouette reads as a vortex touching down rather
+        /// than as a pipe.
+        /// <para>
+        /// Measured: 472 balls, margin 1, nothing alone or paired, nothing recoloured, colour counts 86–102;
+        /// every colour's best single shot is 6 % (29–33 balls) — no plate anywhere, the panes' point. The
+        /// budget prices a pane a shot: 20 panes against 64 shots. (The window's width and seat both took a
+        /// correction — see the geometry comments — and the counts above are from after it.)
+        /// </para>
+        /// </summary>
+        private static Design Vortex() => new()
+        {
+            File = "Vortex.json",
+            Name = "Vortex",
+            Grid = 12,
+            Depth = 20,
+            FieldLevels = 30,
+            Scene = new SpaceSceneConfig(),
+            Sky = NEBULA_SKY,
+            Music = MUSIC_NEBULA,
+            Shots = 64,
+            CeilingStep = 6,
+            Occupied = (r, ang, i, depth) => VortexWall(r, ang, i, depth),
+            Colour = (r, ang, i, depth) =>
+                Band(SectorIndex(ang, -i * VORTEX_TURNS_PER_LEVEL, VORTEX_PANES)
+                     + (depth - 1 - i) / VORTEX_COURSE * 2,
+                    new[] { BallType.Type10, BallType.Type9, BallType.Type2, BallType.Type5, BallType.Type4 }),
+        };
+
+        /// <summary>
+        /// Three rails on a slowly turning orbit, tied by a full deck ring every fourth level — a carousel
+        /// seen from its axle, and the tallest level of the block. Where <see cref="Helix"/> is two heavy
+        /// strands, this is a FRAME: the mass is in the repetition, every rail is thin, and the decks are
+        /// what keeps a cut rail's remainder hanging (the rung lesson, taken from two strands to three).
+        /// <b>Silver debuts here, banded against white and black on the neighbouring rails</b> — the #152
+        /// trio the tints were designed to hold apart, told apart in play for the first time. A deck cell
+        /// takes the colour of the rail whose third of the turntable it sits on, the rung rule again: a deck
+        /// of its own colour would be a tax of five-ball groups on the magazine's even draw.
+        /// <para>
+        /// Measured: 586 balls — the biggest of the block (Onion still holds the game's record at 959) —
+        /// margin 1, nothing alone or paired, nothing
+        /// recoloured (the decks every fourth level are what lets the rails sit at the 1.5 the Helix records
+        /// as pinching); best single shots 4–8 %, bands of 26–27. The budget prices its ~22 bands at 72.
+        /// </para>
+        /// </summary>
+        private static Design Carousel() => new()
+        {
+            File = "Carousel.json",
+            Name = "Carousel",
+            Grid = 11,
+            Depth = 24,
+            FieldLevels = 34,
+            Scene = new SpaceSceneConfig(),
+            Sky = NEBULA_SKY,
+            Music = MUSIC_NEBULA,
+            Shots = 72,
+            CeilingStep = 5,
+            Occupied = (r, ang, i, depth) => CarouselRail(r, ang, i) != 0 || CarouselDeck(r, i, depth),
+            Colour = (r, ang, i, depth) =>
+            {
+                int rail = CarouselRail(r, ang, i);
+                if (rail == 0) rail = CarouselNearestRail(ang, i);
+
+                return Band(i / CAROUSEL_SEGMENT + (rail - 1) * 2,
+                    new[] { BallType.Type11, BallType.Type3, BallType.Type4, BallType.Type6, BallType.Type8 });
+            },
+        };
+
+        /// <summary>
+        /// A trunk that forks: eight levels of solid column under the glass, then two arms that corkscrew
+        /// apart and down for half a turn, each ending in a bulb — one descending front becoming two the gun
+        /// has to alternate between, which no other tall level asks. <b>Navy and olive debut as the two
+        /// bulbs</b>, hanging off arms segmented in blue/cyan and green/white respectively — each #152 colour
+        /// literally growing out of its rival (#152's pairs) — and each is the block's scarce-colour lesson
+        /// before the finale: a colour that exists only as the fruit at the bottom of one arm.
+        /// <para>
+        /// The trunk is wedged vertically, not banded: its three colours each run the full eight levels, so
+        /// cutting any one leaves the arms anchored through the others (<see cref="Horn"/>'s shell rule; a
+        /// banded trunk would be the block's one-shot trap, the whole level on the top band).
+        /// </para>
+        /// <para>
+        /// Measured: 344 balls, margin 1, nothing alone or paired, nothing recoloured; each bulb is one
+        /// 37-ball group whose cut drops exactly itself (10 %), and the deepest cascade is a high cyan
+        /// segment taking the arm below it — 101 balls, 29 %, the block's best hidden shot. Stable hanging
+        /// unshot for 40 s in the running game.
+        /// </para>
+        /// </summary>
+        private static Design Wishbone() => new()
+        {
+            File = "Wishbone.json",
+            Name = "Wishbone",
+            Grid = 13,
+            Depth = 22,
+            FieldLevels = 32,
+            Scene = new SpaceSceneConfig(),
+            Sky = NEBULA_SKY,
+            Music = MUSIC_NEBULA,
+            Shots = 54,
+            CeilingStep = 5,
+            Occupied = (r, ang, i, depth) =>
+                WishboneTrunk(r, i, depth) || WishboneArm(r, ang, i, depth) != 0,
+            Colour = (r, ang, i, depth) =>
+            {
+                if (WishboneTrunk(r, i, depth))
+                    return Sector(ang, 0f, 3, new[] { BallType.Type2, BallType.Type3, BallType.Type4 });
+
+                int arm = WishboneArm(r, ang, i, depth);
+
+                //The bulbs: the bottom levels of each arm, one colour apiece - the debut colours as fruit
+                if (i < WISHBONE_BULB_LEVELS) return arm == 1 ? BallType.Type12 : BallType.Type13;
+
+                int below = depth - WISHBONE_TRUNK_LEVELS - i;
+                return arm == 1
+                    ? Band(below / WISHBONE_SEGMENT, new[] { BallType.Type3, BallType.Type5 })
+                    : Band(below / WISHBONE_SEGMENT, new[] { BallType.Type2, BallType.Type4 });
+            },
+        };
+
+        /// <summary>
+        /// The finale, and the one level in the game that plays <b>every colour it has</b>: fourteen beads on
+        /// two counter-turning strands, each bead its own colour with the strand below it hanging in
+        /// that colour too — thirteen colours across fourteen packets, so nothing anywhere is a plate and the
+        /// magazine's even draw over the live colours is the difficulty itself. The strands pass each other
+        /// three times on the way down (counter-rotation does what <see cref="Helix"/> needed rungs for), so
+        /// cutting a top bead strands nothing: the rest of that strand still hangs off the other at the
+        /// passes.
+        /// <para>
+        /// Hard the way the owner asked the campaign to end (#182), and hard by SCARCITY rather than by mass:
+        /// a bead and its strand tail is a group of a couple dozen, the best single shot in the level is a
+        /// fraction of what any other level offers, and the ceiling steps at the Quarry finale's own cadence.
+        /// </para>
+        /// <para>
+        /// Measured: 308 balls, margin 1, nothing alone or paired, nothing recoloured; twelve of the
+        /// thirteen colours' best shots are 5–10 % and the deepest cascade anywhere is 24 % — no plate, no
+        /// guillotine (see the geometry comment for the first cut's 85 % one and what fixed it). Hung unshot
+        /// for 35 s in the running game without sagging near the line, where the first cut lost itself in
+        /// eight seconds.
+        /// </para>
+        /// </summary>
+        private static Design Garland() => new()
+        {
+            File = "Garland.json",
+            Name = "Garland",
+            Grid = 12,
+            Depth = 20,
+            FieldLevels = 30,
+            Scene = new SpaceSceneConfig(),
+            Sky = NEBULA_SKY,
+            Music = MUSIC_NEBULA,
+            Shots = 54,
+            CeilingStep = 4,
+            Occupied = (r, ang, i, depth) => GarlandStrand(r, ang, i, depth) != 0,
+            Colour = (r, ang, i, depth) =>
+            {
+                int strand = GarlandStrand(r, ang, i, depth);
+
+                //Which bead this cell hangs from: the bead at or above its own level. The two strands are
+                //offset well apart in the palette so the beads facing each other across the axis differ,
+                //and 7 beads a strand against 13 colours puts every colour somewhere (0..6 and 7..13 mod 13).
+                int bead = (depth - 1 - i) / GARLAND_BEAD_EVERY;
+
+                return ALL_THIRTEEN[((strand == 1 ? 0 : GARLAND_PALETTE_OFFSET) + bead) % ALL_THIRTEEN.Length];
             },
         };
 
@@ -3198,6 +3498,216 @@ namespace BS3D.Tools.LevelGen
             arc = (int)MathF.Round((float)nearest * KNOT_ARCS / KNOT_SAMPLES) % KNOT_ARCS;
 
             return MathF.Sqrt(best);
+        }
+
+        #endregion
+
+        #region The nebula levels' own geometry (#182)
+
+        //The block's dome. Inert on the space scene, which replaces the sky (#142) - stated once and matched
+        //on every level so DescribeBlock has nothing to report, the Colossus precedent. 13 is what the two
+        //other sky-replacing blocks (the cavern, the Moon) pair with, and it is what feeds the balls' rig.
+        private const byte NEBULA_SKY = 13;
+
+        /// <summary>
+        /// Squared lateral distance between a cell at polar (<paramref name="r"/>, <paramref name="ang"/>)
+        /// and a point at polar (<paramref name="orbit"/>, <paramref name="centre"/>) — the law of cosines,
+        /// shared by every design in this block that hangs a body on an orbiting path.
+        /// </summary>
+        private static float LateralDistanceSquared(float r, float ang, float orbit, float centre) =>
+            r * r + orbit * orbit - 2f * r * orbit * MathF.Cos(ang - centre);
+
+        //Every colour the game has, in enum order - the Garland's palette. The other levels state their
+        //palettes inline like every design in this file; the finale's IS "all of them", so it is named.
+        private static readonly BallType[] ALL_THIRTEEN =
+        {
+            BallType.Type1, BallType.Type2, BallType.Type3, BallType.Type4, BallType.Type5, BallType.Type6,
+            BallType.Type7, BallType.Type8, BallType.Type9, BallType.Type10, BallType.Type11, BallType.Type12,
+            BallType.Type13,
+        };
+
+        //The comet's own geometry. The head is a ball pressed against the glass (its centre less than its
+        //radius below it, so the top level carries a real cap of cells to anchor on); the tail path orbits
+        //at the radius where the head still reaches laterally at the tail's topmost levels, so the two always
+        //touch. The tail thins linearly from ROOT where it leaves the head to TIP at the bottom.
+        private const float COMET_HEAD_RADIUS = 3.2f;
+        private const float COMET_HEAD_DROP = 2.2f;
+        private const float COMET_ORBIT = 2.3f;
+        private const float COMET_TURNS_PER_LEVEL = 0.05f;
+        private const float COMET_TAIL_TIP = 1.15f;
+        private const float COMET_TAIL_ROOT = 1.75f;
+        private const int COMET_TAIL_SEGMENT = 4;
+
+        /// <summary>Distance from the head's centre, <see cref="SphereDistance"/>'s law hung from the glass.</summary>
+        private static float CometHead(float r, int i, int depth)
+        {
+            float dy = BelowGlass(i, depth) - COMET_HEAD_DROP;
+            return MathF.Sqrt(r * r + dy * dy);
+        }
+
+        private static bool CometTail(float r, float ang, int i, int depth)
+        {
+            Untwist(r, ang, i * COMET_TURNS_PER_LEVEL, out float along, out float across);
+
+            float radius = COMET_TAIL_TIP + (COMET_TAIL_ROOT - COMET_TAIL_TIP) * i / (depth - 1f);
+            float dx = along - COMET_ORBIT;
+
+            return dx * dx + across * across <= radius * radius;
+        }
+
+        //The vortex's own geometry. The wall is the annulus between CORE and RIM, two cells thick; both radii
+        //pinch by TAPER at the tip (linearly - Horn owns the quadratic bell, and this is a funnel, not a
+        //horn). The window is a fixed notch in the frame that turns with the panes: window and pane
+        //boundaries co-rotate at the same rate, so the window sits at the same place among the panes the
+        //whole way down and never bisects a different pane per level.
+        private const float VORTEX_CORE = 2.6f;
+        private const float VORTEX_RIM = 4.2f;
+        private const float VORTEX_TAPER = 1.1f;
+        private const float VORTEX_TURNS_PER_LEVEL = 0.045f;
+
+        //Strictly narrower than one pane's tau/5 = 1.257 rad: at the first cut's 0.65 the window (2 x 0.65 =
+        //1.3 rad) was a shade WIDER than a pane, so one wedge was permanently swallowed whole and each course
+        //showed four colours, not five - only the palette rolling by course kept every colour alive at all
+        //(counts ran 78-113 where five equal panes give ~90 each).
+        private const float VORTEX_GAP_HALF = 0.55f;
+
+        //The window sits ON a pane boundary, not mid-pane: centred inside a wedge it left two slivers of
+        //0.08 rad - a cell wide, orange two-ball islands down the window's both edges - where astride the
+        //boundary it takes 0.55 from each neighbour and leaves both a healthy 0.7 rad stripe.
+        private const float VORTEX_GAP_PHASE = MathF.Tau / (2f * VORTEX_PANES);
+        private const int VORTEX_PANES = 5;
+        private const int VORTEX_COURSE = 5;
+
+        private static bool VortexWall(float r, float ang, int i, int depth)
+        {
+            float pinch = VORTEX_TAPER * (1f - i / (depth - 1f));
+            if (r < VORTEX_CORE - pinch || r > VORTEX_RIM - pinch) return false;
+
+            float local = WrapAngle(ang - i * VORTEX_TURNS_PER_LEVEL * MathF.Tau - VORTEX_GAP_PHASE);
+            return MathF.Abs(local) > VORTEX_GAP_HALF;
+        }
+
+        //The carousel's own geometry. Three rails a third of a turn apart on a slowly turning orbit, a full
+        //deck ring every fourth level. The rail is thinner than the Helix's strands - three rails and their
+        //decks share the anchoring two strands had to carry alone. The Helix records 1.5 as the thickness
+        //that pinches alternate levels and strands rim cells; the decks every fourth level are what lets
+        //this design sit at that figure anyway, and the gates' report is the check on that.
+        private const int CAROUSEL_RAILS = 3;
+        private const float CAROUSEL_ORBIT = 2.7f;
+        private const float CAROUSEL_RAIL = 1.5f;
+        private const float CAROUSEL_TURNS_PER_LEVEL = 0.011f;
+        private const float CAROUSEL_DECK_HALF = 0.85f;
+        private const int CAROUSEL_DECK_EVERY = 4;
+        private const int CAROUSEL_SEGMENT = 3;
+
+        /// <summary>Which rail the cell is inside, 1..3, or 0 for none.</summary>
+        private static int CarouselRail(float r, float ang, int i)
+        {
+            for (int k = 0; k < CAROUSEL_RAILS; k++)
+            {
+                float centre = (k / (float)CAROUSEL_RAILS + i * CAROUSEL_TURNS_PER_LEVEL) * MathF.Tau;
+                if (LateralDistanceSquared(r, ang, CAROUSEL_ORBIT, centre) <= CAROUSEL_RAIL * CAROUSEL_RAIL)
+                    return k + 1;
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// Which rail's third of the turntable an off-rail deck cell sits in, 1..3 — the deck's colour
+        /// answer, so a deck half reads as its own rail reaching over (the Helix's rung rule, at three).
+        /// </summary>
+        private static int CarouselNearestRail(float ang, int i)
+        {
+            float turns = ang / MathF.Tau - i * CAROUSEL_TURNS_PER_LEVEL;
+            int k = (int)MathF.Round(turns * CAROUSEL_RAILS);
+
+            return ((k % CAROUSEL_RAILS) + CAROUSEL_RAILS) % CAROUSEL_RAILS + 1;
+        }
+
+        private static bool CarouselDeck(float r, int i, int depth) =>
+            (depth - 1 - i) % CAROUSEL_DECK_EVERY == 0 && MathF.Abs(r - CAROUSEL_ORBIT) <= CAROUSEL_DECK_HALF;
+
+        //The wishbone's own geometry. The arms walk outward by SPREAD a level from where the trunk ends and
+        //corkscrew by TURNS a level; the orbit clamps at ORBIT_MAX so the bulbs stay inside the field's
+        //margin. The bulb is the arm's own radius swelling over the bottom levels - a fruit on the stem
+        //rather than a separate body, so it can never detach from its arm by a rounding artefact.
+        private const float WISHBONE_TRUNK = 2.15f;
+        private const int WISHBONE_TRUNK_LEVELS = 8;
+        private const float WISHBONE_ARM = 1.6f;
+        private const float WISHBONE_ARM_START = 0.55f;
+        private const float WISHBONE_SPREAD = 0.28f;
+        private const float WISHBONE_ARM_ORBIT_MAX = 3.3f;
+        private const float WISHBONE_TURNS_PER_LEVEL = 0.035f;
+        private const int WISHBONE_BULB_LEVELS = 4;
+        private const int WISHBONE_SEGMENT = 3;
+
+        private static bool WishboneTrunk(float r, int i, int depth) =>
+            i >= depth - WISHBONE_TRUNK_LEVELS && r <= WISHBONE_TRUNK;
+
+        /// <summary>Which arm the cell is inside, 1 or 2, or 0 for none (and 0 on every trunk level).</summary>
+        private static int WishboneArm(float r, float ang, int i, int depth)
+        {
+            int split = depth - WISHBONE_TRUNK_LEVELS;
+            if (i >= split) return 0;
+
+            int below = split - i;
+            float orbit = MathF.Min(WISHBONE_ARM_ORBIT_MAX, WISHBONE_ARM_START + WISHBONE_SPREAD * below);
+            float radius = WishboneArmRadius(i);
+            float centre = below * WISHBONE_TURNS_PER_LEVEL * MathF.Tau;
+
+            if (LateralDistanceSquared(r, ang, orbit, centre) <= radius * radius) return 1;
+            if (LateralDistanceSquared(r, ang, orbit, centre + MathF.PI) <= radius * radius) return 2;
+
+            return 0;
+        }
+
+        //The bulb: the arm swells over the bottom four levels and rounds off at the tip
+        private static float WishboneArmRadius(int i) => i switch
+        {
+            0 => 1.3f,
+            1 => 1.9f,
+            2 => 2.0f,
+            3 => 1.7f,
+            _ => WISHBONE_ARM,
+        };
+
+        //The garland's own geometry. Two thin strands turning OPPOSITE ways on DIFFERENT orbits - they pass
+        //each other every seventh level, and those passes are the anchoring the Helix needed rungs for. The
+        //orbits differ deliberately, and the first cut of this design is why: on one shared orbit a crossing
+        //is a single merged disc - the only cells on its level - and shooting out that disc's colour severed
+        //BOTH strands at once (measured: the best single shot dropped 85 % of the level, a guillotine two
+        //levels under the glass, and the outer strand's top bead came out 10 balls because the merge had
+        //swallowed it). Off-set orbits keep both strands' cells present at a pass, so the strands anchor
+        //each other there and no single colour is ever a level-wide cut. A bead is the strand's radius
+        //swelling on every third level, so a bead can never detach from its strand; the strand between two
+        //beads hangs in the colour of the bead above it (the rung rule again: a strand colour of its own
+        //would be thin groups the magazine taxes shots on).
+        //STRAND is a physics figure before it is a look. At 1.15 the strand was one or two cells across, and
+        //a chain of BallSocket links that thin, 24 levels deep with nearly all the mass in the beads,
+        //STRETCHED under its own weight until the bottom crossed the death line - the level lost itself in
+        //eight seconds with no shot fired. Thicker strands are parallel constraint chains sharing the load
+        //(the Helix's 1.7 pair never sagged), and the shorter layout plus the passes every seventh level
+        //keep any one link from carrying the garland alone.
+        private const float GARLAND_ORBIT_INNER = 2.4f;
+        private const float GARLAND_ORBIT_OUTER = 3.0f;
+        private const float GARLAND_STRAND = 1.45f;
+        private const float GARLAND_BEAD = 1.85f;
+        private const int GARLAND_BEAD_EVERY = 3;
+        private const float GARLAND_TURNS_PER_LEVEL = 1f / 14f;
+        private const int GARLAND_PALETTE_OFFSET = 7;
+
+        /// <summary>Which strand the cell is inside, 1 or 2, or 0 for none. 1 wins where the passes overlap.</summary>
+        private static int GarlandStrand(float r, float ang, int i, int depth)
+        {
+            float radius = (depth - 1 - i) % GARLAND_BEAD_EVERY == 0 ? GARLAND_BEAD : GARLAND_STRAND;
+            float square = radius * radius;
+
+            float one = i * GARLAND_TURNS_PER_LEVEL * MathF.Tau;
+            if (LateralDistanceSquared(r, ang, GARLAND_ORBIT_INNER, one) <= square) return 1;
+
+            float two = MathF.PI - i * GARLAND_TURNS_PER_LEVEL * MathF.Tau;
+            return LateralDistanceSquared(r, ang, GARLAND_ORBIT_OUTER, two) <= square ? 2 : 0;
         }
 
         #endregion
