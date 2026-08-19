@@ -1,4 +1,4 @@
-using Prazsky.BS3D.GameStructure;
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Levels;
 using Prazsky.Core.Render;
@@ -115,14 +115,17 @@ namespace BS3D.Tools.LevelGen
         //leaving it null used to cost. Named after the block rather than after the piece because that is the
         //thing being decided: if a block's music is ever changed it is changed HERE, once, and not five times.
         //
-        //FIVE pieces against SEVEN blocks since #182, so two are reprised. The first is the bookend #207
-        //chose: the campaign opens on the piece Level One has always played and the Quarry brings it back —
-        //that reprise was FORCED while four pieces existed; it is a choice now, and it is kept because a
-        //reprise at the end of the original ramp is a real musical idea where "every block gets its own" is
-        //only tidy. The second is the Nebula taking Nocturne: a seventh block against five pieces makes a
-        //second reprise unavoidable short of composing (#229's job, not this one's), and night jazz over the
-        //void is the piece whose register fits — a desk decision, one constant to change if the owner's ear
-        //disagrees.
+        //FIVE pieces against EIGHT blocks, so three are reprised, and every one of the three is a desk
+        //decision with one constant behind it. The first is the bookend #207 chose: the campaign opens on the
+        //piece Level One has always played and the Quarry brings it back — that reprise was FORCED while four
+        //pieces existed; it is a choice now, and it is kept because a reprise at the end of the original ramp
+        //is a real musical idea where "every block gets its own" is only tidy. The second is the Nebula
+        //taking Nocturne: a seventh block against five pieces made a second reprise unavoidable short of
+        //composing (#229's job, not this one's), and night jazz over the void is the register that fits. The
+        //third is the Arcade taking Pulse, which is the only one of the five that sounds like the place it
+        //plays in — an electronic piece over a neon city — and it puts the campaign's LAST block on the piece
+        //its first one opened with, which is either a frame round the whole thing or one reprise too many
+        //depending on the ear. It is MUSIC_ARCADE and nothing else depends on it.
         //
         //The Coil takes Ember, and that is #163 and #207 answering each other. #163 landed the rock ballad with
         //no block using it; #207 wrote, when it still had to reprise Nocturne here, that this was the block with
@@ -142,7 +145,8 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private static readonly string[] BLOCK_NAMES =
         {
-            "The Meadow", "The Gallery", "The Coil", "The Tower", "The Reveal", "The Quarry", "The Nebula"
+            "The Meadow", "The Gallery", "The Coil", "The Tower", "The Reveal", "The Quarry", "The Nebula",
+            "The Arcade",
         };
 
         private const string MUSIC_RINGS = "pulse";
@@ -152,6 +156,7 @@ namespace BS3D.Tools.LevelGen
         private const string MUSIC_REVEAL = "nocturne";
         private const string MUSIC_QUARRY = "pulse";
         private const string MUSIC_NEBULA = "nocturne";
+        private const string MUSIC_ARCADE = "pulse";
 
         /// <summary>Where the levels are written. Set once in <see cref="Main"/>, read by everything below.</summary>
         private static string _outDir;
@@ -263,11 +268,21 @@ namespace BS3D.Tools.LevelGen
             //the wrong level. Only DescribeBlock's non-gating MIXED print would show it.
             Design[] nebula = { Comet(), Vortex(), Carousel(), Wishbone(), Garland() };
 
+            //8. THE NEON CITY - "The Arcade". Five HOLLOW pixel-art solids: the Gallery's drawn symbols given
+            //a third dimension, wrapped onto a die, a stepped temple, a slot reel, a donut and a globe, so a
+            //level's picture is read by walking the gun round it. Every one is framed whole, which is the
+            //deliberate opposite of the two tall blocks before it - an object meant to be RECOGNISED has to
+            //be in shot. The light ramp turns here rather than ending: past the void there is no darker
+            //place to go, so the campaign comes back to a lit one and the light is ARTIFICIAL. Its designs
+            //live in their own array for the same reason the Nebula's do - see WriteLevelSet.
+            Design[] arcade = { Cube(), Ziggurat(), Reel(), Donut(), Globe() };
+
             bool ok = true;
             foreach (Design design in designs) ok &= Emit(design);
             foreach (Design design in nebula) ok &= Emit(design);
+            foreach (Design design in arcade) ok &= Emit(design);
 
-            WriteLevelSet(designs, nebula);
+            WriteLevelSet(designs, nebula, arcade);
 
             //A non-zero exit so this can be put in front of a commit: a level that fails the checks is a
             //level that plays wrong, and the whole point of generating them is that nobody has to notice
@@ -333,7 +348,7 @@ namespace BS3D.Tools.LevelGen
         /// have, and no gate anywhere refuses it.
         /// </para>
         /// </summary>
-        private static void WriteLevelSet(Design[] designs, Design[] nebula)
+        private static void WriteLevelSet(Design[] designs, params Design[][] blocksAfterColossus)
         {
             LevelSet set = new() { Name = "Bubble Shooter 3D" };
 
@@ -362,24 +377,24 @@ namespace BS3D.Tools.LevelGen
                 MinStars = MinStarsAt(designs.Length),
             });
 
-            //The Nebula, after the hand-drawn finale above — see the method doc for why it cannot sit in the
-            //first array. Positions continue where Colossus left off, so the block name and the unlock gates
-            //fall out of the same two position functions as everything else's.
-            for (int i = 0; i < nebula.Length; i++)
-            {
-                Design d = nebula[i];
-                int index = designs.Length + 1 + i;
-
-                set.Levels.Add(new LevelSetEntry
+            //Everything after the hand-drawn finale above, block by block — see the method doc for why those
+            //blocks cannot sit in the first array. Positions continue where Colossus left off, so the block
+            //name and the unlock gate fall out of the same two position functions as everything else's.
+            foreach (Design[] block in blocksAfterColossus)
+                foreach (Design d in block)
                 {
-                    File = d.File,
-                    Name = d.Name,
-                    Block = BlockNameAt(index),
-                    Shots = d.Shots,
-                    CeilingStep = d.CeilingStep,
-                    MinStars = MinStarsAt(index),
-                });
-            }
+                    int index = set.Levels.Count;
+
+                    set.Levels.Add(new LevelSetEntry
+                    {
+                        File = d.File,
+                        Name = d.Name,
+                        Block = BlockNameAt(index),
+                        Shots = d.Shots,
+                        CeilingStep = d.CeilingStep,
+                        MinStars = MinStarsAt(index),
+                    });
+                }
 
             string path = Path.Combine(_outDir, LevelSet.DefaultFileName);
             set.Save(path);
@@ -2342,6 +2357,261 @@ namespace BS3D.Tools.LevelGen
 
         #endregion
 
+        #region The arcade levels
+
+        //THE EIGHTH BLOCK: five HOLLOW SOLIDS with pixel art wrapped onto them, hanging over a neon city.
+        //It is THE GALLERY GIVEN A THIRD DIMENSION, and that is the whole statement of it. Block 2 draws a
+        //symbol on a flat wall and the player reads all of it from where the gun starts; these levels draw
+        //the same kind of picture onto a body that HAS sides - a cube of arcade glyphs, a stepped temple, a
+        //slot reel, a donut, a globe - so the picture is read by walking the gun round the level and no
+        //single vantage shows the whole of it. Nothing here is a wall.
+        //
+        //EVERY SOLID IS HOLLOW: the layout is its SURFACE and nothing stands inside it. Two things follow. A
+        //body that fills the frame costs the ball count of an ordinary level rather than of a quarry (a solid
+        //ten-cell cube is 1200 balls; its shell is 560), and the first panel to come away opens a window into
+        //an empty room, which is what makes a level read as an object rather than as a mass.
+        //
+        //A HOLLOW BODY'S ANCHOR IS WHATEVER ITS OWN TOP HAPPENS TO BE, and that is the trap this block had to
+        //answer five times. Only the field's topmost level is bonded to the glass, so the anchor is a 100-cell
+        //plate on the cube, a 49-cell plate on the temple, a disc on the reel's head, an annulus on the donut
+        //and about twenty cells at the globe's pole. Painted in ONE colour, any of them is a level that ends
+        //on the first lucky ball of it. Every cap here therefore carries at least two colours, interleaved -
+        //the globe's ice is broken into floes for exactly this reason and not for geography's - and the drop
+        //test is the check: the whole block's best single shot is 11 %.
+        //
+        //EVERY LEVEL IS FRAMED WHOLE - field 18, the deepest the camera frames (GameplayScreen.FRAMED_LEVELS)
+        //- and that is a deliberate answer to the two tall blocks before it. A tall level's premise is that
+        //you cannot see all of it; an object meant to be RECOGNISED has to be in shot, all of it, from the
+        //first second. The 18 is also what buys the ceiling somewhere to descend into: the empty levels under
+        //a layout are the level's clearance, and these five leave four, six or ten of them (ARCADE_FIELD).
+        //
+        //THE PIXELS ARE BLOCKS OF CELLS, NEVER SINGLE ONES. A colour region one cell across is a group of one
+        //that the repair pass recolours - the drawing would be quietly rewritten between the source and the
+        //file - so every ground here is dithered in blocks and every glyph hole is at least 2x2. How coarse
+        //those blocks are is the block's real difficulty dial, because it sets the GROUP COUNT and the group
+        //count sets the budget: see CUBE_GROUND_BLOCK, where the same cube measured 75, 44 and 34 groups at
+        //three block sizes. All five budgets are priced off the ratio Validate prints, and they ramp
+        //1.65 -> 1.58 -> 1.50 -> 1.44 -> 1.37 shots a group across the block, the finale tighter than any
+        //level in the game but Colossus (0.98) and the Moon's Static (1.43).
+        //
+        //THE COLOURS, and what each level puts the #152 five next to:
+        //  Cube     silver and orange - the three ground pairs of its faces, warm against cool.
+        //  Ziggurat brown and olive   - a sandstone temple, both against gold and white.
+        //  Reel     silver and navy   - a white reel with red sevens, its heads in cold metal.
+        //  Donut    brown and orange  - the dough under a magenta glaze, sprinkles over it.
+        //  Globe    navy, olive, brown - the ocean, the forest and the dry land of a pixel Earth.
+
+        /// <summary>
+        /// A hollow cube ten cells on a side with an arcade glyph on every face the player can see: an
+        /// invader, a key, a coin and a lightning bolt round the four walls, and a cross on the bottom plate
+        /// the game's low camera reads best. The block's opener and its plainest statement — a cube is the
+        /// shape whose pixel grid needs no explaining, and one big symbol a face is exactly what the Gallery
+        /// drew on a flat wall, put where it has to be walked around.
+        /// <para>
+        /// <b>The four walls are drawn in two ground pairs and the plates in a third.</b> A single dithered
+        /// ground over a whole cube is one colour reaching every face through the edges, the top plate — the
+        /// anchor — included. Opposite faces share a pair, so the gun's orbit alternates warm and cool and no
+        /// ground colour meets its own kind round a corner. <b>Both pairs are bright</b>, which is a
+        /// legibility finding rather than a taste: the walls were cyan-and-navy first and the black glyph on
+        /// them was invisible in the running game — half of every face was as dark as the drawing on it.
+        /// </para>
+        /// <para>
+        /// The glyphs are all black, which is a balance decision rather than a palette one: five glyphs in
+        /// five colours would be five colours holding one group each, and the magazine draws evenly among the
+        /// colours still standing rather than among the balls.
+        /// </para>
+        /// <para>
+        /// Measured: 560 balls in 34 groups (1.65 shots a group, the block's gentlest), margin 1, nothing
+        /// alone, 2 recoloured; colour counts 54–120 and every colour's best single shot 2–5 %, the black of
+        /// all five glyphs included. Hung unshot for 35 s in the running game without sagging.
+        /// </para>
+        /// </summary>
+        private static Design Cube() => new()
+        {
+            File = "Cube.json",
+            Name = "Cube",
+            Grid = CUBE_GRID,
+            Depth = CUBE_DEPTH,
+            FieldLevels = ARCADE_FIELD,
+            Scene = SceneKind.NeonCity,
+            Sky = ARCADE_SKY,
+            Music = MUSIC_ARCADE,
+            Shots = 56,
+            CeilingStep = 8,
+            OccupiedBlock = (x, z, i, depth) => CubeFace(x, z, i) != 0,
+            BlockColour = CubeColour,
+        };
+
+        /// <summary>
+        /// A stepped temple: four square courses widening as they descend, hollow, hanging from the plate of
+        /// its own flat top. The one level in the block whose shape is the lattice's own — a square course is
+        /// exactly what a ring of cells is — so nothing here is rounded off and every step edge is a straight
+        /// line of balls.
+        /// <para>
+        /// <b>It hangs the way a hanging cluster wants to and not the way a pyramid stands.</b> Point-up, a
+        /// pyramid's whole mass would hang from the four cells of its apex; the courses widen downward
+        /// instead, so each hangs off the wider parallel run of links above it and the top plate — 49 cells of
+        /// it — carries the level. What that costs is the postcard silhouette; what it buys is a temple you
+        /// can look up into.
+        /// </para>
+        /// <para>
+        /// <b>It is also the level that taught this block what a hollow body may weigh.</b> Drawn first as
+        /// one-cell rings twelve levels deep it sagged past the death line in eight seconds with no shot
+        /// fired — see <see cref="ZIGGURAT_WALL"/>, which is the fix and the whole story.
+        /// </para>
+        /// <para>
+        /// <b>The colouring runs down the courses and never round them.</b> A course in one colour is the sole
+        /// anchor of everything below it — the horizontal-band trap, and here it would have been a one-shot
+        /// level — so the ring is cut into nine columns around and the palette advances two per column and one
+        /// per course. Five colours against that stride leaves no two touching blocks the same, diagonals
+        /// included, so the pattern is a staircase turning as it descends rather than a set of stripes.
+        /// </para>
+        /// <para>
+        /// Measured: 521 balls in 33 groups (1.58 shots a group), margin 1, nothing alone or paired, 1
+        /// recoloured; counts 97–116, best single shots 3–6 %. Hung unshot for 35 s in the running game.
+        /// </para>
+        /// </summary>
+        private static Design Ziggurat() => new()
+        {
+            File = "Ziggurat.json",
+            Name = "Ziggurat",
+            Grid = ZIGGURAT_GRID,
+            Depth = ZIGGURAT_DEPTH,
+            FieldLevels = ARCADE_FIELD,
+            Scene = SceneKind.NeonCity,
+            Sky = ARCADE_SKY,
+            Music = MUSIC_ARCADE,
+            Shots = 52,
+            CeilingStep = 7,
+            OccupiedBlock = (x, z, i, depth) => ZigguratCourseWall(x, z, i),
+            BlockColour = ZigguratColour,
+        };
+
+        /// <summary>
+        /// A slot machine's reel: a hollow drum with a head at each end and four panels round its wall showing
+        /// a seven, a diamond, a seven and a diamond. The block's first curved body, and the one whose picture
+        /// is <b>wrapped</b> rather than laid on a flat face — the wall is cut into twenty-four sectors, six to
+        /// a panel, and the symbol is drawn in those sectors exactly as the Gallery's bitmaps are drawn in
+        /// lattice columns.
+        /// <para>
+        /// The wall is two cells thick and the symbol is a function of the sector alone, so it goes right
+        /// through the wall: a panel's inside carries the same drawing as its outside, which doubles every
+        /// stroke's group the way <c>PICTURE_THICKNESS</c> does on a flat one, and means the picture is still
+        /// there when the outer skin has gone.
+        /// </para>
+        /// <para>
+        /// The two heads are turned <see cref="Ring"/>s of cold metal rather than a dither, which is a
+        /// gameplay answer as much as a look: a block dither on a horizontal plate has no diagonal neighbours
+        /// to percolate through, so it came out as three dozen groups of four — half a budget spent on the
+        /// drum's lids. Concentric rings are one group each and read as a machined end.
+        /// </para>
+        /// <para>
+        /// Measured: 537 balls in 40 groups (1.50 shots a group), margin 1, nothing alone (24 in pairs, the
+        /// inner rim of the wall where a sector holds one cell), 4 recoloured; counts 65–114, and the block's
+        /// biggest single shots are here — a diamond at 10 % and a seven at 8 %, which is what a symbol drawn
+        /// in one ink is worth. Hung unshot for 35 s in the running game.
+        /// </para>
+        /// </summary>
+        private static Design Reel() => new()
+        {
+            File = "Reel.json",
+            Name = "Reel",
+            Grid = REEL_GRID,
+            Depth = REEL_DEPTH,
+            FieldLevels = ARCADE_FIELD,
+            Scene = SceneKind.NeonCity,
+            Sky = ARCADE_SKY,
+            Music = MUSIC_ARCADE,
+            Shots = 60,
+            CeilingStep = 8,
+            Occupied = (r, ang, i, depth) => ReelShell(r, i, depth),
+            Colour = ReelColour,
+        };
+
+        /// <summary>
+        /// A glazed donut: a hollow ring, dough below and a magenta glaze that has run down its sides, with
+        /// sprinkles scattered over the glaze. The only level in the game with a <b>hole</b> through it — the
+        /// gun can shoot clean through the middle of this one — and the only one whose surface faces inward as
+        /// well as out.
+        /// <para>
+        /// <b>The glaze line is wavy on purpose and the waves are load-bearing twice.</b> A glaze cut at a
+        /// level boundary would be a horizontal band round the whole ring, which is both the drop-test trap
+        /// and, on a body whose top surface is its anchor, the one colouring that could take the level in a
+        /// single shot. Waved, glaze and dough interlock at six places round the ring, so each is anchored on
+        /// its own and neither can drop the other — <see cref="OnionShell"/>'s staves, arrived at from a
+        /// different direction.
+        /// </para>
+        /// <para>
+        /// The sprinkles are hashed rather than drawn, one block of the glaze in four. They are the level's
+        /// scarce colours — 39 balls each against 111 to 144 of the other four — so the shots that spend them
+        /// are the ones worth waiting for.
+        /// </para>
+        /// <para>
+        /// Measured: 588 balls in 36 groups (1.44 shots a group) — the biggest layout in the block — margin 1,
+        /// nothing alone, 9 recoloured (the tube's inner face, where a sector block holds a cell or two);
+        /// counts 39–144, best single shots 2–11 %. Hung unshot for 35 s in the running game.
+        /// </para>
+        /// </summary>
+        private static Design Donut() => new()
+        {
+            File = "Donut.json",
+            Name = "Donut",
+            Grid = DONUT_GRID,
+            Depth = DONUT_DEPTH,
+            FieldLevels = ARCADE_FIELD,
+            Scene = SceneKind.NeonCity,
+            Sky = ARCADE_SKY,
+            Music = MUSIC_ARCADE,
+            Shots = 52,
+            CeilingStep = 6,
+            Occupied = (r, ang, i, depth) => DonutShell(r, i, depth),
+            Colour = DonutColour,
+        };
+
+        /// <summary>
+        /// The finale: a pixel Earth. A hollow globe with a world drawn round it in sixteen columns of
+        /// longitude and fourteen rows of latitude, one row per level of the layout — ocean, forest, dry
+        /// inland and broken ice at both poles —
+        /// and the last thing the campaign shows, after a chapter spent in the void, is the planet it left.
+        /// <para>
+        /// Hard by <b>fineness</b> rather than by scarcity, which is <see cref="Garland"/>'s job five levels
+        /// earlier and deliberately not repeated: seven colours over 38 groups of a dozen balls each, on the
+        /// tightest budget in the block. There is no big payoff anywhere in it — the best single shot is 8 %,
+        /// where the reel offers 10 and the donut 11 — and the ceiling arrives on schedule while it is worked.
+        /// </para>
+        /// <para>
+        /// <b>The ice caps are broken, and that is the anchor rule rather than geography.</b> A true shell
+        /// narrows to a point at the pole, so the cells bonded to the glass are a disc of about twenty — paint
+        /// them one colour and the first lucky ball of it takes everything hanging underneath. Both caps are
+        /// therefore ice in floes with sea between them, which reads as pack ice and leaves most of the disc
+        /// standing whatever is shot: measured, the ice's own best shot is 4 % and drops nothing else.
+        /// </para>
+        /// <para>
+        /// Measured: 482 balls in 38 groups (1.37 shots a group, the tightest in the block), margin 1, nothing
+        /// alone, 4 recoloured; counts 41–108, best single shots 2–8 %. Hung unshot for 35 s in the running
+        /// game. It is also the shallowest clearance in the block — 3.33 above the line, five and a half
+        /// descents against a budget that buys under six — so an untouched globe reaches the line just as the
+        /// balls run out, which is the pressure the campaign's last level is meant to end under.
+        /// </para>
+        /// </summary>
+        private static Design Globe() => new()
+        {
+            File = "Globe.json",
+            Name = "Globe",
+            Grid = GLOBE_GRID,
+            Depth = GLOBE_DEPTH,
+            FieldLevels = ARCADE_FIELD,
+            Scene = SceneKind.NeonCity,
+            Sky = ARCADE_SKY,
+            Music = MUSIC_ARCADE,
+            Shots = 52,
+            CeilingStep = 9,
+            Occupied = (r, ang, i, depth) => GlobeShell(r, i, depth),
+            Colour = GlobeColour,
+        };
+
+        #endregion
+
         #endregion
 
         #region Colour helpers
@@ -3712,6 +3982,541 @@ namespace BS3D.Tools.LevelGen
 
         #endregion
 
+        #region The arcade levels' own geometry
+
+        //THE BLOCK'S FIELD. Eighteen for every level of it, which is two things at once: the deepest field
+        //the camera frames whole (GameplayScreen.FRAMED_LEVELS), so an object is never clipped, and the room
+        //the ceiling descends into - the empty levels UNDER a layout are a level's clearance, and a 12-deep
+        //solid in an 18-level field leaves six of them, about eight descents. That is the Reveal's own
+        //arithmetic and the budgets here are priced against it: a level whose two clocks disagree is the
+        //fault PICTURE_FIELD_LEVELS was written to record.
+        private const byte ARCADE_FIELD = 18;
+
+        //The block's dome. Unlike the three sky-replacing blocks before it the neon city has a real sky over
+        //it, so this number is SEEN: it lights the balls through SkyLightRig and it is the whole upper half
+        //of the frame behind a body that is meant to read as a silhouette. 16 is the darkest of the eighteen
+        //(a near-black zenith), which is what the city's own magenta and cyan want behind them - the Coil
+        //passed 16 over for being darker than the block that followed it, and nothing follows this one.
+        private const byte ARCADE_SKY = 16;
+
+        //THE CUBE. Ten cells on a side and twelve levels deep, which reads as a cube: nine world units across
+        //a face against eleven level steps of 1/sqrt(2), i.e. 7.78 tall. Its walls and both its plates are one
+        //cell thick, so a 1200-cell box costs 560 balls, and each of the six faces carries one glyph.
+        private const byte CUBE_GRID = 12;
+        private const byte CUBE_DEPTH = 12;
+        private const int CUBE_SIDE = 10;
+        private const int CUBE_ORIGIN = (CUBE_GRID - CUBE_SIDE) / 2;
+
+        //How coarse the dithered ground is, in cells, and the block's LOUDEST tuning knob: it sets the group
+        //count, which sets the budget. The number was measured rather than judged. A shot clears one standing
+        //group, so a level of G groups needs a budget above G to be finishable at all, and the pack's hardest
+        //ratios are Colossus at 0.98 and Static at 1.43 - anything finer than 5 here puts this cube past both.
+        //Measured, same cube and same glyphs, at ground blocks of 3 / 4x5 / 5: 75, 44 and 34 standing groups.
+        //Five is the coarsest of the three and the only one whose budget stays in family (56 shots, 1.65 a
+        //group, the block's gentlest); it costs the fine dither - a face is a 2x2 check of five-cell blocks
+        //rather than a hatch - and the glyph, not the ground, is what carries the drawing.
+        private const int CUBE_GROUND_BLOCK = 5;
+
+        //Where a glyph sits on its face: two cells in from the left, one row down on a wall and two on a
+        //plate. The inset is not margin for its own sake - a 6x8 glyph on a 10x10 face leaves a border two
+        //cells wide, and that border IS the face's ground. Drawn 8 wide the same glyphs left a border of one
+        //cell, which the block dither then cut into slivers: 58 standing groups against a budget of 56.
+        private const int CUBE_GLYPH_COLUMN = 2;
+
+        /// <summary>
+        /// An invader, six columns by eight rows — the block's own emblem, and the reason its chapter is
+        /// called what it is. It is drawn eight rows to six columns rather than square because a level step
+        /// is 1/√2: a glyph drawn as many rows as columns comes out squashed to 71 % of its height, which is
+        /// the Gallery's own rule arriving on a cube.
+        /// <para>
+        /// Its strokes may be one cell wide because a glyph is <b>one connected group</b> — the lonely-ball
+        /// rule is about a ball's own colour, which <see cref="FERN"/> records from the other side. What may
+        /// <i>not</i> be one cell is a hole in it: a single enclosed ground cell has no ground neighbour and
+        /// the repair pass would fill it in, quietly redrawing the face between the source and the file. The
+        /// visor is therefore two cells wide, which is why this invader wears one instead of having eyes.
+        /// </para>
+        /// </summary>
+        private static readonly string[] CUBE_INVADER =
+        {
+            ".#..#.",
+            ".#..#.",
+            ".####.",
+            "######",
+            "##..##",
+            "######",
+            ".#..#.",
+            ".#..#.",
+        };
+
+        /// <summary>A key, six by eight: the bow, the shaft and two wards.</summary>
+        private static readonly string[] CUBE_KEY =
+        {
+            ".####.",
+            ".#..#.",
+            ".#..#.",
+            ".####.",
+            "..##..",
+            "..###.",
+            "..##..",
+            "..###.",
+        };
+
+        /// <summary>
+        /// A coin, six by eight — a ring with its middle open. The hole is the one place in the block where a
+        /// patch of ground is <b>enclosed</b> by a glyph, which is deliberate: those cells hang off the ring
+        /// itself, so shooting the ring out drops them, and that is the cube's one real cascade.
+        /// </summary>
+        private static readonly string[] CUBE_COIN =
+        {
+            "..##..",
+            ".####.",
+            "##..##",
+            "##..##",
+            "##..##",
+            "##..##",
+            ".####.",
+            "..##..",
+        };
+
+        /// <summary>A lightning bolt, six by eight, the one glyph that is not symmetrical.</summary>
+        private static readonly string[] CUBE_BOLT =
+        {
+            "...##.",
+            "..##..",
+            ".##...",
+            "####..",
+            "..####",
+            "...##.",
+            "..##..",
+            ".##...",
+        };
+
+        /// <summary>
+        /// A cross, six by six, on the bottom plate — the face the game's camera reads best, looking up at
+        /// the cluster from under it, and the one glyph drawn square because a plate's rows are cells rather
+        /// than level steps. <b>Two cells in from every edge of the plate</b>, and that inset is load-bearing:
+        /// a cross reaching the plate's border would be a cross touching the bottom row of all four walls,
+        /// where their glyphs are the same black — measured before the inset, four glyphs and the cross were
+        /// ONE group of 144, a third of the level in a single shot.
+        /// </summary>
+        private static readonly string[] CUBE_CROSS =
+        {
+            "..##..",
+            "..##..",
+            "######",
+            "######",
+            "..##..",
+            "..##..",
+        };
+
+        //Which glyph each face carries, indexed by CubeFace's number less one: top, bottom, -X, +X, -Z, +Z.
+        //The top plate hangs against the glass and no camera in the game can see it, so it carries none.
+        private static readonly string[][] CUBE_GLYPHS =
+        {
+            null, CUBE_CROSS, CUBE_INVADER, CUBE_KEY, CUBE_COIN, CUBE_BOLT,
+        };
+
+        //The grounds, one pair per face in the same order, and THREE pairs rather than one. A single dither
+        //over the whole cube is one colour reaching every face through the edges - the top plate, which is
+        //the anchor, included - so opposite faces share a pair and neighbouring faces never do: the gun's
+        //orbit alternates warm and cool, and no ground colour meets its own kind round a corner. Every glyph
+        //is black against all three, which also keeps ONE colour carrying five groups rather than five
+        //colours carrying one each - the magazine draws evenly among the colours still standing, so a colour
+        //with far more groups than its share of the draw is a colour the player cannot spend.
+        private static readonly BallType[][] CUBE_GROUNDS =
+        {
+            new[] { BallType.Type4, BallType.Type11 },   //top:    white and silver
+            new[] { BallType.Type4, BallType.Type11 },   //bottom: white and silver
+            new[] { BallType.Type1, BallType.Type9 },    //-X:     red and orange
+            new[] { BallType.Type1, BallType.Type9 },    //+X:     red and orange
+            new[] { BallType.Type5, BallType.Type6 },    //-Z:     cyan and magenta
+            new[] { BallType.Type5, BallType.Type6 },    //+Z:     cyan and magenta
+        };
+
+        /// <summary>
+        /// Which face of the cube a cell is on: 0 for none (the hollow inside, and everything off the box),
+        /// 1 the top plate, 2 the bottom plate, 3 −X, 4 +X, 5 −Z, 6 +Z.
+        /// <para>
+        /// <b>The box is drawn in lattice indices rather than in the centred frame</b>, which is the opposite
+        /// of what <see cref="ChestPart"/> does with its own crate and is a decision about the drawing. A
+        /// centred extent gives physically flat faces at the price of alternating 8 and 9 cells per row (the
+        /// close packing; see <see cref="CHEST_HALF"/>), and a glyph cannot be laid on a face whose columns
+        /// change with the level parity. In indices every face is exactly ten columns on every level and the
+        /// stagger goes into the surface instead — the odd levels stand half a cell out, so the faces are
+        /// brick-bonded and the vertical edges saw by a quarter of a ball. That is what the Gallery's flat
+        /// walls have always looked like, and on a cube it reads as courses of blocks.
+        /// </para>
+        /// <para>
+        /// The ±X faces claim the corner columns (they are tested first), so the ±Z faces run from column 1
+        /// to 8 — which is exactly the span a glyph occupies, so all four walls carry theirs whole.
+        /// </para>
+        /// </summary>
+        private static int CubeFace(int x, int z, int i)
+        {
+            int cx = x - CUBE_ORIGIN;
+            int cz = z - CUBE_ORIGIN;
+
+            if (cx < 0 || cx >= CUBE_SIDE || cz < 0 || cz >= CUBE_SIDE) return 0;
+
+            if (i == CUBE_DEPTH - 1) return 1;
+            if (i == 0) return 2;
+
+            if (cx == 0) return 3;
+            if (cx == CUBE_SIDE - 1) return 4;
+            if (cz == 0) return 5;
+            if (cz == CUBE_SIDE - 1) return 6;
+
+            return 0;
+        }
+
+        private static BallType CubeColour(int x, int z, int i)
+        {
+            int face = CubeFace(x, z, i);
+            int cx = x - CUBE_ORIGIN;
+            int cz = z - CUBE_ORIGIN;
+
+            //A plate is read across the lattice; a wall is read along its own run and DOWN from under the top
+            //plate, so every wall's row 0 is at the same height and the four glyphs line up round the cube
+            int column = face <= 2 ? cx : face <= 4 ? cz : cx;
+            int row = face <= 2 ? cz : CUBE_DEPTH - 2 - i;
+
+            string[] glyph = CUBE_GLYPHS[face - 1];
+
+            if (glyph != null
+                && PixelAt(glyph, column - CUBE_GLYPH_COLUMN, row - (face <= 2 ? 2 : 1)) == '#')
+                return BallType.Type8;
+
+            return Band(column / CUBE_GROUND_BLOCK + row / CUBE_GROUND_BLOCK, CUBE_GROUNDS[face - 1]);
+        }
+
+        //THE TEMPLE. Four courses of two levels each, widening by one cell a side as they descend: 7, 9, 11
+        //and 13 across, in a grid of 15 so the base still leaves the free column every layout needs. The top
+        //is a full 7x7 plate rather than a ring - 49 cells of anchor, and the one place on this body where
+        //the colouring is not a course.
+        //
+        //THE COURSE IS TWO CELLS THICK AND EIGHT LEVELS TALL, AND BOTH FIGURES ARE PHYSICS. Drawn first as
+        //one-cell rings twelve levels deep it did not survive its own weight: a ring that thin is a curtain
+        //of BallSocket links with nothing bracing it across, and the level LOST ITSELF IN EIGHT SECONDS with
+        //no shot fired - the whole temple sagged past the death line while the camera was still settling.
+        //(Garland found the same wall from the other side, at 1.15 cells of strand; the Chest's two-cell box
+        //and the Vortex's two-cell wall are the ones that hold.) Two cells is parallel chains sharing the
+        //load, and halving the height halves what the top course has to carry.
+        private const byte ZIGGURAT_GRID = 15;
+        private const byte ZIGGURAT_DEPTH = 8;
+        private const int ZIGGURAT_CENTRE = (ZIGGURAT_GRID - 1) / 2;
+        private const int ZIGGURAT_TOP_SIDE = 7;
+        private const int ZIGGURAT_COURSE_LEVELS = 2;
+        private const int ZIGGURAT_WALL = 2;
+
+        //How many vertical columns the ring is cut into for colouring, and it is bounded from BOTH sides.
+        //Fewer makes each block a large slab of a course - a plate on the level whose colouring exists to
+        //avoid one - and more starves the top course, which is 40 cells round over its two nested rings.
+        //Measured on the finished temple: 7 columns give 29 standing groups, 9 give 33 and 11 give 42, and
+        //the budget follows the count. Nine also satisfies the wrap: the palette advances two per column, so
+        //eight columns on from the seam is entry 16, which modulo five is not entry 0 - at six columns the
+        //last column and the first would have met in the same colour and merged into one group across it.
+        private const int ZIGGURAT_COLUMNS = 9;
+
+        //Five, against a stride of two per column and one per course. The stride is what keeps every pair of
+        //touching blocks - sideways, downward AND both diagonals - on different entries: +2, +1, +3 and -1,
+        //none of them 0 modulo 5. Four colours would fail on the -1 diagonal and the courses would fuse.
+        private static readonly BallType[] ZIGGURAT_PALETTE =
+        {
+            BallType.Type10, BallType.Type7, BallType.Type13, BallType.Type9, BallType.Type4,
+        };
+
+        private static int ZigguratCourse(int i) => (ZIGGURAT_DEPTH - 1 - i) / ZIGGURAT_COURSE_LEVELS;
+
+        private static int ZigguratHalf(int i) => ZIGGURAT_TOP_SIDE / 2 + ZigguratCourse(i);
+
+        /// <summary>
+        /// Whether a cell is on the temple: the ring of its own course, or anywhere on the top plate. The
+        /// courses are hollow and there are no treads — the flat top of a step faces the glass, so nothing
+        /// standing under the level can see one, and a ring hangs off the wider ring above it perfectly well
+        /// without (a cross-level neighbour reaches one cell out, which is exactly what a course steps by).
+        /// </summary>
+        private static bool ZigguratCourseWall(int x, int z, int i)
+        {
+            int half = ZigguratHalf(i);
+            int box = Math.Max(Math.Abs(x - ZIGGURAT_CENTRE), Math.Abs(z - ZIGGURAT_CENTRE));
+
+            if (box > half) return false;
+
+            return i == ZIGGURAT_DEPTH - 1 || box > half - ZIGGURAT_WALL;
+        }
+
+        private static BallType ZigguratColour(int x, int z, int i)
+        {
+            int half = ZigguratHalf(i);
+            int dx = x - ZIGGURAT_CENTRE;
+            int dz = z - ZIGGURAT_CENTRE;
+
+            int box = Math.Max(Math.Abs(dx), Math.Abs(dz));
+
+            //The plate's interior is not on a ring, so it takes the lattice blocks instead - same palette,
+            //same stride, so the anchor layer carries four of the five colours and no one of them can drop
+            //the temple. Only the top level has one; every other course is wall all the way through.
+            if (box <= half - ZIGGURAT_WALL) return Band(2 * (x / 2) + z / 2, ZIGGURAT_PALETTE);
+
+            //Off the cell's OWN square, not the course's outer one: a two-cell course is two nested rings and
+            //each walks its own perimeter, which is what keeps a column the same wedge on both of them.
+            return Band(2 * ZigguratColumn(dx, dz, box) + ZigguratCourse(i), ZIGGURAT_PALETTE);
+        }
+
+        /// <summary>
+        /// Which of <see cref="ZIGGURAT_COLUMNS"/> columns a ring cell is in, as the fraction of the way
+        /// round the square from one corner — <b>a fraction and not a cell count</b>, so a column is the same
+        /// wedge of the temple on every course however much longer the course's own perimeter is, and the
+        /// colouring runs straight down the building rather than shearing round it.
+        /// </summary>
+        private static int ZigguratColumn(int dx, int dz, int half)
+        {
+            int side = 2 * half;
+
+            int around =
+                dz == -half ? dx + half :
+                dx == half ? side + (dz + half) :
+                dz == half ? 2 * side + (half - dx) :
+                3 * side + (half - dz);
+
+            return around * ZIGGURAT_COLUMNS / (4 * side);
+        }
+
+        //THE REEL. A drum 4.6 out with a wall 1.6 thick (two cells at either level parity) and a head at each
+        //end, twelve levels deep. Twenty-four sectors round it, six to a panel: at the rim a sector is about
+        //one cell wide, which is what makes a sector a PIXEL and lets a bitmap be wrapped onto the wall the
+        //way the Gallery lays one on a flat one.
+        private const byte REEL_GRID = 13;
+        private const byte REEL_DEPTH = 12;
+        private const float REEL_RADIUS = 4.6f;
+        private const float REEL_WALL = 1.6f;
+        private const int REEL_PANELS = 4;
+        private const int REEL_PANEL_COLUMNS = 6;
+        private const int REEL_SECTORS = REEL_PANELS * REEL_PANEL_COLUMNS;
+
+        //The white reel, its red sevens and black diamonds, and the cold metal of the two heads.
+        private static readonly BallType[] REEL_GROUND = { BallType.Type4, BallType.Type11 };
+        private static readonly BallType[] REEL_HEAD = { BallType.Type12, BallType.Type5 };
+
+        /// <summary>
+        /// A seven, six sectors by ten levels — the reel's own symbol, drawn top-first like every bitmap in
+        /// this file. Two cells thick everywhere for the lonely-ball rule, and it never reaches a panel's
+        /// edge, so the four symbols round the drum stay four groups.
+        /// </summary>
+        private static readonly string[] REEL_SEVEN =
+        {
+            "######",
+            "######",
+            "....##",
+            "....##",
+            "...##.",
+            "...##.",
+            "..##..",
+            "..##..",
+            "..##..",
+            "..##..",
+        };
+
+        /// <summary>A diamond, six by ten, on the two panels between the sevens.</summary>
+        private static readonly string[] REEL_DIAMOND =
+        {
+            "..##..",
+            "..##..",
+            ".####.",
+            ".####.",
+            "######",
+            "######",
+            ".####.",
+            ".####.",
+            "..##..",
+            "..##..",
+        };
+
+        private static bool ReelShell(float r, int i, int depth) =>
+            r <= REEL_RADIUS && (i == 0 || i == depth - 1 || r >= REEL_RADIUS - REEL_WALL);
+
+        private static BallType ReelColour(float r, float ang, int i, int depth)
+        {
+            //The heads take the LATTICE blocks and not the sectors, and that is the difference between a
+            //machined end and a dartboard: sectors converge on the axis, so a sector dither would end in
+            //single cells there - the trap the globe's poles answer the same way
+            if (i == 0 || i == depth - 1) return Ring(r, REEL_HEAD);
+
+            int column = SectorIndex(ang, 0f, REEL_SECTORS);
+            int panel = column / REEL_PANEL_COLUMNS;
+            int row = depth - 2 - i;
+
+            bool seven = (panel & 1) == 0;
+
+            //The symbol is a function of the sector alone, so it goes through both cells of the wall - the
+            //picture is still there when the outer skin has gone, and every stroke is twice the group
+            if (PixelAt(seven ? REEL_SEVEN : REEL_DIAMOND, column % REEL_PANEL_COLUMNS, row) == '#')
+                return seven ? BallType.Type1 : BallType.Type8;
+
+            return Band(column / 4 + row / 4, REEL_GROUND);
+        }
+
+        //THE DONUT. A ring of major radius 4 with a tube of 2.6 hollowed to a shell of 1.2, eight levels
+        //deep. The depth is set BY the tube and not by taste: the topmost level sits 2.47 above the tube's
+        //own middle, so a tube any thinner than that would have no cells on the level the ceiling holds and
+        //the whole layout would hang off nothing (an empty top level is the one thing a hanging design can
+        //get catastrophically wrong, and no gate but the drop test would say so).
+        private const byte DONUT_GRID = 17;
+        private const byte DONUT_DEPTH = 8;
+        private const float DONUT_MAJOR = 4.4f;
+        private const float DONUT_TUBE = 2.6f;
+        private const float DONUT_SHELL = 1.2f;
+        private const int DONUT_SECTORS = 24;
+
+        //The glaze line, in world units above the tube's middle, and how far it runs down between its drips.
+        //A straight line here is a horizontal band round the whole ring - the drop test's trap, and on a body
+        //whose top surface is its anchor it is the one colouring that could take the level in a single shot.
+        //Waved, glaze and dough interlock at six places and each is anchored on its own.
+        private const float DONUT_GLAZE_LINE = -0.2f;
+        private const float DONUT_DRIP = 0.9f;
+        private const int DONUT_DRIPS = 6;
+
+        private static readonly BallType[] DONUT_DOUGH = { BallType.Type10, BallType.Type9 };
+        private static readonly BallType[] DONUT_GLAZE = { BallType.Type6, BallType.Type4 };
+        private static readonly BallType[] DONUT_SPRINKLES = { BallType.Type7, BallType.Type5 };
+
+        /// <summary>Distance from the tube's own core circle — the ring's radius in its cross-section.</summary>
+        private static float DonutTube(float r, int i, int depth)
+        {
+            float dr = r - DONUT_MAJOR;
+            float dy = OnionVertical(i, depth);
+
+            return MathF.Sqrt(dr * dr + dy * dy);
+        }
+
+        private static bool DonutShell(float r, int i, int depth)
+        {
+            float d = DonutTube(r, i, depth);
+
+            return d <= DONUT_TUBE && d >= DONUT_TUBE - DONUT_SHELL;
+        }
+
+        private static BallType DonutColour(float r, float ang, int i, int depth)
+        {
+            int column = SectorIndex(ang, 0f, DONUT_SECTORS);
+            int row = depth - 1 - i;
+            int block = column / 2 + row / 2;
+
+            float line = DONUT_GLAZE_LINE - DONUT_DRIP * MathF.Cos(DONUT_DRIPS * ang);
+            if (OnionVertical(i, depth) <= line) return Band(block, DONUT_DOUGH);
+
+            return DonutSprinkle(column / 2, row / 2, out BallType sprinkle)
+                ? sprinkle
+                : Band(block, DONUT_GLAZE);
+        }
+
+        /// <summary>
+        /// Whether a block of the glaze carries a sprinkle, and which colour it is — hashed rather than
+        /// drawn, for <see cref="Scatter"/>'s reason (a level has to be the same every time it is played, and
+        /// a <c>Random</c> walked in the emitter's loop order is not). One block of the glaze in four, over
+        /// two colours, which is <b>above</b> the density where a hashed dice percolates: measured, the
+        /// sprinkles come out as 39 balls a colour in groups of up to 27 rather than as islands of four. They
+        /// are the level's scarce colours either way — a fifth of what the dough and the glaze carry.
+        /// </summary>
+        /// <remarks>
+        /// The presence and the colour are read off <b>different</b> bits of the same hash. Taken off the
+        /// same ones they correlate — a test of <c>h % 4</c> only ever admits even hashes, so a colour picked
+        /// with <c>h % 2</c> would be the first entry every time and the second would never be drawn at all.
+        /// </remarks>
+        private static bool DonutSprinkle(int blockColumn, int blockRow, out BallType colour)
+        {
+            uint h = (uint)(blockColumn * 73856093 ^ blockRow * 19349663);
+            h ^= h >> 13;
+            h *= 2654435761;
+            h ^= h >> 16;
+
+            colour = DONUT_SPRINKLES[h % (uint)DONUT_SPRINKLES.Length];
+
+            return ((h >> 5) & 3) == 0;
+        }
+
+        //THE GLOBE. A shell 1.5 thick on a radius of 4.6, twelve levels deep - which cuts both poles off a
+        //hair (the layout reaches 3.89 above and below its middle against a radius of 4.6), and that is
+        //wanted: it turns the pole from a point into a disc of about twenty cells, which is the anchor. The
+        //map is sixteen columns of longitude by fourteen rows of latitude - one row per LEVEL of the layout;
+        //at the equator a column is about two cells wide, and the ground dithers on 2x2 blocks of the map,
+        //which is the pixel.
+        private const byte GLOBE_GRID = 13;
+        private const byte GLOBE_DEPTH = 14;
+        private const float GLOBE_RADIUS = 5f;
+        private const float GLOBE_SHELL = 1.5f;
+        private const int GLOBE_SECTORS = 16;
+
+        private static readonly BallType[] GLOBE_SEA = { BallType.Type3, BallType.Type12, BallType.Type5 };
+        private static readonly BallType[] GLOBE_LAND = { BallType.Type2, BallType.Type13 };
+        private static readonly BallType[] GLOBE_DRY = { BallType.Type10 };
+        private static readonly BallType[] GLOBE_ICE = { BallType.Type4 };
+
+        /// <summary>
+        /// The world, sixteen columns of longitude by <b>fourteen</b> rows of latitude — one row per level of
+        /// the layout, which is the first thing to check if the depth is ever changed: drawn twelve rows deep
+        /// against a fourteen-level globe, both polar rows fell off the end of the bitmap and the south cap
+        /// came out as open ocean. North first: <c>#</c> is forest, <c>+</c> the dry inland of it, <c>*</c>
+        /// ice and anything else is sea. Three rules drew it and all three are the lattice's rather than
+        /// geography's.
+        /// <list type="bullet">
+        /// <item><b>Nothing is narrower than two columns or shorter than two rows</b>, because the ground
+        /// dithers on 2×2 blocks of the map: a one-column cape would be half a block, which near the poles is
+        /// a single ball and a job for the repair pass.</item>
+        /// <item><b>Both ice caps are broken into floes with sea between them.</b> The top row IS the anchor —
+        /// a disc of about twenty cells bonded to the glass — and one colour across it is a level that ends
+        /// on the first lucky ball of that colour. Broken, most of the disc stands whatever is shot and the
+        /// shell under it hangs on: measured, the ice's own best shot is 4 % and drops nothing with it. It
+        /// reads as pack ice, which is what the Arctic looks like anyway.</item>
+        /// <item><b>The ice is the one material here drawn in a single colour</b>, and that is the poles
+        /// again rather than a preference. Dithered white and silver like everything else it did not survive
+        /// the repair pass: where the sectors converge a 2×2 block of the map holds one cell, so measured,
+        /// white came out at <i>zero</i> balls and twelve cells were recoloured — the drawing rewritten
+        /// between the source and the file, which is the thing that pass exists to make visible.</item>
+        /// </list>
+        /// </summary>
+        private static readonly string[] GLOBE_WORLD =
+        {
+            ".**..**..**..**.",
+            ".**..**..**..**.",
+            "..######....##..",
+            "..######....##..",
+            "..#++++#....####",
+            "..#++++#....####",
+            "..#++++#....##..",
+            "..#++++#....##..",
+            "....####..##....",
+            "....####..##....",
+            "..##....##......",
+            "..##....##......",
+            ".**..**..**..**.",
+            ".**..**..**..**.",
+        };
+
+        private static bool GlobeShell(float r, int i, int depth)
+        {
+            float d = SphereDistance(r, i, depth);
+
+            return d <= GLOBE_RADIUS && d >= GLOBE_RADIUS - GLOBE_SHELL;
+        }
+
+        private static BallType GlobeColour(float r, float ang, int i, int depth)
+        {
+            int column = SectorIndex(ang, 0f, GLOBE_SECTORS);
+            int row = depth - 1 - i;
+            int block = column / 2 + row / 2;
+
+            return PixelAt(GLOBE_WORLD, column, row) switch
+            {
+                '#' => Band(block, GLOBE_LAND),
+                '+' => Band(block, GLOBE_DRY),
+                '*' => Band(block, GLOBE_ICE),
+                _ => Band(block, GLOBE_SEA),
+            };
+        }
+
+        #endregion
+
         #endregion
 
         #region Emitting one design
@@ -3918,6 +4723,10 @@ namespace BS3D.Tools.LevelGen
             int margin = LateralMargin(map);
             Console.WriteLine($"    lateral margin: {(margin >= 1 ? $"{margin} free cell(s) all round" : "NONE - the layout is ON the field wall")}");
 
+            int groups = CountGroups(map);
+            Console.WriteLine($"    {groups} standing colour groups, i.e. {total / (float)groups:F1} balls a shot at par"
+                              + $" — the budget is {design.Shots / (float)groups:F2} shots per group");
+
             LonelyReport lonely = FindLonelyBalls(map);
             Console.WriteLine($"    reachable in one ball: {(lonely.Alone == 0 ? "all" : $"NO - {lonely.Alone} STAND ALONE")}"
                               + $" (in pairs {lonely.Paired}, primed {total - lonely.Alone - lonely.Paired})"
@@ -3985,6 +4794,39 @@ namespace BS3D.Tools.LevelGen
             return Math.Min(
                 Math.Min(minX, map.StageSizeX - 1 - maxX),
                 Math.Min(minZ, map.StageSizeZ - 1 - maxZ));
+        }
+
+        /// <summary>
+        /// How many standing colour groups the level is made of — <b>the number a shot budget is priced
+        /// against</b>, because one landed ball takes exactly one group with it (plus whatever that group was
+        /// the last anchor for, which is what makes a design with cascades cheaper than this count says).
+        /// <para>
+        /// It is printed as a ratio for that reason. The pack runs from <b>Colossus at 0.98 shots a group</b>
+        /// (364 balls in 46 groups against 45 shots — measured off its file, since this tool does not write
+        /// it), which is the hardest level in the game and is meant to be, to <see cref="Horn"/>'s 20, where
+        /// four shells mean the budget is not the thing being fought at all. A design landing near 1 with no
+        /// cascade in it is a level that has to be played perfectly; the Arcade's five are priced off this
+        /// line, from 1.65 down to 1.37, and every one of them was over-tight before it was measured.
+        /// </para>
+        /// </summary>
+        private static int CountGroups(BallsMap map)
+        {
+            StaticBall[,,] array = map.GetStaticBallsArray();
+            bool[,,] counted = new bool[map.StageSizeX, map.StageSizeZ, map.Levels];
+            int groups = 0;
+
+            for (byte l = 0; l < map.Levels; l++)
+                for (byte x = 0; x < map.StageSizeX; x++)
+                    for (byte z = 0; z < map.StageSizeZ; z++)
+                    {
+                        if (array[x, z, l] == null || counted[x, z, l]) continue;
+
+                        groups++;
+                        foreach (XZLevel cell in map.GetConnectedSameTypeCells(new XZLevel(x, z, l)))
+                            counted[cell.X, cell.Z, cell.Level] = true;
+                    }
+
+            return groups;
         }
 
         /// <summary>

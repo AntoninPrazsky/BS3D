@@ -281,6 +281,46 @@
       "shots": 54,
       "minStars": 66,
       "ceilingStep": 4
+    },
+    {
+      "file": "Cube.json",
+      "name": "Cube",
+      "block": "The Arcade",
+      "shots": 56,
+      "minStars": 68,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Ziggurat.json",
+      "name": "Ziggurat",
+      "block": "The Arcade",
+      "shots": 52,
+      "minStars": 70,
+      "ceilingStep": 7
+    },
+    {
+      "file": "Reel.json",
+      "name": "Reel",
+      "block": "The Arcade",
+      "shots": 60,
+      "minStars": 72,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Donut.json",
+      "name": "Donut",
+      "block": "The Arcade",
+      "shots": 52,
+      "minStars": 74,
+      "ceilingStep": 6
+    },
+    {
+      "file": "Globe.json",
+      "name": "Globe",
+      "block": "The Arcade",
+      "shots": 52,
+      "minStars": 76,
+      "ceilingStep": 9
     }
   ]
 }
