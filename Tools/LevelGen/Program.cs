@@ -131,7 +131,7 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// What each block is <b>called</b>, written onto every entry of it as <c>LevelSetEntry.Block</c> so the
         /// game can celebrate finishing one by name (#184). Indexed by block, so the order here IS the order of
-        /// the catalogue's own six groups.
+        /// the catalogue's own seven groups.
         /// <para>
         /// Set from the entry's <b>position</b> where <see cref="Design.Music"/> is set on each design, and the
         /// asymmetry is not an oversight: a theme is written into the level <i>file</i>, so it has to be a
@@ -195,8 +195,9 @@ namespace BS3D.Tools.LevelGen
             //back. Colossus keeps every rule it had and closes the Quarry; what it hands over is only the
             //campaign-complete moment. The Nebula's designs live in their own array below rather than in this
             //one, because WriteLevelSet appends Colossus after everything in THIS array — five designs added
-            //here would open the new block in the middle of the Quarry's run, and a reopened block is a file
-            //LevelSet.Load refuses.
+            //here would land Colossus at the tail of the NEBULA's five and file Comet under the Quarry. The
+            //blocks would still be contiguous (names fall out of positions, nothing refuses the set); they
+            //would celebrate the wrong levels.
             //
             //ONE RECORDED DECISION IS REVERSED HERE and it is worth naming rather than leaving to be noticed.
             //The three pictures used to be deliberately INTERLEAVED with the geometric levels, "because they
@@ -255,7 +256,11 @@ namespace BS3D.Tools.LevelGen
             //Helix's sense - the silhouette turns and changes as it descends, so the player reads what is
             //coming - and each is a different KIND of tall, the Tower's own rule (#160). See the block's
             //region for why a second tall block exists at all when the Coil recorded that only the Tower
-            //should be one.
+            //should be one. The block lives in its own array because WriteLevelSet appends Colossus after
+            //everything in the array above: five designs added THERE would still make contiguous blocks
+            //(the names fall out of positions, so nothing refuses the set) but would misfile them - Comet
+            //labelled the Quarry's, Colossus labelled the Nebula's, and THE QUARRY COMPLETE celebrating on
+            //the wrong level. Only DescribeBlock's non-gating MIXED print would show it.
             Design[] nebula = { Comet(), Vortex(), Carousel(), Wishbone(), Garland() };
 
             bool ok = true;
@@ -299,7 +304,9 @@ namespace BS3D.Tools.LevelGen
         /// with the rest, while Colossus is still hand-drawn and keeps its rules verbatim — it is authored
         /// content and this generator has no opinion about it beyond where it sits. The Nebula's designs arrive
         /// as the second array, appended after Colossus, because the Quarry's five entries are four designs plus
-        /// that hand-drawn finale — five more designs in the first array would reopen the Quarry around them.
+        /// that hand-drawn finale — five more designs in the first array would push Colossus out of the Quarry
+        /// and misfile both blocks' members (still contiguous, so nothing would refuse the set; the milestones
+        /// would simply fire on the wrong levels).
         /// <para>
         /// Colossus (once "Two", back when it was the second level) is the hardest level in the game by a
         /// distance: twelve wide, eighteen deep, six colours in 3×3 blocks rolled per level so nothing is ever
@@ -458,12 +465,13 @@ namespace BS3D.Tools.LevelGen
         /// goes back for a better one. The most a player can hold at entry <paramref name="index"/> is
         /// <c>4 × index</c>, so the steepest gate still asks under half of what is on the table.
         /// <para>
-        /// <b>The ramp is unchanged by #194 and again by #207, and that was checked rather than assumed</b>,
-        /// because it now runs to thirty entries instead of the fourteen it was written for. The property that
-        /// has to hold is the par one: a player who two-stars every level ahead of entry <i>i</i> holds
-        /// <c>2i</c> against a gate of <c>2(i − 1)</c>, which clears it by two at every position, however long
-        /// the set is. At the last entry the gate is 56 against the 116 four-star clears would have banked —
-        /// still the "under half" above, so nothing needed retuning and no gate had to be made block-aware.
+        /// <b>The ramp is unchanged by #194, by #207 and again by #182, and that was checked rather than
+        /// assumed</b>, because it now runs to thirty-five entries instead of the fourteen it was written for.
+        /// The property that has to hold is the par one: a player who two-stars every level ahead of entry
+        /// <i>i</i> holds <c>2i</c> against a gate of <c>2(i − 1)</c>, which clears it by two at every
+        /// position, however long the set is. At the last entry the gate is 66 against the 136 four-star
+        /// clears would have banked — still the "under half" above, so nothing needed retuning and no gate
+        /// had to be made block-aware.
         /// </para>
         /// </summary>
         private static int? MinStarsAt(int index) => index switch
@@ -1767,7 +1775,9 @@ namespace BS3D.Tools.LevelGen
         //
         //None of them is tall. That is deliberate and it is the Tower's boundary being respected rather than an
         //oversight - "the layout is deeper than the camera frames" is that block's whole statement, and a second
-        //block of tall levels would take it away. These are framed whole and swing inside the frame.
+        //block of tall levels would take it away. These are framed whole and swing inside the frame. (#182 has
+        //since reversed that boundary deliberately - the Nebula is a second tall block, at the owner's ask, and
+        //its region says why the Tower's statement survives it. This block's reasoning stays as it was made.)
 
         /// <summary>
         /// The desert's field: eighteen deep against a layout of <see cref="DUNES_DEPTH"/>, which is the same
@@ -2161,7 +2171,7 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// A hollow funnel wall around nothing — the one level here whose inside is EMPTY, so every shot is a
-        /// shot at a curved two-cell wall, and the wall turns as it descends: a window a couple of cells wide
+        /// shot at a curved two-cell wall, and the wall turns as it descends: a window a few cells wide
         /// corkscrews down it, and the colouring is panes that follow the same twist (<see cref="Lantern"/>'s
         /// course-roll trick sheared by height), so nothing on it is either a horizontal band (the
         /// <see cref="DropTest"/> trap) or a vertical stave of dozens. <b>Brown debuts one pane over from
@@ -2169,9 +2179,10 @@ namespace BS3D.Tools.LevelGen
         /// The wall pinches slightly toward its tip, so the silhouette reads as a vortex touching down rather
         /// than as a pipe.
         /// <para>
-        /// Measured: 452 balls, margin 1, nothing alone or paired, nothing recoloured; every colour's best
-        /// single shot is 6–7 % (29–33 balls) — no plate anywhere, the panes' point. The budget prices a
-        /// pane a shot: ~20 panes against 64 shots.
+        /// Measured: 472 balls, margin 1, nothing alone or paired, nothing recoloured, colour counts 86–102;
+        /// every colour's best single shot is 6 % (29–33 balls) — no plate anywhere, the panes' point. The
+        /// budget prices a pane a shot: 20 panes against 64 shots. (The window's width and seat both took a
+        /// correction — see the geometry comments — and the counts above are from after it.)
         /// </para>
         /// </summary>
         private static Design Vortex() => new()
@@ -2203,7 +2214,8 @@ namespace BS3D.Tools.LevelGen
         /// takes the colour of the rail whose third of the turntable it sits on, the rung rule again: a deck
         /// of its own colour would be a tax of five-ball groups on the magazine's even draw.
         /// <para>
-        /// Measured: 586 balls — the biggest level in the game — margin 1, nothing alone or paired, nothing
+        /// Measured: 586 balls — the biggest of the block (Onion still holds the game's record at 959) —
+        /// margin 1, nothing alone or paired, nothing
         /// recoloured (the decks every fourth level are what lets the rails sit at the 1.5 the Helix records
         /// as pinching); best single shots 4–8 %, bands of 26–27. The budget prices its ~22 bands at 72.
         /// </para>
@@ -2321,7 +2333,7 @@ namespace BS3D.Tools.LevelGen
 
                 //Which bead this cell hangs from: the bead at or above its own level. The two strands are
                 //offset well apart in the palette so the beads facing each other across the axis differ,
-                //and 8 beads a strand against 13 colours puts every colour somewhere (0..7 and 7..14 mod 13).
+                //and 7 beads a strand against 13 colours puts every colour somewhere (0..6 and 7..13 mod 13).
                 int bead = (depth - 1 - i) / GARLAND_BEAD_EVERY;
 
                 return ALL_THIRTEEN[((strand == 1 ? 0 : GARLAND_PALETTE_OFFSET) + bead) % ALL_THIRTEEN.Length];
@@ -3517,8 +3529,7 @@ namespace BS3D.Tools.LevelGen
         //The comet's own geometry. The head is a ball pressed against the glass (its centre less than its
         //radius below it, so the top level carries a real cap of cells to anchor on); the tail path orbits
         //at the radius where the head still reaches laterally at the tail's topmost levels, so the two always
-        //touch. The tail thins toward the tip - the taper is spent by mid-tail, so most of its length is
-        //full strand.
+        //touch. The tail thins linearly from ROOT where it leaves the head to TIP at the bottom.
         private const float COMET_HEAD_RADIUS = 3.2f;
         private const float COMET_HEAD_DROP = 2.2f;
         private const float COMET_ORBIT = 2.3f;
@@ -3553,7 +3564,17 @@ namespace BS3D.Tools.LevelGen
         private const float VORTEX_RIM = 4.2f;
         private const float VORTEX_TAPER = 1.1f;
         private const float VORTEX_TURNS_PER_LEVEL = 0.045f;
-        private const float VORTEX_GAP_HALF = 0.65f;
+
+        //Strictly narrower than one pane's tau/5 = 1.257 rad: at the first cut's 0.65 the window (2 x 0.65 =
+        //1.3 rad) was a shade WIDER than a pane, so one wedge was permanently swallowed whole and each course
+        //showed four colours, not five - only the palette rolling by course kept every colour alive at all
+        //(counts ran 78-113 where five equal panes give ~90 each).
+        private const float VORTEX_GAP_HALF = 0.55f;
+
+        //The window sits ON a pane boundary, not mid-pane: centred inside a wedge it left two slivers of
+        //0.08 rad - a cell wide, orange two-ball islands down the window's both edges - where astride the
+        //boundary it takes 0.55 from each neighbour and leaves both a healthy 0.7 rad stripe.
+        private const float VORTEX_GAP_PHASE = MathF.Tau / (2f * VORTEX_PANES);
         private const int VORTEX_PANES = 5;
         private const int VORTEX_COURSE = 5;
 
@@ -3562,7 +3583,7 @@ namespace BS3D.Tools.LevelGen
             float pinch = VORTEX_TAPER * (1f - i / (depth - 1f));
             if (r < VORTEX_CORE - pinch || r > VORTEX_RIM - pinch) return false;
 
-            float local = MathF.IEEERemainder(ang - i * VORTEX_TURNS_PER_LEVEL * MathF.Tau, MathF.Tau);
+            float local = WrapAngle(ang - i * VORTEX_TURNS_PER_LEVEL * MathF.Tau - VORTEX_GAP_PHASE);
             return MathF.Abs(local) > VORTEX_GAP_HALF;
         }
 
@@ -3652,7 +3673,7 @@ namespace BS3D.Tools.LevelGen
         };
 
         //The garland's own geometry. Two thin strands turning OPPOSITE ways on DIFFERENT orbits - they pass
-        //each other every eighth level, and those passes are the anchoring the Helix needed rungs for. The
+        //each other every seventh level, and those passes are the anchoring the Helix needed rungs for. The
         //orbits differ deliberately, and the first cut of this design is why: on one shared orbit a crossing
         //is a single merged disc - the only cells on its level - and shooting out that disc's colour severed
         //BOTH strands at once (measured: the best single shot dropped 85 % of the level, a guillotine two

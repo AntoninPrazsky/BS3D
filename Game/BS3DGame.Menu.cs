@@ -539,11 +539,11 @@ namespace BS3D
         internal string LevelBlockName(int index) =>
             _levelSet != null && index >= 0 && index < _levelSet.Count ? _levelSet.BlockName(index) : null;
 
-        /// <summary>Which block the entry is in, counting from 1 — the "3" of "block 3 of 5".</summary>
+        /// <summary>Which block the entry is in, counting from 1 — the "4" of "block 4 of 7".</summary>
         internal int LevelBlockNumber(int index) =>
             _levelSet != null && index >= 0 && index < _levelSet.Count ? _levelSet.BlockNumber(index) : 0;
 
-        /// <summary>How many blocks the campaign is in — the "5".</summary>
+        /// <summary>How many blocks the campaign is in — the "7".</summary>
         internal int BlockCount => _levelSet?.BlockCount ?? 0;
 
         /// <summary>
