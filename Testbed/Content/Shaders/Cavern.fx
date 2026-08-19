@@ -1,5 +1,5 @@
 //Draws the bioluminescent crystal cavern: deep noise-carved rock walls veined with glowing minerals, an
-//underground river mirroring them, god rays falling through unseen gaps in the ceiling, sharp crystal
+//underground river under them, god rays falling through unseen gaps in the ceiling, sharp crystal
 //clusters pulsing cyan and magenta on the walls and casting their light onto the rock around them, and
 //spores drifting up through the dark. The eleventh scene, and the third that replaces the SKY (see Space
 //and Dream): one full-screen pass over the shared NDC quad, the view ray recovered per pixel through
@@ -7,14 +7,17 @@
 //The caller draws no dome and no cloud deck, suppresses the cloud shadow on the instanced effect, and takes
 //the scene's own light rig (CavernLightingConfig).
 //
-//The scene is ANALYTIC except where marching earns its keep: the cave is a noise-shaded
-//cylinder-and-ceiling shell (a quadratic and a plane); the river is a MARCHED HEIGHT FIELD near the lens -
-//real waves with real silhouettes, a spectrum spread over a decade of wavelengths like the sea's, fading
-//to the flat plane with distance the way the sea's swell does - whose REFLECTION is the wall shading
-//function evaluated a second time along the reflected ray - a real mirror of the real cave, where a
-//screen-space approximation would smear; and the crystals are the other marched element, gated per
-//cluster by analytic bounding spheres exactly as the dream's solids are. The god rays and the spores are
-//closest-approach glows with no geometry at all.
+//The scene is ANALYTIC except where marching earns its keep: the cave is a noise-shaded cylinder-and-ceiling
+//shell (a quadratic and a plane); the river is a flat plane, hit exactly, carrying a three-component RIPPLE
+//in its normal alone; and the crystals are the one marched element left, gated per cluster by analytic
+//bounding spheres exactly as the dream's solids are. The god rays and the spores are closest-approach glows
+//with no geometry at all.
+//
+//The river used to be a MARCHED height field of seven components whose REFLECTION was the wall shading
+//function evaluated a second time along the reflected ray - real waves with real silhouettes over a real
+//mirror of the real cave. #250 traded both away: this scene does not need maximum graphics, it needs to run
+//cool on every machine, and those two were the dearest things in the pass. What the water reflects now is a
+//vertical ramp between the fog and the rock, plus the crystals' pooled light. See CavernScene.
 //
 //Levels against the glare (GLARE_THRESHOLD 0.55 on luminance): the rock stays far under it - a cave is
 //dark, and the dark is what makes the glow read - the crystals and the water's crest glow are allowed over
@@ -38,11 +41,10 @@
 //How many of each element the cavern carries. Fixed at compile time so the loops unroll.
 #define CRYSTAL_COUNT 8
 #define RAY_COUNT 4
-#define SPORE_COUNT 28
-
-//What the reduced program carries instead. See CavernScene's `detail` parameter for why the spore count and
-//the water's reflected wall shading are cut TOGETHER and why nothing else here is cut at all.
-#define SPORE_COUNT_REDUCED 8
+//Eight spores where there were twenty-eight: the count the reduced program used to carry is what every
+//machine carries now (#250). Twenty-eight unrolled closest-approach gaussians is a lot of live state for a
+//mote at the threshold's edge, and it is half of the one PAIR the attribution ever measured a win from.
+#define SPORE_COUNT 8
 
 float4x4 InverseViewProjection;
 float3 CameraPosition;
@@ -159,8 +161,9 @@ float3 CrystalLightAt(float3 position)
 
 //Shades a point of the cave shell: fractal rock under a perturbed normal, real directional light from the
 //crystals, mineral veins, distance fog. Written as a function of the hit point and distance because the
-//RIVER calls it a second time along the reflected ray - the water's mirror is the real wall, not an
-//approximation of it.
+//RIVER used to call it a second time along the reflected ray, its mirror being the real wall rather than an
+//approximation of it. That second call is what #250 cut - the dearest single thing in the pass - so this now
+//runs at most ONCE per pixel and the signature is all that is left of the arrangement.
 float3 ShadeWall(float3 position, float distanceTravelled)
 {
 	//The shell's own normal: radial on the wall cylinder, folding smoothly into the down-facing ceiling
@@ -272,26 +275,31 @@ float CaveShellDistance(float3 origin, float3 direction)
 	return min(tWall, tCeiling);
 }
 
-//--- The river's wave spectrum ----------------------------------------------------------------------------
-//Seven components over a decade of wavelengths, directions fanned so no two are near-parallel - the sea's
-//spectrum shape at the cave's scale. A plain sum-of-sines HEIGHT field (the march below needs height as a
-//function of xz; Gerstner's horizontal pinch would break that), summed and never multiplied, the ball
-//relief's crosshatch lesson. Frequencies ride the deep-water dispersion (w = sqrt(g k)), which is what
-//makes the long swell visibly outrun the chop instead of the whole surface sliding as one sheet.
-#define RIVER_WAVE_COUNT 7
+//--- The river's ripple -------------------------------------------------------------------------------------
+//THREE components where there were seven (#250): the long swell, one mid wave and one chop, directions fanned
+//so no two are near-parallel, still riding the deep-water dispersion (w = sqrt(g k)) so the swell visibly
+//outruns the chop instead of the whole surface sliding as one sheet. A plain sum-of-sines HEIGHT field,
+//summed and never multiplied (the ball relief's crosshatch lesson).
+//
+//Seven components paid for themselves while this field was MARCHED - sixteen evaluations a pixel to find the
+//surface, where the spectrum's detail became real silhouette. It is read three times a pixel now, for a
+//gradient and nothing else, and at that job the four smallest components were riding along: their 1.15-to-5.2
+//wavelengths sit under a display pixel at any distance the river is actually seen from, so what they added to
+//the normal was noise the eye reads as shimmer.
+#define RIVER_WAVE_COUNT 3
 static const float2 RIVER_DIR[RIVER_WAVE_COUNT] = {
-	float2(0.94, 0.33), float2(-0.48, 0.88), float2(0.82, -0.58), float2(0.15, 0.99),
-	float2(-0.97, -0.24), float2(0.55, 0.84), float2(-0.87, 0.49) };
-static const float RIVER_LEN[RIVER_WAVE_COUNT] = { 26.0, 14.5, 8.8, 5.2, 3.1, 1.9, 1.15 };
-static const float RIVER_AMP[RIVER_WAVE_COUNT] = { 1.0, 0.62, 0.38, 0.22, 0.13, 0.07, 0.045 };
-static const float RIVER_PHASE[RIVER_WAVE_COUNT] = { 0.0, 1.7, 3.9, 2.6, 5.1, 0.8, 4.3 };
-static const float RIVER_AMP_SUM = 2.465;   //the weights above summed: the swell's worst-case reach
+	float2(0.94, 0.33), float2(0.82, -0.58), float2(-0.97, -0.24) };
+static const float RIVER_LEN[RIVER_WAVE_COUNT] = { 26.0, 8.8, 3.1 };
+static const float RIVER_AMP[RIVER_WAVE_COUNT] = { 1.0, 0.38, 0.13 };
+static const float RIVER_PHASE[RIVER_WAVE_COUNT] = { 0.0, 3.9, 5.1 };
+static const float RIVER_AMP_SUM = 1.51;   //the weights above summed: the ripple's worst-case reach
 
-//How high the surface stands over the mean plane at p, in world units. The amplitude dies between 70 and
-//170 units of horizontal distance from the lens - the sea's own fade - so the far river is the flat plane
-//again: the march window collapses, the far silhouette cannot alias, and the steam owns that distance
-//anyway. WaveScale and WaveSpeed act as global multipliers around their shipped defaults (0.16 and 0.8
-//map to 1.0), so a config that meant "calmer, slower" still means it.
+//How high the surface stands over the mean plane at p, in world units - a figure only the NORMAL and the
+//crest glow read now, the surface itself being the plane. The amplitude still dies between 70 and 170 units
+//of horizontal distance from the lens, so the far river is dead flat: at that distance a ripple is under a
+//pixel and would alias, and the steam owns the distance anyway. WaveScale and WaveSpeed act as global
+//multipliers around their shipped defaults (0.16 and 0.8 map to 1.0), so a config that meant "calmer,
+//slower" still means it.
 float RiverHeight(float2 p, float t)
 {
 	float freqScale = WaveScale * 6.25;
@@ -336,21 +344,26 @@ CavernVertexOutput CavernVS(CavernVertexInput input)
 	return output;
 }
 
-//`detail` is an ordinary argument passed a LITERAL by each entry point below, so it constant-folds and each
-//comes out a separate program with its own register allocation. That last part is the point: this pass is
-//OCCUPANCY-bound, not work-bound, and the measurements say so plainly. Front end, 1600x900, desktop GPU,
-//dome 13, nocap - the full scene is 4.98 ms, and every single reduction on its own is worth NOTHING:
+//ONE program now, and a cheaper one. This pass is OCCUPANCY-bound rather than work-bound, and the #102
+//attribution says so plainly - front end, 1600x900, desktop GPU, dome 13, nocap, the full scene at 4.98 ms,
+//and every single reduction on its own worth NOTHING:
 //
 //  reflection's wall shading dropped   5.01 ms
 //  spores 28 -> 1                      5.02
 //  river search 16 -> 8 steps          4.97
 //  crystal march 24 -> 14, step 0.75   5.01
 //
-//while the PAIR of the reflection and the spores measures 3.33, and adding the river and the crystal cuts on
-//top of that gives 3.31 - nothing further. So the reduced program drops exactly that pair and leaves the
-//river and the crystals at full quality, which is the opposite of the order the issue's fix sketch ranked
-//them in (#102). A dial per feature would have bought nothing at all.
-float4 CavernScene(CavernVertexOutput input, bool detail)
+//while the PAIR of the reflection and the spores measured 3.33, and adding the river and the crystal cuts on
+//top of that gave 3.31 - nothing further. That pair was the reduced technique this file used to compile as a
+//second program, engaged below High.
+//
+//#250 lifted the "deliberately expensive" constraint on this scene outright: the owner traded the reflections
+//and the waves away for a cave that runs cool on every machine, at every tier. So the pair is cut from the
+//scene ITSELF - the water reflects a ramp instead of a second wall shade, and the spore count is the reduced
+//one - and the river's sixteen-step march went with them, the one reduction the measurements ranked as
+//worthless on its own but which cannot help once the program around it is short enough to matter. There is
+//no `detail` argument any more and no second technique: what is left is what every machine draws.
+float4 CavernScene(CavernVertexOutput input)
 {
 	float3 direction = normalize(input.Ray);
 	float t = CavernTime;
@@ -365,84 +378,54 @@ float4 CavernScene(CavernVertexOutput input, bool detail)
 	[branch]
 	if (tWater < tShell)
 	{
-		//THE RIVER - displaced geometry now, not a textured plane. Near the lens the ray is MARCHED
-		//against the height field through the band the waves can reach: sixteen fixed steps bracket the
-		//first crossing (the band's bottom is always below the field, so a crossing is guaranteed), one
-		//secant step lands on it - cheap and stable for a field this smooth. The waves get real
-		//silhouettes and catch the glints on their flanks. Past the amplitude fade (RiverHeight) the
-		//band is empty and the plane hit is exact, so the march is skipped outright.
+		//THE RIVER - a flat plane again, and deliberately. #250 traded the marched waves and the real mirror
+		//away for a cave that runs cool: what is left is the plane hit, which is exact and needs no search at
+		//all, under a RIPPLE that lives in the normal alone. The surface has no silhouette of its own any
+		//more - the river sits forty units under the island and is never seen against a skyline, so what
+		//that costs is the flank the glints used to catch, and the glints below ride the ripple instead.
 		tSolid = tWater;
 		float3 hit = CameraPosition + direction * tWater;
 
-		float ampMax = WaveAmplitude * RIVER_AMP_SUM + 0.05;
-		float horizontalAtPlane = tWater * length(direction.xz);
-
-		[branch]
-		if (horizontalAtPlane < 168.0)
-		{
-			float tTop = (WaterLevelY + ampMax - CameraPosition.y) / direction.y;
-			float tBottom = (WaterLevelY - ampMax - CameraPosition.y) / direction.y;
-			float tA = max(tTop, 0.0);
-			float tB = min(tBottom, tShell);
-
-			float tPrev = tA;
-			float fPrev = CameraPosition.y + direction.y * tA - WaterLevelY
-				- RiverHeight(CameraPosition.xz + direction.xz * tA, t);
-
-			[loop]
-			for (int ms = 1; ms <= 16; ms++)
-			{
-				float ti = lerp(tA, tB, ms / 16.0);
-				float fi = CameraPosition.y + direction.y * ti - WaterLevelY
-					- RiverHeight(CameraPosition.xz + direction.xz * ti, t);
-
-				[branch]
-				if (fi < 0.0)
-				{
-					tSolid = tPrev + (ti - tPrev) * fPrev / max(fPrev - fi, 1e-4);
-					break;
-				}
-
-				tPrev = ti;
-				fPrev = fi;
-			}
-
-			hit = CameraPosition + direction * tSolid;
-		}
-
-		//The wave normal: the height field's gradient at FULL strength - this is a real surface now, and
-		//a real surface's mirror is allowed to break up on the chop; the fresnel floor below keeps it
-		//legible. (The old plane damped its fake normal to 0.18 of this, which is half of why it read as
-		//a floor.)
 		float2 p = hit.xz;
+		float ampMax = WaveAmplitude * RIVER_AMP_SUM + 0.05;
+
+		//The ripple's normal: the height field's gradient at FULL strength - three evaluations of three
+		//components, where the marched version paid sixteen of seven before it could even find the surface.
+		//The full gradient is not an accident: the flat plane this scene shipped with once damped its fake
+		//normal to 0.18 and read as a patterned floor, and it was the damping that did that, not the
+		//flatness.
 		const float eW = 0.3;
 		float h = RiverHeight(p, t);
 		float2 grad = float2(RiverHeight(p + float2(eW, 0.0), t) - h, RiverHeight(p + float2(0.0, eW), t) - h) / eW;
 		float3 normal = normalize(float3(-grad.x, 1.0, -grad.y));
 
-		//The reflection is the CAVE, evaluated again along the reflected ray - walls, veins, fog, crystal
-		//light and all. One extra shell test and wall shade per water pixel, and the river genuinely
-		//mirrors the cavern standing over it.
 		float3 bounced = reflect(direction, normal);
 
-		//A wave can fold the reflected ray downward; the mirror looks up. abs() used to fold the IMAGE
-		//back on itself along that locus - a doubled strip of mirrored wall sliding with the waves - so
-		//the fold is a SOFT max against zero now: same guarantee, no reversal, no crease.
+		//A ripple can fold the reflected ray downward; the mirror looks up. abs() used to fold the IMAGE
+		//back on itself along that locus - a doubled strip of mirrored wall sliding with the water - so the
+		//fold is a SOFT max against zero: same guarantee, no reversal, no crease.
 		bounced.y = 0.5 * (bounced.y + sqrt(bounced.y * bounced.y + 0.02));
 		bounced = normalize(bounced);
 
 		float tReflected = CaveShellDistance(hit, bounced);
 
-		//The reduced program skips the second full wall shade and reflects the mist instead. It costs less
-		//than it sounds: the very next line lerps this towards MistColor by the reflected path's own mist
-		//amount, and that path starts ON the water in the layer's densest air - so at any distance the
+		//THE MIRROR, WITHOUT THE CAVE IN IT. The reflected ray used to be handed back to ShadeWall - a
+		//second full wall shade, every fBm and every crystal light of it, on every water pixel - and that
+		//was the dearest single thing in this pass. What stands in for it is the cave's own vertical ramp:
+		//a grazing ray runs into the far wall, which the fog owns at that distance; a climbing one ends on
+		//ceiling rock, which nothing lights. Both colours are the scene's own.
+		float3 mirrored = lerp(FogColor, RockColor, saturate(bounced.y * 2.0));
+
+		//The one thing the mirror cannot lose is the clusters standing over the water - they are the
+		//brightest things in it. Their pooled light is read ONCE here and spent twice, in the mirror and in
+		//the depths below. The 12 against the wall's own 16 is that wall's N-dot-L term averaged away: this
+		//has no surface to lean towards the cluster, so it takes the pooling flat and a little weaker.
+		float3 crystalPool = CrystalLightAt(hit);
+		mirrored += RockColor * crystalPool * 12.0;
+
+		//The mirror shows the steam too, and this is also what closes most of the gap the wall shade left:
+		//the reflected path starts ON the surface, in the layer's densest air, so at any distance the
 		//mirrored wall was already most of the way to this colour.
-		float3 mirrored = MistColor;
-
-		if (detail) mirrored = ShadeWall(hit + bounced * tReflected, tSolid + tReflected);
-
-		//The mirror shows the steam too: the reflected path starts ON the surface, in the layer's densest
-		//air, so without this the water would reflect a crisper cave than the one standing over it.
 		mirrored = lerp(mirrored, MistColor, MistAmount(hit, bounced, tReflected, MistDensity));
 
 		//Fresnel: grazing looks mirror, steep looks into the water. The floor sits at 0.25 - HIGH for
@@ -456,14 +439,14 @@ float4 CavernScene(CavernVertexOutput input, bool detail)
 		//between Voronoi cells (VoronoiEdge2 is zero exactly there), which is what real pool caustics
 		//look like - a web around dark cells, not dots and not the sine checkerboard the first two
 		//attempts produced. Two scales drifting against each other so the net never sits still; finer
-		//than the waves themselves, being the focused image of the surface.
+		//than the ripple itself, being the focused image of the surface.
 		float2 cp = p * 0.30;
 		float web1 = pow(saturate(1.0 - VoronoiEdge2(cp + float2(t * 0.20, t * 0.14)) * 2.4), 6.0);
 		float web2 = pow(saturate(1.0 - VoronoiEdge2(cp * 1.9 + float2(-t * 0.15, t * 0.11) + 17.0) * 2.4), 6.0);
 		float caustic = web1 + 0.55 * web2;
 		float3 depths = WaterDeepColor
 			+ WaterGlowColor * caustic * CausticStrength
-			+ WaterDeepColor * CrystalLightAt(hit) * 6.0;
+			+ WaterDeepColor * crystalPool * 6.0;
 
 		//The SHORE BAND: over the last few units before the wall the water shows pure mirror. The mirror
 		//of the wall right above the contact converges to that wall by construction, so the two shading
@@ -474,13 +457,12 @@ float4 CavernScene(CavernVertexOutput input, bool detail)
 
 		color = lerp(mirrored, depths, (1.0 - fresnel) * shore);
 
-		//The crests carry the bioluminescence itself - riding the real marched height now, so the glow
-		//sits on the actual wave tops.
+		//The crests carry the bioluminescence itself, riding the ripple's own height.
 		float crest = saturate(0.5 + 0.5 * h / max(ampMax, 0.2));
 		color += WaterGlowColor * (pow(crest, 5.0) * 0.5 * shore);
 
-		//And the crystals GLINT on the chop - the cave's stand-in for the sea's sun sparkle: a Blinn lobe
-		//on the wave normal towards each cluster, inverse-square like every other crystal term, riding
+		//And the crystals GLINT on the ripple - the cave's stand-in for the sea's sun sparkle: a Blinn lobe
+		//on the water normal towards each cluster, inverse-square like every other crystal term, riding
 		//the pulse so the sparkles breathe with their sources.
 		[unroll]
 		for (int g = 0; g < CRYSTAL_COUNT; g++)
@@ -643,7 +625,7 @@ float4 CavernScene(CavernVertexOutput input, bool detail)
 	//--- The spores: slow rising motes, swaying as they climb, reborn at the water for ever.
 	//Closest-approach gaussians like the dream's sparks, but SLOW - the cave's stillness is the point.
 	[unroll]
-	for (int s = 0; s < (detail ? SPORE_COUNT : SPORE_COUNT_REDUCED); s++)
+	for (int s = 0; s < SPORE_COUNT; s++)
 	{
 		float fs = (float)s;
 		float lane = frac(fs * 0.618);
@@ -682,11 +664,11 @@ float4 CavernScene(CavernVertexOutput input, bool detail)
 	return float4(color, 1.0);
 }
 
-//Two programs from one body, as the forest floor has. "Cavern" is the authored scene; "CavernReduced" drops
-//the water's second wall shade and most of the spores - the pair that has to go together. The caller picks
-//by tier through SceneRenderer.SceneDetail.
-float4 CavernPS(CavernVertexOutput input) : COLOR { return CavernScene(input, true); }
-float4 CavernReducedPS(CavernVertexOutput input) : COLOR { return CavernScene(input, false); }
+//ONE program, where there were two. The reduced technique existed to drop the water's second wall shade and
+//most of the spores; #250 cut both out of the authored scene itself, so the pair it used to drop is no longer
+//in here to drop and a second program would be a copy of this one. The tier does not reach this scene any
+//more - SceneRenderer.SceneDetail still picks the forest's and the dream's programs, not the cavern's.
+float4 CavernPS(CavernVertexOutput input) : COLOR { return CavernScene(input); }
 
 technique Cavern
 {
@@ -694,14 +676,5 @@ technique Cavern
 	{
 		VertexShader = compile VS_SHADERMODEL CavernVS();
 		PixelShader = compile PS_SHADERMODEL CavernPS();
-	}
-};
-
-technique CavernReduced
-{
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL CavernVS();
-		PixelShader = compile PS_SHADERMODEL CavernReducedPS();
 	}
 };

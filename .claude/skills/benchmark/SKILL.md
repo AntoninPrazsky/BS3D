@@ -92,6 +92,37 @@ The measurement is wall-clock and cannot split CPU from GPU (MonoGame exposes no
 discriminator is to run the same pin at two `ssaa` values: if the frame time does not scale with the pixel
 count, the candidate is CPU- or draw-call-bound and turning pixel work off will not help it.
 
+
+## `fpscap=N`: measuring without leaving the card flat out
+
+**Read this before benchmarking on the desktop.** `nocap` is what turns an FPS reading into a frame cost, and
+it is also what leaves the GPU rendering thousands of frames a second. That was believed to be the dangerous
+part — the owner reported an uncapped run hard-resetting his desktop — and #250 found it is not:
+
+- the machine hard-reset **twice in one afternoon under capped runs**, at 18:40 on 2026-08-19;
+- the System log has `Kernel-Power 41` and `EventLog 6008` and **nothing else** — no bugcheck, no `MEMORY.DMP`
+  (kernel dumps are enabled), no WHEA entry, no display-driver reset (4101). Windows never got control;
+- there were **ten unexpected shutdowns in the preceding thirty days**, i.e. it predates any of this work.
+
+So this is a machine-level fault (the signature points at power delivery), not a shader or a benchmark mode,
+and no cap can be assumed to protect it. Ask the owner before running a measurement sweep on the desktop.
+
+The instrument itself is the Testbed's `fpscap=N` (`TestOptions.FpsCap`): it presents immediately, so nothing
+quantizes the reading, and idles out the rest of each frame's period, so a frame **cheaper** than the cap never
+runs away while a frame **dearer** than it is never delayed and still reads its true cost. Set the cap under
+the frame rate being measured — at 150 anything dearer than 6.7 ms comes out exact — and read the plateau
+itself as "cheaper than this", never as a cost. It implies `nocap`'s presentation, and the `[fps]` line carries
+`(cap N)` so a capped run cannot be mistaken for a free one later.
+
+The idle is a **spin**, never `Thread.Sleep`: at Windows' default 15.6 ms timer resolution `Sleep(1)` returns at
+the next tick and costs about six milliseconds, which measured a 300 FPS cap down to 143 and a 400 FPS cap to
+209 — the instrument reading its own idle. Spun, the plateau sits exactly on the cap (60.0, 200.0, 300.0
+measured flat).
+
+**One agent on the GPU at a time.** Two agents work this repo on the same desktop; a `BS3D.exe` belonging to
+the other one was alive through the runs above, which both doubles the load and invalidates every number.
+`Get-Process BS3D, Testbed` before a sweep, and say in `docs/agent-notes.md` that you are taking the card.
+
 ## Reference numbers
 
 Front end, windowed 1600×900, vsync off, dome 13, **integrated Radeon (Ryzen 7 5700U)** — the project's weakest
