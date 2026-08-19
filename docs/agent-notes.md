@@ -218,4 +218,20 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-18.*
+## 2026-08-19 — Claude Code
+
+**#182 „The Nebula" — na mainu jako `aa39394`, issue zavřeno. Kampaň je 35 levelů v 7 blocích; kampaň nově končí Garlandem, ne Colossem (záměr majitele — konfety #215 a „CAMPAIGN COMPLETE" jedou po posledním vstupu setu a přesunuly se s ním).** Scéna **space** (jediná bloky nepoužitá, pokračuje světelnou rampu ZA „airless black" — #207 odmítl za Měsíc světlou kapitolu, tahle není), hudba **druhá repríza (nocturne)** — při 5 skladbách a 7 blocích nevyhnutelné, `MUSIC_NEBULA` je jedna konstanta k přeladění. Blok jde ve `WriteLevelSet` **až za Colossus jako druhé pole** — v prvním poli by se bloky nerozbily (jména padají z pozic, zůstanou souvislé!), jen ŠPATNĚ ZAŘADILY (Comet pod Quarry, Colossus pod Nebulu, oslava na špatném levelu) — první verze komentáře tvrdila „Load to odmítne", což review vyvrátil.
+
+- **Pět levelů, každý jiný druh výšky** (pravidlo #160 drženo; vědomě reverz „jen Tower je tall" z hlavičky Coilu — kvalifikováno na obou místech): Comet (koma + jeden vinoucí se ohon; oranžová debutuje mezi červenou a zlatou), Vortex (dutá otáčivá stěna s oknem; hnědá vedle oranžové), Carousel (tři kroucené kolejnice + paluby co 4. patro; stříbrná proti bílé A černé; 586 kuliček — největší v bloku, rekord drží Onion 959), Wishbone (kmen se rozdvojí, navy+olivová jako bulby na koncích ramen z modré/zelené), **Garland (14 korálků na dvou proti-běžných vláknech, VŠECH 13 barev, nejlepší rána 5–10 % — těžký vzácností; finále kampaně)**.
+- **Dvě fyzikální/geometrické pasti, obě zapsané u konstant:** (1) proti-běžná vlákna na JEDNOM orbitu v křížení splynou v jediný disk = jediný řez oběma vlákny (nejlepší rána brala 85 % levelu, gilotina dvě patra pod sklem; vnější horní korálek vyšel 10 kuliček, protože ho merge spolkl) → **rozdílné orbity** (2,4/3,0), v pասáži se kotví a nikdy neslijí; (2) vlákno 1,15 s korálky = řetěz BallSocketů, který se **natáhl přes čáru smrti bez výstřelu** (prohra za 8 s) → 1,45 / 20 pater / pasáž co 7. patro, ověřeno 35–40 s visení ve hře (i Comet a Wishbone).
+- **Vortex měl okno širší než pane** (2×0,65 > τ/5) — jedna výseč trvale spolknutá; zúžení na 0,55 nechalo třísky (oranžové páry) → okno **posazeno NA hranici výsečí** (`VORTEX_GAP_PHASE`), teď 472 kuliček, 0 párů, 0 oprav, počty 86–102.
+- **Ověřeno:** LevelGen exit 0, ScoreSim „right way round" přes 35, aimcheck PASS ×5 (nejstrmější Wishbone roh 54,1° z 80,2°), všech pět vyfoceno ve hře (space scéna s planetou a mlhovinami dělá levelům nádherné pozadí). Odemyky pokračují automaticky 58–66 ★ (MinStarsAt je poziční — dokázaná par vlastnost drží na 35).
+- **Review pass: 15 nálezů zapracováno** (falešná zdůvodnění, zastaralé počty „six blocks"/„of 5"/„thirty", WrapAngle reuse, neexistující plateau v komentáři ohonu). Reviewní agent se 2× zasekl na watchdogu — pomohl SendMessage „dokonči z transkriptu, děti nespouštěj".
+- **Založeno #245** (nález review): pad focus walk neumí odscrollovat picker; při 35 dlaždicích je finále dva obrazovky dole — pre-existující, teď bolestivější.
+- **Majiteli k doladění rukou:** `MUSIC_NEBULA` (nocturne), rozpočty pěti levelů (56/64/72/54/54 — od stolu proti počtům skupin, ScoreSim je rád; kdo je odehraje, ať dopíše), a Garland má rezervu v obtížnosti (ceiling 4, 13 barev — kdyby byl PŘÍLIŠ těžký, první páka je shots 54→60).
+
+**Nic dalšího si teď neberu.**
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-19.*
