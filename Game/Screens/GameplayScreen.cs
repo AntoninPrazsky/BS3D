@@ -407,17 +407,21 @@ namespace BS3D.Screens
         /// its surface exactly on the line — alive, one descent from loss. It makes the whole field playable
         /// by construction, however deep it is, and turns the empty levels an author leaves under a layout
         /// into the level's starting clearance instead of dead space past the line: pinning the top
-        /// unconditionally meant any field 17 or more levels deep (its bottom more than ~15.8 level-steps
-        /// below its top) <i>started</i> with cells below the line, and a 30-level map was lost on the frame
-        /// it was built, before a shot was fired (a ball at −6.36 against the −5.5 line).
+        /// unconditionally meant any field deep enough for its bottom to reach past the line <i>started</i>
+        /// with cells below it, and a 30-level map was lost on the frame it was built, before a shot was
+        /// fired (a ball at −6.36 against the −5.5 the line then stood at). <b>How deep that is moves with
+        /// the line</b> — 17 levels when it was −5.5, 19 now that it hangs off the island.
         /// <para>
-        /// A ball's radius and not more, so that every field that fits under <see cref="FIELD_TOP_Y"/>
-        /// hangs exactly where it always has: the two branches of the max meet at a top level of ~15.07,
-        /// so a field up to 16 levels deep — the fallback's own depth — is pinned unchanged and a 17-level
-        /// one is the first raised. Measured: the fallback and <c>One.json</c> (15 levels) place and solve
-        /// bit-identically to before the rule; <c>Colossus.json</c>, whose 18 levels were already reaching 0.86
-        /// past the line, hangs 1.36 higher — its ceiling pressure was nominal either way (~13 descents to
-        /// lose before, ~15 after, against a budget that allows 11).
+        /// A ball's radius and not more, so that every field shallow enough hangs at <see cref="FIELD_TOP_Y"/>
+        /// exactly as it always has. <b>Where the two branches of the max meet is a function of the death
+        /// line, and it moved with it:</b> at −5.5 they met at a top level of ~15.07, so 16 levels was the
+        /// deepest field pinned and a 17-level one the first raised; against the line's present seat they
+        /// meet at ~17.9, so <b>every field up to 18 levels is pinned</b> — the whole shipped pack but the
+        /// tall ones — and 19 is the first raised. Measured across the move: <c>One.json</c> and every other
+        /// 16-level field did not move at all, an 18-level one stopped being raised (top 7.02 → 5.66, floor
+        /// −5.00 → −6.36, so it hangs 1.36 lower and starts 2 further above the line), and a raised field's
+        /// clearance is unchanged by construction — its floor is pinned a radius over the line wherever the
+        /// line is, so Comet still starts 7.57 above it and only its world Y moved (top 17.92 → 14.92).
         /// </para>
         /// </summary>
         private const float FIELD_FLOOR_MARGIN = Constants.HALF;
@@ -477,7 +481,16 @@ namespace BS3D.Screens
         //slide is driven by writing the pose — in small steps, which is what makes it tolerable to the solver.
         private const float CEILING_DESCENT_PER_STEP = 0.6f;        //world units the glass drops each step
         private const float CEILING_DESCENT_SPEED = 1.5f;           //units/sec while a step is sliding in
-        private const float CEILING_DEATH_Y = -5.5f;                //a ball below this has lost the level
+        //STATED AGAINST THE ISLAND rather than as a number of its own: one unit above the drain's rim, which
+        //is the island's top surface, so the line sits just clear of the funnel a lost cluster falls into and
+        //what it marks reads as the mouth of the drain. It was -5.5 until the owner reported the fault that
+        //moved it - two units higher, well above the gun's barrel, where a cluster that merely SWUNG dipped
+        //under it a few shots into a level and ended it.
+        //
+        //The ONE is the laser net's, not the line's: the net hovers half a unit lower (see LaserGrid.Fit,
+        //which puts it where a lost ball SURFACE would be), so at anything under a unit of clearance the net
+        //is drawn inside the island cap it is meant to hover over.
+        private const float CEILING_DEATH_Y = ArenaIsland.TOP_Y + 1f;   //a ball below this has lost the level
 
         /// <summary>
         /// How hard the glass is glowing right now, 1 at the moment of a step and decaying to nothing. It is
