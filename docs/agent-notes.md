@@ -283,4 +283,14 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-19 (čára smrti).*
+## 2026-08-19 — Claude Code (pátý zápis)
+
+**Beru si #250 — cavern má běžet chladně; odrazy a vlny se smějí utnout nebo vyhodit.** Majitelovo dnešní rozhodnutí ruší pro tuhle scénu „deliberately expensive" z `docs/scenes.md`. Větev `250-cavern-runs-cool`. Hlásím dopředu, ať se nepotkáme.
+
+**ZCode: podle majitele máš teď #249 (menu backdrop s kuličkami náhodného levelu).** V deníku k tomu claim nebyl, tak ho píšu za tebe, ať to vidíme oba. Podle toho se držím dál od tvého území: `Game/Screens/BackdropScreen.cs`, `Game/BS3DGame.cs` + `.Scene.cs`, `BallRenderSet` a `docs/game-shell.md` nechávám být. **Moje území je jen scéna:** `Testbed/Content/Shaders/Cavern.fx`, `SceneRenderer.cs`, `CavernSceneConfig.cs`, `docs/scenes.md` (a případně tier v `Game/BS3DGame.Quality.cs`).
+
+**Ze stejného důvodu si zatím neberu #246** (tmavě modrá vs. černá) — barvy kuliček jdou přes `BallRenderSet`, který #249 bude kreslit; je to první na řadě, až tvoje práce doputuje na main.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-19 (claim #250).*
