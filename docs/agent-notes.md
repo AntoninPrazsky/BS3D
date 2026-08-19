@@ -240,4 +240,20 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 
 ---
 
+## 2026-08-19 — Claude Code (třetí zápis)
+
+**Formát levelů 2 — level jmenuje scénu, parametry scén jsou fixní v kódu. Na mainu jako `2771ff7`.** Zadání majitele bez issue. Diff: **−3 188 řádků**, z toho skoro všechno výpisy defaultů z 35 souborů.
+
+- **Proč to bylo bezpečné:** audit před změnou porovnal `scene` objekty ve všech souborech — každý nesl **čisté defaulty** (ručně psaný Colossus doslova `{"kind":"moon"}`) a **hra ty hodnoty stejně nikdy neaplikovala** (`GameplayScreen.Session` četla jen `.Kind`). Jediný soubor s autorskými hodnotami je testovací `Testbed/Maps/Level_SavannaDusk.json` — načítá se teď jako obyčejná savanna, soumrak měl stejně hlavně z dómu 13, který si nechal.
+- **`"scene": "space"`** — parse klíče z `scene=` příkazové řádky (`"neon"` pro neonové město), přes nový `SceneNameJsonConverter`. **Čtení je lenientní jako u hudby**: neznámé jméno = null scéna (spotřebitel si nechá pozadí), a **v1 soubory se dál načtou** — converter si z objektu vezme `kind` + `Neon` flag (v1 tak rozlišovala neon) a zbytek ignoruje. Verze 2 kvůli opačnému směru: starší build odmítne nový soubor čistou hláškou místo výjimky ze serializéru.
+- **Vedlejší úklid, který z toho vypadl:** `AllowOutOfOrderMetadataProperties` v `Level.Options` existovala jen kvůli polymorfismu — nic v levelu už polymorfní není (legacy objekt čte můj `JsonDocument`, ne metadata mašinérie STJ), tak šla pryč; **F4 v editoru už nezahazuje `music`/`author`** (zapsaná past v docs opravena — editor si je z načteného levelu podrží a zapíše zpátky, čistí se při novém/prostém mapě); Testbed přederivuje světelný rig i při pinovaném `sky=` (pravidlo ze SwitchScene drženo i na load cestě).
+- **G panel v editoru zůstává** jako nástroj pro **vývoj** těch fixních vzhledů — ladíš živě proti skutečné pipeline, co obstojí přepíšeš do defaultů `SceneConfig`. Hlavička to říká: „edit to preview live; **not saved**". (Pozn.: edity mutují sdílenou instanci v rendereru, takže drží do konce session.)
+- **Ověřeno na skutečném loaderu, čtyři hraniční případy po jednom běhu:** v1 objekt s `kind` až **poslední** → `scene=Cavern` (tj. odstranění té volby je prokazatelně bezpečné); neznámé `"atlantis"` → pozadí zůstane (City), nic nespadne; `"scene": null` → pozadí zůstane; `version 3` → odmítnuto hláškou „is a version 3 level; this build reads up to 2" a hra běží dál. Plus: hra hraje Comet z nového formátu, Testbed načte reálný v1 (`scene=Meadow`), syntetický v1 neon (`scene=NeonCity`) i SavannaDusk, editor v2 level s panelem. 4 solutiony, LevelGen exit 0, ScoreSim přes 35.
+- **⚠️ Pozor při ladění přes Testbed z konzole:** dávkový loop, který spouští `Testbed.exe` a hned killuje předchozí instanci, si sám shodí načtení startovního souboru (mapa se nenačte a **nic se nevypíše**, ani chyba). Vypadá to jako vada loaderu a není. Pouštět po jednom.
+- **Review agenti tenhle refaktor nedoběhli** (limit modelu uprostřed), review jsem dodělal ručně — proto jsou hraniční případy ověřené spuštěním a ne jen přečtené.
+
+**Nic dalšího si teď neberu.**
+
+---
+
 *Poslední zápis: Claude Code, 2026-08-19.*
