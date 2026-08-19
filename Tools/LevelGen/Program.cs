@@ -97,15 +97,17 @@ namespace BS3D.Tools.LevelGen
         /// two banded designs that failed this took 100% exactly, so the margin costs nothing and catches
         /// the near misses.
         /// <para>
-        /// <b>The pack runs 6–52 % and the top of that band is where a level is DESIGNED to cascade</b>, not
+        /// <b>The pack runs 5–55 % and the top of that band is where a level is DESIGNED to cascade</b>, not
         /// where one slipped through. Two things put a design up there and only one of them is about pictures.
         /// A drawn symbol in ONE ink is one connected group by construction (Smiley 52 %, Heart 42 %,
         /// Star 40 %) — and on a level whose point is being recognised, the symbol coming away in one piece is
         /// the reward. A colouring in wide concentric shells is the same thing on a solid of revolution, which
         /// is why the gentle block that teaches what a colour group <i>is</i> holds three of the six highest
-        /// figures in the pack (One 49 %, Bullseye 45 %, Toadstool 42 %). This said "the top of that band is
+        /// figures in the pack (One 55 %, Bullseye 45 %, Toadstool 42 %). This said "the top of that band is
         /// the three pictures" and quoted "4–16 % for the geometric levels", which was never true of One or
-        /// Bullseye and is the reason it is now measured here rather than characterised.
+        /// Bullseye and is the reason it is now measured here rather than characterised. <b>One tops the band
+        /// outright since #234</b> took it to two colours: fewer colours on a solid of revolution means wider
+        /// shells, which is the same property again and exactly what the campaign's opener wants.
         /// </para>
         /// <para>
         /// The bottom of the band is where the dial is turned the other way: <see cref="Zebra"/> at 9 % and
@@ -508,14 +510,32 @@ namespace BS3D.Tools.LevelGen
         #region The designs
 
         /// <summary>
-        /// The campaign's opener: a full square slab against the glass with a round pyramid tapering to a
-        /// point under it. It replaces the hand-drawn <c>One.json</c>, at the author's request and for two
-        /// reasons they gave — the pyramid had a <b>tail</b>, and it had no sky of its own.
+        /// The campaign's opener: a round pyramid, widest against the glass and tapering to a single ball ten
+        /// levels down, in <b>two</b> colours — a yellow shell over a red core. It replaces the hand-drawn
+        /// <c>One.json</c>, at the author's request and for two reasons they gave — the pyramid had a
+        /// <b>tail</b>, and it had no sky of its own.
         /// <para>
         /// The tail was real and is gone. The old layout narrowed from a 100-ball slab down to a single ball
         /// nine levels below it and then <b>widened again</b>, to 4, 8, 12, 25 and 16 — sixty-five balls
         /// hanging under the point, which reads as something stuck to the pyramid rather than as part of it.
         /// The point is now the bottom of the level.
+        /// </para>
+        /// <para>
+        /// <b>The square slab over it went in #234, and with it the white ring that bordered it.</b> The owner
+        /// played the campaign and reported the opener too hard, naming the white balls in the top row as the
+        /// ones that had to be shot at more than once — and the tool's own report says exactly that: 32 white
+        /// balls standing in groups of at most <b>11</b>, because the square ring rounded off into four
+        /// disconnected arcs, against red going in one shot of 81 and yellow in one of 112. So the level asked
+        /// a first-time player for four separate hits on the one colour hardest to tell from the white gores
+        /// every ball is drawn with. Dropping the slab drops the colour with it: the cone never reaches the
+        /// third ring the slab's Chebyshev radius of 4.5 did.
+        /// </para>
+        /// <para>
+        /// What it costs and what it buys, measured by the tool: <b>225 balls in 6 standing groups → 173 in
+        /// 2</b>, best single shot 49 % → 55 %, lateral margin 1 free cell → 2. Two groups is not thin for
+        /// this block — <see cref="Bullseye"/>, three levels later and the one the author calls easier than
+        /// this was, has three — and it puts the opener under it on every figure, which is what #234 asked
+        /// for and half of what #98 is about.
         /// </para>
         /// <para>
         /// Two things came free with the regeneration. The old field was 10 wide against a slab occupying
@@ -527,7 +547,7 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// <b>That scene is the meadow now, and not the savanna it opened in until #194.</b> The savanna was
         /// picked when this design was written and the reason given was only that it is the warmest dome of the
-        /// set (14) — nothing about a square slab over a round pyramid needs a savanna. Three things pay for the
+        /// set (14) — nothing about a round pyramid needs a savanna. Three things pay for the
         /// move. The block is one place at one hour, and this is the meadow block. The savanna is the one
         /// campaign scene that carries <b>point lights of its own</b> — a ring of flickering campfires that
         /// <c>SceneLights</c> puts onto the balls — and the level that teaches colour matching is the last one
@@ -536,11 +556,13 @@ namespace BS3D.Tools.LevelGen
         /// a first-time player meets first. Dome 1 is the block's, for <see cref="Bullseye"/>'s own reason.
         /// </para>
         /// <para>
-        /// Four colours in concentric rings, which is a deliberate simplification: the old One used
-        /// <b>eight</b>, and the magazine draws evenly among the colours still alive, so the wanted ball
-        /// arrived one time in eight — a harder draw than anything after it, on the level that teaches the
-        /// game. Rings also keep several colours on the slab, which is the anchor layer, so no single ball
-        /// can cut the whole level loose.
+        /// <b>Two colours in concentric rings, and the direction of travel is the point.</b> The hand-drawn
+        /// One used <b>eight</b>, this design opened on four and #234 leaves two — and every step of that is
+        /// the same argument, which is the magazine: it draws evenly among the colours still alive, so at
+        /// eight the wanted ball arrived one time in eight, a harder draw than anything after it on the level
+        /// that teaches the game. At two it is a coin. Rings also keep both colours on the <b>top</b> level,
+        /// which is the anchor the whole cone hangs from, so neither colour's group can cut the level loose:
+        /// the shell hangs off the outer ring and the core off the centre, and each survives the other going.
         /// </para>
         /// </summary>
         private static Design One() => new()
@@ -554,20 +576,17 @@ namespace BS3D.Tools.LevelGen
             Music = MUSIC_RINGS,
             Shots = 30,
             CeilingStep = 5,
-            //The slab is SQUARE and everything under it is round, which is the shape the old One had and the
-            //reason this reads as a pyramid hanging off a plate rather than as a cone. The square extent is
-            //recovered from the polar pair the emitter passes: max(|cos|,|sin|) scaled by the radius is the
-            //Chebyshev distance, i.e. the half-extent of the square the point sits on.
-            Occupied = (r, ang, i, depth) => i == depth - 1
-                ? Chebyshev(r, ang) <= 4.5f
-                : r <= 0.4f + i * 0.375f,
-            //Each shape gets rings of its OWN kind — square ones on the square slab, round ones on the round
-            //pyramid. Round rings over the whole thing was the first try and it left the slab's four corners
-            //poking out past the last round ring into a ring of their own: ten balls of a fourth colour, in
-            //threes, in the corners, on the level that teaches the game. Squared, the slab's outermost ring
-            //is a proper border and the palette is three honest colours.
-            Colour = (r, ang, i, depth) => Ring(i == depth - 1 ? Chebyshev(r, ang) : r,
-                new[] { BallType.Type1, BallType.Type7, BallType.Type4 }),
+            //A CONE and nothing else (#234). The slab is gone with the white ring that bordered it: the
+            //widest step of the pyramid is what hangs against the glass now, and every step under it is
+            //narrower, so the silhouette says "pyramid" from every angle the gun can walk to.
+            Occupied = (r, ang, i, depth) => r <= 0.4f + i * 0.375f,
+            //Two colours in round rings, and the shape is why there can be two. The slab reached a Chebyshev
+            //radius of 4.5 and so had a THIRD ring, which was the white border - and that border was the one
+            //thing in this level a player had to shoot at more than once: the square ring rounded off into
+            //four disconnected arcs, so 32 white balls stood in groups of at most 11 while red went in one
+            //shot of 81 and yellow in one of 112. The cone never reaches ring 2, so dropping the slab and
+            //dropping the colour are the same edit.
+            Colour = (r, ang, i, depth) => Ring(r, new[] { BallType.Type1, BallType.Type7 }),
         };
 
         /// <summary>
