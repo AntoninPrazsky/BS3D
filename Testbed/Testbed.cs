@@ -1024,8 +1024,10 @@ namespace Testbed
             }
             catch (Exception e)
             {
-                //A broken or unreadable file must not kill the game: a hand-edited level with a typo'd
-                //discriminator or sky, a non-rectangular ball array, a dropped folder. Both paths parse fully
+                //A broken or unreadable file must not kill the game: a hand-edited level with a typo'd sky or
+                //a version this build does not read, a non-rectangular ball array, a dropped folder. (A
+                //typo'd SCENE name no longer reaches here — the converter takes it as "no scene" and the
+                //backdrop simply stays, the music field's leniency.) Both paths parse fully
                 //before the current structure is torn down (LoadLevel / the BallsMap ctor before InstallMap),
                 //so logging and returning leaves the running game exactly as it was.
                 Console.WriteLine($"[load] Failed to load '{filePath}': {e.Message}");

@@ -4076,6 +4076,14 @@ namespace BS3D.Tools.LevelGen
             /// which is framed from its floor up and reaches out of shot.
             /// </summary>
             public byte FieldLevels = FIELD_LEVELS;
+
+            /// <summary>
+            /// Which scene the level plays in — the whole of what a level says about its backdrop, the
+            /// scenes' parameters being fixed in code (level format 2). A block's five designs all name the
+            /// same one; <see cref="DescribeBlock"/> is what reports it if they do not. Note the default is
+            /// <see cref="SceneKind.City"/> rather than "unset", so a design that forgets to name a scene
+            /// gets the city — the printout is where that shows.
+            /// </summary>
             public SceneKind Scene;
             public byte Sky;
 

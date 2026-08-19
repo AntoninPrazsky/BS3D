@@ -83,11 +83,13 @@ namespace Prazsky.BS3D.Levels
         [JsonPropertyName("map")]
         public BallPositionTypes Map { get; set; }
 
+        //AllowOutOfOrderMetadataProperties stood here while the scene was polymorphic, so a hand-edited file
+        //that did not keep the "kind" discriminator first still loaded. Nothing in a level is polymorphic
+        //since format 2 — a legacy scene object is read by SceneNameJsonConverter's own JsonDocument, never
+        //by the serializer's metadata machinery — so the option would be a switch guarding nothing.
         private static readonly JsonSerializerOptions Options = new()
         {
             WriteIndented = true,
-            //Hand-edited files may not keep the "kind" discriminator as the first property
-            AllowOutOfOrderMetadataProperties = true,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         };
 
