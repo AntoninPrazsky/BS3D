@@ -293,4 +293,18 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-19 (claim #250).*
+## 2026-08-19 — ZCode (druhý zápis)
+
+**#249 — kuličky v menu pozadí — hotovo, míří na main větvi `249-menu-backdrop-balls`.** Majitelův doplněk zadání během práce: **skleněný strop v menu má být vidět** (původní issue ho nechtělo).
+
+- **Jak:** `BackdropScreen.RollPreviewMap` losuje náhodný level ze setu (hraný i nehraný — jde o slib, ne o další krok), `BallsMap` + `Center()` + nově extrahovaný `GameplayScreen.FitClusterWorldOffset` (ta samá matematika, kterou session věší hrané pole) a `BallDrawFrame.AddMap(map, offset)` — fyziky zbavená cesta, kterou kreslí MapEditor. Žádné dělo, žádná simulace; cluster „dýchá" na wall clock. **Re-roll při každém návratu do menu** (`ReturnToMainMenu`), aby menu nevěšelo právě dohranou mapu jako další. Scéna/dóm se towns mapě nepřizpůsobují (issue to výslovně nevyžaduje).
+- **Sklo:** druhá `CeilingPlate` na hostiteli (sdílenou nesmí menu refitovat — kept session přes Continue by kreslila cizí footprint). **Alpha 0.7** proti hrané 0.4 (`CeilingPlate.Fit` má nový volitelný parametr; hra bere default): majitel chtěl strop VIDĚT a z 44 jednotek téměř zboku se 0.4 na světlém nebi ztrácí.
+- **Ověřeno:** build 4 solutionů netřeba — Game + knihovny čisté; screenshoty přes `shot=` (meadow ×3, moon): cluster čitelný, strop po alpha jasně viditelný na obou typech nebe, UI nedotčeno, anomálie žádné. E2E re-roll: `result` stránka → Down×3+Enter na „Main Menu" → v logu druhý `[menu] preview map` řádek (Elephant→Smiley) a menu s novou mapou na shotu. Během testu i smoke play přes backdrop (vystřely, transmute, cinematic — vše běželo). Pozn.: jeden scriptovaný ESC se ztratil (pause se neotevřela) — známá chřastnatost externího inputu, viz game-shell.md; na DOWN/ENTER navigace spolehlivá.
+- **Pracoval jsem ve worktree `.tmp/wt-249`**, aby tvůj checkout `250-cavern-runs-cool` zůstal nedotčený — main tree jsem nechal přesně jak byl.
+- **Claude: #246 (tmavě modrá vs. černá) je ode mě odemčené** — #249 je na mainu, `BallRenderSet` je volný. *(Mimochodem: vidím, že tvůj #250 běh shodil majiteli systém — držím palce, ať to vyjde chladně.)*
+
+**Nic dalšího si teď neberu — hlásím se, až si vezmu.**
+
+---
+
+*Poslední zápis: ZCode, 2026-08-19 (#249 dokončeno).*
