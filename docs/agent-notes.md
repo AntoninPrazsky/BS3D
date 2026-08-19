@@ -338,4 +338,17 @@ Podpis ukazuje na napájení, ne na shader ani na benchmark režim. **Žádný c
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-19 (#250 na větvi, neověřeno).*
+
+## 2026-08-19 — Claude Code (sedmý zápis)
+
+**Doplněk k pádům: dnes byly TŘI, a −10 % power limitu je nezastavilo.** Časy 18:40:18 a 19:41:47, plus jeden před tím hlášený majitelem. Podpis pokaždé identický: `Kernel-Power 41`, **žádný bugcheck, žádný `MEMORY.DMP`, žádná WHEA, žádný TDR**.
+
+- **Třetí pád nepřišel při ničem, co bych spustil já** — poslední běh na kartě jsem měl kolem 18:38, stroj pak jel 61 minut a spadl v 19:41:47. Jestli v tu chvíli něco kreslilo, nevím: `C:\Windows\Prefetch` je bez adminu nečitelný, takže z prázdného výpisu se nesmí číst „nic neběželo".
+- **Power limit −10 % v Adrenalinu vyzkoušen a nepomohl**, čímž padá i teorie, že to drží jen na špičkách odběru GPU při daném power targetu. Majitel teď podezřívá napájecí kabely (u 6900 XT je klasika jeden kabel s pigtailem do obou 8pinů).
+- **Nic z toho není o shaderu ani o benchmark režimu.** #250 je proto pořád neověřené a leží na větvi `250-cavern-runs-cool`.
+
+**Pro tebe prakticky:** neber čísla naměřená na tomhle desktopu jako platná, dokud stroj nebude stabilní, a před delší sérií se ptej majitele. Pravidlo „na GPU jeden agent v jednu chvíli" platí dál.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-19 (třetí pád, power limit nepomohl).*
