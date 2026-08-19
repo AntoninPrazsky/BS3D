@@ -307,4 +307,35 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 
 ---
 
-*Poslední zápis: ZCode, 2026-08-19 (#249 dokončeno).*
+
+## 2026-08-19 — Claude Code (šestý zápis)
+
+**#250 cavern: kód hotový na větvi `250-cavern-runs-cool`, ale NEOVĚŘENÝ a proto zatím ne na mainu.** Commity `93cff9e` (nástroj) a `2423c2f` (samotný řez). Majitel je o stavu informovaný a rozhodl „piš shader, GPU zatím nespouštěj".
+
+**⚠️ ZCODE, TOHLE JE PRO TEBE TO DŮLEŽITÉ: stroj dnes dvakrát tvrdě spadl a NENÍ to `nocap`.** V deníku (řádek 156) i v `docs/scenes.md` stálo, že běh bez FPS limitu shodí majiteli systém. Dnes to spadlo **pod capovaným během** (18:40:18), a log říká:
+
+- jen `Kernel-Power 41` + `EventLog 6008`, **žádný bugcheck, žádný `MEMORY.DMP`** (kernel dump je přitom zapnutý), **žádná WHEA**, **žádný reset ovladače (4101)** — Windows nedostaly řízení, tedy tvrdý reset, ne softwarová chyba;
+- **deset neočekávaných vypnutí za 30 dní** (9., 11., 12.×2, 14.×3, 17.×2 a dnes) — je to starší než tahle práce.
+
+Podpis ukazuje na napájení, ne na shader ani na benchmark režim. **Žádný cap to negarantuje**, takže před měřicí sérií na desktopu se ptej majitele.
+
+**A druhá věc: na GPU jeden agent v jednu chvíli.** Během mých běhů byl naživu tvůj `BS3D.exe` (PID 26944) — to jednak zdvojuje zátěž, jednak znehodnocuje každé číslo (benchmark skill to má mezi „způsoby, jak nezměřit nic"). Nově je to napsané i ve skillu: `Get-Process BS3D, Testbed` před sérií a řekni si tady o kartu.
+
+**Co #250 udělalo v kódu** (zadání majitele: scéna nepotřebuje maximální grafiku, má běžet chladně — „deliberately expensive" je pro cavern zrušené):
+
+- **voda odráží rampu, ne jeskyni**: `lerp(FogColor, RockColor, saturate(bounced.y·2))` + `RockColor · CrystalLightAt(hit) · 12` místo druhého plného `ShadeWall`. Ten druhý wall shade byl nejdražší jediná věc v passu a platil se na každém vodním pixelu;
+- **řeka je zase rovina**, trefená přesně, vlnka jen v normále: šestnáctikrokový march pryč, spektrum ze sedmi složek na tři (vypadlé 1,15–5,2 wu jsou pod display pixelem, v normále to byl šum);
+- **8 spor místo 28** — počet, který stejně jel pod High;
+- **jedna technika místo dvou**: `SceneDetail` už cavern nesahá (les a sen si své dvojice nechávají), takže na plný program nemůže zůstat žádný stroj — APU na High jelo 73,5 ms.
+
+**Cena NENÍ změřená a schválně jsem ji neodhadl.** Tenhle pass má historii, kdy zjevné řezy nepřinesly nic (#102: čtyři jednotlivé řezy 5,01 / 5,02 / 4,97 / 5,01 proti 4,98 ms), takže číslo bez běhu by byla vymyšlenina. V docs i v obou skillech je to označené jako neměřené, ne přenesené.
+
+**Nástroj na to čeká hotový: `fpscap=N` v Testbedu** (`TestOptions.FpsCap`). Prezentuje okamžitě (nic nekvantuje čtení) a zbytek periody vyidluje — snímek levnější než cap se nikdy nerozjede, snímek dražší se nezdrží a čte pravdivou cenu. **Idle je spin, ne `Thread.Sleep`**: při výchozím 15,6ms rozlišení časovače stojí `Sleep(1)` ~6 ms a udělalo z capu 300 hodnotu 143 (a ze 400 → 209). Se spinem plató sedí přesně (60,0 / 200,0 / 300,0).
+
+**Co zbývá, až bude karta volná a stroj důvěryhodný:** změřit před/po, vyfotit jeskyni (hlavně vodu — rampa místo zrcadla a tři složky vlnky jsou dvě věci, které nikdo neviděl), pak teprve merge na main a zavření #250. **Do té doby si větev nikdo nebere.**
+
+**Na řadě po tom je #246** (tmavě modrá vs. černá) — čekalo to na tvoje #249 kvůli `BallRenderSet`, teď je to odblokované.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-19 (#250 na větvi, neověřeno).*
