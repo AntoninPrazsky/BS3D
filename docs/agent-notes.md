@@ -1,4 +1,4 @@
-# Agent notes — sdílený deník
+﻿# Agent notes — sdílený deník
 
 Sdílený deník pro AI agenty pracující na tomhle repu (ZCode, Claude Code). **Před začátkem práce si přečti poslední zápisy; po dokončení práce přidej vlastní záznam** (datum, kdo, co, stav). Nenahrazuje issues ani docs — je to provozní kronika „kdo co právě dělá / udělal / nechal ležet", aby se dva agenti nepřeskočili.
 
@@ -256,4 +256,19 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-19.*
+## 2026-08-19 — Claude Code (třetí zápis)
+
+**„The Arcade" — osmý blok, pět DUTÝCH těles s pixel artem, v neonovém městě. Zadání majitele přímo (bez issue), větev `arcade-pixel-solids`.** Kampaň je teď **40 levelů v 8 blocích**; poslední slovo (konfety + „CAMPAIGN COMPLETE") se posouvá z Garlandu na **Globe** — stejná úvaha jako #182, jen o blok dál (za prázdnotou už není tmavší místo, tak se světlo vrací a je *umělé*).
+
+- **Blok = Galerie ve třech rozměrech.** Stěna z bloku 2 ukáže symbol celý z místa, kde stojí dělo; tady se obrázek čte obcházením: `Cube` (krychle s invaderem, klíčem, mincí a bleskem + kříž na spodní desce), `Ziggurat` (stupňovitý chrám), `Reel` (buben výherního automatu se sedmičkami a kosočtverci), `Donut` (kobliha s polevou a posypem), `Globe` (pixelová Země — finále). Všechno **duté** (jen povrch) a **celé v záběru** (pole 18 = FRAMED_LEVELS) — vědomý opak dvou vysokých bloků před ním.
+- **Tři pasti, dvě zaplacené.** (1) **Jednobuněčný dutý prstenec neunese sám sebe**: chrám z 1-buněčných prstenců, 12 pater, **se propadl pod čáru za 8 s bez výstřelu**. Teď 2 buňky tlusté a 8 pater (Chest/Vortex to drží, Garland to našel z druhé strany). Krychli 1-buňková stěna stačí — uzavřená bedna se vyztuží vlastními rohy. (2) **Kotva dutého tělesa je jen jeho vlastní vršek** (100 buněk u krychle, ~20 u koule) — jednobarevná kotva = level končí prvním šťastným míčkem; všechny čepičky proto nesou aspoň dvě barvy prostřídané (ledovce na pólech jsou rozlámané kvůli tomu, ne kvůli zeměpisu). (3) **Černá na navy není kresba** — chladné stěny krychle byly cyan/navy a glyf na nich ve hře zmizel; teď jsou obě dvojice světlé.
+- **Rozpočty poprvé počítané, ne odhadnuté.** Přidal jsem do `Validate` řádek „N standing colour groups … the budget is X shots per group". Jeden výstřel sebere jednu skupinu, takže rozpočet **pod** počtem skupin je nedohratelný level — a všech pět mých prvních verzí bylo pod ním (Cube 0,97!). Pack: **Colossus 0,98** (364 kuliček / 46 skupin / 45 ran, změřeno z jeho souboru), Static 1,43, Nebula ~3, Horn 20. Arcade jede **1,65 → 1,58 → 1,50 → 1,44 → 1,37**. Hrubost ditheru je ten kohoutek: stejná krychle měřila 75 / 44 / 34 skupin při třech velikostech bloku.
+- **Ověřeno:** LevelGen exit 0, ScoreSim „right way round" přes 40, aimcheck PASS ×5 (nejstrmější Donut 72,0° z 80,2 — jeho pole 17 je nejširší v packu), všech pět **viselo 35 s bez výstřelu** ve hře (tak se chytil ten chrám), čtyři solutiony čisté. Donut (588 kuliček, nejtěžší z bloku) drží **60,0 FPS** na High (ssaa 2×, 1600×900, vsync) na tomhle stroji; `nocap` jsem nepouštěl (viz #228 — shazuje majiteli systém), takže rezerva neměřena.
+- **⚠️ Past, na které jsem shořel půl hodiny a která platí pro každého:** hra hraje **kopii levelů vedle exe** (`Game/bin/.../Levels`), která vzniká při buildu. Po `LevelGen` **je nutný rebuild**, jinak fotíš staré soubory. Půlhodina porovnávání dómů byla proto neplatná (všechny čtyři „různé" oblohy byly jeden a týž dóm) — a chytlo se to až měřením pixelů, ne okem. Dóm nakonec **16** (nejtmavší zenit, teplý horizont = noční město), vybraný z palet v `SkyDome.Data.cs` (poslední hodnoty v řádku jsou zenit) a potvrzený fotkou.
+- **Majiteli k doladění rukou:** `MUSIC_ARCADE` (pulse — třetí repríza, jediná z pěti skladeb, která zní jako to místo), `ARCADE_SKY` (16), a rozpočty 56/52/60/52/52 — jsou od stolu proti změřeným počtům skupin, nikdo je zatím neodehrál.
+
+**Nic dalšího si teď neberu.**
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-19 (Arcade).*
