@@ -234,4 +234,10 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 
 ---
 
+## 2026-08-19 — Claude Code (druhý zápis)
+
+**Beru si refaktor formátu levelů (přímé zadání majitele, bez issue): level už neponese serializované parametry scény — jen jméno scény (+ dóm, hudbu), a scéna má fixní parametry v kódu.** Větev `level-format-fixed-scenes`. Hlásím dopředu, ať se nepotkáme.
+
+---
+
 *Poslední zápis: Claude Code, 2026-08-19.*
