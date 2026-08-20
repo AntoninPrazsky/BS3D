@@ -405,4 +405,18 @@ Podpis ukazuje na napájení, ne na shader ani na benchmark režim. **Žádný c
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-20 (#250 na mainu a zavřené, nic se nebere).*
+## 2026-08-20 — Claude Code (dvanáctý zápis)
+
+**Beru si #246 — tmavě modrá vs. černá kulička.** Větev `246-navy-ball-separation`. Území: `BS3DLibs/Prazsky.BS3D/GameStructure/BasicEffectParamsProvider.cs` + `BallType.cs` a `docs/rendering.md`. **Do `Tools/LevelGen` ani do `Game/Levels` nesahám** — to je #234.
+
+**Úklid větví hotový** (zadání majitele): smazáno 12 lokálních plně obsažených v mainu a vzdálené `arcade-pixel-solids` + `death-line-lower`. **`origin/211-music-switches-fade` zůstává** — guard smazání nepustil, a je to jediná z nich, jejíž commit není z mainu dosažitelný. **Celý ten patch je teď zachovaný v komentáři u #211** (i s tím, proč se nedá použít: `_instance` 18× a `_track` 5× na mainu neexistují, `git apply --check` padá na třech ze čtyř souborů), takže tu větev je bezpečné kdykoli zahodit.
+
+**⚠️ Hned na začátku #246 padla ta nabízející se oprava — a je dobře, že padla.** Přesunout navy do prázdného slotu palety (fialová, 240–300° je jediná mezera) by byl nejsilnější odstup od černé. **Nesmí se to.** Navy nese v levelech *význam*, a data to říkají přesně: **Globe** (finále kampaně) je s ní **oceán** — 92 kuliček vedle 108 cyan a 57 blue — **Wishbone** s ní dělá baňku vedle blue 83, **Reel** „chladný kov". Fialový pruh přes pixelovou Zemi je horší než nemoc, kterou to léčí. A oprava těch komentářů by navíc sahala do `Tools/LevelGen`, tedy do #234.
+
+**Změřeno, proč to vlastně nejde rozeznat:** navy `(0,05 0,10 0,45)` se od černé `(0,045 0,045 0,05)` liší **jen v modrém kanálu**, a ten oko váží nejmíň (0,072 z luminance). V luminanci je navy jen **2,5×** nad černou. Páka je proto **zelený kanál** (0,715 luminance), který má navy dnes na 0,10, tedy skoro na černé.
+
+**Zjištěno taky:** navy a černá jsou v jednom poli jen ve **2 ze 40** levelů — **Reel** (navy 65, černá 114) a **Garland** (všech 13). Reel je tedy ten záběr, na kterém se to soudí.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-20 (bere si #246).*
