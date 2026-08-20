@@ -44,8 +44,32 @@ Each of these has actually happened; the first two are the expensive ones.
    competing for the same GPU, and it halves everything measured afterwards without any sign of why. It has
    happened: `Get-Process BS3D` before trusting a surprising number.
 
+7. **Sweeping `ssaa` on the cavern or the dream, where it moves the pass not at all.** Since #155 those two
+   backdrops shade a target the size of the **back buffer** and scale it up, so an `ssaa` 1/2/4 sweep shades
+   the same pixels three times and only the resolve over them grows. Measured on the cavern: 23.9 / 25.2 /
+   40.0 ms before #250's cut and 13.3 / 16.0 / 31.7 after — **the saving is the same ~9 ms at all three**,
+   which is the signature to expect. To scale the *pass*, change `width=`/`height=`. (It is also a useful
+   consistency check: an A/B whose delta holds constant across `ssaa` on these two scenes is measuring the
+   pass; one whose delta grows with `ssaa` is measuring the resolve.)
+8. **Asking for a back buffer larger than the panel — it is silently clamped.** `width=2560 height=1440` on a
+   1920×1080 laptop produced a window Windows resized, and the run reported `958x484` on its own `[fps]` line
+   with readings swinging 11.8–32.1 FPS while it settled. The line names the back buffer for exactly this
+   reason: **read it back before believing the run**, and throw away anything whose reported size is not what
+   was asked for.
+
 Also: keep both halves of an A/B in the **same build configuration**, and remember `nocap` (which the script
 always passes) is what makes the number a frame cost rather than the display's refresh.
+
+**Attribution does not travel between the desktop and the APU.** #102 measured every individual cavern
+reduction at zero on the 6900 XT (the pass being occupancy-bound there) and #250 then measured one of the same
+cuts at **20.7 → 17.9 ms** on the integrated Radeon. A wide desktop part has occupancy to spare; the machine
+the tiers exist for does not. So measure on the class you are trying to fix, and label which class produced
+every figure that gets written down.
+
+**A wide spread is not automatically a hot machine.** A `level=` run has real variance of its own — the
+ceiling descends, the cluster swings, physics spikes — and two runs of the *same* build came 4.4 ms apart. The
+cheap discriminator is to re-run a **fixed-camera** Testbed pin after the series: it read 13.3 ms both before
+and 20 minutes into a continuous session, which said the spread was the level and not throttling.
 
 ## What the game gives you
 
