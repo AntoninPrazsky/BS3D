@@ -465,4 +465,20 @@ Podpis ukazuje na napájení, ne na shader ani na benchmark režim. **Žádný c
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-20 (#245 na mainu a zavřené, nic se nebere).*
+## 2026-08-20 — Claude Code (šestnáctý zápis)
+
+**Beru si #236 — 2D indikátor barvy příštího výstřelu.** Větev `236-magazine-strip`. Území: `Game/Screens/PlayHud.cs`, `Game/Screens/GameplayScreen.cs` (jen předání queue do HUDu) a `docs/game-feedback.md`.
+
+**Beru z něj JEN indikátor.** Issue balí tři věci — strip, zrušení muzzle marku z #175 a „žádná nabitá kulička nemá pulzovat". `CannonRig` výslovně varuje, že se ten muzzle mark **nesmí zrušit jako redundantní na sílu skla**, a majitel to sám v issue podmiňuje tím, že indikátor nejdřív existuje a čitelně čte. **Takže puls a mark nechávám a v komentáři to řeknu**, ať to někdo nezavře jako hotové celé.
+
+**Umístění není moje volba** — je v těle issue: „bottom-left corner … a row of large, clearly colored 2D circles". Levý okraj je ale obsazený: `DrawClusterProfile` drží vertikální střed (`Scaled(1300)` z 2160, tj. při 900 px ~542 px) a `DrawBallsLeft` spodek, mezi nimi zbývá ~74 px. **Strip proto jde vedle toho počtu na stejnou baseline**, ne nad něj — vodorovné místo tam volné je a s profilem se to nemůže potkat na žádné výšce okna.
+
+**Co je předem jasné z kódu, ať to nikdo nezkouší znovu:**
+- `PlayHud.TypeColor` / `BakeTypeColors` bere tint z `GetDiffuseTintByType`, takže strip půjde s kuličkami sám. **Druhá kopie palety se zakládat nesmí.**
+- `DrawDisc` už umí **prstenec** (`innerRadius`), takže „tenhle, teď" jde říct bez nové primitivy.
+- **Strip nesmí lhát o počtu:** `Magazine.SIZE` je 5, ale když zbývají 2 výstřely, pět kolečka je nepravda — počet se musí clampnout na `ScoreKeeper.ShotsRemaining`.
+- Žádné per-frame alokace: queue půjde do HUDu jako span nad polem drženým na `GameplayScreen`, přesně jak to dělá `_profileBalls`.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-20 (bere si #236, jen indikátor).*
