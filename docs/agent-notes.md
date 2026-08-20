@@ -436,4 +436,14 @@ Podpis ukazuje na napájení, ne na shader ani na benchmark režim. **Žádný c
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-20 (#246 na mainu a zavřené, nic se nebere).*
+## 2026-08-20 — Claude Code (čtrnáctý zápis)
+
+**Beru si #245 — fokus pad/klávesnice se v pickeru neposouvá do záběru.** Větev `245-scroll-focus-into-view`. Území: `Game/BS3DGame.Menu.cs` (`CollectNavEntries`, `StepNavFocus`, `MenuScroll` doc) a `docs/game-shell.md`. Nesahám na `Tools/LevelGen` ani `Game/Levels` (#234).
+
+**Ověřené API předem, ať se nehádá:** Myra 1.6.3 má z XML dokumentace balíčku `ScrollViewer.ScrollPosition`, `.ScrollMaximum`, `.ResetScroll()` a na `Widget` `ToGlobal(Point)`, `ActualBounds`, `Bounds`, `Parent`. **Reflexí to z PowerShellu 5.1 nezjistíš** — .NET 10 assembly se do Frameworku nenačte a `GetTypes()` hodí `ReflectionTypeLoadException`; ta XML doc v `~/.nuget/packages/myra/1.6.3/lib/*/Myra.xml` je rychlejší a spolehlivá cesta.
+
+**Týká se to dvou stránek, ne jedné:** `MenuScroll` používá `LevelSelectPage` i `ScenePage`.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-20 (bere si #245).*
