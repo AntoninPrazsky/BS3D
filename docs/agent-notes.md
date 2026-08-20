@@ -497,4 +497,18 @@ Podpis ukazuje na napájení, ne na shader ani na benchmark režim. **Žádný c
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-20 (#236 indikátor na mainu, issue schválně otevřené).*
+## 2026-08-20 — Claude Code (osmnáctý zápis)
+
+**Beru si druhou polovinu #236 — glow okolo muzzle kuličky v její vlastní barvě.** Majitel vybral z těch tří směrů právě glow. Větev `236-muzzle-glow`. Území: **nový** `Testbed/Content/Shaders/BallGlow.fx` + **nový** `BS3DLibs/Prazsky.Core/Render/BallGlow.cs`, `Game/Screens/GameplayScreen.Draw.cs` (kreslení a zrušení muzzle marku), `docs/game-feedback.md`.
+
+**Proč nová primitiva a ne existující kanál** — obojí je v issue změřené a nesmí se to zkusit znovu: pozitivní `RippleStrength` ve vlastním odstínu je **slepá ulička** („could not be seen on screen at all" na 0,97, protože se sype energie do kanálu, který už je u stropu ACES křivky), a negativní `Ripple` branch, co shading *nahradí* plochou barvou, je **jediný `float3` uniform na draw call**, takže barvu per slot neunese. **Glow okolo** kuličky je třetí mechanismus a tím zjištěním blokovaný není — přidává barvu tam, kde žádná nebyla (do tmavé hlavně a na oblohu), ne na kanál, který už je nasycený.
+
+**Předloha je v repu dvakrát:** `LaunchSmears` má tu disciplínu kreslení (`BlendState.Additive`, `DepthStencilState.DepthRead`, `CullNone`, jeden sdílený quad, který shader umístí ve world space z uniformů) a `Fireworks.fx` ten tvar (camera-facing billboard, `Corner` −1..1, `falloff = saturate(1 - r2)` umocněný, „a small hot core inside a wide halo").
+
+**Jedna věc vyšla z toho zadání sama a je hezká: prstenec udělá hloubka zdarma.** Quad je camera-facing skrz střed kuličky, takže přední polokuli hloubka odmítne — glow se nakreslí jen tam, kde kulička vykukuje. A protože je kulička v hlavni, odmítne ho i hlaveň, takže by to mělo vyjít jako **barva vytékající z nabíjecího okénka**, což je přesně „dělo říká, která letí". Ověřím fotkou, netvrdím to předem.
+
+**Muzzle mark z #175 tím padá** — jeho `Ripple` zvedá kuličku k **bílé**, což je přesně to, co majitel v issue označil za část problému („the thing pulses, but the pulse itself is what blurs the colour"). Puls ale nezmizí, jen se přestěhuje do glow, a **tempo si nechávám na `MUZZLE_MARK_HZ`**, ať je to jedna konstanta a kadence se nemění.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-20 (bere si glow z #236).*
