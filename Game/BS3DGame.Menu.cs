@@ -1058,12 +1058,15 @@ namespace BS3D
         /// resize rebuilds the tree (see <c>MenuPage.Root</c>).
         /// </para>
         /// <para>
-        /// <b>The pad and the arrow keys do not scroll it.</b> They reach the entries inside it —
-        /// <see cref="CollectNavEntries(Widget)"/> descends into the scroller's content by name, which it did
-        /// not until #91 (the content is not among an <c>IContainer</c>'s <c>Widgets</c>, so everything in
-        /// here was simply invisible to the walk and the first Down landed on Back) — but a focused entry out
-        /// of view stays out of view. The mouse wheel is the way through an overlong page today; making the
-        /// walk scroll its entry into view is the fix, and it belongs with the navigation rather than here.
+        /// <b>The pad and the arrow keys reach into it and scroll it.</b> They reach the entries because
+        /// <see cref="CollectNavEntries(Widget, ScrollViewer)"/> descends into the scroller's content by name,
+        /// which it did not until #91 (the content is not among an <c>IContainer</c>'s <c>Widgets</c>, so
+        /// everything in here was simply invisible to the walk and the first Down landed on Back); and the
+        /// focused entry is brought into view by <see cref="ScrollNavEntryIntoView"/> since #245, which is
+        /// where that arithmetic lives — with the navigation rather than here, because this method knows
+        /// nothing about which entry has the focus. Before it, the mouse wheel was the only way through an
+        /// overlong page: at forty levels the walk went two screens past the bottom with the list unmoved and
+        /// nothing highlighted anywhere on screen.
         /// </para>
         /// </summary>
         /// <param name="reservedDesignUnits">Height the page needs around the scroller — its heading, its

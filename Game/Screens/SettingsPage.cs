@@ -22,10 +22,13 @@ namespace BS3D.Screens
     /// </para>
     /// <para>
     /// <b>The other candidate was a scroller</b> (<see cref="MenuPage.MenuScroll"/>, which the level picker
-    /// uses), and it was not taken: the pad and the arrow keys reach entries inside a scroller but cannot
-    /// scroll a focused one into view (see <c>BS3DGame.MenuScroll</c>'s remarks). That is harmless at the
-    /// picker's three rows of tiles, which fit; it would leave a pad player here driving a cursor onto rows
-    /// they cannot see. Two columns need no scrolling at all, so the hole never opens.
+    /// uses), and it was not taken. The reason given at the time was that the pad and the arrow keys reached
+    /// entries inside a scroller but could not scroll a focused one into view, leaving a pad player driving a
+    /// cursor onto rows they cannot see — <b>that hole is closed since #245</b>
+    /// (<c>BS3DGame.ScrollNavEntryIntoView</c>), so it no longer carries the decision. What does, and always
+    /// did the better job of it: two columns need no scrolling <i>at all</i>, so every row is on screen at
+    /// once and the page can be read rather than walked. A scroller would be a worse answer here even with
+    /// the walk fixed.
     /// </para>
     /// <para>
     /// <b>The rows keep their old order, read down one column and then the other</b> — which is also the order
