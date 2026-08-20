@@ -99,6 +99,41 @@ namespace BS3D.Screens
         private const int HUD_SHADOW_OFFSET = 7;
         private static readonly Color HUD_SHADOW = new(0, 0, 0, 200);
 
+        //--- The magazine strip (#236) -----------------------------------------------------------------------
+        //The loaded queue as flat discs, next shot first. It exists because the queue CANNOT be read off the
+        //gun from the pose the game plays: CannonRig's own note records that drawn opaque, the pane fills the
+        //whole slot from this camera — the barrel hides its own muzzle end, so the round in the notch shows
+        //only as the small ellipse of its cap and the four behind it are read through glass that keeps about
+        //0.38 of what is behind it. Naming a colour off a small dark ellipse is the difficulty, and no palette
+        //change makes an ellipse bigger (#246 measured the palette half and could only fix that half).
+        //
+        //The head is LARGER and carries a ring, which is the whole of "this one, right now" — the thing #175
+        //spends a brightness pulse on the 3D ball to say. That pulse is deliberately NOT removed here: see the
+        //remarks on DrawMagazine.
+        private const int HUD_MAG_HEAD_RADIUS = 56;
+        private const float HUD_MAG_REST_SCALE = 0.64f;
+        private const int HUD_MAG_GAP = 24;
+
+        //The dark halo every disc sits in. The strip has to read over a white glacier and a neon skyline alike,
+        //and a light ball on a light sky is the case a coloured disc alone loses — the same duty HUD_SHADOW
+        //does for the text, in the shape a disc needs.
+        private const int HUD_MAG_RIM = 7;
+        private static readonly Color HUD_MAG_RIM_COLOR = new(0, 0, 0, 190);
+
+        //The head's ring, outside its halo. Light rather than accent-coloured: the accent is the score's and
+        //the low-ammo warning's, and a third meaning on it would make all three vaguer. The gap is what stops
+        //it reading as a fat outline on the disc instead of a mark around it.
+        private const int HUD_MAG_RING_GAP = 5;
+        private const int HUD_MAG_RING_THICKNESS = 6;
+
+        //What the head's own outline is worth. A near-black round is the case this carries: TypeColor keeps
+        //each type's real darkness on purpose (#153 refused peak-normalising), so the 8-ball prints at about
+        //(22, 20, 16) and a filled disc of it inside a dark halo is a hole. Outlined, it reads exactly the way
+        //the ball itself does — by its white gores against the black — which is the same answer arrived at
+        //from the same constraint.
+        private const int HUD_MAG_OUTLINE = 3;
+        private static readonly Color HUD_MAG_OUTLINE_COLOR = new(244, 244, 244, 150);
+
         /// <summary>
         /// The HUD's one accent, and it means <i>gain</i> everywhere it appears. See the class doc for why it
         /// is amber and why there is only one.
@@ -734,7 +769,10 @@ namespace BS3D.Screens
         /// closing on the balls.
         /// </para>
         /// </summary>
-        internal void Draw(ScoreKeeper score, ICamera camera, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls)
+        /// <param name="queue">The loaded rounds, slot 0 first — <see cref="DrawMagazine"/>'s subject (#236).
+        /// A span over a buffer the caller keeps, like <paramref name="balls"/>, so a frame costs nothing.</param>
+        internal void Draw(ScoreKeeper score, ICamera camera, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls,
+            ReadOnlySpan<BallType> queue)
         {
             _game.EnsureHudFonts();
 
@@ -766,7 +804,8 @@ namespace BS3D.Screens
                 Color.Lerp(BS3DGame.MENU_TEXT, HUD_ACCENT, heat), heat);
 
             DrawStreak(score, viewport, margin, scoreAnchor.Y + scoreSize.Y * 0.5f + Scaled(HUD_LINE_GAP));
-            DrawBallsLeft(score, viewport, margin);
+            DrawBallsLeft(score, viewport, margin, out float ammoRight, out float ammoMiddle);
+            DrawMagazine(queue, score, ammoRight, ammoMiddle);
 
             //Last, so the numbers coming in pass over the readouts rather than under them
             DrawAwards(camera, viewport, scoreAnchor - new Vector2(scoreSize.X * 0.5f, 0f));
@@ -855,8 +894,17 @@ namespace BS3D.Screens
         /// a size now, for the reason set out at <c>HUD_LOW_EMPHASIS</c>.)
         /// </para>
         /// </summary>
-        private void DrawBallsLeft(ScoreKeeper score, Viewport viewport, int margin)
+        /// <param name="right">Where this readout's widest line ends, so the magazine strip can be laid out
+        /// BESIDE it rather than guessing (#236). The left edge is crowded — the cluster profile holds the
+        /// vertical middle and this readout the bottom — and the horizontal room is what is actually free.</param>
+        /// <param name="middle">The vertical centre to align the strip's discs on.</param>
+        private void DrawBallsLeft(ScoreKeeper score, Viewport viewport, int margin, out float right, out float middle)
         {
+            //Set before the early exit: a level with no shot budget draws no readout, and the strip then has to
+            //fall back to the frame's own margin rather than read an uninitialised edge.
+            right = margin;
+            middle = viewport.Height - margin - Scaled(HUD_MAG_HEAD_RADIUS);
+
             if (score.ShotsRemaining is not int left) return;
 
             bool low = left <= HUD_LOW_BALLS;
@@ -893,9 +941,92 @@ namespace BS3D.Screens
 
             //Pivoted on its bottom-left corner: the margin and the caption under it stay exactly where they are
             //while the number itself shrinks and swells, so the layout never moves — only the figure does
+            float numberTop = bottom - captionSize.Y - Scaled(HUD_LINE_GAP);
             DrawPulsed(font, _ballsText,
-                new Vector2(margin, bottom - captionSize.Y - Scaled(HUD_LINE_GAP)), new Vector2(0f, 1f),
+                new Vector2(margin, numberTop), new Vector2(0f, 1f),
                 _ballsPulse.Scale * (1f + BREATHE_AMPLITUDE * wave), colour, glow);
+
+            //Measured at REST, not at the pulsed scale: the number swells and shrinks every time it changes, and
+            //a strip laid out off the live width would slide with it. The block's own extent is what is stable.
+            Vector2 numberSize = font.MeasureString(_ballsText);
+            right = margin + MathF.Max(numberSize.X, captionSize.X);
+
+            //Snapped to a whole pixel. The discs beside this are drawn as one-pixel scanlines, and a centre on
+            //a fraction spreads each row's rounding differently — see the note in DrawDisc, which is where the
+            //half-pixel case used to comb the disc outright. Rounding here as well means the strip sits on the
+            //pixel grid rather than relying on that primitive to be forgiving.
+            middle = MathF.Round((numberTop - numberSize.Y + bottom) * 0.5f);
+        }
+
+        /// <summary>
+        /// The loaded queue as flat discs in the bottom left, next shot first and largest (#236). The gun cannot
+        /// answer "which colour fires next" from the pose the game plays — <c>CannonRig</c>'s own note records
+        /// that drawn opaque, the pane fills the whole slot from this camera, so the round in the notch shows as
+        /// the small ellipse of its cap and the rest are read through glass keeping about 0.38 of what is behind
+        /// it. This is that answer, at a size the eye can name a colour off.
+        /// <para>
+        /// <b>It does not remove #175's muzzle pulse, deliberately.</b> The issue asks for that too, and
+        /// <c>CannonRig</c> warns in as many words that the mark must not be dropped as redundant on the
+        /// strength of the pane — with two rounds in open air it is still the only thing on the gun itself
+        /// saying which fires next. This has to be seen to read first; the pulse is a second change, on its own
+        /// screenshot.
+        /// </para>
+        /// <para>
+        /// Colours come through <see cref="TypeColor"/>, which bakes from
+        /// <c>BasicEffectParamsProvider.GetDiffuseTintByType</c> — so the strip tracks the balls by
+        /// construction and there is no second palette here to drift out of step with them.
+        /// </para>
+        /// </summary>
+        private void DrawMagazine(ReadOnlySpan<BallType> queue, ScoreKeeper score, float left, float middle)
+        {
+            if (queue.Length == 0) return;
+
+            //Never more discs than there are shots left to take. The magazine holds five whatever happens, so
+            //once the budget is down to two a five-disc strip is simply a lie about the level — and the last
+            //shots are exactly when the player is counting.
+            int shown = score.ShotsRemaining is int remaining ? Math.Min(queue.Length, remaining) : queue.Length;
+            if (shown <= 0) return;
+
+            Texture2D pixel = Pixel;
+            SpriteBatch batch = _game.OverlayBatch;
+
+            int head = Scaled(HUD_MAG_HEAD_RADIUS);
+            int rest = (int)MathF.Round(head * HUD_MAG_REST_SCALE);
+            int rim = Scaled(HUD_MAG_RIM);
+            int gap = Scaled(HUD_MAG_GAP);
+
+            float x = left + gap + head;
+
+            for (int i = 0; i < shown; i++)
+            {
+                bool next = i == 0;
+                int radius = next ? head : rest;
+                Color colour = TypeColor(queue[i]);
+
+                //The dark halo first, then the fill: one is what makes a pale round read over a white glacier,
+                //the other is the answer the strip exists to give.
+                DrawDisc(pixel, batch, x, middle, radius + rim, HUD_MAG_RIM_COLOR);
+                DrawDisc(pixel, batch, x, middle, radius, colour);
+
+                //A light outline INSIDE the fill's edge, drawn as a ring: without it a near-black round is a
+                //hole in the halo rather than a disc. TypeColor keeps each type's real darkness on purpose
+                //(#153 refused peak-normalising), so this is the strip's version of the white gores that are
+                //the only thing making the 8-ball itself legible.
+                int outline = Scaled(HUD_MAG_OUTLINE);
+                if (radius > outline)
+                    DrawDisc(pixel, batch, x, middle, radius, HUD_MAG_OUTLINE_COLOR, radius - outline);
+
+                //And the head gets a ring OUTSIDE its halo — the whole of "this one, right now", in the layer
+                //the issue asks for it in rather than as brightness animation on the 3D ball.
+                if (next)
+                {
+                    int ringOuter = radius + rim + Scaled(HUD_MAG_RING_GAP) + Scaled(HUD_MAG_RING_THICKNESS);
+                    DrawDisc(pixel, batch, x, middle, ringOuter, HUD_MAG_OUTLINE_COLOR,
+                        ringOuter - Scaled(HUD_MAG_RING_THICKNESS));
+                }
+
+                x += radius + gap + (i + 1 < shown ? rest : 0);
+            }
         }
 
         /// <summary>
@@ -1221,7 +1352,14 @@ namespace BS3D.Screens
                 int w = (int)MathF.Round(half * 2f);
                 if (w <= 0) continue;
 
-                int y = (int)MathF.Round(cy + dy);
+                //FLOOR of the midpoint, never MathF.Round, and this is not a style choice (#236). MathF.Round
+                //rounds a .5 to EVEN, so a centre landing exactly on a half-pixel maps consecutive rows to
+                //y, y+2, y+2, y+4 … — half the rows drawn twice and every other row never drawn at all. The
+                //disc then comes out as a stack of one-pixel stripes with the scene showing between them,
+                //which is what the magazine strip's first build looked like: solid horizontally, combed
+                //vertically. A half-up floor is contiguous for every centre, and differs from Round ONLY at
+                //the .5 that is broken today.
+                int y = (int)MathF.Floor(cy + dy + 0.5f);
                 int left = (int)MathF.Round(cx - half);
 
                 //Outside the hole (or no hole at all): one bar, the full chord.
