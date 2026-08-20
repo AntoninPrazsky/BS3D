@@ -419,4 +419,21 @@ Podpis ukazuje na napájení, ne na shader ani na benchmark režim. **Žádný c
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-20 (bere si #246).*
+## 2026-08-20 — Claude Code (třináctý zápis)
+
+**#246 hotové, na mainu jako `604651a`, issue zavřené, větev smazaná.** Diagnóza ani oprava nebyly to, co issue předpokládalo, a obojí stojí za zapsání.
+
+- **Proč to nešlo rozeznat:** ne že by ty barvy byly blízko. **Celý rozdíl navy od černé ležel v modrém kanálu**, který oko váží nejmíň (0,072 luminance proti zelené 0,715). Změřeno z `Thirteen_Colors` pod nejtmavším dómem: obě kuličky vyšly na luminanci **13 a 31 z 255** — u samého dna rozsahu displeje, kde jakékoli světlo v pokoji rozdíl smaže dřív, než ho oko dostane.
+- **⚠️ Zvednout navy samotnou NEFUNGUJE — jen to tu záměnu přestěhuje.** Tohle je to hlavní zjištění. CIEDE2000 z téhož snímku: navy sama `(0,08 0,22 0,62)` posune černá/navy 25,3 → 30,8, **ale navy/blue srazí 24,4 → 16,7**, což je nejtěsnější pár celé palety. Proto se **`Type3` zvedlo s ní** (0,35 0,45 1,0 → **0,45 0,60 1,0**) a přeskládala se celá modrá rodina černá → navy → blue; pak se zlepšily **oba** páry (30,8 a 33,4). Modrá byla jediná, kde bylo kam — stříbro měří 115 a cyan 165 proti modré 103 — a navíc to pomůže i `silver/blue`, které je těsné (17) právě proto, že ty dvě mají skoro **stejnou světlost**. Ambienty šly s tinty, jinak by stará záměna přežila na neosvětlené polovině kuličky.
+- **Navy musela zůstat modrá, a to je odpověď z dat, ne z vkusu.** Nabízející se nejsilnější oprava je jediný volný odstín palety (fialová, 240–300° je jediná mezera). **Odmítnuto, protože navy nese v levelech význam:** Globe's oceán je 92 navy proti 108 cyan a 57 blue, Wishbone baňka vedle 83 blue, Reel „chladný kov". Fialový pruh přes pixelovou Zemi je horší než ta nemoc. Fialovou variantu jsem přesto postavil a změřil — vyšla **horší v obou párech** (29,6 / 16,7).
+- **⚠️ ΔE76 je na tuhle otázku špatný nástroj**, a málem mě to svedlo: bere rozdíl ve *světlosti* stejně vážně jako v odstínu, a černou/navy zařadil **devátou** — přitom `white/yellow` (15,6), `orange/red` (16,8) a `silver/blue` (16,9) měří těsněji a nikdo si na ně nikdy nestěžoval. Všechny figury výše jsou CIEDE2000.
+- **⚠️ A snímek té řady nese ±0,4 dE šumu, protože kuličky pulzují** (emise na heartbeat, fáze se mezi spuštěními liší). **Foť dvakrát, než uvěříš malé deltě** — mě to zprvu svedlo k tomu, že jsem považoval ±2,5 dE za signál.
+- **Půlka problému zůstává a patří #236, což je teď doměřené, ne odhadnuté.** Stížnost byla na dělo a paleta není to, co dělo kazí. `CannonRig` si to sám píše: nakresleno neprůhledně jako test, **pane z herní kamery vyplní celý slot** — hlaveň si zakrývá vlastní ústí, takže kulička v zářezu je vidět jen jako **malá elipsa své čepičky** a čtyři za ní se čtou přes sklo, které to, co je za ním, **násobí ~0,38** (`GLASS_ALPHA` 0,62). Pojmenovat barvu z malé tmavé elipsy je ta skutečná obtíž a žádná paleta elipsu nezvětší. **Napsal jsem to do #236** i s tím, že `PlayHud.BakeTypeColors` bere tint z `GetDiffuseTintByType`, takže 2D indikátor půjde s kuličkami sám a druhá kopie palety se zakládat nesmí.
+- **Ověřeno:** všechny tři solutiony staví, **ScoreSim „All levels rate the right way round" přes 40** (levely drží raw byte `BallType`, takže se nic negenerovalo), fotky v **Globe, Reel a Wishbone** — třech levelech, kde navy nese význam — plus paletová řada pod světlým i tmavým dómem, a měření obou dómů se shodne. Nejtěsnější pár palety beze změny (15,6 → 16,1 tmavý, 15,3 → 15,4 světlý), žádný pár se smysluplně nezhoršil, `blue/magenta` dostalo +8,0 zdarma. HUD sahat netřeba.
+- Skripty na to měření (`palette.py`, `pairs.py` — CIEDE2000 nad snímkem `Thirteen_Colors`) jsou v job tmp; kdyby je někdo chtěl znovu, jsou to ~120 řádků a stojí za to je mít, protože „tahle barva je moc blízko té druhé" je v tomhle repu opakující se typ issue.
+
+**Nic dalšího si teď neberu.** Volné a nikým nedržené: **#245** (scroll fokusu v pickeru), **#236** (2D indikátor barvy — teď odblokované a s doměřeným zadáním), **#233 / #238 / #247 / #243** (menu a UI, čtyři samostatné větve, dělí se o `BS3DGame.Menu.cs` → po sobě), **#242** (konfety ostré nad UI), **#237** (pásek dlažby u odtoku). `origin/234-first-level-pyramid` je cizí rozdělaná práce. `origin/211-music-switches-fade` pořád leží — smazat ji mi guard nepustil, ale **celý ten patch je zachovaný v komentáři u #211**, takže se dá zahodit bez ztráty.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-20 (#246 na mainu a zavřené, nic se nebere).*
