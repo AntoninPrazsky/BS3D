@@ -20,6 +20,10 @@ The exe is `Testbed\bin\net10.0-windows\Testbed.exe`. CLI arguments (any order):
   machine, dense map, default view: ~300 FPS with physics running (the CPU simulation of 3000 bodies is the
   bottleneck), ~800 FPS with simulation stopped (F5, send via keybd_event scan 0x3F). The autoshoot log line
   includes `LOD: a/b/c` — per-level ball counts of the procedural sphere LOD (thresholds 15/30 world units).
+- `fpscap=<n>` — `nocap`'s presentation with a ceiling of n frames a second, so a scene cheaper than the cap
+  never runs the card flat out while anything dearer than it still reads its true cost. Prefer it to bare
+  `nocap` on the desktop, and read `.claude/skills/benchmark`'s own `fpscap` section first: that machine has
+  been hard-resetting under load (#250), capped runs included, so no cap is a guarantee.
 - `ssaa=<n>` — supersampling factor, 1–4, default 2. The scene renders into an n× target and is box-filtered
   onto the back buffer, which is what keeps the balls' procedural relief sharp; `ssaa=1` turns it off (and
   hands antialiasing back to 8x MSAA) for a before/after or when a machine is fill-rate bound. On the dense

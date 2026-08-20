@@ -4,6 +4,8 @@ using Prazsky.BS3D;
 using Prazsky.BS3D.GameObjects;
 using Prazsky.Core.Render;
 using System;
+using System.Diagnostics;
+using System.Threading;
 
 namespace Testbed
 {
@@ -192,6 +194,10 @@ namespace Testbed
             //Last, so it counts a frame that has actually been drawn end to end (the Game logs it from the
             //same place, for the same reason)
             if (_options.LogFrameRate) LogFrameRate((float)gameTime.ElapsedGameTime.TotalSeconds);
+
+            //After the log line, so the idle is never counted as part of the frame it follows: what the cap
+            //spends is real time between presents, and the reading has already been taken by here.
+            CapFrameRate();
         }
 
         //The Game's counter restated rather than shared, because there is nothing to share it through: both are
@@ -223,10 +229,45 @@ namespace Testbed
             //was actually shaded or it misreports the one setting that moves the number most
             Console.WriteLine($"[fps] {_fpsFrames / _fpsWindow:F1} — {_scene}, dome {_skyModelNumber}, ssaa {_supersampleFactor}x"
                 + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
-                + $", vsync {(_options.UncappedFps ? "off" : "on")}, arena {_island.Members}, balls {_collectedBalls}");
+                + $", vsync {(_options.UncappedFps ? "off" : "on")}{(_options.FpsCap > 0 ? $" (cap {_options.FpsCap})" : "")}, arena {_island.Members}, balls {_collectedBalls}");
 
             _fpsWindow = 0f;
             _fpsFrames = 0;
+        }
+
+        //When the next frame may be presented, on the wall clock, under fpscap=N. Stopwatch and not GameTime,
+        //because what the cap spends is REAL time between presents; MonoGame's own fixed time step was the
+        //other candidate and was refused, since it feeds Update a synthetic elapsed and runs it more than once
+        //per Draw to catch up - which changes what the physics and every animation here are handed, in the one
+        //mode whose whole purpose is to leave the frame alone and only measure it.
+        private long _capNextFrameDue;
+
+        /// <summary>
+        /// Idles out the rest of the frame's period under <see cref="TestOptions.FpsCap"/>, so a scene cheaper
+        /// than the cap stops running the card flat out (see that property for whose machine that crashed).
+        /// A frame that already overran the period is never delayed and never made to pay it back: the debt
+        /// would come out of the NEXT frame's idle and print a cheap frame as an expensive one.
+        /// </summary>
+        private void CapFrameRate()
+        {
+            if (_options.FpsCap <= 0) return;
+
+            long period = Stopwatch.Frequency / _options.FpsCap;
+            long now = Stopwatch.GetTimestamp();
+
+            if (now >= _capNextFrameDue)
+            {
+                _capNextFrameDue = now + period;
+                return;
+            }
+
+            //A SPIN, and deliberately never Thread.Sleep. Windows' default timer resolution is 15.6 ms, so
+            //Sleep(1) hands the thread back at the next tick and costs about six milliseconds - measured here,
+            //a 300 FPS cap slept its way down to 143 and a 400 FPS cap to 209, which is the instrument reading
+            //its own idle instead of the frame. Spinning burns one core of twelve for the rest of the period,
+            //in a mode that only ever runs under a benchmark, and holds the plateau on the cap itself.
+            while (Stopwatch.GetTimestamp() < _capNextFrameDue) Thread.SpinWait(64);
+            _capNextFrameDue += period;
         }
 
         /// <summary>
