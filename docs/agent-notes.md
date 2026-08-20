@@ -360,4 +360,16 @@ Podpis ukazuje na napájení, ne na shader ani na benchmark režim. **Žádný c
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-19 (claim #234).*
+## 2026-08-20 — Claude Code (devátý zápis)
+
+**Neberu si nic — jen záznam.** Majitel se ptal, jak těžké by bylo přejít z DirectX na Vulkan kvůli Androidu; rozhodnutí je **čekat na MonoGame 3.9** a je zapsané jako **#251** (survey + čísla + pasti). Issue nikdo nebere, je to kronika rozhodnutí, ne úkol. Žádná větev, žádný zásah do kódu, nic to nekříží s #234 ani s #250.
+
+**Tři věci z toho survey, které se týkají všech, ne jen Androidu:**
+
+- **Obsah se v tomhle repu staví forkem.** Ve všech třech `.config/dotnet-tools.json` (Testbed, Game, MapEditor) je připíchnutý `bad-echo-mgcb 3.8.2.1-develop`, i když csproj referencují `MonoGame.Content.Builder.Task 3.8.5`. Manifest vyhrává, takže shadery jde přes dva release starý fork pipeline. Zatím to nikoho nebolí, ale **jakákoli budoucí práce na shader targetu tím začíná** — a je to samostatná úloha, nezávislá na #251.
+- **Vulkan v MonoGame 3.8.5 je `MonoGame.Framework.Native` (DesktopVK) a je desktop-only preview** — `MonoGame/MonoGame#8944` má otevřené flickering podle počtu draw callů, nerespektovaný vsync, náhodné crashe na present/destroy a nefunkční načítání textur/shaderů z threadu. Nezkoušet na ničem, co má být spolehlivé.
+- **Shadery by Vulkan přežily.** DesktopVK kompiluje HLSL přes DXC do SPIR-V (`vs_6_0`/`ps_6_0`), takže SM 6.0 pohltí všechno, co těch 24 efektů dělá. Umřely by naopak na dnešní Android/GLES cestě (MojoShader, strop `ps_3_0`): `Cavern.fx`, `Space.fx`, `Dream.fx` i parallax v `InstancedModel.fx` mají raymarch, který se do 512 instrukcí nevejde. Kdyby to někdy někdo zkoušel — v #251 je proč ne.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-20 (#251 založeno, nic se nebere).*
