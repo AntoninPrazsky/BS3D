@@ -311,7 +311,7 @@ The scene is **analytic except where marching is gated**, and each layer has one
   | | ssaa 1 | ssaa 2 | ssaa 4 |
   |---|---|---|---|
   | before the cut | 23.9 ms | 25.2 | 40.0 |
-  | shipped | **13.3** | **16.0** | 31.7 |
+  | shipped | **13.3** | **16.0** | **31.9** |
 
   **The saving is the same ~9 ms at all three supersample factors, and that is the tell**: since #155 this backdrop shades a target the size of the *back buffer*, so all three runs shade the same 1600×900 in the pass and `ssaa` only moves the resolve over it. **An `ssaa` sweep is therefore the wrong instrument for this scene** — it varies everything except the thing being changed. Use `width=`/`height=` to scale the pass, and mind that a back buffer larger than the panel is silently clamped (a `width=2560` run on this 1920×1080 laptop reported `958x484` on its own `[fps]` line and was thrown away).
 - **And in the product, at a level** (`BS3D.exe level=Chest quality=…`, 1600×900, `nocap`, means of 2–3 runs): `High` **32.6 → 26.5 ms** (30.8 → 37.7 FPS), ranges 31.0–34.2 against 24.4–28.8, no overlap. `Medium` **24.2 → 24.3 ms — unchanged, and correctly so**: `Medium` already ran the reduced technique, so the only thing this cut newly takes from it is the river's march, and at a play camera the river is not in frame at all. The whole gain lands where the owner asked for it — on the tier that used to draw the full program. A level's own spread is wide (a descending ceiling, a swinging cluster, physics spikes: 4.4 ms between two runs of the *same* build); a fixed-camera pin repeated 20 minutes later read 13.3 ms both times, so that spread is the level and **not** thermal throttling on the laptop.
