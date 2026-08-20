@@ -481,4 +481,20 @@ Podpis ukazuje na napájení, ne na shader ani na benchmark režim. **Žádný c
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-20 (bere si #236, jen indikátor).*
+## 2026-08-20 — Claude Code (sedmnáctý zápis)
+
+**#236 — indikátor je na mainu jako `565bd1b`. Issue jsem ale ZÁMĚRNĚ NEZAVŘEL**, protože jsou v něm tři věci a odvedl jsem jednu. Větev smazaná.
+
+- **Co jede:** nabitá queue jako plochá kolečka vlevo dole, příští výstřel první a největší, s prstencem okolo hlavy. Barvy přes `TypeColor` (bake z `GetDiffuseTintByType`), takže strip jde s kuličkami sám a **druhá paleta v repu nevznikla**. Dědí to separaci z #246: na `level=Reel` přišla queue **navy, černá, černá, černá, červená** a všechno je pojmenovatelné.
+- **Umístění:** issue chtělo levý dolní rok, ale ten je nejvytíženější hrana — profil drží vertikální střed, `balls left` spodek, mezi nimi při 1600×900 zbývá ~74 px, což by vyšlo na *téhle* výšce okna a na jiné ne. **Strip proto jde vedle počtu**, `DrawBallsLeft` nově hlásí svou pravou hranu a vertikální střed. Pořád levý dolní rok, jen po ose, která byla volná.
+- **Tmavé typy byly ten test a prošly:** každé kolečko má tmavou halu (aby světlá kulička držela nad bílým ledovcem) a **světlý obrys uvnitř výplně** — a ten druhý není ozdoba. `TypeColor` schválně drží skutečnou temnotu typu (#153 odmítlo peak-normalising), takže osmička tiskne kolem (22,20,16) a plné kolečko z ní uvnitř tmavé haly je díra. S obrysem se čte přesně jako ta kulička sama — světlými klíny proti černé. Tři černé v jedné queue, všechny čitelné.
+- **⚠️ A našlo to latentní bug v `DrawDisc`, o který se dělí i profil klastru.** Primitiva zaokrouhlovala `y` každého scanlinu přes `MathF.Round`, což je **zaokrouhlení na sudé** — takže střed přesně na půlpixelu mapoval sousedící řádky na `y, y+2, y+2, y+4 …`: polovina řádků dvakrát a **druhá polovina vůbec**. První build stripu vyšel **hřebenovitý** — vodorovně plný, svisle jednopixelové pruhy se scénou mezi nimi, stejně při ssaa 1 i 2. **Identifikovalo to až vzorkování sloupce** přes kolečko (`38,38,145` střídavě s kamenem za ním); okem to čte jako chyba shaderu nebo blend state, ne jako aritmetika, a já na to nejdřív spálil hypotézu o supersamplingu. Teď je to `MathF.Floor(cy + dy + 0.5f)` — spojité pro každý střed a od `Round` se to liší **jen v tom .5, které bylo rozbité**. **Markery v profilu klastru byly jeden šťastný střed od toho samého.**
+- **Co v issue zbývá a proč jsem to nevzal:** zrušit muzzle mark z #175 a „žádná nabitá kulička nemá pulzovat". `CannonRig` výslovně varuje, že se ten mark nesmí zrušit jako redundantní na sílu skla — od #204 jsou dvě kuličky v otevřeném vzduchu a mark je jediné, co na **dělu samotném** říká, která letí. Majitel to sám podmínil tím, že indikátor nejdřív existuje a čitelně čte; to teď platí a je vyfocené, takže je to **odblokované**, ale je to samostatná změna s vlastní fotkou a chce to majitelovo oko na strip ve hře. **A není to jen smazání** — majitel v issue nadhodil třetí směr (pulzovat muzzle kuličku silně ve *její* barvě, nebo jí dát glow). Dvě věci z jeho komentáře, ať je nikdo nederivuje znovu: **flare ve vlastním odstínu přes `RippleStrength` je změřená slepá ulička** (zkoušeno na 0,97, „could not be seen on screen at all"), a negativní `Ripple` branch, co shading *nahradí* plochou barvou, je **jediný `float3` uniform na draw call**, takže barvu per slot neunese bez per-instance dat. **Glow okolo** kuličky je třetí mechanismus a tím zjištěním blokovaný není.
+- **Ověřeno:** tři solutiony staví, fotky `level=Reel` (navy + tři černé + červená nad neonovým skylinem) a `level=One` (pět červených nad světlým kamenem), plus vzorkovaný sloupec jako důkaz, že hřeben je pryč. Fotky v `C:\Users\PanRD\Pictures\bs3d-236-strip\`.
+- Bez per-frame alokací: queue jde do HUDu spanem nad polem drženým na `GameplayScreen`, jako `_profileBalls`.
+
+**Nic dalšího si teď neberu.** Volné: **#236 druhá polovina** (puls/mark — čeká na majitelovo rozhodnutí mezi „sundat" a „třetí cestou"), **#233 / #238 / #247 / #243** (menu a UI, po sobě, dělí se o `BS3DGame.Menu.cs`), **#242**, **#237**, **#240**, **#241**. `origin/234-first-level-pyramid` je cizí rozdělaná práce; `origin/211-music-switches-fade` leží dál (guard, patch je v komentáři u #211).
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-20 (#236 indikátor na mainu, issue schválně otevřené).*
