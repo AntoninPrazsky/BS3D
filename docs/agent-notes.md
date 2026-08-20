@@ -446,4 +446,23 @@ Podpis ukazuje na napájení, ne na shader ani na benchmark režim. **Žádný c
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-20 (bere si #245).*
+## 2026-08-20 — Claude Code (patnáctý zápis)
+
+**#245 hotové, na mainu jako `56899f8`, issue zavřené, větev smazaná.** `ScrollNavEntryIntoView` jede jako poslední řádek `StepNavFocus` a **potřebovaly to obě stránky, které `MenuScroll` obsluhuje**, ne jen level picker.
+
+- **Bug nafocený, ne popsaný:** na mainu, `quality=low`, 34× Down od první dlaždice — mřížka pořád na dlaždicích **1–20**, **nikde v záběru nic zvýrazněného**, a detailní řádek hlásí `Garland — 54 shots`. Fokus byl dva screeny pod viewportem. **Kritérium prošlo/neprošlo je proto ten pár** — zvýrazněná dlaždice v záběru *a* detailní řádek se stejným jménem — protože každá polovina zvlášť byla pravda i před opravou.
+- **Jak: globální souřadnice a posun o rozdíl.** `Widget.ToGlobal` už má aktuální scroll offset v sobě, takže se ptám „o kolik je to mimo viewport" a posunu `ScrollPosition` přesně o to, clampnuté na `ScrollMaximum`. **Není tu druhá kopie Myřiny aritmetiky**, která by se s knihovnou rozešla, a je to samoopravné — nemusím vědět, jak Myra ty dvě soustavy skládá. Entry, které je celé v záběru, se nechá být.
+- **Který scroller entry patří, si pamatuje ta procházka, co ho našla** (parallel list k `_navEntries`), ne dohledávání přes `Parent` v době kroku — procházka je to, co do scrolleru vlezlo, takže odpověď už má. Entries mimo scroller (nadpisy, Back) nesou null a nescrollují: Back je vidět vždycky a seznam zůstane tam, kde ho hráč nechal.
+- **Dvě pojistky, obě dosažitelné, ne teoretické:** před prvním layoutem jsou bounds nulové a `CollectNavEntries` může běžet ve snímku, kdy se stránka staví — bez guardu by každé entry vyšlo jako mimo záběr a scroll by skončil nesmyslně. A clamp je to, co brání kontextovému marginu přestřelit konec seznamu u poslední dlaždice.
+- **⚠️ Dosažitelné jsou jen ODEMČENÉ dlaždice** — `CollectNavEntries` bere `button.Enabled` a `LevelSelectPage` dělá `Enabled = unlocked`. Kdo to bude reprodukovat na čerstvém profilu, dojde k tomu, že chůze končí u dlaždice 9, a usoudí něco jiného. **Majitel má 95 hvězd a všech 40 odemčených**, takže se nic falšovat nemuselo — a hlavně **jsem mu nesahal na `Progress.json`** (existuje, 1824 B, v `Game/bin/.../Levels`; nejdřív jsem se podíval, pak zjistil, že ho nepotřebuju).
+- **Scene picker měl tu samou dieru** — 13 scén se do okna taky nevejde a třináctá (Outback) byla stejně nedosažitelná jako Garland. Ověřeno v tom samém běhu.
+- **Opraveny dva komentáře, které argumentovaly tou dírou:** `BS3DGame.MenuScroll` psal, že pad „does not scroll it", a `SettingsPage` **odmítal scroller právě kvůli tomu**. To rozhodnutí platí dál, ale teď stojí na tom druhém důvodu, který měl vždycky a je lepší: dva sloupce nepotřebují scrollovat vůbec.
+- **⚠️ Praktické pro kohokoli, kdo bude scriptovat vstup do hry:** `docs/game-shell.md:82` má pravdu a je to jediná cesta, která funguje — **`quality=low` a držet klávesu 400 ms**. Tahle chůze je 40 stisků a při 2× ssaa by je frontend při ~10 FPS spolkl. **F12 je herní writer back bufferu**, takže fotky nemůže nahradit lock screen ani jiné okno — na rozdíl od Testbedu, který writer nemá. Skript `walk.ps1` je v `C:\Users\PanRD\Pictures\bs3d-245-picker\` i s fotkami.
+- **A jedna past na API:** Myřiny členy si **nezjišťuj reflexí z PowerShellu 5.1** — .NET 10 assembly se do Frameworku nenačte a `GetTypes()` hodí `ReflectionTypeLoadException`. `~/.nuget/packages/myra/1.6.3/lib/*/Myra.xml` je rychlejší a spolehlivé; potvrdilo `ScrollPosition`, `ScrollMaximum`, `ResetScroll()`, `ToGlobal`, `ActualBounds`.
+- **Ověřeno:** všechny tři solutiony staví; level picker dlaždice 35 i 40 zvýrazněné, v záběru, detail souhlasí, u poslední scroll přesně na maximu; scene picker třináctá položka v záběru.
+
+**Nic dalšího si teď neberu.** Volné: **#236** (2D indikátor barvy — odblokované #246 a se zadáním v číslech), **#233 / #238 / #247 / #243** (menu a UI, po sobě, dělí se o `BS3DGame.Menu.cs`), **#242** (konfety ostré nad UI), **#237** (pásek dlažby u odtoku), **#240** (krátery na mřížce), **#241** (klastr pod výsledkovou stránkou). `origin/234-first-level-pyramid` je cizí rozdělaná práce. `origin/211-music-switches-fade` pořád leží — smazat ji guard nepustil, ale patch je zachovaný v komentáři u #211.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-20 (#245 na mainu a zavřené, nic se nebere).*
