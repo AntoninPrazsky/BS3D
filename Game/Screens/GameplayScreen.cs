@@ -444,6 +444,12 @@ namespace BS3D.Screens
         //across frames — the cluster profile is per-frame, but the array it fills is not. No per-frame allocation.
         private PlayHud.BallMarker[] _profileBalls;
 
+        //The same idiom for the magazine strip's colours (#236): fixed at Magazine.SIZE, refilled from the live
+        //queue in Draw and handed over as a span. The HUD is given the COLOURS rather than the Magazine itself
+        //deliberately — the strip is a readout of what is loaded, and a HUD that could reach the magazine could
+        //also step it.
+        private readonly BallType[] _magazineQueue = new BallType[Magazine.SIZE];
+
         //The cluster profile's horizontal axis is the GAMEPLAY camera's right vector — the lens the player aims
         //with, not whatever a drop cinematic has swung the lens to. A cinematic blends the camera away from the
         //overview pose (UpdateCamera Lerps towards _cinematic.Position/Target), and the profile drawn from that
@@ -1238,8 +1244,12 @@ namespace BS3D.Screens
             if (_pendingOutcome == LevelOutcome.None)
             {
                 PlayHud.ClusterProfile profile = BuildClusterProfile(out int ballCount);
+
+                for (int i = 0; i < _magazineQueue.Length; i++) _magazineQueue[i] = _magazine.Peek(i);
+
                 _hud.Draw(_score, Camera, in profile,
-                    new ReadOnlySpan<PlayHud.BallMarker>(_profileBalls, 0, ballCount));
+                    new ReadOnlySpan<PlayHud.BallMarker>(_profileBalls, 0, ballCount),
+                    _magazineQueue);
             }
 
             //The crosshair, into the host's overlay batch (the one the HUD above just used): shown only while
