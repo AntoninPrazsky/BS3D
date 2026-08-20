@@ -865,8 +865,21 @@ namespace BS3D.Screens
         /// </summary>
         private readonly AimBeam _aimBeam;
 
+        /// <summary>
+        /// The muzzle round's coloured halo — what says "this one, right now" since #236, in place of the white
+        /// ripple #175 used to breathe on the ball itself. See <c>MuzzleGlowStrength</c>.
+        /// </summary>
+        private readonly BallGlow _ballGlow;
+
         /// <summary>Where the beam starts. Stored rather than recomputed in <c>Draw</c>, so the line, the ghost and the shot cannot disagree about where the bore is.</summary>
         private Vector3 _previewMuzzle;
+
+        /// <summary>
+        /// Slot 0's world position as the magazine was collected this frame — the centre the halo is drawn
+        /// concentric with (#236). Stored for the same reason <see cref="_previewMuzzle"/> is: the ring and the
+        /// ball it rings must not be able to disagree, and they would if each asked <c>Magazine.Pose</c> itself.
+        /// </summary>
+        private Vector3 _muzzleBallPosition;
 
         /// <summary>Where it ends: the point a shot would touch, or a reach out along the aim when it would touch nothing.</summary>
         private Vector3 _previewBeamEnd;
@@ -940,6 +953,11 @@ namespace BS3D.Screens
             //and a short segment of it comes out as a dash for free. Sharing it is why both components now push
             //the trail's two widths per draw instead of once; see AimBeam's remarks.
             _aimBeam = new AimBeam(GraphicsDevice, Game.Content.Load<Effect>("Shaders/ShotTrail"));
+
+            //Its OWN effect and not the trail's, unlike the two above: this billboard is placed from a centre
+            //and the view basis rather than from two world points, so there is no quad to share and no widths
+            //to fight over — which is the mess sharing ShotTrail cost those two.
+            _ballGlow = new BallGlow(GraphicsDevice, Game.Content.Load<Effect>("Shaders/BallGlow"));
 
             //And the crosshair's own white texel, which the host used to hold for it
             _crosshair = new Crosshair(GraphicsDevice);
@@ -1195,6 +1213,11 @@ namespace BS3D.Screens
             //collection is closed by it. The heartbeat runs on the WALL clock: the balls go on breathing while
             //a pause has the session frozen, because it is what they are and not something they are doing.
             Game.Balls.Draw(WallClock);
+
+            //The muzzle round's halo, first of the three additive draws: it is the quietest and a shot's flare
+            //should sit over it. Its middle is carved out by the depth buffer the balls above just wrote, which
+            //is what makes it a ring around the round rather than a wash over it (#236, and see BallGlow).
+            DrawMuzzleGlow();
 
             //Over the opaque scene (which the depth buffer now holds, so the cluster and the gun occlude
             //them) and additive, so they glow through the glare. It puts back exactly the states it found,

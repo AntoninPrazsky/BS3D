@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Prazsky.BS3D;
 using Prazsky.BS3D.GameObjects;
 using Prazsky.BS3D.GameStructure;
@@ -244,17 +244,36 @@ namespace BS3D.Screens
         //white and not the ball's hue — so slot 0 breathes brighter than its neighbours and the sliver, however
         //small, is the thing in the window that MOVES. A static cue of any kind is what failed here.
 
-        /// <summary>
-        /// How much light the round at the muzzle carries at rest, as a ripple amount. Well under the value at
-        /// which a ball starts to bloom through the glare (<c>BallRenderSet</c>'s own ripple strength scales
-        /// this, and its whole tuning problem is that a lit ball is just over the threshold): the mark must say
-        /// "this one" and must not bleach the colour it exists to let the player read.
-        /// </summary>
-        private const float MUZZLE_MARK_BASE = 0.20f;
+        //#236 CHANGED WHAT THE MARK IS MADE OF, and the reason is in the paragraph above: the ripple's positive
+        //branch adds mostly-WHITE light, so the round whose colour most needs reading was the one continuously
+        //washed towards white while the player aimed. It said "this one" by spending the very thing it was
+        //there to reveal. The owner's words: the thing pulses, but the pulse itself is what blurs the colour.
+        //
+        //So the breath moved OFF the ball and into a halo AROUND it, in the round's own colour — BallGlow, one
+        //additive camera-facing billboard whose middle the depth buffer removes for free (the ball is nearer
+        //the lens than the quad behind it), so it is a ring outside the silhouette rather than a wash over it.
+        //From this camera the barrel rejects most of it too, and what comes out of the notch reads as the gun
+        //lit from inside by the colour it is about to fire.
+        //
+        //Two mechanisms were refused before that one and both are MEASURED, so neither is worth retrying: a
+        //same-hue flare through this same ripple channel was tried at full strength (0.97) and could not be
+        //seen on screen at all, because it piles energy into a channel already at the top of the ACES curve;
+        //and the negative-ripple branch that REPLACES a ball's shading with a flat colour is a single uniform
+        //per draw call, so it cannot carry one slot's own hue without per-instance data.
+        //
+        //What did not change is the CADENCE. The rate and the gate below are the ones #175 tuned, deliberately
+        //kept: what was wrong with the mark was the channel, not its timing.
 
-        /// <summary>How far the mark swings either side of <see cref="MUZZLE_MARK_BASE"/> — never to zero, so
+        /// <summary>
+        /// The halo's strength at rest, 0…1. Where the ripple it replaced had to stay under the glare threshold
+        /// to avoid bleaching the ball, this is <b>meant</b> to bloom — the colour is the signal, and a halo
+        /// under the threshold is a faint ring nobody reads. <see cref="BallGlow"/> holds the radiance boost.
+        /// </summary>
+        private const float MUZZLE_GLOW_BASE = 0.62f;
+
+        /// <summary>How far the breath swings either side of <see cref="MUZZLE_GLOW_BASE"/> — never to zero, so
         /// the round is never briefly unmarked, and never far enough to read as a fault.</summary>
-        private const float MUZZLE_MARK_SWING = 0.10f;
+        private const float MUZZLE_GLOW_SWING = 0.38f;
 
         /// <summary>
         /// How often it breathes. Deliberately its own rate: the balls' own heartbeat is at
@@ -264,7 +283,8 @@ namespace BS3D.Screens
         private const float MUZZLE_MARK_HZ = 1.6f;
 
         /// <summary>
-        /// The mark the muzzle round carries this frame, or zero when no shot would leave the barrel at all.
+        /// The halo the muzzle round carries this frame, or zero when no shot would leave the barrel at all —
+        /// which <see cref="BallGlow.Draw"/> reads as "draw nothing", so the gate lives in one place.
         /// <para>
         /// The gate is <see cref="_previewBeamVisible"/>, which is exactly the question "would a shot leave the
         /// barrel this instant" — the ghost and the aim beam are drawn on the same answer, and it is refused on
@@ -277,10 +297,19 @@ namespace BS3D.Screens
         /// <i>is</i>, not something the session is doing, so it keeps breathing while a pause holds the frame.
         /// </para>
         /// </summary>
-        private float MuzzleMark() =>
+        private float MuzzleGlowStrength() =>
             _previewBeamVisible
-                ? MUZZLE_MARK_BASE + MUZZLE_MARK_SWING * MathF.Sin(MathHelper.TwoPi * MUZZLE_MARK_HZ * WallClock)
+                ? MUZZLE_GLOW_BASE + MUZZLE_GLOW_SWING * MathF.Sin(MathHelper.TwoPi * MUZZLE_MARK_HZ * WallClock)
                 : 0f;
+
+        /// <summary>
+        /// Draws the muzzle round's halo. Called from the frame's additive slot — after the balls, so the depth
+        /// buffer already holds the round and the barrel and can carve the ring out of this by itself, and
+        /// before the smears, so a shot's own flare sits over it rather than under.
+        /// </summary>
+        private void DrawMuzzleGlow() =>
+            _ballGlow.Draw(Camera, _muzzleBallPosition, Constants.HALF,
+                BasicEffectParamsProvider.GetDiffuseTintByType(_magazine.Peek(0)), MuzzleGlowStrength());
 
         #endregion
 
@@ -317,16 +346,21 @@ namespace BS3D.Screens
             //translation written straight into its fourth row rather than multiplied in (see BorePose.SlotWorld).
             BorePose pose = _magazine.Pose(_cannon, Game.CannonRig.PivotToFrontBall);
 
-            //Once per frame rather than per slot: it is one number and only slot 0 ever takes it (#175)
-            float muzzleMark = MuzzleMark();
-
             for (int i = 0; i < Magazine.SIZE; i++)
             {
                 Matrix world = pose.SlotWorld(i, out Vector3 position);
 
-                //The round that fires next is marked and the queue behind it is not — see the region above for
-                //why a mark is what this needs and why the glass could not be asked to do it
-                float mark = i == 0 ? muzzleMark : 0f;
+                //NO ball in the barrel carries a ripple any more (#236). Slot 0 used to breathe one — see the
+                //region above for what that was for and why the channel was wrong — and the owner's ruling is
+                //that no loaded round should pulse at all: whatever says "this one, right now" belongs beside
+                //the ball, not on its shading. The halo does it, and the strip in the corner says it again in
+                //2D. What is left here is the transmute's dither, which is a different thing entirely.
+                const float mark = 0f;
+
+                //Slot 0's world position, kept for the halo drawn later in the frame — stored rather than
+                //recomputed from a second Pose() call, for the reason _previewMuzzle is: the ring and the ball
+                //it rings cannot be allowed to disagree about where the bore is.
+                if (i == 0) _muzzleBallPosition = position;
 
                 //A ball whose colour was eliminated from the cluster is re-coloured where it sits, and the two
                 //colours cross-fade by dithering against each other: the new one arrives (negative) while the

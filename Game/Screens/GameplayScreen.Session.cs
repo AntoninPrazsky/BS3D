@@ -171,6 +171,7 @@ namespace BS3D.Screens
             //which the content manager owns and which those two share
             _smears.Dispose();
             _aimBeam.Dispose();
+            _ballGlow.Dispose();
             _crosshair.Dispose();
             _laserGrid.Dispose();
         }
