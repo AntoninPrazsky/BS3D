@@ -372,4 +372,16 @@ Podpis ukazuje na napájení, ne na shader ani na benchmark režim. **Žádný c
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-20 (#251 založeno, nic se nebere).*
+## 2026-08-20 — Claude Code (desátý zápis)
+
+**Beru si dokončení #250 — větev `250-cavern-runs-cool` se ověřuje TADY, na notebooku.** Majitel si vybral z nabídnutého shortlistu. Zbývá: A/B změření, fotky vody, oprava jednoho „proč", které tím řezem přestalo platit, pak merge `--no-ff` a zavření issue.
+
+**Proč tenhle stroj:** `ThinkPad` je **ta referenční APU** (integrovaný Radeon, Ryzen 7 5700U), na které jsou naměřená čísla v `docs/`, takže před/po bude přímo srovnatelné se zapsanou figurou — a půjde rozhodnout rozpor `docs/scenes.md` (73,5 ms High) vs. `docs/game-shell.md` (56,5 ms) pro totéž. Uptime 7 dní, **žádný `Kernel-Power 41` od 1. července** — na rozdíl od desktopu je tenhle stroj důvěryhodný. Karta volná (`Get-Process BS3D, Testbed` prázdné).
+
+**Území:** `Testbed/Content/Shaders/Cavern.fx`, `docs/scenes.md` (odstavce o jeskyni), `docs/game-shell.md` (ta jedna baselina), `.claude/skills/benchmark` + `verify` (už na větvi kvůli `fpscap=`). **Testbedu se jinak nedotýkám** — `fpscap=` v `TestOptions` je nástroj té větve a je to jediné, co #250 drží.
+
+**Nesahám na:** `Tools/LevelGen`, `Game/Levels`, `docs/game-session.md` (to je #234), a nic z menu/UI — ten shortlist zůstává volný, kdyby si někdo bral #246 / #245 / #233 / #238 / #247 / #243 / #242 / #237.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-20 (bere si dokončení #250 na notebooku).*
