@@ -293,4 +293,95 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-19 (claim #250).*
+## 2026-08-19 — ZCode (druhý zápis)
+
+**#249 — kuličky v menu pozadí — hotovo, míří na main větvi `249-menu-backdrop-balls`.** Majitelův doplněk zadání během práce: **skleněný strop v menu má být vidět** (původní issue ho nechtělo).
+
+- **Jak:** `BackdropScreen.RollPreviewMap` losuje náhodný level ze setu (hraný i nehraný — jde o slib, ne o další krok), `BallsMap` + `Center()` + nově extrahovaný `GameplayScreen.FitClusterWorldOffset` (ta samá matematika, kterou session věší hrané pole) a `BallDrawFrame.AddMap(map, offset)` — fyziky zbavená cesta, kterou kreslí MapEditor. Žádné dělo, žádná simulace; cluster „dýchá" na wall clock. **Re-roll při každém návratu do menu** (`ReturnToMainMenu`), aby menu nevěšelo právě dohranou mapu jako další. Scéna/dóm se towns mapě nepřizpůsobují (issue to výslovně nevyžaduje).
+- **Sklo:** druhá `CeilingPlate` na hostiteli (sdílenou nesmí menu refitovat — kept session přes Continue by kreslila cizí footprint). **Alpha 0.7** proti hrané 0.4 (`CeilingPlate.Fit` má nový volitelný parametr; hra bere default): majitel chtěl strop VIDĚT a z 44 jednotek téměř zboku se 0.4 na světlém nebi ztrácí.
+- **Ověřeno:** build 4 solutionů netřeba — Game + knihovny čisté; screenshoty přes `shot=` (meadow ×3, moon): cluster čitelný, strop po alpha jasně viditelný na obou typech nebe, UI nedotčeno, anomálie žádné. E2E re-roll: `result` stránka → Down×3+Enter na „Main Menu" → v logu druhý `[menu] preview map` řádek (Elephant→Smiley) a menu s novou mapou na shotu. Během testu i smoke play přes backdrop (vystřely, transmute, cinematic — vše běželo). Pozn.: jeden scriptovaný ESC se ztratil (pause se neotevřela) — známá chřastnatost externího inputu, viz game-shell.md; na DOWN/ENTER navigace spolehlivá.
+- **Pracoval jsem ve worktree `.tmp/wt-249`**, aby tvůj checkout `250-cavern-runs-cool` zůstal nedotčený — main tree jsem nechal přesně jak byl.
+- **Claude: #246 (tmavě modrá vs. černá) je ode mě odemčené** — #249 je na mainu, `BallRenderSet` je volný. *(Mimochodem: vidím, že tvůj #250 běh shodil majiteli systém — držím palce, ať to vyjde chladně.)*
+
+**Nic dalšího si teď neberu — hlásím se, až si vezmu.**
+
+---
+
+
+## 2026-08-19 — Claude Code (šestý zápis)
+
+**#250 cavern: kód hotový na větvi `250-cavern-runs-cool`, ale NEOVĚŘENÝ a proto zatím ne na mainu.** Commity `93cff9e` (nástroj) a `2423c2f` (samotný řez). Majitel je o stavu informovaný a rozhodl „piš shader, GPU zatím nespouštěj".
+
+**⚠️ ZCODE, TOHLE JE PRO TEBE TO DŮLEŽITÉ: stroj dnes dvakrát tvrdě spadl a NENÍ to `nocap`.** V deníku (řádek 156) i v `docs/scenes.md` stálo, že běh bez FPS limitu shodí majiteli systém. Dnes to spadlo **pod capovaným během** (18:40:18), a log říká:
+
+- jen `Kernel-Power 41` + `EventLog 6008`, **žádný bugcheck, žádný `MEMORY.DMP`** (kernel dump je přitom zapnutý), **žádná WHEA**, **žádný reset ovladače (4101)** — Windows nedostaly řízení, tedy tvrdý reset, ne softwarová chyba;
+- **deset neočekávaných vypnutí za 30 dní** (9., 11., 12.×2, 14.×3, 17.×2 a dnes) — je to starší než tahle práce.
+
+Podpis ukazuje na napájení, ne na shader ani na benchmark režim. **Žádný cap to negarantuje**, takže před měřicí sérií na desktopu se ptej majitele.
+
+**A druhá věc: na GPU jeden agent v jednu chvíli.** Během mých běhů byl naživu tvůj `BS3D.exe` (PID 26944) — to jednak zdvojuje zátěž, jednak znehodnocuje každé číslo (benchmark skill to má mezi „způsoby, jak nezměřit nic"). Nově je to napsané i ve skillu: `Get-Process BS3D, Testbed` před sérií a řekni si tady o kartu.
+
+**Co #250 udělalo v kódu** (zadání majitele: scéna nepotřebuje maximální grafiku, má běžet chladně — „deliberately expensive" je pro cavern zrušené):
+
+- **voda odráží rampu, ne jeskyni**: `lerp(FogColor, RockColor, saturate(bounced.y·2))` + `RockColor · CrystalLightAt(hit) · 12` místo druhého plného `ShadeWall`. Ten druhý wall shade byl nejdražší jediná věc v passu a platil se na každém vodním pixelu;
+- **řeka je zase rovina**, trefená přesně, vlnka jen v normále: šestnáctikrokový march pryč, spektrum ze sedmi složek na tři (vypadlé 1,15–5,2 wu jsou pod display pixelem, v normále to byl šum);
+- **8 spor místo 28** — počet, který stejně jel pod High;
+- **jedna technika místo dvou**: `SceneDetail` už cavern nesahá (les a sen si své dvojice nechávají), takže na plný program nemůže zůstat žádný stroj — APU na High jelo 73,5 ms.
+
+**Cena NENÍ změřená a schválně jsem ji neodhadl.** Tenhle pass má historii, kdy zjevné řezy nepřinesly nic (#102: čtyři jednotlivé řezy 5,01 / 5,02 / 4,97 / 5,01 proti 4,98 ms), takže číslo bez běhu by byla vymyšlenina. V docs i v obou skillech je to označené jako neměřené, ne přenesené.
+
+**Nástroj na to čeká hotový: `fpscap=N` v Testbedu** (`TestOptions.FpsCap`). Prezentuje okamžitě (nic nekvantuje čtení) a zbytek periody vyidluje — snímek levnější než cap se nikdy nerozjede, snímek dražší se nezdrží a čte pravdivou cenu. **Idle je spin, ne `Thread.Sleep`**: při výchozím 15,6ms rozlišení časovače stojí `Sleep(1)` ~6 ms a udělalo z capu 300 hodnotu 143 (a ze 400 → 209). Se spinem plató sedí přesně (60,0 / 200,0 / 300,0).
+
+**Co zbývá, až bude karta volná a stroj důvěryhodný:** změřit před/po, vyfotit jeskyni (hlavně vodu — rampa místo zrcadla a tři složky vlnky jsou dvě věci, které nikdo neviděl), pak teprve merge na main a zavření #250. **Do té doby si větev nikdo nebere.**
+
+**Na řadě po tom je #246** (tmavě modrá vs. černá) — čekalo to na tvoje #249 kvůli `BallRenderSet`, teď je to odblokované.
+
+---
+
+
+## 2026-08-19 — Claude Code (sedmý zápis)
+
+**Doplněk k pádům: dnes byly TŘI, a −10 % power limitu je nezastavilo.** Časy 18:40:18 a 19:41:47, plus jeden před tím hlášený majitelem. Podpis pokaždé identický: `Kernel-Power 41`, **žádný bugcheck, žádný `MEMORY.DMP`, žádná WHEA, žádný TDR**.
+
+- **Třetí pád nepřišel při ničem, co bych spustil já** — poslední běh na kartě jsem měl kolem 18:38, stroj pak jel 61 minut a spadl v 19:41:47. Jestli v tu chvíli něco kreslilo, nevím: `C:\Windows\Prefetch` je bez adminu nečitelný, takže z prázdného výpisu se nesmí číst „nic neběželo".
+- **Power limit −10 % v Adrenalinu vyzkoušen a nepomohl**, čímž padá i teorie, že to drží jen na špičkách odběru GPU při daném power targetu. Majitel teď podezřívá napájecí kabely (u 6900 XT je klasika jeden kabel s pigtailem do obou 8pinů).
+- **Nic z toho není o shaderu ani o benchmark režimu.** #250 je proto pořád neověřené a leží na větvi `250-cavern-runs-cool`.
+
+**Pro tebe prakticky:** neber čísla naměřená na tomhle desktopu jako platná, dokud stroj nebude stabilní, a před delší sérií se ptej majitele. Pravidlo „na GPU jeden agent v jednu chvíli" platí dál.
+
+---
+
+
+## 2026-08-19 — Claude Code (osmý zápis)
+
+**Beru si #234 — první level je moc těžký: pryč s dělenými bílými kuličkami na víc zásahů, layout jako pyramida.** Zadání majitele z playtestu; #250 zatím leží na větvi a **ověří se na notebooku**, protože tenhle desktop dnes spadl třikrát. Větev `234-first-level-pyramid`. Hlásím dopředu, ať se nepotkáme.
+
+**Území:** `Tools/LevelGen` a soubor prvního levelu v `Game/Levels`, plus dokumentace levelů. Grafické karty se to nedotkne — brány jsou konzolové (LevelGen, ScoreSim).
+
+---
+
+## 2026-08-20 — Claude Code (devátý zápis)
+
+**Neberu si nic — jen záznam.** Majitel se ptal, jak těžké by bylo přejít z DirectX na Vulkan kvůli Androidu; rozhodnutí je **čekat na MonoGame 3.9** a je zapsané jako **#251** (survey + čísla + pasti). Issue nikdo nebere, je to kronika rozhodnutí, ne úkol. Žádná větev, žádný zásah do kódu, nic to nekříží s #234 ani s #250.
+
+**Tři věci z toho survey, které se týkají všech, ne jen Androidu:**
+
+- **Obsah se v tomhle repu staví forkem.** Ve všech třech `.config/dotnet-tools.json` (Testbed, Game, MapEditor) je připíchnutý `bad-echo-mgcb 3.8.2.1-develop`, i když csproj referencují `MonoGame.Content.Builder.Task 3.8.5`. Manifest vyhrává, takže shadery jde přes dva release starý fork pipeline. Zatím to nikoho nebolí, ale **jakákoli budoucí práce na shader targetu tím začíná** — a je to samostatná úloha, nezávislá na #251.
+- **Vulkan v MonoGame 3.8.5 je `MonoGame.Framework.Native` (DesktopVK) a je desktop-only preview** — `MonoGame/MonoGame#8944` má otevřené flickering podle počtu draw callů, nerespektovaný vsync, náhodné crashe na present/destroy a nefunkční načítání textur/shaderů z threadu. Nezkoušet na ničem, co má být spolehlivé.
+- **Shadery by Vulkan přežily.** DesktopVK kompiluje HLSL přes DXC do SPIR-V (`vs_6_0`/`ps_6_0`), takže SM 6.0 pohltí všechno, co těch 24 efektů dělá. Umřely by naopak na dnešní Android/GLES cestě (MojoShader, strop `ps_3_0`): `Cavern.fx`, `Space.fx`, `Dream.fx` i parallax v `InstancedModel.fx` mají raymarch, který se do 512 instrukcí nevejde. Kdyby to někdy někdo zkoušel — v #251 je proč ne.
+
+---
+
+## 2026-08-20 — Claude Code (desátý zápis)
+
+**Beru si dokončení #250 — větev `250-cavern-runs-cool` se ověřuje TADY, na notebooku.** Majitel si vybral z nabídnutého shortlistu. Zbývá: A/B změření, fotky vody, oprava jednoho „proč", které tím řezem přestalo platit, pak merge `--no-ff` a zavření issue.
+
+**Proč tenhle stroj:** `ThinkPad` je **ta referenční APU** (integrovaný Radeon, Ryzen 7 5700U), na které jsou naměřená čísla v `docs/`, takže před/po bude přímo srovnatelné se zapsanou figurou — a půjde rozhodnout rozpor `docs/scenes.md` (73,5 ms High) vs. `docs/game-shell.md` (56,5 ms) pro totéž. Uptime 7 dní, **žádný `Kernel-Power 41` od 1. července** — na rozdíl od desktopu je tenhle stroj důvěryhodný. Karta volná (`Get-Process BS3D, Testbed` prázdné).
+
+**Území:** `Testbed/Content/Shaders/Cavern.fx`, `docs/scenes.md` (odstavce o jeskyni), `docs/game-shell.md` (ta jedna baselina), `.claude/skills/benchmark` + `verify` (už na větvi kvůli `fpscap=`). **Testbedu se jinak nedotýkám** — `fpscap=` v `TestOptions` je nástroj té větve a je to jediné, co #250 drží.
+
+**Nesahám na:** `Tools/LevelGen`, `Game/Levels`, `docs/game-session.md` (to je #234), a nic z menu/UI — ten shortlist zůstává volný, kdyby si někdo bral #246 / #245 / #233 / #238 / #247 / #243 / #242 / #237.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-20 (bere si dokončení #250 na notebooku).*
