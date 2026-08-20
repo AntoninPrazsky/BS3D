@@ -294,6 +294,13 @@ static const float RIVER_AMP[RIVER_WAVE_COUNT] = { 1.0, 0.38, 0.13 };
 static const float RIVER_PHASE[RIVER_WAVE_COUNT] = { 0.0, 3.9, 5.1 };
 static const float RIVER_AMP_SUM = 1.51;   //the weights above summed: the ripple's worst-case reach
 
+//How far the ripple's slope drags the caustic lookup, in world units per unit of gradient. The caustic cell
+//is 1/0.30 = 3.33 world units across and this field's gradient runs about 0.25 at rest and 0.54 at its
+//steepest (the three components' amp x 2pi/wavelength, summed), so 6.0 displaces the web by half a cell
+//typically and a whole one on a flank - enough to break the lattice, not enough to swim. See the caustics
+//in CavernScene for why the warp exists at all.
+#define CAUSTIC_WARP 6.0
+
 //How high the surface stands over the mean plane at p, in world units - a figure only the NORMAL and the
 //crest glow read now, the surface itself being the plane. The amplitude still dies between 70 and 170 units
 //of horizontal distance from the lens, so the far river is dead flat: at that distance a ripple is under a
@@ -363,6 +370,14 @@ CavernVertexOutput CavernVS(CavernVertexInput input)
 //one - and the river's sixteen-step march went with them, the one reduction the measurements ranked as
 //worthless on its own but which cannot help once the program around it is short enough to matter. There is
 //no `detail` argument any more and no second technique: what is left is what every machine draws.
+//
+//AND THE FOUR ROWS ABOVE ARE A DESKTOP GPU'S ANSWER, WHICH DOES NOT TRANSFER (#250, measured on the APU).
+//That matters because those rows are the reason nobody expected this cut to pay. Same instrument, fixed
+//camera over the river, arena off, 1600x900: this pass went 23.9 -> 13.3 ms, and the spore cut ALONE - a
+//camera turned away so no water is in frame at all - went 20.7 -> 17.9. On the 6900 XT the same spore cut
+//measured 5.02 against 4.98, i.e. nothing. So "every single reduction is worth nothing" is true of a wide
+//desktop part with occupancy to spare and false of the integrated Radeon the tiers exist for; do not carry
+//an attribution across machine classes here, and take the one for the class you are trying to fix.
 float4 CavernScene(CavernVertexOutput input)
 {
 	float3 direction = normalize(input.Ray);
@@ -440,7 +455,16 @@ float4 CavernScene(CavernVertexOutput input)
 		//look like - a web around dark cells, not dots and not the sine checkerboard the first two
 		//attempts produced. Two scales drifting against each other so the net never sits still; finer
 		//than the ripple itself, being the focused image of the surface.
-		float2 cp = p * 0.30;
+		//
+		//WARPED BY THE RIPPLE'S OWN GRADIENT, and that is not decoration: while the surface was marched, the
+		//web was sampled at the point the ray met a real CREST or TROUGH, so the waves distorted it for free -
+		//squeezed on the flanks, stretched over the tops - and that distortion is most of what said "water"
+		//rather than "tiling". Read on the flat plane the same field comes out an undistorted world-space
+		//lattice, and at a grazing look it reads as a patterned FLOOR, which is the failure this scene has
+		//already had once (see CausticStrength). The gradient is already in registers from the normal above,
+		//so displacing the lookup by it costs nothing and is the same optical argument the geometry used to
+		//make: the focused image moves with the slope of the surface focusing it.
+		float2 cp = (p + grad * CAUSTIC_WARP) * 0.30;
 		float web1 = pow(saturate(1.0 - VoronoiEdge2(cp + float2(t * 0.20, t * 0.14)) * 2.4), 6.0);
 		float web2 = pow(saturate(1.0 - VoronoiEdge2(cp * 1.9 + float2(-t * 0.15, t * 0.11) + 17.0) * 2.4), 6.0);
 		float caustic = web1 + 0.55 * web2;
@@ -448,11 +472,21 @@ float4 CavernScene(CavernVertexOutput input)
 			+ WaterGlowColor * caustic * CausticStrength
 			+ WaterDeepColor * crystalPool * 6.0;
 
-		//The SHORE BAND: over the last few units before the wall the water shows pure mirror. The mirror
-		//of the wall right above the contact converges to that wall by construction, so the two shading
-		//rules meet at a shared value - where the depths and the crest glow converge to nothing on the
-		//rock side, and used to step across the contact circle in a machined edge. The steam only covers
-		//that seam for grazing rays; a steep look at a near shoreline got the raw line.
+		//The SHORE BAND: over the last few units before the wall the water shows pure mirror, so the depths
+		//and the crest glow are gone before the contact circle rather than stepping across it in a machined
+		//edge. That half still works and is why the band stays.
+		//
+		//ITS CONVERGENCE ARGUMENT DIED WITH THE MIRROR (#250), and the comment used to state it as fact:
+		//while the mirror was ShadeWall along the reflected ray, the reflection of the wall right above the
+		//contact converged to that wall BY CONSTRUCTION, so the two shading rules met at a shared value and
+		//the seam had nothing to show. The mirror is a ramp now, and a ramp cannot converge to anything: at a
+		//steep look on a NEAR shoreline the band comes out RockColor*(1 + 12*pool) against a wall that is
+		//ShadeWall's own dimmer, wet-darkened value, so what used to be a raw dark line is now a PALE strip -
+		//measured, photographed, and left standing on purpose. It needs a camera out at radius ~228 of a 240
+		//cave: every camera the Game has sits within tens of units of the origin, where 230 units of fog
+		//(exp(-0.0045*230) = 0.36) and the steam own that contact entirely. It is the free camera in the
+		//Testbed and the map editor that can reach it. The caustic warp above cannot touch this either way -
+		//the caustics live in `depths`, which is exactly what this band excludes.
 		float shore = saturate((CaveRadius - length(p)) * 0.11);
 
 		color = lerp(mirrored, depths, (1.0 - fresnel) * shore);
