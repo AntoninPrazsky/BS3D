@@ -384,4 +384,25 @@ Podpis ukazuje na napájení, ne na shader ani na benchmark režim. **Žádný c
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-20 (bere si dokončení #250 na notebooku).*
+## 2026-08-20 — Claude Code (jedenáctý zápis)
+
+**#250 dokončeno, změřeno, vyfoceno — na mainu jako `4d76911`, issue zavřené, větev `250-cavern-runs-cool` smazaná (byla plně obsažená).** Ověřeno na notebooku, což je **ta referenční APU**, na které jsou naměřené všechny cavern figury v docs.
+
+- **Co to koupilo.** Testbed, pevná kamera nad řekou, `arena=none`, 1600×900, dóm 13, `fpscap`: **23,9 → 13,3 ms** (ssaa 1), 25,2 → 16,0 (ssaa 2), 40,0 → 31,9 (ssaa 4). Hra, `level=Chest`, `nocap`: **High 32,6 → 26,5 ms** (30,8 → 37,7 FPS), rozsahy 31,0–34,2 proti 24,4–28,8, bez překryvu. **Medium 24,2 → 24,3 — beze změny, a správně:** Medium už redukovanou techniku jelo, takže mu tenhle řez nově bere jen march řeky, a u hrané kamery řeka v záběru není. Celý zisk padl na tier, který kreslil plný program.
+- **⚠️ Jedna regrese nalezená a opravená zdarma.** Plochá řeka se v **menu** čte jako vzorovaná podlaha — hrubá pravidelná mříž buněk, kde marchovaná verze měla jemný rozlámaný třpyt. Páka, kterou docs samy jmenovaly (`CausticStrength`), to nebyla: dokud byla hladina marchovaná, síť se vzorkovala tam, kde ray potkal skutečný hřeben, takže ji vlny **zdarma** mačkaly a táhly — a to byla většina toho, co říkalo „voda“. Ztlumení by udělalo jen tmavší mříž. Vyhledání kaustiky teď posouvá **gradient vlnky, který už v registrech je** (`CAUSTIC_WARP`): 14,5 ms bez, 13,3 s ním.
+- **Dvě regrese přijaté a zapsané, obě vyfocené.** Glinty krystalů vycházejí jako hladké diagonální šmouhy místo rozlámaného třpytu (rovina nabízí každému glintu stejný sklon přes dlouhý úsek — a za plochu, která tam není, není zdarma náhrada). A **shore band**: z tmavé čáry je **světlý pruh**, protože jeho konvergenční argument umřel se zrcadlem. Potřebuje kameru na radiusu ~228 z 240 — každá kamera, kterou hra má, sedí u počátku za 230 jednotkami mlhy. Dosáhne tam volná kamera **Testbedu a editoru**.
+- **⚠️ Pro každého, kdo bude tuhle scénu měřit — tři pasti, teď i ve skillu:**
+  1. **`ssaa` sweep je na cavern a dream špatný nástroj.** Od #155 shadují target o velikosti back bufferu, takže úspora vyšla **stejných ~9 ms u ssaa 1, 2 i 4**. Pass se škáluje `width=`/`height=`.
+  2. **Back buffer větší než panel se tiše zmenší.** `width=2560` na tomhle 1920×1080 stroji nahlásil na vlastním `[fps]` řádku `958x484` a run šel do koše. Ten řádek to jméno nese právě proto — **čti ho zpátky**.
+  3. **Široký rozptyl není automaticky teplo.** Herní run má vlastní varianci 4,4 ms mezi dvěma běhy *téhož* buildu (padající strop, kývající klastr, špičky fyziky); pevná kamera zopakovaná po 20 minutách nepřetržité zátěže čtla 13,3 ms podruhé stejně, takže se nic neškrtilo.
+- **⚠️ #102 platí jen na desktopu.** „Každá jednotlivá redukce je k ničemu“ je odpověď 6900 XT. Na integrované kartě má **redukce spor sama o sobě** hodnotu **20,7 → 17,9 ms**, kde desktop měřil 5,02 proti 4,98, čili nic. **Atribuci mezi třídami strojů se tady nesmí přenášet** a u každé zapsané figury musí být, ze které je.
+- **Opraveny dvě zapsané baseliny, které si roky odporovaly:** `docs/scenes.md` uvádělo 73,5 ms jako aktuální APU High (figura z doby před #155) a `docs/game-shell.md` 56,5/17,5 pro totéž (figura z doby ploché hladiny). **Dreamova 61,7/18,8 je pod stejným podezřením a nikdo ji nepřeměřil — #167 je otevřené právě na to.**
+- **Nedoděláno:** fotka řeky a břehu z *finálního* shaderu. Desktop se během práce zamkl a **Testbed vlastní writer back bufferu nemá** (hra ho má, proto jsou herní fotky v pořádku); skill na to má popsaný desetiřádkový dočasný patch. Jeden příkaz, až bude stroj odemčený.
+- Fotky (25 PNG, before/after/warp) jsou v `C:\Users\PanRD\Pictures\bs3d-250-verification\`, vizuální srovnání publikované jako artifact.
+- Ověřeno: všechny tři solutiony staví (`Cavern.fx` staví každý z nich), `Cavern.xnb` 498 669 → 185 840 B.
+
+**Nic dalšího si teď neberu.** Volné a nikým nedržené, v pořadí, jak bych je vzal: **#246** (tmavě modrá vs. černá — dvě konstanty, nulová cena, odblokuje #236), **#245** (scroll fokusu v pickeru levelů), **#233 / #238 / #247 / #243** (menu a UI, čtyři samostatné větve, dělí se o `BS3DGame.Menu.cs`, takže po sobě), **#242** (konfety ostré nad UI — ostrou vrstvu už postavilo #225), **#237** (pásek dlažby u odtoku — příčina nalezená: #109 překorigoval). Pozor: **#211 má osiřelou pushnutou větev `origin/211-music-switches-fade`, která se nedá zmergovat a po vynucení by se nezkompilovala** (píše proti `_instance`/`_track`, které #212 z mainu smazalo) — návrh v ní je ale dobrý, chce přepsat proti `_voice` na nové větvi a tu starou vědomě odstavit, ne force-pushnout.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-20 (#250 na mainu a zavřené, nic se nebere).*
