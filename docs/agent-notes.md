@@ -511,4 +511,20 @@ Podpis ukazuje na napájení, ne na shader ani na benchmark režim. **Žádný c
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-20 (bere si glow z #236).*
+## 2026-08-20 — Claude Code (devatenáctý zápis)
+
+**Glow hotový, na mainu jako `870ed96`, #236 zavřené, větev smazaná. Jeden zapsaný požadavek z něj přenesen do nového #252, ne zahozen.**
+
+- **Co jede:** nový `BallGlow` (Prazsky.Core) + `Testbed/Content/Shaders/BallGlow.fx` — jeden additive camera-facing billboard, `DepthRead`, v lineární radianci nad 1, takže kvete přes glare jako emisivní kuličky. Puls se přestěhoval **z kuličky na kruh okolo ní**, v její vlastní barvě. Žádná kulička v hlavni už nenese `Ripple`, mark ze slotu 0 včetně.
+- **⚠️ Ta díra v prostředku je zásluha depth bufferu, ne figura v shaderu.** Quad prochází středem kuličky, takže její přední polokule je blíž čočce a hloubkový test tu část zahodí — zbyde prstenec za siluetou. **A právě proto ten mechanismus funguje, kde ty dva změřené ne**: oba přidávají světlo *na kuličku*, kdežto halo dává barvu tam, kde žádná nebyla (tmavá hlaveň, obloha za ústím). Ten samý test dal efektu i charakter zdarma: hlaveň před kuličkou většinu hala sežere a co vyleze zářezem, čte se jako **dělo osvícené zvnitřku barvou, kterou se chystá vystřelit**. To byla predikce z toho argumentu *před* stavbou, potvrzená pak fotkou.
+- **⚠️ Metodika, která ušetřila ladění naslepo:** první build byl skoro neviditelný. Místo hádání konstant jsem postavil **záměrně absurdní** verzi (12 poloměrů kuličky, 12× jasnost). Zaplavila snímek ve správné barvě, čímž bylo hotovo: stavy, hloubka i ukotvení jsou správné a špatné jsou jen čísla. **Tohle je levnější první krok než ladit konstantu, kterou ještě nevidíš.**
+- **⚠️ Rozkyv dýchání (0,24…1,00) jsem nastavil argumentem, ne měřením — a je to tak napsané.** Plno na vrcholu, protože majitel chtěl *silný* puls; nikdy blízko nule, protože pravidlo #175 („kulička nesmí být ani na okamžik neoznačená") platí dál. **Měřit to na obrazovce jsem zkusil a vzdal:** plánovat `shot=` proti sinusovce 1,6 Hz měří **sampler, ne efekt**. Hra jede na Reelu při High ~21 FPS a snímek, který fotí, stojí ~0,1 s, takže z osmi požadovaných časů přišly tři snímky — a dva pokusy s rozestupem půl periody daly 4 % a pak 2 %, tedy **opačným směrem**. Do docs je to napsané jako neměřené a proč; **necitujte pro to obrazovkové číslo, dokud nebude frame-accurate cesta k snímkům.**
+- **Cadence se NEZMĚNILA** schválně: 1,6 Hz (mimo tep klastru 1,1 i blik ghosta 2,2) a gate `_previewBeamVisible` jsou #175ovy. Špatný byl kanál, ne časování.
+- **Co šlo do #252 místo zahození:** majitelův požadavek „žádná nabitá kulička nemá pulzovat" je splněný jen z poloviny. `EmissiveStrength` a puls jsou **uniformy na renderer** a kuličky zásobníku padají do **bucketů klastru**, takže tep sdílejí konstrukčně. Vypnout ho jen jim chce **per-instance data nebo vlastní draw call** — tedy zásah do tvaru `BallRenderSet`, což je přesně to jedno místo, kam #76 vzhled kuličky schválně soustředilo. #252 má obě varianty naceněné plus otázku, jestli se to vůbec chce: kulička, co letí, je teď označená **dvakrát** bez jakékoli animace jasu, a mrtvá queue vedle dýchajícího klastru se může číst jako chyba, ne jako klid. To je domněnka a #252 jmenuje ten jednokonstantový experiment, který ji rozsoudí.
+- **Ověřeno:** tři solutiony staví, `BallGlow.xnb` se s hrou dodává, fotky `level=One` (červená kulička svítí proti modrému nebi a strip v rohu souhlasí), `level=Reel` a `level=Globe`. Fotky v `C:\Users\PanRD\Pictures\bs3d-236-glow\`.
+
+**Nic dalšího si teď neberu.** Volné: **#252** (tep zásobníku — chce majitelovo rozhodnutí mezi dvěma cestami), **#233 / #238 / #247 / #243** (menu a UI, po sobě, dělí se o `BS3DGame.Menu.cs`), **#242**, **#237**, **#240**, **#241**. `origin/234-first-level-pyramid` je cizí rozdělaná práce; `origin/211-music-switches-fade` leží dál (guard, patch je v komentáři u #211).
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-20 (#236 celé zavřené, zbytek v #252, nic se nebere).*
