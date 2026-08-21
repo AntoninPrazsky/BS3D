@@ -746,4 +746,30 @@ Majitel chtěl větší mezery mezi nabitými kuličkami. **Konstanta, na kterou
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (#248 — beru si 3D podobu titulku, rozhodnutí majitele padlo na 3D).*
+
+## 2026-08-21 — Claude Code (dvacátý devátý zápis)
+
+**Beru si #235 — ptáci vypadají hranatě a mechanicky, mají mít přirozený tvar i let.** Větev `235-birds-natural`. Území: `Testbed/Content/Shaders/Birds.fx`, blok Birds v `BS3DLibs/Prazsky.Core/Render/SceneRenderer.cs`, `BirdsConfig.cs`, nový mesh v `Prazsky.Core/Render/`, doc řádky v `docs/scenes.md`.
+
+**Precedens je #202 a jde se po něm: billboard → skutečná 3D geometrie.** Akácie byly plochý camera-facing quad, jehož pixel shader kreslil siluetu `clip()`em, a četly se jako papírový výstřižek — jeden plochý tvar, ať se kamera hnula kamkoli. Ptáci jsou **přesně totéž**, jen s pohybem navrch. Spočítal jsem si, že to nejsou vzdálené tečky, kvůli kterým by billboard obstál: rozpětí 6 jednotek na ~60 jednotek vzdálenosti dává na 4K zhruba **190 px**, takže ta hranatost je vidět v plné velikosti.
+
+**Co je na dnešní verzi hranaté a mechanické — pojmenované, ať je co ověřovat:**
+- **křídlo je úsečka.** `wing = au * (dihedral + amp*sin(phase))` je dvojice **rovných** ramen, tedy písmeno V. Skutečné křídlo je oblouk, protože každá stanice po rozpětí je pootočená jinak.
+- **žádná hlava, žádný ocas, žádná přední osa.** Tělo je symetrická gaussovská bulka, takže silueta nemá kam letět.
+- **konce křídel se rozpouští** `smoothstep`em, místo aby se zužovaly do prstů — a supi a orli, kteří v termice krouží, mají rozeklané ruční letky, což je ta nejrozpoznatelnější věc na siluetě.
+- **`sin(phase)` je metronom.** Symetrický nahoru-dolů, pořád stejně rychle, nikdy nepauzuje. Kroužící pták **převážně plachtí** a máchne v krátkých sériích; sestup je rychlý a silový, zdvih pomalý a s pokrčeným zápěstím.
+- **všechny body křídla se hýbou ve fázi** — chybí zpoždění po rozpětí, tedy vlna běžící ke špičce.
+- **billboard nikdy nezatočí.** Pták kroužící po kruhu se má **naklánět do zatáčky**; camera-facing quad stojí vždy zpříma, a to je půlka toho „mechanicky".
+
+**Čeho se držím:**
+- osvětlení **doslova jako `Acacia.fx`** — `DiffuseColor * (ambient + SunColor * ndotl)`, hemisféra zenit-horizont podle normály. Pták tak stojí ve světle scény, ne nalepený přes ni.
+- **spodek musí zůstat skoro černý**, protože prosvícený pták proti obloze je silueta; dnešní `Color` je finální radiance bez osvětlení, takže albedo musí vyjít tak, aby ambient-only sedělo na dnešek. Zisk je záblesk osvětleného hřbetu, když se pták nakloní.
+- **náklon a sklon odvodit, ne nastřelit**: náklon z `atan(v²/(g·r))` vlastní orbity, sklon z derivace vlastního stoupání. Užší kruh se pak nakloní víc sám od sebe.
+- `BirdsConfig.Aspect` (výška billboardu k šířce) **ztrácí smysl a jde pryč** — je použitý na jednom jediném řádku a scene configy se nikam neserializují (od format-2 refactoru jsou parametry scén fixní v kódu), takže je to bezpečné.
+- Ověřuju ve **všech třech scénách**, které hejno kreslí (savanna, poušť, outback) — kreslí se z jednoho sdíleného bufferu.
+
+**Nesahám na nic jiného.** `origin/248-title-3d` je cizí rozdělaná práce; `origin/211-music-switches-fade` leží dál.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (#235 — beru si přirozený tvar a let ptáků, jde se na skutečnou 3D geometrii).*
