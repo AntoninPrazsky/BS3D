@@ -176,7 +176,7 @@
       "block": "The Reveal",
       "shots": 56,
       "minStars": 40,
-      "ceilingStep": 9
+      "ceilingStep": 12
     },
     {
       "file": "Fossil.json",

@@ -304,15 +304,26 @@ namespace BS3D.Screens
         /// The spent budget is tested last — after a possible clear this same frame has run. The last ball of a
         /// budget may be the one that empties the field, and a loss called before <see cref="OnBallLanded"/> had
         /// its say would steal that win. So the budget only loses when nothing is in flight and the field is still
-        /// standing. The ceiling, by contrast, is an immediate loss the moment a ball crosses the line — a descent
-        /// can push one there between landings, so it cannot wait on the same event the budget does.
+        /// standing. The ceiling, by contrast, does not wait on a landing at all — a descent can push a ball past
+        /// the line between landings — but it is no longer decided on a single frame's pose either: see
+        /// <c>CLUSTER_SWING_ALLOWANCE</c> and <c>CLUSTER_BELOW_LINE_GRACE</c> (#239), which is what stops a
+        /// cluster that merely swings from ending a level it is nowhere near losing.
         /// </remarks>
+        /// <param name="elapsed">
+        /// REAL seconds this frame, the same figure the quality probe is fed — not the simulation's scaled step.
+        /// A swing takes the time it takes whatever the world is doing, so the grace it is measured against has
+        /// to be wall time.
+        /// </param>
         /// <param name="mayLose">
         /// False while a drop cinematic runs: the walk and the floor alarm still evaluate on this frame's
         /// poses — the warning is the cluster's own geometry, not part of the spectacle the cinematic holds —
         /// but neither ending may be declared until the collapse the player earned has been seen.
         /// </param>
-        private void CheckLevelLost(bool mayLose)
+        //How long the cluster's lowest ball has been at or below the death line without once coming back up.
+        //Reset by the rule itself the moment it does, so it measures a HELD crossing rather than a total.
+        private float _belowLineSeconds;
+
+        private void CheckLevelLost(float elapsed, bool mayLose)
         {
             //Already ending — a cleared countdown or a loss in flight. Testing further would re-trigger a loss
             //on top of a clear or a teardown already underway.
@@ -345,10 +356,26 @@ namespace BS3D.Screens
             //poses, and both losses will be re-asked the moment the cinematic lets go.
             if (!mayLose) return;
 
-            if (lowestBallY <= CEILING_DEATH_Y)
+            //Deeper than any swing measured on the heaviest cluster in the pack reaches, so there is nothing to
+            //wait for: the descent has genuinely put a ball under, and holding the verdict for a second would
+            //only be a second of watching a lost level.
+            if (lowestBallY <= CEILING_DEATH_Y - CLUSTER_SWING_ALLOWANCE)
             {
                 LoseLevel(LevelFailure.ClusterReachedLine,
-                    $"a ball at {lowestBallY:F2} <= {CEILING_DEATH_Y:F2}");
+                    $"a ball at {lowestBallY:F2} <= {CEILING_DEATH_Y - CLUSTER_SWING_ALLOWANCE:F2}"
+                    + $" ({CLUSTER_SWING_ALLOWANCE:F2} past the line, deeper than a swing goes)");
+                return;
+            }
+
+            //Otherwise the line has to be HELD rather than merely touched. No reset is needed when a level
+            //starts: every level begins with its cluster far above the line, so the first frame zeroes this.
+            _belowLineSeconds = lowestBallY <= CEILING_DEATH_Y ? _belowLineSeconds + elapsed : 0f;
+
+            if (_belowLineSeconds >= CLUSTER_BELOW_LINE_GRACE)
+            {
+                LoseLevel(LevelFailure.ClusterReachedLine,
+                    $"a ball at {lowestBallY:F2} <= {CEILING_DEATH_Y:F2} held for {_belowLineSeconds:F2} s"
+                    + $" (grace {CLUSTER_BELOW_LINE_GRACE:F2} s)");
                 return;
             }
 
