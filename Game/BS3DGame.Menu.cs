@@ -318,9 +318,9 @@ namespace BS3D
         //A pointer has to move by more than its own jitter before it takes the focus back off the pad
         private const int NAV_MOUSE_WAKE_PIXELS = 6;
 
-        //Entries are read at a glance and from across a room, so the type is set large. The title is sized to
-        //the whole of GAME_TITLE on one line at the narrowest targeted aspect (16:9, i.e. 3840 design units
-        //wide) with room to spare — a short acronym would take far more, but the name is what is set.
+        //Entries are read at a glance and from across a room, so the type is set large. This used to say how
+        //the TITLE was sized as well; the game's name is not set as type on any page since #248, so what is
+        //left here is the sizes of everything else.
         private const int MENU_FONT_SMALL = 58;
         private const int MENU_FONT_BODY = 80;
 

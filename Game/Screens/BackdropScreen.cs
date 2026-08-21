@@ -211,7 +211,7 @@ namespace BS3D.Screens
 
             Game.Balls.Draw(Game.WallClock);
 
-            //The game's name in 3D (#248), while the main menu is the page on top and nowhere else.
+            //The game's name in 3D (#248), on the title card and on the main menu and nowhere else.
             //
             //THE GATE IS ONE TEST HERE RATHER THAN A CALL FROM THE PAGE, and that is a correctness point, not
             //a preference: Screen.Enter and Screen.Leave are raised on a PUSH and a POP only, and every other
@@ -225,9 +225,16 @@ namespace BS3D.Screens
             //why `celebrate` and `confetti` work as front-end test levers at all), while this screen is not
             //reached at all once a session is on the stack.
             //
+            //IT IS THE SAME OBJECT ON BOTH PAGES, and the page only says WHICH COMPOSITION it is heading for:
+            //the title card wants the whole name on one line in the middle of the frame, the menu wants it in
+            //the corner. The move between them belongs to the wordmark, so no page can leave it stranded half
+            //way across the frame, and the splash's replacement by the menu is what starts it (#248).
+            //
             //After the balls and BEFORE the drain's glass, so the frame's stated order holds — every opaque
             //thing, then everything translucent. It states its own three states and puts them back.
-            if (Manager?.Active is MainMenuPage) Game.TitleWordmark?.Draw(Game.Camera, Game.WallClock);
+            Screen active = Manager?.Active;
+            if (active is MainMenuPage || active is SplashPage)
+                Game.TitleWordmark?.Draw(Game.Camera, Game.WallClock, settled: active is MainMenuPage);
 
             Game.DrawSettingGlass();
 
