@@ -527,4 +527,42 @@ Podpis ukazuje na napájení, ne na shader ani na benchmark režim. **Žádný c
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-20 (#236 celé zavřené, zbytek v #252, nic se nebere).*
+## 2026-08-21 — Claude Code (dvacátý zápis)
+
+**Majitel odehrál glow, schválil ho a zadal dvě věci. Obě na mainu, #252 zavřené.**
+
+1. **Strip posunut od počtu** — `feb0bc6`. První halo sedělo skoro na captionu „balls left" a ty dva readouty se čtly jako jedna přeplácaná věc. Odstup od počtu **nikdy nebyl tatáž figura** jako mezera mezi kolečky, jenže jedna konstanta sloužila obojímu — nová `HUD_MAG_INSET` 110 proti 24, které si kolečka nechávají.
+2. **Puls nabitých kuliček zrušen úplně** — `4b8506d`, což je zároveň **majitelovo rozhodnutí #252** („stačí, když svítí špička kanonu").
+
+**Jak: druhá rovina bucketů.** `BallRenderSet` má teď **dvě roviny** (type × LOD) — dýchající a klidnou — a `BallDrawFrame.Add` má `still`, který kuličku pošle do druhé. `Draw` udělá jeden průchod na rovinu, klidný s `PulseDepth` 0. **Oba průchody si tu hloubku říkají sami**, ne že by jeden dědil, co druhý nechal na rendereru — to je ta past, kterou už jednou zaplatili dva callery shot trailu.
+
+**Vyšlo to levněji, než #252 odhadovalo, a to na obou stranách:**
+- **obávané „druhé místo, které ví, jak se kulička stíní", nevzniklo.** Oba průchody jsou tatáž smyčka nad týmiž buckety skrz tytéž renderery (`DrawPlane(camera, still, pulseDepth)`), takže **jedno místo** to zůstalo — a to je přesně to, co #76 chránilo;
+- draw cally jsou nejvýš jeden na skutečně nabitý typ (tedy do pěti, každý o pěti instancích) a buckety jsou lazy, takže snímek **bez zásobníku** (editor, pozadí menu) se rendereru té roviny nedotkne vůbec.
+
+Per-instance varianta odmítnuta na skutečné ceně: šestý float na `ModelInstance` = změna vertex streamu a dotčení **každého producenta instancí**, kvůli pěti kuličkám za snímek.
+
+**⚠️ Změřeno — a otázka „chce se to vůbec?" si odpověděla sama.** Šest snímků po 0,5 s na `level=Reel` při High, rozptyl (max−min) průměrné luminance oblasti:
+
+| oblast | před | po |
+|---|---|---|
+| zásobník, hluboké sloty | **10,70** | **1,41** |
+| klastr, červený blok | 4,61 | 5,14 |
+| klastr, černý blok | 0,58 | 0,59 |
+| kontrola: kamenná podlaha | 0,23 | 0,15 |
+
+**Ty dva spodní řádky jsou to, co dává hornímu smysl** — říkají, že přístroj čte *puls*, ne snímek: osmička je zdokumentovaně jediná kulička, co nepulzuje, a nehnula se; kus kamenné podlahy dává šumové dno ~0,2. **A ta hodnota „před" mě vyvedla z omylu:** při 10,70 byly nabité kuličky **nejnápadněji pulzující věc ve snímku**, před klastrem na 4,61 — protože jsou blízko čočce a vyplňují svou oblast. Moje obava zapsaná v #252 (že mrtvá queue vedle živého klastru bude číst jako chyba) to měla obráceně.
+
+**⚠️ A ten „levný pokus", který jsem do #252 sám napsal, by neodpověděl** — vynulovat `PulseDepth` globálně na jeden snímek. Ten uniform je společný, takže by přestal dýchat i klastr, a celé riziko bylo právě o tom *kontrastu*. **Poctivá cesta byla změřit skutečnou změnu proti skutečnému mainu** a stojí to jeden rebuild. Kdo bude něco takového vážit, ať si to ověří na kontrolní oblasti, ne na intuici.
+
+**Opraveny tři komentáře**, které starý stav uváděly jako fakt: dva v `PlayHud` („#175's pulse is deliberately NOT removed") a `BallRenderSet`ova vlastní věta, že zásobník jde přes `Add` „like every other ball".
+
+**Testbed si magazín dýchat nechává** schválně — dělo a queue sdílí (#76), ale nemá halo ani HUD strip, které by ten signál nesly, a není to produkt.
+
+**Ověřeno:** staví všechny **čtyři** solutiony (změna je v `Prazsky.BS3D`, takže i editor), fotky Reel před/po, zásobník se skrz novou rovinu kreslí správně — rozbitá rovina by se projevila **chybějícími kuličkami**, což je samo o sobě silná kontrola.
+
+**Nic dalšího si teď neberu.** Volné: **#233 / #238 / #247 / #243** (menu a UI, po sobě, dělí se o `BS3DGame.Menu.cs`), **#242**, **#237**, **#240**, **#241**. `origin/234-first-level-pyramid` je cizí rozdělaná práce; `origin/211-music-switches-fade` leží dál (guard, patch je v komentáři u #211).
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (#252 zavřené, strip posunutý, nic se nebere).*
