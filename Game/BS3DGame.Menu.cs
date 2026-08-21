@@ -1,4 +1,4 @@
-using BS3D.Screens;
+﻿using BS3D.Screens;
 using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
@@ -111,6 +111,7 @@ namespace BS3D
         //Picking a face means picking a system.
         private FontSystem _menuFontSystem, _menuFontSystemBold, _menuFontSystemDisplay;
         private SpriteFontBase _menuFontBody, _menuFontSmall, _menuFontHeading, _menuFontTitle, _menuFontStars;
+        private SpriteFontBase _menuFontSection;
         private SpriteFontBase _menuFontGameTitle, _menuFontFrontEntry;
 
         //The menu is deliberately GREYSCALE — no hue anywhere, and no coloured frames. It has to sit over
@@ -320,6 +321,14 @@ namespace BS3D
         //wide) with room to spare — a short acronym would take far more, but the name is what is set.
         private const int MENU_FONT_SMALL = 58;
         private const int MENU_FONT_BODY = 80;
+
+        //A SECTION label, over rows set in the body face — added by #243, whose complaint was that the settings
+        //headings were too small. They were smaller than the rows they head (58 against 80), which is a heading
+        //upside down, and they were in the SMALL-PRINT face while those rows are in the display one. Above the
+        //body size and well under the page heading's 124, which it must not compete with: one page has both.
+        //MENU_FONT_SMALL could not simply be raised - eight other sites share it (About's paragraphs, four
+        //picker labels, the scene list, the quality note, the unlock note), and every one of them IS small print.
+        private const int MENU_FONT_SECTION = 96;
         private const int MENU_FONT_HEADING = 124;
         private const int MENU_FONT_TITLE = 170;
 
@@ -436,6 +445,8 @@ namespace BS3D
             _menuFontSmall = _menuFontSystem.GetFont(Scaled(MENU_FONT_SMALL));
             _menuFontBody = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_BODY));
             _menuFontHeading = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_HEADING));
+            //The DISPLAY face, not the small one it replaced: a section label over display-face rows belongs to them.
+            _menuFontSection = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_SECTION));
             _menuFontTitle = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_TITLE));
             _menuFontStars = _menuFontSystem.GetFont(Scaled(MENU_FONT_STARS));
 
@@ -497,6 +508,7 @@ namespace BS3D
         internal SpriteFontBase MenuFontBody => _menuFontBody;
         internal SpriteFontBase MenuFontSmall => _menuFontSmall;
         internal SpriteFontBase MenuFontHeading => _menuFontHeading;
+        internal SpriteFontBase MenuFontSection => _menuFontSection;
         internal SpriteFontBase MenuFontTitle => _menuFontTitle;
         internal SpriteFontBase MenuFontStars => _menuFontStars;
         internal SpriteFontBase MenuFontGameTitle => _menuFontGameTitle;
