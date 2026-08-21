@@ -79,7 +79,10 @@ namespace BS3D.Screens
             //world run slow for that single frame instead.
             if (steps == PHYSICS_MAX_STEPS_PER_FRAME) _physicsAccumulator = 0f;
 
-            RemoveFallenBalls(_shotBalls, scoreMisses: true);
+            //Misses stop being scored once the level is over, for the reason OnShotSpent gives: this step runs
+            //under the result page too (#241), and the figures on it were taken off the keeper when the level
+            //ended. The culling itself carries on — that is exactly what empties the drain behind the numbers.
+            RemoveFallenBalls(_shotBalls, scoreMisses: !LevelOver);
             RemoveFallenBalls(_fallingBalls, scoreMisses: false);
         }
 

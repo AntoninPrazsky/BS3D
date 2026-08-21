@@ -596,4 +596,30 @@ Per-instance varianta odmítnuta na skutečné ceně: šestý float na `ModelIns
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (bere si dávku #238/#233/#247/#243).*
+
+## 2026-08-21 — Claude Code (dvacátý třetí zápis)
+
+**#241: simulace už se koncem levelu nezastaví — větev `241-cleared-keeps-simulating`.** Majitel dohrál level a viděl arénu zamrznout za čísly: klastr visí bez hnutí, zbytek kolapsu stojí v půli cesty do výlevky, střela zůstala viset ve vzduchu — a přitom nad tím stoupají rakety a kamera výsledkové stránky se od děla odtáčí.
+
+**Příčina byla stack dělající přesně to, k čemu byl postavený.** Každá stránka nad session má `UpdatesUnderlying = false` a výsledková byla jedna z nich. `ResultPage` teď jako **jediná stránka nad session** odpovídá **true**: pauza je hra *odložená uprostřed tahu*, konec levelu je aréna, která *žije dál bez hráče* — a to je rozdíl, který ty dva flagy vyjádřit umí, kdežto „je nad tím stránka?" ne.
+
+**Co ta výjimka kupuje, rozhoduje session, a dělicí čára je svět proti hře.** `GameplayScreen.UpdateUnderResult` točí simulaci a odpověď děla na poslední výstřel (zpětný ráz, doklouznutí zásobníku, dobarvení). Nic dalšího: žádný vstup ani míření, žádný náhled dopadu, žádný sestup stropu, žádný konec levelu, žádný verdikt kvality — a **hlavně žádnou kameru**, protože tu právě odtahuje stránka a dva zapisovatelé jedné pózy znamenají, že jeden z nich prohrává. HUD se taky nekrokuje, z nejprostšího důvodu: po konci levelu se nekreslí.
+
+**⚠️ Vynechat pravidla z té metody je NEDRŽÍ — a tohle je ta past, kvůli které to není třířádková změna.** Kontakty se zpracovávají **uvnitř** kroku, takže střela, co byla ještě ve vzduchu, spadne rovnou do `OnBallLanded`, ať už ta metoda zavolá cokoli. A na vyčištěném poli by to **znovu spustilo celou oslavu**: `LevelDecided` bylo `_levelLost || _clearedCountdown > 0f`, jenže vyčištěný level ten countdown sám vynuluje — od snímku, kdy jde stránka nahoru, čte `LevelDecided` **znovu „nerozhodnuto"**. Bylo to neškodné jen dokud ta stránka session mrazila.
+
+- **Nové `LevelOver` (`_pendingOutcome != None`)** je čára, za kterou je aritmetika levelu **read-only**, protože `LevelResult` byl z keeperu už sejmutý. Je třetím členem `LevelDecided` a drží čtyři dveře: `OnBallLanded` se vrací hned (**kulička se přilepí dál a mlčky** — handler ji připojil dřív, než to ohlásil, a kulička mizející hráči před očima je zrovna ta chyba, kvůli které `RemoveFallenBalls` sleep-cull nedělá), `OnShotSpent` nic neskóruje, `RemoveFallenBalls` dostává `scoreMisses: !LevelOver` a náhled/vstup padají na rozšířeném `LevelDecided`.
+- Draw už se neptá `_pendingOutcome == None` ručně, ptá se `!LevelOver` — jeden význam, jedno místo.
+
+**Změřeno na skutečném konci levelu** (One dohraný do `OutOfBalls`, dvakrát, dočasnou sondou v `UpdateUnderResult`): pod stránkou `shots=2 → 1 → 0`, jak dvě kuličky, co byly ještě ve vzduchu, dopadly a propadly kill plane — **na starém buildu tam visely, dokud stránka stála**. Skóre stálo na 4 320 přes všech třicet vzorků (to je ta pojistka proti pozdním miss), 33kuličkový klastr měl součet rychlostí 0,66–2,16 a **nikdy ne nulu**: visící klastr se doopravdy neusadí, což je přesně to, proč má smysl ho nechat běžet. Sonda je zase pryč.
+
+**Ověřeno:** staví všechny čtyři solutiony, ScoreSim „all levels rate the right way round", dvě odehrané prohry s fotkou FAILED stránky nad rozsvícenou arénou (bez HUD, bez zaměřovače, bez paprsku — brány drží), a **Retry** z výsledkové stránky nad živou session přestavuje level (`225 balls, 948 constraints` podruhé) a vrací kameru za dělo.
+
+**Opraveno deset komentářů a šest doc řádků**, které starý stav uváděly jako fakt (Fireworks, Confetti, LaserGrid, MenuPage, PresentResult, `Screen.UpdatesUnderlying` v `Prazsky.Core`, tři místa v `ResultPage`, dva v Draw). **Argument pro „oslava patří hostovi" tím nepadá, jen se opravil:** session pod stránkou točí svůj *svět*, ne své *vybavení* — a Main Menu ji navíc zbourá, zatímco display běží dál.
+
+**⚠️ Mimochodem, nesouvisející nález: `Game/BS3DGame.cs` má na 106 řádcích rozbité kódování** — pomlčky uložené jako `â€"` (UTF-8 přečtené jako cp1252 a znovu zakódované). Je to **jediný soubor v repozitáři**, který to má; nikde jinde v `.cs`, `.md` ani `.fx` to není. Nesahal jsem na to nad rámec tří řádků, které jsem tak jako tak přepisoval — je to samostatná změna a chce vlastní větev.
+
+**Nic dalšího si teď neberu.** `origin/234-first-level-pyramid` je hotová cizí práce čekající na merge (majitel řekl, že ji dělá jiný agent); `origin/211-music-switches-fade` leží dál.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (#241 na větvi `241-cleared-keeps-simulating`).*

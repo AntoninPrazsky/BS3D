@@ -44,6 +44,21 @@ namespace BS3D.Screens
         internal override bool CanGoBack => false;
 
         /// <summary>
+        /// <b>Yes, and this page is the only one that says so over a level</b> (#241). Every other page over a
+        /// session freezes it, which is <see cref="MenuPage.UpdatesUnderlying"/>'s whole rule and is right for
+        /// a pause: a game put down mid-move should be exactly where it was left. An ending is not that. The
+        /// player has just watched a collapse go down the drain, and the frame it landed on used to stop dead
+        /// — a cluster hanging perfectly still, balls halted in mid-fall — while the fireworks climbed and
+        /// this page's own camera swung out around it, which read as the arena having been replaced by a
+        /// photograph of itself.
+        /// <para>
+        /// The session decides what that permission actually buys: its world goes on, its rules do not. See
+        /// <c>GameplayScreen.UpdateUnderResult</c>.
+        /// </para>
+        /// </summary>
+        public override bool UpdatesUnderlying => true;
+
+        /// <summary>
         /// <b>No</b> (#178). It dimmed hard once, on the pause screen's argument — a page over a stopped game
         /// — and that argument does not hold here: a pause is a game put down mid-move, where this is the game's
         /// own ending playing out. The fireworks are climbing, the camera is swinging out around the island and
@@ -69,10 +84,11 @@ namespace BS3D.Screens
         //numbers. That is the whole of the moment — the player has stopped playing and is being shown what
         //they did, and a frame frozen at eye level behind the barrel says nothing about it.
         //
-        //Driven from HERE and not from the session, because the session is COVERED by this page and so is no
-        //longer updated at all — it is frozen mid-frame, which is exactly what a pause wants and exactly what
-        //this moment does not. This page is the only screen still running, so it is the only one that can
-        //move anything. (A pause is left alone deliberately: it shows the game exactly as the player left it.)
+        //Driven from HERE and not from the session, even though the session is still updating under this page
+        //(#241): a pose has one writer or it has none, and the session's own UpdateCamera would be putting the
+        //lens back behind the gun on every frame this one eased it away. Which is why the session does not run
+        //that half of its frame at all while it is covered — the split is UpdateUnderResult's, and the camera
+        //is the line it is drawn on.
 
         /// <summary>
         /// How long the release takes. Long enough to read as the camera being let go rather than as a cut,
@@ -206,8 +222,9 @@ namespace BS3D.Screens
         //it (PostProcessPipeline's defocus, mixed in before the tonemap curve), which is why a blurred firework
         //stays a glowing orb rather than a grey smudge.
         //
-        //Driven from here, like the camera release and the star reveal above and for the same reason: the
-        //session under this page is covered and therefore frozen, so this is the only screen still updating.
+        //Driven from here, like the camera release and the star reveal above: the defocus is this page making
+        //room for its own text, so it is timed from the page opening and belongs to the page. The session
+        //under it goes on running (#241) but knows nothing about being read over.
 
         /// <summary>
         /// How long the arena stays sharp. It sits past both of the things this page does on arrival — the
@@ -251,8 +268,9 @@ namespace BS3D.Screens
         //wide from the first frame and only the glyph, the colour and the scale change, so nothing under it
         //moves as the stars arrive — a breakdown that shuffled down the screen mid-reveal would undo the point.
         //
-        //Driven from here for the same reason the camera release is: this page is the only screen still being
-        //updated, the session under it being covered and therefore frozen.
+        //Driven from here for the reason the defocus is: the reveal is this page's own arrival playing out, so
+        //it is timed from the page opening and restarts on every one. The session under it neither knows nor
+        //cares that a rating is being struck over it.
 
         //A slot holds one glyph, so the shared chars are wanted as strings here. Built once rather than per
         //frame: ApplyStars runs every frame the page is up, and Label.Text takes a string.

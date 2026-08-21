@@ -27,9 +27,11 @@ namespace Prazsky.Core.Screens
         public virtual bool DrawsUnderlying => false;
 
         /// <summary>
-        /// Whether the screens beneath this one still update. Almost always false: a screen that lets what is
-        /// under it go on running is a screen that is not really in front of anything. The exception is a
-        /// purely decorative overlay.
+        /// Whether the screens beneath this one still update. Usually false: a screen that lets what is under
+        /// it go on running is usually a screen that is not really in front of anything. The exceptions are a
+        /// purely decorative overlay, and a screen that is <i>reporting</i> on what is underneath rather than
+        /// interrupting it — an end-of-level page over the arena that has just been played, where freezing
+        /// the world would turn the thing being reported on into a photograph of itself.
         /// </summary>
         public virtual bool UpdatesUnderlying => false;
 

@@ -110,8 +110,10 @@ namespace BS3D.Screens
         /// <para>
         /// The decided level was deliberately <b>not</b> in that list while firing through the collapse was
         /// allowed. #177 stopped allowing it, so this followed in the same change — and it is what takes the
-        /// beam and the ghost out of the frozen frame the result screen is read over, rather than leaving a
-        /// line of light aimed at a level that is over.
+        /// beam and the ghost out of the frame the result screen is read over, rather than leaving a line of
+        /// light aimed at a level that is over. It has to be a test and not the stack's doing: this screen is
+        /// still updated under that page (#241), and even if it were not, its last frame's answer would go on
+        /// being drawn.
         /// </para>
         /// </remarks>
         private void UpdateShotPreview()
@@ -290,7 +292,7 @@ namespace BS3D.Screens
         /// barrel this instant" — the ghost and the aim beam are drawn on the same answer, and it is refused on
         /// the same three things <see cref="Shoot"/> refuses on (a drop cinematic, a spent budget, a decided
         /// level). Marking a round the player can no longer fire would be the same broken promise the ghost was
-        /// taken out of the frozen frame for.
+        /// taken out of the ended level's frame for.
         /// </para>
         /// <para>
         /// On the <b>wall</b> clock, like the ghost's blink and the balls' own breath: it is a thing the round

@@ -37,7 +37,9 @@ namespace BS3D.Screens
     /// <see cref="Draw"/> runs the frame's sequence itself, asking the host for the pieces — which is what
     /// lets a pause be a screen pushed <i>over</i> this one: the manager goes on drawing this screen
     /// underneath it (<see cref="Screen.DrawsUnderlying"/>) while no longer updating it, and the frozen frame
-    /// the player pauses on is simply this screen, still drawn.
+    /// the player pauses on is simply this screen, still drawn. The result page is the one exception and it
+    /// is a deliberate one — it lets this screen go on updating so the arena stays alive behind the numbers
+    /// (#241); see <see cref="UpdateUnderResult"/> for the half of the frame that runs there.
     /// </para>
     /// <para>
     /// One instance is held for the life of the game, like the menu pages; <see cref="BuildLevel"/> and
@@ -640,13 +642,27 @@ namespace BS3D.Screens
         /// has been lost. Nothing belonging to <i>playing</i> the level may happen past this — no shot leaves
         /// the barrel, no preview promises one, and nothing in the magazine changes colour (#176, #177).
         /// <para>
-        /// It has to be asked at the input and at the landing themselves rather than left to the result
-        /// screen's <c>UpdatesUnderlying</c>, which is what stops the frame for a pause (#79): a clear pushes
-        /// no screen at all for <see cref="LEVEL_CLEARED_BEAT"/> seconds — longer while a drop cinematic holds
-        /// the countdown — and this screen goes on updating normally for the whole of that beat.
+        /// It has to be asked at the input and at the landing themselves rather than left to the stack: a
+        /// clear pushes no screen at all for <see cref="LEVEL_CLEARED_BEAT"/> seconds — longer while a drop
+        /// cinematic holds the countdown — and this screen goes on updating normally for the whole of that
+        /// beat. <see cref="LevelOver"/> is the third term because the beat ends by <i>clearing</i> the
+        /// countdown, so a clear would otherwise read as undecided again the moment its page went up — and
+        /// the page no longer stops this screen (#241).
         /// </para>
         /// </summary>
-        private bool LevelDecided => _levelLost || _clearedCountdown > 0f;
+        private bool LevelDecided => _levelLost || _clearedCountdown > 0f || LevelOver;
+
+        /// <summary>
+        /// The result screen is up: the level's figures have been snapshotted, its record written and its
+        /// page pushed over this one. Not the same question as <see cref="LevelDecided"/>, which is true for
+        /// the whole cleared beat before any of that has happened — this is the line past which the level's
+        /// arithmetic is <b>read-only</b>, because <see cref="LevelResult"/> was taken from it.
+        /// <para>
+        /// It matters at all because the simulation goes on running under the page (#241), so a shot still in
+        /// the air can land, stick and fall past the kill plane with the level already over and reported.
+        /// </para>
+        /// </summary>
+        private bool LevelOver => _pendingOutcome != LevelOutcome.None;
 
         //How long the victory display goes on launching, and how long it waits before it starts.
         //
@@ -968,9 +984,10 @@ namespace BS3D.Screens
             _laserGrid = new LaserGrid(GraphicsDevice, Game.Content.Load<Effect>("Shaders/LaserGrid"), CEILING_FLASH_COLOR);
         }
 
-        //A level is played with nothing above this screen; a pause and the result screen are pushed OVER it
-        //and freeze it with their UpdatesUnderlying while the manager goes on drawing it underneath them.
-        //Nothing draws or runs beneath this screen itself: the backdrop under it on the stack is dormant.
+        //A level is played with nothing above this screen. A pause is pushed OVER it and freezes it with its
+        //UpdatesUnderlying while the manager goes on drawing it underneath; the result screen is pushed the
+        //same way but leaves that flag true, so the world under it keeps running (#241). Nothing draws or
+        //runs beneath this screen itself: the backdrop under it on the stack is dormant either way.
 
         /// <summary>
         /// The one door into play, from a fresh start and from a resume alike — the manager raises this on
@@ -1021,6 +1038,15 @@ namespace BS3D.Screens
         public override void Update(GameTime gameTime)
         {
             if (!IsBuilt) return;
+
+            //Covered, but by the one page that lets this screen keep running (#241) — a pause stops it dead
+            //and does not reach Update at all. What goes on there is the WORLD and not the GAME; see
+            //UpdateUnderResult for which is which.
+            if (!IsActive)
+            {
+                UpdateUnderResult(gameTime);
+                return;
+            }
 
             float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
@@ -1150,6 +1176,50 @@ namespace BS3D.Screens
         }
 
         /// <summary>
+        /// The frame this screen gets while the result page stands over it (#241). It used to get none: the
+        /// page froze the session the way a pause does, and the arena the player had just won stopped dead
+        /// behind the numbers — the cluster hanging perfectly still, the last of a collapse halted half way
+        /// down the drain. A pause is a game put down mid-move and is right to freeze; an ending is the arena
+        /// carrying on without a player.
+        /// <para>
+        /// <b>So what runs here is the world, not the game.</b> The simulation, and the gun's own answer to
+        /// the last shot. Nothing belonging to <i>playing</i> does: no input or aim, no landing preview, no
+        /// ceiling descent, no ending, no quality verdict — and above all no camera, because the page is
+        /// itself easing the lens off the gun and out onto the front end's orbit, and two writers of one pose
+        /// is one of them losing. The HUD is not stepped either, for the plainest of reasons: it is not drawn
+        /// once the level is over (see <see cref="Draw"/>).
+        /// </para>
+        /// <para>
+        /// <b>Leaving the rules out of this method is not what holds them.</b> Contacts are processed from
+        /// <i>inside</i> the step, so a shot still in the air lands straight back into
+        /// <see cref="OnBallLanded"/> whatever this method chose to call — and on a cleared field that would
+        /// have re-fired the whole celebration, the countdown having already run itself down to zero.
+        /// <see cref="LevelOver"/> is what holds them, at each of those doors.
+        /// </para>
+        /// </summary>
+        private void UpdateUnderResult(GameTime gameTime)
+        {
+            float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            //The gun settling. A loss lands on whatever frame the descent reached the line, so the tube can
+            //still be mid-stroke and the queue mid-glide when the page arrives — and a gun frozen in front of
+            //a cluster that is plainly still swinging is this very issue, one object further out. Wall clock,
+            //as in the frame above: the recoil and the glide are the hardware answering the shot.
+            _cannon.Update(gameTime);
+            _cannon.StepRecoil(elapsed);
+            _magazine.Step(elapsed);
+
+            for (int i = 0; i < Magazine.SIZE; i++)
+                if (_magazineTransmute[i] > 0f)
+                    _magazineTransmute[i] = MathF.Max(0f, _magazineTransmute[i] - elapsed / TRANSMUTE_SECONDS);
+
+            //Unscaled, unlike the frame above: a drop cinematic is the only thing that scales the step, and
+            //neither ending is declared while one is engaged — the countdown freezes for it and the loss waits
+            //on mayLose — so the scale is back at 1 before this page can exist.
+            StepPhysics(elapsed);
+        }
+
+        /// <summary>
         /// The session's frame, run by the screen itself (#65's second half): the host is asked for the
         /// setting's slices, and the gun, the cluster, the shots and the glass go into the gaps between them.
         /// The ordering is the pipeline's and is load-bearing throughout — the balls over the opaque scene,
@@ -1262,9 +1332,10 @@ namespace BS3D.Screens
             //behind it is the same figure said twice — and worse, the corners are the only thing on the frame
             //that would still be pinned to the screen while the camera is released and swings out around the
             //arena. An award caught mid-flight is the visible half of that: it ages on the play clock, which
-            //has stopped, so it would hang frozen and be reprojected against a moving camera, sliding across
-            //the frame on its way to a score nobody is playing for any more.
-            if (_pendingOutcome == LevelOutcome.None)
+            //is not stepped under the page (#241 runs the world there, not the readouts), so it would hang
+            //frozen and be reprojected against a moving camera, sliding across the frame on its way to a
+            //score nobody is playing for any more.
+            if (!LevelOver)
             {
                 PlayHud.ClusterProfile profile = BuildClusterProfile(out int ballCount);
 
