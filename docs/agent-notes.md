@@ -565,4 +565,19 @@ Per-instance varianta odmítnuta na skutečné ceně: šestý float na `ModelIns
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (#252 zavřené, strip posunutý, nic se nebere).*
+## 2026-08-21 — Claude Code (dvacátý první zápis)
+
+**Strip do pravého dolního rohu a v pořadí střílení — `78622e9`.** Dvě zadání majitele z jednoho playtestu, v jedné větvi (obojí je poloha téže věci).
+
+- **Levý dolní rok byl špatný rok**, a byl to návrh v samotném issue. Už tam je počet a levá hrana navíc nese profil klastru středem — proto musel strip původně **vedle** počtu a proto to pak chtělo druhou konstantu, aby první halo nesedělo na captionu. **Pravý dolní rok to řeší:** byl prázdný v obou pózách kamery, není tam co obcházet, a strip se ukotví na margin rámu jako každý jiný rohový readout. **`HUD_MAG_INSET` s tím přesunem zmizel** — nebyl napraven, stal se nepotřebným.
+- **⚠️ Pořadí je majitelovo, ale layout mu za něj něco dluží: hlava se nesmí hýbat.** Řada se ke konci levelu krátí (`shown = min(5, ShotsRemaining)`), takže hlava umístěná odměřením od pravé hrany by **jezdila po spodku obrazovky během posledních pěti výstřelů** — přesně když se na ni člověk kouká. Proto se řeší **počátek hlavy** tak, aby *plný* zásobník končil zarovnaný s marginem: kratší queue se vyprazdňuje od vzdáleného konce a nechá u rohu mezeru, což je pravda o tom, co se děje, a kolečko, na kterém záleží, zůstane stát.
+- Rok musí navíc pokrýt **plný dosah hlavy včetně prstence**, ze stejného důvodu, jaký si píše `HUD_MARGIN` sám: halo nakreslené natvrdo k hraně je halo rozříznuté hranou a čte se to jako chyba renderu.
+- **`DrawBallsLeft` se vrátil k tomu, že nic nehlásí** — to zjednodušení ten přesun zaplatil; měřil svou pravou hranu a vertikální střed jen proto, aby si strip mohl sednout vedle.
+- **Ověřeno fotkou** na `level=Reel`: hlava vlevo a s prstencem, řada běží doprava, pravá hrana posledního kolečka dopadla na **1563** proti spočítanému **1562**, prstenec nikde neseříznutý. Staví všechny tři solutiony. Fotky v `C:\Users\PanRD\Pictures\bs3d-236-strip-corner\`.
+- Opraveny i dva doc řádky v `docs/game-feedback.md`, které říkaly „beside the ball count" / „bottom left" — a rohový výčet, který teď hlásí, že **jsou obsazené všechny čtyři rohy**.
+
+**Nic dalšího si teď neberu.** Volné: **#233 / #238 / #247 / #243** (menu a UI, po sobě, dělí se o `BS3DGame.Menu.cs`), **#242**, **#237**, **#240**, **#241**.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (strip v pravém dolním rohu, nic se nebere).*
