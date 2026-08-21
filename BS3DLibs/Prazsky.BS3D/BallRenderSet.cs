@@ -51,9 +51,11 @@ namespace Prazsky.BS3D
     /// </para>
     /// <para>
     /// <b>What deliberately stayed with the callers.</b> The <i>magazine</i>: the loaded queue goes through
-    /// <see cref="BallDrawFrame.Add"/> like every other ball, but which colours are loaded, where the bore puts
-    /// them (<see cref="BorePose"/>) and the Game's transmute cross-fade are three different questions and none
-    /// of them is this type's. <i>Sky-lit enrolment</i>: <see cref="Renderers"/> is exposed for it and nothing
+    /// <see cref="BallDrawFrame.Add"/> like every other ball — asking for <c>still</c>, which is the one thing
+    /// about it this type does know (#252: a loaded round must not breathe, and the pulse is a per-renderer
+    /// uniform, so that has to be a draw of its own rather than a value on the instance) — but which colours are
+    /// loaded, where the bore puts them (<see cref="BorePose"/>) and the Game's transmute cross-fade are three
+    /// different questions and none of them is this type's. <i>Sky-lit enrolment</i>: <see cref="Renderers"/> is exposed for it and nothing
     /// else, for the reason <see cref="SkyLightRig"/> gives at length — which renderers take part is each
     /// executable's own list with its own reasons. And <i>where in the frame</i> the balls are drawn, which is
     /// load-bearing in all three (over the opaque scene, under the trails and the glass) and is why
@@ -322,9 +324,31 @@ namespace Prazsky.BS3D
         //that the common case never grows, small enough that fifty-two of them cost nothing.
         private const int BUCKET_INITIAL_CAPACITY = 256;
 
+        //The buckets come in TWO planes of (type, LOD) since #252: the breathing balls and the STILL ones. The
+        //still plane exists for the rounds loaded in the cannon, which the owner ruled must not pulse at all —
+        //the muzzle round's colour is said by its halo and by the HUD strip, and a brightness animation on the
+        //ball on top of those is the thing #236 set out to remove.
+        //
+        //A plane rather than a flag on the instance, and that is forced rather than chosen: the pulse is a
+        //per-RENDERER uniform (EmissiveStrength, PulseDepth, PulseSpeed and the rest are pushed once per draw
+        //call), so "this ball does not breathe" cannot travel with the ball. It has to be a different DRAW.
+        //The alternative was a sixth float on ModelInstance for the shader to multiply the emission by, which
+        //means a vertex-stream change and every producer of instances touched, for five balls a frame.
+        //
+        //It costs the still plane's own draw calls — at most one per type actually loaded, so up to five, and
+        //they are five-instance calls. The buckets are lazy, so the plane costs nothing at all in a frame with
+        //no magazine (the map editor's, the menu backdrop's).
+        //static readonly and not const, because both of its factors are: TYPE_COUNT comes off the BallType enum
+        //(#152, so a colour added cannot be forgotten) and LodCount off the LOD table's own length.
+        private static readonly int STILL_PLANE_STRIDE = TYPE_COUNT * LodCount;
+
         private readonly ModelInstance[][] _buckets;
         private readonly int[] _counts;
         private readonly int[] _lodTotals;
+
+        //The pulse depth the renderers were built with, kept so both passes can STATE the depth they draw at
+        //rather than one of them relying on what the other left behind.
+        private readonly float _pulseDepth;
 
         #endregion
 
@@ -390,8 +414,11 @@ namespace Prazsky.BS3D
                 };
             }
 
-            _buckets = new ModelInstance[TYPE_COUNT * LodCount][];
-            _counts = new int[TYPE_COUNT * LodCount];
+            _pulseDepth = ripples ? PULSE_DEPTH_RIPPLING : PULSE_DEPTH_RESTING;
+
+            //Two planes: the breathing balls, then the still ones. See STILL_PLANE_STRIDE.
+            _buckets = new ModelInstance[STILL_PLANE_STRIDE * 2][];
+            _counts = new int[STILL_PLANE_STRIDE * 2];
             _lodTotals = new int[LodCount];
             _lodDistanceSquared = new float[LOD_MIN_PIXEL_RADIUS.Length];
         }
@@ -591,10 +618,37 @@ namespace Prazsky.BS3D
                 _renderers[lod].DissolvePixelSize = dissolvePixels;
             }
 
+            //Two passes, and the ONLY thing that differs between them is the pulse depth (#252): the balls
+            //loaded in the cannon are drawn with it at zero, so they radiate their colour steadily where the
+            //cluster breathes. Both passes state the depth they draw at rather than one inheriting whatever
+            //the other left on the renderer — the uniform belongs to the renderer, not to whoever set it, and
+            //that is the trap the shot trail's two callers already paid for once.
+            DrawPlane(camera, still: false, pulseDepth: _pulseDepth);
+            DrawPlane(camera, still: true, pulseDepth: 0f);
+        }
+
+        /// <summary>
+        /// One plane of buckets, at one pulse depth — a single instanced draw call per (type, LOD) pair that has
+        /// anything in it. Both of <see cref="Draw"/>'s passes are this, which is what keeps them from drifting:
+        /// there is one loop over the buckets and one place that knows how a ball is shaded (#76).
+        /// </summary>
+        private void DrawPlane(ICamera camera, bool still, float pulseDepth)
+        {
+            int plane = still ? STILL_PLANE_STRIDE : 0;
+
+            //Nothing loaded, nothing to set up: a frame with no magazine — the editor's, the menu backdrop's —
+            //never touches a renderer for the still plane at all.
+            bool any = false;
+            for (int i = plane; i < plane + STILL_PLANE_STRIDE && !any; i++) any = _counts[i] > 0;
+            if (!any) return;
+
+            for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseDepth = pulseDepth;
+
             for (int typeIndex = 0; typeIndex < TYPE_COUNT; typeIndex++)
                 for (int lod = 0; lod < LodCount; lod++)
                 {
-                    int count = _counts[typeIndex * LodCount + lod];
+                    int bucketIndex = plane + typeIndex * LodCount + lod;
+                    int count = _counts[bucketIndex];
                     if (count == 0) continue;
 
                     DrawnCount += count;
@@ -602,7 +656,7 @@ namespace Prazsky.BS3D
 
                     BallType type = (BallType)(typeIndex + 1);
 
-                    _renderers[lod].Draw(camera, _buckets[typeIndex * LodCount + lod], count,
+                    _renderers[lod].Draw(camera, _buckets[bucketIndex], count,
                         BasicEffectParamsProvider.GetEffectByType(type),
                         BasicEffectParamsProvider.GetDiffuseTintByType(type));
                 }
@@ -635,9 +689,10 @@ namespace Prazsky.BS3D
 
         //The one write into the buckets, which stood four times over before #76. Lazy on first use and doubling
         //when full, so nothing is allocated per frame once a scene has settled.
-        internal void Store(int typeIndex, int lod, in ModelInstance instance)
+        /// <param name="still">Into the still plane rather than the breathing one — the loaded rounds (#252).</param>
+        internal void Store(int typeIndex, int lod, in ModelInstance instance, bool still = false)
         {
-            int bucketIndex = typeIndex * LodCount + lod;
+            int bucketIndex = (still ? STILL_PLANE_STRIDE : 0) + typeIndex * LodCount + lod;
             ModelInstance[] bucket = _buckets[bucketIndex];
             int count = _counts[bucketIndex];
 
@@ -699,14 +754,17 @@ namespace Prazsky.BS3D
         /// <param name="dissolve">Zero for everything not mid-transition — see
         /// <see cref="ModelInstance.Dissolve"/>.</param>
         /// <param name="ripple">Zero for everything not flaring — see <see cref="ModelInstance.Ripple"/>.</param>
+        /// <param name="still">True for a ball that must <b>not breathe</b> — the rounds loaded in the cannon
+        /// (#252). It cannot be a value on the instance: the pulse is a per-renderer uniform, so this routes the
+        /// ball into its own bucket plane and a draw of its own. Everything else leaves it alone.</param>
         public void Add(BallType type, Vector3 position, in Matrix world, Vector4 occlusion, float dissolve = 0f,
-            float ripple = 0f)
+            float ripple = 0f, bool still = false)
         {
             int typeIndex = (int)type - 1;
             if (typeIndex < 0 || typeIndex >= BallRenderSet.TYPE_COUNT) return;
 
             _set.Store(typeIndex, _set.LodFor(Vector3.DistanceSquared(position, _eye)),
-                new ModelInstance(world, occlusion, dissolve, ripple));
+                new ModelInstance(world, occlusion, dissolve, ripple), still);
         }
 
         /// <summary>

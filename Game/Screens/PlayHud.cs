@@ -108,8 +108,10 @@ namespace BS3D.Screens
         //change makes an ellipse bigger (#246 measured the palette half and could only fix that half).
         //
         //The head is LARGER and carries a ring, which is the whole of "this one, right now" — the thing #175
-        //spends a brightness pulse on the 3D ball to say. That pulse is deliberately NOT removed here: see the
-        //remarks on DrawMagazine.
+        //used to spend a brightness pulse on the 3D ball to say. That pulse is gone: it said "this one" by
+        //washing the round towards white, which is the very colour the player was trying to read (#236). What
+        //replaced it is BallGlow's coloured halo on the gun, and this strip. Since #252 no loaded round pulses
+        //at all — the breathing belongs to the halo now, in one place.
         private const int HUD_MAG_HEAD_RADIUS = 56;
         private const float HUD_MAG_REST_SCALE = 0.64f;
         private const int HUD_MAG_GAP = 24;
@@ -971,11 +973,12 @@ namespace BS3D.Screens
         /// the small ellipse of its cap and the rest are read through glass keeping about 0.38 of what is behind
         /// it. This is that answer, at a size the eye can name a colour off.
         /// <para>
-        /// <b>It does not remove #175's muzzle pulse, deliberately.</b> The issue asks for that too, and
-        /// <c>CannonRig</c> warns in as many words that the mark must not be dropped as redundant on the
-        /// strength of the pane — with two rounds in open air it is still the only thing on the gun itself
-        /// saying which fires next. This has to be seen to read first; the pulse is a second change, on its own
-        /// screenshot.
+        /// <b>It shipped BEFORE #175's muzzle pulse came out, and that order was the point.</b> <c>CannonRig</c>
+        /// warns in as many words that the mark must not be dropped as redundant on the strength of the pane, so
+        /// the strip had to be seen to read first. It was, and then the pulse went — replaced by
+        /// <see cref="Prazsky.Core.Render.BallGlow"/>'s coloured halo on the gun, which says the same thing in
+        /// the round's own colour instead of washing it towards white. Since #252 no loaded round pulses at all.
+        /// So there are two signals now and neither is a brightness animation on the ball: this, and the gun.
         /// </para>
         /// <para>
         /// Colours come through <see cref="TypeColor"/>, which bakes from
