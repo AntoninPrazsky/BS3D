@@ -390,6 +390,31 @@ namespace BS3D
         }
 
         /// <summary>
+        /// The sharp foreground layer this frame filled, waiting to be composited — or null when nothing
+        /// presented itself. <see cref="FinishSceneDraw"/> records it and <see cref="CompositeForegroundLast"/>
+        /// spends and clears it, which is why it can never carry a stale target into the next frame.
+        /// <para>
+        /// It exists because #242 moved the composite to the very end of the host's <c>Draw</c>, past the Myra
+        /// desktop: the owner wanted the confetti falling over the UI and the cup allowed to cover a panel, and
+        /// "last" then means later than the frame's own close.
+        /// </para>
+        /// </summary>
+        private RenderTarget2D _foregroundToComposite;
+
+        /// <summary>
+        /// Puts the frame's sharp foreground layer over everything, the UI included — the last picture the frame
+        /// draws (#242). Called from the host's <c>Draw</c> after the desktop has rendered and <b>before</b> the
+        /// screenshot writer reads the back buffer, or a capture would miss the thing the page is about.
+        /// </summary>
+        internal void CompositeForegroundLast()
+        {
+            if (_foregroundToComposite == null) return;
+
+            _pipeline.CompositeForeground(_foregroundToComposite);
+            _foregroundToComposite = null;
+        }
+
+        /// <summary>
         /// Everything up to the frame's first gameplay slot: binds the HDR scene target, clears it to the
         /// dome's horizon, hands the clouds and the camera to the shaders, draws the sky, the backdrop and
         /// the island with its pit, and returns the <see cref="SceneFrame"/> the closing slices need. The
@@ -630,11 +655,24 @@ namespace BS3D
 
             _pipeline.Resolve(_wallClock, underwater, defocus, defocusFocus, foreground);
 
-            //And the cup back on top of the resolved frame, in display space now but through the same curve,
+            //And the layer back on top of the resolved frame, in display space now but through the same curve,
             //so the only difference from its old life inside the HDR pass is that the defocus stopped
-            //reaching it. First thing after the resolve and so under everything display-space that follows —
-            //the HUD, the page and its panels belong over the cup, not under it.
-            if (foreground != null) _pipeline.CompositeForeground(foreground);
+            //reaching it.
+            //
+            //IT IS NOT COMPOSITED HERE ANY MORE (#242). This used to be the first thing after the resolve, and
+            //the reason written down was that "the HUD, the page and its panels belong over the cup". The owner
+            //ruled the other way on both halves of it — the sparkles should fall over the UI, and the cup may
+            //cover a panel — so the composite is deferred to the END of the host's Draw, after the Myra desktop
+            //has rendered and before the screenshot writer reads the back buffer. What is recorded here is only
+            //THAT there is a layer to composite: the frame's close cannot do it itself once "last" means later
+            //than the frame's close.
+            //
+            //Which does introduce the field the comment above deliberately avoided, and honestly so: while both
+            //halves lived in this file, "what the frame's close consumes is what its opening produced" held
+            //locally. The composite now happens in a third place, so the state has to be somewhere both can
+            //see. It is cleared by the composite itself, so a frame that never reaches here cannot leave a
+            //stale target for the next one to blend.
+            _foregroundToComposite = foreground;
         }
 
         #endregion

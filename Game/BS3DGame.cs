@@ -1361,6 +1361,15 @@ namespace BS3D
                 }
             }
 
+            //THE SHARP FOREGROUND LAYER GOES OVER EVERYTHING, the UI included (#242). It used to be composited
+            //the moment the resolve finished, deliberately, so the HUD and the page's panels sat over the cup —
+            //the owner ruled the other way on both halves of that: the sparkles should fall over the UI, and it
+            //is fine for the cup to cover a panel. So the last picture the frame draws is this one, after the
+            //Myra desktop above and before the screenshot writer below, which reads the back buffer and would
+            //otherwise save a frame without the thing the page is about. A no-op on every frame that presented
+            //nothing, which is nearly all of them.
+            CompositeForegroundLast();
+
             //Last, so it counts a frame that has actually been drawn end to end
             if (_logFrameRate) LogFrameRate((float)gameTime.ElapsedGameTime.TotalSeconds);
 
