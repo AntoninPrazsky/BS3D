@@ -114,7 +114,7 @@ namespace BS3D
         private FontSystem _menuFontSystem, _menuFontSystemBold, _menuFontSystemDisplay;
         private SpriteFontBase _menuFontBody, _menuFontSmall, _menuFontHeading, _menuFontTitle, _menuFontStars;
         private SpriteFontBase _menuFontSection;
-        private SpriteFontBase _menuFontGameTitle, _menuFontFrontEntry;
+        private SpriteFontBase _menuFontFrontEntry;
 
         //The menu is deliberately GREYSCALE — no hue anywhere, and no coloured frames. It has to sit over
         //twelve backdrops whose palettes are nothing alike (a neon city, an ochre desert, a blue sea, white
@@ -342,12 +342,15 @@ namespace BS3D
         //"CAMPAIGN COMPLETE". So the one page that wants to be loud is loud by itself, and the pages that
         //have a height budget keep theirs.
         //
-        //240 sets the whole of GAME_TITLE in about 30 % of a 16:9 frame's width — measured off a 1600x900
-        //capture (483 of 1600 px, i.e. ~1160 design units), not estimated from an em box, Anton being far
-        //more condensed than a count of letters suggests. That clears every aspect anyone plays at with room
-        //to spare, and it has to be checked rather than assumed whenever either figure moves: Myra does not
-        //shrink text to fit and Wrap is off, so a title too wide for its frame clips silently.
-        private const int MENU_FONT_GAME_TITLE = 240;
+        //THE FRONT END'S SECOND SIZE IS GONE WITH #248. It was MENU_FONT_GAME_TITLE = 240, the game's name
+        //set as a Myra label in this corner, and the name is now 3D lettering in the scene instead
+        //(Effects.TitleWordmark) — so the constant, the font it built and the accessor that handed it out went
+        //with the label. It was not free to leave standing: a size is its own glyph ATLAS, rasterized out of
+        //the display face on every menu rebuild, and the rebuild runs on every window resize past
+        //MENU_REBUILD_QUANTUM. Its one lesson is worth keeping though, because it applies to every figure
+        //below: the 30 %-of-a-16:9-frame width it was chosen for was MEASURED off a 1600x900 capture (483 of
+        //1600 px), not estimated from an em box — Myra neither shrinks text to fit nor wraps it here, so type
+        //too wide for its frame clips silently and no amount of reasoning about letter counts catches it.
         private const int MENU_FONT_FRONT_ENTRY = 108;
 
         //The result screen's star rating — a headline, but set in INTER at a heading's size rather than in
@@ -452,8 +455,8 @@ namespace BS3D
             _menuFontTitle = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_TITLE));
             _menuFontStars = _menuFontSystem.GetFont(Scaled(MENU_FONT_STARS));
 
-            //The front end's own two, for the one page with no height budget to keep (#217)
-            _menuFontGameTitle = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_GAME_TITLE));
+            //The front end's own, for the one page with no height budget to keep (#217). It was two until
+            //#248 took the game's name out of the widget tree — see MENU_FONT_FRONT_ENTRY's own note.
             _menuFontFrontEntry = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_FRONT_ENTRY));
 
             //The trees themselves are NOT rebuilt here: each page rebuilds its own the next time it is asked
@@ -513,7 +516,6 @@ namespace BS3D
         internal SpriteFontBase MenuFontSection => _menuFontSection;
         internal SpriteFontBase MenuFontTitle => _menuFontTitle;
         internal SpriteFontBase MenuFontStars => _menuFontStars;
-        internal SpriteFontBase MenuFontGameTitle => _menuFontGameTitle;
 
         //What the pages ask the game about itself. Read-only: a page shows state and asks for an action, and
         //nothing here lets it write one directly.

@@ -211,6 +211,24 @@ namespace BS3D.Screens
 
             Game.Balls.Draw(Game.WallClock);
 
+            //The game's name in 3D (#248), while the main menu is the page on top and nowhere else.
+            //
+            //THE GATE IS ONE TEST HERE RATHER THAN A CALL FROM THE PAGE, and that is a correctness point, not
+            //a preference: Screen.Enter and Screen.Leave are raised on a PUSH and a POP only, and every other
+            //front-end page (Settings, Scene, About, the level picker) is pushed OVER the main menu without
+            //popping it — so a Present/Hide pair in MainMenuPage would leave the title standing behind all
+            //four of them. Covering is signalled by CoveredChanged, which this screen never sees. One test
+            //against the active page needs no page to opt in and cannot be forgotten by a page added later.
+            //
+            //And it is HERE, in the front end's own screen, rather than in the host's BeginSceneDraw where the
+            //fireworks, the confetti and the cup are drawn: nothing the host draws is front-end-only (which is
+            //why `celebrate` and `confetti` work as front-end test levers at all), while this screen is not
+            //reached at all once a session is on the stack.
+            //
+            //After the balls and BEFORE the drain's glass, so the frame's stated order holds — every opaque
+            //thing, then everything translucent. It states its own three states and puts them back.
+            if (Manager?.Active is MainMenuPage) Game.TitleWordmark?.Draw(Game.Camera, Game.WallClock);
+
             Game.DrawSettingGlass();
 
             //Over the glass drain, as in play — and hung from the pose RollPreviewMap wrote, at rest above

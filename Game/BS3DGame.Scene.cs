@@ -288,6 +288,14 @@ namespace BS3D
             //unconditionally like the island's, and for the same reason: BuildScene makes it well before the
             //startup SetScene, which is what first calls ApplySkyLighting.
             foreach (InstancedModelRenderer renderer in _forestScatter.Renderers) yield return renderer;
+
+            //The 3D title over the front end (#248), letters and keylines both. It takes the dome's light like
+            //everything else in the frame ON PURPOSE, which is the opposite of the trophy cup's choice and is
+            //argued on TitleWordmark.Renderers: a cup is presented for seconds and wants one controlled
+            //finish, a wordmark stands over all thirteen backdrops under all eighteen domes and has to come
+            //out right at both ends of that range. Dereferenced unconditionally like the two above — it is
+            //built in LoadContent immediately before the startup SetScene, and for this very reason.
+            foreach (InstancedModelRenderer renderer in _titleWordmark.Renderers) yield return renderer;
         }
 
         /// <summary>
