@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
@@ -53,11 +53,33 @@ namespace BS3D.Effects
         public const int TIERS = 4;
 
         //WHERE IT SITS IN THE FRAME, in normalised device coordinates: -1 is the left edge and the bottom, +1
-        //the right and the top. Left of centre and low: the heading, the stars, the breakdown panel and the
+        //the right and the top. Left of centre, because the heading, the stars, the breakdown panel and the
         //three buttons are all centred, and since #226 the cup is TALL ENOUGH TO REACH INTO THEM — a reward
         //does not apologise for its size, and the one that runs right up to the page it sits on reads as
         //handed over rather than exhibited in a case beside it.
-        private const float NDC_X = -0.60f, NDC_Y = -0.30f;
+        //
+        //RAISED IN #233, and that reverses #226's own deliberate move: it went -0.22 to -0.30 there, low on
+        //purpose. The owner played it and asked for it higher and centred on the left, so the ruling stands over
+        //the reasoning. Note what this anchor MEANS before changing it: the world matrix below pre-translates by
+        //half the cup's own height so it turns on the spot, so this is the cup's CENTRE, and 0 would be literally
+        //"vertically centred in the frame".
+        //
+        //IT IS NOT 0, AND THAT IS MEASURED RATHER THAN TASTE. At 0 the bowl is cut by the top edge at the
+        //dolly's NEAR end — photographed, against a dark sky so the cup could not be confused with the
+        //backdrop. The cup is simply too tall to be centred at that end: SIZE 2.0 against the frame's half
+        //height at DISTANCE - DOLLY_DEPTH leaves nothing over, and the LEAN_ANGLE swings the rim higher still.
+        //So the old -0.30 was not arbitrary, it was protecting the bowl by cutting the PLINTH instead — and a
+        //cut bowl is worse, the bowl being what makes a cup a cup.
+        //
+        //-0.15 is the highest that survives the whole dolly period: verified over six captures across its
+        //7.85 s, in space (a dark sky) so a clipped rim could not hide in a bright one. Half the way to true
+        //centre, and as centred as the cup's own size allows without shrinking it or shortening the dolly —
+        //which are the two things full centring would cost, and the owner's to spend, not mine.
+        //
+        //Vertically this is aspect-independent by construction: the anchor is scaled by the frame's half
+        //HEIGHT, so an ultrawide adds width and cannot re-open the question above. The bowl running off the
+        //LEFT edge at the near end is #226's own choice and predates this.
+        private const float NDC_X = -0.60f, NDC_Y = -0.15f;
 
         //How far in front of the lens the dolly is CENTRED. The old clearance reason (the gun still in frame
         //on the first seconds) died with #225's own layer: the cup is composited over everything, so there
