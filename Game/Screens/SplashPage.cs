@@ -1,8 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Myra.Graphics2D.UI;
-using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
-using Label = Myra.Graphics2D.UI.Label;
 
 namespace BS3D.Screens
 {
@@ -15,14 +13,21 @@ namespace BS3D.Screens
     /// of time is exactly what the stack exists to hold, and it proves the lifecycle end to end — pushed at
     /// boot, ticking, and replacing itself.
     /// </para>
+    /// <para>
+    /// <b>Its tree is now empty, and that is the whole change #248 made here.</b> The card was the game's name
+    /// as a Myra label centred in the frame, faded up and away on this page's own clock — and once the menu's
+    /// title became 3D lettering standing in the scene, a flat centred label two and a half seconds earlier
+    /// read as a different game's title card. So the name is the <i>same</i> 3D object on both screens now
+    /// (<see cref="Effects.TitleWordmark"/>, drawn by <see cref="BackdropScreen"/>): it opens centred on one
+    /// line, and when this page hands over it MOVES into the corner and re-flows into the menu's three lines.
+    /// What is left here is the piece of time — how long the card is held, and what skips it — which was always
+    /// the part that belonged to a screen rather than to a widget.
+    /// </para>
     /// </summary>
     internal sealed class SplashPage : MenuPage
     {
         /// <summary>Long enough to read the name, short enough that nobody reaches for the skip.</summary>
         private const float SECONDS = 2.6f;
-
-        /// <summary>Fade up and fade away, in seconds at each end. A card that cuts in reads as a stutter.</summary>
-        private const float FADE = 0.55f;
 
         /// <summary>
         /// How long any input is ignored for. A splash that can be skipped on frame one is skipped by the very
@@ -41,33 +46,14 @@ namespace BS3D.Screens
         internal override bool CanGoBack => false;
         internal override bool DimsFrame => false;
 
-        //Held so the fade can be written onto it every frame
-        private Label _title;
-
-        protected override Widget BuildTree()
-        {
-            VerticalStackPanel column = MenuColumn();
-
-            _title = new Label
-            {
-                Text = BS3DGame.GAME_TITLE,
-                Font = FontTitle,
-                TextColor = BS3DGame.MENU_TEXT,
-                HorizontalAlignment = HorizontalAlignment.Center,
-            };
-            column.Widgets.Add(_title);
-
-            return ScreenRoot(column);
-        }
-
         /// <summary>
-        /// Alpha rather than <c>Visible</c>, and on the colour rather than on the widget, because a colour is
-        /// the one thing here that is certain to be honoured by every Myra version this has been built against.
+        /// Nothing. The card's one widget was the game's name and it left this tree with #248 — see the class
+        /// remarks. An empty root is deliberate rather than a leftover: this page's whole substance is the
+        /// piece of time it owns, and the thing being shown during it is drawn in the scene rather than over
+        /// the frame. The fade-up that stopped a flat card cutting in went with the widget; the wordmark's own
+        /// arrival is what answers that now.
         /// </summary>
-        private void Fade(float amount)
-        {
-            if (_title != null) _title.TextColor = BS3DGame.MENU_TEXT * MathHelper.Clamp(amount, 0f, 1f);
-        }
+        protected override Widget BuildTree() => ScreenRoot();
 
         public override void Enter()
         {
@@ -76,8 +62,6 @@ namespace BS3D.Screens
             _previousKeyboard = Keyboard.GetState();
             _previousMouse = Mouse.GetState();
             _previousPad = GamePad.GetState(PlayerIndex.One);
-
-            Fade(0f);
         }
 
         public override void Update(GameTime gameTime)
@@ -86,10 +70,6 @@ namespace BS3D.Screens
             base.Update(gameTime);
 
             _age += (float)gameTime.ElapsedGameTime.TotalSeconds;
-
-            //Up over the first FADE, held, then away over the last. Written every frame because the tree is
-            //rebuilt whenever the window changes size and the fresh label starts at full.
-            Fade(MathHelper.Clamp(_age / FADE, 0f, 1f) * MathHelper.Clamp((SECONDS - _age) / FADE, 0f, 1f));
 
             if (_age >= SECONDS || (_age >= SKIP_AFTER && Skipped()))
             {

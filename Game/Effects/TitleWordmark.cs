@@ -111,9 +111,16 @@ namespace BS3D.Effects
         //the extra daylight is what lets a COLOURED rim be read as a rim rather than as part of its neighbour.
         private const float DAYLIGHT = 0.10f;
 
-        //Facets around each tube. The body is on show and its specular streak runs along it; the keyline is one
-        //flat unlit tone whose only job is a silhouette, so it is swept coarser and nobody can tell.
-        private const int BODY_SIDES = 16, OUTLINE_SIDES = 10;
+        //Facets around each tube.
+        //
+        //⚠ THE KEYLINE MATCHES THE BODY AND MUST, and it was ten against the body's sixteen for one revision on
+        //the reasoning that a flat unlit tone needs no roundness. What that overlooked is that the SILHOUETTES
+        //have to nest: the keyline is a polygon of one facet count sitting just outside a polygon of another, so
+        //where the letter's surface turns edge-on the two interleave, and the keyline wins the depth test in
+        //patches. It photographs as a DASHED dark contour just inside the letter — plainest on the badge, which
+        //is the largest thing on screen and therefore where a tessellation fault shows first. Equal counts make
+        //the two concentric and the nesting uniform all the way round.
+        private const int BODY_SIDES = 16, OUTLINE_SIDES = 16;
 
         //HOW MUCH BIGGER THE LAST WORD IS. The owner picked the three-line composition with the last word as
         //a big separate badge, out of three offered: one line, two lines, and this. "3D" is the half of the
@@ -148,6 +155,14 @@ namespace BS3D.Effects
         private const float BLOCK_HEIGHT_FRACTION = 0.66f;
         private const float BLOCK_WIDTH_FRACTION = 0.62f;
 
+        //AND THE OPENING COMPOSITION'S SHARE, which is the same title on ONE line in the middle of the frame
+        //(see the class remarks on the two compositions). Width binds here and height cannot: one line of this
+        //name is about eleven cap heights wide against one and a bit tall, so the height fraction is only a
+        //guard against a very tall window. 0.88 puts the line nearly edge to edge, which is what a title card
+        //is for.
+        private const float OPEN_WIDTH_FRACTION = 0.88f;
+        private const float OPEN_HEIGHT_FRACTION = 0.55f;
+
         //=== THE MOTION ===
 
         //THE BLOCK'S OWN DRIFT. Two sways about two axes at two unrelated rates, so they never come back into
@@ -167,8 +182,28 @@ namespace BS3D.Effects
         //towards the lens, and CreateRotationY carries +z to (sin, 0, cos) - so a POSITIVE angle tilts the
         //face towards +x, screen right, off the frame, and a NEGATIVE one turns it towards the centre. Hence
         //the centre angle is negative and the sway is smaller than it, so their sum never reaches zero.
+        //It is the SETTLED composition's turn. The opening one stands in the middle of the frame, where there
+        //is no edge to face away from and facing straight out is right, so the bias arrives with the move.
         private const float YAW_CENTRE = -0.20f, YAW_SWAY = 0.07f, YAW_RATE = 0.34f;
         private const float PITCH_ANGLE = 0.055f, PITCH_RATE = 0.23f;
+
+        //=== THE MOVE FROM ONE COMPOSITION TO THE OTHER ===
+
+        //How long the title takes to leave the middle of the frame and settle into its corner. Long enough to
+        //be watched rather than glimpsed, and short enough that a player who came to press Play is not made to
+        //wait for it - and it is a smoothstep, so it leaves and arrives at rest and only the middle is quick.
+        private const float MORPH_SECONDS = 1.15f;
+
+        //The arrival, at the very start of the game. The title swells into place rather than cutting in - the
+        //splash's own doc has the rule ("a card that cuts in reads as a stutter") and it applied to the 2D
+        //label this took the place of. It starts at a size rather than at nothing because the letters are
+        //opaque geometry: there is no alpha to fade here, and a word growing from zero reads as a dot.
+        private const float REVEAL_SECONDS = 0.65f, REVEAL_FROM = 0.58f;
+
+        //And the glow's own kick as it lands, on top of the beat. This is where the reveal's overshoot lives,
+        //because scale cannot have one: the fit above solves the block to the frame, so a block that overshot
+        //its own size would cross the inset it was just fitted inside. Light has no such budget.
+        private const float REVEAL_FLARE = 0.30f;
 
         //THE WAVE THROUGH THE LETTERS, and the wavelength is not a taste: it is EXACTLY ONE CYCLE across the
         //whole wordmark. At any other figure the letters read as shimmering independently rather than as one
@@ -213,15 +248,59 @@ namespace BS3D.Effects
         //where that failed outright. A black sky gives the light rig almost nothing to work with, so over the
         //moon and in space the glow is very nearly the only thing lighting the letters - at 0.08 the word went
         //dark and muddy for half of every 2.2-second beat, which is #180's "the badge blinked out for a third
-        //of every sweep" arriving through brightness instead of through hue. 0.22 holds the word plainly lit
-        //against a black sky at the bottom of the beat and still leaves a swing of nearly three to one.
+        //of every sweep" arriving through brightness instead of through hue.
         //
-        //AND THE CREST IS NOT PUSHED HIGHER THAN IT NEEDS TO BE, because the emissive term is FLAT: it is
-        //added per pixel without regard to the normal, so every point of the glow is brightness the shading
-        //gradient does not get to vary. That gradient is what makes a tube read as round, so a glow big enough
-        //to swamp it turns the letters back into the flat stickers this whole approach exists to avoid. The
-        //crest is as bright as it is only because it is momentary.
-        private const float GLOW_REST = 0.22f, GLOW_PEAK = 0.60f;
+        //THE CREST IS NOT PUSHED HIGHER THAN IT HAS TO BE, because the emissive term is FLAT: it is added per
+        //pixel without regard to the normal, so every point of the glow is brightness the shading gradient does
+        //not get to vary. That gradient is what makes a tube read as round, so a glow big enough to swamp it
+        //turns the letters back into the flat stickers this whole approach exists to avoid.
+        //
+        //⚠ AND RAISING IT IS NOT HOW THE HALOES GET BIGGER — that was tried, on the owner's ask for more of
+        //them, and 0.34/1.15 came back PALE: an emissive bright enough to swell the halo dominates the diffuse,
+        //and the tonemap's own shoulder desaturates what it is given, so the letters went chalky at the crest of
+        //every beat and only their haloes kept the colour. The halo is a shell of its own now (see AURA_WIDTH).
+        //
+        //WHICH IS ALSO WHY THE LETTERS' OWN SWING IS SMALL. It was 0.22 to 0.60 while this term was the only
+        //thing pulsing; the aura carries the beat now, and a letter that breathed as hard as its halo does went
+        //pale at every crest for a second time — the bloom is a full-frame pass, so a halo that swells lays its
+        //own blurred light back over the letter it came from, and the letter's emissive was adding to that.
+        //A quiet floor with a gentle lift over it keeps the hue rich through the whole beat.
+        private const float GLOW_REST = 0.20f, GLOW_PEAK = 0.38f;
+
+        //=== THE GHOSTS ===
+
+        //THE AURA: a third tube, fatter again than the keyline, drawn ADDITIVELY behind the letter so what shows
+        //of it is a band of coloured light just outside the rim — which the glare pass then blows into the soft
+        //coloured halo the owner saw in the verification captures and asked to have more of.
+        //
+        //IT IS A SEPARATE SHELL RATHER THAN A BRIGHTER LETTER, and that is the whole point of it. The halo can
+        //only be fed by pushing something over the bright pass's 0.55 threshold, and pushing the LETTER over it
+        //costs the letter its colour and its roundness both (see GLOW_REST above). Pushing a band OUTSIDE the
+        //letter over it costs neither: the letters keep the light they were tuned to and the ghosts get as much
+        //as they want. Width in cap heights, from the letter's own surface — so the band that shows is this less
+        //OUTLINE_WIDTH, and the keyline still separates the letter from its own glow.
+        private const float AURA_WIDTH = 0.085f;
+
+        //Its own linear luminance at the trough and the crest of the same beat, and both are well over the 0.55
+        //the glare pass blooms at: the band itself is only a few pixels of a 900p frame, so what the eye reads
+        //is almost entirely what the bloom pyramid makes of it, and a band that only just crossed the threshold
+        //would smear into nothing. The swing is what makes the ghosts breathe with the word.
+        //
+        //⚠ THE CREST IS BOUNDED BY WHAT THE HALO DOES TO THE LETTERS, not by the halo itself, and this is the
+        //third figure that lesson has moved. The bloom is a FULL-FRAME pass: a halo that swells lays its own
+        //blurred light back over the letter it came from, that brightening climbs the ACES shoulder, and the
+        //shoulder desaturates what it compresses — so the brighter the ghosts, the paler the word inside them.
+        //At 1.75 the letters were flooded and their counters filled in; 1.05 kept the counters but still went
+        //chalky at every crest. At 0.85 the beat reads as the word breathing between SOLID AND VIVID at the
+        //trough and SOFT AND GLOWING at the crest, which is a better pulse than brightness alone would be —
+        //but it is a ceiling found by photograph, and anything above it is paid for in the letters' colour.
+        private const float AURA_REST = 0.50f, AURA_PEAK = 0.85f;
+
+        //Facets around it. Coarser than the other two are allowed to be, for the reason they are not: the aura
+        //is ADDITIVE and writes no depth, so it never has to nest inside anything and the dashing that forced
+        //the keyline up to the body's count cannot happen here. Twelve rather than eight only because a band of
+        //light about to be blurred twice costs nothing in vertices and the extra roundness is free.
+        private const int AURA_SIDES = 12;
 
         //=== THE COLOUR ===
 
@@ -267,12 +346,29 @@ namespace BS3D.Effects
         private readonly Dictionary<char, int> _glyphIndex = new();
         private readonly List<LetterMesh> _bodyMeshes = new();
         private readonly List<LetterMesh> _outlineMeshes = new();
+        private readonly List<LetterMesh> _auraMeshes = new();
         private readonly List<InstancedModelRenderer> _bodyRenderers = new();
         private readonly List<InstancedModelRenderer> _outlineRenderers = new();
+        private readonly List<InstancedModelRenderer> _auraRenderers = new();
 
-        //Every letter of the title that is actually drawn, in reading order, with its place in the block
-        //solved once at construction. Spaces are not slots: they moved the pen and that is all they do.
-        private readonly Slot[] _slots;
+        //Every letter of the title that is actually drawn, in reading order — and nothing about WHERE it sits,
+        //because that depends on which composition is standing. Spaces are not letters: they move the pen and
+        //that is all they do.
+        private readonly Letter[] _letters;
+
+        //THE TWO COMPOSITIONS, both solved once at construction, and every frame is somewhere between them.
+        //_open is the title card: the whole name on one line in the middle of the frame. _settled is the menu's:
+        //one word to a line, right-aligned into the corner, the last word blown up into a badge.
+        private readonly Placement[] _open, _settled;
+        private readonly Composition _openBlock, _settledBlock;
+
+        //Where between them this frame is, 0 open and 1 settled, and the wall clock it was last advanced
+        //against. The morph is driven off the WALL CLOCK rather than an elapsed value because this class is
+        //only ever reached from a draw: a frame that is not drawn is a frame in which nothing here should have
+        //moved. A gap in the drawing — a level played, then Main Menu — comes back as one huge step, which
+        //saturates the morph and is exactly right, because the title belongs in its corner by then.
+        private float _morph, _reveal;
+        private float _lastClock = -1f;
 
         //THE KEYLINE PASS IS ONE DRAW A LETTER, like the body pass, and it was eleven INSTANCED draws until
         //the rim took a colour of its own: a colour is a per-DRAW uniform here, so the moment every letter's
@@ -288,13 +384,7 @@ namespace BS3D.Effects
         //thicker on one side by however much the two computations differ.
         private readonly Matrix[] _letterWorld;
 
-        private readonly BasicEffectParams _bodyParams, _outlineParams;
-
-        //The block's own size in cap heights, solved once. Both are the SWEPT box rather than the resting ink:
-        //the width is the widest line's ink, the height the whole stack's ink plus the reach of the wave that
-        //carries every letter above and below its slot. So a letter at the top of the wave is inside the box
-        //rather than outside it, which is what the fit and the anchor below are solved against.
-        private readonly float _blockWidth, _blockHeight;
+        private readonly BasicEffectParams _bodyParams, _outlineParams, _auraParams;
 
         //The largest single letter's own span in cap heights, badge scale included: the letter that reaches
         //furthest towards the lens when the per-letter turn is at its extreme.
@@ -324,29 +414,94 @@ namespace BS3D.Effects
             {
                 foreach (InstancedModelRenderer renderer in _bodyRenderers) yield return renderer;
                 foreach (InstancedModelRenderer renderer in _outlineRenderers) yield return renderer;
+                foreach (InstancedModelRenderer renderer in _auraRenderers) yield return renderer;
             }
         }
 
-        /// <summary>One drawn letter's place in the block, in cap heights, solved once at construction.</summary>
-        private readonly struct Slot
+        /// <summary>
+        /// One drawn letter, and only what does <b>not</b> depend on which composition is standing — so the
+        /// hue and the wave travel through the word in reading order whether the title is on one line or three,
+        /// and neither jumps while it is moving between them.
+        /// </summary>
+        private readonly struct Letter
         {
-            public readonly int Glyph;          //index into the mesh/renderer lists
-            public readonly float X, Baseline;  //the letter's own origin in block space (x left-negative, y down-negative)
-            public readonly float Scale;        //its line's scale (1, or BADGE_SCALE on the last line)
-            public readonly float Advance;      //the glyph's advance, kept so the draw can centre it
-            public readonly float Phase;        //0..1 along the whole wordmark in reading order: the wave and the hue
-            public readonly float Across;       //-1..+1 across the block's WIDTH: the depth bow
+            public readonly int Glyph;      //index into the mesh/renderer lists
+            public readonly float Advance;  //the glyph's own advance, kept so the draw can centre it
+            public readonly float Phase;    //0..1 along the whole wordmark in reading order
 
-            public Slot(int glyph, float x, float baseline, float scale, float advance, float phase, float across)
+            public Letter(int glyph, float advance, float phase)
             {
                 Glyph = glyph;
-                X = x;
-                Baseline = baseline;
-                Scale = scale;
                 Advance = advance;
                 Phase = phase;
+            }
+        }
+
+        /// <summary>
+        /// Where one letter sits in one composition, in cap heights, measured from that composition's block
+        /// <b>centre</b> — which is what the block turns about, so this is the frame the two compositions can
+        /// be interpolated in without knowing each other's size.
+        /// </summary>
+        private readonly struct Placement
+        {
+            public readonly float X, Y;      //the letter's own centre
+            public readonly float Scale;     //its line's scale (1, or BADGE_SCALE on the badge line)
+            public readonly float Across;    //-1..+1 across the block's WIDTH: the depth bow
+
+            public Placement(float x, float y, float scale, float across)
+            {
+                X = x;
+                Y = y;
+                Scale = scale;
                 Across = across;
             }
+
+            public static Placement Lerp(in Placement a, in Placement b, float t) =>
+                new(MathHelper.Lerp(a.X, b.X, t), MathHelper.Lerp(a.Y, b.Y, t),
+                    MathHelper.Lerp(a.Scale, b.Scale, t), MathHelper.Lerp(a.Across, b.Across, t));
+        }
+
+        /// <summary>
+        /// One whole composition: how big the block is, how much of the frame it asks for, which corner it is
+        /// pinned to and how far it stands turned.
+        /// <para>
+        /// <b>Both sizes are the SWEPT box rather than the resting ink</b> — the width is the widest line's ink,
+        /// the height the whole stack's ink plus the reach of the wave that carries every letter above and below
+        /// its line. So a letter at the top of the wave is inside the box rather than outside it, which is what
+        /// makes the fit and the anchor honest.
+        /// </para>
+        /// <para>
+        /// <b>The anchor is two numbers rather than a mode</b>, and that is what makes the move between the two
+        /// compositions a plain interpolation: at 0 the block is centred in the frame on that axis, at 1 it is
+        /// pinned to the far edge with the inset, and everything in between is where it is on its way. The rest
+        /// of the anchor arithmetic is shared, so lerping these two lerps the whole anchor.
+        /// </para>
+        /// </summary>
+        private readonly struct Composition
+        {
+            public readonly float Width, Height;                    //cap heights
+            public readonly float WidthFraction, HeightFraction;    //of the whole frame
+            public readonly float EdgeX, EdgeY;                     //0 centred, 1 pinned
+            public readonly float Yaw;                              //the standing turn, radians
+
+            public Composition(float width, float height, float widthFraction, float heightFraction,
+                float edgeX, float edgeY, float yaw)
+            {
+                Width = width;
+                Height = height;
+                WidthFraction = widthFraction;
+                HeightFraction = heightFraction;
+                EdgeX = edgeX;
+                EdgeY = edgeY;
+                Yaw = yaw;
+            }
+
+            public static Composition Lerp(in Composition a, in Composition b, float t) =>
+                new(MathHelper.Lerp(a.Width, b.Width, t), MathHelper.Lerp(a.Height, b.Height, t),
+                    MathHelper.Lerp(a.WidthFraction, b.WidthFraction, t),
+                    MathHelper.Lerp(a.HeightFraction, b.HeightFraction, t),
+                    MathHelper.Lerp(a.EdgeX, b.EdgeX, t), MathHelper.Lerp(a.EdgeY, b.EdgeY, t),
+                    MathHelper.Lerp(a.Yaw, b.Yaw, t));
         }
 
         /// <param name="title">
@@ -379,77 +534,28 @@ namespace BS3D.Effects
 
             float tracking = 2f * TUBE_RADIUS + DAYLIGHT;
 
-            //=== The block, laid out once in cap heights ===
-            //Block space: x runs LEFT from 0 (the right-hand ink edge of the widest line) and y runs DOWN
-            //from 0 (the top ink edge of the first line), both negative. Right-aligned and top-anchored,
-            //which is the corner the composition hangs from.
-            float[] wordWidth = new float[words.Length];
-            float widestInk = 0f;
-            for (int w = 0; w < words.Length; w++)
-            {
-                wordWidth[w] = LetterShapes.WordWidth(words[w], tracking);
-
-                float scale = Scale(w, words.Length);
-                widestInk = MathF.Max(widestInk, (wordWidth[w] + 2f * TUBE_RADIUS) * scale);
-            }
-
-            List<Slot> slots = new();
-            float inkTop = 0f;
+            //=== The letters, in reading order, once. The hue and the wave ride on this order alone, so they
+            //do not care which composition is standing and cannot jump while the title is moving. ===
             int totalLetters = 0;
             foreach (string word in words) totalLetters += word.Length;
 
-            int letterOrdinal = 0;
-            for (int w = 0; w < words.Length; w++)
-            {
-                float scale = Scale(w, words.Length);
-                float lineInkHeight = (LetterShapes.CAP_HEIGHT + 2f * TUBE_RADIUS) * scale;
+            List<Letter> letters = new();
+            foreach (string word in words)
+                foreach (char c in word)
+                    letters.Add(new Letter(
+                        GlyphIndex(device, instancingEffect, c), LetterShapes.Advance(c),
+                        totalLetters > 1 ? letters.Count / (float)totalLetters : 0f));
 
-                //The line's own right ink edge sits at 0; its first letter's skeleton origin is its whole ink
-                //width to the left of that, less the tube radius the ink stands outside the skeleton by.
-                float pen = -(wordWidth[w] + TUBE_RADIUS) * scale;
-                float baseline = inkTop - (LetterShapes.CAP_HEIGHT + TUBE_RADIUS) * scale;
+            _letters = letters.ToArray();
+            _letterWorld = new Matrix[_letters.Length];
 
-                //Nothing here is a space: the split above removed them, and a word is one line.
-                foreach (char c in words[w])
-                {
-                    float advance = LetterShapes.Advance(c);
+            //=== And the two compositions the same letters are laid out in ===
+            _settledBlock = Place(words, settled: true, tracking, out _settled);
+            _openBlock = Place(words, settled: false, tracking, out _open);
 
-                    //One phase for the wave and the hue both, so the colour and the motion travel together
-                    //as one thing through the word rather than as two. Across is filled in below, once the
-                    //block's own width is known.
-                    float phase = totalLetters > 1 ? letterOrdinal / (float)totalLetters : 0f;
-                    slots.Add(new Slot(GlyphIndex(device, instancingEffect, c), pen, baseline, scale, advance, phase, 0f));
-                    letterOrdinal++;
-
-                    pen += (advance + tracking) * scale;
-                }
-
-                inkTop -= lineInkHeight;
-                if (w < words.Length - 1)
-                    inkTop -= LINE_GAP * MathF.Max(scale, Scale(w + 1, words.Length));
-            }
-
-            _blockWidth = widestInk;
-            _blockHeight = -inkTop + 2f * WAVE_DEPTH * Scale(words.Length - 1, words.Length);
-
-            foreach (Slot slot in slots) _widestLetter = MathF.Max(_widestLetter, slot.Advance * slot.Scale);
-
-            //THE DEPTH BOW'S PHASE IS THE LETTER'S PLACE ACROSS THE BLOCK, not its place in the reading order,
-            //and that is the difference between one surface bulging towards the lens and three lines each
-            //bulging on their own — which reads as three objects. Solved here because it needs the block's
-            //width, which is not known until every line has been measured.
-            _slots = new Slot[slots.Count];
-            for (int i = 0; i < slots.Count; i++)
-            {
-                Slot slot = slots[i];
-                float centreX = slot.X + slot.Advance * 0.5f * slot.Scale;
-                float across = _blockWidth > 1e-4f ? 1f + 2f * centreX / _blockWidth : 0f;
-
-                _slots[i] = new Slot(slot.Glyph, slot.X, slot.Baseline, slot.Scale, slot.Advance, slot.Phase,
-                    MathHelper.Clamp(across, -1f, 1f));
-            }
-
-            _letterWorld = new Matrix[_slots.Length];
+            for (int i = 0; i < _letters.Length; i++)
+                _widestLetter = MathF.Max(_widestLetter,
+                    _letters[i].Advance * MathF.Max(_open[i].Scale, _settled[i].Scale));
 
             Vector3 ambient = Vector3.One * ambientIntensity;
 
@@ -464,10 +570,106 @@ namespace BS3D.Effects
             //And the keyline's, which wants no highlight at all: a specular glint on the dark ring would read
             //as a crack in the letter.
             _outlineParams = new BasicEffectParams(ambient, new Vector3(0.02f, 0.02f, 0.02f), 8f, Vector3.Zero);
+
+            //The aura's, which wants no LIGHT at all: no ambient either, unlike the two above. It is a band of
+            //emitted colour and nothing else, and every term the scene could add to it would be light the
+            //frame adds twice.
+            _auraParams = new BasicEffectParams(Vector3.Zero, new Vector3(0.001f, 0.001f, 0.001f), 4f, Vector3.Zero);
         }
 
-        /// <summary>The scale of one line: every word at 1 but the last, which is the badge.</summary>
-        private static float Scale(int word, int words) => word == words - 1 && words > 1 ? BADGE_SCALE : 1f;
+        /// <summary>
+        /// Lays the whole title out in one composition and hands back both the block it came to and where every
+        /// letter sits in it.
+        /// <para>
+        /// The two differ in exactly three ways, and the rest of this method does not know which it is building:
+        /// the <b>lines</b> (one word each when settled, the whole name joined by spaces on one line when not),
+        /// the <b>alignment</b> (right against the block when settled, centred in it when not) and the
+        /// <b>badge</b> (the last line blown up when settled, everything level when not).
+        /// </para>
+        /// <para>
+        /// It works in block space: <c>x</c> runs LEFT from 0, the right-hand ink edge of the widest line, and
+        /// <c>y</c> runs DOWN from 0, the top ink edge of the first line — both negative. The placements handed
+        /// back are converted out of it, to the block's own centre, at the end.
+        /// </para>
+        /// </summary>
+        private Composition Place(string[] words, bool settled, float tracking, out Placement[] placements)
+        {
+            string[] lines = settled ? words : new[] { string.Join(" ", words) };
+
+            float[] lineWidth = new float[lines.Length];
+            float widestInk = 0f;
+            for (int l = 0; l < lines.Length; l++)
+            {
+                lineWidth[l] = LetterShapes.WordWidth(lines[l], tracking);
+                widestInk = MathF.Max(widestInk, (lineWidth[l] + 2f * TUBE_RADIUS) * LineScale(l, lines.Length, settled));
+            }
+
+            //Laid out into block space first, then rebased onto the block's centre once its height is known.
+            List<Placement> raw = new();
+            float inkTop = 0f;
+            float tallestLine = 1f;
+
+            for (int l = 0; l < lines.Length; l++)
+            {
+                float scale = LineScale(l, lines.Length, settled);
+                tallestLine = MathF.Max(tallestLine, scale);
+
+                float lineInkWidth = (lineWidth[l] + 2f * TUBE_RADIUS) * scale;
+
+                //Where this line's right ink edge sits: against the block when the composition is
+                //right-aligned, or half its slack in from it when the line is centred.
+                float right = settled ? 0f : -(widestInk - lineInkWidth) * 0.5f;
+
+                float pen = right - (lineWidth[l] + TUBE_RADIUS) * scale;
+                float baseline = inkTop - (LetterShapes.CAP_HEIGHT + TUBE_RADIUS) * scale;
+
+                foreach (char c in lines[l])
+                {
+                    float advance = LetterShapes.Advance(c);
+
+                    //A space moved the pen and is not a letter — which is the one thing the joined-up single
+                    //line has that the one-word-a-line composition does not.
+                    if (c != ' ')
+                        raw.Add(new Placement(
+                            pen + advance * 0.5f * scale,
+                            baseline + LetterShapes.CAP_HEIGHT * 0.5f * scale, scale, 0f));
+
+                    pen += (advance + tracking) * scale;
+                }
+
+                inkTop -= (LetterShapes.CAP_HEIGHT + 2f * TUBE_RADIUS) * scale;
+                if (l < lines.Length - 1)
+                    inkTop -= LINE_GAP * MathF.Max(scale, LineScale(l + 1, lines.Length, settled));
+            }
+
+            float width = widestInk;
+            float height = -inkTop + 2f * WAVE_DEPTH * tallestLine;
+
+            //THE DEPTH BOW'S PHASE IS THE LETTER'S PLACE ACROSS THE BLOCK, not its place in the reading order,
+            //and that is the difference between one surface bulging towards the lens and every line bulging on
+            //its own — which reads as as many objects as there are lines. Solved here because it needs the
+            //block's width, which is not known until every line has been measured.
+            placements = new Placement[raw.Count];
+            for (int i = 0; i < raw.Count; i++)
+            {
+                Placement p = raw[i];
+                float across = width > 1e-4f ? 1f + 2f * p.X / width : 0f;
+
+                placements[i] = new Placement(p.X + width * 0.5f, p.Y + height * 0.5f, p.Scale,
+                    MathHelper.Clamp(across, -1f, 1f));
+            }
+
+            return settled
+                ? new Composition(width, height, BLOCK_WIDTH_FRACTION, BLOCK_HEIGHT_FRACTION, 1f, 1f, YAW_CENTRE)
+                : new Composition(width, height, OPEN_WIDTH_FRACTION, OPEN_HEIGHT_FRACTION, 0f, 0f, 0f);
+        }
+
+        /// <summary>
+        /// The scale of one line: level everywhere, except that the settled composition blows the last line up
+        /// into a badge. The opening one is all on one line and has nothing to blow up.
+        /// </summary>
+        private static float LineScale(int line, int lines, bool settled) =>
+            settled && lines > 1 && line == lines - 1 ? BADGE_SCALE : 1f;
 
         /// <summary>Keeps only the characters this alphabet can set, so an unsettable title degrades rather than throws.</summary>
         private static string Drawable(string word)
@@ -492,9 +694,11 @@ namespace BS3D.Effects
 
             LetterMesh body = new(device, c, TUBE_RADIUS, BODY_SIDES);
             LetterMesh outline = new(device, c, TUBE_RADIUS + OUTLINE_WIDTH, OUTLINE_SIDES);
+            LetterMesh aura = new(device, c, TUBE_RADIUS + AURA_WIDTH, AURA_SIDES);
 
             _bodyMeshes.Add(body);
             _outlineMeshes.Add(outline);
+            _auraMeshes.Add(aura);
 
             _bodyRenderers.Add(new InstancedModelRenderer(device, body, BODY_MATERIAL, effect)
             {
@@ -516,18 +720,33 @@ namespace BS3D.Effects
                 LinearLightRig = true
             });
 
+            _auraRenderers.Add(new InstancedModelRenderer(device, aura, Vector3.Zero, effect)
+            {
+                //Nothing lit reaches the aura: its whole colour arrives as EmissiveTint, for the keyline's
+                //reason and one more of its own — it is drawn ADDITIVELY, so every term the light rig could
+                //give it would be light added to the frame on top of the light it is already adding.
+                SpecularAmbientStrength = 0f,
+                LinearLightRig = true
+            });
+
             return index;
         }
 
         /// <summary>
-        /// Draws the wordmark, anchored to the frame. Called from the front end's own screen while the main
-        /// menu is the page on top, so it is on screen exactly there and nowhere else — no page has to opt in
-        /// and no page added later can forget to opt out.
+        /// Draws the wordmark, anchored to the frame. Called from the front end's own screen while either the
+        /// title card or the main menu is the page on top, so it is on screen exactly there and nowhere else —
+        /// no page has to opt in and no page added later can forget to opt out.
         /// </summary>
         /// <param name="wallClock">
         /// The host's wall clock. A front-end effect has no session, so play time does not exist for it — and
         /// the drift, the wave and the beat all have to keep running while a settings page is open over the
         /// menu, which is the same argument the balls' heartbeat and the clouds' drift make.
+        /// </param>
+        /// <param name="settled">
+        /// Which composition to move towards: <c>false</c> is the title card's, the whole name on one line in
+        /// the middle of the frame; <c>true</c> is the menu's, one word to a line in the corner with the last
+        /// blown up. The caller states the <i>target</i> and never the progress — the move itself is this
+        /// class's, so a page cannot leave the title half way across the frame.
         /// </param>
         /// <remarks>
         /// <b>The draw states are stated here and put back</b>, which is the contract <c>ArenaIsland</c>'s
@@ -546,9 +765,27 @@ namespace BS3D.Effects
         /// themselves.
         /// </para>
         /// </remarks>
-        public void Draw(ICamera camera, float wallClock)
+        public void Draw(ICamera camera, float wallClock, bool settled)
         {
-            if (_slots.Length == 0) return;
+            if (_letters.Length == 0) return;
+
+            //THE MOVE AND THE ARRIVAL, both stepped off the wall clock rather than off an elapsed value handed
+            //in, because this class is only ever reached from a draw: a frame that was not drawn is a frame in
+            //which nothing here should have moved. The step is deliberately NOT clamped — a gap in the drawing
+            //(a level played, then Main Menu) arrives as one huge step, which saturates both and is exactly
+            //right, since the title belongs settled in its corner by then and its arrival is long over.
+            float step = _lastClock < 0f ? 0f : MathF.Max(0f, wallClock - _lastClock);
+            _lastClock = wallClock;
+
+            _morph = MathHelper.Clamp(_morph + (settled ? step : -step) / MORPH_SECONDS, 0f, 1f);
+            _reveal = MathF.Min(1f, _reveal + step / REVEAL_SECONDS);
+
+            //Eased at both ends, so the title leaves the middle of the frame and arrives in its corner at rest
+            //and only the middle of the move is quick.
+            float morph = MathHelper.SmoothStep(0f, 1f, _morph);
+            float reveal = MathHelper.SmoothStep(0f, 1f, _reveal);
+
+            Composition block = Composition.Lerp(in _openBlock, in _settledBlock, morph);
 
             _device.BlendState = BlendState.Opaque;
             _device.DepthStencilState = DepthStencilState.Default;
@@ -588,16 +825,19 @@ namespace BS3D.Effects
             //nothing at both ends). A bowed middle letter does project outwards a little, but it starts well
             //inside the frame and 0.45 of a cap height out of seven units moves it by six per cent of the way
             //it still has to go.
-            float reach = 0.5f * _blockWidth * MathF.Sin(MathF.Abs(YAW_CENTRE) + YAW_SWAY)
-                + 0.5f * _blockHeight * MathF.Sin(PITCH_ANGLE)
+            //Every term of it off the INTERPOLATED composition, so the fit is honest at every point of the
+            //move and not only at its two ends. The interpolated box is a sound bound on the interpolated
+            //letters, too: lerping the corners of two boxes contains the lerp of anything inside them.
+            float reach = 0.5f * block.Width * MathF.Sin(MathF.Abs(block.Yaw) + YAW_SWAY)
+                + 0.5f * block.Height * MathF.Sin(PITCH_ANGLE)
                 + 0.5f * _widestLetter * MathF.Sin(LETTER_YAW);
 
-            float availableHeight = BLOCK_HEIGHT_FRACTION * 2f * halfHeight / (1f + SCALE_BEAT);
-            float availableWidth = BLOCK_WIDTH_FRACTION * 2f * halfWidth / (1f + SCALE_BEAT);
+            float availableHeight = block.HeightFraction * 2f * halfHeight / (1f + SCALE_BEAT);
+            float availableWidth = block.WidthFraction * 2f * halfWidth / (1f + SCALE_BEAT);
 
             float cap = MathF.Min(
-                availableHeight * DISTANCE / (_blockHeight * DISTANCE + availableHeight * reach),
-                availableWidth * DISTANCE / (_blockWidth * DISTANCE + availableWidth * reach));
+                availableHeight * DISTANCE / (block.Height * DISTANCE + availableHeight * reach),
+                availableWidth * DISTANCE / (block.Width * DISTANCE + availableWidth * reach));
 
             //THE INSET, one figure for both edges and both of them in world units off the frame's own extent —
             //the front end's own rule for its two corners ("so the name's distance from its edges and the
@@ -608,7 +848,7 @@ namespace BS3D.Effects
             //shrinks about its anchored corner rather than about its middle.
             float beat = 0.5f + 0.5f * MathF.Sin(wallClock * BEAT_RATE * MathHelper.TwoPi);
 
-            cap *= 1f + SCALE_BEAT * (beat * 2f - 1f);
+            cap *= (1f + SCALE_BEAT * (beat * 2f - 1f)) * MathHelper.Lerp(REVEAL_FROM, 1f, reveal);
 
             //THE ANCHOR, and it carries the same perspective term the fit above does — for the same reason and
             //with the same arithmetic. The corner has to land ON the inset when it is at its NEAREST, so the
@@ -618,15 +858,18 @@ namespace BS3D.Effects
             //the block therefore sits a little further in than the inset, which is the margin the sway spends.
             float shrink = (DISTANCE - reach * cap) / DISTANCE;
 
+            //EdgeX and EdgeY are what carry the block from the middle of the frame to its corner: at 0 the
+            //offset is nothing and the block is centred, at 1 it is the whole anchored corner, and the move
+            //between the two compositions is that pair being lerped like everything else.
             Vector3 blockCentre = camera.Position
                 + forward * DISTANCE
-                + right * ((halfWidth - inset) * shrink - _blockWidth * cap * 0.5f)
-                + up * ((halfHeight - inset) * shrink - _blockHeight * cap * 0.5f);
+                + right * (block.EdgeX * ((halfWidth - inset) * shrink - block.Width * cap * 0.5f))
+                + up * (block.EdgeY * ((halfHeight - inset) * shrink - block.Height * cap * 0.5f));
 
             //Block space to world: x right, y up, z towards the lens — then the block's own two sways, applied
             //BEFORE the basis so they turn the word about its own axes rather than about the world's.
             Matrix blockToWorld =
-                Matrix.CreateRotationY(YAW_CENTRE + YAW_SWAY * MathF.Sin(wallClock * YAW_RATE))
+                Matrix.CreateRotationY(block.Yaw + YAW_SWAY * MathF.Sin(wallClock * YAW_RATE))
                 * Matrix.CreateRotationX(PITCH_ANGLE * MathF.Sin(wallClock * PITCH_RATE))
                 * new Matrix(
                     right.X, right.Y, right.Z, 0f,
@@ -637,20 +880,21 @@ namespace BS3D.Effects
             //=== Every letter's matrix, once, then both passes read it ===
             Vector4 fullyOpen = new(0f, 0f, 0f, 1f);   //no occluder, no ambient occlusion: nothing shades a title
 
-            for (int i = 0; i < _slots.Length; i++)
-                _letterWorld[i] = LetterWorld(in _slots[i], cap, wallClock, in blockToWorld);
+            for (int i = 0; i < _letters.Length; i++)
+                _letterWorld[i] = LetterWorld(in _letters[i], Placement.Lerp(in _open[i], in _settled[i], morph),
+                    cap, wallClock, in blockToWorld);
 
             //=== The keyline, one draw a letter, each rim its own colour off the same wheel ===
             _device.RasterizerState = RasterizerState.CullClockwise;
 
-            for (int i = 0; i < _slots.Length; i++)
+            for (int i = 0; i < _letters.Length; i++)
             {
-                InstancedModelRenderer renderer = _outlineRenderers[_slots[i].Glyph];
+                InstancedModelRenderer renderer = _outlineRenderers[_letters[i].Glyph];
 
                 //Through EmissiveTint and in LINEAR radiance, for the reason on OUTLINE_MATERIAL: this pass
                 //has no usable normals, so its colour cannot come from the light.
                 renderer.EmissiveTint = ColorSpace.SrgbToLinear(
-                    Hue(_slots[i].Phase + wallClock * HUE_FLOW + OUTLINE_HUE_SHIFT) * OUTLINE_VALUE);
+                    Hue(_letters[i].Phase + wallClock * HUE_FLOW + OUTLINE_HUE_SHIFT) * OUTLINE_VALUE);
 
                 _oneInstance[0] = new ModelInstance(_letterWorld[i], fullyOpen);
                 renderer.Draw(camera, _oneInstance, 1, _outlineParams);
@@ -659,17 +903,53 @@ namespace BS3D.Effects
             //=== The letters, one draw each, because the colour is a per-draw uniform ===
             _device.RasterizerState = RasterizerState.CullCounterClockwise;
 
-            float glowLevel = MathHelper.Lerp(GLOW_REST, GLOW_PEAK, beat);
+            //The beat, plus the arrival's own flare — which is where the reveal's overshoot lives, scale having
+            //no room for one (see REVEAL_FLARE). It decays as the reveal completes, so it is a landing and not
+            //a second rhythm.
+            float glowLevel = MathHelper.Lerp(GLOW_REST, GLOW_PEAK, beat)
+                + REVEAL_FLARE * reveal * (1f - reveal) * 4f;
 
-            for (int i = 0; i < _slots.Length; i++)
+            for (int i = 0; i < _letters.Length; i++)
             {
-                Vector3 hue = Hue(_slots[i].Phase + wallClock * HUE_FLOW);
+                Vector3 hue = Hue(_letters[i].Phase + wallClock * HUE_FLOW);
 
-                InstancedModelRenderer renderer = _bodyRenderers[_slots[i].Glyph];
+                InstancedModelRenderer renderer = _bodyRenderers[_letters[i].Glyph];
                 renderer.EmissiveTint = Glow(hue, glowLevel);
 
                 _oneInstance[0] = new ModelInstance(_letterWorld[i], fullyOpen);
                 renderer.Draw(camera, _oneInstance, 1, _bodyParams, hue);
+            }
+
+            //=== And the ghosts LAST, which is a performance decision and not a drawing one. ===
+            //
+            //An additive band of the letter's own colour just outside its rim, which the glare pass then turns
+            //into the halo. FRONT faces culled, like the keyline and for the keyline's reason, so what is drawn
+            //is the shell's FAR surface — behind the letter, so only the band outside it survives. Its depth
+            //WRITE is off, because two letters' auras overlap wherever the word is tight and one of them
+            //writing depth would punch a hole in the other.
+            //
+            //⚠ IT WAS DRAWN FIRST, AND THAT COST 2.6 ms OF A 26 ms FRAME — measured, on the pinned rig, as the
+            //only version of this whose cost came out ABOVE the machine's noise. Drawn first there is nothing
+            //in the depth buffer yet, so every pixel of every shell is shaded and then thrown away by the
+            //letters painted over it; drawn last, early-Z rejects all of that before the shader runs and only
+            //the band is paid for. The band is a fraction of the shell, and the shader it is paying for is the
+            //frame's full lit material — cloud shadow, hemisphere ambient, Fresnel, sky radiance — every term
+            //of which is multiplied by a black diffuse and thrown away. The picture is identical either way:
+            //additive blending is order-independent, and the only pixels that differ are the ones the depth
+            //test removes in both orders.
+            _device.BlendState = BlendState.Additive;
+            _device.DepthStencilState = DepthStencilState.DepthRead;
+            _device.RasterizerState = RasterizerState.CullClockwise;
+
+            float auraLevel = MathHelper.Lerp(AURA_REST, AURA_PEAK, beat) * reveal;
+
+            for (int i = 0; i < _letters.Length; i++)
+            {
+                InstancedModelRenderer renderer = _auraRenderers[_letters[i].Glyph];
+                renderer.EmissiveTint = Glow(Hue(_letters[i].Phase + wallClock * HUE_FLOW), auraLevel);
+
+                _oneInstance[0] = new ModelInstance(_letterWorld[i], fullyOpen);
+                renderer.Draw(camera, _oneInstance, 1, _auraParams);
             }
 
             //Put back what BeginSceneDraw stated for the scene, so the glass that follows finds the frame as
@@ -683,27 +963,21 @@ namespace BS3D.Effects
         /// One letter's world matrix. It is centred on its own middle before anything turns it, or the letter
         /// would swing about its bottom-left corner like a flag on a pole rather than turning on the spot.
         /// </summary>
-        private Matrix LetterWorld(in Slot slot, float cap, float wallClock, in Matrix blockToWorld)
+        private static Matrix LetterWorld(in Letter letter, Placement at, float cap, float wallClock,
+            in Matrix blockToWorld)
         {
             //Exactly one cycle of the wave across the whole wordmark - see WAVE_DEPTH.
-            float wavePhase = (slot.Phase - wallClock * WAVE_RATE) * MathHelper.TwoPi;
+            float wavePhase = (letter.Phase - wallClock * WAVE_RATE) * MathHelper.TwoPi;
             float wave = MathF.Sin(wavePhase);
 
-            //Where the letter's own centre sits in the block, in cap heights, measured from the block's CENTRE
-            //- which is what blockToWorld turns about, so this has to be relative to it and not to the corner
-            //the layout was written from.
-            float x = slot.X + slot.Advance * 0.5f * slot.Scale + _blockWidth * 0.5f;
-            float y = slot.Baseline + LetterShapes.CAP_HEIGHT * 0.5f * slot.Scale
-                + wave * WAVE_DEPTH * slot.Scale + _blockHeight * 0.5f;
-
-            //Bowed towards the lens by how far across the BLOCK it stands - see Slot.Across.
-            float z = BOW_DEPTH * (1f - slot.Across * slot.Across);
+            //Bowed towards the lens by how far across the BLOCK it stands - see Placement.Across.
+            float z = BOW_DEPTH * (1f - at.Across * at.Across);
 
             return
-                Matrix.CreateTranslation(-slot.Advance * 0.5f, -LetterShapes.CAP_HEIGHT * 0.5f, 0f)
-                * Matrix.CreateScale(cap * slot.Scale)
+                Matrix.CreateTranslation(-letter.Advance * 0.5f, -LetterShapes.CAP_HEIGHT * 0.5f, 0f)
+                * Matrix.CreateScale(cap * at.Scale)
                 * Matrix.CreateRotationY(LETTER_YAW * MathF.Cos(wavePhase))
-                * Matrix.CreateTranslation(x * cap, y * cap, z * cap)
+                * Matrix.CreateTranslation(at.X * cap, (at.Y + wave * WAVE_DEPTH * at.Scale) * cap, z * cap)
                 * blockToWorld;
         }
 
@@ -762,8 +1036,10 @@ namespace BS3D.Effects
         {
             foreach (InstancedModelRenderer renderer in _bodyRenderers) renderer?.Dispose();
             foreach (InstancedModelRenderer renderer in _outlineRenderers) renderer?.Dispose();
+            foreach (InstancedModelRenderer renderer in _auraRenderers) renderer?.Dispose();
             foreach (LetterMesh mesh in _bodyMeshes) mesh?.Dispose();
             foreach (LetterMesh mesh in _outlineMeshes) mesh?.Dispose();
+            foreach (LetterMesh mesh in _auraMeshes) mesh?.Dispose();
         }
     }
 }
