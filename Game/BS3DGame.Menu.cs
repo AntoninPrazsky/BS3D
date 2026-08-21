@@ -203,7 +203,13 @@ namespace BS3D
         //is kept only as a whisper for the hover to lift from; the resting entry is all but the label alone.
         //Pure transparency (RGB 0) so it only darkens and never milks a bright sky, and hover and pressed stay
         //the SHARED tones below, so pointing at a front-end entry still lifts the same slab every other page shows.
-        private static readonly Color MENU_FRONT_BUTTON = new(0, 0, 0, 40);         //black, ~16 % — a breath of a slab
+        //#247 took it down again, from 40: the owner played the ~16 % version and it still read as a plate. The
+        //ask was "very, very, very transparent — almost invisible, just a hint that a control is there", and
+        //7 % is that. Note the issue's own body cites grey 73 at 75 % and Menu.cs:185 — that is MENU_BUTTON
+        //above, the brush every OTHER page uses, and editing it would have changed settings, both pickers and
+        //the pause, which #216 explicitly rules out. The front end got its own rest brush the day before that
+        //issue was filed, so this is a second pass on this constant rather than the first on that one.
+        private static readonly Color MENU_FRONT_BUTTON = new(0, 0, 0, 18);         //black, ~7 % — a hint, not a plate
 
         //Built once and shared by every entry. A brush holds no per-widget state, and the focus highlight
         //swaps an entry between the first two of these rather than minting a brush per frame. MENU_BUTTON_BRUSH
