@@ -813,7 +813,7 @@ Majitel chtěl větší mezery mezi nabitými kuličkami. **Konstanta, na kterou
 - **Chybí příchod/reveal.** Titulek prostě je. Kaskádu při každém návratu ze settings jsem odmítl vědomě (bylo by to nepřečtené první 1,4 s a otravné při každém návratu) — kdyby ho majitel chtěl, je to nová konstanta, ne nová práce.
 - **Soud „je to dost hlasité?" je majitelův**, ne můj. Kompozici (tři řádky, odznak) si vybral z mockupu, ale hotovou věc v běžící hře ještě neviděl.
 
-**Nic dalšího si teď neberu.** `origin/235-birds-geometry` je cizí rozdělaná práce (nesahal jsem na ni); `origin/211-music-switches-fade` leží dál.
+**Nic dalšího si teď neberu.** **#235 (ptáci) si mezitím vzal jiný agent** — má to zapsané v deníku, ale větev na origin ještě není, takže nesahat. Dál leží `origin/211-music-switches-fade` a `origin/234-first-level-pyramid` (ta je už plně v mainu, jde smazat).
 
 ---
 
