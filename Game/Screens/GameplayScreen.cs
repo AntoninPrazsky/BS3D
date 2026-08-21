@@ -500,6 +500,22 @@ namespace BS3D.Screens
         //is drawn inside the island cap it is meant to hover over.
         private const float CEILING_DEATH_Y = ArenaIsland.TOP_Y + 1f;   //a ball below this has lost the level
 
+        //A CLUSTER THAT MERELY SWINGS HAS NOT LOST (#239). The test reads the lowest ball's LIVE pose, and a
+        //hanging cluster oscillates about its own descending trend — so a body still comfortably above the line
+        //lost the level in the instant of a swing's bottom. The owner reported this once before and it was
+        //answered by moving the line DOWN two units; that lever is now spent, because CEILING_DEATH_Y cannot go
+        //below ArenaIsland.TOP_Y + 1 without the laser net (half a unit lower again) drawing inside the island
+        //cap it is meant to hover over. So the rule has to stop reading an instant, which is what these two do.
+        //
+        //Both are measured, on Chest — the level it was reported on, and the second-heaviest cluster in the
+        //pack — by a probe that fired a shot every 0.7 s and stepped the ceiling every 2 s, then detrended the
+        //lowest ball against a centred moving average (the baseline descends all level, so a raw minimum reads
+        //the whole descent as one dip). 35 swings over 67 s: deepest 0.82 units below the trend, longest 0.76 s,
+        //median 0.40 s, 90th percentile 0.71 s. A dip shallower than a unit AND shorter than a second is
+        //therefore forgiven; anything deeper or longer is the cluster genuinely arriving, not passing through.
+        private const float CLUSTER_SWING_ALLOWANCE = 1f;    //units past the line a swing is allowed to reach
+        private const float CLUSTER_BELOW_LINE_GRACE = 1f;   //seconds it is allowed to stay there
+
         /// <summary>
         /// How hard the glass is glowing right now, 1 at the moment of a step and decaying to nothing. It is
         /// the descent's announcement: a translucent plate sliding down against the sky is close to invisible
@@ -1152,7 +1168,7 @@ namespace BS3D.Screens
             //have seen it, which is the same reason the cleared countdown below waits. The floor alarm inside
             //is NOT held: the release that engages a cinematic is exactly the one that rescues a low cluster,
             //and a warning frozen lit would blaze across the player's reward for the whole dive down the drain.
-            CheckLevelLost(mayLose: !_cinematic.Engaged);
+            CheckLevelLost(elapsed, mayLose: !_cinematic.Engaged);
 
             //Where a shot fired now would land. After the step, so the ghost sits against the poses the player is
             //looking at rather than the ones from before this frame's physics.

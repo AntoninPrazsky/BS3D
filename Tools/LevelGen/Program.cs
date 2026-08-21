@@ -1679,7 +1679,15 @@ namespace BS3D.Tools.LevelGen
             Sky = 13,
             Music = MUSIC_REVEAL,
             Shots = 56,
-            CeilingStep = 9,
+            //TWELVE since #239, where it was nine, and it is the block's difficulty CURVE rather than this
+            //level's own taste. Measured on the running game - the cluster's lowest ball at the start against
+            //the death line, less what the budget's own descents spend - the Reveal block reads 5.38, 1.77,
+            //2.98, 3.83 and 1.99 units of margin across Onion, Chest, Fossil, Mango and Lantern. Chest was the
+            //tightest in the block AND stood directly behind the roomiest, a threefold drop between two
+            //neighbours, which is what the owner reported as a difficulty spike. Nine steps to twelve costs the
+            //level two of its six descents and puts it at 2.97, alongside Fossil - the level it is compared
+            //against. The shape and its 630 balls are untouched: what was wrong here was the clock.
+            CeilingStep = 12,
             OccupiedBlock = (x, z, i, depth) => ChestPart(x, z, i) != 0,
             BlockColour = (x, z, i) => ChestPart(x, z, i) == 2
                 ? BallType.Type4
