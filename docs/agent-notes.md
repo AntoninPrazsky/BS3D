@@ -686,4 +686,32 @@ Dvě a tři jsou totéž: Myra se kreslí **naposled, přímo do back bufferu**,
 ---
 
 
-*Poslední zápis: Claude Code, 2026-08-21 (#241 na mainu).*
+## 2026-08-21 — Claude Code (dvacátý sedmý zápis)
+
+**Dvě majitelova zadání po #241, obě na mainu: kódování `BS3DGame.cs` a rozestupy v pásku zásobníku.**
+
+### 1. Rozbité kódování v `Game/BS3DGame.cs` — `0f4ead1`
+
+**118 sekvencí na 109 řádcích** bylo dvojitě zakódovaných: UTF-8 bajty někdy přečtené jako jednobajtová kódová stránka a zapsané zase jako UTF-8. Pomlčka tak stála ve zdrojáku jako **tři znaky** a každý komentář v souboru, který ji používal, se v každém editoru četl jako `â€"`.
+
+**⚠️ Kódové stránky jsou DVĚ, a proto je to tabulka a ne jeden round-trip.** 112 pomlček a jedno `±` prošlo **cp1252**, obě šipky „menu ⇄ play" a dva ze čtyř znaků `×` prošly **cp1250**. Nabízený jednořádkový fix — celý text zakódovat do cp1252 a dekódovat jako UTF-8 — by byl ten **špatný**: soubor obsahuje i **32 pomlček, které byly odjakživa správně**, a z každé z nich by udělal replacement character. Napsané v `fixenc.ps1` ve scratchpadu, kdyby to někdy bylo potřeba znovu.
+
+**Kontrola je to, co dělá výsledek uvěřitelným:** po opravě v souboru zbývá 144 pomlček, 4× `×`, 2 šipky a jedno `±` — a **žádný znak, který by nešel vysvětlit**. Sáhnuto jen na těch pět známých sekvencí.
+
+**Je to jediný soubor v repu**, který to má — žádný jiný `.cs`, `.md`, `.fx` ani `.json` nemá ani jeden výskyt. (Deník ho má taky, ale jen proto, že si tu sekvenci cituju jako příklad.) Takže historie jednoho souboru, ne návyk toolchainu.
+
+### 2. Pásek zásobníku dýchá — `009d664`
+
+Majitel chtěl větší mezery mezi nabitými kuličkami. **Konstanta, na kterou se ptal, ale měřila něco jiného, než co je vidět** — proto přebázování, ne jen zvětšení čísla.
+
+- `HUD_MAG_GAP` byla mezera mezi **výplněmi**. Každý disk se ale kreslí s tmavým halo `HUD_MAG_RIM` **vně** té výplně, takže z 24 zbývalo `24 − 2·7 = 10` jednotek skutečného světla a čtyři odpočívající kola se četla jako jeden slepenec.
+- **⚠️ A hlava nebyla jen těsná, byla špatně.** Její prstenec stojí `HUD_MAG_RING_GAP + HUD_MAG_RING_THICKNESS` **vně halo**, tedy 18 jednotek za výplní, od které se mezera měřila — takže značka, která říká „tahle, právě teď", **překrývala halo dalšího kola o jednotku**. Konstanta pojmenovaná „gap" nemůže nechat největší věc v řadě sežrat tři čtvrtiny sebe sama.
+- Teď je to **volný prostor mezi nejzazší kreslenou hranou jednoho disku a druhého**, hodnota 32, a **každý krok se počítá z vlastního dosahu disku** — proto je první krok delší než ostatní konstrukčně, ne fudgem.
+- **Pravá hrana se nehnula:** byla už kotvená na `rest + rim`, takže pásek narostl doleva a ocas zůstal, kde byl. Vyfoceno v běžící hře před i po (1616×939, výřez 3×).
+- Opraven i doc řádek, který popisoval řadu jako běžící **doleva od hlavy v rohu** — to byl layout *před* tím, než majitel požádal o pořadí střílení, a přeuspořádání se do záznamu nikdy nedostalo.
+
+**Nic dalšího si teď neberu.** `origin/234-first-level-pyramid` je hotová cizí práce čekající na merge; `origin/211-music-switches-fade` leží dál.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (kódování `BS3DGame.cs` a rozestupy pásku, obojí na mainu).*
