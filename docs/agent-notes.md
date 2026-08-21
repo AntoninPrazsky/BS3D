@@ -853,4 +853,29 @@ Majitel chtěl větší mezery mezi nabitými kuličkami. **Konstanta, na kterou
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (#235 — ptáci jsou skutečná geometrie, na mainu).*
+
+## 2026-08-21 — Claude Code (třicátý druhý zápis)
+
+**Beru si #240 (krátery Měsíce na viditelné mřížce) a #237 (spára mezi výlevkou a zlatým prstencem).** Dvě samostatné větve, `240-moon-crater-lattice` a `237-drain-seam`.
+
+**⚠ NA STROJI PRACUJE SOUBĚŽNĚ DRUHÁ INSTANCE na úpravě levelů** (peer session `bs3d-fe`, majitel to řekl výslovně). Poslal jsem jí rozdělení území zprávou; tady je pro pořádek, ať to platí i pro toho, kdo přijde po nás:
+
+- **moje území:** `Testbed/Content/Shaders/Moon.fx`, `MoonSceneConfig.cs`, `ArenaIsland.cs`, `FunnelMesh.cs`, `FunnelRimsMesh.cs`, `LatheMesh.cs`, a z dokumentace **jen `docs/scenes.md`**.
+- **její území, nesahám na ně:** `Tools/LevelGen/**`, `Tools/ScoreSim/**`, `Game/Levels/**`, `Prazsky.BS3D/Levels/**`, `Prazsky.BS3D/Scoring/**`, a `docs/formats-and-tools.md`.
+- **`docs/agent-notes.md` je jediný soubor, který sdílíme**, a je to zaručený konflikt — před hodinou mě to stálo řešení kolize u #248. **Pravidlo, na kterém jsme se dohodli: pořadové číslo zápisu si ber až ve chvíli, kdy commituješ, ne dopředu.** Tenhle claim bere **32**, takže druhá instance bere 33.
+- **Souběžný `dotnet build` si zamkne `obj`/`bin`** — sdílíme `BS3DLibs`, takže i různé solutiony na sebe sahají. Spadlý build na file-lock není regrese, jen se pustí znovu.
+- **⚠ A nejnebezpečnější věc na jednom stroji: fotky.** `screenshot.ps1` klikne na titulkový pruh a pak kopíruje **obdélník obrazovky**, takže když druhé instanci zrovna běží okno, vyfotím její a **vůbec to nepoznám** — je to ostrá fotka špatné věci, ne černý obrázek (skill si tu past nese v hlavičce). Domluva: **před spuštěním čehokoli s oknem si dáme vědět.**
+
+**Obě diagnózy z minulých zápisů jsem si ověřil v kódu a JEDNA Z NICH JE ŠPATNĚ — nedědit ji dál:**
+
+- **#240, „ejekta se nenásobí zhášecí rampou": NEPLATÍ.** V `Moon.fx` je `ejecta = rim * rollB.y` a `rim` už tu rampu obsahuje (`exp(-rimT²) * smoothstep(1.6, 1.1, d)`); komentář nad tím řádkem tu opravu dokonce popisuje jako hotovou. Někdo si tu poznámku nesl dál, aniž ji otevřel.
+- **Skutečná příčina mřížky je konstrukční a je v `CraterLayer`: velké krátery jsou PŘIŠPENDLENÉ na mřížové body.** Střed se jitteruje jen uvnitř okraje, který si kráter sám vynutí (`margin = radius * 1.6`, `centre = margin + rollC * (1 - 2*margin)`), takže pro `radius = 0.30` vyjde střed do intervalu **[0,48; 0,52]** — čtyřprocentní okno, tedy prakticky žádný jitter. Nejmenší krátery mají okno 49 %, největší nula. Mřížku tedy značkují právě ty krátery, které jsou nejlíp vidět. K tomu **všechny tři oktávy leží na osově zarovnaných mřížkách** (`floor(p)` bez rotace), takže si směry navzájem vyztužují.
+- **Dvojcelný ani 3×3 čtení nepřipadá v úvahu:** komentář v souboru měří, že první build s 3×3 běžel **2 FPS** tam, kde hotová scéna dělá ~50. Oprava musí být skoro zadarmo — mířím na rotaci mřížky po oktávách, prohnutí domény a zastropování poloměru podle zvolené pozice, a **budu to fotit, ne odhadovat**.
+
+**#237 zatím jen přečtené:** `FunnelRimsMesh` klade zlatý pás od `topRadius` **ven** přes kámen, zatímco sklo výlevky jde od téhož poloměru dolů; #109 zanořil hrany pásu (`EDGE_SINK`), aby se pod vnitřní hranu nedalo podívat. Kde přesně dnes prosvítá dlažba, si musím **vyfotit**, ne dohadovat z geometrie.
+
+**Nesahám na nic jiného.** `origin/211-music-switches-fade` leží dál.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (#240 a #237 — beru si je, a s druhou instancí na stroji je domluvené rozdělení území).*
