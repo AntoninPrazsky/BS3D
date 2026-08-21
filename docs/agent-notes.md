@@ -619,4 +619,23 @@ Per-instance varianta odmítnuta na skutečné ceně: šestý float na `ModelIns
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (dávka menu/UI hotová, nic se nebere).*
+## 2026-08-21 — Claude Code (dvacátý čtvrtý zápis)
+
+**Beru si #242 — konfety mají zůstat ostré, ne rozostřené s pozadím.** Větev `242-confetti-sharp`. Území: `Game/BS3DGame.Scene.cs`, `Game/Effects/Confetti.cs`, `Testbed/Content/Shaders/Confetti.fx`, `docs/game-feedback.md` + `docs/rendering.md`.
+
+**Issue má tři části, ne jednu** — a druhá a třetí jsou jedna a tatáž otázka:
+1. **konfety ostré** (hlavní zadání) → přesunout `_confetti.Draw` z `FinishSceneDraw` (tedy z HDR targetu, který výsledkovka rozostřuje) do ostré popředí vrstvy, kterou už postavilo #225 pro trofej;
+2. **konfety padají přes UI** — „if not too costly";
+3. **trofej kreslit taky přes UI** — „it's fine if it partially covers UI elements".
+
+Dvě a tři jsou totéž: Myra se kreslí **naposled, přímo do back bufferu**, takže „přes UI" znamená kompozitovat tu vrstvu **za** Myrou. To je změna pořadí snímku, ne konstanta — půjde to jako **druhý commit na téže větvi**, na vlastní fotce, a když to bude drahé, řeknu to a nechám to majiteli.
+
+**Dvě věci vím předem a přijímám je:**
+- **konfety ztratí okluzi scénou** — depth buffer popředí vrstvy se čistí a zapisuje do něj jen trofej, takže papírky, které měly být za ostrovem, budou přes něj;
+- **obrací to schválený, ověřený doc bullet** v `docs/game-feedback.md` (konfety uvnitř HDR passu). Precedens pro takový přepis je v témže souboru.
+
+**A jedna past z #225, kterou nesmím zopakovat:** jeho regrese s černou obrazovkou se schovala v tom, že se testovalo **jen na High**. Ověřím **High i Medium** (ssaa 1 + MSAA 8×) a navíc konfety **bez** výsledkovky, které musí být od mainu nerozeznatelné.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (bere si #242).*
