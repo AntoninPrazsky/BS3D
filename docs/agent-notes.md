@@ -1014,4 +1014,32 @@ Zúžení aury přiblížilo její radius na 0,020 od keylinu. A dokud se keylin
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (#239 — kyv už neprohrává level, na mainu).*
+## 2026-08-21 — Claude Code (třicátý šestý zápis)
+
+**#98 zavřené — ale to hlavní, co z něj vypadlo, v něm vůbec nestálo: `Column` šel dohrát na JEDEN výstřel a brána, která přesně tohle hlídá, měla díru. Na mainu, větev `98-early-pacing`.**
+
+**Issue samo bylo z velké části zastaralé a stojí za to vědět proč.** Je psané proti pořadí „One, Bullseye, Mosaic, Pinwheel, Crown, Gem, Prism, Static, Column, Two" — tedy proti sadě **deseti** levelů před bloky. Obě jeho pozorování se tím rozpadla:
+- „Bullseye se hraje snáz než One" — **platilo a už neplatí**. Před #234 měl Bullseye 3 výstřely a nejsilnější ránu 45 %, One 6 a 31 %. Po #234 má Bullseye **6 výstřelů a 33 %**, tedy prakticky Oneův profil. Vyřešilo se to mimochodem, jiným issue.
+- „Mosaic ve slotu 3 se vleče" — **Mosaic je dnes level 26** v Lomu, jehož zapsaná premisa přesně je „jediný design, který se musí odpracovat, ne spustit". #194 to přeuspořádalo a pozorování tím propadlo.
+
+**⚠ Co našlo přeměření: `Column` (level 16, 540 koulí, rozpočet 90) padal celý na jednu ránu.** Vlastní nástroj (greedy dokonalý hráč) hlásil 1 výstřel / 100 %, zatímco generátor u téhož levelu tvrdil 33 %. Jeden z těch dvou se pletl a stálo za to zjistit který.
+
+**Pletl se generátor, a ta chyba je poučná.** `DropTest` uvolňoval jen **největší** stojící skupinu dané barvy — a při remíze si nechal tu, na kterou narazil skenem první (`>` místo sledování nejhoršího následku). Jenže **kolik spadne, není monotónní ve velikosti skupiny**: malá skupina může být poslední kotva, zatímco mnohem větší na ní jen visí. Column má tři 45koulové skupiny na barvu a **právě jedna z nich je kotvicí kurz**. Test měřil jinou a hlásil pohodlných 33 %. Procházelo to od chvíle, kdy level vznikl.
+
+**Pravidlo, které si z toho odnést: brána, která je principiálně správně a vzorkuje jeden případ z několika, nemá na tom vzorku o nic větší cenu než žádná brána.** Test teď projde **všechny** skupiny barvy a bere nejhorší. Pustil jsem ho přes celou sadu: **odmítne přesně jeden level** (Column) a s ničím jiným nehne o víc než o procento. Dno dokumentovaného pásma se tím posunulo z 5 % na 6 % — ta pětka byla taky artefakt vzorkování.
+
+**Column sám byl barvený vodorovnými pásy** — což je doslova ta vada, kterou má `One` zapsanou proti pásování pyramidy po kurzech, jen ve tvaru, kde je horší: pyramida se aspoň ke sklu rozšiřuje, kdežto sloup má **stejných 21 buněk po celé výšce**, takže nosný je každý pás. Čtyři barvy měřily 75, 83, 91 a 100 %.
+
+**Oprava schválně nesáhla na pásy.** Prohnal jsem nasucho obojí: svislé klíny měří stejně dobře, ale **zabíjejí premisu** („číst sloup znamená číst, co přijde"). Vyhrálo rozdělení každého pásu na **plášť a jádro** o krok palety vedle sebe — pásy zůstaly dokonale vodorovné, kotvicí kurz je teď prstenec a čep různých barev, a ať shodí hráč kterýkoli, druhý sloup drží. **100 % → 8 %**, dokonalý hráč 1 výstřel → 12, největší skupina 45 v obou případech, stejných 540 koulí, nula oprav.
+
+**⚠ Detail, který není vidět a málem mě dostal: `COLUMN_CORE = 1.2` je MEZERA, ne poloměr.** Buňky, které to má oddělit, leží na 0,71 a 1,0 od osy (podle parity patra) a další prstenec až na 1,41 a 1,58 — takže cokoli v intervalu (1,0; 1,41) uřízne týž pětibuněčný čep. Sednout si NA prstenec je to, čemu se ta hodnota vyhýbá: ve sweepu vyšlo jádro 1,5 s třípatrovými pásy zpátky na **92 % na jednu ránu**.
+
+**Ověřeno:** LevelGen zase končí nulou a nikde už není „ONE-SHOT LEVEL", nezávislý nástroj potvrdil 8 %, ScoreSim „All levels rate the right way round" přes všech 40, všechny čtyři solutiony staví, a Column je vyfocený v běžící hře — pásy čtou dál vodorovně a v každém prosvítá jádro jiné barvy.
+
+**Co jsem NEDĚLAL a proč.** `Crown` má taky jednobarevný kotvicí kurz (18 koulí), ale je to **šest oddělených trojic zubů**, takže ho jedna rána nesundá — nejhorší rána 17 %. Jednobarevná kotva sama o sobě tedy vada není; vadou je jednobarevná kotva, která je **jedna souvislá skupina**. A `Smiley` na 52 % je zapsaný vrchol pásma (symbol v jednom inkoustu je z konstrukce jedna skupina), takže se ho to netýká.
+
+**Nic dalšího si teď neberu.** `origin/211-music-switches-fade` leží dál; `240-moon-crater-lattice` je prázdná větev druhé instance — nesahat.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (#98 — drop test zkouší všechny skupiny, Column už není na jednu ránu; na mainu).*

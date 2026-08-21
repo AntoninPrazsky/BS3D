@@ -1542,10 +1542,42 @@ namespace BS3D.Tools.LevelGen
             //meant to last through its height rather than its mass.
             Occupied = (r, ang, i, depth) => r <= 2.6f,
             //Bands two levels thick around four colours: reading the column is reading what is coming, and a
-            //band is a group of ~50, so the descent keeps handing the player something worth hitting
-            Colour = (r, ang, i, depth) => Band(i / 2,
+            //band is a group of ~50, so the descent keeps handing the player something worth hitting. Both of
+            //those still hold - the band is still two courses and its shell is still 45 balls - but the band
+            //is now cut into a SHELL and a CORE, one palette step apart, and that is not decoration. See
+            //COLUMN_CORE.
+            Colour = (r, ang, i, depth) => Band(i / 2 + (r > COLUMN_CORE ? 1 : 0),
                 new[] { BallType.Type1, BallType.Type5, BallType.Type7, BallType.Type3 }),
         };
+
+        /// <summary>
+        /// Where the column's core ends and its shell begins — and the whole reason this design has a second
+        /// dimension of colour at all (#98).
+        /// <para>
+        /// <b>Plain horizontal bands made this a ONE-SHOT level.</b> A column hangs by its top course alone,
+        /// and a band a colour makes that course a single group, so completing it took all 540 balls at once;
+        /// every other band was load-bearing for everything under it too, and the four colours measured 75 %,
+        /// 83 %, 91 % and 100 %. It is exactly the fault <see cref="One"/> records against banding a pyramid
+        /// a course a colour, arriving in a shape where it is worse: a pyramid at least widens towards the
+        /// glass, where a column is the same 21 cells all the way up.
+        /// </para>
+        /// <para>
+        /// Splitting each band into two concentric regions fixes it <b>without touching the bands</b>, which is
+        /// why it was chosen over cutting the column into vertical wedges: the wedges measure the same but they
+        /// destroy the premise, and the premise here is that reading the column is reading what is coming. The
+        /// anchor course is now a ring and a plug of different colours, so whichever a shot takes, the other
+        /// still holds the column up. Measured: worst single shot 540 → 45 balls (100 % → 8 %), a perfect
+        /// player 1 shot → 12, largest group 45 either way.
+        /// </para>
+        /// <para>
+        /// <b>1.2 is a gap, not a radius.</b> The cells this must separate sit at 0.71 and 1.0 from the axis
+        /// (shifted and unshifted levels) and the next ring out sits at 1.41 and 1.58, so anything in
+        /// (1.0, 1.41) cuts the same five-cell plug on one parity and four on the other, and 1.2 is the middle
+        /// of that gap. Landing ON a ring is what it is placed to avoid — swept, a core of 1.5 with three-course
+        /// bands puts the level straight back to 92 % in one shot.
+        /// </para>
+        /// </summary>
+        private const float COLUMN_CORE = 1.2f;
 
         /// <summary>
         /// A sphere hanging whole from the glass - the roundest shape the lattice can make - coloured like a
@@ -5177,35 +5209,66 @@ namespace BS3D.Tools.LevelGen
         }
 
         /// <summary>
-        /// How many balls the best single shot of one colour would bring down: its largest standing group,
-        /// plus everything that group was the last anchor for. This is the number that decides whether a
-        /// design is a level or a firework — a colour that drops the whole cluster means the anchor layer
-        /// is one colour, and the level is over on the first lucky ball.
+        /// How many balls the best single shot of one colour would bring down: the standing group of that
+        /// colour whose removal brings the most with it, plus everything that group was the last anchor for.
+        /// This is the number that decides whether a design is a level or a firework — a colour that drops
+        /// the whole cluster means the anchor layer is one colour, and the level is over on the first lucky
+        /// ball.
         /// </summary>
         /// <remarks>
-        /// Run on a map rebuilt from the same data rather than on the caller's, because it destroys the one
-        /// it measures. <see cref="BallsMap"/> has no clone and does not need one for this.
+        /// <b>EVERY group of the colour is tried, not merely the largest one (#98).</b> What is wanted here is
+        /// how much comes DOWN, and that is not monotonic in group size: a small group can be the cluster's
+        /// last anchor while a much larger one merely hangs off it. Testing only the largest also had to break
+        /// ties arbitrarily — the scan kept the first group it found of the winning size — and <c>Column</c>
+        /// shipped behind exactly that hole. Its anchor course was 21 balls of a single colour and its top two
+        /// courses one 45-ball group, so <b>one shot took all 540 balls</b>; this test measured one of the two
+        /// OTHER 45-ball groups of the same colour and reported a comfortable 33 %.
+        /// <para>
+        /// A fresh map per group, because the test destroys the one it measures and <see cref="BallsMap"/> has
+        /// no clone. Its constructor builds its own array out of the data rather than aliasing it, so the
+        /// caller's <paramref name="data"/> survives all of them. This is an offline tool and the cost is a
+        /// rebuild per standing group, which is nothing against being told a level is safe when it is not.
+        /// </para>
         /// </remarks>
         private static int DropTest(BallPositionTypes data, BallType type)
         {
-            BallsMap map = new(data);
-            StaticBall[,,] array = map.GetStaticBallsArray();
+            BallsMap census = new(data);
+            StaticBall[,,] array = census.GetStaticBallsArray();
 
-            List<XZLevel> largest = new();
+            //The colour's distinct standing groups, collected once. GetConnectedSameTypeCells answers for a
+            //CELL, so every member of a group it returns is struck off before the scan moves on.
+            List<List<XZLevel>> groups = new();
+            HashSet<int> claimed = new();
 
-            for (byte l = 0; l < map.Levels; l++)
-                for (byte x = 0; x < map.StageSizeX; x++)
-                    for (byte z = 0; z < map.StageSizeZ; z++)
+            int Key(XZLevel cell) => (cell.Level * census.StageSizeX + cell.X) * census.StageSizeZ + cell.Z;
+
+            for (byte l = 0; l < census.Levels; l++)
+                for (byte x = 0; x < census.StageSizeX; x++)
+                    for (byte z = 0; z < census.StageSizeZ; z++)
                     {
                         if (array[x, z, l]?.Type != type) continue;
 
-                        List<XZLevel> group = map.GetConnectedSameTypeCells(new XZLevel(x, z, l));
-                        if (group.Count > largest.Count) largest = group;
+                        XZLevel cell = new(x, z, l);
+                        if (claimed.Contains(Key(cell))) continue;
+
+                        List<XZLevel> group = census.GetConnectedSameTypeCells(cell);
+                        foreach (XZLevel member in group) claimed.Add(Key(member));
+
+                        groups.Add(group);
                     }
 
-            foreach (XZLevel cell in largest) map.RemoveBallAt((byte)cell.X, (byte)cell.Z, (byte)cell.Level);
+            int worst = 0;
 
-            return largest.Count + map.GetCellsDisconnectedFromCeiling().Count;
+            foreach (List<XZLevel> group in groups)
+            {
+                BallsMap map = new(data);
+                foreach (XZLevel cell in group) map.RemoveBallAt((byte)cell.X, (byte)cell.Z, (byte)cell.Level);
+
+                int dropped = group.Count + map.GetCellsDisconnectedFromCeiling().Count;
+                if (dropped > worst) worst = dropped;
+            }
+
+            return worst;
         }
 
         #endregion
