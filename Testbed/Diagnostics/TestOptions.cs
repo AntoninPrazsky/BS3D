@@ -46,6 +46,21 @@ namespace Testbed.Diagnostics
         public bool UncappedFps { get; private set; }
 
         /// <summary>
+        /// <c>fpscap=N</c>: vsync off, but never more than N frames a second — the way to measure on a machine
+        /// that must not be left rendering flat out. <see cref="UncappedFps"/> on its own lets a cheap scene run
+        /// at thousands of frames a second, and that load is what the owner reported crashing his desktop
+        /// outright and forcing a restart (docs/agent-notes.md, and #250's own "to the edge of a BSOD"). Under a
+        /// cap a frame LIGHTER than the period idles between presents; a frame HEAVIER than it is never delayed
+        /// and still reads its true cost. So set the cap under the frame rate being measured — at 150 anything
+        /// dearer than 6.7 ms comes out exact — and read the cap itself as "cheaper than this", not as a cost.
+        /// <para>
+        /// Implies <see cref="UncappedFps"/>: a capped run still has to present immediately, or the vsync wait
+        /// quantizes every reading to the refresh over an integer and the cap has nothing left to measure.
+        /// </para>
+        /// </summary>
+        public int FpsCap { get; private set; }
+
+        /// <summary>
         /// <c>logfps</c>: one <c>[fps]</c> line a second to stdout, in the Game's own wording — so
         /// <c>.claude/skills/benchmark</c>'s script drives either executable and their numbers are comparable.
         /// Until this existed the Testbed's only frame-rate line came out of <c>autoshoot</c>, which fires a
@@ -116,6 +131,14 @@ namespace Testbed.Diagnostics
                 else if (string.Equals(arg, "aimcheck", StringComparison.OrdinalIgnoreCase)) options.AimCheck = true;
                 else if (string.Equals(arg, "aimshoot", StringComparison.OrdinalIgnoreCase)) { options.AimShoot = true; options.AimCheck = true; }
                 else if (string.Equals(arg, "nocap", StringComparison.OrdinalIgnoreCase)) options.UncappedFps = true;
+                //"fpscap=N" is nocap with a ceiling: it presents immediately (so nothing quantizes the
+                //reading) but idles out the rest of the period, which keeps a cheap scene from running the
+                //card flat out at thousands of frames a second. See TestOptions.FpsCap.
+                else if (arg.StartsWith("fpscap=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("fpscap=".Length), out int parsedCap) && parsedCap > 0)
+                {
+                    options.FpsCap = parsedCap;
+                    options.UncappedFps = true;
+                }
                 //"logfps" is the Game's spelling deliberately, so one benchmark script drives either
                 //executable. It also has to be read here rather than ignored: an argument this parse does not
                 //recognise falls through to StartupMapPath below, so passing it before now made the Testbed

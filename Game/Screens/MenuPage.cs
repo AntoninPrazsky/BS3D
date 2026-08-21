@@ -1,4 +1,4 @@
-using FontStashSharp;
+﻿using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Myra.Graphics2D;
 using Myra.Graphics2D.UI;
@@ -38,9 +38,13 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Whether what is underneath keeps running, and the stack itself answers: over the front end's
-        /// backdrop the scene goes on turning, while any page over a <see cref="GameplayScreen"/> — the pause,
-        /// the result screen, settings opened over either — freezes it. This is the case the flag exists for:
-        /// a pause has to <i>draw</i> the game it stopped while stopping it <i>updating</i>.
+        /// backdrop the scene goes on turning, while any page over a <see cref="GameplayScreen"/> — the
+        /// pause, settings opened over it — freezes it. This is the case the flag exists for: a pause has to
+        /// <i>draw</i> the game it stopped while stopping it <i>updating</i>.
+        /// <para>
+        /// <see cref="ResultPage"/> overrides it back to true and is the only page that does (#241): a level
+        /// that has ended is not a level put down, and the arena has to go on living behind the numbers.
+        /// </para>
         /// </summary>
         public override bool UpdatesUnderlying => Manager != null && !Manager.Contains<GameplayScreen>();
 
@@ -214,6 +218,18 @@ namespace BS3D.Screens
         protected void GoBack() => Manager.Pop();
 
         protected SpriteFontBase FontBody => Game.MenuFontBody;
+
+        /// <summary>
+        /// The heading size (124 against body's 80). Exposed for #238: the pages had every other size and not
+        /// this one, so a line that had to be read as loudly as a heading could only be set at body size.
+        /// </summary>
+        protected SpriteFontBase FontHeading => Game.MenuFontHeading;
+
+        /// <summary>
+        /// The section-label size (96, the display face) — a heading for a group of rows rather than for a page.
+        /// Added by #243; see <c>MENU_FONT_SECTION</c> for why the small face's size could not just be raised.
+        /// </summary>
+        protected SpriteFontBase FontSection => Game.MenuFontSection;
         protected SpriteFontBase FontSmall => Game.MenuFontSmall;
         protected SpriteFontBase FontTitle => Game.MenuFontTitle;
         protected SpriteFontBase FontStars => Game.MenuFontStars;

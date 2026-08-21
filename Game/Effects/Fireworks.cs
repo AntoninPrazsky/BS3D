@@ -12,10 +12,12 @@ namespace BS3D.Effects
     /// result screen behind the score.
     /// <para>
     /// It lives on the <b>host</b> rather than on the gameplay screen, and that is what makes it work at all.
-    /// A cleared level hands the player a result page, which is pushed <i>over</i> the session — and a covered
-    /// screen is not updated (see "The screen stack"), so a celebration owned by the session would freeze at
-    /// the exact moment the player is meant to be watching it. Owned by the frame it keeps running whatever is
-    /// on the stack, exactly as the clouds and the wall clock do.
+    /// A cleared level hands the player a result page pushed <i>over</i> the session, and what the session
+    /// still runs under that page is its <i>world</i> alone (#241) — the simulation and the gun, not the
+    /// level's own furniture. A celebration owned by the session would therefore freeze at the exact moment
+    /// the player is meant to be watching it, and would go with the session the moment Main Menu tears it
+    /// down besides. Owned by the frame it keeps running whatever is on the stack, exactly as the clouds and
+    /// the wall clock do.
     /// </para>
     /// <para>
     /// One static vertex buffer and <b>one draw call</b> for the whole display: every shell and every spark is
@@ -238,9 +240,9 @@ namespace BS3D.Effects
         /// are the host's, posed once a frame from the one camera there is.
         /// <para>
         /// A report is placed once and then left, and the listener does <b>not</b> stand still under it — the
-        /// gameplay screen is frozen beneath the result page, but that page is the one screen still running and
-        /// it swings the released camera around the arena for the whole display (and the <c>celebrate</c>
-        /// argument runs over the orbiting backdrop instead). Over the 2.6 s a report lasts, that is a few
+        /// result page swings the released camera around the arena for the whole display (and the
+        /// <c>celebrate</c> argument runs over the orbiting backdrop instead). Over the 2.6 s a report lasts,
+        /// that is a few
         /// degrees of bearing on a burst forty to a hundred and twenty units up — the same trade the release
         /// makes, and tracking it would cost a held voice and an <c>Apply3D</c> every frame for a drift the ear
         /// has nothing to compare against.

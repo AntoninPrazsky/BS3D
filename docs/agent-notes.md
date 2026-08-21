@@ -125,7 +125,7 @@ Ověření: (1) probe přes reflexi na privátní Bake* — všech 6 skladeb má
 **#226 pohár prezentovaný nahlas — na mainu.** Majitelův požadavek po #225: mnohem vyšší (klidně do UI), lesklejší, „oblejší — moc low-res", a řádně animovaný (skutečné přibližování/oddalování, naklápění, „všechno může být extrémní").
 
 - **Oblé:** autorovaný profil byl hranatý — boční silueta JE profil a pět rovných běhů mezi creases četlo jako chordy nízkopoly modelu. `TrophyMesh.DensifyProfile` dělí hladké běhy přes centripetal Catmull-Rom (3 vzorky/span, autorské ringy nedotčeny, creases ostré), osa 48→64 facetů, ucho 14/22→20/28. **Pozor: MeshBuilder účtuje 6 vrcholů na quad a strop má short.MaxValue — handled pohár na 4 vzorky/span přetekl (34 752 vrcholů), na 3 vzorky je ~30,5 k s rezervou.**
-- **Výška/animace:** SIZE 1,25→2,0 (při uvolněném FOV výsledkovky ~polovina rámu, dolly 0,75 jednotky kolem 3,1 → 40–70 % výšky rámu; NDC_Y −0,22→−0,30, lip sahá do panelu), **DOLLY je skutečná vzdálenost** (ne scale), náklon 5°→17°, spin ×1,5, bob zdvojnásoben, overshoot 20→35 %. Původní důvod clearance proti kanonu (3,1) je od #225 mrtvý — kompozit nemá s čím kolidovat, vzdálenost teď jen centruje dolly.
+- **Výška/animace:** SIZE 1,25→2,0 (při uvolněném FOV výsledkovky ~polovina rámu, dolly 0,75 jednotky kolem 3,1 → 40–70 % výšky rámu; NDC_Y −0,22→−0,30, lip sahá do panelu — **#233 to zvedlo na −0,15**, viz níž, a našlo přitom, že −0,30 chránilo kupu), **DOLLY je skutečná vzdálenost** (ne scale), náklon 5°→17°, spin ×1,5, bob zdvojnásoben, overshoot 20→35 %. Původní důvod clearance proti kanonu (3,1) je od #225 mrtvý — kompozit nemá s čím kolidovat, vzdálenost teď jen centruje dolly.
 - **Lesk:** SpecularAmbientStrength 0,20–0,30 → 0,30–0,45, powers ~×3 (80/160/140/280); žebřík „litá bronz → vyleštěný diamant" zůstává, jen každá příčka je výš. Diamant ověřen proti „white blob" — prošel.
 - **Ověřeno:** bronz i diamant, blízká i vzdálená fáze dolly (crop analýza: 2/3 vs 1/2 cropu, náklon viditelný, silueta hladká, lesk, ucha, zero artefaktů). **Pozn. k metodě: odhady výšky z CELÉHO snímku analytorem kolísaly (1/4 až 2/3) — soudit jen výřezy.**
 - **Cena:** celá prezentace ~0,24 ms (1,60 bez / 1,84 s pohárem, High/ssaa 2; fill rate při půl až 2/3 obrazovky + ~10k tris oproti 2,8k). Jen result page.
@@ -360,4 +360,358 @@ Podpis ukazuje na napájení, ne na shader ani na benchmark režim. **Žádný c
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-19 (claim #234).*
+## 2026-08-20 — Claude Code (devátý zápis)
+
+**Neberu si nic — jen záznam.** Majitel se ptal, jak těžké by bylo přejít z DirectX na Vulkan kvůli Androidu; rozhodnutí je **čekat na MonoGame 3.9** a je zapsané jako **#251** (survey + čísla + pasti). Issue nikdo nebere, je to kronika rozhodnutí, ne úkol. Žádná větev, žádný zásah do kódu, nic to nekříží s #234 ani s #250.
+
+**Tři věci z toho survey, které se týkají všech, ne jen Androidu:**
+
+- **Obsah se v tomhle repu staví forkem.** Ve všech třech `.config/dotnet-tools.json` (Testbed, Game, MapEditor) je připíchnutý `bad-echo-mgcb 3.8.2.1-develop`, i když csproj referencují `MonoGame.Content.Builder.Task 3.8.5`. Manifest vyhrává, takže shadery jde přes dva release starý fork pipeline. Zatím to nikoho nebolí, ale **jakákoli budoucí práce na shader targetu tím začíná** — a je to samostatná úloha, nezávislá na #251.
+- **Vulkan v MonoGame 3.8.5 je `MonoGame.Framework.Native` (DesktopVK) a je desktop-only preview** — `MonoGame/MonoGame#8944` má otevřené flickering podle počtu draw callů, nerespektovaný vsync, náhodné crashe na present/destroy a nefunkční načítání textur/shaderů z threadu. Nezkoušet na ničem, co má být spolehlivé.
+- **Shadery by Vulkan přežily.** DesktopVK kompiluje HLSL přes DXC do SPIR-V (`vs_6_0`/`ps_6_0`), takže SM 6.0 pohltí všechno, co těch 24 efektů dělá. Umřely by naopak na dnešní Android/GLES cestě (MojoShader, strop `ps_3_0`): `Cavern.fx`, `Space.fx`, `Dream.fx` i parallax v `InstancedModel.fx` mají raymarch, který se do 512 instrukcí nevejde. Kdyby to někdy někdo zkoušel — v #251 je proč ne.
+
+---
+
+## 2026-08-20 — Claude Code (desátý zápis)
+
+**Beru si dokončení #250 — větev `250-cavern-runs-cool` se ověřuje TADY, na notebooku.** Majitel si vybral z nabídnutého shortlistu. Zbývá: A/B změření, fotky vody, oprava jednoho „proč", které tím řezem přestalo platit, pak merge `--no-ff` a zavření issue.
+
+**Proč tenhle stroj:** `ThinkPad` je **ta referenční APU** (integrovaný Radeon, Ryzen 7 5700U), na které jsou naměřená čísla v `docs/`, takže před/po bude přímo srovnatelné se zapsanou figurou — a půjde rozhodnout rozpor `docs/scenes.md` (73,5 ms High) vs. `docs/game-shell.md` (56,5 ms) pro totéž. Uptime 7 dní, **žádný `Kernel-Power 41` od 1. července** — na rozdíl od desktopu je tenhle stroj důvěryhodný. Karta volná (`Get-Process BS3D, Testbed` prázdné).
+
+**Území:** `Testbed/Content/Shaders/Cavern.fx`, `docs/scenes.md` (odstavce o jeskyni), `docs/game-shell.md` (ta jedna baselina), `.claude/skills/benchmark` + `verify` (už na větvi kvůli `fpscap=`). **Testbedu se jinak nedotýkám** — `fpscap=` v `TestOptions` je nástroj té větve a je to jediné, co #250 drží.
+
+**Nesahám na:** `Tools/LevelGen`, `Game/Levels`, `docs/game-session.md` (to je #234), a nic z menu/UI — ten shortlist zůstává volný, kdyby si někdo bral #246 / #245 / #233 / #238 / #247 / #243 / #242 / #237.
+
+---
+
+## 2026-08-20 — Claude Code (jedenáctý zápis)
+
+**#250 dokončeno, změřeno, vyfoceno — na mainu jako `4d76911`, issue zavřené, větev `250-cavern-runs-cool` smazaná (byla plně obsažená).** Ověřeno na notebooku, což je **ta referenční APU**, na které jsou naměřené všechny cavern figury v docs.
+
+- **Co to koupilo.** Testbed, pevná kamera nad řekou, `arena=none`, 1600×900, dóm 13, `fpscap`: **23,9 → 13,3 ms** (ssaa 1), 25,2 → 16,0 (ssaa 2), 40,0 → 31,9 (ssaa 4). Hra, `level=Chest`, `nocap`: **High 32,6 → 26,5 ms** (30,8 → 37,7 FPS), rozsahy 31,0–34,2 proti 24,4–28,8, bez překryvu. **Medium 24,2 → 24,3 — beze změny, a správně:** Medium už redukovanou techniku jelo, takže mu tenhle řez nově bere jen march řeky, a u hrané kamery řeka v záběru není. Celý zisk padl na tier, který kreslil plný program.
+- **⚠️ Jedna regrese nalezená a opravená zdarma.** Plochá řeka se v **menu** čte jako vzorovaná podlaha — hrubá pravidelná mříž buněk, kde marchovaná verze měla jemný rozlámaný třpyt. Páka, kterou docs samy jmenovaly (`CausticStrength`), to nebyla: dokud byla hladina marchovaná, síť se vzorkovala tam, kde ray potkal skutečný hřeben, takže ji vlny **zdarma** mačkaly a táhly — a to byla většina toho, co říkalo „voda“. Ztlumení by udělalo jen tmavší mříž. Vyhledání kaustiky teď posouvá **gradient vlnky, který už v registrech je** (`CAUSTIC_WARP`): 14,5 ms bez, 13,3 s ním.
+- **Dvě regrese přijaté a zapsané, obě vyfocené.** Glinty krystalů vycházejí jako hladké diagonální šmouhy místo rozlámaného třpytu (rovina nabízí každému glintu stejný sklon přes dlouhý úsek — a za plochu, která tam není, není zdarma náhrada). A **shore band**: z tmavé čáry je **světlý pruh**, protože jeho konvergenční argument umřel se zrcadlem. Potřebuje kameru na radiusu ~228 z 240 — každá kamera, kterou hra má, sedí u počátku za 230 jednotkami mlhy. Dosáhne tam volná kamera **Testbedu a editoru**.
+- **⚠️ Pro každého, kdo bude tuhle scénu měřit — tři pasti, teď i ve skillu:**
+  1. **`ssaa` sweep je na cavern a dream špatný nástroj.** Od #155 shadují target o velikosti back bufferu, takže úspora vyšla **stejných ~9 ms u ssaa 1, 2 i 4**. Pass se škáluje `width=`/`height=`.
+  2. **Back buffer větší než panel se tiše zmenší.** `width=2560` na tomhle 1920×1080 stroji nahlásil na vlastním `[fps]` řádku `958x484` a run šel do koše. Ten řádek to jméno nese právě proto — **čti ho zpátky**.
+  3. **Široký rozptyl není automaticky teplo.** Herní run má vlastní varianci 4,4 ms mezi dvěma běhy *téhož* buildu (padající strop, kývající klastr, špičky fyziky); pevná kamera zopakovaná po 20 minutách nepřetržité zátěže čtla 13,3 ms podruhé stejně, takže se nic neškrtilo.
+- **⚠️ #102 platí jen na desktopu.** „Každá jednotlivá redukce je k ničemu“ je odpověď 6900 XT. Na integrované kartě má **redukce spor sama o sobě** hodnotu **20,7 → 17,9 ms**, kde desktop měřil 5,02 proti 4,98, čili nic. **Atribuci mezi třídami strojů se tady nesmí přenášet** a u každé zapsané figury musí být, ze které je.
+- **Opraveny dvě zapsané baseliny, které si roky odporovaly:** `docs/scenes.md` uvádělo 73,5 ms jako aktuální APU High (figura z doby před #155) a `docs/game-shell.md` 56,5/17,5 pro totéž (figura z doby ploché hladiny). **Dreamova 61,7/18,8 je pod stejným podezřením a nikdo ji nepřeměřil — #167 je otevřené právě na to.**
+- **Nedoděláno:** fotka řeky a břehu z *finálního* shaderu. Desktop se během práce zamkl a **Testbed vlastní writer back bufferu nemá** (hra ho má, proto jsou herní fotky v pořádku); skill na to má popsaný desetiřádkový dočasný patch. Jeden příkaz, až bude stroj odemčený.
+- Fotky (25 PNG, before/after/warp) jsou v `C:\Users\PanRD\Pictures\bs3d-250-verification\`, vizuální srovnání publikované jako artifact.
+- Ověřeno: všechny tři solutiony staví (`Cavern.fx` staví každý z nich), `Cavern.xnb` 498 669 → 185 840 B.
+
+**Nic dalšího si teď neberu.** Volné a nikým nedržené, v pořadí, jak bych je vzal: **#246** (tmavě modrá vs. černá — dvě konstanty, nulová cena, odblokuje #236), **#245** (scroll fokusu v pickeru levelů), **#233 / #238 / #247 / #243** (menu a UI, čtyři samostatné větve, dělí se o `BS3DGame.Menu.cs`, takže po sobě), **#242** (konfety ostré nad UI — ostrou vrstvu už postavilo #225), **#237** (pásek dlažby u odtoku — příčina nalezená: #109 překorigoval). Pozor: **#211 má osiřelou pushnutou větev `origin/211-music-switches-fade`, která se nedá zmergovat a po vynucení by se nezkompilovala** (píše proti `_instance`/`_track`, které #212 z mainu smazalo) — návrh v ní je ale dobrý, chce přepsat proti `_voice` na nové větvi a tu starou vědomě odstavit, ne force-pushnout.
+
+---
+
+## 2026-08-20 — Claude Code (dvanáctý zápis)
+
+**Beru si #246 — tmavě modrá vs. černá kulička.** Větev `246-navy-ball-separation`. Území: `BS3DLibs/Prazsky.BS3D/GameStructure/BasicEffectParamsProvider.cs` + `BallType.cs` a `docs/rendering.md`. **Do `Tools/LevelGen` ani do `Game/Levels` nesahám** — to je #234.
+
+**Úklid větví hotový** (zadání majitele): smazáno 12 lokálních plně obsažených v mainu a vzdálené `arcade-pixel-solids` + `death-line-lower`. **`origin/211-music-switches-fade` zůstává** — guard smazání nepustil, a je to jediná z nich, jejíž commit není z mainu dosažitelný. **Celý ten patch je teď zachovaný v komentáři u #211** (i s tím, proč se nedá použít: `_instance` 18× a `_track` 5× na mainu neexistují, `git apply --check` padá na třech ze čtyř souborů), takže tu větev je bezpečné kdykoli zahodit.
+
+**⚠️ Hned na začátku #246 padla ta nabízející se oprava — a je dobře, že padla.** Přesunout navy do prázdného slotu palety (fialová, 240–300° je jediná mezera) by byl nejsilnější odstup od černé. **Nesmí se to.** Navy nese v levelech *význam*, a data to říkají přesně: **Globe** (finále kampaně) je s ní **oceán** — 92 kuliček vedle 108 cyan a 57 blue — **Wishbone** s ní dělá baňku vedle blue 83, **Reel** „chladný kov". Fialový pruh přes pixelovou Zemi je horší než nemoc, kterou to léčí. A oprava těch komentářů by navíc sahala do `Tools/LevelGen`, tedy do #234.
+
+**Změřeno, proč to vlastně nejde rozeznat:** navy `(0,05 0,10 0,45)` se od černé `(0,045 0,045 0,05)` liší **jen v modrém kanálu**, a ten oko váží nejmíň (0,072 z luminance). V luminanci je navy jen **2,5×** nad černou. Páka je proto **zelený kanál** (0,715 luminance), který má navy dnes na 0,10, tedy skoro na černé.
+
+**Zjištěno taky:** navy a černá jsou v jednom poli jen ve **2 ze 40** levelů — **Reel** (navy 65, černá 114) a **Garland** (všech 13). Reel je tedy ten záběr, na kterém se to soudí.
+
+---
+
+## 2026-08-20 — Claude Code (třináctý zápis)
+
+**#246 hotové, na mainu jako `604651a`, issue zavřené, větev smazaná.** Diagnóza ani oprava nebyly to, co issue předpokládalo, a obojí stojí za zapsání.
+
+- **Proč to nešlo rozeznat:** ne že by ty barvy byly blízko. **Celý rozdíl navy od černé ležel v modrém kanálu**, který oko váží nejmíň (0,072 luminance proti zelené 0,715). Změřeno z `Thirteen_Colors` pod nejtmavším dómem: obě kuličky vyšly na luminanci **13 a 31 z 255** — u samého dna rozsahu displeje, kde jakékoli světlo v pokoji rozdíl smaže dřív, než ho oko dostane.
+- **⚠️ Zvednout navy samotnou NEFUNGUJE — jen to tu záměnu přestěhuje.** Tohle je to hlavní zjištění. CIEDE2000 z téhož snímku: navy sama `(0,08 0,22 0,62)` posune černá/navy 25,3 → 30,8, **ale navy/blue srazí 24,4 → 16,7**, což je nejtěsnější pár celé palety. Proto se **`Type3` zvedlo s ní** (0,35 0,45 1,0 → **0,45 0,60 1,0**) a přeskládala se celá modrá rodina černá → navy → blue; pak se zlepšily **oba** páry (30,8 a 33,4). Modrá byla jediná, kde bylo kam — stříbro měří 115 a cyan 165 proti modré 103 — a navíc to pomůže i `silver/blue`, které je těsné (17) právě proto, že ty dvě mají skoro **stejnou světlost**. Ambienty šly s tinty, jinak by stará záměna přežila na neosvětlené polovině kuličky.
+- **Navy musela zůstat modrá, a to je odpověď z dat, ne z vkusu.** Nabízející se nejsilnější oprava je jediný volný odstín palety (fialová, 240–300° je jediná mezera). **Odmítnuto, protože navy nese v levelech význam:** Globe's oceán je 92 navy proti 108 cyan a 57 blue, Wishbone baňka vedle 83 blue, Reel „chladný kov". Fialový pruh přes pixelovou Zemi je horší než ta nemoc. Fialovou variantu jsem přesto postavil a změřil — vyšla **horší v obou párech** (29,6 / 16,7).
+- **⚠️ ΔE76 je na tuhle otázku špatný nástroj**, a málem mě to svedlo: bere rozdíl ve *světlosti* stejně vážně jako v odstínu, a černou/navy zařadil **devátou** — přitom `white/yellow` (15,6), `orange/red` (16,8) a `silver/blue` (16,9) měří těsněji a nikdo si na ně nikdy nestěžoval. Všechny figury výše jsou CIEDE2000.
+- **⚠️ A snímek té řady nese ±0,4 dE šumu, protože kuličky pulzují** (emise na heartbeat, fáze se mezi spuštěními liší). **Foť dvakrát, než uvěříš malé deltě** — mě to zprvu svedlo k tomu, že jsem považoval ±2,5 dE za signál.
+- **Půlka problému zůstává a patří #236, což je teď doměřené, ne odhadnuté.** Stížnost byla na dělo a paleta není to, co dělo kazí. `CannonRig` si to sám píše: nakresleno neprůhledně jako test, **pane z herní kamery vyplní celý slot** — hlaveň si zakrývá vlastní ústí, takže kulička v zářezu je vidět jen jako **malá elipsa své čepičky** a čtyři za ní se čtou přes sklo, které to, co je za ním, **násobí ~0,38** (`GLASS_ALPHA` 0,62). Pojmenovat barvu z malé tmavé elipsy je ta skutečná obtíž a žádná paleta elipsu nezvětší. **Napsal jsem to do #236** i s tím, že `PlayHud.BakeTypeColors` bere tint z `GetDiffuseTintByType`, takže 2D indikátor půjde s kuličkami sám a druhá kopie palety se zakládat nesmí.
+- **Ověřeno:** všechny tři solutiony staví, **ScoreSim „All levels rate the right way round" přes 40** (levely drží raw byte `BallType`, takže se nic negenerovalo), fotky v **Globe, Reel a Wishbone** — třech levelech, kde navy nese význam — plus paletová řada pod světlým i tmavým dómem, a měření obou dómů se shodne. Nejtěsnější pár palety beze změny (15,6 → 16,1 tmavý, 15,3 → 15,4 světlý), žádný pár se smysluplně nezhoršil, `blue/magenta` dostalo +8,0 zdarma. HUD sahat netřeba.
+- Skripty na to měření (`palette.py`, `pairs.py` — CIEDE2000 nad snímkem `Thirteen_Colors`) a všech 22 fotek leží v `C:\Users\PanRD\Pictures\bs3d-246-palette\`, spolu s `NavyBlack.json` (mapa jen z navy a černé). V repu **nejsou** — kdyby je chtěl majitel mít, patřily by do skillu, protože „tahle barva je moc blízko té druhé" je tady opakující se typ issue a od teď se dá zodpovědět čísly.
+
+**Nic dalšího si teď neberu.** Volné a nikým nedržené: **#245** (scroll fokusu v pickeru), **#236** (2D indikátor barvy — teď odblokované a s doměřeným zadáním), **#233 / #238 / #247 / #243** (menu a UI, čtyři samostatné větve, dělí se o `BS3DGame.Menu.cs` → po sobě), **#242** (konfety ostré nad UI), **#237** (pásek dlažby u odtoku). `origin/234-first-level-pyramid` je cizí rozdělaná práce. `origin/211-music-switches-fade` pořád leží — smazat ji mi guard nepustil, ale **celý ten patch je zachovaný v komentáři u #211**, takže se dá zahodit bez ztráty.
+
+---
+
+## 2026-08-20 — Claude Code (čtrnáctý zápis)
+
+**Beru si #245 — fokus pad/klávesnice se v pickeru neposouvá do záběru.** Větev `245-scroll-focus-into-view`. Území: `Game/BS3DGame.Menu.cs` (`CollectNavEntries`, `StepNavFocus`, `MenuScroll` doc) a `docs/game-shell.md`. Nesahám na `Tools/LevelGen` ani `Game/Levels` (#234).
+
+**Ověřené API předem, ať se nehádá:** Myra 1.6.3 má z XML dokumentace balíčku `ScrollViewer.ScrollPosition`, `.ScrollMaximum`, `.ResetScroll()` a na `Widget` `ToGlobal(Point)`, `ActualBounds`, `Bounds`, `Parent`. **Reflexí to z PowerShellu 5.1 nezjistíš** — .NET 10 assembly se do Frameworku nenačte a `GetTypes()` hodí `ReflectionTypeLoadException`; ta XML doc v `~/.nuget/packages/myra/1.6.3/lib/*/Myra.xml` je rychlejší a spolehlivá cesta.
+
+**Týká se to dvou stránek, ne jedné:** `MenuScroll` používá `LevelSelectPage` i `ScenePage`.
+
+---
+
+## 2026-08-20 — Claude Code (patnáctý zápis)
+
+**#245 hotové, na mainu jako `56899f8`, issue zavřené, větev smazaná.** `ScrollNavEntryIntoView` jede jako poslední řádek `StepNavFocus` a **potřebovaly to obě stránky, které `MenuScroll` obsluhuje**, ne jen level picker.
+
+- **Bug nafocený, ne popsaný:** na mainu, `quality=low`, 34× Down od první dlaždice — mřížka pořád na dlaždicích **1–20**, **nikde v záběru nic zvýrazněného**, a detailní řádek hlásí `Garland — 54 shots`. Fokus byl dva screeny pod viewportem. **Kritérium prošlo/neprošlo je proto ten pár** — zvýrazněná dlaždice v záběru *a* detailní řádek se stejným jménem — protože každá polovina zvlášť byla pravda i před opravou.
+- **Jak: globální souřadnice a posun o rozdíl.** `Widget.ToGlobal` už má aktuální scroll offset v sobě, takže se ptám „o kolik je to mimo viewport" a posunu `ScrollPosition` přesně o to, clampnuté na `ScrollMaximum`. **Není tu druhá kopie Myřiny aritmetiky**, která by se s knihovnou rozešla, a je to samoopravné — nemusím vědět, jak Myra ty dvě soustavy skládá. Entry, které je celé v záběru, se nechá být.
+- **Který scroller entry patří, si pamatuje ta procházka, co ho našla** (parallel list k `_navEntries`), ne dohledávání přes `Parent` v době kroku — procházka je to, co do scrolleru vlezlo, takže odpověď už má. Entries mimo scroller (nadpisy, Back) nesou null a nescrollují: Back je vidět vždycky a seznam zůstane tam, kde ho hráč nechal.
+- **Dvě pojistky, obě dosažitelné, ne teoretické:** před prvním layoutem jsou bounds nulové a `CollectNavEntries` může běžet ve snímku, kdy se stránka staví — bez guardu by každé entry vyšlo jako mimo záběr a scroll by skončil nesmyslně. A clamp je to, co brání kontextovému marginu přestřelit konec seznamu u poslední dlaždice.
+- **⚠️ Dosažitelné jsou jen ODEMČENÉ dlaždice** — `CollectNavEntries` bere `button.Enabled` a `LevelSelectPage` dělá `Enabled = unlocked`. Kdo to bude reprodukovat na čerstvém profilu, dojde k tomu, že chůze končí u dlaždice 9, a usoudí něco jiného. **Majitel má 95 hvězd a všech 40 odemčených**, takže se nic falšovat nemuselo — a hlavně **jsem mu nesahal na `Progress.json`** (existuje, 1824 B, v `Game/bin/.../Levels`; nejdřív jsem se podíval, pak zjistil, že ho nepotřebuju).
+- **Scene picker měl tu samou dieru** — 13 scén se do okna taky nevejde a třináctá (Outback) byla stejně nedosažitelná jako Garland. Ověřeno v tom samém běhu.
+- **Opraveny dva komentáře, které argumentovaly tou dírou:** `BS3DGame.MenuScroll` psal, že pad „does not scroll it", a `SettingsPage` **odmítal scroller právě kvůli tomu**. To rozhodnutí platí dál, ale teď stojí na tom druhém důvodu, který měl vždycky a je lepší: dva sloupce nepotřebují scrollovat vůbec.
+- **⚠️ Praktické pro kohokoli, kdo bude scriptovat vstup do hry:** `docs/game-shell.md:82` má pravdu a je to jediná cesta, která funguje — **`quality=low` a držet klávesu 400 ms**. Tahle chůze je 40 stisků a při 2× ssaa by je frontend při ~10 FPS spolkl. **F12 je herní writer back bufferu**, takže fotky nemůže nahradit lock screen ani jiné okno — na rozdíl od Testbedu, který writer nemá. Skript `walk.ps1` je v `C:\Users\PanRD\Pictures\bs3d-245-picker\` i s fotkami.
+- **A jedna past na API:** Myřiny členy si **nezjišťuj reflexí z PowerShellu 5.1** — .NET 10 assembly se do Frameworku nenačte a `GetTypes()` hodí `ReflectionTypeLoadException`. `~/.nuget/packages/myra/1.6.3/lib/*/Myra.xml` je rychlejší a spolehlivé; potvrdilo `ScrollPosition`, `ScrollMaximum`, `ResetScroll()`, `ToGlobal`, `ActualBounds`.
+- **Ověřeno:** všechny tři solutiony staví; level picker dlaždice 35 i 40 zvýrazněné, v záběru, detail souhlasí, u poslední scroll přesně na maximu; scene picker třináctá položka v záběru.
+
+**Nic dalšího si teď neberu.** Volné: **#236** (2D indikátor barvy — odblokované #246 a se zadáním v číslech), **#233 / #238 / #247 / #243** (menu a UI, po sobě, dělí se o `BS3DGame.Menu.cs`), **#242** (konfety ostré nad UI), **#237** (pásek dlažby u odtoku), **#240** (krátery na mřížce), **#241** (klastr pod výsledkovou stránkou). `origin/234-first-level-pyramid` je cizí rozdělaná práce. `origin/211-music-switches-fade` pořád leží — smazat ji guard nepustil, ale patch je zachovaný v komentáři u #211.
+
+---
+
+## 2026-08-20 — Claude Code (šestnáctý zápis)
+
+**Beru si #236 — 2D indikátor barvy příštího výstřelu.** Větev `236-magazine-strip`. Území: `Game/Screens/PlayHud.cs`, `Game/Screens/GameplayScreen.cs` (jen předání queue do HUDu) a `docs/game-feedback.md`.
+
+**Beru z něj JEN indikátor.** Issue balí tři věci — strip, zrušení muzzle marku z #175 a „žádná nabitá kulička nemá pulzovat". `CannonRig` výslovně varuje, že se ten muzzle mark **nesmí zrušit jako redundantní na sílu skla**, a majitel to sám v issue podmiňuje tím, že indikátor nejdřív existuje a čitelně čte. **Takže puls a mark nechávám a v komentáři to řeknu**, ať to někdo nezavře jako hotové celé.
+
+**Umístění není moje volba** — je v těle issue: „bottom-left corner … a row of large, clearly colored 2D circles". Levý okraj je ale obsazený: `DrawClusterProfile` drží vertikální střed (`Scaled(1300)` z 2160, tj. při 900 px ~542 px) a `DrawBallsLeft` spodek, mezi nimi zbývá ~74 px. **Strip proto jde vedle toho počtu na stejnou baseline**, ne nad něj — vodorovné místo tam volné je a s profilem se to nemůže potkat na žádné výšce okna.
+
+**Co je předem jasné z kódu, ať to nikdo nezkouší znovu:**
+- `PlayHud.TypeColor` / `BakeTypeColors` bere tint z `GetDiffuseTintByType`, takže strip půjde s kuličkami sám. **Druhá kopie palety se zakládat nesmí.**
+- `DrawDisc` už umí **prstenec** (`innerRadius`), takže „tenhle, teď" jde říct bez nové primitivy.
+- **Strip nesmí lhát o počtu:** `Magazine.SIZE` je 5, ale když zbývají 2 výstřely, pět kolečka je nepravda — počet se musí clampnout na `ScoreKeeper.ShotsRemaining`.
+- Žádné per-frame alokace: queue půjde do HUDu jako span nad polem drženým na `GameplayScreen`, přesně jak to dělá `_profileBalls`.
+
+---
+
+## 2026-08-20 — Claude Code (sedmnáctý zápis)
+
+**#236 — indikátor je na mainu jako `565bd1b`. Issue jsem ale ZÁMĚRNĚ NEZAVŘEL**, protože jsou v něm tři věci a odvedl jsem jednu. Větev smazaná.
+
+- **Co jede:** nabitá queue jako plochá kolečka vlevo dole, příští výstřel první a největší, s prstencem okolo hlavy. Barvy přes `TypeColor` (bake z `GetDiffuseTintByType`), takže strip jde s kuličkami sám a **druhá paleta v repu nevznikla**. Dědí to separaci z #246: na `level=Reel` přišla queue **navy, černá, černá, černá, červená** a všechno je pojmenovatelné.
+- **Umístění:** issue chtělo levý dolní rok, ale ten je nejvytíženější hrana — profil drží vertikální střed, `balls left` spodek, mezi nimi při 1600×900 zbývá ~74 px, což by vyšlo na *téhle* výšce okna a na jiné ne. **Strip proto jde vedle počtu**, `DrawBallsLeft` nově hlásí svou pravou hranu a vertikální střed. Pořád levý dolní rok, jen po ose, která byla volná.
+- **Tmavé typy byly ten test a prošly:** každé kolečko má tmavou halu (aby světlá kulička držela nad bílým ledovcem) a **světlý obrys uvnitř výplně** — a ten druhý není ozdoba. `TypeColor` schválně drží skutečnou temnotu typu (#153 odmítlo peak-normalising), takže osmička tiskne kolem (22,20,16) a plné kolečko z ní uvnitř tmavé haly je díra. S obrysem se čte přesně jako ta kulička sama — světlými klíny proti černé. Tři černé v jedné queue, všechny čitelné.
+- **⚠️ A našlo to latentní bug v `DrawDisc`, o který se dělí i profil klastru.** Primitiva zaokrouhlovala `y` každého scanlinu přes `MathF.Round`, což je **zaokrouhlení na sudé** — takže střed přesně na půlpixelu mapoval sousedící řádky na `y, y+2, y+2, y+4 …`: polovina řádků dvakrát a **druhá polovina vůbec**. První build stripu vyšel **hřebenovitý** — vodorovně plný, svisle jednopixelové pruhy se scénou mezi nimi, stejně při ssaa 1 i 2. **Identifikovalo to až vzorkování sloupce** přes kolečko (`38,38,145` střídavě s kamenem za ním); okem to čte jako chyba shaderu nebo blend state, ne jako aritmetika, a já na to nejdřív spálil hypotézu o supersamplingu. Teď je to `MathF.Floor(cy + dy + 0.5f)` — spojité pro každý střed a od `Round` se to liší **jen v tom .5, které bylo rozbité**. **Markery v profilu klastru byly jeden šťastný střed od toho samého.**
+- **Co v issue zbývá a proč jsem to nevzal:** zrušit muzzle mark z #175 a „žádná nabitá kulička nemá pulzovat". `CannonRig` výslovně varuje, že se ten mark nesmí zrušit jako redundantní na sílu skla — od #204 jsou dvě kuličky v otevřeném vzduchu a mark je jediné, co na **dělu samotném** říká, která letí. Majitel to sám podmínil tím, že indikátor nejdřív existuje a čitelně čte; to teď platí a je vyfocené, takže je to **odblokované**, ale je to samostatná změna s vlastní fotkou a chce to majitelovo oko na strip ve hře. **A není to jen smazání** — majitel v issue nadhodil třetí směr (pulzovat muzzle kuličku silně ve *její* barvě, nebo jí dát glow). Dvě věci z jeho komentáře, ať je nikdo nederivuje znovu: **flare ve vlastním odstínu přes `RippleStrength` je změřená slepá ulička** (zkoušeno na 0,97, „could not be seen on screen at all"), a negativní `Ripple` branch, co shading *nahradí* plochou barvou, je **jediný `float3` uniform na draw call**, takže barvu per slot neunese bez per-instance dat. **Glow okolo** kuličky je třetí mechanismus a tím zjištěním blokovaný není.
+- **Ověřeno:** tři solutiony staví, fotky `level=Reel` (navy + tři černé + červená nad neonovým skylinem) a `level=One` (pět červených nad světlým kamenem), plus vzorkovaný sloupec jako důkaz, že hřeben je pryč. Fotky v `C:\Users\PanRD\Pictures\bs3d-236-strip\`.
+- Bez per-frame alokací: queue jde do HUDu spanem nad polem drženým na `GameplayScreen`, jako `_profileBalls`.
+
+**Nic dalšího si teď neberu.** Volné: **#236 druhá polovina** (puls/mark — čeká na majitelovo rozhodnutí mezi „sundat" a „třetí cestou"), **#233 / #238 / #247 / #243** (menu a UI, po sobě, dělí se o `BS3DGame.Menu.cs`), **#242**, **#237**, **#240**, **#241**. `origin/234-first-level-pyramid` je cizí rozdělaná práce; `origin/211-music-switches-fade` leží dál (guard, patch je v komentáři u #211).
+
+---
+
+## 2026-08-20 — Claude Code (osmnáctý zápis)
+
+**Beru si druhou polovinu #236 — glow okolo muzzle kuličky v její vlastní barvě.** Majitel vybral z těch tří směrů právě glow. Větev `236-muzzle-glow`. Území: **nový** `Testbed/Content/Shaders/BallGlow.fx` + **nový** `BS3DLibs/Prazsky.Core/Render/BallGlow.cs`, `Game/Screens/GameplayScreen.Draw.cs` (kreslení a zrušení muzzle marku), `docs/game-feedback.md`.
+
+**Proč nová primitiva a ne existující kanál** — obojí je v issue změřené a nesmí se to zkusit znovu: pozitivní `RippleStrength` ve vlastním odstínu je **slepá ulička** („could not be seen on screen at all" na 0,97, protože se sype energie do kanálu, který už je u stropu ACES křivky), a negativní `Ripple` branch, co shading *nahradí* plochou barvou, je **jediný `float3` uniform na draw call**, takže barvu per slot neunese. **Glow okolo** kuličky je třetí mechanismus a tím zjištěním blokovaný není — přidává barvu tam, kde žádná nebyla (do tmavé hlavně a na oblohu), ne na kanál, který už je nasycený.
+
+**Předloha je v repu dvakrát:** `LaunchSmears` má tu disciplínu kreslení (`BlendState.Additive`, `DepthStencilState.DepthRead`, `CullNone`, jeden sdílený quad, který shader umístí ve world space z uniformů) a `Fireworks.fx` ten tvar (camera-facing billboard, `Corner` −1..1, `falloff = saturate(1 - r2)` umocněný, „a small hot core inside a wide halo").
+
+**Jedna věc vyšla z toho zadání sama a je hezká: prstenec udělá hloubka zdarma.** Quad je camera-facing skrz střed kuličky, takže přední polokuli hloubka odmítne — glow se nakreslí jen tam, kde kulička vykukuje. A protože je kulička v hlavni, odmítne ho i hlaveň, takže by to mělo vyjít jako **barva vytékající z nabíjecího okénka**, což je přesně „dělo říká, která letí". Ověřím fotkou, netvrdím to předem.
+
+**Muzzle mark z #175 tím padá** — jeho `Ripple` zvedá kuličku k **bílé**, což je přesně to, co majitel v issue označil za část problému („the thing pulses, but the pulse itself is what blurs the colour"). Puls ale nezmizí, jen se přestěhuje do glow, a **tempo si nechávám na `MUZZLE_MARK_HZ`**, ať je to jedna konstanta a kadence se nemění.
+
+---
+
+## 2026-08-20 — Claude Code (devatenáctý zápis)
+
+**Glow hotový, na mainu jako `870ed96`, #236 zavřené, větev smazaná. Jeden zapsaný požadavek z něj přenesen do nového #252, ne zahozen.**
+
+- **Co jede:** nový `BallGlow` (Prazsky.Core) + `Testbed/Content/Shaders/BallGlow.fx` — jeden additive camera-facing billboard, `DepthRead`, v lineární radianci nad 1, takže kvete přes glare jako emisivní kuličky. Puls se přestěhoval **z kuličky na kruh okolo ní**, v její vlastní barvě. Žádná kulička v hlavni už nenese `Ripple`, mark ze slotu 0 včetně.
+- **⚠️ Ta díra v prostředku je zásluha depth bufferu, ne figura v shaderu.** Quad prochází středem kuličky, takže její přední polokule je blíž čočce a hloubkový test tu část zahodí — zbyde prstenec za siluetou. **A právě proto ten mechanismus funguje, kde ty dva změřené ne**: oba přidávají světlo *na kuličku*, kdežto halo dává barvu tam, kde žádná nebyla (tmavá hlaveň, obloha za ústím). Ten samý test dal efektu i charakter zdarma: hlaveň před kuličkou většinu hala sežere a co vyleze zářezem, čte se jako **dělo osvícené zvnitřku barvou, kterou se chystá vystřelit**. To byla predikce z toho argumentu *před* stavbou, potvrzená pak fotkou.
+- **⚠️ Metodika, která ušetřila ladění naslepo:** první build byl skoro neviditelný. Místo hádání konstant jsem postavil **záměrně absurdní** verzi (12 poloměrů kuličky, 12× jasnost). Zaplavila snímek ve správné barvě, čímž bylo hotovo: stavy, hloubka i ukotvení jsou správné a špatné jsou jen čísla. **Tohle je levnější první krok než ladit konstantu, kterou ještě nevidíš.**
+- **⚠️ Rozkyv dýchání (0,24…1,00) jsem nastavil argumentem, ne měřením — a je to tak napsané.** Plno na vrcholu, protože majitel chtěl *silný* puls; nikdy blízko nule, protože pravidlo #175 („kulička nesmí být ani na okamžik neoznačená") platí dál. **Měřit to na obrazovce jsem zkusil a vzdal:** plánovat `shot=` proti sinusovce 1,6 Hz měří **sampler, ne efekt**. Hra jede na Reelu při High ~21 FPS a snímek, který fotí, stojí ~0,1 s, takže z osmi požadovaných časů přišly tři snímky — a dva pokusy s rozestupem půl periody daly 4 % a pak 2 %, tedy **opačným směrem**. Do docs je to napsané jako neměřené a proč; **necitujte pro to obrazovkové číslo, dokud nebude frame-accurate cesta k snímkům.**
+- **Cadence se NEZMĚNILA** schválně: 1,6 Hz (mimo tep klastru 1,1 i blik ghosta 2,2) a gate `_previewBeamVisible` jsou #175ovy. Špatný byl kanál, ne časování.
+- **Co šlo do #252 místo zahození:** majitelův požadavek „žádná nabitá kulička nemá pulzovat" je splněný jen z poloviny. `EmissiveStrength` a puls jsou **uniformy na renderer** a kuličky zásobníku padají do **bucketů klastru**, takže tep sdílejí konstrukčně. Vypnout ho jen jim chce **per-instance data nebo vlastní draw call** — tedy zásah do tvaru `BallRenderSet`, což je přesně to jedno místo, kam #76 vzhled kuličky schválně soustředilo. #252 má obě varianty naceněné plus otázku, jestli se to vůbec chce: kulička, co letí, je teď označená **dvakrát** bez jakékoli animace jasu, a mrtvá queue vedle dýchajícího klastru se může číst jako chyba, ne jako klid. To je domněnka a #252 jmenuje ten jednokonstantový experiment, který ji rozsoudí.
+- **Ověřeno:** tři solutiony staví, `BallGlow.xnb` se s hrou dodává, fotky `level=One` (červená kulička svítí proti modrému nebi a strip v rohu souhlasí), `level=Reel` a `level=Globe`. Fotky v `C:\Users\PanRD\Pictures\bs3d-236-glow\`.
+
+**Nic dalšího si teď neberu.** Volné: **#252** (tep zásobníku — chce majitelovo rozhodnutí mezi dvěma cestami), **#233 / #238 / #247 / #243** (menu a UI, po sobě, dělí se o `BS3DGame.Menu.cs`), **#242**, **#237**, **#240**, **#241**. `origin/234-first-level-pyramid` je cizí rozdělaná práce; `origin/211-music-switches-fade` leží dál (guard, patch je v komentáři u #211).
+
+---
+
+## 2026-08-21 — Claude Code (dvacátý zápis)
+
+**Majitel odehrál glow, schválil ho a zadal dvě věci. Obě na mainu, #252 zavřené.**
+
+1. **Strip posunut od počtu** — `feb0bc6`. První halo sedělo skoro na captionu „balls left" a ty dva readouty se čtly jako jedna přeplácaná věc. Odstup od počtu **nikdy nebyl tatáž figura** jako mezera mezi kolečky, jenže jedna konstanta sloužila obojímu — nová `HUD_MAG_INSET` 110 proti 24, které si kolečka nechávají.
+2. **Puls nabitých kuliček zrušen úplně** — `4b8506d`, což je zároveň **majitelovo rozhodnutí #252** („stačí, když svítí špička kanonu").
+
+**Jak: druhá rovina bucketů.** `BallRenderSet` má teď **dvě roviny** (type × LOD) — dýchající a klidnou — a `BallDrawFrame.Add` má `still`, který kuličku pošle do druhé. `Draw` udělá jeden průchod na rovinu, klidný s `PulseDepth` 0. **Oba průchody si tu hloubku říkají sami**, ne že by jeden dědil, co druhý nechal na rendereru — to je ta past, kterou už jednou zaplatili dva callery shot trailu.
+
+**Vyšlo to levněji, než #252 odhadovalo, a to na obou stranách:**
+- **obávané „druhé místo, které ví, jak se kulička stíní", nevzniklo.** Oba průchody jsou tatáž smyčka nad týmiž buckety skrz tytéž renderery (`DrawPlane(camera, still, pulseDepth)`), takže **jedno místo** to zůstalo — a to je přesně to, co #76 chránilo;
+- draw cally jsou nejvýš jeden na skutečně nabitý typ (tedy do pěti, každý o pěti instancích) a buckety jsou lazy, takže snímek **bez zásobníku** (editor, pozadí menu) se rendereru té roviny nedotkne vůbec.
+
+Per-instance varianta odmítnuta na skutečné ceně: šestý float na `ModelInstance` = změna vertex streamu a dotčení **každého producenta instancí**, kvůli pěti kuličkám za snímek.
+
+**⚠️ Změřeno — a otázka „chce se to vůbec?" si odpověděla sama.** Šest snímků po 0,5 s na `level=Reel` při High, rozptyl (max−min) průměrné luminance oblasti:
+
+| oblast | před | po |
+|---|---|---|
+| zásobník, hluboké sloty | **10,70** | **1,41** |
+| klastr, červený blok | 4,61 | 5,14 |
+| klastr, černý blok | 0,58 | 0,59 |
+| kontrola: kamenná podlaha | 0,23 | 0,15 |
+
+**Ty dva spodní řádky jsou to, co dává hornímu smysl** — říkají, že přístroj čte *puls*, ne snímek: osmička je zdokumentovaně jediná kulička, co nepulzuje, a nehnula se; kus kamenné podlahy dává šumové dno ~0,2. **A ta hodnota „před" mě vyvedla z omylu:** při 10,70 byly nabité kuličky **nejnápadněji pulzující věc ve snímku**, před klastrem na 4,61 — protože jsou blízko čočce a vyplňují svou oblast. Moje obava zapsaná v #252 (že mrtvá queue vedle živého klastru bude číst jako chyba) to měla obráceně.
+
+**⚠️ A ten „levný pokus", který jsem do #252 sám napsal, by neodpověděl** — vynulovat `PulseDepth` globálně na jeden snímek. Ten uniform je společný, takže by přestal dýchat i klastr, a celé riziko bylo právě o tom *kontrastu*. **Poctivá cesta byla změřit skutečnou změnu proti skutečnému mainu** a stojí to jeden rebuild. Kdo bude něco takového vážit, ať si to ověří na kontrolní oblasti, ne na intuici.
+
+**Opraveny tři komentáře**, které starý stav uváděly jako fakt: dva v `PlayHud` („#175's pulse is deliberately NOT removed") a `BallRenderSet`ova vlastní věta, že zásobník jde přes `Add` „like every other ball".
+
+**Testbed si magazín dýchat nechává** schválně — dělo a queue sdílí (#76), ale nemá halo ani HUD strip, které by ten signál nesly, a není to produkt.
+
+**Ověřeno:** staví všechny **čtyři** solutiony (změna je v `Prazsky.BS3D`, takže i editor), fotky Reel před/po, zásobník se skrz novou rovinu kreslí správně — rozbitá rovina by se projevila **chybějícími kuličkami**, což je samo o sobě silná kontrola.
+
+**Nic dalšího si teď neberu.** Volné: **#233 / #238 / #247 / #243** (menu a UI, po sobě, dělí se o `BS3DGame.Menu.cs`), **#242**, **#237**, **#240**, **#241**. `origin/234-first-level-pyramid` je cizí rozdělaná práce; `origin/211-music-switches-fade` leží dál (guard, patch je v komentáři u #211).
+
+---
+
+## 2026-08-21 — Claude Code (dvacátý první zápis)
+
+**Strip do pravého dolního rohu a v pořadí střílení — `78622e9`.** Dvě zadání majitele z jednoho playtestu, v jedné větvi (obojí je poloha téže věci).
+
+- **Levý dolní rok byl špatný rok**, a byl to návrh v samotném issue. Už tam je počet a levá hrana navíc nese profil klastru středem — proto musel strip původně **vedle** počtu a proto to pak chtělo druhou konstantu, aby první halo nesedělo na captionu. **Pravý dolní rok to řeší:** byl prázdný v obou pózách kamery, není tam co obcházet, a strip se ukotví na margin rámu jako každý jiný rohový readout. **`HUD_MAG_INSET` s tím přesunem zmizel** — nebyl napraven, stal se nepotřebným.
+- **⚠️ Pořadí je majitelovo, ale layout mu za něj něco dluží: hlava se nesmí hýbat.** Řada se ke konci levelu krátí (`shown = min(5, ShotsRemaining)`), takže hlava umístěná odměřením od pravé hrany by **jezdila po spodku obrazovky během posledních pěti výstřelů** — přesně když se na ni člověk kouká. Proto se řeší **počátek hlavy** tak, aby *plný* zásobník končil zarovnaný s marginem: kratší queue se vyprazdňuje od vzdáleného konce a nechá u rohu mezeru, což je pravda o tom, co se děje, a kolečko, na kterém záleží, zůstane stát.
+- Rok musí navíc pokrýt **plný dosah hlavy včetně prstence**, ze stejného důvodu, jaký si píše `HUD_MARGIN` sám: halo nakreslené natvrdo k hraně je halo rozříznuté hranou a čte se to jako chyba renderu.
+- **`DrawBallsLeft` se vrátil k tomu, že nic nehlásí** — to zjednodušení ten přesun zaplatil; měřil svou pravou hranu a vertikální střed jen proto, aby si strip mohl sednout vedle.
+- **Ověřeno fotkou** na `level=Reel`: hlava vlevo a s prstencem, řada běží doprava, pravá hrana posledního kolečka dopadla na **1563** proti spočítanému **1562**, prstenec nikde neseříznutý. Staví všechny tři solutiony. Fotky v `C:\Users\PanRD\Pictures\bs3d-236-strip-corner\`.
+- Opraveny i dva doc řádky v `docs/game-feedback.md`, které říkaly „beside the ball count" / „bottom left" — a rohový výčet, který teď hlásí, že **jsou obsazené všechny čtyři rohy**.
+
+**Nic dalšího si teď neberu.** Volné: **#233 / #238 / #247 / #243** (menu a UI, po sobě, dělí se o `BS3DGame.Menu.cs`), **#242**, **#237**, **#240**, **#241**.
+
+---
+
+## 2026-08-21 — Claude Code (dvacátý druhý zápis)
+
+**Beru si celou dávku menu/UI: #238, #233, #247, #243.** Zadání majitele. **Čtyři samostatné větve po sobě, ne jedna** — #247 a #243 se dělí o `BS3DGame.Menu.cs` a #233 s #238 se nevejdou ani do jednoho snímku (trofej je na výhře, důvod prohry na prohře). Pořadí a proč:
+
+1. **#238** (řádek „The cluster reached the line." je moc malý) — **první, protože si musí postavit `lost` argument.** Tu stránku dneska **není jak vyfotit**: `result` má `cleared: true` zadrátované, takže `stars=0` dá bezhvězdné CLEARED, ne FAILED. Ten argument pak poslouží všemu dalšímu.
+2. **#233** (trofej výš, vystředěná vlevo) — tatáž stránka, takže hned po #238.
+3. **#247** (slab pod položkami menu skoro neviditelný) — paleta menu.
+4. **#243** (nadpisy v settings větší) — sdílí `BS3DGame.Menu.cs` s #247, proto naposled.
+
+**Tři pasti, které vím předem a hlásím je, ať v nich neskončí někdo jiný:**
+- **#247 cituje v těle špatný řádek.** Ukazuje na `MENU_BUTTON` (grey 73 / 75 %), což je štětec **všech ostatních** stránek — editace by změnila settings, oba pickery i pauzu, což #216 výslovně zakázalo. Front end má vlastní `MENU_FRONT_BUTTON` od 18. 8., den *před* založením issue.
+- **#243 nesmí zvednout `MENU_FONT_SMALL`** — sdílí ho osm dalších míst (About, čtyři labely pickerů, scene picker, poznámka o kvalitě, poznámka o odemčení). Chce to novou velikost.
+- **#233 obrací vlastní rozhodnutí #226** (`NDC_Y` šlo −0,22 → −0,30 záměrně). Podle majitelova „improvement beats invariance" to jde, ale komentář i deníkový řádek se musí opravit s tou konstantou, ne zůstat proti ní.
+
+---
+
+## 2026-08-21 — Claude Code (dvacátý třetí zápis)
+
+**Dávka menu/UI hotová: #238, #233, #247, #243 — všechny čtyři na mainu, zavřené, větve smazané.** Čtyři samostatné větve po sobě, jak bylo hlášeno.
+
+**#238 — řádek o prohře.** Přišlo se na to, že **tu stránku nebylo jak vyfotit**: `result` měl `cleared: true` zadrátované, takže `stars=0` dal bezhvězdné CLEARED a fail stav nikdo nikdy neviděl mimo skutečnou prohru. Nový argument **`lost`**, a **implikuje `result`** (jak `level=` implikuje `play`) — bez toho jeho první běh jen otevřel hlavní menu a nic neřekl. **A první fotka skrz něj našla víc než velikost:** řádek byl `FontBody`/`MENU_TEXT_DIM` a pravidlo té šedé je „asides, **always on a dark plate**" — jenže tahle stránka při prohře **nemá ani podložku, ani scrim**. Nad osvětlenou arénou a klastrem to vyšlo jako **nejméně čitelná věc na obrazovce**, pod i tou skóre vedle. Takže to není jen zvětšení, je to oprava korektnosti: heading velikost (124 proti 80) v plné `MENU_TEXT`. `MenuPage` měl všechny ostatní velikosti a `FontHeading` ne — doplněno.
+
+**#233 — trofej.** −0,30 → **−0,15**, ne 0. **Nula kupu řeže horní hranou u blízkého konce dolly** (vyfoceno proti tmavému nebi, aby se odříznutý okraj nemohl schovat ve světlém). Kupa je tam prostě moc vysoká: `SIZE` 2,0 proti půlvýšce rámu při `DISTANCE − DOLLY_DEPTH` nenechá nic a `LEAN_ANGLE` okraj vyhodí ještě výš. **Takže #226ových −0,30 nebylo náhodné — chránilo to KUPU tím, že řezalo PODSTAVEC**, a odříznutá kupa je horší, protože kupa je to, co dělá pohár pohárem. −0,15 je nejvýš, co přežije celou 7,85 s periodu dolly (šest snímků přes ni). **Plné vystředění by stálo menší pohár nebo plošší dolly — to je majitelovo, ne moje**, a je to napsané v komentáři i v docs.
+
+**#247 — slab.** alfa 40 → **18** (~16 % → ~7 %). **⚠️ Issue cituje v těle špatnou konstantu** — grey 73 / 75 % a `Menu.cs:185`, což je `MENU_BUTTON`, štětec **všech ostatních** stránek; editace by změnila settings, oba pickery i pauzu, což #216 zakazuje. Front end má vlastní od 18. 8., den před založením issue. Hover/pressed měnit netřeba (jsou to sdílené tóny vysoko nad oběma, takže snížení restu krok jen rozšíří). **A při 7 % mluví HRANA, ne tón** — nad trávou skoro nic, nad regolitem a kamenem slabý krok. To je to zadání, ale je to i místo, odkud přijde další stížnost, a **Myra 1.6.3 gradient brush nemá**, takže opravdu měkký slab by chtěl generovanou texturu.
+
+**#243 — nadpisy v settings.** Nebyly jen malé, byly **vzhůru nohama**: **small** face 58 nad řádky v **display** face 80, takže nadpis byl menší než to, co nadepisuje, a v rodině pro drobný text. Nový `MENU_FONT_SECTION` **96 na display face**. `MENU_FONT_SMALL` zvednout nešlo — sdílí ho osm míst a všechna jsou opravdu drobný text. Šedá `MENU_TEXT_DIM` zůstala, takže nadpis je pořád podřízený, ale **jasností**, což je jediná osa, kterou tohle menu pro důraz používá.
+
+**⚠️ Tři metodické věci, na kterých jsem se spálil, a všechny jsou jedna a tatáž chyba: srovnávat dvě různé věci.**
+1. **Detekce odříznuté kupy počítáním jasných pixelů v horní řádce** — dvakrát nesmysl: v louce to počítalo mraky, v kosmu hvězdy a mlhovinu. Rozhodla fotka.
+2. **Měření průhlednosti slabu z jednoho snímku** — plocha „ve slabu" proti ploše „mimo slab" vzorkuje **různá místa nerovnoměrné scény**; vyšly poměry **nad 1**, což černá překryvná vrstva neumí. Srovnání téhož místa se slabem a bez něj nejde, dokud pozadí orbituje a losuje mapu.
+3. Obojí je stejná past jako to měření dýchání glow v #236. **Pravidlo pro příště: než z čísla přes kameru něco usoudím, musí být jasné, že obě jeho poloviny jsou totéž místo v tomtéž stavu.**
+
+**Opraveno cestou:** doc řádek v `docs/game-shell.md` byl špatně **dvakrát** — uváděl small face jako vlastní nadpisům a **pořád odmítal `MenuScroll` na settings argumentem, který zavřelo #245**. Ten komentář v `SettingsPage.cs` jsem v #245 opravil a tenhle doc řádek přehlédl. Dál: figura slabu v game-shell.md, figura trofeje v game-feedback.md a zastaralé −0,30 v tomhle deníku (řádek 128).
+
+**Nic dalšího si teď neberu.** Volné: **#242** (konfety ostré nad UI — ostrou vrstvu už postavilo #225), **#237** (pásek dlažby u odtoku, příčina nalezená), **#240** (krátery na mřížce), **#241** (klastr pod výsledkovou stránkou, nese latentní dvojité dokončení), **#248** (titulek — potřebuje majitelovo rozhodnutí mezi 2D a 3D). `origin/234-first-level-pyramid` je cizí rozdělaná práce; `origin/211-music-switches-fade` leží dál.
+
+---
+
+## 2026-08-21 — Claude Code (dvacátý čtvrtý zápis)
+
+**Beru si #242 — konfety mají zůstat ostré, ne rozostřené s pozadím.** Větev `242-confetti-sharp`. Území: `Game/BS3DGame.Scene.cs`, `Game/Effects/Confetti.cs`, `Testbed/Content/Shaders/Confetti.fx`, `docs/game-feedback.md` + `docs/rendering.md`.
+
+**Issue má tři části, ne jednu** — a druhá a třetí jsou jedna a tatáž otázka:
+1. **konfety ostré** (hlavní zadání) → přesunout `_confetti.Draw` z `FinishSceneDraw` (tedy z HDR targetu, který výsledkovka rozostřuje) do ostré popředí vrstvy, kterou už postavilo #225 pro trofej;
+2. **konfety padají přes UI** — „if not too costly";
+3. **trofej kreslit taky přes UI** — „it's fine if it partially covers UI elements".
+
+Dvě a tři jsou totéž: Myra se kreslí **naposled, přímo do back bufferu**, takže „přes UI" znamená kompozitovat tu vrstvu **za** Myrou. To je změna pořadí snímku, ne konstanta — půjde to jako **druhý commit na téže větvi**, na vlastní fotce, a když to bude drahé, řeknu to a nechám to majiteli.
+
+**Dvě věci vím předem a přijímám je:**
+- **konfety ztratí okluzi scénou** — depth buffer popředí vrstvy se čistí a zapisuje do něj jen trofej, takže papírky, které měly být za ostrovem, budou přes něj;
+- **obrací to schválený, ověřený doc bullet** v `docs/game-feedback.md` (konfety uvnitř HDR passu). Precedens pro takový přepis je v témže souboru.
+
+**A jedna past z #225, kterou nesmím zopakovat:** jeho regrese s černou obrazovkou se schovala v tom, že se testovalo **jen na High**. Ověřím **High i Medium** (ssaa 1 + MSAA 8×) a navíc konfety **bez** výsledkovky, které musí být od mainu nerozeznatelné.
+
+---
+
+## 2026-08-21 — Claude Code (dvacátý pátý zápis)
+
+**#242 hotové celé — všechny tři části, na mainu jako `277862e`, issue zavřené, větev smazaná.** Dva commity, aby se každá půlka dala číst sama.
+
+**1) Ostrost.** Konfety padaly **uvnitř HDR passu**, což je přesně to, co výsledkovka rozostřuje. Teď jdou do **ostré popředí vrstvy, kterou postavilo #225** pro pohár. Tím se z „poháříkovy vrstvy" stala obecná: otevírá se na `trophy.Active || confetti.Active` a kompozit jede na týchž dvou testech (naplněná a nezkompozitovaná vrstva = oslava nakreslená do targetu, který nikdo nečte; zkompozitovaná a nenaplněná = obsah minulého snímku přeblendovaný přes tento).
+- **Tonemap si nechaly**, což byl celý argument pro ten HDR pass — stejná expozice, křivka, zrno — takže papír pořád čte jako **osvětlený**, ne svítící, a jeho záblesky pořád krmí bloom. Přestalo je dohánět jen to rozostření.
+- **Tři věci obětované, všechny vědomě:** už nepřekryjí ohňostroj, který přeletí (rakety zůstávají ve scéně, tedy za celou vrstvou); **ztratily okluzi scénou**, takže ostrov ani klastr papírek za sebou neschovají (levné v ten moment — kamera je uvolněná na orbitu a snímek se stejně rozostřuje); a kreslí se **před** pohárem, takže je pohár pořád překrývá, což je pravidlo #225 a tohle issue ho měnit nechtělo.
+- **⚠️ A musely přejít na premultiplied** (shader i `Confetti.cs`). Ta vrstva se čistí na průhlednou a kompozituje se přes coverage, a `NonPremultiplied` **kvadratuje alfu** (`a·a + dst·(1−a)`), takže každý částečně krytý papírek by o sobě hlásil méně, než ho je. Straight alpha byla správná jen dokud se kreslilo přes neprůhlednou scénu.
+
+**2) + 3) Přes UI — a je to jedna otázka, ne dvě.** `CompositeForeground` běžel **jako první věc po resolve**, záměrně, a důvod tam byl napsaný doslova: *„the HUD, the page and its panels belong over the cup, not under it."* **To je to rozhodnutí, které majitel obrátil, v obou půlkách.** Takže `FinishSceneDraw` teď vrstvu jen **zaznamená** a `CompositeForegroundLast` ji utratí na konci `Draw` — **za Myrou a před `ServiceScreenshots`**, který čte back buffer a jinak by ukládal snímek bez toho, o čem ta stránka je.
+- **Tohle je to jedno místo, kde se poli nešlo vyhnout** — a komentář, kterému to protiřečí, to řekl první: dokud obě půlky žily v jednom souboru, „co uzávěr snímku spotřebuje, je to, co jeho začátek vyrobil" platilo lokálně. „Naposled" teď znamená **později než uzávěr snímku**. Pole čistí sám kompozit, takže snímek, který k uzávěru nedojde, nemůže nechat zastaralý target dalšímu k přeblendování.
+- **Scrim nekoliduje:** `ResultPage.DimsFrame` je `false`, takže tam žádný stmívací quad není, a stránky, které stmívají, pohár ani konfety nikdy nemají.
+
+**⚠️ Ověřeno na cestě, kde se schovala regrese #225** (testovalo se jen na High a prošla černá výsledkovka): **High i Medium** (ssaa 1 + MSAA 8×) přes celou rampu rozostření, plus **konfety bez výsledkovky** (musí být a jsou snímkem, jakým vždy byly), plus stav přes UI na High (papír je jasně přes panel, přes všechna tři tlačítka i přes nadpis, pohár přes levý okraj panelu — všechno čitelné), plus front end na Medium nad Měsícem, kde papír kříží položky menu i titulek a obojí drží.
+
+**Přepsané doc pasáže, ne přidané k nim:** `docs/game-feedback.md` (bullet o konfetách v HDR passu i věta o poháru pod UI) a `docs/rendering.md` (vrstva a nově i **kdy** se kompozituje). Obojí nese to obrácení, ne to, co nahradilo.
+
+**Nic dalšího si teď neberu.** Volné: **#237** (pásek dlažby u odtoku, příčina nalezená: #109 překorigoval), **#240** (krátery na mřížce, příčina nalezená: ejekta se nenásobí zhášecí rampou), **#241** (klastr pod výsledkovkou — nese s sebou latentní dvojité dokončení, které jeho vlastní oprava aktivuje), **#248** (titulek — potřebuje majitelovo rozhodnutí mezi 2D a 3D, jsou to dva různé projekty). `origin/234-first-level-pyramid` je cizí rozdělaná práce; `origin/211-music-switches-fade` leží dál.
+
+---
+
+
+## 2026-08-21 — Claude Code (dvacátý šestý zápis)
+
+**#241: simulace už se koncem levelu nezastaví — větev `241-cleared-keeps-simulating`.** Majitel dohrál level a viděl arénu zamrznout za čísly: klastr visí bez hnutí, zbytek kolapsu stojí v půli cesty do výlevky, střela zůstala viset ve vzduchu — a přitom nad tím stoupají rakety a kamera výsledkové stránky se od děla odtáčí.
+
+**Příčina byla stack dělající přesně to, k čemu byl postavený.** Každá stránka nad session má `UpdatesUnderlying = false` a výsledková byla jedna z nich. `ResultPage` teď jako **jediná stránka nad session** odpovídá **true**: pauza je hra *odložená uprostřed tahu*, konec levelu je aréna, která *žije dál bez hráče* — a to je rozdíl, který ty dva flagy vyjádřit umí, kdežto „je nad tím stránka?" ne.
+
+**Co ta výjimka kupuje, rozhoduje session, a dělicí čára je svět proti hře.** `GameplayScreen.UpdateUnderResult` točí simulaci a odpověď děla na poslední výstřel (zpětný ráz, doklouznutí zásobníku, dobarvení). Nic dalšího: žádný vstup ani míření, žádný náhled dopadu, žádný sestup stropu, žádný konec levelu, žádný verdikt kvality — a **hlavně žádnou kameru**, protože tu právě odtahuje stránka a dva zapisovatelé jedné pózy znamenají, že jeden z nich prohrává. HUD se taky nekrokuje, z nejprostšího důvodu: po konci levelu se nekreslí.
+
+**⚠️ Vynechat pravidla z té metody je NEDRŽÍ — a tohle je ta past, kvůli které to není třířádková změna.** Kontakty se zpracovávají **uvnitř** kroku, takže střela, co byla ještě ve vzduchu, spadne rovnou do `OnBallLanded`, ať už ta metoda zavolá cokoli. A na vyčištěném poli by to **znovu spustilo celou oslavu**: `LevelDecided` bylo `_levelLost || _clearedCountdown > 0f`, jenže vyčištěný level ten countdown sám vynuluje — od snímku, kdy jde stránka nahoru, čte `LevelDecided` **znovu „nerozhodnuto"**. Bylo to neškodné jen dokud ta stránka session mrazila.
+
+- **Nové `LevelOver` (`_pendingOutcome != None`)** je čára, za kterou je aritmetika levelu **read-only**, protože `LevelResult` byl z keeperu už sejmutý. Je třetím členem `LevelDecided` a drží čtyři dveře: `OnBallLanded` se vrací hned (**kulička se přilepí dál a mlčky** — handler ji připojil dřív, než to ohlásil, a kulička mizející hráči před očima je zrovna ta chyba, kvůli které `RemoveFallenBalls` sleep-cull nedělá), `OnShotSpent` nic neskóruje, `RemoveFallenBalls` dostává `scoreMisses: !LevelOver` a náhled/vstup padají na rozšířeném `LevelDecided`.
+- Draw už se neptá `_pendingOutcome == None` ručně, ptá se `!LevelOver` — jeden význam, jedno místo.
+
+**Změřeno na skutečném konci levelu** (One dohraný do `OutOfBalls`, dvakrát, dočasnou sondou v `UpdateUnderResult`): pod stránkou `shots=2 → 1 → 0`, jak dvě kuličky, co byly ještě ve vzduchu, dopadly a propadly kill plane — **na starém buildu tam visely, dokud stránka stála**. Skóre stálo na 4 320 přes všech třicet vzorků (to je ta pojistka proti pozdním miss), 33kuličkový klastr měl součet rychlostí 0,66–2,16 a **nikdy ne nulu**: visící klastr se doopravdy neusadí, což je přesně to, proč má smysl ho nechat běžet. Sonda je zase pryč.
+
+**Ověřeno:** staví všechny čtyři solutiony, ScoreSim „all levels rate the right way round", dvě odehrané prohry s fotkou FAILED stránky nad rozsvícenou arénou (bez HUD, bez zaměřovače, bez paprsku — brány drží), a **Retry** z výsledkové stránky nad živou session přestavuje level (`225 balls, 948 constraints` podruhé) a vrací kameru za dělo.
+
+**Opraveno deset komentářů a šest doc řádků**, které starý stav uváděly jako fakt (Fireworks, Confetti, LaserGrid, MenuPage, PresentResult, `Screen.UpdatesUnderlying` v `Prazsky.Core`, tři místa v `ResultPage`, dva v Draw). **Argument pro „oslava patří hostovi" tím nepadá, jen se opravil:** session pod stránkou točí svůj *svět*, ne své *vybavení* — a Main Menu ji navíc zbourá, zatímco display běží dál.
+
+**⚠️ Mimochodem, nesouvisející nález: `Game/BS3DGame.cs` má na 106 řádcích rozbité kódování** — pomlčky uložené jako `â€"` (UTF-8 přečtené jako cp1252 a znovu zakódované). Je to **jediný soubor v repozitáři**, který to má; nikde jinde v `.cs`, `.md` ani `.fx` to není. Nesahal jsem na to nad rámec tří řádků, které jsem tak jako tak přepisoval — je to samostatná změna a chce vlastní větev.
+
+**Nic dalšího si teď neberu.** `origin/234-first-level-pyramid` je hotová cizí práce čekající na merge (majitel řekl, že ji dělá jiný agent); `origin/211-music-switches-fade` leží dál.
+
+---
+
+
+## 2026-08-21 — Claude Code (dvacátý sedmý zápis)
+
+**Dvě majitelova zadání po #241, obě na mainu: kódování `BS3DGame.cs` a rozestupy v pásku zásobníku.**
+
+### 1. Rozbité kódování v `Game/BS3DGame.cs` — `0f4ead1`
+
+**118 sekvencí na 109 řádcích** bylo dvojitě zakódovaných: UTF-8 bajty někdy přečtené jako jednobajtová kódová stránka a zapsané zase jako UTF-8. Pomlčka tak stála ve zdrojáku jako **tři znaky** a každý komentář v souboru, který ji používal, se v každém editoru četl jako `â€"`.
+
+**⚠️ Kódové stránky jsou DVĚ, a proto je to tabulka a ne jeden round-trip.** 112 pomlček a jedno `±` prošlo **cp1252**, obě šipky „menu ⇄ play" a dva ze čtyř znaků `×` prošly **cp1250**. Nabízený jednořádkový fix — celý text zakódovat do cp1252 a dekódovat jako UTF-8 — by byl ten **špatný**: soubor obsahuje i **32 pomlček, které byly odjakživa správně**, a z každé z nich by udělal replacement character. Napsané v `fixenc.ps1` ve scratchpadu, kdyby to někdy bylo potřeba znovu.
+
+**Kontrola je to, co dělá výsledek uvěřitelným:** po opravě v souboru zbývá 144 pomlček, 4× `×`, 2 šipky a jedno `±` — a **žádný znak, který by nešel vysvětlit**. Sáhnuto jen na těch pět známých sekvencí.
+
+**Je to jediný soubor v repu**, který to má — žádný jiný `.cs`, `.md`, `.fx` ani `.json` nemá ani jeden výskyt. (Deník ho má taky, ale jen proto, že si tu sekvenci cituju jako příklad.) Takže historie jednoho souboru, ne návyk toolchainu.
+
+### 2. Pásek zásobníku dýchá — `009d664`
+
+Majitel chtěl větší mezery mezi nabitými kuličkami. **Konstanta, na kterou se ptal, ale měřila něco jiného, než co je vidět** — proto přebázování, ne jen zvětšení čísla.
+
+- `HUD_MAG_GAP` byla mezera mezi **výplněmi**. Každý disk se ale kreslí s tmavým halo `HUD_MAG_RIM` **vně** té výplně, takže z 24 zbývalo `24 − 2·7 = 10` jednotek skutečného světla a čtyři odpočívající kola se četla jako jeden slepenec.
+- **⚠️ A hlava nebyla jen těsná, byla špatně.** Její prstenec stojí `HUD_MAG_RING_GAP + HUD_MAG_RING_THICKNESS` **vně halo**, tedy 18 jednotek za výplní, od které se mezera měřila — takže značka, která říká „tahle, právě teď", **překrývala halo dalšího kola o jednotku**. Konstanta pojmenovaná „gap" nemůže nechat největší věc v řadě sežrat tři čtvrtiny sebe sama.
+- Teď je to **volný prostor mezi nejzazší kreslenou hranou jednoho disku a druhého**, hodnota 32, a **každý krok se počítá z vlastního dosahu disku** — proto je první krok delší než ostatní konstrukčně, ne fudgem.
+- **Pravá hrana se nehnula:** byla už kotvená na `rest + rim`, takže pásek narostl doleva a ocas zůstal, kde byl. Vyfoceno v běžící hře před i po (1616×939, výřez 3×).
+- Opraven i doc řádek, který popisoval řadu jako běžící **doleva od hlavy v rohu** — to byl layout *před* tím, než majitel požádal o pořadí střílení, a přeuspořádání se do záznamu nikdy nedostalo.
+
+**Nic dalšího si teď neberu.** `origin/234-first-level-pyramid` je hotová cizí práce čekající na merge; `origin/211-music-switches-fade` leží dál.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (kódování `BS3DGame.cs` a rozestupy pásku, obojí na mainu).*

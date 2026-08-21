@@ -22,10 +22,13 @@ namespace BS3D.Screens
     /// </para>
     /// <para>
     /// <b>The other candidate was a scroller</b> (<see cref="MenuPage.MenuScroll"/>, which the level picker
-    /// uses), and it was not taken: the pad and the arrow keys reach entries inside a scroller but cannot
-    /// scroll a focused one into view (see <c>BS3DGame.MenuScroll</c>'s remarks). That is harmless at the
-    /// picker's three rows of tiles, which fit; it would leave a pad player here driving a cursor onto rows
-    /// they cannot see. Two columns need no scrolling at all, so the hole never opens.
+    /// uses), and it was not taken. The reason given at the time was that the pad and the arrow keys reached
+    /// entries inside a scroller but could not scroll a focused one into view, leaving a pad player driving a
+    /// cursor onto rows they cannot see — <b>that hole is closed since #245</b>
+    /// (<c>BS3DGame.ScrollNavEntryIntoView</c>), so it no longer carries the decision. What does, and always
+    /// did the better job of it: two columns need no scrolling <i>at all</i>, so every row is on screen at
+    /// once and the page can be read rather than walked. A scroller would be a worse answer here even with
+    /// the walk fixed.
     /// </para>
     /// <para>
     /// <b>The rows keep their old order, read down one column and then the other</b> — which is also the order
@@ -166,10 +169,17 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// A group's name over its rows, spanning both of the grid's columns. Quiet — the small face and the
-        /// palette's aside grey — because it is a label for the rows under it and not a thing that can be
-        /// clicked; emphasis here is brightness, never hue, as everywhere else in this menu.
-        /// </summary>
+        /// A group's name over its rows, spanning both of the grid's columns. Still subordinate to those rows,
+        /// but **by brightness alone** since #243 — the palette's aside grey, which is what this menu uses for
+        /// emphasis everywhere and never hue.
+        /// <para>
+        /// It used to be quiet by SIZE and by FACE as well, and that half is reversed: it was the small face at
+        /// 58 over rows in the display face at 80, so the heading was smaller than the rows it headed and set in
+        /// the small-print family while they were not. A heading smaller than its own content is a heading
+        /// upside down, which is what the owner was reading when they called it too small. It is
+        /// <see cref="MenuPage.FontSection"/> now — the display face at 96, above the rows and well under the
+        /// page heading's 124, which it shares a screen with and must not compete against.
+        /// </para>
         /// <param name="first">Whether it heads its column. A later heading takes
         /// <see cref="GROUP_HEADING_GAP"/> of air above it to break from the group before.</param>
         private void AddGroupHeading(Grid grid, int row, string text, bool first)
@@ -179,7 +189,7 @@ namespace BS3D.Screens
             Label heading = new()
             {
                 Text = text,
-                Font = FontSmall,
+                Font = FontSection,
                 TextColor = BS3DGame.MENU_TEXT_DIM,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = ScaledThickness(0, first ? 0 : GROUP_HEADING_GAP, 0, 0),

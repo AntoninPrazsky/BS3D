@@ -1,4 +1,4 @@
-using BS3D.Screens;
+﻿using BS3D.Screens;
 using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
@@ -41,8 +41,10 @@ namespace BS3D
         //and a switch that had to work out where the player had come from: "Settings backs out to the pause
         //it was opened from" and "it dims the frame because that pause is a stopped game" were both asked as
         //_state == Paused, from two places. On a stack the pause is simply UNDERNEATH settings, so backing
-        //out is a pop and the dimming is a question about the stack — and "is the game paused" is whether the
-        //gameplay screen is covered, asked by nobody because the manager's traversal simply stops updating it.
+        //out is a pop and the dimming is a question about the stack — and "is the game paused" is whether a
+        //page that stops the gameplay screen is over it, asked by nobody because the manager's traversal
+        //simply stops updating it. (Covered is not the same question since #241: the result page covers this
+        //screen and lets it run.)
         //
         //The pages are held rather than made per navigation, so Contains<PausePage>() means something and
         //nothing is allocated on a button press.
@@ -81,6 +83,14 @@ namespace BS3D
         //screen change. -1 means the focus cursor is not up at all — the pointer is driving, and two entries
         //lit at once (one hovered, one focused) reads as a bug.
         private readonly List<Button> _navEntries = new();
+
+        //The scroller each entry lives inside, by the same index, or null for an entry that is not in one
+        //(#245). Kept as a parallel list rather than looked up by walking Parent at step time: the walk that
+        //fills _navEntries already knows the answer, because it is the thing that descended into the scroller
+        //to find the entry at all. A page may hold more than one — the level picker has its grid in a scroller
+        //and Back outside it — so this is per entry and not per page.
+        private readonly List<ScrollViewer> _navScrollers = new();
+
         private int _navIndex = -1;
         private float _navRepeatDelay;
         private int _navDirection;
@@ -103,6 +113,7 @@ namespace BS3D
         //Picking a face means picking a system.
         private FontSystem _menuFontSystem, _menuFontSystemBold, _menuFontSystemDisplay;
         private SpriteFontBase _menuFontBody, _menuFontSmall, _menuFontHeading, _menuFontTitle, _menuFontStars;
+        private SpriteFontBase _menuFontSection;
         private SpriteFontBase _menuFontGameTitle, _menuFontFrontEntry;
 
         //The menu is deliberately GREYSCALE — no hue anywhere, and no coloured frames. It has to sit over
@@ -195,7 +206,13 @@ namespace BS3D
         //is kept only as a whisper for the hover to lift from; the resting entry is all but the label alone.
         //Pure transparency (RGB 0) so it only darkens and never milks a bright sky, and hover and pressed stay
         //the SHARED tones below, so pointing at a front-end entry still lifts the same slab every other page shows.
-        private static readonly Color MENU_FRONT_BUTTON = new(0, 0, 0, 40);         //black, ~16 % — a breath of a slab
+        //#247 took it down again, from 40: the owner played the ~16 % version and it still read as a plate. The
+        //ask was "very, very, very transparent — almost invisible, just a hint that a control is there", and
+        //7 % is that. Note the issue's own body cites grey 73 at 75 % and Menu.cs:185 — that is MENU_BUTTON
+        //above, the brush every OTHER page uses, and editing it would have changed settings, both pickers and
+        //the pause, which #216 explicitly rules out. The front end got its own rest brush the day before that
+        //issue was filed, so this is a second pass on this constant rather than the first on that one.
+        private static readonly Color MENU_FRONT_BUTTON = new(0, 0, 0, 18);         //black, ~7 % — a hint, not a plate
 
         //Built once and shared by every entry. A brush holds no per-widget state, and the focus highlight
         //swaps an entry between the first two of these rather than minting a brush per frame. MENU_BUTTON_BRUSH
@@ -306,6 +323,14 @@ namespace BS3D
         //wide) with room to spare — a short acronym would take far more, but the name is what is set.
         private const int MENU_FONT_SMALL = 58;
         private const int MENU_FONT_BODY = 80;
+
+        //A SECTION label, over rows set in the body face — added by #243, whose complaint was that the settings
+        //headings were too small. They were smaller than the rows they head (58 against 80), which is a heading
+        //upside down, and they were in the SMALL-PRINT face while those rows are in the display one. Above the
+        //body size and well under the page heading's 124, which it must not compete with: one page has both.
+        //MENU_FONT_SMALL could not simply be raised - eight other sites share it (About's paragraphs, four
+        //picker labels, the scene list, the quality note, the unlock note), and every one of them IS small print.
+        private const int MENU_FONT_SECTION = 96;
         private const int MENU_FONT_HEADING = 124;
         private const int MENU_FONT_TITLE = 170;
 
@@ -422,6 +447,8 @@ namespace BS3D
             _menuFontSmall = _menuFontSystem.GetFont(Scaled(MENU_FONT_SMALL));
             _menuFontBody = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_BODY));
             _menuFontHeading = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_HEADING));
+            //The DISPLAY face, not the small one it replaced: a section label over display-face rows belongs to them.
+            _menuFontSection = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_SECTION));
             _menuFontTitle = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_TITLE));
             _menuFontStars = _menuFontSystem.GetFont(Scaled(MENU_FONT_STARS));
 
@@ -483,6 +510,7 @@ namespace BS3D
         internal SpriteFontBase MenuFontBody => _menuFontBody;
         internal SpriteFontBase MenuFontSmall => _menuFontSmall;
         internal SpriteFontBase MenuFontHeading => _menuFontHeading;
+        internal SpriteFontBase MenuFontSection => _menuFontSection;
         internal SpriteFontBase MenuFontTitle => _menuFontTitle;
         internal SpriteFontBase MenuFontStars => _menuFontStars;
         internal SpriteFontBase MenuFontGameTitle => _menuFontGameTitle;
@@ -712,10 +740,11 @@ namespace BS3D
             bool cursorWasUp = _navIndex >= 0;
 
             _navEntries.Clear();
+            _navScrollers.Clear();
             _navIndex = -1;
             _navDirection = 0;
 
-            CollectNavEntries(_desktop.Root);
+            CollectNavEntries(_desktop.Root, null);
 
             if (cursorWasUp && _navEntries.Count > 0) _navIndex = 0;
 
@@ -729,7 +758,10 @@ namespace BS3D
             ApplyNavHighlight();
         }
 
-        private void CollectNavEntries(Widget widget)
+        /// <param name="enclosing">The scroller this branch of the tree is inside, or null above them all —
+        /// carried down the walk so an entry can be scrolled into view later (#245) without a second search
+        /// for the scroller that holds it.</param>
+        private void CollectNavEntries(Widget widget, ScrollViewer enclosing)
         {
             //An entry that is not shown is not an entry — this is what keeps the focus off the resume entry
             //before there is a session, and off Next Level when the level was not passed
@@ -737,7 +769,11 @@ namespace BS3D
 
             if (widget is Button button)
             {
-                if (button.Enabled) _navEntries.Add(button);
+                if (button.Enabled)
+                {
+                    _navEntries.Add(button);
+                    _navScrollers.Add(enclosing);
+                }
 
                 //A button's content is its label, never another entry
                 return;
@@ -750,7 +786,10 @@ namespace BS3D
             //it had the same hole and nothing that made it visible).
             if (widget is ScrollViewer scroller)
             {
-                CollectNavEntries(scroller.Content);
+                //From here down the entries belong to THIS scroller. Nested scrollers are not a thing this
+                //menu builds, but if one ever appeared the inner one would win, which is the right answer:
+                //it is the innermost viewport that has to show the entry.
+                CollectNavEntries(scroller.Content, scroller);
                 return;
             }
 
@@ -758,7 +797,7 @@ namespace BS3D
             //multiple-items interface — which is every container this menu is built from (Panel,
             //VerticalStackPanel, Grid). A Label or an Image simply has no children and ends the branch.
             if (widget is IContainer container)
-                foreach (Widget child in container.Widgets) CollectNavEntries(child);
+                foreach (Widget child in container.Widgets) CollectNavEntries(child, enclosing);
         }
 
         /// <summary>
@@ -892,7 +931,67 @@ namespace BS3D
             _audio.PlayUiTick();
 
             ApplyNavHighlight();
+            ScrollNavEntryIntoView();
         }
+
+        /// <summary>
+        /// Brings the focused entry inside its scroller's viewport, so walking the list with a pad or the arrow
+        /// keys can leave the first screenful (#245). Until this existed the focus walked on past the bottom of
+        /// the window and the highlight went with it: the level picker's set has been longer than one screen
+        /// since thirty entries, and at forty the campaign's finale sits two screens down, reachable only with
+        /// the mouse wheel. Both pickers scroll (<see cref="MenuScroll"/> is used by the level list and the
+        /// scene list), so both are fixed by this.
+        /// <para>
+        /// It works in GLOBAL coordinates and moves the scroll by a DIFFERENCE, which is what makes it robust:
+        /// the entry's own on-screen position already has whatever scroll offset is in force folded into it, so
+        /// there is no need to know how Myra composes the two — and no second copy of that arithmetic to get
+        /// out of step with the library. An entry already fully in view is left alone, which is what keeps a
+        /// step inside the visible rows from nudging the list.
+        /// </para>
+        /// </summary>
+        private void ScrollNavEntryIntoView()
+        {
+            if (_navIndex < 0 || _navIndex >= _navScrollers.Count) return;
+
+            ScrollViewer scroller = _navScrollers[_navIndex];
+
+            //Null for every entry outside a scroller — the headings and Back, which are outside on purpose
+            //(the way out of a page must not be the thing that scrolled away). Nothing to do for those, and
+            //deliberately NOT "scroll the list back": the list stays where the player left it.
+            if (scroller == null) return;
+
+            Rectangle window = scroller.ActualBounds;
+            Rectangle entry = _navEntries[_navIndex].Bounds;
+
+            //Before the first layout pass a widget's bounds are zero, and a zero-height window would make
+            //every entry read as out of view and send the scroll to a nonsense place. CollectNavEntries can
+            //run on the frame a page is built, so this is reachable rather than theoretical.
+            if (window.Height <= 0 || entry.Height <= 0) return;
+
+            int top = _navEntries[_navIndex].ToGlobal(Point.Zero).Y;
+            int bottom = top + entry.Height;
+
+            //A row of context on the side being approached, so the focused tile is not flush against the edge
+            //with nothing beyond it — walking a grid reads better when the next row is already showing.
+            int margin = Scaled(MENU_SCROLL_INTO_VIEW_MARGIN);
+
+            int shift;
+            if (top - margin < window.Top) shift = top - margin - window.Top;            //negative: scroll up
+            else if (bottom + margin > window.Bottom) shift = bottom + margin - window.Bottom;
+            else return;
+
+            Point at = scroller.ScrollPosition;
+            int limit = scroller.ScrollMaximum.Y;
+
+            scroller.ScrollPosition = new Point(at.X, Math.Clamp(at.Y + shift, 0, Math.Max(0, limit)));
+        }
+
+        /// <summary>
+        /// How much of the row beyond the focused entry <see cref="ScrollNavEntryIntoView"/> keeps showing, in
+        /// the same 2160p design units as the rest of the menu. Sized to about half a level tile, which is
+        /// enough to say "there is more this way" without spending a whole row of the viewport on it.
+        /// </summary>
+        private const int MENU_SCROLL_INTO_VIEW_MARGIN = 60;
 
         /// <summary>
         /// Presses the focused entry. The action is carried on the button's own <c>Tag</c> because the entries
@@ -979,12 +1078,15 @@ namespace BS3D
         /// resize rebuilds the tree (see <c>MenuPage.Root</c>).
         /// </para>
         /// <para>
-        /// <b>The pad and the arrow keys do not scroll it.</b> They reach the entries inside it —
-        /// <see cref="CollectNavEntries(Widget)"/> descends into the scroller's content by name, which it did
-        /// not until #91 (the content is not among an <c>IContainer</c>'s <c>Widgets</c>, so everything in
-        /// here was simply invisible to the walk and the first Down landed on Back) — but a focused entry out
-        /// of view stays out of view. The mouse wheel is the way through an overlong page today; making the
-        /// walk scroll its entry into view is the fix, and it belongs with the navigation rather than here.
+        /// <b>The pad and the arrow keys reach into it and scroll it.</b> They reach the entries because
+        /// <see cref="CollectNavEntries(Widget, ScrollViewer)"/> descends into the scroller's content by name,
+        /// which it did not until #91 (the content is not among an <c>IContainer</c>'s <c>Widgets</c>, so
+        /// everything in here was simply invisible to the walk and the first Down landed on Back); and the
+        /// focused entry is brought into view by <see cref="ScrollNavEntryIntoView"/> since #245, which is
+        /// where that arithmetic lives — with the navigation rather than here, because this method knows
+        /// nothing about which entry has the focus. Before it, the mouse wheel was the only way through an
+        /// overlong page: at forty levels the walk went two screens past the bottom with the list unmoved and
+        /// nothing highlighted anywhere on screen.
         /// </para>
         /// </summary>
         /// <param name="reservedDesignUnits">Height the page needs around the scroller — its heading, its

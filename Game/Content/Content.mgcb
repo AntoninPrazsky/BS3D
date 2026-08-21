@@ -48,6 +48,12 @@
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/ShotTrail.fx;Shaders/ShotTrail.fx
 
+#begin ../../Testbed/Content/Shaders/BallGlow.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/BallGlow.fx;Shaders/BallGlow.fx
+
 #begin ../../Testbed/Content/Shaders/Fireworks.fx
 /importer:EffectImporter
 /processor:EffectProcessor

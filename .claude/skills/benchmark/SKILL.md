@@ -44,8 +44,32 @@ Each of these has actually happened; the first two are the expensive ones.
    competing for the same GPU, and it halves everything measured afterwards without any sign of why. It has
    happened: `Get-Process BS3D` before trusting a surprising number.
 
+7. **Sweeping `ssaa` on the cavern or the dream, where it moves the pass not at all.** Since #155 those two
+   backdrops shade a target the size of the **back buffer** and scale it up, so an `ssaa` 1/2/4 sweep shades
+   the same pixels three times and only the resolve over them grows. Measured on the cavern: 23.9 / 25.2 /
+   40.0 ms before #250's cut and 13.3 / 16.0 / 31.7 after — **the saving is the same ~9 ms at all three**,
+   which is the signature to expect. To scale the *pass*, change `width=`/`height=`. (It is also a useful
+   consistency check: an A/B whose delta holds constant across `ssaa` on these two scenes is measuring the
+   pass; one whose delta grows with `ssaa` is measuring the resolve.)
+8. **Asking for a back buffer larger than the panel — it is silently clamped.** `width=2560 height=1440` on a
+   1920×1080 laptop produced a window Windows resized, and the run reported `958x484` on its own `[fps]` line
+   with readings swinging 11.8–32.1 FPS while it settled. The line names the back buffer for exactly this
+   reason: **read it back before believing the run**, and throw away anything whose reported size is not what
+   was asked for.
+
 Also: keep both halves of an A/B in the **same build configuration**, and remember `nocap` (which the script
 always passes) is what makes the number a frame cost rather than the display's refresh.
+
+**Attribution does not travel between the desktop and the APU.** #102 measured every individual cavern
+reduction at zero on the 6900 XT (the pass being occupancy-bound there) and #250 then measured one of the same
+cuts at **20.7 → 17.9 ms** on the integrated Radeon. A wide desktop part has occupancy to spare; the machine
+the tiers exist for does not. So measure on the class you are trying to fix, and label which class produced
+every figure that gets written down.
+
+**A wide spread is not automatically a hot machine.** A `level=` run has real variance of its own — the
+ceiling descends, the cluster swings, physics spikes — and two runs of the *same* build came 4.4 ms apart. The
+cheap discriminator is to re-run a **fixed-camera** Testbed pin after the series: it read 13.3 ms both before
+and 20 minutes into a continuous session, which said the spread was the level and not throttling.
 
 ## What the game gives you
 
@@ -91,6 +115,37 @@ can submit and nothing about the frame.
 The measurement is wall-clock and cannot split CPU from GPU (MonoGame exposes no GPU timer queries). The cheap
 discriminator is to run the same pin at two `ssaa` values: if the frame time does not scale with the pixel
 count, the candidate is CPU- or draw-call-bound and turning pixel work off will not help it.
+
+
+## `fpscap=N`: measuring without leaving the card flat out
+
+**Read this before benchmarking on the desktop.** `nocap` is what turns an FPS reading into a frame cost, and
+it is also what leaves the GPU rendering thousands of frames a second. That was believed to be the dangerous
+part — the owner reported an uncapped run hard-resetting his desktop — and #250 found it is not:
+
+- the machine hard-reset **twice in one afternoon under capped runs**, at 18:40 on 2026-08-19;
+- the System log has `Kernel-Power 41` and `EventLog 6008` and **nothing else** — no bugcheck, no `MEMORY.DMP`
+  (kernel dumps are enabled), no WHEA entry, no display-driver reset (4101). Windows never got control;
+- there were **ten unexpected shutdowns in the preceding thirty days**, i.e. it predates any of this work.
+
+So this is a machine-level fault (the signature points at power delivery), not a shader or a benchmark mode,
+and no cap can be assumed to protect it. Ask the owner before running a measurement sweep on the desktop.
+
+The instrument itself is the Testbed's `fpscap=N` (`TestOptions.FpsCap`): it presents immediately, so nothing
+quantizes the reading, and idles out the rest of each frame's period, so a frame **cheaper** than the cap never
+runs away while a frame **dearer** than it is never delayed and still reads its true cost. Set the cap under
+the frame rate being measured — at 150 anything dearer than 6.7 ms comes out exact — and read the plateau
+itself as "cheaper than this", never as a cost. It implies `nocap`'s presentation, and the `[fps]` line carries
+`(cap N)` so a capped run cannot be mistaken for a free one later.
+
+The idle is a **spin**, never `Thread.Sleep`: at Windows' default 15.6 ms timer resolution `Sleep(1)` returns at
+the next tick and costs about six milliseconds, which measured a 300 FPS cap down to 143 and a 400 FPS cap to
+209 — the instrument reading its own idle. Spun, the plateau sits exactly on the cap (60.0, 200.0, 300.0
+measured flat).
+
+**One agent on the GPU at a time.** Two agents work this repo on the same desktop; a `BS3D.exe` belonging to
+the other one was alive through the runs above, which both doubles the load and invalidates every number.
+`Get-Process BS3D, Testbed` before a sweep, and say in `docs/agent-notes.md` that you are taking the card.
 
 ## Reference numbers
 

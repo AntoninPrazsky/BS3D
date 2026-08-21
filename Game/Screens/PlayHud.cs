@@ -99,6 +99,62 @@ namespace BS3D.Screens
         private const int HUD_SHADOW_OFFSET = 7;
         private static readonly Color HUD_SHADOW = new(0, 0, 0, 200);
 
+        //--- The magazine strip (#236) -----------------------------------------------------------------------
+        //The loaded queue as flat discs, next shot first. It exists because the queue CANNOT be read off the
+        //gun from the pose the game plays: CannonRig's own note records that drawn opaque, the pane fills the
+        //whole slot from this camera — the barrel hides its own muzzle end, so the round in the notch shows
+        //only as the small ellipse of its cap and the four behind it are read through glass that keeps about
+        //0.38 of what is behind it. Naming a colour off a small dark ellipse is the difficulty, and no palette
+        //change makes an ellipse bigger (#246 measured the palette half and could only fix that half).
+        //
+        //The head is LARGER and carries a ring, which is the whole of "this one, right now" — the thing #175
+        //used to spend a brightness pulse on the 3D ball to say. That pulse is gone: it said "this one" by
+        //washing the round towards white, which is the very colour the player was trying to read (#236). What
+        //replaced it is BallGlow's coloured halo on the gun, and this strip. Since #252 no loaded round pulses
+        //at all — the breathing belongs to the halo now, in one place.
+        private const int HUD_MAG_HEAD_RADIUS = 56;
+        private const float HUD_MAG_REST_SCALE = 0.64f;
+
+        /// <summary>
+        /// The clear space between one disc and the next — <b>between what is drawn</b>, so a disc's dark halo
+        /// counts and the head's ring counts, and this is the daylight the eye actually sees.
+        /// <para>
+        /// It measured fill edge to fill edge until the owner asked for the row to breathe, and that is why it
+        /// had to be re-based rather than simply raised: at 24 the halos left only 24 − 2·<see cref="HUD_MAG_RIM"/>
+        /// = 10 between them, so four rounds read as one run of touching blobs — and the head was worse than
+        /// tight, it was <i>wrong</i>. Its ring stands <see cref="HUD_MAG_RING_GAP"/> + <see cref="HUD_MAG_RING_THICKNESS"/>
+        /// outside the halo, 18 units past the fill the gap was measured from, so the mark that says "this one,
+        /// right now" overlapped the next round's halo by a unit. A constant named for a gap cannot leave the
+        /// biggest thing in the row eating three quarters of it.
+        /// </para>
+        /// </summary>
+        private const int HUD_MAG_GAP = 32;
+
+        //There was a HUD_MAG_INSET here for one revision — how far clear of the ball count the strip started,
+        //once the owner saw the first halo sitting almost on the "balls left" caption. Moving the strip to the
+        //other corner made it unnecessary rather than made it right: nothing is beside the strip there to be
+        //clear of, and it is anchored to the frame's own margin like every other corner readout.
+
+        //The dark halo every disc sits in. The strip has to read over a white glacier and a neon skyline alike,
+        //and a light ball on a light sky is the case a coloured disc alone loses — the same duty HUD_SHADOW
+        //does for the text, in the shape a disc needs.
+        private const int HUD_MAG_RIM = 7;
+        private static readonly Color HUD_MAG_RIM_COLOR = new(0, 0, 0, 190);
+
+        //The head's ring, outside its halo. Light rather than accent-coloured: the accent is the score's and
+        //the low-ammo warning's, and a third meaning on it would make all three vaguer. The gap is what stops
+        //it reading as a fat outline on the disc instead of a mark around it.
+        private const int HUD_MAG_RING_GAP = 5;
+        private const int HUD_MAG_RING_THICKNESS = 6;
+
+        //What the head's own outline is worth. A near-black round is the case this carries: TypeColor keeps
+        //each type's real darkness on purpose (#153 refused peak-normalising), so the 8-ball prints at about
+        //(22, 20, 16) and a filled disc of it inside a dark halo is a hole. Outlined, it reads exactly the way
+        //the ball itself does — by its white gores against the black — which is the same answer arrived at
+        //from the same constraint.
+        private const int HUD_MAG_OUTLINE = 3;
+        private static readonly Color HUD_MAG_OUTLINE_COLOR = new(244, 244, 244, 150);
+
         /// <summary>
         /// The HUD's one accent, and it means <i>gain</i> everywhere it appears. See the class doc for why it
         /// is amber and why there is only one.
@@ -734,7 +790,10 @@ namespace BS3D.Screens
         /// closing on the balls.
         /// </para>
         /// </summary>
-        internal void Draw(ScoreKeeper score, ICamera camera, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls)
+        /// <param name="queue">The loaded rounds, slot 0 first — <see cref="DrawMagazine"/>'s subject (#236).
+        /// A span over a buffer the caller keeps, like <paramref name="balls"/>, so a frame costs nothing.</param>
+        internal void Draw(ScoreKeeper score, ICamera camera, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls,
+            ReadOnlySpan<BallType> queue)
         {
             _game.EnsureHudFonts();
 
@@ -767,6 +826,7 @@ namespace BS3D.Screens
 
             DrawStreak(score, viewport, margin, scoreAnchor.Y + scoreSize.Y * 0.5f + Scaled(HUD_LINE_GAP));
             DrawBallsLeft(score, viewport, margin);
+            DrawMagazine(queue, score, viewport, margin);
 
             //Last, so the numbers coming in pass over the readouts rather than under them
             DrawAwards(camera, viewport, scoreAnchor - new Vector2(scoreSize.X * 0.5f, 0f));
@@ -893,9 +953,126 @@ namespace BS3D.Screens
 
             //Pivoted on its bottom-left corner: the margin and the caption under it stay exactly where they are
             //while the number itself shrinks and swells, so the layout never moves — only the figure does
+            float numberTop = bottom - captionSize.Y - Scaled(HUD_LINE_GAP);
             DrawPulsed(font, _ballsText,
-                new Vector2(margin, bottom - captionSize.Y - Scaled(HUD_LINE_GAP)), new Vector2(0f, 1f),
+                new Vector2(margin, numberTop), new Vector2(0f, 1f),
                 _ballsPulse.Scale * (1f + BREATHE_AMPLITUDE * wave), colour, glow);
+        }
+
+        /// <summary>
+        /// The loaded queue as flat discs in the bottom RIGHT, next shot first and largest (#236). The gun cannot
+        /// answer "which colour fires next" from the pose the game plays — <c>CannonRig</c>'s own note records
+        /// that drawn opaque, the pane fills the whole slot from this camera, so the round in the notch shows as
+        /// the small ellipse of its cap and the rest are read through glass keeping about 0.38 of what is behind
+        /// it. This is that answer, at a size the eye can name a colour off.
+        /// <para>
+        /// <b>It shipped BEFORE #175's muzzle pulse came out, and that order was the point.</b> <c>CannonRig</c>
+        /// warns in as many words that the mark must not be dropped as redundant on the strength of the pane, so
+        /// the strip had to be seen to read first. It was, and then the pulse went — replaced by
+        /// <see cref="Prazsky.Core.Render.BallGlow"/>'s coloured halo on the gun, which says the same thing in
+        /// the round's own colour instead of washing it towards white. Since #252 no loaded round pulses at all.
+        /// So there are two signals now and neither is a brightness animation on the ball: this, and the gun.
+        /// </para>
+        /// <para>
+        /// Colours come through <see cref="TypeColor"/>, which bakes from
+        /// <c>BasicEffectParamsProvider.GetDiffuseTintByType</c> — so the strip tracks the balls by
+        /// construction and there is no second palette here to drift out of step with them.
+        /// </para>
+        /// <para>
+        /// <b>The bottom right, in firing order, the next round leftmost.</b> It started beside the ball count
+        /// in the bottom left and the owner moved it twice: that corner already has the count, and the left edge
+        /// also carries the cluster profile down its middle — then, having played it with the head in the
+        /// corner, they asked for the queue to read the way it will be spent.
+        /// <para>
+        /// The order is the owner's; what the layout owes it is that the <b>head does not move</b>. The row
+        /// shortens as the shot budget runs down (see <c>shown</c> below), so a head placed by measuring back
+        /// from the frame's right edge would slide along the bottom of the screen over the last five shots,
+        /// which is exactly when the player is reading it. So the head's origin is solved for a <i>full</i>
+        /// magazine ending flush with the margin: a shorter queue empties from the far end and leaves a gap at
+        /// the corner, which is the truth about what is happening, and the disc that matters stays put.
+        /// </para>
+        /// </summary>
+        private void DrawMagazine(ReadOnlySpan<BallType> queue, ScoreKeeper score, Viewport viewport, int margin)
+        {
+            if (queue.Length == 0) return;
+
+            //Never more discs than there are shots left to take. The magazine holds five whatever happens, so
+            //once the budget is down to two a five-disc strip is simply a lie about the level — and the last
+            //shots are exactly when the player is counting.
+            int shown = score.ShotsRemaining is int remaining ? Math.Min(queue.Length, remaining) : queue.Length;
+            if (shown <= 0) return;
+
+            Texture2D pixel = Pixel;
+            SpriteBatch batch = _game.OverlayBatch;
+
+            int head = Scaled(HUD_MAG_HEAD_RADIUS);
+            int rest = (int)MathF.Round(head * HUD_MAG_REST_SCALE);
+            int rim = Scaled(HUD_MAG_RIM);
+            int gap = Scaled(HUD_MAG_GAP);
+
+            //The head's full reach, ring and all — what the corner has to clear so no part of it is cut by the
+            //frame's edge. The same argument HUD_MARGIN's own comment makes about a halo drawn hard against the
+            //edge: a mark with a slice missing reads as a rendering fault rather than as a mark.
+            int headOuter = head + rim + Scaled(HUD_MAG_RING_GAP) + Scaled(HUD_MAG_RING_THICKNESS);
+
+            //Laid out rightwards in FIRING order, so the round about to leave is the leftmost and the queue
+            //reads the way it will be spent. The owner asked for that order after playing it the other way
+            //round, and the layout has to earn it rather than just mirror: the row shortens as the shot budget
+            //runs down (`shown` above), so a head placed by measuring back from the right edge would slide
+            //along the bottom of the screen over the last five shots — exactly when the player is reading it.
+            //
+            //So the HEAD's origin is what is fixed, and it is solved for a FULL magazine ending flush with the
+            //margin. A shorter queue then empties from the far end and leaves a gap at the corner, which is the
+            //truth about what is happening; the disc that matters has not moved.
+            //
+            //Every step is measured between what is DRAWN — halo to halo, and the head's ring to the next halo
+            //— which is what HUD_MAG_GAP now means. The first step is longer than the others for that reason
+            //and not by a fudge: the head reaches `headOuter` where a resting round reaches `restOuter`, so the
+            //row spaces itself off each disc's own reach and the ring can no longer eat into the gap. The right
+            //edge was already anchored this way (rest + rim below), which is what makes it one rule now.
+            int restOuter = rest + rim;
+            float rowStep = 2 * restOuter + gap;
+            float toLastCentre = queue.Length > 1 ? headOuter + gap + restOuter + (queue.Length - 2) * rowStep : 0f;
+
+            //Both coordinates are whole pixels: the discs are drawn as one-pixel scanlines, and a centre on an
+            //exact half-pixel used to comb them outright — see the note in DrawDisc.
+            float x = MathF.Round(viewport.Width - margin - restOuter - toLastCentre);
+            float middle = MathF.Round(viewport.Height - margin - headOuter);
+
+            for (int i = 0; i < shown; i++)
+            {
+                bool next = i == 0;
+                int radius = next ? head : rest;
+                Color colour = TypeColor(queue[i]);
+
+                //The dark halo first, then the fill: one is what makes a pale round read over a white glacier,
+                //the other is the answer the strip exists to give.
+                DrawDisc(pixel, batch, x, middle, radius + rim, HUD_MAG_RIM_COLOR);
+                DrawDisc(pixel, batch, x, middle, radius, colour);
+
+                //A light outline INSIDE the fill's edge, drawn as a ring: without it a near-black round is a
+                //hole in the halo rather than a disc. TypeColor keeps each type's real darkness on purpose
+                //(#153 refused peak-normalising), so this is the strip's version of the white gores that are
+                //the only thing making the 8-ball itself legible.
+                int outline = Scaled(HUD_MAG_OUTLINE);
+                if (radius > outline)
+                    DrawDisc(pixel, batch, x, middle, radius, HUD_MAG_OUTLINE_COLOR, radius - outline);
+
+                //And the head gets a ring OUTSIDE its halo — the whole of "this one, right now", in the layer
+                //the issue asks for it in rather than as brightness animation on the 3D ball.
+                if (next)
+                {
+                    int ringOuter = radius + rim + Scaled(HUD_MAG_RING_GAP) + Scaled(HUD_MAG_RING_THICKNESS);
+                    DrawDisc(pixel, batch, x, middle, ringOuter, HUD_MAG_OUTLINE_COLOR,
+                        ringOuter - Scaled(HUD_MAG_RING_THICKNESS));
+                }
+
+                //Rightwards: clear this disc's own drawn reach, the gap, and the next one's. Written from both
+                //reaches rather than from one, because the head is bigger than the rest — and from the REACH
+                //rather than the fill radius, because the halo and the head's ring are drawn there and a gap
+                //measured inside them is not the gap anyone sees. Everything after the head is a resting round.
+                x += (next ? headOuter : restOuter) + gap + (i + 1 < shown ? restOuter : 0);
+            }
         }
 
         /// <summary>
@@ -1221,7 +1398,14 @@ namespace BS3D.Screens
                 int w = (int)MathF.Round(half * 2f);
                 if (w <= 0) continue;
 
-                int y = (int)MathF.Round(cy + dy);
+                //FLOOR of the midpoint, never MathF.Round, and this is not a style choice (#236). MathF.Round
+                //rounds a .5 to EVEN, so a centre landing exactly on a half-pixel maps consecutive rows to
+                //y, y+2, y+2, y+4 … — half the rows drawn twice and every other row never drawn at all. The
+                //disc then comes out as a stack of one-pixel stripes with the scene showing between them,
+                //which is what the magazine strip's first build looked like: solid horizontally, combed
+                //vertically. A half-up floor is contiguous for every centre, and differs from Round ONLY at
+                //the .5 that is broken today.
+                int y = (int)MathF.Floor(cy + dy + 0.5f);
                 int left = (int)MathF.Round(cx - half);
 
                 //Outside the hole (or no hole at all): one bar, the full chord.

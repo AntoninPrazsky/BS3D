@@ -234,9 +234,8 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Whether the scene shaders may draw their <b>expensive extras</b> — the forest floor's triplanar
-        /// normal variation and its procedural tree shadows, and the cavern's full wall shading inside the
-        /// water's reflection together with its full spore count. 1 is the authored look; 0 is the reduced
-        /// one, and each scene that has a reduced program compiles it as a second technique.
+        /// normal variation and its procedural tree shadows, and the dream's four. 1 is the authored look;
+        /// 0 is the reduced one, and each scene that has a reduced program compiles it as a second technique.
         /// <para>
         /// A plain number rather than a quality enum for <see cref="SupersampleFactor"/>'s reason: the tier
         /// lives in the Game and this library cannot see it, so the host converts. Left at 1, a caller that
@@ -246,15 +245,20 @@ namespace Prazsky.Core.Render
         /// <para>
         /// <b>Measured</b>, front end at 1600×900 on the desktop GPU, dome 13, nocap. Forest: the two extras
         /// together cost <b>2.69 → 2.09 ms</b>, and cutting either one <i>alone</i> saves nothing at all —
-        /// 2.71 and 2.72. Cavern: <b>4.98 → 3.33 ms</b>, and again every single reduction is worth nothing
-        /// (5.01 without the reflection's wall shading, 5.02 at one spore instead of 28, 4.97 with the river
-        /// search halved, 5.01 with the crystal march cut by ten steps).
+        /// 2.71 and 2.72.
         /// </para>
         /// <para>
-        /// <b>Both scenes are occupancy-bound rather than work-bound</b>, which is the whole reason this is one
+        /// <b>These scenes are occupancy-bound rather than work-bound</b>, which is the whole reason this is one
         /// switch per scene rather than a dial per feature: only crossing back over the threshold buys
-        /// anything, so a pair of removals is the smallest useful step and a third adds nothing (the cavern
-        /// measures 3.33 for two and 3.31 for four). See "The forest" and "The cavern" in docs/scenes.md.
+        /// anything, so a pair of removals is the smallest useful step and a third adds nothing.
+        /// </para>
+        /// <para>
+        /// <b>The cavern was the third customer and is not one any more (#250).</b> Its pair — the full wall
+        /// shading inside the water's reflection, and the full spore count — measured <b>4.98 → 3.33 ms</b>
+        /// here, against 5.01 / 5.02 / 4.97 / 5.01 for each of the four single reductions on their own, which
+        /// is where the occupancy reading above comes from. The owner then traded that scene's reflections and
+        /// waves away outright, so the pair is cut from the shipped shader and there is one cavern technique
+        /// left for every tier. See "The forest" and "The cavern" in docs/scenes.md.
         /// </para>
         /// </summary>
         public float SceneDetail
@@ -1635,9 +1639,10 @@ namespace Prazsky.Core.Render
         {
             SelectForestTechnique();
 
-            //The cavern's pair is the water's second wall shade and the spore count — see CavernScene. Both
-            //effects are loaded in the constructor, so neither is null by the time anything writes SceneDetail.
-            _cavernEffect.CurrentTechnique = _cavernEffect.Techniques[_sceneDetail > 0.5f ? "Cavern" : "CavernReduced"];
+            //The cavern is deliberately NOT here any more (#250). Its pair — the water's second wall shade and
+            //the spore count — was cut from the scene itself rather than from a second program, so there is one
+            //technique left and every tier draws it. Its effect is loaded in the constructor like the two below,
+            //so it was never a null-check that kept it here.
 
             //The dream's four: the background's second evaluation in the reflection, most of the sparks, most
             //of each spark's trail, and an octave off both warp layers — the last being the only reduction in
