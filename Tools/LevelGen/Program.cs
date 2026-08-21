@@ -97,17 +97,24 @@ namespace BS3D.Tools.LevelGen
         /// two banded designs that failed this took 100% exactly, so the margin costs nothing and catches
         /// the near misses.
         /// <para>
-        /// <b>The pack runs 5–55 % and the top of that band is where a level is DESIGNED to cascade</b>, not
+        /// <b>The pack runs 5–52 % and the top of that band is where a level is DESIGNED to cascade</b>, not
         /// where one slipped through. Two things put a design up there and only one of them is about pictures.
         /// A drawn symbol in ONE ink is one connected group by construction (Smiley 52 %, Heart 42 %,
         /// Star 40 %) — and on a level whose point is being recognised, the symbol coming away in one piece is
         /// the reward. A colouring in wide concentric shells is the same thing on a solid of revolution, which
-        /// is why the gentle block that teaches what a colour group <i>is</i> holds three of the six highest
-        /// figures in the pack (One 55 %, Bullseye 45 %, Toadstool 42 %). This said "the top of that band is
-        /// the three pictures" and quoted "4–16 % for the geometric levels", which was never true of One or
-        /// Bullseye and is the reason it is now measured here rather than characterised. <b>One tops the band
-        /// outright since #234</b> took it to two colours: fewer colours on a solid of revolution means wider
-        /// shells, which is the same property again and exactly what the campaign's opener wants.
+        /// is why the gentle block that teaches what a colour group <i>is</i> holds the next two figures under
+        /// the pictures (Bullseye 45 %, Toadstool 42 %). This said "the top of that band is the three
+        /// pictures" and quoted "4–16 % for the geometric levels", which was never true of Bullseye and is the
+        /// reason it is now measured here rather than characterised.
+        /// </para>
+        /// <para>
+        /// <b><see cref="One"/> is the design that has visited both ends of this band, and which end it sits
+        /// at is decided by where the colour boundaries run.</b> Banded a course a colour it topped the pack
+        /// outright at <b>74 %</b>, because a course of a pyramid is load-bearing — everything under it hangs
+        /// off it, so the band that goes takes the tip down with it. Turned onto the pyramid's <i>walls</i>
+        /// instead (#234's third pass) the same shape, the same three colours and the same 385 balls measure
+        /// <b>30 %</b>: a shell hangs off the plate it reaches and not off the shell inside it, so nothing
+        /// rides a wall down. The figure moved by 44 points with no change to the geometry at all.
         /// </para>
         /// <para>
         /// The bottom of the band is where the dial is turned the other way: <see cref="Zebra"/> at 9 % and
@@ -511,8 +518,9 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// The campaign's opener: a <b>perfect</b> pyramid — a centred square course against the glass, one
-        /// ball narrower a side on every level down to the single apex ball — in three colours, one solid
-        /// band a course cycling red, green, blue up the flank. It replaces the hand-drawn
+        /// ball narrower a side on every level down to the single apex ball — in three colours, one to a
+        /// wall and turned a step a shell, so the player peels it a layer at a time. It replaces the
+        /// hand-drawn
         /// <c>One.json</c>, at the author's request and for two reasons they gave — the pyramid had a
         /// <b>tail</b>, and it had no sky of its own.
         /// <para>
@@ -564,18 +572,16 @@ namespace BS3D.Tools.LevelGen
         /// a first-time player meets first. Dome 1 is the block's, for <see cref="Bullseye"/>'s own reason.
         /// </para>
         /// <para>
-        /// <b>Three colours — red, green, blue, the owner's own words — and the magazine is the reason they
-        /// go on as bands.</b> The draw odds run one in three, between the coin the two-colour cone flipped
-        /// and the quarter the four-colour one drew; what three buys over two is a colour <i>inside</i> a
-        /// colour, so the pyramid reads as tiers from below. But a loaded colour only spends if something
-        /// of it is <b>visible</b>: the first colouring here was concentric shells, red on the skin, and a
-        /// player holding blue had nothing blue to shoot at until the red was opened for them — the owner's
-        /// own example, three blue balls and a red wall. One band a course puts all three colours on the
-        /// outside from the first shot, and a band's underside is its own colour, so the same is true
-        /// looking up the axis. What that costs is the cascade a banded pyramid cannot help: every course
-        /// hangs off the wider one above it, so a band that goes takes the point with it — the biggest
-        /// single shot is the ninth course at <b>74 %</b> (against a one-shot gate of 90 and the pack's
-        /// next-highest at 52), which is the level's own lesson, played rather than explained.
+        /// <b>Three colours — red, green, blue, the owner's own words — and they go on the pyramid's WALLS,
+        /// a step round the palette every shell in.</b> The draw odds run one in three, between the coin the
+        /// two-colour cone flipped and the quarter the four-colour one drew; what three buys over two is a
+        /// colour <i>inside</i> a colour. Where they sit is <see cref="OneColour"/>'s subject and it took
+        /// three passes to settle, the last one the owner's: bands showed all three colours but a course of
+        /// a pyramid is load-bearing, so the ninth course's band took the whole tip with it at <b>74 %</b>
+        /// of the cluster. Walls are not — a shell hangs off the plate, not off the shell inside it.
+        /// Measured on the same 385 balls in the same shape: <b>6 standing groups, biggest single shot 30 %</b>
+        /// (the gate is 90), colours 134/147/104, nothing standing alone, nothing recoloured by the repair
+        /// pass, lateral margin 1.
         /// </para>
         /// </summary>
         private static Design One() => new()
@@ -629,39 +635,68 @@ namespace BS3D.Tools.LevelGen
         }
 
         /// <summary>
-        /// The pyramid's colouring: <b>one solid band a course</b>, cycling red-green-blue up the flank —
-        /// each step's wall a colour of its own, so whatever the magazine has loaded, some wall on the
-        /// pyramid is already wearing it. That is the owner's own fix (#234): the first colouring here
-        /// was concentric shells, red on the skin, and a player holding blue had nothing blue to shoot at
-        /// until someone else had opened the red for them — three wasted shots on the level that teaches
-        /// the game.
+        /// The pyramid's colouring: <b>one colour a wall, and every shell of walls one step round the
+        /// palette</b>. The skin's four faces are red, green, blue and green again; peel a face off and
+        /// what it uncovers is a different colour, because the shell beneath is the same rule rotated a
+        /// step. The player takes the pyramid apart a layer at a time and the layer he is working on
+        /// always carries all three colours at once — the owner's own prescription for #234.
         /// <para>
-        /// The bands read from below as well as from the side, because a course's underside is its own
-        /// colour: nested squares stepping red, green, blue up the axis. And a band that goes takes the
-        /// point under it with it — every course hangs off the wider one above — which is the cascade the
-        /// design is honest about (measured: the biggest single shot is the blue eighth course at 57 %,
-        /// the tip's 140 balls riding it down; the one-shot gate is 90 and the pack's previous top was
-        /// Smiley's 52).
+        /// It is the third colouring this design has worn and each of the two before it failed on one
+        /// half of that sentence. <b>Concentric shells</b> — red skin, green under it, blue under that —
+        /// peel, but hide two colours of the three: a player holding blue had nothing blue to shoot at
+        /// until someone opened the red for him, the owner's own example. <b>One solid band a course</b>
+        /// showed all three at once, but a course is not a layer — every course hangs off the wider one
+        /// above it, so a band that went took the whole point of the pyramid down with it and the
+        /// biggest single shot was 74 % of the cluster. Walls-by-shell is both halves at once: three
+        /// colours on the skin from the first shot, and no shell is load-bearing, because every shell is
+        /// hung by the plate it reaches and not by the shell inside it.
         /// </para>
         /// <para>
-        /// Two courses are not plain bands, both for structural reasons. <b>The apex ball is one ball</b>:
-        /// in its own colour it would stand alone against the second course's, so it takes the first
-        /// band's colour and reads as that band's point. And <b>the top course is the anchor</b> — one
-        /// colour across it would be the whole level hanging off a single group, the firework the drop
-        /// test exists to refuse — so the plate is cut into concentric rings alternating the two colours
-        /// the course under it is not, which also keeps every ring out of contact with the band below
-        /// it: no ring and band of one colour ever merge, and no colour owns the anchor.
+        /// <b>Four walls against three colours</b>, so one colour goes on two of them — on the two that
+        /// face each other (<see cref="ONE_WALLS"/>), which is the only arrangement where no two
+        /// neighbouring faces are alike. Which colour is doubled rotates with the shell, so the three
+        /// come out level over the pyramid as a whole rather than one of them carrying half of it.
+        /// </para>
+        /// <para>
+        /// <b>The innermost pyramid is one colour</b>, the owner's own last sentence, and the lattice
+        /// says where it begins: <see cref="ONE_CORE"/> shells in, a course is down to four cells a side
+        /// at the plate and one at its own apex, so a wall of it is a ball or two — too thin to read as
+        /// a face at all. What is left is a solid pyramid under the middle of the plate, and it is the
+        /// last thing standing.
         /// </para>
         /// </summary>
         private static BallType OneColour(int x, int z, int i)
         {
-            if (i < ONE_DEPTH - 1)
-            {
-                //Math.Max: the apex course (i == 0) is one ball and takes the first band's colour.
-                return Band(Math.Max(i, 1), ONE_PALETTE);
-            }
+            int shell = OneShell(x, z, i);
 
-            return Band(OneShell(x, z, i), ONE_PLATE);
+            if (shell >= ONE_CORE) return ONE_CORE_COLOUR;
+
+            //The rotation is the whole design: the wall alone would make each face one group from the
+            //skin to the core, and the shell alone would hide two colours underneath the third.
+            return Band(ONE_WALLS[OneWall(x, z, i)] + shell, ONE_PALETTE);
+        }
+
+        /// <summary>
+        /// Which of the pyramid's four walls a cell belongs to, 0..3 — the one it sits nearest to, so the
+        /// solid is cut into four wedges along its own diagonals and each wedge carries one face of every
+        /// shell it passes through.
+        /// <para>
+        /// The corner columns, where <c>|dx| == |dz|</c> and two walls meet, go to <b>one</b> of the two
+        /// all the way round rather than being split down the middle: a corner is a single line of balls
+        /// and halving it would leave slivers for the repair pass to recolour. Giving every corner to the
+        /// wall on the same side of it keeps the four wedges within a ball of each other.
+        /// </para>
+        /// </summary>
+        private static int OneWall(int x, int z, int i)
+        {
+            float shift = (i % 2) * 0.5f;
+            float dx = x + shift - ONE_AXIS;
+            float dz = z + shift - ONE_AXIS;
+
+            if (MathF.Abs(dx) > MathF.Abs(dz)) return dx > 0 ? 1 : 3;
+            if (MathF.Abs(dz) > MathF.Abs(dx)) return dz > 0 ? 2 : 0;
+
+            return dx > 0 ? (dz > 0 ? 1 : 0) : (dz > 0 ? 2 : 3);
         }
 
         /// <summary>
@@ -679,10 +714,31 @@ namespace BS3D.Tools.LevelGen
         }
 
         //Red, green, blue - the owner's own words for what the opener is (#234): "a simple three-colour
-        //(RGB) pyramid". The plate's two are drawn out of the same three by skipping the colour of the
-        //course directly under it.
+        //(RGB) pyramid".
         private static readonly BallType[] ONE_PALETTE = { BallType.Type1, BallType.Type2, BallType.Type3 };
-        private static readonly BallType[] ONE_PLATE = { BallType.Type1, BallType.Type2 };
+
+        //WHICH COLOUR EACH WALL WEARS, indexed by OneWall and turned one step a shell by OneColour. Four
+        //walls against three colours means one colour is on two of them, and WHICH two decides whether the
+        //player can see all three at once. The gun starts on +Z looking at the axis and the pyramid hangs
+        //point-down, so what it faces is the +Z wall with the -X and +X walls falling away on either side
+        //and -Z hidden behind the mass: the repeat goes on the pair the player cannot see together (-Z and
+        //+Z), which puts the other two colours on the flanks, in view from the first shot. Putting the
+        //repeat on the FLANKS instead would show red and green only, which is the fault the banded design
+        //was written to fix. Facing pair also means the repeat never meets itself at a corner, where one
+        //colour on two adjoining faces would be one group down the whole edge.
+        private static readonly int[] ONE_WALLS = { 0, 2, 0, 1 };
+
+        //WHERE THE WALLS STOP AND THE CORE BEGINS, counted in shells from the skin. See OneColour.
+        private const int ONE_CORE = 3;
+
+        //The core's own colour. It touches the shell around it on every side, so it joins whichever wall of
+        //shell 2 shares its colour, and the one to join is a SINGLE face rather than the facing pair. Shell
+        //2 is ONE_WALLS turned two steps - blue, green, blue, red - so green and red are the singles and
+        //blue would fuse the core to two opposite wedges at once. Green over red because it is the choice
+        //that leaves the three colours 134/147/104 rather than 164/117/104: the magazine draws evenly among
+        //the colours still alive, so a colour carrying a sixth more of the cluster than another is a draw
+        //the player feels.
+        private const BallType ONE_CORE_COLOUR = BallType.Type2;
 
         /// <summary>
         /// A stepped cone hanging point-down, coloured in concentric rings: a target seen from underneath,
