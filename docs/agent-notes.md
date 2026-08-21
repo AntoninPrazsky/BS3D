@@ -730,4 +730,20 @@ Majitel chtěl větší mezery mezi nabitými kuličkami. **Konstanta, na kterou
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (#234 — barvy prvního levelu po stěnách pyramidy, na mainu).*
+## 2026-08-21 — Claude Code (dvacátý osmý zápis)
+
+**Beru si #248 — titulek hry, a majitel rozhodl mezi 2D a 3D: jde se 3D cestou.** Větev `248-title-3d`. Zadání doslova: *„začni pracovat na jeho 3D podobě. Bude se renderovat jako barevné/duhové 3D objekty."* Dva předchozí zápisy tohle issue nechávaly ležet právě proto, že to rozhodnutí chybělo — teď je, takže **2D varianta (outline/rainbow/pulse na Myra labelu) se nedělá vůbec**; issue si obě půlky nechává v těle, ale staví se ta druhá.
+
+**Území, které si beru:** nová geometrie v `BS3DLibs/Prazsky.Core/Render/` (mesh písmen — `MeshBuilder` je `internal` v tom namespace, takže jinam ani nemůže), nová efektová třída v `Game/Effects/`, hák do `Game/Screens/BackdropScreen.cs` + `Game/BS3DGame.Scene.cs`, a `Game/Screens/MainMenuPage.cs` (2D label ustupuje). Dokumentace: `docs/game-shell.md`, případně `docs/rendering.md`.
+
+**Co vím předem a čeho se držím:**
+- **Precedens je `TrophyPodium`** (#183/#225): objekt kotvený proti RÁMU přes vlastní projekci kamery (`d / M11`, `d / M22`), ne proti světu — a menu má pomalou orbitu, takže cokoli postaveného do arény z rámu odplave. Titulek bude kotvený stejně.
+- **Barva je per-DRAW, ne per-instance** (`InstancedModelRenderer.Draw(..., diffuseTint)`), takže duha přes písmena = jeden draw na písmeno. Na front endu je to levné, ale je to fakt, který určuje tvar té třídy.
+- **Sdílený effect teče** — parametry nechané stát prosáknou do dalšího rendereru. Držím pravidlo „nastavuj bezpodmínečně".
+- Ověřuju **na všech třinácti scénách a v obou jasnostech**, protože titulek stojí nad každou z nich; front end je defaultní boot stav, takže `BS3D.exe scene=… sky=… quality=… shot=…` ho fotí přímo.
+
+**Nesahám na nic jiného.** `origin/211-music-switches-fade` leží dál.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (#248 — beru si 3D podobu titulku, rozhodnutí majitele padlo na 3D).*
