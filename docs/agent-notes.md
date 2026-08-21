@@ -772,4 +772,39 @@ Majitel chtěl větší mezery mezi nabitými kuličkami. **Konstanta, na kterou
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (#235 — beru si přirozený tvar a let ptáků, jde se na skutečnou 3D geometrii).*
+
+## 2026-08-21 — Claude Code (třicátý zápis)
+
+**#235 hotové — ptáci jsou skutečná geometrie, která se naklání do zatáčky, plachtí a mává v sériích. Na větvi `235-birds-natural`, jeden commit.**
+
+**Šel jsem po precedentu #202 a sedl.** Billboard padl celý: `BirdMesh` je klidová póza (vřetenovité tělo s hlavou na krku, vějířovitý ocas, křídla končící oddělenými prsty ručních letek) a **celé máchání je ve vertex shaderu** ze dvou uniformů na ptáka. Osvětlení doslova jako `Acacia.fx`.
+
+**Kontrakt mezi meshem a shaderem je dvojice v texturové souřadnici, a stojí za zapamatování proč zrovna ta:**
+- `x` = **znaménková stanice po rozpětí**. Její velikost je, jak daleko po křídle máchnutí došlo; **znaménko je, kterým směrem to křídlo zvedá**. Tělo a ocas nesou 0, takže **nepotřebují vlastní příznak** — při t=0 je rotace identita.
+- `y` = **vzdálenost dopředu od střední čáry křídla**. Zkroucení je rotace kolem té čáry a tohle je jediné, co taková rotace potřebuje — shaderu se tedy nikdy neříká, kudy ta čára vede. **A protože je to vyjádřené touhle vzdáleností a ne rotací kolem znaménkové osy, tytéž dva řádky sklopí nos OBOU křídel** — kdyby to byla rotace kolem osy X, jedno křídlo by se kroutilo obráceně.
+
+**Co se cestou ukázalo jinak, než jsem si v claimu napsal — obojí přiznávám:**
+- **Náklon z `atan(v²/g·r)` NEPŘEŽIL.** Spočítal jsem ho a hejno krouží záměrně mnohem pomaleji než skutečná termika: ta formule chce na širokých orbitách **asi čtyři stupně** a na těsných **sedmdesát**. Čtyři stupně se čtou jako žádný náklon. Bere se tedy z **poloměru** — 30° na nejtěsnější, 15° na nejširší, s pomalým blouděním — a v komentáři je napsané, že fyzikální varianta byla zkoušená a proč vypadla. Naklonit se ale musí: to je půlka toho „mechanicky", protože camera-facing quad stojí vždy zpříma.
+- **Sklon se odvodit povedlo**: nos jde po vlastní rychlosti, tedy tečna kruhu plus stoupání, které zrovna dělá vlastní bob. Derivace, ne číselník.
+
+**⚠ Past, kterou našlo až měření, a je to ta zajímavá věc z celého issue.** Délku série máchnutí jsem nejdřív losoval nezávisle na počtu máchnutí — a dvojmáchnutová série rozprostřená přes dlouhé okno vyšla na **0,79 Hz**, což je zpomalený film, tedy přesně ta nepřirozenost, kterou mám opravovat. Žádný jednotlivý pohled na obrazovku to neukázal, protože pták zrovna mávající je jeden z devíti a 13 % času. Teď se **délka série ODVOZUJE** z počtu máchnutí a vlastní frekvence ptáka; přeměřeno: **2,14–2,96 Hz u všech devíti**, 13,2 % času máchání.
+
+**⚠ A past v samotném měření, kterou málem spolknu.** První kontrola spojitosti hlásila skok fáze **8π** na hranici série. Skok tam skutečně je — jenže **každý konzument fáze je 2π-periodický** (`sin`, `cos`, a `theta − K·sin theta` posune o tentýž násobek), takže je neviditelný. Měřil jsem špatnou veličinu. Správná kontrola je **úhel špičky křídla, tedy to, co shader opravdu spočítá**, a ta je rozhodující jinak: krok na hranici **škáluje přesně lineárně se vzorkovacím krokem** (0,083° při 0,5 ms → 0,0083° při 0,05 ms → 0,00083° při 0,005 ms), což je podpis toho, že žádná nespojitost neexistuje. **Pravidlo pro příště: spojitost se měří na tom, co z hodnoty vyleze, ne na hodnotě samotné.**
+
+**Tvar jsem doladil podle fotky, dvakrát.** První půdorys byl prkno s vousy: odtoková hrana byla prakticky rovná (kubický člen hýbal jen o 0,018) a ocas úzké veslo. Teď se odtoková hrana zakřivuje, ocas je kratší a širší, a **letky vyzařují ze zápěstí** po vějíři jednoho poloměru místo aby se každá umísťovala zvlášť — tak štěrbiny mezi nimi vzniknou samy a **žádné letce nejde dát délka nebo směr, který ji vystrčí mimo obrys křídla**. To byl třetí pokus; první dva jsem zahodil, protože kladly hrot zadní letky půl tětivy za odtokovou hranu.
+
+**Detail, který stojí za zapamatování:** počet tětivových panelů plachty je **svázaný s počtem letek**. Letky začínají na poslední řadě plachty, takže kdyby si ta dvě čísla neodpovídala, kořeny letek by padly mezi vrcholy plachty a křivka prohnutí by na spoji otevřela vlásečnicovou spáru — na jediném místě ptáka, které má za sebou volnou oblohu.
+
+**Ověřeno:**
+- **všechny tři scény** (savanna, poušť, outback) plus **editor** (panel ukazuje skupinu Birds už bez `Aspect`), všechny čtyři solutiony staví.
+- **zakrytí drží**: ptáci teď zapisují hloubku (dřív alpha-blend + depth-read) a kulička klastru ptáka na fotce čistě ořízne.
+- **máchnutí vyfoceno dočasnou sondou** (`flapAmount = 1`, fáze po ptácích rozházená), protože při 13% podílu je náhoda nespolehlivá. Křídlo je na fotce **oblouk**, ne V. Sonda je pryč a soubor je bajt po bajtu zpátky.
+- **cena: nic měřitelného.** Proti billboardu na 6900XT, 1600×900, vsync off: savanna 1228 → 1232 FPS, poušť 1220 → 1246 — a **city, kde žádní ptáci nejsou, se ve stejné dvojici běhů hnulo 1449 → 1489**. Ta kontrolní scéna je to, co ten pár dělá čitelným; bez ní by „+26 FPS" znělo jako zisk.
+
+**`BirdsConfig.Aspect` odešel s billboardem**, který měřil, a `Color` je teď **albedo**, ne hotová radiance — přepsané doc pasáže v `docs/scenes.md` a `docs/formats-and-tools.md` (a opravená tři místa, která hejno pořád uváděla jako sdílené dvěma scénami, když je má tři). `BirdVertex` se přejmenoval na `BillboardVertex`: plameny, sníh a tříšť ho používají dál, ale ptáci ne, a typ pojmenovaný po jediném uživateli, který ho opustil, je špatný „proč".
+
+**Nic dalšího si teď neberu.** `origin/248-title-3d` je cizí rozdělaná práce; `origin/211-music-switches-fade` leží dál.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (#235 — ptáci jsou skutečná geometrie, na mainu).*
