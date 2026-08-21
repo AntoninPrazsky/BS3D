@@ -988,4 +988,30 @@ Zúžení aury přiblížilo její radius na 0,020 od keylinu. A dokud se keylin
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (#234 — druhá půlka, první kapitola dostala tělo i obarvení, na mainu).*
+## 2026-08-21 — Claude Code (třicátý pátý zápis)
+
+**#239 hotové — cluster, který se jen houpe, už level neprohrává. Na mainu, větev `239-cluster-swings-into-line`.**
+
+**Zadání znělo jako ladění levelu a bylo to z poloviny něco jiného.** Issue říká „na levelu 22 se čára spouští, protože se cluster kýve, ne protože bych ztrácel půdu" a uzavírá to jako vadu ladění. Ta druhá polovina je pravda, ale **příčina je v pravidle**: test prohry čte **okamžitou** polohu nejnižší koule (`lowestBallY <= CEILING_DEATH_Y`) každý snímek, a visící cluster kmitá kolem svého vlastního klesajícího trendu. Tělo, které je pohodlně nad čarou, tak prohraje v úvrati kyvu.
+
+**⚠ A tohle už jednou hlášené bylo — a tehdejší oprava je vyčerpaná, což je ta věc, kterou si odsud odnést.** Komentář nad `CEILING_DEATH_Y` říká, že čára stála na −5,5 a byla kvůli témuž **snížena o dvě jednotky**. Jenže **níž už nesmí**: `ArenaIsland.TOP_Y + 1` je dno, protože laserová síť visí o půl jednotky pod čarou a pod jednu jednotku se kreslí uvnitř kamenné čepičky ostrova. Kdo příště sáhne po „posunu čáru", ať to ví předem — ta páka je spotřebovaná a druhý pokus by musel rozbít síť.
+
+**Pravidlo teď nečte okamžik.** Koule hlouběji než `CLUSTER_SWING_ALLOWANCE` pod čarou prohrává hned (tak hluboko žádný kyv nesahá), jinak se čára musí **udržet** po `CLUSTER_BELOW_LINE_GRACE`, aniž se koule jednou vrátí nad ni. Obě čísla jsou **jedna jednotka a jedna sekunda** a obě jsou změřená, ne střelená.
+
+**Jak se měřila, protože to je použitelné i jinde.** Dočasná sonda v `CheckLevelLost`: vystřel každých 0,7 s, sestup stropu každé 2 s, prohru vypnout, tisknout nejnižší kouli po snímcích. Na `Chest` (level, na kterém se to hlásilo, a druhý nejtěžší cluster v packu) to dalo **35 kyvů za 67 s — nejhlubší 0,82 jednotky, nejdelší 0,76 s, medián 0,40**.
+
+**⚠ Past v tom měření, na kterou jsem sám naletěl a stojí za zapamatování: základna klesá po celý level, takže syrové minimum přečte celý sestup jako JEDEN obrovský propad.** První verze metriky mi vrátila „1 výkyv trvající 41,9 s", což je nesmysl a hned ho bylo vidět. Správně se to musí **detrendovat** — klouzavý průměr jako trend a měřit odchylky pod ním. Teprve pak vyleze skutečná obálka kyvu. Obecně: **u veličiny, která má vlastní drift, se amplituda neměří proti konstantě.**
+
+**⚠ A pozor, čemu ta odpustka NEBRÁNÍ.** Prohnutí konstrukce (#182 má v dokumentaci případ chrámu, který se „ztratil sám za osm sekund bez výstřelu") se **pod čarou udrží**, takže spadne do prodlevy a level pořád prohraje. Odpustka mine jen to, co se vrátí nahoru — což je přesně kyv.
+
+**Druhá polovina je opravdu ladění levelu, a taky se dala změřit.** Spočítal jsem rezervu z běžící hry (startovní výška nejnižší koule proti čáře, minus co spotřebují sestupy vlastního rozpočtu). Blok Reveal: **Onion 5,38 · Chest 1,77 · Fossil 2,98 · Mango 3,83 · Lantern 1,99**. Chest byl v bloku nejtěsnější a stál **hned za nejprostornějším** — trojnásobný skok mezi dvěma sousedy, což je přesně ta „obtížnost nesedí k levelům před a po". Strop mu teď kráčí **po 12 výstřelech místo 9**, což ho stojí dva ze šesti sestupů a posadí ho na 2,97, vedle Fossilu. **Tvar ani jeho 630 koulí se nesáhly — chyba byly hodiny, ne geometrie.**
+
+**⚠ První pokus o tabulku rezerv byl ale ŠPATNĚ a je poučné proč.** Počítal jsem ji z modelu „pole se věší tak, že jeho dno leží přesně na čáře", tedy jen z prázdných pater pod layoutem. To platí **jen pro hluboké pole**, které se kvůli čáře zvedá; mělké visí pinnuté na `FIELD_TOP_Y` a jeho dno skončí nad čarou. Model mi u Chestu tvrdil rezervu 2,83 a záporný zbytek, skutečnost je 5,37 a +1,77. **Změřit v běžící hře trvalo šest sekund na level a bylo to jediné správné.**
+
+**Ověřeno:** prohra pořád nastane (`[level] Lost 'Chest': ClusterReachedLine (a ball at -7,87 <= -7,50 held for 1,00 s (grace 1,00 s))`) — a log teď **říká, která ze dvou větví ji vyslovila**, což je při ladění to první, co člověk chce vědět. Všechny čtyři solutiony staví bez chyby, ScoreSim „All levels rate the right way round" přes všech 40, sonda odstraněná a diff souboru neobsahuje ani řádku z ní.
+
+**Nic dalšího si teď neberu.** `origin/211-music-switches-fade` leží dál; `240-moon-crater-lattice` je prázdná větev druhé instance, která se k #240 chtěla vrátit — **nesahat**.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (#239 — kyv už neprohrává level, na mainu).*
