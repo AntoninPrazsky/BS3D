@@ -158,7 +158,14 @@ float4 ConfettiPS(ConfettiVertexOutput input) : COLOR
 	float alpha = saturate(mask * input.Alpha);
 	clip(alpha - 0.004);
 
-	return float4(input.Color, alpha);
+	//PREMULTIPLIED since #242, because the confetti moved out of the HDR scene and into the pipeline's sharp
+	//foreground layer (the result page's defocus takes the scene and must not take the paper). That layer is
+	//cleared to transparent and composited over the resolved frame by premultiplied alpha, so what is written
+	//into it has to BE premultiplied and its alpha has to accumulate as coverage. Straight alpha worked while
+	//this drew over an opaque scene and would not here: BlendState.NonPremultiplied squares the alpha
+	//(a·a + dst·(1−a)), so every partly covered chip would report less coverage than it has and come out
+	//washed against whatever the composite put behind it. Confetti.cs blends with AlphaBlend to match.
+	return float4(input.Color * alpha, alpha);
 }
 
 technique Confetti

@@ -211,10 +211,21 @@ namespace BS3D.Effects
             RasterizerState raster = _device.RasterizerState;
 
             //Alpha-blended and NOT additive, which is the whole difference from the fireworks: a firework is
-            //light and adds to what is behind it, where a chip of paper is an object that hides it. Depth-read
-            //so the island and the cluster occlude it, and CullNone because a tumbling piece shows both faces
-            //by design — it is printed on both, and culling would blink half the field out twice a turn.
-            _device.BlendState = BlendState.NonPremultiplied;
+            //light and adds to what is behind it, where a chip of paper is an object that hides it. CullNone
+            //because a tumbling piece shows both faces by design — it is printed on both, and culling would
+            //blink half the field out twice a turn.
+            //
+            //PREMULTIPLIED (AlphaBlend) since #242, matching the shader, because this now draws into the
+            //pipeline's sharp foreground layer rather than over the opaque scene: that layer is cleared to
+            //transparent and composited by premultiplied alpha, and NonPremultiplied would square the alpha
+            //(a·a + dst·(1−a)) so every partly covered chip under-reported its own coverage.
+            //
+            //Depth-read still, but there is nothing left to read: the foreground layer's depth is not the
+            //scene's, so THE ISLAND AND THE CLUSTER NO LONGER OCCLUDE THE PAPER. That is the price of the move
+            //and it was accepted rather than missed — see the note on the confetti in BS3DGame.Scene.cs. The
+            //state is kept because it is also what stops the pieces occluding each OTHER wrongly, the buffer
+            //being cleared rather than absent.
+            _device.BlendState = BlendState.AlphaBlend;
             _device.DepthStencilState = DepthStencilState.DepthRead;
             _device.RasterizerState = RasterizerState.CullNone;
 
