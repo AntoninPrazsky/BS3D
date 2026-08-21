@@ -357,6 +357,14 @@ namespace BS3D.Screens
                 //2D. What is left here is the transmute's dither, which is a different thing entirely.
                 const float mark = 0f;
 
+                //And they do not breathe with the cluster either, which is the other half of that ruling and the
+                //half the ripple could not carry (#252): the emissive heartbeat is a per-RENDERER uniform, so
+                //"this ball is still" has to be a different DRAW rather than a value on the instance. That is
+                //what `still` asks BallDrawFrame for. The owner's words, once the halo was in: it is enough that
+                //the cannon's tip glows — so the loaded rounds radiate their colour steadily and the pulsing is
+                //the gun's, in one place.
+                const bool still = true;
+
                 //Slot 0's world position, kept for the halo drawn later in the frame — stored rather than
                 //recomputed from a second Pose() call, for the reason _previewMuzzle is: the ring and the ball
                 //it rings cannot be allowed to disagree about where the bore is.
@@ -381,10 +389,10 @@ namespace BS3D.Screens
                 {
                     float progress = 1f - remaining;
 
-                    frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED, -progress, mark);
-                    frame.Add(_magazineFrom[i], position, world, BallRenderSet.UNOCCLUDED, progress, mark);
+                    frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED, -progress, mark, still);
+                    frame.Add(_magazineFrom[i], position, world, BallRenderSet.UNOCCLUDED, progress, mark, still);
                 }
-                else frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED, 0f, mark);
+                else frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED, 0f, mark, still);
             }
         }
 
