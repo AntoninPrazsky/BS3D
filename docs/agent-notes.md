@@ -878,4 +878,24 @@ Majitel chtěl větší mezery mezi nabitými kuličkami. **Konstanta, na kterou
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (#240 a #237 — beru si je, a s druhou instancí na stroji je domluvené rozdělení území).*
+## 2026-08-21 — Claude Code (třicátý zápis)
+
+**Dvě majitelovy korekce k #248 po zhlédnutí běžící verze — na mainu jako `f1229c7`.** Issue zůstává zavřené, oprava je zapsaná jako druhý komentář pod ním.
+
+**1. Rotace je předsazená DO STŘEDU rámu a už nepřechází zpátky.** Majitel doslova: *„otáčel se spíše ke středu — směrem doleva, teď se otáčí spíš doprava, jakoby se díval ven z okna, ale jak je na kraji, nevypadá to dobře."* První verze byla **symetrický** rozkyv kolem čelního pohledu, takže půlku času byla otočená tou druhou stranou — a wordmark visí v **rohu**, kde ta druhá strana je do prázdna. Teď `YAW_CENTRE = -0.20` a `YAW_SWAY = 0.07`, takže součet nikdy nedojde na nulu.
+
+**⚠️ Znak je na tomhle to jediné, co se dá splést, a je proto napsaný v kódu:** block space má `+x` doprava po obrazovce a `+z` k čočce, `CreateRotationY` nese `+z` na `(sin, 0, cos)` — takže **kladný** úhel otáčí lícem k hraně rámu a **záporný** ke středu. Viditelný důsledek: vnější hrana bloku je teď **trvale ta bližší** (na fotkách je R ze „SHOOTER" zřetelně větší než S), takže rezervu, kterou si perspektivní fit drží, se utrácí pořád, ne jen v úvrati — a fit proto bere jako reach **předsazení plus rozkyv**, ne jen rozkyv.
+
+**2. Keyline je tenčí a hraje duhu sám.** Majitel: *„odstranit ten černý obrys — sice je díky tomu text dobře čitelný, ale nehodí se to ke zbytku stylu hry. Resp. nemusí se odstraňovat, ale mohl by být tenčí a měl by taky hrát duhovými barvami."* `OUTLINE_WIDTH` 0,035 → **0,022** cap height, a každý prstenec bere odstín svého písmene **posunutý o třetinu kola** po témže kruhu, držený tmavý (`OUTLINE_VALUE` 0,34 v sRGB). Třetina a ne polovina: komplement barvy při nízké hodnotě je to nejzabahněnější, co na kruhu je. A ne malý posun, ten čte jako stínovaná hrana téhož písmene, ne jako linka hrající vlastní barvy.
+
+- **⚠️ Barva jde přes EMISSIVE, ne přes diffuse, a je to jediná cesta ke STABILNÍ barvě.** Prstenec se kreslí s cullem předních stěn, takže každý jeho pixel má normálu **od čočky** — což neříká nic o tom, kde jsou tři směrová světla. *Osvětlený* prstenec by tedy zesvětlával a ztmavával, jak 90s orbita nosí světla dozadu za něj, a linka, která má být jedna barva, by dýchala sama od sebe. `EmissiveTint` se přičítá plochý, per pixel, bez ohledu na normálu — takže prstenec je přesně ta barva, o kterou se řekne, z každého azimutu a pod všemi osmnácti dómy. Diffuse se drží na černé, aby na něj nic jiného nedosáhlo.
+- **Stálo to batchování, a to je celá cena.** Dokud byl každý prstenec stejný tón, šla všechna písmena sdílející mesh **jedním instanced drawem** — jedenáct drawů na patnáct písmen. Barva je tady per-DRAW uniform, takže jakmile se každý prstenec liší, není co batchovat: patnáct drawů, na passu, jehož celá cena už předtím měřila pod šumem tohohle stroje.
+- **⚠️ A stálo to část legibility argumentu, což docs teď říká narovinu.** Konstantní téměř černý keyline byl kontrast, který odstín nemohl vzít — a byla to jedna ze tří nohou, na kterých stál celý obhajovací argument duhy proti greyscale pravidlu. Co zůstává: prstenec je **tmavý**, ať hraje cokoli, což drží nad světlou scénou. Co se vzdává: tmavá scéna — tmavý prstenec nemá proti čemu být tmavý — a **na Měsíci se to přesně tak chová**, prstenec zmizí do černé oblohy a slovo nese podlaha glow. Čitelné je pořád, ale nese to glow, ne obrys. Majitel viděl obě verze, takže je to jeho rozhodnutí, ne můj odhad.
+
+**Ověřeno** nad loukou, neonovým městem (nejrušnější pozadí), mořem (nejsvětlejší) a Měsícem (nejtmavší). Všechny čtyři solutiony čisté — **i po tom, co se main pod prací pohnul o #235** (ptáci), které rozšířilo sdílený `MeshBuilder` o UV overloady. `LetterMesh` jede po bezUV variantách, takže se to nepotkalo; kolegovi jsem do stromu nesáhl.
+
+**Nic dalšího si teď neberu.**
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (#248 — wordmark se otáčí ke středu, obrys hraje duhu, na mainu).*
