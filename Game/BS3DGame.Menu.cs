@@ -41,8 +41,10 @@ namespace BS3D
         //and a switch that had to work out where the player had come from: "Settings backs out to the pause
         //it was opened from" and "it dims the frame because that pause is a stopped game" were both asked as
         //_state == Paused, from two places. On a stack the pause is simply UNDERNEATH settings, so backing
-        //out is a pop and the dimming is a question about the stack — and "is the game paused" is whether the
-        //gameplay screen is covered, asked by nobody because the manager's traversal simply stops updating it.
+        //out is a pop and the dimming is a question about the stack — and "is the game paused" is whether a
+        //page that stops the gameplay screen is over it, asked by nobody because the manager's traversal
+        //simply stops updating it. (Covered is not the same question since #241: the result page covers this
+        //screen and lets it run.)
         //
         //The pages are held rather than made per navigation, so Contains<PausePage>() means something and
         //nothing is allocated on a button press.

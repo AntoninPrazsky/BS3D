@@ -242,9 +242,10 @@ namespace BS3D.Effects
         {
             if (_vertexBuffer == null) return;
 
-            //The linger after a level ends is executed here rather than in an update: the result screen
-            //covers the session and stops its updates, while draws keep coming (DrawsUnderlying) — this is
-            //the one place still running.
+            //The linger after a level ends is executed here rather than in an update: the alarm is a rule of
+            //the level, and the session stops running its rules the moment the result screen covers it — the
+            //frame that does go on under that page is the world's alone (#241). Draws keep coming either way
+            //(DrawsUnderlying), so this is the one place still running.
             if (_visible && now >= _expireAt) SetVisible(false, now);
 
             float envelope = EnvelopeAt(now);

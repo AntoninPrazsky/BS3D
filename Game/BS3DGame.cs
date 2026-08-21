@@ -200,7 +200,8 @@ namespace BS3D
 
         /// <summary>
         /// The victory display. On the host rather than on the session because a cleared level puts the result
-        /// screen over the session, and a covered screen stops being updated â€” see <see cref="Fireworks"/>.
+        /// screen over the session, and what the session goes on running under that page is its world alone
+        /// (#241) — see <see cref="Fireworks"/>.
         /// </summary>
         internal Fireworks Fireworks => _fireworks;
 
@@ -929,11 +930,13 @@ namespace BS3D
         }
 
         /// <summary>
-        /// Puts the result screen over the stopped frame, in the same state a pause uses <b>but one</b>: the
-        /// session goes on being drawn underneath (the page draws what is under it) while no longer updating,
-        /// and Myra owns the input — and the frame behind is <i>not</i> dimmed, because a level's ending is
-        /// worth watching where a pause is not (see <see cref="ResultPage.DimsFrame"/>). Called by the session
-        /// when a level ends, and by the <c>result</c> test argument.
+        /// Puts the result screen over the level that has just ended, in the same state a pause uses <b>but
+        /// two</b>: the session goes on being drawn underneath (the page draws what is under it) and Myra owns
+        /// the input, but the frame behind is <i>not</i> dimmed and the session is <i>not</i> stopped — an
+        /// ending is worth watching where a pause is not, so the arena stays lit
+        /// (see <see cref="ResultPage.DimsFrame"/>) and stays alive (#241, and
+        /// <see cref="ResultPage.UpdatesUnderlying"/>). Called by the session when a level ends, and by the
+        /// <c>result</c> test argument.
         /// </summary>
         internal void PresentResult(LevelResult result)
         {
@@ -1169,8 +1172,9 @@ namespace BS3D
             _audio?.UpdateListener(_camera);
 
             //Advanced here, with the wall clock and above the stack, because the celebration outlives the
-            //screen that started it: clearing a level pushes the result page over the gameplay screen, and a
-            //covered screen is not updated at all. Driven off the frame's own elapsed time rather than a play
+            //screen that started it: clearing a level pushes the result page over the gameplay screen, whose
+            //own covered frame runs the world and nothing else (#241), and Main Menu tears the session down
+            //while the display is still going. Driven off the frame's own elapsed time rather than a play
             //clock, so it does not stop when the game does.
             _fireworks?.Update(elapsed);
             _confetti?.Update(elapsed);

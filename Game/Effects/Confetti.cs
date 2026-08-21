@@ -11,9 +11,9 @@ namespace BS3D.Effects
     /// <para>
     /// It lives on the <b>host</b> rather than on the gameplay screen, for the reason <see cref="Fireworks"/>
     /// does and which is worth repeating because it is the one structural fact about every celebration here: a
-    /// cleared level hands the player a result page pushed <i>over</i> the session, and a covered screen is not
-    /// updated — so a celebration owned by the session would freeze at the exact moment it is meant to be
-    /// watched.
+    /// cleared level hands the player a result page pushed <i>over</i> the session, and the session runs only
+    /// its world under that page (#241) — so a celebration owned by the session would freeze at the exact
+    /// moment it is meant to be watched.
     /// </para>
     /// <para>
     /// One static vertex buffer and <b>one draw call</b>, the idiom <c>Snow.fx</c> established and

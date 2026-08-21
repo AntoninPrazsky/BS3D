@@ -36,6 +36,16 @@ namespace BS3D.Screens
         /// </summary>
         private void OnBallLanded(BallLanding landing)
         {
+            //Not once the page is up. The simulation goes on running under it (#241), so a shot that was
+            //still in the air when the level ended reaches this method for real — and everything below it is
+            //the level talking to a player who has stopped playing: a thunk under the fanfare, an award flown
+            //into a HUD that is no longer drawn, a keeper moved after LevelResult was taken off it, and on a
+            //cleared field a CheckLevelCleared that would start the whole celebration a second time (the beat
+            //ends by zeroing its own countdown, so LevelDecided reads this as undecided without LevelOver).
+            //The ball still sticks — the handler attached it before saying so, and a ball vanishing in front
+            //of the player is the fault RemoveFallenBalls exists to avoid — it simply sticks in silence.
+            if (LevelOver) return;
+
             //The landing's own sound, before anything is scored: it depends only on the colour that hit and
             //where, not on what came loose. Spoken from the cell it stuck to — the same solved position the
             //award is born on below — so a hit on the left of the field is heard on the left. The camera is no
@@ -182,8 +192,18 @@ namespace BS3D.Screens
             return true;
         }
 
-        /// <summary>A shot is over without having landed. The streak breaks.</summary>
-        private void OnShotSpent() => _score.Missed();
+        /// <summary>
+        /// A shot is over without having landed. The streak breaks — unless the level is already over, in
+        /// which case there is no streak to break: the figures the result page shows were taken off the
+        /// keeper when the level ended, and the simulation running under that page (#241) can still spend a
+        /// shot against the stone or drop one past the kill plane. See <see cref="LevelOver"/>.
+        /// </summary>
+        private void OnShotSpent()
+        {
+            if (LevelOver) return;
+
+            _score.Missed();
+        }
 
         /// <summary>
         /// Has the field just been emptied? That is the goal of a level: release every ball so it falls.
@@ -470,9 +490,11 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Puts the result screen over the stopped frame. The screen is a push over this one, exactly as a
-        /// pause is: this screen goes on being drawn underneath while its <c>UpdatesUnderlying</c> stops the
-        /// simulation. Called when a level ends — see <see cref="FinishLevel"/> and <see cref="LoseLevel"/>.
+        /// Puts the result screen over the level that has just ended. The screen is a push over this one,
+        /// exactly as a pause is — but where a pause stops what is underneath, this page leaves its
+        /// <c>UpdatesUnderlying</c> true and the arena goes on living behind the numbers (#241, and
+        /// <see cref="UpdateUnderResult"/> for what "living" is allowed to mean). Called when a level ends —
+        /// see <see cref="FinishLevel"/> and <see cref="LoseLevel"/>.
         /// </summary>
         private void ShowResultScreen()
         {
@@ -481,11 +503,11 @@ namespace BS3D.Screens
             //the one funnel both endings come through, and not back where the level logically ended — a clear's
             //page arrives LEVEL_CLEARED_BEAT after the field empties, plus a whole cinematic when one is
             //running (the countdown freezes for it), and a linger stamped at the clear was spent before anyone
-            //saw it. Wall-clock stamped, because this screen stops updating the moment the page covers it and
-            //only its draws keep running (see LaserGrid).
+            //saw it. Wall-clock stamped, because nothing steps the net once the page is up: the frame that
+            //runs under it is the world's, and the alarm is a rule of the level (see LaserGrid).
             _laserGrid.NoticeLevelEnded(WallClock);
 
-            //Smears age in Update and draw in Draw, and from here only the draws keep running — so one still
+            //Smears age in Update and draw in Draw, and the frame under the page ages neither — so one still
             //mid-fade would hang at a fixed alpha for as long as the result page is up, while the page's own
             //camera turns around it. Dropped rather than converted to wall clock: a level that has ended has
             //no shot worth still showing.

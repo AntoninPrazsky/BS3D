@@ -38,9 +38,13 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Whether what is underneath keeps running, and the stack itself answers: over the front end's
-        /// backdrop the scene goes on turning, while any page over a <see cref="GameplayScreen"/> — the pause,
-        /// the result screen, settings opened over either — freezes it. This is the case the flag exists for:
-        /// a pause has to <i>draw</i> the game it stopped while stopping it <i>updating</i>.
+        /// backdrop the scene goes on turning, while any page over a <see cref="GameplayScreen"/> — the
+        /// pause, settings opened over it — freezes it. This is the case the flag exists for: a pause has to
+        /// <i>draw</i> the game it stopped while stopping it <i>updating</i>.
+        /// <para>
+        /// <see cref="ResultPage"/> overrides it back to true and is the only page that does (#241): a level
+        /// that has ended is not a level put down, and the arena has to go on living behind the numbers.
+        /// </para>
         /// </summary>
         public override bool UpdatesUnderlying => Manager != null && !Manager.Contains<GameplayScreen>();
 
