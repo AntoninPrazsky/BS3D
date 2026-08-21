@@ -1,4 +1,4 @@
-using Prazsky.Core.Render;
+﻿using Prazsky.Core.Render;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -59,6 +59,7 @@ namespace BS3D
             //is finished only when every level of a five-level chapter is cleared, so where a single clear merely
             //cannot be scripted, this cannot be reached at all without playing the campaign.
             bool blockDone = false;
+            bool lost = false;
 
             //Testing only: start the campaign's closing confetti (#215). Reaching it honestly means clearing the
             //last level of the whole set, which is further out of a script's reach than a block milestone is.
@@ -123,6 +124,10 @@ namespace BS3D
                 //further along the same reasoning: finishing a block needs every level of a five-level chapter
                 //cleared, so unlike a single clear it cannot be reached in a scripted run at all.
                 else if (string.Equals(arg, "blockdone", StringComparison.OrdinalIgnoreCase)) blockDone = true;
+                //"lost" makes that page a FAILED level rather than a clear (#238). Without it the fail state was
+                //unreachable from a test at all: "result" hardcoded a clear, so "stars=0" gave a starless CLEARED
+                //page and nobody had ever looked at the reason line the player is told they lost by.
+                else if (string.Equals(arg, "lost", StringComparison.OrdinalIgnoreCase)) lost = true;
                 //"shot=<t1,t2,…>" saves a PNG of the frame at those wall-clock seconds. Parsed leniently on
                 //purpose — a malformed entry is dropped and the rest stand, the way an unknown scene name
                 //falls back rather than throwing: this is a diagnostic, and it must never be the reason a
@@ -133,7 +138,7 @@ namespace BS3D
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
-                celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone, resultStars: resultStars, streak: streak,
+                celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, streak: streak,
                 shotSeconds: shotSeconds, level: level);
             game.Run();
         }

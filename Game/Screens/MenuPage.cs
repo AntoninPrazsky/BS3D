@@ -214,6 +214,12 @@ namespace BS3D.Screens
         protected void GoBack() => Manager.Pop();
 
         protected SpriteFontBase FontBody => Game.MenuFontBody;
+
+        /// <summary>
+        /// The heading size (124 against body's 80). Exposed for #238: the pages had every other size and not
+        /// this one, so a line that had to be read as loudly as a heading could only be set at body size.
+        /// </summary>
+        protected SpriteFontBase FontHeading => Game.MenuFontHeading;
         protected SpriteFontBase FontSmall => Game.MenuFontSmall;
         protected SpriteFontBase FontTitle => Game.MenuFontTitle;
         protected SpriteFontBase FontStars => Game.MenuFontStars;
