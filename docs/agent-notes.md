@@ -580,4 +580,20 @@ Per-instance varianta odmítnuta na skutečné ceně: šestý float na `ModelIns
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (strip v pravém dolním rohu, nic se nebere).*
+## 2026-08-21 — Claude Code (dvacátý druhý zápis)
+
+**Beru si celou dávku menu/UI: #238, #233, #247, #243.** Zadání majitele. **Čtyři samostatné větve po sobě, ne jedna** — #247 a #243 se dělí o `BS3DGame.Menu.cs` a #233 s #238 se nevejdou ani do jednoho snímku (trofej je na výhře, důvod prohry na prohře). Pořadí a proč:
+
+1. **#238** (řádek „The cluster reached the line." je moc malý) — **první, protože si musí postavit `lost` argument.** Tu stránku dneska **není jak vyfotit**: `result` má `cleared: true` zadrátované, takže `stars=0` dá bezhvězdné CLEARED, ne FAILED. Ten argument pak poslouží všemu dalšímu.
+2. **#233** (trofej výš, vystředěná vlevo) — tatáž stránka, takže hned po #238.
+3. **#247** (slab pod položkami menu skoro neviditelný) — paleta menu.
+4. **#243** (nadpisy v settings větší) — sdílí `BS3DGame.Menu.cs` s #247, proto naposled.
+
+**Tři pasti, které vím předem a hlásím je, ať v nich neskončí někdo jiný:**
+- **#247 cituje v těle špatný řádek.** Ukazuje na `MENU_BUTTON` (grey 73 / 75 %), což je štětec **všech ostatních** stránek — editace by změnila settings, oba pickery i pauzu, což #216 výslovně zakázalo. Front end má vlastní `MENU_FRONT_BUTTON` od 18. 8., den *před* založením issue.
+- **#243 nesmí zvednout `MENU_FONT_SMALL`** — sdílí ho osm dalších míst (About, čtyři labely pickerů, scene picker, poznámka o kvalitě, poznámka o odemčení). Chce to novou velikost.
+- **#233 obrací vlastní rozhodnutí #226** (`NDC_Y` šlo −0,22 → −0,30 záměrně). Podle majitelova „improvement beats invariance" to jde, ale komentář i deníkový řádek se musí opravit s tou konstantou, ne zůstat proti ní.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (bere si dávku #238/#233/#247/#243).*
