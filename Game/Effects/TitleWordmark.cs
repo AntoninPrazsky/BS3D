@@ -53,10 +53,18 @@ namespace BS3D.Effects
     /// itself, a specular streak down its length and a Fresnel rim on its silhouette, so it reads by shading
     /// and by edge even where its hue matches what is behind it. That is exactly what a flat sprite cannot
     /// do, and it is why the same colour that failed on a 2D badge holds here.</item>
-    /// <item>Every letter carries a <b>dark keyline of its own</b> (see <see cref="OUTLINE_WIDTH"/>), which is
-    /// the same near-black whatever the letter's hue is. So the contrast that makes the word readable does not
-    /// come from the colour at all, and no stop of the ramp can take it away.</item>
+    /// <item>Every letter carries a <b>dark keyline of its own</b> (see <see cref="OUTLINE_WIDTH"/>), so most
+    /// of the contrast that makes the word readable comes from something other than its colour.</item>
     /// </list>
+    /// <b>That third leg is weaker than it was, and deliberately.</b> The keyline was a constant near-black —
+    /// contrast no hue could take away — and the owner ruled it out on seeing it run: it read as ink from a
+    /// different game and did not suit the rest of the game's style. It is now thinner and plays the rainbow
+    /// itself, a third of a turn ahead of the letter it rings (<see cref="OUTLINE_HUE_SHIFT"/>), held dark
+    /// enough (<see cref="OUTLINE_VALUE"/>) that it still separates the letter from what is behind it. What
+    /// survives of the guarantee is that the rim is <i>dark</i> whatever it is playing, which holds against a
+    /// bright scene; what is given up is the case of a dark scene, where a dark rim has nothing to be dark
+    /// against and the glow's floor is what carries the word instead. That is the trade, made with the owner's
+    /// eyes on both versions rather than inferred.
     /// </para>
     /// </summary>
     public sealed class TitleWordmark : IDisposable
@@ -70,20 +78,41 @@ namespace BS3D.Effects
         //object and starts reading as wire.
         private const float TUBE_RADIUS = 0.13f;
 
-        //THE DARK KEYLINE, in cap heights, drawn as a second fatter tube behind each letter. This is the
-        //"edges — coloured lines around the letters, an outline" of the owner's brief, and structurally it is
-        //the thing that makes a rainbow legible at all (see the class remarks). It is a CONSTANT fraction of
-        //the cap height rather than a pixel width, so it holds its weight from 900p to 4K.
-        private const float OUTLINE_WIDTH = 0.035f;
+        //THE KEYLINE, in cap heights, drawn as a second fatter tube behind each letter. This is the "edges —
+        //coloured lines around the letters, an outline" of the owner's brief. It is a CONSTANT fraction of the
+        //cap height rather than a pixel width, so it holds its weight from 900p to 4K.
+        //
+        //It was 0.035 and NEAR-BLACK for one revision, and the owner ruled on both after seeing it running:
+        //the black line read as ink from a different game — "it does not suit the rest of the game's style" —
+        //and it was too heavy. So it is thinner, and it is COLOURED (see OUTLINE_HUE_SHIFT). What that costs is
+        //stated where the rainbow argues its case in the class remarks: a keyline the same near-black behind
+        //every letter was contrast the hue could not take away, and a coloured one is a weaker guarantee. It
+        //is still the right trade — the owner has seen both — but it is a trade and not a free win.
+        private const float OUTLINE_WIDTH = 0.022f;
+
+        //WHERE THE KEYLINE'S OWN COLOUR COMES FROM: the letter's hue advanced a third of the way round the
+        //same wheel, so the rims are themselves a rainbow, one step ahead of the letters. A third of a turn
+        //rather than a half: the complementary of a colour at a low value is the muddiest thing on the wheel,
+        //where a triadic step stays a colour at every stop. And rather than a small shift, which reads as a
+        //shaded edge of the same letter instead of as a line playing its own colours.
+        private const float OUTLINE_HUE_SHIFT = 1f / 3f;
+
+        //How dark that colour is drawn, as an sRGB scale on the hue. Dark enough that the rim still separates
+        //the letter from whatever is behind it - which is the job the black line did and the whole reason a
+        //keyline is here at all - and no darker, or the colour it is now supposed to be playing is not
+        //readable as a colour. sRGB, so the linear radiance it lands at is nearer a twentieth than a third.
+        private const float OUTLINE_VALUE = 0.34f;
 
         //THE GAP LEFT BETWEEN TWO LETTERS' INK, in cap heights, on top of the two tube radii the tracking has
         //to clear first (see LetterShapes.WordWidth). It has to clear two KEYLINES as well before any daylight
-        //is left, which is where the figure comes from: 0.10 less 2 x 0.035 leaves 0.03 of real gap, so the
-        //letters read as separate without the word falling apart into eleven objects.
+        //is left, which is where the figure comes from: 0.10 less 2 x OUTLINE_WIDTH leaves about 0.056 of real
+        //gap, so the letters read as separate without the word falling apart into eleven objects. It was set
+        //against a keyline half again as thick and is deliberately not tightened now that one is thinner —
+        //the extra daylight is what lets a COLOURED rim be read as a rim rather than as part of its neighbour.
         private const float DAYLIGHT = 0.10f;
 
-        //Facets around each tube. The body is on show and its specular streak runs along it; the keyline is
-        //one flat near-black tone whose only job is a silhouette, so it is swept coarser and nobody can tell.
+        //Facets around each tube. The body is on show and its specular streak runs along it; the keyline is one
+        //flat unlit tone whose only job is a silhouette, so it is swept coarser and nobody can tell.
         private const int BODY_SIDES = 16, OUTLINE_SIDES = 10;
 
         //HOW MUCH BIGGER THE LAST WORD IS. The owner picked the three-line composition with the last word as
@@ -126,7 +155,19 @@ namespace BS3D.Effects
         //The yaw is what shows the letters' round sides and moves the specular streak along them, which is the
         //whole reason the wordmark is geometry and not a picture. Kept well under the angle at which a letter
         //would start to foreshorten badly - a title that turns edge-on is a title that cannot be read.
-        private const float YAW_ANGLE = 0.20f, YAW_RATE = 0.34f;      //radians, radians a second
+        //
+        //THE YAW IS BIASED TOWARDS THE FRAME'S CENTRE AND NEVER CROSSES BACK, and that is the owner's ruling
+        //on the first revision, where it was a plain symmetric sway about facing straight out. A symmetric
+        //sway spends half its time turned the OTHER way, and the wordmark hangs in the top-right CORNER, so
+        //half the time it was angled away from everything - "as if it were looking out of the window, and
+        //since it is at the edge that does not look good". Turned inwards it reads as a sign angled to face
+        //the room rather than the wall behind it.
+        //
+        //THE SIGN IS THE WHOLE POINT AND IS EASY TO GET BACKWARDS. Block space has +x to screen right and +z
+        //towards the lens, and CreateRotationY carries +z to (sin, 0, cos) - so a POSITIVE angle tilts the
+        //face towards +x, screen right, off the frame, and a NEGATIVE one turns it towards the centre. Hence
+        //the centre angle is negative and the sway is smaller than it, so their sum never reaches zero.
+        private const float YAW_CENTRE = -0.20f, YAW_SWAY = 0.07f, YAW_RATE = 0.34f;
         private const float PITCH_ANGLE = 0.055f, PITCH_RATE = 0.23f;
 
         //THE WAVE THROUGH THE LETTERS, and the wavelength is not a taste: it is EXACTLY ONE CYCLE across the
@@ -196,8 +237,8 @@ namespace BS3D.Effects
         //than as a letter. It was a fifth of the way to white for one pass and photographed over the sea, the
         //brightest backdrop in the game, where the whole word came out PASTEL — chalky against a bright sky
         //rather than vivid over it. So the whitening is only as much as the dark side of the wheel needs, and
-        //the contrast the word is read by comes from the keyline instead, which is hue-independent and cannot
-        //be washed out by a bright scene.
+        //the contrast the word is read by comes mostly from the keyline instead, which is dark against a
+        //bright scene whatever hue it happens to be playing.
         private const float SATURATION = 0.94f, WHITEN = 0.16f;
 
         //The material diffuse every letter mesh is built with. 0.8 rather than 1 because Draw's diffuseTint
@@ -206,11 +247,17 @@ namespace BS3D.Effects
         //would come out a quarter too bright and clip the hue towards white.
         private static readonly Vector3 BODY_MATERIAL = Vector3.One * 0.8f;
 
-        //The keyline's material: near-black, and dark enough that nothing the light rig can do lifts it off
-        //black. Its specular is stated (rather than left zero, which would fall back to the renderer's white
-        //default) so the outline cannot pick up a highlight, and its own draw turns the sky reflection off
-        //entirely - see the note on culling in Draw.
-        private static readonly Vector3 OUTLINE_MATERIAL = new(0.020f, 0.020f, 0.026f);
+        //THE KEYLINE'S MATERIAL IS BLACK, AND ITS COLOUR ARRIVES AS EMISSIVE INSTEAD. That is not a
+        //flourish, it is the only way to get a STABLE colour onto this pass. The keyline is drawn with front
+        //faces culled (see Draw), so every pixel of it has a normal pointing away from the lens - which says
+        //nothing about where the three directional lights are, so a LIT rim would brighten and darken as the
+        //menu's orbit carried the lights round behind it, and a rim that is meant to be one line of one colour
+        //would breathe on its own. EmissiveTint is added flat, per pixel, ungoverned by any normal, so a rim
+        //authored through it is exactly the colour it was asked for from every bearing and under every one of
+        //the eighteen domes. The diffuse is therefore held at black and the specular stated small (rather than
+        //left zero, which falls back to the renderer's white default) so nothing else can reach it - and the
+        //sky reflection is turned off entirely, for the reason in GlyphIndex.
+        private static readonly Vector3 OUTLINE_MATERIAL = new(0.008f, 0.008f, 0.010f);
 
         private readonly GraphicsDevice _device;
 
@@ -227,11 +274,10 @@ namespace BS3D.Effects
         //solved once at construction. Spaces are not slots: they moved the pen and that is all they do.
         private readonly Slot[] _slots;
 
-        //The per-glyph instance buckets for the keyline pass. Every keyline is the same near-black, so all the
-        //letters sharing a mesh go through ONE instanced draw - eleven draws rather than fifteen, and the
-        //arrays are allocated here so the draw path allocates nothing.
-        private readonly ModelInstance[][] _outlineInstances;
-        private readonly int[] _outlineCounts;
+        //THE KEYLINE PASS IS ONE DRAW A LETTER, like the body pass, and it was eleven INSTANCED draws until
+        //the rim took a colour of its own: a colour is a per-DRAW uniform here, so the moment every letter's
+        //rim differs there is nothing left to batch. Fifteen draws rather than eleven, on a pass whose whole
+        //cost measured under this machine's noise.
 
         //The one instance the body pass hands over per letter: a body draw is one letter, because its colour
         //is a per-DRAW uniform (InstancedModelRenderer.Draw's diffuseTint) and every letter's is different.
@@ -405,13 +451,6 @@ namespace BS3D.Effects
 
             _letterWorld = new Matrix[_slots.Length];
 
-            //The keyline buckets, sized to how many letters actually share each mesh.
-            _outlineInstances = new ModelInstance[_bodyMeshes.Count][];
-            _outlineCounts = new int[_bodyMeshes.Count];
-            int[] share = new int[_bodyMeshes.Count];
-            foreach (Slot slot in _slots) share[slot.Glyph]++;
-            for (int g = 0; g < share.Length; g++) _outlineInstances[g] = new ModelInstance[Math.Max(1, share[g])];
-
             Vector3 ambient = Vector3.One * ambientIntensity;
 
             //THE LETTERS' FINISH. A hard, glossy dielectric — a blown plastic or a boiled sweet, which is what
@@ -549,7 +588,7 @@ namespace BS3D.Effects
             //nothing at both ends). A bowed middle letter does project outwards a little, but it starts well
             //inside the frame and 0.45 of a cap height out of seven units moves it by six per cent of the way
             //it still has to go.
-            float reach = 0.5f * _blockWidth * MathF.Sin(YAW_ANGLE)
+            float reach = 0.5f * _blockWidth * MathF.Sin(MathF.Abs(YAW_CENTRE) + YAW_SWAY)
                 + 0.5f * _blockHeight * MathF.Sin(PITCH_ANGLE)
                 + 0.5f * _widestLetter * MathF.Sin(LETTER_YAW);
 
@@ -587,7 +626,7 @@ namespace BS3D.Effects
             //Block space to world: x right, y up, z towards the lens — then the block's own two sways, applied
             //BEFORE the basis so they turn the word about its own axes rather than about the world's.
             Matrix blockToWorld =
-                Matrix.CreateRotationY(YAW_ANGLE * MathF.Sin(wallClock * YAW_RATE))
+                Matrix.CreateRotationY(YAW_CENTRE + YAW_SWAY * MathF.Sin(wallClock * YAW_RATE))
                 * Matrix.CreateRotationX(PITCH_ANGLE * MathF.Sin(wallClock * PITCH_RATE))
                 * new Matrix(
                     right.X, right.Y, right.Z, 0f,
@@ -595,28 +634,26 @@ namespace BS3D.Effects
                     -forward.X, -forward.Y, -forward.Z, 0f,
                     blockCentre.X, blockCentre.Y, blockCentre.Z, 1f);
 
-            //=== Every letter's matrix, once, then the two passes read it ===
-            Array.Clear(_outlineCounts, 0, _outlineCounts.Length);
-
+            //=== Every letter's matrix, once, then both passes read it ===
             Vector4 fullyOpen = new(0f, 0f, 0f, 1f);   //no occluder, no ambient occlusion: nothing shades a title
 
             for (int i = 0; i < _slots.Length; i++)
-            {
                 _letterWorld[i] = LetterWorld(in _slots[i], cap, wallClock, in blockToWorld);
 
-                int glyph = _slots[i].Glyph;
-                _outlineInstances[glyph][_outlineCounts[glyph]++] = new ModelInstance(_letterWorld[i], fullyOpen);
-            }
-
-            //=== The keyline, one instanced draw per distinct letter: every ring is the same near-black, so
-            //the three B's of this title go through one draw and only the mesh splits them. ===
+            //=== The keyline, one draw a letter, each rim its own colour off the same wheel ===
             _device.RasterizerState = RasterizerState.CullClockwise;
 
-            for (int g = 0; g < _outlineRenderers.Count; g++)
+            for (int i = 0; i < _slots.Length; i++)
             {
-                if (_outlineCounts[g] == 0) continue;
+                InstancedModelRenderer renderer = _outlineRenderers[_slots[i].Glyph];
 
-                _outlineRenderers[g].Draw(camera, _outlineInstances[g], _outlineCounts[g], _outlineParams);
+                //Through EmissiveTint and in LINEAR radiance, for the reason on OUTLINE_MATERIAL: this pass
+                //has no usable normals, so its colour cannot come from the light.
+                renderer.EmissiveTint = ColorSpace.SrgbToLinear(
+                    Hue(_slots[i].Phase + wallClock * HUE_FLOW + OUTLINE_HUE_SHIFT) * OUTLINE_VALUE);
+
+                _oneInstance[0] = new ModelInstance(_letterWorld[i], fullyOpen);
+                renderer.Draw(camera, _oneInstance, 1, _outlineParams);
             }
 
             //=== The letters, one draw each, because the colour is a per-draw uniform ===
