@@ -114,7 +114,21 @@ namespace BS3D.Screens
         //at all — the breathing belongs to the halo now, in one place.
         private const int HUD_MAG_HEAD_RADIUS = 56;
         private const float HUD_MAG_REST_SCALE = 0.64f;
-        private const int HUD_MAG_GAP = 24;
+
+        /// <summary>
+        /// The clear space between one disc and the next — <b>between what is drawn</b>, so a disc's dark halo
+        /// counts and the head's ring counts, and this is the daylight the eye actually sees.
+        /// <para>
+        /// It measured fill edge to fill edge until the owner asked for the row to breathe, and that is why it
+        /// had to be re-based rather than simply raised: at 24 the halos left only 24 − 2·<see cref="HUD_MAG_RIM"/>
+        /// = 10 between them, so four rounds read as one run of touching blobs — and the head was worse than
+        /// tight, it was <i>wrong</i>. Its ring stands <see cref="HUD_MAG_RING_GAP"/> + <see cref="HUD_MAG_RING_THICKNESS"/>
+        /// outside the halo, 18 units past the fill the gap was measured from, so the mark that says "this one,
+        /// right now" overlapped the next round's halo by a unit. A constant named for a gap cannot leave the
+        /// biggest thing in the row eating three quarters of it.
+        /// </para>
+        /// </summary>
+        private const int HUD_MAG_GAP = 32;
 
         //There was a HUD_MAG_INSET here for one revision — how far clear of the ball count the strip started,
         //once the owner saw the first halo sitting almost on the "balls left" caption. Moving the strip to the
@@ -1010,12 +1024,19 @@ namespace BS3D.Screens
             //So the HEAD's origin is what is fixed, and it is solved for a FULL magazine ending flush with the
             //margin. A shorter queue then empties from the far end and leaves a gap at the corner, which is the
             //truth about what is happening; the disc that matters has not moved.
-            float rowStep = 2 * rest + gap;
-            float toLastCentre = queue.Length > 1 ? head + gap + rest + (queue.Length - 2) * rowStep : 0f;
+            //
+            //Every step is measured between what is DRAWN — halo to halo, and the head's ring to the next halo
+            //— which is what HUD_MAG_GAP now means. The first step is longer than the others for that reason
+            //and not by a fudge: the head reaches `headOuter` where a resting round reaches `restOuter`, so the
+            //row spaces itself off each disc's own reach and the ring can no longer eat into the gap. The right
+            //edge was already anchored this way (rest + rim below), which is what makes it one rule now.
+            int restOuter = rest + rim;
+            float rowStep = 2 * restOuter + gap;
+            float toLastCentre = queue.Length > 1 ? headOuter + gap + restOuter + (queue.Length - 2) * rowStep : 0f;
 
             //Both coordinates are whole pixels: the discs are drawn as one-pixel scanlines, and a centre on an
             //exact half-pixel used to comb them outright — see the note in DrawDisc.
-            float x = MathF.Round(viewport.Width - margin - rest - rim - toLastCentre);
+            float x = MathF.Round(viewport.Width - margin - restOuter - toLastCentre);
             float middle = MathF.Round(viewport.Height - margin - headOuter);
 
             for (int i = 0; i < shown; i++)
@@ -1046,10 +1067,11 @@ namespace BS3D.Screens
                         ringOuter - Scaled(HUD_MAG_RING_THICKNESS));
                 }
 
-                //Rightwards: clear this disc's own radius, the gap, and the next one's radius. The step is
-                //written from both radii rather than from one, because the head is bigger than the rest and the
-                //first step is therefore not the same length as the others.
-                x += radius + gap + (i + 1 < shown ? rest : 0);
+                //Rightwards: clear this disc's own drawn reach, the gap, and the next one's. Written from both
+                //reaches rather than from one, because the head is bigger than the rest — and from the REACH
+                //rather than the fill radius, because the halo and the head's ring are drawn there and a gap
+                //measured inside them is not the gap anyone sees. Everything after the head is a resting round.
+                x += (next ? headOuter : restOuter) + gap + (i + 1 < shown ? restOuter : 0);
             }
         }
 
