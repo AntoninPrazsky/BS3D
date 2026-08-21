@@ -898,4 +898,36 @@ Majitel chtěl větší mezery mezi nabitými kuličkami. **Konstanta, na kterou
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (#248 — wordmark se otáčí ke středu, obrys hraje duhu, na mainu).*
+## 2026-08-21 — Claude Code (třicátý první zápis)
+
+**Další dvě majitelova zadání k #248, obojí na mainu jako `7a790aa`.** Issue je zavřené, zapsáno jako třetí komentář pod ním.
+
+### 1. Titulek startuje NA STŘEDU a animovaně se přestěhuje do kouta
+
+Majitel: *„zapomněli jsme, že po spuštění hry se na chvíli zobrazí nápis uprostřed obrazovky, který se teď nehodí vůči tomu 3D textu v menu. Chtěl bych ten 3D text mít i uprostřed — potom by se mohl animovaně přesunout na tu pozici na straně, včetně toho, že se 3D přesune na další řádek."*
+
+**Dvě KOMPOZICE, a každý snímek je někde mezi nimi.** `_openBlock` je titulní karta (celé jméno na jednom řádku, vystředěné, 0,88 šířky rámu, čelem k čočce), `_settledBlock` je menu (slovo na řádek, k pravé hraně, poslední jako odznak, otočené ke středu). Obě se řeší jednou v konstruktoru; snímek lerpuje velikost bloku, jeho podíl rámu, kotvu, otočení **a místo každého písmene**. Takže „3D" doopravdy cestuje na vlastní řádek, jak se blok přelévá.
+
+- **⚠ Kotva jsou DVĚ ČÍSLA, ne režim, a právě to dělá z přechodu obyčejnou interpolaci.** `EdgeX`/`EdgeY`: 0 = vystředěno na té ose, 1 = přišpendleno k daleké hraně s insetem. Zbytek kotevní aritmetiky je společný, takže lerp té dvojice lerpuje celou kotvu — a neexistuje druhá cesta kódem pro „někde na půl cesty", což je přesně to místo, kde by taková animace jinak měla vlastní chyby.
+- **Odstín a vlna jedou po ČTECÍM POŘADÍ**, které mají obě kompozice stejné — takže písmeno, které mění řádek, u toho nemění barvu a nic při přechodu neposkočí.
+- **Volající říká CÍL, nikdy postup.** `BackdropScreen` posílá `settled: active is MainMenuPage` a nic víc; přechod patří wordmarku, takže žádná stránka nemůže titulek nechat trčet v půlce rámu. Krok se bere z **wall clocku**, ne z předaného elapsed: snímek, který se nekreslil, je snímek, ve kterém se tady nemělo nic hýbat. **Schválně bez clampu** — díra v kreslení (odehraný level, pak Main Menu) přijde jako jeden obří krok, morph se saturuje, a to je správně, protože titulek do kouta v tu chvíli patří.
+- **`SplashPage` má prázdný tree, a je to záměr.** Zůstal jí ten kus času, který vlastní (jak dlouho karta drží, čím se přeskočí) — to byla vždycky ta část, co patří screenu a ne widgetu. Fade-up odešel s labelem; odpovídá na to vlastní příchod wordmarku (`REVEAL_FROM` → 1 za `REVEAL_SECONDS`). **⚠ Overshoot příchodu je ve SVĚTLE, ne ve velikosti, a to je vynucené:** fit řeší blok proti rámu, takže blok, který by překmitl vlastní velikost, by přelezl inset, do kterého ho fit právě vešel. Světlo takový rozpočet nemá.
+- Opraven i doc řádek a komentář, které tvrdily, že splashový 2D label zůstává — po tomhle je nepravda. `GAME_TITLE` už není nikde v hře vysázen **jako nadpis**; zůstává jako próza v About a jako text titulkového pruhu okna.
+
+### 2. Barevní „duchové" mají vlastní skořápku
+
+Majitel: *„když jsi to testoval, viděl jsem takové barevné duchy okolo toho textu — to se mi líbilo a chtěl bych je zvýraznit."* Ti duchové jsou **bloom pyramida** čtoucí glow písmen.
+
+**⚠ A halo nejde zesílit samo za sebe** — bright pass thresholduje na luminanci 0,55, takže jediná páka na halo je, jak vysoko nad ni něco jde. **Zkusil jsem tedy nejdřív přesvítit PÍSMENA (0,34/1,15) a bylo to špatně:** emissive dost silný na to, aby nadmul halo, přebije diffuse, a shoulder tonemapu odbarvuje, co komprimuje — slovo šlo na každém hřebeni beatu do křídy a barvu drželo jen jeho halo. Takže je tam teď **třetí trubka** na písmeno, tlustší než keyline, kreslená **aditivně** za ním: pás vlastní barvy písmene hned za jeho okrajem, ze kterého glare pass udělá to halo. Písmena si drží světlo, na které byla vyladěná, duchové si vezmou, kolik chtějí.
+
+- **⚠ Hřeben aury je omezený tím, co dělá PÍSMENŮM, ne sám sebou** — to je třetí konstanta, kterou tahle lekce pohnula. Bloom je fullscreen pass: halo, které se nadme, si vlastní rozmazané světlo položí zpátky na písmeno, ze kterého vzešlo, a to leze po témže ACES shoulderu. **1,75** písmena zatopilo a zalilo jim počítadla; **1,05** počítadla udrželo a pořád šlo do křídy; **0,85** čte jako slovo dýchající mezi *plným a živým* v úvrati a *měkkým a svítícím* na hřebeni — což je lepší pulz než jasnost samotná. Je to strop nalezený fotkou; cokoli nad ním se platí barvou písmen. Vlastní swing písmen jsem s tím stáhl zpátky (0,20–0,38 proti dřívějším 0,22–0,60): beat teď nese aura, a dvě věci dýchající naráz šly do křídy podruhé.
+- **⚠⚠ Aura se kreslí POSLEDNÍ, a je to rozhodnutí o výkonu, ne o kresbě.** Kreslená první není v depth bufferu nic, takže se **odshaduje každý pixel každé skořápky** a písmena ho pak přemalují: **naměřeno 2,6 ms z 26ms snímku** — jediná verze celé téhle práce, jejíž cena vyšla **nad** šumem stroje. Kreslená poslední to early-Z zahodí, než pixel shader vůbec naběhne, a platí se jen viditelný pás: **1,6 ms**. Obrázek je identický — aditivní blending je nezávislý na pořadí a liší se jen pixely, které depth test zahodí v obou pořadích. Ten pás přitom platí plný osvětlený materiál rámu (cloud shadow, hemisphere ambient, Fresnel, sky radiance), z něhož se **každý člen násobí černým diffuse a zahodí** — takže páka, kdyby to muselo dolů znovu, je flat-colour technika nebo užší pás, **ne méně facet**, protože facety to neutrácí.
+- **⚠ A keyline musí mít STEJNÝ počet facet jako tělo.** Byl na deseti proti šestnácti s odůvodněním „plochý neosvětlený tón nepotřebuje kulatost". Co to přehlédlo: **siluety se do sebe musí vnořit** — polygon jednoho počtu facet stojící hned vně polygonu jiného se s ním tam, kde se plocha písmene otáčí hranou, prokládá, a keyline vyhrává depth test v ostrůvcích. Fotí se to jako **čárkovaný** tmavý obrys hned uvnitř písmene, nejvíc na odznaku — největší věci na obrazovce, a tedy tam, kde se tessellační chyba ukáže první. Aura je z toho vyňatá, protože je aditivní a nezapisuje hloubku, takže se do ničeho vnořovat nemusí.
+
+**Ověřeno:** louka, moře, jeskyně, kosmos, Měsíc, neonové město; **High i Medium** (ssaa 1 + MSAA 8×); celá otevírací sekvence po snímcích (t = 0,35 / 1,6 / 2,9 / 3,2 / 3,6 / 4,6); a `play` boot bez titulku. Všechny čtyři solutiony čisté i po tom, co se main pod prací **podruhé** pohnul.
+
+**Nic dalšího si teď neberu.**
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (#248 — titulek startuje na středu a stěhuje se, duchové mají vlastní skořápku, na mainu).*
