@@ -930,7 +930,7 @@ Majitel: *„když jsi to testoval, viděl jsem takové barevné duchy okolo toh
 
 ---
 
-## 2026-08-21 — Claude Code (třicátý druhý zápis)
+## 2026-08-21 — Claude Code (třicátý třetí zápis)
 
 **Majitelovo hlášení k #248: „v ohybech jsou takové viditelné barevné plochy, které působí jako chyba nebo díra/mezera." Byla to skutečná chyba, ne vkus. Na mainu jako `a10c0a2`.**
 
@@ -962,4 +962,30 @@ Zúžení aury přiblížilo její radius na 0,020 od keylinu. A dokud se keylin
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (#248 — aura se protáčela v ohybech, opraveno včetně jednopixelového švu, na mainu).*
+## 2026-08-21 — Claude Code (třicátý čtvrtý zápis)
+
+**#234 dokončené celé — druhá půlka: Bullseye, Toadstool, Pinwheel a Gem dostaly tělo, které visí, a obarvení, které to přežije. Na mainu, větev `234-chapter-one-depth`.**
+
+**Nejdřív k číslování, protože to je ta past, na kterou tenhle deník šlape počtvrté.** V souboru stály **dva zápisy s číslem 32** (claim #240/#237 a dokončení #248) — dva agenti psali souběžně a jeden druhého neviděl. Přečísloval jsem **jen ordinál** toho pozdějšího na 33, text jsem nesáhl, a svůj beru 34. Konec deníku je tím zase monotónní. Zápisy 30 a 31 leží uprostřed souboru mimo pořadí; to je starší prokládání a nešahal jsem na něj.
+
+**Zadání bylo majitelovo pozorování, ne bug report:** u `One` po každém výstřelu zbytek mapy „vlaje" a projeví se fyzika, u zbytku první kapitoly ne, a proti opravenému prvnímu levelu jsou ty čtyři nudné.
+
+**Půlka příčiny byla hloubka a dala se vyčíslit.** `Bullseye` a `Pinwheel` měly layout **4 patra**, `Gem` 6 — desky přilepené ke sklu, které nemají čím vlát. Všechny tři jdou teď na deset kurzů: Bullseye terasovaný kužel (pět teras po dvou kurzech, rim 5,7 → 1,1), Pinwheel kroucený kužel, Gem čtyři fasetové stupně nad tenkým čtyřkurzovým sloupkem m=1.
+
+**⚠ Druhá půlka je ta, kterou stojí za to si zapamatovat, protože v tvaru není vidět: hloubka sama nestačí a u dvou ze tří nezmohla nic.** Po přestavbě na deset pater se `Pinwheel` spravil, ale `Bullseye` i `Toadstool` dohrávaly pořád **na tři výstřely**. Důvod: **prstenec obarvený jen podle poloměru je jedna souvislá slupka od skla až k hrotu.** Tři prstence = tři barvy u skla = tři rány, ať těleso visí jakkoli hluboko. Projel jsem **všechny kombinace velikosti terasy, kroku zúžení, velikosti palety a natočení palety po terase** proti skutečnému sousedskému pravidlu — **žádná se nedostane přes čtyři výstřely**, protože žádná na tomhle nic nemění. Zabírá až **úhlový člen**: rozřízni prstence na sektory a každá skupina má vlastní úchyt u stropu, takže odebrání jedné zbytek nechá viset místo aby ho shodilo. Je to **doslova majitelova vlastní receptura pro `One` o jeden průchod dřív** („barvy po stěnách, ne po vrstvách"), jen došlá z druhé strany.
+
+**Co dostalo co, a jedna výjimka je vědomá.** Bullseye prstence na **tři sektory** (ne čtyři: čtyři měří líp, 9 výstřelů proti 6, ale `Pinwheel` o dva levely dál **je** čtyři sektory a terč rozčtvrcený ve stejném bloku pod stejným dómem čte jako totéž řečené dvakrát; tři navíc trefí přesně profil `One`, a tři prstence na tři sektory jsou latinský čtverec — každý prstenec nese všechny tři barvy a každý sektor taky, takže řez nečte jako vyjmutý klín). Toadstool klobouk na **čtyři** — u něj je ten řez to, co ta věc stejně je, houba s lupeny zespoda je radiální; osm měří ještě líp (15 výstřelů), ale nejsilnější rána spadne na 9 % a tenhle blok učí, **co to skupina je**, takže výplaty musí zůstat vidět. **`Gem` řez schválně nedostal** — broušená faseta je v přírodě celistvá a radiální šev je jediná věc, která by tvaru vzala čtení „krystal" — a kupuje si skupiny **čtvrtou barvou**: magentou, kterou tenhle design **původně měl** a která padla kvůli fialové kaši snové scény. #194 blok přesunulo na louku pod dóm 1, takže ta námitka propadla; ověřeno fotkou, jak se to tehdy zamítlo taky fotkou.
+
+**⚠ A past uvnitř opravy, kterou našlo až měření: natočení palety o JEDNA na stupňovitém tělese nedělá nic, dělá to horší.** Stupeň rozšíří rim o celý prstenec, takže otočení o jedna posune barvu souseda o týž jeden krok a **oba se shodnou** — z celého zúžení se stane jedna diagonální skupina běžící po svahu dolů. Naměřeno při otočení o jedna: Bullseye 6 skupin a 197 koulí v největší, Gem nejsilnější rána **57 %** clusteru. Proto je krok dva (`GEM_ROLL`), a proto je u obou napsané proč.
+
+**Nástroj, který to rozhodl, a proč mu šlo věřit.** Napsal jsem suchou kopii `Emit`ovy geometrie, sousedského pravidla `BallsMap` a repair passu v JS a **ověřil ji proti skutečnému generátoru dřív, než jsem podle ní cokoli vybral**: identické počty koulí, identické počty oprav a **identické trasy hry na kus**. Teprve pak měly ty sweepy váhu — jinak by to bylo hádání s tabulkou. Leží to v mém scratchpadu (`sweep.js`, `check.js`, `sweepbull2/3.js`, `sweepgem.js`, `sweeptoad.js`) a stojí za znovupostavení, kdyby se ladil další blok.
+
+**Naměřeno, dokonalý hráč** — čtyři měněné levely v pořadí Bullseye, Toadstool, Pinwheel, Gem: **3 / 3 / 4 / 4** výstřely před, **6 / 9 / 8 / 7** po. `One` zůstal beze změny na 6, takže celý blok je teď **6 / 6 / 9 / 8 / 7**. Tělo přitom visí devět pater pod sklem po většinu z nich a **Bullseye drží pas jediné koule přes čtyři výstřely po sobě**. Nejsilnější rány 33 / 21 / 24 / 25 %. Generátor čistý (nic neplave, nic nestojí samo, nula oprav mimo Pinwheelovy čtyři), **ScoreSim „All levels rate the right way round"** přes všech 40, všechny čtyři solutiony staví bez varování, a všechny čtyři levely vyfocené v běžící hře.
+
+**Uklizeno cestou, a je to dluh po #194, ne po mně:** `docs/game-session.md` uváděl u Mosaicu, Pinwheelu a Gemu **scénu a dóm z doby před bloky** (Mosaic v jeskyni, Pinwheel v poušti, Gem ve snu). Čísla koulí, která jsem zneplatnil, jsem opravil; ty scény jsem **označil jako zastaralé a odkázal na tabulku** v `docs/formats-and-tools.md` místo abych je přepsal — je to samostatná změna a mísit ji sem by porušilo „jedna změna na větev". **Kdo se toho ujme, ať tu větu smaže.**
+
+**Souběh:** celou dobu běžela druhá instance na #237/#240 v **témže checkoutu** `...\BS3D`. Rozdělení souborů nestačí — **sdílený pracovní strom je vlastní kolize**: přepnutí větve v něm vytrhne strom pod druhým agentem. Vzal jsem si proto worktree `...\BS3D-234`. **`origin/211-music-switches-fade` leží dál**, `240-moon-crater-lattice` je prázdná větev bez editu.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (#234 — druhá půlka, první kapitola dostala tělo i obarvení, na mainu).*

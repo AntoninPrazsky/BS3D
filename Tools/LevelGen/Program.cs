@@ -965,7 +965,11 @@ namespace BS3D.Tools.LevelGen
             File = "Three.json",
             Name = "Bullseye",
             Grid = 15,
-            Depth = 4,
+            //Ten deep since #234's second pass, where it was four. Four courses is a PLATE: every ball of it
+            //is within four levels of the glass, so nothing can hang and nothing can swing, and the level was
+            //over in three shots. Ten is the depth One and Toadstool already have, and it is what buys the
+            //target a body to peel.
+            Depth = 10,
             Scene = SceneKind.Meadow,
             //Dome 1 is the only clear blue one in the set; most of the rest are warm or magenta, and over
             //green hills those read as a clash rather than as weather. A red-and-gold target wants that blue.
@@ -976,10 +980,53 @@ namespace BS3D.Tools.LevelGen
             Music = MUSIC_RINGS,
             Shots = 40,
             CeilingStep = 8,
-            //Widest at the top (that layer anchors the whole cluster to the glass) and narrowing downwards
-            Occupied = (r, ang, i, depth) => r <= 5.7f - (depth - 1 - i) * 1.15f,
-            Colour = (r, ang, i, depth) => Ring(r, new[] { BallType.Type1, BallType.Type4, BallType.Type7 }),
+            //Widest at the top (that layer anchors the whole cluster to the glass) and narrowing downwards,
+            //two courses to a terrace so the taper reads as STEPS from the side and as the target's own rings
+            //from below - see BULLSEYE_TERRACE.
+            Occupied = (r, ang, i, depth) => r <= BullseyeRim(i, depth),
+            //Rings on the plain radius, CUT INTO SECTORS - and the sectors are what make this a level rather
+            //than three shots. Depth alone does not: a ring coloured on the radius alone is one shell running
+            //from the glass to the point, so three rings are three colours touching the glass and three shots
+            //take the cluster however deep it is. Every terrace size, taper step, palette size and per-terrace
+            //palette roll was measured, and none of them clears four shots, because none of them changes that.
+            //Cutting by the angle does, for One's reason: every group then reaches the ceiling on its own, so
+            //taking one leaves the rest hanging instead of dropping it. Measured at three sectors: 6 standing
+            //groups, 6 shots, best single shot 33 % - One's own profile, two levels earlier.
+            Colour = (r, ang, i, depth) => Band((int)MathF.Floor(r / 1.9f) + SectorIndex(ang, 0f, BULLSEYE_SECTORS),
+                new[] { BallType.Type1, BallType.Type4, BallType.Type7 }),
         };
+
+        //THE TARGET'S OWN FIGURES (#234). Two courses to a terrace, five terraces over the ten courses, so the
+        //rim steps 5.7 -> 4.55 -> 3.4 -> 2.25 -> 1.1. The rim is unchanged from the four-deep version - three
+        //rings of Ring's own 1.9 need a radius past 3.8, the same arithmetic Toadstool's cap is cut to - and
+        //the step is the one that lands the bottom terrace on about a ball across.
+        private const int BULLSEYE_TERRACE = 2;
+
+        //THREE sectors and not four. Four is the natural cut for a target and it measures better on paper (9
+        //shots to 6), but Pinwheel two levels later IS four sectors, and a target cut in quarters standing in
+        //the same block under the same dome reads as the same idea told twice. Three keeps the block's variety
+        //and lands on One's shot count. Three rings by three sectors is also a Latin square in three colours:
+        //every ring carries all three and so does every sector, which is what stops the cut reading as a
+        //wedge taken out of the target.
+        private const int BULLSEYE_SECTORS = 3;
+        private const float BULLSEYE_RIM = 5.7f;
+        private const float BULLSEYE_STEP = 1.15f;
+
+        /// <summary>
+        /// Which terrace a course belongs to, counted from the top: integer division by
+        /// <see cref="BULLSEYE_TERRACE"/>, so two courses share one. It drives the RIM only - the colour is
+        /// cut by the angle instead, for the reason recorded on Colour above.
+        /// </summary>
+        private static int BullseyeTerrace(int i, int depth) => (depth - 1 - i) / BULLSEYE_TERRACE;
+
+        /// <summary>
+        /// The target's radius at a course: the rim less one step for every terrace below the top. Two courses
+        /// share a radius, which is what makes the taper a flight of steps rather than a smooth cone, and what
+        /// leaves an annulus of the wider terrace's underside showing at every step. Those undersides are the
+        /// rings the player sees looking up at it.
+        /// </summary>
+        private static float BullseyeRim(int i, int depth) =>
+            BULLSEYE_RIM - BULLSEYE_STEP * BullseyeTerrace(i, depth);
 
         /// <summary>
         /// A cylinder tiled in 2x2x2 blocks of colour — a chunky mosaic column. Horizontal colour bands
@@ -1067,9 +1114,15 @@ namespace BS3D.Tools.LevelGen
             Occupied = (r, ang, i, depth) =>
                 DomeDistance(r, i, depth, TOADSTOOL_SQUASH) <= TOADSTOOL_CAP || r <= TOADSTOOL_STALK,
             //Gold core and stalk, white gills, red rim: a fly agaric from underneath. Rings on the plain round
-            //radius and NOT on the dome distance the cap is cut from — shells parallel to a curved surface hide
+            //radius and NOT on the dome distance the cap is cut from - shells parallel to a curved surface hide
             //two of the three colours behind the third, which is the whole reason Bullseye's rings read.
-            Colour = (r, ang, i, depth) => Ring(r,
+            //
+            //CUT INTO SECTORS since #234, and on this design of all of them the cut is what the thing already
+            //is: a gilled mushroom seen from below is radial. It is also the same repair Bullseye needed and
+            //for the same measured reason - three rings running the full height of the cap are three groups
+            //and three shots, however deep the body hangs. Measured at four: 9 standing groups, 9 shots, best
+            //single shot 21 %, and the remains hang nine levels under the glass for eight of them.
+            Colour = (r, ang, i, depth) => Band((int)MathF.Floor(r / 1.9f) + SectorIndex(ang, 0f, TOADSTOOL_GILLS),
                 new[] { BallType.Type7, BallType.Type4, BallType.Type1 }),
         };
 
@@ -1089,16 +1142,31 @@ namespace BS3D.Tools.LevelGen
             File = "Five.json",
             Name = "Pinwheel",
             Grid = 15,
-            Depth = 4,
+            //Ten deep since #234, where it was four - and those four were a flat DISC of constant radius, the
+            //one shape in the block that could not move at all. See PINWHEEL_TWIST for what the depth turns
+            //the spiral into.
+            Depth = 10,
             Scene = SceneKind.Meadow,
             Sky = 1,
             Music = MUSIC_RINGS,
             Shots = 44,
             CeilingStep = 9,
-            Occupied = (r, ang, i, depth) => r <= 5.5f,
-            Colour = (r, ang, i, depth) => Sector(ang, r * 0.16f, 4,
+            //A cone now, not a disc: widest against the glass and drawn to a point, so the sectors are
+            //tapering vanes rather than slices of a plate.
+            Occupied = (r, ang, i, depth) => r <= PINWHEEL_RIM - (depth - 1 - i) * PINWHEEL_TAPER,
+            //The twist takes the COURSE as well as the radius, so a vane winds as it descends: the disc's
+            //spiral, extruded into a helix. Read from below it is still the pinwheel it is named for.
+            Colour = (r, ang, i, depth) => Sector(ang, r * 0.16f + i * PINWHEEL_TWIST, 4,
                 new[] { BallType.Type1, BallType.Type7, BallType.Type2, BallType.Type3 }),
         };
+
+        //THE PINWHEEL'S OWN FIGURES (#234). The rim and taper draw the cone to a point over ten courses; the
+        //twist is per COURSE and in turns, so 0.05 is a fifth of a sector a level and a vane makes just under
+        //half a sector over the whole drop - enough to read as a wind, and not so much that a vane spirals
+        //past its neighbour and stops being one face.
+        private const float PINWHEEL_RIM = 5.5f;
+        private const float PINWHEEL_TAPER = 0.5f;
+        private const float PINWHEEL_TWIST = 0.05f;
 
         /// <summary>
         /// A crown: a hollow ring in vertical bars of colour, tapering gently wider toward the top, with six
@@ -1228,7 +1296,11 @@ namespace BS3D.Tools.LevelGen
             //trap LateralMargin now refuses. Widening the field keeps the shape, which is the thing worth
             //keeping here; capping the rim at m = 5 would have cost the gem two rings of its widest face.
             Grid = 17,
-            Depth = 6,
+            //Ten deep since #234, where it was six. The four facet steps are unchanged in WIDTH - the widest
+            //is still m = 7, which is what the field was widened to 17 for - so the whole of the added depth
+            //goes into the bottom step: four courses of m = 1, a five-ball column that is the longest pendulum
+            //in the block. See GemStep.
+            Depth = 10,
             //The meadow block's, since #194. The recorded decision here was about the ring's COLOUR — magenta
             //sank into the dream's violet soup, which a screenshot said and a palette on paper would not have —
             //and not about the dream itself; yellow reads against everything, so the reason for it survives the
@@ -1252,12 +1324,50 @@ namespace BS3D.Tools.LevelGen
             //against the glass with no level above to connect through, each needing two landed balls of its
             //own colour before anything could fall. It is the hardest defect here to see and the easiest to
             //author by accident, which is why FindLonelyBalls now refuses it.
-            OccupiedManhattan = (m, i, depth) => m <= 1 + 2 * ((i + 1) / 2),
+            OccupiedManhattan = (m, i, depth) => m <= GemRim(i),
             //Yellow rather than the magenta this started with: the dream scene is a violet soup and the
             //magenta ring sank into it, which a screenshot showed and a palette on paper would not have
-            ColourManhattan = (m, i, depth) => Band((int)MathF.Floor(m * HALF),
-                new[] { BallType.Type7, BallType.Type3, BallType.Type5 }),
+            //Rolled a step a FACET STEP since #234, and given a FOURTH colour to roll through. Bullseye and
+            //Toadstool answer the same three-shot fault by cutting their rings into sectors; this design
+            //deliberately does not, because a cut facet is unbroken in life and a radial seam across it is the
+            //one thing that would stop the shape reading as a crystal. A fourth colour buys the same groups
+            //without touching the geometry: measured at 10 standing groups, 7 shots, best single shot 25 %.
+            //
+            //Magenta is the colour this design STARTED with, dropped because the dream scene it then played in
+            //is a violet soup and the ring sank into it. #194 moved the block to the meadow under dome 1, so
+            //that objection has lapsed - and a screenshot is what says so, as it did when the colour was
+            //dropped. Rolling by two rather than one for the reason GEM_ROLL records.
+            ColourManhattan = (m, i, depth) => Band((int)MathF.Floor(m * HALF) + GEM_ROLL * GemStep(i),
+                new[] { BallType.Type7, BallType.Type3, BallType.Type5, BallType.Type6 }),
         };
+
+        //THE STONE'S OWN FIGURES (#234). Four facet steps over ten courses: m = 1 for the bottom FOUR, then
+        //two courses each at m = 3, 5 and 7. The widest is unchanged, because 7 is what the field's width was
+        //chosen for; the bottom step is four courses on purpose, since m = 1 is five cells on an unshifted
+        //level and four on a shifted one - the thinnest column this lattice holds together, and the one that
+        //swings furthest once the stone above it opens.
+        private const int GEM_COLUMN_COURSES = 4;
+
+        //The palette's turn per facet step, and TWO rather than one because of what one does on a stepped
+        //solid: a step widens the rim by one whole ring, so turning the palette by one carries a ring's own
+        //colour straight out onto the step below it and welds the two into a single diagonal group running
+        //down the stone. Measured at a turn of one: the best single shot took 57 % of the cluster.
+        private const int GEM_ROLL = 2;
+
+        /// <summary>
+        /// Which facet step a course is on, counted from the bottom: 0 for the column, then one step every
+        /// two courses. It is the rim's step AND the colour's roll, the same double duty
+        /// <see cref="BullseyeTerrace"/> does - a facet is one width and one palette turn.
+        /// </summary>
+        private static int GemStep(int i) =>
+            i < GEM_COLUMN_COURSES ? 0 : (i - GEM_COLUMN_COURSES) / 2 + 1;
+
+        /// <summary>
+        /// The stone's taxicab rim at a course. Every step is an ODD m so the outermost ring of each is a
+        /// complete two units wide and never a bare diagonal - the defect <see cref="FindLonelyBalls"/> was
+        /// written for, and the reason this steps rather than divides.
+        /// </summary>
+        private static int GemRim(int i) => 1 + 2 * GemStep(i);
 
         /// <summary>
         /// A stepped cone tiled in 2×2×1 blocks of five colours — the first level of the pack that has to be
@@ -3212,6 +3322,12 @@ namespace BS3D.Tools.LevelGen
         private const float TOADSTOOL_CAP = 5.3f;
         private const float TOADSTOOL_SQUASH = 0.68f;
         private const float TOADSTOOL_STALK = 1.7f;
+
+        //Four radial cuts across the cap. More reads better as gills and measures better (eight sectors give
+        //15 shots), but it also cuts the level into crumbs: at eight the best single shot is 9 % of the
+        //cluster, and this block is the one that teaches what a colour group IS, so its payoffs have to stay
+        //big enough to notice. Four keeps the biggest shot at 21 %, in the band One and Bullseye sit in.
+        private const int TOADSTOOL_GILLS = 4;
 
         /// <summary>
         /// The dome's distance with the vertical scaled: <paramref name="stretch"/> is how many times taller than
