@@ -930,4 +930,36 @@ Majitel: *„když jsi to testoval, viděl jsem takové barevné duchy okolo toh
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (#248 — titulek startuje na středu a stěhuje se, duchové mají vlastní skořápku, na mainu).*
+## 2026-08-21 — Claude Code (třicátý druhý zápis)
+
+**Majitelovo hlášení k #248: „v ohybech jsou takové viditelné barevné plochy, které působí jako chyba nebo díra/mezera." Byla to skutečná chyba, ne vkus. Na mainu jako `a10c0a2`.**
+
+### Příčina: svítící skořápka se PROTÁČELA SAMA SEBOU v ohybech
+
+**⚠⚠ Trubka tažená po cestě se zakřivuje s tou cestou, takže trubka, jejíž radius dosáhne radiusu zakřivení té cesty, se na vnitřní straně ohybu OBRÁTÍ NARUBY** — plocha se přes nějaký kus překlopí a to, co se v tom místě kreslí, je plochý list otočený špatnou stranou. Přesně to čte oko jako „díra".
+
+Aura byla tažená na radiusu **0,215** proti nejtěsnějšímu ohybu téhle abecedy **0,2016** (bowl písmene U, elipsa 0,31 × 0,25, jejíž radius zakřivení na konci hlavní osy je `0,25² / 0,31`). Takže se protáčela — a překlopení **zalila počítadla B, O, D a 3** plochými barevnými plochami.
+
+- **`LetterShapes.MIN_BEND_RADIUS` teď tu hranici říká** (změřeno skriptem přímo nad tabulkou oblouků, aby se to nemohlo rozejít) **a `LetterMesh` tlustší trubku ODMÍTNE**, místo aby postavil takovou, která se protáčí. Je to `MeshBuilder`ova odpověď na jeho 16bitový strop a ze stejného důvodu: **překlopení se v kódu nijak neohlásí, jen na obrázku.** Kdo bude někdy měnit šířku kterékoli ze tří skořápek, spadne na startu, ne za měsíc v reportu.
+- Šířka aury je teď **85 % té hranice** minus vlastní radius písmene, což nechá počítadlům B čistých 0,16 cap height.
+- **⚠ Šířka a obě úrovně jsou svázané SOUČINEM.** Co bloom integruje, je *světlo v pásu* = šířka × radiance, a velikost hala nikdy nebyla velikost pásu — je to velikost pyramidy. Takže poloviční šířka při dvojnásobné radianci dá totéž halo, a fotky před a po opravě si odpovídají. (0,085 × 0,85 = 0,042 × 1,72.)
+
+### A oprava odhalila JEDNOPIXELOVÝ ŠEV, který je teď taky pryč
+
+Zúžení aury přiblížilo její radius na 0,020 od keylinu. A dokud se keyline kreslil **první a zapisoval hloubku**, byl vnitřní okraj aury definovaný **keylinovou siluetou** — dvě skořápky se musely potkat *přesně* po křivce, což dvě rasterizace dvou různých radiusů neumí.
+
+**Nehádal jsem to, změřil jsem to:** zvětšil jsem hranu odznaku na jednotlivé pixely a vypsal RGB napříč obrysem. Mezi keylinovou fialovou `(105,45,110)` a auřinou cyan `(129,244,245)` sedělo **jedno pixel `(120,225,100)` — TRÁVA**. Pás, který nepatřil ani jednomu. Podél písmene to čte jako **čárkovaný** obrys, a to je ta samá „dashed" věc, kterou jsem předtím dvakrát honil jinam (mimochodem: zvýšení `OUTLINE_SIDES` na 48 s tím neudělalo nic, což tu hypotézu o facetách vyvrátilo).
+
+- **Pořadí skořápek je teď PÍSMENO, ZÁŘE, KEYLINE** a je nosné. Záře běží spojitě od vlastní hrany písmene navenek a keyline se maluje **na ni**, takže neexistuje hranice, kterou by mohlo něco propadnout.
+- **⚠ Všechny tři skořápky mají JEDEN počet facet, protože se jejich siluety musí do sebe VNOŘIT.** Každá je *n*-úhelník, ne kružnice, takže silueta leží mezi `r·cos(pi/n)` a `r`. Dva sousední shelly s různým počtem se **prokládají** — hranice se přeskakují a v každém přeskoku je slívr, co nepatří ani jednomu. Chytlo mě to **dvakrát**: keyline proti tělu (10 : 16) a pak keyline proti auře (16 : 12), protože při staré šířce byly jejich radiusy 0,063 od sebe a žádná facetová chyba je nesvedla dohromady, při nové jsou 0,020 a svedla je hned. Při jednom počtu jsou tři pásy 0,1275–0,130, 0,1491–0,152, 0,1687–0,172 — nedotýkají se.
+- **Na tom pořadí visí i cena:** písmeno zapisuje hloubku první, takže early-Z zahodí oba neosvětlené shelly všude, kde už písmeno kreslí. **1,16 ms z 24ms snímku** (proti 2,6 ms, když se záře kreslila první, a 1,56 ms u předchozího pořadí).
+
+**Ověřeno** zvětšením téže hrany na pixely před a po, a nad loukou, mořem, neonovým městem a Měsícem, na High i Medium, v obou stavech (karta i usazený titulek).
+
+**⚠ Metodická poznámka, protože jsem na tom spálil dva pokusy:** dvakrát jsem „opravil" čárkovaný obrys hypotézou o facetách, aniž bych se podíval na pixely — poprvé srovnáním počtu facet keylinu s tělem (což *jednu* instanci té chyby opravdu opravilo) a podruhé zvýšením na 48 (což neudělalo nic). Rozhodlo až **vypsání RGB hodnot napříč obrysem**, což trvalo minutu. Na artefakt o šířce jednoho pixelu je fotka málo; chce to čísla.
+
+**Nic dalšího si teď neberu.**
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (#248 — aura se protáčela v ohybech, opraveno včetně jednopixelového švu, na mainu).*
