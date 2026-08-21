@@ -7,11 +7,11 @@ namespace Prazsky.Core.Render
 {
     /// <summary>
     /// Accumulates triangles for a procedural mesh and turns them into GPU buffers — the small builder the
-    /// gun's barrel, carriage and wheels are made with. It carries one load-bearing trick as a service: every
-    /// triangle is added with the <b>face normal it is meant to show</b>, and the winding is corrected against
-    /// it, so a composite of boxes, tubes and tori cannot come out inside-out piece by piece (the trap
-    /// CLAUDE.md's winding convention documents — nothing disappears, the far side is drawn, and only the
-    /// shading says so).
+    /// gun's barrel, carriage, wheels and the flock's birds are made with. It carries one load-bearing trick
+    /// as a service: every triangle is added with the <b>face normal it is meant to show</b>, and the winding
+    /// is corrected against it, so a composite of boxes, tubes and tori cannot come out inside-out piece by
+    /// piece (the trap CLAUDE.md's winding convention documents — nothing disappears, the far side is drawn,
+    /// and only the shading says so).
     /// <para>
     /// Internal on purpose: it is a construction detail of the meshes in this namespace, not a modelling API.
     /// The trick began as <see cref="CannonMesh"/>'s own; that mesh predates the builder and moved onto it
@@ -31,17 +31,28 @@ namespace Prazsky.Core.Render
         /// side. Per-vertex normals are kept for shading regardless of the winding.
         /// </summary>
         public void AddTriangle(Vector3 a, Vector3 b, Vector3 c, Vector3 na, Vector3 nb, Vector3 nc, Vector3 faceNormal)
+            => AddTriangle(a, b, c, na, nb, nc, Vector2.Zero, Vector2.Zero, Vector2.Zero, faceNormal);
+
+        /// <summary>
+        /// The same, carrying a per-vertex texture coordinate. <see cref="BirdMesh"/> is what wants it: a bird's
+        /// vertices ride a pair its vertex shader animates from — the signed spanwise station and the chordwise
+        /// distance from the wing's mean line — so the flap cannot be read off position alone. The coordinates
+        /// follow the winding swap, or a corrected triangle would hand its neighbours' values to the shader.
+        /// </summary>
+        public void AddTriangle(Vector3 a, Vector3 b, Vector3 c, Vector3 na, Vector3 nb, Vector3 nc,
+            Vector2 ta, Vector2 tb, Vector2 tc, Vector3 faceNormal)
         {
             if (Vector3.Dot(Vector3.Cross(b - a, c - a), faceNormal) > 0f)
             {
                 (b, c) = (c, b);
                 (nb, nc) = (nc, nb);
+                (tb, tc) = (tc, tb);
             }
 
             short baseIndex = (short)_vertices.Count;
-            _vertices.Add(new VertexPositionNormalTexture(a, Vector3.Normalize(na), Vector2.Zero));
-            _vertices.Add(new VertexPositionNormalTexture(b, Vector3.Normalize(nb), Vector2.Zero));
-            _vertices.Add(new VertexPositionNormalTexture(c, Vector3.Normalize(nc), Vector2.Zero));
+            _vertices.Add(new VertexPositionNormalTexture(a, Vector3.Normalize(na), ta));
+            _vertices.Add(new VertexPositionNormalTexture(b, Vector3.Normalize(nb), tb));
+            _vertices.Add(new VertexPositionNormalTexture(c, Vector3.Normalize(nc), tc));
 
             _indices.Add(baseIndex);
             _indices.Add((short)(baseIndex + 1));
@@ -53,6 +64,15 @@ namespace Prazsky.Core.Render
         {
             AddTriangle(a, b, c, na, nb, nc, faceNormal);
             AddTriangle(a, c, d, na, nc, nd, faceNormal);
+        }
+
+        /// <summary>The same, carrying per-vertex texture coordinates (see the triangle overload).</summary>
+        public void AddQuad(Vector3 a, Vector3 b, Vector3 c, Vector3 d,
+            Vector3 na, Vector3 nb, Vector3 nc, Vector3 nd,
+            Vector2 ta, Vector2 tb, Vector2 tc, Vector2 td, Vector3 faceNormal)
+        {
+            AddTriangle(a, b, c, na, nb, nc, ta, tb, tc, faceNormal);
+            AddTriangle(a, c, d, na, nc, nd, ta, tc, td, faceNormal);
         }
 
         /// <summary>
