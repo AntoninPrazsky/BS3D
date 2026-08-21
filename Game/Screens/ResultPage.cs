@@ -535,11 +535,19 @@ namespace BS3D.Screens
             column.Widgets.Add(_newBest);
 
             //Which limit ran out, said plainly — only on a fail. Held back (Visible = false) on a cleared level.
+            //
+            //AT HEADING SIZE AND FULL BRIGHTNESS (#238), which is a correctness fix and not only a size bump. It
+            //was FontBody at MENU_TEXT_DIM, and the palette's own rule for that grey is "asides, always on a dark
+            //plate" — while this page, on a FAIL, has neither a plate nor a scrim. Photographed the day the
+            //`lost` argument made the page reachable at all: dim grey 146 at body size, over the lit arena and
+            //the ball cluster, came out the LEAST legible thing on the screen, under even the score line beside
+            //it. It is the one sentence saying why the level ended, so it reads at the weight of the heading
+            //above it; white is what the "FAILED" heading over the same backdrop already proves carries.
             _reason = new Label
             {
                 Text = string.Empty,
-                Font = FontBody,
-                TextColor = BS3DGame.MENU_TEXT_DIM,
+                Font = FontHeading,
+                TextColor = BS3DGame.MENU_TEXT,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 12),
             };

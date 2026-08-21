@@ -1,4 +1,4 @@
-using BS3D.Audio;
+﻿using BS3D.Audio;
 using BS3D.Effects;
 using BS3D.Platform;
 using BS3D.Screens;
@@ -176,6 +176,15 @@ namespace BS3D
         //block needs every level of a five-level chapter cleared, so the moment cannot be reached in a scripted
         //run at all — and it is the one thing about the milestone that has to be LOOKED at rather than asserted.
         private readonly bool _startupBlockDone;
+
+        /// <summary>
+        /// <c>lost</c>: makes the startup result page a FAILED one rather than a clear (#238). It exists because
+        /// the page could not be photographed at all — <c>result</c> hardcoded <c>cleared: true</c>, so
+        /// <c>stars=0</c> gave a starless CLEARED page and the fail state, its reason line included, had never
+        /// been looked at outside a real loss. Same reasoning as <c>blockdone</c> and <c>stars=</c>: a state a
+        /// test cannot reach is a state nobody checks.
+        /// </summary>
+        private readonly bool _startupLost;
 
         //Wall clock. Everything alive in the scene runs off it â€” the balls' heartbeat, the city's windows â€”
         //so none of it is tied to a simulation that may later be paused.
@@ -528,7 +537,7 @@ namespace BS3D
         public BS3DGame(bool fullscreen = false, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE,
             bool uncappedFps = false, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
             QualityLevel? quality = null, bool celebrate = false, bool confetti = false, bool lasers = false,
-            bool mute = false, bool play = false, bool result = false, bool blockDone = false,
+            bool mute = false, bool play = false, bool result = false, bool blockDone = false, bool lost = false,
             int? resultStars = null, int? streak = null, float[] shotSeconds = null, string level = null)
         {
             _fullscreen = fullscreen;
@@ -541,8 +550,12 @@ namespace BS3D
 
             //Naming a level means playing it, so "level=" implies "play" rather than needing it alongside
             _startupPlay = play || level != null;
-            _startupResult = result;
+            //Asking for a FAILED result page means asking for the result page, so "lost" implies "result" rather
+            //than needing it alongside — the same rule "level=" implies "play" by. Written here and not left to
+            //the caller because the first thing `lost` did on its own was put the main menu up and say nothing.
+            _startupResult = result || lost;
             _startupBlockDone = blockDone;
+            _startupLost = lost;
             _shotSchedule = shotSeconds;
             if (mute) _masterVolume = 0f;
 
@@ -1248,7 +1261,16 @@ namespace BS3D
                 //reasoning as "blockdone" — a state a real play-through reaches only by being GOOD at the game.
                 int testStars = Math.Clamp(_startupResultStars ?? 3, 0, Prazsky.BS3D.Scoring.StarRating.MAX);
 
-                PresentResult(new LevelResult(cleared: true, failureText: null, stars: testStars, newBest: true,
+                //"lost" flips it to a FAILED page (#238). The text is the real one GameplayScreen.Rules would
+                //produce for the cluster reaching the line rather than a placeholder, because the whole reason
+                //this exists is to look at the line the player is actually shown; a stand-in of a different
+                //length would be a different layout. On a fail the page shows no stars and no breakdown, so the
+                //figures below simply go unread — and newBest is refused outright, a lost level having no best.
+                bool lost = _startupLost;
+
+                PresentResult(new LevelResult(cleared: !lost,
+                    failureText: lost ? "The cluster reached the line." : null,
+                    stars: lost ? 0 : testStars, newBest: !lost,
                     hasNextLevel: true, nextLevelUnlocked: true, nextLevelMinStars: 1, totalStars: testStars,
                     campaignComplete: false,
                     //"blockdone" borrows the third block's own name, so the milestone is looked at with a real
