@@ -111,16 +111,29 @@ namespace BS3D.Effects
         //the extra daylight is what lets a COLOURED rim be read as a rim rather than as part of its neighbour.
         private const float DAYLIGHT = 0.10f;
 
-        //Facets around each tube.
+        //⚠⚠ FACETS AROUND EVERY TUBE, AND IT IS ONE FIGURE FOR ALL THREE OF THEM BECAUSE THEIR SILHOUETTES
+        //HAVE TO NEST. This is the single nastiest trap in this class and it bit twice, both times as a DASHED
+        //contour along the letters and both times plainest on the badge — the largest thing on screen, and so
+        //where a tessellation fault shows first.
         //
-        //⚠ THE KEYLINE MATCHES THE BODY AND MUST, and it was ten against the body's sixteen for one revision on
-        //the reasoning that a flat unlit tone needs no roundness. What that overlooked is that the SILHOUETTES
-        //have to nest: the keyline is a polygon of one facet count sitting just outside a polygon of another, so
-        //where the letter's surface turns edge-on the two interleave, and the keyline wins the depth test in
-        //patches. It photographs as a DASHED dark contour just inside the letter — plainest on the badge, which
-        //is the largest thing on screen and therefore where a tessellation fault shows first. Equal counts make
-        //the two concentric and the nesting uniform all the way round.
-        private const int BODY_SIDES = 16, OUTLINE_SIDES = 16;
+        //Each shell is a POLYGON of this many sides, not a circle, so its silhouette lies somewhere between
+        //r·cos(pi/n) and r. Give two neighbouring shells different counts and those two bands interleave: their
+        //boundaries cross back and forth, and in the crossings there is a sliver belonging to NEITHER of them.
+        //What shows in a sliver is whatever is behind — the sky, the grass — so a one-pixel thread of backdrop
+        //runs along inside the outline and breaks it up.
+        //
+        //It was the keyline against the body first (ten against sixteen), which equal counts fixed. Then it came
+        //back between the KEYLINE and the AURA when the aura had to be narrowed to clear the fold (see
+        //AURA_WIDTH): at the old width their radii were 0.063 apart and no facet error could bring them
+        //together, at the new one they are 0.020 apart and a 12-gon inside a 16-gon crossed it easily. Measured
+        //by magnifying the badge's edge to single pixels: body, then a purple keyline, then a ONE-PIXEL GREEN
+        //THREAD OF GRASS, then the glow.
+        //
+        //So: one count, and the three radii (0.130, 0.152, 0.172) keep their cos(pi/16) bands clear of one
+        //another — 0.1275-0.130, 0.1491-0.152, 0.1687-0.172, which do not touch. Sixteen is what the letter
+        //itself wants (its specular streak runs along it and its silhouette is on show against the sky); the
+        //other two would have been happy coarser and cannot be.
+        private const int TUBE_SIDES = 16;
 
         //HOW MUCH BIGGER THE LAST WORD IS. The owner picked the three-line composition with the last word as
         //a big separate badge, out of three offered: one line, two lines, and this. "3D" is the half of the
@@ -279,12 +292,26 @@ namespace BS3D.Effects
         //letter over it costs neither: the letters keep the light they were tuned to and the ghosts get as much
         //as they want. Width in cap heights, from the letter's own surface — so the band that shows is this less
         //OUTLINE_WIDTH, and the keyline still separates the letter from its own glow.
-        private const float AURA_WIDTH = 0.085f;
+        //
+        //⚠⚠ AND ITS CEILING IS GEOMETRY, NOT TASTE. It was 0.085, which put the shell's radius at 0.215 against
+        //this alphabet's tightest bend of LetterShapes.MIN_BEND_RADIUS = 0.2016 — so the shell FOLDED THROUGH
+        //ITSELF on the inside of that bend, and the fold showed as flat coloured patches filling the counters of
+        //B, O, D and 3. The owner reported it as looking like a hole or a gap, which is exactly what an
+        //inside-out surface looks like. LetterMesh now REFUSES a tube that fat, so this cannot come back
+        //silently; the figure below is 85 % of the bend radius less the letter's own, which leaves the counters
+        //of B a clear 0.16 of a cap height of daylight (their bars are 0.50 apart, less two shell radii).
+        private const float AURA_WIDTH = 0.042f;
 
         //Its own linear luminance at the trough and the crest of the same beat, and both are well over the 0.55
         //the glare pass blooms at: the band itself is only a few pixels of a 900p frame, so what the eye reads
         //is almost entirely what the bloom pyramid makes of it, and a band that only just crossed the threshold
         //would smear into nothing. The swing is what makes the ghosts breathe with the word.
+        //
+        //THESE TWO ARE TIED TO AURA_WIDTH BY THEIR PRODUCT, and were doubled when the width was halved to clear
+        //the fold above. What the bloom integrates is the LIGHT in the band, which is its width times its
+        //radiance — so a band half as wide at twice the radiance makes the same halo, and the halo's SIZE was
+        //never the band's anyway, it is the pyramid's. Their old pair (0.50 and 0.85 at a width of 0.085) is
+        //the same product as this one, which is why the photographs either side of the fix match.
         //
         //⚠ THE CREST IS BOUNDED BY WHAT THE HALO DOES TO THE LETTERS, not by the halo itself, and this is the
         //third figure that lesson has moved. The bloom is a FULL-FRAME pass: a halo that swells lays its own
@@ -294,13 +321,7 @@ namespace BS3D.Effects
         //chalky at every crest. At 0.85 the beat reads as the word breathing between SOLID AND VIVID at the
         //trough and SOFT AND GLOWING at the crest, which is a better pulse than brightness alone would be —
         //but it is a ceiling found by photograph, and anything above it is paid for in the letters' colour.
-        private const float AURA_REST = 0.50f, AURA_PEAK = 0.85f;
-
-        //Facets around it. Coarser than the other two are allowed to be, for the reason they are not: the aura
-        //is ADDITIVE and writes no depth, so it never has to nest inside anything and the dashing that forced
-        //the keyline up to the body's count cannot happen here. Twelve rather than eight only because a band of
-        //light about to be blurred twice costs nothing in vertices and the extra roundness is free.
-        private const int AURA_SIDES = 12;
+        private const float AURA_REST = 1.01f, AURA_PEAK = 1.72f;
 
         //=== THE COLOUR ===
 
@@ -692,9 +713,9 @@ namespace BS3D.Effects
             int index = _bodyMeshes.Count;
             _glyphIndex[c] = index;
 
-            LetterMesh body = new(device, c, TUBE_RADIUS, BODY_SIDES);
-            LetterMesh outline = new(device, c, TUBE_RADIUS + OUTLINE_WIDTH, OUTLINE_SIDES);
-            LetterMesh aura = new(device, c, TUBE_RADIUS + AURA_WIDTH, AURA_SIDES);
+            LetterMesh body = new(device, c, TUBE_RADIUS, TUBE_SIDES);
+            LetterMesh outline = new(device, c, TUBE_RADIUS + OUTLINE_WIDTH, TUBE_SIDES);
+            LetterMesh aura = new(device, c, TUBE_RADIUS + AURA_WIDTH, TUBE_SIDES);
 
             _bodyMeshes.Add(body);
             _outlineMeshes.Add(outline);
@@ -884,23 +905,22 @@ namespace BS3D.Effects
                 _letterWorld[i] = LetterWorld(in _letters[i], Placement.Lerp(in _open[i], in _settled[i], morph),
                     cap, wallClock, in blockToWorld);
 
-            //=== The keyline, one draw a letter, each rim its own colour off the same wheel ===
-            _device.RasterizerState = RasterizerState.CullClockwise;
-
-            for (int i = 0; i < _letters.Length; i++)
-            {
-                InstancedModelRenderer renderer = _outlineRenderers[_letters[i].Glyph];
-
-                //Through EmissiveTint and in LINEAR radiance, for the reason on OUTLINE_MATERIAL: this pass
-                //has no usable normals, so its colour cannot come from the light.
-                renderer.EmissiveTint = ColorSpace.SrgbToLinear(
-                    Hue(_letters[i].Phase + wallClock * HUE_FLOW + OUTLINE_HUE_SHIFT) * OUTLINE_VALUE);
-
-                _oneInstance[0] = new ModelInstance(_letterWorld[i], fullyOpen);
-                renderer.Draw(camera, _oneInstance, 1, _outlineParams);
-            }
-
-            //=== The letters, one draw each, because the colour is a per-draw uniform ===
+            //=== The letters first, one draw each, because the colour is a per-draw uniform ===
+            //
+            //⚠⚠ THE ORDER OF THE THREE SHELLS IS LOAD-BEARING, AND IT IS THIS: letter, glow, keyline. The
+            //letter goes first because it is the only one that WRITES depth, and everything after it is then
+            //rejected by early-Z wherever the letter already covers — which is what keeps the two unlit shells
+            //to the few pixels of them that show (see the aura pass below for the 1 ms that is worth).
+            //
+            //THE KEYLINE GOES LAST AND OVER THE GLOW, WHICH IS WHAT REMOVED A ONE-PIXEL SEAM. While the keyline
+            //was drawn before the glow and wrote depth, the glow's inner edge was defined BY the keyline's
+            //silhouette — two shells having to meet exactly along a curve, which they cannot: magnifying the
+            //badge's edge to single pixels showed a thread of BACKDROP between them, grass at (120,225,100)
+            //where the keyline's purple ended and the glow's cyan began, belonging to neither. Drawn this way
+            //round the glow runs continuously from the letter's own edge outwards and the keyline is painted on
+            //top of it, so there is no boundary two rasterisations have to agree about. Neither unlit shell
+            //writes depth, for the same reason and for one more: their bands overlap wherever the word is
+            //tight, and one of them writing depth would punch a hole in the other.
             _device.RasterizerState = RasterizerState.CullCounterClockwise;
 
             //The beat, plus the arrival's own flare — which is where the reveal's overshoot lives, scale having
@@ -920,23 +940,19 @@ namespace BS3D.Effects
                 renderer.Draw(camera, _oneInstance, 1, _bodyParams, hue);
             }
 
-            //=== And the ghosts LAST, which is a performance decision and not a drawing one. ===
+            //=== Then the ghosts: an additive band of the letter's own colour, running from the letter's own
+            //edge outwards, which the glare pass turns into the halo. FRONT faces culled so what is drawn is
+            //the shell's FAR surface, behind the letter, and only what lies outside the letter survives. ===
             //
-            //An additive band of the letter's own colour just outside its rim, which the glare pass then turns
-            //into the halo. FRONT faces culled, like the keyline and for the keyline's reason, so what is drawn
-            //is the shell's FAR surface — behind the letter, so only the band outside it survives. Its depth
-            //WRITE is off, because two letters' auras overlap wherever the word is tight and one of them
-            //writing depth would punch a hole in the other.
-            //
-            //⚠ IT WAS DRAWN FIRST, AND THAT COST 2.6 ms OF A 26 ms FRAME — measured, on the pinned rig, as the
-            //only version of this whose cost came out ABOVE the machine's noise. Drawn first there is nothing
-            //in the depth buffer yet, so every pixel of every shell is shaded and then thrown away by the
-            //letters painted over it; drawn last, early-Z rejects all of that before the shader runs and only
-            //the band is paid for. The band is a fraction of the shell, and the shader it is paying for is the
-            //frame's full lit material — cloud shadow, hemisphere ambient, Fresnel, sky radiance — every term
-            //of which is multiplied by a black diffuse and thrown away. The picture is identical either way:
-            //additive blending is order-independent, and the only pixels that differ are the ones the depth
-            //test removes in both orders.
+            //⚠ IT WAS DRAWN FIRST OF THE THREE, AND THAT COST 2.6 ms OF A 26 ms FRAME — measured, on the pinned
+            //rig, as the only version of this whose cost came out ABOVE the machine's noise. Drawn first there
+            //is nothing in the depth buffer yet, so every pixel of every shell is shaded and then thrown away
+            //by the letters painted over it; drawn after them, early-Z rejects all of that before the shader
+            //runs and only the visible band is paid for. The band is a fraction of the shell, and the shader it
+            //pays for is the frame's full lit material — cloud shadow, hemisphere ambient, Fresnel, sky
+            //radiance — every term of which is multiplied by a black diffuse and thrown away. The picture is
+            //identical either way: additive blending is order-independent, and the only pixels that differ are
+            //the ones the depth test removes in both orders.
             _device.BlendState = BlendState.Additive;
             _device.DepthStencilState = DepthStencilState.DepthRead;
             _device.RasterizerState = RasterizerState.CullClockwise;
@@ -950,6 +966,22 @@ namespace BS3D.Effects
 
                 _oneInstance[0] = new ModelInstance(_letterWorld[i], fullyOpen);
                 renderer.Draw(camera, _oneInstance, 1, _auraParams);
+            }
+
+            //=== And the keyline over it, one draw a letter, each rim its own colour off the same wheel ===
+            _device.BlendState = BlendState.Opaque;
+
+            for (int i = 0; i < _letters.Length; i++)
+            {
+                InstancedModelRenderer renderer = _outlineRenderers[_letters[i].Glyph];
+
+                //Through EmissiveTint and in LINEAR radiance, for the reason on OUTLINE_MATERIAL: this pass
+                //has no usable normals, so its colour cannot come from the light.
+                renderer.EmissiveTint = ColorSpace.SrgbToLinear(
+                    Hue(_letters[i].Phase + wallClock * HUE_FLOW + OUTLINE_HUE_SHIFT) * OUTLINE_VALUE);
+
+                _oneInstance[0] = new ModelInstance(_letterWorld[i], fullyOpen);
+                renderer.Draw(camera, _oneInstance, 1, _outlineParams);
             }
 
             //Put back what BeginSceneDraw stated for the scene, so the glass that follows finds the frame as
