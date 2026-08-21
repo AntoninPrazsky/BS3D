@@ -1,4 +1,4 @@
-using FontStashSharp;
+﻿using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Myra.Graphics2D;
 using Myra.Graphics2D.UI;
@@ -220,6 +220,12 @@ namespace BS3D.Screens
         /// this one, so a line that had to be read as loudly as a heading could only be set at body size.
         /// </summary>
         protected SpriteFontBase FontHeading => Game.MenuFontHeading;
+
+        /// <summary>
+        /// The section-label size (96, the display face) — a heading for a group of rows rather than for a page.
+        /// Added by #243; see <c>MENU_FONT_SECTION</c> for why the small face's size could not just be raised.
+        /// </summary>
+        protected SpriteFontBase FontSection => Game.MenuFontSection;
         protected SpriteFontBase FontSmall => Game.MenuFontSmall;
         protected SpriteFontBase FontTitle => Game.MenuFontTitle;
         protected SpriteFontBase FontStars => Game.MenuFontStars;
