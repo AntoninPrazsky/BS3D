@@ -234,13 +234,6 @@ namespace BS3D.Screens
         protected SpriteFontBase FontTitle => Game.MenuFontTitle;
         protected SpriteFontBase FontStars => Game.MenuFontStars;
 
-        /// <summary>
-        /// The front end's own, bigger than <see cref="FontTitle"/> because the game's name on the first screen
-        /// anybody sees has no height budget to share — where <c>FontTitle</c> also sets the splash's card and
-        /// the result screen's headings, which do (#217).
-        /// </summary>
-        protected SpriteFontBase FontGameTitle => Game.MenuFontGameTitle;
-
         //The rating's two glyphs, shared so the picker's small rows and the result's headline cannot drift
         //apart. They must be drawn with FontStars or FontSmall: the glyphs live in Inter, and the display face
         //the loud type is set in carries neither — FontStashSharp would silently draw blanks.

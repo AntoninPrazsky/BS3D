@@ -20,6 +20,13 @@ namespace BS3D.Screens
     /// centred: what is behind a pause is a stopped game rather than a view worth keeping clear, and a picker is
     /// a grid that wants the whole frame.
     /// </para>
+    /// <para>
+    /// <b>Half of that composition is no longer in this tree (#248).</b> The name is still pinned top-right at
+    /// the same inset, but it is 3D lettering standing in the scene — <see cref="Effects.TitleWordmark"/>, drawn
+    /// by <see cref="BackdropScreen"/> — rather than a label laid over it, so what this page holds is the
+    /// bottom-left half and the corner the other half is measured from
+    /// (<see cref="FRONT_INSET"/>). The composition it describes is unchanged; only which layer draws it is.
+    /// </para>
     /// </summary>
     internal sealed class MainMenuPage : MenuPage
     {
@@ -27,8 +34,15 @@ namespace BS3D.Screens
         /// How far the composition is held off the frame's edges, in the 2160p design units everything else on
         /// the page is authored in. One figure for both corners, so the name's distance from its edges and the
         /// column's from its own are the same measurement rather than two that drifted apart.
+        /// <para>
+        /// Internal since #248, and for exactly that reason: the game's name left this tree to become 3D
+        /// lettering in the scene (<see cref="Effects.TitleWordmark"/>), and it holds the SAME inset off the
+        /// top and right edges that the entry column below holds off the bottom and left. The wordmark works
+        /// in fractions of the frame rather than in Myra's design units, so the host converts this figure
+        /// once when it builds it — it does not restate it.
+        /// </para>
         /// </summary>
-        private const int FRONT_INSET = 130;
+        internal const int FRONT_INSET = 130;
 
         /// <summary>
         /// The quality notice's wrap width. Narrower than it was when it sat under a centred column: in the
@@ -56,18 +70,14 @@ namespace BS3D.Screens
 
         protected override Widget BuildTree()
         {
-            //The title carries no plate and no frame: at this size the letters are their own mass, and a
-            //frame around them would be one more thing competing with whichever scene is turning behind it.
-            //"BS3D" is the repository's and the assembly's shorthand; the game's name is spelled out.
-            Label title = new()
-            {
-                Text = BS3DGame.GAME_TITLE,
-                Font = FontGameTitle,
-                TextColor = BS3DGame.MENU_TEXT,
-                HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Top,
-                Margin = ScaledThickness(0, FRONT_INSET, FRONT_INSET, 0),
-            };
+            //THE GAME'S NAME IS NOT IN THIS TREE ANY MORE (#248). It was a Label pinned to this corner in the
+            //display face at 240 design units — no plate, no frame, no effect — and the owner's complaint was
+            //that at that it whispered: the title has to be the loudest thing on the screen. It is now 3D
+            //lettering standing in the scene itself (Effects.TitleWordmark, drawn by BackdropScreen), which
+            //Myra cannot do at all: a widget is a sprite over the frame, and a wordmark that turns, drifts and
+            //catches the scene's light is geometry in it. The corner and the inset are unchanged, so the
+            //composition this class exists to describe is the same one — the name is still pinned top-right
+            //and the entries bottom-left, and the middle is still left to the scene.
 
             VerticalStackPanel column = MenuColumn();
 
@@ -115,10 +125,7 @@ namespace BS3D.Screens
             column.Widgets.Add(FrontEndEntry("About", Game.OpenAbout));
             column.Widgets.Add(FrontEndEntry("Quit", Game.Exit));
 
-            //The title first, because CollectNavEntries walks the tree in the order widgets were ADDED rather
-            //than where they landed — it holds no buttons, so what this really fixes is that the entries keep
-            //their own order behind it.
-            return ScreenRoot(title, column);
+            return ScreenRoot(column);
         }
 
         internal override void Refresh()

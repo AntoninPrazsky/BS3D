@@ -128,6 +128,11 @@ namespace BS3D
         //which is the host's; the result page owns only the decision to show one.
         private TrophyPodium _trophy;
 
+        //The game's name in 3D over the front end (#248). On the host because its meshes and renderers outlive
+        //every screen and because it is enrolled in the scene's light rig like the rest of the setting; the
+        //backdrop screen owns only the decision to draw it, which is what keeps it to the main menu.
+        private TitleWordmark _titleWordmark;
+
         //The level theme. On the host with the rest of the audio, because it outlives any one session and a
         //track that restarted from the top on every retry would be exhausting.
         private ProceduralMusic _music;
@@ -217,6 +222,13 @@ namespace BS3D
         /// HDR pass; the result page decides which tier and when — see <see cref="TrophyPodium"/>.
         /// </summary>
         internal TrophyPodium Trophy => _trophy;
+
+        /// <summary>
+        /// The game's name as 3D lettering (#248). On the host because it is drawn in the scene's HDR pass and
+        /// is lit by the scene's own rig; the backdrop screen decides <i>when</i>, which is while the main menu
+        /// is the page on top — see <see cref="TitleWordmark"/>.
+        /// </summary>
+        internal TitleWordmark TitleWordmark => _titleWordmark;
 
         /// <summary>The level theme, synthesized at load and looped while a level is being played.</summary>
         internal ProceduralMusic Music => _music;
@@ -829,6 +841,18 @@ namespace BS3D
             //the clock and the camera — goes out in BeginSceneDraw, right before the dome; the two dome-derived
             //colours follow the dome and are ApplySkyLighting's business.
             _clouds.ApplyStaticParameters(_skyEffect, _instancingEffect, SkyLightRig.SUN_DIRECTION);
+
+            //The game's name as 3D lettering over the front end (#248). Its twenty-two meshes are built here,
+            //once — eleven letters at the stroke weight and eleven again fatter, for the keyline behind them.
+            //
+            //BEFORE THE SetScene BELOW, AND THAT IS NOT TIDINESS: SetScene ends in ApplySkyLighting, which is
+            //what first hands the dome's light rig to every enrolled renderer, and the wordmark's are enrolled
+            //(SkyLitRenderers). Built after it, the letters would stand under the library's default rig until
+            //the next scene or dome change — the very fault the ceiling glass had, and the island's own comment
+            //records the same ordering for the same reason. The inset is the front end's own figure converted
+            //to a fraction of the frame's height; MainMenuPage.FRONT_INSET is the one copy of it.
+            _titleWordmark = new TitleWordmark(GraphicsDevice, _instancingEffect, GAME_TITLE,
+                SCENE_AMBIENT_INTENSITY, Screens.MainMenuPage.FRONT_INSET / (float)MENU_DESIGN_HEIGHT);
 
             //A different one of the twelve every launch, so the front end is not the same picture twice — unless
             //the command line pinned one. It also sets the dome and the city's lighting, and ends in
@@ -1477,6 +1501,7 @@ namespace BS3D
             _fireworks?.Dispose();
             _confetti?.Dispose();
             _trophy?.Dispose();
+            _titleWordmark?.Dispose();
             _music?.Dispose();
 
             base.UnloadContent();
