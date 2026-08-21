@@ -510,8 +510,9 @@ namespace BS3D.Tools.LevelGen
         #region The designs
 
         /// <summary>
-        /// The campaign's opener: a round pyramid, widest against the glass and tapering to a single ball ten
-        /// levels down, in <b>two</b> colours — a yellow shell over a red core. It replaces the hand-drawn
+        /// The campaign's opener: a <b>perfect</b> pyramid — a centred square course against the glass, one
+        /// ball narrower a side on every level down to the single apex ball — in three colours, one solid
+        /// band a course cycling red, green, blue up the flank. It replaces the hand-drawn
         /// <c>One.json</c>, at the author's request and for two reasons they gave — the pyramid had a
         /// <b>tail</b>, and it had no sky of its own.
         /// <para>
@@ -531,11 +532,18 @@ namespace BS3D.Tools.LevelGen
         /// third ring the slab's Chebyshev radius of 4.5 did.
         /// </para>
         /// <para>
-        /// What it costs and what it buys, measured by the tool: <b>225 balls in 6 standing groups → 173 in
-        /// 2</b>, best single shot 49 % → 55 %, lateral margin 1 free cell → 2. Two groups is not thin for
-        /// this block — <see cref="Bullseye"/>, three levels later and the one the author calls easier than
-        /// this was, has three — and it puts the opener under it on every figure, which is what #234 asked
-        /// for and half of what #98 is about.
+        /// <b>#234's first pass cut the slab and got the shape wrong, and the owner said so.</b> What was
+        /// left was a round cone stepping 0.375 of a cell a level against the 1/√2 a level climbs — under
+        /// half a ball a tier, too fine to read as steps at all, so the level tapered into a spike and
+        /// still did not look like a pyramid. The owner's word for what it should be was <b>perfect</b>,
+        /// and the lattice itself defines what that is: consecutive levels sit offset by half a cell in X
+        /// and Z, which is cannonball packing, so a course one ball narrower a side nests into the pockets
+        /// of the course above it <b>exactly</b>. The sides now step 1..10 (<see cref="OneCourse"/>), which
+        /// is also the rule the game's own fallback map draws — the opener is the shape the game itself
+        /// shipped with, on purpose this time. Measured by the tool: 173 balls in 2 groups became
+        /// <b>385 in 13</b>, the lateral margin 2 cells became the one every other level keeps, and
+        /// nothing needs the repair pass — a shape whose edges sit on the lattice's own half-units has no
+        /// slivers to round off.
         /// </para>
         /// <para>
         /// Two things came free with the regeneration. The old field was 10 wide against a slab occupying
@@ -547,7 +555,7 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// <b>That scene is the meadow now, and not the savanna it opened in until #194.</b> The savanna was
         /// picked when this design was written and the reason given was only that it is the warmest dome of the
-        /// set (14) — nothing about a round pyramid needs a savanna. Three things pay for the
+        /// set (14) — nothing about a pyramid needs a savanna. Three things pay for the
         /// move. The block is one place at one hour, and this is the meadow block. The savanna is the one
         /// campaign scene that carries <b>point lights of its own</b> — a ring of flickering campfires that
         /// <c>SceneLights</c> puts onto the balls — and the level that teaches colour matching is the last one
@@ -556,38 +564,125 @@ namespace BS3D.Tools.LevelGen
         /// a first-time player meets first. Dome 1 is the block's, for <see cref="Bullseye"/>'s own reason.
         /// </para>
         /// <para>
-        /// <b>Two colours in concentric rings, and the direction of travel is the point.</b> The hand-drawn
-        /// One used <b>eight</b>, this design opened on four and #234 leaves two — and every step of that is
-        /// the same argument, which is the magazine: it draws evenly among the colours still alive, so at
-        /// eight the wanted ball arrived one time in eight, a harder draw than anything after it on the level
-        /// that teaches the game. At two it is a coin. Rings also keep both colours on the <b>top</b> level,
-        /// which is the anchor the whole cone hangs from, so neither colour's group can cut the level loose:
-        /// the shell hangs off the outer ring and the core off the centre, and each survives the other going.
+        /// <b>Three colours — red, green, blue, the owner's own words — and the magazine is the reason they
+        /// go on as bands.</b> The draw odds run one in three, between the coin the two-colour cone flipped
+        /// and the quarter the four-colour one drew; what three buys over two is a colour <i>inside</i> a
+        /// colour, so the pyramid reads as tiers from below. But a loaded colour only spends if something
+        /// of it is <b>visible</b>: the first colouring here was concentric shells, red on the skin, and a
+        /// player holding blue had nothing blue to shoot at until the red was opened for them — the owner's
+        /// own example, three blue balls and a red wall. One band a course puts all three colours on the
+        /// outside from the first shot, and a band's underside is its own colour, so the same is true
+        /// looking up the axis. What that costs is the cascade a banded pyramid cannot help: every course
+        /// hangs off the wider one above it, so a band that goes takes the point with it — the biggest
+        /// single shot is the ninth course at <b>74 %</b> (against a one-shot gate of 90 and the pack's
+        /// next-highest at 52), which is the level's own lesson, played rather than explained.
         /// </para>
         /// </summary>
         private static Design One() => new()
         {
             File = "One.json",
             Name = "One",
-            Grid = 12,
-            Depth = 10,
+            Grid = ONE_GRID,
+            Depth = ONE_DEPTH,
             Scene = SceneKind.Meadow,
             Sky = 1,
             Music = MUSIC_RINGS,
             Shots = 30,
             CeilingStep = 5,
-            //A CONE and nothing else (#234). The slab is gone with the white ring that bordered it: the
-            //widest step of the pyramid is what hangs against the glass now, and every step under it is
-            //narrower, so the silhouette says "pyramid" from every angle the gun can walk to.
-            Occupied = (r, ang, i, depth) => r <= 0.4f + i * 0.375f,
-            //Two colours in round rings, and the shape is why there can be two. The slab reached a Chebyshev
-            //radius of 4.5 and so had a THIRD ring, which was the white border - and that border was the one
-            //thing in this level a player had to shoot at more than once: the square ring rounded off into
-            //four disconnected arcs, so 32 white balls stood in groups of at most 11 while red went in one
-            //shot of 81 and yellow in one of 112. The cone never reaches ring 2, so dropping the slab and
-            //dropping the colour are the same edit.
-            Colour = (r, ang, i, depth) => Ring(r, new[] { BallType.Type1, BallType.Type7 }),
+            //The cannonball pyramid, drawn on purpose. Not the polar frame: a course's edge has to sit on
+            //the half-unit, which the emitter's own shift is exact at and a radius walked through atan2
+            //is not.
+            OccupiedBlock = (x, z, i, depth) => OneCourse(x, z, i),
+            BlockColour = OneColour,
         };
+
+        //THE OPENER'S OWN FIGURES. Twelve wide so the base keeps its free column of wall (the measured fix
+        //this design shipped with), ten deep so the sides step 1..10, and the field the default sixteen —
+        //offset 6, even, which Emit refuses the odd alternative to, so the course rule's parity is the
+        //field's own by construction.
+        private const byte ONE_GRID = 12;
+        private const byte ONE_DEPTH = 10;
+
+        //The axis the courses centre on, in the same real units the lattice shifts odd levels by: the
+        //centre of the field's TOP level, which is the level BallsMap.Center() puts on the origin.
+        private const float ONE_AXIS = (ONE_GRID - 1) * 0.5f + 0.5f;
+
+        /// <summary>
+        /// One course of the opener: a centred square, one ball narrower a side than the level above it —
+        /// half a unit a side a level, measured against where each cell <b>actually sits</b> (its index
+        /// plus the half-unit shift of its level) and not against the raw index, so every course lands on
+        /// the axis exactly at either parity. That half-unit rule is the lattice's own close packing: the
+        /// narrower course nests into the pockets of the wider one above it, which is what makes this a
+        /// <b>perfect</b> pyramid and not a stepped cone — the game's fallback map
+        /// (<c>GameplayScreen.BuildFallbackMap</c>) is this same rule, so the opener is now the shape the
+        /// game itself shipped with, drawn deliberately instead of by default.
+        /// </summary>
+        private static bool OneCourse(int x, int z, int i)
+        {
+            //The emitter's own parity: fieldLevel is i plus an even offset, so odd i is an odd field level
+            //and carries the shift. Both this and the course's half-width are whole multiples of a half,
+            //hence exact in binary — the test needs no tolerance for the same reason the fallback's does.
+            float shift = (i % 2) * 0.5f;
+            float half = i * 0.5f;
+
+            return MathF.Abs(x + shift - ONE_AXIS) <= half && MathF.Abs(z + shift - ONE_AXIS) <= half;
+        }
+
+        /// <summary>
+        /// The pyramid's colouring: <b>one solid band a course</b>, cycling red-green-blue up the flank —
+        /// each step's wall a colour of its own, so whatever the magazine has loaded, some wall on the
+        /// pyramid is already wearing it. That is the owner's own fix (#234): the first colouring here
+        /// was concentric shells, red on the skin, and a player holding blue had nothing blue to shoot at
+        /// until someone else had opened the red for them — three wasted shots on the level that teaches
+        /// the game.
+        /// <para>
+        /// The bands read from below as well as from the side, because a course's underside is its own
+        /// colour: nested squares stepping red, green, blue up the axis. And a band that goes takes the
+        /// point under it with it — every course hangs off the wider one above — which is the cascade the
+        /// design is honest about (measured: the biggest single shot is the blue eighth course at 57 %,
+        /// the tip's 140 balls riding it down; the one-shot gate is 90 and the pack's previous top was
+        /// Smiley's 52).
+        /// </para>
+        /// <para>
+        /// Two courses are not plain bands, both for structural reasons. <b>The apex ball is one ball</b>:
+        /// in its own colour it would stand alone against the second course's, so it takes the first
+        /// band's colour and reads as that band's point. And <b>the top course is the anchor</b> — one
+        /// colour across it would be the whole level hanging off a single group, the firework the drop
+        /// test exists to refuse — so the plate is cut into concentric rings alternating the two colours
+        /// the course under it is not, which also keeps every ring out of contact with the band below
+        /// it: no ring and band of one colour ever merge, and no colour owns the anchor.
+        /// </para>
+        /// </summary>
+        private static BallType OneColour(int x, int z, int i)
+        {
+            if (i < ONE_DEPTH - 1)
+            {
+                //Math.Max: the apex course (i == 0) is one ball and takes the first band's colour.
+                return Band(Math.Max(i, 1), ONE_PALETTE);
+            }
+
+            return Band(OneShell(x, z, i), ONE_PLATE);
+        }
+
+        /// <summary>
+        /// Which concentric shell of its own course a cell sits in, counted from the skin inward: the
+        /// course's own half-width less the cell's distance from the axis. Both are multiples of a half
+        /// and differ by a whole one, so the arithmetic is exact in binary and needs no tolerance — the
+        /// same argument the fallback map's own test makes.
+        /// </summary>
+        private static int OneShell(int x, int z, int i)
+        {
+            float shift = (i % 2) * 0.5f;
+            float box = MathF.Max(MathF.Abs(x + shift - ONE_AXIS), MathF.Abs(z + shift - ONE_AXIS));
+
+            return (int)(i * 0.5f - box);
+        }
+
+        //Red, green, blue - the owner's own words for what the opener is (#234): "a simple three-colour
+        //(RGB) pyramid". The plate's two are drawn out of the same three by skipping the colour of the
+        //course directly under it.
+        private static readonly BallType[] ONE_PALETTE = { BallType.Type1, BallType.Type2, BallType.Type3 };
+        private static readonly BallType[] ONE_PLATE = { BallType.Type1, BallType.Type2 };
 
         /// <summary>
         /// A stepped cone hanging point-down, coloured in concentric rings: a target seen from underneath,
