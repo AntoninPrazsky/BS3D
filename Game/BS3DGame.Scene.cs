@@ -422,7 +422,28 @@ namespace BS3D
             // since #228: only it knows whether the tier up is a solid metal or a pane of crystal, and the
             // two want different blending and different depth (see TrophyPodium.Draw). What stays here is
             // the save and restore around it, because the frame that follows is this file's.
-            if (_trophy != null && _trophy.Active)
+            //THE CONFETTI IS IN THIS LAYER TOO SINCE #242, for the cup's own reason: it fell inside the HDR
+            // pass, which is exactly what the result page's defocus reads, so the campaign's last celebration
+            // dissolved into bokeh along with the arena — the owner's words, it should stay sharp like the
+            // trophy. Three consequences, all accepted rather than missed:
+            //
+            //  - IT LOSES SCENE OCCLUSION. Out here the depth buffer is not the scene's, so the island and
+            //    the cluster no longer hide a chip falling behind them. Cheap at the moment it plays: the
+            //    camera has been released onto its orbit and the page is going out of focus, so what the
+            //    paper would have been occluded BY is soft and receding anyway.
+            //  - it is drawn BEFORE the cup, so the cup still covers it. That is #225's ruling that the
+            //    presented object reads as the nearest thing, and this issue did not ask to change it.
+            //  - it had to become PREMULTIPLIED to live here (Confetti.fx and Confetti.cs both), because
+            //    this target is cleared transparent and composited by coverage rather than drawn over an
+            //    opaque scene.
+            //
+            //What it does NOT lose is being tonemapped with the frame — the composite runs it through the
+            // same exposure, curve and grain — so the paper still reads as lit rather than luminous, which
+            // was the reason it sat in the HDR pass in the first place (#215).
+            bool trophyUp = _trophy != null && _trophy.Active;
+            bool confettiUp = _confetti != null && _confetti.Active;
+
+            if (trophyUp || confettiUp)
             {
                 BlendState blend = GraphicsDevice.BlendState;
                 DepthStencilState depth = GraphicsDevice.DepthStencilState;
@@ -435,7 +456,8 @@ namespace BS3D
                 //tier, how much of the cup is there everywhere it is
                 GraphicsDevice.Clear(Color.Transparent);
 
-                _trophy.Draw(_camera);
+                if (confettiUp) _confetti.Draw(_camera);
+                if (trophyUp) _trophy.Draw(_camera);
 
                 GraphicsDevice.BlendState = blend;
                 GraphicsDevice.DepthStencilState = depth;
@@ -560,7 +582,12 @@ namespace BS3D
             //The cup's layer, filled by BeginSceneDraw if a cup is up this frame. Asked for here rather
             // than carried in a field: the pair of slices is one pipeline, and what the frame's close
             // consumes is what its opening produced.
-            RenderTarget2D foreground = _trophy != null && _trophy.Active ? _pipeline.ForegroundTarget : null;
+            //The same two tests BeginSceneDraw opened the layer on, and they have to stay the same two: a
+            //layer filled and not composited is a celebration drawn into a target nobody reads, and one
+            //composited without being filled is last frame's contents blended over this one.
+            RenderTarget2D foreground = (_trophy != null && _trophy.Active) || (_confetti != null && _confetti.Active)
+                ? _pipeline.ForegroundTarget
+                : null;
 
             //A no-op in the two cities and the desert, which carry no overlay weather
             _sceneRenderer.DrawOverlays(_scene, sceneFrame);
@@ -571,12 +598,12 @@ namespace BS3D
             //covers the session (see Fireworks).
             _fireworks?.Draw(_camera);
 
-            //The confetti after them, and inside the same HDR pass for the opposite half of that reason: the
-            //paper does NOT emit, and being tonemapped with the rest of the frame is what keeps it looking lit
-            //rather than luminous — the glare threshold is what decides which of its broadside flashes glint.
-            //After the fireworks rather than before because it is alpha-blended over what is behind it and the
-            //shells are additive light in the sky, so a piece of paper crossing one should cover it (#215).
-            _confetti?.Draw(_camera);
+            //The confetti used to be drawn HERE, after the shells and inside the same HDR pass — #242 moved it
+            //out to the sharp foreground layer, where BeginSceneDraw now draws it and where the argument for the
+            //move is written down. What it gave up in leaving: it no longer covers a firework it crosses (the
+            //shells stay in the scene, so they are behind the whole layer), and the island no longer occludes
+            //it. What it kept: the tonemap, which is what made the paper read as lit rather than luminous and
+            //was the reason it sat in this pass at all (#215).
 
             //How far under the sea the lens is. Only the sea has water to get under, and only the drop cinematic
             //ever takes the camera down there — the play camera stands on the island. Zero everywhere else, which
