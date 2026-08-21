@@ -116,11 +116,10 @@ namespace BS3D.Screens
         private const float HUD_MAG_REST_SCALE = 0.64f;
         private const int HUD_MAG_GAP = 24;
 
-        //How far clear of the ball count the strip starts, which is NOT the same figure as the gap between the
-        //discs and was one constant serving both until the owner played it: at 24 the first halo sat almost
-        //against the "balls left" caption and the two readouts read as one crowded thing. The strip should
-        //belong with the count, which is why it is beside it at all, and still be plainly its own.
-        private const int HUD_MAG_INSET = 110;
+        //There was a HUD_MAG_INSET here for one revision — how far clear of the ball count the strip started,
+        //once the owner saw the first halo sitting almost on the "balls left" caption. Moving the strip to the
+        //other corner made it unnecessary rather than made it right: nothing is beside the strip there to be
+        //clear of, and it is anchored to the frame's own margin like every other corner readout.
 
         //The dark halo every disc sits in. The strip has to read over a white glacier and a neon skyline alike,
         //and a light ball on a light sky is the case a coloured disc alone loses — the same duty HUD_SHADOW
@@ -812,8 +811,8 @@ namespace BS3D.Screens
                 Color.Lerp(BS3DGame.MENU_TEXT, HUD_ACCENT, heat), heat);
 
             DrawStreak(score, viewport, margin, scoreAnchor.Y + scoreSize.Y * 0.5f + Scaled(HUD_LINE_GAP));
-            DrawBallsLeft(score, viewport, margin, out float ammoRight, out float ammoMiddle);
-            DrawMagazine(queue, score, ammoRight, ammoMiddle);
+            DrawBallsLeft(score, viewport, margin);
+            DrawMagazine(queue, score, viewport, margin);
 
             //Last, so the numbers coming in pass over the readouts rather than under them
             DrawAwards(camera, viewport, scoreAnchor - new Vector2(scoreSize.X * 0.5f, 0f));
@@ -902,17 +901,8 @@ namespace BS3D.Screens
         /// a size now, for the reason set out at <c>HUD_LOW_EMPHASIS</c>.)
         /// </para>
         /// </summary>
-        /// <param name="right">Where this readout's widest line ends, so the magazine strip can be laid out
-        /// BESIDE it rather than guessing (#236). The left edge is crowded — the cluster profile holds the
-        /// vertical middle and this readout the bottom — and the horizontal room is what is actually free.</param>
-        /// <param name="middle">The vertical centre to align the strip's discs on.</param>
-        private void DrawBallsLeft(ScoreKeeper score, Viewport viewport, int margin, out float right, out float middle)
+        private void DrawBallsLeft(ScoreKeeper score, Viewport viewport, int margin)
         {
-            //Set before the early exit: a level with no shot budget draws no readout, and the strip then has to
-            //fall back to the frame's own margin rather than read an uninitialised edge.
-            right = margin;
-            middle = viewport.Height - margin - Scaled(HUD_MAG_HEAD_RADIUS);
-
             if (score.ShotsRemaining is not int left) return;
 
             bool low = left <= HUD_LOW_BALLS;
@@ -953,21 +943,10 @@ namespace BS3D.Screens
             DrawPulsed(font, _ballsText,
                 new Vector2(margin, numberTop), new Vector2(0f, 1f),
                 _ballsPulse.Scale * (1f + BREATHE_AMPLITUDE * wave), colour, glow);
-
-            //Measured at REST, not at the pulsed scale: the number swells and shrinks every time it changes, and
-            //a strip laid out off the live width would slide with it. The block's own extent is what is stable.
-            Vector2 numberSize = font.MeasureString(_ballsText);
-            right = margin + MathF.Max(numberSize.X, captionSize.X);
-
-            //Snapped to a whole pixel. The discs beside this are drawn as one-pixel scanlines, and a centre on
-            //a fraction spreads each row's rounding differently — see the note in DrawDisc, which is where the
-            //half-pixel case used to comb the disc outright. Rounding here as well means the strip sits on the
-            //pixel grid rather than relying on that primitive to be forgiving.
-            middle = MathF.Round((numberTop - numberSize.Y + bottom) * 0.5f);
         }
 
         /// <summary>
-        /// The loaded queue as flat discs in the bottom left, next shot first and largest (#236). The gun cannot
+        /// The loaded queue as flat discs in the bottom RIGHT, next shot first and largest (#236). The gun cannot
         /// answer "which colour fires next" from the pose the game plays — <c>CannonRig</c>'s own note records
         /// that drawn opaque, the pane fills the whole slot from this camera, so the round in the notch shows as
         /// the small ellipse of its cap and the rest are read through glass keeping about 0.38 of what is behind
@@ -985,8 +964,21 @@ namespace BS3D.Screens
         /// <c>BasicEffectParamsProvider.GetDiffuseTintByType</c> — so the strip tracks the balls by
         /// construction and there is no second palette here to drift out of step with them.
         /// </para>
+        /// <para>
+        /// <b>The bottom right, in firing order, the next round leftmost.</b> It started beside the ball count
+        /// in the bottom left and the owner moved it twice: that corner already has the count, and the left edge
+        /// also carries the cluster profile down its middle — then, having played it with the head in the
+        /// corner, they asked for the queue to read the way it will be spent.
+        /// <para>
+        /// The order is the owner's; what the layout owes it is that the <b>head does not move</b>. The row
+        /// shortens as the shot budget runs down (see <c>shown</c> below), so a head placed by measuring back
+        /// from the frame's right edge would slide along the bottom of the screen over the last five shots,
+        /// which is exactly when the player is reading it. So the head's origin is solved for a <i>full</i>
+        /// magazine ending flush with the margin: a shorter queue empties from the far end and leaves a gap at
+        /// the corner, which is the truth about what is happening, and the disc that matters stays put.
+        /// </para>
         /// </summary>
-        private void DrawMagazine(ReadOnlySpan<BallType> queue, ScoreKeeper score, float left, float middle)
+        private void DrawMagazine(ReadOnlySpan<BallType> queue, ScoreKeeper score, Viewport viewport, int margin)
         {
             if (queue.Length == 0) return;
 
@@ -1004,7 +996,27 @@ namespace BS3D.Screens
             int rim = Scaled(HUD_MAG_RIM);
             int gap = Scaled(HUD_MAG_GAP);
 
-            float x = left + Scaled(HUD_MAG_INSET) + head;
+            //The head's full reach, ring and all — what the corner has to clear so no part of it is cut by the
+            //frame's edge. The same argument HUD_MARGIN's own comment makes about a halo drawn hard against the
+            //edge: a mark with a slice missing reads as a rendering fault rather than as a mark.
+            int headOuter = head + rim + Scaled(HUD_MAG_RING_GAP) + Scaled(HUD_MAG_RING_THICKNESS);
+
+            //Laid out rightwards in FIRING order, so the round about to leave is the leftmost and the queue
+            //reads the way it will be spent. The owner asked for that order after playing it the other way
+            //round, and the layout has to earn it rather than just mirror: the row shortens as the shot budget
+            //runs down (`shown` above), so a head placed by measuring back from the right edge would slide
+            //along the bottom of the screen over the last five shots — exactly when the player is reading it.
+            //
+            //So the HEAD's origin is what is fixed, and it is solved for a FULL magazine ending flush with the
+            //margin. A shorter queue then empties from the far end and leaves a gap at the corner, which is the
+            //truth about what is happening; the disc that matters has not moved.
+            float rowStep = 2 * rest + gap;
+            float toLastCentre = queue.Length > 1 ? head + gap + rest + (queue.Length - 2) * rowStep : 0f;
+
+            //Both coordinates are whole pixels: the discs are drawn as one-pixel scanlines, and a centre on an
+            //exact half-pixel used to comb them outright — see the note in DrawDisc.
+            float x = MathF.Round(viewport.Width - margin - rest - rim - toLastCentre);
+            float middle = MathF.Round(viewport.Height - margin - headOuter);
 
             for (int i = 0; i < shown; i++)
             {
@@ -1034,6 +1046,9 @@ namespace BS3D.Screens
                         ringOuter - Scaled(HUD_MAG_RING_THICKNESS));
                 }
 
+                //Rightwards: clear this disc's own radius, the gap, and the next one's radius. The step is
+                //written from both radii rather than from one, because the head is bigger than the rest and the
+                //first step is therefore not the same length as the others.
                 x += radius + gap + (i + 1 < shown ? rest : 0);
             }
         }
