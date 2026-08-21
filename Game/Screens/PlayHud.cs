@@ -114,6 +114,12 @@ namespace BS3D.Screens
         private const float HUD_MAG_REST_SCALE = 0.64f;
         private const int HUD_MAG_GAP = 24;
 
+        //How far clear of the ball count the strip starts, which is NOT the same figure as the gap between the
+        //discs and was one constant serving both until the owner played it: at 24 the first halo sat almost
+        //against the "balls left" caption and the two readouts read as one crowded thing. The strip should
+        //belong with the count, which is why it is beside it at all, and still be plainly its own.
+        private const int HUD_MAG_INSET = 110;
+
         //The dark halo every disc sits in. The strip has to read over a white glacier and a neon skyline alike,
         //and a light ball on a light sky is the case a coloured disc alone loses — the same duty HUD_SHADOW
         //does for the text, in the shape a disc needs.
@@ -995,7 +1001,7 @@ namespace BS3D.Screens
             int rim = Scaled(HUD_MAG_RIM);
             int gap = Scaled(HUD_MAG_GAP);
 
-            float x = left + gap + head;
+            float x = left + Scaled(HUD_MAG_INSET) + head;
 
             for (int i = 0; i < shown; i++)
             {
