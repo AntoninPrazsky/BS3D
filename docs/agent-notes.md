@@ -596,4 +596,27 @@ Per-instance varianta odmítnuta na skutečné ceně: šestý float na `ModelIns
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (bere si dávku #238/#233/#247/#243).*
+## 2026-08-21 — Claude Code (dvacátý třetí zápis)
+
+**Dávka menu/UI hotová: #238, #233, #247, #243 — všechny čtyři na mainu, zavřené, větve smazané.** Čtyři samostatné větve po sobě, jak bylo hlášeno.
+
+**#238 — řádek o prohře.** Přišlo se na to, že **tu stránku nebylo jak vyfotit**: `result` měl `cleared: true` zadrátované, takže `stars=0` dal bezhvězdné CLEARED a fail stav nikdo nikdy neviděl mimo skutečnou prohru. Nový argument **`lost`**, a **implikuje `result`** (jak `level=` implikuje `play`) — bez toho jeho první běh jen otevřel hlavní menu a nic neřekl. **A první fotka skrz něj našla víc než velikost:** řádek byl `FontBody`/`MENU_TEXT_DIM` a pravidlo té šedé je „asides, **always on a dark plate**" — jenže tahle stránka při prohře **nemá ani podložku, ani scrim**. Nad osvětlenou arénou a klastrem to vyšlo jako **nejméně čitelná věc na obrazovce**, pod i tou skóre vedle. Takže to není jen zvětšení, je to oprava korektnosti: heading velikost (124 proti 80) v plné `MENU_TEXT`. `MenuPage` měl všechny ostatní velikosti a `FontHeading` ne — doplněno.
+
+**#233 — trofej.** −0,30 → **−0,15**, ne 0. **Nula kupu řeže horní hranou u blízkého konce dolly** (vyfoceno proti tmavému nebi, aby se odříznutý okraj nemohl schovat ve světlém). Kupa je tam prostě moc vysoká: `SIZE` 2,0 proti půlvýšce rámu při `DISTANCE − DOLLY_DEPTH` nenechá nic a `LEAN_ANGLE` okraj vyhodí ještě výš. **Takže #226ových −0,30 nebylo náhodné — chránilo to KUPU tím, že řezalo PODSTAVEC**, a odříznutá kupa je horší, protože kupa je to, co dělá pohár pohárem. −0,15 je nejvýš, co přežije celou 7,85 s periodu dolly (šest snímků přes ni). **Plné vystředění by stálo menší pohár nebo plošší dolly — to je majitelovo, ne moje**, a je to napsané v komentáři i v docs.
+
+**#247 — slab.** alfa 40 → **18** (~16 % → ~7 %). **⚠️ Issue cituje v těle špatnou konstantu** — grey 73 / 75 % a `Menu.cs:185`, což je `MENU_BUTTON`, štětec **všech ostatních** stránek; editace by změnila settings, oba pickery i pauzu, což #216 zakazuje. Front end má vlastní od 18. 8., den před založením issue. Hover/pressed měnit netřeba (jsou to sdílené tóny vysoko nad oběma, takže snížení restu krok jen rozšíří). **A při 7 % mluví HRANA, ne tón** — nad trávou skoro nic, nad regolitem a kamenem slabý krok. To je to zadání, ale je to i místo, odkud přijde další stížnost, a **Myra 1.6.3 gradient brush nemá**, takže opravdu měkký slab by chtěl generovanou texturu.
+
+**#243 — nadpisy v settings.** Nebyly jen malé, byly **vzhůru nohama**: **small** face 58 nad řádky v **display** face 80, takže nadpis byl menší než to, co nadepisuje, a v rodině pro drobný text. Nový `MENU_FONT_SECTION` **96 na display face**. `MENU_FONT_SMALL` zvednout nešlo — sdílí ho osm míst a všechna jsou opravdu drobný text. Šedá `MENU_TEXT_DIM` zůstala, takže nadpis je pořád podřízený, ale **jasností**, což je jediná osa, kterou tohle menu pro důraz používá.
+
+**⚠️ Tři metodické věci, na kterých jsem se spálil, a všechny jsou jedna a tatáž chyba: srovnávat dvě různé věci.**
+1. **Detekce odříznuté kupy počítáním jasných pixelů v horní řádce** — dvakrát nesmysl: v louce to počítalo mraky, v kosmu hvězdy a mlhovinu. Rozhodla fotka.
+2. **Měření průhlednosti slabu z jednoho snímku** — plocha „ve slabu" proti ploše „mimo slab" vzorkuje **různá místa nerovnoměrné scény**; vyšly poměry **nad 1**, což černá překryvná vrstva neumí. Srovnání téhož místa se slabem a bez něj nejde, dokud pozadí orbituje a losuje mapu.
+3. Obojí je stejná past jako to měření dýchání glow v #236. **Pravidlo pro příště: než z čísla přes kameru něco usoudím, musí být jasné, že obě jeho poloviny jsou totéž místo v tomtéž stavu.**
+
+**Opraveno cestou:** doc řádek v `docs/game-shell.md` byl špatně **dvakrát** — uváděl small face jako vlastní nadpisům a **pořád odmítal `MenuScroll` na settings argumentem, který zavřelo #245**. Ten komentář v `SettingsPage.cs` jsem v #245 opravil a tenhle doc řádek přehlédl. Dál: figura slabu v game-shell.md, figura trofeje v game-feedback.md a zastaralé −0,30 v tomhle deníku (řádek 128).
+
+**Nic dalšího si teď neberu.** Volné: **#242** (konfety ostré nad UI — ostrou vrstvu už postavilo #225), **#237** (pásek dlažby u odtoku, příčina nalezená), **#240** (krátery na mřížce), **#241** (klastr pod výsledkovou stránkou, nese latentní dvojité dokončení), **#248** (titulek — potřebuje majitelovo rozhodnutí mezi 2D a 3D). `origin/234-first-level-pyramid` je cizí rozdělaná práce; `origin/211-music-switches-fade` leží dál.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (dávka menu/UI hotová, nic se nebere).*
