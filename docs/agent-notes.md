@@ -638,4 +638,25 @@ Dvě a tři jsou totéž: Myra se kreslí **naposled, přímo do back bufferu**,
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (bere si #242).*
+## 2026-08-21 — Claude Code (dvacátý pátý zápis)
+
+**#242 hotové celé — všechny tři části, na mainu jako `277862e`, issue zavřené, větev smazaná.** Dva commity, aby se každá půlka dala číst sama.
+
+**1) Ostrost.** Konfety padaly **uvnitř HDR passu**, což je přesně to, co výsledkovka rozostřuje. Teď jdou do **ostré popředí vrstvy, kterou postavilo #225** pro pohár. Tím se z „poháříkovy vrstvy" stala obecná: otevírá se na `trophy.Active || confetti.Active` a kompozit jede na týchž dvou testech (naplněná a nezkompozitovaná vrstva = oslava nakreslená do targetu, který nikdo nečte; zkompozitovaná a nenaplněná = obsah minulého snímku přeblendovaný přes tento).
+- **Tonemap si nechaly**, což byl celý argument pro ten HDR pass — stejná expozice, křivka, zrno — takže papír pořád čte jako **osvětlený**, ne svítící, a jeho záblesky pořád krmí bloom. Přestalo je dohánět jen to rozostření.
+- **Tři věci obětované, všechny vědomě:** už nepřekryjí ohňostroj, který přeletí (rakety zůstávají ve scéně, tedy za celou vrstvou); **ztratily okluzi scénou**, takže ostrov ani klastr papírek za sebou neschovají (levné v ten moment — kamera je uvolněná na orbitu a snímek se stejně rozostřuje); a kreslí se **před** pohárem, takže je pohár pořád překrývá, což je pravidlo #225 a tohle issue ho měnit nechtělo.
+- **⚠️ A musely přejít na premultiplied** (shader i `Confetti.cs`). Ta vrstva se čistí na průhlednou a kompozituje se přes coverage, a `NonPremultiplied` **kvadratuje alfu** (`a·a + dst·(1−a)`), takže každý částečně krytý papírek by o sobě hlásil méně, než ho je. Straight alpha byla správná jen dokud se kreslilo přes neprůhlednou scénu.
+
+**2) + 3) Přes UI — a je to jedna otázka, ne dvě.** `CompositeForeground` běžel **jako první věc po resolve**, záměrně, a důvod tam byl napsaný doslova: *„the HUD, the page and its panels belong over the cup, not under it."* **To je to rozhodnutí, které majitel obrátil, v obou půlkách.** Takže `FinishSceneDraw` teď vrstvu jen **zaznamená** a `CompositeForegroundLast` ji utratí na konci `Draw` — **za Myrou a před `ServiceScreenshots`**, který čte back buffer a jinak by ukládal snímek bez toho, o čem ta stránka je.
+- **Tohle je to jedno místo, kde se poli nešlo vyhnout** — a komentář, kterému to protiřečí, to řekl první: dokud obě půlky žily v jednom souboru, „co uzávěr snímku spotřebuje, je to, co jeho začátek vyrobil" platilo lokálně. „Naposled" teď znamená **později než uzávěr snímku**. Pole čistí sám kompozit, takže snímek, který k uzávěru nedojde, nemůže nechat zastaralý target dalšímu k přeblendování.
+- **Scrim nekoliduje:** `ResultPage.DimsFrame` je `false`, takže tam žádný stmívací quad není, a stránky, které stmívají, pohár ani konfety nikdy nemají.
+
+**⚠️ Ověřeno na cestě, kde se schovala regrese #225** (testovalo se jen na High a prošla černá výsledkovka): **High i Medium** (ssaa 1 + MSAA 8×) přes celou rampu rozostření, plus **konfety bez výsledkovky** (musí být a jsou snímkem, jakým vždy byly), plus stav přes UI na High (papír je jasně přes panel, přes všechna tři tlačítka i přes nadpis, pohár přes levý okraj panelu — všechno čitelné), plus front end na Medium nad Měsícem, kde papír kříží položky menu i titulek a obojí drží.
+
+**Přepsané doc pasáže, ne přidané k nim:** `docs/game-feedback.md` (bullet o konfetách v HDR passu i věta o poháru pod UI) a `docs/rendering.md` (vrstva a nově i **kdy** se kompozituje). Obojí nese to obrácení, ne to, co nahradilo.
+
+**Nic dalšího si teď neberu.** Volné: **#237** (pásek dlažby u odtoku, příčina nalezená: #109 překorigoval), **#240** (krátery na mřížce, příčina nalezená: ejekta se nenásobí zhášecí rampou), **#241** (klastr pod výsledkovkou — nese s sebou latentní dvojité dokončení, které jeho vlastní oprava aktivuje), **#248** (titulek — potřebuje majitelovo rozhodnutí mezi 2D a 3D, jsou to dva různé projekty). `origin/234-first-level-pyramid` je cizí rozdělaná práce; `origin/211-music-switches-fade` leží dál.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (#242 celé hotové, nic se nebere).*
