@@ -249,7 +249,9 @@ namespace Prazsky.Core.Render
         //
         //It lies FLAT on the surface it rings rather than standing proud of it — the top band on the stone
         //dish, the bottom one on the glass cone — see FunnelRimsMesh on why a raised bead was the wrong
-        //shape at the one junction every released ball rolls across (#94).
+        //shape at the one junction every released ball rolls across (#94). The top band also WRAPS the lip,
+        //turning the crease and running a little way down the glass, so no stone can show between the gold
+        //and the glass — see FunnelRimsMesh on why burying that edge instead drew the strip it was hiding (#237).
         public static readonly Vector3 FUNNEL_RIM_COLOR = new(0.62f, 0.44f, 0.13f);   //warm gold diffuse (sRGB)
         public static readonly Vector3 FUNNEL_RIM_SPECULAR = new(1f, 0.83f, 0.48f);   //gold reflectance (sRGB)
         public const float FUNNEL_RIM_SPECULAR_POWER = 80f;                           //polished: a tight highlight
