@@ -878,4 +878,88 @@ Majitel chtěl větší mezery mezi nabitými kuličkami. **Konstanta, na kterou
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (#240 a #237 — beru si je, a s druhou instancí na stroji je domluvené rozdělení území).*
+## 2026-08-21 — Claude Code (třicátý zápis)
+
+**Dvě majitelovy korekce k #248 po zhlédnutí běžící verze — na mainu jako `f1229c7`.** Issue zůstává zavřené, oprava je zapsaná jako druhý komentář pod ním.
+
+**1. Rotace je předsazená DO STŘEDU rámu a už nepřechází zpátky.** Majitel doslova: *„otáčel se spíše ke středu — směrem doleva, teď se otáčí spíš doprava, jakoby se díval ven z okna, ale jak je na kraji, nevypadá to dobře."* První verze byla **symetrický** rozkyv kolem čelního pohledu, takže půlku času byla otočená tou druhou stranou — a wordmark visí v **rohu**, kde ta druhá strana je do prázdna. Teď `YAW_CENTRE = -0.20` a `YAW_SWAY = 0.07`, takže součet nikdy nedojde na nulu.
+
+**⚠️ Znak je na tomhle to jediné, co se dá splést, a je proto napsaný v kódu:** block space má `+x` doprava po obrazovce a `+z` k čočce, `CreateRotationY` nese `+z` na `(sin, 0, cos)` — takže **kladný** úhel otáčí lícem k hraně rámu a **záporný** ke středu. Viditelný důsledek: vnější hrana bloku je teď **trvale ta bližší** (na fotkách je R ze „SHOOTER" zřetelně větší než S), takže rezervu, kterou si perspektivní fit drží, se utrácí pořád, ne jen v úvrati — a fit proto bere jako reach **předsazení plus rozkyv**, ne jen rozkyv.
+
+**2. Keyline je tenčí a hraje duhu sám.** Majitel: *„odstranit ten černý obrys — sice je díky tomu text dobře čitelný, ale nehodí se to ke zbytku stylu hry. Resp. nemusí se odstraňovat, ale mohl by být tenčí a měl by taky hrát duhovými barvami."* `OUTLINE_WIDTH` 0,035 → **0,022** cap height, a každý prstenec bere odstín svého písmene **posunutý o třetinu kola** po témže kruhu, držený tmavý (`OUTLINE_VALUE` 0,34 v sRGB). Třetina a ne polovina: komplement barvy při nízké hodnotě je to nejzabahněnější, co na kruhu je. A ne malý posun, ten čte jako stínovaná hrana téhož písmene, ne jako linka hrající vlastní barvy.
+
+- **⚠️ Barva jde přes EMISSIVE, ne přes diffuse, a je to jediná cesta ke STABILNÍ barvě.** Prstenec se kreslí s cullem předních stěn, takže každý jeho pixel má normálu **od čočky** — což neříká nic o tom, kde jsou tři směrová světla. *Osvětlený* prstenec by tedy zesvětlával a ztmavával, jak 90s orbita nosí světla dozadu za něj, a linka, která má být jedna barva, by dýchala sama od sebe. `EmissiveTint` se přičítá plochý, per pixel, bez ohledu na normálu — takže prstenec je přesně ta barva, o kterou se řekne, z každého azimutu a pod všemi osmnácti dómy. Diffuse se drží na černé, aby na něj nic jiného nedosáhlo.
+- **Stálo to batchování, a to je celá cena.** Dokud byl každý prstenec stejný tón, šla všechna písmena sdílející mesh **jedním instanced drawem** — jedenáct drawů na patnáct písmen. Barva je tady per-DRAW uniform, takže jakmile se každý prstenec liší, není co batchovat: patnáct drawů, na passu, jehož celá cena už předtím měřila pod šumem tohohle stroje.
+- **⚠️ A stálo to část legibility argumentu, což docs teď říká narovinu.** Konstantní téměř černý keyline byl kontrast, který odstín nemohl vzít — a byla to jedna ze tří nohou, na kterých stál celý obhajovací argument duhy proti greyscale pravidlu. Co zůstává: prstenec je **tmavý**, ať hraje cokoli, což drží nad světlou scénou. Co se vzdává: tmavá scéna — tmavý prstenec nemá proti čemu být tmavý — a **na Měsíci se to přesně tak chová**, prstenec zmizí do černé oblohy a slovo nese podlaha glow. Čitelné je pořád, ale nese to glow, ne obrys. Majitel viděl obě verze, takže je to jeho rozhodnutí, ne můj odhad.
+
+**Ověřeno** nad loukou, neonovým městem (nejrušnější pozadí), mořem (nejsvětlejší) a Měsícem (nejtmavší). Všechny čtyři solutiony čisté — **i po tom, co se main pod prací pohnul o #235** (ptáci), které rozšířilo sdílený `MeshBuilder` o UV overloady. `LetterMesh` jede po bezUV variantách, takže se to nepotkalo; kolegovi jsem do stromu nesáhl.
+
+**Nic dalšího si teď neberu.**
+
+---
+
+## 2026-08-21 — Claude Code (třicátý první zápis)
+
+**Další dvě majitelova zadání k #248, obojí na mainu jako `7a790aa`.** Issue je zavřené, zapsáno jako třetí komentář pod ním.
+
+### 1. Titulek startuje NA STŘEDU a animovaně se přestěhuje do kouta
+
+Majitel: *„zapomněli jsme, že po spuštění hry se na chvíli zobrazí nápis uprostřed obrazovky, který se teď nehodí vůči tomu 3D textu v menu. Chtěl bych ten 3D text mít i uprostřed — potom by se mohl animovaně přesunout na tu pozici na straně, včetně toho, že se 3D přesune na další řádek."*
+
+**Dvě KOMPOZICE, a každý snímek je někde mezi nimi.** `_openBlock` je titulní karta (celé jméno na jednom řádku, vystředěné, 0,88 šířky rámu, čelem k čočce), `_settledBlock` je menu (slovo na řádek, k pravé hraně, poslední jako odznak, otočené ke středu). Obě se řeší jednou v konstruktoru; snímek lerpuje velikost bloku, jeho podíl rámu, kotvu, otočení **a místo každého písmene**. Takže „3D" doopravdy cestuje na vlastní řádek, jak se blok přelévá.
+
+- **⚠ Kotva jsou DVĚ ČÍSLA, ne režim, a právě to dělá z přechodu obyčejnou interpolaci.** `EdgeX`/`EdgeY`: 0 = vystředěno na té ose, 1 = přišpendleno k daleké hraně s insetem. Zbytek kotevní aritmetiky je společný, takže lerp té dvojice lerpuje celou kotvu — a neexistuje druhá cesta kódem pro „někde na půl cesty", což je přesně to místo, kde by taková animace jinak měla vlastní chyby.
+- **Odstín a vlna jedou po ČTECÍM POŘADÍ**, které mají obě kompozice stejné — takže písmeno, které mění řádek, u toho nemění barvu a nic při přechodu neposkočí.
+- **Volající říká CÍL, nikdy postup.** `BackdropScreen` posílá `settled: active is MainMenuPage` a nic víc; přechod patří wordmarku, takže žádná stránka nemůže titulek nechat trčet v půlce rámu. Krok se bere z **wall clocku**, ne z předaného elapsed: snímek, který se nekreslil, je snímek, ve kterém se tady nemělo nic hýbat. **Schválně bez clampu** — díra v kreslení (odehraný level, pak Main Menu) přijde jako jeden obří krok, morph se saturuje, a to je správně, protože titulek do kouta v tu chvíli patří.
+- **`SplashPage` má prázdný tree, a je to záměr.** Zůstal jí ten kus času, který vlastní (jak dlouho karta drží, čím se přeskočí) — to byla vždycky ta část, co patří screenu a ne widgetu. Fade-up odešel s labelem; odpovídá na to vlastní příchod wordmarku (`REVEAL_FROM` → 1 za `REVEAL_SECONDS`). **⚠ Overshoot příchodu je ve SVĚTLE, ne ve velikosti, a to je vynucené:** fit řeší blok proti rámu, takže blok, který by překmitl vlastní velikost, by přelezl inset, do kterého ho fit právě vešel. Světlo takový rozpočet nemá.
+- Opraven i doc řádek a komentář, které tvrdily, že splashový 2D label zůstává — po tomhle je nepravda. `GAME_TITLE` už není nikde v hře vysázen **jako nadpis**; zůstává jako próza v About a jako text titulkového pruhu okna.
+
+### 2. Barevní „duchové" mají vlastní skořápku
+
+Majitel: *„když jsi to testoval, viděl jsem takové barevné duchy okolo toho textu — to se mi líbilo a chtěl bych je zvýraznit."* Ti duchové jsou **bloom pyramida** čtoucí glow písmen.
+
+**⚠ A halo nejde zesílit samo za sebe** — bright pass thresholduje na luminanci 0,55, takže jediná páka na halo je, jak vysoko nad ni něco jde. **Zkusil jsem tedy nejdřív přesvítit PÍSMENA (0,34/1,15) a bylo to špatně:** emissive dost silný na to, aby nadmul halo, přebije diffuse, a shoulder tonemapu odbarvuje, co komprimuje — slovo šlo na každém hřebeni beatu do křídy a barvu drželo jen jeho halo. Takže je tam teď **třetí trubka** na písmeno, tlustší než keyline, kreslená **aditivně** za ním: pás vlastní barvy písmene hned za jeho okrajem, ze kterého glare pass udělá to halo. Písmena si drží světlo, na které byla vyladěná, duchové si vezmou, kolik chtějí.
+
+- **⚠ Hřeben aury je omezený tím, co dělá PÍSMENŮM, ne sám sebou** — to je třetí konstanta, kterou tahle lekce pohnula. Bloom je fullscreen pass: halo, které se nadme, si vlastní rozmazané světlo položí zpátky na písmeno, ze kterého vzešlo, a to leze po témže ACES shoulderu. **1,75** písmena zatopilo a zalilo jim počítadla; **1,05** počítadla udrželo a pořád šlo do křídy; **0,85** čte jako slovo dýchající mezi *plným a živým* v úvrati a *měkkým a svítícím* na hřebeni — což je lepší pulz než jasnost samotná. Je to strop nalezený fotkou; cokoli nad ním se platí barvou písmen. Vlastní swing písmen jsem s tím stáhl zpátky (0,20–0,38 proti dřívějším 0,22–0,60): beat teď nese aura, a dvě věci dýchající naráz šly do křídy podruhé.
+- **⚠⚠ Aura se kreslí POSLEDNÍ, a je to rozhodnutí o výkonu, ne o kresbě.** Kreslená první není v depth bufferu nic, takže se **odshaduje každý pixel každé skořápky** a písmena ho pak přemalují: **naměřeno 2,6 ms z 26ms snímku** — jediná verze celé téhle práce, jejíž cena vyšla **nad** šumem stroje. Kreslená poslední to early-Z zahodí, než pixel shader vůbec naběhne, a platí se jen viditelný pás: **1,6 ms**. Obrázek je identický — aditivní blending je nezávislý na pořadí a liší se jen pixely, které depth test zahodí v obou pořadích. Ten pás přitom platí plný osvětlený materiál rámu (cloud shadow, hemisphere ambient, Fresnel, sky radiance), z něhož se **každý člen násobí černým diffuse a zahodí** — takže páka, kdyby to muselo dolů znovu, je flat-colour technika nebo užší pás, **ne méně facet**, protože facety to neutrácí.
+- **⚠ A keyline musí mít STEJNÝ počet facet jako tělo.** Byl na deseti proti šestnácti s odůvodněním „plochý neosvětlený tón nepotřebuje kulatost". Co to přehlédlo: **siluety se do sebe musí vnořit** — polygon jednoho počtu facet stojící hned vně polygonu jiného se s ním tam, kde se plocha písmene otáčí hranou, prokládá, a keyline vyhrává depth test v ostrůvcích. Fotí se to jako **čárkovaný** tmavý obrys hned uvnitř písmene, nejvíc na odznaku — největší věci na obrazovce, a tedy tam, kde se tessellační chyba ukáže první. Aura je z toho vyňatá, protože je aditivní a nezapisuje hloubku, takže se do ničeho vnořovat nemusí.
+
+**Ověřeno:** louka, moře, jeskyně, kosmos, Měsíc, neonové město; **High i Medium** (ssaa 1 + MSAA 8×); celá otevírací sekvence po snímcích (t = 0,35 / 1,6 / 2,9 / 3,2 / 3,6 / 4,6); a `play` boot bez titulku. Všechny čtyři solutiony čisté i po tom, co se main pod prací **podruhé** pohnul.
+
+**Nic dalšího si teď neberu.**
+
+---
+
+## 2026-08-21 — Claude Code (třicátý druhý zápis)
+
+**Majitelovo hlášení k #248: „v ohybech jsou takové viditelné barevné plochy, které působí jako chyba nebo díra/mezera." Byla to skutečná chyba, ne vkus. Na mainu jako `a10c0a2`.**
+
+### Příčina: svítící skořápka se PROTÁČELA SAMA SEBOU v ohybech
+
+**⚠⚠ Trubka tažená po cestě se zakřivuje s tou cestou, takže trubka, jejíž radius dosáhne radiusu zakřivení té cesty, se na vnitřní straně ohybu OBRÁTÍ NARUBY** — plocha se přes nějaký kus překlopí a to, co se v tom místě kreslí, je plochý list otočený špatnou stranou. Přesně to čte oko jako „díra".
+
+Aura byla tažená na radiusu **0,215** proti nejtěsnějšímu ohybu téhle abecedy **0,2016** (bowl písmene U, elipsa 0,31 × 0,25, jejíž radius zakřivení na konci hlavní osy je `0,25² / 0,31`). Takže se protáčela — a překlopení **zalila počítadla B, O, D a 3** plochými barevnými plochami.
+
+- **`LetterShapes.MIN_BEND_RADIUS` teď tu hranici říká** (změřeno skriptem přímo nad tabulkou oblouků, aby se to nemohlo rozejít) **a `LetterMesh` tlustší trubku ODMÍTNE**, místo aby postavil takovou, která se protáčí. Je to `MeshBuilder`ova odpověď na jeho 16bitový strop a ze stejného důvodu: **překlopení se v kódu nijak neohlásí, jen na obrázku.** Kdo bude někdy měnit šířku kterékoli ze tří skořápek, spadne na startu, ne za měsíc v reportu.
+- Šířka aury je teď **85 % té hranice** minus vlastní radius písmene, což nechá počítadlům B čistých 0,16 cap height.
+- **⚠ Šířka a obě úrovně jsou svázané SOUČINEM.** Co bloom integruje, je *světlo v pásu* = šířka × radiance, a velikost hala nikdy nebyla velikost pásu — je to velikost pyramidy. Takže poloviční šířka při dvojnásobné radianci dá totéž halo, a fotky před a po opravě si odpovídají. (0,085 × 0,85 = 0,042 × 1,72.)
+
+### A oprava odhalila JEDNOPIXELOVÝ ŠEV, který je teď taky pryč
+
+Zúžení aury přiblížilo její radius na 0,020 od keylinu. A dokud se keyline kreslil **první a zapisoval hloubku**, byl vnitřní okraj aury definovaný **keylinovou siluetou** — dvě skořápky se musely potkat *přesně* po křivce, což dvě rasterizace dvou různých radiusů neumí.
+
+**Nehádal jsem to, změřil jsem to:** zvětšil jsem hranu odznaku na jednotlivé pixely a vypsal RGB napříč obrysem. Mezi keylinovou fialovou `(105,45,110)` a auřinou cyan `(129,244,245)` sedělo **jedno pixel `(120,225,100)` — TRÁVA**. Pás, který nepatřil ani jednomu. Podél písmene to čte jako **čárkovaný** obrys, a to je ta samá „dashed" věc, kterou jsem předtím dvakrát honil jinam (mimochodem: zvýšení `OUTLINE_SIDES` na 48 s tím neudělalo nic, což tu hypotézu o facetách vyvrátilo).
+
+- **Pořadí skořápek je teď PÍSMENO, ZÁŘE, KEYLINE** a je nosné. Záře běží spojitě od vlastní hrany písmene navenek a keyline se maluje **na ni**, takže neexistuje hranice, kterou by mohlo něco propadnout.
+- **⚠ Všechny tři skořápky mají JEDEN počet facet, protože se jejich siluety musí do sebe VNOŘIT.** Každá je *n*-úhelník, ne kružnice, takže silueta leží mezi `r·cos(pi/n)` a `r`. Dva sousední shelly s různým počtem se **prokládají** — hranice se přeskakují a v každém přeskoku je slívr, co nepatří ani jednomu. Chytlo mě to **dvakrát**: keyline proti tělu (10 : 16) a pak keyline proti auře (16 : 12), protože při staré šířce byly jejich radiusy 0,063 od sebe a žádná facetová chyba je nesvedla dohromady, při nové jsou 0,020 a svedla je hned. Při jednom počtu jsou tři pásy 0,1275–0,130, 0,1491–0,152, 0,1687–0,172 — nedotýkají se.
+- **Na tom pořadí visí i cena:** písmeno zapisuje hloubku první, takže early-Z zahodí oba neosvětlené shelly všude, kde už písmeno kreslí. **1,16 ms z 24ms snímku** (proti 2,6 ms, když se záře kreslila první, a 1,56 ms u předchozího pořadí).
+
+**Ověřeno** zvětšením téže hrany na pixely před a po, a nad loukou, mořem, neonovým městem a Měsícem, na High i Medium, v obou stavech (karta i usazený titulek).
+
+**⚠ Metodická poznámka, protože jsem na tom spálil dva pokusy:** dvakrát jsem „opravil" čárkovaný obrys hypotézou o facetách, aniž bych se podíval na pixely — poprvé srovnáním počtu facet keylinu s tělem (což *jednu* instanci té chyby opravdu opravilo) a podruhé zvýšením na 48 (což neudělalo nic). Rozhodlo až **vypsání RGB hodnot napříč obrysem**, což trvalo minutu. Na artefakt o šířce jednoho pixelu je fotka málo; chce to čísla.
+
+**Nic dalšího si teď neberu.**
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (#248 — aura se protáčela v ohybech, opraveno včetně jednopixelového švu, na mainu).*

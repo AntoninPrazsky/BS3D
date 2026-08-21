@@ -96,6 +96,15 @@ namespace Prazsky.Core.Render
             if (strokes == null || strokes.Count == 0)
                 throw new ArgumentException($"'{character}' has no strokes to sweep.", nameof(character));
 
+            //Refused rather than built, for MeshBuilder's reason: a tube this fat folds through itself on the
+            //inside of the alphabet's tightest bend, and a fold does not announce itself in the code — it comes
+            //out as a flat wrong-facing patch across a counter. See LetterShapes.MIN_BEND_RADIUS, which this
+            //cost a defect to learn.
+            if (tubeRadius >= LetterShapes.MIN_BEND_RADIUS)
+                throw new ArgumentOutOfRangeException(nameof(tubeRadius), tubeRadius,
+                    $"A tube swept along this alphabet folds through itself at or above " +
+                    $"{LetterShapes.MIN_BEND_RADIUS} (its tightest bend). Take a fraction of that instead.");
+
             Advance = LetterShapes.Advance(Character);
 
             MeshBuilder builder = new();
@@ -360,6 +369,29 @@ namespace Prazsky.Core.Render
     {
         /// <summary>The height of a capital in mesh units. Every figure in this class is a fraction of it.</summary>
         public const float CAP_HEIGHT = 1f;
+
+        /// <summary>
+        /// The tightest bend any glyph in this alphabet makes: the smallest <b>radius of curvature</b> anywhere
+        /// on any stroke, in cap heights. A tube swept along a path curves as the path does, so a tube whose
+        /// radius reaches this <b>folds through itself</b> on the inside of that bend — the surface turns
+        /// inside out over a patch, and what shows there is a flat wrong-facing sheet where the hole should be.
+        /// <para>
+        /// <b>It is a measured figure and it is enforced</b>: <see cref="LetterMesh"/>'s constructor refuses a
+        /// tube this fat rather than building one that folds, in the manner of <c>MeshBuilder</c> refusing to
+        /// wrap its 16-bit indices. It cost a real defect to learn — the wordmark's glow shell was swept at
+        /// 0.215 and the fold filled the counters of B, O, D and 3 with flat coloured patches, which the owner
+        /// reported as looking like a hole or a gap.
+        /// </para>
+        /// <para>
+        /// The bend that sets it is <b>U's bowl</b> (an ellipse 0.31 by 0.25, whose radius of curvature at the
+        /// end of its major axis is <c>0.25² / 0.31</c>). Anything swept along this alphabet — the letter, an
+        /// outline, a glow — has to stay under it, so a caller wanting the fattest safe tube should take a
+        /// fraction of this rather than a figure of its own. Re-derive it if any arc in the table below is
+        /// re-drawn: for an ellipse of semi-axes <c>a</c> and <c>b</c> the minimum is <c>min(a², b²) /
+        /// max(a, b)</c>, and a straight segment never bends at all.
+        /// </para>
+        /// </summary>
+        public const float MIN_BEND_RADIUS = 0.2016f;
 
         //A space is an advance and nothing else. Narrow for a wordmark whose words are stacked on their own
         //lines anyway: it only ever separates words inside one line, which this title never has.
