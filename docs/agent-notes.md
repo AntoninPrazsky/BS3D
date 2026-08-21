@@ -714,4 +714,20 @@ Majitel chtěl větší mezery mezi nabitými kuličkami. **Konstanta, na kterou
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (kódování `BS3DGame.cs` a rozestupy pásku, obojí na mainu).*
+## 2026-08-21 — Claude Code (jedenáctý zápis)
+
+**Dokončeno #234 — barvy prvního levelu jdou po STĚNÁCH pyramidy, ne po vodorovných vrstvách. Na mainu.** Větev `234-first-level-pyramid` (dva commity od minulého agenta + tenhle) je hotová a smergovaná; tvar pyramidy se nesáhl vůbec, hnuly se jen hranice barev.
+
+**Zadání majitele doslova:** jedna stěna červená, druhá zelená, třetí modrá, „aby hráč odlupoval jakoby vrstvy", a poslední nejmenší pyramida uvnitř v jedné barvě. Bylo to čitelné dvěma způsoby (klínové stěny skrz naskrz × soustředné slupky), tak jsem se **zeptal s náhledy** a majitel vybral „slupky po stěnách": barvu určuje stěna, ke které je kulička nejblíž, otočená o krok po paletě s každou slupkou dovnitř; od třetí slupky dál je jednobarevné jádro (30 kuliček pod středem plotny).
+
+- **Kde je repríza barvy, je měřené rozhodnutí, ne kosmetika.** Čtyři stěny proti třem barvám: repríza jde na dvojici **−Z/+Z**, protože dělo startuje na +Z — hráč tak vidí zbylé dvě barvy na bocích od prvního výstřelu. Na bocích by v úvodním záběru byly jen dvě barvy a třetí až za hmotou, což je přesně ta výtka („tři modré v zásobníku proti červené stěně"), kvůli které se ruší předchozí pás.
+- **Hlavní zisk je kaskáda, a stojí za zapamatování proč:** *kurz pyramidy je nosný* — všechno pod ním na něm visí — takže pásovaná verze měla nejsilnější výstřel **74 %** clusteru (nejvyšší číslo v celém packu). *Slupka nosná není*, visí na skleněné plotně, ne na slupce uvnitř. Stejných 385 kuliček ve stejných kurzech teď měří **30 %**. Pásmo packu se vrátilo na **5–52 %** (nahoře Smiley); tři dokumenty, které citovaly 74 %, jsou opravené ve stejném commitu.
+- **⚠️ Pozor na granularitu, kdyby to někdo ladil dál.** S třemi barvami **nejde** mít každou stěnu jako samostatnou skupinu: graf sousednosti oblastí (12 stěn + jádro) není 3-obarvitelný — `s1w3` sousedí se všemi čtyřmi stěnami vnější slupky, takže čtvrtá barva by byla nutná. Projel jsem všech 72 vyslovitelných pravidel (tabulka barev × krok otočení × barva jádra) na kopii mřížky se skutečným sousedským pravidlem `BallsMap` a vzal to nejlepší. Výsledek je **6 stojících skupin** — pásovaná verze jich měla 13, ale *dohrála se také na 6 výstřelů*, protože jí kurzy padaly s sebou. Bullseye má 3 skupiny a je v packu odjakživa.
+- **Naměřeno:** 385 kuliček, 6 skupin, barvy 134/147/104, nejsilnější výstřel 30 % (brána 90), nic neplave, nic nestojí samo, repair pass nepřebarvil nic, boční margin 1. `ScoreSim`: „All levels rate the right way round" přes všech 40. Všechny čtyři solution buildy čisté po merge mainu do větve (main mezitím povyskočil o 58 commitů, žádný konflikt).
+- **Vizuálně ověřeno** ve spuštěné hře (`BS3D.exe play level=One`) i ze tří vantage v Testbedu: čelní stěna červená, boky zelená a modrá, stěny čtou jako plné panely stýkající se na hraně pyramidy, zelená kulička na hrotu.
+
+**Nic dalšího si neberu.** `origin/211-music-switches-fade` leží dál.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-21 (#234 — barvy prvního levelu po stěnách pyramidy, na mainu).*
