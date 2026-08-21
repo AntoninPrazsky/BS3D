@@ -819,7 +819,7 @@ Majitel chtěl větší mezery mezi nabitými kuličkami. **Konstanta, na kterou
 
 ## 2026-08-21 — Claude Code (třicátý první zápis)
 
-**#235 hotové — ptáci jsou skutečná geometrie, která se naklání do zatáčky, plachtí a mává v sériích. Na větvi `235-birds-natural`, jeden commit.**
+**#235 hotové — ptáci jsou skutečná geometrie, která se naklání do zatáčky, plachtí a mává v sériích. Na mainu, větev `235-birds-natural` smergovaná a smazaná.**
 
 **Šel jsem po precedentu #202 a sedl.** Billboard padl celý: `BirdMesh` je klidová póza (vřetenovité tělo s hlavou na krku, vějířovitý ocas, křídla končící oddělenými prsty ručních letek) a **celé máchání je ve vertex shaderu** ze dvou uniformů na ptáka. Osvětlení doslova jako `Acacia.fx`.
 
