@@ -164,7 +164,7 @@ namespace BS3D.Tools.LevelGen
         private static readonly string[] BLOCK_NAMES =
         {
             "The Meadow", "The Gallery", "The Coil", "The Tower", "The Reveal", "The Quarry", "The Nebula",
-            "The Arcade",
+            "The Arcade", "The Spectrum",
         };
 
         private const string MUSIC_RINGS = "pulse";
@@ -175,6 +175,7 @@ namespace BS3D.Tools.LevelGen
         private const string MUSIC_QUARRY = "pulse";
         private const string MUSIC_NEBULA = "nocturne";
         private const string MUSIC_ARCADE = "pulse";
+        private const string MUSIC_SPECTRUM = "bohemia";
 
         /// <summary>Where the levels are written. Set once in <see cref="Main"/>, read by everything below.</summary>
         private static string _outDir;
@@ -295,12 +296,30 @@ namespace BS3D.Tools.LevelGen
             //live in their own array for the same reason the Nebula's do - see WriteLevelSet.
             Design[] arcade = { Cube(), Ziggurat(), Reel(), Donut(), Globe() };
 
+            //9. THE CITY AT DAWN - "The Spectrum" (#253). One HUE FAMILY a level, swept through the whole
+            //body as a gradient: white to cyan to blue to navy and back, a heat ramp, a green one, a twilight
+            //one, and the wheel entire on the finale. No new colour is involved anywhere - a family is a
+            //subset and an ordering of the fixed thirteen - and no sweep is a stack of floors, because a
+            //floor of one colour is the anchor of everything under it and would end the level on one ball.
+            //The light ramp turns once more, and onto the same skyline: the Arcade turned it back on
+            //ARTIFICIALLY over the neon city, and the step left after that is light being RECEIVED again, so
+            //the campaign ends in that city at morning with its neon off - where the arena has always stood.
+            //
+            //THE ORDER IS THE BLOCK'S DIFFICULTY RAMP AND IT IS A MEASURED ONE: standing groups 6, 9, 15, 22
+            //and 31, i.e. 6.67, 5.33, 3.47, 2.55 and 1.68 shots a group, from a level of four huge spirals
+            //to one of 31 pieces in seven colours. The families are not what ramps - a green level is no
+            //harder than a blue one - so the order is by how finely each design's sweep cuts its body up.
+            //Its designs live in their own array for the same reason the Nebula's and the Arcade's do - see
+            //WriteLevelSet.
+            Design[] spectrum = { Icicle(), Hourglass(), Trellis(), Kiln(), Turbine() };
+
             bool ok = true;
             foreach (Design design in designs) ok &= Emit(design);
             foreach (Design design in nebula) ok &= Emit(design);
             foreach (Design design in arcade) ok &= Emit(design);
+            foreach (Design design in spectrum) ok &= Emit(design);
 
-            WriteLevelSet(designs, nebula, arcade);
+            WriteLevelSet(designs, nebula, arcade, spectrum);
 
             //A non-zero exit so this can be put in front of a commit: a level that fails the checks is a
             //level that plays wrong, and the whole point of generating them is that nobody has to notice
@@ -2941,6 +2960,279 @@ namespace BS3D.Tools.LevelGen
 
         #endregion
 
+
+        #region The spectrum levels (#253)
+
+        //THE NINTH BLOCK: one HUE FAMILY a level, swept through the whole body as a gradient. The owner's
+        //brief is a chapter whose levels read as ONE colour rather than as a set of arbitrary matching ones -
+        //a level sweeping white -> light blue -> blue -> dark blue and back to white as it climbs, and the
+        //same principle on a warm ramp, a green one, and so on to the wheel entire.
+        //
+        //NO NEW COLOUR IS INVOLVED and that is the first thing to know about the block. Every family below is
+        //a SUBSET AND AN ORDERING of the thirteen BallType already has - the seed example needs none, White,
+        //Cyan, Blue and NavyBlue sitting in exactly that order - and the enum is deliberately not grown for
+        //it: the five that joined in #152 were each placed at a measured distance from an existing colour
+        //(silver a cool slate so it does not vanish into the white gores, navy re-spaced against black in
+        //#246), so a hue picked to fill a gap in a ramp is the one way back into the trap those spacings
+        //exist to avoid. What the chapter adds is ORDER over the palette, not paint.
+        //
+        //THE GRADIENT CANNOT BE FLOORS OF FLAT COLOUR, and that is the second. A same-colour group spanning
+        //the top level is the last anchor for everything under it, so one matching ball ends the level -
+        //Mosaic and Gem were both drawn as horizontal bands first and both measured 100 % in the drop test.
+        //A gradient stacked as clean rings is that trap by construction, which is why every sweep here is
+        //TILTED: the boundary between two stops is a slanted plane, a helicoid or a comb, never a floor. See
+        //Sweep and the five colour rules in the block's geometry region - the tilt is what makes the chapter
+        //possible at all, and only afterwards what makes it look like a gradient rather than a layer cake.
+        //
+        //Every level is TALL (Design.FieldLevels past GameplayScreen.FRAMED_LEVELS), because a multi-stop
+        //ramp needs the height to read as a ramp: four stops out and back is fourteen lattice levels before
+        //a single one repeats, and in a 16-level field that is the whole level with no body left over.
+        //
+        //Each is a different KIND of tall and a different KIND of sweep, which is the Tower's own rule (#160)
+        //taken to the colouring as well as to the silhouette:
+        //  Icicle    - a plain cone, swept by a bare HELICOID: one turn is the whole family.
+        //  Hourglass - a solid of revolution with a WAIST, swept in conical shells wound into a screw.
+        //  Trellis   - two counter-wound ribbons, each swept along ITSELF and half a family apart.
+        //  Kiln      - a column of lobes, the bare helicoid with a COMB cut into it so the stops interlock.
+        //  Turbine   - blades on a turning core, swept helically, so every blade wears its own hue.
+        //
+        //AND THE ONE RULE ALL FIVE OBEY, which was found by breaking it twice: EVERY STOP OF THE FAMILY HAS
+        //TO STAND ON THE TOP LEVEL. A stop that exists only further down hangs off the stop above it and
+        //nothing else, so cutting that one takes it and everything under it - the Icicle measured 80 % that
+        //way and the Kiln 92 %, over the gate, both on sweeps that were tilted but not wound. A helicoid
+        //whose pitch is one folded period a turn puts the whole family on the anchor level in wedges, and
+        //what a cut leaves behind is a screw thread that still reaches the glass. The tilt is what makes the
+        //gradient 3D; the PITCH is what makes it a level.
+
+        /// <summary>
+        /// The block's opener and the owner's own seed: a cone of ice hanging point-down off the glass,
+        /// painted <b>white to cyan to blue to navy and back to white</b> - the family the brief names, in
+        /// the order the enum already holds them. The plainest body in the block on purpose, the way
+        /// <see cref="Column"/> opens the Tower: what the level is here to state is the SWEEP, so nothing
+        /// else about it has a second idea in it.
+        /// <para>
+        /// <b>The sweep is a bare helicoid whose pitch is one whole folded family a turn</b>
+        /// (<see cref="ICICLE_PITCH"/>). Two things follow, and the block rests on both. Every colour of the
+        /// ramp stands on the top level, in wedges, so the level every ball hangs from is four colours and
+        /// not one - and walking the gun once round the cone walks the family from white to navy and home
+        /// again, which is the chapter's reading taught in its first minute.
+        /// </para>
+        /// <para>
+        /// Gentle for an opener the way the Meadow's plates are: a stop is a broad ribbon winding down the
+        /// cone, so one matching ball takes a whole turn of it. What is <i>not</i> gentle is what a cut
+        /// leaves behind, and that is the point of the helicoid - see the block's own rule.
+        /// </para>
+        /// <para>
+        /// Measured: 547 balls, margin 2, nothing standing alone (4 in pairs), nothing recoloured; <b>6
+        /// standing groups</b> - a ribbon is one connected spiral, so a colour is one or two of them - and
+        /// best single shots of 15-34 %, against the 80 % the tilted-plane draft of this level took. Colour
+        /// counts 85/91/183/188, the fold's two ends at about half its middles' count, which is what the
+        /// fold does and is left alone. PASS on the Game's own <c>aimcheck</c> (steepest cell 46.7 deg of a
+        /// 49.6 limit) and hung unshot for 35 s in the running game.
+        /// </para>
+        /// </summary>
+        private static Design Icicle() => new()
+        {
+            File = "Icicle.json",
+            Name = "Icicle",
+            Grid = ICICLE_GRID,
+            Depth = ICICLE_DEPTH,
+            FieldLevels = ICICLE_FIELD_LEVELS,
+            Scene = SPECTRUM_SCENE,
+            Sky = SPECTRUM_SKY,
+            Music = MUSIC_SPECTRUM,
+            Shots = 40,
+            CeilingStep = 6,
+            Occupied = (r, ang, i, depth) => r <= IcicleRadius(i, depth),
+            Colour = (r, ang, i, depth) => Sweep(IcicleSweep(ang, i, depth), FROST),
+        };
+
+        /// <summary>
+        /// A column of swelling lobes - a kiln's flue, wide where it breathes and pinched between - carrying
+        /// the heat ramp: <b>white to yellow to orange to red to brown</b> and back up again. Five stops
+        /// rather than four, and the two in the middle are the #152 rival pair met head on, orange against
+        /// red with nothing between them but a boundary.
+        /// <para>
+        /// <b>Its sweep is the same slanted plane with a comb cut into it</b> (<see cref="KILN_TOOTH"/>): the
+        /// boundary zigzags across the body rather than running straight, so consecutive stops interlock like
+        /// a zip instead of butting up against each other. That is the brief's "bleeding between floors" made
+        /// literal, and it costs the level its big plates - a band cut by teeth is several groups rather than
+        /// one, which is the whole of the step up from <see cref="Icicle"/>.
+        /// </para>
+        /// <para>
+        /// The lobes are what keeps that legible. A comb on a straight column reads as noise; a comb on a
+        /// silhouette that swells every <see cref="KILN_LOBE"/> levels reads as the colour pooling in the
+        /// wide part and pinching through the narrow one, which is what a gradient down a shaped body does.
+        /// </para>
+        /// <para>
+        /// Measured: 484 balls, margin 2, nothing alone or paired, 6 recoloured by the repair pass (the
+        /// teeth are what the lattice rounds off here); <b>22 standing groups</b> against the Icicle's 6,
+        /// which is the comb's whole effect stated as a number, and best single shots of 2-25 %. Counts
+        /// 56-124, white lowest and in groups of at most 14 - the fold's end cut into slivers by the teeth.
+        /// PASS on <c>aimcheck</c> (44.1 deg of a 47.0 limit, the block's narrowest field) and hung unshot
+        /// for 35 s.
+        /// </para>
+        /// </summary>
+        private static Design Kiln() => new()
+        {
+            File = "Kiln.json",
+            Name = "Kiln",
+            Grid = KILN_GRID,
+            Depth = KILN_DEPTH,
+            FieldLevels = KILN_FIELD_LEVELS,
+            Scene = SPECTRUM_SCENE,
+            Sky = SPECTRUM_SKY,
+            Music = MUSIC_SPECTRUM,
+            Shots = 56,
+            CeilingStep = 5,
+            Occupied = (r, ang, i, depth) => r <= KilnRadius(i, depth),
+            Colour = KilnColour,
+        };
+
+        /// <summary>
+        /// Two ribbons wound in opposite directions down the same axis, one inside the other, passing each
+        /// other on the way - and each carries the green family <b>white to green to olive to black</b> along
+        /// its own length, the two started half a family apart. So the pair facing each other across the axis
+        /// are never the same stop, and the gradient is read by walking the gun round the level as much as by
+        /// looking up it.
+        /// <para>
+        /// <b>The two orbits differ, and that is Garland's lesson taken rather than re-learned</b> (#182): on
+        /// one shared orbit a crossing merges into a single disc that is the only thing on its level, and
+        /// shooting that disc's colour cuts BOTH ribbons at once - measured at 85 % of the level there. Here
+        /// the inner ribbon runs at <see cref="TRELLIS_ORBIT_INNER"/> and the outer at
+        /// <see cref="TRELLIS_ORBIT_OUTER"/>, so they touch at a pass without ever occupying the same cells,
+        /// and each pass is where a ribbon cut above it stops falling.
+        /// </para>
+        /// <para>
+        /// The stop boundaries are sheared along the arc as well as down (<see cref="TRELLIS_SKEW"/>), so a
+        /// band crosses its ribbon on the diagonal rather than sitting square across it - the same reason
+        /// every other sweep in the block is tilted, applied to a body that is already a spiral.
+        /// </para>
+        /// <para>
+        /// The one <b>open</b> silhouette in the block, and the only one whose shape reads whole from the
+        /// gun rather than needing the map: two bands crossing over a gap. Measured: 277 balls - the
+        /// lightest here - margin 1, nothing alone or paired, 3 recoloured; 15 standing groups, counts
+        /// 51-89, best single shots 7-34 % (green's 34 is a high band taking the ribbon under it as far as
+        /// the pass, which is what the pass is for). PASS on <c>aimcheck</c> (47.5 deg of a 50.4 limit) and
+        /// hung unshot for 38 s.
+        /// <para>
+        /// <b>Winding it faster to buy a second pass improves every one of those numbers and loses the
+        /// level</b> - see <see cref="TrellisCentre"/>, which is where that measurement lives. It is the one
+        /// design here whose tuning is bounded by the physics rather than by the drop test.
+        /// </para>
+        /// </para>
+        /// </summary>
+        private static Design Trellis() => new()
+        {
+            File = "Trellis.json",
+            Name = "Trellis",
+            Grid = TRELLIS_GRID,
+            Depth = TRELLIS_DEPTH,
+            FieldLevels = TRELLIS_FIELD_LEVELS,
+            Scene = SPECTRUM_SCENE,
+            Sky = SPECTRUM_SKY,
+            Music = MUSIC_SPECTRUM,
+            Shots = 52,
+            CeilingStep = 5,
+            Occupied = (r, ang, i, depth) => TrellisRibbon(r, ang, i) != 0,
+            Colour = TrellisColour,
+        };
+
+        /// <summary>
+        /// An hourglass: a wide plate against the glass drawing in to a waist halfway down and flaring out
+        /// again to a foot, in the twilight family <b>white to magenta to navy to black</b>. The one
+        /// silhouette in the game with a waist in it, and the one sweep in the block that is not a plane at
+        /// all.
+        /// <para>
+        /// <b>The stops are NESTED CONES</b>: the sweep runs on height and radius together
+        /// (<see cref="HOURGLASS_RISE"/> levels a cell outward), so a stop is a conical shell and the top
+        /// plate reads as concentric rings of the ramp - Onion's shells stood on end and given a direction.
+        /// The rings are <see cref="HOURGLASS_PER_STOP"/> divided by that rise wide, which is deliberately
+        /// over two cells: a ring one cell wide running diagonally is a string of balls that do not touch
+        /// each other, which is the lonely-ball rule and what the first Gem got wrong.
+        /// </para>
+        /// <para>
+        /// The waist is the level's difficulty and it is geometric rather than chromatic: everything below it
+        /// hangs through a few cells' worth of neck, so the foot is the part of the cluster a player has to
+        /// think about before cutting into. The colours there are the darkest of the family, which is the
+        /// ramp arriving where the shape does.
+        /// </para>
+        /// <para>
+        /// Measured: 447 balls, margin 2, nothing alone (2 in pairs), nothing recoloured; 9 standing groups,
+        /// counts 71-152, best single shots <b>8-17 %</b> - against the <b>89 %</b> the same body took with
+        /// the shells left unwound, which is the whole argument for <see cref="HOURGLASS_PITCH"/>. PASS on
+        /// <c>aimcheck</c> (46.4 deg of a 49.3 limit) and hung unshot for 35 s.
+        /// </para>
+        /// </summary>
+        private static Design Hourglass() => new()
+        {
+            File = "Hourglass.json",
+            Name = "Hourglass",
+            Grid = HOURGLASS_GRID,
+            Depth = HOURGLASS_DEPTH,
+            FieldLevels = HOURGLASS_FIELD_LEVELS,
+            Scene = SPECTRUM_SCENE,
+            Sky = SPECTRUM_SKY,
+            Music = MUSIC_SPECTRUM,
+            Shots = 48,
+            CeilingStep = 6,
+            Occupied = (r, ang, i, depth) => r <= HourglassRadius(i, depth),
+            Colour = (r, ang, i, depth) => Sweep(HourglassSweep(r, ang, i, depth), TWILIGHT),
+        };
+
+        /// <summary>
+        /// The block's finale and the campaign's last level: blades on a slowly turning core wearing the
+        /// <b>whole wheel</b> - red, orange, yellow, green, cyan, blue, magenta - swept HELICALLY, so every
+        /// blade is its own hue at any height and the wheel turns as it descends. The chapter's thesis stated
+        /// once and entire: the family here is the spectrum itself, and the ordering is the only thing
+        /// holding seven colours apart.
+        /// <para>
+        /// <b>Seven live colours is the difficulty, and it is scarcity rather than mass</b> - the magazine
+        /// draws evenly among the colours still standing, so the wanted ball arrives one time in seven, and
+        /// the level is priced against that rather than against its size. <see cref="Garland"/> is the only
+        /// harder draw in the game (thirteen), and it closes the Nebula for the same reason.
+        /// </para>
+        /// <para>
+        /// <b>The helix is why the blades are safe to cut.</b> A blade is a radial slab reaching the top
+        /// plate, so each hangs on its own and nothing rides another down; and because the sweep turns with
+        /// the core (<see cref="TURBINE_TURNS_PER_LEVEL"/>) rather than standing still, a blade's colour
+        /// walks the wheel down its own length instead of standing as one vertical stave of dozens - the
+        /// trap <see cref="Lantern"/> records from the other side.
+        /// </para>
+        /// <para>
+        /// <b>The blades were opened up by looking, and the numbers came with it.</b> Drawn first at
+        /// <see cref="TURBINE_REACH"/> 4.1 they passed every gate and photographed as a <i>column</i> - five
+        /// slabs that short project to a filled disc from any angle, so the level had the finale's colours
+        /// and Column's silhouette. Longer and a shade thinner they read as arms with sky between them, and
+        /// the level went from 591 balls in 23 groups to 658 in 31: the sweep's radial term now has three
+        /// and a half cells of blade to run along instead of two, so a blade wears two hues rather than one.
+        /// Four blades were tried in the same pass and refused - 47 groups at 1.11 shots a group, tighter
+        /// than Colossus, with 24 balls standing in pairs.
+        /// </para>
+        /// <para>
+        /// Measured: 658 balls (only <see cref="Onion"/>'s 959 is larger), margin 1, nothing alone or
+        /// paired, 2 recoloured; 31 standing groups at <b>1.68 shots a group</b> - the tightest in the block
+        /// and inside the Arcade's 1.37-1.65 band - counts 51-126 over the seven, best single shots 3-14 %.
+        /// PASS on <c>aimcheck</c> (47.5 deg of a 50.4 limit) and hung unshot for 35 s.
+        /// </para>
+        /// </summary>
+        private static Design Turbine() => new()
+        {
+            File = "Turbine.json",
+            Name = "Turbine",
+            Grid = TURBINE_GRID,
+            Depth = TURBINE_DEPTH,
+            FieldLevels = TURBINE_FIELD_LEVELS,
+            Scene = SPECTRUM_SCENE,
+            Sky = SPECTRUM_SKY,
+            Music = MUSIC_SPECTRUM,
+            Shots = 52,
+            CeilingStep = 4,
+            Occupied = (r, ang, i, depth) => TurbineCore(r) || TurbineBlade(r, ang, i) != 0,
+            Colour = (r, ang, i, depth) => Sweep(TurbineSweep(r, ang, i, depth), SPECTRUM),
+        };
+
+        #endregion
         #endregion
 
         #region Colour helpers
@@ -4854,6 +5146,327 @@ namespace BS3D.Tools.LevelGen
 
         #endregion
 
+
+        #region The spectrum levels' own geometry (#253)
+
+        //THE BLOCK'S SETTING, stated once and named on all five designs so DescribeBlock has nothing to
+        //report. THE CITY, under a morning dome - and it is deliberately the SAME city the Arcade plays in,
+        //which is the one scene pairing in the campaign that repeats a place on purpose. The light ramp ran
+        //out of dark at the void, so the Arcade turned the light back on and made it ARTIFICIAL; the one
+        //step left after that is light being RECEIVED again, and the strongest way to say so is the same
+        //skyline at dawn with its neon off. The campaign ends where the arena has always stood.
+        //
+        //IT IS ALSO THE BACKDROP THIS BLOCK NEEDS, and that was settled by looking rather than by argument.
+        //A chapter whose whole subject is telling neighbouring hues apart cannot be played in front of a
+        //backdrop that tints them, and the sea - the obvious candidate, the one scene of the original seven
+        //the campaign has never used - is the worst of them for exactly the reason it looked right: its
+        //water MIRRORS the dome, so the sky's hue fills the top of the frame and the bottom of it too. Shot
+        //under four domes it came out one colour throughout every time, and under dome 4 (this block's first
+        //pick) it was a magenta sky over a magenta sea - the trap the record already holds against the dream
+        //scene and magenta balls. The city's facades are the largest low-chroma surface in the game and its
+        //ground is grey, so only the top third of the frame carries the dome's colour at all.
+        //
+        //DOME 11 was chosen over 1, 3 and 9 on the same shots - the Icicle and the Hourglass, the block's
+        //coolest family and its most fragile one, in each. 1 and 3 put a cyan and a lavender sky behind a
+        //blue-and-cyan cluster and behind a magenta one respectively, each swallowing the family it was
+        //supposed to set off; 9 is a dusk, which reads as a step back into the dark rather than as light
+        //returning. 11 is a morning - a blue zenith with warm cirrus over a sandstone city - and is the one
+        //of the four where all five families stood clear of what was behind them.
+        private const SceneKind SPECTRUM_SCENE = SceneKind.City;
+        private const byte SPECTRUM_SKY = 11;
+
+        //THE FIVE FAMILIES. Each is a SUBSET AND AN ORDERING of the fixed thirteen and never a new hue
+        //(#253) - see the block's own comment for why the enum is not grown for a ramp. They are stated here
+        //rather than inline at each design, unlike every other block's palettes, because the FAMILY is what
+        //the chapter is: a level is one of these swept, and two levels differing only in which one they take
+        //is the whole of the block's variety.
+        private static readonly BallType[] FROST = { BallType.Type4, BallType.Type5, BallType.Type3, BallType.Type12 };
+        private static readonly BallType[] HEAT = { BallType.Type4, BallType.Type7, BallType.Type9, BallType.Type1, BallType.Type10 };
+        private static readonly BallType[] MOSS = { BallType.Type4, BallType.Type2, BallType.Type13, BallType.Type8 };
+        private static readonly BallType[] TWILIGHT = { BallType.Type4, BallType.Type6, BallType.Type12, BallType.Type8 };
+
+        //The wheel, in hue order rather than in enum order, which is the one place in this file where the
+        //ORDER of a palette is the design. Seven of the thirteen: the six that sit on the wheel at even
+        //spacings plus orange between red and yellow, so no two neighbours here are further apart than the
+        //#152 rival pairs already are.
+        private static readonly BallType[] SPECTRUM =
+        {
+            BallType.Type1, BallType.Type9, BallType.Type7, BallType.Type2, BallType.Type5, BallType.Type3,
+            BallType.Type6,
+        };
+
+        /// <summary>
+        /// The block's one colour rule: a position along a family, in <b>stops</b>, turned into the colour
+        /// standing at that position - and turned back again past the far end, so a sweep runs out through
+        /// the family and home again rather than jumping from its last colour to its first.
+        /// <para>
+        /// <b>The fold is the owner's brief and not a nicety</b>: the seed example sweeps white to dark blue
+        /// <i>and back to white</i> as it climbs. Wrapped instead, every period would put navy against white
+        /// along one hard seam, which is the one boundary in the family that does not read as a gradient at
+        /// all. Folded, the only colours that ever touch are neighbours in the ramp.
+        /// </para>
+        /// <para>
+        /// What it costs is an even colour count: a fold of <c>n</c> stops has period <c>2n − 2</c> and hits
+        /// the two ENDS once against the middles' twice, so white and navy come out at roughly half the
+        /// count of cyan and blue. That is visible in every one of these levels' reports and is left alone -
+        /// a family's ends are its extremes and being rarer is what makes them read as the ends of something.
+        /// </para>
+        /// </summary>
+        private static BallType Sweep(float stops, BallType[] family)
+        {
+            int span = 2 * family.Length - 2;
+            int stop = (int)MathF.Floor(stops);
+            int phase = ((stop % span) + span) % span;
+
+            return family[phase < family.Length ? phase : span - phase];
+        }
+
+        /// <summary>
+        /// A triangle wave of <paramref name="x"/> over <paramref name="period"/>, −1 to +1 and back. The
+        /// comb that cuts <see cref="Kiln"/>'s stop boundaries into teeth: added to a sweep coordinate it
+        /// makes the boundary zigzag rather than run straight, so consecutive stops interlock.
+        /// </summary>
+        private static float Tooth(float x, float period)
+        {
+            float turns = x / period;
+            return MathF.Abs(turns - MathF.Floor(turns) - HALF) * 4f - 1f;
+        }
+
+        /// <summary>How many lattice levels below the glass plate this layout level sits - the sweep's own axis.</summary>
+        private static int LevelsBelowGlass(int i, int depth) => depth - 1 - i;
+
+        //THE ICICLE. A cone hanging point-down: a wide plate against the glass drawing in evenly to a tip
+        //TIP across. The plainest tall body in the block, and it opens the block for the reason Column opens
+        //the Tower - a chapter states its premise with the level that has no second idea in it, and here the
+        //premise is the SWEEP.
+        private const byte ICICLE_GRID = 13;
+        private const byte ICICLE_DEPTH = 22;
+        private const byte ICICLE_FIELD_LEVELS = 32;
+        private const float ICICLE_TOP = 4.2f;
+        private const float ICICLE_TIP = 1.2f;
+
+        //THE SWEEP, and the figure that decides whether this block is possible at all. PITCH is how many
+        //LEVELS of sweep one full turn round the axis is worth: at 14.4 against 2.4 levels a stop, one turn
+        //is exactly six stops, which is the whole folded family - so every colour of the ramp stands on the
+        //TOP LEVEL, in wedges, and going once round the cone walks white to navy and back.
+        //
+        //THAT is the property, and it took a failed first cut to find it. Swept by a tilted PLANE instead,
+        //the top level carried two or three stops out of the six and the rest existed only further down -
+        //where they hang off the stop above them and nothing else. Cutting one then takes everything under
+        //it: 80 % on the first draft of this level and 92 % on the Kiln's, which is a level that ends on one
+        //lucky ball. A helicoid has no such orphan. Removing one stop leaves a screw thread that still
+        //spirals from the tip to the glass, so the rest of the body hangs exactly as it did - measured here
+        //as a best single shot of a few per cent where the plane gave eighty.
+        private const float ICICLE_PER_STOP = 2.4f;
+        private const float ICICLE_PITCH = 14.4f;
+
+        private static float IcicleRadius(int i, int depth) =>
+            ICICLE_TIP + (ICICLE_TOP - ICICLE_TIP) * i / (depth - 1f);
+
+        //NO RADIAL TERM, and that is measured rather than left out. Shearing the sweep outward as well
+        //(0.9 levels a cell was tried) MERGES the level instead of dividing it: the shear carries each
+        //stop's ribbon across the gap to the turn of itself outside it, and the six standing groups become
+        //four - one per colour, the whole level in four shots. Every other design in the block wants that
+        //term; a bare cone under a bare helicoid is the one place it does the opposite of what it looks like.
+        private static float IcicleSweep(float ang, int i, int depth) =>
+            (LevelsBelowGlass(i, depth) + ICICLE_PITCH * (WrapAngle(ang) / MathF.Tau)) / ICICLE_PER_STOP;
+
+        //THE KILN. A solid column whose radius breathes between WAIST and BULGE every LOBE levels, so the
+        //silhouette is a stack of swellings rather than a pipe. The lobe period is odd on purpose: at an even
+        //one every bulge would land on the same level parity and the lattice would round all of them off
+        //identically, which reads as a repeated artefact rather than as a body.
+        private const byte KILN_GRID = 11;
+        private const byte KILN_DEPTH = 24;
+        private const byte KILN_FIELD_LEVELS = 34;
+        private const float KILN_WAIST = 1.5f;
+        private const float KILN_BULGE = 3.2f;
+        private const int KILN_LOBE = 5;
+
+        //THE SWEEP: the Icicle's helicoid, with a COMB cut into it. PITCH over PER_STOP is eight stops a
+        //turn, which is this family's whole folded period - the Icicle's rule, and for the Icicle's reason:
+        //every stop has to stand on the top level or the ones that do not hang off the ones that do. The
+        //first cut of this level swept a tilted plane instead and measured 92 %, over the gate.
+        //
+        //TOOTH is how many levels of sweep the boundary swings either way and TEETH how many swings there
+        //are in a full turn - a swing of well over half a stop is what makes two stops actually interlock
+        //rather than merely wobble at the seam. The comb runs on the ANGLE, which is what makes it a
+        //statement about floors: a tooth is the colour above reaching a level down and the colour below
+        //reaching a level up, in alternation round the body.
+        private const float KILN_PER_STOP = 2.6f;
+        private const float KILN_PITCH = 20.8f;
+        private const float KILN_TOOTH = 1.7f;
+        private const int KILN_TEETH = 7;
+
+        private static float KilnRadius(int i, int depth)
+        {
+            float lobe = MathF.Cos(MathF.Tau * LevelsBelowGlass(i, depth) / KILN_LOBE);
+
+            return KILN_WAIST + (KILN_BULGE - KILN_WAIST) * (HALF + HALF * lobe);
+        }
+
+        private static BallType KilnColour(float r, float ang, int i, int depth)
+        {
+            float local = WrapAngle(ang);
+
+            //The comb's period divides a full turn exactly, so the teeth meet themselves at the seam the
+            //helicoid steps across rather than leaving one wider or narrower tooth there
+            float stops = (LevelsBelowGlass(i, depth) + KILN_PITCH * (local / MathF.Tau)
+                           + KILN_TOOTH * Tooth(local, MathF.Tau / KILN_TEETH)) / KILN_PER_STOP;
+
+            return Sweep(stops, HEAT);
+        }
+
+        //THE TRELLIS. Two ribbons - wide along the circumference, thin across it - wound in opposite
+        //directions on orbits a cell and a half apart, so they touch where they pass without ever sharing a
+        //cell. That separation is Garland's, and it is there for Garland's reason: two counter-turning bodies
+        //on ONE orbit merge at a pass into a single disc which is the only thing on its level, and the colour
+        //of that disc cuts both of them at once (85 % of the level, measured, two levels under the glass).
+        //ARC_HALF is the ribbon's half-width in radians at its own orbit; at the inner orbit that is about
+        //two and a half cells of arc, which is a band rather than a strand.
+        private const byte TRELLIS_GRID = 13;
+        private const byte TRELLIS_DEPTH = 22;
+        private const byte TRELLIS_FIELD_LEVELS = 32;
+        private const float TRELLIS_ORBIT_INNER = 2.3f;
+        private const float TRELLIS_ORBIT_OUTER = 3.8f;
+        private const float TRELLIS_HALF_THICK = 0.85f;
+        private const float TRELLIS_ARC_HALF = 0.62f;
+        private const float TRELLIS_TURNS_PER_LEVEL = 0.032f;
+
+        //THE SWEEP runs along each ribbon's own length, 3.2 levels a stop, sheared along the arc as well so a
+        //band crosses its ribbon on the diagonal. The two ribbons start OPPOSITE_STOPS apart - half of the
+        //fold's six-stop period - so the pair facing each other across the axis are never the same colour
+        //and a shot that suits one never suits the other at the same height.
+        private const float TRELLIS_PER_STOP = 3.2f;
+        private const float TRELLIS_SKEW = 1.1f;
+        private const float TRELLIS_OPPOSITE_STOPS = 3f;
+
+        /// <summary>Which ribbon the cell is inside, 1 (inner) or 2 (outer), or 0 for neither.</summary>
+        private static int TrellisRibbon(float r, float ang, int i)
+        {
+            if (MathF.Abs(r - TRELLIS_ORBIT_INNER) <= TRELLIS_HALF_THICK
+                && MathF.Abs(WrapAngle(ang - TrellisCentre(i, 1))) <= TRELLIS_ARC_HALF)
+                return 1;
+
+            return MathF.Abs(r - TRELLIS_ORBIT_OUTER) <= TRELLIS_HALF_THICK
+                   && MathF.Abs(WrapAngle(ang - TrellisCentre(i, 2))) <= TRELLIS_ARC_HALF
+                ? 2 : 0;
+        }
+
+        //Where a ribbon's middle sits at this height. The two turn OPPOSITE ways from a half-turn apart, so
+        //they close at a relative half-turn: 2*TURNS_PER_LEVEL is 0.064 turns a level, which puts ONE pass
+        //at level 8 of the 22 and the next one past the bottom.
+        //
+        //A SECOND PASS WAS TRIED AND IT LOST THE LEVEL. At 0.055 turns a level the alignments fall at levels
+        //6 and 18, and the numbers all improved - green's best single shot 34 % -> 19 %, 15 standing groups
+        //-> 14 - and the level then FAILED IN THE RUNNING GAME AT TEN SECONDS WITH NO SHOT FIRED, on "the
+        //cluster reached the line". A ribbon that turns that fast steps its cells a whole cell and a
+        //quarter sideways per level at the outer orbit, so consecutive levels barely overlap: the links
+        //exist (the disconnection gate passes, which is exactly the point) but there are too few of them to
+        //carry the weight, and the whole thing stretches. THE GATE THAT SAYS THE LINKS EXIST CANNOT SAY
+        //THERE ARE ENOUGH OF THEM - Garland (#182) and the Ziggurat found the same wall by thickness where
+        //this one found it by pitch, and only hanging the level unshot in the game finds any of them.
+        private static float TrellisCentre(int i, int ribbon) =>
+            ribbon == 1
+                ? i * TRELLIS_TURNS_PER_LEVEL * MathF.Tau
+                : MathF.PI - i * TRELLIS_TURNS_PER_LEVEL * MathF.Tau;
+
+        private static BallType TrellisColour(float r, float ang, int i, int depth)
+        {
+            int ribbon = TrellisRibbon(r, ang, i);
+            float arc = WrapAngle(ang - TrellisCentre(i, ribbon)) * r;
+
+            float stops = (LevelsBelowGlass(i, depth) + TRELLIS_SKEW * arc) / TRELLIS_PER_STOP
+                          + (ribbon == 1 ? 0f : TRELLIS_OPPOSITE_STOPS);
+
+            return Sweep(stops, MOSS);
+        }
+
+        //THE HOURGLASS. A solid of revolution whose radius is a parabola in the fraction of the way down:
+        //widest at both ends, WAIST at the middle. Written on the SIGNED fraction so the shape is exactly
+        //symmetric about the waist - a hand-tuned pair of cones would not be, and the level's whole silhouette
+        //is that symmetry.
+        private const byte HOURGLASS_GRID = 13;
+        private const byte HOURGLASS_DEPTH = 22;
+        private const byte HOURGLASS_FIELD_LEVELS = 32;
+        private const float HOURGLASS_WAIST = 1.4f;
+        private const float HOURGLASS_FLARE = 2.7f;
+
+        //THE SWEEP: height, radius AND angle at once, so a stop is a conical shell wound into a screw. RISE
+        //is how many levels of sweep one cell of radius is worth; PER_STOP over RISE is therefore how wide a
+        //ring comes out on any horizontal section - 2.9 cells here, deliberately over the two the lonely-ball
+        //rule needs (a ring one cell wide running round the lattice is a string of balls that do not touch
+        //each other, which is what the first Gem shipped 28 of).
+        //
+        //THE PITCH IS WHAT MAKES THE SHELLS SAFE TO CUT, and the version of this level without it is why the
+        //figure is stated in that order. Nested shells with no twist in them are closed SLEEVES, and this
+        //body has a waist: a sleeve round the waist is the only thing the whole lower cone hangs through, so
+        //cutting one colour took 89 % of the level. Wound instead, a shell is a spiral ramp that reaches the
+        //top plate at some angle, and what a cut leaves behind still hangs off it.
+        private const float HOURGLASS_PER_STOP = 2.9f;
+        private const float HOURGLASS_RISE = 1f;
+        private const float HOURGLASS_PITCH = 17.4f;
+
+        private static float HourglassRadius(int i, int depth)
+        {
+            float fromWaist = 2f * LevelsBelowGlass(i, depth) / (depth - 1f) - 1f;
+
+            return HOURGLASS_WAIST + HOURGLASS_FLARE * fromWaist * fromWaist;
+        }
+
+        private static float HourglassSweep(float r, float ang, int i, int depth) =>
+            (LevelsBelowGlass(i, depth) + HOURGLASS_RISE * r + HOURGLASS_PITCH * (WrapAngle(ang) / MathF.Tau))
+            / HOURGLASS_PER_STOP;
+
+        //THE TURBINE. A thin core with BLADES radial slabs standing off it, the whole assembly turning
+        //TURNS_PER_LEVEL a level. A blade is a slab rather than a fin: BLADE_HALF is measured ACROSS the
+        //blade, in cells, so the two-cell thickness the lattice needs for its cross-level neighbours holds
+        //at every radius rather than only at the tip. The core is what the blades hang off each other
+        //through - without it five slabs meeting at a point would be five separate bodies sharing an axis.
+        private const byte TURBINE_GRID = 13;
+        private const byte TURBINE_DEPTH = 20;
+        private const byte TURBINE_FIELD_LEVELS = 30;
+        private const int TURBINE_BLADES = 5;
+        private const float TURBINE_CORE = 1.3f;
+        private const float TURBINE_REACH = 4.6f;
+        private const float TURBINE_BLADE_HALF = 0.8f;
+        private const float TURBINE_TURNS_PER_LEVEL = 0.026f;
+
+        //THE SWEEP is HELICAL: the angle carries PITCH levels of sweep per full turn, so at any height the
+        //five blades stand at five different places along the wheel, and a blade walks the wheel as it
+        //descends. PITCH against PER_STOP decides how many stops a turn shows - 8.4 over 1.5 is 5.6 stops a
+        //turn, so no two blades of the five wear the same colour at the same height. The small radial term
+        //tilts the boundary along each blade as well, for the reason every sweep here is tilted.
+        private const float TURBINE_PER_STOP = 1.5f;
+        private const float TURBINE_PITCH = 8.4f;
+        private const float TURBINE_RISE = 0.35f;
+
+        private static bool TurbineCore(float r) => r <= TURBINE_CORE;
+
+        /// <summary>Which blade the cell is inside, 1..<see cref="TURBINE_BLADES"/>, or 0 for none.</summary>
+        private static int TurbineBlade(float r, float ang, int i)
+        {
+            if (r > TURBINE_REACH) return 0;
+
+            float turns = ang / MathF.Tau - i * TURBINE_TURNS_PER_LEVEL;
+            int blade = (int)MathF.Round(turns * TURBINE_BLADES);
+            float centre = (blade / (float)TURBINE_BLADES + i * TURBINE_TURNS_PER_LEVEL) * MathF.Tau;
+
+            //The perpendicular distance from the blade's own axis, which is what a slab is thin in. Straight
+            //angular width would be a fin - a wedge that thickens with radius and pinches to nothing at the core.
+            if (MathF.Abs(r * MathF.Sin(WrapAngle(ang - centre))) > TURBINE_BLADE_HALF) return 0;
+
+            return ((blade % TURBINE_BLADES) + TURBINE_BLADES) % TURBINE_BLADES + 1;
+        }
+
+        private static float TurbineSweep(float r, float ang, int i, int depth)
+        {
+            float local = WrapAngle(ang - i * TURBINE_TURNS_PER_LEVEL * MathF.Tau);
+
+            return (LevelsBelowGlass(i, depth) + TURBINE_PITCH * (local / MathF.Tau) + TURBINE_RISE * r)
+                   / TURBINE_PER_STOP;
+        }
+
+        #endregion
         #endregion
 
         #region Emitting one design
