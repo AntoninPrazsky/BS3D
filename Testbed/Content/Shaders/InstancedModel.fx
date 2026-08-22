@@ -1216,8 +1216,9 @@ float BubbleFilmThickness;
 //states and defends rather than a constant buried here.
 float BubbleTintStrength;
 
-//What the film hides where it is seen face-on, before the rim adds its own. Small: a bubble is mostly a
-//hole with a bright edge, and this is the "mostly" - raise it and the balls silt up into tinted marbles.
+//What the film hides where it is seen face-on, before the rim adds its own - and the one figure that decides
+//whether a ball's colour is nameable, because what a film does NOT hide is the backdrop arriving UNTINTED.
+//The C# side states and defends it (BallRenderSet.BUBBLE_BODY_OPACITY carries the arithmetic and the history).
 float BubbleBodyOpacity;
 
 //Ratios of the reference wavelength to the three the eye samples - red 680 nm over red, green and blue
@@ -1378,7 +1379,20 @@ float4 BubblePS(PatternVertexShaderOutput input) : COLOR
 	//WHAT COMES THROUGH IT, in the ball's own colour: the film is dyed, so the light it passes is dyed too.
 	//Tied to `alpha` on purpose - what a wall transmits is what it took out of the picture behind it, so a
 	//film that hides nothing tints nothing, and the two cannot drift into a coloured haze over open sky.
-	float3 through = (SkyRadiance(-eyeVector) * alpha + lampWash) * tint * BubbleTintStrength * occlusion;
+	//
+	//WHAT ARRIVES IS TAKEN AS A BRIGHTNESS AND NOT AS A COLOUR, and that is a deliberate departure from the
+	//physics, made for the one constraint this game cannot trade away: thirteen types have to stay apart at a
+	//glance under eighteen domes. Multiplied as a colour, a dye can only pass what the backdrop happens to
+	//contain - and a RED film over the meadow's BLUE sky passes almost nothing, so the opening block's red
+	//pyramid came out pink whatever the dye was set to. The backdrop's hue does not get a veto over the
+	//ball's; how much light there is does. Rec. 709 luminance, the same weights the rest of the pipeline uses.
+	float skyThrough = dot(SkyRadiance(-eyeVector), float3(0.2126, 0.7152, 0.0722));
+
+	//The scene's own lamps take the same reading, and for the same reason: a campfire seen through a green
+	//film is green light, not a warm cast on a green ball.
+	float lampThrough = dot(lampWash, float3(0.2126, 0.7152, 0.0722));
+
+	float3 through = (skyThrough * alpha + lampThrough) * tint * BubbleTintStrength * occlusion;
 
 	//AND THE EDGE, which is what actually makes a bubble a bubble rather than a tinted disc. Along the
 	//silhouette the eye looks the long way ALONG the film, and the same path length that makes it opaque

@@ -98,7 +98,8 @@ and 20 minutes into a continuous session, which said the spread was the level an
   The glass bubble is a second technique with a heavier pixel shader and it puts the shell out **twice**
   (two walls, opposite cull modes), so it is a real fill-rate difference and it is the *map* that decides it:
   a run that did not pin this measured whatever style the level happened to be authored in. Measured with it:
-  959 balls under the cavern at 3840×1600, ssaa 2×, vinyl 167.1 / 166.2 FPS against bubble 150.5 / 149.9.
+  959 balls under the cavern at 3840×1600, ssaa 2×, vinyl 166.1 / 166.3 FPS against bubble 149.5 / 149.9. The
+  figure does not move with how opaque the film is — same passes, same instructions.
 
 ## The Testbed measures too, and it is the one that can aim
 
