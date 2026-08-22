@@ -185,7 +185,22 @@ float NightAmbient;         //what the unlit side keeps, so it stays a sphere an
 //
 //Returns the height in units of `depth`, and a 0..1 "rim freshness" the caller colours ejecta with.
 //Cost: three 2D hashes and a little arithmetic.
-float CraterLayer(float2 p, float seedOffset, out float ejecta)
+//The radius a crater is cut to, as a fraction of its own cell. The pair is set by the JITTER the margin
+//below has to leave, not by how big a crater should look on the ground - the octave periods in CraterField
+//carry the world size, and they were rescaled with these so no crater changed size when they moved.
+//
+//⚠ THE MARGIN IS THE CRATER'S OWN RADIUS TIMES ITS SKIRT, SO A CRATER THAT FILLS ITS CELL IS PINNED TO THE
+//LATTICE - and that was #240 in one line. At the old 0.30 the box left for the centre was 1 - 2*0.30*1.6 =
+//FOUR PER CENT of the cell, so the largest craters of every octave, which are the ones the eye picks out
+//first, sat on their cell centres to within a fortieth of a cell. Photographed from above, the plain was a
+//stamped carpet of rings in rows and columns. The jitter was never weakest where it mattered least; it was
+//weakest exactly where it mattered most, and no amount of hashing could have hidden that.
+//
+//At 0.21 the worst case leaves 33 % of the cell and the median crater 55 % (the squared roll below).
+static const float CRATER_MIN_RADIUS = 0.12;
+static const float CRATER_MAX_RADIUS = 0.21;
+
+float CraterLayer(float2 p, float seedOffset, float chance, out float ejecta)
 {
 	float2 cellId = floor(p);
 	float2 f = p - cellId;
@@ -198,16 +213,25 @@ float CraterLayer(float2 p, float seedOffset, out float ejecta)
 	float2 rollA = NoiseHash22(cellId + seedOffset) * 0.5 + 0.5;
 
 	//Not every cell carries a crater - a plain with a crater in every cell of a lattice IS the lattice,
-	//however hard the jitter works. The empty cells are what break the grid.
-	if (rollA.x > 0.62) return 0.0;
+	//however hard the jitter works. The empty cells are what break the grid. Per octave since #240: the
+	//finest layers were the loudest offenders, because a carpet of small craters puts dozens of cells in
+	//one glance and a row of dozens reads as a row where a row of three does not.
+	if (rollA.x > chance) return 0.0;
 
 	float2 rollB = NoiseHash22(cellId + seedOffset + 47.9) * 0.5 + 0.5;
 	float2 rollC = NoiseHash22(cellId + seedOffset + 91.7) * 0.5 + 0.5;
 
 	//The centre is jittered inside the middle of the cell, held clear of the edge by the crater's own
 	//reach (radius * 1.6 skirt) - which is exactly what makes the single-cell read above sound, the way
-	//the star lattice and the meadow's flowers hold their margins.
-	float radius = lerp(0.16, 0.30, rollB.x);
+	//the star lattice and the meadow's flowers hold their margins. What it also does is trade the jitter
+	//away against the radius, so the radius pair is chosen for the jitter (see CRATER_MAX_RADIUS).
+	//
+	//The roll is SQUARED, which weights the radii towards the small end. That is what a real crater count
+	//does - N climbs steeply as the diameter falls, and a plain of one-size bowls is the plane-wave-sine
+	//failure in bowl form - and it pays for itself twice over here, because a crater's margin IS its
+	//radius: a field of mostly small craters is a field of mostly free centres. Median radius 0.14 of a
+	//cell against a uniform law's 0.165, and a median jitter box of 55 % of the cell against 47 %.
+	float radius = lerp(CRATER_MIN_RADIUS, CRATER_MAX_RADIUS, rollB.x * rollB.x);
 	float margin = radius * 1.6;
 	float2 centre = margin + rollC * (1.0 - 2.0 * margin);
 
@@ -245,16 +269,40 @@ float CraterLayer(float2 p, float seedOffset, out float ejecta)
 	return bowl + rim * depth * 0.62;
 }
 
+//Each octave is TURNED TO ITS OWN BEARING before it is cut into cells, and the fourth (the pixel shader's
+//5-unit detail layer) with them. A separate seed makes two lattices share no crater; it does not stop them
+//sharing their ROWS, and `floor()` of an unturned domain puts every octave's rows along world X and Z. So
+//the four grids lined up and each one drew the others' lattice in again at its own scale - which is why
+//#240 reads as a single carpet in the photographs rather than as three faint ones. Free: two multiplies
+//and an add per octave, off constants folded at compile time. The angles share no small ratio.
+static const float2 CRATER_TURN_0 = float2(0.97437, 0.22495);   //13 degrees
+static const float2 CRATER_TURN_1 = float2(0.75471, 0.65606);   //41 degrees
+static const float2 CRATER_TURN_2 = float2(0.27564, 0.96126);   //74 degrees
+static const float2 CRATER_TURN_3 = float2(0.55919, 0.82903);   //56 degrees
+
+float2 TurnCrater(float2 p, float2 turn)
+{
+	return float2(p.x * turn.x - p.y * turn.y, p.x * turn.y + p.y * turn.x);
+}
+
 //The crater field: three octaves, so small craters sit inside and on top of larger ones the way the real
 //surface is layered. Amplitudes fall roughly with the radius (a crater's depth scales with its size), and
 //each octave has its own seed so the three lattices share nothing.
+//
+//The periods were 90 / 34 / 13 and are 1.43x that, which is CRATER_MAX_RADIUS's own move (0.30 -> 0.21)
+//turned around: the crater is a smaller fraction of a bigger cell, so it has room to move and comes out
+//the SAME SIZE ON THE GROUND - 27.1, 10.3 and 3.9 world units at the top of each octave, against 27.0,
+//10.2 and 3.9 before. What the bigger cells do cost is COUNT, at 49 % per unit area, and the chances below
+//buy about half of that back deliberately rather than all of it: the plain photographed for #240 is
+//over-populated, a wall-to-wall carpet with no bare mare between anything, and the thinning is most of why
+//the fix reads as a plain rather than as the same plain jittered.
 float CraterField(float2 p, out float ejecta)
 {
 	float e0, e1, e2;
 
-	float height = CraterLayer(p * (1.0 / 90.0), 11.3, e0) * 0.58
-		+ CraterLayer(p * (1.0 / 34.0), 37.7, e1) * 0.29
-		+ CraterLayer(p * (1.0 / 13.0), 71.1, e2) * 0.13;
+	float height = CraterLayer(TurnCrater(p, CRATER_TURN_0) * (1.0 / 129.0), 11.3, 0.86, e0) * 0.58
+		+ CraterLayer(TurnCrater(p, CRATER_TURN_1) * (1.0 / 49.0), 37.7, 0.82, e1) * 0.29
+		+ CraterLayer(TurnCrater(p, CRATER_TURN_2) * (1.0 / 18.6), 71.1, 0.70, e2) * 0.13;
 
 	//The freshest rim wins: ejecta is a colour cue, not a height, so the octaves MAX rather than sum -
 	//summed, three faint aprons stack into a pale wash that reads as dirt rather than as rays.
@@ -402,7 +450,10 @@ float4 MoonTerrainPS(MoonTerrainVertexOutput input) : COLOR
 	//Both band-limited against the footprint; the perturbation is derivative-driven and would checkerboard
 	//the moment a wave nears pixel size.
 	float smallEjecta;
-	float smallCraters = CraterLayer(worldPosition.xz * (1.0 / 5.0), 133.7, smallEjecta)
+	//Turned and thinned with the other three (#240). This is the octave the eye is closest to, so its rows
+	//are the longest ones in the frame: it sat unturned on world X and Z at 5 units, which put a hundred
+	//cells of it across the near ground in a single glance.
+	float smallCraters = CraterLayer(TurnCrater(worldPosition.xz, CRATER_TURN_3) * (1.0 / 7.2), 133.7, 0.64, smallEjecta)
 		* saturate(1.0 - footprint * (2.0 / 5.0));
 
 	float relief = Fbm2BandLimited(worldPosition.xz * 1.7, 3, footprint * 1.7);
