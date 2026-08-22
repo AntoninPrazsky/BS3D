@@ -291,12 +291,22 @@ namespace Prazsky.BS3D
         private const float BUBBLE_TINT = 3.2f;
 
         /// <summary>
-        /// What a bubble's film hides where the eye meets it face-on, before its rim adds its own. Small on
-        /// purpose: a bubble is mostly a hole with a bright edge, and this figure is the "mostly" — raised, the
-        /// balls silt up into tinted marbles and the whole point of the style is gone. The rim is what makes
-        /// each ball a distinct object; the middle is what lets the island and the sky show through the cluster.
+        /// What a bubble's film hides where the eye meets it face-on, before its rim adds its own — <b>the one
+        /// figure that decides whether a colour is nameable</b>, and the reason is arithmetic rather than taste.
+        /// What a film does not hide is the backdrop, arriving <i>untinted</i>: the two walls together cover
+        /// <c>1 − (1 − f/2)(1 − f)</c> of the pixel, so at the 0.26 this shipped with, <b>64 % of a bright sky
+        /// stood behind every ball</b> and the campaign's opening block — a red pyramid over the meadow's blue
+        /// sky — read pink. At 0.84 that residue is 6 %. The owner's word for the first version was that the
+        /// balls were so transparent their colour could hardly be seen at all, and this is the number that was.
+        /// <para>
+        /// It does <b>not</b> cost the style, which is the thing to re-check before anyone lowers it again: a
+        /// bubble reads as glass through its rim, its pinpoint, its iridescence, the second rim of its own far
+        /// wall showing inside the first, and the fact that its brightness follows whatever is behind it — none
+        /// of which this touches. Photographed at 0.26, 0.55, 0.62, 0.72 and 0.84 on the meadow (the hardest
+        /// case, the brightest sky in the campaign) and on space (the darkest).
+        /// </para>
         /// </summary>
-        private const float BUBBLE_BODY_OPACITY = 0.26f;
+        private const float BUBBLE_BODY_OPACITY = 0.84f;
 
         /// <summary>
         /// How much of its own colour a bubble radiates, the transparent counterpart of <see cref="EMISSION"/>.
