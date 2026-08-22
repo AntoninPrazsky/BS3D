@@ -1187,4 +1187,31 @@ Majitel to zadal takhle: *„Doopravdy je tam ta mřížka viditelná… rozmís
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-22 (HUD — rohové readouty nad betonovou palubou; mimo issues, na mainu).*
+
+## 2026-08-22 — ZCode (čtyřicátý druhý zápis)
+
+**#244, majitelova žádost z playtestu: „New scene: tropical island beach — palms, sea, rocks with green tops." Větev `244-tropical-beach`.**
+
+**Kompozici volil majitel předem** (AskUserQuestion): laguna uzavřená zeleným břehem, ne otevřené moře; název „Tropical" (klíč `tropical`, na menu, v JSON levelů i na příkazové řádce).
+
+**Nejcennější rozhodnutí implementace: voda je `Sea.fx` samo, beze změny.** `DrawTropicalWater` tlačí do téhož efektu a gridu, který kreslí otevřené moře, tropické hodnoty (klidnější swell, tyrkysovou barvu) — dvě scény se nemohou rozejít v tom, *jak* se voda kreslí, jen v tom, jaká je. Clip radius je nejvnitřnější dosah kymácející se čáry hladiny minus rameno `CALM_BAND`, takže swell u břehu umírá a surfový příboj naráží na oblázky, ne na kružnici; `FunnelPoolRadius` 0 vypne pool i meniskus. **A z toho plyne past, kterou jsem zachytil předem: oba water draw si teď per-frame tlačí celou sadu uniformů včetně konfig-statických.** Dvě scény sdílejí jednu instanci efektu a NumPad2/V switch neaplikuje konfiguraci — kdo by tlačil jen per-frame půlku, nechal by právě přepnutou scénu kreslit tu druhou vodu. Je to stejná lekce jako sizing sdíleného hejna, jen v podobě shader parametrů (a `DrawSea` si své statické hodnoty od teď také tlačí zpět každý snímek).
+
+**Viditelná čára hladiny dělá depth test, ne shader.** Mezi clipem a pobřežím voda pod pískem sahá, který je ještě nad ní — a neprůhledný, hloubku zapisující písek ji odmítne z každého úhlu. Okem viděná hladina je přesně tam, kde profil pláže protíná úroveň vody, včetně kymácení; shader na to nesahá. Clip jen ukotvuje calm bandu a bráni dvěma plochám se drbat na linii.
+
+**Výškové pole je jen sinusy a hermitovy rampy, žádný gradient noise** — protože `TropicalTerrainHeight` ho zrcadlí na CPU pro sázení palem a skal (kontrakt `SavannaTerrainHeight`). Všechno šumavé (fleky písku, zrno, mottling koron, větrné pásy) bydlí v pixel shaderu, kam žádná rostlina nešáhá. Dvě hermity se potkávají na poloměru pobřeží, takže profil protíná hladinu *konstrukcí* — mokrá banda písku, písečný lem dálného břehu i clip čtou jednu a jedinou hodnotu.
+
+**Palmy: dvě sítě nad jednou instancí jako akácie (#202), sukňa suchých listů je půlka slova „palma".** Trup je řetěz kónických tubů na předloceném oblouku (lathe nemůže — ta je striktně kolem Y). Frondy jsou **oboustranná geometrie** — každý quad dvakrát, jednou na líc — protože sdílený instancing path culluje a `CullNone` si draw sdílející rasterizer state s lathe winding přát nemůže (ptačí křídla řeší ten samý problém naopak). Sway je UV.x váha per vertex: nula po trupu, rostoucí po frondu — vítr hýbe korunou a ne kmenem (palma vlající celá je řasa), fáze z world pozice instance, z wall clocku jako všechno ostatní. `Palm.fx` = `Acacia.fx` + sway.
+
+**Skály s zeleným vrškem: druhá síť nad instancí, ne shader trik.** Mechová čepice je nízký lathe dóm zarytý rimem do horního boku kamene, na vlastní `irregularityPhase` — kde zelená vystupuje nad šedou, tam se dvě wobble neshodnou, a žádné dvě skály nesdílejí linii. Čepice je na 0,84 poloměru kamene s rimem hluboko pod povrchem *v tom poloměru* — kámen je dóm, čepice širší by mu plavala po boku. Sázené do bandy kolem čáry hladiny (height test), takže některé stojí půlku ve vodě.
+
+**⚠ Jediná chyba, kterou chycení odhalily, byla „floaty" palmy** — sázené na přesnou výšku terénu, bez přisednutí. Forest scatter je sráží o 0.15; teď i palmy. Detail stojí za zmínku: flared kořen na přesném povrchu čte jako stojící na špendlíku od všude kromě čelního pohledu.
+
+**Ověřeno trojím způsobem:** build tří řešení (mgcb přeložil oba nové shadery); smoke běhy `scene=tropical/sea/savanna` (správné default dómy 1/13/14, žádná výjimka); a **čtyři captures přes repo screenshot skill, čtené vision modelem** — pohled z kamery hry (písek, 15–20 palem čtoucích se jako palmy, tyrkysová voda za pláží), břehový záběr podél hladiny (skály v surfové linii s viditelným mechem, mokrá banda), výškový pohled přes lagunu (hřeben zavírá horizont, písek klesá do vody bez švů). Měření (benchmark skill, desktop 5900X/6900 XT, front end, 1600×900, dóma 13, ssaa 2, 14 s, první 4 čtení zahazené): **tropical 501,4 FPS / 2,0 ms proti sea 598,4 / 1,7** — pouštní třída, uvnitř terénního pásma. APU číslo nezadávám (outbackovo varování: terénní scény si pořadí mezi stroji nedrží).
+
+**Pro koordinaci: v tomto stroji souběžně pracuje Claude Code na jiných issues** — ve working tree byly celou dobu jen moje soubory, stagované explicitně jmenovaně; stash `220-sun-disc` jsem se nedotkl.
+
+**Nic dalšího si teď neberu.** Volné: **#237** (spára mezi výlevkou a zlatým prstencem — příčina nalezená, jen nevyfocená), **#241**, **#211**.
+
+---
+
+*Poslední zápis: ZCode, 2026-08-22 (#244 — čtrnáctá scéna, tropická pláž v laguně; větev `244-tropical-beach`, okamžitě do mainu).*

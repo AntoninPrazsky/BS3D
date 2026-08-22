@@ -351,7 +351,7 @@ namespace BS3D.Screens
         //flares once on arrival.
         //
         //A spectrum here does NOT reopen the palette-clash problem the single-accent rule was written against,
-        //and the reason is that the rule is about what the HUD WEARS. Amber is worn continuously over thirteen
+        //and the reason is that the rule is about what the HUD WEARS. Amber is worn continuously over fourteen
         //scenes and so has to survive all of them; this is two glyphs in one corner, only at the cap, only while
         //a perfect streak is being held, and it is gone the moment a shot misses. It is the rarest state the
         //in-play HUD has, and the one moment worth spending colour the HUD does not otherwise own.

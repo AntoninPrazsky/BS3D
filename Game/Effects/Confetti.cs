@@ -84,7 +84,7 @@ namespace BS3D.Effects
         private const float NEAR_FADE = 1.15f;
 
         //One light for the paper, not the scene's rig, and one ambient floor under it. This runs over any of
-        //thirteen scenes and eighteen domes, and a celebration that went black in the cavern would be a hole
+        //fourteen scenes and eighteen domes, and a celebration that went black in the cavern would be a hole
         //in the party — so the paper carries its own light and looks the same everywhere.
         private static readonly Vector3 LIGHT = Vector3.Normalize(new Vector3(0.35f, 0.86f, 0.38f));
         private const float AMBIENT = 0.34f;

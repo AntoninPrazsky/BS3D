@@ -30,9 +30,13 @@ namespace BS3D
         private const byte DEFAULT_SKY_DOME = 13;
 
         //The sea mirrors the sky, so its whole mood follows the dome and a bright one gives a breezy sea
-        //rather than a moody one; the savanna wants the set's warmest gold horizon. The Testbed's own figures.
+        //rather than a moody one; the savanna wants the set's warmest gold horizon; the tropical beach
+        //wants the brightest blue in the set (dome 1, a clear sunny sky over a warm horizon — white
+        //sand and turquoise water are the postcard, and they read as one under it). The Testbed's own
+        //figures, except the beach's, chosen for it.
         private const byte SEA_SKY_DOME = 13;
         private const byte SAVANNA_SKY_DOME = 14;
+        private const byte TROPICAL_SKY_DOME = 1;
 
         //Space deliberately forces NO dome, unlike those two. Its dome is neither drawn (Space.fx covers the
         //whole frame) nor read (SpaceLightingConfig states the light rig instead, for the reasons set out
@@ -42,9 +46,9 @@ namespace BS3D
         private byte _skyDome = DEFAULT_SKY_DOME;
 
         /// <summary>
-        /// Which of the twelve settings the frame stands in — the backdrop the menu's camera orbits and the
+        /// Which of the fourteen settings the frame stands in — the backdrop the menu's camera orbits and the
         /// one the game is then played in, since the player picks it from the menu and it stays picked. The
-        /// city and the neon city are the procedural <see cref="City"/> under two lightings; the other ten
+        /// city and the neon city are the procedural <see cref="City"/> under two lightings; the other twelve
         /// are the shared <see cref="SceneRenderer"/>'s self-lit backdrops, the same ones the Testbed and the
         /// map editor draw. The count is <see cref="SceneRenderer.SceneCount"/>, which is where to read it.
         /// </summary>
@@ -294,7 +298,7 @@ namespace BS3D
             //The 3D title over the front end (#248), letters and keylines both. It takes the dome's light like
             //everything else in the frame ON PURPOSE, which is the opposite of the trophy cup's choice and is
             //argued on TitleWordmark.Renderers: a cup is presented for seconds and wants one controlled
-            //finish, a wordmark stands over all thirteen backdrops under all eighteen domes and has to come
+            //finish, a wordmark stands over all fourteen backdrops under all eighteen domes and has to come
             //out right at both ends of that range. Dereferenced unconditionally like the two above — it is
             //built in LoadContent immediately before the startup SetScene, and for this very reason.
             foreach (InstancedModelRenderer renderer in _titleWordmark.Renderers) yield return renderer;
@@ -352,11 +356,13 @@ namespace BS3D
             _cityRenderer.CityWindowBrightness = neon ? _cityConfig.NeonLook.WindowBrightness : _cityConfig.WindowBrightness;
 
             //The sea mirrors the sky, so a bright dome would give it a breezy mood rather than the moody one
-            //it is built for, and the savanna wants the warmest gold horizon of the set. Every other scene
-            //keeps whatever dome is up — including the neon city, whose default IS the dusk. The Testbed's
-            //rule, so a scene looks the same in both.
+            //it is built for; the savanna wants the warmest gold horizon of the set; and the tropical beach
+            //wants the brightest blue — sand and turquoise water are a postcard, and only read as one under
+            //a sunny sky. Every other scene keeps whatever dome is up — including the neon city, whose
+            //default IS the dusk. The Testbed's rule, so a scene looks the same in both.
             if (scene == SceneKind.Sea) _skyDome = SEA_SKY_DOME;
             else if (scene == SceneKind.Savanna) _skyDome = SAVANNA_SKY_DOME;
+            else if (scene == SceneKind.Tropical) _skyDome = TROPICAL_SKY_DOME;
 
             //Re-derives the whole light rig from the dome, which every scene needs whether its dome changed
             //or not: the renderers were told nothing until now. Re-selecting the dome that is already up

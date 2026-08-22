@@ -152,5 +152,17 @@
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/Moon.fx;Shaders/Moon.fx
 
+#begin ../../Testbed/Content/Shaders/Tropical.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Tropical.fx;Shaders/Tropical.fx
+
+#begin ../../Testbed/Content/Shaders/Palm.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Palm.fx;Shaders/Palm.fx
+
 
 
