@@ -164,8 +164,10 @@ namespace BS3D
         private CeilingPlate _menuCeilingPlate;
 
         //The menu plate's opacity: clearly present glass rather than the played field's whisper. The menu
-        //camera looks at the field almost level, from 44 units out, so a 0.4 slab against a bright sky all
-        //but disappears — and the owner's ask was that this ceiling BE seen.
+        //camera looks at the field almost level and from well outside the island, so a 0.4 slab against a
+        //bright sky all but disappears — and the owner's ask was that this ceiling BE seen. (The stand-off
+        //was a fixed 44 when this was set and is solved per map since #254, which moves it but does not
+        //change the argument: the wide leg is still a look across the scene from outside it.)
         private const float MENU_CEILING_ALPHA = 0.7f;
 
         /// <summary>

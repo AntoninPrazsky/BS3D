@@ -385,6 +385,14 @@ namespace BS3D.Screens
                 CeilingPlate.FootprintFor(_map.StageSizeZ) * Constants.HALF,
                 CEILING_DEATH_Y - Constants.HALF);
 
+            //And the front end's own camera framed for THIS field (#254). It is not up while a level is
+            //played — but the result screen flies the lens out onto it the moment the level ends, and a
+            //framing left at whatever the menu last rolled would frame that ending for another map entirely:
+            //the set runs from a four-level pancake to a column hung eleven units higher. Framed off where the
+            //ceiling socket SETTLES the top level rather than off the lattice height, since that is where the
+            //bodies the player is looking at actually hang.
+            Game.Backdrop?.FrameOrbitFor(_map, BallsConstraintsBuilder.CeilingRestY(_ceilingY));
+
             //One line per level load, in the manner of [camera]: where the field ended up against the death
             //line, and how much air the layout's lowest ball starts with — the figure an author sizing a
             //deep map actually wants, and the record of whether the raise above fired.

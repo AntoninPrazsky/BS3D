@@ -170,6 +170,12 @@ namespace BS3D
         //set or as a name. Null means "the first one", which is what play alone has always done.
         private readonly string _startupLevel;
 
+        //Testing only: the "preview=" argument — which entry the FRONT END should hang instead of rolling one
+        //at random. Null means the roll, which is what a player always gets. It is the same reasoning as
+        //scene= and sky=: the menu's camera is now framed for the map hanging under it (#254), so two shots of
+        //the front end are only comparable if they are shots of the same map.
+        private readonly string _startupPreview;
+
         //Testing only: the "result" argument, consumed on the first Update for the "play" reason above — the
         //page has to go over a stack that exists. It is how the end-of-level moment gets looked at at all:
         //everything about it (the released camera, the star reveal, the arena going out of focus) only happens
@@ -535,6 +541,13 @@ namespace BS3D
         /// have. The stack ends up exactly as a player's Play click leaves it, so nothing downstream can
         /// tell the difference.
         /// </param>
+        /// <param name="preview">
+        /// Testing only (the <c>preview=</c> argument): which entry of the set the front end hangs over the
+        /// island, instead of the one it rolls at random. The menu's camera is framed for the map under it
+        /// since #254 — its stand-off, its aim height and the reach of its fly-in all come off that map's own
+        /// size — so a shot of the front end says nothing next to another shot of it unless both hung the same
+        /// map. Named the way <paramref name="level"/> is: a 1-based place in the set, or a name.
+        /// </param>
         /// <param name="result">
         /// Testing only (the <c>result</c> argument): put a cleared level's result screen over the front end.
         /// Everything that happens at a level's end — the camera letting go of the gun, the stars landing one
@@ -551,7 +564,8 @@ namespace BS3D
             bool uncappedFps = false, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
             QualityLevel? quality = null, bool celebrate = false, bool confetti = false, bool lasers = false,
             bool mute = false, bool play = false, bool result = false, bool blockDone = false, bool lost = false,
-            int? resultStars = null, int? streak = null, float[] shotSeconds = null, string level = null)
+            int? resultStars = null, int? streak = null, float[] shotSeconds = null, string level = null,
+            string preview = null)
         {
             _fullscreen = fullscreen;
             _startupCelebrate = celebrate;
@@ -560,6 +574,7 @@ namespace BS3D
             _startupStreak = streak;
             _startupLasers = lasers;
             _startupLevel = level;
+            _startupPreview = preview;
 
             //Naming a level means playing it, so "level=" implies "play" rather than needing it alongside
             _startupPlay = play || level != null;
@@ -1106,6 +1121,15 @@ namespace BS3D
         /// <c>[levels]</c> line, the same leniency the rest of the command line takes: a diagnostic must never
         /// be the reason a scripted run fails to start.
         /// </summary>
+        /// <summary>
+        /// Which entry the front end's backdrop should hang, or <c>null</c> for the roll a player gets — the
+        /// <c>preview=</c> argument, resolved the way <see cref="ResolveStartupLevel"/> resolves
+        /// <c>level=</c>. Asked on every roll rather than resolved once, which costs a walk of the set on an
+        /// event that happens when a player returns to the menu and is what keeps this a one-liner.
+        /// </summary>
+        internal int? PinnedPreviewLevel =>
+            _startupPreview == null ? null : ResolveStartupLevel(_startupPreview);
+
         private int ResolveStartupLevel(string level)
         {
             int count = LevelCount;
