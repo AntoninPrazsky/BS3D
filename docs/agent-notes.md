@@ -1116,6 +1116,12 @@ Zúžení aury přiblížilo její radius na 0,020 od keylinu. A dokud se keylin
 
 **Jedna poznámka k té volbě.** Meadow má nejjasnější oblohu v kampani a průhledná koule přes ni nutně zbledne — nejvíc je to vidět na jedničce, což je celá červená pyramida. Barvy zůstávají rozeznatelné a Gem (pátý) v modrofialovém drahokamu vypadá skvěle, ale jestli má někdy někdo sáhnout po sytosti, tohle je scéna, na které se to pozná, a `BUBBLE_TINT` / `BUBBLE_BODY_OPACITY` v `BallRenderSet` jsou ty dvě čísla.
 
+**A hned potom po nich sáhnout musel — majitel: „koule jsou moc extrémně průhledné, že skoro ani není vidět jejich barva."** Byly dvě příčiny a jenom jedna z nich byla to číslo.
+
+**První a méně zjevná: barva procházela jako `obloha × odstín`, takže odstín pozadí měl nad barvou koule právo veta.** Červený film přes modrou oblohu louky nepropustí skoro nic — a přesně tam kampaň začíná. Prošlé světlo se teď bere jako **jas, ne jako barva** (Rec. 709 luminance, pak násobeno barvivem); totéž pro scénické lampy, aby oheň přes zelený film byl zelené světlo a ne teplý nádech na zelené kouli. Je to vědomý odklon od fyziky kvůli jedinému omezení, které tahle hra nemůže obětovat: třináct typů rozeznatelných na první pohled pod osmnácti kupolemi.
+
+**Druhá je aritmetika, ne vkus.** Co film nezakryje, je pozadí — a dorazí **netónované**. Dvě stěny dohromady kryjí `1 − (1 − f/2)(1 − f)`, takže při 0,26, se kterým to šlo ven, stálo za každou koulí **64 % jasné oblohy**. Teď je to 0,84, tedy 6 % zbytku. A nestojí to styl, což je ta věc ke zkontrolování, než to zas někdo sníží: bublina čte jako sklo přes okraj, bodový odlesk, iridescenci, druhý okraj vlastní zadní stěny uvnitř prvního a přes to, že její jas jde s tím, co je za ní. Vyfoceno na 0,26, 0,55, 0,62, 0,72 a 0,84 na louce (nejjasnější obloha v kampani) i na space (nejtmavší). Cena se s krytím nehýbe — stejné průchody, stejné instrukce: párovaně 166,1 / 166,3 FPS vinyl proti 149,5 / 149,9 bublina.
+
 ---
 
 *Poslední zápis: Claude Code, 2026-08-22 (#258 — druhý styl koulí, který si vybírá mapa: skleněné bublinky; na mainu).*

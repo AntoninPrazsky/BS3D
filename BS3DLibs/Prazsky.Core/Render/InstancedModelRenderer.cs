@@ -365,10 +365,12 @@ namespace Prazsky.Core.Render
         public float BubbleTintStrength { get; set; } = 1.4f;
 
         /// <summary>
-        /// What the film hides where it is seen face-on, before the rim adds its own. Small: a bubble is
-        /// mostly a hole with a bright edge, and this is the "mostly".
+        /// What the film hides where it is seen face-on, before the rim adds its own — and the figure that
+        /// decides whether a ball's colour is nameable, since what a film does <i>not</i> hide is the backdrop
+        /// arriving untinted. <c>Prazsky.BS3D.BallRenderSet.BUBBLE_BODY_OPACITY</c> is the one that states it
+        /// for the balls and carries the arithmetic; this default only covers a caller that never says.
         /// </summary>
-        public float BubbleBodyOpacity { get; set; } = 0.16f;
+        public float BubbleBodyOpacity { get; set; } = 0.84f;
 
         /// <summary>
         /// How much of its own color the surface radiates, independent of any light falling on it.
