@@ -268,6 +268,55 @@ namespace Prazsky.BS3D
 
         #endregion
 
+        #region The glass bubble (issue #258)
+
+        /// <summary>
+        /// Optical thickness of the bubble's film seen face-on, in whole waves of the reference wavelength —
+        /// the pitch of the soap rainbow. Under about 1 the film sits in its first interference order and shows
+        /// broad single-colour washes; over about 4 the fringes crowd into a fine oily marbling that a distant
+        /// ball cannot resolve and that the shader's band-limit then has to throw away. Just over 2 is where a
+        /// bubble the size of a played ball shows two or three clean bands across its rim, which is what reads
+        /// as soap rather than as an oil slick.
+        /// </summary>
+        private const float BUBBLE_FILM_THICKNESS = 2.2f;
+
+        /// <summary>
+        /// How much of its type colour a bubble's film carries into the light it passes. Over 1 deliberately:
+        /// real soap is very nearly colourless and this game cannot afford that — thirteen types have to stay
+        /// apart at a glance across a whole cluster, and a bubble showing the sky faithfully would show it in
+        /// every colour at once. It is the one figure to move if a colour stops being nameable, and the pair
+        /// to check it against is <see cref="BUBBLE_EMISSION"/>, which carries the same hue where no sky
+        /// reaches the ball at all.
+        /// </summary>
+        private const float BUBBLE_TINT = 3.2f;
+
+        /// <summary>
+        /// What a bubble's film hides where the eye meets it face-on, before its rim adds its own. Small on
+        /// purpose: a bubble is mostly a hole with a bright edge, and this figure is the "mostly" — raised, the
+        /// balls silt up into tinted marbles and the whole point of the style is gone. The rim is what makes
+        /// each ball a distinct object; the middle is what lets the island and the sky show through the cluster.
+        /// </summary>
+        private const float BUBBLE_BODY_OPACITY = 0.26f;
+
+        /// <summary>
+        /// How much of its own colour a bubble radiates, the transparent counterpart of <see cref="EMISSION"/>.
+        /// Lower than the vinyl ball's, and that is not a smaller glow but the same one: emission is added to a
+        /// premultiplied output and a film covers a fraction of its pixel where a skin covers all of it, so at
+        /// the skin's figure a bubble reads as a paper lantern rather than as glass with a light in it.
+        /// </summary>
+        private const float BUBBLE_EMISSION = 0.42f;
+
+        /// <summary>
+        /// The near wall of the shell, and the far one. They are drawn as two passes with opposite cull modes
+        /// — see <see cref="Draw"/>, which carries the whole argument — and the shader turns its normal by this
+        /// sign so both go through one piece of arithmetic.
+        /// </summary>
+        private const float BUBBLE_NEAR_WALL = 1f;
+
+        private const float BUBBLE_FAR_WALL = -1f;
+
+        #endregion
+
         #region Neighbour-based ambient occlusion (issue #40)
 
         /// <summary>
@@ -349,6 +398,10 @@ namespace Prazsky.BS3D
         //The pulse depth the renderers were built with, kept so both passes can STATE the depth they draw at
         //rather than one of them relying on what the other left behind.
         private readonly float _pulseDepth;
+
+        //What the balls are made of. Beach by construction, so a caller that never says anything draws exactly
+        //what it drew before #258 — the Testbed and every map file authored without the field.
+        private BallStyle _style = BallStyle.Beach;
 
         #endregion
 
@@ -449,6 +502,51 @@ namespace Prazsky.BS3D
         {
             get => _renderers[0].RippleAlarmColor;
             set { foreach (InstancedModelRenderer renderer in _renderers) renderer.RippleAlarmColor = value; }
+        }
+
+        /// <summary>
+        /// What the balls are made of (#258): the moulded vinyl beach ball, or a hollow glass bubble. It picks
+        /// the shading technique and, with it, the drawing states <see cref="Draw"/> puts the shell out under —
+        /// which is why it lives here and not on the renderers, and why a caller sets it and then simply draws.
+        /// <para>
+        /// <b>State it, do not inherit it.</b> The Game has one set for the whole program and two screens hang
+        /// clusters through it — the front end's preview and the played level, each carrying its own map's
+        /// answer — so a screen that assumed the value it left last frame would draw the other one's style for
+        /// however long it took the first one to notice. Assigning the same value again costs a comparison,
+        /// deliberately, so stating it every frame is free.
+        /// </para>
+        /// </summary>
+        public BallStyle Style
+        {
+            get => _style;
+            set
+            {
+                if (_style == value) return;
+
+                _style = value;
+                ApplyStyle();
+            }
+        }
+
+        /// <summary>
+        /// The per-renderer figures that differ between the two styles. Everything a ball IS — its colour, its
+        /// heartbeat, its ripple, its dissolve, its occlusion — is the same in both and is set once in the
+        /// constructor; what is set here is only what the surface does with light.
+        /// </summary>
+        private void ApplyStyle()
+        {
+            if (_renderers == null) return;
+
+            bool bubble = _style == BallStyle.Bubble;
+
+            foreach (InstancedModelRenderer renderer in _renderers)
+            {
+                renderer.GlassBubble = bubble;
+                renderer.EmissiveStrength = bubble ? BUBBLE_EMISSION : EMISSION;
+                renderer.BubbleFilmThickness = BUBBLE_FILM_THICKNESS;
+                renderer.BubbleTintStrength = BUBBLE_TINT;
+                renderer.BubbleBodyOpacity = BUBBLE_BODY_OPACITY;
+            }
         }
 
         /// <summary>
@@ -584,12 +682,19 @@ namespace Prazsky.BS3D
 
         /// <summary>
         /// Puts out everything collected this frame: one instanced draw call per ball type and LOD level, with
-        /// that type's material and diffuse tint. Closes the frame, so the next
-        /// <see cref="BeginFrame"/> is legal again.
+        /// that type's material and diffuse tint — twice over for a glass bubble, which is a shell with two
+        /// walls (see <see cref="DrawShell"/>). Closes the frame, so the next <see cref="BeginFrame"/> is legal
+        /// again.
         /// <para>
         /// <b>Where</b> in the frame this is called is the caller's, and load-bearing in all three: over the
         /// opaque scene so the cluster and the gun are in the depth buffer, before the shots' additive smears
         /// and before any glass composites over them.
+        /// </para>
+        /// <para>
+        /// <b>The drawing states are the caller's for the vinyl ball and this method's for the bubble</b>, which
+        /// is the one asymmetry in here. An opaque ball is drawn under whatever the scene's own baseline is; a
+        /// transparent one cannot be, because its correctness is in the states. They are put back as they were
+        /// found, so the glass drawn after the balls still stands on the caller's baseline either way.
         /// </para>
         /// </summary>
         /// <param name="wallClockSeconds">Seconds of <b>wall clock</b>, driving the heartbeat. Not the
@@ -618,13 +723,113 @@ namespace Prazsky.BS3D
                 _renderers[lod].DissolvePixelSize = dissolvePixels;
             }
 
-            //Two passes, and the ONLY thing that differs between them is the pulse depth (#252): the balls
-            //loaded in the cannon are drawn with it at zero, so they radiate their colour steadily where the
-            //cluster breathes. Both passes state the depth they draw at rather than one inheriting whatever
-            //the other left on the renderer — the uniform belongs to the renderer, not to whoever set it, and
-            //that is the trap the shot trail's two callers already paid for once.
+            if (_style == BallStyle.Bubble) DrawShell(camera);
+            else DrawBoth(camera);
+        }
+
+        /// <summary>
+        /// Both bucket planes at their own pulse depths — the whole of an opaque ball draw, and the near-wall
+        /// and far-wall halves of a bubble one.
+        /// <para>
+        /// The ONLY thing that differs between the two passes is the pulse depth (#252): the balls loaded in
+        /// the cannon are drawn with it at zero, so they radiate their colour steadily where the cluster
+        /// breathes. Both state the depth they draw at rather than one inheriting whatever the other left on
+        /// the renderer — the uniform belongs to the renderer, not to whoever set it, and that is the trap the
+        /// shot trail's two callers already paid for once.
+        /// </para>
+        /// </summary>
+        private void DrawBoth(ICamera camera)
+        {
             DrawPlane(camera, still: false, pulseDepth: _pulseDepth);
             DrawPlane(camera, still: true, pulseDepth: 0f);
+        }
+
+        /// <summary>
+        /// The glass bubble's shell, as its two walls (#258). <b>This method is the transparency</b>: the
+        /// shading is <c>InstancedModelBubble</c>'s, but what makes a bubble a bubble rather than a tinted
+        /// marble is the order these two draws arrive in and the depth states they arrive under.
+        /// <para>
+        /// <b>Why two passes and not one.</b> A hollow sphere shows the eye its far wall through its near one.
+        /// One draw shows a single wall — whichever the cull mode keeps — so a bubble drawn once is a
+        /// transparent disc with a rim, and the thing that says "hollow" (the second, smaller rim inside the
+        /// first) is simply absent. The far wall goes first because it is behind.
+        /// </para>
+        /// <para>
+        /// <b>Why the balls are not sorted, which is the honest limitation here.</b> Correct transparency wants
+        /// the balls drawn back to front, and that is not merely expensive but structurally impossible in this
+        /// renderer: a ball's colour is a per-DRAW uniform, so a bucket is one colour and one mesh, and a
+        /// global order over three thousand balls cannot be expressed as fifty-two instanced calls. What is
+        /// drawn instead is bucket order — deterministic within a frame, and moving only when a ball changes
+        /// LOD. The near wall <i>does</i> write depth, so the front of the cluster resolves exactly; what the
+        /// approximation costs is the layering of far walls among themselves, at the alphas
+        /// <see cref="BUBBLE_BODY_OPACITY"/> holds them to, inside a mass of overlapping films. It reads as
+        /// depth rather than as an error, which is the only reason it is acceptable.
+        /// </para>
+        /// <para>
+        /// <b>Why the near wall writes depth at all</b>, when not writing it would let the bubbles show one
+        /// another through. Because three things drawn after the balls read that depth and are wrong without
+        /// it, and one of them is not negotiable: the aim beam is the overview's only word on where the gun
+        /// points, and a beam that runs straight through the cluster instead of stopping at it is a guide that
+        /// lies. The muzzle round's halo is carved into a ring by this same buffer (#236) and would go back to
+        /// being a wash over the round, and the ceiling's glass and the floor's laser net both composite
+        /// against it. A style is allowed to change how the game looks; it is not allowed to change what the
+        /// player can tell from looking.
+        /// </para>
+        /// </summary>
+        private void DrawShell(ICamera camera)
+        {
+            //Put back exactly what was found, the discipline every effect in this project that changes states
+            //mid-frame keeps (the smears', the glass's): the caller set a translucent baseline for the whole
+            //scene and the glass drawn after the balls still stands on it.
+            BlendState blend = _device.BlendState;
+            DepthStencilState depth = _device.DepthStencilState;
+            RasterizerState raster = _device.RasterizerState;
+
+            //Premultiplied, which is what the shader has always output and what the caller already has bound;
+            //stated anyway, because this method's whole correctness is in its states and inheriting one of
+            //them would make that a claim about the caller rather than a fact about this draw.
+            _device.BlendState = BlendState.AlphaBlend;
+
+            //The far wall: tested against the opaque scene so the island and the gun still hide it, writing
+            //nothing, so the near wall of its own bubble is not rejected by it.
+            _device.DepthStencilState = DepthStencilState.DepthRead;
+            _device.RasterizerState = RasterizerState.CullClockwise;
+            SetShell(BUBBLE_FAR_WALL);
+            DrawBoth(camera);
+
+            //The censuses count BALLS, not draws. Zeroing between the walls is what keeps that true of a style
+            //that puts every ball out twice: DrawnCount is what a caller compares against the number of bodies
+            //it collected, and LodTotals is what says whether the ladder is doing anything at this distance —
+            //both nonsense at twice their size, and neither is a measure of how much work the frame did.
+            ResetCounts();
+
+            //And the near one, in the ordinary cull and writing depth for everything that comes after the
+            //balls. The procedural meshes wind clockwise seen from OUTSIDE — the convention in CLAUDE.md —
+            //so this is the pair of cull modes, not the other way round.
+            _device.DepthStencilState = DepthStencilState.Default;
+            _device.RasterizerState = RasterizerState.CullCounterClockwise;
+            SetShell(BUBBLE_NEAR_WALL);
+            DrawBoth(camera);
+
+            _device.BlendState = blend;
+            _device.DepthStencilState = depth;
+            _device.RasterizerState = raster;
+        }
+
+        //Back to nothing drawn: BeginFrame's own zeroing, reused between a bubble's two walls.
+        private void ResetCounts()
+        {
+            DrawnCount = 0;
+
+            for (int lod = 0; lod < _lodTotals.Length; lod++) _lodTotals[lod] = 0;
+        }
+
+        //Which wall the next draw puts out. It has to agree with the cull mode set beside it: the shader turns
+        //the geometric normal by this sign so both walls go through one piece of arithmetic, and a sign that
+        //disagrees lights the shell inside out.
+        private void SetShell(float wall)
+        {
+            foreach (InstancedModelRenderer renderer in _renderers) renderer.BubbleShell = wall;
         }
 
         /// <summary>

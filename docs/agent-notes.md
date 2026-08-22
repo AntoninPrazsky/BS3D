@@ -1088,4 +1088,30 @@ Zúžení aury přiblížilo její radius na 0,020 od keylinu. A dokud se keylin
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-22 (#254 — kamera menu rámovaná podle visící mapy + přílet ke klastru; na mainu).*
+## 2026-08-22 — Claude Code (třicátý devátý zápis)
+
+**#258 — druhý styl koulí, který si vybírá mapa: skleněné bublinky vedle vinylového plážáku.** Zadání majitele: opravdové *bubbles*, jaké foukal spořič Windows 7, protože 3D nápis v menu (#248) je sklo a hromada vinylových plážáků pod ním je art direction jiné hry. Staré nemizí — level říká, co věší, a obojí zůstává.
+
+**Kde ta volba bydlí.** `BallStyle` (`Beach`/`Bubble`) v `Prazsky.BS3D.GameStructure`, v levelu jako `"balls": "bubble"` vedle scény, kupole a tématu. **Bez bumpu formátu, a to je vědomá půlka rozhodnutí:** starší build neznámou property ignoruje a nakreslí vinyl — level se pořád otevře, dohraje a oboduje stejně, protože to nečte nic než stínování. Verzní brána je od toho, aby odmítla *rozbitý soubor*, ne *degradovaný vzhled*; stejný argument pustil `"music"` na verzi 2. Parsuje se benevolentně jako scéna a hudba (`bubbles`, `glass`, `vinyl` taky), neznámý zápis = jako by tam nebyl. Editor cykluje na **L**, F4 zapíše — a zapíše **jen když to není default**, aby round-trip nezačal sypat `"balls": "beach"` do všech 46 souborů.
+
+**Shading je vlastní technika, ne větev v `PatternPS`.** Důvod je ten měřený na ostatních velkých shaderech tohoto projektu: alternativní model za runtime větví platí sjednocení obou alokací registrů v každé vlně. Film je dielektrikum jako všechno tady, k tomu **spočtená** tenkovrstvá interference (fáze jde jako `thickness/cos θ` na poměrech vlnových délek `1 : 1,236 : 1,511`), takže duha se u obrysu roztahuje, film **stéká dolů** podle gravitace (proti *světové* normále — gravitace se s koulí neotáčí) a mramoruje se stejným součtem oktáv, jakým je vinyl zformovaný (v *objektovém* prostoru, takže se točí s koulí a nahrazuje pásy jako signál, že se koule kutálí).
+
+**Tři věci se ukázaly až v běhu a stojí za zápis:**
+
+1. **Band-limit duhy byl proti špatné veličině.** Psal jsem `footprint × path` — dosah pixelu přes *kouli*. Správně je `fwidth(path)`, tedy kolik proužku pokryje *jeden pixel*. Ten první byl na odstupu, ze kterého se level hraje, **už úplně zavřený**, takže celý efekt existoval jen v aritmetice: vyfoceno, koule byly ploché barevné disky.
+2. **Emise se u filmu musí zastínit sousedy — u kůže vědomě ne.** „Světlo zahrabané v hromadě je to, které má být pořád vidět" je argument o kouli, za kterou nevidíš. O hromadě filmů platí přesně naopak: do oka dorazí *každá* koule a pixel ukazuje **součet** přes čtyři pět z nich. Při odpadu kůže z toho byl uprostřed 438koulového klastru plochý pastelový flek bez jediné koule (vyfoceno na scéně space, kde obloha nedává nic a vlastní světlo koulí je všechno, co tam je). Okluze je navíc **umocněná na druhou**, takže obklopená bublina si nechá pětinu místo poloviny.
+3. **Fresnelovo zrcadlo ukazuje OBLOHU — a čtyři scény ji nemají.** Pod space, jeskyní, noční kupolí nebo nad jámou vrátí nula a koule byla zase plochý kruh bez hrany. Přibyl proto **tónovaný okraj**: tam, kde se oko dívá skrz film podél, je jak nejneprůhlednější, tak nejsytější — jedna a tatáž délka dráhy.
+
+**Kreslicí stavy jsou nově `BallRenderSet.Draw`ovy, ne volajícího** — jediná asymetrie v té metodě, a je vynucená: průhlednost *je* v tom pořadí. Skořápka jde ven jako dva průchody s opačným cullem (vzdálená stěna pod `DepthRead`, blízká pod `Default`), stavy se vracejí, jak byly nalezeny. **Blízká stěna zapisuje hloubku**, což stojí to, že se bubliny neprosvítají navzájem — a je to neoddiskutovatelné: paprsek míření je jediné slovo přehledu o tom, kam gun míří, a paprsek procházející klastrem je průvodce, který lže; halo náboje v ústí je do prstence vykrojené tímtéž bufferem (#236); a sklo stropu i laserová síť podlahy se proti němu skládají. **Koule se netřídí a nejdou setřídit:** barva je uniform per draw, takže kbelík je jedna barva a jedna mřížka a globální pořadí přes tři tisíce koulí se nedá vyjádřit padesáti dvěma instancovanými voláními. Kreslí se pořadí kbelíků — v rámci snímku deterministické, hýbe se jen při změně LOD.
+
+**Vytáhl jsem dva doslova zdvojené fade bloky** (moře, kill plane) do funkcí. Stály dvakrát s komentářem na obou, že jsou znak po znaku identické — a třetí ručně držená kopie je přesně to, čím to přestane být pravda.
+
+**Měřeno, párovaná opakování:** 959 koulí (`Eleven`, jeskyně, 3840×1600, ssaa 2×, vsync off) — vinyl 167,1 / 166,2 FPS, bublina 150,5 / 149,9. Tedy ~0,66 ms na snímek, ~10 % za zdvojený průchod koulí s těžším pixel shaderem. Nový přepínač `balls=<beach|bubble>` přebíjí, co říkají levely, protože dva vzhledy se poctivě porovnají jedině na *témž* klastru z *téhož* odstupu pod *touž* kupolí — a je to testovací páka, ne nastavení: styl je vlastnost mapy, kterou zvolil její autor.
+
+**Ověřeno v běžící hře:** hraný level (Helix, hory) i menu (Prism, space) po detailních výřezech ve 4× zvětšení; **paprsek míření končí u klastru**, takže hloubka sedí; result screen s pohárem a rozostřením; editor map otevřel level se `style=bubble` a vykreslil ho; round-trip formátu ověřen zvlášť malým konzolovým programem (bublina přežije zápis i načtení, vinylový level pole nikdy nezíská, neznámý zápis se odmítne). Všechny čtyři solution buildy čisté.
+
+**Čeho jsem se nedotkl a proč.** `Testbed.cs` má v pracovním stromě rozpracovanou větev tropické pláže (`244-tropical-beach`, majitel ji má otevřenou v IDE), takže Testbed styl **nečte** a kreslí vždycky vinyl — jedna věta v `docs/rendering.md` to říká nahlas. Doplnit ho je pár řádek, až ta práce dosedne. **Žádný ze 46 shipnutých levelů jsem na bublinky nepřepsal** — to je volba autora, ne moje; `L` + `F4` v editoru nebo `balls=bubble` na to stačí.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-22 (#258 — druhý styl koulí, který si vybírá mapa: skleněné bublinky; na mainu).*

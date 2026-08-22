@@ -1,3 +1,4 @@
+using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.Core.Render;
 using System;
@@ -78,6 +79,23 @@ namespace Prazsky.BS3D.Levels
         /// </summary>
         [JsonPropertyName("music")]
         public string Music { get; set; }
+
+        /// <summary>
+        /// What this level's balls are made of (#258) — <c>"beach"</c>, the moulded vinyl the game has always
+        /// drawn, or <c>"bubble"</c>, a hollow glass bubble with the type colour dyed into its film. Null,
+        /// which is what every level authored before the field existed says, is the beach ball: absent means
+        /// unchanged, so no shipped file had to be rewritten and none was.
+        /// <para>
+        /// It carries no format bump, and that is the deliberate half of the decision. An older build ignores
+        /// an unknown property and draws the level in vinyl — the level still opens, still plays and still
+        /// scores identically, because nothing but the shading reads this. That is a degraded LOOK, which is
+        /// what the version gate is for refusing when it would be a broken FILE; the same argument admitted
+        /// <see cref="Music"/> at version 2 without a bump.
+        /// </para>
+        /// </summary>
+        [JsonPropertyName("balls")]
+        [JsonConverter(typeof(BallStyleJsonConverter))]
+        public BallStyle? Balls { get; set; }
 
         /// <summary>The ball map, in the same shape as a legacy map file (sx/sz/l/b).</summary>
         [JsonPropertyName("map")]

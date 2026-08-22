@@ -196,6 +196,11 @@ namespace BS3D.Screens
             //the fallback map is still level `index` and should sound like it.
             string namedTheme = null;
 
+            //What this level's balls are made of (#258). Beach unless the file says otherwise — including when
+            //the load fails below, so the fallback map is drawn in something rather than in whatever the front
+            //end's last preview happened to leave standing on the shared render set.
+            BallStyle ballStyle = BallStyle.Beach;
+
             if (levelSet != null && index >= 0 && index < levelSet.Count)
             {
                 string path = levelSet.ResolvePath(index);
@@ -213,6 +218,7 @@ namespace BS3D.Screens
                         if (level.Scene is SceneKind sceneKind) Game.SetScene(sceneKind);
                         Game.SetSkyDome(Math.Clamp(level.SkyDome, (byte)1, BS3DGame.SKY_DOME_COUNT));
                         namedTheme = level.Music;
+                        ballStyle = level.Balls ?? BallStyle.Beach;
                     }
                     else map = new BallsMap(path);
 
@@ -227,6 +233,12 @@ namespace BS3D.Screens
             }
 
             Game.Music?.SetTheme(ProceduralMusic.ThemeFor(namedTheme, index));
+
+            //The render set is the whole program's, and the front end hangs its own preview through it — so
+            //this is stated on the way in rather than assumed, and stated again every frame this screen draws
+            //(see Draw). Setting it to what it already is costs a comparison.
+            _ballStyle = Game.BallStyleOverride ?? ballStyle;
+            Game.Balls.Style = _ballStyle;
 
             _map = map ?? BuildFallbackMap();
             _map.Center();
