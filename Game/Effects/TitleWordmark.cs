@@ -150,8 +150,13 @@ namespace BS3D.Effects
         //How far in front of the lens the wordmark hangs. It does not set the SIZE — that is solved from the
         //frame below — only the perspective: at this distance the block's far corners are about three quarters
         //of a unit further from the lens than its centre, so the word has a real vanishing point without the
-        //wide-angle stretch a closer hang would give it. It also keeps the whole block outside the island
-        //(radius 26) at the front end's orbit radius of 44, so nothing can ever intersect it.
+        //wide-angle stretch a closer hang would give it.
+        //
+        //IT IS ALSO A CLEARANCE, and one that is no longer free. The block hangs in the world with depth
+        //writes on, so anything nearer the lens than this is drawn THROUGH the game's own name; that could
+        //not happen while the front end stood at a fixed 44 units from an island of radius 26, and the fly-in
+        //(#254) now brings the lens in to within about twenty of the hanging cluster. What holds it is
+        //BackdropScreen's CLOSE_CLEARANCE, which is measured off this figure — change one and read the other.
         private const float DISTANCE = 7f;
 
         //HOW MUCH OF THE FRAME THE BLOCK FILLS. Height binds on every aspect anyone plays at (at 16:9 the

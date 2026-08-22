@@ -50,6 +50,10 @@ namespace BS3D
             //means the argument was absent, and then "play" opens the first level as it always has.
             string level = null;
 
+            //Testing only: which level the FRONT END should hang over the island instead of rolling one at
+            //random (#254). Null means the argument was absent, and then the backdrop rolls as a player's does.
+            string preview = null;
+
             //Testing only: put a cleared level's result screen up at startup. A level's ending — the released
             //camera, the stars landing, the arena going out of focus — is otherwise only reachable by winning
             //or losing one, which cannot be scripted any more than clearing one can.
@@ -134,12 +138,16 @@ namespace BS3D
                 //scripted run fails to start.
                 else if (arg.StartsWith("shot=", StringComparison.OrdinalIgnoreCase))
                     shotSeconds = ParseSeconds(arg.Substring("shot=".Length));
+                //"preview=<n|name>" pins which map the FRONT END hangs, the way "level=" pins which one is
+                //played. The menu's camera is framed for that map since #254, so without this two shots of
+                //the front end are two shots of different maps at different stand-offs.
+                else if (arg.StartsWith("preview=", StringComparison.OrdinalIgnoreCase)) preview = arg.Substring("preview=".Length);
             }
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
                 celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, streak: streak,
-                shotSeconds: shotSeconds, level: level);
+                shotSeconds: shotSeconds, level: level, preview: preview);
             game.Run();
         }
 

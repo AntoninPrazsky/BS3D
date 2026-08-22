@@ -90,6 +90,10 @@ and 20 minutes into a continuous session, which said the spread was the level an
   the game**: it has no cluster, no gun, no HUD and no simulation, and `docs/game-shell.md` names that blind
   spot for the adaptive probe too. A backdrop that clears 75 FPS empty says nothing about the same backdrop
   with 959 balls hanging over it, which is what #166 and #167 were each left unable to answer.
+- `preview=<n|name>` — pin the map the **front end** hangs, named exactly the way `level=` is. The front end
+  is not empty since #249 and its camera is framed for whatever is hanging since #254 — a small map is
+  watched from a different stand-off than a big one, and once a cycle the lens flies in at it — so two
+  front-end runs that did not pin the same preview measured two different scenes from two different places.
 
 ## The Testbed measures too, and it is the one that can aim
 
