@@ -321,6 +321,46 @@
       "shots": 52,
       "minStars": 76,
       "ceilingStep": 9
+    },
+    {
+      "file": "Icicle.json",
+      "name": "Icicle",
+      "block": "The Spectrum",
+      "shots": 40,
+      "minStars": 78,
+      "ceilingStep": 6
+    },
+    {
+      "file": "Hourglass.json",
+      "name": "Hourglass",
+      "block": "The Spectrum",
+      "shots": 48,
+      "minStars": 80,
+      "ceilingStep": 6
+    },
+    {
+      "file": "Trellis.json",
+      "name": "Trellis",
+      "block": "The Spectrum",
+      "shots": 52,
+      "minStars": 82,
+      "ceilingStep": 5
+    },
+    {
+      "file": "Kiln.json",
+      "name": "Kiln",
+      "block": "The Spectrum",
+      "shots": 56,
+      "minStars": 84,
+      "ceilingStep": 5
+    },
+    {
+      "file": "Turbine.json",
+      "name": "Turbine",
+      "block": "The Spectrum",
+      "shots": 52,
+      "minStars": 86,
+      "ceilingStep": 4
     }
   ]
 }

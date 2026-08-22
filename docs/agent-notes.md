@@ -1042,4 +1042,28 @@ Zúžení aury přiblížilo její radius na 0,020 od keylinu. A dokud se keylin
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-21 (#98 — drop test zkouší všechny skupiny, Column už není na jednu ránu; na mainu).*
+## 2026-08-22 — Claude Code (třicátý sedmý zápis)
+
+**„The Spectrum" — devátý blok, pět gradientových levelů (#253). Větev `253-colour-gradient-chapter`.** Kampaň je teď **45 levelů v 9 blocích**; poslední slovo (konfety + „CAMPAIGN COMPLETE") se posouvá z Globu na **Turbine** — potřetí, stejnou úvahou jako #182 a Arcade: po světle, které je *vyrobené*, zbývá už jen světlo zase **přijímané**, takže kampaň končí na **té samé městské siluetě jako Arcade, ráno a s vypnutým neonem** (scéna City, dóma 11, `bohemia`).
+
+**Zadání:** každý level jedna **rodina odstínů** rozmetená přes celé těleso jako gradient — bílá → světle modrá → modrá → tmavě modrá a zpátky, teplá rampa, zelená, soumraková, a na finále **celé kolo**. Rodiny: FROST(4,5,3,12), TWILIGHT(4,6,12,8), MOSS(4,2,13,8), HEAT(4,7,9,1,10), SPECTRUM(1,9,7,2,5,3,6). **Žádná nová barva** — majitel to řekl výslovně; rodina je *podmnožina a uspořádání* pevných třinácti (viz #152/#246, ty rozestupy jsou měřené a barva doplněná „do mezery v rampě" je cesta zpátky do pasti, které se vyhýbají).
+
+**Hlavní nález, a stál dva propadlé pokusy: gradient musí být ŠROUBOVICE, ne nakloněná rovina.** Pravidlo zní **každý stupeň rodiny musí stát na horním patře**. Stupeň, který existuje až níž, visí na stupni nad sebou a na ničem jiném — takže jedna trefená koule vezme jeho i všechno pod ním. Nakloněná rovina je 3D a *pořád* to nesplní: Icicle měřil **80 %**, Kiln **92 %** (přes bránu). Se šroubovicí o stoupání *jedna složená rodina na otáčku* je nahoře celá rodina v klínech a po výstřelu zbude **závit**, který dál spirálovitě dosahuje ke sklu: 80 → 34 %, 92 → 25 %, a Hourglass (kuželové slupky byly zavřené *rukávy* kolem pasu) **89 → 17 %**.
+
+**Skládaná (ping-pong) rampa je zadání, ne ozdoba** — „a zpátky k bílé". Zabalená rampa by dala jeden tvrdý šev navy↔bílá, jedinou hranici v rodině, která nečte jako gradient. Cena: perioda `2n−2` trefí **konce** jednou a středy dvakrát, takže bílá a navy mají zhruba poloviční počty. Ponecháno.
+
+**Pořadí bloku je měřený žebříček obtížnosti** (rodiny neškálují — zelený level není těžší než modrý): stojící skupiny **6, 9, 15, 22, 31** → **6,67 / 5,33 / 3,47 / 2,55 / 1,68** výstřelu na skupinu. Finále sedí uvnitř pásma Arcade (1,37–1,65).
+
+**Dva členy jsem zkusil a zamítl.** (1) Radiální člen v Icicle (0,9 patra na buňku) level **slepí** — 6 skupin → 4, jedna na barvu, celý level na čtyři rány; všechny ostatní designy ten člen chtějí, holý kužel pod holou šroubovicí jediný ne. (2) Turbine na **čtyři** listy: 47 skupin, 1,11 výstřelu na skupinu (těsnější než Colossus) a 24 koulí ve dvojicích. Zůstalo pět listů, jen delších a tenčích — 4,1 → 4,6 dosahu, protože při 4,1 to **prošlo všemi branami a vyfotilo se jako sloup** (pět krátkých desek se z libovolného úhlu promítne do plného disku).
+
+**⚠ Trellis je omezený fyzikou, ne drop testem.** Jeho dvě stuhy se přes 22 pater potkají **jednou**. Rychlejší vinutí (0,032 → 0,055 otáčky na patro) koupí **druhý** průsečík a zlepší úplně všechna čísla, která nástroj tiskne (zelená nejhorší rána 34 → 19 %, skupiny 15 → 14) — a level pak **v běžící hře po deseti vteřinách bez jediného výstřelu spadl** („The cluster reached the line"). Při tom stoupání se buňky stuhy na vnější dráze posunou o víc než buňku do strany na patro, takže se sousední patra sotva překrývají: **vazby existují** (proto brána na odpojení projde — přesně o to jde), ale je jich málo na to, aby to unesly, a celé se to natáhne. **Brána, která říká, že vazby existují, neumí říct, že jich je dost** — Garland (#182) narazil na tutéž zeď tloušťkou pramene, Ziggurat tloušťkou prstence, a najde to jedině zavěšení levelu bez výstřelu v běžící hře.
+
+**Scéna vybraná okem, a moře odmítnuté.** Nabízelo se moře („první světlo nad otevřenou vodou"), a je to pro *tenhle* blok nejhorší pozadí v celé hře přesně z toho důvodu, proč vypadalo správně: hladina **zrcadlí dómu**, takže odstín oblohy vyplní horek i spodek záběru — kapitola o rozlišování sousedních odstínů se pak hraje uvnitř jednoho z nich. Vyfoceno pod čtyřmi dómami, pokaždé jednobarevné; pod dómou 4 magenta obloha nad magenta mořem (past, kterou už máme zapsanou proti dream scéně). Město má **největší nízkosytou plochu ve hře** a šedou zem, takže barvu dómy nese jen horní třetina záběru. Dóma **11** vybrána proti 1, 3 a 9 na snímcích Icicle + Hourglass: 1 a 3 dávají azurovou/levandulovou oblohu za modrý resp. magenta cluster (každá spolkne rodinu, kterou má podkládat), 9 je soumrak = krok zpátky do tmy.
+
+**Ověřeno:** LevelGen exit 0 (nikde „ONE-SHOT LEVEL", nic osamoceně, marže ≥ 1), ScoreSim „All levels rate the right way round" přes všech 45, **aimcheck PASS ×5** — a měřený z **Game**, ne z Testbedu, protože všech pět je tall a Testbedu ta otázka přestala patřit (nejstrmější 47,5° z limitu 50,4°) — a všech pět **viselo 35 s bez výstřelu** v běžící hře. Všech pět vyfoceno; Trellis a Turbine čtou tvar i z dělové perspektivy, Icicle/Hourglass přes minimapu (to je premisa tall bloku).
+
+**Nic dalšího si neberu.** `origin/211-music-switches-fade` leží dál.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-22 (#253 — devátý blok „The Spectrum", pět gradientových levelů; na mainu).*
