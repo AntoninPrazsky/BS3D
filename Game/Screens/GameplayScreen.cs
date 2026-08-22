@@ -441,6 +441,12 @@ namespace BS3D.Screens
         private BallsMap _map;
         private PhysicsBall[,,] _physicsBalls;
 
+        //What this level's balls are made of (#258) — off the level file, and the vinyl beach ball for every
+        //file that says nothing. Kept because the render set is the whole PROGRAM's and the front end hangs its
+        //own preview through it: what a session draws has to be stated by the session, not left standing from
+        //whatever the menu was showing when Play was pressed.
+        private BallStyle _ballStyle = BallStyle.Beach;
+
         //Reusable backing array for the HUD's cluster profile: one entry per ball the frame could draw, filled
         //from the live poses in Draw and handed to the HUD as a span. Sized to the field's cell count and kept
         //across frames — the cluster profile is per-frame, but the array it fills is not. No per-frame allocation.
@@ -1264,6 +1270,10 @@ namespace BS3D.Screens
             //makes "every ball is visited exactly once" structural rather than a rule to remember. The
             //occlusion ease, the attach glide and the ripple all advance state on the ball itself, so a second
             //visit would run all three at double speed while the buckets still looked perfectly correct.
+            //Stated, not inherited: the set is shared with the front end's preview, which hangs whatever map it
+            //rolled in whatever that map is made of (#258).
+            Game.Balls.Style = _ballStyle;
+
             BallDrawFrame ballFrame = Game.Balls.BeginFrame(Camera);
 
             //The cluster, the shots in flight and the released balls falling, each off its own body's pose — so

@@ -94,6 +94,11 @@ and 20 minutes into a continuous session, which said the spread was the level an
   is not empty since #249 and its camera is framed for whatever is hanging since #254 — a small map is
   watched from a different stand-off than a big one, and once a cycle the lens flies in at it — so two
   front-end runs that did not pin the same preview measured two different scenes from two different places.
+- `balls=<beach|bubble>` — pin what every ball is **made of** (#258), overriding what each level file names.
+  The glass bubble is a second technique with a heavier pixel shader and it puts the shell out **twice**
+  (two walls, opposite cull modes), so it is a real fill-rate difference and it is the *map* that decides it:
+  a run that did not pin this measured whatever style the level happened to be authored in. Measured with it:
+  959 balls under the cavern at 3840×1600, ssaa 2×, vinyl 167.1 / 166.2 FPS against bubble 150.5 / 149.9.
 
 ## The Testbed measures too, and it is the one that can aim
 

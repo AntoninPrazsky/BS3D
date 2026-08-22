@@ -133,6 +133,10 @@ namespace MapEditor
         private string _levelMusic;
         private string _levelAuthor;
 
+        //What the map's balls are made of (#258) — cycled by L, written into the level by F4 and read back off
+        //one on load. Beach for a new map and for a plain map file, which carries no look at all.
+        private BallStyle _ballStyle = BallStyle.Beach;
+
         private City _city;
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
@@ -285,6 +289,7 @@ namespace MapEditor
                 //Not S, W, A, D, Q or E: those move the camera (see CameraInputHelper)
                 new(mgKeys.B, SwitchSkyDome, "Switch sky dome (backdrop)"),
                 new(mgKeys.V, SwitchScene, "Switch scene (city/sea/savanna/desert/mountain/meadow/neon)"),
+                new(mgKeys.L, SwitchBallStyle, "Switch ball look (beach vinyl / glass bubble)"),
                 new(mgKeys.G, ToggleSceneConfigPanel, "Show/hide scene-config editor"),
 
                 new(mgKeys.F1, SaveJson, "Save map to file (JSON)"),
@@ -355,7 +360,13 @@ namespace MapEditor
             //is authored in output pixels, so unscaled it would be averaged away by the tonemap's box filter. The
             //editor draws no dissolving ball today (no magazine, no landing preview), so this is here to keep the
             //three callers saying the same thing rather than to fix anything visible here.
-            _balls = new BallRenderSet(GraphicsDevice, _instancingEffect, ripples: false) { SupersampleFactor = SUPERSAMPLE_FACTOR };
+            //Style included: a level opened from the command line is applied before this runs, so the set has
+            //to be built with whatever the editor already holds rather than with the default.
+            _balls = new BallRenderSet(GraphicsDevice, _instancingEffect, ripples: false)
+            {
+                SupersampleFactor = SUPERSAMPLE_FACTOR,
+                Style = _ballStyle
+            };
 
             //linearVertexColors: the dome is drawn through BasicEffect into the linear HDR target, so its
             //baked gradient has to be converted from sRGB once at load or the tonemapper reads a gradient of
@@ -431,6 +442,37 @@ namespace MapEditor
             ApplySkyLighting();
 
             RebindSceneConfigGrid();
+        }
+
+        /// <summary>
+        /// Cycles what the map's balls are made of (#258) — the vinyl beach ball, or the glass bubble — and
+        /// applies it to the render set at once, so the preview is the answer rather than a description of it.
+        /// It is a property of the map, so <c>F4</c> writes it into the level file beside the scene and the
+        /// dome, and loading one brings it back.
+        /// <para>
+        /// On <c>L</c> for "look", which is what was free: S, W, A, D, Q and E drive the camera, B is the sky
+        /// dome, V the scene, G the tuning panel, N fills the map and M clears it. There is no count of styles
+        /// here — the cycle is <see cref="BallStyles.Next"/>'s, off the enum itself, so a third material cannot
+        /// be added and left unreachable in the one program that exists to choose between them.
+        /// </para>
+        /// </summary>
+        private void SwitchBallStyle()
+        {
+            SetBallStyle(BallStyles.Next(_ballStyle));
+
+            Info.CustomText = $"Balls: {BallStyles.ToName(_ballStyle)}";
+        }
+
+        //The one place the editor's own answer and the render set's are set together, so a load, a new map and
+        //the N cycle cannot leave the two saying different things — which would mean F4 writing a style the
+        //preview never showed.
+        private void SetBallStyle(BallStyle style)
+        {
+            _ballStyle = style;
+
+            //Null until LoadContent has run, and a level can be handed in before then (a file argument, a drop
+            //that lands during startup): the field is the truth either way, and the render set is built with it.
+            if (_balls != null) _balls.Style = style;
         }
 
         /// <summary>
@@ -608,6 +650,7 @@ namespace MapEditor
             //A fresh map is not the loaded level any more — F4 must not write a stale theme onto it
             _levelMusic = null;
             _levelAuthor = null;
+            SetBallStyle(BallStyle.Beach);
 
             Info.CustomText = $"New map {dialog.StageSizeX} x {dialog.StageSizeZ} x {dialog.Levels}";
         }
@@ -682,6 +725,10 @@ namespace MapEditor
                 SkyDome = (byte)_skyDomeNumber,
                 Scene = _scene,
                 Music = _levelMusic,
+                //Written only when it is not the default (#258), so a level of ordinary vinyl balls stays
+                //byte-for-byte the file it was: the field is absent from every level authored before the style
+                //existed, and a round-trip through the editor must not start adding it to all of them.
+                Balls = _ballStyle == BallStyle.Beach ? null : _ballStyle,
                 Map = _map.ToBallPositionTypes(),
             };
 
@@ -689,7 +736,8 @@ namespace MapEditor
             {
                 level.Save(filePath);
                 Info.CustomText = $"Saved level to {Path.GetFileName(filePath)}";
-                Console.WriteLine($"[level] Saved '{level.Name}': scene={_scene}, sky={_skyDomeNumber}, balls={_map.GetBallsCount()} -> {filePath}");
+                Console.WriteLine($"[level] Saved '{level.Name}': scene={_scene}, sky={_skyDomeNumber}, "
+                    + $"style={BallStyles.ToName(_ballStyle)}, balls={_map.GetBallsCount()} -> {filePath}");
             }
             catch (Exception e)
             {
@@ -741,9 +789,11 @@ namespace MapEditor
                 _selector.UpdateBallsBap(_map);
                 _aabb.FitToMap(_map);
 
-                //A plain map carries no theme or author — F4 must not write the previous level's onto it
+                //A plain map carries no theme, author or ball style — F4 must not write the previous level's
+                //onto it
                 _levelMusic = null;
                 _levelAuthor = null;
+                SetBallStyle(BallStyle.Beach);
             }
             catch (Exception e)
             {
@@ -785,6 +835,7 @@ namespace MapEditor
                 //and a round-trip through the editor no longer silently unpins a level's theme
                 _levelMusic = level.Music;
                 _levelAuthor = level.Author;
+                SetBallStyle(level.Balls ?? BallStyle.Beach);
 
                 //The level's dome wins over whatever is up (the sky key still cycles freely from here)
                 SetSkyDome(Math.Clamp((int)level.SkyDome, 1, SKY_DOME_COUNT));
@@ -793,8 +844,10 @@ namespace MapEditor
                 RebindSceneConfigGrid();
 
                 string levelName = string.IsNullOrEmpty(level.Name) ? "Untitled" : level.Name;
-                Info.CustomText = $"Level: {levelName}, scene {_scene}, sky {_skyDomeNumber}";
-                Console.WriteLine($"[level] Loaded '{levelName}': scene={_scene}, sky={_skyDomeNumber}, balls={_map.GetBallsCount()}");
+                Info.CustomText = $"Level: {levelName}, scene {_scene}, sky {_skyDomeNumber}, "
+                    + $"{BallStyles.ToName(_ballStyle)} balls";
+                Console.WriteLine($"[level] Loaded '{levelName}': scene={_scene}, sky={_skyDomeNumber}, "
+                    + $"style={BallStyles.ToName(_ballStyle)}, balls={_map.GetBallsCount()}");
             }
             catch (Exception e)
             {

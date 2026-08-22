@@ -11,6 +11,7 @@ using Myra.Graphics2D;
 using Myra.Graphics2D.Brushes;
 using Myra.Graphics2D.UI;
 using Prazsky.BS3D;
+using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Levels;
 using Prazsky.Core;
 using Prazsky.Core.Camera;
@@ -565,8 +566,10 @@ namespace BS3D
             QualityLevel? quality = null, bool celebrate = false, bool confetti = false, bool lasers = false,
             bool mute = false, bool play = false, bool result = false, bool blockDone = false, bool lost = false,
             int? resultStars = null, int? streak = null, float[] shotSeconds = null, string level = null,
-            string preview = null)
+            string preview = null, BallStyle? ballStyle = null)
         {
+            BallStyleOverride = ballStyle;
+
             _fullscreen = fullscreen;
             _startupCelebrate = celebrate;
             _startupConfetti = confetti;
@@ -1127,6 +1130,19 @@ namespace BS3D
         /// <c>level=</c>. Asked on every roll rather than resolved once, which costs a walk of the set on an
         /// event that happens when a player returns to the menu and is what keeps this a one-liner.
         /// </summary>
+        /// <summary>
+        /// What every ball is to be drawn as whatever its level says — the <c>balls=</c> argument (#258) — or
+        /// <c>null</c> for each map in the material it is authored in, which is what a player gets. The front
+        /// end's preview and a played session both consult it, so one run photographs both places in one style.
+        /// <para>
+        /// A testing lever and not a setting, deliberately, and the distinction is the same one <c>scene=</c>
+        /// makes: the style is a property of the MAP, chosen by whoever built it, and a player who could
+        /// override it globally would be overriding the author. What it is for is the only way to judge the two
+        /// looks honestly — the same cluster, the same stand-off, the same dome, once in each material.
+        /// </para>
+        /// </summary>
+        internal BallStyle? BallStyleOverride { get; }
+
         internal int? PinnedPreviewLevel =>
             _startupPreview == null ? null : ResolveStartupLevel(_startupPreview);
 

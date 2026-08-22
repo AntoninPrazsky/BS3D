@@ -50,6 +50,11 @@ namespace BS3D.Screens
         //the very one a session would derive for the same map, so the cluster sits where it will sit when
         //played — and the glass is a pose rather than a body, because nothing ever steps this ceiling down.
         private BallsMap _previewMap;
+
+        //What the rolled map's balls are made of (#258). The front end and a session share one render set, so
+        //this is what this screen states before it draws rather than what it hopes is still standing there.
+        private BallStyle _previewStyle = BallStyle.Beach;
+
         private Vector3 _previewOffset = Vector3.Zero;
         private Matrix _menuCeilingWorld = Matrix.Identity;
 
@@ -530,6 +535,7 @@ namespace BS3D.Screens
         internal void RollPreviewMap()
         {
             _previewMap = null;
+            _previewStyle = BallStyle.Beach;
             _previewOffset = Vector3.Zero;
             _menuCeilingWorld = Matrix.Identity;
 
@@ -557,14 +563,21 @@ namespace BS3D.Screens
                 string path = set.ResolvePath(index);
                 BallsMap map = null;
                 string name = null;
+                BallStyle style = BallStyle.Beach;
                 try
                 {
                     //The same tolerance InstallLevel reads a level with: a level file carries its map
                     //inside, anything else is tried as a plain map outright.
                     if (Level.IsLevelFile(path))
                     {
-                        map = new BallsMap(Level.Load(path).Map);
+                        Level level = Level.Load(path);
+
+                        map = new BallsMap(level.Map);
                         name = set.DisplayName(index);
+
+                        //Hung in whatever the level is authored in, so the front end promises the material as
+                        //well as the shape (#258). A plain map file carries no look at all and stays vinyl.
+                        style = level.Balls ?? BallStyle.Beach;
                     }
                     else
                     {
@@ -581,6 +594,7 @@ namespace BS3D.Screens
 
                 map.Center();
                 _previewMap = map;
+                _previewStyle = Game.BallStyleOverride ?? style;
                 _previewOffset = GameplayScreen.FitClusterWorldOffset(map, out float fieldTopY);
 
                 float ceilingCentreY = CeilingPlate.CentreYAbove(fieldTopY);
@@ -607,7 +621,7 @@ namespace BS3D.Screens
                 //lattice they would have hung on.
                 FrameOrbitFor(map, topLevelY);
 
-                Console.WriteLine($"[menu] preview map {name} — {map.GetBallsCount()} balls");
+                Console.WriteLine($"[menu] preview map {name} — {map.GetBallsCount()} balls, {BallStyles.ToName(_previewStyle)}");
                 return;
             }
 
@@ -625,6 +639,10 @@ namespace BS3D.Screens
         /// </summary>
         public override void Draw(GameTime gameTime)
         {
+            //Stated, not inherited: the set is the whole program's and a session hangs its own level through it
+            //in whatever that level is made of (#258).
+            Game.Balls.Style = _previewStyle;
+
             BallDrawFrame ballFrame = Game.Balls.BeginFrame(Game.Camera);
             ballFrame.AddMap(_previewMap, _previewOffset);
 

@@ -102,6 +102,11 @@ namespace Prazsky.Core.Render
         private EffectTechnique _detailUVTechnique;
         private EffectTechnique _detailUVNormalTechnique;
         private EffectTechnique _patternTechnique;
+        private EffectTechnique _bubbleTechnique;
+        private EffectParameter _bubbleShellParam;
+        private EffectParameter _bubbleFilmThicknessParam;
+        private EffectParameter _bubbleTintStrengthParam;
+        private EffectParameter _bubbleBodyOpacityParam;
         private EffectTechnique _cityTechnique;
         private EffectParameter _cityWindowBrightnessParam;
 
@@ -321,6 +326,49 @@ namespace Prazsky.Core.Render
         /// How strongly the patterned surface catches the sky color at grazing angles (0 = matte).
         /// </summary>
         public float PatternSheenStrength { get; set; } = 0.12f;
+
+        /// <summary>
+        /// Draws the patterned parts as a <b>hollow glass bubble</b> instead of a moulded vinyl skin (#258):
+        /// a soap film with the ball's colour dyed into it, transparent, iridescent and bright along its rim.
+        /// It replaces the beach-ball pattern rather than joining it — the gores, the polar discs, the welds
+        /// and the moulding are all skin, and a film has none of them — so it selects a technique of its own
+        /// wherever <see cref="PatternGoreCount"/> would otherwise have selected the pattern's.
+        /// <para>
+        /// <b>The drawing states are the caller's and they are not optional.</b> A bubble is transparent, so
+        /// the shell must be put out as two passes with opposite cull modes and no depth write between them,
+        /// and this property does not and cannot do that — it says how a pixel is shaded, not in what order
+        /// the pixels arrive. <c>Prazsky.BS3D.BallRenderSet.Draw</c> is the one caller that sets this, and it
+        /// carries the whole of that argument.
+        /// </para>
+        /// </summary>
+        public bool GlassBubble { get; set; }
+
+        /// <summary>
+        /// Which wall of a <see cref="GlassBubble"/> shell the next draw puts out: <c>+1</c> the near one seen
+        /// from outside, <c>-1</c> the far one seen from inside. It pairs with the caller's cull mode and must
+        /// agree with it — the shader turns the geometric normal by this sign so both walls go through one
+        /// piece of arithmetic, and a sign that disagrees with the cull lights the shell inside out.
+        /// </summary>
+        public float BubbleShell { get; set; } = 1f;
+
+        /// <summary>
+        /// Optical thickness of the film seen face-on, in whole waves of the reference wavelength — the pitch
+        /// of the interference, and so the whole character of the soap rainbow. Under about 1 the film shows
+        /// broad single-colour washes; over about 4 the fringes crowd into a fine oily marbling.
+        /// </summary>
+        public float BubbleFilmThickness { get; set; } = 2.2f;
+
+        /// <summary>
+        /// How much of its type colour the film carries into what it transmits. The dial that decides whether
+        /// a cluster of thirteen colours is still readable at a glance.
+        /// </summary>
+        public float BubbleTintStrength { get; set; } = 1.4f;
+
+        /// <summary>
+        /// What the film hides where it is seen face-on, before the rim adds its own. Small: a bubble is
+        /// mostly a hole with a bright edge, and this is the "mostly".
+        /// </summary>
+        public float BubbleBodyOpacity { get; set; } = 0.16f;
 
         /// <summary>
         /// How much of its own color the surface radiates, independent of any light falling on it.
@@ -606,6 +654,11 @@ namespace Prazsky.Core.Render
             _detailUVTechnique = _effect.Techniques["InstancedModelDetailUV"];
             _detailUVNormalTechnique = _effect.Techniques["InstancedModelDetailUVNormal"];
             _patternTechnique = _effect.Techniques["InstancedModelPattern"];
+            _bubbleTechnique = _effect.Techniques["InstancedModelBubble"];
+            _bubbleShellParam = _effect.Parameters["BubbleShell"];
+            _bubbleFilmThicknessParam = _effect.Parameters["BubbleFilmThickness"];
+            _bubbleTintStrengthParam = _effect.Parameters["BubbleTintStrength"];
+            _bubbleBodyOpacityParam = _effect.Parameters["BubbleBodyOpacity"];
             _cityTechnique = _effect.Techniques["InstancedCity"];
             _cityWindowBrightnessParam = _effect.Parameters["CityWindowBrightness"];
             _cityWindowTimeParam = _effect.Parameters["CityWindowTime"];
@@ -892,19 +945,34 @@ namespace Prazsky.Core.Render
             }
             else if (usePattern)
             {
-                _effect.CurrentTechnique = _patternTechnique;
+                //Skin or film (#258). The two share everything a BALL is — its colour, its heartbeat, its
+                //ripple, its dissolve — and differ in what the surface does with light, which is why they are
+                //two techniques picked here rather than one shader with a mode in it.
+                _effect.CurrentTechnique = GlassBubble ? _bubbleTechnique : _patternTechnique;
                 _patternPrimaryColorParam.SetValue(diffuseTint ?? Vector3.One);
-                _patternSecondaryColorParam.SetValue(PatternSecondaryColor);
-                _patternGoreCountParam.SetValue((float)PatternGoreCount);
 
-                //Thresholding sin(azimuth) at -cos(pi * width) hands the primary gore exactly that
-                //fraction of each pair of segments; the even split lands on zero, as before
-                _patternGoreThresholdParam.SetValue(-MathF.Cos(MathF.PI * PatternGoreWidth));
-                _patternCapExtentParam.SetValue(PatternCapExtent);
-                _patternReliefStrengthParam.SetValue(PatternReliefStrength);
-                _patternSheenStrengthParam.SetValue(PatternSheenStrength);
+                if (GlassBubble)
+                {
+                    _bubbleShellParam.SetValue(BubbleShell);
+                    _bubbleFilmThicknessParam.SetValue(BubbleFilmThickness);
+                    _bubbleTintStrengthParam.SetValue(BubbleTintStrength);
+                    _bubbleBodyOpacityParam.SetValue(BubbleBodyOpacity);
+                }
+                else
+                {
+                    _patternSecondaryColorParam.SetValue(PatternSecondaryColor);
+                    _patternGoreCountParam.SetValue((float)PatternGoreCount);
+
+                    //Thresholding sin(azimuth) at -cos(pi * width) hands the primary gore exactly that
+                    //fraction of each pair of segments; the even split lands on zero, as before
+                    _patternGoreThresholdParam.SetValue(-MathF.Cos(MathF.PI * PatternGoreWidth));
+                    _patternCapExtentParam.SetValue(PatternCapExtent);
+                    _patternReliefStrengthParam.SetValue(PatternReliefStrength);
+                    _patternSheenStrengthParam.SetValue(PatternSheenStrength);
+                    _translucencyStrengthParam.SetValue(TranslucencyStrength);
+                }
+
                 _emissiveStrengthParam.SetValue(EmissiveStrength);
-                _translucencyStrengthParam.SetValue(TranslucencyStrength);
                 _pulseTimeParam.SetValue(PulseTime);
                 _dissolvePixelSizeParam.SetValue(DissolvePixelSize);
                 _pulseSpeedParam.SetValue(PulseSpeed);

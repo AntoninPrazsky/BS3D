@@ -1,4 +1,5 @@
-﻿using Prazsky.Core.Render;
+﻿using Prazsky.BS3D.GameStructure;
+using Prazsky.Core.Render;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -53,6 +54,13 @@ namespace BS3D
             //Testing only: which level the FRONT END should hang over the island instead of rolling one at
             //random (#254). Null means the argument was absent, and then the backdrop rolls as a player's does.
             string preview = null;
+
+            //Testing only: draw every ball in one style whatever the level files say (#258). Null means the
+            //argument was absent, and then each map is drawn in what it is authored in, as a player sees it.
+            //It exists because the two styles can otherwise only be compared across two DIFFERENT levels —
+            //and a look is judged by putting the same cluster, at the same stand-off, under the same dome,
+            //in one material and then the other.
+            BallStyle? ballStyle = null;
 
             //Testing only: put a cleared level's result screen up at startup. A level's ending — the released
             //camera, the stars landing, the arena going out of focus — is otherwise only reachable by winning
@@ -142,12 +150,17 @@ namespace BS3D
                 //played. The menu's camera is framed for that map since #254, so without this two shots of
                 //the front end are two shots of different maps at different stand-offs.
                 else if (arg.StartsWith("preview=", StringComparison.OrdinalIgnoreCase)) preview = arg.Substring("preview=".Length);
+                //"balls=<beach|bubble>" overrides what every level says it is made of (#258), the way "scene="
+                //overrides the backdrop each one names. Parsed through BallStyles, so the spellings are the
+                //ones a level file takes; an unknown one leaves the levels' own answers standing.
+                else if (arg.StartsWith("balls=", StringComparison.OrdinalIgnoreCase)
+                    && BallStyles.TryParse(arg.Substring("balls=".Length), out BallStyle parsedStyle)) ballStyle = parsedStyle;
             }
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
                 celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, streak: streak,
-                shotSeconds: shotSeconds, level: level, preview: preview);
+                shotSeconds: shotSeconds, level: level, preview: preview, ballStyle: ballStyle);
             game.Run();
         }
 
