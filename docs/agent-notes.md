@@ -1066,4 +1066,26 @@ Zúžení aury přiblížilo její radius na 0,020 od keylinu. A dokud se keylin
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-22 (#253 — devátý blok „The Spectrum", pět gradientových levelů; na mainu).*
+## 2026-08-22 — Claude Code (třicátý osmý zápis)
+
+**Kamera menu je zarámovaná podle visící mapy a jednou za cyklus k ní přiletí (#254). Větev `254-menu-camera-flight`.** Dvě stížnosti z hraní, tři příčiny.
+
+**1. Preview se nedotýkalo skla — a tahle půlka nikdy nebyla o kameře.** Odehraný klastr **nesedí na své mřížce**: stropní `BallSocket` váže temeno horní koule k bodu jeden poloměr pod *středem* desky, takže struktura dosedne o celý průměr níž a horní koule se skla dotýkají přesně (`BallsConstraintsBuilder.CeilingRestY`; `CeilingPlate.CLEARANCE` říká totéž z druhé strany). Preview nemá tělesa ani solver, takže viselo v mřížkové výšce — **celá jednotka světla pod sklem**, mezera, kterou žádný level ve hře neukáže, na jediné obrazovce, jejíž práce je slíbit, jak hra vypadá. Zvedá se o tu jednotku při zavěšení a kamera se rámuje podle zvednuté figury.
+
+**2. Rámování je teď mapy, ne tři konstanty.** `CAM_RADIUS`/`CAM_HEIGHT`/`TARGET_Y` rámovaly jednu velikost a jednu výšku zavěšení a sada nemá ani jedno: od čtyřpatrové placky po čtyřiadvacetipatrový sloup, a `FitClusterWorldOffset` hluboké pole navíc **zvedá** (horní patro Helixu je o jedenáct jednotek výš než u Nine). `BackdropScreen` měří, co visí (opsaný poloměr půdorysu kolem osy orbity, vlastní výšku klastru, jeho střed) a **odstupy řeší proti oběma polovičním úhlům rámu každý snímek** — resize a fullscreen tedy přerámují místo aby držely tvar okna, které už není. Spodní mez široké nohy je **ostrov čitelný přes celý rám**: `26 / sin(vodorovný poloviční úhel)` = 38 jednotek na 16:9, 45 na 4:3, 34 na 21:9 — tam, kde 44 bylo jedno číslo pro všechny tvary oken naráz. **Rámuje i session** při instalaci levelu, protože `ResultPage` na tuhle orbitu vypouští objektiv v okamžiku konce levelu a jinak by rámovala mapu, kterou naposledy vylosovalo menu.
+
+**3. A kamera lítá.** 30 s široká ustavovací otáčka, pak 8 s přílet, 20 s zblízka, 8 s zpátky — a znovu z toho azimutu, kam se to mezitím dotočilo. Odstup na polovinu (21–24 jednotek na dodávané sadě, drženo od klastru rezervou, kterou potřebuje **3D nápis** 7 jednotek před objektivem), azimut o polovinu rychlejší — ale na polovičním poloměru, takže pas přejíždí rám **pomaleji** než široká noha a přitom je vidět, že se hýbe — a objektiv celou dobu **jede nahoru**: zpod klastru s oblohou za ním až těsně nad jeho vršek, kde je sklo a horní koule v jednom záběru. Jeden vratný skalár míchá pózy, druhý řídí zdvih, oba smoothstep. Zadání znělo *let*, ne druhá tuhá orbita.
+
+**Kontrakt s result screenem přežil**, protože přílet bydlí **uvnitř** `AdvanceOrbit`, ne vedle něj (jedny hodiny, jedna póza, ať se ptá kdokoli), a `AlignOrbitTo` nově vrací let na začátek široké nohy a **snapne** rámování na levelové — takže uvolnění pořád dosedá na ustavovací otáčku.
+
+**`preview=<n|name>`** pinuje mapu, kterou věší **front end**, přesně jak `level=` pinuje hranou. Bez toho byly dva screenshoty menu dvě různé scény z různých míst; zapsáno i do `benchmark` skillu.
+
+**Ověřeno v běžící hře:** nejplošší mapa (Static, 4 patra) a nejvyšší sloup (Helix, 24) vyfoceny po šesti bodech cyklu, preview se v obou dotýká skla; figury rámování tiskne nová řádka `[orbit]` a ručně jsem je proti aritmetice přepočítal; release result screenu; a **celý cyklus měření FPS na nejtěžším, co existuje** — 959 koulí pod neonovým městem, `quality=high`, vsync off — **330–420 FPS, přičemž blízká noha četla VÝŠ než široká** (výkyv dělá počet viditelných budov, ne koule). Všechny čtyři solution buildy čisté.
+
+**Jedna výjimka zapsaná nahlas:** adaptivní sonda je ve všech běžných cestách na širokých snímcích (nový front end, přelosované preview, uvolnění z result screenu — všechny nulují hodiny letu); jediné, co ji může chytit uprostřed pasu, je **přepnutí fullscreenu**. Ponecháno na základě toho měření výše a toho, že sonda jde jen dolů.
+
+**Nic dalšího si neberu.** `origin/211-music-switches-fade` leží dál.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-22 (#254 — kamera menu rámovaná podle visící mapy + přílet ke klastru; na mainu).*
