@@ -177,6 +177,27 @@ namespace BS3D.Tools.LevelGen
         private const string MUSIC_ARCADE = "pulse";
         private const string MUSIC_SPECTRUM = "bohemia";
 
+        /// <summary>
+        /// What the <b>opening block's</b> balls are made of (#258): glass bubbles rather than the moulded
+        /// vinyl every other block hangs. A property of the block exactly as the music is — the material
+        /// changes when the chapter does and not when the level does — and stated once here so the five
+        /// designs cannot drift apart.
+        /// <para>
+        /// The Meadow is where it goes because it is where a player starts. The game is called Bubble Shooter
+        /// and its own 3D wordmark stands in the front end swept in glass; a first chapter of vinyl beach
+        /// balls promises a different game from the one the title card just showed. The blocks after it keep
+        /// the vinyl, which is what makes this a <i>choice</i> a chapter makes rather than a new default —
+        /// and the vinyl ball is still the one a level that says nothing gets.
+        /// </para>
+        /// <para>
+        /// The Meadow is also the honest place to try it: the transparency costs about 10 % of a frame at
+        /// 4K-class fill (the figures are under "Ball rendering" in <c>docs/rendering.md</c>), and the opening
+        /// block hangs the smallest clusters in the campaign — 385 balls at the top of it, against the
+        /// Quarry's 959.
+        /// </para>
+        /// </summary>
+        private const BallStyle BALLS_MEADOW = BallStyle.Bubble;
+
         /// <summary>Where the levels are written. Set once in <see cref="Main"/>, read by everything below.</summary>
         private static string _outDir;
 
@@ -474,7 +495,7 @@ namespace BS3D.Tools.LevelGen
         }
 
         /// <summary>
-        /// One block's scene, dome and theme, read off the <b>level files the game will actually load</b> rather
+        /// One block's scene, dome, theme and ball style, read off the <b>level files the game will actually load</b> rather
         /// than off the designs that wrote them — which is the only reading that can catch the failure worth
         /// catching here. A block whose five levels disagree is reported as a disagreement rather than silently
         /// summarised from the first of them: it is not a thing any gate refuses, and the whole of #194 is that
@@ -482,9 +503,9 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private static string DescribeBlock(LevelSet set, int first)
         {
-            string scene = null, music = null;
+            string scene = null, music = null, balls = null;
             int sky = -1;
-            bool sameScene = true, sameSky = true, sameMusic = true;
+            bool sameScene = true, sameSky = true, sameMusic = true, sameBalls = true;
 
             for (int i = first; i < Math.Min(first + BLOCK_SIZE, set.Count); i++)
             {
@@ -493,17 +514,24 @@ namespace BS3D.Tools.LevelGen
                 string thisScene = level.Scene?.ToString() ?? "(none)";
                 string thisMusic = level.Music ?? "(rotation)";
 
-                if (scene == null) { scene = thisScene; sky = level.SkyDome; music = thisMusic; }
+                //Absent and "beach" are the same thing to a reader, and the writer omits the field rather than
+                //stating the default — so the two have to read alike here or forty blocks would report a
+                //disagreement with themselves (#258).
+                string thisBalls = BallStyles.ToName(level.Balls ?? BallStyle.Beach);
+
+                if (scene == null) { scene = thisScene; sky = level.SkyDome; music = thisMusic; balls = thisBalls; }
                 else
                 {
                     sameScene &= thisScene == scene;
                     sameSky &= level.SkyDome == sky;
                     sameMusic &= thisMusic == music;
+                    sameBalls &= thisBalls == balls;
                 }
             }
 
             return $"{(sameScene ? scene : "MIXED SCENES")}, sky {(sameSky ? sky.ToString() : "MIXED")}"
-                   + $", {(sameMusic ? music : "MIXED THEMES")}";
+                   + $", {(sameMusic ? music : "MIXED THEMES")}"
+                   + $", {(sameBalls ? balls : "MIXED BALL STYLES")}";
         }
 
         /// <summary>
@@ -612,6 +640,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Meadow,
             Sky = 1,
             Music = MUSIC_RINGS,
+            Balls = BALLS_MEADOW,
             Shots = 30,
             CeilingStep = 5,
             //The cannonball pyramid, drawn on purpose. Not the polar frame: a course's edge has to sit on
@@ -997,6 +1026,7 @@ namespace BS3D.Tools.LevelGen
             //than surviving it.
             Sky = 1,
             Music = MUSIC_RINGS,
+            Balls = BALLS_MEADOW,
             Shots = 40,
             CeilingStep = 8,
             //Widest at the top (that layer anchors the whole cluster to the glass) and narrowing downwards,
@@ -1128,6 +1158,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Meadow,
             Sky = 1,
             Music = MUSIC_RINGS,
+            Balls = BALLS_MEADOW,
             Shots = 44,
             CeilingStep = 9,
             Occupied = (r, ang, i, depth) =>
@@ -1168,6 +1199,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Meadow,
             Sky = 1,
             Music = MUSIC_RINGS,
+            Balls = BALLS_MEADOW,
             Shots = 44,
             CeilingStep = 9,
             //A cone now, not a disc: widest against the glass and drawn to a point, so the sectors are
@@ -1329,6 +1361,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Meadow,
             Sky = 1,
             Music = MUSIC_RINGS,
+            Balls = BALLS_MEADOW,
             Shots = 44,
             CeilingStep = 9,
             //Diamond cross-section (|dx| + |dz|), widening towards the top, and rings measured on that same
@@ -5539,6 +5572,7 @@ namespace BS3D.Tools.LevelGen
                 SkyDome = design.Sky,
                 Scene = design.Scene,
                 Music = design.Music,
+                Balls = design.Balls,
                 Map = new BallPositionTypes { StageSizeX = n, StageSizeZ = n, Levels = fieldLevels, Balls = balls },
             };
 
@@ -5661,9 +5695,12 @@ namespace BS3D.Tools.LevelGen
 
             //The music is echoed back off the LOADED level rather than off the design, like the scene and the
             //dome beside it: a theme that failed to reach the file is a level that plays the wrong piece and
-            //nothing else says so — the fallback is silent by design (see Design.Music)
+            //nothing else says so — the fallback is silent by design (see Design.Music). The ball style is
+            //echoed for the same reason and it is the same silence: a style that failed to reach the file is a
+            //level drawn in the wrong material, and absent reads as the vinyl ball rather than as an error.
             Console.WriteLine($"--- {design.File} '{loaded.Name}' ({loaded.Scene?.ToString() ?? "(none)"}, sky {loaded.SkyDome}"
-                              + $", {loaded.Music ?? "no theme named"}) {fileSize / 1024} kB");
+                              + $", {loaded.Music ?? "no theme named"}"
+                              + $", {BallStyles.ToName(loaded.Balls ?? BallStyle.Beach)} balls) {fileSize / 1024} kB");
             Console.WriteLine($"    field {map.StageSizeX}x{map.StageSizeZ}x{map.Levels}, layout {design.Depth} deep, "
                               + $"{map.GetBallsCount()} balls, lowest occupied level {map.GetLowestOccupiedLevel()}");
             Console.WriteLine($"    hanging off the glass: {(disconnected == 0 ? "all" : $"NO - {disconnected} balls float free")}");
@@ -5925,6 +5962,21 @@ namespace BS3D.Tools.LevelGen
             /// </para>
             /// </summary>
             public string Music;
+
+            /// <summary>
+            /// What the level's balls are made of, written into <c>Level.Balls</c> (#258) — and a property of
+            /// the <b>block</b> for <see cref="Music"/>'s reason: the material changes when the chapter does,
+            /// not when the level does. <see cref="DescribeBlock"/> reports it and says so when a block's five
+            /// disagree.
+            /// <para>
+            /// Left null — which is every block but the opening one — the level says nothing about its balls
+            /// and every consumer draws the moulded vinyl beach ball. Absent and "beach" mean the same thing to
+            /// a reader, so the writer omits the field rather than stating the default (<c>Level.Balls</c> is
+            /// nullable and <c>WhenWritingNull</c> drops it), and forty of the forty-five shipped files are
+            /// byte-for-byte what they were before this existed.
+            /// </para>
+            /// </summary>
+            public BallStyle? Balls;
 
             public int Shots;
             public int CeilingStep;

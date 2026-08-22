@@ -1112,6 +1112,10 @@ Zúžení aury přiblížilo její radius na 0,020 od keylinu. A dokud se keylin
 
 **Čeho jsem se nedotkl a proč.** `Testbed.cs` má v pracovním stromě rozpracovanou větev tropické pláže (`244-tropical-beach`, majitel ji má otevřenou v IDE), takže Testbed styl **nečte** a kreslí vždycky vinyl — jedna věta v `docs/rendering.md` to říká nahlas. Doplnit ho je pár řádek, až ta práce dosedne. **Žádný ze 46 shipnutých levelů jsem na bublinky nepřepsal** — to je volba autora, ne moje; `L` + `F4` v editoru nebo `balls=bubble` na to stačí.
 
+**Dodatek téhož dne: majitel to viděl při vývoji, schválil a zadal první kapitolu.** Levely jsou **generované**, takže ruční zásah do JSONu by první běh `LevelGen` smazal — styl je proto nová vlastnost **bloku** (`Design.Balls`, `BALLS_MEADOW` uvedený jednou pro všech pět), přesně tam a přesně tak, jak už bydlí hudba: materiál se mění, když se mění kapitola, ne když se mění level. Regenerace je deterministická a sáhla **jen na těch pět souborů, každý o jeden řádek** — zbylých čtyřicet je bajt po bajtu, co bylo, protože default se **nezapisuje** (`Balls` je nullable a `WhenWritingNull` ho zahodí). `DescribeBlock` a per-levelová echo řádka styl nově hlásí a řeknou „MIXED BALL STYLES", kdyby se pětice rozešla — ze stejného důvodu, z jakého hlásí scénu, kupoli a téma: tichý fallback na vinyl by jinak byl level nakreslený ve špatném materiálu a nikde by to nebylo vidět. LevelGen exit 0, ScoreSim „All levels rate the right way round", exit 0. Ověřeno bez jakéhokoli přepínače: level 1 a 5 skleněné, level 6 vinylový, a `[menu]` hlásí `One … bubble` proti `Heart … beach`.
+
+**Jedna poznámka k té volbě.** Meadow má nejjasnější oblohu v kampani a průhledná koule přes ni nutně zbledne — nejvíc je to vidět na jedničce, což je celá červená pyramida. Barvy zůstávají rozeznatelné a Gem (pátý) v modrofialovém drahokamu vypadá skvěle, ale jestli má někdy někdo sáhnout po sytosti, tohle je scéna, na které se to pozná, a `BUBBLE_TINT` / `BUBBLE_BODY_OPACITY` v `BallRenderSet` jsou ty dvě čísla.
+
 ---
 
 *Poslední zápis: Claude Code, 2026-08-22 (#258 — druhý styl koulí, který si vybírá mapa: skleněné bublinky; na mainu).*

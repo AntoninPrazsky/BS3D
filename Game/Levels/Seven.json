@@ -6,6 +6,7 @@
   "sky": 1,
   "scene": "meadow",
   "music": "pulse",
+  "balls": "bubble",
   "map": {
     "sx": 17,
     "sz": 17,
