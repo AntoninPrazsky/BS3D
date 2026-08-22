@@ -296,17 +296,24 @@ namespace Prazsky.BS3D
         /// What a film does not hide is the backdrop, arriving <i>untinted</i>: the two walls together cover
         /// <c>1 − (1 − f/2)(1 − f)</c> of the pixel, so at the 0.26 this shipped with, <b>64 % of a bright sky
         /// stood behind every ball</b> and the campaign's opening block — a red pyramid over the meadow's blue
-        /// sky — read pink. At 0.84 that residue is 6 %. The owner's word for the first version was that the
-        /// balls were so transparent their colour could hardly be seen at all, and this is the number that was.
+        /// sky — read pink. 0.84 left 9 %, and this leaves 5 %. The owner's word for the first version was that
+        /// the balls were so transparent their colour could hardly be seen at all, and this is the number that
+        /// was; the second was that they read as unnaturally see-through, which brought it here.
         /// <para>
         /// It does <b>not</b> cost the style, which is the thing to re-check before anyone lowers it again: a
         /// bubble reads as glass through its rim, its pinpoint, its iridescence, the second rim of its own far
         /// wall showing inside the first, and the fact that its brightness follows whatever is behind it — none
-        /// of which this touches. Photographed at 0.26, 0.55, 0.62, 0.72 and 0.84 on the meadow (the hardest
-        /// case, the brightest sky in the campaign) and on space (the darkest).
+        /// of which this touches. Photographed at 0.26, 0.55, 0.62, 0.72, 0.84 and 0.90 on the meadow (the
+        /// hardest case, the brightest sky in the campaign) and on space (the darkest).
+        /// </para>
+        /// <para>
+        /// Raising it was <b>half</b> of what the see-through complaint needed and the smaller half. The other
+        /// half is the shader's <c>BubbleScreenFade</c>: a ball with the pile in front of it was not fading at
+        /// all, so four layers of shells showed through one another with equal clarity. Neither figure fixes
+        /// what the other one is about — check both before moving either.
         /// </para>
         /// </summary>
-        private const float BUBBLE_BODY_OPACITY = 0.84f;
+        private const float BUBBLE_BODY_OPACITY = 0.9f;
 
         /// <summary>
         /// How much of its own colour a bubble radiates, the transparent counterpart of <see cref="EMISSION"/>.

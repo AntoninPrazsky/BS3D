@@ -1267,6 +1267,16 @@ static const float BubbleHighlightOpacity = 0.5;
 //jar. Half is enough to say the thing is hollow.
 static const float BubbleInnerWall = 0.5;
 
+//How far the occlusion vector's reading is stretched before it counts as "screened by the pile". That vector
+//is a SUM of up to twelve unit vectors over twelve, and neighbours on opposite sides cancel — a ball with a
+//full layer of them towards the camera reads about a quarter, so a quarter has to mean most of the way in.
+static const float BubbleScreenReach = 3.0;
+
+//...and how much of a shell that reading is allowed to take away. Short of 1 deliberately: a ball deep in the
+//pile should go faint, not vanish, or the cluster reads as a hollow shell of balls around nothing and the
+//holes a played field is full of stop being holes.
+static const float BubbleScreenFade = 0.8;
+
 //How near the silhouette the interference is still evaluated honestly. The path through a film goes as
 //1/cos, which runs away at the rim into fringes finer than a pixel; clamping the cosine caps the pitch
 //there instead, and the band-limit below fades what is left.
@@ -1370,9 +1380,28 @@ float4 BubblePS(PatternVertexShaderOutput input) : COLOR
 
 	hotspot *= film;
 
+	//HOW MUCH OF THE PILE STANDS BETWEEN THIS SHELL AND THE EYE, and it is the answer to the one thing that
+	//looked wrong about a bubble cluster: several layers of balls all showing through one another with EQUAL
+	//clarity, where the eye expects each layer behind the last to be fainter than it. Nothing was fading them,
+	//and the reason is in DrawShell's own note — the far walls are drawn with no depth write, so every ball in
+	//the pile puts its inner rim into the picture whether or not four other balls stand in front of it, and
+	//bucket order decides which of those lands on top.
+	//
+	//The proper cure is a back-to-front sort, which this renderer structurally cannot do (colour is a per-draw
+	//uniform). This is the order-INDEPENDENT stand-in, and it costs one dot product: the occlusion vector
+	//already carries the DIRECTION this ball's occupied neighbours lie in, so dotting it against the eye asks
+	//exactly "are my neighbours between me and the camera?". Positive means the ball is screened by the pile
+	//and is faded; a ball on the cluster's near face has its neighbours BEHIND it, so the dot goes negative and
+	//it is left alone. A shot in flight and a loaded round carry a zero vector and are untouched by
+	//construction.
+	//
+	//It is a per-BALL figure, so a shell fades as a whole rather than pixel by pixel, which is right: what is
+	//being modelled is the depth of the pile in front of it, not the shape of its own surface.
+	float screened = saturate(dot(input.OcclusionData.xyz, eyeVector) * BubbleScreenReach);
+
 	//WHAT THE FILM HIDES. Face-on almost nothing; along the rim, where the eye looks the long way through
 	//it, nearly everything. The far wall is worth half, for the reason BubbleInnerWall gives.
-	float wall = BubbleShell > 0 ? 1.0 : BubbleInnerWall;
+	float wall = (BubbleShell > 0 ? 1.0 : BubbleInnerWall) * (1.0 - screened * BubbleScreenFade);
 	float rim = pow(1.0 - facing, BubbleRimPower);
 	float alpha = saturate(BubbleBodyOpacity + (1.0 - BubbleBodyOpacity) * rim) * wall;
 

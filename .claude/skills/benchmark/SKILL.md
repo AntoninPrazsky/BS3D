@@ -90,6 +90,11 @@ and 20 minutes into a continuous session, which said the spread was the level an
   the game**: it has no cluster, no gun, no HUD and no simulation, and `docs/game-shell.md` names that blind
   spot for the adaptive probe too. A backdrop that clears 75 FPS empty says nothing about the same backdrop
   with 959 balls hanging over it, which is what #166 and #167 were each left unable to answer.
+- **Measure in a WINDOW.** Four back-to-back `fullscreen` runs took the owner's desktop down hard on
+  2026-08-22 — a Windows 11 machine whose card runs at a reduced power limit, and which never did this under
+  Windows 10. Nothing needs fullscreen: `logfps` reports the size it measured at, so a windowed figure is
+  reproducible as long as the size is quoted beside it, and `shot=` saves the game's own back buffer whatever
+  that size is. Quote the resolution with every number — they are not comparable across resolutions.
 - `preview=<n|name>` — pin the map the **front end** hangs, named exactly the way `level=` is. The front end
   is not empty since #249 and its camera is framed for whatever is hanging since #254 — a small map is
   watched from a different stand-off than a big one, and once a cycle the lens flies in at it — so two
@@ -97,9 +102,10 @@ and 20 minutes into a continuous session, which said the spread was the level an
 - `balls=<beach|bubble>` — pin what every ball is **made of** (#258), overriding what each level file names.
   The glass bubble is a second technique with a heavier pixel shader and it puts the shell out **twice**
   (two walls, opposite cull modes), so it is a real fill-rate difference and it is the *map* that decides it:
-  a run that did not pin this measured whatever style the level happened to be authored in. Measured with it:
-  959 balls under the cavern at 3840×1600, ssaa 2×, vinyl 166.1 / 166.3 FPS against bubble 149.5 / 149.9. The
-  figure does not move with how opaque the film is — same passes, same instructions.
+  a run that did not pin this measured whatever style the level happened to be authored in. Measured with it,
+  959 balls under the cavern at ssaa 2×: windowed 1600×900, vinyl 576.7 / 593.9 FPS against bubble 537.1 /
+  536.3 (~8 %); at 3840×1600, vinyl 166.1 / 166.3 against bubble 149.5 / 149.9 (~10 %). The figure does not
+  move with how opaque the film is, nor with its screening fade — same passes, same instructions.
 
 ## The Testbed measures too, and it is the one that can aim
 
