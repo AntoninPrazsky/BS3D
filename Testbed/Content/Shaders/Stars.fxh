@@ -26,7 +26,10 @@ float SupersampleFactor;
 //kept clear of the cell edge by its own radius, so a single cell lookup is enough and no lattice shows -
 //the meadow's wildflowers solve their clipping the same way. Cell scale is cells per unit of cube-face uv.
 float StarCellScale[3];
-float StarChance[3];      //fraction of cells carrying a star
+//Fraction of cells carrying a star, as a DENSITY ON THE SKY rather than per cell: each cell's roll is
+//weighted by the solid angle it actually covers (STAR_DENSITY_GAIN in StarLayer), because a chart cell at a
+//cube corner covers a fifth of the sky one at a face centre does. Capped at SpaceStarsConfig.MaxChance.
+float StarChance[3];
 float StarPeak[3];        //peak linear radiance of the brightest star of the layer
 float StarSpread;         //core radius in OUTPUT pixels; under ~0.4 the field starts to crawl
 
@@ -107,6 +110,13 @@ static const float STAR_CUT = 1e-4;
 //drawn out, where a taper to zero is not (#148).
 static const float STAR_SPIKE_FLOOR = exp(-2.5);
 
+//A cube face is 4 square chart units and covers 4*pi/6 steradians, so weighting the existence roll by the
+//solid angle a cell covers (below) and nothing else would leave the sky with 52.4 % of the stars it had.
+//This puts the count back: 4 / (4*pi/6). The field keeps its density, it just stops piling up at the
+//corners. Face centres therefore roll against 1.91 * chance, which is why the chances are capped at
+//SpaceStarsConfig.MaxChance - above that the correction would clip exactly where it has most to give.
+static const float STAR_DENSITY_GAIN = 1.90986;
+
 //One layer. A single cell lookup: the star is jittered inside its own cell but held its own radius clear
 //of the edges, so it can never straddle a boundary and the eight neighbours never have to be sampled.
 //
@@ -150,8 +160,26 @@ float3 StarLayer(float3 dir, float pixelAngle, float scale, float chance, float 
 	//correlation nobody would ever see and every reason to not have.
 	float3 seed = float3(cell, chart.z + scale);
 
+	//THE CELLS ARE UNIFORM IN THE CHART, AND THE CHART IS NOT UNIFORM ON THE SKY. uv = tan(theta), so one
+	//square chart unit covers jacobian^-1.5 steradians - and left alone that is 5.196x as many stars per
+	//steradian at a cube CORNER as at a face centre, 2.83x along the middle of an edge. Measured before the
+	//fix by pointing the lens straight down (1,1,1): 4.05x the lit pixels of a patch 35 degrees off it.
+	//
+	//The eye does not read that as anisotropy. It reads it as eight knots of stars with bands drawn between
+	//them, which is to say AS THE CUBE - and this is why #87, #88 and #148 could all correct the star's
+	//SHAPE and leave the report standing. Density is smooth and continuous across every seam, so a search
+	//for a discontinuity cannot find it; the artifact is a gradient whose ridges merely happen to run along
+	//the twelve edges. The star COUNT needed the correction, not the star.
+	//
+	//Taken at the CELL CENTRE and not at the pixel, so the roll is one answer for the whole cell - graded
+	//per pixel it would cut stars in half down an invisible contour. rsqrt(j^3) rather than pow(j, -1.5):
+	//same value, one rsqrt instead of a log and an exp.
+	float2 cellCentre = (cell + 0.5) / scale;
+	float cellJacobian = CubeJacobian(cellCentre);
+	float density = STAR_DENSITY_GAIN * rsqrt(cellJacobian * cellJacobian * cellJacobian);
+
 	float3 rollA = Hash33(seed);
-	if (rollA.x > chance) return 0.0;
+	if (rollA.x > chance * density) return 0.0;
 
 	float3 rollB = Hash33(seed + 19.73);
 
