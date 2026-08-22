@@ -1118,4 +1118,37 @@ Zúžení aury přiblížilo její radius na 0,020 od keylinu. A dokud se keylin
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-22 (#258 — druhý styl koulí, který si vybírá mapa: skleněné bublinky; na mainu).*
+## 2026-08-22 — Claude Code (čtyřicátý zápis)
+
+**Dvě mřížky na Měsíci, obě opravené, obě vyfocené. Větve `87-star-density-cube` a `240-moon-crater-lattice`, obě pushnuté, ani jedna nezamergovaná — čekají na majitelovo slovo.**
+
+Majitel to zadal takhle: *„Doopravdy je tam ta mřížka viditelná… rozmístění hvězd nevypadá přirozeně + jsou tam vidět švy na krychli. Připadá mi, že by to nemělo být těžké vyřešit… Možná k tomu přistupuješ nějak špatně. Zamysli se nad jinými přístupy."* Měl pravdu v obojím a **oba defekty byly na první fotku vidět**. Zadání znělo na #240, ale to, co popisoval, jsou dvě různé věci ve stejné scéně — hvězdy na obloze (#87) a krátery na zemi (#240).
+
+### 1. Kostka v hvězdném poli NENÍ šev — je to HUSTOTA (#87)
+
+**⚠⚠ Buňky jsou rovnoměrné v CHARTU a chart není rovnoměrný na obloze.** `uv = tan(úhel)`, takže jedna čtvercová jednotka chartu pokrývá `J^-1.5` steradiánu — buňka v **rohu** krychle (`J = 3`) pokrývá **pětinu** oblohy, co pokrývá buňka ve středu stěny. `chance` byla plochá konstanta na buňku a nic to nekompenzovalo, takže hvězd na steradián bylo **5,196× víc v osmi rozích a 2,83× podél dvanácti hran**. Osm uzlů propojených dvanácti pásy — to oko složí jako **krychli**, a přesně tak to majitel nahlásil.
+
+**⚠ A tohle je důvod, proč to tři průchody nenašly.** #87, #88 i #148 opravovaly *tvar* hvězdy a všechny tři hledaly **nespojitost** — no-straddle záruku, elongaci, useknuté rameno, neshodu facet. **Hustota je přes každý šev dokonale spojitá.** Není tam žádná čára; je tam gradient, jehož hřebeny náhodou leží na hranách. Hledání skoku se k tomu nemůže dostat. **A v `docs/scenes.md` ten mechanismus celou dobu STÁL** — jako vedlejší poznámka na konci odstavce („cells per steradian run about 5× a face centre's at a corner"), zapsaná jako „něco, co se u rohu sčítá a co je dobré vědět, než to někdo změří". Nikdo to nezměřil. Ta poznámka byla celá závada.
+
+- **Oprava:** existenční hod nese teď solidní úhel své buňky — `chance * STAR_DENSITY_GAIN * rsqrt(J³)`, počítáno **ve STŘEDU BUŇKY**, ne v pixelu (jinak by se hvězda uprostřed sebe sama rozpůlila po neviditelné vrstevnici). `STAR_DENSITY_GAIN = 4/(4π/6) = 1,910` je plocha stěny v chartu ku jejímu solidnímu úhlu: samotné vážení by z oblohy sundalo 47,6 % hvězd, tohle je vrátí, takže pole si **drží počet** a jen se přestane hrnout do rohů.
+- **⚠ `SpaceStarsConfig.MaxChance = 0,523` je aritmetika, ne vkus.** Střed stěny teď hází proti `1,91 × chance`, takže cokoli nad `1/1,91` saturuje **tam** a rohy pořád řídnou — což je ten rohový uzel zpátky, přesně na místě, kvůli kterému oprava existuje. Všechny tři chance se ořezávají v setteru jako CellScale nad nimi: panel editoru je edituje živě a shader se nemá jak ozvat. Hustší obloha chce jemnější `CellScale`.
+- **Změřeno, stejná výseč 200×200 uprostřed rámu, stejná kamera v počátku, měnil se jen směr:** roh `(1,1,1)` **4013** rozsvícených pixelů proti středu stěny `(0,1,0)` **1244** = **3,23×**, po opravě **2276 proti 2008 = 1,13×**. Pod uzavřenou formu (5,196) to jde proto, že výseč pokrývá ~8° rychle padajícího gradientu a počítání pixelů saturuje tam, kde se hvězdy překrývají. Ověřeno i na kosmické scéně nad stejným rohem.
+
+### 2. Krátery byly PŘIŠPENDLENÉ na buňky — ve všech čtyřech oktávách (#240)
+
+`margin = radius * 1,6` se odečítá z **obou** konců, takže box pro střed je `1 − 3,2 · radius`: při rozsahu 0,16–0,30 to šlo od 49 % buňky dolů na **ČTYŘI PROCENTA**. Jitter tedy nebyl slabý rovnoměrně — byl nejslabší **přesně tam, kde nejvíc záleží**: největší kráter každé oktávy, ten, který oko vybere první, seděl na středu své buňky s přesností na čtyřicetinu buňky.
+
+- **⚠ A všechny čtyři oktávy byly `floor()` neotočené domény**, takže jejich řádky ležely na světových X a Z a **každá oktáva překreslila mřížku těch ostatních ve svém měřítku**. Proto se to fotí jako *jeden* koberec, ne jako čtyři slabé.
+- **Vyfotil jsem to, což před tím nikdo neudělal** (`campos=0,60,0 camtarget=0,-13.5,150`, `arena=none`) — pravidelný čtvercový koberec kroužků v řádcích a sloupcích, nejhorší v popředí, kde do jednoho pohledu spadne sto buněk nejjemnější oktávy. Na tohle nebyla potřeba analýza, stačila jedna fotka.
+- **⚠ Diagnóza z minulého zápisu („ejekta se nenásobí zhášecí rampou") NEPLATÍ** a byla nesena dál nepřečtená — `rim` tu rampu obsahuje. Ten předchozí zápis to sám vyvrátil; zapisuju to podruhé, protože ta poznámka přežila už dvě sezení.
+- **Oprava, čtyři věci a všechny skoro zdarma:** radius **0,12–0,21** buňky s periodami přeškálovanými týmž 1,43 (90/34/13/5 → **129/49/18,6/7,2**), takže nejhorší případ nechá 33 % buňky a **žádný kráter nezměnil velikost na zemi** (27,1 / 10,3 / 3,9 světových jednotek proti 27,0 / 10,2 / 3,9); **hod na radius umocněný na druhou** (skutečné počty kráterů rostou strmě k malým průměrům — a protože margin *je* radius, malé krátery jsou volné středy: medián boxu 55 % proti 47 %); **každá oktáva otočená o vlastní úhel** (13°, 41°, 74°, 56°) před `floor()`; a **`chance` per oktáva** (0,86 / 0,82 / 0,70 / 0,64 proti jedné ploché 0,62), což vykoupí většinu z 49 % počtu, které stály větší buňky.
+- **Chance jsem ladil ve dvou kolech a to první je poctivý důvod, proč je tam druhé:** na 0,72/0,68/0,55/0,50 byla mřížka pryč, ale střední plán vyšel **holý**. Zvednutí ji nevrátilo.
+- **Cena, změřeno na tom samém zafixovaném stanovišti s `nocap`: 52 FPS před, 51 po, jedno čtení každé.** Otočení jsou zdarma, hashů na pixel přibylo ~15 %, protože přibylo chance. Z dvou vzorků netvrdím víc než „uvnitř rozptylu". Ověřeno i z herní kamery (`F10`, `Maps/Full.json`), která vidí jen pás highlandů — a ten je teď rozházený.
+
+**Metodická poznámka, protože je to stejná lekce jako u jednopixelového švu o zápis dřív:** obě příčiny vyšly z **prvního** obrázku a z počítání pixelů, ne z analýzy. U hvězd stačilo namířit čočku přímo do rohu `(1,1,1)` — uzel je uprostřed rámu, nedá se ho přehlédnout. Předchozí sezení místo toho odvozovala tvar profilu a hádala se o to, jestli reziduum sedí v osmi rozích nebo na dvanácti hranách; obojí byla analýza, ne měření.
+
+**Nic dalšího si teď neberu.** Volné z toho, co jsem cestou viděl: **#237** (spára mezi výlevkou a zlatým prstencem — příčina nalezená, jen nevyfocená), **#241**, **#211** (patch leží v komentáři u issue).
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-22 (#87 — kostka v hvězdném poli byla hustota, ne šev; #240 — krátery byly přišpendlené na buňky. Obě větve pushnuté, ani jedna nezamergovaná).*
