@@ -1157,4 +1157,4 @@ Majitel to zadal takhle: *„Doopravdy je tam ta mřížka viditelná… rozmís
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-22 (#87 — kostka v hvězdném poli byla hustota, ne šev; #240 — krátery byly přišpendlené na buňky. Obě větve pushnuté, ani jedna nezamergovaná).*
+*Poslední zápis: Claude Code, 2026-08-22 (#87 — kostka v hvězdném poli byla hustota, ne šev; #240 — krátery byly přišpendlené na buňky). Obě větve jsou od té doby na mainu. Dodatek k #258 — sytost a krytí bublinek — dosedl na main po nich a je u třicátého devátého zápisu, ne tady.*
