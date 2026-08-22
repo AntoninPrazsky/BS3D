@@ -193,6 +193,16 @@ namespace Prazsky.Core.Render
 
     public sealed class SpaceStarsConfig
     {
+        /// <summary>
+        /// Ceiling on every layer's chance, and it is the shader's arithmetic rather than taste (#87).
+        /// A cell's existence roll is weighted by the solid angle that cell covers, which comes to 1.91 ×
+        /// the nominal chance at a face centre and a fifth of that at a cube corner — so a chance over
+        /// <c>1 / 1.91</c> saturates at the face centres, where every cell would then carry a star while the
+        /// corners still thinned out. That is the corner-knot artifact back again, in the one place the
+        /// correction exists to remove it. A denser sky needs a finer <c>CellScale</c>, not a bigger chance.
+        /// </summary>
+        public const float MaxChance = 0.523f;
+
         /// <summary>Cells per chart unit of the bright layer. Rounded to a whole number on set: a star can
         /// be held clear of a cell boundary only when the face edge lands ON one, which takes an integer cell
         /// scale — the no-straddle guarantee the whole lattice rests on (#149, docs/scenes.md).</summary>
@@ -203,8 +213,15 @@ namespace Prazsky.Core.Render
             set => _brightCellScale = MathF.Round(value);
         }
 
-        /// <summary>Fraction of the bright layer's cells carrying a star.</summary>
-        public float BrightChance { get; set; } = 0.30f;
+        /// <summary>Fraction of the bright layer's cells carrying a star, as a density on the sky — the
+        /// shader weights each cell's roll by the solid angle it covers. Clamped to <see cref="MaxChance"/>
+        /// on set, like the cell scale above it: the panel edits this live and a shader cannot complain.</summary>
+        private float _brightChance = 0.30f;
+        public float BrightChance
+        {
+            get => _brightChance;
+            set => _brightChance = Math.Clamp(value, 0f, MaxChance);
+        }
 
         /// <summary>Peak linear radiance of the bright layer's brightest star.</summary>
         public float BrightPeak { get; set; } = 0.50f;
@@ -218,8 +235,14 @@ namespace Prazsky.Core.Render
             set => _mediumCellScale = MathF.Round(value);
         }
 
-        /// <summary>Fraction of the middle layer's cells carrying a star.</summary>
-        public float MediumChance { get; set; } = 0.32f;
+        /// <summary>Fraction of the middle layer's cells carrying a star, as a density on the sky. Clamped
+        /// to <see cref="MaxChance"/> on set, for the same reason as <see cref="BrightChance"/>.</summary>
+        private float _mediumChance = 0.32f;
+        public float MediumChance
+        {
+            get => _mediumChance;
+            set => _mediumChance = Math.Clamp(value, 0f, MaxChance);
+        }
 
         /// <summary>Peak linear radiance of the middle layer's brightest star.</summary>
         public float MediumPeak { get; set; } = 0.30f;
@@ -233,8 +256,14 @@ namespace Prazsky.Core.Render
             set => _faintCellScale = MathF.Round(value);
         }
 
-        /// <summary>Fraction of the faint layer's cells carrying a star.</summary>
-        public float FaintChance { get; set; } = 0.40f;
+        /// <summary>Fraction of the faint layer's cells carrying a star, as a density on the sky. Clamped
+        /// to <see cref="MaxChance"/> on set, for the same reason as <see cref="BrightChance"/>.</summary>
+        private float _faintChance = 0.40f;
+        public float FaintChance
+        {
+            get => _faintChance;
+            set => _faintChance = Math.Clamp(value, 0f, MaxChance);
+        }
 
         /// <summary>Peak linear radiance of the faint layer's brightest star.</summary>
         public float FaintPeak { get; set; } = 0.16f;
