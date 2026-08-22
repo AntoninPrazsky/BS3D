@@ -276,6 +276,12 @@ namespace Testbed
         //entering it defaults the dome to a warm one (dome 14 has the warmest gold horizon of the set).
         private const byte SAVANNA_DEFAULT_SKY_DOME = 14;
 
+        //The tropical beach is the postcard and knows it: white sand and turquoise water read best under
+        //the brightest blue in the set, so entering it defaults the dome to dome 1 — a clear sunny sky
+        //over a warm horizon. Same rules as the other two: NumPad1 cycles freely from there and an
+        //explicit sky= overrides the startup default.
+        private const byte TROPICAL_DEFAULT_SKY_DOME = 1;
+
         //Space deliberately forces NO dome, unlike those two. Its dome is neither drawn (Space.fx covers the
         //whole frame) nor read (SpaceLightingConfig states the light rig instead, for the reasons set out
         //there) - so it is completely inert in that scene, and NumPad1 cycling domes in it changes nothing.
@@ -468,6 +474,7 @@ namespace Testbed
             if (_skyFromCommandLine) _skyModelNumber = options.SkyNumber; //Testing: "sky=<n>" on the command line picks the starting sky dome
             else if (_scene == SceneKind.Sea) _skyModelNumber = SEA_DEFAULT_SKY_DOME; //The sea scene defaults to a darker dome (unless sky= overrode it above)
             else if (_scene == SceneKind.Savanna) _skyModelNumber = SAVANNA_DEFAULT_SKY_DOME; //The savanna defaults to a warm golden dome
+            else if (_scene == SceneKind.Tropical) _skyModelNumber = TROPICAL_DEFAULT_SKY_DOME; //The beach defaults to the brightest blue
 
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;
@@ -865,15 +872,18 @@ namespace Testbed
 
             Console.WriteLine($"[scene] {_scene}");
 
-            //The sea reads best under a moody sky and the savanna under a warm golden one, so entering either
-            //defaults its dome — and SetSkyDome re-derives the rig on its way, so that arm needs nothing more
-            //(NumPad1 still cycles freely from there). Every other scene keeps whatever dome is up but must
+            //The sea reads best under a moody sky, the savanna under a warm golden one and the tropical
+            //beach under the brightest blue, so entering one of them defaults its dome — and SetSkyDome
+            //re-derives the rig on its way, so that arm needs nothing more (NumPad1 still cycles freely
+            //from there). Every other scene keeps whatever dome is up but must
             //still re-derive: a scene may state its own lighting instead of the dome's, and the rig has to be
             //told which scene it is standing in. Latent rather than visible while the cycle stays inside the
             //seven that all take the dome's — which is exactly why it would have gone unnoticed.
             if (_scene == SceneKind.Sea) SetSkyDome(SEA_DEFAULT_SKY_DOME);
             else if (_scene == SceneKind.Savanna) SetSkyDome(SAVANNA_DEFAULT_SKY_DOME);
             else ApplySkyLighting();
+            //The tropical beach sits past the cycle's end (CycleLength 7) and is never reached by this
+            //switch — its default dome is applied at startup only, where the scene= arm above finds it.
         }
 
         /// <summary>

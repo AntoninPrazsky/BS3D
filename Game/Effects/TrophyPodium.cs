@@ -155,7 +155,7 @@ namespace BS3D.Effects
             //rather than like coloured plastic: a metal's reflectance IS its specular colour, so bronze
             //reflects the dome in bronze and silver in white. The diffuse is what holds the tier apart under a
             //dark dome, the specular is what does it under a bright one, and both are stated per tier because
-            //either alone fails in one of the game's thirteen scenes.
+            //either alone fails in one of the game's fourteen scenes.
             //
             //The specular POWER climbs with the tier as well, which is most of what says "better": a bronze
             //cup is a cast, slightly rough thing with a broad highlight, and a diamond one is polished to a

@@ -134,6 +134,18 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/Moon.fx
 
+#begin Shaders/Tropical.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Tropical.fx
+
+#begin Shaders/Palm.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Palm.fx
+
 
 #begin Shaders/Glare.fx
 /importer:EffectImporter

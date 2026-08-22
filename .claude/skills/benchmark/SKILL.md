@@ -9,7 +9,7 @@ Companion to `verify` (build/launch) and `screenshot` (framing a shot). This one
 
 ```powershell
 dotnet build C:\GitHub\Game.sln
-.\benchmark.ps1                                      # the 12-scene sweep at ssaa 1 and 2
+.\benchmark.ps1                                      # the 14-scene sweep at ssaa 1 and 2
 .\benchmark.ps1 -Scenes neon -Ssaa 0 -Extra @('quality=low')
 .\benchmark.ps1 -Scenes neon -Ssaa 2 -Seconds 20     # longer window on a noisy machine
 ```

@@ -323,6 +323,19 @@ namespace BS3D.Audio
                         t => Swell(t, 2, 0.25f, 0.7f) * (0.6f + 0.4f * Cycle(t, 160, 0f)), WIDTH_AROUND);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.115f);
 
+                case SceneKind.Tropical:
+                    //The lagoon's wash is the sea's at a calm remove — smaller swells arriving no faster,
+                    //the foam hiss still a quarter turn behind the weight that made it (the sea's own
+                    //shape, gentler weights), and over it the lightest warm breeze of the set. A
+                    //sheltered lagoon inside a reef: surf you listen for, not surf you shout over.
+                    AddBand(mix, seed, 40f, 380f, 0.9f, t => Swell(t, 2, 0.28f, 0f), WIDTH_AIR);
+                    AddBand(mix, seed + 1, 800f, 2800f, 0.32f, t => Square(Swell(t, 2, 0.12f, -MathF.PI / 2f)), WIDTH_AROUND);
+                    //The breeze, wandering on two cycles like the savanna's warm wind but thinner —
+                    //nothing on this beach resists it but the palms, and they bend.
+                    AddBand(mix, seed + 2, 150f, 700f, 0.5f,
+                        t => 0.55f + 0.25f * Cycle(t, 3, 0.8f) + 0.2f * Cycle(t, 5, 2.1f), WIDTH_AIR);
+                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.105f);
+
                 default:
                     //A NEW SCENE LANDS HERE, AND IT IS MEANT TO BE OBVIOUS. This arm was the cavern's until
                     //#125 gave the Moon its own, and it was the Moon's until #112 gave the outback one — each

@@ -1,14 +1,14 @@
 # Measure BS3D's frame rate under pinned, repeatable conditions and print a comparable table.
 #
-#   .\benchmark.ps1                                     # the 12-scene sweep at ssaa 1 and 2
+#   .\benchmark.ps1                                     # the 14-scene sweep at ssaa 1 and 2
 #   .\benchmark.ps1 -Scenes neon -Ssaa 2 -Extra @('clouds=0')
 #   .\benchmark.ps1 -Seconds 20                         # longer window for a noisy machine
 #
 # Reads the game's own `[fps]` lines (the `logfps` argument), so it measures what the game measures rather
 # than screenshotting a counter. Every run pins the scene and the dome, because the game otherwise picks one
-# of the twelve scenes at random per launch and two of them bring a dome of their own.
+# of the fourteen scenes at random per launch and two of them bring a dome of their own.
 param(
-    [string[]]$Scenes  = @('city', 'sea', 'savanna', 'desert', 'mountain', 'meadow', 'neon', 'forest', 'space', 'dream', 'cavern', 'moon'),
+    [string[]]$Scenes  = @('city', 'sea', 'savanna', 'desert', 'mountain', 'meadow', 'neon', 'forest', 'space', 'dream', 'cavern', 'moon', 'outback', 'tropical'),
     [int[]]$Ssaa       = @(1, 2),
     [string[]]$Extra   = @(),      # further game arguments applied to every run (e.g. 'clouds=0')
     [int]$Sky          = 13,
