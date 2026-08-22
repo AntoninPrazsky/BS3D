@@ -1157,4 +1157,26 @@ Majitel to zadal takhle: *„Doopravdy je tam ta mřížka viditelná… rozmís
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-22 (#87 — kostka v hvězdném poli byla hustota, ne šev; #240 — krátery byly přišpendlené na buňky). Obě větve jsou od té doby na mainu. Dodatek k #258 — sytost a krytí bublinek — dosedl na main po nich a je u třicátého devátého zápisu, ne tady.*
+## 2026-08-22 — Claude Code (čtyřicátý první zápis)
+
+**Mimo issues, na majitelovo hlášení: „balls left vlevo dole je špatně vidět, protože to má podobnou barvu jako beton pod tím." Větev `hud-readouts-over-light-ground`.**
+
+**⚠ Bylo to horší, než jak to znělo, a číslo to řeklo za mě.** V bounding boxu toho popisku nad loukou bylo **p95 jasu 149,8 — a to je hodnota BETONU, ne písma.** `MENU_TEXT_DIM` je šedá 146; paluba ostrova čte kolem 150. **Popisek byl tmavší než podklad, na kterém ležel.** U té konstanty přitom stojí v komentáři přesně to, k čemu je — vedlejší texty *„always on a dark plate"* — a tady není plotna nikde v dohledu. Tohle není otázka vkusu ani stínu; byla to barva použitá mimo svůj vlastní kontrakt, a nikdo si toho nevšiml, protože v menu (kde plotna je) funguje.
+
+**Druhá polovina: offsetový stín ztmavuje JEDNU STRANU písmene.** Bullet v `docs/game-feedback.md` ho obhajoval nad **oblohou** a tam má pravdu — obloha je hladká a jeden posun figuru oddělí. Spodní levý roh ale nad oblohou neleží. Leží nad **betonovou palubou**, ve všech třinácti scénách, a tam jsou zbylé tři strany skoro bílá na skoro bílé, ještě přes texturu.
+
+- **Každý readout je teď podložený rozmazanou černou kopií vlastních glyfů.** Je to FontStashSharpův `Blurry`, tedy týž efekt, jaký už kreslí záblesk při zisku — **jedna cachovaná atlas varianta navíc na velikost fontu a nic za snímek**. Dva průchody: jeden průchod blur je vždycky slabší než glyf, ze kterého vznikl, což je aritmetika `HUD_GLOW_PASSES`, jen v tmavém směru.
+- **⚠ Je záměrně TĚSNĚJŠÍ než ten záblesk** (`HUD_BACKING_BLUR` 12 na vlastní velikosti textu proti `HUD_GLOW_BLUR` 30 na 1,14 té velikosti) a v tom rozdílu je celá ta hranice: **záblesk je světlo vycházející z glyfu a roste kolem něj, podklad je zem za glyfem a musí se držet tvaru písmene.** Nechat ho rozlézt = je z toho ta backing plate, kterou rohové readouty odmítají mít, a bullet o tom v docs stojí.
+- **Centrovaný podle SVÉHO měření**, ne podle textu — rozmazaný glyf je větší bitmapa s vlastním render offsetem. Je to doslova ta past, kterou si `DrawGlow` nese v komentáři pro halo, a padá stejně viditelně: šmouha *vedle* čísla místo pod ním.
+- Sedí v `DrawString`, takže to bere skóre, streak, popisek, počet i odlétající popupy naráz a nemůžou se rozejít; násobí se alfou textu stejně jako offsetová kopie, takže mizející popup si podklad odnese s sebou.
+- Popisek dostal vlastní **`HUD_CAPTION` (206)**. Dost světlý, aby nad betonem držel, pořád zjevně podřízený číslu, které popisuje.
+
+**Změřeno, stejný box před a po:** popisek p95 **149,8 → 206,0**, kontrastní rozsah **118,8 → 182,0**; číslo 214,9 → 226,7 (bylo skoro bílé už předtím, přibyla mu hloubka po obvodu). **Ověřeno** nad loukou, nad Měsícem — nejjasnější paluba ve hře pod nejtmavší oblohou, tedy nejhorší případ obojího naráz — a u skóre nad černou, kde je podklad neviditelný a nestojí nic.
+
+**⚠ Poznámka pro toho, kdo bude sahat na barvy HUD:** `MENU_TEXT_DIM` je barva **pro plotnu**. Nad scénou se nesmí použít nic, co spoléhá na to, že podklad je tmavý — třináct palet a paluba ostrova pod tím říkají, že podklad může být cokoli. Tohle byl druhý případ té samé chyby v projektu (první byl shore band u moře, který se rozešel s vlastním konvergenčním argumentem).
+
+**Nic dalšího si teď neberu.** Volné: **#237** (spára mezi výlevkou a zlatým prstencem — příčina nalezená, jen nevyfocená), **#241**, **#211**.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-22 (HUD — rohové readouty nad betonovou palubou; mimo issues, na mainu).*
