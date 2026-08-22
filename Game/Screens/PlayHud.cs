@@ -99,6 +99,30 @@ namespace BS3D.Screens
         private const int HUD_SHADOW_OFFSET = 7;
         private static readonly Color HUD_SHADOW = new(0, 0, 0, 200);
 
+        //⚠ AN OFFSET COPY DARKENS ONE SIDE OF A GLYPH, AND THAT IS ONLY HALF THE JOB. Over a bright sky the
+        //bullet above is right, because a sky is smooth and the offset alone separates the figure from it. Over
+        //the island's own CONCRETE DECK it is not: the deck reads around 150 grey, the readout is 244, and the
+        //three sides the offset does not cover are near-white on near-white with a texture running under them.
+        //The bottom-left ball count sits on that deck in all thirteen scenes and the owner reported it as hard
+        //to read there — which it was, on the capture, at a glance.
+        //
+        //So every readout is also backed by a blurred black copy of its own glyphs, centred on them, which puts
+        //the separation on all four sides. It is FontStashSharp's Blurry, the same effect the gain flash uses,
+        //so it costs one more cached atlas variant and nothing per frame. Deliberately TIGHTER than that flash
+        //(which runs HUD_GLOW_BLUR at 1.14 of the text): a flash is light coming off the glyph and grows around
+        //it, this is the ground behind the glyph and has to hug the letterform or it becomes the plate the
+        //bullet above refuses. Two passes because one pass of a blur is always fainter than the glyph it came
+        //from — the same arithmetic HUD_GLOW_PASSES is set by, in the dark direction.
+        private const int HUD_BACKING_BLUR = 12;
+        private const int HUD_BACKING_PASSES = 2;
+        private static readonly Color HUD_BACKING = new(0, 0, 0, 130);
+
+        //The caption under the ball count. NOT MENU_TEXT_DIM, whose own comment says what it is for — asides
+        //"always on a dark plate" — and this one has no plate within a thousand pixels of it: at 146 grey on a
+        //150 deck it was the least legible thing the game draws. Bright enough to hold its own over the
+        //concrete, still plainly subordinate to the number it labels, which is the hierarchy it is there for.
+        private static readonly Color HUD_CAPTION = new(206, 206, 206);
+
         //--- The magazine strip (#236) -----------------------------------------------------------------------
         //The loaded queue as flat discs, next shot first. It exists because the queue CANNOT be read off the
         //gun from the pose the game plays: CannonRig's own note records that drawn opaque, the pane fills the
@@ -949,7 +973,7 @@ namespace BS3D.Screens
             float glow = critical ? 0.5f + wave * 0.5f : _ballsPulse.Heat;
 
             DrawString(captionFont, caption, new Vector2(margin, bottom - captionSize.Y),
-                critical ? Color.Lerp(BS3DGame.MENU_TEXT_DIM, HUD_ACCENT, 0.5f) : BS3DGame.MENU_TEXT_DIM);
+                critical ? Color.Lerp(HUD_CAPTION, HUD_ACCENT, 0.5f) : HUD_CAPTION);
 
             //Pivoted on its bottom-left corner: the margin and the caption under it stay exactly where they are
             //while the number itself shrinks and swells, so the layout never moves — only the figure does
@@ -1532,6 +1556,22 @@ namespace BS3D.Screens
             if (shadow)
             {
                 float alpha = colour.A / 255f;
+
+                //The soft backing first, then the offset copy on top of it: the offset is the crisp lift and
+                //has to stay crisp, the backing is the ground it lifts off. Centred by its OWN measurement,
+                //because a blurred glyph is a larger bitmap with its own render offset — measured from the
+                //text's origin it lands down and to the right of what it backs, which is the identical trap
+                //DrawGlow's comment records for the halo, and it looks the same way: a smudge beside the
+                //number rather than under it.
+                int blur = Math.Max(1, Scaled(HUD_BACKING_BLUR));
+                Vector2 size = font.MeasureString(text) * scale;
+                Vector2 backingSize = font.MeasureString(text, null, 0f, 0f, FontSystemEffect.Blurry, blur) * scale;
+                Vector2 backingAt = position + (size - backingSize) * 0.5f;
+
+                for (int i = 0; i < HUD_BACKING_PASSES; i++)
+                    _game.OverlayBatch.DrawString(font, text, backingAt, HUD_BACKING * alpha, 0f, Vector2.Zero,
+                        scaling, 0f, 0f, 0f, TextStyle.None, FontSystemEffect.Blurry, blur);
+
                 _game.OverlayBatch.DrawString(font, text, position + new Vector2(Scaled(HUD_SHADOW_OFFSET) * scale),
                     HUD_SHADOW * alpha, 0f, Vector2.Zero, scaling);
             }
