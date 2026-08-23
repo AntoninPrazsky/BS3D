@@ -1379,8 +1379,16 @@ namespace BS3D.Screens
             //free cell. Aiming at open sky leaves it neutral, because a miss the player can already see does not
             //need a warning, and a warning that cries wolf is one nobody reads. Note the opacity is the ADS blend,
             //so this mark exists only while the lens looks along the bore; the overview's signal is the ghost.
-            _crosshair.Draw(Game.OverlayBatch, _preciseAim.Blend,
-                _previewReachesCluster && !_previewHasCell ? PREVIEW_REFUSED : null);
+            //
+            //And not once the level is over — the same gate the HUD above is behind, and for a reason of its own
+            //besides: the blend this fades on is frozen under the result page, because UpdateUnderResult runs the
+            //world and not the game (#241) and nothing there steps the lean out, so a loss taken mid-hold left
+            //the reticle parked at full opacity over the numbers for as long as the page stood (#259). A cut
+            //rather than a fade, like the aim blur's at the same moment — the page owns the frame from there on,
+            //and a lens nobody is aiming is not a thing to keep.
+            if (!LevelOver)
+                _crosshair.Draw(Game.OverlayBatch, _preciseAim.Blend,
+                    _previewReachesCluster && !_previewHasCell ? PREVIEW_REFUSED : null);
         }
 
     }
