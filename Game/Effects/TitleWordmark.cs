@@ -152,12 +152,13 @@ namespace BS3D.Effects
         //of a unit further from the lens than its centre, so the word has a real vanishing point without the
         //wide-angle stretch a closer hang would give it.
         //
-        //IT IS ALSO A CLEARANCE, and one that stopped being free the day the fly-in arrived (#254). The block
-        //hangs in the world with depth writes on, so anything nearer the lens than this is drawn THROUGH the
-        //game's own name; the pass now comes in to within a few units of the balls (#261), far inside this
-        //figure, and what holds the name is no longer a camera held outside its reach — it is the title
-        //stepping aside for the whole close pass (Draw's presence), present only while the lens is out wide
-        //where nothing hangs between it and the name.
+        //IT IS ALSO A DEPTH RELATION, and one that stopped being simple the day the fly-in arrived (#254).
+        //The block hangs in the world with depth writes on, so anything nearer the lens than this is drawn
+        //in front of the game's own name. The pass now comes in to within a couple of units of the balls
+        //(#261), far inside this figure, and what keeps that honest is the title shrinking to a small
+        //corner mark for the whole close pass (Draw's presence): a ball passing in front of a modest corner
+        //mark is parallax, while a ball cutting through the frame-dominating name was the broken look the
+        //clearance used to be spent avoiding.
         private const float DISTANCE = 7f;
 
         //HOW MUCH OF THE FRAME THE BLOCK FILLS. Height binds on every aspect anyone plays at (at 16:9 the
@@ -219,10 +220,12 @@ namespace BS3D.Effects
         //opaque geometry: there is no alpha to fade here, and a word growing from zero reads as a dot.
         private const float REVEAL_SECONDS = 0.65f, REVEAL_FROM = 0.58f;
 
-        //Below this the whole draw is skipped: a presence that has all but reached zero is a block of
-        //degenerate sub-pixel matrices nobody can see, and the fly-in spends twenty whole seconds of its
-        //cycle at exactly zero (#261). The reveal's own rule, the crosshair's own threshold — an eased
-        //scalar that has settled at either end is not a draw.
+        //Below this the whole draw is skipped — a presence that has all but reached zero is a block of
+        //degenerate sub-pixel matrices nobody can see. A guard on the caller's scalar rather than a state
+        //the front end reaches: since the owner's ruling on #261 the flight floors the title at a small
+        //corner size rather than nothing, so nothing on the front end asks for zero to-day. The reveal's
+        //own rule, the crosshair's own threshold — an eased scalar that has settled at either end is not
+        //a draw.
         private const float MIN_PRESENCE = 0.01f;
 
         //And the glow's own kick as it lands, on top of the beat. This is where the reveal's overshoot lives,
@@ -782,12 +785,12 @@ namespace BS3D.Effects
         /// class's, so a page cannot leave the title half way across the frame.
         /// </param>
         /// <param name="presence">
-        /// How present the title is, 1 fully and 0 not at all — the front end's fly-in passes the inverse of
-        /// its closeness, so the word makes way for the pass and comes back as the lens leaves (#261). What
-        /// scales is the block's SIZE, the reveal's own idiom, because the letters are opaque geometry with
-        /// no alpha to fade; at or below <see cref="MIN_PRESENCE"/> nothing is drawn at all, which is also
-        /// the whole close pass skipped for free. The caller supplies the easing — this class holds no clock
-        /// of the flight's.
+        /// How present the title is, 1 fully and 0 not at all — the front end's fly-in passes its closeness
+        /// eased down to a floor, so the word shrinks to a small corner mark in among the balls and comes
+        /// back up as the lens leaves (#261; the floor rather than zero is the owner's ruling — the title
+        /// stays, small). What scales is the block's SIZE, the reveal's own idiom, because the letters are
+        /// opaque geometry with no alpha to fade; at or below <see cref="MIN_PRESENCE"/> nothing is drawn at
+        /// all. The caller supplies the easing — this class holds no clock of the flight's.
         /// </param>
         /// <remarks>
         /// <b>The draw states are stated here and put back</b>, which is the contract <c>ArenaIsland</c>'s
