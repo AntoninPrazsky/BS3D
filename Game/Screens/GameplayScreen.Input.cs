@@ -78,16 +78,16 @@ namespace BS3D.Screens
                 //press belongs to rather than the one already presented (see BS3DGame.Screenshot).
                 if (Game.IsKeyEdge(keyboard, Keys.F12)) Game.RequestScreenshot();
 
-                //While the drop cinematic has the camera the gun does not answer, and Space skips the shot
-                //instead of firing. Escape is deliberately NOT the skip: it already means pause, and taking
-                //it would both give one key two meanings and leave the player unable to pause during a
-                //cinematic — the skip belongs with the buttons that mean "yes, go on" (Space, the left mouse
-                //button and the pad's A), which are the ones the hand is already on.
-                if (_cinematic.Engaged)
+                //While a camera takeover (the drop cinematic or the chapter intro) has the camera the gun does
+                //not answer, and Space skips it instead of firing. Escape is deliberately NOT the skip: it
+                //already means pause, and taking it would both give one key two meanings and leave the player
+                //unable to pause during one — the skip belongs with the buttons that mean "yes, go on" (Space,
+                //the left mouse button and the pad's A), which are the ones the hand is already on.
+                if (CameraTakeoverEngaged)
                 {
                     if (Game.IsKeyEdge(keyboard, Keys.Space)
                         || (pad.IsButtonDown(Buttons.A) && !Game.PreviousPad.IsButtonDown(Buttons.A)))
-                        _cinematic.TrySkip();
+                        SkipCameraTakeover();
 
                     Game.PreviousKeyboard = keyboard;
                     return false;
@@ -96,7 +96,7 @@ namespace BS3D.Screens
                 //Space fires; the gamepad fires off its right trigger, read with the aim (below)
                 if (Game.IsKeyEdge(keyboard, Keys.Space)) Shoot();
             }
-            else if (_cinematic.Engaged)
+            else if (CameraTakeoverEngaged)
             {
                 //Edge input is being held off for a frame after a refocus, but the gun still must not answer
                 Game.PreviousKeyboard = keyboard;
@@ -161,17 +161,17 @@ namespace BS3D.Screens
                 _mouseAim.Invalidate();
             }
 
-            //While the cinematic has the frame the barrel does not move and nothing fires — but the cursor is
-            //still recentred below, so the aim is not handed back a delta measured from wherever the mouse
-            //drifted to during the shot. The left button skips, matching Space and the pad's A.
-            if (_cinematic.Engaged)
+            //While a camera takeover has the frame the barrel does not move and nothing fires — but the
+            //cursor is still recentred below, so the aim is not handed back a delta measured from wherever
+            //the mouse drifted to during it. The left button skips, matching Space and the pad's A.
+            if (CameraTakeoverEngaged)
             {
                 if (edgeInputAllowed && _mouseAim.Initialized
                     && mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released)
-                    _cinematic.TrySkip();
+                    SkipCameraTakeover();
 
                 //Forced rather than read: the lean is a hold, so a player still holding the right button when
-                //the cinematic ends gets precise aim back, and one who let go during it does not
+                //the takeover ends gets precise aim back, and one who let go during it does not
                 _adsHeld = false;
 
                 if (_cursorCaptured) _mouseAim.Recentre(centreX, centreY);

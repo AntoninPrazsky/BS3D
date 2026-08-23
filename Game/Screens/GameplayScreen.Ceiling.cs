@@ -216,7 +216,12 @@ namespace BS3D.Screens
             _ceilingStepWaited += elapsed;
 
             if (_ceilingStepHold > 0f) _ceilingStepHold -= elapsed;
-            if (_ceilingStepHold > 0f || _cinematic.Engaged) return;
+
+            //Held out through a camera takeover for the drop cinematic's own reason — a step sliding down
+            //while the camera is elsewhere would arrive unannounced. Unreachable through the chapter intro in
+            //practice (nothing can be owed before a shot has landed, and the intro is over well before the
+            //first one can), but the same rule either way costs nothing to state once.
+            if (_ceilingStepHold > 0f || CameraTakeoverEngaged) return;
 
             _ceilingStepsPending--;
             _ceilingStepHold = CEILING_STEP_HOLD;

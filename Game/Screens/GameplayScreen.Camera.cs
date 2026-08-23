@@ -83,6 +83,19 @@ namespace BS3D.Screens
                 fov = MathHelper.Lerp(fov, _cinematic.FieldOfView, cinematic);
             }
 
+            //And the chapter intro is a third Lerp, on the identical idiom (#267) — chained after the drop
+            //cinematic's rather than before it for no reason beyond call order, since CameraTakeoverEngaged's
+            //own remarks are what actually keep the two from ever being nonzero on the same frame. No roll:
+            //an establishing shot stays level, so only the drop cinematic's tilt above ever moves BaseRoll.
+            float intro = _chapterIntro.Blend;
+
+            if (intro > 0f)
+            {
+                position = Vector3.Lerp(position, _chapterIntro.Position, intro);
+                target = Vector3.Lerp(target, _chapterIntro.Target, intro);
+                fov = MathHelper.Lerp(fov, _chapterIntro.FieldOfView, intro);
+            }
+
             Camera.BasePosition = position;
             Camera.BaseTarget = target;
             Camera.FieldOfView = fov;

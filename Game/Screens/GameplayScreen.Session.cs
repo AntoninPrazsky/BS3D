@@ -110,6 +110,10 @@ namespace BS3D.Screens
             //And no floor alarm either: whatever the last level's ending left lingering over the drain is
             //not this level's danger.
             _laserGrid.Reset();
+
+            //Last, now that the field, the cannon and the game camera are all fit to this level: the one
+            //thing here that reads the fit rather than only resetting state (#267).
+            TryBeginChapterIntro();
         }
 
         /// <summary>
@@ -151,6 +155,10 @@ namespace BS3D.Screens
             //controls into the next level, and its subject handles belong to a simulation that is now gone
             _cinematic.Reset();
             _cinematicSubject.Clear();
+
+            //And a chapter intro caught mid-tour by the same — quitting to the main menu during one, say —
+            //for the identical reason: it must not hold the camera and the controls into whatever comes next.
+            _chapterIntro.Reset();
 
             //The magazine is not refilled here: its colours belong to a level, and InstallLevel loads the
             //next one's before the queue means anything again
