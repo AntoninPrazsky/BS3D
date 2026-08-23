@@ -33,7 +33,7 @@ namespace BS3D.Screens
         private Label _unusedDetail, _unusedValue;
         private Label _totalValue, _unlockNote;
         private Widget _breakdown;
-        private Button _nextLevelButton;
+        private Button _retryButton, _nextLevelButton;
 
         //Frozen at the end of the level. Held rather than read from the session on every showing - see
         //LevelResult for why that arithmetic has to be a snapshot.
@@ -601,7 +601,10 @@ namespace BS3D.Screens
 
             column.Widgets.Add(_breakdown);
 
-            column.Widgets.Add(MenuButton("Retry", Game.RetryLevel));
+            //Built in this order — Retry, Next Level, Main Menu — which is also FAILED's own order and so
+            //needs no runtime rearranging on a loss. A CLEAR reorders the two in Refresh (#263): Retry stays
+            //a field for exactly that, not for anything read off it here.
+            column.Widgets.Add(_retryButton = MenuButton("Retry", Game.RetryLevel));
 
             //Absent rather than disabled when there is no next level to go to or the score did not clear the
             //gate. Retry stays: it is the one thing that always makes sense at a level's end.
@@ -779,6 +782,40 @@ namespace BS3D.Screens
             //frozen frame is a thing the player cannot do, which reads as the game being broken rather than
             //as the campaign asking for more stars (the note above says that in words).
             _nextLevelButton.Visible = _result.Cleared && _result.HasNextLevel && _result.NextLevelUnlocked;
+
+            //And PRIMARY on a clear (#263): the player's obvious next step after winning is the next level,
+            //not replaying the one they just beat, so the most likely action belongs in the most prominent
+            //slot rather than the least. A fail leaves the two exactly where they were built — Retry first,
+            //Next Level absent — so this only ever has to swap them, never a third arrangement.
+            ReorderPrimaryAction();
+        }
+
+        /// <summary>
+        /// Swaps Retry and Next Level so the button the player actually wants next leads the column — see the
+        /// call site. Reads <see cref="_nextLevelButton"/>'s own <see cref="Widget.Visible"/>, so it can never
+        /// disagree with what is actually offered: a clear with the gate still shut leaves Next Level absent
+        /// and Retry stays primary, exactly as a fail does. Idempotent — a Refresh that runs again on the same
+        /// outcome (a re-entered page, a retried star reveal) finds the pair already in the wanted order and
+        /// does nothing.
+        /// </summary>
+        private void ReorderPrimaryAction()
+        {
+            if (_retryButton.Parent is not Container buttons) return;
+
+            var widgets = buttons.Widgets;
+            int retryIndex = widgets.IndexOf(_retryButton);
+            int nextIndex = widgets.IndexOf(_nextLevelButton);
+
+            if (_nextLevelButton.Visible && nextIndex > retryIndex)
+            {
+                widgets.Remove(_nextLevelButton);
+                widgets.Insert(retryIndex, _nextLevelButton);
+            }
+            else if (!_nextLevelButton.Visible && retryIndex > nextIndex)
+            {
+                widgets.Remove(_retryButton);
+                widgets.Insert(nextIndex, _retryButton);
+            }
         }
     }
 }
