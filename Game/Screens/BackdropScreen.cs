@@ -523,10 +523,17 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Draws a level at random and hangs it over the island: any entry of the set, played or not — the
-        /// front end's promise is <i>what awaits</i>, not what is next, which is why progress has no say
-        /// here. The scene and its dome are not the map's: the backdrop keeps whatever sky it stands under,
-        /// the note the feature answers being explicit that they do not matter (#249).
+        /// Draws a level at random and hangs it over the island: any <b>unlocked</b> entry of the set, played
+        /// or not (#266) — the front end may promise what awaits within reach, but not the shape of a part of
+        /// the campaign the player has not gotten to yet. That was the rule until #266: "any entry, played or
+        /// not" was the deliberate original design, and the owner's ruling reverses it rather than fixing a
+        /// bug in it — a menu that can hang a twenty-level cluster over a player who has cleared only the
+        /// first is spoiling the campaign's own shape, not promising it. <see cref="BS3DGame.PinnedPreviewLevel"/>
+        /// is exempt: a scripted `preview=` is asking for that entry specifically, not rolling one, so it is
+        /// answered whatever its unlock state — the same distinction <see cref="LevelSelectPage"/> draws
+        /// between what a player may open and what a test may ask to look at. The scene and its dome are not
+        /// the map's: the backdrop keeps whatever sky it stands under, the note the feature answers being
+        /// explicit that they do not matter (#249).
         /// <para>
         /// The map is data and nothing more — no physics is built for it, no cannon stands under it. It
         /// hangs by the very offset a session derives for the same map
@@ -559,9 +566,20 @@ namespace BS3D.Screens
             //unreadable file skips that map, not the feature — and if the whole set is unreadable, the front
             //end falls back to the bare setting it always was.
             int start = Game.PinnedPreviewLevel ?? RANDOM.Next(set.Count);
+
+            //A pin is a request for THAT entry, unlock state and all — see the class doc — so only the random
+            //roll is filtered.
+            bool pinned = Game.PinnedPreviewLevel.HasValue;
+
             for (int tried = 0; tried < set.Count; tried++)
             {
                 int index = (start + tried) % set.Count;
+
+                //Locked entries are skipped before the file is even opened (#266): the menu may promise what
+                //the player can already reach, not the shape of a part of the campaign still ahead of them.
+                //The same test LevelSelectPage locks its own tiles with, so the two screens can never disagree
+                //about what "unlocked" means.
+                if (!pinned && !Game.IsLevelUnlocked(index)) continue;
 
                 string path = set.ResolvePath(index);
                 BallsMap map = null;
