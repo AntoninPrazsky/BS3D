@@ -172,24 +172,25 @@ namespace BS3D.Screens
         //tightly would be showing less of the scene it is there to establish.
         private const float WIDE_MAP_SHARE = 0.72f;
 
-        //THE FLY-IN'S JOB IS THE MAP, so this is what the whole leg is for: the map fills this much of the
-        //frame's half-angle on whichever axis binds. It is short of 1 because the ball cluster is not the
-        //whole subject — the glass over it is drawn to the FIELD's footprint, which is wider than the balls,
-        //and a share that filled the frame would push the ceiling the map is supposed to be hanging from off
-        //the top of it.
-        private const float CLOSE_MAP_SHARE = 0.8f;
+        //THE FLY-IN'S JOB IS THE MAP, and since #261 the pass is a close LOOK rather than a framing: the map
+        //fills MORE than the frame's half-angle — 1.25 of it — so the balls own the shot edge to edge and the
+        //glass they hang from crops out of the top of it. The old 0.8 kept the glass in frame, which framed
+        //the map as an object rather than getting close enough to read a ball; the complaint was that the
+        //balls never came into detailed view, and detail is what an over-full frame is.
+        private const float CLOSE_MAP_SHARE = 1.25f;
 
         //And what the fly-in may not do, whatever the arithmetic above asks for: come nearer the cluster than
-        //this. The 3D wordmark hangs 7 units in front of the lens with depth writes on (TitleWordmark.DISTANCE)
-        //and its far corners reach about 8.5 out from the lens, so a ball nearer than that is a ball drawn
-        //THROUGH the game's own name. Measured off the cluster's bounding SPHERE, which is a floor on the
-        //distance to any ball at any bearing and any point of the crane — the true nearest ball is further,
-        //and on most of a pass much further, so the margin this leaves is a floor and not an estimate.
+        //this. Three units of air off the cluster's bounding SPHERE, which is a floor on the distance to any
+        //ball at any bearing and any point of the crane — the true nearest ball is further, and on most of a
+        //pass much further — and margin for the near plane with it.
         //
-        //It is what actually binds on nearly every shipped level: the map fit above asks for 17-21 units and
-        //this holds the pass at 21-24. That is the trade the wordmark is worth, and the figure to revisit
-        //first if the fly-in should ever come closer.
-        private const float CLOSE_CLEARANCE = 10f;
+        //This used to be 10, and for a reason that is gone. The 3D wordmark hung 7 units in front of the lens
+        //with depth writes on (TitleWordmark.DISTANCE) and its far corners reached about 8.5 out, so a ball
+        //nearer than that was a ball drawn THROUGH the game's own name — and the clearance, not the map fit,
+        //was what held nearly every shipped level's pass at 21-24 units (#254). Since #261 the title steps
+        //aside for the pass instead — it is faded out on the approach and back in on the retreat, in this
+        //screen's Draw — and the floor falls to what only the lens needs.
+        private const float CLOSE_CLEARANCE = 3f;
 
         //=== THE HEIGHTS ===
 
@@ -365,15 +366,17 @@ namespace BS3D.Screens
         //THE WIDE LEG IS THE LONG ONE, and it has a second job that fixes its lower bound: BS3DGame
         //.TuneQualityToFrameRate is driven off this screen's Update, and it reaches a verdict from a 1.5 s
         //warm-up and 1.5 s windows — so the whole probe settles inside the first ten seconds of a front end,
-        //well inside this leg. A cycle that flew in sooner would be handing the probe a frame with the cluster
-        //filling it and letting THAT decide the tier the whole game runs at. Every route that reopens the
-        //probe from the front end puts the flight back here with it: a fresh program, a rolled preview
-        //(returning from a level, which is what ReopenQualityProbe answers) and a release from the result
-        //screen all start the clock at zero. The one that does not is the fullscreen toggle, which reopens the
-        //probe wherever the flight has got to — measured, the pass is not the expensive half anyway (see the
-        //frame-rate figures under "The menu camera" in docs/game-shell.md), and the probe only ever steps down.
-        private const float WIDE_SECONDS = 30f;
-        private const float APPROACH_SECONDS = 8f;
+        //and twelve clears that with the verdict in hand before the flight moves (#261 cut it from 30, which
+        //held the establishing turn three times longer than the ask it was serving). A cycle that flew in
+        //sooner would be handing the probe a frame with the cluster filling it and letting THAT decide the
+        //tier the whole game runs at. Every route that reopens the probe from the front end puts the flight
+        //back here with it: a fresh program, a rolled preview (returning from a level, which is what
+        //ReopenQualityProbe answers) and a release from the result screen all start the clock at zero. The
+        //one that does not is the fullscreen toggle, which reopens the probe wherever the flight has got to —
+        //measured, the pass is not the expensive half anyway (see the frame-rate figures under "The menu
+        //camera" in docs/game-shell.md), and the probe only ever steps down.
+        private const float WIDE_SECONDS = 12f;
+        private const float APPROACH_SECONDS = 4f;
         private const float CLOSE_SECONDS = 20f;
         private const float RETREAT_SECONDS = 8f;
 
@@ -671,9 +674,15 @@ namespace BS3D.Screens
             //
             //After the balls and BEFORE the drain's glass, so the frame's stated order holds — every opaque
             //thing, then everything translucent. It states its own three states and puts them back.
+            //And it STEPS ASIDE for the fly-in (#261): the pass now comes in nearer than the title hangs
+            //(see CLOSE_CLEARANCE), so the block is faded out across the whole approach and back in across
+            //the retreat, on the flight's own curve — present at 1 out wide, gone for the whole of the close
+            //pass. What fades is the block's SIZE, the reveal's own idiom, because the letters are opaque
+            //geometry and have no alpha to fade.
             Screen active = Manager?.Active;
             if (active is MainMenuPage || active is SplashPage)
-                Game.TitleWordmark?.Draw(Game.Camera, Game.WallClock, settled: active is MainMenuPage);
+                Game.TitleWordmark?.Draw(Game.Camera, Game.WallClock, settled: active is MainMenuPage,
+                    presence: 1f - Closeness(_flightClock));
 
             Game.DrawSettingGlass();
 

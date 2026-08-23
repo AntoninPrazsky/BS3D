@@ -152,11 +152,12 @@ namespace BS3D.Effects
         //of a unit further from the lens than its centre, so the word has a real vanishing point without the
         //wide-angle stretch a closer hang would give it.
         //
-        //IT IS ALSO A CLEARANCE, and one that is no longer free. The block hangs in the world with depth
-        //writes on, so anything nearer the lens than this is drawn THROUGH the game's own name; that could
-        //not happen while the front end stood at a fixed 44 units from an island of radius 26, and the fly-in
-        //(#254) now brings the lens in to within about twenty of the hanging cluster. What holds it is
-        //BackdropScreen's CLOSE_CLEARANCE, which is measured off this figure — change one and read the other.
+        //IT IS ALSO A CLEARANCE, and one that stopped being free the day the fly-in arrived (#254). The block
+        //hangs in the world with depth writes on, so anything nearer the lens than this is drawn THROUGH the
+        //game's own name; the pass now comes in to within a few units of the balls (#261), far inside this
+        //figure, and what holds the name is no longer a camera held outside its reach — it is the title
+        //stepping aside for the whole close pass (Draw's presence), present only while the lens is out wide
+        //where nothing hangs between it and the name.
         private const float DISTANCE = 7f;
 
         //HOW MUCH OF THE FRAME THE BLOCK FILLS. Height binds on every aspect anyone plays at (at 16:9 the
@@ -217,6 +218,12 @@ namespace BS3D.Effects
         //label this took the place of. It starts at a size rather than at nothing because the letters are
         //opaque geometry: there is no alpha to fade here, and a word growing from zero reads as a dot.
         private const float REVEAL_SECONDS = 0.65f, REVEAL_FROM = 0.58f;
+
+        //Below this the whole draw is skipped: a presence that has all but reached zero is a block of
+        //degenerate sub-pixel matrices nobody can see, and the fly-in spends twenty whole seconds of its
+        //cycle at exactly zero (#261). The reveal's own rule, the crosshair's own threshold — an eased
+        //scalar that has settled at either end is not a draw.
+        private const float MIN_PRESENCE = 0.01f;
 
         //And the glow's own kick as it lands, on top of the beat. This is where the reveal's overshoot lives,
         //because scale cannot have one: the fit above solves the block to the frame, so a block that overshot
@@ -774,6 +781,14 @@ namespace BS3D.Effects
         /// blown up. The caller states the <i>target</i> and never the progress — the move itself is this
         /// class's, so a page cannot leave the title half way across the frame.
         /// </param>
+        /// <param name="presence">
+        /// How present the title is, 1 fully and 0 not at all — the front end's fly-in passes the inverse of
+        /// its closeness, so the word makes way for the pass and comes back as the lens leaves (#261). What
+        /// scales is the block's SIZE, the reveal's own idiom, because the letters are opaque geometry with
+        /// no alpha to fade; at or below <see cref="MIN_PRESENCE"/> nothing is drawn at all, which is also
+        /// the whole close pass skipped for free. The caller supplies the easing — this class holds no clock
+        /// of the flight's.
+        /// </param>
         /// <remarks>
         /// <b>The draw states are stated here and put back</b>, which is the contract <c>ArenaIsland</c>'s
         /// slices and <c>BallGlow</c> keep: the caller's next act is the frame's translucent glass, and it is
@@ -791,9 +806,14 @@ namespace BS3D.Effects
         /// themselves.
         /// </para>
         /// </remarks>
-        public void Draw(ICamera camera, float wallClock, bool settled)
+        public void Draw(ICamera camera, float wallClock, bool settled, float presence = 1f)
         {
             if (_letters.Length == 0) return;
+
+            //The step aside (#261), BEFORE the clocks: a skipped frame arrives later as one huge step, which
+            //saturates the morph and the reveal — the behaviour a level played and returned from already has,
+            //and the one a twenty-second pass deserves too. Eased by the caller; this class only scales.
+            if (presence <= MIN_PRESENCE) return;
 
             //THE MOVE AND THE ARRIVAL, both stepped off the wall clock rather than off an elapsed value handed
             //in, because this class is only ever reached from a draw: a frame that was not drawn is a frame in
@@ -874,7 +894,11 @@ namespace BS3D.Effects
             //shrinks about its anchored corner rather than about its middle.
             float beat = 0.5f + 0.5f * MathF.Sin(wallClock * BEAT_RATE * MathHelper.TwoPi);
 
-            cap *= (1f + SCALE_BEAT * (beat * 2f - 1f)) * MathHelper.Lerp(REVEAL_FROM, 1f, reveal);
+            //THE STEP ASIDE rides the same line: the anchor below and every placement are in cap heights, so
+            //scaling the cap shrinks the whole block about its anchored corner — letters, keylines and auras
+            //together — with no second scale to keep in step. The reveal is the same trick arriving, and for
+            //the same reason: opaque tubes cannot fade, they can only be small.
+            cap *= (1f + SCALE_BEAT * (beat * 2f - 1f)) * MathHelper.Lerp(REVEAL_FROM, 1f, reveal) * presence;
 
             //THE ANCHOR, and it carries the same perspective term the fit above does — for the same reason and
             //with the same arithmetic. The corner has to land ON the inset when it is at its NEAREST, so the
