@@ -263,9 +263,11 @@ namespace BS3D
             _menuCeilingPlate.Fit(stageSizeX, stageSizeZ, MENU_CEILING_ALPHA);
 
         /// <summary>
-        /// Every renderer that takes its lighting from the sky dome <b>at full strength</b>. The ceiling glass
-        /// is deliberately not among them: it stands against the sky itself, so it takes the rig through
-        /// <see cref="SkyLightRig.ApplyToGlass"/> instead (see <see cref="ApplySkyLighting"/>).
+        /// Every renderer that takes its lighting from the sky dome <b>at full strength, unadjusted</b>. Two
+        /// are deliberately not among them, each taking the rig through its own push in
+        /// <see cref="ApplySkyLighting"/> instead: the ceiling glass, which stands against the sky itself
+        /// (<see cref="SkyLightRig.ApplyToGlass"/>), and the trophy cup, which must stay legible even under a
+        /// dome whose own rig is near-black by design (<see cref="SkyLightRig.ApplyToPresented"/>, #232).
         /// </summary>
         private IEnumerable<InstancedModelRenderer> SkyLitRenderers()
         {
@@ -296,12 +298,15 @@ namespace BS3D
             foreach (InstancedModelRenderer renderer in _forestScatter.Renderers) yield return renderer;
 
             //The 3D title over the front end (#248), letters and keylines both. It takes the dome's light like
-            //everything else in the frame ON PURPOSE, which is the opposite of the trophy cup's choice and is
-            //argued on TitleWordmark.Renderers: a cup is presented for seconds and wants one controlled
-            //finish, a wordmark stands over all fourteen backdrops under all eighteen domes and has to come
-            //out right at both ends of that range. Dereferenced unconditionally like the two above — it is
-            //built in LoadContent immediately before the startup SetScene, and for this very reason.
+            //everything else in the frame ON PURPOSE — argued on TitleWordmark.Renderers, a wordmark stands
+            //over all fourteen backdrops under all eighteen domes and has to come out right at both ends of
+            //that range. Dereferenced unconditionally like the two above — it is built in LoadContent
+            //immediately before the startup SetScene, and for this very reason.
             foreach (InstancedModelRenderer renderer in _titleWordmark.Renderers) yield return renderer;
+
+            //The trophy cup is deliberately NOT here (#232's second half) — it takes the rig through
+            //SkyLightRig.ApplyToPresented instead, in ApplySkyLighting below, the same way the ceiling glass
+            //takes ApplyToGlass rather than the plain push this walk feeds everything else.
         }
 
         /// <summary>
@@ -326,6 +331,11 @@ namespace BS3D
             //The menu's glass with it (#249) — the same sky it stands against, the same refit-window null,
             //the same tolerance on the push.
             _rig.ApplyToGlass(_menuCeilingPlate.Renderer);
+
+            //The trophy's own push (#232's second half — ApplyToPresented holds the why): it reflects the
+            //level's dome like everything else, floored so a dome whose own rig runs near-black (the Moon's
+            //airless sky, the cavern's dim one) cannot take the reward down with it.
+            foreach (InstancedModelRenderer renderer in _trophy.Renderers) _rig.ApplyToPresented(renderer);
 
             //And the wood's own pigments, which the rig above cannot reach — see ForestScatterRenderer.
             //ShiftTowardsSky (#108). Guarded inside on the tint, so it is free every frame but a dome switch.

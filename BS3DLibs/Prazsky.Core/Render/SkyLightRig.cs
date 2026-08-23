@@ -289,6 +289,58 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// The floor <see cref="ApplyToPresented"/> holds <see cref="InstancedModelRenderer.SkyColor"/> to, in
+        /// linear radiance. Measured against the Moon, which is the worst case by construction: its rig states
+        /// the sky half near-black on purpose (the "sky" is airless space, so there is nothing to reflect —
+        /// see <see cref="SceneRenderer.TryGetLightRig"/>'s own note on it), and against that a trophy with #232's own dark
+        /// metal diffuse read as a near-silhouette, its Fresnel rim the only thing left lit. This is not
+        /// "how bright a dome's sky ambient normally runs" — the clear-day domes clear it on their own — it is
+        /// "how dim a REWARD may be read at and still be read".
+        /// </summary>
+        private const float PRESENTED_MIN_SKY_LUMINANCE = 0.35f;
+
+        /// <summary>The ground half's own floor, lower than the sky's — a shadowed underside staying darker
+        /// than the lit top is part of what a reflection is, so only the extreme (a dome whose ground half is
+        /// ALSO near-black) needs catching here.</summary>
+        private const float PRESENTED_MIN_GROUND_LUMINANCE = 0.05f;
+
+        /// <summary>
+        /// Pushes the rig onto a renderer that must stay legible whatever dome it is read against — the
+        /// trophy cup (#232's second half). <see cref="ApplyTo"/>'s ordinary push is exactly right for most of
+        /// the fourteen scenes: the cup reflects the level's own dome, which is the whole point of enrolling
+        /// it at all. It only fails where a dome's rig is <i>itself</i> near-black by design rather than by
+        /// mood — the Moon's airless sky, or the cavern's dim bioluminescent one — where a reward that goes
+        /// on being <i>read</i> against a scene the player is looking at needs a floor the scene itself does
+        /// not have to keep.
+        /// <para>
+        /// <b>The floor LIFTS rather than SCALES, and that is deliberate.</b> Scaling a near-black colour up to
+        /// the floor's luminance divides by whatever tiny value it started at, so a sky ambient of
+        /// <c>(0.001, 0.001, 0.002)</c> would come out through a ~350× multiplier — any small colour impurity
+        /// in it amplified into a stray tint, and undefined outright at exactly zero. Adding a flat grey lift
+        /// instead — just enough to bring the luminance up to the floor, nothing more — is well-defined at
+        /// every input, costs nothing when a dome already clears the floor on its own (every clear-day scene:
+        /// the lift is zero and the push is untouched), and reads as what it is: moonlight added under a scene
+        /// too dark to read a reward against, not the scene's own colour turned up.
+        /// </para>
+        /// </summary>
+        public void ApplyToPresented(InstancedModelRenderer renderer)
+        {
+            if (renderer == null) return;
+
+            ApplyTo(renderer);
+
+            renderer.SkyColor = FloorLuminance(renderer.SkyColor, PRESENTED_MIN_SKY_LUMINANCE);
+            renderer.GroundColor = FloorLuminance(renderer.GroundColor, PRESENTED_MIN_GROUND_LUMINANCE);
+        }
+
+        private static Vector3 FloorLuminance(Vector3 color, float minLuminance)
+        {
+            float shortfall = minLuminance - ColorSpace.Luminance(color);
+
+            return shortfall > 0f ? color + Vector3.One * shortfall : color;
+        }
+
+        /// <summary>
         /// Pushes the rig onto every renderer in the caller's own enrolment list. Walked by index, so a reused
         /// <see cref="List{T}"/> costs no enumerator even where this runs every frame — which it does wherever
         /// the overcast lerp is being stepped.
