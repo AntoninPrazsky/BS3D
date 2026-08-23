@@ -918,7 +918,9 @@ namespace BS3D
 
             //The trophy cups (#183). Both meshes are built once here — a few thousand triangles apiece — so a
             //cleared level costs one draw call and nothing else. It borrows the scene's own instancing effect
-            //and ambient, so the cup is lit by the same rig as the island it is presented over.
+            //and ambient constant, but NOT the scene's own light rig — see SkyLitRenderers and
+            //TrophyPodium.SHOWCASE_SKY for why the cup deliberately stands in a fixed room of its own rather
+            //than reflecting whichever of the fourteen scenes the result page happens to be over.
             _trophy = new TrophyPodium(GraphicsDevice, _instancingEffect, SCENE_AMBIENT_INTENSITY);
 
             //Testing only, and deliberately long: it has to outlast a scripted screenshot burst.
