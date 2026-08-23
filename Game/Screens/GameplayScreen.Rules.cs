@@ -133,9 +133,9 @@ namespace BS3D.Screens
 
             if (!worthWatching) return;
 
-            //Never over a cinematic already running, and never over the end of a level: the result screen is
-            //about to cover this one, and a camera move under it is a move nobody sees.
-            if (_cinematic.Engaged || LevelDecided) return;
+            //Never over a camera takeover already running, and never over the end of a level: the result
+            //screen is about to cover this one, and a camera move under it is a move nobody sees.
+            if (CameraTakeoverEngaged || LevelDecided) return;
 
             int first = _fallingBalls.Count - total;
             if (first < 0) return;
@@ -163,6 +163,43 @@ namespace BS3D.Screens
             //last one" is now a question about the level's history rather than about a constant.
             Console.WriteLine($"[cinematic] {total} balls ({released.Matched} matched, {released.Orphaned} orphaned)"
                 + $" beat a best of {previousBest}, from y={centre.Y:F1}, {_cinematic.Describe()}");
+        }
+
+        /// <summary>
+        /// Hands the camera to <see cref="ChapterIntro"/> when the level just built is the first index of a
+        /// <b>new</b> block this run of the program has not already toured (#267). Called from
+        /// <see cref="BuildLevel"/>, after the field, the cannon and the game camera are all fit to it — the
+        /// intro orbits the very point the ordinary camera is about to look at, so it needs that solve to
+        /// have already run.
+        /// <para>
+        /// A set with no blocks at all (<see cref="LevelSet.HasBlocks"/> false) never reaches here:
+        /// <see cref="LevelSet.BlockRange"/>'s "an entry naming no block is its own run of one" fallback would
+        /// otherwise call every single level the first index of its own block and open an intro on every one
+        /// of them — the same trap the block-complete milestone (#184) is gated against for the same reason.
+        /// </para>
+        /// </summary>
+        private void TryBeginChapterIntro()
+        {
+            LevelSet set = Game.LevelSet;
+            if (set == null || !set.HasBlocks) return;
+
+            set.BlockRange(_levelIndex, out int first, out _);
+            if (first != _levelIndex) return;
+
+            //Add answers false when the key is already in the set — one call is both the test and the record,
+            //so there is no window between asking and marking where a re-entrant BuildLevel could see stale
+            //state. Never removed: a fresh launch of the program is the only thing that shows a chapter's
+            //opening twice, and that is the point (see the field's own remarks).
+            if (!_chapterIntroShown.Add(first)) return;
+
+            Vector3 centre = new(_cannon.OrbitCenter.X, _gameCameraTargetY, _cannon.OrbitCenter.Z);
+
+            _chapterIntro.Begin(centre, _gameCameraDistance, GAME_FOV, RANDOM);
+
+            //One line per intro, in the manner of [cinematic]: a rare event — nine times over the whole
+            //campaign — and the shot is rolled, so this is the only record of what it actually chose.
+            Console.WriteLine($"[intro] block '{set.BlockName(_levelIndex)}' ({set.BlockNumber(_levelIndex)}/{set.BlockCount}), "
+                + _chapterIntro.Describe());
         }
 
         /// <summary>

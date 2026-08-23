@@ -822,6 +822,36 @@ namespace BS3D.Screens
         //handles and not list indices, and why recycling cannot bite here.
         private readonly HashSet<int> _cinematicSubject = new();
 
+        //The new chapter's own establishing shot (#267): a block's first level tours the arena before handing
+        //the gun over. Owns the pose and the blend exactly as the drop cinematic does; this screen owns the
+        //trigger and the fact that the gun does not answer while it plays — see TryBeginChapterIntro and
+        //CameraTakeoverEngaged.
+        private readonly ChapterIntro _chapterIntro = new();
+
+        //Which blocks have already shown their intro this run of the program, keyed by the block's FIRST
+        //level index rather than its name — a name is authored prose and not guaranteed unique across blocks,
+        //where the first index always is. Deliberately not PlayerProgress and never cleared: a fresh launch
+        //sees every chapter's opening again, which is the point (see TryBeginChapterIntro), and a retry of the
+        //block's own opening level must not replay it a second time in the same sitting.
+        private readonly HashSet<int> _chapterIntroShown = new();
+
+        /// <summary>
+        /// True while either camera takeover holds the frame — the drop cinematic or the chapter's
+        /// establishing shot — which is everywhere the gun must not answer and a skip button means "let go of
+        /// it". At most one is ever engaged at once: the intro blocks the very shot the drop cinematic needs
+        /// to begin, and <see cref="BuildLevel"/> resets the drop cinematic before a new level's own intro
+        /// could ever start. Asking both costs nothing and needs no third flag to say which one is live.
+        /// </summary>
+        private bool CameraTakeoverEngaged => _cinematic.Engaged || _chapterIntro.Engaged;
+
+        /// <summary>Skips whichever takeover is currently running — see <see cref="CameraTakeoverEngaged"/>
+        /// for why asking both is safe.</summary>
+        private void SkipCameraTakeover()
+        {
+            _cinematic.TrySkip();
+            _chapterIntro.TrySkip();
+        }
+
         //The template a shot is stamped from — the sphere, its inertia, its bare shape index and its sleep
         //threshold — is PhysicsWorld's, which stamps a fresh copy per shot rather than holding one and writing
         //this shot's pose and velocity over the last one's, as this and the Testbed both used to.
@@ -1140,6 +1170,10 @@ namespace BS3D.Screens
 
             if (!_cinematic.Engaged) _cinematicSubject.Clear();
 
+            //The chapter intro has no subject to read and no time scale to feed the step below — see the
+            //class remarks on why. Just its own pose and blend, exactly like the line above.
+            _chapterIntro.Update(elapsed);
+
             //A step that came due while the shot was in the air waits here for its moment — see
             //ReleaseCeilingStep. Before the descent update, so a released step slides on the same frame.
             ReleaseCeilingStep(elapsed);
@@ -1160,21 +1194,23 @@ namespace BS3D.Screens
             //(#121). The level's own build re-opened the latch; this is what closes it again, on evidence.
             //
             //REAL elapsed, not the scaled step above: a slowed world costs what it costs to draw. And not while
-            //a cinematic runs — it is the heaviest and least typical moment of a level, and a verdict taken on
-            //a collapse would spend image quality for the rest of the session on a second and a half of it.
-            if (Game.IsActive && !_cinematic.Engaged) Game.TuneQualityToFrameRate(elapsed, "level");
+            //a camera takeover runs — the drop cinematic is the heaviest and least typical moment of a level,
+            //and the chapter intro is judged on a frame with no cluster shot yet either; a verdict taken on
+            //either would spend image quality for the rest of the session on a few seconds that are not play.
+            if (Game.IsActive && !CameraTakeoverEngaged) Game.TuneQualityToFrameRate(elapsed, "level");
 
             //After the step: poses have advanced, so a ball dragged down by the descent is at its new Y now, and a
             //shot that spent the budget has had its landing. The two losses are checked here rather than only on a
             //landing, because a descent can push a ball across the death line between landings, and a spent budget
             //loses only once nothing remains in flight.
             //
-            //Only the ENDINGS are held while a cinematic runs — both put the result screen over this one, and
-            //a level that ends mid-collapse takes the collapse the player earned off the screen before they
-            //have seen it, which is the same reason the cleared countdown below waits. The floor alarm inside
-            //is NOT held: the release that engages a cinematic is exactly the one that rescues a low cluster,
-            //and a warning frozen lit would blaze across the player's reward for the whole dive down the drain.
-            CheckLevelLost(elapsed, mayLose: !_cinematic.Engaged);
+            //Only the ENDINGS are held while a camera takeover runs — both put the result screen over this
+            //one, and a level that ends mid-collapse (or before its own intro has even finished) takes the
+            //moment the player earned off the screen before they have seen it, which is the same reason the
+            //cleared countdown below waits. The floor alarm inside is NOT held: the release that engages a
+            //drop cinematic is exactly the one that rescues a low cluster, and a warning frozen lit would
+            //blaze across the player's reward for the whole dive down the drain.
+            CheckLevelLost(elapsed, mayLose: !CameraTakeoverEngaged);
 
             //Where a shot fired now would land. After the step, so the ghost sits against the poses the player is
             //looking at rather than the ones from before this frame's physics.
@@ -1190,7 +1226,7 @@ namespace BS3D.Screens
             //
             //A loss needs no entry here: LoseLevel shows the result screen straight away (the same one a clear
             //lands on), which covers this screen and freezes it until the player picks Retry or leaves.
-            if (_clearedCountdown > 0f && !_cinematic.Engaged)
+            if (_clearedCountdown > 0f && !CameraTakeoverEngaged)
             {
                 _clearedCountdown -= elapsed;
                 if (_clearedCountdown <= 0f) FinishLevel();
