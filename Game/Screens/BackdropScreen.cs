@@ -172,25 +172,28 @@ namespace BS3D.Screens
         //tightly would be showing less of the scene it is there to establish.
         private const float WIDE_MAP_SHARE = 0.72f;
 
-        //THE FLY-IN'S JOB IS THE MAP, and since #261 the pass is a close LOOK rather than a framing: the map
-        //fills MORE than the frame's half-angle — 1.25 of it — so the balls own the shot edge to edge and the
-        //glass they hang from crops out of the top of it. The old 0.8 kept the glass in frame, which framed
-        //the map as an object rather than getting close enough to read a ball; the complaint was that the
-        //balls never came into detailed view, and detail is what an over-full frame is.
-        private const float CLOSE_MAP_SHARE = 1.25f;
+        //THE FLY-IN'S JOB IS THE MAP AT BALL-FILLING DETAIL, and the share states how much of the frame's
+        //half-angle the map is asked to overfill — 1.6 of it, enough that the fit below is never what holds
+        //a pass back on any plausible map and the clearance floor is the whole answer. The old 0.8 framed
+        //the map as an object with its glass in shot; the owner's ruling on that pass was that the balls
+        //never came into detailed view, and detail is what an over-full frame is.
+        private const float CLOSE_MAP_SHARE = 1.6f;
 
         //And what the fly-in may not do, whatever the arithmetic above asks for: come nearer the cluster than
-        //this. Three units of air off the cluster's bounding SPHERE, which is a floor on the distance to any
-        //ball at any bearing and any point of the crane — the true nearest ball is further, and on most of a
-        //pass much further — and margin for the near plane with it.
+        //this. A unit and a half of air off the cluster's bounding SPHERE — a floor on the distance to any
+        //ball at any bearing and any point of the crane, and margin for the near plane with it. The sphere
+        //bounds the FIELD's footprint too, so the same floor keeps the lens outside the glass plate by as
+        //much again at the top of the crane.
         //
         //This used to be 10, and for a reason that is gone. The 3D wordmark hung 7 units in front of the lens
         //with depth writes on (TitleWordmark.DISTANCE) and its far corners reached about 8.5 out, so a ball
         //nearer than that was a ball drawn THROUGH the game's own name — and the clearance, not the map fit,
-        //was what held nearly every shipped level's pass at 21-24 units (#254). Since #261 the title steps
-        //aside for the pass instead — it is faded out on the approach and back in on the retreat, in this
-        //screen's Draw — and the floor falls to what only the lens needs.
-        private const float CLOSE_CLEARANCE = 3f;
+        //was what held nearly every shipped level's pass at 21-24 units (#254). The title has stepped aside
+        //for the pass ever since — shrunk to a small corner mark — and the floor fell to what only the lens
+        //needs: the owner's ruling on the first version of that (#261) was that the title should not vanish
+        //but stay small, and a ball passing IN FRONT of a small corner mark is honest parallax rather than
+        //the broken-looking name a full-size one showed.
+        private const float CLOSE_CLEARANCE = 1.5f;
 
         //=== THE HEIGHTS ===
 
@@ -356,32 +359,57 @@ namespace BS3D.Screens
         //And how far into the current fly-in cycle it is, on that same clock and for that same reason.
         private float _flightClock;
 
-        //=== THE CYCLE ===
+        //=== THE CYCLE, ROLLED FRESH AT THE TOP OF EVERY ONE ===
         //
-        //The front end's camera is not a carousel: it holds the wide establishing turn for a long stretch, then
-        //leaves it, comes in over the island, cranes up the hanging map while it circles, and backs out again
-        //(#254 — "the camera just flies around the scene and looks at it"). Then it does it again, from
-        //wherever the bearing has reached by then, so no two passes are the same view.
+        //The front end's camera is not a carousel: it holds the wide establishing turn for a stretch, then
+        //leaves it, comes in over the island, cranes along the hanging map while it circles, and backs out
+        //again (#254 — "the camera just flies around the scene and looks at it"). Then it does it again,
+        //from wherever the bearing has reached by then — and since the owner's follow-up ruling on #261 no
+        //two arrivals are shaped alike either: each leg's length is rolled within the range its constant
+        //below names (the first figure is the floor, the second the jitter above it), the crane sets off
+        //over the top as often as from under the bottom, and this pass's stand-off jitters a few per cent
+        //either way, so the same map is never visited the same way twice.
         //
-        //THE WIDE LEG IS THE LONG ONE, and it has a second job that fixes its lower bound: BS3DGame
-        //.TuneQualityToFrameRate is driven off this screen's Update, and it reaches a verdict from a 1.5 s
-        //warm-up and 1.5 s windows — so the whole probe settles inside the first ten seconds of a front end,
-        //and twelve clears that with the verdict in hand before the flight moves (#261 cut it from 30, which
-        //held the establishing turn three times longer than the ask it was serving). A cycle that flew in
-        //sooner would be handing the probe a frame with the cluster filling it and letting THAT decide the
-        //tier the whole game runs at. Every route that reopens the probe from the front end puts the flight
-        //back here with it: a fresh program, a rolled preview (returning from a level, which is what
-        //ReopenQualityProbe answers) and a release from the result screen all start the clock at zero. The
-        //one that does not is the fullscreen toggle, which reopens the probe wherever the flight has got to —
-        //measured, the pass is not the expensive half anyway (see the frame-rate figures under "The menu
-        //camera" in docs/game-shell.md), and the probe only ever steps down.
-        private const float WIDE_SECONDS = 12f;
-        private const float APPROACH_SECONDS = 4f;
-        private const float CLOSE_SECONDS = 20f;
-        private const float RETREAT_SECONDS = 8f;
+        //THE WIDE LEG'S ROLL HAS A FLOOR, and the reason is not variety: BS3DGame.TuneQualityToFrameRate is
+        //driven off this screen's Update, and it reaches a verdict from a 1.5 s warm-up and 1.5 s windows —
+        //so the whole probe settles inside the first ten seconds of a front end, and the wide roll STARTS at
+        //twelve so that every verdict is a wide one (the jitter only ever lengthens the hold; #261 cut the
+        //hold itself from 30, which stood three times longer than the ask it was serving). A cycle that flew
+        //in sooner would be handing the probe a frame with the cluster filling it and letting THAT decide
+        //the tier the whole game runs at. Every route that reopens the probe from the front end puts the
+        //flight back at the top of the wide leg with it: a fresh program, a rolled preview (returning from a
+        //level, which is what ReopenQualityProbe answers) and a release from the result screen all start the
+        //clock at zero. The one that does not is the fullscreen toggle, which reopens the probe wherever the
+        //flight has got to — measured, the pass is not the expensive half anyway (see the frame-rate figures
+        //under "The menu camera" in docs/game-shell.md), and the probe only ever steps down.
+        private const float WIDE_SECONDS = 12f, WIDE_JITTER_SECONDS = 8f;
+        private const float APPROACH_SECONDS = 3.5f, APPROACH_JITTER_SECONDS = 1.5f;
+        private const float CLOSE_SECONDS = 16f, CLOSE_JITTER_SECONDS = 8f;
+        private const float RETREAT_SECONDS = 7f, RETREAT_JITTER_SECONDS = 3f;
 
-        private const float EXCURSION_SECONDS = APPROACH_SECONDS + CLOSE_SECONDS + RETREAT_SECONDS;
-        private const float CYCLE_SECONDS = WIDE_SECONDS + EXCURSION_SECONDS;
+        //This cycle's rolled legs and its two rolls of the dice. The initial values are the floors, so the
+        //very first frames of a program fly a sane cycle even before RollCycle has been near them — though
+        //the constructor's RollPreviewMap resets the clock and rolls one anyway.
+        private float _wideSeconds = WIDE_SECONDS;
+        private float _approachSeconds = APPROACH_SECONDS;
+        private float _closeSeconds = CLOSE_SECONDS;
+        private float _retreatSeconds = RETREAT_SECONDS;
+
+        //Whether this pass's crane starts over the top of the map (and comes down it) or from under the
+        //bottom (and climbs), and how near this pass stands off — a few per cent either way of what the fit
+        //solved, so one pass skims closer among the balls than the last one did.
+        private bool _craneFromOver;
+        private float _closeStandOffScale = 1f;
+
+        private float ExcursionSeconds => _approachSeconds + _closeSeconds + _retreatSeconds;
+        private float CycleSeconds => _wideSeconds + ExcursionSeconds;
+
+        //How small the 3D title gets while the flight is in among the balls (its `presence` floor, #261):
+        //not away to nothing — the owner's ruling on the first version was that it should stay, small, in
+        //its corner — but to a third of its size, where it reads as a modest corner mark instead of the
+        //frame-dominating name. At this scale a ball nearer the lens than the block's 7-unit hang does pass
+        //in front of it, which is honest parallax; the full-size name is what looked broken (#254).
+        private const float WORDMARK_ASIDE_SCALE = 0.35f;
 
         //About a full turn every 90 s out wide: slow enough to read as ambience rather than as a turntable.
         //The fly-in turns half again as fast — but at little more than half the radius, so it crosses the
@@ -394,35 +422,58 @@ namespace BS3D.Screens
         private static readonly float FOV = MathF.PI / 3f;  //60°: wide, to take in the scene behind the panel
 
         /// <summary>
-        /// Where in the excursion the camera is, as one reversible scalar: 0 out on the wide turn, 1 in on the
-        /// map. Smoothstepped at both ends, so the flight leaves the wide leg at rest and arrives at rest — the
+        /// Rolls the next cycle's shape: the four leg lengths within their ranges, whether the crane sets off
+        /// over the top of the map or from under it, and this pass's stand-off within a few per cent. Called
+        /// at the top of every cycle, and wherever the flight is put back onto a wide leg with the clock at
+        /// zero — a fresh program, a rolled preview, a release off the result screen.
+        /// </summary>
+        private void RollCycle()
+        {
+            _wideSeconds = WIDE_SECONDS + (float)RANDOM.NextDouble() * WIDE_JITTER_SECONDS;
+            _approachSeconds = APPROACH_SECONDS + (float)RANDOM.NextDouble() * APPROACH_JITTER_SECONDS;
+            _closeSeconds = CLOSE_SECONDS + (float)RANDOM.NextDouble() * CLOSE_JITTER_SECONDS;
+            _retreatSeconds = RETREAT_SECONDS + (float)RANDOM.NextDouble() * RETREAT_JITTER_SECONDS;
+            _craneFromOver = RANDOM.NextDouble() < 0.5;
+            _closeStandOffScale = 0.95f + (float)RANDOM.NextDouble() * 0.1f;
+        }
+
+        /// <summary>
+        /// Where in the excursion the camera is, as one reversible scalar: 0 out on the wide turn, 1 in on
+        /// the map. Smoothstepped at both ends, so the flight leaves the wide leg at rest and arrives at rest — the
         /// same shape precise aim, the drop cinematic and the result screen's own release are built on.
         /// </summary>
-        private static float Closeness(float clock)
+        private float Closeness(float clock)
         {
-            float since = clock - WIDE_SECONDS;
+            float since = clock - _wideSeconds;
 
             if (since <= 0f) return 0f;
-            if (since < APPROACH_SECONDS) return MathHelper.SmoothStep(0f, 1f, since / APPROACH_SECONDS);
+            if (since < _approachSeconds) return MathHelper.SmoothStep(0f, 1f, since / _approachSeconds);
 
-            since -= APPROACH_SECONDS;
-            if (since < CLOSE_SECONDS) return 1f;
+            since -= _approachSeconds;
+            if (since < _closeSeconds) return 1f;
 
-            return MathHelper.SmoothStep(1f, 0f, (since - CLOSE_SECONDS) / RETREAT_SECONDS);
+            return MathHelper.SmoothStep(1f, 0f, (since - _closeSeconds) / _retreatSeconds);
         }
 
         /// <summary>
         /// How far up the crane is, 0 under the cluster and 1 over it, run across the <b>whole</b> excursion
         /// rather than only its close leg. Over the whole of it because the rise is what stops the pass reading
-        /// as a second orbit: the camera is climbing the map for the entire time it is anywhere near it, and it
-        /// is moving fastest in the middle of the close leg, where the smoothstep is steepest.
+        /// as a second orbit: the camera is climbing (or descending — half the rolls start it over the top,
+        /// #261) the map for the entire time it is anywhere near it, and it is moving fastest in the middle of
+        /// the close leg, where the smoothstep is steepest.
         /// <para>
-        /// It jumps back to 0 at the end of the cycle, and that is not a discontinuity anyone can see:
-        /// <see cref="Closeness"/> is exactly 0 there, so the height it feeds is not being mixed in at all.
+        /// It jumps back to its starting end at the end of the cycle, whichever end that is, and that is not
+        /// a discontinuity anyone can see: <see cref="Closeness"/> is exactly 0 there, so the height it
+        /// feeds is not being mixed in at all.
         /// </para>
         /// </summary>
-        private static float Rise(float clock) => MathHelper.SmoothStep(0f, 1f,
-            MathHelper.Clamp((clock - WIDE_SECONDS) / EXCURSION_SECONDS, 0f, 1f));
+        private float Rise(float clock)
+        {
+            float rise = MathHelper.SmoothStep(0f, 1f,
+                MathHelper.Clamp((clock - _wideSeconds) / ExcursionSeconds, 0f, 1f));
+
+            return _craneFromOver ? 1f - rise : rise;
+        }
 
         #endregion
 
@@ -475,13 +526,19 @@ namespace BS3D.Screens
                 1f - MathF.Exp(-elapsed / FRAMING_EASE_SECONDS));
 
             _flightClock += elapsed;
-            if (_flightClock >= CYCLE_SECONDS) _flightClock -= CYCLE_SECONDS;
+            if (_flightClock >= CycleSeconds)
+            {
+                _flightClock -= CycleSeconds;
+                RollCycle();
+            }
 
             float closeness = Closeness(_flightClock);
 
             //Both stand-offs solved here, from the map's measurements and the window's own shape, rather than
-            //stored with the framing — see OrbitFraming for why they cannot be settled at load.
-            float radius = MathHelper.Lerp(WideRadius(_framing), CloseRadius(_framing), closeness);
+            //stored with the framing — see OrbitFraming for why they cannot be settled at load. The close one
+            //carries this cycle's rolled stand-off scale, so one pass skims nearer the balls than the last.
+            float radius = MathHelper.Lerp(WideRadius(_framing),
+                CloseRadius(_framing) * _closeStandOffScale, closeness);
 
             float height = MathF.Max(LENS_FLOOR_Y, MathHelper.Lerp(
                 _framing.CentreY - WIDE_LENS_DROP,
@@ -520,6 +577,10 @@ namespace BS3D.Screens
             _angle = MathF.Atan2(lens.Z, lens.X);
             _flightClock = 0f;
             _framing = _framingTarget;
+
+            //A release lands on the top of a wide leg, so the next cycle is a fresh roll — the pass that
+            //eventually follows is not the one the menu was about to make when the level began
+            RollCycle();
         }
 
         /// <summary>
@@ -544,8 +605,9 @@ namespace BS3D.Screens
 
             //A fresh map gets the establishing shot before anything flies at it — and this is also what keeps
             //the adaptive probe on wide frames after a level, since building one reopens it (#121) and a
-            //return to the front end is where it is measured again.
+            //return to the front end is where it is measured again. A fresh cycle with it.
             _flightClock = 0f;
+            RollCycle();
 
             LevelSet set = Game.LevelSet;
             if (set == null || set.Count == 0)
@@ -674,15 +736,16 @@ namespace BS3D.Screens
             //
             //After the balls and BEFORE the drain's glass, so the frame's stated order holds — every opaque
             //thing, then everything translucent. It states its own three states and puts them back.
-            //And it STEPS ASIDE for the fly-in (#261): the pass now comes in nearer than the title hangs
-            //(see CLOSE_CLEARANCE), so the block is faded out across the whole approach and back in across
-            //the retreat, on the flight's own curve — present at 1 out wide, gone for the whole of the close
-            //pass. What fades is the block's SIZE, the reveal's own idiom, because the letters are opaque
-            //geometry and have no alpha to fade.
+            //And it STEPS ASIDE for the fly-in (#261): the pass comes in far nearer than the title hangs
+            //(see CLOSE_CLEARANCE), so across the approach the block shrinks to WORDMARK_ASIDE_SCALE of its
+            //size and back up across the retreat, on the flight's own curve — a small corner mark through
+            //the close pass rather than the full-size name the balls would draw through. What changes is the
+            //block's SIZE, the reveal's own idiom, because the letters are opaque geometry and have no alpha
+            //to fade.
             Screen active = Manager?.Active;
             if (active is MainMenuPage || active is SplashPage)
                 Game.TitleWordmark?.Draw(Game.Camera, Game.WallClock, settled: active is MainMenuPage,
-                    presence: 1f - Closeness(_flightClock));
+                    presence: MathHelper.Lerp(1f, WORDMARK_ASIDE_SCALE, Closeness(_flightClock)));
 
             Game.DrawSettingGlass();
 
