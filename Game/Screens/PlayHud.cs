@@ -1026,7 +1026,6 @@ namespace BS3D.Screens
             int shown = score.ShotsRemaining is int remaining ? Math.Min(queue.Length, remaining) : queue.Length;
             if (shown <= 0) return;
 
-            Texture2D pixel = Pixel;
             SpriteBatch batch = _game.OverlayBatch;
 
             int head = Scaled(HUD_MAG_HEAD_RADIUS);
@@ -1058,8 +1057,9 @@ namespace BS3D.Screens
             float rowStep = 2 * restOuter + gap;
             float toLastCentre = queue.Length > 1 ? headOuter + gap + restOuter + (queue.Length - 2) * rowStep : 0f;
 
-            //Both coordinates are whole pixels: the discs are drawn as one-pixel scanlines, and a centre on an
-            //exact half-pixel used to comb them outright — see the note in DrawDisc.
+            //Both coordinates are whole pixels: the discs' coverage textures are built on the texel grid, and
+            //a centre on it is a 1:1 blit whose antialiased ramp lands where it was sampled. (The first scanline
+            //build could COMB outright on a half-pixel centre — the texture replaces that arithmetic entirely.)
             float x = MathF.Round(viewport.Width - margin - restOuter - toLastCentre);
             float middle = MathF.Round(viewport.Height - margin - headOuter);
 
@@ -1071,8 +1071,8 @@ namespace BS3D.Screens
 
                 //The dark halo first, then the fill: one is what makes a pale round read over a white glacier,
                 //the other is the answer the strip exists to give.
-                DrawDisc(pixel, batch, x, middle, radius + rim, HUD_MAG_RIM_COLOR);
-                DrawDisc(pixel, batch, x, middle, radius, colour);
+                DrawDisc(batch, x, middle, radius + rim, HUD_MAG_RIM_COLOR);
+                DrawDisc(batch, x, middle, radius, colour);
 
                 //A light outline INSIDE the fill's edge, drawn as a ring: without it a near-black round is a
                 //hole in the halo rather than a disc. TypeColor keeps each type's real darkness on purpose
@@ -1080,14 +1080,14 @@ namespace BS3D.Screens
                 //the only thing making the 8-ball itself legible.
                 int outline = Scaled(HUD_MAG_OUTLINE);
                 if (radius > outline)
-                    DrawDisc(pixel, batch, x, middle, radius, HUD_MAG_OUTLINE_COLOR, radius - outline);
+                    DrawDisc(batch, x, middle, radius, HUD_MAG_OUTLINE_COLOR, radius - outline);
 
                 //And the head gets a ring OUTSIDE its halo — the whole of "this one, right now", in the layer
                 //the issue asks for it in rather than as brightness animation on the 3D ball.
                 if (next)
                 {
                     int ringOuter = radius + rim + Scaled(HUD_MAG_RING_GAP) + Scaled(HUD_MAG_RING_THICKNESS);
-                    DrawDisc(pixel, batch, x, middle, ringOuter, HUD_MAG_OUTLINE_COLOR,
+                    DrawDisc(batch, x, middle, ringOuter, HUD_MAG_OUTLINE_COLOR,
                         ringOuter - Scaled(HUD_MAG_RING_THICKNESS));
                 }
 
@@ -1244,9 +1244,9 @@ namespace BS3D.Screens
         /// </para>
         /// <para>
         /// Drawn inside the corner readouts' own <c>Begin/End</c> block (default SpriteBatch state) and first in
-        /// it, so the numbers pass over it rather than under. The balls are drawn procedurally (no circle
-        /// texture), and no per-frame allocations are made: the markers read straight off the span the session
-        /// already filled.
+        /// it, so the numbers pass over it rather than under. The balls are procedural through and through —
+        /// coverage textures generated from their own radii, no content asset — and no per-frame allocations
+        /// are made: the markers read straight off the span the session already filled.
         /// </para>
         /// </summary>
         private void DrawClusterProfile(Viewport viewport, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls)
@@ -1336,10 +1336,11 @@ namespace BS3D.Screens
             int glassY = (int)MathF.Round(WorldToPanelY(ceilingY));
             batch.Draw(pixel, new Rectangle(panelX, glassY - glassThickness / 2, width, glassThickness), glassColor);
 
-            //The cluster's balls, drawn as PROCEDURAL circles — no texture. Each is a stack of horizontal bars
-            //(one per scanline of the disc), whose widths are the circle's half-chord at that height. A texture
-            //needed premultiplied alpha to lose its white square and a separate asset to keep in step; a circle
-            //built from the 1×1 pixel needs neither, and is exact at any size.
+            //The cluster's balls, each ONE quad — a small procedural texture whose texels carry the disc's
+            //exact area coverage, cached per whole-pixel geometry and scaled by the radius's fraction (see
+            //DrawDisc). The antialiased rim is the whole point: the profile's markers are the magazine
+            //strip's discs at a third of the size, and a staircase edge at that scale reads as noise rather
+            //than as a ball.
             for (int i = 0; i < balls.Length; i++)
             {
                 BallMarker marker = balls[i];
@@ -1373,7 +1374,7 @@ namespace BS3D.Screens
 
                 //Multiplied through all four channels, which is the premultiplied alpha this batch's default
                 //AlphaBlend wants — the same way the broken streak fades out.
-                DrawDisc(pixel, batch, px, py, markerRadius, TypeColor(marker.Type) * alpha,
+                DrawDisc(batch, px, py, markerRadius, TypeColor(marker.Type) * alpha,
                     marker.InFlight ? markerRadius * (1f - PROFILE_FLIGHT_RING) : 0f);
             }
 
@@ -1385,69 +1386,125 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// A filled disc drawn as a stack of horizontal bars — one per pixel row — each as wide as the circle's
-        /// half-chord at that height. Built from the host's single white texel, so there is no circle texture to
-        /// generate, premultiply or keep in step: the disc is exact at any radius and needs no alpha tricks to lose
-        /// a square (it is only ever the bars it is made of).
+        /// A filled disc — or, with <paramref name="innerRadius"/> above zero, a RING — drawn from a small
+        /// procedural texture the HUD generates once per geometry and caches, whose texels carry the disc's
+        /// exact <b>area coverage</b> as premultiplied white. That coverage is the antialiased edge: the
+        /// scanlines this replaces were one-pixel bars, each either drawn or not, so every rim was a staircase
+        /// — at the magazine strip's sizes the owner read the discs as rough, and the profile's markers are
+        /// the same primitive at a third of the size.
         /// <para>
-        /// <paramref name="innerRadius"/> above zero hollows it into a RING, which is how an in-flight ball is
-        /// told apart from a settled one. It is the same scan, with the rows that cross the hole drawing their
-        /// two remaining segments instead of one — so there is one primitive here rather than two that could
-        /// drift apart, and a ring costs no more per row than a disc.
+        /// The texture objection this primitive was originally built around was to a <i>content asset</i> —
+        /// something to premultiply, ship and keep in step. A disc baked in code from its own radii has none
+        /// of that: nothing to keep in step (the geometry IS the generator's arguments), premultiplied at
+        /// birth exactly the way <c>Crosshair</c>'s colour is, and exact at any size the supersample
+        /// resolves. It is also cheaper to draw — one quad per disc where the scanlines cost one per row,
+        /// which on a full cluster profile was hundreds of quads a frame for its markers alone.
+        /// </para>
+        /// <para>
+        /// <paramref name="innerRadius"/> hollows the disc into a ring, which is how an in-flight ball is
+        /// told apart from a settled one in the profile; a ring costs no more than a disc — the same one
+        /// quad — because the hole is baked into the same coverage.
         /// </para>
         /// </summary>
-        private static void DrawDisc(Texture2D pixel, SpriteBatch batch, float cx, float cy, float radius,
-            Color color, float innerRadius = 0f)
+        /// <param name="cx">The disc's centre. Whole pixels keep the coverage grid aligned with the pixel
+        /// grid; the fractional positions the profile's markers arrive at are handled by the bilinear
+        /// resample of the sprite below rather than snapped.</param>
+        /// <param name="radius">The outer radius in pixels.</param>
+        /// <param name="innerRadius">The hole's radius; zero for a filled disc. Below a pixel of wall the
+        /// hole is not drawn at all — the honest end of a ring, which would otherwise thin into stray
+        /// dots.</param>
+        private void DrawDisc(SpriteBatch batch, float cx, float cy, float radius, Color color,
+            float innerRadius = 0f)
         {
             int r = (int)MathF.Round(radius);
             if (r < 1)
             {
                 //Sub-pixel: a single point is an honest marker, not a one-pixel circle that rounds away to nothing.
                 //A ring has nothing left to hollow at this size either, so it draws the same point.
-                batch.Draw(pixel, new Vector2(cx - 0.5f, cy - 0.5f), color);
+                batch.Draw(Pixel, new Vector2(cx - 0.5f, cy - 0.5f), color);
                 return;
             }
-
-            float r2 = radius * radius;
 
             //Never let the ring close up into a disc or thin to nothing: below a pixel of wall the hole simply
             //is not drawn, which is the honest end of a ring rather than a row of stray dots.
             float inner = innerRadius > 0f && radius - innerRadius >= 1f ? innerRadius : 0f;
-            float inner2 = inner * inner;
 
-            for (int dy = -r; dy <= r; dy++)
-            {
-                //Half the chord at this row: √(r² − dy²). The bar spans the full width of the disc here.
-                float half = MathF.Sqrt(r2 - dy * dy);
-                int w = (int)MathF.Round(half * 2f);
-                if (w <= 0) continue;
+            Texture2D disc = DiscTexture(r, (int)MathF.Round(inner));
 
-                //FLOOR of the midpoint, never MathF.Round, and this is not a style choice (#236). MathF.Round
-                //rounds a .5 to EVEN, so a centre landing exactly on a half-pixel maps consecutive rows to
-                //y, y+2, y+2, y+4 … — half the rows drawn twice and every other row never drawn at all. The
-                //disc then comes out as a stack of one-pixel stripes with the scene showing between them,
-                //which is what the magazine strip's first build looked like: solid horizontally, combed
-                //vertically. A half-up floor is contiguous for every centre, and differs from Round ONLY at
-                //the .5 that is broken today.
-                int y = (int)MathF.Floor(cy + dy + 0.5f);
-                int left = (int)MathF.Round(cx - half);
+            //The fraction the rounding dropped is spent on the sprite's scale rather than thrown away: the
+            //profile's marker radius breathes with the orbit (its pixels-per-unit follows the field's
+            //turning half-depth), and a disc that stepped between whole pixels would tick once a turn where
+            //one that scales ticks never. The magazine's radii are whole pixels by construction, so its
+            //scale is exactly 1 and its draw is a clean 1:1 blit.
+            float scale = radius / r;
 
-                //Outside the hole (or no hole at all): one bar, the full chord.
-                if (inner <= 0f || dy * dy >= inner2)
+            //The texture is even-sided with the disc's centre on a texel corner, so (r + 1)·scale is the
+            //centre's offset from the sprite's top-left whatever the scale, and the coverage stays
+            //four-fold symmetric about it.
+            batch.Draw(disc, new Vector2(cx - (r + 1) * scale, cy - (r + 1) * scale), null, color,
+                0f, Vector2.Zero, new Vector2(scale, scale), SpriteEffects.None, 0f);
+        }
+
+        /// <summary>
+        /// The cached disc texture for one whole-pixel geometry — the pair the dictionary is keyed on, packed
+        /// into an int because the inner radius never reaches the outer. One texture per geometry, built on
+        /// first use and living with the HUD's lifetime exactly as its 1×1 pixel does: the magazine strip's
+        /// radii come straight off <see cref="Scaled"/> constants and are stable between resizes, and the
+        /// profile's marker radius rounds to one of the few whole sizes its breathing spans.
+        /// </summary>
+        private Texture2D DiscTexture(int radius, int innerRadius)
+        {
+            int key = radius * 256 + innerRadius;
+            if (_discs.TryGetValue(key, out Texture2D cached)) return cached;
+
+            //Even-sided, with the disc's centre on the corner where the four middle texels meet: symmetric
+            //about both axes, and the destination offset in DrawDisc comes out exact for a whole-pixel centre.
+            int size = 2 * radius + 2;
+            float centre = radius + 1f;
+            float outer2 = radius * radius;
+            float inner2 = innerRadius * innerRadius;
+
+            //Eight samples to a side — sixty-four a texel — quantise the coverage to finer steps than a
+            //one-pixel ramp has pixels to show. One build per geometry, so the cost is nothing per frame.
+            const int SAMPLES = 8;
+
+            byte[] data = new byte[size * size * 4];
+
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
                 {
-                    batch.Draw(pixel, new Rectangle(left, y, w, 1), color);
-                    continue;
+                    int covered = 0;
+
+                    for (int sy = 0; sy < SAMPLES; sy++)
+                        for (int sx = 0; sx < SAMPLES; sx++)
+                        {
+                            float px = x + (sx + 0.5f) / SAMPLES - centre;
+                            float py = y + (sy + 0.5f) / SAMPLES - centre;
+                            float d2 = px * px + py * py;
+
+                            if (d2 <= outer2 && d2 >= inner2) covered++;
+                        }
+
+                    //Premultiplied white — the coverage scales all four channels, so the batch's default
+                    //AlphaBlend composes the tint over whatever is behind it correctly at every fraction
+                    byte a = (byte)(covered * 255 / (SAMPLES * SAMPLES));
+                    int o = (y * size + x) * 4;
+                    data[o] = a;
+                    data[o + 1] = a;
+                    data[o + 2] = a;
+                    data[o + 3] = a;
                 }
 
-                //Across the hole: the two walls the row is left with, each the gap between the two chords.
-                float innerHalf = MathF.Sqrt(inner2 - dy * dy);
-                int wall = (int)MathF.Round(half - innerHalf);
-                if (wall <= 0) continue;
+            Texture2D texture = new(_game.GraphicsDevice, size, size);
+            texture.SetData(data);
 
-                batch.Draw(pixel, new Rectangle(left, y, wall, 1), color);
-                batch.Draw(pixel, new Rectangle((int)MathF.Round(cx + innerHalf), y, wall, 1), color);
-            }
+            _discs[key] = texture;
+            return texture;
         }
+
+        //Every disc and ring the HUD draws, keyed by whole-pixel geometry — see DiscTexture. Never emptied:
+        //a handful of small textures over the program's life, a few more per distinct window size.
+        private readonly Dictionary<int, Texture2D> _discs = new();
 
         #endregion
 
