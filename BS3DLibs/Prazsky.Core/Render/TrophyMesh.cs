@@ -7,8 +7,9 @@ namespace Prazsky.Core.Render
 {
     /// <summary>
     /// A trophy cup (#183): a plinth, a stem with a knop, a flaring bowl turned over at the lip, and — on the
-    /// top tier only — a handle on each side. Built procedurally like everything else here rather than loaded,
-    /// for the reason the sky domes stopped being eighteen <c>.dae</c> files in #113.
+    /// top two tiers, Gold and Diamond, since #232 — a handle on each side. Built procedurally like everything
+    /// else here rather than loaded, for the reason the sky domes stopped being eighteen <c>.dae</c> files in
+    /// #113.
     /// <para>
     /// The body is a surface of revolution and could have been a <see cref="LatheMesh"/>, which is what the
     /// issue's own sketch proposed. It is built here on <see cref="MeshBuilder"/> instead for one reason: the
@@ -139,8 +140,9 @@ namespace Prazsky.Core.Render
         public BoundingSphere BoundingSphere { get; }
 
         /// <param name="handles">
-        /// Whether to fit the two side handles. They are the top tier's own detail (#183): the three cups below
-        /// it are plain, so the difference is read as a shape before the colour has said anything.
+        /// Whether to fit the two side handles. Gold and Diamond's own detail since #232 (Diamond alone,
+        /// #183): Bronze and Silver stay plain, so the two pairs are told apart by shape before any colour
+        /// has said anything.
         /// </param>
         public TrophyMesh(GraphicsDevice graphicsDevice, bool handles)
         {

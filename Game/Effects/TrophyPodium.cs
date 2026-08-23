@@ -8,8 +8,9 @@ namespace BS3D.Effects
 {
     /// <summary>
     /// The cup the player just won (#183): a trophy presented close to the lens on the result screen, turning
-    /// and swaying, in one of four tiers taken from the level's star rating — Bronze, Silver, Gold and, at the
-    /// top, a Diamond cup with handles, which since #228 is <b>crystal</b> rather than a fourth metal.
+    /// and swaying, in one of four tiers taken from the level's star rating — a plain Bronze and Silver, then
+    /// a Gold and, at the top, a Diamond cup, both <b>with handles</b> (Gold's own since #232), Diamond alone
+    /// <b>crystal</b> rather than a fourth metal (#228).
     /// <para>
     /// It is the third beat of an ending that already had two. The fanfare states the win, the fireworks
     /// answer it <c>CELEBRATION_DELAY</c> later, and the result page arrives with the numbers; what none of
@@ -122,6 +123,25 @@ namespace BS3D.Effects
         //between "it appeared" and "HERE".
         private const float OVERSHOOT = 0.35f;
 
+        //THE CUP'S OWN SHOWCASE ENVIRONMENT (#232). InstancedModelRenderer.SkyColor/GroundColor default to
+        //Vector3.One — flat white, no image in it — and nothing has EVER set them here: the cup was never
+        //enrolled in SkyLightRig's per-scene rig (BS3DGame.SkyLitRenderers says so explicitly, and argues
+        //why — a presented object wants one controlled finish, not fourteen). What that left standing was
+        //not the controlled finish the argument asked for, though, it was the compiled DEFAULT no one had
+        //authored: reflecting a uniform white sky and a uniform white ground is reflecting nothing, so the
+        //Fresnel term that is supposed to be "the room mirrored off the metal" was a flat wash with no
+        //gradient across the bowl at all. Silver, having no hue to fall back on, showed that starkest — "flat
+        //white and matte" was a description of this, verbatim.
+        //
+        //These two figures are a small, fixed "room" the cup always stands in: bright and warm from above
+        //(a softbox), dark and cool from below (a shadowed floor), same every time regardless of which of the
+        //fourteen scenes or eighteen domes the result page is over — which is what "one controlled finish"
+        //actually asked for. In LINEAR radiance, like every other SkyColor/GroundColor in the game
+        //(SkyLightRig's own doc), and over 1 on the bright side for the same reason SUN_RADIANCE is: it is
+        //meant to read as a real highlight once the ACES curve has it, not as a flat 1.0 grey.
+        private static readonly Vector3 SHOWCASE_SKY = new(1.35f, 1.28f, 1.10f);
+        private static readonly Vector3 SHOWCASE_GROUND = new(0.10f, 0.11f, 0.14f);
+
         private readonly GraphicsDevice _device;
         private readonly TrophyMesh _plainMesh, _handledMesh;
         private readonly InstancedModelRenderer[] _renderers = new InstancedModelRenderer[TIERS + 1];
@@ -139,8 +159,10 @@ namespace BS3D.Effects
         public bool Active => _tier > 0;
 
         /// <param name="ambientIntensity">
-        /// The scene's flat ambient fill, the figure the rest of the setting is drawn with. Handed in rather
-        /// than assumed, so the cup sits in the same light as the island it is presented over.
+        /// The engine's flat ambient fill figure (<c>SCENE_AMBIENT_INTENSITY</c>), the same constant the rest
+        /// of the setting is drawn with. Handed in rather than assumed, so a retune of that figure reaches the
+        /// cup too — <b>not</b> a live read of whatever scene happens to be up: see <c>SHOWCASE_SKY</c> below
+        /// for why the cup's own reflection is deliberately its own rather than the current dome's (#232).
         /// </param>
         public TrophyPodium(GraphicsDevice device, Effect instancingEffect, float ambientIntensity)
         {
@@ -150,16 +172,20 @@ namespace BS3D.Effects
 
             Vector3 ambient = Vector3.One * ambientIntensity;
 
-            //THE FOUR TIERS. Every one is drawn on the METAL path (Metalness = 1) with the sky reflected at
-            //full strength, which is the funnel's gold rims' setup and the reason a cup here looks like metal
-            //rather than like coloured plastic: a metal's reflectance IS its specular colour, so bronze
-            //reflects the dome in bronze and silver in white. The diffuse is what holds the tier apart under a
-            //dark dome, the specular is what does it under a bright one, and both are stated per tier because
-            //either alone fails in one of the game's fourteen scenes.
+            //THE FOUR TIERS. Every one is drawn on the METAL path (Metalness = 1), which is the funnel's gold
+            //rims' setup and the reason a cup here looks like metal rather than like coloured plastic: a
+            //metal's reflectance IS its specular colour, so bronze reflects its environment in bronze and
+            //silver in white. The diffuse is what holds the tier apart under a dark reflection, the specular
+            //is what does it under a bright one, and both are stated per tier because either alone is wrong
+            //somewhere in the range between them.
+            //
+            //THE ENVIRONMENT IS THE CUP'S OWN, NOT THE SCENE'S (#232) — see SHOWCASE_SKY below for why and
+            //what it cost the first build not to have one at all.
             //
             //The specular POWER climbs with the tier as well, which is most of what says "better": a bronze
             //cup is a cast, slightly rough thing with a broad highlight, and a diamond one is polished to a
-            //point. Nothing about the geometry changes between the first three — only the finish.
+            //point. Nothing about the geometry changes between the first three — only the finish (and, since
+            //#232, Gold's own — see AddTier's handled-mesh notes below).
 
             //A METAL'S DIFFUSE IS DARK, and the first version of these got that wrong in a way worth recording:
             //authored at the diffuse a painted surface would take (0.66 for the gold) and reflecting the sky at
@@ -167,8 +193,9 @@ namespace BS3D.Effects
             //shadowless shape with no highlight anywhere on it, because the diffuse alone was already near the
             //top of the curve and the reflection pushed it over. Metals have almost no diffuse; what colours
             //them is their REFLECTANCE. So the diffuse is roughly a third of what it was and carries only
-            //enough to hold the tier apart under a dark dome, the specular carries the hue, and the sky
-            //reflection is dialled back off full so there is somewhere left for a highlight to be brighter than.
+            //enough to hold the tier apart under a dark reflection, the specular carries the hue, and the
+            //reflection strength is dialled back off full so there is somewhere left for a highlight to be
+            //brighter than.
             //
             //The specular POWER climbs with the tier, which is most of what says "better": a bronze cup is a
             //cast, slightly rough thing with a broad highlight, and a diamond one is polished to a point.
@@ -179,15 +206,27 @@ namespace BS3D.Effects
                 specular: new Vector3(0.85f, 0.52f, 0.28f), power: 80f,
                 specularAmbient: 0.30f, emissive: Vector3.Zero, ambient);
 
-            //Silver: neutral, and the tightest highlight of the three plain cups.
+            //Silver: neutral — and #232 is why its diffuse is this dark rather than the pale grey it shipped
+            //with. A neutral diffuse has no HUE to hold it apart from a neutral specular the way bronze's warm
+            //body and near-white highlight hold each other apart under identical lighting; the first cut
+            //(0.40, 0.415, 0.45) was closer to the specular's own (0.88, 0.90, 0.95) than a dark metal's
+            //reflectance ever gets, and against the flat placeholder environment below it that read as one
+            //undifferentiated pale wash — "flat white and matte", verbatim the owner's report. Dropped to a
+            //genuine near-black, the body now sits far enough under the highlight and the reflection for both
+            //to read as light ARRIVING on the cup rather than the cup's own paint.
             AddTier(device, instancingEffect, 2, _plainMesh,
-                diffuse: new Vector3(0.400f, 0.415f, 0.450f),
+                diffuse: new Vector3(0.075f, 0.080f, 0.090f),
                 specular: new Vector3(0.88f, 0.90f, 0.95f), power: 160f,
-                specularAmbient: 0.36f, emissive: Vector3.Zero, ambient);
+                specularAmbient: 0.42f, emissive: Vector3.Zero, ambient);
 
             //Gold: the funnel rims' hue, which is the one metal this game has already tuned against every
-            //dome — no reason to invent a second one — but at a metal's diffuse rather than a band's.
-            AddTier(device, instancingEffect, 3, _plainMesh,
+            //dome — no reason to invent a second one — but at a metal's diffuse rather than a band's. Takes
+            //the HANDLED mesh since #232: the owner's report was that gold reads as a plain bowl where a
+            //trophy is expected to have them, and Diamond having sole claim on the shape was a #183 decision
+            //made before a player had actually won one and looked. The shape difference now marks the top TWO
+            //tiers rather than one — a bowl at Bronze and Silver, a cup at Gold and Diamond — which still
+            //reads before any colour has, just one rung lower than it used to.
+            AddTier(device, instancingEffect, 3, _handledMesh,
                 diffuse: new Vector3(0.470f, 0.320f, 0.080f),
                 specular: new Vector3(0.98f, 0.78f, 0.40f), power: 140f,
                 specularAmbient: 0.36f, emissive: Vector3.Zero, ambient);
@@ -256,7 +295,13 @@ namespace BS3D.Effects
                 //InstancedModelRenderer.SpecularAlphaWeight. Derived from the alpha rather than passed
                 //separately: an opaque tier is at alpha 1 and cannot tell the difference, so there is no
                 //second dial here that could disagree with the first.
-                SpecularAlphaWeight = alpha < 1f ? 0f : 1f
+                SpecularAlphaWeight = alpha < 1f ? 0f : 1f,
+
+                //The showcase room (#232), every tier alike — including Diamond: it wanted the reflection
+                //turned down, not turned into a flat wash, and a small directional glint reads as cut glass
+                //more than a uniform veil ever did. See SHOWCASE_SKY/SHOWCASE_GROUND for why this exists.
+                SkyColor = SHOWCASE_SKY,
+                GroundColor = SHOWCASE_GROUND
             };
 
             _translucent[tier] = alpha < 1f;
