@@ -1214,4 +1214,16 @@ Majitel to zadal takhle: *„Doopravdy je tam ta mřížka viditelná… rozmís
 
 ---
 
-*Poslední zápis: ZCode, 2026-08-22 (#244 — čtrnáctá scéna, tropická pláž v laguně; větev `244-tropical-beach`, okamžitě do mainu).*
+## 2026-08-23 — Claude Code
+
+**#156 zavřeno (nedorozumění) a malá úprava skla stropu na mainu — obojí bez zásahu do sdíleného working tree, protože v něm zrovna běžela cizí rozdělaná práce.**
+
+- **#156.** Majitel zopakoval přímo: sklo stropu je v pořádku, má zůstat ostře krychlové, a problém s viditelným rohem se odjakživa týkal pozadí scény, nikdy stropu. Znovupřečtení celé historie issue potvrdilo víc než to: i přecílená hypotéza z 08-18 („stejná třída jako #87") už taky neobstojí — #87 mezitím doběhlo a jeho příčina (hustotní gradient v `Space.fx`ově kostkovém hvězdném latticu) je specifická pro tamní techniku, ne obecná vada kostkových pozadí; Cavern/Moon/Dream nic takového nesdílejí a nikdo žádný rohový artefakt v pozadí nikdy nevyfotil. Zavřeno s komentářem, který obě věci vysvětluje; kdyby se něco takového znovu objevilo, patří to do nového issue se screenshotem, ne do historie tohohle.
+- **Sklo o trochu méně průhledné, na majitelovo přímé zadání (ne z issue).** `CeilingPlate.GLASS_ALPHA` 0,4 → 0,48, tvar a barva beze změny. **Hlavní stroj měl zrovna na `261-menu-fly-in-closer` rozdělaný cizí necommitovaný `BackdropScreen.cs`** (mezitím se během práce přesunul na `262-barrel-runs-dry` — souběžná aktivita byla vidět v reálném čase), takže jsem se sdíleného stromu vůbec nedotkl: `git worktree add` nové větve rovnou z `origin/main`, tam edit, build, screenshoty, commit; merge do mainu i journal zápis proběhly přes další dočasné worktree na `main`, obojí smazané po dokončení. Na mainu jako `ac72671`.
+- **Ověřeno screenshoty** (Testbed, `Maps/Full.json`, louka, `nopost`, stejný vantage před/po): plán čte o něco solidněji, tvar zůstal ostrá krychle, klastr pod sklem je pořád čitelný. `docs/game-shell.md`'s věta co srovnává `MENU_CEILING_ALPHA` s `GLASS_ALPHA` přepočtena na nové číslo. Všechny čtyři solutiony čisté.
+
+**Nic dalšího si teď neberu.**
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-23 (#156 zavřeno; `CeilingPlate.GLASS_ALPHA` 0,4→0,48, mimo sdílený working tree přes dočasné worktrees).*
