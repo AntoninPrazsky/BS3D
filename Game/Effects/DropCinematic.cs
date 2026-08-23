@@ -27,6 +27,15 @@ namespace BS3D.Effects
     /// to rest — rarely, now that the stone ring is a dish that rolls a landed ball into the drain, but a
     /// pile propping itself up near the mouth still can — and would otherwise hold the camera for ever.
     /// </para>
+    /// <para>
+    /// <b>On the sea, the lens is pulled under with the subject rather than on the leg's own schedule
+    /// alone</b> (#193, <see cref="SubmergeElevationPull"/>). The fall leg's elevation is positive by
+    /// construction — the shot opens looking down at the release from above — and a subject that sinks
+    /// under the water well before that leg is due to end used to leave the lens floating above a surface
+    /// the submerge fade was already, correctly, hiding the cluster behind: the shot filmed nothing for its
+    /// first stretch and the balls re-materialised mid-air as the schedule caught up. The pull reads exactly
+    /// the same "is the subject under the water" question the fade answers with, off the sea's own level.
+    /// </para>
     /// </summary>
     internal sealed class DropCinematic
     {
@@ -142,6 +151,14 @@ namespace BS3D.Effects
         //the axis — and they all are, they scatter — is inside the aperture rather than exactly on its edge.
         private const float MOUTH_MARGIN = 3f;
 
+        //How many units the SUBJECT has to be under the sea before the elevation pull (#193) is fully
+        //engaged — see SubmergeElevationPull. Short on purpose: the report was the eye still floating above
+        //the surface with the subject already 3-7 units under it, so the pull has to close most of that gap
+        //well inside it rather than tracking the fade's own slower 7-unit band (UNDERWATER_FADE_DEPTH in
+        //SceneRenderer), which answers a different question — how deep the WATER reads as opaque, not how
+        //fast the CAMERA ought to give up on a dry angle.
+        private const float SUBMERGE_PULL_DEPTH = 2f;
+
         #endregion
 
         private bool _running;
@@ -164,13 +181,23 @@ namespace BS3D.Effects
         private float _rollAmplitude, _slowMotion, _fov;
         private bool _openBelow;
 
+        //The sea's own mean water level (#193), and whether this shot is even over one — the only scene
+        //with water a camera can get under (SceneRenderer.LensSubmergedAmount's own note). Read once at
+        //Begin rather than asked of a live SceneRenderer every frame, the same "handed a value, not a
+        //reference" rule the rest of this class's inputs already follow.
+        private bool _isSea;
+        private float _seaLevelY;
+
         /// <summary>
         /// Takes the camera. <paramref name="centre"/> is where the released group is at the moment it is
         /// cut loose, and <paramref name="playerEye"/> where the player is watching from — the shot is set
         /// up relative to that bearing so the cut is a swing around the drop rather than a jump to the far
         /// side of it, which is the difference between a camera move and losing the player entirely.
+        /// <paramref name="seaLevelY"/> is <see cref="SceneRenderer.SeaLevelY"/> — meaningless off the sea,
+        /// so the caller may pass anything there; <see cref="_isSea"/> is what actually gates its use.
         /// </summary>
-        public void Begin(SceneKind scene, Vector3 centre, Vector3 playerEye, int balls, Random random)
+        public void Begin(SceneKind scene, Vector3 centre, Vector3 playerEye, int balls, Random random,
+            float seaLevelY)
         {
             _running = true;
             _elapsed = 0f;
@@ -179,6 +206,9 @@ namespace BS3D.Effects
             _subjectSeen = true;
             _stallY = centre.Y;
             _stallSeconds = 0f;
+
+            _isSea = scene == SceneKind.Sea;
+            _seaLevelY = seaLevelY;
 
             //Where the player already is, so the swing is measured from their own view of the field
             Vector3 toEye = playerEye - centre;
@@ -364,6 +394,14 @@ namespace BS3D.Effects
             float radius = Key3(_radiusFall, _radiusDrain, _radiusOut, progress);
             float elevation = Key3(_elevationFall, _elevationDrain, _elevationOut, progress);
 
+            //Pulled towards the OUT leg's own diving angle as the subject sinks under the sea (#193), on top
+            //of whatever the scheduled progress above already asked for. See SubmergeElevationPull for why
+            //this exists: the fall leg's angle is positive by construction, so without it a subject already
+            //under the water sits below a lens still floating above it, filming a cluster the submerge fade
+            //correctly hides until the schedule alone eventually catches up.
+            float submerge = SubmergeElevationPull();
+            if (submerge > 0f) elevation = MathHelper.Lerp(elevation, _elevationOut, submerge);
+
             float azimuth = _azimuth + _orbitRate * _elapsed;
 
             float horizontal = MathF.Cos(elevation) * radius;
@@ -391,6 +429,25 @@ namespace BS3D.Effects
 
             TimeScale = MathHelper.Lerp(1f, _slowMotion, into * (1f - outOf));
         }
+
+        /// <summary>
+        /// How hard <see cref="Frame"/> should pull the elevation towards the OUT leg's own diving angle
+        /// because the subject is already under the sea (#193), 0 at or above the surface to 1 a full
+        /// <see cref="SUBMERGE_PULL_DEPTH"/> under it. Off the sea this is always 0 — <see cref="_isSea"/>
+        /// gates it, so the pull can never fire on a scene <see cref="_seaLevelY"/> means nothing for.
+        /// <para>
+        /// <b>Why pull the angle rather than clamp the lens Y directly.</b> A straight <c>MathF.Min</c> on
+        /// the final position would crush the lens down to the surface while its X/Z stayed wherever the
+        /// FALL leg's wide, distant radius put them — a grazing, far-off shot rather than a natural dive.
+        /// Pulling the elevation instead keeps the orbit's own radius/azimuth geometry intact and simply
+        /// asks the lens to look more steeply down (and, once close enough, more steeply UP through the
+        /// hull it just crossed) — which is what a camera operator diving after a falling subject actually
+        /// does, and what <see cref="KeepBallsInSight"/>'s own island logic already does for the same reason
+        /// on the opaque side of this problem.
+        /// </para>
+        /// </summary>
+        private float SubmergeElevationPull() =>
+            _isSea ? Saturate((_seaLevelY - _pivot.Y) / SUBMERGE_PULL_DEPTH) : 0f;
 
         //Whether the shot may go UNDER the island is SceneRenderer.OpenBelow since #75, and it is defined there
         //as the exact complement of IsSolidTerrainScene — the two hand-kept lists this file and the host each

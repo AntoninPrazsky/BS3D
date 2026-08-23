@@ -155,7 +155,7 @@ namespace BS3D.Screens
 
             centre /= total;
 
-            _cinematic.Begin(Game.Scene, centre, Camera.Position, total, RANDOM);
+            _cinematic.Begin(Game.Scene, centre, Camera.Position, total, RANDOM, Game.SeaLevelY);
 
             //One line per cinematic, in the manner of the [level] and [score] lines: it is a rare event, not a
             //per-frame one, and the shot is rolled — so when one frames badly this is the only record of what

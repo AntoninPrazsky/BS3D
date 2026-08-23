@@ -534,6 +534,10 @@ namespace BS3D
         internal bool IsGrainEnabled => _grain;
         internal SceneKind Scene => _scene;
 
+        //DropCinematic's own submerge pull (#193) reads this once at Begin rather than holding a
+        //SceneRenderer reference — meaningless off the sea, where nothing asks for it.
+        internal float SeaLevelY => _sceneRenderer.SeaLevelY;
+
         internal int LevelCount => _levelSet?.Count ?? 0;
         internal string LevelDisplayName(int index) => _levelSet.DisplayName(index);
         internal string LevelRulesText(int index) => _levelSet.DescribeRules(index);
