@@ -56,7 +56,7 @@ namespace Prazsky.Core.Render
         /// under it stays readable through it. How opaque the plate reads is this figure and nothing else —
         /// a comment elsewhere that restated it as a percentage was left behind by a retune and lied for it.
         /// </summary>
-        public const float GLASS_ALPHA = 0.4f;
+        public const float GLASS_ALPHA = 0.48f;
 
         /// <summary>
         /// Full size of the slab along Y. The caller's collidable box has to be given the same figure, and
