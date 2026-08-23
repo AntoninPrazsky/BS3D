@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
 using System;
+using System.Collections.Generic;
 
 namespace BS3D.Effects
 {
@@ -10,7 +11,10 @@ namespace BS3D.Effects
     /// The cup the player just won (#183): a trophy presented close to the lens on the result screen, turning
     /// and swaying, in one of four tiers taken from the level's star rating — a plain Bronze and Silver, then
     /// a Gold and, at the top, a Diamond cup, both <b>with handles</b> (Gold's own since #232), Diamond alone
-    /// <b>crystal</b> rather than a fourth metal (#228).
+    /// <b>crystal</b> rather than a fourth metal (#228). It reflects the actual dome the level is played
+    /// under, the same as the cannon (<see cref="Renderers"/>, #232's second half) — the owner's own call,
+    /// on the argument that the cup stands over the very scene it was won in and ought to match it, unlike
+    /// the front end's wordmark, which stands over whichever of the fourteen scenes happens to be rolling.
     /// <para>
     /// It is the third beat of an ending that already had two. The fanfare states the win, the fireworks
     /// answer it <c>CELEBRATION_DELAY</c> later, and the result page arrives with the numbers; what none of
@@ -123,25 +127,6 @@ namespace BS3D.Effects
         //between "it appeared" and "HERE".
         private const float OVERSHOOT = 0.35f;
 
-        //THE CUP'S OWN SHOWCASE ENVIRONMENT (#232). InstancedModelRenderer.SkyColor/GroundColor default to
-        //Vector3.One — flat white, no image in it — and nothing has EVER set them here: the cup was never
-        //enrolled in SkyLightRig's per-scene rig (BS3DGame.SkyLitRenderers says so explicitly, and argues
-        //why — a presented object wants one controlled finish, not fourteen). What that left standing was
-        //not the controlled finish the argument asked for, though, it was the compiled DEFAULT no one had
-        //authored: reflecting a uniform white sky and a uniform white ground is reflecting nothing, so the
-        //Fresnel term that is supposed to be "the room mirrored off the metal" was a flat wash with no
-        //gradient across the bowl at all. Silver, having no hue to fall back on, showed that starkest — "flat
-        //white and matte" was a description of this, verbatim.
-        //
-        //These two figures are a small, fixed "room" the cup always stands in: bright and warm from above
-        //(a softbox), dark and cool from below (a shadowed floor), same every time regardless of which of the
-        //fourteen scenes or eighteen domes the result page is over — which is what "one controlled finish"
-        //actually asked for. In LINEAR radiance, like every other SkyColor/GroundColor in the game
-        //(SkyLightRig's own doc), and over 1 on the bright side for the same reason SUN_RADIANCE is: it is
-        //meant to read as a real highlight once the ACES curve has it, not as a flat 1.0 grey.
-        private static readonly Vector3 SHOWCASE_SKY = new(1.35f, 1.28f, 1.10f);
-        private static readonly Vector3 SHOWCASE_GROUND = new(0.10f, 0.11f, 0.14f);
-
         private readonly GraphicsDevice _device;
         private readonly TrophyMesh _plainMesh, _handledMesh;
         private readonly InstancedModelRenderer[] _renderers = new InstancedModelRenderer[TIERS + 1];
@@ -158,11 +143,26 @@ namespace BS3D.Effects
         /// <summary>True while a cup is being shown, so a caller can skip the draw entirely.</summary>
         public bool Active => _tier > 0;
 
+        /// <summary>
+        /// The four tiers' renderers, all four whether the cup is presenting or not — for
+        /// <see cref="BS3DGame"/>'s <c>SkyLitRenderers</c> enrolment (#232's second half). The cup is built
+        /// well before a level is ever won, so this is not "only the one showing": every tier has to carry the
+        /// current dome's light rig for the moment its own turn comes, the same reason the balls' whole
+        /// palette is enrolled rather than only the ones a map happens to use. Index 0 is skipped — see
+        /// <see cref="TIERS"/>.
+        /// </summary>
+        public IEnumerable<InstancedModelRenderer> Renderers
+        {
+            get
+            {
+                for (int tier = 1; tier <= TIERS; tier++) yield return _renderers[tier];
+            }
+        }
+
         /// <param name="ambientIntensity">
         /// The engine's flat ambient fill figure (<c>SCENE_AMBIENT_INTENSITY</c>), the same constant the rest
         /// of the setting is drawn with. Handed in rather than assumed, so a retune of that figure reaches the
-        /// cup too — <b>not</b> a live read of whatever scene happens to be up: see <c>SHOWCASE_SKY</c> below
-        /// for why the cup's own reflection is deliberately its own rather than the current dome's (#232).
+        /// cup too.
         /// </param>
         public TrophyPodium(GraphicsDevice device, Effect instancingEffect, float ambientIntensity)
         {
@@ -179,8 +179,17 @@ namespace BS3D.Effects
             //is what does it under a bright one, and both are stated per tier because either alone is wrong
             //somewhere in the range between them.
             //
-            //THE ENVIRONMENT IS THE CUP'S OWN, NOT THE SCENE'S (#232) — see SHOWCASE_SKY below for why and
-            //what it cost the first build not to have one at all.
+            //THE ENVIRONMENT IS THE LEVEL'S OWN DOME (#232's second half), the same way the cannon's is: the
+            //cup is enrolled in BS3DGame.SkyLitRenderers through Renderers, so it reflects and is ambient-lit
+            //by whichever of the fourteen scenes the result page actually stands over, refreshed on every
+            //scene or dome change like everything else on that list. It was NOT enrolled at first — a
+            //presented object was reasoned to want one controlled finish rather than fourteen different ones,
+            //the argument TitleWordmark's own doc still makes the OPPOSITE call from — but nothing had ever
+            //authored that controlled finish either: SkyColor/GroundColor sat at their compiled default of
+            //flat white, so every metal here was reflecting nothing at all rather than something consistent.
+            //The owner's call, once that was found and fixed with a hand-authored fixed environment first: the
+            //cup already stands over the exact scene the level was played in, unlike the wordmark's rolling
+            //preview backdrop, so matching THAT scene is the more fitting "consistent" than a fixed one is.
             //
             //The specular POWER climbs with the tier as well, which is most of what says "better": a bronze
             //cup is a cast, slightly rough thing with a broad highlight, and a diamond one is polished to a
@@ -269,11 +278,11 @@ namespace BS3D.Effects
             //that glows faintly from inside the glass rather than only appearing where a lamp hits it is
             //what the cup wants anyway.
             //
-            //The specular stays near white, because a highlight on clear glass is the colour of the lamp
-            //and not of the glass, and the reflected environment is turned WAY down from the metals': this
-            //cup is not enrolled in the sky rig, so its environment is a flat white 1 with no image in it,
-            //and a flat reflection at a metal's strength is not a mirror — it is a milky veil over
-            //everything the crystal is supposed to be showing through.
+            //The specular stays near white, because a highlight on clear glass is the colour of the lamp and
+            //not of the glass, and the reflected environment is turned WAY down from the metals' (0.30
+            //against 0.30–0.42, but at a dielectric's F0, not a metal's): at a metal's strength even the real
+            //dome's own image would be a milky veil over everything the crystal is supposed to be showing
+            //through, rather than the glint the low strength keeps it as.
             AddTier(device, instancingEffect, 4, _handledMesh,
                 diffuse: new Vector3(0.620f, 0.820f, 1.000f),
                 specular: new Vector3(0.78f, 0.90f, 1.00f), power: 320f,
@@ -295,13 +304,7 @@ namespace BS3D.Effects
                 //InstancedModelRenderer.SpecularAlphaWeight. Derived from the alpha rather than passed
                 //separately: an opaque tier is at alpha 1 and cannot tell the difference, so there is no
                 //second dial here that could disagree with the first.
-                SpecularAlphaWeight = alpha < 1f ? 0f : 1f,
-
-                //The showcase room (#232), every tier alike — including Diamond: it wanted the reflection
-                //turned down, not turned into a flat wash, and a small directional glint reads as cut glass
-                //more than a uniform veil ever did. See SHOWCASE_SKY/SHOWCASE_GROUND for why this exists.
-                SkyColor = SHOWCASE_SKY,
-                GroundColor = SHOWCASE_GROUND
+                SpecularAlphaWeight = alpha < 1f ? 0f : 1f
             };
 
             _translucent[tier] = alpha < 1f;

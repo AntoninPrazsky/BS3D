@@ -872,6 +872,14 @@ namespace BS3D
             _titleWordmark = new TitleWordmark(GraphicsDevice, _instancingEffect, GAME_TITLE,
                 SCENE_AMBIENT_INTENSITY, Screens.MainMenuPage.FRONT_INSET / (float)MENU_DESIGN_HEIGHT);
 
+            //The trophy cups (#183), for the identical reason and at the identical point: since #232's second
+            //half they reflect the dome the way the cannon does (TrophyPodium.Renderers, enrolled below), so
+            //they have to exist before the SetScene two lines down or stand under the library's default rig
+            //until the next scene or dome change. Both meshes are built once here — a few thousand triangles
+            //apiece — so a cleared level costs one draw call and nothing else; it borrows the scene's own
+            //instancing effect and the flat ambient constant every renderer shares.
+            _trophy = new TrophyPodium(GraphicsDevice, _instancingEffect, SCENE_AMBIENT_INTENSITY);
+
             //A different one of the twelve every launch, so the front end is not the same picture twice — unless
             //the command line pinned one. It also sets the dome and the city's lighting, and ends in
             //ApplySkyLighting, which is why nothing derives the light rig before this point.
@@ -915,13 +923,6 @@ namespace BS3D
 
             //And the campaign's confetti, whose one static buffer is built here for the same reason (#215).
             _confetti = new Confetti(GraphicsDevice, Content.Load<Effect>("Shaders/Confetti"));
-
-            //The trophy cups (#183). Both meshes are built once here — a few thousand triangles apiece — so a
-            //cleared level costs one draw call and nothing else. It borrows the scene's own instancing effect
-            //and ambient constant, but NOT the scene's own light rig — see SkyLitRenderers and
-            //TrophyPodium.SHOWCASE_SKY for why the cup deliberately stands in a fixed room of its own rather
-            //than reflecting whichever of the fourteen scenes the result page happens to be over.
-            _trophy = new TrophyPodium(GraphicsDevice, _instancingEffect, SCENE_AMBIENT_INTENSITY);
 
             //Testing only, and deliberately long: it has to outlast a scripted screenshot burst.
             if (_startupCelebrate) _fireworks.Celebrate(90f);
