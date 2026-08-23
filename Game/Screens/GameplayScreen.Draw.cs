@@ -348,7 +348,13 @@ namespace BS3D.Screens
             //translation written straight into its fourth row rather than multiplied in (see BorePose.SlotWorld).
             BorePose pose = _magazine.Pose(_cannon, Game.CannonRig.PivotToFrontBall);
 
-            for (int i = 0; i < Magazine.SIZE; i++)
+            //Never more rounds in the bore than there are shots left to take — the same truth the HUD's
+            //magazine strip already holds (PlayHud.DrawMagazine). The queue itself never empties (Magazine's
+            //own invariant: Advance always deals a real colour into the tail), so without this clamp the
+            //barrel goes on showing a full five loaded rounds for balls that can never be fired.
+            int shown = _score.ShotsRemaining is int shotsLeft ? Math.Min(Magazine.SIZE, shotsLeft) : Magazine.SIZE;
+
+            for (int i = 0; i < shown; i++)
             {
                 Matrix world = pose.SlotWorld(i, out Vector3 position);
 
