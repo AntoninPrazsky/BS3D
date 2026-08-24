@@ -1934,9 +1934,14 @@ namespace BS3D.Audio
         private const float PAN_SHAKER = 0.55f;
 
         //How far apart the marimba's two strikes sit around the note's own seat. The piano's precedent, for
-        //the piano's reason: the width lives inside the note (two strikes a few cents apart) and the note
-        //stays put.
-        private const float PAN_MARIMBA_SPREAD = 0.16f;
+        //the piano's reason — the width lives inside the note (two strikes a few cents apart) and the note
+        //stays put — so it IS the piano's figure: if that idiom's width is ever retuned, both voices move.
+        private const float PAN_MARIMBA_SPREAD = PAN_PIANO_SPREAD;
+
+        //How far to either side the final chorus's chant ping-pongs, hit by hit. Wider than the shaker: it
+        //is the loudest section's image keeper, and the marimba pair riding it keeps the hits from reading
+        //as hard-panned points.
+        private const float PAN_CHANT = 0.5f;
 
         //Where the verse's call and answer cells sit: either side, answering each other across the field —
         //two genuinely different phrases on two seats, the polka's own counter-line lesson (two answering
@@ -2179,7 +2184,7 @@ namespace BS3D.Audio
 
                         Marimba(mix, at, arp[note.Tone] + note.Octave + transpose,
                             secondsPerStep * (note.Length + 0.5f), 0.20f * level,
-                            pan: hit % 2 == 0 ? -0.5f : 0.5f);
+                            pan: hit % 2 == 0 ? -PAN_CHANT : PAN_CHANT);
                     }
 
                 //THE TUNE ---------------------------------------------------------------------------------
