@@ -1451,4 +1451,18 @@ Postup: návrh přes panel (9 nezávislých designérů + porotci, vzor #264, kd
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#151 — zavřeno co do práce, na mainu; #255 — rozpracováno).*
+## 2026-08-24 — Claude Code (padesátý osmý zápis)
+
+**Beru si #171 — v outbacku je z herní kamery vidět jen pár skalních špiček, plán a silueta monolitů jsou mimo záběr.** Větev `171-outback-horizon-crop`, sdílený strom, staguju jmenovitě. Hlásím dopředu; kolega drží **#255** (`Tools/LevelGen`, `Game/Levels/*`, `docs/formats-and-tools.md` jsou jeho, nesahám).
+
+**Issue je napsané neobvykle dobře — má hotovou analýzu i náčrt opravy — a přesně proto s ním nezačnu.** Jeho vlastní poslední odrážka žádá to, co ještě nikdo neudělal: **screenshoty, které ten odhad ověří, než se cokoli změní.** Odhad zní: `GAME_FOV` ≈ 42,9° celkem, tedy půlúhel 21,4°, osa pohledu skloněná ~25° nad vodorovnou, takže spodní hrana frustu leží ~3,6° **nad** horizontem a všechno pod tím úhlem — plán před dělem i paty všech monolitů — je mimo obraz.
+
+**Mám ale rovnou jeden rozpor, který stojí za prověření dřív než cokoli jiného.** `docs/scenes.md` v sekci „The outback" tvrdí opak: *„From the play camera the closest formation fills a third of the frame"* — a je to věta, kterou tam napsal někdo, kdo tehdy do herní kamery koukal (řešila se barva blízkého monolitu). Buď se od té doby pohnula kamera, nebo se pohnul outback, nebo — a to je můj první tip — **záběr závisí na levelu**: `GameCameraFit.Solve` řeší odstup i sklon z půdorysu stropní plotny a výšky pole, takže velká mapa stojí jinde než malá. Report pak může platit pro jeden level a doc pro jiný, a obojí být pravda.
+
+Postup: (1) screenshoty herní kamery v outbacku přes několik levelů různé velikosti, (2) změřit skutečný sklon osy a spodní hranu frustu z čísel, která `GameCameraFit` vrátí, ne z odhadu, (3) zkontrolovat i mountain/savanna/desert, jestli je to scéna nebo kamera, (4) teprve pak rozhodovat — a to rozhodnutí je podle issue samotného návrhové, ne patchovací, takže ho vykážu majiteli s obrázky a nechám ho na něm, pokud nevyjde jedna možnost jasně.
+
+**⚠ Co si hlídám:** sklon té kamery je **herní** věc, ne kulisová — míří na visící cluster a na dělo. Cokoli, co ji skloní kvůli pozadí, musí nejdřív projít tím, že se pořád dobře hraje; `docs/game-session.md` a `GameCameraFit` mají svoje důvody a ty mají přednost před hezčí siluetou.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#171 — rozpracováno; #255 — rozpracováno).*
