@@ -1362,6 +1362,24 @@ Ještě uklidím osiřelou větev `origin/211-music-switches-fade`, kterou komen
 
 ## 2026-08-24 — Claude Code (padesátý třetí zápis)
 
+**Beru si #151 — aréna stojí ~27 ms ze 42 ms snímku, ve všech scénách.** Větev `151-stone-cap-relief-tier`, sdílený strom, staguju jmenovitě. Hlásím dopředu; vidím, že kolega drží **#211** (`211-music-fades-its-switches`), toho se nedotýkám, a stejně tak osiřelých větví na originu.
+
+**Nezačínám od nuly a nebudu opakovat, co už issue změřilo.** Tři předchozí kola v komentářích issue říkají: mořský shader to není (špatná atribuce, opraveno), **kamenná čepice ostrova je 88 % arény** z herní kamery, sklo a jáma jsou pod šumem, a čtvrtina čepice byla mrtvý kód po smazaném hradu (`72c5b36`, −0,26 ms). Zbývá to, u čeho se předchozí kolo zastavilo: **vlastní per-pixel práce čepice** — sedm oktáv `SurfaceReliefWorld` do `PerturbNormalFromHeight` a tři triplanární tapy — a věta „řezat do toho je rozhodnutí o vzhledu, na které tohle issue samo nemá pravomoc".
+
+**Můj úhel je, že to rozhodnutí o vzhledu vůbec dělat nemusím, protože repo už má místo, kam patří.** `QualityPreset` dnes ubírá **supersampling a dva městské číselníky** — a nic víc. Aréna, která je v **každé** scéně a na slabém stroji je většinou snímku, nemá v žebříčku kvality jediný záznam. To je ta díra, kterou #151 odkrylo: na `Low` se čepici sníží počet pixelů (SSAA 2→1), ale ani o jednu instrukci cena jednoho pixelu.
+
+Postup, v tomhle pořadí:
+
+1. **Nejdřív měřit, kam v `TriplanarPS` čas jde** — párované A/B celých buildů, jak to zavedlo minulé kolo (nepárované běhy tenhle efekt neuvidí, sezení driftuje o víc, než je efekt sám). Podezřelí odděleně: sedm oktáv, `ddx/ddy` v `PerturbNormalFromHeight`, tři triplanární tapy, `ShadePixel`.
+2. **Teprve pak řezat, a řezat jako druhou zkompilovanou techniku, ne jako runtime větev** — lekce #155 i vlastního komentáře v `InstancedModel.fx` u bubliny: nad occupancy-bound passem stojí runtime větev sjednocení obou alokací registrů v každé wavefrontě a neušetří nic. `SceneSurfaceHeightCoarse` (tři oktávy) v shaderu **už existuje** pro ray marche, takže hrubá varianta pole je hotová.
+3. **`High` musí zůstat pixel za pixel dnešní.** Ověřím to stejně, jako to ověřilo minulé kolo: dva screenshoty pod `nopost` a diff přes plochu čepice.
+
+**⚠ Na čem stojím a co proto NEMOHU vykázat:** sedím na **referenčním desktopu** (Ryzen 9 5900X + RX 6900 XT), ne na slabém stroji. Poměr **27 ms ze 42**, na kterém je issue otevřené, je slabého stroje a **znovu ho tady odvodit nejde** — tady je aréna 16 % snímku a 75 FPS to dá tak i tak. Vykážu tedy zrychlení v milisekundách a v podílu čepice na téhle mašině, a poměr na slabém stroji nechám výslovně jako neodvozený; `arena=` z minulého kola z něj dělá pár minut práce, až se k němu majitel dostane.
+
+---
+
+## 2026-08-24 — Claude Code (padesátý čtvrtý zápis)
+
 **#211 zavřeno, na mainu jako `a1129d4`.** Majitel dal slovo k mergi. Věcný obsah je v zápise padesátém druhém výše; tady jen úklid a to, co zůstává na majiteli.
 
 - Merge `--no-ff`, všechny čtyři solutiony po něm čisté, větev `211-music-fades-its-switches` smazaná lokálně i na originu. Osiřelá `211-music-switches-fade` smazaná už dřív, patch zůstává v komentáři issue.
@@ -1372,7 +1390,7 @@ Ještě uklidím osiřelou větev `origin/211-music-switches-fade`, kterou komen
 
 ---
 
-## 2026-08-24 — Claude Code (padesátý čtvrtý zápis)
+## 2026-08-24 — Claude Code (padesátý pátý zápis)
 
 **Beru si #255 — zdvojnásobit každou kapitolu na 10 levelů: 45 nových designů (9 bloků × 5), `BLOCK_SIZE` 5 → 10.** Větev `255-ten-level-chapters`, sdílený strom, staguju jmenovitě. Hlásím dopředu: **tohle je největší designová zakázka v repu a budu na ní dlouho — `Tools/LevelGen/Program.cs`, `Game/Levels/*` a `docs/formats-and-tools.md` jsou moje, nesahat.** Na originu vidím `260-globe-swing-margin` a `267-chapter-intro-scene-tour`, těch se nedotýkám.
 
@@ -1382,4 +1400,43 @@ Postup: návrh přes panel (9 nezávislých designérů + porotci, vzor #264, kd
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#255 — rozpracováno, návrhová fáze).*
+## 2026-08-24 — Claude Code (padesátý šestý zápis)
+
+**#151 posunuto: aréna má konečně záznam v žebříčku kvality, a je to první věc v něm, která není scéna.** Větev `151-stone-cap-relief-tier`, commit `5c25244`, pushnuto. **NEMERGOVÁNO, čeká na majitelovo slovo.** Celý výkaz s tabulkami je v komentáři issue a v `docs/scenes.md`; tady jen to, co stojí za odnesení.
+
+**Kde se předchozí kolo zastavilo a proč jsem tam nemusel dělat rozhodnutí o vzhledu.** Zbývala vlastní per-pixel práce čepice a věta „řezat do toho je rozhodnutí o vzhledu, na které tohle issue nemá pravomoc". `QualityPreset` ale dodnes ubíral **supersampling a dva městské číselníky** — aréna, která je ve **všech** scénách a pod dělem v každém snímku každého levelu, v žebříčku nebyla nikdy, *protože to není scéna*. To je ta díra. `High` zůstává nedotčený, takže žádný autorský vzhled se nemění a rozhodnutí je o tieru, ne o vzhledu.
+
+**Měřeno jako jeden build nakreslený několika způsoby, ne několik buildů proti sobě.** Čepice umí kreslit přes jednu z pěti okleštěných kopií svého pixel shaderu (`capprobe=N`) — to je celá odpověď na to, proč minulé kolo potřebovalo šest prokládaných dvojic celých buildů, než bylo 0,26 ms vůbec čitelných. Jeden build mezi svými vlastními variantami driftovat nemůže. Referenční desktop, herní kamera, okno 1920×1080 při ssaa 4, `fpscap=150`, čtyři prokládaná kola:
+
+| čepice kreslená jako | ms | úspora |
+|---|---|---|
+| dnešní `TriplanarPS` | 10,971 | — |
+| tři reliéfní oktávy místo sedmi | 10,635 | **0,336** |
+| výškové pole bez `PerturbNormalFromHeight` | 10,672 | 0,299 |
+| bez výškového pole | 10,311 | **0,660** |
+| jeden triplanární tap místo tří | 10,942 | 0,029 |
+| bez triplanárních tapů | 10,834 | 0,137 |
+| konstantní barva | 9,481 | **1,490** |
+| *vůbec nekreslená* | *9,767* | *1,204* |
+
+- **Tři tapy jsou čtvrtý podezřelý tohohle issue, který se změřil na nulu.** Zbytek shaderu (~0,83 ms) je `ShadePixel`, tedy světelný rig, kterým se stíní úplně všechno — to není, co by tohle issue mělo řezat.
+- **Vzít čepici ze snímku je pro snímek *levnější* než ji nakreslit naplocho** (1,204 vs 1,490): čepice zakrývá terén za sebou, a když zmizí, ty pixely dostane scéna. `arena=all,-cap` tedy čepici **podhodnocuje** — a ze stejného důvodu je celý členský sweep minulého kola spodní odhad každého členu.
+- **Vyhodit výškové pole celé nejde a rozhodl o tom obrázek, ne vkus.** `SlabGroove` je součást téhož pole, takže s ním čepice ztratí i kladečské spáry — jedinou strukturu, kterou kámen v měřítku oka má. Tři oktávy spáry drží a obětují jen nejjemnější zrno: 2,9 z 255 na kamenný pixel proti 10,5 u pole bez ničeho.
+
+**Úspora roste s počtem stínovaných pixelů** (0,336 → 0,524 při 2560×1440), takže dolů k ssaa 1, kde tier ve skutečnosti pracuje, přenést jde — ale **odvozeně, ne změřeně**: s `fpscap=150`, což je podmínka tohohle desktopu, leží každý snímek téhle kamery při ssaa 1 i 2 na stropu a nedá se z něj číst nic.
+
+**⚠ Dvě pasti harnesu, obě zaplacené a obě dopsané do skillu `benchmark` (trap 9 a 10).**
+- **Dvakrát se běh vrátil s back bufferem `3840x1529` místo připnutého `1920x1080`** — okno bylo **maximalizované** — a snímek pak čte asi 3× dráž, přičemž jediné, co to na `[fps]` řádku prozradí, je ta velikost. Mechanismus jsem nedokázal přišpendlit (druhé kliknutí do titulku okno maximalizuje a harness tam nechává kurzor stát, takže to je podezřelý, ne nález). Skript teď každý běh porovná s tím, co si vyžádal, a co nesedí, opakuje.
+- **Průměr přes vteřinové hodnoty je špatná statistika.** Běh, který začal na 91,8 FPS přesně jako jeho sousedi a pak spadl na 31,5 a už se nezvedl, utáhne průměr na 60,7. **Medián** to neuhne a nízká hodnota vedle něj pořád ukáže, že se to stalo.
+
+**Ověření, které v tomhle repu už jednou chytlo přesně tuhle past** (les, zápis o `SceneDetail`): redukovaná technika na jeden běh kreslí červeně. `quality=medium` červená čepice, `quality=high` normální kámen — tier tedy do shaderu opravdu dosáhne. `High` je nedotčený i pixelově: diff pod `nopost` přes 106 600 px kamene, žádný pixel se nehne o víc než jeden LSB jednoho kanálu.
+
+**Probes jsem nechal v repu, ne smazal**, ze stejného důvodu, z jakého tam zůstalo `arena=`: poměr **27 ms ze 42**, na kterém je issue otevřené, je pořád slabého stroje a **pořád není odvozený tam**. Sedím na referenčním desktopu, takže to udělat nemůžu; s `capprobe=` a `arena=` je to na slabém stroji pár minut. Ve shipnutém snímku probes nestojí nic — každá technika je vlastní program a bez argumentu na příkazové řádce si žádnou nikdo nevybere.
+
+**Co zůstává otevřené na #151:** ten poměr na slabém stroji, a nic jiného, co bych uměl pojmenovat. `ShadePixel` je společný všem povrchům a jeho řezání je jiné issue.
+
+**Nic dalšího si teď neberu.** Kolega mezitím #211 zavřel a drží **#255**; toho se nedotýkám.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#151 — hotovo na větvi, čeká na merge; #255 — rozpracováno).*

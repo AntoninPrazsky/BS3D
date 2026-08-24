@@ -99,6 +99,8 @@ namespace Prazsky.Core.Render
         private EffectTechnique _mainTechnique;
         private EffectTechnique _texturedTechnique;
         private EffectTechnique _triplanarTechnique;
+        private EffectTechnique _triplanarCoarseTechnique;
+        private EffectTechnique[] _triplanarProbeTechniques;
         private EffectTechnique _detailUVTechnique;
         private EffectTechnique _detailUVNormalTechnique;
         private EffectTechnique _patternTechnique;
@@ -205,10 +207,37 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Base wave count per world unit of <see cref="SurfaceReliefStrength"/>: larger values give a
-        /// finer grain. Four more octaves ride on top at rising frequencies, each fading out on its own
+        /// finer grain. Six more octaves ride on top at rising frequencies, each fading out on its own
         /// once a screen pixel grows past half its wavelength.
         /// </summary>
         public float SurfaceReliefFrequency { get; set; } = 10f;
+
+        /// <summary>
+        /// The coarse height field on the triplanar path: three relief octaves instead of seven, which is
+        /// what a quality tier below <c>High</c> draws on the arena's stone cap and on nothing else. The
+        /// coursed slab joints are unaffected — they are cut by <c>SlabGroove</c>, not by the octaves — so
+        /// what is given up is the stone's finest grain and not its structure.
+        /// <para>
+        /// A separate compiled technique rather than a uniform, for the reason #155 measured on the scene
+        /// shaders and the glass bubble restates: a runtime branch over an alternative shading path costs
+        /// the union of both register allocations in every wavefront, and these passes are occupancy-bound.
+        /// <b>Measured</b> at 0.336 ms of a 10.971 ms frame — see the technique's own header in
+        /// <c>InstancedModel.fx</c> for the whole isolation, and <see cref="ArenaIsland.SurfaceDetail"/>
+        /// for the dial the host actually turns.
+        /// </para>
+        /// </summary>
+        public bool CoarseSurfaceRelief { get; set; }
+
+        /// <summary>
+        /// #151's measurement probes, and only the triplanar path reads it. 0 draws the shipped
+        /// <c>InstancedModelTriplanar</c>, 3 the coarse technique <see cref="CoarseSurfaceRelief"/> selects,
+        /// and 1/2/4/5/6 one of the cut-down copies declared beside them in <c>InstancedModel.fx</c>, each
+        /// with one named suspect taken out. It exists so the stone cap's per-pixel cost can be split up
+        /// within ONE build (the Testbed's <c>capprobe=N</c>) rather than by several builds measured against
+        /// each other, and it is kept for the same reason <see cref="ArenaIsland.Members"/> is: the ratio
+        /// #151 was opened on is the weak machine's and still has to be re-derived there.
+        /// </summary>
+        public int TriplanarProbe { get; set; }
 
         /// <summary>
         /// Edge length of one floor slab in world units (0 = no slabs). The joints between slabs are cut
@@ -653,6 +682,19 @@ namespace Prazsky.Core.Render
             _mainTechnique = _effect.Techniques["InstancedModel"];
             _texturedTechnique = _effect.Techniques["InstancedModelTextured"];
             _triplanarTechnique = _effect.Techniques["InstancedModelTriplanar"];
+            _triplanarCoarseTechnique = _effect.Techniques["InstancedModelTriplanarCoarse"];
+
+            //#151 PROBE - TEMPORARY, delete with TriplanarProbe. Looked up once here like every other
+            //technique, so selecting one costs an array index and never a name scan.
+            _triplanarProbeTechniques = new[]
+            {
+                _effect.Techniques["InstancedModelTriplanarProbe1"],
+                _effect.Techniques["InstancedModelTriplanarProbe2"],
+                _effect.Techniques["InstancedModelTriplanarCoarse"],  //3 is the coarse technique itself, not a probe
+                _effect.Techniques["InstancedModelTriplanarProbe4"],
+                _effect.Techniques["InstancedModelTriplanarProbe5"],
+                _effect.Techniques["InstancedModelTriplanarProbe6"],
+            };
             _detailUVTechnique = _effect.Techniques["InstancedModelDetailUV"];
             _detailUVNormalTechnique = _effect.Techniques["InstancedModelDetailUVNormal"];
             _patternTechnique = _effect.Techniques["InstancedModelPattern"];
@@ -995,6 +1037,8 @@ namespace Prazsky.Core.Render
 
                 _effect.CurrentTechnique = useNormalMap ? _detailUVNormalTechnique
                     : useModelUVs ? _detailUVTechnique
+                    : TriplanarProbe > 0 ? _triplanarProbeTechniques[TriplanarProbe - 1]
+                    : CoarseSurfaceRelief ? _triplanarCoarseTechnique
                     : _triplanarTechnique;
 
                 _textureParam.SetValue(DetailTexture);
