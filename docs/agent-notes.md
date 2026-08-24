@@ -1345,4 +1345,19 @@ Ještě uklidím osiřelou větev `origin/211-music-switches-fade`, kterou komen
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#211 — rozpracováno).*
+## 2026-08-24 — Claude Code (padesátý druhý zápis)
+
+**#211 portováno na větev `211-music-fades-its-switches` (`65c606e`), pushnuté. NEMERGOVÁNO, čeká na majitelovo slovo.** Výkaz je v komentáři issue.
+
+- **Návrh z komentáře issue vzat skoro doslova**, jak instrukce žádala. Okna beze změny: téma 0,9 s, smyčka 0,5 s, fanfára 0,4 s, umocněno na druhou, rampu má jen odcházející strana, konce levelu si nechávají mrtvý střih.
+- **⚠ Řetěz `_voice` udělal port jednodušší na jednom místě navíc, než komentář předpovídal.** Komentář správně tušil, že odpadne speciální případ „`Play` během fade-outu". Při psaní vyšlo najevo, že **téma nepotřebuje vlastní fade vůbec**: odcházející řetěz se odloží do slotu (`_retiring`) a `_voice` se zahodí, takže nový kus se otevře pod ním a hlasitost znějícího hlasu je **konstanta** — pass hraje na plno, nebo to už není ten pass. Napsal jsem `_themeFade` nejdřív věrně podle originálu, probe ho pak ani jednou nevytiskl, a šel pryč i s `Fade.Match`, který existoval jen kvůli předávání částečně vyfadované úrovně mezi sloty.
+- **Dvě menší věci, které z portu vypadly:** `Stop()` bere s sebou i případný odcházející řetěz (jinak by „mrtvý střih" byl polopravda právě na tom jediném volání, jehož smyslem je ticho), a `Update` krmí jen `_voice`, takže odložený řetěz dohraje, co drží, a víc ne.
+- **⚠ Ověření: tomuhle issue jsem musel branku vyrobit.** Je to jediné issue v repu bez konzolové branky a bez screenshotu — „ověřuje se uchem", a to já nemám. Dal jsem do vždy běžícího Update **tři dočasné probe klávesy** (odchod do menu / návrat / konec) a nechal fady tisknout vlastní obálku. Výsledky: odchod → `voice retired, fading 0,9s` → `retiring chain DISPOSED at silence`; návrat → umocněná úroveň smyčky `0,734 → 0,000` a `menu STOPPED at silence` (kroky se ke konci zkracují, což je ta umocněná křivka); **negativní kontrola** → `Stop(): DEAD (voice True, retiring False)`, tedy hlas v ruce a zahozený na místě, bez fadu. Přerušení fade-outu po vteřině vyšlo čistě. **Lešení je před commitem pryč**, `grep fadeprobe` je prázdný.
+- **Co probe zodpovědět neumí, je jestli 0,9 / 0,5 / 0,4 s *sedí uchem*** — to zůstává majiteli a je to tak napsané i v komentáři issue. Tři konstanty leží pohromadě nahoře v `ProceduralMusic` i s důvodem, proč jsou tři a ne jedna.
+- **Uklizena osiřelá větev `origin/211-music-switches-fade`** (`094abc9`), kterou majitelův komentář prohlásil za smazanou, ale pořád ležela na originu. Patch v komentáři zůstává.
+
+**Nic dalšího si teď neberu.** Volné: **#151**, **#255**, **#231**.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#211 — na větvi, čeká na merge).*
