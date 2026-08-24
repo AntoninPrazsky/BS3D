@@ -2036,15 +2036,17 @@ namespace BS3D.Audio
                 bool naked = breakSection && barInSection >= 6;
 
                 //THE BREAK'S BASS -------------------------------------------------------------------------
-                //The bass takes the hook itself, an octave over its riff (the arp tables two octaves down —
+                //The bass takes the hook itself, an octave over its riff (the melody tables one octave down —
                 //98 to 196 Hz), so "the tune lives in the bass" is stated where a phone speaker can still
-                //hear it. In the naked bars it is the only thing sounding; a tom pickup at the very end hands
-                //the piece to the final chorus.
+                //hear it. The hook's own octave shift is deliberately dropped down here: the peak bar's +12
+                //would take a bass voice near 400 Hz, which is a mid part, not a bass singing. In the naked
+                //bars it is the only thing sounding; a tom pickup at the very end hands the piece to the
+                //final chorus.
                 if (breakSection)
                 {
                     foreach (Note note in MURAL_HOOK[phrase])
                         if (note.Step == inBar)
-                            LogDrum(mix, at, arp[note.Tone] + note.Octave + transpose - 24,
+                            LogDrum(mix, at, arp[note.Tone] + transpose - 12,
                                 secondsPerStep * (note.Length + 0.3f), 0.5f * level);
 
                     if (naked)
