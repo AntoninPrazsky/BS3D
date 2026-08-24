@@ -502,6 +502,52 @@ namespace Prazsky.Core.Render
         public ArenaMembers Members { get; set; } = ArenaMembers.All;
 
         /// <summary>
+        /// How much of the stone cap's authored surface detail is drawn: 1 is the full look, anything below
+        /// it the reduced one. A plain number rather than a quality enum for the reason
+        /// <see cref="SceneRenderer.SceneDetail"/> states — the tier lives in the Game and this library
+        /// cannot see it — and left at 1 for a caller that never sets it, which is what the Testbed and the
+        /// map editor want.
+        /// <para>
+        /// <b>The cap is the arena</b>: 88 % of its cost at a play camera (#151), and the first thing in
+        /// this project's quality tier that reaches the arena at all — which is in every scene and on screen
+        /// for every second of every level, and which the tier had never touched, because it is not a scene.
+        /// Reduced, the cap's height field drops from seven relief octaves to three
+        /// (<see cref="InstancedModelRenderer.CoarseSurfaceRelief"/>): <b>0.336 ms of a 10.971 ms frame</b>,
+        /// measured on the reference desktop at the play camera, windowed 1920×1080 at ssaa 4.
+        /// </para>
+        /// <para>
+        /// <b>The cap alone, and deliberately not the drum.</b> The drum is triplanar too and its relief is
+        /// most of what makes the two read as different materials at a distance — and it measures at 0.004 ms,
+        /// because neither camera the game ever uses sees much of a wall that faces outwards under the coping.
+        /// Reducing it would trade a look for nothing.
+        /// </para>
+        /// </summary>
+        public float SurfaceDetail
+        {
+            get => _surfaceDetail;
+            set
+            {
+                _surfaceDetail = value;
+                _capRenderer.CoarseSurfaceRelief = value < 1f;
+            }
+        }
+
+        private float _surfaceDetail = 1f;
+
+        /// <summary>
+        /// #151's measurement probes, on the stone cap alone. Forwards to
+        /// <see cref="InstancedModelRenderer.TriplanarProbe"/> on the one member that carries 88 % of the
+        /// arena's cost, so a sweep can split that member's pixel shader up rather than only turning members
+        /// off. Only the Testbed's <c>capprobe=</c> argument moves it; see <see cref="Members"/> for why an
+        /// instrument like this is kept rather than deleted with the answer it gave.
+        /// </summary>
+        public int CapTriplanarProbe
+        {
+            get => _capRenderer.TriplanarProbe;
+            set => _capRenderer.TriplanarProbe = value;
+        }
+
+        /// <summary>
         /// Appends the same four renderers to the caller's own enrolment list, walked by index so the call
         /// allocates nothing at all — for the Testbed, whose list is refilled every frame (see
         /// <see cref="SkyLitRenderers"/> for why that distinction is worth two members).

@@ -2175,6 +2175,224 @@ technique InstancedModelTriplanar
 	}
 };
 
+//The same surface with a COARSE height field: three relief octaves instead of seven. What a quality tier
+//below High draws on the stone cap, and nothing else - see InstancedModelRenderer.CoarseSurfaceRelief and
+//ArenaIsland.SurfaceDetail. It is a second TECHNIQUE and not a branch inside TriplanarPS for the reason
+//the bubble's own header states and #155 measured: a runtime branch costs the union of both register
+//allocations in every wavefront of an occupancy-bound pass.
+//
+//WHY THIS ONE AND NOT ONE OF THE OTHER CUTS (#151, measured on the reference desktop, Testbed, meadow,
+//dome 13, play camera, windowed 1920x1080 at ssaa 4, four interleaved rounds):
+//  - The shipped pass is 10.971 ms a frame and shading the cap as a CONSTANT is 9.481, so the cap's whole
+//    pixel shader is 1.490 ms - 13.6 % of the frame, on a surface that is in every scene.
+//  - Of that, the height field and the normal it tilts are 0.660 and this cut is 0.336. The three
+//    triplanar taps are 0.029 (one tap instead of three) to 0.137 (no taps at all), i.e. nothing: the
+//    third suspect this issue has named and measured at zero. The remaining ~0.83 ms is ShadePixel, which
+//    every surface in the game is lit through and which this is not the issue to cut.
+//  - Dropping the height field ENTIRELY saves twice as much and cannot ship: SlabGroove is part of the
+//    same field, so the cap loses its coursed slab joints with it - the only structure the stone has at a
+//    scale the eye can see. Three octaves keep the joints and give up the finest grain.
+float4 TriplanarCoarsePS(VertexShaderOutput input) : COLOR
+{
+	float3 worldNormal = normalize(input.WorldNormal);
+
+	float3 blend = pow(abs(worldNormal), 4);
+	blend /= blend.x + blend.y + blend.z;
+
+	float3 p = input.WorldPosition * DetailScale;
+
+	float3 detail
+		= SrgbToLinear(tex2D(TextureSampler, p.zy).rgb) * blend.x
+		+ SrgbToLinear(tex2D(TextureSampler, p.xz).rgb) * blend.y
+		+ SrgbToLinear(tex2D(TextureSampler, p.xy).rgb) * blend.z;
+
+	float3 dpdx = ddx(input.WorldPosition);
+	float3 dpdy = ddy(input.WorldPosition);
+
+	float height = SceneSurfaceHeightCoarse(input.WorldPosition, dpdx, dpdy);
+
+	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
+	float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
+
+	float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
+	float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
+
+	return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
+}
+
+technique InstancedModelTriplanarCoarse
+{
+	pass P0
+	{
+		VertexShader = compile VS_SHADERMODEL MainVS();
+		PixelShader = compile PS_SHADERMODEL TriplanarCoarsePS();
+	}
+};
+
+//===================================================================================================
+//#151 - THE STONE CAP'S MEASUREMENT PROBES.
+//
+//Five cut-down copies of TriplanarPS, each with one named suspect taken out, chosen per draw by
+//InstancedModelRenderer.TriplanarProbe (Testbed: capprobe=N; capprobe=3 is the coarse technique above,
+//which is why the numbering skips it). They exist so that "where does the stone cap's per-pixel time
+//go" is ONE build measured several ways rather than several builds measured against each other: the
+//previous round of this issue needed six interleaved pairs of whole builds before a 0.26 ms effect was
+//legible at all, because an hour into hammering the GPU a session drifts further than the effect does.
+//One build cannot drift between its own variants.
+//
+//KEPT rather than deleted with the answer, for the reason ArenaIsland.Members and the Testbed's arena=
+//were kept: the ratio #151 was opened on - 27 ms of a 42 ms frame - is the WEAK machine's and has still
+//not been re-derived there, and these are what will do it in a few minutes instead of a rebuild. They
+//cost a shipped frame nothing: each technique is its own program and nothing selects a probe unless the
+//command line asks for it.
+//===================================================================================================
+
+//1 - no height field at all: the three taps and ShadePixel on the geometric normal, cavity off.
+//Bounds SceneSurfaceHeight and PerturbNormalFromHeight together.
+float4 TriplanarProbe1PS(VertexShaderOutput input) : COLOR
+{
+	float3 worldNormal = normalize(input.WorldNormal);
+
+	float3 blend = pow(abs(worldNormal), 4);
+	blend /= blend.x + blend.y + blend.z;
+
+	float3 p = input.WorldPosition * DetailScale;
+
+	float3 detail
+		= SrgbToLinear(tex2D(TextureSampler, p.zy).rgb) * blend.x
+		+ SrgbToLinear(tex2D(TextureSampler, p.xz).rgb) * blend.y
+		+ SrgbToLinear(tex2D(TextureSampler, p.xy).rgb) * blend.z;
+
+	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
+
+	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1), 1, 1);
+}
+
+//2 - the height field, but not the normal it tilts: seven octaves and the joints are still evaluated
+//and still shade the cavity, only PerturbNormalFromHeight is gone. Probe 1 against this is the cost
+//of the field; this against the shipped technique is the cost of the perturb's ddx/ddy pair.
+float4 TriplanarProbe2PS(VertexShaderOutput input) : COLOR
+{
+	float3 worldNormal = normalize(input.WorldNormal);
+
+	float3 blend = pow(abs(worldNormal), 4);
+	blend /= blend.x + blend.y + blend.z;
+
+	float3 p = input.WorldPosition * DetailScale;
+
+	float3 detail
+		= SrgbToLinear(tex2D(TextureSampler, p.zy).rgb) * blend.x
+		+ SrgbToLinear(tex2D(TextureSampler, p.xz).rgb) * blend.y
+		+ SrgbToLinear(tex2D(TextureSampler, p.xy).rgb) * blend.z;
+
+	float3 dpdx = ddx(input.WorldPosition);
+	float3 dpdy = ddy(input.WorldPosition);
+
+	float height = SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy);
+
+	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
+
+	float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
+	float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
+
+	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
+}
+
+//4 - one texture tap instead of three, the world-XZ projection alone. Everything else is the shipped
+//pass, so the difference is the two samples and the blend that fed them.
+float4 TriplanarProbe4PS(VertexShaderOutput input) : COLOR
+{
+	float3 worldNormal = normalize(input.WorldNormal);
+
+	float3 p = input.WorldPosition * DetailScale;
+
+	float3 detail = SrgbToLinear(tex2D(TextureSampler, p.xz).rgb);
+
+	float3 dpdx = ddx(input.WorldPosition);
+	float3 dpdy = ddy(input.WorldPosition);
+
+	float height = SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy);
+
+	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
+	float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
+
+	float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
+	float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
+
+	return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
+}
+
+//5 - no detail texture at all: the full height field, the perturb and ShadePixel on the flat material
+//colour. Probe 4 and this one bracket the three taps from both sides.
+float4 TriplanarProbe5PS(VertexShaderOutput input) : COLOR
+{
+	float3 worldNormal = normalize(input.WorldNormal);
+
+	float3 dpdx = ddx(input.WorldPosition);
+	float3 dpdy = ddy(input.WorldPosition);
+
+	float height = SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy);
+
+	float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
+
+	float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
+	float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
+
+	return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(1, 1, 1, 1), 1, cavity);
+}
+
+//6 - a constant. The bound on the whole pixel shader, and the only figure here that says how much of
+//the cap is shading at all rather than raster, depth and the vertex work behind it.
+float4 TriplanarProbe6PS(VertexShaderOutput input) : COLOR
+{
+	return float4(0.2, 0.2, 0.2, 1);
+}
+
+technique InstancedModelTriplanarProbe1
+{
+	pass P0
+	{
+		VertexShader = compile VS_SHADERMODEL MainVS();
+		PixelShader = compile PS_SHADERMODEL TriplanarProbe1PS();
+	}
+};
+
+technique InstancedModelTriplanarProbe2
+{
+	pass P0
+	{
+		VertexShader = compile VS_SHADERMODEL MainVS();
+		PixelShader = compile PS_SHADERMODEL TriplanarProbe2PS();
+	}
+};
+
+technique InstancedModelTriplanarProbe4
+{
+	pass P0
+	{
+		VertexShader = compile VS_SHADERMODEL MainVS();
+		PixelShader = compile PS_SHADERMODEL TriplanarProbe4PS();
+	}
+};
+
+technique InstancedModelTriplanarProbe5
+{
+	pass P0
+	{
+		VertexShader = compile VS_SHADERMODEL MainVS();
+		PixelShader = compile PS_SHADERMODEL TriplanarProbe5PS();
+	}
+};
+
+technique InstancedModelTriplanarProbe6
+{
+	pass P0
+	{
+		VertexShader = compile VS_SHADERMODEL MainVS();
+		PixelShader = compile PS_SHADERMODEL TriplanarProbe6PS();
+	}
+};
+
 //Depth-only pass for shadow mapping: renders the instances from the light's point of view,
 //writing normalized depth into the red channel of a Single-format render target.
 

@@ -56,6 +56,18 @@ Each of these has actually happened; the first two are the expensive ones.
    with readings swinging 11.8–32.1 FPS while it settled. The line names the back buffer for exactly this
    reason: **read it back before believing the run**, and throw away anything whose reported size is not what
    was asked for.
+9. **A MAXIMIZED window is the same trap from the other side, and it arrives unasked.** Twice in one #151
+   sweep a run came back reporting `3840x1529` — the panel, not the pinned `1920x1080` — and read about 3×
+   dearer, with nothing else on the line to say why. The mechanism was not pinned down: a *second* click on
+   a title bar is what maximizes a window and this harness leaves the cursor sitting on one between runs, so
+   that is the suspect rather than the finding. What follows from it is not "read the size when a run looks
+   odd" but **compare the reported size against what you asked for on every run, and re-run the ones that
+   differ** — a sweep that does it costs one line. Parking the cursor off the title bar after the focus
+   click is cheap insurance beside it.
+10. **Average the per-second readings with a MEDIAN, not a mean.** Trap 6 does not always take a whole run:
+   twice now a run has opened at its neighbours' frame rate exactly, then collapsed to a third of it partway
+   through and stayed there, which drags a mean far enough to invert an A/B. A median of the kept readings
+   cannot be moved by it, and printing the lowest reading beside the median still shows that it happened.
 
 Also: keep both halves of an A/B in the **same build configuration**, and remember `nocap` (which the script
 always passes) is what makes the number a frame cost rather than the display's refresh.

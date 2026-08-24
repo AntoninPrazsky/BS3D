@@ -936,6 +936,10 @@ namespace Testbed
             //All of it unless "arena=" says otherwise, which only a measurement run does — #151 needs each
             //member taken out of the frame in turn, and there was no way to do that from outside the class
             _island.Members = _options.Arena;
+
+            //#151 PROBE - TEMPORARY: which of the cut-down copies of the cap's pixel shader is drawn, 0
+            //being the shipped one. The members sweep can only take the whole cap out; this splits it up.
+            _island.CapTriplanarProbe = _options.CapProbe;
         }
 
         private void BuildCeiling()

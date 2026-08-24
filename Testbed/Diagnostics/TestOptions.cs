@@ -84,6 +84,14 @@ namespace Testbed.Diagnostics
         /// </summary>
         public ArenaMembers Arena { get; private set; } = ArenaMembers.All;
 
+        /// <summary>
+        /// <c>capprobe=&lt;1..6&gt;</c>: #151 PROBE - TEMPORARY. Draws the stone cap through one of the
+        /// cut-down copies of its pixel shader instead of the shipped one, so the cap's own per-pixel cost
+        /// can be split up (the members sweep can only turn the whole cap off). 0 = the shipped shader.
+        /// See the probe's header in <c>InstancedModel.fx</c> for what each number leaves out.
+        /// </summary>
+        public int CapProbe { get; private set; }
+
         /// <summary><c>sky=&lt;n&gt;</c>: the starting dome, pinned over a startup level's own. 0 = unset.</summary>
         public byte SkyNumber { get; private set; }
 
@@ -146,6 +154,7 @@ namespace Testbed.Diagnostics
                 else if (string.Equals(arg, "logfps", StringComparison.OrdinalIgnoreCase)) options.LogFrameRate = true;
                 else if (string.Equals(arg, "nopost", StringComparison.OrdinalIgnoreCase)) options.NoPostEffects = true;
                 else if (arg.StartsWith("arena=", StringComparison.OrdinalIgnoreCase)) options.Arena = ParseArenaMembers(arg.Substring("arena=".Length));
+                else if (arg.StartsWith("capprobe=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("capprobe=".Length), out int parsedCapProbe) && parsedCapProbe >= 0 && parsedCapProbe <= 6) options.CapProbe = parsedCapProbe;
                 else if (arg.StartsWith("switchmap=", StringComparison.OrdinalIgnoreCase)) options.SwitchMapPath = arg.Substring("switchmap=".Length);
                 else if (arg.StartsWith("sky=", StringComparison.OrdinalIgnoreCase) && byte.TryParse(arg.Substring("sky=".Length), out byte parsedSky)) options.SkyNumber = parsedSky;
                 else if (arg.StartsWith("ssaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("ssaa=".Length), out int parsedSsaa)) options.SupersampleFactor = parsedSsaa;

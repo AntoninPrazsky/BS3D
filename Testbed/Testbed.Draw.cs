@@ -229,7 +229,7 @@ namespace Testbed
             //was actually shaded or it misreports the one setting that moves the number most
             Console.WriteLine($"[fps] {_fpsFrames / _fpsWindow:F1} — {_scene}, dome {_skyModelNumber}, ssaa {_supersampleFactor}x"
                 + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
-                + $", vsync {(_options.UncappedFps ? "off" : "on")}{(_options.FpsCap > 0 ? $" (cap {_options.FpsCap})" : "")}, arena {_island.Members}, balls {_collectedBalls}");
+                + $", vsync {(_options.UncappedFps ? "off" : "on")}{(_options.FpsCap > 0 ? $" (cap {_options.FpsCap})" : "")}, arena {_island.Members}{(_options.CapProbe > 0 ? $", capprobe {_options.CapProbe}" : "")}, balls {_collectedBalls}");
 
             _fpsWindow = 0f;
             _fpsFrames = 0;

@@ -224,7 +224,14 @@ namespace BS3D
             //bored through the middle, its two gold beads and the dark pit shaft that backs the glass where the
             //terrain has the island's footprint cut out of it. Meshes, procedural textures, renderers and the
             //one world matrix are the component's; the ambient is the scene's, so it is handed in.
-            _island = new ArenaIsland(GraphicsDevice, _instancingEffect, SCENE_AMBIENT_INTENSITY);
+            _island = new ArenaIsland(GraphicsDevice, _instancingEffect, SCENE_AMBIENT_INTENSITY)
+            {
+                //Seeded here as well as written by ApplyQuality, for the reason SceneDetail beside it is: the
+                //tier is applied once in LoadContent BEFORE this exists, so a startup at anything but High
+                //would otherwise draw the full-price cap until the next tier change — which on a pinned tier
+                //never comes.
+                SurfaceDetail = _quality == QualityLevel.High ? 1f : 0f
+            };
 
             //The forest's scattered trees, rocks and stumps, all of it: both procedural textures, the fifteen
             //mesh variants, the twenty-five renderers with their bark, foliage, stone and sawn-wood dressing,
