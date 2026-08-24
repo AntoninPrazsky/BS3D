@@ -128,7 +128,7 @@ namespace BS3D.Effects
         private const float OVERSHOOT = 0.35f;
 
         private readonly GraphicsDevice _device;
-        private readonly TrophyMesh _plainMesh, _handledMesh;
+        private readonly TrophyMesh _plainMesh, _handledMesh, _crystalMesh;
         private readonly InstancedModelRenderer[] _renderers = new InstancedModelRenderer[TIERS + 1];
         private readonly BasicEffectParams[] _materials = new BasicEffectParams[TIERS + 1];
 
@@ -169,6 +169,11 @@ namespace BS3D.Effects
             _device = device;
             _plainMesh = new TrophyMesh(device, handles: false);
             _handledMesh = new TrophyMesh(device, handles: true);
+
+            //The crystal tier gets its own body: the same profile revolved into flat CUT FACETS rather than a
+            //smooth surface (#231). Its handles are the same swept tubes as Gold's - see TrophyMesh's faceted
+            //parameter for why they stay smooth.
+            _crystalMesh = new TrophyMesh(device, handles: true, faceted: true);
 
             Vector3 ambient = Vector3.One * ambientIntensity;
 
@@ -240,7 +245,7 @@ namespace BS3D.Effects
                 specular: new Vector3(0.98f, 0.78f, 0.40f), power: 140f,
                 specularAmbient: 0.36f, emissive: Vector3.Zero, ambient);
 
-            //Diamond: the top tier, and the only one that is not a metal at all. It takes the HANDLED mesh, so
+            //Diamond: the top tier, and the only one that is not a metal at all. It takes a HANDLED mesh, so
             //it is told apart by its SHAPE before any colour has been read — which matters because the three
             //below it differ only in hue, and hue is the first thing a dark scene takes away. It carries a
             //small emissive term as well, so it is the one cup that is faintly a light source rather than only
@@ -248,12 +253,12 @@ namespace BS3D.Effects
             //glare pass as a white blob with no shape left in it at all.
             //
             //SINCE #228 IT IS CRYSTAL: a little blue and genuinely transparent, so the defocused arena goes on
-            //moving through the bowl while the cup holds the frame. Three figures make that read as cut glass
+            //moving through the bowl while the cup holds the frame. Three figures make that read as glass
             //rather than as a faded decal, and none of them would work alone:
             //
-            // * the ALPHA. Just over a third, per surface — and the cup is a closed solid drawn with its depth
+            // * the ALPHA. Just under a third, per surface — and the cup is a closed solid drawn with its depth
             //   WRITE off (see Draw), so a look through the bowl crosses its near wall and its far inside and
-            //   lands at about 60 % while the stem, one wall thick, stays at a third. Glass that gets denser
+            //   lands at about half while the stem, one wall thick, stays at a third. Glass that gets denser
             //   where there is more of it is most of what says glass, and it falls straight out of the
             //   geometry rather than being authored.
             // * the METALNESS, which is not "a bit metallic": the shader lerps normal-incidence reflectance
@@ -264,30 +269,49 @@ namespace BS3D.Effects
             //   and is the entire shape language of glass; a metal reflects the same at every angle and
             //   would be a mirror with a hole in it.
             // * and the reflection NOT being attenuated by the transparency (SpecularAlphaWeight, set in
-            //   AddTier below). At 38 % alpha the metal path would have kept 38 % of its sparkle, which is a
-            //   coloured film. Unattenuated it is light added over a background that still shows through.
+            //   AddTier below). At a third alpha the metal path would have kept a third of its sparkle, which
+            //   is a coloured film. Unattenuated it is light added over a background that still shows through.
             //
+            //AND SINCE #231 IT IS CUT: the owner's report was that all of the above still read as a ghost — an
+            //even, translucent, washed-out shape rather than a solid you can see through. Two things were
+            //missing and #228 could not have supplied either from a material, which is why they arrive now
+            //rather than as more tuning of the numbers below:
+            //
+            // * THE FACETS. The cup was a smooth surface of revolution, and cut crystal is DEFINED by flats
+            //   that each catch the light on their own. It takes its own mesh now (see the crystal parameter
+            //   on TrophyMesh): the same profile, 24 segments instead of 64, the authored rings instead of the
+            //   densified ones, and every vertex on its facet's own normal. Nothing about the material makes a
+            //   smooth cup read as cut, and no amount of alpha was ever going to.
+            // * THE BALANCE BETWEEN BODY AND EDGE. A ghost is bright and even; glass is mostly the background
+            //   with bright edges. The body came down (the diffuse to about 40 % of #228's and the emissive
+            //   tint to a third) and the reflected environment went UP — see the note below, which is the one
+            //   #228 reasoning this reverses outright.
             //WHERE THE BLUE HAS TO COME FROM, which is not where it looks like it should. The diffuse is
             //premultiplied by the alpha and then sRGB-DECODED by the shader, and both of those crush it: a
-            //diffuse of 0.34 at 38 % alpha reaches the light as 0.13, which decodes to 0.015 of linear
-            //radiance — a body colour that is, to the eye, black. The first crystal was authored at a
+            //diffuse of 0.34 at a third alpha reaches the light as 0.11, which decodes to about 0.011 of
+            //linear radiance — a body colour that is, to the eye, black. The first crystal was authored at a
             //sensible-looking blue and came out a white ghost for exactly that reason. So the diffuse is
-            //authored HIGH (it is a colour at 38 % of itself, not a colour), and a small EMISSIVE TINT
-            //carries the rest: that one is added in linear radiance, is not premultiplied and is not
-            //decoded, so it is the only term on this material that survives at full strength — and a tint
-            //that glows faintly from inside the glass rather than only appearing where a lamp hits it is
-            //what the cup wants anyway.
+            //still authored well above the colour it stands for, and a small EMISSIVE TINT carries the rest:
+            //that one is added in linear radiance, is not premultiplied and is not decoded, so it is the only
+            //term on this material that survives at full strength — and a tint that glows faintly from inside
+            //the glass rather than only appearing where a lamp hits it is what the cup wants anyway. Both are
+            //LOWER than #228 set them, for the reason in the facets note above: those two are the body, and
+            //the body is what was reading as a ghost.
             //
+            //THE REFLECTED ENVIRONMENT IS THE ONE #228 FIGURE THAT IS REVERSED. It was turned way DOWN from
+            //the metals' on the argument that at a metal's strength the dome's image would be a milky veil
+            //over everything the crystal is supposed to show through. That is true of a metal's F0 and false
+            //of a dielectric's: this material reflects at 0.088 head-on and rises to 1 only at grazing
+            //angles, so the strength does not paint the FACE, it paints the EDGES — which is the whole shape
+            //language of glass and the thing the report said was missing. At 0.85 (against the metals'
+            //0.30–0.42) the face is still nearly clear and the silhouette and every facet edge now mirror.
             //The specular stays near white, because a highlight on clear glass is the colour of the lamp and
-            //not of the glass, and the reflected environment is turned WAY down from the metals' (0.30
-            //against 0.30–0.42, but at a dielectric's F0, not a metal's): at a metal's strength even the real
-            //dome's own image would be a milky veil over everything the crystal is supposed to be showing
-            //through, rather than the glint the low strength keeps it as.
-            AddTier(device, instancingEffect, 4, _handledMesh,
-                diffuse: new Vector3(0.620f, 0.820f, 1.000f),
+            //not of the glass.
+            AddTier(device, instancingEffect, 4, _crystalMesh,
+                diffuse: new Vector3(0.250f, 0.340f, 0.450f),
                 specular: new Vector3(0.78f, 0.90f, 1.00f), power: 320f,
-                specularAmbient: 0.30f, emissive: new Vector3(0.020f, 0.045f, 0.060f), ambient,
-                metalness: 0.06f, alpha: 0.38f, emissiveTint: new Vector3(0.016f, 0.055f, 0.110f));
+                specularAmbient: 0.85f, emissive: new Vector3(0.006f, 0.014f, 0.020f), ambient,
+                metalness: 0.06f, alpha: 0.30f, emissiveTint: new Vector3(0.005f, 0.018f, 0.038f));
         }
 
         private void AddTier(GraphicsDevice device, Effect effect, int tier, TrophyMesh mesh,
@@ -421,6 +445,7 @@ namespace BS3D.Effects
 
             _plainMesh?.Dispose();
             _handledMesh?.Dispose();
+            _crystalMesh?.Dispose();
         }
     }
 }
