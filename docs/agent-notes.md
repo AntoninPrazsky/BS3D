@@ -1345,4 +1345,22 @@ Ještě uklidím osiřelou větev `origin/211-music-switches-fade`, kterou komen
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#211 — rozpracováno).*
+## 2026-08-24 — Claude Code (padesátý druhý zápis)
+
+**Beru si #151 — aréna stojí ~27 ms ze 42 ms snímku, ve všech scénách.** Větev `151-stone-cap-relief-tier`, sdílený strom, staguju jmenovitě. Hlásím dopředu; vidím, že kolega drží **#211** (`211-music-fades-its-switches`), toho se nedotýkám, a stejně tak osiřelých větví na originu.
+
+**Nezačínám od nuly a nebudu opakovat, co už issue změřilo.** Tři předchozí kola v komentářích issue říkají: mořský shader to není (špatná atribuce, opraveno), **kamenná čepice ostrova je 88 % arény** z herní kamery, sklo a jáma jsou pod šumem, a čtvrtina čepice byla mrtvý kód po smazaném hradu (`72c5b36`, −0,26 ms). Zbývá to, u čeho se předchozí kolo zastavilo: **vlastní per-pixel práce čepice** — sedm oktáv `SurfaceReliefWorld` do `PerturbNormalFromHeight` a tři triplanární tapy — a věta „řezat do toho je rozhodnutí o vzhledu, na které tohle issue samo nemá pravomoc".
+
+**Můj úhel je, že to rozhodnutí o vzhledu vůbec dělat nemusím, protože repo už má místo, kam patří.** `QualityPreset` dnes ubírá **supersampling a dva městské číselníky** — a nic víc. Aréna, která je v **každé** scéně a na slabém stroji je většinou snímku, nemá v žebříčku kvality jediný záznam. To je ta díra, kterou #151 odkrylo: na `Low` se čepici sníží počet pixelů (SSAA 2→1), ale ani o jednu instrukci cena jednoho pixelu.
+
+Postup, v tomhle pořadí:
+
+1. **Nejdřív měřit, kam v `TriplanarPS` čas jde** — párované A/B celých buildů, jak to zavedlo minulé kolo (nepárované běhy tenhle efekt neuvidí, sezení driftuje o víc, než je efekt sám). Podezřelí odděleně: sedm oktáv, `ddx/ddy` v `PerturbNormalFromHeight`, tři triplanární tapy, `ShadePixel`.
+2. **Teprve pak řezat, a řezat jako druhou zkompilovanou techniku, ne jako runtime větev** — lekce #155 i vlastního komentáře v `InstancedModel.fx` u bubliny: nad occupancy-bound passem stojí runtime větev sjednocení obou alokací registrů v každé wavefrontě a neušetří nic. `SceneSurfaceHeightCoarse` (tři oktávy) v shaderu **už existuje** pro ray marche, takže hrubá varianta pole je hotová.
+3. **`High` musí zůstat pixel za pixel dnešní.** Ověřím to stejně, jako to ověřilo minulé kolo: dva screenshoty pod `nopost` a diff přes plochu čepice.
+
+**⚠ Na čem stojím a co proto NEMOHU vykázat:** sedím na **referenčním desktopu** (Ryzen 9 5900X + RX 6900 XT), ne na slabém stroji. Poměr **27 ms ze 42**, na kterém je issue otevřené, je slabého stroje a **znovu ho tady odvodit nejde** — tady je aréna 16 % snímku a 75 FPS to dá tak i tak. Vykážu tedy zrychlení v milisekundách a v podílu čepice na téhle mašině, a poměr na slabém stroji nechám výslovně jako neodvozený; `arena=` z minulého kola z něj dělá pár minut práce, až se k němu majitel dostane.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#151 — rozpracováno).*
