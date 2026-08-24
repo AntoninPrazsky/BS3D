@@ -42,7 +42,7 @@ namespace BS3D.Audio
         /// <summary>
         /// The fourth (#264, replacing #164's brass band): a bass-led groove — the tune lives in a melodic
         /// sub (<b>the log drum</b>) on the set's only syncopated grid, the 3+3+2 tresillo, with a marimba
-        /// answering from above. Nine sections, ~2:40 a pass, in G major. Where the others differ in mode,
+        /// answering from above. Nine sections, ~2:45 a pass, in G major. Where the others differ in mode,
         /// harmony, time or gain, this one differs in <b>where the weight falls and which register carries
         /// the tune</b>: the kick never marks all four beats, and the hook is played by the bass.
         /// </summary>
@@ -1785,7 +1785,7 @@ namespace BS3D.Audio
         //kept for variety: the one round that leans home instead of walking there.
         private static readonly int[][] MURAL_PROGRESSIONS =
         {
-            new[] { 0, 1, 3, 2 },   //G C  Em D
+            new[] { 0, 5, 1, 2 },   //G Bm C  D — the iii, the one bittersweet bar in the pool
             new[] { 0, 3, 1, 2 },   //G Em C  D — the doo-wop turn, the sunniest of the five
             new[] { 0, 2, 3, 1 },   //G D  Em C — the axis progression, modern pop's own; the plagal round
             new[] { 0, 4, 1, 2 },   //G Am C  D
@@ -1886,7 +1886,7 @@ namespace BS3D.Audio
             }
         }
 
-        //Nine sections, ~2:40 a pass, and the arc is the idiom's own: the bass introduces itself before any
+        //Nine sections, ~2:45 a pass, and the arc is the idiom's own: the bass introduces itself before any
         //tune does, and the piece's one rare event is the bass left ALONE — where Pulse's shock borrows a
         //chord from outside, Mural's is its own most characteristic voice with everything else stripped away.
         //
@@ -1988,7 +1988,7 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// Mural (#264): a bass-led groove — the tune lives in the bass. Nine sections, ~2:40 a pass, in
+        /// Mural (#264): a bass-led groove — the tune lives in the bass. Nine sections, ~2:45 a pass, in
         /// G major on a 3+3+2 tresillo grid. It adds two voices, the <see cref="LogDrum"/> it is written for
         /// and the <see cref="Marimba"/> that answers it, and retired the polka's clarinet with the polka.
         /// </summary>
@@ -2041,12 +2041,12 @@ namespace BS3D.Audio
                 bool naked = breakSection && barInSection >= 6;
 
                 //THE BREAK'S BASS -------------------------------------------------------------------------
-                //The bass takes the hook itself, an octave over its riff (the melody tables one octave down —
-                //98 to 196 Hz), so "the tune lives in the bass" is stated where a phone speaker can still
-                //hear it. The hook's own octave shift is deliberately dropped down here: the peak bar's +12
-                //would take a bass voice near 400 Hz, which is a mid part, not a bass singing. In the naked
-                //bars it is the only thing sounding; a tom pickup at the very end hands the piece to the
-                //final chorus.
+                //The bass takes the hook itself, an octave over its riff: the melody tables one octave down
+                //put every note between the chord's root + 12 and + 24 — 98–330 Hz at the authored key, to
+                //392 across the transpose roll — which is where a phone speaker genuinely hears it. The
+                //hook's own octave shift is deliberately dropped down here: the peak bar's +12 would push a
+                //bass voice to ~660 Hz, a mid part rather than a bass singing. In the naked bars it is the
+                //only thing sounding; a tom pickup at the very end hands the piece to the final chorus.
                 if (breakSection)
                 {
                     foreach (Note note in MURAL_HOOK[phrase])
@@ -2087,8 +2087,14 @@ namespace BS3D.Audio
 
                     if (plays)
                     {
-                        bool lean = variation.PushAccents ? inBar % 4 == 3 : inBar % 4 == 2;
-                        Hat(mix, at, open: false, level: (lean ? 0.30f : 0.16f) * level,
+                        //The break's pulse keeps ONE authored level: the accent roll says where the groove
+                        //leans, and the break has no groove to lean — left coupled, the roll silently became
+                        //a 2x level switch on the section's only timekeeper.
+                        bool lean = !breakSection
+                            && (variation.PushAccents ? inBar % 4 == 3 : inBar % 4 == 2);
+
+                        Hat(mix, at, open: false,
+                            level: (breakSection ? 0.18f : lean ? 0.30f : 0.16f) * level,
                             pan: inBar % 2 == 0 ? -PAN_SHAKER : PAN_SHAKER);
                     }
 
@@ -2118,10 +2124,10 @@ namespace BS3D.Audio
                                 secondsPerStep * (note.Length + 0.3f), 0.46f * level);
 
                     //The closing gesture: the rolled tail, or — the roll willing — the PUSH: the next bar's
-                    //root a sixteenth of a bar early, SLIDING into the downbeat from a whole tone below. The
-                    //walking bass's approach note reborn as a portamento, and the one unmistakably modern
-                    //gesture the voice allows itself; kept small and off the downbeat, or the slide becomes
-                    //the cartoon a log drum must never be.
+                    //root an eighth early (step 14 of 16), SLIDING into the downbeat from a whole tone
+                    //below. The walking bass's approach note reborn as a portamento, and the one
+                    //unmistakably modern gesture the voice allows itself; kept small and off the downbeat,
+                    //or the slide becomes the cartoon a log drum must never be.
                     if (inBar == 14)
                     {
                         if (random.NextDouble() < variation.Glide)
