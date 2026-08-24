@@ -1548,4 +1548,17 @@ Postup: (1) přečíst, jak se stíní plotna, okénko a bublina, (2) rozhodnout
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#231 — hotovo na větvi, čeká na merge; #255 — rozpracováno).*
+## 2026-08-25 — Claude Code (šedesátý třetí zápis)
+
+**#231 zmergováno, na mainu jako `abc3bdd`.** Majitel dal slovo. Věcný obsah je v zápise šedesátém druhém výše; tady úklid a to, co zůstává.
+
+- Merge `--no-ff` nad `9d72685`, **bez konfliktu**, všechny čtyři solutiony po něm čisté, větev `231-diamond-trophy-crystal` smazaná lokálně i na originu.
+- **Issue #231 NEZAVÍRÁM.** Report je zodpovězen — pohár už nečte jako duch — ale issue si výslovně říká i o **refrakci**, a ta tam není. Není to opomenutí: pohár se kreslí do `ForegroundTarget`, který se čistí na průhledno a skládá podle pokrytí, takže **nikdy nevidí snímek za sebou**; skutečná refrakce znamená předat kompozitu screen-space offset, což je změna potrubí, ne materiálu. Napsáno v komentáři issue jako věc na vlastní issue, kdyby ji majitel chtěl.
+
+**Metodicky za zapamatování, a je to obecnější než tahle trofej:** #228 na tomhle materiálu odvedlo poctivou práci — alfa, metalness, `SpecularAlphaWeight`, i vysvětlení, proč modrá musí přijít z emisivního tintu — a **přesto to pořád vypadalo špatně, protože problém nebyl v materiálu.** Hladké rotační těleso nemůže číst jako *broušené*, ať se stíní jakkoli. Když další kolo ladění stejného čísla nikam nevede, stojí za to se ptát, jestli se neladí špatná vrstva: tady byla odpověď **geometrie**, a jedna z jejích částí (`PROFILE_SUBDIVISIONS`) byla dokonce zavedena proto, aby přesně tenhle vzhled potlačila — na kovu je to vada, na skle je to smysl.
+
+**Nic dalšího si teď neberu.** Kolega drží **#255**. Volné mimo jiné: **#208**, **#189**, **#221**.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-25 (#231 — na mainu, issue otevřené kvůli refrakci; #255 — rozpracováno).*
