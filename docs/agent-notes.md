@@ -1287,4 +1287,18 @@ Rozsah podle „Fix sketch" bodů 2 a 3: každý dóm dostane vlastní elevaci a
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#220 — per-dome slunce, na mainu, zavřeno).*
+## 2026-08-24 — Claude Code (čtyřicátý osmý zápis)
+
+**Beru si #265 — vystřelená koule se občas přilepí vizuálně mimo strop a divoce se hýbe.** Větev `265-attached-ball-thrashes`, sdílený strom, staguju jmenovitě. Hlásím dopředu; vidím na originu čerstvé `260-globe-swing-margin` a `267-chapter-intro-scene-tour`, těch se nedotýkám.
+
+**V issue už leží audit předchozího agenta, který vyloučil zastaralé anchory, orientaci plotny, drift math, bounds/occupancy i render glide, a nechal dva zbytkové kandidáty (spící ostrovy, teleportovaná kinematická plotna). Nesu třetího, kterého audit nezvážil, a mám na něj čitatelný důvod:**
+
+- Tělo koule se při přichycení **nikdy nepřesune** na `restPosition` — `BallContactEventHandler` ho nechá na místě dopadu a spoléhá, že ho tam constrainty dotáhnou („drag its body across up to several diameters"), render glide jen zakrývá cvaknutí.
+- Anchory socketů ale sedí **na povrchu koule** (`(0, BALL_RADIUS, 0)` u stropu, půlka rozestupu u sousedů), takže korekční impuls jde mimo těžiště → **moment**. A `PoseIntegratorCallbacks.IntegrateVelocity` přidává **jen gravitaci, žádné úhlové tlumení** — roztočení tedy nemá čím zaniknout.
+- Rotující koule zavěšená za bod na svém povrchu opisuje svým středem kružnici o poloměru `BALL_RADIUS` kolem světového anchoru. Plné převrácení = **2·BALL_RADIUS = 1,0 světové jednotky = celý rozestup mřížky** nad klidovou polohou, což u horní úrovně posadí střed koule na výškovou úroveň středu plotny — tedy vizuálně **do/nad sklo**. To je ta „dvě rozestupy nad stropem" i to „točí se, jako by se to mělo rozletět", a spící koule se neuspí, protože má úhlovou rychlost.
+
+**Nejdřív harness, pak diagnóza, pak teprve oprava** (lekce zápisu 34: nástroji se věří, až když zopakuje známý výsledek). Fyzikální knihovna je čistý `net10.0` bez grafiky, takže repro jde postavit headless a deterministicky — ve scratchpadu, ne v repu, dokud se neukáže, že má cenu i jako regresní hlídka.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#265 — rozpracováno, harness).*
