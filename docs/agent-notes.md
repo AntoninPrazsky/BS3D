@@ -1527,4 +1527,25 @@ Postup: (1) přečíst, jak se stíní plotna, okénko a bublina, (2) rozhodnout
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#231 — rozpracováno; #255 — rozpracováno).*
+## 2026-08-24 — Claude Code (šedesátý druhý zápis)
+
+**#231 hotové na větvi `231-diamond-trophy-crystal`, pushnuté. NEMERGOVÁNO, čeká na majitelovo slovo.** Výkaz i obrázky jsou v komentáři issue, doprovodný text v `docs/game-feedback.md`.
+
+**Diagnóza z obrázku, ne z kódu.** Pohár byl světlá modravá mlha přes pozadí: rovnoměrná, světlejší než scéna za ním, bez jediného ostrého odlesku a bez rozjasněné hrany. Chyběly **dvě** věci a ani jedna nebyla číslo na materiálu — proto je #228 nemohlo doladit:
+
+- **Fasety.** Pohár byl **hladké rotační těleso**, a broušený křišťál je *definován* ploškami, které každá chytá světlo samostatně. Křišťálový stupeň má teď vlastní mesh (`TrophyMesh`, parametr `faceted`): týž autorský profil, **24 segmentů místo 64**, **autorské** prstence místo zhuštěných, a každý vrchol nese normálu své fasety.
+  - **⚠ Je to přesně ta geometrie, kterou `PROFILE_SUBDIVISIONS` existuje potlačit** — rozevření misky „četlo jako pět rovných tětiv" na zrcadlovém kovu. Rozdíl dělá **plochá** normála: hladce stínované jsou tětivy hrubá aproximace křivky, plochostínované jsou to brusy. Materiálem se hladký pohár na broušený nepředělá, ať se ladí jakkoli.
+  - Ucha zůstávají hladká záměrně — na skutečném lisovaném skle jsou hladká, a fasetovaná trubka o pětině průměru misky by četla jako vada tahu, ne jako brus.
+- **Poměr mezi tělem a hranou.** Duch je světlý a rovnoměrný; sklo je většinou pozadí s jasnými hranami. Tělo šlo dolů (difuz na ~40 % původního, emisivní tint na třetinu) a odražené prostředí **nahoru z 0,30 na 0,85**, což **obrací vlastní úvahu #228**. Ta ho stáhla pod kovy s odůvodněním, že v kovové síle by obraz kupole zamlžil vše, co má křišťál ukazovat — což platí pro F0 kovu a neplatí pro dielektrikum: při `Metalness` 0,06 materiál odráží 0,088 kolmo a k 1 stoupá až při tečných úhlech, takže síla nemaluje **plochu**, ale **hrany**. A hrany jsou celý tvarový jazyk skla.
+
+**Refrakci, o kterou issue taky žádá, jsem NEudělal, a je to architektonický důvod, ne lenost.** Pohár se kreslí do `ForegroundTarget`, který se čistí na průhledno a skládá se podle pokrytí — **nikdy nevidí snímek za sebou**. Skutečná refrakce by znamenala předat kompozitu screen-space offset, což je změna potrubí, ne materiálu. Fasety a Fresnel jsem zkusil dřív právě proto a report zodpověděly.
+
+**Ověřeno:** křišťál na meadow (světlá scéna), cavern a space (tmavé — tam „duch" čte nejhůř), a **zlatý stupeň beze změny** (kreslí pořád hladký mesh). Všechny čtyři solutiony čisté. Rozpočet vrcholů šel příznivým směrem: hladký pohár s uchy má 30 000 vrcholů proti 16bitovému stropu 32 767, fasetovaný ~10 000.
+
+**Opraveny i zastaralé číslice po #228** v `TrophyPodium` i v `docs/game-feedback.md` (alfa „just over a third" → pod třetinu, „lands near 60 %" → k polovině, „0.34 at 38 % alpha"), protože je moje změna posunula a stát nechat je nesmí.
+
+**Nic dalšího si teď neberu.** Kolega drží **#255**.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#231 — hotovo na větvi, čeká na merge; #255 — rozpracováno).*
