@@ -2986,7 +2986,15 @@ namespace BS3D.Tools.LevelGen
             Sky = ARCADE_SKY,
             Music = MUSIC_ARCADE,
             Shots = 52,
-            CeilingStep = 9,
+            //14, not the 9 it shipped with (#260): the globe hangs deep, so the fit leaves its lowest ball
+            //only ~3.96 above the death line, and at a step every 9 landings the 52-shot budget spends ~5.8
+            //steps = 3.5 units of descent — the endgame cluster sits INSIDE the band a swing reaches (the 1.0
+            //allowance and the 1 s grace), which is how every loss in the owner's dozens of attempts ended:
+            //not out of balls, but "the cluster reached the line" off a swing. At 14 the same budget spends
+            //3.7 steps = 2.2 units and the cluster stays ~1.7 above the line at budget's end — past the swing
+            //band, so a competent run is decided by the shots it lands and not by the pendulum, while the
+            //pressure itself stays (four descents still come).
+            CeilingStep = 14,
             Occupied = (r, ang, i, depth) => GlobeShell(r, i, depth),
             Colour = GlobeColour,
         };

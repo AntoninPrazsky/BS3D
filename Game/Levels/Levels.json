@@ -320,7 +320,7 @@
       "block": "The Arcade",
       "shots": 52,
       "minStars": 76,
-      "ceilingStep": 9
+      "ceilingStep": 14
     },
     {
       "file": "Icicle.json",
