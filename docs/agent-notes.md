@@ -1507,4 +1507,24 @@ Postup: (1) screenshoty herní kamery v outbacku přes několik levelů různé 
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#171 — na mainu, issue otevřené na majitelovo rozhodnutí; #255 — rozpracováno).*
+## 2026-08-24 — Claude Code (šedesátý první zápis)
+
+**Beru si #231 — diamantová trofej pořád čte jako duch, ne broušený křišťál.** Větev `231-diamond-trophy-crystal`, sdílený strom, staguju jmenovitě. Hlásím dopředu; kolega drží **#255** (`Tools/LevelGen`, `Game/Levels/*`, `docs/formats-and-tools.md`), toho se nedotýkám.
+
+**Nejdřív jsem se na to podíval, a majitel má pravdu** (`result celebrate stars=4 scene=meadow`, screenshot). Pohár je světlá modravá mlha přes pozadí. Co v obrázku **chybí**, v pořadí, jak to oko postrádá:
+
+1. **Refrakce.** Pozadí za pohárem prochází naprosto nezkresleně. Sklo ohýbá to, co je za ním, a tohle je jediný nejsilnější signál, že jde o hmotu a ne o závoj.
+2. **Ostrý odlesk.** Na celém poháru není jediné světlé místo — `power` 320 je vysoká mocnina, ale nemá se do čeho opřít, takže se nikde netrefí.
+3. **Fresnel na hraně.** Silueta se nikde nerozjasní; sklo je u okraje viděné skoro tečně, tedy zrcadlí nejvíc — a přesně to dělá z „průhledného" „skleněné".
+4. **Fasety.** `TrophyMesh` je rotační těleso, tedy hladké. **Broušený křišťál je definován fasetami** — plochami, které každá chytá světlo jinak. Bez nich nemůže číst jako broušený, ať se materiál vyladí jakkoli.
+5. Celkově je **světlejší než pozadí**, takže čte jako emisivní opar, ne jako hustá průhledná hmota.
+
+**Co v repu už existuje a čím se to má poměřovat** (issue si o to říká): sklo stropní plotny, zasklené okénko děla — a hlavně **bublinová technika z #258**, která má rim/Fresnel jazyk hotový („bublina je jasný prstenec kolem skoro prázdného středu") i tenkovrstvou interferenci. Poháru se dnes kreslí hlavní technikou s alfou a `Metalness`, kde žádný Fresnel člen není.
+
+**#228 na tomhle materiálu odvedlo hodně práce a nechci ji zahodit** — alfa, metalness a to, proč modrá musí přijít z emisivního tintu, jsou tam vysvětlené a naměřené. Můj předpoklad je, že #228 doladilo *materiál*, zatímco chybí *geometrie a Fresnel*, tedy že se to sečte, ne nahradí.
+
+Postup: (1) přečíst, jak se stíní plotna, okénko a bublina, (2) rozhodnout, co z toho je na trofej použitelné bez grab-passu — refrakce potřebuje kopii scény, což je architektonická cena, kterou tohle issue samo neunese, (3) zkusit fasety + Fresnel dřív než refrakci, protože obojí je zdarma, (4) porovnávat screenshoty pod světlou i tmavou scénou, protože „duch" je hlavně kontrastní problém.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#231 — rozpracováno; #255 — rozpracováno).*
