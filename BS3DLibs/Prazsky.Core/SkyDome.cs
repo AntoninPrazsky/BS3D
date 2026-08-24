@@ -119,7 +119,8 @@ namespace Prazsky.Core
 		/// Towards this sky's sun, normalized by construction — the direction the whole scene is lit and
 		/// shadowed along, and where <c>Sky.fx</c> draws the disc. A dome states its own since #220; before
 		/// that one constant lit all eighteen, so nothing in a frame said whether it was morning or dusk but
-		/// the two palette colours. The figures and the reason the azimuth is fenced are in <c>SUNS</c>.
+		/// the two palette colours. The figures, and what an elevation and an azimuth each decide, are in
+		/// <c>SUNS</c>.
 		/// <para>
 		/// The light rig reads it in <c>SetSky</c> and is where callers should take it from, not from here:
 		/// a scene that replaces the sky has no dome to read a sun off and the rig substitutes its own.
