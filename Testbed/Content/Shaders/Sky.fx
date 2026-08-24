@@ -45,10 +45,11 @@ float CloudSilverStrength;
 float CloudSilverPower;
 
 //The sun itself, until now implied everywhere and drawn nowhere (issue #220): an analytic disc on the very
-//direction the clouds already shade by and the scene already shadows along - the same push tells all three,
-//from CloudField.ApplyStaticParameters. The disc's angular radius as a cosine and half its edge width in
-//cosine units, so the pixel shader is one dot product and a smoothstep; the colour follows the dome and so
-//is pushed per dome with the cloud palette (ApplyPalette), not here.
+//direction the clouds already shade by and the scene already shadows along - one push tells all three, and
+//since #220's second pass that push is per DOME (CloudField.ApplyDome), each sky stating where its sun
+//stands. Only the SHAPE is one figure for every sky and pushed once at load (ApplyStaticParameters): the
+//disc's angular radius as a cosine and half its edge width in cosine units, so the pixel shader is one dot
+//product and a smoothstep. The colour follows the dome with the cloud palette, in that same per-dome push.
 float SunDiscCos;
 float SunDiscEdge;
 float3 SunDiscColor;
@@ -94,9 +95,16 @@ float4 SkyPS(SkyVertexOutput input) : COLOR
 	//The sun disc, added to the dome's gradient BEFORE the deck composites over it, which is what puts it
 	//behind the weather for free: a cloud in front of the sun is exactly a cloud drawn over these pixels,
 	//so the disc dims under a translucent edge and vanishes under a solid one - the same field occludes it
-	//that shades it, and the "one field, every consumer" contract holds without a second ray march. The
-	//disc sits well clear of the horizon at the rig's one direction (elevation ~35 degrees), so nothing
-	//here has to guard against it crossing the skyline.
+	//that shades it, and the "one field, every consumer" contract holds without a second ray march.
+	//
+	//Nothing here guards against the disc crossing the SKYLINE either, and since #220 gave each dome its
+	//own sun that is a real case rather than a hypothetical: a dusk dome's sits at four degrees. It needs
+	//no guard because the dome is drawn first with the depth test off and every scene's ground is drawn
+	//after it, opaque and depth-writing - so a sun below the horizon is simply covered by the terrain
+	//standing in front of it, and one just above it clears the ridge by exactly as much as it should. The
+	//depth buffer does the occluding, the same way the tropical beach's waterline is a depth test rather
+	//than a clip. What a low sun does NOT get is a cloud in front of it, the deck being faded out near the
+	//horizon by CloudHorizonFade so it never reaches down there.
 	float sunDisc = smoothstep(SunDiscCos - SunDiscEdge, SunDiscCos + SunDiscEdge, dot(direction, SunDirection));
 	sky += SunDiscColor * sunDisc;
 

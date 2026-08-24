@@ -188,5 +188,49 @@ namespace Prazsky.Core
 			//Dome 18
 			"FD703BFD703BDD6E5BFD703BDD6E5BEF3D18EF3D18C36460DD6E5BCC210FDD6E5BFD703BFD703BDD6E5BEF3D18DD6E5BDD6E5BFD703BFD703BDD6E5BEF3D18DD6E5BFD703BDD6E5BFD703BDD6E5BEF3D18DD6E5BFD703BDD6E5BDD6E5B8557755B4F778557758557755B4F77C36460C364605B4F775B4F775B4F778557758557755B4F77855775C36460C364605B4F775B4F77855775855775C36460C364605B4F778557755B4F778557758557755B4F778557755B4F77C36460C364605B4F778557758557755B4F778557755B4F77C36460C36460C36460C36460C36460C36460C36460524D75524D75524D754248774248772D3660524D75524D75424877524D75524D75424877524D75524D75424877524D75",
 		};
+
+		//Where each sky's sun stands (issue #220's second pass): elevation above the horizon and azimuth from
+		//+Z towards +X, in degrees. Until now one direction lit all eighteen, so a blood-red dusk and a bright
+		//morning threw identical shadows; the palette is only two colours and never says where the light is.
+		//The elevation is read off the palette itself - a lit zenith is a high sun, a lit horizon under a dark
+		//zenith is a sun on its way out - and it is the half that carries the mood, since it is what decides
+		//how much sun a horizontal surface gets at all.
+		//
+		//THE AZIMUTH IS SPREAD OVER THE WHOLE CIRCLE, and the reason is worth stating because the opposite
+		//was tried first on a wrong picture of the camera: the gun's orbit is free 360 degrees
+		//(EnsureOrbitAngleInBounds only WRAPS) and the camera stands behind the gun along its StandBearing,
+		//so the camera's own azimuth sweeps the whole circle while a level is played. Every dome is therefore
+		//seen front-lit, side-lit and backlit in the course of one level whatever azimuth it states - fencing
+		//these into one half buys no safety at all, it only throws away half the variety. What the azimuth
+		//does decide is which WORLD direction the light comes from (so shadows, the sea's glint and the
+		//desert's sheen fall differently per dome) and what a level's OPENING frame looks like, the orbit
+		//starting at +Z. Azimuth 180 puts a dome's sun dead ahead of that first view, which is how a sunset
+		//dome gets framed against its own light; 0 puts it behind the player's shoulder.
+		//
+		//Elevation 35 / azimuth 40 is exactly the direction all eighteen used to share (BasicEffect's own key
+		//light, -DefaultLighting.Light0Direction, decomposes to those two to the last digit), so that pair is
+		//how a dome says "unchanged" - and it is what the four sky-replacing scenes keep, having no dome to
+		//read a sun off at all (SkyLightRig.DOMELESS_SUN_DIRECTION).
+		private static readonly (float Elevation, float Azimuth)[] SUNS =
+		{
+			(48f,   40f), //1  clear day: warm sand horizon under a deep blue zenith
+			( 6f,  168f), //2  fiery orange-red sunset into a violet zenith - opens on its own sun
+			(12f, -140f), //3  pale pink dusk over navy
+			( 8f,  122f), //4  deep magenta twilight
+			(16f,   15f), //5  vivid pink-magenta sky, lit to the top
+			(22f, -115f), //6  amber horizon, green band, dark teal zenith: a stormy late afternoon
+			( 4f, -160f), //7  blood red over a near-black violet - opens on its own sun
+			(14f,  155f), //8  lilac over deep violet: early twilight, the ridge against its sun
+			( 9f,  -90f), //9  grey-mauve and slate: the blue hour after sunset
+			(11f,  108f), //10 peach to rose, the whole sky still lit
+			(55f,  -70f), //11 bright day: cyan sky over a sandy horizon
+			(10f,  -35f), //12 rose-purple dusk
+			(13f,  135f), //13 teal-grey horizon into indigo: cool twilight
+			(30f,   95f), //14 pale yellow horizon under a green haze
+			(11f,  -55f), //15 teal horizon into purple: late twilight
+			( 4f,  180f), //16 near-black zenith over a cream lit horizon: the sun going down dead ahead
+			(42f,   25f), //17 cream horizon, pale teal day
+			( 7f, -175f), //18 orange horizon under grey-violet - opens on its own sun
+		};
 	}
 }

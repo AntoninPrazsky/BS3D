@@ -229,7 +229,7 @@ namespace Testbed
         //the game's to the last digit, which is the drift a shared field should never have been able to have.
         //The weather's shape (plane, scale, wind, coverage) was already the field's. The one figure that went
         //elsewhere is the lit side's radiance: it is the sun's, not the cloud's, so it is SkyLightRig.SUN_RADIANCE
-        //and reaches the deck as ApplyPalette's argument — the same number SceneFrame carries, which is the whole
+        //and reaches the deck as ApplyDome's argument — the same number SceneFrame carries, which is the whole
         //point (see SkyLightRig.SunRadianceTinted).
 
         #endregion
@@ -630,9 +630,9 @@ namespace Testbed
             _skyCameraPositionParam = _skyEffect.Parameters["CameraPosition"];
 
             //Everything about the clouds that does not change frame to frame, pushed once. The per-frame half —
-            //the clock and the camera — goes out in Draw, right before the dome; the two dome-derived colours
-            //follow the dome and are ApplySkyLighting's business.
-            _clouds.ApplyStaticParameters(_skyEffect, _instancingEffect, SkyLightRig.SUN_DIRECTION);
+            //the clock and the camera — goes out in Draw, right before the dome; the colours and the sun's own
+            //direction follow the dome and are ApplySkyLighting's business.
+            _clouds.ApplyStaticParameters(_skyEffect);
 
             //The self-lit outdoor backdrops (sea/savanna/desert/mountain/meadow, with the savanna's acacias, the
             //savanna's and desert's birds and the mountain's snow) all live here now, shared with the map editor
@@ -807,9 +807,12 @@ namespace Testbed
             //the dome has not moved — which is all of them but the switch.
             _forestScatter?.ApplySkyTint(_rig.KeyTint);
 
-            //The clouds' own two colours follow the dome as well, and the lit side is handed the very radiance
-            //the rig gives the scene — one sun, one number (see SkyLightRig.SunRadianceTinted)
-            _clouds.ApplyPalette(_skyEffect, _rig.SunRadianceTinted, _rig.ZenithLinear, _rig.HorizonLinear);
+            //The clouds' own colours follow the dome as well, and the lit side is handed the very radiance the
+            //rig gives the scene — one sun, one number (see SkyLightRig.SunRadianceTinted). Since #220 the
+            //sun's DIRECTION rides along, the dome having its own: the drawn disc, the deck's silver lining
+            //and the shadow the instanced shader throws are all re-aimed in this one call.
+            _clouds.ApplyDome(_skyEffect, _instancingEffect, _rig.SunDirection,
+                _rig.SunRadianceTinted, _rig.ZenithLinear, _rig.HorizonLinear);
         }
 
         /// <summary>

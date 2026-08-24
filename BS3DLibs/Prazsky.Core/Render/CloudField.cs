@@ -214,24 +214,16 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Everything about the clouds that does not change frame to frame, pushed once when the shaders are
-        /// loaded. The per-frame half is <see cref="ApplyTo"/>; the two dome-derived colours are not set here
-        /// because they follow the dome, which is <see cref="ApplyPalette"/>'s job.
+        /// loaded. The per-frame half is <see cref="ApplyTo"/>; everything that follows the dome — the two
+        /// cloud colours, the disc's colour and the sun's own direction — is <see cref="ApplyDome"/>'s job.
+        /// <para>
+        /// The direction was pushed from here until #220, when a dome stopped being a pair of colours and
+        /// started stating where its light lives; the disc's <b>shape</b> stayed, being one angular size for
+        /// every sky.
+        /// </para>
         /// </summary>
         /// <param name="skyEffect">The sky shader, which draws the cloud and so wants the whole look.</param>
-        /// <param name="instancedEffect">
-        /// The scene shader, which only needs the direction it shadows along — or null for a caller that draws
-        /// a sky and nothing under it. As on every other apply path, an effect declaring just part of the
-        /// cloud surface costs nothing to support.
-        /// </param>
-        /// <param name="sunDirection">
-        /// Towards the sun. Taken as a direction rather than from the rig's <c>KeyLightPosition</c>, which is
-        /// a point forty units off the middle of the arena: near enough that its direction fans right across
-        /// the scene, while a cloud shadow has to arrive in parallel bands over a city hundreds of units wide.
-        /// The rig's key light is what stands in for the sun, so the clouds are lit by whatever lights
-        /// everything under them and the scene is shadowed along the very same direction — one sun, told to
-        /// both shaders from here.
-        /// </param>
-        public void ApplyStaticParameters(Effect skyEffect, Effect instancedEffect, Vector3 sunDirection)
+        public void ApplyStaticParameters(Effect skyEffect)
         {
             EffectSlots slots = SlotsOf(skyEffect);
 
@@ -246,16 +238,20 @@ namespace Prazsky.Core.Render
             slots.FormStrength?.SetValue(FormStrength);
             slots.ShapeStrength?.SetValue(ShapeStrength);
             slots.CharacterStrength?.SetValue(CharacterStrength);
-            slots.SunDirection?.SetValue(sunDirection);
             slots.SunDiscCos?.SetValue(MathF.Cos(SunDiscAngularRadius));
             slots.SunDiscEdge?.SetValue(MathF.Sin(SunDiscAngularRadius) * SunDiscEdgeAngle);
-
-            if (instancedEffect != null) SlotsOf(instancedEffect).SunDirection?.SetValue(sunDirection);
         }
 
         /// <summary>
-        /// Colours the clouds with the dome they hang in — the lit side and the shadowed underside. Re-run on
-        /// every dome and every scene switch, and never per frame.
+        /// Hands both shaders everything about the sky that follows the dome: the clouds' lit side and
+        /// shadowed underside, the sun disc's colour, and the direction all three of them — plus the shadow
+        /// the scene shader throws — answer. Re-run on every dome and every scene switch, and never per frame.
+        /// <para>
+        /// The direction is here rather than in <see cref="ApplyStaticParameters"/> because since #220 it is
+        /// the dome's (<see cref="SkyDome.SunDirection"/>) and no longer one constant. Pushing it in the same
+        /// call as the colours is what keeps the drawn disc, the silver lining and the shadow on the ground
+        /// answering one sun: there is no path here that moves one of them without the others.
+        /// </para>
         /// <para>
         /// Every dome was getting the same cold white cloud, and over eighteen skies running from turquoise
         /// day to blood-red dusk to near-black night it read as a grey smear pasted over the sky rather than
@@ -267,6 +263,20 @@ namespace Prazsky.Core.Render
         /// has a shader-side default, and left unset the whole deck comes out black.
         /// </para>
         /// </summary>
+        /// <param name="skyEffect">The sky shader, which draws the cloud and the disc.</param>
+        /// <param name="instancedEffect">
+        /// The scene shader, which only needs the direction it shadows along — or null for a caller that draws
+        /// a sky and nothing under it. As on every other apply path, an effect declaring just part of the
+        /// cloud surface costs nothing to support.
+        /// </param>
+        /// <param name="sunDirection">
+        /// Towards the sun, as the light rig resolved it for this dome and scene. Taken as a direction rather
+        /// than from the rig's <c>KeyLightPosition</c>, which is a point forty units off the middle of the
+        /// arena: near enough that its direction fans right across the scene, while a cloud shadow has to
+        /// arrive in parallel bands over a city hundreds of units wide. The rig's key light is what stands in
+        /// for the sun, so the clouds are lit by whatever lights everything under them and the scene is
+        /// shadowed along the very same direction — one sun, told to both shaders from here.
+        /// </param>
         /// <param name="sunRadiance">
         /// The lit side's radiance as the rig hands it out: the sun's own radiance already carried towards
         /// the dome's horizon colour by the light rig's tint strength — the rig's figures, which stay with
@@ -285,9 +295,13 @@ namespace Prazsky.Core.Render
         /// The dome's horizon colour, decoded to linear — what the lit side is carried further towards, hue
         /// and brightness both, so a dark dome dims its clouds instead of only recolouring them.
         /// </param>
-        public void ApplyPalette(Effect skyEffect, Vector3 sunRadiance, Vector3 zenithLinear, Vector3 horizonLinear)
+        public void ApplyDome(Effect skyEffect, Effect instancedEffect, Vector3 sunDirection,
+            Vector3 sunRadiance, Vector3 zenithLinear, Vector3 horizonLinear)
         {
             EffectSlots slots = SlotsOf(skyEffect);
+
+            slots.SunDirection?.SetValue(sunDirection);
+            if (instancedEffect != null) SlotsOf(instancedEffect).SunDirection?.SetValue(sunDirection);
 
             Vector3 skyTint = Vector3.Lerp(Vector3.One, zenithLinear, ShadowTintStrength);
             Vector3 domeTint = Vector3.Lerp(Vector3.One, horizonLinear, SunTintStrength);
