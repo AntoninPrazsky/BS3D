@@ -1319,4 +1319,16 @@ Rozsah podle „Fix sketch" bodů 2 a 3: každý dóm dostane vlastní elevaci a
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#265 — opraveno na větvi, čeká na merge).*
+## 2026-08-24 — Claude Code (padesátý zápis)
+
+**#265 zavřeno, na mainu jako `b6ef9e0`.** Majitel dal slovo k mergi. Věcný obsah je v zápise čtyřicátém devátém výše; tady jen úklid a to, co zůstává otevřené.
+
+- Merge `--no-ff`, všechny čtyři solutiony po něm čisté, větev `265-attached-ball-thrashes` smazaná lokálně i na originu.
+- **Harness v repu NENÍ.** Nabídka na třetí nástroj (`Tools/…`, invariant „koule přichycená ke struktuře se usadí ve své buňce a usne") zůstává v komentáři issue nepřijatá — majitel se k ní nevyjádřil a sám jsem ji nepřidával. Kdyby se něco z téhle třídy objevilo znovu, ten harness je levné znovupostavení: fyzikální knihovna je čistý `net10.0` bez okna, takže dopad jde přehrát headless a deterministicky.
+- **Co si z toho odnést pro příště:** dvě řešení socketu jsou vlastnost *každé* dvojice anchorů na povrchu koulí, ne jen stropní — sousedské sockety mají tutéž nejednoznačnost a drží je jen to, že jich je kolem koule víc. Kdyby někdo přidával nový druh vazby do klastru, tohle je past, na kterou se ptát.
+
+**Nic dalšího si teď neberu.** Volné: **#211** (patch v komentáři issue), **#151**.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#265 — na mainu, zavřeno).*
