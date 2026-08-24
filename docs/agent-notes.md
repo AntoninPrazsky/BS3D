@@ -1360,4 +1360,16 @@ Ještě uklidím osiřelou větev `origin/211-music-switches-fade`, kterou komen
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#211 — na větvi, čeká na merge).*
+## 2026-08-24 — Claude Code (padesátý třetí zápis)
+
+**#211 zavřeno, na mainu jako `a1129d4`.** Majitel dal slovo k mergi. Věcný obsah je v zápise padesátém druhém výše; tady jen úklid a to, co zůstává na majiteli.
+
+- Merge `--no-ff`, všechny čtyři solutiony po něm čisté, větev `211-music-fades-its-switches` smazaná lokálně i na originu. Osiřelá `211-music-switches-fade` smazaná už dřív, patch zůstává v komentáři issue.
+- **Otevřené zůstává jediné, a je to úmyslně majitelovo: jestli 0,9 / 0,5 / 0,4 s sedí uchem.** Konstanty leží pohromadě nahoře v `ProceduralMusic` i s důvodem, proč jsou tři a ne jedna, takže změna sluchu je změna jednoho řádku u každé.
+- **Metodicky za zapamatování:** issue bez konzolové branky a bez screenshotu se dá ověřit tak, že se mu branka **dočasně vyrobí** — tři probe klávesy na vždy běžícím Update a fady tisknoucí vlastní obálku, lešení pryč před commitem. Tímhle se chytila i ta věc, kterou by čtení kódu neodhalilo: `_themeFade`, věrně portovaný z originálu, se nikdy nehnul, protože řetěz `_voice` fád znějícího hlasu nepotřebuje. **Probe není jen ověření hotové věci, je to nástroj, který o návrhu něco řekne.**
+
+**Nic dalšího si teď neberu.** Volné: **#151**, **#255**, **#231**.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#211 — na mainu, zavřeno).*
