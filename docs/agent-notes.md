@@ -1301,4 +1301,22 @@ Rozsah podle „Fix sketch" bodů 2 a 3: každý dóm dostane vlastní elevaci a
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#265 — rozpracováno, harness).*
+## 2026-08-24 — Claude Code (čtyřicátý devátý zápis)
+
+**#265 zreprodukováno, diagnostikováno a opraveno na větvi `265-attached-ball-thrashes` (`fa63c4e`), pushnuté. NEMERGOVÁNO, čeká na majitelovo slovo.** Celý výkaz s tabulkou čísel je v komentáři issue.
+
+- **Moje hypotéza ze zápisu 48 byla správná v mechanismu, ale ne v tom, co dělá vidět.** Jádro je, že socket stropu váže **severní pól koule** k pevnému bodu — a ten pár má **dvě řešení**: koule visící pod kotvou a koule sedící **převráceně nad ní**, o celý průměr výš. Koule, kterou constrainty tahají shora a ze strany, se do toho špatného usadí, kdykoli nemá dost sousedů, aby remízu rozhodli. A je to *platné* řešení, takže je stabilní a tělo tam **usne** — naměřeno **1,16 u nad svou buňkou**, což u horní úrovně posadí střed koule nad střed plotny. Proto to nepřejde samo.
+- **Druhá půlka reportu je tentýž tah.** Socket ukotvený na povrchu koule mění korekční impuls v **moment**, a úhlovou rychlost v téhle simulaci netlumí nic (`IntegrateVelocity` přidá gravitaci a nic víc) — takže roztočená koule se točí dál: **1–3 rad/s ještě po patnácti sekundách, tělo neusne**.
+- **Oba zbytkoví kandidáti z auditu jsou nevinní**: spící ostrovy ani teleportovaná plotna s tím nemají co dělat. A odpovědi na „not yet known": **není to jen Game** (descent se toho netýká, Testbed má tutéž cestu) a **je to buňkově specifické** — horní úroveň, bok klastru.
+- **⚠ Nejcennější metodická věc: harness musel projít kontrolou, než jsem mu věřil** (koule položená rovnou do buňky = co dělá build pass → usadí se na 0,002 u a usne), a **první verze měření byla špatně** — peak jsem bral od okamžiku přichycení, takže u dopadu shora zahrnoval výchozí polohu koule a „zvedla se" z definice. Málem jsem to takhle vykázal. Všechna čísla jsou ustálený stav, vzorkovaný od dvou sekund po dopadu.
+- **Osm opakování jednoho selhávajícího případu vyšlo bit za bitem stejně**, takže „občas" v hraní dělá geometrie konkrétního výstřelu, ne závod vláken. To je dobrá zpráva: repro je otázka najít ten výstřel, ne štěstí.
+- **Oprava mazala obcházku, ne přidávala.** Tělo se položí do buňky dřív, než constrainty vzniknou (chyba constraintu je pak v okamžiku vzniku nula → žádný impuls, žádný moment, žádné druhé řešení). Tím padl `PhysicsBall.RenderOffsetArmed`, který existoval jen proto, aby schoval ten jeden snímek, kdy tělo ještě stálo na místě dopadu. Orientaci **nechávám být** záměrně: výstřel v letu nemá moment, přilétá skoro s identitou, oprava reset nepotřebuje — a reset by cuknul procedurálním vzorem na kouli.
+- **Ověřeno:** 27 případů v harnessu (před: řídké okolí se točí donekonečna, dopady shora končí 1,13–1,16 u nahoře a usnou; po: všech 27 na 0,000 u a spí), čtyři solutiony čisté, Testbed odpálí pět koulí do klastru o 1006 koulích bez čehokoli plovoucího, `BS3D.exe` hraje Helix i Cube.
+
+**Harness leží ve scratchpadu session, ne v repu.** Má tvar `Tools/LevelGen`/`ScoreSim` (čistý `net10.0`, bez grafiky, uměl by vracet nenulový exit) a invariant, který hlídá, stojí za udržení: *koule přichycená ke struktuře se usadí ve své buňce a usne*. Nabídnuto majiteli v komentáři issue, sám jsem třetí nástroj nepřidával.
+
+**Nic dalšího si teď neberu.** Volné: **#211** (patch v komentáři issue), **#151**.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#265 — opraveno na větvi, čeká na merge).*
