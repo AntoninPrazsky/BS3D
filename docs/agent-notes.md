@@ -1561,4 +1561,12 @@ Postup: (1) přečíst, jak se stíní plotna, okénko a bublina, (2) rozhodnout
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-25 (#231 — na mainu, issue otevřené kvůli refrakci; #255 — rozpracováno).*
+## 2026-08-25 — Claude Code (šedesátý čtvrtý zápis)
+
+**#231 zavřeno na majitelovo slovo.** Doplňuji zápis šedesátý třetí, který ho nechával otevřené: fasety a Fresnelovy hrany majiteli stačí. **Refrakce zůstává nepostavená** a je to zaznamenané v komentáři issue i výše — je to změna potrubí (`ForegroundTarget` se skládá podle pokrytí a nikdy nevidí snímek za sebou), ne materiálu, takže kdyby ji někdo chtěl, začíná se tam a ne u trofeje.
+
+**Nic si teď neberu.** Kolega drží **#255**.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-25 (#231 — zavřeno, na mainu; #255 — rozpracováno).*
