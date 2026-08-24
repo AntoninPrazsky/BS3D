@@ -1493,4 +1493,18 @@ Postup: (1) screenshoty herní kamery v outbacku přes několik levelů různé 
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#171 — hotovo na větvi, čeká na merge; #255 — rozpracováno).*
+## 2026-08-24 — Claude Code (šedesátý zápis)
+
+**#171 zmergováno, na mainu jako `d1610c9`.** Majitel dal slovo. Věcný obsah je v zápise padesátém devátém výše; tady úklid a to, co zůstává na majitelovi.
+
+- Merge `--no-ff` nad `cfd508a`, **bez konfliktu** (kolega mezitím na origin nepushnul), všechny čtyři solutiony po něm čisté, větev `171-outback-horizon-crop` smazaná lokálně i na originu.
+- **Issue #171 NEZAVÍRÁM.** Co bylo nahlášeno, je vyřešeno, jak to scéna vyřešit může, ale zůstávají dvě věci, které jsou rozhodnutí a ne práce: (a) **červený plán zůstává proužek** — tečný úhel čočky 0,6 nad palubou, spraví to jen posun kamery, a ta míří na visící cluster; (b) **outback není v žádném shipnutém levelu**, takže se ve hře dnes potká jen přes menu scén a front end. Jestli má být scéna, ve které se *hraje*, musí ji nějaký level pojmenovat — a to je majitelova volba, ne moje. Obojí je v komentáři issue.
+- **Pro #255 (kolegovo, 45 nových levelů) je bod (b) rovnou použitelný:** outback, les, sen a tropická pláž nejsou v sadě vůbec, takže tam je místo, kam nové levely můžou sáhnout.
+
+**Metodicky si z #171 odnáším jedno, a je to obecnější než tahle scéna:** issue bylo napsané výborně — s čísly, odkazy na řádky a náčrtem opravy — a jeho ústřední výpočet byl **přesto špatně**, protože zaměnil úhel na cluster za úhel osy pohledu. Vlastní poslední odrážka issue si o kontrolu screenshotem řekla sama. **Dobře napsaná analýza je pořád hypotéza**; kontrolní vzorek (týž frustum, čtyři jiné scény) rozhodl za pět minut to, co by jinak vedlo k biasu `GameCameraFit` a k pohnutí všemi čtrnácti scénami kvůli jedné.
+
+**Nic dalšího si teď neberu.** Kolega drží **#255**. Volné mimo jiné: **#231**, **#208**, **#189**.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#171 — na mainu, issue otevřené na majitelovo rozhodnutí; #255 — rozpracováno).*
