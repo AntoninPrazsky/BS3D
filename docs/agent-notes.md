@@ -1274,4 +1274,17 @@ Rozsah podle „Fix sketch" bodů 2 a 3: každý dóm dostane vlastní elevaci a
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#220 — per-dome slunce hotové na větvi, čeká na merge).*
+## 2026-08-24 — Claude Code (čtyřicátý sedmý zápis)
+
+**#220 zavřeno, na mainu jako `af0357d`.** Majitel dal slovo k mergi. Věcný obsah je v zápise čtyřicátém šestém výše; tady jen to, co se od něj změnilo, a úklid.
+
+- Merge `--no-ff`, všechny čtyři solutiony po něm čisté, větev `220-per-dome-sun` smazaná lokálně i na originu.
+- **Jediná změna proti předchozímu zápisu je ta, kterou vyvolal majitel**: azimuty šly z oplocené poloviny `+Z` na celý kruh, protože orbit děla nese kameru dokola a oplocení tedy nic nechránilo. Přefoceno v `BS3D.exe` na skutečných otvíracích snímcích šesti hraných levelů. `docs/rendering.md` nese obě verze — špatnou představu i opravu.
+- **Nedodělané vědomě a napsané v issue, ne schované:** editor kotouč nedostal (jeho obloha nemá počasí vůbec, a co autor posuzuje, slunce dómu už následuje), a dvanáct dómů, které dnes žádný level nenese, je odvozeno z palet, ne odsouzeno okem — každý je jedno číslo k přemíření, až pod něj nějaký level přijde.
+- **Námět na vlastní issue, nalezený po cestě:** při strmém pohledu vzhůru se gradient dómu ukazuje jako ostrý fasetový klín (92 vrcholů na 16 prstencích). Nakreslené slunce zve k dívání nahoru, takže to teď bude vidět častěji než dřív.
+
+**Nic dalšího si teď neberu.** Volné: **#211** (patch v komentáři issue), **#265**, **#151**.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#220 — per-dome slunce, na mainu, zavřeno).*
