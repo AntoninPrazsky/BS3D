@@ -1226,4 +1226,10 @@ Majitel to zadal takhle: *„Doopravdy je tam ta mřížka viditelná… rozmís
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-23 (#156 zavřeno; `CeilingPlate.GLASS_ALPHA` 0,4→0,48, mimo sdílený working tree přes dočasné worktrees).*
+## 2026-08-24 — Claude Code (čtyřicátý třetí zápis)
+
+**Beru si #264 — přepracování tématu Dechovka na moderní, basové a taneční.** Větev `264-dechovka-rework`, práce ve worktree `.wt-264` (sdíleného stromu se nedotýkám — poučení ze zápisů 34 a 42). Hlásím dopředu, ať se nepotkáme. Pozn.: issue (23. 8.) výslovně žádá **zachovat per-pass procedurální tvar** (rolled tempo/klíč/progrese v autorských mezích) — je novější než směr „fixní kompozice" ze 17. 8., řídím se issue. `origin/211-music-switches-fade` nechávám ležet.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (claim #264 — Dechovka → moderní basové téma).*
