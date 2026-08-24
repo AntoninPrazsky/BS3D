@@ -51,16 +51,18 @@ namespace Prazsky.Core.Render
 
         //The "sun" is a POINT light, and this is how far out it stands: close enough for its direction to
         //visibly differ from object to object across the arena, which is what a light forty units away does
-        //and a directional light at infinity cannot. Not to be confused with SUN_DIRECTION, which is the one
+        //and a directional light at infinity cannot. Not to be confused with SunDirection, which is the one
         //direction the cloud shadow and the scene shaders are told about.
         private const float KEY_LIGHT_DISTANCE = 40f;
 
         /// <summary>
-        /// The sun's direction as the shaders want it — a single direction for the whole scene, unlike
-        /// <see cref="KeyLightPosition"/>, whose direction fans out from a point forty units away. The cloud
-        /// shadow and every scene shader read this one.
+        /// The sun a scene with <b>no dome to read one off</b> keeps — the single direction all eighteen skies
+        /// shared until #220 gave each its own (<see cref="SkyDome.SunDirection"/>). The four sky-replacing
+        /// scenes take it: space, the dream, the cavern and the Moon draw no dome at all, and letting the
+        /// level's sky byte swing their sun would walk the Moon's Earth through its phases and slide the
+        /// planet's terminator across its face on nothing but which palette a hidden dome happens to carry.
         /// </summary>
-        public static readonly Vector3 SUN_DIRECTION = -DefaultLighting.Light0Direction;
+        public static readonly Vector3 DOMELESS_SUN_DIRECTION = -DefaultLighting.Light0Direction;
 
         /// <summary>
         /// The sun's own radiance before the dome tints it, in linear radiance and deliberately over 1 — it is
@@ -70,9 +72,23 @@ namespace Prazsky.Core.Render
         /// </summary>
         public static readonly Vector3 SUN_RADIANCE = new(1.7f, 1.66f, 1.55f);
 
-        /// <summary>Where the key light stands. Cached: it never moves, and it was recomputed per renderer per
-        /// call in every executable.</summary>
-        public static readonly Vector3 KeyLightPosition = -DefaultLighting.Light0Direction * KEY_LIGHT_DISTANCE;
+        /// <summary>
+        /// The sun's direction as the shaders want it — one direction for the whole scene, unlike
+        /// <see cref="KeyLightPosition"/>, whose direction fans out from a point forty units away. The cloud
+        /// shadow, the drawn sun disc and every scene shader read this one, and since #220 it is the dome's
+        /// own (<see cref="DOMELESS_SUN_DIRECTION"/> where the scene has no dome). It starts at that shared
+        /// direction so a caller reading it before its first <see cref="SetSky"/> gets what every caller got
+        /// before there was anything to follow.
+        /// </summary>
+        public Vector3 SunDirection { get; private set; } = DOMELESS_SUN_DIRECTION;
+
+        /// <summary>Where the key light stands: <see cref="SunDirection"/> at <c>KEY_LIGHT_DISTANCE</c>.
+        /// Cached rather than recomputed per renderer per call, which is what every executable did.</summary>
+        public Vector3 KeyLightPosition { get; private set; } = DOMELESS_SUN_DIRECTION * KEY_LIGHT_DISTANCE;
+
+        //The dome's own sun, kept because Derive() runs again on every overcast step and the dome is only
+        //handed over by SetSky.
+        private Vector3 _domeSunDirection = DOMELESS_SUN_DIRECTION;
 
         /// <summary>
         /// Fully overcast ambient, in linear radiance: grey, and no dimmer than the clear sky it replaces. A
@@ -161,6 +177,8 @@ namespace Prazsky.Core.Render
         /// it states one at all is not purity — reaching for the darkest dome to get a dark sky halves the sun
         /// through the key tint and takes the drain's metallic gold beads with it. Note the scenes that do this
         /// are the sky-replacing ones as a group, not space alone; several comments and docs still say space.
+        /// They keep <see cref="DOMELESS_SUN_DIRECTION"/> too, and for the plainer reason that there is no
+        /// dome up there to read a sun off.
         /// </para>
         /// </summary>
         public void SetSky(SkyDome sky, SceneKind scene)
@@ -169,6 +187,7 @@ namespace Prazsky.Core.Render
 
             ZenithLinear = ColorSpace.SrgbToLinear(sky.ZenithColor);
             HorizonLinear = ColorSpace.SrgbToLinear(sky.HorizonColor);
+            _domeSunDirection = sky.SunDirection;
 
             Derive();
         }
@@ -207,6 +226,13 @@ namespace Prazsky.Core.Render
 
         private void Derive()
         {
+            //Where the light lives, which since #220 is the dome's business rather than one constant's — a
+            //blood-red dusk and a bright morning used to throw identical shadows. Ungated on _sceneRenderer,
+            //unlike the rig override below: ReplacesSky is a static reading of the SceneKind the caller
+            //already stated, not something an instance has to be asked.
+            SunDirection = SceneRenderer.ReplacesSky(_scene) ? DOMELESS_SUN_DIRECTION : _domeSunDirection;
+            KeyLightPosition = SunDirection * KEY_LIGHT_DISTANCE;
+
             //The key/fill lights (the "sun" side) take on the horizon colour, the back light the zenith
             Vector3 domeKeyTint = Vector3.Lerp(Vector3.One, HorizonLinear, SKY_TINT_STRENGTH);
 
@@ -361,6 +387,6 @@ namespace Prazsky.Core.Render
         /// moving while the simulation is paused. It must be the same clock the scene's point lights are given,
         /// or the campfire's light and its flame billboard fall out of step.</param>
         public SceneFrame BuildSceneFrame(ICamera camera, float time) =>
-            new(camera, SUN_DIRECTION, ZenithLinear, HorizonLinear, SunRadianceTinted, time, CloudHook);
+            new(camera, SunDirection, ZenithLinear, HorizonLinear, SunRadianceTinted, time, CloudHook);
     }
 }

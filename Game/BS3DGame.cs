@@ -856,9 +856,9 @@ namespace BS3D
             };
 
             //Everything about the clouds that does not change frame to frame, pushed once. The per-frame half —
-            //the clock and the camera — goes out in BeginSceneDraw, right before the dome; the two dome-derived
-            //colours follow the dome and are ApplySkyLighting's business.
-            _clouds.ApplyStaticParameters(_skyEffect, _instancingEffect, SkyLightRig.SUN_DIRECTION);
+            //the clock and the camera — goes out in BeginSceneDraw, right before the dome; the colours and the
+            //sun's own direction follow the dome and are ApplySkyLighting's business.
+            _clouds.ApplyStaticParameters(_skyEffect);
 
             //The game's name as 3D lettering over the front end (#248). Its twenty-two meshes are built here,
             //once — eleven letters at the stroke weight and eleven again fatter, for the keyline behind them.

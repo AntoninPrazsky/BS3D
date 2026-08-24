@@ -92,9 +92,10 @@ namespace BS3D
         //shadowed side takes — are CloudField's own since #75. They were identical to the Testbed's to the last
         //digit, which is the drift a shared field should never have been able to have. The weather's shape
         //(plane, scale, wind, coverage) was already the field's, and the one direction both shaders are
-        //shadowed along is SkyLightRig.SUN_DIRECTION. The LIT side's radiance went to the rig rather than to
-        //CloudField, because it is the sun's and not the cloud's: SkyLightRig.SUN_RADIANCE, handed over as
-        //ApplyPalette's argument so that it is bit-for-bit the number SceneFrame carries.
+        //shadowed along is SkyLightRig.SunDirection — the dome's own since #220, so it goes out with the
+        //colours rather than once at load. The LIT side's radiance went to the rig rather than to CloudField,
+        //because it is the sun's and not the cloud's: SkyLightRig.SUN_RADIANCE, handed over as ApplyDome's
+        //argument so that it is bit-for-bit the number SceneFrame carries.
 
         private static readonly float SCENE_AMBIENT_INTENSITY = 0.25f;
 
@@ -341,9 +342,12 @@ namespace BS3D
             //ShiftTowardsSky (#108). Guarded inside on the tint, so it is free every frame but a dome switch.
             _forestScatter?.ApplySkyTint(_rig.KeyTint);
 
-            //The clouds' own two colours follow the dome as well, and the lit side is handed the very radiance
-            //the rig gives the scene — one sun, one number (see SkyLightRig.SunRadianceTinted)
-            _clouds.ApplyPalette(_skyEffect, _rig.SunRadianceTinted, _rig.ZenithLinear, _rig.HorizonLinear);
+            //The clouds' own colours follow the dome as well, and the lit side is handed the very radiance the
+            //rig gives the scene — one sun, one number (see SkyLightRig.SunRadianceTinted). Since #220 the
+            //sun's DIRECTION rides along, the dome having its own: the drawn disc, the deck's silver lining
+            //and the shadow the instanced shader throws are all re-aimed in this one call.
+            _clouds.ApplyDome(_skyEffect, _instancingEffect, _rig.SunDirection,
+                _rig.SunRadianceTinted, _rig.ZenithLinear, _rig.HorizonLinear);
         }
 
         /// <summary>

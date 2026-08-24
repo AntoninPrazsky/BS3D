@@ -86,9 +86,10 @@ namespace Prazsky.Core
 
 		/// <summary>
 		/// Which sky is up, 1-based like the level format's <c>"sky"</c> byte. Assignment rewrites the
-		/// vertex colours from the palette and re-extracts <see cref="ZenithColor"/>/<see cref="HorizonColor"/> —
-		/// the contract the hosts' SetSkyDome paths rely on before re-deriving the light rig. Cheap enough
-		/// to set redundantly (the game does, on every scene change): 92 vertices recoloured and re-uploaded.
+		/// vertex colours from the palette, re-extracts <see cref="ZenithColor"/>/<see cref="HorizonColor"/>
+		/// and re-derives <see cref="SunDirection"/> — the contract the hosts' SetSkyDome paths rely on
+		/// before re-deriving the light rig. Cheap enough to set redundantly (the game does, on every scene
+		/// change): 92 vertices recoloured and re-uploaded.
 		/// </summary>
 		public int DomeNumber
 		{
@@ -99,9 +100,32 @@ namespace Prazsky.Core
 					throw new ArgumentOutOfRangeException(nameof(value), value, $"Sky dome numbers run 1..{Count}.");
 
 				_domeNumber = value;
+
+				(float elevation, float azimuth) = SUNS[_domeNumber - 1];
+				float elevationRadians = MathHelper.ToRadians(elevation);
+				float azimuthRadians = MathHelper.ToRadians(azimuth);
+				float horizontal = MathF.Cos(elevationRadians);
+
+				SunDirection = new Vector3(
+					horizontal * MathF.Sin(azimuthRadians),
+					MathF.Sin(elevationRadians),
+					horizontal * MathF.Cos(azimuthRadians));
+
 				ApplyPalette();
 			}
 		}
+
+		/// <summary>
+		/// Towards this sky's sun, normalized by construction — the direction the whole scene is lit and
+		/// shadowed along, and where <c>Sky.fx</c> draws the disc. A dome states its own since #220; before
+		/// that one constant lit all eighteen, so nothing in a frame said whether it was morning or dusk but
+		/// the two palette colours. The figures and the reason the azimuth is fenced are in <c>SUNS</c>.
+		/// <para>
+		/// The light rig reads it in <c>SetSky</c> and is where callers should take it from, not from here:
+		/// a scene that replaces the sky has no dome to read a sun off and the rig substitutes its own.
+		/// </para>
+		/// </summary>
+		public Vector3 SunDirection { get; private set; }
 
 		/// <summary>Average vertex colour near the top of the dome, sRGB (see <see cref="HorizonColor"/>).</summary>
 		public Vector3 ZenithColor { get; private set; }
