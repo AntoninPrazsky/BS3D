@@ -1257,4 +1257,21 @@ Rozsah podle „Fix sketch" bodů 2 a 3: každý dóm dostane vlastní elevaci a
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#220 — per-dome slunce, rozpracováno).*
+## 2026-08-24 — Claude Code (čtyřicátý šestý zápis)
+
+**#220 druhý průchod hotový na větvi `220-per-dome-sun` (`3223b1f` + `06662ae`), pushnuté. NEMERGOVÁNO a nezavřeno — čeká na majitelovo slovo.** Komentář s celým výkazem je na issue.
+
+- **Osa: dóm přestal být dvě barvy a začal říkat, KDE mu stojí slunce.** `SkyDome.SUNS` — elevace a azimut na dóm ve stupních, směr se dopočítá při každém přiřazení `DomeNumber`, `SkyLightRig.SetSky` ho z dómu přečte. Elevaci čtu z palety a je to ta půlka, co nese náladu: rozsvícený zenit = vysoké slunce (dóm 1 → 48°, 11 → 55°), rozsvícený horizont pod tmavým zenitem = slunce na odchodu (7 a 16 → 4°, 2 → 6°).
+- **⚠ Azimut je oplocený do poloviny `+Z` a to oplocení je nosné.** Dělo startuje orbit na `+Z`, kamera stojí za ním a dívá se k `−Z` — slunce s `+Z` složkou je tedy vždycky **za hráčem**: každý dóm arénu nasvěcuje zepředu a mění se jen strana, ze které světlo přichází. Přenést jeden dóm za ±90° a právě ten jediný udělá z klastru protisvětlnou siluetu. Důsledek, na který se ptám majitele: **kotouč není z výchozího postoje nikdy v záběru** — hráč ho najde objetím děla (orbit je volných 360°) a menu si ho samo přejede orbitující kamerou.
+- **35° / 40° je přesně to, co všech osmnáct sdílelo** (`-DefaultLighting.Light0Direction` se na ně rozloží do poslední číslice), takže ta dvojice je způsob, jak dóm říká „beze změny" — a je to i to, co si nechávají čtyři scény nahrazující oblohu (`DOMELESS_SUN_DIRECTION`). **Změřeno, ne předpokládáno:** Měsíc pod dómem 1 proti 16, výřez ostrova, střední absolutní rozdíl **0,000/255**; space **0,011** proti šumu dvou běhů téhož dómu **0,008**; kontrola (hory před/po, tentýž výřez) **33,1**.
+- **Ověřeno pohledem na šesti dvojicích, které skutečně hrají.** Výhry: poušť (dóm 6, →22°/64°) — duny mají konečně světlou a stinnou stranu místo plochého béžového nátěru; hory (8, →14°/52°) — alpenglow, které ten fialový soumrakový dóm odjakživa popisoval, slunce sedí na hřebeni; neonové město (16, →4°/44°) — konec polednímu slunci na noční piazzetě, scénu nese neon. Louka (1), město (11) a savana (14) jsou záměrně skoro neutrální. **Cena je vidět a je ostrovova:** deska je vodorovná a buben svislý, takže nízké slunce desku ztmaví a buben přestane rýsovat — aréna pod soumrakovými dómy čte tíž. S klastrem nad ní zůstává čitelná (ověřeno v `BS3D.exe` na Cube, Helix, Five, Hourglass).
+- **Editor kotouč vědomě nedostal**, důvod je v `docs/formats-and-tools.md`: kotouč bydlí v `Sky.fx`, takže by ho editor dostal jen tak, že by ten shader stavěl — a tím si do sky passu přitáhne vyhodnocení celého mračného pole kvůli decku, který nechce. A koupil by míň, než to vypadá: ta obloha nemá počasí vůbec, kdežto všechno, co autor doopravdy posuzuje (terén, voda, stromy, nasvícení koulí), **už teď slunce dómu následuje** přes tentýž rig a `SceneFrame`.
+- **⚠ Komentář, který se mou změnou stal nepravdivým, a to je právě ten druh, před kterým CLAUDE.md varuje:** `Sky.fx` tvrdil, že kotouč „sits well clear of the horizon at the rig's one direction (elevation ~35 degrees)". Ve chvíli, kdy dóm může říct čtyři stupně, to neplatí — a nepotřebuje to strážení, protože dóm se kreslí první s vypnutým depth testem a terén po něm neprůhledně se zápisem hloubky. Occluduje **depth buffer**, stejná mechanika jako viditelná čára hladiny u tropické pláže. Komentář to teď říká.
+
+**Všimnuto po cestě, není to tohle issue:** při strmém pohledu vzhůru se vlastní gradient dómu ukazuje jako ostrý fasetový klín (92 vrcholů na 16 rovnoběžkových prstencích). Předchází to téhle práci a nic z ní na to nesáhlo, ale nakreslené slunce zve k dívání nahoru — tak se to našlo. Napsáno do komentáře issue jako námět na vlastní issue.
+
+**Nic dalšího si teď neberu.** Volné: **#211** (patch v komentáři issue), **#265**, **#151**.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#220 — per-dome slunce hotové na větvi, čeká na merge).*
