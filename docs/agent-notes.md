@@ -1465,4 +1465,32 @@ Postup: (1) screenshoty herní kamery v outbacku přes několik levelů různé 
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#171 — rozpracováno; #255 — rozpracováno).*
+## 2026-08-24 — Claude Code (padesátý devátý zápis)
+
+**#171 rozpracované na větvi `171-outback-horizon-crop`, pushnuté. NEMERGOVÁNO, čeká na majitelovo slovo.** Celý výkaz je v komentáři issue a v `docs/scenes.md`; tady to podstatné.
+
+**Mechanismus, na kterém je issue postavené, měřením neobstál — a to je hlavní výsledek.** Issue počítá, že půlúhel `GAME_FOV` (21,43°) proti ose skloněné ~25° posadí **spodní hranu frustu nad horizont** a plán ořízne. Naměřeno na `Pyramid_Small`: osa je skloněná **+15,52°**, ne 25 — těch 25 v poznámkách `GameCameraFit` je úhel na **visící cluster**, kdežto osa míří na střed pole (`CameraTargetY` 1,89). Spodní hrana tedy leží na **−5,91°**, tedy **pod** vodorovnou, a horizont **v záběru je**, na 85 % výšky snímku. (Pole 20×20×20: +17,41° a −4,02°, tentýž závěr.) Kamera neořezávala nic.
+
+**Kontrolní vzorek říká, co to tedy je.** Přes týž frustum, osm azimutů, geometrie herní kamery: **poušť** má svůj pás dun na **každém** azimutu, **savana** akácie v mnoha vzdálenostech na **každém** azimutu — a outback měl **jednu** formaci na sedmi z osmi a holý horizont vedle ní. Je to hustota téhle scény, ne sklon kamery; sáhnout na kameru by kvůli jedné scéně pohnulo všemi čtrnácti.
+
+**Proč byl tak řídký a co s tím.** Herní frustum je vodorovně 70° široký a opar sebere zem asi na 350 jednotkách, takže hráčův klín držel zhruba dvě buňky mřížky po 370 — krát `RockChance` 0,62, tedy asi jednu formaci. Nově **`RockSpacing` 270 a `RockChance` 0,70**: v klínu stojí zhruba dvakrát tolik, na všech osmi azimutech je formace a na většině druhá v hloubce.
+
+**⚠ Buňka se musela zmenšit, formace zvětšit nešly — a to je vynucené.** Poloměr formace je zlomek **vlastní buňky** (0,10–0,16) a její `margin` už stojí na 0,4419 proti clampu 0,45; zvýšit zlomek, aby si formace udržela světovou velikost, by ji poslalo přes hranu buňky a rozbilo jednobuňkové čtení, na kterém stojí celý návrh. Monolity tedy šly dolů s buňkou: poloměr 27–43 místo 37–59 jednotek, `RockHeight` beze změny — pořád dvakrát širší než vyšší, tedy strmější bornhardt, ne jehla. Široká volná kamera, na které se scéna autorsky ladila, tím netrpí, spíš získává druhou řadu v hloubce.
+
+**Co to NEdělá, a je to v reportu ta druhá půlka.** Na klidovém azimutu děla je před a po skoro k nerozeznání — ten klín už blízký monolit měl; zisk je **napříč azimuty**, tedy v tom, čím hráč při traverzu projíždí. A **červený plán zůstává proužek**, což je geometrie, ne hustota: čočka sedí 0,6 nad palubou ostrova a plán je jen asi půl jednotky pod ní, takže se na zem kouká pod tečným úhlem — řádky mezi okrajem ostrova a horizontem pokrývají 50 až 500 jednotek a ten druhý konec patří oparu. To nezmění nic než posun kamery, a ta míří na visící cluster.
+
+**Cena změřená, ne odhadnutá:** dva celé buildy prokládaně, 1920×1080 při ssaa 4 přes **širokou** volnou kameru (nejtvrdší možné čtení — je v ní mnohem víc skály než v herní), **+0,183 ms z 12,0**, pomalejší ve třech párech ze tří. `RockLayer` má early-out na prázdné buňce, takže se platí pixely, které nově jdou plnou skalní cestou.
+
+**⚠ Dvě pasti nástrojů, obě mě chvíli vodily za nos, obě stojí za zapamatování.**
+- **PowerShell formátuje čísla podle locale.** `campos=0,-7,9,35,24` — desetinná čárka — Testbed parsuje invariantně, argument nesedl a propadl na cestu ke startovací mapě. Osm azimutů se vrátilo **bit za bitem stejných**, protože všech osm byla výchozí kamera. Sweep, který potají měří jednu pózu osmkrát, vypadá přesně jako sweep. Od té doby `ToString('F2', InvariantCulture)` na každém čísle.
+- **`Set-Content -Encoding UTF8` v PS 5.1 mi přepsal `OutbackSceneConfig.cs`** a ze všech pomlček udělal `â€"` (plus BOM) — 21 řádků poškozených v souboru, kde jsem měnil dvě čísla. Vráceno přes `git checkout --` a znovu aplikováno `sed`em, který je bajtově bezpečný. **Na zdrojáky repa nesahat PowerShellem, ani na jedno číslo.**
+
+**Ještě jedna věc, kterou issue neříká a je pro rozhodování podstatná: outback není v žádném shipnutém levelu** — scéna z levelu přebíjí hráčovu volbu (`GameplayScreen.Session`), takže se ve hře dnes potká přes menu scén a front end, plus Testbed a editor.
+
+**Opravena i jedna stará nepřesnost v `docs/scenes.md`**, na kterou jsem u toho narazil: „jitter box je čtvrtina buňky, devadesát jednotek" — je to `1 − 2 × 0,4419` = **0,116 buňky**, tedy 31 jednotek při nové rozteči.
+
+**Nic dalšího si teď neberu.** Kolega drží **#255**.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#171 — hotovo na větvi, čeká na merge; #255 — rozpracováno).*
