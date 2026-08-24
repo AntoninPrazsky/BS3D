@@ -72,11 +72,37 @@ namespace Prazsky.Core.Render
         /// alone with a plain between them, and a cell this size is also what buys the jitter its room: the
         /// margin a formation is held clear of its cell edge by is charged as a <i>fraction</i> of the cell,
         /// so the bigger the cell the more world units of wander the same fraction is worth.
+        /// <para>
+        /// <b>370 until #171, and that was one skyline too few for the camera the game is played from.</b> The
+        /// play camera's frustum is 70° wide horizontally and the haze has taken the ground by about 350 units
+        /// (<see cref="OutbackAirConfig.HorizonHazeDistance"/>'s quartic), so what the player sees is a wedge
+        /// holding some 2 lattice cells at 370 — and with <see cref="RockChance"/> under two thirds, most
+        /// bearings held one formation and a bare horizon either side of it. Sampled through the play
+        /// frustum at eight bearings: rock at seven of them, but a single formation at nearly all. The desert
+        /// and the savanna, through the identical frustum, fill that band at <i>every</i> bearing — which is
+        /// what says this is the scene's density and not the camera's pitch, the thing #171 was filed against.
+        /// </para>
+        /// <para>
+        /// <b>Why the cell shrank rather than the formations growing.</b> A formation's radius is a fraction of
+        /// its own cell (0.10–0.16 in <c>Outback.fx</c>), and its margin — reach × apron × gully × elongation —
+        /// already stands at 0.44 against the 0.45 the clamp allows. Raising the fraction to keep the world
+        /// size would push every formation across its cell edge and break the single-cell read. So the cell
+        /// came in instead, and the monoliths came in with it: 27–43 units of radius rather than 37–59,
+        /// against an unchanged <see cref="RockHeight"/>, which reads as a steeper bornhardt and not as a
+        /// spire (they are still twice as wide as they are tall). The jitter box is the same 0.116 of a cell,
+        /// so 31 world units of wander rather than 43. <b>Measured cost</b>, two whole builds run alternately
+        /// on the reference desktop, windowed 1920×1080 at ssaa 4 through the wide free camera — the harshest
+        /// view for this, with far more rock on screen than the play camera holds: <b>+0.183 ms of 12.0</b>,
+        /// slower in three pairs of three.
+        /// </para>
         /// </summary>
-        public float RockSpacing { get; set; } = 370f;
+        public float RockSpacing { get; set; } = 270f;
 
-        /// <summary>Fraction of lattice cells that carry a monolith. The empty ones are what break the grid.</summary>
-        public float RockChance { get; set; } = 0.62f;
+        /// <summary>Fraction of lattice cells that carry a monolith. The empty ones are what break the grid —
+        /// so this is the dial that trades a skyline against an orchard, and 0.70 is as far as #171 took it
+        /// (0.62 before): the density it was after came from the cell size above, and this only tops it up.
+        /// </summary>
+        public float RockChance { get; set; } = 0.70f;
 
         /// <summary>Height of the tallest monolith above the plain. The play camera's lens grazes the island's
         /// own deck, so this is also what decides whether the scene has a skyline at all.</summary>
