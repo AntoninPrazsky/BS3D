@@ -194,7 +194,10 @@ namespace BS3D.Screens
 
             Vector3 centre = new(_cannon.OrbitCenter.X, _gameCameraTargetY, _cannon.OrbitCenter.Z);
 
-            _chapterIntro.Begin(centre, _gameCameraDistance, GAME_FOV, RANDOM);
+            //The ordinary gameplay pose, verbatim: the tour's last key is it, so the flight lands where the
+            //player is handed the camera and the blend-out is a nudge between identical poses.
+            _chapterIntro.Begin(centre, _gameCameraDistance, GAME_FOV,
+                GameCameraPositionAt(_gameCameraDistance), centre, RANDOM);
 
             //One line per intro, in the manner of [cinematic]: a rare event — nine times over the whole
             //campaign — and the shot is rolled, so this is the only record of what it actually chose.
