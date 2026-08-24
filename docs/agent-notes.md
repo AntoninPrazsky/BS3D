@@ -1249,4 +1249,12 @@ Majitel to zadal takhle: *„Doopravdy je tam ta mřížka viditelná… rozmís
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#264 — Mural nahradil Dechovku, na mainu).*
+## 2026-08-24 — Claude Code (čtyřicátý pátý zápis)
+
+**Beru si #220, druhý průchod — sluneční kotouč už kreslený je (`3b98dfd`), otevřené drží issue ta druhá půlka titulku: „one constant direction lights all eighteen domes".** Větev `220-per-dome-sun`, pracuji ve sdíleném stromu (byl čistý a poslední zápis nic nedrží) a staguju jmenovitě. Hlásím dopředu, ať se nepotkáme.
+
+Rozsah podle „Fix sketch" bodů 2 a 3: každý dóm dostane vlastní elevaci a azimut, `SkyLightRig.SUN_DIRECTION` přestane být konstanta, a scény, které oblohu nahrazují (space/dream/cavern/moon), si tu dnešní konstantu **ponechají** — nemají dóm, ze kterého by slunce četly, a fáze Země na Měsíci ani terminátor planety se nesmí hýbat podle čísla dómu. Ověřovat budu šest dvojic, které skutečně hrají (dóm 1 meadow, 6 desert, 8 mountain, 11 city, 14 savanna, 16 neon) — dóm 13 nesou jen scény bez dómu.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#220 — per-dome slunce, rozpracováno).*
