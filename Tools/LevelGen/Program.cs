@@ -168,7 +168,7 @@ namespace BS3D.Tools.LevelGen
         };
 
         private const string MUSIC_RINGS = "pulse";
-        private const string MUSIC_GALLERY = "dechovka";
+        private const string MUSIC_GALLERY = "mural";
         private const string MUSIC_COIL = "ember";
         private const string MUSIC_TOWER = "bohemia";
         private const string MUSIC_REVEAL = "nocturne";
@@ -5965,8 +5965,9 @@ namespace BS3D.Tools.LevelGen
             /// before this — and which is exactly why the order could not be rearranged without silently
             /// rescoring the campaign. Naming it pins it. An unknown spelling falls back to that same
             /// rotation rather than throwing, so a typo here is a level that quietly plays the wrong piece:
-            /// the five names are <c>pulse</c>, <c>bohemia</c>, <c>nocturne</c>, <c>dechovka</c> and
-            /// <c>ember</c> (#163's rock ballad, which the Coil took in #207).
+            /// the five names are <c>pulse</c>, <c>bohemia</c>, <c>nocturne</c>, <c>mural</c> (#264's
+            /// bass-led groove, which replaced the polka) and <c>ember</c> (#163's rock ballad, which the
+            /// Coil took in #207).
             /// </para>
             /// </summary>
             public string Music;

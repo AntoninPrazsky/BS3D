@@ -40,11 +40,13 @@ namespace BS3D.Audio
         Nocturne,
 
         /// <summary>
-        /// The fourth (#164): a Moravian brass band — oom-pah, a clarinet on the tune, nine sections and
-        /// ~2:20 a pass, in B flat with its <b>trio a fourth up</b>. The form's own modulation is what makes
-        /// it a fourth piece rather than a fourth chord pool.
+        /// The fourth (#264, replacing #164's brass band): a bass-led groove — the tune lives in a melodic
+        /// sub (<b>the log drum</b>) on the set's only syncopated grid, the 3+3+2 tresillo, with a marimba
+        /// answering from above. Nine sections, ~2:45 a pass, in G major. Where the others differ in mode,
+        /// harmony, time or gain, this one differs in <b>where the weight falls and which register carries
+        /// the tune</b>: the kick never marks all four beats, and the hook is played by the bass.
         /// </summary>
-        Dechovka,
+        Mural,
 
         /// <summary>
         /// The fifth (#163): a rock ballad — <b>power chords</b> through a distorted guitar, half-time under
@@ -489,7 +491,7 @@ namespace BS3D.Audio
             {
                 MusicTheme.Bohemia => BakeBohemia(seed),
                 MusicTheme.Nocturne => BakeJazz(seed),
-                MusicTheme.Dechovka => BakeDechovka(seed),
+                MusicTheme.Mural => BakeMural(seed),
                 MusicTheme.Ember => BakeEmber(seed),
                 _ => Bake(seed),
             });
@@ -543,8 +545,13 @@ namespace BS3D.Audio
                     case "pulse": return MusicTheme.Pulse;
                     case "bohemia": return MusicTheme.Bohemia;
                     case "nocturne": return MusicTheme.Nocturne;
-                    case "dechovka": return MusicTheme.Dechovka;
+                    case "mural": return MusicTheme.Mural;
                     case "ember": return MusicTheme.Ember;
+
+                    //The slot's old name — #264 replaced the piece, not the slot: a hand-edited file still
+                    //naming the polka gets the replacement rather than silently falling to whatever its
+                    //position happens to rotate to.
+                    case "dechovka": return MusicTheme.Mural;
                 }
 
             return (MusicTheme)(((index % THEME_COUNT) + THEME_COUNT) % THEME_COUNT);
@@ -1737,170 +1744,266 @@ namespace BS3D.Audio
 
         #endregion
 
-        #region Dechovka — the fourth theme (#164)
+        #region Mural — the fourth theme (#264)
 
-        //A MORAVIAN BRASS BAND. The other three are a dance floor, an orchestra over a dance floor, and a jazz
-        //trio; this is a village band, and two things make it one rather than "a polka preset".
+        //A BASS-LED GROOVE, and its axis is neither mode nor harmony: it is WHERE THE WEIGHT FALLS and WHICH
+        //REGISTER CARRIES THE TUNE. The other four keep the bass as accompaniment under a treble tune and put
+        //their low end squarely on the beat — Pulse and Bohemia four-on-the-floor, Nocturne's walk, Ember's
+        //backbeat. Here the kick never marks all four beats: the grid is the 3+3+2 TRESILLO (hits on 0-3-6
+        //and 8-11-14 — the victory fanfare already calls those eight counts the most danceable there are, and
+        //this piece builds its floor on that sentence), and THE HOOK IS THE BASS LINE: a melodic, pitched sub
+        //— the "log drum" the bass-first pop of the 2020s is built on — plays the tune at 41–98 Hz and
+        //everything above it answers. It replaced the Moravian brass band of #164, whose complaint was
+        //measured before it was filed: 34 % of its energy below 200 Hz against the set's 57–72.
         //
-        //THE OOM-PAH IS THE WHOLE TEXTURE, and it is a division of labour rather than a rhythm: the tuba takes
-        //every beat alternating ROOT and FIFTH, and the mid brass answers on every off-beat eighth with the
-        //chord. Neither ever plays where the other does. That interlock is what a band actually sounds like
-        //from across a square, and it is why this piece needs no drum part to feel like it is marching.
-        //
-        //THE TRIO MODULATES TO THE SUBDOMINANT, which is the form's own signature and the reason this is a
-        //fourth piece rather than a fourth chord pool. A march or a polka states its strains, then goes to a
-        //trio a fourth up and softer — the moment the band drops its volume and the clarinet takes over is the
-        //single most recognisable event in the idiom, and it costs one transpose applied to a flag.
-        //
-        //B flat major, because that is the key brass bands are built in: the instruments are pitched in it and
-        //the whole literature sits there. Plain triads, with a seventh only on the dominant - polka harmony is
-        //not where its interest lives, and dressing it up in Nocturne's extensions would make it a different
-        //piece wearing a hat.
+        //G MAJOR, plain triads. The set had no plain-major pop piece (Nocturne's C major reads as jazz
+        //because its chords are sevenths), and the savanna daylight this piece plays under wants sunny and
+        //open. The colour lives in the groove, not in extensions — the polka recorded that lesson about
+        //itself, and it survives the piece. The one exception is the held pad, which voices a NINTH over the
+        //chord: held colour only, never the bass and never a melody index.
 
-        //The tuba's own register, an octave and a half under the chords.
-        private static readonly int[] DECHOVKA_ROOT = { 34, 39, 41, 43, 36, 36 };   //Bb Eb F Gm Cm C7
+        //The riff's own register: fundamentals 41–98 Hz across the transpose roll, the window SubBass proved.
+        private static readonly int[] MURAL_ROOT = { 31, 36, 38, 40, 33, 35 };   //G1 C2 D2 E2 A1 B1
 
-        private static readonly int[][] DECHOVKA_ARP =
+        private static readonly int[][] MURAL_ARP =
         {
-            new[] { 58, 62, 65, 70 },   //0 Bb   I
-            new[] { 63, 67, 70, 75 },   //1 Eb   IV
-            new[] { 65, 69, 72, 75 },   //2 F7   V7 — the one seventh, and it is the only chord that must resolve
-            new[] { 67, 70, 74, 79 },   //3 Gm   vi
-            new[] { 60, 63, 67, 72 },   //4 Cm   ii
-            new[] { 60, 64, 67, 70 }    //5 C7   V/V — the one accidental in the piece, an E natural
+            new[] { 55, 59, 62, 67 },   //0 G : G3 B3 D4 G4
+            new[] { 60, 64, 67, 72 },   //1 C : C4 E4 G4 C5
+            new[] { 62, 66, 69, 74 },   //2 D : D4 F#4 A4 D5
+            new[] { 64, 67, 71, 76 },   //3 Em: E4 G4 B4 E5
+            new[] { 57, 60, 64, 69 },   //4 Am: A3 C4 E4 A4
+            new[] { 59, 62, 66, 71 }    //5 Bm: B3 D4 F#4 B4
         };
 
-        //Four bars, cadential, and every one of them ENDS AT HOME. A polka is not a piece that wanders: the
-        //phrase is a sentence with a full stop, which is what lets a dancer hear where it will land.
-        private static readonly int[][] DECHOVKA_PROGRESSIONS =
+        //The ninth of each chord, for the pad alone; -1 where it is not diatonic (Bm's would be C#), and the
+        //pad simply plays that chord plain — which is what keeps the roll's five progressions interchangeable.
+        private static readonly int[] MURAL_NINTH = { 69, 74, 76, 78, 71, -1 };
+
+        //Every one opens on G, so the riff and the melodies fit all five without knowing which was rolled,
+        //and four of the five end on D, the dominant, resolving onto the G at the top of the round — a
+        //four-bar loop that cadences rather than restarts (Bohemia's lesson). The third ends plagally on C,
+        //kept for variety: the one round that leans home instead of walking there.
+        private static readonly int[][] MURAL_PROGRESSIONS =
         {
-            new[] { 0, 0, 2, 0 },   //Bb Bb F7 Bb — the plainest, and the most common in the literature
-            new[] { 0, 1, 2, 0 },   //Bb Eb F7 Bb
-            new[] { 0, 3, 2, 0 },   //Bb Gm F7 Bb
-            new[] { 0, 4, 2, 0 },   //Bb Cm F7 Bb — the ii, which is as sophisticated as this gets
-            new[] { 0, 5, 2, 0 }    //Bb C7 F7 Bb — the secondary dominant, the one bit of colour
+            new[] { 0, 5, 1, 2 },   //G Bm C  D — the iii, the one bittersweet bar in the pool
+            new[] { 0, 3, 1, 2 },   //G Em C  D — the doo-wop turn, the sunniest of the five
+            new[] { 0, 2, 3, 1 },   //G D  Em C — the axis progression, modern pop's own; the plagal round
+            new[] { 0, 4, 1, 2 },   //G Am C  D
+            new[] { 0, 1, 0, 2 }    //G C  G  D — the plainest, gallery-simple
         };
 
-        private enum DechovkaPart { None, Strain, Trio }
+        //The riff's intervals over the chord root: root, fifth, octave — a perfect fifth sits over every
+        //chord in the pool, so the line needs no per-chord table. The THIRD is deliberately absent: two bass
+        //notes a third apart under 100 Hz read as mud rather than harmony, the same physics that keeps
+        //Ember's power chords thirdless.
+        private static readonly int[] MURAL_RIFF_INTERVAL = { 0, 7, 12 };
 
-        //THE STRAIN: the tune the band plays at you. Short notes, on the beat, stepwise and cheerful — a polka
-        //melody is meant to be whistled back after one hearing, so it does almost nothing clever.
-        private static readonly Note[][] DECHOVKA_STRAIN =
+        /// <summary>Which line, if any, a Mural section carries above the riff.</summary>
+        private enum MuralPart { None, Verse, Hook, Sentence }
+
+        //THE RIFF, the piece's hook: the double tresillo, with Tone indexing MURAL_RIFF_INTERVAL rather than
+        //a chord arp. The verse states it grounded; the chorus leaps to the octave, which is the lift — the
+        //same contrast every verse/chorus pair in this file is written on, played by the bass because here
+        //the bass is the singer. The bar's CLOSING gesture (step 14) is not in these arrays: it is rolled —
+        //see MURAL_TAIL_* and the push in the bake.
+        private static readonly Note[] MURAL_RIFF_VERSE =
         {
-            new[] { new Note(0, 0, 12, 2), new Note(2, 1, 12, 2), new Note(4, 2, 12, 4), new Note(8, 1, 12, 2), new Note(10, 0, 12, 6) },
-            new[] { new Note(0, 1, 12, 2), new Note(2, 2, 12, 2), new Note(4, 3, 12, 4), new Note(8, 2, 12, 2), new Note(10, 1, 12, 6) },
-            new[] { new Note(0, 2, 12, 2), new Note(2, 1, 12, 2), new Note(4, 0, 12, 4), new Note(8, 1, 12, 4), new Note(12, 2, 12, 4) },
-            new[] { new Note(0, 3, 12, 4), new Note(4, 2, 12, 4), new Note(8, 1, 12, 2), new Note(10, 0, 12, 6) }
+            new(0, 0, 0, 3), new(3, 0, 0, 3), new(6, 1, 0, 2), new(8, 0, 0, 2), new(11, 1, 0, 3)
         };
 
-        //THE TRIO TUNE: longer notes, higher, and legato where the strain is clipped. It has to sound like a
-        //relief after two strains of oom-pah or the modulation buys nothing.
-        private static readonly Note[][] DECHOVKA_TRIO =
+        private static readonly Note[] MURAL_RIFF_CHORUS =
         {
-            new[] { new Note(0, 2, 12, 8), new Note(8, 3, 12, 8) },
-            new[] { new Note(0, 3, 12, 6), new Note(6, 2, 12, 4), new Note(10, 1, 12, 6) },
-            new[] { new Note(0, 1, 12, 8), new Note(8, 2, 12, 8) },
-            new[] { new Note(0, 3, 24, 10), new Note(10, 2, 12, 6) }
+            new(0, 0, 0, 3), new(3, 2, 0, 3), new(6, 1, 0, 2), new(8, 0, 0, 2), new(11, 2, 0, 3)
         };
 
-        private readonly struct DechovkaSection
+        //Two authored closing gestures, swapped per pass (the ArpDown analogue): the fifth stepping down into
+        //the next root, or the octave thrown up off it. Variety in the hook's last word, no random note.
+        private static readonly Note[] MURAL_TAIL_DOWN = { new(14, 1, 0, 2) };
+        private static readonly Note[] MURAL_TAIL_UP = { new(14, 2, 0, 2) };
+
+        //THE VERSE, answered from above: a marimba speaking in the cells the riff leaves empty. The bass owns
+        //0-3-6 / 8-11-14; the answer lives between them, so tune and groove interlock rather than compete —
+        //the oom-pah's division of labour, kept from the piece this replaced because it was the one thing
+        //about it that worked. One CALL cell and one ANSWER cell, a bar each, the answer landing on the root;
+        //which of the two states first is rolled per pass.
+        private static readonly Note[] MURAL_CALL =
         {
-            public readonly bool Drum, Snare, Tuba, Pah, Counter;
-            public readonly DechovkaPart Part;
-            public readonly bool Trio;        //everything in this section sounds a fourth up, and softer
+            new(2, 2, 0, 1), new(5, 3, 0, 1), new(7, 2, 0, 2), new(13, 1, 0, 2)
+        };
+
+        private static readonly Note[] MURAL_ANSWER =
+        {
+            new(2, 3, 0, 1), new(5, 2, 0, 1), new(10, 1, 0, 2), new(13, 0, 0, 3)
+        };
+
+        //THE HOOK, the chorus tune: the riff's contour restated up top, on long notes at the tresillo's own
+        //starts, carried by the Keys with the marimba doubling an octave above — two genuinely different
+        //timbres in octaves read as a big chorus where a unison doubling reads as a louder verse. The peak is
+        //held back for the fourth bar, the file's own chorus rule.
+        private static readonly Note[][] MURAL_HOOK =
+        {
+            new[] { new Note(0, 2, 0, 5), new Note(6, 3, 0, 4), new Note(11, 2, 0, 4) },
+            new[] { new Note(0, 3, 0, 5), new Note(6, 2, 0, 4), new Note(11, 1, 0, 4) },
+            new[] { new Note(0, 2, 0, 5), new Note(6, 3, 0, 4), new Note(11, 3, 0, 4) },
+            new[] { new Note(0, 3, 12, 8), new Note(11, 2, 0, 4) }
+        };
+
+        //THE SENTENCE, for the prelude and the outro: state, the same cell a step higher, an answer that
+        //falls, a held note to rest on — the four-bar shape Bohemia proved and Pulse's breeze borrowed,
+        //because it is what stops a quiet section reading as a hole. On the marimba, in the chord's own
+        //register, over the flat floor.
+        private static readonly Note[][] MURAL_SENTENCE =
+        {
+            new[] { new Note(0, 0, 0, 5), new Note(6, 1, 0, 2), new Note(8, 2, 0, 8) },
+            new[] { new Note(0, 1, 0, 5), new Note(6, 2, 0, 2), new Note(8, 3, 0, 8) },
+            new[] { new Note(0, 3, 0, 4), new Note(4, 2, 0, 4), new Note(8, 1, 0, 6) },
+            new[] { new Note(0, 0, 12, 12) }
+        };
+
+        //THE CHANT, the final chorus's own event: the marimba abandons its answer role and chants the riff's
+        //tresillo on chord tones — melody become rhythm, the modern drop-hook, and a third carrier of the
+        //groove on the speakers that lose the sub entirely. It replaces the octave doubling there, never the
+        //Keys tune.
+        private static readonly Note[] MURAL_CHANT =
+        {
+            new(0, 0, 12, 2), new(3, 1, 12, 2), new(6, 2, 12, 2),
+            new(8, 3, 12, 2), new(11, 2, 12, 2), new(14, 1, 12, 2)
+        };
+
+        private readonly struct MuralSection
+        {
+            public readonly bool Kick, Snap, Shaker, Sixteenths, Riff, ChorusRiff, Floor, Pad, Stab;
+            public readonly MuralPart Part;
+            public readonly bool Chant;
             public readonly float Level;
 
-            public DechovkaSection(bool drum, bool snare, bool tuba, bool pah, bool counter,
-                DechovkaPart part, bool trio, float level)
+            public MuralSection(bool kick, bool snap, bool shaker, bool sixteenths, bool riff, bool chorusRiff,
+                bool floor, bool pad, bool stab, MuralPart part, bool chant, float level)
             {
-                Drum = drum; Snare = snare; Tuba = tuba; Pah = pah; Counter = counter;
-                Part = part; Trio = trio; Level = level;
+                Kick = kick; Snap = snap; Shaker = shaker; Sixteenths = sixteenths; Riff = riff;
+                ChorusRiff = chorusRiff; Floor = floor; Pad = pad; Stab = stab;
+                Part = part; Chant = chant; Level = level;
             }
         }
 
-        //The form, and it is the idiom's own rather than a pop one: strain, strain, second strain, second
-        //strain, TRIO, trio, strain home. Nine sections, ~2:20 a pass at these tempi.
+        //Nine sections, ~2:45 a pass, and the arc is the idiom's own: the bass introduces itself before any
+        //tune does, and the piece's one rare event is the bass left ALONE — where Pulse's shock borrows a
+        //chord from outside, Mural's is its own most characteristic voice with everything else stripped away.
         //
-        //                                 drum  snare  tuba   pah  count  part                    trio  level
-        private static readonly DechovkaSection[] DECHOVKA_ARRANGEMENT =
+        //                                kick   snap  shakr  16th   riff  chor.  floor  pad   stab  part                chant  level
+        private static readonly MuralSection[] MURAL_ARRANGEMENT =
         {
-            //0 The band counts itself in: oom-pah and drum, no tune yet.
-            new(true,  true,  true,  true,  false, DechovkaPart.None,   false, 0.80f),
-            //1 FIRST STRAIN.
-            new(true,  true,  true,  true,  false, DechovkaPart.Strain, false, 0.95f),
-            //2 Repeated, with the counter-line under it — a band repeats a strain and adds a part to it.
-            new(true,  true,  true,  true,  true,  DechovkaPart.Strain, false, 1.00f),
-            //3 SECOND STRAIN.
-            new(true,  true,  true,  true,  false, DechovkaPart.Strain, false, 0.96f),
-            //4 Repeated with the counter.
-            new(true,  true,  true,  true,  true,  DechovkaPart.Strain, false, 1.00f),
-            //5 TRIO, a fourth up and SOFTER — no snare, no counter. The band dropping its volume here is the
-            //most recognisable single moment in the idiom, and it is the reason the form exists.
-            new(true,  false, true,  true,  false, DechovkaPart.Trio,   true,  0.78f),
-            //6 Trio repeated, the counter back under it and the snare returning.
-            new(true,  true,  true,  true,  true,  DechovkaPart.Trio,   true,  0.90f),
-            //7 HOME. The first strain again in the home key, everything playing — the return is the point.
-            new(true,  true,  true,  true,  true,  DechovkaPart.Strain, false, 1.00f),
-            //8 OUTRO, falling away so the join to the next pass lands in silence like the other three.
-            new(true,  true,  true,  true,  false, DechovkaPart.None,   false, 0.70f)
+            //0 PRELUDE. Pad and the flat floor under the marimba's sentence, no kit and no riff — the piece
+            //opens on its warmth, and the groove arriving next is an event because nothing walked in with it.
+            new(false, false, false, false, false, false, true,  true,  false, MuralPart.Sentence, false, 0.42f),
+            //1 GROOVE-IN. The riff enters with the kit and NO tune: the bass line is the hook, so the player
+            //meets it as the piece's lead character before the marimba ever speaks. The kick holds out of the
+            //first half, so its landing is the section's own arrival.
+            new(true,  true,  true,  false, true,  false, false, false, false, MuralPart.None,     false, 0.85f),
+            //2 VERSE. The marimba answers the riff from the cells the riff leaves empty.
+            new(true,  true,  true,  false, true,  false, false, false, false, MuralPart.Verse,    false, 0.90f),
+            //3 CHORUS. The hook on the Keys with the marimba an octave over it, the riff leaping to octaves,
+            //the shaker doubling to sixteenths, the pad's ninth underneath: the lift is what plays, not a dial.
+            new(true,  true,  true,  true,  true,  true,  false, true,  true,  MuralPart.Hook,     false, 1.00f),
+            //4 VERSE, denser by the roll (rim knocks, embellished answers) rather than by parts.
+            new(true,  true,  true,  false, true,  false, false, false, false, MuralPart.Verse,    false, 0.90f),
+            //5 CHORUS.
+            new(true,  true,  true,  true,  true,  true,  false, true,  true,  MuralPart.Hook,     false, 1.00f),
+            //6 THE BREAK — the identity moment. The kit thins to a heartbeat and the bass takes the HOOK
+            //itself, an octave over its riff (98–196 Hz, so the thesis survives a phone speaker); the last
+            //two bars strip even that cover away and the log drum states the hook naked, a tom pickup handing
+            //the piece to the final chorus. Emptier, not quieter — and what remains IS the bass, so the low
+            //band holds where a conventional breakdown collapses (#186's lesson, inverted).
+            new(true,  true,  true,  false, false, false, false, false, false, MuralPart.None,     false, 0.85f),
+            //7 FINAL CHORUS. Everything, plus the piece's second event: the marimba stops doubling the tune
+            //and CHANTS the riff's own tresillo over it — melody become rhythm for the biggest eight bars.
+            new(true,  true,  true,  true,  true,  true,  false, true,  true,  MuralPart.Hook,     true,  1.00f),
+            //8 OUTRO. The kit is gone, the sentence comes back over the flat floor, and the fade across the
+            //whole section lands the join to the next pass in silence like the other four.
+            new(false, false, false, false, false, false, true,  true,  false, MuralPart.Sentence, false, 0.65f)
         };
 
-        /// <summary>A trio is a fourth above the strains — five semitones, the subdominant.</summary>
-        private const int TRIO_SHIFT = 5;
+        //The named sections: the groove-in holds its kick back (the arrival is the event), and the break is
+        //where the bass sings and then stands alone.
+        private const int MURAL_SECTION_GROOVE = 1;
+        private const int MURAL_SECTION_BREAK = 6;
 
-        /// <summary>How far to each side the answering "pah" sits, and how wide one desk of it spreads.</summary>
-        private const float PAN_BAND_ANSWER = 0.5f;
-        private const float PAN_BAND_DESK = 0.22f;
+        //How far off centre the shaker's alternate steps sit. It is this piece's image keeper — the one part
+        //that never stops — so it takes the ping-pong Pulse's arp takes, a step narrower: a shaker is a pair
+        //of hands, not a synthesizer.
+        private const float PAN_SHAKER = 0.55f;
 
-        //Where the two clarinet desks sit. They carry the tune in thirds, so they are the piece's one pair of
-        //genuinely different signals and therefore the whole of its width.
-        //
-        //They are NOT symmetric, and the asymmetry is doing a job: the second desk plays under the first
-        //(0.78 of its level), so seating them at equal distances left the band leaning 0.72 dB towards the
-        //louder one. The firsts sit nearer the middle and the seconds further out — which is how a band is
-        //actually seated, and which brings the two sides back level without touching either part's volume.
-        private const float PAN_CLARINET_FIRST = -0.42f;
-        private const float PAN_CLARINET_SECOND = 0.66f;
+        //How far apart the marimba's two strikes sit around the note's own seat. The piano's precedent, for
+        //the piano's reason — the width lives inside the note (two strikes a few cents apart) and the note
+        //stays put — so it IS the piano's figure: if that idiom's width is ever retuned, both voices move.
+        private const float PAN_MARIMBA_SPREAD = PAN_PIANO_SPREAD;
+
+        //How far to either side the final chorus's chant ping-pongs, hit by hit. Wider than the shaker: it
+        //is the loudest section's image keeper, and the marimba pair riding it keeps the hits from reading
+        //as hard-panned points.
+        private const float PAN_CHANT = 0.5f;
+
+        //Where the verse's call and answer cells sit: either side, answering each other across the field —
+        //two genuinely different phrases on two seats, the polka's own counter-line lesson (two answering
+        //parts belong on two sides). Only in the verses, where the groove always runs underneath; the
+        //sentence, which CAN be nearly alone, stays in the middle.
+        private const float PAN_MARIMBA_CALL = -0.30f;
+        private const float PAN_MARIMBA_ANSWER = 0.30f;
 
         /// <summary>
-        /// What one rendering of <see cref="MusicTheme.Dechovka"/> rolls. A polka's tempo band is narrow and
-        /// fast: below it the dance stops working and above it the oom-pah turns into a blur.
+        /// What one rendering of <see cref="MusicTheme.Mural"/> rolls. The band is the set's one true tempo
+        /// gap — Nocturne tops out at 104 and Bohemia starts at 112 — and it is narrow because the groove
+        /// blurs above it and sags below it; the felt pulse is the half-bar sway at ~52–56, the heartbeat
+        /// register, while the shaker keeps the sixteenths danceable.
         /// </summary>
-        private readonly struct DechovkaVariation
+        private readonly struct MuralVariation
         {
             public readonly float Bpm;
             public readonly int Transpose;
             public readonly int[] Progression;
-            public readonly float Embellish;
+            public readonly bool TailUp;        //the riff's closing gesture: octave up, or fifth stepping down
+            public readonly bool CallLeads;     //which half of the verse motif states first
+            public readonly bool PushAccents;   //the shaker leans a sixteenth ahead of the off-beats
+            public readonly float Glide;        //chance per bar that the tail SLIDES into the next bar's root
+            public readonly float Embellish;    //chance of an extra answer note in a verse bar
+            public readonly float Knock;        //chance of the rim knock on step 7
 
-            public DechovkaVariation(Random random)
+            public MuralVariation(Random random)
             {
-                Bpm = 116f + (float)random.NextDouble() * 16f;   //116-132
+                Bpm = 104f + (float)random.NextDouble() * 8f;
 
-                int[] steps = { -3, -2, 0, 2 };
+                //Whole tones and minor thirds only, the rule Pulse states. -3 puts the lowest root at E1,
+                //41 Hz — still inside the window SubBass proved audible through its harmonic ladder.
+                int[] steps = { -3, -2, 0, 0, 2, 3 };
                 Transpose = steps[random.Next(steps.Length)];
 
-                Progression = DECHOVKA_PROGRESSIONS[random.Next(DECHOVKA_PROGRESSIONS.Length)];
-                Embellish = 0.35f + (float)random.NextDouble() * 0.35f;
+                Progression = MURAL_PROGRESSIONS[random.Next(MURAL_PROGRESSIONS.Length)];
+                TailUp = random.NextDouble() < 0.5;
+                CallLeads = random.NextDouble() < 0.65;
+                PushAccents = random.NextDouble() < 0.4;
+                Glide = 0.20f + (float)random.NextDouble() * 0.25f;
+                Embellish = 0.25f + (float)random.NextDouble() * 0.30f;
+                Knock = 0.20f + (float)random.NextDouble() * 0.30f;
             }
         }
 
         /// <summary>
-        /// Dechovka (#164): a Moravian brass band. Nine sections, ~2:20 a pass, in B flat with a trio in the
-        /// subdominant. It adds one voice — the clarinet — and takes its tuba from <see cref="Brass"/> played
-        /// low, which is what a tuba is.
+        /// Mural (#264): a bass-led groove — the tune lives in the bass. Nine sections, ~2:45 a pass, in
+        /// G major on a 3+3+2 tresillo grid. It adds two voices, the <see cref="LogDrum"/> it is written for
+        /// and the <see cref="Marimba"/> that answers it, and retired the polka's clarinet with the polka.
         /// </summary>
-        private static float[] BakeDechovka(int seed)
+        private static float[] BakeMural(int seed)
         {
             Random random = new(seed);
-            DechovkaVariation variation = new(random);
+            MuralVariation variation = new(random);
 
             float secondsPerStep = 60f / (variation.Bpm * STEPS_PER_BEAT);
             int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
 
-            int sectionOutro = DECHOVKA_ARRANGEMENT.Length - 1;
-            int totalSteps = DECHOVKA_ARRANGEMENT.Length * STEPS_PER_SECTION;
+            int sectionOutro = MURAL_ARRANGEMENT.Length - 1;
+            int totalSteps = MURAL_ARRANGEMENT.Length * STEPS_PER_SECTION;
 
+            //A bar of room past the end, so the outro's last floor note rings out instead of being cut.
             float[] mix = NewMix(samplesPerStep * (totalSteps + STEPS_PER_BAR));
 
             for (int step = 0; step < totalSteps; step++)
@@ -1911,17 +2014,17 @@ namespace BS3D.Audio
 
                 int phrase = bar % 4;
                 int chord = variation.Progression[phrase];
+                int nextChord = variation.Progression[(phrase + 1) % 4];
 
                 int sectionIndex = bar / BARS_PER_SECTION;
-                DechovkaSection section = DECHOVKA_ARRANGEMENT[sectionIndex];
+                MuralSection section = MURAL_ARRANGEMENT[sectionIndex];
                 int barInSection = bar % BARS_PER_SECTION;
 
-                int[] arp = DECHOVKA_ARP[chord];
-                int root = DECHOVKA_ROOT[chord];
+                int[] arp = MURAL_ARP[chord];
+                int root = MURAL_ROOT[chord];
+                int transpose = variation.Transpose;
 
-                //The trio's fourth rides on the pass's own transpose, so the modulation is a property of the
-                //FORM and the key is a property of the roll — the two never have to know about each other.
-                int transpose = variation.Transpose + (section.Trio ? TRIO_SHIFT : 0);
+                bool lastBar = barInSection == BARS_PER_SECTION - 1;
 
                 float fade = sectionIndex == sectionOutro
                     ? 1f - (barInSection * STEPS_PER_BAR + inBar) / (float)STEPS_PER_SECTION
@@ -1930,103 +2033,224 @@ namespace BS3D.Audio
                 float level = section.Level * fade * fade;
                 if (level <= 0.001f) continue;
 
-                //THE DRUM ---------------------------------------------------------------------------------
-                //Bass drum on the beat, snare between: the village band's whole kit, and it is deliberately
-                //plain. Everything interesting here is in the oom-pah, not on the drums.
-                if (section.Drum && inBar % 8 == 0) Kick(mix, at, 0.75f * level);
-                if (section.Snare && (inBar == 4 || inBar == 12)) Snare(mix, at, 0.16f * level);
+                //The groove-in holds its kick out of its first half, so the kick's landing is the arrival —
+                //Pulse's intro plays the same card. The break's last two bars are the piece's one rare event:
+                //the bass alone, everything else silent.
+                bool grooveQuiet = sectionIndex == MURAL_SECTION_GROOVE && barInSection < 4;
+                bool breakSection = sectionIndex == MURAL_SECTION_BREAK;
+                bool naked = breakSection && barInSection >= 6;
 
-                //THE OOM ----------------------------------------------------------------------------------
-                //Every beat, alternating root and fifth. The alternation is not decoration: a tuba part that
-                //repeated the root would sit still, and the fifth is what makes the bass line walk in place.
-                if (section.Tuba && inBar % 4 == 0)
+                //THE BREAK'S BASS -------------------------------------------------------------------------
+                //The bass takes the hook itself, an octave over its riff: the melody tables one octave down
+                //put every note between the chord's root + 12 and + 24 — 98–330 Hz at the authored key, to
+                //392 across the transpose roll — which is where a phone speaker genuinely hears it. The
+                //hook's own octave shift is deliberately dropped down here: the peak bar's +12 would push a
+                //bass voice to ~660 Hz, a mid part rather than a bass singing. In the naked bars it is the
+                //only thing sounding; a tom pickup at the very end hands the piece to the final chorus.
+                if (breakSection)
                 {
-                    bool onFifth = (inBar / 4) % 2 == 1;
-                    int note = root + transpose + (onFifth ? 7 : 0);
+                    foreach (Note note in MURAL_HOOK[phrase])
+                        if (note.Step == inBar)
+                            LogDrum(mix, at, arp[note.Tone] + transpose - 12,
+                                secondsPerStep * (note.Length + 0.3f), 0.5f * level);
 
-                    //Short, so the note is stopped before the "pah" answers it - the gap between them IS the
-                    //texture, and a tuba held through the off-beat turns the whole thing to porridge.
-                    Brass(mix, at, note, secondsPerStep * 2.6f, 0.62f * level);
+                    if (naked)
+                    {
+                        if (barInSection == 7 && inBar >= 12)
+                            Tom(mix, at, 96f + (inBar - 12) * 14f, 0.8f * level);
+
+                        //Everything below is the silence the naked bars are made of.
+                        continue;
+                    }
                 }
 
-                //THE PAH ----------------------------------------------------------------------------------
-                //The chord, on every off-beat eighth, never where the tuba is. Clipped short for the same
-                //reason.
-                //
-                //ANTIPHONAL: successive "pah"s answer from opposite sides of the stand, which is both how a
-                //band is actually seated and the only thing that gives this piece an image at all. Seating the
-                //chord's notes SYMMETRICALLY across the field — the pad's idiom, and the first thing tried
-                //here — turned out to buy almost nothing: four simultaneous voices placed evenly about the
-                //centre sum back to the centre, and with the tuba and the bass drum both anchored there by the
-                //low-end rule the whole band measured 0.03 side/mid, i.e. mono. Alternating in TIME is
-                //asymmetric in a way a spread chord is not, and it is the same trick Pulse's ping-ponged arp
-                //uses for the same reason.
-                if (section.Pah && inBar % 4 == 2)
+                //DRUMS ------------------------------------------------------------------------------------
+                //The kick on the bar and on the AND of beat three — never all four beats: the tresillo is the
+                //grid, and a floor under it would put the piece back on the dance floor it exists to leave.
+                if (section.Kick && !grooveQuiet)
                 {
-                    float side = (inBar / 4) % 2 == 0 ? -PAN_BAND_ANSWER : PAN_BAND_ANSWER;
+                    if (breakSection) { if (inBar == 0) Kick(mix, at, 0.85f * level); }
+                    else if (inBar == 0 || inBar == 10) Kick(mix, at, 0.9f * level);
+                }
 
+                if (section.Snap && (inBar == 4 || inBar == 12)) Clap(mix, at, 0.8f * level);
+
+                //THE SHAKER, this piece's timekeeper and its image: eighths under the verses, sixteenths
+                //under the choruses, ping-ponged on alternate steps — the one part that never stops, so it is
+                //what keeps the field alive through the tune's rests (Pulse's arp lesson, on a pair of
+                //hands). Which steps it leans on is rolled per pass: the off-beat eighths, or a sixteenth
+                //ahead of them.
+                if (section.Shaker)
+                {
+                    bool plays = section.Sixteenths || inBar % 2 == 0;
+                    if (breakSection) plays = inBar % 4 == 2;   //thinned to a pulse under the singing bass
+
+                    if (plays)
+                    {
+                        //The break's pulse keeps ONE authored level: the accent roll says where the groove
+                        //leans, and the break has no groove to lean — left coupled, the roll silently became
+                        //a 2x level switch on the section's only timekeeper.
+                        bool lean = !breakSection
+                            && (variation.PushAccents ? inBar % 4 == 3 : inBar % 4 == 2);
+
+                        Hat(mix, at, open: false,
+                            level: (breakSection ? 0.18f : lean ? 0.30f : 0.16f) * level,
+                            pan: inBar % 2 == 0 ? -PAN_SHAKER : PAN_SHAKER);
+                    }
+
+                    //The open lift on the phrase's last push, the one place the kit looks up.
+                    if (!breakSection && inBar == 14 && barInSection % 4 == 3)
+                        Hat(mix, at, open: true, level: 0.22f * level, pan: PAN_HAT);
+                }
+
+                //The rim knock: a high tight tom on the seventh step, rolled per bar — the hand-drum detail
+                //that stops eight sparse bars reading as sequenced. Seated by Tom's own pitch rule.
+                if (section.Riff && inBar == 7 && random.NextDouble() < variation.Knock)
+                    Tom(mix, at, 420f, 0.22f * level);
+
+                //A two-hit rising tom pickup out of every full section: the handoff, ascending because the
+                //groove leans forward.
+                if (section.Kick && !grooveQuiet && !breakSection && lastBar && inBar >= 14)
+                    Tom(mix, at, 96f + (inBar - 14) * 26f, 0.6f * level);
+
+                //THE RIFF ---------------------------------------------------------------------------------
+                if (section.Riff)
+                {
+                    Note[] riff = section.ChorusRiff ? MURAL_RIFF_CHORUS : MURAL_RIFF_VERSE;
+
+                    foreach (Note note in riff)
+                        if (note.Step == inBar)
+                            LogDrum(mix, at, root + MURAL_RIFF_INTERVAL[note.Tone] + transpose,
+                                secondsPerStep * (note.Length + 0.3f), 0.46f * level);
+
+                    //The closing gesture: the rolled tail, or — the roll willing — the PUSH: the next bar's
+                    //root an eighth early (step 14 of 16), SLIDING into the downbeat from a whole tone
+                    //below. The walking bass's approach note reborn as a portamento, and the one
+                    //unmistakably modern gesture the voice allows itself; kept small and off the downbeat,
+                    //or the slide becomes the cartoon a log drum must never be.
+                    if (inBar == 14)
+                    {
+                        if (random.NextDouble() < variation.Glide)
+                        {
+                            int target = MURAL_ROOT[nextChord] + transpose;
+                            LogDrum(mix, at, target, secondsPerStep * 2.3f, 0.42f * level,
+                                glideFrom: target - 2);
+                        }
+                        else
+                        {
+                            Note[] tail = variation.TailUp ? MURAL_TAIL_UP : MURAL_TAIL_DOWN;
+                            foreach (Note note in tail)
+                                LogDrum(mix, at, root + MURAL_RIFF_INTERVAL[note.Tone] + transpose,
+                                    secondsPerStep * (note.Length + 0.3f), 0.40f * level);
+                        }
+                    }
+                }
+
+                //THE FLOOR --------------------------------------------------------------------------------
+                //Only where the riff is NOT playing: under the groove the log drum's own tails are the floor,
+                //and a sustained note beneath them would be the doubling-to-mud fault #186 documents. In the
+                //kitless sections it holds dead flat — there is no kick to duck to — which is what gives the
+                //prelude and the outro a bottom.
+                if (section.Floor && inBar == 0)
+                    SubBass(mix, at, root + transpose, secondsPerStep * (STEPS_PER_BAR + 0.4f), 0.20f * level,
+                        duck: 0f, beatSeconds: 0f);
+
+                //THE PAD ----------------------------------------------------------------------------------
+                //An octave under the melody tables, with the NINTH voiced in where it is diatonic — the one
+                //piece of modern-pop sugar this piece allows itself, and only here: held colour, never the
+                //bass and never a melody index.
+                if (section.Pad && inBar == 0)
+                {
                     for (int voice = 0; voice < arp.Length; voice++)
-                        Brass(mix, at, arp[voice] + transpose - 12, secondsPerStep * 1.7f, 0.115f * level,
-                            pan: side + ChordPan(voice, arp.Length, PAN_BAND_DESK));
+                        Pad(mix, at, arp[voice] - 12 + transpose, secondsPerStep * 15.5f, 0.08f * level,
+                            pan: ChordPan(voice, arp.Length, PAN_PAD_SPREAD));
+
+                    if (MURAL_NINTH[chord] >= 0)
+                        Pad(mix, at, MURAL_NINTH[chord] - 12 + transpose, secondsPerStep * 15.5f, 0.05f * level);
                 }
 
-                //THE COUNTER-LINE ------------------------------------------------------------------------
-                //A second brass part moving in longer notes under the tune, added when a strain repeats. It is
-                //the cheapest way a band gets bigger the second time through without getting louder.
-                //Seated on the RIGHT, opposite the clarinet: it is the part that answers the tune, and putting
-                //both on one side leaned the whole piece a full decibel (measured). Two answering parts belong
-                //on two sides, which is also where the players would be standing.
-                if (section.Counter && inBar == 0)
-                    Brass(mix, at, arp[1] + transpose - 12, secondsPerStep * 7.5f, 0.14f * level,
-                        pan: PAN_BRASS_SPREAD);
+                //THE STAB ---------------------------------------------------------------------------------
+                //A short keys chord with the kick's off-beat push: the chorus's comp, on the one step nothing
+                //else owns (the riff holds 8 and 11, the backbeat 12 — 10 is the kick's own push).
+                if (section.Stab && inBar == 10)
+                    for (int voice = 0; voice < arp.Length; voice++)
+                        Keys(mix, at, arp[voice] - 12 + transpose, secondsPerStep * 2.5f, 0.09f * level,
+                            pan: ChordPan(voice, arp.Length, PAN_PAD_SPREAD));
+
+                //THE CHANT --------------------------------------------------------------------------------
+                //The final chorus only: the marimba chants the riff's own tresillo on chord tones, ping-
+                //ponged hit by hit — melody become rhythm, and a third carrier of the groove on the speakers
+                //that lose the sub entirely. Seated by the HIT's index, the same stability argument ChordPan
+                //makes for a chord's voices.
+                if (section.Chant)
+                    for (int hit = 0; hit < MURAL_CHANT.Length; hit++)
+                    {
+                        Note note = MURAL_CHANT[hit];
+                        if (note.Step != inBar) continue;
+
+                        Marimba(mix, at, arp[note.Tone] + note.Octave + transpose,
+                            secondsPerStep * (note.Length + 0.5f), 0.20f * level,
+                            pan: hit % 2 == 0 ? -PAN_CHANT : PAN_CHANT);
+                    }
 
                 //THE TUNE ---------------------------------------------------------------------------------
-                if (section.Part == DechovkaPart.None) continue;
+                if (section.Part == MuralPart.None) continue;
 
-                Note[] line = section.Part == DechovkaPart.Strain
-                    ? DECHOVKA_STRAIN[phrase]
-                    : DECHOVKA_TRIO[phrase];
+                if (section.Part == MuralPart.Sentence)
+                {
+                    //Centred: in the prelude this is very nearly the only thing sounding, and whatever may
+                    //play alone belongs in the middle.
+                    foreach (Note note in MURAL_SENTENCE[phrase])
+                        if (note.Step == inBar)
+                            Marimba(mix, at, arp[note.Tone] + note.Octave + transpose,
+                                secondsPerStep * (note.Length + 0.5f), 0.30f * level, pan: PAN_CENTRE);
 
-                foreach (Note note in line)
+                    continue;
+                }
+
+                if (section.Part == MuralPart.Verse)
+                {
+                    //Call and answer, a bar each, in the cells the riff leaves empty, ANSWERING ACROSS THE
+                    //FIELD — the call from one side, the answer from the other. Which states first is the
+                    //pass's own; the answer lands on the root, so every second bar comes home.
+                    bool callBar = (bar % 2 == 0) == variation.CallLeads;
+                    Note[] cell = callBar ? MURAL_CALL : MURAL_ANSWER;
+                    float seat = callBar ? PAN_MARIMBA_CALL : PAN_MARIMBA_ANSWER;
+
+                    foreach (Note note in cell)
+                        if (note.Step == inBar)
+                            Marimba(mix, at, arp[note.Tone] + note.Octave + transpose,
+                                secondsPerStep * (note.Length + 0.5f), 0.30f * level, pan: seat);
+
+                    //One extra chord tone in a cell the written bar leaves empty — on the grid, drawn from
+                    //the chord, so it can only ever sound like part of the tune. It takes the bar's own seat.
+                    if (inBar == 9 && random.NextDouble() < variation.Embellish)
+                        Marimba(mix, at, arp[2] + transpose, secondsPerStep * 1.5f, 0.22f * level,
+                            pan: seat);
+
+                    continue;
+                }
+
+                //The hook: the Keys carry it dead centre — it is the tune of the piece's biggest sections,
+                //and the rule this file learned twice is that whatever carries a piece belongs in the middle.
+                //The marimba doubles an octave up, except where the chant already owns that register.
+                foreach (Note note in MURAL_HOOK[phrase])
                 {
                     if (note.Step != inBar) continue;
 
                     int pitch = arp[note.Tone] + note.Octave + transpose;
 
-                    //TWO CLARINETS IN THIRDS, one either side, and this is the idiom's own scoring rather than
-                    //a stereo trick — a village band's clarinets play the tune in parallel thirds, and it is
-                    //what the melody of a polka sounds like. It is also the only thing that gives this piece
-                    //an image, and the reason is #119's: width comes from genuinely DIFFERENT signals, not
-                    //from one signal at two levels. Everything tried before this failed for that reason — the
-                    //chord seated symmetrically summed back to the centre, and answering it across the stand
-                    //moved nothing, because Brass anchors its own sub to the middle whatever its pan says.
-                    //Centred as a PAIR, so the tune still sits in the middle where a lead belongs.
-                    float voiceLevel = (section.Trio ? 0.34f : 0.30f) * level;
-                    float held = secondsPerStep * (note.Length + 0.8f);
+                    Keys(mix, at, pitch, secondsPerStep * (note.Length + 1.2f), 0.30f * level,
+                        pan: PAN_CENTRE);
 
-                    Clarinet(mix, at, pitch, held, voiceLevel, pan: PAN_CLARINET_FIRST);
-
-                    //The lower desk, a third under in the CHORD rather than by a fixed interval — so it is
-                    //consonant by construction, the same rule every melody in this file is written by.
-                    int below = note.Tone - 1;
-                    int harmony = below >= 0
-                        ? arp[below] + note.Octave + transpose
-                        : arp[arp.Length - 1] + note.Octave + transpose - 12;
-
-                    Clarinet(mix, at, harmony, held, voiceLevel * 0.78f, pan: PAN_CLARINET_SECOND);
-                }
-
-                //A grace note into the next beat, rolled per pass: the ornament a clarinettist puts in without
-                //being asked, and the one place this piece is allowed to be showy.
-                if (section.Part == DechovkaPart.Strain && inBar == 14
-                    && random.NextDouble() < variation.Embellish)
-                {
-                    Clarinet(mix, at, arp[0] + 12 + transpose - 2, secondsPerStep * 1.2f, 0.16f * level);
+                    if (!section.Chant)
+                        Marimba(mix, at, pitch + 12, secondsPerStep * (note.Length + 0.5f), 0.17f * level,
+                            pan: PAN_CENTRE);
                 }
             }
 
-            //The same target the other three take: a band playing in a square is not quieter than a dance
-            //track, and a level step between two entries of one set is the thing this number exists to avoid.
+            //The set's own target: a groove is not quieter than a dance track, and a level step between two
+            //entries of one set is the thing this number exists to prevent.
             Limit(mix, targetRms: 0.20f, ceiling: 0.95f);
 
             return mix;
@@ -2037,9 +2261,9 @@ namespace BS3D.Audio
         #region Ember — the fifth theme (#163)
 
         //A ROCK BALLAD, and what makes it a fifth piece rather than a fifth chord pool is GAIN. Pulse and
-        //Bohemia differ in mode over one dance floor, Nocturne in harmony and in time, Dechovka in its form;
-        //this one differs in the amplifier. Three consequences follow from that one fact, and each of them is
-        //a decision the other four pieces never had to make.
+        //Bohemia differ in mode over one dance floor, Nocturne in harmony and in time, Mural in its grid and
+        //its register; this one differs in the amplifier. Three consequences follow from that one fact, and
+        //each of them is a decision the other four pieces never had to make.
         //
         //THE CHORDS HAVE NO THIRD IN THEM. Distortion is a non-linearity, so notes played into one do not
         //merely add — they multiply, and the sum and difference tones of every pair land back in the signal.
@@ -2474,7 +2698,7 @@ namespace BS3D.Audio
                 }
             }
 
-            //The set's own target. A ballad is not quieter than a polka; what makes it a ballad is what is in
+            //The set's own target. A ballad is not quieter than a groove; what makes it a ballad is what is in
             //it, and a level step between two entries of one set is the thing this number exists to prevent.
             Limit(mix, targetRms: 0.20f, ceiling: 0.95f);
 
@@ -3337,59 +3561,138 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// The clarinet (#164): the voice a village band is recognised by, and the one thing in Dechovka that
-        /// could not be borrowed. It is built on the fact that a clarinet is a <b>cylindrical pipe stopped at
-        /// one end</b>, which is not a timbre choice but an acoustic one:
+        /// The log drum (#264): the bass that carries <see cref="MusicTheme.Mural"/>'s tune, and the voice
+        /// the bass-first pop of the 2020s is named by. It is a recombination of three things this file
+        /// already proved — which is why it comes out as the real article rather than an imitation, because
+        /// the real article is exactly this synthesis:
         /// <list type="bullet">
-        /// <item><b>Odd harmonics only</b>, which is what a stopped pipe resonates and what makes the low
-        /// register sound hollow and woody rather than bright. A square wave is exactly that spectrum, so this
-        /// is the one voice here that wants a square and not a saw — the same oscillator the DOS-era
-        /// <see cref="Arp"/> uses, put to the opposite purpose.</item>
-        /// <item><b>It SUSTAINS.</b> A reed is blown, not struck: no decay to speak of until the release, or
-        /// a melody line comes out as a row of separate plinks instead of a phrase.</item>
-        /// <item><b>Breath across the attack</b> — a fifth of a second of quiet noise. Without it the note
-        /// starts from mathematical silence, which is the single thing that gives a synthesised wind
-        /// instrument away.</item>
-        /// <item><b>Vibrato that arrives late.</b> A player leans into a held note rather than starting with
-        /// it, exactly as the string section does.</item>
+        /// <item><b>A pitch that drops and SETTLES.</b> The strike starts 2.4× sharp and lands on the note
+        /// within ~45 ms — the <see cref="Timpani"/>'s own distinction: a sweep that keeps falling is a tom,
+        /// one that settles is tuned. The settle is what separates this voice from <see cref="Kick"/> by
+        /// construction: a log drum is a bass NOTE with a knock in front, not a drum at a wrong pitch.</item>
+        /// <item><b><see cref="SubBass"/>'s harmonic ladder, one rung longer</b> (0.28 / 0.12 / 0.04), then a
+        /// gentle normalised waveshaper (<see cref="Guitar"/>'s tanh at a fraction of its drive). The
+        /// fundamentals run 41–98 Hz, which a phone reproduces not at all; the ladder and the shaper's
+        /// products are the audibility, not the colour — and because the TUNE itself lives down here, this
+        /// voice depends on that lesson harder than SubBass ever did.</item>
+        /// <item><b>A knock across the attack</b> — a few milliseconds of low band noise — so the rhythm
+        /// still arrives on speakers that lose every trace of the pitch.</item>
+        /// <item><b>It can SLIDE.</b> Given <paramref name="glideFrom"/> the pitch approaches from that note
+        /// instead of knocking — the walking bass's approach note as a portamento. The caller keeps it rare,
+        /// small and off the downbeats, or the slide becomes a cartoon.</item>
+        /// <item><b>It is centred</b>, unconditionally: the lowest and the loudest sustained thing in its
+        /// piece, which is the low-stays-centre rule twice over.</item>
         /// </list>
         /// </summary>
-        /// <param name="pan">Which desk it is playing from — the pair sits either side of the tune's centre.</param>
-        private static void Clarinet(float[] mix, int at, int note, float seconds, float level, float pan = PAN_CENTRE)
+        /// <param name="glideFrom">MIDI note the pitch slides in from, or -1 for the struck knock.</param>
+        private static void LogDrum(float[] mix, int at, int note, float seconds, float level, int glideFrom = -1)
         {
             int length = (int)(SAMPLE_RATE * seconds);
             int frames = Frames(mix);
             float freq = Frequency(note);
+
+            //The strike, or the slide: an exponential settle onto the note either way — sharp and fast for
+            //the knock, from the approach note and slower for the glide.
+            float startRatio = glideFrom >= 0 ? Frequency(glideFrom) / freq : 2.4f;
+            float settle = glideFrom >= 0 ? 34f : 80f;
+
+            //The drive and its normalisation belong together: the ladder below peaks at 1.44, and
+            //tanh(1.44 × 1.25) over tanh(1.8) puts the driven peak back at one (Guitar's own arithmetic).
+            float normalise = 1f / MathF.Tanh(1.8f);
+
             float phase = 0f, lp = 0f;
 
-            PanGains(pan, out float gainLeft, out float gainRight);
+            PanGains(PAN_CENTRE, out float gainLeft, out float gainRight);
 
             for (int i = 0; i < length && at + i < frames; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
 
-                //Blown: ~30 ms to speak, flat through the middle, and a release long enough that consecutive
-                //notes of a phrase run into one another.
-                float attack = MathF.Min(1f, t / 0.03f);
-                float release = MathF.Min(1f, (seconds - t) / 0.09f);
-                float env = attack * release;
-                if (env <= 0f) continue;
+                //~20 ms in — long enough that where a kick shares the step, the kick's transient owns the
+                //strike and this is its body, the genre's own layering — then a sung decay, out over 60 ms.
+                //Skipped, never stopped: the ramp is zero on the first samples (#218's lesson).
+                float env = MathF.Min(1f, t / 0.02f) * MathF.Exp(-t * 4.5f) * MathF.Min(1f, (seconds - t) / 0.06f);
+                if (env <= 0.0005f) continue;
 
-                float vibrato = 1f + 0.004f * MathF.Sin(2f * MathF.PI * 5.4f * t)
-                    * MathF.Min(1f, MathF.Max(0f, (t - 0.12f) / 0.3f));
+                float f = freq * (1f + (startRatio - 1f) * MathF.Exp(-t * settle));
+                phase += 2f * MathF.PI * f / SAMPLE_RATE;
+                if (phase >= MathF.Tau) phase -= MathF.Tau;   //wrapped whole, so the ladder stays continuous
 
-                phase += freq * vibrato / SAMPLE_RATE;
-                if (phase >= 1f) phase -= 1f;
+                //The ladder rides the one wrapped accumulator, so the harmonics track the settle exactly.
+                float body = MathF.Sin(phase) + 0.28f * MathF.Sin(phase * 2f)
+                    + 0.12f * MathF.Sin(phase * 3f) + 0.04f * MathF.Sin(phase * 4f);
 
-                //The pipe: a square for its odd harmonics, then a low-pass that opens only a little with the
-                //envelope. A clarinet gets louder without getting much brighter, which is most of why it does
-                //not read as a synth lead.
-                float square = PolyBlepSquare(phase, freq / SAMPLE_RATE);
-                lp += CutoffToAlpha(1100f + 900f * env) * (square - lp);
+                //Driven gently and normalised (spectrum, not level), then rounded by one pole so the shaper's
+                //top end stays rubber rather than buzz.
+                float driven = MathF.Tanh(body * 1.25f) * normalise;
+                lp += CutoffToAlpha(700f) * (driven - lp);
 
-                float breath = t < 0.2f ? Noise(i, 131) * 0.09f * (1f - t / 0.2f) : 0f;
+                float knock = t < 0.008f ? BandNoise(i, 200f, 1500f, 173) * 0.4f * (1f - t / 0.008f) : 0f;
 
-                Add(mix, at + i, (lp * 0.8f + breath) * level * env, gainLeft, gainRight);
+                Add(mix, at + i, (lp * 0.8f + knock) * level * env, gainLeft, gainRight);
+            }
+        }
+
+        /// <summary>
+        /// The marimba (#264): <see cref="MusicTheme.Mural"/>'s answering voice — a struck BAR, and the
+        /// acoustics is the recipe:
+        /// <list type="bullet">
+        /// <item><b>The bar's tuned second mode sits near TWO octaves up</b> — 4.02× the fundamental, not the
+        /// string's 2× or the tine's bright 3.93×: a marimba bar is deliberately carved until that mode lands
+        /// there, and it is the interval the ear names the instrument by. Slightly off the exact double
+        /// octave, for the reason the Keys' tine is off its series: dead in tune reads as an organ stop. It
+        /// dies several times faster than the fundamental, so the note goes from woody to round as it rings —
+        /// and being near-harmonic it stays WARM where a 5–6× partial goes metallic, which is the ringtone
+        /// trap (#210's glockenspiel, one register down).</item>
+        /// <item><b>A mallet, not a hammer:</b> a few milliseconds of mid-band thump, and a filter that
+        /// closes as the note dies (<see cref="UprightBass"/>'s trick — a struck bar dulls, it does not
+        /// switch off).</item>
+        /// <item><b>Two strikes a few cents apart</b>, seated just off either side of the note's own seat —
+        /// the piano's two-string idiom: the width lives inside the note and the note stays put.</item>
+        /// </list>
+        /// </summary>
+        private static void Marimba(float[] mix, int at, int note, float seconds, float level, float pan = PAN_CENTRE)
+        {
+            int length = (int)(SAMPLE_RATE * seconds);
+            int frames = Frames(mix);
+            float freq = Frequency(note);
+
+            float[] detune = { 0.9985f, 1.0015f };
+            float[] phases = { 0f, 0.41f };
+
+            float[] gainLeft = new float[2];
+            float[] gainRight = new float[2];
+            for (int s = 0; s < 2; s++)
+                PanGains(pan + (s == 0 ? -PAN_MARIMBA_SPREAD : PAN_MARIMBA_SPREAD), out gainLeft[s], out gainRight[s]);
+
+            float[] lp = { 0f, 0f };
+
+            for (int i = 0; i < length && at + i < frames; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                //Struck at once, rings about half a second, released before the buffer runs out. Skipped,
+                //never stopped: the attack ramp is zero on the first samples (#218's lesson).
+                float env = MathF.Min(1f, t / 0.0015f) * MathF.Exp(-t * 5.5f) * MathF.Min(1f, (seconds - t) / 0.05f);
+                if (env <= 0.0006f) continue;
+
+                //The mallet: one thump, both strikes.
+                float mallet = t < 0.005f ? BandNoise(i, 400f, 3000f, 167) * 0.3f * (1f - t / 0.005f) : 0f;
+
+                //Closing as it dies — bright at the strike, round in the tail.
+                float alpha = CutoffToAlpha(600f + 5200f * env);
+
+                for (int s = 0; s < 2; s++)
+                {
+                    float f = freq * detune[s];
+
+                    float value = MathF.Sin(2f * MathF.PI * f * t + phases[s])
+                        + 0.4f * MathF.Sin(2f * MathF.PI * f * 4.02f * t + phases[s]) * MathF.Exp(-t * 28f);
+
+                    lp[s] += alpha * (value * 0.6f + mallet - lp[s]);
+
+                    Add(mix, at + i, lp[s] * env * level, gainLeft[s], gainRight[s]);
+                }
             }
         }
 

@@ -68,7 +68,7 @@ namespace Prazsky.BS3D.Levels
 
         /// <summary>
         /// Which composition this level plays (#120) — <c>"pulse"</c>, <c>"bohemia"</c>, <c>"nocturne"</c>,
-        /// <c>"dechovka"</c> or <c>"ember"</c>. Null, which is the normal case, leaves it to the set's own
+        /// <c>"mural"</c> or <c>"ember"</c>. Null, which is the normal case, leaves it to the set's own
         /// rotation: a level's position picks the piece, so a set has variety without a single file having
         /// to say anything. Name one only to pin it.
         /// <para>
