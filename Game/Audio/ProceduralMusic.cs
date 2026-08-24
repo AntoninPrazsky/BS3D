@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
 using System;
 using System.Threading.Tasks;
@@ -330,6 +330,66 @@ namespace BS3D.Audio
         //the fireworks' reports to be heard alongside.
         private const float FANFARE_VOLUME = 0.55f;
 
+        //How long a piece the player is walking away from takes to leave (#211). Switching used to cut dead,
+        //which is right where the silence itself is the message — a level's endings, see Stop — and wrong
+        //everywhere one piece merely REPLACES another. Three windows rather than one because the three exits
+        //differ: the theme is a whole limited dance mix and can be left mid-chorus, the widest thing here to
+        //put down gently; leaving the lobby loop should feel prompt, it is a level starting; and a fanfare
+        //fading under a level already being built is furniture being cleared, not a piece ending. The
+        //INCOMING side never needs a ramp — every arrival is authored soft (the theme's prelude, the loop's
+        //held pads, and a fanfare is an announcement and correct arriving hard) — so fading the outgoing
+        //piece alone already is the crossfade the switch wants.
+        private const float THEME_FADE_SECONDS = 0.9f;
+        private const float MENU_FADE_SECONDS = 0.5f;
+        private const float FANFARE_FADE_SECONDS = 0.4f;
+
+        /// <summary>
+        /// One instance's departure (#211): a level walking towards a target at a stated full-scale time,
+        /// applied to the voice <b>squared</b> — the arrangements' own outro curve, whose tail reads smoother
+        /// than a straight line. It is a multiplier over the authored volume and the player's
+        /// <see cref="Gain"/>, so the fade and the settings cannot fight over one <c>Volume</c> property.
+        /// </summary>
+        private sealed class Fade
+        {
+            private float _seconds = 1f;
+
+            public float Level { get; private set; } = 1f;
+            public float Target { get; private set; } = 1f;
+
+            /// <summary>What the instance's authored volume is multiplied by.</summary>
+            public float Applied => Level * Level;
+
+            /// <summary>True once a fade-out has arrived — the frame to actually stop the instance on.</summary>
+            public bool Silent => Target == 0f && Level == 0f;
+
+            public void To(float target, float seconds)
+            {
+                Target = target;
+                _seconds = seconds;
+            }
+
+            /// <summary>Rest at full, instantly — what putting a fresh pass on does.</summary>
+            public void Reset()
+            {
+                Level = 1f;
+                Target = 1f;
+            }
+
+            /// <summary>Walks the level one frame towards the target. True when it moved.</summary>
+            public bool Advance(float elapsed)
+            {
+                if (Level == Target) return false;
+
+                float step = elapsed / _seconds;
+
+                Level = Level > Target
+                    ? MathF.Max(Target, Level - step)
+                    : MathF.Min(Target, Level + step);
+
+                return true;
+            }
+        }
+
         private readonly Random _seeds;
 
         private MusicTheme _theme;        //which composition passes are rendered from; see SetTheme
@@ -360,6 +420,33 @@ namespace BS3D.Audio
         private DynamicSoundEffectInstance _voice;
         private bool _wanted;             //the game wants music; the chain may be mid-pass
         private bool _failed;
+
+        private readonly Fade _menuFade = new();
+        private readonly Fade _fanfareFade = new();
+
+        /// <summary>
+        /// A chain on its way out (#211). <see cref="SetTheme"/> and <see cref="FadeOut"/> used to dispose the
+        /// sounding voice on the spot, which is the hard cut a switch used to be; it moves here instead and
+        /// keeps playing while it fades, disposed only once it has arrived at silence. <see cref="_voice"/> is
+        /// nulled with the handover, so <see cref="Advance"/> builds the new piece's chain underneath it and
+        /// the two sound together for the fade's width — which is the crossfade.
+        /// <para>
+        /// One slot is enough: reaching a switch twice inside one fade is not a flow the menus have, and a
+        /// still-fading previous occupant is let go where it stands rather than queued behind. It also carries
+        /// no feed — <see cref="Update"/> submits passes to <see cref="_voice"/> alone, so a retiring chain
+        /// plays out what it already holds and no further.
+        /// </para>
+        /// <para>
+        /// <b>This is the only theme fade there is, and that is what the chain bought.</b> The design this was
+        /// ported from faded the sounding instance in place and needed a second fade for it, plus a special
+        /// case so a <see cref="Play"/> arriving mid-fade did not resurrect the piece being left. Retiring the
+        /// chain into a slot instead makes the sounding voice's volume a constant — a pass plays at full or
+        /// it is not the pass any more — so neither is needed.
+        /// </para>
+        /// </summary>
+        private DynamicSoundEffectInstance _retiring;
+
+        private readonly Fade _retiringFade = new();
 
         //The fanfare is its own instance so it is independent of the loop: Stop() silences the level's theme
         //without cutting off the piece that is announcing the result.
@@ -451,8 +538,9 @@ namespace BS3D.Audio
             {
                 _gain = value;
                 if (_voice != null) _voice.Volume = MUSIC_VOLUME * _gain;
-                if (_fanfare != null) _fanfare.Volume = FANFARE_VOLUME * _gain;
-                if (_menu != null) _menu.Volume = MENU_VOLUME * _gain;
+                if (_fanfare != null) _fanfare.Volume = FANFARE_VOLUME * _gain * _fanfareFade.Applied;
+                if (_menu != null) _menu.Volume = MENU_VOLUME * _gain * _menuFade.Applied;
+                if (_retiring != null) _retiring.Volume = MUSIC_VOLUME * _gain * _retiringFade.Applied;
             }
         }
 
@@ -501,8 +589,10 @@ namespace BS3D.Audio
         /// Which composition the next pass is rendered from (#120). Called from the level's own install, so a
         /// level set alternates pieces rather than replaying one for an evening.
         /// <para>
-        /// The <b>sounding</b> chain is dropped outright: its passes belong to the piece that was playing,
-        /// and letting it run on would play the previous level's piece for minutes. What is <b>not</b> dropped
+        /// The <b>sounding</b> chain is dropped: its passes belong to the piece that was playing, and letting
+        /// it run on would play the previous level's piece for minutes. Dropped by a <b>fade</b> since #211
+        /// rather than on the spot — a change of piece is a replacement, so the old one leaves under the new
+        /// one's prelude instead of being cut mid-chorus (see <see cref="_retiring"/>). What is <b>not</b> dropped
         /// is the pass baking for the other composition (see <see cref="_next"/>): each has a slot of its
         /// own, so the piece this level wants is normally already in hand and <see cref="Update"/> builds the
         /// new chain from it the same frame. It is only ever silent here if the pass has not finished baking,
@@ -520,9 +610,40 @@ namespace BS3D.Audio
             //exactly the one wanted here, and starting a second would throw it away and pay for it in silence.
             _next[(int)theme] ??= StartBake(theme);
 
-            //The chain is torn down rather than re-aimed: its queued passes belong to the theme it was built
-            //for, and the next Update builds a fresh one from this theme's ready pass.
-            _voice?.Dispose();
+            //The chain is retired rather than re-aimed: its queued passes belong to the theme it was built
+            //for, and the next Update builds a fresh one from this theme's ready pass. Retired and not
+            //disposed while it is actually sounding (#211), so the piece being left walks out under the
+            //arriving one; it keeps whatever fade a teardown had already put on it (Match), which is what
+            //stops a switch arriving mid-fade from jumping the old piece back up to full to fade it again.
+            RetireVoice(THEME_FADE_SECONDS);
+        }
+
+        /// <summary>
+        /// Hands the sounding chain to <see cref="_retiring"/> to fade out over <paramref name="seconds"/> and
+        /// leaves <see cref="_voice"/> null, so the next <see cref="Advance"/> builds a fresh chain under it
+        /// (#211). A chain that is not actually sounding is disposed outright — there is nothing to fade, and
+        /// a silent instance left in the slot would only delay the next switch's real one.
+        /// </summary>
+        private void RetireVoice(float seconds)
+        {
+            if (_voice != null && _voice.State == SoundState.Playing)
+            {
+                //A previous occupant still on its way out is let go where it stands. One slot is enough for
+                //the flows the menus actually have, and queueing them would be pieces stacking up.
+                _retiring?.Dispose();
+
+                _retiring = _voice;
+
+                //From full, always: a sounding pass is never part-faded (see _retiring), so there is no
+                //partial level to pick up — the only fade a theme has is this one.
+                _retiringFade.Reset();
+                _retiringFade.To(0f, seconds);
+            }
+            else
+            {
+                _voice?.Dispose();
+            }
+
             _voice = null;
         }
 
@@ -567,16 +688,40 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// Stops the music. The pass baking behind it is kept — it becomes the next one played. The chain is
-        /// torn down with it, for the same reason <see cref="SetTheme"/> tears its own down: a stopped chain's
-        /// queue belongs to a moment that has passed, and <see cref="Play"/> starts a fresh one from the pass
-        /// in hand.
+        /// Stops the music <b>dead</b> — the level endings' stop, where the sudden silence is itself the
+        /// message: the fireworks' reports land in it, and a dance track carrying on over a loss is the wrong
+        /// feeling entirely. Anywhere one piece is merely being REPLACED by another, <see cref="FadeOut"/> is
+        /// the stop to call (#211). The pass baking behind it is kept — it becomes the next one played. The
+        /// chain is torn down with it, for the same reason <see cref="SetTheme"/> tears its own down: a
+        /// stopped chain's queue belongs to a moment that has passed, and <see cref="Play"/> starts a fresh
+        /// one from the pass in hand. Anything still walking out of an earlier switch goes with it, or "dead"
+        /// would be a half-truth on the one call whose whole point is the silence.
         /// </summary>
         public void Stop()
         {
             _wanted = false;
+
             _voice?.Dispose();
             _voice = null;
+
+            _retiring?.Dispose();
+            _retiring = null;
+        }
+
+        /// <summary>
+        /// Stops the music by fading it out (#211) — the stop every SWITCH takes: leaving to the main menu,
+        /// and a teardown with the theme still sounding (a retry from the pause menu). The chain keeps playing
+        /// while it fades, in <see cref="_retiring"/>, and is disposed the frame it arrives at silence.
+        /// <para>
+        /// A <see cref="Play"/> before then simply opens a fresh chain under the fading one, which is what
+        /// makes this need no state of its own: the retirement has already nulled <see cref="_voice"/>, so
+        /// there is nothing left for a resumed <see cref="Play"/> to resurrect mid-chorus.
+        /// </para>
+        /// </summary>
+        public void FadeOut()
+        {
+            _wanted = false;
+            RetireVoice(THEME_FADE_SECONDS);
         }
 
         /// <summary>
@@ -589,14 +734,39 @@ namespace BS3D.Audio
             if (_failed) return;
 
             _menuWanted = true;
-            if (_menu != null && _menu.State != SoundState.Playing) _menu.Play();
+
+            if (_menu != null && _menu.State == SoundState.Playing)
+            {
+                //A stop caught mid-fade: the same loop is still sounding, so it ramps back up from wherever
+                //the fade stands rather than snapping, over the same window a leaving takes (#211).
+                _menuFade.To(1f, MENU_FADE_SECONDS);
+            }
+            else
+            {
+                //An ARRIVAL: a fully-faded stop rewound the loop, so this restarts it at its head — a pass
+                //with a beginning, which opens at full like every other beginning here. Without the reset it
+                //would open at the fade's leftover zero and ramp in on every return to the menu after the
+                //first.
+                _menuFade.Reset();
+
+                if (_menu != null)
+                {
+                    _menu.Volume = MENU_VOLUME * _gain;
+                    _menu.Play();
+                }
+            }
         }
 
-        /// <summary>Stops the front end's loop. Being a loop, stopping and starting again costs nothing.</summary>
+        /// <summary>
+        /// Stops the front end's loop — by fading (#211), because it is only ever stopped for a level starting
+        /// over it, which is a replacement and not a message. Being a loop, stopping and starting again costs
+        /// nothing: a stop that fully faded restarts at the loop's head, whose held pads are the soft arrival
+        /// every piece here authors anyway.
+        /// </summary>
         public void StopMenu()
         {
             _menuWanted = false;
-            _menu?.Stop();
+            _menuFade.To(0f, MENU_FADE_SECONDS);
         }
 
         /// <summary>
@@ -621,15 +791,19 @@ namespace BS3D.Audio
         public void PlayDefeat(int score) => StartFanfare(score, victory: false);
 
         /// <summary>
-        /// Stops whatever fanfare is sounding. Called when a level is built, so the previous result's music
-        /// does not play over the opening of the next attempt.
+        /// Retires whatever fanfare is sounding. Called when a level is built, so the previous result's music
+        /// does not play over the opening of the next attempt — by a short fade rather than a cut (#211): a
+        /// player clicking straight through the result screen used to have a still-ringing fanfare taken off
+        /// mid-chord. A fanfare asked for but not yet audible is dropped outright, never having sounded.
         /// </summary>
         public void StopFanfare()
         {
             _fanfareBake = null;
             _fanfareShapeKnown = false;
             _fanfareClock.Reset();
-            _fanfare?.Stop();
+
+            if (_fanfare != null && _fanfare.State == SoundState.Playing)
+                _fanfareFade.To(0f, FANFARE_FADE_SECONDS);
         }
 
         /// <summary>
@@ -699,9 +873,15 @@ namespace BS3D.Audio
         /// ends, where the old per-frame <c>State</c> poll could only notice a finished pass on the frame
         /// after it and leave a frame or two of dead air in the gap (#212's whole complaint).
         /// </summary>
-        public void Update()
+        /// <param name="elapsed">
+        /// The frame's wall-clock seconds, for the switches' fades (#211) — the host calls this above the
+        /// stack, so a fade keeps moving whatever screen is up, pause included.
+        /// </param>
+        public void Update(float elapsed)
         {
             if (_failed) return;
+
+            AdvanceFades(elapsed);
 
             //The fanfare first: it is realized the frame its synthesis finishes, so the piece announcing the
             //result lands as close to the result as the machine allows.
@@ -717,6 +897,10 @@ namespace BS3D.Audio
 
                     _fanfareTrack = ToSoundEffect(ready.Result.Pcm);
                     _fanfare = _fanfareTrack.CreateInstance();
+
+                    //An announcement arrives at full — whatever fade the previous fanfare's retirement left
+                    //behind belonged to that instance, which is disposed a few lines down.
+                    _fanfareFade.Reset();
                     _fanfare.Volume = FANFARE_VOLUME * _gain;
                     _fanfare.Play();
 
@@ -747,7 +931,10 @@ namespace BS3D.Audio
                     _menuTrack = ToSoundEffect(ready.Result);
                     _menu = _menuTrack.CreateInstance();
                     _menu.IsLooped = true;
-                    _menu.Volume = MENU_VOLUME * _gain;
+
+                    //The fade is real here: a splash clicked through fast enough can have PlayMenu's ramp or
+                    //StopMenu's fall already in flight before the bake has even landed (#211).
+                    _menu.Volume = MENU_VOLUME * _gain * _menuFade.Applied;
 
                     if (_menuWanted) _menu.Play();
                 }
@@ -783,6 +970,40 @@ namespace BS3D.Audio
                 {
                     Console.WriteLine($"[music] the next pass could not be chained, playing on without it: {exception.Message}");
                     _failed = true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// The switches' fades (#211), walked once a frame. Volumes are written only on the frames a fade
+        /// actually moved them (the ambience's discipline — most frames touch nothing), and an instance that
+        /// has arrived at silence is stopped, or for a retired chain disposed, right here. That is what lets a
+        /// fading stop need no state beyond the fade itself.
+        /// </summary>
+        private void AdvanceFades(float elapsed)
+        {
+            if (_menuFade.Advance(elapsed) && _menu != null)
+            {
+                _menu.Volume = MENU_VOLUME * _gain * _menuFade.Applied;
+                if (_menuFade.Silent) _menu.Stop();
+            }
+
+            if (_fanfareFade.Advance(elapsed) && _fanfare != null)
+            {
+                _fanfare.Volume = FANFARE_VOLUME * _gain * _fanfareFade.Applied;
+                if (_fanfareFade.Silent) _fanfare.Stop();
+            }
+
+            if (_retiringFade.Advance(elapsed) && _retiring != null)
+            {
+                _retiring.Volume = MUSIC_VOLUME * _gain * _retiringFade.Applied;
+
+                //Disposed rather than stopped: a retired chain has no way back — the feed only ever submits
+                //to _voice — so holding it would be holding a buffer nothing can play again.
+                if (_retiringFade.Silent)
+                {
+                    _retiring.Dispose();
+                    _retiring = null;
                 }
             }
         }
@@ -4464,6 +4685,7 @@ namespace BS3D.Audio
             _menuWanted = false;
 
             _voice?.Dispose();
+            _retiring?.Dispose();
             _fanfare?.Dispose();
             _fanfareTrack?.Dispose();
             _menu?.Dispose();

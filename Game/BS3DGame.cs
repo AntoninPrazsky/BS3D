@@ -1250,7 +1250,8 @@ namespace BS3D
             //The music's handover: a pass is played once rather than looped, and this is what puts the next
             //freshly synthesized variation on when the current one ends (see ProceduralMusic.Update). Up here
             //with the fireworks and for the same reason — it has to keep running whatever is on the stack.
-            _music?.Update();
+            //It takes the frame's own time since #211: the switches' fades move on it.
+            _music?.Update(elapsed);
 
             //The scene's bed and its crossfade, on the wall clock's frame like the clouds: the scene is on
             //screen whether or not a session stands, so its sound is too, pause included.
@@ -1262,7 +1263,9 @@ namespace BS3D
             //owner: leaving to the main menu keeps the session but must not keep its music ("it plays while a
             //level is being played", docs/game-feedback.md), and Continue re-wants the theme because it comes
             //back WITHOUT a BuildLevel. A fresh build's own Play a moment later is the "already sounding"
-            //no-op, so the two writers cannot fight.
+            //no-op, so the two writers cannot fight. Both directions are a REPLACEMENT, so both take the
+            //fading stop (#211): the theme leaves under the loop's held pads, the loop under the theme's
+            //prelude — the level endings' dead stop stays the endings' own, where the silence is the message.
             if (_music != null)
             {
                 bool onFrontEnd = !_screens.Contains<GameplayScreen>();
@@ -1273,7 +1276,7 @@ namespace BS3D
 
                     if (onFrontEnd)
                     {
-                        _music.Stop();
+                        _music.FadeOut();
                         _music.PlayMenu();
                     }
                     else
