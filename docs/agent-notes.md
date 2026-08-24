@@ -1232,4 +1232,21 @@ Majitel to zadal takhle: *„Doopravdy je tam ta mřížka viditelná… rozmís
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (claim #264 — Dechovka → moderní basové téma).*
+## 2026-08-24 — Claude Code (čtyřicátý čtvrtý zápis)
+
+**#264 hotové — čtvrté téma je Mural, basový groove na tresillu, polka smazána. Na mainu jako `a2d2d69`, issue zavřeno.**
+
+**Směr vybral panel a stojí za zmínku, jak jednoznačně:** čtyři nezávislí návrháři (mainstream / producent / game-fit / ortogonalita) došli **všichni ke stejné buňce** — slunečný mid-tempo groove bez four-on-the-floor, s melodickým sub-basem jako hlavním hlasem a malletem nahoře. Tři porotci pak rozhodli exekuci (Mural 2:1 proti „Sway") a jejich rouby (groove-in sekce, skluz do příštího rootu, bas zpívající hook v breaku, chant ve finále, A/B autorské tail rolly) jsou v kusu všechny.
+
+- **Osa: KAM padá váha a KTERÝ registr nese melodii.** Kopák hraje dobu a „and" třetí doby, nikdy všechny čtyři; riff je **LogDrum** — nový hlas, doslova rekombinace tří prokázaných věcí (Timpani usazovaný pád výšky / SubBassův žebřík harmonických + Guitarův tanh / knock transient) — a marimba (druhý nový hlas, 4,02× partial = teplý, ne kovový) mu odpovídá z buněk, které riff nechává prázdné. G dur, 104–112 BPM (jediná neobsazená mezera), devět sekcí, ~2:45. Klarinet odešel s polkou; `"dechovka"` se dál parsuje jako alias slotu.
+- **Čísla sedí v setu a jsou v `game-feedback.md`:** RMS 0,1744–0,1750; peak ≤0,904, nula clipů; DC 0,0006; balance ±0,03 dB; **mono −0,04 dB (nejlepší v setu)**; low-band **71–74 %** proti polkou měřeným 34–36 (stížnost issue v číslech, zdvojnásobená); švy 0,0000; bake 1,4 s. Verse→chorus zdvih 0,203→0,220 = Pulseho vlastní poměr. Šířka 0,153–0,157 — **druhý nejužší kus, vědomě**: melodie-bas patří doprostřed podle low pravidla a hook na Keys podle plays-alone pravidla, tedy tentýž argument, pod kterým je zapsaná úzkost Nocturne.
+- **⚠ Měřicí harness byl první krok a vyplatil se dvakrát:** reflexí na privátní `Bake*`, zvalidovaný reprodukcí dokumentovaných čísel Dechovky i Pulse PŘED první změnou (lekce zápisu 34: nástroji se věří, až když zopakuje známý výsledek). Chytil pak můj vlastní omyl — break bas „98–196 Hz" platil jen pro akord G; skutečný registr je root+12..+24 (~100–330 Hz) a komentář+docs teď říkají pravdu.
+- **⚠ Review chytilo past, která stojí za zapamatování: per-pass roll, který v jiné sekci tiše mění VÝZNAM.** `PushAccents` říká, KAM se groove opírá — ale v breaku, kde shaker hraje jen puls na jedné buňce, se z něj stal 2× přepínač hlasitosti jediného timekeepera sekce (lean podmínka degenerovala na konstantu podle rollu). Break má teď jednu autorskou úroveň. Druhý nález: **mrtvá data za pravdivě vyhlížejícím komentářem** — Bm (akord 5) nepoužívala žádná progrese, takže −1 větev deváté „nikdy nemohla nastat"; první progrese je teď G–Bm–C–D a větev se skutečně vykonává.
+- **Ověřeno:** LevelGen exit 0 (5 Gallery levelů přejmenováno na `mural`, po řádku), ScoreSim „right way round" přes 45, čtyři solutiony čisté, hra hraje Heart i Smiley bez `[music]` chyb (chapter intro Gallery běží), `ThemeFor` otestován (mural/dechovka/mezery → Mural; neznámé → rotace). WAV ukázky dvou seedů leží ve scratchpadu session pro poslech.
+- **Majiteli k doladění uchem** (jako u Emberu „Not claimed: the tune"): úrovně riffu v `BakeMural` (0,40–0,50), `Glide` roll, `MURAL_NINTH` (add9 barva padu), tempo band. Kdyby kus nesedl celý, výměna je zase jen jeden region + dva hlasy.
+
+**Úklid:** worktree `.wt-264` odstraněn, větev smazána lokálně i na originu. **Nic dalšího si teď neberu.** Volné: **#237**, **#241**, **#211** (patch v komentáři issue).
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#264 — Mural nahradil Dechovku, na mainu).*
