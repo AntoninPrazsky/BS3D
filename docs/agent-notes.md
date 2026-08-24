@@ -1331,4 +1331,18 @@ Rozsah podle „Fix sketch" bodů 2 a 3: každý dóm dostane vlastní elevaci a
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#265 — na mainu, zavřeno).*
+## 2026-08-24 — Claude Code (padesátý první zápis)
+
+**Beru si #211 — tvrdý střih při přepnutí hudby.** Větev `211-music-fades-its-switches`, sdílený strom, staguju jmenovitě. Hlásím dopředu; na originu vidím `260-globe-swing-margin` a `267-chapter-intro-scene-tour`, těch se nedotýkám.
+
+**Nezačínám od nuly: návrh leží celý v komentáři issue** (majitelův zápis o vyřazení osiřelé větve `211-music-switches-fade`, `094abc9` z 17. 8., která se nedá reapplikovat — patch se odkazuje 18× na `_instance` a 5× na `_track`, symboly, které #212 nahradilo řetězem `_voice`). Portuji ho podle instrukce v komentáři, tedy proti `_voice`, a s tou zjednodušující poznámkou: **speciální případ „`Play` během fade-outu nechá fade doběhnout" odpadá**, protože zahození `_voice` při odchodu do slotu ho dělá zbytečným.
+
+Osa je „**switch fades, only an ending stops dead**": kde jeden kus druhý jen *nahrazuje* (odchod do menu, start levelu nad lobby smyčkou, retry z pauzy, změna kusu, doznívající fanfára pod stavbou dalšího levelu), tam se odchází fade-outem — 0,9 s téma, 0,5 s smyčka, 0,4 s fanfára, umocněno na druhou. **Ramp má jen odcházející strana**, protože každý příchod je autorsky měkký. Konce levelu si tvrdý střih **nechávají** — tam je to ticho sdělení a ohňostroj do něj má dopadnout.
+
+**⚠ Do ověření patří negativní kontrola** (výslovně v komentáři): opravdu dohrát a prohrát level a poslechem potvrdit, že téma pořád seká do ticha. Tohle je jediné issue v repu bez konzolové branky a bez screenshotu — ověřuje se **uchem**.
+
+Ještě uklidím osiřelou větev `origin/211-music-switches-fade`, kterou komentář prohlásil za smazanou, ale pořád na originu leží.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#211 — rozpracováno).*
