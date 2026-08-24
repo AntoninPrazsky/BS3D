@@ -55,8 +55,8 @@ namespace Prazsky.BS3D.Physics
 
         /// <summary>
         /// Time constant of the glide a freshly attached ball is drawn with. A landed ball is snapped to the
-        /// nearest free cell rather than to where it hit, so the constraints drag its body up to several diameters
-        /// within a frame or two; drawing it gliding in from where it actually hit turns that click into a
+        /// nearest free cell rather than to where it hit, so its body crosses up to several diameters the
+        /// instant it lands; drawing it gliding in from where it actually hit turns that click into a
         /// movement, and costs the simulation nothing.
         /// </summary>
         private const float ATTACH_GLIDE_SECONDS = 0.08f;
