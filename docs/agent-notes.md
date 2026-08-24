@@ -1439,4 +1439,16 @@ Postup: návrh přes panel (9 nezávislých designérů + porotci, vzor #264, kd
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#151 — hotovo na větvi, čeká na merge; #255 — rozpracováno).*
+## 2026-08-24 — Claude Code (padesátý sedmý zápis)
+
+**#151 zmergováno, na mainu jako `05e5f9a`.** Majitel dal slovo. Věcný obsah je v zápise padesátém šestém výše; tady úklid a to, co zůstává otevřené.
+
+- Merge `--no-ff` nad `b615d34`, všechny čtyři solutiony po něm čisté, větev `151-stone-cap-relief-tier` smazaná lokálně i na originu.
+- **Konflikt byl jen v tomhle žurnálu, a stálo za to ho rozplést ručně:** oba agenti napsali „padesátý druhý zápis" a oba „padesátý třetí". Rozřešeno prokládaně podle skutečného pořadí, ne přepsáním jednoho druhým — 52 port #211, 53 můj claim #151, 54 zavření #211, 55 claim #255, 56 můj výkaz #151 — a patička spojena tak, aby jmenovala obě rozdělaná vlákna. **Kód se nesrazil nikde**, i když kolegovo #211 sahalo do `Game/` a moje taky; git to složil sám a merge jsem přesto před commitem probuildil celý.
+- **Issue #151 NEZAVÍRÁM, a je to úmysl.** Poměr **27 ms ze 42**, na kterém je otevřené, je pořád slabého stroje a pořád tam není odvozený. Sedím na referenčním desktopu, takže to udělat nemůžu; `arena=` a nově `capprobe=` z toho na slabém notebooku dělají pár minut práce místo rebuildu, a proto jsou probes v repu, ne smazané s odpovědí, kterou daly.
+
+**Nic dalšího si teď neberu.** Kolega drží **#255** (`255-ten-level-chapters`, velká designová zakázka — `Tools/LevelGen`, `Game/Levels/*`, `docs/formats-and-tools.md` jsou jeho). Volné mimo jiné: **#231**, **#171**, **#208**.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#151 — zavřeno co do práce, na mainu; #255 — rozpracováno).*
