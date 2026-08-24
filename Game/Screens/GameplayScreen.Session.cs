@@ -127,8 +127,11 @@ namespace BS3D.Screens
             //There is no level any more, so there is no level theme, and no celebration either. BuildLevel
             //starts the music again; a return to the main menu leaves both stopped. The display outlasts the
             //result screen by design, so without this a win followed by "Main Menu" would go on bursting over
-            //the front end for the best part of a minute.
-            Game.Music?.Stop();
+            //the front end for the best part of a minute. Faded rather than cut (#211): the endings have
+            //already stopped a finished level's theme dead where the silence is the point, so what reaches
+            //this with music still sounding is a SWITCH — a retry from the pause menu — and the next level
+            //opens over the old pass's last second instead of over its stump.
+            Game.Music?.FadeOut();
             Game.Fireworks?.Stop();
             Game.Confetti?.Stop();
             Game.Trophy?.Hide();
