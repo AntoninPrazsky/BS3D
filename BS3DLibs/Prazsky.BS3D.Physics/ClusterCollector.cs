@@ -55,8 +55,8 @@ namespace Prazsky.BS3D.Physics
 
         /// <summary>
         /// Time constant of the glide a freshly attached ball is drawn with. A landed ball is snapped to the
-        /// nearest free cell rather than to where it hit, so the constraints drag its body up to several diameters
-        /// within a frame or two; drawing it gliding in from where it actually hit turns that click into a
+        /// nearest free cell rather than to where it hit, so its body crosses up to several diameters the
+        /// instant it lands; drawing it gliding in from where it actually hit turns that click into a
         /// movement, and costs the simulation nothing.
         /// </summary>
         private const float ATTACH_GLIDE_SECONDS = 0.08f;
@@ -223,16 +223,12 @@ namespace Prazsky.BS3D.Physics
         private static System.Numerics.Vector3 GlidePosition(PhysicsBall ball, System.Numerics.Vector3 bodyPosition,
             float glideRetained)
         {
-            //The constraints that drag the body into its cell are only solved by the next timestep, so on this
-            //one frame the body is still where the ball hit and applying the offset would move it the wrong way -
-            //it would draw the ball as far PAST the impact as the cell is short of it. The Game armed the flag
-            //and then added the offset anyway, against what its own comment said; this is the Testbed's ordering,
-            //which honours it.
-            if (ball.RenderOffsetArmed)
-            {
-                ball.RenderOffsetArmed = false;
-                return bodyPosition;
-            }
+            //There was a one-frame skip here, and #265 deleted the reason for it rather than the symptom. The
+            //body used to be left at the impact point for the new constraints to drag in, so on the first
+            //frame body + offset drew the ball as far PAST the impact as the cell was short of it, and the
+            //skip suppressed exactly that frame. The handler puts the body IN its cell now, so on that same
+            //frame body + offset is the impact point itself - which is where the glide is supposed to start.
+            //Keeping the skip would snap the ball to its cell for one frame and then jump it back.
 
             //The resting case, which is nearly every ball nearly every frame: three compares and out.
             if (ball.RenderOffset == System.Numerics.Vector3.Zero) return bodyPosition;

@@ -343,12 +343,34 @@ namespace Prazsky.BS3D.Physics
             physicsBall.BallReference.Velocity.Linear = default;
             physicsBall.BallReference.Velocity.Angular = default;
 
-            //The ball is snapped to the nearest free cell rather than to where it hit, so the constraints
-            //below drag its body across up to several diameters within a frame or two. Drawing it gliding in
-            //from where it actually hit hides that click without touching the simulation. Armed before the
-            //constraints exist, and in world frame, which is where the body is — the LIVE one, or the glide is
-            //measured against a cell the cluster no longer hangs at and moves the ball the wrong way.
+            //The ball is snapped to the nearest free cell rather than to where it hit, so it has to cross up
+            //to several diameters to get there. Drawing it gliding in from where it actually hit hides that
+            //click without touching the simulation. Armed BEFORE the body is moved below — the glide is the
+            //difference between the two, so it has to read the body while it is still at the impact point —
+            //and in world frame, which is where the body is: the LIVE one, or the glide is measured against a
+            //cell the cluster no longer hangs at and moves the ball the wrong way.
             physicsBall.StartRenderGlide(restPosition.ToNumerics());
+
+            //And then the body itself is PUT in the cell, which it was not until #265. Letting the new
+            //constraints drag it across instead looks equivalent and is not, because of what the ceiling
+            //socket anchors: the ball's own north pole (local +BALL_RADIUS) against a fixed point under the
+            //plate. That pair has TWO solutions — the ball hanging under the anchor, and the ball sitting
+            //inverted on top of it — and a ball dragged in from above and to one side settles into the wrong
+            //one whenever it has too few neighbours to break the tie. It is a perfectly valid solution, so it
+            //is stable, and the body goes to SLEEP there: measured at 1.16 units above its cell, which puts a
+            //top-level ball's centre above the plate's own centre. That is #265's "attaches visually outside
+            //the ceiling plate", and it stays put because nothing is wrong enough to move it.
+            //
+            //The same drag-in produced the other half of the report as well. A socket anchored on the ball's
+            //surface turns the correcting impulse into a TORQUE, and nothing in this simulation damps angular
+            //velocity — PoseIntegratorCallbacks.IntegrateVelocity adds gravity and nothing else — so a ball
+            //spun up on the way in keeps spinning: 1-3 rad/s still, fifteen seconds later, never sleeping.
+            //
+            //Placing the body first makes the constraint error zero at the moment it is created, so there is
+            //no impulse, no torque and no second solution to fall into. The orientation is deliberately left
+            //alone: a shot has no torque on it in flight, so it arrives near identity, and the measured fix
+            //needs no reset — while resetting it would snap the drawn ball's procedural pattern in place.
+            physicsBall.BallReference.Pose.Position = restPosition.ToNumerics();
 
             //Anchors come from the ideal lattice and are rotated into each body's current local frame, so
             //they are right even after the simulation has been running for a while
