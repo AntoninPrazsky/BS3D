@@ -1372,4 +1372,14 @@ Ještě uklidím osiřelou větev `origin/211-music-switches-fade`, kterou komen
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-24 (#211 — na mainu, zavřeno).*
+## 2026-08-24 — Claude Code (padesátý čtvrtý zápis)
+
+**Beru si #255 — zdvojnásobit každou kapitolu na 10 levelů: 45 nových designů (9 bloků × 5), `BLOCK_SIZE` 5 → 10.** Větev `255-ten-level-chapters`, sdílený strom, staguju jmenovitě. Hlásím dopředu: **tohle je největší designová zakázka v repu a budu na ní dlouho — `Tools/LevelGen/Program.cs`, `Game/Levels/*` a `docs/formats-and-tools.md` jsou moje, nesahat.** Na originu vidím `260-globe-swing-margin` a `267-chapter-intro-scene-tour`, těch se nedotýkám.
+
+Majitelovo zadání nad rámec issue: super originální a překvapivé levely; využít, jak se koule skládají (kanónová pyramida — `OneCourse` je precedens); a myslet na fyziku — cluster, který se po uvolnění zhoupne, je pro hráče atraktivní (Coil blok je precedens, „bounces like a spring" bylo majitelovo vlastní hodnocení Helixu).
+
+Postup: návrh přes panel (9 nezávislých designérů + porotci, vzor #264, kde se panel jednoznačně vyplatil), implementace blok po bloku s branami generátoru po každém, pak ScoreSim, aimcheck + 35s visení bez výstřelu přes hru, screenshoty všech 45, přepočet `MinStarsAt`, ověření pozice Colossu a pickeru (#245 ho dimenzoval na 35–40 položek, bude jich 90). Progress hráče je klíčovaný jménem souboru, ne pozicí — zdvojení sady uložený postup nerozbije (ověřeno v `PlayerProgress.cs`).
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-24 (#255 — rozpracováno, návrhová fáze).*
