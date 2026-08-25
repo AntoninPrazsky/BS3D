@@ -557,7 +557,7 @@ namespace Prazsky.BS3D
         /// so they turn as fast as the ground passes and slow into the walk's rubber ends with it. (The travel
         /// is the horizontal step; on the dish's ~6.4° grade the true rolled arc is ~0.6 % longer, which no
         /// eye reads off a spoked wheel.)</param>
-        /// <param name="orbitTravel"><see cref="GameObjects.Cannon.OrbitTravel"/>: signed ground covered
+        /// <param name="orbitTravel"><see cref="GameObjects.Cannon.SlideTravel"/>: signed ground covered
         /// <b>sideways</b> by the orbit walk. It spins the rollers, which is the whole point of them — the
         /// carriage crabs along its own axle there, and until #129 the wheels simply stood still through it.
         /// No recoil term, unlike <paramref name="wheelTravel"/>: the shot's shove is back along the heading,

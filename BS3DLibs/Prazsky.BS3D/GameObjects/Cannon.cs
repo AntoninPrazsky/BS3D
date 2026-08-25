@@ -325,18 +325,54 @@ namespace Prazsky.BS3D.GameObjects
 
 		private void MoveCircular(GameTime gameTime)
 		{
-			float step = RotationSpeed * _acceleration * _deltaLastSet * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+			Vector3 before = Position;
 
-			_orbitAngle += step;
-
-			//The arc the carriage's own centre covers, which is what the sideways ground under it measures.
-			//Accumulated from the STEP and not from the angle, so EnsureOrbitAngleInBounds' wrap below cannot
-			//reach it — the same reason AdvanceTravel is accumulated from the move rather than read off the
-			//radius. Both wheels see the same arc: the axle is the tangent, so the pair sits at one radius.
-			OrbitTravel += _orbitRadius * step;
+			_orbitAngle += RotationSpeed * _acceleration * _deltaLastSet * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
 			EnsureOrbitAngleInBounds();
 			MoveToOrbitAngle();
+
+			AccumulateWalk(before);
+		}
+
+		/// <summary>
+		/// Resolves one frame of the walk into the <b>carriage's own frame</b> and adds it to
+		/// <see cref="RollTravel"/> and <see cref="SlideTravel"/>. Both walks come through here, and the whole
+		/// point is that neither of them decides on its own which of the two axes it lands on.
+		/// <para>
+		/// <b>This is the bug #129's own design got wrong.</b> The design said the axle is the orbit's tangent
+		/// and the walk toward the field is the rolling direction — true only while the gun points along its
+		/// stance. But the carriage is <b>yawed with the aim</b> (<see cref="CarriageWorld"/> takes its heading
+		/// from the flattened <see cref="AimDirection"/>), and the walk is not: the advance is still radial and
+		/// the orbit still tangential whatever the traverse. Slewed 45° over, an advance is <i>half a roll and
+		/// half a slide</i>, and driving the body off the radial step and the rollers off the tangential one
+		/// showed the gun rolling forward while it visibly moved sideways.
+		/// </para>
+		/// <para>
+		/// It is done <b>vectorially and per step</b>, and both halves of that matter. Vectorially — the
+		/// world displacement projected onto axes read out of the very matrix the carriage is drawn with —
+		/// because a trigonometric decomposition needs two sign conventions to be right at once and neither is
+		/// checkable from the code. Per step, because the traverse moves while the gun walks: rotating an
+		/// accumulated total afterwards would answer with the aim the player happens to hold now.
+		/// </para>
+		/// </summary>
+		private void AccumulateWalk(Vector3 before)
+		{
+			Vector3 delta = Position - before;
+			delta.Y = 0f;
+
+			StanceBasis(out Vector3 heading, out Vector3 up);
+
+			//Read the axes off the matrix CarriageWorld builds rather than crossing them by hand: MonoGame's
+			//CreateWorld puts -forward in the third row and cross(up, backward) in the first, so this is the
+			//carriage's own +X and -Z by construction and cannot disagree with what is drawn.
+			Matrix basis = Matrix.CreateWorld(Vector3.Zero, heading, up);
+
+			Vector3 right = new(basis.M11, basis.M12, basis.M13);
+			Vector3 forward = -new Vector3(basis.M31, basis.M32, basis.M33);
+
+			RollTravel += Vector3.Dot(delta, forward);
+			SlideTravel += Vector3.Dot(delta, right);
 		}
 
 		/// <summary>
@@ -361,54 +397,50 @@ namespace Prazsky.BS3D.GameObjects
 			//The exponential approach cannot cross the end at ordinary frame times; the clamp catches float
 			//dust and the one real crossing an oversized step can make — a hitched frame's dt is unbounded,
 			//and past step = ADVANCE_EASE_ZONE the cushioned step exceeds the room it was scaled by
-			float moved = _orbitRadius;
+			Vector3 before = Position;
+
 			_orbitRadius = Math.Clamp(_orbitRadius - step * cushion, _advanceMin, _advanceMax);
 
-			//What the wheels see: ground actually covered, cushion and all, signed + toward the field
-			AdvanceTravel += moved - _orbitRadius;
-
 			MoveToOrbitAngle();
+
+			//What the wheels see — cushion and all, since this is the ground actually covered
+			AccumulateWalk(before);
 		}
 
 		/// <summary>
-		/// Ground the advance stroke has covered, in world units, signed — positive toward the field — and
-		/// accumulated over the walk's whole life, cushioned ends included. It exists for the carriage's
-		/// wheels: rolled by <c>travel / wheel radius</c> they turn exactly as fast as the ground passes under
-		/// them, and they slow into the rubber at an end precisely because this is the <i>moved</i> distance,
-		/// not the held time. Deliberately not advanced by the orbit (A/D): a carriage slewed sideways is
-		/// dragged, not rolled, and wheels that spin while the gun crabs sideways read as broken.
+		/// Ground the walk has covered <b>along the carriage's own heading</b>, in world units, signed —
+		/// positive the way the gun faces — and accumulated over the walk's whole life, cushioned ends
+		/// included. This is what the wheels roll by: at <c>travel / wheel radius</c> they turn exactly as fast
+		/// as the ground passes under them, and they slow into the rubber at an end precisely because this is
+		/// the <i>moved</i> distance and not the held time.
 		/// <para>
-		/// That split is a fact about <b>this</b> wheel and not about the walk, and since #129 the other half
-		/// is measured rather than discarded — see <see cref="OrbitTravel"/>. A spoked wheel has nothing to do
-		/// with sideways ground; a wheel that has (rollers around its rim) wants exactly that figure, and the
-		/// two together are the carriage's whole ground velocity in its own frame.
+		/// <b>Both walks feed it, and that is the correction #129 needed.</b> Until then the advance (W/S) fed
+		/// the roll and the orbit (A/D) fed the slide, on the reasoning that the axle is the orbit's tangent —
+		/// which holds only while the gun points along its stance. The carriage is <b>yawed with the aim</b>
+		/// and the walk is not, so slewed over, an advance is part roll and part slide and an orbit likewise.
+		/// <see cref="AccumulateWalk"/> resolves each step into the carriage's own axes instead, so this and
+		/// <see cref="SlideTravel"/> are the true two components whatever the traverse.
+		/// </para>
+		/// <para>
+		/// It measures the <b>walk</b> and not the pose, so the two ways the stance can be <i>set</i> rather
+		/// than walked — <see cref="OrbitToFace"/> and the <see cref="OrbitRadius"/> setter — leave it alone.
+		/// A gun that is placed does not roll there. Traversing on the spot leaves it alone too, there being
+		/// no ground covered: a gun slewed in place scrubs its wheels, which is what a real one does.
 		/// </para>
 		/// </summary>
-		public float AdvanceTravel { get; private set; }
+		public float RollTravel { get; private set; }
 
 		/// <summary>
-		/// Ground the <b>orbit</b> walk has covered sideways, in world units, signed — positive for a growing
-		/// orbit angle — and accumulated over the walk's whole life. <see cref="AdvanceTravel"/>'s counterpart
-		/// for the other axis, and it exists for the same reason: it is the <i>moved</i> distance, so anything
-		/// driven off it slows into a stop exactly as the carriage does.
+		/// Ground the walk has covered <b>along the carriage's axle</b> — sideways — signed, positive towards
+		/// the carriage's own +X. <see cref="RollTravel"/>'s other half, off the same per-step projection, and
+		/// what the omnidirectional wheel's rollers spin by (#129): a carriage crabbing along its axle rolls on
+		/// its rollers, and until that wheel existed this motion was simply discarded.
 		/// <para>
-		/// <b>The carriage's ground velocity in its own frame is these two and nothing else.</b> The axle is
-		/// local X and the walk toward the field is local −Z; the orbit's tangent <i>is</i> the axle, so the
-		/// advance is the rolling direction and the orbit is the sideways one. That is exactly the split an
-		/// omnidirectional wheel is built around, which is what #129 wants it for: the wheel body's spin comes
-		/// off <see cref="WheelTravel"/> and its rollers' spin off this. <b>Nothing draws it yet</b> — the
-		/// wheel is still the spoked one, which cannot move sideways at all, and <see cref="AdvanceTravel"/>'s
-		/// note above says why it is therefore right that the wheels stand still through an orbit today.
-		/// </para>
-		/// <para>
-		/// <b>It measures the walk and not the pose</b>, so the two ways the orbit angle can be <i>set</i>
-		/// rather than walked — <see cref="OrbitToFace"/> and the <see cref="OrbitRadius"/> setter — leave it
-		/// alone, precisely as they leave <see cref="AdvanceTravel"/> alone. A gun that is placed does not roll
-		/// there. And no recoil term belongs here, unlike <see cref="WheelTravel"/>: the shot's shove is back
-		/// along the heading, which is the advance's axis and not this one.
+		/// <b>No recoil term belongs here</b>, unlike <see cref="WheelTravel"/>: the shot's shove is back along
+		/// the heading, which is the other axis entirely.
 		/// </para>
 		/// </summary>
-		public float OrbitTravel { get; private set; }
+		public float SlideTravel { get; private set; }
 
 		#region The recoil stroke
 
@@ -478,11 +510,13 @@ namespace Prazsky.BS3D.GameObjects
 		}
 
 		/// <summary>
-		/// What the wheels roll by: the advance walk's ground plus the recoil's own backward shove — the
-		/// carriage genuinely moves, and wheels that held still through it would read as skidding. This is
-		/// what a caller hands <c>CannonRig.DrawCarriage</c> instead of raw <see cref="AdvanceTravel"/>.
+		/// What the wheels roll by: the walk's ground along the carriage's heading plus the recoil's own
+		/// backward shove — the carriage genuinely moves, and wheels that held still through it would read as
+		/// skidding. This is what a caller hands <c>CannonRig.DrawCarriage</c> instead of raw
+		/// <see cref="RollTravel"/>. The recoil belongs on this axis and only this one: the shove is back
+		/// along the heading, so <see cref="SlideTravel"/> is handed over untouched.
 		/// </summary>
-		public float WheelTravel => AdvanceTravel - CarriageRecoilBack;
+		public float WheelTravel => RollTravel - CarriageRecoilBack;
 
 		/// <summary>
 		/// The undercarriage's displacement as a world-space vector: back along the same stance-projected
