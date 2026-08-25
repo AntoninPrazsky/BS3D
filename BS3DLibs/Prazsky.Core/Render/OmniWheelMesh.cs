@@ -204,6 +204,21 @@ namespace Prazsky.Core.Render
     /// the wheel was specified with) and thinning towards its ends. A cylindrical roller would make the wheel
     /// polygonal and it would visibly bump as it rolled.
     /// </para>
+    /// <para>
+    /// <b>And it is FLUTED, which is not decoration — it is the only reason the roller's spin can be seen at
+    /// all.</b> A smooth surface of revolution turning about its own axis is <i>visually invariant</i>: every
+    /// angle renders the identical picture, so the sideways walk the rollers exist to explain was still
+    /// invisible with them turning correctly. Reported from play, and it is this project's own recorded
+    /// lesson twice over — the spoked wheel's note said "a rolling torus alone reads as standing still", and
+    /// #231 found a smooth solid of revolution cannot read as faceted however it is shaded. Geometry is the
+    /// fix, not shading and not colour.
+    /// </para>
+    /// <para>
+    /// The flutes are <b>helical</b> rather than straight, for one more turn of the same argument: a straight
+    /// flute is symmetric about the roller's mid-plane, so it says the roller is turning but not <i>which
+    /// way</i>. A helix is chiral and says both. They cut <b>inward</b> from the envelope, never out, so the
+    /// circle the wheel rolls on is exactly the one <c>ρ(t)</c> traces.
+    /// </para>
     /// </summary>
     public sealed class OmniRollerMesh : IProceduralMesh, IDisposable
     {
@@ -212,10 +227,19 @@ namespace Prazsky.Core.Render
         public int PrimitiveCount { get; }
         public BoundingSphere BoundingSphere { get; }
 
-        //Around the roller and along it. Eight and eight: a roller is a hand's width across and reads at about
-        //thirty pixels from the play camera, so this is already past what the silhouette can show.
-        private const int RING_SEGMENTS = 8;
-        private const int LENGTH_STEPS = 8;
+        //Around the roller and along it. Twenty-four around is set by the flutes and not by the silhouette:
+        //six flutes need four segments each to have a floor and two walls, and at eight the whole pattern
+        //degenerated into the barrel it is there to escape.
+        private const int RING_SEGMENTS = 24;
+        private const int LENGTH_STEPS = 10;
+
+        //The flutes. Six of them, cut 20 % of the radius deep — deep enough to read at the thirty-odd pixels
+        //a roller covers from the play camera, shallow enough that the barrel is still a barrel. TWIST is
+        //radians of helix per world unit of length: at 1.6 the pattern turns about 63° over a roller's 0.68,
+        //which is more than one flute's own pitch, so the helix is unmistakable rather than a hint.
+        private const int FLUTES = 6;
+        private const float FLUTE_DEPTH = 0.20f;
+        private const float FLUTE_TWIST = 1.6f;
 
         /// <param name="wheelRadius">The wheel's outer radius — the circle this roller's surface must trace.</param>
         /// <param name="rollerRadius">The roller's fattest radius, at its middle.</param>
@@ -227,35 +251,24 @@ namespace Prazsky.Core.Render
 
             float axisRadius = wheelRadius - rollerRadius;
 
+            //The barrel. Every corner comes out of Surface, so the flutes and the envelope are one expression
+            //and the normal is the analytic one rather than a guess: a fluted surface's normal leans AROUND
+            //the barrel as well as along it, and a normal that only leans along it would light the flutes as
+            //if they were painted on.
             for (int s = 0; s < LENGTH_STEPS; s++)
             {
                 float t0 = MathHelper.Lerp(-halfLength, halfLength, s / (float)LENGTH_STEPS);
                 float t1 = MathHelper.Lerp(-halfLength, halfLength, (s + 1) / (float)LENGTH_STEPS);
-
-                float r0 = Profile(wheelRadius, axisRadius, t0);
-                float r1 = Profile(wheelRadius, axisRadius, t1);
-
-                //dρ/dt = -t/√(a²+t²), so the outward normal leans along the axis by its negative
-                float slope0 = t0 / MathF.Sqrt(axisRadius * axisRadius + t0 * t0);
-                float slope1 = t1 / MathF.Sqrt(axisRadius * axisRadius + t1 * t1);
 
                 for (int i = 0; i < RING_SEGMENTS; i++)
                 {
                     float a0 = i / (float)RING_SEGMENTS * MathHelper.TwoPi;
                     float a1 = (i + 1) / (float)RING_SEGMENTS * MathHelper.TwoPi;
 
-                    Vector3 d0 = new(0f, MathF.Cos(a0), MathF.Sin(a0));
-                    Vector3 d1 = new(0f, MathF.Cos(a1), MathF.Sin(a1));
-
-                    Vector3 n00 = Vector3.Normalize(new Vector3(slope0, 0f, 0f) + d0);
-                    Vector3 n01 = Vector3.Normalize(new Vector3(slope0, 0f, 0f) + d1);
-                    Vector3 n10 = Vector3.Normalize(new Vector3(slope1, 0f, 0f) + d0);
-                    Vector3 n11 = Vector3.Normalize(new Vector3(slope1, 0f, 0f) + d1);
-
-                    Vector3 p00 = d0 * r0 + Vector3.UnitX * t0;
-                    Vector3 p01 = d1 * r0 + Vector3.UnitX * t0;
-                    Vector3 p10 = d0 * r1 + Vector3.UnitX * t1;
-                    Vector3 p11 = d1 * r1 + Vector3.UnitX * t1;
+                    Vector3 p00 = Surface(wheelRadius, axisRadius, t0, a0, out Vector3 n00);
+                    Vector3 p01 = Surface(wheelRadius, axisRadius, t0, a1, out Vector3 n01);
+                    Vector3 p10 = Surface(wheelRadius, axisRadius, t1, a0, out Vector3 n10);
+                    Vector3 p11 = Surface(wheelRadius, axisRadius, t1, a1, out Vector3 n11);
 
                     builder.AddQuad(p00, p10, p11, p01, n00, n10, n11, n01, n00 + n10 + n11 + n01);
                 }
@@ -266,24 +279,63 @@ namespace Prazsky.Core.Render
             //Lit by a sky above and a sun off to one side, a horizontal face gets almost nothing, and the first
             //pass came out with a black ellipse on every roller end that read as an open tube. A dome's normals
             //sweep from the axis round to the barrel's, so an end catches light from wherever the barrel does.
-            AddEndDome(builder, -halfLength, Profile(wheelRadius, axisRadius, -halfLength), -1f);
-            AddEndDome(builder, halfLength, Profile(wheelRadius, axisRadius, halfLength), 1f);
+            AddEndDome(builder, wheelRadius, axisRadius, -halfLength, -1f);
+            AddEndDome(builder, wheelRadius, axisRadius, halfLength, 1f);
 
             (VertexBuffer, IndexBuffer, PrimitiveCount) = builder.Build(graphicsDevice);
             BoundingSphere = new BoundingSphere(Vector3.Zero, MathF.Max(halfLength, rollerRadius));
         }
 
-        /// <summary>The envelope condition, and the one line this whole mesh is: see the class note.</summary>
+        /// <summary>The envelope condition, and the one line the barrel's silhouette is: see the class note.</summary>
         private static float Profile(float wheelRadius, float axisRadius, float t) =>
             MathF.Max(wheelRadius - MathF.Sqrt(axisRadius * axisRadius + t * t), 0f);
 
-        //A half-dome closing the barrel at x, of the radius the profile has there. `side` is +1 for the end
-        //the dome bulges towards +X and -1 for the other. Squashed to a third of its radius along the axis:
-        //a full hemisphere would lengthen the roller by its own radius and push it into its neighbour.
-        private static void AddEndDome(MeshBuilder builder, float x, float radius, float side)
+        //The fluted radius at a station and an angle, with its two derivatives — everything the surface point
+        //and its normal need. The flute's phase is the angle PLUS the twist times the station, which is what
+        //makes it a helix; and the lobe only ever multiplies the envelope DOWN (it is 1 on a flute's crest),
+        //so the circle the wheel rolls on stays exactly the one Profile traces.
+        private static void FlutedRadius(float wheelRadius, float axisRadius, float t, float theta,
+            out float radius, out float dRadiusDt, out float dRadiusDtheta)
+        {
+            float rho = Profile(wheelRadius, axisRadius, t);
+            float dRho = -t / MathF.Sqrt(axisRadius * axisRadius + t * t);
+
+            float phase = theta + FLUTE_TWIST * t;
+            float lobe = 1f - FLUTE_DEPTH * (0.5f - 0.5f * MathF.Cos(FLUTES * phase));
+            float dLobe = -FLUTE_DEPTH * 0.5f * FLUTES * MathF.Sin(FLUTES * phase);
+
+            radius = rho * lobe;
+            dRadiusDt = dRho * lobe + rho * dLobe * FLUTE_TWIST;
+            dRadiusDtheta = rho * dLobe;
+        }
+
+        /// <summary>
+        /// A point on the barrel and its outward normal. For a surface <c>r(t, θ)</c> turned about X the
+        /// outward normal is <c>(−∂r/∂t)·x̂ + r̂ − (∂r/∂θ / r)·θ̂</c> — which reduces to the plain radial
+        /// direction on a cylinder and to the profile's lean on a smooth barrel, and carries the flutes'
+        /// sideways tilt on this one.
+        /// </summary>
+        private static Vector3 Surface(float wheelRadius, float axisRadius, float t, float theta,
+            out Vector3 normal)
+        {
+            FlutedRadius(wheelRadius, axisRadius, t, theta, out float r, out float drdt, out float drdTheta);
+
+            float cos = MathF.Cos(theta), sin = MathF.Sin(theta);
+            Vector3 radial = new(0f, cos, sin);
+            Vector3 tangent = new(0f, -sin, cos);
+
+            normal = Vector3.Normalize(new Vector3(-drdt, 0f, 0f) + radial - tangent * (drdTheta / MathF.Max(r, 1e-5f)));
+
+            return new Vector3(t, r * cos, r * sin);
+        }
+
+        //A half-dome closing the barrel at t = x, taking its base radius from the SAME fluted profile the wall
+        //ends on — so the flutes run out over the dome instead of stopping at a seam. `side` is +1 for the end
+        //that bulges towards +X. Squashed to a third of the radius along the axis: a full hemisphere would
+        //lengthen the roller by its own radius and push it into its neighbour.
+        private static void AddEndDome(MeshBuilder builder, float wheelRadius, float axisRadius, float x, float side)
         {
             const int RINGS = 3;
-            float bulge = radius * 0.34f;
 
             for (int r = 0; r < RINGS; r++)
             {
@@ -291,35 +343,41 @@ namespace Prazsky.Core.Render
                 float p0 = r / (float)RINGS * MathHelper.PiOver2;
                 float p1 = (r + 1) / (float)RINGS * MathHelper.PiOver2;
 
-                float r0 = radius * MathF.Cos(p0), r1 = radius * MathF.Cos(p1);
-                float x0 = x + side * bulge * MathF.Sin(p0), x1 = x + side * bulge * MathF.Sin(p1);
-
                 for (int i = 0; i < RING_SEGMENTS; i++)
                 {
                     float a0 = i / (float)RING_SEGMENTS * MathHelper.TwoPi;
                     float a1 = (i + 1) / (float)RING_SEGMENTS * MathHelper.TwoPi;
 
-                    Vector3 d0 = new(0f, MathF.Cos(a0), MathF.Sin(a0));
-                    Vector3 d1 = new(0f, MathF.Cos(a1), MathF.Sin(a1));
-
-                    //The normal of a squashed dome still leans out along the axis with latitude, which is all
-                    //this needs: what it must not be is constant along the axis, as the flat cap's was
-                    Vector3 axial = new(side * MathF.Sin(p0), 0f, 0f);
-                    Vector3 axial1 = new(side * MathF.Sin(p1), 0f, 0f);
-
-                    Vector3 n00 = Vector3.Normalize(d0 * MathF.Cos(p0) + axial);
-                    Vector3 n01 = Vector3.Normalize(d1 * MathF.Cos(p0) + axial);
-                    Vector3 n10 = Vector3.Normalize(d0 * MathF.Cos(p1) + axial1);
-                    Vector3 n11 = Vector3.Normalize(d1 * MathF.Cos(p1) + axial1);
-
-                    Vector3 p00 = d0 * r0 + Vector3.UnitX * x0;
-                    Vector3 p01 = d1 * r0 + Vector3.UnitX * x0;
-                    Vector3 p10 = d0 * r1 + Vector3.UnitX * x1;
-                    Vector3 p11 = d1 * r1 + Vector3.UnitX * x1;
+                    Vector3 p00 = DomePoint(wheelRadius, axisRadius, x, side, p0, a0, out Vector3 n00);
+                    Vector3 p01 = DomePoint(wheelRadius, axisRadius, x, side, p0, a1, out Vector3 n01);
+                    Vector3 p10 = DomePoint(wheelRadius, axisRadius, x, side, p1, a0, out Vector3 n10);
+                    Vector3 p11 = DomePoint(wheelRadius, axisRadius, x, side, p1, a1, out Vector3 n11);
 
                     builder.AddQuad(p00, p10, p11, p01, n00, n10, n11, n01, n00 + n10 + n11 + n01);
                 }
             }
+        }
+
+        private static Vector3 DomePoint(float wheelRadius, float axisRadius, float x, float side,
+            float latitude, float theta, out Vector3 normal)
+        {
+            FlutedRadius(wheelRadius, axisRadius, x, theta, out float baseRadius, out _, out float drdTheta);
+
+            float bulge = baseRadius * 0.34f;
+            float radius = baseRadius * MathF.Cos(latitude);
+
+            float cos = MathF.Cos(theta), sin = MathF.Sin(theta);
+            Vector3 radial = new(0f, cos, sin);
+            Vector3 tangent = new(0f, -sin, cos);
+
+            //The flutes' own tilt at the base, fading out as the dome turns to face along the axis
+            float flute = drdTheta / MathF.Max(baseRadius, 1e-5f) * MathF.Cos(latitude);
+
+            normal = Vector3.Normalize(radial * MathF.Cos(latitude)
+                + new Vector3(side * MathF.Sin(latitude), 0f, 0f)
+                - tangent * flute);
+
+            return new Vector3(x + side * bulge * MathF.Sin(latitude), radius * cos, radius * sin);
         }
 
         public void Dispose()
