@@ -358,7 +358,7 @@
       "file": "Gantry.json",
       "name": "Gantry",
       "block": "The Reveal",
-      "shots": 56,
+      "shots": 64,
       "minStars": 86,
       "ceilingStep": 6
     },

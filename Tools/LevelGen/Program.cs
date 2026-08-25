@@ -2646,7 +2646,15 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Moon,
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
-            Shots = 56,
+            //Sixty-four and not the fifty-six this was priced at, which measured the level at exactly
+            //1.00 shots a standing group - the tool's own stated floor, where "a design under 1 with no
+            //cascade in it cannot be finished". This one HAS cascades and is built of nothing else (a
+            //cut sling drops a whole stone: a nine-ball group takes twenty-seven with it, measured), so
+            //it was never the unfinishable case - but sitting a design ON that line leaves it no room
+            //for the shot that misses, and the ratio is not comparable with Static's 1.43 in any case,
+            //Static having no cascade anywhere on it by design. 1.14 keeps this the tightest of the
+            //five and off the floor.
+            Shots = 64,
             CeilingStep = 6,
             OccupiedBlock = (x, z, i, depth) => GantrySteel(x, z, i),
             BlockColour = GantryColour,
