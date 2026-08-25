@@ -1622,3 +1622,32 @@ Ostatní tři nálezy s mechanismem a čísly jsou v #268; sem jen ty, které se
 **Deník podruhé stejným způsobem:** tvůj nárok na #208 je pořád necommitovaný, takže i tenhle commit nese **jen svůj vlastní text** (blob postavený z `HEAD` plus tenhle zápis, nastagovaný napřímo). Tvoje řádky jsou dál nedotčené a necommitované, v pracovním stromu za tímhle zápisem.
 
 **Nic si teď neberu.**
+
+## 2026-08-25 — Claude Code (šedesátý osmý zápis)
+
+**#268 (tropická pláž — jak se čte) hotové a na mainu jako `790520d`.** Plný výkaz je v komentáři issue; **issue jsem nezavřel**, protože jeden ze čtyř bodů dopadl jinak, než si jeho vlastní fix sketch představoval, a majitel ho možná bude chtít přeformulovat. Ze čtyř bodů **tři opravené, jeden vyvrácený**.
+
+**Nejcennější je ten vyvrácený, a je obecnější než tahle scéna.** Fix sketch (můj vlastní, z rána) tvrdil, že se laguna dostane do herního rámu prohloubením nebo zúžením pláže. Nedostane:
+
+- **Deska ostrova stojí 5 jednotek nad pláží a herní kamera se dívá přes ni** — její vzdálený okraj přeruší zorný paprsek a všechno v rovině písku za ním zmizí, bez ohledu na to, co tam je.
+- Usvědčeno `arena=none`: tentýž snímek z herní kamery ukáže lagunu jasně bez ostrova a vůbec s ním. Pak vyzkoušeno stažením `ShoreRadius` 100 → 66 i s prstencem palem — **pořád nic** — a pak ještě na malé mapě pro případ, že je proměnná stand-off. Taky nic. Všechno vráceno.
+- **Pravidlo, které z toho plyne: z herní kamery je za ostrovem vidět jen to, co ČNÍ NAHORU.** Plochý terén v rovině písku je odtamtud neviditelný, ať má jakýkoli poloměr. Kdo bude příště dělat scénu s vodní plochou nebo s čímkoli nízkým kolem arény, ať s tím počítá od začátku — je to zapsané i v `TropicalTerrainConfig.ShoreRadius` a v `docs/scenes.md`.
+- **A metodicky:** tohle je podruhé v jednom dni, co mě model geometrie vedl špatně a rozhodl až experiment. Napřed jsem si spočítal, že laguna má zabírat ~60 px rámu; pak jsem změřil, že jsou to 2. Když nesedí výpočet s obrázkem, platí obrázek — a `arena=none` je na tuhle třídu otázek levný a jednoznačný nástroj.
+
+**Tři opravy, každá s jinou lekcí:**
+
+- **Maska zeleně na dálném hřebeni** byla vázaná na jeho *stoupání* (`ring`, tentýž 95jednotkový náběh, který ho zvedá), takže zeleň rostla ven a plná byla až za hřbetem — přivrácený svah byl z konstrukce písek, naměřeno (204, 199, 168). Rozděleno na dvě otázky: krátká radiální brána (*která pevnina*) a výška nad vodou (*jak zarostlá*). **Jedna maska, která odpovídala na dvě otázky naráz, je vada, kterou je snadné nevidět** — obě odpovědi vypadaly rozumně, jen se ptaly na to samé.
+- **Mlha pak žrala, co maska dodala.** `haze⁴` k barvě horizontu je outbackovo uspořádání převzaté i s exponentem; pro prázdnou pláň správně, ale **tady je horizont sám o sobě prvek** (hřeben na 300–420 proti mlžné vzdálenosti 480, kterou drží poloviční rozměr mřížky), takže byl hřbet už ze 48 % v obloze. V téhle scéně `haze⁸`. Poučení: převzatá konstanta si s sebou nese kompozici, pro kterou byla zvolena.
+- **Písek** měl vlnky jen v normále (poušť ztmavuje i koryta a má to zapsané) **a k tomu 3× jemnější, než unese band-limit** — doména 0,85 = prvek 1,2 jednotky proti pouštním 3,9, takže se odfiltroval na třetinové vzdálenosti. Obojí opraveno; sd jasu **4,42 → 4,70 (stínování) → 4,92 (zhrubení)**, poušť 5,98. **Stínovat pole, které se nedá rozlišit, nekoupí nic** — první polovina opravy sama by byla skoro k ničemu a čísla to ukázala.
+
+**⚠ Sáhl jsem do `Sea.fx`, kterou kreslí obě vodní scény.** Přibyl jeden uniform `ShallowBias`, který zvedá podlahu mixu mezi hlubokou a mělkou barvou: laguna 0,78, moře **0**, kde `lerp(x, 1, 0)` je bit po bitu `x`. Laguna byla šedá právě proto, že `Sea.fx` dává světlou barvu jen plochám vlny mířícím vzhůru — správně pro vodu, pod kterou nic není, špatně pro basén s bílým dnem pár jednotek pod hladinou.
+
+> **A pozor na to, jak se u téhle scény NEDÁ ověřovat.** Chtěl jsem doložit, že se moře nehnulo, pixelovým diffem dvou buildů — a vyšlo, že se liší **45 % pixelů**. Není to změnou shaderu: vlny i mračná deska běží na nástěnných hodinách, takže dvě spuštění chytnou jinou fázi. **Na moři (a na každé scéně s počasím) je pixelový diff mezi dvěma běhy bezcenný.** Použitelný nástroj jsou plošné průměry: přes 62 400 pixelů vody R 69,55 / G 88,77 / B 123,29 před proti R 69,30 / G 88,49 / B 123,08 po — třetina úrovně, tedy fáze vlny.
+
+**Cena, párově na jednom pinu** (6900 XT, Testbed, pevná kamera, 1600×900 ssaa 4, dóm 1, `fpscap=150`): **119,8 FPS / 8,3 ms před proti 117,2 / 8,5 po**, tedy ~0,2 ms za jednu oktávu fBm navíc. Zůstává v pouštní třídě. `nocap` jsem nepouštěl (#250, majitelovo povolení jen na `fpscap`).
+
+**Ověřeno:** čtyři solutiony čisté i po mergi, ScoreSim zelený, snímky z Testbedu (shora, od břehu, na hřeben, z herní kamery), z Game i z editoru.
+
+**Nic si teď neberu.**
+
+**ZCode:** deník opět stejnou cestou — tvůj nárok na #208 je pořád necommitovaný, takže tenhle commit nese jen svůj text a tvoje řádky jsou dál nedotčené a tvoje. Z nálezů výše se ti k #208 hodí hlavně ten o písku: **jemný detail, který nepřežije band-limit, nenakreslí nic, ať se ztmaví jak chce** — a měřítko domény je proto první číslo, na které se u „vypadá to bez textury" dívat, dřív než amplituda.
