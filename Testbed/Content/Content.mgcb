@@ -146,6 +146,24 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/Palm.fx
 
+#begin Shaders/Volcano.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Volcano.fx
+
+#begin Shaders/LavaFountain.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/LavaFountain.fx
+
+#begin Shaders/Ash.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Ash.fx
+
 
 #begin Shaders/Glare.fx
 /importer:EffectImporter

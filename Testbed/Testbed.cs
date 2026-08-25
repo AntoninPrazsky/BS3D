@@ -282,6 +282,14 @@ namespace Testbed
         //explicit sky= overrides the startup default.
         private const byte TROPICAL_DEFAULT_SKY_DOME = 1;
 
+        //The volcano wants the opposite of the beach, and for a reason that is the scene's whole idea: its
+        //ground is the light, so the sky's job is to stay out of the way. Dome 9 is a dim mauve-and-slate
+        //dusk with no bright band anywhere in it — chosen BY LOOKING, against 16 and 13 (#207's lesson).
+        //16 is darker at the zenith but its horizon is a bright cream and it puts its sun disc up beside the
+        //cone, which competes with the crater for the eye; 9 has neither, so the lava is unarguably the
+        //brightest thing in the frame and the cone keeps a clean silhouette.
+        private const byte VOLCANO_DEFAULT_SKY_DOME = 9;
+
         //Space deliberately forces NO dome, unlike those two. Its dome is neither drawn (Space.fx covers the
         //whole frame) nor read (SpaceLightingConfig states the light rig instead, for the reasons set out
         //there) - so it is completely inert in that scene, and NumPad1 cycling domes in it changes nothing.
@@ -475,6 +483,7 @@ namespace Testbed
             else if (_scene == SceneKind.Sea) _skyModelNumber = SEA_DEFAULT_SKY_DOME; //The sea scene defaults to a darker dome (unless sky= overrode it above)
             else if (_scene == SceneKind.Savanna) _skyModelNumber = SAVANNA_DEFAULT_SKY_DOME; //The savanna defaults to a warm golden dome
             else if (_scene == SceneKind.Tropical) _skyModelNumber = TROPICAL_DEFAULT_SKY_DOME; //The beach defaults to the brightest blue
+            else if (_scene == SceneKind.Volcano) _skyModelNumber = VOLCANO_DEFAULT_SKY_DOME;   //The volcano defaults to the darkest dome
 
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;
@@ -885,8 +894,9 @@ namespace Testbed
             if (_scene == SceneKind.Sea) SetSkyDome(SEA_DEFAULT_SKY_DOME);
             else if (_scene == SceneKind.Savanna) SetSkyDome(SAVANNA_DEFAULT_SKY_DOME);
             else ApplySkyLighting();
-            //The tropical beach sits past the cycle's end (CycleLength 7) and is never reached by this
-            //switch — its default dome is applied at startup only, where the scene= arm above finds it.
+            //The tropical beach and the volcano sit past the cycle's end (CycleLength 7) and are never
+            //reached by this switch — their default domes are applied at startup only, where the scene= arm
+            //above finds them.
         }
 
         /// <summary>

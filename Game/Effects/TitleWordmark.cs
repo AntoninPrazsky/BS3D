@@ -259,7 +259,7 @@ namespace BS3D.Effects
         //sharing it. A wordmark is not a ball.
         private const float BEAT_RATE = 0.45f;                        //cycles a second
 
-        //The pulse has TWO limbs on purpose, because either alone fails on half the game's fourteen scenes.
+        //The pulse has TWO limbs on purpose, because either alone fails on half the game's fifteen scenes.
         //The scale breath is visible over any backdrop, bright or dark, since it is motion rather than light.
         //The glow is what makes the word look lit from inside, and it is what carries the pulse over a DARK
         //scene where a 3 % size change on a small object is nearly nothing.
@@ -436,7 +436,7 @@ namespace BS3D.Effects
         /// <para>
         /// The letters are <b>lit by the scene like everything else in it</b>, which is not the choice
         /// <see cref="TrophyPodium"/> made and is worth stating. A cup is presented for a few seconds and
-        /// wants one controlled finish; a wordmark stands over all fourteen backdrops under all eighteen
+        /// wants one controlled finish; a wordmark stands over all fifteen backdrops under all eighteen
         /// domes for as long as the game is not being played, and enrolment is what makes it come out right
         /// on both ends of that range — over the sea at noon the rig is bright and so are the letters, over
         /// space and the Moon the background is black and dim letters read perfectly against it. The glow and

@@ -164,5 +164,23 @@
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/Palm.fx;Shaders/Palm.fx
 
+#begin ../../Testbed/Content/Shaders/Volcano.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Volcano.fx;Shaders/Volcano.fx
+
+#begin ../../Testbed/Content/Shaders/LavaFountain.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/LavaFountain.fx;Shaders/LavaFountain.fx
+
+#begin ../../Testbed/Content/Shaders/Ash.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Ash.fx;Shaders/Ash.fx
+
 
 

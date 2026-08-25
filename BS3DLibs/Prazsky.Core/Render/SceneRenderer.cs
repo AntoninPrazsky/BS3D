@@ -13,7 +13,9 @@ namespace Prazsky.Core.Render
     /// NeonCity, Forest and Outback swap the city (and only the city) for open water, a savanna, a Sahara of
     /// dunes, a snowy range, a flowering meadow, the same city lit up in neon, a forest clearing, or the
     /// red-rock Australian outback. Tropical swaps it for a beach — sand, palms and mossy rocks around the
-    /// island, a turquoise lagoon beyond it, and the green far shore that closes the horizon.
+    /// island, a turquoise lagoon beyond it, and the green far shore that closes the horizon. Volcano swaps it
+    /// for the flank of an erupting cone: black basalt cut by rivers of lava, fountains over the crater and
+    /// drifting ash — the first scene whose <b>ground is the light</b>.
     /// <para>
     /// <see cref="Space"/> is the one that is not like the others: it replaces the <b>sky</b> rather than the
     /// ground, so the island floats in deep space and there is no terrain, no horizon and no weather at all.
@@ -35,7 +37,7 @@ namespace Prazsky.Core.Render
     /// <see cref="SceneRenderer.CycleLength"/> is a prefix of it.
     /// </para>
     /// </summary>
-    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon, Outback, Tropical }
+    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon, Outback, Tropical, Volcano }
 
     /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,
@@ -299,6 +301,7 @@ namespace Prazsky.Core.Render
         private MoonSceneConfig _moonConfig = new();
         private OutbackSceneConfig _outbackConfig = new();
         private TropicalSceneConfig _tropicalConfig = new();
+        private VolcanoSceneConfig _volcanoConfig = new();
 
         #region Sea
 
@@ -416,6 +419,62 @@ namespace Prazsky.Core.Render
 
         //Colours, stored from the config so the per-draw DiffuseColor can be set as each part draws.
         private Vector3 _palmFrondColor, _palmFrondDry, _palmTrunkColor, _tropicalStoneColor, _tropicalMossColor;
+
+        #endregion
+
+        #region Volcano
+
+        private readonly Effect _volcanoEffect;
+        private readonly VertexBuffer _volcanoVertexBuffer;
+        private readonly IndexBuffer _volcanoIndexBuffer;
+        private readonly int _volcanoIndexCount;
+
+        //The mountain's density and extent: the flank carries a summit against the sky, so it wants the
+        //craggy grid rather than the desert's, and it needs the same 32-bit index buffer (CreateGridMesh).
+        private const int VOLCANO_GRID_N = 360;
+        private const float VOLCANO_EXTENT = 1200f;
+
+        //Matched by MAX_RIVERS in Volcano.fx and MAX_VENTS in LavaFountain.fx. Both are shader array sizes:
+        //raising either here without raising it there writes past what the shader reads.
+        private const int MAX_RIVERS = 6;
+        private const int MAX_VENTS = 4;
+
+        //Where a 16-bit index buffer runs out: four vertices a particle over 65 536 addressable ones. The
+        //mountain's snow silently trusted a config to stay under a limit like this; a volcano's counts are
+        //dials from day one (#209 defends a 75 FPS budget this scene spends particles against), so the cap
+        //is stated rather than assumed.
+        private const int MAX_BILLBOARD_PARTICLES = 16000;
+
+        //The rivers' bearings and reaches, solved once per config (BuildVolcanoBuffers) rather than per
+        //frame — the shader draws the flows from these and the scene lights ride the same figures, which is
+        //what keeps a lamp on the river it is lighting.
+        private readonly float[] _riverBearing = new float[MAX_RIVERS];
+        private readonly float[] _riverReach = new float[MAX_RIVERS];
+        private int _riverCount;
+
+        //The vents the fountains are thrown from: slot 0 the crater, the rest side vents on the flank.
+        private readonly Vector3[] _ventPosition = new Vector3[MAX_VENTS];
+        private readonly float[] _ventStrength = new float[MAX_VENTS];
+        private int _ventCount;
+
+        //The lava fountains and the smoke plume: ONE static billboard buffer, its first PlumeFraction drawn
+        //as the plume and the rest as the jets, so neither pass pays for the other's particles. Animated
+        //entirely in the vertex shader, so it is rebuilt only when a config is applied and never per frame.
+        private readonly Effect _fountainEffect;
+        private VertexBuffer _fountainVertexBuffer;
+        private IndexBuffer _fountainIndexBuffer;
+        private int _plumeQuads, _jetQuads;
+
+        //Cached at load: the by-name Techniques indexer is a linear scan and this pass selects between the
+        //two of them twice a frame (BestPractices.md §1).
+        private readonly EffectTechnique _plumeTechnique, _jetTechnique;
+
+        //The drifting ash, on the snowfall's machinery in its own shader (Ash.fx says why it is not Snow.fx).
+        private readonly Effect _ashEffect;
+        private VertexBuffer _ashVertexBuffer;
+        private IndexBuffer _ashIndexBuffer;
+
+        //Look/tuning parameters live in VolcanoSceneConfig; SceneRenderer reads them from _volcanoConfig.
 
         #endregion
 
@@ -816,6 +875,21 @@ namespace Prazsky.Core.Render
             _palmSwaySpeedParam = _palmEffect.Parameters["SwaySpeed"];
             BuildTropicalBuffers();
 
+            //--- Volcano (#223): the fifteenth scene — the flank of an erupting cone, its lava rivers and the
+            //crackle glow between its crust plates. The mountain's grid density, because this terrain carries
+            //a summit against the sky; the fountains, the plume and the ash are three billboard buffers over
+            //two more effects, all animated in their vertex shaders and rebuilt only when a config is applied.
+            _volcanoEffect = content.Load<Effect>("Shaders/Volcano");
+            CreateGridMesh(VOLCANO_GRID_N, VOLCANO_EXTENT, out _volcanoVertexBuffer, out _volcanoIndexBuffer, out _volcanoIndexCount);
+
+            _fountainEffect = content.Load<Effect>("Shaders/LavaFountain");
+            _plumeTechnique = _fountainEffect.Techniques["Plume"];
+            _jetTechnique = _fountainEffect.Techniques["Fountain"];
+            _ashEffect = content.Load<Effect>("Shaders/Ash");
+
+            ApplyVolcanoParameters();
+            BuildVolcanoBuffers();
+
             //--- Savanna: a flat lattice the shader displaces into gentle grassland (per-pixel normal, no grid)
             _savannaEffect = content.Load<Effect>("Shaders/Savanna");
             CreateGridMesh(SAVANNA_GRID_N, SAVANNA_EXTENT, out _savannaVertexBuffer, out _savannaIndexBuffer, out _savannaIndexCount);
@@ -1005,7 +1079,8 @@ namespace Prazsky.Core.Render
         /// </summary>
         public static bool IsSolidTerrainScene(SceneKind kind) =>
             kind is SceneKind.Mountain or SceneKind.Meadow or SceneKind.Savanna or SceneKind.Desert
-                or SceneKind.Forest or SceneKind.Moon or SceneKind.Outback or SceneKind.Tropical;
+                or SceneKind.Forest or SceneKind.Moon or SceneKind.Outback or SceneKind.Tropical
+                or SceneKind.Volcano;
 
         /// <summary>
         /// Whether there is a vantage <b>under</b> the island from which the balls pouring out of the drain can
@@ -1037,7 +1112,7 @@ namespace Prazsky.Core.Render
         //reads better than the singular enum member and is deliberately not "corrected" to match it; the
         //parse keys below are the singular ones, because those are what a command line already takes.
         private static readonly string[] SCENE_NAMES =
-            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream", "Cavern", "Moon", "Outback", "Tropical" };
+            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream", "Cavern", "Moon", "Outback", "Tropical", "Volcano" };
 
         /// <summary>
         /// The scene's name for a menu or a log line. Display text, not a parse key — see
@@ -1069,6 +1144,7 @@ namespace Prazsky.Core.Render
                 case "moon": kind = SceneKind.Moon; return true;
                 case "outback": kind = SceneKind.Outback; return true;
                 case "tropical": kind = SceneKind.Tropical; return true;
+                case "volcano": kind = SceneKind.Volcano; return true;
                 default: kind = default; return false;
             }
         }
@@ -1106,6 +1182,11 @@ namespace Prazsky.Core.Render
                     ApplyTropicalParameters();
                     BuildTropicalBuffers(); //palm and rock positions depend on the terrain, so the change re-plants them
                     SeedBirdFlock();        //the shared flock is sized from all the scenes that draw it
+                    break;
+                case VolcanoSceneConfig volcano:
+                    _volcanoConfig = volcano;
+                    ApplyVolcanoParameters();
+                    BuildVolcanoBuffers(); //the vents and the rivers stand on the terrain, so a terrain edit re-solves them
                     break;
                 case SavannaSceneConfig savanna:
                     _savannaConfig = savanna;
@@ -1311,6 +1392,7 @@ namespace Prazsky.Core.Render
             SceneKind.Moon => _moonConfig,
             SceneKind.Outback => _outbackConfig,
             SceneKind.Tropical => _tropicalConfig,
+            SceneKind.Volcano => _volcanoConfig,
             _ => null,
         };
 
@@ -1453,6 +1535,88 @@ namespace Prazsky.Core.Render
             _palmTrunkColor = palms.TrunkColor.ToVector3();
             _tropicalStoneColor = rocks.StoneColor.ToVector3();
             _tropicalMossColor = rocks.MossColor.ToVector3();
+        }
+
+        /// <summary>
+        /// Pushes the volcano's static tuning into <c>Volcano.fx</c>, <c>LavaFountain.fx</c> and <c>Ash.fx</c>.
+        /// The rivers' bearings, the vents and the two particle buffers depend on the terrain, so they are
+        /// <see cref="BuildVolcanoBuffers"/>'s and are solved after this.
+        /// </summary>
+        private void ApplyVolcanoParameters()
+        {
+            VolcanoSceneConfig volcano = _volcanoConfig;
+
+            _volcanoEffect.Parameters["VolcanoLevelY"].SetValue(volcano.LevelY);
+            _volcanoEffect.Parameters["ClearingRadius"].SetValue(volcano.ClearingRadius);
+            _volcanoEffect.Parameters["ClearingTransition"].SetValue(MathF.Max(volcano.ClearingTransition, 1f));
+            _volcanoEffect.Parameters["ConeCenterXZ"].SetValue(volcano.ConeCenter.ToVector2());
+            _volcanoEffect.Parameters["ConeRadius"].SetValue(MathF.Max(volcano.ConeRadius, 1f));
+            _volcanoEffect.Parameters["ConeHeight"].SetValue(volcano.ConeHeight);
+            _volcanoEffect.Parameters["ConeProfile"].SetValue(MathF.Max(volcano.ConeProfile, 0.1f));
+            _volcanoEffect.Parameters["CraterRadius"].SetValue(MathF.Max(volcano.CraterRadius, 1f));
+            _volcanoEffect.Parameters["CraterDepth"].SetValue(volcano.CraterDepth);
+            _volcanoEffect.Parameters["GullyDepth"].SetValue(volcano.GullyDepth);
+
+            //ROUNDED, and the shader says why: every bearing term is a multiple of this figure, and only an
+            //integer multiple of atan2's angle closes across the ±π seam. A fractional count leaves a straight
+            //scar running from the crater to the horizon. Rounded here rather than in the shader because it is
+            //a per-config decision, not a per-vertex one.
+            _volcanoEffect.Parameters["GullyCount"].SetValue(MathF.Round(MathF.Max(volcano.GullyCount, 1f)));
+
+            _volcanoEffect.Parameters["ScoriaRelief"].SetValue(volcano.ScoriaRelief);
+            _volcanoEffect.Parameters["RiverWidth"].SetValue(MathF.Max(volcano.RiverWidth, 0.5f));
+            _volcanoEffect.Parameters["RiverWander"].SetValue(volcano.RiverWander);
+            _volcanoEffect.Parameters["RiverSpeed"].SetValue(volcano.RiverSpeed);
+            _volcanoEffect.Parameters["HaloWidth"].SetValue(MathF.Max(volcano.HaloWidth, 1.05f));
+            _volcanoEffect.Parameters["RockColor"].SetValue(volcano.RockColor.ToVector3());
+            _volcanoEffect.Parameters["RockColorLight"].SetValue(volcano.RockColorLight.ToVector3());
+            _volcanoEffect.Parameters["LavaHot"].SetValue(volcano.LavaHot.ToVector3());
+            _volcanoEffect.Parameters["LavaCool"].SetValue(volcano.LavaCool.ToVector3());
+            _volcanoEffect.Parameters["SeamGlow"].SetValue(volcano.SeamGlow);
+            _volcanoEffect.Parameters["PlateSize"].SetValue(MathF.Max(volcano.PlateSize, 0.1f));
+            _volcanoEffect.Parameters["AmbientStrength"].SetValue(volcano.AmbientStrength);
+            _volcanoEffect.Parameters["HorizonHazeDistance"].SetValue(MathF.Max(volcano.HorizonHazeDistance, 1f));
+            _volcanoEffect.Parameters["HazeTint"].SetValue(volcano.HazeTint.ToVector3());
+            _volcanoEffect.Parameters["HazeStrength"].SetValue(volcano.HazeStrength);
+            _volcanoEffect.Parameters["WindDirection"].SetValue(volcano.Wind.ToVector2());
+
+            LavaFountainConfig fountains = volcano.Fountains;
+
+            _fountainEffect.Parameters["LaunchSpeed"].SetValue(fountains.Speed);
+            _fountainEffect.Parameters["LaunchSpread"].SetValue(fountains.Spread);
+            _fountainEffect.Parameters["BlobGravity"].SetValue(MathF.Max(fountains.Gravity, 0.1f));
+            _fountainEffect.Parameters["BlobLife"].SetValue(MathF.Max(fountains.Life, 0.1f));
+            _fountainEffect.Parameters["BlobSize"].SetValue(fountains.BlobSize);
+            _fountainEffect.Parameters["WindDirection"].SetValue(volcano.Wind.ToVector2());
+            _fountainEffect.Parameters["WindDrag"].SetValue(fountains.WindDrag);
+            _fountainEffect.Parameters["EruptionBoost"].SetValue(volcano.Eruption.Boost);
+            _fountainEffect.Parameters["LavaHot"].SetValue(volcano.LavaHot.ToVector3());
+            _fountainEffect.Parameters["LavaCool"].SetValue(volcano.LavaCool.ToVector3());
+            _fountainEffect.Parameters["PlumeColor"].SetValue(fountains.PlumeColor.ToVector3());
+            _fountainEffect.Parameters["PlumeStrength"].SetValue(fountains.PlumeStrength);
+
+            //The plume's own figures are derived from the jets' rather than being four more dials: a column
+            //rises about a third as fast as a blob is thrown, lives long enough to leave the frame, and
+            //spreads to a good fraction of the crater it is standing in. Deriving them keeps a retuned
+            //fountain and its own smoke in proportion, which is what a designer moving Speed actually wants.
+            _fountainEffect.Parameters["PlumeRise"].SetValue(fountains.Speed * 0.55f);
+            _fountainEffect.Parameters["PlumeSpread"].SetValue(volcano.CraterRadius * 0.8f);
+            _fountainEffect.Parameters["PlumeLife"].SetValue(fountains.Life * 7f);
+            _fountainEffect.Parameters["PlumeSize"].SetValue(fountains.BlobSize * 5f);
+
+            AshConfig ash = volcano.Ash;
+
+            _ashEffect.Parameters["AshBoxSize"].SetValue(ash.BoxSize.ToVector3());
+            _ashEffect.Parameters["AshFallSpeed"].SetValue(ash.FallSpeed);
+            _ashEffect.Parameters["AshWind"].SetValue(ash.Wind.ToVector2());
+            _ashEffect.Parameters["AshSway"].SetValue(ash.Sway);
+            _ashEffect.Parameters["SpeckSize"].SetValue(ash.FlakeSize);
+            _ashEffect.Parameters["AshSpin"].SetValue(ash.Spin);
+            _ashEffect.Parameters["AshNearFade"].SetValue(MathF.Max(ash.NearFade, 0.1f));
+            _ashEffect.Parameters["EmberFraction"].SetValue(ash.EmberFraction);
+            _ashEffect.Parameters["AshColor"].SetValue(ash.AshColor.ToVector3());
+            _ashEffect.Parameters["EmberColor"].SetValue(ash.EmberColor.ToVector3());
+            _ashEffect.Parameters["AshOpacity"].SetValue(ash.Opacity);
         }
 
         private void ApplySavannaParameters()
@@ -1898,6 +2062,331 @@ namespace Prazsky.Core.Render
             _tropicalRockMeshes = null;
             _tropicalMossMeshes = null;
         }
+
+        #region Volcano: the rivers, the vents, the eruption and its lights
+
+        /// <summary>
+        /// (Re)solves everything about the volcano that depends on its terrain — the rivers' bearings and
+        /// reaches, the vents the fountains are thrown from — and rebuilds the two particle buffers at the
+        /// config's counts. Deterministic: same config, same volcano, every run and in every executable.
+        /// </summary>
+        private void BuildVolcanoBuffers()
+        {
+            VolcanoSceneConfig volcano = _volcanoConfig;
+            Random rng = new(4177);
+
+            //--- The rivers. Radial from the cone's axis, and the FIRST one is aimed to pass the arena: that
+            //is the whole point of the scene's lighting, since a flow nobody stands beside lights nothing.
+            //RiverArenaOffset walks it past the island's near edge rather than straight over it.
+            _riverCount = Math.Clamp(volcano.RiverCount, 1, MAX_RIVERS);
+
+            Vector2 cone = volcano.ConeCenter.ToVector2();
+            float bearingToArena = MathF.Atan2(-cone.Y, -cone.X);
+            float coneToArena = cone.Length();
+            float spacing = MathHelper.TwoPi / _riverCount;
+            float gullyCount = MathF.Round(MathF.Max(volcano.GullyCount, 1f));
+
+            for (int i = 0; i < _riverCount; i++)
+            {
+                //Evenly spread and then jittered by up to a quarter of the spacing, so the flank is not a
+                //starburst — and never enough to let one river swap sides with its neighbour.
+                float jitter = (float)(rng.NextDouble() - 0.5) * spacing * 0.5f;
+                float wanted = bearingToArena + volcano.RiverArenaOffset + i * spacing + (i == 0 ? 0f : jitter);
+
+                //And then SNAPPED to the nearest gully, which is the whole difference between lava lying on
+                //a cone and lava running down one: water — and rock — go where the ground drains, and the
+                //gullies are where this ground drains. Without it the flows crossed the channels obliquely
+                //and read as paint.
+                _riverBearing[i] = SnapToGully(wanted, gullyCount);
+
+                //River 0 has to get past the arena to be worth aiming there; the others stop somewhere on the
+                //flank, each at its own reach, so the fronts are not one ring around the cone.
+                _riverReach[i] = i == 0
+                    ? coneToArena + 90f
+                    : volcano.ConeRadius * (0.70f + 0.55f * (float)rng.NextDouble());
+            }
+
+            //The snap can walk river 0 by up to half a gully, and half a gully at this distance is tens of
+            //units — enough to put the flow under the island instead of past it. If it lands too close, take
+            //the next gully out on the far side. The clearance wanted is the island plus a couple of river
+            //widths, so the flow passes beside the play field with dark ground between.
+            float clearance = ArenaIsland.RADIUS + volcano.RiverWidth * 2f;
+            float perpendicular = MathF.Abs(MathF.Sin(_riverBearing[0] - bearingToArena)) * coneToArena;
+            if (perpendicular < clearance)
+            {
+                float away = MathF.Sign(volcano.RiverArenaOffset == 0f ? 1f : volcano.RiverArenaOffset);
+                _riverBearing[0] = SnapToGully(bearingToArena + away * MathHelper.TwoPi * 1.5f / gullyCount, gullyCount);
+            }
+
+            _volcanoEffect.Parameters["RiverBearing"].SetValue(_riverBearing);
+            _volcanoEffect.Parameters["RiverReach"].SetValue(_riverReach);
+            _volcanoEffect.Parameters["RiverCount"].SetValue(_riverCount);
+
+            //--- The vents. Three, and fixed in code rather than being another dial: the crater, and two side
+            //vents part-way down the flank on two of the rivers — which is where a side vent is, since the
+            //fissure that opens is what feeds the flow. Their strengths taper so the crater is plainly the
+            //main event and the spatter cones read as spatter.
+            _ventCount = Math.Min(3, MAX_VENTS);
+
+            _ventPosition[0] = new Vector3(cone.X, VolcanoGroundY(cone.X, cone.Y) + 2f, cone.Y);
+            _ventStrength[0] = 1f;
+
+            for (int v = 1; v < _ventCount; v++)
+            {
+                float bearing = _riverBearing[v % _riverCount];
+                float radius = volcano.ConeRadius * (0.34f + 0.16f * v);
+                float x = cone.X + MathF.Cos(bearing) * radius;
+                float z = cone.Y + MathF.Sin(bearing) * radius;
+
+                _ventPosition[v] = new Vector3(x, VolcanoGroundY(x, z) + 1.5f, z);
+                _ventStrength[v] = 0.42f - 0.10f * (v - 1);
+            }
+
+            _fountainEffect.Parameters["VentPosition"].SetValue(_ventPosition);
+            _fountainEffect.Parameters["VentStrength"].SetValue(_ventStrength);
+            _fountainEffect.Parameters["VentCount"].SetValue(_ventCount);
+
+            //--- The particles. One buffer for the fountains: its first slice is the plume and the rest are
+            //the jets, drawn as two index ranges over the one buffer (see DrawLavaFountains) so neither pass
+            //pays for the other's particles. Both counts are capped where a 16-bit index buffer runs out.
+            int total = Math.Clamp(volcano.Fountains.ParticleCount, 0, MAX_BILLBOARD_PARTICLES);
+            _plumeQuads = (int)(total * Math.Clamp(volcano.Fountains.PlumeFraction, 0f, 0.9f));
+            _jetQuads = total - _plumeQuads;
+
+            BuildBillboardParticles(total, 8831, ref _fountainVertexBuffer, ref _fountainIndexBuffer);
+            BuildBillboardParticles(Math.Clamp(volcano.Ash.FlakeCount, 0, MAX_BILLBOARD_PARTICLES), 6491,
+                ref _ashVertexBuffer, ref _ashIndexBuffer);
+        }
+
+        /// <summary>
+        /// The bearing of the gully floor nearest <paramref name="bearing"/>, so a river can be laid in one.
+        /// <para>
+        /// A gully is deepest where <c>Volcano.fx</c>'s rake term peaks, i.e. where
+        /// <c>b·N + 2·sin(3b) ≡ π (mod 2π)</c>. There is no closed form for that, and none is needed: the
+        /// <c>2·sin(3b)</c> bend is small against <c>N</c>, so picking the branch nearest the wanted bearing
+        /// and iterating <c>b ← (target − 2·sin(3b)) / N</c> is a contraction with ratio <c>6/N</c> and four
+        /// passes land far inside a degree. Change the rake term in the shader and this has to change with it.
+        /// </para>
+        /// </summary>
+        private static float SnapToGully(float bearing, float gullyCount)
+        {
+            float branch = MathF.Round((bearing * gullyCount + 2f * MathF.Sin(bearing * 3f) - MathF.PI) / MathHelper.TwoPi);
+            float target = MathF.PI + branch * MathHelper.TwoPi;
+
+            float b = bearing;
+            for (int pass = 0; pass < 4; pass++) b = (target - 2f * MathF.Sin(b * 3f)) / gullyCount;
+
+            return b;
+        }
+
+        /// <summary>
+        /// A static buffer of <paramref name="count"/> camera-facing quads, each carrying a fixed random point
+        /// in the unit cube and one more random — everything a shader needs to animate a particle entirely in
+        /// its vertex shader. The volcano's fountains, its plume and its ash are all built from this.
+        /// </summary>
+        private void BuildBillboardParticles(int count, int seed, ref VertexBuffer vertexBuffer, ref IndexBuffer indexBuffer)
+        {
+            vertexBuffer?.Dispose();
+            indexBuffer?.Dispose();
+            vertexBuffer = null;
+            indexBuffer = null;
+
+            if (count <= 0) return;
+
+            BillboardVertex[] vertices = new BillboardVertex[count * 4];
+            Random rng = new(seed);
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 basePosition = new((float)rng.NextDouble(), (float)rng.NextDouble(), (float)rng.NextDouble());
+                float rand = (float)rng.NextDouble();
+                int v = i * 4;
+                vertices[v] = new BillboardVertex(basePosition, new Vector3(-1f, 1f, rand));
+                vertices[v + 1] = new BillboardVertex(basePosition, new Vector3(1f, 1f, rand));
+                vertices[v + 2] = new BillboardVertex(basePosition, new Vector3(-1f, -1f, rand));
+                vertices[v + 3] = new BillboardVertex(basePosition, new Vector3(1f, -1f, rand));
+            }
+            vertexBuffer = new VertexBuffer(_graphicsDevice, BillboardVertex.Declaration, vertices.Length, BufferUsage.WriteOnly);
+            vertexBuffer.SetData(vertices);
+
+            short[] indices = new short[count * 6];
+            for (int i = 0; i < count; i++)
+            {
+                int v = i * 4;
+                int o = i * 6;
+                indices[o] = (short)v; indices[o + 1] = (short)(v + 2); indices[o + 2] = (short)(v + 1);
+                indices[o + 3] = (short)(v + 1); indices[o + 4] = (short)(v + 2); indices[o + 5] = (short)(v + 3);
+            }
+            indexBuffer = new IndexBuffer(_graphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
+            indexBuffer.SetData(indices);
+        }
+
+        /// <summary>
+        /// The volcano's ground height at a world point: <c>Volcano.fx</c>'s <c>TerrainHeight</c> without its
+        /// scoria fBm term, which is the one thing this mirror leaves out and can afford to — three units of
+        /// clinker under a lamp or a vent is invisible, and reproducing four octaves of gradient noise on the
+        /// CPU to place them would be the tail wagging the dog. Everything that decides where the cone, the
+        /// crater and the gullies are is here term for term.
+        /// </summary>
+        private float VolcanoGroundY(float x, float z)
+        {
+            VolcanoSceneConfig volcano = _volcanoConfig;
+
+            float ramp = SmoothStep(volcano.ClearingRadius, volcano.ClearingRadius + MathF.Max(volcano.ClearingTransition, 1f),
+                MathF.Sqrt(x * x + z * z));
+
+            Vector2 cone = volcano.ConeCenter.ToVector2();
+            float dx = x - cone.X;
+            float dz = z - cone.Y;
+            float r = MathF.Sqrt(dx * dx + dz * dz);
+            float bearing = MathF.Atan2(dz, dx);
+
+            float t = Math.Clamp(1f - r / MathF.Max(volcano.ConeRadius, 1f), 0f, 1f);
+            float flank = volcano.ConeHeight * MathF.Pow(t, MathF.Max(volcano.ConeProfile, 0.1f));
+
+            float craterRadius = MathF.Max(volcano.CraterRadius, 1f);
+            float crater = volcano.CraterDepth * SmoothStep(craterRadius, craterRadius * 0.45f, r);
+
+            float gullyCount = MathF.Round(MathF.Max(volcano.GullyCount, 1f));
+            float rake = 0.5f - 0.5f * MathF.Cos(bearing * gullyCount + 2f * MathF.Sin(bearing * 3f));
+            float gullyBand = SmoothStep(craterRadius * 1.15f, volcano.ConeRadius * 0.45f, r)
+                * SmoothStep(volcano.ConeRadius * 1.05f, volcano.ConeRadius * 0.62f, r);
+
+            return volcano.LevelY + ramp * (flank - crater - volcano.GullyDepth * rake * gullyBand);
+        }
+
+        /// <summary>
+        /// How hard the volcano is erupting at a wall-clock time, 0 between bursts and up to 1 at the peak of
+        /// one. A pure function of the clock with no state, so the game, the Testbed and the map editor all
+        /// see the same eruption at the same second, and so a burst can drive the jets, the plume and the
+        /// crater's light off ONE figure rather than three that drift apart.
+        /// <para>
+        /// The schedule is irregular by construction: each period contains one burst, but where in the period
+        /// it starts and how big it is are hashed off the period's own index, so the eruption never becomes a
+        /// metronome — the failure a fixed interval always ends in, and the one #219's lightning has to solve
+        /// too. The envelope is a fast attack and a long decay, which is the shape of the thing: a volcano
+        /// goes off and then subsides. <b>Light first, sound a beat behind</b> — the sound is not built yet
+        /// (it wants to land with #219's thunder rather than be invented twice), and this is where it hangs.
+        /// </para>
+        /// </summary>
+        public float VolcanoEruption(float time)
+        {
+            EruptionConfig eruption = _volcanoConfig.Eruption;
+
+            float period = MathF.Max(eruption.Period, 1f);
+            float u = time / period;
+            float index = MathF.Floor(u);
+
+            float start = 0.10f + 0.55f * Hash01(index);
+            float length = Math.Clamp(eruption.Length / period, 0.02f, 0.85f);
+
+            float p = (u - index - start) / length;
+            if (p <= 0f || p >= 1f) return 0f;
+
+            float envelope = p < 0.14f ? p / 0.14f : MathF.Pow(1f - (p - 0.14f) / 0.86f, 1.7f);
+
+            //Not every burst is the same size: a scene whose every event is identical stops being an event.
+            return envelope * (0.55f + 0.45f * Hash01(index + 101f));
+        }
+
+        //A deterministic hash of a small integer, for the eruption schedule. A sine hash is fine here where it
+        //would not be in a shader: it runs on one CPU with one rounding, and its argument stays small.
+        private static float Hash01(float n)
+        {
+            float s = MathF.Sin(n * 12.9898f) * 43758.5453f;
+            return s - MathF.Floor(s);
+        }
+
+        /// <summary>
+        /// How many point lights the volcano pushes, capped to the scene-light budget the shaders' arrays are
+        /// sized for. Slot 0 is the crater; every other slot rides a river.
+        /// </summary>
+        public int VolcanoLightCount => Math.Clamp(_volcanoConfig.LightCount, 1, SceneLights.MaxLights);
+
+        /// <summary>The volcano's point-light range (quadratic falloff), shared by the crater and the flows.</summary>
+        public float VolcanoLightRange => _volcanoConfig.LightRange;
+
+        /// <summary>
+        /// Where light <paramref name="index"/> stands at a wall-clock time. Slot 0 is the crater and does not
+        /// move; every other slot is a <b>flow front travelling downhill</b>, which is the whole reason this
+        /// takes a time at all — eight fixed lamps under a scene whose lava visibly moves would read as a lit
+        /// set rather than as a burning one.
+        /// <para>
+        /// Slots 1 and 2 both ride river 0 — the one aimed past the arena — a third of a span apart, so there
+        /// is nearly always a front near the play field; the rest take the other rivers in turn. The bearing
+        /// mirrors <c>Volcano.fx</c>'s own wander term, so a light sits <i>on</i> its river rather than beside
+        /// it: change one and change the other.
+        /// </para>
+        /// </summary>
+        public Vector3 VolcanoLightPosition(int index, float time)
+        {
+            if (index <= 0) return _ventPosition[0];
+
+            VolcanoSceneConfig volcano = _volcanoConfig;
+            Vector2 cone = volcano.ConeCenter.ToVector2();
+
+            int river = index <= 2 ? 0 : (index - 2) % _riverCount;
+            float near = MathF.Max(volcano.CraterRadius, 1f) * 1.2f;
+            float span = MathF.Max(_riverReach[river] - near, 1f);
+
+            float phase = Frac(time * volcano.RiverSpeed / span + index * 0.37f);
+            float r = near + phase * span;
+
+            float wander = volcano.RiverWander * MathF.Sin(r * 0.017f + river * 2.13f)
+                * Math.Clamp(r / MathF.Max(volcano.ConeRadius, 1f), 0f, 1f);
+            float bearing = _riverBearing[river] + wander;
+
+            float x = cone.X + MathF.Cos(bearing) * r;
+            float z = cone.Y + MathF.Sin(bearing) * r;
+
+            //A little over the surface: a lamp buried in the ground it is lighting throws nothing sideways,
+            //and the flow it stands for is a metre of molten rock lying on top of the flank, not inside it.
+            return new Vector3(x, VolcanoGroundY(x, z) + 2.5f, z);
+        }
+
+        /// <summary>
+        /// The colour of light <paramref name="index"/> at a wall-clock time. The crater takes the eruption's
+        /// envelope on top of its base glow; a flow front swells and dies over its run down the flank, so it
+        /// arrives, passes and is gone rather than blinking out when it wraps.
+        /// <para>
+        /// <b>Everything here is scaled by <see cref="VolcanoSceneConfig.LightStrength"/>, and that is the
+        /// readability dial, not a brightness taste.</b> The cluster hangs over this scene with red and orange
+        /// balls in it; the dome keeps lighting their tops, and what the ground is allowed to add underneath
+        /// has to stay under-light rather than becoming a tint. Turn it up and a red ball stops being one.
+        /// </para>
+        /// </summary>
+        public Vector3 VolcanoLightColor(float time, int index)
+        {
+            VolcanoSceneConfig volcano = _volcanoConfig;
+
+            //Lava pulses where a fire flickers — slower rates than the campfire's, and each lamp on its own
+            //stride so the flank does not breathe in unison.
+            float t = time + index * 3.77f;
+            float rate = 1f + index * 0.037f;
+            float pulse = 0.82f + 0.18f * (0.5f * MathF.Sin(t * 3.1f * rate) + 0.3f * MathF.Sin(t * 5.3f * rate + 1.3f)
+                + 0.2f * MathF.Sin(t * 2.1f * rate));
+
+            float strength;
+            if (index <= 0)
+            {
+                strength = 0.75f + VolcanoEruption(time) * volcano.Eruption.LightBoost;
+            }
+            else
+            {
+                int river = index <= 2 ? 0 : (index - 2) % _riverCount;
+                float near = MathF.Max(volcano.CraterRadius, 1f) * 1.2f;
+                float span = MathF.Max(_riverReach[river] - near, 1f);
+                float phase = Frac(time * volcano.RiverSpeed / span + index * 0.37f);
+
+                //Swells in and dies out over the run, so a front never appears or vanishes on the spot
+                strength = MathF.Sin(MathF.PI * phase);
+            }
+
+            return volcano.LavaHot.ToVector3() * (volcano.LightStrength * strength * pulse);
+        }
+
+        private static float Frac(float value) => value - MathF.Floor(value);
+
+        #endregion
 
         /// <summary>
         /// (Re)seeds the shared bird flock: each bird's orbit and drift, and the cycle of wingbeat bursts and
@@ -2487,6 +2976,13 @@ namespace Prazsky.Core.Render
                     DrawTropicalRocks(frame);
                     DrawBirds(frame, _tropicalConfig.Birds);
                     break;
+                case SceneKind.Volcano:
+                    //The flank first (it writes depth), then the fountains and the plume over it — they are
+                    //part of the far scene rather than foreground weather, because the cluster hangs in front
+                    //of the cone and has to occlude it. Only the ash is an overlay.
+                    DrawVolcanoTerrain(frame);
+                    DrawLavaFountains(frame);
+                    break;
                 case SceneKind.Mountain:
                     DrawMountain(frame);
                     break;
@@ -2513,15 +3009,21 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Draws the foreground weather that belongs after the opaque scene and the cluster: falling snow in
-        /// the mountain scene, blown spray and spindrift in the sea scene. Alpha-blended and depth-read (the
-        /// terrain/water and the cluster occlude the particles behind them) but writing no depth. A no-op for
-        /// every other scene.
+        /// the mountain scene, blown spray and spindrift in the sea scene, drifting ash in the volcano.
+        /// Alpha-blended and depth-read (the terrain/water and the cluster occlude the particles behind them)
+        /// but writing no depth. A no-op for every other scene.
+        /// <para>
+        /// The volcano's <i>fountains</i> are deliberately not here: they stand on the far cone, so the
+        /// cluster has to occlude them and they belong with the environment (see
+        /// <see cref="DrawEnvironment"/>). Only the ash is genuinely in front of everything.
+        /// </para>
         /// </summary>
         public void DrawOverlays(SceneKind scene, in SceneFrame frame)
         {
             if (scene == SceneKind.Mountain) DrawSnow(frame);
             else if (scene == SceneKind.Sea) DrawSpray(frame);
             else if (scene == SceneKind.Savanna) DrawFlame(frame);
+            else if (scene == SceneKind.Volcano) DrawAsh(frame);
         }
 
         /// <summary>
@@ -3152,6 +3654,125 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// Draws the volcano's flank (#223): the grid pinned to the camera and snapped to a cell so the ground
+        /// does not swim, displaced into the cone and its gullies, with the lava rivers drawn as an emissive
+        /// band on it and the crust cracking glowing between them. Opaque and depth-writing, drawn first in
+        /// the scene block, <see cref="RasterizerState.CullNone"/> (the winding is moot on a heightfield).
+        /// </summary>
+        private void DrawVolcanoTerrain(in SceneFrame frame)
+        {
+            float cell = VOLCANO_EXTENT / (VOLCANO_GRID_N - 1);
+            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
+            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
+
+            _volcanoEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
+            _volcanoEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
+            _volcanoEffect.Parameters["View"].SetValue(frame.Camera.View);
+            _volcanoEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
+            _volcanoEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
+            _volcanoEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
+            _volcanoEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
+            _volcanoEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
+            _volcanoEffect.Parameters["SunColor"].SetValue(frame.SunColor);
+            _volcanoEffect.Parameters["VolcanoTime"].SetValue(frame.Time);
+
+            frame.ApplyClouds?.Invoke(_volcanoEffect);
+
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _graphicsDevice.SetVertexBuffer(_volcanoVertexBuffer);
+            _graphicsDevice.Indices = _volcanoIndexBuffer;
+            _volcanoEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _volcanoIndexCount / 3);
+
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// Draws the lava fountains and the smoke plume standing over the crater — two index ranges over the
+        /// <b>one</b> particle buffer, so the plume pass never touches a jet's vertex and the jet pass never
+        /// touches a puff's. Both depth-read (the flank and the cluster hide what is behind them) and writing
+        /// no depth; the plume alpha-blended first, the jets additively over it, which is the order those two
+        /// have to be drawn in for smoke to sit behind fire rather than over it.
+        /// <para>
+        /// The eruption envelope goes in here rather than being computed per particle: one figure off the wall
+        /// clock (<see cref="VolcanoEruption"/>) drives the jets' reach, the plume's density and the crater's
+        /// point light together, which is what makes a burst read as one event.
+        /// </para>
+        /// </summary>
+        private void DrawLavaFountains(in SceneFrame frame)
+        {
+            if (_fountainVertexBuffer == null) return;
+
+            Matrix inverseView = Matrix.Invert(frame.Camera.View);
+
+            _fountainEffect.Parameters["View"].SetValue(frame.Camera.View);
+            _fountainEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
+            _fountainEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
+            _fountainEffect.Parameters["CameraRight"].SetValue(inverseView.Right);
+            _fountainEffect.Parameters["CameraUp"].SetValue(inverseView.Up);
+            _fountainEffect.Parameters["FountainTime"].SetValue(frame.Time);
+            _fountainEffect.Parameters["Eruption"].SetValue(VolcanoEruption(frame.Time));
+
+            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+            _graphicsDevice.SetVertexBuffer(_fountainVertexBuffer);
+            _graphicsDevice.Indices = _fountainIndexBuffer;
+
+            if (_plumeQuads > 0)
+            {
+                _graphicsDevice.BlendState = BlendState.AlphaBlend;
+                _fountainEffect.CurrentTechnique = _plumeTechnique;
+                _fountainEffect.CurrentTechnique.Passes[0].Apply();
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _plumeQuads * 2);
+            }
+
+            if (_jetQuads > 0)
+            {
+                _graphicsDevice.BlendState = BlendState.Additive;
+                _fountainEffect.CurrentTechnique = _jetTechnique;
+                _fountainEffect.CurrentTechnique.Passes[0].Apply();
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, _plumeQuads * 6, _jetQuads * 2);
+            }
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// Draws the drifting ash: a boxful of specks around the camera, animated entirely in the vertex
+        /// shader. Alpha-blended and depth-read but writing no depth, drawn last with the overlays. Volcano
+        /// scene only.
+        /// </summary>
+        private void DrawAsh(in SceneFrame frame)
+        {
+            if (_ashVertexBuffer == null) return;
+
+            Matrix inverseView = Matrix.Invert(frame.Camera.View);
+
+            _ashEffect.Parameters["View"].SetValue(frame.Camera.View);
+            _ashEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
+            _ashEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
+            _ashEffect.Parameters["CameraRight"].SetValue(inverseView.Right);
+            _ashEffect.Parameters["CameraUp"].SetValue(inverseView.Up);
+            _ashEffect.Parameters["AshTime"].SetValue(frame.Time);
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _graphicsDevice.SetVertexBuffer(_ashVertexBuffer);
+            _graphicsDevice.Indices = _ashIndexBuffer;
+            _ashEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0,
+                Math.Clamp(_volcanoConfig.Ash.FlakeCount, 0, MAX_BILLBOARD_PARTICLES) * 2);
+
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
         /// Draws the visible flames: one billboard per fire at its <see cref="SavannaCampfirePosition"/>, a
         /// procedural flickering flame in the shader, drawn additively and depth-read (the terrain or platform
         /// in front hides one) but writing no depth. The light each casts is a separate scene point light.
@@ -3726,6 +4347,12 @@ namespace Prazsky.Core.Render
             _tropicalVertexBuffer?.Dispose();
             _tropicalIndexBuffer?.Dispose();
             DisposeTropical();
+            _volcanoVertexBuffer?.Dispose();
+            _volcanoIndexBuffer?.Dispose();
+            _fountainVertexBuffer?.Dispose();
+            _fountainIndexBuffer?.Dispose();
+            _ashVertexBuffer?.Dispose();
+            _ashIndexBuffer?.Dispose();
             _savannaVertexBuffer?.Dispose();
             _savannaIndexBuffer?.Dispose();
             DisposeAcacia();

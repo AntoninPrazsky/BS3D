@@ -17,7 +17,7 @@ namespace BS3D
     /// What one tier turns down, and the measured reason for each entry. Every figure below was measured on this
     /// project's weakest development machine — a Ryzen 7 5700U with integrated Radeon graphics, windowed
     /// 1600×900, vsync off, on the front end (#64) — and the numbers quoted are the <b>neon city</b>, which is
-    /// the most expensive of the twelve scenes and therefore the one a tier has to be chosen against. The two
+    /// the most expensive of the fifteen scenes and therefore the one a tier has to be chosen against. The two
     /// city scenes sat at 77 and 103 ms when the tiers were chosen, and since the front-to-back sort (see
     /// "Drawing the city near to far" in docs/rendering.md) sit at 23.0 and 27.5 — still the two dearest
     /// scenes, and still under the probe's floor at <c>High</c> on this machine, so the tier stays. Of the ten
@@ -113,7 +113,7 @@ namespace BS3D
             new(supersampleFactor: 1, facadeGrainStrength: 0f, windowFrameWidth: 0f, cityRadiusBlocks: 14),
 
             //Medium — 30 FPS on the worst scene, and every scene's full detail. Only supersampling is given up,
-            //which is the one change that reaches all twelve scenes.
+            //which is the one change that reaches all fifteen scenes.
             new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14),
 
             //High — the look the game was authored at, unchanged.

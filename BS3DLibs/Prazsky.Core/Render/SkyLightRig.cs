@@ -333,7 +333,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Pushes the rig onto a renderer that must stay legible whatever dome it is read against — the
         /// trophy cup (#232's second half). <see cref="ApplyTo"/>'s ordinary push is exactly right for most of
-        /// the fourteen scenes: the cup reflects the level's own dome, which is the whole point of enrolling
+        /// the fifteen scenes: the cup reflects the level's own dome, which is the whole point of enrolling
         /// it at all. It only fails where a dome's rig is <i>itself</i> near-black by design rather than by
         /// mood — the Moon's airless sky, or the cavern's dim bioluminescent one — where a reward that goes
         /// on being <i>read</i> against a scene the player is looking at needs a floor the scene itself does

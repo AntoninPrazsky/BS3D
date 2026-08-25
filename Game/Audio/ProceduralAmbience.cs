@@ -336,6 +336,24 @@ namespace BS3D.Audio
                         t => 0.55f + 0.25f * Cycle(t, 3, 0.8f) + 0.2f * Cycle(t, 5, 2.1f), WIDTH_AIR);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.105f);
 
+                case SceneKind.Volcano:
+                    //A rumble bed, and it is the deepest and loudest in the set because the ground itself is
+                    //the source: a near-steady sub-bass body of moving rock that swells twice a loop, with a
+                    //hot hiss of escaping gas over it — the sound a lava field makes at a distance, which is
+                    //not a roar but a wide, continuous seethe.
+                    //
+                    //The rumble is held NEAR: a very low sound gives the ear almost no direction anyway, and
+                    //widening it would put the volcano everywhere rather than under everything. The gas hiss
+                    //opens right out, because it is coming off flows on every side of the arena.
+                    AddBand(mix, seed, 0f, 75f, 1.0f, t => Swell(t, 2, 0.72f, 0f), WIDTH_NEAR);
+                    AddBand(mix, seed + 1, 700f, 3400f, 0.30f, t => Swell(t, 3, 0.45f, 1.1f), WIDTH_AROUND);
+                    //And it SPITS. The campfire's crackle at a volcano's scale: fewer snaps a second, harder
+                    //to trigger and with far longer tails, so each one is a bursting bubble somewhere out on
+                    //the flank rather than a twig in a hearth — and scattered wide, since they are.
+                    AddCrackle(mix, seed + 2, 300f, 1800f, 0.42f, ratePerSecond: 9f, threshold: 0.80f,
+                        tailRate: 34f, spread: 0.9f);
+                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.145f);
+
                 default:
                     //A NEW SCENE LANDS HERE, AND IT IS MEANT TO BE OBVIOUS. This arm was the cavern's until
                     //#125 gave the Moon its own, and it was the Moon's until #112 gave the outback one — each

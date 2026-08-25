@@ -14,7 +14,7 @@ namespace BS3D.Effects
     /// <b>crystal</b> rather than a fourth metal (#228). It reflects the actual dome the level is played
     /// under, the same as the cannon (<see cref="Renderers"/>, #232's second half) — the owner's own call,
     /// on the argument that the cup stands over the very scene it was won in and ought to match it, unlike
-    /// the front end's wordmark, which stands over whichever of the fourteen scenes happens to be rolling.
+    /// the front end's wordmark, which stands over whichever of the fifteen scenes happens to be rolling.
     /// <para>
     /// It is the third beat of an ending that already had two. The fanfare states the win, the fireworks
     /// answer it <c>CELEBRATION_DELAY</c> later, and the result page arrives with the numbers; what none of
@@ -186,9 +186,9 @@ namespace BS3D.Effects
             //
             //THE ENVIRONMENT IS THE LEVEL'S OWN DOME (#232's second half), the same way the cannon's is: the
             //cup is enrolled in BS3DGame.SkyLitRenderers through Renderers, so it reflects and is ambient-lit
-            //by whichever of the fourteen scenes the result page actually stands over, refreshed on every
+            //by whichever of the fifteen scenes the result page actually stands over, refreshed on every
             //scene or dome change like everything else on that list. It was NOT enrolled at first — a
-            //presented object was reasoned to want one controlled finish rather than fourteen different ones,
+            //presented object was reasoned to want one controlled finish rather than fifteen different ones,
             //the argument TitleWordmark's own doc still makes the OPPOSITE call from — but nothing had ever
             //authored that controlled finish either: SkyColor/GroundColor sat at their compiled default of
             //flat white, so every metal here was reflecting nothing at all rather than something consistent.
