@@ -111,6 +111,22 @@ float HorizonHazeDistance;
 //The wall clock, for the wind bands travelling through the far canopy.
 float TropicalTime;
 
+//--- Form constants ------------------------------------------------------------------------------------
+
+//What a shore IS, rather than what this shore is set to — the meadow's rosette rule, so these live here
+//and not on the config. The bare band a coast keeps at its waterline, in world units of height above the
+//water, and the rise over which the jungle closes above that band.
+static const float SHORE_SAND_FRINGE = 1.1;
+static const float JUNGLE_RISE = 4.0;
+
+//How far the sand's own ripple darkens its troughs. The cheapest ambient occlusion there is, and the one
+//thing that makes a ripple read on ground the sun is not raking — Desert.fx's lesson, which this scene
+//was missing entirely (#268): the ripple existed only as a tilt of the normal, and on flat sand under a
+//high sun a tilt draws nothing whatever its amplitude. Measured before the fix, the beach's sand had a
+//luminance sd of 4.4 against the desert's 6.0 from the same vantage under the same dome — near enough the
+//same AMPLITUDE, and the difference was that the desert's is organised and shaded and this was neither.
+static const float RIPPLE_SHADE = 0.24;
+
 //--- The land ------------------------------------------------------------------------------------------
 
 //The waterline's radius at a bearing: the mean wobbled by three sine octaves (integer multipliers of
@@ -253,23 +269,58 @@ float4 TropicalPS(TropicalVertexOutput input) : COLOR
 	float3 baseNormal = normalize(float3(-slope.x, 1.0, -slope.y));
 
 	//--- Where the ground is vegetated -----------------------------------------------------------------
-	//The far shore ridge is the jungle; the near beach is sand, all the way to its own waterline. The
-	//mask is the ridge's own rise (so the beach's sand can never turn green under a dome that wants
-	//to) gated by a FRINGE above the water level — every coast keeps a band of bare sand at the
-	//waterline, which is what a shore is, and the far one gets its own for free off the same field.
+	//The far shore ridge is the jungle; the near beach is sand, all the way to its own waterline. Two
+	//separate questions, and #268 was them being answered by one term: WHICH landmass this is (a radial
+	//gate, so the near beach can never turn green under a dome that wants it to), and HOW VEGETATED it
+	//is (its own height above the water — a coast is bare sand at the waterline and jungle above it).
+	//
+	//It used to be `ring * fringe`, where `ring` is the ridge's own RISE — the same 95-unit ramp
+	//(RingWidth) that lifts the ridge in the height field. Greenness therefore grew OUTWARD: zero at
+	//the ridge's inner edge and full only most of a hundred units further out, i.e. over the crest and
+	//beyond. The near flank is the whole of what the lagoon and the play camera look at, and it was
+	//sand by construction — measured across the ridge band at (204, 199, 168), red over green, with no
+	//green in it anywhere. The jungle was on the far side.
 	float b = atan2(worldPosition.z, worldPosition.x);
-	float ring = smoothstep(0.0, RingWidth, length(worldPosition.xz) - ShoreRingRadius(b))
+
+	//The gate is now SHORT — a couple of units of feather either side of the far coastline. It only
+	//separates the two landmasses; it no longer decides how green anything is.
+	float onRidge = smoothstep(-2.0, 8.0, length(worldPosition.xz) - ShoreRingRadius(b))
 		* (1.0 - ChannelMask(b));
-	float fringe = smoothstep(0.15, 1.3, here - WaterLevelY);
-	float green = ring * fringe;
+
+	//The bare band every shore keeps at its waterline, and the rise over which the jungle closes above
+	//it. Form constants rather than config dials (the meadow's rosette rule): they say what a shore IS,
+	//and the ridge stands 15–28 units out of the water, so all but its own beach comes up green.
+	float fringe = smoothstep(SHORE_SAND_FRINGE, SHORE_SAND_FRINGE + JUNGLE_RISE, here - WaterLevelY);
+	float green = onRidge * fringe;
 
 	//A broad field doing two jobs: the sand's patch tone and the canopy's dry patches. One octave —
 	//everything above this scale is carried by the canopy mottle and the grain, and nothing below the
 	//pixel frequency at any distance this is drawn from.
 	float broad = GradientNoise2(worldPosition.xz * 0.017);
 
+	//The sand's ripple, combed downwind — what the wind lays on a beach. Computed HERE rather than down
+	//in the normal block, because it now does two jobs: it tilts the normal (as it always did) and it
+	//shades its own troughs (as it never did, which is #268's second finding). Band-limited against the
+	//footprint, so both jobs fade together into smooth distant sand rather than into a crawl.
+	//The domain scale is the SECOND half of #268's sand finding, and the measurable one. At 0.85 a ripple
+	//was about 1.2 world units across — three times finer than the desert's (whose crest lines run about
+	//3.9 apart) — so `Fbm2BandLimited`'s own contract band-limited it away at a third of the distance and
+	//the beach was smooth everywhere the eye actually looks. Shading the troughs of a field nothing can
+	//resolve buys nothing: measured, the shading alone moved the sand's luminance sd 4.42 → 4.70 against
+	//the desert's 5.98, and coarsening it is what closes the rest.
+	float rippleDomain = 0.28;
+	//Four octaves rather than three, since the coarsest is now three times coarser: the family still reaches
+	//down to the half-unit detail the near sand had, and the band-limit drops each one as it becomes
+	//unresolvable rather than all of them at once.
+	float ripple = Fbm2Combed(worldPosition.xz * rippleDomain, WindDirection, 2.2, 4, footprint * rippleDomain);
+
 	//--- The sand --------------------------------------------------------------------------------------
 	float3 sand = lerp(SandColor, SandColorPale, saturate(0.5 + broad * 1.6));
+
+	//The ripple's own shading. This is the whole of the fix: a normal tilt only draws where the light
+	//rakes across it, and a beach is flat ground under a sun that mostly does not — so the troughs are
+	//darkened directly. Rides the same band-limited field the tilt does, so it cannot alias.
+	sand *= 1.0 - RIPPLE_SHADE * saturate(0.5 - ripple * 1.6);
 
 	//WET SAND just above the waterline — darker and a little heavier the nearer the water reaches,
 	//which is how a beach says where its surf dies. Keyed on HEIGHT above the water, not on distance
@@ -306,11 +357,8 @@ float4 TropicalPS(TropicalVertexOutput input) : COLOR
 	//ONE height field for the fine relief and ONE perturbation off it, the two materials' reliefs
 	//lerped by the same mask their colours are (the outback's rule: two PerturbNormalFromHeight calls
 	//would be two more pairs of screen derivatives for a result that is a lerp of the inputs anyway).
-	//The sand's ripple is combed downwind — what the wind lays on a beach — and the canopy's runs at
-	//its own two scales with no grain, which a crown of leaves from far away has none of.
-	float rippleDomain = 0.85;
-	float ripple = Fbm2Combed(worldPosition.xz * rippleDomain, WindDirection, 2.2, 3, footprint * rippleDomain);
-
+	//The sand's ripple (computed up in the sand block, since it shades as well as tilts) and the canopy's,
+	//which runs at its own two scales with no grain — a crown of leaves from far away has none of.
 	float relief = lerp(ripple * SandRelief, canopy * CanopyRelief, green);
 	float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
 
@@ -335,9 +383,20 @@ float4 TropicalPS(TropicalVertexOutput input) : COLOR
 	float3 hazeLit = HazeTint * lerp(skyLuminance.xxx, skyLight, 0.45);
 
 	float haze = saturate(dist / HorizonHazeDistance);
+	float haze2 = haze * haze;
+	float haze4 = haze2 * haze2;
 
-	color = lerp(color, hazeLit, HazeStrength * haze * haze);
-	color = lerp(color, HorizonColor, haze * haze * haze * haze);
+	color = lerp(color, hazeLit, HazeStrength * haze2);
+
+	//The eighth power, where the outback (whose arrangement this is) uses the fourth — and the difference
+	//is the two scenes' compositions, not taste. The outback's far field is empty plain and arriving at
+	//the dome's exact horizon colour early costs it nothing; THIS scene's horizon IS a feature, the green
+	//ridge that closes the lagoon, and it stands at 300–420 units against a haze distance pinned at 480
+	//by the grid's own half-extent (see HorizonHazeDistance). At the fourth power the ridge's crest was
+	//already 48 % of the way to the sky, which is what turned the jungle beige and left #268 measuring
+	//(204, 199, 168) across it — red over green, with no green in it anywhere. The eighth still reaches 1
+	//at the grid's edge, so the seam it exists to hide is still hidden; it just stops eating the ridge.
+	color = lerp(color, HorizonColor, haze4 * haze4);
 
 	return float4(color, 1.0);
 }

@@ -60,6 +60,11 @@ float FunnelPoolRadius;
 float3 WaterColorDeep;
 float3 WaterColorShallow;
 
+//How much of the body colour is WaterColorShallow regardless of which way the surface faces — 0 for water
+//with nothing under it (the open sea, and the sea's default), up towards 1 for a lagoon, whose bed is a few
+//units down across the whole basin. See the body-colour block below for what it replaces and why.
+float ShallowBias;
+
 //Overall wave height (world units, the dominant swell's amplitude), how sharp the crests pinch (0..1, the
 //Gerstner steepness) and a multiplier on the dispersion-derived wave speed.
 float WaveAmplitude;
@@ -336,7 +341,19 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
 	//pool is biased towards the deep colour: its normal points straight up, which would pick the palest mix
 	//of all, and a still column of water standing in a drain reads dark, not pale.
 	float3 ambient = (ZenithColor + HorizonColor) * 0.5;
-	float shallowMix = saturate(normal.y) * 0.5 * (1.0 - 0.8 * calm);
+
+	//How much of the body is the SHALLOW colour. The open sea's rule is the first term: the up-facing faces
+	//of the swell show a paler column and everything else shows the deep, and a calm patch (the drain's
+	//standing pool) is biased darker still. That rule is written for water with nothing under it — and it
+	//is what left the tropical LAGOON reading grey (#268, measured at (140, 146, 133), blue below red,
+	//against a WaterColorShallow that is honestly turquoise). A lagoon is shallow EVERYWHERE: its bed is a
+	//few units under the surface across the whole basin, so its colour is the shallow one wherever you look
+	//at it, not only on the faces that happen to tilt up. ShallowBias lifts the floor of the mix.
+	//
+	//It is 0 for the open sea and lerp(x, 1, 0) is bit-exactly x, so that scene's water is UNCHANGED — which
+	//is what makes it safe to put this in the shader both water scenes draw through.
+	float shallowMix = lerp(saturate(normal.y) * 0.5 * (1.0 - 0.8 * calm), 1.0, ShallowBias);
+
 	float3 body = lerp(WaterColorDeep, WaterColorShallow, shallowMix) * ambient + ZenithColor * 0.05;
 
 	float3 color = lerp(body, reflection, fresnel);

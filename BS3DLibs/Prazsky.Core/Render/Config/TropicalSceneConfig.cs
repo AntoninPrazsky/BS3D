@@ -68,8 +68,28 @@ namespace Prazsky.Core.Render
         /// water standing in it reads as a mistake the moment the eye finds it.</summary>
         public float ClearingRelief { get; set; } = 0.9f;
 
-        /// <summary>Mean radius of the waterline around the origin. The sand is flat and dry inside
-        /// roughly this radius less <see cref="BeachRise"/>, and slopes under the water at it.</summary>
+        /// <summary>
+        /// Mean radius of the waterline around the origin. The sand is flat and dry inside roughly this
+        /// radius less <see cref="BeachRise"/>, and slopes under the water at it.
+        /// <para>
+        /// <b>Moving this is NOT how the lagoon gets into the play frame, and #268 established that the
+        /// expensive way — by trying it.</b> The island's stone cap stands 5 units over the beach, and the
+        /// play camera looks out across that cap: its far rim cuts the sight line, and everything at the
+        /// sand's own level behind it is hidden out to a very large radius. Proved rather than modelled —
+        /// the identical play-camera frame drawn with <c>arena=none</c> shows the lagoon plainly, and with
+        /// the island drawn shows none of it. Then tested: brought in to 66 (with the palm ring following
+        /// it), the water was <i>still</i> not in frame, because a nearer waterline is a nearer thing to
+        /// hide. Tested again on a small map, in case the stand-off was the variable: also no water.
+        /// </para>
+        /// <para>
+        /// What follows from that is worth more than the number: <b>from the play camera the only things
+        /// visible past the island are things that STAND UP</b> — the palms, the far ridge, the sky. A flat
+        /// beach and a flat lagoon are equally invisible whatever their radii, so the lagoon is a feature of
+        /// the raised vantages (the front end's orbit, the drop cinematic, the editor) and the far ridge is
+        /// what the play camera actually gets. That is where #268's effort went instead: making the ridge
+        /// read as a green jungle shore rather than a beige dune line.
+        /// </para>
+        /// </summary>
         public float ShoreRadius { get; set; } = 100f;
 
         /// <summary>How far the waterline wiggles around its mean, as sine octaves of bearing. What
@@ -166,10 +186,25 @@ namespace Prazsky.Core.Render
         public float LevelY { get; set; } = -15.5f;
 
         /// <summary>Deep-lagoon water colour (linear reflectance, multiplied by skylight in the shader).</summary>
-        public Rgb WaterDeep { get; set; } = new(0.012f, 0.052f, 0.075f);
+        public Rgb WaterDeep { get; set; } = new(0.030f, 0.140f, 0.160f);
 
-        /// <summary>The turquoise the up-facing water takes — the lagoon's signature colour.</summary>
-        public Rgb WaterShallow { get; set; } = new(0.055f, 0.24f, 0.235f);
+        /// <summary>The turquoise the lagoon takes — its signature colour.</summary>
+        public Rgb WaterShallow { get; set; } = new(0.160f, 0.520f, 0.500f);
+
+        /// <summary>
+        /// How much of the body is <see cref="WaterShallow"/> regardless of which way the surface faces.
+        /// <para>
+        /// <b>This is why the lagoon was grey (#268), and the number above was never the fault.</b>
+        /// <c>Sea.fx</c>'s own rule gives the pale colour only to the up-facing faces of the swell and caps
+        /// it at half, then biases a calm patch darker still — which is right for water with nothing under
+        /// it and wrong for a lagoon, so the basin was drawn mostly in <see cref="WaterDeep"/>, a dark navy.
+        /// Measured across the water band: (140, 146, 133), blue below red, against a turquoise that was
+        /// sitting in the config the whole time. A lagoon's bed is a few units down across the whole basin,
+        /// so it is the shallow colour wherever you look at it. The open sea keeps this at 0 and its water
+        /// is bit-for-bit unchanged.
+        /// </para>
+        /// </summary>
+        public float ShallowBias { get; set; } = 0.78f;
 
         /// <summary>Dominant swell height. Well under the sea's: a lagoon inside a reef is sheltered
         /// water, and the waves also fade to flat approaching the shore (Sea.fx's calm band).</summary>
