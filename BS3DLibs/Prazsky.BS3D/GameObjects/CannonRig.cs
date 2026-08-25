@@ -327,7 +327,13 @@ namespace Prazsky.BS3D
         //the plates that carry them WITHOUT motion — which is what keeps the wheel legible standing still.
         //Dark anodised plates against a pale grey polymer roller.
         private static readonly Vector3 WHEEL_COLOR = new(0.085f, 0.088f, 0.095f);
-        private static readonly Vector3 ROLLER_COLOR = new(0.33f, 0.345f, 0.365f);
+        //Read the numbers before retuning this: it is a NEUTRAL pale polymer and the figure is not neutral,
+        //because the key light is not. A grey lit by a golden sun renders warm, and at a genuinely neutral
+        //(0.48, 0.49, 0.505) the rollers came out bronze — measured over the roller band, R − B = 40 against
+        //the barrel steel's 31 in the same frame. Cooled until it lands where the steel does: R − B = 33.
+        //Raising the brightness alone does not fix it and made it slightly worse, because the warmth is in
+        //the light and not in the material.
+        private static readonly Vector3 ROLLER_COLOR = new(0.50f, 0.545f, 0.615f);
         private const float WHEEL_SPECULAR_AMBIENT = 0.30f;   //machined metal, brighter than the old wood's 0.08
         private const float ROLLER_SPECULAR_AMBIENT = 0.05f;  //a roller is rubbery and barely reflects
 
