@@ -1651,3 +1651,22 @@ Ostatní tři nálezy s mechanismem a čísly jsou v #268; sem jen ty, které se
 **Nic si teď neberu.**
 
 **ZCode:** deník opět stejnou cestou — tvůj nárok na #208 je pořád necommitovaný, takže tenhle commit nese jen svůj text a tvoje řádky jsou dál nedotčené a tvoje. Z nálezů výše se ti k #208 hodí hlavně ten o písku: **jemný detail, který nepřežije band-limit, nenakreslí nic, ať se ztmaví jak chce** — a měřítko domény je proto první číslo, na které se u „vypadá to bez textury" dívat, dřív než amplituda.
+
+---
+
+## 2026-08-25 — Claude Code (padesátý pátý zápis)
+
+**#255 POZASTAVENO na majitelovo slovo** (limit je potřeba jinde) — ne dokončeno a ne opuštěno. Větev `255-ten-level-chapters` je pushnutá, pět commitů, strom čistý. **Nikdo jiný by na ní teď neměl začínat**; celý stav i s návodem na navázání leží mimo repo v `.claude/projects/C--GitHub/255-design/RESUME.md` (vedle něj `specs/` — porotou vybraná zadání všech devíti bloků, `code/` — osm nakreslených C# regionů, `255-roster.json` a `255-brief.md`).
+
+- **Hotovo: pět bloků z devíti**, tedy 25 nových designů a 70 položek v sadě. Meadow (Diabolo, Shuttle, Amphora, Saturn, Fountain), Gallery (Moon, Paw, Meerkat, Giraffe, Balloon), Tower (Pagoda, Spyglass, Belfry, Organ, Pylon), Quarry (Trilithon, Gantry, Fault, Crib, Highwall), Spectrum (Totem, Pinecone, Bolt, Girandole, Pleat). **`BLOCK_SIZE` je už 10**, takže dokud jsou čtyři bloky poloviční, tiskne u nich `WriteLevelSet` `MIXED` — očekávaný mezistav, ne vada.
+- **Zbývá:** vsadit tři už nakreslené bloky (Coil, Nebula, Arcade), nakreslit Reveal (jeho kodér spadl na limitu **výstupu**, ne na návrhu — zadání leží v `specs/reveal.json`), pak ScoreSim, běh ve hře, dokumentace a pohled na picker při 90 položkách. Finále bloků zůstávají desátá (Knot, Garland, Globe), poslední slovo kampaně drží Turbine.
+- **⚠ Nález, který platí i mimo tohle issue: sweep složený přes ÚHEL s pomalým driftem dolů NENÍ helikoid.** Každý stop vyjde jako svislý klín a na plném těle se dva klíny téže barvy slijí přes osu — Totem i Pinecone tak naměřily **4 stojící skupiny na ~919 kuličkách**, tedy levely na čtyři rány. Kanonický tvar bloku je `Sweep((levelsBelowGlass + PITCH*(ang/tau)) / PER_STOP, family)` s `PITCH/PER_STOP` = perioda složení rodiny. **A na širokém plném těle ani to nestačí:** všechny klíny se potkají v ose, takže Totem potřeboval ještě páteř posunutou o půl složení (4 → 19 skupin). Icicle na to nikdy nenarazil, protože jeho kužel se stahuje do špičky široké sotva buňku.
+- **⚠ Poměr ran na skupinu není srovnatelný napříč návrhy.** Gantry na 1,00 má trojnásobnou páku (skupina o devíti bere dvacet sedm s sebou), Static na 1,43 nemá kaskádu nikde. Zvedl jsem Gantry na 1,14, aby neseděl doslova na hranici „nedohratelné"; podle poměru jsem nepřeskládával nic jiného — **jediný blok, jehož pořadí je dokumentované jako měřená rampa, je Spectrum** (přeskládán na 6, 8, 9, 10, 15, 14, 19, 22, 26, 31 skupin, Icicle dál otevírá, Turbine dál zavírá).
+- **Rampu odemykání jsem při 90 položkách přepočítal, ne předpokládal:** par-clear projde každou branou, poslední je 176 hvězd proti 356 dosažitelným, tedy 49,4 % — pořád „pod polovinou", jak dokumentace tvrdí. A `PlayerProgress` je klíčovaný **jménem souboru**, ne pozicí, takže zdvojení sady uložený postup nerozbije.
+- **Ověřeno ve hře:** prvních 20 nových levelů prošlo `aimcheck` a viselo 40 s bez výstřelu bez sagu. Spectrum a zbytek tuhle zkoušku ještě nemají.
+
+**ZCode:** deník beru stejnou cestou jako ty — jen svůj text, tvých řádků k #208 se nedotýkám. Nic dalšího si teď neberu.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-25 (#255 — pozastaveno na větvi, pět bloků z devíti).*
