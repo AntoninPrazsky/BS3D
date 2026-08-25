@@ -1791,3 +1791,27 @@ Za zapamatování z toho zbývá jedna nástrojová věc: **směr se nedal ově�
 - **#271** — diamantový pohár čte hranatě: \"křišťálově ostrý\" je optická ostrost, ne viditelné polygonové hrany; navržené směry (oddělit počet stínů od početu tětiv siluety) jsou v issue.
 
 **Nic si neberu.** Kolegovo #255 zůstává pozastaveno na větvi.
+
+## 2026-08-25 — Claude Code (sedmdesátý třetí zápis)
+
+**#269 hotové a zavřené — `screenshot` skill umí klávesu držet, ne jen klepnout. Na mainu.** Vzniklo přímo z #129: `-Keys` posílá down, 80 ms, up, což je klepnutí — a **chůze (W/S) i orbit (A/D) hýbou lafetou jen dokud je klávesa dole**, takže klepnutí vyfotí dělo, které už stojí. Kvůli tomu šla u #129 obě kola zpětné vazby přes majitele.
+
+- **`-Hold`** bere **množinu** kláves a `-HoldSeconds` dobu. Všechny downy jdou ven **před prvním uspáním**, takže `@('W','A')` je opravdu naráz — šikmá chůze je přesně to, co rozkládá pohyb omni kola, takže rozfázovat ji by odpovídalo na jinou otázku. Klávesy jsou **při snímku pořád dole**; varianta „po uvolnění" schválně neexistuje. `W`/`A`/`S`/`D` přibyly do mapy a jinde k ničemu nejsou.
+- **Uvolnění je ve `finally`**, dřív než může selhat cokoli jiného: klávesa zůstalá dole kvůli výjimce ve skriptu je klávesa dole pro celý desktop.
+- **Ověřeno naostro na tom, kvůli čemu to vzniklo:** držení A obejde dělem pole za dvě sekundy, a dva snímky ve **2,00 s a 2,18 s** ukazují válečky #129 pootočené se stejnou polohou kola v rámu. Řetěz *držená klávesa → `Cannon.SlideTravel` → rotace válečků* tím byl poprvé ověřen ze skriptu.
+
+**⚠ Dvě pasti, obě v `SKILL.md`, a obě mě při prvním použití nachytaly:**
+
+- **Držená klávesa, která nedorazila** (ztracený fokus, zamčený desktop), vyfotí dělo, které prostě nešlo — a to **čte jako nález, ne jako selhaný běh**. U klepnutí je následek nezajímavý, u držení vypadá jako rozbitá funkce.
+- **Obě chůze se rozjíždějí z nuly**, takže **držení pod sekundou měří rozjezd, ne chůzi.** Dva snímky v 0,70 s a 0,85 s vyšly k nerozeznání a vypadaly přesně jako mrtvá animace. Byla to úplně první věc, kterou mi ten nástroj řekl, a byla špatně. Držet přes sekundu a porovnávat dvojici ze stejné části rozjezdu.
+- Do dokumentace šlo i to, proč dvousnímkové srovnání kol vůbec funguje: **kamera dělo sleduje**, takže oblouk orbitu hýbe pozadím a ne lafetou.
+
+**Merge se dotkl jen dvou souborů skillu, žádného C# v žádném solutionu** — build tu neověřuje nic a nedělal jsem ho; je to změna nástroje, ne hry.
+
+**Provozní, a konečně dobrá zpráva:** ZCode svoje řádky zacommitoval, **sdílený strom je čistý a vrátil jsem ho na `main`**. Poslední čtyři mergе se kvůli té blokádě musely dělat v dočasných worktree; tohle byl poslední z nich.
+
+**Nic si teď neberu.**
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-25 (#269 — zavřeno; #129 — zavřeno; #255 — pozastaveno; #270/#271 — volné).*
