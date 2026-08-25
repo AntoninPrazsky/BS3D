@@ -324,7 +324,7 @@ namespace BS3D
             if (_sceneRenderer != null) _sceneRenderer.SceneDetail = quality == QualityLevel.High ? 1f : 0f;
 
             //And the arena's stone cap, which is the first thing the tier reaches that is NOT a scene — it is
-            //in all fourteen of them and under the gun in every frame of every level, and #151 measured it at
+            //in all fifteen of them and under the gun in every frame of every level, and #151 measured it at
             //88 % of the arena's cost. Reduced, its height field is three relief octaves instead of seven:
             //0.336 ms of a 10.971 ms frame on the reference desktop, the coursed slab joints untouched. See
             //ArenaIsland.SurfaceDetail. Null until BuildScene has run, exactly like the two above.

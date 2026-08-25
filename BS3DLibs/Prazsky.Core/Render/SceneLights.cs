@@ -13,9 +13,10 @@ namespace Prazsky.Core.Render
     /// these lights under whatever sky dome is up. It existed line-for-line in both the Testbed and the Game
     /// until #75.
     /// <para>
-    /// Four of the twelve scenes carry lights: the savanna's campfire, the neon city's ring of magenta and
-    /// cyan, space's planetshine and the Moon's earthshine. The other eight push a count of zero once and
-    /// then cost nothing — see the early-out in <see cref="Apply"/>.
+    /// Five of the fifteen scenes carry lights: the volcano's crater and its travelling flow fronts, the
+    /// savanna's campfire, the neon city's ring of magenta and cyan, space's planetshine and the Moon's
+    /// earthshine. The other ten push a count of zero once and then cost nothing — see the early-out in
+    /// <see cref="Apply"/>.
     /// </para>
     /// <para>
     /// <b>The savanna grass shader's copy is deliberately not this one.</b>
@@ -91,11 +92,27 @@ namespace Prazsky.Core.Render
         {
             int count = 0;
 
-            //The four guards below are mutually exclusive by construction — a scene is the savanna, or the
-            //neon city, or space, or the Moon (each TryGet returns false for every kind but its own), and no
-            //SceneKind satisfies two of them. So this order is an order and not a precedence: do not read it
-            //as one, and do not write a fifth branch that relies on being tested last.
-            if (scene == SceneKind.Savanna)
+            //The five guards below are mutually exclusive by construction — a scene is the volcano, or the
+            //savanna, or the neon city, or space, or the Moon (each TryGet returns false for every kind but
+            //its own), and no SceneKind satisfies two of them. So this order is an order and not a precedence:
+            //do not read it as one, and do not write a sixth branch that relies on being tested last.
+            if (scene == SceneKind.Volcano)
+            {
+                //The volcano is the scene whose GROUND is the light, and the only one whose lamps MOVE: the
+                //crater sits still while the rest are flow fronts travelling down the flank, so a slot is a
+                //front rather than a fixture. Everything comes out of the renderer for the same reason the
+                //campfire does — the flank's own shader draws those rivers, and a lamp beside the river it is
+                //lighting is worse than no lamp at all.
+                count = sceneRenderer.VolcanoLightCount;
+
+                for (int light = 0; light < count; light++)
+                {
+                    _lightPosition[light] = sceneRenderer.VolcanoLightPosition(light, wallClock);
+                    _lightColor[light] = sceneRenderer.VolcanoLightColor(wallClock, light);
+                    _lightRange[light] = sceneRenderer.VolcanoLightRange;
+                }
+            }
+            else if (scene == SceneKind.Savanna)
             {
                 //The ring of campfires on the grass around the island, each flickering off the same wall clock
                 //its own flame billboard does — one clock, so a light and its fire cannot fall out of step,
@@ -145,7 +162,7 @@ namespace Prazsky.Core.Render
 
             //A scene with no lights only needs the count pushed the first time it goes to zero — nothing
             //above touches the arrays while the count is zero, so once the zero has gone out there is nothing
-            //left that could have changed. Measured as four parameter writes a frame saved, on the eight
+            //left that could have changed. Measured as four parameter writes a frame saved, on the ten
             //scenes that carry no lights of their own.
             if (count == 0 && _lastCount == 0) return;
 

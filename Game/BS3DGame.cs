@@ -83,7 +83,7 @@ namespace BS3D
         private bool _uncappedFps;
 
         //Pinned from the command line for a reproducible measurement. The scene is otherwise a different one of
-        //the twelve every launch, which makes any A/B of the frame's cost meaningless — they are nothing like
+        //the fifteen every launch, which makes any A/B of the frame's cost meaningless — they are nothing like
         //each other in what they cost — and two of them bring a dome of their own, so the dome has to be
         //pinnable too. Null in both means "as the game normally does it".
         private readonly SceneKind? _startupScene;
@@ -508,7 +508,7 @@ namespace BS3D
         /// lower it on hardware that cannot afford the default. An explicit <c>ssaa=</c> is never overridden.
         /// </param>
         /// <param name="scene">
-        /// The backdrop to start in, or <c>null</c> for the usual random one of the twelve. Pinning it is what
+        /// The backdrop to start in, or <c>null</c> for the usual random one of the fifteen. Pinning it is what
         /// makes a frame-cost measurement repeatable — see <see cref="LogFrameRate"/>.
         /// </param>
         /// <param name="skyDome">The dome to start under, or <c>null</c> to let the scene choose as it normally does.</param>
@@ -880,7 +880,7 @@ namespace BS3D
             //instancing effect and the flat ambient constant every renderer shares.
             _trophy = new TrophyPodium(GraphicsDevice, _instancingEffect, SCENE_AMBIENT_INTENSITY);
 
-            //A different one of the twelve every launch, so the front end is not the same picture twice — unless
+            //A different one of the fifteen every launch, so the front end is not the same picture twice — unless
             //the command line pinned one. It also sets the dome and the city's lighting, and ends in
             //ApplySkyLighting, which is why nothing derives the light rig before this point.
             SetScene(_startupScene ?? (SceneKind)RANDOM.Next(SceneRenderer.SceneCount));

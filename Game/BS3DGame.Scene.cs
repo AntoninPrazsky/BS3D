@@ -7,7 +7,7 @@ using System.Collections.Generic;
 namespace BS3D
 {
     /// <summary>
-    /// The host's half of <b>the setting</b> — the sky, the twelve backdrops, the city, the island and its
+    /// The host's half of <b>the setting</b> — the sky, the fifteen backdrops, the city, the island and its
     /// drain, the forest scatter, the clouds, the light rig and the scene's own lamps. All of it outlives a
     /// session, which is why it is the host's and not <see cref="Screens.GameplayScreen"/>'s (#65), and since
     /// #75 the drawn things themselves live in <c>Prazsky.Core</c> in one copy — what is here is the wiring:
@@ -38,6 +38,12 @@ namespace BS3D
         private const byte SAVANNA_SKY_DOME = 14;
         private const byte TROPICAL_SKY_DOME = 1;
 
+        //The volcano wants a sky that stays out of the way, because its ground is the light. Dome 9 is a dim
+        //mauve-and-slate dusk with no bright band and no sun disc beside the cone — picked by looking, over
+        //the darker-zenithed 16 whose cream horizon and sun both compete with the crater. The Testbed's
+        //figure, chosen there.
+        private const byte VOLCANO_SKY_DOME = 9;
+
         //Space deliberately forces NO dome, unlike those two. Its dome is neither drawn (Space.fx covers the
         //whole frame) nor read (SpaceLightingConfig states the light rig instead, for the reasons set out
         //there) — so it is completely inert in that scene, and changing the player's dome behind their back to
@@ -46,9 +52,9 @@ namespace BS3D
         private byte _skyDome = DEFAULT_SKY_DOME;
 
         /// <summary>
-        /// Which of the fourteen settings the frame stands in — the backdrop the menu's camera orbits and the
+        /// Which of the fifteen settings the frame stands in — the backdrop the menu's camera orbits and the
         /// one the game is then played in, since the player picks it from the menu and it stays picked. The
-        /// city and the neon city are the procedural <see cref="City"/> under two lightings; the other twelve
+        /// city and the neon city are the procedural <see cref="City"/> under two lightings; the other thirteen
         /// are the shared <see cref="SceneRenderer"/>'s self-lit backdrops, the same ones the Testbed and the
         /// map editor draw. The count is <see cref="SceneRenderer.SceneCount"/>, which is where to read it.
         /// </summary>
@@ -307,7 +313,7 @@ namespace BS3D
 
             //The 3D title over the front end (#248), letters and keylines both. It takes the dome's light like
             //everything else in the frame ON PURPOSE — argued on TitleWordmark.Renderers, a wordmark stands
-            //over all fourteen backdrops under all eighteen domes and has to come out right at both ends of
+            //over all fifteen backdrops under all eighteen domes and has to come out right at both ends of
             //that range. Dereferenced unconditionally like the two above — it is built in LoadContent
             //immediately before the startup SetScene, and for this very reason.
             foreach (InstancedModelRenderer renderer in _titleWordmark.Renderers) yield return renderer;
@@ -377,13 +383,15 @@ namespace BS3D
             _cityRenderer.CityWindowBrightness = neon ? _cityConfig.NeonLook.WindowBrightness : _cityConfig.WindowBrightness;
 
             //The sea mirrors the sky, so a bright dome would give it a breezy mood rather than the moody one
-            //it is built for; the savanna wants the warmest gold horizon of the set; and the tropical beach
+            //it is built for; the savanna wants the warmest gold horizon of the set; the tropical beach
             //wants the brightest blue — sand and turquoise water are a postcard, and only read as one under
-            //a sunny sky. Every other scene keeps whatever dome is up — including the neon city, whose
-            //default IS the dusk. The Testbed's rule, so a scene looks the same in both.
+            //a sunny sky; and the volcano wants the darkest, because its ground is what lights it. Every
+            //other scene keeps whatever dome is up — including the neon city, whose default IS the dusk.
+            //The Testbed's rule, so a scene looks the same in both.
             if (scene == SceneKind.Sea) _skyDome = SEA_SKY_DOME;
             else if (scene == SceneKind.Savanna) _skyDome = SAVANNA_SKY_DOME;
             else if (scene == SceneKind.Tropical) _skyDome = TROPICAL_SKY_DOME;
+            else if (scene == SceneKind.Volcano) _skyDome = VOLCANO_SKY_DOME;
 
             //Re-derives the whole light rig from the dome, which every scene needs whether its dome changed
             //or not: the renderers were told nothing until now. Re-selecting the dome that is already up
