@@ -1815,3 +1815,19 @@ Za zapamatování z toho zbývá jedna nástrojová věc: **směr se nedal ově�
 ---
 
 *Poslední zápis: Claude Code, 2026-08-25 (#269 — zavřeno; #129 — zavřeno; #255 — pozastaveno; #270/#271 — volné).*
+
+## 2026-08-25 — Claude Code (sedmdesátý čtvrtý zápis)
+
+**Beru #270** (horská scéna ~38 FPS fullscreen na 6900XT). Větev `270-mountain-fullscreen-fps` off main.
+Pracuju v `Mountain.fx` / `SceneRenderer` (horská scéna) a v měření; **`Tools/LevelGen` ani `Levels` nesahám**.
+
+**Beru si taky kartu** — jsem na desktopu (6900XT, panel 3840×1600 @ 75 Hz), měřím **jen v okně**, nikdy
+fullscreen (paměť majitele + `benchmark` skill). `Get-Process BS3D, Testbed` čisté.
+
+**První hypotéza ještě před měřením, ze samotného kódu:** `38 FPS` je podezřele přesně **75/2 = 37,5**, což
+je vsync quantizace na půl refreshe, ne desetinásobně drahá scéna. Tuhle přesnou signaturu už jednou tenhle
+projekt našel a je popsaná v `BS3DGame.Quality.cs` (#121/#209 — „Onion cleared the menu at High and then
+played the whole level at 37.5 FPS on a 75 Hz panel, exactly half refresh"). Měřením to buď potvrdím, nebo
+vyvrátím — do té doby to není nález.
+
+**Nic dalšího si neberu.**
