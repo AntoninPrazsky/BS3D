@@ -131,7 +131,8 @@ be seen through a locked desktop, `GetBackBufferData` + `SaveAsPng` as a tempora
 ```
 
 - `-GameArgs` — arguments to `Testbed.exe` (a map path, `scene=`, `sky=`, `campos=`/`camtarget=`, `ssaa=`, ...).
-- `-Keys` — key names pressed after launch, in order (see below).
+- `-Keys` — key names TAPPED after launch, in order (see below).
+- `-Hold` / `-HoldSeconds` — key names HELD DOWN as a set, and still down when the shot is taken. The only way to photograph anything the game drives off held input (the W/S advance and the A/D orbit) — see "Holding a key" below.
 - `-Wait` — seconds after launch before acting (let the scene settle / the balls fall). Default 7.
 - `-Settle` — seconds after the keys before the capture. Default 1.5.
 - `-Out` — the PNG path.
@@ -153,6 +154,52 @@ sends the keys **by scan code** (SDL reads the scan code, not the virtual key), 
 
 `End` is the one the task cares about: the cluster falls, so it stops blocking the view, and you can watch
 the balls run down the drain (`Balls on scene:` in the overlay ticks down as the funnel culls them).
+
+
+## Holding a key (`-Hold`): the only way to photograph the gun moving
+
+`-Keys` **taps**: down, 80 ms, up. That is right for every switch in the table above, and useless for
+anything the game drives off *held* input — the advance walk (W/S) and the orbit (A/D) move the carriage only
+while the key is down, so a tap photographs a gun that has already stopped. Everything hanging off those two
+is in the same position: the wheels' roll and their rollers' spin, the carriage's pose on the dish, and above
+all the advance walk's **rubber ends** (`ADVANCE_EASE_ZONE`), whose whole point is how the motion *decelerates*.
+
+```powershell
+# Orbit left for two seconds and photograph the gun mid-walk:
+.\screenshot.ps1 -Out walking.png -Keys @('F10','F12') -Settle 3 -Hold @('A') -HoldSeconds 2 `
+    -GameArgs @('C:\GitHub\Testbed\Maps\Thirteen_Colors.json','scene=meadow')
+```
+
+- `-Hold` — key names held down **as a set**: every down goes out before any sleep, so `@('W','A')` really is
+  simultaneous rather than staggered (which matters: a diagonal walk is what makes an omnidirectional wheel
+  decompose its motion into roll and slide).
+- `-HoldSeconds` — how long they stay down. Default 1.5.
+- **The keys are still down when the shot is taken.** That is the point of the parameter; there is no
+  after-release variant, because a released walk key leaves nothing to photograph.
+- **`W`/`A`/`S`/`D` are in the key map** and are only ever useful here. Tapped, they move the gun by one
+  frame's step, which is nothing.
+- **Released in a `finally`**, before anything else can fail. A key left down because the script threw is a
+  key left down for the whole desktop, and that is the one genuinely dangerous failure this script has. It
+  does not survive a hard kill of the shell, so do not Ctrl-C a `-Hold` run if you can help it.
+
+### What a held key cannot do, and how it lies
+
+Everything in "What a capture can silently be instead of the game" applies **twice over** to a hold, because
+its failure is silent in a new way: a key sent to a window that has lost focus, or to a **locked** desktop,
+moves nothing at all — and the capture then shows a gun that simply did not walk, which reads as a *finding*
+rather than as a failed run. `Get-Process LogonUI` before believing one. If a `-Hold` shot looks like the
+feature is broken, prove the window had focus before you prove anything about the game.
+
+**The walk ramps, so a short hold measures the ramp and not the walk.** Both strokes accelerate from a
+standstill (`ACCELERATION_DELTA`), so under about a second the carriage has barely moved and two shots at
+0.70 s and 0.85 s come back visibly identical — which is what happened the first time this was used, and it
+looks exactly like the animation being broken. Hold past a second before comparing anything, and take the
+pair from the *same* part of the ramp.
+
+**The camera follows the gun**, so the orbit's own arc does not move the carriage across the frame; only the
+background swings. That is what makes a two-shot comparison of the wheels work at all: hold for 2.00 s and
+2.18 s and the wheel is in the same place with its rollers turned a little further, which is how #129's
+roller spin was finally verified end to end.
 
 ## Inspecting fine detail (blur, relief, aliasing)
 
