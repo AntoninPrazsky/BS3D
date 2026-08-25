@@ -127,7 +127,7 @@ namespace Testbed
                 Matrix barrelWorld = _cannon.BarrelWorld();
 
                 _cannonRig.Draw(_camera, barrelWorld, _sceneEffectParams);
-                _cannonRig.DrawCarriage(_camera, _cannon.CarriageWorld(), _cannon.WheelTravel, _sceneEffectParams);
+                _cannonRig.DrawCarriage(_camera, _cannon.CarriageWorld(), _cannon.WheelTravel, _cannon.OrbitTravel, _sceneEffectParams);
 
                 //Every ball on the scene, collected and then put out: one instanced draw call per type and LOD
                 //level. BeginFrame empties the buckets and is the only way to fill them, which is what makes the

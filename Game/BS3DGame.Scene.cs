@@ -294,6 +294,7 @@ namespace BS3D
             yield return _cannonRig.GlassRenderer;
             yield return _cannonRig.CarriageRenderer;
             yield return _cannonRig.WheelRenderer;
+            yield return _cannonRig.RollerRenderer;
             yield return _cityRenderer;
 
             //The island's stone cap and concrete drum, the drain's glass and its two gold beads — but
