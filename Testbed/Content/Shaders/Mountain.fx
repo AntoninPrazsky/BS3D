@@ -210,6 +210,49 @@ float RockRelief(float2 xz, float footprint)
 		* (RockReliefStrength * ROCK_FBM_GAIN);
 }
 
+//THE SNOW'S OWN SURFACE, which #208 found missing: the snowfields were flat SnowColor under a 40 % share of
+//the ROCK relief, and rock beside them carried grain, patches and per-pixel hash while the snow carried
+//nothing - the range read as "beautiful peaks with airbrushed white on them". Two things, both snow-only and
+//both band-limited against the footprint like everything else in this shader, because a relief that reaches
+//pixel size checkerboards (#170's whole lesson) and a glint that does is a crawling speckle:
+//
+//WIND-STREAKED DRIFT, the relief: snow does not lie flat, it lies in SASTRUGI - long, shallow ridges the
+//wind draws out of it. Combed fbm like the rock's, but on its OWN grain (crossed to it: weather in these
+//mountains is one system, and the rock lies in beds while the snow on top lies where the last wind put it)
+//and stretched harder - a streak reads as a streak past about three-to-one. Softer than rock by half: a
+//drift is a thing you could push a boot through, and a relief strong enough for crag would read as crag.
+static const float2 SNOW_GRAIN = float2(-0.55, 0.85);
+static const float SNOW_STRETCH = 3.2;
+static const float SNOW_FBM_GAIN = 0.5;
+
+float SnowRelief(float2 xz, float footprint)
+{
+	float scale = RockReliefFrequency / TWO_PI;
+
+	return Fbm2Combed(xz * scale, SNOW_GRAIN, SNOW_STRETCH, 3, footprint * scale)
+		* (RockReliefStrength * ROCK_FBM_GAIN * SNOW_FBM_GAIN);
+}
+
+//AND SPARKLE, the albedo's half: snow is ice crystals, and what the eye forgives a photograph of snow for
+//not resolving is the GLINT - a sparse dust of points bright enough to be specular, laid on a lattice of
+//crystal-sized cells. The cells here are ~0.3 world units, NOT crystal-sized, on purpose: at the footprint
+//the mid slopes actually draw (~0.08 world/pixel) crystal-scale cells are sub-pixel and a hash over them is
+//noise, while a third-of-a-metre cell lands 3-4 pixels wide - the size a glint reads at. Thresholded hard
+//(the top ~1.5 % of cells), so it is a dusting and not a wash; sun-facing only, because a glint is a
+//reflection; and faded by the footprint the same way as everything else, so the far ranges stay the clean
+//hazy shapes the aerial perspective wants.
+static const float SNOW_SPARKLE_DENSITY = 0.985;
+
+float SnowSparkle(float2 xz, float3 normal, float footprint)
+{
+	float fade = saturate(1.0 - footprint * 3.0);
+	if (fade <= 0.0) return 0.0;
+
+	float cell = NoiseHash22(floor(xz * 3.33)).x;
+
+	return step(SNOW_SPARKLE_DENSITY, cell) * fade * saturate(normal.y);
+}
+
 float4 MountainPS(MountainVertexOutput input) : COLOR
 {
 	float3 worldPosition = input.WorldPosition;
@@ -226,12 +269,14 @@ float4 MountainPS(MountainVertexOutput input) : COLOR
 	//Fine rock relief roughens the faces, band-limited against the footprint so it fades to smooth towards the
 	//horizon - which also keeps it off the distant faces, leaving the clean per-vertex normal to do the work there
 	float relief = RockRelief(worldPosition.xz, footprint) * (1.0 - 0.6 * saturate(baseNormal.y));
-	float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
+	float3 rockNormal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
 
 	//Snow lies where the surface is BOTH up-facing (flats/shoulders keep it, cliffs shed it) AND high enough
 	//(above an irregular, noisy snowline); rock shows on the steep faces and below the line. Noise breaks the
-	//snowline so it is drifts and patches, not a clean contour.
-	float slopeSnow = smoothstep(RockSlope, SnowSlope, normal.y);
+	//snowline so it is drifts and patches, not a clean contour. Read off the ROCK-perturbed normal: the
+	//terrain's own slope decides what holds snow, and the snow's own relief is about to be added on top of
+	//that decision rather than feeding back into it.
+	float slopeSnow = smoothstep(RockSlope, SnowSlope, rockNormal.y);
 	float snowNoise = CloudNoise(worldPosition.xz * 0.03) * 9.0;
 	float altSnow = smoothstep(SnowlineLow + snowNoise, SnowlineHigh + snowNoise, worldPosition.y);
 	float snowDetailed = slopeSnow * saturate(altSnow + 0.15); //a little snow even on lower shoulders
@@ -241,6 +286,13 @@ float4 MountainPS(MountainVertexOutput input) : COLOR
 	//near and mid slopes keep the rock/snow detail.
 	float detailFade = saturate(1.0 - footprint * 0.05);
 	float snow = lerp(0.72, snowDetailed, detailFade);
+
+	//And the snow's OWN two surfaces, over the mask that just came back (#208): the drift relief tilts the
+	//normal only where snow lies, weighted by how much of it there is, and the sparkle dusts the albedo
+	//after lighting as an additive glint. Both die with detailFade like everything else the near slopes
+	//carry, so the far ranges stay clean shapes in haze.
+	float snowRelief = SnowRelief(worldPosition.xz, footprint) * snow * detailFade;
+	float3 normal = PerturbNormalFromHeight(rockNormal, worldPosition, relief + snowRelief);
 
 	//Rock varies between a dark and a lighter grey-brown in patches, so the faces are not one flat colour
 	float rockPatch = saturate(CloudNoise(worldPosition.xz * 0.08 + 21.0) * 0.5 + 0.5);
@@ -264,6 +316,12 @@ float4 MountainPS(MountainVertexOutput input) : COLOR
 	float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
 
 	float3 color = albedo * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight);
+
+	//The glint, ON TOP of the lit snow: specular in character, additive in code - a glint is bright enough
+	//that tonemapping it down a little is the look, not a loss. Scaled by the direct sun only (ndotl and the
+	//cloud shadow with it), because a glint IS reflected sun.
+	color += SunColor * SnowSparkle(worldPosition.xz, normal, footprint)
+		* ndotl * sunlight * detailFade * 3.0;
 
 	//Alpine haze: the distant range fades into the skyline, the strong aerial perspective of a lot of cold air
 	float haze = saturate(dist / HorizonHazeDistance);

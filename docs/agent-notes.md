@@ -1569,4 +1569,89 @@ Postup: (1) přečíst, jak se stíní plotna, okénko a bublina, (2) rozhodnout
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-25 (#231 — zavřeno, na mainu; #255 — rozpracováno).*
+*Poslední zápis: ZCode, 2026-08-25 (#208 — bere ZCode, větev 208-mountain-snow-moon-detail; #255 — drží Claude Code).*
+
+
+## 2026-08-25 — Claude Code (šedesátý šestý zápis)
+
+**Sopka (#223) — hotová a na mainu jako `461e84b`.** Výkaz v plném rozsahu je v komentáři issue; tady jen to provozní a to, co má vědět další agent.
+
+**Beru/bral jsem #223**, a nárok jsem sem **nedokázal zapsat dopředu** — viz poslední odstavec, je to jediná věc na téhle práci, která nešla podle pravidel deníku.
+
+- Patnáctý `SceneKind`. Nové: `Volcano.fx`, `LavaFountain.fx`, `Ash.fx`, `VolcanoSceneConfig`. Zapojeno v `SceneRenderer`, `SceneLights`, v obou výchozích dómech (Testbed i Game), v `ProceduralAmbience` a ve všech třech `Content.mgcb`.
+- **Sníh, hor ani Měsíce jsem se nedotkl.** Popel jsem původně chtěl postavit na `Snow.fx` (sdílený efekt, precedent moře/laguny) a **rozmyslel jsem si to, jakmile jsem uviděl tvůj nárok na #208** — má vlastní `Ash.fx` a vlastní builder bufferu. `BuildSnowBuffers`/`BuildSprayBuffers` jsem taky nerefaktoroval, i když je můj `BuildBillboardParticles` teď třetí kopie téhož; sloučit je až po #208, ne teď.
+- `SceneRenderer.cs` jsme si ale rozdělit nemohli — nová scéna se do něj musí zapsat. Můj přírůstek je v nových regionech (`#region Volcano`, `#region Volcano: the rivers, the vents…`) plus přípojné body v `DrawEnvironment`/`DrawOverlays`/`Apply`/`GetSceneConfig`/`Dispose`. **Merge by měl být čistě aditivní**, ale ať se ti to netrhá: main povyskočil o jeden merge commit.
+
+**Past, která stála nejvíc času, a je obecnější než tahle scéna:**
+
+> **`BlendState.AlphaBlend` je v MonoGame PREMULTIPLIED** (`One, InverseSourceAlpha`). Shader, který vrátí přímou barvu, ji tedy **přičte v plné síle na každé vrstvě**. Kouřový sloup byl napsaný nepremultiplikovaně a 900 obláčků šedé 0,085 vyšlo jako **bílý parní sloup jasnější než obloha za ním** — a půl hodiny jsem hledal chybu v barvě, kterou posílám, protože ta barva byla evidentně tmavá. `Snow.fx` i `Spray.fx` vrací `float4(barva, alfa)` úplně stejně; **nechal jsem je být**, protože jsou proti tomu chování vyladěné okem a sníh držíš ty. Až budeš u #208 sahat na `Snow.fx`: tohle je důvod, proč vločka svítí víc, než by z její barvy a alfy vycházelo, a případná „oprava" na premultiplied vyžaduje přeladit `SnowColor`/`Opacity` zároveň, ne jen shader.
+
+**Další zapamatovatelné, ať to nikdo nehledá podruhé:**
+
+- **Mlha je barva horizontu dómu**, a to funguje jen proto, že každá dosavadní terénní scéna stojí pod oblohou, jejíž horizont má zhruba tón její vlastní země. Černý čedič pod krémovým horizontem dómu 16 na pouštních 420 → **celý kužel měl barvu písku a sopka zmizela; stála tam duna.** Sopka má vlastní `HazeTint`/`HazeStrength` a 900. Kdyby někdo dělal další tmavou scénu pod světlým dómem, tohle ho čeká taky.
+- **ACES odbarvuje.** `LavaHot` (7,5; 2,4; 0,3) vyšlo žlutobíle. Za určitou mezí přidané záření saturovanou barvu už jen odbarvuje — bílá řeka je svítící prasklina, ne roztavená hornina. Teď (3,4; 0,85; 0,10), pořád nad prahem glare.
+- **Voronoi má v sobě mřížku.** `VoronoiEdge2` v tomhle měřítku vycházel jako pravidelná plástev. Rozvlnění domény hrubším šumem před odečtem to spraví za dva odběry gradientního šumu.
+
+**Rozpočet a měření.** Desktop 6900 XT, Testbed, **pevná kamera**, okno 1600×900 při ssaa 4, dóm 9, `fpscap=150`: sopka **96,0 FPS / 10,4 ms** proti poušti 124,8 / 8,0 a horám 117,7 / 8,5; z hrací výšky 90,8 / 11,0 proti 117,9 / 8,5. Nejdražší terénní scéna asi o 2,5 ms. **`nocap` jsem nepouštěl** — podle #250 jsem se majitele zeptal a ten povolil jen `fpscap`. **Číslo pro APU netvrdím**, a to je vůči #209 otevřená mezera; počty částic, halo i krakelura jsou od prvního dne dials.
+
+**Čeho jsem se nedotkl a proč:** `Tools/LevelGen` a `Game/Levels` drží kolega na #255, tak **v téhle scéně nehraje ani jeden level**. Blok pěti levelů, `aimcheck`, zařazení do oblouku ubývajícího světla (#194) a hudba bloku jsou druhá půlka úkolu — **issue #223 jsem proto nezavřel.** Otevřené zůstává i to, co si issue vyhradilo jinam: **zvuk erupce** (má přijít s hromem #219, ne se vymýšlet dvakrát — `SceneRenderer.VolcanoEruption` je `public` a je to místo, kam se zavěsí) a popelová clona jako přednastavení počasí z #221.
+
+**Mimochodem opraveno:** počty scén v komentářích a docs byly rozjeté ještě přede mnou — na několika místech stálo „twelve" z dřívějšího soupisu. Sjednoceno na patnáct všude, kde jde o soupis scén.
+
+**⚠ A teď to provozní, ZCode.** Když jsem si tuhle práci bral, měl jsi v pracovním stromu **necommitovaný nárok na #208** (`docs/agent-notes.md`, tvůj zápis šedesátý pátý plus změna řádku „Poslední zápis"). Cizí rozepsanou práci nesahám, takže:
+
+- **nárok na #223 jsem sem dopředu zapsat nemohl** a zapisuju ho až teď, zpětně, spolu s výkazem — omlouvám se, pravidlo „nárok sem dřív, než začnu psát" jsem tím nedodržel, ale porušit ho bylo míň špatné než ti přepsat soubor;
+- **tenhle commit obsahuje jen můj text.** Postavil jsem ho z verze souboru v `HEAD` plus tenhle zápis a nastagoval přímo blob, takže **tvoje řádky zůstaly nedotčené a pořád necommitované** — v pracovním stromu je najdeš za tímhle zápisem a v `git status` uvidíš jako jedinou změnu je. Commitni si je sám, ať je to tvůj commit;
+- z toho plyne, že řádek **„Poslední zápis" je pořád tvoje necommitovaná verze** a o #223 neví. Až budeš commitovat, přidej si tam i tohle číslo.
+
+## 2026-08-25 — Claude Code (šedesátý sedmý zápis)
+
+**#244 (tropická pláž) zavřeno na majitelovo slovo; ze čtyř nálezů na hotové scéně je nové issue #268.** Žádná změna kódu, jen kontrola a admin — main se nehnul.
+
+**#244 bylo splněné podle svého vlastního zadání** a to zadání je celé jedna věta: „palms, sea, and rocks with green (mossy/vegetated) tops." Palmy, laguna kreslená beze změny `Sea.fx` i skály s mechovou čepicí tam jsou, plus dóm, ambience, hejno, menu, editor a naměřená cena. Zavřel jsem ho s komentářem, který to říká, a nálezy poslal jinam — aby se „scéna je hotová" a „takhle se čte" nemíchaly v jednom vlákně.
+
+**Metodická věc, kvůli které to sem píšu:** scéna byla poctivě ověřená — čtyři captures, vision model, měření — jenže **z vantage points, které její nápad ukazují**. Podíval jsem se na ni z **hrací kamery** a je to jiná scéna: laguna hladinou sedí 2 jednotky pod plochým pískem přes 100 jednotek širokou pláž, takže z herní kamery je v rámu písek → palmy → obloha a tyrkysová voda ani zelený břeh v něm nejsou vůbec. **Je to #171 v jiné scéně** („kamera nikdy nebyla vinná"). Stojí za to brát jako pravidlo: **poslední záběr při ověřování scény má být z hrací kamery**, ne z toho, ze kterého je scéna nejhezčí.
+
+Ostatní tři nálezy s mechanismem a čísly jsou v #268; sem jen ty, které se hodí i jinam:
+
+- **Naklonění normály samo o sobě na rovné zemi nic nenakreslí.** Písek pláže má vlnky jen v normále (`SandRelief` 0,045, žádný albedový člen), poušť si k tomu přidala ztmavení koryt — a má to zapsané ve svých vlastních docs, i s odůvodněním. Změřeno: sd jasu písku **4,4 na pláži proti 6,0 na poušti** ze stejné výšky pod stejným dómem, tedy amplituda skoro stejná; rozdíl je v **organizaci**, ne v síle. Kdo by to „opravoval" zvýšením amplitudy, mine to.
+- **Fresnel sežere barvu těla vody při tečných úhlech.** `WaterShallow` je poctivě tyrkysová (0,055; 0,24; 0,235), ale z hrací výšky vychází naměřeně (140, 146, 133) — B pod R. Zblízka a shora tyrkys je. `Sea.fx` nemá člen dna, protože byla psaná pro hluboké moře; laguna je tyrkysová právě jen kvůli mělkému světlému dnu.
+- **Maska zeleně na dálném hřebeni roste směrem VEN** (`smoothstep(0, RingWidth, r - ShoreRingRadius)`), takže je nula na vnitřní hraně hřebene a plné zeleně dosáhne až 95 jednotek za ní — tedy za hřbetem. Přivrácený svah, který je celý ten, na co se laguna dívá, je z konstrukce písčitý. Naměřeno (204, 199, 168).
+
+**⚠ ZCode, tohle se ti kříží s #208.** Tvůj report zní „sníh a měsíc čtou, jako by neměly texturu vůbec" a nález č. 2 výše je **přesně ta samá třída** — povrch, jehož detail existuje jen v normále, na rovné ploše pod silným světlem nenakreslí nic, ať má jakoukoli amplitudu. Jestli u sněhu vyjde totéž, je to argument pro albedový člen, ne pro silnější relief. Do `Tropical.fx` ani `Sea.fx` nesahám, #268 si nikdo nebere.
+
+**Deník podruhé stejným způsobem:** tvůj nárok na #208 je pořád necommitovaný, takže i tenhle commit nese **jen svůj vlastní text** (blob postavený z `HEAD` plus tenhle zápis, nastagovaný napřímo). Tvoje řádky jsou dál nedotčené a necommitované, v pracovním stromu za tímhle zápisem.
+
+**Nic si teď neberu.**
+
+## 2026-08-25 — Claude Code (šedesátý osmý zápis)
+
+**#268 (tropická pláž — jak se čte) hotové a na mainu jako `790520d`.** Plný výkaz je v komentáři issue; **issue jsem nezavřel**, protože jeden ze čtyř bodů dopadl jinak, než si jeho vlastní fix sketch představoval, a majitel ho možná bude chtít přeformulovat. Ze čtyř bodů **tři opravené, jeden vyvrácený**.
+
+**Nejcennější je ten vyvrácený, a je obecnější než tahle scéna.** Fix sketch (můj vlastní, z rána) tvrdil, že se laguna dostane do herního rámu prohloubením nebo zúžením pláže. Nedostane:
+
+- **Deska ostrova stojí 5 jednotek nad pláží a herní kamera se dívá přes ni** — její vzdálený okraj přeruší zorný paprsek a všechno v rovině písku za ním zmizí, bez ohledu na to, co tam je.
+- Usvědčeno `arena=none`: tentýž snímek z herní kamery ukáže lagunu jasně bez ostrova a vůbec s ním. Pak vyzkoušeno stažením `ShoreRadius` 100 → 66 i s prstencem palem — **pořád nic** — a pak ještě na malé mapě pro případ, že je proměnná stand-off. Taky nic. Všechno vráceno.
+- **Pravidlo, které z toho plyne: z herní kamery je za ostrovem vidět jen to, co ČNÍ NAHORU.** Plochý terén v rovině písku je odtamtud neviditelný, ať má jakýkoli poloměr. Kdo bude příště dělat scénu s vodní plochou nebo s čímkoli nízkým kolem arény, ať s tím počítá od začátku — je to zapsané i v `TropicalTerrainConfig.ShoreRadius` a v `docs/scenes.md`.
+- **A metodicky:** tohle je podruhé v jednom dni, co mě model geometrie vedl špatně a rozhodl až experiment. Napřed jsem si spočítal, že laguna má zabírat ~60 px rámu; pak jsem změřil, že jsou to 2. Když nesedí výpočet s obrázkem, platí obrázek — a `arena=none` je na tuhle třídu otázek levný a jednoznačný nástroj.
+
+**Tři opravy, každá s jinou lekcí:**
+
+- **Maska zeleně na dálném hřebeni** byla vázaná na jeho *stoupání* (`ring`, tentýž 95jednotkový náběh, který ho zvedá), takže zeleň rostla ven a plná byla až za hřbetem — přivrácený svah byl z konstrukce písek, naměřeno (204, 199, 168). Rozděleno na dvě otázky: krátká radiální brána (*která pevnina*) a výška nad vodou (*jak zarostlá*). **Jedna maska, která odpovídala na dvě otázky naráz, je vada, kterou je snadné nevidět** — obě odpovědi vypadaly rozumně, jen se ptaly na to samé.
+- **Mlha pak žrala, co maska dodala.** `haze⁴` k barvě horizontu je outbackovo uspořádání převzaté i s exponentem; pro prázdnou pláň správně, ale **tady je horizont sám o sobě prvek** (hřeben na 300–420 proti mlžné vzdálenosti 480, kterou drží poloviční rozměr mřížky), takže byl hřbet už ze 48 % v obloze. V téhle scéně `haze⁸`. Poučení: převzatá konstanta si s sebou nese kompozici, pro kterou byla zvolena.
+- **Písek** měl vlnky jen v normále (poušť ztmavuje i koryta a má to zapsané) **a k tomu 3× jemnější, než unese band-limit** — doména 0,85 = prvek 1,2 jednotky proti pouštním 3,9, takže se odfiltroval na třetinové vzdálenosti. Obojí opraveno; sd jasu **4,42 → 4,70 (stínování) → 4,92 (zhrubení)**, poušť 5,98. **Stínovat pole, které se nedá rozlišit, nekoupí nic** — první polovina opravy sama by byla skoro k ničemu a čísla to ukázala.
+
+**⚠ Sáhl jsem do `Sea.fx`, kterou kreslí obě vodní scény.** Přibyl jeden uniform `ShallowBias`, který zvedá podlahu mixu mezi hlubokou a mělkou barvou: laguna 0,78, moře **0**, kde `lerp(x, 1, 0)` je bit po bitu `x`. Laguna byla šedá právě proto, že `Sea.fx` dává světlou barvu jen plochám vlny mířícím vzhůru — správně pro vodu, pod kterou nic není, špatně pro basén s bílým dnem pár jednotek pod hladinou.
+
+> **A pozor na to, jak se u téhle scény NEDÁ ověřovat.** Chtěl jsem doložit, že se moře nehnulo, pixelovým diffem dvou buildů — a vyšlo, že se liší **45 % pixelů**. Není to změnou shaderu: vlny i mračná deska běží na nástěnných hodinách, takže dvě spuštění chytnou jinou fázi. **Na moři (a na každé scéně s počasím) je pixelový diff mezi dvěma běhy bezcenný.** Použitelný nástroj jsou plošné průměry: přes 62 400 pixelů vody R 69,55 / G 88,77 / B 123,29 před proti R 69,30 / G 88,49 / B 123,08 po — třetina úrovně, tedy fáze vlny.
+
+**Cena, párově na jednom pinu** (6900 XT, Testbed, pevná kamera, 1600×900 ssaa 4, dóm 1, `fpscap=150`): **119,8 FPS / 8,3 ms před proti 117,2 / 8,5 po**, tedy ~0,2 ms za jednu oktávu fBm navíc. Zůstává v pouštní třídě. `nocap` jsem nepouštěl (#250, majitelovo povolení jen na `fpscap`).
+
+**Ověřeno:** čtyři solutiony čisté i po mergi, ScoreSim zelený, snímky z Testbedu (shora, od břehu, na hřeben, z herní kamery), z Game i z editoru.
+
+**Nic si teď neberu.**
+
+**ZCode:** deník opět stejnou cestou — tvůj nárok na #208 je pořád necommitovaný, takže tenhle commit nese jen svůj text a tvoje řádky jsou dál nedotčené a tvoje. Z nálezů výše se ti k #208 hodí hlavně ten o písku: **jemný detail, který nepřežije band-limit, nenakreslí nic, ať se ztmaví jak chce** — a měřítko domény je proto první číslo, na které se u „vypadá to bez textury" dívat, dřív než amplituda.
+## 2026-08-25 — ZCode (šedesátý pátý zápis)
+
+**Beru #208** (sníh a měsíc v horské scéně čtou jako bez textury). Větev `208-mountain-snow-moon-detail` off main. Pracuju ve scéně/shaderech (hory + měsíc), **LevelGen ani Levels nedotknu** — kolega drží #255. Následující zápisy povedu stejně: nárok sem dřív, než začnu psát.
