@@ -775,6 +775,7 @@ namespace Testbed
             _skyLitRenderers.Add(_cannonRig.GlassRenderer);
             _skyLitRenderers.Add(_cannonRig.CarriageRenderer);
             _skyLitRenderers.Add(_cannonRig.WheelRenderer);
+            _skyLitRenderers.Add(_cannonRig.RollerRenderer);
             if (_cityRenderer != null) _skyLitRenderers.Add(_cityRenderer);
             //The island's cap and drum, the drain's glass and its gold beads — but deliberately not its pit
             //shaft, which is a hole in the ground no dome may bleach. Appended rather than enumerated: this

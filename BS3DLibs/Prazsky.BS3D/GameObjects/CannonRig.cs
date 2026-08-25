@@ -241,12 +241,28 @@ namespace Prazsky.BS3D
         //(ArenaIsland.FloorHeightAt). Past the arris there is nothing to stand on at all (on a big map the
         //orbit leaves the island entirely), and there the stance holds the arris plane — the one plane the
         //eye takes for the ground.
-        private const float WHEEL_RADIUS = 1.15f;   //outer radius, rim tube included
-        private const float WHEEL_TUBE = 0.11f;     //the felloe's half-thickness
+        //The wheel is an OMNIDIRECTIONAL one since #129 — two rows of barrel rollers around a pair of plates,
+        //so the carriage can roll along its axle as well as across it. The radius is the spoked wheel's,
+        //unchanged and deliberately so: TrunnionHeightAt hangs the whole gun off it, so resizing the wheel
+        //moves the gun. Everything else here is derived rather than picked; see OmniWheelMesh for the
+        //envelope condition the roller profile has to satisfy and the collision condition on the count.
+        private const float WHEEL_RADIUS = 1.15f;   //outer radius — the circle the rollers' envelope traces
         private const float HUB_RADIUS = 0.17f;
-        private const float HUB_HALF_WIDTH = 0.12f;
-        private const int WHEEL_SPOKES = 8;
         private const float WHEEL_TRACK = 1.5f;     //each wheel's centre off the barrel's axis
+
+        //The rollers. ROLLER_RADIUS is the fattest point, so the roller axes ride at WHEEL_RADIUS minus it
+        //(1.00); ROLLER_HALF_LENGTH is kept short of where the profile would reach zero (0.568) so a roller
+        //ends in a small flat rather than a needle. Six a row is the most the no-collision condition allows
+        //at that length — OmniWheelMesh.RollerSeats throws if these are ever moved past it.
+        private const float ROLLER_RADIUS = 0.17f;
+        private const float ROLLER_HALF_LENGTH = 0.34f;
+        private const float ROLLER_ROW_OFFSET = 0.16f;
+        private const int ROLLER_ROWS = 2;
+        private const int ROLLERS_PER_ROW = 8;
+        private const float PLATE_THICKNESS = 0.06f;
+
+        //How many roller instances the pair of wheels draws — one draw, refilled per frame
+        private const int ROLLER_INSTANCES = 2 * ROLLER_ROWS * ROLLERS_PER_ROW;
 
         private const float AXLE_DROP = 0.95f;      //the axle line below the trunnions
         private const float AXLE_RADIUS = 0.13f;
@@ -300,12 +316,26 @@ namespace Prazsky.BS3D
             (ArenaIsland.FloorHeightAt(orbitRadius + TRAIL_END.Z) - ArenaIsland.FloorHeightAt(orbitRadius))
                 / TRAIL_END.Z;
 
-        //The woodwork and the ironwork: a warm matte wood for the wheels, a darker iron than the barrel's
-        //steel for the frame — the barrel keeps its sheen, the undercarriage barely reflects.
-        private static readonly Vector3 WHEEL_COLOR = new(0.40f, 0.29f, 0.19f);
+        //The ironwork: a darker iron than the barrel's steel for the frame — the barrel keeps its sheen, the
+        //undercarriage barely reflects. The wheel used to be a warm matte WOOD, which was half of what read
+        //as a historical carriage; it is machined dark metal now (#129).
         private static readonly Vector3 FRAME_COLOR = new(0.30f, 0.30f, 0.33f);
-        private const float WHEEL_SPECULAR_AMBIENT = 0.08f;
         private const float FRAME_SPECULAR_AMBIENT = 0.22f;
+
+        //The omni wheel's two tones, and they cost nothing: colour is a per-draw uniform and the body and the
+        //rollers are two draws anyway (they have to turn independently), so the rollers can be told apart from
+        //the plates that carry them WITHOUT motion — which is what keeps the wheel legible standing still.
+        //Dark anodised plates against a pale grey polymer roller.
+        private static readonly Vector3 WHEEL_COLOR = new(0.085f, 0.088f, 0.095f);
+        //Read the numbers before retuning this: it is a NEUTRAL pale polymer and the figure is not neutral,
+        //because the key light is not. A grey lit by a golden sun renders warm, and at a genuinely neutral
+        //(0.48, 0.49, 0.505) the rollers came out bronze — measured over the roller band, R − B = 40 against
+        //the barrel steel's 31 in the same frame. Cooled until it lands where the steel does: R − B = 33.
+        //Raising the brightness alone does not fix it and made it slightly worse, because the warmth is in
+        //the light and not in the material.
+        private static readonly Vector3 ROLLER_COLOR = new(0.50f, 0.545f, 0.615f);
+        private const float WHEEL_SPECULAR_AMBIENT = 0.30f;   //machined metal, brighter than the old wood's 0.08
+        private const float ROLLER_SPECULAR_AMBIENT = 0.05f;  //a roller is rubbery and barely reflects
 
         #endregion
 
@@ -317,11 +347,29 @@ namespace Prazsky.BS3D
 
         private GunCarriageMesh _carriageMesh;
         private InstancedModelRenderer _carriageRenderer;
-        private GunWheelMesh _wheelMesh;
+        private OmniWheelMesh _wheelMesh;
         private InstancedModelRenderer _wheelRenderer;
+        private OmniRollerMesh _rollerMesh;
+        private InstancedModelRenderer _rollerRenderer;
 
         //The two wheels of one draw, refilled per frame — the array is reused, never reallocated
         private readonly ModelInstance[] _wheelInstances = new ModelInstance[2];
+
+        //And the rollers of a second draw: both wheels' worth, likewise reused. They cannot ride the wheels'
+        //own matrices — a roller has to turn about its own axis while the body turns about the axle, and the
+        //per-instance Vector4 is the ball technique's dither, so there is nowhere to carry a roller phase
+        //through the shared shader. Their own instances is the cheap answer and the one the repo already uses
+        //for a two-part prop (the tropical rocks' stone and moss cap).
+        private readonly ModelInstance[] _rollerInstances = new ModelInstance[ROLLER_INSTANCES];
+
+        //Where each roller sits in the wheel's frame — constant, so it is solved once and only the spin is
+        //multiplied through it per frame
+        private Matrix[] _rollerSeats;
+
+        //Scratch for the per-frame spin ∘ seat products, which are the SAME for both wheels (the seats are),
+        //so twelve of them are built once a frame and used twice. A field, not a local: this is the gameplay
+        //draw path and a fresh array a frame is a managed allocation on it.
+        private Matrix[] _rollerSpun;
 
         /// <param name="instancingEffect">The shared <c>InstancedModel.fx</c>. Handed in, never disposed — see
         /// the class remarks.</param>
@@ -381,7 +429,10 @@ namespace Prazsky.BS3D
             //The carriage under the tube: the frame the trunnions ride in and the pair of wheels the advance
             //walk (W/S) rolls. Sized off the barrel's own figures, so a retuned bore moves the cheeks with it.
             _carriageMesh = new GunCarriageMesh(graphicsDevice, CHEEK_INNER_X, CHEEK_THICKNESS, CHEEK_TOP_Y,
-                AXLE_DROP, CHEEK_HALF_LENGTH, AXLE_RADIUS, WHEEL_TRACK + HUB_HALF_WIDTH * 0.5f, TRAIL_END,
+                //The axle reaches a plate's thickness past each wheel's centre, so its end is swallowed by the
+                //hub and the joint never shows a crack. It was the spoked wheel's half-hub-width; the omni
+                //wheel's hub is far wider (it spans both plates), so this is buried with room to spare.
+                AXLE_DROP, CHEEK_HALF_LENGTH, AXLE_RADIUS, WHEEL_TRACK + PLATE_THICKNESS, TRAIL_END,
                 TRUNNION_RADIUS, TRUNNION_INNER_X, TRUNNION_OUTER_X);
 
             _carriageRenderer = new InstancedModelRenderer(graphicsDevice, _carriageMesh, FRAME_COLOR, instancingEffect)
@@ -389,13 +440,26 @@ namespace Prazsky.BS3D
                 SpecularAmbientStrength = FRAME_SPECULAR_AMBIENT
             };
 
-            _wheelMesh = new GunWheelMesh(graphicsDevice, WHEEL_RADIUS, WHEEL_TUBE, HUB_RADIUS, HUB_HALF_WIDTH,
-                WHEEL_SPOKES);
+            _wheelMesh = new OmniWheelMesh(graphicsDevice, WHEEL_RADIUS, ROLLER_RADIUS, ROLLER_ROW_OFFSET,
+                HUB_RADIUS, PLATE_THICKNESS);
 
             _wheelRenderer = new InstancedModelRenderer(graphicsDevice, _wheelMesh, WHEEL_COLOR, instancingEffect)
             {
                 SpecularAmbientStrength = WHEEL_SPECULAR_AMBIENT
             };
+
+            _rollerMesh = new OmniRollerMesh(graphicsDevice, WHEEL_RADIUS, ROLLER_RADIUS, ROLLER_HALF_LENGTH);
+
+            _rollerRenderer = new InstancedModelRenderer(graphicsDevice, _rollerMesh, ROLLER_COLOR, instancingEffect)
+            {
+                SpecularAmbientStrength = ROLLER_SPECULAR_AMBIENT
+            };
+
+            //Solved once — and this is where a set of figures that would grow the rollers through each other
+            //is refused, at load rather than on screen
+            _rollerSeats = OmniWheelMesh.RollerSeats(WHEEL_RADIUS, ROLLER_RADIUS, ROLLER_HALF_LENGTH,
+                ROLLER_ROW_OFFSET, ROLLER_ROWS, ROLLERS_PER_ROW);
+            _rollerSpun = new Matrix[_rollerSeats.Length];
         }
 
         /// <summary>
@@ -430,8 +494,16 @@ namespace Prazsky.BS3D
         /// <summary>The carriage frame's renderer, for the same sky-lighting enrolment as <see cref="Renderer"/>.</summary>
         public InstancedModelRenderer CarriageRenderer => _carriageRenderer;
 
-        /// <summary>The wheels' renderer, for the same sky-lighting enrolment as <see cref="Renderer"/>.</summary>
+        /// <summary>The wheel bodies' renderer, for the same sky-lighting enrolment as <see cref="Renderer"/>.</summary>
         public InstancedModelRenderer WheelRenderer => _wheelRenderer;
+
+        /// <summary>
+        /// The wheels' rollers' renderer, which wants the same enrolment as <see cref="WheelRenderer"/> — it is
+        /// a separate draw only because the rollers turn on their own axes, not because they are lit any
+        /// differently. A host that enrols the one and forgets the other gets a wheel whose rollers do not
+        /// take the sky.
+        /// </summary>
+        public InstancedModelRenderer RollerRenderer => _rollerRenderer;
 
         /// <summary>Draws the barrel, as a single instance so it takes the same hemisphere ambient, positional
         /// key light and per-pixel shading as the instanced balls around it.</summary>
@@ -485,7 +557,12 @@ namespace Prazsky.BS3D
         /// so they turn as fast as the ground passes and slow into the walk's rubber ends with it. (The travel
         /// is the horizontal step; on the dish's ~6.4° grade the true rolled arc is ~0.6 % longer, which no
         /// eye reads off a spoked wheel.)</param>
-        public void DrawCarriage(ICamera camera, Matrix carriageWorld, float wheelTravel,
+        /// <param name="orbitTravel"><see cref="GameObjects.Cannon.OrbitTravel"/>: signed ground covered
+        /// <b>sideways</b> by the orbit walk. It spins the rollers, which is the whole point of them — the
+        /// carriage crabs along its own axle there, and until #129 the wheels simply stood still through it.
+        /// No recoil term, unlike <paramref name="wheelTravel"/>: the shot's shove is back along the heading,
+        /// which is the other axis.</param>
+        public void DrawCarriage(ICamera camera, Matrix carriageWorld, float wheelTravel, float orbitTravel,
             BasicEffectParams effectParams)
         {
             //Same per-frame ground anchor as Draw's, off the same translation, for the same reason
@@ -493,6 +570,7 @@ namespace Prazsky.BS3D
                 MathF.Sqrt(carriageWorld.M41 * carriageWorld.M41 + carriageWorld.M43 * carriageWorld.M43));
             _carriageRenderer.GroundHeight = ground;
             _wheelRenderer.GroundHeight = ground;
+            _rollerRenderer.GroundHeight = ground;
 
             _carriageRenderer.Draw(camera, carriageWorld, effectParams);
 
@@ -507,12 +585,38 @@ namespace Prazsky.BS3D
             wheel.M42 = -AXLE_DROP;
 
             wheel.M41 = -WHEEL_TRACK;
-            _wheelInstances[0] = new ModelInstance(wheel * carriageWorld, new Vector4(0f, 0f, 0f, 1f));
+            Matrix leftWheel = wheel * carriageWorld;
+            _wheelInstances[0] = new ModelInstance(leftWheel, new Vector4(0f, 0f, 0f, 1f));
 
             wheel.M41 = WHEEL_TRACK;
-            _wheelInstances[1] = new ModelInstance(wheel * carriageWorld, new Vector4(0f, 0f, 0f, 1f));
+            Matrix rightWheel = wheel * carriageWorld;
+            _wheelInstances[1] = new ModelInstance(rightWheel, new Vector4(0f, 0f, 0f, 1f));
 
             _wheelRenderer.Draw(camera, _wheelInstances, 2, effectParams);
+
+            //The rollers. Their spin is the SIDEWAYS ground over a roller's own radius, exactly as the body's
+            //roll is the forward ground over the wheel's — same rule, other axis. Wrapped per circumference
+            //before the divide for the same reason, and negative for the same one: the surface in contact has
+            //to travel backwards against the way the carriage is going, or the wheel reads as skidding.
+            //
+            //ALL of them turn together rather than only whichever is at the bottom. A free roller coasts at
+            //what it last had, which is this same rate, and picking out "the one in contact" would leave the
+            //other eleven visibly dead — the fiction costs nothing and the honesty would.
+            float rollerSpin = -(orbitTravel % (MathHelper.TwoPi * ROLLER_RADIUS)) / ROLLER_RADIUS;
+            Matrix spin = Matrix.CreateRotationX(rollerSpin);
+
+            //Built once and used for both wheels: the seats are the same on either side, so this half of the
+            //chain is shared and only the wheel's own matrix differs
+            for (int i = 0; i < _rollerSeats.Length; i++) _rollerSpun[i] = spin * _rollerSeats[i];
+
+            for (int i = 0; i < _rollerSeats.Length; i++)
+            {
+                _rollerInstances[i] = new ModelInstance(_rollerSpun[i] * leftWheel, new Vector4(0f, 0f, 0f, 1f));
+                _rollerInstances[_rollerSeats.Length + i] =
+                    new ModelInstance(_rollerSpun[i] * rightWheel, new Vector4(0f, 0f, 0f, 1f));
+            }
+
+            _rollerRenderer.Draw(camera, _rollerInstances, ROLLER_INSTANCES, effectParams);
         }
 
         /// <summary>
@@ -538,6 +642,8 @@ namespace Prazsky.BS3D
 
             _wheelMesh?.Dispose();
             _wheelMesh = null;
+            _rollerMesh?.Dispose();
+            _rollerMesh = null;
             _wheelRenderer?.Dispose();
             _wheelRenderer = null;
         }
