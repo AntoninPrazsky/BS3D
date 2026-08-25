@@ -1724,3 +1724,36 @@ Výpletové kolo je smazané. Místo něj `OmniWheelMesh` (tělo: dva tmavé kot
 ---
 
 *Poslední zápis: Claude Code, 2026-08-25 (#129 — postaveno, na mainu; #255 — pozastaveno; #208 — drží ZCode).*
+
+## 2026-08-25 — Claude Code (sedmdesátý první zápis)
+
+**#129 dvakrát opraveno po majitelově hraní. Na mainu jako `2a8de38`.** Obě hlášení stojí za přečtení, protože jedno z nich je vada v mém vlastním návrhu.
+
+**⚠ 1. „Válečky se při A/D vůbec netočí." A nebylo to znaménkem — nikdy být nemohlo.** **Hladké rotační těleso otáčené kolem vlastní osy je vizuálně neměnné**: každý úhel vykreslí identický obrázek. Válečky se točily správně a neříkaly nic, a to „neověřené znaménko", se kterým jsem to odevzdal, **se ani nedalo ověřit**. Repo tuhle lekci mělo zapsanou už **dvakrát** — staré kolo má v dokumentaci *„a rolling torus alone reads as standing still"* a #231 zjistilo, že hladké rotační těleso nemůže číst jako broušené, ať se stínuje jakkoli — a já ji přesto zopakoval. **Spraví to geometrie, ne stínování a ne barva.** Šest **šroubovicových** drážek: rovná drážka je symetrická podle střední roviny, takže řekne, že se váleček točí, ale ne kterým směrem; šroubovice je chirální a řekne obojí.
+
+**⚠ 2. „Když je dělo natočené mířením, animace neodpovídá pohybu." Tohle je vada NÁVRHU, ne provedení.** Napsal jsem tam, že osa kol je tečna orbitu a chůze k poli je směr valení — což platí **jen dokud dělo míří po své stanovišti**. Lafeta se ale **natáčí mířením** (`CarriageWorld` bere směr z ploché `AimDirection`) a chůze ne: advance je pořád radiální, orbit tečný, ať je traverz jakýkoli. Natočená o 45° je advance **půl valení a půl klouzání**.
+
+`AccumulateWalk` teď rozkládá **každý krok** do vlastních os lafety, a obě půlky toho „jak" jsou poučné:
+
+- **Vektorově**, ne trigonometricky — světové posunutí promítnuté na osy **vyčtené z té samé matice, kterou se lafeta kreslí**. Trigonometrický rozklad potřebuje mít naráz správné dvě znaménkové konvence a ani jedna se z kódu nedá zkontrolovat. **V téhle session jsem se na téhle třídě chyb spletl dvakrát** (viz zápis o lagunutě), tak jsem si ji odepřel úplně.
+- **Po krocích**, protože traverz se hýbe **během** chůze. Otočit až nasčítaný součet by odpovídalo mířením, které hráč drží teď.
+
+`AdvanceTravel` a `OrbitTravel` tím zanikly; nahradily je **`RollTravel`** a **`SlideTravel`** — tentýž pohyb, rozložený tam, kde se spotřebovává. **Žádná z obou chůzí už nevlastní osu.** `WheelTravel` je `RollTravel` plus rána zpětného rázu, která patří jen na tuhle osu.
+
+**Obecné poučení, které si z toho beru a doporučuju dál:** *„jaký signál to pohání" a „v jaké soustavě ten signál je" jsou dvě otázky a já zodpověděl jen první.* U každé animace tažené z pohybu se vyplatí zeptat se, jestli se soustava, ve které se pohyb měří, nemůže otáčet nezávisle na soustavě, ve které se kreslí.
+
+**Drobnější, ale stejná třída: rozlišení drážek.** Šest drážek na 24 segmentů jsou čtyři na drážku — dno a dvě stěny a mezi nimi není co stínovat, tedy faseta. Teď 48 (osm na drážku, kde kosinový lalok čte jako křivka) a 16 délkových kroků, jinak je šroubovice hladká kolem válečku a schodovitá podél.
+
+**Změřeno:** **130,0 FPS / 7,7 ms** s drážkami proti 129,1 s hladkými válečky a 129,4 s úplně vypnutou kresbou válečků — všechno 7,7 ms a pásma se překrývají. Mesh válečku vyrostl ze ~144 na ~2100 trojúhelníků a 32 jeho instancí nestojí měřitelně nic.
+
+`docs/testbed.md` opraveno, ne ponecháno — oba záznamy jmenovaly vlastnosti, které přestaly existovat.
+
+**Zbývá ověřit okem:** směr rotace válečků při A/D. Teď už to konečně **jde** vidět; do té doby to nešlo ani principiálně.
+
+**Provozní:** merge i tenhle zápis zase v dočasném worktree, ZCodova rozepsaná práce v deníku dál blokuje merge ve sdíleném stromě. **Sdílený checkout stojí na větvi `129-roller-flutes`** (kód shodný s mainem, liší se jen deník) a dotáhnout ho nejde, dokud ty řádky nedosednou.
+
+**Nic si teď neberu.**
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-25 (#129 — postaveno a dvakrát opraveno, na mainu; #255 — pozastaveno; #208 — drží ZCode).*
