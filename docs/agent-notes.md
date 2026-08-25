@@ -1670,3 +1670,29 @@ Ostatní tři nálezy s mechanismem a čísly jsou v #268; sem jen ty, které se
 ---
 
 *Poslední zápis: Claude Code, 2026-08-25 (#255 — pozastaveno na větvi, pět bloků z devíti).*
+
+## 2026-08-25 — Claude Code (šedesátý devátý zápis)
+
+**#129 (moderní kolo lafety) — návrh hotový, v kódu jen `Cannon.OrbitTravel`. Na mainu jako `f3fbb66`.** Issue si samo říká „research + design, not implementation"; majitel rozsah potvrdil jako **návrh + ten jeden základ v kódu**. Plný návrh je v komentáři issue, tady jen to, co má cenu i jinde.
+
+**Mechanismus vybral majitel (AskUserQuestion): omni kolo s válečky.** Ale jednu variantu vyřadila **geometrie téhle lafety, ne vkus, a to je ten nález:** mecanum potřebuje **nejméně tři nezávisle hnané kontakty**, aby složilo bočný pohyb, a lafeta má **dvě kola a vlečenou ostruhu**. Mecanum by tedy znamenalo dát kola i na konce ostruhy — čímž ostruha přestane být ostruhou a překreslí se `TRAIL_END`, `TrunnionHeightAt` i `StanceGradeAt`. Kdo bude příště uvažovat o všesměrovém podvozku, ať začne počtem kontaktů.
+
+**Nález, kvůli kterému vyšel zbytek jednoduše:** rychlost lafety v její vlastní soustavě jsou **právě dvě čísla a jsou to přesně osy omni kola** — osa kol je lokální X, chůze k poli lokální −Z, a **tečna orbitu *je* osa kol**. Proto `WheelTravel` točí tělem kola a nové `OrbitTravel` válečky, a **šikmý pohyb (W+A) vyjde správně sám**, protože se oba signály akumulují nezávisle.
+
+- `OrbitTravel` se přibírá v `MoveCircular` jako `_orbitRadius * step` — **z kroku, ne z úhlu**, aby na něj nedosáhl wrap `EnsureOrbitAngleInBounds`. Měří **chůzi, ne pózu** (`OrbitToFace` i setter `OrbitRadius` ho nechávají být, jako nechávají `AdvanceTravel`) a **nemá člen zpětného rázu** — rána tlačí po ose advance, ne po téhle.
+- Znaménko je vědomě nechané na vrstvě kreslení, kde `DrawCarriage` tutéž volbu už jednou dělá pro `roll`. Potvrdí se pohledem, až válečky půjdou na obrazovku.
+- Zastaralé „proč" v dokumentaci `AdvanceTravel` jsem opravil, ne nechal stát: „not advanced by the orbit" je fakt o **tomhle** kole, ne o chůzi.
+
+**Dvě věci naměřené, které obracejí předpoklad issue:** kolo je z herní kamery **~250 px z 939 = 27 % výšky rámu**, takže obava z „busy blob" je lichá; a **ADS je ta *méně* náročná kamera** (`PreciseAim` sedí 6 j. za ústím a 2 nad osou, tedy před lafetou a nad ní — kola jsou většinou mimo rám). Navíc kolo vidíš skoro **z profilu**, takže čteš jeho **obvod** — a tam válečky sedí.
+
+**Pro toho, kdo bude stavět mesh:** válečky se nedají roztočit maticí kola (per-instance `Vector4` je obsazený ditherem a čte ho jen technika koulí), takže půjdou jako **vlastní instance** — tělo 2, válečky 24, dvě kresby. Prop tím vyroste z dnešních dvou násobení matic za snímek na ~36; dvě kresby ale přinesou **dvoubarevnost zadarmo**, takže válečky budou číst i v klidu. Obálka válečku musí být `ρ(t) = R − √(a² + t²)`, jinak kolo při valení poskakuje; startovní sada a podmínka nekolize `L ≤ a·tan(π/N)` jsou v komentáři issue. **Figura ke kontrole:** pás válečků 0,60 je 2,5× širší než dnešní kolo a `TRAIL_END.X` = 1,55 leží uvnitř rozsahu kola 1,20–1,80.
+
+**⚠ Provozní, a stálo to jeden zbytečný merge:** mergoval jsem na **zastaralou lokální main** — kolega mezitím pushnul `50952d8` (#255 pozastaveno). Dotáhl jsem to `git merge origin/main`, jenže to **odmítla ZCodova necommitovaná změna v deníku**. Řešení bylo **dočasný worktree** (postup ze zápisu z 23. 8.): merge i tenhle zápis proběhly tam, sdíleného stromu jsem se nedotkl. **Poučení: `git fetch` a srovnání s originem těsně před checkoutem mainu, ne jen na začátku práce** — na tomhle repu se main hýbe pod rukama.
+
+**⚠ Sdílený checkout zůstává na `f3fbb66`, tedy o merge pozadu za originem.** Dotáhnout ho nejde, dokud je `docs/agent-notes.md` špinavý cizí prací; udělá se to samo, až ZCode svoje řádky zacommituje.
+
+**Nic si teď neberu.**
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-25 (#129 — návrh v issue, `OrbitTravel` na mainu; #255 — pozastaveno; #208 — drží ZCode).*
