@@ -35,11 +35,51 @@
       "ceilingStep": 9
     },
     {
+      "file": "Diabolo.json",
+      "name": "Diabolo",
+      "block": "The Meadow",
+      "shots": 34,
+      "minStars": 6,
+      "ceilingStep": 7
+    },
+    {
+      "file": "Shuttle.json",
+      "name": "Shuttle",
+      "block": "The Meadow",
+      "shots": 38,
+      "minStars": 8,
+      "ceilingStep": 7
+    },
+    {
+      "file": "Amphora.json",
+      "name": "Amphora",
+      "block": "The Meadow",
+      "shots": 34,
+      "minStars": 10,
+      "ceilingStep": 7
+    },
+    {
+      "file": "Saturn.json",
+      "name": "Saturn",
+      "block": "The Meadow",
+      "shots": 36,
+      "minStars": 12,
+      "ceilingStep": 7
+    },
+    {
+      "file": "Fountain.json",
+      "name": "Fountain",
+      "block": "The Meadow",
+      "shots": 42,
+      "minStars": 14,
+      "ceilingStep": 6
+    },
+    {
       "file": "Seven.json",
       "name": "Gem",
       "block": "The Meadow",
       "shots": 44,
-      "minStars": 6,
+      "minStars": 16,
       "ceilingStep": 9
     },
     {
@@ -47,7 +87,7 @@
       "name": "Heart",
       "block": "The Gallery",
       "shots": 60,
-      "minStars": 8,
+      "minStars": 18,
       "ceilingStep": 10
     },
     {
@@ -55,7 +95,7 @@
       "name": "Smiley",
       "block": "The Gallery",
       "shots": 60,
-      "minStars": 10,
+      "minStars": 20,
       "ceilingStep": 10
     },
     {
@@ -63,7 +103,7 @@
       "name": "Star",
       "block": "The Gallery",
       "shots": 55,
-      "minStars": 12,
+      "minStars": 22,
       "ceilingStep": 9
     },
     {
@@ -71,7 +111,47 @@
       "name": "Elephant",
       "block": "The Gallery",
       "shots": 48,
-      "minStars": 14,
+      "minStars": 24,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Moon.json",
+      "name": "Moon",
+      "block": "The Gallery",
+      "shots": 58,
+      "minStars": 26,
+      "ceilingStep": 10
+    },
+    {
+      "file": "Paw.json",
+      "name": "Paw",
+      "block": "The Gallery",
+      "shots": 52,
+      "minStars": 28,
+      "ceilingStep": 9
+    },
+    {
+      "file": "Meerkat.json",
+      "name": "Meerkat",
+      "block": "The Gallery",
+      "shots": 50,
+      "minStars": 30,
+      "ceilingStep": 9
+    },
+    {
+      "file": "Giraffe.json",
+      "name": "Giraffe",
+      "block": "The Gallery",
+      "shots": 46,
+      "minStars": 32,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Balloon.json",
+      "name": "Balloon",
+      "block": "The Gallery",
+      "shots": 44,
+      "minStars": 34,
       "ceilingStep": 8
     },
     {
@@ -79,7 +159,7 @@
       "name": "Zebra",
       "block": "The Gallery",
       "shots": 48,
-      "minStars": 16,
+      "minStars": 36,
       "ceilingStep": 8
     },
     {
@@ -87,7 +167,7 @@
       "name": "Rope",
       "block": "The Coil",
       "shots": 40,
-      "minStars": 18,
+      "minStars": 38,
       "ceilingStep": 8
     },
     {
@@ -95,7 +175,7 @@
       "name": "Minaret",
       "block": "The Coil",
       "shots": 44,
-      "minStars": 20,
+      "minStars": 40,
       "ceilingStep": 8
     },
     {
@@ -103,7 +183,7 @@
       "name": "Basket",
       "block": "The Coil",
       "shots": 48,
-      "minStars": 22,
+      "minStars": 42,
       "ceilingStep": 7
     },
     {
@@ -111,7 +191,7 @@
       "name": "Pendulum",
       "block": "The Coil",
       "shots": 52,
-      "minStars": 24,
+      "minStars": 44,
       "ceilingStep": 7
     },
     {
@@ -119,247 +199,327 @@
       "name": "Knot",
       "block": "The Coil",
       "shots": 50,
-      "minStars": 26,
+      "minStars": 46,
       "ceilingStep": 6
     },
     {
       "file": "Ten.json",
       "name": "Column",
-      "block": "The Tower",
+      "block": "The Coil",
       "shots": 90,
-      "minStars": 28,
+      "minStars": 48,
       "ceilingStep": 5
     },
     {
       "file": "Six.json",
       "name": "Crown",
-      "block": "The Tower",
+      "block": "The Coil",
       "shots": 44,
-      "minStars": 30,
+      "minStars": 50,
       "ceilingStep": 9
     },
     {
       "file": "Horn.json",
       "name": "Horn",
-      "block": "The Tower",
+      "block": "The Coil",
       "shots": 80,
-      "minStars": 32,
+      "minStars": 52,
       "ceilingStep": 6
     },
     {
       "file": "Helix.json",
       "name": "Helix",
-      "block": "The Tower",
+      "block": "The Coil",
       "shots": 66,
-      "minStars": 34,
+      "minStars": 54,
       "ceilingStep": 5
+    },
+    {
+      "file": "Pagoda.json",
+      "name": "Pagoda",
+      "block": "The Coil",
+      "shots": 78,
+      "minStars": 56,
+      "ceilingStep": 5
+    },
+    {
+      "file": "Spyglass.json",
+      "name": "Spyglass",
+      "block": "The Tower",
+      "shots": 72,
+      "minStars": 58,
+      "ceilingStep": 6
+    },
+    {
+      "file": "Belfry.json",
+      "name": "Belfry",
+      "block": "The Tower",
+      "shots": 84,
+      "minStars": 60,
+      "ceilingStep": 5
+    },
+    {
+      "file": "Organ.json",
+      "name": "Organ",
+      "block": "The Tower",
+      "shots": 86,
+      "minStars": 62,
+      "ceilingStep": 5
+    },
+    {
+      "file": "Pylon.json",
+      "name": "Pylon",
+      "block": "The Tower",
+      "shots": 74,
+      "minStars": 64,
+      "ceilingStep": 6
     },
     {
       "file": "Lean.json",
       "name": "Lean",
       "block": "The Tower",
       "shots": 78,
-      "minStars": 36,
+      "minStars": 66,
       "ceilingStep": 6
     },
     {
       "file": "Eleven.json",
       "name": "Onion",
-      "block": "The Reveal",
+      "block": "The Tower",
       "shots": 48,
-      "minStars": 38,
+      "minStars": 68,
       "ceilingStep": 8
     },
     {
       "file": "Chest.json",
       "name": "Chest",
-      "block": "The Reveal",
+      "block": "The Tower",
       "shots": 56,
-      "minStars": 40,
+      "minStars": 70,
       "ceilingStep": 12
     },
     {
       "file": "Fossil.json",
       "name": "Fossil",
-      "block": "The Reveal",
+      "block": "The Tower",
       "shots": 36,
-      "minStars": 42,
+      "minStars": 72,
       "ceilingStep": 9
     },
     {
       "file": "Mango.json",
       "name": "Mango",
-      "block": "The Reveal",
+      "block": "The Tower",
       "shots": 36,
-      "minStars": 44,
+      "minStars": 74,
       "ceilingStep": 7
     },
     {
       "file": "Lantern.json",
       "name": "Lantern",
-      "block": "The Reveal",
+      "block": "The Tower",
       "shots": 58,
-      "minStars": 46,
+      "minStars": 76,
       "ceilingStep": 7
     },
     {
       "file": "Four.json",
       "name": "Mosaic",
-      "block": "The Quarry",
+      "block": "The Reveal",
       "shots": 56,
-      "minStars": 48,
+      "minStars": 78,
       "ceilingStep": 8
     },
     {
       "file": "Eight.json",
       "name": "Prism",
-      "block": "The Quarry",
+      "block": "The Reveal",
       "shots": 60,
-      "minStars": 50,
+      "minStars": 80,
       "ceilingStep": 6
     },
     {
       "file": "Hopper.json",
       "name": "Hopper",
-      "block": "The Quarry",
+      "block": "The Reveal",
       "shots": 60,
-      "minStars": 52,
+      "minStars": 82,
       "ceilingStep": 6
+    },
+    {
+      "file": "Trilithon.json",
+      "name": "Trilithon",
+      "block": "The Reveal",
+      "shots": 42,
+      "minStars": 84,
+      "ceilingStep": 5
+    },
+    {
+      "file": "Gantry.json",
+      "name": "Gantry",
+      "block": "The Reveal",
+      "shots": 56,
+      "minStars": 86,
+      "ceilingStep": 6
+    },
+    {
+      "file": "Fault.json",
+      "name": "Fault",
+      "block": "The Reveal",
+      "shots": 58,
+      "minStars": 88,
+      "ceilingStep": 6
+    },
+    {
+      "file": "Crib.json",
+      "name": "Crib",
+      "block": "The Reveal",
+      "shots": 60,
+      "minStars": 90,
+      "ceilingStep": 6
+    },
+    {
+      "file": "Highwall.json",
+      "name": "Highwall",
+      "block": "The Reveal",
+      "shots": 60,
+      "minStars": 92,
+      "ceilingStep": 7
     },
     {
       "file": "Nine.json",
       "name": "Static",
-      "block": "The Quarry",
+      "block": "The Reveal",
       "shots": 60,
-      "minStars": 54,
+      "minStars": 94,
       "ceilingStep": 5
     },
     {
       "file": "Colossus.json",
       "name": "Colossus",
-      "block": "The Quarry",
+      "block": "The Reveal",
       "shots": 45,
-      "minStars": 56,
+      "minStars": 96,
       "ceilingStep": 4
     },
     {
       "file": "Comet.json",
       "name": "Comet",
-      "block": "The Nebula",
+      "block": "The Quarry",
       "shots": 56,
-      "minStars": 58,
+      "minStars": 98,
       "ceilingStep": 6
     },
     {
       "file": "Vortex.json",
       "name": "Vortex",
-      "block": "The Nebula",
+      "block": "The Quarry",
       "shots": 64,
-      "minStars": 60,
+      "minStars": 100,
       "ceilingStep": 6
     },
     {
       "file": "Carousel.json",
       "name": "Carousel",
-      "block": "The Nebula",
+      "block": "The Quarry",
       "shots": 72,
-      "minStars": 62,
+      "minStars": 102,
       "ceilingStep": 5
     },
     {
       "file": "Wishbone.json",
       "name": "Wishbone",
-      "block": "The Nebula",
+      "block": "The Quarry",
       "shots": 54,
-      "minStars": 64,
+      "minStars": 104,
       "ceilingStep": 5
     },
     {
       "file": "Garland.json",
       "name": "Garland",
-      "block": "The Nebula",
+      "block": "The Quarry",
       "shots": 54,
-      "minStars": 66,
+      "minStars": 106,
       "ceilingStep": 4
     },
     {
       "file": "Cube.json",
       "name": "Cube",
-      "block": "The Arcade",
+      "block": "The Quarry",
       "shots": 56,
-      "minStars": 68,
+      "minStars": 108,
       "ceilingStep": 8
     },
     {
       "file": "Ziggurat.json",
       "name": "Ziggurat",
-      "block": "The Arcade",
+      "block": "The Quarry",
       "shots": 52,
-      "minStars": 70,
+      "minStars": 110,
       "ceilingStep": 7
     },
     {
       "file": "Reel.json",
       "name": "Reel",
-      "block": "The Arcade",
+      "block": "The Quarry",
       "shots": 60,
-      "minStars": 72,
+      "minStars": 112,
       "ceilingStep": 8
     },
     {
       "file": "Donut.json",
       "name": "Donut",
-      "block": "The Arcade",
+      "block": "The Quarry",
       "shots": 52,
-      "minStars": 74,
+      "minStars": 114,
       "ceilingStep": 6
     },
     {
       "file": "Globe.json",
       "name": "Globe",
-      "block": "The Arcade",
+      "block": "The Quarry",
       "shots": 52,
-      "minStars": 76,
+      "minStars": 116,
       "ceilingStep": 14
     },
     {
       "file": "Icicle.json",
       "name": "Icicle",
-      "block": "The Spectrum",
+      "block": "The Nebula",
       "shots": 40,
-      "minStars": 78,
+      "minStars": 118,
       "ceilingStep": 6
     },
     {
       "file": "Hourglass.json",
       "name": "Hourglass",
-      "block": "The Spectrum",
+      "block": "The Nebula",
       "shots": 48,
-      "minStars": 80,
+      "minStars": 120,
       "ceilingStep": 6
     },
     {
       "file": "Trellis.json",
       "name": "Trellis",
-      "block": "The Spectrum",
+      "block": "The Nebula",
       "shots": 52,
-      "minStars": 82,
+      "minStars": 122,
       "ceilingStep": 5
     },
     {
       "file": "Kiln.json",
       "name": "Kiln",
-      "block": "The Spectrum",
+      "block": "The Nebula",
       "shots": 56,
-      "minStars": 84,
+      "minStars": 124,
       "ceilingStep": 5
     },
     {
       "file": "Turbine.json",
       "name": "Turbine",
-      "block": "The Spectrum",
+      "block": "The Nebula",
       "shots": 52,
-      "minStars": 86,
+      "minStars": 126,
       "ceilingStep": 4
     }
   ]

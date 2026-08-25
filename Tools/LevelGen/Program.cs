@@ -126,7 +126,7 @@ namespace BS3D.Tools.LevelGen
         private const int ONE_SHOT_PERCENT = 90;
 
         /// <summary>How many levels are in one block. See <see cref="Main"/> for what a block is (#194).</summary>
-        private const int BLOCK_SIZE = 5;
+        private const int BLOCK_SIZE = 10;
 
         //THE BLOCKS' THEMES (#194). A block's piece is named on every level of it, so the music changes
         //when the chapter does and not when the level does - see Design.Music for what naming it buys and what
@@ -259,10 +259,10 @@ namespace BS3D.Tools.LevelGen
                 //1. THE MEADOW - "Rings". Solids of revolution in concentric shells or angular sectors: every
                 //colour is a plate of dozens, so one matching ball takes a whole shell. The block that teaches
                 //what a colour group is, in the cheapest scene in the game under the one clear blue dome.
-                One(), Bullseye(), Toadstool(), Pinwheel(), Gem(),
+                One(), Bullseye(), Toadstool(), Pinwheel(), Diabolo(), Shuttle(), Amphora(), Saturn(), Fountain(), Gem(),
 
                 //2. THE SAVANNA - "The Gallery". Flat drawn walls, read off a bitmap written in the source.
-                Heart(), Smiley(), Star(), Elephant(), Zebra(),
+                Heart(), Smiley(), Star(), Elephant(), Moon(), Paw(), Meerkat(), Giraffe(), Balloon(), Zebra(),
 
                 //3. THE DESERT - "The Coil" (#207). Every layout here hangs on SLENDER LINKS, so the cluster
                 //springs and swings instead of sitting there: strands twisted round each other, a ledge winding
@@ -284,7 +284,7 @@ namespace BS3D.Tools.LevelGen
                 //game (90 shots, ceiling every 5), so the chapter opens on its longest level; Crown moving to
                 //second keeps its teaching intact, the axis and the drain up the middle of it reading just as
                 //well behind the premise as ahead of it.
-                Column(), Crown(), Horn(), Helix(), Lean(),
+                Column(), Crown(), Horn(), Helix(), Pagoda(), Spyglass(), Belfry(), Organ(), Pylon(), Lean(),
 
                 //5. THE CAVERN - "The Reveal". An outer body with a differently-shaped thing standing inside
                 //it; clearing the outside is the payoff (#161).
@@ -293,7 +293,7 @@ namespace BS3D.Tools.LevelGen
                 //6. THE MOON - "The Quarry". Chunky lattice-aligned blocks of colour, five or six of them, and
                 //no plate to trigger anywhere: every shot is a shot at a handful of balls. Colossus closes it,
                 //from WriteLevelSet.
-                Mosaic(), Prism(), Hopper(), Static()
+                Mosaic(), Prism(), Hopper(), Trilithon(), Gantry(), Fault(), Crib(), Highwall(), Static()
             };
 
             //7. THE NEBULA (#182) - the arena in deep space, and the block the five #152 colours arrive in,
@@ -1008,6 +1008,350 @@ namespace BS3D.Tools.LevelGen
         };
 
 
+        #region The Gallery's second hang (#255)
+
+        //The Gallery's second five (#255), hung after Elephant and Zebra on the same wall: the savanna,
+        //sky 14, MUSIC_GALLERY, and the picture region's standing rules (the 2-cell wall, the 71% squash,
+        //the quiet two-colour ground, inks as the only difficulty dial). What each one adds is stated on
+        //its own doc: one ink in TWO groups (Moon), one ink in FIVE (Paw), the tall figure the squash
+        //wants (Meerkat), the half-shift promoted to the artist (Giraffe), and the alphabet's fourth ink
+        //finally spent on a picture with load-bearing parts (Balloon) - which is what PICTURE_EMPTY
+        //exists for.
+
+        /// <summary>
+        /// A white crescent moon in a night-blue check - the savanna gallery's nocturne, and the block's
+        /// 1-ink opener. The Gallery already hangs a <see cref="Star"/> that #194 turned into a lantern in
+        /// gold daylight; hanging the Moon beside it completes the joke - the gallery keeps its own night
+        /// on the wall.
+        /// <para>
+        /// The crescent is 38 cells = 76 balls, about 21 % of the wall's 364 - one connected group by
+        /// construction (every adjacent row pair of <see cref="MOON"/> overlaps by at least two columns at
+        /// Dx = 0), well under <see cref="Smiley"/>'s shipped 52 %, and nothing is enclosed by it: the
+        /// check flows around the open right side, so nothing can be orphaned. The 2x2 "evening star" dot
+        /// off the open side is the same white ink standing as its own 8-ball group - there because a
+        /// crescent and a letter C are neighbours at this resolution and the star is universal moon
+        /// iconography, the rejected Africa design's island-separation rule grafted in to kill the C-read.
+        /// </para>
+        /// <para>
+        /// The ground is navy and blue, a deliberately CLOSE pair - the <see cref="Zebra"/> lesson, quiet
+        /// in hue and luminance, and here it is literally the night sky the moon sits in; the white symbol
+        /// carries maximal luminance contrast against both. Black is not in the level, so the navy/blue
+        /// pair confuses with nothing but itself, which is the desired quietness.
+        /// </para>
+        /// <para>
+        /// Gate watch (#255): the star-to-crescent contact graph must hold on BOTH parities - verified by
+        /// the tool, not by eye, since cross-level diagonals reach a shifted Dx of 1 and the bitmap leaves
+        /// four clear columns. If they bridge, move the dot one column right (edit the dot's cells in
+        /// <see cref="MOON"/>, not the crescent). If a screenshot still reads C even with the star, deepen
+        /// the crescent's inner bite by one column at rows 5-8.
+        /// </para>
+        /// </summary>
+        private static Design Moon() => Picture("Moon.json", "Moon", SceneKind.Savanna, sky: 14,
+            MUSIC_GALLERY, shots: 58, ceilingStep: 10, MOON, grid: 15,
+            //'#' white; ground navy + blue - the night the moon sits in
+            symbol: new[] { BallType.Type4 },
+            background: new[] { BallType.Type12, BallType.Type3 });
+
+        /// <summary>
+        /// A crescent opening to the right, 13 by 14 - a fat C whose limbs taper from 5 wide to 3 wide,
+        /// ten rows tall by seven columns wide, drawn deliberately 1.4x taller than round (10 rows for 7
+        /// columns) so the 71 % squash returns a circle-arc rather than a squashed C. Every stroke is at
+        /// least 3 cells wide and the tips are 4, comfortably over the lonely-ball floor. The 2x2 star dot
+        /// at columns 9-10, rows 6-7 sits four clear columns off the horns (and the nearest cells on the
+        /// adjacent rows 5 and 8 are Dx = 4 away), so no same-level or parity-diagonal contact can bridge
+        /// it to the crescent.
+        /// </summary>
+        private static readonly string[] MOON =
+        {
+            ".............",
+            ".............",
+            ".....####....",
+            "....#####....",
+            "...####......",
+            "...###.......",
+            "..###....##..",
+            "..###....##..",
+            "...###.......",
+            "...####......",
+            "....#####....",
+            ".....####....",
+            ".............",
+            ".............",
+        };
+
+        /// <summary>
+        /// A lion's paw print in one brown ink - and the first one-ink picture that is NOT one payoff. The
+        /// ink dial turns out to have a second axis, region count: five disconnected regions in a single
+        /// colour, four 6-cell toes of 12 balls each and a 44-cell pad of 88 (24 % of 364), so a level with
+        /// one symbol colour has no single big release at all. It is drawn as savanna storytelling: something
+        /// walked through the gallery before the player arrived.
+        /// <para>
+        /// The separations are the design. Toe-to-toe gaps are one full column - Dx = 2, beyond a same-level
+        /// neighbour (Dx = 1) and beyond any cross-level diagonal (the half-shift reaches a shifted Dx of 1).
+        /// The outer toes end at row 5 and the pad starts at row 7 - two levels apart, beyond any cross-level
+        /// neighbour. Each region is independently embedded in the check, so no release can strand another,
+        /// and the smallest group is a 12-ball toe - a safe margin over the repair pass's threshold.
+        /// </para>
+        /// <para>
+        /// The one real packing note: the outer toe pair sits one ROW below the inner pair, so on the shifted
+        /// levels the +0.5 X offset fans the four toes into a visible arc from the +Z opening view - the arc
+        /// is drawn by the lattice, not the bitmap. The ground is <see cref="Heart"/>'s own dusty-warm
+        /// white-and-yellow check; brown reads dark against both, and white/yellow being a confusable pair is
+        /// the GROUND's desired quietness (the <see cref="Zebra"/> precedent), the symbol ink being neither.
+        /// </para>
+        /// <para>
+        /// Gate watch (#255): the tool's contact graph for accidental region merges - parity diagonals are
+        /// the stated trap. If a toe bridges the pad, move the outer pair up from rows 3-5 to rows 2-4,
+        /// widening the toes-to-pad gap to three levels. Confirm nothing is recoloured (smallest group 12).
+        /// Bitmap edge columns 0 and 12 stay clear as the region requires; if the emitter ever wants
+        /// <see cref="Heart"/>'s two-column ink margin instead, the same paw fits a 15-wide bitmap in
+        /// grid 17 unchanged.
+        /// </para>
+        /// </summary>
+        private static Design Paw() => Picture("Paw.json", "Paw", SceneKind.Savanna, sky: 14,
+            MUSIC_GALLERY, shots: 52, ceilingStep: 9, PAW, grid: 15,
+            //'#' brown; ground white/beige + yellow - Heart's own dusty-warm check
+            symbol: new[] { BallType.Type10 },
+            background: new[] { BallType.Type4, BallType.Type7 });
+
+        /// <summary>
+        /// A paw print, 13 by 14: four toes 2 wide by 3 tall (2 by 2.1 visual after the squash - round),
+        /// the inner pair at rows 2-4, the outer pair one row lower at rows 3-5, and a rounded 9-wide main
+        /// pad across rows 7-12. One column between neighbouring toes, one whole empty row (two levels)
+        /// between the outer toes and the pad - both stated distances are what keeps the five regions five.
+        /// </summary>
+        private static readonly string[] PAW =
+        {
+            ".............",
+            ".............",
+            "....##.##....",
+            ".##.##.##.##.",
+            ".##.##.##.##.",
+            ".##.......##.",
+            ".............",
+            "....#####....",
+            "..#########..",
+            "..#########..",
+            "..#########..",
+            "...#######...",
+            "....#####....",
+            ".............",
+        };
+
+        /// <summary>
+        /// A meerkat standing sentry, propped on its own tail - the savanna's actual lookout in the pose
+        /// every player recognises, and the first picture drawn the way the 71 % squash WANTS: tall and
+        /// thin, the format's best case. Two inks make it the block's mid-ramp step - brown for the figure,
+        /// black for the iconic eye-mask (two 1x2 patches of 4 balls) and the belly stripe (8 balls).
+        /// <para>
+        /// The belly stripe splits the body's brown into two 1-wide side columns down rows 6-9 - each 8
+        /// balls, both rejoining the full-width brown at rows 5 and 10, so the figure stays one group of
+        /// about 98 balls (27 %) whose release orphans the three enclosed black patches (+16, about 31 %
+        /// worst case - inside the band). The tail is a single column at bitmap column 11, rows 9-13: 5
+        /// cells = a solid 2-thick slab of 10 balls, the <see cref="Zebra"/>-leg precedent, standing three
+        /// columns clear of the legs (Dx = 3, no contact) with bottom-row contact allowed Heart-style. It
+        /// is the level's grace note: the body's release leaves the free-standing 10-ball tail waving alone
+        /// in the check - the springiest single element a picture wall can legally contain.
+        /// </para>
+        /// <para>
+        /// The ground is a cyan-and-white pale morning sky - close in luminance, quiet, distinct from
+        /// <see cref="Zebra"/>'s blue+cyan and <see cref="Smiley"/>'s blue+white - against which the warm
+        /// brown figure and its black mask both come forward. Neither navy nor blue is in the level, so
+        /// black confuses with nothing.
+        /// </para>
+        /// <para>
+        /// Gate watch (#255): the drop test on brown must agree with the 31 % worst case, and the two
+        /// 1-wide side columns at rows 6-9 - the Zebra near-miss shape, saved by the 2-thick wall - must
+        /// come through with nothing recoloured; if one is recoloured or merged, widen the body to columns
+        /// 4-7 with a 2-wide belly stripe at columns 5-6. The 4-ball eye patches are the smallest groups in
+        /// the level: confirm no parity diagonal merges one with the belly stripe (two levels apart by
+        /// construction). And screenshot before shipping - the eye-mask carries the species.
+        /// </para>
+        /// </summary>
+        private static Design Meerkat() => Picture("Meerkat.json", "Meerkat", SceneKind.Savanna, sky: 14,
+            MUSIC_GALLERY, shots: 50, ceilingStep: 9, MEERKAT, grid: 15,
+            //'#' brown, 'o' black; ground cyan + white - a pale morning sky
+            symbol: new[] { BallType.Type10, BallType.Type8 },
+            background: new[] { BallType.Type5, BallType.Type4 });
+
+        /// <summary>
+        /// A meerkat, 13 by 14: a 5-wide head (rows 2-5), a slim 3-wide body (rows 6-10), two 2x2 legs
+        /// (rows 11-12) and the species' tripod tail as a single column at column 11, rows 9-13. Second
+        /// ink <c>o</c>: the eye-mask at columns 5 and 7, rows 3-4, and the belly stripe down column 6,
+        /// rows 6-9. The stripe deliberately splits the body <c>#</c> into two 1-column sides that rejoin
+        /// above and below - the figure is one group and the mask patches are enclosed by it.
+        /// </summary>
+        private static readonly string[] MEERKAT =
+        {
+            ".............",
+            ".............",
+            "....#####....",
+            "....#o#o#....",
+            "....#o#o#....",
+            "....#####....",
+            ".....#o#.....",
+            ".....#o#.....",
+            ".....#o#.....",
+            ".....#o#...#.",
+            ".....###...#.",
+            "....##.##..#.",
+            "....##.##..#.",
+            "...........#.",
+        };
+
+        /// <summary>
+        /// A giraffe whose stepped neck the lattice itself smooths into a straight diagonal - the block's
+        /// one true packing exhibit, and the only design that delivers the owner's packing ask as a thesis:
+        /// the odd-level half-shift, the thing every other level fights or hides, promoted to the artist.
+        /// <b>The step rate is the point</b>: the neck climbs +1 column every 2 rows = +0.5 column per
+        /// level = exactly the half-shift, so from the +Z opening view the shifted rows fill in every
+        /// half-step and the neck's edge renders as a geometrically STRAIGHT line no bitmap can draw.
+        /// <para>
+        /// Three inks in the hard grid-17 format: yellow hide (about 74 balls, 18 %, whose release orphans
+        /// the six accent groups for a 23 % worst case), brown patches and black tuft-and-hooves - all six
+        /// accents exactly 4 balls, over the pair threshold. Every riser holds Dx = 0 vertical contact
+        /// (column 5 runs rows 3-8 unbroken; column 6 bridges rows 7-9), so the staircase never relies on
+        /// parity diagonals; the 1-cell yellow neck at rows 5-6 is a 4-ball column bridged top and bottom,
+        /// the <see cref="Zebra"/>-leg precedent. The neck ink is slender but the WALL is not - the check
+        /// around it is the structure and the drawing is only paint, the block's standing answer to the
+        /// Coil rule. Warm animal on the cool blue-and-cyan quiet sky is the <see cref="Elephant"/> rule;
+        /// yellow's confusable, white, is not in the level.
+        /// </para>
+        /// <para>
+        /// Gate watch (#255), in the spec's own order because the first is cheap and it IS the concept:
+        /// (1) the parity-mirror screenshot from +Z - which diagonal gets smoothed depends on which layout
+        /// rows land shifted, and if the staircase shows instead of the line, mirror <see cref="GIRAFFE"/>
+        /// left-right (one transform, no redesign); (2) confirm none of the six 4-ball accents merges or
+        /// is recoloured (the neck patch touches only hide and check by construction); (3) if the 2-row
+        /// legs (1.4 visual) read dachshund, convert body row 9 into a third leg row - the neck and the
+        /// patches are untouched.
+        /// </para>
+        /// </summary>
+        private static Design Giraffe() => Picture("Giraffe.json", "Giraffe", SceneKind.Savanna, sky: 14,
+            MUSIC_GALLERY, shots: 46, ceilingStep: 8, GIRAFFE, grid: 17,
+            //'#' yellow hide, 'o' brown patches, '+' black tuft and hooves; ground blue + cyan
+            symbol: new[] { BallType.Type7, BallType.Type10, BallType.Type8 },
+            background: new[] { BallType.Type3, BallType.Type5 });
+
+        /// <summary>
+        /// A giraffe, 15 by 14: a 4x2 head with a 2-cell <c>+</c> mane tuft over it (row 2 is legal; rows
+        /// 0-1 stay clear), a neck stepping +1 column every 2 rows with a 2-cell <c>o</c> patch riding it,
+        /// a tapering body across rows 9-11 with two <c>o</c> patch pairs, and two 2-wide legs with <c>+</c>
+        /// hooves under each. The step rate is the odd-level half-shift exactly - see <see cref="Giraffe"/>.
+        /// </summary>
+        private static readonly string[] GIRAFFE =
+        {
+            "...............",
+            "...............",
+            "...++..........",
+            "..####.........",
+            "..####.........",
+            "....o#.........",
+            "....o#.........",
+            ".....##........",
+            ".....##........",
+            "......########.",
+            "......##oo##oo.",
+            ".......#######.",
+            ".......##...##.",
+            ".......++...++.",
+        };
+
+        /// <summary>
+        /// A safari balloon in striped gores with its basket hanging on two real ropes over open air - the
+        /// Gallery's first FOUR-ink picture, finally spending the <c>=</c> the <see cref="SYMBOL_INK"/>
+        /// alphabet has kept unused since it was written, and its first hanging MACHINE: the ropes are not
+        /// drawn rope, they are load-bearing, and the player discovers that by cutting one. One black ball
+        /// through a side gap releases ONE 4-ball rope and the 20-ball basket pendulums on the remaining
+        /// single two-level chain - an asymmetric hanging weight the player made - and the second black
+        /// shot drops it through the empty row below. The finale slot, priced at the block floor (44/8,
+        /// under <see cref="Zebra"/>'s 48/8) because four inks and zero large payoffs is a step past Zebra.
+        /// <para>
+        /// It rides the rejected Spider's engineering: <see cref="PICTURE_EMPTY"/> cells are holes in the
+        /// wall itself - 31 of them, 62 balls removed, 358 total. The basket's ONLY support is the two
+        /// ropes: the nearest check is Dx of 3 or more away or two-plus levels away, beyond any parity
+        /// diagonal, while each rope sits at Dx = 0 under the throat, contact guaranteed on both parities
+        /// by the 2-thick wall. The ropes are each other's second path - the Coil rule as a redundant pair.
+        /// The gores are vertical column stripes (the <see cref="Zebra"/> dial turned upright): red stands
+        /// in three groups (14/12/12 balls), yellow in two (26 each), ropes 2x4, basket 1x20 - no single
+        /// payoff anywhere, so the envelope never leaves in one piece and the basket moment is the finale,
+        /// not a shortcut. Black's total release orphans the basket assembly: 28 balls, 8 % of 358. Every
+        /// gore stripe reaches the crown and flank check independently, so no stripe release strands
+        /// another. Confusables: white, orange and navy are absent, and the black ropes hang against open
+        /// sky through the gaps, three columns from the blue check flanks.
+        /// </para>
+        /// <para>
+        /// Gate watch (#255), in the spec's order: (1) hang-unshot 35 s - the 20-ball basket on two 2-cell
+        /// ropes is the assembly closest to the death line, and if it stretches past, move the basket to
+        /// rows 10-11 and the ropes to rows 8-9 (rows 0-1 must stay clear, so the envelope cannot move up;
+        /// tune row origins, not member sizes); (2) the drop test on black - a single pass may take both
+        /// ropes and must account the 28-ball orphan correctly; (3) aimcheck each rope through its
+        /// 3-column empty side channel and both Z faces - the kill shot fired THROUGH the picture is the
+        /// design element, staged twice; (4) each gore stripe reaching the crown/flank check independently.
+        /// </para>
+        /// </summary>
+        private static Design Balloon()
+        {
+            Design design = Picture("Balloon.json", "Balloon", SceneKind.Savanna, sky: 14,
+                MUSIC_GALLERY, shots: 44, ceilingStep: 8, BALLOON, grid: BALLOON_GRID,
+                //'#' red gores, 'o' yellow gores, '+' black ropes, '=' brown basket; ground blue + cyan
+                symbol: new[] { BallType.Type1, BallType.Type7, BallType.Type8, BallType.Type10 },
+                background: new[] { BallType.Type3, BallType.Type5 });
+
+            //The ' '-means-EMPTY extension, applied over Picture's own wall rather than rebuilt: a cell is
+            //on the wall exactly where Picture put it EXCEPT where the bitmap says PICTURE_EMPTY, so
+            //'.'-means-check is unchanged and the colour lambda never sees a hole - Emit asks BlockColour
+            //only where OccupiedBlock said yes.
+            design.OccupiedBlock = (x, z, i, d) =>
+                OnWall(x, z, i, d, BALLOON[0].Length, BALLOON_GRID, out int column, out int row)
+                && PixelAt(BALLOON, column, row) != PICTURE_EMPTY;
+
+            return design;
+        }
+
+        //The finale's grid, stated once so the Picture call and the cutout occupancy lambda above cannot
+        //disagree about where OnWall puts the bitmap.
+        private const byte BALLOON_GRID = 17;
+
+        /// <summary>
+        /// The one character of the bitmap alphabet that is a HOLE in the wall rather than a colour on it:
+        /// where a bitmap says space, there is no ball at all - not check, not ink - which is what lets a
+        /// picture hang something over open air (<see cref="Balloon"/>'s basket on its ropes). <c>.</c>
+        /// still means check and <see cref="SYMBOL_INK"/> still means ink; this is the third kind of cell,
+        /// consulted by the design's own occupancy lambda, and <see cref="PixelAt"/>'s out-of-range answer
+        /// staying <c>.</c> means a hole can never leak outside its bitmap. Specced by the rejected Spider
+        /// design and built once here for whichever pictures ride it.
+        /// </summary>
+        private const char PICTURE_EMPTY = ' ';
+
+        /// <summary>
+        /// A hot-air balloon, 15 by 14: a symmetric seven-row envelope in vertical gore stripes (columns
+        /// 3-4 <c>#</c>, 5-6 <c>o</c>, 7 <c>#</c>, 8-9 <c>o</c>, 10-11 <c>#</c>), a 3-cell throat, two
+        /// 2-cell <c>+</c> ropes at columns 6 and 8 directly under it, and a 5x2 <c>=</c> basket - with
+        /// every cell around the ropes and basket EMPTY (<see cref="PICTURE_EMPTY"/>), row 13 included, so
+        /// the basket hangs on the ropes alone and has a clear row to fall through. The check flanks at
+        /// columns 0-2 and 12-14 run full height and are the wall's structure.
+        /// </summary>
+        private static readonly string[] BALLOON =
+        {
+            "...............",
+            "...............",
+            ".....oo#oo.....",
+            "....#oo#oo#....",
+            "...##oo#oo##...",
+            "...##oo#oo##...",
+            "....#oo#oo#....",
+            ".....oo#oo.....",
+            "......o#o......",
+            "...   + +   ...",
+            "...   + +   ...",
+            "...  =====  ...",
+            "...  =====  ...",
+            "...         ...",
+        };
+
+        #endregion
+
         private static Design Bullseye() => new()
         {
             File = "Three.json",
@@ -1421,6 +1765,587 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private static int GemRim(int i) => 1 + 2 * GemStep(i);
 
+        #region The lathe levels (#255)
+
+        //THE MEADOW'S SECOND FIVE (#255): the chapter that taught what a colour group IS goes back to the
+        //lathe. Every body here is a solid of revolution and every colouring is the block's own big sector
+        //plate - the grammar One, Bullseye and Toadstool established - and what the five add, in play order,
+        //is SUSPENSION: a waist the lower cone pendulums through (Diabolo), feathers whose loss tips the
+        //cork they carry (Shuttle), handles that are a second load path the player can see working
+        //(Amphora), a ~130-ball hoop hung on four snipeable spokes (Saturn), and three basins on two open
+        //stems that bob out of phase from the first launch (Fountain). Same place, same hour, same piece as
+        //the first five - the meadow under dome 1, MUSIC_RINGS, BALLS_MEADOW's glass bubbles - a deliberate
+        //return the way the Spectrum returns to the Arcade's city: the lessons here stand on the ones the
+        //meadow already taught, so they are taught where the player learned them.
+        //
+        //THE ONE RULE ALL FIVE OBEY is the block's own, restated on curved bodies: a colour is never a
+        //horizontal shell alone. Every sector runs the full height of whatever it is painted on, so every
+        //plate reaches the glass on its own and taking one leaves the rest hanging - the trap Validate's
+        //drop test was written for, and the reason Bullseye's rings are cut by the angle. The two deliberate
+        //exceptions (Shuttle's cork, Saturn's ring and spokes) are low-only colours that are the MOST
+        //exposed thing on their level, the Toadstool-stalk precedent, and each design's doc says so.
+        //
+        //NUMBERS BELOW ARE THE DRAWINGS', NOT MEASUREMENTS. Each design's doc names the checks its judged
+        //spec flagged - unshot death-line sag, per-sector counts after lattice rounding, the drop test read
+        //off the measured contact graph - and the fallback constants pre-authorised for each; the
+        //generator's own report is what settles them, and no figure here goes into a doc as measured until
+        //it has been.
+
+        /// <summary>
+        /// Two cones balanced tip to tip on a waist a fraction of their width - the block's circular answer
+        /// to <see cref="One"/>'s pyramid, and the first level whose silhouette is symmetric about a point
+        /// in mid-air: the top half is holding an upside-down copy of itself by a two-course neck. Each cone
+        /// course is half a cell narrower than the one before it (<see cref="DIABOLO_SLOPE"/> against the
+        /// lattice's own half-cell stagger), so the rims nest into the shifted pockets of the adjacent
+        /// course in BOTH directions from the waist - the opener's cannonball packing read on a lathe body.
+        /// <para>
+        /// The profile is <see cref="DiaboloRadius"/>: 4.05 at both ends, 1.55 at the waist (i = 5, 6). The
+        /// wide ends are hollow cups <see cref="DIABOLO_WALL"/> thick each way; wherever the profile is at
+        /// or under <see cref="DIABOLO_SOLID"/> the course fills solid, which makes i = 3..8 the plug - a
+        /// disc still 2.55 in radius at its narrowest - that the bottom cup hangs from, and the torsion
+        /// spring every hit winds once the sectors start coming down. Max radius 5.05 keeps indices within
+        /// 1..11 of the 13-wide field: the one-column margin, at both parities.
+        /// </para>
+        /// <para>
+        /// Six 60-degree sectors folded onto three colours - <see cref="Band"/> over a three-entry palette
+        /// puts sector k and k + 3 on the same entry - so opposite sectors match and each colour is two
+        /// full-height plates from the glass to the tip, about a third of the cluster each, and releasing
+        /// one orphans nothing because the other two pairs also run glass to tip. Boundaries sit at 30
+        /// degrees plus multiples of 60 (<see cref="DIABOLO_TWIST"/>), off the lattice's own axes.
+        /// </para>
+        /// <para>
+        /// The judged spec's checks, in its order: unshot death-line sag of the cantilevered bottom cup
+        /// first (the i = 0..2 annulus is the only mass below the plug; the pre-authorised fixes are
+        /// DIABOLO_SOLID to 3.0 or DIABOLO_SLOPE to 0.45), then at least 3 connected balls per sector at
+        /// the waist courses (widen DIABOLO_WALL to 1.2 at i = 4..7 only, if one starves), and the ~33 %
+        /// drop test read off the report rather than the sector arithmetic - the six sectors may fuse
+        /// through the solid waist near the axis, which is harmless because fused opposites are the same
+        /// colour by construction.
+        /// </para>
+        /// </summary>
+        private static Design Diabolo() => new()
+        {
+            File = "Diabolo.json",
+            Name = "Diabolo",
+            Grid = 13,
+            //Twelve deep in the standard sixteen-level field: offset 4, even, and four empty levels of
+            //growth room under the lower tip.
+            Depth = 12,
+            Scene = SceneKind.Meadow,
+            Sky = 1,
+            Music = MUSIC_RINGS,
+            Balls = BALLS_MEADOW,
+            Shots = 34,
+            CeilingStep = 7,
+            //Hollow cups at the wide ends, a solid plug where the profile pinches under DIABOLO_SOLID: the
+            //second condition is what turns the middle six courses into a neck instead of a hollow tube.
+            Occupied = (r, ang, i, depth) => DiaboloOccupied(r, i),
+            //Six sectors onto three colours: Band folds sector k and k + 3 onto one entry, so opposite
+            //sectors share a colour and each colour is two glass-to-tip plates.
+            Colour = (r, ang, i, depth) => Band(SectorIndex(ang, DIABOLO_TWIST, DIABOLO_SECTORS),
+                new[] { BallType.Type1, BallType.Type7, BallType.Type3 }), //red, yellow, blue
+        };
+
+        //THE DIABOLO'S OWN FIGURES (#255). The profile is a V in the course index: WAIST at the fold, SLOPE
+        //half a cell a course so consecutive rims nest into each other's shifted pockets, and the fold at
+        //MIDDLE - between i = 5 and 6, so the two cones are true mirrors and the waist is two courses, not
+        //one. WALL is the cups' thickness each way; SOLID is where hollow gives way to plug (a profile of
+        //2.6 or under fills whole, which is i = 3..8 - the spec's own fallback raises it to 3.0 if the
+        //bottom cup sags). TWIST is a twelfth of a turn, 30 degrees: the six boundaries land at 30 + 60k,
+        //off the lattice's own axes.
+        private const float DIABOLO_WAIST = 1.3f;
+        private const float DIABOLO_SLOPE = 0.5f;
+        private const float DIABOLO_MIDDLE = 5.5f;
+        private const float DIABOLO_WALL = 1.0f;
+        private const float DIABOLO_SOLID = 2.6f;
+        private const int DIABOLO_SECTORS = 6;
+        private const float DIABOLO_TWIST = 1f / 12f;
+
+        /// <summary>
+        /// The diabolo's centreline radius at a course: <see cref="DIABOLO_WAIST"/> plus
+        /// <see cref="DIABOLO_SLOPE"/> for every course away from the fold at <see cref="DIABOLO_MIDDLE"/> -
+        /// 4.05 at both ends, 1.55 at i = 5 and 6. One figure drives the cups' walls and the hollow/solid
+        /// cut both, so the whole body is a single profile read two ways.
+        /// </summary>
+        private static float DiaboloRadius(int i) =>
+            DIABOLO_WAIST + DIABOLO_SLOPE * MathF.Abs(i - DIABOLO_MIDDLE);
+
+        /// <summary>
+        /// Whether a cell is on the diabolo: inside the profile's outer wall always, and past its inner
+        /// wall only where the course is wide enough to be hollow - at or under <see cref="DIABOLO_SOLID"/>
+        /// the course fills solid, which is the plug the whole lower cone hangs from.
+        /// </summary>
+        private static bool DiaboloOccupied(float r, int i)
+        {
+            float rim = DiaboloRadius(i);
+            return r <= rim + DIABOLO_WALL && (r >= rim - DIABOLO_WALL || rim <= DIABOLO_SOLID);
+        }
+
+        /// <summary>
+        /// A giant shuttlecock hanging cork-down, the way a birdie flies: a solid cork sphere at the tip, a
+        /// solid collar disc tying it to a two-cell conical skirt that flares to the glass in six feathers.
+        /// The block's first ASYMMETRIC suspension lesson - each feather released removes one sixth of the
+        /// cork's hanging asymmetrically, so the birdie tips toward the gap and swings back, and with two
+        /// feathers left the cork pendulums off a slender C-arc on every hit. The alternative route is the
+        /// cork itself: three red shots drop the whole bottom mass at once.
+        /// <para>
+        /// The skirt's courses widen <see cref="SHUTTLE_FLARE"/> a level, so each ring sits half a cell
+        /// offset in the pockets of the ring above - the flare reads as stacked nesting hoops - and the
+        /// closed shell means every feather is braced by both neighbours all the way down, while the collar
+        /// disc at i = <see cref="SHUTTLE_COLLAR"/> ties all six into the cork so no single feather ever
+        /// solely carries it. The widest course (centreline 5.54, outer 6.54) is the glass course i = 11,
+        /// which lands on a SHIFTED field level - where the wall column sits at |dx| = 7.0, past reach - and
+        /// the unshifted courses stop at 6.02 against the wall's 6.5, so the margin holds at one column by
+        /// the parity of the layout itself.
+        /// </para>
+        /// <para>
+        /// The cork and the collar's core are red, one ~45-ball group standing only at the bottom - the
+        /// top-level rule broken knowingly, the Toadstool-stalk precedent, because the cork is the most
+        /// exposed thing on the level and shootable from any side. The judged spec's checks: gate 3 at the
+        /// skirt's narrowest course first, i = 5 (annulus 1.42..3.42) - each feather needs at least 3
+        /// CONNECTED balls after rounding, and the pre-authorised fix is SHUTTLE_SKIRT_BASE 1.9 to 2.2
+        /// rather than a wider wall; then that the endgame stop can never leave red as the last colour
+        /// under the descended ceiling (if it can, tie one red cell into the collar rim at i = 4); and that
+        /// the collar - the level's real keystone - stays solid to r = 2.7 after rounding.
+        /// </para>
+        /// </summary>
+        private static Design Shuttle() => new()
+        {
+            File = "Shuttle.json",
+            Name = "Shuttle",
+            Grid = 15,
+            Depth = 12,
+            Scene = SceneKind.Meadow,
+            Sky = 1,
+            Music = MUSIC_RINGS,
+            Balls = BALLS_MEADOW,
+            Shots = 38,
+            CeilingStep = 7,
+            Occupied = (r, ang, i, depth) => ShuttleOccupied(r, i),
+            Colour = ShuttleColour,
+        };
+
+        //THE SHUTTLECOCK'S OWN FIGURES (#255). The cork is a solid sphere of CORK_RADIUS centred between
+        //i = 1 and 2 (CORK_CENTRE), so it spans i = 0..4 and hangs nose-down. The collar is one solid disc
+        //of COLLAR_RIM at COLLAR, overlapping both the cork's top and the skirt's bottom in plan, which is
+        //what makes it the keystone; CORE is where its red centre gives way to the feathers' rim. The skirt
+        //runs from SKIRT_BASE at the collar out FLARE a course to 5.54 at the glass, WALL thick each way -
+        //two cells, the Ziggurat rule's floor.
+        private const float SHUTTLE_CORK_RADIUS = 2.3f;
+        private const float SHUTTLE_CORK_CENTRE = 1.5f;
+        private const int SHUTTLE_COLLAR = 4;
+        private const float SHUTTLE_COLLAR_RIM = 2.7f;
+        private const float SHUTTLE_CORE = 1.6f;
+        private const float SHUTTLE_SKIRT_BASE = 1.9f;
+        private const float SHUTTLE_FLARE = 0.52f;
+        private const float SHUTTLE_WALL = 1.0f;
+
+        //Six feathers, boundaries on the axes (0, 60 .. 300 degrees), folded onto three colours by Band so
+        //opposite feathers match - six big plates, each glass-to-collar, each ~12 % of the cluster.
+        private const int SHUTTLE_FEATHERS = 6;
+
+        /// <summary>
+        /// Whether a cell is on the birdie: inside the cork's sphere (whose own test bounds it to i = 0..4,
+        /// no course check needed), on the solid collar disc, or within the skirt's two-cell wall above it.
+        /// </summary>
+        private static bool ShuttleOccupied(float r, int i)
+        {
+            if (ShuttleCork(r, i)) return true;
+            if (i == SHUTTLE_COLLAR) return r <= SHUTTLE_COLLAR_RIM;
+
+            return i > SHUTTLE_COLLAR && MathF.Abs(r - ShuttleSkirt(i)) <= SHUTTLE_WALL;
+        }
+
+        /// <summary>
+        /// The birdie's colour: red for the cork and the collar's core - one group, the bottom of
+        /// everything, so releasing it orphans nothing - and six feathers over the collar's rim and the
+        /// whole skirt, each braced glass-to-collar by its neighbours in the closed shell.
+        /// </summary>
+        private static BallType ShuttleColour(float r, float ang, int i, int depth)
+        {
+            if (i < SHUTTLE_COLLAR || (i == SHUTTLE_COLLAR && r <= SHUTTLE_CORE))
+                return BallType.Type1; //red - the cork, the one low-only colour, maximally exposed
+
+            return Band(SectorIndex(ang, 0f, SHUTTLE_FEATHERS),
+                new[] { BallType.Type4, BallType.Type2, BallType.Type3 }); //white, green, blue
+        }
+
+        /// <summary>Whether a cell is inside the cork - a true sphere, the vertical in level units scaled
+        /// by <see cref="INV_SQRT_TWO"/> the way every round body here measures it.</summary>
+        private static bool ShuttleCork(float r, int i)
+        {
+            float dy = (i - SHUTTLE_CORK_CENTRE) * INV_SQRT_TWO;
+            return MathF.Sqrt(r * r + dy * dy) <= SHUTTLE_CORK_RADIUS;
+        }
+
+        /// <summary>The skirt's centreline radius at a course: <see cref="SHUTTLE_SKIRT_BASE"/> at the
+        /// collar, flaring <see cref="SHUTTLE_FLARE"/> a course to 5.54 at the glass.</summary>
+        private static float ShuttleSkirt(int i) =>
+            SHUTTLE_SKIRT_BASE + SHUTTLE_FLARE * (i - SHUTTLE_COLLAR);
+
+        /// <summary>
+        /// A Greek vase in orange and black that really can be carried by its handles: a body of revolution
+        /// with a solid foot, a two-cell wall swelling to a 4.8 belly, and a solid neck to the glass - plus
+        /// two mirrored handle tubes on the +/-X flanks, the block's only appendages off a lathe body, and
+        /// they are structure rather than decoration. Each handle is a closed loop from the shoulder wall to
+        /// the neck at the glass, so a belly that loses a gore still hangs shoulder-to-glass through the
+        /// loops - the second-load-path rule made visible as a picture of carrying a vase - and the body
+        /// wall is hoop-continuous at every course besides.
+        /// <para>
+        /// The handles' figures deviate from the judged spec ON its own gate note's authority, and the
+        /// reason is deterministic rather than judged: the spec drew the apex centreline at 5.3 with a 1.3
+        /// tube, and that pair puts the field-wall column - (|dx|, dz) = (6.5, 0.5) on the UNSHIFTED apex
+        /// course i = 10 - exactly ON the tube's boundary: (6.5 - 5.3)^2 + 0.5^2 = 1.69 = 1.3^2, so the
+        /// lateral-margin gate would be decided by float noise in r * cos(ang), the trap
+        /// <see cref="PolarBlock"/>'s bias comment records. The note's own fallback pair
+        /// (<see cref="AMPHORA_TUBE"/> 1.4, apex 5.0) is taken from the start: it clears the wall column by
+        /// 0.54 in the squared test and fattens the tube against the Rope-style mush the note names first.
+        /// </para>
+        /// <para>
+        /// Attic pottery in four 90-degree gores, orange and black alternating - opposite same-colour gores
+        /// may fuse through the solid neck and foot, accepted because the drop test is run on the measured
+        /// contact graph: fused orange at ~45 % must orphan nothing, the black gores still running
+        /// glass-to-foot and the white loops still tying shoulder to neck, and symmetrically for black. The
+        /// spec's remaining checks: each handle must come out a recognisable connected loop of at least 3
+        /// white balls with no orphan crumbs, and its landing (centreline 2.6 at the glass, inner edge 1.2)
+        /// must genuinely overlap the neck's solid r = 2.0 after rounding - a handle that misses the neck
+        /// is a gate-1 float. One drafting fact to expect in the report: at the glass the handles land
+        /// exactly where the orange gores face (+/-X), so orange may stand on the glass only through the
+        /// four axis cells whose 45-degree angles sit right on the gore boundaries - the top-level rule is
+        /// a should (<see cref="Shuttle"/>'s cork precedent), and the drop test is the arbiter.
+        /// </para>
+        /// </summary>
+        private static Design Amphora() => new()
+        {
+            File = "Amphora.json",
+            Name = "Amphora",
+            Grid = 15,
+            //Thirteen deep in a seventeen-level field: the offset stays 4, even, the same air under the
+            //foot every sixteen-over-twelve design in the block gets.
+            Depth = 13,
+            FieldLevels = 17,
+            Scene = SceneKind.Meadow,
+            Sky = 1,
+            Music = MUSIC_RINGS,
+            Balls = BALLS_MEADOW,
+            Shots = 34,
+            CeilingStep = 7,
+            Occupied = AmphoraOccupied,
+            Colour = AmphoraColour,
+        };
+
+        //THE VASE'S OWN FIGURES (#255). PROFILE is the radius table by course: solid through the foot
+        //(i <= FOOT_TOP) and the neck (i >= NECK_BASE), a WALL-thick shell each way between, the belly
+        //widest at i = 6. Stated as a table rather than a formula because a vessel profile is drawn, not
+        //solved - the same reason the pictures are bitmaps.
+        private static readonly float[] AMPHORA_PROFILE =
+        {
+            2.1f, 2.1f,                                      //the foot, solid
+            2.8f, 3.4f, 4.0f, 4.5f, 4.8f, 4.75f, 4.6f, 3.4f, //the hollow wall, belly max at i = 6
+            2.0f, 2.0f, 2.0f,                                //the neck, solid to the glass
+        };
+        private const int AMPHORA_FOOT_TOP = 1;
+        private const int AMPHORA_NECK_BASE = 10;
+        private const float AMPHORA_WALL = 1.0f;
+
+        //The handles' centreline distance off the axis at i = HANDLE_BASE..12: springing from the shoulder
+        //wall, arcing over the apex, landing on the neck at the glass. The apex is 5.0 and the tube 1.4 -
+        //the gate note's own fallback pair, taken from the start for the margin reason the design doc
+        //carries - where the spec drew 5.3 and 1.3.
+        private const int AMPHORA_HANDLE_BASE = 8;
+        private static readonly float[] AMPHORA_HANDLE_ARC = { 4.8f, 5.2f, 5.0f, 4.6f, 2.6f };
+        private const float AMPHORA_TUBE = 1.4f;
+
+        //Four gores with boundaries at 45 degrees plus 90s (an eighth of a turn), so orange faces the +/-X
+        //flanks under the handles and black faces the gun; Band over two entries alternates them.
+        private const int AMPHORA_GORES = 4;
+        private const float AMPHORA_GORE_TWIST = 1f / 8f;
+
+        /// <summary>
+        /// The vase's occupancy: the body of revolution - solid where <see cref="AMPHORA_PROFILE"/> is the
+        /// foot or the neck, a <see cref="AMPHORA_WALL"/>-thick shell each way between - plus the two
+        /// handle tubes on the flanks.
+        /// </summary>
+        private static bool AmphoraOccupied(float r, float ang, int i, int depth)
+        {
+            bool body = i <= AMPHORA_FOOT_TOP || i >= AMPHORA_NECK_BASE
+                ? r <= AMPHORA_PROFILE[i]
+                : MathF.Abs(r - AMPHORA_PROFILE[i]) <= AMPHORA_WALL;
+
+            return body || AmphoraHandle(r, ang, i);
+        }
+
+        /// <summary>
+        /// The vase's colour: white wherever the handle tubes run - the tube wins over the body where they
+        /// overlap at the shoulder and the neck, which is exactly what makes each loop one connected white
+        /// group from springing to landing - and the alternating orange/black gores everywhere else.
+        /// </summary>
+        private static BallType AmphoraColour(float r, float ang, int i, int depth)
+        {
+            if (AmphoraHandle(r, ang, i)) return BallType.Type4; //white - the two handle loops
+
+            return Band(SectorIndex(ang, AMPHORA_GORE_TWIST, AMPHORA_GORES),
+                new[] { BallType.Type9, BallType.Type8 }); //orange, black
+        }
+
+        /// <summary>
+        /// Whether a cell is inside a handle tube. Both handles in one test: the tube's cross-section is a
+        /// disc of <see cref="AMPHORA_TUBE"/> about the centreline <see cref="AMPHORA_HANDLE_ARC"/> holds,
+        /// measured in the (|dx|, dz) plane - folding X's sign draws the mirrored pair at ang 0 and 180 at
+        /// once.
+        /// </summary>
+        private static bool AmphoraHandle(float r, float ang, int i)
+        {
+            if (i < AMPHORA_HANDLE_BASE) return false;
+
+            float away = MathF.Abs(r * MathF.Cos(ang)) - AMPHORA_HANDLE_ARC[i - AMPHORA_HANDLE_BASE];
+            float dz = r * MathF.Sin(ang);
+
+            return away * away + dz * dz <= AMPHORA_TUBE * AMPHORA_TUBE;
+        }
+
+        /// <summary>
+        /// A planet wearing a floating ring on four hidden spokes - the block's mission statement built as
+        /// a level: the entire ring is ONE connected yellow group, ~130 balls, so three casual yellow shots
+        /// pay off the biggest single group in the block, or the player snipes the four red spokes and
+        /// learns cut-the-support-and-the-unmatched-mass-falls, the taught orphan drop
+        /// <see cref="Fountain"/> then exploits. With one spoke left the whole hoop swings on a handful of
+        /// balls - the most lopsided earned swing in the block - and the closed hoop is its own second load
+        /// path: any one spoke can carry it because the hoop distributes the load around itself.
+        /// <para>
+        /// Both of the judged spec's amendments are taken. It is <b>Saturn</b>, not the working name Halo
+        /// (the campaign's nebula block already owns that word); and the planet is TWO 180-degree meridian
+        /// halves, blue and green, rather than the drawn three - the five-colour palette trimmed to the
+        /// block's four, dropping white, which also removes the white/yellow confusable pair the spec
+        /// flagged. The seam (<see cref="SATURN_SEAM"/>, a quarter turn) runs down the +/-Z meridians so
+        /// both halves face the gun, each ~29 % and orphaning nothing.
+        /// </para>
+        /// <para>
+        /// The geometry: a sphere of <see cref="SATURN_GLOBE"/> about the equator between the ring's two
+        /// courses, flattened into a <see cref="SATURN_CAP"/> anchor cap where it meets the glass (the bare
+        /// sphere would touch it in one cell, and one glass bond is a hinge); the annulus
+        /// <see cref="SATURN_RING_INNER"/>..<see cref="SATURN_RING_OUTER"/> at the equator courses, two
+        /// deep and two thick; and four spoke rays on the lattice axes bridging the deliberate one-cell air
+        /// gap between them. The checks, in the spec's order: the ~130-ball ring on four small spokes is
+        /// the block's boldest hang, so measure the unshot death line FIRST and widen
+        /// <see cref="SATURN_SPOKE_HALF"/> from 0.9 to 1.2 if it droops before touching anything else; each
+        /// spoke must count at least 3 after rounding (the drawing gives 4 - two cells a course on each
+        /// parity - so there is no slack to lose); and the yellow annulus must come out ONE group on the
+        /// measured contact graph, ~35 % in the drop test and orphaning nothing.
+        /// </para>
+        /// </summary>
+        private static Design Saturn() => new()
+        {
+            File = "Saturn.json",
+            Name = "Saturn",
+            Grid = 15,
+            Depth = 12,
+            Scene = SceneKind.Meadow,
+            Sky = 1,
+            Music = MUSIC_RINGS,
+            Balls = BALLS_MEADOW,
+            Shots = 36,
+            CeilingStep = 7,
+            Occupied = SaturnOccupied,
+            Colour = SaturnColour,
+        };
+
+        //THE PLANET'S OWN FIGURES (#255). The sphere's EQUATOR sits at 6.5, between the ring's two courses
+        //(RING_BASE and the one above), so the halo rides the planet's widest line; the sphere spans
+        //i = 2..11 at GLOBE = 3.35 and the CAP flattens its top into ~9 glass bonds. The ring is the
+        //annulus RING_INNER..RING_OUTER, two cells radially - and 6.3 is what keeps the widest course off
+        //the field wall at both parities (the wall column's nearest cell sits at r = 6.52 unshifted). The
+        //spokes run SPOKE_INNER..SPOKE_OUTER within SPOKE_HALF of a lattice axis, ~4 balls each after
+        //rounding, bridging the one-cell air gap; 1.2 is the pre-authorised width if the unshot ring sags.
+        private const float SATURN_GLOBE = 3.35f;
+        private const float SATURN_EQUATOR = 6.5f;
+        private const float SATURN_CAP = 1.9f;
+        private const int SATURN_RING_BASE = 6;
+        private const float SATURN_RING_INNER = 4.3f;
+        private const float SATURN_RING_OUTER = 6.3f;
+        private const float SATURN_SPOKE_INNER = 3.0f;
+        private const float SATURN_SPOKE_OUTER = 4.5f;
+        private const float SATURN_SPOKE_HALF = 0.9f;
+
+        //A quarter turn: the two-sector seam lands on the +/-Z meridians, so the gun starting on +Z sees
+        //both hemispheres from the first shot instead of one face-on and one hidden behind the mass.
+        private const float SATURN_SEAM = 0.25f;
+
+        /// <summary>
+        /// Whether a cell is on the planet, its cap, its ring or a spoke. The sphere's own test bounds it
+        /// to i = 2..11; the cap exists only on the anchor course; ring and spokes only on the two equator
+        /// courses.
+        /// </summary>
+        private static bool SaturnOccupied(float r, float ang, int i, int depth)
+        {
+            if (SaturnSphere(r, i) <= SATURN_GLOBE) return true;
+
+            //The flattened anchor cap: the bare sphere meets the glass in a single cell, and one glass
+            //bond is a hinge, not an anchor.
+            if (i == depth - 1 && r <= SATURN_CAP) return true;
+
+            if (!SaturnRingCourse(i)) return false;
+
+            return (r >= SATURN_RING_INNER && r <= SATURN_RING_OUTER) || SaturnSpoke(r, ang);
+        }
+
+        /// <summary>
+        /// The planet's colour: the ring yellow, the spokes red, the sphere in two meridian halves. Ring
+        /// before spoke, because the two windows overlap between <see cref="SATURN_RING_INNER"/> and
+        /// <see cref="SATURN_SPOKE_OUTER"/> and the ring must stay uniform - it is coloured as ONE group on
+        /// purpose, the block's loudest lesson.
+        /// </summary>
+        private static BallType SaturnColour(float r, float ang, int i, int depth)
+        {
+            if (SaturnRingCourse(i) && r >= SATURN_RING_INNER)
+                return BallType.Type7; //yellow - the halo, one closed ~130-ball group
+
+            if (SaturnRingCourse(i) && SaturnSpoke(r, ang))
+                return BallType.Type1; //red - the four spokes, small isolated groups on purpose
+
+            return Band(SectorIndex(ang, SATURN_SEAM, 2),
+                new[] { BallType.Type3, BallType.Type2 }); //blue, green
+        }
+
+        /// <summary>The cell's true 3D distance from the sphere's centre on the equator line, the vertical
+        /// in level units scaled by <see cref="INV_SQRT_TWO"/>.</summary>
+        private static float SaturnSphere(float r, int i)
+        {
+            float dy = (i - SATURN_EQUATOR) * INV_SQRT_TWO;
+            return MathF.Sqrt(r * r + dy * dy);
+        }
+
+        /// <summary>The two courses the equator falls between - the only ones carrying ring and spokes.</summary>
+        private static bool SaturnRingCourse(int i) =>
+            i == SATURN_RING_BASE || i == SATURN_RING_BASE + 1;
+
+        /// <summary>
+        /// Whether a cell is on one of the four spokes: within the radial window, and within
+        /// <see cref="SATURN_SPOKE_HALF"/> of either lattice axis - one test draws all four rays, since the
+        /// radial window already keeps the cell too far out to sit near both axes at once.
+        /// </summary>
+        private static bool SaturnSpoke(float r, float ang)
+        {
+            if (r < SATURN_SPOKE_INNER || r > SATURN_SPOKE_OUTER) return false;
+
+            return MathF.Abs(r * MathF.Sin(ang)) <= SATURN_SPOKE_HALF
+                || MathF.Abs(r * MathF.Cos(ang)) <= SATURN_SPOKE_HALF;
+        }
+
+        /// <summary>
+        /// Three stone basins shrinking down a single green spine, each tier floating on open air, with a
+        /// detached drop swinging under the lowest - the block's finale-adjacent level and its ideas
+        /// compounded: sector-cut plates (three offset turbine tiers), a revolution silhouette, nested-ring
+        /// packing on the tier rims (5.0 / 3.6 / 2.3, so each rim course sits in the field lattice's
+        /// shifted pockets), and the springiest object in the pack - masses on open stems are a compound
+        /// oscillator, so the tiers visibly bob out of phase from the first launch and every mid-stack hit
+        /// sends a slow wave down through the basins.
+        /// <para>
+        /// The judged pick's graft is built in rather than optional: the finial is a detached bob
+        /// (i = 0..2) joined to the spine by a one-course green neck at i = <see cref="FOUNTAIN_NECK"/>
+        /// with open air around it - rejected Bell's independent pendulum, turning the launch into a
+        /// four-mass oscillator. The neck course lands on a shifted field level, which the lattice gives 5
+        /// cells at <see cref="FOUNTAIN_STEM"/> - over the spec's floor of 3 before rounding is even asked.
+        /// </para>
+        /// <para>
+        /// The spine - every axis cell through every tier, both stems, the neck and the whole drop - is one
+        /// continuous green group from the glass to the bob, so cutting it below a tier drops only what
+        /// hangs beneath: releasing the whole spine orphans the middle and bottom tiers, ~61 %, a
+        /// legitimate staged collapse under the 90 % gate and the intended finale. Each basin's annulus is
+        /// three 120-degree sectors, the middle tier's boundaries turned half a sector against its
+        /// neighbours' (<see cref="FOUNTAIN_STAGGER"/>), and all four colours stand on the glass - three
+        /// sectors plus the spine's core through the top disc. The spec's checks: unshot death-line sag
+        /// FIRST (~110 balls of lower tiers plus the drop hang on the two stem segments; the pre-authorised
+        /// fix is widening FOUNTAIN_STEM to 1.7, which the silhouette tolerates, BEFORE shrinking any
+        /// basin), the drop clearing the death line (lift the bob one course and keep the air gap if not),
+        /// and the one-column margin at the 5.0 top disc - which holds exactly: the glass course is
+        /// shifted, its rim cell sits at r = 5.0 in halves that are exact in binary (the
+        /// <see cref="OneCourse"/> argument), index 11 of 13.
+        /// </para>
+        /// </summary>
+        private static Design Fountain() => new()
+        {
+            File = "Fountain.json",
+            Name = "Fountain",
+            Grid = 13,
+            //The deepest level in the block, and framed whole: fourteen in an eighteen-level field is
+            //REVEAL_FIELD_LEVELS' own arithmetic - offset 4, even, and 18 is the deepest field the game
+            //frames without cropping (see that constant's doc).
+            Depth = 14,
+            FieldLevels = 18,
+            Scene = SceneKind.Meadow,
+            Sky = 1,
+            Music = MUSIC_RINGS,
+            Balls = BALLS_MEADOW,
+            //The block's largest budget and slowest ceiling: the most standing groups (the spine plus nine
+            //sectors) price it as the honest top of the ramp.
+            Shots = 42,
+            CeilingStep = 6,
+            Occupied = FountainOccupied,
+            Colour = FountainColour,
+        };
+
+        //THE FOUNTAIN'S OWN FIGURES (#255). Above the neck the body is TIERS read two courses an entry
+        //from BASE - the Bullseye terrace idiom - so the discs at i = 4..5, 8..9 and 12..13 and the open
+        //STEM segments between them are one table: a stem is simply a tier whose disc is the spine's own
+        //radius. Below it, the grafted pendant: NECK is the one-course green joint at i = 3, and the drop
+        //is a sphere of DROP about BOB (i = 1), spanning i = 0..2 with air on every side.
+        private const int FOUNTAIN_BASE = 4;
+        private const int FOUNTAIN_NECK = 3;
+        private const int FOUNTAIN_DROP_TOP = 2;
+        private const float FOUNTAIN_BOB = 1f;
+        private const float FOUNTAIN_DROP = 1.8f;
+        private const float FOUNTAIN_STEM = 1.35f;
+        private static readonly float[] FOUNTAIN_TIERS = { 2.3f, FOUNTAIN_STEM, 3.6f, FOUNTAIN_STEM, 5.0f };
+        private const int FOUNTAIN_MIDDLE_TIER = 2;
+
+        //Three sectors a basin, the middle tier's boundaries turned a sixth of a turn (60 degrees - half a
+        //sector) against the top and bottom tiers', so from below the tiers read as offset turbine plates.
+        private const int FOUNTAIN_SECTORS = 3;
+        private const float FOUNTAIN_STAGGER = 1f / 6f;
+
+        /// <summary>
+        /// Whether a cell is on the fountain: the drop sphere at the bottom, the neck course joining it,
+        /// and above that whatever radius <see cref="FOUNTAIN_TIERS"/> grants the course's tier - solid
+        /// discs and stem segments off one table.
+        /// </summary>
+        private static bool FountainOccupied(float r, float ang, int i, int depth)
+        {
+            if (i <= FOUNTAIN_DROP_TOP) return FountainDrop(r, i);
+            if (i == FOUNTAIN_NECK) return r <= FOUNTAIN_STEM;
+
+            return r <= FOUNTAIN_TIERS[(i - FOUNTAIN_BASE) / 2];
+        }
+
+        /// <summary>
+        /// The fountain's colour: green for the spine - every axis cell through every tier, the stems, the
+        /// neck and the whole drop, one continuous group from the glass to the bob, which is the
+        /// tier-by-tier collapse's own fuse - and each basin's annulus in three 120-degree sectors around
+        /// it.
+        /// </summary>
+        private static BallType FountainColour(float r, float ang, int i, int depth)
+        {
+            if (i <= FOUNTAIN_NECK || r <= FOUNTAIN_STEM)
+                return BallType.Type2; //green - the spine and the pendant drop
+
+            //The middle tier's boundaries sit at 60/180/300 (twist 0) against the top and bottom tiers'
+            //0/120/240, so no sector seam runs straight down the stack.
+            float spin = (i - FOUNTAIN_BASE) / 2 == FOUNTAIN_MIDDLE_TIER ? 0f : FOUNTAIN_STAGGER;
+
+            return Band(SectorIndex(ang, spin, FOUNTAIN_SECTORS),
+                new[] { BallType.Type7, BallType.Type1, BallType.Type3 }); //yellow, red, blue
+        }
+
+        /// <summary>Whether a cell is inside the pendant drop - a true sphere about the course at
+        /// <see cref="FOUNTAIN_BOB"/>, asked only at i = 0..2 so the neck course stays the neck's.</summary>
+        private static bool FountainDrop(float r, int i)
+        {
+            float dy = (i - FOUNTAIN_BOB) * INV_SQRT_TWO;
+            return MathF.Sqrt(r * r + dy * dy) <= FOUNTAIN_DROP;
+        }
+
+        #endregion
+
         /// <summary>
         /// A stepped cone tiled in 2×2×1 blocks of five colours — the first level of the pack that has to be
         /// aimed rather than triggered. Everything before it is built out of plates and wedges of dozens;
@@ -1539,6 +2464,628 @@ namespace BS3D.Tools.LevelGen
             BlockColour = (x, z, i) => Scatter(x / 2, z / 2, i / 2,
                 new[] { BallType.Type1, BallType.Type2, BallType.Type3, BallType.Type5, BallType.Type6, BallType.Type7 }),
         };
+
+        #region The quarry levels (#255)
+
+        //THE QUARRY REWORKED (#255): five STRUCTURES hanging over the Moon where the old block hung
+        //masses. The block keeps its identity - chunky lattice-aligned blocks of colour, five or six of
+        //them, no plate to trigger anywhere - and adds the thing a quarry is actually about: WHAT CARRIES
+        //WHAT. Every level here has members (a lintel on pillars, loads on slings, a hanging wall on a
+        //seam, courses on corner seats, benches solid behind a face), so a shot is a demolition choice
+        //rather than excavation, and the physics moments are earned by cutting the right member instead of
+        //granted by a lucky colour.
+        //
+        //THE ORDER IS A RAMP OF WHAT THE STRUCTURE ASKS FOR: Trilithon (229 balls, pick which pillar
+        //falls), Gantry (322, find the four-ball sling under each load), Fault (330, quarry the seam the
+        //hanging wall hangs on), Crib (432, unseat the corner welds), Highwall (428, no theatre at all -
+        //the near-Colossus ratio does the work).
+        //
+        //SERVICE COLOURS are the block's one new colour idea: a colour that exists ONLY in a structural
+        //member (Gantry's slings and hinge, Fault's breccia seam), so releasing it is a statement about
+        //the structure and never a percolation accident. Every service colour is glass-absent by design
+        //and its worst release is bounded by construction - Validate's drop test is what holds them to it.
+
+        //The block's dome, the one the quarry has always played under: the Moon replaces the sky with
+        //black and MoonSceneConfig drives the whole light rig, so the blocks of colour stay the only
+        //saturated thing in the frame (see Mosaic's Scene comment for the finding that chose it).
+        private const byte QUARRY_SKY = 13;
+
+        /// <summary>
+        /// A megalithic doorway hanging under the glass - the Quarry turned from masses to ARCHITECTURE.
+        /// Three lattice-aligned members: a cap slab bonded to the glass (11x5x2, 110 balls), two 3x3x3
+        /// pillars (54), and a lintel slung across the bottom (11x3x2, 66 - two courses thick per the sag
+        /// rule); 229 balls with the kerf cut. The doorway void between the pillars is open straight
+        /// through Z, so the opening +Z camera looks THROUGH the portal.
+        /// <para>
+        /// <b>The player authors the collapse.</b> The portal is a closed structural loop
+        /// (cap-pillar-lintel-pillar-cap): rob one pillar block by block - about six shots - and the
+        /// lintel plus the far pillar become a cantilevered L heeling over and springing on the survivor's
+        /// socket links, the biggest earned sway in the block, on the side the player chose. The surviving
+        /// 3x3 pillar section carries it through roughly thirty cross-level links into cap and lintel:
+        /// massive, not slender. The kerf (<see cref="TRILITHON_KERF_X"/>) ships the monument
+        /// mid-demolition and quietly tells the player which side is meant to fall first.
+        /// </para>
+        /// <para>
+        /// The gate's checks, in order: measure the loaded L's HEELED-OVER EXTREME against the death line
+        /// rather than its rest pose (the lintel bottom is two levels above layout bottom, with eight
+        /// growth levels under it in the 15-level field) - the tune is <see cref="TRILITHON_PILLAR_WIDTH"/>
+        /// to 4. Then run the drop test on any colour landing tiles in both pillars at the same courses
+        /// (the lintel orphan, bounded near 29 % of the cluster by construction - well under
+        /// <see cref="ONE_SHOT_PERCENT"/>, verify it stays there). Then count standing groups after
+        /// half-shift tile fusion: if fused groups push the shots-per-group ratio under 1.0, re-order
+        /// <see cref="TRILITHON_PALETTE"/> or the 3 * ti stride in <see cref="TrilithonColour"/> to
+        /// desynchronise the two pillars.
+        /// </para>
+        /// </summary>
+        private static Design Trilithon() => new()
+        {
+            File = "Trilithon.json",
+            Name = "Trilithon",
+            Grid = 13,
+            Depth = 7,
+            //Fifteen rather than the pack's sixteen: the layout is seven deep and Emit refuses an odd
+            //offset, so the field gives up one level to keep the parity - eight growth levels stay under
+            //the lintel, which is what the heeled-over L swings into.
+            FieldLevels = 15,
+            Scene = SceneKind.Moon,
+            Sky = QUARRY_SKY,
+            Music = MUSIC_QUARRY,
+            //About six shots buy a pillar; the spec prices the whole level at about 1.4 shots a group,
+            //the friendliest in the block, which is what makes the smallest cluster its natural opener
+            Shots = 42,
+            CeilingStep = 5,
+            OccupiedBlock = (x, z, i, depth) => TrilithonStone(x, z, i),
+            BlockColour = TrilithonColour,
+        };
+
+        //THE TRILITHON'S OWN FIGURES. All three members live between x 1 and 11 in a grid of 13, so one
+        //free column stands all round (LateralMargin's rule). The cap and the lintel are TWO courses thick
+        //per the sag rule; the pillars are TRILITHON_PILLAR_WIDTH by three in plan and three courses tall.
+        private const int TRILITHON_SPAN_LO = 1;
+        private const int TRILITHON_SPAN_HI = 11;
+
+        //How wide a pillar is in x - THE TUNING CONSTANT the gate named: if the loaded L (lintel plus far
+        //pillar on one surviving pillar) stretches past the death line, widen this to 4. The pillars grow
+        //inward, to x 1..4 and 8..11, and the doorway narrows by two cells.
+        private const int TRILITHON_PILLAR_WIDTH = 3;
+
+        //The kerf (the graft from the judged Kerf design): ONE saw-cut air cell in the outer face of the
+        //west pillar, so the monument ships mid-demolition. The pillar stays fully connected through its
+        //other 26 cells; it costs nothing structurally and sells the block's fiction from the first view.
+        private const int TRILITHON_KERF_X = 1;
+        private const int TRILITHON_KERF_Z = 6;
+        private const int TRILITHON_KERF_I = 3;
+
+        /// <summary>
+        /// Whether a cell is on the monument. Layout level 0 is the BOTTOM, so the lintel is at the bottom
+        /// (i 0..1, the full span, three deep in z), the pillars stand on it (i 2..4, one at either end of
+        /// the span), and the cap is what bonds to the glass (i 5..6, the full span, five deep). The
+        /// doorway void between the pillars is open straight through Z.
+        /// </summary>
+        private static bool TrilithonStone(int x, int z, int i)
+        {
+            if (x == TRILITHON_KERF_X && z == TRILITHON_KERF_Z && i == TRILITHON_KERF_I) return false;
+            if (x < TRILITHON_SPAN_LO || x > TRILITHON_SPAN_HI) return false;
+
+            //The cap slab: two courses against the glass, five cells deep in z
+            if (i >= 5) return z >= 4 && z <= 8;
+
+            //Pillars and lintel share the narrower footprint, three cells deep in z
+            if (z < 5 || z > 7) return false;
+
+            //The lintel: two courses across the whole span at the bottom of the layout
+            if (i <= 1) return true;
+
+            //The two pillars, one at either end of the span
+            return x < TRILITHON_SPAN_LO + TRILITHON_PILLAR_WIDTH
+                || x > TRILITHON_SPAN_HI - TRILITHON_PILLAR_WIDTH;
+        }
+
+        //Five mutually non-confusable colours for one 2x2x2 tile hash over all three members. The ORDER is
+        //part of the design: the tile index walks +1 per x tile, +2 per z tile and +3 per level pair, so
+        //no two face-adjacent tiles agree - and the gate says to re-order THIS array (or the 3 * ti stride
+        //in TrilithonColour) if half-shift tile fusion welds the two pillars' courses together.
+        private static readonly BallType[] TRILITHON_PALETTE =
+        {
+            BallType.Type1,   //red
+            BallType.Type5,   //cyan
+            BallType.Type3,   //blue
+            BallType.Type7,   //yellow
+            BallType.Type2,   //green
+        };
+
+        /// <summary>
+        /// One 2x2x2 tile hash over cap, pillars and lintel alike, anchored at the monument's own corner
+        /// (x 1, z 4, i 0) so every tile index is non-negative - <see cref="Band"/> indexes with a bare %.
+        /// Tiles alternate every two cells in every axis, so no horizontal one-colour band exists
+        /// anywhere, and the cap's top course spans enough tiles that all five colours stand on the glass
+        /// level.
+        /// </summary>
+        private static BallType TrilithonColour(int x, int z, int i) =>
+            Band((x - TRILITHON_SPAN_LO) / 2 + 2 * ((z - 4) / 2) + 3 * (i / 2), TRILITHON_PALETTE);
+
+        /// <summary>
+        /// Four quarried blocks hanging from a crane deck on four-ball slings - cut the sling, not the
+        /// stone. The deck is two glass-bonded courses (11x9x2, 198 balls); four 3x3x3 loads (108) hang
+        /// below it and each load's ONLY route up is its 2x2x1 sling neck (16), so the smartest shot in a
+        /// level of 322 balls is at four of them: one sling shot drops a 31-ball load and neck - 10 % of
+        /// the cluster, self-contained by construction - where quarrying the stone itself costs about
+        /// seven. The loaded deck rides visibly stretched at spawn and recoils upward the instant a sling
+        /// is cut: the owner's "bounces like a spring", staged as the block's whole thesis in one image.
+        /// <para>
+        /// <b>Three slings teach the lesson; the fourth narrows.</b> The +X/+Z sling is the HINGE NECK
+        /// (the Kerf graft): black and white 1x2x2 columns running from the gap level down into the load's
+        /// own top course. Cutting either column drops that load onto a 1x2 hinge that sags and pendulums;
+        /// the second cut releases it. The spec's four sling colours were cyan/orange/black/white with the
+        /// graft REPLACING the orange sling by black plus white - that spends two service colours twice
+        /// over and lets one cut stage two loads at once, so the single slings here are cyan, orange and
+        /// silver, and black and white belong to the hinge alone: every service colour names exactly one
+        /// function and none stands on the glass.
+        /// </para>
+        /// <para>
+        /// The gate's checks, in order: spawn stretch of four 27-ball loads on 2x2x1 necks of about ten
+        /// links each - the Trellis mode, links exist but too few; the tune is
+        /// <see cref="GANTRY_SLING_COURSES"/> to 2, which thickens every sling into a 2x2x2 weld without
+        /// touching the occupancy. Then the swinging loads' lowest excursion against the death line (load
+        /// bottoms at layout i 2 in a field of 16) - note the spec's raise-the-loads tune would weld the
+        /// load tops straight to the deck across the gap, so trim the loads to two courses instead if it
+        /// comes to that. Then eyeball black-vs-blue and white-vs-yellow under the Moon dome: the hinge
+        /// puts black and white side by side over the deck's blue and yellow tiles.
+        /// </para>
+        /// </summary>
+        private static Design Gantry() => new()
+        {
+            File = "Gantry.json",
+            Name = "Gantry",
+            Grid = 15,
+            Depth = 8,
+            Scene = SceneKind.Moon,
+            Sky = QUARRY_SKY,
+            Music = MUSIC_QUARRY,
+            Shots = 56,
+            CeilingStep = 6,
+            OccupiedBlock = (x, z, i, depth) => GantrySteel(x, z, i),
+            BlockColour = GantryColour,
+        };
+
+        //THE GANTRY'S OWN FIGURES. The deck is two courses bonded to the glass (i 6..7, 11 by 9); the four
+        //loads are 3x3x3 at i 2..4, their footprints' low corners crossed from the two arrays below, so
+        //they clear each other by three cells and every sling is shootable from every orbit angle. The
+        //slings sit alone on the gap level between load tops and deck.
+        private const int GANTRY_DECK_BASE = 6;
+        private const int GANTRY_LOAD_BASE = 2;
+        private const int GANTRY_LOAD_TOP = 4;
+        private const int GANTRY_SLING_LEVEL = 5;
+        private static readonly int[] GANTRY_LOAD_X = { 3, 9 };
+        private static readonly int[] GANTRY_LOAD_Z = { 4, 8 };
+
+        //How many courses a sling's COLOUR reaches down from GANTRY_SLING_LEVEL - THE TUNING CONSTANT the
+        //gate named. At 1 a sling is the spec's 2x2x1 neck of about ten links; if any of the four
+        //stretches at spawn, set 2 and every sling becomes a 2x2x2 weld whose lower course recolours four
+        //cells of its own load's top - still one colour, still one shot to prime. Occupancy never changes
+        //with it: the i 4 cells are the load's own.
+        private const int GANTRY_SLING_COURSES = 1;
+
+        //Which load carries the hinge neck: 3 is the +X/+Z corner, the last the orbit reads
+        private const int GANTRY_HINGE_LOAD = 3;
+
+        /// <summary>Which load's 3x3 footprint a cell is over - 0..3 as bx + 2 * bz - or -1 for none.</summary>
+        private static int GantryLoad(int x, int z)
+        {
+            int bx = x >= GANTRY_LOAD_X[1] ? 1 : 0;
+            int bz = z >= GANTRY_LOAD_Z[1] ? 1 : 0;
+
+            int dx = x - GANTRY_LOAD_X[bx];
+            int dz = z - GANTRY_LOAD_Z[bz];
+
+            return dx >= 0 && dx < 3 && dz >= 0 && dz < 3 ? bx + 2 * bz : -1;
+        }
+
+        /// <summary>
+        /// Whether a cell is over a load's 2x2 sling footprint - the low corner of the load's own 3x3, so
+        /// the neck's down-neighbours land in the load and its up-neighbours in the deck on both level
+        /// parities - and which load: 0..3, or -1 for none.
+        /// </summary>
+        private static int GantrySling(int x, int z)
+        {
+            int load = GantryLoad(x, z);
+            if (load < 0) return -1;
+
+            return x - GANTRY_LOAD_X[load & 1] < 2 && z - GANTRY_LOAD_Z[load >> 1] < 2 ? load : -1;
+        }
+
+        private static bool GantrySteel(int x, int z, int i)
+        {
+            //The deck: two courses bonded to the glass, 11 by 9
+            if (i >= GANTRY_DECK_BASE) return x >= 2 && x <= 12 && z >= 3 && z <= 11;
+
+            //The four loads
+            if (i >= GANTRY_LOAD_BASE && i <= GANTRY_LOAD_TOP) return GantryLoad(x, z) >= 0;
+
+            //The four slings on the gap level: each load's only route up
+            return i == GANTRY_SLING_LEVEL && GantrySling(x, z) >= 0;
+        }
+
+        //Deck and loads share these five; the slings take SERVICE colours used nowhere else, so cutting
+        //one is a statement about the crane and never a percolation accident.
+        private static readonly BallType[] GANTRY_PALETTE =
+        {
+            BallType.Type1,   //red
+            BallType.Type3,   //blue
+            BallType.Type7,   //yellow
+            BallType.Type2,   //green
+            BallType.Type6,   //magenta
+        };
+
+        //One service colour per single sling, indexed by GantrySling. Load 3 never reads this array - the
+        //hinge neck in GantryColour owns its footprint at every sling course.
+        private static readonly BallType[] GANTRY_SLING_COLOURS =
+        {
+            BallType.Type5,    //cyan
+            BallType.Type9,    //orange
+            BallType.Type11,   //silver (a cool slate grey - see BallType's own note on why it reads)
+        };
+
+        private static BallType GantryColour(int x, int z, int i)
+        {
+            //The deck first, so nothing below can claim its cells: a 2x2x2 hash of the five shared
+            //colours, anchored at its own corner (x 2, z 3, i 6) so every index is non-negative for
+            //Band's bare %. The two courses sit three palette steps apart, so no tile continues down.
+            if (i >= GANTRY_DECK_BASE)
+                return Band((x - 2) / 2 + 2 * ((z - 3) / 2) + 3 * (i - GANTRY_DECK_BASE), GANTRY_PALETTE);
+
+            int sling = GantrySling(x, z);
+
+            //The hinge neck: black and white 1x2x2 columns from the gap level down into the load's own
+            //top course - the low-x column black, the high-x one white
+            if (sling == GANTRY_HINGE_LOAD && i >= GANTRY_LOAD_TOP)
+                return x == GANTRY_LOAD_X[1] ? BallType.Type8 : BallType.Type4;   //black : white
+
+            //The other three slings, GANTRY_SLING_COURSES deep
+            if (sling >= 0 && i > GANTRY_SLING_LEVEL - GANTRY_SLING_COURSES)
+                return GANTRY_SLING_COLOURS[sling];
+
+            //A load is three 3x3x1 courses of the shared five, cycling +1 per load and +2 per course, so
+            //vertical neighbours differ and no two loads read as the same stone
+            return Band(GantryLoad(x, z) + 2 * (i - GANTRY_LOAD_BASE), GANTRY_PALETTE);
+        }
+
+        /// <summary>
+        /// A geological fault: the striped strata on the downthrown block sit two courses lower than on
+        /// the upthrown one, and the hanging wall hangs on nothing but the breccia seam. Three volumes,
+        /// all five cells deep in z (330 balls): the glass-bonded upthrown slab (5x5x5), the full-height
+        /// two-thick seam (2x5x8, 80 - two cells per the wall rule), and the downthrown slab (5x5x5) whose
+        /// top NEVER touches the glass. The 125-ball mountainside rides visibly lower from the first
+        /// frame, sways when hit, and every seam block quarried makes it lurch harder. The displaced
+        /// strata are the packing made legible: the same red/cyan course visibly continues
+        /// <see cref="FAULT_THROW"/> lattice levels lower across the seam, so the player reads the throw
+        /// straight off the ball rows.
+        /// <para>
+        /// <b>No fuse here on purpose.</b> The seam is black and white in 2x2x2 blocks, each spanning the
+        /// seam's whole two-cell thickness, so every surviving block still bridges glass, upthrown and
+        /// downthrown when the other colour is released - the two independent populations are exactly what
+        /// makes the level safe, which is why the judged pair's single-colour fuse was refused for it.
+        /// </para>
+        /// <para>
+        /// The gate's checks, in order - and this is the block's closest call: spawn droop and post-hit
+        /// lurch of the 125-ball cantilever on the two-thick seam, measured against the death line at the
+        /// swing's extreme (the named Trellis failure mode); the tuning constants are
+        /// <see cref="FAULT_SEAM_HI"/> to 8 with <see cref="FAULT_DOWN_LO"/> to 9. Then black-vs-blue and
+        /// white-vs-yellow legibility in the editor under the Moon dome (they are segregated: a vertical
+        /// seam against horizontal strata). Then the drop test on BOTH seam colours. If playtests feel
+        /// rushed, spend the clock as CeilingStep 6 to 7 rather than fewer shots - the downthrown slab
+        /// already rides low.
+        /// </para>
+        /// </summary>
+        private static Design Fault() => new()
+        {
+            File = "Fault.json",
+            Name = "Fault",
+            Grid = 15,
+            Depth = 8,
+            Scene = SceneKind.Moon,
+            Sky = QUARRY_SKY,
+            Music = MUSIC_QUARRY,
+            Shots = 58,
+            CeilingStep = 6,
+            OccupiedBlock = (x, z, i, depth) => FaultBody(x, z, i) != 0,
+            BlockColour = FaultColour,
+        };
+
+        //THE FAULT'S OWN FIGURES. The throw is how many levels the downthrown side reads lower; the seam's
+        //x extent and the downthrown slab's low edge are THE TUNING CONSTANTS the gate named: if the
+        //cantilever stretches, widen the seam (FAULT_SEAM_HI to 8) and narrow the slab (FAULT_DOWN_LO
+        //to 9) to compensate. The upthrown slab's own edge follows FAULT_SEAM_LO.
+        private const int FAULT_THROW = 2;
+        private const int FAULT_SEAM_LO = 6;
+        private const int FAULT_SEAM_HI = 7;
+        private const int FAULT_DOWN_LO = 8;
+
+        /// <summary>
+        /// Which volume a cell is in: 0 none, 1 the upthrown slab, 2 the breccia seam, 3 the downthrown
+        /// slab. Layout level 0 is the BOTTOM: the upthrown slab rides high (i 3..7, bonded to the glass),
+        /// the downthrown one two levels lower (i 1..5), and the seam runs the full eight levels between
+        /// them, so the downthrown slab's only route up is the seam across its x face.
+        /// </summary>
+        private static int FaultBody(int x, int z, int i)
+        {
+            if (z < 5 || z > 9) return 0;
+
+            if (x >= 1 && x < FAULT_SEAM_LO) return i >= 3 ? 1 : 0;
+            if (x >= FAULT_SEAM_LO && x <= FAULT_SEAM_HI) return 2;
+            if (x >= FAULT_DOWN_LO && x <= 12) return i >= 1 && i <= 5 ? 3 : 0;
+
+            return 0;
+        }
+
+        //The strata pairs, s3 to s6 bottom-up; s6 reprises s3's pair because the two never touch (s4 and
+        //s5 stand between them on both sides of the fault). Adjacent strata use disjoint pairs, so no
+        //colour crosses a bedding plane.
+        private static readonly BallType[][] FAULT_STRATA =
+        {
+            new[] { BallType.Type1, BallType.Type5 },   //s3: red and cyan
+            new[] { BallType.Type3, BallType.Type7 },   //s4: blue and yellow
+            new[] { BallType.Type2, BallType.Type6 },   //s5: green and magenta
+            new[] { BallType.Type1, BallType.Type5 },   //s6: red and cyan again
+        };
+
+        //The mixed overburden on each slab's top stratum: all six strata colours in 2x2x1 blocks. Note
+        //that magenta reaches the glass level only through the upthrown s5 chain, not through this hash -
+        //the up-slab's top course spans block sums 0..4 - which Validate's drop test is the check on.
+        private static readonly BallType[] FAULT_OVERBURDEN =
+        {
+            BallType.Type1,   //red
+            BallType.Type5,   //cyan
+            BallType.Type3,   //blue
+            BallType.Type7,   //yellow
+            BallType.Type2,   //green
+            BallType.Type6,   //magenta
+        };
+
+        /// <summary>
+        /// The geology, displaced by the throw so the fault reads: a cell's stratum id is its level on the
+        /// upthrown side and its level plus <see cref="FAULT_THROW"/> on the downthrown one, both landing
+        /// in s3..s7. Strata s3..s6 are one level thick, striped in 2-wide x-strips of their own pair with
+        /// one anchor for both slabs, so the strip phase continues across the fault; each slab's top
+        /// stratum (s7) is the mixed overburden; the seam is black and white - SERVICE colours used
+        /// nowhere else - in 2x2x2 blocks that each span the seam's full thickness.
+        /// </summary>
+        private static BallType FaultColour(int x, int z, int i)
+        {
+            int body = FaultBody(x, z, i);
+
+            //The breccia seam: a block is the whole two-cell x thickness, alternating in z and level
+            //pairs, so releasing either colour leaves the other's blocks still touching both slabs
+            if (body == 2)
+                return ((z - 5) / 2 + i / 2) % 2 == 0 ? BallType.Type8 : BallType.Type4;   //black : white
+
+            int stratum = body == 1 ? i : i + FAULT_THROW;   //3..7 on both sides of the fault
+
+            //The overburden: the slab's top course carries the six colours in 2x2x1 blocks, which is what
+            //stops either slab's anchor course being a single group
+            if (stratum == 7)
+                return Band((x - 1) / 2 + (z - 5) / 2, FAULT_OVERBURDEN);
+
+            //A stratum one level thick, striped in 2-wide x-strips of its own pair
+            return FAULT_STRATA[stratum - 3][((x - 1) / 2) % 2];
+        }
+
+        /// <summary>
+        /// Eight courses of quarried slabs stacked log-cabin style and hung upside down: every course is
+        /// two 9x3x1 slabs crossing the course above, and consecutive courses overlap ONLY in the four 3x3
+        /// corner seats - every cross-level contact in the whole 432-ball design lives in those seats,
+        /// which are the lattice's own pocket-nesting exhibited as architecture. Shoot out one seat and
+        /// that corner of the stack below drops half a cell and the crib TWISTS - a slow torsional sway no
+        /// other level has, because every course is a rigid ring hung at four points. Two DIAGONAL seats
+        /// of one interface first (the Stope graft's staging) and the stack see-saws on the remaining pair
+        /// before the third cut turns it into the torsion that is Crib's own: two earned-physics beats
+        /// from one mechanism.
+        /// <para>
+        /// <b>No single colour ever unseats a course.</b> The four seats at any interface come out four
+        /// different colours by construction (<see cref="CribColour"/>'s rotating phase), so the
+        /// one-colour-cap trap cannot occur and the worst release is scattered 9-ball blocks; course 7's
+        /// seats and middles land palette indices {1,2,3,4} and {5,0}, so all six colours stand against
+        /// the glass.
+        /// </para>
+        /// <para>
+        /// The gate's checks, in order: cumulative load on the top interface FIRST - 378 balls hanging
+        /// through four 3x3 seats of about fourteen links each - measured as spawn sag and twist
+        /// amplitude; the tune is lengthening the top two courses' slabs so their seats thicken into
+        /// larger welds (see <see cref="CribCourse"/>). Then the drop test per corner-phase colour: each
+        /// removes one seat per interface on a rotating corner, believed non-severing, verify. Then
+        /// confirm the 3x3x1 middles never fuse with seats through the half-shift into a group that
+        /// breaks the shots-per-group ratio.
+        /// </para>
+        /// </summary>
+        private static Design Crib() => new()
+        {
+            File = "Crib.json",
+            Name = "Crib",
+            Grid = 13,
+            Depth = 8,
+            Scene = SceneKind.Moon,
+            Sky = QUARRY_SKY,
+            Music = MUSIC_QUARRY,
+            Shots = 60,
+            CeilingStep = 6,
+            OccupiedBlock = (x, z, i, depth) => CribCourse(x, z, i),
+            BlockColour = CribColour,
+        };
+
+        //THE CRIB'S OWN FIGURES. Eight courses in a 9x9 footprint, one layout level each: even courses are
+        //two slabs running along X, odd courses two along Z, 54 balls a course. The top course (i 7, along
+        //Z) is bonded to the glass along its full length, and the corner seats are the 3x3 overlaps at the
+        //footprint's four corners.
+        private const int CRIB_LO = 2;
+        private const int CRIB_HI = 10;
+
+        /// <summary>
+        /// Whether a cell is on its course's pair of slabs: a course runs the full footprint along its own
+        /// axis and keeps only the two outer thirds across it, so the middle third is open straight
+        /// through on every level - the see-through crib. The gate's tune lives here: if the top interface
+        /// sags, lengthen the top two courses' slabs (widen the kept thirds on i 6 and 7) so their corner
+        /// seats thicken into larger welds.
+        /// </summary>
+        private static bool CribCourse(int x, int z, int i)
+        {
+            if (x < CRIB_LO || x > CRIB_HI || z < CRIB_LO || z > CRIB_HI) return false;
+
+            //Across the course's own run: even courses run along X and are cut in z, odd the reverse
+            int across = i % 2 == 0 ? z : x;
+
+            return across <= CRIB_LO + 2 || across >= CRIB_HI - 2;
+        }
+
+        //Six mutually non-confusable colours. The order matters only through the phase walk in CribColour:
+        //one step per course and one per corner keeps the four seats of any interface four DIFFERENT
+        //colours, which is the design's whole safety argument.
+        private static readonly BallType[] CRIB_PALETTE =
+        {
+            BallType.Type1,   //red
+            BallType.Type3,   //blue
+            BallType.Type7,   //yellow
+            BallType.Type2,   //green
+            BallType.Type5,   //cyan
+            BallType.Type6,   //magenta
+        };
+
+        /// <summary>
+        /// Each slab is three 3x3x1 blocks: two corner seats and one middle. A seat's colour is
+        /// P6[(i + k) mod 6] with k walking the geometric corners NW, NE, SE, SW, so within a course all
+        /// six blocks differ and vertically adjacent seats sit one palette step apart; a middle touches no
+        /// other course at all and takes the slab phase (i + 4 + slab) instead.
+        /// </summary>
+        private static BallType CribColour(int x, int z, int i)
+        {
+            int cx = (x - CRIB_LO) / 3;   //0, 1, 2 across the footprint's thirds
+            int cz = (z - CRIB_LO) / 3;
+
+            //The middle third along the course's own run
+            if ((i % 2 == 0 ? cx : cz) == 1)
+                return Band(i + 4 + ((i % 2 == 0 ? z : x) >= CRIB_HI - 2 ? 1 : 0), CRIB_PALETTE);
+
+            //A corner seat: k = 0..3 round NW, NE, SE, SW
+            int k = cx == 0 ? (cz == 0 ? 0 : 3) : (cz == 0 ? 1 : 2);
+
+            return Band(i + k, CRIB_PALETTE);
+        }
+
+        /// <summary>
+        /// An open-pit bench wall facing the gun: four terraces of two levels each with two-cell treads,
+        /// deep at the top and stepping back as it descends so the staircase faces the opening +Z camera -
+        /// 428 balls with the adit cut, the most quarry-literal image in the set. The bench risers expose
+        /// the packing in section: each course seats into the pockets of the course behind it, so the
+        /// terrace edges render the cannonball stacking as clean 2:2 steps read from the cannon. A
+        /// brown-and-silver dike climbs diagonally through all four benches to the glass, a two-wide
+        /// thread of treasure. This is the block's STABLE BANKER and its finale-adjacent level: every
+        /// column is solid to the glass, no physics theatre by design, and the ratio - priced at about
+        /// 1.09 shots a group, deliberately just above Colossus's 0.98 - does the difficulty instead.
+        /// <para>
+        /// The adit (see <see cref="HighwallBench"/>) is the Stope graft miniaturised: a 3-wide, 2-tall
+        /// drift punched clean through the bottom bench's two-cell depth, a mine entrance at the wall's
+        /// foot at zero structural cost - every column beside and above it is still solid to the glass.
+        /// </para>
+        /// <para>
+        /// The gate's checks, in order: THE RATIO RAZOR first - count standing groups off the tool's own
+        /// printout before committing, and add two to four shots if they exceed 57. Then drop-test brown
+        /// and silver explicitly: the dike's blocks fusing with bench blocks through the half-shift into
+        /// one giant diagonal component is the level's one percolation risk. Then AimReachability on the
+        /// z 4 cells from the -Z orbit side and on the adit's interior faces, re-running gate 1 after the
+        /// cut.
+        /// </para>
+        /// </summary>
+        private static Design Highwall() => new()
+        {
+            File = "Highwall.json",
+            Name = "Highwall",
+            Grid = 15,
+            Depth = 8,
+            Scene = SceneKind.Moon,
+            Sky = QUARRY_SKY,
+            Music = MUSIC_QUARRY,
+            Shots = 60,
+            CeilingStep = 7,
+            OccupiedBlock = (x, z, i, depth) => HighwallBench(x, z, i),
+            BlockColour = HighwallColour,
+        };
+
+        //THE HIGHWALL'S OWN FIGURES. The face is 11 wide (x 2..12) in a grid of 15 and its back stands at
+        //z 4; the benches reach from there to HighwallFace(i), so the z-extents per level run 2, 2, 4, 4,
+        //6, 6, 8, 8 cells deep from the bottom up and the top course (11x8) is fully bonded to the glass.
+        private const int HIGHWALL_X_LO = 2;
+        private const int HIGHWALL_X_HI = 12;
+        private const int HIGHWALL_Z_LO = 4;
+
+        //Where the dike enters at the wall's foot: two columns climbing one cell in x per level, from
+        //x 3..4 at i 0 to x 10..11 against the glass - through all four benches, so the intrusion is
+        //present on the anchor level like everything else.
+        private const int HIGHWALL_DIKE_LO = 3;
+
+        /// <summary>How far back a level's bench reaches: z 5 at the bottom, stepping +2 a bench.</summary>
+        private static int HighwallFace(int i) => HIGHWALL_Z_LO + 1 + 2 * (i / 2);
+
+        /// <summary>
+        /// Whether a cell is in the wall, less the adit: a 3-wide, 2-tall drift portal at the wall's foot
+        /// (x 6..8, levels 0..1 - the bottom bench is only two cells deep, so the cut punches clean
+        /// through and reads as a mine entrance).
+        /// </summary>
+        private static bool HighwallBench(int x, int z, int i)
+        {
+            //The adit spans the bottom bench's whole depth, so no z test is needed on the cut itself
+            if (i <= 1 && x >= 6 && x <= 8) return false;
+
+            return x >= HIGHWALL_X_LO && x <= HIGHWALL_X_HI
+                && z >= HIGHWALL_Z_LO && z <= HighwallFace(i);
+        }
+
+        private static bool HighwallDike(int x, int i) =>
+            x == HIGHWALL_DIKE_LO + i || x == HIGHWALL_DIKE_LO + 1 + i;
+
+        //Each bench owns a disjoint colour pair (the banded percolation answer), laid as 2x2 blocks in a
+        //checker across the bench - a bench is exactly one block tall, so the check is two-dimensional.
+        //Consecutive benches share no colour, so nothing crosses a bench boundary.
+        private static readonly BallType[][] HIGHWALL_BENCH_PAIRS =
+        {
+            new[] { BallType.Type1, BallType.Type5 },   //bench 0: red and cyan
+            new[] { BallType.Type3, BallType.Type7 },   //bench 1: blue and yellow
+            new[] { BallType.Type2, BallType.Type6 },   //bench 2: green and magenta
+        };
+
+        //The glass bench's full hash: every lower bench's colour also stands on the top level through it
+        private static readonly BallType[] HIGHWALL_PALETTE =
+        {
+            BallType.Type1,   //red
+            BallType.Type5,   //cyan
+            BallType.Type3,   //blue
+            BallType.Type7,   //yellow
+            BallType.Type2,   //green
+            BallType.Type6,   //magenta
+        };
+
+        private static BallType HighwallColour(int x, int z, int i)
+        {
+            //The dike overrides every bench: brown and silver in 2x2x2 blocks (a block is the dike's own
+            //two-cell width in x), the only colours outside the bench pairs. Drop-test BOTH, per the
+            //gate - the one percolation risk is dike blocks fusing diagonally with bench blocks through
+            //the half-shift.
+            if (HighwallDike(x, i))
+                return ((z - HIGHWALL_Z_LO) / 2 + i / 2) % 2 == 0
+                    ? BallType.Type10    //brown
+                    : BallType.Type11;   //silver
+
+            int bench = i / 2;
+
+            //The glass bench: the six-colour hash, +1 per x block and +2 per z block, so no two touching
+            //blocks agree - diagonals step by 3 and -1, never 0 modulo 6
+            if (bench == 3)
+                return Band((x - HIGHWALL_X_LO) / 2 + 2 * ((z - HIGHWALL_Z_LO) / 2), HIGHWALL_PALETTE);
+
+            //A lower bench: its own pair in a 2x2 checker
+            return HIGHWALL_BENCH_PAIRS[bench][
+                ((x - HIGHWALL_X_LO) / 2 + (z - HIGHWALL_Z_LO) / 2) % 2];
+        }
+
+        #endregion
 
         /// <summary>
         /// The first <b>tall</b> level: a column reaching up out of shot, played from the bottom as the glass
@@ -2147,6 +3694,672 @@ namespace BS3D.Tools.LevelGen
             BlockColour = (x, z, i) => Band((x / 3) + (z / 3) + (i / 3),
                 new[] { BallType.Type1, BallType.Type4, BallType.Type3 }),
         };
+
+        #endregion
+
+        #region The monument levels (#255)
+
+        //THE SECOND TOWER BLOCK (#255): five more talls over the mountains - dome 8, the Tower's own
+        //measured dusk (see Crown for why), and MUSIC_TOWER, because this block is #160's chapter answered
+        //at campaign scale. That issue's complaint ("not just Column stretched differently") binds here
+        //too, and what separates the five is what the height DOES:
+        //
+        //  Pagoda   - the lattice's own close packing built as architecture: every course nests into the
+        //             pockets of the one above, eaves cantilevering out a single ball at a time.
+        //  Spyglass - the tower that collapses INWARD: three concentric sleeves, each hiding a thinner one
+        //             already hanging deeper inside it.
+        //  Belfry   - an openwork frame with a live payload: a bell on a rope, and one true brown shot
+        //             rings it down.
+        //  Organ    - a rank of independent verticals under one deck: cut a pipe's collar and the whole
+        //             pipe orphans and falls full-length out of the facade.
+        //  Pylon    - a splaying truss felled leg by leg, re-hanging itself off its own girdle rings.
+        //
+        //All five are 22 or 24 levels deep in fields of 30 or 32 against the 18 the camera frames
+        //(GameplayScreen.FRAMED_LEVELS), so the top is out of shot at the start on every one of them, and
+        //every field-less-layout offset is 8 - even, which is what Emit demands to keep the level parity.
+
+        /// <summary>
+        /// A pagoda whose every storey, eave and finial nests into the pockets of the course above - the
+        /// lattice's close packing built as architecture, and the block's opener because solid slabs
+        /// everywhere make it the safest build of the five. Twenty-four centred square courses whose width
+        /// parity follows the level parity (odd widths on even layout levels, even on odd -
+        /// <see cref="PAGODA_WIDTHS"/>), so a course's balls sit in the pockets of its neighbours and the
+        /// three eave canopies cantilever outward one ball at a time. Read from below: a point-down finial
+        /// tip, the widest four-step roof, core, a three-step roof, core, a two-step roof, core to the
+        /// glass - each roof one course shorter going up. ~724 balls.
+        /// <para>
+        /// <b>The course-width schedule is the design and the only lever.</b> The gate's own warning: one
+        /// off-by-one in <see cref="PAGODA_WIDTHS"/> turns a pocket nest into a face-stack that sags, so a
+        /// change there is verified interface by interface (width parity against level parity), and the
+        /// spacing is never the thing to tune.
+        /// </para>
+        /// <para>
+        /// <b>The top level carries only the four core colours</b>, with brown, red and cyan living below
+        /// on always-shootable eaves and the tip - so the gate's FIRST check is the drop test, and the
+        /// agreed fallback if the endgame hangs off a single colour is recolouring the i=22..23 core band
+        /// into brown/red halves, never touching the schedule. The other measured worry is Roof C's brown
+        /// orphaning the red eave edge and the finial under it (~36 % on paper): if fusion across roof
+        /// courses pushes that up, its brown splits in two at the z-midline.
+        /// </para>
+        /// <para>
+        /// Cores cannot chokepoint by construction: each storey stands on four independent quadrant
+        /// columns (<see cref="PAGODA_CORE_COLOURS"/>, rotated a step per storey), so releasing one colour
+        /// leaves three columns carrying the storey.
+        /// </para>
+        /// </summary>
+        private static Design Pagoda() => new()
+        {
+            File = "Pagoda.json",
+            Name = "Pagoda",
+            Grid = 13,
+            Depth = 24,
+            FieldLevels = 32,
+            Scene = SceneKind.Mountain,
+            Sky = 8,
+            Music = MUSIC_TOWER,
+            Shots = 78,
+            CeilingStep = 5,
+            //A course is a centred square, so the one span test serves both indices
+            OccupiedBlock = (x, z, i, depth) => InPagodaCourse(x, i) && InPagodaCourse(z, i),
+            BlockColour = PagodaColour,
+        };
+
+        //The pagoda's plan: centre column 6 of a 13-wide grid, and the width schedule indexed by layout
+        //level (i = 0 the finial tip, 23 against the glass). ITS PARITY IS THE DESIGN - odd widths on even
+        //levels, even widths on odd - so every course nests ball-in-pocket into its neighbours and every
+        //in-section interface steps by exactly one ball. Widest course 9 (x2..10), margin 2.
+        private const int PAGODA_CENTRE = 6;
+        private static readonly int[] PAGODA_WIDTHS =
+        {
+            1, 2, 3, 4,      //the finial, i=0..3: a point-down mini pyramid ending in a single ball
+            9, 8, 7, 6,      //Roof C, i=4..7: the widest canopy, red eave edge on its bottom course
+            5, 4, 5,         //the low core storey, i=8..10
+            8, 7, 6,         //Roof B, i=11..13
+            5, 4, 5, 4,      //the mid core storey, i=14..17
+            7, 6,            //Roof A, i=18..19 - one course shorter than B, as B is than C
+            5, 4, 5, 4,      //the top core storey, i=20..23, bonded to the glass
+        };
+
+        //Where the roofs and core storeys sit, in layout levels (Bottom..Top inclusive), top storey first.
+        //A roof's Bottom course is its widest - the painted eave edge PagodaColour turns red. The index
+        //into PAGODA_CORES is also the rotation PagodaColour applies to the quadrant palette.
+        private static readonly (int Bottom, int Top)[] PAGODA_ROOFS = { (18, 19), (11, 13), (4, 7) };
+        private static readonly (int Bottom, int Top)[] PAGODA_CORES = { (20, 23), (14, 17), (8, 10) };
+        private const int PAGODA_FINIAL_TOP = 3;
+
+        //The core quadrants' palette, clockwise from NE, rotated one step per storey going down
+        private static readonly BallType[] PAGODA_CORE_COLOURS =
+        {
+            BallType.Type2,   //green
+            BallType.Type3,   //blue
+            BallType.Type7,   //yellow
+            BallType.Type6,   //magenta
+        };
+
+        /// <summary>
+        /// Whether one index sits inside its level's course span. A course of width w starts at
+        /// <c>PAGODA_CENTRE - w / 2</c>, which centres BOTH parities on world column 6: an odd width on an
+        /// unshifted level spans it symmetrically, and an even width on a shifted level starts half a cell
+        /// low so the level's own +0.5 shift walks it back onto the centre.
+        /// </summary>
+        private static bool InPagodaCourse(int c, int i)
+        {
+            int start = PAGODA_CENTRE - PAGODA_WIDTHS[i] / 2;
+            return c >= start && c < start + PAGODA_WIDTHS[i];
+        }
+
+        /// <summary>
+        /// Brown roofs with a red eave edge on each roof's widest course, quadrant-columned core storeys,
+        /// and a cyan finial. The quadrant is read off the WORLD offset from the course centre - taking
+        /// the shift off the layout index is safe because <see cref="Emit"/> refuses an odd layout offset,
+        /// the same argument <see cref="LeanRadius"/> records - and the centre row and column of an
+        /// odd-width course fall to the >= side, so the quadrants are near-quarters, never below
+        /// <see cref="MIN_GROUP"/>.
+        /// </summary>
+        private static BallType PagodaColour(int x, int z, int i)
+        {
+            if (i <= PAGODA_FINIAL_TOP) return BallType.Type5;                       //cyan - one 30-ball group
+
+            foreach ((int bottom, int top) in PAGODA_ROOFS)
+                if (i >= bottom && i <= top)
+                    return i == bottom ? BallType.Type1 : BallType.Type10;           //red eave edge, brown tiles
+
+            for (int storey = 0; storey < PAGODA_CORES.Length; storey++)
+            {
+                (int bottom, int top) = PAGODA_CORES[storey];
+                if (i < bottom || i > top) continue;
+
+                float dx = x + (i % 2) * HALF - PAGODA_CENTRE;
+                float dz = z + (i % 2) * HALF - PAGODA_CENTRE;
+                int quadrant = dx >= 0f ? (dz >= 0f ? 0 : 1) : (dz >= 0f ? 3 : 2);   //NE, SE, SW, NW
+
+                return PAGODA_CORE_COLOURS[(quadrant + storey) % PAGODA_CORE_COLOURS.Length];
+            }
+
+            //Unreachable: every course above the finial is a roof or a core by the schedule
+            return BallType.Type10;
+        }
+
+        /// <summary>
+        /// A spyglass hanging objective-up: three concentric telescoping sections, every one bonded to the
+        /// glass on its own, each inner one reaching deeper - clear a sleeve and a thinner tube is already
+        /// hanging inside it, so the next tower is literally visible through the current one's rim.
+        /// Descending: the cyan eyepiece bulb, the bare core rod, a hard step out to the middle sleeve's
+        /// rim at i=8..9, a second step out to the outer sleeve at i=15, the glass.
+        /// <para>
+        /// <b>The boundary radii force radial lamination and the gate's first check is that it took</b>:
+        /// 3.5 against 3.6 and 1.7 against 1.8 put the sleeves' facing cells in lattice contact, so the
+        /// wall is laminated wherever sleeves overlap and the level has three independent load paths. If
+        /// the measured contact graph shows a gap on any level, the agreed tune is widening the INNER
+        /// sleeve's outer radius by 0.2 (<see cref="SPYGLASS_MID_OUT"/> to 3.7, or
+        /// <see cref="SPYGLASS_CORE"/> to 1.9) - never the outer sleeve, whose 5.5 is already this grid's
+        /// margin-1 extent.
+        /// </para>
+        /// <para>
+        /// <b>The bare core below the middle sleeve is the one slender thing</b>: a ~9-cell-section rod
+        /// carrying the 63-ball bulb for eight unlaminated levels. The gate's second check is its rest sag
+        /// against the death line with the bulb attached; if it rides low, <see cref="SPYGLASS_BULB"/>
+        /// shrinks to 2.2 before the rod is shortened. Third: the middle sleeve's rim must read as a hard
+        /// step in the opening frame - the step IS the kind-statement - and drops its floor to i=7 if it
+        /// reads mushy.
+        /// </para>
+        /// <para>
+        /// Coloured per sleeve in alternating quadrant arcs on the diagonals
+        /// (<see cref="SPYGLASS_QUADRANT_TWIST"/>), the core in two halves, the bulb all cyan. Opposite
+        /// same-colour quadrants never touch, so every group is one arc and releasing any of them orphans
+        /// nothing. The top level carries all six sleeve colours; only cyan lives below, on the
+        /// always-shootable tip.
+        /// </para>
+        /// </summary>
+        private static Design Spyglass() => new()
+        {
+            File = "Spyglass.json",
+            Name = "Spyglass",
+            Grid = 13,
+            Depth = 22,
+            FieldLevels = 30,
+            Scene = SceneKind.Mountain,
+            Sky = 8,
+            Music = MUSIC_TOWER,
+            Shots = 72,
+            CeilingStep = 6,
+            Occupied = (r, ang, i, depth) => SpyglassOccupied(r, i),
+            Colour = (r, ang, i, depth) => SpyglassColour(r, ang, i),
+        };
+
+        //The three tubes' radii. Each facing pair (3.5/3.6 and 1.7/1.8) is deliberately one lattice step
+        //apart so the sleeves stand in radial contact; 5.5 is the widest annulus a 13-wide field holds at
+        //margin 1. The bulb replaces the core over the layout's lowest three levels.
+        private const float SPYGLASS_CORE = 1.7f;
+        private const float SPYGLASS_MID_IN = 1.8f;
+        private const float SPYGLASS_MID_OUT = 3.5f;
+        private const float SPYGLASS_OUTER_IN = 3.6f;
+        private const float SPYGLASS_OUTER_OUT = 5.5f;
+        private const float SPYGLASS_BULB = 2.6f;
+
+        //How deep each section reaches. Every section's TOP is the glass - each bonds on its own, which is
+        //the three-load-path forgiveness - and these are the floors, each inner section reaching deeper.
+        private const int SPYGLASS_BULB_TOP = 2;
+        private const int SPYGLASS_MID_FLOOR = 8;
+        private const int SPYGLASS_OUTER_FLOOR = 15;
+
+        //0.125 of a turn shears SectorIndex's boundaries onto the diagonals (45/135/225/315 degrees), so
+        //each quadrant is centred on a lattice axis and its arc is rounded off symmetrically
+        private const float SPYGLASS_QUADRANT_TWIST = 0.125f;
+
+        private static readonly BallType[] SPYGLASS_OUTER_PAIR = { BallType.Type12, BallType.Type4 };  //navy, white
+        private static readonly BallType[] SPYGLASS_MID_PAIR = { BallType.Type1, BallType.Type2 };     //red, green
+        private static readonly BallType[] SPYGLASS_CORE_HALVES = { BallType.Type6, BallType.Type7 };  //magenta, yellow
+
+        /// <summary>The three tubes and the bulb - the constants above are the whole of it.</summary>
+        private static bool SpyglassOccupied(float r, int i)
+        {
+            if (i <= SPYGLASS_BULB_TOP) return r <= SPYGLASS_BULB;    //the eyepiece bulb replaces the core here
+
+            if (r <= SPYGLASS_CORE) return true;                      //the core rod, glass to floor
+
+            if (r <= SPYGLASS_MID_OUT) return i >= SPYGLASS_MID_FLOOR && r >= SPYGLASS_MID_IN;
+
+            return i >= SPYGLASS_OUTER_FLOOR && r >= SPYGLASS_OUTER_IN && r <= SPYGLASS_OUTER_OUT;
+        }
+
+        /// <summary>
+        /// Cyan bulb, halved core, quadrant-arced sleeves. The radius picks the section exactly as
+        /// <see cref="SpyglassOccupied"/> does, so occupancy and colour cannot disagree about which tube
+        /// a cell is in.
+        /// </summary>
+        private static BallType SpyglassColour(float r, float ang, int i)
+        {
+            if (i <= SPYGLASS_BULB_TOP) return BallType.Type5;        //cyan - the bulb, one 63-ball group
+
+            if (r <= SPYGLASS_CORE) return Sector(ang, 0f, 2, SPYGLASS_CORE_HALVES);
+
+            return r <= SPYGLASS_MID_OUT
+                ? Sector(ang, SPYGLASS_QUADRANT_TWIST, 4, SPYGLASS_MID_PAIR)
+                : Sector(ang, SPYGLASS_QUADRANT_TWIST, 4, SPYGLASS_OUTER_PAIR);
+        }
+
+        /// <summary>
+        /// An open bell tower with a real bell hanging on a rope inside. Four full-height 2x2 corner
+        /// piers, three closed ring beams tying them (the feet, the waist and the course at the glass),
+        /// and inside the arcade a 160-ball bell on a 2x2 rope - rope and bell ONE fused brown group of
+        /// 188 (~21 %), so one true brown shot releases the whole payload and the bell falls out of its
+        /// tower. The bell swings in plain sight from the first frame while its rope is still above the
+        /// camera: you see WHAT before you can reach what HOLDS it. ~876 balls, the block's heaviest.
+        /// <para>
+        /// <b>Bell isolation is the gate's first check, before anything else</b>: the skirt and neck must
+        /// touch nothing but the rope in the measured contact graph, because one accidental lattice
+        /// contact with a pier or a ring turns the one-shot finale into a partial release no validator
+        /// flags. The skirt's four corner cells are chamfered off for exactly that
+        /// (<see cref="BelfryBell"/>) - cross-level diagonals reach one cell, and (4,4) would reach the SW
+        /// pier's (3,3). If a contact still appears, the agreed tune is shrinking the skirt or sliding the
+        /// bell up one level - never moving the piers.
+        /// </para>
+        /// <para>
+        /// <b>Rope stretch is the second check</b>: 160 balls hang on a seven-level 2x2 spring column, so
+        /// the bell's rest sag is measured unshot against the death line, and
+        /// <see cref="BELFRY_ROPE_FLOOR"/> rises by two (raising the bell's spans with it) if it rides
+        /// low. Third: confirm the worst release really is bell-plus-rope at ~21 % and that no pier band
+        /// fuses with a ring beam - ring cells at pier corners belong to the piers, which
+        /// <see cref="BelfryColour"/>'s test order enforces in the writer, as the gate asked.
+        /// </para>
+        /// <para>
+        /// The three closed ring loops are the second load path: any pier band cut leaves the pier's lower
+        /// half hanging through the bottom ring off the other three piers. The bell deliberately has one
+        /// path - it is the bell.
+        /// </para>
+        /// </summary>
+        private static Design Belfry() => new()
+        {
+            File = "Belfry.json",
+            Name = "Belfry",
+            Grid = 15,
+            Depth = 22,
+            FieldLevels = 30,
+            Scene = SceneKind.Mountain,
+            Sky = 8,
+            Music = MUSIC_TOWER,
+            Shots = 84,
+            CeilingStep = 5,
+            OccupiedBlock = (x, z, i, depth) =>
+                BelfryPier(x, z)
+                || (BelfryRingLevel(i) && BelfryRingCell(x, z))
+                || BelfryRope(x, z, i)
+                || BelfryBell(x, z, i),
+            BlockColour = BelfryColour,
+        };
+
+        //The frame's plan on a 15-wide grid: the arcade spans [2..12] in both indices (margins 2), the
+        //piers are its 2x2 corners, and a ring beam is the 2-cell-thick perimeter of the same square.
+        //Pier bands are BELFRY_PIER_BAND levels tall; the rope hangs from BELFRY_ROPE_FLOOR to the glass,
+        //and it is the gate's rope-stretch lever - raised by two, the bell's own spans move up with it.
+        private const int BELFRY_FRAME_MIN = 2;
+        private const int BELFRY_FRAME_MAX = 12;
+        private const int BELFRY_PIER_BAND = 4;
+        private const int BELFRY_ROPE_FLOOR = 15;
+
+        /// <summary>Whether one index runs through a pier: the two 2-cell strips the corners stand on.</summary>
+        private static bool BelfryPierColumn(int c) => c == 2 || c == 3 || c == 11 || c == 12;
+
+        /// <summary>A pier cell: both indices on pier strips. Full height - the piers ARE the tower.</summary>
+        private static bool BelfryPier(int x, int z) => BelfryPierColumn(x) && BelfryPierColumn(z);
+
+        /// <summary>
+        /// A ring beam cell: inside the arcade square with either index on a pier strip - the square's
+        /// perimeter at wall thickness 2, pier corners included (the colour rule hands those to the piers).
+        /// </summary>
+        private static bool BelfryRingCell(int x, int z) =>
+            x >= BELFRY_FRAME_MIN && x <= BELFRY_FRAME_MAX && z >= BELFRY_FRAME_MIN && z <= BELFRY_FRAME_MAX
+            && (BelfryPierColumn(x) || BelfryPierColumn(z));
+
+        /// <summary>The three ring courses: the feet, the waist, and the two levels bonded to the glass.</summary>
+        private static bool BelfryRingLevel(int i) => i <= 1 || i == 13 || i == 14 || i >= 20;
+
+        /// <summary>The rope: a 2x2 column down the axis, from the glass to the bell's neck.</summary>
+        private static bool BelfryRope(int x, int z, int i) =>
+            i >= BELFRY_ROPE_FLOOR && x >= 6 && x <= 7 && z >= 6 && z <= 7;
+
+        /// <summary>
+        /// The bell, free-hanging under the rope and attached to nothing else: a 4x4 neck and shoulder
+        /// (i=9..14, the neck meeting the rope's floor) and a 6x6 skirt (i=7..8) with its four corner
+        /// cells chamfered off - the chamfer keeps the skirt out of cross-level diagonal reach of the
+        /// corner piers, which is the one-shot finale surviving generation. If
+        /// <see cref="BELFRY_ROPE_FLOOR"/> is ever raised, every level figure here rises with it.
+        /// </summary>
+        private static bool BelfryBell(int x, int z, int i)
+        {
+            //Neck (i=11..14) and shoulder (i=9..10) share the 4x4 footprint, so one test serves both
+            if (i >= 9 && i <= 14) return x >= 5 && x <= 8 && z >= 5 && z <= 8;
+
+            if (i == 7 || i == 8)
+                return x >= 4 && x <= 9 && z >= 4 && z <= 9
+                    && !((x == 4 || x == 9) && (z == 4 || z == 9));
+
+            return false;
+        }
+
+        /// <summary>
+        /// Pier cells first - ring cells at pier corners belong to the piers, the writer-side rule the
+        /// gate asked for - then ring green, and everything left is the fused brown rope-and-bell. Pier
+        /// bands alternate red and white in <see cref="BELFRY_PIER_BAND"/>-level courses; the NE/SW
+        /// diagonal pair starts red and NW/SE white, so the top band shows both colours at the glass and
+        /// every colour in the level stands there.
+        /// </summary>
+        private static BallType BelfryColour(int x, int z, int i)
+        {
+            if (BelfryPier(x, z))
+            {
+                int band = i / BELFRY_PIER_BAND;                             //0..5, the sixth the short one
+                int diagonal = ((x >= 11 ? 1 : 0) + (z >= 11 ? 1 : 0)) % 2;  //0 the NE/SW pair, 1 NW/SE
+
+                return (band + diagonal) % 2 == 0 ? BallType.Type1 : BallType.Type4;   //red / white
+            }
+
+            if (BelfryRingLevel(i) && BelfryRingCell(x, z)) return BallType.Type2;     //green ring beams
+
+            return BallType.Type10;   //brown - rope and bell, ONE group, the level's whole payoff
+        }
+
+        /// <summary>
+        /// A church organ facade: a solid three-level windchest bonded to the glass, and under it two
+        /// ranks of free-hanging 2x2 pipes - five in front in a facade V (tallest at the centre), four
+        /// behind peeking through the front gaps - every pipe hung independently from the chest and
+        /// touching nothing else. Each pipe is silver-bodied with its voice colour on the collar (its top
+        /// three levels) and mouth (its bottom three): release a 12-ball collar and the entire pipe below
+        /// it orphans and falls out of the facade in one rigid piece, up to 56 balls at a time. ~646 balls.
+        /// <para>
+        /// <b>The top-level rule is this design's nearest edge and the gate's first check</b>: the voice
+        /// colours never reach the glass, mitigated only by the always-shootable collars at i=16..18. The
+        /// drop test runs immediately, and if the stop flags an endgame hang the agreed fallback is
+        /// recolouring the windchest's two silver slabs into voice colours - NEVER the pipe bodies,
+        /// because silver-body-per-pipe (kept off the chest's silver by the collars in between) is what
+        /// makes each pipe one orphan.
+        /// </para>
+        /// <para>
+        /// <b>The ranks must clear each other</b>: the empty z8 column separates them, and cross-level
+        /// diagonals reach only one cell, so they are safe by construction - but the gate says verify it
+        /// in the measured contact graph, because the whole orphan mechanic dies on one touch. Front pipes
+        /// stand two empty columns apart in x for the same reason (one column, plus the reach).
+        /// </para>
+        /// <para>
+        /// The tallest centre pipe wears a cyan tuning boot over its mouth's lower half
+        /// (<see cref="ORGAN_BOOT_TOP"/>) - the rejected Chain's pendant-amplifier graft - so the heaviest
+        /// pipe reads heaviest and cutting its collar drops the biggest single mass in the level onto the
+        /// glass springs. The gate's third check is that pipe's rest sag with the boot: if it rides the
+        /// death line, its bottom rises from i=2 to i=3 rather than the boot shrinking.
+        /// </para>
+        /// <para>
+        /// Worst release on paper is a chest slab orphaning the three pipes hung under it (~33 %); the
+        /// design's point is the mid-size full-length fall, staged nine times over.
+        /// </para>
+        /// </summary>
+        private static Design Organ() => new()
+        {
+            File = "Organ.json",
+            Name = "Organ",
+            Grid = 17,
+            Depth = 22,
+            FieldLevels = 30,
+            Scene = SceneKind.Mountain,
+            Sky = 8,
+            Music = MUSIC_TOWER,
+            Shots = 86,
+            CeilingStep = 5,
+            OccupiedBlock = (x, z, i, depth) => OrganChest(x, z, i) || OrganPipe(x, z, i, out _, out _),
+            BlockColour = OrganColour,
+        };
+
+        //The facade's plan on a 17-wide grid. The chest is a 14x5 slab (x2..15, z6..10) on i=19..21; the
+        //pipe tops all sit at ORGAN_PIPE_TOP directly under it. The ranks are parallel arrays of each
+        //pipe's left column and bottom level: the front V is tallest at the centre and the back rank's
+        //bottoms peek through the front gaps. z8 stays empty - that column is what keeps the two ranks
+        //out of each other's contact graphs.
+        private const int ORGAN_CHEST_FLOOR = 19;
+        private const int ORGAN_PIPE_TOP = 18;
+        private const int ORGAN_BOOT_TOP = 3;   //the centre pipe's cyan boot: i=2..3, its mouth's lower half
+        private static readonly int[] ORGAN_FRONT_X = { 2, 5, 8, 11, 14 };
+        private static readonly int[] ORGAN_FRONT_BOTTOM = { 8, 5, 2, 5, 8 };
+        private static readonly int[] ORGAN_BACK_X = { 3, 6, 9, 12 };
+        private static readonly int[] ORGAN_BACK_BOTTOM = { 10, 7, 7, 10 };
+
+        //Each pipe's voice - the colour of its collar and mouth, symmetric about the centre pipe. Chosen
+        //so no confusable pair coexists: silver never meets white or yellow (absent from the level), and
+        //orange never meets red (absent).
+        private static readonly BallType[] ORGAN_FRONT_VOICES =
+        {
+            BallType.Type3,   //blue
+            BallType.Type5,   //cyan
+            BallType.Type9,   //orange - the tallest pipe, centre of the V
+            BallType.Type5,   //cyan
+            BallType.Type3,   //blue
+        };
+        private static readonly BallType[] ORGAN_BACK_VOICES =
+        {
+            BallType.Type2,   //green
+            BallType.Type6,   //magenta
+            BallType.Type6,   //magenta
+            BallType.Type2,   //green
+        };
+
+        /// <summary>The windchest: the solid slab every pipe hangs from, bonded to the glass.</summary>
+        private static bool OrganChest(int x, int z, int i) =>
+            i >= ORGAN_CHEST_FLOOR && x >= 2 && x <= 15 && z >= 6 && z <= 10;
+
+        /// <summary>
+        /// Which pipe a cell is in, if any, with the pipe's voice and its bottom level - the one walk of
+        /// the rank tables, shared by occupancy and colour so the two cannot disagree.
+        /// </summary>
+        private static bool OrganPipe(int x, int z, int i, out BallType voice, out int bottom)
+        {
+            voice = default;
+            bottom = 0;
+
+            if (i > ORGAN_PIPE_TOP) return false;
+
+            int[] lefts, bottoms;
+            BallType[] voices;
+
+            if (z == 6 || z == 7) { lefts = ORGAN_FRONT_X; bottoms = ORGAN_FRONT_BOTTOM; voices = ORGAN_FRONT_VOICES; }
+            else if (z == 9 || z == 10) { lefts = ORGAN_BACK_X; bottoms = ORGAN_BACK_BOTTOM; voices = ORGAN_BACK_VOICES; }
+            else return false;
+
+            for (int p = 0; p < lefts.Length; p++)
+            {
+                if (x < lefts[p] || x > lefts[p] + 1 || i < bottoms[p]) continue;
+
+                voice = voices[p];
+                bottom = bottoms[p];
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// The chest in four brown/silver slabs, then per pipe: voice collar, silver body, voice mouth,
+        /// and the centre pipe's cyan boot over the mouth's lower half. The chest's silver never touches a
+        /// pipe's - the collars sit between them - so every silver body is its own group, which is the
+        /// orphan mechanic itself.
+        /// </summary>
+        private static BallType OrganColour(int x, int z, int i)
+        {
+            //The windchest's slab boundaries: x2..5, 6..8, 9..12, 13..15
+            if (i >= ORGAN_CHEST_FLOOR)
+                return x <= 5 ? BallType.Type10       //brown
+                    : x <= 8 ? BallType.Type11        //silver
+                    : x <= 12 ? BallType.Type10       //brown
+                    : BallType.Type11;                //silver
+
+            OrganPipe(x, z, i, out BallType voice, out int bottom);
+
+            //The tuning boot: the centre front pipe (ORGAN_FRONT_X[2], the V's deepest) at its lowest two
+            //levels, fused cyan - a colour of its own so the boot reads as a fitting rather than as more mouth
+            if (i <= ORGAN_BOOT_TOP && z <= 7 && x >= ORGAN_FRONT_X[2] && x <= ORGAN_FRONT_X[2] + 1)
+                return BallType.Type5;                //cyan
+
+            if (i > ORGAN_PIPE_TOP - 3 || i < bottom + 3) return voice;   //collar / mouth
+
+            return BallType.Type11;                   //silver body - one orphanable group per pipe
+        }
+
+        /// <summary>
+        /// A four-legged mountain pylon felled leg by leg - the block's finale and its physics thesis
+        /// stated loudest. A solid 5x5 cap bonds to the glass; four 2x2 legs splay outward from under it,
+        /// stepping one cell out in x AND z every <see cref="PYLON_LEG_BAND"/>-level band with a
+        /// one-column overlap at every step, so a leg is bonded vertically through every step and never
+        /// hangs on diagonals alone - which is the gate's SECOND check, in the measured contact graph,
+        /// because a step landed on the wrong parity fails silently. Four closed girdle rings tie all four
+        /// legs: cut a leg band and the leg's lower run re-hangs from the ring below the cut, off the
+        /// other three legs - the structure argues back, every felled leg makes the survivor stance
+        /// springier, and the last leg takes the rings with it (~49 % finale). ~708 cells drawn.
+        /// <para>
+        /// <b>The gate's first check comes before any colouring work</b>: fell the NE and SE legs in a
+        /// scripted run and measure how far the two widest rings sag off-axis on the remaining two -
+        /// Trellis-style stretch, the design's stated nearest failure. The tune order if it dips:
+        /// (1) <see cref="PYLON_TWIN_RINGS"/>, the twin-loop graft; (2) a shallower splay; (3) a fifth
+        /// ring band.
+        /// </para>
+        /// <para>
+        /// Third check: the opening frame must show spread feet plus two rings, so it reads as a truss and
+        /// not as Carousel's rails-and-decks - the splay is the distinctness argument, protect it.
+        /// </para>
+        /// <para>
+        /// Legs alternate their primary with white down five four-level bands, primary at the top band -
+        /// and at the feet, five being odd, so the opening frame shows each leg's own colour. The cap's
+        /// four quadrant columns match the leg primaries, putting all four on the top level; the rings are
+        /// brown closed loops of their own. Worst paper release is a cap quadrant fused with its leg's top
+        /// band (~6 %) - the difficulty here is sequencing, not any one group.
+        /// </para>
+        /// </summary>
+        private static Design Pylon() => new()
+        {
+            File = "Pylon.json",
+            Name = "Pylon",
+            Grid = 15,
+            Depth = 24,
+            FieldLevels = 32,
+            Scene = SceneKind.Mountain,
+            Sky = 8,
+            Music = MUSIC_TOWER,
+            Shots = 74,
+            CeilingStep = 6,
+            OccupiedBlock = (x, z, i, depth) =>
+                PylonLeg(x, z, i) != 0 || PylonCap(x, z, i) || PylonRing(x, z, i, out _),
+            BlockColour = PylonColour,
+        };
+
+        //The truss's plan on a 15-wide grid, mirrored about centre 7 (an index and its mirror sum to
+        //PYLON_MIRROR). The NE leg's low corner sits at 8 under the cap and steps one cell out, in both
+        //indices, per PYLON_LEG_BAND levels going down - 0.25 cells a level - reaching PYLON_FOOT_ANCHOR
+        //at the feet. The cap owns i >= PYLON_CAP_FLOOR.
+        private const int PYLON_MIRROR = 13;
+        private const int PYLON_LEG_BAND = 4;
+        private const int PYLON_FOOT_ANCHOR = 12;
+        private const int PYLON_CAP_FLOOR = 20;
+
+        //The girdle rings: (Bottom level, Min index) pairs, each two levels tall, each the 1-cell closed
+        //square perimeter of [Min .. 14-Min]. Ring corners coincide with the legs there, and those cells
+        //belong to the legs (PylonColour's test order). The widest ring [1..13] is the margin-1 extent.
+        private static readonly (int Bottom, int Min)[] PYLON_RINGS = { (14, 4), (10, 3), (6, 2), (2, 1) };
+
+        //THE TWIN-LOOP GRAFT, off until the crippled-state sag measurement asks for it (the design's tune
+        //order). On, every girdle ring gains a second closed loop one cell inside the specced one: each
+        //lamina is an intact closed loop on its own - the rejected Chain's closed-loop-with-corners
+        //exemption - so cutting either colour leaves a full ring still tying the legs, the truss stays
+        //visually openwork, and the endgame gains shootable ring targets. The outer lamina then turns
+        //orange; verify at the flip that orange borders red only along the NE leg's primary bands, and
+        //recolour the rings further if the pair reads confusable in the running game.
+        private const bool PYLON_TWIN_RINGS = false;
+
+        //Leg primaries, indexed NE, SE, SW, NW - the order PylonLeg and the cap quadrants both speak
+        private static readonly BallType[] PYLON_PRIMARIES =
+        {
+            BallType.Type1,   //red - NE
+            BallType.Type3,   //blue - SE
+            BallType.Type2,   //green - SW
+            BallType.Type6,   //magenta - NW
+        };
+
+        /// <summary>The NE leg's low corner index at one layout level - the splay schedule in one line.</summary>
+        private static int PylonLegAnchor(int i) => PYLON_FOOT_ANCHOR - i / PYLON_LEG_BAND;
+
+        /// <summary>
+        /// Which leg a cell is on: 0 none, then 1 NE, 2 SE, 3 SW, 4 NW - <see cref="PYLON_PRIMARIES"/>'s
+        /// order plus one. The other three legs are the NE leg mirrored about the centre in x, z or both,
+        /// so there is one splay schedule to get wrong rather than four.
+        /// </summary>
+        private static int PylonLeg(int x, int z, int i)
+        {
+            if (i >= PYLON_CAP_FLOOR) return 0;    //the cap owns these levels
+
+            int high = PylonLegAnchor(i);
+            int low = PYLON_MIRROR - high;
+
+            bool xHigh = x == high || x == high + 1;
+            bool xLow = x == low || x == low + 1;
+            bool zHigh = z == high || z == high + 1;
+            bool zLow = z == low || z == low + 1;
+
+            if (xHigh && zHigh) return 1;   //NE
+            if (xHigh && zLow) return 2;    //SE
+            if (xLow && zLow) return 3;     //SW
+            if (xLow && zHigh) return 4;    //NW
+            return 0;
+        }
+
+        /// <summary>The cap: a solid 5x5 (x5..9 by z5..9) on the four levels bonded to the glass.</summary>
+        private static bool PylonCap(int x, int z, int i) =>
+            i >= PYLON_CAP_FLOOR && x >= 5 && x <= 9 && z >= 5 && z <= 9;
+
+        /// <summary>
+        /// Whether a cell is on a girdle ring, and on which lamina: the outer one is the specced
+        /// perimeter, the inner one exists only with <see cref="PYLON_TWIN_RINGS"/> on.
+        /// </summary>
+        private static bool PylonRing(int x, int z, int i, out bool outerLamina)
+        {
+            outerLamina = false;
+
+            foreach ((int bottom, int min) in PYLON_RINGS)
+            {
+                if (i < bottom || i > bottom + 1) continue;
+
+                int max = PYLON_MIRROR + 1 - min;
+                if (x < min || x > max || z < min || z > max) return false;
+
+                if (x == min || x == max || z == min || z == max)
+                {
+                    outerLamina = true;
+                    return true;
+                }
+
+                //Inside the outer loop: the inner lamina is the same perimeter one cell in
+                return PYLON_TWIN_RINGS && (x == min + 1 || x == max - 1 || z == min + 1 || z == max - 1);
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Legs first - ring corners belong to them, so the test order IS that rule - then the cap's
+        /// quadrant columns, then the rings. A leg's five bands alternate primary/white from the top band
+        /// down; the cap's centre row and column (index 7) fall to the low side, so the quadrant columns
+        /// are 36/24/24/16 over its four levels, the smallest still far above <see cref="MIN_GROUP"/>.
+        /// </summary>
+        private static BallType PylonColour(int x, int z, int i)
+        {
+            int leg = PylonLeg(x, z, i);
+            if (leg != 0)
+                return (i / PYLON_LEG_BAND) % 2 == 0 ? PYLON_PRIMARIES[leg - 1] : BallType.Type4;  //white
+
+            if (PylonCap(x, z, i))
+            {
+                int quadrant = x >= 8 ? (z >= 8 ? 0 : 1) : (z >= 8 ? 3 : 2);   //NE, SE, SW, NW
+                return PYLON_PRIMARIES[quadrant];
+            }
+
+            PylonRing(x, z, i, out bool outerLamina);
+            return PYLON_TWIN_RINGS && outerLamina ? BallType.Type9 : BallType.Type10;   //orange / brown
+        }
 
         #endregion
 
