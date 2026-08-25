@@ -1696,3 +1696,31 @@ Ostatní tři nálezy s mechanismem a čísly jsou v #268; sem jen ty, které se
 ---
 
 *Poslední zápis: Claude Code, 2026-08-25 (#129 — návrh v issue, `OrbitTravel` na mainu; #255 — pozastaveno; #208 — drží ZCode).*
+
+## 2026-08-25 — Claude Code (sedmdesátý zápis)
+
+**#129 postaveno — lafeta jezdí na všesměrových kolech. Na mainu jako `6b17cbb`.** Návrh je v komentáři issue z předchozího zápisu; tohle je jeho realizace, **na majitelovo výslovné zadání nad rámec issue** (to si říká „research + design, not implementation" — je to v komentáři napsané, ať to nevypadá, že se rozsah rozjel sám).
+
+Výpletové kolo je smazané. Místo něj `OmniWheelMesh` (tělo: dva tmavé kotouče a náboj) + `OmniRollerMesh` (jeden sudovitý váleček), dvě řady po osmi. Tělo se točí z `WheelTravel`, válečky z `OrbitTravel`.
+
+**Co si odnést, i mimo tenhle prop:**
+
+- **Profil válečku je celý ten mesh a nesmí to být válec.** `ρ(t) = R − √(a² + t²)` je to, co drží obálku kola kruhem; válcový váleček udělá z kola mnohoúhelník, který při valení poskakuje. `RollerSeats` odmítne **při načtení** sadu čísel, která by válečky prorostla skrz sebe — v řadě (`L ≤ a·tan(π/N)`) i **napříč řadami**. Tu druhou podmínku jsem napřed neměl a doplnil ji, až když jsem si spočítal, že osy sousedních řad se protínají uvnitř délky válečku; kdo tahle čísla přeladí, tam narazí dřív než na obrazovce.
+- **Válečky nejdou roztočit maticí kola** — per-instance `Vector4` je ditherem techniky koulí. Jsou proto vlastní instancovaná kresba (32 proti dvěma tělům), a **ty dvě kresby přinesly dvoubarevnost zadarmo**, což je to, co drží kolo čitelné i v klidu.
+- **⚠ Ploché čelo soustruženého dílu má normálu ve své vlastní ose.** Po usazení je to u tohohle kola tečna — vodorovná po celém obvodu, osvětlená skoro ničím. Každý váleček měl na konci **černou elipsu, která četla jako otevřená trubka**, a půl minuty jsem hledal chybu ve winding correction, kde žádná nebyla. Čela jsou kopulovitá. Platí to pro každý lathe díl, jehož osa skončí vodorovně.
+- **⚠ A barva: bronzový nádech nedělal materiál, ale světlo.** Neutrální šeď osvětlená zlatým sluncem vyjde teple — naměřeno přes pás válečků **R − B = 40** proti oceli hlavně **31** ve stejném snímku. Zesvětlení na neutrální to **nespravilo, dokonce mírně zhoršilo**; spravilo to až **záměrně chladné albedo** (0,50; 0,545; 0,615), které dosedlo na **R − B = 33**. Konstanta v kódu vypadá špatně, dokud nevíš, co kompenzuje, tak je u ní důvod.
+- **Proporce válečku šel poznat jen okem:** napoprvé vyšly jako štíhlé listy (poměr délky ku tloušťce 3,3, skutečný omni váleček má ~2). Teď 0,34 proti 0,17 a osm v řadě místo šesti.
+
+**Změřeno na nulu:** párově, vypnutím kresby válečků, **129,1 proti 129,4 FPS**, obojí 7,7 ms a pásma se překrývají (6900 XT, Testbed, pevná kamera na dělo, 1600×900 ssaa 4, `fpscap=150`).
+
+**Kolize s ostruhou**, kterou návrh označil jako figuru ke kontrole, **nenastává**: noha jde na `x` = 1,55 až na `z` = 3,05, tedy dávno za kolem; na zadní hraně kola (`z` = 1,15) je noha na `x` ≈ 0,67 proti vnitřní hraně kola 1,11.
+
+**⚠ Neověřeno a ví se o tom: kterým směrem se válečky točí při A/D.** Screenshotový rig neumí **držet** klávesu, takže znaménko sleduje totéž pravidlo jako rotace těla (kontaktní plocha proti směru jízdy), ale na obrazovce jsem ho neviděl. Je to jeden minus v `DrawCarriage`. Kdyby někdo skill rozšířil o držení klávesy, tahle třída ověření se otevře i pro chůzi a orbit obecně.
+
+**Provozní:** merge i tenhle zápis zase v dočasném worktree — ZCodova rozepsaná práce v deníku dál blokuje merge ve sdíleném stromě. **Sdílený checkout tím zůstává na `f3fbb66`, o čtyři commity za originem**; srovná se, až ZCode svoje řádky zacommituje.
+
+**Nic si teď neberu.**
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-25 (#129 — postaveno, na mainu; #255 — pozastaveno; #208 — drží ZCode).*
