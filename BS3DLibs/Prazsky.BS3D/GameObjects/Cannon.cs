@@ -325,7 +325,15 @@ namespace Prazsky.BS3D.GameObjects
 
 		private void MoveCircular(GameTime gameTime)
 		{
-			_orbitAngle += RotationSpeed * _acceleration * _deltaLastSet * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+			float step = RotationSpeed * _acceleration * _deltaLastSet * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+			_orbitAngle += step;
+
+			//The arc the carriage's own centre covers, which is what the sideways ground under it measures.
+			//Accumulated from the STEP and not from the angle, so EnsureOrbitAngleInBounds' wrap below cannot
+			//reach it — the same reason AdvanceTravel is accumulated from the move rather than read off the
+			//radius. Both wheels see the same arc: the axle is the tangent, so the pair sits at one radius.
+			OrbitTravel += _orbitRadius * step;
 
 			EnsureOrbitAngleInBounds();
 			MoveToOrbitAngle();
@@ -369,8 +377,38 @@ namespace Prazsky.BS3D.GameObjects
 		/// them, and they slow into the rubber at an end precisely because this is the <i>moved</i> distance,
 		/// not the held time. Deliberately not advanced by the orbit (A/D): a carriage slewed sideways is
 		/// dragged, not rolled, and wheels that spin while the gun crabs sideways read as broken.
+		/// <para>
+		/// That split is a fact about <b>this</b> wheel and not about the walk, and since #129 the other half
+		/// is measured rather than discarded — see <see cref="OrbitTravel"/>. A spoked wheel has nothing to do
+		/// with sideways ground; a wheel that has (rollers around its rim) wants exactly that figure, and the
+		/// two together are the carriage's whole ground velocity in its own frame.
+		/// </para>
 		/// </summary>
 		public float AdvanceTravel { get; private set; }
+
+		/// <summary>
+		/// Ground the <b>orbit</b> walk has covered sideways, in world units, signed — positive for a growing
+		/// orbit angle — and accumulated over the walk's whole life. <see cref="AdvanceTravel"/>'s counterpart
+		/// for the other axis, and it exists for the same reason: it is the <i>moved</i> distance, so anything
+		/// driven off it slows into a stop exactly as the carriage does.
+		/// <para>
+		/// <b>The carriage's ground velocity in its own frame is these two and nothing else.</b> The axle is
+		/// local X and the walk toward the field is local −Z; the orbit's tangent <i>is</i> the axle, so the
+		/// advance is the rolling direction and the orbit is the sideways one. That is exactly the split an
+		/// omnidirectional wheel is built around, which is what #129 wants it for: the wheel body's spin comes
+		/// off <see cref="WheelTravel"/> and its rollers' spin off this. <b>Nothing draws it yet</b> — the
+		/// wheel is still the spoked one, which cannot move sideways at all, and <see cref="AdvanceTravel"/>'s
+		/// note above says why it is therefore right that the wheels stand still through an orbit today.
+		/// </para>
+		/// <para>
+		/// <b>It measures the walk and not the pose</b>, so the two ways the orbit angle can be <i>set</i>
+		/// rather than walked — <see cref="OrbitToFace"/> and the <see cref="OrbitRadius"/> setter — leave it
+		/// alone, precisely as they leave <see cref="AdvanceTravel"/> alone. A gun that is placed does not roll
+		/// there. And no recoil term belongs here, unlike <see cref="WheelTravel"/>: the shot's shove is back
+		/// along the heading, which is the advance's axis and not this one.
+		/// </para>
+		/// </summary>
+		public float OrbitTravel { get; private set; }
 
 		#region The recoil stroke
 
