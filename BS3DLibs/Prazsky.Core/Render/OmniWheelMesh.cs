@@ -13,7 +13,7 @@ namespace Prazsky.Core.Render
     /// <para>
     /// It replaced a spoked wagon wheel, and the reason was not only the look. The carriage's ground velocity
     /// in its own frame is exactly two numbers — <c>Cannon.WheelTravel</c> along the rolling direction and
-    /// <c>Cannon.OrbitTravel</c> along the axle — and those are exactly the two axes this wheel has. The old
+    /// <c>Cannon.SlideTravel</c> along the axle — and those are exactly the two axes this wheel has. The old
     /// wheel could only answer the first, so the gun crabbed sideways on wheels that stood still; this one
     /// answers both, with the body spinning for the advance and the rollers for the orbit.
     /// </para>
@@ -227,11 +227,13 @@ namespace Prazsky.Core.Render
         public int PrimitiveCount { get; }
         public BoundingSphere BoundingSphere { get; }
 
-        //Around the roller and along it. Twenty-four around is set by the flutes and not by the silhouette:
-        //six flutes need four segments each to have a floor and two walls, and at eight the whole pattern
-        //degenerated into the barrel it is there to escape.
-        private const int RING_SEGMENTS = 24;
-        private const int LENGTH_STEPS = 10;
+        //Around the roller and along it, and BOTH are set by the flutes rather than by the silhouette. Reported
+        //from play as "the grooves look low-resolution": six flutes over 24 segments is four apiece, which is
+        //a floor and two walls with nothing to shade between them, so every flute came out faceted. Eight
+        //apiece is where the cosine lobe reads as a curve — and the length steps go up with it, or the helix
+        //is smooth around the barrel and stepped along it.
+        private const int RING_SEGMENTS = 48;
+        private const int LENGTH_STEPS = 16;
 
         //The flutes. Six of them, cut 20 % of the radius deep — deep enough to read at the thirty-odd pixels
         //a roller covers from the play camera, shallow enough that the barrel is still a barrel. TWIST is

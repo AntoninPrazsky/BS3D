@@ -1339,7 +1339,7 @@ namespace BS3D.Screens
             Matrix barrelWorld = _cannon.BarrelWorld();
 
             Game.CannonRig.Draw(Camera, barrelWorld, Game.SceneEffectParams);
-            Game.CannonRig.DrawCarriage(Camera, _cannon.CarriageWorld(), _cannon.WheelTravel, _cannon.OrbitTravel, Game.SceneEffectParams);
+            Game.CannonRig.DrawCarriage(Camera, _cannon.CarriageWorld(), _cannon.WheelTravel, _cannon.SlideTravel, Game.SceneEffectParams);
 
             //Everything collected above, as one instanced draw per ball type and LOD level — and the frame's
             //collection is closed by it. The heartbeat runs on the WALL clock: the balls go on breathing while
