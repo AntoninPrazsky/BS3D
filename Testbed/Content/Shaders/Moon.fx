@@ -476,10 +476,22 @@ float4 MoonTerrainPS(MoonTerrainVertexOutput input) : COLOR
 	//craters read young
 	regolith = lerp(regolith, RegolithColorPale * 1.18, saturate(ejecta * EjectaBrightness));
 
-	//The grain, faded out BEFORE its cells reach pixel size (the desert's rule - faded at the cell size
-	//the last metres are a crawling speckle)
-	float grainFade = saturate(1.0 - footprint * 96.0);
-	regolith *= 1.0 + NoiseHash22(floor(worldPosition.xz * 48.0)).x * GrainStrength * grainFade;
+	//The grain - CASCADED, not one lattice, which is #208's finding: a single arm's-length grain faded out
+	//before its cells reached pixel size (the desert's rule, kept per octave below) left everything past a
+	//few metres of the camera as one flat grey, craters and all, and the surface read as untextured. Three
+	//octaves of per-cell hash now, each at its own scale and each faded out before ITS cells reach pixel
+	//size: crystal-and-dust at 2 cm, coarse granular at ~1.3 m, and pebble patches at ~5.5 m that the last
+	//one could never bridge. The broad `broad` mottling above starts at tens of metres, so between them a
+	//resolvable octave exists at every footprint the plain is drawn at - grey on grey, but never one grey
+	//at any distance. All three scale with GrainStrength, so a config pinning it to zero still silences
+	//the lot.
+	float grainFine = saturate(1.0 - footprint * 96.0);
+	float grainCoarse = saturate(1.0 - footprint * 1.5);
+	float grainPebbles = saturate(1.0 - footprint * 0.36);
+	regolith *= 1.0 + GrainStrength * (
+		NoiseHash22(floor(worldPosition.xz * 48.0)).x * grainFine
+		+ NoiseHash22(floor(worldPosition.xz * 0.75) + 17.0).x * 0.7 * grainCoarse
+		+ NoiseHash22(floor(worldPosition.xz * 0.18) + 41.0).x * 0.5 * grainPebbles);
 
 	//--- Lighting -------------------------------------------------------------------------------------
 	//A sun and almost nothing else, which is the whole look: no air means no sky fill and no aerial

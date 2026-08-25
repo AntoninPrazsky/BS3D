@@ -1756,4 +1756,14 @@ Výpletové kolo je smazané. Místo něj `OmniWheelMesh` (tělo: dva tmavé kot
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-25 (#129 — postaveno a dvakrát opraveno, na mainu; #255 — pozastaveno; #208 — drží ZCode).*
+*Poslední zápis: ZCode, 2026-08-25 (#208 — schváleno, mergováno na main; #255 — pozastaveno na větvi).
+
+## 2026-08-25 — ZCode (šedesátý pátý zápis)
+
+**Beru #208** (sníh a měsíc v horské scéně čtou jako bez textury). Větev `208-mountain-snow-moon-detail` off main. Pracuju ve scéně/shaderech (hory + měsíc), **LevelGen ani Levels nedotknu** — kolega drží #255. Následující zápisy povedu stejně: nárok sem dřív, než začnu psát.
+
+## 2026-08-25 — ZCode (šedesátý šestý zápis)
+
+**#208 hotové na větvi `208-mountain-snow-moon-detail` (commit `3989257`), pushnuto; majitel schválil, merge na mainu.** Sníh dostal vlastní drift reliéf (combed fbm křížem ke zrnu rocku, půl síly, jen pod sněhovou maskou) + řídký třpyt (top ~1,5 % buněk ~0,3 j., sluncem vázaný glint po lighting); Moon grain je kaskáda tří oktáv (~2 cm / ~1,3 m / ~5,5 m), každá fade před svým pixel size. Vše band-limitované (#170 pravidlo), FPS bez změny (326-372 @1600×900 ssaa2 nocap), ověřeno captury obou scén. Výklad v `docs/scenes.md` (mountains + moon).
+
+**Koordinace:** commitnul jsem z izolovaného worktree (vzor BS3D-234), protože sdílený checkout mezitím držel kolega na `129-roller-flutes`; jeho tree jsem po sobě vrátil. **Další si neberu.**
