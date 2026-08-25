@@ -1570,3 +1570,35 @@ Postup: (1) přečíst, jak se stíní plotna, okénko a bublina, (2) rozhodnout
 ---
 
 *Poslední zápis: Claude Code, 2026-08-25 (#231 — zavřeno, na mainu; #255 — rozpracováno).*
+
+## 2026-08-25 — Claude Code (šedesátý šestý zápis)
+
+**Sopka (#223) — hotová a na mainu jako `461e84b`.** Výkaz v plném rozsahu je v komentáři issue; tady jen to provozní a to, co má vědět další agent.
+
+**Beru/bral jsem #223**, a nárok jsem sem **nedokázal zapsat dopředu** — viz poslední odstavec, je to jediná věc na téhle práci, která nešla podle pravidel deníku.
+
+- Patnáctý `SceneKind`. Nové: `Volcano.fx`, `LavaFountain.fx`, `Ash.fx`, `VolcanoSceneConfig`. Zapojeno v `SceneRenderer`, `SceneLights`, v obou výchozích dómech (Testbed i Game), v `ProceduralAmbience` a ve všech třech `Content.mgcb`.
+- **Sníh, hor ani Měsíce jsem se nedotkl.** Popel jsem původně chtěl postavit na `Snow.fx` (sdílený efekt, precedent moře/laguny) a **rozmyslel jsem si to, jakmile jsem uviděl tvůj nárok na #208** — má vlastní `Ash.fx` a vlastní builder bufferu. `BuildSnowBuffers`/`BuildSprayBuffers` jsem taky nerefaktoroval, i když je můj `BuildBillboardParticles` teď třetí kopie téhož; sloučit je až po #208, ne teď.
+- `SceneRenderer.cs` jsme si ale rozdělit nemohli — nová scéna se do něj musí zapsat. Můj přírůstek je v nových regionech (`#region Volcano`, `#region Volcano: the rivers, the vents…`) plus přípojné body v `DrawEnvironment`/`DrawOverlays`/`Apply`/`GetSceneConfig`/`Dispose`. **Merge by měl být čistě aditivní**, ale ať se ti to netrhá: main povyskočil o jeden merge commit.
+
+**Past, která stála nejvíc času, a je obecnější než tahle scéna:**
+
+> **`BlendState.AlphaBlend` je v MonoGame PREMULTIPLIED** (`One, InverseSourceAlpha`). Shader, který vrátí přímou barvu, ji tedy **přičte v plné síle na každé vrstvě**. Kouřový sloup byl napsaný nepremultiplikovaně a 900 obláčků šedé 0,085 vyšlo jako **bílý parní sloup jasnější než obloha za ním** — a půl hodiny jsem hledal chybu v barvě, kterou posílám, protože ta barva byla evidentně tmavá. `Snow.fx` i `Spray.fx` vrací `float4(barva, alfa)` úplně stejně; **nechal jsem je být**, protože jsou proti tomu chování vyladěné okem a sníh držíš ty. Až budeš u #208 sahat na `Snow.fx`: tohle je důvod, proč vločka svítí víc, než by z její barvy a alfy vycházelo, a případná „oprava" na premultiplied vyžaduje přeladit `SnowColor`/`Opacity` zároveň, ne jen shader.
+
+**Další zapamatovatelné, ať to nikdo nehledá podruhé:**
+
+- **Mlha je barva horizontu dómu**, a to funguje jen proto, že každá dosavadní terénní scéna stojí pod oblohou, jejíž horizont má zhruba tón její vlastní země. Černý čedič pod krémovým horizontem dómu 16 na pouštních 420 → **celý kužel měl barvu písku a sopka zmizela; stála tam duna.** Sopka má vlastní `HazeTint`/`HazeStrength` a 900. Kdyby někdo dělal další tmavou scénu pod světlým dómem, tohle ho čeká taky.
+- **ACES odbarvuje.** `LavaHot` (7,5; 2,4; 0,3) vyšlo žlutobíle. Za určitou mezí přidané záření saturovanou barvu už jen odbarvuje — bílá řeka je svítící prasklina, ne roztavená hornina. Teď (3,4; 0,85; 0,10), pořád nad prahem glare.
+- **Voronoi má v sobě mřížku.** `VoronoiEdge2` v tomhle měřítku vycházel jako pravidelná plástev. Rozvlnění domény hrubším šumem před odečtem to spraví za dva odběry gradientního šumu.
+
+**Rozpočet a měření.** Desktop 6900 XT, Testbed, **pevná kamera**, okno 1600×900 při ssaa 4, dóm 9, `fpscap=150`: sopka **96,0 FPS / 10,4 ms** proti poušti 124,8 / 8,0 a horám 117,7 / 8,5; z hrací výšky 90,8 / 11,0 proti 117,9 / 8,5. Nejdražší terénní scéna asi o 2,5 ms. **`nocap` jsem nepouštěl** — podle #250 jsem se majitele zeptal a ten povolil jen `fpscap`. **Číslo pro APU netvrdím**, a to je vůči #209 otevřená mezera; počty částic, halo i krakelura jsou od prvního dne dials.
+
+**Čeho jsem se nedotkl a proč:** `Tools/LevelGen` a `Game/Levels` drží kolega na #255, tak **v téhle scéně nehraje ani jeden level**. Blok pěti levelů, `aimcheck`, zařazení do oblouku ubývajícího světla (#194) a hudba bloku jsou druhá půlka úkolu — **issue #223 jsem proto nezavřel.** Otevřené zůstává i to, co si issue vyhradilo jinam: **zvuk erupce** (má přijít s hromem #219, ne se vymýšlet dvakrát — `SceneRenderer.VolcanoEruption` je `public` a je to místo, kam se zavěsí) a popelová clona jako přednastavení počasí z #221.
+
+**Mimochodem opraveno:** počty scén v komentářích a docs byly rozjeté ještě přede mnou — na několika místech stálo „twelve" z dřívějšího soupisu. Sjednoceno na patnáct všude, kde jde o soupis scén.
+
+**⚠ A teď to provozní, ZCode.** Když jsem si tuhle práci bral, měl jsi v pracovním stromu **necommitovaný nárok na #208** (`docs/agent-notes.md`, tvůj zápis šedesátý pátý plus změna řádku „Poslední zápis"). Cizí rozepsanou práci nesahám, takže:
+
+- **nárok na #223 jsem sem dopředu zapsat nemohl** a zapisuju ho až teď, zpětně, spolu s výkazem — omlouvám se, pravidlo „nárok sem dřív, než začnu psát" jsem tím nedodržel, ale porušit ho bylo míň špatné než ti přepsat soubor;
+- **tenhle commit obsahuje jen můj text.** Postavil jsem ho z verze souboru v `HEAD` plus tenhle zápis a nastagoval přímo blob, takže **tvoje řádky zůstaly nedotčené a pořád necommitované** — v pracovním stromu je najdeš za tímhle zápisem a v `git status` uvidíš jako jedinou změnu je. Commitni si je sám, ať je to tvůj commit;
+- z toho plyne, že řádek **„Poslední zápis" je pořád tvoje necommitovaná verze** a o #223 neví. Až budeš commitovat, přidej si tam i tohle číslo.
