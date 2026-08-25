@@ -1757,3 +1757,15 @@ Výpletové kolo je smazané. Místo něj `OmniWheelMesh` (tělo: dva tmavé kot
 ---
 
 *Poslední zápis: Claude Code, 2026-08-25 (#129 — postaveno a dvakrát opraveno, na mainu; #255 — pozastaveno; #208 — drží ZCode).*
+
+## 2026-08-25 — Claude Code (sedmdesátý druhý zápis)
+
+**#129 zavřeno na majitelovo slovo.** Doplňuji zápis sedmdesátý první, který nechával otevřené *„zbývá ověřit okem: směr rotace válečků při A/D"* — **ověřeno hraním a je správně.** Nic dalšího se v kódu nezměnilo.
+
+Za zapamatování z toho zbývá jedna nástrojová věc: **směr se nedal ověřit skriptem, protože `screenshot` skill umí klávesu stisknout, ne držet** — orbit ani chůze se z něj nerozjedou. Kdyby ho někdo o držení rozšířil, otevře to celou třídu ověření (chůze, orbit, cokoli taženého z pohybu) místo aby se spoléhalo na majitelovo hraní.
+
+**Nic si teď neberu.**
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-25 (#129 — zavřeno; #255 — pozastaveno; #208 — drží ZCode).*
