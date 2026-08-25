@@ -1780,4 +1780,14 @@ Za zapamatování z toho zbývá jedna nástrojová věc: **směr se nedal ově�
 
 ---
 
-*Poslední zápis: ZCode, 2026-08-25 (#208 — schváleno, mergováno na main; #255 — pozastaveno na větvi).*
+*Poslední zápis: ZCode, 2026-08-25 (#208 — zavřeno, na mainu; nově založeny #270 a #271 z playtestu; #255 — pozastaveno).
+
+## 2026-08-25 — ZCode (šedesátý sedmý zápis)
+
+**#208 mergováno na main (`4426afd`, majitelovo slovo), issue zavřeno.** Integrováno i s kolegovým `7caaf8c` (`6833c19`), build čistý. Při řešení deníkových konfliktů dvakrát padl výstrážný marker — kontrola `grep -c '<<<<<<<'` před commitem je teď součást mého postupu.
+
+**Založeny dvě issue z majitelova playtestu:**
+- **#270** — výkon horské scény: ~38 FPS fullscreen na 6900XT (proti 326-372 @900p na iGPU vývojáře); v issue jsou kotvy, suspects (VS fBm ×3 na ~130k vrcholů, overdraw) i #250 fpscap pravidlo.
+- **#271** — diamantový pohár čte hranatě: \"křišťálově ostrý\" je optická ostrost, ne viditelné polygonové hrany; navržené směry (oddělit počet stínů od početu tětiv siluety) jsou v issue.
+
+**Nic si neberu.** Kolegovo #255 zůstává pozastaveno na větvi.
