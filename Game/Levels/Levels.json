@@ -491,19 +491,51 @@
       "ceilingStep": 6
     },
     {
+      "file": "Pinecone.json",
+      "name": "Pinecone",
+      "block": "The Nebula",
+      "shots": 52,
+      "minStars": 120,
+      "ceilingStep": 4
+    },
+    {
       "file": "Hourglass.json",
       "name": "Hourglass",
       "block": "The Nebula",
       "shots": 48,
-      "minStars": 120,
+      "minStars": 122,
       "ceilingStep": 6
+    },
+    {
+      "file": "Pleat.json",
+      "name": "Pleat",
+      "block": "The Nebula",
+      "shots": 48,
+      "minStars": 124,
+      "ceilingStep": 4
     },
     {
       "file": "Trellis.json",
       "name": "Trellis",
       "block": "The Nebula",
       "shots": 52,
-      "minStars": 122,
+      "minStars": 126,
+      "ceilingStep": 5
+    },
+    {
+      "file": "Bolt.json",
+      "name": "Bolt",
+      "block": "The Nebula",
+      "shots": 44,
+      "minStars": 128,
+      "ceilingStep": 6
+    },
+    {
+      "file": "Totem.json",
+      "name": "Totem",
+      "block": "The Nebula",
+      "shots": 50,
+      "minStars": 130,
       "ceilingStep": 5
     },
     {
@@ -511,7 +543,15 @@
       "name": "Kiln",
       "block": "The Nebula",
       "shots": 56,
-      "minStars": 124,
+      "minStars": 132,
+      "ceilingStep": 5
+    },
+    {
+      "file": "Girandole.json",
+      "name": "Girandole",
+      "block": "The Nebula",
+      "shots": 54,
+      "minStars": 134,
       "ceilingStep": 5
     },
     {
@@ -519,7 +559,7 @@
       "name": "Turbine",
       "block": "The Nebula",
       "shots": 52,
-      "minStars": 126,
+      "minStars": 136,
       "ceilingStep": 4
     }
   ]

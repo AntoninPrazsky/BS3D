@@ -326,13 +326,17 @@ namespace BS3D.Tools.LevelGen
             //ARTIFICIALLY over the neon city, and the step left after that is light being RECEIVED again, so
             //the campaign ends in that city at morning with its neon off - where the arena has always stood.
             //
-            //THE ORDER IS THE BLOCK'S DIFFICULTY RAMP AND IT IS A MEASURED ONE: standing groups 6, 9, 15, 22
-            //and 31, i.e. 6.67, 5.33, 3.47, 2.55 and 1.68 shots a group, from a level of four huge spirals
-            //to one of 31 pieces in seven colours. The families are not what ramps - a green level is no
+            //THE ORDER IS THE BLOCK'S DIFFICULTY RAMP AND IT IS A MEASURED ONE: standing groups 6, 8, 9, 10,
+            //15, 14, 19, 22, 26 and 31, i.e. 6.67, 6.50, 5.33, 4.80, 3.47, 3.14, 2.63, 2.55, 2.08 and 1.68
+            //shots a group, from a level of six huge spirals to one of 31 pieces in seven colours. #255's
+            //five were slotted by that measure and by nothing else, which is why they interleave with the
+            //first five rather than following them - and the two ends survive it untouched: the Icicle
+            //still opens the chapter, being the plainest body in it, and the Turbine still closes the
+            //campaign. The families are not what ramps - a green level is no
             //harder than a blue one - so the order is by how finely each design's sweep cuts its body up.
             //Its designs live in their own array for the same reason the Nebula's and the Arcade's do - see
             //WriteLevelSet.
-            Design[] spectrum = { Icicle(), Hourglass(), Trellis(), Kiln(), Turbine() };
+            Design[] spectrum = { Icicle(), Pinecone(), Hourglass(), Pleat(), Trellis(), Bolt(), Totem(), Kiln(), Girandole(), Turbine() };
 
             bool ok = true;
             foreach (Design design in designs) ok &= Emit(design);
@@ -5485,6 +5489,878 @@ namespace BS3D.Tools.LevelGen
             Occupied = (r, ang, i, depth) => TurbineCore(r) || TurbineBlade(r, ang, i) != 0,
             Colour = (r, ang, i, depth) => Sweep(TurbineSweep(r, ang, i, depth), SPECTRUM),
         };
+
+        #endregion
+
+        #region The Spectrum's second hang (#255)
+
+        //THE SPECTRUM'S SECOND FIVE (#255), hung after Turbine in the same place at the same hour: the city
+        //under dome 11, MUSIC_SPECTRUM, and the block's own law verbatim - one HUE FAMILY a level, swept
+        //through the whole body, no new colour anywhere, and NO SWEEP THAT IS A STACK OF FLOORS. Each is
+        //TALL for the first block's reason (a multi-stop ramp needs the height to read as a ramp) and each
+        //is a different KIND of body under a different KIND of sweep, which is what the first five
+        //established and what these five continue:
+        //  Totem     - four different solids on one spine, crossed by ONE unbroken sweep.
+        //  Pinecone  - a phyllotaxis whose scale arms and colour stops are the SAME object.
+        //  Bolt      - a column that jogs, the sweep running about each broken segment's OWN axis.
+        //  Girandole - five candles of five lengths on one crown, each burning down the family alone.
+        //  Pleat     - a wall creased in plan, where the sweep folds exactly where the geometry does.
+        //
+        //THE ONE DEPARTURE FROM THE FIRST FIVE IS THE FOLD ITSELF - see Fold, which is not Sweep. Sweep
+        //folds the stop INDEX over a period of 2n-2 and therefore hits the family's two ends once against
+        //its middles' twice; every one of these five is priced against an EVEN share (a quarter of every
+        //level to each of four stops), because four of them put a whole structural member - an arm, a
+        //candle, a panel - on one stop and a member at half count is a member the player cannot match.
+        //Both are folds and both obey the block's rule that the only colours to touch are neighbours in
+        //the ramp; they differ only in what is folded.
+        //
+        //THE BLOCK'S OWN RULE HOLDS ON ALL FIVE, and it is the first thing to check on any of them: EVERY
+        //STOP OF THE FAMILY STANDS ON THE TOP LEVEL. Totem's drum, Pinecone's crown, Bolt's top segment,
+        //Girandole's crown disc and Pleat's header each span their sweep's whole coordinate at d = 0, so
+        //the level everything hangs from is four colours and not one.
+        //
+        //NUMBERS BELOW ARE THE DRAWINGS', NOT MEASUREMENTS. Each doc names the checks its judged spec's
+        //gate notes flagged and the fallback constants pre-authorised for each; the generator's own report
+        //is what settles them, and no figure here goes into a doc as measured until it has been.
+
+        //THE FIVE FAMILIES OF THE SECOND HANG, stated together the way FROST and its four are, because the
+        //FAMILY is what a level of this chapter is. Same law: each is a SUBSET AND AN ORDERING of the fixed
+        //thirteen and never a new hue, and each was judged on which adjacencies it puts next to each other.
+        private static readonly BallType[] REEF =
+        {
+            BallType.Type5,    //cyan
+            BallType.Type4,    //white
+            BallType.Type9,    //orange
+            BallType.Type1,    //red
+        };
+
+        private static readonly BallType[] BRONZE =
+        {
+            BallType.Type7,    //yellow
+            BallType.Type13,   //olive
+            BallType.Type10,   //brown
+            BallType.Type8,    //black
+        };
+
+        private static readonly BallType[] VOLT =
+        {
+            BallType.Type7,    //yellow
+            BallType.Type2,    //green
+            BallType.Type5,    //cyan
+            BallType.Type3,    //blue
+        };
+
+        private static readonly BallType[] GARNET =
+        {
+            BallType.Type11,   //silver
+            BallType.Type6,    //magenta
+            BallType.Type1,    //red
+            BallType.Type10,   //brown
+        };
+
+        private static readonly BallType[] AURORA =
+        {
+            BallType.Type12,   //navy
+            BallType.Type2,    //green
+            BallType.Type5,    //cyan
+            BallType.Type6,    //magenta
+        };
+
+        /// <summary>
+        /// The second hang's fold: a sweep coordinate in <b>turns</b> folded into one stop of the family -
+        /// out through the ramp and back again, so the only colours that ever touch are neighbours in it.
+        /// The block's law (#253) held with a different arithmetic from <see cref="Sweep"/>'s, and the
+        /// difference is the whole reason this exists rather than a call to that.
+        /// <para>
+        /// <b><see cref="Sweep"/> folds the stop INDEX; this folds the COORDINATE.</b> A fold of
+        /// <c>n</c> indices has period <c>2n - 2</c> and lands on the two ENDS once against the middles'
+        /// twice, which the first five accept deliberately - a family's extremes being rarer is what makes
+        /// them read as extremes. Folding the coordinate instead runs a triangle wave over one turn and
+        /// cuts it into <c>n</c> equal slices, so every stop takes an equal share of every level. Four of
+        /// these five need that share to be equal because a structural member - a scale arm, a candle, a
+        /// pleat panel - is painted one stop for its whole length, and a member at half count is a member
+        /// the player cannot draw a ball for.
+        /// </para>
+        /// <para>
+        /// <b>The wedge boundaries fall on exact multiples of <c>1 / (2n)</c> of the coordinate</b>, which
+        /// is a trap for anything that wants to sit ON a stop rather than across a boundary: eight arms at
+        /// eighths of a turn land on all eight boundaries of a four-stop fold, where the floor takes
+        /// whichever side the float arithmetic happens to fall on. Anything wanting a solid stop has to be
+        /// phased half a wedge onto the wedge's centre. Nothing here needs that today - the one design that
+        /// did, <see cref="Pinecone"/>, was measured into a different colouring for a different reason (see
+        /// its own doc) - and the trap is recorded because the next member painted on a structural axis
+        /// will meet it.
+        /// </para>
+        /// </summary>
+        private static BallType Fold(float turns, BallType[] family)
+        {
+            //frac(turns), which MathF.Floor gets right for a negative coordinate - every sweep here is
+            //built on an atan2 and half of that function's range is below zero
+            float frac = turns - MathF.Floor(turns);
+
+            //The triangle: 0 at the family's first stop, 1 at its last, and back again over one turn
+            float f = 1f - 2f * MathF.Abs(frac - HALF);
+            int stop = (int)MathF.Floor(f * family.Length);
+
+            //f reaches 1 exactly at the fold's turning point, which floors to family.Length itself
+            return family[Math.Min(stop, family.Length - 1)];
+        }
+
+        /// <summary>The centred taxicab distance |dx| + |dz|, read back off the polar frame Emit hands in.</summary>
+        private static float PlanTaxicab(float r, float ang) =>
+            r * (MathF.Abs(MathF.Cos(ang)) + MathF.Abs(MathF.Sin(ang)));
+
+        /// <summary>The centred Chebyshev distance max(|dx|, |dz|) - a plan square - off the same frame.</summary>
+        private static float PlanChebyshev(float r, float ang) =>
+            r * MathF.Max(MathF.Abs(MathF.Cos(ang)), MathF.Abs(MathF.Sin(ang)));
+
+        /// <summary>
+        /// The plan distance from a cell at (<paramref name="r"/>, <paramref name="ang"/>) to a point
+        /// standing at radius <paramref name="ringR"/> on the bearing <paramref name="seat"/> - the cosine
+        /// rule, which is the whole of what a body hung OFF the axis needs from the polar frame.
+        /// </summary>
+        private static float PlanDistance(float r, float ang, float ringR, float seat)
+        {
+            float squared = r * r + ringR * ringR - 2f * r * ringR * MathF.Cos(ang - seat);
+
+            //The cosine rule can round a cell sitting exactly on the seat to a hair below zero
+            return MathF.Sqrt(MathF.Max(squared, 0f));
+        }
+
+        /// <summary>
+        /// A drum, a diamond, a sphere and a box stacked on one spine and finished with a tenon - four
+        /// solids that would each be a whole level elsewhere, spent as beads on one necklace - painted by a
+        /// single sweep that ignores where one bead ends and the next begins. The block's purest style
+        /// statement and its safest build: a solid axial stack whose narrowest waists are 12-cell discs,
+        /// nowhere near mush or single-path territory.
+        /// <para>
+        /// <b>The beads, top to bottom by levels below the glass</b> (see <see cref="LevelsBelowGlass"/>):
+        /// the DRUM at d 0..5, a disc of <see cref="TOTEM_DRUM"/> flaring through a
+        /// <see cref="TOTEM_SHOULDER"/> course into a two-level <see cref="TOTEM_SKIRT"/> eave; the
+        /// OCTAHEDRON at d 6..13, taxicab courses <see cref="TOTEM_DIAMOND"/> out to 5 and back - the
+        /// lattice confessing, since its taxicab faces are the true close-packing planes; the SPHERE at
+        /// d 14..20 on <see cref="TOTEM_SPHERE"/>; the BOX at d 21..27, a plan square of
+        /// <see cref="TOTEM_BOX"/>; and the two-level TENON at <see cref="TOTEM_TENON"/>. Every junction
+        /// overlaps in plan, so the stack is one connected spine and no bead hangs off a point.
+        /// </para>
+        /// <para>
+        /// <b>The eave is the packing made visible</b> and it is the one graft in the design: the skirt
+        /// courses stand a full cell proud of the shoulder above them, and their rim cells nest half a cell
+        /// into that course's pockets - inside the lattice's 0.71-cell cross-level reach, which is why
+        /// <see cref="TOTEM_SHOULDER"/> is 3.7 and not 3.4. It turns the drum into a proper bead cap and
+        /// adds the silhouette's fifth event.
+        /// </para>
+        /// <para>
+        /// The sweep is the block's plain helicoid - one stop every <see cref="TOTEM_PER_STOP"/> levels of
+        /// climb, sheared round the one axis all four beads share at <see cref="TOTEM_PITCH"/> levels a
+        /// turn - and the point of the level is that it does not know about the beads at all: it bends over
+        /// the diamond's facets, pinches over the sphere's equator and squares off round the box, one
+        /// gradient against four discontinuities. <see cref="REEF"/> puts white MID-ramp between cyan and
+        /// orange, which no family in the first hang does. It was drawn as a fold over the ANGLE first and
+        /// measured four standing groups; <see cref="TotemColour"/> carries that finding.
+        /// </para>
+        /// <para>
+        /// Gate watch (#255), in the spec's order: BOX-CORNER CONNECTIVITY at d 21 first - the box's top
+        /// course must hook the sphere's last course, and it is drawn in the centred frame rather than as a
+        /// raw index range precisely so that it does. d 21 is an unshifted level, so the square is inset to
+        /// half-integers and its corners stand at r 2.12 against the sphere's closing 2.4, every one of
+        /// them under an occupied cell; the pre-authorised remedy if the report still floats four columns
+        /// is widening TOTEM_SPHERE's last entry to 2.8 rather than shaving the box. Second: the two-level
+        /// tenon is 21 cells over two levels against four stops and is the one place here the repair pass
+        /// may churn - if it does, deepen it to three levels (TOTEM_DEPTH 31 with TOTEM_FIELD_LEVELS 33,
+        /// which keeps the offset even). Third: the grafted skirt takes the widest radius to 4.2, so
+        /// occupied columns should read 2..10 on the shifted levels and 3..10 on the unshifted ones - the
+        /// margin is the diamond's, not the drum's, and taxicab 5 puts that at exactly one clear column.
+        /// </para>
+        /// </summary>
+        private static Design Totem() => new()
+        {
+            File = "Totem.json",
+            Name = "Totem",
+            Grid = TOTEM_GRID,
+            Depth = TOTEM_DEPTH,
+            FieldLevels = TOTEM_FIELD_LEVELS,
+            Scene = SPECTRUM_SCENE,
+            Sky = SPECTRUM_SKY,
+            Music = MUSIC_SPECTRUM,
+            Shots = 50,
+            CeilingStep = 5,
+            Occupied = TotemOccupied,
+            Colour = TotemColour,
+        };
+
+        //THE TOTEM'S OWN FIGURES. Thirty levels in a field of 32 - the offset is 2 and even, which is what
+        //keeps every course's level parity where it was drawn.
+        private const byte TOTEM_GRID = 13;
+        private const byte TOTEM_DEPTH = 30;
+        private const byte TOTEM_FIELD_LEVELS = 32;
+
+        //Where one bead ends, counted in levels below the glass: drum 0..5, octahedron 6..13, sphere
+        //14..20, box 21..27, tenon 28..29.
+        private const int TOTEM_DRUM_LAST = 5;
+        private const int TOTEM_DIAMOND_LAST = 13;
+        private const int TOTEM_SPHERE_LAST = 20;
+        private const int TOTEM_BOX_LAST = 27;
+
+        //The drum and its grafted eave: three courses of DRUM, one SHOULDER course, then two of SKIRT. The
+        //shoulder exists only so the skirt's rim has an up-neighbour - see the design's doc.
+        private const float TOTEM_DRUM = 3.4f;
+        private const float TOTEM_SHOULDER = 3.7f;
+        private const float TOTEM_SKIRT = 4.2f;
+        private const int TOTEM_SHOULDER_D = 3;
+
+        //The octahedron's taxicab half-widths, one per course from d 6. Five is the widest thing in the
+        //level and it is what sets the lateral margin: taxicab 5 reaches column 1 and column 11 of 13.
+        private static readonly int[] TOTEM_DIAMOND = { 2, 3, 4, 5, 5, 4, 3, 2 };
+
+        //The sphere's radii, one per course from d 14. Its last entry is the box's only anchor, which is
+        //the gate's first check.
+        private static readonly float[] TOTEM_SPHERE = { 2.4f, 3.1f, 3.5f, 3.6f, 3.5f, 3.1f, 2.4f };
+
+        //The box's half-width as a PLAN SQUARE in the centred frame rather than a raw index range. Both
+        //readings of a square wobble by half a cell against the lattice - the shifted levels sample it at
+        //integers and the unshifted ones at half-integers - and this one wobbles about the axis the other
+        //four beads are turned on, where a fixed index range would sit half a cell off it on every second
+        //course. At 2.2 the courses come out 5 and 4 cells a side in alternation, which is what the same
+        //alternation already does to every disc in the block.
+        private const float TOTEM_BOX = 2.2f;
+        private const float TOTEM_TENON = 1.8f;
+
+        //THE SWEEP, in the block's own two figures (see TotemColour for what they replaced and why). PER_STOP
+        //is how many levels of climb one stop is worth and PITCH how many levels of sweep a full turn round
+        //the axis carries: PITCH over PER_STOP is 6, which is REEF's folded period, so one turn walks the
+        //family out and back and every stop stands on the top level in a wedge. Over thirty levels that is
+        //two whole folds down the totem, which is the gradient crossing all four bead junctions twice.
+        private const float TOTEM_PER_STOP = 2.5f;
+        private const float TOTEM_PITCH = 15f;
+
+        //The post the beads are threaded on, and the sweep's own step across it - three stops is half of
+        //REEF's folded six, the offset that cannot land on the colour it is separating. See TotemColour.
+        private const float TOTEM_SPINE = 1.4f;
+        private const float TOTEM_SPINE_STEP = 3f;
+
+        private static bool TotemOccupied(float r, float ang, int i, int depth)
+        {
+            int d = LevelsBelowGlass(i, depth);
+
+            if (d <= TOTEM_DRUM_LAST)
+                return r <= (d < TOTEM_SHOULDER_D ? TOTEM_DRUM
+                    : d == TOTEM_SHOULDER_D ? TOTEM_SHOULDER
+                    : TOTEM_SKIRT);
+
+            //The taxicab distance is an exact integer at BOTH parities (half-integer dx and dz sum to a
+            //whole one), so the test is written against m + HALF: a whole half-cell of slack round a value
+            //the float arithmetic would otherwise be free to land a hair either side of.
+            if (d <= TOTEM_DIAMOND_LAST)
+                return PlanTaxicab(r, ang) <= TOTEM_DIAMOND[d - TOTEM_DRUM_LAST - 1] + HALF;
+
+            if (d <= TOTEM_SPHERE_LAST) return r <= TOTEM_SPHERE[d - TOTEM_DIAMOND_LAST - 1];
+            if (d <= TOTEM_BOX_LAST) return PlanChebyshev(r, ang) <= TOTEM_BOX;
+
+            return r <= TOTEM_TENON;
+        }
+
+        //The whole level in one line, which is the design: the sweep is a function of the angle and the
+        //height and of nothing the beads know about.
+        //
+        //IT IS THE BLOCK'S CANONICAL HELICOID and it was NOT, first time round. Written as a fold over the
+        //ANGLE with a slow drift down (a quarter turn over the whole stack), every stop came out as a
+        //near-vertical stave running the full thirty levels - and the beads are SOLID, so the staves of a
+        //colour met each other through the spine and the level measured FOUR standing groups, one per
+        //colour, a 919-ball tower a perfect player takes in four shots. That is the Icicle's own recorded
+        //failure arriving from the other side (its doc: "the six standing groups become four - one per
+        //colour, the whole level in four shots"), and the fix is the rule the block already states: the
+        //sweep runs DOWN at TOTEM_PER_STOP levels a stop with the angle only shearing it, at a pitch of one
+        //whole folded family a turn. A stop is then a ribbon one turn long whose neighbour above and below
+        //is a different stop, so it cannot touch itself, and the gradient crossing the four bead junctions
+        //- the point of the level - reads harder rather than softer for running down the totem's length.
+        //THE SPINE IS WHAT KEEPS THE WEDGES APART, and it is the second thing this level had to be told.
+        //With the helicoid alone it still measured four standing groups, and the axis is the reason: a
+        //wedge is a radial slab from the surface to the middle, so ALL of them meet where the beads are
+        //solid, and the two wedges a folded family gives a colour - stop k and stop (period - k) - fuse
+        //there however cleanly the sweep divides the shell. The Icicle never met this because its cone
+        //draws in to a tip barely a cell across; a drum 4.2 wide has a real core. So the spine takes the
+        //sweep HALF A FOLD out of step (TOTEM_SPINE_STEP of REEF's six), which is both a fix and the honest
+        //reading of the object: a totem's beads are threaded on a post, and the post is painted too.
+        private static BallType TotemColour(float r, float ang, int i, int depth)
+        {
+            float stops = (LevelsBelowGlass(i, depth) + TOTEM_PITCH * (WrapAngle(ang) / MathF.Tau)) / TOTEM_PER_STOP;
+
+            return Sweep(r <= TOTEM_SPINE ? stops + TOTEM_SPINE_STEP : stops, REEF);
+        }
+
+        /// <summary>
+        /// A pinecone whose spiral scale arms are each one pure colour - <b>the gradient is the
+        /// phyllotaxis</b>. Every other level in the chapter sweeps its family across a body; here the
+        /// body's own anatomy and the sweep are the same object, and what the player sees is the lattice's
+        /// own close packing standing up as eight helical arms of frozen colour.
+        /// <para>
+        /// <b>The gradient runs ALONG the arms, and the first cut of this design ran it across them.</b>
+        /// Written to hold one stop constant down each arm - an arm a pure colour, which is what the pitch
+        /// promised - it measured <b>four standing groups on 917 balls</b>: eight arms fold onto four stops,
+        /// so the two arms of a colour met each other through the solid core and every colour became one
+        /// group a perfect player takes in a single shot. The phyllotaxis is untouched by the fix, because
+        /// what carries the family is still the arm and nothing else: the stop steps one every
+        /// <see cref="PINECONE_PER_STOP"/> levels down an arm's own descent, and <see cref="PineconeArmIndex"/>
+        /// offsets it by a whole stop per arm, so the eight arms show eight consecutive stops at any height
+        /// and no two neighbours ever agree. The gradient is read along the spirals now instead of across
+        /// them - which is the one reading in which a pinecone's own geometry is doing the work.
+        /// </para>
+        /// <para>
+        /// <see cref="PINECONE_TURN"/> is therefore geometry alone now, where it used to be geometry and
+        /// colour at once: it is how fast the eight arms wind, and <see cref="PineconeArmIndex"/> reads the
+        /// same figure only to know which arm a cell is on.
+        /// </para>
+        /// <para>
+        /// The body is a solid ovoid core (<see cref="PineconeCore"/>, a half sine from
+        /// <see cref="PINECONE_CORE"/> to 3.6 and cut short at the tip) with the scales as same-level
+        /// lateral appendages on every other course - so there is nothing hanging free anywhere and the
+        /// physical risk is near zero. The core spirals with the arms, because it is painted by the same
+        /// rule.
+        /// </para>
+        /// <para>
+        /// Gate watch (#255), in the spec's order: THE ARM-LOCK ARITHMETIC against
+        /// <c>BallsMap.GetRealPosition</c> first - the odd levels' half-shift enters the atan2 the sweep is
+        /// built on, so dump one arm's colour column before believing anything else about this level. A
+        /// sign slip in the sweep's minus sign is the whole failure mode. Second: lonely balls where an
+        /// 18-degree wedge catches only two cells at small core radius - if the repair pass churns the top
+        /// courses, raise <see cref="PINECONE_SCALE_FIRST"/> to 6, where the core is already 2.7 across;
+        /// the half-angle may go to 22 degrees (0.384) before that, and <see cref="PINECONE_TURN"/> must
+        /// not move at all or the lock breaks. Third and unflagged by the spec: the core carries the arms'
+        /// own stripe colours, so a stop is one connected body from crown to tip and the report will show
+        /// very FEW standing groups - if it shows four, the level is four shots long whatever the budget
+        /// says, and the fix is to break the core's stripe rather than to spend shots.
+        /// </para>
+        /// </summary>
+        private static Design Pinecone() => new()
+        {
+            File = "Pinecone.json",
+            Name = "Pinecone",
+            Grid = PINECONE_GRID,
+            Depth = PINECONE_DEPTH,
+            FieldLevels = PINECONE_FIELD_LEVELS,
+            Scene = SPECTRUM_SCENE,
+            Sky = SPECTRUM_SKY,
+            Music = MUSIC_SPECTRUM,
+            Shots = 52,
+            CeilingStep = 4,
+            Occupied = PineconeOccupied,
+            Colour = PineconeColour,
+        };
+
+        //THE PINECONE'S OWN FIGURES. Twenty-six levels in a field of 30: the offset is 4 and even.
+        private const byte PINECONE_GRID = 13;
+        private const byte PINECONE_DEPTH = 26;
+        private const byte PINECONE_FIELD_LEVELS = 30;
+
+        //Crown at d 0..1, body at d 2..23, tip below it. The crown is a plain disc because it is the level
+        //everything hangs from and it has to carry all four stops across a full circle.
+        private const float PINECONE_CROWN = 3.0f;
+        private const int PINECONE_BODY_FIRST = 2;
+        private const int PINECONE_BODY_LAST = 23;
+        private const float PINECONE_TIP = 1.5f;
+
+        //The ovoid: a half sine from CORE at the shoulder out to CORE + SWELL at d 14 and back. SPAN is a
+        //couple of levels longer than the body, so the profile is cut short at 2.49 rather than closing to
+        //the core radius - the tip disc takes it from there.
+        private const float PINECONE_CORE = 1.8f;
+        private const float PINECONE_SWELL = 1.8f;
+        private const float PINECONE_BODY_SPAN = 24f;
+
+        //The scales: eight bumps on every other course, standing SCALE_OUT proud of the core and
+        //SCALE_HALF either side of their arm's centre. 18 degrees at a core of 3.6 is two and a half cells
+        //of arc, which is a bump rather than a strand; 22 degrees (0.384) is the pre-authorised widening.
+        private const int PINECONE_SCALES = 8;
+        private const int PINECONE_SCALE_FIRST = 4;
+        private const int PINECONE_SCALE_LAST = 22;
+        private const float PINECONE_SCALE_OUT = 1.2f;
+        private const float PINECONE_SCALE_HALF = 0.314f;
+
+        //THE LOCK. One figure, read twice: the arms turn this much a level and the sweep unwinds by exactly
+        //the same, so the fold coordinate is constant along an arm. It is the design and it does not move.
+        private const float PINECONE_TURN = 0.045f;
+
+        //How many levels of an arm's own descent one stop is worth. Twenty-two body levels over a fold of
+        //six stops is a little under four folds down an arm, so a scale arm is read as a colour ramp
+        //rather than as a stripe - and neighbouring arms, offset a stop by their index, never agree.
+        private const float PINECONE_PER_STOP = 4f;
+
+        private static float PineconeCore(int d) =>
+            PINECONE_CORE + PINECONE_SWELL
+            * MathF.Sin(MathF.PI * (d - PINECONE_BODY_FIRST) / PINECONE_BODY_SPAN);
+
+        /// <summary>The centre of whichever of the eight arms this bearing is nearest, at this height.</summary>
+        private static float PineconeArm(float ang, int d)
+        {
+            float step = MathF.Tau / PINECONE_SCALES;
+            float seat = d * PINECONE_TURN * MathF.Tau;
+
+            return seat + MathF.Round((ang - seat) / step) * step;
+        }
+
+        private static bool PineconeOccupied(float r, float ang, int i, int depth)
+        {
+            int d = LevelsBelowGlass(i, depth);
+
+            if (d < PINECONE_BODY_FIRST) return r <= PINECONE_CROWN;
+            if (d > PINECONE_BODY_LAST) return r <= PINECONE_TIP;
+
+            float core = PineconeCore(d);
+            if (r <= core) return true;
+
+            //A scale course every other level, which is what makes each course nest into the pockets of
+            //the one two levels above it. d is never negative, so the parity test is safe as written.
+            if (d % 2 != 0 || d < PINECONE_SCALE_FIRST || d > PINECONE_SCALE_LAST) return false;
+            if (r > core + PINECONE_SCALE_OUT) return false;
+
+            return MathF.Abs(WrapAngle(ang - PineconeArm(ang, d))) <= PINECONE_SCALE_HALF;
+        }
+
+        //THE GRADIENT RUNS ALONG THE ARMS, and that is the design after the first cut of it was measured.
+        //Written to hold one stop CONSTANT down each arm - the "lock" - the eight arms came out as eight
+        //pure staves, and since eight arms fold onto four stops the two arms of a colour met each other
+        //through the solid core: FOUR standing groups on 917 balls, a level a perfect player takes in four
+        //shots. The phyllotaxis survives the fix intact, because what carries the family is still the arm
+        //and nothing else: the stop walks the ramp DOWN an arm's own length, one every PINECONE_PER_STOP
+        //levels, and the arm INDEX offsets it by a stop, so the eight arms show eight consecutive stops at
+        //any height and no two neighbours ever agree. The gradient is still the phyllotaxis - it is read
+        //along the spirals now instead of across them.
+        private static BallType PineconeColour(float r, float ang, int i, int depth)
+        {
+            int d = LevelsBelowGlass(i, depth);
+
+            return Sweep(d / PINECONE_PER_STOP + PineconeArmIndex(ang, d), BRONZE);
+        }
+
+        /// <summary>
+        /// Which of the eight arms a bearing belongs to at this height, as a signed integer - the same
+        /// rounding <see cref="PineconeArm"/> does, kept as the index rather than turned back into an
+        /// angle. It goes straight into <see cref="Sweep"/>, which normalises a negative stop itself.
+        /// </summary>
+        private static int PineconeArmIndex(float ang, int d)
+        {
+            float step = MathF.Tau / PINECONE_SCALES;
+            float seat = d * PINECONE_TURN * MathF.Tau;
+
+            return (int)MathF.Round((ang - seat) / step);
+        }
+
+        /// <summary>
+        /// A lightning bolt frozen mid-strike: a chamfered square column that jogs sideways at gusseted
+        /// elbows and never hangs still. Everything else in the block is a solid of revolution or a woven
+        /// surface - this is a column that refuses its own axis, and the sweep corkscrews around each
+        /// broken segment separately.
+        /// <para>
+        /// <b>Five segments of <see cref="BOLT_SEGMENT"/> levels</b>, their centres jogging three columns
+        /// at a time (<see cref="BOLT_CENTRES"/>), each a 5x5 with the four corner cells cut - 21 cells a
+        /// level, the smallest cross-section in the block and the reason this is the tightest budget of the
+        /// five.
+        /// </para>
+        /// <para>
+        /// <b>The elbows are plates, not hinges, and they carry the grafted weld knot.</b> Each jog is
+        /// taken by the LOWER segment's top two levels spread across both footprints with the corners kept,
+        /// plus a row at z 4 and z 10 across the overlap (<see cref="BOLT_KNOT"/>) - 50 to 70 cells of
+        /// socket-rich junction where a naive zigzag would leave a one-column hinge. The remedy for a
+        /// marginal sag test is therefore already built in rather than held in reserve.
+        /// </para>
+        /// <para>
+        /// The sweep is a helicoid about the COLUMN'S OWN axis: the angle is measured from that level's
+        /// segment centre, so it steps sideways with the jog and the gradient starts again round each
+        /// broken piece. A plate is coloured about the lower segment's centre, which is the segment it
+        /// belongs to. <see cref="VOLT"/> runs hot filament to cold sky and the yellow start is the
+        /// family's identity.
+        /// </para>
+        /// <para>
+        /// Gate watch (#255), in the spec's order: LONELY BALLS on the 21-cell cross-section first - four
+        /// stops on a 16-cell perimeter is a two-cell wedge and at <see cref="BOLT_PITCH"/> about two and a
+        /// half levels tall, which sits right on the floor; if the repair pass churns, drop the pitch to
+        /// 0.04 (it keeps the silhouette) and only then widen to an unchamfered 5x5. Second: the per-segment
+        /// centre must switch exactly at the plate levels or a colour tear appears at every elbow - it does
+        /// here because <see cref="BoltCentre"/> answers for the level rather than for the segment, and one
+        /// elbow's colour columns are what confirms it. Third: VOLT ends in blue where FROST's
+        /// <see cref="Icicle"/> ends in navy, so read the two against the dawn dome at distance; if the cold
+        /// tail muddles, reorder the family to yellow, green, blue, cyan rather than changing any hue.
+        /// </para>
+        /// </summary>
+        private static Design Bolt() => new()
+        {
+            File = "Bolt.json",
+            Name = "Bolt",
+            Grid = BOLT_GRID,
+            Depth = BOLT_DEPTH,
+            FieldLevels = BOLT_FIELD_LEVELS,
+            Scene = SPECTRUM_SCENE,
+            Sky = SPECTRUM_SKY,
+            Music = MUSIC_SPECTRUM,
+            Shots = 44,
+            CeilingStep = 6,
+            OccupiedBlock = (x, z, i, depth) => BoltOccupied(x, z, LevelsBelowGlass(i, depth)),
+
+            //BlockColour is not handed the layout depth - the raw frame was written for a bitmap, which has
+            //none - so the sweep's own axis is measured off BOLT_DEPTH, which is the figure Depth above is
+            //set from. Stating it twice is what the constant is for.
+            BlockColour = (x, z, i) => BoltColour(x, z, LevelsBelowGlass(i, BOLT_DEPTH)),
+        };
+
+        //THE BOLT'S OWN FIGURES. Thirty levels in a field of 32: the offset is 2 and even. The column is
+        //drawn in the RAW frame like the Quarry's blocks, because a jog is a statement about indices.
+        private const byte BOLT_GRID = 15;
+        private const byte BOLT_DEPTH = 30;
+        private const byte BOLT_FIELD_LEVELS = 32;
+
+        //The cross-section: five wide about the segment centre, z 5..9 about z 7, corners cut.
+        private const int BOLT_HALF = 2;
+        private const int BOLT_Z_LO = 5;
+        private const int BOLT_Z_MID = 7;
+        private const int BOLT_Z_HI = 9;
+
+        //Six levels a segment and the top two of each lower segment given over to its elbow plate; the
+        //knot reaches one column past the overlap and one row past the section, at z 4 and z 10.
+        private const int BOLT_SEGMENT = 6;
+        private const int BOLT_PLATE = 2;
+        private const int BOLT_KNOT = 1;
+
+        //Where each segment stands, top to bottom - x 7 is the field's own centre and the jogs are three
+        //columns at a time, so the extremes are x 3 and x 12 of 15 and the margin is two clear columns.
+        private static readonly int[] BOLT_CENTRES = { 7, 10, 5, 9, 6 };
+
+        //Turns of the fold a level about the segment's own axis. 0.04 is the pre-authorised drop if the
+        //two-cell wedges come out under the lonely-ball floor.
+        private const float BOLT_PITCH = 0.05f;
+
+        /// <summary>Which column this level's segment stands on, plates included - they belong to the segment BELOW.</summary>
+        private static int BoltCentre(int d) =>
+            BOLT_CENTRES[Math.Min(d / BOLT_SEGMENT, BOLT_CENTRES.Length - 1)];
+
+        private static bool BoltOccupied(int x, int z, int d)
+        {
+            int xc = BoltCentre(d);
+
+            //An elbow plate: the lower segment's top two levels, spanning both footprints with the corners
+            //KEPT, plus the knot's two rows across the overlap
+            if (d >= BOLT_SEGMENT && d % BOLT_SEGMENT < BOLT_PLATE)
+            {
+                int up = BoltCentre(d - BOLT_SEGMENT);
+                int lo = Math.Min(xc, up), hi = Math.Max(xc, up);
+
+                if (z == BOLT_Z_LO - 1 || z == BOLT_Z_HI + 1)
+                    return x >= lo - BOLT_KNOT && x <= hi + BOLT_KNOT;
+
+                return x >= lo - BOLT_HALF && x <= hi + BOLT_HALF && z >= BOLT_Z_LO && z <= BOLT_Z_HI;
+            }
+
+            if (x < xc - BOLT_HALF || x > xc + BOLT_HALF || z < BOLT_Z_LO || z > BOLT_Z_HI) return false;
+
+            //The chamfer: the four corners of the square, which is what takes the section from 25 to 21
+            return Math.Abs(x - xc) != BOLT_HALF || Math.Abs(z - BOLT_Z_MID) != BOLT_HALF;
+        }
+
+        private static BallType BoltColour(int x, int z, int d)
+        {
+            //Measured from the level's OWN segment centre, which is what makes the gradient corkscrew round
+            //each broken piece rather than round a line the column left behind three jogs ago
+            float ang = MathF.Atan2(z - BOLT_Z_MID, x - BoltCentre(d));
+
+            return Fold(ang / MathF.Tau + BOLT_PITCH * d, VOLT);
+        }
+
+        /// <summary>
+        /// Five garnet candles of five different lengths hanging from one crown: cut a candle's arm and the
+        /// whole fixture rocks. The pack's best player agency - the player chooses which candle to
+        /// extinguish, in what order, against the ceiling clock - and every extinguishing visibly
+        /// rebalances what is left.
+        /// <para>
+        /// <b>The crown is a solid disc bonded to the glass across its whole area</b>
+        /// (<see cref="GIRANDOLE_CROWN"/>, d 0..1), and under it two arm levels: a hub plus an annulus
+        /// which exists only within <see cref="GIRANDOLE_ARM_HALF"/> of each spire's bearing. The middle
+        /// stays open below - there is no central spire - so the thing reads as a fixture rather than as a
+        /// chandelier-shaped solid.
+        /// </para>
+        /// <para>
+        /// <b>The arms carry the grafted weld knot</b>, which is Shackle's one great idea applied to the
+        /// design whose whole risk lives in its junctions: the annulus is widened to
+        /// <see cref="GIRANDOLE_ARM_IN"/>..<see cref="GIRANDOLE_ARM_OUT"/> across 26 degrees rather than 20,
+        /// so each arm level is 14 to 18 cells welding upward into the full crown disc.
+        /// </para>
+        /// <para>
+        /// Each spire is a solid column of plan radius <see cref="GIRANDOLE_ROOT"/> tapering to
+        /// <see cref="GIRANDOLE_TIP"/> - above the 1.3 mush limit, <see cref="Column"/>'s precedent for
+        /// hanging a solid column - standing at <see cref="GIRANDOLE_RING"/> off the axis, and the five run
+        /// <see cref="GIRANDOLE_LENGTHS"/> levels. Below the arms they are deliberately independent of one
+        /// another: that is the physics. The sweep is the plain helicoid, so a spire sits at a fixed bearing
+        /// and burns DOWN the family, changing stop about every three levels into rings of some twenty
+        /// balls, and the five bearings are a fifth of a turn apart so no two candles show one colour at one
+        /// height.
+        /// </para>
+        /// <para>
+        /// Gate watch (#255), in the spec's order: THE UNSHOT SAG TEST ON THE ARMS first and before
+        /// anything else - a two-level wedge carrying a 24-level solid spire is this design's entire risk
+        /// budget, and the knots are a countermeasure rather than a proof. If it sags even so, deepen the
+        /// arms to three levels (push the spires to d 5, GIRANDOLE_DEPTH 29 with GIRANDOLE_FIELD_LEVELS 33,
+        /// which keeps the offset even) before touching a spire length. Second: confirm a dropped 24-level
+        /// spire stays under the drop gate - it is about a fifth of the cluster, so it will, but run it.
+        /// Third: check that no two ADJACENT candles wear one stop at one height, or the drop test can
+        /// chain them through the crown. And one the spec did not flag: at ROOT 1.9 the five discs stand
+        /// 4.47 apart centre to centre and can KISS through a lattice diagonal near their tops, which would
+        /// weld the fixture into one body and take the level's whole physics moment with it - if the report
+        /// shows one giant group where five were drawn, push GIRANDOLE_RING to 4.2, which the margin still
+        /// carries.
+        /// </para>
+        /// </summary>
+        private static Design Girandole() => new()
+        {
+            File = "Girandole.json",
+            Name = "Girandole",
+            Grid = GIRANDOLE_GRID,
+            Depth = GIRANDOLE_DEPTH,
+            FieldLevels = GIRANDOLE_FIELD_LEVELS,
+            Scene = SPECTRUM_SCENE,
+            Sky = SPECTRUM_SKY,
+            Music = MUSIC_SPECTRUM,
+            Shots = 54,
+            CeilingStep = 5,
+            Occupied = GirandoleOccupied,
+            Colour = GirandoleColour,
+        };
+
+        //THE GIRANDOLE'S OWN FIGURES. Twenty-eight levels in a field of 32: the offset is 4 and even.
+        private const byte GIRANDOLE_GRID = 15;
+        private const byte GIRANDOLE_DEPTH = 28;
+        private const byte GIRANDOLE_FIELD_LEVELS = 32;
+
+        //The crown, its two arm levels, and the hub in the middle of them.
+        private const int GIRANDOLE_CROWN_LAST = 1;
+        private const int GIRANDOLE_ARM_LAST = 3;
+        private const float GIRANDOLE_CROWN = 4.6f;
+        private const float GIRANDOLE_HUB = 1.6f;
+
+        //The grafted knot: the annulus each arm cuts out of its two levels, and how far either side of its
+        //spire's bearing it reaches. 26 degrees rather than the drawn 20, 2.8..5.0 rather than 3.0..4.8.
+        private const float GIRANDOLE_ARM_IN = 2.8f;
+        private const float GIRANDOLE_ARM_OUT = 5.0f;
+        private const float GIRANDOLE_ARM_HALF = 0.454f;
+
+        //The candles: five of them on a ring of RING, starting at d 4, ROOT across at the arm and tapering
+        //to TIP at whatever level each one ends on. RING is the one number to move if the five weld into
+        //one body - see the design's doc.
+        private const int GIRANDOLE_SPIRES = 5;
+        private const int GIRANDOLE_SPIRE_FIRST = 4;
+        private const float GIRANDOLE_RING = 3.8f;
+        private const float GIRANDOLE_ROOT = 1.9f;
+        private const float GIRANDOLE_TIP = 1.6f;
+
+        //Five lengths, so five fates and five different silhouettes as the level comes down: tips at
+        //d 27, 19, 23, 27 and 19. Two long, two short and one between is what keeps the fixture asymmetric
+        //whichever candle goes first.
+        private static readonly int[] GIRANDOLE_LENGTHS = { 24, 16, 20, 24, 16 };
+
+        //Turns of the fold a level: one stop about every three levels, which is a ring of some twenty balls
+        //on a spire and a wedge of the crown up top.
+        private const float GIRANDOLE_PITCH = 0.04f;
+
+        /// <summary>The bearing of whichever of the five spires this angle is nearest.</summary>
+        private static float GirandoleSeat(float ang)
+        {
+            float step = MathF.Tau / GIRANDOLE_SPIRES;
+
+            return MathF.Round(ang / step) * step;
+        }
+
+        /// <summary>Whether the cell is inside spire <paramref name="k"/> at this height.</summary>
+        private static bool GirandoleSpire(float r, float ang, int d, int k)
+        {
+            int length = GIRANDOLE_LENGTHS[k];
+            if (d >= GIRANDOLE_SPIRE_FIRST + length) return false;
+
+            float seat = k * MathF.Tau / GIRANDOLE_SPIRES;
+            float taper = (d - GIRANDOLE_SPIRE_FIRST) / (length - 1f);
+
+            return PlanDistance(r, ang, GIRANDOLE_RING, seat)
+                   <= GIRANDOLE_ROOT + (GIRANDOLE_TIP - GIRANDOLE_ROOT) * taper;
+        }
+
+        private static bool GirandoleOccupied(float r, float ang, int i, int depth)
+        {
+            int d = LevelsBelowGlass(i, depth);
+
+            if (d <= GIRANDOLE_CROWN_LAST) return r <= GIRANDOLE_CROWN;
+
+            if (d <= GIRANDOLE_ARM_LAST)
+            {
+                if (r <= GIRANDOLE_HUB) return true;
+                if (r < GIRANDOLE_ARM_IN || r > GIRANDOLE_ARM_OUT) return false;
+
+                return MathF.Abs(WrapAngle(ang - GirandoleSeat(ang))) <= GIRANDOLE_ARM_HALF;
+            }
+
+            for (int k = 0; k < GIRANDOLE_SPIRES; k++)
+                if (GirandoleSpire(r, ang, d, k)) return true;
+
+            return false;
+        }
+
+        //The plain helicoid about the fixture's own axis, so a candle standing at a fixed bearing burns
+        //down the family and the crown above it shows all four stops at once.
+        private static BallType GirandoleColour(float r, float ang, int i, int depth) =>
+            Fold(ang / MathF.Tau + GIRANDOLE_PITCH * LevelsBelowGlass(i, depth), GARNET);
+
+        /// <summary>
+        /// An aurora curtain folded in plan: <b>the colour folds exactly where the wall creases</b>, then
+        /// shears diagonally as it falls. The block's own law - a sweep runs out through the family and
+        /// back, never wrapping - built here as architecture, so the player can stand at a crease and watch
+        /// the gradient physically turn around. The chapter's most tell-a-friend idea and its riskiest
+        /// build, which is why it sits last and behind the sternest gate.
+        /// <para>
+        /// <b>The wall is a plan polyline</b> (<see cref="PLEAT_X"/>, <see cref="PLEAT_Z"/>): a W of three
+        /// equal panels, each (3, 6) and 6.71 cells long, thickened to <see cref="PLEAT_THICK"/> - about
+        /// two cells - and run the full height. <b><see cref="PLEAT_FOLDS"/> fold periods over three
+        /// panels</b> is the whole trick: half a period a panel means each panel sweeps the entire family
+        /// once and the sweep reverses at t = 1/3 and t = 2/3, which is exactly where the wall creases.
+        /// The <see cref="PLEAT_PITCH"/> per level then shears the pattern sideways, so luminous diagonals
+        /// rake across the pleats instead of standing square on them.
+        /// </para>
+        /// <para>
+        /// <b>Everything else about the silhouette is a countermeasure to the curtain-sag death mode</b> -
+        /// 26 levels of two-thick free-hanging wall is what killed the first Ziggurat. The two creases are
+        /// full-height folded-plate stiffeners by construction; the header is widened to
+        /// <see cref="PLEAT_HEADER"/> (the grafted eave shoulder, 1.8 rather than the drawn 1.5, so the top
+        /// course welds to the glass on a genuinely wider foot and both crease columns inherit double-width
+        /// anchors); a hem stiffens the wall at mid-height; and the two end posts run the full height so no
+        /// panel is ever a free sheet edge.
+        /// </para>
+        /// <para>
+        /// Gate watch (#255), in the spec's order: THE UNSHOT SAG TEST first and before any colouring work
+        /// at all - the remedies in order are a second hem at d 19..20, then thickening the wall to 2.5.
+        /// Second: t is the arclength along the WHOLE polyline and not per segment (see
+        /// <see cref="PleatWall"/>, which answers both questions in one pass) - a per-segment t puts a
+        /// colour tear at each crease, exactly where the design promises a fold. Third: the wall's own
+        /// occupancy per level, since a 1.0 predicate can pinch where the polyline runs diagonally through
+        /// cell centres; the drawing puts three cells on the even rows and two on the odd ones, which is
+        /// clear of a pinch, but the report is what says so - relax PLEAT_THICK to 1.2 where it thins.
+        /// </para>
+        /// </summary>
+        private static Design Pleat() => new()
+        {
+            File = "Pleat.json",
+            Name = "Pleat",
+            Grid = PLEAT_GRID,
+            Depth = PLEAT_DEPTH,
+            FieldLevels = PLEAT_FIELD_LEVELS,
+            Scene = SPECTRUM_SCENE,
+            Sky = SPECTRUM_SKY,
+            Music = MUSIC_SPECTRUM,
+            Shots = 48,
+            CeilingStep = 4,
+            OccupiedBlock = (x, z, i, depth) => PleatOccupied(x, z, LevelsBelowGlass(i, depth)),
+
+            //As with the Bolt: BlockColour is not handed the layout depth, so the sweep's axis is measured
+            //off PLEAT_DEPTH - the same figure Depth above is set from.
+            BlockColour = (x, z, i) => PleatColour(x, z, LevelsBelowGlass(i, PLEAT_DEPTH)),
+        };
+
+        //THE PLEAT'S OWN FIGURES. Twenty-six levels in a field of 30: the offset is 4 and even. Drawn in the
+        //RAW frame, because a wall is a plan drawing and not a solid of revolution.
+        private const byte PLEAT_GRID = 15;
+        private const byte PLEAT_DEPTH = 26;
+        private const byte PLEAT_FIELD_LEVELS = 30;
+
+        //The plan polyline, corner by corner: (2,4) to (5,10) to (8,4) to (11,10). Three EQUAL panels, which
+        //is what lets the arclength be read as (panel + fraction) / panels rather than measured.
+        private static readonly float[] PLEAT_X = { 2f, 5f, 8f, 11f };
+        private static readonly float[] PLEAT_Z = { 4f, 10f, 4f, 10f };
+
+        //The wall's own thickness, the header's (grafted from 1.5, so the top course welds wider), the
+        //mid-height hem's, and the end posts' - each a plan distance to the polyline.
+        private const float PLEAT_THICK = 1.0f;
+        private const float PLEAT_HEADER = 1.8f;
+        private const int PLEAT_HEADER_LAST = 1;
+        private const float PLEAT_HEM = 1.4f;
+        private const int PLEAT_HEM_FIRST = 12;
+        private const int PLEAT_HEM_LAST = 13;
+        private const float PLEAT_POST = 1.5f;
+
+        //How far round each end of the polyline the post reaches. A post is the header's treatment run the
+        //whole height, so the two free vertical edges of the curtain are the two stiffest things in it.
+        private const float PLEAT_POST_REACH = 1.5f;
+
+        //THE FOLD, IN PANELS. 1.5 periods over three equal panels is half a period each, so a panel sweeps
+        //the family once and the sweep turns round AT the crease rather than somewhere along a panel. It is
+        //the one number here that may not move without moving the wall with it.
+        private const float PLEAT_FOLDS = 1.5f;
+        private const float PLEAT_PITCH = 0.04f;
+
+        /// <summary>
+        /// How far the cell stands from the wall's plan polyline, and - through <paramref name="t"/> - how
+        /// far along it, 0 at the first corner and 1 at the last. <b>Both answers are taken over the WHOLE
+        /// polyline in one pass</b>, which is the gate's second check: a per-segment reading gives a crease
+        /// cell two different positions and puts a colour tear exactly where the design promises the fold.
+        /// The panels are equal by construction, so (panel + fraction) / panels IS the normalised
+        /// arclength and nothing has to be measured.
+        /// </summary>
+        private static float PleatWall(int x, int z, out float t)
+        {
+            int panels = PLEAT_X.Length - 1;
+            float best = float.MaxValue;
+
+            t = 0f;
+
+            for (int p = 0; p < panels; p++)
+            {
+                float ax = PLEAT_X[p], az = PLEAT_Z[p];
+                float bx = PLEAT_X[p + 1] - ax, bz = PLEAT_Z[p + 1] - az;
+
+                //The projection onto the panel, CLAMPED to it, so a cell off the end of one answers to the
+                //corner itself rather than to a point out beyond it
+                float u = ((x - ax) * bx + (z - az) * bz) / (bx * bx + bz * bz);
+                u = MathF.Min(MathF.Max(u, 0f), 1f);
+
+                float dx = x - (ax + u * bx), dz = z - (az + u * bz);
+                float dist = MathF.Sqrt(dx * dx + dz * dz);
+
+                if (dist >= best) continue;
+
+                best = dist;
+                t = (p + u) / panels;
+            }
+
+            return best;
+        }
+
+        /// <summary>Whether the cell stands within the post's reach of the polyline's end <paramref name="corner"/>.</summary>
+        private static bool PleatEndPost(int x, int z, int corner)
+        {
+            float dx = x - PLEAT_X[corner], dz = z - PLEAT_Z[corner];
+
+            return dx * dx + dz * dz <= PLEAT_POST_REACH * PLEAT_POST_REACH;
+        }
+
+        private static bool PleatOccupied(int x, int z, int d)
+        {
+            float dist = PleatWall(x, z, out _);
+
+            //The two end posts run the FULL height at the header's own thickness - the curtain's free
+            //vertical edges, and the first thing a sag test leans on
+            if (dist <= PLEAT_POST
+                && (PleatEndPost(x, z, 0) || PleatEndPost(x, z, PLEAT_X.Length - 1)))
+                return true;
+
+            float thickness =
+                d <= PLEAT_HEADER_LAST ? PLEAT_HEADER
+                : d >= PLEAT_HEM_FIRST && d <= PLEAT_HEM_LAST ? PLEAT_HEM
+                : PLEAT_THICK;
+
+            return dist <= thickness;
+        }
+
+        //The sweep rides the WALL'S own coordinate rather than an angle: 1.5 folds along it, sheared by the
+        //pitch as it falls. The creases are at t = 1/3 and 2/3, where 1.5 * t is exactly half and one whole
+        //fold period - which is what makes the colour turn round where the wall does.
+        private static BallType PleatColour(int x, int z, int d)
+        {
+            PleatWall(x, z, out float t);
+
+            return Fold(PLEAT_FOLDS * t + PLEAT_PITCH * d, AURORA);
+        }
 
         #endregion
         #endregion
