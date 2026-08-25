@@ -21,6 +21,16 @@ namespace Prazsky.Core.Render
         /// <summary>Paler up-facing water colour (linear reflectance).</summary>
         public Rgb WaterShallow { get; set; } = new(0.07f, 0.17f, 0.19f);
 
+        /// <summary>
+        /// How much of the body colour is <see cref="WaterShallow"/> regardless of which way the surface
+        /// faces. <b>Zero here, and it must stay zero:</b> the open sea has nothing under it, so its paler
+        /// colour belongs only to the up-facing faces of the swell — which is the rule <c>Sea.fx</c> was
+        /// written with and this scene's whole look is tuned against. It exists for the tropical lagoon,
+        /// which shares this shader and is shallow everywhere (see <see cref="TropicalWaterConfig"/>), and
+        /// at 0 the shader's mix is bit-exactly what it always was.
+        /// </summary>
+        public float ShallowBias { get; set; } = 0f;
+
         /// <summary>Dominant swell height in world units. Kept low enough that the tallest crests stay below the platform.</summary>
         public float WaveAmplitude { get; set; } = 0.6f;
 

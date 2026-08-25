@@ -1401,6 +1401,7 @@ namespace Prazsky.Core.Render
             _seaEffect.Parameters["SeaLevelY"].SetValue(_seaConfig.LevelY);
             _seaEffect.Parameters["WaterColorDeep"].SetValue(_seaConfig.WaterDeep.ToVector3());
             _seaEffect.Parameters["WaterColorShallow"].SetValue(_seaConfig.WaterShallow.ToVector3());
+            _seaEffect.Parameters["ShallowBias"].SetValue(_seaConfig.ShallowBias);
             _seaEffect.Parameters["WaveAmplitude"].SetValue(_seaConfig.WaveAmplitude);
             _seaEffect.Parameters["WaveSteepness"].SetValue(_seaConfig.WaveSteepness);
             _seaEffect.Parameters["WaveSpeed"].SetValue(_seaConfig.WaveSpeed);
@@ -3070,6 +3071,7 @@ namespace Prazsky.Core.Render
             _seaEffect.Parameters["SeaLevelY"].SetValue(_seaConfig.LevelY);
             _seaEffect.Parameters["WaterColorDeep"].SetValue(_seaConfig.WaterDeep.ToVector3());
             _seaEffect.Parameters["WaterColorShallow"].SetValue(_seaConfig.WaterShallow.ToVector3());
+            _seaEffect.Parameters["ShallowBias"].SetValue(_seaConfig.ShallowBias);
             _seaEffect.Parameters["WaveAmplitude"].SetValue(_seaConfig.WaveAmplitude);
             _seaEffect.Parameters["WaveSteepness"].SetValue(_seaConfig.WaveSteepness);
             _seaEffect.Parameters["WaveSpeed"].SetValue(_seaConfig.WaveSpeed);
@@ -3272,6 +3274,7 @@ namespace Prazsky.Core.Render
             _seaEffect.Parameters["SeaLevelY"].SetValue(water.LevelY);
             _seaEffect.Parameters["WaterColorDeep"].SetValue(water.WaterDeep.ToVector3());
             _seaEffect.Parameters["WaterColorShallow"].SetValue(water.WaterShallow.ToVector3());
+            _seaEffect.Parameters["ShallowBias"].SetValue(water.ShallowBias);
             _seaEffect.Parameters["WaveAmplitude"].SetValue(water.WaveAmplitude);
             _seaEffect.Parameters["WaveSteepness"].SetValue(water.WaveSteepness);
             _seaEffect.Parameters["WaveSpeed"].SetValue(water.WaveSpeed);
