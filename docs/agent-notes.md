@@ -1814,4 +1814,26 @@ Za zapamatování z toho zbývá jedna nástrojová věc: **směr se nedal ově�
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-25 (#269 — zavřeno; #129 — zavřeno; #255 — pozastaveno; #270/#271 — volné).*
+## 2026-08-26 — Claude Code (padesátý šestý zápis)
+
+**#255 dokončeno a zavřeno, na mainu jako `bf3a7d6`.** Devadesát levelů, devět kapitol po deseti, `BLOCK_SIZE` 10. Autorská finále si drží desáté místo ve všech blocích (Gem, Zebra, Knot, Lean, Lantern, Colossus, Garland, Globe, Turbine), takže milníky se nehnuly a poslední slovo kampaně má pořád Turbine.
+
+Navázáno na pozastavený stav ze zápisu 55: tři bloky (Coil, Nebula, Arcade) měly kód nakreslený a uložený mimo repo, Reveal jsem dopsal ručně z porotou vybraných zadání.
+
+- **⚠ Nález, který má cenu i mimo tohle issue: `Bolt` prohrál sám od sebe za 1,1 s bez výstřelu — a prošel VŠEMI branami.** Kulička na −7,84 proti čáře smrti −7,50, ještě než se dosedla kamera. Kliku dává celý sloup pod loktem na destičku toho lokte, a dva ze čtyř skoků byly **pět sloupců** proti průřezu sahajícímu dva na každou stranu — ty segmenty se tedy nepřekrývaly **nikde** a spoj nesla sama dvouúrovňová destička. Vazby existovaly, proto byla brána spokojená. Skoky jsou teď tři sloupce (dva sloupce překryvu) a destička tři úrovně. Je to Trellisův vlastní nález na jiném tvaru — *brána, která říká, že vazby existují, neumí říct, že jich je dost* — a najde to jedině pověšení levelu bez výstřelu.
+- **⚠ Sweep složený přes ÚHEL není helikoid** (viz i zápis 55): `Totem` i `Pinecone` měly čtyři stojící skupiny na ~919 kuličkách. Totem dostal kanonický helikoid **plus páteř posunutou o půl složení** (osa je místo, kde se každý radiální klín potká se svým protějškem; buben široký 4,2 má skutečné jádro tam, kde má Icicle špičku) → 19 skupin. Pinecone si nápad udržel — gradient běží **podél** ramen s posunem o stop mezi sousedy → 8.
+- **⚠ Dvě nechtěné plotny.** `Pagoda` brala 88 % clusteru jednou koulí, `Amphora` 81 %, proti balíku, jehož maximum bylo 52. Pagoda je svislý řetěz (patro–střecha–patro), takže každá střecha nese vše pod sebou a jedna barva na kurz z ní udělala plotnu → kvadrantový řez jako u jader, 10 %. Amphora se slévala **přes vlastní osu**: čtyři gore staví dvě oranžové proti sobě (šest na dvou inkoustech srovná sousedy i protějšky → 68 %) a zbytek byla plná pata a krček, kde je každé gore do buňky od každého jiného → vlastní paleta konců, ve **dvou** barvách, protože na krčku váza visí → 12 %. **Roll o jeden krok jsem zkusil první a zhoršil to** — přesně jak Rope zaznamenal: roll o jedna položí barvu SOUSEDNÍHO gore přes hranici úrovně, což je most, ne řez.
+- **`Scales` nedělal, co slibuje jeho vlastní pitch.** Ustřelení vahadla neosiřelo nic: taxicab trubka se skřípne přesně na osách, kde váha leží, a m skočí o dvě přes jednu paritní diagonálu — miska tři buňky od osy se tak dotýkala stěny pět od osy a ramena visela na **krystalu**, ne na vahadle. Misky visí dovnitř → 7 shozených kuliček → 20.
+- **Poměr ran na skupinu není srovnatelný napříč návrhy** (viz zápis 55): `Gantry` seděl na 1,00, tedy doslova na hranici „nedohratelné"; je postavený jen z kaskád, takže tím případem nikdy nebyl, ale level SEDÍCÍ na té čáře nemá rezervu na ránu, co mine → 64 ran, 1,14.
+- **`Kepler` si 85 % nechává schválně** — je to šňůra perel a *ustřel pas a spadne vše pod ním* je jeho nápad. Pás přes devadesát levelů je **5–85 %** a jeho vršek jsou kaskády, které někdo navrhl.
+- **Rampu odemykání jsem přepočítal, ne předpokládal:** par-clear projde každou branou, poslední je 176 hvězd proti 356 dosažitelným (49,4 %, pořád pod polovinou). `PlayerProgress` je klíčovaný jménem souboru, takže uložený postup je nedotčený.
+- **Ověřeno:** 45 nových prošlo třemi branami generátoru, ScoreSim hlásí všech devadesát správně otočených, **25 běhů ve hře PASS `aimcheck` a 40 s viselo bez výstřelu bez sagu**, picker vyfocen při 90 položkách (nadpis, hvězdy i Back stojí, mřížka scrolluje pod nimi — vlastnost, kvůli které ta stránka vznikla), čtyři solutiony čisté.
+- **Postup:** návrh dělal panel (9 designérů × 7 konceptů → 9 porotců → kampáňová koherence), kód psali agenti po blocích a integroval jsem já; celé zadání, roster i drafty leží v `.claude/projects/C--GitHub/255-design/` pro případ, že by se k tomu někdo vracel.
+
+**Majiteli k oku:** koherenční průchod označil jedinou skutečnou srážku, kterou nešlo vyměnit — **Organ (Tower) a Girandole (Spectrum)** jsou obojí řady odstupňovaných svislých sloupů zavěšených z jedné kotvy. Ponechány, protože ani jeden blok neměl v odmítnutém poolu použitelnou náhradu; sedí v jiných kapitolách a jiných rodinách.
+
+**Nic si teď neberu.**
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-26 (#255 — zavřeno, devadesát levelů na mainu; #270/#271 — volné).*
