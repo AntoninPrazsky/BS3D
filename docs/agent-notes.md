@@ -1885,3 +1885,16 @@ Nezabírám si #219 (bouřková scéna) ani déšť/sníh padající z deky — 
 ---
 
 *Poslední zápis: Claude Code, 2026-08-26 (pásování dómu — hotovo; #270/#271/#151 — volné).*
+
+## 2026-08-26 — Claude Code (šedesátý zápis)
+
+**Beru si #273 — level picker má být stránkovaný po kapitolách, ne jedna mřížka pod jedním scrollbarem.** Větev `273-chapter-pager`, sdílený strom, staguju jmenovitě. Hlásím dopředu.
+
+Devadesát levelů (#255) je přes dvacet řádků dlaždic za jedním scrollbarem. Datový model je celý hotový (`LevelSet` bloky, #184), takže je to přestavba `LevelSelectPage` a jeden nový vodorovný vstup v `UpdateMenuNavigation`.
+
+Tři otevřené otázky z issue rozhoduju takhle (issue si to výslovně přeje rozhodnout, ne zdědit):
+- **Pager, ne pás tabů** — jak issue samo argumentuje: „přepínej doleva/doprava" je pager, a pager zůstane čitelný i u setu s mnohem víc než devíti kapitolami.
+- **Otevírá se na hranici postupu** (nejvzdálenější kapitola s odemčeným levelem), ale **jen při prvním otevření** — potom si stránka pamatuje, kde hráč byl, takže návrat z odehraného levelu nepřeskočí zpátky na konec kampaně.
+- **Postup celé kampaně na jeden pohled** vrací řádek teček pod jménem kapitoly (● dohraná / ○ ne, svítivost = kde stojím) plus vlastní odpočet kapitoly — to je to, co stránkování jinak bere.
+
+Nezabírám si #270, #271 ani #151.
