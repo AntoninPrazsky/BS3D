@@ -2052,6 +2052,12 @@ namespace BS3D.Tools.LevelGen
         private const int AMPHORA_NECK_BASE = 10;
         private const float AMPHORA_WALL = 1.0f;
 
+        //Where the vase is narrow enough for every gore to meet every other across the axis - the foot
+        //and the neck, both of which are solid discs. AmphoraColour paints those out of a palette of
+        //their own; see it for the measurement. 2.9 sits between the neck's 2.0 and the first hollow
+        //course at 3.4, so the ends are caught exactly and nothing of the belly is.
+        private const float AMPHORA_PINCH = 2.9f;
+
         //The handles' centreline distance off the axis at i = HANDLE_BASE..12: springing from the shoulder
         //wall, arcing over the apex, landing on the neck at the glass. The apex is 5.0 and the tube 1.4 -
         //the gate note's own fallback pair, taken from the start for the margin reason the design doc
@@ -2062,8 +2068,8 @@ namespace BS3D.Tools.LevelGen
 
         //Four gores with boundaries at 45 degrees plus 90s (an eighth of a turn), so orange faces the +/-X
         //flanks under the handles and black faces the gun; Band over two entries alternates them.
-        private const int AMPHORA_GORES = 4;
-        private const float AMPHORA_GORE_TWIST = 1f / 8f;
+        private const int AMPHORA_GORES = 6;
+        private const float AMPHORA_GORE_TWIST = 1f / 12f;
 
         /// <summary>
         /// The vase's occupancy: the body of revolution - solid where <see cref="AMPHORA_PROFILE"/> is the
@@ -2088,8 +2094,30 @@ namespace BS3D.Tools.LevelGen
         {
             if (AmphoraHandle(r, ang, i)) return BallType.Type4; //white - the two handle loops
 
-            return Band(SectorIndex(ang, AMPHORA_GORE_TWIST, AMPHORA_GORES),
-                new[] { BallType.Type9, BallType.Type8 }); //orange, black
+            //SIX GORES AND NOT FOUR, and the count is the whole of what keeps this level playable. A vase
+            //draws in at its neck and its foot, and where it does the gores meet ACROSS the axis: at four
+            //gores the two orange ones were opposite each other, fused through both solid ends into a
+            //single 200-ball group, and one ball took 411 of the level's 502 (81 %) against a pack whose
+            //worst was 52. Six gores on two inks is the arrangement where neither neighbour agrees: gore k
+            //and k + 1 differ because the palette alternates, and gore k and its OPPOSITE k + 3 differ
+            //because three is odd. Rolling the palette a step at the pinches was tried first and made it
+            //worse in a way worth recording - a roll of one puts the NEIGHBOURING gore's colour across the
+            //level boundary, which is a diagonal bridge rather than a cut, and is exactly what Rope's own
+            //doc records against rolling by one.
+            //
+            //AND THE SOLID ENDS ARE PAINTED OUT OF A PALETTE OF THEIR OWN, which is the other half of the
+            //same finding. Six gores stop the body fusing across its own hollow, but the foot and the neck
+            //are solid discs barely two cells across, and down there every gore is within a cell of every
+            //other: whatever colour they carry, all three sheets of it meet. Handing the ends two colours
+            //nothing else uses cuts the body's orange and black apart at both ends for good, and it costs
+            //nothing to read - unglazed clay is exactly what the foot and the neck of a black-figure vase
+            //ARE. The ends stay TWO colours rather than one because the neck is what the whole vase hangs
+            //from: one colour on it and a single lucky ball takes the level off the glass.
+            int sector = SectorIndex(ang, AMPHORA_GORE_TWIST, AMPHORA_GORES);
+
+            return AMPHORA_PROFILE[i] <= AMPHORA_PINCH
+                ? Band(sector, new[] { BallType.Type10, BallType.Type1 })   //brown, red - the clay ends
+                : Band(sector, new[] { BallType.Type9, BallType.Type8 });   //orange, black - the gores
         }
 
         /// <summary>
@@ -4524,6 +4552,25 @@ namespace BS3D.Tools.LevelGen
             BallType.Type6,   //magenta
         };
 
+        //The roofs' own two palettes, cut by quadrant and rotated a step per roof - see PagodaColour for
+        //the measurement that put them there. Two entries against four quadrants means a colour is two
+        //OPPOSITE sheets, which touch nowhere: the arrangement that cannot make a plate out of a course.
+        private static readonly BallType[] PAGODA_EAVE_COLOURS = { BallType.Type1, BallType.Type9 };   //red, orange
+        private static readonly BallType[] PAGODA_TILE_COLOURS = { BallType.Type10, BallType.Type8 };  //brown, black
+
+        /// <summary>
+        /// Which quadrant of the tower a cell is in, 0..3 clockwise from NE - measured against the course's
+        /// own centre with the level's half-cell shift applied, so the cut lands in the same place at
+        /// either parity. Shared by the cores and the roofs since #255.
+        /// </summary>
+        private static int PagodaQuadrant(int x, int z, int i)
+        {
+            float dx = x + (i % 2) * HALF - PAGODA_CENTRE;
+            float dz = z + (i % 2) * HALF - PAGODA_CENTRE;
+
+            return dx >= 0f ? (dz >= 0f ? 0 : 1) : (dz >= 0f ? 3 : 2);
+        }
+
         /// <summary>
         /// Whether one index sits inside its level's course span. A course of width w starts at
         /// <c>PAGODA_CENTRE - w / 2</c>, which centres BOTH parities on world column 6: an odd width on an
@@ -4548,20 +4595,31 @@ namespace BS3D.Tools.LevelGen
         {
             if (i <= PAGODA_FINIAL_TOP) return BallType.Type5;                       //cyan - one 30-ball group
 
-            foreach ((int bottom, int top) in PAGODA_ROOFS)
-                if (i >= bottom && i <= top)
-                    return i == bottom ? BallType.Type1 : BallType.Type10;           //red eave edge, brown tiles
+            //THE ROOFS ARE CUT BY QUADRANT, and that is measured rather than drawn. A pagoda is a vertical
+            //CHAIN - core storey, roof, core storey, roof - so every roof is the sole link between what is
+            //above it and everything below, and painted one colour a course it was a plate: the top roof's
+            //brown course took 642 balls of 724 in one ball (88 %) and its red eave 606 (83 %), against a
+            //pack whose worst was 52. Cut into quadrants the same way the cores are, a colour is two
+            //opposite sheets that meet nowhere, so taking one leaves the other half of the roof holding the
+            //storey below - Bullseye's own fix, arriving on a tower.
+            for (int roof = 0; roof < PAGODA_ROOFS.Length; roof++)
+            {
+                (int bottom, int top) = PAGODA_ROOFS[roof];
+                if (i < bottom || i > top) continue;
+
+                int quadrant = PagodaQuadrant(x, z, i);
+
+                return i == bottom
+                    ? Band(quadrant + roof, PAGODA_EAVE_COLOURS)
+                    : Band(quadrant + roof, PAGODA_TILE_COLOURS);
+            }
 
             for (int storey = 0; storey < PAGODA_CORES.Length; storey++)
             {
                 (int bottom, int top) = PAGODA_CORES[storey];
                 if (i < bottom || i > top) continue;
 
-                float dx = x + (i % 2) * HALF - PAGODA_CENTRE;
-                float dz = z + (i % 2) * HALF - PAGODA_CENTRE;
-                int quadrant = dx >= 0f ? (dz >= 0f ? 0 : 1) : (dz >= 0f ? 3 : 2);   //NE, SE, SW, NW
-
-                return PAGODA_CORE_COLOURS[(quadrant + storey) % PAGODA_CORE_COLOURS.Length];
+                return PAGODA_CORE_COLOURS[(PagodaQuadrant(x, z, i) + storey) % PAGODA_CORE_COLOURS.Length];
             }
 
             //Unreachable: every course above the finial is a roof or a core by the schedule
