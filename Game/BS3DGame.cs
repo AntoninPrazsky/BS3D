@@ -198,6 +198,20 @@ namespace BS3D
         /// </summary>
         private readonly bool _startupLost;
 
+        /// <summary>
+        /// <c>pick</c> / <c>pick=&lt;chapter&gt;</c>: put the level picker up at boot, on that chapter (1-based)
+        /// or on whichever one the page itself would open (#273). Null for neither.
+        /// <para>
+        /// Two keypresses reach the picker on a machine somebody is sitting at, and none reach it on a locked
+        /// desktop, which takes no keystrokes at all — the same wall <c>shot=</c> exists on the other side of.
+        /// The chapter half is the part that could not be scripted even unlocked: the page is a <b>pager</b>
+        /// since #273, so its other eight chapters are each several presses in, and a shot of "the picker" is a
+        /// shot of one chapter unless the run can say which. Same reasoning as <c>preview=</c> — a page whose
+        /// content is chosen for you cannot be compared with a second shot of itself.
+        /// </para>
+        /// </summary>
+        private string _startupPick;
+
         //Wall clock. Everything alive in the scene runs off it — the balls' heartbeat, the city's windows —
         //so none of it is tied to a simulation that may later be paused.
         private float _wallClock;
@@ -556,6 +570,11 @@ namespace BS3D
         /// or losing a level, which can no more be scripted than clearing one can. Pair it with
         /// <paramref name="celebrate"/> for the whole moment: fireworks over an arena going soft.
         /// </param>
+        /// <param name="pick">
+        /// Testing only (the <c>pick</c> / <c>pick=&lt;chapter&gt;</c> argument): open the level picker at boot,
+        /// on that chapter or on the one the page itself chooses. See <see cref="_startupPick"/> for why a page
+        /// two keypresses away needs an argument at all, and why the chapter is the half that matters.
+        /// </param>
         /// <param name="shotSeconds">
         /// Testing only (the <c>shot=</c> argument): wall-clock seconds after start at which to save a PNG of
         /// the frame, or null for none. It is the trigger F12 cannot be — a locked desktop takes no keystrokes
@@ -566,7 +585,7 @@ namespace BS3D
             QualityLevel? quality = null, bool celebrate = false, bool confetti = false, bool lasers = false,
             bool mute = false, bool play = false, bool result = false, bool blockDone = false, bool lost = false,
             int? resultStars = null, int? streak = null, float[] shotSeconds = null, string level = null,
-            string preview = null, BallStyle? ballStyle = null)
+            string preview = null, BallStyle? ballStyle = null, string pick = null)
         {
             BallStyleOverride = ballStyle;
 
@@ -587,6 +606,7 @@ namespace BS3D
             _startupResult = result || lost;
             _startupBlockDone = blockDone;
             _startupLost = lost;
+            _startupPick = pick;
             _shotSchedule = shotSeconds;
             if (mute) _masterVolume = 0f;
 
@@ -1320,6 +1340,21 @@ namespace BS3D
 
                 if (_startupLevel == null) StartGame(newGame: true);
                 else StartGameAt(ResolveStartupLevel(_startupLevel));
+            }
+
+            //The level picker, over the front end (#273). Held back until the title card has gone for the same
+            //reason the result page below is: the splash hands over with a Replace, which pops whatever is on
+            //top, so a page pushed at boot is swallowed by the main menu arriving a couple of seconds later.
+            if (_startupPick != null && !_screens.Contains<SplashPage>())
+            {
+                //A chapter given as a number pins the page to it; anything else (bare "pick") leaves the page
+                //to open where it would for a player, which is the other thing worth photographing.
+                if (int.TryParse(_startupPick, NumberStyles.Integer, CultureInfo.InvariantCulture, out int pickChapter))
+                    _levelSelectPage.PinChapter(pickChapter);
+
+                _startupPick = null;
+
+                OpenLevelSelect();
             }
 
             //And the same for the result screen, over whatever is on the stack — the front end, unless "play"

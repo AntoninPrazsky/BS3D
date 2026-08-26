@@ -1884,4 +1884,39 @@ Nezabírám si #219 (bouřková scéna) ani déšť/sníh padající z deky — 
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-26 (pásování dómu — hotovo; #270/#271/#151 — volné).*
+## 2026-08-26 — Claude Code (šedesátý zápis)
+
+**Beru si #273 — level picker má být stránkovaný po kapitolách, ne jedna mřížka pod jedním scrollbarem.** Větev `273-chapter-pager`, sdílený strom, staguju jmenovitě. Hlásím dopředu.
+
+Devadesát levelů (#255) je přes dvacet řádků dlaždic za jedním scrollbarem. Datový model je celý hotový (`LevelSet` bloky, #184), takže je to přestavba `LevelSelectPage` a jeden nový vodorovný vstup v `UpdateMenuNavigation`.
+
+Tři otevřené otázky z issue rozhoduju takhle (issue si to výslovně přeje rozhodnout, ne zdědit):
+- **Pager, ne pás tabů** — jak issue samo argumentuje: „přepínej doleva/doprava" je pager, a pager zůstane čitelný i u setu s mnohem víc než devíti kapitolami.
+- **Otevírá se na hranici postupu** (nejvzdálenější kapitola s odemčeným levelem), ale **jen při prvním otevření** — potom si stránka pamatuje, kde hráč byl, takže návrat z odehraného levelu nepřeskočí zpátky na konec kampaně.
+- **Postup celé kampaně na jeden pohled** vrací řádek teček pod jménem kapitoly (● dohraná / ○ ne, svítivost = kde stojím) plus vlastní odpočet kapitoly — to je to, co stránkování jinak bere.
+
+Nezabírám si #270, #271 ani #151.
+
+## 2026-08-26 — Claude Code (šedesátý první zápis)
+
+**#273 hotové, na větvi `273-chapter-pager` (pushnuto), čeká na slovo majitele.** Picker je stránkovaný po kapitolách: jedna kapitola = jedna stránka, deset dlaždic jako 5×2, doleva/doprava mezi kapitolami.
+
+- **Žádná práce na datovém modelu, jak issue slibovalo.** `LevelSet` umí bloky od #184; přidal jsem jediný wrapper `BS3DGame.LevelBlockRange` — celý *běh*, kde všichni ostatní čtenáři potřebovali odpověď na jeden level.
+- **Tři otevřené otázky issue jsem rozhodl, ne zdědil** (issue si to výslovně přeje): pager místo pásu tabů; **otevírá se na hranici postupu, ale jen při PRVNÍM otevření** (potom si pamatuje, kde hráč byl — návrat z odehraného levelu nesmí přeskočit na konec kampaně); a **řádek teček** vrací „kampaň na jeden pohled", což stránkování jinak bere.
+- **⚠ Tečky musely jít na velikost hvězdiček, ne malého řezu.** V `FontSmall` je vyplněný kotouč i prázdný kroužek na 900p tentýž dvacetipixelový bod — **na screenshotu se nedaly rozeznat vůbec**, což je celá práce toho řádku. `FontStars` je větší z dvou Interů, které menu už načítá, takže čitelnost nestála nový atlas.
+- **⚠ Nekapitolovaný set zůstává jednou scrollovanou mřížkou.** Set, který nejmenuje bloky, má každý vstup ve běhu o jednom (`LevelSet.BlockRange`), takže stránkování by z něj udělalo devadesát kapitol po jednom levelu. Ověřeno tím, že jsem z kopie shipnutého setu vyškrtal `block` — stará stránka se vrátila, scrollbar včetně.
+- **Vodorovná osa je nová a je *stránky*, ne kurzoru** (`MenuPage.PageSideways`, vrací, jestli něco udělala, aby cvaknutí znělo jen tam, kde se něco pohnulo). Obě osy mají jeden pomocník `HeldDirectionFires`, ale **vlastní pole držené osy** — jinak diagonální tlak na páčce zruší tu osu, která byla stisknutá druhá. Otočení stránky pak znovu načte chůzi (`RefreshNavEntries`) a zachovává dvě věci, které cesta „změna obrazovky" schválně zahazuje: **fokusovaný vstup** (jinak kurzor padne na ◀ při každém otočení) a **stav držené osy** (jinak přečte držené Right jako nový směr a přelistuje kampaň za pár snímků).
+- **⚠ Přidal jsem `pick` / `pick=<kapitola>`** do stejné rodiny jako `result`, `blockdone`, `preview=`. Na odemčeném stroji je picker dva stisky daleko, **na zamčené ploše nula** — a půlka s kapitolou by se nedala naskriptovat ani odemčeně: je to pager, takže dalších osm kapitol je každá několik stisků uvnitř. Vyfoceny čtyři stavy: čistý save, hranice postupu, pinnutá kapitola, celá zamčená kapitola.
+- **⚠ Provozní poznámka k ověřování: plocha se v průběhu práce zamkla** (`GetForegroundWindow()` vrací 0, běží `LogonUI`) a na zamčené ploše **nemá `keybd_event` ani `mouse_event` kam doručit** — vykreslení šlo vyfotit dál (proto `pick=`, `shot=` je immunní), vstup ne. Po odemčení dohnáno celé.
+- **Ověřeno na běžící hře, obojí zařízení:**
+  - **klávesnice** — Down/Enter z hlavního menu otevře picker (a nespustí level), dvě Right posunou kapitolu 6 → 8, chůze Down staví na ◀ → ▶ → dlaždice 1 s detailním řádkem („One — 30 shots, ceiling every 5"),
+  - **fokus přežije otočení** — s kurzorem na slotu 0 v kapitole 1 dá Right kapitolu 2 s kurzorem **pořád na slotu 0** a detailním řádkem „Heart — 60 shots…", další Down normálně krokuje na dlaždici 12,
+  - **myš** — dva kliky na ▶ přelistují 1 → 2 → 3 (a nic nespadne, i když `TurnChapter` běží uvnitř Myřina zpracování kliku), klik na první dlaždici spustí **level 21 Rope**, tedy skutečně slot 0 *aktuální* kapitoly (log `[intro] block 'The Coil' (3/9)`),
+  - **wrap** — jedno ◀ z kapitoly 1 přistane na kapitole 9,
+  - a čtyři stavy postupu (čistý save, hranice, pinnutá kapitola, celá zamčená) vyfoceny, čtyři solutiony čisté.
+
+**Nic dalšího si neberu.** Volné: **#270** (hory 38 FPS na 6900XT), **#271** (hranatá trofej), **#151** (aréna 27 ms).
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-26 (#273 — hotovo a ověřené na větvi `273-chapter-pager`, čeká na slovo majitele; #270/#271/#151 — volné).*

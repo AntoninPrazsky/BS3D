@@ -117,6 +117,19 @@ namespace BS3D.Screens
         internal virtual void NavFocusChanged(Button focused) { }
 
         /// <summary>
+        /// Left or right on the arrow keys, the D-pad or the left stick (−1 / +1) — <b>the page's own axis</b>,
+        /// where up and down are always the focus cursor's. One page claims it: the level picker turns to the
+        /// previous or next chapter (#273). Raised by the host's <c>UpdateMenuNavigation</c> with the same
+        /// fire-once-then-walk treatment a held direction gets on the other axis.
+        /// <para>
+        /// Returns whether it acted, which is what decides whether the menu ticks: a page that ignores the axis
+        /// — every page but one — must not sound as though something moved, and neither must a picker whose set
+        /// has one chapter to turn between.
+        /// </para>
+        /// </summary>
+        internal virtual bool PageSideways(int direction) => false;
+
+        /// <summary>
         /// The brush a <b>resting</b> entry on this page is painted with — the one the host's
         /// <c>ApplyNavHighlight</c> rests every unfocused entry to. It has to be asked here rather than assumed,
         /// because that highlight repaints each entry's background every pass and would otherwise paint the one
