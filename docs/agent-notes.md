@@ -1907,11 +1907,16 @@ Nezabírám si #270, #271 ani #151.
 - **⚠ Nekapitolovaný set zůstává jednou scrollovanou mřížkou.** Set, který nejmenuje bloky, má každý vstup ve běhu o jednom (`LevelSet.BlockRange`), takže stránkování by z něj udělalo devadesát kapitol po jednom levelu. Ověřeno tím, že jsem z kopie shipnutého setu vyškrtal `block` — stará stránka se vrátila, scrollbar včetně.
 - **Vodorovná osa je nová a je *stránky*, ne kurzoru** (`MenuPage.PageSideways`, vrací, jestli něco udělala, aby cvaknutí znělo jen tam, kde se něco pohnulo). Obě osy mají jeden pomocník `HeldDirectionFires`, ale **vlastní pole držené osy** — jinak diagonální tlak na páčce zruší tu osu, která byla stisknutá druhá. Otočení stránky pak znovu načte chůzi (`RefreshNavEntries`) a zachovává dvě věci, které cesta „změna obrazovky" schválně zahazuje: **fokusovaný vstup** (jinak kurzor padne na ◀ při každém otočení) a **stav držené osy** (jinak přečte držené Right jako nový směr a přelistuje kampaň za pár snímků).
 - **⚠ Přidal jsem `pick` / `pick=<kapitola>`** do stejné rodiny jako `result`, `blockdone`, `preview=`. Na odemčeném stroji je picker dva stisky daleko, **na zamčené ploše nula** — a půlka s kapitolou by se nedala naskriptovat ani odemčeně: je to pager, takže dalších osm kapitol je každá několik stisků uvnitř. Vyfoceny čtyři stavy: čistý save, hranice postupu, pinnutá kapitola, celá zamčená kapitola.
-- **⚠ CO NENÍ OVĚŘENO, a je to ta jediná věc: živý vstup.** Plocha se v průběhu práce **zamkla** (`GetForegroundWindow()` vrací 0, `LogonUI` běží), takže `keybd_event` ani `mouse_event` nemají kam doručit. Ověřeno je vykreslení všech stavů (přes `pick=`, které jde přes `ShowChapter` — tedy tu samou metodu, kterou volá otočení), čtyři solutiony čisté. **Neproběhlo:** klik na ◀/▶ a stisk Left/Right, tedy `PageSideways` → `TurnChapter` → `RefreshNavEntries`. Deferred push v `ScreenManager` jsem prošel a dvojí sepnutí Enteru přes změnu stránky vyloučil; zbytek je na jeden press-test.
-- **A jedna nevysvětlená pozorovanost ze běhu *před* zamčením:** chůze Down/Enter z hlavního menu skončila v levelu One místo na pickeru. Nešlo to zreprodukovat (plocha se zamkla) a nejpravděpodobnější vysvětlení je cizí instance `BS3D.exe`, která mi sebrala F12 — ale dokázané to není. Před mergem to chce ten press-test.
+- **⚠ Provozní poznámka k ověřování: plocha se v průběhu práce zamkla** (`GetForegroundWindow()` vrací 0, běží `LogonUI`) a na zamčené ploše **nemá `keybd_event` ani `mouse_event` kam doručit** — vykreslení šlo vyfotit dál (proto `pick=`, `shot=` je immunní), vstup ne. Po odemčení dohnáno celé.
+- **Ověřeno na běžící hře, obojí zařízení:**
+  - **klávesnice** — Down/Enter z hlavního menu otevře picker (a nespustí level), dvě Right posunou kapitolu 6 → 8, chůze Down staví na ◀ → ▶ → dlaždice 1 s detailním řádkem („One — 30 shots, ceiling every 5"),
+  - **fokus přežije otočení** — s kurzorem na slotu 0 v kapitole 1 dá Right kapitolu 2 s kurzorem **pořád na slotu 0** a detailním řádkem „Heart — 60 shots…", další Down normálně krokuje na dlaždici 12,
+  - **myš** — dva kliky na ▶ přelistují 1 → 2 → 3 (a nic nespadne, i když `TurnChapter` běží uvnitř Myřina zpracování kliku), klik na první dlaždici spustí **level 21 Rope**, tedy skutečně slot 0 *aktuální* kapitoly (log `[intro] block 'The Coil' (3/9)`),
+  - **wrap** — jedno ◀ z kapitoly 1 přistane na kapitole 9,
+  - a čtyři stavy postupu (čistý save, hranice, pinnutá kapitola, celá zamčená) vyfoceny, čtyři solutiony čisté.
 
 **Nic dalšího si neberu.** Volné: **#270** (hory 38 FPS na 6900XT), **#271** (hranatá trofej), **#151** (aréna 27 ms).
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-26 (#273 — hotovo na větvi `273-chapter-pager`, čeká na press-test a slovo majitele; #270/#271/#151 — volné).*
+*Poslední zápis: Claude Code, 2026-08-26 (#273 — hotovo a ověřené na větvi `273-chapter-pager`, čeká na slovo majitele; #270/#271/#151 — volné).*
