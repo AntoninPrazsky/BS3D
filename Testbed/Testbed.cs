@@ -821,9 +821,18 @@ namespace Testbed
         {
             //"weather=<name>" outranks both, which is what makes it useful: the point of it is to see one
             //backdrop under five skies, and a scene default that could override it would defeat that.
+            //The city's own config is this file's and not the scene renderer's — the two cities are drawn
+            //through the shared instanced technique rather than by a scene shader, which is why
+            //GetSceneConfig answers null for both. Reading it from the right place is what stops the city
+            //being the one scene with no authored sky.
+            SceneConfig config = _scene is SceneKind.City or SceneKind.NeonCity
+                ? _cityConfig
+                : _sceneRenderer.GetSceneConfig(_scene);
+
             WeatherPreset preset = WeatherLooks.TryParse(_weatherFromCommandLine)
                 ?? WeatherLooks.TryParse(levelWeather)
-                ?? _sceneRenderer.GetSceneConfig(_scene).Weather;
+                ?? config?.Weather
+                ?? WeatherPreset.Scattered;
 
             if (immediately) _clouds.SetWeatherImmediately(preset); else _clouds.SetWeather(preset);
         }

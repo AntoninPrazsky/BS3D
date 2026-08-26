@@ -418,8 +418,18 @@ namespace BS3D
         /// </summary>
         internal void ApplySceneWeather(string levelWeather = null)
         {
+            //The city's own config is the HOST's and not the scene renderer's — the two cities are drawn
+            //through the shared instanced technique rather than by a scene shader, which is why
+            //GetSceneConfig answers null for both of them. Reading it from the right place is what stops the
+            //city being the one scene with no authored sky (it asks for overcast, and it was getting
+            //scattered by falling through this).
+            SceneConfig config = _scene is SceneKind.City or SceneKind.NeonCity
+                ? _cityConfig
+                : _sceneRenderer.GetSceneConfig(_scene);
+
             WeatherPreset preset = WeatherLooks.TryParse(levelWeather)
-                ?? _sceneRenderer.GetSceneConfig(_scene).Weather;
+                ?? config?.Weather
+                ?? WeatherPreset.Scattered;
 
             _clouds.SetWeather(preset);
         }
