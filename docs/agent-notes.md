@@ -1869,4 +1869,19 @@ Nezabírám si #219 (bouřková scéna) ani déšť/sníh padající z deky — 
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-26 (#221 — zavřeno; #270/#271/#151 — volné).*
+## 2026-08-26 — Claude Code (padesátý devátý zápis)
+
+**Fasetové pásování dómu vyřešeno, na mainu.** Majitel to zadal přímo, bez zakládání issue — navazuje to na nález ze zápisu 58.
+
+- **⚠ Příčina nebyla v síti, ale v paletě, a to se ukázalo až měřením.** Šestnáct zachycených prstenců nese asi deset odlišných barev **po dvojicích** — dva prstence stejné, pak skok. Kreslený gradient tedy byl plotna, rampa, plotna. Sklon, který jde nula, strmý, nula, je Machův pruh, a fotí se jako rovná vodorovná hrana přes celou oblohu.
+- **Opraveny obě půlky.** Plotny: sousední prstence stejné barvy se slijí do **jednoho stopu** uprostřed svého běhu, stopy se interpolují do 256položkové tabulky a ta se dvakrát prožene boxem, což zaoblí roh u každého stopu, aniž by barvy hnulo tam, kde by to oko našlo. A síť z 16 prstenců na generovaných **64 × 48**, aby žádná přímá úseč nepřeklenula těch 19,8°, které zachycení dalo přes obzor.
+- **⚠ Zachycení zůstalo nedotčené a je dál autoritou na to, JAKÁ obloha je.** `ZenithColor` a `HorizonColor` jsou pořád průměry přes jeho 92 položek v jeho vlastním pořadí, takže **světelný rig je bit za bitem tentýž**. To je celý důvod, proč jsou kreslený dóm a čtená paleta teď dvě různé věci: jedna sada vrcholů nemůže sloužit oku i rigu zároveň, a pokus o to je přesně to, co dalo každé obloze ve hře rovnou čáru.
+- **⚠ Past, do které jsem spadl a chytil ji screenshot:** pořadí vrcholů v zachycení je pořadí svařování z content pipeline, ne shora dolů — začíná na y = −9,09 a druhá položka je y = −9,93. Přečteno jako sestupný žebřík to natře oblohu její vlastní barvou země: béžový zenit nad béžovým obzorem. Musel jsem prstence explicitně setřídit.
+- **A ještě jedna oprava vlastního tvrzení:** ta vodorovná čára, kterou jsem v zápise 58 označil za pásování dómu, je při pohledu z arény ve skutečnosti **skleněná deska stropu** — na krajích se láme dolů, což je perspektiva obdélníku, ne latitude ring. Pásování dómu je jiná věc (vidět při strmém pohledu vzhůru, kde jsem ho poprvé viděl u #220) a to je to, co je teď opravené: pohled vzhůru je zcela hladký.
+- **Ověřeno:** čtyři solutiony čisté, pohled vzhůru bez klínu, `clear` i `overcast` nad loukou hladké a barevně správné, hra hraje level One s hladkou oblohou.
+
+**Nic si teď neberu.** Volné: **#270**, **#271**, **#151**.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-26 (pásování dómu — hotovo; #270/#271/#151 — volné).*
