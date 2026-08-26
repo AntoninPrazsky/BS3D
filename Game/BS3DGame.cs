@@ -75,12 +75,44 @@ namespace BS3D
 
         private readonly GraphicsDeviceManager _graphics;
 
-        //Whether presentation is uncapped (vsync off). Seeded by the "nocap" launch argument — which stays,
-        //as the benchmark's way of starting with the cap off without a trip through the menus — and a
-        //Settings row since #124 (ToggleFpsLimit), which is why it is no longer readonly. Both writers go
-        //through SetGraphics: SynchronizeWithVerticalRetrace and the PresentationInterval each read this
-        //flag, the latter through PreparingDeviceSettings when ApplyChanges resets the device.
+        //Whether the frame rate is left UNLIMITED. Seeded by the "nocap" launch argument — which stays, as the
+        //benchmark's way of starting with the cap off without a trip through the menus — and a Settings row
+        //since #124 (ToggleFpsLimit), which is why it is not readonly.
+        //
+        //It no longer reaches the device at all. Until #270 "capped" meant vsync, and the flag was read by
+        //SynchronizeWithVerticalRetrace and by the PresentationInterval through PreparingDeviceSettings, so
+        //changing it reset the device. The game now presents immediately in every mode and holds the rate in
+        //FrameLimiter instead, so this flag only picks the limiter's target — see FrameLimitHz, and see
+        //FrameLimiter's own doc for the measurement that moved it.
         private bool _uncappedFps;
+
+        //fpscap=N: an explicit frame limit for a measurement, overriding both the display's refresh and
+        //"nocap". The Testbed has had it since #250 and the Game had not, which left the one executable that
+        //can load a LEVEL measurable only flat out or by vsync, which quantized every reading to the refresh
+        //over an integer. #270 is what that cost: a level reading exactly 37.5 on a 75 Hz panel says only
+        //"dearer than 13.3 ms", and the whole question was HOW MUCH dearer — the answer being "not dearer at
+        //all". Zero (the default) leaves the limit to the display's refresh. See FrameLimitHz.
+        private readonly int _fpsCap;
+
+        //Holds the frame rate without vsync (#270). Disposed with the game: it raises the process timer
+        //resolution while it is limiting anything, and that is paired.
+        private readonly FrameLimiter _frameLimiter = new();
+
+        //The monitor's refresh, re-read wherever the quality probe's floor is (startup and every resize, so a
+        //window moved to another panel corrects itself). Zero when the adapter reports nothing sensible —
+        //headless, a remote session — and unlimited is then the honest answer rather than a 0 FPS cap.
+        private int _displayRefreshHz;
+
+        /// <summary>
+        /// What the limiter is asked to hold, in frames a second, or 0 for unlimited. An explicit
+        /// <c>fpscap=</c> wins outright, because it is the more specific instruction and a benchmark that
+        /// named a number must get that number; otherwise the Settings row decides between the display's
+        /// refresh (the default) and no limit at all.
+        /// </summary>
+        private int FrameLimitHz =>
+            _fpsCap > 0 ? _fpsCap
+            : _uncappedFps ? 0
+            : FrameLimiter.TargetForRefresh(_displayRefreshHz);
 
         //Pinned from the command line for a reproducible measurement. The scene is otherwise a different one of
         //the fifteen every launch, which makes any A/B of the frame's cost meaningless — they are nothing like
@@ -585,8 +617,12 @@ namespace BS3D
             QualityLevel? quality = null, bool celebrate = false, bool confetti = false, bool lasers = false,
             bool mute = false, bool play = false, bool result = false, bool blockDone = false, bool lost = false,
             int? resultStars = null, int? streak = null, float[] shotSeconds = null, string level = null,
-            string preview = null, BallStyle? ballStyle = null, string pick = null)
+            string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0)
         {
+            //No longer implies uncappedFps the way the Testbed's does: since #270 the game presents
+            //immediately in EVERY mode, so there is no vsync wait left for a cap to have to escape.
+            _fpsCap = Math.Max(fpsCap, 0);
+
             BallStyleOverride = ballStyle;
 
             _fullscreen = fullscreen;
@@ -651,7 +687,10 @@ namespace BS3D
 
         private void Graphics_PreparingDeviceSettings(object sender, PreparingDeviceSettingsEventArgs e)
         {
-            e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = _uncappedFps ? PresentInterval.Immediate : PresentInterval.One;
+            //Immediate unconditionally since #270 — it used to read _uncappedFps and hand back PresentInterval.One
+            //for a capped session, which is the half-refresh path FrameLimiter's doc measures. The rate is held
+            //on the CPU now, so this no longer depends on any setting and a cap toggle no longer resets the device.
+            e.GraphicsDeviceInformation.PresentationParameters.PresentationInterval = PresentInterval.Immediate;
             e.GraphicsDeviceInformation.GraphicsProfile = GraphicsProfile.HiDef;
 
             //Nothing but one already-resolved full-screen quad ever reaches the back buffer, so multisampling
@@ -688,7 +727,13 @@ namespace BS3D
             //borderless shows the identical picture — there is just no display mode to lose.
             _graphics.HardwareModeSwitch = false;
             _graphics.IsFullScreen = _fullscreen;
-            _graphics.SynchronizeWithVerticalRetrace = !_uncappedFps;
+
+            //ALWAYS immediate, in every mode, since #270 — the frame rate is held by FrameLimiter instead.
+            //Vsync was measured presenting a level at exactly half refresh while the frame itself cost under
+            //5 ms, and a limiter at the same rate held it at full refresh; the full measurement is in
+            //FrameLimiter's class doc. Nothing tears for it: the game is only ever windowed or BORDERLESS
+            //fullscreen (HardwareModeSwitch above, #157), so DWM owns the flip in every mode there is.
+            _graphics.SynchronizeWithVerticalRetrace = false;
 
             _graphics.ApplyChanges();
 
@@ -1491,6 +1536,11 @@ namespace BS3D
             //page is over them (#191). It reads the back buffer, so it has to be the last thing in the frame
             //that touches the device.
             ServiceScreenshots();
+
+            //Dead last, after the frame has been counted: the idle must not be inside anything the log
+            //measures, or the instrument reads itself instead of the frame.
+            _frameLimiter.TargetHz = FrameLimitHz;
+            _frameLimiter.EndFrame();
         }
 
         #region The frame-rate log (benchmarking)
@@ -1529,9 +1579,15 @@ namespace BS3D
                 ? $", city {_cityVisible}/{_city.Buildings.Length}"
                 : string.Empty;
 
+            int limit = FrameLimitHz;
+
             Console.WriteLine($"[fps] {_fpsFrames / _fpsWindow:F1} — {_scene}, dome {_skyDome}, ssaa {_supersampleFactor}x"
                 + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
-                + $", vsync {(_uncappedFps ? "off" : "on")}{city}");
+                //"vsync" left the line with #270 — the game does not vsync any more, and a line that still
+                //said so would misreport the one setting that decides what the number even means. What it
+                //carries instead is the limiter's actual target, and where that target came from, so a run
+                //held at the refresh cannot be mistaken later for a free one or for a benchmark's own cap.
+                + $", limit {(limit > 0 ? $"{limit}{(_fpsCap > 0 ? " (fpscap)" : " (refresh)")}" : "off")}{city}");
 
             _fpsWindow = 0f;
             _fpsFrames = 0;
@@ -1541,6 +1597,10 @@ namespace BS3D
 
         protected override void UnloadContent()
         {
+            //Not a GPU resource, but it holds the process's timer resolution at 1 ms while it is limiting
+            //anything, and timeBeginPeriod has to be paired with timeEndPeriod (#270)
+            _frameLimiter.Dispose();
+
             _pipeline?.Dispose();
             _spriteBatch?.Dispose();
             _scrimTexel?.Dispose();

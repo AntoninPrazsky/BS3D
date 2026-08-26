@@ -131,6 +131,13 @@ namespace BS3D
             float refresh = 0f;
             if (DisplayRefresh.TryGetForWindow(Window?.Handle ?? IntPtr.Zero, out int hz)) refresh = hz;
             _qualityMinFps = Math.Max(refresh * (1f - QUALITY_REFRESH_MARGIN), QUALITY_MIN_FPS_FLOOR);
+
+            //The frame limiter's target comes off the SAME reading (#270), so there is one place that answers
+            //"what is this monitor's refresh" and the two cannot drift apart. Kept raw rather than floored the
+            //way the probe's number is: a floor is right for a verdict about the machine and wrong for a cap,
+            //where an adapter reporting nothing must mean "do not limit" and not "limit to 45".
+            //TryGetForWindow leaves hz at 0 when it has no answer, which is exactly the "do not limit" value
+            _displayRefreshHz = hz;
         }
 
         /// <summary>

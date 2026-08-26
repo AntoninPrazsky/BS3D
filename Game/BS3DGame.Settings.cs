@@ -111,12 +111,16 @@ namespace BS3D
         }
 
         /// <summary>
-        /// Switches the frame-rate cap between the monitor's refresh (vsync — the default: frames nobody can
-        /// see cost only heat) and unlimited (#124). The same <c>SetGraphics</c> pass a fullscreen switch takes
-        /// re-applies it at runtime: <c>SynchronizeWithVerticalRetrace</c> and the <c>PresentationInterval</c>
-        /// both read the one flag, the latter through <c>PreparingDeviceSettings</c> when <c>ApplyChanges</c>
-        /// resets the device. The <c>nocap</c> launch argument seeds the same flag and stays — the benchmark
-        /// wants the cap off without a trip through the menus.
+        /// Switches the frame-rate cap between the monitor's refresh (the default: frames nobody can see cost
+        /// only heat) and unlimited (#124). The <c>nocap</c> launch argument seeds the same flag and stays —
+        /// the benchmark wants the cap off without a trip through the menus.
+        /// <para>
+        /// <b>No <c>SetGraphics</c> pass any more (#270).</b> "Capped" used to mean vsync, so the flag reached
+        /// the device through <c>SynchronizeWithVerticalRetrace</c> and the <c>PresentationInterval</c> and
+        /// flipping it reset the device. The game now presents immediately in every mode and the rate is held
+        /// by <see cref="Platform.FrameLimiter"/>, which is handed its target fresh every frame — so this is a
+        /// plain field write that takes effect on the next frame, and the device is left alone.
+        /// </para>
         /// <para>
         /// Deliberately no <c>ReopenQualityProbe</c>, unlike the fullscreen toggle: the cap changes what the
         /// frame rate is allowed to <i>read</i>, not what a frame costs — uncapping can only raise the
@@ -127,7 +131,6 @@ namespace BS3D
         internal void ToggleFpsLimit()
         {
             _uncappedFps = !_uncappedFps;
-            SetGraphics();
             _settingsPage.Refresh();
         }
 

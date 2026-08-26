@@ -1924,3 +1924,35 @@ Nezabírám si #270, #271 ani #151.
 ---
 
 *Poslední zápis: Claude Code, 2026-08-26 (#273 — zavřeno, na mainu; #270/#271/#151 — volné).*
+
+## 2026-08-26 — Claude Code (padesátý sedmý zápis)
+
+**#270 hotové: těch ~38 FPS nebyly hory a nebyla to cena scény vůbec. Hra vsyncovala, a vsync prezentoval levný snímek na půl refreshe.** Větev `270-mountain-fullscreen-fps`, měřeno na tom stroji, kterého se hlášení týká (5900X / 6900XT, panel 3840×1600 @ 75 Hz), **výhradně v okně**.
+
+Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen napůl — kvantizace to je, ale **ne proto, že by byl snímek drahý**:
+
+- **Ten snímek stojí pod 5 ms.** `level=Column` (540 koulí) pod horami, `quality=high ssaa=2`, okno 1600×900: **200 FPS pod `fpscap=200`**. Týž běh pod vsyncem prezentuje **37,5**. Drží i `fpscap=150`, `100` **a 76** — a 76 časuje snímek stejně jako 75Hz vsync, se stejným prostojem. Takže to není časování, není to náběh hodin karty a není to snímek těsně nad rozpočtem.
+- **Párovaná opakování:** vsync **37,5 / 37,5** proti `fpscap=75` **75,0 / 75,0**.
+- **⚠ Není to monotónní v ssaa** — 1 → 75, **2 → 37,5**, 3 → 31,8, 4 → 75. **Tohle je ten nález, který celou věc otočil:** žádná křivka ceny nemá tvar V s minimem uprostřed, takže „scéna stojí tolik" bylo vyloučeno dřív, než jsem věděl proč. Doporučuju to jako první test u každého podezřele kulatého FPS čísla.
+- **Není to ta scéna.** Týž těžký level v **louce** padá identicky; samotné hory drží 75,0 ploše (Testbed, ssaa 1/2/4) a 73 na front endu. Chce to těžký cluster — malý `level=One` drží 75,0.
+- Testbed má **mírnější** formu téhož (těžká mapa: vsync 71,0 proti `fpscap=75` 75,0), takže je to sdílená prezentační cesta a Game ji zesiluje. `PresentationInterval` je `One`, ne `Two`.
+
+**Oprava: hra už nevsyncuje.** Prezentuje hned ve všech režimech a rychlost drží nový `Game/Platform/FrameLimiter.cs`. Netrhá to, protože hra jede jen v okně nebo **borderless** fullscreenu (`HardwareModeSwitch = false`, #157) — flip vlastní DWM. **Ověřeno na nahlášeném případě, výchozí nastavení: 37,5 → 78,0 ploše**; front end taky 78,0 a probe nechává High.
+
+- Limiter **spí** většinu periody a spinuje jen poslední 2 ms — Testbedí kopie spinuje celou, což je správně pro benchmark a špatně pro hru (na 75 Hz s 5ms snímkem je to jádro na 100 % po celou session, a druhý vývojový stroj je notebook). `timeBeginPeriod(1)` je to, co ten spánek dělá použitelným, a je spárované v `Dispose`.
+- Cíl míří **3 % nad refresh** (proto 78, ne 75): limiter nikdy nedohání zpoždění, takže mířit přesně na refresh znamená driftovat pomaleji než kompozitor a periodicky mu nenechat nic nového.
+- **Mechanismus uvnitř DXGI/MonoGame jsem NEROZLOUSKNUL** a v docs to tak stojí. Vím, že vsync tu chybu dělá a limiter ji odstraňuje; nevymýšlím si příčinu.
+
+**Nástroj:** Game dostal Testbedí **`fpscap=N`** — bez něj to nešlo zjistit, protože vsyncem zastropovaný level umí říct jen „dražší než jeden refresh". Řádek `[fps]` u Game **přestal psát `vsync`** a píše `limit N (refresh|fpscap)`; Testbed píše `vsync` dál, takže **ty dva řádky už nejsou totožné**. V `benchmark` skillu je z toho past č. 10 a opravená stará věta — `ssaa=` dnes tier **přebíjí** (ověřeno proti `[fps]`), i když skill roky tvrdil opak.
+
+**⚠ Co zůstává otevřené a není to schované:** při 4K zátěži ten level stojí **12,0 ms** proti 13,3 ms, co 75Hz panel dovolí. Fullscreen High má na tomhle stroji ~milisekundu rezervy a na slabším žádnou. Je to teď běžná otázka „tohle je trochu drahé", ne desetinásobná záhada.
+
+**Provozní:** merge zase v dočasném worktree — ve sdíleném stromě ležely ZCodovy necommitnuté řádky k #271 a přepnutí větve by o ně mohlo přijít; **sdílený strom nechávám, jak je**. Konflikty byly tři (`BS3DGame.cs` a `Program.cs` — obě strany přidaly parametr konstruktoru, `pick` a `fpsCap`, patří tam obojí; a tenhle deník). `grep -c '<<<<<<<'` před commitem prošel.
+
+**Majitelovo slovo k měření:** kartu už nemám šetřit — jde reklamovat, takže se na ni od teď smí jet naplno. Ruším tím vlastní opatrnost z dřívějška; `fullscreen` ale zůstává na jeho vlastní ověření.
+
+**Nic si teď neberu.** Volné: **#271** (hranatá trofej), **#151** (aréna 27 ms).
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-26 (#270 — zavřeno, na mainu; #273 — zavřeno; #271/#151 — volné).*
