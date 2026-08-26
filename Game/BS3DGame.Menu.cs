@@ -96,6 +96,13 @@ namespace BS3D
         private int _navDirection;
         private Point _navMouseAt;
 
+        //The SIDEWAYS axis keeps its own held-direction state, because it is a different action on a different
+        //thing: up and down walk this screen's entries, left and right are the page's own — the level picker
+        //pages between chapters (#273). One shared pair of fields would let a diagonal push on the stick
+        //cancel whichever axis was pressed second.
+        private float _navSideRepeatDelay;
+        private int _navSideDirection;
+
         //Anton and Inter (both SIL OFL), through FontStashSharp. Myra's embedded stylesheet carries a small
         //bitmap font that is fine for a tool panel and much too coarse for a game's title, so the menu brings
         //its own; they are embedded in the assembly, so there is no path to get wrong and nothing to install.
@@ -581,6 +588,24 @@ namespace BS3D
         internal int BlockCount => _levelSet?.BlockCount ?? 0;
 
         /// <summary>
+        /// The first and last entry of the block containing <paramref name="index"/>, both inclusive — which is
+        /// what a whole <i>chapter</i> of the picker is (#273), where every other reader here only ever needed
+        /// one level's answer. An index outside the set hands back an <b>empty</b> range (last before first), so
+        /// a caller's loop over it runs no levels at all rather than one nonexistent one.
+        /// </summary>
+        internal void LevelBlockRange(int index, out int first, out int last)
+        {
+            if (_levelSet == null || index < 0 || index >= _levelSet.Count)
+            {
+                first = 0;
+                last = -1;
+                return;
+            }
+
+            _levelSet.BlockRange(index, out first, out last);
+        }
+
+        /// <summary>
         /// Whether <b>every</b> level of the block containing <paramref name="index"/> has been cleared — which
         /// is what finishing a block means, and it is deliberately not "the last level of the block was cleared".
         /// <para>
@@ -764,6 +789,41 @@ namespace BS3D
             ApplyNavHighlight();
         }
 
+        /// <summary>
+        /// Re-reads the entries of the page that is up <b>without a screen change</b>, for a page whose own
+        /// entries come and go while it stands there: the level picker turns to another chapter (#273), whose
+        /// tiles are a different ten levels — a different number of them, and a different set of them locked,
+        /// and a locked tile is not an entry at all.
+        /// <para>
+        /// <paramref name="keepFocusOn"/> is the entry the focus cursor should stay on if it is still one, since
+        /// <see cref="CollectNavEntries()"/> deliberately drops the index (entry 3 of one screen is not entry 3
+        /// of the next) — which is right across a screen change and wrong across a page turn, where the player
+        /// has not gone anywhere. Null, or an entry the turn has taken away, leaves the cursor at the top.
+        /// </para>
+        /// </summary>
+        internal void RefreshNavEntries(Widget keepFocusOn)
+        {
+            //The held-direction state has to survive this, because the very input that turned the page is
+            //likely still down: a reset makes the next frame read "a new direction" and fire again at once, so
+            //a held Right would page the whole campaign in a few frames rather than at the repeat rate.
+            int heldDirection = _navDirection;
+            float heldDelay = _navRepeatDelay;
+
+            CollectNavEntries();
+
+            _navDirection = heldDirection;
+            _navRepeatDelay = heldDelay;
+
+            if (_navIndex < 0 || keepFocusOn is not Button button) return;
+
+            int at = _navEntries.IndexOf(button);
+
+            if (at < 0) return;
+
+            _navIndex = at;
+            ApplyNavHighlight();
+        }
+
         /// <param name="enclosing">The scroller this branch of the tree is inside, or null above them all —
         /// carried down the walk so an entry can be scrolled into view later (#245) without a second search
         /// for the scroller that holds it.</param>
@@ -845,7 +905,9 @@ namespace BS3D
 
         /// <summary>
         /// The menu's directional input: the D-pad, the left stick and the arrow keys move the focus, A or
-        /// Enter presses the focused entry, B backs out exactly as Escape does.
+        /// Enter presses the focused entry, B backs out exactly as Escape does. <b>Left and right are the
+        /// page's own</b> (#273) — the level picker pages between chapters on them — and nothing happens on a
+        /// page that does not claim them.
         /// <para>
         /// This is what makes the game shippable on a pad at all — it is otherwise fully playable on one (aim
         /// on the right stick, fire on the right trigger, precise aim on the left), and <c>Buttons.Back</c>
@@ -883,28 +945,23 @@ namespace BS3D
             else if (keyboard.IsKeyDown(Keys.Up) || pad.IsButtonDown(Buttons.DPadUp)
                 || pad.ThumbSticks.Left.Y > NAV_STICK_DEADZONE) direction = -1;
 
-            //A held direction steps once, waits, then walks — a stick read per frame would cross the whole
-            //list before the player let go
-            if (direction == 0)
-            {
-                _navDirection = 0;
-            }
-            else if (direction != _navDirection)
-            {
-                _navDirection = direction;
-                _navRepeatDelay = NAV_REPEAT_DELAY;
+            if (HeldDirectionFires(direction, ref _navDirection, ref _navRepeatDelay, elapsed))
                 StepNavFocus(direction);
-            }
-            else
-            {
-                _navRepeatDelay -= elapsed;
 
-                if (_navRepeatDelay <= 0f)
-                {
-                    _navRepeatDelay = NAV_REPEAT_INTERVAL;
-                    StepNavFocus(direction);
-                }
-            }
+            int sideways = 0;
+
+            if (keyboard.IsKeyDown(Keys.Right) || pad.IsButtonDown(Buttons.DPadRight)
+                || pad.ThumbSticks.Left.X > NAV_STICK_DEADZONE) sideways = 1;
+            else if (keyboard.IsKeyDown(Keys.Left) || pad.IsButtonDown(Buttons.DPadLeft)
+                || pad.ThumbSticks.Left.X < -NAV_STICK_DEADZONE) sideways = -1;
+
+            //Sideways is the PAGE's, not the focus cursor's: a page that wants it says so and says whether it
+            //acted, so the tick sounds where something moved and stays silent on the seven pages that ignore
+            //it. The sound is played here rather than in the page for the same reason MenuClickable owns the
+            //click: the audio is the frame's, and a page reaching for it would be a second copy of that rule.
+            if (HeldDirectionFires(sideways, ref _navSideDirection, ref _navSideRepeatDelay, elapsed)
+                && _screens.Active is MenuPage sidewaysPage && sidewaysPage.PageSideways(sideways))
+                _audio.PlayUiTick();
 
             if (!edgeInputAllowed) return;
 
@@ -923,6 +980,41 @@ namespace BS3D
                 if (_navIndex < 0) StepNavFocus(1);
                 else ActivateNavEntry();
             }
+        }
+
+        /// <summary>
+        /// The treatment a <b>held</b> direction gets on either axis: it fires once, waits long enough that a
+        /// deliberate single press stays single, then walks at a steady rate. A stick read per frame would
+        /// cross the whole list — or the whole campaign — before the player let go.
+        /// <para>
+        /// Shared by the two axes rather than written twice (#273), because the timing is the same rule and
+        /// only the action differs; each axis brings its own pair of fields, so a diagonal push holds both.
+        /// </para>
+        /// </summary>
+        /// <param name="held">The direction this axis is already holding, updated here.</param>
+        /// <param name="delay">Time left before this axis fires again, in seconds, updated here.</param>
+        /// <returns>Whether the caller should act on <paramref name="direction"/> this frame.</returns>
+        private static bool HeldDirectionFires(int direction, ref int held, ref float delay, float elapsed)
+        {
+            if (direction == 0)
+            {
+                held = 0;
+                return false;
+            }
+
+            if (direction != held)
+            {
+                held = direction;
+                delay = NAV_REPEAT_DELAY;
+                return true;
+            }
+
+            delay -= elapsed;
+
+            if (delay > 0f) return false;
+
+            delay = NAV_REPEAT_INTERVAL;
+            return true;
         }
 
         private void StepNavFocus(int direction)

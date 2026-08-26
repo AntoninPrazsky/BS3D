@@ -55,6 +55,11 @@ namespace BS3D
             //random (#254). Null means the argument was absent, and then the backdrop rolls as a player's does.
             string preview = null;
 
+            //Testing only: open the level picker at boot, on a named chapter or on the one it chooses itself
+            //(#273). Null means the argument was absent. Empty string means "pick" without a chapter, which is
+            //why this is a string and not an int? — the two are different requests.
+            string pick = null;
+
             //Testing only: draw every ball in one style whatever the level files say (#258). Null means the
             //argument was absent, and then each map is drawn in what it is authored in, as a player sees it.
             //It exists because the two styles can otherwise only be compared across two DIFFERENT levels —
@@ -146,6 +151,12 @@ namespace BS3D
                 //scripted run fails to start.
                 else if (arg.StartsWith("shot=", StringComparison.OrdinalIgnoreCase))
                     shotSeconds = ParseSeconds(arg.Substring("shot=".Length));
+                //"pick" puts the LEVEL PICKER up at boot, and "pick=<n>" puts it up on that chapter (#273). The
+                //page itself is two keypresses away for anyone sitting at the machine and unreachable on a
+                //locked desktop, which takes no keystrokes — and since #273 it is a pager, so its other eight
+                //chapters are several presses in and "a shot of the picker" means nothing without saying which.
+                else if (string.Equals(arg, "pick", StringComparison.OrdinalIgnoreCase)) pick = string.Empty;
+                else if (arg.StartsWith("pick=", StringComparison.OrdinalIgnoreCase)) pick = arg.Substring("pick=".Length);
                 //"preview=<n|name>" pins which map the FRONT END hangs, the way "level=" pins which one is
                 //played. The menu's camera is framed for that map since #254, so without this two shots of
                 //the front end are two shots of different maps at different stand-offs.
@@ -160,7 +171,7 @@ namespace BS3D
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
                 celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, streak: streak,
-                shotSeconds: shotSeconds, level: level, preview: preview, ballStyle: ballStyle);
+                shotSeconds: shotSeconds, level: level, preview: preview, ballStyle: ballStyle, pick: pick);
             game.Run();
         }
 
