@@ -20,9 +20,11 @@ using Prazsky.Core.Screens;
 using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Threading;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
 using Label = Myra.Graphics2D.UI.Label;
 
@@ -81,6 +83,14 @@ namespace BS3D
         //through SetGraphics: SynchronizeWithVerticalRetrace and the PresentationInterval each read this
         //flag, the latter through PreparingDeviceSettings when ApplyChanges resets the device.
         private bool _uncappedFps;
+
+        //fpscap=N: present immediately, but idle out the rest of each frame's period so a frame CHEAPER than
+        //the cap never runs the card flat out. The Testbed has had it since #250 and the Game had not, which
+        //left the one executable that can load a LEVEL measurable only by `nocap` — flat out — or by vsync,
+        //which quantizes every reading to the refresh over an integer. #270 is what that cost: a level
+        //reading exactly 37.5 on a 75 Hz panel says only "dearer than 13.3 ms", and the whole question there
+        //was HOW MUCH dearer. Zero (the default) means no cap and changes nothing. See CapFrameRate.
+        private readonly int _fpsCap;
 
         //Pinned from the command line for a reproducible measurement. The scene is otherwise a different one of
         //the fifteen every launch, which makes any A/B of the frame's cost meaningless — they are nothing like
@@ -566,8 +576,14 @@ namespace BS3D
             QualityLevel? quality = null, bool celebrate = false, bool confetti = false, bool lasers = false,
             bool mute = false, bool play = false, bool result = false, bool blockDone = false, bool lost = false,
             int? resultStars = null, int? streak = null, float[] shotSeconds = null, string level = null,
-            string preview = null, BallStyle? ballStyle = null)
+            string preview = null, BallStyle? ballStyle = null, int fpsCap = 0)
         {
+            //Implies uncappedFps, exactly as the Testbed's does: a capped run still has to PRESENT
+            //immediately, or the vsync wait quantizes the reading to the refresh and the cap has nothing
+            //left to measure. Set here rather than left to the caller so the two cannot disagree.
+            _fpsCap = Math.Max(fpsCap, 0);
+            if (_fpsCap > 0) uncappedFps = true;
+
             BallStyleOverride = ballStyle;
 
             _fullscreen = fullscreen;
@@ -1451,6 +1467,49 @@ namespace BS3D
             //page is over them (#191). It reads the back buffer, so it has to be the last thing in the frame
             //that touches the device.
             ServiceScreenshots();
+
+            //Dead last, after the frame has been counted: the idle must not be inside anything the log
+            //measures, or the instrument reads itself instead of the frame.
+            CapFrameRate();
+        }
+
+        //When the next frame may be presented, on the wall clock, under fpscap=N. Stopwatch and not GameTime,
+        //because what the cap spends is REAL time between presents; MonoGame's own fixed time step was the
+        //other candidate and is refused here for the reason the Testbed refuses it — it feeds Update a
+        //synthetic elapsed and runs it more than once per Draw to catch up, which changes what the physics
+        //and every animation are handed, in the one mode whose whole purpose is to leave the frame alone.
+        private long _capNextFrameDue;
+
+        /// <summary>
+        /// Idles out the rest of the frame's period under <c>fpscap=N</c>, so a frame cheaper than the cap
+        /// stops running the card flat out — the desktop this exists for has hard-reset under load (#250), and
+        /// the owner's standing rule is that a measurement here is windowed and capped. A frame that already
+        /// overran the period is never delayed and never made to pay it back: the debt would come out of the
+        /// NEXT frame's idle and print a cheap frame as an expensive one. So a cap set under the frame rate
+        /// being measured reads exact, and the plateau on the cap itself reads as "cheaper than this".
+        /// <para>
+        /// A SPIN, and deliberately never <c>Thread.Sleep</c>: at Windows' default 15.6 ms timer resolution
+        /// <c>Sleep(1)</c> returns at the next tick and costs about six milliseconds — measured on the Testbed's
+        /// copy, where it slept a 300 FPS cap down to 143 and a 400 FPS cap to 209, the instrument reading its
+        /// own idle instead of the frame. This is a benchmarking mode only, so burning one core for the rest of
+        /// the period is the right trade.
+        /// </para>
+        /// </summary>
+        private void CapFrameRate()
+        {
+            if (_fpsCap <= 0) return;
+
+            long period = Stopwatch.Frequency / _fpsCap;
+            long now = Stopwatch.GetTimestamp();
+
+            if (now >= _capNextFrameDue)
+            {
+                _capNextFrameDue = now + period;
+                return;
+            }
+
+            while (Stopwatch.GetTimestamp() < _capNextFrameDue) Thread.SpinWait(64);
+            _capNextFrameDue += period;
         }
 
         #region The frame-rate log (benchmarking)
@@ -1491,7 +1550,7 @@ namespace BS3D
 
             Console.WriteLine($"[fps] {_fpsFrames / _fpsWindow:F1} — {_scene}, dome {_skyDome}, ssaa {_supersampleFactor}x"
                 + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
-                + $", vsync {(_uncappedFps ? "off" : "on")}{city}");
+                + $", vsync {(_uncappedFps ? "off" : "on")}{(_fpsCap > 0 ? $" (cap {_fpsCap})" : "")}{city}");
 
             _fpsWindow = 0f;
             _fpsFrames = 0;

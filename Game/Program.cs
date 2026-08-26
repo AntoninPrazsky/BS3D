@@ -13,6 +13,12 @@ namespace BS3D
         {
             bool fullscreen = false;
             bool uncappedFps = false;
+
+            //Testing only: "fpscap=N" is "nocap" with a ceiling — it presents immediately, so nothing
+            //quantizes the reading, and idles out the rest of each frame's period, so a cheap frame does not
+            //leave the card flat out. The Testbed has had it since #250; the Game needed it for #270, where a
+            //vsync-capped level could only ever say "dearer than one refresh". Zero means no cap.
+            int fpsCap = 0;
             float exposure = 0f;
 
             //Left null when absent, so the game keeps doing what it normally does: a random one of the fifteen
@@ -95,6 +101,9 @@ namespace BS3D
                 if (string.Equals(arg, "fullscreen", StringComparison.OrdinalIgnoreCase)) fullscreen = true;
                 //"nocap" disables vsync so real rendering headroom can be measured
                 else if (string.Equals(arg, "nocap", StringComparison.OrdinalIgnoreCase)) uncappedFps = true;
+                //"fpscap=N" implies nocap's presentation; the game itself makes that implication so the two
+                //cannot be given inconsistently (see the BS3DGame constructor).
+                else if (arg.StartsWith("fpscap=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("fpscap=".Length), out int parsedCap) && parsedCap > 0) fpsCap = parsedCap;
                 //"ssaa=<n>" trades sharpness against fill rate; "exposure=<f>" is the renderer's shutter speed
                 else if (arg.StartsWith("ssaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("ssaa=".Length), out int parsedSsaa)) supersampleFactor = parsedSsaa;
                 else if (arg.StartsWith("exposure=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("exposure=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedExposure)) exposure = parsedExposure;
@@ -160,7 +169,7 @@ namespace BS3D
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
                 celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, streak: streak,
-                shotSeconds: shotSeconds, level: level, preview: preview, ballStyle: ballStyle);
+                shotSeconds: shotSeconds, level: level, preview: preview, ballStyle: ballStyle, fpsCap: fpsCap);
             game.Run();
         }
 
