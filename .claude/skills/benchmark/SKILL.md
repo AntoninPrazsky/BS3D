@@ -64,7 +64,18 @@ Each of these has actually happened; the first two are the expensive ones.
    odd" but **compare the reported size against what you asked for on every run, and re-run the ones that
    differ** — a sweep that does it costs one line. Parking the cursor off the title bar after the focus
    click is cheap insurance beside it.
-10. **Average the per-second readings with a MEDIAN, not a mean.** Trap 6 does not always take a whole run:
+10. **Believing a VSYNC-capped reading is a frame cost. It is not, and it can be wrong by 2× in the
+   direction nobody expects.** A vsync-capped run reports the refresh over an integer and nothing else, so
+   every reading is a *bracket*: 75.0 means "cheaper than 13.3 ms" and 37.5 means only "dearer than that".
+   Worse, #270 measured the Game presenting a frame at **37.5 while that frame cost under 5 ms** — held
+   under `fpscap=200`, `150`, `100` and even `76`, which paces it exactly as a 75 Hz vsync does. Paired
+   repeats on the same level: vsync **37.5 / 37.5** against `fpscap=75` **75.0 / 75.0**. So a vsync run can
+   report half rate for a frame with 8 ms of headroom, and reading that number as a cost sends you hunting a
+   10× shader fault that is not there — which is exactly what #270 was filed as. **The tell is
+   non-monotonicity**: #270's ssaa sweep read 1 → 75, 2 → 37.5, 3 → 31.8, 4 → 75, and no cost curve is
+   V-shaped with its minimum in the middle. Always re-run a surprising vsync number under `fpscap=` before
+   believing it.
+11. **Average the per-second readings with a MEDIAN, not a mean.** Trap 6 does not always take a whole run:
    twice now a run has opened at its neighbours' frame rate exactly, then collapsed to a third of it partway
    through and stayed there, which drags a mean far enough to invert an A/B. A median of the kept readings
    cannot be moved by it, and printing the lowest reading beside the median still shows that it happened.
@@ -90,11 +101,16 @@ and 20 minutes into a continuous session, which said the spread was the level an
   buildings survived the frustum cull from where the camera is standing. Everything that changes what the
   number means is on the line, so two runs — or two machines — can be compared without remembering how each
   was launched.
-- `quality=<low|medium|high>` — the bundled detail tier. `ssaa=<n>` is *documented* to then override just its
-  supersample entry, and **currently does not**: `LoadContent` calls `ApplyQuality(_quality)` unconditionally,
-  whose last line is `SetSupersampleFactor(preset.SupersampleFactor)`, so the tier's factor overwrites the one
-  the command line asked for. Check the `[fps]` line's own `ssaa Nx` before believing any A/B that varies it —
-  an ssaa 1-vs-2 sweep silently measures 2× twice.
+- `quality=<low|medium|high>` — the bundled detail tier. `ssaa=<n>` then overrides just its supersample entry,
+  and **this now works**: `ApplyQuality` ends `SetSupersampleFactor(_supersampleOverride ?? preset.SupersampleFactor)`,
+  so a command-line factor survives the tier being applied again in `LoadContent` and on every adaptive step.
+  This entry said the opposite for a long time, from the era when `ApplyQuality` wrote the tier's factor over
+  it unconditionally; re-checked against `[fps]` in #270, where `quality=high ssaa=1` reported `ssaa 1x` against
+  the tier's own 2. Read the line's `ssaa Nx` back anyway — it is on the line so that an A/B varying it can be
+  believed, and either half of a pinned pair going astray is the kind of thing that only shows there.
+- `fpscap=<n>` — present immediately but never more than N frames a second (see the section on it below).
+  **Both executables**, the Game's since #270. This is what makes a reading a frame cost; a vsync-capped
+  number is a bracket, not a cost, and trap 10 is what that has already cost once.
 - `scene=<city|sea|savanna|desert|mountain|meadow|neon|forest|space|dream|cavern|moon>`, `sky=<1..18>` — pin the backdrop. The scene names are
   the Testbed's, so a script written against one executable drives the other.
 - `play` — skip the front end into the **first** level, and `level=<n|name>` into any other (its 1-based place
@@ -159,7 +175,9 @@ part — the owner reported an uncapped run hard-resetting his desktop — and #
 So this is a machine-level fault (the signature points at power delivery), not a shader or a benchmark mode,
 and no cap can be assumed to protect it. Ask the owner before running a measurement sweep on the desktop.
 
-The instrument itself is the Testbed's `fpscap=N` (`TestOptions.FpsCap`): it presents immediately, so nothing
+The instrument is `fpscap=N`, and **both executables have it** — the Testbed's `TestOptions.FpsCap` since
+#250, the Game's since #270, which needed it because the Game is the only one that can load a **level** and a
+vsync-capped level can only ever say "dearer than one refresh" (trap 10 above). It presents immediately, so nothing
 quantizes the reading, and idles out the rest of each frame's period, so a frame **cheaper** than the cap never
 runs away while a frame **dearer** than it is never delayed and still reads its true cost. Set the cap under
 the frame rate being measured — at 150 anything dearer than 6.7 ms comes out exact — and read the plateau
