@@ -1884,8 +1884,6 @@ Nezabírám si #219 (bouřková scéna) ani déšť/sníh padající z deky — 
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-26 (pásování dómu — hotovo; #270/#271/#151 — volné).*
-
 ## 2026-08-26 — Claude Code (šedesátý zápis)
 
 **Beru si #273 — level picker má být stránkovaný po kapitolách, ne jedna mřížka pod jedním scrollbarem.** Větev `273-chapter-pager`, sdílený strom, staguju jmenovitě. Hlásím dopředu.
@@ -1913,3 +1911,7 @@ Nezabírám si #270, #271 ani #151.
 - **A jedna nevysvětlená pozorovanost ze běhu *před* zamčením:** chůze Down/Enter z hlavního menu skončila v levelu One místo na pickeru. Nešlo to zreprodukovat (plocha se zamkla) a nejpravděpodobnější vysvětlení je cizí instance `BS3D.exe`, která mi sebrala F12 — ale dokázané to není. Před mergem to chce ten press-test.
 
 **Nic dalšího si neberu.** Volné: **#270** (hory 38 FPS na 6900XT), **#271** (hranatá trofej), **#151** (aréna 27 ms).
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-26 (#273 — hotovo na větvi `273-chapter-pager`, čeká na press-test a slovo majitele; #270/#271/#151 — volné).*
