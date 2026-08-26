@@ -1851,4 +1851,22 @@ Nezabírám si #219 (bouřková scéna) ani déšť/sníh padající z deky — 
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-26 (#221 — rozpracováno; #270/#271 — volné).*
+## 2026-08-26 — Claude Code (padesátý osmý zápis)
+
+**#221 hotové a zavřené, na mainu.** Každá scéna má vlastní oblohu, autorských je pět: `clear`, `scattered`, `broken`, `overcast`, `storm`.
+
+- **Nejdřív měřicí otázka, na které stálo všechno ostatní** (bod 3 fix sketch): jedno pole **umí pět jasně odlišitelných obloh a neumí frontu**. Nafoceno pěti běhy nad jednou scénou pod jedním dómem (kvůli tomu jsem přidal `weather=<name>` do Testbedu — pět obloh nejde srovnat, dokud každou drží scéna, která ji chtěla). Liší se **velikost, hustota, eroze, tma a drift** oblaku, ne jeho topologie. Fronta s náběžnou hranou, lenticularis ani kovadlina nemají ve dvou oktávách gradientního šumu člen. `storm` je tedy těžká roztrhaná zataženost, ne fronta — a je to napsané v `WeatherLook`, ne ponechané k objevení.
+- **⚠ Charakter se musel hnout s pokrytím, a to je většina té změny.** Pět hodnot, které říkaly, JAKÝ druh oblaku to je (detail strength, opacity, obě billow čísla, character swing), byly **konstanty sdílené všemi executably**, pushnuté jednou při loadu. Teď jsou součástí počasí a jdou ven v per-frame pushi spolu se stínovanou spodní stranou, protože se mění s počasím a při přechodu každý snímek. Sdílené zůstalo jen to, na čem se dvě obloh neshodnou nemají důvod: absorpce, stříbrná linka, horizon fade.
+- **⚠ Issue je v jednom bodě zastaralé a stálo za to to zapsat:** tvrdí, že „level už nese celý `SceneConfig` s diskriminátorem kind". Od format-2 refaktoru nese jen **jméno scény**. Override je tedy nové pole `weather` na `Level` — což je stejně to, co fix sketch popisuje slovy „tak, jak už to dělá `sky` a `music`".
+- **⚠ Město bylo jediná scéna, která propadla.** `SceneRenderer.GetSceneConfig` vrací pro obě města **null** (kreslí se sdílenou instanced technikou, ne scénickým shaderem, takže jejich konfig patří hostovi), a město tak dostávalo výchozí oblohu místo zataženosti, kterou si říká. **Chytil to až screenshot** — nic jiného by to neodhalilo.
+- **Drží to přes dómy** (bod 4, lekce #50): `storm` nad jasným denním dómem, fialovým soumrakem a téměř černým 16 bere barvu každého z nich (pod soumrakem fialová, pod tmavým sépiová) a všude čte jako bouřka, nikde jako šedá kaše.
+- **Přechod trvá 2,5 s** (bod 5) — pravidlo ambience, ne snímku, a záměrně stejné okno, přes které `SkyLightRig.StepOvercast` lerpuje rig, aby deka a světlo dorazily spolu.
+- **Editor číselník dostane, ale náhled ne** — nekreslí deku vůbec (nestaví `Sky.fx`), takže vlastnost v PropertyGridu je a nic nedělá. Nechal jsem ji viditelnou: je to skutečná vlastnost scény a tohle je editor scénických konfigů; co neumí, je ji ukázat. Stejný tvar omezení, jaký #220 zaznamenalo u slunečního kotouče, a zapsaný vedle něj.
+- **Nález mimo tohle issue:** pod plochou zataženou dekou je zřetelně vidět fasetové pásování dómu jako rovná vodorovná hrana — je vidět i pod `clear`, takže je to nízkopolygonální gradient dómu (92 vrcholů, 16 prstenců), ne vada počasí. Je to tentýž artefakt, který jsem označil v zápise k #220 jako námět na vlastní issue; zavřená obloha ho jen líp odhalí.
+- **Ověřeno:** čtyři solutiony čisté, LevelGen exit 0, ScoreSim hlásí všech devadesát správně, hra hraje louku (scattered) i město (overcast) s jejich vlastní oblohou, pět presetů i tři dómy posouzeny okem.
+
+**Nic si teď neberu.** Volné: **#270** (hory 38 FPS na 6900XT), **#271** (hranatá trofej), **#151** (aréna 27 ms).
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-26 (#221 — zavřeno; #270/#271/#151 — volné).*
