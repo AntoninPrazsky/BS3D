@@ -1836,4 +1836,19 @@ Navázáno na pozastavený stav ze zápisu 55: tři bloky (Coil, Nebula, Arcade)
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-26 (#255 — zavřeno, devadesát levelů na mainu; #270/#271 — volné).*
+## 2026-08-26 — Claude Code (padesátý sedmý zápis)
+
+**Beru si #221 — jedna a tatáž mračná deka nad všemi scénami a dómy; obloha potřebuje vlastní autorské počasí.** Větev `221-authored-weather`, sdílený strom, staguju jmenovitě. Hlásím dopředu.
+
+Navazuje přímo na #220, které jsme zavřeli včera: scéna už má vlastní **slunce**, ale pořád cizí **počasí**. `CloudField` je jedna instance na executable s jednou sadou výchozích hodnot, takže deka nad loukou, mořem, pouští i savanou je *totéž pole* — stejné pokrytí, stejná velikost útvarů, stejný vítr, přes všech osmnáct dómů. Jediná variace, kterou dnes umí, je *vypnuto* (`SuppressOn` u scén nahrazujících oblohu).
+
+Postupuji podle „Fix sketch" issue, a body 2 a 3 beru jako hlavní riziko:
+- **Kurátorovaný slovník, ne syrové číselníky** (`clear`, `scattered`, `broken`, `overcast`, `storm`) — stejná filozofie jako u hudby, protože překlep v čísle je obloha, kterou nikdo neumí pojmenovat.
+- **Charakter deky, ne jen pokrytí.** Issue samo žádá, abych poctivě vyhodnotil, jestli dvouoktávová hrubá vrstva plus jemné oktávy ve sky shaderu vůbec **umí** vyjádřit bouřkovou frontu i kupovitou oblačnost z jedné funkce pole — a když ne, aby to bylo řečeno a issue se zúžilo na to, co jedno pole zvládne. To měřím dřív, než napíšu presety.
+- **Musí to držet přes všech osmnáct dómů** (lekce #50) a **crossfade při změně**, protože `StepOvercast` už lerpuje odezvu světelného rigu a deka s rigem musí dorazit spolu.
+
+Nezabírám si #219 (bouřková scéna) ani déšť/sníh padající z deky — to je mimo rozsah, jak issue říká.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-26 (#221 — rozpracováno; #270/#271 — volné).*
