@@ -1919,4 +1919,8 @@ Nezabírám si #270, #271 ani #151.
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-26 (#273 — hotovo a ověřené na větvi `273-chapter-pager`, čeká na slovo majitele; #270/#271/#151 — volné).*
+**Dodatek (týž den):** majitel odklikl, **#273 je na mainu jako `fb670b3`** (merge `--no-ff` větve `273-chapter-pager`) **a zavřené**. Větev `273-chapter-pager` jsem zatím **nesmazal** — je plně obsažená v mainu, k úklidu kdykoli.
+
+---
+
+*Poslední zápis: Claude Code, 2026-08-26 (#273 — zavřeno, na mainu; #270/#271/#151 — volné).*
