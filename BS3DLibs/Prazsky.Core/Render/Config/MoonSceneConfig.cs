@@ -22,6 +22,11 @@ namespace Prazsky.Core.Render
         public override SceneKind Kind => SceneKind.Moon;
 
         /// <summary>
+        /// Airless. There is no weather on the Moon, which is the one scene where that is a fact about the place rather than a choice about the look.
+        /// </summary>
+        public MoonSceneConfig() => Weather = WeatherPreset.Clear;
+
+        /// <summary>
         /// The empty sky between the stars (linear). Even darker than space's void: the lunar sky has no
         /// airglow or zodiacal floor to speak of. Not exactly zero — a frame that goes to zero reads as a
         /// hole rather than as darkness.

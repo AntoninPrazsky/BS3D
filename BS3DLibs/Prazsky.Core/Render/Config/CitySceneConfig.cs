@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Prazsky.Core.Render
 {
@@ -18,6 +18,11 @@ namespace Prazsky.Core.Render
         /// <summary>City or NeonCity, chosen by <see cref="Neon"/>.</summary>
         [JsonIgnore]
         public override SceneKind Kind => Neon ? SceneKind.NeonCity : SceneKind.City;
+
+        /// <summary>
+        /// The campaign's last chapter plays here at morning with the neon off, and an overcast sheet is what makes that morning read as a morning rather than as a noon. It also flattens the ground light, which is what a chapter about telling neighbouring hues apart wants behind it.
+        /// </summary>
+        public CitySceneConfig() => Weather = WeatherPreset.Overcast;
 
         /// <summary>Neon night relight instead of the ordinary warm/cool daytime city (drives <see cref="Kind"/>).</summary>
         public bool Neon { get; set; } = false;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Text.Json.Serialization;
 
 namespace Prazsky.Core.Render
@@ -22,6 +22,11 @@ namespace Prazsky.Core.Render
     {
         [JsonIgnore]
         public override SceneKind Kind => SceneKind.Space;
+
+        /// <summary>
+        /// No sky to put weather in: the deck is suppressed here anyway (SceneRenderer.ReplacesSky), and saying Clear says so rather than leaving a value nothing can reach.
+        /// </summary>
+        public SpaceSceneConfig() => Weather = WeatherPreset.Clear;
 
         /// <summary>
         /// The empty sky between everything else (linear). Deliberately not pure black: a real deep-sky frame

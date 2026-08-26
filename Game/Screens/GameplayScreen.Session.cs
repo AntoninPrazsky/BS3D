@@ -228,6 +228,13 @@ namespace BS3D.Screens
 
                         if (level.Scene is SceneKind sceneKind) Game.SetScene(sceneKind);
                         Game.SetSkyDome(Math.Clamp(level.SkyDome, (byte)1, BS3DGame.SKY_DOME_COUNT));
+
+                        //After SetScene, which has already stated the scene's own weather: the scene says
+                        //what the place is usually like and this says what it is like today (#221). A level
+                        //naming none — which is every level shipped before the field existed — leaves the
+                        //scene's, because TryParse answers null and the scene's config is the fallback.
+                        Game.ApplySceneWeather(level.Weather);
+
                         namedTheme = level.Music;
                         ballStyle = level.Balls ?? BallStyle.Beach;
                     }

@@ -36,17 +36,42 @@ namespace Prazsky.Core.Render
     /// </summary>
     public sealed class CloudField
     {
-        /// <summary>World Y the cloud plane sits at.</summary>
-        public float PlaneY { get; set; } = 190f;
+        //THE SHAPE AND THE CHARACTER ARE ONE WEATHER SINCE #221. They were seven settable properties and a
+        //row of shared constants before it, which is exactly why one weather was all there could be: a
+        //scene could nudge the coverage and nothing at all could change what KIND of cloud it was. Both
+        //halves live in WeatherLook now, a WeatherPreset names one, and this holds the one being drawn -
+        //which during a change of sky is neither of them but a point between (see SetWeather).
+        private WeatherLook _look = WeatherLooks.Of(WeatherPreset.Scattered);
+        private WeatherLook _from = WeatherLooks.Of(WeatherPreset.Scattered);
+        private WeatherPreset _preset = WeatherPreset.Scattered;
+        private float _blend = 1f;
+
+        //The dome's half of the shadowed underside's colour, taken in ApplyDome and multiplied by the
+        //weather's half every frame. White until a dome has been handed over, so a caller pushing the field
+        //before its first ApplyDome gets the weather's own radiance rather than black.
+        private Vector3 _skyTint = Vector3.One;
+
+        /// <summary>Which authored sky is up. Set through <see cref="SetWeather"/>, which fades to it.</summary>
+        public WeatherPreset Preset => _preset;
+
+        /// <summary>
+        /// How long a change of sky takes. The ambience crossfades its beds rather than cutting them on the
+        /// frame the scene changes, and weather follows the sound's rule and not the frame's for the same
+        /// reason: a backdrop may be swapped in one frame because it is a different PLACE, where a sky
+        /// closing over is the same place changing. Longer than the ambience's 1.5 s because a sky is bigger
+        /// and slower than a sound — and because <see cref="SkyLightRig.StepOvercast"/> lerps the light
+        /// rig's own answer over 2.5 s, so matching it is what makes the deck and the rig arrive together.
+        /// </summary>
+        private const float WEATHER_FADE_SECONDS = 2.5f;
+
+        /// <summary>World Y the cloud plane sits at — the weather's, blended while one is changing.</summary>
+        public float PlaneY => _look.PlaneY;
 
         /// <summary>Noise units per world unit; the reciprocal is roughly one weather feature across.</summary>
-        public float Scale { get; set; } = 1f / 450f;
+        public float Scale => _look.Scale;
 
-        /// <summary>Wind, in world units per second. Halved from the original (9, 4): with the deck's new
-        /// billow shading and finer grain the same drift read as time-lapse — a sculpted cloud shows its
-        /// motion far more plainly than a soft wash did, so the speed that suited the wash was retuned by
-        /// looking, not because anything about the wind itself changed.</summary>
-        public Vector2 Wind { get; set; } = new(4.5f, 2f);
+        /// <summary>Wind, in world units per second.</summary>
+        public Vector2 Wind => _look.Wind;
 
         /// <summary>Wall clock driving the wind, in seconds.</summary>
         public float Time { get; set; }
@@ -56,36 +81,70 @@ namespace Prazsky.Core.Render
         /// the dial that decides whether the weather is *noticeable*, which is a different question from
         /// whether it looks right — a shadow only lands on the arena when cloud happens to sit over the
         /// one patch of sky its sun ray crosses, so a handsome sky with a fifth of it covered leaves the
-        /// ground in unbroken sun for minutes at a time.
+        /// ground in unbroken sun for minutes at a time. That observation is what #221 was filed about, and
+        /// what a scene naming its own weather now answers.
         /// </summary>
-        public float CoverageBias { get; set; } = 0.02f;
+        public float CoverageBias => _look.CoverageBias;
 
         /// <summary>How sharply the field crosses that threshold.</summary>
-        public float CoverageGain { get; set; } = 2.8f;
+        public float CoverageGain => _look.CoverageGain;
 
         /// <summary>Least sun that reaches through the thickest cloud, and how fast the shadow deepens.</summary>
-        public float ShadowFloor { get; set; } = 0.38f;
+        public float ShadowFloor => _look.ShadowFloor;
 
-        public float ShadowGain { get; set; } = 1.3f;
-
-        //The look, as opposed to the shape above: tuned once and not a dial anything varies at runtime, which
-        //is why these are constants rather than properties. They are pushed by ApplyStaticParameters and
-        //ApplyPalette; the shape is pushed per frame by ApplyTo.
+        public float ShadowGain => _look.ShadowGain;
 
         /// <summary>
-        /// How hard the fine octaves chew at the shape the weather layer drew. Has to be read against
-        /// <see cref="CoverageGain"/>, which is what the weather is multiplied by: at 0.55 against a gain of
-        /// 2.8 the detail was modulating the thickness by about six percent and the clouds came out
-        /// airbrushed. It wants to be a decent fraction of the weather's own amplitude.
+        /// Puts a sky up. Called with the preset already up it does nothing at all — which is what lets a
+        /// caller state its scene's weather on every scene change without having to remember whether it
+        /// changed — and with a different one it fades from wherever the deck currently stands, so a change
+        /// caught mid-fade carries on from where it is rather than snapping back to start again.
         /// </summary>
-        private static readonly float DetailStrength = 2.3f;
+        public void SetWeather(WeatherPreset preset)
+        {
+            if (preset == _preset) return;
+
+            _from = _look;
+            _preset = preset;
+            _blend = 0f;
+        }
 
         /// <summary>
-        /// Opacity of the densest cloud, and the elevation over which cloud fades into haze. Well over 1, so
-        /// a cloud reaches solid at about half density and only its edges stay translucent — at 1.15 the whole
-        /// layer was semi-transparent everywhere and read as haze rather than as weather.
+        /// Puts a sky up with no fade — what a caller building a scene from nothing wants, where a fade
+        /// would be the first two seconds of every level spent arriving at its own weather.
         /// </summary>
-        private static readonly float Opacity = 2.4f;
+        public void SetWeatherImmediately(WeatherPreset preset)
+        {
+            _preset = preset;
+            _look = _from = WeatherLooks.Of(preset);
+            _blend = 1f;
+        }
+
+        /// <summary>
+        /// Advances a change of sky. Costs one compare on the frames nothing is changing, which is nearly
+        /// all of them.
+        /// </summary>
+        /// <param name="elapsedSeconds">The frame's own wall-clock time.</param>
+        public void Step(float elapsedSeconds)
+        {
+            if (_blend >= 1f) return;
+
+            _blend = MathF.Min(1f, _blend + elapsedSeconds / WEATHER_FADE_SECONDS);
+
+            //Smoothstep rather than the bare ramp: a sky that starts and stops closing over abruptly reads
+            //as a dial being turned, which is the one thing a fade exists to hide.
+            _look = WeatherLook.Lerp(_from, WeatherLooks.Of(_preset), _blend * _blend * (3f - 2f * _blend));
+        }
+
+        //WHAT IS LEFT HERE IS WHAT EVERY WEATHER SHARES. The five that told one kind of cloud from another —
+        //the detail strength, the opacity, the two billow figures and the character swing — moved into
+        //WeatherLook with #221, because a shredded storm deck and a smooth overcast differ in exactly those
+        //and in nothing the coverage alone can say. These are the ones a storm and a fair-weather sky have
+        //no reason to disagree about: how a cloud swallows light on the way through, how the sun scatters
+        //forward through its edge, and where the deck fades into haze. They are still pushed once at load.
+        //
+        //(The figures the five carried are Scattered's own in WeatherLooks, to the last digit, so a scene
+        //that says nothing about its sky draws exactly what it drew before there was anything to say.)
 
         private static readonly float HorizonFade = 0.16f;
 
@@ -107,26 +166,6 @@ namespace Prazsky.Core.Render
         private static readonly float SilverPower = 12f;
 
         /// <summary>
-        /// The billow: how deep the underside is treated as hanging off the plane where the field is thick
-        /// (the field's slope times this tilts the shaded normal), and how hard the tilted facets swing the
-        /// light that lands on them. Zero for either returns the flat Beer-Lambert wash the deck had before
-        /// it was given a form — which is exactly what it looked like: a map of its own density, no body.
-        /// </summary>
-        private static readonly float FormStrength = 60f;
-
-        private static readonly float ShapeStrength = 1.4f;
-
-        /// <summary>
-        /// How far the per-cloud character field swings the detail strength either way (0.7 = ±70 %). One
-        /// grain everywhere is what made every bank the same animal; the character octave sits far below the
-        /// weather layer, so it picks whole clouds, and a bank it lands high on comes out shredded and
-        /// fibrous next to a rounded, dense neighbour. At 0.45 the swing was invisible against the base
-        /// strength — every bank still wore the same fleece — so it was widened until two kinds of cloud
-        /// genuinely coexist in one frame.
-        /// </summary>
-        private static readonly float CharacterStrength = 0.7f;
-
-        /// <summary>
         /// How much further the clouds' lit side is carried towards the dome's horizon colour than the rig
         /// already carried it. The rig's sun keeps most of its daylight radiance under every dome — the
         /// scene under it needs a working key light even at dusk — but a cloud is <b>in</b> the sky, and a
@@ -136,17 +175,12 @@ namespace Prazsky.Core.Render
         /// </summary>
         private static readonly float SunTintStrength = 0.5f;
 
-        /// <summary>
-        /// The shadowed underside, in **linear radiance** — a quantity of light, not an sRGB paint colour, so
-        /// nothing decodes it.
-        /// <para>
-        /// Well below the lit side's radiance rather than a shade under it. The frame goes through an ACES
-        /// curve that compresses the highlights hard, so two linear values close together up there come out of
-        /// the tonemapper as the same white — at 0.45 the undersides were indistinguishable from the tops and
-        /// the whole layer read as flat paper.
-        /// </para>
-        /// </summary>
-        private static readonly Vector3 ShadowColor = new(0.18f, 0.21f, 0.28f);
+        //The shadowed underside moved into WeatherLook with #221 and is the one value that carries most of a
+        //storm's darkness: a fair-weather deck's undersides sit at 0.18-0.28 of linear radiance and a
+        //storm's at a quarter of that, which the ACES curve leaves as real black rather than as grey. Its
+        //own reasoning — that it has to sit WELL below the lit side rather than a shade under it, because
+        //the curve compresses the highlights hard and two close values up there tonemap to the same white —
+        //is what every preset's figure is chosen against.
 
         /// <summary>
         /// The shadowed side of a cloud sees no sun at all — only sky — so it takes the zenith colour far more
@@ -202,14 +236,30 @@ namespace Prazsky.Core.Render
         {
             EffectSlots slots = SlotsOf(effect);
 
-            slots.PlaneY?.SetValue(PlaneY);
-            slots.Scale?.SetValue(Scale);
+            slots.PlaneY?.SetValue(_look.PlaneY);
+            slots.Scale?.SetValue(_look.Scale);
             slots.Time?.SetValue(Time);
-            slots.CoverageBias?.SetValue(CoverageBias);
-            slots.CoverageGain?.SetValue(CoverageGain);
-            slots.ShadowFloor?.SetValue(ShadowFloor);
-            slots.ShadowGain?.SetValue(ShadowGain);
-            slots.Wind?.SetValue(Wind);
+            slots.CoverageBias?.SetValue(_look.CoverageBias);
+            slots.CoverageGain?.SetValue(_look.CoverageGain);
+            slots.ShadowFloor?.SetValue(_look.ShadowFloor);
+            slots.ShadowGain?.SetValue(_look.ShadowGain);
+            slots.Wind?.SetValue(_look.Wind);
+
+            //THE CHARACTER GOES OUT HERE TOO SINCE #221, where it was pushed once at load. It has to: these
+            //five are what tell a shredded storm deck from a smooth overcast, so they change when the
+            //weather does — and while a sky is changing they change every frame. Five floats on top of the
+            //eight above, on a path that already ran per frame per effect.
+            slots.DetailStrength?.SetValue(_look.DetailStrength);
+            slots.Opacity?.SetValue(_look.Opacity);
+            slots.FormStrength?.SetValue(_look.FormStrength);
+            slots.ShapeStrength?.SetValue(_look.ShapeStrength);
+            slots.CharacterStrength?.SetValue(_look.CharacterStrength);
+
+            //The shadowed underside is the weather's AND the dome's — a cloud's underside is the colour of
+            //the sky it sees — so it is the one value needing both, and it is pushed here because the
+            //weather's half moves per frame while the dome's moves once a scene. <see cref="ApplyDome"/>
+            //remembers its half for exactly this.
+            slots.ShadowColor?.SetValue(_look.ShadowColor * _skyTint);
         }
 
         /// <summary>
@@ -227,17 +277,12 @@ namespace Prazsky.Core.Render
         {
             EffectSlots slots = SlotsOf(skyEffect);
 
-            slots.DetailStrength?.SetValue(DetailStrength);
-            slots.Opacity?.SetValue(Opacity);
             slots.HorizonFade?.SetValue(HorizonFade);
             slots.SunStep?.SetValue(SunStep);
             slots.SelfAbsorption?.SetValue(SelfAbsorption);
             slots.SunAbsorption?.SetValue(SunAbsorption);
             slots.SilverStrength?.SetValue(SilverStrength);
             slots.SilverPower?.SetValue(SilverPower);
-            slots.FormStrength?.SetValue(FormStrength);
-            slots.ShapeStrength?.SetValue(ShapeStrength);
-            slots.CharacterStrength?.SetValue(CharacterStrength);
             slots.SunDiscCos?.SetValue(MathF.Cos(SunDiscAngularRadius));
             slots.SunDiscEdge?.SetValue(MathF.Sin(SunDiscAngularRadius) * SunDiscEdgeAngle);
         }
@@ -303,11 +348,15 @@ namespace Prazsky.Core.Render
             slots.SunDirection?.SetValue(sunDirection);
             if (instancedEffect != null) SlotsOf(instancedEffect).SunDirection?.SetValue(sunDirection);
 
-            Vector3 skyTint = Vector3.Lerp(Vector3.One, zenithLinear, ShadowTintStrength);
+            //The dome's half of the underside's colour, REMEMBERED rather than pushed: since #221 the other
+            //half is the weather's, and that half moves per frame while a sky is changing, so the two are
+            //multiplied together in ApplyTo. Held as the tint rather than as the finished colour, which
+            //keeps this the one place the dome is read.
+            _skyTint = Vector3.Lerp(Vector3.One, zenithLinear, ShadowTintStrength);
+
             Vector3 domeTint = Vector3.Lerp(Vector3.One, horizonLinear, SunTintStrength);
 
             slots.SunColor?.SetValue(sunRadiance * domeTint);
-            slots.ShadowColor?.SetValue(ShadowColor * skyTint);
 
             //The sun disc takes the sun's radiance straight, without the second lerp towards the horizon the
             //clouds' lit side gets: a cloud is a lit surface and the sun is the source, and carrying the disc

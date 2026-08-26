@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Prazsky.Core.Render
 {
@@ -19,6 +19,11 @@ namespace Prazsky.Core.Render
     {
         [JsonIgnore]
         public override SceneKind Kind => SceneKind.Volcano;
+
+        /// <summary>
+        /// The one scene whose own sky should be ugly: ash and heat over black basalt want a heavy low deck with the light nearly out of it, and it is the only backdrop in the set that gains rather than loses by going dark.
+        /// </summary>
+        public VolcanoSceneConfig() => Weather = WeatherPreset.Storm;
 
         /// <summary>Mean ground level in the clearing (the island's foot), as in the desert and the outback.</summary>
         public float LevelY { get; set; } = -13.5f;
