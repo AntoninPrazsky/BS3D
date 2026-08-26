@@ -1,18 +1,24 @@
-namespace Prazsky.Core
+﻿namespace Prazsky.Core
 {
 	public partial class SkyDome
 	{
-		//The one dome every sky is: the Wings3D "GeoDome1" all eighteen SkyDome*.dae files shared, captured
-		//verbatim from the content pipeline's built models (positions, smooth normals, triangle order and the
-		//pipeline's vertex welding included) so the swap from loaded model to procedural buffers is
-		//byte-for-byte. 92 vertices on 16 latitude rings, 180 triangles, radius ~12.5-12.76 - the profile is
-		//not a perfect sphere and the winding shows front faces to a camera INSIDE, which is the opposite of
-		//the repo's procedural-solid convention and exactly what the loaded models did (CLAUDE.md, "Triangle
-		//winding"; the Testbed and MapEditor draw the sky under an inherited rasterizer state, frequently
-		//CullCounterClockwiseFace, so the winding is load-bearing).
-		//Six floats per vertex: position xyz, then normal xyz. The normals point inward and nothing reads
-		//them today (Sky.fx takes POSITION0+COLOR0, BasicEffect draws unlit) - they are kept because the
-		//built models carried them, so the buffer layout and byte content stay identical to what shipped.
+		//The one dome every sky WAS: the Wings3D "GeoDome1" all eighteen SkyDome*.dae files shared, captured
+		//verbatim from the content pipeline's built models (positions, smooth normals and the pipeline's
+		//vertex welding included). 92 vertices on 16 latitude rings, radius ~12.5-12.76 - the profile is not
+		//a perfect sphere.
+		//
+		//IT IS NOT DRAWN ANY MORE and this is now a colour table with heights attached. Sixteen rings is far
+		//too coarse a gradient - and worse, consecutive rings share a colour, so the sky came out as flat
+		//plates joined by ramps and the eye found every join. SkyDome.BuildDrawnDome builds what is drawn and
+		//SkyDome.BuildRamp resamples these colours into a smooth one; what stays here is what the LIGHT RIG
+		//reads, because ZenithColor and HorizonColor are averages over these 92 entries in this order and
+		//every recorded look in the project was derived under the values that averaging produces.
+		//
+		//Six floats per vertex: position xyz, then normal xyz. Only the Y is read now - the extraction
+		//thresholds are shares of the mesh's own vertical extent - and the rest is kept because it is the
+		//capture, and a capture with a hole in it is no longer one. The triangle list went with the drawing
+		//(its winding is measured off these positions and reproduced by the generator, which is the one thing
+		//about it that was load-bearing: CLAUDE.md, "Triangle winding").
 		private static readonly float[] GEOMETRY =
 		{
 			-8.33333302f, -9.08844662f, -2.69990492f, 0.641620994f, 0.737986982f, 0.209040001f,
@@ -108,41 +114,7 @@ namespace Prazsky.Core
 			0f, 11.7404203f, 4.3685379f, -0f, -0.938980997f, -0.343968004f,
 			4.55394077f, 9.93318081f, 6.25f, -0.352169991f, -0.799839973f, -0.486036986f,
 		};
-
-		//Triangle list, exactly the built models' index buffer (16-bit there too).
-		private static readonly ushort[] INDICES =
-		{
-			2, 1, 0, 7, 2, 0, 0, 1, 5, 0, 12, 13, 7, 0, 13, 0, 5, 12,
-			37, 36, 7, 36, 2, 7, 7, 13, 37, 13, 12, 10, 13, 74, 37, 13, 10, 74,
-			12, 11, 10, 5, 14, 12, 12, 14, 11, 10, 11, 15, 10, 46, 74, 10, 15, 46,
-			74, 44, 33, 37, 74, 33, 74, 46, 44, 46, 45, 42, 46, 42, 44, 15, 45, 46,
-			11, 19, 15, 15, 19, 45, 45, 41, 42, 19, 75, 45, 45, 75, 41, 42, 41, 40,
-			44, 42, 43, 42, 40, 43, 41, 47, 40, 75, 50, 41, 41, 50, 47, 16, 52, 75,
-			19, 16, 75, 75, 52, 50, 50, 49, 48, 50, 48, 47, 52, 49, 50, 47, 89, 40,
-			47, 48, 89, 49, 53, 48, 48, 91, 89, 48, 53, 91, 52, 51, 49, 49, 54, 53,
-			51, 54, 49, 21, 51, 52, 16, 21, 52, 25, 71, 51, 25, 51, 21, 71, 54, 51,
-			54, 55, 53, 71, 59, 54, 59, 55, 54, 23, 62, 71, 23, 71, 25, 62, 59, 71,
-			22, 25, 17, 22, 23, 25, 17, 25, 21, 17, 21, 16, 18, 17, 16, 20, 17, 18,
-			20, 22, 17, 24, 23, 22, 26, 22, 20, 26, 24, 22, 14, 20, 18, 9, 20, 14,
-			9, 26, 20, 11, 18, 19, 18, 16, 19, 14, 18, 11, 5, 9, 14, 5, 6, 9,
-			6, 26, 9, 6, 28, 26, 28, 24, 26, 1, 6, 5, 1, 3, 6, 3, 28, 6,
-			3, 29, 28, 28, 30, 24, 29, 30, 28, 4, 3, 1, 4, 8, 3, 8, 29, 3,
-			2, 4, 1, 73, 69, 4, 69, 8, 4, 73, 4, 2, 69, 70, 8, 70, 29, 8,
-			65, 70, 69, 64, 65, 69, 64, 69, 73, 36, 73, 2, 34, 64, 73, 34, 73, 36,
-			66, 65, 64, 39, 66, 64, 39, 64, 34, 68, 67, 65, 66, 68, 65, 65, 67, 70,
-			83, 82, 66, 82, 68, 66, 83, 66, 39, 35, 39, 34, 35, 83, 39, 31, 35, 34,
-			31, 34, 36, 37, 31, 36, 33, 32, 31, 32, 35, 31, 33, 31, 37, 85, 83, 35,
-			32, 85, 35, 84, 82, 83, 85, 84, 83, 86, 85, 32, 87, 84, 85, 86, 87, 85,
-			38, 32, 33, 38, 86, 32, 33, 44, 38, 44, 43, 38, 43, 86, 38, 43, 88, 86,
-			88, 87, 86, 87, 81, 84, 88, 90, 87, 90, 81, 87, 40, 89, 88, 89, 90, 88,
-			40, 88, 43, 91, 80, 90, 89, 91, 90, 90, 80, 81, 81, 80, 79, 81, 79, 84,
-			80, 76, 79, 80, 77, 76, 91, 77, 80, 53, 77, 91, 77, 60, 76, 77, 55, 60,
-			53, 55, 77, 76, 58, 78, 76, 60, 58, 79, 76, 78, 60, 59, 57, 58, 60, 57,
-			60, 55, 59, 58, 57, 56, 63, 58, 56, 78, 58, 63, 82, 78, 68, 78, 63, 68,
-			79, 78, 82, 68, 63, 67, 63, 56, 67, 56, 57, 61, 67, 56, 72, 56, 61, 72,
-			67, 72, 70, 72, 61, 30, 70, 72, 29, 72, 30, 29, 57, 62, 61, 61, 62, 27,
-			61, 27, 30, 30, 27, 24, 24, 27, 23, 27, 62, 23, 57, 59, 62, 84, 79, 82,
-		};
+
 
 		//Per-dome vertex colours: 92 sRGB RRGGBB values per dome, vertex order matching GEOMETRY, captured
 		//from the built models before the sRGB->linear rewrite. Each dome uses only 9-11 distinct colours,
