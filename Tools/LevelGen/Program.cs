@@ -9545,15 +9545,32 @@ namespace BS3D.Tools.LevelGen
         private const int BOLT_Z_MID = 7;
         private const int BOLT_Z_HI = 9;
 
-        //Six levels a segment and the top two of each lower segment given over to its elbow plate; the
+        //Six levels a segment and the top THREE of each lower segment given over to its elbow plate; the
         //knot reaches one column past the overlap and one row past the section, at z 4 and z 10.
+        //
+        //THREE AND NOT TWO, and the level had to be hung in the running game to find out. Every gate here
+        //passed at two - nothing floated, nothing stood alone, no colour took the cluster - and the level
+        //still LOST ITSELF in 1.1 seconds with no shot fired, a ball crossing the death line at -7.84
+        //against -7.50. A jog puts the whole of the column below an elbow on that elbow's plate, and a
+        //two-level plate under nine hundred balls is a hinge rather than a gusset: the links exist, which
+        //is exactly why the disconnection gate is happy, and there are too few of them to carry the weight.
+        //That is the Trellis's own finding (docs/formats-and-tools.md: "the gate that says the links exist
+        //cannot say there are enough of them") arriving on a different shape, and the only thing that finds
+        //it is hanging the level unshot.
         private const int BOLT_SEGMENT = 6;
-        private const int BOLT_PLATE = 2;
+        private const int BOLT_PLATE = 3;
         private const int BOLT_KNOT = 1;
 
-        //Where each segment stands, top to bottom - x 7 is the field's own centre and the jogs are three
-        //columns at a time, so the extremes are x 3 and x 12 of 15 and the margin is two clear columns.
-        private static readonly int[] BOLT_CENTRES = { 7, 10, 5, 9, 6 };
+        //Where each segment stands, top to bottom - x 7 is the field's own centre and every jog is THREE
+        //columns, so the extremes are x 2 and x 12 of 15 and the margin is a clear column either side.
+        //
+        //THE JOG IS THE OTHER HALF OF THE SAG. It ran 7, 10, 5, 9, 6 first, which is a jog of FIVE between
+        //the second and third segments - and a section reaching two columns either side of its centre has
+        //no overlap at all across a jog of five, so those two segments met nowhere and the plate between
+        //them was carrying the join on its own. Held to three, consecutive footprints share two whole
+        //columns and the plate braces a joint that is already made; the zigzag reads as it did (right,
+        //left, left, right rather than a metronome), and the extremes move in by one column.
+        private static readonly int[] BOLT_CENTRES = { 7, 10, 7, 4, 7 };
 
         //Turns of the fold a level about the segment's own axis. 0.04 is the pre-authorised drop if the
         //two-cell wedges come out under the lonely-ball floor.
