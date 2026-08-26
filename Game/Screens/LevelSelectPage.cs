@@ -68,7 +68,7 @@ namespace BS3D.Screens
         /// pips) and therefore reserves more; both are sums of the figures below them and not guesses.
         /// </summary>
         private const int LIST_SURROUNDINGS = 700;
-        private const int CHAPTER_SURROUNDINGS = 940;
+        private const int CHAPTER_SURROUNDINGS = 1010;
 
         //The chapter arrows: a square slab either side of the name, big enough that the glyph inside it reads
         //at the same weight as the heading beside it. A visible affordance is the point — the page is
@@ -86,6 +86,12 @@ namespace BS3D.Screens
         //is brightness (see the palette comment in BS3DGame.Menu.cs). A chapter still locked is deliberately
         //not a third state: the tiles inside it and its own readout line both say so, and a third brightness
         //on a 20-pixel glyph would not survive being looked at.
+        //
+        //Set in FontStars (the rating's size) rather than the small face, which is what the row was drawn in
+        //first: at 58 design units a filled disc and a hollow ring are both a 20-pixel dot on a 900p window and
+        //could not be told apart at all. Both faces are Inter — the display face carries neither glyph, and
+        //FontStashSharp would silently draw blanks — and this is the larger of the two the menu already loads,
+        //so the legible row costs no new font atlas.
         private const char PIP_CLEARED = '●';
         private const char PIP_OPEN = '○';
 
@@ -327,7 +333,7 @@ namespace BS3D.Screens
 
             for (int c = 0; c < _chapterStart.Length; c++)
             {
-                Label pip = new() { Font = FontSmall, TextColor = BS3DGame.MENU_TEXT_DIM };
+                Label pip = new() { Font = FontStars, TextColor = BS3DGame.MENU_TEXT_DIM };
 
                 _pips.Add(pip);
                 row.Widgets.Add(pip);
