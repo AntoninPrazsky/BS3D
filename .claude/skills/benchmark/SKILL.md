@@ -80,8 +80,11 @@ Each of these has actually happened; the first two are the expensive ones.
    through and stayed there, which drags a mean far enough to invert an A/B. A median of the kept readings
    cannot be moved by it, and printing the lowest reading beside the median still shows that it happened.
 
-Also: keep both halves of an A/B in the **same build configuration**, and remember `nocap` (which the script
-always passes) is what makes the number a frame cost rather than the display's refresh.
+Also: keep both halves of an A/B in the **same build configuration**, and remember that lifting the cap is
+what makes the number a frame cost rather than the display's refresh. The script always passes `nocap`;
+**prefer `fpscap=N` on the desktop**, which does the same job for a measurement without leaving the card flat
+out (see the section on it below, and note the Game's default cap is no longer vsync since #270 — it is a
+CPU-side limiter at the refresh, so an un-pinned Game run now reads that limiter rather than a vblank).
 
 **Attribution does not travel between the desktop and the APU.** #102 measured every individual cavern
 reduction at zero on the 6900 XT (the pass being occupancy-bound there) and #250 then measured one of the same
@@ -97,10 +100,13 @@ and 20 minutes into a continuous session, which said the spread was the level an
 ## What the game gives you
 
 - `logfps` — one line a second to stdout: the frame rate, the scene, the dome, the supersample factor, the
-  back-buffer size, whether vsync is on, and in the two city scenes `city N/M` — how many of the city's
+  back-buffer size, the **frame limit** and where it came from, and in the two city scenes `city N/M` — how many of the city's
   buildings survived the frustum cull from where the camera is standing. Everything that changes what the
   number means is on the line, so two runs — or two machines — can be compared without remembering how each
-  was launched.
+  was launched. **The Game's line reads `limit N (refresh)` or `limit N (fpscap)` or `limit off`, not
+  `vsync on/off`** — since #270 the Game does not vsync at all, and a line still saying so would misreport
+  the one setting that decides what the number means. The Testbed still says `vsync`, which is still true of
+  the Testbed; do not assume the two lines are identical any more.
 - `quality=<low|medium|high>` — the bundled detail tier. `ssaa=<n>` then overrides just its supersample entry,
   and **this now works**: `ApplyQuality` ends `SetSupersampleFactor(_supersampleOverride ?? preset.SupersampleFactor)`,
   so a command-line factor survives the tier being applied again in `LoadContent` and on every adaptive step.
