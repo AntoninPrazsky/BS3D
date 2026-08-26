@@ -1227,6 +1227,11 @@ namespace BS3D
             float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
             _wallClock += elapsed;
 
+            //A change of sky is a sky CHANGING rather than one frame's cut (#221), so it is walked here on
+            //the wall clock beside everything else that eases: up above the stack, so a sky closing over
+            //goes on closing while a menu is up. One compare on the frames nothing is changing.
+            _clouds.Step(elapsed);
+
             //The ears, before anything can make a noise this frame. Up here and unconditional for the same
             //reason the fireworks are: sound is made with no session standing — a whole celebration of it over
             //a frozen gameplay screen, and the menu's own clicks over an orbiting backdrop — so the listener

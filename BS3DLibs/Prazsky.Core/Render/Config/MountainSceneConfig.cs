@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Prazsky.Core.Render
 {
@@ -10,6 +10,11 @@ namespace Prazsky.Core.Render
     {
         [JsonIgnore]
         public override SceneKind Kind => SceneKind.Mountain;
+
+        /// <summary>
+        /// High ground makes its own cloud: a broken deck sitting on the range is what a mountain sky does, and the holes are what let the peaks catch light in patches.
+        /// </summary>
+        public MountainSceneConfig() => Weather = WeatherPreset.Broken;
 
         /// <summary>Basin floor level Y (the basin stays below the island top,
         /// <see cref="ArenaIsland.TOP_Y"/> = -8.5; the old -10.7 referent was the square plaza's recessed glass

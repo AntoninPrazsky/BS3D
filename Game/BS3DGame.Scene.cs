@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core;
 using Prazsky.Core.Render;
@@ -394,10 +394,34 @@ namespace BS3D
             else if (scene == SceneKind.Tropical) _skyDome = TROPICAL_SKY_DOME;
             else if (scene == SceneKind.Volcano) _skyDome = VOLCANO_SKY_DOME;
 
+            //And the sky the scene stands under (#221). It is the scene's own default here; a level says
+            //what it is like TODAY and overrides this a moment later, in BuildLevel, which is the same
+            //order the dome and the music arrive in. SetWeather fades, so walking the scene picker leaves
+            //one sky closing over into the next rather than cutting between them.
+            ApplySceneWeather();
+
             //Re-derives the whole light rig from the dome, which every scene needs whether its dome changed
             //or not: the renderers were told nothing until now. Re-selecting the dome that is already up
             //costs a 92-vertex recolour and a palette re-read.
             SetSkyDome(_skyDome);
+        }
+
+        /// <summary>
+        /// Puts the sky the current scene asks for over it (#221), unless a level has overridden it. The two
+        /// arrive in the order the dome and the music do: <see cref="SetScene"/> states the scene's own
+        /// weather, and a level built a moment later says what it is like today instead.
+        /// <para>
+        /// <paramref name="levelWeather"/> is the level file's word, or null for a level that names none —
+        /// and an unrecognised word is null too, which is the leniency the scene and the music take: a typo
+        /// is a level under its scene's usual sky rather than a level that will not open.
+        /// </para>
+        /// </summary>
+        internal void ApplySceneWeather(string levelWeather = null)
+        {
+            WeatherPreset preset = WeatherLooks.TryParse(levelWeather)
+                ?? _sceneRenderer.GetSceneConfig(_scene).Weather;
+
+            _clouds.SetWeather(preset);
         }
 
         /// <summary>

@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Prazsky.Core.Render
 {
@@ -17,6 +17,11 @@ namespace Prazsky.Core.Render
     {
         [JsonIgnore]
         public override SceneKind Kind => SceneKind.Tropical;
+
+        /// <summary>
+        /// The beach is a postcard by design (#244 chose its dome for the brightest blue in the set), and a postcard's sky is a few cumulus over turquoise water - closing it over would take away the thing the scene was built for.
+        /// </summary>
+        public TropicalSceneConfig() => Weather = WeatherPreset.Scattered;
 
         /// <summary>The land: the beach's profile from the island's foot, down through the waterline, out
         /// to the lagoon bed and up into the green shore ridge that closes the horizon.</summary>

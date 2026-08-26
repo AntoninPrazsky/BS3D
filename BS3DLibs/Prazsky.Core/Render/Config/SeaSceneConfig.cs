@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Prazsky.Core.Render
 {
@@ -11,6 +11,11 @@ namespace Prazsky.Core.Render
     {
         [JsonIgnore]
         public override SceneKind Kind => SceneKind.Sea;
+
+        /// <summary>
+        /// The sea is the moodiest backdrop in the set and its own doc says a bright dome gives it a breezy mood rather than the intended one - a broken deck over open water is the weather that makes it read as weather at sea rather than as a postcard.
+        /// </summary>
+        public SeaSceneConfig() => Weather = WeatherPreset.Broken;
 
         /// <summary>Mean water level (world Y). Kept well below the platform so a rough sea has headroom for its crests.</summary>
         public float LevelY { get; set; } = -13f;

@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Prazsky.Core.Render;
 using System;
 using System.Globalization;
@@ -104,6 +104,14 @@ namespace Testbed.Diagnostics
         /// <summary><c>scene=&lt;name&gt;</c>: the starting backdrop, through <c>SceneRenderer.TryParseScene</c>.</summary>
         public string Scene { get; private set; }
 
+        /// <summary>
+        /// <c>weather=&lt;clear|scattered|broken|overcast|storm&gt;</c>: the sky over the starting scene,
+        /// overriding whatever that scene asks for (#221). Testing only, and it exists for one reason the
+        /// scene defaults cannot serve: judging five skies means seeing them over the SAME backdrop under
+        /// the SAME dome, and every other route ties the weather to the scene that wanted it.
+        /// </summary>
+        public string Weather { get; private set; }
+
         /// <summary><c>campos=x,y,z</c>: place the free camera at startup, so a shot can be framed from anywhere.</summary>
         public Vector3? CamPos { get; private set; }
 
@@ -160,6 +168,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("ssaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("ssaa=".Length), out int parsedSsaa)) options.SupersampleFactor = parsedSsaa;
                 else if (arg.StartsWith("exposure=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("exposure=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedExposure)) options.Exposure = parsedExposure;
                 else if (arg.StartsWith("scene=", StringComparison.OrdinalIgnoreCase)) options.Scene = arg.Substring("scene=".Length);
+                else if (arg.StartsWith("weather=", StringComparison.OrdinalIgnoreCase)) options.Weather = arg.Substring("weather=".Length);
                 else if (arg.StartsWith("width=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("width=".Length), out int parsedWidth) && parsedWidth > 0) options.WindowWidth = parsedWidth;
                 else if (arg.StartsWith("height=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("height=".Length), out int parsedHeight) && parsedHeight > 0) options.WindowHeight = parsedHeight;
                 //"campos=x,y,z" / "camtarget=x,y,z" place and aim the free camera at startup, so a screenshot

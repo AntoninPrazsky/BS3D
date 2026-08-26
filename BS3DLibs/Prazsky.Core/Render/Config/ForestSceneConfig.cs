@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Prazsky.Core.Render
 {
@@ -11,6 +11,11 @@ namespace Prazsky.Core.Render
     {
         [JsonIgnore]
         public override SceneKind Kind => SceneKind.Forest;
+
+        /// <summary>
+        /// Under a canopy the sky is glimpsed rather than seen, and a broken deck is what those glimpses are of.
+        /// </summary>
+        public ForestSceneConfig() => Weather = WeatherPreset.Broken;
 
         /// <summary>Basin the arena sits in, rising into wooded hills with distance; below the island top.</summary>
         public float LevelY { get; set; } = -14f;

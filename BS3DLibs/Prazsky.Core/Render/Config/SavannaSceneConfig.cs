@@ -11,6 +11,11 @@ namespace Prazsky.Core.Render
         [JsonIgnore]
         public override SceneKind Kind => SceneKind.Savanna;
 
+        /// <summary>
+        /// The gold-horizon dome the block chose wants sky behind it: scattered cloud keeps the warm horizon visible where a closed deck would grey it out.
+        /// </summary>
+        public SavannaSceneConfig() => Weather = WeatherPreset.Scattered;
+
         /// <summary>Mean grass level, sitting at the island's foot (world origin clearing).</summary>
         public float LevelY { get; set; } = -13.5f;
 

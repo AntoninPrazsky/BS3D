@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Prazsky.Core.Render
 {
@@ -17,6 +17,11 @@ namespace Prazsky.Core.Render
     {
         [JsonIgnore]
         public override SceneKind Kind => SceneKind.Cavern;
+
+        /// <summary>
+        /// Underground: there is no sky at all and the deck is suppressed. Stated for the reason space's is.
+        /// </summary>
+        public CavernSceneConfig() => Weather = WeatherPreset.Clear;
 
         /// <summary>The cave shell — the rock, its veins and the abyssal fog.</summary>
         public CavernRockConfig Rock { get; set; } = new();

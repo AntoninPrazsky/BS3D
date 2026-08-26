@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Prazsky.Core.Render
 {
@@ -10,6 +10,11 @@ namespace Prazsky.Core.Render
     {
         [JsonIgnore]
         public override SceneKind Kind => SceneKind.Meadow;
+
+        /// <summary>
+        /// Fair-weather cumulus over green hills under the one clear blue dome - the game's opening chapter plays here and its sky is the one the whole feature's numbers were tuned against.
+        /// </summary>
+        public MeadowSceneConfig() => Weather = WeatherPreset.Scattered;
 
         /// <summary>Basin the arena sits in, rising into rolling hills with distance; stays below the island
         /// top (<see cref="ArenaIsland.TOP_Y"/>, -8.5 — the old -10.7 referent was the removed recessed glass

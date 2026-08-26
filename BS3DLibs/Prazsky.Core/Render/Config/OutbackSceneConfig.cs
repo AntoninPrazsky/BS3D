@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Prazsky.Core.Render
 {
@@ -20,6 +20,11 @@ namespace Prazsky.Core.Render
     {
         [JsonIgnore]
         public override SceneKind Kind => SceneKind.Outback;
+
+        /// <summary>
+        /// Red earth under a big sky with a few cumulus in it - the outback's own postcard, and a step off the desert's emptiness so the two do not read as one place twice.
+        /// </summary>
+        public OutbackSceneConfig() => Weather = WeatherPreset.Scattered;
 
         /// <summary>The plain and the monoliths standing on it.</summary>
         public OutbackTerrainConfig Terrain { get; set; } = new();

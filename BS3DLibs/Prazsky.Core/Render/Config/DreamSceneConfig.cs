@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Prazsky.Core.Render
 {
@@ -17,6 +17,11 @@ namespace Prazsky.Core.Render
     {
         [JsonIgnore]
         public override SceneKind Kind => SceneKind.Dream;
+
+        /// <summary>
+        /// Sky-replacing, like space - stated so nothing has to infer it from the suppression.
+        /// </summary>
+        public DreamSceneConfig() => Weather = WeatherPreset.Clear;
 
         /// <summary>
         /// The floor colour of the sky between everything else (linear). Not black — a dream has no void,

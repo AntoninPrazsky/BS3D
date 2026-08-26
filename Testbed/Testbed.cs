@@ -1,4 +1,4 @@
-using BepuPhysics;
+﻿using BepuPhysics;
 using BepuPhysics.Collidables;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -120,6 +120,10 @@ namespace Testbed
         //dome-testing workflow in CLAUDE.md relies on it). Consumed once the startup map/level has loaded, so a
         //level opened at runtime (F2/drag-drop) still takes its own dome.
         private bool _skyFromCommandLine;
+
+        //Testing: "weather=<name>" pins the sky over every scene, so five skies can be judged over one
+        //backdrop. Null when the switch is absent, which is every run but a comparison.
+        private string _weatherFromCommandLine;
 
         /// <summary>Number of sky palettes the game cycles through — <see cref="SkyDome.Count"/>'s.</summary>
         private const byte SKY_DOME_COUNT = SkyDome.Count;
@@ -478,6 +482,7 @@ namespace Testbed
             if (SceneRenderer.TryParseScene(options.Scene, out SceneKind startupScene)) _scene = startupScene;
             _exposure = options.Exposure > 0f ? options.Exposure : DEFAULT_EXPOSURE;
             _supersampleFactor = Math.Clamp(options.SupersampleFactor, 1, 4); //"ssaa=<n>" trades sharpness against fill rate
+            _weatherFromCommandLine = options.Weather;  //Testing: "weather=<name>" pins the sky (#221)
             _skyFromCommandLine = options.SkyNumber >= 1 && options.SkyNumber <= SKY_DOME_COUNT;
             if (_skyFromCommandLine) _skyModelNumber = options.SkyNumber; //Testing: "sky=<n>" on the command line picks the starting sky dome
             else if (_scene == SceneKind.Sea) _skyModelNumber = SEA_DEFAULT_SKY_DOME; //The sea scene defaults to a darker dome (unless sky= overrode it above)
@@ -661,6 +666,11 @@ namespace Testbed
             //leaves this 0 - it draws no island, so nothing is cut and the terrain stays whole under the field's AABB.
             _sceneRenderer.TerrainHoleRadius = ArenaIsland.TERRAIN_HOLE_RADIUS;
 
+            //The sky the starting scene stands under (#221), and IMMEDIATELY rather than faded: a fade here
+            //would be the first two seconds of every launch spent arriving at the weather the scene already
+            //asked for. It needs the scene renderer above, whose configs hold the answer.
+            ApplySceneWeather(immediately: true);
+
             //The wood the forest scene stands in: both procedural textures, the fifteen mesh variants, the
             //twenty-five renderers and the tints, planted on the very terrain SceneRenderer draws. Here rather
             //than in BuildCity beside the island, which is where the rest of the setting is made, because it
@@ -799,6 +809,25 @@ namespace Testbed
         /// <see cref="SkyLightRig"/>'s since #75 — it stood here and in the game and in the map editor, palette
         /// decode, scale factors, tints and scene override alike.
         /// </summary>
+        /// <summary>
+        /// Puts the sky the current scene asks for over it (#221), unless a loaded level overrides it. The
+        /// scene's answer is read off the shared <see cref="SceneConfig"/> — the same object the game reads
+        /// and the map editor edits live — so a scene's weather cannot be one thing in one executable and
+        /// another somewhere else, which is the loop #44 closed for scene looks and this closes for skies.
+        /// </summary>
+        /// <param name="levelWeather">The level file's word, or null. An unrecognised one is null too, so a
+        /// typo leaves the scene's own weather standing rather than throwing.</param>
+        private void ApplySceneWeather(string levelWeather = null, bool immediately = false)
+        {
+            //"weather=<name>" outranks both, which is what makes it useful: the point of it is to see one
+            //backdrop under five skies, and a scene default that could override it would defeat that.
+            WeatherPreset preset = WeatherLooks.TryParse(_weatherFromCommandLine)
+                ?? WeatherLooks.TryParse(levelWeather)
+                ?? _sceneRenderer.GetSceneConfig(_scene).Weather;
+
+            if (immediately) _clouds.SetWeatherImmediately(preset); else _clouds.SetWeather(preset);
+        }
+
         private void ApplySkyLighting()
         {
 #if DEBUG
@@ -840,6 +869,11 @@ namespace Testbed
         private void UpdateOvercast(float elapsedSeconds)
         {
             _clouds.Time = _pulseSeconds;
+
+            //A change of sky is a sky CHANGING rather than one frame's cut (#221). Walked here because this
+            //is where the deck's own clock is set and where the rig's overcast lerp is stepped — the two
+            //have to arrive together, and the deck is what leads.
+            _clouds.Step(elapsedSeconds);
 
             //Straight up from the middle of the arena, so the sample is simply where the arena stands —
             //averaged over a patch about as wide as a cloud, since what lights the scene from above is how
@@ -895,6 +929,11 @@ namespace Testbed
             if (_scene == SceneKind.Sea) SetSkyDome(SEA_DEFAULT_SKY_DOME);
             else if (_scene == SceneKind.Savanna) SetSkyDome(SAVANNA_DEFAULT_SKY_DOME);
             else ApplySkyLighting();
+
+            //And the sky that scene stands under (#221), which is the scene config's own — the same answer
+            //the game reads, from the same place, so a scene's weather cannot be one thing here and another
+            //there. SetWeather fades, so cycling with NumPad2 leaves one sky closing over into the next.
+            ApplySceneWeather();
             //The tropical beach and the volcano sit past the cycle's end (CycleLength 7) and are never
             //reached by this switch — their default domes are applied at startup only, where the scene= arm
             //above finds them.
@@ -1079,6 +1118,10 @@ namespace Testbed
             //needs nothing either: the default city stands from startup, and the draw derives day/neon from
             //_scene per frame.
             if (level.Scene is SceneKind sceneKind) _scene = sceneKind;
+
+            //The level's own sky, or its scene's where it names none (#221) — the game's own order, so a
+            //level looks the same in both.
+            ApplySceneWeather(level.Weather);
 
             //The level's dome wins over any scene-entry default (NumPad1 still cycles freely from here), except
             //an explicit command-line sky= pins the startup dome — see _skyFromCommandLine. The rig re-derives

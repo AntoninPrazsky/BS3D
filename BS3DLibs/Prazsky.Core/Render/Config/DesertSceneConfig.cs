@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Prazsky.Core.Render
 {
@@ -10,6 +10,11 @@ namespace Prazsky.Core.Render
     {
         [JsonIgnore]
         public override SceneKind Kind => SceneKind.Desert;
+
+        /// <summary>
+        /// A desert sky is empty, and that is the whole of why the scene reads as one - dunes under unbroken sun. It is also the honest use of Clear: a scene that wants no weather rather than a scene that cannot have any.
+        /// </summary>
+        public DesertSceneConfig() => Weather = WeatherPreset.Clear;
 
         /// <summary>Mean sand level in the clearing (the island's foot).</summary>
         public float LevelY { get; set; } = -13.5f;
