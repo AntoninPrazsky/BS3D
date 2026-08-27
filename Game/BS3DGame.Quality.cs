@@ -205,6 +205,15 @@ namespace BS3D
                 //un-pinned it now draws NO verdict at all — the probe leaves it on High and it sits flat on the
                 //limiter. The re-open stays because its argument stands on the shipped ball counts; what does
                 //not stand is the idea that this level ever needed a tier.
+                //
+                //⚠ AND THAT LAST SENTENCE IS A FACT ABOUT THE DESKTOP, WHICH #298 THEN MEASURED THE OTHER WAY
+                //ROUND ON THE MACHINE THIS PROBE EXISTS FOR. On the reference APU (5700U + integrated Radeon,
+                //nocap, windowed 1600x900) every shipped level measured misses the panel's 16.1 ms at High by
+                //1.4x to 2.4x — Ziggurat 37.9, Ten 39.1, Turbine 32.3, One 26.0, Spring 22.3 — and Medium is
+                //worth 46 to 58 % of the frame on the scenes whose pass scales with the pixel count. So the
+                //probe and the ladder are load-bearing here even though nothing on the desktop needs them, and
+                //neither of those two readings can be quoted for the other machine. See "The quality tier" in
+                //docs/game-shell.md for the whole matrix and for the hole it found in the ladder.
                 _qualitySettled = true;
                 return;
             }
