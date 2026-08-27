@@ -241,16 +241,50 @@ float SnowRelief(float2 xz, float footprint)
 //(the top ~1.5 % of cells), so it is a dusting and not a wash; sun-facing only, because a glint is a
 //reflection; and faded by the footprint the same way as everything else, so the far ranges stay the clean
 //hazy shapes the aerial perspective wants.
+//⚠ A GLINT IS A POINT INSIDE ITS CELL, NEVER THE WHOLE CELL, and getting that wrong is what the owner saw
+//as "snow on the ground looks like squares". The lattice reasoning above is sound and stands; what did not
+//was lighting the entire cell it picked. A cell is fixed in WORLD units, so its size on screen is the
+//footprint's business: 0.3 world units is the intended 3-4 pixels at the mid slopes' ~0.08 world/pixel and
+//is THIRTY pixels on the basin floor beside the arena, where the footprint is ~0.01 - and a hard `step` over
+//it fills every one of those pixels. Photographed from the play camera it is a scatter of flat white
+//parallelograms lying on the ground, which is exactly what a filled world-space quad looks like in
+//perspective. So the cell now only says WHERE a glint is; how big it is comes from the footprint, which is
+//what keeps it the same few pixels at every distance.
 static const float SNOW_SPARKLE_DENSITY = 0.985;
+static const float SNOW_SPARKLE_SCALE = 3.33;    //cells ~0.3 world units across, the lattice above
+static const float SNOW_SPARKLE_RADIUS = 0.02;   //the smallest a glint is allowed to be, in world units
 
 float SnowSparkle(float2 xz, float3 normal, float footprint)
 {
     float fade = saturate(1.0 - footprint * 3.0);
     if (fade <= 0.0) return 0.0;
 
-    float cell = NoiseHash22(floor(xz * 3.33)).x;
+    float2 cellId = floor(xz * SNOW_SPARKLE_SCALE);
+    float2 hash = NoiseHash22(cellId);
 
-    return step(SNOW_SPARKLE_DENSITY, cell) * fade * saturate(normal.y);
+    //Which cells glint at all. NoiseHash22 answers in [-1, 1] rather than [0, 1], so this threshold takes the
+    //top 0.75 % of them - half what the comment above has always claimed, and the sparser reading is the one
+    //that was tuned by eye, so the number stays and the arithmetic is written down instead.
+    float lit = step(SNOW_SPARKLE_DENSITY, hash.x);
+
+    //A glint is about a pixel and a half across at any distance, with a floor so it does not vanish underfoot
+    //where the footprint goes tiny, and a ceiling of half a cell for the reason below.
+    float halfCell = 0.5 / SNOW_SPARKLE_SCALE;
+    float radius = clamp(footprint * 1.5, SNOW_SPARKLE_RADIUS, halfCell);
+
+    //Jittered off its cell's centre by whatever the radius leaves over, so the dust does not sit on a visible
+    //lattice AND cannot cross into the neighbouring cell - a neighbour computes a different cellId and so a
+    //different centre, so anything crossing the boundary would be cut off flat against it and the squares
+    //would be back at the far end. As the radius grows into the cell the jitter goes to zero and the glint
+    //centres, which is the old filled-cell look arrived at gracefully rather than by accident.
+    //The offset is taken off the same hash through large multipliers because hash.x is confined to the top of
+    //its range by the test above and would otherwise place every glint in the same corner.
+    float2 centre = (cellId + 0.5) / SNOW_SPARKLE_SCALE
+        + (frac(hash * float2(431.7, 197.3)) * 2.0 - 1.0) * (halfCell - radius);
+
+    float glint = 1.0 - smoothstep(radius * 0.35, radius, distance(xz, centre));
+
+    return lit * glint * fade * saturate(normal.y);
 }
 
 float4 MountainPS(MountainVertexOutput input) : COLOR
@@ -320,8 +354,12 @@ float4 MountainPS(MountainVertexOutput input) : COLOR
     //The glint, ON TOP of the lit snow: specular in character, additive in code - a glint is bright enough
     //that tonemapping it down a little is the look, not a loss. Scaled by the direct sun only (ndotl and the
     //cloud shadow with it), because a glint IS reflected sun.
+    //...and it is gated on the SNOW MASK, which this line said in words and did not do. Without the factor
+    //the glint dusts bare rock as readily as snowfield, and the basin floor beside the arena is rock carrying
+    //the `altSnow + 0.15` shoulder and nothing more - so the brightest thing in the scene was landing on the
+    //darkest ground the player stands closest to, which is why the squares above were impossible to miss.
     color += SunColor * SnowSparkle(worldPosition.xz, normal, footprint)
-        * ndotl * sunlight * detailFade * 3.0;
+        * snow * ndotl * sunlight * detailFade * 3.0;
 
     //Alpine haze: the distant range fades into the skyline, the strong aerial perspective of a lot of cold air
     float haze = saturate(dist / HorizonHazeDistance);
