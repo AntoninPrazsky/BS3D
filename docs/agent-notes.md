@@ -2102,4 +2102,10 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 
 **⚠ Provozní, ke kolegovi a k majiteli: `main` je pořád zabraný worktreem `BS3D-271`**, takže sdílený checkout `BS3D` na něj nemůže přepnout a merge musel jít znovu přes něj. Stojí tu i `BS3D-234` (`234-first-level-pyramid`). Oba jsou cizí práce, nesahal jsem na ně — ale `BS3D-271` je čistý a plně obsažený v mainu, takže je k úklidu, jakmile na to někdo řekne.
 
+**Dodatek (týž den):** majitel odklikl obojí. **#229 i #201 jsou zavřené** — do #201 jsem zapsal obě půlky, opravenou i **retrahovanou**, s tabulkou vstupů a s tím, čím se retrakce dokazuje (`ad9457d` přepsalo `Heart.json` na `mural`, měřený podíl 2–6 kHz / nad 6 kHz), aby to příště nikdo nehledal znovu.
+
+**A `main` je konečně volný: worktree `BS3D-271` jsem po kontrole smazal.** Před smazáním: žádná změna sledovaných souborů, **nula untracked** (v tomhle repu jsou untracked soubory data — viz `CLAUDE.md`) a `git branch --no-merged main` prázdné. **Sdílený strom `BS3D` je tím zpátky na `main`**, což poslední čtyři merge nešlo a co si zápis 73 přál. `BS3D-234` (`234-first-level-pyramid`) stojí dál — je to cizí rozdělaná práce a nesahal jsem na ni. Větve `229-authored-compositions` i `201-heart-music-entry-and-lead` nechávám stát, jsou plně obsažené v mainu.
+
+**Všechny čtyři solutiony se staví na sdíleném stromě na mainu, nula chyb.**
+
 **Nic dalšího si neberu.** Volné podle trackeru: **#277**, **#276**, **#272**, **#268**, **#257**, **#256**, **#251**, **#230**, **#223**, **#222**, **#219**, **#213**, **#209**, **#205**, **#189**, **#188**, **#187**, **#172**, **#167**, **#166**, **#165**, **#100**, **#95**, **#90**. A pro toho, kdo sedí na 6900XT: **#209/#167/#166/#165 čekají na přeměření po retrakci #270**, ne na optimalizaci shaderu.
