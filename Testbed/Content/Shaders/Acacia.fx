@@ -30,6 +30,14 @@ float3 HorizonColor;
 float3 DiffuseColor;
 float DappleStrength;
 
+//Light this draw carries that the scene's own sun and dome do not account for, added flat after them. It is
+//zero for every plant and non-zero for exactly one thing: the campfires' hearth stones (#282), which stand
+//in a ring at one distance from one fire, so what a point light would work out per pixel is a constant per
+//draw here - and it flickers, because SceneRenderer hands over the fire's own colour at this frame. It buys
+//the fire pit its firelight for one add and no loop; what it does not do is favour the side of a stone that
+//faces the flame.
+float3 AddedLight;
+
 //The leaf mottle's world-space frequency and its mean (a canopy is dappled foliage, not a flat green mass).
 static const float DAPPLE_FREQUENCY = 0.55;
 static const float DAPPLE_MEAN = 0.86;
@@ -81,6 +89,9 @@ float4 AcaciaPS(AcaciaVertexOutput input) : COLOR
     //place every frame and neighbouring trees do not share a pattern. Zero on a trunk (DappleStrength 0).
     if (DappleStrength > 0.0)
         color *= DAPPLE_MEAN + DappleStrength * Fbm3(input.WorldPosition * DAPPLE_FREQUENCY, 3);
+
+    //The per-draw light that is not the sky's - a hearth stone's own fire, and nothing else today.
+    color += AddedLight;
 
     return float4(color, 1.0);
 }

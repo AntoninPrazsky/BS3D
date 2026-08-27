@@ -122,7 +122,8 @@ namespace Prazsky.Core.Render
 
     /// <summary>
     /// The savanna's campfires: a ring of them around the island, each a real point light warming the grass
-    /// and the stone plus its own visible additive flame billboard. Positions are XZ; every Y is derived live
+    /// and the stone, its own visible additive flame billboard, and since #282 the hearth it burns in - a ring
+    /// of stones and the ground scorched under it. Positions are XZ; every Y is derived live
     /// — SavannaTerrainHeight(x, z) + <see cref="HeightAboveTerrain"/> on every read of
     /// SavannaCampfirePosition — so a GroundXZ or terrain edit in the editor moves the fires without a
     /// re-apply.
@@ -180,6 +181,52 @@ namespace Prazsky.Core.Render
         /// </para>
         /// </summary>
         public float FlameHeightScale { get; set; } = 6.0f;
+
+
+        /// <summary>
+        /// The scorched ground under a fire, as a multiple of <see cref="FlameSize"/> — so a bigger fire
+        /// burns a bigger patch rather than standing in a hearth somebody sized once by hand (#282). At the
+        /// default 2.0 against a 2.3 flame that is a ring 4.6 units across: char and ash inside, the grass
+        /// coming back over the outer third of it.
+        /// </summary>
+        public float HearthRadiusScale { get; set; } = 2.0f;
+
+        /// <summary>
+        /// The ring of stones' radius, again a multiple of <see cref="FlameSize"/>. Just outside the flame's
+        /// own base at the default 1.25 — stones inside it would be drawn through by the additive billboard
+        /// and read as embers rather than as the hearth's kerb.
+        /// </summary>
+        public float StoneRingScale { get; set; } = 1.25f;
+
+        /// <summary>Each stone's base radius, a multiple of <see cref="FlameSize"/>.</summary>
+        public float StoneSizeScale { get; set; } = 0.36f;
+
+        /// <summary>
+        /// How many stones ring one fire. Seven rather than a round number so the ring has no axis of
+        /// symmetry a camera can catch it on.
+        /// </summary>
+        public int StoneCount { get; set; } = 7;
+
+
+        /// <summary>Cold ash the burnt ring is left in (linear), a shade paler and warmer than dead grass.</summary>
+        public Rgb HearthAsh { get; set; } = new(0.165f, 0.152f, 0.140f);
+
+        /// <summary>Char at the fire's own foot (linear) — nearly black, and warm rather than neutral.</summary>
+        public Rgb HearthChar { get; set; } = new(0.036f, 0.029f, 0.024f);
+
+        /// <summary>Dry basalt (linear), the same family as the island's own stone.</summary>
+        public Rgb StoneColor { get; set; } = new(0.075f, 0.068f, 0.062f);
+
+        /// <summary>
+        /// How much of its own fire's light a hearth stone carries, as a fraction of the light the fire casts
+        /// at the stone ring's distance. It is an ADDITIVE per-draw term rather than a ninth point light: the
+        /// whole ring sits at one distance from one fire, so the arithmetic a point light would do per pixel
+        /// is a constant per draw here, and it rides the fire's own flicker so a ring breathes with the fire
+        /// it belongs to. What it therefore does not do is favour the inward-facing side of a stone over the
+        /// outward one, which at this size (under a unit across, against a flame six times its height) is not
+        /// what tells the eye it is a fire pit.
+        /// </summary>
+        public float StoneFirelight { get; set; } = 0.25f;
 
         /// <summary>Warm fire colour in LINEAR radiance, kept bright (over 1) so it casts real warm light, not a tint.</summary>
         public Rgb BaseColor { get; set; } = new(2.4f, 1.0f, 0.32f);

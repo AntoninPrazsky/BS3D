@@ -533,7 +533,7 @@ namespace Prazsky.Core.Render
         //Cached effect parameters for the per-frame instanced draw (the by-name indexer is a linear scan).
         private EffectParameter _acaciaViewParam, _acaciaProjectionParam, _acaciaCameraParam,
             _acaciaSunDirectionParam, _acaciaSunColorParam, _acaciaZenithParam, _acaciaHorizonParam,
-            _acaciaDiffuseParam, _acaciaDappleParam;
+            _acaciaDiffuseParam, _acaciaDappleParam, _acaciaAddedLightParam;
 
         //Real 3D acacia geometry (#202): a few tree variants (a bark trunk under a wide flat-topped umbrella
         //canopy) and a few bush variants (a low rounded clump), each its own instanced draw so a grove is not
@@ -549,6 +549,16 @@ namespace Prazsky.Core.Render
 
         //Canopy/trunk colours, stored from the config so the per-draw DiffuseColor can be set as each part draws.
         private Vector3 _acaciaCanopyColor, _acaciaCanopyDry, _acaciaTrunkColor;
+
+        //The campfires' hearths (#282): a ring of stones set around each fire, and the scorched ground under
+        //it. The stones ride the acacia's own instanced path - same shader, same lighting as everything else
+        //planted on this terrain - with one draw per FIRE rather than per mesh variant, because what differs
+        //between two rings is the firelight their own fire is casting at this instant.
+        private RockMesh[] _hearthStoneMeshes;
+        private ModelInstance[][] _hearthStoneInstances;  //per fire; index into _hearthStoneMeshes by fire % variants
+        private Vector3 _hearthStoneColor;
+        private float _hearthStoneFirelight;
+        private readonly Vector3[] _hearthPositions = new Vector3[MAX_SCENE_LIGHTS];
 
         #endregion
 
@@ -951,8 +961,10 @@ namespace Prazsky.Core.Render
             _acaciaHorizonParam = _acaciaEffect.Parameters["HorizonColor"];
             _acaciaDiffuseParam = _acaciaEffect.Parameters["DiffuseColor"];
             _acaciaDappleParam = _acaciaEffect.Parameters["DappleStrength"];
+            _acaciaAddedLightParam = _acaciaEffect.Parameters["AddedLight"];
             ApplyAcaciaParameters();
             BuildAcaciaBuffers();
+            BuildHearthStones();
 
             //--- Campfire flame: one billboard drawn as a procedural flame at the campfire position
             _flameEffect = content.Load<Effect>("Shaders/Flame");
@@ -1241,6 +1253,7 @@ namespace Prazsky.Core.Render
                     ApplySavannaParameters();
                     ApplyAcaciaParameters();
                     BuildAcaciaBuffers();   //tree positions depend on the terrain, so the terrain change rebuilds them
+                    BuildHearthStones();    //and so do the fires' own hearths, which stand on it too
                     SeedBirdFlock();        //the shared flock is sized from all the scenes that draw it
                     break;
                 case MountainSceneConfig mountain:
@@ -1750,6 +1763,44 @@ namespace Prazsky.Core.Render
             _savannaEffect.Parameters["WindRippleStrength"].SetValue(_savannaConfig.WindRippleStrength);
             _savannaEffect.Parameters["GrassReliefStrength"].SetValue(_savannaConfig.GrassReliefStrength);
             _savannaEffect.Parameters["GrassReliefFrequency"].SetValue(_savannaConfig.GrassReliefFrequency);
+
+            ApplyHearthParameters();
+        }
+
+        /// <summary>
+        /// The hearth uniforms <c>Savanna.fx</c> burns the ground with (#282), pushed at config time rather
+        /// than per frame: the fires stand on static terrain at config-derived places, so every one of these
+        /// is constant until the config or the terrain changes — which is when this runs.
+        /// <para>
+        /// <c>HearthNear</c>/<c>HearthFar</c> are the ring's own extent, measured here <b>from the positions
+        /// themselves</b> rather than re-derived from the config's ring rule in the shader: it is the early-out
+        /// that keeps the per-pixel hearth loop off the rest of the field, and a second copy of the placement
+        /// rule is exactly how a scene grows a fault nobody can see (#297).
+        /// </para>
+        /// </summary>
+        private void ApplyHearthParameters()
+        {
+            CampfireConfig cf = _savannaConfig.Campfire;
+            int fires = SavannaCampfireCount;
+
+            float near = float.MaxValue, far = 0f;
+            for (int fire = 0; fire < fires; fire++)
+            {
+                Vector3 at = SavannaCampfirePosition(fire);
+                _hearthPositions[fire] = at;
+
+                float radius = MathF.Sqrt(at.X * at.X + at.Z * at.Z);
+                near = MathF.Min(near, radius);
+                far = MathF.Max(far, radius);
+            }
+
+            _savannaEffect.Parameters["HearthPosition"].SetValue(_hearthPositions);
+            _savannaEffect.Parameters["HearthCount"].SetValue(fires);
+            _savannaEffect.Parameters["HearthRadius"].SetValue(cf.FlameSize * cf.HearthRadiusScale);
+            _savannaEffect.Parameters["HearthNear"].SetValue(near);
+            _savannaEffect.Parameters["HearthFar"].SetValue(far);
+            _savannaEffect.Parameters["HearthAsh"].SetValue(cf.HearthAsh.ToVector3());
+            _savannaEffect.Parameters["HearthChar"].SetValue(cf.HearthChar.ToVector3());
         }
 
         private void ApplyAcaciaParameters()
@@ -1902,6 +1953,94 @@ namespace Prazsky.Core.Render
             for (int m = 0; m < TREE_VARIANTS; m++) _acaciaTreeInstances[m] = treeBuckets[m].ToArray();
             _acaciaBushInstances = new ModelInstance[BUSH_VARIANTS][];
             for (int m = 0; m < BUSH_VARIANTS; m++) _acaciaBushInstances[m] = bushBuckets[m].ToArray();
+        }
+
+
+        /// <summary>
+        /// (Re)builds the ring of stones around each fire (#282): a few boulders of a handful of variants,
+        /// set into the ground at their own spot on the terrain, rolled once and kept.
+        /// <para>
+        /// <b>Everything is sized off <see cref="CampfireConfig.FlameSize"/></b> rather than in world units,
+        /// so a hearth belongs to the fire standing in it — these flames are 14 units tall at the shipped
+        /// config, and a hearth measured once by hand would be a kerb of pebbles the day somebody widened
+        /// them. The stones are sunk by a fraction of their own height, which is what makes a stone read as
+        /// SET into the earth rather than resting on it: a lathe's flat underside meeting a rolling terrain
+        /// at exactly ground level shows daylight under one side of every stone on a slope.
+        /// </para>
+        /// </summary>
+        private void BuildHearthStones()
+        {
+            DisposeHearthStones();
+
+            CampfireConfig cf = _savannaConfig.Campfire;
+            _hearthStoneColor = cf.StoneColor.ToVector3();
+            _hearthStoneFirelight = cf.StoneFirelight;
+
+            int stones = Math.Max(0, cf.StoneCount);
+            if (stones == 0) return;
+
+            float size = cf.FlameSize * cf.StoneSizeScale;
+            float ring = cf.FlameSize * cf.StoneRingScale;
+
+            //Three shapes rather than one, for the reason the acacias have four: the eye reads the repeat
+            //before it reads the stone. A ring takes one of them, so two neighbouring hearths differ as
+            //wholes as well - which is what a camera walking the island past several of them shows.
+            const int VARIANTS = 3;
+            _hearthStoneMeshes = new RockMesh[VARIANTS];
+            for (int v = 0; v < VARIANTS; v++)
+            {
+                _hearthStoneMeshes[v] = new RockMesh(_graphicsDevice,
+                    radius: size * (0.82f + 0.18f * v),
+                    height: size * (0.78f - 0.14f * v),
+                    irregularityPhase: 1.7f * v);
+            }
+
+            int fires = SavannaCampfireCount;
+            Random rng = new(28204);
+            _hearthStoneInstances = new ModelInstance[fires][];
+
+            for (int fire = 0; fire < fires; fire++)
+            {
+                Vector3 at = SavannaCampfirePosition(fire);
+                ModelInstance[] ring_ = new ModelInstance[stones];
+
+                for (int s = 0; s < stones; s++)
+                {
+                    //Evenly spaced and then jittered, both in angle and in how far out it sits: a ring of
+                    //stones laid by hand is regular in intent and irregular in fact.
+                    float angle = (s + (float)rng.NextDouble() * 0.4f - 0.2f) * MathHelper.TwoPi / stones;
+                    float radius = ring * (0.88f + 0.24f * (float)rng.NextDouble());
+
+                    float x = at.X + MathF.Cos(angle) * radius;
+                    float z = at.Z + MathF.Sin(angle) * radius;
+
+                    float scale = 0.72f + 0.55f * (float)rng.NextDouble();
+                    float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
+                    float tiltDir = (float)rng.NextDouble() * MathHelper.TwoPi;
+                    float tilt = 0.10f + 0.16f * (float)rng.NextDouble();
+
+                    //Sunk by a fifth of its own height. The scale rides in the same matrix, so the sink has
+                    //to be scaled with it or the small stones bury and the big ones float.
+                    float y = SavannaTerrainHeight(x, z) - size * scale * 0.2f;
+
+                    Matrix world = Matrix.CreateScale(scale)
+                        * Matrix.CreateFromAxisAngle(new Vector3(MathF.Cos(tiltDir), 0f, MathF.Sin(tiltDir)), tilt)
+                        * Matrix.CreateRotationY(yaw)
+                        * Matrix.CreateTranslation(x, y, z);
+
+                    ring_[s] = new ModelInstance(world, Vector4.Zero);
+                }
+
+                _hearthStoneInstances[fire] = ring_;
+            }
+        }
+
+        /// <summary>Disposes the hearth stone meshes — called on a rebuild and on teardown, like the acacias'.</summary>
+        private void DisposeHearthStones()
+        {
+            if (_hearthStoneMeshes != null) foreach (RockMesh mesh in _hearthStoneMeshes) mesh?.Dispose();
+            _hearthStoneMeshes = null;
+            _hearthStoneInstances = null;
         }
 
         /// <summary>
@@ -3652,6 +3791,46 @@ namespace Prazsky.Core.Render
                 if (instances.Length == 0) continue;
                 DrawAcaciaPart(_acaciaBushMeshes[m], instances, _acaciaCanopyDry, dappleStrength: 0.5f);
             }
+
+            //And the hearths the fires stand in: one draw per fire, because the firelight on a ring is its
+            //own fire's and they do not flicker together.
+            DrawHearthStones(frame);
+        }
+
+        /// <summary>
+        /// Draws the ring of stones around each campfire (#282) on the acacia's own instanced path, one draw
+        /// per fire.
+        /// <para>
+        /// <b>The firelight is a per-draw additive, not a ninth point light.</b> Every stone of a ring stands
+        /// at one distance from one fire, so the attenuation a point light would solve per pixel is a
+        /// constant here — worked out once against the same quadratic falloff <c>Savanna.fx</c> uses on the
+        /// ground, so a stone and the grass beside it are lit by the one fire rather than by two rules. It is
+        /// multiplied by the stone's own albedo, because what reaches the eye is firelight reflected off
+        /// basalt and not the flame itself, and it rides <see cref="CampfireColor"/> at this frame's time so
+        /// the ring breathes with the fire it belongs to.
+        /// </para>
+        /// </summary>
+        private void DrawHearthStones(in SceneFrame frame)
+        {
+            if (_hearthStoneInstances == null || _hearthStoneMeshes == null) return;
+
+            CampfireConfig cf = _savannaConfig.Campfire;
+            float ring = cf.FlameSize * cf.StoneRingScale;
+
+            //The ground's own falloff, at the one distance every stone of a ring stands at.
+            float atten = MathHelper.Clamp(1f - ring / MathF.Max(SavannaCampfireRange, 1e-4f), 0f, 1f);
+            atten *= atten;
+
+            for (int fire = 0; fire < _hearthStoneInstances.Length; fire++)
+            {
+                ModelInstance[] instances = _hearthStoneInstances[fire];
+                if (instances == null || instances.Length == 0) continue;
+
+                Vector3 firelight = _hearthStoneColor * CampfireColor(frame.Time, fire) * (_hearthStoneFirelight * atten);
+
+                DrawAcaciaPart(_hearthStoneMeshes[fire % _hearthStoneMeshes.Length], instances,
+                    _hearthStoneColor, dappleStrength: 0f, addedLight: firelight);
+            }
         }
 
         /// <summary>
@@ -3660,7 +3839,8 @@ namespace Prazsky.Core.Render
         /// last draw), the mesh's vertices bound at stream 0 and the instances at stream 1 — exactly as
         /// <see cref="InstancedModelRenderer"/> does it.
         /// </summary>
-        private void DrawAcaciaPart(IProceduralMesh mesh, ModelInstance[] instances, Vector3 diffuse, float dappleStrength)
+        private void DrawAcaciaPart(IProceduralMesh mesh, ModelInstance[] instances, Vector3 diffuse, float dappleStrength,
+            Vector3 addedLight = default)
         {
             if (_acaciaInstanceBuffer == null || _acaciaInstanceBuffer.VertexCount < instances.Length)
             {
@@ -3672,6 +3852,7 @@ namespace Prazsky.Core.Render
 
             _acaciaDiffuseParam.SetValue(diffuse);
             _acaciaDappleParam.SetValue(dappleStrength);
+            _acaciaAddedLightParam.SetValue(addedLight);
             _acaciaEffect.CurrentTechnique.Passes[0].Apply();
 
             _graphicsDevice.SetVertexBuffers(
@@ -4573,6 +4754,7 @@ namespace Prazsky.Core.Render
             _savannaVertexBuffer?.Dispose();
             _savannaIndexBuffer?.Dispose();
             DisposeAcacia();
+            DisposeHearthStones();
             _flameVertexBuffer?.Dispose();
             _flameIndexBuffer?.Dispose();
             _birdMesh?.Dispose();
