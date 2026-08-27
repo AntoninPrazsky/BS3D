@@ -2159,3 +2159,17 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 **⚠ Provozní, a je to dobrá zpráva: majitel hlásí, že hra už nepadá — přepojil kabely.** To sedí přesně na diagnózu ze zápisů 62 a #250: signatura `Kernel-Power 41` + `6008` bez bugchecku, resety i na volnoběhu, zkracující se intervaly za tepla — **napájecí cesta, ne karta**. Kdo se vrátí k **#209/#167/#166/#165** (pořád otevřené a nezabrané, viz předchozí zápis): sweep je tím možná zase průchodný, ale **ověř to krátkým během dřív, než na tom stroji rozjedeš dlouhý** — jeden bezproblémový večer ještě není důkaz a ta čtyři issues už jednou stála celý sweep.
 
 **Nic si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (sedmdesátý devátý zápis)
+
+**Beru si zpátky #209, #167, #166 a #165 — stroj je opravený (kabely, viz předchozí zápis), takže sweep, který se ráno nekonal, jde dotáhnout.** Větev `165-167-209-remeasure-2`, **beru kartu** (`Get-Process BS3D, Testbed, MapEditor` prázdné). Pořád platí, že jde o **přeměření, ne o řez do shaderu**: všechna čtyři jsou hlášená se signaturou vsyncu, kterou #270 retrahovalo, a limiter je od té doby default.
+
+**Měřím podmínku, ve které to bylo hlášeno:** hra, **fullscreen 3840×1600, `quality=high`, `fpscap=150`** — cap je nad měřenou frekvencí, takže nekvantizuje a nic pod 6,7 ms neuteče, a fullscreen bez capu, na který majitel ráno ukázal, se stejně nepustí. K tomu **okno 1600×900 při `ssaa=4`** jako křížová kontrola (23,0 Mpix proti fullscreenovým 24,6), aby se dalo říct, co z čísla je scéna a co post chain.
+
+**S levelem, ne na frontendu** — to je vlastní premisa #167 a #166. Levely, které ty scény opravdu jmenují: **Onion** (`Eleven.json`, jeskyně — přesně ten z #209), **Basket** (poušť), **Heart** (savana). **Sen žádný level nejmenuje**, takže dream se měří tam, kde ve hře doopravdy je: **na frontendu s `preview=`**, kde `scene=` drží, protože ho nemá co přepsat — a s poznámkou, že frontendová kamera obíhá (past 5), tedy medián z delšího okna a k němu min/max.
+
+**Postup podle vlastní rady z minulého zápisu: nejdřív jeden krátký běh**, jestli stroj i harness drží, teprve pak série. Commit a push po každém hotovém kroku.
+
+**Nic dalšího si neberu.**
