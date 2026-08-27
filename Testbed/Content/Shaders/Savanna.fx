@@ -68,6 +68,19 @@ float3 SceneLightColor[MAX_SCENE_LIGHTS];
 float SceneLightRange[MAX_SCENE_LIGHTS];
 int SceneLightCount;
 
+//The fires' hearths (#282): the ground each campfire has burnt into the grass. The positions are the fires'
+//own - SceneRenderer pushes SavannaCampfirePosition for each - and they are passed SEPARATELY from the scene
+//lights above rather than read off them, even though on this scene the two arrays hold the same points
+//today. A scene light is not necessarily a fire, and a light added here for any other reason must not burn a
+//hole in the grass under it.
+#define MAX_HEARTHS 8
+float3 HearthPosition[MAX_HEARTHS];
+int HearthCount;
+float HearthRadius;      //char at the fire's foot out to grass again at this distance
+float HearthNear, HearthFar;   //how far the nearest and furthest fire stand from the world origin: the early-out below
+float3 HearthAsh;        //the burnt ring's cold ash (linear)
+float3 HearthChar;       //and the near-black char at the fire's own foot
+
 //Gentle rolling savanna: smooth low sines, flat within the clearing around the origin (where the island
 //stands) and rising into low rises with distance. Kept flatter than the meadow's hills - a savanna is open.
 float TerrainHeight(float2 p)
@@ -171,6 +184,37 @@ float GrassRelief(float2 xz, float footprint, float gust)
     return Fbm2Combed(p, WindDirection, GRASS_COMB_STRETCH, 3, footprint * f) * GRASS_FBM_GAIN * GrassReliefStrength;
 }
 
+//How burnt this spot is: 1 in the char at a fire's foot, 0 where the grass has it back at HearthRadius.
+//
+//The NEAREST fire wins rather than the sum. Two hearths whose rings overlap would otherwise burn each other
+//blacker than either fire can, and the ring the config lays out is even enough that a Count high enough to
+//touch would char the whole circle black.
+//
+//The early-out is what keeps this off the rest of the field: the fires all stand on one ring around the
+//origin, so a pixel whose own radius is outside that ring by more than a hearth cannot be in any of them.
+//HearthNear/HearthFar are measured in C# FROM THE FIRES' OWN POSITIONS rather than derived from the config's
+//ring rule a second time here - the placement lives in one place (SceneRenderer.SavannaCampfirePosition) and
+//this reads the answer, not the rule. The branch is divergent, but pixels are coherent enough that a
+//wavefront agrees, and nothing inside it takes a derivative.
+float HearthBurn(float2 xz)
+{
+    float r = length(xz);
+    if (r < HearthNear - HearthRadius || r > HearthFar + HearthRadius) return 0.0;
+
+    float burn = 0.0;
+    [loop]
+    for (int i = 0; i < HearthCount; i++)
+    {
+        float d = distance(xz, HearthPosition[i].xz);
+        burn = max(burn, 1.0 - smoothstep(HearthRadius * 0.22, HearthRadius, d));
+    }
+
+    //A fire does not burn a circle. One noise tap breaks the edge up, taken once for the pixel rather than
+    //per fire - two hearths never overlap far enough for the difference to show, and it keeps the tap out of
+    //the loop. Below the early-out, so it costs nothing on the field at large.
+    return saturate(burn * (0.82 + 0.36 * (CloudNoise(xz * 0.45) * 0.5 + 0.5)));
+}
+
 float4 SavannaPS(SavannaVertexOutput input) : COLOR
 {
     float3 worldPosition = input.WorldPosition;
@@ -194,8 +238,12 @@ float4 SavannaPS(SavannaVertexOutput input) : COLOR
     float gust = WindGust(worldPosition.xz, WindDirection, SavannaTime, WindRippleFrequency,
         WindRippleSpeed / max(WindRippleFrequency, 1e-4), footprint);
 
-    //Fine grass texture tilts it, so the grass catches the light unevenly and the wind reads on it
-    float relief = GrassRelief(worldPosition.xz, footprint, gust);
+    //How burnt this spot is (#282): the campfires ring the island and each has burnt the grass under it.
+    float burn = HearthBurn(worldPosition.xz);
+
+    //Fine grass texture tilts it, so the grass catches the light unevenly and the wind reads on it - and it
+    //fades out with the char, because what that relief is a texture OF is blades, and a hearth has none.
+    float relief = GrassRelief(worldPosition.xz, footprint, gust) * (1.0 - burn * 0.85);
     float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
 
     //Three-tone grass: dry gold as the base, green flushes where it is lusher, and patches of bare reddish
@@ -211,7 +259,13 @@ float4 SavannaPS(SavannaVertexOutput input) : COLOR
     //Wind combing the grass: the gust computed above, over the blades it lays down. Same dial and the same
     //range it always had; what it is applied to is a travelling patch rather than an infinite plane wave
     //42 world units across (#276 — see WindGust in Noise.fxh).
-    grass *= 1.0 + gust * WindRippleStrength;
+    grass *= 1.0 + gust * WindRippleStrength * (1.0 - burn);
+
+    //And the hearth over the top of all three tones: ash across the burnt ring, char at the fire's own foot.
+    //Two steps rather than one lerp so the patch has an edge INSIDE it - a fire pit is a dark eye in a pale
+    //ring, and a single fade from black out to grass is a smudge.
+    grass = lerp(grass, HearthAsh, saturate((burn - 0.12) * 1.6));
+    grass = lerp(grass, HearthChar, smoothstep(0.78, 1.0, burn));
 
     //Matte grass: the sun and the sky hemisphere, dimmed by the shared cloud shadow so the same clouds that
     //drift across the sky sweep their shadows over the field
