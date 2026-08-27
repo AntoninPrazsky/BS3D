@@ -2292,3 +2292,33 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 - **#298 — revalidace kvalitativních tierů na slabém stroji.** Citace, která držela argument pro znovuotevření sondy (Onion na 37,5 FPS), je retrahovaná; dnes se o ničem ve shipped setu neví, že by nižší tier potřebovalo, takže tiery jsou laděné proti neexistujícímu měření. Referenční desktop je na tuhle otázku špatný stroj.
 
 **Ohledně #219 (bouřka nad mraky) nesahám na nic** — na originu je hotová větev kolegy (`0870ff0`), nesmergovaná.
+
+**Dodatek (týž den) — všechna tři hotová a na mainu, každé vlastní větev a `--no-ff` merge.**
+
+| issue | co | main |
+|---|---|---|
+| #284 | oddělovač tisíců mezerou, v jedné kopii | `40562ff` |
+| #294 | olivová je zase zelená, ne tmavá břečka | `7611279` |
+| #282 | savanní ohně hoří v ohništi, ne na trávníku | `ae44f85` |
+
+**#284 — jeden formátovač místo osmi call sitů.** `Game/Screens/ScoreText.cs` drží invariantní `NumberFormatInfo` s mezerou místo čárky; HUD (rohové skóre i award popup) i výsledková stránka (holé skóre, matched, orphaned, streak, nevystřelené, total) jdou skrz něj. **Invarianci jsem zachoval** ze stejného důvodu, proč ji ty call sity měly — čím `"N0"` seskupuje, je vlastnost locale stroje, a jedna figura formátovaná po česku vedle druhé formátované invariantně je přesně to, jak kdysi stálo „+2 960" vedle „2,960" v jednom snímku — ale **separátor se teď volí na jednom místě**, takže se dva call sity nemůžou rozejít. Ověřeno v běžící hře: výsledková stránka čte **4 820**, glyf mezery ve fontech HUD sedí.
+
+**#294 — měření změnilo diagnózu, ne jen hodnotu.** Olivová nebyla blízko zeleným vůbec: v CIEDE2000 ze snímku `Thirteen_Colors` byly její tři nejbližší **černá (24,8), hnědá (26,0) a stříbrná (26,0)** pod dómem 1. „Far darker than green" z #152 ji vytáhlo z zelených úplně a posadilo do tmavě-neutrálního pásma. Dvě vady naráz: málo světla a **0,08 modré, co odsycovalo barvu, jejíž celá identita je, že žádnou nemá**. Tint (0,42 0,45 0,08) → **(0,42 0,52 0,02)**, ambient s ním. Po: černá 29,6 / hnědá 32,6 / stříbrná 27,6 pod dómem 1.
+
+- **⚠ Stopku jsem změřil, ne odhadl:** při (0,44 0,56 0,025) se tmavé pásmo otevře ještě víc (černá 37,9), ale **zelená/olivová spadne na 22,5** — dvě zeleně na rozlišení, tedy #246 „jedna záměna vyměněná za druhou" z druhé strany.
+- **⚠ A metodická past, která mě stála kolo: barvu je nutné měřit pod SVĚTLÝM i TMAVÝM dómem.** Olivová jede na světle dómu tvrději než její sousedi — z jednoho tintu čte 59 luminance pod dómem 1 a 69 pod dómem 13 — a ty dva dómy se **neshodnou na tom, který pár je nejtěsnější**. Kdo ladí jen podle jednoho, dovede barvu do záměny toho druhého.
+- **Nástroj je nově v repu: `.claude/skills/screenshot/palette.ps1`** (+ sekce ve `SKILL.md`). #246 si do zápisu 25 poznamenalo, že jeho `palette.py`/`pairs.py` leží mimo repo — **už neexistují** a tohle je druhé issue téhle třídy, které je muselo odvodit znovu. Otevřená #285 a #286 jsou třetí a čtvrté.
+
+**#282 — dvě půlky ohniště schválně na dvou různých místech.** Kameny jsou `RockMesh` (lesní balvan, přeproporcovaný) zapuštěné do terénu a kreslené **po akáciové instancované cestě**, tedy ve stejném světle jako všechno ostatní zasazené na tomhle terénu; jeden draw **na oheň**, protože co se mezi dvěma prstenci liší, je světlo jejich vlastního ohně. Spáleniště je vlastní člen `Savanna.fx` — popel přes prstenec, uhel u paty ohně, a **reliéf trávy i česání větrem s ním mizí**, protože ten reliéf je textura *stébel* a ohniště žádná nemá. Hranu láme jeden šumový tap: oheň nevypaluje kruh.
+
+- **Všechno je škálované od `FlameSize`**, ne ve světových jednotkách — ty plameny jsou 14 jednotek vysoké a ohniště změřené jednou rukou by byl obrubník z oblázků v den, kdy je někdo rozšíří.
+- **Světlo ohně na kamenech je per-draw aditiva (`Acacia.fx`'s `AddedLight`), ne deváté bodové světlo**: celý prstenec stojí v jedné vzdálenosti od jednoho ohně, takže co by bodové světlo řešilo per pixel, je tady konstanta na draw. Stejný kvadratický falloff jako má zem, krát albedo kamene, a jede na `CampfireColor`, takže prstenec dýchá se svým ohněm.
+- **Pozice ohnišť se pushují v config-time, ne per frame**, a per-pixel smyčka má early-out na rozsah prstence — `HearthNear`/`HearthFar` **změřené v C# z pozic samotných**, ne odvozené z config pravidla podruhé v shaderu. Druhá kopie pravidla umístění je přesně to, o čem je nově založené #297.
+- **Změřeno** (Testbed, savana, dóm 1, `nocap`, `nopost`, okno 1600×900 při ssaa 4, pevná zvýšená kamera se **všemi osmi** ohništi v záběru, 18s běhy, střídané s buildem bez nich): **7,37 / 7,33 ms bez proti 7,44 / 7,54 s** — tedy **asi +0,14 ms**, stejný řád, jako stál sám prstenec ohňů.
+- **⚠ Z HERNÍ kamery tohle není vidět** a je to zapsané v `docs/scenes.md`: ohně stojí 33 jednotek daleko a pod hranou ostrova, takže hráč ve hře vidí z ohně pořád jen plamen proti obloze. Ohniště čte z frontendu, z úvodu kapitoly (#289) a z každého zvýšeného pohledu — což je přesně tam, kde oheň na holé trávě vypadal špatně.
+
+**Ověřeno u všech tří:** čtyři solutiony čisté, `ScoreSim` „All levels rate the right way round", vizuálně capturem (výsledková stránka a HUD ve hře; třináctibarevná řada pod dvěma dómy před/po; ohniště zblízka, za soumraku, shora a ve frontendu hry).
+
+**⚠ Provozní poznámka k `ScoreSim`:** spouštět `dotnet run --project … -- <cesta>`, ale **bez `-v q --nologo`** — ty se propašují jako argument programu a tool si pak hledá `Levels.json` v adresáři jménem `--nologo`. Bez argumentu si cestu najde sám jen z určitých pracovních adresářů.
+
+**Nic dalšího si neberu.**
