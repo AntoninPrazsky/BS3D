@@ -1,4 +1,4 @@
-//Draws the storm (#219): the arena hangs in clear high air over an unbroken deck of storm cloud, with
+﻿//Draws the storm (#219): the arena hangs in clear high air over an unbroken deck of storm cloud, with
 //convective turrets towering out of it and lightning flashing inside them. The seventeenth scene.
 //
 //⚠ WHY THIS IS BUILT AS TERRAIN AND NOT AS CLOUD, which is the whole design and is not what the issue
@@ -172,7 +172,15 @@ float TurretLayer(float2 p, float cellSize, float seed, float chance, float heig
     //white PINNACLES, which read as ice needles rather than as cloud. A thunderhead is a broad, bulbous
     //thing that happens to be tall — so this is back up, and the crown is broadened with it (`shoulder`
     //below) while the LUMP in StormHeight is what actually keeps it from being a smooth cone.
-    float radius = lerp(0.075, 0.130, rollB.x);
+    //
+    //⚠ A THIRD READING, and it is the one the owner rejected the scene on: at 0.075-0.130 of a 170-unit
+    //cell the towers are 13-22 units of radius against 60 of height, i.e. two to three times taller than
+    //wide, and with the flat crown the old profile drew they photographed as MESAS - buttes of rock
+    //standing on a snowfield. A thunderhead is about as wide as it is tall. The range is up again, and the
+    //ceiling is set by the jitter box rather than by taste: `margin` below is radius * 1.55 * AnvilSpread,
+    //and a margin near 0.45 pins every turret at its own cell's centre, which draws the lattice this
+    //deliberately breaks. At 0.155 the margin is 0.35, leaving 0.30 of a cell (about +-25 units) of jitter.
+    float radius = lerp(0.100, 0.155, rollB.x);
 
     //The full reach, anvil included - what the margin must be, or a spreading top crosses into a cell
     //nobody reads and is cut off along a straight line. Clamped so a widened range can never make the
@@ -201,12 +209,19 @@ float TurretLayer(float2 p, float cellSize, float seed, float chance, float heig
     //by AnvilSpread and drew a dune: the tower fell to nothing only at 2.25 radii, so it was wider than it
     //was tall whatever the height said.
     //
-    //The BODY is a steep tower reaching zero at its own base line (d = 1): smoothstep run BACKWARDS
-    //(edge0 above edge1) holds a flat-ish crown inside `shoulder` and falls off hard outside it, which is a
-    //thunderhead's profile — a near-vertical flank under a rounded-then-flattened top, never the cone a
-    //plain falloff gives.
-    float shoulder = lerp(0.48, 0.72, rollA.y);
-    float body = smoothstep(1.0, shoulder, d);
+    //The BODY reaches zero at its own base line (d = 1).
+    //
+    //⚠ IT WAS A MESA AND THAT IS WHY THE SCENE READ AS LAND. The profile was `smoothstep(1.0, shoulder, d)`
+    //— a smoothstep run backwards, which holds a FLAT crown everywhere inside `shoulder` (0.48-0.72 of the
+    //radius) and then falls off hard. Flat top, steep wall, hard silhouette: that is the definition of a
+    //butte, and photographed against the sky it is exactly what came out. The comment defending it argued
+    //that the alternative was "the cone a plain falloff gives" — but the choice was never dome against
+    //mesa, it is which of them carries the CAULIFLOWER, and the lump in StormHeight is what does that.
+    //
+    //A cumulus tower is BULBOUS: convex from the axis all the way out, widest up in its crown, rounding
+    //over at the top. `(1 - d^2)` raised to a fraction is convex everywhere and flat nowhere; the exponent
+    //is what says how much of the tower is crown, so it keeps the per-cell variation the shoulder had.
+    float body = pow(saturate(1.0 - d * d), lerp(0.52, 0.86, rollA.y));
 
     //The ANVIL is a separate thing: a low, WIDE shelf lying out past the tower's own base, which is what
     //spreading at the tropopause looks like and the one cue that says weather rather than landscape. It is
@@ -225,12 +240,61 @@ float TurretLayer(float2 p, float cellSize, float seed, float chance, float heig
 //The deck's own billow between the turrets - genuinely two octaves of gradient noise, not a sine pair (a
 //sum of plane waves keeps its planes however many terms it has, which three scenes here learned the
 //expensive way). Drifts downwind off the wall clock.
+//⚠ REWRITTEN AFTER THE SCENE WAS REJECTED ON LOOKS. Two octaves of plain gradient noise is a SWELL, and a
+//swell is what ground does: gradient noise is sinusoidal, so half of every period is saddle and the deck
+//came out as a near-flat plain with a gentle roll in it — a snowfield, with the turrets standing on it as
+//buttes. What a cloud deck looks like from an aeroplane is a CARPET OF ROUNDED LOBES, edge to edge, at
+//several sizes at once, with creases between them; there is no flat anywhere in it.
+//
+//⚠ `|n|` AND NOT `1 - |n|`, AND THAT ONE CHARACTER IS THE WHOLE DIFFERENCE BETWEEN CLOUD AND MOUNTAIN.
+//Both fold the field about zero; what they disagree about is WHERE the result peaks.
+//
+//  `1 - |n|` peaks along the noise's ZERO CONTOURS, and a zero contour of a smooth 2-D field is a LINE.
+//            So it draws ridges running across the map — which is exactly what it is for: it is the
+//            standard ridged-multifractal terrain primitive, the thing mountain generators are built on.
+//  `|n|`     peaks at the noise's own EXTREMA, and those are POINTS. So it draws rounded blobs separated
+//            by creased troughs, which is a cumulus field: puffs with dark crevices between them.
+//
+//This was written the wrong way round first and the deck photographed as crumpled ice ridges — sharper and
+//more obviously rock than the smooth version it replaced. If this scene ever starts reading as terrain
+//again, look here before looking anywhere else. The 1.42 takes gradient noise's own ~±0.7 out to ±1 first,
+//so each octave spans a full 0..1.
+//
+//FOUR octaves, and the finest is set by the mesh rather than by eye: the deck is a 360-square grid over
+//1400 units, so a cell is 3.9 units and nothing under about 8 can be carried by the vertices at all. The
+//0.115 octave sits at 8.7 units, right on that floor; anything finer belongs in the pixel normal, which is
+//what `relief` in the pixel shader already is.
 float DeckBillow(float2 p)
 {
     float2 drift = WindDirection * (StormTime * DriftSpeed);
+    float2 q = p - drift;
 
-    return GradientNoise2((p - drift) * 0.0075) * 0.62
-        + GradientNoise2((p - drift * 1.4) * 0.021 + 5.7) * 0.38;
+    float a = abs(GradientNoise2(q * 0.017) * 1.42);
+    float b = abs(GradientNoise2(q * 0.030 + 5.7) * 1.42);
+    float c = abs(GradientNoise2(q * 0.068 + 11.3) * 1.42);
+    float d = abs(GradientNoise2(q * 0.120 + 23.9) * 1.42);
+
+    //Weighted hard towards the big lobes on purpose. An even spectrum came out as chop — a rough, busy
+    //surface that reads as shingle or as a broken sea, because at this grazing an angle the small octaves
+    //are what the eye lands on. A cloud carpet is a few big soft mounds with smaller ones ON them, so the
+    //coarse octave owns the silhouette and the rest only inflect it.
+    float carpet = a * 0.50 + b * 0.28 + c * 0.15 + d * 0.07;
+
+    //⚠ AND THIS IS WHAT SEPARATES CLOUD FROM SNOWFIELD. A folded sum is still a CONTINUOUS SHEET — every
+    //point sits somewhere on one surface — and it photographed as a glacier: smooth, white, unbroken, soft
+    //mounds in it. What a deck looks like from above is discrete CELLS: rounded puffs standing clear of a
+    //lower floor, with gaps and shadow between them. A power curve on the folded field does exactly that
+    //for one instruction — it leaves the crowns where they are and presses everything under them down and
+    //outward, so the lobes narrow into separate puffs and the troughs widen into the floor between them.
+    //Under about 1.2 it is a smooth carpet again; much over 1.6 the puffs pull apart into isolated blobs.
+    carpet = pow(saturate(carpet), 1.35);
+
+    //Back to roughly zero mean, which is not tidiness: StormHeight multiplies this by a radial ramp, and
+    //ramping a field with a mean in it lifts the mean with the ramp and draws a shallow bowl around the
+    //island — the desert's trailing-constant trap, and the reason the old field was left unramped instead.
+    //The constant is this curve's own mean and is approximate: |n| averages about a third, four octaves
+    //averaged together keep that mean while narrowing the spread, and the power curve pulls it to ~0.22.
+    return carpet - 0.22;
 }
 
 //The full displaced deck height at a world point: flat at StormLevelY inside the clearing, rising into
@@ -258,12 +322,29 @@ float StormHeight(float2 p, out float shape, out float crest)
     //where it is only shading. (The outback learned the same thing about its gullies the expensive way: a
     //per-pixel field driving the normal drew terraces and could never touch the silhouette.)
     //
-    //Two octaves, scaled by the turret's own coverage so the deck between the towers keeps its gentler
-    //billow, and by TurretHeight so a shorter tower is lumpy in proportion rather than absolutely.
-    float lump = GradientNoise2(p * 0.030 + 13.1) * 0.62 + GradientNoise2(p * 0.082 + 31.7) * 0.38;
+    //⚠ ITS FREQUENCY WAS THE FAULT, not its strength, and that is why turning it up would never have helped.
+    //The octaves ran at 33 and 12 unit features against a turret 26-44 units WIDE — so the coarse one was
+    //wider than the tower it was meant to break up and merely tilted the whole thing, and the fine one was
+    //the only lobing there was. The silhouette therefore stayed the profile's own smooth shoulder, which is
+    //the read the owner rejected. A cumulus lobe is a fraction of its tower: these are 18 and 8.7 units
+    //against a tower now 34-53 wide, so three to six lobes cross it. Folded like the deck's, so they bulge
+    //rather than ripple. 8.7 is the mesh's own floor (see DeckBillow) and nothing may go under it here —
+    //this field displaces VERTICES, so a finer octave aliases in the silhouette rather than adding to it.
+    //`|n|` and not `1 - |n|`, for the reason DeckBillow's header spells out: inverted, this drew RIDGES
+    //down the towers and gave them jagged rocky crowns.
+    float lump = abs(GradientNoise2(p * 0.055 + 13.1) * 1.42) * 0.62
+               + abs(GradientNoise2(p * 0.115 + 31.7) * 1.42) * 0.38
+               - 0.33;
 
-    return StormLevelY + BillowHeight * billow + turrets
-        + lump * turretShape * TurretHeight * 0.22;
+    //The billow is ramped out of the clearing now. It is zero-mean by construction, so the ramp changes its
+    //AMPLITUDE and not its level, and the deck beside the island stays exactly at StormLevelY — which costs
+    //nothing that can be seen, because a surface at the deck's own level is occluded by the island's disc
+    //past the far plane anyway (the header's measurement). What it buys is the freedom to give the far
+    //carpet real relief without standing a wall of cloud next to the arena.
+    float swell = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, length(p));
+
+    return StormLevelY + BillowHeight * billow * swell + turrets
+        + lump * turretShape * TurretHeight * 0.34;
 }
 
 struct StormVertexInput
@@ -334,8 +415,14 @@ float4 StormPS(StormVertexOutput input) : COLOR
     //Billowed relief, band-limited against the footprint and drifting with the deck, so a turret's flank is
     //lumpy cloud rather than an airbrushed cone. Cloud has no hard edges anywhere, which is why this is a
     //normal tilt and never a colour step.
+    //⚠ THIS WAS MOST OF THE ROCK. Four octaves from an 18-unit base is a 2-unit finest grain, and at
+    //BillowRelief 3.4 it pebbled the whole deck with sharp little shadowed pits — stucco, or shingle, and
+    //against a white surface the eye reads that as stone every time. Cloud has no grain at that size: what
+    //it has is the next size of lobe down, which is now in the HEIGHT field where it can reach the
+    //silhouette. So this is coarser (36-unit base, so the finest octave lands near the mesh's own 8-unit
+    //floor rather than far under it) and much gentler — a softening of the shading, not a texture on it.
     float2 drift = WindDirection * (StormTime * DriftSpeed);
-    float relief = Fbm2BandLimited((worldPosition.xz - drift) * 0.055, 4, footprint * 0.055);
+    float relief = Fbm2BandLimited((worldPosition.xz - drift) * 0.028, 4, footprint * 0.028);
 
     float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief * BillowRelief);
 

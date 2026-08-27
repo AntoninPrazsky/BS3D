@@ -88,18 +88,25 @@ namespace Prazsky.Core.Render
         public float LevelY { get; set; } = -13.5f;
 
         /// <summary>Radius of the flat clearing the island stands in, before the deck starts to billow.</summary>
-        public float ClearingRadius { get; set; } = 86f;
+        public float ClearingRadius { get; set; } = 52f;
 
         /// <summary>Transition band over which the flat clearing rises into billowing cloud.</summary>
-        public float ClearingTransition { get; set; } = 70f;
+        public float ClearingTransition { get; set; } = 55f;
 
         /// <summary>
-        /// Peak height of the deck's own billow — the lumpy cloud-top relief between the turrets. It has to
-        /// be enough that the deck reads as cloud rather than as a snowfield (the first build ran 7 and
-        /// photographed as one), and no more than that: seen at this grazing an angle the deck is read from
-        /// its silhouette against the sky, so too tall a billow only fights the turrets for the horizon.
+        /// Peak-to-trough height of the deck's own billow — the lumpy cloud-top carpet between the turrets.
+        /// <para>
+        /// <b>⚠ 11 photographed as a snowfield too, and the owner rejected the scene on it.</b> The first
+        /// build ran 7 and was called one; 11 was not enough of a change, because at these feature sizes the
+        /// deck is being read at a grazing angle from five units above it and eleven units of swell over a
+        /// 133-unit lobe is a slope of under five degrees. The field itself is now a folded four-octave
+        /// billow rather than two octaves of plain noise (see <c>DeckBillow</c> in <c>Storm.fx</c>), and it
+        /// is ramped out of the clearing, so this is free to be the real relief a cloud carpet has: half of
+        /// it up and half down about <see cref="LevelY"/>. The note it replaces — that too tall a billow
+        /// only fights the turrets for the horizon — is still true and is what stops this going further.
+        /// </para>
         /// </summary>
-        public float BillowHeight { get; set; } = 11f;
+        public float BillowHeight { get; set; } = 36f;
 
         /// <summary>How far apart the turrets' lattice cells sit. The outback's own single-cell lattice
         /// (<c>RockLayer</c>, ported into <c>Storm.fx</c>), so a turret is held inside its own cell by its
@@ -144,7 +151,7 @@ namespace Prazsky.Core.Render
         /// a sunlit cumulonimbus top is the brightest thing in a real sky, but a deck that blooms wholesale
         /// takes the cluster's silhouette with it.
         /// </summary>
-        public Rgb TopColor { get; set; } = new(0.40f, 0.42f, 0.48f);
+        public Rgb TopColor { get; set; } = new(0.62f, 0.645f, 0.70f);
 
         /// <summary>
         /// The shaded flank and the deck's own hollows (linear). <b>Well</b> under the top rather than a
@@ -152,7 +159,7 @@ namespace Prazsky.Core.Render
         /// tonemap to the same white — which is the documented reason the sky's own deck runs its shaded
         /// underside at 0.18 against a 1.7 top.
         /// </summary>
-        public Rgb ShadeColor { get; set; } = new(0.055f, 0.065f, 0.095f);
+        public Rgb ShadeColor { get; set; } = new(0.175f, 0.205f, 0.275f);
 
         /// <summary>The deep blue-grey the deck's own base carries where no sun reaches it at all (linear) —
         /// the colour a storm's underside is, seen from above through a gap.</summary>
@@ -160,7 +167,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>How hard the cloud's own relief breaks up its shading (world units of relief). Cloud has
         /// no hard edges, so this is the whole of what gives a turret its billowed surface.</summary>
-        public float BillowRelief { get; set; } = 3.4f;
+        public float BillowRelief { get; set; } = 1.0f;
 
         /// <summary>
         /// The silver lining: how strongly a grazing angle brightens the cloud's rim towards
@@ -170,7 +177,7 @@ namespace Prazsky.Core.Render
         public float SilverStrength { get; set; } = 0.75f;
 
         /// <summary>How much of the sky's hemisphere light fills the deck.</summary>
-        public float AmbientStrength { get; set; } = 0.38f;
+        public float AmbientStrength { get; set; } = 0.62f;
     }
 
     /// <summary>
@@ -289,7 +296,7 @@ namespace Prazsky.Core.Render
         /// dusty scene's — but it has to reach the dome's own horizon colour by the grid's edge, which is
         /// what the fade's last stage does.
         /// </summary>
-        public float HazeStrength { get; set; } = 0.45f;
+        public float HazeStrength { get; set; } = 0.62f;
 
         /// <summary>The wind, a direction in the XZ plane: it drifts the deck and leans the anvil tops.
         /// Kept unit-length like every other scene's, since <see cref="DriftSpeed"/> carries the magnitude —

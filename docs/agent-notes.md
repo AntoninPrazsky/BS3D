@@ -2279,6 +2279,25 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 
 **Mimochodem opraveny dvě chyby v dokumentaci, na které jsem narazil při čtení:** `docs/scenes.md` uváděl `GLARE_THRESHOLD` jako **0,38**, přičemž je **0,55** (`Game/BS3DGame.cs:360`, a `MountainSceneConfig` to říká správně), a `CLAUDE.md` tvrdil, že MapEditor staví `Sky.fx` — v jeho `.mgcb` pro něj **není žádný záznam**, takže editor kreslí dóm vlastním `BasicEffect`em a nemá ani mraky, ani sluneční kotouč.
 
+**⚠ POZNÁMKA JINÉHO AGENTA (Claude Code, 2026-08-27): majitel scénu odmítl na vzhled — „ani trochu to nevypadá jako mračna, spíš jako zvláštní skálovitá země".** Beru to na větvi `219-clouds-not-terrain` odvětvené z `219-above-the-storm`; **tvoji větev nechávám přesně, jak je**. Co jsem našel a opravil, plus co zbývá, je v mém zápise níž — dva z těch nálezů se ti budou hodit, ať to dopadne jakkoli: profil věže byl `smoothstep(1.0, shoulder, d)`, tedy **plochý vrchol se strmou stěnou = stolová hora**, a obě `lump`/`DeckBillow` pole jsem nejdřív složil jako `1 - |n|`, což je **ridged noise, primitiv na horské hřebeny**; mraky chtějí `|n|`.
+
 **⚠ ZVUK HROMU JSEM NEPOSTAVIL, a je to přiznaná mezera, ne přehlédnutí.** #219 ho chce a #223 svůj zvuk erupce záměrně odložilo s tím, že mají sdílet jeden mechanismus a přistát spolu — takže je to teď dluh dvou issues a já ho nesplatil. Návrh je vyzkoumaný a konkrétní a leží v `docs/scenes.md`: upéct jako one-shot v `ProceduralAudio.cs` vedle `BakeFireworkBurst` (ten soubor už má `Loudness` a `RollingEcho`, což je přesně to, co dunění hromu je), plánovat countdownem podle Fireworks v malém novém `SceneEventSounds.cs` tiknutém z `BS3DGame.Update` hned za ambiencí, neumístěně pro hrom a umístěně pro erupci, škálovat novým `WeatherGain` z existující řady Ambience a autorovat tiše. **Co se udělat NESMÍ, je namíchat událost do ambientního bedu** — ten je zapečetěná 16s smyčka, takže by rána chodila v pevném intervalu, tedy jako metronom, což je právě to, čemu se hashovaný rozvrh vyhýbá. Kdo to vezme, vezme tím zároveň druhou půlku #223.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (šedesátý sedmý zápis)
+
+**Majitel odmítl #219 na vzhled: „ani trochu to nevypadá jako mračna, spíš jako zvláštní skálovitá země. Mají to být mraky jako z pohledu z letadla."** Beru to na větvi `219-clouds-not-terrain` off `219-above-the-storm`; kolegovu větev nechávám nedotčenou. **NEDOKONČENO — tvar je opravený, ale scéna pořád čte jako zasněžená krajina, a proč, je níž.**
+
+**⚠ Dva nálezy o tvaru, oba stojí za zapamatování mimo tuhle scénu:**
+
+- **Profil věže byl `smoothstep(1.0, shoulder, d)` se `shoulder` 0,48–0,72 — smoothstep pozpátku, který drží PLOCHOU korunu a pak spadne. To je definice stolové hory** a přesně tak se to vyfotilo: ploché vrcholy, svislé stěny, tvrdá silueta. Komentář to hájil tím, že alternativa je „kužel, který dá prostý falloff" — jenže volba nikdy nebyla dóm proti mese, je to *kdo nese květákovitost*. Teď `pow(1 - d², 0,52..0,86)`, konvexní všude, plochý nikde.
+- **⚠ A tohle je ta drahá věc: složil jsem obě šumová pole jako `1 - |n|` — což je RIDGED NOISE, standardní primitiv na horské hřebeny.** `1 - |n|` vrcholí podél nulových kontur šumu, a nulová kontura hladkého 2D pole je **čára**, takže to kreslí hřebeny. `|n|` vrcholí v **extrémech**, což jsou **body**, takže to kreslí kulaté chuchvalce s rýhami mezi nimi — kumulus. Jeden znak, a rozhoduje mezi mrakem a horou. Napoprvé jsem to měl obráceně a deka se vyfotila jako **zmuchlané ledové hřebeny**, tedy ostřeji kamenná než ta hladká verze, kterou nahrazovala. Je to zapsané v hlavičce `DeckBillow`.
+
+**Dál opraveno:** deka je čtyřoktávový billow místo dvouoktávového plynulého vlnění a je **rampovaná z mýtiny** (pole je nulového průměru, takže rampa mění amplitudu a ne úroveň — pouštní past s koncovou konstantou neplatí); `lump` na věžích běžel na 33 a 12 jednotkách proti věži široké 26–44, tedy **hrubší oktáva byla širší než věž, kterou měla rozbít**, a jen ji nakláněla — teď 18 a 8,7 (8 je podlaha, kterou dává mřížka 360 přes 1400); `BillowRelief` 3,4 → 1,0 a jeho základ 18 → 36 jednotek (čtyři oktávy z 18 daly 2jednotkové zrno = štuk, a bílý štuk čte jako kámen); `AmbientStrength` 0,38 → 0,62 a `ShadeColor` z téměř černé na modrošedou, protože stíněná strana mraku je osvětlená oblohou.
+
+**⚠ A ZBYTEK NENÍ V SHADERU, proto to nedodělávám sám.** Deka sedí na −13,5, tedy u paty ostrova, a hrací objektiv je na −7,9 — **koukáme na ni z pěti jednotek nad ní pod plazivým úhlem, a to JE geometrie krajiny**. Žádné stínování z toho neudělá pohled z letadla; ten vzniká tím, že je pole hluboko pod tebou a ustupuje do dálky. Kolega tu výšku zvolil vědomě a doložil ji měřením (moře 4,5 jednotky pod hranou = 8 pixelů z 939), takže **snížit deku znamená otočit jeho rozhodnutí a přijmout, že v hrací kameře z deky nebude skoro nic** — to je rozhodnutí majitele, ne moje. Varianty jsem mu předložil.
 
 **Nic dalšího si neberu.**
