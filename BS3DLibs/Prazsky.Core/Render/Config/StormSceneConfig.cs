@@ -3,26 +3,24 @@
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// Configuration of the storm backdrop (#219): the arena hangs in clear high air over an unbroken deck
-    /// of storm cloud, with convective turrets towering out of it and lightning flashing inside them.
+    /// Configuration of the storm backdrop (#219): the arena hangs in open air among broken cumulus, with
+    /// lightning breaking through the space between the cells.
     /// <para>
-    /// <b>It is an <see cref="SceneRenderer.IsSolidTerrainScene"/>, and that contradicts the issue's own fix
-    /// sketch on purpose.</b> #219 reasoned "not solid terrain — the deck is weather, not ground", which is
-    /// true of what the deck <i>is</i> and false of everything the flag actually decides. Mechanically the
-    /// deck <b>is</b> this world's floor: it is drawn as the same camera-centred displaced grid every terrain
-    /// sibling uses, it sits at the same level theirs do (see <see cref="StormDeckConfig.LevelY"/>), the
-    /// island's footprint has to be cut out of it exactly as it is cut out of sand, and the drain's
-    /// ~55 %-opaque glass needs the dark pit shaft behind it or it reads as a glass ring lying on cloud —
-    /// which is the very failure the shaft exists for. Declining the flag would also make
-    /// <see cref="SceneRenderer.OpenBelow"/> true and hand the drop cinematic a dive to about y = −66, i.e.
-    /// <i>under</i> the deck, filming the cluster through cloud with none of the three mitigations the sea
-    /// needed to survive that shot (they are all gated to <see cref="SceneKind.Sea"/>). The flag's own doc
-    /// says to split the two families only if a scene wants the shaft <i>and</i> the dive; this one wants
-    /// the shaft and not the dive, which is what the flag already gives.
+    /// <b>⚠ There is no ground in this scene, and that is the correction the first build needed.</b> It was
+    /// drawn as a displaced grid — the same camera-centred terrain mesh every ground scene uses — with
+    /// convective turrets standing out of it, and it read as landscape from every camera the game has: flat
+    /// tops and steep walls photographed as mesas, and once those were rounded it photographed as snow. The
+    /// fault was never the shape. A height field is a <b>surface</b>: one height per XZ, so it can be lumpy
+    /// but it can never be <i>broken</i>, and torn cumulus with sky showing between the cells is not
+    /// expressible in it at all. Nor can its silhouette be anything but a hard geometric edge, where a
+    /// cloud's dissolves. See <c>StormClouds.fx</c>'s header for the whole argument and what replaced it.
     /// </para>
     /// <para>
-    /// It is <b>not</b> <see cref="SceneRenderer.ReplacesSky"/>: the air above the deck is the point, so the
-    /// dome stays up and lights the scene as it lights every terrain sibling.
+    /// It is therefore <b>not</b> <see cref="SceneRenderer.IsSolidTerrainScene"/> — there is nothing here to
+    /// cut the island's footprint out of and nothing to back the drain's glass with, so the drain looks
+    /// straight through onto sky and cloud exactly as it does over the space scene. It is also <b>not</b>
+    /// <see cref="SceneRenderer.ReplacesSky"/>: the open air above the cells is the point, so the dome stays
+    /// up and lights the scene as it lights every sibling.
     /// </para>
     /// <para>
     /// Every colour is <b>linear radiance</b>, like every other scene config's.
@@ -37,147 +35,167 @@ namespace Prazsky.Core.Render
         /// <b>Clear, and it is the one setting here that would be actively wrong left alone.</b> The base
         /// class defaults to <see cref="WeatherPreset.Scattered"/> because that reproduces the pre-#221 look
         /// byte for byte — but the shared cloud deck lives <i>overhead</i> at a plane of 140–215, so a scene
-        /// whose whole subject is a storm below the arena would draw Earth cumulus above it at the same
-        /// time, and the player would be sandwiched between two unrelated weathers. Mars overrides this for
-        /// the same class of reason. The air above this deck is high and clean, which is what makes the deck
-        /// read as something the arena is *above*.
+        /// whose whole subject is cloud around the arena would draw a second, unrelated layer of Earth
+        /// cumulus over the top of it. Mars overrides this for the same class of reason.
         /// </summary>
         public StormSceneConfig() => Weather = WeatherPreset.Clear;
 
-        /// <summary>The cloud deck and the turrets standing out of it.</summary>
-        public StormDeckConfig Deck { get; set; } = new();
+        /// <summary>The cloud masses themselves — what this scene is made of.</summary>
+        public StormCloudsConfig Clouds { get; set; } = new();
 
-        /// <summary>What the cloud is made of.</summary>
+        /// <summary>What the cloud is made of, as a material.</summary>
         public StormSurfaceConfig Surface { get; set; } = new();
 
         /// <summary>The lightning.</summary>
         public StormFlashConfig Flash { get; set; } = new();
 
-        /// <summary>The air above the deck.</summary>
+        /// <summary>The air the cells stand in.</summary>
         public StormAirConfig Air { get; set; } = new();
     }
 
     /// <summary>
-    /// The deck: a flat floor of cloud at the island's foot, rising into billow with distance, with
-    /// convective turrets towering out of it.
+    /// The cloud field: discrete cumulus cells scattered through a volume around and below the arena, each
+    /// built from soft billboard puffs.
     /// <para>
-    /// <b>⚠ The turrets are not decoration — they are the only part of this scene the play camera can
-    /// see, and the geometry says so rather than taste.</b> The gameplay lens is pinned at
-    /// <c>GameCameraFit.LENS_FLOOR_Y</c> = −7.9, a bare 0.6 units over the island's own deck plane
-    /// (<c>ArenaIsland.TOP_Y</c> = −8.5), and the island's disc is wider than the frame — so the stone
-    /// occludes everything below about 0.6° of depression, and a flat surface at height C is first visible
-    /// roughly 96 × (−7.9 − C) units out. At this deck's own level that is past the 500-unit far plane.
-    /// Measured rather than derived: the <b>sea</b>, an entire ocean 4.5 units below the arris, is
-    /// <b>8 pixels of a 939-pixel frame</b> from the real play camera — 0.85 % of its height. So a deck
-    /// authored at a physically honest altitude below the arena is invisible in play while looking superb
-    /// in the map editor and in every free-camera screenshot, which is exactly the defect the Moon shipped
-    /// ("a black sky over bare stone"). What clears the deck plane is relief standing <b>above the lens</b>,
-    /// the Moon's 40-unit highland belt and the desert's 14-unit dunes being the two fixes on record.
-    /// <see cref="TurretHeight"/> is that dial here, and <see cref="LightningFlashesInside"/> is the second
-    /// channel — light reaches the play frame even when the geometry throwing it does not.
+    /// <b>⚠ The gaps are the subject.</b> What makes this scene read as cloud rather than as land is that
+    /// the sky shows <i>between</i> the cells and <i>through</i> them — so the two dials that matter most
+    /// are <see cref="MassCount"/> against <see cref="OuterRadius"/> (how much of the volume is filled) and
+    /// <see cref="PuffOpacity"/> (how much of it can be seen through). Filling it evenly is what turns a
+    /// cloudscape back into a ceiling.
+    /// </para>
+    /// <para>
+    /// <b>The field is generated once at load and is static in the world</b>, drifting bodily downwind in
+    /// the vertex shader. It is generated well past the far plane on purpose: a wrap-around would tear a
+    /// mass in half, which is the one artefact a cloud cannot survive.
     /// </para>
     /// </summary>
-    public sealed class StormDeckConfig
+    public sealed class StormCloudsConfig
     {
         /// <summary>
-        /// Mean cloud-top level in the clearing (world Y) — the island's foot, the same level every other
-        /// scene's surface sits at (they run −13 to −15.5; only the sky-replacing cavern goes deeper).
-        /// <b>Raising it does not make the deck more visible and lowering it makes it invisible</b>: see the
-        /// class note. The deck is at the ground's level because that is where a surface can be seen at all.
+        /// How many cumulus cells stand in the field. The puff budget is the real ceiling: the buffer is
+        /// 16-bit indexed, so cells × <see cref="PuffsPerMass"/> must stay under about 16 000 quads.
         /// </summary>
-        public float LevelY { get; set; } = -13.5f;
+        public int MassCount { get; set; } = 150;
 
-        /// <summary>Radius of the flat clearing the island stands in, before the deck starts to billow.</summary>
-        public float ClearingRadius { get; set; } = 52f;
-
-        /// <summary>Transition band over which the flat clearing rises into billowing cloud.</summary>
-        public float ClearingTransition { get; set; } = 55f;
+        /// <summary>How many billboard puffs build one cell. Under about twenty a cell reads as a clump of
+        /// balls; over about eighty the extra ones are hidden inside the ones in front.</summary>
+        public int PuffsPerMass { get; set; } = 78;
 
         /// <summary>
-        /// Peak-to-trough height of the deck's own billow — the lumpy cloud-top carpet between the turrets.
+        /// How close to the arena a cell may stand. <b>Not decoration: it is what keeps a cloud from being
+        /// drawn in front of the island.</b> The field is alpha-blended and depth-read but written before
+        /// the arena, so a puff nearer the camera than the stone would be overpainted by it — the same
+        /// limitation the sea's spray carries. Keeping every cell outside the play camera's own stand-off
+        /// makes the case unreachable in play.
+        /// </summary>
+        public float InnerRadius { get; set; } = 105f;
+
+        /// <summary>How far out the field is generated. Past the far plane deliberately, so the field can
+        /// drift for a whole session without its edge ever entering the frame.</summary>
+        public float OuterRadius { get; set; } = 780f;
+
+        /// <summary>Lowest and highest a cell's BASE may sit (world Y). The island's own deck is at −8.5, so
+        /// a field sitting under that is one the arena looks down on — which is the scene.</summary>
+        public float BaseYMin { get; set; } = -64f;
+
+        /// <inheritdoc cref="BaseYMin"/>
+        public float BaseYMax { get; set; } = -20f;
+
+        /// <summary>Smallest and largest a cell's own radius may be, in world units.</summary>
+        public float MassRadiusMin { get; set; } = 24f;
+
+        /// <inheritdoc cref="MassRadiusMin"/>
+        public float MassRadiusMax { get; set; } = 62f;
+
+        /// <summary>
+        /// How tall a cell stands against its own radius, as a range. <b>Over one is what makes it cumulus
+        /// rather than stratus</b>: a cell with vertical development is a tower with a cauliflower crown,
+        /// and it is the towers that carry the lightning. Some cells reach past the arena's own level from
+        /// bases well below it, which is what puts cloud in the play frame at all.
+        /// </summary>
+        public float HeightScaleMin { get; set; } = 0.85f;
+
+        /// <inheritdoc cref="HeightScaleMin"/>
+        public float HeightScaleMax { get; set; } = 2.30f;
+
+        /// <summary>A single puff's radius as a fraction of its cell's. Small enough that a cell is built of
+        /// visibly separate lobes and large enough that it has no holes punched through it.</summary>
+        public float PuffScaleMin { get; set; } = 0.22f;
+
+        /// <inheritdoc cref="PuffScaleMin"/>
+        public float PuffScaleMax { get; set; } = 0.40f;
+
+        /// <summary>
+        /// How opaque one puff is at its middle. <b>The single most important dial in this file.</b> Near 1
+        /// the field becomes a solid white wall — a ceiling, which is the failure the height field had. Low
+        /// enough and the cells are veils with sky visible through their thin parts, which is what a real
+        /// cumulus edge does and what makes the whole thing read as vapour.
+        /// </summary>
+        public float PuffOpacity { get; set; } = 0.30f;
+
+        /// <summary>
+        /// Where a puff's own falloff starts, as a fraction of its disc — so <b>low is soft and high is
+        /// hard</b>, which is the opposite way round from how the name reads and is worth saying here
+        /// because it was written down backwards once. At 0 the puff fades from its very middle and is all
+        /// fringe; at 0.9 it is solid out to nine tenths of its radius and then stops, which is a disc with
+        /// a rim on it — and a field of those is the bubble wrap the first cloud build photographed as.
+        /// </summary>
+        public float EdgeSoftness { get; set; } = 0.05f;
+
+        /// <summary>
+        /// How much a puff is shaded as part of its CELL rather than as its own little sphere.
         /// <para>
-        /// <b>⚠ 11 photographed as a snowfield too, and the owner rejected the scene on it.</b> The first
-        /// build ran 7 and was called one; 11 was not enough of a change, because at these feature sizes the
-        /// deck is being read at a grazing angle from five units above it and eleven units of swell over a
-        /// 133-unit lobe is a slope of under five degrees. The field itself is now a folded four-octave
-        /// billow rather than two octaves of plain noise (see <c>DeckBillow</c> in <c>Storm.fx</c>), and it
-        /// is ramped out of the clearing, so this is free to be the real relief a cloud carpet has: half of
-        /// it up and half down about <see cref="LevelY"/>. The note it replaces — that too tall a billow
-        /// only fights the turrets for the horizon — is still true and is what stops this going further.
+        /// <b>⚠ At 0 the field reads as bubble wrap and that is not a figure of speech</b> — it is the first
+        /// thing the eye names. A billboard puff shaded from its own disc gets a complete light-to-dark
+        /// gradient across it and a crisp circular edge, so a cell built of them is a heap of glossy balls.
+        /// Blending that normal towards the one measured from the cell's own middle makes the cell shade as
+        /// a body, which is what it is, and lets the individual puffs disappear into it. At 1 the puffs lose
+        /// their own form entirely and a cell flattens into a blob.
         /// </para>
         /// </summary>
-        public float BillowHeight { get; set; } = 36f;
-
-        /// <summary>How far apart the turrets' lattice cells sit. The outback's own single-cell lattice
-        /// (<c>RockLayer</c>, ported into <c>Storm.fx</c>), so a turret is held inside its own cell by its
-        /// own reach and only the pixel's own cell is ever read.</summary>
-        public float TurretSpacing { get; set; } = 170f;
-
-        /// <summary>Fraction of lattice cells that carry a turret. The empty ones are what break the grid —
-        /// a storm with a tower in every cell is a lattice, however hard the jitter works.</summary>
-        public float TurretChance { get; set; } = 0.72f;
+        public float MassNormalMix { get; set; } = 0.70f;
 
         /// <summary>
-        /// Height of the tallest turret above <see cref="LevelY"/>, in world units. <b>This is the figure
-        /// the scene lives or dies on</b> (see the class note): the play lens sits 5.6 units above this
-        /// deck, so anything under that never breaks the island's occluding line, and a turret has to crest
-        /// well clear of it to read as a silhouette rather than as a bump. At 60 a turret's own profile
-        /// (<c>body · 0.94 + anvil</c>, peaking at 1.10) times its rolled size (0.62–1.0) puts the tallest
-        /// crest about 66 units over <see cref="LevelY"/>, i.e. <b>y ≈ +52</b>, and the median one at
-        /// y ≈ +40 — so they clear the lens by 48 to 60 units, which is the order of the Moon's own 40-unit
-        /// highland belt at 4.5° over it.
+        /// How dark the bottom of the field is against its top. A storm is dark underneath because the cloud
+        /// above is in the way, and that is a property of the whole field rather than of any one cell — so
+        /// it is taken from a puff's height in the layer, not from its normal.
         /// </summary>
-        public float TurretHeight { get; set; } = 60f;
+        public float UnderShade { get; set; } = 0.30f;
 
-        /// <summary>How much of the flat clearing's own level the anvil tops spread over, as a fraction of a
-        /// turret's radius. A mature storm cell flattens where it hits the tropopause and spreads downwind;
-        /// at 1 the turrets are plain domes and read as hills rather than as weather.</summary>
-        public float AnvilSpread { get; set; } = 1.45f;
+        /// <summary>The vertical span the shading gradient above is measured over. Wider than the cells
+        /// themselves, so the darkest cloud is genuinely at the bottom of the sky rather than at the bottom
+        /// of its own cell.</summary>
+        public float LayerBottomY { get; set; } = -78f;
 
-        /// <summary>Whether the lightning glow is drawn inside the turrets as well as thrown as light. Off,
-        /// the flash is a lighting event with no visible source, which reads as the sun blinking.</summary>
-        public bool LightningFlashesInside { get; set; } = true;
+        /// <inheritdoc cref="LayerBottomY"/>
+        public float LayerTopY { get; set; } = 16f;
     }
 
-    /// <summary>
-    /// What the cloud is made of. Storm cloud is not white: its top is blinding where the sun rakes it and
-    /// its shaded flanks and the deck between the towers run to a deep blue-grey, and that spread is most of
-    /// what says "storm" rather than "cotton wool".
-    /// </summary>
+    /// <summary>What the cloud is made of. Every colour linear, and every one of them a <i>reflectance</i>
+    /// the light rig then lights — a cloud has no colour of its own.</summary>
     public sealed class StormSurfaceConfig
     {
         /// <summary>
-        /// The sunlit cloud top (linear). Bright and only just under the glare threshold's own luminance:
-        /// a sunlit cumulonimbus top is the brightest thing in a real sky, but a deck that blooms wholesale
-        /// takes the cluster's silhouette with it.
+        /// The sunward crown of a puff (linear). Deliberately under 1: cloud is a bright diffuse surface,
+        /// not a light, and the sun's own radiance is what takes it to white.
         /// </summary>
-        public Rgb TopColor { get; set; } = new(0.62f, 0.645f, 0.70f);
+        public Rgb TopColor { get; set; } = new(0.58f, 0.60f, 0.66f);
+
+        /// <summary>The deep blue-grey a puff's underside carries where no sun reaches it (linear) — the
+        /// colour a storm cell is seen from below.</summary>
+        public Rgb BaseColor { get; set; } = new(0.045f, 0.053f, 0.078f);
 
         /// <summary>
-        /// The shaded flank and the deck's own hollows (linear). <b>Well</b> under the top rather than a
-        /// shade under: ACES eats cloud contrast — two linear values close together in the highlights
-        /// tonemap to the same white — which is the documented reason the sky's own deck runs its shaded
-        /// underside at 0.18 against a 1.7 top.
+        /// How strongly a rim with the sun behind it silvers. Cloud is strongly forward-scattering, so its
+        /// lit edge is the brightest thing in the sky — the single cue that separates a cloud from a hill of
+        /// grey stone, and the sky's own shared deck carries the same term for the same reason.
         /// </summary>
-        public Rgb ShadeColor { get; set; } = new(0.175f, 0.205f, 0.275f);
+        public float SilverStrength { get; set; } = 1.05f;
 
-        /// <summary>The deep blue-grey the deck's own base carries where no sun reaches it at all (linear) —
-        /// the colour a storm's underside is, seen from above through a gap.</summary>
-        public Rgb BaseColor { get; set; } = new(0.030f, 0.036f, 0.055f);
-
-        /// <summary>How hard the cloud's own relief breaks up its shading (world units of relief). Cloud has
-        /// no hard edges, so this is the whole of what gives a turret its billowed surface.</summary>
-        public float BillowRelief { get; set; } = 1.0f;
-
-        /// <summary>
-        /// The silver lining: how strongly a grazing angle brightens the cloud's rim towards
-        /// <see cref="TopColor"/>. Cloud is forward-scattering, so its edge against the sun is its brightest
-        /// part — the one cue that separates a cloud from a hill of grey stone.
-        /// </summary>
-        public float SilverStrength { get; set; } = 0.75f;
-
-        /// <summary>How much of the sky's hemisphere light fills the deck.</summary>
-        public float AmbientStrength { get; set; } = 0.62f;
+        /// <summary>How much of the sky's hemisphere light fills the cloud. High: cloud is a near-white
+        /// diffuser with heavy multiple scattering, so its shaded side is sky-lit rather than black — and a
+        /// shaded side that goes black is exactly what reads as rock.</summary>
+        public float AmbientStrength { get; set; } = 0.58f;
     }
 
     /// <summary>
@@ -185,16 +203,12 @@ namespace Prazsky.Core.Render
     /// so the schedule is a pure function of the wall clock with no state at all, exactly as
     /// <c>SceneRenderer.VolcanoEruption</c> is and for the same reason: the Game, the Testbed and the map
     /// editor then all see the same strike at the same second, and nothing has to be saved or synchronised.
-    /// <para>
-    /// Seen from above a deck, most lightning is a <b>glow inside the cloud</b> rather than a bolt — truer
-    /// and cheaper both. Visible bolt geometry is explicitly unclaimed by #219 and is not built.
-    /// </para>
     /// </summary>
     public sealed class StormFlashConfig
     {
         /// <summary>Mean seconds between strikes. Each strike's exact moment is jittered inside its own
         /// period off the period's index, so the storm never becomes a metronome.</summary>
-        public float Period { get; set; } = 7.5f;
+        public float Period { get; set; } = 6f;
 
         /// <summary>
         /// How long one strike's envelope lasts, in seconds. Short — a flash is a flash — but not so short
@@ -217,34 +231,24 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// How brightly the strike lights the cloud it is inside. The glare pass blooming a full-frame
         /// source is safe — the documented stochastic-flicker trap is a <i>small</i>-disc trap (a 30-pixel
-        /// Earth, a 1.6° sun) — but the window here is narrower than it looks and it was found by walking
-        /// both walls: at <b>2.6</b> a strike moved the deck's mean luminance by 3 of 255 and was invisible;
-        /// at <b>14</b>, added flat, it washed the whole near deck to featureless white and took the cloud's
-        /// form with it. What made 7 work is that the term is weighted towards the <i>shaded</i> side in the
-        /// shader (a discharge lights cloud from within, so it shows where the sun is not already), which
-        /// spends the same energy where there is contrast to spend it on.
-        /// <para>
-        /// <b>Verified deterministically rather than by catching a strike</b>, because nothing in
-        /// <c>TestOptions</c> pins the wall clock and a 0.45 s strike is shorter than the capture harness's
-        /// own timing slop: the period was temporarily collapsed so a strike is always running, and the
-        /// scene shot with this at 7 and at 0. Deck mean luminance <b>189.4 against 155.5</b> — a 33.9
-        /// difference of 255, independent of when the frame landed.
-        /// </para>
+        /// Earth, a 1.6° sun) — but the window is narrower than it looks and it was found by walking both
+        /// walls: at <b>2.6</b> a strike moved the mean luminance by 3 of 255 and was invisible; at
+        /// <b>14</b>, added flat, it washed the near cloud to featureless white and took its form with it.
+        /// What made 7 work is that the term is weighted towards the <i>shaded</i> side in the shader (a
+        /// discharge lights cloud from within, so it shows where the sun is not already), which spends the
+        /// same energy where there is contrast to spend it on.
         /// </summary>
-        public float DeckGlow { get; set; } = 7f;
+        public float CloudGlow { get; set; } = 7f;
 
         /// <summary>
-        /// How far a strike's glow carries across the deck, in world units, falling off quadratically from
-        /// the cell that went off.
+        /// How far a strike's glow carries through the field, in world units, falling off quadratically
+        /// from the cell that went off.
         /// <para>
-        /// <b>⚠ Its own dial, and the first build's bug is why.</b> It was derived as
-        /// <c>TurretSpacing × 0.8</c> = 136 units, which sounded like "its own cell and a little beyond" and
-        /// was in fact a patch <i>smaller than the distance to the strike</i> — a strike stands 173 to 348
-        /// units out (see the flash's own placement), so the glow landed almost entirely off frame and the
-        /// flash read as simply not working. Diagnosed by deleting the falloff outright: the identical build
-        /// then drove the deck's mean luminance from 189 to 255, which is what said the plumbing was sound
-        /// and only the radius was wrong. A strike has to light a good sweep of deck around itself, because
-        /// that is what a cell going off actually does to the cloud beside it.
+        /// <b>⚠ Its own dial, and the first build's bug is why.</b> It was derived from the turret lattice's
+        /// spacing as 136 units, which sounded like "its own cell and a little beyond" and was in fact a
+        /// patch <i>smaller than the distance to the strike</i>, so the glow landed almost entirely off
+        /// frame and the flash read as simply not working. A strike has to light a good sweep of cloud
+        /// around itself, because that is what a discharge actually does to the cell beside it.
         /// </para>
         /// </summary>
         public float GlowReach { get; set; } = 430f;
@@ -252,7 +256,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// <b>What the flash is allowed to contribute to everything the shared instanced effect lights —
         /// the balls above all. This is the readability dial and it is the one number here that is not a
-        /// matter of taste.</b> Thirteen ball colours hang in front of this deck, and
+        /// matter of taste.</b> Thirteen ball colours hang in front of this sky, and
         /// <c>BallRenderSet.EMISSION</c> is already deliberately over the glare threshold, so a flash that
         /// lifts them further clips them into their own light and the reds stop being reds. Set the way the
         /// volcano's <c>LightStrength</c> (0.22) was: against the savanna's campfire, the only other lamp of
@@ -264,47 +268,56 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// How far below the island the flash's lamp stands, along −Y. A lamp far along −Y gives
         /// <c>dot(N, L)</c> ≈ 1 on every downward-facing normal and ≈ 0 on every upward one, which is
-        /// precisely "the deck below flashed" — the undersides of the balls, the island's coping and the
+        /// precisely "the cloud below flashed" — the undersides of the balls, the island's coping and the
         /// gun's carriage catch it and their tops do not.
         /// </summary>
         public float LightDistance { get; set; } = 150f;
+
+        /// <summary>
+        /// The visible discharge itself: how many forked channels one strike draws. <b>This is what #219
+        /// asked for in as many words</b> — the light of a flash with no source in the frame reads as the
+        /// sun blinking, which is the note the first build left standing. Zero leaves the glow alone.
+        /// </summary>
+        public int BoltCount { get; set; } = 3;
+
+        /// <summary>How wide a bolt's own channel is drawn, in world units. Thin: the channel is a
+        /// filament and everything that makes it read as bright is the glare pass blooming it.</summary>
+        public float BoltWidth { get; set; } = 4.0f;
+
+        /// <summary>The channel's own radiance (linear, far over 1 — it is a spark, and it is meant to
+        /// bloom). Whiter than <see cref="Color"/>: the channel is the source and the blue is what the
+        /// cloud does to its light.</summary>
+        public Rgb BoltColor { get; set; } = new(9.0f, 9.6f, 12.0f);
     }
 
-    /// <summary>The air above the deck: high, thin and clean, which is the whole reason the scene reads as
-    /// being <i>above</i> something rather than in it.</summary>
+    /// <summary>The air the cells stand in: high, thin and clean, which is the whole reason the scene reads
+    /// as being <i>among</i> cloud rather than under it.</summary>
     public sealed class StormAirConfig
     {
         /// <summary>
         /// What the distance haze is made of (linear), lit by the sky where it is applied.
-        /// <b>Not optional, and the first build proved it.</b> Written as a plain two-stage fade to the
-        /// dome's own <c>HorizonColor</c>, the deck came out beige under dome 11's sandy horizon and the
-        /// whole scene photographed as desert dunes — the outback's own recorded trap, that aerial
-        /// perspective can behave correctly and still give the wrong picture. A cool cloud-white keeps the
-        /// deck cloud-coloured under any of the nineteen domes.
+        /// <b>Not optional, and the first build proved it.</b> Written as a plain fade to the dome's own
+        /// <c>HorizonColor</c>, the cloud came out beige under dome 11's sandy horizon and the whole scene
+        /// photographed as desert dunes — the outback's own recorded trap, that aerial perspective can
+        /// behave correctly and still give the wrong picture. A cool cloud-white keeps the field
+        /// cloud-coloured under any of the twenty domes.
         /// </summary>
         public Rgb HazeTint { get; set; } = new(0.72f, 0.78f, 0.92f);
 
-        /// <summary>
-        /// World distance over which the deck melts into the skyline. Must stay inside the terrain grid's
-        /// own half-extent or the mesh's edge shows as a seam against the dome — the trap eleven scene
-        /// shaders already close this way.
-        /// </summary>
+        /// <summary>World distance over which a cell melts into the skyline.</summary>
         public float HorizonHazeDistance { get; set; } = 620f;
 
-        /// <summary>
-        /// How much of the haze is applied at its fullest. High air is clean, so this is gentler than any
-        /// dusty scene's — but it has to reach the dome's own horizon colour by the grid's edge, which is
-        /// what the fade's last stage does.
-        /// </summary>
+        /// <summary>How much of the haze is applied at its fullest. High air is clean, so this is gentler
+        /// than any dusty scene's.</summary>
         public float HazeStrength { get; set; } = 0.62f;
 
-        /// <summary>The wind, a direction in the XZ plane: it drifts the deck and leans the anvil tops.
-        /// Kept unit-length like every other scene's, since <see cref="DriftSpeed"/> carries the magnitude —
-        /// a longer vector here would silently mean a faster deck.</summary>
+        /// <summary>The wind, a direction in the XZ plane. Kept unit-length like every other scene's, since
+        /// <see cref="DriftSpeed"/> carries the magnitude — a longer vector here would silently mean a
+        /// faster sky.</summary>
         public Vec2 Wind { get; set; } = new(0.86f, 0.51f);
 
-        /// <summary>How fast the deck drifts downwind, in world units per second. Slow — a storm deck seen
-        /// from above moves, but it is a hundred-kilometre object and should not scud.</summary>
+        /// <summary>How fast the field drifts downwind, in world units per second. Slow — a storm seen from
+        /// inside it moves, but its cells are kilometre-scale objects and should not scud.</summary>
         public float DriftSpeed { get; set; } = 1.6f;
     }
 }

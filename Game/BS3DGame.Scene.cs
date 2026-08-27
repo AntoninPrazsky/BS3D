@@ -49,10 +49,10 @@ namespace BS3D
         private const byte MARS_SKY_DOME = 19;
 
         //The storm has a dome built for it too (#219): dome 20 is high air — a deep blue zenith over a PALE
-        //BLUE-WHITE horizon, which is the one thing none of the other nineteen has. It is not a preference:
-        //a terrain scene's distance fade has to arrive at the dome's exact horizon colour to hide the grid's
-        //own edge, so the dome's horizon is also the colour the far deck ends up — and under every
-        //warm-horizoned daylight dome the cloud deck photographed as desert dunes. The Testbed's figure.
+        //BLUE-WHITE horizon, which is the one thing none of the other nineteen has. The argument that once
+        //forced it was the terrain grid's edge (see the Testbed's copy of this constant); the storm is a
+        //field of billboards now and has no mesh edge, so it stays on the plainer ground that this is what
+        //altitude looks like and is what keeps white cloud reading as white cloud. The Testbed's figure.
         private const byte STORM_SKY_DOME = 20;
 
         //Space deliberately forces NO dome, unlike those two. Its dome is neither drawn (Space.fx covers the
