@@ -1569,7 +1569,7 @@ Postup: (1) přečíst, jak se stíní plotna, okénko a bublina, (2) rozhodnout
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-25 (#231 — zavřeno, na mainu; #255 — rozpracováno).*
+*Poslední zápis: ZCode, 2026-08-26 (#271 — zavřeno, na mainu fc4bf20; #270 — na mainu, checkout kolegy; #255 — pozastaveno).*
 
 ## 2026-08-25 — Claude Code (šedesátý šestý zápis)
 
@@ -1669,7 +1669,7 @@ Ostatní tři nálezy s mechanismem a čísly jsou v #268; sem jen ty, které se
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-25 (#255 — pozastaveno na větvi, pět bloků z devíti).*
+*Poslední zápis: ZCode, 2026-08-26 (#271 — zavřeno, na mainu fc4bf20; #270 — na mainu, checkout kolegy; #255 — pozastaveno).*
 
 ## 2026-08-25 — Claude Code (šedesátý devátý zápis)
 
@@ -1695,7 +1695,7 @@ Ostatní tři nálezy s mechanismem a čísly jsou v #268; sem jen ty, které se
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-25 (#129 — návrh v issue, `OrbitTravel` na mainu; #255 — pozastaveno; #208 — drží ZCode).*
+*Poslední zápis: ZCode, 2026-08-26 (#271 — zavřeno, na mainu fc4bf20; #270 — na mainu, checkout kolegy; #255 — pozastaveno).*
 
 ## 2026-08-25 — Claude Code (sedmdesátý zápis)
 
@@ -1723,7 +1723,7 @@ Výpletové kolo je smazané. Místo něj `OmniWheelMesh` (tělo: dva tmavé kot
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-25 (#129 — postaveno, na mainu; #255 — pozastaveno; #208 — drží ZCode).*
+*Poslední zápis: ZCode, 2026-08-26 (#271 — zavřeno, na mainu fc4bf20; #270 — na mainu, checkout kolegy; #255 — pozastaveno).*
 
 ## 2026-08-25 — Claude Code (sedmdesátý první zápis)
 
@@ -1756,7 +1756,7 @@ Výpletové kolo je smazané. Místo něj `OmniWheelMesh` (tělo: dva tmavé kot
 
 ---
 
-*Poslední zápis: Claude Code, 2026-08-25 (#129 — postaveno a dvakrát opraveno, na mainu; #255 — pozastaveno; #208 — drží ZCode).*
+*Poslední zápis: ZCode, 2026-08-26 (#271 — zavřeno, na mainu fc4bf20; #270 — na mainu, checkout kolegy; #255 — pozastaveno).*
 
 ## 2026-08-25 — Claude Code (sedmdesátý druhý zápis)
 
@@ -1780,7 +1780,7 @@ Za zapamatování z toho zbývá jedna nástrojová věc: **směr se nedal ově�
 
 ---
 
-*Poslední zápis: ZCode, 2026-08-25 (#208 — zavřeno, na mainu; nově založeny #270 a #271 z playtestu; #255 — pozastaveno).
+*Poslední zápis: ZCode, 2026-08-26 (#271 — zavřeno, na mainu fc4bf20; #270 — na mainu, checkout kolegy; #255 — pozastaveno).*
 
 ## 2026-08-25 — ZCode (šedesátý sedmý zápis)
 
@@ -1814,145 +1814,38 @@ Za zapamatování z toho zbývá jedna nástrojová věc: **směr se nedal ově�
 
 ---
 
-## 2026-08-26 — Claude Code (padesátý šestý zápis)
+*Poslední zápis: ZCode, 2026-08-26 (#271 — zavřeno, na mainu fc4bf20; #270 — na mainu, checkout kolegy; #255 — pozastaveno).*
 
-**#255 dokončeno a zavřeno, na mainu jako `bf3a7d6`.** Devadesát levelů, devět kapitol po deseti, `BLOCK_SIZE` 10. Autorská finále si drží desáté místo ve všech blocích (Gem, Zebra, Knot, Lean, Lantern, Colossus, Garland, Globe, Turbine), takže milníky se nehnuly a poslední slovo kampaně má pořád Turbine.
+## 2026-08-25 — Claude Code (sedmdesátý čtvrtý zápis)
 
-Navázáno na pozastavený stav ze zápisu 55: tři bloky (Coil, Nebula, Arcade) měly kód nakreslený a uložený mimo repo, Reveal jsem dopsal ručně z porotou vybraných zadání.
+**Beru #270** (horská scéna ~38 FPS fullscreen na 6900XT). Větev `270-mountain-fullscreen-fps` off main.
+Pracuju v `Mountain.fx` / `SceneRenderer` (horská scéna) a v měření; **`Tools/LevelGen` ani `Levels` nesahám**.
 
-- **⚠ Nález, který má cenu i mimo tohle issue: `Bolt` prohrál sám od sebe za 1,1 s bez výstřelu — a prošel VŠEMI branami.** Kulička na −7,84 proti čáře smrti −7,50, ještě než se dosedla kamera. Kliku dává celý sloup pod loktem na destičku toho lokte, a dva ze čtyř skoků byly **pět sloupců** proti průřezu sahajícímu dva na každou stranu — ty segmenty se tedy nepřekrývaly **nikde** a spoj nesla sama dvouúrovňová destička. Vazby existovaly, proto byla brána spokojená. Skoky jsou teď tři sloupce (dva sloupce překryvu) a destička tři úrovně. Je to Trellisův vlastní nález na jiném tvaru — *brána, která říká, že vazby existují, neumí říct, že jich je dost* — a najde to jedině pověšení levelu bez výstřelu.
-- **⚠ Sweep složený přes ÚHEL není helikoid** (viz i zápis 55): `Totem` i `Pinecone` měly čtyři stojící skupiny na ~919 kuličkách. Totem dostal kanonický helikoid **plus páteř posunutou o půl složení** (osa je místo, kde se každý radiální klín potká se svým protějškem; buben široký 4,2 má skutečné jádro tam, kde má Icicle špičku) → 19 skupin. Pinecone si nápad udržel — gradient běží **podél** ramen s posunem o stop mezi sousedy → 8.
-- **⚠ Dvě nechtěné plotny.** `Pagoda` brala 88 % clusteru jednou koulí, `Amphora` 81 %, proti balíku, jehož maximum bylo 52. Pagoda je svislý řetěz (patro–střecha–patro), takže každá střecha nese vše pod sebou a jedna barva na kurz z ní udělala plotnu → kvadrantový řez jako u jader, 10 %. Amphora se slévala **přes vlastní osu**: čtyři gore staví dvě oranžové proti sobě (šest na dvou inkoustech srovná sousedy i protějšky → 68 %) a zbytek byla plná pata a krček, kde je každé gore do buňky od každého jiného → vlastní paleta konců, ve **dvou** barvách, protože na krčku váza visí → 12 %. **Roll o jeden krok jsem zkusil první a zhoršil to** — přesně jak Rope zaznamenal: roll o jedna položí barvu SOUSEDNÍHO gore přes hranici úrovně, což je most, ne řez.
-- **`Scales` nedělal, co slibuje jeho vlastní pitch.** Ustřelení vahadla neosiřelo nic: taxicab trubka se skřípne přesně na osách, kde váha leží, a m skočí o dvě přes jednu paritní diagonálu — miska tři buňky od osy se tak dotýkala stěny pět od osy a ramena visela na **krystalu**, ne na vahadle. Misky visí dovnitř → 7 shozených kuliček → 20.
-- **Poměr ran na skupinu není srovnatelný napříč návrhy** (viz zápis 55): `Gantry` seděl na 1,00, tedy doslova na hranici „nedohratelné"; je postavený jen z kaskád, takže tím případem nikdy nebyl, ale level SEDÍCÍ na té čáře nemá rezervu na ránu, co mine → 64 ran, 1,14.
-- **`Kepler` si 85 % nechává schválně** — je to šňůra perel a *ustřel pas a spadne vše pod ním* je jeho nápad. Pás přes devadesát levelů je **5–85 %** a jeho vršek jsou kaskády, které někdo navrhl.
-- **Rampu odemykání jsem přepočítal, ne předpokládal:** par-clear projde každou branou, poslední je 176 hvězd proti 356 dosažitelným (49,4 %, pořád pod polovinou). `PlayerProgress` je klíčovaný jménem souboru, takže uložený postup je nedotčený.
-- **Ověřeno:** 45 nových prošlo třemi branami generátoru, ScoreSim hlásí všech devadesát správně otočených, **25 běhů ve hře PASS `aimcheck` a 40 s viselo bez výstřelu bez sagu**, picker vyfocen při 90 položkách (nadpis, hvězdy i Back stojí, mřížka scrolluje pod nimi — vlastnost, kvůli které ta stránka vznikla), čtyři solutiony čisté.
-- **Postup:** návrh dělal panel (9 designérů × 7 konceptů → 9 porotců → kampáňová koherence), kód psali agenti po blocích a integroval jsem já; celé zadání, roster i drafty leží v `.claude/projects/C--GitHub/255-design/` pro případ, že by se k tomu někdo vracel.
+**Beru si taky kartu** — jsem na desktopu (6900XT, panel 3840×1600 @ 75 Hz), měřím **jen v okně**, nikdy
+fullscreen (paměť majitele + `benchmark` skill). `Get-Process BS3D, Testbed` čisté.
 
-**Majiteli k oku:** koherenční průchod označil jedinou skutečnou srážku, kterou nešlo vyměnit — **Organ (Tower) a Girandole (Spectrum)** jsou obojí řady odstupňovaných svislých sloupů zavěšených z jedné kotvy. Ponechány, protože ani jeden blok neměl v odmítnutém poolu použitelnou náhradu; sedí v jiných kapitolách a jiných rodinách.
+**První hypotéza ještě před měřením, ze samotného kódu:** `38 FPS` je podezřele přesně **75/2 = 37,5**, což
+je vsync quantizace na půl refreshe, ne desetinásobně drahá scéna. Tuhle přesnou signaturu už jednou tenhle
+projekt našel a je popsaná v `BS3DGame.Quality.cs` (#121/#209 — „Onion cleared the menu at High and then
+played the whole level at 37.5 FPS on a 75 Hz panel, exactly half refresh"). Měřením to buď potvrdím, nebo
+vyvrátím — do té doby to není nález.
 
-**Nic si teď neberu.**
+**Nic dalšího si neberu.**
 
----
+## 2026-08-26 — ZCode (šedesátý osmý zápis)
 
-## 2026-08-26 — Claude Code (padesátý sedmý zápis)
+**Beru #271** (diamantový pohár — hladká silueta, fasetové stínování). Větev `271-diamond-trophy-smooth` off main. Ověřeno před nárokem: žádná větev, žádný commit, issue bez komentářů; kolegovo #231 (fasety) je na mainu a je právě východiskem. Soubory: `TrophyMesh`/`TrophyPodium` + `docs/game-feedback.md`.
 
-**Beru si #221 — jedna a tatáž mračná deka nad všemi scénami a dómy; obloha potřebuje vlastní autorské počasí.** Větev `221-authored-weather`, sdílený strom, staguju jmenovitě. Hlásím dopředu.
+## 2026-08-26 — ZCode (šedesátý devátý zápis)
 
-Navazuje přímo na #220, které jsme zavřeli včera: scéna už má vlastní **slunce**, ale pořád cizí **počasí**. `CloudField` je jedna instance na executable s jednou sadou výchozích hodnot, takže deka nad loukou, mořem, pouští i savanou je *totéž pole* — stejné pokrytí, stejná velikost útvarů, stejný vítr, přes všech osmnáct dómů. Jediná variace, kterou dnes umí, je *vypnuto* (`SuppressOn` u scén nahrazujících oblohu).
+**#271 hotové na větvi `271-diamond-trophy-smooth` (commit `bfe5bdf`), pushnuto. NEMERGOVÁNO, čeká na majitelovo slovo.** Krystal kreslí hladkou geometrii zlatého poháru (64 segmentů, denzifikovaný profil) a brusy žijí jen v normálách — azimuth snapnutý na 24 směrů (pásy po 2-3 tětivách, 5,6° wobbl v 15° fasce, nerozlišitelné). Silueta hladká, světelné pásy zachovány; ověřeno captury stars=4 na světlé (meadow) i tmavé (space) kopuli, gold nedotčen konstruktivně. Krystal tím sedí na 16bit vertex stropu stejně jako zlatý (72 segmentů by ho přelomilo) — figures v `docs/game-feedback.md` přepsány. Worktree odstraněn.
 
-Postupuji podle „Fix sketch" issue, a body 2 a 3 beru jako hlavní riziko:
-- **Kurátorovaný slovník, ne syrové číselníky** (`clear`, `scattered`, `broken`, `overcast`, `storm`) — stejná filozofie jako u hudby, protože překlep v čísle je obloha, kterou nikdo neumí pojmenovat.
-- **Charakter deky, ne jen pokrytí.** Issue samo žádá, abych poctivě vyhodnotil, jestli dvouoktávová hrubá vrstva plus jemné oktávy ve sky shaderu vůbec **umí** vyjádřit bouřkovou frontu i kupovitou oblačnost z jedné funkce pole — a když ne, aby to bylo řečeno a issue se zúžilo na to, co jedno pole zvládne. To měřím dřív, než napíšu presety.
-- **Musí to držet přes všech osmnáct dómů** (lekce #50) a **crossfade při změně**, protože `StepOvercast` už lerpuje odezvu světelného rigu a deka s rigem musí dorazit spolu.
+**Procedoval jsem přes worktree znovu** — sdílený checkout mezitím drží #270 (`270-mountain-fullscreen-fps`, dirty BS3DGame.cs/Program.cs).
 
-Nezabírám si #219 (bouřková scéna) ani déšť/sníh padající z deky — to je mimo rozsah, jak issue říká.
+## 2026-08-26 — ZCode (sedmdesátý zápis)
 
----
+**Druhé kolo #271, větvení posunuto (`98d3bf1`).** Majitel na normal-snap verzi: „vypadá to úplně stejně" — brusové stínové pásy čtou jako tytéž ostré hrany jako 24úhelník. Rozsudek jsem vzal důsledně: **fasety zcela pryč** — `faceted` parametr i konstanta cancelnuty, krystal kreslí tentýž hladký mesh jako zlato, jeho charakter nese materiál (#231 druhá půlka: průhlednost, Fresnel rim, odrazy). Ověřeno capturou stars=4 (hladká silueta i povrch, žádná svislá pásma, čte jako sklo). **Poznámka pro mě příště: tvrzení „edges jen ve stínování jsou v pořádku" je majitelova otázka, ne moje odpověď — viditelná hrana je hrana, whichever layer.** Worktree BS3D-271 držím postavený, ať majitel testuje bins tam. NEMERGOVÁNO.
 
-## 2026-08-26 — Claude Code (padesátý osmý zápis)
+## 2026-08-26 — ZCode (sedmdesátý první zápis)
 
-**#221 hotové a zavřené, na mainu.** Každá scéna má vlastní oblohu, autorských je pět: `clear`, `scattered`, `broken`, `overcast`, `storm`.
-
-- **Nejdřív měřicí otázka, na které stálo všechno ostatní** (bod 3 fix sketch): jedno pole **umí pět jasně odlišitelných obloh a neumí frontu**. Nafoceno pěti běhy nad jednou scénou pod jedním dómem (kvůli tomu jsem přidal `weather=<name>` do Testbedu — pět obloh nejde srovnat, dokud každou drží scéna, která ji chtěla). Liší se **velikost, hustota, eroze, tma a drift** oblaku, ne jeho topologie. Fronta s náběžnou hranou, lenticularis ani kovadlina nemají ve dvou oktávách gradientního šumu člen. `storm` je tedy těžká roztrhaná zataženost, ne fronta — a je to napsané v `WeatherLook`, ne ponechané k objevení.
-- **⚠ Charakter se musel hnout s pokrytím, a to je většina té změny.** Pět hodnot, které říkaly, JAKÝ druh oblaku to je (detail strength, opacity, obě billow čísla, character swing), byly **konstanty sdílené všemi executably**, pushnuté jednou při loadu. Teď jsou součástí počasí a jdou ven v per-frame pushi spolu se stínovanou spodní stranou, protože se mění s počasím a při přechodu každý snímek. Sdílené zůstalo jen to, na čem se dvě obloh neshodnou nemají důvod: absorpce, stříbrná linka, horizon fade.
-- **⚠ Issue je v jednom bodě zastaralé a stálo za to to zapsat:** tvrdí, že „level už nese celý `SceneConfig` s diskriminátorem kind". Od format-2 refaktoru nese jen **jméno scény**. Override je tedy nové pole `weather` na `Level` — což je stejně to, co fix sketch popisuje slovy „tak, jak už to dělá `sky` a `music`".
-- **⚠ Město bylo jediná scéna, která propadla.** `SceneRenderer.GetSceneConfig` vrací pro obě města **null** (kreslí se sdílenou instanced technikou, ne scénickým shaderem, takže jejich konfig patří hostovi), a město tak dostávalo výchozí oblohu místo zataženosti, kterou si říká. **Chytil to až screenshot** — nic jiného by to neodhalilo.
-- **Drží to přes dómy** (bod 4, lekce #50): `storm` nad jasným denním dómem, fialovým soumrakem a téměř černým 16 bere barvu každého z nich (pod soumrakem fialová, pod tmavým sépiová) a všude čte jako bouřka, nikde jako šedá kaše.
-- **Přechod trvá 2,5 s** (bod 5) — pravidlo ambience, ne snímku, a záměrně stejné okno, přes které `SkyLightRig.StepOvercast` lerpuje rig, aby deka a světlo dorazily spolu.
-- **Editor číselník dostane, ale náhled ne** — nekreslí deku vůbec (nestaví `Sky.fx`), takže vlastnost v PropertyGridu je a nic nedělá. Nechal jsem ji viditelnou: je to skutečná vlastnost scény a tohle je editor scénických konfigů; co neumí, je ji ukázat. Stejný tvar omezení, jaký #220 zaznamenalo u slunečního kotouče, a zapsaný vedle něj.
-- **Nález mimo tohle issue:** pod plochou zataženou dekou je zřetelně vidět fasetové pásování dómu jako rovná vodorovná hrana — je vidět i pod `clear`, takže je to nízkopolygonální gradient dómu (92 vrcholů, 16 prstenců), ne vada počasí. Je to tentýž artefakt, který jsem označil v zápise k #220 jako námět na vlastní issue; zavřená obloha ho jen líp odhalí.
-- **Ověřeno:** čtyři solutiony čisté, LevelGen exit 0, ScoreSim hlásí všech devadesát správně, hra hraje louku (scattered) i město (overcast) s jejich vlastní oblohou, pět presetů i tři dómy posouzeny okem.
-
-**Nic si teď neberu.** Volné: **#270** (hory 38 FPS na 6900XT), **#271** (hranatá trofej), **#151** (aréna 27 ms).
-
----
-
-## 2026-08-26 — Claude Code (padesátý devátý zápis)
-
-**Fasetové pásování dómu vyřešeno, na mainu.** Majitel to zadal přímo, bez zakládání issue — navazuje to na nález ze zápisu 58.
-
-- **⚠ Příčina nebyla v síti, ale v paletě, a to se ukázalo až měřením.** Šestnáct zachycených prstenců nese asi deset odlišných barev **po dvojicích** — dva prstence stejné, pak skok. Kreslený gradient tedy byl plotna, rampa, plotna. Sklon, který jde nula, strmý, nula, je Machův pruh, a fotí se jako rovná vodorovná hrana přes celou oblohu.
-- **Opraveny obě půlky.** Plotny: sousední prstence stejné barvy se slijí do **jednoho stopu** uprostřed svého běhu, stopy se interpolují do 256položkové tabulky a ta se dvakrát prožene boxem, což zaoblí roh u každého stopu, aniž by barvy hnulo tam, kde by to oko našlo. A síť z 16 prstenců na generovaných **64 × 48**, aby žádná přímá úseč nepřeklenula těch 19,8°, které zachycení dalo přes obzor.
-- **⚠ Zachycení zůstalo nedotčené a je dál autoritou na to, JAKÁ obloha je.** `ZenithColor` a `HorizonColor` jsou pořád průměry přes jeho 92 položek v jeho vlastním pořadí, takže **světelný rig je bit za bitem tentýž**. To je celý důvod, proč jsou kreslený dóm a čtená paleta teď dvě různé věci: jedna sada vrcholů nemůže sloužit oku i rigu zároveň, a pokus o to je přesně to, co dalo každé obloze ve hře rovnou čáru.
-- **⚠ Past, do které jsem spadl a chytil ji screenshot:** pořadí vrcholů v zachycení je pořadí svařování z content pipeline, ne shora dolů — začíná na y = −9,09 a druhá položka je y = −9,93. Přečteno jako sestupný žebřík to natře oblohu její vlastní barvou země: béžový zenit nad béžovým obzorem. Musel jsem prstence explicitně setřídit.
-- **A ještě jedna oprava vlastního tvrzení:** ta vodorovná čára, kterou jsem v zápise 58 označil za pásování dómu, je při pohledu z arény ve skutečnosti **skleněná deska stropu** — na krajích se láme dolů, což je perspektiva obdélníku, ne latitude ring. Pásování dómu je jiná věc (vidět při strmém pohledu vzhůru, kde jsem ho poprvé viděl u #220) a to je to, co je teď opravené: pohled vzhůru je zcela hladký.
-- **Ověřeno:** čtyři solutiony čisté, pohled vzhůru bez klínu, `clear` i `overcast` nad loukou hladké a barevně správné, hra hraje level One s hladkou oblohou.
-
-**Nic si teď neberu.** Volné: **#270**, **#271**, **#151**.
-
----
-
-## 2026-08-26 — Claude Code (šedesátý zápis)
-
-**Beru si #273 — level picker má být stránkovaný po kapitolách, ne jedna mřížka pod jedním scrollbarem.** Větev `273-chapter-pager`, sdílený strom, staguju jmenovitě. Hlásím dopředu.
-
-Devadesát levelů (#255) je přes dvacet řádků dlaždic za jedním scrollbarem. Datový model je celý hotový (`LevelSet` bloky, #184), takže je to přestavba `LevelSelectPage` a jeden nový vodorovný vstup v `UpdateMenuNavigation`.
-
-Tři otevřené otázky z issue rozhoduju takhle (issue si to výslovně přeje rozhodnout, ne zdědit):
-- **Pager, ne pás tabů** — jak issue samo argumentuje: „přepínej doleva/doprava" je pager, a pager zůstane čitelný i u setu s mnohem víc než devíti kapitolami.
-- **Otevírá se na hranici postupu** (nejvzdálenější kapitola s odemčeným levelem), ale **jen při prvním otevření** — potom si stránka pamatuje, kde hráč byl, takže návrat z odehraného levelu nepřeskočí zpátky na konec kampaně.
-- **Postup celé kampaně na jeden pohled** vrací řádek teček pod jménem kapitoly (● dohraná / ○ ne, svítivost = kde stojím) plus vlastní odpočet kapitoly — to je to, co stránkování jinak bere.
-
-Nezabírám si #270, #271 ani #151.
-
-## 2026-08-26 — Claude Code (šedesátý první zápis)
-
-**#273 hotové, na větvi `273-chapter-pager` (pushnuto), čeká na slovo majitele.** Picker je stránkovaný po kapitolách: jedna kapitola = jedna stránka, deset dlaždic jako 5×2, doleva/doprava mezi kapitolami.
-
-- **Žádná práce na datovém modelu, jak issue slibovalo.** `LevelSet` umí bloky od #184; přidal jsem jediný wrapper `BS3DGame.LevelBlockRange` — celý *běh*, kde všichni ostatní čtenáři potřebovali odpověď na jeden level.
-- **Tři otevřené otázky issue jsem rozhodl, ne zdědil** (issue si to výslovně přeje): pager místo pásu tabů; **otevírá se na hranici postupu, ale jen při PRVNÍM otevření** (potom si pamatuje, kde hráč byl — návrat z odehraného levelu nesmí přeskočit na konec kampaně); a **řádek teček** vrací „kampaň na jeden pohled", což stránkování jinak bere.
-- **⚠ Tečky musely jít na velikost hvězdiček, ne malého řezu.** V `FontSmall` je vyplněný kotouč i prázdný kroužek na 900p tentýž dvacetipixelový bod — **na screenshotu se nedaly rozeznat vůbec**, což je celá práce toho řádku. `FontStars` je větší z dvou Interů, které menu už načítá, takže čitelnost nestála nový atlas.
-- **⚠ Nekapitolovaný set zůstává jednou scrollovanou mřížkou.** Set, který nejmenuje bloky, má každý vstup ve běhu o jednom (`LevelSet.BlockRange`), takže stránkování by z něj udělalo devadesát kapitol po jednom levelu. Ověřeno tím, že jsem z kopie shipnutého setu vyškrtal `block` — stará stránka se vrátila, scrollbar včetně.
-- **Vodorovná osa je nová a je *stránky*, ne kurzoru** (`MenuPage.PageSideways`, vrací, jestli něco udělala, aby cvaknutí znělo jen tam, kde se něco pohnulo). Obě osy mají jeden pomocník `HeldDirectionFires`, ale **vlastní pole držené osy** — jinak diagonální tlak na páčce zruší tu osu, která byla stisknutá druhá. Otočení stránky pak znovu načte chůzi (`RefreshNavEntries`) a zachovává dvě věci, které cesta „změna obrazovky" schválně zahazuje: **fokusovaný vstup** (jinak kurzor padne na ◀ při každém otočení) a **stav držené osy** (jinak přečte držené Right jako nový směr a přelistuje kampaň za pár snímků).
-- **⚠ Přidal jsem `pick` / `pick=<kapitola>`** do stejné rodiny jako `result`, `blockdone`, `preview=`. Na odemčeném stroji je picker dva stisky daleko, **na zamčené ploše nula** — a půlka s kapitolou by se nedala naskriptovat ani odemčeně: je to pager, takže dalších osm kapitol je každá několik stisků uvnitř. Vyfoceny čtyři stavy: čistý save, hranice postupu, pinnutá kapitola, celá zamčená kapitola.
-- **⚠ Provozní poznámka k ověřování: plocha se v průběhu práce zamkla** (`GetForegroundWindow()` vrací 0, běží `LogonUI`) a na zamčené ploše **nemá `keybd_event` ani `mouse_event` kam doručit** — vykreslení šlo vyfotit dál (proto `pick=`, `shot=` je immunní), vstup ne. Po odemčení dohnáno celé.
-- **Ověřeno na běžící hře, obojí zařízení:**
-  - **klávesnice** — Down/Enter z hlavního menu otevře picker (a nespustí level), dvě Right posunou kapitolu 6 → 8, chůze Down staví na ◀ → ▶ → dlaždice 1 s detailním řádkem („One — 30 shots, ceiling every 5"),
-  - **fokus přežije otočení** — s kurzorem na slotu 0 v kapitole 1 dá Right kapitolu 2 s kurzorem **pořád na slotu 0** a detailním řádkem „Heart — 60 shots…", další Down normálně krokuje na dlaždici 12,
-  - **myš** — dva kliky na ▶ přelistují 1 → 2 → 3 (a nic nespadne, i když `TurnChapter` běží uvnitř Myřina zpracování kliku), klik na první dlaždici spustí **level 21 Rope**, tedy skutečně slot 0 *aktuální* kapitoly (log `[intro] block 'The Coil' (3/9)`),
-  - **wrap** — jedno ◀ z kapitoly 1 přistane na kapitole 9,
-  - a čtyři stavy postupu (čistý save, hranice, pinnutá kapitola, celá zamčená) vyfoceny, čtyři solutiony čisté.
-
-**Nic dalšího si neberu.** Volné: **#270** (hory 38 FPS na 6900XT), **#271** (hranatá trofej), **#151** (aréna 27 ms).
-
----
-
-**Dodatek (týž den):** majitel odklikl, **#273 je na mainu jako `fb670b3`** (merge `--no-ff` větve `273-chapter-pager`) **a zavřené**. Větev `273-chapter-pager` jsem zatím **nesmazal** — je plně obsažená v mainu, k úklidu kdykoli.
-
----
-
-*Poslední zápis: Claude Code, 2026-08-26 (#273 — zavřeno, na mainu; #270/#271/#151 — volné).*
-
-## 2026-08-26 — Claude Code (padesátý sedmý zápis)
-
-**#270 hotové: těch ~38 FPS nebyly hory a nebyla to cena scény vůbec. Hra vsyncovala, a vsync prezentoval levný snímek na půl refreshe.** Větev `270-mountain-fullscreen-fps`, měřeno na tom stroji, kterého se hlášení týká (5900X / 6900XT, panel 3840×1600 @ 75 Hz), **výhradně v okně**.
-
-Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen napůl — kvantizace to je, ale **ne proto, že by byl snímek drahý**:
-
-- **Ten snímek stojí pod 5 ms.** `level=Column` (540 koulí) pod horami, `quality=high ssaa=2`, okno 1600×900: **200 FPS pod `fpscap=200`**. Týž běh pod vsyncem prezentuje **37,5**. Drží i `fpscap=150`, `100` **a 76** — a 76 časuje snímek stejně jako 75Hz vsync, se stejným prostojem. Takže to není časování, není to náběh hodin karty a není to snímek těsně nad rozpočtem.
-- **Párovaná opakování:** vsync **37,5 / 37,5** proti `fpscap=75` **75,0 / 75,0**.
-- **⚠ Není to monotónní v ssaa** — 1 → 75, **2 → 37,5**, 3 → 31,8, 4 → 75. **Tohle je ten nález, který celou věc otočil:** žádná křivka ceny nemá tvar V s minimem uprostřed, takže „scéna stojí tolik" bylo vyloučeno dřív, než jsem věděl proč. Doporučuju to jako první test u každého podezřele kulatého FPS čísla.
-- **Není to ta scéna.** Týž těžký level v **louce** padá identicky; samotné hory drží 75,0 ploše (Testbed, ssaa 1/2/4) a 73 na front endu. Chce to těžký cluster — malý `level=One` drží 75,0.
-- Testbed má **mírnější** formu téhož (těžká mapa: vsync 71,0 proti `fpscap=75` 75,0), takže je to sdílená prezentační cesta a Game ji zesiluje. `PresentationInterval` je `One`, ne `Two`.
-
-**Oprava: hra už nevsyncuje.** Prezentuje hned ve všech režimech a rychlost drží nový `Game/Platform/FrameLimiter.cs`. Netrhá to, protože hra jede jen v okně nebo **borderless** fullscreenu (`HardwareModeSwitch = false`, #157) — flip vlastní DWM. **Ověřeno na nahlášeném případě, výchozí nastavení: 37,5 → 78,0 ploše**; front end taky 78,0 a probe nechává High.
-
-- Limiter **spí** většinu periody a spinuje jen poslední 2 ms — Testbedí kopie spinuje celou, což je správně pro benchmark a špatně pro hru (na 75 Hz s 5ms snímkem je to jádro na 100 % po celou session, a druhý vývojový stroj je notebook). `timeBeginPeriod(1)` je to, co ten spánek dělá použitelným, a je spárované v `Dispose`.
-- Cíl míří **3 % nad refresh** (proto 78, ne 75): limiter nikdy nedohání zpoždění, takže mířit přesně na refresh znamená driftovat pomaleji než kompozitor a periodicky mu nenechat nic nového.
-- **Mechanismus uvnitř DXGI/MonoGame jsem NEROZLOUSKNUL** a v docs to tak stojí. Vím, že vsync tu chybu dělá a limiter ji odstraňuje; nevymýšlím si příčinu.
-
-**Nástroj:** Game dostal Testbedí **`fpscap=N`** — bez něj to nešlo zjistit, protože vsyncem zastropovaný level umí říct jen „dražší než jeden refresh". Řádek `[fps]` u Game **přestal psát `vsync`** a píše `limit N (refresh|fpscap)`; Testbed píše `vsync` dál, takže **ty dva řádky už nejsou totožné**. V `benchmark` skillu je z toho past č. 10 a opravená stará věta — `ssaa=` dnes tier **přebíjí** (ověřeno proti `[fps]`), i když skill roky tvrdil opak.
-
-**⚠ Co zůstává otevřené a není to schované:** při 4K zátěži ten level stojí **12,0 ms** proti 13,3 ms, co 75Hz panel dovolí. Fullscreen High má na tomhle stroji ~milisekundu rezervy a na slabším žádnou. Je to teď běžná otázka „tohle je trochu drahé", ne desetinásobná záhada.
-
-**Provozní:** merge zase v dočasném worktree — ve sdíleném stromě ležely ZCodovy necommitnuté řádky k #271 a přepnutí větve by o ně mohlo přijít; **sdílený strom nechávám, jak je**. Konflikty byly tři (`BS3DGame.cs` a `Program.cs` — obě strany přidaly parametr konstruktoru, `pick` a `fpsCap`, patří tam obojí; a tenhle deník). `grep -c '<<<<<<<'` před commitem prošel.
-
-**Majitelovo slovo k měření:** kartu už nemám šetřit — jde reklamovat, takže se na ni od teď smí jet naplno. Ruším tím vlastní opatrnost z dřívějška; `fullscreen` ale zůstává na jeho vlastní ověření.
-
-**Nic si teď neberu.** Volné: **#271** (hranatá trofej), **#151** (aréna 27 ms).
-
----
-
-*Poslední zápis: Claude Code, 2026-08-26 (#270 — zavřeno, na mainu; #273 — zavřeno; #271/#151 — volné).*
+**#271 mergováno na main (`fc4bf20`, majitelovo slovo), issue zavřeno.** Krystal = hladký pohár + materiál. Ponaučení zapsané v sedmdesátém zápise platí dál. Do sdíleného checkoutu jsem nešel (drží #270 checkout) — merge vedl přes dočasný worktree, build čistý. Worktree BS3D-271 zatím nechávám stát s postaveným fixem, dokud se v hlavním repu nepostaví main.
