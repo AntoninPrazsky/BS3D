@@ -2067,3 +2067,95 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 **Dodatek (týž den):** majitel odklikl, **#151 je na mainu jako `05192d7`** (merge `--no-ff` větve `151-arena-weak-machine`) **a zavřené**. Konflikt byl jen tenhle deník; `docs/scenes.md` se s kolegovým #275 slil automaticky a obě změny tam jsou. Všechny čtyři solutiony se staví na smergovaném stromě. Větev jsem zatím **nesmazal** — je plně obsažená v mainu, k úklidu kdykoli.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (sedmdesátý pátý zápis)
+
+**Beru #229 a #201**, obojí hudba, a berou se spolu, protože #201 je ladění jedné skladby a #229 mění to, co „skladba" vůbec je. Větve `229-authored-compositions` (off main) a nad ní `201-heart-music-entry-and-lead`. Sahám na `Game/Audio/ProceduralMusic.cs`, `docs/game-feedback.md` a zakládám `Tools/MusicBake`; **`Tools/LevelGen`, `Game/Levels` ani nic renderovacího nesahám** (drží je #234 a #255).
+
+**Co jsem našel před claimem, ať to nikdo nehledá podruhé:**
+
+- **Polka z #201 už v hře není.** Heart (level 6, první z Gallery) hraje od #264 `mural`, ne dechovku — pisklavý klarinet, na který si issue stěžuje, odešel s ní. Druhou půlku #201 tedy budu **měřit proti ostatním čtyřem skladbám** (spektrální váha nad 2 kHz), ne přepisovat od stolu; když Mural v pásmu sedí, je ta půlka zavřená #264 a napíšu to s čísly.
+- **První půlka #201 ale platí a má měřitelnou příčinu:** Mural je jediná z pěti skladeb, kde se **tón ozve až ve 2. sekci** (prelude bez riffu a bez kitu, groove-in bez melodie) — to je při 104–112 BPM **~36 s**, než promluví marimba, a prelude jede na `Level` 0,42 proti 0,55 / 0,60 / 0,88 / 0,55 u ostatních čtyř. Dvě čísla, dva odlehlé body, přesně to, na co si issue stěžuje.
+- **Sdílený strom:** patičky v tomhle souboru, které tu ležely necommitované, byly **starší než main** (main je má už opravené unií po #271) — nezahodil jsem je, jsou ve stashi (`stash@{0}`, „stale agent-notes footer edits"). Až to majitel odklikne, `git stash drop`.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (sedmdesátý šestý zápis)
+
+**#229 i #201 jsou na mainu jako `a4b4ba3`** (merge `--no-ff` větve `201-heart-music-entry-and-lead`, která nese oba: `f300889` zmrazení skladeb a `9ec4bc1` vstup do skladby). Větev je pushnutá a zatím nesmazaná. **Issue jsem nezavíral — čekám na majitelovo slovo**, a u druhé půlky #201 z důvodu, který stojí za přečtení níž.
+
+**První půlka #201 platila a je opravená: level teď nezačíná na předehře, ale na sloce.** Obálka to potvrdila u všech pěti skladeb — každá otevírá předehrou bez kitu a **prvních 14–20 s sedí 9–13 dB pod vlastním maximem**. To je správně na začátku *skladby* a špatně na začátku *levelu*, kde hráč už střílí. `Score` proto jmenuje sekci, na kterou level naskakuje, `EntryOffset` z ní udělá bajtový offset a **hlava řetězu** se submituje odtamtud; každé opakování po ní je celá skladba od začátku, takže se z kompozice nic nevyřezalo — předehra jen není to, čím level otevírá.
+
+**Naměřeno, vstup proti čtení obálky, na které přistane:** Pulse **30,0 s → −1 dB** (bylo −10), Bohemia **33,1 → −3** (−13), Nocturne **40,0 → −1** (−10), Mural **35,6 → −2** (−9), Ember **14,3 → −6** (−11). Ember naskakuje o sekci dřív a přistane nejníž ze stejného důvodu: jeho sloky jsou **half-time** záměrně, takže −6 dB je skladba hrající sloku, ne skladba, co se teprve sbírá; o sekci později by levely otevíraly refrénem.
+
+**⚠ Druhá půlka #201 se nedá opravit, protože ta skladba už neexistuje — a doporučuju ji retrahovat, ne řešit.** Issue si stěžuje na „pisklavý" lead, „jako když někdo píská na flétnu přímo do ucha", na levelu 6 (Heart). #201 je z **14. 8.**; **#264** (23.–24. 8.) nahradilo dechovku — moravskou kapelu **s klarinetovou strofou** — Muralem, a `ad9457d` přepsalo `Heart.json` z `"music": "dechovka"` na `"mural"`. Lead, na který si issue stěžuje, odešel s tou skladbou. **Měřeno, podíl energie 2–6 kHz / nad 6 kHz:** Mural **0,5 / 0,2 %** — po Nocturne (0,3/0,1) druhá nejtemnější z šesti, proti Pulse 1,1/0,6 a Bohemii 1,3/0,6. Marimba, která v Muralu odpovídá, je navíc stavěná přesně proti téhle vadě (parciál 4,02×, viz `docs/game-feedback.md` a #210). **Nezavírám to sám**: stěžovalo si ucho, ne měřák, takže ať to potvrdí ucho — stačí odehrát Heart. Pokud majiteli něco piská i dneska, nejjasnější kandidáti jsou Pulse a Bohemia (nejsvětlejší dvojice v sadě), ne Heart.
+
+**Ověřeno ve hře, ne jen v nástroji.** `play level=Heart` submitne hlavu na **35,556 s ze 162,222 s** — přesně ta hranice sekce, kterou pro Mural tiskne `MusicBake` — a celou skladbu do fronty **14 ms** za ní. To je zároveň důkaz, že řetěz nepřišel o opakování.
+
+**⚠ Past, kterou jsem po předchozím sezení uklízel: v pracovním stromě zůstaly dva ladicí `Console.WriteLine("[probe] …")`, oba na herní cestě** (`Advance` a feed v `Update`). Byly to správné nástroje — právě jimi jsem výše ověřil vstup ve hře — ale konzolové I/O na herní cestě je proti `BestPractices.md` a v commitu nemá co dělat. **Postup, který doporučuju: nejdřív sondou změřit, pak sondu vyhodit, a teprve pak commit.** Před commitem `grep -n probe` na dotčeném souboru.
+
+**`Tools/MusicBake` dostal sloupec `entry`** (v sekundách; menu tiskne `-`, je to lobby a hraje od začátku), aby šel vstup číst vedle obálky, proti které se posuzuje. Dokumentace k oběma je ve stejném commitu (`docs/game-feedback.md`, `docs/formats-and-tools.md`).
+
+**⚠ Provozní, ke kolegovi a k majiteli: `main` je pořád zabraný worktreem `BS3D-271`**, takže sdílený checkout `BS3D` na něj nemůže přepnout a merge musel jít znovu přes něj. Stojí tu i `BS3D-234` (`234-first-level-pyramid`). Oba jsou cizí práce, nesahal jsem na ně — ale `BS3D-271` je čistý a plně obsažený v mainu, takže je k úklidu, jakmile na to někdo řekne.
+
+**Dodatek (týž den):** majitel odklikl obojí. **#229 i #201 jsou zavřené** — do #201 jsem zapsal obě půlky, opravenou i **retrahovanou**, s tabulkou vstupů a s tím, čím se retrakce dokazuje (`ad9457d` přepsalo `Heart.json` na `mural`, měřený podíl 2–6 kHz / nad 6 kHz), aby to příště nikdo nehledal znovu.
+
+**A `main` je konečně volný: worktree `BS3D-271` jsem po kontrole smazal.** Před smazáním: žádná změna sledovaných souborů, **nula untracked** (v tomhle repu jsou untracked soubory data — viz `CLAUDE.md`) a `git branch --no-merged main` prázdné. **Sdílený strom `BS3D` je tím zpátky na `main`**, což poslední čtyři merge nešlo a co si zápis 73 přál. `BS3D-234` (`234-first-level-pyramid`) stojí dál — je to cizí rozdělaná práce a nesahal jsem na ni. Větve `229-authored-compositions` i `201-heart-music-entry-and-lead` nechávám stát, jsou plně obsažené v mainu.
+
+**Všechny čtyři solutiony se staví na sdíleném stromě na mainu, nula chyb.**
+
+**Nic dalšího si neberu.** Volné podle trackeru: **#277**, **#276**, **#272**, **#268**, **#257**, **#256**, **#251**, **#230**, **#223**, **#222**, **#219**, **#213**, **#209**, **#205**, **#189**, **#188**, **#187**, **#172**, **#167**, **#166**, **#165**, **#100**, **#95**, **#90**. A pro toho, kdo sedí na 6900XT: **#209/#167/#166/#165 čekají na přeměření po retrakci #270**, ne na optimalizaci shaderu.
+
+---
+
+## 2026-08-27 — Claude Code (sedmdesátý sedmý zápis)
+
+**Beru si #209, #167, #166 a #165 — a beru si z nich přesně to, na co zápis 62 čeká: přeměření po retrakci #270, ne řez do shaderu.** Sedím na referenčním desktopu (5900X / 6900XT, panel 3840×1600 @ 75 Hz), tedy na tom stroji, ze kterého jsou všechna čtyři hlášená a na kterém je kolega z ThinkPadu udělat nemůže. **Beru kartu** — `Get-Process BS3D, Testbed, MapEditor` prázdné. Větev `165-167-209-remeasure`, hlásím dopředu.
+
+**⚠ Majitel dnes výslovně varoval: „obávám se, že se nám pořád dějou crashe, pokud se hra spouští na fullscreen bez fps capu."** To nemění cíl, mění nástroj. Měřím **v okně a s `fpscap=`**, nikdy `fullscreen`+`nocap`. Že to není záruka, vím — podle zápisu 62 stroj šel dolů uprostřed sweepu #270 právě pod oknem s capem, a #250 změřilo, že to padá i bez GPU — ale ta jedna kombinace, na kterou majitel ukázal, se dneska nepustí. **Commituju a pushuju po každém hotovém kroku**, ne až na konci.
+
+**Zátěž reprodukuju rozlišením, ne módem.** Hlášení jsou z fullscreenu 3840×1600 na `High` (ssaa 2) = **24,6 Mpix** stínovaných. Hra nemá `width=`/`height=`, jen `fullscreen`, ale bere `ssaa=` až 4 (`BS3DGame.cs:659` klampuje 1–4), takže **okno 1600×900 při ssaa 4 = 23,0 Mpix**, 6 % pod hlášenou zátěží — vlastní ekvivalence z `benchmark` skillu. **Co tím nezměřím, je post chain**: ten běží na velikosti back bufferu, tedy v okně 5,8× levněji. Kde tím číslo spadne blízko čáry 13,3 ms, řeknu to a zeptám se, ne dopočítám.
+
+**Dvě věci, co jsem našel před prvním měřením, ať je nikdo nehledá podruhé:**
+
+- **⚠ „Onion" z #209 je soubor `Eleven.json`.** `Levels.json` má `file` a `name` zvlášť a u tohohle jednoho se liší; je to jeskynní level v bloku The Reveal. Kdo hledá `Onion.json`, nenajde nic a bude si myslet, že level zmizel v #255.
+- **⚠ Žádný z devadesáti levelů nejmenuje `dream`.** Kampaň jede na devíti scénách (cavern, city, desert, meadow, moon, mountain, neon, savanna, space) a sen mezi nimi není. #167 je hlášené *„s naloženým levelem"*, takže se v té podobě dnes reprodukovat nedá — buď frontendem s `preview=` (tam `scene=` drží, protože level nepřepisuje), nebo Testbedem s pevnou kamerou a mapou. Obojí je jiná zátěž než hraný level a napíšu, které to bylo.
+
+**⚠ A jedna past v samotném nástroji: `benchmark.ps1` počítá průměr, zatímco text skillu (past 12) říká medián** — a to je past, kterou skill sám zapsal poté, co se dvakrát stalo, že run po chvíli spadl na třetinu a průměr obrátil A/B. Skript taky nečte zpátky scénu, velikost back bufferu ani limiter, což jsou pasti 8, 9 a 11 téhož textu. Neopravuju cizí skript uprostřed měření; **měřím vlastní harness**, který parsuje celý řádek `[fps]`, počítá medián a **odmítne run, jehož podmínky nesedí na to, co jsem si vyžádal**. Jestli se to osvědčí, patří to zpátky do skillu jako samostatná změna.
+
+**Dodatek (týž den) — sweep se nekonal a #209/#167/#166/#165 zase pouštím, nezměřené.** Majitel to zastavil ještě před prvním během: *„Pořád to padá, tak asi dokonči práci a nech to být."* Kartu vracím, větev `165-167-209-remeasure` nese jen tenhle deník. **Všechny čtyři issues zůstávají otevřené a pořád platí, co říká zápis 62: neoptimalizovat tam shader, dokud to někdo nepřeměří.**
+
+**A tohle je teď ta podstatná věta k nim: jsou blokované na hardwaru, ne na práci.** Hlásí se ze 6900XT, na téhle třídě strojů se musí i měřit (atribuce mezi desktopem a APU necestuje, #102 vs #250, znovu potvrzeno v zápise 66) — a tenhle desktop se resetuje tak často, že se sweep nedá dotáhnout. Ne že by byl nebezpečný jeden mód: zápis 62 i #250 mají resety pod oknem s capem, a CPU-only burn bez jediného GPU volání šel dolů ve 4m06s. Takže dokud je stroj takový, jaký je, **na tyhle čtyři otázky se na něm nedá odpovědět**, a ThinkPad je nemůže odpovědět místo něj.
+
+**Co jsem stihl zjistit před zastavením, ať to nikdo nehledá podruhé:**
+
+- **⚠ „Onion" z #209 je soubor `Eleven.json`.** `Levels.json` má `file` a `name` zvlášť a u tohohle jednoho se liší (jeskynní level, blok The Reveal). Kdo hledá `Onion.json`, nenajde nic a bude si myslet, že level padl v #255.
+- **⚠ Žádný z devadesáti levelů nejmenuje `dream`** — kampaň jede na devíti scénách (cavern, city, desert, meadow, moon, mountain, neon, savanna, space). **#167 je hlášené „s naloženým levelem", takže se v té podobě dnes reprodukovat nedá.** Zbývá frontend s `preview=` (tam `scene=` drží, protože ho nepřepisuje level) nebo Testbed s pevnou kamerou a mapou; obojí je jiná zátěž než hraný level a musí se u čísla napsat, které to bylo.
+- **Jak tu zátěž vzít bez módu, na který majitel ukázal:** hra nemá `width=`/`height=`, jen `fullscreen`, ale `ssaa=` bere až 4 (`BS3DGame.cs:659` klampuje 1–4). **Okno 1600×900 při ssaa 4 = 23,0 Mpix** proti hlášenému fullscreenu 3840×1600 při ssaa 2 = **24,6 Mpix**, tedy 6 % pod. **Co se tím nezměří, je post chain** — ten běží na velikosti back bufferu, v okně 5,8× levněji — takže kde by číslo padlo blízko čáry 13,3 ms, tímhle se to nerozhodne.
+- **⚠ A past v samotném nástroji: `benchmark.ps1` počítá průměr, zatímco text téhož skillu (past 12) říká medián** — pravidlo, které tam někdo zapsal poté, co run po chvíli spadl na třetinu a průměr obrátil A/B. Skript navíc nečte zpátky scénu, velikost back bufferu ani limiter, tedy pasti 8, 9 a 11 téhož textu. Harness, který obojí dělá (medián a odmítnutí runu, jehož podmínky nesedí na zadání), jsem napsal, ale **naostro ho nikdo nepustil**, takže leží v scratchpadu sezení a do repa nejde. Opravit skript stojí za samostatnou změnu, ne za přílepek k měření, které se nekonalo.
+
+**Nic si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (sedmdesátý osmý zápis)
+
+**Založeno a rovnou vyřízeno #278 z majitelova playtestu: „ve scéně s horami vypadá sníh na zemi jako čtverce". Na mainu jako `a6b0936`** (merge `--no-ff` větve `278-mountain-snow-squares`). Čtverce byly `SnowSparkle`, třpyt, který sněhu přidalo #208.
+
+**⚠ Mechanismus, a je to past, která sedí na každé mřížce ve světových souřadnicích: buňka je pevná ve SVĚTĚ, ale velikost, kterou chce, je v PIXELECH.** `step()` nad hashem buňky vybarvil **celou buňku**. Třetina metru je zamýšlených 3–4 px při footprintu středních svahů (~0,08 world/px), na které byl třpyt laděný — a **třicet pixelů** na dně kotliny vedle arény, kde je footprint ~0,01. V perspektivě z toho jsou ploché bílé kosočtverce ležící na zemi. Buňka teď říká jen **kde** glint je; jak je velký, určuje footprint (~1,5 px, s podlahou aby nezmizel pod nohama a se stropem na půl buňky).
+
+**⚠ A jitter uvnitř buňky musí být přesně to, co po poloměru zbyde** — soused počítá jiné `cellId`, tedy jiný střed, takže cokoli přeteče přes hranici, se o ni **uřízne naplocho** a čtverce se vrátí na vzdáleném konci. Jak poloměr roste do buňky, jitter jde k nule a glint se vystředí: starý vyplněný vzhled se tím dojede plynule, ne omylem.
+
+**Druhá půlka byla na tomtéž řádku: glint nebyl vynásobený sněhovou maskou**, přestože jeho vlastní komentář říká „ON TOP of the lit snow". Dno kotliny vedle arény je skála s pouhým ramenem `altSnow + 0.15`, takže **nejsvětlejší věc ve scéně dopadala na nejtmavší zem, ke které hráč stojí nejblíž** — proto to bylo do očí bijící právě tam a ne na sněhových polích, proti kterým se efekt ladil.
+
+**⚠ Vedlejší nález pro kohokoli, kdo v tomhle repu sáhne na hash: `NoiseHash22` vrací [-1, 1], ne [0, 1].** Práh 0,985 tedy bere horních **0,75 %** buněk, ne „~1,5 %", jak tvrdil komentář i `docs/scenes.md`. Řidší čtení je to, co se ladilo okem, takže číslo zůstalo a aritmetika je dopsaná vedle něj. Stejný hash používá i zrno skály o pár řádků níž — tam je symetrická odchylka ±14 %, což je v pořádku, ale nikde to nebylo napsané.
+
+**Ověřeno dvakrát a obojí vyfoceno:** pevná kamera Testbedu (3216×1400, `nopost`, `scene=mountain sky=13 campos=0,-8,40 camtarget=0,-13,10`) před a po — čtverce z blízké země zmizely a třpyt na sněhu zůstal jako prach bodů; a **ve hře** na levelu Belfry přes `shot=`, protože tam to majitel viděl. Pozor při tom na past 11: startovní řádek hlásil `scene NeonCity`, ale kreslila se hora — level si scénu přepisuje a **jméno snímku i řádek `[fps]` jsou jediná autorita**. Všechny čtyři solutiony čisté. Cenu jsem neměřil a nemyslím, že je co: přidaná práce sedí za `if (fade <= 0.0) return 0.0;`, takže vzdálené pixely, kterých je ve scéně nejvíc, do ní vůbec nevejdou.
+
+**⚠ Provozní, a je to dobrá zpráva: majitel hlásí, že hra už nepadá — přepojil kabely.** To sedí přesně na diagnózu ze zápisů 62 a #250: signatura `Kernel-Power 41` + `6008` bez bugchecku, resety i na volnoběhu, zkracující se intervaly za tepla — **napájecí cesta, ne karta**. Kdo se vrátí k **#209/#167/#166/#165** (pořád otevřené a nezabrané, viz předchozí zápis): sweep je tím možná zase průchodný, ale **ověř to krátkým během dřív, než na tom stroji rozjedeš dlouhý** — jeden bezproblémový večer ještě není důkaz a ta čtyři issues už jednou stála celý sweep.
+
+**Nic si neberu.**
