@@ -153,10 +153,18 @@ static const float GRASS_FBM_GAIN = 5.0;
 //many terms it has" - and the one #86 removed from Mountain.fx's peaks. Two terms is the smallest case of
 //it, and being only two they never even get the chance to hide each other. Octaves of gradient noise on a
 //rotated domain have no planes to keep.
-float GrassRelief(float2 xz, float footprint)
+//⚠ GRASS SWAYS, IT DOES NOT TRAVEL (#276). This sampled at `(xz + WindDirection * SavannaTime * 0.7)` — a
+//flat 0.7 world units a second, for ever, which at GrassReliefFrequency 2 slides the blades' own texture
+//across the ground it is rooted in at 1.4 features a second. #276 was filed against the meadow and the
+//desert; this scene carried the identical line and so does the forest, which is the #117/#170 story over
+//again — the meadow was a line-for-line copy of THIS file, and copying it copied the fault. The lean is the
+//gust field's own value now, bounded to about an eighth of a feature either side of where the grass stands.
+static const float GRASS_SWAY_REACH = 0.16;
+
+float GrassRelief(float2 xz, float footprint, float gust)
 {
     float f = GrassReliefFrequency;
-    float2 p = (xz + WindDirection * SavannaTime * 0.7) * f;
+    float2 p = xz * f + WindDirection * (gust * GRASS_SWAY_REACH);
 
     //Combed along the wind, and the footprint scaled by the same factor the domain is — Fbm2BandLimited's
     //stated contract, which Fbm2Combed passes straight through.
@@ -180,8 +188,14 @@ float4 SavannaPS(SavannaVertexOutput input) : COLOR
     float hz = TerrainHeight(worldPosition.xz + float2(0.0, e));
     float3 baseNormal = normalize(float3(-(hx - h) / e, 1.0, -(hz - h) / e));
 
+    //ONE gust field, and everything the wind does reads off it (#276): the grass leans by it here and the
+    //shading darkens by it below. The speed handed over is the old plane wave's own phase speed,
+    //WindRippleSpeed / WindRippleFrequency, so the gusts cross the field at the rate the dials always meant.
+    float gust = WindGust(worldPosition.xz, WindDirection, SavannaTime, WindRippleFrequency,
+        WindRippleSpeed / max(WindRippleFrequency, 1e-4), footprint);
+
     //Fine grass texture tilts it, so the grass catches the light unevenly and the wind reads on it
-    float relief = GrassRelief(worldPosition.xz, footprint);
+    float relief = GrassRelief(worldPosition.xz, footprint, gust);
     float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
 
     //Three-tone grass: dry gold as the base, green flushes where it is lusher, and patches of bare reddish
@@ -194,9 +208,10 @@ float4 SavannaPS(SavannaVertexOutput input) : COLOR
     float3 grass = lerp(GrassColorDry, GrassColor, saturate((patchLarge - 0.12) * 1.9) * (0.7 + 0.3 * patchMed));
     grass = lerp(grass, GrassColorBare, smoothstep(0.72, 0.85, bare) * 0.55);
 
-    //Wind combing the grass: bright and dark bands travelling downwind
-    float wind = sin(dot(worldPosition.xz, WindDirection) * WindRippleFrequency + SavannaTime * WindRippleSpeed);
-    grass *= 1.0 + wind * WindRippleStrength;
+    //Wind combing the grass: the gust computed above, over the blades it lays down. Same dial and the same
+    //range it always had; what it is applied to is a travelling patch rather than an infinite plane wave
+    //42 world units across (#276 — see WindGust in Noise.fxh).
+    grass *= 1.0 + gust * WindRippleStrength;
 
     //Matte grass: the sun and the sky hemisphere, dimmed by the shared cloud shadow so the same clouds that
     //drift across the sky sweep their shadows over the field

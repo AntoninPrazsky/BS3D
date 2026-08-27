@@ -140,6 +140,50 @@ float Fbm2Combed(float2 p, float2 along, float stretch, int octaves, float footp
     return Fbm2BandLimited(float2(dot(p, axis) / stretch, dot(p, across)), octaves, footprint);
 }
 
+//A GUST FIELD: irregular patches of wind, drawn out along it, running downwind (#276). One copy for the four
+//ground scenes that need one, for the reason Fbm2Combed above is one copy — the meadow, the savanna and the
+//forest each carried the same wind line, character for character, and it was wrong in all three.
+//
+//WHAT IT REPLACES, because the shape of the mistake is the argument for this function. The wind used to be
+//`sin(dot(xz, WindDirection) * frequency + time * speed)`: an infinite plane wave, dead straight, perfectly
+//regular, marching at a constant speed for ever. At the authored frequency of 0.15 its wavelength is
+//2π/0.15 ≈ **42 world units — wider than the visible field**, so what the player saw was not bands combing
+//the grass but the whole ground brightening and darkening under one straight edge sweeping across it. The
+//owner reported it as "a strange creeping pattern with no obvious cause", which is exactly what a plane wave
+//is: nothing outdoors is that regular, so the eye reads it as an artefact rather than as weather.
+//
+//A gust is the shape wind actually has over a field — a patch, irregular, longer along the wind than across
+//it, travelling downwind and fading. ONE octave of combed noise gives that for about the price of the sine
+//it replaces, and being a FIELD rather than a phase it can drive more than brightness: the callers lean
+//their relief by the same value they shade with, so the grass bends where the gust is and springs back
+//behind it, and the two motions cannot disagree because they are one field.
+//
+//`frequency` is the reciprocal of a gust's size (0.15 puts one at ~7 world units, not 42), `speed` is how
+//fast it travels in world units a second, and the result is roughly [-1, 1] with the typical excursion well
+//inside it. The domain is sampled UPWIND of the caller so the pattern travels ALONG `wind`.
+static const float WIND_GUST_STRETCH = 4.0;   //a gust is four times longer along the wind than across it
+static const float WIND_GUST_GAIN = 3.9;      //one octave rarely leaves ±0.25 on its own; this fills the range
+
+//⚠ ONE OCTAVE, AND THAT IS A MEASURED CEILING RATHER THAN A TASTE (#276). At TWO this fell off an occupancy
+//cliff in the two scenes that were already the dearest, and not by a little: on the reference desktop
+//(6900XT, Testbed, fixed camera, 1600×900 at ssaa 4, fpscap 400, median of 17 readings) the savanna went
+//8.496 → 27.933 ms and the forest 12.788 → 28.011, while the meadow — the same addition, in a cheaper
+//shader — went 7.746 → 8.097 and merely started dipping to 28 now and then. Dropped back to one octave, all
+//three come home: meadow 7.949, savanna 8.547, forest 12.953, i.e. 0.05–0.20 ms for the whole effect.
+//
+//It is the same wall `Forest.fx` documents for its own two extras ("cutting either one ALONE saves NOTHING")
+//read from the other side: these passes are occupancy-bound, so cost does not scale with work — it steps
+//when the shader crosses a register threshold, and a 3.3× frame is what one extra noise evaluation bought.
+//**Anything added here has to be re-measured on the savanna and the forest, not on the meadow**, and a
+//second octave is not available at any price a scene shader can pay.
+
+float WindGust(float2 xz, float2 wind, float time, float frequency, float speed, float footprint)
+{
+    float2 p = (xz - wind * (time * speed)) * frequency;
+
+    return clamp(Fbm2Combed(p, wind, WIND_GUST_STRETCH, 1, footprint * frequency) * WIND_GUST_GAIN, -1.0, 1.0);
+}
+
 float Fbm3(float3 p, int octaves)
 {
     float value = 0.0;

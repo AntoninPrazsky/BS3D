@@ -77,10 +77,10 @@ float ClearingTransition;
 float DesertTime;
 float2 WindDirection;
 
-//Fine wind ripples: peak height, ripple lines per world unit, and how fast they crawl downwind
+//Fine wind ripples: peak height and ripple lines per world unit. They do not move - a ripple is carved into
+//the dune, and the dial that used to scroll them went with #276; see the ripple domain in DesertPS.
 float RippleAmplitude;
 float RippleFrequency;
-float RippleSpeed;
 
 //Blown dust: how strong the veil is, how fast it drifts, and the distance it starts thickening over
 float DustStrength;
@@ -327,13 +327,21 @@ float4 DesertPS(DesertVertexOutput input) : COLOR
     float2 duneSlope = float2(hx - h, hz - h) / e;
     float3 duneNormal = normalize(float3(-duneSlope.x, 1.0, -duneSlope.y));
 
-    //The ripple field's domain: scrolled downwind so the sand crawls, and WARPED BY THE DUNE'S OWN SLOPE so
-    //the lines bend as they run over a crest and pool in the hollows. That warp is the difference between
-    //ripples that belong to the dune and ripples that are wallpaper laid over it, and it is free here - the
-    //slope is the same one the normal above was built from.
-    float2 ripplePos = worldPosition.xz
-        + WindDirection * DesertTime * RippleSpeed
-        + duneSlope * 1.6;
+    //The ripple field's domain: WARPED BY THE DUNE'S OWN SLOPE so the lines bend as they run over a crest and
+    //pool in the hollows. That warp is the difference between ripples that belong to the dune and ripples
+    //that are wallpaper laid over it, and it is free here - the slope is the same one the normal above was
+    //built from.
+    //
+    //⚠ AND IT IS STATIC (#276). This used to add `WindDirection * DesertTime * RippleSpeed` at 1.4 world
+    //units a second, and that is the fault the owner reported as the sand "just looking wrong": a sand
+    //ripple is a ridge CARVED INTO the dune, and scrolling the field slides every ridge across the surface
+    //it is cut into - the exact wallpaper the paragraph above sets out to avoid, added two lines under it.
+    //Measured on two frames 0.6 s apart, the whole sand surface had changed in essentially every pixel.
+    //Nor is it a matter of a slower speed: real ripples migrate centimetres in an hour, so at any speed the
+    //eye can see, the motion is wrong. What moves in a desert is the AIR - the dust veil further down, which
+    //has its own DustSpeed and keeps it. `RippleSpeed` is gone rather than zeroed, here and in
+    //DesertSceneConfig: a dial whose only correct value is zero is a trap for whoever finds it next.
+    float2 ripplePos = worldPosition.xz + duneSlope * 1.6;
 
     float pattern = SandPattern(ripplePos, footprint);
 

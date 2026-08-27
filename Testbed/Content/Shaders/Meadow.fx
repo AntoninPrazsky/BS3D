@@ -154,10 +154,26 @@ static const float FLOWER_CONTACT_SHADOW = 0.22;
 //the savanna alone; the copy here was found while fixing it). Two plane waves crossing ARE a lattice, and
 //these crossed at 93.4 degrees, so it was very nearly square and read in perspective as a field of diamonds.
 //The mechanism is Noise.fxh's Fbm2Combed now, one copy for both scenes; what stays per scene is the tuning.
-float GrassRelief(float2 xz, float footprint)
+//⚠ GRASS SWAYS, IT DOES NOT TRAVEL (#276). This used to sample at `(xz + WindDirection * MeadowTime * 0.7)`
+//— a flat 0.7 world units a second, for ever. At GrassReliefFrequency 2 a grass feature is half a unit, so
+//the blades' own texture SLID ACROSS THE GROUND IT IS ROOTED IN at 1.4 features a second: measured on two
+//frames 0.6 s apart, essentially every pixel of the near field had changed. That is the crawl the owner
+//reported, and no amount of retuning the speed fixes it, because a texture that translates is wallpaper
+//however slowly it goes. (It also drifted UPWIND — adding to the sample position moves the pattern the
+//other way — which nothing said and nothing could see, a sliding texture having no direction the eye can
+//name.)
+//
+//What the wind does to grass is BEND it: the blades lean where a gust is passing and spring back behind it.
+//So the lean is the gust field's own value, applied in the NOISE domain so it is a fixed fraction of a grass
+//feature whatever GrassReliefFrequency is set to, and it is bounded by construction — the gust is clamped to
+//[-1, 1], so the texture rocks about an eighth of a feature either side of where it is rooted and stays
+//there.
+static const float GRASS_SWAY_REACH = 0.16;
+
+float GrassRelief(float2 xz, float footprint, float gust)
 {
     float f = GrassReliefFrequency;
-    float2 p = (xz + WindDirection * MeadowTime * 0.7) * f;
+    float2 p = xz * f + WindDirection * (gust * GRASS_SWAY_REACH);
 
     return Fbm2Combed(p, WindDirection, GRASS_COMB_STRETCH, 3, footprint * f) * GRASS_FBM_GAIN * GrassReliefStrength;
 }
@@ -218,16 +234,25 @@ float4 MeadowPS(MeadowVertexOutput input) : COLOR
 
     //Fine grass texture tilts the normal — and the rosette tilts it with it, one height field through one
     //perturbation, so a flower catches the sun on its own domes instead of wearing the ground's shading
-    float relief = GrassRelief(worldPosition.xz, footprint);
+    //ONE gust field, and everything the wind does reads off it (#276) — the grass leans by it below and the
+    //shading darkens by it further down, so the bend and the band cannot disagree about where the wind is.
+    //The speed handed over is the old plane wave's own PHASE speed, WindRippleSpeed / WindRippleFrequency,
+    //so the gusts cross the field at exactly the rate the authored dials always meant; what changes is that
+    //they are gusts instead of one straight edge 42 units wide.
+    float gust = WindGust(worldPosition.xz, WindDirection, MeadowTime, WindRippleFrequency,
+        WindRippleSpeed / max(WindRippleFrequency, 1e-4), footprint);
+
+    float relief = GrassRelief(worldPosition.xz, footprint, gust);
     float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief + flowerRelief);
 
     //Grass color, varied in broad patches so the field is not one flat green
     float patch = CloudNoise(worldPosition.xz * 0.15) * 0.5 + 0.5;
     float3 grass = lerp(GrassColorDark, GrassColor, patch);
 
-    //Wind combing the grass: bright and dark bands travelling downwind, the meadow's own motion
-    float wind = sin(dot(worldPosition.xz, WindDirection) * WindRippleFrequency + MeadowTime * WindRippleSpeed);
-    grass *= 1.0 + wind * WindRippleStrength;
+    //Wind combing the grass: the gust computed above, darkening the blades it lays over and letting the ones
+    //behind it stand back up. Same dial and the same ±12 % it always had; what it is applied to is a patch
+    //travelling downwind rather than an infinite plane wave (#276 — see WindGust in Noise.fxh).
+    grass *= 1.0 + gust * WindRippleStrength;
 
     //White daisies, yellow buttercups, the odd pink one - all with a warm golden eye
     float pick = Hash21(cell + 13.7);

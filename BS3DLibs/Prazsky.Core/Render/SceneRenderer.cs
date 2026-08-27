@@ -1431,7 +1431,6 @@ namespace Prazsky.Core.Render
             _desertEffect.Parameters["ClearingTransition"].SetValue(_desertConfig.ClearingTransition);
             _desertEffect.Parameters["RippleAmplitude"].SetValue(_desertConfig.RippleAmplitude);
             _desertEffect.Parameters["RippleFrequency"].SetValue(_desertConfig.RippleFrequency);
-            _desertEffect.Parameters["RippleSpeed"].SetValue(_desertConfig.RippleSpeed);
             _desertEffect.Parameters["DustStrength"].SetValue(_desertConfig.DustStrength);
             _desertEffect.Parameters["DustSpeed"].SetValue(_desertConfig.DustSpeed);
             _desertEffect.Parameters["DustStart"].SetValue(_desertConfig.DustStart);

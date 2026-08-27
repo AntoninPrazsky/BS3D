@@ -18,6 +18,9 @@
 #define PS_SHADERMODEL ps_5_0
 
 #include "Clouds.fxh"
+//For WindGust (#276) — the one copy of the gust field the meadow and the savanna also read the wind off.
+//This scene kept its own four-sine needle field and its own ForestFbm; nothing else here comes from Noise.fxh.
+#include "Noise.fxh"
 
 float4x4 View;
 float4x4 Projection;
@@ -181,9 +184,15 @@ float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height
 //length, while per-octave fades let each drop out exactly where the pixels stop resolving it). Four
 //octaves rather than two: two sines interfere into a soft weave, which is most of what read as "blurred"
 //on the near floor - a needle floor is fine, sharp and directionless.
+//⚠ A FOREST FLOOR DOES NOT DRIFT (#276). This sampled at `xz + WindDirection * ForestTime * 0.7` — the same
+//flat 0.7 world units a second the meadow and the savanna carried, character for character, and the same
+//fault in all three: the floor's own texture slid across the ground for ever. Grass at least bends, so those
+//two lean by the gust field now; needles, moss and leaf litter do neither, they simply lie there. So the
+//field is STATIC here and the wind reads on this scene where it actually would — in the light coming
+//through the canopy, which the gust darkens further down.
 float NeedleRelief(float2 xz, float footprint)
 {
-    float2 p = xz + WindDirection * ForestTime * 0.7;
+    float2 p = xz;
     float f = NeedleReliefFrequency;
 
     float h = 0.45 * sin(dot(p, normalize(float2(0.9, 0.3))) * f) * saturate(1.0 - footprint * f / 3.14159265)
@@ -370,8 +379,14 @@ float4 ForestFloor(ForestVertexOutput input, bool detail)
     float slope = smoothstep(0.55, 0.85, baseNormal.y);
     float3 floor = lerp(ForestColorDark * 0.8, ForestColor, patch * slope);
 
-    //Wind combing the undergrowth: bright and dark bands travelling downwind, the clearing's own motion
-    float wind = sin(dot(worldPosition.xz, WindDirection) * WindRippleFrequency + ForestTime * WindRippleSpeed);
+    //Wind over the clearing, and on a forest floor this is the ONLY thing the wind does: patches of shade
+    //running across the ground as the canopy moves over it. Same dial and the same range it always had; what
+    //it is applied to is a travelling gust rather than an infinite plane wave 42 world units across, which
+    //at this scene's scale meant the whole clearing dimming and brightening under one straight edge
+    //(#276 — see WindGust in Noise.fxh). The speed is the old wave's own phase speed, so it crosses the
+    //clearing at the rate the dials always meant.
+    float wind = WindGust(worldPosition.xz, WindDirection, ForestTime, WindRippleFrequency,
+        WindRippleSpeed / max(WindRippleFrequency, 1e-4), footprint);
     floor *= 1.0 + wind * WindRippleStrength;
 
     //Scattered darker litter patches - the fallen needles and leaf decay that sit between the moss, finer than

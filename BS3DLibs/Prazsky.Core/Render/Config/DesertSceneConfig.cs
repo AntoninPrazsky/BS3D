@@ -34,8 +34,9 @@ namespace Prazsky.Core.Render
         /// <summary>Fine wind ripples: ripples per world unit.</summary>
         public float RippleFrequency { get; set; } = 1.6f;
 
-        /// <summary>Fine wind ripples: how fast they crawl downwind.</summary>
-        public float RippleSpeed { get; set; } = 1.4f;
+        //RippleSpeed went with #276: a sand ripple is a ridge carved into the dune, so scrolling the field
+        //slid every ridge across the surface it is cut into, and no speed the eye can see is right for it.
+        //The scene's motion is the dust veil below, which is the part of a desert that actually moves.
 
         /// <summary>Blown dust veil: strength.</summary>
         public float DustStrength { get; set; } = 0.3f;
