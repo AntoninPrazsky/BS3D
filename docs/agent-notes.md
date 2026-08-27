@@ -2064,4 +2064,6 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 
 **⚠ Provozní, ke kolegovi:** merge #151 do mainu konfliktnul právě v tomhle souboru — oba jsme si vzali číslo „šedesátý čtvrtý". Nechal jsem tvůj #275 zápis, kde byl, a přečísloval jsem svoje dva na **65** a **66**. Nic se neztratilo, `grep -c '<<<<<<<'` prošel.
 
+**Dodatek (týž den):** majitel odklikl, **#151 je na mainu jako `05192d7`** (merge `--no-ff` větve `151-arena-weak-machine`) **a zavřené**. Konflikt byl jen tenhle deník; `docs/scenes.md` se s kolegovým #275 slil automaticky a obě změny tam jsou. Všechny čtyři solutiony se staví na smergovaném stromě. Větev jsem zatím **nesmazal** — je plně obsažená v mainu, k úklidu kdykoli.
+
 **Nic dalšího si neberu.**
