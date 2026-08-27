@@ -51,19 +51,27 @@ namespace BS3D.Tools.MusicBake
 
             if (only == null || Is(only, "menu")) names.Add("Menu");
 
-            Console.WriteLine("piece            secs  bake   peak    rms   bal  mono | <100 100-200 200-500  500-2k   2k-6k    6k+ |  head   tail");
+            Console.WriteLine("piece            secs  bake  entry   peak    rms   bal  mono | <100 100-200 200-500  500-2k   2k-6k    6k+ |  head   tail");
 
             foreach (string name in names)
             {
+                bool menu = Is(name, "Menu");
+
                 Stopwatch clock = Stopwatch.StartNew();
 
-                float[] mix = Is(name, "Menu")
+                float[] mix = menu
                     ? ProceduralMusic.RenderMenu()
                     : ProceduralMusic.Render(Enum.Parse<MusicTheme>(name));
 
                 clock.Stop();
 
-                Report(name, mix, clock.Elapsed.TotalMilliseconds);
+                //Where a LEVEL comes in on the piece (#201). The front end's loop has no entry of its own —
+                //it is a lobby, and it plays from the top.
+                double entry = menu
+                    ? -1
+                    : ProceduralMusic.EntryOffset(Enum.Parse<MusicTheme>(name)) / 4.0 / SAMPLE_RATE;
+
+                Report(name, mix, clock.Elapsed.TotalMilliseconds, entry);
 
                 if (wav) WriteWav(Path.Combine(outDir, $"{name.ToLowerInvariant()}.wav"), mix);
             }
@@ -76,7 +84,7 @@ namespace BS3D.Tools.MusicBake
         private static bool Is(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>One line of numbers per rendering, with the envelope under it.</summary>
-        private static void Report(string name, float[] mix, double bakeMs)
+        private static void Report(string name, float[] mix, double bakeMs, double entrySeconds)
         {
             int frames = mix.Length / 2;
             double seconds = frames / (double)SAMPLE_RATE;
@@ -106,7 +114,7 @@ namespace BS3D.Tools.MusicBake
             double head = WindowRms(mix, frames, 0, SAMPLE_RATE / 2);
             double tail = WindowRms(mix, frames, frames - SAMPLE_RATE / 2, SAMPLE_RATE / 2);
 
-            Console.WriteLine($"{name,-14} {seconds,6:0.0} {bakeMs,5:0} {Db(peak),6:0.0} {Db(rms),6:0.0} "
+            Console.WriteLine($"{name,-14} {seconds,6:0.0} {bakeMs,5:0} {(entrySeconds < 0 ? "-" : entrySeconds.ToString("0.0")),6} {Db(peak),6:0.0} {Db(rms),6:0.0} "
                 + $"{Db(rmsL) - Db(rmsR),5:+0.0;-0.0;0.0} {Db(monoRms) - Db(rms),5:+0.0;-0.0;0.0} | "
                 + $"{bands[0],4:0.0} {bands[1],7:0.0} {bands[2],7:0.0} {bands[3],7:0.0} {bands[4],7:0.0} {bands[5],6:0.0} | "
                 + $"{Db(head),5:0.0} {Db(tail),6:0.0}");

@@ -241,9 +241,21 @@ namespace BS3D.Audio
             public readonly int Transpose;      //semitones off the piece's own key, so it can be re-keyed in one line
             public readonly int[] Progression;
 
-            public Score(float bpm, int transpose, int[] progression)
+            /// <summary>
+            /// Which section a LEVEL comes in on (#201). Every piece opens on a prelude with no kit in it —
+            /// fifteen to twenty seconds of pad while the arrangement gathers itself — which is right at the
+            /// top of a piece and wrong at the top of a level: the report was that the music "only starts
+            /// playing quite a long time after the level begins", and the envelope agreed, every piece 9–13 dB
+            /// under its own loudest for the first 14–20 s. So a level's first playing starts HERE instead,
+            /// at the first section where the piece's floor and its tune are both going, and the playing
+            /// after it is the whole piece from the top — the prelude is not cut, it is simply not what a
+            /// level opens on.
+            /// </summary>
+            public readonly int EntrySection;
+
+            public Score(float bpm, int transpose, int[] progression, int entrySection)
             {
-                Bpm = bpm; Transpose = transpose; Progression = progression;
+                Bpm = bpm; Transpose = transpose; Progression = progression; EntrySection = entrySection;
             }
         }
 
@@ -251,9 +263,47 @@ namespace BS3D.Audio
         /// Pulse's authored score (#229). 128 is the tempo the arrangement was written at and the one its
         /// documented ~2:30 length is measured at; it rolled inside 122–132 for a while, which was wide
         /// enough to be felt between passes and narrow enough that the track stayed the same track. A minor
-        /// is the key its chord tables are written in, and the progression is the classic vi-IV-I-V.
+        /// is the key its chord tables are written in, and the progression is the classic vi-IV-I-V. A level
+        /// comes in on section 2, the first verse — the prelude and the intro's build are the piece's own
+        /// opening and are heard when it comes round (#201).
         /// </summary>
-        private static readonly Score PULSE_SCORE = new(128f, 0, PROGRESSIONS[0]);
+        private static readonly Score PULSE_SCORE = new(128f, 0, PROGRESSIONS[0], entrySection: 2);
+
+        /// <summary>
+        /// How many whole samples one sixteenth of a piece lasts, and the <b>one</b> place that rounding
+        /// happens. Every bake takes its grid from here and so does <see cref="EntryOffset"/>, which has to
+        /// land on exactly the sample the bake put a section boundary at — the two computing it separately is
+        /// how an entry would end up a fraction of a step off the downbeat it is supposed to open on. The
+        /// rounding itself is why a piece's length is taken from this figure rather than from the nominal
+        /// tempo (see <see cref="Bake"/>).
+        /// </summary>
+        private static int SamplesPerStep(in Score score) => (int)(SAMPLE_RATE * (60f / (score.Bpm * STEPS_PER_BEAT)));
+
+        /// <summary>One frame of the interleaved 16-bit stereo the pieces are played as; see <see cref="ToPcm"/>.</summary>
+        private const int BYTES_PER_FRAME = 4;
+
+        /// <summary>The piece's own score, for the questions asked about a piece from outside its bake.</summary>
+        private static Score ScoreFor(MusicTheme theme) => theme switch
+        {
+            MusicTheme.Bohemia => BOHEMIA_SCORE,
+            MusicTheme.Nocturne => JAZZ_SCORE,
+            MusicTheme.Mural => MURAL_SCORE,
+            MusicTheme.Ember => EMBER_SCORE,
+            _ => PULSE_SCORE,
+        };
+
+        /// <summary>
+        /// Where a LEVEL comes in on a piece, as a byte offset into its PCM (#201) — the piece's own
+        /// <see cref="Score.EntrySection"/> in samples, on the downbeat because a section boundary is a whole
+        /// number of steps and a step is a whole number of samples. Only the chain's head starts here; every
+        /// repeat after it is the whole piece from the top, so nothing is cut out of the composition.
+        /// </summary>
+        internal static int EntryOffset(MusicTheme theme)
+        {
+            Score score = ScoreFor(theme);
+
+            return score.EntrySection * STEPS_PER_SECTION * SamplesPerStep(score) * BYTES_PER_FRAME;
+        }
 
         /// <summary>What plays during one eight-bar section. The arrangement IS this table.</summary>
         private readonly struct Section
@@ -1033,6 +1083,13 @@ namespace BS3D.Audio
         /// Builds the chain's head: a fresh voice with this theme's piece submitted onto it, and playback
         /// begun. Called from <see cref="Play"/> and from <see cref="Update"/> while the chain's head does not
         /// exist yet; every repeat after the first arrives through <see cref="Update"/>'s feed, never here.
+        /// <para>
+        /// This is also the one place a level's <b>entry</b> into a piece lives (#201): the head starts at
+        /// <see cref="EntryOffset"/> rather than at the piece's first sample, so a level opens on the track
+        /// and not on its prelude. It belongs here and nowhere else because everything that reaches this
+        /// method is a level opening — a build, a retry, a switch of piece, a Continue out of the menu — and
+        /// everything that does not goes through the feed, which submits the piece whole.
+        /// </para>
         /// </summary>
         private void Advance()
         {
@@ -1048,11 +1105,18 @@ namespace BS3D.Audio
                 //every frame and builds the chain the moment it lands.
                 if (piece == null || !piece.IsCompleted) return;
 
+                byte[] pcm = piece.Result;
+
+                //Clamped rather than trusted: an entry section past the end of its own arrangement would
+                //otherwise be an exception on the frame a level starts, which is the worst place in the
+                //program to learn that a constant was edited wrongly.
+                int entry = Math.Clamp(EntryOffset(_theme), 0, pcm.Length - BYTES_PER_FRAME);
+
                 DynamicSoundEffectInstance old = _voice;
 
                 _voice = new DynamicSoundEffectInstance(SAMPLE_RATE, AudioChannels.Stereo);
                 _voice.Volume = MUSIC_VOLUME * _gain;
-                _voice.SubmitBuffer(piece.Result);
+                _voice.SubmitBuffer(pcm, entry, pcm.Length - entry);
 
                 //Disposed only once the replacement exists, so a failure part-way through leaves the
                 //previous chain intact and playable rather than leaving the game silent.
@@ -1078,7 +1142,7 @@ namespace BS3D.Audio
             Score score = PULSE_SCORE;
 
             float secondsPerStep = 60f / (score.Bpm * STEPS_PER_BEAT);
-            int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
+            int samplesPerStep = SamplesPerStep(score);
 
             int sectionOutro = ARRANGEMENT.Length - 1;
             int totalSteps = ARRANGEMENT.Length * STEPS_PER_SECTION;
@@ -1437,9 +1501,11 @@ namespace BS3D.Audio
         /// is what its documented ~3:20 length is measured at — a slower band than the dance floor's, because
         /// a piece carrying held string chords and a tuned drum needs the room, and reads as grand at a speed
         /// where without them it would read as merely slow. D Dorian is the mode the whole piece is named for,
-        /// and the progression is the climb: i ♭III ♭VI ♭VII, the one the arch was written over.
+        /// and the progression is the climb: i ♭III ♭VI ♭VII, the one the arch was written over. A level comes
+        /// in on section 2, the verse, where the floor arrives whole (#201) — the intro's timpani and the
+        /// bowed statement above it are the piece's own opening.
         /// </summary>
-        private static readonly Score BOHEMIA_SCORE = new(116f, 0, BOHEMIA_PROGRESSIONS[0]);
+        private static readonly Score BOHEMIA_SCORE = new(116f, 0, BOHEMIA_PROGRESSIONS[0], entrySection: 2);
 
         /// <summary>
         /// Renders <see cref="MusicTheme.Bohemia"/>: the second level theme (#120), a modal piece with a real
@@ -1457,7 +1523,7 @@ namespace BS3D.Audio
             Score score = BOHEMIA_SCORE;
 
             float secondsPerStep = 60f / (score.Bpm * STEPS_PER_BEAT);
-            int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
+            int samplesPerStep = SamplesPerStep(score);
 
             int sectionOutro = BOHEMIA_ARRANGEMENT.Length - 1;
             int totalSteps = BOHEMIA_ARRANGEMENT.Length * STEPS_PER_SECTION;
@@ -1776,9 +1842,10 @@ namespace BS3D.Audio
         /// slowest tempo in the set by design: swung eighths at a dance tempo stop swinging and start sounding
         /// merely early. C major is the key its chord tables are written in, and the progression is the ii-V-I
         /// stated plainly — the sentence the whole idiom is built on, and the right one for the piece to be
-        /// KNOWN by now that it is only ever played one way.
+        /// KNOWN by now that it is only ever played one way. A level comes in on section 2, the first head:
+        /// the trio playing the tune, where the two before it are the comping and the walk arriving (#201).
         /// </summary>
-        private static readonly Score JAZZ_SCORE = new(96f, 0, JAZZ_PROGRESSIONS[0]);
+        private static readonly Score JAZZ_SCORE = new(96f, 0, JAZZ_PROGRESSIONS[0], entrySection: 2);
 
         /// <summary>
         /// How late a swung off-beat eighth lands, as a fraction of a sixteenth. <b>This is the single thing
@@ -1832,7 +1899,7 @@ namespace BS3D.Audio
             Score score = JAZZ_SCORE;
 
             float secondsPerStep = 60f / (score.Bpm * STEPS_PER_BEAT);
-            int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
+            int samplesPerStep = SamplesPerStep(score);
 
             int sectionOutro = JAZZ_ARRANGEMENT.Length - 1;
             int totalSteps = JAZZ_ARRANGEMENT.Length * STEPS_PER_SECTION;
@@ -2174,8 +2241,14 @@ namespace BS3D.Audio
         /// is the doo-wop turn, the sunniest of the five and the one the savanna daylight this piece plays
         /// under asks for; it ends on the dominant, so the four-bar round cadences home rather than restarts.
         /// </para>
+        /// <para>
+        /// A level comes in on section 2, the first verse — the marimba answering the riff over the whole
+        /// kit. This is the piece #201 was filed against: its prelude is pad and a marimba sentence with no
+        /// riff and no kit under it, and its groove-in carries no tune, so the piece did not speak for 36 s
+        /// of a level. Nothing about it is cut; a level simply opens where the piece is playing.
+        /// </para>
         /// </summary>
-        private static readonly Score MURAL_SCORE = new(108f, 0, MURAL_PROGRESSIONS[1]);
+        private static readonly Score MURAL_SCORE = new(108f, 0, MURAL_PROGRESSIONS[1], entrySection: 2);
 
         /// <summary>
         /// Mural (#264): a bass-led groove — the tune lives in the bass. Nine sections, ~2:40 long, in
@@ -2187,7 +2260,7 @@ namespace BS3D.Audio
             Score score = MURAL_SCORE;
 
             float secondsPerStep = 60f / (score.Bpm * STEPS_PER_BEAT);
-            int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
+            int samplesPerStep = SamplesPerStep(score);
 
             int sectionOutro = MURAL_ARRANGEMENT.Length - 1;
             int totalSteps = MURAL_ARRANGEMENT.Length * STEPS_PER_SECTION;
@@ -2652,10 +2725,11 @@ namespace BS3D.Audio
         /// <para>
         /// It was a roll inside 128–140 with the key and the progression drawn per pass; 134 is the middle of
         /// that band, E minor is the key the guitar's registers were tuned in, and the progression is the one
-        /// the piece is named after.
+        /// the piece is named after. A level comes in on section 1, the first verse — this piece's verse is
+        /// already the kit, the bass and the tune, so it needs no later entry than that (#201).
         /// </para>
         /// </summary>
-        private static readonly Score EMBER_SCORE = new(134f, 0, EMBER_PROGRESSIONS[0]);
+        private static readonly Score EMBER_SCORE = new(134f, 0, EMBER_PROGRESSIONS[0], entrySection: 1);
 
         /// <summary>
         /// Ember (#163): a rock ballad. Ten sections, ~2:25 long, in E minor, and it adds two voices — the
@@ -2668,7 +2742,7 @@ namespace BS3D.Audio
             Score score = EMBER_SCORE;
 
             float secondsPerStep = 60f / (score.Bpm * STEPS_PER_BEAT);
-            int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
+            int samplesPerStep = SamplesPerStep(score);
 
             int sectionOutro = EMBER_ARRANGEMENT.Length - 1;
             int totalSteps = EMBER_ARRANGEMENT.Length * STEPS_PER_SECTION;
