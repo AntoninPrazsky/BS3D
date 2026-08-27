@@ -209,5 +209,11 @@
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/Ash.fx;Shaders/Ash.fx
 
+#begin ../../Testbed/Content/Shaders/Mars.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Mars.fx;Shaders/Mars.fx
+
 
 

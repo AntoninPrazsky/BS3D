@@ -2197,6 +2197,58 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 
 ## 2026-08-27 — Claude Code (osmdesátý zápis)
 
+**Majitel požádal, ať zkontroluju #223 (sopka) — vypadá dobře a chybí něco? — a podle toho ho buď dokončím, nebo zavřu.** Sopka samotná byla hotová a smergovaná (`461e84b`), issue zůstalo otevřené jen kvůli druhé půlce (kampaňový blok pěti levelů). Odpověď na obojí je pod sebou; branch `223-volcano-crater-summit` (pushnuto jako `00477a5`, na aktuálním mainu — chytil jsem i #278, co jsem při větvení minul).
+
+**⚠ Kontrola scény našla skutečnou chybu, ne jen vkus: kráter nikdy nebyl kráter.** `VolcanoMassing`'s `flank = ConeHeight · pow(1 − r/ConeRadius, ConeProfile)` je maximální přesně v `r = 0` pro libovolný profil (sklon tam je `−ConeProfile/ConeRadius`, nikdy nula), takže odečítáním `crater` termu, který je **taky** maximální v `r = 0`, se vrchol nikdy nemohl posunout jinam než do stejného bodu — jen se strmější příchod k němu. Vizuálně to byla ostrá špička, ze které fontána stříká jako z trysky (majitelovými slovy). Oprava zafixuje poloměr, ve kterém se `flank` sám vyhodnocuje, na `CraterRadius` — takže plošina drží výšku okraje kdekoli uvnitř — a kráter se vyřízne do TÉ plošiny (`smoothstep(CraterRadius, 0, r)`), ne do kužele, co pod ní dál stoupal. Mimo `CraterRadius` se nemění nic. Zrcadleno v `SceneRenderer.VolcanoGroundY` (řeky i světla čtou tenhle, ne shader). Ověřeno třemi capturama (zdálky, hrací kamera, zblízka a zvýšeně u kráteru) — teď je vidět skutečný otvor s okrajem, fontána stoupá zevnitř.
+
+**Rozhodnutí o zbytku: zavírám #223, kampaňový blok jde jako samostatný budoucí úkol, ne jako pokračování tohohle issue.** Napřed jsem si to ověřil forkem (12 652řádkový `Tools/LevelGen/Program.cs`, `Levels.json`, „light-drain arc" #194, `aimcheck`, hudba bloku): jeden nový pětilevelový blok je bloky geometrických návrhů, ne parametrický generátor — každý level svůj vlastní algoritmus, stovky řádků, s reálnými zamítnutými pokusy jako normální praxí (２ z 5 u Gallery, 2 z 5 u Coil, „Helix vyhrál z jedenácti návrhů" z paměti) — a umístění do arc je opakovaně majitelovo vlastní autorské rozhodnutí, ne mechanický slot. To je vícesezenní kreativní práce, ne dokončení v tomhle běhu. **#255 (co dřív drželo `Tools/LevelGen`) je mezitím zavřené**, takže cesta je volná, až na to někdo (klidně příští běh) sedne.
+
+**Ověřeno:** všechny čtyři solutiony čisté, `ScoreSim` „All levels rate the right way round" po mergi #278. `docs/scenes.md` má novou odrážku u volcano sekce s výše popsanou opravou.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (osmdesátý první zápis)
+
+**Beru #277 (Mars) rovnou od zadání majitele — nová scéna z nabídnutého seznamu.** Hotovo, na větvi `277-mars-scene` (pushnuto jako `0f0a227`). **NEMERGOVÁNO, čeká na slovo majitele.**
+
+**Šestnáctý `SceneKind`, `IsSolidTerrainScene`, ne Měsíční `ReplacesSky` vidlice** — skutečný Měsíc nemá atmosféru vůbec, což je jediný důvod, proč ta scéna nahrazuje celou oblohu a zavírá horizont zakřivením. Mars atmosféru (řídkou) má, takže zůstává obyčejná dómová scéna. Kráterové pole (`CraterLayer`/`CraterField`/`MareBase`) je z `Moon.fx` přenesené **doslovně** — je to obecná matematika výškového pole bez cokoli měsíčního v sobě, jen přebarvená z šedé na rezavou. Horizont zavírá obyčejná mlha (outbackovský dvoustupňový fade), ne zakřivení a horský val.
+
+**Po prvním capturu majitel poznamenal, že na Marsu mají být i skály a víc kamení** — scéna zprvu jela holá a kráterovaná (vlastní fallback issue #277). Přidal jsem druhou vypůjčku, tentokrát z `Outback.fx`: `RockLayer` mřížka, doslovně přenesená a přeladěná ze skyline monolitů na rozptýlené balvany a oblázky, jaké fotí rovery — bez rýh a bez lišejníkové polevy (`ribDepth` 0, marsovská skála je ošlehaná větrem, ne vodou). Barva balvanů je **tmavý čedič, ne tmavší verze zeminy** — na skutečném Marsu je kámen to jediné, co není červené, a ten kontrast je většina toho, proč rozptýlené kameny čtou jako kámen. **Zapsaná mez:** balvany (3–6 jednotek) jsou proti gridové buňce (~2,8 jednotky, dimenzované na krátery) menší, než na jaké je grid stavěný — zblízka je silueta měkčí, než by stínování napovídalo. Na hráčských vzdálenostech (ostrov až mlha, nikdy objektiv stojící na jednom kameni) se to neprojevuje; ověřeno capturem, ne odhadem.
+
+**Devatenáctá `SkyDome` paleta, ne nový kód.** Žádná z osmnácti se pro prašnou marsovskou oblohu nehodí — ta je **jasnější u horizontu a tmavší v zenitu**, opak pozemského modrého zenitu. Nic v `ApplyPalette`/`BuildRamp` nepředpokládá, který konec je jasnější, takže devatenáctý záznam je čistě **data**: barva jako funkce výšky zachyceného vrcholu (pět barevných zastávek), spočtená skriptem místo malovaná okem — žádné `.dae` pro marsovskou oblohu nikdy neexistovalo. Vlastní slunce (#220) vysoko, `(58°, 50°)`.
+
+**Phobos a Deimos nejsou měsíční Země.** Ta běží uvnitř `MoonSky`, celoobrazovkového průchodu, co NAHRAZUJE oblohu — existuje jen proto, že Měsíc žádný dóm nemá. Mars dóm má, takže oba měsíčky jsou vlastní technika (`MarsMoons`) na sdíleném `_spaceQuad`u, depth-read proti terénu (Měsícovo vlastní změřené pořadí), ale na rozdíl od Měsíce **alpha-blended**, protože se skládají NAD už nakreslený dóm a terén. Ani jeden není ve skutečné úhlové velikosti (ta by byla sub-pixelová) — schválně předimenzovaní pro čitelnost, opačný směr než Zemina vlastní pravidlo, se zapsaným proč.
+
+**Ověřeno:** všechny tři solution se staví čistě (jediné varování je stejná X4000 potíž, co má i `Moon.fx`'s `Earth()` — ověřil jsem to touchnutím a přestavěním obou, není to nová chyba). `ScoreSim` beze změny. Capturem z Testbedu (hrací kamera, pohled k obloze, dvě různé kamery na oba měsíčky, blízký záběr na balvany) — terén, dóm i měsíčky vypadají, jak mají; jeden nesouvisející tvar (lichoběžník nahoře na snímku) jsem ověřil proti Outbacku ze stejné kamery — je to stropní deska, existuje to už teď, nemám s tím nic společného. Párové měření Testbedem proti Outbacku (stejná kamera, stejný dóm 13, `fpscap=150`, ssaa 2, reference APU): **Mars 32,1 FPS / 31,2 ms proti Outbacku 31,5 / 31,7** — stejná třída, jedno čtení, ne alternační sweep, takže tvrdím jen „stejné pásmo", ne pořadí.
+
+**Dokumentace:** `docs/scenes.md` (nová sekce Mars + bump "eighteen"→"nineteen" na třech místech, co se týkaly dómů), `CLAUDE.md` (patnáct→šestnáct scén, osmnáct→devatenáct palet), skilly `benchmark`/`screenshot`/`shaders` (scéna/dóm seznamy — při té příležitosti jsem doplnil i outback/tropical/volcano, které tam chyběly už předtím, ne mou vinou, ale byl jsem u stejného řádku).
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (osmdesátý druhý zápis)
+
+**#268 (tropická pláž) doměřeno, dostalo ještě jednu opravu a je na mainu jako `5832d81`** (merge `--no-ff` větve `268-rocks-sway-with-wind`) **a zavřené**. Issue bylo od minula otevřené, přestože jeho čtyři body byly hotové — kontrola je potvrdila a našla pátou věc.
+
+**⚠ Kameny na pláži se kývaly ve větru, a bylo to horší než posun: trhaly se.** Majitelovými slovy „na té pláži se pohybují kameny s větrem, to je blbost". Mechanismus stojí za přečtení, protože je to past na každý shader, co si přetíží texturní souřadnici: **`Palm.fx` čte `TEXCOORD0.x` jako váhu ohybu**, a vahou to je jen proto, že si ji tam `PalmMesh` schválně zapéká (0 na kmeni → 1 na hrotu listu). `SwayStrength` se ale nastavovala **raz za snímek** v `ApplyPalmFrame`, kterou volá i `DrawTropicalRocks` — a `RockMesh` **sám je `LatheMesh`** (vydává `_lathe`ovy buffery), stejně jako jeho mechová čepička, přičemž `LatheMesh` si do UV.x píše `s / segments`, tedy **0→1 po obvodu**. Jedna strana každého prstence se tedy posouvala plnou vahou hrotu palmového listu a druhá stála. Síla ohybu je teď **parametr per část** `DrawPalmPart` vedle `dappleStrength`, takže žádný mesh nemůže zdědit kývání, které mu nikdo nechtěl dát; varování nese shader i oba call sity.
+
+**Metoda, která to prokázala, a je znovupoužitelná:** párový diff dvou snímků z **jedné pevné kamery v různém nástěnném čase**, s **pozitivní kontrolou** ve stejné dvojici. V boxech s kameny se nezměnil ani jeden pixel o víc než 24 (mean |d| 0,00 a 0,07); palmové korony v týchž dvou snímcích měly 18,7 % pixelů nad prahem a max 198. Bez té kontroly by „nic se nezměnilo" mohlo znamenat jen to, že test nic nevidí. Pozor při tom na pohyblivý stín mraků — holý písek jako negativní kontrola měl mean |d| 17,6, takže samotné „nenulové" číslo nic nedokazuje.
+
+**⚠ A jedna past, do které jsem sám šlápl a málem z ní udělal nález:** hřeben vzdáleného břehu mi na horizontu naměřil (205, 204, 175), tedy prakticky dokumentované „před opravou" (204, 199, 168) — vypadalo to, že bod 1 nikdy nezabral. Sahal jsem ale na **vymlžený crest a zem za ním**: hřeben stojí v 300–395 při `HorizonHazeDistance` 480, takže jeho vrchol je při `haze⁸` ze ~70 % dojetý do krémového horizontu dómu 1, což je přesně zamýšlené („poslední úsek musí dojet na `HorizonColor`, jinak se hrana meshe ukáže jako šev"). Zblízka, kde mlha nehraje, měří blízký svah **(130, 147, 80)** — G nad R, B hluboko pod, jednoznačná zeleň. **Pravidlo z toho: číslo z horizontu terénní scény neměří terén, měří mlhu. Měř tam, kde `haze` je malé.** Laguna při tom měří (141, 167, 165), tedy tyrkys, jak má.
+
+**⚠ Nesahal jsem na PÍSEK a nikdo by na něj neměl sahat mimo toho, kdo ho drží: majitel říká, že vlnky v písku už řeší jiný agent.** Nechávám tu jen změřený vstup, ať se neměří dvakrát: za **jedné a téže kamery, dómu a okna** (`campos=0,-8,55 camtarget=0,-14,95`, `sky=1`, `nopost`, 1600×900, region 800×250) měří směrodatná odchylka jasu **tropical 3,70 proti desert 10,53**. Absolutní čísla nejsou srovnatelná s dokumentovanými 4,92 / 5,98 (ta jsou z nezapsané kamery — což je samo o sobě věc, kterou by ten, kdo to drží, měl při zápisu opravit), ale **jako párové srovnání to říká, že reliéf pořád čte asi na třetinu pouštního**, a to je zrovna ta scéna, proti které se to ladilo.
+
+**Ověřeno:** všechny čtyři solutiony čisté, `ScoreSim` „All levels rate the right way round".
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (osmdesátý třetí zápis)
+
 **Beru si #276 — vlnky na zemi na louce a poušti, majitelovo hlášení z playtestu.** Větev `276-ground-ripples`, **beru kartu** (`Get-Process` prázdné). Navazuje na #278 stejného tvaru: efekt, jehož *podoba* je špatně, ne jeho parametry.
 
 **Co jsem přečetl, než jsem cokoli pustil:**

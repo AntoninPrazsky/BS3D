@@ -165,6 +165,13 @@
 /build:Shaders/Ash.fx
 
 
+#begin Shaders/Mars.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Mars.fx
+
+
 #begin Shaders/Glare.fx
 /importer:EffectImporter
 /processor:EffectProcessor
