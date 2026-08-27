@@ -299,15 +299,18 @@ namespace Testbed
         //whatever NumPad1 last left it on. NumPad1 still cycles freely from there.
         private const byte MARS_DEFAULT_SKY_DOME = 19;
 
-        //The storm wants the one thing its deck cannot supply: CLEAN HIGH AIR above it, so it brought its
-        //own dome (#219). Dome 20 is a deep blue zenith over a PALE BLUE-WHITE horizon — the one thing none
-        //of the other nineteen has, every Earth-surface dome in the table warming towards its horizon
-        //because that is what haze at sea level does, where altitude goes paler and bluer instead.
+        //The storm wants CLEAN HIGH AIR around its cells, so it brought its own dome (#219). Dome 20 is a
+        //deep blue zenith over a PALE BLUE-WHITE horizon — the one thing none of the other nineteen has,
+        //every Earth-surface dome in the table warming towards its horizon because that is what haze at sea
+        //level does, where altitude goes paler and bluer instead.
         //
-        //⚠ It is not a matter of taste, and dome 11 (the set's brightest daylight, and the first pick here)
-        //is the proof: a terrain scene's distance fade must ARRIVE at the dome's exact HorizonColor to hide
-        //the finite grid's own edge, so whatever the dome's horizon is, is also what every far surface
-        //becomes — and under 11's sandy horizon the storm's cloud deck photographed as beige desert dunes.
+        //⚠ The argument that FORCED it has since died, and it is worth saying so rather than leaving a
+        //reason standing that no longer holds. It was the grid: a terrain scene's distance fade has to
+        //ARRIVE at the dome's exact HorizonColor to hide the finite mesh's own edge, so whatever the dome's
+        //horizon is, is also what every far surface becomes — and under 11's sandy horizon the storm's
+        //then-terrain cloud deck photographed as beige desert dunes. The storm is billboards now and has no
+        //mesh edge to hide, so the dome stays on the plainer ground that a pale blue-white horizon is what
+        //altitude looks like and is what keeps white cloud reading as white cloud.
         private const byte STORM_DEFAULT_SKY_DOME = 20;
 
         //Space deliberately forces NO dome, unlike those two. Its dome is neither drawn (Space.fx covers the

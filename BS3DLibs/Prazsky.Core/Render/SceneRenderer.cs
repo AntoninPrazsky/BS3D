@@ -509,18 +509,36 @@ namespace Prazsky.Core.Render
         #region Storm
 
         private readonly Effect _stormEffect;
-        private readonly VertexBuffer _stormVertexBuffer;
-        private readonly IndexBuffer _stormIndexBuffer;
-        private readonly int _stormIndexCount;
 
-        //The mountain's density and a wide extent, because this terrain carries a SILHOUETTE and not only a
-        //shaded surface: a turret's flank falls forty-odd units over a handful of cells, and the whole scene
-        //depends on those crests reading against the sky (see StormDeckConfig's own note). Over 255 a side,
-        //so CreateGridMesh's 32-bit index buffer is load-bearing here (the mountain's lesson).
-        private const int STORM_GRID_N = 360;
-        private const float STORM_EXTENT = 1400f;
+        //The cloud field: one static buffer of billboard puffs, turned to face the camera in the vertex
+        //shader. The sea's spray and the mountain's snow are drawn exactly this way, and #151 measured two
+        //thousand of those at nothing at all.
+        //Where the cells stand, kept so a strike can go off INSIDE one. A strike placed at a hashed radius
+        //instead lands in clear air about as often as not, and a discharge with no cloud around it has
+        //nothing for its glow to light - which is most of what the flash is.
+        private Vector2[] _stormStrikeCells = System.Array.Empty<Vector2>();
 
-        //Look/tuning parameters (the deck, the turrets, the cloud, the flash, the air) live in
+        private VertexBuffer _stormCloudVertexBuffer;
+        private IndexBuffer _stormCloudIndexBuffer;
+        private int _stormCloudPuffCount;
+
+        //The visible discharge. Static too, and entirely procedural in the vertex shader off the strike's
+        //own period index — so a bolt costs no CPU work per frame and every executable draws the same one
+        //at the same second, which is the rule the whole flash schedule already follows.
+        private VertexBuffer _stormBoltVertexBuffer;
+        private IndexBuffer _stormBoltIndexBuffer;
+        private int _stormBoltQuadCount;
+
+        //Segments a bolt's channel is drawn in. Enough that the jagged path reads as a filament with kinks
+        //in it rather than as a polyline; the width is a config dial and the glare pass does the rest.
+        private const int STORM_BOLT_SEGMENTS = 26;
+
+        //⚠ The buffers are 16-bit indexed, which caps the field at 16 383 quads. StormCloudsConfig's own
+        //note says so; this is where it is enforced, because a silent overflow here draws a scene made of
+        //garbage triangles rather than failing.
+        private const int STORM_MAX_QUADS = 16000;
+
+        //Look/tuning parameters (the cloud field, the material, the flash, the air) live in
         //StormSceneConfig; SceneRenderer reads them from _stormConfig.
 
         #endregion
@@ -963,12 +981,13 @@ namespace Prazsky.Core.Render
 
             ApplyMarsParameters();
 
-            //--- Storm (#219): the seventeenth scene — a deck of storm cloud at the island's foot with
-            //convective turrets towering out of it and lightning flashing inside them. Built as TERRAIN and
-            //deliberately not on the shared cloud field: Storm.fx's header has the three mechanisms that
-            //rule that out, and DrawStorm below is the one terrain draw that does NOT invoke the cloud hook.
-            _stormEffect = content.Load<Effect>("Shaders/Storm");
-            CreateGridMesh(STORM_GRID_N, STORM_EXTENT, out _stormVertexBuffer, out _stormIndexBuffer, out _stormIndexCount);
+            //--- Storm (#219): the seventeenth scene — broken cumulus standing in open air around and below
+            //the arena, with lightning breaking through the gaps. It is the one scene with NO ground in it,
+            //so it is not a terrain draw at all: StormClouds.fx's header has why a height field could not
+            //carry it and why the shared sky cloud field could not either.
+            _stormEffect = content.Load<Effect>("Shaders/StormClouds");
+            BuildStormCloudBuffers();
+            BuildStormBoltBuffers();
 
             ApplyStormParameters();
 
@@ -1161,10 +1180,15 @@ namespace Prazsky.Core.Render
         /// this and every other question about a <see cref="SceneKind"/> are answered here.
         /// </para>
         /// </summary>
+        //⚠ The STORM is deliberately not here, and it was for one build. It was classified as terrain
+        //because it was DRAWN as terrain — a displaced grid at the island's foot — and the owner rejected
+        //exactly that: the scene has no ground in it. With the deck gone there is nothing to cut the
+        //island's footprint out of and nothing an opaque pit shaft would be standing in, so the drain looks
+        //straight through onto sky and cloud the way it does over the space scene.
         public static bool IsSolidTerrainScene(SceneKind kind) =>
             kind is SceneKind.Mountain or SceneKind.Meadow or SceneKind.Savanna or SceneKind.Desert
                 or SceneKind.Forest or SceneKind.Moon or SceneKind.Outback or SceneKind.Tropical
-                or SceneKind.Volcano or SceneKind.Mars or SceneKind.Storm;
+                or SceneKind.Volcano or SceneKind.Mars;
 
         /// <summary>
         /// Whether there is a vantage <b>under</b> the island from which the balls pouring out of the drain can
@@ -1766,43 +1790,36 @@ namespace Prazsky.Core.Render
             _marsEffect.Parameters["DeimosColor"].SetValue(moons.DeimosColor.ToVector3());
         }
 
-        /// <summary>Pushes the storm's static tuning into <c>Storm.fx</c>. The flash's own per-frame values
-        /// are pushed by <see cref="DrawStorm"/>, since they come off the wall clock.</summary>
+        /// <summary>Pushes the storm's static tuning into <c>StormClouds.fx</c>. The flash's own per-frame
+        /// values are pushed by <see cref="DrawStorm"/>, since they come off the wall clock.</summary>
         private void ApplyStormParameters()
         {
-            StormDeckConfig deck = _stormConfig.Deck;
+            StormCloudsConfig clouds = _stormConfig.Clouds;
             StormSurfaceConfig surface = _stormConfig.Surface;
             StormAirConfig air = _stormConfig.Air;
 
-            _stormEffect.Parameters["StormLevelY"].SetValue(deck.LevelY);
-            _stormEffect.Parameters["ClearingRadius"].SetValue(deck.ClearingRadius);
-            _stormEffect.Parameters["ClearingTransition"].SetValue(MathF.Max(deck.ClearingTransition, 1f));
-            _stormEffect.Parameters["BillowHeight"].SetValue(deck.BillowHeight);
-
-            //The spacing divides a world position in the shader, so a zero would take the whole deck with it
-            //(a NaN height field is a mesh that vanishes, and the property grid is one keystroke from a zero).
-            _stormEffect.Parameters["TurretSpacing"].SetValue(MathF.Max(deck.TurretSpacing, 1f));
-            _stormEffect.Parameters["TurretChance"].SetValue(deck.TurretChance);
-            _stormEffect.Parameters["TurretHeight"].SetValue(deck.TurretHeight);
-            _stormEffect.Parameters["AnvilSpread"].SetValue(MathF.Max(deck.AnvilSpread, 1f));
-
             _stormEffect.Parameters["TopColor"].SetValue(surface.TopColor.ToVector3());
-            _stormEffect.Parameters["ShadeColor"].SetValue(surface.ShadeColor.ToVector3());
             _stormEffect.Parameters["BaseColor"].SetValue(surface.BaseColor.ToVector3());
-            _stormEffect.Parameters["BillowRelief"].SetValue(surface.BillowRelief);
             _stormEffect.Parameters["SilverStrength"].SetValue(surface.SilverStrength);
             _stormEffect.Parameters["AmbientStrength"].SetValue(surface.AmbientStrength);
 
-            _stormEffect.Parameters["FlashColor"].SetValue(_stormConfig.Flash.Color.ToVector3());
-            _stormEffect.Parameters["FlashDeckGlow"].SetValue(
-                _stormConfig.Flash.DeckGlow * (_stormConfig.Deck.LightningFlashesInside ? 1f : 0f));
+            _stormEffect.Parameters["PuffOpacity"].SetValue(clouds.PuffOpacity);
+            _stormEffect.Parameters["EdgeSoftness"].SetValue(Math.Clamp(clouds.EdgeSoftness, 0.01f, 0.98f));
+            _stormEffect.Parameters["UnderShade"].SetValue(clouds.UnderShade);
+            _stormEffect.Parameters["MassNormalMix"].SetValue(Math.Clamp(clouds.MassNormalMix, 0f, 1f));
+            _stormEffect.Parameters["LayerBottomY"].SetValue(clouds.LayerBottomY);
+            _stormEffect.Parameters["LayerTopY"].SetValue(clouds.LayerTopY);
 
-            //How far a strike's glow carries across the deck. ⚠ It is its OWN dial and not a figure derived
-            //from the turret spacing, which is what the first build did (spacing x 0.8 = 136 units) — and
-            //136 units around a strike standing 173 to 348 units out is a patch smaller than the gap to it,
-            //so the glow landed almost entirely outside the frame and the flash read as not working at all.
-            //Diagnosed by removing the falloff outright: the same build then blew the whole deck from a mean
-            //luminance of 189 to 255, which is what said the plumbing was sound and the radius was not.
+            _stormEffect.Parameters["FlashColor"].SetValue(_stormConfig.Flash.Color.ToVector3());
+            _stormEffect.Parameters["FlashGlow"].SetValue(_stormConfig.Flash.CloudGlow);
+            _stormEffect.Parameters["BoltColor"].SetValue(_stormConfig.Flash.BoltColor.ToVector3());
+            _stormEffect.Parameters["BoltWidth"].SetValue(MathF.Max(_stormConfig.Flash.BoltWidth, 0.02f));
+
+            //How far a strike's glow carries through the field. ⚠ It is its OWN dial and not a figure
+            //derived from anything else, which is what the first build did (a lattice spacing x 0.8 = 136
+            //units) — and 136 units around a strike standing 173 to 348 units out is a patch smaller than
+            //the gap to it, so the glow landed almost entirely outside the frame and the flash read as not
+            //working at all.
             _stormEffect.Parameters["FlashReach"].SetValue(MathF.Max(_stormConfig.Flash.GlowReach, 1f));
 
             _stormEffect.Parameters["HazeTint"].SetValue(air.HazeTint.ToVector3());
@@ -1810,6 +1827,189 @@ namespace Prazsky.Core.Render
             _stormEffect.Parameters["HazeStrength"].SetValue(air.HazeStrength);
             _stormEffect.Parameters["WindDirection"].SetValue(air.Wind.ToVector2());
             _stormEffect.Parameters["DriftSpeed"].SetValue(air.DriftSpeed);
+        }
+
+        /// <summary>
+        /// (Re)builds the storm's cloud field: cumulus cells scattered through a volume around and below the
+        /// arena, each built from soft billboard puffs. Deterministic seed, so the sky is the same one in
+        /// every executable and every session.
+        /// <para>
+        /// <b>The shape of a cell is what makes it cumulus.</b> Puffs are laid on a profile that is widest
+        /// through the middle and tapers at both ends, biased low so the body is heavier than the crown, and
+        /// their own radius shrinks with height — which is what gives the cauliflower top. Laying them in a
+        /// plain ellipsoid gives a bun, and a bun is what the height field's turrets already were.
+        /// </para>
+        /// </summary>
+        private void BuildStormCloudBuffers()
+        {
+            StormCloudsConfig c = _stormConfig.Clouds;
+
+            int massCount = Math.Max(c.MassCount, 1);
+            int perMass = Math.Max(c.PuffsPerMass, 4);
+            if (massCount * perMass > STORM_MAX_QUADS) massCount = STORM_MAX_QUADS / perMass;
+
+            _stormCloudPuffCount = massCount * perMass;
+
+            CloudPuffVertex[] vertices = new CloudPuffVertex[_stormCloudPuffCount * 4];
+            Random rng = new(90219);
+
+            float inner = MathF.Max(c.InnerRadius, 1f);
+            float outer = MathF.Max(c.OuterRadius, inner + 1f);
+
+            //Only the cells near enough for a strike in one to be worth drawing: the field runs well past
+            //the far plane so it can drift, and a bolt out there is a bolt nobody sees.
+            System.Collections.Generic.List<Vector2> strikeCells = new();
+            float strikeLimit = MathF.Min(outer, 420f);
+
+            int puff = 0;
+            for (int m = 0; m < massCount; m++)
+            {
+                //Uniform over the ANNULUS, not over the radius: sampling the radius flat crowds every cell
+                //into the middle, and a cloudscape whose cells thin out with distance reads as a bowl.
+                float t = (float)rng.NextDouble();
+                float radius = MathF.Sqrt(inner * inner + t * (outer * outer - inner * inner));
+                float bearing = (float)rng.NextDouble() * MathHelper.TwoPi;
+
+                Vector3 centre = new(MathF.Cos(bearing) * radius, Lerp(c.BaseYMin, c.BaseYMax, (float)rng.NextDouble()),
+                    MathF.Sin(bearing) * radius);
+
+                if (radius <= strikeLimit) strikeCells.Add(new Vector2(centre.X, centre.Z));
+
+                float massRadius = Lerp(c.MassRadiusMin, MathF.Max(c.MassRadiusMax, c.MassRadiusMin), (float)rng.NextDouble());
+                float massHeight = massRadius * Lerp(c.HeightScaleMin, MathF.Max(c.HeightScaleMax, c.HeightScaleMin), (float)rng.NextDouble());
+
+                for (int k = 0; k < perMass; k++)
+                {
+                    //Biased towards the base, so a cell is heavier below than above.
+                    float h = MathF.Pow((float)rng.NextDouble(), 0.80f);
+
+                    //Widest through the middle, tapering at both ends — the profile of a developed cumulus
+                    //rather than of a dome or a cone.
+                    float taper = MathF.Sqrt(MathF.Max(1f - MathF.Pow(2f * h - 1f, 2f) * 0.82f, 0.05f));
+                    float ring = massRadius * taper * MathF.Sqrt((float)rng.NextDouble());
+                    float ringAngle = (float)rng.NextDouble() * MathHelper.TwoPi;
+
+                    Vector3 position = centre + new Vector3(
+                        MathF.Cos(ringAngle) * ring,
+                        h * massHeight,
+                        MathF.Sin(ringAngle) * ring);
+
+                    //Smaller lobes towards the crown: that gradient IS the cauliflower.
+                    float puffRadius = massRadius
+                        * Lerp(c.PuffScaleMin, MathF.Max(c.PuffScaleMax, c.PuffScaleMin), (float)rng.NextDouble())
+                        * Lerp(1f, 0.62f, h);
+
+                    float seed = (float)rng.NextDouble();
+
+                    //The cell's own middle, taken at half its height: a normal measured from its foot would
+                    //point outwards and up everywhere and would light the whole cell as a dome.
+                    Vector3 massMiddle = centre + new Vector3(0f, massHeight * 0.45f, 0f);
+
+                    int v = puff * 4;
+                    vertices[v] = new CloudPuffVertex(position, new Vector4(-1f, 1f, puffRadius, seed), massMiddle);
+                    vertices[v + 1] = new CloudPuffVertex(position, new Vector4(1f, 1f, puffRadius, seed), massMiddle);
+                    vertices[v + 2] = new CloudPuffVertex(position, new Vector4(-1f, -1f, puffRadius, seed), massMiddle);
+                    vertices[v + 3] = new CloudPuffVertex(position, new Vector4(1f, -1f, puffRadius, seed), massMiddle);
+                    puff++;
+                }
+            }
+
+            _stormCloudVertexBuffer?.Dispose();
+            _stormCloudIndexBuffer?.Dispose();
+
+            _stormCloudVertexBuffer = new VertexBuffer(_graphicsDevice, CloudPuffVertex.Declaration, vertices.Length, BufferUsage.WriteOnly);
+            _stormCloudVertexBuffer.SetData(vertices);
+            _stormCloudIndexBuffer = BuildQuadIndexBuffer(_stormCloudPuffCount);
+            _stormStrikeCells = strikeCells.ToArray();
+        }
+
+        /// <summary>
+        /// (Re)builds the lightning channels. The buffer carries nothing but which bolt and how far along it
+        /// each vertex is — the path itself is hashed in the vertex shader off the strike's own period
+        /// index, so a bolt costs no per-frame CPU work and is the same one in every executable.
+        /// </summary>
+        private void BuildStormBoltBuffers()
+        {
+            int bolts = Math.Max(_stormConfig.Flash.BoltCount, 0);
+            _stormBoltQuadCount = bolts * STORM_BOLT_SEGMENTS;
+            if (_stormBoltQuadCount == 0) return;
+
+            CloudPuffVertex[] vertices = new CloudPuffVertex[_stormBoltQuadCount * 4];
+
+            int quad = 0;
+            for (int b = 0; b < bolts; b++)
+            {
+                for (int s = 0; s < STORM_BOLT_SEGMENTS; s++)
+                {
+                    float t0 = s / (float)STORM_BOLT_SEGMENTS;
+                    float t1 = (s + 1) / (float)STORM_BOLT_SEGMENTS;
+
+                    int v = quad * 4;
+                    vertices[v] = new CloudPuffVertex(new Vector3(b, t0, -1f), Vector4.Zero, Vector3.Zero);
+                    vertices[v + 1] = new CloudPuffVertex(new Vector3(b, t0, 1f), Vector4.Zero, Vector3.Zero);
+                    vertices[v + 2] = new CloudPuffVertex(new Vector3(b, t1, -1f), Vector4.Zero, Vector3.Zero);
+                    vertices[v + 3] = new CloudPuffVertex(new Vector3(b, t1, 1f), Vector4.Zero, Vector3.Zero);
+                    quad++;
+                }
+            }
+
+            _stormBoltVertexBuffer?.Dispose();
+            _stormBoltIndexBuffer?.Dispose();
+
+            _stormBoltVertexBuffer = new VertexBuffer(_graphicsDevice, CloudPuffVertex.Declaration, vertices.Length, BufferUsage.WriteOnly);
+            _stormBoltVertexBuffer.SetData(vertices);
+            _stormBoltIndexBuffer = BuildQuadIndexBuffer(_stormBoltQuadCount);
+        }
+
+        //Two triangles a quad, in the winding the billboard shaders here already expect. Shared because the
+        //cloud field and the bolts differ in nothing but their vertex data.
+        private IndexBuffer BuildQuadIndexBuffer(int quads)
+        {
+            short[] indices = new short[quads * 6];
+            for (int i = 0; i < quads; i++)
+            {
+                int v = i * 4;
+                int o = i * 6;
+                indices[o] = (short)v; indices[o + 1] = (short)(v + 2); indices[o + 2] = (short)(v + 1);
+                indices[o + 3] = (short)(v + 1); indices[o + 4] = (short)(v + 2); indices[o + 5] = (short)(v + 3);
+            }
+
+            IndexBuffer buffer = new(_graphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
+            buffer.SetData(indices);
+
+            return buffer;
+        }
+
+        private static float Lerp(float a, float b, float t) => a + (b - a) * t;
+
+        //A billboard puff: where it stands in the world, and (corner x, corner y, radius, seed). The corner
+        //is the unit quad's own -1..1 offset, which the pixel shader reads back as the puff's disc
+        //coordinate — so one attribute carries both the billboard and the shading frame.
+        private struct CloudPuffVertex : IVertexType
+        {
+            public Vector3 Position;
+            public Vector4 Data;
+
+            //The middle of the CELL this puff belongs to. It is what lets a mass shade as one body: without
+            //it every puff shades as its own little sphere, complete with its own light-to-dark gradient
+            //and its own circular edge, and a cell built of those reads as a heap of balls rather than as
+            //cloud. Carried per vertex because there is nowhere cheaper to put it - a puff has no other way
+            //of knowing what it is part of.
+            public Vector3 MassCentre;
+
+            public CloudPuffVertex(Vector3 position, Vector4 data, Vector3 massCentre)
+            {
+                Position = position;
+                Data = data;
+                MassCentre = massCentre;
+            }
+
+            public static readonly VertexDeclaration Declaration = new(
+                new VertexElement(0, VertexElementFormat.Vector3, VertexElementUsage.Position, 0),
+                new VertexElement(12, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 0),
+                new VertexElement(28, VertexElementFormat.Vector3, VertexElementUsage.Normal, 0));
+
+            readonly VertexDeclaration IVertexType.VertexDeclaration => Declaration;
         }
 
         /// <summary>
@@ -1865,11 +2065,21 @@ namespace Prazsky.Core.Render
             float period = MathF.Max(_stormConfig.Flash.Period, 0.5f);
             float index = MathF.Floor(time / period);
 
-            float bearing = Hash01(index + 57f) * MathHelper.TwoPi;
-            float reach = _stormConfig.Deck.ClearingRadius + 60f
-                + Hash01(index + 991f) * MathF.Max(_stormConfig.Deck.TurretSpacing, 1f) * 1.2f;
+            //⚠ IN A CELL, not at a hashed radius. Placed by radius and bearing alone a strike lands in clear
+            //air about as often as in cloud, and a discharge with nothing around it lights nothing - the
+            //glow IS the flash from most cameras, since the channel itself is usually inside the cell it
+            //went off in. The cells' own middles are kept when the field is built for exactly this.
+            if (_stormStrikeCells.Length > 0)
+            {
+                int cell = (int)(Hash01(index + 57f) * _stormStrikeCells.Length);
+                return _stormStrikeCells[Math.Clamp(cell, 0, _stormStrikeCells.Length - 1)];
+            }
 
-            return new Vector2(MathF.Cos(bearing) * reach, MathF.Sin(bearing) * reach);
+            //Nothing to strike (a field configured empty): fall back to a ring outside the arena.
+            float inner = MathF.Max(_stormConfig.Clouds.InnerRadius, 1f) + 40f;
+            float bearing = Hash01(index + 57f) * MathHelper.TwoPi;
+
+            return new Vector2(MathF.Cos(bearing) * inner, MathF.Sin(bearing) * inner);
         }
 
         /// <summary>
@@ -1927,47 +2137,73 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the storm (#219): the grid pinned to the camera (snapped to a cell so the deck does not
-        /// swim), carrying the cloud deck and its turrets, shaded per-pixel by the current dome.
+        /// Draws the storm (#219): the field of cumulus cells, then the lightning channel over it.
         /// <para>
-        /// <b>It deliberately does NOT invoke <see cref="SceneFrame.ApplyClouds"/></b>, alone among the
-        /// terrain draws. The hook pushes the sky's own weather into a scene effect's <c>Cloud*</c>
-        /// namespace, and this deck neither wants a cloud shadow cast on it (it <i>is</i> the cloud) nor
-        /// could survive one: <c>CloudSunlight</c> above the shared plane degenerates to the point's own
-        /// column and returns about the shadow floor. <c>Storm.fx</c>'s header has the whole argument.
+        /// <b>Alpha-blended, depth-read, depth-write off</b> — the sea's spray and the mountain's snow are
+        /// drawn the same way and for the same reason: a soft-edged billboard that wrote depth would punch
+        /// its own quad's silhouette out of everything behind it, which is the hard edge this whole scene
+        /// exists to avoid. The field is unsorted, which is a real approximation and an acceptable one here:
+        /// every puff is the same near-white medium, so getting two of them the wrong way round changes the
+        /// blend weights and nothing the eye can name.
+        /// </para>
+        /// <para>
+        /// <b>It deliberately does NOT invoke <see cref="SceneFrame.ApplyClouds"/></b>. The hook pushes the
+        /// sky's own weather into a scene effect's <c>Cloud*</c> namespace, and this field neither wants a
+        /// cloud shadow cast on it (it <i>is</i> the cloud) nor could survive one: <c>CloudSunlight</c>
+        /// above the shared plane degenerates to the point's own column and returns about the shadow floor.
+        /// <c>StormClouds.fx</c>'s header has the whole argument.
         /// </para>
         /// </summary>
         private void DrawStorm(in SceneFrame frame)
         {
-            float cell = STORM_EXTENT / (STORM_GRID_N - 1);
-            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
+            Matrix inverseView = Matrix.Invert(frame.Camera.View);
+            float envelope = StormFlash(frame.Time);
 
-            _stormEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _stormEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
             _stormEffect.Parameters["View"].SetValue(frame.Camera.View);
             _stormEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
             _stormEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
+            _stormEffect.Parameters["CameraRight"].SetValue(inverseView.Right);
+            _stormEffect.Parameters["CameraUp"].SetValue(inverseView.Up);
             _stormEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
             _stormEffect.Parameters["SunColor"].SetValue(frame.SunColor);
             _stormEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
             _stormEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
-            _stormEffect.Parameters["StormTime"].SetValue(frame.Time);
+            _stormEffect.Parameters["CloudTime"].SetValue(frame.Time);
 
             //The strike, off the same clock and the same hashed period index the light rig's own lamp reads,
-            //so the glow in the cloud and the flash on the arena cannot disagree about which cell went off.
-            _stormEffect.Parameters["FlashEnvelope"].SetValue(StormFlash(frame.Time));
+            //so the glow in the cloud, the channel drawn through it and the flash on the arena cannot
+            //disagree about which cell went off.
+            _stormEffect.Parameters["FlashEnvelope"].SetValue(envelope);
             _stormEffect.Parameters["FlashCenterXZ"].SetValue(StormFlashCenter(frame.Time));
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _graphicsDevice.SetVertexBuffer(_stormVertexBuffer);
-            _graphicsDevice.Indices = _stormIndexBuffer;
-            _stormEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _stormIndexCount / 3);
+            _stormEffect.Parameters["FlashStrikeIndex"].SetValue(
+                MathF.Floor(frame.Time / MathF.Max(_stormConfig.Flash.Period, 0.5f)));
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _graphicsDevice.SetVertexBuffer(_stormCloudVertexBuffer);
+            _graphicsDevice.Indices = _stormCloudIndexBuffer;
+            _stormEffect.CurrentTechnique = _stormEffect.Techniques["StormClouds"];
+            _stormEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _stormCloudPuffCount * 2);
+
+            //The channel, and only while one is running: between strikes this is the whole cost of the
+            //lightning. Additive, because a discharge adds light to whatever is behind it and never hides
+            //it — a channel drawn with alpha over cloud reads as a painted stripe.
+            if (envelope > 0f && _stormBoltQuadCount > 0)
+            {
+                _graphicsDevice.BlendState = BlendState.Additive;
+
+                _graphicsDevice.SetVertexBuffer(_stormBoltVertexBuffer);
+                _graphicsDevice.Indices = _stormBoltIndexBuffer;
+                _stormEffect.CurrentTechnique = _stormEffect.Techniques["StormBolts"];
+                _stormEffect.CurrentTechnique.Passes[0].Apply();
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _stormBoltQuadCount * 2);
+            }
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
@@ -5015,8 +5251,10 @@ namespace Prazsky.Core.Render
             _moonIndexBuffer?.Dispose();
             _marsVertexBuffer?.Dispose();
             _marsIndexBuffer?.Dispose();
-            _stormVertexBuffer?.Dispose();
-            _stormIndexBuffer?.Dispose();
+            _stormCloudVertexBuffer?.Dispose();
+            _stormCloudIndexBuffer?.Dispose();
+            _stormBoltVertexBuffer?.Dispose();
+            _stormBoltIndexBuffer?.Dispose();
         }
     }
 }

@@ -172,11 +172,11 @@
 /build:Shaders/Mars.fx
 
 
-#begin Shaders/Storm.fx
+#begin Shaders/StormClouds.fx
 /importer:EffectImporter
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
-/build:Shaders/Storm.fx
+/build:Shaders/StormClouds.fx
 
 
 #begin Shaders/Glare.fx
