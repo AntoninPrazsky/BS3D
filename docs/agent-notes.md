@@ -2439,3 +2439,34 @@ Se starými čísly: `PoleZ` = breechZ 2,5 + kopule 0,74 = **3,24**, stoh pod č
 **Ověřeno:** čtyři solutiony čisté; před/po na téže kameře (`campos=9,-7.3,22 camtarget=0,-8.3,20.5`) — před závěr pod kamenem, po nad ním; snímek skoro z roviny kamene ukazuje kolo na kameni, rameno lafety dosedající a závěr volný; `aimcheck` PASS na dvou mapách; a snímek z běžící hry (`play`, hrací kamera) s dělem stojícím správně nad sestavou.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (osmdesátý osmý zápis)
+
+**#298 změřeno na slabém stroji, větev `298-tiers-on-the-weak-machine`.** Kolega ho zakládal větou „referenční desktop je na tuhle otázku špatný stroj" — a sedím na tom správném, s harnessem, který jsem dneska u #151 postavil. **Výsledek je přesně opačný než na desktopu.**
+
+**Podmínky:** referenční APU (Ryzen 7 5700U + integrovaný Radeon), `BS3D.exe` s `level=<jméno> quality=<tier>`, `nocap`, okno 1600×900, běhy 70 s s odříznutými prvními 25 čteními, medián zbytku; podmínky **čtené zpátky z řádku `[fps]`**, ne předpokládané — level si nese vlastní scénu i dóm (past 11 z #270). Rozpočet téhle mašiny je **16,1 ms**: limitér hlásí `limit 62 (refresh)`.
+
+| level | scéna | `High` | `Medium` | `Low` |
+|---|---|---|---|---|
+| Ziggurat | neonové město | 37,88 ms | **15,95** | **15,02** |
+| Turbine | město | 32,26 | **13,66** | **12,76** |
+| One | louka | 26,04 | **14,03** | **14,01** |
+| Ten | hory | 39,06 | 18,71 | 18,73 |
+| Spring | jeskyně | 22,30 | 20,49 | 20,53 |
+
+- **`High` mine panel na KAŽDÉM změřeném levelu**, 1,4× až 2,4×. Žebřík tierů tady není ozdoba — je to to, co dělá hru na téhle třídě strojů hratelnou. Desktopové „nic v shipnutém setu tier nepotřebuje" je fakt o desktopu.
+- **Celý žebřík je supersampling.** `Medium` je 12,0 až 21,9 ms, tedy 46–58 % snímku, na čtyřech scénách, jejichž pass škáluje s počtem stínovaných pixelů.
+- **⚠ NÁLEZ: `Low` JE `Medium` mimo dvě městské scény, a měření to říká na dvě desetinná místa** — hory +0,02 ms, jeskyně +0,04, louka −0,02, všechno šum. Není to ladicí přehmat, je to tvar žebříku: `ApplyQuality` dává `SceneDetail` i `SurfaceDetail` pryč **už na Medium** (`quality == High ? 1 : 0`), takže mezi dvěma příčkami nezbývá nic než městská fasáda a okenní rámy. To je 0,90–0,93 ms ve městech a přesně nic v ostatních třinácti scénách. **Stroj, který neudrží Medium, tedy nemá kam jít** — a dva z pěti změřených levelů přesně tam jsou.
+- **Jeskyni žebřík nepomůže vůbec** (22,30 → 20,49, tedy 8 % tam, kde ostatní dávají 46–58 %), a není to překvapení, je to signatura #155: jeskyně a sen stínují od té doby target o velikosti **back bufferu** a škálují ho nahoru, takže supersampling jejich passem skoro nehne — past 7 z `benchmark` skillu. Sedí 27 % nad panelem na všech třech tierech.
+
+**⚠ A při té příležitosti chyba v komentáři, kterou našlo čtení `ApplyQuality` vedle tabulky presetů:** u `Medium` stálo „and every scene's full detail". **To je nepravda** — `SceneDetail` (redukované programy lesa a snu) i `SurfaceDetail` (hrubý reliéf kamenné čepice) jsou vypnuté už na Medium. Tabulka `Presets` **není celý tier**; půlka toho, co tier dělá, v tom poli není. Opraveno a doplněna věta, aby to příště někdo přečetl dřív, než tam bude něco přidávat.
+
+**Co tím NENÍ rozhodnuto: jestli přeladit.** Díra v žebříku je teď změřená a pojmenovaná, ale zacpat ji znamená dát `Low` něco, co dosáhne na těch třináct nem̌estských scén — a to je rozhodnutí o vzhledu, ne o aritmetice, tedy majitelovo. Napsal jsem to tak do `docs/game-shell.md` i do komentářů a issue nechávám otevřené.
+
+**Zapsáno do:** `docs/game-shell.md` (celá matice místo retrahovaných čísel), `Game/QualityLevel.cs` (obě příčky) a `Game/BS3DGame.Quality.cs` (protiměření k retrahované citaci — obě čtení platí, každé o svém stroji, a ani jedno se nesmí citovat za to druhé).
+
+**Ověřeno:** čtyři solutiony čisté; každý běh má na `[fps]` řádku zkontrolovanou scénu, dóm, ssaa i velikost back bufferu (tier se pozná podle `ssaa 2x` proti `1x`); 46–48 čtení na buňku a rozptyl min/max u drahých scén pod 5 %.
+
+**Nic dalšího si neberu.**
