@@ -188,5 +188,11 @@
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/Mars.fx;Shaders/Mars.fx
 
+#begin ../../Testbed/Content/Shaders/Storm.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Storm.fx;Shaders/Storm.fx
+
 
 

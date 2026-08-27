@@ -48,6 +48,13 @@ namespace BS3D
         //dome 19 IS the Martian sky.
         private const byte MARS_SKY_DOME = 19;
 
+        //The storm has a dome built for it too (#219): dome 20 is high air — a deep blue zenith over a PALE
+        //BLUE-WHITE horizon, which is the one thing none of the other nineteen has. It is not a preference:
+        //a terrain scene's distance fade has to arrive at the dome's exact horizon colour to hide the grid's
+        //own edge, so the dome's horizon is also the colour the far deck ends up — and under every
+        //warm-horizoned daylight dome the cloud deck photographed as desert dunes. The Testbed's figure.
+        private const byte STORM_SKY_DOME = 20;
+
         //Space deliberately forces NO dome, unlike those two. Its dome is neither drawn (Space.fx covers the
         //whole frame) nor read (SpaceLightingConfig states the light rig instead, for the reasons set out
         //there) — so it is completely inert in that scene, and changing the player's dome behind their back to
@@ -398,6 +405,7 @@ namespace BS3D
             else if (scene == SceneKind.Tropical) _skyDome = TROPICAL_SKY_DOME;
             else if (scene == SceneKind.Volcano) _skyDome = VOLCANO_SKY_DOME;
             else if (scene == SceneKind.Mars) _skyDome = MARS_SKY_DOME;
+            else if (scene == SceneKind.Storm) _skyDome = STORM_SKY_DOME;
 
             //And the sky the scene stands under (#221). It is the scene's own default here; a level says
             //what it is like TODAY and overrides this a moment later, in BuildLevel, which is the same

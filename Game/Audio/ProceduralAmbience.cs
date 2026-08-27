@@ -365,6 +365,22 @@ namespace BS3D.Audio
                     AddBand(mix, seed + 1, 3000f, 7200f, 0.16f, t => Swell(t, 3, 0.30f, 1.4f), WIDTH_CLOSE);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.05f);
 
+                case SceneKind.Storm:
+                    //High-altitude wind over a storm deck — the sound of being ABOVE weather rather than in
+                    //it. A wide, steady rush of thin air with none of the desert's grit and none of the
+                    //sea's rhythm, because at this altitude there is nothing for the wind to move against;
+                    //under it the storm's own body, a very low near-steady swell that is the deck itself
+                    //working, deliberately far too slow to read as a rhythm.
+                    //
+                    //It carries NO thunder: thunder is an EVENT, and this bed is a sealed 16-second loop, so
+                    //a bang baked in here would arrive on a fixed interval — a metronome, which is exactly
+                    //the failure the flash's own hashed schedule exists to avoid. The thunder hangs off
+                    //SceneRenderer.StormFlash instead (see this file's own note on the default arm and
+                    //docs/scenes.md's storm section).
+                    AddBand(mix, seed, 400f, 3000f, 1.0f, t => Swell(t, 2, 0.42f, 0f), WIDTH_AROUND);
+                    AddBand(mix, seed + 1, 0f, 60f, 0.55f, t => Swell(t, 1, 0.55f, 1.3f), WIDTH_NEAR);
+                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.10f);
+
                 default:
                     //A NEW SCENE LANDS HERE, AND IT IS MEANT TO BE OBVIOUS. This arm was the cavern's until
                     //#125 gave the Moon its own, and it was the Moon's until #112 gave the outback one — each

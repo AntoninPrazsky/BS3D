@@ -299,6 +299,17 @@ namespace Testbed
         //whatever NumPad1 last left it on. NumPad1 still cycles freely from there.
         private const byte MARS_DEFAULT_SKY_DOME = 19;
 
+        //The storm wants the one thing its deck cannot supply: CLEAN HIGH AIR above it, so it brought its
+        //own dome (#219). Dome 20 is a deep blue zenith over a PALE BLUE-WHITE horizon — the one thing none
+        //of the other nineteen has, every Earth-surface dome in the table warming towards its horizon
+        //because that is what haze at sea level does, where altitude goes paler and bluer instead.
+        //
+        //⚠ It is not a matter of taste, and dome 11 (the set's brightest daylight, and the first pick here)
+        //is the proof: a terrain scene's distance fade must ARRIVE at the dome's exact HorizonColor to hide
+        //the finite grid's own edge, so whatever the dome's horizon is, is also what every far surface
+        //becomes — and under 11's sandy horizon the storm's cloud deck photographed as beige desert dunes.
+        private const byte STORM_DEFAULT_SKY_DOME = 20;
+
         //Space deliberately forces NO dome, unlike those two. Its dome is neither drawn (Space.fx covers the
         //whole frame) nor read (SpaceLightingConfig states the light rig instead, for the reasons set out
         //there) - so it is completely inert in that scene, and NumPad1 cycling domes in it changes nothing.
@@ -495,6 +506,7 @@ namespace Testbed
             else if (_scene == SceneKind.Tropical) _skyModelNumber = TROPICAL_DEFAULT_SKY_DOME; //The beach defaults to the brightest blue
             else if (_scene == SceneKind.Volcano) _skyModelNumber = VOLCANO_DEFAULT_SKY_DOME;   //The volcano defaults to the darkest dome
             else if (_scene == SceneKind.Mars) _skyModelNumber = MARS_DEFAULT_SKY_DOME;         //Mars defaults to its own dome
+            else if (_scene == SceneKind.Storm) _skyModelNumber = STORM_DEFAULT_SKY_DOME;       //The storm defaults to the brightest daylight
 
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;

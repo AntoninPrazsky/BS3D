@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
@@ -40,7 +40,7 @@ namespace Prazsky.Core.Render
     /// <see cref="SceneRenderer.CycleLength"/> is a prefix of it.
     /// </para>
     /// </summary>
-    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon, Outback, Tropical, Volcano, Mars }
+    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon, Outback, Tropical, Volcano, Mars, Storm }
 
     /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,
@@ -306,6 +306,7 @@ namespace Prazsky.Core.Render
         private TropicalSceneConfig _tropicalConfig = new();
         private VolcanoSceneConfig _volcanoConfig = new();
         private MarsSceneConfig _marsConfig = new();
+        private StormSceneConfig _stormConfig = new();
 
         #region Sea
 
@@ -502,6 +503,25 @@ namespace Prazsky.Core.Render
 
         //Look/tuning parameters (clearing, craters, rust surface, dust haze, the two moons) live in
         //MarsSceneConfig; SceneRenderer reads them from _marsConfig.
+
+        #endregion
+
+        #region Storm
+
+        private readonly Effect _stormEffect;
+        private readonly VertexBuffer _stormVertexBuffer;
+        private readonly IndexBuffer _stormIndexBuffer;
+        private readonly int _stormIndexCount;
+
+        //The mountain's density and a wide extent, because this terrain carries a SILHOUETTE and not only a
+        //shaded surface: a turret's flank falls forty-odd units over a handful of cells, and the whole scene
+        //depends on those crests reading against the sky (see StormDeckConfig's own note). Over 255 a side,
+        //so CreateGridMesh's 32-bit index buffer is load-bearing here (the mountain's lesson).
+        private const int STORM_GRID_N = 360;
+        private const float STORM_EXTENT = 1400f;
+
+        //Look/tuning parameters (the deck, the turrets, the cloud, the flash, the air) live in
+        //StormSceneConfig; SceneRenderer reads them from _stormConfig.
 
         #endregion
 
@@ -933,6 +953,15 @@ namespace Prazsky.Core.Render
 
             ApplyMarsParameters();
 
+            //--- Storm (#219): the seventeenth scene — a deck of storm cloud at the island's foot with
+            //convective turrets towering out of it and lightning flashing inside them. Built as TERRAIN and
+            //deliberately not on the shared cloud field: Storm.fx's header has the three mechanisms that
+            //rule that out, and DrawStorm below is the one terrain draw that does NOT invoke the cloud hook.
+            _stormEffect = content.Load<Effect>("Shaders/Storm");
+            CreateGridMesh(STORM_GRID_N, STORM_EXTENT, out _stormVertexBuffer, out _stormIndexBuffer, out _stormIndexCount);
+
+            ApplyStormParameters();
+
             //--- Savanna: a flat lattice the shader displaces into gentle grassland (per-pixel normal, no grid)
             _savannaEffect = content.Load<Effect>("Shaders/Savanna");
             CreateGridMesh(SAVANNA_GRID_N, SAVANNA_EXTENT, out _savannaVertexBuffer, out _savannaIndexBuffer, out _savannaIndexCount);
@@ -1123,7 +1152,7 @@ namespace Prazsky.Core.Render
         public static bool IsSolidTerrainScene(SceneKind kind) =>
             kind is SceneKind.Mountain or SceneKind.Meadow or SceneKind.Savanna or SceneKind.Desert
                 or SceneKind.Forest or SceneKind.Moon or SceneKind.Outback or SceneKind.Tropical
-                or SceneKind.Volcano or SceneKind.Mars;
+                or SceneKind.Volcano or SceneKind.Mars or SceneKind.Storm;
 
         /// <summary>
         /// Whether there is a vantage <b>under</b> the island from which the balls pouring out of the drain can
@@ -1155,7 +1184,7 @@ namespace Prazsky.Core.Render
         //reads better than the singular enum member and is deliberately not "corrected" to match it; the
         //parse keys below are the singular ones, because those are what a command line already takes.
         private static readonly string[] SCENE_NAMES =
-            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream", "Cavern", "Moon", "Outback", "Tropical", "Volcano", "Mars" };
+            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream", "Cavern", "Moon", "Outback", "Tropical", "Volcano", "Mars", "Storm" };
 
         /// <summary>
         /// The scene's name for a menu or a log line. Display text, not a parse key — see
@@ -1189,6 +1218,7 @@ namespace Prazsky.Core.Render
                 case "tropical": kind = SceneKind.Tropical; return true;
                 case "volcano": kind = SceneKind.Volcano; return true;
                 case "mars": kind = SceneKind.Mars; return true;
+                case "storm": kind = SceneKind.Storm; return true;
                 default: kind = default; return false;
             }
         }
@@ -1235,6 +1265,10 @@ namespace Prazsky.Core.Render
                 case MarsSceneConfig mars:
                     _marsConfig = mars;
                     ApplyMarsParameters();
+                    break;
+                case StormSceneConfig storm:
+                    _stormConfig = storm;
+                    ApplyStormParameters();
                     break;
                 case SavannaSceneConfig savanna:
                     _savannaConfig = savanna;
@@ -1442,6 +1476,7 @@ namespace Prazsky.Core.Render
             SceneKind.Tropical => _tropicalConfig,
             SceneKind.Volcano => _volcanoConfig,
             SceneKind.Mars => _marsConfig,
+            SceneKind.Storm => _stormConfig,
             _ => null,
         };
 
@@ -1717,6 +1752,211 @@ namespace Prazsky.Core.Render
             _marsEffect.Parameters["DeimosDirection"].SetValue(DirectionFromElevationAzimuth(moons.DeimosElevation, moons.DeimosAzimuth));
             _marsEffect.Parameters["DeimosAngularRadius"].SetValue(MathHelper.ToRadians(MathF.Max(moons.DeimosAngularRadiusDegrees, 0f)));
             _marsEffect.Parameters["DeimosColor"].SetValue(moons.DeimosColor.ToVector3());
+        }
+
+        /// <summary>Pushes the storm's static tuning into <c>Storm.fx</c>. The flash's own per-frame values
+        /// are pushed by <see cref="DrawStorm"/>, since they come off the wall clock.</summary>
+        private void ApplyStormParameters()
+        {
+            StormDeckConfig deck = _stormConfig.Deck;
+            StormSurfaceConfig surface = _stormConfig.Surface;
+            StormAirConfig air = _stormConfig.Air;
+
+            _stormEffect.Parameters["StormLevelY"].SetValue(deck.LevelY);
+            _stormEffect.Parameters["ClearingRadius"].SetValue(deck.ClearingRadius);
+            _stormEffect.Parameters["ClearingTransition"].SetValue(MathF.Max(deck.ClearingTransition, 1f));
+            _stormEffect.Parameters["BillowHeight"].SetValue(deck.BillowHeight);
+
+            //The spacing divides a world position in the shader, so a zero would take the whole deck with it
+            //(a NaN height field is a mesh that vanishes, and the property grid is one keystroke from a zero).
+            _stormEffect.Parameters["TurretSpacing"].SetValue(MathF.Max(deck.TurretSpacing, 1f));
+            _stormEffect.Parameters["TurretChance"].SetValue(deck.TurretChance);
+            _stormEffect.Parameters["TurretHeight"].SetValue(deck.TurretHeight);
+            _stormEffect.Parameters["AnvilSpread"].SetValue(MathF.Max(deck.AnvilSpread, 1f));
+
+            _stormEffect.Parameters["TopColor"].SetValue(surface.TopColor.ToVector3());
+            _stormEffect.Parameters["ShadeColor"].SetValue(surface.ShadeColor.ToVector3());
+            _stormEffect.Parameters["BaseColor"].SetValue(surface.BaseColor.ToVector3());
+            _stormEffect.Parameters["BillowRelief"].SetValue(surface.BillowRelief);
+            _stormEffect.Parameters["SilverStrength"].SetValue(surface.SilverStrength);
+            _stormEffect.Parameters["AmbientStrength"].SetValue(surface.AmbientStrength);
+
+            _stormEffect.Parameters["FlashColor"].SetValue(_stormConfig.Flash.Color.ToVector3());
+            _stormEffect.Parameters["FlashDeckGlow"].SetValue(
+                _stormConfig.Flash.DeckGlow * (_stormConfig.Deck.LightningFlashesInside ? 1f : 0f));
+
+            //How far a strike's glow carries across the deck. ⚠ It is its OWN dial and not a figure derived
+            //from the turret spacing, which is what the first build did (spacing x 0.8 = 136 units) — and
+            //136 units around a strike standing 173 to 348 units out is a patch smaller than the gap to it,
+            //so the glow landed almost entirely outside the frame and the flash read as not working at all.
+            //Diagnosed by removing the falloff outright: the same build then blew the whole deck from a mean
+            //luminance of 189 to 255, which is what said the plumbing was sound and the radius was not.
+            _stormEffect.Parameters["FlashReach"].SetValue(MathF.Max(_stormConfig.Flash.GlowReach, 1f));
+
+            _stormEffect.Parameters["HazeTint"].SetValue(air.HazeTint.ToVector3());
+            _stormEffect.Parameters["HorizonHazeDistance"].SetValue(MathF.Max(air.HorizonHazeDistance, 1f));
+            _stormEffect.Parameters["HazeStrength"].SetValue(air.HazeStrength);
+            _stormEffect.Parameters["WindDirection"].SetValue(air.Wind.ToVector2());
+            _stormEffect.Parameters["DriftSpeed"].SetValue(air.DriftSpeed);
+        }
+
+        /// <summary>
+        /// The storm's lightning envelope at a wall-clock time: 0 between strikes, rising to 1 at a
+        /// strike's peak. <b>A pure function of the clock with no state at all</b>, exactly as
+        /// <see cref="VolcanoEruption"/> is and for the same reason — the Game, the Testbed and the map
+        /// editor then all see the same strike at the same second, nothing has to be saved or synchronised,
+        /// and (the reason it is <c>public</c>) a sound can hang off it without owning the schedule.
+        /// <para>
+        /// The shape is a flash and not a burst: a near-instant attack, a fast decay, and a <b>flicker</b>
+        /// over the whole envelope, because real lightning is a train of return strokes and that stutter is
+        /// most of what says "lightning" rather than "a light being switched on". Each strike's moment
+        /// within its period and its size are hashed off the period's own index, so it never becomes a
+        /// metronome — the volcano's own rule.
+        /// </para>
+        /// </summary>
+        public float StormFlash(float time)
+        {
+            StormFlashConfig flash = _stormConfig.Flash;
+
+            float period = MathF.Max(flash.Period, 0.5f);
+            float u = time / period;
+            float index = MathF.Floor(u);
+
+            float start = 0.08f + 0.62f * Hash01(index);
+            float length = Math.Clamp(MathF.Max(flash.Length, 0.05f) / period, 0.01f, 0.7f);
+
+            float p = (u - index - start) / length;
+            if (p <= 0f || p >= 1f) return 0f;
+
+            //A hard attack over the first 6 % and a fast power decay after it.
+            float envelope = p < 0.06f ? p / 0.06f : MathF.Pow(1f - (p - 0.06f) / 0.94f, 2.6f);
+
+            //The return strokes. Rectified so every flicker is a brightening rather than a sign change, and
+            //floored well above zero so the channel never goes fully dark mid-strike (which reads as two
+            //separate strikes rather than one stuttering one).
+            float flicker = MathF.Max(flash.Flicker, 0f);
+            if (flicker > 0f)
+                envelope *= 0.55f + 0.45f * MathF.Abs(MathF.Cos(p * MathHelper.Pi * flicker));
+
+            //Not every strike is the same size: a scene whose every event is identical stops having events.
+            return envelope * (0.5f + 0.5f * Hash01(index + 313f));
+        }
+
+        /// <summary>
+        /// Where the current strike stands, in the XZ plane. Hashed off the same period index the envelope
+        /// is, so the flash's glow and the light it throws cannot disagree about which cell went off — and
+        /// held out past the clearing, because a strike inside the ring the island stands in would be a
+        /// bolt in the play field rather than weather in the distance.
+        /// </summary>
+        private Vector2 StormFlashCenter(float time)
+        {
+            float period = MathF.Max(_stormConfig.Flash.Period, 0.5f);
+            float index = MathF.Floor(time / period);
+
+            float bearing = Hash01(index + 57f) * MathHelper.TwoPi;
+            float reach = _stormConfig.Deck.ClearingRadius + 60f
+                + Hash01(index + 991f) * MathF.Max(_stormConfig.Deck.TurretSpacing, 1f) * 1.2f;
+
+            return new Vector2(MathF.Cos(bearing) * reach, MathF.Sin(bearing) * reach);
+        }
+
+        /// <summary>
+        /// The storm's flash as a scene point light the caller can drop into a slot — the Moon's earthshine
+        /// and the space planetshine's own recipe, and the answer to "how does a flash reach the arena when
+        /// the deck throwing it is out of the play frame".
+        /// <para>
+        /// <b>A lamp far along −Y, not a rig override.</b> At this distance <c>dot(N, L)</c> is ≈ 1 on every
+        /// downward-facing normal and ≈ 0 on every upward one, which is precisely "the deck below flashed":
+        /// the undersides of the balls, the island's coping and the gun's carriage catch it and their tops
+        /// keep the dome. It is additive over the dome's own rig by construction, is pushed every frame by
+        /// both hosts already, and reaches every instanced surface through the shared effect — including the
+        /// drain's gold beads, which have almost nothing but reflections to show.
+        /// </para>
+        /// <para>
+        /// <b>⚠ The range must comfortably exceed the distance or the lamp arrives as literally nothing</b>:
+        /// the shader's attenuation is <c>saturate(1 − dist/range)²</c>, which is exactly 0 at
+        /// <c>dist ≥ range</c>. Hence the planetshine's 3× recipe, which puts the attenuation at 4/9 over
+        /// the arena and varies it by a few per cent across it.
+        /// </para>
+        /// </summary>
+        public bool TryGetStormFlash(SceneKind kind, float time, out Vector3 position, out Vector3 color, out float range)
+        {
+            position = Vector3.Zero;
+            color = Vector3.Zero;
+            range = 0f;
+
+            StormFlashConfig flash = _stormConfig.Flash;
+
+            if (kind != SceneKind.Storm || flash.LightStrength <= 0f) return false;
+
+            float envelope = StormFlash(time);
+            if (envelope <= 0f) return false;
+
+            float distance = MathF.Max(flash.LightDistance, 1f);
+
+            //Under the island and leaning towards the cell that actually went off, so the fill has a
+            //direction rather than being a flat uplight — but overwhelmingly below, which is what makes it
+            //read as the deck and not as a second sun.
+            Vector2 at = StormFlashCenter(time);
+            Vector3 towards = SafeNormal(new Vector3(at.X * 0.25f, -distance, at.Y * 0.25f), -Vector3.UnitY);
+
+            position = towards * distance;
+
+            //Normalized like the planetshine and the earthshine, so LightStrength alone says how bright the
+            //fill is and the colour only says its hue.
+            Vector3 tint = flash.Color.ToVector3();
+            float peak = MathF.Max(MathF.Max(tint.X, tint.Y), MathF.Max(tint.Z, 1e-4f));
+
+            color = tint / peak * (flash.LightStrength * envelope);
+
+            range = distance * 3f;
+
+            return true;
+        }
+
+        /// <summary>
+        /// Draws the storm (#219): the grid pinned to the camera (snapped to a cell so the deck does not
+        /// swim), carrying the cloud deck and its turrets, shaded per-pixel by the current dome.
+        /// <para>
+        /// <b>It deliberately does NOT invoke <see cref="SceneFrame.ApplyClouds"/></b>, alone among the
+        /// terrain draws. The hook pushes the sky's own weather into a scene effect's <c>Cloud*</c>
+        /// namespace, and this deck neither wants a cloud shadow cast on it (it <i>is</i> the cloud) nor
+        /// could survive one: <c>CloudSunlight</c> above the shared plane degenerates to the point's own
+        /// column and returns about the shadow floor. <c>Storm.fx</c>'s header has the whole argument.
+        /// </para>
+        /// </summary>
+        private void DrawStorm(in SceneFrame frame)
+        {
+            float cell = STORM_EXTENT / (STORM_GRID_N - 1);
+            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
+            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
+
+            _stormEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
+            _stormEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
+            _stormEffect.Parameters["View"].SetValue(frame.Camera.View);
+            _stormEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
+            _stormEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
+            _stormEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
+            _stormEffect.Parameters["SunColor"].SetValue(frame.SunColor);
+            _stormEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
+            _stormEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
+            _stormEffect.Parameters["StormTime"].SetValue(frame.Time);
+
+            //The strike, off the same clock and the same hashed period index the light rig's own lamp reads,
+            //so the glow in the cloud and the flash on the arena cannot disagree about which cell went off.
+            _stormEffect.Parameters["FlashEnvelope"].SetValue(StormFlash(frame.Time));
+            _stormEffect.Parameters["FlashCenterXZ"].SetValue(StormFlashCenter(frame.Time));
+
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _graphicsDevice.SetVertexBuffer(_stormVertexBuffer);
+            _graphicsDevice.Indices = _stormIndexBuffer;
+            _stormEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _stormIndexCount / 3);
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
         /// <summary>
@@ -3126,6 +3366,9 @@ namespace Prazsky.Core.Render
                 case SceneKind.Mars:
                     DrawMarsTerrain(frame);
                     DrawMarsMoons(frame);
+                    break;
+                case SceneKind.Storm:
+                    DrawStorm(frame);
                     break;
             }
         }
@@ -4591,6 +4834,8 @@ namespace Prazsky.Core.Render
             _moonIndexBuffer?.Dispose();
             _marsVertexBuffer?.Dispose();
             _marsIndexBuffer?.Dispose();
+            _stormVertexBuffer?.Dispose();
+            _stormIndexBuffer?.Dispose();
         }
     }
 }
