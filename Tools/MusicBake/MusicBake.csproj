@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>MusicBake</AssemblyName>
+    <RootNamespace>BS3D.Tools.MusicBake</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--The one source file the game's music lives in, compiled INTO this tool rather than referenced through
+        the Game project. The bakes are pure arithmetic over float arrays - they touch no graphics device, no
+        audio device and no content - so pulling them in as source keeps this a plain net10.0 console app that
+        builds in a second and renders the same samples the game plays, from the same lines. A ProjectReference
+        to Game.csproj would drag WinForms, the MGCB content build and a Windows target framework behind a tool
+        that writes .wav files.-->
+    <Compile Include="..\..\Game\Audio\ProceduralMusic.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--Compile-time only, exactly as ScoreSim and the libraries take it: ProceduralMusic.cs names MathHelper
+        and the SoundEffect types in its playback half, and this tool calls neither - it renders and measures.
+        PrivateAssets keeps the package from flowing anywhere, and DesktopGL is deliberate: nothing here loads
+        an MGFX effect, so the platform of the package is irrelevant and the tool stays buildable off Windows.-->
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5" PrivateAssets="all" />
+  </ItemGroup>
+</Project>
