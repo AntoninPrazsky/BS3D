@@ -15,7 +15,9 @@ namespace Prazsky.BS3D.GameStructure
 
         // The five below joined with #152, to give bigger levels colour headroom. Each sits next to an
         // existing colour on purpose-made distance: silver is a cool slate (the white-gore trap, like white
-        // and yellow above), navy is a deeper and more violet blue than Type3, olive far darker than green.
+        // and yellow above), navy is a deeper and more violet blue than Type3, olive a darker and duller
+        // green than Type2 - though "far darker" is what olive WAS until #294, and that is what went wrong
+        // with it in turn: dark enough to leave the greens entirely and land among black, brown and silver.
         // Navy read "far darker than blue" until #246, and that is exactly what went wrong with it: darker
         // than one neighbour had made it the same as the other one, Type8, whose difference from it lived
         // only in the blue channel. Type3 and Type12 were re-spaced together; the arithmetic is on their
