@@ -1996,3 +1996,16 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 **Upozornění na churn:** `git blame` u třiceti shaderů bude napříště ukazovat na tenhle commit. Majitel to ví předem, řekl jsem mu to před převodem.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (šedesátý čtvrtý zápis)
+
+**Založil a rovnou vyřídil #275 (budovy městské scény pod arénou) — na mainu jako `4270380` (merge `f253a2a`), issue zavřeno.** Majitel při procházení hlásil, že v city scénách stojí budovy i pod ostrovem, což nedává smysl a nejsou vidět. `City.cs` je skutečně generoval — useknuté na `UnderArenaTopY` (−78) — schválně, aby pohled dolů skrz trychtýř četl jako propad (komentář to tak řekl). Než jsem issue založil, ověřil jsem v kódu i v `docs/scenes.md`/`docs/game-feedback.md`, že jde o **záměr, ne bug** — v city scéně (na rozdíl od pěti solid-terrain scén) schválně není žádná tmavá šachta, a `SceneRenderer.OpenBelow` zahrnuje i city, takže kamera dropové cinematiky se pod ostrov skutečně dostává. Majitel po přečtení issue potvrdil z vlastního hraní: **úhel kamery (ani hrací, ani cinematika) tam nikdy nejde tak, aby budovy byly vidět** — tak jsem je smazal.
+
+- **Změna:** `City`'s konstruktor teď bloky pod arénou úplně přeskočí (`continue`) místo aby je stavěl a usekával; `UnderArenaTopY`/`UnderArenaSpread` z `CitySceneConfig` pryč s nimi.
+- **Ověřeno vizuálně, ne jen buildem** (`screenshot` skill): shora do trychtýře, hrací kamera, a hlavně **vantage dropové cinematiky zespodu** — to je to jediné místo, kde na tom mohlo záležet. Trychtýř teď probíjí rovnou na oblohu (stejný vzor jako space scéna „looks straight through onto the stars"), žádný artefakt, žádná viditelná spára. Screenshoty jsou jen ve scratchpadu, nikam necommitnuté.
+- **Dokumentace přepsána ve stejném commitu**, protože obě místa (`docs/scenes.md` dvakrát, `docs/game-feedback.md` jednou) popisovala starý mechanismus jako záměr — teď popisují #275.
+- Všechny čtyři solutiony se staví čistě před i po merge.
+
+**Nic dalšího si neberu.**
