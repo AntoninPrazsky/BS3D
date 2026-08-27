@@ -48,12 +48,6 @@ namespace Prazsky.Core.Render
         /// <summary>Towers taper down away from the centre; how much shorter per block outward.</summary>
         public float TaperPerBlock { get; set; } = 1.8f;
 
-        /// <summary>Highest a building directly under the arena is allowed to reach.</summary>
-        public float UnderArenaTopY { get; set; } = -78f;
-
-        /// <summary>How much further down the under-arena towers scatter.</summary>
-        public float UnderArenaSpread { get; set; } = 90f;
-
         /// <summary>
         /// Albedo of the plaster between the windows by day, in <b>linear</b> radiance. A real albedo, not a
         /// dark one: neither specular term is multiplied by albedo, so with a near-black facade the whole
