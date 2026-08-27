@@ -2081,3 +2081,25 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 - **Sdílený strom:** patičky v tomhle souboru, které tu ležely necommitované, byly **starší než main** (main je má už opravené unií po #271) — nezahodil jsem je, jsou ve stashi (`stash@{0}`, „stale agent-notes footer edits"). Až to majitel odklikne, `git stash drop`.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (sedmdesátý šestý zápis)
+
+**#229 i #201 jsou na mainu jako `a4b4ba3`** (merge `--no-ff` větve `201-heart-music-entry-and-lead`, která nese oba: `f300889` zmrazení skladeb a `9ec4bc1` vstup do skladby). Větev je pushnutá a zatím nesmazaná. **Issue jsem nezavíral — čekám na majitelovo slovo**, a u druhé půlky #201 z důvodu, který stojí za přečtení níž.
+
+**První půlka #201 platila a je opravená: level teď nezačíná na předehře, ale na sloce.** Obálka to potvrdila u všech pěti skladeb — každá otevírá předehrou bez kitu a **prvních 14–20 s sedí 9–13 dB pod vlastním maximem**. To je správně na začátku *skladby* a špatně na začátku *levelu*, kde hráč už střílí. `Score` proto jmenuje sekci, na kterou level naskakuje, `EntryOffset` z ní udělá bajtový offset a **hlava řetězu** se submituje odtamtud; každé opakování po ní je celá skladba od začátku, takže se z kompozice nic nevyřezalo — předehra jen není to, čím level otevírá.
+
+**Naměřeno, vstup proti čtení obálky, na které přistane:** Pulse **30,0 s → −1 dB** (bylo −10), Bohemia **33,1 → −3** (−13), Nocturne **40,0 → −1** (−10), Mural **35,6 → −2** (−9), Ember **14,3 → −6** (−11). Ember naskakuje o sekci dřív a přistane nejníž ze stejného důvodu: jeho sloky jsou **half-time** záměrně, takže −6 dB je skladba hrající sloku, ne skladba, co se teprve sbírá; o sekci později by levely otevíraly refrénem.
+
+**⚠ Druhá půlka #201 se nedá opravit, protože ta skladba už neexistuje — a doporučuju ji retrahovat, ne řešit.** Issue si stěžuje na „pisklavý" lead, „jako když někdo píská na flétnu přímo do ucha", na levelu 6 (Heart). #201 je z **14. 8.**; **#264** (23.–24. 8.) nahradilo dechovku — moravskou kapelu **s klarinetovou strofou** — Muralem, a `ad9457d` přepsalo `Heart.json` z `"music": "dechovka"` na `"mural"`. Lead, na který si issue stěžuje, odešel s tou skladbou. **Měřeno, podíl energie 2–6 kHz / nad 6 kHz:** Mural **0,5 / 0,2 %** — po Nocturne (0,3/0,1) druhá nejtemnější z šesti, proti Pulse 1,1/0,6 a Bohemii 1,3/0,6. Marimba, která v Muralu odpovídá, je navíc stavěná přesně proti téhle vadě (parciál 4,02×, viz `docs/game-feedback.md` a #210). **Nezavírám to sám**: stěžovalo si ucho, ne měřák, takže ať to potvrdí ucho — stačí odehrát Heart. Pokud majiteli něco piská i dneska, nejjasnější kandidáti jsou Pulse a Bohemia (nejsvětlejší dvojice v sadě), ne Heart.
+
+**Ověřeno ve hře, ne jen v nástroji.** `play level=Heart` submitne hlavu na **35,556 s ze 162,222 s** — přesně ta hranice sekce, kterou pro Mural tiskne `MusicBake` — a celou skladbu do fronty **14 ms** za ní. To je zároveň důkaz, že řetěz nepřišel o opakování.
+
+**⚠ Past, kterou jsem po předchozím sezení uklízel: v pracovním stromě zůstaly dva ladicí `Console.WriteLine("[probe] …")`, oba na herní cestě** (`Advance` a feed v `Update`). Byly to správné nástroje — právě jimi jsem výše ověřil vstup ve hře — ale konzolové I/O na herní cestě je proti `BestPractices.md` a v commitu nemá co dělat. **Postup, který doporučuju: nejdřív sondou změřit, pak sondu vyhodit, a teprve pak commit.** Před commitem `grep -n probe` na dotčeném souboru.
+
+**`Tools/MusicBake` dostal sloupec `entry`** (v sekundách; menu tiskne `-`, je to lobby a hraje od začátku), aby šel vstup číst vedle obálky, proti které se posuzuje. Dokumentace k oběma je ve stejném commitu (`docs/game-feedback.md`, `docs/formats-and-tools.md`).
+
+**⚠ Provozní, ke kolegovi a k majiteli: `main` je pořád zabraný worktreem `BS3D-271`**, takže sdílený checkout `BS3D` na něj nemůže přepnout a merge musel jít znovu přes něj. Stojí tu i `BS3D-234` (`234-first-level-pyramid`). Oba jsou cizí práce, nesahal jsem na ně — ale `BS3D-271` je čistý a plně obsažený v mainu, takže je k úklidu, jakmile na to někdo řekne.
+
+**Nic dalšího si neberu.** Volné podle trackeru: **#277**, **#276**, **#272**, **#268**, **#257**, **#256**, **#251**, **#230**, **#223**, **#222**, **#219**, **#213**, **#209**, **#205**, **#189**, **#188**, **#187**, **#172**, **#167**, **#166**, **#165**, **#100**, **#95**, **#90**. A pro toho, kdo sedí na 6900XT: **#209/#167/#166/#165 čekají na přeměření po retrakci #270**, ne na optimalizaci shaderu.
