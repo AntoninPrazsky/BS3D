@@ -40,6 +40,16 @@ float DappleStrength;
 //The wind: how far the fronds sway at their tips and how fast, along this direction. Off the wall
 //clock, so the palms keep moving while the simulation is paused - like the clouds, the sea and the
 //birds, the wind does not wait for the player.
+//
+//⚠ SwayStrength IS PER DRAW, NOT PER FRAME, and the reason is that the weight it scales is read out of
+//TEXCOORD0 - an ordinary TEXTURE COORDINATE (see PalmVertexInput.Sway). That is only a sway weight
+//because PalmMesh chooses to bake one there; every other mesh drawn through this effect carries real
+//UVs, and a LatheMesh - which is what the tropical scene's waterline boulders and their moss caps both
+//are - writes s/segments, i.e. 0 to 1 AROUND THE CIRCUMFERENCE. Set once for the whole frame, the palms'
+//strength therefore reached the rocks and swung one side of every ring at full frond-tip weight while
+//the other side stood still, so the stones sheared open rather than merely drifting (#268's second
+//round, reported as "the rocks move with the wind, which is nonsense"). A caller drawing anything but a
+//PalmMesh through this must pass 0.
 float2 WindDirection;
 float SwayStrength;
 float SwaySpeed;

@@ -3700,8 +3700,14 @@ namespace Prazsky.Core.Render
                 if (instances.Length == 0) continue;
 
                 Vector3 frond = Vector3.Lerp(_palmFrondColor, _palmFrondDry, _palmDryness[m] * 0.6f);
-                DrawPalmPart(_palmMeshes[m].Fronds, instances, frond, dappleStrength: 0.55f);
-                DrawPalmPart(_palmMeshes[m].Wood, instances, _palmTrunkColor, dappleStrength: 0f);
+
+                //The palms are the one thing here that MEANS to sway: PalmMesh bakes the weight ramp the
+                //shader reads, zero along the trunk and rising to the frond tips, so the wind moves the
+                //crown and never the trunk.
+                float sway = _tropicalConfig.Palms.SwayStrength;
+
+                DrawPalmPart(_palmMeshes[m].Fronds, instances, frond, dappleStrength: 0.55f, swayStrength: sway);
+                DrawPalmPart(_palmMeshes[m].Wood, instances, _palmTrunkColor, dappleStrength: 0f, swayStrength: sway);
             }
         }
 
@@ -3719,8 +3725,11 @@ namespace Prazsky.Core.Render
                 ModelInstance[] instances = _tropicalRockInstances[m];
                 if (instances.Length == 0) continue;
 
-                DrawPalmPart(_tropicalRockMeshes[m], instances, _tropicalStoneColor, dappleStrength: 0f);
-                DrawPalmPart(_tropicalMossMeshes[m], instances, _tropicalMossColor, dappleStrength: 0.30f);
+                //NO SWAY: a boulder does not move in the wind, and both of these meshes are LatheMeshes
+                //whose TEXCOORD0.x runs 0..1 around the circumference — which Palm.fx reads as its sway
+                //weight (see DrawPalmPart). Left at the palms' strength the stones sheared open.
+                DrawPalmPart(_tropicalRockMeshes[m], instances, _tropicalStoneColor, dappleStrength: 0f, swayStrength: 0f);
+                DrawPalmPart(_tropicalMossMeshes[m], instances, _tropicalMossColor, dappleStrength: 0.30f, swayStrength: 0f);
             }
         }
 
@@ -3741,9 +3750,11 @@ namespace Prazsky.Core.Render
 
             //The wind off the wall clock, aligned with the one the waves and the canopy ride — a beach
             //whose palms swayed against their own surf would read as two weathers.
+            //
+            //The sway's STRENGTH is deliberately not here: it is a per-part argument of DrawPalmPart, whose
+            //doc says why (a mesh with real texture UVs would otherwise inherit the palms' own sway).
             _palmTimeParam.SetValue(frame.Time);
             _palmWindParam.SetValue(_tropicalConfig.Terrain.Wind.ToVector2());
-            _palmSwayStrengthParam.SetValue(_tropicalConfig.Palms.SwayStrength);
             _palmSwaySpeedParam.SetValue(_tropicalConfig.Palms.SwaySpeed);
 
             _graphicsDevice.BlendState = BlendState.Opaque;
@@ -3757,7 +3768,24 @@ namespace Prazsky.Core.Render
         /// buffer (<see cref="SetDataOptions.Discard"/>), the mesh at stream 0 and the instances at
         /// stream 1.
         /// </summary>
-        private void DrawPalmPart(IProceduralMesh mesh, ModelInstance[] instances, Vector3 diffuse, float dappleStrength)
+        /// <summary>
+        /// One instanced draw through <c>Palm.fx</c>.
+        /// <para>
+        /// <b><paramref name="swayStrength"/> is a per-part argument and not a per-frame one, which is
+        /// #268's rock fault in one line.</b> <c>Palm.fx</c> reads the mesh's <c>TEXCOORD0.x</c> — an
+        /// ordinary texture coordinate — as its sway weight, on the understanding that
+        /// <see cref="PalmMesh"/> bakes a deliberate 0-along-the-trunk-to-1-at-the-frond-tip ramp there.
+        /// Every other mesh drawn through this effect carries <i>real</i> UVs, and <see cref="LatheMesh"/>
+        /// (which is what both a <see cref="RockMesh"/> and its moss cap are) writes
+        /// <c>s / segments</c> — 0 to 1 <b>around the circumference</b>. Set once for the whole frame, the
+        /// palms' own strength therefore reached the waterline rocks and swung one side of every ring at
+        /// full frond-tip weight while the other side stood still: the stones did not merely drift in the
+        /// wind, they sheared. Passing it per part is what makes a mesh unable to inherit a sway nobody
+        /// meant it to have.
+        /// </para>
+        /// </summary>
+        private void DrawPalmPart(IProceduralMesh mesh, ModelInstance[] instances, Vector3 diffuse,
+            float dappleStrength, float swayStrength)
         {
             if (_palmInstanceBuffer == null || _palmInstanceBuffer.VertexCount < instances.Length)
             {
@@ -3769,6 +3797,7 @@ namespace Prazsky.Core.Render
 
             _palmDiffuseParam.SetValue(diffuse);
             _palmDappleParam.SetValue(dappleStrength);
+            _palmSwayStrengthParam.SetValue(swayStrength);
             _palmEffect.CurrentTechnique.Passes[0].Apply();
 
             _graphicsDevice.SetVertexBuffers(
