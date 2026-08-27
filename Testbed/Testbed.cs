@@ -294,6 +294,11 @@ namespace Testbed
         //brightest thing in the frame and the cone keeps a clean silhouette.
         private const byte VOLCANO_DEFAULT_SKY_DOME = 9;
 
+        //Mars gets a dome built for it rather than picked from the eighteen general-purpose ones (#277):
+        //dome 19 IS the Martian sky, so it is the default the same way a scene with no bespoke dome takes
+        //whatever NumPad1 last left it on. NumPad1 still cycles freely from there.
+        private const byte MARS_DEFAULT_SKY_DOME = 19;
+
         //Space deliberately forces NO dome, unlike those two. Its dome is neither drawn (Space.fx covers the
         //whole frame) nor read (SpaceLightingConfig states the light rig instead, for the reasons set out
         //there) - so it is completely inert in that scene, and NumPad1 cycling domes in it changes nothing.
@@ -489,6 +494,7 @@ namespace Testbed
             else if (_scene == SceneKind.Savanna) _skyModelNumber = SAVANNA_DEFAULT_SKY_DOME; //The savanna defaults to a warm golden dome
             else if (_scene == SceneKind.Tropical) _skyModelNumber = TROPICAL_DEFAULT_SKY_DOME; //The beach defaults to the brightest blue
             else if (_scene == SceneKind.Volcano) _skyModelNumber = VOLCANO_DEFAULT_SKY_DOME;   //The volcano defaults to the darkest dome
+            else if (_scene == SceneKind.Mars) _skyModelNumber = MARS_DEFAULT_SKY_DOME;         //Mars defaults to its own dome
 
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;

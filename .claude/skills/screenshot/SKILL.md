@@ -44,8 +44,8 @@ Coordinates are world units, `.` decimal, invariant culture. Useful reference po
 The synthetic-NumPad limitation from the `verify` skill still applies — scene and sky are best set on the
 command line, not by pressing NumPad1/2:
 
-- `scene=<city|sea|savanna|desert|mountain|meadow|neon|forest|space|dream|cavern|moon>` — starting environment. Everything past `neon` sits past the end of the NumPad2 cycle, so `scene=` is the only way to reach those in the Testbed.
-- `sky=<1..18>` — starting sky dome. `ssaa=<n>`, `exposure=<f>`, `nocap`, a map path — as in `verify`.
+- `scene=<city|sea|savanna|desert|mountain|meadow|neon|forest|space|dream|cavern|moon|outback|tropical|volcano|mars>` — starting environment. Everything past `neon` sits past the end of the NumPad2 cycle, so `scene=` is the only way to reach those in the Testbed.
+- `sky=<1..19>` — starting sky dome. `ssaa=<n>`, `exposure=<f>`, `nocap`, a map path — as in `verify`.
 - `nopost` — zero the film grain and the chromatic aberration. **Pass it for any A/B of a shader change.**
   Both sit on top of every pixel after the tonemap, and the grain re-rolls per output pixel every frame, so
   two captures of an *unchanged* scene differ in over 90 % of their pixels — a diff without it says nothing
