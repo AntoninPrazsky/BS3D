@@ -2139,3 +2139,23 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 - **⚠ A past v samotném nástroji: `benchmark.ps1` počítá průměr, zatímco text téhož skillu (past 12) říká medián** — pravidlo, které tam někdo zapsal poté, co run po chvíli spadl na třetinu a průměr obrátil A/B. Skript navíc nečte zpátky scénu, velikost back bufferu ani limiter, tedy pasti 8, 9 a 11 téhož textu. Harness, který obojí dělá (medián a odmítnutí runu, jehož podmínky nesedí na zadání), jsem napsal, ale **naostro ho nikdo nepustil**, takže leží v scratchpadu sezení a do repa nejde. Opravit skript stojí za samostatnou změnu, ne za přílepek k měření, které se nekonalo.
 
 **Nic si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (sedmdesátý osmý zápis)
+
+**Založeno a rovnou vyřízeno #278 z majitelova playtestu: „ve scéně s horami vypadá sníh na zemi jako čtverce". Na mainu jako `a6b0936`** (merge `--no-ff` větve `278-mountain-snow-squares`). Čtverce byly `SnowSparkle`, třpyt, který sněhu přidalo #208.
+
+**⚠ Mechanismus, a je to past, která sedí na každé mřížce ve světových souřadnicích: buňka je pevná ve SVĚTĚ, ale velikost, kterou chce, je v PIXELECH.** `step()` nad hashem buňky vybarvil **celou buňku**. Třetina metru je zamýšlených 3–4 px při footprintu středních svahů (~0,08 world/px), na které byl třpyt laděný — a **třicet pixelů** na dně kotliny vedle arény, kde je footprint ~0,01. V perspektivě z toho jsou ploché bílé kosočtverce ležící na zemi. Buňka teď říká jen **kde** glint je; jak je velký, určuje footprint (~1,5 px, s podlahou aby nezmizel pod nohama a se stropem na půl buňky).
+
+**⚠ A jitter uvnitř buňky musí být přesně to, co po poloměru zbyde** — soused počítá jiné `cellId`, tedy jiný střed, takže cokoli přeteče přes hranici, se o ni **uřízne naplocho** a čtverce se vrátí na vzdáleném konci. Jak poloměr roste do buňky, jitter jde k nule a glint se vystředí: starý vyplněný vzhled se tím dojede plynule, ne omylem.
+
+**Druhá půlka byla na tomtéž řádku: glint nebyl vynásobený sněhovou maskou**, přestože jeho vlastní komentář říká „ON TOP of the lit snow". Dno kotliny vedle arény je skála s pouhým ramenem `altSnow + 0.15`, takže **nejsvětlejší věc ve scéně dopadala na nejtmavší zem, ke které hráč stojí nejblíž** — proto to bylo do očí bijící právě tam a ne na sněhových polích, proti kterým se efekt ladil.
+
+**⚠ Vedlejší nález pro kohokoli, kdo v tomhle repu sáhne na hash: `NoiseHash22` vrací [-1, 1], ne [0, 1].** Práh 0,985 tedy bere horních **0,75 %** buněk, ne „~1,5 %", jak tvrdil komentář i `docs/scenes.md`. Řidší čtení je to, co se ladilo okem, takže číslo zůstalo a aritmetika je dopsaná vedle něj. Stejný hash používá i zrno skály o pár řádků níž — tam je symetrická odchylka ±14 %, což je v pořádku, ale nikde to nebylo napsané.
+
+**Ověřeno dvakrát a obojí vyfoceno:** pevná kamera Testbedu (3216×1400, `nopost`, `scene=mountain sky=13 campos=0,-8,40 camtarget=0,-13,10`) před a po — čtverce z blízké země zmizely a třpyt na sněhu zůstal jako prach bodů; a **ve hře** na levelu Belfry přes `shot=`, protože tam to majitel viděl. Pozor při tom na past 11: startovní řádek hlásil `scene NeonCity`, ale kreslila se hora — level si scénu přepisuje a **jméno snímku i řádek `[fps]` jsou jediná autorita**. Všechny čtyři solutiony čisté. Cenu jsem neměřil a nemyslím, že je co: přidaná práce sedí za `if (fade <= 0.0) return 0.0;`, takže vzdálené pixely, kterých je ve scéně nejvíc, do ní vůbec nevejdou.
+
+**⚠ Provozní, a je to dobrá zpráva: majitel hlásí, že hra už nepadá — přepojil kabely.** To sedí přesně na diagnózu ze zápisů 62 a #250: signatura `Kernel-Power 41` + `6008` bez bugchecku, resety i na volnoběhu, zkracující se intervaly za tepla — **napájecí cesta, ne karta**. Kdo se vrátí k **#209/#167/#166/#165** (pořád otevřené a nezabrané, viz předchozí zápis): sweep je tím možná zase průchodný, ale **ověř to krátkým během dřív, než na tom stroji rozjedeš dlouhý** — jeden bezproblémový večer ještě není důkaz a ta čtyři issues už jednou stála celý sweep.
+
+**Nic si neberu.**
