@@ -114,8 +114,13 @@ namespace BS3D
                 //"ssaa=<n>" trades sharpness against fill rate; "exposure=<f>" is the renderer's shutter speed
                 else if (arg.StartsWith("ssaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("ssaa=".Length), out int parsedSsaa)) supersampleFactor = parsedSsaa;
                 else if (arg.StartsWith("exposure=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("exposure=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedExposure)) exposure = parsedExposure;
-                //"logfps" writes one frame-rate line a second to stdout; "scene="/"sky=" pin what is being
-                //measured. The scene names are the Testbed's, so one benchmark script drives either executable.
+                //"logfps" writes one frame-rate line a second to stdout; "scene="/"sky=" pick the backdrop the
+                //FRONT END hangs. They do NOT survive a level: a Level file names its own scene, dome and
+                //weather and GameplayScreen applies all three over these, so "play level=X scene=meadow" draws
+                //whatever X names. #270 read five runs as a scene comparison that were one scene measured
+                //twice because of it. The [fps] line prints the LIVE scene for exactly this reason - it is the
+                //authority, not this argument. The scene names are the Testbed's, so one benchmark script
+                //drives either executable.
                 else if (string.Equals(arg, "logfps", StringComparison.OrdinalIgnoreCase)) logFrameRate = true;
                 else if (arg.StartsWith("scene=", StringComparison.OrdinalIgnoreCase) && SceneRenderer.TryParseScene(arg.Substring("scene=".Length), out SceneKind parsedScene)) scene = parsedScene;
                 else if (arg.StartsWith("sky=", StringComparison.OrdinalIgnoreCase) && byte.TryParse(arg.Substring("sky=".Length), out byte parsedSky) && parsedSky >= 1 && parsedSky <= BS3DGame.SKY_DOME_COUNT) skyDome = parsedSky;
