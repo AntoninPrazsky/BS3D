@@ -32,17 +32,16 @@ namespace Prazsky.Core.Render
         //asked to look at — and since #226 it stands most of the frame's height tall — so it cannot be the
         //twelve or sixteen a scattered prop gets away with: a faceted silhouette on a mirror-finish surface
         //reads as a low-poly model rather than as metal.
+        //
+        //THE SAME FIGURE SERVES THE CRYSTAL, which had a coarser faceted body of its own twice and has it
+        //no more. #231 cut the facets into the geometry (24 segments, authored rings, flat normals), and
+        //the rim came out a 24-gon; #271's first rework kept them in the normals alone — the same 64
+        //chords as every tier with each ring normal's azimuth snapped to 24 directions, flat bands on a
+        //round silhouette — and the owner's ruling held through both, in the same words: a cup has a
+        //cup's shape, "crystal sharp" is an optical sharpness, and visible edges are edges whether they
+        //are geometric or shading. Every tier now draws this one smooth revolve; the crystal's look is
+        //its material's (see TrophyPodium — transparency, the Fresnel rim, the reflected environment).
         private const int SEGMENTS = 64;
-
-        //And the CUT crystal's own, which wants the opposite of the reasoning above (#231). A facet has to be
-        //wide enough to be read as a facet: at 64 the flats are a degree and a half apart and the eye
-        //reintegrates them into a cylinder, which is a smooth cup that happens to sparkle unevenly. At 24 the
-        //bowl carries two dozen visible cuts round it — few enough to be counted, which is what says a person
-        //cut them, and still enough that the silhouette is a rounded thing rather than a polygon. It is also
-        //what pays for the flat shading: flats duplicate no vertices (MeshBuilder takes a normal per vertex
-        //already), but the authored profile at 24 segments is 3 168 vertices against the smooth cup's 23 808,
-        //so the crystal has room its sibling does not.
-        private const int CRYSTAL_SEGMENTS = 24;
 
         //THE PROFILE'S OWN RESOLUTION, which the segment count cannot give: the silhouette seen side-on is
         //the profile, and the authored rings are few enough that the bowl's flare read as five straight
@@ -154,29 +153,11 @@ namespace Prazsky.Core.Render
         /// #183): Bronze and Silver stay plain, so the two pairs are told apart by shape before any colour
         /// has said anything.
         /// </param>
-        /// <param name="faceted">
-        /// Build the body as flat CUT FACETS rather than as a smooth surface of revolution (#231, the crystal
-        /// tier alone). Three things change together and none of them works without the others: the axis is
-        /// divided into <see cref="CRYSTAL_SEGMENTS"/> instead of <see cref="SEGMENTS"/>, the profile is
-        /// <b>not</b> densified — the authored rings become the facet rows — and every vertex takes its
-        /// facet's own normal instead of the smoothed one.
-        /// <para>
-        /// It is the same geometry the smooth path calls a fault. <see cref="PROFILE_SUBDIVISIONS"/> exists
-        /// because the bowl's flare "read as five straight chords" on a mirror finish; on cut glass those
-        /// chords are the point, and what turns one into the other is the <b>flat</b> normal — smooth-shaded
-        /// they read as a coarse approximation of a curve, flat-shaded they read as facets someone cut.
-        /// </para>
-        /// <para>
-        /// The handles stay smooth, which is not an oversight: a handle is a pressed or drawn part on real
-        /// cut glass, and a faceted tube a fifth of the bowl's diameter reads as a fault in the sweep rather
-        /// than as a cut.
-        /// </para>
-        /// </param>
-        public TrophyMesh(GraphicsDevice graphicsDevice, bool handles, bool faceted = false)
+        public TrophyMesh(GraphicsDevice graphicsDevice, bool handles)
         {
             MeshBuilder builder = new();
 
-            BuildBody(builder, faceted);
+            BuildBody(builder);
 
             if (handles)
             {
@@ -275,14 +256,15 @@ namespace Prazsky.Core.Render
         /// normal is <c>(dy, -dr)</c> — the tangent turned so its radial part points away from the axis, which
         /// is what makes an underside face down and the inside of the bowl face up and in.
         /// </summary>
-        private static void BuildBody(MeshBuilder builder, bool faceted)
+        private static void BuildBody(MeshBuilder builder)
         {
             //The densified section, not the authored one — the authored rings are the shape's meaning, this
-            //is the shape itself. Cut glass wants the meaning: the authored rings ARE the facet rows.
-            Ring[] profile = faceted ? PROFILE : DensifyProfile();
+            //is the shape itself. Every tier draws it, crystal included (#271): "cut" proved to be a word
+            //for edges the owner did not want, whichever layer they were cut into.
+            Ring[] profile = DensifyProfile();
             int spans = profile.Length - 1;
 
-            int segments = faceted ? CRYSTAL_SEGMENTS : SEGMENTS;
+            int segments = SEGMENTS;
 
             //Per-span normal in the (radial, y) plane, then per-ring normals either side of each ring. They
             //differ only at a crease, which is exactly what a crease is.
@@ -349,11 +331,6 @@ namespace Prazsky.Core.Render
                     Vector2 mid = spanNormal[s];
                     float ac = MathF.Cos((a0 + a1) * 0.5f), asn = MathF.Sin((a0 + a1) * 0.5f);
                     Vector3 face = new(mid.X * ac, mid.Y, mid.X * asn);
-
-                    //CUT GLASS: every vertex of the quad takes the facet's own normal, so the facet shades as
-                    //one flat plane and its edges are real edges. This is the whole difference between the
-                    //faceted and the smooth cup — the positions are the same revolve either way.
-                    if (faceted) { n00 = n10 = n11 = n01 = face; }
 
                     //Degenerate at the axis: the first and last rings are single points, so one edge of the
                     //quad collapses and it is a triangle. Adding it as a quad would add a zero-area triangle,

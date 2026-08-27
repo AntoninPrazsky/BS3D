@@ -170,10 +170,13 @@ namespace BS3D.Effects
             _plainMesh = new TrophyMesh(device, handles: false);
             _handledMesh = new TrophyMesh(device, handles: true);
 
-            //The crystal tier gets its own body: the same profile revolved into flat CUT FACETS rather than a
-            //smooth surface (#231). Its handles are the same swept tubes as Gold's - see TrophyMesh's faceted
-            //parameter for why they stay smooth.
-            _crystalMesh = new TrophyMesh(device, handles: true, faceted: true);
+            //The crystal tier draws the HANDLED mesh — the same smooth revolve Gold draws (#271). It had a
+            //faceted body twice: #231 cut the facets into the geometry (a 24-gon rim), and #271's first
+            //rework kept them in the normals alone (flat shading bands on a round silhouette) — and the
+            //owner's ruling held through both, in the same words: a cup has a cup's shape, "crystal sharp"
+            //is an optical sharpness, and VISIBLE edges are edges whether they are geometric or shading.
+            //The crystal is its material now — transparency, the Fresnel rim, the reflected environment.
+            _crystalMesh = _handledMesh;
 
             Vector3 ambient = Vector3.One * ambientIntensity;
 
