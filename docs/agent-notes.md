@@ -2258,4 +2258,22 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 
 **Druhý podezřelý na louce, na který issue neukazuje:** `GrassRelief` na řádku 160 **taky advektuje** (`xz + WindDirection * MeadowTime * 0.7`), takže po zemi kloužou i jemné stopy trávy. U trávy je pohyb obhajitelný (tráva se opravdu hýbe), u vyrytého reliéfu ne — ověřím dvojicí snímků, co z toho leze doopravdy.
 
-**Nic dalšího si neberu.**
+**Dodatek (týž den) — #276 hotové, na mainu jako `03f2150`.** Obě vady byly strukturální, jak jsem odhadoval, a **stály ve čtyřech scénách, ne ve dvou**: tentýž řádek větru měly louka, savana i les, znak po znaku. To je příběh #117/#170 potřetí, a stojí za to ho konečně vyslovit takhle: **kdo kopíruje scénu, kopíruje i její vadu, a issue se pak založí jen na tu jednu, ve které si jí někdo všiml.**
+
+**Vítr je teď jedno pole, `Noise.fxh`'s `WindGust`** — jedna oktáva česaného šumu advektovaná po větru, tedy nepravidelné cáry protažené po větru místo nekonečné rovinné vlny o vlnové délce 42 jednotek. **A tráva se o to pole opírá, místo aby po zemi klouzala:** reliéf se naklání hodnotou téhož gustu (omezeně, asi o osminu rysu), takže se sklopí, kde poryv jde, a za ním se narovná. Les má podlahu **statickou** — jehličí a hrabanka se nikam nesunou — a vítr na něm čte tam, kde by opravdu byl: ve stínu koruny přejíždějícím po zemi.
+
+**Poušť: vlnky nescrollují vůbec** a `RippleSpeed` jsem **smazal**, ne vynuloval — v shaderu, v configu i v rendereru. Dial, jehož jediná správná hodnota je nula, je past pro toho, kdo ho příště najde.
+
+**Změřeno, dvojice snímků 0,6 s od sebe z pevné kamery, střední absolutní změna přes celý snímek:** louka **10,28 → 2,68** z 255 (co zbylo, je gust a mraky, tedy pohyb, který tam patří), poušť **16,04 → 0,26**.
+
+**⚠⚠ A hlavní ponaučení tohohle kola, které platí daleko za #276: jedna oktáva není vkus, je to naměřený strop — druhá spadne z occupancy cliffu.** Se **dvěma** oktávami (6900XT, Testbed, pevná kamera, 1600×900 při ssaa 4, `fpscap=400`, medián ze 17 čtení): **savana 8,496 → 27,933 ms** a **les 12,788 → 28,011**, zatímco **louka** za tutéž přidanou práci šla 7,746 → 8,097 a jen občas propadla na 28. S **jednou** oktávou se všechny tři vrátí: louka **7,949**, savana **8,547**, les **12,953** — tedy **0,05–0,20 ms** za celý efekt. Je to táž zeď, kterou `Forest.fx` popisuje u svých dvou extras („cutting either one ALONE saves NOTHING"), jen čtená z druhé strany: **cena neroste s prací, skáče, když shader přejde registrový práh.** Prakticky z toho plyne pravidlo, které jsem zapsal i do `Noise.fxh`: **cokoli se do `WindGust` přidá, se musí přeměřit na savaně a na lese, nikdy na louce** — louka je nejlevnější z těch tří a řekne „skoro zadarmo" o změně, která jinde ztrojnásobí snímek.
+
+**⚠ Provozní past, kterou jsem si sám způsobil a stála mě jeden průchod:** `arena=none` na příkazové řádce Testbedu shodí capture — okno naběhne, ale zachycení skončí GDI+ chybou. Nezkoumal jsem proč (nepotřeboval jsem to), ale kdo bude fotit scénu bez ostrova, ať s tím počítá.
+
+**⚠ A jedna k benchmarku:** `fpscap=400` na těchhle scénách v okně 1600×900 při ssaa 2 **dosedá** — všechny tři přečetly rovných 400,0, což je „levnější než 2,5 ms" a ne cena. Teprve ssaa 4 je pustí pod strop. Zvyšovat cap, dokud plateau nezmizí, je součást měření, ne detail.
+
+**Nesahal jsem na `#268`** — kolega ho mezitím dělal a jeho zápis říká, že písek nechal majiteli; obojí se potkalo jen v `docs/scenes.md` a `SceneRenderer.cs` a slilo se automaticky.
+
+**⚠ `Game.sln` jsem nedostavěl a je to poctivě v commitu napsané:** majitel má puštěnou hru (BS3D pid 4808, level Rope a pak Minaret) a ta drží knihovny, takže selhal **krok kopírování**, ne překlad. C# změny jsou v `Prazsky.Core`, který se přeložil, a shadery se přeložily v Testbedu i editoru. Až hra skončí, chce to jeden build navíc.
+
+**Nic si neberu.**
