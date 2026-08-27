@@ -2109,3 +2109,22 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 **Všechny čtyři solutiony se staví na sdíleném stromě na mainu, nula chyb.**
 
 **Nic dalšího si neberu.** Volné podle trackeru: **#277**, **#276**, **#272**, **#268**, **#257**, **#256**, **#251**, **#230**, **#223**, **#222**, **#219**, **#213**, **#209**, **#205**, **#189**, **#188**, **#187**, **#172**, **#167**, **#166**, **#165**, **#100**, **#95**, **#90**. A pro toho, kdo sedí na 6900XT: **#209/#167/#166/#165 čekají na přeměření po retrakci #270**, ne na optimalizaci shaderu.
+
+---
+
+## 2026-08-27 — Claude Code (sedmdesátý sedmý zápis)
+
+**Beru si #209, #167, #166 a #165 — a beru si z nich přesně to, na co zápis 62 čeká: přeměření po retrakci #270, ne řez do shaderu.** Sedím na referenčním desktopu (5900X / 6900XT, panel 3840×1600 @ 75 Hz), tedy na tom stroji, ze kterého jsou všechna čtyři hlášená a na kterém je kolega z ThinkPadu udělat nemůže. **Beru kartu** — `Get-Process BS3D, Testbed, MapEditor` prázdné. Větev `165-167-209-remeasure`, hlásím dopředu.
+
+**⚠ Majitel dnes výslovně varoval: „obávám se, že se nám pořád dějou crashe, pokud se hra spouští na fullscreen bez fps capu."** To nemění cíl, mění nástroj. Měřím **v okně a s `fpscap=`**, nikdy `fullscreen`+`nocap`. Že to není záruka, vím — podle zápisu 62 stroj šel dolů uprostřed sweepu #270 právě pod oknem s capem, a #250 změřilo, že to padá i bez GPU — ale ta jedna kombinace, na kterou majitel ukázal, se dneska nepustí. **Commituju a pushuju po každém hotovém kroku**, ne až na konci.
+
+**Zátěž reprodukuju rozlišením, ne módem.** Hlášení jsou z fullscreenu 3840×1600 na `High` (ssaa 2) = **24,6 Mpix** stínovaných. Hra nemá `width=`/`height=`, jen `fullscreen`, ale bere `ssaa=` až 4 (`BS3DGame.cs:659` klampuje 1–4), takže **okno 1600×900 při ssaa 4 = 23,0 Mpix**, 6 % pod hlášenou zátěží — vlastní ekvivalence z `benchmark` skillu. **Co tím nezměřím, je post chain**: ten běží na velikosti back bufferu, tedy v okně 5,8× levněji. Kde tím číslo spadne blízko čáry 13,3 ms, řeknu to a zeptám se, ne dopočítám.
+
+**Dvě věci, co jsem našel před prvním měřením, ať je nikdo nehledá podruhé:**
+
+- **⚠ „Onion" z #209 je soubor `Eleven.json`.** `Levels.json` má `file` a `name` zvlášť a u tohohle jednoho se liší; je to jeskynní level v bloku The Reveal. Kdo hledá `Onion.json`, nenajde nic a bude si myslet, že level zmizel v #255.
+- **⚠ Žádný z devadesáti levelů nejmenuje `dream`.** Kampaň jede na devíti scénách (cavern, city, desert, meadow, moon, mountain, neon, savanna, space) a sen mezi nimi není. #167 je hlášené *„s naloženým levelem"*, takže se v té podobě dnes reprodukovat nedá — buď frontendem s `preview=` (tam `scene=` drží, protože level nepřepisuje), nebo Testbedem s pevnou kamerou a mapou. Obojí je jiná zátěž než hraný level a napíšu, které to bylo.
+
+**⚠ A jedna past v samotném nástroji: `benchmark.ps1` počítá průměr, zatímco text skillu (past 12) říká medián** — a to je past, kterou skill sám zapsal poté, co se dvakrát stalo, že run po chvíli spadl na třetinu a průměr obrátil A/B. Skript taky nečte zpátky scénu, velikost back bufferu ani limiter, což jsou pasti 8, 9 a 11 téhož textu. Neopravuju cizí skript uprostřed měření; **měřím vlastní harness**, který parsuje celý řádek `[fps]`, počítá medián a **odmítne run, jehož podmínky nesedí na to, co jsem si vyžádal**. Jestli se to osvědčí, patří to zpátky do skillu jako samostatná změna.
+
+**Nic dalšího si neberu.**
