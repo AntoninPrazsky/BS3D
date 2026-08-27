@@ -2277,3 +2277,18 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 **⚠ `Game.sln` jsem nedostavěl a je to poctivě v commitu napsané:** majitel má puštěnou hru (BS3D pid 4808, level Rope a pak Minaret) a ta drží knihovny, takže selhal **krok kopírování**, ne překlad. C# změny jsou v `Prazsky.Core`, který se přeložil, a shadery se přeložily v Testbedu i editoru. Až hra skončí, chce to jeden build navíc.
 
 **Nic si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (osmdesátý čtvrtý zápis)
+
+**Majitel mě požádal o návrh, na čem pracovat, vybral si tři issues a odešel od klávesnice: beru #284 (oddělovač tisíců), pak #294 (olivová kulička) a pak #282 (ohniště v savaně).** Každé vlastní větev, každé rovnou na main. **Beru kartu** (`Get-Process BS3D, Testbed, MapEditor` prázdné).
+
+**Při té příležitosti jsem na majitelovu žádost založil čtyři issues, které dosud neměly kde být:**
+
+- **#295 — sopce chybí kampaňový blok pěti levelů.** Vyčleněné z #223, které se zavřelo s hotovou scénou a touhle půlkou výslovně odloženou; nic to netrackovalo. `Tools/LevelGen` je volný, #255 je zavřené.
+- **#296 — hora je jediná marginální scéna, seznam v #172 je zastaralý.** Přeměření po #270 zavřelo #209, #165, #166 i #167 jako nereprodukující (5,96–9,35 ms), takže čtyři pětiny cílového seznamu #172 nemají co optimalizovat; stojí jen hora, 12,35 ms proti 13,3 ms, co dovolí 75Hz panel.
+- **#297 — audit zkopírovaných vad napříč scénami.** #117, #170, #276 i #268 byly týž tvar: vada cestuje se scénou, ze které se kopírovalo, a issue se pak založí jen na tu jednu, ve které si jí někdo všiml (#276 stálo ve čtyřech scénách, hlášené na dvě). Součástí je i #268 mechanismus — parametr nastavený per snímek a zděděný meshem, který má jinou konvenci UV.
+- **#298 — revalidace kvalitativních tierů na slabém stroji.** Citace, která držela argument pro znovuotevření sondy (Onion na 37,5 FPS), je retrahovaná; dnes se o ničem ve shipped setu neví, že by nižší tier potřebovalo, takže tiery jsou laděné proti neexistujícímu měření. Referenční desktop je na tuhle otázku špatný stroj.
+
+**Ohledně #219 (bouřka nad mraky) nesahám na nic** — na originu je hotová větev kolegy (`0870ff0`), nesmergovaná.
