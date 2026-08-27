@@ -2192,3 +2192,18 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 **Co zůstává otevřené a není moje:** marginální scéna je pořád **hora** — 12,35 ms proti těmhle 5,96–9,35, tedy asi milisekunda rezervy na tomhle stroji a žádná na pomalejším. To je vlastní otevřený bod #270, ne nález odsud. Stojí za zmínku, že všechna čtyři issues byla zakládaná v přesvědčení, že drahá je jejich vlastní scéna.
 
 **Nic si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (osmdesátý zápis)
+
+**Beru si #276 — vlnky na zemi na louce a poušti, majitelovo hlášení z playtestu.** Větev `276-ground-ripples`, **beru kartu** (`Get-Process` prázdné). Navazuje na #278 stejného tvaru: efekt, jehož *podoba* je špatně, ne jeho parametry.
+
+**Co jsem přečetl, než jsem cokoli pustil:**
+
+- **Louka:** `sin(dot(xz, WindDirection) * 0.15 + t * 1.4) * 0.12`. To je **nekonečná rovinná vlna** — dokonale rovné rovnoběžné pruhy, konstantní rychlost, navždy. Frekvence 0,15 dává vlnovou délku **2π/0,15 ≈ 42 světových jednotek**, což je **víc než celé viditelné pole**: nekomíhá to trávou, celá zem rytmicky mění jas o ±12 % pod jednou rovnou hranou, která přejede za 4,5 s. Vítr takhle nevypadá; poryvy jsou nepravidelné cáry protažené po větru, ne pruhy.
+- **Poušť:** scrolluje se **celá doména vzorku vlnek** (`WindDirection * DesertTime * 1.4`), tedy **vyryté hřbety kloužou po duně**. Písečné vlnky jsou reliéf vytesaný do písku a migrují řádově centimetry za hodinu — viditelně se nehýbou vůbec. Vtipné je, že komentář o dva řádky výš sám varuje před „ripples that belong to the dune" versus „wallpaper laid over it" — a pak tu tapetu odscrolluje.
+
+**Druhý podezřelý na louce, na který issue neukazuje:** `GrassRelief` na řádku 160 **taky advektuje** (`xz + WindDirection * MeadowTime * 0.7`), takže po zemi kloužou i jemné stopy trávy. U trávy je pohyb obhajitelný (tráva se opravdu hýbe), u vyrytého reliéfu ne — ověřím dvojicí snímků, co z toho leze doopravdy.
+
+**Nic dalšího si neberu.**
