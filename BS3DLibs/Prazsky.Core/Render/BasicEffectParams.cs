@@ -6,7 +6,7 @@ namespace Prazsky.Core.Render
     /// Represents the lighting effects parameters for the <see cref="Microsoft.Xna.Framework.Graphics.BasicEffect"/> class.
     /// </summary>
     public class BasicEffectParams
-	{
+    {
         /// <summary>
         /// Light effect parameters.
         /// </summary>
@@ -19,24 +19,24 @@ namespace Prazsky.Core.Render
         /// <param name="directionalLight2">Parameters of the third directional light.</param>
         /// <param name="fog">Fog effect parameters.</param>
         public BasicEffectParams(
-				Vector3 ambientLightColor,
-				Vector3 specularColor,
-				float specularPower,
-				Vector3 emissiveColor,
-				DirectionalLightParams directionalLight0 = null,
-				DirectionalLightParams directionalLight1 = null,
-				DirectionalLightParams directionalLight2 = null,
-				FogParams fog = null)
-		{
-			AmbientLightColor = ambientLightColor;
-			SpecularColor = specularColor;
-			SpecularPower = specularPower;
-			EmissiveColor = emissiveColor;
-			DirectionalLight0 = directionalLight0;
-			DirectionalLight1 = directionalLight1;
-			DirectionalLight2 = directionalLight2;
-			Fog = fog;
-		}
+                Vector3 ambientLightColor,
+                Vector3 specularColor,
+                float specularPower,
+                Vector3 emissiveColor,
+                DirectionalLightParams directionalLight0 = null,
+                DirectionalLightParams directionalLight1 = null,
+                DirectionalLightParams directionalLight2 = null,
+                FogParams fog = null)
+        {
+            AmbientLightColor = ambientLightColor;
+            SpecularColor = specularColor;
+            SpecularPower = specularPower;
+            EmissiveColor = emissiveColor;
+            DirectionalLight0 = directionalLight0;
+            DirectionalLight1 = directionalLight1;
+            DirectionalLight2 = directionalLight2;
+            Fog = fog;
+        }
 
         /// <summary>
         /// Ambient light color.
@@ -77,13 +77,13 @@ namespace Prazsky.Core.Render
         /// Fog effect parameters.
         /// </summary>
         public FogParams Fog { get; set; }
-	}
+    }
 
     /// <summary>
     /// Represents directional light parameters.
     /// </summary>
     public class DirectionalLightParams
-	{
+    {
         /// <summary>
         /// Directional light parameters.
         /// </summary>
@@ -91,11 +91,11 @@ namespace Prazsky.Core.Render
         /// <param name="diffuseColor">The color of the basic (diffuse) light component.</param>
         /// <param name="specularColor">The color of the light reflection.</param>
         public DirectionalLightParams(Vector3 direction, Vector3 diffuseColor, Vector3 specularColor)
-		{
-			Direction = direction;
-			DiffuseColor = diffuseColor;
-			SpecularColor = specularColor;
-		}
+        {
+            Direction = direction;
+            DiffuseColor = diffuseColor;
+            SpecularColor = specularColor;
+        }
 
         /// <summary>
         /// Light direction.
@@ -111,13 +111,13 @@ namespace Prazsky.Core.Render
         /// The color of the light reflection.
         /// </summary>
         public Vector3 SpecularColor { get; set; }
-	}
+    }
 
     /// <summary>
     /// Represents the fog effect parameters.
     /// </summary>
     public class FogParams
-	{
+    {
         /// <summary>
         /// Fog effect parameters.
         /// </summary>
@@ -127,11 +127,11 @@ namespace Prazsky.Core.Render
         /// <param name="fogEnd">The end of the fog in the 3D world as the distance from the camera (<see cref="Prazsky.Core.Camera.ICamera"/>).
         /// Objects beyond this distance are completely invisible.</param>
         public FogParams(Vector3 fogColor, float fogStart, float fogEnd)
-		{
-			FogColor = fogColor;
-			FogStart = fogStart;
-			FogEnd = fogEnd;
-		}
+        {
+            FogColor = fogColor;
+            FogStart = fogStart;
+            FogEnd = fogEnd;
+        }
 
         /// <summary>
         /// The color of the fog.
@@ -149,5 +149,5 @@ namespace Prazsky.Core.Render
         /// Objects beyond this distance are completely invisible.
         /// </summary>
         public float FogEnd { get; set; }
-	}
+    }
 }

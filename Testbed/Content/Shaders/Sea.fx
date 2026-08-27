@@ -145,16 +145,16 @@ static const float MENISCUS_TILT = 0.35;
 
 struct SeaVertexInput
 {
-	float4 Position : POSITION0;
+    float4 Position : POSITION0;
 };
 
 struct SeaVertexOutput
 {
-	float4 Position : SV_POSITION;
-	float3 WorldPosition : TEXCOORD0;
-	float3 WorldNormal : TEXCOORD1;
-	//x = whitecap fold factor (0..1), y = crest height normalized (0..1)
-	float2 Foam : TEXCOORD2;
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+    float3 WorldNormal : TEXCOORD1;
+    //x = whitecap fold factor (0..1), y = crest height normalized (0..1)
+    float2 Foam : TEXCOORD2;
 };
 
 //Sum of Gerstner waves at the rest position p0. Returns the world-space displacement (horizontal AND
@@ -164,86 +164,86 @@ struct SeaVertexOutput
 //ampScale fades the whole thing to flat towards the horizon.
 void OceanSurface(float2 p0, float ampScale, out float3 disp, out float3 normal, out float fold, out float crest)
 {
-	disp = float3(0.0, 0.0, 0.0);
+    disp = float3(0.0, 0.0, 0.0);
 
-	//Normal accumulators: N = normalize(-nx, 1 - nySub, -nz)
-	float nx = 0.0, nz = 0.0, nySub = 0.0;
+    //Normal accumulators: N = normalize(-nx, 1 - nySub, -nz)
+    float nx = 0.0, nz = 0.0, nySub = 0.0;
 
-	//Jacobian accumulators for the horizontal displacement map (x,z) -> (x+dx, z+dz)
-	float jxx = 0.0, jzz = 0.0, jxz = 0.0;
+    //Jacobian accumulators for the horizontal displacement map (x,z) -> (x+dx, z+dz)
+    float jxx = 0.0, jzz = 0.0, jxz = 0.0;
 
-	float sumAmp = 0.0;
+    float sumAmp = 0.0;
 
-	[unroll]
-	for (int i = 0; i < WAVE_COUNT; i++)
-	{
-		float2 d = normalize(WAVE_DIR[i]);
-		float k = TWO_PI / WAVE_LEN[i];
-		float a = WaveAmplitude * WAVE_AMP[i] * ampScale;
-		float w = sqrt(GRAVITY * k) * WaveSpeed;   //deep-water dispersion: long swells roll slower than chop
-		float q = WaveSteepness * WAVE_STEEP[i];
+    [unroll]
+    for (int i = 0; i < WAVE_COUNT; i++)
+    {
+        float2 d = normalize(WAVE_DIR[i]);
+        float k = TWO_PI / WAVE_LEN[i];
+        float a = WaveAmplitude * WAVE_AMP[i] * ampScale;
+        float w = sqrt(GRAVITY * k) * WaveSpeed;   //deep-water dispersion: long swells roll slower than chop
+        float q = WaveSteepness * WAVE_STEEP[i];
 
-		float phase = k * dot(d, p0) + w * SeaTime + WAVE_PHASE[i];
-		float c = cos(phase);
-		float s = sin(phase);
+        float phase = k * dot(d, p0) + w * SeaTime + WAVE_PHASE[i];
+        float c = cos(phase);
+        float s = sin(phase);
 
-		float qa = q * a;
-		disp.x += qa * d.x * c;
-		disp.z += qa * d.y * c;
-		disp.y += a * s;
+        float qa = q * a;
+        disp.x += qa * d.x * c;
+        disp.z += qa * d.y * c;
+        disp.y += a * s;
 
-		float wa = k * a;
-		nx += d.x * wa * c;
-		nz += d.y * wa * c;
-		nySub += q * wa * s;
+        float wa = k * a;
+        nx += d.x * wa * c;
+        nz += d.y * wa * c;
+        nySub += q * wa * s;
 
-		//d(disp.x)/dx0 = -q*a*k*d.x*d.x*sin(phase); the map derivative subtracts that from the identity
-		jxx += q * wa * d.x * d.x * s;
-		jzz += q * wa * d.y * d.y * s;
-		jxz += q * wa * d.x * d.y * s;
+        //d(disp.x)/dx0 = -q*a*k*d.x*d.x*sin(phase); the map derivative subtracts that from the identity
+        jxx += q * wa * d.x * d.x * s;
+        jzz += q * wa * d.y * d.y * s;
+        jxz += q * wa * d.x * d.y * s;
 
-		sumAmp += a;
-	}
+        sumAmp += a;
+    }
 
-	normal = normalize(float3(-nx, 1.0 - nySub, -nz));
+    normal = normalize(float3(-nx, 1.0 - nySub, -nz));
 
-	float jacobian = (1.0 - jxx) * (1.0 - jzz) - jxz * jxz;
-	fold = saturate((FoamJacobianThreshold - jacobian) / max(FoamJacobianThreshold, 1e-3));
+    float jacobian = (1.0 - jxx) * (1.0 - jzz) - jxz * jxz;
+    fold = saturate((FoamJacobianThreshold - jacobian) / max(FoamJacobianThreshold, 1e-3));
 
-	crest = saturate(disp.y / max(sumAmp, 1e-3) * 0.5 + 0.5);
+    crest = saturate(disp.y / max(sumAmp, 1e-3) * 0.5 + 0.5);
 }
 
 SeaVertexOutput SeaVS(SeaVertexInput input)
 {
-	SeaVertexOutput output;
+    SeaVertexOutput output;
 
-	//Local grid position + the snapped origin gives the rest world XZ; the waves are sampled there, so they
-	//sit still in the world while the grid slides under them
-	float2 restXZ = input.Position.xz + OriginXZ;
+    //Local grid position + the snapped origin gives the rest world XZ; the waves are sampled there, so they
+    //sit still in the world while the grid slides under them
+    float2 restXZ = input.Position.xz + OriginXZ;
 
-	//Fade the waves to flat between WaveFadeStart and WaveFadeEnd so the horizon reads as one hazed line
-	float restDist = distance(CameraPosition.xz, restXZ);
-	float ampScale = saturate(1.0 - (restDist - WaveFadeStart) / max(WaveFadeEnd - WaveFadeStart, 1.0));
+    //Fade the waves to flat between WaveFadeStart and WaveFadeEnd so the horizon reads as one hazed line
+    float restDist = distance(CameraPosition.xz, restXZ);
+    float ampScale = saturate(1.0 - (restDist - WaveFadeStart) / max(WaveFadeEnd - WaveFadeStart, 1.0));
 
-	//The island's shelter (#132): the swell dies completely under the stone, so the pool standing in the
-	//drain is exactly the flat rest grid at SeaLevelY. Keyed on the REST position — displacement is zero
-	//wherever it matters, so the pixel shader sees the same radius. IslandHoleRadius 0 (the map editor)
-	//makes this saturate to 0 and the open sea is untouched.
-	float calm = saturate((IslandHoleRadius - length(restXZ)) / CALM_BAND);
+    //The island's shelter (#132): the swell dies completely under the stone, so the pool standing in the
+    //drain is exactly the flat rest grid at SeaLevelY. Keyed on the REST position — displacement is zero
+    //wherever it matters, so the pixel shader sees the same radius. IslandHoleRadius 0 (the map editor)
+    //makes this saturate to 0 and the open sea is untouched.
+    float calm = saturate((IslandHoleRadius - length(restXZ)) / CALM_BAND);
 
-	float3 disp;
-	float3 normal;
-	float fold, crest;
-	OceanSurface(restXZ, ampScale * (1.0 - calm), disp, normal, fold, crest);
+    float3 disp;
+    float3 normal;
+    float fold, crest;
+    OceanSurface(restXZ, ampScale * (1.0 - calm), disp, normal, fold, crest);
 
-	float3 worldPosition = float3(restXZ.x + disp.x, SeaLevelY + disp.y, restXZ.y + disp.z);
+    float3 worldPosition = float3(restXZ.x + disp.x, SeaLevelY + disp.y, restXZ.y + disp.z);
 
-	output.WorldPosition = worldPosition;
-	output.WorldNormal = normal;
-	output.Foam = float2(fold, crest);
-	output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
+    output.WorldPosition = worldPosition;
+    output.WorldNormal = normal;
+    output.Foam = float2(fold, crest);
+    output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
 
-	return output;
+    return output;
 }
 
 //One fine chop octave, band-limited against the pixel footprint like the ground relief, so the chop fades
@@ -251,163 +251,163 @@ SeaVertexOutput SeaVS(SeaVertexInput input)
 //PerturbNormalFromHeight to tilt the Gerstner normal by.
 float ChopRipple(float2 xz, float2 dir, float frequency, float footprint)
 {
-	float resolvable = saturate(1.0 - footprint * frequency / 3.14159265);
-	return sin(dot(xz, dir) * frequency) * resolvable;
+    float resolvable = saturate(1.0 - footprint * frequency / 3.14159265);
+    return sin(dot(xz, dir) * frequency) * resolvable;
 }
 
 //The fine wind-chop height field: a few octaves crossing the wind, scrolling downwind so the surface crawls
 float ChopHeight(float2 xz, float footprint)
 {
-	float2 p = xz + WindDirection * SeaTime * ChopSpeed;
-	float f = ChopFrequency;
+    float2 p = xz + WindDirection * SeaTime * ChopSpeed;
+    float f = ChopFrequency;
 
-	float h = 0.5 * ChopRipple(p, normalize(float2(0.9, 0.4)), f, footprint)
-		+ 0.28 * ChopRipple(p, normalize(float2(0.6, -0.8)), f * 1.9, footprint)
-		+ 0.15 * ChopRipple(p, normalize(float2(-0.5, 0.85)), f * 3.4, footprint)
-		+ 0.09 * ChopRipple(p, normalize(float2(0.2, -0.98)), f * 5.7, footprint);
+    float h = 0.5 * ChopRipple(p, normalize(float2(0.9, 0.4)), f, footprint)
+        + 0.28 * ChopRipple(p, normalize(float2(0.6, -0.8)), f * 1.9, footprint)
+        + 0.15 * ChopRipple(p, normalize(float2(-0.5, 0.85)), f * 3.4, footprint)
+        + 0.09 * ChopRipple(p, normalize(float2(0.2, -0.98)), f * 5.7, footprint);
 
-	return h * ChopAmplitude;
+    return h * ChopAmplitude;
 }
 
 //Tangent-free normal tilt from a height field (Christian Schueler), the same one the balls and the ground
 //relief use - the grid carries no tangents and the chop never reaches the vertices anyway.
 float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
 {
-	float3 dpdx = ddx(worldPosition);
-	float3 dpdy = ddy(worldPosition);
+    float3 dpdx = ddx(worldPosition);
+    float3 dpdy = ddy(worldPosition);
 
-	float3 r1 = cross(dpdy, normal);
-	float3 r2 = cross(normal, dpdx);
+    float3 r1 = cross(dpdy, normal);
+    float3 r2 = cross(normal, dpdx);
 
-	float determinant = dot(dpdx, r1);
-	float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
+    float determinant = dot(dpdx, r1);
+    float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
 
-	return normalize(abs(determinant) * normal - surfaceGradient);
+    return normalize(abs(determinant) * normal - surfaceGradient);
 }
 
 float4 SeaPS(SeaVertexOutput input) : COLOR
 {
-	float3 worldPosition = input.WorldPosition;
+    float3 worldPosition = input.WorldPosition;
 
-	//Cut the ring of the island's footprint out of the surface, keeping BOTH sides of it: the open sea past
-	//IslandHoleRadius and the pool standing inside the drain (#132) — max() keeps a pixel that survives on
-	//either count. Only the annulus between them, hidden inside the island's stone, is discarded. 0 in the
-	//map editor keeps it all: r - 0 is never negative, whatever the pool radius says.
-	float r = length(worldPosition.xz);
-	clip(max(r - IslandHoleRadius, FunnelPoolRadius - r));
+    //Cut the ring of the island's footprint out of the surface, keeping BOTH sides of it: the open sea past
+    //IslandHoleRadius and the pool standing inside the drain (#132) — max() keeps a pixel that survives on
+    //either count. Only the annulus between them, hidden inside the island's stone, is discarded. 0 in the
+    //map editor keeps it all: r - 0 is never negative, whatever the pool radius says.
+    float r = length(worldPosition.xz);
+    clip(max(r - IslandHoleRadius, FunnelPoolRadius - r));
 
-	//How deep into the island's shelter this pixel is: 1 across the whole pool, 0 on the open sea and in the
-	//map editor. The vertex shader keyed the same ramp on the rest position; the two agree wherever it
-	//matters because the calm water is exactly where the displacement is zero.
-	float calm = saturate((IslandHoleRadius - r) / CALM_BAND);
+    //How deep into the island's shelter this pixel is: 1 across the whole pool, 0 on the open sea and in the
+    //map editor. The vertex shader keyed the same ramp on the rest position; the two agree wherever it
+    //matters because the calm water is exactly where the displacement is zero.
+    float calm = saturate((IslandHoleRadius - r) / CALM_BAND);
 
-	float3 toEye = CameraPosition - worldPosition;
-	float dist = length(toEye);
-	float3 viewDir = toEye / dist;
+    float3 toEye = CameraPosition - worldPosition;
+    float dist = length(toEye);
+    float3 viewDir = toEye / dist;
 
-	float footprint = length(fwidth(worldPosition.xz));
+    float footprint = length(fwidth(worldPosition.xz));
 
-	//Fine chop tilts the Gerstner normal; it carries the close-up sparkle and breaks the big waves into a
-	//surface. Faded with the same distance ramp as the geometry so the far water is smooth. In the pool it
-	//is damped to a POOL_CHOP fraction — the sheltered water keeps a fine capillary ripple, nothing more.
-	float chopFade = saturate(1.0 - (dist - WaveFadeStart) / max(WaveFadeEnd - WaveFadeStart, 1.0));
-	float chop = ChopHeight(worldPosition.xz, footprint) * chopFade * lerp(1.0, POOL_CHOP, calm);
-	float3 normal = PerturbNormalFromHeight(normalize(input.WorldNormal), worldPosition, chop);
+    //Fine chop tilts the Gerstner normal; it carries the close-up sparkle and breaks the big waves into a
+    //surface. Faded with the same distance ramp as the geometry so the far water is smooth. In the pool it
+    //is damped to a POOL_CHOP fraction — the sheltered water keeps a fine capillary ripple, nothing more.
+    float chopFade = saturate(1.0 - (dist - WaveFadeStart) / max(WaveFadeEnd - WaveFadeStart, 1.0));
+    float chop = ChopHeight(worldPosition.xz, footprint) * chopFade * lerp(1.0, POOL_CHOP, calm);
+    float3 normal = PerturbNormalFromHeight(normalize(input.WorldNormal), worldPosition, chop);
 
-	//Capillary climb at the glass (#132): over the last MENISCUS_BAND before the pool's edge the surface
-	//reads as curling up the wall — the normal tilts away from the outward radial, so the rim catches the
-	//sky at a different angle than the flat pool and the water meets the glass in a soft bright ring rather
-	//than a razor-cut circle. Scaled by calm, so the open sea (and the map editor) never sees it.
-	float meniscus = saturate(1.0 - (FunnelPoolRadius - r) / MENISCUS_BAND) * calm;
-	float2 outward = worldPosition.xz / max(r, 1e-3);
-	normal = normalize(normal - float3(outward.x, 0.0, outward.y) * (meniscus * meniscus * MENISCUS_TILT));
+    //Capillary climb at the glass (#132): over the last MENISCUS_BAND before the pool's edge the surface
+    //reads as curling up the wall — the normal tilts away from the outward radial, so the rim catches the
+    //sky at a different angle than the flat pool and the water meets the glass in a soft bright ring rather
+    //than a razor-cut circle. Scaled by calm, so the open sea (and the map editor) never sees it.
+    float meniscus = saturate(1.0 - (FunnelPoolRadius - r) / MENISCUS_BAND) * calm;
+    float2 outward = worldPosition.xz / max(r, 1e-3);
+    normal = normalize(normal - float3(outward.x, 0.0, outward.y) * (meniscus * meniscus * MENISCUS_TILT));
 
-	//How much sun reaches this patch through the clouds - the very field the whole scene is shadowed by
-	float sunlight = CloudSunlight(worldPosition, SunDirection);
+    //How much sun reaches this patch through the clouds - the very field the whole scene is shadowed by
+    float sunlight = CloudSunlight(worldPosition, SunDirection);
 
-	//Sky reflection. The dome is a vertical gradient, so the reflected ray's height picks between horizon
-	//and zenith in closed form - the same trick InstancedModel.fx's SkyRadiance uses. A grazing view mirrors
-	//the low sky near the horizon; a steep look down shows more zenith. A cloud overhead greys it a little.
-	float3 reflected = reflect(-viewDir, normal);
-	float3 sky = lerp(HorizonColor, ZenithColor, saturate(reflected.y * 0.5 + 0.5));
-	float3 reflection = sky * lerp(0.65, 1.0, sunlight);
+    //Sky reflection. The dome is a vertical gradient, so the reflected ray's height picks between horizon
+    //and zenith in closed form - the same trick InstancedModel.fx's SkyRadiance uses. A grazing view mirrors
+    //the low sky near the horizon; a steep look down shows more zenith. A cloud overhead greys it a little.
+    float3 reflected = reflect(-viewDir, normal);
+    float3 sky = lerp(HorizonColor, ZenithColor, saturate(reflected.y * 0.5 + 0.5));
+    float3 reflection = sky * lerp(0.65, 1.0, sunlight);
 
-	//Fresnel: at a grazing angle the water is a mirror, straight down it shows mostly its own body. A small
-	//floor above water's ~2% head-on reflectance keeps a little sky in the surface even looking straight down.
-	float fresnel = 0.02 + 0.98 * pow(1.0 - saturate(dot(normal, viewDir)), 5.0);
+    //Fresnel: at a grazing angle the water is a mirror, straight down it shows mostly its own body. A small
+    //floor above water's ~2% head-on reflectance keeps a little sky in the surface even looking straight down.
+    float fresnel = 0.02 + 0.98 * pow(1.0 - saturate(dot(normal, viewDir)), 5.0);
 
-	//Body color: deep water lit by the sky above it (so a night sea goes dark), the up-facing faces a touch
-	//paler. Water has almost no light of its own; what you see into it is skylight scattered back out. The
-	//pool is biased towards the deep colour: its normal points straight up, which would pick the palest mix
-	//of all, and a still column of water standing in a drain reads dark, not pale.
-	float3 ambient = (ZenithColor + HorizonColor) * 0.5;
+    //Body color: deep water lit by the sky above it (so a night sea goes dark), the up-facing faces a touch
+    //paler. Water has almost no light of its own; what you see into it is skylight scattered back out. The
+    //pool is biased towards the deep colour: its normal points straight up, which would pick the palest mix
+    //of all, and a still column of water standing in a drain reads dark, not pale.
+    float3 ambient = (ZenithColor + HorizonColor) * 0.5;
 
-	//How much of the body is the SHALLOW colour. The open sea's rule is the first term: the up-facing faces
-	//of the swell show a paler column and everything else shows the deep, and a calm patch (the drain's
-	//standing pool) is biased darker still. That rule is written for water with nothing under it — and it
-	//is what left the tropical LAGOON reading grey (#268, measured at (140, 146, 133), blue below red,
-	//against a WaterColorShallow that is honestly turquoise). A lagoon is shallow EVERYWHERE: its bed is a
-	//few units under the surface across the whole basin, so its colour is the shallow one wherever you look
-	//at it, not only on the faces that happen to tilt up. ShallowBias lifts the floor of the mix.
-	//
-	//It is 0 for the open sea and lerp(x, 1, 0) is bit-exactly x, so that scene's water is UNCHANGED — which
-	//is what makes it safe to put this in the shader both water scenes draw through.
-	float shallowMix = lerp(saturate(normal.y) * 0.5 * (1.0 - 0.8 * calm), 1.0, ShallowBias);
+    //How much of the body is the SHALLOW colour. The open sea's rule is the first term: the up-facing faces
+    //of the swell show a paler column and everything else shows the deep, and a calm patch (the drain's
+    //standing pool) is biased darker still. That rule is written for water with nothing under it — and it
+    //is what left the tropical LAGOON reading grey (#268, measured at (140, 146, 133), blue below red,
+    //against a WaterColorShallow that is honestly turquoise). A lagoon is shallow EVERYWHERE: its bed is a
+    //few units under the surface across the whole basin, so its colour is the shallow one wherever you look
+    //at it, not only on the faces that happen to tilt up. ShallowBias lifts the floor of the mix.
+    //
+    //It is 0 for the open sea and lerp(x, 1, 0) is bit-exactly x, so that scene's water is UNCHANGED — which
+    //is what makes it safe to put this in the shader both water scenes draw through.
+    float shallowMix = lerp(saturate(normal.y) * 0.5 * (1.0 - 0.8 * calm), 1.0, ShallowBias);
 
-	float3 body = lerp(WaterColorDeep, WaterColorShallow, shallowMix) * ambient + ZenithColor * 0.05;
+    float3 body = lerp(WaterColorDeep, WaterColorShallow, shallowMix) * ambient + ZenithColor * 0.05;
 
-	float3 color = lerp(body, reflection, fresnel);
+    float3 color = lerp(body, reflection, fresnel);
 
-	//Subsurface scattering: a crest glows when the sun is behind it and the eye looks into the water. The
-	//classic cheap term - looking towards the sun, strongest on the raised faces of the waves, snuffed by cloud.
-	float backlight = pow(saturate(dot(viewDir, -SunDirection)), 4.0);
-	float sss = backlight * saturate(input.Foam.y * 2.0 - 0.5) * SssStrength * sunlight * (1.0 - calm);
-	color += SssColor * SunColor * sss;
+    //Subsurface scattering: a crest glows when the sun is behind it and the eye looks into the water. The
+    //classic cheap term - looking towards the sun, strongest on the raised faces of the waves, snuffed by cloud.
+    float backlight = pow(saturate(dot(viewDir, -SunDirection)), 4.0);
+    float sss = backlight * saturate(input.Foam.y * 2.0 - 0.5) * SssStrength * sunlight * (1.0 - calm);
+    color += SssColor * SunColor * sss;
 
-	//Sun glint: a sharp spark where the reflected ray points at the sun, sparkling across the chop facets,
-	//snuffed out under a cloud shadow
-	float glint = pow(saturate(dot(reflected, SunDirection)), SunGlintPower) * SunGlintStrength * sunlight;
-	color += glint * SunColor;
+    //Sun glint: a sharp spark where the reflected ray points at the sun, sparkling across the chop facets,
+    //snuffed out under a cloud shadow
+    float glint = pow(saturate(dot(reflected, SunDirection)), SunGlintPower) * SunGlintStrength * sunlight;
+    color += glint * SunColor;
 
-	//Whitecap foam. Two per-vertex signals say where foam may LIVE - the Jacobian fold (the wave genuinely
-	//breaking) and the crest gate (high on the combined swell) - and neither may draw its own silhouette:
-	//both are smooth interpolated scalars, and thresholding the crest height painted the round white blobs
-	//#128 was opened for. Where the six fanned waves constructively interfere, their sum is a localized
-	//round bump, and a height threshold on a round bump is a disc - a white ball drifting with the phase
-	//speed, which is exactly how it was reported. So the gates set only the foam DENSITY, and the visible
-	//shape comes from a streak field: band-limited fbm combed along the dominant swell's crest line
-	//(Fbm2Combed, the grass relief's idiom), advected downwind, so foam reads as wind-torn lanes riding
-	//the crests. The density slides the streak threshold - more energy widens the lanes toward a connected
-	//cap rather than brightening a disc - and the field fades against the pixel footprint, so the far sea
-	//loses the pattern smoothly instead of shimmering (the fade costs variance, which the horizon haze
-	//covers anyway). Foam stays a near-white matte cap lit by sun and sky, composited over the water.
-	//(1 - calm) kills the foam in the pool outright: the damped Gerstner sum already gives it no fold and no
-	//crest, but the crest signal parks at 0.5 when the amplitudes are zero, and a config with FoamCrestStart
-	//under that would lay foam lanes across dead-still water.
-	float crestGate = saturate((input.Foam.y - FoamCrestStart) / max(1.0 - FoamCrestStart, 1e-3));
-	float density = saturate(max(input.Foam.x * FoamStrength, crestGate * FoamCrestStrength)) * (1.0 - calm);
+    //Whitecap foam. Two per-vertex signals say where foam may LIVE - the Jacobian fold (the wave genuinely
+    //breaking) and the crest gate (high on the combined swell) - and neither may draw its own silhouette:
+    //both are smooth interpolated scalars, and thresholding the crest height painted the round white blobs
+    //#128 was opened for. Where the six fanned waves constructively interfere, their sum is a localized
+    //round bump, and a height threshold on a round bump is a disc - a white ball drifting with the phase
+    //speed, which is exactly how it was reported. So the gates set only the foam DENSITY, and the visible
+    //shape comes from a streak field: band-limited fbm combed along the dominant swell's crest line
+    //(Fbm2Combed, the grass relief's idiom), advected downwind, so foam reads as wind-torn lanes riding
+    //the crests. The density slides the streak threshold - more energy widens the lanes toward a connected
+    //cap rather than brightening a disc - and the field fades against the pixel footprint, so the far sea
+    //loses the pattern smoothly instead of shimmering (the fade costs variance, which the horizon haze
+    //covers anyway). Foam stays a near-white matte cap lit by sun and sky, composited over the water.
+    //(1 - calm) kills the foam in the pool outright: the damped Gerstner sum already gives it no fold and no
+    //crest, but the crest signal parks at 0.5 when the amplitudes are zero, and a config with FoamCrestStart
+    //under that would lay foam lanes across dead-still water.
+    float crestGate = saturate((input.Foam.y - FoamCrestStart) / max(1.0 - FoamCrestStart, 1e-3));
+    float density = saturate(max(input.Foam.x * FoamStrength, crestGate * FoamCrestStrength)) * (1.0 - calm);
 
-	float2 foamDomain = (worldPosition.xz + WindDirection * SeaTime * ChopSpeed * 0.5) * FOAM_STREAK_FREQUENCY;
-	float streaks = Fbm2Combed(foamDomain, FOAM_STREAK_ALONG, FOAM_STREAK_STRETCH, 4,
-		footprint * FOAM_STREAK_FREQUENCY) + 0.5;
+    float2 foamDomain = (worldPosition.xz + WindDirection * SeaTime * ChopSpeed * 0.5) * FOAM_STREAK_FREQUENCY;
+    float streaks = Fbm2Combed(foamDomain, FOAM_STREAK_ALONG, FOAM_STREAK_STRETCH, 4,
+        footprint * FOAM_STREAK_FREQUENCY) + 0.5;
 
-	float foam = min(1.0, density * 1.15)
-		* smoothstep(0.60 - density * 0.45, 0.70 - density * 0.30, streaks) * chopFade;
-	float3 foamCol = FoamColor * (ambient + SunColor * sunlight * saturate(dot(normal, SunDirection)) * 0.7);
-	color = lerp(color, foamCol, foam);
+    float foam = min(1.0, density * 1.15)
+        * smoothstep(0.60 - density * 0.45, 0.70 - density * 0.30, streaks) * chopFade;
+    float3 foamCol = FoamColor * (ambient + SunColor * sunlight * saturate(dot(normal, SunDirection)) * 0.7);
+    color = lerp(color, foamCol, foam);
 
-	//Horizon haze: melt the sea into the skyline color over distance, so the plane has no visible edge
-	float haze = saturate(dist / HorizonHazeDistance);
-	color = lerp(color, HorizonColor, haze * haze);
+    //Horizon haze: melt the sea into the skyline color over distance, so the plane has no visible edge
+    float haze = saturate(dist / HorizonHazeDistance);
+    color = lerp(color, HorizonColor, haze * haze);
 
-	return float4(color, 1.0);
+    return float4(color, 1.0);
 }
 
 technique Sea
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL SeaVS();
-		PixelShader = compile PS_SHADERMODEL SeaPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL SeaVS();
+        PixelShader = compile PS_SHADERMODEL SeaPS();
+    }
 };

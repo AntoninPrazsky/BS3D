@@ -74,7 +74,7 @@ namespace Prazsky.BS3D.GameStructure
             if (Centered) realPosition = ComputeCentered(realPosition);
 
             var ball = new StaticBall(realPosition, type);
-			_balls[stageX, stageZ, level] = ball;
+            _balls[stageX, stageZ, level] = ball;
 
             return ball;
         }

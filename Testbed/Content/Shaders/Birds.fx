@@ -81,101 +81,101 @@ static const float BODY_LIFT_PHASE = 1.6;
 
 struct BirdVertexInput
 {
-	float4 Position : POSITION0;
-	float3 Normal : NORMAL0;
-	float2 Data : TEXCOORD0; //(signed spanwise station, distance forward of the wing's mean line)
+    float4 Position : POSITION0;
+    float3 Normal : NORMAL0;
+    float2 Data : TEXCOORD0; //(signed spanwise station, distance forward of the wing's mean line)
 };
 
 struct BirdVertexOutput
 {
-	float4 Position : SV_POSITION;
-	float3 WorldNormal : TEXCOORD0;
+    float4 Position : SV_POSITION;
+    float3 WorldNormal : TEXCOORD0;
 };
 
 float3 RotateAboutSpan(float3 v, float c, float s)
 {
-	return float3(v.x, v.y * c - v.z * s, v.y * s + v.z * c);
+    return float3(v.x, v.y * c - v.z * s, v.y * s + v.z * c);
 }
 
 float3 RotateAboutBody(float3 v, float c, float s)
 {
-	return float3(v.x * c - v.y * s, v.x * s + v.y * c, v.z);
+    return float3(v.x * c - v.y * s, v.x * s + v.y * c, v.z);
 }
 
 BirdVertexOutput BirdVS(BirdVertexInput input)
 {
-	BirdVertexOutput output;
+    BirdVertexOutput output;
 
-	float3 p = input.Position.xyz;
-	float3 n = input.Normal;
+    float3 p = input.Position.xyz;
+    float3 n = input.Normal;
 
-	float span = input.Data.x;
-	float chord = input.Data.y;
-	float t = abs(span);
+    float span = input.Data.x;
+    float chord = input.Data.y;
+    float t = abs(span);
 
-	//The beat at THIS station, lagged by how far out along the wing it is and skewed so the downstroke is
-	//the fast half.
-	float theta = FlapPhase - SPAN_LAG * t;
-	float shaped = theta - STROKE_SKEW * sin(theta);
-	float beat = sin(shaped);
+    //The beat at THIS station, lagged by how far out along the wing it is and skewed so the downstroke is
+    //the fast half.
+    float theta = FlapPhase - SPAN_LAG * t;
+    float shaped = theta - STROKE_SKEW * sin(theta);
+    float beat = sin(shaped);
 
-	//The angle this station turns through. bend() grows faster than t does, so the wing is an arc; sign()
-	//is what sends both wings up together, since the two sides turn opposite ways about the same axis.
-	float bend = BEND_INNER * t + (1.0 - BEND_INNER) * t * t;
-	float angle = (REST_DIHEDRAL + FLAP_AMPLITUDE * FlapAmount * beat) * bend * sign(span);
+    //The angle this station turns through. bend() grows faster than t does, so the wing is an arc; sign()
+    //is what sends both wings up together, since the two sides turn opposite ways about the same axis.
+    float bend = BEND_INNER * t + (1.0 - BEND_INNER) * t * t;
+    float angle = (REST_DIHEDRAL + FLAP_AMPLITUDE * FlapAmount * beat) * bend * sign(span);
 
-	//The wrist's flex, strongest with the wing high - a bird folds its hand on the recovery so it is not
-	//pushing the air it just moved back down again.
-	float fold = saturate(beat) * FlapAmount * smoothstep(WRIST, 1.0, t);
-	p.x *= 1.0 - FOLD_SPAN * fold;
-	p.z += FOLD_SWEEP * fold;
+    //The wrist's flex, strongest with the wing high - a bird folds its hand on the recovery so it is not
+    //pushing the air it just moved back down again.
+    float fold = saturate(beat) * FlapAmount * smoothstep(WRIST, 1.0, t);
+    p.x *= 1.0 - FOLD_SPAN * fold;
+    p.z += FOLD_SWEEP * fold;
 
-	//The twist, a rotation about the wing's mean line. The vertex carries its own distance from that line,
-	//which is the whole of what placing the axis needs - and because it is expressed in that distance rather
-	//than as a rotation about a signed axis, the same two lines pitch BOTH wings nose-down.
-	float twist = TWIST * FlapAmount * t * cos(shaped);
-	float twistSin, twistCos;
-	sincos(twist, twistSin, twistCos);
-	p.y += chord * twistSin;
-	p.z += chord * (1.0 - twistCos);
-	n = RotateAboutSpan(n, twistCos, twistSin);
+    //The twist, a rotation about the wing's mean line. The vertex carries its own distance from that line,
+    //which is the whole of what placing the axis needs - and because it is expressed in that distance rather
+    //than as a rotation about a signed axis, the same two lines pitch BOTH wings nose-down.
+    float twist = TWIST * FlapAmount * t * cos(shaped);
+    float twistSin, twistCos;
+    sincos(twist, twistSin, twistCos);
+    p.y += chord * twistSin;
+    p.z += chord * (1.0 - twistCos);
+    n = RotateAboutSpan(n, twistCos, twistSin);
 
-	//The dihedral itself. The normal takes this and the twist, but NOT the spanwise gradient of bend(): the
-	//animated wing is a helicoid and its true normal leans a few degrees further, which is under the noise
-	//floor on a bird whose albedo is near black against a bright sky.
-	float flapSin, flapCos;
-	sincos(angle, flapSin, flapCos);
-	p = RotateAboutBody(p, flapCos, flapSin);
-	n = RotateAboutBody(n, flapCos, flapSin);
+    //The dihedral itself. The normal takes this and the twist, but NOT the spanwise gradient of bend(): the
+    //animated wing is a helicoid and its true normal leans a few degrees further, which is under the noise
+    //floor on a bird whose albedo is near black against a bright sky.
+    float flapSin, flapCos;
+    sincos(angle, flapSin, flapCos);
+    p = RotateAboutBody(p, flapCos, flapSin);
+    n = RotateAboutBody(n, flapCos, flapSin);
 
-	p.y += BODY_LIFT * FlapAmount * sin(FlapPhase + BODY_LIFT_PHASE);
+    p.y += BODY_LIFT * FlapAmount * sin(FlapPhase + BODY_LIFT_PHASE);
 
-	float4 worldPosition = mul(float4(p, 1.0), World);
-	output.Position = mul(mul(worldPosition, View), Projection);
-	output.WorldNormal = mul(n, (float3x3)World);
+    float4 worldPosition = mul(float4(p, 1.0), World);
+    output.Position = mul(mul(worldPosition, View), Projection);
+    output.WorldNormal = mul(n, (float3x3)World);
 
-	return output;
+    return output;
 }
 
 float4 BirdPS(BirdVertexOutput input, bool isFrontFace : SV_IsFrontFace) : COLOR
 {
-	//Two-sided: the wings, the primaries and the tail are single sheets drawn with CullNone, so the side
-	//that is lit is whichever one is turned towards the camera. A wing seen from underneath must take the
-	//ground's dim half of the sky, not the sun that is on its back.
-	float3 N = normalize(input.WorldNormal);
-	N = isFrontFace ? N : -N;
+    //Two-sided: the wings, the primaries and the tail are single sheets drawn with CullNone, so the side
+    //that is lit is whichever one is turned towards the camera. A wing seen from underneath must take the
+    //ground's dim half of the sky, not the sun that is on its back.
+    float3 N = normalize(input.WorldNormal);
+    N = isFrontFace ? N : -N;
 
-	float3 ambient = lerp(HorizonColor, ZenithColor, saturate(N.y * 0.5 + 0.5));
-	float ndotl = saturate(dot(N, SunDirection));
+    float3 ambient = lerp(HorizonColor, ZenithColor, saturate(N.y * 0.5 + 0.5));
+    float ndotl = saturate(dot(N, SunDirection));
 
-	return float4(BirdColor * (ambient + SunColor * ndotl), 1.0);
+    return float4(BirdColor * (ambient + SunColor * ndotl), 1.0);
 }
 
 technique Birds
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL BirdVS();
-		PixelShader = compile PS_SHADERMODEL BirdPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL BirdVS();
+        PixelShader = compile PS_SHADERMODEL BirdPS();
+    }
 };

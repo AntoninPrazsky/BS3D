@@ -19,16 +19,16 @@
 
 float2 NoiseHash22(float2 p)
 {
-	float3 q = frac(p.xyx * float3(0.1031, 0.1030, 0.0973));
-	q += dot(q, q.yzx + 33.33);
-	return frac((q.xx + q.yz) * q.zy) * 2.0 - 1.0;
+    float3 q = frac(p.xyx * float3(0.1031, 0.1030, 0.0973));
+    q += dot(q, q.yzx + 33.33);
+    return frac((q.xx + q.yz) * q.zy) * 2.0 - 1.0;
 }
 
 float3 NoiseHash33(float3 p)
 {
-	p = frac(p * float3(0.1031, 0.1030, 0.0973));
-	p += dot(p, p.yxz + 33.33);
-	return frac((p.xxy + p.yxx) * p.zyx) * 2.0 - 1.0;
+    p = frac(p * float3(0.1031, 0.1030, 0.0973));
+    p += dot(p, p.yxz + 33.33);
+    return frac((p.xxy + p.yxx) * p.zyx) * 2.0 - 1.0;
 }
 
 //--- Gradient noise -----------------------------------------------------------------------------------
@@ -38,34 +38,34 @@ float3 NoiseHash33(float3 p)
 
 float GradientNoise2(float2 p)
 {
-	float2 i = floor(p);
-	float2 f = frac(p);
-	float2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+    float2 i = floor(p);
+    float2 f = frac(p);
+    float2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
 
-	return lerp(
-		lerp(dot(NoiseHash22(i), f),
-		     dot(NoiseHash22(i + float2(1.0, 0.0)), f - float2(1.0, 0.0)), u.x),
-		lerp(dot(NoiseHash22(i + float2(0.0, 1.0)), f - float2(0.0, 1.0)),
-		     dot(NoiseHash22(i + float2(1.0, 1.0)), f - float2(1.0, 1.0)), u.x), u.y);
+    return lerp(
+        lerp(dot(NoiseHash22(i), f),
+             dot(NoiseHash22(i + float2(1.0, 0.0)), f - float2(1.0, 0.0)), u.x),
+        lerp(dot(NoiseHash22(i + float2(0.0, 1.0)), f - float2(0.0, 1.0)),
+             dot(NoiseHash22(i + float2(1.0, 1.0)), f - float2(1.0, 1.0)), u.x), u.y);
 }
 
 float GradientNoise3(float3 p)
 {
-	float3 i = floor(p);
-	float3 f = frac(p);
-	float3 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+    float3 i = floor(p);
+    float3 f = frac(p);
+    float3 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
 
-	return lerp(
-		lerp(
-			lerp(dot(NoiseHash33(i), f),
-			     dot(NoiseHash33(i + float3(1, 0, 0)), f - float3(1, 0, 0)), u.x),
-			lerp(dot(NoiseHash33(i + float3(0, 1, 0)), f - float3(0, 1, 0)),
-			     dot(NoiseHash33(i + float3(1, 1, 0)), f - float3(1, 1, 0)), u.x), u.y),
-		lerp(
-			lerp(dot(NoiseHash33(i + float3(0, 0, 1)), f - float3(0, 0, 1)),
-			     dot(NoiseHash33(i + float3(1, 0, 1)), f - float3(1, 0, 1)), u.x),
-			lerp(dot(NoiseHash33(i + float3(0, 1, 1)), f - float3(0, 1, 1)),
-			     dot(NoiseHash33(i + float3(1, 1, 1)), f - float3(1, 1, 1)), u.x), u.y), u.z);
+    return lerp(
+        lerp(
+            lerp(dot(NoiseHash33(i), f),
+                 dot(NoiseHash33(i + float3(1, 0, 0)), f - float3(1, 0, 0)), u.x),
+            lerp(dot(NoiseHash33(i + float3(0, 1, 0)), f - float3(0, 1, 0)),
+                 dot(NoiseHash33(i + float3(1, 1, 0)), f - float3(1, 1, 0)), u.x), u.y),
+        lerp(
+            lerp(dot(NoiseHash33(i + float3(0, 0, 1)), f - float3(0, 0, 1)),
+                 dot(NoiseHash33(i + float3(1, 0, 1)), f - float3(1, 0, 1)), u.x),
+            lerp(dot(NoiseHash33(i + float3(0, 1, 1)), f - float3(0, 1, 1)),
+                 dot(NoiseHash33(i + float3(1, 1, 1)), f - float3(1, 1, 1)), u.x), u.y), u.z);
 }
 
 //--- Fractal Brownian motion --------------------------------------------------------------------------
@@ -75,25 +75,25 @@ float GradientNoise3(float3 p)
 //unrolls the loop after inlining. Cost: one gradient-noise evaluation per octave.
 
 static const float3x3 NOISE_ROTATE3 = float3x3(
-	0.00, 0.80, 0.60,
-	-0.80, 0.36, -0.48,
-	-0.60, -0.48, 0.64);
+    0.00, 0.80, 0.60,
+    -0.80, 0.36, -0.48,
+    -0.60, -0.48, 0.64);
 
 static const float2x2 NOISE_ROTATE2 = float2x2(0.80, 0.60, -0.60, 0.80);
 
 float Fbm2(float2 p, int octaves)
 {
-	float value = 0.0;
-	float amplitude = 0.5;
+    float value = 0.0;
+    float amplitude = 0.5;
 
-	for (int i = 0; i < octaves; i++)
-	{
-		value += amplitude * GradientNoise2(p);
-		p = mul(NOISE_ROTATE2, p) * 2.02;
-		amplitude *= 0.5;
-	}
+    for (int i = 0; i < octaves; i++)
+    {
+        value += amplitude * GradientNoise2(p);
+        p = mul(NOISE_ROTATE2, p) * 2.02;
+        amplitude *= 0.5;
+    }
 
-	return value;
+    return value;
 }
 
 //Fbm2 with each octave faded out as its own period approaches the pixel, so a field drawn on something
@@ -106,19 +106,19 @@ float Fbm2(float2 p, int octaves)
 
 float Fbm2BandLimited(float2 p, int octaves, float footprint)
 {
-	float value = 0.0;
-	float amplitude = 0.5;
-	float frequency = 1.0;
+    float value = 0.0;
+    float amplitude = 0.5;
+    float frequency = 1.0;
 
-	for (int i = 0; i < octaves; i++)
-	{
-		value += amplitude * saturate(1.0 - 2.0 * frequency * footprint) * GradientNoise2(p);
-		p = mul(NOISE_ROTATE2, p) * 2.02;
-		frequency *= 2.02;
-		amplitude *= 0.5;
-	}
+    for (int i = 0; i < octaves; i++)
+    {
+        value += amplitude * saturate(1.0 - 2.0 * frequency * footprint) * GradientNoise2(p);
+        p = mul(NOISE_ROTATE2, p) * 2.02;
+        frequency *= 2.02;
+        amplitude *= 0.5;
+    }
 
-	return value;
+    return value;
 }
 
 //Fbm2BandLimited on a domain STRETCHED along `along`, so the field has a GRAIN. Isotropic noise has none by
@@ -134,25 +134,25 @@ float Fbm2BandLimited(float2 p, int octaves, float footprint)
 //normalize and two dots.
 float Fbm2Combed(float2 p, float2 along, float stretch, int octaves, float footprint)
 {
-	float2 axis = dot(along, along) > 1e-6 ? normalize(along) : float2(1.0, 0.0);
-	float2 across = float2(-axis.y, axis.x);
+    float2 axis = dot(along, along) > 1e-6 ? normalize(along) : float2(1.0, 0.0);
+    float2 across = float2(-axis.y, axis.x);
 
-	return Fbm2BandLimited(float2(dot(p, axis) / stretch, dot(p, across)), octaves, footprint);
+    return Fbm2BandLimited(float2(dot(p, axis) / stretch, dot(p, across)), octaves, footprint);
 }
 
 float Fbm3(float3 p, int octaves)
 {
-	float value = 0.0;
-	float amplitude = 0.5;
+    float value = 0.0;
+    float amplitude = 0.5;
 
-	for (int i = 0; i < octaves; i++)
-	{
-		value += amplitude * GradientNoise3(p);
-		p = mul(NOISE_ROTATE3, p) * 2.02;
-		amplitude *= 0.5;
-	}
+    for (int i = 0; i < octaves; i++)
+    {
+        value += amplitude * GradientNoise3(p);
+        p = mul(NOISE_ROTATE3, p) * 2.02;
+        amplitude *= 0.5;
+    }
 
-	return value;
+    return value;
 }
 
 //--- Ridged fBm ----------------------------------------------------------------------------------------
@@ -162,42 +162,42 @@ float Fbm3(float3 p, int octaves)
 
 float RidgedFbm2(float2 p, int octaves)
 {
-	float value = 0.0;
-	float amplitude = 0.5;
-	float weight = 1.0;
+    float value = 0.0;
+    float amplitude = 0.5;
+    float weight = 1.0;
 
-	for (int i = 0; i < octaves; i++)
-	{
-		float ridge = 1.0 - abs(GradientNoise2(p));
-		ridge *= ridge * weight;
-		weight = saturate(ridge * 2.0);
+    for (int i = 0; i < octaves; i++)
+    {
+        float ridge = 1.0 - abs(GradientNoise2(p));
+        ridge *= ridge * weight;
+        weight = saturate(ridge * 2.0);
 
-		value += ridge * amplitude;
-		p = mul(NOISE_ROTATE2, p) * 2.02;
-		amplitude *= 0.5;
-	}
+        value += ridge * amplitude;
+        p = mul(NOISE_ROTATE2, p) * 2.02;
+        amplitude *= 0.5;
+    }
 
-	return value;
+    return value;
 }
 
 float RidgedFbm3(float3 p, int octaves)
 {
-	float value = 0.0;
-	float amplitude = 0.5;
-	float weight = 1.0;
+    float value = 0.0;
+    float amplitude = 0.5;
+    float weight = 1.0;
 
-	for (int i = 0; i < octaves; i++)
-	{
-		float ridge = 1.0 - abs(GradientNoise3(p));
-		ridge *= ridge * weight;
-		weight = saturate(ridge * 2.0);
+    for (int i = 0; i < octaves; i++)
+    {
+        float ridge = 1.0 - abs(GradientNoise3(p));
+        ridge *= ridge * weight;
+        weight = saturate(ridge * 2.0);
 
-		value += ridge * amplitude;
-		p = mul(NOISE_ROTATE3, p) * 2.02;
-		amplitude *= 0.5;
-	}
+        value += ridge * amplitude;
+        p = mul(NOISE_ROTATE3, p) * 2.02;
+        amplitude *= 0.5;
+    }
 
-	return value;
+    return value;
 }
 
 //--- Cellular (Voronoi) distance ------------------------------------------------------------------------
@@ -207,24 +207,24 @@ float RidgedFbm3(float3 p, int octaves)
 
 float Voronoi2(float2 p)
 {
-	float2 i = floor(p);
-	float2 f = frac(p);
-	float best = 8.0;
+    float2 i = floor(p);
+    float2 f = frac(p);
+    float best = 8.0;
 
-	[unroll]
-	for (int y = -1; y <= 1; y++)
-	{
-		[unroll]
-		for (int x = -1; x <= 1; x++)
-		{
-			float2 cell = float2(x, y);
-			float2 site = cell + 0.5 + 0.4 * NoiseHash22(i + cell);
-			float2 toSite = f - site;
-			best = min(best, dot(toSite, toSite));
-		}
-	}
+    [unroll]
+    for (int y = -1; y <= 1; y++)
+    {
+        [unroll]
+        for (int x = -1; x <= 1; x++)
+        {
+            float2 cell = float2(x, y);
+            float2 site = cell + 0.5 + 0.4 * NoiseHash22(i + cell);
+            float2 toSite = f - site;
+            best = min(best, dot(toSite, toSite));
+        }
+    }
 
-	return sqrt(best);
+    return sqrt(best);
 }
 
 //The distance to the second-nearest site LESS the nearest (F2 - F1): zero exactly on the borders between
@@ -232,26 +232,26 @@ float Voronoi2(float2 p)
 //water caustics are: the bright net where wavelets focus, running around dark cells.
 float VoronoiEdge2(float2 p)
 {
-	float2 i = floor(p);
-	float2 f = frac(p);
-	float best = 8.0;
-	float second = 8.0;
+    float2 i = floor(p);
+    float2 f = frac(p);
+    float best = 8.0;
+    float second = 8.0;
 
-	[unroll]
-	for (int y = -1; y <= 1; y++)
-	{
-		[unroll]
-		for (int x = -1; x <= 1; x++)
-		{
-			float2 cell = float2(x, y);
-			float2 site = cell + 0.5 + 0.4 * NoiseHash22(i + cell);
-			float2 toSite = f - site;
-			float d = dot(toSite, toSite);
+    [unroll]
+    for (int y = -1; y <= 1; y++)
+    {
+        [unroll]
+        for (int x = -1; x <= 1; x++)
+        {
+            float2 cell = float2(x, y);
+            float2 site = cell + 0.5 + 0.4 * NoiseHash22(i + cell);
+            float2 toSite = f - site;
+            float d = dot(toSite, toSite);
 
-			second = d < best ? best : min(second, d);
-			best = min(best, d);
-		}
-	}
+            second = d < best ? best : min(second, d);
+            best = min(best, d);
+        }
+    }
 
-	return sqrt(second) - sqrt(best);
+    return sqrt(second) - sqrt(best);
 }

@@ -1976,3 +1976,23 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 ## 2026-08-26 — ZCode (sedmdesátý první zápis)
 
 **#271 mergováno na main (`fc4bf20`, majitelovo slovo), issue zavřeno.** Krystal = hladký pohár + materiál. Ponaučení zapsané v sedmdesátém zápise platí dál. Do sdíleného checkoutu jsem nešel (drží #270 checkout) — merge vedl přes dočasný worktree, build čistý. Worktree BS3D-271 zatím nechávám stát s postaveným fixem, dokud se v hlavním repu nepostaví main.
+
+## 2026-08-27 — Claude Code (šedesátý druhý zápis)
+
+**Dvě opravy k #270, obě na mainu — a jedna z nich je retrakce, tak ji čti, než budeš věřit číslům z benchmarku.**
+
+**`scene=` a `sky=` NEDRŽÍ, jakmile se nahraje level.** `Level` si nese vlastní scénu, kopuli i počasí a `GameplayScreen.Session.cs` je aplikuje přes příkazovou řádku. Takže `play level=Column scene=meadow` kreslí **horu**, tu, kterou jmenuje level. Nic nevaruje: startovní řádek `[game] scene` vypisuje, **co bylo vyžádáno**, a přesně to mě dostalo — zatímco `[fps]` celou dobu psal `Mountain`. Audit všech 49 logů z #270 našel **pět běhů s touhle vadou**, mezi nimi hlavní tabulku v `docs/scenes.md` („hora 81,0 proti louce 80,8, 0,03 ms od sebe") — bylo to **dvakrát totéž**. A tvrzení, že se louka „hroutí stejně na 37,5", nepodporuje žádné měření: jediný běh, který louku opravdu vykreslil, držel 75,0. Retrakce v `docs/scenes.md`, past jako **trap 11** v `benchmark` skillu, a u parsování `scene=` v `Game/Program.cs`, které tvrdilo pravý opak. **Závěr #270 stojí celý** — všechny důkazy pod ním se měřily pod horou samotnou (snímek pod 5 ms, párová opakování, véčkovité ssaa). Padlo jen srovnání mezi scénami, které premisa issue nepotřebuje.
+
+**Ke čtení, až se někdo vrátí k výkonu:** #209, #167, #166 a #165 jsou všechny hlášené z 6900XT jako „nedrží 75 FPS", a všechny se signaturou #270 — #209 hlásí ~35 (= 75/2 = 37,5, a `Quality.cs:196` má ten level zapsaný doslova jako „exactly half refresh"), #167 nedrží **jen s naloženým levelem**, #166 se na backdropu vůbec nereprodukuje. Limiter je teď default, takže část z nich mohla zmizet sama. **Neoptimalizuj tam shader, dokud to někdo nepřeměří.**
+
+**Beru #274** (taby → mezery + `.editorconfig`). Větev `274-editorconfig-spaces` off main, přes dočasný worktree — sdílený checkout drží tvoje rozdělané patičky v tomhle souboru a nesahal jsem na ně.
+
+**Zadání se mýlilo v premise:** tvrdí, že sweep našel **nula** `.cs` souborů s tabem a že „the codebase is already consistently space-indented". Taby tam jsou — jeho grep je minul. Skutečný stav: **51 souborů**, z toho 18 `.cs` a **všech 30 `.fx` plus 3 `.fxh`, tabované do posledního řádku**. `.json`, `.md`, `.csproj`, `.ps1`, `.sh`, `.mgcb` čisté. `.sln` tabované nechávám — Visual Studio si je přepíše zpátky a byla by to jen churn.
+
+**Ověřeno, protože 8273 změněných řádků chce důkaz, ne důvěru:** `git diff -w` je **prázdný** (tedy změna je bílé místo a nic jiného), 8273 přidáno proti 8273 ubráno, žádný tab nezůstal, **BOM všech 47 souborů zachován**, CRLF u každého souboru beze změny (kontrolováno počtem CR bytů před a po), **všechny čtyři solutiony se staví** a content pipeline **překompilovala 26 shaderů** z převedených zdrojů. Žádný tab nebyl uvnitř řetězce, takže se nemohlo změnit chování; jediný tab uprostřed řádku byl v `InputHelper.cs:64` mezi `&&` a operandem.
+
+**`.editorconfig` je schválně úzký** — jen `indent_style`/`indent_size` (+ `charset`, `end_of_line`, které jen popisují, co na disku už je). Žádný `trim_trailing_whitespace` ani `insert_final_newline`: znějí jako úklid, ale daly by editoru přepisovat řádky, kterých se nikdo nedotkl, a issue výslovně říká „scope is strictly indentation character". Rozšiřovat až na majitelovo slovo.
+
+**Upozornění na churn:** `git blame` u třiceti shaderů bude napříště ukazovat na tenhle commit. Majitel to ví předem, řekl jsem mu to před převodem.
+
+**Nic dalšího si neberu.**

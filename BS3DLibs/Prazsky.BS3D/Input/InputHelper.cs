@@ -61,7 +61,7 @@ namespace Prazsky.BS3D.Input
                 MouseState previousMouseState)
         {
             return
-            (leftMouseButton &&	mouseState.LeftButton == ButtonState.Pressed && previousMouseState.LeftButton == ButtonState.Released)
+            (leftMouseButton && mouseState.LeftButton == ButtonState.Pressed && previousMouseState.LeftButton == ButtonState.Released)
             ||(middleMouseButton && mouseState.MiddleButton == ButtonState.Pressed && previousMouseState.MiddleButton == ButtonState.Released)
             ||(rightMouseButton && mouseState.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released);
         }

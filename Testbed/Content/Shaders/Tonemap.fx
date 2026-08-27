@@ -14,14 +14,14 @@
 texture SceneTexture;
 sampler2D SceneSampler = sampler_state
 {
-	Texture = <SceneTexture>;
-	//Point sampling on purpose: the box filter below reads exact texel centers, so letting the hardware
-	//interpolate would only blur the samples into each other before they are averaged.
-	MinFilter = Point;
-	MagFilter = Point;
-	MipFilter = None;
-	AddressU = Clamp;
-	AddressV = Clamp;
+    Texture = <SceneTexture>;
+    //Point sampling on purpose: the box filter below reads exact texel centers, so letting the hardware
+    //interpolate would only blur the samples into each other before they are averaged.
+    MinFilter = Point;
+    MagFilter = Point;
+    MipFilter = None;
+    AddressU = Clamp;
+    AddressV = Clamp;
 };
 
 //One texel of the HDR source, and how many source texels make up one output pixel along each axis
@@ -36,12 +36,12 @@ float Exposure;
 texture GlareTexture;
 sampler2D GlareSampler = sampler_state
 {
-	Texture = <GlareTexture>;
-	MinFilter = Linear;
-	MagFilter = Linear;
-	MipFilter = None;
-	AddressU = Clamp;
-	AddressV = Clamp;
+    Texture = <GlareTexture>;
+    MinFilter = Linear;
+    MagFilter = Linear;
+    MipFilter = None;
+    AddressU = Clamp;
+    AddressV = Clamp;
 };
 
 float GlareIntensity;
@@ -111,12 +111,12 @@ float DefocusFocus;
 texture DefocusTexture;
 sampler2D DefocusSampler = sampler_state
 {
-	Texture = <DefocusTexture>;
-	MinFilter = Linear;
-	MagFilter = Linear;
-	MipFilter = None;
-	AddressU = Clamp;
-	AddressV = Clamp;
+    Texture = <DefocusTexture>;
+    MinFilter = Linear;
+    MagFilter = Linear;
+    MipFilter = None;
+    AddressU = Clamp;
+    AddressV = Clamp;
 };
 
 //The sharp foreground layer (#225): linear radiance in its own target, put there precisely so the
@@ -130,29 +130,29 @@ sampler2D DefocusSampler = sampler_state
 texture ForegroundTexture;
 sampler2D ForegroundSampler = sampler_state
 {
-	Texture = <ForegroundTexture>;
-	MinFilter = Point;
-	MagFilter = Point;
-	MipFilter = None;
-	AddressU = Clamp;
-	AddressV = Clamp;
+    Texture = <ForegroundTexture>;
+    MinFilter = Point;
+    MagFilter = Point;
+    MipFilter = None;
+    AddressU = Clamp;
+    AddressV = Clamp;
 };
 
 struct VertexShaderOutput
 {
-	float4 Position : SV_POSITION;
-	float2 TexCoord : TEXCOORD0;
+    float4 Position : SV_POSITION;
+    float2 TexCoord : TEXCOORD0;
 };
 
 //The quad arrives already in clip space, so there is nothing to transform
 VertexShaderOutput MainVS(float3 position : POSITION0, float2 texCoord : TEXCOORD0)
 {
-	VertexShaderOutput output;
+    VertexShaderOutput output;
 
-	output.Position = float4(position, 1);
-	output.TexCoord = texCoord;
+    output.Position = float4(position, 1);
+    output.TexCoord = texCoord;
 
-	return output;
+    return output;
 }
 
 //Krzysztof Narkowicz's fit of the ACES filmic curve. A tonemap curve is what lets the scene hold
@@ -161,30 +161,30 @@ VertexShaderOutput MainVS(float3 position : POSITION0, float2 texCoord : TEXCOOR
 //one does to every lit surface.
 float3 ACESFilmic(float3 x)
 {
-	const float a = 2.51;
-	const float b = 0.03;
-	const float c = 2.43;
-	const float d = 0.59;
-	const float e = 0.14;
+    const float a = 2.51;
+    const float b = 0.03;
+    const float c = 2.43;
+    const float d = 0.59;
+    const float e = 0.14;
 
-	return saturate((x * (a * x + b)) / (x * (c * x + d) + e));
+    return saturate((x * (a * x + b)) / (x * (c * x + d) + e));
 }
 
 //Linear radiance to sRGB. The exact piecewise curve rather than a 1/2.2 power: the toe near black is
 //where the difference shows, and a night scene lives there.
 float3 LinearToSrgb(float3 c)
 {
-	c = max(c, 0);
+    c = max(c, 0);
 
-	return lerp(c * 12.92, 1.055 * pow(c, 1.0 / 2.4) - 0.055, step(0.0031308, c));
+    return lerp(c * 12.92, 1.055 * pow(c, 1.0 / 2.4) - 0.055, step(0.0031308, c));
 }
 
 //One grain: a sine-free hash of the output pixel's cell (Hoskins), branch-safe - no gradients.
 float GrainHash(float2 p)
 {
-	float3 q = frac(p.xyx * 0.1031);
-	q += dot(q, q.yzx + 33.33);
-	return frac((q.x + q.y) * q.z);
+    float3 q = frac(p.xyx * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return frac((q.x + q.y) * q.z);
 }
 
 //The grain, lifted out of MainPS whole when the foreground composite needed it too: grain lives on the
@@ -192,17 +192,17 @@ float GrainHash(float2 p)
 //grain as well - a composited layer with none would read as pasted onto the frame rather than in it.
 float3 ApplyGrain(float3 mapped, float2 texCoord)
 {
-	[branch]
-	if (GrainStrength > 0.0)
-	{
-		float2 cell = floor(texCoord * OutputSize);
-		float grain = GrainHash(cell + frac(GrainSeed * float2(0.7013, 0.9127)) * 289.0) - 0.5;
-		float luma = dot(mapped, float3(0.2126, 0.7152, 0.0722));
+    [branch]
+    if (GrainStrength > 0.0)
+    {
+        float2 cell = floor(texCoord * OutputSize);
+        float grain = GrainHash(cell + frac(GrainSeed * float2(0.7013, 0.9127)) * 289.0) - 0.5;
+        float luma = dot(mapped, float3(0.2126, 0.7152, 0.0722));
 
-		mapped = saturate(mapped + grain * (GrainStrength * 4.0 * luma * (1.0 - luma)));
-	}
+        mapped = saturate(mapped + grain * (GrainStrength * 4.0 * luma * (1.0 - luma)));
+    }
 
-	return mapped;
+    return mapped;
 }
 
 //Box filter over the block of source texels one output pixel covers. Offsets run from the block's first
@@ -212,18 +212,18 @@ float3 ApplyGrain(float3 mapped, float2 texCoord)
 //allowed even when the branch is on a uniform.
 float3 SampleScene(float2 uv)
 {
-	float3 color = 0;
+    float3 color = 0;
 
-	for (int y = 0; y < SupersampleFactor; y++)
-	{
-		for (int x = 0; x < SupersampleFactor; x++)
-		{
-			float2 offset = (float2(x, y) + 0.5 - SupersampleFactor * 0.5) * SourceTexelSize;
-			color += tex2Dlod(SceneSampler, float4(uv + offset, 0, 0)).rgb;
-		}
-	}
+    for (int y = 0; y < SupersampleFactor; y++)
+    {
+        for (int x = 0; x < SupersampleFactor; x++)
+        {
+            float2 offset = (float2(x, y) + 0.5 - SupersampleFactor * 0.5) * SourceTexelSize;
+            color += tex2Dlod(SceneSampler, float4(uv + offset, 0, 0)).rgb;
+        }
+    }
 
-	return color / (SupersampleFactor * SupersampleFactor);
+    return color / (SupersampleFactor * SupersampleFactor);
 }
 
 //The same box filter over the sharp foreground layer, returning the coverage in the alpha the scene's
@@ -232,127 +232,127 @@ float3 SampleScene(float2 uv)
 //the one averaging that composites correctly afterwards — so the composite keeps the rgb as it stands.
 float4 SampleForeground(float2 uv)
 {
-	float4 layer = 0;
+    float4 layer = 0;
 
-	for (int y = 0; y < SupersampleFactor; y++)
-	{
-		for (int x = 0; x < SupersampleFactor; x++)
-		{
-			float2 offset = (float2(x, y) + 0.5 - SupersampleFactor * 0.5) * SourceTexelSize;
-			layer += tex2Dlod(ForegroundSampler, float4(uv + offset, 0, 0));
-		}
-	}
+    for (int y = 0; y < SupersampleFactor; y++)
+    {
+        for (int x = 0; x < SupersampleFactor; x++)
+        {
+            float2 offset = (float2(x, y) + 0.5 - SupersampleFactor * 0.5) * SourceTexelSize;
+            layer += tex2Dlod(ForegroundSampler, float4(uv + offset, 0, 0));
+        }
+    }
 
-	return layer / (SupersampleFactor * SupersampleFactor);
+    return layer / (SupersampleFactor * SupersampleFactor);
 }
 
 float4 MainPS(VertexShaderOutput input) : COLOR
 {
-	float3 color;
+    float3 color;
 
-	[branch]
-	if (ChromaticAberration > 0.0)
-	{
-		//The red channel is sampled a touch OUTWARD of the pixel and the blue a touch inward - a lens
-		//magnifies long wavelengths slightly more - along the direction from the frame centre, scaled by
-		//the squared distance so the shift vanishes quadratically towards the middle and reaches
-		//ChromaticAberration exactly at the corners: |fromCentre|*dot there is 1/(2*sqrt(2)), which the
-		//2.828 undoes. Green anchors the geometry: the eye reads luminance mostly from green, so the
-		//image never appears to move when the effect toggles.
-		float2 fromCentre = input.TexCoord - 0.5;
-		float2 shift = fromCentre * dot(fromCentre, fromCentre) * (ChromaticAberration * 2.828);
+    [branch]
+    if (ChromaticAberration > 0.0)
+    {
+        //The red channel is sampled a touch OUTWARD of the pixel and the blue a touch inward - a lens
+        //magnifies long wavelengths slightly more - along the direction from the frame centre, scaled by
+        //the squared distance so the shift vanishes quadratically towards the middle and reaches
+        //ChromaticAberration exactly at the corners: |fromCentre|*dot there is 1/(2*sqrt(2)), which the
+        //2.828 undoes. Green anchors the geometry: the eye reads luminance mostly from green, so the
+        //image never appears to move when the effect toggles.
+        float2 fromCentre = input.TexCoord - 0.5;
+        float2 shift = fromCentre * dot(fromCentre, fromCentre) * (ChromaticAberration * 2.828);
 
-		//SPECTRAL, rather than one point sample per channel. Sampling R, G and B at three fixed offsets does
-		//not blur an edge into a fringe - it makes THREE DISPLACED COPIES of it, one per channel, and on a
-		//line thinner than a pixel that is what the eye reads: three separate coloured lines. The island
-		//cap's slab joints are the most regular field of such lines in this game and they read as a
-		//flickering rainbow lattice because of it (#126). Four changes to the joint field itself moved that
-		//artifact not at all; forcing this effect to zero removed it completely.
-		//
-		//A real lens disperses a CONTINUUM, so each channel is an integral across its own band rather than
-		//one sample from a point. Walking the shift and weighting each tap into RGB by overlapping triangles
-		//is that integral. At three taps it costs exactly what the three point samples cost, and it does two
-		//things they did not: the red and blue lobes land at 2/3 of the shift instead of all of it, and
-		//GREEN - which carries the luminance edge the eye actually reads - is averaged across the whole
-		//span instead of being taken from the centre alone.
-		float3 spectral = 0.0;
-		float3 weightSum = 0.0;
+        //SPECTRAL, rather than one point sample per channel. Sampling R, G and B at three fixed offsets does
+        //not blur an edge into a fringe - it makes THREE DISPLACED COPIES of it, one per channel, and on a
+        //line thinner than a pixel that is what the eye reads: three separate coloured lines. The island
+        //cap's slab joints are the most regular field of such lines in this game and they read as a
+        //flickering rainbow lattice because of it (#126). Four changes to the joint field itself moved that
+        //artifact not at all; forcing this effect to zero removed it completely.
+        //
+        //A real lens disperses a CONTINUUM, so each channel is an integral across its own band rather than
+        //one sample from a point. Walking the shift and weighting each tap into RGB by overlapping triangles
+        //is that integral. At three taps it costs exactly what the three point samples cost, and it does two
+        //things they did not: the red and blue lobes land at 2/3 of the shift instead of all of it, and
+        //GREEN - which carries the luminance edge the eye actually reads - is averaged across the whole
+        //span instead of being taken from the centre alone.
+        float3 spectral = 0.0;
+        float3 weightSum = 0.0;
 
-		[unroll]
-		for (int c = 0; c < ABERRATION_TAPS; c++)
-		{
-			//0 at the outward (red) end of the shift, 1 at the inward (blue) end.
-			float f = (c + 0.5) / ABERRATION_TAPS;
-			float3 weight = saturate(1.0 - abs(f - float3(0.0, 0.5, 1.0)) * 2.0);
+        [unroll]
+        for (int c = 0; c < ABERRATION_TAPS; c++)
+        {
+            //0 at the outward (red) end of the shift, 1 at the inward (blue) end.
+            float f = (c + 0.5) / ABERRATION_TAPS;
+            float3 weight = saturate(1.0 - abs(f - float3(0.0, 0.5, 1.0)) * 2.0);
 
-			spectral += SampleScene(input.TexCoord + shift * (1.0 - 2.0 * f)) * weight;
-			weightSum += weight;
-		}
+            spectral += SampleScene(input.TexCoord + shift * (1.0 - 2.0 * f)) * weight;
+            weightSum += weight;
+        }
 
-		color = spectral / weightSum;
-	}
-	else
-	{
-		color = SampleScene(input.TexCoord);
-	}
+        color = spectral / weightSum;
+    }
+    else
+    {
+        color = SampleScene(input.TexCoord);
+    }
 
-	//Underwater peripheral blur: a diver's vision goes soft towards the edges. A cheap 8-tap spiral disc blur
-	//whose radius and blend both grow from 0 at the frame centre out to the corners (edge*edge, so the centre
-	//stays crisp), gated by UnderwaterAmount. The branch is on a uniform, so the whole frame takes the same
-	//path (no divergence) and it costs nothing above water; tex2Dlod reads level 0 (there are no mips here).
-	if (UnderwaterAmount > 0.0)
-	{
-		float edge = saturate(length(input.TexCoord - 0.5) * PERIPHERY_EDGE);
-		float blend = UnderwaterAmount * edge * edge;
-		float radius = blend * UNDERWATER_BLUR_RADIUS;
+    //Underwater peripheral blur: a diver's vision goes soft towards the edges. A cheap 8-tap spiral disc blur
+    //whose radius and blend both grow from 0 at the frame centre out to the corners (edge*edge, so the centre
+    //stays crisp), gated by UnderwaterAmount. The branch is on a uniform, so the whole frame takes the same
+    //path (no divergence) and it costs nothing above water; tex2Dlod reads level 0 (there are no mips here).
+    if (UnderwaterAmount > 0.0)
+    {
+        float edge = saturate(length(input.TexCoord - 0.5) * PERIPHERY_EDGE);
+        float blend = UnderwaterAmount * edge * edge;
+        float radius = blend * UNDERWATER_BLUR_RADIUS;
 
-		float3 disc = 0.0;
-		[unroll]
-		for (int t = 0; t < 8; t++)
-		{
-			float f = (t + 0.5) / 8.0;
-			float ang = 2.3999632 * t;                    //golden angle -> an even spiral, no hexagonal ghosting
-			float2 off = float2(cos(ang), sin(ang)) * (sqrt(f) * radius);
-			disc += tex2Dlod(SceneSampler, float4(input.TexCoord + off, 0, 0)).rgb;
-		}
+        float3 disc = 0.0;
+        [unroll]
+        for (int t = 0; t < 8; t++)
+        {
+            float f = (t + 0.5) / 8.0;
+            float ang = 2.3999632 * t;                    //golden angle -> an even spiral, no hexagonal ghosting
+            float2 off = float2(cos(ang), sin(ang)) * (sqrt(f) * radius);
+            disc += tex2Dlod(SceneSampler, float4(input.TexCoord + off, 0, 0)).rgb;
+        }
 
-		color = lerp(color, disc * 0.125, blend);
-	}
+        color = lerp(color, disc * 0.125, blend);
+    }
 
-	//The defocus (see the uniforms), over the sharp frame. What GROWS with the effect is the blurred copy's
-	//own radius; this is only how much of it shows, and the pipeline has it reach 1 early - so what the eye
-	//follows from there is one image going soft rather than two images crossfading. Branch on a uniform, so
-	//the whole frame takes the same path and an unblurred frame costs nothing; tex2Dlod for the reason above.
-	[branch]
-	if (DefocusAmount > 0.0)
-	{
-		//DefocusFocus (see its declaration) holds the centre of the frame in focus for precise aim; at 0
-		//the lerp is the identity and the whole frame takes DefocusAmount, exactly as before #214
-		float edge = saturate(length(input.TexCoord - 0.5) * PERIPHERY_EDGE);
-		float blend = DefocusAmount * lerp(1.0, edge * edge, DefocusFocus);
+    //The defocus (see the uniforms), over the sharp frame. What GROWS with the effect is the blurred copy's
+    //own radius; this is only how much of it shows, and the pipeline has it reach 1 early - so what the eye
+    //follows from there is one image going soft rather than two images crossfading. Branch on a uniform, so
+    //the whole frame takes the same path and an unblurred frame costs nothing; tex2Dlod for the reason above.
+    [branch]
+    if (DefocusAmount > 0.0)
+    {
+        //DefocusFocus (see its declaration) holds the centre of the frame in focus for precise aim; at 0
+        //the lerp is the identity and the whole frame takes DefocusAmount, exactly as before #214
+        float edge = saturate(length(input.TexCoord - 0.5) * PERIPHERY_EDGE);
+        float blend = DefocusAmount * lerp(1.0, edge * edge, DefocusFocus);
 
-		color = lerp(color, tex2Dlod(DefocusSampler, float4(input.TexCoord, 0, 0)).rgb, blend);
-	}
+        color = lerp(color, tex2Dlod(DefocusSampler, float4(input.TexCoord, 0, 0)).rgb, blend);
+    }
 
-	//Glare goes in here, in linear light and before the curve. Added after the curve it would look like
-	//a decal; added here it pushes the pixels it lands on up the highlight roll-off, so a glaring ball
-	//bleaches towards white through the same response as everything else.
-	color += tex2D(GlareSampler, input.TexCoord).rgb * GlareIntensity;
+    //Glare goes in here, in linear light and before the curve. Added after the curve it would look like
+    //a decal; added here it pushes the pixels it lands on up the highlight roll-off, so a glaring ball
+    //bleaches towards white through the same response as everything else.
+    color += tex2D(GlareSampler, input.TexCoord).rgb * GlareIntensity;
 
-	//Underwater murk (see the uniforms): absorb the scene towards the water tint and add its in-scattered
-	//glow, ramped by how deep the camera is under the surface. In linear light, before the curve, so the
-	//submerged scene rolls through the same highlight response as everything else. A no-op above water.
-	color = lerp(color, color * UnderwaterAbsorb + UnderwaterInscatter, UnderwaterAmount);
+    //Underwater murk (see the uniforms): absorb the scene towards the water tint and add its in-scattered
+    //glow, ramped by how deep the camera is under the surface. In linear light, before the curve, so the
+    //submerged scene rolls through the same highlight response as everything else. A no-op above water.
+    color = lerp(color, color * UnderwaterAbsorb + UnderwaterInscatter, UnderwaterAmount);
 
-	//Averaging happens in linear light, before the curve: averaging tonemapped samples would average
-	//display values, which is the same mistake as compositing in gamma space.
-	float3 mapped = ACESFilmic(color * Exposure);
+    //Averaging happens in linear light, before the curve: averaging tonemapped samples would average
+    //display values, which is the same mistake as compositing in gamma space.
+    float3 mapped = ACESFilmic(color * Exposure);
 
-	//The grain, on the tonemapped value (see the uniforms). The seed's fraction shifts the hash lattice
-	//to a fresh position every frame, which is what makes grain read as film rather than as a dirty pane.
-	mapped = ApplyGrain(mapped, input.TexCoord);
+    //The grain, on the tonemapped value (see the uniforms). The seed's fraction shifts the hash lattice
+    //to a fresh position every frame, which is what makes grain read as film rather than as a dirty pane.
+    mapped = ApplyGrain(mapped, input.TexCoord);
 
-	return float4(LinearToSrgb(mapped), 1);
+    return float4(LinearToSrgb(mapped), 1);
 }
 
 //The sharp foreground layer's own exit from linear light (#225): the same exposure, the same ACES
@@ -369,28 +369,28 @@ float4 MainPS(VertexShaderOutput input) : COLOR
 //the game presents through it ever stands in water.
 float4 ForegroundCompositePS(VertexShaderOutput input) : COLOR
 {
-	float4 layer = SampleForeground(input.TexCoord);
+    float4 layer = SampleForeground(input.TexCoord);
 
-	float3 mapped = ACESFilmic(layer.rgb * Exposure);
-	mapped = ApplyGrain(mapped, input.TexCoord);
+    float3 mapped = ACESFilmic(layer.rgb * Exposure);
+    mapped = ApplyGrain(mapped, input.TexCoord);
 
-	return float4(LinearToSrgb(mapped), layer.a);
+    return float4(LinearToSrgb(mapped), layer.a);
 }
 
 technique Tonemap
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL MainVS();
-		PixelShader = compile PS_SHADERMODEL MainPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MainVS();
+        PixelShader = compile PS_SHADERMODEL MainPS();
+    }
 };
 
 technique ForegroundComposite
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL MainVS();
-		PixelShader = compile PS_SHADERMODEL ForegroundCompositePS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MainVS();
+        PixelShader = compile PS_SHADERMODEL ForegroundCompositePS();
+    }
 };

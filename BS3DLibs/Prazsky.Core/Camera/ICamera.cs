@@ -6,16 +6,16 @@ namespace Prazsky.Core.Camera
     /// Properties that every camera existing in the three-dimensional world must have.
     /// </summary>
     public interface ICamera
-	{
-		/// <summary>
-		/// View matrix.
-		/// </summary>
-		Matrix View { get; }
+    {
+        /// <summary>
+        /// View matrix.
+        /// </summary>
+        Matrix View { get; }
 
-		/// <summary>
-		/// Projection matrix.
-		/// </summary>
-		Matrix Projection { get; }
+        /// <summary>
+        /// Projection matrix.
+        /// </summary>
+        Matrix Projection { get; }
 
         /// <summary>
         /// Camera position in a three-dimensional world.
@@ -32,14 +32,14 @@ namespace Prazsky.Core.Camera
         /// </summary>
         Vector3 Up { get; }
 
-		/// <summary>
-		/// Near clipping plane.
-		/// </summary>
-		float NearPlane { get; set; }
+        /// <summary>
+        /// Near clipping plane.
+        /// </summary>
+        float NearPlane { get; set; }
 
         /// <summary>
         /// Far clipping plane.
         /// </summary>
         float FarPlane { get; set; }
-	}
+    }
 }

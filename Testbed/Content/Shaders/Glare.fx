@@ -26,12 +26,12 @@
 texture SourceTexture;
 sampler2D SourceSampler = sampler_state
 {
-	Texture = <SourceTexture>;
-	MinFilter = Linear;
-	MagFilter = Linear;
-	MipFilter = None;
-	AddressU = Clamp;
-	AddressV = Clamp;
+    Texture = <SourceTexture>;
+    MinFilter = Linear;
+    MagFilter = Linear;
+    MipFilter = None;
+    AddressU = Clamp;
+    AddressV = Clamp;
 };
 
 //One texel of the SOURCE being read (each pass reads the level it consumes, so this changes per pass)
@@ -42,18 +42,18 @@ float GlareThreshold;
 
 struct VertexShaderOutput
 {
-	float4 Position : SV_POSITION;
-	float2 TexCoord : TEXCOORD0;
+    float4 Position : SV_POSITION;
+    float2 TexCoord : TEXCOORD0;
 };
 
 VertexShaderOutput MainVS(float3 position : POSITION0, float2 texCoord : TEXCOORD0)
 {
-	VertexShaderOutput output;
+    VertexShaderOutput output;
 
-	output.Position = float4(position, 1);
-	output.TexCoord = texCoord;
+    output.Position = float4(position, 1);
+    output.TexCoord = texCoord;
 
-	return output;
+    return output;
 }
 
 //Keeps the excess over the threshold rather than the whole pixel, so a surface that merely sits at the
@@ -61,23 +61,23 @@ VertexShaderOutput MainVS(float3 position : POSITION0, float2 texCoord : TEXCOOR
 //the glare grows smoothly as a ball's pulse rises instead of switching on.
 float4 BrightPassPS(VertexShaderOutput input) : COLOR
 {
-	float3 color = tex2D(SourceSampler, input.TexCoord).rgb;
+    float3 color = tex2D(SourceSampler, input.TexCoord).rgb;
 
-	//Luminance decides whether it glares; the color it glares with is the pixel's own, which is what
-	//keeps a red ball's glare red instead of bleaching everything to white
-	float luminance = dot(color, float3(0.2126, 0.7152, 0.0722));
-	float excess = max(luminance - GlareThreshold, 0);
+    //Luminance decides whether it glares; the color it glares with is the pixel's own, which is what
+    //keeps a red ball's glare red instead of bleaching everything to white
+    float luminance = dot(color, float3(0.2126, 0.7152, 0.0722));
+    float excess = max(luminance - GlareThreshold, 0);
 
-	return float4(color * (excess / max(luminance, 1e-4)), 1);
+    return float4(color * (excess / max(luminance, 1e-4)), 1);
 }
 
 technique BrightPass
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL MainVS();
-		PixelShader = compile PS_SHADERMODEL BrightPassPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MainVS();
+        PixelShader = compile PS_SHADERMODEL BrightPassPS();
+    }
 };
 
 //The downsample: four corner taps half a source texel out, around a centre tap weighted as four. The
@@ -86,24 +86,24 @@ technique BrightPass
 //grid, which is exactly the artifact the old quarter-resolution star suffered.
 float4 BloomDownPS(VertexShaderOutput input) : COLOR
 {
-	float2 h = SourceTexelSize;
+    float2 h = SourceTexelSize;
 
-	float3 sum = tex2D(SourceSampler, input.TexCoord).rgb * 4.0;
-	sum += tex2D(SourceSampler, input.TexCoord + float2(-h.x, -h.y)).rgb;
-	sum += tex2D(SourceSampler, input.TexCoord + float2(h.x, -h.y)).rgb;
-	sum += tex2D(SourceSampler, input.TexCoord + float2(-h.x, h.y)).rgb;
-	sum += tex2D(SourceSampler, input.TexCoord + float2(h.x, h.y)).rgb;
+    float3 sum = tex2D(SourceSampler, input.TexCoord).rgb * 4.0;
+    sum += tex2D(SourceSampler, input.TexCoord + float2(-h.x, -h.y)).rgb;
+    sum += tex2D(SourceSampler, input.TexCoord + float2(h.x, -h.y)).rgb;
+    sum += tex2D(SourceSampler, input.TexCoord + float2(-h.x, h.y)).rgb;
+    sum += tex2D(SourceSampler, input.TexCoord + float2(h.x, h.y)).rgb;
 
-	return float4(sum / 8.0, 1);
+    return float4(sum / 8.0, 1);
 }
 
 technique BloomDown
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL MainVS();
-		PixelShader = compile PS_SHADERMODEL BloomDownPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MainVS();
+        PixelShader = compile PS_SHADERMODEL BloomDownPS();
+    }
 };
 
 //The upsample: a 9-tap tent - four side taps a full texel out, four diagonal taps half a texel out at
@@ -112,28 +112,28 @@ technique BloomDown
 //bilinear upsample stacks its box footprints into visible squares around every hot point.
 float4 BloomUpPS(VertexShaderOutput input) : COLOR
 {
-	float2 h = SourceTexelSize;
+    float2 h = SourceTexelSize;
 
-	float3 sum = 0;
-	sum += tex2D(SourceSampler, input.TexCoord + float2(-h.x * 2.0, 0.0)).rgb;
-	sum += tex2D(SourceSampler, input.TexCoord + float2(h.x * 2.0, 0.0)).rgb;
-	sum += tex2D(SourceSampler, input.TexCoord + float2(0.0, -h.y * 2.0)).rgb;
-	sum += tex2D(SourceSampler, input.TexCoord + float2(0.0, h.y * 2.0)).rgb;
-	sum += (tex2D(SourceSampler, input.TexCoord + float2(-h.x, -h.y)).rgb
-		+ tex2D(SourceSampler, input.TexCoord + float2(h.x, -h.y)).rgb
-		+ tex2D(SourceSampler, input.TexCoord + float2(-h.x, h.y)).rgb
-		+ tex2D(SourceSampler, input.TexCoord + float2(h.x, h.y)).rgb) * 2.0;
+    float3 sum = 0;
+    sum += tex2D(SourceSampler, input.TexCoord + float2(-h.x * 2.0, 0.0)).rgb;
+    sum += tex2D(SourceSampler, input.TexCoord + float2(h.x * 2.0, 0.0)).rgb;
+    sum += tex2D(SourceSampler, input.TexCoord + float2(0.0, -h.y * 2.0)).rgb;
+    sum += tex2D(SourceSampler, input.TexCoord + float2(0.0, h.y * 2.0)).rgb;
+    sum += (tex2D(SourceSampler, input.TexCoord + float2(-h.x, -h.y)).rgb
+        + tex2D(SourceSampler, input.TexCoord + float2(h.x, -h.y)).rgb
+        + tex2D(SourceSampler, input.TexCoord + float2(-h.x, h.y)).rgb
+        + tex2D(SourceSampler, input.TexCoord + float2(h.x, h.y)).rgb) * 2.0;
 
-	return float4(sum / 12.0, 1);
+    return float4(sum / 12.0, 1);
 }
 
 technique BloomUp
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL MainVS();
-		PixelShader = compile PS_SHADERMODEL BloomUpPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MainVS();
+        PixelShader = compile PS_SHADERMODEL BloomUpPS();
+    }
 };
 
 //One axis of a separable Gaussian, drawn twice - across, then down - to take the whole scene out of focus.
@@ -153,27 +153,27 @@ static const float BLUR_WEIGHTS[7] = { 0.18205, 0.16413, 0.12037, 0.07183, 0.034
 
 float4 DefocusBlurPS(VertexShaderOutput input) : COLOR
 {
-	float3 sum = tex2D(SourceSampler, input.TexCoord).rgb * BLUR_WEIGHTS[0];
+    float3 sum = tex2D(SourceSampler, input.TexCoord).rgb * BLUR_WEIGHTS[0];
 
-	//Symmetric pairs, so seven weights buy a thirteen-tap kernel. The sampler clamps, so the taps that fall
-	//off an edge repeat its border texel - the frame's outermost row, blurred with itself.
-	[unroll]
-	for (int i = 1; i < 7; i++)
-	{
-		float2 offset = BlurStep * i;
+    //Symmetric pairs, so seven weights buy a thirteen-tap kernel. The sampler clamps, so the taps that fall
+    //off an edge repeat its border texel - the frame's outermost row, blurred with itself.
+    [unroll]
+    for (int i = 1; i < 7; i++)
+    {
+        float2 offset = BlurStep * i;
 
-		sum += (tex2D(SourceSampler, input.TexCoord + offset).rgb
-			+ tex2D(SourceSampler, input.TexCoord - offset).rgb) * BLUR_WEIGHTS[i];
-	}
+        sum += (tex2D(SourceSampler, input.TexCoord + offset).rgb
+            + tex2D(SourceSampler, input.TexCoord - offset).rgb) * BLUR_WEIGHTS[i];
+    }
 
-	return float4(sum, 1);
+    return float4(sum, 1);
 }
 
 technique DefocusBlur
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL MainVS();
-		PixelShader = compile PS_SHADERMODEL DefocusBlurPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MainVS();
+        PixelShader = compile PS_SHADERMODEL DefocusBlurPS();
+    }
 };

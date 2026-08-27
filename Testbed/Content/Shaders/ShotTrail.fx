@@ -26,66 +26,66 @@ float TrailAlpha;       //overall launch fade, 1 at the shot down to 0
 
 struct TrailVertexInput
 {
-	float3 Position : POSITION0; //ignored; the quad is placed from TrailHead/TrailTail
-	float2 Data : TEXCOORD0;     //(side in {-1,1}, along in {0 tail, 1 head})
+    float3 Position : POSITION0; //ignored; the quad is placed from TrailHead/TrailTail
+    float2 Data : TEXCOORD0;     //(side in {-1,1}, along in {0 tail, 1 head})
 };
 
 struct TrailVertexOutput
 {
-	float4 Position : SV_POSITION;
-	float2 UV : TEXCOORD0;       //(side, along)
+    float4 Position : SV_POSITION;
+    float2 UV : TEXCOORD0;       //(side, along)
 };
 
 TrailVertexOutput TrailVS(TrailVertexInput input)
 {
-	TrailVertexOutput output;
+    TrailVertexOutput output;
 
-	float along = input.Data.y;
-	float3 pos = lerp(TrailTail, TrailHead, along);
+    float along = input.Data.y;
+    float3 pos = lerp(TrailTail, TrailHead, along);
 
-	float3 axis = TrailHead - TrailTail;
-	float axisLen = length(axis);
-	float3 dir = axisLen > 1e-4 ? axis / axisLen : float3(0.0, 1.0, 0.0);
+    float3 axis = TrailHead - TrailTail;
+    float axisLen = length(axis);
+    float3 dir = axisLen > 1e-4 ? axis / axisLen : float3(0.0, 1.0, 0.0);
 
-	//Billboard about the streak axis: the width runs perpendicular to both the axis and the view ray, so the
-	//streak keeps its thickness from any angle and collapses edge-on to a line (as a real thin smear would).
-	float3 toCam = CameraPosition - pos;
-	float3 side = cross(dir, toCam);
-	float sideLen = length(side);
-	side = sideLen > 1e-4 ? side / sideLen : float3(1.0, 0.0, 0.0);
+    //Billboard about the streak axis: the width runs perpendicular to both the axis and the view ray, so the
+    //streak keeps its thickness from any angle and collapses edge-on to a line (as a real thin smear would).
+    float3 toCam = CameraPosition - pos;
+    float3 side = cross(dir, toCam);
+    float sideLen = length(side);
+    side = sideLen > 1e-4 ? side / sideLen : float3(1.0, 0.0, 0.0);
 
-	float width = lerp(TrailTailWidth, TrailHeadWidth, along);
-	pos += side * (input.Data.x * width);
+    float width = lerp(TrailTailWidth, TrailHeadWidth, along);
+    pos += side * (input.Data.x * width);
 
-	output.Position = mul(mul(float4(pos, 1.0), View), Projection);
-	output.UV = float2(input.Data.x, along);
+    output.Position = mul(mul(float4(pos, 1.0), View), Projection);
+    output.UV = float2(input.Data.x, along);
 
-	return output;
+    return output;
 }
 
 float4 TrailPS(TrailVertexOutput input) : COLOR
 {
-	float across = 1.0 - abs(input.UV.x); //1 at the core, 0 at the edges
-	float along = input.UV.y;             //0 at the muzzle end, 1 at the leading tip
+    float across = 1.0 - abs(input.UV.x); //1 at the core, 0 at the edges
+    float along = input.UV.y;             //0 at the muzzle end, 1 at the leading tip
 
-	float profile = across * across;      //soft, round-ish falloff across the streak
+    float profile = across * across;      //soft, round-ish falloff across the streak
 
-	//Soft at both ends along its length: fades in from the muzzle and out to the leading tip (holding full
-	//through the middle), so the streak dissolves smoothly instead of stopping at a hard rectangular edge.
-	float lengthFade = smoothstep(0.0, 0.25, along) * smoothstep(1.0, 0.75, along);
+    //Soft at both ends along its length: fades in from the muzzle and out to the leading tip (holding full
+    //through the middle), so the streak dissolves smoothly instead of stopping at a hard rectangular edge.
+    float lengthFade = smoothstep(0.0, 0.25, along) * smoothstep(1.0, 0.75, along);
 
-	//No clip. With additive blending a zero-alpha pixel adds nothing, so the streak can fade smoothly to
-	//nothing everywhere. A clip on (profile * TrailAlpha) would sweep inward as the smear fades and cut it
-	//with a hard moving edge halfway through the fade - which read as the streak being sliced off.
-	float a = profile * lengthFade * TrailAlpha;
-	return float4(TrailColor * a, a);
+    //No clip. With additive blending a zero-alpha pixel adds nothing, so the streak can fade smoothly to
+    //nothing everywhere. A clip on (profile * TrailAlpha) would sweep inward as the smear fades and cut it
+    //with a hard moving edge halfway through the fade - which read as the streak being sliced off.
+    float a = profile * lengthFade * TrailAlpha;
+    return float4(TrailColor * a, a);
 }
 
 technique ShotTrail
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL TrailVS();
-		PixelShader = compile PS_SHADERMODEL TrailPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL TrailVS();
+        PixelShader = compile PS_SHADERMODEL TrailPS();
+    }
 };

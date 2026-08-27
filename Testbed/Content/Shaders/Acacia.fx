@@ -36,60 +36,60 @@ static const float DAPPLE_MEAN = 0.86;
 
 struct AcaciaVertexInput
 {
-	float4 Position : POSITION0;
-	float3 Normal : NORMAL0;
-	float4 World1 : TEXCOORD1;   //per-instance world matrix, row-major like InstancedModel.fx (no transpose)
-	float4 World2 : TEXCOORD2;
-	float4 World3 : TEXCOORD3;
-	float4 World4 : TEXCOORD4;
+    float4 Position : POSITION0;
+    float3 Normal : NORMAL0;
+    float4 World1 : TEXCOORD1;   //per-instance world matrix, row-major like InstancedModel.fx (no transpose)
+    float4 World2 : TEXCOORD2;
+    float4 World3 : TEXCOORD3;
+    float4 World4 : TEXCOORD4;
 };
 
 struct AcaciaVertexOutput
 {
-	float4 Position : SV_POSITION;
-	float3 WorldPosition : TEXCOORD0;
-	float3 WorldNormal : TEXCOORD1;
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+    float3 WorldNormal : TEXCOORD1;
 };
 
 AcaciaVertexOutput AcaciaVS(AcaciaVertexInput input)
 {
-	AcaciaVertexOutput output;
+    AcaciaVertexOutput output;
 
-	float4x4 world = float4x4(input.World1, input.World2, input.World3, input.World4);
-	float4 worldPosition = mul(input.Position, world);
+    float4x4 world = float4x4(input.World1, input.World2, input.World3, input.World4);
+    float4 worldPosition = mul(input.Position, world);
 
-	output.WorldPosition = worldPosition.xyz;
-	output.Position = mul(mul(worldPosition, View), Projection);
-	//The instance transform is rotation + uniform scale + translation, so the plain matrix rotates the normal
-	//(a uniform scale leaves it only needing a re-normalize).
-	output.WorldNormal = normalize(mul(input.Normal, (float3x3)world));
+    output.WorldPosition = worldPosition.xyz;
+    output.Position = mul(mul(worldPosition, View), Projection);
+    //The instance transform is rotation + uniform scale + translation, so the plain matrix rotates the normal
+    //(a uniform scale leaves it only needing a re-normalize).
+    output.WorldNormal = normalize(mul(input.Normal, (float3x3)world));
 
-	return output;
+    return output;
 }
 
 float4 AcaciaPS(AcaciaVertexOutput input) : COLOR
 {
-	float3 N = normalize(input.WorldNormal);
+    float3 N = normalize(input.WorldNormal);
 
-	//The scene's own light, matched to the terrain: a hemisphere ambient tinted zenith-to-horizon by the
-	//normal's height, plus the sun's own diffuse.
-	float3 ambient = lerp(HorizonColor, ZenithColor, saturate(N.y * 0.5 + 0.5));
-	float ndotl = saturate(dot(N, SunDirection));
-	float3 color = DiffuseColor * (ambient + SunColor * ndotl);
+    //The scene's own light, matched to the terrain: a hemisphere ambient tinted zenith-to-horizon by the
+    //normal's height, plus the sun's own diffuse.
+    float3 ambient = lerp(HorizonColor, ZenithColor, saturate(N.y * 0.5 + 0.5));
+    float ndotl = saturate(dot(N, SunDirection));
+    float3 color = DiffuseColor * (ambient + SunColor * ndotl);
 
-	//The canopy's leaf mottle: a 3D field of WORLD position, so a big canopy gets bigger clumps in the same
-	//place every frame and neighbouring trees do not share a pattern. Zero on a trunk (DappleStrength 0).
-	if (DappleStrength > 0.0)
-		color *= DAPPLE_MEAN + DappleStrength * Fbm3(input.WorldPosition * DAPPLE_FREQUENCY, 3);
+    //The canopy's leaf mottle: a 3D field of WORLD position, so a big canopy gets bigger clumps in the same
+    //place every frame and neighbouring trees do not share a pattern. Zero on a trunk (DappleStrength 0).
+    if (DappleStrength > 0.0)
+        color *= DAPPLE_MEAN + DappleStrength * Fbm3(input.WorldPosition * DAPPLE_FREQUENCY, 3);
 
-	return float4(color, 1.0);
+    return float4(color, 1.0);
 }
 
 technique Acacia
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL AcaciaVS();
-		PixelShader = compile PS_SHADERMODEL AcaciaPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL AcaciaVS();
+        PixelShader = compile PS_SHADERMODEL AcaciaPS();
+    }
 };

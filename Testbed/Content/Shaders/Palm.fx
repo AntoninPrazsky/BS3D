@@ -51,75 +51,75 @@ static const float DAPPLE_MEAN = 0.86;
 
 struct PalmVertexInput
 {
-	float4 Position : POSITION0;
-	float3 Normal : NORMAL0;
-	float2 Sway : TEXCOORD0;       //x = the sway weight the mesh bakes per vertex; y unused
-	float4 World1 : TEXCOORD1;     //per-instance world matrix, row-major like InstancedModel.fx (no transpose)
-	float4 World2 : TEXCOORD2;
-	float4 World3 : TEXCOORD3;
-	float4 World4 : TEXCOORD4;
+    float4 Position : POSITION0;
+    float3 Normal : NORMAL0;
+    float2 Sway : TEXCOORD0;       //x = the sway weight the mesh bakes per vertex; y unused
+    float4 World1 : TEXCOORD1;     //per-instance world matrix, row-major like InstancedModel.fx (no transpose)
+    float4 World2 : TEXCOORD2;
+    float4 World3 : TEXCOORD3;
+    float4 World4 : TEXCOORD4;
 };
 
 struct PalmVertexOutput
 {
-	float4 Position : SV_POSITION;
-	float3 WorldPosition : TEXCOORD0;
-	float3 WorldNormal : TEXCOORD1;
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+    float3 WorldNormal : TEXCOORD1;
 };
 
 PalmVertexOutput PalmVS(PalmVertexInput input)
 {
-	PalmVertexOutput output;
+    PalmVertexOutput output;
 
-	float4x4 world = float4x4(input.World1, input.World2, input.World3, input.World4);
-	float4 worldPosition = mul(input.Position, world);
+    float4x4 world = float4x4(input.World1, input.World2, input.World3, input.World4);
+    float4 worldPosition = mul(input.Position, world);
 
-	//The sway: two incommensurate oscillators (a single sin is a metronome), travelling downwind,
-	//phased off the instance's own position so a grove never beats in unison. Applied after the world
-	//transform in world space - the frond strips are built in the mesh's own frame, but the wind does
-	//not care which tree it is moving.
-	float3 instancePos = float3(input.World4.x, input.World4.y, input.World4.z);
-	float phase = dot(instancePos.xz, WindDirection) * 0.35 + PalmTime * SwaySpeed;
+    //The sway: two incommensurate oscillators (a single sin is a metronome), travelling downwind,
+    //phased off the instance's own position so a grove never beats in unison. Applied after the world
+    //transform in world space - the frond strips are built in the mesh's own frame, but the wind does
+    //not care which tree it is moving.
+    float3 instancePos = float3(input.World4.x, input.World4.y, input.World4.z);
+    float phase = dot(instancePos.xz, WindDirection) * 0.35 + PalmTime * SwaySpeed;
 
-	worldPosition.xz += WindDirection * SwayStrength * input.Sway.x
-		* (sin(phase) + 0.5 * sin(phase * 2.3 + 1.7));
+    worldPosition.xz += WindDirection * SwayStrength * input.Sway.x
+        * (sin(phase) + 0.5 * sin(phase * 2.3 + 1.7));
 
-	output.WorldPosition = worldPosition.xyz;
-	output.Position = mul(mul(worldPosition, View), Projection);
-	//The instance transform is rotation + uniform scale + translation, so the plain matrix rotates the
-	//normal (a uniform scale leaves it only needing a re-normalize). The sway's small horizontal
-	//offset is not un-rotated into the normal - at a fraction of a frond's length the lighting error
-	//is beneath notice, and the alternative is re-deriving a normal per vertex for a wind that barely
-	//tilts it.
-	output.WorldNormal = normalize(mul(input.Normal, (float3x3)world));
+    output.WorldPosition = worldPosition.xyz;
+    output.Position = mul(mul(worldPosition, View), Projection);
+    //The instance transform is rotation + uniform scale + translation, so the plain matrix rotates the
+    //normal (a uniform scale leaves it only needing a re-normalize). The sway's small horizontal
+    //offset is not un-rotated into the normal - at a fraction of a frond's length the lighting error
+    //is beneath notice, and the alternative is re-deriving a normal per vertex for a wind that barely
+    //tilts it.
+    output.WorldNormal = normalize(mul(input.Normal, (float3x3)world));
 
-	return output;
+    return output;
 }
 
 float4 PalmPS(PalmVertexOutput input) : COLOR
 {
-	float3 N = normalize(input.WorldNormal);
+    float3 N = normalize(input.WorldNormal);
 
-	//The scene's own light, matched to the terrain: a hemisphere ambient tinted zenith-to-horizon by
-	//the normal's height, plus the sun's own diffuse. A frond strip is a single sheet whose normal the
-	//mesh tilts along its spine, so a drooping frond shades under itself for free.
-	float3 ambient = lerp(HorizonColor, ZenithColor, saturate(N.y * 0.5 + 0.5));
-	float ndotl = saturate(dot(N, SunDirection));
-	float3 color = DiffuseColor * (ambient + SunColor * ndotl);
+    //The scene's own light, matched to the terrain: a hemisphere ambient tinted zenith-to-horizon by
+    //the normal's height, plus the sun's own diffuse. A frond strip is a single sheet whose normal the
+    //mesh tilts along its spine, so a drooping frond shades under itself for free.
+    float3 ambient = lerp(HorizonColor, ZenithColor, saturate(N.y * 0.5 + 0.5));
+    float ndotl = saturate(dot(N, SunDirection));
+    float3 color = DiffuseColor * (ambient + SunColor * ndotl);
 
-	//The fronds' leaf mottle: a 3D field of WORLD position, so neighbouring crowns do not share a
-	//pattern and the mottle does not slide over the leaves as they sway. Zero on wood (DappleStrength 0).
-	if (DappleStrength > 0.0)
-		color *= DAPPLE_MEAN + DappleStrength * Fbm3(input.WorldPosition * DAPPLE_FREQUENCY, 3);
+    //The fronds' leaf mottle: a 3D field of WORLD position, so neighbouring crowns do not share a
+    //pattern and the mottle does not slide over the leaves as they sway. Zero on wood (DappleStrength 0).
+    if (DappleStrength > 0.0)
+        color *= DAPPLE_MEAN + DappleStrength * Fbm3(input.WorldPosition * DAPPLE_FREQUENCY, 3);
 
-	return float4(color, 1.0);
+    return float4(color, 1.0);
 }
 
 technique Palm
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL PalmVS();
-		PixelShader = compile PS_SHADERMODEL PalmPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL PalmVS();
+        PixelShader = compile PS_SHADERMODEL PalmPS();
+    }
 };

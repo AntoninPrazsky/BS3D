@@ -145,16 +145,16 @@ float2 WindDirection;
 //rsqrt where sin/cos of a hashed angle costs two transcendentals, and this runs per formation per tap.
 float2 RotateInto(float2 p, float2 axis)
 {
-	return float2(dot(p, axis), dot(p, float2(-axis.y, axis.x)));
+    return float2(dot(p, axis), dot(p, float2(-axis.y, axis.x)));
 }
 
 //A unit vector out of two rolls in 0..1. Guarded against the exact centre of the square, which would
 //normalize to a NaN and take the whole formation's shape with it.
 float2 RollDirection(float2 roll)
 {
-	float2 v = roll * 2.0 - 1.0;
+    float2 v = roll * 2.0 - 1.0;
 
-	return v * rsqrt(max(dot(v, v), 1e-4));
+    return v * rsqrt(max(dot(v, v), 1e-4));
 }
 
 //One lattice of rock formations. Returns the rise in world units above the plain; `shape` comes back as the
@@ -171,108 +171,108 @@ float2 RollDirection(float2 roll)
 //WORLD units: a quarter of a 420-unit cell is a hundred units of wander for a rock a hundred units long. The
 //empty cells (RockChance) are what break the lattice for the small formations, where the box is generous.
 float RockLayer(float2 p, float cellSize, float seed, float chance, float height,
-	float minRadius, float maxRadius, float maxElongation, float ribDepth, out float shape, out float rib)
+    float minRadius, float maxRadius, float maxElongation, float ribDepth, out float shape, out float rib)
 {
-	shape = 0.0;
-	rib = 0.0;
+    shape = 0.0;
+    rib = 0.0;
 
-	float2 q = p / cellSize;
-	float2 cellId = floor(q);
-	float2 f = q - cellId;
+    float2 q = p / cellSize;
+    float2 cellId = floor(q);
+    float2 f = q - cellId;
 
-	//Five independent rolls per candidate: existence and crest flatness, radius and height, where in the
-	//cell, which way it lies, and where its second lobe sits. Separate hashes rather than one reused - a
-	//size correlated with a bearing is a texture nobody would name but the eye would still catch.
-	float2 rollA = NoiseHash22(cellId + seed) * 0.5 + 0.5;
+    //Five independent rolls per candidate: existence and crest flatness, radius and height, where in the
+    //cell, which way it lies, and where its second lobe sits. Separate hashes rather than one reused - a
+    //size correlated with a bearing is a texture nobody would name but the eye would still catch.
+    float2 rollA = NoiseHash22(cellId + seed) * 0.5 + 0.5;
 
-	//Not every cell carries a formation. A plain with a rock in every cell of a lattice IS the lattice,
-	//however hard the jitter works - and an outback whose monoliths came evenly spaced would be an orchard.
-	if (rollA.x > chance) return 0.0;
+    //Not every cell carries a formation. A plain with a rock in every cell of a lattice IS the lattice,
+    //however hard the jitter works - and an outback whose monoliths came evenly spaced would be an orchard.
+    if (rollA.x > chance) return 0.0;
 
-	float2 rollB = NoiseHash22(cellId + seed + 23.7) * 0.5 + 0.5;
-	float2 rollC = NoiseHash22(cellId + seed + 57.1) * 0.5 + 0.5;
-	float2 rollD = NoiseHash22(cellId + seed + 91.3) * 0.5 + 0.5;
+    float2 rollB = NoiseHash22(cellId + seed + 23.7) * 0.5 + 0.5;
+    float2 rollC = NoiseHash22(cellId + seed + 57.1) * 0.5 + 0.5;
+    float2 rollD = NoiseHash22(cellId + seed + 91.3) * 0.5 + 0.5;
 
-	float radius = lerp(minRadius, maxRadius, rollB.x);
-	float elongation = lerp(1.0, maxElongation, rollD.y);
+    float radius = lerp(minRadius, maxRadius, rollB.x);
+    float elongation = lerp(1.0, maxElongation, rollD.y);
 
-	//The full reach, apron and stretch included - see the note above on why this is what the margin must be.
-	//The gullies cut INTO the radius, so at their deepest they also push the base line OUT by the same
-	//fraction — which is reach the margin has to be told about, or a ribbed flank crosses into a cell nobody
-	//reads and is cut off along a straight line.
-	//
-	//The clamp is not what keeps a formation inside its cell (the shipped ranges do that: 0.16 * 1.3 * 1.18 *
-	//1.8 is 0.44); it is what stops a jitter box from going NEGATIVE if the ranges are ever widened, which
-	//would place centres outside their own cell and break the single-cell read silently rather than loudly.
-	float margin = min(radius * TALUS_REACH * (1.0 + ribDepth) * elongation, 0.45);
-	float2 centre = margin + rollC * (1.0 - 2.0 * margin);
+    //The full reach, apron and stretch included - see the note above on why this is what the margin must be.
+    //The gullies cut INTO the radius, so at their deepest they also push the base line OUT by the same
+    //fraction — which is reach the margin has to be told about, or a ribbed flank crosses into a cell nobody
+    //reads and is cut off along a straight line.
+    //
+    //The clamp is not what keeps a formation inside its cell (the shipped ranges do that: 0.16 * 1.3 * 1.18 *
+    //1.8 is 0.44); it is what stops a jitter box from going NEGATIVE if the ranges are ever widened, which
+    //would place centres outside their own cell and break the single-cell read silently rather than loudly.
+    float margin = min(radius * TALUS_REACH * (1.0 + ribDepth) * elongation, 0.45);
+    float2 centre = margin + rollC * (1.0 - 2.0 * margin);
 
-	//THE CLEARING IS DECIDED PER FORMATION, from its own centre, and never per pixel. Per pixel the ramp is a
-	//radial gradient sliced across the rock, which draws a monolith sunk to one side like a ship going down;
-	//taken from the centre, a formation is either standing whole or is not there at all.
-	float2 centreWorld = (cellId + centre) * cellSize;
-	float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, length(centreWorld));
+    //THE CLEARING IS DECIDED PER FORMATION, from its own centre, and never per pixel. Per pixel the ramp is a
+    //radial gradient sliced across the rock, which draws a monolith sunk to one side like a ship going down;
+    //taken from the centre, a formation is either standing whole or is not there at all.
+    float2 centreWorld = (cellId + centre) * cellSize;
+    float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, length(centreWorld));
 
-	if (ramp <= 0.0) return 0.0;
+    if (ramp <= 0.0) return 0.0;
 
-	//The formation's own frame: turned to its own bearing and stretched along it, so no two are the same dome
-	//seen from a different side.
-	float2 local = RotateInto(f - centre, RollDirection(rollD));
-	local.x /= elongation;
+    //The formation's own frame: turned to its own bearing and stretched along it, so no two are the same dome
+    //seen from a different side.
+    float2 local = RotateInto(f - centre, RollDirection(rollD));
+    local.x /= elongation;
 
-	float reach = length(local);
-	float d1 = reach / radius;
+    float reach = length(local);
+    float d1 = reach / radius;
 
-	//THE GULLIES. Sampled on the UNIT CIRCLE of the formation's own frame, so the noise domain is a closed
-	//curve and the pattern meets itself with no seam and no pole — the whole reason this is a direction and
-	//not a bearing angle. RibCount is a radius in the noise's domain, so the circle's circumference is what
-	//sets how many ribs there are: about 2*pi*RibCount of them round the rock.
-	//
-	//They cut the RADIUS rather than the height, which is why they reach the silhouette: a gully makes the
-	//base line bulge outward and the ridge between two of them stand proud. Faded out towards the crest,
-	//because a bornhardt's top is bald rock — and because the ribs converge there, so their world width
-	//shrinks with the radius and past a point they would fall between grid cells.
-	float2 radial = local * rsqrt(max(dot(local, local), 1e-6));
-	rib = GradientNoise2(radial * RibCount + cellId * 13.1 + seed);
+    //THE GULLIES. Sampled on the UNIT CIRCLE of the formation's own frame, so the noise domain is a closed
+    //curve and the pattern meets itself with no seam and no pole — the whole reason this is a direction and
+    //not a bearing angle. RibCount is a radius in the noise's domain, so the circle's circumference is what
+    //sets how many ribs there are: about 2*pi*RibCount of them round the rock.
+    //
+    //They cut the RADIUS rather than the height, which is why they reach the silhouette: a gully makes the
+    //base line bulge outward and the ridge between two of them stand proud. Faded out towards the crest,
+    //because a bornhardt's top is bald rock — and because the ribs converge there, so their world width
+    //shrinks with the radius and past a point they would fall between grid cells.
+    float2 radial = local * rsqrt(max(dot(local, local), 1e-6));
+    rib = GradientNoise2(radial * RibCount + cellId * 13.1 + seed);
 
-	float ribbed = d1 * (1.0 + rib * ribDepth * smoothstep(0.20, 0.62, d1));
+    float ribbed = d1 * (1.0 + rib * ribDepth * smoothstep(0.20, 0.62, d1));
 
-	//A SECOND LOBE, because a bornhardt comes in shoulders - Kata Tjuta is thirty-six domes leaning on each
-	//other, and even Uluru is two humps with a saddle. A field of single domes is the plane-wave-sine failure
-	//in dome form: identical units summed over a lattice. The offset and the smaller radius are bounded so
-	//the lobe's own apron still lands inside the reach `margin` was computed from.
-	float2 rollE = NoiseHash22(cellId + seed + 131.9) * 0.5 + 0.5;
-	float lobeScale = lerp(0.40, 0.60, rollE.y);
-	float2 lobeCentre = RollDirection(rollE) * radius * 0.5;
+    //A SECOND LOBE, because a bornhardt comes in shoulders - Kata Tjuta is thirty-six domes leaning on each
+    //other, and even Uluru is two humps with a saddle. A field of single domes is the plane-wave-sine failure
+    //in dome form: identical units summed over a lattice. The offset and the smaller radius are bounded so
+    //the lobe's own apron still lands inside the reach `margin` was computed from.
+    float2 rollE = NoiseHash22(cellId + seed + 131.9) * 0.5 + 0.5;
+    float lobeScale = lerp(0.40, 0.60, rollE.y);
+    float2 lobeCentre = RollDirection(rollE) * radius * 0.5;
 
-	float d2 = length(local - lobeCentre) / (radius * lobeScale);
+    float d2 = length(local - lobeCentre) / (radius * lobeScale);
 
-	//The whaleback. smoothstep run BACKWARDS (edge0 above edge1) holds a flat-ish crest inside `crest` and
-	//falls to nothing at the base line d = 1, which is a bornhardt's profile: a steep flank and a rounded
-	//top, never the cone a plain falloff gives. How far the crest reaches is its own roll, so some formations
-	//are broad mesas and others are steep whalebacks.
-	//
-	//The steepness this can be pushed to is set by the MESH and not by taste, exactly as the desert's crest
-	//sharpening is: the grid cell is 2.5 world units, and the flank of the shipped profile falls its whole
-	//height over some 20 units, which is eight cells - enough for the geometry to hold the slope. Pulled
-	//tighter the flank would fall between vertices and the per-pixel normal would shade a cliff the
-	//silhouette does not have.
-	float crest = lerp(0.30, 0.55, rollA.y);
-	float body = max(smoothstep(1.0, crest, ribbed), smoothstep(1.0, crest, d2) * lerp(0.55, 0.90, rollE.x));
+    //The whaleback. smoothstep run BACKWARDS (edge0 above edge1) holds a flat-ish crest inside `crest` and
+    //falls to nothing at the base line d = 1, which is a bornhardt's profile: a steep flank and a rounded
+    //top, never the cone a plain falloff gives. How far the crest reaches is its own roll, so some formations
+    //are broad mesas and others are steep whalebacks.
+    //
+    //The steepness this can be pushed to is set by the MESH and not by taste, exactly as the desert's crest
+    //sharpening is: the grid cell is 2.5 world units, and the flank of the shipped profile falls its whole
+    //height over some 20 units, which is eight cells - enough for the geometry to hold the slope. Pulled
+    //tighter the flank would fall between vertices and the per-pixel normal would shade a cliff the
+    //silhouette does not have.
+    float crest = lerp(0.30, 0.55, rollA.y);
+    float body = max(smoothstep(1.0, crest, ribbed), smoothstep(1.0, crest, d2) * lerp(0.55, 0.90, rollE.x));
 
-	//The talus apron: the broken rock that piles at the foot of every one of these, and the reason a monolith
-	//meets the plain in a skirt rather than in a machined crease.
-	//
-	//It is taken off the UNRIBBED radius, and that is not a detail. The apron is wide and only a tenth of the
-	//height, so on a small formation it is most of what can be seen — and cut with the gullies it came out as
-	//a flat many-pointed fan lying on the sand, a starfish rather than a rock, which is exactly how it drew.
-	//Scree fills a gully in anyway; it does not follow it out.
-	float apron = smoothstep(TALUS_REACH, 1.0, min(d1, d2));
+    //The talus apron: the broken rock that piles at the foot of every one of these, and the reason a monolith
+    //meets the plain in a skirt rather than in a machined crease.
+    //
+    //It is taken off the UNRIBBED radius, and that is not a detail. The apron is wide and only a tenth of the
+    //height, so on a small formation it is most of what can be seen — and cut with the gullies it came out as
+    //a flat many-pointed fan lying on the sand, a starfish rather than a rock, which is exactly how it drew.
+    //Scree fills a gully in anyway; it does not follow it out.
+    float apron = smoothstep(TALUS_REACH, 1.0, min(d1, d2));
 
-	//The material mask reaches further than the height does, so the scree at the foot is still rock-coloured
-	shape = saturate(body + apron * 0.45);
+    //The material mask reaches further than the height does, so the scree at the foot is still rock-coloured
+    shape = saturate(body + apron * 0.45);
 
-	return (body * 0.9 + apron * 0.1) * height * lerp(0.62, 1.0, rollB.y) * ramp;
+    return (body * 0.9 + apron * 0.1) * height * lerp(0.62, 1.0, rollB.y) * ramp;
 }
 
 //The land at a world point: x is the height, y the 0..1 rock coverage the pixel shader shades by.
@@ -284,59 +284,59 @@ float RockLayer(float2 p, float cellSize, float seed, float chance, float height
 //partially raised.
 float3 OutbackHeight(float2 p)
 {
-	//Two octaves of gradient noise, genuinely two and not a sine pair: a sum of plane waves keeps its planes
-	//however many terms it has, which three scenes in this project learned the expensive way.
-	float swell = GradientNoise2(p * 0.0062) * 0.70 + GradientNoise2(p * 0.0185 + 5.1) * 0.30;
+    //Two octaves of gradient noise, genuinely two and not a sine pair: a sum of plane waves keeps its planes
+    //however many terms it has, which three scenes in this project learned the expensive way.
+    float swell = GradientNoise2(p * 0.0062) * 0.70 + GradientNoise2(p * 0.0185 + 5.1) * 0.30;
 
-	float rockShape, outcropShape, rockRib, outcropRib;
+    float rockShape, outcropShape, rockRib, outcropRib;
 
-	float rock = RockLayer(p, RockSpacing, 13.7, RockChance, RockHeight,
-		0.10, 0.16, 1.8, RibDepth, rockShape, rockRib);
+    float rock = RockLayer(p, RockSpacing, 13.7, RockChance, RockHeight,
+        0.10, 0.16, 1.8, RibDepth, rockShape, rockRib);
 
-	//The small outcrops sit on a lattice ROTATED against the monoliths', so the two grids share no lines and
-	//a boulder field can never come out ranked along a big formation's rows.
-	//
-	//Their radii are held near their own HEIGHT rather than scaled off the cell, and that is what makes them
-	//boulders: at a fifth of a 110-unit cell they came out twenty-five units across and five tall, and a disc
-	//at that aspect with gullies cut round it is not a rock but a starfish — five radiating spines lying flat
-	//on the sand, which is exactly what it drew. And they carry NO gullies at all (ribDepth 0), which is right
-	//twice over: a boulder is a rounded thing, water having never run far enough down one to cut it, and at
-	//this size the ribs' world width falls under the grid cell anyway.
-	float outcrop = RockLayer(RotateInto(p, float2(0.8253, 0.5647)), OutcropSpacing, 71.3, OutcropChance, OutcropHeight,
-		0.045, 0.085, 1.35, 0.0, outcropShape, outcropRib);
+    //The small outcrops sit on a lattice ROTATED against the monoliths', so the two grids share no lines and
+    //a boulder field can never come out ranked along a big formation's rows.
+    //
+    //Their radii are held near their own HEIGHT rather than scaled off the cell, and that is what makes them
+    //boulders: at a fifth of a 110-unit cell they came out twenty-five units across and five tall, and a disc
+    //at that aspect with gullies cut round it is not a rock but a starfish — five radiating spines lying flat
+    //on the sand, which is exactly what it drew. And they carry NO gullies at all (ribDepth 0), which is right
+    //twice over: a boulder is a rounded thing, water having never run far enough down one to cut it, and at
+    //this size the ribs' world width falls under the grid cell anyway.
+    float outcrop = RockLayer(RotateInto(p, float2(0.8253, 0.5647)), OutcropSpacing, 71.3, OutcropChance, OutcropHeight,
+        0.045, 0.085, 1.35, 0.0, outcropShape, outcropRib);
 
-	//The gully value belongs to whichever formation the point is actually ON, so the pixel shader can streak
-	//it without paying for a field of its own. Handed back here rather than recomputed there because the
-	//per-pixel version of exactly this is what drew the terraces (see the header).
-	return float3(OutbackLevelY + PlainRelief * swell + rock + outcrop,
-		saturate(rockShape + outcropShape),
-		rockShape >= outcropShape ? rockRib : outcropRib);
+    //The gully value belongs to whichever formation the point is actually ON, so the pixel shader can streak
+    //it without paying for a field of its own. Handed back here rather than recomputed there because the
+    //per-pixel version of exactly this is what drew the terraces (see the header).
+    return float3(OutbackLevelY + PlainRelief * swell + rock + outcrop,
+        saturate(rockShape + outcropShape),
+        rockShape >= outcropShape ? rockRib : outcropRib);
 }
 
 struct OutbackVertexInput
 {
-	float4 Position : POSITION0;
+    float4 Position : POSITION0;
 };
 
 struct OutbackVertexOutput
 {
-	float4 Position : SV_POSITION;
-	float3 WorldPosition : TEXCOORD0;
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
 };
 
 OutbackVertexOutput OutbackVS(OutbackVertexInput input)
 {
-	OutbackVertexOutput output;
+    OutbackVertexOutput output;
 
-	//Local grid position + the snapped origin gives the world XZ; the land is sampled there, so it sits still
-	//in the world while the grid slides under it
-	float2 worldXZ = input.Position.xz + OriginXZ;
-	float3 worldPosition = float3(worldXZ.x, OutbackHeight(worldXZ).x, worldXZ.y);
+    //Local grid position + the snapped origin gives the world XZ; the land is sampled there, so it sits still
+    //in the world while the grid slides under it
+    float2 worldXZ = input.Position.xz + OriginXZ;
+    float3 worldPosition = float3(worldXZ.x, OutbackHeight(worldXZ).x, worldXZ.y);
 
-	output.WorldPosition = worldPosition;
-	output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
+    output.WorldPosition = worldPosition;
+    output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
 
-	return output;
+    return output;
 }
 
 //--- The surface ---------------------------------------------------------------------------------------
@@ -345,203 +345,203 @@ OutbackVertexOutput OutbackVS(OutbackVertexInput input)
 //and every terrain scene here use - the grid carries no tangents and the fine relief never reaches it anyway.
 float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
 {
-	float3 dpdx = ddx(worldPosition);
-	float3 dpdy = ddy(worldPosition);
+    float3 dpdx = ddx(worldPosition);
+    float3 dpdy = ddy(worldPosition);
 
-	float3 r1 = cross(dpdy, normal);
-	float3 r2 = cross(normal, dpdx);
+    float3 r1 = cross(dpdy, normal);
+    float3 r2 = cross(normal, dpdx);
 
-	float determinant = dot(dpdx, r1);
-	float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
+    float determinant = dot(dpdx, r1);
+    float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
 
-	return normalize(abs(determinant) * normal - surfaceGradient);
+    return normalize(abs(determinant) * normal - surfaceGradient);
 }
 
 float4 OutbackPS(OutbackVertexOutput input) : COLOR
 {
-	float3 worldPosition = input.WorldPosition;
+    float3 worldPosition = input.WorldPosition;
 
-	//Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
-	clip(length(worldPosition.xz) - IslandHoleRadius);
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    clip(length(worldPosition.xz) - IslandHoleRadius);
 
-	float dist = distance(CameraPosition, worldPosition);
-	float footprint = length(fwidth(worldPosition.xz));
+    float dist = distance(CameraPosition, worldPosition);
+    float footprint = length(fwidth(worldPosition.xz));
 
-	//The base normal, taken PER PIXEL from the height field's own gradient (three taps) rather than
-	//interpolated from a per-vertex normal. Interpolating a coarse displaced grid's per-vertex normal is what
-	//left a Mach-band grid across the old dunes and a soft-focus haze across the forest floor; evaluated per
-	//pixel the shading is smooth whatever the tessellation. Here it does a second job for free - the two
-	//offset taps give the DOWNHILL direction the flutes are combed along, below.
-	float e = 1.5;
-	float3 here = OutbackHeight(worldPosition.xz);
-	float hx = OutbackHeight(worldPosition.xz + float2(e, 0.0)).x;
-	float hz = OutbackHeight(worldPosition.xz + float2(0.0, e)).x;
+    //The base normal, taken PER PIXEL from the height field's own gradient (three taps) rather than
+    //interpolated from a per-vertex normal. Interpolating a coarse displaced grid's per-vertex normal is what
+    //left a Mach-band grid across the old dunes and a soft-focus haze across the forest floor; evaluated per
+    //pixel the shading is smooth whatever the tessellation. Here it does a second job for free - the two
+    //offset taps give the DOWNHILL direction the flutes are combed along, below.
+    float e = 1.5;
+    float3 here = OutbackHeight(worldPosition.xz);
+    float hx = OutbackHeight(worldPosition.xz + float2(e, 0.0)).x;
+    float hz = OutbackHeight(worldPosition.xz + float2(0.0, e)).x;
 
-	float2 slope = float2(hx - here.x, hz - here.x) / e;
-	float3 baseNormal = normalize(float3(-slope.x, 1.0, -slope.y));
+    float2 slope = float2(hx - here.x, hz - here.x) / e;
+    float3 baseNormal = normalize(float3(-slope.x, 1.0, -slope.y));
 
-	float rockMask = smoothstep(0.03, 0.30, here.y);
+    float rockMask = smoothstep(0.03, 0.30, here.y);
 
-	//A broad field, one evaluation doing three jobs: the rock's shade-to-sun colour, the ground's sand-to-dust
-	//colour, and (offset) where the spinifex grows thick and where the ground is bare. One octave, because
-	//everything above this scale is carried by the flutes, the hummocks and the grain, and nothing below the
-	//pixel frequency at any distance this is drawn from - so it needs no band-limiting either.
-	float broad = GradientNoise2(worldPosition.xz * 0.021);
+    //A broad field, one evaluation doing three jobs: the rock's shade-to-sun colour, the ground's sand-to-dust
+    //colour, and (offset) where the spinifex grows thick and where the ground is bare. One octave, because
+    //everything above this scale is carried by the flutes, the hummocks and the grain, and nothing below the
+    //pixel frequency at any distance this is drawn from - so it needs no band-limiting either.
+    float broad = GradientNoise2(worldPosition.xz * 0.021);
 
-	//--- The rock ------------------------------------------------------------------------------------
-	//The gully field comes back OUT of the height field (see the header): the very value that cut the
-	//formation's radius, so the streaks below cannot land anywhere but in the gullies they belong to, and
-	//nothing here takes a screen derivative.
-	float rib = here.z;
+    //--- The rock ------------------------------------------------------------------------------------
+    //The gully field comes back OUT of the height field (see the header): the very value that cut the
+    //formation's radius, so the streaks below cannot land anywhere but in the gullies they belong to, and
+    //nothing here takes a screen derivative.
+    float rib = here.z;
 
-	//How steep it is here, which is what decides whether a gully could have formed at all: the crest of a
-	//monolith is bare bald rock, the flanks are ribbed, and the difference is most of what says "weathered".
-	float steep = saturate(1.0 - baseNormal.y * baseNormal.y);
+    //How steep it is here, which is what decides whether a gully could have formed at all: the crest of a
+    //monolith is bare bald rock, the flanks are ribbed, and the difference is most of what says "weathered".
+    float steep = saturate(1.0 - baseNormal.y * baseNormal.y);
 
-	//DESERT VARNISH: the black-brown mineral skin left where water has run repeatedly down the same line.
-	//It takes the LOW side of the gully field (a gully is where the water went), sharpened so it reads as
-	//streaks rather than as a general grubbiness, and it only exists where the rock is steep enough to shed.
-	float varnish = saturate(-rib * 2.4) * steep * VarnishStrength;
+    //DESERT VARNISH: the black-brown mineral skin left where water has run repeatedly down the same line.
+    //It takes the LOW side of the gully field (a gully is where the water went), sharpened so it reads as
+    //streaks rather than as a general grubbiness, and it only exists where the rock is steep enough to shed.
+    float varnish = saturate(-rib * 2.4) * steep * VarnishStrength;
 
-	//The rock's own surface. World HEIGHT is folded into the domain, because a field of the XZ plane alone is
-	//constant down a vertical face and a monolith is mostly vertical face — it would draw the near flank as
-	//one smeared vertical streak, which is worse than no field at all.
-	float rockDomain = 0.28;
-	float rockSurface = Fbm2BandLimited(worldPosition.xz * rockDomain + worldPosition.y * 0.19, 3,
-		footprint * rockDomain);
+    //The rock's own surface. World HEIGHT is folded into the domain, because a field of the XZ plane alone is
+    //constant down a vertical face and a monolith is mostly vertical face — it would draw the near flank as
+    //one smeared vertical streak, which is worse than no field at all.
+    float rockDomain = 0.28;
+    float rockSurface = Fbm2BandLimited(worldPosition.xz * rockDomain + worldPosition.y * 0.19, 3,
+        footprint * rockDomain);
 
-	//THE TONE MUST NOT SATURATE, and it did: broad, the gullies and the surface field were summed at weights
-	//whose worst case ran well past 1, so on a near formation the whole face pinned to RockColorBright and the
-	//rock came out as ONE airbrushed orange dome with two creases on it — every field present in the shader
-	//and none of them reaching the screen. The weights are cut to land inside 0..1 for all but the extremes.
-	float tone = saturate(0.5 + broad * 0.45 + rib * 0.35 + rockSurface * 0.9);
+    //THE TONE MUST NOT SATURATE, and it did: broad, the gullies and the surface field were summed at weights
+    //whose worst case ran well past 1, so on a near formation the whole face pinned to RockColorBright and the
+    //rock came out as ONE airbrushed orange dome with two creases on it — every field present in the shader
+    //and none of them reaching the screen. The weights are cut to land inside 0..1 for all but the extremes.
+    float tone = saturate(0.5 + broad * 0.45 + rib * 0.35 + rockSurface * 0.9);
 
-	float3 rock = lerp(RockColorDeep, RockColorBright, tone);
-	rock = lerp(rock, VarnishColor, varnish);
+    float3 rock = lerp(RockColorDeep, RockColorBright, tone);
+    rock = lerp(rock, VarnishColor, varnish);
 
-	//--- The ground ----------------------------------------------------------------------------------
-	//SPINIFEX. Round hummocks of it, spaced out the way plants competing for the same water actually space
-	//themselves - which is a CELLULAR field by nature and not a noise one: Voronoi2's low values are closed
-	//round cells with bare ground between them, where an fBm mottle only ever gives patches with no edge. The
-	//hummocks come and go under a broad mask, so the plain has bare gibber stretches and thick stands rather
-	//than one even tiling of tussocks.
-	//A RAW VORONOI FIELD IS A HONEYCOMB, and it drew one: its sites are one per cell jittered by only 0.4, so
-	//the tussocks came out on a near-perfect hexagonal packing with the bare ground between them reading as a
-	//connected web — the plane-wave-sine failure in cellular form. Two things break it and both are needed.
-	//The domain is WARPED by a field running at about a third of the hummock spacing, which slides
-	//neighbouring sites off their lattice rows; and the same field jitters the THRESHOLD, so hummocks vary in
-	//size instead of tiling at one radius. (One noise evaluation does both: a second one for a properly
-	//isotropic warp measured as no better a picture than shearing the one.)
-	float2 spinifexP = worldPosition.xz / SpinifexSpacing;
-	float wander = GradientNoise2(spinifexP * 0.34 + 17.0);
+    //--- The ground ----------------------------------------------------------------------------------
+    //SPINIFEX. Round hummocks of it, spaced out the way plants competing for the same water actually space
+    //themselves - which is a CELLULAR field by nature and not a noise one: Voronoi2's low values are closed
+    //round cells with bare ground between them, where an fBm mottle only ever gives patches with no edge. The
+    //hummocks come and go under a broad mask, so the plain has bare gibber stretches and thick stands rather
+    //than one even tiling of tussocks.
+    //A RAW VORONOI FIELD IS A HONEYCOMB, and it drew one: its sites are one per cell jittered by only 0.4, so
+    //the tussocks came out on a near-perfect hexagonal packing with the bare ground between them reading as a
+    //connected web — the plane-wave-sine failure in cellular form. Two things break it and both are needed.
+    //The domain is WARPED by a field running at about a third of the hummock spacing, which slides
+    //neighbouring sites off their lattice rows; and the same field jitters the THRESHOLD, so hummocks vary in
+    //size instead of tiling at one radius. (One noise evaluation does both: a second one for a properly
+    //isotropic warp measured as no better a picture than shearing the one.)
+    float2 spinifexP = worldPosition.xz / SpinifexSpacing;
+    float wander = GradientNoise2(spinifexP * 0.34 + 17.0);
 
-	spinifexP += float2(wander, wander * 0.62 - 0.31) * 1.15;
+    spinifexP += float2(wander, wander * 0.62 - 0.31) * 1.15;
 
-	//The RIM is band-limited, not the hummock. A cellular field's finest feature is the width of the band its
-	//threshold cuts (0.3 of a cell here), not the cell - so a fade keyed to the cell would leave the rim
-	//aliasing for the whole distance in between, and a fade keyed to the rim would take the tussocks off the
-	//plain within a hundred units. Widening the threshold band by the pixel instead keeps a distant hummock as
-	//a soft blob of the right average brightness, which is what band-limiting is supposed to do; the whole
-	//field then only fades out once the CELLS approach pixel size, and finishes before they reach it - the
-	//desert's grain rule, since a hard-edged cellular field is its own aliasing source.
-	float aa = min(footprint / SpinifexSpacing, 0.35);
-	float hummock = 1.0 - smoothstep(0.12 + wander * 0.10 - aa, 0.42 + wander * 0.17 + aa * 2.0, Voronoi2(spinifexP));
+    //The RIM is band-limited, not the hummock. A cellular field's finest feature is the width of the band its
+    //threshold cuts (0.3 of a cell here), not the cell - so a fade keyed to the cell would leave the rim
+    //aliasing for the whole distance in between, and a fade keyed to the rim would take the tussocks off the
+    //plain within a hundred units. Widening the threshold band by the pixel instead keeps a distant hummock as
+    //a soft blob of the right average brightness, which is what band-limiting is supposed to do; the whole
+    //field then only fades out once the CELLS approach pixel size, and finishes before they reach it - the
+    //desert's grain rule, since a hard-edged cellular field is its own aliasing source.
+    float aa = min(footprint / SpinifexSpacing, 0.35);
+    float hummock = 1.0 - smoothstep(0.12 + wander * 0.10 - aa, 0.42 + wander * 0.17 + aa * 2.0, Voronoi2(spinifexP));
 
-	hummock *= saturate(1.0 - footprint * 2.5 / SpinifexSpacing);
-	hummock *= SpinifexCover * saturate(GradientNoise2(worldPosition.xz * 0.021 + 31.4) * 2.2 + 0.45);
+    hummock *= saturate(1.0 - footprint * 2.5 / SpinifexSpacing);
+    hummock *= SpinifexCover * saturate(GradientNoise2(worldPosition.xz * 0.021 + 31.4) * 2.2 + 0.45);
 
-	float3 soil = lerp(SoilColor, SoilColorPale, saturate(broad * -1.7 + 0.5));
+    float3 soil = lerp(SoilColor, SoilColorPale, saturate(broad * -1.7 + 0.5));
 
-	//The gibber: the pebble litter that covers a real outback plain, one hash per pixel over a fine lattice,
-	//gone within a few units. Same rule as the grain - the fade finishes while a cell is still two pixels wide.
-	float grainFade = saturate(1.0 - footprint * 90.0);
-	soil *= 1.0 + NoiseHash22(floor(worldPosition.xz * 45.0)).x * 0.20 * grainFade;
+    //The gibber: the pebble litter that covers a real outback plain, one hash per pixel over a fine lattice,
+    //gone within a few units. Same rule as the grain - the fade finishes while a cell is still two pixels wide.
+    float grainFade = saturate(1.0 - footprint * 90.0);
+    soil *= 1.0 + NoiseHash22(floor(worldPosition.xz * 45.0)).x * 0.20 * grainFade;
 
-	float3 ground = lerp(soil, SpinifexColor, hummock);
+    float3 ground = lerp(soil, SpinifexColor, hummock);
 
-	//--- Normal and colour -----------------------------------------------------------------------------
-	//ONE height field for the fine relief and ONE perturbation off it, the two materials' reliefs lerped by the
-	//same mask their colours are. Two PerturbNormalFromHeight calls would be two more pairs of screen
-	//derivatives for a result that is a lerp of the inputs anyway.
-	float relief = lerp(hummock * SpinifexRelief, rockSurface * RockRelief, rockMask);
-	float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
+    //--- Normal and colour -----------------------------------------------------------------------------
+    //ONE height field for the fine relief and ONE perturbation off it, the two materials' reliefs lerped by the
+    //same mask their colours are. Two PerturbNormalFromHeight calls would be two more pairs of screen
+    //derivatives for a result that is a lerp of the inputs anyway.
+    float relief = lerp(hummock * SpinifexRelief, rockSurface * RockRelief, rockMask);
+    float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
 
-	float3 albedo = lerp(ground, rock, rockMask);
+    float3 albedo = lerp(ground, rock, rockMask);
 
-	//Shading in the gullies and between the hummocks, independent of the sun: the cheapest ambient occlusion
-	//there is, and what makes both surfaces read on the faces the sun is NOT raking. Without it a shadowed
-	//flank goes back to being a flat patch of colour, which is exactly how the desert's dunes read before it.
-	albedo *= lerp(0.80 + 0.30 * hummock, 0.72 + 0.36 * saturate(0.5 + rib * 1.1 + rockSurface * 1.4), rockMask);
+    //Shading in the gullies and between the hummocks, independent of the sun: the cheapest ambient occlusion
+    //there is, and what makes both surfaces read on the faces the sun is NOT raking. Without it a shadowed
+    //flank goes back to being a flat patch of colour, which is exactly how the desert's dunes read before it.
+    albedo *= lerp(0.80 + 0.30 * hummock, 0.72 + 0.36 * saturate(0.5 + rib * 1.1 + rockSurface * 1.4), rockMask);
 
-	//--- Lighting ------------------------------------------------------------------------------------
-	float sunlight = CloudSunlight(worldPosition, SunDirection);
-	float ndotl = saturate(dot(normal, SunDirection));
+    //--- Lighting ------------------------------------------------------------------------------------
+    float sunlight = CloudSunlight(worldPosition, SunDirection);
+    float ndotl = saturate(dot(normal, SunDirection));
 
-	//Hemisphere sky light: up-facing ground takes the zenith, faces turned to the skyline take the horizon
-	float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
+    //Hemisphere sky light: up-facing ground takes the zenith, faces turned to the skyline take the horizon
+    float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
 
-	float3 color = albedo * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight);
+    float3 color = albedo * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight);
 
-	//The varnish glint. Desert varnish is a genuinely glossy skin and the only thing in this scene that is not
-	//matte, so the lobe is tighter than the desert's grain sheen and it is gated on BOTH the varnish and the
-	//rock mask - a glossy plain would read as wet ground, which is the one thing the outback is not. Gated on
-	//ndotl as well, or a lee face would glint in light that never reaches it.
-	float3 towardsEye = normalize(CameraPosition - worldPosition);
-	float3 halfway = normalize(SunDirection + towardsEye);
-	float gloss = pow(saturate(dot(normal, halfway)), 34.0);
+    //The varnish glint. Desert varnish is a genuinely glossy skin and the only thing in this scene that is not
+    //matte, so the lobe is tighter than the desert's grain sheen and it is gated on BOTH the varnish and the
+    //rock mask - a glossy plain would read as wet ground, which is the one thing the outback is not. Gated on
+    //ndotl as well, or a lee face would glint in light that never reaches it.
+    float3 towardsEye = normalize(CameraPosition - worldPosition);
+    float3 halfway = normalize(SunDirection + towardsEye);
+    float gloss = pow(saturate(dot(normal, halfway)), 34.0);
 
-	color += SunColor * gloss * VarnishGloss * varnish * rockMask * ndotl * sunlight;
+    color += SunColor * gloss * VarnishGloss * varnish * rockMask * ndotl * sunlight;
 
-	//--- The air -------------------------------------------------------------------------------------
-	//Aerial perspective through red dust. No drifting veil (the Sahara's costs a noise evaluation over the
-	//whole frame and the outback's air is still) — this rides the distance fade and is free.
-	//
-	//THE FADE IS IN TWO STAGES, the forest's arrangement and for the forest's reason: one colour cannot do
-	//both jobs. The mid-distance has to keep the scene's own red, or a dome with a teal horizon paints the far
-	//plain and the shadowed flank of every monolith green — which is aerial perspective behaving correctly and
-	//still the wrong picture. The last stretch has to arrive at the dome's exact HorizonColor, or the terrain's
-	//own edge shows as a seam against a sky it does not match — which is what a single fade to a dust colour
-	//drew, a red plain butting straight onto a green sky. So the dust builds up quadratically, and then the
-	//dome takes over on a quartic that only bites in the final fifth.
-	//
-	//The dust takes the sky's BRIGHTNESS in full and only half of its hue, which is the forest's sky-tint trick
-	//run the other way round. Lit by the sky's colour outright — `HazeTint * skyLight`, the obvious spelling —
-	//the product keeps whichever channel the dome happens to be strongest in, so a teal-horizoned dome handed
-	//back a green dust however hard DustStrength was pushed: a multiply cannot be out-weighted by a blend whose
-	//other end carries the same hue.
-	float3 skyLight = HorizonColor + SunColor * 0.35;
-	float skyLuminance = dot(skyLight, float3(0.2126, 0.7152, 0.0722));
+    //--- The air -------------------------------------------------------------------------------------
+    //Aerial perspective through red dust. No drifting veil (the Sahara's costs a noise evaluation over the
+    //whole frame and the outback's air is still) — this rides the distance fade and is free.
+    //
+    //THE FADE IS IN TWO STAGES, the forest's arrangement and for the forest's reason: one colour cannot do
+    //both jobs. The mid-distance has to keep the scene's own red, or a dome with a teal horizon paints the far
+    //plain and the shadowed flank of every monolith green — which is aerial perspective behaving correctly and
+    //still the wrong picture. The last stretch has to arrive at the dome's exact HorizonColor, or the terrain's
+    //own edge shows as a seam against a sky it does not match — which is what a single fade to a dust colour
+    //drew, a red plain butting straight onto a green sky. So the dust builds up quadratically, and then the
+    //dome takes over on a quartic that only bites in the final fifth.
+    //
+    //The dust takes the sky's BRIGHTNESS in full and only half of its hue, which is the forest's sky-tint trick
+    //run the other way round. Lit by the sky's colour outright — `HazeTint * skyLight`, the obvious spelling —
+    //the product keeps whichever channel the dome happens to be strongest in, so a teal-horizoned dome handed
+    //back a green dust however hard DustStrength was pushed: a multiply cannot be out-weighted by a blend whose
+    //other end carries the same hue.
+    float3 skyLight = HorizonColor + SunColor * 0.35;
+    float skyLuminance = dot(skyLight, float3(0.2126, 0.7152, 0.0722));
 
-	float3 dustLit = HazeTint * lerp(skyLuminance.xxx, skyLight, 0.45);
+    float3 dustLit = HazeTint * lerp(skyLuminance.xxx, skyLight, 0.45);
 
-	float haze = saturate(dist / HorizonHazeDistance);
+    float haze = saturate(dist / HorizonHazeDistance);
 
-	//HEAT SHIMMER, and it is keyed to the VIEW RAY rather than to the surface — which is the whole of what was
-	//wrong with it first time. Written against `worldPosition.y` it painted the noise ONTO whatever it hit, and
-	//on a near-vertical monolith flank that is a set of horizontal stripes one world unit apart: fine, regular,
-	//strongest exactly where the haze is half done, and reading as a shading bug rather than as air. The
-	//distortion belongs to the atmosphere the ray passes THROUGH, so its domain is the ray's own direction —
-	//features of a fixed angular size, sliding upward against the clock the way hot air rises, and sticking to
-	//nothing. It belongs to the MIDDLE distance alone: `haze * (1 - haze)` peaks where the fade is half done
-	//and dies at both ends, so the near ground stays rock-steady and the skyline stays clean.
-	float3 ray = -towardsEye;
-	float2 shimmerP = float2(dot(ray.xz, WindDirection) * 44.0 + ray.x * 30.0,
-		ray.y * 90.0 - OutbackTime * 0.55);
-	float shimmer = GradientNoise2(shimmerP) * HeatShimmer * haze * (1.0 - haze) * 4.0;
+    //HEAT SHIMMER, and it is keyed to the VIEW RAY rather than to the surface — which is the whole of what was
+    //wrong with it first time. Written against `worldPosition.y` it painted the noise ONTO whatever it hit, and
+    //on a near-vertical monolith flank that is a set of horizontal stripes one world unit apart: fine, regular,
+    //strongest exactly where the haze is half done, and reading as a shading bug rather than as air. The
+    //distortion belongs to the atmosphere the ray passes THROUGH, so its domain is the ray's own direction —
+    //features of a fixed angular size, sliding upward against the clock the way hot air rises, and sticking to
+    //nothing. It belongs to the MIDDLE distance alone: `haze * (1 - haze)` peaks where the fade is half done
+    //and dies at both ends, so the near ground stays rock-steady and the skyline stays clean.
+    float3 ray = -towardsEye;
+    float2 shimmerP = float2(dot(ray.xz, WindDirection) * 44.0 + ray.x * 30.0,
+        ray.y * 90.0 - OutbackTime * 0.55);
+    float shimmer = GradientNoise2(shimmerP) * HeatShimmer * haze * (1.0 - haze) * 4.0;
 
-	haze = saturate(haze + shimmer);
+    haze = saturate(haze + shimmer);
 
-	color = lerp(color, dustLit, DustStrength * haze * haze);
-	color = lerp(color, HorizonColor, haze * haze * haze * haze);
+    color = lerp(color, dustLit, DustStrength * haze * haze);
+    color = lerp(color, HorizonColor, haze * haze * haze * haze);
 
-	return float4(color, 1.0);
+    return float4(color, 1.0);
 }
 
 technique Outback
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL OutbackVS();
-		PixelShader = compile PS_SHADERMODEL OutbackPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL OutbackVS();
+        PixelShader = compile PS_SHADERMODEL OutbackPS();
+    }
 };

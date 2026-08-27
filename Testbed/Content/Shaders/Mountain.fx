@@ -91,73 +91,73 @@ static const float MOUNTAIN_FIELD_SPAN = 0.72;
 //exists to replace it; the mountain was the scene that never got converted.
 float MountainField(float2 p)
 {
-	float ridged = RidgedFbm2(p / MOUNTAIN_RIDGE_SPACING, MOUNTAIN_FIELD_OCTAVES);
-	float shaped = saturate((ridged - MOUNTAIN_FIELD_FLOOR) / MOUNTAIN_FIELD_SPAN);
+    float ridged = RidgedFbm2(p / MOUNTAIN_RIDGE_SPACING, MOUNTAIN_FIELD_OCTAVES);
+    float shaped = saturate((ridged - MOUNTAIN_FIELD_FLOOR) / MOUNTAIN_FIELD_SPAN);
 
-	return shaped * shaped * shaped;
+    return shaped * shaped * shaped;
 }
 
 //The terrain displacement at a world XZ: a gentle basin around the arena (world origin) rising into peaks
 //with distance. Evaluated three times per pixel for the finite-difference normal.
 float TerrainHeight(float2 p)
 {
-	float dist = length(p);
-	float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, dist);
+    float dist = length(p);
+    float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, dist);
 
-	float basin = ClearingRelief * (sin(dot(p, float2(0.06, 0.04))) + 0.6 * sin(dot(p, float2(-0.05, 0.08)) + 2.0));
+    float basin = ClearingRelief * (sin(dot(p, float2(0.06, 0.04))) + 0.6 * sin(dot(p, float2(-0.05, 0.08)) + 2.0));
 
-	return MountainLevelY + basin + MountainHeight * ramp * MountainField(p);
+    return MountainLevelY + basin + MountainHeight * ramp * MountainField(p);
 }
 
 struct MountainVertexInput
 {
-	float4 Position : POSITION0;
+    float4 Position : POSITION0;
 };
 
 struct MountainVertexOutput
 {
-	float4 Position : SV_POSITION;
-	float3 WorldPosition : TEXCOORD0;
-	float3 WorldNormal : TEXCOORD1;
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+    float3 WorldNormal : TEXCOORD1;
 };
 
 MountainVertexOutput MountainVS(MountainVertexInput input)
 {
-	MountainVertexOutput output;
+    MountainVertexOutput output;
 
-	float2 xz = input.Position.xz + OriginXZ;
-	float height = TerrainHeight(xz);
+    float2 xz = input.Position.xz + OriginXZ;
+    float height = TerrainHeight(xz);
 
-	//Base normal per vertex (finite differences) and interpolated, not per pixel. On this mostly-distant,
-	//steep range a per-pixel finite-difference normal aliases into shimmer on the far faces; the smooth
-	//per-vertex normal reads cleaner and the finer grid plus the per-pixel rock relief carry the detail.
-	float e = 2.0;
-	float hx = TerrainHeight(xz + float2(e, 0.0));
-	float hz = TerrainHeight(xz + float2(0.0, e));
-	output.WorldNormal = normalize(float3(-(hx - height) / e, 1.0, -(hz - height) / e));
+    //Base normal per vertex (finite differences) and interpolated, not per pixel. On this mostly-distant,
+    //steep range a per-pixel finite-difference normal aliases into shimmer on the far faces; the smooth
+    //per-vertex normal reads cleaner and the finer grid plus the per-pixel rock relief carry the detail.
+    float e = 2.0;
+    float hx = TerrainHeight(xz + float2(e, 0.0));
+    float hz = TerrainHeight(xz + float2(0.0, e));
+    output.WorldNormal = normalize(float3(-(hx - height) / e, 1.0, -(hz - height) / e));
 
-	float3 worldPosition = float3(xz.x, height, xz.y);
-	output.WorldPosition = worldPosition;
-	output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
+    float3 worldPosition = float3(xz.x, height, xz.y);
+    output.WorldPosition = worldPosition;
+    output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
 
-	return output;
+    return output;
 }
 
 //Tangent-free normal tilt from a height field (Christian Schueler), as everywhere else in this project
 float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
 {
-	float3 dpdx = ddx(worldPosition);
-	float3 dpdy = ddy(worldPosition);
+    float3 dpdx = ddx(worldPosition);
+    float3 dpdy = ddy(worldPosition);
 
-	float3 r1 = cross(dpdy, normal);
-	float3 r2 = cross(normal, dpdx);
+    float3 r1 = cross(dpdy, normal);
+    float3 r2 = cross(normal, dpdx);
 
-	float determinant = dot(dpdx, r1);
-	float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
+    float determinant = dot(dpdx, r1);
+    float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
 
-	//Guard the determinant off zero: at the far peaks' grazing angles ddx/ddy of the world position go
-	//near-degenerate, and abs(determinant) hitting 0 makes normalize(0) return NaN. The floor keeps it alive.
-	return normalize(max(abs(determinant), 1e-4) * normal - surfaceGradient);
+    //Guard the determinant off zero: at the far peaks' grazing angles ddx/ddy of the world position go
+    //near-degenerate, and abs(determinant) hitting 0 makes normalize(0) return NaN. The floor keeps it alive.
+    return normalize(max(abs(determinant), 1e-4) * normal - surfaceGradient);
 }
 
 //Rough rock texture, and it is FRACTAL NOISE and not crossed sines - which it was until #170, the third and
@@ -201,13 +201,13 @@ static const float ROCK_FBM_GAIN = 3.0;
 //finer and take the broad undulation out of the terrain.
 float RockRelief(float2 xz, float footprint)
 {
-	float scale = RockReliefFrequency / TWO_PI;
+    float scale = RockReliefFrequency / TWO_PI;
 
-	//The footprint goes in scaled by the same figure, which is Fbm2BandLimited's contract: it wants the
-	//pixel's size in the domain's own units, and that is what fades each octave out as its period approaches
-	//the pixel - the job RockOctave's own `resolvable` guard used to do for the sines.
-	return Fbm2Combed(xz * scale, ROCK_GRAIN, ROCK_STRETCH, 4, footprint * scale)
-		* (RockReliefStrength * ROCK_FBM_GAIN);
+    //The footprint goes in scaled by the same figure, which is Fbm2BandLimited's contract: it wants the
+    //pixel's size in the domain's own units, and that is what fades each octave out as its period approaches
+    //the pixel - the job RockOctave's own `resolvable` guard used to do for the sines.
+    return Fbm2Combed(xz * scale, ROCK_GRAIN, ROCK_STRETCH, 4, footprint * scale)
+        * (RockReliefStrength * ROCK_FBM_GAIN);
 }
 
 //THE SNOW'S OWN SURFACE, which #208 found missing: the snowfields were flat SnowColor under a 40 % share of
@@ -227,10 +227,10 @@ static const float SNOW_FBM_GAIN = 0.5;
 
 float SnowRelief(float2 xz, float footprint)
 {
-	float scale = RockReliefFrequency / TWO_PI;
+    float scale = RockReliefFrequency / TWO_PI;
 
-	return Fbm2Combed(xz * scale, SNOW_GRAIN, SNOW_STRETCH, 3, footprint * scale)
-		* (RockReliefStrength * ROCK_FBM_GAIN * SNOW_FBM_GAIN);
+    return Fbm2Combed(xz * scale, SNOW_GRAIN, SNOW_STRETCH, 3, footprint * scale)
+        * (RockReliefStrength * ROCK_FBM_GAIN * SNOW_FBM_GAIN);
 }
 
 //AND SPARKLE, the albedo's half: snow is ice crystals, and what the eye forgives a photograph of snow for
@@ -245,96 +245,96 @@ static const float SNOW_SPARKLE_DENSITY = 0.985;
 
 float SnowSparkle(float2 xz, float3 normal, float footprint)
 {
-	float fade = saturate(1.0 - footprint * 3.0);
-	if (fade <= 0.0) return 0.0;
+    float fade = saturate(1.0 - footprint * 3.0);
+    if (fade <= 0.0) return 0.0;
 
-	float cell = NoiseHash22(floor(xz * 3.33)).x;
+    float cell = NoiseHash22(floor(xz * 3.33)).x;
 
-	return step(SNOW_SPARKLE_DENSITY, cell) * fade * saturate(normal.y);
+    return step(SNOW_SPARKLE_DENSITY, cell) * fade * saturate(normal.y);
 }
 
 float4 MountainPS(MountainVertexOutput input) : COLOR
 {
-	float3 worldPosition = input.WorldPosition;
+    float3 worldPosition = input.WorldPosition;
 
-	//Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
-	clip(length(worldPosition.xz) - IslandHoleRadius);
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    clip(length(worldPosition.xz) - IslandHoleRadius);
 
-	float dist = distance(CameraPosition, worldPosition);
-	float footprint = length(fwidth(worldPosition.xz));
+    float dist = distance(CameraPosition, worldPosition);
+    float footprint = length(fwidth(worldPosition.xz));
 
-	//Smooth per-vertex base normal (see the vertex shader for why not per pixel)
-	float3 baseNormal = normalize(input.WorldNormal);
+    //Smooth per-vertex base normal (see the vertex shader for why not per pixel)
+    float3 baseNormal = normalize(input.WorldNormal);
 
-	//Fine rock relief roughens the faces, band-limited against the footprint so it fades to smooth towards the
-	//horizon - which also keeps it off the distant faces, leaving the clean per-vertex normal to do the work there
-	float relief = RockRelief(worldPosition.xz, footprint) * (1.0 - 0.6 * saturate(baseNormal.y));
-	float3 rockNormal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
+    //Fine rock relief roughens the faces, band-limited against the footprint so it fades to smooth towards the
+    //horizon - which also keeps it off the distant faces, leaving the clean per-vertex normal to do the work there
+    float relief = RockRelief(worldPosition.xz, footprint) * (1.0 - 0.6 * saturate(baseNormal.y));
+    float3 rockNormal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
 
-	//Snow lies where the surface is BOTH up-facing (flats/shoulders keep it, cliffs shed it) AND high enough
-	//(above an irregular, noisy snowline); rock shows on the steep faces and below the line. Noise breaks the
-	//snowline so it is drifts and patches, not a clean contour. Read off the ROCK-perturbed normal: the
-	//terrain's own slope decides what holds snow, and the snow's own relief is about to be added on top of
-	//that decision rather than feeding back into it.
-	float slopeSnow = smoothstep(RockSlope, SnowSlope, rockNormal.y);
-	float snowNoise = CloudNoise(worldPosition.xz * 0.03) * 9.0;
-	float altSnow = smoothstep(SnowlineLow + snowNoise, SnowlineHigh + snowNoise, worldPosition.y);
-	float snowDetailed = slopeSnow * saturate(altSnow + 0.15); //a little snow even on lower shoulders
+    //Snow lies where the surface is BOTH up-facing (flats/shoulders keep it, cliffs shed it) AND high enough
+    //(above an irregular, noisy snowline); rock shows on the steep faces and below the line. Noise breaks the
+    //snowline so it is drifts and patches, not a clean contour. Read off the ROCK-perturbed normal: the
+    //terrain's own slope decides what holds snow, and the snow's own relief is about to be added on top of
+    //that decision rather than feeding back into it.
+    float slopeSnow = smoothstep(RockSlope, SnowSlope, rockNormal.y);
+    float snowNoise = CloudNoise(worldPosition.xz * 0.03) * 9.0;
+    float altSnow = smoothstep(SnowlineLow + snowNoise, SnowlineHigh + snowNoise, worldPosition.y);
+    float snowDetailed = slopeSnow * saturate(altSnow + 0.15); //a little snow even on lower shoulders
 
-	//Fade the snow/rock DETAIL to a smooth snowy value with distance (footprint): the sharp rock/snow split
-	//aliases into a crawl on the far, stacked ranges, so smoothing it there leaves clean snowy peaks while the
-	//near and mid slopes keep the rock/snow detail.
-	float detailFade = saturate(1.0 - footprint * 0.05);
-	float snow = lerp(0.72, snowDetailed, detailFade);
+    //Fade the snow/rock DETAIL to a smooth snowy value with distance (footprint): the sharp rock/snow split
+    //aliases into a crawl on the far, stacked ranges, so smoothing it there leaves clean snowy peaks while the
+    //near and mid slopes keep the rock/snow detail.
+    float detailFade = saturate(1.0 - footprint * 0.05);
+    float snow = lerp(0.72, snowDetailed, detailFade);
 
-	//And the snow's OWN two surfaces, over the mask that just came back (#208): the drift relief tilts the
-	//normal only where snow lies, weighted by how much of it there is, and the sparkle dusts the albedo
-	//after lighting as an additive glint. Both die with detailFade like everything else the near slopes
-	//carry, so the far ranges stay clean shapes in haze.
-	float snowRelief = SnowRelief(worldPosition.xz, footprint) * snow * detailFade;
-	float3 normal = PerturbNormalFromHeight(rockNormal, worldPosition, relief + snowRelief);
+    //And the snow's OWN two surfaces, over the mask that just came back (#208): the drift relief tilts the
+    //normal only where snow lies, weighted by how much of it there is, and the sparkle dusts the albedo
+    //after lighting as an additive glint. Both die with detailFade like everything else the near slopes
+    //carry, so the far ranges stay clean shapes in haze.
+    float snowRelief = SnowRelief(worldPosition.xz, footprint) * snow * detailFade;
+    float3 normal = PerturbNormalFromHeight(rockNormal, worldPosition, relief + snowRelief);
 
-	//Rock varies between a dark and a lighter grey-brown in patches, so the faces are not one flat colour
-	float rockPatch = saturate(CloudNoise(worldPosition.xz * 0.08 + 21.0) * 0.5 + 0.5);
-	float3 rock = lerp(RockColor, RockColorLight, rockPatch * detailFade);
+    //Rock varies between a dark and a lighter grey-brown in patches, so the faces are not one flat colour
+    float rockPatch = saturate(CloudNoise(worldPosition.xz * 0.08 + 21.0) * 0.5 + 0.5);
+    float3 rock = lerp(RockColor, RockColorLight, rockPatch * detailFade);
 
-	//Fine per-pixel rock grain, the cue Desert.fx's sand added that "a floor with no fine albedo change still
-	//looks airbrushed however it is lit" (docs/scenes.md). One hash per pixel over a fine world lattice,
-	//band-limited against the footprint the same way as the relief so it fades to smooth before its cells reach
-	//pixel size (a hard-edged per-cell value is its own aliasing source) and stays off the distant ranges with
-	//the rest of the detail. Only on the rock, not the snow it sits beside.
-	float rockGrainFade = saturate(1.0 - footprint * 120.0) * detailFade;
-	rock *= 1.0 + NoiseHash22(floor(worldPosition.xz * 60.0)).x * 0.14 * rockGrainFade;
+    //Fine per-pixel rock grain, the cue Desert.fx's sand added that "a floor with no fine albedo change still
+    //looks airbrushed however it is lit" (docs/scenes.md). One hash per pixel over a fine world lattice,
+    //band-limited against the footprint the same way as the relief so it fades to smooth before its cells reach
+    //pixel size (a hard-edged per-cell value is its own aliasing source) and stays off the distant ranges with
+    //the rest of the detail. Only on the rock, not the snow it sits beside.
+    float rockGrainFade = saturate(1.0 - footprint * 120.0) * detailFade;
+    rock *= 1.0 + NoiseHash22(floor(worldPosition.xz * 60.0)).x * 0.14 * rockGrainFade;
 
-	float3 albedo = lerp(rock, SnowColor, snow);
+    float3 albedo = lerp(rock, SnowColor, snow);
 
-	float sunlight = CloudSunlight(worldPosition, SunDirection);
-	float ndotl = saturate(dot(normal, SunDirection));
+    float sunlight = CloudSunlight(worldPosition, SunDirection);
+    float ndotl = saturate(dot(normal, SunDirection));
 
-	//Hemisphere sky light: up-facing takes the zenith, slopes take the horizon. The blue zenith filling the
-	//shadows gives the snow its cold cast where the sun misses it.
-	float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
+    //Hemisphere sky light: up-facing takes the zenith, slopes take the horizon. The blue zenith filling the
+    //shadows gives the snow its cold cast where the sun misses it.
+    float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
 
-	float3 color = albedo * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight);
+    float3 color = albedo * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight);
 
-	//The glint, ON TOP of the lit snow: specular in character, additive in code - a glint is bright enough
-	//that tonemapping it down a little is the look, not a loss. Scaled by the direct sun only (ndotl and the
-	//cloud shadow with it), because a glint IS reflected sun.
-	color += SunColor * SnowSparkle(worldPosition.xz, normal, footprint)
-		* ndotl * sunlight * detailFade * 3.0;
+    //The glint, ON TOP of the lit snow: specular in character, additive in code - a glint is bright enough
+    //that tonemapping it down a little is the look, not a loss. Scaled by the direct sun only (ndotl and the
+    //cloud shadow with it), because a glint IS reflected sun.
+    color += SunColor * SnowSparkle(worldPosition.xz, normal, footprint)
+        * ndotl * sunlight * detailFade * 3.0;
 
-	//Alpine haze: the distant range fades into the skyline, the strong aerial perspective of a lot of cold air
-	float haze = saturate(dist / HorizonHazeDistance);
-	color = lerp(color, HorizonColor, haze * haze);
+    //Alpine haze: the distant range fades into the skyline, the strong aerial perspective of a lot of cold air
+    float haze = saturate(dist / HorizonHazeDistance);
+    color = lerp(color, HorizonColor, haze * haze);
 
-	return float4(color, 1.0);
+    return float4(color, 1.0);
 }
 
 technique Mountain
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL MountainVS();
-		PixelShader = compile PS_SHADERMODEL MountainPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MountainVS();
+        PixelShader = compile PS_SHADERMODEL MountainPS();
+    }
 };

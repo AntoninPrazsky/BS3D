@@ -119,15 +119,15 @@ float HorizonHazeDistance;
 //with the island at the bottom of it.
 float DuneSum(float2 p)
 {
-	float base = 0.62 * sin(dot(p, float2(0.090, 0.052)))
-		+ 0.24 * sin(dot(p, float2(-0.041, 0.101)) + 1.7);
+    float base = 0.62 * sin(dot(p, float2(0.090, 0.052)))
+        + 0.24 * sin(dot(p, float2(-0.041, 0.101)) + 1.7);
 
-	float ridge = 0.74 * sin(dot(p, float2(0.071, -0.083)) + 3.1)
-		+ 0.26 * sin(dot(p, float2(0.163, 0.128)) + 5.2);
+    float ridge = 0.74 * sin(dot(p, float2(0.071, -0.083)) + 3.1)
+        + 0.26 * sin(dot(p, float2(0.163, 0.128)) + 5.2);
 
-	float crest = smoothstep(0.08, 1.0, 1.0 - abs(ridge));
+    float crest = smoothstep(0.08, 1.0, 1.0 - abs(ridge));
 
-	return base + 0.62 * crest - 0.25;
+    return base + 0.62 * crest - 0.25;
 }
 
 //The full displaced sand height at a world point: flat at DesertLevelY inside the clearing around the island,
@@ -135,36 +135,36 @@ float DuneSum(float2 p)
 //normal (PS) - the one field, so the two can never drift apart.
 float DesertHeight(float2 p)
 {
-	float dist = length(p);
-	float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, dist);
+    float dist = length(p);
+    float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, dist);
 
-	return DesertLevelY + DuneAmplitude * ramp * DuneSum(p);
+    return DesertLevelY + DuneAmplitude * ramp * DuneSum(p);
 }
 
 struct DesertVertexInput
 {
-	float4 Position : POSITION0;
+    float4 Position : POSITION0;
 };
 
 struct DesertVertexOutput
 {
-	float4 Position : SV_POSITION;
-	float3 WorldPosition : TEXCOORD0;
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
 };
 
 DesertVertexOutput DesertVS(DesertVertexInput input)
 {
-	DesertVertexOutput output;
+    DesertVertexOutput output;
 
-	//Local grid position + the snapped origin gives the world XZ; the dunes are sampled there, so they sit
-	//still in the world while the grid slides under them
-	float2 worldXZ = input.Position.xz + OriginXZ;
-	float3 worldPosition = float3(worldXZ.x, DesertHeight(worldXZ), worldXZ.y);
+    //Local grid position + the snapped origin gives the world XZ; the dunes are sampled there, so they sit
+    //still in the world while the grid slides under them
+    float2 worldXZ = input.Position.xz + OriginXZ;
+    float3 worldPosition = float3(worldXZ.x, DesertHeight(worldXZ), worldXZ.y);
 
-	output.WorldPosition = worldPosition;
-	output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
+    output.WorldPosition = worldPosition;
+    output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
 
-	return output;
+    return output;
 }
 
 //--- The sand's surface -------------------------------------------------------------------------------
@@ -173,10 +173,10 @@ DesertVertexOutput DesertVS(DesertVertexInput input)
 //between the angles that makes the pattern read as sand rather than as corduroy.
 float2 Rot2(float2 p, float angle)
 {
-	float s = sin(angle);
-	float c = cos(angle);
+    float s = sin(angle);
+    float c = cos(angle);
 
-	return float2(p.x * c - p.y * s, p.x * s + p.y * c);
+    return float2(p.x * c - p.y * s, p.x * s + p.y * c);
 }
 
 //One set of repeat ripple lines, from a phase in cycles. A triangle wave, rounded, with a little of a PEAKY
@@ -188,15 +188,15 @@ float2 Rot2(float2 p, float angle)
 //alias into a shimmer - the crests would be the last thing to fade and the first thing to crawl.
 float RippleLine(float cycles, float sharpen)
 {
-	//Repeat triangle wave, 0 at the trough and 1 at the crest.
-	float t = abs(frac(cycles) - 0.5) * 2.0;
+    //Repeat triangle wave, 0 at the trough and 1 at the crest.
+    float t = abs(frac(cycles) - 0.5) * 2.0;
 
-	float rounded = t * t * (3.0 - 2.0 * t);
+    float rounded = t * t * (3.0 - 2.0 * t);
 
-	//Zero over the whole lower half and rising steeply after it: a crest with a flank rather than a hump.
-	float peaky = saturate(t * t * (2.0 * t - 1.0));
+    //Zero over the whole lower half and rising steeply after it: a crest with a flank rather than a hump.
+    float peaky = saturate(t * t * (2.0 * t - 1.0));
 
-	return lerp(rounded, peaky, 0.35 * sharpen);
+    return lerp(rounded, peaky, 0.35 * sharpen);
 }
 
 //One layer of the sand pattern, and the whole trick is here.
@@ -218,34 +218,34 @@ float RippleLine(float cycles, float sharpen)
 //neighbours, which is what stops the set reading as a printed pattern.
 float SandLayer(float2 p, float frequency, float resolvable, float sharpen)
 {
-	//A third of a period of wander, faded with the resolvable factor along with everything else: at the
-	//distance the lines themselves are gone, a wobble on them is pure noise in the normal.
-	float wander = 0.32 * resolvable;
+    //A third of a period of wander, faded with the resolvable factor along with everything else: at the
+    //distance the lines themselves are gone, a wobble on them is pure noise in the normal.
+    float wander = 0.32 * resolvable;
 
-	//The wandering field, taken FIRST because it does two jobs: it is the blend weight below, and it also
-	//bends the whole family so the ripples are not one straight march everywhere (see SandPattern on why that
-	//job is done here rather than by a second layer). Gradient noise where the original used a transcendental
-	//pair - one evaluation instead of four, no preferred direction, and the library's quintic fade leaves no
-	//lattice crease in a field that is about to drive a normal.
-	float w = saturate(GradientNoise2(Rot2(p, 0.785) * frequency * 0.55) * 1.4 + 0.5);
+    //The wandering field, taken FIRST because it does two jobs: it is the blend weight below, and it also
+    //bends the whole family so the ripples are not one straight march everywhere (see SandPattern on why that
+    //job is done here rather than by a second layer). Gradient noise where the original used a transcendental
+    //pair - one evaluation instead of four, no preferred direction, and the library's quintic fade leaves no
+    //lattice crease in a field that is about to drive a normal.
+    float w = saturate(GradientNoise2(Rot2(p, 0.785) * frequency * 0.55) * 1.4 + 0.5);
 
-	//A SLOW BEND of the whole family, added to the position and not multiplied into the frequency. That
-	//distinction is the trap this cost a rebuild to learn, and it is worth stating plainly: scaling the
-	//frequency by a field means the phase carries `coordinate * field`, and the coordinate here is a WORLD
-	//position running to +-500. The phase gradient then goes as the coordinate times the field's gradient -
-	//hundreds of cycles per unit - while `resolvable` above is still computed from the nominal frequency and
-	//has no idea. The near sand came out as a violent rainbow moire across the entire frame. Adding to the
-	//position instead is bounded by construction: it shifts the lines where they are without ever changing
-	//how fast they repeat, so the band-limit stays true.
-	float2 bend = p + w * 0.6;
+    //A SLOW BEND of the whole family, added to the position and not multiplied into the frequency. That
+    //distinction is the trap this cost a rebuild to learn, and it is worth stating plainly: scaling the
+    //frequency by a field means the phase carries `coordinate * field`, and the coordinate here is a WORLD
+    //position running to +-500. The phase gradient then goes as the coordinate times the field's gradient -
+    //hundreds of cycles per unit - while `resolvable` above is still computed from the nominal frequency and
+    //has no idea. The near sand came out as a violent rainbow moire across the entire frame. Adding to the
+    //position instead is bounded by construction: it shifts the lines where they are without ever changing
+    //how fast they repeat, so the band-limit stays true.
+    float2 bend = p + w * 0.6;
 
-	float2 a = Rot2(bend, 0.175);
-	float line1 = RippleLine(a.y * frequency + GradientNoise2(a * frequency * 1.40) * wander, sharpen);
+    float2 a = Rot2(bend, 0.175);
+    float line1 = RippleLine(a.y * frequency + GradientNoise2(a * frequency * 1.40) * wander, sharpen);
 
-	float2 b = Rot2(bend, -0.157);
-	float line2 = RippleLine(b.y * frequency + GradientNoise2(b * frequency * 0.95) * wander + 0.5, sharpen);
+    float2 b = Rot2(bend, -0.157);
+    float line2 = RippleLine(b.y * frequency + GradientNoise2(b * frequency * 0.95) * wander + 0.5, sharpen);
 
-	return 1.0 - (1.0 - line1 * (1.0 - w)) * (1.0 - line2 * w);
+    return 1.0 - (1.0 - line1 * (1.0 - w)) * (1.0 - line2 * w);
 }
 
 //The sand pattern. Returns 0..1 and it is a HEIGHT in spirit - the normal comes off it through
@@ -270,20 +270,20 @@ float SandLayer(float2 p, float frequency, float resolvable, float sharpen)
 //looked like on screen.)
 float SandPattern(float2 p, float footprint)
 {
-	float f = RippleFrequency;
+    float f = RippleFrequency;
 
-	float resolvable = saturate(1.0 - 2.0 * f * footprint);
-	float sharpen = resolvable * resolvable;
+    float resolvable = saturate(1.0 - 2.0 * f * footprint);
+    float sharpen = resolvable * resolvable;
 
-	//No early exit once the pattern is unresolvable, tempting as it is. This value feeds ddx/ddy through
-	//PerturbNormalFromHeight, and `resolvable` varies per pixel - so a branch on it would diverge inside a
-	//quad exactly along the line where the ripples fade out, and the derivatives of a quad whose lanes took
-	//different paths are undefined. The lerp below does the same job for a handful of ALU.
-	float pattern = SandLayer(p, f, resolvable, sharpen);
+    //No early exit once the pattern is unresolvable, tempting as it is. This value feeds ddx/ddy through
+    //PerturbNormalFromHeight, and `resolvable` varies per pixel - so a branch on it would diverge inside a
+    //quad exactly along the line where the ripples fade out, and the derivatives of a quad whose lanes took
+    //different paths are undefined. The lerp below does the same job for a handful of ALU.
+    float pattern = SandLayer(p, f, resolvable, sharpen);
 
-	//Towards flat sand (0.5) rather than towards zero, so fading the pattern out does not also darken the
-	//distance through the trough shading below.
-	return lerp(0.5, pattern, resolvable);
+    //Towards flat sand (0.5) rather than towards zero, so fading the pattern out does not also darken the
+    //distance through the trough shading below.
+    return lerp(0.5, pattern, resolvable);
 }
 
 //Tangent-free normal tilt from a height field (Christian Schueler), the same one the balls and the ground
@@ -294,125 +294,125 @@ float SandPattern(float2 p, float footprint)
 //of a pattern that is the most expensive thing in this shader.
 float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
 {
-	float3 dpdx = ddx(worldPosition);
-	float3 dpdy = ddy(worldPosition);
+    float3 dpdx = ddx(worldPosition);
+    float3 dpdy = ddy(worldPosition);
 
-	float3 r1 = cross(dpdy, normal);
-	float3 r2 = cross(normal, dpdx);
+    float3 r1 = cross(dpdy, normal);
+    float3 r2 = cross(normal, dpdx);
 
-	float determinant = dot(dpdx, r1);
-	float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
+    float determinant = dot(dpdx, r1);
+    float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
 
-	return normalize(abs(determinant) * normal - surfaceGradient);
+    return normalize(abs(determinant) * normal - surfaceGradient);
 }
 
 float4 DesertPS(DesertVertexOutput input) : COLOR
 {
-	float3 worldPosition = input.WorldPosition;
+    float3 worldPosition = input.WorldPosition;
 
-	//Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
-	clip(length(worldPosition.xz) - IslandHoleRadius);
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    clip(length(worldPosition.xz) - IslandHoleRadius);
 
-	float dist = distance(CameraPosition, worldPosition);
-	float footprint = length(fwidth(worldPosition.xz));
+    float dist = distance(CameraPosition, worldPosition);
+    float footprint = length(fwidth(worldPosition.xz));
 
-	//The base dune normal, taken PER PIXEL from the height field's gradient (three cheap taps) rather than
-	//interpolated from a per-vertex normal - this is what removes the coarse mesh's facet/grid pattern.
-	float e = 1.5;
-	float h = DesertHeight(worldPosition.xz);
-	float hx = DesertHeight(worldPosition.xz + float2(e, 0.0));
-	float hz = DesertHeight(worldPosition.xz + float2(0.0, e));
+    //The base dune normal, taken PER PIXEL from the height field's gradient (three cheap taps) rather than
+    //interpolated from a per-vertex normal - this is what removes the coarse mesh's facet/grid pattern.
+    float e = 1.5;
+    float h = DesertHeight(worldPosition.xz);
+    float hx = DesertHeight(worldPosition.xz + float2(e, 0.0));
+    float hz = DesertHeight(worldPosition.xz + float2(0.0, e));
 
-	//The dune's own slope, which the three taps above have already paid for
-	float2 duneSlope = float2(hx - h, hz - h) / e;
-	float3 duneNormal = normalize(float3(-duneSlope.x, 1.0, -duneSlope.y));
+    //The dune's own slope, which the three taps above have already paid for
+    float2 duneSlope = float2(hx - h, hz - h) / e;
+    float3 duneNormal = normalize(float3(-duneSlope.x, 1.0, -duneSlope.y));
 
-	//The ripple field's domain: scrolled downwind so the sand crawls, and WARPED BY THE DUNE'S OWN SLOPE so
-	//the lines bend as they run over a crest and pool in the hollows. That warp is the difference between
-	//ripples that belong to the dune and ripples that are wallpaper laid over it, and it is free here - the
-	//slope is the same one the normal above was built from.
-	float2 ripplePos = worldPosition.xz
-		+ WindDirection * DesertTime * RippleSpeed
-		+ duneSlope * 1.6;
+    //The ripple field's domain: scrolled downwind so the sand crawls, and WARPED BY THE DUNE'S OWN SLOPE so
+    //the lines bend as they run over a crest and pool in the hollows. That warp is the difference between
+    //ripples that belong to the dune and ripples that are wallpaper laid over it, and it is free here - the
+    //slope is the same one the normal above was built from.
+    float2 ripplePos = worldPosition.xz
+        + WindDirection * DesertTime * RippleSpeed
+        + duneSlope * 1.6;
 
-	float pattern = SandPattern(ripplePos, footprint);
+    float pattern = SandPattern(ripplePos, footprint);
 
-	//Fine wind ripples tilt the dune normal; they carry the whole sense of a surface crawling in the wind
-	float3 normal = PerturbNormalFromHeight(duneNormal, worldPosition, pattern * RippleAmplitude);
+    //Fine wind ripples tilt the dune normal; they carry the whole sense of a surface crawling in the wind
+    float3 normal = PerturbNormalFromHeight(duneNormal, worldPosition, pattern * RippleAmplitude);
 
-	//--- The sand's colour ---------------------------------------------------------------------------
-	//Sand is not one colour, and one colour is what this read as before: a flat tan the eye takes for a lit
-	//floor. A broad field mixes the bleached pale of the crests against the warm ochre of the troughs, and
-	//the same field - offset, so the two do not move together - varies the brightness of whatever that gave.
-	//Patches with no tone read as stains and tone with no patches reads as vignetting; it takes both.
-	//
-	//ONE evaluation for both, and one octave rather than an fBm. Three of them measured as a real share of
-	//this shader's cost for a difference nobody can point at: the field is only ever asked for a broad
-	//mottle, and the ripples and the grain already carry every frequency above it. It is far below the pixel
-	//frequency at any distance the sand is drawn from, so it needs no band-limiting either.
-	float broad = GradientNoise2(worldPosition.xz * 0.055);
+    //--- The sand's colour ---------------------------------------------------------------------------
+    //Sand is not one colour, and one colour is what this read as before: a flat tan the eye takes for a lit
+    //floor. A broad field mixes the bleached pale of the crests against the warm ochre of the troughs, and
+    //the same field - offset, so the two do not move together - varies the brightness of whatever that gave.
+    //Patches with no tone read as stains and tone with no patches reads as vignetting; it takes both.
+    //
+    //ONE evaluation for both, and one octave rather than an fBm. Three of them measured as a real share of
+    //this shader's cost for a difference nobody can point at: the field is only ever asked for a broad
+    //mottle, and the ripples and the grain already carry every frequency above it. It is far below the pixel
+    //frequency at any distance the sand is drawn from, so it needs no band-limiting either.
+    float broad = GradientNoise2(worldPosition.xz * 0.055);
 
-	float3 sand = lerp(SandColor, SandColorPale, saturate(broad * 1.6 + 0.5));
+    float3 sand = lerp(SandColor, SandColorPale, saturate(broad * 1.6 + 0.5));
 
-	sand *= lerp(0.80, 1.20, saturate(broad * -2.1 + 0.5));
+    sand *= lerp(0.80, 1.20, saturate(broad * -2.1 + 0.5));
 
-	//Shading in the ripple troughs, independent of the sun. It is the cheapest kind of ambient occlusion and
-	//it is what makes the ripples read on the faces the sun is NOT raking - with the normal tilt alone, a
-	//dune's shadowed flank goes back to being a flat patch of colour.
-	sand *= 0.58 + 0.52 * pattern;
+    //Shading in the ripple troughs, independent of the sun. It is the cheapest kind of ambient occlusion and
+    //it is what makes the ripples read on the faces the sun is NOT raking - with the normal tilt alone, a
+    //dune's shadowed flank goes back to being a flat patch of colour.
+    sand *= 0.58 + 0.52 * pattern;
 
-	//And the grains themselves, close up: one hash per pixel over a fine world lattice, gone within a few
-	//units. Sand at arm's length is not smooth, and this is the only cue at that distance that says so.
-	//
-	//A hard-edged per-cell value is its own aliasing source, so the fade has to be finished BEFORE the cells
-	//reach pixel size, not at it: the lattice is 60 cells per unit and this reaches zero at a footprint of
-	//1/120, i.e. while a cell is still two pixels across. Faded at the cell size instead, the grain would
-	//spend its last few metres as a crawling speckle.
-	float grainFade = saturate(1.0 - footprint * 120.0);
-	sand *= 1.0 + NoiseHash22(floor(worldPosition.xz * 60.0)).x * 0.16 * grainFade;
+    //And the grains themselves, close up: one hash per pixel over a fine world lattice, gone within a few
+    //units. Sand at arm's length is not smooth, and this is the only cue at that distance that says so.
+    //
+    //A hard-edged per-cell value is its own aliasing source, so the fade has to be finished BEFORE the cells
+    //reach pixel size, not at it: the lattice is 60 cells per unit and this reaches zero at a footprint of
+    //1/120, i.e. while a cell is still two pixels across. Faded at the cell size instead, the grain would
+    //spend its last few metres as a crawling speckle.
+    float grainFade = saturate(1.0 - footprint * 120.0);
+    sand *= 1.0 + NoiseHash22(floor(worldPosition.xz * 60.0)).x * 0.16 * grainFade;
 
-	//--- Lighting ------------------------------------------------------------------------------------
-	//Sand is a near-matte diffuse surface: the sun rakes the dunes (lit windward faces, shadowed lee ones)
-	//and the sky fills the rest. The cloud shadow dims the sun exactly as it does for the whole scene.
-	float sunlight = CloudSunlight(worldPosition, SunDirection);
-	float ndotl = saturate(dot(normal, SunDirection));
+    //--- Lighting ------------------------------------------------------------------------------------
+    //Sand is a near-matte diffuse surface: the sun rakes the dunes (lit windward faces, shadowed lee ones)
+    //and the sky fills the rest. The cloud shadow dims the sun exactly as it does for the whole scene.
+    float sunlight = CloudSunlight(worldPosition, SunDirection);
+    float ndotl = saturate(dot(normal, SunDirection));
 
-	//Hemisphere sky light: up-facing sand takes the zenith, slopes towards the skyline take the horizon
-	float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
+    //Hemisphere sky light: up-facing sand takes the zenith, slopes towards the skyline take the horizon
+    float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
 
-	float3 color = sand * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight);
+    float3 color = sand * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight);
 
-	//The sheen. Quartz grains are little mirrors, so sand is not quite matte: with the sun low, its crest
-	//lines catch a glint. A wide Blinn lobe rather than a tight one - the reflection is off a million grains
-	//facing every way, so it is a broad sheen and not a highlight - and gated on ndotl, or the lee faces
-	//would glint in light that never reaches them.
-	float3 towardsEye = normalize(CameraPosition - worldPosition);
-	float3 halfway = normalize(SunDirection + towardsEye);
-	float sheen = pow(saturate(dot(normal, halfway)), 12.0);
+    //The sheen. Quartz grains are little mirrors, so sand is not quite matte: with the sun low, its crest
+    //lines catch a glint. A wide Blinn lobe rather than a tight one - the reflection is off a million grains
+    //facing every way, so it is a broad sheen and not a highlight - and gated on ndotl, or the lee faces
+    //would glint in light that never reaches them.
+    float3 towardsEye = normalize(CameraPosition - worldPosition);
+    float3 halfway = normalize(SunDirection + towardsEye);
+    float sheen = pow(saturate(dot(normal, halfway)), 12.0);
 
-	color += SunColor * sheen * SheenStrength * ndotl * sunlight;
+    color += SunColor * sheen * SheenStrength * ndotl * sunlight;
 
-	//Blown dust: a veil of sand-colored haze drifting downwind, thickening with distance so the far dunes
-	//dissolve into a windblown murk. Its noise comes from the shared cloud field's generator (included
-	//above), scrolled along the wind.
-	float2 dustP = (worldPosition.xz + WindDirection * DesertTime * DustSpeed) * 0.03;
-	float dust = saturate(CloudNoise(dustP) * 0.5 + 0.5);
-	dust *= DustStrength * saturate(dist / DustStart);
-	float3 dustColor = SandColor * skyAmbient * 2.0 + HorizonColor * 0.4;
-	color = lerp(color, dustColor, saturate(dust));
+    //Blown dust: a veil of sand-colored haze drifting downwind, thickening with distance so the far dunes
+    //dissolve into a windblown murk. Its noise comes from the shared cloud field's generator (included
+    //above), scrolled along the wind.
+    float2 dustP = (worldPosition.xz + WindDirection * DesertTime * DustSpeed) * 0.03;
+    float dust = saturate(CloudNoise(dustP) * 0.5 + 0.5);
+    dust *= DustStrength * saturate(dist / DustStart);
+    float3 dustColor = SandColor * skyAmbient * 2.0 + HorizonColor * 0.4;
+    color = lerp(color, dustColor, saturate(dust));
 
-	//Horizon haze: the finite grid melts into the skyline color, so it has no edge and no seam with the dome
-	float haze = saturate(dist / HorizonHazeDistance);
-	color = lerp(color, HorizonColor, haze * haze);
+    //Horizon haze: the finite grid melts into the skyline color, so it has no edge and no seam with the dome
+    float haze = saturate(dist / HorizonHazeDistance);
+    color = lerp(color, HorizonColor, haze * haze);
 
-	return float4(color, 1.0);
+    return float4(color, 1.0);
 }
 
 technique Desert
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL DesertVS();
-		PixelShader = compile PS_SHADERMODEL DesertPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL DesertVS();
+        PixelShader = compile PS_SHADERMODEL DesertPS();
+    }
 };
