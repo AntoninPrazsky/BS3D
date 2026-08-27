@@ -1996,3 +1996,23 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 **Upozornění na churn:** `git blame` u třiceti shaderů bude napříště ukazovat na tenhle commit. Majitel to ví předem, řekl jsem mu to před převodem.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (šedesátý třetí zápis)
+
+**Beru si #151, a beru si z něj přesně tu jednu věc, kterou nechalo otevřenou: poměr „27 ms ze 42" se má odvodit na SLABÉM stroji.** Větev `151-arena-weak-machine` off main, sdílený strom (byl čistý), staguju jmenovitě. Hlásím dopředu.
+
+**Proč já a proč teď: sedím na tom stroji.** `ThinkPad` = Ryzen 7 5700U + integrovaný Radeon, tedy ta referenční APU, na které jsou naměřená čísla v `docs/` a která odvedla #250. Poslední dva komentáře #151 končí obě stejnou větou — *„I am on the reference desktop, so I cannot do it"* — a přesně proto v repu zůstaly `arena=` a `capprobe=` místo aby se smazaly s odpovědí, kterou daly. Kartu si beru (`Get-Process BS3D, Testbed` prázdné).
+
+**Co je hotové a nesahám na to.** Členský sweep (`arena=`), sonda čepice (`capprobe=`) i tier `ArenaIsland.SurfaceDetail` jsou na mainu z minulých kol (`05e5f9a`). Nic z toho neměním — jsou to nástroje, kvůli kterým je tohle pár minut měření místo rebuildu. Ambice tohohle kola je **měření a zápis**, ne další řez do `InstancedModel.fx`.
+
+**Co změřím:** baseline na obou kamerách issue (shora `campos=0,30,0 camtarget=0,-13,6` i hrací `campos=0,-4,30 camtarget=0,-8,0`), členský sweep, sondu čepice, a kontrolu „sky only". Kamery **vyfotím dřív, než skrz ně vezmu číslo** — to je vlastní metodická poznámka #151 a je zaplacená tím, že se issue jednou celé zakládalo na špatné atribuci.
+
+**⚠ Rozlišení původního čísla nikde není zapsané.** Tělo issue říká „Testbed, `nocap`, pevná kamera, ssaa 2, 22 vzorků" a **nejmenuje šířku ani výšku**, přičemž `logfps` Testbed dostal až tímhle issue. Číslo 42 ms tedy neumím reprodukovat na pixel; co udělám, je odvodit **poměr** na kvótovaném rozlišení a to rozlišení napsat vedle každého čísla.
+
+**Přečteno před začátkem, a mění mi to zadání:** zápis 62 (#270) — `scene=` a `sky=` nedrží, jakmile se nahraje level, a #209/#167/#166/#165 jsou všechny hlášené se signaturou vsyncu, ne ceny scény. Beru z toho dvě věci: **ověřím `scene=` proti řádku `[fps]`, ne proti tomu, co jsem vyžádal**, a **na téhle APU je limiter irelevantní** — 42 ms je 24 FPS, nikde blízko poloviny refreshe, takže poměr, který #151 hledá, ta retrakce nezpochybňuje.
+
+**Nezabírám si nic dalšího.** Volné podle trackeru (ne podle deníku, ten je o #270/#271 pozadu): **#268**, **#229**, **#257**, **#256**, **#223**, **#222**, **#219**, **#213**, **#209**, **#205**, **#201**, **#189**, **#188**, **#187**, **#172**, **#167**, **#166**, **#165**, **#100**, **#95**, **#90**, **#272**, **#251**, **#230**.
+
+**Provozní drobnost pro majitele:** unijní merge tenhle soubor rozsekaly — řádek *„Poslední zápis: …"* je v něm teď **osmkrát**, uprostřed textu, a na konci souboru žádný. Nesahám na to (je to cizí práce), ale stojí to za jeden úklidový commit.
