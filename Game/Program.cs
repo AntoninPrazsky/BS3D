@@ -104,10 +104,12 @@ namespace BS3D
             foreach (string arg in args)
             {
                 if (string.Equals(arg, "fullscreen", StringComparison.OrdinalIgnoreCase)) fullscreen = true;
-                //"nocap" disables vsync so real rendering headroom can be measured
+                //"nocap" lifts the frame limiter's ceiling so real rendering headroom can be measured. It meant
+                //"disables vsync" until #270 — the game presents immediately in EVERY mode now, so all this
+                //picks is FrameLimiter's target.
                 else if (string.Equals(arg, "nocap", StringComparison.OrdinalIgnoreCase)) uncappedFps = true;
-                //"fpscap=N" implies nocap's presentation; the game itself makes that implication so the two
-                //cannot be given inconsistently (see the BS3DGame constructor).
+                //"fpscap=N" is that same ceiling set by hand, and it wins over "nocap" outright rather than
+                //being reconciled with it (BS3DGame.FrameLimitHz), so the two cannot be given inconsistently.
                 else if (arg.StartsWith("fpscap=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("fpscap=".Length), out int parsedCap) && parsedCap > 0) fpsCap = parsedCap;
                 //"ssaa=<n>" trades sharpness against fill rate; "exposure=<f>" is the renderer's shutter speed
                 else if (arg.StartsWith("ssaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("ssaa=".Length), out int parsedSsaa)) supersampleFactor = parsedSsaa;

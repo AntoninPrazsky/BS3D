@@ -85,15 +85,16 @@ namespace BS3D
         /// Below this, the frame rate is judged bad enough to be worth spending image quality on. Derived from
         /// the display's refresh at startup (see <see cref="SetQualityMinFpsFromRefresh"/>), so it tracks the
         /// monitor the player is actually on rather than a single fixed floor. Comfortably under that refresh,
-        /// so a vsync-capped machine (the normal case) never trips it — 75 Hz reads as 75, not as "only just
-        /// enough".
+        /// so a limiter-capped machine (the normal case) never trips it — a 75 Hz panel reads 78, not as "only
+        /// just enough". This said "vsync-capped" until #270 replaced the vsync with <see cref="Platform.FrameLimiter"/>,
+        /// whose target sits a few per cent <i>above</i> the refresh and so only widens the gap.
         /// </summary>
         private const float DEFAULT_QUALITY_MIN_FPS = 45f;
 
         /// <summary>
         /// The probe asks for this fraction of the display's refresh. The floor is the refresh <i>minus</i> this
-        /// margin: 75 Hz → 67.5, 60 Hz → 54, 144 Hz → 129.6. The margin keeps a vsync-capped machine from
-        /// tripping the probe on the rounding of its own cap.
+        /// margin: 75 Hz → 67.5, 60 Hz → 54, 144 Hz → 129.6. The margin keeps a limiter-capped machine from
+        /// tripping the probe on the jitter of its own cap.
         /// </summary>
         private const float QUALITY_REFRESH_MARGIN = 0.1f;
 
@@ -119,7 +120,7 @@ namespace BS3D
 
         /// <summary>
         /// Sets the probe's frame-rate floor from the display's refresh, less <see cref="QUALITY_REFRESH_MARGIN"/>
-        /// so a vsync-capped machine does not trip it on the rounding of its own cap. The floor is clamped to
+        /// so a limiter-capped machine does not trip it on the jitter of its own cap. The floor is clamped to
         /// <see cref="QUALITY_MIN_FPS_FLOOR"/> so a headless or remote adapter that reports no refresh keeps the
         /// old fixed number rather than settling at zero (which would make every run "fast enough" instantly).
         /// </summary>
