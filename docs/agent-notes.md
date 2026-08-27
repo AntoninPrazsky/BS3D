@@ -2226,3 +2226,21 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 **Dokumentace:** `docs/scenes.md` (nová sekce Mars + bump "eighteen"→"nineteen" na třech místech, co se týkaly dómů), `CLAUDE.md` (patnáct→šestnáct scén, osmnáct→devatenáct palet), skilly `benchmark`/`screenshot`/`shaders` (scéna/dóm seznamy — při té příležitosti jsem doplnil i outback/tropical/volcano, které tam chyběly už předtím, ne mou vinou, ale byl jsem u stejného řádku).
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (osmdesátý druhý zápis)
+
+**#268 (tropická pláž) doměřeno, dostalo ještě jednu opravu a je na mainu jako `5832d81`** (merge `--no-ff` větve `268-rocks-sway-with-wind`) **a zavřené**. Issue bylo od minula otevřené, přestože jeho čtyři body byly hotové — kontrola je potvrdila a našla pátou věc.
+
+**⚠ Kameny na pláži se kývaly ve větru, a bylo to horší než posun: trhaly se.** Majitelovými slovy „na té pláži se pohybují kameny s větrem, to je blbost". Mechanismus stojí za přečtení, protože je to past na každý shader, co si přetíží texturní souřadnici: **`Palm.fx` čte `TEXCOORD0.x` jako váhu ohybu**, a vahou to je jen proto, že si ji tam `PalmMesh` schválně zapéká (0 na kmeni → 1 na hrotu listu). `SwayStrength` se ale nastavovala **raz za snímek** v `ApplyPalmFrame`, kterou volá i `DrawTropicalRocks` — a `RockMesh` **sám je `LatheMesh`** (vydává `_lathe`ovy buffery), stejně jako jeho mechová čepička, přičemž `LatheMesh` si do UV.x píše `s / segments`, tedy **0→1 po obvodu**. Jedna strana každého prstence se tedy posouvala plnou vahou hrotu palmového listu a druhá stála. Síla ohybu je teď **parametr per část** `DrawPalmPart` vedle `dappleStrength`, takže žádný mesh nemůže zdědit kývání, které mu nikdo nechtěl dát; varování nese shader i oba call sity.
+
+**Metoda, která to prokázala, a je znovupoužitelná:** párový diff dvou snímků z **jedné pevné kamery v různém nástěnném čase**, s **pozitivní kontrolou** ve stejné dvojici. V boxech s kameny se nezměnil ani jeden pixel o víc než 24 (mean |d| 0,00 a 0,07); palmové korony v týchž dvou snímcích měly 18,7 % pixelů nad prahem a max 198. Bez té kontroly by „nic se nezměnilo" mohlo znamenat jen to, že test nic nevidí. Pozor při tom na pohyblivý stín mraků — holý písek jako negativní kontrola měl mean |d| 17,6, takže samotné „nenulové" číslo nic nedokazuje.
+
+**⚠ A jedna past, do které jsem sám šlápl a málem z ní udělal nález:** hřeben vzdáleného břehu mi na horizontu naměřil (205, 204, 175), tedy prakticky dokumentované „před opravou" (204, 199, 168) — vypadalo to, že bod 1 nikdy nezabral. Sahal jsem ale na **vymlžený crest a zem za ním**: hřeben stojí v 300–395 při `HorizonHazeDistance` 480, takže jeho vrchol je při `haze⁸` ze ~70 % dojetý do krémového horizontu dómu 1, což je přesně zamýšlené („poslední úsek musí dojet na `HorizonColor`, jinak se hrana meshe ukáže jako šev"). Zblízka, kde mlha nehraje, měří blízký svah **(130, 147, 80)** — G nad R, B hluboko pod, jednoznačná zeleň. **Pravidlo z toho: číslo z horizontu terénní scény neměří terén, měří mlhu. Měř tam, kde `haze` je malé.** Laguna při tom měří (141, 167, 165), tedy tyrkys, jak má.
+
+**⚠ Nesahal jsem na PÍSEK a nikdo by na něj neměl sahat mimo toho, kdo ho drží: majitel říká, že vlnky v písku už řeší jiný agent.** Nechávám tu jen změřený vstup, ať se neměří dvakrát: za **jedné a téže kamery, dómu a okna** (`campos=0,-8,55 camtarget=0,-14,95`, `sky=1`, `nopost`, 1600×900, region 800×250) měří směrodatná odchylka jasu **tropical 3,70 proti desert 10,53**. Absolutní čísla nejsou srovnatelná s dokumentovanými 4,92 / 5,98 (ta jsou z nezapsané kamery — což je samo o sobě věc, kterou by ten, kdo to drží, měl při zápisu opravit), ale **jako párové srovnání to říká, že reliéf pořád čte asi na třetinu pouštního**, a to je zrovna ta scéna, proti které se to ladilo.
+
+**Ověřeno:** všechny čtyři solutiony čisté, `ScoreSim` „All levels rate the right way round".
+
+**Nic dalšího si neberu.**
