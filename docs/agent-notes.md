@@ -2159,3 +2159,17 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 **⚠ Provozní, a je to dobrá zpráva: majitel hlásí, že hra už nepadá — přepojil kabely.** To sedí přesně na diagnózu ze zápisů 62 a #250: signatura `Kernel-Power 41` + `6008` bez bugchecku, resety i na volnoběhu, zkracující se intervaly za tepla — **napájecí cesta, ne karta**. Kdo se vrátí k **#209/#167/#166/#165** (pořád otevřené a nezabrané, viz předchozí zápis): sweep je tím možná zase průchodný, ale **ověř to krátkým během dřív, než na tom stroji rozjedeš dlouhý** — jeden bezproblémový večer ještě není důkaz a ta čtyři issues už jednou stála celý sweep.
 
 **Nic si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (sedmdesátý devátý zápis)
+
+**Majitel požádal, ať zkontroluju #223 (sopka) — vypadá dobře a chybí něco? — a podle toho ho buď dokončím, nebo zavřu.** Sopka samotná byla hotová a smergovaná (`461e84b`), issue zůstalo otevřené jen kvůli druhé půlce (kampaňový blok pěti levelů). Odpověď na obojí je pod sebou; branch `223-volcano-crater-summit` (pushnuto jako `00477a5`, na aktuálním mainu — chytil jsem i #278, co jsem při větvení minul).
+
+**⚠ Kontrola scény našla skutečnou chybu, ne jen vkus: kráter nikdy nebyl kráter.** `VolcanoMassing`'s `flank = ConeHeight · pow(1 − r/ConeRadius, ConeProfile)` je maximální přesně v `r = 0` pro libovolný profil (sklon tam je `−ConeProfile/ConeRadius`, nikdy nula), takže odečítáním `crater` termu, který je **taky** maximální v `r = 0`, se vrchol nikdy nemohl posunout jinam než do stejného bodu — jen se strmější příchod k němu. Vizuálně to byla ostrá špička, ze které fontána stříká jako z trysky (majitelovými slovy). Oprava zafixuje poloměr, ve kterém se `flank` sám vyhodnocuje, na `CraterRadius` — takže plošina drží výšku okraje kdekoli uvnitř — a kráter se vyřízne do TÉ plošiny (`smoothstep(CraterRadius, 0, r)`), ne do kužele, co pod ní dál stoupal. Mimo `CraterRadius` se nemění nic. Zrcadleno v `SceneRenderer.VolcanoGroundY` (řeky i světla čtou tenhle, ne shader). Ověřeno třemi capturama (zdálky, hrací kamera, zblízka a zvýšeně u kráteru) — teď je vidět skutečný otvor s okrajem, fontána stoupá zevnitř.
+
+**Rozhodnutí o zbytku: zavírám #223, kampaňový blok jde jako samostatný budoucí úkol, ne jako pokračování tohohle issue.** Napřed jsem si to ověřil forkem (12 652řádkový `Tools/LevelGen/Program.cs`, `Levels.json`, „light-drain arc" #194, `aimcheck`, hudba bloku): jeden nový pětilevelový blok je bloky geometrických návrhů, ne parametrický generátor — každý level svůj vlastní algoritmus, stovky řádků, s reálnými zamítnutými pokusy jako normální praxí (２ z 5 u Gallery, 2 z 5 u Coil, „Helix vyhrál z jedenácti návrhů" z paměti) — a umístění do arc je opakovaně majitelovo vlastní autorské rozhodnutí, ne mechanický slot. To je vícesezenní kreativní práce, ne dokončení v tomhle běhu. **#255 (co dřív drželo `Tools/LevelGen`) je mezitím zavřené**, takže cesta je volná, až na to někdo (klidně příští běh) sedne.
+
+**Ověřeno:** všechny čtyři solutiony čisté, `ScoreSim` „All levels rate the right way round" po mergi #278. `docs/scenes.md` má novou odrážku u volcano sekce s výše popsanou opravou.
+
+**Nic dalšího si neberu.**
