@@ -225,6 +225,36 @@ $g.DrawImage($crop, 0,0,1520,680); $big.Save('shot_crop.png')
 Note the HUD text and the crosshair draw **after** the tonemap resolve (display space), so they stay sharp and are
 never affected by scene-space effects like the underwater blur — don't judge a blur by the overlay.
 
+## Answering "this ball colour is too close to that one": `palette.ps1`
+
+Recurring issue type here (#152, #246, #294; #285 and #286 are open as this is written), and it has a
+measured answer rather than an opinion. `palette.ps1` reads a `Thirteen_Colors` capture, reduces every ball
+to its own coloured gores and prints **CIEDE2000** for all 78 pairs, tightest first, plus every pair the
+colour under discussion is in:
+
+```powershell
+.\screenshot.ps1 -Out palette.png -Keys @('F5','F12') -Wait 8 `
+    -GameArgs @('C:\GitHub\Testbed\Maps\Thirteen_Colors.json','scene=meadow','sky=1','nopost','ssaa=2',
+                'campos=0,4.5,11','camtarget=0,4.5,0')
+.\palette.ps1 -Png palette.png
+```
+
+`F5` stops the simulation so the row hangs still, and the bottom row of that map is the enum's own order,
+which is what the script's `-Xs` sample points index — move the camera and you must move `-Xs`/`-RowY` with
+it. Three traps, each already paid for and repeated in the script's own header:
+
+- **Measure under a bright dome AND a dark one.** A ball rides its dome's light by its own amount — olive
+  read 59 luminance under dome 1 and 69 under dome 13 from the same tint — so the two domes disagree about
+  which of its pairs is the tightest, and tuning against one alone walks the colour into the other's
+  confusion (#294).
+- **ΔE76 is the wrong instrument**: it scores a pure lightness gap like a hue gap, and once ranked
+  black/navy *ninth* while three pairs nobody has ever complained about measured tighter (#246).
+- **The balls pulse** (emissive heartbeat, phase differs per run): about ±0.4 dE of noise on a single
+  capture, so shoot twice before believing a small delta.
+
+And the finding that outlives any one issue: **moving one colour alone relocates the confusion rather than
+ending it** — check the whole pair list after a change, not just the pair that was complained about.
+
 ## Judging lighting / a dome-dependent change
 
 Launch once per dome (`sky=<n>`) rather than cycling in-window; each dome logs its zenith/horizon on load.

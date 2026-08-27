@@ -42,7 +42,11 @@ namespace Prazsky.BS3D.GameStructure
         //very confusion the tint was raised to end, surviving on the half of the ball facing away from the
         //light. Same shape as the tint, a dark version of the colour, R and G equal.
         public static BasicEffectParams ColorNavy = new BasicEffectParams(new Vector3(0.06f, 0.06f, 0.24f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
-        public static BasicEffectParams ColorOlive = new BasicEffectParams(new Vector3(0.12f, 0.13f, 0.02f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
+        //Olive's ambient moved with its tint too (#294, the same rule ColorNavy states above): the shaded
+        //half is where the old dark-band confusion would otherwise have survived. Its blue is now near-nothing
+        //rather than 0.02, which is the chroma half of the change - a desaturated shadow is what made the ball
+        //read as a dark neutral from the side away from the light.
+        public static BasicEffectParams ColorOlive = new BasicEffectParams(new Vector3(0.12f, 0.15f, 0.006f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
 
         /// <summary>
         /// Multiplier applied to the ball model's material diffuse colors to give the ball its type color.
@@ -139,9 +143,29 @@ namespace Prazsky.BS3D.GameStructure
                     return new Vector3(0.16f, 0.16f, 0.62f);  //navy blue
 
                 case BallType.Type13:
-                    //Dark and yellow-leaning against Type2's vivid green, saturated so the gores
-                    //do not wash out (the same reasoning as the gold above)
-                    return new Vector3(0.42f, 0.45f, 0.08f); //olive green
+                    //Lifted out of the dark band and given back its chroma (#294). It was (0.42, 0.45, 0.08),
+                    //which read as a dark drab rather than a green: measured in CIEDE2000 off a
+                    //Thirteen_Colors capture, its three nearest neighbours were BLACK (24.8), brown (26.0) and
+                    //silver (26.0) under dome 1 - a dark-and-neutral band, none of them a green. Two things
+                    //were wrong at once and both are in the figures above: too little light, and 0.08 of blue
+                    //desaturating a colour whose whole identity is that it has none.
+                    //
+                    //After: black 29.6, brown 32.6, silver 27.6 under dome 1; black 35.2, brown 36.3, silver
+                    //29.0 under dome 13. What closes instead are the pairs separated by LIGHTNESS rather than
+                    //hue - beige/olive 24.0 -> 22.4 and green/olive 32.9 -> 26.0, both under dome 13 - and
+                    //both stay well clear of the palette's own tightest pairs, red/orange (14.2) and
+                    //white/yellow (14.5), which nobody has ever complained about.
+                    //
+                    //THIS IS THE STOPPING POINT, and it was measured rather than judged: at (0.44, 0.56,
+                    //0.025) the dark band opens further still (black 37.9, brown 39.2 under dome 13) but
+                    //green/olive falls to 22.5 - two greens a player has to tell apart, which is #246's "one
+                    //confusion traded for another" arriving from the other side. Measure any further move
+                    //under BOTH a bright dome and a dark one: olive rides the dome's own light harder than
+                    //its neighbours do, so dome 1 and dome 13 disagree about which pair is the tightest.
+                    //
+                    //It stays a GREEN because the level designs use it as one - Globe's land is green and
+                    //olive together, and MOSS is white, green, olive and black.
+                    return new Vector3(0.42f, 0.52f, 0.02f); //olive green
 
                 default:
                     return Vector3.One;
