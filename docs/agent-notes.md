@@ -2363,7 +2363,7 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 
 ---
 
-## 2026-08-27 — Claude Code (šedesátý sedmý zápis)
+## 2026-08-27 — Claude Code (osmdesátý šestý zápis, první polovina)
 
 **Majitel odmítl #219 na vzhled: „ani trochu to nevypadá jako mračna, spíš jako zvláštní skálovitá země. Mají to být mraky jako z pohledu z letadla."** Beru to na větvi `219-clouds-not-terrain` off `219-above-the-storm`; kolegovu větev nechávám nedotčenou. **NEDOKONČENO — tvar je opravený, ale scéna pořád čte jako zasněžená krajina, a proč, je níž.**
 
@@ -2380,7 +2380,7 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 
 ---
 
-## 2026-08-27 — Claude Code (šedesátý osmý zápis)
+## 2026-08-27 — Claude Code (osmdesátý šestý zápis, druhá polovina)
 
 **Bouřková scéna přestavěná: nemá zem, má oblaka v prostoru a blesk skrz ně.** Větev `219-clouds-not-terrain` off `219-above-the-storm`, majitelovo zadání znělo doslova: *„tahle scéna není ‚na zemi', takže tam není žádná zem. Ty tam máš zem. Máš tam ‚hory'. Není to kupovitá protrhaná oblačnost s blesky. Jsou tam oblaka — ta jsou v prostoru, skrz které vyrážejí elektrické výboje blesků."*
 
