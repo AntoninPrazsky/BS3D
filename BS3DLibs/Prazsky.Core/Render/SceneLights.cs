@@ -92,10 +92,12 @@ namespace Prazsky.Core.Render
         {
             int count = 0;
 
-            //The five guards below are mutually exclusive by construction — a scene is the volcano, or the
-            //savanna, or the neon city, or space, or the Moon (each TryGet returns false for every kind but
-            //its own), and no SceneKind satisfies two of them. So this order is an order and not a precedence:
-            //do not read it as one, and do not write a sixth branch that relies on being tested last.
+            //The six guards below are mutually exclusive by construction — a scene is the volcano, or the
+            //savanna, or the neon city, or space, or the Moon, or the storm (each TryGet returns false for
+            //every kind but its own), and no SceneKind satisfies two of them. So this order is an order and
+            //not a precedence: do not read it as one, and do not write a seventh branch that relies on being
+            //tested last. The storm's own branch is additionally self-gating in TIME as well as in kind —
+            //between strikes its TryGet returns false and the scene takes no slot at all.
             if (scene == SceneKind.Volcano)
             {
                 //The volcano is the scene whose GROUND is the light, and the only one whose lamps MOVE: the
@@ -143,6 +145,18 @@ namespace Prazsky.Core.Render
                 _lightPosition[0] = earthPosition;
                 _lightColor[0] = earthColor;
                 _lightRange[0] = earthRange;
+                count = 1;
+            }
+            else if (sceneRenderer.TryGetStormFlash(scene, wallClock, out Vector3 flashPosition, out Vector3 flashColor, out float flashRange))
+            {
+                //The lightning: a lamp far below the island, on the planetshine's own recipe, alight only
+                //for the fraction of a second a strike lasts (the TryGet returns false between strikes, so
+                //most frames take no slot at all). It is here because it is the ONLY channel that reaches
+                //the play camera — the deck throwing the flash sits below the island's own occluding line
+                //and is largely out of that frame, while its light is not. See TryGetStormFlash.
+                _lightPosition[0] = flashPosition;
+                _lightColor[0] = flashColor;
+                _lightRange[0] = flashRange;
                 count = 1;
             }
             else if (scene == SceneKind.NeonCity)

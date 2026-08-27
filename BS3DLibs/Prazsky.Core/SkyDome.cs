@@ -11,8 +11,9 @@ namespace Prazsky.Core
     /// skies used to be eighteen .dae models built by three content pipelines; they were one shared
     /// geometry that only ever differed in vertex colour, so the geometry now lives here once
     /// (<c>SkyDome.Data.cs</c>, captured byte-for-byte from the built models) and a sky is just a palette
-    /// entry — which is what let the nineteenth (#277's Mars sky) arrive as pure data, no <c>.dae</c>
-    /// anywhere, coloured as a function of the very same captured geometry (see <c>PALETTES</c>'s comment).
+    /// entry — which is what let the nineteenth (#277's Mars sky) and the twentieth (#219's high air over a
+    /// storm) arrive as pure data, no <c>.dae</c> anywhere, each coloured as a function of the very same
+    /// captured geometry (see <c>PALETTES</c>'s comment).
     /// </summary>
     /// <remarks>
     /// <b>What is drawn is no longer the capture.</b> Sixteen latitude rings, with consecutive rings sharing
@@ -31,7 +32,7 @@ namespace Prazsky.Core
     public partial class SkyDome : IDisposable
     {
         /// <summary>How many skies there are — the palette table's length, counted 1-based by callers.</summary>
-        public const byte Count = 19;
+        public const byte Count = 20;
 
         //The CAPTURED mesh: what the eighteen .dae models were, and still the authority on what a sky's colours
         //ARE. Nothing is drawn from it since the banding fix - see BuildDrawnDome - but the palette is read off

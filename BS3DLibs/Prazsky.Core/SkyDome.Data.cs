@@ -170,6 +170,19 @@
             //that function's output, not a hand-typed palette. A change to the look belongs in that formula,
             //re-run and re-pasted here, not in hand edits to these hex digits.
             "F5AC6FF7AF71ECA56EF5AC6FECA56EFDB474FDB474E8A36FE8A36FFFB676ECA56EF5AC6FF7AF71ECA56EFDB474E8A36FECA56EF5AC6FF7AF71ECA56EFDB474E8A36FF7AF71ECA56EF5AC6FECA56EFDB474E8A36FF7AF71ECA56EECA56EC4917BAF8A80C5927BC5927BAF8A80DA9A75DA9A75B38B7FB38B7FAF8A80C5927BC4917BAF8A80C5927BDA9A75DA9A75B38B7FAF8A80C4917BC5927BDA9A75DA9A75AF8A80C5927BB38B7FC5927BC4917BAF8A80C5927BAF8A80DA9A75DA9A75B38B7FC5927BC4917BAF8A80C5927BAF8A80DA9A75DA9A75DB9B74DB9B74DB9B74DB9B74DB9B74A4847FA7857FA7857F9E817E9E817E9C807EA4847FA7857F9E817EA4847FA7857F9E817EA4847FA7857F9E817EA4847F",
+            //Dome 20 (#219, high air above a storm): a deep blue zenith over a PALE BLUE-WHITE horizon —
+            //the one thing none of the other nineteen has, and the storm scene proved it needs one rather
+            //than assuming it. Every Earth-surface dome in the table warms towards its horizon, because
+            //that is what haze at sea level does; at altitude the horizon goes paler and BLUER instead. It
+            //matters because a terrain scene's distance fade must arrive at the dome's exact HorizonColor
+            //to hide the grid's own edge, so the dome's horizon is also the colour every far surface ends
+            //up — and under the warm-horizoned domes the storm's cloud deck photographed as desert dunes.
+            //Generated the way dome 19 was, as colour-as-a-function-of-captured-vertex-height rather than
+            //painted by eye (six stops interpolated by the vertex's share of GEOMETRY's Y range:
+            //(t=0.00,224,236,245), (0.12,210,228,242), (0.32,168,201,231), (0.56,100,148,207),
+            //(0.80,44,94,175), (1.00,16,48,126)); the string is that function's output. Change the look in
+            //the formula and re-paste, never by hand-editing these digits.
+            "CFE2F1D4E5F2B8D3EBCFE2F1B8D3EBDCEAF4DCEAF4B1CFE9B1CFE9E0ECF5B8D3EBCFE2F1D4E5F2B8D3EBDCEAF4B1CFE9B8D3EBCFE2F1D4E5F2B8D3EBDCEAF4B1CFE9D4E5F2B8D3EBCFE2F1B8D3EBDCEAF4B1CFE9D4E5F2B8D3EBB8D3EB5C8CCA3668B55E8ECC5E8ECC3668B58DB4DE8DB4DE3E6FB93E6FB93668B55E8ECC5C8CCA3668B55E8ECC8DB4DE8DB4DE3E6FB93668B55C8CCA5E8ECC8DB4DE8DB4DE3668B55E8ECC3E6FB95E8ECC5C8CCA3668B55E8ECC3668B58DB4DE8DB4DE3E6FB95E8ECC5C8CCA3668B55E8ECC3668B58DB4DE8DB4DE90B6DE90B6DE90B6DE90B6DE90B6DE1E4897234F9F234F9F14378514378510307E1E4897234F9F1437851E4897234F9F1437851E4897234F9F1437851E4897",
         };
 
         //Where each sky's sun stands (issue #220's second pass): elevation above the horizon and azimuth from
@@ -215,6 +228,8 @@
             (42f,   25f), //17 cream horizon, pale teal day
             ( 7f, -175f), //18 orange horizon under grey-violet - opens on its own sun
             (58f,   50f), //19 Mars (#277): a high, thin-aired midday sun over the dusty butterscotch sky
+            (52f,  205f), //20 high air over a storm (#219): a high sun, and behind the opening view so the
+                          //   turrets' near flanks are shaded and their crests catch the silver rim
         };
     }
 }
