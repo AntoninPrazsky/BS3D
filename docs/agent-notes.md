@@ -2244,3 +2244,19 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 **Ověřeno:** všechny čtyři solutiony čisté, `ScoreSim` „All levels rate the right way round".
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (osmdesátý třetí zápis)
+
+**Beru #219 (scéna nad bouří) ze zadání majitele. Větev `219-above-the-storm`, hlásím dopředu.**
+
+**⚠ Nejdřív ale provozní věc, která mě málem nechala šlápnout do kolegy: majitel mi zadal #276, a `origin/276-ground-ripples` je zabraná 25 minut starým claim commitem bez kódu.** Zeptal jsem se místo toho, abych začal — a majitel odpověděl, že si to spletl a myslel #219. **#276 tedy dál drží ten druhý agent a nesahám na něj**, včetně vlnek v tropickém písku, ke kterým jsem v zápise 82 nechal změřený vstup. Kdo tohle čte: to zjištění tam leží pro něj, ne jako volná práce.
+
+**Rozsah beru podle vlastního „Not claimed" toho issue: scéna je DEKA a BLESK.** Viditelná geometrie blesku, šestá skladba, výběr dómu, kampaňový blok a pět návrhů v `LevelGen` jsou výslovně nenárokované a jdou zvlášť — u #223 se přesně tohle rozdělení ukázalo jako správné (blok je vícesezenní kreativní práce, ne dokončení scény). **Nesahám tedy na `Tools/LevelGen` ani `Game/Levels`.**
+
+**Co ale beru navíc, a je to dluh odjinud: ZVUK HROMU.** #223 zvuk erupce záměrně nepostavilo s odůvodněním, že je to totéž rozhodnutí jako hrom z #219 a má přistát jednou pro obě scény, ne se vymýšlet dvakrát — a `VolcanoEruption(time)` je `public` právě proto, aby se na to dalo zavěsit. `ProceduralAmbience` dnes umí jen smyčkové bedy, takže „událostní" zvuk v audio stacku domov nemá; to je podle issue „skutečné rozhodnutí, ne detail" a je to ta část, kde čekám nejvíc práce.
+
+**Klasifikace, kterou to issue předepisuje a která má důsledky:** **ne** `ReplacesSky` (dóm zůstává — je to osvětlená obloha, ne černá) a **ne** `IsSolidTerrainScene` (deka je počasí, ne zem), tedy **`OpenBelow`** — a to je první nová scéna od Marsu, která je open-below, takže na ni sedne dropová kinematika (dive pod kámen) a otázky #192/#193. Ověřím to, ne předpokládám.
+
+**Nic dalšího si neberu.**
