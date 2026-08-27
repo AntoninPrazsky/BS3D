@@ -2159,3 +2159,36 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 **⚠ Provozní, a je to dobrá zpráva: majitel hlásí, že hra už nepadá — přepojil kabely.** To sedí přesně na diagnózu ze zápisů 62 a #250: signatura `Kernel-Power 41` + `6008` bez bugchecku, resety i na volnoběhu, zkracující se intervaly za tepla — **napájecí cesta, ne karta**. Kdo se vrátí k **#209/#167/#166/#165** (pořád otevřené a nezabrané, viz předchozí zápis): sweep je tím možná zase průchodný, ale **ověř to krátkým během dřív, než na tom stroji rozjedeš dlouhý** — jeden bezproblémový večer ještě není důkaz a ta čtyři issues už jednou stála celý sweep.
 
 **Nic si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (sedmdesátý devátý zápis)
+
+**Beru si zpátky #209, #167, #166 a #165 — stroj je opravený (kabely, viz předchozí zápis), takže sweep, který se ráno nekonal, jde dotáhnout.** Větev `165-167-209-remeasure-2`, **beru kartu** (`Get-Process BS3D, Testbed, MapEditor` prázdné). Pořád platí, že jde o **přeměření, ne o řez do shaderu**: všechna čtyři jsou hlášená se signaturou vsyncu, kterou #270 retrahovalo, a limiter je od té doby default.
+
+**Měřím podmínku, ve které to bylo hlášeno:** hra, **fullscreen 3840×1600, `quality=high`, `fpscap=150`** — cap je nad měřenou frekvencí, takže nekvantizuje a nic pod 6,7 ms neuteče, a fullscreen bez capu, na který majitel ráno ukázal, se stejně nepustí. K tomu **okno 1600×900 při `ssaa=4`** jako křížová kontrola (23,0 Mpix proti fullscreenovým 24,6), aby se dalo říct, co z čísla je scéna a co post chain.
+
+**S levelem, ne na frontendu** — to je vlastní premisa #167 a #166. Levely, které ty scény opravdu jmenují: **Onion** (`Eleven.json`, jeskyně — přesně ten z #209), **Basket** (poušť), **Heart** (savana). **Sen žádný level nejmenuje**, takže dream se měří tam, kde ve hře doopravdy je: **na frontendu s `preview=`**, kde `scene=` drží, protože ho nemá co přepsat — a s poznámkou, že frontendová kamera obíhá (past 5), tedy medián z delšího okna a k němu min/max.
+
+**Postup podle vlastní rady z minulého zápisu: nejdřív jeden krátký běh**, jestli stroj i harness drží, teprve pak série. Commit a push po každém hotovém kroku.
+
+**Dodatek (týž den) — sweep hotový. #209, #167, #166 i #165 se NEREPRODUKUJÍ, ani jedno.** Na větvi `165-167-209-remeasure-2` (`1342305`), kartu vracím. Měřeno ve hře v podmínce, ve které to bylo hlášeno: **fullscreen 3840×1600, `quality=high` (tedy `ssaa 2x`), s nahraným a běžícím levelem, `fpscap=400`**, aby cap nikdy nedosedl a nic nekvantizovalo; medián z ~20 vteřinových čtení, podmínky čtené zpátky z řádku `[fps]`, ne předpokládané.
+
+| issue | scéna | level | | proti 13,3 ms |
+|---|---|---|---|---|
+| #209 | jeskyně | Onion (`Eleven.json`) | 167,7 FPS / **5,96 ms** | 2,2× uvnitř |
+| #165 | savana | Heart | 120,5 FPS / **8,30 ms** | 1,6× uvnitř |
+| #166 | poušť | Basket | 106,9 FPS / **9,35 ms** | 1,4× uvnitř |
+| #167 | sen | frontend, `preview=Onion` | 138,9 FPS / **7,20 ms** | 1,7× uvnitř, nejhorší oblouk 7,70 |
+
+**#209 hlásilo ~35 FPS. Naměřeno 5,96 ms, tedy 168.** Půlka refreshe pro snímek, který je o řád levnější, je signatura #270 a ne cena — přesně jak zápis 62 předpovídal, aniž to kdokoli změřil.
+
+**⚠ Dvě věci, které v repu stály jako naměřený fakt, tím padají — a jedna z nich držela živou funkci.** `BS3DGame.Quality.cs` citoval „Onion hrál celý level na 37,5 FPS na 75Hz panelu, přesně půl refreshe" jako **důvod, proč se sonda kvality znovu otevírá při stavbě levelu**, a `docs/game-shell.md` k tomu měl zapsaný ten krok na Medium i s log řádkem. **Puštěno dnes bez připnuté kvality: Onion nevydá `[quality]` verdikt vůbec, zůstane na High a sedí naplocho na limiteru.** Re-open jsem **nechal** — jeho argument stojí na počtech kuliček ve shipped setu (225 až 959), ne na tomhle levelu — ale citace je retrahovaná v komentáři i v dokumentaci. Kdo tohle čte při ladění tierů: **nic ve shipped setu už není známo jako potřebující nižší tier na tomhle stroji.**
+
+**⚠ A jedna metodická past, kterou jsem si sám málem zavařil: náhrada „okno 1600×900 při ssaa 4 = 4K zátěž" NEPLATÍ pro scény nahrazující oblohu** (jeskyně, sen, vesmír, Měsíc). Ty od #155 stínují terč **velikosti back bufferu** a škálují ho nahoru, takže zvýšení `ssaa` v okně nafoukne jen resolve nad nimi, ne samotný pass — kdežto fullscreen nafoukne pass celým poměrem back bufferu. Naměřeno na jeskyni s `level=Onion`: **okno ssaa 4 = 4,00 ms proti fullscreen ssaa 2 = 5,96**, tedy náhrada je o třetinu levnější, zatímco na horské geometrii předpovídala 12,0 proti naměřeným 12,35. Zapsáno do `docs/scenes.md` vedle té náhrady. Kdybych se na ni u #209 spolehl, mám číslo o třetinu vedle — a to je zrovna u té scény, kterou issue jmenuje.
+
+**⚠ Panel hlásí 78 Hz, ne 75.** Řádek `[fps]` píše `limit 78 (refresh)` a hra na tom sedí naplocho (78,0). Všechna čtyři issues i #270 počítají s 75 a s 13,3 ms; rozdíl je malý, ale kdo bude poměřovat proti čáře, ať ji bere z toho řádku a ne z hlavy.
+
+**Co zůstává otevřené a není moje:** marginální scéna je pořád **hora** — 12,35 ms proti těmhle 5,96–9,35, tedy asi milisekunda rezervy na tomhle stroji a žádná na pomalejším. To je vlastní otevřený bod #270, ne nález odsud. Stojí za zmínku, že všechna čtyři issues byla zakládaná v přesvědčení, že drahá je jejich vlastní scéna.
+
+**Nic si neberu.**

@@ -191,11 +191,20 @@ namespace BS3D
                 //switch, and the building of a level (see ReopenQualityProbe).
                 //
                 //It used to close for the whole session, on the reasoning that "the only thing that could trip
-                //it is the player alt-tabbing away". That was wrong by a factor of two on the real thing: the
-                //verdict lands once the frame rate settles, on the MENU, which has no cluster in it, while the
-                //heaviest thing the game draws is a level — and the shipped set runs from 225 balls to 959.
-                //Onion cleared the menu at High and then played the whole level at 37.5 FPS on a 75 Hz panel,
-                //exactly half refresh, with nothing left watching to take it down to the Medium that holds 75.
+                //it is the player alt-tabbing away". That reasoning is still wrong and the re-open still earns
+                //its keep: the verdict lands once the frame rate settles, on the MENU, which has no cluster in
+                //it, while the heaviest thing the game draws is a level — and the shipped set runs from 225
+                //balls to 959.
+                //
+                //⚠ The MEASUREMENT this used to cite has been retracted (#209). It read "Onion played the
+                //whole level at 37.5 FPS on a 75 Hz panel, exactly half refresh, with nothing left watching to
+                //take it down to the Medium that holds 75" — and half refresh for a frame that is nowhere near
+                //that dear is #270's vsync signature, not a cost. Re-measured after #270 removed the vsync, on
+                //the machine it was reported from (5900X / 6900XT, fullscreen 3840×1600, level loaded): Onion
+                //costs 5.96 ms at High, so it holds the refresh with better than twice the headroom, and run
+                //un-pinned it now draws NO verdict at all — the probe leaves it on High and it sits flat on the
+                //limiter. The re-open stays because its argument stands on the shipped ball counts; what does
+                //not stand is the idea that this level ever needed a tier.
                 _qualitySettled = true;
                 return;
             }

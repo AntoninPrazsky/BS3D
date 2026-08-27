@@ -268,11 +268,28 @@ One figure here *is* about cost, and it is the one that matters for a fullscreen
 
 The windowed stand-in this was estimated from first held up, which is worth knowing because it is how the *other* machine can measure a 4K load: ssaa 4 at 1600×900 (23.0 Mpix, within 7 % of the above) predicted **12.0 ms** against the 12.35 measured here. The empty scene at that load is **10.5 ms** (Testbed, fixed camera at `campos=0,2,45 camtarget=0,-4,0`, dome 8), so the cluster and the gun are about 1.9 ms of it.
 
+> **⚠ That stand-in does NOT hold for the cavern, the dream, space or the Moon**, and #209 caught it doing so. Those four *replace the sky*, and since #155 they shade a target the size of the **back buffer** and scale it up — so raising `ssaa` in a small window grows only the resolve over them and not the pass itself, while going fullscreen grows the pass by the whole back-buffer ratio. Measured on the cavern with `level=Onion`: windowed 1600×900 at ssaa 4 reads **4.00 ms**, fullscreen 3840×1600 at ssaa 2 reads **5.96** — the stand-in is a third light, where on the mountain's real geometry it predicted 12.0 against 12.35. Use it for the terrain scenes; measure the sky-replacing four at the size they will be played at.
+
 The instrument this needed did not exist: the Game got the Testbed's **`fpscap=N`** for it, because a vsync-capped level can only ever report "dearer than one refresh" and the whole question was how much dearer. The answer was "not dearer at all", which no vsync-capped run could have said.
 
 **The fix was to stop vsyncing.** The game presents immediately in every mode now and holds the rate on the CPU in `Game/Platform/FrameLimiter.cs` — which is safe precisely because the game is only ever windowed or *borderless* fullscreen (`HardwareModeSwitch = false`, #157), so DWM owns the flip and composites at the panel's rate whatever the app asks for; there is no scanout to race and nothing tears. Verified on the case that was reported, at the default settings and with nothing pinned but the level (which brings its own scene and dome with it): **37.5 → 78.0 FPS, flat** — windowed first, and then **fullscreen at 3840×1600, which is where the report came from**, also 78.0 flat with the back buffer confirmed on the run's own `[fps]` line. (78 and not 75 because the limiter aims a few percent over the refresh — a limiter never pays back an overrun, so one aimed exactly at the refresh drifts slower than the compositor and periodically leaves it nothing new to show.) The limiter sleeps the bulk of each period and spins only the last two milliseconds, unlike the Testbed's benchmark-only idle which spins the lot; see its class doc for why that distinction matters on a laptop.
 
 **What is still open:** the 12.35 ms above is real, and a 75 Hz panel allows 13.3. Fullscreen `High` therefore has about a millisecond of headroom on this machine and none at all on a slower one, so a genuine cost reduction here — or a tier that drops supersampling at 4K — is still worth having. It is now an ordinary "this is a bit dear" question rather than the ten-fold mystery it was filed as.
+
+### The same signature explained four more reports (#209, #167, #166, #165)
+
+**All four were filed from this machine as "does not hold 75 FPS at `High`", and none of them reproduces.** They were re-measured together once #270's retraction made it clear that every one of them carried the vsync signature rather than a cost — #209 reported *~35 FPS*, which is half of the refresh and not a number a frame time produces by accident. Measured in the Game at the condition each was reported at — **fullscreen 3840×1600, `quality=high` (so `ssaa 2x`), the level loaded and playing, `fpscap=400`** so the cap never binds and nothing quantizes — as the median of ~20 one-second readings, each level bringing its own sky as it does in play:
+
+| Issue | Scene | Level | | | Against the 13.3 ms a 75 Hz panel allows |
+|---|---|---|---|---|---|
+| #209 | cavern | Onion (`Eleven.json`) | 167.7 FPS | **5.96 ms** | 2.2× inside |
+| #165 | savanna | Heart | 120.5 FPS | **8.30 ms** | 1.6× inside |
+| #166 | desert | Basket | 106.9 FPS | **9.35 ms** | 1.4× inside |
+| #167 | dream | *front end, `preview=Onion`* | 138.9 FPS | **7.20 ms** | 1.7× inside, worst arc 7.70 |
+
+- **#167 could not be measured as filed, and that is itself the answer**: it reports the dream *with a level loaded*, and **no shipped level names the dream** — the campaign's ninety entries use nine scenes and that is not one of them. Where the dream actually appears is the front end, so that is where it was measured, with a map hanging (`preview=`) so it is not the empty backdrop #103 was criticised for measuring. The front-end camera orbits, so that row is a median over 34 s with its worst arc quoted beside it.
+- **The player-facing figure is better still**: run with no `fpscap` at all, Onion sits flat on the limiter at **78.0 FPS** (this panel reports 78 Hz, not 75), and the adaptive probe draws **no verdict** — it leaves the level on `High`. See "The quality tier" in `docs/game-shell.md`, where the retracted step to `Medium` is recorded.
+- **The remaining marginal scene is the mountain, not any of these four** — 12.35 ms above, against these 5.96–9.35. Which is worth stating plainly, because the four issues were each opened in the belief that their own scene was the expensive one.
 
 ## The meadow (Testbed)
 
