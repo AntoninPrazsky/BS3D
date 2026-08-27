@@ -4,7 +4,6 @@ using Myra.Graphics2D.UI;
 using Prazsky.Core.Camera;
 using Prazsky.BS3D.Scoring;
 using System;
-using System.Globalization;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
 using Label = Myra.Graphics2D.UI.Label;
 
@@ -748,7 +747,7 @@ namespace BS3D.Screens
             _reason.Visible = _result.Failed;
 
             _bareScore.Text = _result.ShowsBareScore
-                ? $"Score {_result.Score.ToString("N0", CultureInfo.InvariantCulture)}"
+                ? $"Score {ScoreText.Of(_result.Score)}"
                 : string.Empty;
             _bareScore.Visible = _result.ShowsBareScore;
 
@@ -757,16 +756,16 @@ namespace BS3D.Screens
             if (_result.ShowsBreakdown)
             {
                 _matchedDetail.Text = $"{_result.MatchedBalls} × {ScoreKeeper.MatchedBallPoints}";
-                _matchedValue.Text = (_result.MatchedBalls * ScoreKeeper.MatchedBallPoints).ToString("N0", CultureInfo.InvariantCulture);
+                _matchedValue.Text = ScoreText.Of(_result.MatchedBalls * ScoreKeeper.MatchedBallPoints);
                 _orphanedDetail.Text = $"{_result.OrphanedBalls} × {ScoreKeeper.OrphanedBallPoints}";
-                _orphanedValue.Text = (_result.OrphanedBalls * ScoreKeeper.OrphanedBallPoints).ToString("N0", CultureInfo.InvariantCulture);
-                _streakValue.Text = _result.StreakBonus.ToString("N0", CultureInfo.InvariantCulture);
+                _orphanedValue.Text = ScoreText.Of(_result.OrphanedBalls * ScoreKeeper.OrphanedBallPoints);
+                _streakValue.Text = ScoreText.Of(_result.StreakBonus);
 
                 _unusedDetail.Text = _result.HadBudget
                     ? $"{_result.UnusedShotsAwarded} × {ScoreKeeper.UnusedShotPoints}"
                     : "—";
-                _unusedValue.Text = _result.CompletionBonusAwarded.ToString("N0", CultureInfo.InvariantCulture);
-                _totalValue.Text = _result.Score.ToString("N0", CultureInfo.InvariantCulture);
+                _unusedValue.Text = ScoreText.Of(_result.CompletionBonusAwarded);
+                _totalValue.Text = ScoreText.Of(_result.Score);
 
                 //Only when the road ahead is actually shut — which is also when the Next Level button below
                 //is absent, so this line is the absence explained rather than a number always on display.

@@ -664,10 +664,10 @@ namespace BS3D.Screens
             {
                 World = world,
 
-                //Invariant, like every other figure the game prints: the machine's locale decides what "N0"
-                //groups with, and a popup reading "+2 960" beside a corner score reading "2,960" is one number
-                //written two ways on the same frame. It happened.
-                Text = "+" + award.Points.ToString("N0", CultureInfo.InvariantCulture),
+                //Through ScoreText, like every other figure the game prints — the popup and the corner score
+                //are on screen at the same moment, so they have to be one number written one way. The class
+                //carries the incident that says why.
+                Text = "+" + ScoreText.Of(award.Points),
 
                 //The multiplier PRINTED is the one that was applied, which is why Landed returns it rather than
                 //leaving this to read the property afterwards — by then it has been raised for the next shot
@@ -838,7 +838,7 @@ namespace BS3D.Screens
             if (shown != _scoreTextFor)
             {
                 _scoreTextFor = shown;
-                _scoreText = shown.ToString("N0", CultureInfo.InvariantCulture);
+                _scoreText = ScoreText.Of(shown);
             }
 
             float heat = _scorePulse.Heat;
