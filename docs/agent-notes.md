@@ -2411,3 +2411,31 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 **Kolegovi k #219:** tvoji větev `219-above-the-storm` jsem nechal nedotčenou a odvětvil se z ní. Z tvé práce žije dál celý rozvrh záblesku (`StormFlash`, hashovaný z indexu periody), lampa `TryGetStormFlash`, dóm 20, mlžný `HazeTint`, tvá tři měřením nalezená čísla kolem záře a ambientní bed — přestavěná je kresba, ne scéna. **Tři důvody, proč sdílené mračné pole nejde použít pod arénu, platí beze změny** a jsou dál v hlavičce shaderu: jsou o branách toho pole, ne o tom, čím je bouře kreslená. **Dluh na hromu zůstává tvůj a nesplacený i mnou** — nesahal jsem na něj, návrh v `docs/scenes.md` platí.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (osmdesátý sedmý zápis)
+
+**#287 — dělo se zadním koncem boří do kamene. Opraveno, větev `287-cannon-breech-clears-stone`.** Majitel je pryč od klávesnice se zadáním „zlepšuj, moc se neptej, dostaň to na main", takže jsem si po #219 vzal tohle: je konkrétní, spočitatelné a umím ho ověřit sám.
+
+**⚠ Vada je aritmetická, ne odhadnutá, a to je celé jádro opravy.** Pól kaskabelu stojí `CannonMesh.PoleZ` za čepy; při náměru θ klesne o `PoleZ·sin θ`, takže pod kámen jde při
+
+    θ = asin((AXLE_DROP + WHEEL_RADIUS) / PoleZ)
+
+Se starými čísly: `PoleZ` = breechZ 2,5 + kopule 0,74 = **3,24**, stoh pod čepy 0,95 + 1,15 = **2,10** → **40,4°**. A **náměrový limit je 80,2°** — to není odhad, to vypsal `[camera]` řádek ve skutečném levelu — kde pól končil **1,09 jednotky POD kamenem**. Dělo tedy bylo zabořené přes většinu rozsahu, ve kterém se hraje. Screenshot z boku to potvrdil dřív, než jsem sáhl na konstantu.
+
+**Opravu nesou dvě čísla, ne jedno, a je to schválně:**
+
+- **`AXLE_DROP` 0,95 → 1,45.** Všechno v něm by postavilo čepy na chůdy nad nezměněnými koly.
+- **`TRUNNION_SETBACK` 0,90, nová konstanta** — čepy drží hlaveň o tolik za jejím středem. **To je uspořádání houfnice a je to z houfnicového důvodu:** polní kanón má čepy blízko středu, protože střílí naplocho; tohle dělo míří na sestavu nad sebou. Všechno v setbacku by z kanónu udělalo minomet.
+- Při 80,2° teď pól **přesahuje kámen o 0,29**.
+
+**⚠ Proč je setback bezpečný, a je to ta hezká část:** je vložený do **`PivotToFrontBall` a nikam jinam**. Každá další figura děla je z ní odvozená — ústí, čelo závěru, konec okna, výřez ve skle, `BarrelReach`, umístění zásobníku, sesazení kamery i kontrola dostřelnosti — takže se posunou společně a není žádná druhá kopie, která by se rozešla. Ověřeno tím, že `aimcheck` prošel na `Full.json` i na shipnutém `One.json`, a kamera se sesadila sama (orbit 20,2 → 21,2, stand-off 35,2 → 36,2 — dělo dosáhne dál, tak kamera couvla).
+
+**⚠ A past, do které jsem málem spadl: `TRAIL_END.y` bylo literálem −1,9.** To byla zemní čára kol minus dvě desetiny — pravda **jen dokud byl stoh 2,10**. Zvednout `AXLE_DROP` s literálem na místě by vyměnilo dělo zabořené v kameni za dělo stojící na ničem. Je teď odvozené z `-(AXLE_DROP + WHEEL_RADIUS) + TRAIL_GROUND_CLEARANCE` a musí odvozené zůstat.
+
+**⚠ CO OPRAVENÉ NENÍ, a je to aritmetika, ne přehlédnutí: zákluz.** Hlaveň jede `RECOIL_BACK` = 1,15 zpět **podél vývrtu**, což je u svislice rovnou dolů — takže při limitu náměru pól pořád projde asi **0,84 pod kámen** po dobu ~0,24 s zákluzu. Vyčistit i tohle chce buď dalších 0,84 stohu (což už je lafeta jiného děla), nebo **variabilní zákluz**, jaký skutečné velkoúhlové dělo má: zkracovat zdvih, jak hlaveň stoupá. Při téhle geometrii by ale na limitu zbylo jen ~0,20 zdvihu, což je výměna celého pocitu ze střelby na náměru, kde se hraje nejvíc — **to je rozhodnutí majitele, ne detail**, tak jsem to nechal a zapsal s čísly.
+
+**Ověřeno:** čtyři solutiony čisté; před/po na téže kameře (`campos=9,-7.3,22 camtarget=0,-8.3,20.5`) — před závěr pod kamenem, po nad ním; snímek skoro z roviny kamene ukazuje kolo na kameni, rameno lafety dosedající a závěr volný; `aimcheck` PASS na dvou mapách; a snímek z běžící hry (`play`, hrací kamera) s dělem stojícím správně nad sestavou.
+
+**Nic dalšího si neberu.**

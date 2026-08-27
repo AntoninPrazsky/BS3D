@@ -264,8 +264,38 @@ namespace Prazsky.BS3D
         //How many roller instances the pair of wheels draws — one draw, refilled per frame
         private const int ROLLER_INSTANCES = 2 * ROLLER_ROWS * ROLLERS_PER_ROW;
 
-        private const float AXLE_DROP = 0.95f;      //the axle line below the trunnions
+        //⚠ THE AXLE DROP AND THE SETBACK BELOW ARE ONE FIX AND THEY ARE SIZED, NOT PICKED (#287). The gun's
+        //player-side end sank through the island's stone, and the arithmetic says why. The cascabel's pole
+        //stands CannonMesh.PoleZ behind the trunnions; elevate by θ and it falls PoleZ·sin θ, so with the
+        //trunnions at AXLE_DROP + WHEEL_RADIUS over the stone it goes under at
+        //
+        //    θ = asin((AXLE_DROP + WHEEL_RADIUS) / PoleZ)
+        //
+        //which at the old 0.95 + 1.15 = 2.10 against a pole 3.24 back is **40.4 degrees** — and the gun's
+        //elevation limit is 80.2 (measured in a shipped level, not assumed), where the pole ended up 1.09
+        //units UNDER the stone. It was buried for most of the range the game is actually played in.
+        //
+        //Two figures share the fix rather than one carrying it, because either alone distorts the gun: all
+        //of it in the drop stands the trunnions on stilts over unchanged wheels, and all of it in the
+        //setback puts the trunnions at the breech face and makes a mortar of a cannon. Together, at 80.2
+        //degrees the pole now clears the stone by 0.29.
+        private const float AXLE_DROP = 1.45f;      //the axle line below the trunnions
         private const float AXLE_RADIUS = 0.13f;
+
+        /// <summary>
+        /// How far behind the tube's own midpoint the trunnions hold it (#287). <b>This is what a gun built
+        /// to shoot upwards actually does</b> — a field gun's trunnions sit near its centre because it fires
+        /// flat, and a howitzer's sit back towards the breech so the breech has somewhere to go as the tube
+        /// comes up. This one fires at a cluster overhead, so it is a howitzer.
+        /// <para>
+        /// It is folded into <see cref="PivotToFrontBall"/> and nowhere else, which is the whole reason it is
+        /// safe: every other figure on the gun is derived from that one — the muzzle face, the breech face,
+        /// the slot's end, the glass notch, <see cref="BarrelReach"/>, the magazine's own placement, the
+        /// camera's stand-off and the aim check — so moving it moves the tube, the loaded queue, the muzzle
+        /// a shot leaves from and the box the camera frames, all together and with no second copy to drift.
+        /// </para>
+        /// </summary>
+        private const float TRUNNION_SETBACK = 0.90f;
 
         private const float CHEEK_INNER_X = BORE_RADIUS + WALL_THICKNESS + 0.04f; //hugging the tube, never clipping it
         private const float CHEEK_THICKNESS = 0.14f;
@@ -284,7 +314,14 @@ namespace Prazsky.BS3D
         //Where the split trail's +X leg ends (mirrored for the other): outward past the wheel, down to just
         //over the wheels' ground plane, and back behind the breech's recoil sweep — the split exists because
         //the breech dips exactly where one central beam would stand (see GunCarriageMesh).
-        private static readonly Vector3 TRAIL_END = new(1.55f, -1.9f, 3.05f);
+        //
+        //⚠ Its drop is DERIVED and must stay derived (#287). It stood as a literal −1.9, which was the
+        //wheels' own ground line less a fifth of a unit — true only while the stack under the trunnions was
+        //2.10. Raising AXLE_DROP by half a unit with the literal in place would have left the trail hanging
+        //that half unit in the air, trading a gun sunk in the stone for a gun standing on nothing.
+        private const float TRAIL_GROUND_CLEARANCE = 0.20f;
+        private static readonly Vector3 TRAIL_END =
+            new(1.55f, -(AXLE_DROP + WHEEL_RADIUS) + TRAIL_GROUND_CLEARANCE, 3.05f);
 
         /// <summary>
         /// Where the trunnions belong for the wheels to touch the ground the gun actually stands over: the
@@ -379,7 +416,9 @@ namespace Prazsky.BS3D
         /// ball diameter, as both executables space them).</param>
         public CannonRig(GraphicsDevice graphicsDevice, Effect instancingEffect, int magazineSize, float magazineSpacing)
         {
-            PivotToFrontBall = (magazineSize - 1) * magazineSpacing * Constants.HALF;
+            //The queue's own half-length, plus the trunnions' setback towards the breech (#287) — the one
+            //place that setback is applied, and the reason every figure downstream follows it for free.
+            PivotToFrontBall = (magazineSize - 1) * magazineSpacing * Constants.HALF + TRUNNION_SETBACK;
 
             //Modelled about the TRUNNIONS and not the muzzle: the head-of-queue ball sits PivotToFrontBall ahead
             //of the local origin and the queue recedes behind it, which puts the tube's own midpoint at the
