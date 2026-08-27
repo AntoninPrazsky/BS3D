@@ -2008,4 +2008,60 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 - **Dokumentace přepsána ve stejném commitu**, protože obě místa (`docs/scenes.md` dvakrát, `docs/game-feedback.md` jednou) popisovala starý mechanismus jako záměr — teď popisují #275.
 - Všechny čtyři solutiony se staví čistě před i po merge.
 
+---
+
+## 2026-08-27 — Claude Code (šedesátý pátý zápis)
+
+**Beru si #151, a beru si z něj přesně tu jednu věc, kterou nechalo otevřenou: poměr „27 ms ze 42" se má odvodit na SLABÉM stroji.** Větev `151-arena-weak-machine` off main, sdílený strom (byl čistý), staguju jmenovitě. Hlásím dopředu.
+
+**Proč já a proč teď: sedím na tom stroji.** `ThinkPad` = Ryzen 7 5700U + integrovaný Radeon, tedy ta referenční APU, na které jsou naměřená čísla v `docs/` a která odvedla #250. Poslední dva komentáře #151 končí obě stejnou větou — *„I am on the reference desktop, so I cannot do it"* — a přesně proto v repu zůstaly `arena=` a `capprobe=` místo aby se smazaly s odpovědí, kterou daly. Kartu si beru (`Get-Process BS3D, Testbed` prázdné).
+
+**Co je hotové a nesahám na to.** Členský sweep (`arena=`), sonda čepice (`capprobe=`) i tier `ArenaIsland.SurfaceDetail` jsou na mainu z minulých kol (`05e5f9a`). Nic z toho neměním — jsou to nástroje, kvůli kterým je tohle pár minut měření místo rebuildu. Ambice tohohle kola je **měření a zápis**, ne další řez do `InstancedModel.fx`.
+
+**Co změřím:** baseline na obou kamerách issue (shora `campos=0,30,0 camtarget=0,-13,6` i hrací `campos=0,-4,30 camtarget=0,-8,0`), členský sweep, sondu čepice, a kontrolu „sky only". Kamery **vyfotím dřív, než skrz ně vezmu číslo** — to je vlastní metodická poznámka #151 a je zaplacená tím, že se issue jednou celé zakládalo na špatné atribuci.
+
+**⚠ Rozlišení původního čísla nikde není zapsané.** Tělo issue říká „Testbed, `nocap`, pevná kamera, ssaa 2, 22 vzorků" a **nejmenuje šířku ani výšku**, přičemž `logfps` Testbed dostal až tímhle issue. Číslo 42 ms tedy neumím reprodukovat na pixel; co udělám, je odvodit **poměr** na kvótovaném rozlišení a to rozlišení napsat vedle každého čísla.
+
+**Přečteno před začátkem, a mění mi to zadání:** zápis 62 (#270) — `scene=` a `sky=` nedrží, jakmile se nahraje level, a #209/#167/#166/#165 jsou všechny hlášené se signaturou vsyncu, ne ceny scény. Beru z toho dvě věci: **ověřím `scene=` proti řádku `[fps]`, ne proti tomu, co jsem vyžádal**, a **na téhle APU je limiter irelevantní** — 42 ms je 24 FPS, nikde blízko poloviny refreshe, takže poměr, který #151 hledá, ta retrakce nezpochybňuje.
+
+**Nezabírám si nic dalšího.** Volné podle trackeru (ne podle deníku, ten je o #270/#271 pozadu): **#268**, **#229**, **#257**, **#256**, **#223**, **#222**, **#219**, **#213**, **#209**, **#205**, **#201**, **#189**, **#188**, **#187**, **#172**, **#167**, **#166**, **#165**, **#100**, **#95**, **#90**, **#272**, **#251**, **#230**.
+
+**Provozní drobnost pro majitele:** unijní merge tenhle soubor rozsekaly — řádek *„Poslední zápis: …"* je v něm teď **osmkrát**, uprostřed textu, a na konci souboru žádný. Nesahám na to (je to cizí práce), ale stojí to za jeden úklidový commit.
+
+---
+
+## 2026-08-27 — Claude Code (šedesátý šestý zápis)
+
+**#151 doměřeno na slabém stroji, větev `151-arena-weak-machine` (pushnuto). NEMERGOVÁNO, čeká na slovo majitele.** Odpověď je „ne": **poměr 27 ms ze 42 se nereprodukuje. Aréna je 10–14 % snímku, ne 64 %.**
+
+**⚠ Původní číslo nebylo měření, byl to zbytek po odčítání** — 42,4 ms mínus mořský pixel shader (9,2, měřeno) mínus 6,9 ms „kontrolní" snímek, a co zbylo, se pojmenovalo „aréna". V tom zbytku ale sedí i dělo, skleněná deska stropu, křížek, režie draw callů a terén, na kterém ostrov stojí.
+
+**⚠ A ta kontrola nekreslila vůbec nic.** `campos=0,0,0 camtarget=0,80,0` míří přesně podél up-vektoru, `CreateLookAt` degeneruje. Důkaz: **dvě různé scény skrz tu kameru dají bajt po bajtu stejný plochý snímek** barvy clearu (23,143,142 = horizont rigu), zatímco 14° naklonění ze stejného bodu kreslí dóm i mraky a stojí 30,2 ms proti 7,8. Jako mez na post chain to platí dál (je celoobrazovkový a nezávislý na scéně), jako „sky only" ne. Zapsáno jako past do `benchmark` i `screenshot` skillu.
+
+**⚠ Nezapsané rozlišení původního měření je 1600×900 (výchozí okno) — a odvodilo se to tím, že se pod zátěží reprodukovalo.** Můj úplně první průchod běžel, aniž jsem to věděl, proti cizímu buildu MapEditoru a zaseknutému `find`u: **louka 45,7 / moře 44,1 / město 56,50** proti zapsaným 43,5 / 42,4 / **56,5**. Na uklizeném stroji čtou tytéž piny 24,7 / 32,0 / 34,7. Netvrdím, že původní čísla byla brána pod zátěží — tvrdím, že pod zátěží vycházejí a bez ní ne, a že u nich chybí rozlišení i stav stroje.
+
+**⚠ Tenhle stroj nejde měřit srovnáváním běhů, a to je hlavní ponaučení.** iGPU sdílí 15W package budget s CPU, takže **dva 125s běhy JEDNÉ nezměněné varianty daly 33,6 a 25,7 ms** — širší rozptyl než měřená věc. A není to škálovací faktor: pod zátěží se všechny varianty stlačí k sobě, takže sweep z té doby čte „nic nestojí nic", což je falešně negativní, ne jen zašuměné. Přidal jsem proto Testbedu **`alt=<members>[/<probe>];…`** (`TestOptions.Alternation`): aréna se překresluje jinak **na každém okně `[fps]`**, takže varianty sdílejí jeden proces, jedny hodiny i sousedy, a řádek si každou variantu sám pojmenuje. Vyhodnocuje se **párově uvnitř cyklu** a hlásí se, **jak často držel znak** — skutečný efekt je levnější v 92–100 % cyklů, šum sedí na 42–71 %.
+
+**Naměřeno** (5700U + integrovaný Radeon, Testbed, louka, dóm 13, `nocap`, 1600×900 ssaa 2, devět variant v jednom procesu, dva běhy s obráceným pořadím cyklu, medián rozdílů po cyklech):
+
+| | shora | hrací kamera |
+|---|---|---|
+| snímek | 24,69 / 24,45 ms | 26,53 / 26,01 ms |
+| **celá aréna** | **2,664 / 2,544 = 10,8 / 10,4 %** | **3,776 / 3,685 = 14,2 / 14,2 %** |
+| čepice plochá | 1,479 / 1,197 | 3,365 / 2,754 |
+| čepice nekreslená | 1,514 / 1,352 | 2,949 / 2,555 |
+| sklo / šachta / buben / zlato | ≤ 0,47 ms, znak 42–83 % | ≤ 0,50 ms, znak 33–71 % |
+
+- **Čepice je aréna i tady** (~80 % z ní na hrací kameře) a ostatní členové jsou šum — tedy **atribuce se mezi třídami strojů tentokrát přenáší**. To je proti standardnímu pravidlu skillu (#102 vs #250), takže jsem to ověřil, ne předpokládal.
+- **V moři se aréna shora neoddělila od šumu vůbec** (0,193 ms, znak 62 %, IQR ±2 ms): odebráním ostrova se odkryje moře, které stojí zhruba totéž. Věta „ty tři drahé pohledy mají společnou arénu" tedy taky neplatí — ve scéně, proti které bylo issue původně založené, je aréna na okraji skoro zadarmo.
+- **⚠ Tier z minulého kola (`ArenaIsland.SurfaceDetail`) na tomhle stroji nekoupí nic měřitelného.** Na ssaa 1 (co Medium/Low opravdu stínují) čte coarse pole **0,00–0,05 ms z 13 ms snímku a je levnější v 45–60 % cyklů**. Není to spor s desktopovými 0,336 ms — je to jejich vlastní škálování dotažené do konce (1600×900 při 1× stínuje 1,44 Mpix proti desktopovým 33,2). **Špatně bylo to „asi čtvrtina", jediný krok, co se udělal aritmetikou místo měřením.** Vstup zůstává (nic nestojí a při vyšším počtu pixelů platí), ale nesmí se citovat jako úspora, kterou tahle třída strojů inkasuje.
+
+**⚠ Provozní past, co mě stála celý jeden sweep:** `arena` na řádku `[fps]` je flags enum, tedy **sám o sobě oddělený čárkami** (`arena Drum, Pit, Rims, Glass`). Regex, co pole ukončí na první čárce, nenajde nic a hlásí to jako „no output", ne jako chybu parsování. Data v lozích byla celou dobu — stačilo je přečíst znovu, ne přeměřit.
+
+**Majitel odklikl zabití zaseknutého `find / -iname Cron.cs -path *Hangfire*`** (běžel od 8:56, držel jádro); týž pin se tím posunul z 26,7 na 24,5 ms. **Na tomhle notebooku běžel během mého měření i cizí `dotnet build MapEditor.sln`** — kdo na něm pracuje, ať to prosím hlásí sem, benchmark je na to citlivý.
+
+**Nález mimo tohle issue, nesahal jsem na něj:** `docs/scenes.md` říká „the flat-plane river measured 59,5/17,5", ale `git log -S` ukazuje, že se v té době commitovalo **56,5/17,5** (`ecfed81`), a `docs/game-shell.md` tu dvojici jako flat-plane-era figuru jmenuje. To 59,5 se poprvé objevuje až jako zpětný odkaz v `4379fd6` bez měření za sebou. Vypadá to na překlep o 3 ms, který #250 minulo.
+
+**⚠ Provozní, ke kolegovi:** merge #151 do mainu konfliktnul právě v tomhle souboru — oba jsme si vzali číslo „šedesátý čtvrtý". Nechal jsem tvůj #275 zápis, kde byl, a přečísloval jsem svoje dva na **65** a **66**. Nic se neztratilo, `grep -c '<<<<<<<'` prošel.
+
 **Nic dalšího si neberu.**

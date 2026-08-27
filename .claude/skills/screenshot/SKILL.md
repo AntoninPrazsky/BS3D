@@ -25,6 +25,14 @@ startup args (parsed in `Program.cs`, applied in `Initialize`):
 - `campos=x,y,z` — place the free camera here.
 - `camtarget=x,y,z` — aim it at this world point (defaults to the arena at the origin `0,0,0`).
 
+**⚠ Do not aim straight up or straight down.** A target directly above or below the position is parallel to the
+up vector, `Matrix.CreateLookAt` degenerates, and the frame comes back as **one flat colour with nothing drawn
+in it** — not an error, not a black screen, just the clear colour, which is the sky rig's own horizon colour and
+therefore reads as a plausible empty sky. #151 used `campos=0,0,0 camtarget=0,80,0` as its "sky only" control
+and measured a frame that drew nothing at all. Tilt the target: `camtarget=0,80,20` from the same point draws
+the dome and its clouds normally. The tell is that two *different scenes* through such a camera give
+byte-identical frames — which is how it was finally caught, four months and one wrong figure later.
+
 Coordinates are world units, `.` decimal, invariant culture. Useful reference points:
 
 - The arena/drain is at the **origin**; the island top is `y = -8.5`, the funnel bottom `y = -27.5`.

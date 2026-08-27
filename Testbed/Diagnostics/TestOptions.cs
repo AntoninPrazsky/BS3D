@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Prazsky.Core.Render;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 
 namespace Testbed.Diagnostics
@@ -92,6 +93,39 @@ namespace Testbed.Diagnostics
         /// </summary>
         public int CapProbe { get; private set; }
 
+        /// <summary>
+        /// <c>alt=&lt;members&gt;[/&lt;probe&gt;];&lt;members&gt;[/&lt;probe&gt;];…</c>: #151 PROBE - TEMPORARY.
+        /// Redraws the arena a different way on each <c>[fps]</c> window, cycling the listed variants, so a
+        /// sweep's variants are measured <b>inside one process under one clock</b> rather than as separate
+        /// runs. Each variant is an <c>arena=</c> member list, optionally <c>/N</c> for
+        /// <see cref="CapProbe"/>: <c>alt=all;none</c>, <c>alt=all/0;all/6</c>, <c>alt=all;all,-cap;none</c>.
+        /// <para>
+        /// <b>It exists because the weak machine cannot be measured any other way.</b> The reference desktop
+        /// can compare two runs — #151's own cap sweep did, and its paired figures agreed to 0.03 ms. This
+        /// project's integrated-Radeon laptop cannot: it shares one 15 W package budget between the CPU and
+        /// the iGPU, so its sustained clock moves with whatever else the machine is doing, and two runs of the
+        /// <i>same</i> variant came 33.6 and 25.7 ms apart — a spread larger than the arena itself. Alternating
+        /// inside one process is the same step <see cref="CapProbe"/> took for the same reason (one build drawn
+        /// several ways, rather than several builds measured against each other), carried one further to one
+        /// <i>run</i> drawn several ways. Both members and probe are live properties on
+        /// <see cref="ArenaIsland"/>, so a switch costs two assignments and nothing carries over between them.
+        /// </para>
+        /// </summary>
+        public IReadOnlyList<ArenaVariant> Alternation { get; private set; } = Array.Empty<ArenaVariant>();
+
+        /// <summary>One entry of <see cref="Alternation"/>: what the arena is drawn as for one window.</summary>
+        public readonly struct ArenaVariant
+        {
+            public readonly ArenaMembers Members;
+            public readonly int CapProbe;
+
+            public ArenaVariant(ArenaMembers members, int capProbe)
+            {
+                Members = members;
+                CapProbe = capProbe;
+            }
+        }
+
         /// <summary><c>sky=&lt;n&gt;</c>: the starting dome, pinned over a startup level's own. 0 = unset.</summary>
         public byte SkyNumber { get; private set; }
 
@@ -163,6 +197,7 @@ namespace Testbed.Diagnostics
                 else if (string.Equals(arg, "nopost", StringComparison.OrdinalIgnoreCase)) options.NoPostEffects = true;
                 else if (arg.StartsWith("arena=", StringComparison.OrdinalIgnoreCase)) options.Arena = ParseArenaMembers(arg.Substring("arena=".Length));
                 else if (arg.StartsWith("capprobe=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("capprobe=".Length), out int parsedCapProbe) && parsedCapProbe >= 0 && parsedCapProbe <= 6) options.CapProbe = parsedCapProbe;
+                else if (arg.StartsWith("alt=", StringComparison.OrdinalIgnoreCase)) options.Alternation = ParseAlternation(arg.Substring("alt=".Length));
                 else if (arg.StartsWith("switchmap=", StringComparison.OrdinalIgnoreCase)) options.SwitchMapPath = arg.Substring("switchmap=".Length);
                 else if (arg.StartsWith("sky=", StringComparison.OrdinalIgnoreCase) && byte.TryParse(arg.Substring("sky=".Length), out byte parsedSky)) options.SkyNumber = parsedSky;
                 else if (arg.StartsWith("ssaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("ssaa=".Length), out int parsedSsaa)) options.SupersampleFactor = parsedSsaa;
@@ -205,6 +240,34 @@ namespace Testbed.Diagnostics
             }
 
             return members;
+        }
+
+        //Parses the alternation cycle: variants separated by ';', each an arena member list with an optional
+        //'/N' cap probe after it. ';' and '/' are used because ',' and '-' already mean something inside a
+        //member list. A variant whose member list is unreadable still contributes ArenaMembers.None, which is
+        //a legitimate variant (the arena out of the frame) - so unlike the rest of this parse, an empty result
+        //is what says the argument said nothing, and the caller leaves the single-variant path alone.
+        private static IReadOnlyList<ArenaVariant> ParseAlternation(string spec)
+        {
+            List<ArenaVariant> variants = new();
+
+            foreach (string token in spec.Split(';'))
+            {
+                string one = token.Trim();
+                if (one.Length == 0) continue;
+
+                int probe = 0;
+                int slash = one.LastIndexOf('/');
+                if (slash >= 0)
+                {
+                    if (int.TryParse(one.Substring(slash + 1), out int parsed) && parsed >= 0 && parsed <= 6) probe = parsed;
+                    one = one.Substring(0, slash);
+                }
+
+                variants.Add(new ArenaVariant(ParseArenaMembers(one), probe));
+            }
+
+            return variants;
         }
 
         //Parses "x,y,z" (invariant, so a decimal point) into a Vector3

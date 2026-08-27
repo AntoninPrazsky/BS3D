@@ -6,6 +6,7 @@ using Prazsky.Core.Render;
 using System;
 using System.Diagnostics;
 using System.Threading;
+using Testbed.Diagnostics;
 
 namespace Testbed
 {
@@ -209,6 +210,40 @@ namespace Testbed
         private float _fpsWindow;
         private int _fpsFrames;
 
+        //Which entry of TestOptions.Alternation the arena is currently drawn as. Entry 0 is applied at build
+        //time beside "arena=" and "capprobe=", so the first window is already a named variant rather than
+        //whatever the single-variant path left standing.
+        private int _arenaVariant;
+
+        /// <summary>
+        /// Draws the arena as the next variant of <see cref="TestOptions.Alternation"/>, or leaves it alone
+        /// when nothing asked for a cycle. Called once per <c>[fps]</c> window and never on a per-frame path.
+        /// <para>
+        /// #151 PROBE - TEMPORARY, and the reason it is here rather than in a script: on the integrated-Radeon
+        /// laptop the CPU and the iGPU share one package power budget, so the sustained clock drifts between
+        /// runs far enough to swallow the thing being measured — two runs of one unchanged variant came 33.6
+        /// and 25.7 ms apart. Alternating inside a single process puts every variant under the same clock, the
+        /// same driver state and the same neighbours, so what is left between two readings a second apart is
+        /// what the two variants actually cost. Both properties are plain assignments and no state carries
+        /// over, which is what makes a per-window switch honest rather than a source of hysteresis.
+        /// </para>
+        /// </summary>
+        private void AdvanceArenaVariant()
+        {
+            if (_options.Alternation.Count == 0) return;
+
+            _arenaVariant = (_arenaVariant + 1) % _options.Alternation.Count;
+            ApplyArenaVariant(_arenaVariant);
+        }
+
+        /// <summary>Draws the arena as one named entry of <see cref="TestOptions.Alternation"/>.</summary>
+        private void ApplyArenaVariant(int index)
+        {
+            TestOptions.ArenaVariant variant = _options.Alternation[index];
+            _island.Members = variant.Members;
+            _island.CapTriplanarProbe = variant.CapProbe;
+        }
+
         /// <summary>
         /// One line a second: the frame rate and every setting that changes what it means, so two runs — or two
         /// machines, or this executable against the Game — can be compared without remembering how each was
@@ -227,9 +262,18 @@ namespace Testbed
             //this exists to measure, one frame overshoots it by more than a tenth
             //The clamped factor rather than the argument's: "ssaa=9" runs at 4, and the line has to say what
             //was actually shaded or it misreports the one setting that moves the number most
+            //The island's LIVE members and probe, not the ones the command line asked for: under "alt=" they
+            //change every window, and the line is what says which variant a reading belongs to
+            bool alternating = _options.Alternation.Count > 0;
+            int capProbe = _island.CapTriplanarProbe;
+
             Console.WriteLine($"[fps] {_fpsFrames / _fpsWindow:F1} — {_scene}, dome {_skyModelNumber}, ssaa {_supersampleFactor}x"
                 + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
-                + $", vsync {(_options.UncappedFps ? "off" : "on")}{(_options.FpsCap > 0 ? $" (cap {_options.FpsCap})" : "")}, arena {_island.Members}{(_options.CapProbe > 0 ? $", capprobe {_options.CapProbe}" : "")}, balls {_collectedBalls}");
+                + $", vsync {(_options.UncappedFps ? "off" : "on")}{(_options.FpsCap > 0 ? $" (cap {_options.FpsCap})" : "")}, arena {_island.Members}{(alternating || capProbe > 0 ? $", capprobe {capProbe}" : "")}, balls {_collectedBalls}");
+
+            //Switch AFTER the line is written, so a window is never a mixture of two variants: this reading
+            //belonged wholly to the variant just named, and the next one belongs wholly to the next
+            AdvanceArenaVariant();
 
             _fpsWindow = 0f;
             _fpsFrames = 0;

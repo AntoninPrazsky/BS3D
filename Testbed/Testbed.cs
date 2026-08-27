@@ -999,6 +999,12 @@ namespace Testbed
             //#151 PROBE - TEMPORARY: which of the cut-down copies of the cap's pixel shader is drawn, 0
             //being the shipped one. The members sweep can only take the whole cap out; this splits it up.
             _island.CapTriplanarProbe = _options.CapProbe;
+
+            //#151 PROBE - TEMPORARY: "alt=" cycles the two above on every [fps] window, so a sweep's variants
+            //share one process and one clock. Seed the first entry here rather than waiting for the first
+            //switch, or the opening window would be measured as whatever "arena="/"capprobe=" left standing
+            //and would then be labelled as the variant that follows it.
+            if (_options.Alternation.Count > 0) ApplyArenaVariant(0);
         }
 
         private void BuildCeiling()

@@ -93,6 +93,25 @@ Each of these has actually happened; the first two are the expensive ones.
    through and stayed there, which drags a mean far enough to invert an A/B. A median of the kept readings
    cannot be moved by it, and printing the lowest reading beside the median still shows that it happened.
 
+13. **A CONTROL camera that draws nothing is not the control you think it is.** #151's "sky only" frame was
+   `campos=0,0,0 camtarget=0,80,0` — straight up, i.e. along the up vector, which makes `Matrix.CreateLookAt`
+   degenerate, and *nothing at all is drawn*. Two different scenes through it give byte-identical flat frames
+   of the clear colour (7.8 ms), while tilting the same camera 14° off vertical draws the dome and its clouds
+   and costs 30.2. So it bounded the post chain over an empty frame — legitimate for that, since the post
+   chain is full-screen and scene-independent, but nothing like the "sky only" it was labelled and used as.
+   It also went straight into a subtraction whose remainder was named "the arena". **Screenshot the control
+   too**, not only the measurement camera, and look for a frame that is one flat colour.
+
+14. **On the APU a spread across RUNS can be wider than the thing you are measuring, and the fix is to stop
+   comparing runs.** The integrated Radeon shares one 15 W package budget with the CPU, so its sustained clock
+   moves with whatever else the machine is doing: two 125-second runs of one *unchanged* variant came back
+   **33.6 and 25.7 ms**. It is not a scale factor either — under contention every variant compresses towards
+   the same number, so a sweep taken then reads as "nothing costs anything", which is a false negative rather
+   than a noisy one. Pairing between processes does not help; the drift is *between* the runs. The Testbed's
+   `alt=` (below) is the answer: cycle the variants inside one process and difference them within each cycle.
+   And on a laptop, **look at what else is running before believing anything** — a stray `find` had been
+   pinning a core for three and a half hours here, and killing it moved a fixed pin from 26.7 to 24.5 ms.
+
 Also: keep both halves of an A/B in the **same build configuration**, and remember that lifting the cap is
 what makes the number a frame cost rather than the display's refresh. The script always passes `nocap`;
 **prefer `fpscap=N` on the desktop**, which does the same job for a measurement without leaving the card flat
@@ -172,8 +191,22 @@ can submit and nothing about the frame.
 - `arena=<list>` — which members of the arena are drawn: `cap`, `drum`, `pit`, `rims`, `glass`, plus `all` and
   `none`, comma-separated, a leading `-` removing. `arena=all,-cap` is the form an isolation wants. The `[fps]`
   line names the surviving members for the same reason it names everything else on it. #151's whole answer came
-  out of this one argument — the stone cap is 88 % of the arena's cost at a play camera, and the translucent
-  drain everyone suspected is nothing.
+  out of this one argument — the stone cap is ~80–88 % of the arena's cost at a play camera on both classes of
+  machine, and the translucent drain everyone suspected is nothing. **⚠ The members are a flags enum, so the
+  `[fps]` line's arena field is itself comma-separated** (`arena Drum, Pit, Rims, Glass`): a harness regex that
+  stops the field at the first comma silently matches nothing on every multi-member run, and reports it as "no
+  output" rather than as a parse failure. That cost a whole sweep here before the logs were re-read — and
+  re-reading them was enough, because the readings were in them all along.
+- `alt=<members>[/<probe>];<members>[/<probe>];…` — draw the arena a **different way on every `[fps]` window**,
+  cycling the listed variants: `alt=all;none`, `alt=all/0;all/6`, `alt=all;all,-cap;none;all/3`. Each variant is
+  an `arena=` list with an optional `/N` cap probe after it; the line already prints the members and the probe,
+  so every reading labels its own variant, and the switch happens after the line is written so no window is a
+  mixture of two. **This is the only way the APU can be measured** (trap 14): the variants share one process,
+  one clock and the same neighbours, so what is left between two readings a second apart is what the two
+  variants cost. Analyse it **paired**: group the readings into whole cycles, take each variant's difference
+  from the baseline *within its own cycle*, then median those differences — and report **how often the sign
+  held**, not only the size. Real effects come out cheaper in 92–100 % of cycles; noise sits at 42–71 %, and
+  that column is what tells the two apart when the machine is drifting under both.
 
 The measurement is wall-clock and cannot split CPU from GPU (MonoGame exposes no GPU timer queries). The cheap
 discriminator is to run the same pin at two `ssaa` values: if the frame time does not scale with the pixel
