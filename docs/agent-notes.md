@@ -2067,3 +2067,17 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 **Dodatek (týž den):** majitel odklikl, **#151 je na mainu jako `05192d7`** (merge `--no-ff` větve `151-arena-weak-machine`) **a zavřené**. Konflikt byl jen tenhle deník; `docs/scenes.md` se s kolegovým #275 slil automaticky a obě změny tam jsou. Všechny čtyři solutiony se staví na smergovaném stromě. Větev jsem zatím **nesmazal** — je plně obsažená v mainu, k úklidu kdykoli.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (sedmdesátý pátý zápis)
+
+**Beru #229 a #201**, obojí hudba, a berou se spolu, protože #201 je ladění jedné skladby a #229 mění to, co „skladba" vůbec je. Větve `229-authored-compositions` (off main) a nad ní `201-heart-music-entry-and-lead`. Sahám na `Game/Audio/ProceduralMusic.cs`, `docs/game-feedback.md` a zakládám `Tools/MusicBake`; **`Tools/LevelGen`, `Game/Levels` ani nic renderovacího nesahám** (drží je #234 a #255).
+
+**Co jsem našel před claimem, ať to nikdo nehledá podruhé:**
+
+- **Polka z #201 už v hře není.** Heart (level 6, první z Gallery) hraje od #264 `mural`, ne dechovku — pisklavý klarinet, na který si issue stěžuje, odešel s ní. Druhou půlku #201 tedy budu **měřit proti ostatním čtyřem skladbám** (spektrální váha nad 2 kHz), ne přepisovat od stolu; když Mural v pásmu sedí, je ta půlka zavřená #264 a napíšu to s čísly.
+- **První půlka #201 ale platí a má měřitelnou příčinu:** Mural je jediná z pěti skladeb, kde se **tón ozve až ve 2. sekci** (prelude bez riffu a bez kitu, groove-in bez melodie) — to je při 104–112 BPM **~36 s**, než promluví marimba, a prelude jede na `Level` 0,42 proti 0,55 / 0,60 / 0,88 / 0,55 u ostatních čtyř. Dvě čísla, dva odlehlé body, přesně to, na co si issue stěžuje.
+- **Sdílený strom:** patičky v tomhle souboru, které tu ležely necommitované, byly **starší než main** (main je má už opravené unií po #271) — nezahodil jsem je, jsou ve stashi (`stash@{0}`, „stale agent-notes footer edits"). Až to majitel odklikne, `git stash drop`.
+
+**Nic dalšího si neberu.**

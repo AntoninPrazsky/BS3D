@@ -8,41 +8,44 @@ namespace BS3D.Audio
     /// <summary>
     /// Which composition a level plays (#120). Not a style setting and not a mood: each is a separate piece of
     /// music with its own mode, its own tunes and its own form, sharing only this file's instruments and its
-    /// one rule — random parameters, never random notes.
+    /// one rule — <b>every piece is fully authored</b> (#229): one tempo, one key, one progression, one
+    /// placement for every ornament in it, so a piece sounds the way it sounds and always the same way.
     /// <para>
     /// A small curated pool rather than anything generative, deliberately. Every piece is hand-arranged by ear
-    /// against measurements, and that craft is exactly what composing from scratch at runtime would lose.
+    /// against measurements, and that craft is exactly what composing from scratch at runtime would lose. It
+    /// is also where the variety comes from: another piece in the same style, not another rendering of one —
+    /// a level file names its theme (#194), so a chapter can be given a piece of its own.
     /// </para>
     /// </summary>
     public enum MusicTheme
     {
         /// <summary>
-        /// The original: eurodance, A minor, ten sections, ~2:30 a pass. Level One's theme, and since #186 a
+        /// The original: eurodance, A minor at 128, ten sections, 2:30. Level One's theme, and since #186 a
         /// piece with a floor under it (<see cref="SubBass"/>), two sections that are not a dance floor at all,
         /// and one harmonic shock at the last drop.
         /// </summary>
         Pulse,
 
         /// <summary>
-        /// The second (#120): D Dorian over the same dance floor, with a string section, brass pillars and a
-        /// tuned drum over it — a statement, a second subject and a coda that brings it back, twelve sections
-        /// and ~3:20 a pass.
+        /// The second (#120): D Dorian at 116 over the same dance floor, with a string section, brass pillars
+        /// and a tuned drum over it — a statement, a second subject and a coda that brings it back, twelve
+        /// sections and 3:19, the longest piece here.
         /// </summary>
         Bohemia,
 
         /// <summary>
         /// The third (#162): smooth jazz — sevenths and ninths on a <b>swung</b> grid, a walking bass and a
         /// piano carrying the tune (the Rhodes's seat until #210 — a tine that bright over a quiet trio read
-        /// as a glockenspiel), nine sections and ~3:00 a pass. Where the other two differ in mode over
-        /// one shared dance floor, this one differs in harmony and in TIME, which is what makes it a third
-        /// language rather than a third accent.
+        /// as a glockenspiel), nine sections and 3:02 at the set's slowest tempo, 96. Where the other two
+        /// differ in mode over one shared dance floor, this one differs in harmony and in TIME, which is what
+        /// makes it a third language rather than a third accent.
         /// </summary>
         Nocturne,
 
         /// <summary>
         /// The fourth (#264, replacing #164's brass band): a bass-led groove — the tune lives in a melodic
         /// sub (<b>the log drum</b>) on the set's only syncopated grid, the 3+3+2 tresillo, with a marimba
-        /// answering from above. Nine sections, ~2:45 a pass, in G major. Where the others differ in mode,
+        /// answering from above. Nine sections, 2:42, G major at 108. Where the others differ in mode,
         /// harmony, time or gain, this one differs in <b>where the weight falls and which register carries
         /// the tune</b>: the kick never marks all four beats, and the hook is played by the bass.
         /// </summary>
@@ -50,26 +53,34 @@ namespace BS3D.Audio
 
         /// <summary>
         /// The fifth (#163): a rock ballad — <b>power chords</b> through a distorted guitar, half-time under
-        /// the verses and full time in the choruses, ten sections and ~2:25 a pass, in E minor. Where the
-        /// other four differ in mode, harmony or time, this one differs in <b>gain</b>: the build is the
-        /// amplifier being pushed rather than a fader being raised, and the chords have no third in them
-        /// because distortion is what decides which intervals may be played at all.
+        /// the verses and full time in the choruses, ten sections and 2:25, E minor notated at 134 and felt
+        /// at 67. Where the other four differ in mode, harmony or time, this one differs in <b>gain</b>: the
+        /// build is the amplifier being pushed rather than a fader being raised, and the chords have no third
+        /// in them because distortion is what decides which intervals may be played at all.
         /// </summary>
         Ember
     }
 
     /// <summary>
-    /// The level theme: a two-minute eurodance track synthesized from raw PCM and played on a loop. No tracker
-    /// file, no asset, no pipeline step — the score is a handful of arrays and the instruments are oscillators,
-    /// the same line the sound effects, the meshes and the surface textures all take. The same instruments
-    /// also play the result fanfares and the front end's looped piece (see <see cref="BakeMenu"/>).
+    /// The level themes: five pieces of music synthesized from raw PCM, each rendered once at the splash and
+    /// played over for as long as a level lasts. No tracker file, no asset, no pipeline step — the scores are
+    /// a handful of arrays and the instruments are oscillators, the same line the sound effects, the meshes
+    /// and the surface textures all take. The same instruments also play the result fanfares and the front
+    /// end's looped piece (see <see cref="BakeMenu"/>).
     /// <para>
-    /// It is <b>arranged</b> rather than looped: ten sections of eight bars, each one adding or taking away
-    /// parts — a prelude with no drums in it at all, an intro that builds, verses, a chorus that is
-    /// unmistakably the chorus, a breeze where the floor drops away and the keys take the tune, a build that
-    /// puts everything back, a last chorus arrived at through a silence and one borrowed chord, and an outro
-    /// that sheds the kit. A sixteen-bar loop with no sections is a ringtone; what makes a track worth
-    /// hearing for two minutes is that it keeps arriving somewhere.
+    /// Each is <b>arranged</b> rather than looped: eight-bar sections, each one adding or taking away parts —
+    /// a prelude with no drums in it at all, an intro that builds, verses, a chorus that is unmistakably the
+    /// chorus, a breeze where the floor drops away and the keys take the tune, a build that puts everything
+    /// back, a last chorus arrived at through a silence and one borrowed chord, and an outro that sheds the
+    /// kit. A sixteen-bar loop with no sections is a ringtone; what makes a track worth hearing for two
+    /// minutes is that it keeps arriving somewhere.
+    /// </para>
+    /// <para>
+    /// Until #229 a piece was rendered fresh for every playing, off a roll of its own tempo, key, progression
+    /// and ornament densities, and the player never heard the same two minutes twice. The owner ended that —
+    /// "a single composition varied per pass sounds weird" — and the whole file is now a renderer of authored
+    /// scores. What the change bought besides the intent: no synthesis at all after the first seconds of a
+    /// session, half the memory, and a piece that can be judged, which is what <c>Tools/MusicBake</c> is for.
     /// </para>
     /// </summary>
     public sealed class ProceduralMusic : IDisposable
@@ -79,10 +90,9 @@ namespace BS3D.Audio
         /// <summary>How many compositions there are, read off the enum so adding one needs nothing here.</summary>
         private static readonly int THEME_COUNT = Enum.GetValues(typeof(MusicTheme)).Length;
 
-        //Around 128 rather than the 146 this started at, and rolled per pass inside a narrow band (see
-        //Variation). 146 was fast enough to read as frantic; a slower tempo leaves room for the extra
-        //percussion and for the melody to breathe — the same notes at 128 sound deliberate where at 146 they
-        //sound hurried.
+        //Around 128 rather than the 146 this started at, and 128 exactly since #229 (see PULSE_SCORE). 146
+        //was fast enough to read as frantic; a slower tempo leaves room for the extra percussion and for the
+        //melody to breathe — the same notes at 128 sound deliberate where at 146 they sound hurried.
         private const int STEPS_PER_BEAT = 4;      //sixteenths
         private const int STEPS_PER_BAR = 16;
 
@@ -119,8 +129,9 @@ namespace BS3D.Audio
             new[] { 64, 67, 71, 76 }    //Em: E4 G4 B4 E5
         };
 
-        //The progressions a variation may draw. Every one opens on Am and every one is four bars, so the
-        //melodies below fit all of them without knowing which was chosen.
+        //The progressions this piece and the front end's loop are written over. Every one opens on Am and
+        //every one is four bars, so the melodies below fit all of them without knowing which was chosen — and
+        //the four that are not chosen stay here as what the next piece in this key could be written on.
         private static readonly int[][] PROGRESSIONS =
         {
             new[] { 0, 1, 2, 3 },   //Am F  C  G   — vi-IV-I-V, the classic
@@ -134,7 +145,8 @@ namespace BS3D.Audio
         /// One note of a melody, written as a CHORD TONE rather than as a pitch: <see cref="Tone"/> indexes
         /// the current chord's four notes and <see cref="Octave"/> shifts it in semitones.
         /// <para>
-        /// Writing the melodies this way is what lets the progression be chosen at random. A melody written as
+        /// Writing the melodies this way is what lets a piece be written over any of the progressions in its
+        /// pool, and re-keyed by one number. A melody written as
         /// absolute pitches only fits the chords it was written over; written as degrees of whatever chord is
         /// underneath, the same motif transposes itself and is consonant by construction — which is also the
         /// literal form of "one motif moved across the chords", the thing that made it a hook in the first
@@ -204,40 +216,93 @@ namespace BS3D.Audio
         private enum LeadPart { None, Verse, Chorus, Breeze }
 
         /// <summary>
-        /// Everything a single rendering of the track rolls for itself. The point of it is that no two passes
-        /// are the same piece of music — a loop the player hears for the length of a level has to stop being a
-        /// loop — while every choice stays inside a set that cannot sound wrong: the progressions are all
-        /// diatonic, the melodies are chord tones, the extra notes land on the grid.
+        /// The three things a composition states about itself before a note of it is written: how fast, in
+        /// what key, and over which chords. One of these per piece, every field a constant — the scores are
+        /// <b>authored</b> (#229), and this file is a renderer of them.
         /// <para>
-        /// Random <i>parameters</i>, never random <i>notes</i>. That distinction is the whole difference
-        /// between variation and noise.
+        /// It used to be a roll. Each rendering drew its own tempo, key and progression out of the piece's
+        /// own bands, plus a density for every ornament in it, so that no two passes were quite the same
+        /// piece of music and no two runs of the game sounded alike. The owner ended it: <i>"a single
+        /// composition varied per pass sounds weird"</i>, and <i>"we should always pick what sounds best"</i>
+        /// — which a roll cannot do by construction, since four passes in five are then not the best one.
+        /// Variety is more <b>pieces</b> now, not more renderings of one; every level file already names its
+        /// theme (#194), so a chapter can be given a piece of its own without a line of code here.
+        /// </para>
+        /// <para>
+        /// What is <i>not</i> here is as deliberate: no ornament densities. A probability is only meaningful
+        /// against a roll, so every one of them became a placement instead — a bar of the four-bar round, a
+        /// step of the bar — written beside the figure it governs, where it reads as a decision rather than
+        /// as a dial.
         /// </para>
         /// </summary>
-        private readonly struct Variation
+        private readonly struct Score
         {
             public readonly float Bpm;
-            public readonly int Transpose;      //semitones, so the key moves between passes
+            public readonly int Transpose;      //semitones off the piece's own key, so it can be re-keyed in one line
             public readonly int[] Progression;
-            public readonly bool ArpDown;       //the arpeggio runs down instead of up
-            public readonly float Embellish;    //chance of an extra melody note in a bar
-            public readonly float Ghost;        //chance of a ghost snare on an off-beat
 
-            public Variation(Random random)
+            /// <summary>
+            /// Which section a LEVEL comes in on (#201). Every piece opens on a prelude with no kit in it —
+            /// fifteen to twenty seconds of pad while the arrangement gathers itself — which is right at the
+            /// top of a piece and wrong at the top of a level: the report was that the music "only starts
+            /// playing quite a long time after the level begins", and the envelope agreed, every piece 9–13 dB
+            /// under its own loudest for the first 14–20 s. So a level's first playing starts HERE instead,
+            /// at the first section where the piece's floor and its tune are both going, and the playing
+            /// after it is the whole piece from the top — the prelude is not cut, it is simply not what a
+            /// level opens on.
+            /// </summary>
+            public readonly int EntrySection;
+
+            public Score(float bpm, int transpose, int[] progression, int entrySection)
             {
-                //Around the 128 the arrangement was written at. Wide enough to be felt between passes, narrow
-                //enough that the track is recognisably the same track.
-                Bpm = 122f + (float)random.NextDouble() * 10f;
-
-                //Whole tones and minor thirds only: a random semitone would put successive passes a half-step
-                //apart, which is the one interval that sounds like a mistake rather than like a key change.
-                int[] keys = { -3, -2, 0, 0, 2, 3, 5 };
-                Transpose = keys[random.Next(keys.Length)];
-
-                Progression = PROGRESSIONS[random.Next(PROGRESSIONS.Length)];
-                ArpDown = random.NextDouble() < 0.35;
-                Embellish = 0.18f + (float)random.NextDouble() * 0.22f;
-                Ghost = 0.10f + (float)random.NextDouble() * 0.18f;
+                Bpm = bpm; Transpose = transpose; Progression = progression; EntrySection = entrySection;
             }
+        }
+
+        /// <summary>
+        /// Pulse's authored score (#229). 128 is the tempo the arrangement was written at and the one its
+        /// documented ~2:30 length is measured at; it rolled inside 122–132 for a while, which was wide
+        /// enough to be felt between passes and narrow enough that the track stayed the same track. A minor
+        /// is the key its chord tables are written in, and the progression is the classic vi-IV-I-V. A level
+        /// comes in on section 2, the first verse — the prelude and the intro's build are the piece's own
+        /// opening and are heard when it comes round (#201).
+        /// </summary>
+        private static readonly Score PULSE_SCORE = new(128f, 0, PROGRESSIONS[0], entrySection: 2);
+
+        /// <summary>
+        /// How many whole samples one sixteenth of a piece lasts, and the <b>one</b> place that rounding
+        /// happens. Every bake takes its grid from here and so does <see cref="EntryOffset"/>, which has to
+        /// land on exactly the sample the bake put a section boundary at — the two computing it separately is
+        /// how an entry would end up a fraction of a step off the downbeat it is supposed to open on. The
+        /// rounding itself is why a piece's length is taken from this figure rather than from the nominal
+        /// tempo (see <see cref="Bake"/>).
+        /// </summary>
+        private static int SamplesPerStep(in Score score) => (int)(SAMPLE_RATE * (60f / (score.Bpm * STEPS_PER_BEAT)));
+
+        /// <summary>One frame of the interleaved 16-bit stereo the pieces are played as; see <see cref="ToPcm"/>.</summary>
+        private const int BYTES_PER_FRAME = 4;
+
+        /// <summary>The piece's own score, for the questions asked about a piece from outside its bake.</summary>
+        private static Score ScoreFor(MusicTheme theme) => theme switch
+        {
+            MusicTheme.Bohemia => BOHEMIA_SCORE,
+            MusicTheme.Nocturne => JAZZ_SCORE,
+            MusicTheme.Mural => MURAL_SCORE,
+            MusicTheme.Ember => EMBER_SCORE,
+            _ => PULSE_SCORE,
+        };
+
+        /// <summary>
+        /// Where a LEVEL comes in on a piece, as a byte offset into its PCM (#201) — the piece's own
+        /// <see cref="Score.EntrySection"/> in samples, on the downbeat because a section boundary is a whole
+        /// number of steps and a step is a whole number of samples. Only the chain's head starts here; every
+        /// repeat after it is the whole piece from the top, so nothing is cut out of the composition.
+        /// </summary>
+        internal static int EntryOffset(MusicTheme theme)
+        {
+            Score score = ScoreFor(theme);
+
+            return score.EntrySection * STEPS_PER_SECTION * SamplesPerStep(score) * BYTES_PER_FRAME;
         }
 
         /// <summary>What plays during one eight-bar section. The arrangement IS this table.</summary>
@@ -301,8 +366,8 @@ namespace BS3D.Audio
         private const int SECTION_INTRO = 1;
 
         //THE SHOCK (#186), and it is one event in one place: the report asked for something rare and climactic
-        //rather than the per-bar Embellish/Ghost rolls, which fire in nearly every bar and are therefore
-        //texture and not surprise. The build's last bar STOPS three beats early, and what lands in the hole is
+        //rather than the small per-bar ornaments, which land in nearly every bar and are therefore texture and
+        //not surprise. The build's last bar STOPS three beats early, and what lands in the hole is
         //a chord from outside the piece: E MAJOR, the harmonic-minor dominant, whose G# is the one note two
         //minutes of strictly diatonic A minor has not played. It resolves onto the Am the final chorus opens on
         //— guaranteed, since every progression in the pool starts there — so the surprise is a cadence and not
@@ -390,35 +455,43 @@ namespace BS3D.Audio
             }
         }
 
-        private readonly Random _seeds;
-
-        private MusicTheme _theme;        //which composition passes are rendered from; see SetTheme
+        private MusicTheme _theme;        //which composition is playing; see SetTheme
 
         /// <summary>
-        /// One pass in hand <b>per composition</b>, not one in total (#120). With two pieces alternating by
-        /// level, a change of theme is what happens at nearly every level boundary rather than once in a
-        /// session, so a single slot meant every boundary threw away the pass it held and paid for a fresh
-        /// bake in silence — and a Bohemia pass costs <b>12.6 s</b> to render on the development desktop
-        /// against Pulse's 2.7 s (its string section is seven detuned oscillators with their own vibrato per
-        /// note, where Pulse's heaviest voice is two). A slot each costs one more pending buffer, ~35 MB,
-        /// and buys a switch the player does not hear as a hole.
+        /// Every composition, rendered once and kept as the 16-bit PCM the voice is fed — one entry a piece,
+        /// filled at construction and never replaced (#229). A completed task <i>is</i> the piece; the task is
+        /// what it arrives in, since the five of them are rendered on background threads at the splash.
+        /// <para>
+        /// This used to be one pass in hand per composition, with the next rendered while the current one
+        /// played: the pieces were rolled per pass, so a pass was consumed by being heard and the next level
+        /// needed a fresh one. A Bohemia piece costs <b>4.7 s</b> to render on the development desktop against
+        /// Pulse's 1.0 s (its string section is seven detuned oscillators with their own vibrato per note,
+        /// where Pulse's heaviest voice is two), which is why they were kept a piece ahead. With the scores
+        /// authored there is nothing to keep ahead OF: the same buffer plays every time, so the machinery is
+        /// gone and the whole session's synthesis is the five renders this array holds.
+        /// </para>
         /// </summary>
-        private readonly Task<float[]>[] _next = new Task<float[]>[THEME_COUNT];
+        private readonly Task<byte[]>[] _pieces = new Task<byte[]>[THEME_COUNT];
 
         /// <summary>
-        /// The chain the passes play through since #212: one <see cref="DynamicSoundEffectInstance"/> whose
-        /// queue is fed the next pass while the current one is still sounding, so XAudio2 starts buffer N+1
+        /// The chain the pieces play through since #212: one <see cref="DynamicSoundEffectInstance"/> whose
+        /// queue is fed the next buffer while the current one is still sounding, so XAudio2 starts buffer N+1
         /// the sample buffer N ends — the handover the per-frame <c>State</c> poll could never give (a frame
         /// or two of dead air between passes was #212's whole complaint, and no polling loop can be tighter
-        /// than its own frame). It is a <b>chain and not a loop</b> on purpose: each submitted pass is a fresh
-        /// variation, which <c>IsLooped</c> on one buffer would trade away for a gapless repeat of the same
-        /// two minutes. The queue holds at most one pass ahead of the sounding one
+        /// than its own frame). The queue holds at most one buffer ahead of the sounding one
         /// (<see cref="DynamicSoundEffectInstance.PendingBufferCount"/> stays under 2 — it counts the
-        /// sounding buffer too, so its two are one playing and one waiting), which is all the feed ever
-        /// needs: a bake takes seconds and a pass lasts minutes.
+        /// sounding buffer too, so its two are one playing and one waiting), which is all the feed ever needs
+        /// for a buffer that lasts minutes.
+        /// <para>
+        /// It stays a fed chain now that a repeat is literally the same buffer (#229), rather than becoming
+        /// an <c>IsLooped</c> <see cref="SoundEffectInstance"/>: the seam is already sample-exact, and the
+        /// retire-and-fade path every switch between pieces runs through (see <see cref="_retiring"/>) is
+        /// written for this type. Trading it for a looped instance would rewrite that path for no audible
+        /// difference.
+        /// </para>
         /// </summary>
         private DynamicSoundEffectInstance _voice;
-        private bool _wanted;             //the game wants music; the chain may be mid-pass
+        private bool _wanted;             //the game wants music; the chain may be mid-piece
         private bool _failed;
 
         private readonly Fade _menuFade = new();
@@ -433,15 +506,15 @@ namespace BS3D.Audio
         /// <para>
         /// One slot is enough: reaching a switch twice inside one fade is not a flow the menus have, and a
         /// still-fading previous occupant is let go where it stands rather than queued behind. It also carries
-        /// no feed — <see cref="Update"/> submits passes to <see cref="_voice"/> alone, so a retiring chain
+        /// no feed — <see cref="Update"/> submits buffers to <see cref="_voice"/> alone, so a retiring chain
         /// plays out what it already holds and no further.
         /// </para>
         /// <para>
         /// <b>This is the only theme fade there is, and that is what the chain bought.</b> The design this was
         /// ported from faded the sounding instance in place and needed a second fade for it, plus a special
         /// case so a <see cref="Play"/> arriving mid-fade did not resurrect the piece being left. Retiring the
-        /// chain into a slot instead makes the sounding voice's volume a constant — a pass plays at full or
-        /// it is not the pass any more — so neither is needed.
+        /// chain into a slot instead makes the sounding voice's volume a constant — a piece plays at full or
+        /// it is not the piece any more — so neither is needed.
         /// </para>
         /// </summary>
         private DynamicSoundEffectInstance _retiring;
@@ -451,10 +524,12 @@ namespace BS3D.Audio
         //The fanfare is its own instance so it is independent of the loop: Stop() silences the level's theme
         //without cutting off the piece that is announcing the result.
         /// <summary>
-        /// What a fanfare rolled for itself, so something else can play <b>in tune with it</b> (#158). The
-        /// result screen's star chime needs this and nothing else does: it sounds while the fanfare is still
-        /// going, and a fixed-pitch chime is only in tune when the piece happens to have rolled the one key it
-        /// was baked in.
+        /// What a fanfare is built from, so something else can play <b>in tune with it</b> (#158). The result
+        /// screen's star chime needs this and nothing else does: it sounds while the fanfare is still going,
+        /// and a fixed-pitch chime is only in tune when it agrees with the key the piece was baked in. The
+        /// two shapes are authored constants since #229 — this remains a value passed about rather than a
+        /// constant read where it is needed, because the piece and whatever plays along with it must not be
+        /// able to disagree.
         /// </summary>
         public readonly struct FanfareShape
         {
@@ -485,7 +560,7 @@ namespace BS3D.Audio
         /// distinction is the whole of #158's fix. The piece is synthesized on a background thread and takes
         /// <i>seconds</i> on a weak machine — measured at over three here — while the result screen opens on
         /// the frame the level cleared. Anything that waited for the sound before deciding what to play with
-        /// it would wait longer than the player will, so the key is rolled up front and only the beat grid
+        /// it would wait longer than the player will, so the shape is known up front and only the beat grid
         /// needs the audio.
         /// </para>
         /// </summary>
@@ -506,15 +581,15 @@ namespace BS3D.Audio
         private SoundEffect _fanfareTrack;
         private SoundEffectInstance _fanfare;
 
-        //The front end's piece (#46). Unlike the theme it is LOOPED rather than regenerated: the menu is
-        //visited for moments rather than minutes, so endless variation buys nothing there — the seam is made
-        //inaudible at bake time instead (see BakeMenu). Baked once per run, so no two runs share a lobby.
+        //The front end's piece (#46). Unlike the themes it is LOOPED by the framework rather than fed through
+        //a chain: the menu is visited for moments rather than minutes, and its seam is made inaudible at bake
+        //time instead (see BakeMenu). Rendered once, like every other piece here.
         private Task<float[]> _menuBake;
         private SoundEffect _menuTrack;
         private SoundEffectInstance _menu;
         private bool _menuWanted;
 
-        /// <summary>True while a pass is actually sounding.</summary>
+        /// <summary>True while a piece is actually sounding.</summary>
         public bool IsPlaying => _voice != null && _voice.State == SoundState.Playing;
 
         /// <summary>
@@ -545,59 +620,67 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// Starts synthesizing a first pass of <b>every</b> composition at once, on background threads. Minutes
-        /// of PCM is seconds of arithmetic, and doing it on the loading thread would be seconds of a black
-        /// window; nothing asks for a pass until a level is built, which is several menus later — and that same
-        /// argument is why the second piece is baked here too rather than when a level first asks for it. The
-        /// player reaches level two several minutes in; its pass has been ready since the splash.
-        /// </summary>
-        /// <param name="seed">
-        /// Fixed only for testing — left null the music is different every run, which is the point of it.
-        /// </param>
-        public ProceduralMusic(int? seed = null)
-        {
-            _seeds = seed.HasValue ? new Random(seed.Value) : new Random();
-
-            for (int theme = 0; theme < THEME_COUNT; theme++) _next[theme] = StartBake((MusicTheme)theme);
-
-            //The menu piece bakes alongside them — it is the one wanted first, at the splash, and it is a
-            //fraction of a theme's arithmetic, so it is ready well inside the menu's first seconds.
-            int menuSeed = _seeds.Next();
-            _menuBake = Task.Run(() => BakeMenu(menuSeed));
-        }
-
-        /// <summary>
-        /// Starts a pass of one named composition. The theme is a parameter rather than read off
-        /// <see cref="_theme"/> inside the task, so a bake cannot be retargeted by a change of theme that
-        /// happens while it runs.
-        /// </summary>
-        private Task<float[]> StartBake(MusicTheme theme)
-        {
-            int seed = _seeds.Next();
-
-            return Task.Run(() => theme switch
-            {
-                MusicTheme.Bohemia => BakeBohemia(seed),
-                MusicTheme.Nocturne => BakeJazz(seed),
-                MusicTheme.Mural => BakeMural(seed),
-                MusicTheme.Ember => BakeEmber(seed),
-                _ => Bake(seed),
-            });
-        }
-
-        /// <summary>
-        /// Which composition the next pass is rendered from (#120). Called from the level's own install, so a
-        /// level set alternates pieces rather than replaying one for an evening.
+        /// Renders <b>every</b> composition at once, on background threads, and keeps each one. Minutes of PCM
+        /// is seconds of arithmetic, and doing it on the loading thread would be seconds of a black window;
+        /// nothing asks for a piece until a level is built, which is several menus later, so all five are
+        /// ready long before the first of them is wanted.
         /// <para>
-        /// The <b>sounding</b> chain is dropped: its passes belong to the piece that was playing, and letting
-        /// it run on would play the previous level's piece for minutes. Dropped by a <b>fade</b> since #211
-        /// rather than on the spot — a change of piece is a replacement, so the old one leaves under the new
-        /// one's prelude instead of being cut mid-chorus (see <see cref="_retiring"/>). What is <b>not</b> dropped
-        /// is the pass baking for the other composition (see <see cref="_next"/>): each has a slot of its
-        /// own, so the piece this level wants is normally already in hand and <see cref="Update"/> builds the
-        /// new chain from it the same frame. It is only ever silent here if the pass has not finished baking,
-        /// which after the first level of a session cannot happen — the one for this piece has been rendering
-        /// since the last boundary.
+        /// Since #229 this is the <b>only</b> synthesis a session does. Each piece is one authored rendering
+        /// that is then played over and over, so a level boundary costs nothing at all where it used to start
+        /// a fresh two-minute bake — and the five buffers held here are the whole of the music's memory, half
+        /// what the same five cost as floats.
+        /// </para>
+        /// </summary>
+        public ProceduralMusic()
+        {
+            for (int theme = 0; theme < THEME_COUNT; theme++) _pieces[theme] = StartRender((MusicTheme)theme);
+
+            //The menu piece renders alongside them — it is the one wanted first, at the splash, and it is a
+            //fraction of a theme's arithmetic, so it is ready well inside the menu's first seconds.
+            _menuBake = Task.Run(BakeMenu);
+        }
+
+        /// <summary>
+        /// Renders one named composition on a background thread, as the 16-bit PCM the voice is fed. The
+        /// theme is a parameter rather than read off <see cref="_theme"/> inside the task, so a render cannot
+        /// be retargeted by a change of theme that happens while it runs.
+        /// <para>
+        /// The float-to-PCM conversion goes in here with it deliberately: the game submits this buffer once
+        /// every couple of minutes for the rest of the session, and converting thirteen million samples on
+        /// the frame that submits them was a hitch paid for again and again for a result that never changed.
+        /// </para>
+        /// </summary>
+        private static Task<byte[]> StartRender(MusicTheme theme) => Task.Run(() => ToPcm(Render(theme)));
+
+        /// <summary>
+        /// Renders one composition to raw interleaved float PCM. The one door into the scores: the game asks
+        /// through <see cref="StartRender"/> and <c>Tools/MusicBake</c> asks straight, so what the tool
+        /// measures and writes to a .wav is the same arithmetic the game plays, not a second copy of this
+        /// switch.
+        /// </summary>
+        internal static float[] Render(MusicTheme theme) => theme switch
+        {
+            MusicTheme.Bohemia => BakeBohemia(),
+            MusicTheme.Nocturne => BakeJazz(),
+            MusicTheme.Mural => BakeMural(),
+            MusicTheme.Ember => BakeEmber(),
+            _ => Bake(),
+        };
+
+        /// <summary>The front end's piece, through the same door.</summary>
+        internal static float[] RenderMenu() => BakeMenu();
+
+        /// <summary>
+        /// Which composition plays (#120). Called from the level's own install, so a level set alternates
+        /// pieces rather than replaying one for an evening.
+        /// <para>
+        /// The <b>sounding</b> chain is dropped: what is queued on it belongs to the piece that was playing,
+        /// and letting it run on would play the previous level's piece for minutes. Dropped by a <b>fade</b>
+        /// since #211 rather than on the spot — a change of piece is a replacement, so the old one leaves
+        /// under the new one's opening instead of being cut mid-chorus (see <see cref="_retiring"/>). The
+        /// arriving piece is simply in hand: every one of them was rendered at construction and none is ever
+        /// rendered again (#229), so <see cref="Update"/> builds the new chain the same frame. It can only be
+        /// silent here inside the first seconds of a session, before the renders have landed.
         /// </para>
         /// </summary>
         public void SetTheme(MusicTheme theme)
@@ -606,15 +689,11 @@ namespace BS3D.Audio
 
             _theme = theme;
 
-            //Only if nothing is already baking for it: the pass rendered while the other piece was playing is
-            //exactly the one wanted here, and starting a second would throw it away and pay for it in silence.
-            _next[(int)theme] ??= StartBake(theme);
-
-            //The chain is retired rather than re-aimed: its queued passes belong to the theme it was built
-            //for, and the next Update builds a fresh one from this theme's ready pass. Retired and not
-            //disposed while it is actually sounding (#211), so the piece being left walks out under the
-            //arriving one; it keeps whatever fade a teardown had already put on it (Match), which is what
-            //stops a switch arriving mid-fade from jumping the old piece back up to full to fade it again.
+            //The chain is retired rather than re-aimed: what is queued on it is the piece it was built for,
+            //and the next Update builds a fresh one from this theme's. Retired and not disposed while it is
+            //actually sounding (#211), so the piece being left walks out under the arriving one; it keeps
+            //whatever fade a teardown had already put on it (Match), which is what stops a switch arriving
+            //mid-fade from jumping the old piece back up to full to fade it again.
             RetireVoice(THEME_FADE_SECONDS);
         }
 
@@ -691,11 +770,11 @@ namespace BS3D.Audio
         /// Stops the music <b>dead</b> — the level endings' stop, where the sudden silence is itself the
         /// message: the fireworks' reports land in it, and a dance track carrying on over a loss is the wrong
         /// feeling entirely. Anywhere one piece is merely being REPLACED by another, <see cref="FadeOut"/> is
-        /// the stop to call (#211). The pass baking behind it is kept — it becomes the next one played. The
-        /// chain is torn down with it, for the same reason <see cref="SetTheme"/> tears its own down: a
-        /// stopped chain's queue belongs to a moment that has passed, and <see cref="Play"/> starts a fresh
-        /// one from the pass in hand. Anything still walking out of an earlier switch goes with it, or "dead"
-        /// would be a half-truth on the one call whose whole point is the silence.
+        /// the stop to call (#211). The chain is torn down with it, for the same reason <see cref="SetTheme"/>
+        /// tears its own down: a stopped chain's queue belongs to a moment that has passed, and
+        /// <see cref="Play"/> starts a fresh one from the piece, which is always in hand. Anything still
+        /// walking out of an earlier switch goes with it, or "dead" would be a half-truth on the one call
+        /// whose whole point is the silence.
         /// </summary>
         public void Stop()
         {
@@ -743,7 +822,7 @@ namespace BS3D.Audio
             }
             else
             {
-                //An ARRIVAL: a fully-faded stop rewound the loop, so this restarts it at its head — a pass
+                //An ARRIVAL: a fully-faded stop rewound the loop, so this restarts it at its head — a piece
                 //with a beginning, which opens at full like every other beginning here. Without the reset it
                 //would open at the fade's leftover zero and ramp in on every return to the menu after the
                 //first.
@@ -807,29 +886,21 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// Rolls a fanfare's key and tempo off <paramref name="random"/>, which the bake then carries on with.
-        /// It is one method rather than a copy in each baker because the two must not drift: the shape handed
-        /// to whatever plays along with the piece has to be the shape the piece was actually built from.
+        /// The two announcements' authored shapes (#229). Both were rolled per result — a key out of three or
+        /// four and a tempo out of a band, so that two wins in a row were not the same piece. They are frozen
+        /// for the reason every other piece in this file is, and with the least regret of any of them: a win
+        /// jingle is a thing a player comes to KNOW, and one that is slightly different every time is the one
+        /// kind of variety nobody asked for. What still moves with the run is the piece's LENGTH and its
+        /// density, taken off the score in <see cref="StartFanfare"/> — an answer to what the player did
+        /// rather than a roll.
+        /// <para>
+        /// The victory is C major up where the supersaw shines, at the theme's own tempo. The defeat is a
+        /// fifth under it and two octaves down, at half that tempo — inside the 60–80 band of a resting
+        /// heartbeat, which is where a piece that has to feel like it is running out belongs.
+        /// </para>
         /// </summary>
-        private static FanfareShape RollFanfare(Random random, bool victory)
-        {
-            if (victory)
-            {
-                //The theme's own tempo band, rolled so two wins in a row are not the same piece, and MAJOR
-                //up where the supersaw shines.
-                float bpm = 128f + (float)random.NextDouble() * 14f;
-                int[] roots = { 57, 60, 62 };   //A3, C4, D4
-
-                return new FanfareShape(roots[random.Next(roots.Length)], bpm, victory: true);
-            }
-
-            //Slow. Half the theme's tempo and less: the piece has to feel like it is running out, and low —
-            //lower than the victory's.
-            float defeatBpm = 62f + (float)random.NextDouble() * 12f;
-            int[] defeatRoots = { 45, 43, 41, 40 };   //A2, G2, F2, E2
-
-            return new FanfareShape(defeatRoots[random.Next(defeatRoots.Length)], defeatBpm, victory: false);
-        }
+        private static readonly FanfareShape VICTORY_SHAPE = new(60, 135f, victory: true);    //C4
+        private static readonly FanfareShape DEFEAT_SHAPE = new(43, 68f, victory: false);     //G2
 
         private void StartFanfare(int score, bool victory, bool grand = false)
         {
@@ -839,39 +910,37 @@ namespace BS3D.Audio
             //is a stated constant rather than anything derived — see FANFARE_FULL_SCORE. A grand fanfare skips
             //the weighing entirely and takes the top of the same scale — see PlayVictory.
             float intensity = grand ? 1f : MathHelper.Clamp(score / (float)FANFARE_FULL_SCORE, 0f, 1f);
-            int seed = _seeds.Next();
 
-            //On a background thread, like the track: a fanfare is only a few seconds of PCM, but this fires on
-            //the exact frame a level ends — which is also the frame the camera is released, the fireworks
-            //start and the result screen is being built — and that is the last moment to spend on synthesis.
-            //The key and tempo are rolled HERE, on the calling thread, and only the rendering goes to the
-            //background — so anything that has to agree with this piece can know what it is immediately
-            //rather than waiting seconds for the audio (#158). The same Random then carries on inside the
-            //bake, so the rest of the piece rolls exactly as it did when these two were rolled in there.
-            Random random = new(seed);
-            FanfareShape shape = RollFanfare(random, victory);
+            //Known before a sample of it exists, which is the whole reason the shape is a value and not
+            //something read back off the bake (#158): the result screen's star chime sounds while the fanfare
+            //is still going and has to be in its key, and it cannot wait seconds for the audio. That used to
+            //be an argument for rolling the key on the calling thread; with the shape authored it is simply a
+            //constant, and the argument survives only as the reason this line stands above the bake.
+            FanfareShape shape = victory ? VICTORY_SHAPE : DEFEAT_SHAPE;
 
             _fanfareShape = shape;
             _fanfareShapeKnown = true;
 
+            //On a background thread, like the pieces: a fanfare is only a few seconds of PCM, but this fires
+            //on the exact frame a level ends — which is also the frame the camera is released, the fireworks
+            //start and the result screen is being built — and that is the last moment to spend on synthesis.
             _fanfareBake = Task.Run(() =>
             {
                 float[] pcm = victory
-                    ? BakeVictory(random, intensity, shape)
-                    : BakeDefeat(random, intensity, shape);
+                    ? BakeVictory(intensity, shape)
+                    : BakeDefeat(intensity, shape);
 
                 return (pcm, shape);
             });
         }
 
         /// <summary>
-        /// Called once a frame. Its whole job is the feed: the chain plays <b>pass after pass</b>, each one
-        /// submitted to the voice's queue while the one before it is still sounding, and what the frame does
-        /// is hand over the pass whose bake finished. That is what makes the music genuinely endless rather
-        /// than a loop that repeats: the player never hears the same two minutes twice — and since #212 they
-        /// do not hear the join either, because XAudio2 starts the queued pass the sample the sounding one
-        /// ends, where the old per-frame <c>State</c> poll could only notice a finished pass on the frame
-        /// after it and leave a frame or two of dead air in the gap (#212's whole complaint).
+        /// Called once a frame. Its whole job is the feed: the sounding piece is put on the voice's queue
+        /// again while it is still playing, so the repeat is seamless — XAudio2 starts the queued buffer the
+        /// sample the sounding one ends, where the old per-frame <c>State</c> poll could only notice a
+        /// finished playing on the frame after it and leave a frame or two of dead air in the gap (#212's
+        /// whole complaint). It also realizes the front end's loop and the fanfares the frame their synthesis
+        /// lands, and walks the switches' fades.
         /// </summary>
         /// <param name="elapsed">
         /// The frame's wall-clock seconds, for the switches' fades (#211) — the host calls this above the
@@ -951,24 +1020,26 @@ namespace BS3D.Audio
                 return;
             }
 
-            //The feed: submit the finished pass onto the voice's queue, and only while fewer than two buffers
-            //sit on it — <see cref="DynamicSoundEffectInstance.PendingBufferCount"/> counts the sounding
-            //buffer too (buffers leave the queue when they FINISH, not when they start), so the gate's two
-            //are one playing and one held ahead of it, which is all the chain ever needs: a bake is seconds,
-            //a pass is minutes, and a third would be tens of MB paying for nothing. A pass whose bake lands
-            //while the queue is full simply waits in its slot; the frames after the sounding pass ends pick
-            //it up the moment the queue drains.
-            Task<float[]> next = _next[(int)_theme];
-            if (next != null && next.IsCompleted && _voice.PendingBufferCount < 2)
+            //The feed: put the piece on the voice's queue again, and only while fewer than two buffers sit on
+            //it — <see cref="DynamicSoundEffectInstance.PendingBufferCount"/> counts the sounding buffer too
+            //(buffers leave the queue when they FINISH, not when they start), so the gate's two are one
+            //playing and one held ahead of it. That is all the chain ever needs, and one ahead is what makes
+            //the repeat seamless: XAudio2 starts the queued buffer the sample the sounding one ends.
+            //
+            //It is the SAME buffer every time since #229 — the piece is one authored rendering, so a repeat
+            //is a repeat. The submit costs a copy of the PCM into the driver's own stream and nothing else;
+            //what used to be here as well was a fresh two-minute bake started per pass and a float-to-PCM
+            //conversion of it on this thread, both of which are gone.
+            Task<byte[]> piece = _pieces[(int)_theme];
+            if (piece != null && piece.IsCompleted && _voice.PendingBufferCount < 2)
             {
                 try
                 {
-                    _voice.SubmitBuffer(ToPcm(next.Result));
-                    _next[(int)_theme] = StartBake(_theme);
+                    _voice.SubmitBuffer(piece.Result);
                 }
                 catch (Exception exception)
                 {
-                    Console.WriteLine($"[music] the next pass could not be chained, playing on without it: {exception.Message}");
+                    Console.WriteLine($"[music] the piece could not be queued again, playing on without it: {exception.Message}");
                     _failed = true;
                 }
             }
@@ -1009,10 +1080,16 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// Builds the chain's head: a fresh voice with the theme's ready pass submitted onto it, the next
-        /// bake started behind that, and playback begun. Called from <see cref="Play"/> and from
-        /// <see cref="Update"/> while the chain's head does not exist yet; the passes after the first arrive
-        /// through <see cref="Update"/>'s feed, never through here.
+        /// Builds the chain's head: a fresh voice with this theme's piece submitted onto it, and playback
+        /// begun. Called from <see cref="Play"/> and from <see cref="Update"/> while the chain's head does not
+        /// exist yet; every repeat after the first arrives through <see cref="Update"/>'s feed, never here.
+        /// <para>
+        /// This is also the one place a level's <b>entry</b> into a piece lives (#201): the head starts at
+        /// <see cref="EntryOffset"/> rather than at the piece's first sample, so a level opens on the track
+        /// and not on its prelude. It belongs here and nowhere else because everything that reaches this
+        /// method is a level opening — a build, a retry, a switch of piece, a Continue out of the menu — and
+        /// everything that does not goes through the feed, which submits the piece whole.
+        /// </para>
         /// </summary>
         private void Advance()
         {
@@ -1021,26 +1098,29 @@ namespace BS3D.Audio
             //LoadLevelSet's is.
             try
             {
-                Task<float[]> next = _next[(int)_theme];
+                Task<byte[]> piece = _pieces[(int)_theme];
 
-                //The first pass is not in hand yet (its bake still running, which is only ever the first
-                //seconds of a session). Nothing to build from and nothing to replay — Update retries every
-                //frame and builds the chain the moment the bake lands.
-                if (next == null || !next.IsCompleted) return;
+                //Not rendered yet, which is only ever the first seconds of a session — every piece is put in
+                //hand at construction and none is ever rendered again. Nothing to build from: Update retries
+                //every frame and builds the chain the moment it lands.
+                if (piece == null || !piece.IsCompleted) return;
+
+                byte[] pcm = piece.Result;
+
+                //Clamped rather than trusted: an entry section past the end of its own arrangement would
+                //otherwise be an exception on the frame a level starts, which is the worst place in the
+                //program to learn that a constant was edited wrongly.
+                int entry = Math.Clamp(EntryOffset(_theme), 0, pcm.Length - BYTES_PER_FRAME);
 
                 DynamicSoundEffectInstance old = _voice;
 
                 _voice = new DynamicSoundEffectInstance(SAMPLE_RATE, AudioChannels.Stereo);
                 _voice.Volume = MUSIC_VOLUME * _gain;
-                _voice.SubmitBuffer(ToPcm(next.Result));
+                _voice.SubmitBuffer(pcm, entry, pcm.Length - entry);
 
                 //Disposed only once the replacement exists, so a failure part-way through leaves the
                 //previous chain intact and playable rather than leaving the game silent.
                 old?.Dispose();
-
-                //Into this composition's own slot, so it is the pass waiting when a level of this piece
-                //comes round again — which is the whole reason the slots are per theme.
-                _next[(int)_theme] = StartBake(_theme);
 
                 _voice.Play();
             }
@@ -1057,13 +1137,12 @@ namespace BS3D.Audio
         /// Renders the whole arrangement into one float buffer. Every voice writes into the same mix
         /// additively, and the lot is soft-limited at the end.
         /// </summary>
-        private static float[] Bake(int seed)
+        private static float[] Bake()
         {
-            Random random = new(seed);
-            Variation variation = new(random);
+            Score score = PULSE_SCORE;
 
-            float secondsPerStep = 60f / (variation.Bpm * STEPS_PER_BEAT);
-            int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
+            float secondsPerStep = 60f / (score.Bpm * STEPS_PER_BEAT);
+            int samplesPerStep = SamplesPerStep(score);
 
             int sectionOutro = ARRANGEMENT.Length - 1;
             int totalSteps = ARRANGEMENT.Length * STEPS_PER_SECTION;
@@ -1080,7 +1159,7 @@ namespace BS3D.Audio
                 int inBar = step % STEPS_PER_BAR;
 
                 int phrase = bar % 4;                                 //where in the four-bar progression
-                int chord = variation.Progression[phrase];
+                int chord = score.Progression[phrase];
 
                 int sectionIndex = bar / BARS_PER_SECTION;
                 Section section = ARRANGEMENT[sectionIndex];
@@ -1088,7 +1167,7 @@ namespace BS3D.Audio
                 float level = section.Level;
 
                 int[] arp = CHORD_ARP[chord];
-                int transpose = variation.Transpose;
+                int transpose = score.Transpose;
 
                 bool lastBar = barInSection == BARS_PER_SECTION - 1;
 
@@ -1161,9 +1240,11 @@ namespace BS3D.Audio
                 //big sections, because a sixteenth ride running under a breakdown is not a breakdown.
                 if (section.Ride) Hat(mix, at, open: false, level: 0.11f * level, pan: PAN_RIDE);
 
-                //Ghost snares on the off-beats, rolled per bar. This is the variation the ear notices least
-                //and misses most: it is what stops two identical bars sounding sequenced.
-                if (section.Clap && !introQuiet && inBar % 4 == 3 && random.NextDouble() < variation.Ghost)
+                //Ghost snares, the variation the ear notices least and misses most: it is what stops two
+                //identical bars sounding sequenced. Written as a two-bar figure since #229 — the last
+                //sixteenth of beat two on even bars, the last of beat four on odd ones, so the pair of bars
+                //answers itself — where it used to be a roll on four steps of every bar.
+                if (section.Clap && !introQuiet && (barInSection % 2 == 0 ? inBar == 7 : inBar == 15))
                     Snare(mix, at, 0.10f * level);
 
                 //A tom run under the last beat of every section: the ear needs telling that something is about
@@ -1189,9 +1270,11 @@ namespace BS3D.Audio
                     if (inBar % 4 == 2) Bass(mix, at, CHORD_ROOT[chord] + 12 + transpose, secondsPerStep * 1.7f, level);
                     if (inBar == 0) Bass(mix, at, CHORD_ROOT[chord] + transpose, secondsPerStep * 1.4f, level);
 
-                    //An occasional octave jump on the last sixteenth of a beat. Always the same note, always on
-                    //the grid — only its register is rolled for.
-                    if (inBar % 4 == 3 && random.NextDouble() < variation.Embellish * 0.6f)
+                    //The octave jump closing the second and fourth bar of the round: always the same note,
+                    //always on the grid, and now always in the same two places — it was rolled on all four of
+                    //a bar's off-sixteenths, at a density rolled per pass, until #229. A figure the ear can
+                    //learn is worth more to a bass line than a sprinkle it cannot.
+                    if (inBar == 15 && phrase % 2 == 1)
                         Bass(mix, at, CHORD_ROOT[chord] + 24 + transpose, secondsPerStep * 0.8f, level * 0.7f);
                 }
 
@@ -1207,9 +1290,10 @@ namespace BS3D.Audio
                 //ARPEGGIO ------------------------------------------------------------------------------
                 if (section.Arp)
                 {
+                    //Up and back down the chord, as Pulse's runs — the two pieces share the floor, so they
+                    //share its figure, the direction included (#229).
                     int arpStep = inBar % 8;
                     int index = arpStep < 4 ? arpStep : 7 - arpStep;
-                    if (variation.ArpDown) index = 3 - index;
 
                     //Ping-ponged on alternate sixteenths (#119): the arp never stops, so this is what keeps
                     //the image moving through the melody's rests rather than only under its notes.
@@ -1259,10 +1343,11 @@ namespace BS3D.Audio
                             Arp(mix, at, arp[note.Tone] + note.Octave + transpose,
                                 secondsPerStep * (note.Length + 0.4f), 0.13f * level);
 
-                //An embellishment: one extra chord tone on a step the written line leaves empty. Because it is
-                //drawn from the chord and placed on the grid, it can only ever sound like part of the tune —
-                //which is the rule the whole variation scheme runs on.
-                if (!isChorus && inBar == 6 && random.NextDouble() < variation.Embellish)
+                //An embellishment: one extra chord tone on a step the written line leaves empty, on the third
+                //bar of the round — where a four-bar sentence turns towards its answer. Because it is drawn
+                //from the chord and placed on the grid, it can only ever sound like part of the tune. It was
+                //a roll on every verse bar until #229 authored the placement instead of its density.
+                if (!isChorus && inBar == 6 && phrase == 2)
                     Lead(mix, at, arp[3] + 12 + transpose, secondsPerStep * 1.2f, 0.24f * level);
             }
 
@@ -1374,7 +1459,7 @@ namespace BS3D.Audio
 
         //TWELVE sections against Pulse's nine, and the extra three are the reason this exists: a statement
         //before the floor arrives, a second subject in the middle, and a coda that brings it back. Roughly
-        //3:20 a pass at the tempi below.
+        //3:19 at the tempo below.
         //
         //                                   kick  half   clap  hats  ride  bass   arp   pad   str  brass timp  roll  part                    bowed  level
         private static readonly BohemiaSection[] BOHEMIA_ARRANGEMENT =
@@ -1412,33 +1497,15 @@ namespace BS3D.Audio
         };
 
         /// <summary>
-        /// What one rendering of <see cref="MusicTheme.Bohemia"/> rolls for itself. The same rule as
-        /// <see cref="Variation"/> — random parameters, never random notes — at a slower band of tempi, because
-        /// a piece carrying held string chords and a tuned drum needs the room and reads as grand at a speed
-        /// where it would read as merely slow without them.
+        /// Bohemia's authored score (#229). 116 sits in the middle of the 112–122 it used to roll inside and
+        /// is what its documented ~3:20 length is measured at — a slower band than the dance floor's, because
+        /// a piece carrying held string chords and a tuned drum needs the room, and reads as grand at a speed
+        /// where without them it would read as merely slow. D Dorian is the mode the whole piece is named for,
+        /// and the progression is the climb: i ♭III ♭VI ♭VII, the one the arch was written over. A level comes
+        /// in on section 2, the verse, where the floor arrives whole (#201) — the intro's timpani and the
+        /// bowed statement above it are the piece's own opening.
         /// </summary>
-        private readonly struct BohemiaVariation
-        {
-            public readonly float Bpm;
-            public readonly int Transpose;
-            public readonly int[] Progression;
-            public readonly bool ArpDown;
-            public readonly float Embellish;
-            public readonly float Flam;      //chance of a grace note ahead of a timpani stroke
-
-            public BohemiaVariation(Random random)
-            {
-                Bpm = 112f + (float)random.NextDouble() * 10f;
-
-                int[] keys = { -3, -2, 0, 0, 2, 3, 5 };
-                Transpose = keys[random.Next(keys.Length)];
-
-                Progression = BOHEMIA_PROGRESSIONS[random.Next(BOHEMIA_PROGRESSIONS.Length)];
-                ArpDown = random.NextDouble() < 0.35;
-                Embellish = 0.16f + (float)random.NextDouble() * 0.20f;
-                Flam = 0.18f + (float)random.NextDouble() * 0.24f;
-            }
-        }
+        private static readonly Score BOHEMIA_SCORE = new(116f, 0, BOHEMIA_PROGRESSIONS[0], entrySection: 2);
 
         /// <summary>
         /// Renders <see cref="MusicTheme.Bohemia"/>: the second level theme (#120), a modal piece with a real
@@ -1451,13 +1518,12 @@ namespace BS3D.Audio
         /// hand, not a second soundtrack.
         /// </para>
         /// </summary>
-        private static float[] BakeBohemia(int seed)
+        private static float[] BakeBohemia()
         {
-            Random random = new(seed);
-            BohemiaVariation variation = new(random);
+            Score score = BOHEMIA_SCORE;
 
-            float secondsPerStep = 60f / (variation.Bpm * STEPS_PER_BEAT);
-            int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
+            float secondsPerStep = 60f / (score.Bpm * STEPS_PER_BEAT);
+            int samplesPerStep = SamplesPerStep(score);
 
             int sectionOutro = BOHEMIA_ARRANGEMENT.Length - 1;
             int totalSteps = BOHEMIA_ARRANGEMENT.Length * STEPS_PER_SECTION;
@@ -1471,7 +1537,7 @@ namespace BS3D.Audio
                 int inBar = step % STEPS_PER_BAR;
 
                 int phrase = bar % 4;
-                int chord = variation.Progression[phrase];
+                int chord = score.Progression[phrase];
 
                 int sectionIndex = bar / BARS_PER_SECTION;
                 BohemiaSection section = BOHEMIA_ARRANGEMENT[sectionIndex];
@@ -1479,7 +1545,7 @@ namespace BS3D.Audio
 
                 int[] arp = BOHEMIA_ARP[chord];
                 int root = BOHEMIA_ROOT[chord];
-                int transpose = variation.Transpose;
+                int transpose = score.Transpose;
 
                 bool lastBar = barInSection == BARS_PER_SECTION - 1;
 
@@ -1509,10 +1575,12 @@ namespace BS3D.Audio
                 //pitched drum and Pulse does not.
                 if (section.Timp && inBar == 0)
                 {
-                    //A grace note a sixteenth ahead of the stroke, rolled per bar. A flam is what a timpanist
-                    //does instead of playing a bar-line exactly, and it is the one thing that stops a drum on
-                    //every downbeat sounding like a metronome with a pitch.
-                    if (random.NextDouble() < variation.Flam && at >= samplesPerStep)
+                    //A grace note a sixteenth ahead of the stroke, on the first bar of every four-bar round.
+                    //A flam is what a timpanist does instead of playing a bar-line exactly, and it is the one
+                    //thing that stops a drum on every downbeat sounding like a metronome with a pitch; at the
+                    //top of the round it is also where the player would lean in. It was rolled per bar until
+                    //#229, at a density rolled per pass over that.
+                    if (phrase == 0 && at >= samplesPerStep)
                         Timpani(mix, at - samplesPerStep, root - 12 + transpose, 0.22f * level);
 
                     Timpani(mix, at, root - 12 + transpose, 0.62f * level);
@@ -1545,7 +1613,10 @@ namespace BS3D.Audio
                     if (inBar % 4 == 2) Bass(mix, at, root + 12 + transpose, secondsPerStep * 1.7f, level);
                     if (inBar == 0) Bass(mix, at, root + transpose, secondsPerStep * 1.4f, level);
 
-                    if (inBar % 4 == 3 && random.NextDouble() < variation.Embellish * 0.6f)
+                    //The octave jump on the bar's last sixteenth, closing the second and fourth bar of the
+                    //round — the same figure Pulse's bass plays, in a piece that shares its floor. Rolled on
+                    //all four of a bar's off-sixteenths until #229; the ear can learn this one.
+                    if (inBar == 15 && phrase % 2 == 1)
                         Bass(mix, at, root + 24 + transpose, secondsPerStep * 0.8f, level * 0.7f);
                 }
 
@@ -1579,9 +1650,11 @@ namespace BS3D.Audio
                 //ARPEGGIO ------------------------------------------------------------------------------
                 if (section.Arp)
                 {
+                    //Up and back down the chord, and UP is the whole of it: running the four notes reversed
+                    //was the other side of a coin the pass tossed, which is a different figure over the same
+                    //chord and belongs to a piece that chooses it (#229).
                     int arpStep = inBar % 8;
                     int index = arpStep < 4 ? arpStep : 7 - arpStep;
-                    if (variation.ArpDown) index = 3 - index;
 
                     //Ping-ponged as Pulse's is — the same figure wants the same treatment in both pieces
                     Arp(mix, at, arp[index] + 12 + transpose, secondsPerStep * 0.9f, 0.13f * level,
@@ -1639,9 +1712,10 @@ namespace BS3D.Audio
                     }
                 }
 
-                //One extra chord tone in the gap the verse leaves, on the grid and drawn from the chord — the
-                //same rule the whole variation scheme runs on.
-                if (section.Part == BohemiaPart.Verse && inBar == 6 && random.NextDouble() < variation.Embellish)
+                //One extra chord tone in the gap the verse leaves, on the grid and drawn from the chord, on
+                //the THIRD bar of the round — where a four-bar sentence turns towards its answer. It was a
+                //roll on every verse bar until #229.
+                if (section.Part == BohemiaPart.Verse && inBar == 6 && phrase == 2)
                     Lead(mix, at, arp[3] + 12 + transpose, secondsPerStep * 1.2f, 0.22f * level);
             }
 
@@ -1764,30 +1838,14 @@ namespace BS3D.Audio
         };
 
         /// <summary>
-        /// What one rendering of <see cref="MusicTheme.Nocturne"/> rolls. The same rule as the other two —
-        /// random parameters, never random notes — at the slowest tempi in the set, because swung eighths at
-        /// a dance tempo stop swinging and start sounding merely early.
+        /// Nocturne's authored score (#229). 96 is the middle of the 88–104 it used to roll inside, and the
+        /// slowest tempo in the set by design: swung eighths at a dance tempo stop swinging and start sounding
+        /// merely early. C major is the key its chord tables are written in, and the progression is the ii-V-I
+        /// stated plainly — the sentence the whole idiom is built on, and the right one for the piece to be
+        /// KNOWN by now that it is only ever played one way. A level comes in on section 2, the first head:
+        /// the trio playing the tune, where the two before it are the comping and the walk arriving (#201).
         /// </summary>
-        private readonly struct JazzVariation
-        {
-            public readonly float Bpm;
-            public readonly int Transpose;
-            public readonly int[] Progression;
-            public readonly float Embellish;
-
-            public JazzVariation(Random random)
-            {
-                Bpm = 88f + (float)random.NextDouble() * 16f;   //88-104
-
-                //Whole tones and minor thirds only, the rule Pulse states: a random semitone would put two
-                //passes a half-step apart, the one interval that sounds like a mistake rather than a key.
-                int[] steps = { -3, -2, 0, 2, 3 };
-                Transpose = steps[random.Next(steps.Length)];
-
-                Progression = JAZZ_PROGRESSIONS[random.Next(JAZZ_PROGRESSIONS.Length)];
-                Embellish = 0.3f + (float)random.NextDouble() * 0.4f;
-            }
-        }
+        private static readonly Score JAZZ_SCORE = new(96f, 0, JAZZ_PROGRESSIONS[0], entrySection: 2);
 
         /// <summary>
         /// How late a swung off-beat eighth lands, as a fraction of a sixteenth. <b>This is the single thing
@@ -1832,17 +1890,16 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// Nocturne (#162): smooth jazz — a trio playing sevenths on a swung grid. Nine sections, ~3:00 a pass.
+        /// Nocturne (#162): smooth jazz — a trio playing sevenths on a swung grid. Nine sections, ~3:00 long.
         /// It shares every instrument with the other two pieces except the bass, and that one exception is the
         /// point: a dance bass is a saw held through a filter, and a walking bass is <i>plucked</i>.
         /// </summary>
-        private static float[] BakeJazz(int seed)
+        private static float[] BakeJazz()
         {
-            Random random = new(seed);
-            JazzVariation variation = new(random);
+            Score score = JAZZ_SCORE;
 
-            float secondsPerStep = 60f / (variation.Bpm * STEPS_PER_BEAT);
-            int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
+            float secondsPerStep = 60f / (score.Bpm * STEPS_PER_BEAT);
+            int samplesPerStep = SamplesPerStep(score);
 
             int sectionOutro = JAZZ_ARRANGEMENT.Length - 1;
             int totalSteps = JAZZ_ARRANGEMENT.Length * STEPS_PER_SECTION;
@@ -1857,8 +1914,8 @@ namespace BS3D.Audio
                 int inBar = step % STEPS_PER_BAR;
 
                 int phrase = bar % 4;
-                int chord = variation.Progression[phrase];
-                int nextChord = variation.Progression[(phrase + 1) % 4];
+                int chord = score.Progression[phrase];
+                int nextChord = score.Progression[(phrase + 1) % 4];
 
                 int sectionIndex = bar / BARS_PER_SECTION;
                 JazzSection section = JAZZ_ARRANGEMENT[sectionIndex];
@@ -1866,7 +1923,7 @@ namespace BS3D.Audio
 
                 int[] arp = JAZZ_ARP[chord];
                 int root = JAZZ_ROOT[chord];
-                int transpose = variation.Transpose;
+                int transpose = score.Transpose;
 
                 float fade = sectionIndex == sectionOutro
                     ? 1f - (barInSection * STEPS_PER_BAR + inBar) / (float)STEPS_PER_SECTION
@@ -1916,9 +1973,11 @@ namespace BS3D.Audio
                             pan: ChordPan(voice, arp.Length, PAN_PAD_SPREAD));
                 }
 
-                //An extra stab on the "and" of four, rolled per pass — the one place this piece is allowed to
-                //be busy, and it is what stops eight bars of comping being eight identical bars.
-                if (section.Comp && inBar == 14 && random.NextDouble() < variation.Embellish)
+                //An extra stab on the "and" of four, on the second and fourth bar of the round — the one
+                //place this piece is allowed to be busy, and it is what stops eight bars of comping being
+                //eight identical bars. A comper answers the phrase's ends, so it goes where a phrase ends;
+                //it was a roll on every bar at a rolled density until #229, which put it anywhere.
+                if (section.Comp && inBar == 14 && phrase % 2 == 1)
                 {
                     for (int voice = 0; voice < arp.Length; voice++)
                         Keys(mix, at, arp[voice] + transpose - 12, secondsPerStep * 2.5f, 0.06f * level,
@@ -1997,10 +2056,10 @@ namespace BS3D.Audio
         };
 
         //The ninth of each chord, for the pad alone; -1 where it is not diatonic (Bm's would be C#), and the
-        //pad simply plays that chord plain — which is what keeps the roll's five progressions interchangeable.
+        //pad simply plays that chord plain — which is what keeps the five progressions interchangeable.
         private static readonly int[] MURAL_NINTH = { 69, 74, 76, 78, 71, -1 };
 
-        //Every one opens on G, so the riff and the melodies fit all five without knowing which was rolled,
+        //Every one opens on G, so the riff and the melodies fit all five without knowing which was chosen,
         //and four of the five end on D, the dominant, resolving onto the G at the top of the round — a
         //four-bar loop that cadences rather than restarts (Bohemia's lesson). The third ends plagally on C,
         //kept for variety: the one round that leans home instead of walking there.
@@ -2025,8 +2084,8 @@ namespace BS3D.Audio
         //THE RIFF, the piece's hook: the double tresillo, with Tone indexing MURAL_RIFF_INTERVAL rather than
         //a chord arp. The verse states it grounded; the chorus leaps to the octave, which is the lift — the
         //same contrast every verse/chorus pair in this file is written on, played by the bass because here
-        //the bass is the singer. The bar's CLOSING gesture (step 14) is not in these arrays: it is rolled —
-        //see MURAL_TAIL_* and the push in the bake.
+        //the bass is the singer. The bar's CLOSING gesture (step 14) is not in these arrays — see
+        //MURAL_TAIL_DOWN and the push in the bake.
         private static readonly Note[] MURAL_RIFF_VERSE =
         {
             new(0, 0, 0, 3), new(3, 0, 0, 3), new(6, 1, 0, 2), new(8, 0, 0, 2), new(11, 1, 0, 3)
@@ -2037,16 +2096,16 @@ namespace BS3D.Audio
             new(0, 0, 0, 3), new(3, 2, 0, 3), new(6, 1, 0, 2), new(8, 0, 0, 2), new(11, 2, 0, 3)
         };
 
-        //Two authored closing gestures, swapped per pass (the ArpDown analogue): the fifth stepping down into
-        //the next root, or the octave thrown up off it. Variety in the hook's last word, no random note.
+        //The bar's closing gesture: the fifth stepping down into the next root. It is not in the riff arrays
+        //because it alternates with the PUSH — see the bake, where the round closes two bars by stepping home
+        //and two by sliding there.
         private static readonly Note[] MURAL_TAIL_DOWN = { new(14, 1, 0, 2) };
-        private static readonly Note[] MURAL_TAIL_UP = { new(14, 2, 0, 2) };
 
         //THE VERSE, answered from above: a marimba speaking in the cells the riff leaves empty. The bass owns
         //0-3-6 / 8-11-14; the answer lives between them, so tune and groove interlock rather than compete —
         //the oom-pah's division of labour, kept from the piece this replaced because it was the one thing
         //about it that worked. One CALL cell and one ANSWER cell, a bar each, the answer landing on the root;
-        //which of the two states first is rolled per pass.
+        //the call states first.
         private static readonly Note[] MURAL_CALL =
         {
             new(2, 2, 0, 1), new(5, 3, 0, 1), new(7, 2, 0, 2), new(13, 1, 0, 2)
@@ -2107,7 +2166,7 @@ namespace BS3D.Audio
             }
         }
 
-        //Nine sections, ~2:45 a pass, and the arc is the idiom's own: the bass introduces itself before any
+        //Nine sections, 2:42, and the arc is the idiom's own: the bass introduces itself before any
         //tune does, and the piece's one rare event is the bass left ALONE — where Pulse's shock borrows a
         //chord from outside, Mural's is its own most characteristic voice with everything else stripped away.
         //
@@ -2126,7 +2185,7 @@ namespace BS3D.Audio
             //3 CHORUS. The hook on the Keys with the marimba an octave over it, the riff leaping to octaves,
             //the shaker doubling to sixteenths, the pad's ninth underneath: the lift is what plays, not a dial.
             new(true,  true,  true,  true,  true,  true,  false, true,  true,  MuralPart.Hook,     false, 1.00f),
-            //4 VERSE, denser by the roll (rim knocks, embellished answers) rather than by parts.
+            //4 VERSE, denser by its ornaments (rim knocks, embellished answers) rather than by parts.
             new(true,  true,  true,  false, true,  false, false, false, false, MuralPart.Verse,    false, 0.90f),
             //5 CHORUS.
             new(true,  true,  true,  true,  true,  true,  false, true,  true,  MuralPart.Hook,     false, 1.00f),
@@ -2172,54 +2231,36 @@ namespace BS3D.Audio
         private const float PAN_MARIMBA_ANSWER = 0.30f;
 
         /// <summary>
-        /// What one rendering of <see cref="MusicTheme.Mural"/> rolls. The band is the set's one true tempo
-        /// gap — Nocturne tops out at 104 and Bohemia starts at 112 — and it is narrow because the groove
-        /// blurs above it and sags below it; the felt pulse is the half-bar sway at ~52–56, the heartbeat
-        /// register, while the shaker keeps the sixteenths danceable.
+        /// Mural's authored score (#229). 108 is the middle of the 104–112 band it used to roll inside, and
+        /// that band is the set's one true tempo gap — Nocturne tops out at 104 and Bohemia starts at 112. It
+        /// is narrow because the groove blurs above it and sags below it; the felt pulse is the half-bar sway
+        /// at 54, the heartbeat register, while the shaker keeps the sixteenths danceable.
+        /// <para>
+        /// G major, its own key: the transpose pool reached down to E1 at 41 Hz, still inside the window
+        /// <see cref="SubBass"/> proved audible, but the riff's registers were written here. The progression
+        /// is the doo-wop turn, the sunniest of the five and the one the savanna daylight this piece plays
+        /// under asks for; it ends on the dominant, so the four-bar round cadences home rather than restarts.
+        /// </para>
+        /// <para>
+        /// A level comes in on section 2, the first verse — the marimba answering the riff over the whole
+        /// kit. This is the piece #201 was filed against: its prelude is pad and a marimba sentence with no
+        /// riff and no kit under it, and its groove-in carries no tune, so the piece did not speak for 36 s
+        /// of a level. Nothing about it is cut; a level simply opens where the piece is playing.
+        /// </para>
         /// </summary>
-        private readonly struct MuralVariation
-        {
-            public readonly float Bpm;
-            public readonly int Transpose;
-            public readonly int[] Progression;
-            public readonly bool TailUp;        //the riff's closing gesture: octave up, or fifth stepping down
-            public readonly bool CallLeads;     //which half of the verse motif states first
-            public readonly bool PushAccents;   //the shaker leans a sixteenth ahead of the off-beats
-            public readonly float Glide;        //chance per bar that the tail SLIDES into the next bar's root
-            public readonly float Embellish;    //chance of an extra answer note in a verse bar
-            public readonly float Knock;        //chance of the rim knock on step 7
-
-            public MuralVariation(Random random)
-            {
-                Bpm = 104f + (float)random.NextDouble() * 8f;
-
-                //Whole tones and minor thirds only, the rule Pulse states. -3 puts the lowest root at E1,
-                //41 Hz — still inside the window SubBass proved audible through its harmonic ladder.
-                int[] steps = { -3, -2, 0, 0, 2, 3 };
-                Transpose = steps[random.Next(steps.Length)];
-
-                Progression = MURAL_PROGRESSIONS[random.Next(MURAL_PROGRESSIONS.Length)];
-                TailUp = random.NextDouble() < 0.5;
-                CallLeads = random.NextDouble() < 0.65;
-                PushAccents = random.NextDouble() < 0.4;
-                Glide = 0.20f + (float)random.NextDouble() * 0.25f;
-                Embellish = 0.25f + (float)random.NextDouble() * 0.30f;
-                Knock = 0.20f + (float)random.NextDouble() * 0.30f;
-            }
-        }
+        private static readonly Score MURAL_SCORE = new(108f, 0, MURAL_PROGRESSIONS[1], entrySection: 2);
 
         /// <summary>
-        /// Mural (#264): a bass-led groove — the tune lives in the bass. Nine sections, ~2:45 a pass, in
+        /// Mural (#264): a bass-led groove — the tune lives in the bass. Nine sections, ~2:40 long, in
         /// G major on a 3+3+2 tresillo grid. It adds two voices, the <see cref="LogDrum"/> it is written for
         /// and the <see cref="Marimba"/> that answers it, and retired the polka's clarinet with the polka.
         /// </summary>
-        private static float[] BakeMural(int seed)
+        private static float[] BakeMural()
         {
-            Random random = new(seed);
-            MuralVariation variation = new(random);
+            Score score = MURAL_SCORE;
 
-            float secondsPerStep = 60f / (variation.Bpm * STEPS_PER_BEAT);
-            int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
+            float secondsPerStep = 60f / (score.Bpm * STEPS_PER_BEAT);
+            int samplesPerStep = SamplesPerStep(score);
 
             int sectionOutro = MURAL_ARRANGEMENT.Length - 1;
             int totalSteps = MURAL_ARRANGEMENT.Length * STEPS_PER_SECTION;
@@ -2234,8 +2275,8 @@ namespace BS3D.Audio
                 int inBar = step % STEPS_PER_BAR;
 
                 int phrase = bar % 4;
-                int chord = variation.Progression[phrase];
-                int nextChord = variation.Progression[(phrase + 1) % 4];
+                int chord = score.Progression[phrase];
+                int nextChord = score.Progression[(phrase + 1) % 4];
 
                 int sectionIndex = bar / BARS_PER_SECTION;
                 MuralSection section = MURAL_ARRANGEMENT[sectionIndex];
@@ -2243,7 +2284,7 @@ namespace BS3D.Audio
 
                 int[] arp = MURAL_ARP[chord];
                 int root = MURAL_ROOT[chord];
-                int transpose = variation.Transpose;
+                int transpose = score.Transpose;
 
                 bool lastBar = barInSection == BARS_PER_SECTION - 1;
 
@@ -2263,8 +2304,8 @@ namespace BS3D.Audio
 
                 //THE BREAK'S BASS -------------------------------------------------------------------------
                 //The bass takes the hook itself, an octave over its riff: the melody tables one octave down
-                //put every note between the chord's root + 12 and + 24 — 98–330 Hz at the authored key, to
-                //392 across the transpose roll — which is where a phone speaker genuinely hears it. The
+                //put every note between the chord's root + 12 and + 24 — 98–330 Hz in the piece's own key,
+                //which is where a phone speaker genuinely hears it. The
                 //hook's own octave shift is deliberately dropped down here: the peak bar's +12 would push a
                 //bass voice to ~660 Hz, a mid part rather than a bass singing. In the naked bars it is the
                 //only thing sounding; a tom pickup at the very end hands the piece to the final chorus.
@@ -2299,8 +2340,8 @@ namespace BS3D.Audio
                 //THE SHAKER, this piece's timekeeper and its image: eighths under the verses, sixteenths
                 //under the choruses, ping-ponged on alternate steps — the one part that never stops, so it is
                 //what keeps the field alive through the tune's rests (Pulse's arp lesson, on a pair of
-                //hands). Which steps it leans on is rolled per pass: the off-beat eighths, or a sixteenth
-                //ahead of them.
+                //hands). It leans on the off-beat eighths — a sixteenth ahead of them was the other side of a
+                //per-pass toss and went with it (#229).
                 if (section.Shaker)
                 {
                     bool plays = section.Sixteenths || inBar % 2 == 0;
@@ -2308,11 +2349,14 @@ namespace BS3D.Audio
 
                     if (plays)
                     {
-                        //The break's pulse keeps ONE authored level: the accent roll says where the groove
-                        //leans, and the break has no groove to lean — left coupled, the roll silently became
-                        //a 2x level switch on the section's only timekeeper.
-                        bool lean = !breakSection
-                            && (variation.PushAccents ? inBar % 4 == 3 : inBar % 4 == 2);
+                        //Where the groove leans: the shaker accents the last sixteenth of each beat's first
+                        //half. It was a per-pass coin toss between that and the sixteenth after it (#229),
+                        //and this is the one that leans WITH the tresillo rather than across it.
+                        //
+                        //The break's pulse keeps ONE authored level: the accent says where the groove leans,
+                        //and the break has no groove to lean — left coupled, the accent silently became a 2x
+                        //level switch on the section's only timekeeper.
+                        bool lean = !breakSection && inBar % 4 == 2;
 
                         Hat(mix, at, open: false,
                             level: (breakSection ? 0.18f : lean ? 0.30f : 0.16f) * level,
@@ -2324,9 +2368,11 @@ namespace BS3D.Audio
                         Hat(mix, at, open: true, level: 0.22f * level, pan: PAN_HAT);
                 }
 
-                //The rim knock: a high tight tom on the seventh step, rolled per bar — the hand-drum detail
-                //that stops eight sparse bars reading as sequenced. Seated by Tom's own pitch rule.
-                if (section.Riff && inBar == 7 && random.NextDouble() < variation.Knock)
+                //The rim knock: a high tight tom on the seventh step, on the second and fourth bar of each
+                //round — the hand-drum detail that stops eight sparse bars reading as sequenced, and a
+                //two-bar figure rather than the per-bar roll it was until #229. Seated by Tom's own pitch
+                //rule.
+                if (section.Riff && inBar == 7 && phrase % 2 == 1)
                     Tom(mix, at, 420f, 0.22f * level);
 
                 //A two-hit rising tom pickup out of every full section: the handoff, ascending because the
@@ -2344,14 +2390,16 @@ namespace BS3D.Audio
                             LogDrum(mix, at, root + MURAL_RIFF_INTERVAL[note.Tone] + transpose,
                                 secondsPerStep * (note.Length + 0.3f), 0.46f * level);
 
-                    //The closing gesture: the rolled tail, or — the roll willing — the PUSH: the next bar's
-                    //root an eighth early (step 14 of 16), SLIDING into the downbeat from a whole tone
-                    //below. The walking bass's approach note reborn as a portamento, and the one
-                    //unmistakably modern gesture the voice allows itself; kept small and off the downbeat,
-                    //or the slide becomes the cartoon a log drum must never be.
+                    //The closing gesture. Twice a round it is the PUSH: the next bar's root an eighth early
+                    //(step 14 of 16), SLIDING into the downbeat from a whole tone below — the walking bass's
+                    //approach note reborn as a portamento, and the one unmistakably modern gesture the voice
+                    //allows itself; kept small and off the downbeat, or the slide becomes the cartoon a log
+                    //drum must never be. The other two bars close on the authored tail instead, so the round
+                    //alternates a step home with a slide home. It was a roll per bar until #229, at a density
+                    //rolled per pass on top of that: the same two gestures, in an order nothing could learn.
                     if (inBar == 14)
                     {
-                        if (random.NextDouble() < variation.Glide)
+                        if (phrase % 2 == 1)
                         {
                             int target = MURAL_ROOT[nextChord] + transpose;
                             LogDrum(mix, at, target, secondsPerStep * 2.3f, 0.42f * level,
@@ -2359,8 +2407,11 @@ namespace BS3D.Audio
                         }
                         else
                         {
-                            Note[] tail = variation.TailUp ? MURAL_TAIL_UP : MURAL_TAIL_DOWN;
-                            foreach (Note note in tail)
+                            //The fifth stepping down into the next root. The octave thrown up off it was the
+                            //other side of a per-pass coin toss and went with the roll (#229): the leap
+                            //belongs to the chorus's riff, and closing a verse bar is the grounded gesture's
+                            //job.
+                            foreach (Note note in MURAL_TAIL_DOWN)
                                 LogDrum(mix, at, root + MURAL_RIFF_INTERVAL[note.Tone] + transpose,
                                     secondsPerStep * (note.Length + 0.3f), 0.40f * level);
                         }
@@ -2432,9 +2483,10 @@ namespace BS3D.Audio
                 if (section.Part == MuralPart.Verse)
                 {
                     //Call and answer, a bar each, in the cells the riff leaves empty, ANSWERING ACROSS THE
-                    //FIELD — the call from one side, the answer from the other. Which states first is the
-                    //pass's own; the answer lands on the root, so every second bar comes home.
-                    bool callBar = (bar % 2 == 0) == variation.CallLeads;
+                    //FIELD — the call from one side, the answer from the other. The call states first, as a
+                    //call does (it was the likelier half of a coin the pass tossed, until #229 authored it);
+                    //the answer lands on the root, so every second bar comes home.
+                    bool callBar = bar % 2 == 0;
                     Note[] cell = callBar ? MURAL_CALL : MURAL_ANSWER;
                     float seat = callBar ? PAN_MARIMBA_CALL : PAN_MARIMBA_ANSWER;
 
@@ -2445,7 +2497,10 @@ namespace BS3D.Audio
 
                     //One extra chord tone in a cell the written bar leaves empty — on the grid, drawn from
                     //the chord, so it can only ever sound like part of the tune. It takes the bar's own seat.
-                    if (inBar == 9 && random.NextDouble() < variation.Embellish)
+                    //On the second and fourth bar of the round, where the answer cell is: the answering half
+                    //of the phrase is the one that may say a little more, and the call stays as written. It
+                    //was a roll on every bar (#229), which put it in the calls as often as in the answers.
+                    if (inBar == 9 && phrase % 2 == 1)
                         Marimba(mix, at, arp[2] + transpose, secondsPerStep * 1.5f, 0.22f * level,
                             pan: seat);
 
@@ -2513,7 +2568,7 @@ namespace BS3D.Audio
 
         //Root-position triads plus the octave, in the register the pad and the tune share. The tune indexes
         //them as chord tones like every melody in this file, so tone 0 is always the root of whatever is
-        //underneath — which is what lets the progression be rolled per pass.
+        //underneath — which is what lets the piece be written over any progression in its pool.
         private static readonly int[][] EMBER_ARP =
         {
             new[] { 52, 55, 59, 64 },   //0 Em  E3 G3 B3 E4
@@ -2602,7 +2657,7 @@ namespace BS3D.Audio
         }
 
         //The form is the idiom's own: intro, verse, pre-chorus, CHORUS, verse, pre-chorus, CHORUS, solo,
-        //CHORUS, outro. Ten sections, ~2:25 a pass. Everything the genre does with dynamics is in this table
+        //CHORUS, outro. Ten sections, 2:25. Everything the genre does with dynamics is in this table
         //and in the Drive column beside it — the verses drop back to a picked guitar under a half-time kit,
         //the pre-chorus puts the amp into crunch, and the chorus doubles the backbeat and opens the gain.
         //
@@ -2662,44 +2717,32 @@ namespace BS3D.Audio
         private const float PAN_CRASH = 0.26f;
 
         /// <summary>
-        /// What one rendering of <see cref="MusicTheme.Ember"/> rolls. The tempo band is the piece's one
-        /// oddity: it is <b>notated</b> at 128–140 and <b>felt</b> at half that, because the verses put the
-        /// snare on the third beat alone. A ballad written at 67 would leave a sixteenth two thirds of a
-        /// second long, which is too coarse a grid for a fill or a solo to be played on.
+        /// Ember's authored score (#229). The tempo is the piece's one oddity: it is <b>notated</b> at 134 and
+        /// <b>felt</b> at 67, because the verses put the snare on the third beat alone — and 67 is squarely
+        /// inside the 60–80 of a resting heartbeat, which is the band this file now aims a piece at. A ballad
+        /// notated at 67 would leave a sixteenth two thirds of a second long, too coarse a grid for a fill or
+        /// a solo to be played on, which is why the notated figure is the doubled one.
+        /// <para>
+        /// It was a roll inside 128–140 with the key and the progression drawn per pass; 134 is the middle of
+        /// that band, E minor is the key the guitar's registers were tuned in, and the progression is the one
+        /// the piece is named after. A level comes in on section 1, the first verse — this piece's verse is
+        /// already the kit, the bass and the tune, so it needs no later entry than that (#201).
+        /// </para>
         /// </summary>
-        private readonly struct EmberVariation
-        {
-            public readonly float Bpm;
-            public readonly int Transpose;
-            public readonly int[] Progression;
-            public readonly float Embellish;   //chance of the bass filling into the next bar
-
-            public EmberVariation(Random random)
-            {
-                Bpm = 128f + (float)random.NextDouble() * 12f;   //128-140, felt as 64-70
-
-                //Whole tones and minor thirds only, the rule Pulse states.
-                int[] steps = { -3, -2, 0, 0, 2, 3 };
-                Transpose = steps[random.Next(steps.Length)];
-
-                Progression = EMBER_PROGRESSIONS[random.Next(EMBER_PROGRESSIONS.Length)];
-                Embellish = 0.25f + (float)random.NextDouble() * 0.30f;
-            }
-        }
+        private static readonly Score EMBER_SCORE = new(134f, 0, EMBER_PROGRESSIONS[0], entrySection: 1);
 
         /// <summary>
-        /// Ember (#163): a rock ballad. Ten sections, ~2:25 a pass, in E minor, and it adds two voices — the
+        /// Ember (#163): a rock ballad. Ten sections, ~2:25 long, in E minor, and it adds two voices — the
         /// electric guitar it is written for and the crash its choruses arrive on. Everything else is the
         /// kit, the bass, the floor, the keys, the pad and the string section the other four pieces already
         /// play.
         /// </summary>
-        private static float[] BakeEmber(int seed)
+        private static float[] BakeEmber()
         {
-            Random random = new(seed);
-            EmberVariation variation = new(random);
+            Score score = EMBER_SCORE;
 
-            float secondsPerStep = 60f / (variation.Bpm * STEPS_PER_BEAT);
-            int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
+            float secondsPerStep = 60f / (score.Bpm * STEPS_PER_BEAT);
+            int samplesPerStep = SamplesPerStep(score);
 
             int sectionOutro = EMBER_ARRANGEMENT.Length - 1;
             int totalSteps = EMBER_ARRANGEMENT.Length * STEPS_PER_SECTION;
@@ -2715,7 +2758,7 @@ namespace BS3D.Audio
                 int inBar = step % STEPS_PER_BAR;
 
                 int phrase = bar % 4;
-                int chord = variation.Progression[phrase];
+                int chord = score.Progression[phrase];
 
                 int sectionIndex = bar / BARS_PER_SECTION;
                 EmberSection section = EMBER_ARRANGEMENT[sectionIndex];
@@ -2723,7 +2766,7 @@ namespace BS3D.Audio
 
                 int[] arp = EMBER_ARP[chord];
                 int root = EMBER_ROOT[chord];
-                int transpose = variation.Transpose;
+                int transpose = score.Transpose;
 
                 bool lastBar = barInSection == BARS_PER_SECTION - 1;
 
@@ -2812,9 +2855,12 @@ namespace BS3D.Audio
                     bool onBeat = section.Full ? inBar % 4 == 0 : inBar % 8 == 0;
                     if (onBeat) Bass(mix, at, root + transpose, secondsPerStep * 3.4f, level);
 
-                    //The fill into the next bar, up to the fifth. Rolled per pass, so it is variation rather
-                    //than a figure the ear learns.
-                    if (inBar == 14 && random.NextDouble() < variation.Embellish)
+                    //The fill into the next bar, up to the fifth, on the LAST bar of every four-bar round —
+                    //where the round turns over, which is where a bass player puts one. It was a roll on
+                    //every bar at a rolled density (#229): the same figure, but arriving as a surprise about
+                    //two bars in five, which is a texture rather than a phrase. Once a round is the figure
+                    //the ear can learn, and the piece is at half time, so it lands about every seven seconds.
+                    if (inBar == 14 && phrase == 3)
                         Bass(mix, at, root + 7 + transpose, secondsPerStep * 1.6f, 0.8f * level);
                 }
 
@@ -2937,18 +2983,18 @@ namespace BS3D.Audio
         /// theme's square Arp, which exposed at this rate read as a touch-tone phone — and a high sparkle
         /// every other bar; after two rounds the <b>groove</b> arrives (kick, off-beat hats, the theme's own
         /// bass figure), a step under the theme's energy so the lobby stays a lobby; then the <b>refrain</b>
-        /// (<see cref="MENU_HOOK"/>) is stated twice over it and the groove walks it off. It rolls its own
-        /// tempo, key, progression and line direction from the seed, so no two runs share a lobby.
+        /// (<see cref="MENU_HOOK"/>) is stated twice over it and the groove walks it off. Its tempo, key and
+        /// progression are authored like every other piece's (#229).
         /// <para>
         /// It is a LOOP, and the seam is closed by construction rather than by luck: the piece is rendered
         /// with a bar of room past the loop point, and whatever rings into that room — a pad's release, an
         /// arp's tail — is <b>folded back onto the head</b> before the cut. Continuous play of a loop is
-        /// exactly the head plus the previous pass's ring-out, so the join carries the same overlap every
+        //exactly the head plus the previous playing's ring-out, so the join carries the same overlap every
         /// other bar boundary does and nothing marks it.
         /// </para>
         /// </summary>
-        //THE LOBBY'S REFRAIN, written as chord tones like every melody here, so it transposes itself across
-        //whatever progression the run rolled and is consonant by construction. One syncopated motif per bar —
+        //THE LOBBY'S REFRAIN, written as chord tones like every melody here, so it sits over the progression
+        //this loop is written on and is consonant by construction. One syncopated motif per bar —
         //bounce off the top, land on the third, a two-note pickup into the next bar — stated identically
         //across the first three chords, which is what makes it a hook rather than a line.
         private static readonly Note[] MENU_HOOK =
@@ -2963,21 +3009,22 @@ namespace BS3D.Audio
             new(0, 3, 12, 4), new(4, 2, 12, 4), new(8, 0, 24, 8)
         };
 
-        private static float[] BakeMenu(int seed)
+        private static float[] BakeMenu()
         {
-            Random random = new(seed);
-
-            //Unhurried but moving, and rolled inside a narrow band like the theme's. It started at 80–92 and
-            //dragged; up here the line walks instead of trudging, while the pads keep it a lobby rather than
-            //a dancefloor — with no kick this is still a harmonic rhythm more than a beat.
-            float bpm = 94f + (float)random.NextDouble() * 12f;
+            //Unhurried but moving. It started at 80–92 and dragged, then ran as a roll inside 94–106 for a
+            //while; 100 is the middle of that band and what the loop is authored at (#229) — the line walks
+            //instead of trudging, while the pads keep it a lobby rather than a dancefloor. With no kick this
+            //is still a harmonic rhythm more than a beat.
+            const float bpm = 100f;
             float secondsPerStep = 60f / (bpm * STEPS_PER_BEAT);
             int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
 
-            int[] progression = PROGRESSIONS[random.Next(PROGRESSIONS.Length)];
-            int[] keys = { -3, -2, 0, 0, 2, 3, 5 };   //the Variation's own set: whole tones and minor thirds
-            int transpose = keys[random.Next(keys.Length)];
-            bool arpDown = random.NextDouble() < 0.35;
+            //Am G F C, and DELIBERATELY not the theme's own Am F C G: this loop is what the player hears in
+            //the seconds before level one starts, and the two pieces sharing one order of the same four
+            //chords would make the front end sound like the first bars of the level. A lobby leans downwards;
+            //the dance floor walks up to the dominant.
+            int[] progression = PROGRESSIONS[1];
+            const int transpose = 0;
 
             //The arrangement, grown by ear in three asks: two rounds of the progression on pads and keys
             //alone, the groove for two (once the opening has said itself, the bass arrives), the REFRAIN for
@@ -3039,8 +3086,7 @@ namespace BS3D.Audio
                 //stands aside for the refrain: two keys lines at once is mud, not counterpoint.
                 if (!refrain && inBar % 4 == 0)
                 {
-                    int arpStep = (inBar / 4) % 4;
-                    int index = arpDown ? 3 - arpStep : arpStep;
+                    int index = (inBar / 4) % 4;
                     Keys(mix, at, arp[index] + 12 + transpose, secondsPerStep * 5.5f, 0.12f);
                 }
 
@@ -3121,7 +3167,7 @@ namespace BS3D.Audio
         /// held finish. The player hears what kind of win it was before the result screen says a word.
         /// </para>
         /// </summary>
-        private static float[] BakeVictory(Random random, float intensity, FanfareShape shape)
+        private static float[] BakeVictory(float intensity, FanfareShape shape)
         {
             //Key and tempo are the caller's now (RollFanfare), so whatever plays along with this piece knows
             //them the moment it is asked for rather than when it finishes rendering — see TryGetFanfare.
@@ -3169,14 +3215,11 @@ namespace BS3D.Audio
 
             //THE HOOK's rhythm: two tresillos per bar — hits on 0,3,6 and 8,11,14, the 3-3-2 clave that is
             //the most danceable eight counts there are. The melody walks the chord's own tones, top-heavy,
-            //and pushes UP onto the octave at each bar's end; two contours rolled so wins differ.
+            //and pushes UP onto the octave at each bar's end. The contour was one of two rolled, so that two
+            //wins in a row were not the same piece; it is the fifth-third bounce for good, and the other one
+            //(root up through the chord, the octave held twice) went with the roll (#229).
             int[] hookSteps = { 0, 3, 6, 8, 11, 14 };
-            int[][] contours =
-            {
-                new[] { 2, 1, 2, 1, 2, 3 },   //fifth-third bounce, octave push
-                new[] { 0, 2, 1, 2, 3, 3 }    //root up through the chord, octave held twice
-            };
-            int[] contour = contours[random.Next(contours.Length)];
+            int[] contour = { 2, 1, 2, 1, 2, 3 };
 
             for (int bar = 0; bar < bars; bar++)
             {
@@ -3319,7 +3362,7 @@ namespace BS3D.Audio
         /// player lost. See the bar count for why the time can only come out of the bars.
         /// </para>
         /// </summary>
-        private static float[] BakeDefeat(Random random, float intensity, FanfareShape shape)
+        private static float[] BakeDefeat(float intensity, FanfareShape shape)
         {
             //Key and tempo are the caller's — see BakeVictory and TryGetFanfare.
             float bpm = shape.Bpm;
@@ -3341,14 +3384,11 @@ namespace BS3D.Audio
             //i - VI - iv - i: minor, and it sags rather than resolving anywhere bright.
             int[] degrees = { 0, 8, 5, 0 };
 
-            //The melody falls. Two shapes, both descending, because a rising line under a loss reads as hope
-            //and this is not that.
-            int[][] shapes =
-            {
-                new[] { 3, 2, 1, 0 },   //octave down to the root
-                new[] { 2, 1, 1, 0 }    //fifth, third, third, root — a smaller, more resigned fall
-            };
-            int[] fall = shapes[random.Next(shapes.Length)];   //renamed off "shape": the out parameter owns that name now
+            //The melody falls, and it falls the octave: from the chord's top note down to its root. The
+            //second shape written for it — fifth, third, third, root, a smaller and more resigned fall — was
+            //the roll's other half and went with the roll (#229). A rising line under a loss would read as
+            //hope, and this is not that.
+            int[] fall = { 3, 2, 1, 0 };
 
             for (int bar = 0; bar < bars; bar++)
             {
@@ -3426,9 +3466,9 @@ namespace BS3D.Audio
         //sides are genuinely different signals rather than the same one at two levels. So those two spread
         //internally (their detuned voices take their own seats) while the NOTE stays where it was.
         //
-        //Nothing here is randomised per pass. A pass rolls its tempo, key and progression (see "Random
-        //parameters, never random notes"); where the hi-hat sits is not a composition decision, and an image
-        //that moved between passes would read as the mix being unstable rather than as variation.
+        //Nothing here is a property of the composition. A piece states its tempo, key and progression (see
+        //Score); where the hi-hat sits is not that kind of decision, and an image that moved from piece to
+        //piece would read as the mix being unstable rather than as arrangement.
 
         /// <summary>How far off centre a thing sits: -1 hard left, 0 centre, +1 hard right.</summary>
         private const float PAN_CENTRE = 0f;
@@ -3497,12 +3537,10 @@ namespace BS3D.Audio
         /// a lone note dead centre.
         /// <para>
         /// <b>It is the voice's INDEX and deliberately not its pitch.</b> Seating by pitch was tried first and
-        /// is a trap: every pass rolls its own key (see "Random parameters, never random notes"), so a seat
-        /// derived from the note number rotates with the transpose, and the same chord shape lands in a
-        /// different place in every pass — an image that moves between passes, which reads as the mix being
-        /// unstable rather than as variation. It also leaves the whole piece leaning to whichever side the
-        /// key happened to put the chord tones on. The index carries neither problem: it is a property of the
-        /// arrangement, which is the same in every pass.
+        /// is a trap: a seat derived from the note number rotates with the piece's key, so the same chord
+        /// shape lands in a different place in every piece, and the whole of a piece leans to whichever side
+        /// its key happened to put the chord tones on. The index carries neither problem: it is a property of
+        /// the arrangement, and the arrangement is what the seating should follow.
         /// </para>
         /// </summary>
         private static float ChordPan(int voice, int voices, float spread) =>
