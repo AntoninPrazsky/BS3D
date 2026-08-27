@@ -32,22 +32,16 @@ namespace Prazsky.Core.Render
         //asked to look at — and since #226 it stands most of the frame's height tall — so it cannot be the
         //twelve or sixteen a scattered prop gets away with: a faceted silhouette on a mirror-finish surface
         //reads as a low-poly model rather than as metal.
+        //
+        //THE SAME FIGURE SERVES THE CRYSTAL, which had a coarser faceted body of its own twice and has it
+        //no more. #231 cut the facets into the geometry (24 segments, authored rings, flat normals), and
+        //the rim came out a 24-gon; #271's first rework kept them in the normals alone — the same 64
+        //chords as every tier with each ring normal's azimuth snapped to 24 directions, flat bands on a
+        //round silhouette — and the owner's ruling held through both, in the same words: a cup has a
+        //cup's shape, "crystal sharp" is an optical sharpness, and visible edges are edges whether they
+        //are geometric or shading. Every tier now draws this one smooth revolve; the crystal's look is
+        //its material's (see TrophyPodium — transparency, the Fresnel rim, the reflected environment).
         private const int SEGMENTS = 64;
-
-        //And the CUT crystal's own — which since #271 is a count of FACET SHADES, not of silhouette chords.
-        //A facet has to be wide enough to be read as a facet — at sixty-odd the flats are a degree and a
-        //half apart and the eye reintegrates them into a cylinder, which is a smooth cup that happens to
-        //sparkle unevenly — so the crystal's normals snap to 24 directions round the axis, few enough to be
-        //counted, which is what says a person cut them. What the first cut (#231) got wrong was tying that
-        //number to the GEOMETRY: 24 chords made the rim itself a 24-gon, and the owner's ruling was plain —
-        //a cup has a cup's shape and is not a polyhedron; "crystal sharp" is an optical sharpness, not a
-        //visible polygon edge. So the crystal now revolves at the SAME 64 segments as the metal — its
-        //silhouette is the gold cup's, round at presentation size — and the cuts live entirely in the
-        //normal snap: each band of chords takes one flat azimuthal normal, the step between bands is a real
-        //shading edge, and the outline never breaks. The 24 snap directions over 64 chords land some band
-        //edges two chords apart and some three; that is 5.6 degrees of wobble in a 15-degree facet, which
-        //presentation size cannot resolve.
-        private const int CRYSTAL_FACETS = 24;
 
         //THE PROFILE'S OWN RESOLUTION, which the segment count cannot give: the silhouette seen side-on is
         //the profile, and the authored rings are few enough that the bowl's flare read as five straight
@@ -159,30 +153,11 @@ namespace Prazsky.Core.Render
         /// #183): Bronze and Silver stay plain, so the two pairs are told apart by shape before any colour
         /// has said anything.
         /// </param>
-        /// <param name="faceted">
-        /// Shade the body as flat CUT FACETS rather than as a smooth surface of revolution (#231, the crystal
-        /// tier alone; reworked by #271). Since #271 exactly one thing changes: every ring normal's
-        /// <b>azimuth</b> snaps to the nearest of <see cref="CRYSTAL_FACETS"/> directions, so a band of
-        /// chords shades as one flat and the step between bands is a real shading edge.
-        /// <para>
-        /// The GEOMETRY is the smooth cup's — the same 64 segments, the same densified profile. #231's first
-        /// cut tied the facet count to the chord count (24 segments, authored rings, one flat normal per
-        /// quad), which made the rim a 24-gon, and the owner's ruling on that was plain: a cup has a cup's
-        /// shape, it is not a polyhedron, and "crystal sharp" is an optical sharpness rather than a visible
-        /// polygon edge. The cuts now live entirely in the shading — the silhouette the eye reads first is
-        /// round, and the flats are what the light reads.
-        /// </para>
-        /// <para>
-        /// The handles stay smooth, which is not an oversight: a handle is a pressed or drawn part on real
-        /// cut glass, and a faceted tube a fifth of the bowl's diameter reads as a fault in the sweep rather
-        /// than as a cut.
-        /// </para>
-        /// </param>
-        public TrophyMesh(GraphicsDevice graphicsDevice, bool handles, bool faceted = false)
+        public TrophyMesh(GraphicsDevice graphicsDevice, bool handles)
         {
             MeshBuilder builder = new();
 
-            BuildBody(builder, faceted);
+            BuildBody(builder);
 
             if (handles)
             {
@@ -281,12 +256,11 @@ namespace Prazsky.Core.Render
         /// normal is <c>(dy, -dr)</c> — the tangent turned so its radial part points away from the axis, which
         /// is what makes an underside face down and the inside of the bowl face up and in.
         /// </summary>
-        private static void BuildBody(MeshBuilder builder, bool faceted)
+        private static void BuildBody(MeshBuilder builder)
         {
-            //The densified section for BOTH cups since #271: the authored rings are the shape's meaning, the
-            //densified ones are the shape itself, and a crystal cup is entitled to a round silhouette and a
-            //curved flare the same as a metal one — the owner's ruling was that "cut" is a shading word here,
-            //not a licence for polygon edges. What stays the crystal's own is the normal snap below.
+            //The densified section, not the authored one — the authored rings are the shape's meaning, this
+            //is the shape itself. Every tier draws it, crystal included (#271): "cut" proved to be a word
+            //for edges the owner did not want, whichever layer they were cut into.
             Ring[] profile = DensifyProfile();
             int spans = profile.Length - 1;
 
@@ -324,22 +298,6 @@ namespace Prazsky.Core.Render
                 }
             }
 
-            //CUT GLASS, in the normals only (#271): this ring normal's azimuth snapped to the nearest of
-            //CRYSTAL_FACETS directions, so a band of chords shades as one flat and the step between bands is
-            //a real shading edge — while the positions still revolve at the full 64 segments, so the
-            //silhouette the eye reads first is the gold cup's round one. The profile's own slope term (the
-            //normal's Y and radial length) is untouched: the bowl's section still shades as the curve it is,
-            //and the cuts run round it the way a cutter's wheel leaves them.
-            float facetStep = MathHelper.TwoPi / CRYSTAL_FACETS;
-
-            Vector3 RingNormal(Vector2 n, float azimuth)
-            {
-                if (faceted) azimuth = MathF.Round(azimuth / facetStep) * facetStep;
-
-                (float sin, float cos) = MathF.SinCos(azimuth);
-                return new Vector3(n.X * cos, n.Y, n.X * sin);
-            }
-
             for (int s = 0; s < spans; s++)
             {
                 Ring low = profile[s], high = profile[s + 1];
@@ -362,10 +320,10 @@ namespace Prazsky.Core.Render
 
                     Vector2 nLow = above[s], nHigh = below[s + 1];
 
-                    Vector3 n00 = RingNormal(nLow, a0);
-                    Vector3 n10 = RingNormal(nLow, a1);
-                    Vector3 n11 = RingNormal(nHigh, a1);
-                    Vector3 n01 = RingNormal(nHigh, a0);
+                    Vector3 n00 = new(nLow.X * c0, nLow.Y, nLow.X * s0);
+                    Vector3 n10 = new(nLow.X * c1, nLow.Y, nLow.X * s1);
+                    Vector3 n11 = new(nHigh.X * c1, nHigh.Y, nHigh.X * s1);
+                    Vector3 n01 = new(nHigh.X * c0, nHigh.Y, nHigh.X * s0);
 
                     //The face normal handed to the builder is the span's own, swung to the middle of this
                     //facet: it decides the winding, and it must not be one of the smoothed vertex normals —
