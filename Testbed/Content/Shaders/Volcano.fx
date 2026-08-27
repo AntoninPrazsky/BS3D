@@ -104,12 +104,24 @@ float VolcanoMassing(float2 p)
 
     //Shallow at the foot, steepest across the middle of the flank, rounding off at the summit - the profile
     //of a young stratovolcano rather than the straight-sided cone pow(t, 1) would give.
-    float t = saturate(1.0 - r / ConeRadius);
+    //
+    //THE RADIUS FED IN HERE IS CLAMPED TO CraterRadius, not r itself - #223's own shipped bug, found by
+    //looking at the summit rather than by the maths. Evaluated at r the cone's flank is maximal exactly at
+    //r = 0 for any ConeProfile > 0 (its slope there is -ConeProfile / ConeRadius, never zero), so
+    //subtracting a crater term that is ALSO maximal at r = 0 only steepens the final approach to a point -
+    //it cannot put the true summit anywhere but dead centre, whatever CraterDepth is. The clamp is what
+    //moves the peak: the flank now plateaus at its own r = CraterRadius height for every r inside it, so
+    //that plateau - not a receding point - is the surface the crater below is cut into.
+    float flankRadius = max(r, CraterRadius);
+    float t = saturate(1.0 - flankRadius / ConeRadius);
     float flank = ConeHeight * pow(t, ConeProfile);
 
-    //The crater bitten out of the summit. Zero outside its radius, full inside; the rim is what is left
-    //standing between the two.
-    float crater = CraterDepth * smoothstep(CraterRadius, CraterRadius * 0.45, r);
+    //The bowl cut into that plateau: zero at the rim (r = CraterRadius, where it must join the ordinary
+    //flank with no step - and does, since the clamp above holds the plateau at exactly the unclamped
+    //flank's own value there) and CraterDepth deep at the vent. The rim itself is not drawn taller than the
+    //plateau it sits on; it reads as a rim only because the bowl falls away on one side of it and the
+    //ordinary flank falls away on the other - a real crater's whole shape, not an added lip.
+    float crater = CraterDepth * smoothstep(CraterRadius, 0.0, r);
 
     //Radial gullies, absent at the crater rim and at the foot, deepest across the flank the lava runs down.
     //The inner sine bends them so they are not a clean starburst.

@@ -2241,11 +2241,16 @@ namespace Prazsky.Core.Render
             float r = MathF.Sqrt(dx * dx + dz * dz);
             float bearing = MathF.Atan2(dz, dx);
 
-            float t = Math.Clamp(1f - r / MathF.Max(volcano.ConeRadius, 1f), 0f, 1f);
+            //Clamped to CraterRadius, not r itself - Volcano.fx's VolcanoMassing has the why: evaluated at r
+            //the flank is maximal exactly at the vent for any profile, so the crater term below could only
+            //ever steepen the approach to a point, never move the true summit off it. The clamp is what
+            //plateaus the flank at the rim's own height, which is the surface the bowl is cut into.
+            float craterRadius = MathF.Max(volcano.CraterRadius, 1f);
+            float flankRadius = MathF.Max(r, craterRadius);
+            float t = Math.Clamp(1f - flankRadius / MathF.Max(volcano.ConeRadius, 1f), 0f, 1f);
             float flank = volcano.ConeHeight * MathF.Pow(t, MathF.Max(volcano.ConeProfile, 0.1f));
 
-            float craterRadius = MathF.Max(volcano.CraterRadius, 1f);
-            float crater = volcano.CraterDepth * SmoothStep(craterRadius, craterRadius * 0.45f, r);
+            float crater = volcano.CraterDepth * SmoothStep(craterRadius, 0f, r);
 
             float gullyCount = MathF.Round(MathF.Max(volcano.GullyCount, 1f));
             float rake = 0.5f - 0.5f * MathF.Cos(bearing * gullyCount + 2f * MathF.Sin(bearing * 3f));
