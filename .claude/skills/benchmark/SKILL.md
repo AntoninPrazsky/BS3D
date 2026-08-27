@@ -30,7 +30,8 @@ Each of these has actually happened; the first two are the expensive ones.
    ramps slowly) — which reads as a spectacular win for whatever you were testing. Always pin one.
 3. **Not pinning the scene.** The backdrop is a different one of the seven every launch and they span 6.8× in
    cost, so two unpinned runs are not comparable at all. `scene=` and `sky=` both matter: the sea and the
-   savanna each force a dome of their own, so pin `sky=` after.
+   savanna each force a dome of their own, so pin `sky=` after. **Pinning them is not the same as them
+   holding** — a level overrides both, silently; see trap 11.
 4. **Believing the first seconds.** The opening frames are shader compiles and the first touch of each render
    target; the readings climb for several seconds. `-WarmupLines` (4 by default) drops them.
 
@@ -75,7 +76,19 @@ Each of these has actually happened; the first two are the expensive ones.
    non-monotonicity**: #270's ssaa sweep read 1 → 75, 2 → 37.5, 3 → 31.8, 4 → 75, and no cost curve is
    V-shaped with its minimum in the middle. Always re-run a surprising vsync number under `fpscap=` before
    believing it.
-11. **Average the per-second readings with a MEDIAN, not a mean.** Trap 6 does not always take a whole run:
+11. **`scene=` and `sky=` DO NOT hold once a level loads, and nothing warns you.** A `Level` file carries its
+   own scene, its own sky dome and its own weather, and `GameplayScreen.Session.cs` applies all three over
+   whatever the command line asked for. So `play level=Column scene=meadow` renders the **mountain** — the
+   scene the level names — and the run looks perfectly healthy while doing it. This is not hypothetical: five
+   of #270's runs were read as a cross-scene comparison and were the *same scene measured twice*, one of them
+   the headline table of a document that then had to be corrected. The startup line `[game] scene X` prints
+   what was **asked for**, which is what makes it treacherous; **the `[fps]` line prints what is actually
+   being drawn, and it is the only authority.** Read the scene and the dome off `[fps]` on every run and
+   throw away any that does not match what you asked for, exactly as trap 8 says to do with the back buffer.
+   To compare scenes at all, either use the **front end** (no level, so `scene=` holds — see trap 5 about the
+   orbit) or use levels that genuinely name the scenes you mean, and then accept that the map and the dome
+   differ too and the comparison is no longer clean.
+12. **Average the per-second readings with a MEDIAN, not a mean.** Trap 6 does not always take a whole run:
    twice now a run has opened at its neighbours' frame rate exactly, then collapsed to a third of it partway
    through and stayed there, which drags a mean far enough to invert an A/B. A median of the kept readings
    cannot be moved by it, and printing the lowest reading beside the median still shows that it happened.
