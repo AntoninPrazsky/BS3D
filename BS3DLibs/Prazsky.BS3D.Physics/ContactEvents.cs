@@ -12,12 +12,12 @@ using System.Runtime.InteropServices;
 
 namespace Prazsky.BS3D.Physics
 {
-	//Class taken from Bepuphysics ContactEventsDemo and modified
+    //Class taken from Bepuphysics ContactEventsDemo and modified
 
-	/// <summary>
-	/// Watches a set of bodies and statics for contact changes and reports events.
-	/// </summary>
-	public unsafe class ContactEvents : IDisposable
+    /// <summary>
+    /// Watches a set of bodies and statics for contact changes and reports events.
+    /// </summary>
+    public unsafe class ContactEvents : IDisposable
     {
         //To know what events to emit, we have to track the previous state of a collision. We don't need to keep around old positions/offets/normals/depths, so it's quite a bit lighter.
         [StructLayout(LayoutKind.Sequential)]

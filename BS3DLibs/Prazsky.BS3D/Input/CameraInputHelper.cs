@@ -271,27 +271,27 @@ namespace Prazsky.BS3D.Input
         {
             if (!_animateCamera) return;
 
-			if (!_animationStarted)
-			{
-				_animationStep = 0f;
-				_animationStarted = true;
-			}
+            if (!_animationStarted)
+            {
+                _animationStep = 0f;
+                _animationStarted = true;
+            }
 
-			float step = MathHelper.SmoothStep(0f, Constants.ONE, _animationStep);
+            float step = MathHelper.SmoothStep(0f, Constants.ONE, _animationStep);
 
-			//Swinging the camera around the point it ends up looking at keeps it on an arc around the map, instead
-			//of taking the short cut straight through the middle of it. Both ends of the arc are measured from that
-			//same point; the target of the camera is no use as a pivot, as it always sits just in front of it
-			_camera.Position = _endCameraTarget +
-					SlerpOffset(_startCameraPos - _endCameraTarget, _endCameraPos - _endCameraTarget, step);
+            //Swinging the camera around the point it ends up looking at keeps it on an arc around the map, instead
+            //of taking the short cut straight through the middle of it. Both ends of the arc are measured from that
+            //same point; the target of the camera is no use as a pivot, as it always sits just in front of it
+            _camera.Position = _endCameraTarget +
+                    SlerpOffset(_startCameraPos - _endCameraTarget, _endCameraPos - _endCameraTarget, step);
 
-			//The camera keeps looking at the map for the whole of the arc. Easing the direction in from wherever it
-			//was pointing instead would leave it lagging behind the arc, with the map sliding off the screen halfway
-			//through; only a camera that did not start out facing the map turns abruptly, and just on the first frame
-			_camera.Target = _endCameraTarget;
-			_camera.Recalculate();
+            //The camera keeps looking at the map for the whole of the arc. Easing the direction in from wherever it
+            //was pointing instead would leave it lagging behind the arc, with the map sliding off the screen halfway
+            //through; only a camera that did not start out facing the map turns abruptly, and just on the first frame
+            _camera.Target = _endCameraTarget;
+            _camera.Recalculate();
 
-			_animationStep += ANIMATION_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            _animationStep += ANIMATION_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
             if (_animationStep > Constants.ONE)
             {

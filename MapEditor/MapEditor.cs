@@ -213,8 +213,8 @@ namespace MapEditor
         private void Window_FileDrop(object sender, FileDropEventArgs e)
         {
             if (e.Files == null || e.Files.Length <= 0 || string.IsNullOrEmpty(e.Files[0])) return;
-			new Task(() => { DeserializeMapFromJsonFile(e.Files[0]); }).Start();
-			
+            new Task(() => { DeserializeMapFromJsonFile(e.Files[0]); }).Start();
+            
         }
 
         private void Window_ClientSizeChanged(object sender, EventArgs e)
@@ -271,9 +271,9 @@ namespace MapEditor
                 new(mgKeys.Add,() => CycleBallType(+1), "Next ball type (10-13 have no direct key)"),
                 new(mgKeys.Subtract,() => CycleBallType(-1), "Previous ball type"),
 
-				new(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
-				new(mgKeys.F11, () => SetGraphics(_graphics.IsFullScreen), "Fullscreen/windowed"),
-				new(mgKeys.F12,() => Info.Visible = ! Info.Visible, "Hide/show text overlay"),
+                new(mgKeys.Escape, Buttons.Back, Exit, "Exit"),
+                new(mgKeys.F11, () => SetGraphics(_graphics.IsFullScreen), "Fullscreen/windowed"),
+                new(mgKeys.F12,() => Info.Visible = ! Info.Visible, "Hide/show text overlay"),
 
                 new(mgKeys.N, Buttons.X, () => new Task(FullMapTest).Start(), "Fill entire map with balls"),
                 new(mgKeys.M, () => _map.Clear(), "Clear entire map"),
@@ -373,8 +373,8 @@ namespace MapEditor
             //display values as radiance. The game does the same; the editor used to skip it, drawing in gamma.
             _sky = new SkyDome(GraphicsDevice, _skyDomeNumber, linearVertexColors: true);
 
-			//10 levels for the initial ball layout plus empty levels at the bottom for the structure to grow into
-			_map = new BallsMap(10, 10, 15);
+            //10 levels for the initial ball layout plus empty levels at the bottom for the structure to grow into
+            _map = new BallsMap(10, 10, 15);
             _selector = new Selector(Content, _map, Camera3D);
             _aabb = new AABB(GraphicsDevice);
             _aabb.FitToMap(_map);
@@ -996,7 +996,7 @@ namespace MapEditor
             {
                 openFileDialog.InitialDirectory = Directory.GetCurrentDirectory();
                 openFileDialog.Filter = Constants.MAPS_FILE_FILTER;
-				openFileDialog.RestoreDirectory = true;
+                openFileDialog.RestoreDirectory = true;
 
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {

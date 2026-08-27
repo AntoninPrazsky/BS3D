@@ -72,57 +72,57 @@ int SceneLightCount;
 //stands) and rising into low rises with distance. Kept flatter than the meadow's hills - a savanna is open.
 float TerrainHeight(float2 p)
 {
-	float dist = length(p);
-	float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, dist);
+    float dist = length(p);
+    float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, dist);
 
-	float rolling = 0.5 * sin(dot(p, float2(0.016, 0.012)))
-		+ 0.3 * sin(dot(p, float2(-0.011, 0.020)) + 1.5)
-		+ 0.2 * sin(dot(p, float2(0.026, 0.021)) + 3.0);
+    float rolling = 0.5 * sin(dot(p, float2(0.016, 0.012)))
+        + 0.3 * sin(dot(p, float2(-0.011, 0.020)) + 1.5)
+        + 0.2 * sin(dot(p, float2(0.026, 0.021)) + 3.0);
 
-	//Gentle undulation even inside the clearing, so the near ground is not a dead-flat plane (two crossing
-	//swells rather than one). Kept low enough that the crests clear the island's foot.
-	float gentle = ClearingRelief * (sin(dot(p, float2(0.04, 0.03))) + 0.6 * sin(dot(p, float2(-0.055, 0.048)) + 2.1));
+    //Gentle undulation even inside the clearing, so the near ground is not a dead-flat plane (two crossing
+    //swells rather than one). Kept low enough that the crests clear the island's foot.
+    float gentle = ClearingRelief * (sin(dot(p, float2(0.04, 0.03))) + 0.6 * sin(dot(p, float2(-0.055, 0.048)) + 2.1));
 
-	return SavannaLevelY + gentle + HillHeight * ramp * (rolling * 0.5 + 0.5);
+    return SavannaLevelY + gentle + HillHeight * ramp * (rolling * 0.5 + 0.5);
 }
 
 struct SavannaVertexInput
 {
-	float4 Position : POSITION0;
+    float4 Position : POSITION0;
 };
 
 struct SavannaVertexOutput
 {
-	float4 Position : SV_POSITION;
-	float3 WorldPosition : TEXCOORD0;
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
 };
 
 SavannaVertexOutput SavannaVS(SavannaVertexInput input)
 {
-	SavannaVertexOutput output;
+    SavannaVertexOutput output;
 
-	float2 xz = input.Position.xz + OriginXZ;
-	float3 worldPosition = float3(xz.x, TerrainHeight(xz), xz.y);
+    float2 xz = input.Position.xz + OriginXZ;
+    float3 worldPosition = float3(xz.x, TerrainHeight(xz), xz.y);
 
-	output.WorldPosition = worldPosition;
-	output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
+    output.WorldPosition = worldPosition;
+    output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
 
-	return output;
+    return output;
 }
 
 //Tangent-free normal tilt from a height field (Christian Schueler), as everywhere else in this project
 float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
 {
-	float3 dpdx = ddx(worldPosition);
-	float3 dpdy = ddy(worldPosition);
+    float3 dpdx = ddx(worldPosition);
+    float3 dpdy = ddy(worldPosition);
 
-	float3 r1 = cross(dpdy, normal);
-	float3 r2 = cross(normal, dpdx);
+    float3 r1 = cross(dpdy, normal);
+    float3 r2 = cross(normal, dpdx);
 
-	float determinant = dot(dpdx, r1);
-	float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
+    float determinant = dot(dpdx, r1);
+    float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
 
-	return normalize(abs(determinant) * normal - surfaceGradient);
+    return normalize(abs(determinant) * normal - surfaceGradient);
 }
 
 //How far the grass is stretched ALONG the wind. The comb is what the two crossed sines below used to supply
@@ -155,83 +155,83 @@ static const float GRASS_FBM_GAIN = 5.0;
 //rotated domain have no planes to keep.
 float GrassRelief(float2 xz, float footprint)
 {
-	float f = GrassReliefFrequency;
-	float2 p = (xz + WindDirection * SavannaTime * 0.7) * f;
+    float f = GrassReliefFrequency;
+    float2 p = (xz + WindDirection * SavannaTime * 0.7) * f;
 
-	//Combed along the wind, and the footprint scaled by the same factor the domain is — Fbm2BandLimited's
-	//stated contract, which Fbm2Combed passes straight through.
-	return Fbm2Combed(p, WindDirection, GRASS_COMB_STRETCH, 3, footprint * f) * GRASS_FBM_GAIN * GrassReliefStrength;
+    //Combed along the wind, and the footprint scaled by the same factor the domain is — Fbm2BandLimited's
+    //stated contract, which Fbm2Combed passes straight through.
+    return Fbm2Combed(p, WindDirection, GRASS_COMB_STRETCH, 3, footprint * f) * GRASS_FBM_GAIN * GrassReliefStrength;
 }
 
 float4 SavannaPS(SavannaVertexOutput input) : COLOR
 {
-	float3 worldPosition = input.WorldPosition;
+    float3 worldPosition = input.WorldPosition;
 
-	//Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
-	clip(length(worldPosition.xz) - IslandHoleRadius);
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    clip(length(worldPosition.xz) - IslandHoleRadius);
 
-	float footprint = length(fwidth(worldPosition.xz));
+    float footprint = length(fwidth(worldPosition.xz));
 
-	//The base terrain normal, taken PER PIXEL from the height field's gradient (three cheap taps) rather than
-	//interpolated from per-vertex normals - this is what removes the coarse mesh's facet/grid pattern.
-	float e = 1.5;
-	float h = TerrainHeight(worldPosition.xz);
-	float hx = TerrainHeight(worldPosition.xz + float2(e, 0.0));
-	float hz = TerrainHeight(worldPosition.xz + float2(0.0, e));
-	float3 baseNormal = normalize(float3(-(hx - h) / e, 1.0, -(hz - h) / e));
+    //The base terrain normal, taken PER PIXEL from the height field's gradient (three cheap taps) rather than
+    //interpolated from per-vertex normals - this is what removes the coarse mesh's facet/grid pattern.
+    float e = 1.5;
+    float h = TerrainHeight(worldPosition.xz);
+    float hx = TerrainHeight(worldPosition.xz + float2(e, 0.0));
+    float hz = TerrainHeight(worldPosition.xz + float2(0.0, e));
+    float3 baseNormal = normalize(float3(-(hx - h) / e, 1.0, -(hz - h) / e));
 
-	//Fine grass texture tilts it, so the grass catches the light unevenly and the wind reads on it
-	float relief = GrassRelief(worldPosition.xz, footprint);
-	float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
+    //Fine grass texture tilts it, so the grass catches the light unevenly and the wind reads on it
+    float relief = GrassRelief(worldPosition.xz, footprint);
+    float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
 
-	//Three-tone grass: dry gold as the base, green flushes where it is lusher, and patches of bare reddish
-	//earth. Sampled at several noise scales so the field reads varied and alive, not one flat tone.
-	float patchLarge = CloudNoise(worldPosition.xz * 0.012) * 0.5 + 0.5;   //broad green vs gold zones
-	float patchMed = CloudNoise(worldPosition.xz * 0.05 + 17.0) * 0.5 + 0.5;
-	float bare = CloudNoise(worldPosition.xz * 0.09 + 60.0) * 0.5 + 0.5;   //scattered bare earth
+    //Three-tone grass: dry gold as the base, green flushes where it is lusher, and patches of bare reddish
+    //earth. Sampled at several noise scales so the field reads varied and alive, not one flat tone.
+    float patchLarge = CloudNoise(worldPosition.xz * 0.012) * 0.5 + 0.5;   //broad green vs gold zones
+    float patchMed = CloudNoise(worldPosition.xz * 0.05 + 17.0) * 0.5 + 0.5;
+    float bare = CloudNoise(worldPosition.xz * 0.09 + 60.0) * 0.5 + 0.5;   //scattered bare earth
 
-	//Green over most of the field, drying to gold in patches - a lusher savanna than the all-gold first pass.
-	float3 grass = lerp(GrassColorDry, GrassColor, saturate((patchLarge - 0.12) * 1.9) * (0.7 + 0.3 * patchMed));
-	grass = lerp(grass, GrassColorBare, smoothstep(0.72, 0.85, bare) * 0.55);
+    //Green over most of the field, drying to gold in patches - a lusher savanna than the all-gold first pass.
+    float3 grass = lerp(GrassColorDry, GrassColor, saturate((patchLarge - 0.12) * 1.9) * (0.7 + 0.3 * patchMed));
+    grass = lerp(grass, GrassColorBare, smoothstep(0.72, 0.85, bare) * 0.55);
 
-	//Wind combing the grass: bright and dark bands travelling downwind
-	float wind = sin(dot(worldPosition.xz, WindDirection) * WindRippleFrequency + SavannaTime * WindRippleSpeed);
-	grass *= 1.0 + wind * WindRippleStrength;
+    //Wind combing the grass: bright and dark bands travelling downwind
+    float wind = sin(dot(worldPosition.xz, WindDirection) * WindRippleFrequency + SavannaTime * WindRippleSpeed);
+    grass *= 1.0 + wind * WindRippleStrength;
 
-	//Matte grass: the sun and the sky hemisphere, dimmed by the shared cloud shadow so the same clouds that
-	//drift across the sky sweep their shadows over the field
-	float sunlight = CloudSunlight(worldPosition, SunDirection);
-	float ndotl = saturate(dot(normal, SunDirection));
-	float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
+    //Matte grass: the sun and the sky hemisphere, dimmed by the shared cloud shadow so the same clouds that
+    //drift across the sky sweep their shadows over the field
+    float sunlight = CloudSunlight(worldPosition, SunDirection);
+    float ndotl = saturate(dot(normal, SunDirection));
+    float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
 
-	//Scene point lights (the campfire) warming the grass around them, on top of sun and sky
-	float3 sceneLight = float3(0.0, 0.0, 0.0);
-	[loop]
-	for (int i = 0; i < SceneLightCount; i++)
-	{
-		float3 toL = SceneLightPosition[i] - worldPosition;
-		float dist = length(toL);
-		float3 L = toL / max(dist, 1e-4);
-		float atten = saturate(1.0 - dist / SceneLightRange[i]);
-		atten *= atten;
-		sceneLight += SceneLightColor[i] * (saturate(dot(normal, L)) * atten);
-	}
+    //Scene point lights (the campfire) warming the grass around them, on top of sun and sky
+    float3 sceneLight = float3(0.0, 0.0, 0.0);
+    [loop]
+    for (int i = 0; i < SceneLightCount; i++)
+    {
+        float3 toL = SceneLightPosition[i] - worldPosition;
+        float dist = length(toL);
+        float3 L = toL / max(dist, 1e-4);
+        float atten = saturate(1.0 - dist / SceneLightRange[i]);
+        atten *= atten;
+        sceneLight += SceneLightColor[i] * (saturate(dot(normal, L)) * atten);
+    }
 
-	float3 color = grass * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight + sceneLight);
+    float3 color = grass * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight + sceneLight);
 
-	//Horizon haze: the distant field softens into the skyline
-	float dist = distance(CameraPosition, worldPosition);
-	float haze = saturate(dist / HorizonHazeDistance);
-	color = lerp(color, HorizonColor, haze * haze);
+    //Horizon haze: the distant field softens into the skyline
+    float dist = distance(CameraPosition, worldPosition);
+    float haze = saturate(dist / HorizonHazeDistance);
+    color = lerp(color, HorizonColor, haze * haze);
 
-	return float4(color, 1.0);
+    return float4(color, 1.0);
 }
 
 technique Savanna
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL SavannaVS();
-		PixelShader = compile PS_SHADERMODEL SavannaPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL SavannaVS();
+        PixelShader = compile PS_SHADERMODEL SavannaPS();
+    }
 };

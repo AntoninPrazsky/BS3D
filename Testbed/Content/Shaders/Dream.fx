@@ -81,7 +81,7 @@ static const float PI = 3.14159265;
 
 float3 Palette(float t)
 {
-	return PaletteA + PaletteB * cos(2.0 * PI * (PaletteC * t + PaletteD));
+    return PaletteA + PaletteB * cos(2.0 * PI * (PaletteC * t + PaletteD));
 }
 
 //--- The marbling ----------------------------------------------------------------------------------------
@@ -96,39 +96,39 @@ float3 Palette(float t)
 //pixel rather than only the pixels a solid was hit on. See DreamScene for the rest of that sweep.
 float3 Background(float3 d, int warpOctaves)
 {
-	float t = DreamTime;
-	float3 p = d * SwirlScale;
+    float t = DreamTime;
+    float3 p = d * SwirlScale;
 
-	//The first warp: three offset fBms driving the domain apart - slow, the broad circulation.
-	float3 q;
-	q.x = Fbm3(p + float3(0.0, 1.7, t * SwirlSpeedSlow), warpOctaves);
-	q.y = Fbm3(p + float3(5.2, 8.3, -t * SwirlSpeedSlow * 0.8), warpOctaves);
-	q.z = Fbm3(p + float3(9.1, 2.8, t * SwirlSpeedSlow * 0.6), warpOctaves);
+    //The first warp: three offset fBms driving the domain apart - slow, the broad circulation.
+    float3 q;
+    q.x = Fbm3(p + float3(0.0, 1.7, t * SwirlSpeedSlow), warpOctaves);
+    q.y = Fbm3(p + float3(5.2, 8.3, -t * SwirlSpeedSlow * 0.8), warpOctaves);
+    q.z = Fbm3(p + float3(9.1, 2.8, t * SwirlSpeedSlow * 0.6), warpOctaves);
 
-	//The second warp, off the already-warped domain - the layer that turns smooth drift into mixing.
-	float3 warped = p + SwirlWarp * q;
-	float3 r;
-	r.x = Fbm3(warped * 1.3 + float3(1.7, 9.2, t * SwirlSpeedSlow * 0.5), warpOctaves);
-	r.y = Fbm3(warped * 1.3 + float3(8.3, 2.8, -t * SwirlSpeedSlow * 0.4), warpOctaves);
-	r.z = Fbm3(warped * 1.3 + float3(4.1, 6.9, t * SwirlSpeedSlow * 0.7), warpOctaves);
+    //The second warp, off the already-warped domain - the layer that turns smooth drift into mixing.
+    float3 warped = p + SwirlWarp * q;
+    float3 r;
+    r.x = Fbm3(warped * 1.3 + float3(1.7, 9.2, t * SwirlSpeedSlow * 0.5), warpOctaves);
+    r.y = Fbm3(warped * 1.3 + float3(8.3, 2.8, -t * SwirlSpeedSlow * 0.4), warpOctaves);
+    r.z = Fbm3(warped * 1.3 + float3(4.1, 6.9, t * SwirlSpeedSlow * 0.7), warpOctaves);
 
-	float field = Fbm3(p + SwirlWarp * r, 4);
+    float field = Fbm3(p + SwirlWarp * r, 4);
 
-	//Colour: the palette rides the field, and the WARP INTERMEDIATES shade it - where the domain was
-	//dragged furthest the fluid "mixed", so q picks the second palette phase and r darkens the folds.
-	//Colouring by the intermediates rather than the final value alone is most of why warped fBm reads as
-	//a substance with an inside instead of as a flat pattern.
-	float3 color = Palette(field * 0.55 + t * 0.004);
-	color = lerp(color, Palette(field * 0.55 + 0.38 + t * 0.004) * 1.35, saturate(dot(q, q) * 0.35));
-	color *= 0.5 + 0.65 * saturate(length(r) * 0.65);
+    //Colour: the palette rides the field, and the WARP INTERMEDIATES shade it - where the domain was
+    //dragged furthest the fluid "mixed", so q picks the second palette phase and r darkens the folds.
+    //Colouring by the intermediates rather than the final value alone is most of why warped fBm reads as
+    //a substance with an inside instead of as a flat pattern.
+    float3 color = Palette(field * 0.55 + t * 0.004);
+    color = lerp(color, Palette(field * 0.55 + 0.38 + t * 0.004) * 1.35, saturate(dot(q, q) * 0.35));
+    color *= 0.5 + 0.65 * saturate(length(r) * 0.65);
 
-	//The ribbons: ridged fBm racing through - thin sharp filament networks, the fast half of the sky,
-	//in a palette phase far from the ground they cross.
-	float ribbon = RidgedFbm3(d * SwirlScale * 2.2 + float3(0.0, 0.0, t * SwirlSpeedFast), 3);
-	ribbon = pow(saturate(ribbon - 0.35) * 1.7, RibbonSharpness * 0.45);
-	color += Palette(field * 0.3 + 0.61) * ribbon * 0.9;
+    //The ribbons: ridged fBm racing through - thin sharp filament networks, the fast half of the sky,
+    //in a palette phase far from the ground they cross.
+    float ribbon = RidgedFbm3(d * SwirlScale * 2.2 + float3(0.0, 0.0, t * SwirlSpeedFast), 3);
+    ribbon = pow(saturate(ribbon - 0.35) * 1.7, RibbonSharpness * 0.45);
+    color += Palette(field * 0.3 + 0.61) * ribbon * 0.9;
 
-	return DeepColor + color * BackgroundBrightness;
+    return DeepColor + color * BackgroundBrightness;
 }
 
 //--- The floating solids ---------------------------------------------------------------------------------
@@ -136,11 +136,11 @@ float3 Background(float3 d, int warpOctaves)
 //constellation never repeats and two solids occasionally drift close enough to melt together.
 float3 ShapeCenter(float i, float t)
 {
-	float a = t * (0.020 + 0.011 * frac(i * 0.371)) + i * 2.399;
-	float r = ShapeOrbitRadius * (0.78 + 0.22 * sin(i * 5.3));
-	float y = 26.0 + 46.0 * sin(t * 0.013 + i * 2.7);
+    float a = t * (0.020 + 0.011 * frac(i * 0.371)) + i * 2.399;
+    float r = ShapeOrbitRadius * (0.78 + 0.22 * sin(i * 5.3));
+    float y = 26.0 + 46.0 * sin(t * 0.013 + i * 2.7);
 
-	return float3(cos(a) * r, y, sin(a) * r);
+    return float3(cos(a) * r, y, sin(a) * r);
 }
 
 //One solid's distance field, in its own tumbling frame: a sphere, a rounded box and a torus, melted into
@@ -149,82 +149,82 @@ float3 ShapeCenter(float i, float t)
 //rather than a swap.
 float ShapeSdf(float3 p, float i, out float sizeOut)
 {
-	float t = DreamTime;
-	float3 q = p - ShapeCenter(i, t);
+    float t = DreamTime;
+    float3 q = p - ShapeCenter(i, t);
 
-	//A slow two-axis tumble. Rotations only - the SDF stays exact under them.
-	float ya = t * (0.11 + 0.05 * frac(i * 0.73)) + i;
-	float ca = cos(ya), sa = sin(ya);
-	q.xz = float2(q.x * ca - q.z * sa, q.x * sa + q.z * ca);
-	float xa = t * 0.07 + i * 1.7;
-	float cb = cos(xa), sb = sin(xa);
-	q.yz = float2(q.y * cb - q.z * sb, q.y * sb + q.z * cb);
+    //A slow two-axis tumble. Rotations only - the SDF stays exact under them.
+    float ya = t * (0.11 + 0.05 * frac(i * 0.73)) + i;
+    float ca = cos(ya), sa = sin(ya);
+    q.xz = float2(q.x * ca - q.z * sa, q.x * sa + q.z * ca);
+    float xa = t * 0.07 + i * 1.7;
+    float cb = cos(xa), sb = sin(xa);
+    q.yz = float2(q.y * cb - q.z * sb, q.y * sb + q.z * cb);
 
-	float size = ShapeSize * (0.7 + 0.3 * sin(i * 9.1));
-	sizeOut = size;
+    float size = ShapeSize * (0.7 + 0.3 * sin(i * 9.1));
+    sizeOut = size;
 
-	float m = 0.5 + 0.5 * sin(t * ShapeMorphSpeed + i * 11.3);
-	float blend = smoothstep(0.12, 0.88, m);
+    float m = 0.5 + 0.5 * sin(t * ShapeMorphSpeed + i * 11.3);
+    float blend = smoothstep(0.12, 0.88, m);
 
-	float dSphere = length(q) - size;
+    float dSphere = length(q) - size;
 
-	float3 b = abs(q) - size * 0.72;
-	float dBox = length(max(b, 0.0)) + min(max(b.x, max(b.y, b.z)), 0.0) - size * 0.14;
+    float3 b = abs(q) - size * 0.72;
+    float dBox = length(max(b, 0.0)) + min(max(b.x, max(b.y, b.z)), 0.0) - size * 0.14;
 
-	float2 tor = float2(length(q.xz) - size * 0.78, q.y);
-	float dTorus = length(tor) - size * 0.30;
+    float2 tor = float2(length(q.xz) - size * 0.78, q.y);
+    float dTorus = length(tor) - size * 0.30;
 
-	//Which pair this solid melts between is its own: half cycle sphere<->box, half box<->torus.
-	return frac(i * 0.381) < 0.5 ? lerp(dSphere, dBox, blend) : lerp(dBox, dTorus, blend);
+    //Which pair this solid melts between is its own: half cycle sphere<->box, half box<->torus.
+    return frac(i * 0.381) < 0.5 ? lerp(dSphere, dBox, blend) : lerp(dBox, dTorus, blend);
 }
 
 float3 ShapeNormal(float3 p, float i)
 {
-	float s;
-	const float e = 0.25;
-	float2 k = float2(1.0, -1.0);
+    float s;
+    const float e = 0.25;
+    float2 k = float2(1.0, -1.0);
 
-	//The tetrahedral four-tap gradient - four SDF evaluations instead of six.
-	return normalize(
-		k.xyy * ShapeSdf(p + k.xyy * e, i, s) +
-		k.yyx * ShapeSdf(p + k.yyx * e, i, s) +
-		k.yxy * ShapeSdf(p + k.yxy * e, i, s) +
-		k.xxy * ShapeSdf(p + k.xxy * e, i, s));
+    //The tetrahedral four-tap gradient - four SDF evaluations instead of six.
+    return normalize(
+        k.xyy * ShapeSdf(p + k.xyy * e, i, s) +
+        k.yyx * ShapeSdf(p + k.yyx * e, i, s) +
+        k.yxy * ShapeSdf(p + k.yxy * e, i, s) +
+        k.xxy * ShapeSdf(p + k.xxy * e, i, s));
 }
 
 //The glow of a point along the ray, from the ray's closest approach to it - a pure gaussian, no march. This
 //is the whole of an orb and the whole of a spark: the analytic soft half of the scene's sharp/soft contrast.
 float RayGlow(float3 origin, float3 direction, float3 center, float sigma)
 {
-	float3 toCenter = center - origin;
-	float along = max(dot(toCenter, direction), 0.0);
-	float3 nearest = toCenter - direction * along;
-	float d2 = dot(nearest, nearest);
+    float3 toCenter = center - origin;
+    float along = max(dot(toCenter, direction), 0.0);
+    float3 nearest = toCenter - direction * along;
+    float d2 = dot(nearest, nearest);
 
-	return exp(-d2 / (2.0 * sigma * sigma));
+    return exp(-d2 / (2.0 * sigma * sigma));
 }
 
 struct DreamVertexInput
 {
-	float4 Position : POSITION0;
+    float4 Position : POSITION0;
 };
 
 struct DreamVertexOutput
 {
-	float4 Position : SV_POSITION;
-	float3 Ray : TEXCOORD0;
+    float4 Position : SV_POSITION;
+    float3 Ray : TEXCOORD0;
 };
 
 DreamVertexOutput DreamVS(DreamVertexInput input)
 {
-	DreamVertexOutput output;
-	output.Position = float4(input.Position.xy, 0.0, 1.0);
+    DreamVertexOutput output;
+    output.Position = float4(input.Position.xy, 0.0, 1.0);
 
-	//The corner unprojected to the far plane; the pixel shader normalizes the interpolated ray.
-	float4 far = mul(float4(input.Position.xy, 1.0, 1.0), InverseViewProjection);
-	output.Ray = far.xyz / far.w - CameraPosition;
+    //The corner unprojected to the far plane; the pixel shader normalizes the interpolated ray.
+    float4 far = mul(float4(input.Position.xy, 1.0, 1.0), InverseViewProjection);
+    output.Ray = far.xyz / far.w - CameraPosition;
 
-	return output;
+    return output;
 }
 
 //`detail` is an ordinary argument passed a LITERAL by each entry point below, so it constant-folds and each
@@ -244,144 +244,144 @@ DreamVertexOutput DreamVS(DreamVertexInput input)
 //The reduced program therefore takes all four.
 float4 DreamScene(DreamVertexOutput input, bool detail)
 {
-	float3 direction = normalize(input.Ray);
-	float t = DreamTime;
+    float3 direction = normalize(input.Ray);
+    float t = DreamTime;
 
-	float3 color = Background(direction, detail ? 3 : 2);
+    float3 color = Background(direction, detail ? 3 : 2);
 
-	//--- The soft orbs: huge, slow, blurred - luminous presences breathing through the marbling. Each takes
-	//its own palette phase and swells on its own cycle, so at any moment some are waxing while others fade.
-	[unroll]
-	for (int o = 0; o < ORB_COUNT; o++)
-	{
-		float fo = (float)o;
-		float3 center = float3(
-			cos(t * 0.009 + fo * 2.1) * ShapeOrbitRadius * 1.25,
-			15.0 + 60.0 * sin(t * 0.007 + fo * 3.3),
-			sin(t * 0.011 + fo * 1.3) * ShapeOrbitRadius * 1.25);
+    //--- The soft orbs: huge, slow, blurred - luminous presences breathing through the marbling. Each takes
+    //its own palette phase and swells on its own cycle, so at any moment some are waxing while others fade.
+    [unroll]
+    for (int o = 0; o < ORB_COUNT; o++)
+    {
+        float fo = (float)o;
+        float3 center = float3(
+            cos(t * 0.009 + fo * 2.1) * ShapeOrbitRadius * 1.25,
+            15.0 + 60.0 * sin(t * 0.007 + fo * 3.3),
+            sin(t * 0.011 + fo * 1.3) * ShapeOrbitRadius * 1.25);
 
-		float breath = 0.35 + 0.65 * (0.5 + 0.5 * sin(t * 0.05 + fo * 2.6));
-		float glow = RayGlow(CameraPosition, direction, center, OrbRadius * (0.7 + 0.3 * sin(fo * 7.0)));
+        float breath = 0.35 + 0.65 * (0.5 + 0.5 * sin(t * 0.05 + fo * 2.6));
+        float glow = RayGlow(CameraPosition, direction, center, OrbRadius * (0.7 + 0.3 * sin(fo * 7.0)));
 
-		color += Palette(fo * 0.21 + t * 0.006) * (glow * OrbBrightness * breath);
-	}
+        color += Palette(fo * 0.21 + t * 0.006) * (glow * OrbBrightness * breath);
+    }
 
-	//--- The sparks: small, fast, sharp - they cross between the orbs in seconds. Three samples down each
-	//spark's own recent path make the head a comet: the trail is what reads as speed at any frame rate, the
-	//fireworks' lesson.
-	[unroll]
-	for (int s = 0; s < (detail ? SPARK_COUNT : SPARK_COUNT_REDUCED); s++)
-	{
-		float fs = (float)s;
-		float rate = SparkSpeed * (0.7 + 0.6 * frac(fs * 0.617));
+    //--- The sparks: small, fast, sharp - they cross between the orbs in seconds. Three samples down each
+    //spark's own recent path make the head a comet: the trail is what reads as speed at any frame rate, the
+    //fireworks' lesson.
+    [unroll]
+    for (int s = 0; s < (detail ? SPARK_COUNT : SPARK_COUNT_REDUCED); s++)
+    {
+        float fs = (float)s;
+        float rate = SparkSpeed * (0.7 + 0.6 * frac(fs * 0.617));
 
-		[unroll]
-		for (int trail = 0; trail < (detail ? 3 : 1); trail++)
-		{
-			float tt = t - (float)trail * 0.06;
-			float3 center = float3(
-				sin(tt * rate + fs * 9.7) * 130.0,
-				30.0 + 55.0 * sin(tt * rate * 0.7 + fs * 5.1),
-				cos(tt * rate * 1.3 + fs * 3.9) * 130.0);
+        [unroll]
+        for (int trail = 0; trail < (detail ? 3 : 1); trail++)
+        {
+            float tt = t - (float)trail * 0.06;
+            float3 center = float3(
+                sin(tt * rate + fs * 9.7) * 130.0,
+                30.0 + 55.0 * sin(tt * rate * 0.7 + fs * 5.1),
+                cos(tt * rate * 1.3 + fs * 3.9) * 130.0);
 
-			float amp = SparkBrightness * (trail == 0 ? 1.0 : (trail == 1 ? 0.4 : 0.16));
-			color += Palette(fs * 0.13 + 0.37) * (RayGlow(CameraPosition, direction, center, 2.2) * amp);
-		}
-	}
+            float amp = SparkBrightness * (trail == 0 ? 1.0 : (trail == 1 ? 0.4 : 0.16));
+            color += Palette(fs * 0.13 + 0.37) * (RayGlow(CameraPosition, direction, center, 2.2) * amp);
+        }
+    }
 
-	//--- The solids: the sharp half of the scene. Each carries an analytic bounding sphere; the ray is
-	//tested against those first, and only a crossed bound is marched, inside its own interval. The bounds
-	//are generous (the smooth morph never leaves them) and the branch is coherent across a shape's screen
-	//area, which is what makes it worth having.
-	float bestT = 1e9;
-	float bestShape = -1.0;
+    //--- The solids: the sharp half of the scene. Each carries an analytic bounding sphere; the ray is
+    //tested against those first, and only a crossed bound is marched, inside its own interval. The bounds
+    //are generous (the smooth morph never leaves them) and the branch is coherent across a shape's screen
+    //area, which is what makes it worth having.
+    float bestT = 1e9;
+    float bestShape = -1.0;
 
-	[unroll]
-	for (int i = 0; i < SHAPE_COUNT; i++)
-	{
-		float fi = (float)i;
-		float3 center = ShapeCenter(fi, t);
-		float bound = ShapeSize * 1.9;
+    [unroll]
+    for (int i = 0; i < SHAPE_COUNT; i++)
+    {
+        float fi = (float)i;
+        float3 center = ShapeCenter(fi, t);
+        float bound = ShapeSize * 1.9;
 
-		float3 oc = CameraPosition - center;
-		float b = dot(oc, direction);
-		float c = dot(oc, oc) - bound * bound;
-		float disc = b * b - c;
+        float3 oc = CameraPosition - center;
+        float b = dot(oc, direction);
+        float c = dot(oc, oc) - bound * bound;
+        float disc = b * b - c;
 
-		[branch]
-		if (disc > 0.0)
-		{
-			float t0 = max(-b - sqrt(disc), 0.0);
-			float t1 = -b + sqrt(disc);
+        [branch]
+        if (disc > 0.0)
+        {
+            float t0 = max(-b - sqrt(disc), 0.0);
+            float t1 = -b + sqrt(disc);
 
-			//Sphere-trace just this shape inside [t0, t1]. The interval is a few shape-widths, so the
-			//march converges in far fewer steps than a whole-scene trace would.
-			float rayT = t0;
-			float size;
+            //Sphere-trace just this shape inside [t0, t1]. The interval is a few shape-widths, so the
+            //march converges in far fewer steps than a whole-scene trace would.
+            float rayT = t0;
+            float size;
 
-			[loop]
-			for (int march = 0; march < 28; march++)
-			{
-				float d = ShapeSdf(CameraPosition + direction * rayT, fi, size);
-				if (d < 0.02 || rayT > t1) break;
-				rayT += d * 0.9;
-			}
+            [loop]
+            for (int march = 0; march < 28; march++)
+            {
+                float d = ShapeSdf(CameraPosition + direction * rayT, fi, size);
+                if (d < 0.02 || rayT > t1) break;
+                rayT += d * 0.9;
+            }
 
-			if (rayT <= t1 && rayT < bestT)
-			{
-				bestT = rayT;
-				bestShape = fi;
-			}
-		}
-	}
+            if (rayT <= t1 && rayT < bestT)
+            {
+                bestT = rayT;
+                bestShape = fi;
+            }
+        }
+    }
 
-	[branch]
-	if (bestShape >= 0.0)
-	{
-		float3 hit = CameraPosition + direction * bestT;
-		float3 normal = ShapeNormal(hit, bestShape);
+    [branch]
+    if (bestShape >= 0.0)
+    {
+        float3 hit = CameraPosition + direction * bestT;
+        float3 normal = ShapeNormal(hit, bestShape);
 
-		//Ambient occlusion off the solid's own field: four probes up the normal, each asking how much
-		//less room there is than an open surface would have. It is what darkens the torus's inner ring
-		//and the melt seams mid-morph - the CONTACT the first build lacked, whose absence is half of what
-		//separates a modern render from a screensaver (nothing in one ever shades anything else).
-		float occlusion = 0.0;
-		float probe = 1.4;
-		float sizeUnused;
+        //Ambient occlusion off the solid's own field: four probes up the normal, each asking how much
+        //less room there is than an open surface would have. It is what darkens the torus's inner ring
+        //and the melt seams mid-morph - the CONTACT the first build lacked, whose absence is half of what
+        //separates a modern render from a screensaver (nothing in one ever shades anything else).
+        float occlusion = 0.0;
+        float probe = 1.4;
+        float sizeUnused;
 
-		[unroll]
-		for (int a = 1; a <= 4; a++)
-		{
-			float reach = probe * (float)a;
-			occlusion += (reach - ShapeSdf(hit + normal * reach, bestShape, sizeUnused)) / reach * pow(0.55, (float)a);
-		}
+        [unroll]
+        for (int a = 1; a <= 4; a++)
+        {
+            float reach = probe * (float)a;
+            occlusion += (reach - ShapeSdf(hit + normal * reach, bestShape, sizeUnused)) / reach * pow(0.55, (float)a);
+        }
 
-		float ao = saturate(1.0 - 1.3 * occlusion);
+        float ao = saturate(1.0 - 1.3 * occlusion);
 
-		//A solid is lit by the dream itself: its own palette colour glowing from inside, the marbled sky
-		//mirrored off its surface, and a fresnel rim that lifts its silhouette out of the background - the
-		//sharp edge the soft orbs exist to contrast with. The emission floor is high (a solid whose
-		//palette phase lands dark would vanish as a silhouette), but the AO is allowed to press even the
-		//emission down: a hallucination has no unlit objects, and still its folds have depth.
-		float3 own = Palette(bestShape * 0.17 + t * 0.010);
-		float fresnel = pow(1.0 - saturate(dot(normal, -direction)), 3.0);
-		//The reduced program mirrors a flat DeepColor rather than re-running the whole background. It is half of
-		//the cheapest pair that pays anything at all (see DreamScene), and the solids are rounded and
-		//semi-matte - a first-order warp is already past what a reflection at that curvature resolves.
-		float3 mirrored = DeepColor;
+        //A solid is lit by the dream itself: its own palette colour glowing from inside, the marbled sky
+        //mirrored off its surface, and a fresnel rim that lifts its silhouette out of the background - the
+        //sharp edge the soft orbs exist to contrast with. The emission floor is high (a solid whose
+        //palette phase lands dark would vanish as a silhouette), but the AO is allowed to press even the
+        //emission down: a hallucination has no unlit objects, and still its folds have depth.
+        float3 own = Palette(bestShape * 0.17 + t * 0.010);
+        float fresnel = pow(1.0 - saturate(dot(normal, -direction)), 3.0);
+        //The reduced program mirrors a flat DeepColor rather than re-running the whole background. It is half of
+        //the cheapest pair that pays anything at all (see DreamScene), and the solids are rounded and
+        //semi-matte - a first-order warp is already past what a reflection at that curvature resolves.
+        float3 mirrored = DeepColor;
 
-		if (detail) mirrored = Background(reflect(direction, normal), 3);
+        if (detail) mirrored = Background(reflect(direction, normal), 3);
 
-		float3 shapeColor = own * ShapeEmission * (0.55 + 0.45 * fresnel) * (0.35 + 0.65 * ao)
-			+ mirrored * ShapeReflection * (0.4 + 0.6 * fresnel) * ao;
+        float3 shapeColor = own * ShapeEmission * (0.55 + 0.45 * fresnel) * (0.35 + 0.65 * ao)
+            + mirrored * ShapeReflection * (0.4 + 0.6 * fresnel) * ao;
 
-		//The far solids sink into the marbling rather than popping against it - a touch of the background
-		//over distance, the haze idea with colour instead of grey.
-		float fade = saturate(bestT / 600.0);
-		color = lerp(shapeColor, color, fade * 0.5);
-	}
+        //The far solids sink into the marbling rather than popping against it - a touch of the background
+        //over distance, the haze idea with colour instead of grey.
+        float fade = saturate(bestT / 600.0);
+        color = lerp(shapeColor, color, fade * 0.5);
+    }
 
-	return float4(color, 1.0);
+    return float4(color, 1.0);
 }
 
 //Two programs from one body, as the forest floor and the cavern have. "DreamReduced" drops the background's
@@ -392,18 +392,18 @@ float4 DreamReducedPS(DreamVertexOutput input) : COLOR { return DreamScene(input
 
 technique Dream
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL DreamVS();
-		PixelShader = compile PS_SHADERMODEL DreamPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL DreamVS();
+        PixelShader = compile PS_SHADERMODEL DreamPS();
+    }
 };
 
 technique DreamReduced
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL DreamVS();
-		PixelShader = compile PS_SHADERMODEL DreamReducedPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL DreamVS();
+        PixelShader = compile PS_SHADERMODEL DreamReducedPS();
+    }
 };

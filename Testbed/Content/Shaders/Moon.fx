@@ -202,71 +202,71 @@ static const float CRATER_MAX_RADIUS = 0.21;
 
 float CraterLayer(float2 p, float seedOffset, float chance, out float ejecta)
 {
-	float2 cellId = floor(p);
-	float2 f = p - cellId;
+    float2 cellId = floor(p);
+    float2 f = p - cellId;
 
-	ejecta = 0.0;
+    ejecta = 0.0;
 
-	//Three independent rolls per candidate crater: whether/what shape, size/depth, and where. Separate
-	//hashes rather than one reused - a position correlated with a rim width is a correlation nobody would
-	//name but a texture the eye would still catch.
-	float2 rollA = NoiseHash22(cellId + seedOffset) * 0.5 + 0.5;
+    //Three independent rolls per candidate crater: whether/what shape, size/depth, and where. Separate
+    //hashes rather than one reused - a position correlated with a rim width is a correlation nobody would
+    //name but a texture the eye would still catch.
+    float2 rollA = NoiseHash22(cellId + seedOffset) * 0.5 + 0.5;
 
-	//Not every cell carries a crater - a plain with a crater in every cell of a lattice IS the lattice,
-	//however hard the jitter works. The empty cells are what break the grid. Per octave since #240: the
-	//finest layers were the loudest offenders, because a carpet of small craters puts dozens of cells in
-	//one glance and a row of dozens reads as a row where a row of three does not.
-	if (rollA.x > chance) return 0.0;
+    //Not every cell carries a crater - a plain with a crater in every cell of a lattice IS the lattice,
+    //however hard the jitter works. The empty cells are what break the grid. Per octave since #240: the
+    //finest layers were the loudest offenders, because a carpet of small craters puts dozens of cells in
+    //one glance and a row of dozens reads as a row where a row of three does not.
+    if (rollA.x > chance) return 0.0;
 
-	float2 rollB = NoiseHash22(cellId + seedOffset + 47.9) * 0.5 + 0.5;
-	float2 rollC = NoiseHash22(cellId + seedOffset + 91.7) * 0.5 + 0.5;
+    float2 rollB = NoiseHash22(cellId + seedOffset + 47.9) * 0.5 + 0.5;
+    float2 rollC = NoiseHash22(cellId + seedOffset + 91.7) * 0.5 + 0.5;
 
-	//The centre is jittered inside the middle of the cell, held clear of the edge by the crater's own
-	//reach (radius * 1.6 skirt) - which is exactly what makes the single-cell read above sound, the way
-	//the star lattice and the meadow's flowers hold their margins. What it also does is trade the jitter
-	//away against the radius, so the radius pair is chosen for the jitter (see CRATER_MAX_RADIUS).
-	//
-	//The roll is SQUARED, which weights the radii towards the small end. That is what a real crater count
-	//does - N climbs steeply as the diameter falls, and a plain of one-size bowls is the plane-wave-sine
-	//failure in bowl form - and it pays for itself twice over here, because a crater's margin IS its
-	//radius: a field of mostly small craters is a field of mostly free centres. Median radius 0.14 of a
-	//cell against a uniform law's 0.165, and a median jitter box of 55 % of the cell against 47 %.
-	float radius = lerp(CRATER_MIN_RADIUS, CRATER_MAX_RADIUS, rollB.x * rollB.x);
-	float margin = radius * 1.6;
-	float2 centre = margin + rollC * (1.0 - 2.0 * margin);
+    //The centre is jittered inside the middle of the cell, held clear of the edge by the crater's own
+    //reach (radius * 1.6 skirt) - which is exactly what makes the single-cell read above sound, the way
+    //the star lattice and the meadow's flowers hold their margins. What it also does is trade the jitter
+    //away against the radius, so the radius pair is chosen for the jitter (see CRATER_MAX_RADIUS).
+    //
+    //The roll is SQUARED, which weights the radii towards the small end. That is what a real crater count
+    //does - N climbs steeply as the diameter falls, and a plain of one-size bowls is the plane-wave-sine
+    //failure in bowl form - and it pays for itself twice over here, because a crater's margin IS its
+    //radius: a field of mostly small craters is a field of mostly free centres. Median radius 0.14 of a
+    //cell against a uniform law's 0.165, and a median jitter box of 55 % of the cell against 47 %.
+    float radius = lerp(CRATER_MIN_RADIUS, CRATER_MAX_RADIUS, rollB.x * rollB.x);
+    float margin = radius * 1.6;
+    float2 centre = margin + rollC * (1.0 - 2.0 * margin);
 
-	float d = length(f - centre) / radius;
+    float d = length(f - centre) / radius;
 
-	//Past the rim skirt this crater contributes nothing
-	if (d >= 1.6) return 0.0;
+    //Past the rim skirt this crater contributes nothing
+    if (d >= 1.6) return 0.0;
 
-	float depth = lerp(0.55, 1.0, rollB.y);
+    float depth = lerp(0.55, 1.0, rollB.y);
 
-	//The cup: flat-bottomed rather than a cone (real simple craters have a bowl floor), zero at the rim
-	//line d = 1
-	float cup = saturate(1.0 - d * d);
-	float bowl = -cup * cup * depth;
+    //The cup: flat-bottomed rather than a cone (real simple craters have a bowl floor), zero at the rim
+    //line d = 1
+    float cup = saturate(1.0 - d * d);
+    float bowl = -cup * cup * depth;
 
-	//The rim: a smooth lip centred just past d = 1, its width (sharpness) the crater's own roll - an
-	//eroded old crater has a soft wide lip, a young one a tight sharp one. VARYING this is what keeps a
-	//field of bowls from reading as a texture.
-	float rimWidth = lerp(0.18, 0.42, rollA.y);
-	float rimT = (d - 1.0) / rimWidth;
+    //The rim: a smooth lip centred just past d = 1, its width (sharpness) the crater's own roll - an
+    //eroded old crater has a soft wide lip, a young one a tight sharp one. VARYING this is what keeps a
+    //field of bowls from reading as a texture.
+    float rimWidth = lerp(0.18, 0.42, rollA.y);
+    float rimT = (d - 1.0) / rimWidth;
 
-	//The gaussian's tail is taken to EXACTLY zero across the outer half of the skirt, because the early
-	//return above is a hard cut and at the widest rims the bare gaussian still holds ~0.13 at d = 1.6 -
-	//which drew every soft-rimmed crater with a circular cliff at its skirt, a shading ring where the
-	//finite-difference normal straddled the step, and its ejecta cut dead on the same circle. The fade
-	//starts past the lip's crest, so the lip itself keeps its full profile.
-	float rim = exp(-rimT * rimT) * smoothstep(1.6, 1.1, d);
+    //The gaussian's tail is taken to EXACTLY zero across the outer half of the skirt, because the early
+    //return above is a hard cut and at the widest rims the bare gaussian still holds ~0.13 at d = 1.6 -
+    //which drew every soft-rimmed crater with a circular cliff at its skirt, a shading ring where the
+    //finite-difference normal straddled the step, and its ejecta cut dead on the same circle. The fade
+    //starts past the lip's crest, so the lip itself keeps its full profile.
+    float rim = exp(-rimT * rimT) * smoothstep(1.6, 1.1, d);
 
-	//Fresh material where the rim stands, fading with the rim itself
-	ejecta = rim * rollB.y;
+    //Fresh material where the rim stands, fading with the rim itself
+    ejecta = rim * rollB.y;
 
-	//0.62: the weight at which the lip plus its apron hands back roughly the volume the cup took out, so
-	//the layer stays near mean-zero (measured over the profile, not eyeballed: the cup's area integral is
-	//~0.53 of the disc and the gaussian annulus at this width returns it).
-	return bowl + rim * depth * 0.62;
+    //0.62: the weight at which the lip plus its apron hands back roughly the volume the cup took out, so
+    //the layer stays near mean-zero (measured over the profile, not eyeballed: the cup's area integral is
+    //~0.53 of the disc and the gaussian annulus at this width returns it).
+    return bowl + rim * depth * 0.62;
 }
 
 //Each octave is TURNED TO ITS OWN BEARING before it is cut into cells, and the fourth (the pixel shader's
@@ -282,7 +282,7 @@ static const float2 CRATER_TURN_3 = float2(0.55919, 0.82903);   //56 degrees
 
 float2 TurnCrater(float2 p, float2 turn)
 {
-	return float2(p.x * turn.x - p.y * turn.y, p.x * turn.y + p.y * turn.x);
+    return float2(p.x * turn.x - p.y * turn.y, p.x * turn.y + p.y * turn.x);
 }
 
 //The crater field: three octaves, so small craters sit inside and on top of larger ones the way the real
@@ -298,17 +298,17 @@ float2 TurnCrater(float2 p, float2 turn)
 //the fix reads as a plain rather than as the same plain jittered.
 float CraterField(float2 p, out float ejecta)
 {
-	float e0, e1, e2;
+    float e0, e1, e2;
 
-	float height = CraterLayer(TurnCrater(p, CRATER_TURN_0) * (1.0 / 129.0), 11.3, 0.86, e0) * 0.58
-		+ CraterLayer(TurnCrater(p, CRATER_TURN_1) * (1.0 / 49.0), 37.7, 0.82, e1) * 0.29
-		+ CraterLayer(TurnCrater(p, CRATER_TURN_2) * (1.0 / 18.6), 71.1, 0.70, e2) * 0.13;
+    float height = CraterLayer(TurnCrater(p, CRATER_TURN_0) * (1.0 / 129.0), 11.3, 0.86, e0) * 0.58
+        + CraterLayer(TurnCrater(p, CRATER_TURN_1) * (1.0 / 49.0), 37.7, 0.82, e1) * 0.29
+        + CraterLayer(TurnCrater(p, CRATER_TURN_2) * (1.0 / 18.6), 71.1, 0.70, e2) * 0.13;
 
-	//The freshest rim wins: ejecta is a colour cue, not a height, so the octaves MAX rather than sum -
-	//summed, three faint aprons stack into a pale wash that reads as dirt rather than as rays.
-	ejecta = max(e0 * 0.9, max(e1, e2 * 0.8));
+    //The freshest rim wins: ejecta is a colour cue, not a height, so the octaves MAX rather than sum -
+    //summed, three faint aprons stack into a pale wash that reads as dirt rather than as rays.
+    ejecta = max(e0 * 0.9, max(e1, e2 * 0.8));
 
-	return height;
+    return height;
 }
 
 //Gentle mare undulation under the craters, so the plain is not a snooker table between them. Two octaves
@@ -316,7 +316,7 @@ float CraterField(float2 p, out float ejecta)
 //opening, learned by three scenes the hard way).
 float MareBase(float2 p)
 {
-	return GradientNoise2(p * 0.011) * 0.65 + GradientNoise2(p * 0.031 + 7.3) * 0.35;
+    return GradientNoise2(p * 0.011) * 0.65 + GradientNoise2(p * 0.031 + 7.3) * 0.35;
 }
 
 //The highland belt's rise at a world point (see the HighlandHeight block for why the scene has one at all).
@@ -337,17 +337,17 @@ float MareBase(float2 p)
 //degree above the lens, and everything past the crest reads under it.
 float HighlandBelt(float2 p, float dist, float mare)
 {
-	//0.75 stretches MareBase's usual +-0.7 swing across the whole 0..1 span, so the belt actually reaches its
-	//full height somewhere; the little that clips at either end flattens the highest massifs into plateaus,
-	//which is what a highland IS.
-	float shape = saturate(mare * 0.75 + 0.5);
+    //0.75 stretches MareBase's usual +-0.7 swing across the whole 0..1 span, so the belt actually reaches its
+    //full height somewhere; the little that clips at either end flattens the highest massifs into plateaus,
+    //which is what a highland IS.
+    float shape = saturate(mare * 0.75 + 0.5);
 
-	//The rise and the shape MULTIPLY rather than add: where the shape is low the massif both starts later and
-	//ends lower, so the belt's inner edge is as ragged as its crest. An additive shape would ring the plain
-	//with one circle at one radius - the lathe-turned bowl rim.
-	return HighlandHeight
-		* smoothstep(HighlandInnerRadius, HighlandCrestRadius, dist)
-		* lerp(HighlandSaddleFloor, 1.0, shape);
+    //The rise and the shape MULTIPLY rather than add: where the shape is low the massif both starts later and
+    //ends lower, so the belt's inner edge is as ragged as its crest. An additive shape would ring the plain
+    //with one circle at one radius - the lathe-turned bowl rim.
+    return HighlandHeight
+        * smoothstep(HighlandInnerRadius, HighlandCrestRadius, dist)
+        * lerp(HighlandSaddleFloor, 1.0, shape);
 }
 
 //The full displaced height at a world point: flat at MoonLevelY inside the clearing around the island,
@@ -360,152 +360,152 @@ float HighlandBelt(float2 p, float dist, float mare)
 //strips the dead half there).
 float MoonHeight(float2 p, out float ejecta)
 {
-	float dist = length(p);
-	float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, dist);
+    float dist = length(p);
+    float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, dist);
 
-	//One MareBase evaluation, two consumers: the plain's gentle undulation under the craters, and the shape
-	//of the highland belt out past them (see HighlandBelt for why it borrows this field rather than rolling
-	//its own).
-	float mare = MareBase(p);
-	float field = CraterField(p, ejecta) + mare * 0.18;
+    //One MareBase evaluation, two consumers: the plain's gentle undulation under the craters, and the shape
+    //of the highland belt out past them (see HighlandBelt for why it borrows this field rather than rolling
+    //its own).
+    float mare = MareBase(p);
+    float field = CraterField(p, ejecta) + mare * 0.18;
 
-	//The curvature is OUTSIDE the ramp: the clearing must stay flat where the island's physics floor is,
-	//but the fall of the horizon is the planet's, not the field's, and ramping it would put a crease at
-	//the clearing's edge. Inside ClearingRadius the drop is under a hundredth of a unit - nothing.
-	//
-	//The belt is outside it too, and has its own inner radius well past the clearing's, so the flat ground
-	//under the island's physics floor stays exactly as flat as it was.
-	return MoonLevelY + CraterAmplitude * ramp * field + HighlandBelt(p, dist, mare)
-		- Curvature * dist * dist;
+    //The curvature is OUTSIDE the ramp: the clearing must stay flat where the island's physics floor is,
+    //but the fall of the horizon is the planet's, not the field's, and ramping it would put a crease at
+    //the clearing's edge. Inside ClearingRadius the drop is under a hundredth of a unit - nothing.
+    //
+    //The belt is outside it too, and has its own inner radius well past the clearing's, so the flat ground
+    //under the island's physics floor stays exactly as flat as it was.
+    return MoonLevelY + CraterAmplitude * ramp * field + HighlandBelt(p, dist, mare)
+        - Curvature * dist * dist;
 }
 
 struct MoonTerrainVertexInput
 {
-	float4 Position : POSITION0;
+    float4 Position : POSITION0;
 };
 
 struct MoonTerrainVertexOutput
 {
-	float4 Position : SV_POSITION;
-	float3 WorldPosition : TEXCOORD0;
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
 };
 
 MoonTerrainVertexOutput MoonTerrainVS(MoonTerrainVertexInput input)
 {
-	MoonTerrainVertexOutput output;
+    MoonTerrainVertexOutput output;
 
-	//Local grid position + the snapped origin gives the world XZ; the craters are sampled there, so they
-	//sit still in the world while the grid slides under them
-	float2 worldXZ = input.Position.xz + OriginXZ;
+    //Local grid position + the snapped origin gives the world XZ; the craters are sampled there, so they
+    //sit still in the world while the grid slides under them
+    float2 worldXZ = input.Position.xz + OriginXZ;
 
-	float ejectaUnused;
-	float3 worldPosition = float3(worldXZ.x, MoonHeight(worldXZ, ejectaUnused), worldXZ.y);
+    float ejectaUnused;
+    float3 worldPosition = float3(worldXZ.x, MoonHeight(worldXZ, ejectaUnused), worldXZ.y);
 
-	output.WorldPosition = worldPosition;
-	output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
+    output.WorldPosition = worldPosition;
+    output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
 
-	return output;
+    return output;
 }
 
 //Tangent-free normal tilt from a height field (Christian Schueler), the same one the desert, the sea chop
 //and the balls use - the grid carries no tangents and the micro-relief never reaches it anyway.
 float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
 {
-	float3 dpdx = ddx(worldPosition);
-	float3 dpdy = ddy(worldPosition);
+    float3 dpdx = ddx(worldPosition);
+    float3 dpdy = ddy(worldPosition);
 
-	float3 r1 = cross(dpdy, normal);
-	float3 r2 = cross(normal, dpdx);
+    float3 r1 = cross(dpdy, normal);
+    float3 r2 = cross(normal, dpdx);
 
-	float determinant = dot(dpdx, r1);
-	float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
+    float determinant = dot(dpdx, r1);
+    float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
 
-	return normalize(abs(determinant) * normal - surfaceGradient);
+    return normalize(abs(determinant) * normal - surfaceGradient);
 }
 
 float4 MoonTerrainPS(MoonTerrainVertexOutput input) : COLOR
 {
-	float3 worldPosition = input.WorldPosition;
+    float3 worldPosition = input.WorldPosition;
 
-	//Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
-	clip(length(worldPosition.xz) - IslandHoleRadius);
+    //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
+    clip(length(worldPosition.xz) - IslandHoleRadius);
 
-	float footprint = length(fwidth(worldPosition.xz));
+    float footprint = length(fwidth(worldPosition.xz));
 
-	//The base normal, taken PER PIXEL from the height field's gradient (three taps) rather than
-	//interpolated from a per-vertex normal - the savanna's fix, the desert's practice: on a coarse
-	//displaced mesh a per-vertex normal leaves a Mach-band grid, and per-pixel evaluation makes the
-	//shading smooth regardless of tessellation.
-	float e = 1.5;
-	float ejecta, ejectaX, ejectaZ;
-	float h = MoonHeight(worldPosition.xz, ejecta);
-	float hx = MoonHeight(worldPosition.xz + float2(e, 0.0), ejectaX);
-	float hz = MoonHeight(worldPosition.xz + float2(0.0, e), ejectaZ);
+    //The base normal, taken PER PIXEL from the height field's gradient (three taps) rather than
+    //interpolated from a per-vertex normal - the savanna's fix, the desert's practice: on a coarse
+    //displaced mesh a per-vertex normal leaves a Mach-band grid, and per-pixel evaluation makes the
+    //shading smooth regardless of tessellation.
+    float e = 1.5;
+    float ejecta, ejectaX, ejectaZ;
+    float h = MoonHeight(worldPosition.xz, ejecta);
+    float hx = MoonHeight(worldPosition.xz + float2(e, 0.0), ejectaX);
+    float hz = MoonHeight(worldPosition.xz + float2(0.0, e), ejectaZ);
 
-	float2 slope = float2(hx - h, hz - h) / e;
-	float3 baseNormal = normalize(float3(-slope.x, 1.0, -slope.y));
+    float2 slope = float2(hx - h, hz - h) / e;
+    float3 baseNormal = normalize(float3(-slope.x, 1.0, -slope.y));
 
-	//Fine surface on top of the crater normal: a fourth, small crater octave the mesh could never hold
-	//(normal-only - at this scale a crater is shading, not silhouette) plus an isotropic regolith relief.
-	//Both band-limited against the footprint; the perturbation is derivative-driven and would checkerboard
-	//the moment a wave nears pixel size.
-	float smallEjecta;
-	//Turned and thinned with the other three (#240). This is the octave the eye is closest to, so its rows
-	//are the longest ones in the frame: it sat unturned on world X and Z at 5 units, which put a hundred
-	//cells of it across the near ground in a single glance.
-	float smallCraters = CraterLayer(TurnCrater(worldPosition.xz, CRATER_TURN_3) * (1.0 / 7.2), 133.7, 0.64, smallEjecta)
-		* saturate(1.0 - footprint * (2.0 / 5.0));
+    //Fine surface on top of the crater normal: a fourth, small crater octave the mesh could never hold
+    //(normal-only - at this scale a crater is shading, not silhouette) plus an isotropic regolith relief.
+    //Both band-limited against the footprint; the perturbation is derivative-driven and would checkerboard
+    //the moment a wave nears pixel size.
+    float smallEjecta;
+    //Turned and thinned with the other three (#240). This is the octave the eye is closest to, so its rows
+    //are the longest ones in the frame: it sat unturned on world X and Z at 5 units, which put a hundred
+    //cells of it across the near ground in a single glance.
+    float smallCraters = CraterLayer(TurnCrater(worldPosition.xz, CRATER_TURN_3) * (1.0 / 7.2), 133.7, 0.64, smallEjecta)
+        * saturate(1.0 - footprint * (2.0 / 5.0));
 
-	float relief = Fbm2BandLimited(worldPosition.xz * 1.7, 3, footprint * 1.7);
+    float relief = Fbm2BandLimited(worldPosition.xz * 1.7, 3, footprint * 1.7);
 
-	float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition,
-		smallCraters * (MicroReliefStrength * 3.0) + relief * MicroReliefStrength);
+    float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition,
+        smallCraters * (MicroReliefStrength * 3.0) + relief * MicroReliefStrength);
 
-	ejecta = max(ejecta, smallEjecta * 0.5);
+    ejecta = max(ejecta, smallEjecta * 0.5);
 
-	//--- The regolith's colour -----------------------------------------------------------------------
-	//Grey on grey, but never ONE grey: broad albedo patches (old flows and ray systems are visibly
-	//lighter and darker from every Apollo window), pale fresh ejecta on the crater rims, and a
-	//per-pixel grain close up - regolith at arm's length is glass beads and crushed rock, and the grain
-	//is the only cue at that distance that says so.
-	float broad = GradientNoise2(worldPosition.xz * 0.021);
+    //--- The regolith's colour -----------------------------------------------------------------------
+    //Grey on grey, but never ONE grey: broad albedo patches (old flows and ray systems are visibly
+    //lighter and darker from every Apollo window), pale fresh ejecta on the crater rims, and a
+    //per-pixel grain close up - regolith at arm's length is glass beads and crushed rock, and the grain
+    //is the only cue at that distance that says so.
+    float broad = GradientNoise2(worldPosition.xz * 0.021);
 
-	float3 regolith = lerp(RegolithColor, RegolithColorPale, saturate(broad * 1.5 + 0.35));
+    float3 regolith = lerp(RegolithColor, RegolithColorPale, saturate(broad * 1.5 + 0.35));
 
-	//Fresh rims brighten towards the pale grey - the cheapest ejecta there is, and what makes the young
-	//craters read young
-	regolith = lerp(regolith, RegolithColorPale * 1.18, saturate(ejecta * EjectaBrightness));
+    //Fresh rims brighten towards the pale grey - the cheapest ejecta there is, and what makes the young
+    //craters read young
+    regolith = lerp(regolith, RegolithColorPale * 1.18, saturate(ejecta * EjectaBrightness));
 
-	//The grain - CASCADED, not one lattice, which is #208's finding: a single arm's-length grain faded out
-	//before its cells reached pixel size (the desert's rule, kept per octave below) left everything past a
-	//few metres of the camera as one flat grey, craters and all, and the surface read as untextured. Three
-	//octaves of per-cell hash now, each at its own scale and each faded out before ITS cells reach pixel
-	//size: crystal-and-dust at 2 cm, coarse granular at ~1.3 m, and pebble patches at ~5.5 m that the last
-	//one could never bridge. The broad `broad` mottling above starts at tens of metres, so between them a
-	//resolvable octave exists at every footprint the plain is drawn at - grey on grey, but never one grey
-	//at any distance. All three scale with GrainStrength, so a config pinning it to zero still silences
-	//the lot.
-	float grainFine = saturate(1.0 - footprint * 96.0);
-	float grainCoarse = saturate(1.0 - footprint * 1.5);
-	float grainPebbles = saturate(1.0 - footprint * 0.36);
-	regolith *= 1.0 + GrainStrength * (
-		NoiseHash22(floor(worldPosition.xz * 48.0)).x * grainFine
-		+ NoiseHash22(floor(worldPosition.xz * 0.75) + 17.0).x * 0.7 * grainCoarse
-		+ NoiseHash22(floor(worldPosition.xz * 0.18) + 41.0).x * 0.5 * grainPebbles);
+    //The grain - CASCADED, not one lattice, which is #208's finding: a single arm's-length grain faded out
+    //before its cells reached pixel size (the desert's rule, kept per octave below) left everything past a
+    //few metres of the camera as one flat grey, craters and all, and the surface read as untextured. Three
+    //octaves of per-cell hash now, each at its own scale and each faded out before ITS cells reach pixel
+    //size: crystal-and-dust at 2 cm, coarse granular at ~1.3 m, and pebble patches at ~5.5 m that the last
+    //one could never bridge. The broad `broad` mottling above starts at tens of metres, so between them a
+    //resolvable octave exists at every footprint the plain is drawn at - grey on grey, but never one grey
+    //at any distance. All three scale with GrainStrength, so a config pinning it to zero still silences
+    //the lot.
+    float grainFine = saturate(1.0 - footprint * 96.0);
+    float grainCoarse = saturate(1.0 - footprint * 1.5);
+    float grainPebbles = saturate(1.0 - footprint * 0.36);
+    regolith *= 1.0 + GrainStrength * (
+        NoiseHash22(floor(worldPosition.xz * 48.0)).x * grainFine
+        + NoiseHash22(floor(worldPosition.xz * 0.75) + 17.0).x * 0.7 * grainCoarse
+        + NoiseHash22(floor(worldPosition.xz * 0.18) + 41.0).x * 0.5 * grainPebbles);
 
-	//--- Lighting -------------------------------------------------------------------------------------
-	//A sun and almost nothing else, which is the whole look: no air means no sky fill and no aerial
-	//perspective, so the shadowed side of a crater goes very nearly black and the horizon stays razor
-	//sharp at any distance. AmbientColor is the tiny floor that keeps "very nearly" from being a hole,
-	//and the earthshine is a real directional fill - the two together are still far under any dome's
-	//hemisphere. There is no haze term in this shader at all, deliberately.
-	float ndotl = saturate(dot(normal, SunDirection));
+    //--- Lighting -------------------------------------------------------------------------------------
+    //A sun and almost nothing else, which is the whole look: no air means no sky fill and no aerial
+    //perspective, so the shadowed side of a crater goes very nearly black and the horizon stays razor
+    //sharp at any distance. AmbientColor is the tiny floor that keeps "very nearly" from being a hole,
+    //and the earthshine is a real directional fill - the two together are still far under any dome's
+    //hemisphere. There is no haze term in this shader at all, deliberately.
+    float ndotl = saturate(dot(normal, SunDirection));
 
-	float3 fill = AmbientColor + EarthshineColor * saturate(dot(normal, EarthDirection));
+    float3 fill = AmbientColor + EarthshineColor * saturate(dot(normal, EarthDirection));
 
-	float3 color = regolith * (SunColor * ndotl + fill);
+    float3 color = regolith * (SunColor * ndotl + fill);
 
-	return float4(color, 1.0);
+    return float4(color, 1.0);
 }
 
 //=====================================================================================================
@@ -519,175 +519,175 @@ float4 MoonTerrainPS(MoonTerrainVertexOutput input) : COLOR
 //UNDER the glare threshold (see the header).
 float3 Earth(float3 dir, float pixelAngle, out float coverage)
 {
-	coverage = 0.0;
+    coverage = 0.0;
 
-	float cosine = dot(dir, EarthDirection);
-	float cosLimb = cos(EarthAngularRadius);
+    float cosine = dot(dir, EarthDirection);
+    float cosLimb = cos(EarthAngularRadius);
 
-	//A little slack past the limb so the atmosphere's halo is reached as well
-	float halo = cos(EarthAngularRadius * 1.35);
+    //A little slack past the limb so the atmosphere's halo is reached as well
+    float halo = cos(EarthAngularRadius * 1.35);
 
-	[branch]
-	if (cosine <= halo || EarthAngularRadius <= 0.0) return 0.0;
+    [branch]
+    if (cosine <= halo || EarthAngularRadius <= 0.0) return 0.0;
 
-	//The limb is where cos(angle) crosses cosLimb, antialiased over one pixel's worth of angle
-	float edge = max(pixelAngle * sin(EarthAngularRadius) * 0.8, 1e-6);
-	coverage = smoothstep(cosLimb - edge, cosLimb + edge, cosine);
+    //The limb is where cos(angle) crosses cosLimb, antialiased over one pixel's worth of angle
+    float edge = max(pixelAngle * sin(EarthAngularRadius) * 0.8, 1e-6);
+    coverage = smoothstep(cosLimb - edge, cosLimb + edge, cosine);
 
-	//The rim of atmosphere standing off the disc: a thin blue arc, lit only where the sun is. On a disc
-	//this small it is most of what says "atmosphere", so it is allowed a touch of glare - but through a
-	//saturated blue, whose luminance stays modest however bright the blue channel runs.
-	//
-	//Lit PER POINT of the ring, not by one global phase factor: for a ring direction dir near the disc,
-	//dot(dir, sun) exceeds the disc centre's own dot exactly on the sunward side, so the difference -
-	//normalized by the disc's angular radius - is which side of the planet this piece of atmosphere is on.
-	//One factor for the whole ring (the first build) drew a complete blue circle around a gibbous Earth,
-	//night limb included, which reads as a ring around the planet rather than as its air.
-	float3 outside = 0.0;
-	if (coverage < 0.999)
-	{
-		float ring = saturate((cosine - halo) / max(cosLimb - halo, 1e-5));
-		float sunward = (dot(dir, SunDirection) - dot(EarthDirection, SunDirection))
-			/ max(sin(EarthAngularRadius) * 1.5, 1e-5);
-		float lit = saturate(sunward + 0.35);
-		outside = RimColor * (RimStrength * 0.5 * ring * ring * lit * (1.0 - coverage));
-	}
+    //The rim of atmosphere standing off the disc: a thin blue arc, lit only where the sun is. On a disc
+    //this small it is most of what says "atmosphere", so it is allowed a touch of glare - but through a
+    //saturated blue, whose luminance stays modest however bright the blue channel runs.
+    //
+    //Lit PER POINT of the ring, not by one global phase factor: for a ring direction dir near the disc,
+    //dot(dir, sun) exceeds the disc centre's own dot exactly on the sunward side, so the difference -
+    //normalized by the disc's angular radius - is which side of the planet this piece of atmosphere is on.
+    //One factor for the whole ring (the first build) drew a complete blue circle around a gibbous Earth,
+    //night limb included, which reads as a ring around the planet rather than as its air.
+    float3 outside = 0.0;
+    if (coverage < 0.999)
+    {
+        float ring = saturate((cosine - halo) / max(cosLimb - halo, 1e-5));
+        float sunward = (dot(dir, SunDirection) - dot(EarthDirection, SunDirection))
+            / max(sin(EarthAngularRadius) * 1.5, 1e-5);
+        float lit = saturate(sunward + 0.35);
+        outside = RimColor * (RimStrength * 0.5 * ring * ring * lit * (1.0 - coverage));
+    }
 
-	if (coverage <= 0.0009) return outside;
+    if (coverage <= 0.0009) return outside;
 
-	//Ray-sphere: a unit sphere centred at distance 1/sin(R) along the Earth's direction
-	float distance = 1.0 / max(sin(EarthAngularRadius), 1e-4);
-	float discriminant = max(distance * distance * (cosine * cosine - 1.0) + 1.0, 0.0);
-	float t = distance * cosine - sqrt(discriminant);
-	float3 normal = normalize(t * dir - distance * EarthDirection);
+    //Ray-sphere: a unit sphere centred at distance 1/sin(R) along the Earth's direction
+    float distance = 1.0 / max(sin(EarthAngularRadius), 1e-4);
+    float discriminant = max(distance * distance * (cosine * cosine - 1.0) + 1.0, 0.0);
+    float t = distance * cosine - sqrt(discriminant);
+    float3 normal = normalize(t * dir - distance * EarthDirection);
 
-	//The Earth's own frame, so the continents stay put on it as the camera moves
-	float3 right, forward;
-	BuildFrame(EarthAxis, right, forward);
-	float latitude = dot(normal, EarthAxis);
-	float3 local = float3(dot(normal, right), latitude, dot(normal, forward));
+    //The Earth's own frame, so the continents stay put on it as the camera moves
+    float3 right, forward;
+    BuildFrame(EarthAxis, right, forward);
+    float latitude = dot(normal, EarthAxis);
+    float3 local = float3(dot(normal, right), latitude, dot(normal, forward));
 
-	//Continents: a low-frequency fractal thresholded into land and ocean. The threshold puts about a
-	//third of the sphere under land, which is the real ratio; the coastline detail rides the fractal's
-	//own octaves. THREE octaves, not four, and the frequencies are chosen against the disc's size on
-	//screen rather than for close-up richness: this sphere is ~30 pixels across, so an octave whose
-	//features fall under a couple of pixels contributes speckle, not coastline - the first build ran a
-	//fourth octave and the marble came out peppered.
-	float continents = Fbm3(local * 2.2 + 19.0, 3);
-	float land = smoothstep(-0.02, 0.06, continents);
+    //Continents: a low-frequency fractal thresholded into land and ocean. The threshold puts about a
+    //third of the sphere under land, which is the real ratio; the coastline detail rides the fractal's
+    //own octaves. THREE octaves, not four, and the frequencies are chosen against the disc's size on
+    //screen rather than for close-up richness: this sphere is ~30 pixels across, so an octave whose
+    //features fall under a couple of pixels contributes speckle, not coastline - the first build ran a
+    //fourth octave and the marble came out peppered.
+    float continents = Fbm3(local * 2.2 + 19.0, 3);
+    float land = smoothstep(-0.02, 0.06, continents);
 
-	//Vegetated against arid by a second, coarser field offset from the first, so the deserts sit in
-	//belts of their own rather than tracking the coastlines
-	float arid = saturate(Fbm3(local * 1.8 + 53.0, 3) * 1.8 + 0.5);
-	float3 landColor = lerp(LandColor, LandColorArid, arid);
+    //Vegetated against arid by a second, coarser field offset from the first, so the deserts sit in
+    //belts of their own rather than tracking the coastlines
+    float arid = saturate(Fbm3(local * 1.8 + 53.0, 3) * 1.8 + 0.5);
+    float3 landColor = lerp(LandColor, LandColorArid, arid);
 
-	float3 surface = lerp(OceanColor, landColor, land);
+    float3 surface = lerp(OceanColor, landColor, land);
 
-	//Polar ice, its edge broken by the continents' own fractal so the caps are not compass circles
-	float ice = smoothstep(0.78, 0.88, abs(latitude) + continents * 0.07);
-	surface = lerp(surface, float3(0.85, 0.88, 0.92), ice);
+    //Polar ice, its edge broken by the continents' own fractal so the caps are not compass circles
+    float ice = smoothstep(0.78, 0.88, abs(latitude) + continents * 0.07);
+    surface = lerp(surface, float3(0.85, 0.88, 0.92), ice);
 
-	//The weather: a swirled cloud field over everything. Swirl by the cheap warp trick - the field is
-	//sampled through an offset driven by another octave - because straight fbm clouds read as static
-	//mottle, and Earth's clouds are storms drawn out into hooks and fronts. The mask's band is deliberately
-	//high and narrow: the marble must stay BLUE with white swirls on it, and the first build's wide band
-	//painted most of the disc into partial cloud and handed back a white planet with blue flecks.
-	float3 swirl = float3(
-		Fbm3(local * 2.7 + 91.0, 3),
-		Fbm3(local * 2.5 + 137.0, 3),
-		Fbm3(local * 2.9 + 173.0, 3));
+    //The weather: a swirled cloud field over everything. Swirl by the cheap warp trick - the field is
+    //sampled through an offset driven by another octave - because straight fbm clouds read as static
+    //mottle, and Earth's clouds are storms drawn out into hooks and fronts. The mask's band is deliberately
+    //high and narrow: the marble must stay BLUE with white swirls on it, and the first build's wide band
+    //painted most of the disc into partial cloud and handed back a white planet with blue flecks.
+    float3 swirl = float3(
+        Fbm3(local * 2.7 + 91.0, 3),
+        Fbm3(local * 2.5 + 137.0, 3),
+        Fbm3(local * 2.9 + 173.0, 3));
 
-	float clouds = Fbm3(local * 2.8 + swirl * 1.2 + 7.0, 3);
-	float cloudMask = smoothstep(0.68 - CloudAmount * 0.25, 0.86 - CloudAmount * 0.25, clouds + 0.5);
+    float clouds = Fbm3(local * 2.8 + swirl * 1.2 + 7.0, 3);
+    float cloudMask = smoothstep(0.68 - CloudAmount * 0.25, 0.86 - CloudAmount * 0.25, clouds + 0.5);
 
-	surface = lerp(surface, CloudColor, cloudMask);
+    surface = lerp(surface, CloudColor, cloudMask);
 
-	//A soft terminator - never a hard N.L cut (the planet's rule) - but NARROWER than the gas giant's:
-	//Earth's atmosphere is thin, and a wide twilight band on a 30-pixel disc smears the phase away.
-	float ndotl = dot(normal, SunDirection);
-	float daylight = smoothstep(-0.08, 0.22, ndotl);
+    //A soft terminator - never a hard N.L cut (the planet's rule) - but NARROWER than the gas giant's:
+    //Earth's atmosphere is thin, and a wide twilight band on a 30-pixel disc smears the phase away.
+    float ndotl = dot(normal, SunDirection);
+    float daylight = smoothstep(-0.08, 0.22, ndotl);
 
-	float3 lit = surface * (daylight + NightAmbient);
+    float3 lit = surface * (daylight + NightAmbient);
 
-	//The atmosphere ON the disc: a blue grazing-angle veil, strongest at the limb - what makes the marble
-	//read as wrapped in air rather than painted
-	float grazing = 1.0 - saturate(dot(normal, -dir));
-	lit += RimColor * (RimStrength * pow(grazing, 3.0) * saturate(daylight + 0.1));
+    //The atmosphere ON the disc: a blue grazing-angle veil, strongest at the limb - what makes the marble
+    //read as wrapped in air rather than painted
+    float grazing = 1.0 - saturate(dot(normal, -dir));
+    lit += RimColor * (RimStrength * pow(grazing, 3.0) * saturate(daylight + 0.1));
 
-	return lit * coverage + outside;
+    return lit * coverage + outside;
 }
 
 struct MoonSkyVertexOutput
 {
-	float4 Position : SV_POSITION;
-	float3 Ray : TEXCOORD0;
+    float4 Position : SV_POSITION;
+    float3 Ray : TEXCOORD0;
 };
 
 MoonSkyVertexOutput MoonSkyVS(float3 position : POSITION0)
 {
-	MoonSkyVertexOutput output;
+    MoonSkyVertexOutput output;
 
-	//The quad arrives already in normalized device coordinates; z = w puts it on the far plane — and
-	//unlike Space.fx's sibling this pass runs under DepthStencilState.DepthRead, AFTER the terrain: at
-	//exactly the far plane LessEqual passes against untouched depth (cleared to 1.0) and fails against
-	//anything the terrain wrote, which is the whole terrain-occludes-sky optimization. (The ray maths is
-	//Space.fx's, verbatim: the far plane is a plane in world space and the map from screen to it is
-	//affine, so interpolating the ray across the quad is exact.)
-	output.Position = float4(position.xy, 1.0, 1.0);
+    //The quad arrives already in normalized device coordinates; z = w puts it on the far plane — and
+    //unlike Space.fx's sibling this pass runs under DepthStencilState.DepthRead, AFTER the terrain: at
+    //exactly the far plane LessEqual passes against untouched depth (cleared to 1.0) and fails against
+    //anything the terrain wrote, which is the whole terrain-occludes-sky optimization. (The ray maths is
+    //Space.fx's, verbatim: the far plane is a plane in world space and the map from screen to it is
+    //affine, so interpolating the ray across the quad is exact.)
+    output.Position = float4(position.xy, 1.0, 1.0);
 
-	float4 far = mul(float4(position.xy, 1.0, 1.0), InverseViewProjection);
-	output.Ray = far.xyz / far.w - CameraPosition;
+    float4 far = mul(float4(position.xy, 1.0, 1.0), InverseViewProjection);
+    output.Ray = far.xyz / far.w - CameraPosition;
 
-	return output;
+    return output;
 }
 
 float4 MoonSkyPS(MoonSkyVertexOutput input) : COLOR
 {
-	float3 dir = normalize(input.Ray);
+    float3 dir = normalize(input.Ray);
 
-	//This pixel's angular footprint, measured on the DIRECTION rather than on any chart of it (continuous
-	//everywhere, so the cube lattice's twelve seams never show - Space.fx's rule) and as the FROBENIUS norm
-	//of the screen-to-direction Jacobian rather than fwidth's L1 sum, which is isotropic in the camera's
-	//bearing (Space.fx has the why - #150).
-	float pixelAngle = max(sqrt(dot(ddx(dir), ddx(dir)) + dot(ddy(dir), ddy(dir))), 1e-6);
+    //This pixel's angular footprint, measured on the DIRECTION rather than on any chart of it (continuous
+    //everywhere, so the cube lattice's twelve seams never show - Space.fx's rule) and as the FROBENIUS norm
+    //of the screen-to-direction Jacobian rather than fwidth's L1 sum, which is isotropic in the camera's
+    //bearing (Space.fx has the why - #150).
+    float pixelAngle = max(sqrt(dot(ddx(dir), ddx(dir)) + dot(ddy(dir), ddy(dir))), 1e-6);
 
-	float3 sky = VoidColor;
+    float3 sky = VoidColor;
 
-	//The stars: the shared three-layer lattice, nothing dimming them - no Milky Way band here, no dust,
-	//no nebulae. A lunar sky is stars on black and the Earth, and the sparseness IS the look.
-	sky += StarLayer(dir, pixelAngle, StarCellScale[0], StarChance[0], StarPeak[0], true);
-	sky += StarLayer(dir, pixelAngle, StarCellScale[1], StarChance[1], StarPeak[1], false);
-	sky += StarLayer(dir, pixelAngle, StarCellScale[2], StarChance[2], StarPeak[2], false);
+    //The stars: the shared three-layer lattice, nothing dimming them - no Milky Way band here, no dust,
+    //no nebulae. A lunar sky is stars on black and the Earth, and the sparseness IS the look.
+    sky += StarLayer(dir, pixelAngle, StarCellScale[0], StarChance[0], StarPeak[0], true);
+    sky += StarLayer(dir, pixelAngle, StarCellScale[1], StarChance[1], StarPeak[1], false);
+    sky += StarLayer(dir, pixelAngle, StarCellScale[2], StarChance[2], StarPeak[2], false);
 
-	//A fine dither against banding, the space scene's own (the void is an enormous area crossed by
-	//almost no gradient, which is where an 8-bit back buffer draws contour rings). Hashed on all three
-	//components of the quantised direction: any 2D pick goes flat along one screen axis wherever that
-	//axis maps onto the dropped component, and a 1D dither is stripes. Applied to the sky alone; the
-	//Earth is composited after and a lit disc has gradient of its own.
-	sky *= 1.0 + NoiseHash33(floor(dir / pixelAngle)).x * 0.015;
+    //A fine dither against banding, the space scene's own (the void is an enormous area crossed by
+    //almost no gradient, which is where an 8-bit back buffer draws contour rings). Hashed on all three
+    //components of the quantised direction: any 2D pick goes flat along one screen axis wherever that
+    //axis maps onto the dropped component, and a 1D dither is stripes. Applied to the sky alone; the
+    //Earth is composited after and a lit disc has gradient of its own.
+    sky *= 1.0 + NoiseHash33(floor(dir / pixelAngle)).x * 0.015;
 
-	//The Earth stands in front of the stars
-	float coverage;
-	float3 earth = Earth(dir, pixelAngle, coverage);
-	sky = sky * (1.0 - coverage) + earth;
+    //The Earth stands in front of the stars
+    float coverage;
+    float3 earth = Earth(dir, pixelAngle, coverage);
+    sky = sky * (1.0 - coverage) + earth;
 
-	return float4(sky, 1.0);
+    return float4(sky, 1.0);
 }
 
 technique MoonSky
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL MoonSkyVS();
-		PixelShader = compile PS_SHADERMODEL MoonSkyPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MoonSkyVS();
+        PixelShader = compile PS_SHADERMODEL MoonSkyPS();
+    }
 };
 
 technique MoonTerrain
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL MoonTerrainVS();
-		PixelShader = compile PS_SHADERMODEL MoonTerrainPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MoonTerrainVS();
+        PixelShader = compile PS_SHADERMODEL MoonTerrainPS();
+    }
 };

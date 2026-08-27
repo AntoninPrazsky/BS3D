@@ -43,49 +43,49 @@ float GlowStrength;     //the breath, 0..1 - what pulses, in place of #175's whi
 
 struct GlowVertexInput
 {
-	float3 Position : POSITION0; //ignored; the quad is placed from GlowCenter and the view basis
-	float2 Corner : TEXCOORD0;   //-1..1 across the billboard, for the round falloff
+    float3 Position : POSITION0; //ignored; the quad is placed from GlowCenter and the view basis
+    float2 Corner : TEXCOORD0;   //-1..1 across the billboard, for the round falloff
 };
 
 struct GlowVertexOutput
 {
-	float4 Position : SV_POSITION;
-	float2 Corner : TEXCOORD0;
+    float4 Position : SV_POSITION;
+    float2 Corner : TEXCOORD0;
 };
 
 GlowVertexOutput BallGlowVS(GlowVertexInput input)
 {
-	float3 world = GlowCenter
-		+ CameraRight * input.Corner.x * GlowRadius
-		+ CameraUp * input.Corner.y * GlowRadius;
+    float3 world = GlowCenter
+        + CameraRight * input.Corner.x * GlowRadius
+        + CameraUp * input.Corner.y * GlowRadius;
 
-	GlowVertexOutput output;
-	output.Position = mul(mul(float4(world, 1.0), View), Projection);
-	output.Corner = input.Corner;
+    GlowVertexOutput output;
+    output.Position = mul(mul(float4(world, 1.0), View), Projection);
+    output.Corner = input.Corner;
 
-	return output;
+    return output;
 }
 
 float4 BallGlowPS(GlowVertexOutput input) : COLOR
 {
-	//Round, and zero at the rim: squared so there is a hot centre inside a wide soft skirt, which is what a
-	//glow looks like (Fireworks.fx's sparks are the same curve, for the same reason). Squaring also keeps the
-	//quad's corners at exactly nothing, so the billboard never shows its own square edge.
-	float r2 = dot(input.Corner, input.Corner);
-	float falloff = saturate(1.0 - r2);
-	falloff *= falloff;
+    //Round, and zero at the rim: squared so there is a hot centre inside a wide soft skirt, which is what a
+    //glow looks like (Fireworks.fx's sparks are the same curve, for the same reason). Squaring also keeps the
+    //quad's corners at exactly nothing, so the billboard never shows its own square edge.
+    float r2 = dot(input.Corner, input.Corner);
+    float falloff = saturate(1.0 - r2);
+    falloff *= falloff;
 
-	//No clip: additive blending makes a zero-alpha pixel add nothing, so this can fade to nothing everywhere
-	//rather than being cut off at a threshold that would sweep inward as the breath dims (ShotTrail's note).
-	float a = falloff * GlowStrength;
-	return float4(GlowColor * a, a);
+    //No clip: additive blending makes a zero-alpha pixel add nothing, so this can fade to nothing everywhere
+    //rather than being cut off at a threshold that would sweep inward as the breath dims (ShotTrail's note).
+    float a = falloff * GlowStrength;
+    return float4(GlowColor * a, a);
 }
 
 technique BallGlow
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL BallGlowVS();
-		PixelShader = compile PS_SHADERMODEL BallGlowPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL BallGlowVS();
+        PixelShader = compile PS_SHADERMODEL BallGlowPS();
+    }
 };

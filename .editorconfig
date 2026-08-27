@@ -1,0 +1,38 @@
+# Indentation character for this repository (#274).
+#
+# The owner's ask was "spaces, per .NET/C# convention", and the point of putting it here rather than in a
+# document is that an editor obeys this file and cannot obey a document. It exists to stop a tab arriving
+# from a paste out of another codebase - which is how the 51 files #274 converted got theirs, the .fx and
+# .fxh shaders having been tab-indented to their last line.
+#
+# SCOPE IS THE INDENTATION CHARACTER, AND DELIBERATELY NOTHING ELSE. #274 was explicit that it is not a
+# general style pass, so there is no rule here for brace placement, using ordering, var-vs-explicit-type or
+# naming - and none either for trailing whitespace or a final newline, which sound like tidying but would
+# have an editor rewriting lines nobody touched on the next save. Every rule below describes what the files
+# on disk already are; none of them changes a file when it is opened. Widen this only on the owner's word.
+
+root = true
+
+[*]
+indent_style = space
+end_of_line = crlf
+charset = utf-8
+
+[*.cs]
+indent_size = 4
+
+# The HLSL shaders, which all three executables build out of Testbed/Content/Shaders - so one copy of each
+# shader serves the Testbed, the MapEditor and the Game, and one indentation rule covers all three.
+[*.{fx,fxh}]
+indent_size = 4
+
+[*.{json,csproj,mgcb}]
+indent_size = 2
+
+[*.md]
+indent_size = 2
+
+# Visual Studio writes solution files with tabs and rewrites them on every save, so stating anything else
+# here would only produce churn it undoes. Left as the tool makes them, deliberately (#274).
+[*.sln]
+indent_style = tab

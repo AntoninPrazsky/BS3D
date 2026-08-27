@@ -17,8 +17,8 @@
 //game and the map editor render into a linear HDR target and tonemap now, so this always decodes.
 float3 SrgbToLinear(float3 color)
 {
-	//Jim Hejl's cubic fit of the sRGB curve - accurate to well under a display bit and no pow()
-	return color * (color * (color * 0.305306011 + 0.682171111) + 0.012522878);
+    //Jim Hejl's cubic fit of the sRGB curve - accurate to well under a display bit and no pow()
+    return color * (color * (color * 0.305306011 + 0.682171111) + 0.012522878);
 }
 
 //Cloud shadows. The map editor has no weather and never sets the cloud uniforms, so there CloudCoverageGain
@@ -74,79 +74,79 @@ float3 DirLight2SpecularColor;
 texture Texture;
 sampler2D TextureSampler = sampler_state
 {
-	Texture = <Texture>;
-	//Anisotropic, not plain trilinear: a pixel on the ground seen at a grazing angle covers a long thin
-	//sliver of texture, and isotropic mip selection has to pick the mip matching its *long* axis, so it
-	//blurs across the short one too and the floor dissolves into a smear. The ground is the surface this
-	//shows on worst, being the one the camera always looks along.
-	MinFilter = Anisotropic;
-	MagFilter = Linear;
-	MipFilter = Linear;
-	MaxAnisotropy = 16;
-	AddressU = Wrap;
-	AddressV = Wrap;
+    Texture = <Texture>;
+    //Anisotropic, not plain trilinear: a pixel on the ground seen at a grazing angle covers a long thin
+    //sliver of texture, and isotropic mip selection has to pick the mip matching its *long* axis, so it
+    //blurs across the short one too and the floor dissolves into a smear. The ground is the surface this
+    //shows on worst, being the one the camera always looks along.
+    MinFilter = Anisotropic;
+    MagFilter = Linear;
+    MipFilter = Linear;
+    MaxAnisotropy = 16;
+    AddressU = Wrap;
+    AddressV = Wrap;
 };
 
 struct VertexShaderInput
 {
-	float4 Position : POSITION0;
-	float3 Normal : NORMAL0;
+    float4 Position : POSITION0;
+    float3 Normal : NORMAL0;
 };
 
 struct InstanceInput
 {
-	float4 WorldRow1 : TEXCOORD1;
-	float4 WorldRow2 : TEXCOORD2;
-	float4 WorldRow3 : TEXCOORD3;
-	float4 WorldRow4 : TEXCOORD4;
-	//XYZ = world-space direction towards the instance's occluders (zero = none), W = base occlusion factor
-	float4 Custom : TEXCOORD5;
-	//How much of this instance has been dithered away: 0 draws it whole, positive eats it away, negative
-	//fills it in. Read by the ball pattern technique alone; every other technique ignores it, and an
-	//unconsumed element in the vertex layout costs nothing.
-	float Dissolve : TEXCOORD6;
-	//How brightly this instance is flaring as the ripple passes through it, 0 = not at all. Read by the
-	//ball pattern technique alone, like Dissolve above.
-	float Ripple : TEXCOORD7;
+    float4 WorldRow1 : TEXCOORD1;
+    float4 WorldRow2 : TEXCOORD2;
+    float4 WorldRow3 : TEXCOORD3;
+    float4 WorldRow4 : TEXCOORD4;
+    //XYZ = world-space direction towards the instance's occluders (zero = none), W = base occlusion factor
+    float4 Custom : TEXCOORD5;
+    //How much of this instance has been dithered away: 0 draws it whole, positive eats it away, negative
+    //fills it in. Read by the ball pattern technique alone; every other technique ignores it, and an
+    //unconsumed element in the vertex layout costs nothing.
+    float Dissolve : TEXCOORD6;
+    //How brightly this instance is flaring as the ripple passes through it, 0 = not at all. Read by the
+    //ball pattern technique alone, like Dissolve above.
+    float Ripple : TEXCOORD7;
 };
 
 struct VertexShaderOutput
 {
-	float4 Position : SV_POSITION;
-	float3 WorldPosition : TEXCOORD0;
-	float3 WorldNormal : TEXCOORD1;
-	float4 OcclusionData : TEXCOORD2;
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+    float3 WorldNormal : TEXCOORD1;
+    float4 OcclusionData : TEXCOORD2;
 };
 
 VertexShaderOutput MainVS(VertexShaderInput input, InstanceInput instance)
 {
-	VertexShaderOutput output;
+    VertexShaderOutput output;
 
-	//Rows are stored in the same layout as an XNA row-major matrix, so no transpose is needed
-	float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
+    //Rows are stored in the same layout as an XNA row-major matrix, so no transpose is needed
+    float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
 
-	float4 worldPosition = mul(mul(input.Position, Bone), world);
+    float4 worldPosition = mul(mul(input.Position, Bone), world);
 
-	output.WorldPosition = worldPosition.xyz;
-	output.Position = mul(mul(worldPosition, View), Projection);
-	//Bone and instance transforms are rotation + translation (+ uniform scale at most), so the adjoint transpose is not needed
-	output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
-	output.OcclusionData = instance.Custom;
+    output.WorldPosition = worldPosition.xyz;
+    output.Position = mul(mul(worldPosition, View), Projection);
+    //Bone and instance transforms are rotation + translation (+ uniform scale at most), so the adjoint transpose is not needed
+    output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
+    output.OcclusionData = instance.Custom;
 
-	return output;
+    return output;
 }
 
 //Same per-light math as ComputeLights in BasicEffect.fx (Blinn-Phong with the dotL > 0 mask)
 void AddLight(float3 towardsLight, float3 lightDiffuse, float3 lightSpecular, float3 worldNormal, float3 eyeVector,
-	inout float3 diffuse, inout float3 specular)
+    inout float3 diffuse, inout float3 specular)
 {
-	float dotL = dot(worldNormal, towardsLight);
-	float lit = step(0, dotL);
+    float dotL = dot(worldNormal, towardsLight);
+    float lit = step(0, dotL);
 
-	diffuse += lightDiffuse * (dotL * lit);
+    diffuse += lightDiffuse * (dotL * lit);
 
-	float dotH = max(dot(worldNormal, normalize(towardsLight + eyeVector)), 0);
-	specular += lightSpecular * pow(dotH * lit, SpecularPower);
+    float dotH = max(dot(worldNormal, normalize(towardsLight + eyeVector)), 0);
+    specular += lightSpecular * pow(dotH * lit, SpecularPower);
 }
 
 //Additional scene-specific point lights (a campfire on the savanna, the city's neon, ...) that exist under
@@ -213,21 +213,21 @@ float KillPlaneFadeDepth;
 //stops being true. A no-op off the sea scene, where SeaFadeDepth is pushed <= 0.
 float4 ApplySeaSubmerge(float4 shaded, float3 worldPosition)
 {
-	if (SeaFadeDepth > 0.0)
-	{
-		//Times what the murk has NOT taken over yet, so the fade releases as the camera goes under (#159) - see
-		//SeaLensSubmerged, which is 0 above the water, so everything above it is untouched. Folded into
-		//`submerge` rather than applied after, so the colour and the alpha keep taking the SAME figure: this
-		//output is premultiplied, and two fades that could disagree is exactly how a vanished surface starts
-		//ADDING its colour instead of leaving.
-		float submerge = saturate((SeaLevelY - worldPosition.y) / SeaFadeDepth)
-			* (1.0 - SeaLensSubmerged);
+    if (SeaFadeDepth > 0.0)
+    {
+        //Times what the murk has NOT taken over yet, so the fade releases as the camera goes under (#159) - see
+        //SeaLensSubmerged, which is 0 above the water, so everything above it is untouched. Folded into
+        //`submerge` rather than applied after, so the colour and the alpha keep taking the SAME figure: this
+        //output is premultiplied, and two fades that could disagree is exactly how a vanished surface starts
+        //ADDING its colour instead of leaving.
+        float submerge = saturate((SeaLevelY - worldPosition.y) / SeaFadeDepth)
+            * (1.0 - SeaLensSubmerged);
 
-		shaded.rgb = lerp(shaded.rgb, SeaSubmergeTint, submerge) * (1.0 - submerge);
-		shaded.a *= 1.0 - submerge;
-	}
+        shaded.rgb = lerp(shaded.rgb, SeaSubmergeTint, submerge) * (1.0 - submerge);
+        shaded.a *= 1.0 - submerge;
+    }
 
-	return shaded;
+    return shaded;
 }
 
 //The kill plane's own fade (#192), the same shape as the sea's and applied on top of it - there is no tint to
@@ -236,35 +236,35 @@ float4 ApplySeaSubmerge(float4 shaded, float3 worldPosition)
 //default of 0.
 float4 ApplyKillPlaneFade(float4 shaded, float3 worldPosition)
 {
-	if (KillPlaneFadeDepth > 0.0)
-	{
-		float killFade = saturate((worldPosition.y - KillPlaneY) / KillPlaneFadeDepth);
+    if (KillPlaneFadeDepth > 0.0)
+    {
+        float killFade = saturate((worldPosition.y - KillPlaneY) / KillPlaneFadeDepth);
 
-		shaded.rgb *= killFade;
-		shaded.a *= killFade;
-	}
+        shaded.rgb *= killFade;
+        shaded.a *= killFade;
+    }
 
-	return shaded;
+    return shaded;
 }
 
 void AddSceneLights(float3 worldPosition, float3 worldNormal, float3 eyeVector, inout float3 diffuse, inout float3 specular)
 {
-	[loop]
-	for (int i = 0; i < SceneLightCount; i++)
-	{
-		float3 toLight = SceneLightPosition[i] - worldPosition;
-		float dist = length(toLight);
-		float3 L = toLight / max(dist, 1e-4);
+    [loop]
+    for (int i = 0; i < SceneLightCount; i++)
+    {
+        float3 toLight = SceneLightPosition[i] - worldPosition;
+        float dist = length(toLight);
+        float3 L = toLight / max(dist, 1e-4);
 
-		//Smooth distance falloff to the light's range (quadratic, so it fades gently and dies at the edge)
-		float atten = saturate(1.0 - dist / SceneLightRange[i]);
-		atten *= atten;
+        //Smooth distance falloff to the light's range (quadratic, so it fades gently and dies at the edge)
+        float atten = saturate(1.0 - dist / SceneLightRange[i]);
+        atten *= atten;
 
-		diffuse += SceneLightColor[i] * (saturate(dot(worldNormal, L)) * atten);
+        diffuse += SceneLightColor[i] * (saturate(dot(worldNormal, L)) * atten);
 
-		float dotH = saturate(dot(worldNormal, normalize(L + eyeVector)));
-		specular += SceneLightColor[i] * (pow(dotH, SpecularPower) * atten);
-	}
+        float dotH = saturate(dot(worldNormal, normalize(L + eyeVector)));
+        specular += SceneLightColor[i] * (pow(dotH, SpecularPower) * atten);
+    }
 }
 
 //Radiance arriving from the sky in a given direction. The domes are vertical gradients between two
@@ -274,7 +274,7 @@ void AddSceneLights(float3 worldPosition, float3 worldNormal, float3 eyeVector, 
 //the specular ambient (sampled along the reflection).
 float3 SkyRadiance(float3 direction)
 {
-	return lerp(GroundColor, SkyColor, direction.y * 0.5 + 0.5);
+    return lerp(GroundColor, SkyColor, direction.y * 0.5 + 0.5);
 }
 
 //How much of the environment a surface mirrors back at this angle. Schlick's approximation: every
@@ -290,9 +290,9 @@ float3 SkyRadiance(float3 direction)
 //is what made the towers read as glass.
 float3 FresnelSchlick(float3 reflectanceAtNormal, float cosTheta, float smoothness)
 {
-	float3 reflectanceAtGrazing = max(smoothness, reflectanceAtNormal);
+    float3 reflectanceAtGrazing = max(smoothness, reflectanceAtNormal);
 
-	return reflectanceAtNormal + (reflectanceAtGrazing - reflectanceAtNormal) * pow(1 - saturate(cosTheta), 5);
+    return reflectanceAtNormal + (reflectanceAtGrazing - reflectanceAtNormal) * pow(1 - saturate(cosTheta), 5);
 }
 
 //How strongly the surface reflects the sky as an environment (0 = off)
@@ -343,27 +343,27 @@ static const float DielectricF0 = 0.04;
 //which is the uniforms verbatim, so the rest of the scene is untouched by this existing.
 struct SurfaceSpecular
 {
-	//Scales the direct lights' highlight. 1 = the whole of it, as every other surface gets.
-	float Highlight;
+    //Scales the direct lights' highlight. 1 = the whole of it, as every other surface gets.
+    float Highlight;
 
-	//Scales SpecularAmbientStrength, the reflected environment. 1 = the renderer's own dial, unchanged.
-	float Environment;
+    //Scales SpecularAmbientStrength, the reflected environment. 1 = the renderer's own dial, unchanged.
+    float Environment;
 
-	//1 = polished: a sharp reflection and a full mirror at grazing angles. 0 = rough: the reflection blurred
-	//all the way to the sky's average, and no grazing mirror at all. Drives both, because both are the same
-	//physical fact about the surface, and driving them apart is how a material stops being one material.
-	float Smoothness;
+    //1 = polished: a sharp reflection and a full mirror at grazing angles. 0 = rough: the reflection blurred
+    //all the way to the sky's average, and no grazing mirror at all. Drives both, because both are the same
+    //physical fact about the surface, and driving them apart is how a material stops being one material.
+    float Smoothness;
 };
 
 SurfaceSpecular DefaultSurfaceSpecular()
 {
-	SurfaceSpecular surface;
+    SurfaceSpecular surface;
 
-	surface.Highlight = 1;
-	surface.Environment = 1;
-	surface.Smoothness = 1;
+    surface.Highlight = 1;
+    surface.Environment = 1;
+    surface.Smoothness = 1;
 
-	return surface;
+    return surface;
 }
 
 //How strongly the directional part of the occlusion darkens the surface facing the occluders
@@ -378,14 +378,14 @@ static const float GroundOcclusionRange = 2.0;
 //which has to stay dark on a ball buried in the pile.
 float SurfaceOcclusion(float3 worldPosition, float3 worldNormal, float4 occlusionData)
 {
-	//Neighbor-based ambient occlusion: the base factor darkens the whole ball a little, the directional
-	//part darkens the side of the ball facing its occluders, so the crevices between touching balls go dark
-	float occlusion = saturate(occlusionData.w - DirectionalOcclusionStrength * max(0, dot(worldNormal, occlusionData.xyz)));
+    //Neighbor-based ambient occlusion: the base factor darkens the whole ball a little, the directional
+    //part darkens the side of the ball facing its occluders, so the crevices between touching balls go dark
+    float occlusion = saturate(occlusionData.w - DirectionalOcclusionStrength * max(0, dot(worldNormal, occlusionData.xyz)));
 
-	//The ground is one more occluder: downward-facing surface close to the ground plane darkens
-	float groundProximity = saturate(1 - (worldPosition.y - GroundHeight) / GroundOcclusionRange);
+    //The ground is one more occluder: downward-facing surface close to the ground plane darkens
+    float groundProximity = saturate(1 - (worldPosition.y - GroundHeight) / GroundOcclusionRange);
 
-	return saturate(occlusion - GroundOcclusionStrength * groundProximity * saturate(-worldNormal.y));
+    return saturate(occlusion - GroundOcclusionStrength * groundProximity * saturate(-worldNormal.y));
 }
 
 //Shared shading: texColor is the sampled material texture (white for untextured parts).
@@ -394,86 +394,86 @@ float SurfaceOcclusion(float3 worldPosition, float3 worldNormal, float4 occlusio
 //attenuates the ambient, which is the sky a pit cannot see. Surfaces with no relief pass 1 for both.
 float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionData, float4 texColor, float keyShadow, float cavity, SurfaceSpecular surface)
 {
-	float3 worldNormal = normalize(rawWorldNormal);
-	float3 eyeVector = normalize(EyePosition - worldPosition);
+    float3 worldNormal = normalize(rawWorldNormal);
+    float3 eyeVector = normalize(EyePosition - worldPosition);
 
-	//The key light is accumulated on its own so the relief's self-shadow can be applied to it without
-	//touching the fill and back lights, which stand in for bounced light and are not blocked by a bump
-	float3 keyDiffuse = 0;
-	float3 keySpecular = 0;
+    //The key light is accumulated on its own so the relief's self-shadow can be applied to it without
+    //touching the fill and back lights, which stand in for bounced light and are not blocked by a bump
+    float3 keyDiffuse = 0;
+    float3 keySpecular = 0;
 
-	//The rig arrives linear, decoded once on the CPU along with the tints applied to it
-	AddLight(normalize(KeyLightPosition - worldPosition), DirLight0DiffuseColor, DirLight0SpecularColor, worldNormal, eyeVector, keyDiffuse, keySpecular);
+    //The rig arrives linear, decoded once on the CPU along with the tints applied to it
+    AddLight(normalize(KeyLightPosition - worldPosition), DirLight0DiffuseColor, DirLight0SpecularColor, worldNormal, eyeVector, keyDiffuse, keySpecular);
 
-	//The cloud shadow rides on the same multiplier the relief's own bumps use, which is why one line here
-	//puts weather across the whole scene at once - balls, city, floor and cannon all come through here.
-	float sunlight = keyShadow * CloudSunlight(worldPosition, SunDirection);
+    //The cloud shadow rides on the same multiplier the relief's own bumps use, which is why one line here
+    //puts weather across the whole scene at once - balls, city, floor and cannon all come through here.
+    float sunlight = keyShadow * CloudSunlight(worldPosition, SunDirection);
 
-	float3 diffuse = keyDiffuse * sunlight;
-	float3 specular = keySpecular * sunlight;
+    float3 diffuse = keyDiffuse * sunlight;
+    float3 specular = keySpecular * sunlight;
 
-	AddLight(-DirLight1Direction, DirLight1DiffuseColor, DirLight1SpecularColor, worldNormal, eyeVector, diffuse, specular);
-	AddLight(-DirLight2Direction, DirLight2DiffuseColor, DirLight2SpecularColor, worldNormal, eyeVector, diffuse, specular);
+    AddLight(-DirLight1Direction, DirLight1DiffuseColor, DirLight1SpecularColor, worldNormal, eyeVector, diffuse, specular);
+    AddLight(-DirLight2Direction, DirLight2DiffuseColor, DirLight2SpecularColor, worldNormal, eyeVector, diffuse, specular);
 
-	//The whole three-light rig, and only it: the scene lights below stay at full strength (see the
-	//declaration - this is the glass ceiling's per-renderer dimmer, and a cave's own glow still reaches it)
-	diffuse *= DirLightStrength;
-	specular *= DirLightStrength;
+    //The whole three-light rig, and only it: the scene lights below stay at full strength (see the
+    //declaration - this is the glass ceiling's per-renderer dimmer, and a cave's own glow still reaches it)
+    diffuse *= DirLightStrength;
+    specular *= DirLightStrength;
 
-	//Scene point lights (fire, neon, ...) on top of the sun and sky - present under every dome
-	AddSceneLights(worldPosition, worldNormal, eyeVector, diffuse, specular);
+    //Scene point lights (fire, neon, ...) on top of the sun and sky - present under every dome
+    AddSceneLights(worldPosition, worldNormal, eyeVector, diffuse, specular);
 
-	float3 hemisphere = SkyRadiance(worldNormal);
+    float3 hemisphere = SkyRadiance(worldNormal);
 
-	float occlusion = SurfaceOcclusion(worldPosition, worldNormal, occlusionData) * cavity;
-	float diffuseOcclusion = lerp(0.6, 1.0, occlusion);
+    float occlusion = SurfaceOcclusion(worldPosition, worldNormal, occlusionData) * cavity;
+    float diffuseOcclusion = lerp(0.6, 1.0, occlusion);
 
-	//texColor arrives linear already: every sampling site linearizes at the tap, where the sRGB
-	//encoding of the texture is still an established fact rather than an assumption
-	float4 color = float4((diffuse * SrgbToLinear(DiffuseColor.rgb) * diffuseOcclusion + hemisphere * SrgbToLinear(AmbientColor) * occlusion + SrgbToLinear(EmissiveColor)) * texColor.rgb, DiffuseColor.a * texColor.a);
+    //texColor arrives linear already: every sampling site linearizes at the tap, where the sRGB
+    //encoding of the texture is still an established fact rather than an assumption
+    float4 color = float4((diffuse * SrgbToLinear(DiffuseColor.rgb) * diffuseOcclusion + hemisphere * SrgbToLinear(AmbientColor) * occlusion + SrgbToLinear(EmissiveColor)) * texColor.rgb, DiffuseColor.a * texColor.a);
 
-	//What the specular terms are scaled by: the surface's own coverage, or a flat 1 for a surface that
-	//declares its reflection is not something transparency takes away (see SpecularAlphaWeight). At the
-	//weight of 1 every renderer sets, this is color.a and the two lines below are unchanged.
-	float specularAlpha = lerp(1.0, color.a, SpecularAlphaWeight);
+    //What the specular terms are scaled by: the surface's own coverage, or a flat 1 for a surface that
+    //declares its reflection is not something transparency takes away (see SpecularAlphaWeight). At the
+    //weight of 1 every renderer sets, this is color.a and the two lines below are unchanged.
+    float specularAlpha = lerp(1.0, color.a, SpecularAlphaWeight);
 
-	float3 linearSpecular = SrgbToLinear(SpecularColor);
-	color.rgb += specular * linearSpecular * surface.Highlight * specularAlpha * occlusion;
+    float3 linearSpecular = SrgbToLinear(SpecularColor);
+    color.rgb += specular * linearSpecular * surface.Highlight * specularAlpha * occlusion;
 
-	//Specular ambient: the sky reflected off the surface, which the renderer simply never had. The
-	//direct lights gave every material one highlight from one lamp, and that is a plastic look no
-	//matter how the highlight is shaped - real surfaces mostly show their surroundings.
-	//
-	//Roughness comes from the Blinn-Phong exponent so no material has to be re-authored to get this:
-	//sqrt(2 / (n + 2)) is the standard correspondence. It lerps the mirror sample towards the average
-	//of the whole sky, which is what blurring a two-color gradient converges to. A surface that declares
-	//itself rough is driven the rest of the way to 1 -- fully blurred, i.e. it shows the sky's average and
-	//no image of it, which is the whole difference between a plastered wall and a pane of glass.
-	float roughness = lerp(1.0, sqrt(2.0 / (SpecularPower + 2.0)), surface.Smoothness);
-	float3 reflection = reflect(-eyeVector, worldNormal);
-	float3 environment = lerp(SkyRadiance(reflection), (SkyColor + GroundColor) * 0.5, saturate(roughness));
+    //Specular ambient: the sky reflected off the surface, which the renderer simply never had. The
+    //direct lights gave every material one highlight from one lamp, and that is a plastic look no
+    //matter how the highlight is shaped - real surfaces mostly show their surroundings.
+    //
+    //Roughness comes from the Blinn-Phong exponent so no material has to be re-authored to get this:
+    //sqrt(2 / (n + 2)) is the standard correspondence. It lerps the mirror sample towards the average
+    //of the whole sky, which is what blurring a two-color gradient converges to. A surface that declares
+    //itself rough is driven the rest of the way to 1 -- fully blurred, i.e. it shows the sky's average and
+    //no image of it, which is the whole difference between a plastered wall and a pane of glass.
+    float roughness = lerp(1.0, sqrt(2.0 / (SpecularPower + 2.0)), surface.Smoothness);
+    float3 reflection = reflect(-eyeVector, worldNormal);
+    float3 environment = lerp(SkyRadiance(reflection), (SkyColor + GroundColor) * 0.5, saturate(roughness));
 
-	//F0 is the fraction reflected head-on, and for every non-metal that is about 4%. BasicEffect's
-	//SpecularColor is a highlight tint rather than a reflectance - it is near white on most materials -
-	//so it modulates that 4% instead of standing in for it. Handing it to Schlick directly makes F come
-	//out near 1 at every angle, which mirrors the entire sky off every surface and veils the scene.
-	//The Fresnel rise to 1 at grazing angles is then the whole effect, which is as it should be.
-	//A dielectric reflects DielectricF0 * tint head-on; a metal reflects its specular color itself (its F0
-	//is high and colored). Metalness picks between them, so gold trim mirrors the sky in gold.
-	float3 reflectanceAtNormal = lerp(DielectricF0 * linearSpecular, linearSpecular, Metalness);
+    //F0 is the fraction reflected head-on, and for every non-metal that is about 4%. BasicEffect's
+    //SpecularColor is a highlight tint rather than a reflectance - it is near white on most materials -
+    //so it modulates that 4% instead of standing in for it. Handing it to Schlick directly makes F come
+    //out near 1 at every angle, which mirrors the entire sky off every surface and veils the scene.
+    //The Fresnel rise to 1 at grazing angles is then the whole effect, which is as it should be.
+    //A dielectric reflects DielectricF0 * tint head-on; a metal reflects its specular color itself (its F0
+    //is high and colored). Metalness picks between them, so gold trim mirrors the sky in gold.
+    float3 reflectanceAtNormal = lerp(DielectricF0 * linearSpecular, linearSpecular, Metalness);
 
-	color.rgb += environment * FresnelSchlick(reflectanceAtNormal, dot(worldNormal, eyeVector), surface.Smoothness)
-		* SpecularAmbientStrength * surface.Environment * specularAlpha * occlusion;
+    color.rgb += environment * FresnelSchlick(reflectanceAtNormal, dot(worldNormal, eyeVector), surface.Smoothness)
+        * SpecularAmbientStrength * surface.Environment * specularAlpha * occlusion;
 
-	//Light the surface is putting out itself, on top of everything it reflects. Zero for everything except
-	//the glass ceiling as it steps down, which is the one surface in the game that has to announce itself.
-	//
-	//NOT multiplied by color.a, unlike the specular ambient above: alpha is how much of what is BEHIND the
-	//surface comes through, and a pane that is glowing is emitting rather than transmitting. Attenuating it
-	//by the glass's own transparency is what would make a warning on a 35 %-opaque plate almost invisible.
-	color.rgb += EmissiveTint;
+    //Light the surface is putting out itself, on top of everything it reflects. Zero for everything except
+    //the glass ceiling as it steps down, which is the one surface in the game that has to announce itself.
+    //
+    //NOT multiplied by color.a, unlike the specular ambient above: alpha is how much of what is BEHIND the
+    //surface comes through, and a pane that is glowing is emitting rather than transmitting. Attenuating it
+    //by the glass's own transparency is what would make a warning on a 35 %-opaque plate almost invisible.
+    color.rgb += EmissiveTint;
 
-	return color;
+    return color;
 }
 
 //One material over the whole surface, described by the uniforms -- every technique but the city's. At
@@ -481,30 +481,30 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
 //lerp and FresnelSchlick identities, so this is the shading this function did before it was split.
 float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionData, float4 texColor, float keyShadow, float cavity)
 {
-	return ShadePixel(worldPosition, rawWorldNormal, occlusionData, texColor, keyShadow, cavity, DefaultSurfaceSpecular());
+    return ShadePixel(worldPosition, rawWorldNormal, occlusionData, texColor, keyShadow, cavity, DefaultSurfaceSpecular());
 }
 
 float4 MainPS(VertexShaderOutput input) : COLOR
 {
-	//Untextured, unrelieved parts: nothing to shadow itself and no pits to darken
-	float4 shaded = ShadePixel(input.WorldPosition, input.WorldNormal, input.OcclusionData, float4(1, 1, 1, 1), 1, 1);
+    //Untextured, unrelieved parts: nothing to shadow itself and no pits to darken
+    float4 shaded = ShadePixel(input.WorldPosition, input.WorldNormal, input.OcclusionData, float4(1, 1, 1, 1), 1, 1);
 
-	//Submerge fade, the balls' #131 treatment for the plain-material surfaces: in the sea scene the drain's
-	//glass cone and its bottom gold band continue below the pool standing in the drain (#132), draw AFTER
-	//the water, and the water writes no depth — so without this the submerged glass would composite over
-	//the pool's surface from underneath it across the whole disc.
-	shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
+    //Submerge fade, the balls' #131 treatment for the plain-material surfaces: in the sea scene the drain's
+    //glass cone and its bottom gold band continue below the pool standing in the drain (#132), draw AFTER
+    //the water, and the water writes no depth — so without this the submerged glass would composite over
+    //the pool's surface from underneath it across the whole disc.
+    shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
 
-	return shaded;
+    return shaded;
 }
 
 technique InstancedModel
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL MainVS();
-		PixelShader = compile PS_SHADERMODEL MainPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MainVS();
+        PixelShader = compile PS_SHADERMODEL MainPS();
+    }
 };
 
 //Procedural surface relief, shared by the ball pattern and by the scene objects. Nothing here moves a
@@ -542,7 +542,7 @@ float ParallaxScale;
 //have to share units — object-space directions over a ball radius, or plain world space.
 float ReliefOctave(float3 position, float3 waveDirection, float frequency, float footprint)
 {
-	return sin(dot(position, waveDirection) * frequency) * saturate(1 - footprint * frequency / 3.14159265);
+    return sin(dot(position, waveDirection) * frequency) * saturate(1 - footprint * frequency / 3.14159265);
 }
 
 //The same octave, band-limited against the footprint measured *along the wave's own direction* instead
@@ -554,9 +554,9 @@ float ReliefOctave(float3 position, float3 waveDirection, float frequency, float
 //glass: the milky smear this replaces. Directionally, the waves running across the view survive.
 float ReliefOctaveDirectional(float3 position, float3 waveDirection, float frequency, float3 dpdx, float3 dpdy)
 {
-	float footprint = abs(dot(dpdx, waveDirection)) + abs(dot(dpdy, waveDirection));
+    float footprint = abs(dot(dpdx, waveDirection)) + abs(dot(dpdy, waveDirection));
 
-	return sin(dot(position, waveDirection) * frequency) * saturate(1 - footprint * frequency / 3.14159265);
+    return sin(dot(position, waveDirection) * frequency) * saturate(1 - footprint * frequency / 3.14159265);
 }
 
 //World-space grain for the scene surfaces: stone, marble and cast metal all read as an irregular
@@ -566,13 +566,13 @@ float ReliefOctaveDirectional(float3 position, float3 waveDirection, float frequ
 //regular diagonal weave instead of a surface, which is exactly what the cannon barrel showed first.
 float SurfaceReliefWorld(float3 worldPosition, float frequency, float3 dpdx, float3 dpdy)
 {
-	return 0.26 * ReliefOctaveDirectional(worldPosition, float3(0.71, 0.52, -0.47), frequency, dpdx, dpdy)
-		+ 0.20 * ReliefOctaveDirectional(worldPosition, float3(-0.36, 0.83, 0.42), frequency * 1.43, dpdx, dpdy)
-		+ 0.16 * ReliefOctaveDirectional(worldPosition, float3(0.55, -0.44, 0.71), frequency * 2.11, dpdx, dpdy)
-		+ 0.12 * ReliefOctaveDirectional(worldPosition, float3(-0.82, -0.31, 0.48), frequency * 3.07, dpdx, dpdy)
-		+ 0.10 * ReliefOctaveDirectional(worldPosition, float3(0.31, 0.62, 0.72), frequency * 4.51, dpdx, dpdy)
-		+ 0.09 * ReliefOctaveDirectional(worldPosition, float3(-0.64, 0.27, -0.72), frequency * 6.73, dpdx, dpdy)
-		+ 0.07 * ReliefOctaveDirectional(worldPosition, float3(0.18, -0.91, 0.37), frequency * 9.87, dpdx, dpdy);
+    return 0.26 * ReliefOctaveDirectional(worldPosition, float3(0.71, 0.52, -0.47), frequency, dpdx, dpdy)
+        + 0.20 * ReliefOctaveDirectional(worldPosition, float3(-0.36, 0.83, 0.42), frequency * 1.43, dpdx, dpdy)
+        + 0.16 * ReliefOctaveDirectional(worldPosition, float3(0.55, -0.44, 0.71), frequency * 2.11, dpdx, dpdy)
+        + 0.12 * ReliefOctaveDirectional(worldPosition, float3(-0.82, -0.31, 0.48), frequency * 3.07, dpdx, dpdy)
+        + 0.10 * ReliefOctaveDirectional(worldPosition, float3(0.31, 0.62, 0.72), frequency * 4.51, dpdx, dpdy)
+        + 0.09 * ReliefOctaveDirectional(worldPosition, float3(-0.64, 0.27, -0.72), frequency * 6.73, dpdx, dpdy)
+        + 0.07 * ReliefOctaveDirectional(worldPosition, float3(0.18, -0.91, 0.37), frequency * 9.87, dpdx, dpdy);
 }
 
 //Tilts a normal by a height field using only screen-space derivatives, for the same reason
@@ -580,16 +580,16 @@ float SurfaceReliefWorld(float3 worldPosition, float frequency, float3 dpdx, flo
 //never reaches the pixel shader. Christian Schueler, "Bump Mapping Unparametrized Surfaces on the GPU".
 float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
 {
-	float3 dpdx = ddx(worldPosition);
-	float3 dpdy = ddy(worldPosition);
+    float3 dpdx = ddx(worldPosition);
+    float3 dpdy = ddy(worldPosition);
 
-	float3 r1 = cross(dpdy, normal);
-	float3 r2 = cross(normal, dpdx);
+    float3 r1 = cross(dpdy, normal);
+    float3 r2 = cross(normal, dpdx);
 
-	float determinant = dot(dpdx, r1);
-	float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
+    float determinant = dot(dpdx, r1);
+    float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
 
-	return normalize(abs(determinant) * normal - surfaceGradient);
+    return normalize(abs(determinant) * normal - surfaceGradient);
 }
 
 //The world-space relief of a scene object, ready to hand to PerturbNormalFromHeight.
@@ -609,23 +609,23 @@ static const float SlabJointBevel = 0.03;
 //scale the eye can see. It only leaves once the pixel can no longer resolve the slab grid itself.
 float SlabGrooveAxis(float coordinate, float footprint)
 {
-	float cell = frac(coordinate / SlabSize);
-	float distance = min(cell, 1 - cell) * SlabSize;
+    float cell = frac(coordinate / SlabSize);
+    float distance = min(cell, 1 - cell) * SlabSize;
 
-	float width = max(SlabJointWidth, footprint * 0.5);
-	float bevel = max(SlabJointBevel, footprint * 0.5);
+    float width = max(SlabJointWidth, footprint * 0.5);
+    float bevel = max(SlabJointBevel, footprint * 0.5);
 
-	return (1 - smoothstep(width, width + bevel, distance)) * saturate(1 - footprint / (SlabSize * 0.5));
+    return (1 - smoothstep(width, width + bevel, distance)) * saturate(1 - footprint / (SlabSize * 0.5));
 }
 
 float SlabGroove(float3 worldPosition, float3 dpdx, float3 dpdy)
 {
-	if (SlabSize <= 0) return 0;
+    if (SlabSize <= 0) return 0;
 
-	//Extent of this pixel along X and along Z, measured separately
-	float2 footprint = abs(dpdx.xz) + abs(dpdy.xz);
+    //Extent of this pixel along X and along Z, measured separately
+    float2 footprint = abs(dpdx.xz) + abs(dpdy.xz);
 
-	return max(SlabGrooveAxis(worldPosition.x, footprint.x), SlabGrooveAxis(worldPosition.z, footprint.y));
+    return max(SlabGrooveAxis(worldPosition.x, footprint.x), SlabGrooveAxis(worldPosition.z, footprint.y));
 }
 
 //The height field the whole surface is built from: micro-relief on the slab faces, joints cut below
@@ -634,9 +634,9 @@ float SlabGroove(float3 worldPosition, float3 dpdx, float3 dpdy)
 //parallaxed rather than needing to be handled three more times.
 float SceneSurfaceHeight(float3 worldPosition, float3 dpdx, float3 dpdy)
 {
-	float height = SurfaceReliefWorld(worldPosition, SurfaceReliefFrequency, dpdx, dpdy) * SurfaceReliefStrength;
+    float height = SurfaceReliefWorld(worldPosition, SurfaceReliefFrequency, dpdx, dpdy) * SurfaceReliefStrength;
 
-	return height - SlabGroove(worldPosition, dpdx, dpdy) * SlabJointDepth;
+    return height - SlabGroove(worldPosition, dpdx, dpdy) * SlabJointDepth;
 }
 
 //The same field with three octaves instead of seven, for the ray marches. They evaluate it dozens of
@@ -644,13 +644,13 @@ float SceneSurfaceHeight(float3 worldPosition, float3 dpdx, float3 dpdy)
 //octaves left out are finer than the steps the march takes anyway.
 float SceneSurfaceHeightCoarse(float3 worldPosition, float3 dpdx, float3 dpdy)
 {
-	float frequency = SurfaceReliefFrequency;
+    float frequency = SurfaceReliefFrequency;
 
-	float height = (0.26 * ReliefOctaveDirectional(worldPosition, float3(0.71, 0.52, -0.47), frequency, dpdx, dpdy)
-		+ 0.20 * ReliefOctaveDirectional(worldPosition, float3(-0.36, 0.83, 0.42), frequency * 1.43, dpdx, dpdy)
-		+ 0.16 * ReliefOctaveDirectional(worldPosition, float3(0.55, -0.44, 0.71), frequency * 2.11, dpdx, dpdy)) * SurfaceReliefStrength;
+    float height = (0.26 * ReliefOctaveDirectional(worldPosition, float3(0.71, 0.52, -0.47), frequency, dpdx, dpdy)
+        + 0.20 * ReliefOctaveDirectional(worldPosition, float3(-0.36, 0.83, 0.42), frequency * 1.43, dpdx, dpdy)
+        + 0.16 * ReliefOctaveDirectional(worldPosition, float3(0.55, -0.44, 0.71), frequency * 2.11, dpdx, dpdy)) * SurfaceReliefStrength;
 
-	return height - SlabGroove(worldPosition, dpdx, dpdy) * SlabJointDepth;
+    return height - SlabGroove(worldPosition, dpdx, dpdy) * SlabJointDepth;
 }
 
 //Highest and lowest the field can reach: the micro-relief rides above zero, the joints cut below it
@@ -663,9 +663,9 @@ float ReliefFloor() { return -(SurfaceReliefStrength + SlabJointDepth); }
 //painted-on texture rather than as shape.
 float CavityOcclusion(float height)
 {
-	float openness = saturate((height - ReliefFloor()) / max(ReliefCeiling() - ReliefFloor(), 1e-6));
+    float openness = saturate((height - ReliefFloor()) / max(ReliefCeiling() - ReliefFloor(), 1e-6));
 
-	return lerp(1 - CavityStrength, 1, openness);
+    return lerp(1 - CavityStrength, 1, openness);
 }
 
 //How many steps each march takes. Both are cheap at a steep angle and expensive at a grazing one,
@@ -679,39 +679,39 @@ static const int ParallaxMaxSteps = 28;
 //shade the far sides of the bumps, it throws the bumps' shadows across the hollows behind them.
 float ReliefSelfShadow(float3 worldPosition, float3 normal, float3 towardsLight, float height, float3 dpdx, float3 dpdy)
 {
-	if (ReliefShadowStrength <= 0) return 1;
+    if (ReliefShadowStrength <= 0) return 1;
 
-	float alongNormal = dot(towardsLight, normal);
-	if (alongNormal <= 0.02) return 1; //Light at or below the horizon: the N.L term already has this
+    float alongNormal = dot(towardsLight, normal);
+    if (alongNormal <= 0.02) return 1; //Light at or below the horizon: the N.L term already has this
 
-	float3 alongSurface = towardsLight - normal * alongNormal;
-	float surfaceLength = length(alongSurface);
-	if (surfaceLength < 1e-5) return 1; //Light straight overhead: nothing can shadow anything
+    float3 alongSurface = towardsLight - normal * alongNormal;
+    float surfaceLength = length(alongSurface);
+    if (surfaceLength < 1e-5) return 1; //Light straight overhead: nothing can shadow anything
 
-	alongSurface /= surfaceLength;
+    alongSurface /= surfaceLength;
 
-	//Height the ray gains per unit travelled across the surface
-	float rise = alongNormal / surfaceLength;
+    //Height the ray gains per unit travelled across the surface
+    float rise = alongNormal / surfaceLength;
 
-	//Travel far enough for the ray to clear the tallest thing the field can put in its way
-	float reach = max((ReliefCeiling() - height) / max(rise, 1e-5), 0);
-	float amplitude = max(ReliefCeiling() - ReliefFloor(), 1e-6);
+    //Travel far enough for the ray to clear the tallest thing the field can put in its way
+    float reach = max((ReliefCeiling() - height) / max(rise, 1e-5), 0);
+    float amplitude = max(ReliefCeiling() - ReliefFloor(), 1e-6);
 
-	float blocked = 0;
+    float blocked = 0;
 
-	[unroll]
-	for (int i = 1; i <= ReliefShadowSteps; i++)
-	{
-		float travel = reach * i / ReliefShadowSteps;
-		float rayHeight = height + travel * rise;
-		float fieldHeight = SceneSurfaceHeightCoarse(worldPosition + alongSurface * travel, dpdx, dpdy);
+    [unroll]
+    for (int i = 1; i <= ReliefShadowSteps; i++)
+    {
+        float travel = reach * i / ReliefShadowSteps;
+        float rayHeight = height + travel * rise;
+        float fieldHeight = SceneSurfaceHeightCoarse(worldPosition + alongSurface * travel, dpdx, dpdy);
 
-		//How far the field pokes above the ray, as a fraction of the field's own depth. Taking the
-		//largest overlap rather than a hit/miss keeps the shadow's edge soft.
-		blocked = max(blocked, saturate((fieldHeight - rayHeight) / amplitude));
-	}
+        //How far the field pokes above the ray, as a fraction of the field's own depth. Taking the
+        //largest overlap rather than a hit/miss keeps the shadow's edge soft.
+        blocked = max(blocked, saturate((fieldHeight - rayHeight) / amplitude));
+    }
 
-	return 1 - blocked * ReliefShadowStrength;
+    return 1 - blocked * ReliefShadowStrength;
 }
 
 //Marches the height field along the view ray and returns where it actually hits. Tilting the normal
@@ -720,122 +720,122 @@ float ReliefSelfShadow(float3 worldPosition, float3 normal, float3 towardsLight,
 //normal mapping cannot fake, and it is what "plastic" means here.
 float3 ParallaxSurfacePosition(float3 worldPosition, float3 normal, float3 towardsEye, float3 dpdx, float3 dpdy)
 {
-	if (ParallaxScale <= 0) return worldPosition;
+    if (ParallaxScale <= 0) return worldPosition;
 
-	float alongNormal = dot(towardsEye, normal);
-	if (alongNormal <= 0.05) return worldPosition; //Edge-on: the offset would run away to infinity
+    float alongNormal = dot(towardsEye, normal);
+    if (alongNormal <= 0.05) return worldPosition; //Edge-on: the offset would run away to infinity
 
-	//World-space offset that corresponds to descending one unit into the surface
-	float3 perDepth = -(towardsEye - normal * alongNormal) / alongNormal;
+    //World-space offset that corresponds to descending one unit into the surface
+    float3 perDepth = -(towardsEye - normal * alongNormal) / alongNormal;
 
-	float ceiling = ReliefCeiling();
-	float range = max(ceiling - ReliefFloor(), 1e-6) * ParallaxScale;
+    float ceiling = ReliefCeiling();
+    float range = max(ceiling - ReliefFloor(), 1e-6) * ParallaxScale;
 
-	int steps = (int)lerp(ParallaxMaxSteps, ParallaxMinSteps, alongNormal);
-	float stepDepth = range / steps;
+    int steps = (int)lerp(ParallaxMaxSteps, ParallaxMinSteps, alongNormal);
+    float stepDepth = range / steps;
 
-	float rayDepth = 0;
-	float previousRayDepth = 0;
-	float previousSurfaceDepth = 0;
+    float rayDepth = 0;
+    float previousRayDepth = 0;
+    float previousSurfaceDepth = 0;
 
-	[loop]
-	for (int i = 0; i < steps; i++)
-	{
-		previousRayDepth = rayDepth;
-		rayDepth += stepDepth;
+    [loop]
+    for (int i = 0; i < steps; i++)
+    {
+        previousRayDepth = rayDepth;
+        rayDepth += stepDepth;
 
-		//Depth of the field below its ceiling at the point the ray has reached
-		float surfaceDepth = ceiling - SceneSurfaceHeightCoarse(worldPosition + perDepth * rayDepth, dpdx, dpdy);
+        //Depth of the field below its ceiling at the point the ray has reached
+        float surfaceDepth = ceiling - SceneSurfaceHeightCoarse(worldPosition + perDepth * rayDepth, dpdx, dpdy);
 
-		if (surfaceDepth <= rayDepth)
-		{
-			//Crossed it between the last two samples. One linear solve for where the ray and the
-			//surface actually met beats halving the step size again.
-			float previousGap = previousSurfaceDepth - previousRayDepth;
-			float gap = surfaceDepth - rayDepth;
-			float t = saturate(previousGap / max(previousGap - gap, 1e-6));
+        if (surfaceDepth <= rayDepth)
+        {
+            //Crossed it between the last two samples. One linear solve for where the ray and the
+            //surface actually met beats halving the step size again.
+            float previousGap = previousSurfaceDepth - previousRayDepth;
+            float gap = surfaceDepth - rayDepth;
+            float t = saturate(previousGap / max(previousGap - gap, 1e-6));
 
-			return worldPosition + perDepth * lerp(previousRayDepth, rayDepth, t);
-		}
+            return worldPosition + perDepth * lerp(previousRayDepth, rayDepth, t);
+        }
 
-		previousSurfaceDepth = surfaceDepth;
-	}
+        previousSurfaceDepth = surfaceDepth;
+    }
 
-	return worldPosition + perDepth * rayDepth;
+    return worldPosition + perDepth * rayDepth;
 }
 
 //Textured variant: the model vertices carry UVs in TEXCOORD0 (the instance stream stays in TEXCOORD1-5)
 
 struct TexturedVertexShaderInput
 {
-	float4 Position : POSITION0;
-	float3 Normal : NORMAL0;
-	float2 TexCoord : TEXCOORD0;
+    float4 Position : POSITION0;
+    float3 Normal : NORMAL0;
+    float2 TexCoord : TEXCOORD0;
 };
 
 struct TexturedVertexShaderOutput
 {
-	float4 Position : SV_POSITION;
-	float3 WorldPosition : TEXCOORD0;
-	float3 WorldNormal : TEXCOORD1;
-	float4 OcclusionData : TEXCOORD2;
-	float2 TexCoord : TEXCOORD3;
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+    float3 WorldNormal : TEXCOORD1;
+    float4 OcclusionData : TEXCOORD2;
+    float2 TexCoord : TEXCOORD3;
 };
 
 TexturedVertexShaderOutput TexturedVS(TexturedVertexShaderInput input, InstanceInput instance)
 {
-	TexturedVertexShaderOutput output;
+    TexturedVertexShaderOutput output;
 
-	float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
+    float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
 
-	float4 worldPosition = mul(mul(input.Position, Bone), world);
+    float4 worldPosition = mul(mul(input.Position, Bone), world);
 
-	output.WorldPosition = worldPosition.xyz;
-	output.Position = mul(mul(worldPosition, View), Projection);
-	output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
-	output.OcclusionData = instance.Custom;
-	output.TexCoord = input.TexCoord;
+    output.WorldPosition = worldPosition.xyz;
+    output.Position = mul(mul(worldPosition, View), Projection);
+    output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
+    output.OcclusionData = instance.Custom;
+    output.TexCoord = input.TexCoord;
 
-	return output;
+    return output;
 }
 
 float4 TexturedPS(TexturedVertexShaderOutput input) : COLOR
 {
-	//The ground comes through here: marble slabs whose texture draws the veining, with the joints
-	//between them cut into the height field so they are real recesses that hide, shadow and shift
-	float3 dpdx = ddx(input.WorldPosition);
-	float3 dpdy = ddy(input.WorldPosition);
+    //The ground comes through here: marble slabs whose texture draws the veining, with the joints
+    //between them cut into the height field so they are real recesses that hide, shadow and shift
+    float3 dpdx = ddx(input.WorldPosition);
+    float3 dpdy = ddy(input.WorldPosition);
 
-	float3 geometricNormal = normalize(input.WorldNormal);
-	float3 towardsEye = normalize(EyePosition - input.WorldPosition);
+    float3 geometricNormal = normalize(input.WorldNormal);
+    float3 towardsEye = normalize(EyePosition - input.WorldPosition);
 
-	//Where the view ray actually meets the relief, rather than where it meets the flat polygon
-	float3 reliefPosition = ParallaxSurfacePosition(input.WorldPosition, geometricNormal, towardsEye, dpdx, dpdy);
+    //Where the view ray actually meets the relief, rather than where it meets the flat polygon
+    float3 reliefPosition = ParallaxSurfacePosition(input.WorldPosition, geometricNormal, towardsEye, dpdx, dpdy);
 
-	float height = SceneSurfaceHeight(reliefPosition, dpdx, dpdy);
+    float height = SceneSurfaceHeight(reliefPosition, dpdx, dpdy);
 
-	//The tangent frame stays on the real geometry; only the height is read at the parallaxed point, so
-	//the derivatives pick up both the field's own slope and the way the offset changes across the screen
-	float3 worldNormal = PerturbNormalFromHeight(geometricNormal, input.WorldPosition, height);
+    //The tangent frame stays on the real geometry; only the height is read at the parallaxed point, so
+    //the derivatives pick up both the field's own slope and the way the offset changes across the screen
+    float3 worldNormal = PerturbNormalFromHeight(geometricNormal, input.WorldPosition, height);
 
-	float keyShadow = ReliefSelfShadow(reliefPosition, geometricNormal, normalize(KeyLightPosition - input.WorldPosition), height, dpdx, dpdy);
+    float keyShadow = ReliefSelfShadow(reliefPosition, geometricNormal, normalize(KeyLightPosition - input.WorldPosition), height, dpdx, dpdy);
 
-	//The albedo is mapped through the model's UVs rather than world space, so the parallax offset is not
-	//applied to it: the veining stays put while the joints move. At these depths the mismatch is well
-	//under a pixel, and the joints are what carry the parallax anyway.
-	float4 texColor = tex2D(TextureSampler, input.TexCoord);
-	texColor.rgb = SrgbToLinear(texColor.rgb);
+    //The albedo is mapped through the model's UVs rather than world space, so the parallax offset is not
+    //applied to it: the veining stays put while the joints move. At these depths the mismatch is well
+    //under a pixel, and the joints are what carry the parallax anyway.
+    float4 texColor = tex2D(TextureSampler, input.TexCoord);
+    texColor.rgb = SrgbToLinear(texColor.rgb);
 
-	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, texColor, keyShadow, CavityOcclusion(height));
+    return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, texColor, keyShadow, CavityOcclusion(height));
 }
 
 technique InstancedModelTextured
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL TexturedVS();
-		PixelShader = compile PS_SHADERMODEL TexturedPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL TexturedVS();
+        PixelShader = compile PS_SHADERMODEL TexturedPS();
+    }
 };
 
 //Procedural beach-ball pattern. Evaluated in the model's own object space, so it turns with the
@@ -915,18 +915,18 @@ static const float RippleAlarmCoverage = 0.95;
 //first, then a long rest: the lub-dub that reads as alive rather than as a fading lamp.
 float Heartbeat(float t)
 {
-	float phase = frac(t);
+    float phase = frac(t);
 
-	//Squared by multiplication, not pow(x, 2): HLSL compiles pow as exp(y * log(x)), and log of a
-	//negative is a NaN. Both bases go negative over most of the cycle, which left the whole term NaN
-	//and the beat silently stuck at zero.
-	float lubOffset = (phase - 0.10) * 13.0;
-	float dubOffset = (phase - 0.29) * 15.0;
+    //Squared by multiplication, not pow(x, 2): HLSL compiles pow as exp(y * log(x)), and log of a
+    //negative is a NaN. Both bases go negative over most of the cycle, which left the whole term NaN
+    //and the beat silently stuck at zero.
+    float lubOffset = (phase - 0.10) * 13.0;
+    float dubOffset = (phase - 0.29) * 15.0;
 
-	float lub = exp(-lubOffset * lubOffset);
-	float dub = 0.55 * exp(-dubOffset * dubOffset);
+    float lub = exp(-lubOffset * lubOffset);
+    float dub = 0.55 * exp(-dubOffset * dubOffset);
 
-	return saturate(lub + dub);
+    return saturate(lub + dub);
 }
 
 //Width of the ring outlining each disc, so the circle reads whichever gore it lands on
@@ -943,14 +943,14 @@ static const float PatternSeamFrequency = 8.0;
 
 struct PatternVertexShaderOutput
 {
-	float4 Position : SV_POSITION;
-	float3 WorldPosition : TEXCOORD0;
-	float3 WorldNormal : TEXCOORD1;
-	float4 OcclusionData : TEXCOORD2;
-	float3 ObjectPosition : TEXCOORD3;
-	//Flat across the instance; interpolating a constant is free and saves a nointerpolation qualifier
-	float Dissolve : TEXCOORD4;
-	float Ripple : TEXCOORD5;
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+    float3 WorldNormal : TEXCOORD1;
+    float4 OcclusionData : TEXCOORD2;
+    float3 ObjectPosition : TEXCOORD3;
+    //Flat across the instance; interpolating a constant is free and saves a nointerpolation qualifier
+    float Dissolve : TEXCOORD4;
+    float Ripple : TEXCOORD5;
 };
 
 //How wide one cell of the dissolve's dither is, in pixels of the CURRENTLY BOUND target. The caller sends
@@ -976,39 +976,39 @@ float DissolvePixelSize;
 /// screen; the swizzle to three components is the usual way this hash family reaches one output.
 float DissolveNoise(float2 cell)
 {
-	float3 p = frac(cell.xyx * float3(0.1031, 0.1030, 0.0973));
-	p += dot(p, p.yzx + 33.33);
+    float3 p = frac(cell.xyx * float3(0.1031, 0.1030, 0.0973));
+    p += dot(p, p.yzx + 33.33);
 
-	return frac((p.x + p.y) * p.z);
+    return frac((p.x + p.y) * p.z);
 }
 
 PatternVertexShaderOutput PatternVS(VertexShaderInput input, InstanceInput instance)
 {
-	PatternVertexShaderOutput output;
+    PatternVertexShaderOutput output;
 
-	float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
+    float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
 
-	float4 bonePosition = mul(input.Position, Bone);
-	float4 worldPosition = mul(bonePosition, world);
+    float4 bonePosition = mul(input.Position, Bone);
+    float4 worldPosition = mul(bonePosition, world);
 
-	output.ObjectPosition = bonePosition.xyz;
-	output.WorldPosition = worldPosition.xyz;
-	output.Position = mul(mul(worldPosition, View), Projection);
-	output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
-	output.OcclusionData = instance.Custom;
-	output.Dissolve = instance.Dissolve;
-	output.Ripple = instance.Ripple;
+    output.ObjectPosition = bonePosition.xyz;
+    output.WorldPosition = worldPosition.xyz;
+    output.Position = mul(mul(worldPosition, View), Projection);
+    output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
+    output.OcclusionData = instance.Custom;
+    output.Dissolve = instance.Dissolve;
+    output.Ripple = instance.Ripple;
 
-	return output;
+    return output;
 }
 
 //Soft step across a boundary, one screen pixel wide, so the stripes do not crawl on the
 //small distant balls (a scene holds thousands of them, most only a few pixels across)
 float AntialiasedStep(float edge, float value)
 {
-	float width = max(fwidth(value), 1e-5);
+    float width = max(fwidth(value), 1e-5);
 
-	return smoothstep(edge - width, edge + width, value);
+    return smoothstep(edge - width, edge + width, value);
 }
 
 //Molded micro-relief of the skin: the dimples and waviness a real ball is left with when it comes
@@ -1018,156 +1018,156 @@ float AntialiasedStep(float edge, float value)
 //one, which leaves PatternReliefStrength as the peak height in world units.
 float SurfaceRelief(float3 direction, float footprint)
 {
-	return 0.36 * ReliefOctave(direction, float3(0.71, 0.52, -0.47), 13.0, footprint)
-		+ 0.27 * ReliefOctave(direction, float3(-0.36, 0.83, 0.42), 21.0, footprint)
-		+ 0.21 * ReliefOctave(direction, float3(0.55, -0.44, 0.71), 34.0, footprint)
-		+ 0.16 * ReliefOctave(direction, float3(-0.82, -0.31, 0.48), 55.0, footprint);
+    return 0.36 * ReliefOctave(direction, float3(0.71, 0.52, -0.47), 13.0, footprint)
+        + 0.27 * ReliefOctave(direction, float3(-0.36, 0.83, 0.42), 21.0, footprint)
+        + 0.21 * ReliefOctave(direction, float3(0.55, -0.44, 0.71), 34.0, footprint)
+        + 0.16 * ReliefOctave(direction, float3(-0.82, -0.31, 0.48), 55.0, footprint);
 }
 
 float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 {
-	//The object-space radius is the ball's own radius, which turns the pixel footprint below into the
-	//units the relief is written in without the shader having to be told how big a ball is
-	float radius = max(length(input.ObjectPosition), 1e-5);
-	float3 direction = input.ObjectPosition / radius;
+    //The object-space radius is the ball's own radius, which turns the pixel footprint below into the
+    //units the relief is written in without the shader having to be told how big a ball is
+    float radius = max(length(input.ObjectPosition), 1e-5);
+    float3 direction = input.ObjectPosition / radius;
 
-	//The dissolve cut, before anything else is worth computing. Branchless — a select rather than an if,
-	//because Dissolve varies per instance and a branch on it would diverge inside a single draw call.
-	//At the settled value of 0 this reduces to clip(noise), and the hash is never negative, so every ball
-	//that is not transmuting keeps all of its pixels and pays a handful of ALU for the privilege.
-	//
-	//The cell is a block of the SCREEN, so input.Position is read as what SV_POSITION is in a pixel shader:
-	//the pixel's centre in target pixels. Snapped to the block grid with floor, so every target sample
-	//inside one block hashes the same and the resolve cannot average the dither away (see DissolvePixelSize).
-	float dissolveNoise = DissolveNoise(floor(input.Position.xy / DissolvePixelSize));
-	clip(input.Dissolve >= 0 ? dissolveNoise - input.Dissolve : -input.Dissolve - dissolveNoise);
+    //The dissolve cut, before anything else is worth computing. Branchless — a select rather than an if,
+    //because Dissolve varies per instance and a branch on it would diverge inside a single draw call.
+    //At the settled value of 0 this reduces to clip(noise), and the hash is never negative, so every ball
+    //that is not transmuting keeps all of its pixels and pays a handful of ALU for the privilege.
+    //
+    //The cell is a block of the SCREEN, so input.Position is read as what SV_POSITION is in a pixel shader:
+    //the pixel's centre in target pixels. Snapped to the block grid with floor, so every target sample
+    //inside one block hashes the same and the resolve cannot average the dither away (see DissolvePixelSize).
+    float dissolveNoise = DissolveNoise(floor(input.Position.xy / DissolvePixelSize));
+    clip(input.Dissolve >= 0 ? dissolveNoise - input.Dissolve : -input.Dissolve - dissolveNoise);
 
-	//sin(N * azimuth) stays continuous across the atan2 branch cut for integer N, so neither the
-	//value nor its screen-space derivative jumps there and the seam needs no special handling
-	float azimuth = atan2(direction.z, direction.x);
-	float gore = sin(PatternGoreCount * azimuth);
+    //sin(N * azimuth) stays continuous across the atan2 branch cut for integer N, so neither the
+    //value nor its screen-space derivative jumps there and the seam needs no special handling
+    float azimuth = atan2(direction.z, direction.x);
+    float gore = sin(PatternGoreCount * azimuth);
 
-	//Linearized before the blends: these crossfades run along the antialiased gore edges, so they are
-	//averaging light across a pixel and have to do it in linear
-	float3 primary = SrgbToLinear(PatternPrimaryColor);
-	float3 secondary = SrgbToLinear(PatternSecondaryColor);
+    //Linearized before the blends: these crossfades run along the antialiased gore edges, so they are
+    //averaging light across a pixel and have to do it in linear
+    float3 primary = SrgbToLinear(PatternPrimaryColor);
+    float3 secondary = SrgbToLinear(PatternSecondaryColor);
 
-	float3 color = lerp(primary, secondary, AntialiasedStep(PatternGoreThreshold, gore));
+    float3 color = lerp(primary, secondary, AntialiasedStep(PatternGoreThreshold, gore));
 
-	//Discs at the poles, where the gores would otherwise converge into an aliasing mess
-	float pole = abs(direction.y);
+    //Discs at the poles, where the gores would otherwise converge into an aliasing mess
+    float pole = abs(direction.y);
 
-	color = lerp(color, primary, AntialiasedStep(PatternCapExtent, pole));
-	color = lerp(color, secondary, AntialiasedStep(PatternCapExtent + PatternRingWidth, pole));
+    color = lerp(color, primary, AntialiasedStep(PatternCapExtent, pole));
+    color = lerp(color, secondary, AntialiasedStep(PatternCapExtent + PatternRingWidth, pole));
 
-	//The panels are welded together, not painted on: press a groove in along every gore boundary and
-	//around the rim of each polar disc. The gore grooves fade out towards the poles, where the
-	//boundaries crowd together and the disc takes over anyway.
-	float goreSeam = (1 - smoothstep(0, PatternSeamGoreWidth, abs(gore - PatternGoreThreshold))) * saturate((PatternCapExtent - pole) * 8);
-	float capSeam = 1 - smoothstep(0, PatternSeamCapWidth, abs(pole - PatternCapExtent));
+    //The panels are welded together, not painted on: press a groove in along every gore boundary and
+    //around the rim of each polar disc. The gore grooves fade out towards the poles, where the
+    //boundaries crowd together and the disc takes over anyway.
+    float goreSeam = (1 - smoothstep(0, PatternSeamGoreWidth, abs(gore - PatternGoreThreshold))) * saturate((PatternCapExtent - pole) * 8);
+    float capSeam = 1 - smoothstep(0, PatternSeamCapWidth, abs(pole - PatternCapExtent));
 
-	//How much surface one screen pixel covers, over the ball radius — the yardstick every feature is
-	//band-limited against. It shrinks when the scene is supersampled, which is exactly why raising the
-	//render resolution buys back the fine octaves instead of just making the same mush smoother.
-	//Kept branchless: ddx/ddy need every pixel of a quad to have taken the same path.
-	float footprint = (length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition))) / radius;
+    //How much surface one screen pixel covers, over the ball radius — the yardstick every feature is
+    //band-limited against. It shrinks when the scene is supersampled, which is exactly why raising the
+    //render resolution buys back the fine octaves instead of just making the same mush smoother.
+    //Kept branchless: ddx/ddy need every pixel of a quad to have taken the same path.
+    float footprint = (length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition))) / radius;
 
-	//Relief and welds ride in one height field, so a single perturbation covers both
-	float seams = (goreSeam + capSeam) * saturate(1 - footprint * PatternSeamFrequency / 3.14159265);
-	float height = SurfaceRelief(direction, footprint) * PatternReliefStrength - seams * PatternSeamDepth;
+    //Relief and welds ride in one height field, so a single perturbation covers both
+    float seams = (goreSeam + capSeam) * saturate(1 - footprint * PatternSeamFrequency / 3.14159265);
+    float height = SurfaceRelief(direction, footprint) * PatternReliefStrength - seams * PatternSeamDepth;
 
-	float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
+    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
 
-	//The balls carry their own relief; the scene cavity and self-shadow terms are not it
-	float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(color, 1), 1, 1);
+    //The balls carry their own relief; the scene cavity and self-shadow terms are not it
+    float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(color, 1), 1, 1);
 
-	//Light carried through the shell from behind. A ball lit from the far side glows around its rim
-	//instead of going flatly black, which is what tells the eye the thing is a skin around a volume
-	//rather than a painted solid — and is half of why it can read as alive.
-	float3 towardsKey = normalize(KeyLightPosition - input.WorldPosition);
-	float throughShell = pow(saturate(dot(-worldNormal, towardsKey)), 2);
+    //Light carried through the shell from behind. A ball lit from the far side glows around its rim
+    //instead of going flatly black, which is what tells the eye the thing is a skin around a volume
+    //rather than a painted solid — and is half of why it can read as alive.
+    float3 towardsKey = normalize(KeyLightPosition - input.WorldPosition);
+    float throughShell = pow(saturate(dot(-worldNormal, towardsKey)), 2);
 
-	shaded.rgb += throughShell * TranslucencyStrength * DirLight0DiffuseColor * color
-		* SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
+    shaded.rgb += throughShell * TranslucencyStrength * DirLight0DiffuseColor * color
+        * SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
 
-	//Emission: the ball radiates its own color rather than only reflecting what falls on it, and does it
-	//on a heartbeat. The phase runs with world position, so the beat travels through the cluster as a
-	//wave instead of every ball flashing in lockstep — a pile of them breathing together, not a strobe.
-	//Emission is not occluded: a light source buried in the pile is exactly the one that should still
-	//show, glowing out through its neighbors.
-	float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
+    //Emission: the ball radiates its own color rather than only reflecting what falls on it, and does it
+    //on a heartbeat. The phase runs with world position, so the beat travels through the cluster as a
+    //wave instead of every ball flashing in lockstep — a pile of them breathing together, not a strobe.
+    //Emission is not occluded: a light source buried in the pile is exactly the one that should still
+    //show, glowing out through its neighbors.
+    float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
 
-	//The ball glows with its own color, not with the pattern's: the gores and the polar discs are white,
-	//and emitting through them made half of every ball radiate white light, which is both the wrong color
-	//and the reason they read as washed out. What is alive here is the ball, not its paint job.
-	shaded.rgb += primary * EmissiveStrength * lerp(1 - PulseDepth, 1, beat);
+    //The ball glows with its own color, not with the pattern's: the gores and the polar discs are white,
+    //and emitting through them made half of every ball radiate white light, which is both the wrong color
+    //and the reason they read as washed out. What is alive here is the ball, not its paint job.
+    shaded.rgb += primary * EmissiveStrength * lerp(1 - PulseDepth, 1, beat);
 
-	//And on top of the resting breath, the ripple: the light that runs out through the cluster from
-	//wherever a ball has just landed. WHEN this ball takes its turn was decided on the CPU by walking the
-	//balls that touch each other outwards from the impact, so what arrives here is only how brightly it is
-	//flaring this frame - the walk is a question about the cluster's connectivity, and a wave evaluated
-	//from a world-space distance here would run straight through the holes a played cluster is full of
-	//instead of around them.
-	//
-	//Branched on the UNIFORM, not on the per-instance value: the strength is the same for every instance in
-	//a draw call, so the branch cannot diverge, and a renderer that never ripples pays nothing at all.
-	[branch]
-	if (RippleStrength > 0)
-	{
-		//The flare is mostly WHITE with the ball's hue in it, and that is not a stylistic preference - it is
-		//the only thing that reads. Adding light in the ball's own colour piles it into the one channel that
-		//is already near the top of the ACES curve, so a red ball taking a full-strength flare goes from
-		//bright red to very slightly brighter red and the wave is invisible; measured, it was there in the
-		//instance data at 0.97 and could not be seen on screen at all. Lifting the channels the ball does
-		//NOT have is what turns it white-hot, which is what "lighting up" looks like.
-		//
-		//Normalising the hue to peak 1 first also settles the dark types: primary runs from a full-strength
-		//red down to the 8-ball's 0.045 grey, and multiplying that raw would leave the black balls out of
-		//the wave entirely. Light passing through a cluster does not care what colour the ball under it is.
-		float amount = abs(input.Ripple);
-		float peak = max(primary.r, max(primary.g, primary.b));
+    //And on top of the resting breath, the ripple: the light that runs out through the cluster from
+    //wherever a ball has just landed. WHEN this ball takes its turn was decided on the CPU by walking the
+    //balls that touch each other outwards from the impact, so what arrives here is only how brightly it is
+    //flaring this frame - the walk is a question about the cluster's connectivity, and a wave evaluated
+    //from a world-space distance here would run straight through the holes a played cluster is full of
+    //instead of around them.
+    //
+    //Branched on the UNIFORM, not on the per-instance value: the strength is the same for every instance in
+    //a draw call, so the branch cannot diverge, and a renderer that never ripples pays nothing at all.
+    [branch]
+    if (RippleStrength > 0)
+    {
+        //The flare is mostly WHITE with the ball's hue in it, and that is not a stylistic preference - it is
+        //the only thing that reads. Adding light in the ball's own colour piles it into the one channel that
+        //is already near the top of the ACES curve, so a red ball taking a full-strength flare goes from
+        //bright red to very slightly brighter red and the wave is invisible; measured, it was there in the
+        //instance data at 0.97 and could not be seen on screen at all. Lifting the channels the ball does
+        //NOT have is what turns it white-hot, which is what "lighting up" looks like.
+        //
+        //Normalising the hue to peak 1 first also settles the dark types: primary runs from a full-strength
+        //red down to the 8-ball's 0.045 grey, and multiplying that raw would leave the black balls out of
+        //the wave entirely. Light passing through a cluster does not care what colour the ball under it is.
+        float amount = abs(input.Ripple);
+        float peak = max(primary.r, max(primary.g, primary.b));
 
-		float3 lit = shaded.rgb + lerp(primary / max(peak, 1e-3), 1.0, RippleWhiten) * (RippleStrength * amount);
+        float3 lit = shaded.rgb + lerp(primary / max(peak, 1e-3), 1.0, RippleWhiten) * (RippleStrength * amount);
 
-		//The alarm REPLACES the ball's colour rather than adding to it, and that is the whole difference
-		//between a warning and a wash. Added, a red flare on a green ball is green plus red, which is yellow;
-		//on a red one it is a slightly brighter red, and on black a pale grey - every ball came out a
-		//different pastel and none of them said "red". Blended, the cluster momentarily TURNS red, which is
-		//a thing the player cannot mistake for the scene doing something of its own.
-		float3 alarmed = lerp(shaded.rgb, RippleAlarmColor * RippleAlarmBrightness, amount * RippleAlarmCoverage);
+        //The alarm REPLACES the ball's colour rather than adding to it, and that is the whole difference
+        //between a warning and a wash. Added, a red flare on a green ball is green plus red, which is yellow;
+        //on a red one it is a slightly brighter red, and on black a pale grey - every ball came out a
+        //different pastel and none of them said "red". Blended, the cluster momentarily TURNS red, which is
+        //a thing the player cannot mistake for the scene doing something of its own.
+        float3 alarmed = lerp(shaded.rgb, RippleAlarmColor * RippleAlarmBrightness, amount * RippleAlarmCoverage);
 
-		//A select and not an if, for the reason the dissolve's clip is one: the sign varies PER INSTANCE, so
-		//a branch on it would diverge inside a single draw call. Both sides are a handful of ops.
-		shaded.rgb = input.Ripple < 0 ? alarmed : lit;
-	}
+        //A select and not an if, for the reason the dissolve's clip is one: the sign varies PER INSTANCE, so
+        //a branch on it would diverge inside a single draw call. Both sides are a handful of ops.
+        shaded.rgb = input.Ripple < 0 ? alarmed : lit;
+    }
 
-	//The hand-rolled vinyl sheen that used to sit here is gone: it was a Fresnel reflection of the sky,
-	//which ShadePixel's specular ambient now does for every surface with a real dielectric F0 behind it.
-	//Two Fresnel sky terms stacked on one sphere - where a grazing angle covers most of what you can see
-	//of it - is what was bleaching the balls out under a bright dome.
+    //The hand-rolled vinyl sheen that used to sit here is gone: it was a Fresnel reflection of the sky,
+    //which ShadePixel's specular ambient now does for every surface with a real dielectric F0 behind it.
+    //Two Fresnel sky terms stacked on one sphere - where a grazing angle covers most of what you can see
+    //of it - is what was bleaching the balls out under a bright dome.
 
-	//Submerge fade: a ball below the sea level dims into the deep-water tint and becomes transparent over a
-	//shallow band, so it reads as sinking into dark water rather than being cut off by the opaque surface
-	//(see SeaLevelY). Disabled (a no-op) off the sea scene, where SeaFadeDepth is pushed <= 0.
-	//
-	//The colour is scaled towards zero WITH the alpha, not only lerped to the tint: this output rides
-	//premultiplied alpha, and a fade that leaves rgb standing turns every faded pixel ADDITIVE. One sinking
-	//ball hides it (the residue is the near-black tint, once), but a released cluster piles hundreds of
-	//half-sunk balls into the pool standing in the drain (#132), and their residues stack into a pale glowing
-	//mush over the dark water. Found the moment the pool gave them something dark to stack against.
-	shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
+    //Submerge fade: a ball below the sea level dims into the deep-water tint and becomes transparent over a
+    //shallow band, so it reads as sinking into dark water rather than being cut off by the opaque surface
+    //(see SeaLevelY). Disabled (a no-op) off the sea scene, where SeaFadeDepth is pushed <= 0.
+    //
+    //The colour is scaled towards zero WITH the alpha, not only lerped to the tint: this output rides
+    //premultiplied alpha, and a fade that leaves rgb standing turns every faded pixel ADDITIVE. One sinking
+    //ball hides it (the residue is the near-black tint, once), but a released cluster piles hundreds of
+    //half-sunk balls into the pool standing in the drain (#132), and their residues stack into a pale glowing
+    //mush over the dark water. Found the moment the pool gave them something dark to stack against.
+    shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
 
-	//And the kill plane's own fade (#192) on top of it, for the ball about to be culled under the island.
-	return ApplyKillPlaneFade(shaded, input.WorldPosition);
+    //And the kill plane's own fade (#192) on top of it, for the ball about to be culled under the island.
+    return ApplyKillPlaneFade(shaded, input.WorldPosition);
 }
 
 technique InstancedModelPattern
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL PatternVS();
-		PixelShader = compile PS_SHADERMODEL PatternPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL PatternVS();
+        PixelShader = compile PS_SHADERMODEL PatternPS();
+    }
 };
 
 //===================================================================================================
@@ -1298,196 +1298,196 @@ static const float BubbleOcclusionPower = 2.0;
 //SpecularPower with a Lambert diffuse beside it, and a film has neither - it mirrors, and everything else
 //it does with light it does by transmitting.
 void AddBubbleHighlight(float3 towardsLight, float3 lightSpecular, float3 worldNormal, float3 eyeVector,
-	inout float3 hotspot)
+    inout float3 hotspot)
 {
-	float3 halfway = normalize(towardsLight + eyeVector);
+    float3 halfway = normalize(towardsLight + eyeVector);
 
-	hotspot += lightSpecular * pow(saturate(dot(worldNormal, halfway)), BubbleGloss);
+    hotspot += lightSpecular * pow(saturate(dot(worldNormal, halfway)), BubbleGloss);
 }
 
 float4 BubblePS(PatternVertexShaderOutput input) : COLOR
 {
-	float radius = max(length(input.ObjectPosition), 1e-5);
-	float3 direction = input.ObjectPosition / radius;
+    float radius = max(length(input.ObjectPosition), 1e-5);
+    float3 direction = input.ObjectPosition / radius;
 
-	//The dissolve cut, character for character what PatternPS does and for its reasons: a bubble being
-	//transmuted in the bore has to go away in blocks of the screen like every other ball. Branchless.
-	float dissolveNoise = DissolveNoise(floor(input.Position.xy / DissolvePixelSize));
-	clip(input.Dissolve >= 0 ? dissolveNoise - input.Dissolve : -input.Dissolve - dissolveNoise);
+    //The dissolve cut, character for character what PatternPS does and for its reasons: a bubble being
+    //transmuted in the bore has to go away in blocks of the screen like every other ball. Branchless.
+    float dissolveNoise = DissolveNoise(floor(input.Position.xy / DissolvePixelSize));
+    clip(input.Dissolve >= 0 ? dissolveNoise - input.Dissolve : -input.Dissolve - dissolveNoise);
 
-	//Turned to face the eye. On the far wall the geometric normal points away from the camera - it is the
-	//inside of the shell - and every term below is about the film as the eye meets it, so one multiply by
-	//the pass's own sign puts both walls through the same arithmetic.
-	float3 normal = normalize(input.WorldNormal) * BubbleShell;
-	float3 eyeVector = normalize(EyePosition - input.WorldPosition);
-	float facing = saturate(dot(normal, eyeVector));
+    //Turned to face the eye. On the far wall the geometric normal points away from the camera - it is the
+    //inside of the shell - and every term below is about the film as the eye meets it, so one multiply by
+    //the pass's own sign puts both walls through the same arithmetic.
+    float3 normal = normalize(input.WorldNormal) * BubbleShell;
+    float3 eyeVector = normalize(EyePosition - input.WorldPosition);
+    float facing = saturate(dot(normal, eyeVector));
 
-	float3 tint = SrgbToLinear(PatternPrimaryColor);
+    float3 tint = SrgbToLinear(PatternPrimaryColor);
 
-	//How much surface one screen pixel covers, over the ball radius - the same yardstick the vinyl skin
-	//band-limits its moulding against, and here what keeps the fringes from strobing on a distant ball.
-	float footprint = (length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition))) / radius;
+    //How much surface one screen pixel covers, over the ball radius - the same yardstick the vinyl skin
+    //band-limits its moulding against, and here what keeps the fringes from strobing on a distant ball.
+    float footprint = (length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition))) / radius;
 
-	//THE FILM. Thin at the crown, heavy underneath, marbled by its own turbulence.
-	float drain = lerp(1.0 - BubbleFilmDrain, 1.0 + BubbleFilmDrain, saturate(0.5 - 0.5 * normal.y));
-	float thickness = BubbleFilmThickness * drain
-		* (1.0 + BubbleFilmVariation * SurfaceRelief(direction, footprint));
+    //THE FILM. Thin at the crown, heavy underneath, marbled by its own turbulence.
+    float drain = lerp(1.0 - BubbleFilmDrain, 1.0 + BubbleFilmDrain, saturate(0.5 - 0.5 * normal.y));
+    float thickness = BubbleFilmThickness * drain
+        * (1.0 + BubbleFilmVariation * SurfaceRelief(direction, footprint));
 
-	//Interference. The two faces of the film are `thickness` apart along the normal and the eye crosses
-	//them at `facing`, so the path between them - and with it the phase - goes as 1/cos: the fringes stretch
-	//and multiply towards the rim, which is exactly where a real bubble shows its bands.
-	float path = thickness / max(facing, BubbleGrazingClamp);
-	float3 interference = 0.5 + 0.5 * cos(6.2831853 * path * BubbleWavelengthRatio);
+    //Interference. The two faces of the film are `thickness` apart along the normal and the eye crosses
+    //them at `facing`, so the path between them - and with it the phase - goes as 1/cos: the fringes stretch
+    //and multiply towards the rim, which is exactly where a real bubble shows its bands.
+    float path = thickness / max(facing, BubbleGrazingClamp);
+    float3 interference = 0.5 + 0.5 * cos(6.2831853 * path * BubbleWavelengthRatio);
 
-	//Faded out where one pixel starts to span a whole fringe, or the rainbow turns into coloured noise that
-	//crawls as the camera moves. Band-limited against the SCREEN-SPACE derivative of the path — how much of
-	//a fringe one pixel actually covers — and not against the pixel footprint times the path, which is what
-	//this said first and what is wrong: that measures the pixel's reach across the BALL, and a ball nine
-	//tenths of a fringe wide is perfectly resolvable while one pixel of it is not. Measured, that fade was
-	//already fully closed at the stand-off a level is played from, so the whole effect existed only in the
-	//arithmetic. Nyquist puts the limit at half a fringe per pixel; this holds full colour to a fifth of one.
-	float fringe = fwidth(path);
-	float bands = saturate((0.5 - fringe) * 3.3);
+    //Faded out where one pixel starts to span a whole fringe, or the rainbow turns into coloured noise that
+    //crawls as the camera moves. Band-limited against the SCREEN-SPACE derivative of the path — how much of
+    //a fringe one pixel actually covers — and not against the pixel footprint times the path, which is what
+    //this said first and what is wrong: that measures the pixel's reach across the BALL, and a ball nine
+    //tenths of a fringe wide is perfectly resolvable while one pixel of it is not. Measured, that fade was
+    //already fully closed at the stand-off a level is played from, so the whole effect existed only in the
+    //arithmetic. Nyquist puts the limit at half a fringe per pixel; this holds full colour to a fifth of one.
+    float fringe = fwidth(path);
+    float bands = saturate((0.5 - fringe) * 3.3);
 
-	//The interference averages 0.5, so doubling it leaves a tint that averages white and the fade lands on
-	//exactly that.
-	float3 film = lerp(float3(1, 1, 1), interference * 2.0, BubbleIridescence * bands);
+    //The interference averages 0.5, so doubling it leaves a tint that averages white and the fade lands on
+    //exactly that.
+    float3 film = lerp(float3(1, 1, 1), interference * 2.0, BubbleIridescence * bands);
 
-	//What the neighbours take, and they take it harder than they take it from a skin — see
-	//BubbleOcclusionPower, which is the whole of why.
-	float occlusion = pow(SurfaceOcclusion(input.WorldPosition, normal, input.OcclusionData),
-		BubbleOcclusionPower);
+    //What the neighbours take, and they take it harder than they take it from a skin — see
+    //BubbleOcclusionPower, which is the whole of why.
+    float occlusion = pow(SurfaceOcclusion(input.WorldPosition, normal, input.OcclusionData),
+        BubbleOcclusionPower);
 
-	//What it mirrors. A soap film is a dielectric like every other surface here, so it reflects the same
-	//4 % head-on and rises to a full mirror along the rim - and being smooth, it shows an IMAGE of the sky
-	//rather than the sky's average.
-	float3 fresnel = FresnelSchlick(DielectricF0.xxx, facing, 1.0);
-	float3 reflected = SkyRadiance(reflect(-eyeVector, normal)) * fresnel * film
-		* SpecularAmbientStrength * occlusion;
+    //What it mirrors. A soap film is a dielectric like every other surface here, so it reflects the same
+    //4 % head-on and rises to a full mirror along the rim - and being smooth, it shows an IMAGE of the sky
+    //rather than the sky's average.
+    float3 fresnel = FresnelSchlick(DielectricF0.xxx, facing, 1.0);
+    float3 reflected = SkyRadiance(reflect(-eyeVector, normal)) * fresnel * film
+        * SpecularAmbientStrength * occlusion;
 
-	//The lamps' pinpoints, the key one under the weather like every other surface in the scene.
-	float3 hotspot = 0;
-	AddBubbleHighlight(normalize(KeyLightPosition - input.WorldPosition),
-		DirLight0SpecularColor * CloudSunlight(input.WorldPosition, SunDirection), normal, eyeVector, hotspot);
-	AddBubbleHighlight(-DirLight1Direction, DirLight1SpecularColor, normal, eyeVector, hotspot);
-	AddBubbleHighlight(-DirLight2Direction, DirLight2SpecularColor, normal, eyeVector, hotspot);
-	hotspot *= DirLightStrength * BubbleGlossStrength * occlusion;
+    //The lamps' pinpoints, the key one under the weather like every other surface in the scene.
+    float3 hotspot = 0;
+    AddBubbleHighlight(normalize(KeyLightPosition - input.WorldPosition),
+        DirLight0SpecularColor * CloudSunlight(input.WorldPosition, SunDirection), normal, eyeVector, hotspot);
+    AddBubbleHighlight(-DirLight1Direction, DirLight1SpecularColor, normal, eyeVector, hotspot);
+    AddBubbleHighlight(-DirLight2Direction, DirLight2SpecularColor, normal, eyeVector, hotspot);
+    hotspot *= DirLightStrength * BubbleGlossStrength * occlusion;
 
-	//And the scene's own lamps - the campfire, the neon ring, the cavern's crystals. Their diffuse share is
-	//kept: a nearby fire does not just spark off a bubble, it fills it with warm light.
-	float3 lampWash = 0;
-	AddSceneLights(input.WorldPosition, normal, eyeVector, lampWash, hotspot);
+    //And the scene's own lamps - the campfire, the neon ring, the cavern's crystals. Their diffuse share is
+    //kept: a nearby fire does not just spark off a bubble, it fills it with warm light.
+    float3 lampWash = 0;
+    AddSceneLights(input.WorldPosition, normal, eyeVector, lampWash, hotspot);
 
-	hotspot *= film;
+    hotspot *= film;
 
-	//HOW MUCH OF THE PILE STANDS BETWEEN THIS SHELL AND THE EYE, and it is the answer to the one thing that
-	//looked wrong about a bubble cluster: several layers of balls all showing through one another with EQUAL
-	//clarity, where the eye expects each layer behind the last to be fainter than it. Nothing was fading them,
-	//and the reason is in DrawShell's own note — the far walls are drawn with no depth write, so every ball in
-	//the pile puts its inner rim into the picture whether or not four other balls stand in front of it, and
-	//bucket order decides which of those lands on top.
-	//
-	//The proper cure is a back-to-front sort, which this renderer structurally cannot do (colour is a per-draw
-	//uniform). This is the order-INDEPENDENT stand-in, and it costs one dot product: the occlusion vector
-	//already carries the DIRECTION this ball's occupied neighbours lie in, so dotting it against the eye asks
-	//exactly "are my neighbours between me and the camera?". Positive means the ball is screened by the pile
-	//and is faded; a ball on the cluster's near face has its neighbours BEHIND it, so the dot goes negative and
-	//it is left alone. A shot in flight and a loaded round carry a zero vector and are untouched by
-	//construction.
-	//
-	//It is a per-BALL figure, so a shell fades as a whole rather than pixel by pixel, which is right: what is
-	//being modelled is the depth of the pile in front of it, not the shape of its own surface.
-	float screened = saturate(dot(input.OcclusionData.xyz, eyeVector) * BubbleScreenReach);
+    //HOW MUCH OF THE PILE STANDS BETWEEN THIS SHELL AND THE EYE, and it is the answer to the one thing that
+    //looked wrong about a bubble cluster: several layers of balls all showing through one another with EQUAL
+    //clarity, where the eye expects each layer behind the last to be fainter than it. Nothing was fading them,
+    //and the reason is in DrawShell's own note — the far walls are drawn with no depth write, so every ball in
+    //the pile puts its inner rim into the picture whether or not four other balls stand in front of it, and
+    //bucket order decides which of those lands on top.
+    //
+    //The proper cure is a back-to-front sort, which this renderer structurally cannot do (colour is a per-draw
+    //uniform). This is the order-INDEPENDENT stand-in, and it costs one dot product: the occlusion vector
+    //already carries the DIRECTION this ball's occupied neighbours lie in, so dotting it against the eye asks
+    //exactly "are my neighbours between me and the camera?". Positive means the ball is screened by the pile
+    //and is faded; a ball on the cluster's near face has its neighbours BEHIND it, so the dot goes negative and
+    //it is left alone. A shot in flight and a loaded round carry a zero vector and are untouched by
+    //construction.
+    //
+    //It is a per-BALL figure, so a shell fades as a whole rather than pixel by pixel, which is right: what is
+    //being modelled is the depth of the pile in front of it, not the shape of its own surface.
+    float screened = saturate(dot(input.OcclusionData.xyz, eyeVector) * BubbleScreenReach);
 
-	//WHAT THE FILM HIDES. Face-on almost nothing; along the rim, where the eye looks the long way through
-	//it, nearly everything. The far wall is worth half, for the reason BubbleInnerWall gives.
-	float wall = (BubbleShell > 0 ? 1.0 : BubbleInnerWall) * (1.0 - screened * BubbleScreenFade);
-	float rim = pow(1.0 - facing, BubbleRimPower);
-	float alpha = saturate(BubbleBodyOpacity + (1.0 - BubbleBodyOpacity) * rim) * wall;
+    //WHAT THE FILM HIDES. Face-on almost nothing; along the rim, where the eye looks the long way through
+    //it, nearly everything. The far wall is worth half, for the reason BubbleInnerWall gives.
+    float wall = (BubbleShell > 0 ? 1.0 : BubbleInnerWall) * (1.0 - screened * BubbleScreenFade);
+    float rim = pow(1.0 - facing, BubbleRimPower);
+    float alpha = saturate(BubbleBodyOpacity + (1.0 - BubbleBodyOpacity) * rim) * wall;
 
-	//WHAT COMES THROUGH IT, in the ball's own colour: the film is dyed, so the light it passes is dyed too.
-	//Tied to `alpha` on purpose - what a wall transmits is what it took out of the picture behind it, so a
-	//film that hides nothing tints nothing, and the two cannot drift into a coloured haze over open sky.
-	//
-	//WHAT ARRIVES IS TAKEN AS A BRIGHTNESS AND NOT AS A COLOUR, and that is a deliberate departure from the
-	//physics, made for the one constraint this game cannot trade away: thirteen types have to stay apart at a
-	//glance under eighteen domes. Multiplied as a colour, a dye can only pass what the backdrop happens to
-	//contain - and a RED film over the meadow's BLUE sky passes almost nothing, so the opening block's red
-	//pyramid came out pink whatever the dye was set to. The backdrop's hue does not get a veto over the
-	//ball's; how much light there is does. Rec. 709 luminance, the same weights the rest of the pipeline uses.
-	float skyThrough = dot(SkyRadiance(-eyeVector), float3(0.2126, 0.7152, 0.0722));
+    //WHAT COMES THROUGH IT, in the ball's own colour: the film is dyed, so the light it passes is dyed too.
+    //Tied to `alpha` on purpose - what a wall transmits is what it took out of the picture behind it, so a
+    //film that hides nothing tints nothing, and the two cannot drift into a coloured haze over open sky.
+    //
+    //WHAT ARRIVES IS TAKEN AS A BRIGHTNESS AND NOT AS A COLOUR, and that is a deliberate departure from the
+    //physics, made for the one constraint this game cannot trade away: thirteen types have to stay apart at a
+    //glance under eighteen domes. Multiplied as a colour, a dye can only pass what the backdrop happens to
+    //contain - and a RED film over the meadow's BLUE sky passes almost nothing, so the opening block's red
+    //pyramid came out pink whatever the dye was set to. The backdrop's hue does not get a veto over the
+    //ball's; how much light there is does. Rec. 709 luminance, the same weights the rest of the pipeline uses.
+    float skyThrough = dot(SkyRadiance(-eyeVector), float3(0.2126, 0.7152, 0.0722));
 
-	//The scene's own lamps take the same reading, and for the same reason: a campfire seen through a green
-	//film is green light, not a warm cast on a green ball.
-	float lampThrough = dot(lampWash, float3(0.2126, 0.7152, 0.0722));
+    //The scene's own lamps take the same reading, and for the same reason: a campfire seen through a green
+    //film is green light, not a warm cast on a green ball.
+    float lampThrough = dot(lampWash, float3(0.2126, 0.7152, 0.0722));
 
-	float3 through = (skyThrough * alpha + lampThrough) * tint * BubbleTintStrength * occlusion;
+    float3 through = (skyThrough * alpha + lampThrough) * tint * BubbleTintStrength * occlusion;
 
-	//AND THE EDGE, which is what actually makes a bubble a bubble rather than a tinted disc. Along the
-	//silhouette the eye looks the long way ALONG the film, and the same path length that makes it opaque
-	//there is the path everything it carries has been dyed over - so a bubble's rim is both its brightest
-	//part and its most saturated one.
-	//
-	//It is here and not left to the Fresnel mirror above because that mirror shows the SKY, and four of the
-	//scenes have next to none: under space, the cavern, a night dome or the pit, the reflection returns
-	//nothing at all and every ball came out a flat coloured circle with no edge on it. Photographed on the
-	//space scene, which is the case that found it.
-	//
-	//Carried to white the way the ripple's flare is, and normalised to peak 1 first for the ripple's other
-	//reason: the dark types (black, navy, brown) would otherwise have no edge to speak of, and how brightly
-	//a film catches light along its rim has nothing to do with what colour it was dyed.
-	float tintPeak = max(tint.r, max(tint.g, tint.b));
-	float edge = pow(1.0 - facing, BubbleEdgePower);
-	float3 rimGlow = lerp(tint / max(tintPeak, 1e-3), float3(1, 1, 1), BubbleEdgeWhiten)
-		* (edge * BubbleEdgeStrength * wall * occlusion * film);
+    //AND THE EDGE, which is what actually makes a bubble a bubble rather than a tinted disc. Along the
+    //silhouette the eye looks the long way ALONG the film, and the same path length that makes it opaque
+    //there is the path everything it carries has been dyed over - so a bubble's rim is both its brightest
+    //part and its most saturated one.
+    //
+    //It is here and not left to the Fresnel mirror above because that mirror shows the SKY, and four of the
+    //scenes have next to none: under space, the cavern, a night dome or the pit, the reflection returns
+    //nothing at all and every ball came out a flat coloured circle with no edge on it. Photographed on the
+    //space scene, which is the case that found it.
+    //
+    //Carried to white the way the ripple's flare is, and normalised to peak 1 first for the ripple's other
+    //reason: the dark types (black, navy, brown) would otherwise have no edge to speak of, and how brightly
+    //a film catches light along its rim has nothing to do with what colour it was dyed.
+    float tintPeak = max(tint.r, max(tint.g, tint.b));
+    float edge = pow(1.0 - facing, BubbleEdgePower);
+    float3 rimGlow = lerp(tint / max(tintPeak, 1e-3), float3(1, 1, 1), BubbleEdgeWhiten)
+        * (edge * BubbleEdgeStrength * wall * occlusion * film);
 
-	//Emission on the heartbeat, the vinyl skin's own - but OCCLUDED, which its is deliberately not. See
-	//BubbleOcclusionPower: that rule is an argument about a ball whose neighbours you cannot see past, and
-	//it is exactly false of a pile of films. Times the wall weight, so the two shells together radiate one
-	//ball's worth.
-	float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
-	float3 emitted = tint * EmissiveStrength * lerp(1 - PulseDepth, 1, beat) * wall * occlusion;
+    //Emission on the heartbeat, the vinyl skin's own - but OCCLUDED, which its is deliberately not. See
+    //BubbleOcclusionPower: that rule is an argument about a ball whose neighbours you cannot see past, and
+    //it is exactly false of a pile of films. Times the wall weight, so the two shells together radiate one
+    //ball's worth.
+    float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
+    float3 emitted = tint * EmissiveStrength * lerp(1 - PulseDepth, 1, beat) * wall * occlusion;
 
-	float4 shaded = float4(reflected + hotspot + through + emitted + rimGlow, alpha);
+    float4 shaded = float4(reflected + hotspot + through + emitted + rimGlow, alpha);
 
-	//The pinpoint closes the film under itself (see BubbleHighlightOpacity). After the colour, because it
-	//is coverage the highlight ADDS rather than a share of it that the highlight is scaled by.
-	shaded.a = saturate(shaded.a + max(hotspot.r, max(hotspot.g, hotspot.b)) * BubbleHighlightOpacity * wall);
+    //The pinpoint closes the film under itself (see BubbleHighlightOpacity). After the colour, because it
+    //is coverage the highlight ADDS rather than a share of it that the highlight is scaled by.
+    shaded.a = saturate(shaded.a + max(hotspot.r, max(hotspot.g, hotspot.b)) * BubbleHighlightOpacity * wall);
 
-	//The landing ripple, the same wave PatternPS carries and switched off by the same uniform. Two
-	//differences, both forced by the film being transparent: the flare has to raise the ALPHA as well or a
-	//wave running through open sky is invisible, and the alarm - which replaces the ball's colour rather
-	//than adding to it - has to close the film almost completely, or a cluster "turning red" would only be
-	//tinting the sky behind it.
-	[branch]
-	if (RippleStrength > 0)
-	{
-		float amount = abs(input.Ripple);
-		float peak = max(tint.r, max(tint.g, tint.b));
+    //The landing ripple, the same wave PatternPS carries and switched off by the same uniform. Two
+    //differences, both forced by the film being transparent: the flare has to raise the ALPHA as well or a
+    //wave running through open sky is invisible, and the alarm - which replaces the ball's colour rather
+    //than adding to it - has to close the film almost completely, or a cluster "turning red" would only be
+    //tinting the sky behind it.
+    [branch]
+    if (RippleStrength > 0)
+    {
+        float amount = abs(input.Ripple);
+        float peak = max(tint.r, max(tint.g, tint.b));
 
-		float3 lit = shaded.rgb + lerp(tint / max(peak, 1e-3), 1.0, RippleWhiten) * (RippleStrength * amount * wall);
-		float3 alarmed = lerp(shaded.rgb, RippleAlarmColor * RippleAlarmBrightness * wall, amount * RippleAlarmCoverage);
+        float3 lit = shaded.rgb + lerp(tint / max(peak, 1e-3), 1.0, RippleWhiten) * (RippleStrength * amount * wall);
+        float3 alarmed = lerp(shaded.rgb, RippleAlarmColor * RippleAlarmBrightness * wall, amount * RippleAlarmCoverage);
 
-		//A select and not an if: the sign varies PER INSTANCE, so a branch on it would diverge inside one
-		//draw call.
-		shaded.rgb = input.Ripple < 0 ? alarmed : lit;
-		shaded.a = saturate(shaded.a + amount * wall * (input.Ripple < 0 ? RippleAlarmCoverage : 0.5));
-	}
+        //A select and not an if: the sign varies PER INSTANCE, so a branch on it would diverge inside one
+        //draw call.
+        shaded.rgb = input.Ripple < 0 ? alarmed : lit;
+        shaded.a = saturate(shaded.a + amount * wall * (input.Ripple < 0 ? RippleAlarmCoverage : 0.5));
+    }
 
-	//The sea's submerge fade and the kill plane's, both exactly as the vinyl skin takes them - a bubble
-	//that misses sinks into the same dark water and is culled under the same island.
-	shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
+    //The sea's submerge fade and the kill plane's, both exactly as the vinyl skin takes them - a bubble
+    //that misses sinks into the same dark water and is culled under the same island.
+    shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
 
-	return ApplyKillPlaneFade(shaded, input.WorldPosition);
+    return ApplyKillPlaneFade(shaded, input.WorldPosition);
 }
 
 technique InstancedModelBubble
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL PatternVS();
-		PixelShader = compile PS_SHADERMODEL BubblePS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL PatternVS();
+        PixelShader = compile PS_SHADERMODEL BubblePS();
+    }
 };
 
 //Detail texturing: a texture that only modulates the existing material colors
@@ -1507,12 +1507,12 @@ float DetailBoost;
 texture NormalMapTexture;
 sampler2D NormalMapSampler = sampler_state
 {
-	Texture = <NormalMapTexture>;
-	MinFilter = Linear;
-	MagFilter = Linear;
-	MipFilter = Linear;
-	AddressU = Wrap;
-	AddressV = Wrap;
+    Texture = <NormalMapTexture>;
+    MinFilter = Linear;
+    MagFilter = Linear;
+    MipFilter = Linear;
+    AddressU = Wrap;
+    AddressV = Wrap;
 };
 
 float NormalStrength;
@@ -1523,72 +1523,72 @@ float NormalStrength;
 //"Normal Mapping Without Precomputed Tangents".
 float3x3 CotangentFrame(float3 normal, float3 worldPosition, float2 uv)
 {
-	float3 dp1 = ddx(worldPosition);
-	float3 dp2 = ddy(worldPosition);
-	float2 duv1 = ddx(uv);
-	float2 duv2 = ddy(uv);
+    float3 dp1 = ddx(worldPosition);
+    float3 dp2 = ddy(worldPosition);
+    float2 duv1 = ddx(uv);
+    float2 duv2 = ddy(uv);
 
-	float3 dp2perp = cross(dp2, normal);
-	float3 dp1perp = cross(normal, dp1);
+    float3 dp2perp = cross(dp2, normal);
+    float3 dp1perp = cross(normal, dp1);
 
-	float3 tangent = dp2perp * duv1.x + dp1perp * duv2.x;
-	float3 bitangent = dp2perp * duv1.y + dp1perp * duv2.y;
+    float3 tangent = dp2perp * duv1.x + dp1perp * duv2.x;
+    float3 bitangent = dp2perp * duv1.y + dp1perp * duv2.y;
 
-	float invmax = rsqrt(max(dot(tangent, tangent), dot(bitangent, bitangent)));
+    float invmax = rsqrt(max(dot(tangent, tangent), dot(bitangent, bitangent)));
 
-	return float3x3(tangent * invmax, bitangent * invmax, normal);
+    return float3x3(tangent * invmax, bitangent * invmax, normal);
 }
 
 float4 DetailUVNormalPS(TexturedVertexShaderOutput input) : COLOR
 {
-	float2 uv = input.TexCoord * DetailScale;
+    float2 uv = input.TexCoord * DetailScale;
 
-	float3 detail = SrgbToLinear(tex2D(TextureSampler, uv).rgb);
-	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
+    float3 detail = SrgbToLinear(tex2D(TextureSampler, uv).rgb);
+    float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
-	float3 geometricNormal = normalize(input.WorldNormal);
+    float3 geometricNormal = normalize(input.WorldNormal);
 
-	float3 tangentNormal = tex2D(NormalMapSampler, uv).xyz * 2 - 1;
-	tangentNormal.xy *= NormalStrength;
+    float3 tangentNormal = tex2D(NormalMapSampler, uv).xyz * 2 - 1;
+    tangentNormal.xy *= NormalStrength;
 
-	float3 worldNormal = normalize(mul(normalize(tangentNormal), CotangentFrame(geometricNormal, input.WorldPosition, uv)));
+    float3 worldNormal = normalize(mul(normalize(tangentNormal), CotangentFrame(geometricNormal, input.WorldPosition, uv)));
 
-	//The normal map carries the cast pattern at texture resolution; the procedural relief goes on top of
-	//it, finer than the map can hold and free of its tiling, so the barrel keeps breaking up the
-	//highlight right down to where a pixel can no longer tell
-	float height = SceneSurfaceHeight(input.WorldPosition, ddx(input.WorldPosition), ddy(input.WorldPosition));
-	worldNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
+    //The normal map carries the cast pattern at texture resolution; the procedural relief goes on top of
+    //it, finer than the map can hold and free of its tiling, so the barrel keeps breaking up the
+    //highlight right down to where a pixel can no longer tell
+    float height = SceneSurfaceHeight(input.WorldPosition, ddx(input.WorldPosition), ddy(input.WorldPosition));
+    worldNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
 
-	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1), 1, CavityOcclusion(height));
+    return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1), 1, CavityOcclusion(height));
 }
 
 technique InstancedModelDetailUVNormal
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL TexturedVS();
-		PixelShader = compile PS_SHADERMODEL DetailUVNormalPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL TexturedVS();
+        PixelShader = compile PS_SHADERMODEL DetailUVNormalPS();
+    }
 };
 
 float4 DetailUVPS(TexturedVertexShaderOutput input) : COLOR
 {
-	float3 detail = SrgbToLinear(tex2D(TextureSampler, input.TexCoord * DetailScale).rgb);
-	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
+    float3 detail = SrgbToLinear(tex2D(TextureSampler, input.TexCoord * DetailScale).rgb);
+    float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
-	float height = SceneSurfaceHeight(input.WorldPosition, ddx(input.WorldPosition), ddy(input.WorldPosition));
-	float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
+    float height = SceneSurfaceHeight(input.WorldPosition, ddx(input.WorldPosition), ddy(input.WorldPosition));
+    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
 
-	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1), 1, CavityOcclusion(height));
+    return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1), 1, CavityOcclusion(height));
 }
 
 technique InstancedModelDetailUV
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL TexturedVS();
-		PixelShader = compile PS_SHADERMODEL DetailUVPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL TexturedVS();
+        PixelShader = compile PS_SHADERMODEL DetailUVPS();
+    }
 };
 
 //Stone block coursing drawn on the vertical surfaces (world units)
@@ -1601,35 +1601,35 @@ static const float CavityHeadroom = 0.055;
 
 float4 TriplanarPS(VertexShaderOutput input) : COLOR
 {
-	float3 worldNormal = normalize(input.WorldNormal);
+    float3 worldNormal = normalize(input.WorldNormal);
 
-	//Sharpened normal weights avoid visible cross-fading except near 45-degree edges
-	float3 blend = pow(abs(worldNormal), 4);
-	blend /= blend.x + blend.y + blend.z;
+    //Sharpened normal weights avoid visible cross-fading except near 45-degree edges
+    float3 blend = pow(abs(worldNormal), 4);
+    blend /= blend.x + blend.y + blend.z;
 
-	float3 p = input.WorldPosition * DetailScale;
+    float3 p = input.WorldPosition * DetailScale;
 
-	//Each tap is linearized before the blend: the three projections are averaged, and averaging
-	//display-encoded values is exactly the mistake this whole pass exists to stop making
-	float3 detail
-		= SrgbToLinear(tex2D(TextureSampler, p.zy).rgb) * blend.x
-		+ SrgbToLinear(tex2D(TextureSampler, p.xz).rgb) * blend.y
-		+ SrgbToLinear(tex2D(TextureSampler, p.xy).rgb) * blend.z;
+    //Each tap is linearized before the blend: the three projections are averaged, and averaging
+    //display-encoded values is exactly the mistake this whole pass exists to stop making
+    float3 detail
+        = SrgbToLinear(tex2D(TextureSampler, p.zy).rgb) * blend.x
+        + SrgbToLinear(tex2D(TextureSampler, p.xz).rgb) * blend.y
+        + SrgbToLinear(tex2D(TextureSampler, p.xy).rgb) * blend.z;
 
-	float3 dpdx = ddx(input.WorldPosition);
-	float3 dpdy = ddy(input.WorldPosition);
+    float3 dpdx = ddx(input.WorldPosition);
+    float3 dpdy = ddy(input.WorldPosition);
 
-	float height = SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy);
+    float height = SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy);
 
-	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
-	float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
+    float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
+    float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
 
-	//Cavity shading needs only the height and applies cleanly, so this path runs it instead of the generic
-	//relief marches — which would be reading a different surface than the one drawn here.
-	float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
-	float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
+    //Cavity shading needs only the height and applies cleanly, so this path runs it instead of the generic
+    //relief marches — which would be reading a different surface than the one drawn here.
+    float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
+    float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
 
-	return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
+    return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
 }
 
 //Window layout and look. These are uniforms now, set on every city draw from CitySceneConfig (whose
@@ -1719,18 +1719,18 @@ static const float WindowSmoothness = 1.0;
 
 float Hash21(float2 p)
 {
-	p = frac(p * float2(123.34, 456.21));
-	p += dot(p, p + 45.32);
+    p = frac(p * float2(123.34, 456.21));
+    p += dot(p, p + 45.32);
 
-	return frac(p.x * p.y);
+    return frac(p.x * p.y);
 }
 
 //A fully saturated color from a hue in [0,1] - the neon signs' palette. Pure and bright; the brightness
 //that makes them bloom comes from CityWindowBrightness, not from here.
 float3 HueToRGB(float h)
 {
-	float3 k = frac(h + float3(0.0, 2.0 / 3.0, 1.0 / 3.0));
-	return saturate(abs(k * 6.0 - 3.0) - 1.0);
+    float3 k = frac(h + float3(0.0, 2.0 / 3.0, 1.0 / 3.0));
+    return saturate(abs(k * 6.0 - 3.0) - 1.0);
 }
 
 //The render's grain, and it has to be NOISE rather than a sum of waves. The scene's own SurfaceReliefWorld
@@ -1747,30 +1747,30 @@ float3 HueToRGB(float h)
 //a uniform -- which is this shader's rule for scene-gated work, and the off switch a low quality preset needs.
 float3 FacadeNoise(float2 p)
 {
-	float2 cell = floor(p);
-	float2 f = p - cell;
+    float2 cell = floor(p);
+    float2 f = p - cell;
 
-	//Smoothstep and its own derivative. Not the raw fraction: a linear ramp's derivative jumps at every cell
-	//boundary, which would print the noise lattice straight back onto the wall as a grid of creases in the
-	//normal -- one regular pattern traded for another.
-	float2 u = f * f * (3.0 - 2.0 * f);
-	float2 du = 6.0 * f * (1.0 - f);
+    //Smoothstep and its own derivative. Not the raw fraction: a linear ramp's derivative jumps at every cell
+    //boundary, which would print the noise lattice straight back onto the wall as a grid of creases in the
+    //normal -- one regular pattern traded for another.
+    float2 u = f * f * (3.0 - 2.0 * f);
+    float2 du = 6.0 * f * (1.0 - f);
 
-	float a = Hash21(cell);
-	float b = Hash21(cell + float2(1, 0));
-	float c = Hash21(cell + float2(0, 1));
-	float d = Hash21(cell + float2(1, 1));
+    float a = Hash21(cell);
+    float b = Hash21(cell + float2(1, 0));
+    float c = Hash21(cell + float2(0, 1));
+    float d = Hash21(cell + float2(1, 1));
 
-	//The bilinear patch written as a + k0.u + k1.v + k2.u.v, which differentiates by inspection
-	float k0 = b - a;
-	float k1 = c - a;
-	float k2 = a - b - c + d;
+    //The bilinear patch written as a + k0.u + k1.v + k2.u.v, which differentiates by inspection
+    float k0 = b - a;
+    float k1 = c - a;
+    float k2 = a - b - c + d;
 
-	//All three scaled alike by the [0,1] -> [-1,1] remap, so the derivatives stay the derivatives OF the value
-	return float3(
-		(a + k0 * u.x + k1 * u.y + k2 * u.x * u.y) * 2.0 - 1.0,
-		(k0 + k2 * u.y) * du.x * 2.0,
-		(k1 + k2 * u.x) * du.y * 2.0);
+    //All three scaled alike by the [0,1] -> [-1,1] remap, so the derivatives stay the derivatives OF the value
+    return float3(
+        (a + k0 * u.x + k1 * u.y + k2 * u.x * u.y) * 2.0 - 1.0,
+        (k0 + k2 * u.y) * du.x * 2.0,
+        (k1 + k2 * u.x) * du.y * 2.0);
 }
 
 //Three octaves of it, value and gradient together. Amplitudes sum to one, so FacadeGrainStrength stays the
@@ -1783,23 +1783,23 @@ float3 FacadeNoise(float2 p)
 //Footprint arrives in the same units as the position.
 float3 FacadeGrain(float2 position, float footprint)
 {
-	float3 grain = 0;
-	float amplitude = 0.57;
-	float frequency = 1.0;
+    float3 grain = 0;
+    float amplitude = 0.57;
+    float frequency = 1.0;
 
-	[unroll]
-	for (int i = 0; i < 3; i++)
-	{
-		float3 octave = FacadeNoise(position * frequency);
+    [unroll]
+    for (int i = 0; i < 3; i++)
+    {
+        float3 octave = FacadeNoise(position * frequency);
 
-		//The gradient is with respect to this octave's own scaled position, so it carries its frequency back
-		grain += amplitude * saturate(1 - footprint * frequency * 2.0) * float3(octave.x, octave.yz * frequency);
+        //The gradient is with respect to this octave's own scaled position, so it carries its frequency back
+        grain += amplitude * saturate(1 - footprint * frequency * 2.0) * float3(octave.x, octave.yz * frequency);
 
-		amplitude *= 0.5;
-		frequency *= 2.17;   //not an exact doubling, which would line successive octaves' lattices up
-	}
+        amplitude *= 0.5;
+        frequency *= 2.17;   //not an exact doubling, which would line successive octaves' lattices up
+    }
 
-	return grain;
+    return grain;
 }
 
 //The profile of one edge of the plaster frame moulding around a pane, as a function of the per-axis cell
@@ -1825,38 +1825,38 @@ float3 FacadeGrain(float2 position, float footprint)
 //shimmering), never the whole bead. At WindowFrameWidth <= 0 this returns 0 (frame off).
 float3 WindowFrameProfile(float withinCell, float WindowFill, float WindowFrameWidth, float footprint)
 {
-	float3 result = 0;
+    float3 result = 0;
 
-	if (WindowFrameWidth > 0.0)
-	{
-		float edge0 = WindowFill;
-		float edgeOuter = WindowFill + WindowFrameWidth;
-		float crest0 = WindowFill + WindowFrameWidth * 0.34;
-		float crest1 = WindowFill + WindowFrameWidth * 0.66;
+    if (WindowFrameWidth > 0.0)
+    {
+        float edge0 = WindowFill;
+        float edgeOuter = WindowFill + WindowFrameWidth;
+        float crest0 = WindowFill + WindowFrameWidth * 0.34;
+        float crest1 = WindowFill + WindowFrameWidth * 0.66;
 
-		//The two flanks are each anti-aliased across roughly one pixel -- sharp, but not a shimmering hard
-		//step. The flat crest between them is the fillet's own top face.
-		float soft = max(footprint * 0.7, WindowFrameWidth * 0.06);
-		float inner = smoothstep(edge0 - soft, edge0 + soft, withinCell);
-		float outer = 1.0 - smoothstep(edgeOuter - soft, edgeOuter + soft, withinCell);
-		float bead = saturate(min(inner, outer));
+        //The two flanks are each anti-aliased across roughly one pixel -- sharp, but not a shimmering hard
+        //step. The flat crest between them is the fillet's own top face.
+        float soft = max(footprint * 0.7, WindowFrameWidth * 0.06);
+        float inner = smoothstep(edge0 - soft, edge0 + soft, withinCell);
+        float outer = 1.0 - smoothstep(edgeOuter - soft, edgeOuter + soft, withinCell);
+        float bead = saturate(min(inner, outer));
 
-		//The flat top: 1 between crest0 and crest1, softening off across a pixel at each end of the fillet.
-		float topSoft = max(footprint * 0.7, WindowFrameWidth * 0.06);
-		float crest = smoothstep(crest0 - topSoft, crest0 + topSoft, withinCell)
-			* (1.0 - smoothstep(crest1 - topSoft, crest1 + topSoft, withinCell));
+        //The flat top: 1 between crest0 and crest1, softening off across a pixel at each end of the fillet.
+        float topSoft = max(footprint * 0.7, WindowFrameWidth * 0.06);
+        float crest = smoothstep(crest0 - topSoft, crest0 + topSoft, withinCell)
+            * (1.0 - smoothstep(crest1 - topSoft, crest1 + topSoft, withinCell));
 
-		//The slope is the bead's height derivative: +1 scaled up the inner flank, -1 down the outer, ~0 on
-		//the flat crest. Used to tilt the normal; on the crest itself it is ~0, which is correct (a flat
-		//top face has the wall's own normal). Analytic so no ddx/ddy is needed in the frame block.
-		float innerSlope = 6.0 * inner * (1.0 - inner) / max(2.0 * soft, 1e-5);
-		float outerSlope = 6.0 * outer * (1.0 - outer) / max(2.0 * soft, 1e-5);
-		float slope = innerSlope - outerSlope;
+        //The slope is the bead's height derivative: +1 scaled up the inner flank, -1 down the outer, ~0 on
+        //the flat crest. Used to tilt the normal; on the crest itself it is ~0, which is correct (a flat
+        //top face has the wall's own normal). Analytic so no ddx/ddy is needed in the frame block.
+        float innerSlope = 6.0 * inner * (1.0 - inner) / max(2.0 * soft, 1e-5);
+        float outerSlope = 6.0 * outer * (1.0 - outer) / max(2.0 * soft, 1e-5);
+        float slope = innerSlope - outerSlope;
 
-		result = float3(bead, slope, crest);
-	}
+        result = float3(bead, slope, crest);
+    }
 
-	return result;
+    return result;
 }
 
 //The city needs each building's own extent, not just world position, so windows can be laid out relative to
@@ -1866,34 +1866,34 @@ float3 WindowFrameProfile(float withinCell, float WindowFill, float WindowFrameW
 //object origin is the centre; Bone is applied exactly as for the position. Everything else matches MainVS.
 struct CityVSOutput
 {
-	float4 Position : SV_POSITION;
-	float3 WorldPosition : TEXCOORD0;
-	float3 WorldNormal : TEXCOORD1;
-	float4 OcclusionData : TEXCOORD2;
-	float3 PosFromCenter : TEXCOORD3;
-	float3 BuildingSize : TEXCOORD4;
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+    float3 WorldNormal : TEXCOORD1;
+    float4 OcclusionData : TEXCOORD2;
+    float3 PosFromCenter : TEXCOORD3;
+    float3 BuildingSize : TEXCOORD4;
 };
 
 CityVSOutput CityVS(VertexShaderInput input, InstanceInput instance)
 {
-	CityVSOutput output;
+    CityVSOutput output;
 
-	float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
-	float4 worldPosition = mul(mul(input.Position, Bone), world);
+    float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
+    float4 worldPosition = mul(mul(input.Position, Bone), world);
 
-	output.WorldPosition = worldPosition.xyz;
-	output.Position = mul(mul(worldPosition, View), Projection);
-	output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
-	output.OcclusionData = instance.Custom;
+    output.WorldPosition = worldPosition.xyz;
+    output.Position = mul(mul(worldPosition, View), Projection);
+    output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
+    output.OcclusionData = instance.Custom;
 
-	float3 center = mul(mul(float4(0, 0, 0, 1), Bone), world).xyz;
-	output.PosFromCenter = worldPosition.xyz - center;
-	output.BuildingSize = float3(
-		length(mul(mul(float4(1, 0, 0, 0), Bone), world).xyz),
-		length(mul(mul(float4(0, 1, 0, 0), Bone), world).xyz),
-		length(mul(mul(float4(0, 0, 1, 0), Bone), world).xyz));
+    float3 center = mul(mul(float4(0, 0, 0, 1), Bone), world).xyz;
+    output.PosFromCenter = worldPosition.xyz - center;
+    output.BuildingSize = float3(
+        length(mul(mul(float4(1, 0, 0, 0), Bone), world).xyz),
+        length(mul(mul(float4(0, 1, 0, 0), Bone), world).xyz),
+        length(mul(mul(float4(0, 0, 1, 0), Bone), world).xyz));
 
-	return output;
+    return output;
 }
 
 //Windows laid out relative to the building rather than on a world grid: a fixed wall margin (WindowMargin)
@@ -1902,277 +1902,277 @@ CityVSOutput CityVS(VertexShaderInput input, InstanceInput instance)
 //the target pitch, so a taller tower still gets more floors and a wider one more columns.
 float4 CityPS(CityVSOutput input) : COLOR
 {
-	float3 worldNormal = normalize(input.WorldNormal);
+    float3 worldNormal = normalize(input.WorldNormal);
 
-	//Which pair of world axes runs across this facade. Branchless: a lerp on the face's own normal,
-	//which is constant over a flat face, so the derivatives below stay well defined.
-	float facingX = step(abs(worldNormal.z), abs(worldNormal.x));
-	//Facade coordinates measured from the building centre (horizontal axis picked by the facing), and the
-	//building's half-size along the same two axes. Vertical is always world Y.
-	float2 posFromCenter = float2(lerp(input.PosFromCenter.x, input.PosFromCenter.z, facingX), input.PosFromCenter.y);
-	float2 halfSize = float2(lerp(input.BuildingSize.x, input.BuildingSize.z, facingX), input.BuildingSize.y) * 0.5;
+    //Which pair of world axes runs across this facade. Branchless: a lerp on the face's own normal,
+    //which is constant over a flat face, so the derivatives below stay well defined.
+    float facingX = step(abs(worldNormal.z), abs(worldNormal.x));
+    //Facade coordinates measured from the building centre (horizontal axis picked by the facing), and the
+    //building's half-size along the same two axes. Vertical is always world Y.
+    float2 posFromCenter = float2(lerp(input.PosFromCenter.x, input.PosFromCenter.z, facingX), input.PosFromCenter.y);
+    float2 halfSize = float2(lerp(input.BuildingSize.x, input.BuildingSize.z, facingX), input.BuildingSize.y) * 0.5;
 
-	//Roofs and the ground faces get no windows
-	float vertical = 1 - step(0.5, abs(worldNormal.y));
+    //Roofs and the ground faces get no windows
+    float vertical = 1 - step(0.5, abs(worldNormal.y));
 
-	//Interior left for glass after the wall margin, the whole windows that fit at the target pitch, and the
-	//per-building pitch that fills the interior evenly (kept near the target, so it still reads natural).
-	float2 interior = halfSize - WindowMargin;
-	float2 count = floor(interior * 2.0 / float2(WindowPitchX, WindowPitchY) + 0.5);
-	float hasGrid = step(1.0, count.x) * step(1.0, count.y) * vertical;
-	float2 cellPitch = (interior * 2.0) / max(count, 1.0);
+    //Interior left for glass after the wall margin, the whole windows that fit at the target pitch, and the
+    //per-building pitch that fills the interior evenly (kept near the target, so it still reads natural).
+    float2 interior = halfSize - WindowMargin;
+    float2 count = floor(interior * 2.0 / float2(WindowPitchX, WindowPitchY) + 0.5);
+    float hasGrid = step(1.0, count.x) * step(1.0, count.y) * vertical;
+    float2 cellPitch = (interior * 2.0) / max(count, 1.0);
 
-	float2 grid = (posFromCenter + interior) / cellPitch;
-	float2 cell = floor(grid);
-	float2 withinCell = abs(frac(grid) - 0.5) * 2;
+    float2 grid = (posFromCenter + interior) / cellPitch;
+    float2 cell = floor(grid);
+    float2 withinCell = abs(frac(grid) - 0.5) * 2;
 
-	//The pixel's extent across the facade, per axis, in cells. Band-limited the way every other feature
-	//here is: once a pixel covers more than a window the pattern fades to its own average rather than
-	//aliasing into a moire of lit and unlit floors, which is what a city at distance would otherwise do.
-	float2 footprint = (abs(ddx(posFromCenter)) + abs(ddy(posFromCenter))) / cellPitch;
-	float resolvable = saturate(1 - max(footprint.x, footprint.y));
+    //The pixel's extent across the facade, per axis, in cells. Band-limited the way every other feature
+    //here is: once a pixel covers more than a window the pattern fades to its own average rather than
+    //aliasing into a moire of lit and unlit floors, which is what a city at distance would otherwise do.
+    float2 footprint = (abs(ddx(posFromCenter)) + abs(ddy(posFromCenter))) / cellPitch;
+    float resolvable = saturate(1 - max(footprint.x, footprint.y));
 
-	float2 shape = smoothstep(float2(WindowFillX, WindowFillY) + footprint, float2(WindowFillX, WindowFillY) - footprint, withinCell);
+    float2 shape = smoothstep(float2(WindowFillX, WindowFillY) + footprint, float2(WindowFillX, WindowFillY) - footprint, withinCell);
 
-	//No glass in the wall margin outside the interior (the cut lands in wall, so it needs no smoothing)
-	float2 inside = step(abs(posFromCenter), interior);
-	float window = shape.x * shape.y * hasGrid * inside.x * inside.y;
+    //No glass in the wall margin outside the interior (the cut lands in wall, so it needs no smoothing)
+    float2 inside = step(abs(posFromCenter), interior);
+    float window = shape.x * shape.y * hasGrid * inside.x * inside.y;
 
-	//The building this facade belongs to, taken from the tower's own centre so it is one value across the
-	//whole tower (neon hue per tower, and a window pattern that belongs to the building not the world grid)
-	float facadeY = input.WorldPosition.y;
-	float2 buildingId = floor((input.WorldPosition.xz - input.PosFromCenter.xz) * 0.37);
-	float2 windowId = cell + buildingId * 101.0;
+    //The building this facade belongs to, taken from the tower's own centre so it is one value across the
+    //whole tower (neon hue per tower, and a window pattern that belongs to the building not the world grid)
+    float facadeY = input.WorldPosition.y;
+    float2 buildingId = floor((input.WorldPosition.xz - input.PosFromCenter.xz) * 0.37);
+    float2 windowId = cell + buildingId * 101.0;
 
-	//A window does not decide once and for all. Each keeps its own rhythm — a stretch of its own length,
-	//then it decides again — so lamps come on and go out across the skyline at their own pace. A city
-	//whose windows never change reads as a texture of a city rather than as one with people in it.
-	float rhythm = Hash21(windowId + 3.71);
-	float interval = WindowHoldSeconds + rhythm * WindowHoldVariation;
-	float slot = CityWindowTime / interval + rhythm * 37.0;
-	float slotIndex = floor(slot);
+    //A window does not decide once and for all. Each keeps its own rhythm — a stretch of its own length,
+    //then it decides again — so lamps come on and go out across the skyline at their own pace. A city
+    //whose windows never change reads as a texture of a city rather than as one with people in it.
+    float rhythm = Hash21(windowId + 3.71);
+    float interval = WindowHoldSeconds + rhythm * WindowHoldVariation;
+    float slot = CityWindowTime / interval + rhythm * 37.0;
+    float slotIndex = floor(slot);
 
-	float wasLit = step(1 - WindowLitFraction, Hash21(windowId + slotIndex * 17.13));
-	float willBeLit = step(1 - WindowLitFraction, Hash21(windowId + (slotIndex + 1) * 17.13));
+    float wasLit = step(1 - WindowLitFraction, Hash21(windowId + slotIndex * 17.13));
+    float willBeLit = step(1 - WindowLitFraction, Hash21(windowId + (slotIndex + 1) * 17.13));
 
-	//The switch is a short fade rather than a cut: at this distance a lamp that vanishes between two
-	//frames reads as a rendering glitch, one that dies over a moment reads as somebody leaving
-	float lit = lerp(wasLit, willBeLit, smoothstep(1 - WindowSwitchFade, 1, frac(slot)));
+    //The switch is a short fade rather than a cut: at this distance a lamp that vanishes between two
+    //frames reads as a rendering glitch, one that dies over a moment reads as somebody leaving
+    float lit = lerp(wasLit, willBeLit, smoothstep(1 - WindowSwitchFade, 1, frac(slot)));
 
-	//Ordinary warm/cool lamp for the plain daytime city
-	float3 lamp = lerp(WindowWarm, WindowCool, step(0.5, Hash21(cell * 1.7 + 11.3)));
+    //Ordinary warm/cool lamp for the plain daytime city
+    float3 lamp = lerp(WindowWarm, WindowCool, step(0.5, Hash21(cell * 1.7 + 11.3)));
 
-	//Fading to the average keeps a distant tower a dim glowing block instead of a flickering one
-	float coverage = lerp(WindowFillX * WindowFillY * WindowLitFraction * hasGrid * inside.x * inside.y, window * lit, resolvable);
+    //Fading to the average keeps a distant tower a dim glowing block instead of a flickering one
+    float coverage = lerp(WindowFillX * WindowFillY * WindowLitFraction * hasGrid * inside.x * inside.y, window * lit, resolvable);
 
-	//Where the facade is glass rather than plaster, which is what the material below is blended by. NOT the
-	//emission's coverage: that one is multiplied by `lit`, and whether the lamp behind a pane happens to be
-	//on says nothing about what the pane is made of -- a dark window is still the one part of the wall that
-	//mirrors the sky. Faded to the windows' own area fraction at distance, the same band-limiting the
-	//emission gets, so a far tower becomes one averaged material instead of aliasing between two.
-	float glass = lerp(WindowFillX * WindowFillY * hasGrid * inside.x * inside.y, window, resolvable);
+    //Where the facade is glass rather than plaster, which is what the material below is blended by. NOT the
+    //emission's coverage: that one is multiplied by `lit`, and whether the lamp behind a pane happens to be
+    //on says nothing about what the pane is made of -- a dark window is still the one part of the wall that
+    //mirrors the sky. Faded to the windows' own area fraction at distance, the same band-limiting the
+    //emission gets, so a far tower becomes one averaged material instead of aliasing between two.
+    float glass = lerp(WindowFillX * WindowFillY * hasGrid * inside.x * inside.y, window, resolvable);
 
-	//The plaster frame moulding around each pane. Two earlier versions were wrong in instructive ways: the
-	//first combined the two axes with max and drew a grid over the facade; the second was a correct ring but
-	//a height field at 0.015 world units, softened across the whole footprint, which read as a blurry line
-	//rather than as trim standing off the wall. A moulding that reads as 3D needs three things a flat bead
-	//lacks: a CRISP edge (so the eye sees a body, not a gradient), a LIT FLAT TOP that stands proud of the
-	//wall and catches the sun, and a CAST SHADOW thrown onto the wall in the sun's lee. All three are below.
-	//
-	//WindowFrameProfile returns (.x height, .y slope, .z crestTop): the height tilts the normal, the crest
-	//mask picks out the flat fillet's top to be lightened, and the slope carries the flank shading. The two
-	//axes are gated by each other's pane span so the four pieces meet as one ring per window, never a grid.
-	float3 frameX = WindowFrameProfile(withinCell.x, WindowFillX, WindowFrameWidth, footprint.x);
-	float3 frameY = WindowFrameProfile(withinCell.y, WindowFillY, WindowFrameWidth, footprint.y);
+    //The plaster frame moulding around each pane. Two earlier versions were wrong in instructive ways: the
+    //first combined the two axes with max and drew a grid over the facade; the second was a correct ring but
+    //a height field at 0.015 world units, softened across the whole footprint, which read as a blurry line
+    //rather than as trim standing off the wall. A moulding that reads as 3D needs three things a flat bead
+    //lacks: a CRISP edge (so the eye sees a body, not a gradient), a LIT FLAT TOP that stands proud of the
+    //wall and catches the sun, and a CAST SHADOW thrown onto the wall in the sun's lee. All three are below.
+    //
+    //WindowFrameProfile returns (.x height, .y slope, .z crestTop): the height tilts the normal, the crest
+    //mask picks out the flat fillet's top to be lightened, and the slope carries the flank shading. The two
+    //axes are gated by each other's pane span so the four pieces meet as one ring per window, never a grid.
+    float3 frameX = WindowFrameProfile(withinCell.x, WindowFillX, WindowFrameWidth, footprint.x);
+    float3 frameY = WindowFrameProfile(withinCell.y, WindowFillY, WindowFrameWidth, footprint.y);
 
-	//The cross-axis span of one window plus its frame: 1 inside, softening to 0 across one pixel at the
-	//pane's outer edge, so the bead stops where the wall between windows begins.
-	float paneSpanX = 1.0 - smoothstep(WindowFillX + WindowFrameWidth - footprint.x, WindowFillX + WindowFrameWidth + footprint.x, withinCell.x);
-	float paneSpanY = 1.0 - smoothstep(WindowFillY + WindowFrameWidth - footprint.y, WindowFillY + WindowFrameWidth + footprint.y, withinCell.y);
+    //The cross-axis span of one window plus its frame: 1 inside, softening to 0 across one pixel at the
+    //pane's outer edge, so the bead stops where the wall between windows begins.
+    float paneSpanX = 1.0 - smoothstep(WindowFillX + WindowFrameWidth - footprint.x, WindowFillX + WindowFrameWidth + footprint.x, withinCell.x);
+    float paneSpanY = 1.0 - smoothstep(WindowFillY + WindowFrameWidth - footprint.y, WindowFillY + WindowFrameWidth + footprint.y, withinCell.y);
 
-	//Side beads (height/slope/crest on X) exist only within the pane's vertical span; head/sill (on Y) only
-	//within its horizontal span. The two never run past the pane, so they form a ring, not a grid.
-	float frameBead = saturate(max(frameX.x * paneSpanY, frameY.x * paneSpanX)) * (1.0 - glass) * hasGrid * inside.x * inside.y * vertical;
-	float frameCrest = saturate(max(frameX.z * paneSpanY, frameY.z * paneSpanX)) * (1.0 - glass) * hasGrid * inside.x * inside.y * vertical;
-	frameBead = lerp(0.0, frameBead, resolvable);
-	frameCrest = lerp(0.0, frameCrest, resolvable);
+    //Side beads (height/slope/crest on X) exist only within the pane's vertical span; head/sill (on Y) only
+    //within its horizontal span. The two never run past the pane, so they form a ring, not a grid.
+    float frameBead = saturate(max(frameX.x * paneSpanY, frameY.x * paneSpanX)) * (1.0 - glass) * hasGrid * inside.x * inside.y * vertical;
+    float frameCrest = saturate(max(frameX.z * paneSpanY, frameY.z * paneSpanX)) * (1.0 - glass) * hasGrid * inside.x * inside.y * vertical;
+    frameBead = lerp(0.0, frameBead, resolvable);
+    frameCrest = lerp(0.0, frameCrest, resolvable);
 
-	//The cast shadow: the moulding stands proud of the wall, so it occludes the sun for the strip of wall on
-	//its lee side. Sample the bead mask a little way DOWN-SUN from this pixel and, if that offset point sits
-	//on the frame, this pixel is in the frame's shadow. The offset is the frame's own height projected onto
-	//the wall along the sun's direction -- the same geometry a real projection-cast shadow uses, and the one
-	//cue that most strongly reads as "this trim is raised", because a flat stripe casts nothing. `cellPitch`
-	//turns the world-space offset back into the cell space `withinCell` lives in. Softened by the footprint
-	//so the penumbra widens at distance instead of aliasing; zero where the sun is behind the camera (no
-	//visible cast shadow then, and the division would blow up).
-	float2 sunOnFacade = float2(lerp(SunDirection.x, SunDirection.z, facingX), SunDirection.y);
-	float sunLen = length(sunOnFacade);
-	float frameShadow = 0.0;
-	if (sunLen > 0.05)
-	{
-		float2 offsetDir = sunOnFacade / sunLen;
-		//Project the bead's height along the sun direction: taller trim throws a longer shadow.
-		float2 offsetCells = offsetDir * WindowFrameHeight * 1.7 / cellPitch;
-		float3 ssX = WindowFrameProfile(withinCell.x - offsetCells.x, WindowFillX, WindowFrameWidth, footprint.x);
-		float3 ssY = WindowFrameProfile(withinCell.y - offsetCells.y, WindowFillY, WindowFrameWidth, footprint.y);
-		float shadowBead = saturate(max(ssX.x * paneSpanY, ssY.x * paneSpanX)) * (1.0 - glass) * hasGrid * inside.x * inside.y * vertical;
-		//Only the wall in the moulding's lee is shadowed, not the moulding itself, and not the glass.
-		shadowBead *= (1.0 - frameBead) * (1.0 - glass);
-		float penumbra = max(footprint.x, footprint.y);
-		frameShadow = lerp(shadowBead, 0.0, saturate(penumbra * 3.0)) * resolvable;
-	}
+    //The cast shadow: the moulding stands proud of the wall, so it occludes the sun for the strip of wall on
+    //its lee side. Sample the bead mask a little way DOWN-SUN from this pixel and, if that offset point sits
+    //on the frame, this pixel is in the frame's shadow. The offset is the frame's own height projected onto
+    //the wall along the sun's direction -- the same geometry a real projection-cast shadow uses, and the one
+    //cue that most strongly reads as "this trim is raised", because a flat stripe casts nothing. `cellPitch`
+    //turns the world-space offset back into the cell space `withinCell` lives in. Softened by the footprint
+    //so the penumbra widens at distance instead of aliasing; zero where the sun is behind the camera (no
+    //visible cast shadow then, and the division would blow up).
+    float2 sunOnFacade = float2(lerp(SunDirection.x, SunDirection.z, facingX), SunDirection.y);
+    float sunLen = length(sunOnFacade);
+    float frameShadow = 0.0;
+    if (sunLen > 0.05)
+    {
+        float2 offsetDir = sunOnFacade / sunLen;
+        //Project the bead's height along the sun direction: taller trim throws a longer shadow.
+        float2 offsetCells = offsetDir * WindowFrameHeight * 1.7 / cellPitch;
+        float3 ssX = WindowFrameProfile(withinCell.x - offsetCells.x, WindowFillX, WindowFrameWidth, footprint.x);
+        float3 ssY = WindowFrameProfile(withinCell.y - offsetCells.y, WindowFillY, WindowFrameWidth, footprint.y);
+        float shadowBead = saturate(max(ssX.x * paneSpanY, ssY.x * paneSpanX)) * (1.0 - glass) * hasGrid * inside.x * inside.y * vertical;
+        //Only the wall in the moulding's lee is shadowed, not the moulding itself, and not the glass.
+        shadowBead *= (1.0 - frameBead) * (1.0 - glass);
+        float penumbra = max(footprint.x, footprint.y);
+        frameShadow = lerp(shadowBead, 0.0, saturate(penumbra * 3.0)) * resolvable;
+    }
 
-	float3 lampColor = lamp;
-	float windowFlicker = 1.0;
-	float3 signEmission = float3(0.0, 0.0, 0.0);
+    float3 lampColor = lamp;
+    float windowFlicker = 1.0;
+    float3 signEmission = float3(0.0, 0.0, 0.0);
 
-	//One tower is not the next. Real renders are mixed and painted and weathered per building, and once the
-	//wall is matte its tone is the only variety it has left -- the tonal spread the skyline used to get came
-	//from the mirror, and goes out with it. Off the building's own id, so it is one shade per tower.
-	float3 facadeColor = FacadeColor * (1.0 + FacadeColorVariation * (Hash21(buildingId + 13.9) - 0.5) * 2.0);
+    //One tower is not the next. Real renders are mixed and painted and weathered per building, and once the
+    //wall is matte its tone is the only variety it has left -- the tonal spread the skyline used to get came
+    //from the mirror, and goes out with it. Off the building's own id, so it is one shade per tower.
+    float3 facadeColor = FacadeColor * (1.0 + FacadeColorVariation * (Hash21(buildingId + 13.9) - 0.5) * 2.0);
 
-	//Neon night city, gated at runtime by CityNeon; both the Testbed and the map editor drive it (V cycles
-	//to the neon scene in the editor too). The skyline runs on magenta and cyan, the pink-and-blue of a neon
-	//street, with the odd off-colour tower; about one window in six sparks the opposite hue, big sign bands
-	//wrap some towers in the contrast colour, and a fraction of it all buzzes. Brightness sits over the glare
-	//threshold, so every lit pane blooms.
-	//
-	//A uniform branch, deliberately: CityNeon is 0 in the ordinary city — the DEFAULT scene — and this block
-	//is ~7 hashes of per-pixel work that the lerps below would throw away entirely at 0. A branch on a
-	//uniform is non-divergent (every pixel takes the same path) and there are no gradient ops inside, so it
-	//is derivative-safe; the defaults above already hold the plain-city values for the else path.
-	[branch]
-	if (CityNeon > 0.0)
-	{
-		float3 neonMagenta = float3(1.0, 0.04, 0.85);
-		float3 neonCyan = float3(0.05, 0.85, 1.0);
+    //Neon night city, gated at runtime by CityNeon; both the Testbed and the map editor drive it (V cycles
+    //to the neon scene in the editor too). The skyline runs on magenta and cyan, the pink-and-blue of a neon
+    //street, with the odd off-colour tower; about one window in six sparks the opposite hue, big sign bands
+    //wrap some towers in the contrast colour, and a fraction of it all buzzes. Brightness sits over the glare
+    //threshold, so every lit pane blooms.
+    //
+    //A uniform branch, deliberately: CityNeon is 0 in the ordinary city — the DEFAULT scene — and this block
+    //is ~7 hashes of per-pixel work that the lerps below would throw away entirely at 0. A branch on a
+    //uniform is non-divergent (every pixel takes the same path) and there are no gradient ops inside, so it
+    //is derivative-safe; the defaults above already hold the plain-city values for the else path.
+    [branch]
+    if (CityNeon > 0.0)
+    {
+        float3 neonMagenta = float3(1.0, 0.04, 0.85);
+        float3 neonCyan = float3(0.05, 0.85, 1.0);
 
-		float pickBuilding = Hash21(buildingId + 5.0);
-		float3 buildingNeon = pickBuilding < 0.45 ? neonMagenta : (pickBuilding < 0.9 ? neonCyan : HueToRGB(Hash21(buildingId + 6.3)));
-		float3 contrast = buildingNeon.r > buildingNeon.b ? neonCyan : neonMagenta;
-		float3 neonWindow = lerp(buildingNeon, contrast, step(0.83, Hash21(windowId + 4.4)));
+        float pickBuilding = Hash21(buildingId + 5.0);
+        float3 buildingNeon = pickBuilding < 0.45 ? neonMagenta : (pickBuilding < 0.9 ? neonCyan : HueToRGB(Hash21(buildingId + 6.3)));
+        float3 contrast = buildingNeon.r > buildingNeon.b ? neonCyan : neonMagenta;
+        float3 neonWindow = lerp(buildingNeon, contrast, step(0.83, Hash21(windowId + 4.4)));
 
-		//A bright solid sign band wrapping some towers at a hashed height, in the contrast colour
-		float hasSign = step(0.5, Hash21(buildingId + 21.0));
-		float signHeight = 5.0 + Hash21(buildingId + 22.0) * 34.0;
-		float signBand = hasSign * vertical * (1.0 - smoothstep(1.1, 1.9, abs(facadeY - signHeight))) * resolvable;
+        //A bright solid sign band wrapping some towers at a hashed height, in the contrast colour
+        float hasSign = step(0.5, Hash21(buildingId + 21.0));
+        float signHeight = 5.0 + Hash21(buildingId + 22.0) * 34.0;
+        float signBand = hasSign * vertical * (1.0 - smoothstep(1.1, 1.9, abs(facadeY - signHeight))) * resolvable;
 
-		//A fraction of the windows buzz on and off, the way a tired neon tube does
-		float flickerId = Hash21(windowId + 8.8);
-		float buzz = 0.55 + 0.45 * step(0.45, frac(CityWindowTime * (5.0 + flickerId * 9.0) + flickerId * 13.0));
+        //A fraction of the windows buzz on and off, the way a tired neon tube does
+        float flickerId = Hash21(windowId + 8.8);
+        float buzz = 0.55 + 0.45 * step(0.45, frac(CityWindowTime * (5.0 + flickerId * 9.0) + flickerId * 13.0));
 
-		//Kept as lerps by CityNeon (not straight assignments), so a fractional CityNeon still blends exactly
-		//as it did when this ran unconditionally
-		lampColor = lerp(lamp, neonWindow, CityNeon);
-		windowFlicker = lerp(1.0, lerp(1.0, buzz, step(0.86, flickerId)), CityNeon);
-		signEmission = signBand * contrast * (CityWindowBrightness * 1.6) * CityNeon;
-		facadeColor = lerp(facadeColor, FacadeNeonColor, CityNeon);
-	}
+        //Kept as lerps by CityNeon (not straight assignments), so a fractional CityNeon still blends exactly
+        //as it did when this ran unconditionally
+        lampColor = lerp(lamp, neonWindow, CityNeon);
+        windowFlicker = lerp(1.0, lerp(1.0, buzz, step(0.86, flickerId)), CityNeon);
+        signEmission = signBand * contrast * (CityWindowBrightness * 1.6) * CityNeon;
+        facadeColor = lerp(facadeColor, FacadeNeonColor, CityNeon);
+    }
 
-	//The render's grain, in the facade's own 2D frame. Offset by the building's id so every tower is rendered
-	//in its own patch rather than all of them wearing one pattern at the same height, and by the facing so a
-	//tower's two axes do not match each other. Anchored to the building, like the window grid and for the same
-	//reason; the pattern does not carry around a corner, which a hard 90-degree edge hides.
-	//
-	//The footprint is the window grid's own, multiplied back out of cells into world units along the facade --
-	//that quantity is already abs(ddx) + abs(ddy) of posFromCenter, so reusing it saves a second pair of
-	//derivative ops rather than merely tidying.
-	float2 facadeFootprint = footprint * cellPitch;
+    //The render's grain, in the facade's own 2D frame. Offset by the building's id so every tower is rendered
+    //in its own patch rather than all of them wearing one pattern at the same height, and by the facing so a
+    //tower's two axes do not match each other. Anchored to the building, like the window grid and for the same
+    //reason; the pattern does not carry around a corner, which a hard 90-degree edge hides.
+    //
+    //The footprint is the window grid's own, multiplied back out of cells into world units along the facade --
+    //that quantity is already abs(ddx) + abs(ddy) of posFromCenter, so reusing it saves a second pair of
+    //derivative ops rather than merely tidying.
+    float2 facadeFootprint = footprint * cellPitch;
 
-	//Vertical faces only. A roof's posFromCenter is (z, a constant), so the field would degenerate into
-	//stripes along one axis there; a flat concrete roof reading flat is the better answer, and it is matte
-	//either way, since the material below does not depend on the grain.
-	float3 grain = 0;
+    //Vertical faces only. A roof's posFromCenter is (z, a constant), so the field would degenerate into
+    //stripes along one axis there; a flat concrete roof reading flat is the better answer, and it is matte
+    //either way, since the material below does not depend on the grain.
+    float3 grain = 0;
 
-	//A branch on a uniform, which is what this shader's conventions ask for: FacadeGrainStrength is the one
-	//dial that turns the render's grain off, everything below is multiplied away at 0, every pixel takes the
-	//same path, and there is not a single gradient op inside -- the noise's gradient being analytic is exactly
-	//what makes that last part true.
-	[branch]
-	if (FacadeGrainStrength > 0.0)
-		grain = FacadeGrain((posFromCenter + buildingId * 37.0 + facingX * 19.0) * FacadeGrainFrequency,
-			max(facadeFootprint.x, facadeFootprint.y) * FacadeGrainFrequency) * vertical;
+    //A branch on a uniform, which is what this shader's conventions ask for: FacadeGrainStrength is the one
+    //dial that turns the render's grain off, everything below is multiplied away at 0, every pixel takes the
+    //same path, and there is not a single gradient op inside -- the noise's gradient being analytic is exactly
+    //what makes that last part true.
+    [branch]
+    if (FacadeGrainStrength > 0.0)
+        grain = FacadeGrain((posFromCenter + buildingId * 37.0 + facingX * 19.0) * FacadeGrainFrequency,
+            max(facadeFootprint.x, facadeFootprint.y) * FacadeGrainFrequency) * vertical;
 
-	//A facade is an axis-aligned plane, and that is worth exploiting rather than working around: its two
-	//tangents ARE world axes, so the height field's analytic gradient becomes a world-space tilt directly --
-	//no tangent frame rebuilt from screen derivatives, no ddx of the height, and exact. The same flatness that
-	//makes a sum of sines weave here is what makes this cheap.
-	float3 tangentAcross = facingX > 0.5 ? float3(0, 0, 1) : float3(1, 0, 0);
-	float3 slope = FacadeGrainStrength * FacadeGrainFrequency * (grain.y * tangentAcross + grain.z * float3(0, 1, 0));
+    //A facade is an axis-aligned plane, and that is worth exploiting rather than working around: its two
+    //tangents ARE world axes, so the height field's analytic gradient becomes a world-space tilt directly --
+    //no tangent frame rebuilt from screen derivatives, no ddx of the height, and exact. The same flatness that
+    //makes a sum of sines weave here is what makes this cheap.
+    float3 tangentAcross = facingX > 0.5 ? float3(0, 0, 1) : float3(1, 0, 0);
+    float3 slope = FacadeGrainStrength * FacadeGrainFrequency * (grain.y * tangentAcross + grain.z * float3(0, 1, 0));
 
-	//The frame's own tilt rides the same mechanism: its analytic slope (frameX.y / frameY.y) becomes a
-	//world-space lean on the bead's two flanks. The slope is gated by the bead mask, so it is exactly zero
-	//over the glass and in the deep wall -- only the bead's two rising/falling edges tilt the normal, which
-	//is what makes the moulding read as standing proud of the wall rather than as a painted-on stripe.
-	//Scale by the bead height (world units) the way the grain's slope carries FacadeGrainStrength.
-	slope += WindowFrameHeight * frameBead * (frameX.y * tangentAcross + frameY.y * float3(0, 1, 0));
+    //The frame's own tilt rides the same mechanism: its analytic slope (frameX.y / frameY.y) becomes a
+    //world-space lean on the bead's two flanks. The slope is gated by the bead mask, so it is exactly zero
+    //over the glass and in the deep wall -- only the bead's two rising/falling edges tilt the normal, which
+    //is what makes the moulding read as standing proud of the wall rather than as a painted-on stripe.
+    //Scale by the bead height (world units) the way the grain's slope carries FacadeGrainStrength.
+    slope += WindowFrameHeight * frameBead * (frameX.y * tangentAcross + frameY.y * float3(0, 1, 0));
 
-	//Tilted first and blended back towards the flat face by the glass mask, never the other way round: a pane
-	//is flat, but folding the mask into the height would put a window edge inside the gradient.
-	float3 shadingNormal = normalize(worldNormal - slope * (1.0 - glass));
-	float grainField = grain.x;
+    //Tilted first and blended back towards the flat face by the glass mask, never the other way round: a pane
+    //is flat, but folding the mask into the height would put a window edge inside the gradient.
+    float3 shadingNormal = normalize(worldNormal - slope * (1.0 - glass));
+    float grainField = grain.x;
 
-	//A tilted normal alone is not enough, and that is the lesson the ground's coursed slabs already taught:
-	//relief by normal has its bumps lit and its hollows just as bright as its peaks, which is most of why it
-	//reads as a painted-on texture rather than as shape. At a tower's distance a few degrees of tilt changes
-	//a matte surface's N.L by a percent or two and is simply invisible. So the same field also SHADES -- it
-	//darkens the ambient a hollow cannot see, and mottles the render's own tone, which at this range is the
-	//stronger cue of the two. One field doing both is what a real render does: the hollows hold the shade and
-	//the high spots wear lighter. Off over the glass, which is flat and evenly tinted.
-	float plaster = 1.0 - glass;
-	float cavity = 1.0 - FacadeGrainShading * saturate(-grainField) * plaster;
+    //A tilted normal alone is not enough, and that is the lesson the ground's coursed slabs already taught:
+    //relief by normal has its bumps lit and its hollows just as bright as its peaks, which is most of why it
+    //reads as a painted-on texture rather than as shape. At a tower's distance a few degrees of tilt changes
+    //a matte surface's N.L by a percent or two and is simply invisible. So the same field also SHADES -- it
+    //darkens the ambient a hollow cannot see, and mottles the render's own tone, which at this range is the
+    //stronger cue of the two. One field doing both is what a real render does: the hollows hold the shade and
+    //the high spots wear lighter. Off over the glass, which is flat and evenly tinted.
+    float plaster = 1.0 - glass;
+    float cavity = 1.0 - FacadeGrainShading * saturate(-grainField) * plaster;
 
-	facadeColor *= 1.0 + FacadeGrainShading * grainField * plaster;
+    facadeColor *= 1.0 + FacadeGrainShading * grainField * plaster;
 
-	//The frame's three shading cues, each strong enough to read at a tower's distance:
-	//  - the FLAT TOP lightens, because a fillet standing proud catches the sky and the sun a flat wall does
-	//    not. This is the cue that says "the top of a body", and it is why the profile keeps a crest mask
-	//    separate from the height: lightening the whole bead would light its shadowed flanks too.
-	//  - the CAST SHADOW darkens the wall in the moulding's lee (frameShadow, computed above). This is the
-	//    cue that says "a body that occludes the sun", and a flat stripe casts none -- which is exactly why
-	//    the height-field-only version read as paint.
-	//  - the cavity term still darkens the bead's own hollows for the grain, untouched by the frame.
-	facadeColor *= 1.0 + WindowFrameShading * 1.4 * frameCrest;
-	facadeColor *= 1.0 - WindowFrameShading * 0.9 * frameShadow;
-	cavity = saturate(cavity - WindowFrameShading * 0.5 * frameShadow);
+    //The frame's three shading cues, each strong enough to read at a tower's distance:
+    //  - the FLAT TOP lightens, because a fillet standing proud catches the sky and the sun a flat wall does
+    //    not. This is the cue that says "the top of a body", and it is why the profile keeps a crest mask
+    //    separate from the height: lightening the whole bead would light its shadowed flanks too.
+    //  - the CAST SHADOW darkens the wall in the moulding's lee (frameShadow, computed above). This is the
+    //    cue that says "a body that occludes the sun", and a flat stripe casts none -- which is exactly why
+    //    the height-field-only version read as paint.
+    //  - the cavity term still darkens the bead's own hollows for the grain, untouched by the frame.
+    facadeColor *= 1.0 + WindowFrameShading * 1.4 * frameCrest;
+    facadeColor *= 1.0 - WindowFrameShading * 0.9 * frameShadow;
+    cavity = saturate(cavity - WindowFrameShading * 0.5 * frameShadow);
 
-	//And the glass gets its own albedo, which is DARK: what is behind a pane is a dim room, not a rendered
-	//wall. That is the other half of why the windows read as glass and the wall does not -- a dark surface
-	//under a bright mirror is exactly what glass looks like, and it is the same combination that was wrong
-	//on the plaster. It also gives a facade its variation back: a pane is dark where it faces nothing and
-	//bright where it catches the sky, which is how a glazed tower reads at all.
-	facadeColor = lerp(facadeColor, WindowGlassColor, glass);
+    //And the glass gets its own albedo, which is DARK: what is behind a pane is a dim room, not a rendered
+    //wall. That is the other half of why the windows read as glass and the wall does not -- a dark surface
+    //under a bright mirror is exactly what glass looks like, and it is the same combination that was wrong
+    //on the plaster. It also gives a facade its variation back: a pane is dark where it faces nothing and
+    //bright where it catches the sky, which is how a glazed tower reads at all.
+    facadeColor = lerp(facadeColor, WindowGlassColor, glass);
 
-	//Two materials on one triangle, blended per pixel: rough plaster, and the glass of the windows in it.
-	SurfaceSpecular surface;
-	surface.Highlight = lerp(FacadeHighlight, WindowHighlightBoost, glass);
-	surface.Environment = lerp(1.0, WindowReflectionBoost, glass);
-	surface.Smoothness = lerp(FacadeSmoothness, WindowSmoothness, glass);
+    //Two materials on one triangle, blended per pixel: rough plaster, and the glass of the windows in it.
+    SurfaceSpecular surface;
+    surface.Highlight = lerp(FacadeHighlight, WindowHighlightBoost, glass);
+    surface.Environment = lerp(1.0, WindowReflectionBoost, glass);
+    surface.Smoothness = lerp(FacadeSmoothness, WindowSmoothness, glass);
 
-	float4 shaded = ShadePixel(input.WorldPosition, shadingNormal, input.OcclusionData, float4(facadeColor, 1), 1, cavity, surface);
+    float4 shaded = ShadePixel(input.WorldPosition, shadingNormal, input.OcclusionData, float4(facadeColor, 1), 1, cavity, surface);
 
-	shaded.rgb += coverage * lampColor * CityWindowBrightness * windowFlicker;
-	shaded.rgb += signEmission;
+    shaded.rgb += coverage * lampColor * CityWindowBrightness * windowFlicker;
+    shaded.rgb += signEmission;
 
-	return shaded;
+    return shaded;
 }
 
 technique InstancedCity
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL CityVS();
-		PixelShader = compile PS_SHADERMODEL CityPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL CityVS();
+        PixelShader = compile PS_SHADERMODEL CityPS();
+    }
 };
 
 technique InstancedModelTriplanar
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL MainVS();
-		PixelShader = compile PS_SHADERMODEL TriplanarPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MainVS();
+        PixelShader = compile PS_SHADERMODEL TriplanarPS();
+    }
 };
 
 //The same surface with a COARSE height field: three relief octaves instead of seven. What a quality tier
@@ -2194,39 +2194,39 @@ technique InstancedModelTriplanar
 //    scale the eye can see. Three octaves keep the joints and give up the finest grain.
 float4 TriplanarCoarsePS(VertexShaderOutput input) : COLOR
 {
-	float3 worldNormal = normalize(input.WorldNormal);
+    float3 worldNormal = normalize(input.WorldNormal);
 
-	float3 blend = pow(abs(worldNormal), 4);
-	blend /= blend.x + blend.y + blend.z;
+    float3 blend = pow(abs(worldNormal), 4);
+    blend /= blend.x + blend.y + blend.z;
 
-	float3 p = input.WorldPosition * DetailScale;
+    float3 p = input.WorldPosition * DetailScale;
 
-	float3 detail
-		= SrgbToLinear(tex2D(TextureSampler, p.zy).rgb) * blend.x
-		+ SrgbToLinear(tex2D(TextureSampler, p.xz).rgb) * blend.y
-		+ SrgbToLinear(tex2D(TextureSampler, p.xy).rgb) * blend.z;
+    float3 detail
+        = SrgbToLinear(tex2D(TextureSampler, p.zy).rgb) * blend.x
+        + SrgbToLinear(tex2D(TextureSampler, p.xz).rgb) * blend.y
+        + SrgbToLinear(tex2D(TextureSampler, p.xy).rgb) * blend.z;
 
-	float3 dpdx = ddx(input.WorldPosition);
-	float3 dpdy = ddy(input.WorldPosition);
+    float3 dpdx = ddx(input.WorldPosition);
+    float3 dpdy = ddy(input.WorldPosition);
 
-	float height = SceneSurfaceHeightCoarse(input.WorldPosition, dpdx, dpdy);
+    float height = SceneSurfaceHeightCoarse(input.WorldPosition, dpdx, dpdy);
 
-	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
-	float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
+    float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
+    float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
 
-	float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
-	float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
+    float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
+    float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
 
-	return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
+    return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
 }
 
 technique InstancedModelTriplanarCoarse
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL MainVS();
-		PixelShader = compile PS_SHADERMODEL TriplanarCoarsePS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MainVS();
+        PixelShader = compile PS_SHADERMODEL TriplanarCoarsePS();
+    }
 };
 
 //===================================================================================================
@@ -2251,21 +2251,21 @@ technique InstancedModelTriplanarCoarse
 //Bounds SceneSurfaceHeight and PerturbNormalFromHeight together.
 float4 TriplanarProbe1PS(VertexShaderOutput input) : COLOR
 {
-	float3 worldNormal = normalize(input.WorldNormal);
+    float3 worldNormal = normalize(input.WorldNormal);
 
-	float3 blend = pow(abs(worldNormal), 4);
-	blend /= blend.x + blend.y + blend.z;
+    float3 blend = pow(abs(worldNormal), 4);
+    blend /= blend.x + blend.y + blend.z;
 
-	float3 p = input.WorldPosition * DetailScale;
+    float3 p = input.WorldPosition * DetailScale;
 
-	float3 detail
-		= SrgbToLinear(tex2D(TextureSampler, p.zy).rgb) * blend.x
-		+ SrgbToLinear(tex2D(TextureSampler, p.xz).rgb) * blend.y
-		+ SrgbToLinear(tex2D(TextureSampler, p.xy).rgb) * blend.z;
+    float3 detail
+        = SrgbToLinear(tex2D(TextureSampler, p.zy).rgb) * blend.x
+        + SrgbToLinear(tex2D(TextureSampler, p.xz).rgb) * blend.y
+        + SrgbToLinear(tex2D(TextureSampler, p.xy).rgb) * blend.z;
 
-	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
+    float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
-	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1), 1, 1);
+    return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1), 1, 1);
 }
 
 //2 - the height field, but not the normal it tilts: seven octaves and the joints are still evaluated
@@ -2273,124 +2273,124 @@ float4 TriplanarProbe1PS(VertexShaderOutput input) : COLOR
 //of the field; this against the shipped technique is the cost of the perturb's ddx/ddy pair.
 float4 TriplanarProbe2PS(VertexShaderOutput input) : COLOR
 {
-	float3 worldNormal = normalize(input.WorldNormal);
+    float3 worldNormal = normalize(input.WorldNormal);
 
-	float3 blend = pow(abs(worldNormal), 4);
-	blend /= blend.x + blend.y + blend.z;
+    float3 blend = pow(abs(worldNormal), 4);
+    blend /= blend.x + blend.y + blend.z;
 
-	float3 p = input.WorldPosition * DetailScale;
+    float3 p = input.WorldPosition * DetailScale;
 
-	float3 detail
-		= SrgbToLinear(tex2D(TextureSampler, p.zy).rgb) * blend.x
-		+ SrgbToLinear(tex2D(TextureSampler, p.xz).rgb) * blend.y
-		+ SrgbToLinear(tex2D(TextureSampler, p.xy).rgb) * blend.z;
+    float3 detail
+        = SrgbToLinear(tex2D(TextureSampler, p.zy).rgb) * blend.x
+        + SrgbToLinear(tex2D(TextureSampler, p.xz).rgb) * blend.y
+        + SrgbToLinear(tex2D(TextureSampler, p.xy).rgb) * blend.z;
 
-	float3 dpdx = ddx(input.WorldPosition);
-	float3 dpdy = ddy(input.WorldPosition);
+    float3 dpdx = ddx(input.WorldPosition);
+    float3 dpdy = ddy(input.WorldPosition);
 
-	float height = SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy);
+    float height = SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy);
 
-	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
+    float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
-	float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
-	float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
+    float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
+    float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
 
-	return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
+    return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
 }
 
 //4 - one texture tap instead of three, the world-XZ projection alone. Everything else is the shipped
 //pass, so the difference is the two samples and the blend that fed them.
 float4 TriplanarProbe4PS(VertexShaderOutput input) : COLOR
 {
-	float3 worldNormal = normalize(input.WorldNormal);
+    float3 worldNormal = normalize(input.WorldNormal);
 
-	float3 p = input.WorldPosition * DetailScale;
+    float3 p = input.WorldPosition * DetailScale;
 
-	float3 detail = SrgbToLinear(tex2D(TextureSampler, p.xz).rgb);
+    float3 detail = SrgbToLinear(tex2D(TextureSampler, p.xz).rgb);
 
-	float3 dpdx = ddx(input.WorldPosition);
-	float3 dpdy = ddy(input.WorldPosition);
+    float3 dpdx = ddx(input.WorldPosition);
+    float3 dpdy = ddy(input.WorldPosition);
 
-	float height = SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy);
+    float height = SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy);
 
-	float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
-	float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
+    float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
+    float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
 
-	float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
-	float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
+    float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
+    float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
 
-	return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
+    return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
 }
 
 //5 - no detail texture at all: the full height field, the perturb and ShadePixel on the flat material
 //colour. Probe 4 and this one bracket the three taps from both sides.
 float4 TriplanarProbe5PS(VertexShaderOutput input) : COLOR
 {
-	float3 worldNormal = normalize(input.WorldNormal);
+    float3 worldNormal = normalize(input.WorldNormal);
 
-	float3 dpdx = ddx(input.WorldPosition);
-	float3 dpdy = ddy(input.WorldPosition);
+    float3 dpdx = ddx(input.WorldPosition);
+    float3 dpdy = ddy(input.WorldPosition);
 
-	float height = SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy);
+    float height = SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy);
 
-	float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
+    float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
 
-	float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
-	float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
+    float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
+    float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
 
-	return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(1, 1, 1, 1), 1, cavity);
+    return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(1, 1, 1, 1), 1, cavity);
 }
 
 //6 - a constant. The bound on the whole pixel shader, and the only figure here that says how much of
 //the cap is shading at all rather than raster, depth and the vertex work behind it.
 float4 TriplanarProbe6PS(VertexShaderOutput input) : COLOR
 {
-	return float4(0.2, 0.2, 0.2, 1);
+    return float4(0.2, 0.2, 0.2, 1);
 }
 
 technique InstancedModelTriplanarProbe1
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL MainVS();
-		PixelShader = compile PS_SHADERMODEL TriplanarProbe1PS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MainVS();
+        PixelShader = compile PS_SHADERMODEL TriplanarProbe1PS();
+    }
 };
 
 technique InstancedModelTriplanarProbe2
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL MainVS();
-		PixelShader = compile PS_SHADERMODEL TriplanarProbe2PS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MainVS();
+        PixelShader = compile PS_SHADERMODEL TriplanarProbe2PS();
+    }
 };
 
 technique InstancedModelTriplanarProbe4
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL MainVS();
-		PixelShader = compile PS_SHADERMODEL TriplanarProbe4PS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MainVS();
+        PixelShader = compile PS_SHADERMODEL TriplanarProbe4PS();
+    }
 };
 
 technique InstancedModelTriplanarProbe5
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL MainVS();
-		PixelShader = compile PS_SHADERMODEL TriplanarProbe5PS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MainVS();
+        PixelShader = compile PS_SHADERMODEL TriplanarProbe5PS();
+    }
 };
 
 technique InstancedModelTriplanarProbe6
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL MainVS();
-		PixelShader = compile PS_SHADERMODEL TriplanarProbe6PS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MainVS();
+        PixelShader = compile PS_SHADERMODEL TriplanarProbe6PS();
+    }
 };
 
 //Depth-only pass for shadow mapping: renders the instances from the light's point of view,
@@ -2400,33 +2400,33 @@ float4x4 LightViewProjection;
 
 struct DepthVertexShaderOutput
 {
-	float4 Position : SV_POSITION;
-	float Depth : TEXCOORD0;
+    float4 Position : SV_POSITION;
+    float Depth : TEXCOORD0;
 };
 
 DepthVertexShaderOutput DepthVS(VertexShaderInput input, InstanceInput instance)
 {
-	DepthVertexShaderOutput output;
+    DepthVertexShaderOutput output;
 
-	float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
-	float4 worldPosition = mul(mul(input.Position, Bone), world);
+    float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
+    float4 worldPosition = mul(mul(input.Position, Bone), world);
 
-	output.Position = mul(worldPosition, LightViewProjection);
-	output.Depth = output.Position.z / output.Position.w;
+    output.Position = mul(worldPosition, LightViewProjection);
+    output.Depth = output.Position.z / output.Position.w;
 
-	return output;
+    return output;
 }
 
 float4 DepthPS(DepthVertexShaderOutput input) : COLOR
 {
-	return float4(input.Depth, 0, 0, 1);
+    return float4(input.Depth, 0, 0, 1);
 }
 
 technique InstancedDepth
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL DepthVS();
-		PixelShader = compile PS_SHADERMODEL DepthPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL DepthVS();
+        PixelShader = compile PS_SHADERMODEL DepthPS();
+    }
 };

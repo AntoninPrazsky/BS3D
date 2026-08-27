@@ -56,12 +56,12 @@ namespace Prazsky.Core.Tools
             return new BoundingSphere(Vector3.Zero, Vector3.Distance(Vector3.Zero, GetBoundingBox(model).Max));
         }
 
-		/// <summary>
-		/// Returns a sphere centered at the origin and a radius equal to the distance from the origin to the specified point.
-		/// </summary>
-		/// <param name="pointOnSurface">A point in space to calculate the radius.</param>
-		/// <returns>A sphere with the center at the origin and the calculated radius.</returns>
-		public static BoundingSphere GetBoundingSphere(Vector3 pointOnSurface)
+        /// <summary>
+        /// Returns a sphere centered at the origin and a radius equal to the distance from the origin to the specified point.
+        /// </summary>
+        /// <param name="pointOnSurface">A point in space to calculate the radius.</param>
+        /// <returns>A sphere with the center at the origin and the calculated radius.</returns>
+        public static BoundingSphere GetBoundingSphere(Vector3 pointOnSurface)
         {
             return new BoundingSphere(Vector3.Zero, Vector3.Distance(Vector3.Zero, pointOnSurface));
         }

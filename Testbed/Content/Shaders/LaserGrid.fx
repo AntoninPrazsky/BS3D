@@ -41,75 +41,75 @@ static const float CORE_WHITE = 0.9;
 
 struct LaserVertexInput
 {
-	float3 Start : POSITION0;   //one end of the beam's axis
-	float3 End : TEXCOORD0;     //the other
-	float2 Data : TEXCOORD1;    //(side in {-1,1}, along in {0,1})
+    float3 Start : POSITION0;   //one end of the beam's axis
+    float3 End : TEXCOORD0;     //the other
+    float2 Data : TEXCOORD1;    //(side in {-1,1}, along in {0,1})
 };
 
 struct LaserVertexOutput
 {
-	float4 Position : SV_POSITION;
-	float2 UV : TEXCOORD0;          //(side, along)
-	float AlongWorld : TEXCOORD1;   //distance along the beam in world units, the wave's coordinate
+    float4 Position : SV_POSITION;
+    float2 UV : TEXCOORD0;          //(side, along)
+    float AlongWorld : TEXCOORD1;   //distance along the beam in world units, the wave's coordinate
 };
 
 LaserVertexOutput LaserVS(LaserVertexInput input)
 {
-	LaserVertexOutput output;
+    LaserVertexOutput output;
 
-	float along = input.Data.y;
-	float3 pos = lerp(input.Start, input.End, along);
+    float along = input.Data.y;
+    float3 pos = lerp(input.Start, input.End, along);
 
-	float3 axis = input.End - input.Start;
-	float axisLen = length(axis);
-	float3 dir = axisLen > 1e-4 ? axis / axisLen : float3(1.0, 0.0, 0.0);
+    float3 axis = input.End - input.Start;
+    float axisLen = length(axis);
+    float3 dir = axisLen > 1e-4 ? axis / axisLen : float3(1.0, 0.0, 0.0);
 
-	//Billboard about the beam's axis, ShotTrail's own trick: the width runs perpendicular to both the
-	//axis and the view ray, so the beam holds its thickness wherever the lens stands.
-	float3 toCam = CameraPosition - pos;
-	float3 side = cross(dir, toCam);
-	float sideLen = length(side);
-	side = sideLen > 1e-4 ? side / sideLen : float3(0.0, 1.0, 0.0);
+    //Billboard about the beam's axis, ShotTrail's own trick: the width runs perpendicular to both the
+    //axis and the view ray, so the beam holds its thickness wherever the lens stands.
+    float3 toCam = CameraPosition - pos;
+    float3 side = cross(dir, toCam);
+    float sideLen = length(side);
+    side = sideLen > 1e-4 ? side / sideLen : float3(0.0, 1.0, 0.0);
 
-	pos += side * (input.Data.x * LaserHalfWidth);
+    pos += side * (input.Data.x * LaserHalfWidth);
 
-	output.Position = mul(mul(float4(pos, 1.0), View), Projection);
-	output.UV = float2(input.Data.x, along);
-	output.AlongWorld = along * axisLen;
+    output.Position = mul(mul(float4(pos, 1.0), View), Projection);
+    output.UV = float2(input.Data.x, along);
+    output.AlongWorld = along * axisLen;
 
-	return output;
+    return output;
 }
 
 float4 LaserPS(LaserVertexOutput input) : COLOR
 {
-	float across = 1.0 - abs(input.UV.x);   //1 at the beam's core, 0 at its edges
-	float profile = across * across;        //soft falloff, ShotTrail's own cross-section
+    float across = 1.0 - abs(input.UV.x);   //1 at the beam's core, 0 at its edges
+    float profile = across * across;        //soft falloff, ShotTrail's own cross-section
 
-	//Soft at both ends, so a beam dissolves at the grid's edge instead of stopping on a hard rectangle.
-	//Short fades: these are meant to read as lasers, and the grid's edge should still come out straight.
-	float endFade = smoothstep(0.0, 0.06, input.UV.y) * smoothstep(1.0, 0.94, input.UV.y);
+    //Soft at both ends, so a beam dissolves at the grid's edge instead of stopping on a hard rectangle.
+    //Short fades: these are meant to read as lasers, and the grid's edge should still come out straight.
+    float endFade = smoothstep(0.0, 0.06, input.UV.y) * smoothstep(1.0, 0.94, input.UV.y);
 
-	float wave = 1.0 - WAVE_DEPTH + WAVE_DEPTH * sin(input.AlongWorld * WAVE_FREQUENCY - Time * WAVE_SPEED);
+    float wave = 1.0 - WAVE_DEPTH + WAVE_DEPTH * sin(input.AlongWorld * WAVE_FREQUENCY - Time * WAVE_SPEED);
 
-	//No clip. Additive blending makes a zero-alpha pixel free, and a clip on a value scaled by the
-	//pulsing intensity would sweep a hard edge in and out across every beam twice a second - the trap
-	//ShotTrail.fx documents, made periodic.
-	float a = profile * endFade * LaserIntensity * wave;
+    //No clip. Additive blending makes a zero-alpha pixel free, and a clip on a value scaled by the
+    //pulsing intensity would sweep a hard edge in and out across every beam twice a second - the trap
+    //ShotTrail.fx documents, made periodic.
+    float a = profile * endFade * LaserIntensity * wave;
 
-	//The filament is the profile cubed - narrowed twice more, so the white stays a thread inside a red
-	//glow instead of bleaching the whole beam.
-	float core = profile * profile * profile;
+    //The filament is the profile cubed - narrowed twice more, so the white stays a thread inside a red
+    //glow instead of bleaching the whole beam.
+    float core = profile * profile * profile;
 
-	float3 color = LaserColor * a + CORE_WHITE * (core * endFade * LaserIntensity * wave);
+    float3 color = LaserColor * a + CORE_WHITE * (core * endFade * LaserIntensity * wave);
 
-	return float4(color, a);
+    return float4(color, a);
 }
 
 technique LaserGrid
 {
-	pass P0
-	{
-		VertexShader = compile VS_SHADERMODEL LaserVS();
-		PixelShader = compile PS_SHADERMODEL LaserPS();
-	}
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL LaserVS();
+        PixelShader = compile PS_SHADERMODEL LaserPS();
+    }
 };
