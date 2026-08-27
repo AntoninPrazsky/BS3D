@@ -149,7 +149,7 @@ and 20 minutes into a continuous session, which said the spread was the level an
 - `fpscap=<n>` — present immediately but never more than N frames a second (see the section on it below).
   **Both executables**, the Game's since #270. This is what makes a reading a frame cost; a vsync-capped
   number is a bracket, not a cost, and trap 10 is what that has already cost once.
-- `scene=<city|sea|savanna|desert|mountain|meadow|neon|forest|space|dream|cavern|moon>`, `sky=<1..18>` — pin the backdrop. The scene names are
+- `scene=<city|sea|savanna|desert|mountain|meadow|neon|forest|space|dream|cavern|moon|outback|tropical|volcano|mars>`, `sky=<1..19>` — pin the backdrop. The scene names are
   the Testbed's, so a script written against one executable drives the other.
 - `play` — skip the front end into the **first** level, and `level=<n|name>` into any other (its 1-based place
   in the set, as the title bar numbers it, or its name: `level=Colossus`, `level=11`). **The front end is not

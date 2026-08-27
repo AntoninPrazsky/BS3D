@@ -2206,3 +2206,23 @@ Hypotéza ze zápisu, který tenhle nahrazuje (`38 ≈ 75/2`), se potvrdila jen 
 **Ověřeno:** všechny čtyři solutiony čisté, `ScoreSim` „All levels rate the right way round" po mergi #278. `docs/scenes.md` má novou odrážku u volcano sekce s výše popsanou opravou.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-27 — Claude Code (osmdesátý první zápis)
+
+**Beru #277 (Mars) rovnou od zadání majitele — nová scéna z nabídnutého seznamu.** Hotovo, na větvi `277-mars-scene` (pushnuto jako `0f0a227`). **NEMERGOVÁNO, čeká na slovo majitele.**
+
+**Šestnáctý `SceneKind`, `IsSolidTerrainScene`, ne Měsíční `ReplacesSky` vidlice** — skutečný Měsíc nemá atmosféru vůbec, což je jediný důvod, proč ta scéna nahrazuje celou oblohu a zavírá horizont zakřivením. Mars atmosféru (řídkou) má, takže zůstává obyčejná dómová scéna. Kráterové pole (`CraterLayer`/`CraterField`/`MareBase`) je z `Moon.fx` přenesené **doslovně** — je to obecná matematika výškového pole bez cokoli měsíčního v sobě, jen přebarvená z šedé na rezavou. Horizont zavírá obyčejná mlha (outbackovský dvoustupňový fade), ne zakřivení a horský val.
+
+**Po prvním capturu majitel poznamenal, že na Marsu mají být i skály a víc kamení** — scéna zprvu jela holá a kráterovaná (vlastní fallback issue #277). Přidal jsem druhou vypůjčku, tentokrát z `Outback.fx`: `RockLayer` mřížka, doslovně přenesená a přeladěná ze skyline monolitů na rozptýlené balvany a oblázky, jaké fotí rovery — bez rýh a bez lišejníkové polevy (`ribDepth` 0, marsovská skála je ošlehaná větrem, ne vodou). Barva balvanů je **tmavý čedič, ne tmavší verze zeminy** — na skutečném Marsu je kámen to jediné, co není červené, a ten kontrast je většina toho, proč rozptýlené kameny čtou jako kámen. **Zapsaná mez:** balvany (3–6 jednotek) jsou proti gridové buňce (~2,8 jednotky, dimenzované na krátery) menší, než na jaké je grid stavěný — zblízka je silueta měkčí, než by stínování napovídalo. Na hráčských vzdálenostech (ostrov až mlha, nikdy objektiv stojící na jednom kameni) se to neprojevuje; ověřeno capturem, ne odhadem.
+
+**Devatenáctá `SkyDome` paleta, ne nový kód.** Žádná z osmnácti se pro prašnou marsovskou oblohu nehodí — ta je **jasnější u horizontu a tmavší v zenitu**, opak pozemského modrého zenitu. Nic v `ApplyPalette`/`BuildRamp` nepředpokládá, který konec je jasnější, takže devatenáctý záznam je čistě **data**: barva jako funkce výšky zachyceného vrcholu (pět barevných zastávek), spočtená skriptem místo malovaná okem — žádné `.dae` pro marsovskou oblohu nikdy neexistovalo. Vlastní slunce (#220) vysoko, `(58°, 50°)`.
+
+**Phobos a Deimos nejsou měsíční Země.** Ta běží uvnitř `MoonSky`, celoobrazovkového průchodu, co NAHRAZUJE oblohu — existuje jen proto, že Měsíc žádný dóm nemá. Mars dóm má, takže oba měsíčky jsou vlastní technika (`MarsMoons`) na sdíleném `_spaceQuad`u, depth-read proti terénu (Měsícovo vlastní změřené pořadí), ale na rozdíl od Měsíce **alpha-blended**, protože se skládají NAD už nakreslený dóm a terén. Ani jeden není ve skutečné úhlové velikosti (ta by byla sub-pixelová) — schválně předimenzovaní pro čitelnost, opačný směr než Zemina vlastní pravidlo, se zapsaným proč.
+
+**Ověřeno:** všechny tři solution se staví čistě (jediné varování je stejná X4000 potíž, co má i `Moon.fx`'s `Earth()` — ověřil jsem to touchnutím a přestavěním obou, není to nová chyba). `ScoreSim` beze změny. Capturem z Testbedu (hrací kamera, pohled k obloze, dvě různé kamery na oba měsíčky, blízký záběr na balvany) — terén, dóm i měsíčky vypadají, jak mají; jeden nesouvisející tvar (lichoběžník nahoře na snímku) jsem ověřil proti Outbacku ze stejné kamery — je to stropní deska, existuje to už teď, nemám s tím nic společného. Párové měření Testbedem proti Outbacku (stejná kamera, stejný dóm 13, `fpscap=150`, ssaa 2, reference APU): **Mars 32,1 FPS / 31,2 ms proti Outbacku 31,5 / 31,7** — stejná třída, jedno čtení, ne alternační sweep, takže tvrdím jen „stejné pásmo", ne pořadí.
+
+**Dokumentace:** `docs/scenes.md` (nová sekce Mars + bump "eighteen"→"nineteen" na třech místech, co se týkaly dómů), `CLAUDE.md` (patnáct→šestnáct scén, osmnáct→devatenáct palet), skilly `benchmark`/`screenshot`/`shaders` (scéna/dóm seznamy — při té příležitosti jsem doplnil i outback/tropical/volcano, které tam chyběly už předtím, ne mou vinou, ale byl jsem u stejného řádku).
+
+**Nic dalšího si neberu.**

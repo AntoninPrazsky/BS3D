@@ -354,6 +354,17 @@ namespace BS3D.Audio
                         tailRate: 34f, spread: 0.9f);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.145f);
 
+                case SceneKind.Mars:
+                    //Thin air, not none: unlike the Moon's total vacuum, Mars's ~1% atmosphere still carries
+                    //a sound, just barely — a thin, high keening whistle with almost none of a desert
+                    //cousin's low end, because there is next to nothing here for a wind to push against.
+                    //Under it the faintest grit-blown hiss, dust sanding past the gun rather than surf or
+                    //cicadas. Both stay CLOSE, for the Moon's own reason restated at a tenth of its
+                    //silence: a wind this thin gives the ear no sense of distance either.
+                    AddBand(mix, seed, 500f, 2200f, 1.0f, t => Swell(t, 2, 0.55f, 0f), WIDTH_CLOSE);
+                    AddBand(mix, seed + 1, 3000f, 7200f, 0.16f, t => Swell(t, 3, 0.30f, 1.4f), WIDTH_CLOSE);
+                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.05f);
+
                 default:
                     //A NEW SCENE LANDS HERE, AND IT IS MEANT TO BE OBVIOUS. This arm was the cavern's until
                     //#125 gave the Moon its own, and it was the Moon's until #112 gave the outback one — each
