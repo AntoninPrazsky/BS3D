@@ -331,9 +331,22 @@ namespace Prazsky.Core.Render
         /// coverage at the output's own resolution either way.
         /// </para>
         /// <para>
-        /// A probe (#298), not a setting: nothing in a tier reads it, and the figure that would decide whether
-        /// it belongs in one has to come from the machine the ladder exists for. Setting it recreates the
-        /// target, so it is a load-time or A/B lever and not a per-frame one.
+        /// <b>⚠ IT MUST NEVER REACH A QUALITY TIER, AND THAT IS THE OWNER'S STANDING RULING (#298,
+        /// 2026-08-28), not a preference to be re-argued with a better figure.</b> The scene is always drawn
+        /// at the display's native resolution; <b>a tier lowers what is drawn, never how many pixels it is
+        /// drawn into</b> — highlights and suchlike may go, resolution may not. The ruling was given with the
+        /// measurement already in hand and against it: this is by a distance the cheapest lever the frame has
+        /// (0.85× saved 0.59–1.05 ms across four scenes on the reference desktop, and it is the only thing
+        /// that moved the cavern at all), and it is refused anyway, because a magnified frame looks ugly and
+        /// no frame rate buys that back. Do not read the numbers in <c>docs/game-shell.md</c> as a case for
+        /// it; they are the record of a lever that was priced and turned down.
+        /// </para>
+        /// <para>
+        /// What it is still good for is <b>measurement</b>, which is why it survives at all: it is the clean
+        /// way to ask whether a pass is pixel-bound, downwards, where <see cref="SupersampleFactor"/> can only
+        /// ask upwards — and the two agreed to 0.02 ms where they overlap. Setting it recreates the target, so
+        /// it is a load-time or A/B lever and not a per-frame one. Note the direction: supersampling ABOVE
+        /// native is a perfectly good tier entry and <c>High</c> carries one; it is only below 1× that is shut.
         /// </para>
         /// </summary>
         public float RenderScale
