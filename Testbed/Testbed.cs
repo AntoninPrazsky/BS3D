@@ -633,6 +633,11 @@ namespace Testbed
                 SupersampleFactor = _supersampleFactor,
             };
 
+            //#298 PROBE: "msaa=" prices the samples the two lower quality rungs both carry. Applied after the
+            //initializer rather than inside it, because the property recreates the targets the initializer's
+            //own SupersampleFactor has just made — order, not preference. -1 leaves the pipeline's default.
+            if (_options.MsaaSamples >= 0) _pipeline.MsaaSamples = _options.MsaaSamples;
+
             _sceneLights = new SceneLights(_instancingEffect);
 
             //The launch smears' billboard quad and every parameter handle the draw needs, in one construction.

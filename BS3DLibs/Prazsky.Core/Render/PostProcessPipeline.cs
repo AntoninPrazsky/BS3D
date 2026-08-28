@@ -150,6 +150,11 @@ namespace Prazsky.Core.Render
         private float _filmGrain;
         private int _supersampleFactor = 1;
 
+        //How many samples the targets below ssaa 2 carry, and what the scene target was last built with —
+        //EnsureTarget compares both, so a change of samples alone rebuilds it. See MsaaSamples.
+        private int _msaaSamples = MSAA_SAMPLES;
+        private int _sceneTargetMsaa = -1;
+
         //What the tonemap was last told the defocus mix is. Held so the uniform is written on the frames it
         //actually moves, per the caching discipline in BestPractices.md: a frame with no blur up — most of
         //play — sends nothing, and a held precise aim (#214, the one in-play caller) settles at its peak and
@@ -285,6 +290,42 @@ namespace Prazsky.Core.Render
             }
         }
 
+        /// <summary>
+        /// How many multisample samples the scene target carries <b>when supersampling is off</b> —
+        /// <see cref="MSAA_SAMPLES"/> unless a caller says otherwise. Above 1× it is ignored, the supersample
+        /// resolve already averaging geometry edges; see <see cref="EnsureTarget"/>.
+        /// <para>
+        /// It exists to be <b>measured</b> (#298). The quality ladder's rungs below <c>High</c> both run at
+        /// <c>ssaa</c> 1, so both carry the full eight samples, and on a weak GPU that is bandwidth nobody has
+        /// ever priced — the one candidate for the hole between <c>Low</c> and <c>Medium</c> that reaches all
+        /// sixteen scenes without changing what is shaded. Nothing in a tier reads this yet: until the figure
+        /// exists on the class of machine the ladder is for, wiring it into <c>QualityPreset</c> would be
+        /// tuning against no measurement, which is the fault #298 was opened on.
+        /// </para>
+        /// <para>
+        /// Zero means no multisampling at all. Setting it recreates both targets, so it is a load-time or
+        /// A/B lever and not a per-frame one.
+        /// </para>
+        /// </summary>
+        public int MsaaSamples
+        {
+            get => _msaaSamples;
+            set
+            {
+                int wanted = Math.Clamp(value, 0, 8);
+                if (wanted == _msaaSamples) return;
+
+                _msaaSamples = wanted;
+
+                //The foreground layer is built lazily by its own getter, so dropping it is enough; the scene
+                //target is rebuilt by EnsureTarget, which compares the sample count as well as the size.
+                _foregroundTarget?.Dispose();
+                _foregroundTarget = null;
+
+                EnsureTarget();
+            }
+        }
+
         /// <summary>The linear-radiance HDR target the caller binds and draws the whole scene into.</summary>
         public RenderTarget2D SceneTarget => _sceneTarget;
 
@@ -316,7 +357,7 @@ namespace Prazsky.Core.Render
                     //layer's silhouette is the one thing the composite's coverage read has to get right,
                     //and the rule's whole point is that geometry edges stay antialiased either way.
                     _foregroundTarget = new RenderTarget2D(_device, width, height, false, SurfaceFormat.HdrBlendable,
-                        DepthFormat.Depth24Stencil8, _supersampleFactor > 1 ? 0 : MSAA_SAMPLES, RenderTargetUsage.DiscardContents);
+                        DepthFormat.Depth24Stencil8, _supersampleFactor > 1 ? 0 : _msaaSamples, RenderTargetUsage.DiscardContents);
                 }
 
                 return _foregroundTarget;
@@ -337,7 +378,12 @@ namespace Prazsky.Core.Render
             //the restore path calls back here anyway (the map editor's copy learned this first)
             if (width <= 0 || height <= 0) return;
 
-            if (_sceneTarget != null && _sceneTarget.Width == width && _sceneTarget.Height == height) return;
+            //The sample count is part of what the target IS, so it is compared beside the size — a change of
+            //samples alone (MsaaSamples) has to rebuild a target whose dimensions have not moved.
+            int samples = _supersampleFactor > 1 ? 0 : _msaaSamples;
+
+            if (_sceneTarget != null && _sceneTarget.Width == width && _sceneTarget.Height == height
+                && _sceneTargetMsaa == samples) return;
 
             _sceneTarget?.Dispose();
 
@@ -347,7 +393,9 @@ namespace Prazsky.Core.Render
             //goes on the scene target, never the back buffer: nothing but one resolved quad ever reaches
             //that.
             _sceneTarget = new RenderTarget2D(_device, width, height, false, SurfaceFormat.HdrBlendable,
-                DepthFormat.Depth24Stencil8, _supersampleFactor > 1 ? 0 : MSAA_SAMPLES, RenderTargetUsage.DiscardContents);
+                DepthFormat.Depth24Stencil8, samples, RenderTargetUsage.DiscardContents);
+
+            _sceneTargetMsaa = samples;
 
             //Sized off the back buffer, not the supersampled target: the glare is blurred anyway, so the
             //extra samples buy nothing and would only cost fill rate to produce. Level zero is HALF the
