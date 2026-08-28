@@ -119,18 +119,24 @@ namespace BS3D.Tools.LevelGen
         /// playtest that set it.
         /// <para>
         /// Three levels are known finishable (Amphora, Giza, Saturn) and nine are known not to be. Against
-        /// that set the probe reads <b>Saturn 0, Giza 0, Amphora 2</b> and, of the nine, Pylon, Pinecone,
-        /// Pleat, Bolt and Totem at <b>5 of 5</b> with Orrery and Globe at 3. So three losing orders in five
-        /// separates them cleanly: it names seven of the nine and <b>none of the three</b>. Ghost and Cabinet
-        /// sit under it at 1 — the probe still ranks them, it just does not call them.
+        /// that set the probe reads <b>Giza 0, Saturn 2, Amphora 3</b> against <b>Ghost and Cabinet at 4</b>
+        /// and Pylon, Orrery, Globe, Pinecone, Pleat, Bolt and Totem at <b>5 of 5</b>. Four losing orders in
+        /// five therefore separates them <b>completely</b>: all nine reported named, none of the three.
         /// </para>
         /// <para>
-        /// <b>⚠ A threshold fitted to twelve levels is a threshold fitted to twelve levels.</b> It is honest
-        /// about the set it was measured on and nothing more, so this refuses nothing on its own — see
-        /// <c>Program.RunSagGate</c>.
+        /// <b>⚠ Three was the answer while the player was a poor shot, and it is worth knowing why it
+        /// moved.</b> Aiming at a ball rather than at the gap beside it matched 29 % of shots; the level then
+        /// mostly lost to the probe's own misses stacking up, which is noise, and the two hardest reported
+        /// levels (Ghost, Cabinet) sat down at 1 while Amphora sat at 2. Teaching it to aim at the gap took
+        /// the match rate to 86 % and moved every one of those the right way at once — Ghost and Cabinet to
+        /// 4, Amphora to 3. <b>The separation is a property of a competent player and not of a threshold.</b>
+        /// </para>
+        /// <para>
+        /// A threshold fitted to twelve levels is still a threshold fitted to twelve levels, which is why
+        /// this reports rather than refuses — see <c>Program.RunSagGate</c>.
         /// </para>
         /// </summary>
-        internal const int SAG_RUNS_TO_REPORT = 3;
+        internal const int SAG_RUNS_TO_REPORT = 4;
 
         /// <summary>
         /// How many differently-ordered runs each level gets. The order matters and that is the point: a
@@ -598,26 +604,30 @@ namespace BS3D.Tools.LevelGen
 
             int reach = map.GetLowestOccupiedLevel() + AIM_BAND_LEVELS;
 
+            //⚠ A PLAYER AIMS AT THE GAP, NOT AT A BALL, and this is the third and last thing the model had to
+            //be taught. Aiming at a ball's centre lets ShotPlacement pick whichever cell of the ring the
+            //contact happens to fall nearest, which is very nearly arbitrary: the probe matched 29 % of its
+            //shots on Pylon, stacked the other 71 % onto the underside, and walked a column of its own misses
+            //down into the death line at shot 41 - then reported the LEVEL as sagging. So the candidates are
+            //EMPTY cells now, and the ones that would complete a group come first. The shot is still resolved
+            //by ShotPlacement against the live cluster; what changed is only where the barrel is pointed.
             for (byte level = 0; level <= reach && level < map.Levels; level++)
                 for (byte x = 0; x < map.StageSizeX; x++)
                     for (byte z = 0; z < map.StageSizeZ; z++)
                     {
-                        if (array[x, z, level] == null) continue;
+                        if (array[x, z, level] != null) continue;
 
                         XZLevel cell = new(x, z, level);
-                        anything.Add(cell);
 
-                        if (array[x, z, level].Type != loaded) continue;
-
-                        //A ball of the loaded colour that already touches one of its own: a ball landing
-                        //beside it makes MINIMUM_CLUSTER_SIZE. Asked of the neighbour rule rather than of the
-                        //whole group, because that is the shot a player can actually SEE is available.
+                        //Only cells against the cluster: a shot cannot stick to empty space, and aiming into
+                        //it is how the first cut of this wasted most of its candidates.
+                        bool touching = false;
                         foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(cell, size))
-                            if (array[neighbour.X, neighbour.Z, neighbour.Level]?.Type == loaded)
-                            {
-                                matching.Add(cell);
-                                break;
-                            }
+                            if (array[neighbour.X, neighbour.Z, neighbour.Level] != null) { touching = true; break; }
+
+                        if (!touching) continue;
+
+                        if (WouldMatch(map, cell, loaded)) matching.Add(cell); else anything.Add(cell);
                     }
 
             //The colour's own balls first and everything else behind them, each half shuffled: the caller
@@ -627,18 +637,24 @@ namespace BS3D.Tools.LevelGen
             Shuffle(anything, random);
             matching.AddRange(anything);
 
-            //Cost, and it is the one place this file trades fidelity for time: every candidate costs a sweep
-            //of the whole structure (ShotPlacement.TryFindFirstHit is O(cells)), and a level of a thousand
-            //balls offers hundreds of candidates. Forty is far past the handful a player considers and far
-            //short of what a full scan would cost - and the list is shuffled, so the forty are a fair sample
-            //rather than a corner of the map.
+            //How hard this player looks for a match before settling for a ball that merely sticks. Every
+            //candidate costs a sweep of the structure (ShotPlacement.TryFindFirstHit is O(cells)), which is
+            //nothing beside the 192 physics steps each shot is followed by - so the cap is about diminishing
+            //returns rather than time.
+            //
+            //⚠ It was FORTY and that was too few, on the levels where it matters most. Most candidates fail
+            //the visibility test - a ball of the loaded colour is usually somewhere in the body rather than
+            //on the face the gun sees - so a shallow search falls back to "any ball that sticks" far more
+            //often than a player would, and every such shot ADDS to the underside. On Pylon that flooded the
+            //field: 41 % of shots matched, the misses built six levels below the layout's own floor, and the
+            //level was scored as sagging when what had actually happened is that the probe played badly.
             if (matching.Count > AIM_CANDIDATES) matching.RemoveRange(AIM_CANDIDATES, matching.Count - AIM_CANDIDATES);
 
             return matching;
         }
 
         /// <inheritdoc cref="PickAimTargets"/>
-        private const int AIM_CANDIDATES = 40;
+        private const int AIM_CANDIDATES = 200;
 
         /// <summary>
         /// Where the gun points when it is not aiming anywhere else, and the length its aim target is thrown
@@ -732,9 +748,10 @@ namespace BS3D.Tools.LevelGen
             //with nothing to match still fires, and the ball that sticks is the point of firing at all.
             foreach (XZLevel candidate in candidates)
             {
-                //Aimed at the ball where it HANGS, not at the lattice cell it was drawn in: the cluster has
-                //been swinging and descending, and a player points the gun at what they can see.
-                Vector3 target = balls[candidate.X, candidate.Z, candidate.Level].BallReference.Pose.Position.ToXna();
+                //The gap itself, in the frame the cluster hangs in. Taken off the lattice rather than off a
+                //live body because an empty cell has no body to read - the drift the cluster has picked up is
+                //well under a cell, and the shot is resolved against the live structure regardless.
+                Vector3 target = map.GetRealCenteredPosition(candidate) + worldOffset;
 
                 //Stand facing the cell first, so the shot is the clean one over open ground rather than one
                 //fired across the whole cluster - the Testbed's aimshoot sweep makes the same move for the
@@ -745,14 +762,16 @@ namespace BS3D.Tools.LevelGen
                 if (!ShotPlacement.TryFindFirstHit(balls, cannon.Position, cannon.AimDirection, SHOT_RADIUS_SUM,
                         out PhysicsBall hit, out Vector3 contact)) continue;
 
-                if (hit.ArrayPosition.X != candidate.X || hit.ArrayPosition.Z != candidate.Z
-                    || hit.ArrayPosition.Level != candidate.Level) continue;   //occluded: not this player's shot
-
                 if (!ShotPlacement.TrySolveAgainstBall(map, hit, contact, worldOffset, out XZLevel solved,
                         out Vector3 solvedDrift)) continue;                    //both rings full: it would bounce
 
+                //The first shot that would stick anywhere, kept in case nothing matches: a player with no
+                //match available still fires, and the ball that sticks is the point of firing at all.
                 if (!found) { cell = solved; drift = solvedDrift; found = true; }
 
+                //What the gun ACTUALLY put there, which need not be the gap aimed at - the line may have met
+                //a ball short of it. Asked of the solved cell rather than of the intent, so a shot only counts
+                //as a match when it really is one.
                 if (!WouldMatch(map, solved, loaded.Value)) continue;
 
                 cell = solved;

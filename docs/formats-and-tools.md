@@ -142,21 +142,26 @@ The pack's one-shot band now runs **6–52 %** across the 44 generated levels �
 - **It aimed at balls it could not see.** Pointing the gun at a ball deep in the body meant `ShotPlacement` dutifully landed the shot beside whatever the *line* met first, usually another colour entirely — so almost nothing matched and the cluster **grew** while being cleared, 502 balls to 513 over eighteen shots. A candidate is only taken now if the sweep comes back holding that very ball.
 - **It was handed a zero orbit centre.** `Cannon.RecalculateRotation` builds its aim target as `Position + Transform(OrbitCenter, rotation)`, so that vector is doing double duty — a direction *and* the distance the aim point is thrown out to. Zero aims the gun at its own trunnions, `AimDirection` normalises `(0,0,0)` to NaN, and the probe fired nothing at all while scoring every level as survived. Both executables construct their cannon with `(0, 5, 0)`; so does this.
 
-The model now loads a colour the way `RandomBallType` does (uniform over the colours still standing, count-blind), aims only at balls the sweep confirms are visible, prefers the shot whose cell completes a group, and lets the two throws in three that complete nothing **stick** — which is what puts balls back onto the underside, and is the difference between a probe and a wrecking ball.
+Two more followed once it was firing, and both were found the same way — by reading a trace rather than by thinking about it:
+
+- **A bounce ended the run.** A shot that finds no free cell in either ring is the game's own bounce and costs a shot; the probe read it as *"this level cannot be played on"* and stopped, once with 946 balls still hanging, and scored the level as survived. The same shape of silent false pass as the NaN aim: a probe that stops playing reports no sag.
+- **It aimed at a ball rather than at a gap.** Pointing at a ball's centre lets `ShotPlacement` land the shot in whichever cell of the ring the contact falls nearest, which is very nearly arbitrary — **29 % of shots matched**, the other 71 % stuck to the underside, and on Pylon the probe walked a column of its own misses six levels below the layout's floor and into the death line at shot 41. Then reported the *level* as sagging. Candidates are **empty cells** now, the matching ones first: **86 %**.
+
+The model loads a colour the way `RandomBallType` does (uniform over the colours still standing, count-blind), aims at the gap, prefers the one that completes a group, and lets the shots that complete nothing **stick** — which is what puts balls back onto the underside, and is the difference between a probe and a wrecking ball.
 
 **Calibrated, and here is the calibration.** Three levels are known finishable from play and nine are known not to be. Against that set the probe reads:
 
 | known finishable | | reported unfinishable | |
 |---|---|---|---|
-| Saturn | 0 of 5 | Pylon, Pinecone, Pleat, Bolt, Totem | **5 of 5** |
-| Giza | 0 of 5 | Orrery, Globe | 3 of 5 |
-| Amphora | 2 of 5 | Ghost, Cabinet | 1 of 5 |
+| Giza | 0 of 5 | Pylon, Orrery, Globe, Pinecone, Pleat, Bolt, Totem | **5 of 5** |
+| Saturn | 2 of 5 | Ghost, Cabinet | **4 of 5** |
+| Amphora | 3 of 5 | | |
 
-**Three losing orders in five separates them cleanly: it names seven of the nine and none of the three.** That is `SAG_RUNS_TO_REPORT`, and it is the one threshold here fitted to play rather than chosen.
+**Four losing orders in five separates them completely: all nine reported named, none of the three finishable.** That is `SAG_RUNS_TO_REPORT`, and it is the one threshold here fitted to play rather than chosen. ⚠ It was three while the player was a poor shot, and the way it moved is the point: aiming at the gap instead of at a ball took the match rate from 29 % to 86 % and moved every level the right way at once — Ghost and Cabinet up from 1 to 4, Amphora down the ranking to 3. **The separation is a property of a competent player, not of a threshold.**
 
-Over the whole pack it now names **13 of the 90** where the first model named 38, and the distribution has a shape rather than a smear: **52 levels never sag at all**, 14 lose one order in five, 11 lose two, 7 lose three, 1 loses four and 5 lose all five. **Every level at four or five is one of the reported nine** — Pylon, Pinecone, Pleat, Bolt and Totem at 5, Globe at 4 — so precision at that end is perfect on everything play has established.
+The pack-wide sweep behind the sentences below was taken with the earlier, poorer player and has not been re-run since the gap-aiming fix; treat its figures as the shape of the answer rather than the answer.
 
-The six it names that were never reported are **Belfry, Organ, Vortex, Sail, Garland and Trellis**, all at exactly 3, and they are not a random six: Garland is where #182 found the strand-thickness wall, Trellis is where #253 found the pitch one, and slender members with nothing bracing them across is the property all six share. That is the probe agreeing with notes those designs already carry, which is the best evidence available that its extra names are worth reading. ⚠ It is still a threshold fitted to twelve levels, so the probe **refuses nothing** — it prints a ranking, and the levels it names are where to look first.
+The levels it named beyond the reported nine were **Belfry, Organ, Vortex, Sail, Garland and Trellis**, and they were not a random six: Garland is where #182 found the strand-thickness wall, Trellis is where #253 found the pitch one, and slender members with nothing bracing them across is the property all six share. That is the probe agreeing with notes those designs already carry, which is the best evidence available that its extra names are worth reading. ⚠ It is still a threshold fitted to twelve levels, so the probe **refuses nothing** — it prints a ranking, and the levels it names are where to look first.
 
 ### The anchor load: what the glass actually carries (#301, #302)
 
