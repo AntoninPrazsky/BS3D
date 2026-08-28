@@ -2538,3 +2538,35 @@ Se starými čísly: `PoleZ` = breechZ 2,5 + kopule 0,74 = **3,24**, stoh pod č
 **Zapsáno do:** `docs/game-shell.md` (celá tabulka), `.claude/skills/benchmark/SKILL.md` (páka a čísla) a do issue.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-28 — Claude Code (devadesátý první zápis)
+
+**Majitel si vyžádal i změření možnosti B u #298, aby měl obě čísla. Na mainu jako `f33e824`; issue zůstává otevřené.** Kartu jsem měl pořád (žádný cizí `BS3D`/`Testbed` neběžel).
+
+**Páka: `PostProcessPipeline.RenderScale`**, Testbed bere `rscale=<0.25..1>`, `[fps]` řádek tiskne vlastní velikost targetu. Smysl to má jen na `ssaa` 1 — obě páky jsou tentýž rozměr, tak nad jedničkou vyhrává faktor.
+
+**⚠ Proč to bylo vůbec potřeba postavit, a je to ten hezký kus: jeskyně a sen stínují backdrop o velikosti BACK BUFFERU a škálují ho nahoru (#155) — a ta cesta se spouští jen NAD `ssaa` 1.** Pod nativem tedy obě kreslí rovnou do menšího targetu jako všechno ostatní a jejich pass se zmenší s ním. B je proto jediná páka, která na jeskyni dosáhne, a jeskyně je ta scéna, co na slabém stroji sedí 27 % nad panelem na všech třech dnešních příčkách.
+
+**Resolve pak zvětšuje místo průměrování**, takže bere jeden **bilineární** vzorek místo box filtru (`MagnifyScene` v `Tonemap.fx`). Sampler box filtru je Point schválně; při zvětšování by to byl nearest-neighbour, což **měří stejně a vypadá jako nic, co by šlo vydat** — kdybych to nechal být, číslo by bylo správné a rozhodnutí o vzhledu postavené na nesmyslu. Druhý sampler nad touž texturou a `[branch]` na uniformě, ne druhá dvojice technik duplikovaná kvůli jednomu filter state.
+
+| scéna | 1,0 | 0,85 | 0,75 | 0,50 |
+|---|---|---|---|---|
+| hora | 4,33 ms | 3,37 (−0,96) | 2,84 (−1,49) | 1,72 (−2,61) |
+| jeskyně | 4,13 | 3,08 (−1,05) | 2,50 (−1,63) | 1,39 (−2,74) |
+| neonové město | 3,51 | 2,68 (−0,83) | 2,22 (−1,29) | 1,31 (−2,20) |
+| louka | 2,69 | 2,09 (−0,59) | 1,77 (−0,92) | 1,12 (−1,57) |
+
+- **0,85× samotné porazí vypnutí všech MSAA vzorků** na třech ze čtyř scén; na jeskyni je to 3,5× (1,05 proti 0,30).
+- **Sčítají se.** 2×2: hora 4,30 / 2,83 (scale) / 3,19 (vzorky) / **2,03** (obojí) = 2,27 z 2,58, 88 %; jeskyně 4,13 / 2,49 / 3,82 / **2,27** = 1,86 z 1,95, 95 %.
+- **⚠ Kontrola konzistence, která stála nula a stojí za zopakování: sloupec `rscale=1` reprodukoval sloupec `msaa=8` z úplně jiného sweepu na 0,02 ms na všech čtyřech scénách.** Když se dvě nezávislá měření takhle potkají, obě baseliny drží. Vždycky si do sweepu dej bod, který má odpovídat něčemu už změřenému.
+- **Vzhled** (okno 1600×900, statická geometrie, `nopost`): při 0,75× zůstávají spáry desek čitelné a mizí tečkování v drážkách a ostrost květů; při 0,50× mají spáry schodovité hrany a květy jsou skvrny.
+
+**⚠ A past, do které jsem spadl a málem na ní postavil závěr: první srovnání vzhledu jsem udělal na výřezu z KOULÍ a vyšlo, že se liší framing.** Nelišil — sestava mezi běhy dosedne jinak, protože fyzika běží po snímcích a každý běh má jiný frame rate. Na vzhled se musí porovnávat **statická** geometrie (kámen, tráva), jinak se srovnávají dva různé stavy světa a čte se to jako nález.
+
+**Nic v tieru ani jednu sondu nečte a shipnuté chování se nehnulo:** `RenderScale` je 1, `MagnifyScene` tam vychází 0, hra přeověřena na `quality=high` (`ssaa 2x`, snímek beze změny). Čtyři solutiony čisté.
+
+**Rozhodnutí zůstává majitelovo** a je pořád o vzhledu. Můj zapsaný odhad: `Low` = `rscale` 0,85 a vzorky nechat na osmi. Ale desktopová čísla **řadí páky, nedimenzují je** — rozhodující sweep je notebookův a je to jeden příkaz.
+
+**Nic dalšího si neberu.**
