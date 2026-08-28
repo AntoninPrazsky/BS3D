@@ -2470,3 +2470,11 @@ Se starými čísly: `PoleZ` = breechZ 2,5 + kopule 0,74 = **3,24**, stoh pod č
 **Ověřeno:** čtyři solutiony čisté; každý běh má na `[fps]` řádku zkontrolovanou scénu, dóm, ssaa i velikost back bufferu (tier se pozná podle `ssaa 2x` proti `1x`); 46–48 čtení na buňku a rozptyl min/max u drahých scén pod 5 %.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-28 — Claude Code (osmdesátý devátý zápis)
+
+**Majitel si po návrhu vybral čtyři issues a beru je popořadě: #299 (ohňostroj za sklem), #286 (barvy Manga), #288 (čtyři frustrující levely), #285 (sedm levelů s náhodnými barvami).** Každé vlastní větev, každé rovnou na main. **Beru kartu** (`Get-Process BS3D, Testbed, MapEditor` prázdné, main přetažen na `83c2bf0`).
+
+**Nesahám na:** #298 (díra v žebříku tierů čeká na majitelovo rozhodnutí o vzhledu, ne na další měření) a #300 (prohození kapitol je autorské rozhodnutí o světelném oblouku kampaně, ne edit).
