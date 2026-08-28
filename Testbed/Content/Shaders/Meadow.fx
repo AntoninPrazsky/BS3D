@@ -232,8 +232,28 @@ float4 MeadowPS(MeadowVertexOutput input) : COLOR
     float flowerRelief = present * resolvable * size * FlowerSpacing
         * (FLOWER_PETAL_RELIEF * petalProfile * (0.35 + 0.65 * lobes) + FLOWER_EYE_RELIEF * eyeDome);
 
+    //How much of this pixel the rosette OWNS, for the grass texture below — 1 at the flower's centre,
+    //falling to 0 at the scalloped rim (#283).
+    //
+    //⚠ THE SMOOTH PROFILE AND NOT flowerMask, AND THAT IS THE WHOLE CARE IN THIS FIX. The mask is
+    //antialiased over `aa`, i.e. a pixel and a half — and this weight goes into a height field that
+    //PerturbNormalFromHeight differentiates, so a mask-shaped falloff would put a pixel-wide step in the
+    //DERIVATIVE and light a hard ring right around every rosette. That is the seam the fix has to avoid,
+    //and it would have looked like a new bug rather than a botched fix for the old one. petalProfile is
+    //linear in radius, so its derivative is bounded by 1/petalEdge and the crossover is invisible. It is
+    //also the same profile the flower's own dome is built on, which is what makes the two complementary:
+    //where the flower stands tallest the grass texture is gone entirely, and they trade off at the rim.
+    //Zero at the cell border by the same construction that keeps flowerRelief zero there.
+    float flowerCover = present * resolvable * petalProfile;
+
     //Fine grass texture tilts the normal — and the rosette tilts it with it, one height field through one
-    //perturbation, so a flower catches the sun on its own domes instead of wearing the ground's shading
+    //perturbation. The grass's share is FADED OUT under the rosette (#283): summed in flat, it put the
+    //ground's own bumps and whatever the gust was doing at that point onto the petals, so a flower wore the
+    //grass's shading with its dome added on top rather than catching the sun on its own shape. The comment
+    //here claimed the latter and the code did the former — true only against the pre-#127 state, where a
+    //flower had no height at all and was a pure albedo swap. The colour had always isolated itself
+    //correctly (`lerp(grass, flowerColor, flowerMask)` replaces outright); this is the normal being given
+    //the same treatment.
     //ONE gust field, and everything the wind does reads off it (#276) — the grass leans by it below and the
     //shading darkens by it further down, so the bend and the band cannot disagree about where the wind is.
     //The speed handed over is the old plane wave's own PHASE speed, WindRippleSpeed / WindRippleFrequency,
@@ -242,7 +262,7 @@ float4 MeadowPS(MeadowVertexOutput input) : COLOR
     float gust = WindGust(worldPosition.xz, WindDirection, MeadowTime, WindRippleFrequency,
         WindRippleSpeed / max(WindRippleFrequency, 1e-4), footprint);
 
-    float relief = GrassRelief(worldPosition.xz, footprint, gust);
+    float relief = GrassRelief(worldPosition.xz, footprint, gust) * (1.0 - flowerCover);
     float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief + flowerRelief);
 
     //Grass color, varied in broad patches so the field is not one flat green
