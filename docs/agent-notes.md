@@ -2816,3 +2816,19 @@ Používá `AddLight` i `AddSceneLights` přesně jako `ShadePixel`, takže ohe�
 **Změřeno:** vinyl 621,9 / 621,9 proti kovu 654,4 / 650,2 — **o 4,9 % levnější**, nejlevnější styl. **⚠ Vinylová kontrola četla 621,9 proti 638–640 ze dvou předchozích sérií, tedy 2,6 % drift dolů** — věř poměru, ne absolutním číslům. (V mramorové a vlněné sérii byl drift 0,3 %.)
 
 **Nic dalšího si neberu.** Volné: #307 led, #308 drahokam, #309 plazma, #310 láva, #312 porcelán.
+
+**Dodatek (téhož dne) — #307 mrazivý led hotový. A našel díru, kterou #304 nechalo otevřenou; stálo mě to dvě kola ladění nesprávné věci.**
+
+**⚠⚠ NEJDŮLEŽITĚJŠÍ VĚC Z CELÉ DÁVKY: `BallRenderSet.ShadingOf` končilo `_ => BallShading.Vinyl`.** Led jsem přidal do enumu, do parseru, do render setu, do tabulky parametrů v rendereru i do shaderu — **a ne do toho switche**. Takže se kreslil jako **plážový míč**. Nic neselhalo: technika se přeložila, uniformy se cpaly do programu, který je nedeklaruje, a jediný příznak byl, že **změna hodnot ledu nezměnila na obrazovce nic** — což čte jako „shader nefunguje", ne jako „shader se nikdy nevybere". Dvakrát jsem přeladil praskliny naslepo, než mi došlo, že ty bledé pruhy jsou **gores**.
+
+**#304 kontroluje při loadu, že každý SHADING má techniku. Tohle je táž otázka o patro výš — že každý STYL má shading.** Mapa je teď **vyčerpávající a hází výjimku** místo fallbacku. Je to bezpečné tam, kde fallback není: volá to jen `ApplyStyle`, při **změně** stylu a ne per snímek, a každá hodnota, co tam doteče, je reálný člen enumu (`TryParse` jiný nevyrobí) — takže nenamapovaný člen je chyba programátora, ne špatný vstup. **Až budeš dělat #308/#309/#310/#312, tohle je to místo, na které se nejsnáz zapomene.**
+
+**Samotný led: je NEPRŮHLEDNÝ, a to je celé rozhodnutí.** #272 ho psalo jako „studeného bratrance bubliny"; postavit ho tak by stálo dvouprůchodovou mašinérii v `Draw`, zdvojený ball pass a znovuotevření všeho kolem `BUBBLE_BODY_OPACITY`. A není to ani správná fyzika: **námraza není čirý led**, námraza *je* krátkodosahový podpovrchový rozptyl a skrz matnou kuličku level nevidíš. Takže osvětlené těleso se silnou translucencí (`ICE_TRANSLUCENCY` 1,1 proti 0,35 vinylové slupky).
+
+**⚠ Ta translucence je celý read stylu a ze záběru od slunce ji nevidíš** — co říká „pevné, ale ne neprůhledné pro světlo", je koule s key světlem za sebou, která prosvítá vlastní barvou místo aby zčernala. Kdo tenhle styl bude posuzovat, musí si postavit kameru proti světlu.
+
+**⚠ Past v prasklinách:** test je psaný proti **surovému sinu**, ne přes `ReliefOctave`. `ReliefOctave` totiž s rostoucím pixelem tlumí **amplitudu** k nule, takže test `abs(v) < width` by ve chvíli, kdy vlna přestane být rozlišitelná, přečetl **celou kouli jako jednu prasklinu**. Tlumit se musí čára, ne pole.
+
+**Změřeno:** vinyl 622,2 / 621,3 proti ledu 633,0 / 628,8 — **o 1,5 % levnější**, proti bublině, která stojí 8–10 % navíc. To je ta neprůhlednost, jak se vyplácí.
+
+**Nic dalšího si neberu.** Volné: #308 drahokam, #309 plazma, #310 láva, #312 porcelán.

@@ -61,7 +61,18 @@ namespace Prazsky.BS3D.GameStructure
         /// where this style puts the tint.
         /// </para>
         /// </summary>
-        Metal = 4
+        Metal = 4,
+
+        /// <summary>
+        /// Frosted ice (#307): a ball of cloudy frozen water dyed the type colour, cracked through with bright
+        /// internal threads, cool and pale along its silhouette, and lit from inside where the sun is behind it.
+        /// <para>
+        /// Solid, not hollow — frosted ice is not clear ice, and you cannot see a level through a frosted
+        /// marble. That keeps it a different <i>material</i> from <see cref="Bubble"/> rather than a recolour of
+        /// one, and costs it none of the film's transparency machinery.
+        /// </para>
+        /// </summary>
+        Ice = 5
     }
 
     /// <summary>
@@ -110,6 +121,12 @@ namespace Prazsky.BS3D.GameStructure
                 case "anodised":
                 case "chrome":
                     style = BallStyle.Metal;
+                    return true;
+
+                case "ice":
+                case "frost":
+                case "frosted":
+                    style = BallStyle.Ice;
                     return true;
 
                 default:
