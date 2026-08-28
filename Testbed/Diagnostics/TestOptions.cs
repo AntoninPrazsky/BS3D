@@ -153,6 +153,13 @@ namespace Testbed.Diagnostics
         /// moves them - but that path runs only above <c>ssaa</c> 1, so below native they draw into the
         /// smaller target like everything else and the pass shrinks with it.
         /// </para>
+        /// <para>
+        /// <b>⚠ A MEASURING INSTRUMENT AND NOTHING ELSE.</b> The owner ruled on 2026-08-28, with these
+        /// figures in front of him, that the game always renders at the display's native resolution and that
+        /// no quality tier may ever lower it — a tier drops effects, not pixels. So this may be swept, and it
+        /// must not be shipped; see
+        /// <see cref="Prazsky.Core.Render.PostProcessPipeline.RenderScale"/> for the ruling in full.
+        /// </para>
         /// </summary>
         public float RenderScale { get; private set; } = -1f;
 

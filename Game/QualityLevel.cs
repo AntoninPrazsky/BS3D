@@ -14,7 +14,21 @@ namespace BS3D
     }
 
     /// <summary>
-    /// What one tier turns down, and the measured reason for each entry. Every figure below was measured on this
+    /// What one tier turns down, and the measured reason for each entry.
+    /// <para>
+    /// <b>⚠ ONE THING A TIER MAY NEVER TURN DOWN: THE RESOLUTION.</b> The scene is always drawn at the
+    /// display's native size, and a tier lowers <i>what is drawn</i> — a specular highlight may go, a relief
+    /// octave may go, a scene's own extras may go — never how many pixels it is drawn into. That is the
+    /// owner's standing ruling (#298, 2026-08-28) and it was given with the measurement in hand and against
+    /// it: rendering at 0.85× of native is the cheapest lever this frame has (0.59–1.05 ms across four scenes
+    /// on the reference desktop) and the only one that moves the cavern at all, and it is refused anyway,
+    /// because the magnified picture looks ugly and no frame rate buys that back.
+    /// <see cref="Prazsky.Core.Render.PostProcessPipeline.RenderScale"/> exists as a measuring instrument and
+    /// must stay one. <b>Note the direction</b>: supersampling ABOVE native is a legitimate entry and
+    /// <see cref="QualityLevel.High"/> carries one — it is only below 1× that is shut.
+    /// </para>
+    /// <para>
+    /// Every figure below was measured on this
     /// project's weakest development machine — a Ryzen 7 5700U with integrated Radeon graphics, windowed
     /// 1600×900, vsync off, on the front end (#64) — and the numbers quoted are the <b>neon city</b>, which is
     /// the most expensive of the fifteen scenes and therefore the one a tier has to be chosen against. The two
@@ -25,6 +39,7 @@ namespace BS3D
     /// meadow — all sat between 15 and 19 ms a frame at <c>High</c> and never needed a tier; forest, space,
     /// dream, cavern and the Moon arrived later and have not been through the same measurement, so nothing here
     /// claims a figure for them (the Moon's own measured cost is in "The Moon (Game)" in docs/scenes.md).
+    /// </para>
     /// <para>
     /// <b>The order of magnitude is the scene, not the tier</b>: the neon city against the sea was a spread of
     /// 6.8× on identical settings when the tiers were chosen, and is 1.9× since the sort. That is why the
