@@ -2784,3 +2784,19 @@ Co se změnilo: `bool GlassBubble` → `BallShading Shading` (nový enum v `Praz
 **⚠ K #250:** stroj během těch měření jednou spadl a **byl to právě uncapped běh**, ne screenshoty. Log jednoho `nocap` běhu končí useknutý tři řádky po startu při ~700 FPS. **Čas v události 6008 (22:14:37) není okamžik pádu** — je to poslední periodický zápis „ještě žiju" a zpožďuje se; useknutý log má razítko 22:15:03. Majitel řekl měřit dál, další čtyři uncapped běhy prošly bez problému.
 
 **Nic dalšího si neberu.** Volné z osmičky: #306 eloxovaný kov, #307 mrazivý led, #308 broušený drahokam, #309 plazma, #310 roztavená kůra, #311 klubko vlny, #312 popraskaný porcelán.
+
+**Dodatek (téhož dne) — #311 vlna hotová. A dohromady s mramorem z toho leze pravidlo, které stojí za zapamatování víc než oba ty styly.**
+
+`InstancedModelWool`: klubko příze. Vinutí kolem **tří os**, mezi kterými nízkofrekvenční maska (`exp2` pomalé vlny, znormalizovaná — laciné měkké maximum) většinou vybere **jednu** na region, takže vzniknou široké plochy rovnoběžných pramenů a prameny se kříží až ve švech mezi nimi. Jedna osa je cívka nití, ne klubko. K tomu wrapped diffuse (přičtený jen jako **rozdíl** proti Lambertovi, který `ShadePixel` už udělal, takže nemůže rozsvítit přisvětlenou stranu) a chlupatá halo ve **vlastní barvě koule**, nikdy oblohy.
+
+**⚠ TO PRAVIDLO: figura z BARVY soupeří se stínováním a může prohrát; figura z NORMÁLY stínováním JE a prohrát nemůže.** Mramorová žíla zmizela na šesti ze třinácti typů a musela se dvakrát přestavět (viz předchozí dodatek). Vlněné prameny čtou na všech třinácti hned napoprvé, černou včetně, protože hřbet pramene mění samotné světlo. **Pro každý další styl z té osmičky preferuj figuru v normále**, a barevnou ber jako něco, co se musí vyfotit proti celé paletě, než tomu uvěříš.
+
+Dvě čísla jsem ladil proti renderu, ne proti fotce příze:
+- `WOOL_STRAND_FREQUENCY` = 24 (asi osm křížení přes průměr) je dané **velikostí koule na obrazovce** — pramen musí být na herní vzdálenost několik pixelů široký, jinak se vinutí zprůměruje do plochy a vezme s sebou i cue rotace.
+- `WOOL_EMISSION` = **0,24** proti vinylovým 0,5. Emise se přičítá **plošně a nestínovaně**, takže na materiálu, který nemá skoro žádný specular, ji nic nevyváží: koule přestaly číst jako koule a byly z nich disky s texturou. Vidět na vesmírném dómu, evidentní jakmile byla figura správně.
+
+**Změřeno** (týž nástroj, `Eleven` pod jeskyní, 959 koulí, 1600×900, ssaa 2×, high, vsync off): vinyl 639,7 / 639,3 proti vlně 646,9 / 643,3 — **parita s vinylem, o ~0,9 % levnější**. Vinylová kontrola četla 639,x proti 638,0 z mramorové série, tedy 0,3 % drift; to je opakovatelnost toho nástroje.
+
+**Ověřeno** na `Kepler` (všech třináct) pod vesmírem a na levelu 1 na louce, obojí s vypnutými post efekty. Vlna je znatelně plošší než mramor — to je záměr, je to ten měkký styl —, ale na louce, kam patří, drží tvar koule dobře.
+
+**Nic dalšího si neberu.** Volné: #306 kov, #307 led, #308 drahokam, #309 plazma, #310 láva, #312 porcelán.
