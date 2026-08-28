@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using Prazsky.BS3D.GameStructure;
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Levels;
 using Prazsky.Core.Render;
@@ -4574,19 +4574,24 @@ namespace BS3D.Tools.LevelGen
         private const int PAGODA_FINIAL_TOP = 3;
 
         //The core quadrants' palette, clockwise from NE, rotated one step per storey going down
+        //#285: {green, blue, yellow, magenta} until the owner reported this tower reading as randomly
+        //coloured. The storeys are the QUIET half of a pagoda - plastered wall and timber post, with two
+        //painted panels - and they have to stay out of the roofs, which carry the level's colour: the eaves
+        //are lacquer and gilt and the tiles are slate. None of these four is a roof ink, so no storey can
+        //merge into the roof above or below it, which is what the quadrant cut exists to prevent.
         private static readonly BallType[] PAGODA_CORE_COLOURS =
         {
-            BallType.Type2,   //green
-            BallType.Type3,   //blue
-            BallType.Type7,   //yellow
-            BallType.Type6,   //magenta
+            BallType.Type4,   //white - plastered wall
+            BallType.Type3,   //blue - a painted panel
+            BallType.Type10,  //brown - timber post
+            BallType.Type2,   //green - a painted panel
         };
 
         //The roofs' own two palettes, cut by quadrant and rotated a step per roof - see PagodaColour for
         //the measurement that put them there. Two entries against four quadrants means a colour is two
         //OPPOSITE sheets, which touch nowhere: the arrangement that cannot make a plate out of a course.
-        private static readonly BallType[] PAGODA_EAVE_COLOURS = { BallType.Type1, BallType.Type9 };   //red, orange
-        private static readonly BallType[] PAGODA_TILE_COLOURS = { BallType.Type10, BallType.Type8 };  //brown, black
+        private static readonly BallType[] PAGODA_EAVE_COLOURS = { BallType.Type1, BallType.Type7 };   //lacquered eaves: red and gold. Red/orange measures 14.1 dE, the palette's TIGHTEST pair (#285); red/gold is 44.8
+        private static readonly BallType[] PAGODA_TILE_COLOURS = { BallType.Type11, BallType.Type12 }; //slate tiles: silver and navy. Brown/black measures 19.2 dE, the palette's fourth tightest (#285); silver/navy is 24.9
 
         /// <summary>
         /// Which quadrant of the tower a cell is in, 0..3 clockwise from NE - measured against the course's
@@ -4623,7 +4628,7 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private static BallType PagodaColour(int x, int z, int i)
         {
-            if (i <= PAGODA_FINIAL_TOP) return BallType.Type5;                       //cyan - one 30-ball group
+            if (i <= PAGODA_FINIAL_TOP) return BallType.Type7;                       //gold - the gilded finial, one 30-ball group
 
             //THE ROOFS ARE CUT BY QUADRANT, and that is measured rather than drawn. A pagoda is a vertical
             //CHAIN - core storey, roof, core storey, roof - so every roof is the sole link between what is
@@ -5189,6 +5194,24 @@ namespace BS3D.Tools.LevelGen
         #endregion
 
         #region The coiled levels (#207)
+
+        //EVERY LEVEL HERE HAS A SUBJECT AND ITS PALETTE HAS TO SAY SO (#285). All five shipped with a colour
+        //rule that was nothing but the group topology — one free ink per member, so a crane came out with a
+        //green mast, a magenta stay, a silver-and-blue jib and a brown-and-white counterweight, and the owner
+        //read the block as "like a child randomly tried colours". The topology is LOAD-BEARING and none of it
+        //moved: which member gets its own ink, which pairs are banded so a released colour thins a beam
+        //instead of severing it, and which are diagonal so no ink lists a rope both ways, all stand exactly as
+        //they were. What changed is only WHICH ink each member wears, so every group, every best-single-shot
+        //figure and every lone/pair count in the doc comments below is untouched by construction.
+        //
+        //The bar is Horn (#33): its rule is nothing but reading what is coming — white core, red flesh, gold
+        //skin, three shells ordered by radius, so the object reads as designed rather than as parts. A rig
+        //cannot be ringed by radius, so the equivalent here is a SUBJECT: an orange-and-yellow crane on a grey
+        //steel jib with a red load; a Calder mobile, primaries hung on black-and-grey wire; a suspension bridge
+        //in International Orange over a grey roadway; a jewel on a gold chain and a steel one; a web with the
+        //one warm thing in it being the spider. Where two inks touch they are checked against measured
+        //CIEDE2000 (.claude/skills/screenshot/palette.ps1 -Focus), which is what kept red off orange and
+        //yellow off white.
 
         //Helix was the level the author singled out - "right after launch it bounces like a spring, which
         //looks great and finally exploits the physics potential of the game" - and this block is the ask that
@@ -5774,8 +5797,8 @@ namespace BS3D.Tools.LevelGen
                 int run = (PENDANT_DEPTH - 1 - i) / PENDANT_RUN;
 
                 return strand == 1
-                    ? Band(run, new[] { BallType.Type1, BallType.Type4 })    //red, white
-                    : Band(run, new[] { BallType.Type5, BallType.Type6 });   //cyan, magenta
+                    ? Band(run, new[] { BallType.Type7, BallType.Type9 })    //the gold chain: gold, shadowed gold
+                    : Band(run, new[] { BallType.Type5, BallType.Type3 });   //the steel chain: cyan, blue
             }
 
             //The ring and the tie are one ink in two groups four levels apart: the tie is a redundant member
@@ -5784,7 +5807,7 @@ namespace BS3D.Tools.LevelGen
 
             //The stone: a blue course between two green ones, and the tip takes the course above it so the
             //single ball at the point is never a group of one
-            return PENDANT_STONE_TOP - i == 1 ? BallType.Type3 : BallType.Type2;   //blue, green
+            return PENDANT_STONE_TOP - i == 1 ? BallType.Type4 : BallType.Type6;   //the gem: a white crown facet over magenta
         }
 
         /// <summary>
@@ -5843,7 +5866,7 @@ namespace BS3D.Tools.LevelGen
             {
                 //The spider first: the blob is ONE black body and the threads converge into it, so the cells
                 //inside WEB_SPIDER are its thorax rather than five thread ends meeting in the open
-                if (WebSpider(r, i)) return BallType.Type8;   //black
+                if (WebSpider(r, i)) return BallType.Type1;   //red - the one warm thing in the level
 
                 int spoke = WebSpoke(r, ang, i);
 
@@ -5899,7 +5922,7 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private static readonly BallType[] WEB_THREADS =
         {
-            BallType.Type1,    //red
+            BallType.Type3,    //blue
             BallType.Type5,    //cyan
             BallType.Type6,    //magenta
             BallType.Type2,    //green
@@ -6113,14 +6136,14 @@ namespace BS3D.Tools.LevelGen
             //The mast above the jib, and the stay: the level's two glass anchors, one ink each, and the only
             //two colours standing on the plate
             if (i >= CRANE_MAST_GREEN && RigWithin(cx, CRANE_MAST_LOW, CRANE_MAST_LOW + 1))
-                return BallType.Type2;    //green
+                return BallType.Type9;    //orange - the tower, in crane paint
 
-            if (i >= CRANE_STAY_FOOT) return BallType.Type6;   //magenta
+            if (i >= CRANE_STAY_FOOT) return BallType.Type7;   //yellow - the stay, the same paint a shade off
 
             //The jib in 2-cell segments, the mast's own two columns included: the segments alternate so a
             //jib shot strands nothing, and the middle one is the jib ROOT the counter-jib arm hangs on
             if (RigWithin(i, CRANE_JIB_BOTTOM, CRANE_JIB_BOTTOM + 1))
-                return Band((cx - CRANE_JIB_LOW) / 2, new[] { BallType.Type11, BallType.Type3 });   //silver, blue
+                return Band((cx - CRANE_JIB_LOW) / 2, new[] { BallType.Type11, BallType.Type8 });   //the steel lattice: silver, black
 
             //The counterweight in 2-level courses (the Harp graft), brown against the jib's silver rather
             //than white against it - the one confusable pair this palette could have made
@@ -6292,7 +6315,7 @@ namespace BS3D.Tools.LevelGen
         private static BallType MobileColour(int cx, int cz, int i)
         {
             //The two legs, above the beam they stand on: one ink each, and the only two on the glass level
-            if (i >= MOBILE_LEG_FOOT) return cx < 0 ? BallType.Type1 : BallType.Type5;   //red, cyan
+            if (i >= MOBILE_LEG_FOOT) return cx < 0 ? BallType.Type1 : BallType.Type8;   //Calder red, black wire
 
             //The big bob, the one mass in the sculpture and the only thing this far out on the short arm
             if (RigWithin(i, MOBILE_BOB_BOTTOM, MOBILE_BOB_TOP) && cx <= MOBILE_BOB_X_LOW + 3)
@@ -6303,15 +6326,15 @@ namespace BS3D.Tools.LevelGen
             if (RigWithin(i, MOBILE_BEAM_BOTTOM, MOBILE_BEAM_BOTTOM + 1)
                 || (RigWithin(i, MOBILE_ARM_BOTTOM, MOBILE_ARM_BOTTOM + 1)
                     && RigWithin(cx, MOBILE_ARM_LOW, MOBILE_ARM_HIGH)))
-                return cz == RIG_ROW_LOW ? BallType.Type4 : BallType.Type10;   //white, brown
+                return cz == RIG_ROW_LOW ? BallType.Type4 : BallType.Type11;   //the wire beams: white, silver
 
             //The two small bobs: bob A is red in its own group, half a sculpture away from the leg that
             //shares the ink; bob B is magenta and fused with its own rope's magenta diagonal on purpose
             if (i <= MOBILE_SMALL_BOTTOM + 1)
-                return cx <= MOBILE_BOB_A_LOW + 1 ? BallType.Type1 : BallType.Type6;   //red, magenta
+                return cx <= MOBILE_BOB_A_LOW + 1 ? BallType.Type1 : BallType.Type7;   //Calder red, Calder yellow
 
             //Every rope link in two diagonal inks, so no colour severs any single one
-            return RigDiagonal(cx, cz) == 0 ? BallType.Type2 : BallType.Type6;   //green, magenta
+            return RigDiagonal(cx, cz) == 0 ? BallType.Type12 : BallType.Type7;   //the hanging wires: navy, yellow
         }
 
         /// <summary>
@@ -6460,26 +6483,26 @@ namespace BS3D.Tools.LevelGen
 
             //The caps take the glass and the course under it, so a leg's whole route up is an ink it does
             //not share: release a leg and its cap stands on the twin leg
-            if (i >= BRIDGE_CAP_BOTTOM) return BallType.Type2;   //green
+            if (i >= BRIDGE_CAP_BOTTOM) return BallType.Type10;   //brown - the tower tops, dark over the orange
 
             //The deck in 2-cell segments, the bearings included - taking a bearing segment unseats one end
             if (RigWithin(i, BRIDGE_DECK_BOTTOM, BRIDGE_DECK_BOTTOM + 1)
                 && across <= BRIDGE_DECK_X && plane <= BRIDGE_PLANE_LOW)
-                return Band((cx + BRIDGE_DECK_X) / 2, new[] { BallType.Type4, BallType.Type3 });   //white, blue
+                return Band((cx + BRIDGE_DECK_X) / 2, new[] { BallType.Type4, BallType.Type11 });   //the roadway: white, silver
 
             //The hangers in diagonal pairs (the Harp graft), olive standing nowhere else in the level
             if (RigWithin(i, BRIDGE_HANGER_BOTTOM, BRIDGE_HANGER_BOTTOM + 1)
                 && RigWithin(across, BRIDGE_HANGER_X, BRIDGE_HANGER_X + 1))
-                return RigDiagonal(cx, cz) == 0 ? BallType.Type6 : BallType.Type13;   //magenta, olive
+                return RigDiagonal(cx, cz) == 0 ? BallType.Type12 : BallType.Type5;   //the cold hanger wire: navy, cyan
 
             //One ink per cable, so no single colour lists the span both ways
             if (across < BRIDGE_CABLE_LEVEL.Length && plane >= BRIDGE_PLANE_LOW
                 && RigWithin(i, BRIDGE_CABLE_LEVEL[across], BRIDGE_CABLE_LEVEL[across] + 1))
-                return cz < RIG_ROW_LOW + 1 ? BallType.Type1 : BallType.Type5;   //red, cyan
+                return cz < RIG_ROW_LOW + 1 ? BallType.Type1 : BallType.Type7;   //the main cables, lit: red, gold
 
             //The legs, four of them and four separate groups: the deck's own cells stand between the two
             //legs of a pylon, so no pair of them is ever one brown group
-            return BallType.Type10;   //brown
+            return BallType.Type9;   //orange - the towers, International Orange
         }
 
         #endregion
@@ -8080,9 +8103,9 @@ namespace BS3D.Tools.LevelGen
         //to turn if the first run's ratio lands outside the block's 1.3-1.7 band, in either direction.
         private const int CABINET_BLOCK = 4;
 
-        private static readonly BallType[] CABINET_WOOD = { BallType.Type10, BallType.Type9 };     //brown, orange
-        private static readonly BallType[] CABINET_MARQUEE = { BallType.Type7, BallType.Type6 };   //yellow, magenta
-        private static readonly BallType[] CABINET_PANEL = { BallType.Type2, BallType.Type8 };     //green, black
+        private static readonly BallType[] CABINET_WOOD = { BallType.Type12, BallType.Type8 };     //the cabinet body: navy over black, as an arcade cabinet is
+        private static readonly BallType[] CABINET_MARQUEE = { BallType.Type6, BallType.Type5 };   //the marquee, in neon: magenta and cyan
+        private static readonly BallType[] CABINET_PANEL = { BallType.Type11, BallType.Type1 };     //the control panel: brushed silver with a red button run
 
         /// <summary>
         /// The screen, seven wide by five tall, top row first, drawn on BOTH cells of the front wall's
