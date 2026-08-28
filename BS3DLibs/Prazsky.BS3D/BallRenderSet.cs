@@ -401,6 +401,36 @@ namespace Prazsky.BS3D
         /// </summary>
         private const float WOOL_EMISSION = 0.24f;
 
+        /// <summary>
+        /// Wave count of the brush grain over a metal ball (#306). Far finer than the wool's winding, because a
+        /// brushed finish is many lines and not a few: what has to survive at the stand-off a level is played
+        /// from is not an individual line — it is the <i>direction</i> the highlight streaks along, and that
+        /// reads even once the lines themselves are below a pixel and the band-limit has faded them.
+        /// </summary>
+        private const float METAL_BRUSH_FREQUENCY = 26f;
+
+        /// <summary>
+        /// Peak height of a brush ridge in world units — a third of the wool strand's, against a ball radius of
+        /// 0.5. A polish direction, not a corrugation.
+        /// </summary>
+        private const float METAL_BRUSH_DEPTH = 0.010f;
+
+        /// <summary>
+        /// How much of the environment a metal ball mirrors. Over 1 deliberately, and it is the figure this
+        /// style cannot do without: there is <b>no diffuse term underneath</b> to carry the ball, so unlike
+        /// every other style's reflection dial this one is the whole of what makes it visible. Under about 1.2
+        /// a cluster goes dark against everything but the brightest domes.
+        /// </summary>
+        private const float METAL_REFLECTANCE = 1.6f;
+
+        /// <summary>
+        /// How much of its own colour a metal ball radiates. The lowest of any style, and for a reason that is
+        /// the style's own logic: a metal is the one surface here that has no inside for light to come out of,
+        /// so a strong self-glow reads as the thing not being metal at all. It is not zero only because the
+        /// heartbeat is what the balls ARE.
+        /// </summary>
+        private const float METAL_EMISSION = 0.18f;
+
         #endregion
 
         #region Neighbour-based ambient occlusion (issue #40)
@@ -642,6 +672,13 @@ namespace Prazsky.BS3D
                         renderer.BubbleBodyOpacity = BUBBLE_BODY_OPACITY;
                         break;
 
+                    case BallStyle.Metal:
+                        renderer.EmissiveStrength = METAL_EMISSION;
+                        renderer.MetalBrushFrequency = METAL_BRUSH_FREQUENCY;
+                        renderer.MetalBrushDepth = METAL_BRUSH_DEPTH;
+                        renderer.MetalReflectance = METAL_REFLECTANCE;
+                        break;
+
                     case BallStyle.Wool:
                         renderer.EmissiveStrength = WOOL_EMISSION;
                         renderer.WoolStrandFrequency = WOOL_STRAND_FREQUENCY;
@@ -676,6 +713,7 @@ namespace Prazsky.BS3D
             BallStyle.Bubble => BallShading.Bubble,
             BallStyle.Marble => BallShading.Marble,
             BallStyle.Wool => BallShading.Wool,
+            BallStyle.Metal => BallShading.Metal,
             _ => BallShading.Vinyl
         };
 

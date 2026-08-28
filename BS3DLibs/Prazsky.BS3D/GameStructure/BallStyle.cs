@@ -50,7 +50,18 @@ namespace Prazsky.BS3D.GameStructure
         /// the safest style in the set on the thirteen colours.
         /// </para>
         /// </summary>
-        Wool = 3
+        Wool = 3,
+
+        /// <summary>
+        /// Anodised metal (#306): a turned, brushed alloy in the type colour — gold, copper, brass, oxidised
+        /// titanium, gunmetal — mirroring the dome in its own hue.
+        /// <para>
+        /// Not chrome, deliberately. A white mirror has no colour of its own and thirteen of them are thirteen
+        /// identical balls; a metal carries its hue in <i>what it does to the light it reflects</i>, which is
+        /// where this style puts the tint.
+        /// </para>
+        /// </summary>
+        Metal = 4
     }
 
     /// <summary>
@@ -93,6 +104,12 @@ namespace Prazsky.BS3D.GameStructure
                 case "wool":
                 case "yarn":
                     style = BallStyle.Wool;
+                    return true;
+
+                case "metal":
+                case "anodised":
+                case "chrome":
+                    style = BallStyle.Metal;
                     return true;
 
                 default:

@@ -62,6 +62,17 @@ namespace Prazsky.Core.Render
         /// be swamped by it.
         /// </para>
         /// </summary>
-        Wool = 3
+        Wool = 3,
+
+        /// <summary>
+        /// Anodised metal (#306): the type colour as a metal's <i>reflectance</i> rather than as a body colour,
+        /// so thirteen alloys mirror the same dome in thirteen colours. Drawn by <c>InstancedModelMetal</c>.
+        /// <para>
+        /// It has <b>no diffuse term at all</b> — every photon leaving it bounced off it — and a brushed grain
+        /// in object space, which is not a detail but the whole rotation cue: a perfect mirror sphere spinning
+        /// looks identical frame to frame.
+        /// </para>
+        /// </summary>
+        Metal = 4
     }
 }

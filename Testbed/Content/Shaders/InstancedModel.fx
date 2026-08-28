@@ -1947,6 +1947,155 @@ technique InstancedModelWool
     }
 };
 
+//===================================================================================================
+//ANODISED METAL (#306): thirteen alloys, not thirteen mirrors. #272 proposed chrome and named its own
+//fatal objection in the same breath - a near-mirror dilutes its own tint by construction - and that
+//objection is correct AS STATED. A mirror has no albedo, so thirteen chrome balls are thirteen balls
+//the same colour, and the game cannot afford that.
+//
+//BUT IT IS ONLY TRUE OF A WHITE METAL. A metal's colour lives in what it does to the light it
+//REFLECTS: its reflectance at normal incidence IS its colour, which is why gold reflects gold. So the
+//tint becomes F0 and there is NO DIFFUSE TERM AT ALL - every photon leaving this surface bounced off
+//it. Gold, copper, brass, oxidised titanium, gunmetal, thirteen of them, each mirroring the same dome
+//in its own colour.
+//
+//THE SKY IS THE ALBEDO NOW, WHICH IS THE SAME FAULT THE FILM HAS BY ANOTHER ROAD, and it takes the
+//same departure from physics. A red metal under a blue sky is tint x sky = nearly black; #258 found
+//exactly this for a red film over the meadow and its answer applies unchanged - take the environment
+//as a BRIGHTNESS and not as a colour (Rec. 709 luminance, then multiplied by the alloy). What is NOT
+//given up is the grazing rim: Fresnel rises to a full mirror there whatever the metal, so the sky's
+//real colour comes back at the silhouette, where it is physically right and where it cannot be
+//mistaken for the ball's own hue. The blend between the two IS Schlick's own shape, so nothing is
+//bolted on: the body is tinted-by-luminance, the rim is the honest mirror.
+//
+//THE ROTATION CUE IS THE REAL DESIGN PROBLEM OF THIS STYLE and it is not optional (contract point 6). A
+//perfect mirror sphere spinning looks IDENTICAL frame to frame - the reflection is view- and
+//world-dependent and nothing on the surface turns. So the metal is BRUSHED: fine parallel ridges in
+//OBJECT space, which give the highlight something to travel over as the ball turns and read as turned
+//metal rather than as a chrome bead. It is also a figure in the NORMAL rather than in the colour,
+//which is the lesson #305 and #311 paid for together - see WoolPS's header.
+//===================================================================================================
+
+//Wave count of the brush grain over the ball. High: a brushed finish is many fine parallel lines, and
+//the band-limit inside ReliefOctave fades them out honestly as the ball shrinks.
+float MetalBrushFrequency;
+
+//Peak height of a brush ridge in world units. Very small - this is a polish direction, not a corrugation,
+//and anything deep enough to see as ridges stops being brushed metal and becomes a screw thread.
+float MetalBrushDepth;
+
+//How much of the environment the surface mirrors. The one figure the C# side states, because it decides
+//how bright a cluster of these is against its backdrop and there is no diffuse term underneath to carry
+//the ball if it is set too low.
+float MetalReflectance;
+
+//The brush direction, and the second octave riding along nearly the same one. Both are wave directions,
+//so the RIDGES run across them - fine parallel lines, which is what brushing leaves.
+static const float3 MetalBrushA = float3(0.31, 0.88, 0.36);
+static const float3 MetalBrushB = float3(0.27, 0.91, 0.31);
+
+//How bright the direct lights' highlight is on the metal, tinted by the alloy like everything else it
+//reflects. Under 1 because the environment is the main event here and a metal that answers the three-light
+//rig as strongly as it answers the sky reads as a plastic ball with a lot of gloss.
+static const float MetalHighlight = 0.6;
+
+//How far down the alloy's own hue F0 is allowed to go. WITHOUT THIS THE BLACK BALL IS NOT A BALL: Type8's
+//tint is a 0.045 grey, and a mirror that reflects 4.5% of a dim sky is a hole in the picture. The floor is
+//taken along the tint's OWN HUE at full brightness, so it lifts the dark types into a gunmetal without
+//turning any of the coloured ones grey.
+static const float MetalF0Floor = 0.16;
+
+//How hard the reflection is crowded into the silhouette on its way from tinted body to honest mirror.
+//Schlick's own exponent - this is the standard curve and not a tuned one.
+static const float MetalGrazingPower = 5.0;
+
+float4 MetalPS(PatternVertexShaderOutput input) : COLOR
+{
+    float radius = max(length(input.ObjectPosition), 1e-5);
+    float3 direction = input.ObjectPosition / radius;
+
+    //Contract point 1.
+    float dissolveNoise = DissolveNoise(floor(input.Position.xy / DissolvePixelSize));
+    clip(input.Dissolve >= 0 ? dissolveNoise - input.Dissolve : -input.Dissolve - dissolveNoise);
+
+    float footprint = (length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition))) / radius;
+
+    //Contract point 6: the brush, in object space, so it turns with the ball. Two waves along nearly the
+    //same direction leave fine parallel ridges running across it.
+    float grain = 0.65 * ReliefOctave(direction, MetalBrushA, MetalBrushFrequency, footprint)
+        + 0.35 * ReliefOctave(direction, MetalBrushB, MetalBrushFrequency * 1.73, footprint);
+
+    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, grain * MetalBrushDepth);
+    float3 eyeVector = normalize(EyePosition - input.WorldPosition);
+
+    float3 primary = SrgbToLinear(PatternPrimaryColor);
+
+    //The alloy: the tint as reflectance at normal incidence, floored along its own hue so the dark types
+    //are gunmetal rather than holes. See MetalF0Floor.
+    float peak = max(primary.r, max(primary.g, primary.b));
+    float3 f0 = max(primary, primary / max(peak, 1e-3) * MetalF0Floor);
+
+    //The three-light rig and the scene's own point lights, accumulated exactly as ShadePixel does it so a
+    //campfire or the city's neon lights a metal ball the way it lights everything else. Only the SPECULAR
+    //half is kept: a metal has no diffuse, which is the single biggest cue that it is one.
+    float3 diffuse = 0;
+    float3 specular = 0;
+
+    AddLight(normalize(KeyLightPosition - input.WorldPosition), DirLight0DiffuseColor, DirLight0SpecularColor, worldNormal, eyeVector, diffuse, specular);
+
+    specular *= CloudSunlight(input.WorldPosition, SunDirection);
+
+    AddLight(-DirLight1Direction, DirLight1DiffuseColor, DirLight1SpecularColor, worldNormal, eyeVector, diffuse, specular);
+    AddLight(-DirLight2Direction, DirLight2DiffuseColor, DirLight2SpecularColor, worldNormal, eyeVector, diffuse, specular);
+
+    specular *= DirLightStrength;
+
+    AddSceneLights(input.WorldPosition, worldNormal, eyeVector, diffuse, specular);
+
+    //The environment, along the mirror direction. Tinted by LUMINANCE at the body and left honest at the
+    //rim, blended on Schlick's own curve - see the header for why that is not a compromise but the whole
+    //design.
+    float3 environment = SkyRadiance(reflect(-eyeVector, worldNormal));
+    float grazing = pow(1 - saturate(dot(worldNormal, eyeVector)), MetalGrazingPower);
+
+    float3 reflection = lerp(f0 * dot(environment, float3(0.2126, 0.7152, 0.0722)), environment, grazing);
+
+    float occlusion = SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
+
+    float4 shaded = float4((reflection * MetalReflectance + specular * f0 * MetalHighlight) * occlusion, 1);
+
+    //Contract point 2.
+    float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
+
+    shaded.rgb += primary * EmissiveStrength * lerp(1 - PulseDepth, 1, beat);
+
+    //Contract point 3, both meanings, PatternPS's arithmetic.
+    [branch]
+    if (RippleStrength > 0)
+    {
+        float amount = abs(input.Ripple);
+
+        float3 lit = shaded.rgb + lerp(primary / max(peak, 1e-3), 1.0, RippleWhiten) * (RippleStrength * amount);
+        float3 alarmed = lerp(shaded.rgb, RippleAlarmColor * RippleAlarmBrightness, amount * RippleAlarmCoverage);
+
+        shaded.rgb = input.Ripple < 0 ? alarmed : lit;
+    }
+
+    //Contract point 5.
+    shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
+
+    return ApplyKillPlaneFade(shaded, input.WorldPosition);
+}
+
+technique InstancedModelMetal
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL PatternVS();
+        PixelShader = compile PS_SHADERMODEL MetalPS();
+    }
+};
+
 //Detail texturing: a texture that only modulates the existing material colors
 //(DetailStrength 0 = untextured look), mapped either through the model's own UVs
 //(InstancedModelDetailUV — required for objects that move, or the texture would swim
