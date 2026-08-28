@@ -17,5 +17,10 @@
   <ItemGroup>
     <ProjectReference Include="..\..\BS3DLibs\Prazsky.BS3D\Prazsky.BS3D.csproj" />
     <ProjectReference Include="..\..\BS3DLibs\Prazsky.Core\Prazsky.Core.csproj" />
+    <!--The sag gate (SagProbe, #301/#302) hangs a level in the REAL simulation rather than reading its
+        layout, which is the only instrument that has ever found this class of fault — see that file's own
+        doc. Bepu needs no graphics device either, so the tool stays a plain net10.0 console app that draws
+        nothing and opens no window.-->
+    <ProjectReference Include="..\..\BS3DLibs\Prazsky.BS3D.Physics\Prazsky.BS3D.Physics.csproj" />
   </ItemGroup>
 </Project>

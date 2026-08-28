@@ -322,24 +322,16 @@ namespace BS3D.Screens
         private Vector3 _clusterWorldOffset;
 
         /// <summary>
-        /// The height the field's topmost level hangs at — for every field shallow enough that hanging it
-        /// here keeps its bottom level clear of the death line; a deeper one is raised past it (see
-        /// <see cref="FIELD_FLOOR_MARGIN"/>). It is where the previous hard-coded field put its top
-        /// ((16-1)/√2 − 7/√2 = 8/√2), kept exactly so the camera, the gun and the ceiling frame a loaded
-        /// level the way they framed that one.
-        /// <para>
-        /// <b>Its own number, deliberately.</b> It used to be written as
+        /// The height the field's topmost level hangs at — <see cref="ClusterHang.FIELD_TOP_Y"/>, aliased here
+        /// because this screen reads it in several places and because the reason it is <b>its own number</b>
+        /// is a fact about this file: it used to be written as
         /// <c>(FALLBACK_FIELD_LEVELS - 1 - FALLBACK_EXTRA_LEVELS) / √2</c>, which arrives at the same 8 and made
         /// the height of <i>every</i> loaded level a function of the built-in fallback pyramid's size — widen
         /// that pyramid (its level count is <see cref="FALLBACK_X"/>) or change how many empty levels it carries
         /// and every real level's cluster would silently move, along with the camera, the gun's orbit and the
         /// ceiling fitted to it. The fallback is one map among many; this is the frame they are all hung in.
-        /// </para>
         /// </summary>
-        private const int FIELD_TOP_LEVELS = 8;
-
-        /// <inheritdoc cref="FIELD_TOP_LEVELS"/>
-        private static readonly float FIELD_TOP_Y = FIELD_TOP_LEVELS / Constants.SQRT_TWO;
+        private static readonly float FIELD_TOP_Y = ClusterHang.FIELD_TOP_Y;
 
         /// <summary>
         /// The tallest slice of field the camera will frame, in levels. A field this deep or shallower is
@@ -405,28 +397,20 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The least the field's <b>bottom</b> level clears the death line by, and what raises a deep field
-        /// past <see cref="FIELD_TOP_Y"/>: a ball's radius, so a ball hung in the field's lowest cell rests
-        /// its surface exactly on the line — alive, one descent from loss. It makes the whole field playable
-        /// by construction, however deep it is, and turns the empty levels an author leaves under a layout
-        /// into the level's starting clearance instead of dead space past the line: pinning the top
-        /// unconditionally meant any field deep enough for its bottom to reach past the line <i>started</i>
-        /// with cells below it, and a 30-level map was lost on the frame it was built, before a shot was
-        /// fired (a ball at −6.36 against the −5.5 the line then stood at). <b>How deep that is moves with
-        /// the line</b> — 17 levels when it was −5.5, 19 now that it hangs off the island.
+        /// past <see cref="FIELD_TOP_Y"/> — <see cref="ClusterHang.FIELD_FLOOR_MARGIN"/>, aliased here because
+        /// the incident that bought it is a fact about this screen: pinning the top unconditionally meant any
+        /// field deep enough for its bottom to reach past the line <i>started</i> with cells below it, and a
+        /// 30-level map was lost on the frame it was built, before a shot was fired (a ball at −6.36 against
+        /// the −5.5 the line then stood at).
         /// <para>
-        /// A ball's radius and not more, so that every field shallow enough hangs at <see cref="FIELD_TOP_Y"/>
-        /// exactly as it always has. <b>Where the two branches of the max meet is a function of the death
-        /// line, and it moved with it:</b> at −5.5 they met at a top level of ~15.07, so 16 levels was the
-        /// deepest field pinned and a 17-level one the first raised; against the line's present seat they
-        /// meet at ~17.9, so <b>every field up to 18 levels is pinned</b> — the whole shipped pack but the
-        /// tall ones — and 19 is the first raised. Measured across the move: <c>One.json</c> and every other
+        /// Measured across the move that lowered the line onto the island: <c>One.json</c> and every other
         /// 16-level field did not move at all, an 18-level one stopped being raised (top 7.02 → 5.66, floor
         /// −5.00 → −6.36, so it hangs 1.36 lower and starts 2 further above the line), and a raised field's
         /// clearance is unchanged by construction — its floor is pinned a radius over the line wherever the
         /// line is, so Comet still starts 7.57 above it and only its world Y moved (top 17.92 → 14.92).
         /// </para>
         /// </summary>
-        private const float FIELD_FLOOR_MARGIN = Constants.HALF;
+        private const float FIELD_FLOOR_MARGIN = ClusterHang.FIELD_FLOOR_MARGIN;
 
         //The middle of the field in world Y, which is what precise aim converges its crosshair on. The whole
         //field rather than the layout hanging at its top, because the cluster grows down into the empty
@@ -495,32 +479,17 @@ namespace BS3D.Screens
         //slide is driven by writing the pose — in small steps, which is what makes it tolerable to the solver.
         private const float CEILING_DESCENT_PER_STEP = 0.6f;        //world units the glass drops each step
         private const float CEILING_DESCENT_SPEED = 1.5f;           //units/sec while a step is sliding in
-        //STATED AGAINST THE ISLAND rather than as a number of its own: one unit above the drain's rim, which
-        //is the island's top surface, so the line sits just clear of the funnel a lost cluster falls into and
-        //what it marks reads as the mouth of the drain. It was -5.5 until the owner reported the fault that
-        //moved it - two units higher, well above the gun's barrel, where a cluster that merely SWUNG dipped
-        //under it a few shots into a level and ended it.
-        //
-        //The ONE is the laser net's, not the line's: the net hovers half a unit lower (see LaserGrid.Fit,
-        //which puts it where a lost ball SURFACE would be), so at anything under a unit of clearance the net
-        //is drawn inside the island cap it is meant to hover over.
-        private const float CEILING_DEATH_Y = ArenaIsland.TOP_Y + 1f;   //a ball below this has lost the level
-
-        //A CLUSTER THAT MERELY SWINGS HAS NOT LOST (#239). The test reads the lowest ball's LIVE pose, and a
-        //hanging cluster oscillates about its own descending trend — so a body still comfortably above the line
-        //lost the level in the instant of a swing's bottom. The owner reported this once before and it was
-        //answered by moving the line DOWN two units; that lever is now spent, because CEILING_DEATH_Y cannot go
-        //below ArenaIsland.TOP_Y + 1 without the laser net (half a unit lower again) drawing inside the island
-        //cap it is meant to hover over. So the rule has to stop reading an instant, which is what these two do.
-        //
-        //Both are measured, on Chest — the level it was reported on, and the second-heaviest cluster in the
-        //pack — by a probe that fired a shot every 0.7 s and stepped the ceiling every 2 s, then detrended the
-        //lowest ball against a centred moving average (the baseline descends all level, so a raw minimum reads
-        //the whole descent as one dip). 35 swings over 67 s: deepest 0.82 units below the trend, longest 0.76 s,
-        //median 0.40 s, 90th percentile 0.71 s. A dip shallower than a unit AND shorter than a second is
-        //therefore forgiven; anything deeper or longer is the cluster genuinely arriving, not passing through.
-        private const float CLUSTER_SWING_ALLOWANCE = 1f;    //units past the line a swing is allowed to reach
-        private const float CLUSTER_BELOW_LINE_GRACE = 1f;   //seconds it is allowed to stay there
+        //The death line and the pair that keeps a mere SWING from crossing it are ClusterHang's since
+        //#301/#302 - the level generator hangs a level in a real simulation to find out whether the remainder
+        //sags after a group is shot off, and a gate that hangs a cluster somewhere else or forgives a dip
+        //differently answers a question about a different game. The reasons behind all three figures are
+        //written there; only the ONE below is this file's, because it is about what the game DRAWS: the laser
+        //net hovers half a unit lower than the line (see LaserGrid.Fit, which puts it where a lost ball
+        //SURFACE would be), so at anything under a unit of clearance the net is drawn inside the island cap it
+        //is meant to hover over.
+        private const float CEILING_DEATH_Y = ClusterHang.DEATH_Y;   //a ball below this has lost the level
+        private const float CLUSTER_SWING_ALLOWANCE = ClusterHang.SWING_ALLOWANCE;
+        private const float CLUSTER_BELOW_LINE_GRACE = ClusterHang.BELOW_LINE_GRACE;
 
         /// <summary>
         /// How hard the glass is glowing right now, 1 at the moment of a step and decaying to nothing. It is

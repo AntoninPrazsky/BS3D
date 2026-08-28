@@ -352,34 +352,13 @@ namespace BS3D.Screens
         /// <summary>
         /// The lattice-to-world offset a field is hung by — the pure arithmetic of <see cref="FitFieldToMap"/>,
         /// standing on its own so the menu's backdrop can hang a preview map exactly where that map will hang
-        /// when it is played. See <see cref="_clusterWorldOffset"/> for why the offset has an X and a Z as
-        /// well as a Y. The Y the top level ends up at (death-line raise included) comes back too: the glass
-        /// starts above it, session and menu alike.
+        /// when it is played, and <see cref="ClusterHang.FitWorldOffset"/>'s since #301/#302 so the level
+        /// generator's sag gate hangs it there too. See <see cref="_clusterWorldOffset"/> for why the offset
+        /// has an X and a Z as well as a Y. The Y the top level ends up at (death-line raise included) comes
+        /// back too: the glass starts above it, session, menu and gate alike.
         /// </summary>
-        internal static Vector3 FitClusterWorldOffset(BallsMap map, out float fieldTopY)
-        {
-            XZLevel size = map.GetStaticBallsArraySize();
-            byte topLevel = (byte)(size.Level - 1);
-
-            //The residual the centring leaves: the midpoint of the top level's own cells, measured through
-            //the map's public centred-position accessor rather than re-deriving its arithmetic here
-            Vector3 nearCorner = map.GetRealCenteredPosition(new XZLevel(0, 0, topLevel));
-            Vector3 farCorner = map.GetRealCenteredPosition(new XZLevel(size.X - 1, size.Z - 1, topLevel));
-
-            //Where the field's topmost level hangs: FIELD_TOP_Y, the frame every field is hung in — unless
-            //the field is deep enough that its bottom level would start past the death line, in which case
-            //the whole field is raised just enough that it does not (see FIELD_FLOOR_MARGIN, which is also
-            //where the one map this moves is accounted for). The depth that matters is the FIELD'S, not the
-            //layout's: every cell has to be reachable without ending the level, or the empty levels an
-            //author left as growth room are a trap instead of a clearance.
-            fieldTopY = MathF.Max(FIELD_TOP_Y,
-                CEILING_DEATH_Y + FIELD_FLOOR_MARGIN + topLevel / Constants.SQRT_TWO);
-
-            return new Vector3(
-                -(nearCorner.X + farCorner.X) * Constants.HALF,
-                fieldTopY - topLevel / Constants.SQRT_TWO,
-                -(nearCorner.Z + farCorner.Z) * Constants.HALF);
-        }
+        internal static Vector3 FitClusterWorldOffset(BallsMap map, out float fieldTopY) =>
+            ClusterHang.FitWorldOffset(map, out fieldTopY);
 
         /// <summary>
         /// Derives everything the loaded field's size and depth decide, hanging the field by
