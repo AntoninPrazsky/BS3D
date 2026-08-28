@@ -199,14 +199,14 @@ static const float ROCK_FBM_GAIN = 3.0;
 //field wants a domain scale (a feature is about 1/scale across), so it goes in divided by 2*pi and the
 //coarsest feature stays exactly where it was authored. Passing f straight in would make every feature 6.3x
 //finer and take the broad undulation out of the terrain.
-float RockRelief(float2 xz, float footprint)
+float RockRelief(float2 xz, float footprint, uniform int octaves)
 {
     float scale = RockReliefFrequency / TWO_PI;
 
     //The footprint goes in scaled by the same figure, which is Fbm2BandLimited's contract: it wants the
     //pixel's size in the domain's own units, and that is what fades each octave out as its period approaches
     //the pixel - the job RockOctave's own `resolvable` guard used to do for the sines.
-    return Fbm2Combed(xz * scale, ROCK_GRAIN, ROCK_STRETCH, 4, footprint * scale)
+    return Fbm2Combed(xz * scale, ROCK_GRAIN, ROCK_STRETCH, octaves, footprint * scale)
         * (RockReliefStrength * ROCK_FBM_GAIN);
 }
 
@@ -216,22 +216,23 @@ float RockRelief(float2 xz, float footprint)
 //both band-limited against the footprint like everything else in this shader, because a relief that reaches
 //pixel size checkerboards (#170's whole lesson) and a glint that does is a crawling speckle:
 //
-//WIND-STREAKED DRIFT, the relief: snow does not lie flat, it lies in SASTRUGI - long, shallow ridges the
-//wind draws out of it. Combed fbm like the rock's, but on its OWN grain (crossed to it: weather in these
-//mountains is one system, and the rock lies in beds while the snow on top lies where the last wind put it)
-//and stretched harder - a streak reads as a streak past about three-to-one. Softer than rock by half: a
-//drift is a thing you could push a boot through, and a relief strong enough for crag would read as crag.
-static const float2 SNOW_GRAIN = float2(-0.55, 0.85);
-static const float SNOW_STRETCH = 3.2;
-static const float SNOW_FBM_GAIN = 0.5;
-
-float SnowRelief(float2 xz, float footprint)
-{
-    float scale = RockReliefFrequency / TWO_PI;
-
-    return Fbm2Combed(xz * scale, SNOW_GRAIN, SNOW_STRETCH, 3, footprint * scale)
-        * (RockReliefStrength * ROCK_FBM_GAIN * SNOW_FBM_GAIN);
-}
+//⚠ THE DRIFT RELIEF IS GONE (#296), and this is the record of what it was and what it cost. It was
+//WIND-STREAKED SASTRUGI: combed fbm like the rock's but on its own grain, crossed to it, stretched harder
+//and half its strength - three octaves, snow-only, band-limited. It was the single most expensive term in
+//this shader and it was very nearly invisible: measured on the reference desktop at 3840x1600, ssaa 2, it
+//cost 1.08 ms of a 10.99 ms frame - close to a TENTH of the mountain's whole frame - and photographed on
+//and off from a mid-range camera over the snowfields the two frames cannot be told apart.
+//
+//It went because the owner asked for something to be given up at High, with the menu in front of him: the
+//sparkle 0.20 ms, the rock's fourth octave 0.31, this 1.08. Best saving, least seen. The cut is
+//all-or-nothing on purpose - 3 octaves to 2 saved only 0.27 and to 1 only 0.63, the occupancy signature
+//this project keeps meeting: partial cuts buy proportionally less, and only removing the call crosses back
+//over the threshold. If the character is ever wanted back, ONE octave is the 0.63 ms option.
+//
+//What #208 was actually complaining about survives: it found the snowfields flat SnowColor under a 40 %
+//share of the rock relief, with no surface of their own. They still have the SPARKLE, which is the half a
+//photograph of snow is recognised by, and they still take that share of the rock's relief - so this is
+//lighter than #208's state, not a return to it.
 
 //AND SPARKLE, the albedo's half: snow is ice crystals, and what the eye forgives a photograph of snow for
 //not resolving is the GLINT - a sparse dust of points bright enough to be specular, laid on a lattice of
@@ -302,7 +303,7 @@ float4 MountainSurface(MountainVertexOutput input, uniform bool fullDetail)
 
     //Fine rock relief roughens the faces, band-limited against the footprint so it fades to smooth towards the
     //horizon - which also keeps it off the distant faces, leaving the clean per-vertex normal to do the work there
-    float relief = RockRelief(worldPosition.xz, footprint) * (1.0 - 0.6 * saturate(baseNormal.y));
+    float relief = RockRelief(worldPosition.xz, footprint, fullDetail ? 4 : 3) * (1.0 - 0.6 * saturate(baseNormal.y));
     float3 rockNormal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
 
     //Snow lies where the surface is BOTH up-facing (flats/shoulders keep it, cliffs shed it) AND high enough
@@ -321,12 +322,11 @@ float4 MountainSurface(MountainVertexOutput input, uniform bool fullDetail)
     float detailFade = saturate(1.0 - footprint * 0.05);
     float snow = lerp(0.72, snowDetailed, detailFade);
 
-    //And the snow's OWN two surfaces, over the mask that just came back (#208): the drift relief tilts the
-    //normal only where snow lies, weighted by how much of it there is, and the sparkle dusts the albedo
-    //after lighting as an additive glint. Both die with detailFade like everything else the near slopes
-    //carry, so the far ranges stay clean shapes in haze.
-    float snowRelief = fullDetail ? SnowRelief(worldPosition.xz, footprint) * snow * detailFade : 0.0;
-    float3 normal = PerturbNormalFromHeight(rockNormal, worldPosition, relief + snowRelief);
+    //The snow's second surface, the DRIFT RELIEF, used to be added here (#208) and was cut in #296 - see
+    //SnowRelief's headstone above for what it was and the three figures that decided it. The sparkle below
+    //is the half that stayed, and it still dies with detailFade like everything else the near slopes carry,
+    //so the far ranges stay clean shapes in haze.
+    float3 normal = PerturbNormalFromHeight(rockNormal, worldPosition, relief);
 
     //Rock varies between a dark and a lighter grey-brown in patches, so the faces are not one flat colour
     float rockPatch = saturate(CloudNoise(worldPosition.xz * 0.08 + 21.0) * 0.5 + 0.5);
@@ -370,13 +370,15 @@ float4 MountainSurface(MountainVertexOutput input, uniform bool fullDetail)
 }
 
 //Two programs from one body, the idiom Forest.fx established (#298). "Mountain" is the authored range;
-//"MountainReduced" is the same range without the SNOW'S OWN TWO SURFACES — the sastrugi drift relief and the
-//sparkle — which is #208's pair, given up together because it arrived together and because a lone reduction
-//buys nothing on a pass that is occupancy-bound (see SceneRenderer.SceneDetail for the measurement that
-//taught this project that). Everything the range is made OF stays: the massing, the rock relief and its
-//grain, the patches, the snowline's own noise, the haze. What Low gives up is the snow's texture and its
-//glint — a highlight, which is exactly the class of thing the owner named when he ruled that a tier drops
-//effects rather than pixels.
+//"MountainReduced" is the same range without the snow's SPARKLE and with the rock's relief on three octaves
+//instead of four. A PAIR, because a lone reduction buys nothing on a pass that is occupancy-bound (see
+//SceneRenderer.SceneDetail for the measurement that taught this project that) — and this is its second pair,
+//the first having been #208's two snow surfaces. #296 then cut the drift relief out of the AUTHORED scene
+//altogether, so half of that pair was no longer here to drop and the reduced program needed a new partner
+//for the sparkle. The rock's fourth octave is it: measured 0.31 ms on its own at ssaa 2, against the
+//sparkle's 0.20, and what it costs is crag-scale roughness on the NEAR faces alone — the band limiter has
+//already faded it out everywhere else. Everything the range is made of stays: the massing, the rock relief
+//itself, the grain, the patches, the snowline's own noise, the haze.
 //
 //A `uniform bool` argument and not a shader constant the body branches on: the compiler folds it at compile
 //time, so each program pays for only what it keeps. That is the whole point — the reduced one has to be
