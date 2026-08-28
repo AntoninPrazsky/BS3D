@@ -73,6 +73,17 @@ namespace Prazsky.Core.Render
         /// looks identical frame to frame.
         /// </para>
         /// </summary>
-        Metal = 4
+        Metal = 4,
+
+        /// <summary>
+        /// Frosted ice (#307): a cloudy frozen solid in the type colour, cracked through with bright internal
+        /// threads and cool along the silhouette. Drawn by <c>InstancedModelIce</c>.
+        /// <para>
+        /// <b>Opaque</b>, and deliberately so — frosting <i>is</i> short-range subsurface scattering, which is
+        /// an opaque phenomenon, so this needs none of <see cref="Bubble"/>'s two-pass shell. It is a solid you
+        /// cannot see the level through, where the film is a hollow thing you can.
+        /// </para>
+        /// </summary>
+        Ice = 5
     }
 }

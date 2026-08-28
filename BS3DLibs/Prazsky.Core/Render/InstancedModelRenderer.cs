@@ -117,6 +117,9 @@ namespace Prazsky.Core.Render
         private EffectParameter _metalBrushFrequencyParam;
         private EffectParameter _metalBrushDepthParam;
         private EffectParameter _metalReflectanceParam;
+        private EffectParameter _iceCrackFrequencyParam;
+        private EffectParameter _iceCrackWidthParam;
+        private EffectParameter _iceRimParam;
         private EffectTechnique _cityTechnique;
         private EffectParameter _cityWindowBrightnessParam;
 
@@ -475,6 +478,25 @@ namespace Prazsky.Core.Render
         public float MetalReflectance { get; set; } = 1.6f;
 
         /// <summary>
+        /// Wave count of <see cref="BallShading.Ice"/>'s crack network over the ball. Three line fields at this
+        /// frequency and its neighbours cross into a net; far under it a ball has two or three cracks and reads
+        /// as broken rather than frozen.
+        /// </summary>
+        public float IceCrackFrequency { get; set; } = 7f;
+
+        /// <summary>
+        /// How wide an ice crack is, as a fraction of its line field's amplitude. Narrow: a crack is a plane
+        /// inside the ice seen edge-on, and anything with an area is a facet rather than a crack.
+        /// </summary>
+        public float IceCrackWidth { get; set; } = 0.10f;
+
+        /// <summary>
+        /// How brightly an ice ball's silhouette goes cool and pale. At full strength it eats the tint on every
+        /// ball's rim at once, and a cluster is mostly rims, so this is judged on a pile and never on one ball.
+        /// </summary>
+        public float IceRim { get; set; } = 0.5f;
+
+        /// <summary>
         /// How much of its own color the surface radiates, independent of any light falling on it.
         /// Deliberately not occluded: a light source buried inside a pile is the one that should still
         /// show, glowing out past its neighbors.
@@ -784,6 +806,9 @@ namespace Prazsky.Core.Render
             _metalBrushFrequencyParam = _effect.Parameters["MetalBrushFrequency"];
             _metalBrushDepthParam = _effect.Parameters["MetalBrushDepth"];
             _metalReflectanceParam = _effect.Parameters["MetalReflectance"];
+            _iceCrackFrequencyParam = _effect.Parameters["IceCrackFrequency"];
+            _iceCrackWidthParam = _effect.Parameters["IceCrackWidth"];
+            _iceRimParam = _effect.Parameters["IceRim"];
             _cityTechnique = _effect.Techniques["InstancedCity"];
             _cityWindowBrightnessParam = _effect.Parameters["CityWindowBrightness"];
             _cityWindowTimeParam = _effect.Parameters["CityWindowTime"];
@@ -845,6 +870,7 @@ namespace Prazsky.Core.Render
             "InstancedModelMarble",   //BallShading.Marble
             "InstancedModelWool",     //BallShading.Wool
             "InstancedModelMetal",    //BallShading.Metal
+            "InstancedModelIce",      //BallShading.Ice
         };
 
         /// <summary>
@@ -1135,6 +1161,13 @@ namespace Prazsky.Core.Render
                         _bubbleFilmThicknessParam.SetValue(BubbleFilmThickness);
                         _bubbleTintStrengthParam.SetValue(BubbleTintStrength);
                         _bubbleBodyOpacityParam.SetValue(BubbleBodyOpacity);
+                        break;
+
+                    case BallShading.Ice:
+                        _iceCrackFrequencyParam.SetValue(IceCrackFrequency);
+                        _iceCrackWidthParam.SetValue(IceCrackWidth);
+                        _iceRimParam.SetValue(IceRim);
+                        _translucencyStrengthParam.SetValue(TranslucencyStrength);
                         break;
 
                     case BallShading.Metal:

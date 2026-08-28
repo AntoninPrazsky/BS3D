@@ -431,6 +431,41 @@ namespace Prazsky.BS3D
         /// </summary>
         private const float METAL_EMISSION = 0.18f;
 
+        /// <summary>
+        /// How many crack lines run through an ice ball (#307) — three fields at this frequency and its two
+        /// ratios, so a ball carries a handful of them crossing rather than a craze. Deliberately low: this is
+        /// a ball frozen through, not a dropped one, and a dense net reads as shattered.
+        /// </summary>
+        private const float ICE_CRACK_FREQUENCY = 10f;
+
+        /// <summary>
+        /// How wide a crack is, as a fraction of its line field's amplitude. A crack is a plane inside the ice
+        /// seen edge-on; anything with an area is a facet, which is #308's style and not this one.
+        /// </summary>
+        private const float ICE_CRACK_WIDTH = 0.09f;
+
+        /// <summary>
+        /// How brightly an ice ball's silhouette goes cool and pale. Judged on a <b>cluster</b> and never on
+        /// one ball: it is light added to every rim at once and a pile is mostly rims, so what reads as cold on
+        /// a single ball reads as a fog over four hundred.
+        /// </summary>
+        private const float ICE_RIM = 0.45f;
+
+        /// <summary>
+        /// How much light an ice ball carries through itself from a source behind it — the whole of what makes
+        /// it ice rather than pale marble, and far over the vinyl skin's <see cref="TRANSLUCENCY"/>, which is a
+        /// thin shell letting a little light past. This is a solid that scatters all the way through.
+        /// </summary>
+        private const float ICE_TRANSLUCENCY = 1.1f;
+
+        /// <summary>
+        /// How much of its own colour an ice ball radiates. Near the vinyl's <see cref="EMISSION"/>: a
+        /// scattering solid is the one surface here that can carry a glow honestly, because light really does
+        /// come out of its inside — which is also why the emission does not flatten it the way it flattened the
+        /// wool (see <see cref="WOOL_EMISSION"/>).
+        /// </summary>
+        private const float ICE_EMISSION = 0.44f;
+
         #endregion
 
         #region Neighbour-based ambient occlusion (issue #40)
@@ -672,6 +707,14 @@ namespace Prazsky.BS3D
                         renderer.BubbleBodyOpacity = BUBBLE_BODY_OPACITY;
                         break;
 
+                    case BallStyle.Ice:
+                        renderer.EmissiveStrength = ICE_EMISSION;
+                        renderer.TranslucencyStrength = ICE_TRANSLUCENCY;
+                        renderer.IceCrackFrequency = ICE_CRACK_FREQUENCY;
+                        renderer.IceCrackWidth = ICE_CRACK_WIDTH;
+                        renderer.IceRim = ICE_RIM;
+                        break;
+
                     case BallStyle.Metal:
                         renderer.EmissiveStrength = METAL_EMISSION;
                         renderer.MetalBrushFrequency = METAL_BRUSH_FREQUENCY;
@@ -695,6 +738,13 @@ namespace Prazsky.BS3D
 
                     case BallStyle.Beach:
                         renderer.EmissiveStrength = EMISSION;
+
+                        //STATED, not inherited, and it is the ice that makes this necessary (#307). The
+                        //translucency is a shared renderer property that the vinyl technique also reads, and
+                        //the ice sets it to three times the skin's figure — so a set that had drawn ice and
+                        //switched back would light every vinyl ball as a lantern until something else moved
+                        //it. This is the same trap the shot trail's two callers paid for once.
+                        renderer.TranslucencyStrength = TRANSLUCENCY;
                         break;
                 }
             }
@@ -710,11 +760,28 @@ namespace Prazsky.BS3D
         /// </summary>
         private static BallShading ShadingOf(BallStyle style) => style switch
         {
+            BallStyle.Beach => BallShading.Vinyl,
             BallStyle.Bubble => BallShading.Bubble,
             BallStyle.Marble => BallShading.Marble,
             BallStyle.Wool => BallShading.Wool,
             BallStyle.Metal => BallShading.Metal,
-            _ => BallShading.Vinyl
+            BallStyle.Ice => BallShading.Ice,
+
+            //EXHAUSTIVE, AND IT THROWS RATHER THAN FALLING BACK, because the fallback here cost a whole
+            //style once (#307): this read "_ => BallShading.Vinyl", the ice was added everywhere else and
+            //never listed here, and it drew as a BEACH BALL. Nothing failed — the technique compiled, the
+            //uniforms were pushed at a program that does not declare them, and the only symptom was that
+            //changing the ice's figures changed nothing on screen, which reads as a shader that does not
+            //work rather than as one that is never selected. #304 checks that every SHADING has a technique;
+            //this is the same check one level up, for every STYLE having a shading.
+            //
+            //Throwing is safe where a fallback would not be: only ApplyStyle calls this, on a style CHANGE
+            //and never per frame, and every value that reaches it is a real enum member — BallStyles.TryParse
+            //cannot produce anything else — so an unmapped one is a programming error and not bad input.
+            _ => throw new ArgumentOutOfRangeException(nameof(style), style,
+                $"{nameof(BallStyle)}.{style} has no {nameof(BallShading)} beside it. Add one here and a "
+                + "technique to InstancedModelRenderer's table, or the style draws as whatever this fell "
+                + "back to and nothing reports it.")
         };
 
         /// <summary>

@@ -2096,6 +2096,182 @@ technique InstancedModelMetal
     }
 };
 
+//===================================================================================================
+//FROSTED ICE (#307): a ball of cloudy frozen water. Light goes IN, scatters a short way and comes back
+//out, so the colour arrives from inside the ball rather than off its face; a network of internal cracks
+//catches the light in bright threads, and a cool rim sits on the silhouette.
+//
+//IT IS OPAQUE, AND THAT IS THE ONE DECISION THAT MATTERS HERE. #272 framed this as "a cold cousin of
+//the glass bubble", and building it that way would have been the expensive mistake: a second
+//transparent style costs the whole two-pass opposite-cull machinery in BallRenderSet.Draw, doubles the
+//ball pass, and re-opens every argument BUBBLE_BODY_OPACITY settled about what a film hides. It would
+//also stand next to the bubble needing to be told apart from it at a glance, or one of the two is
+//redundant.
+//
+//And it is not even the right physics. FROSTED ice is not CLEAR ice: frosting IS short-range subsurface
+//scattering, which is an opaque phenomenon - you cannot see a level through a frosted marble. So the
+//body is lit as a diffuse solid with a real translucency term through it, and the result is a genuinely
+//different MATERIAL from the film rather than a recolour of it: one is a hollow thing you see the level
+//through, the other is a solid you cannot. Two styles, two reads, one ball pass each.
+//
+//THE FIGURE IS BUILT IN THE NORMAL FIRST AND IN THE COLOUR SECOND, which is #305 and #311's shared
+//lesson applied deliberately (see WoolPS's header): a crack cuts a groove that catches the light, and
+//only then adds a bright thread along itself. The groove reads at every tint because it is shading; the
+//thread is what makes it ICE rather than a scratch.
+//===================================================================================================
+
+//Wave count of the crack network over the ball. Three line fields at this frequency and its neighbours
+//cross into a net; far under it the ball has two or three cracks and reads as broken rather than frozen.
+float IceCrackFrequency;
+
+//How wide a crack is, as a fraction of the line field's own amplitude. Narrow: a crack is a plane inside
+//the ice seen edge-on, and anything broad enough to have an area stops being a crack and becomes a facet.
+float IceCrackWidth;
+
+//How brightly the silhouette goes cool and pale - the cold, and the one figure the C# side states,
+//because at full strength it eats the tint on the rim of every ball at once and a cluster is mostly rims.
+float IceRim;
+
+//The three line fields' directions and their frequency ratios. Irrational-ish ratios so the net never
+//settles into a lattice, and none of them aligned to the sphere's poles.
+static const float3 IceCrackA = float3(0.77, 0.41, -0.49);
+static const float3 IceCrackB = float3(-0.33, 0.86, 0.39);
+static const float3 IceCrackC = float3(0.52, -0.38, 0.77);
+static const float2 IceCrackRatio = float2(1.37, 1.91);
+
+//How deep a crack cuts, in world units, and how brightly it glows along its length. The groove is what
+//makes it read at every tint; the glow is what makes it read as ICE. The glow follows the stone's own
+//lighting rather than being a fixed white, on the same argument MarbleVeinPale carries.
+static const float IceCrackDepth = 0.012;
+static const float IceCrackGlow = 0.55;
+
+//The cool cast of both the rim and the crack glow. Not pure white: ice is blue because water absorbs red
+//over a path length, and this is the one place that fact is worth stating rather than deriving.
+static const float3 IceCold = float3(0.72, 0.88, 1.0);
+
+//How sharply the rim crowds into the silhouette. Broader than a mirror's, because what is happening there
+//is a long path through scattering ice and not a reflection off a face.
+static const float IceRimPower = 2.6;
+
+//Frost's own texture under the cracks: fine grain that keeps the surface from reading as polished, at a
+//small fraction of a crack's depth.
+static const float IceFrostFrequency = 38.0;
+static const float IceFrostDepth = 0.2;
+
+//What ice does with a highlight: present, but soft and wide. A frosted surface is not a mirror and not a
+//matte one either - it is a mirror seen through a millimetre of scattering, which is exactly a broad lobe.
+static const float IceHighlight = 0.55;
+static const float IceEnvironment = 0.45;
+static const float IceSmoothness = 0.5;
+
+//One crack line: a narrow band either side of a wave's zero crossing, faded out on its own band-limit.
+//Written against the raw sine rather than through ReliefOctave DELIBERATELY - ReliefOctave fades its
+//AMPLITUDE towards zero as the pixel grows, and a test on abs(v) < width would then read the whole ball
+//as one crack the moment the wave stopped being resolvable. Fading the LINE is what is wanted.
+float IceCrackLine(float3 direction, float3 waveDirection, float frequency, float footprint)
+{
+    float v = sin(dot(direction, waveDirection) * frequency);
+    float fade = saturate(1 - footprint * frequency / 3.14159265);
+
+    return (1 - smoothstep(0, IceCrackWidth, abs(v))) * fade;
+}
+
+float4 IcePS(PatternVertexShaderOutput input) : COLOR
+{
+    float radius = max(length(input.ObjectPosition), 1e-5);
+    float3 direction = input.ObjectPosition / radius;
+
+    //Contract point 1.
+    float dissolveNoise = DissolveNoise(floor(input.Position.xy / DissolvePixelSize));
+    clip(input.Dissolve >= 0 ? dissolveNoise - input.Dissolve : -input.Dissolve - dissolveNoise);
+
+    float footprint = (length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition))) / radius;
+
+    //The crack net, in OBJECT space (contract point 6): the cracks are INSIDE the ice and they turn with
+    //it. Three line fields crossing, saturated so overlapping cracks do not pile into a bright blob.
+    float cracks = saturate(
+        IceCrackLine(direction, IceCrackA, IceCrackFrequency, footprint)
+        + IceCrackLine(direction, IceCrackB, IceCrackFrequency * IceCrackRatio.x, footprint)
+        + IceCrackLine(direction, IceCrackC, IceCrackFrequency * IceCrackRatio.y, footprint));
+
+    //Frost grain under them, so the surface is not polished between the cracks.
+    float frost = ReliefOctave(direction, IceCrackB, IceFrostFrequency, footprint) * IceFrostDepth;
+
+    //The crack is a GROOVE first. Normal-space figure, so it reads at every tint - the lesson #305 and
+    //#311 paid for between them.
+    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition,
+        (frost - cracks) * IceCrackDepth);
+
+    float3 primary = SrgbToLinear(PatternPrimaryColor);
+
+    //A frosted surface is a mirror seen through a millimetre of scattering: the highlight is present but
+    //broad, and the environment is picked up softly rather than sharply.
+    SurfaceSpecular surface;
+    surface.Highlight = IceHighlight;
+    surface.Environment = IceEnvironment;
+    surface.Smoothness = IceSmoothness;
+
+    //The cracks take ambient like any other crevice - a plane inside the ice sees very little sky.
+    float cavity = 1 - 0.5 * cracks;
+
+    float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(primary, 1), 1, cavity, surface);
+
+    float occlusion = SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
+
+    //THE STYLE'S WHOLE READ, and the term a screenshot from the sun's own side cannot show: light that
+    //went in, scattered and came back out. A ball with the key behind it glows through in its own colour
+    //instead of going flatly black, which is what says "solid but not opaque to light". Same shape as the
+    //vinyl skin's translucency and far stronger, which is the difference between a skin and a solid.
+    float3 towardsKey = normalize(KeyLightPosition - input.WorldPosition);
+    float through = pow(saturate(dot(-worldNormal, towardsKey)), 2);
+
+    shaded.rgb += through * TranslucencyStrength * DirLight0DiffuseColor * primary * occlusion;
+
+    //The cracks catch the light along their length: internal faces, so they BRIGHTEN where the vinyl's
+    //welds darken. Cool-cast and following the ball's own colour rather than a fixed white, on the
+    //argument MarbleVeinPale carries.
+    shaded.rgb += cracks * IceCrackGlow * IceCold * primary * occlusion;
+
+    //And the cold rim: a long path through scattering ice at the silhouette. Occluded, so a ball buried
+    //in the pile does not outline itself.
+    float3 eyeVector = normalize(EyePosition - input.WorldPosition);
+    float rim = pow(1 - saturate(dot(worldNormal, eyeVector)), IceRimPower);
+
+    shaded.rgb += rim * IceRim * IceCold * lerp(primary, 1.0, 0.3) * occlusion;
+
+    //Contract point 2.
+    float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
+
+    shaded.rgb += primary * EmissiveStrength * lerp(1 - PulseDepth, 1, beat);
+
+    //Contract point 3, both meanings, PatternPS's arithmetic.
+    [branch]
+    if (RippleStrength > 0)
+    {
+        float amount = abs(input.Ripple);
+        float peak = max(primary.r, max(primary.g, primary.b));
+
+        float3 lit = shaded.rgb + lerp(primary / max(peak, 1e-3), 1.0, RippleWhiten) * (RippleStrength * amount);
+        float3 alarmed = lerp(shaded.rgb, RippleAlarmColor * RippleAlarmBrightness, amount * RippleAlarmCoverage);
+
+        shaded.rgb = input.Ripple < 0 ? alarmed : lit;
+    }
+
+    //Contract point 5.
+    shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
+
+    return ApplyKillPlaneFade(shaded, input.WorldPosition);
+}
+
+technique InstancedModelIce
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL PatternVS();
+        PixelShader = compile PS_SHADERMODEL IcePS();
+    }
+};
+
 //Detail texturing: a texture that only modulates the existing material colors
 //(DetailStrength 0 = untextured look), mapped either through the model's own UVs
 //(InstancedModelDetailUV — required for objects that move, or the texture would swim
