@@ -229,19 +229,21 @@ never affected by scene-space effects like the underwater blur — don't judge a
 
 Recurring issue type here (#152, #246, #294; #285 and #286 are open as this is written), and it has a
 measured answer rather than an opinion. `palette.ps1` reads a `Thirteen_Colors` capture, reduces every ball
-to its own coloured gores and prints **CIEDE2000** for all 78 pairs, tightest first, plus every pair the
-colour under discussion is in:
+to its own coloured gores and prints **CIEDE2000** for all 78 pairs, tightest first, plus — for each colour
+named in `-Focus` — every pair that colour is in:
 
 ```powershell
 .\screenshot.ps1 -Out palette.png -Keys @('F5','F12') -Wait 8 `
     -GameArgs @('C:\GitHub\Testbed\Maps\Thirteen_Colors.json','scene=meadow','sky=1','nopost','ssaa=2',
                 'campos=0,4.5,11','camtarget=0,4.5,0')
-.\palette.ps1 -Png palette.png
+.\palette.ps1 -Png palette.png -Focus @('orange','yellow','brown')
 ```
 
 `F5` stops the simulation so the row hangs still, and the bottom row of that map is the enum's own order,
 which is what the script's `-Xs` sample points index — move the camera and you must move `-Xs`/`-RowY` with
-it. Three traps, each already paid for and repeated in the script's own header:
+it. `-Focus` was hardcoded to olive until #286 (left behind by #294); name whatever colours the palette
+under discussion is made of, and read every table, because **moving one colour alone relocates the confusion
+rather than ending it**. Three traps, each already paid for and repeated in the script's own header:
 
 - **Measure under a bright dome AND a dark one.** A ball rides its dome's light by its own amount — olive
   read 59 luminance under dome 1 and 69 under dome 13 from the same tint — so the two domes disagree about

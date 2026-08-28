@@ -3429,9 +3429,9 @@ namespace BS3D.Tools.LevelGen
         };
 
         /// <summary>
-        /// A lopsided fruit with an <b>off-centre stone</b> in it: red and magenta peel in eight vertical strips,
-        /// gold and green flesh in eight more half a strip out of phase, and a flat pale stone hanging off the axis
-        /// on its own stalk. It is #161's own word made into a level. Three acts, and the middle one is the point
+        /// A lopsided fruit with an <b>off-centre stone</b> in it: red and olive peel in eight vertical strips,
+        /// gold and orange flesh in eight more half a strip out of phase, and a flat brown stone hanging off the
+        /// axis on its own stalk. It is #161's own word made into a level. Three acts, and the middle one is the point
         /// — <b>the flesh cannot be touched until the peel is broken</b>, so the level plays peel, eat, then the
         /// stone.
         /// <para>
@@ -3439,7 +3439,7 @@ namespace BS3D.Tools.LevelGen
         /// widest at the glass and tapers to a blunt nose (<see cref="MANGO_DROP"/> is where it would close to
         /// nothing, well below where the layout ends, which is what leaves the nose six cells across instead of a
         /// point with nothing to touch). So the anchor layer is a full cross-section of the fruit: measured 66
-        /// cells carrying all five colours — 18 red, 18 magenta, 14 gold, 10 green, 6 stone — where Onion hangs
+        /// cells carrying all five colours — 18 red, 18 olive, 14 gold, 10 orange, 6 stone — where Onion hangs
         /// 959 balls off 16 cells in two colours. No colouring trick is needed on top of it.
         /// </para>
         /// <para>
@@ -10607,17 +10607,53 @@ namespace BS3D.Tools.LevelGen
         /// break the surface and be seen before the fruit is opened. The flesh's strips are half a strip out of
         /// phase with the peel's, so the two sets of seams do not line up and the fruit reads as woven rather than
         /// as one set of cuts through both.
+        /// <para>
+        /// <b>The palette is chosen against measured CIEDE2000, not by eye (#286).</b> It shipped as a
+        /// red-and-MAGENTA peel over a gold-and-GREEN flesh around a WHITE stone, which reads as a beach ball:
+        /// magenta is nowhere on a mango, and green is the unripe skin rather than the flesh. Worse, the two
+        /// figures at the heart of the design were the palette's own confusions — <c>white/yellow</c> measures
+        /// <b>14.5 / 15.5</b> (dome 1 / dome 13) and is the second-tightest pair there is, and it stood between
+        /// the STONE and half the FLESH touching it, which is to say between the level's payoff and its
+        /// surroundings.
+        /// </para>
+        /// <para>
+        /// What ships now, with every contact the geometry actually makes, measured under the bright dome and
+        /// under dome 13 — <b>this level's own</b>, so the second figure is the one that decides:
+        /// <list type="bullet">
+        /// <item>peel mates <c>red/olive</c> <b>49.0 / 51.3</b> — a crimson blush over a dark green shoulder,
+        /// and the widest pair anywhere in the design</item>
+        /// <item>flesh mates <c>yellow/orange</c> <b>30.2 / 28.2</b></item>
+        /// <item>flesh against the stone: <c>yellow/brown</c> <b>48.9 / 45.2</b>, <c>orange/brown</c>
+        /// <b>28.6 / 27.2</b> — against the 14.5 / 15.5 the white stone had</item>
+        /// <item>across the skin: <c>olive/yellow</c> <b>34.7 / 28.0</b>, <c>olive/orange</c> <b>39.3 / 39.7</b>,
+        /// <c>red/yellow</c> <b>44.8 / 44.4</b></item>
+        /// </list>
+        /// </para>
+        /// <para>
+        /// <b>One contact is knowingly tight and it is the price of the fruit being a mango: <c>red/orange</c>
+        /// at 14.1 / 15.9, the tightest pair in the whole palette</b>, where the peel's red strips meet the
+        /// flesh's orange ones. It cannot be designed away — orange flesh is the single most identifying thing
+        /// about a mango and a red-blushed skin is the second, and the flesh's strips are half a strip out of
+        /// phase, so BOTH flesh colours touch BOTH peel colours whatever the phase. It is paid for by the
+        /// geometry rather than by the palette: the fruit starts SEALED, so the two are never both on show until
+        /// the player has opened it, and then only along the breach. That is a far better bargain than the
+        /// white stone, which was tight against the flesh from the moment it was uncovered and stayed that way.
+        /// Five colours either way, so the block's hardest draw is unchanged.
+        /// </para>
         /// </summary>
         private static BallType MangoInside(float r, float ang, int i, int depth)
         {
             float rim = MangoRim(ang, i, depth);
 
+            //Peel: a crimson blush over a dark green shoulder, which is what a ripe mango's skin actually is.
             if (rim - r <= MANGO_SKIN)
-                return Sector(ang, 0f, MANGO_STRIPS, new[] { BallType.Type1, BallType.Type6 });
+                return Sector(ang, 0f, MANGO_STRIPS, new[] { BallType.Type1, BallType.Type13 });
 
-            if (MangoStone(r, ang, i, depth)) return BallType.Type4;
+            //Stone: the woody pit.
+            if (MangoStone(r, ang, i, depth)) return BallType.Type10;
 
-            return Sector(ang, HALF / MANGO_STRIPS, MANGO_STRIPS, new[] { BallType.Type7, BallType.Type2 });
+            //Flesh: gold shading into orange — the one colour that says "mango" before the shape does.
+            return Sector(ang, HALF / MANGO_STRIPS, MANGO_STRIPS, new[] { BallType.Type7, BallType.Type9 });
         }
 
         #endregion
