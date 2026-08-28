@@ -287,7 +287,7 @@ float SnowSparkle(float2 xz, float3 normal, float footprint)
     return lit * glint * fade * saturate(normal.y);
 }
 
-float4 MountainPS(MountainVertexOutput input) : COLOR
+float4 MountainSurface(MountainVertexOutput input, uniform bool fullDetail)
 {
     float3 worldPosition = input.WorldPosition;
 
@@ -325,7 +325,7 @@ float4 MountainPS(MountainVertexOutput input) : COLOR
     //normal only where snow lies, weighted by how much of it there is, and the sparkle dusts the albedo
     //after lighting as an additive glint. Both die with detailFade like everything else the near slopes
     //carry, so the far ranges stay clean shapes in haze.
-    float snowRelief = SnowRelief(worldPosition.xz, footprint) * snow * detailFade;
+    float snowRelief = fullDetail ? SnowRelief(worldPosition.xz, footprint) * snow * detailFade : 0.0;
     float3 normal = PerturbNormalFromHeight(rockNormal, worldPosition, relief + snowRelief);
 
     //Rock varies between a dark and a lighter grey-brown in patches, so the faces are not one flat colour
@@ -358,8 +358,9 @@ float4 MountainPS(MountainVertexOutput input) : COLOR
     //the glint dusts bare rock as readily as snowfield, and the basin floor beside the arena is rock carrying
     //the `altSnow + 0.15` shoulder and nothing more - so the brightest thing in the scene was landing on the
     //darkest ground the player stands closest to, which is why the squares above were impossible to miss.
-    color += SunColor * SnowSparkle(worldPosition.xz, normal, footprint)
-        * snow * ndotl * sunlight * detailFade * 3.0;
+    if (fullDetail)
+        color += SunColor * SnowSparkle(worldPosition.xz, normal, footprint)
+            * snow * ndotl * sunlight * detailFade * 3.0;
 
     //Alpine haze: the distant range fades into the skyline, the strong aerial perspective of a lot of cold air
     float haze = saturate(dist / HorizonHazeDistance);
@@ -368,11 +369,35 @@ float4 MountainPS(MountainVertexOutput input) : COLOR
     return float4(color, 1.0);
 }
 
+//Two programs from one body, the idiom Forest.fx established (#298). "Mountain" is the authored range;
+//"MountainReduced" is the same range without the SNOW'S OWN TWO SURFACES — the sastrugi drift relief and the
+//sparkle — which is #208's pair, given up together because it arrived together and because a lone reduction
+//buys nothing on a pass that is occupancy-bound (see SceneRenderer.SceneDetail for the measurement that
+//taught this project that). Everything the range is made OF stays: the massing, the rock relief and its
+//grain, the patches, the snowline's own noise, the haze. What Low gives up is the snow's texture and its
+//glint — a highlight, which is exactly the class of thing the owner named when he ruled that a tier drops
+//effects rather than pixels.
+//
+//A `uniform bool` argument and not a shader constant the body branches on: the compiler folds it at compile
+//time, so each program pays for only what it keeps. That is the whole point — the reduced one has to be
+//SMALLER, not the same program skipping work, or it saves the occupancy it was written to save.
+float4 MountainPS(MountainVertexOutput input) : COLOR { return MountainSurface(input, true); }
+float4 MountainReducedPS(MountainVertexOutput input) : COLOR { return MountainSurface(input, false); }
+
 technique Mountain
 {
     pass P0
     {
         VertexShader = compile VS_SHADERMODEL MountainVS();
         PixelShader = compile PS_SHADERMODEL MountainPS();
+    }
+};
+
+technique MountainReduced
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MountainVS();
+        PixelShader = compile PS_SHADERMODEL MountainReducedPS();
     }
 };

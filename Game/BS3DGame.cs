@@ -1620,6 +1620,15 @@ namespace BS3D
             int limit = FrameLimitHz;
 
             Console.WriteLine($"[fps] {_fpsFrames / _fpsWindow:F1} — {_scene}, dome {_skyDome}, ssaa {_supersampleFactor}x"
+                //The tier itself, and the two of its entries that are invisible in a still: the samples the
+                //scene target actually carries (#298 — the count the target was BUILT with, not the one asked
+                //for, a driver being free to clamp it), and whether the scene extras are the authored ones.
+                //On the line for the same reason everything else on it is: a run that varies the tier can
+                //only be believed if it says which rung it was on, and neither of these two shows up in a
+                //screenshot at all.
+                + $", {_quality.ToString().ToLowerInvariant()}"
+                + $", msaa {_pipeline.SceneTarget?.MultiSampleCount ?? 0}x"
+                + $", detail {(_sceneRenderer?.SceneDetail > 0.5f ? "full" : "reduced")}"
                 + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
                 //"vsync" left the line with #270 — the game does not vsync any more, and a line that still
                 //said so would misreport the one setting that decides what the number even means. What it

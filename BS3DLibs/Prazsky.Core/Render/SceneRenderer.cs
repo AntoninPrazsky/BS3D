@@ -3323,10 +3323,19 @@ namespace Prazsky.Core.Render
         {
             SelectForestTechnique();
 
-            //The cavern is deliberately NOT here any more (#250). Its pair — the water's second wall shade and
-            //the spore count — was cut from the scene itself rather than from a second program, so there is one
-            //technique left and every tier draws it. Its effect is loaded in the constructor like the two below,
-            //so it was never a null-check that kept it here.
+            //The cavern is BACK (#298), and it left and returned for different reasons — see Cavern.fx's own
+            //note at the techniques. It went in #250, when the pair it used to drop was cut from the authored
+            //scene outright; it returned because it is the one scene the ladder could not help any other way,
+            //being immune to supersampling by #155's construction. Its new pair is the wall's bump gradient
+            //(twelve octaves of 3D noise a pixel) and the crack network.
+            _cavernEffect.CurrentTechnique = _cavernEffect.Techniques[_sceneDetail > 0.5f ? "Cavern" : "CavernReduced"];
+
+            //The mountain, new to this list with the cavern (#298) and picked for the same reason from the
+            //other end: it is the only scene the desktop still calls marginal (#296). Its pair is #208's own —
+            //the snow's sastrugi drift relief and its sparkle — given up together because they arrived
+            //together, and because the sparkle is a HIGHLIGHT, which is the class of thing the owner named
+            //when he ruled that a tier drops effects and never resolution.
+            _mountainEffect.CurrentTechnique = _mountainEffect.Techniques[_sceneDetail > 0.5f ? "Mountain" : "MountainReduced"];
 
             //The dream's four: the background's second evaluation in the reflection, most of the sparks, most
             //of each spark's trail, and an octave off both warp layers — the last being the only reduction in

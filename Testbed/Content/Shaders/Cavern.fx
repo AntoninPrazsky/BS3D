@@ -164,7 +164,7 @@ float3 CrystalLightAt(float3 position)
 //RIVER used to call it a second time along the reflected ray, its mirror being the real wall rather than an
 //approximation of it. That second call is what #250 cut - the dearest single thing in the pass - so this now
 //runs at most ONCE per pixel and the signature is all that is left of the arrangement.
-float3 ShadeWall(float3 position, float distanceTravelled)
+float3 ShadeWall(float3 position, float distanceTravelled, uniform bool fullDetail)
 {
     //The shell's own normal: radial on the wall cylinder, folding smoothly into the down-facing ceiling
     //over the top twenty-odd units. The two used to meet in a hard select, and the crease cut a sharp lit
@@ -178,25 +178,40 @@ float3 ShadeWall(float3 position, float distanceTravelled)
     //whose colour varies while its light does not reads as painted plaster - it is the light picking out
     //the bumps that says rock, and everything below (the key, the crystal lights) works against this
     //perturbed normal, which is what makes them all agree about where the surface leans.
-    float3 bumpDomain = position * 0.10;
-    float bump = Fbm3(bumpDomain, 3);
+    //⚠ THIS IS THE MOST EXPENSIVE THING IN THE SCENE AND IT IS NOT OBVIOUS FROM READING IT: a gradient of a
+    //3-octave field costs FOUR evaluations, so these five lines are twelve octaves of 3D noise on every wall
+    //pixel — half of everything the wall spends. That is why it is the reduced program's first cut (#298).
+    float3 normal = baseNormal;
 
-    const float e = 0.18;
-    float3 slope = float3(
-        Fbm3(bumpDomain + float3(e, 0.0, 0.0), 3) - bump,
-        Fbm3(bumpDomain + float3(0.0, e, 0.0), 3) - bump,
-        Fbm3(bumpDomain + float3(0.0, 0.0, e), 3) - bump) / e;
+    if (fullDetail)
+    {
+        float3 bumpDomain = position * 0.10;
+        float bump = Fbm3(bumpDomain, 3);
 
-    slope -= baseNormal * dot(slope, baseNormal);
-    float3 normal = normalize(baseNormal - slope * 0.6);
+        const float e = 0.18;
+        float3 slope = float3(
+            Fbm3(bumpDomain + float3(e, 0.0, 0.0), 3) - bump,
+            Fbm3(bumpDomain + float3(0.0, e, 0.0), 3) - bump,
+            Fbm3(bumpDomain + float3(0.0, 0.0, e), 3) - bump) / e;
+
+        slope -= baseNormal * dot(slope, baseNormal);
+        normal = normalize(baseNormal - slope * 0.6);
+    }
 
     //The rock's body: broad fractal strata for the albedo, and a ridged crack network pressed DOWN into
     //it - crevices are darker because light cannot reach into them, the poor man's occlusion.
     float body = Fbm3(position * 0.045, 4);
     float3 rock = RockColor * (0.55 + 0.45 * saturate(body * 0.9 + 0.5));
 
-    float crack = RidgedFbm3(position * 0.020, 3);
-    rock *= 1.0 - 0.4 * saturate(crack - 0.3);
+    //The second of the reduced program's pair, and it goes WITH the bump rather than instead of it: this pass
+    //is occupancy-bound, so one removal buys nothing and the smallest useful step is two (the measurement that
+    //taught this project that is on SceneRenderer.SceneDetail). Losing the crevice darkening on a wall that is
+    //already smooth costs less than it would on a bumpy one — the two cuts are of a piece.
+    if (fullDetail)
+    {
+        float crack = RidgedFbm3(position * 0.020, 3);
+        rock *= 1.0 - 0.4 * saturate(crack - 0.3);
+    }
 
     //The waterline stain: rock within a few units of the river is WET - darker, as wet stone is - which
     //absorbs whatever mismatch survives the water's shore band and the steam, and reads as a cave with a
@@ -378,7 +393,7 @@ CavernVertexOutput CavernVS(CavernVertexInput input)
 //measured 5.02 against 4.98, i.e. nothing. So "every single reduction is worth nothing" is true of a wide
 //desktop part with occupancy to spare and false of the integrated Radeon the tiers exist for; do not carry
 //an attribution across machine classes here, and take the one for the class you are trying to fix.
-float4 CavernScene(CavernVertexOutput input)
+float4 CavernScene(CavernVertexOutput input, uniform bool fullDetail)
 {
     float3 direction = normalize(input.Ray);
     float t = CavernTime;
@@ -515,7 +530,7 @@ float4 CavernScene(CavernVertexOutput input)
     {
         //THE ROCK.
         tSolid = tShell;
-        color = ShadeWall(CameraPosition + direction * tShell, tShell);
+        color = ShadeWall(CameraPosition + direction * tShell, tShell, fullDetail);
     }
 
     //--- The crystals, gated per cluster (the dream's pattern). A cluster is three interpenetrating
@@ -698,11 +713,22 @@ float4 CavernScene(CavernVertexOutput input)
     return float4(color, 1.0);
 }
 
-//ONE program, where there were two. The reduced technique existed to drop the water's second wall shade and
-//most of the spores; #250 cut both out of the authored scene itself, so the pair it used to drop is no longer
-//in here to drop and a second program would be a copy of this one. The tier does not reach this scene any
-//more - SceneRenderer.SceneDetail still picks the forest's and the dream's programs, not the cavern's.
-float4 CavernPS(CavernVertexOutput input) : COLOR { return CavernScene(input); }
+//TWO programs again (#298), and the history is worth keeping because the second one came back for a different
+//reason than it left. The original reduced technique dropped the water's second wall shade and most of the
+//spores; #250 cut BOTH out of the authored scene itself, so that pair was no longer here to drop and the tier
+//stopped reaching this scene at all. What brought it back is that the cavern turned out to be the scene the
+//ladder could not help by any other means: it is immune to supersampling by construction (it shades a
+//backdrop the size of the back buffer and scales it up, #155 — so ssaa moves it 8 % where it moves other
+//scenes 46–58 %), MSAA moves it 0.30 ms, and rendering below native is refused outright by the owner's
+//standing ruling. A reduced program of its own was the only lever left.
+//
+//What "MountainReduced" and this one give up is chosen the same way: a PAIR, because the pass is
+//occupancy-bound and a lone removal buys nothing. Here it is the wall's bump gradient (twelve octaves of 3D
+//noise per pixel, half of what the wall spends) and the crack network. Everything that says "cave" stays —
+//the strata, the veins and their patch mask, the waterline stain, the crystals as real point lights, the
+//mist, the god rays and the river.
+float4 CavernPS(CavernVertexOutput input) : COLOR { return CavernScene(input, true); }
+float4 CavernReducedPS(CavernVertexOutput input) : COLOR { return CavernScene(input, false); }
 
 technique Cavern
 {
@@ -710,5 +736,14 @@ technique Cavern
     {
         VertexShader = compile VS_SHADERMODEL CavernVS();
         PixelShader = compile PS_SHADERMODEL CavernPS();
+    }
+};
+
+technique CavernReduced
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL CavernVS();
+        PixelShader = compile PS_SHADERMODEL CavernReducedPS();
     }
 };
