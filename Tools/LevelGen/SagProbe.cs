@@ -1,11 +1,14 @@
 using BepuPhysics;
 using BepuPhysics.Collidables;
+using Prazsky.BS3D;
+using Prazsky.BS3D.GameObjects;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Levels;
 using Prazsky.BS3D.Physics;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
+using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,27 +32,48 @@ namespace BS3D.Tools.LevelGen
     /// <b>So this one does not read the layout at all.</b> It stands up the very simulation the game does —
     /// <see cref="PhysicsWorld"/>, the kinematic glass at <see cref="CeilingPlate.CentreYAbove"/>, the island's
     /// funnel floor, <see cref="BallsConstraintsBuilder.BuildBallsStructure"/> — hangs the level where
-    /// <see cref="ClusterHang.FitWorldOffset"/> hangs it, and then <b>plays it</b>: a group is released, the
-    /// world is stepped while the group falls and the remainder re-hangs, and the death line is asked the
-    /// game's own question through the game's own <see cref="ClusterLineWatch"/>. It has no graphics device
-    /// and needs none; the simulation was never the part that drew anything.
+    /// <see cref="ClusterHang.FitWorldOffset"/> hangs it, and then <b>plays it</b>. The whole of the physics
+    /// is real and is the game's: the same Bepu at the same <c>SolveDescription(8, 1)</c>, the same
+    /// <c>BallSocket</c> lattice, the same 1/120 s step, the glass dragging the cluster down as it descends.
+    /// After every shot the world is stepped while the matched group falls and <b>the remainder rotates into
+    /// a new rest pose</b>, and the death line is read off the <i>live body poses</i> through the game's own
+    /// <see cref="ClusterLineWatch"/>. No graphics device is needed; the simulation was never the part that
+    /// drew anything.
+    /// </para>
+    /// <para>
+    /// <b>What is NOT simulated is the shot's flight.</b> Nothing is launched and no contact is waited for:
+    /// the barrel's line is swept against the live structure by
+    /// <see cref="ShotPlacement.TryFindFirstHit"/> — the same sweep the game's own landing preview runs — and
+    /// the cell is <see cref="ShotPlacement"/>'s answer, so the ghost, the game and this cannot disagree
+    /// about where a ball ends up. The landing then mirrors <c>BallContactEventHandler</c> step for step,
+    /// including the one order it had to learn the hard way (#265): the body is <b>put</b> in its cell before
+    /// its constraints are made.
     /// </para>
     /// <para>
     /// <b>⚠ Why a playthrough and not a per-group drop test.</b> The obvious cheaper gate is to clear one
     /// plausible group, hang the remainder and look — and it would have missed the reports. The owner's words
     /// are <i>"as soon as a part of the map has been shot away"</i> and <i>"the player always loses after a few
     /// shots"</i>: the sag is cumulative, each cut leaving the next remainder thinner, and a level whose first
-    /// cut is harmless can hinge on its third. So the probe removes groups <b>in sequence</b> and keeps
-    /// stepping, which is the same shape as a game and costs the same as one run rather than one run a group.
+    /// cut is harmless can hinge on its third. So it plays the level through, which is the same shape as a
+    /// game and costs one run rather than one run a group.
     /// </para>
     /// <para>
-    /// <b>What it is not.</b> It is not a player. It picks its groups at random from what is standing rather
-    /// than by any notion of a good shot, so it says nothing about whether a level is <i>fun</i> or whether a
-    /// budget is generous — <c>Tools/ScoreSim</c> is where that question lives. What it says is narrower and
-    /// is exactly what was missing: <b>whether a level can be taken apart without the rest of it sagging into
-    /// the drain</b>. And it under-reports rather than over-reports, which is the right way round for a gate
-    /// that will be run over a shipped pack: a real player's shot also <i>adds</i> a ball to the cluster and
-    /// can leave a group half-cleared, and neither is modelled here.
+    /// <b>⚠ The physics was never the hard part; the PLAYER was, and every wrong verdict this file has ever
+    /// printed came from that half.</b> Three faults in a row, each found only by being refuted: it picked a
+    /// group and deleted it, which let it cut a vase's waist and leave the foot dangling — a cut no gun can
+    /// make; it aimed at balls it could not see, so <see cref="ShotPlacement"/> dutifully landed the shot
+    /// beside whatever the line met first and the cluster <i>grew</i> instead of clearing; and it was handed
+    /// a zero orbit centre, which aims <see cref="Cannon"/> at its own trunnions and normalises the aim to
+    /// NaN, so it fired nothing at all and scored every level as survived. The model now loads a colour the
+    /// way the game does, aims only at balls the sweep comes back holding, prefers the shot that completes a
+    /// group, and lets the two throws in three that complete nothing <b>stick</b> — which is what puts balls
+    /// back onto the underside, and is the difference between a probe and a wrecking ball.
+    /// </para>
+    /// <para>
+    /// <b>What it still is not.</b> It says nothing about whether a level is <i>fun</i> or whether a budget is
+    /// generous — <c>Tools/ScoreSim</c> is where that question lives. What it says is narrower and is exactly
+    /// what was missing: <b>whether a level can be taken apart without the rest of it sagging into the
+    /// drain</b>.
     /// </para>
     /// </summary>
     internal static class SagProbe
@@ -82,12 +106,31 @@ namespace BS3D.Tools.LevelGen
         private const float SETTLE_SECONDS = 4f;
 
         /// <summary>
-        /// How long the world runs after each group is released, i.e. how fast this player shoots. It has to be
-        /// past <see cref="ClusterHang.BELOW_LINE_GRACE"/> or a held crossing could never be seen at all — the
+        /// How long the world runs after each shot lands, i.e. how fast this player shoots. It has to be past
+        /// <see cref="ClusterHang.BELOW_LINE_GRACE"/> or a held crossing could never be seen at all — the
         /// probe would step past the very verdict it exists to collect — and past the fall itself, so the
         /// remainder has re-hung rather than merely started to.
         /// </summary>
         private const float SHOT_SECONDS = 1.6f;
+
+        /// <summary>
+        /// How many of <see cref="RUNS_PER_LEVEL"/> losing orders make a level worth reporting — <b>the one
+        /// threshold here that is calibrated against play rather than chosen</b>, and it is the owner's
+        /// playtest that set it.
+        /// <para>
+        /// Three levels are known finishable (Amphora, Giza, Saturn) and nine are known not to be. Against
+        /// that set the probe reads <b>Saturn 0, Giza 0, Amphora 2</b> and, of the nine, Pylon, Pinecone,
+        /// Pleat, Bolt and Totem at <b>5 of 5</b> with Orrery and Globe at 3. So three losing orders in five
+        /// separates them cleanly: it names seven of the nine and <b>none of the three</b>. Ghost and Cabinet
+        /// sit under it at 1 — the probe still ranks them, it just does not call them.
+        /// </para>
+        /// <para>
+        /// <b>⚠ A threshold fitted to twelve levels is a threshold fitted to twelve levels.</b> It is honest
+        /// about the set it was measured on and nothing more, so this refuses nothing on its own — see
+        /// <c>Program.RunSagGate</c>.
+        /// </para>
+        /// </summary>
+        internal const int SAG_RUNS_TO_REPORT = 3;
 
         /// <summary>
         /// How many differently-ordered runs each level gets. The order matters and that is the point: a
@@ -200,7 +243,30 @@ namespace BS3D.Tools.LevelGen
             BallsMap map = new(level.Map);
             map.Center();
 
-            System.Numerics.Vector3 worldOffset = ClusterHang.FitWorldOffset(map, out float fieldTopY).ToNumerics();
+            Vector3 worldOffsetXna = ClusterHang.FitWorldOffset(map, out float fieldTopY);
+            System.Numerics.Vector3 worldOffset = worldOffsetXna.ToNumerics();
+
+            //THE GUN, and it is the real one: Cannon is pose arithmetic with no renderer in it, and it seats
+            //its own trunnions off the island's stone (CannonRig.TrunnionHeightAt is static). What cannot be
+            //asked for here is GameCameraFit's full four-bound solve, because that reads the built rig's
+            //BarrelReach and the viewport's aspect - so the radius is the two bounds that are pure geometry:
+            //the gun must clear the field's own footprint at every orbit angle, and its wheels must stay
+            //outside the drain's mouth. That is the CLOSEST stance the solve can ever return, i.e. the
+            //steepest, and it is stated rather than guessed: a gun standing further out only shoots flatter,
+            //and which ball a shot meets first is ShotPlacement's answer against the live cluster either way.
+            float footprint = MathF.Max(CeilingPlate.FootprintFor(map.StageSizeX),
+                CeilingPlate.FootprintFor(map.StageSizeZ)) * Constants.HALF;
+            float orbitRadius = MathF.Max(
+                footprint * Constants.SQRT_TWO + GameCameraFit.CANNON_FIELD_CLEARANCE,
+                ArenaIsland.FUNNEL_TOP_RADIUS + GameCameraFit.CANNON_DRAIN_CLEARANCE);
+
+            //⚠ The orbit centre is (0, 5, 0) and NOT Vector3.Zero, exactly as both executables construct it.
+            //Cannon.RecalculateRotation builds its aim target as Position + Transform(OrbitCenter, rotation),
+            //so the vector is doing double duty - a direction AND the distance the aim point is thrown out to.
+            //A zero centre therefore aims the gun at its own trunnions, AimDirection normalises (0,0,0) to NaN,
+            //and every shot silently misses the whole cluster: the probe fired nothing at all and scored the
+            //level as survived.
+            Cannon cannon = new(CANNON_ORBIT_CENTRE, orbitRadius);
 
             using PhysicsWorld world = new();
 
@@ -245,29 +311,29 @@ namespace BS3D.Tools.LevelGen
                 if (map.GetBallsCount() == 0) { outcome = Outcome.Cleared; break; }
                 if (shotsFired >= shots) { outcome = Outcome.OutOfShots; break; }
 
-                XZLevel? target = PickGroup(map, random);
-
-                //Nothing left big enough to match. A real player would still have shots to place and could
-                //build a group up; this probe cannot, so the run simply ends and says so.
-                if (target == null) { outcome = Outcome.OutOfShots; break; }
-
                 //⚠ WAKE THE CLUSTER FIRST, and this is the one divergence from the game that a probe HAS to
-                //repair by hand rather than inherit. In the game a group is only ever released from inside the
-                //contact handler, i.e. on the frame a shot ball has just touched the structure - and a contact
+                //repair by hand rather than inherit. In the game a ball only ever attaches from inside the
+                //contact handler, i.e. on the frame a shot has just touched the structure - and a contact
                 //wakes the sleeping set it lands in, so the cluster is always awake by the time its
-                //constraints are cut. This probe fires nothing, so after SETTLE_SECONDS of quiet Bepu has put
-                //the whole thing to sleep (both the balls and the plate carry PhysicsWorld.SLEEP_THRESHOLD),
-                //and cutting constraints out of a sleeping island leaves the survivors holding a graph the
-                //solver never re-examined: the remainder came apart and fell, and it read as a sag on levels
-                //nobody has ever failed to finish. Waking one ball is enough - the structure is a single
-                //connected constraint graph and its whole island comes up with whichever member is touched -
-                //and the plate is woken beside it for the reason GameplayScreen.WakeForDescent gives, that a
-                //kinematic can be referenced by several sleeping sets at once and is not islanded with them.
+                //constraints are cut and made. This probe adds its ball by hand, so after SETTLE_SECONDS of
+                //quiet Bepu has put the whole thing to sleep (both the balls and the plate carry
+                //PhysicsWorld.SLEEP_THRESHOLD), and cutting constraints out of a sleeping island leaves the
+                //survivors holding a graph the solver never re-examined: the remainder came apart and fell.
+                //Every ball is woken and not one - see WakeCluster, where the reason is measured.
                 world.Simulation.Awakener.AwakenBody(ceiling.Handle);
                 WakeCluster(world, balls);
 
-                BallsReleased released = BallsConstraintsBuilder.ReleaseSameTypeCluster(
-                    balls[target.Value.X, target.Value.Z, target.Value.Level], balls, map, world.Simulation, falling);
+                //One shot, the game's way: aim, sweep the line, land in the cell ShotPlacement answers with,
+                //attach, and only then ask the match rule. A shot that completes nothing STAYS - which is
+                //two throws in three and is the whole reason this replaced picking a group to delete.
+                if (!FireOneShot(world, cannon, ceiling, ceilingY, map, balls, falling, worldOffsetXna, random,
+                        out BallsReleased released))
+                {
+                    //Nothing to load, nowhere to aim, or a shot that found no free cell in either ring. The
+                    //first two mean the level cannot be played on any further; a bounce merely costs a shot.
+                    outcome = Outcome.OutOfShots;
+                    break;
+                }
 
                 shotsFired++;
 
@@ -460,68 +526,241 @@ namespace BS3D.Tools.LevelGen
         }
 
         /// <summary>
-        /// How far above the cluster's own underside a shot is taken to be able to reach, in lattice levels.
-        /// <b>This is the whole player model, and it is the game's rule rather than a guess:</b> the gun
-        /// stands under the hanging cluster and shoots up into it, so what a shot meets is the underside —
-        /// which is why <c>GameplayScreen.TALL_AIM_HEADROOM_LEVELS</c> holds a tall level's aim to a band
-        /// just above that underside and calls the reason out, <i>"the column has to be eaten from the
-        /// bottom"</i>. The figure is that constant's.
+        /// How far above the cluster's own underside a shot aims, in lattice levels — the working band, and
+        /// the game's own rule rather than a guess: the gun stands under the hanging cluster and shoots up
+        /// into it, so what a shot meets is the underside, which is why
+        /// <c>GameplayScreen.TALL_AIM_HEADROOM_LEVELS</c> holds a tall level's aim to a band just above that
+        /// underside and calls the reason out — <i>"the column has to be eaten from the bottom"</i>. The
+        /// figure is that constant's.
+        /// <para>
+        /// It is where the player <b>points</b>. Where the ball ends up is <see cref="ShotPlacement"/>'s, off
+        /// the gun's own line, exactly as in the game.
+        /// </para>
         /// </summary>
         private const int AIM_BAND_LEVELS = 5;
 
         /// <summary>
-        /// One standing group, picked at random from those big enough to match <b>and low enough to shoot
-        /// at</b> — see <see cref="AIM_BAND_LEVELS"/>. Random within the band and not clever: the question is
-        /// whether the level survives being taken apart, not whether a good player would pick this order.
+        /// The grown sphere a shot sweeps: its own radius plus a structure ball's, which is what
+        /// <see cref="ShotPlacement.TryFindFirstHit"/> measures the first touch against.
+        /// </summary>
+        private static readonly float SHOT_RADIUS_SUM = 2f * BallsConstraintsBuilder.BALL_RADIUS;
+
+        /// <summary>
+        /// <b>Which ball the player points the gun at</b> — a ball of the loaded colour that already has a
+        /// neighbour of its own colour, so landing beside it completes the three, and low enough to shoot at
+        /// (<see cref="AIM_BAND_LEVELS"/>). When the loaded colour has no such ball anywhere reachable, any
+        /// ball in the band will do: the shot then simply sticks, which is a real shot and not a wasted turn.
         /// <para>
-        /// <b>⚠ It picked from the whole cluster at first, and the owner's playtest is what refuted that.</b>
-        /// Asked over every standing group, the probe lost 38 of the 90 shipped levels, <see cref="Amphora"/>
-        /// among them at five runs out of five — and Amphora, Giza and Saturn were then confirmed from play
-        /// to be perfectly finishable. The traces say exactly what the unbanded pick was doing: on Amphora it
-        /// took a 57-ball group out of the vase's <i>waist</i> on the first shot, with all twenty ceiling
-        /// anchors left intact and nothing orphaned, and left the foot — cells with two lattice neighbours
-        /// apiece — hanging on a thread five levels below. That is not a cut a player can make. The gun is
-        /// underneath; the foot is the first thing it can hit and the first thing that goes.
-        /// </para>
-        /// <para>
-        /// The band widens to the whole cluster when nothing inside it can be matched, because a player in
-        /// that position still has a shot to take — and because a probe that ended the run there would score
-        /// a level as survived on the grounds that it could not be played.
+        /// <b>⚠ This used to pick a GROUP and release it outright, and the owner's playtest is what refuted
+        /// that.</b> Asked over every standing group, the probe lost 38 of the 90 shipped levels — Amphora,
+        /// Giza and Saturn among them, all three then confirmed finishable from play. The traces say what the
+        /// old pick was doing: on Amphora it took a 57-ball group out of the vase's <i>waist</i> on the first
+        /// shot, with all twenty ceiling anchors left intact and nothing orphaned, and left the foot hanging
+        /// on two neighbours five levels below. No player can make that cut. So the probe stopped choosing
+        /// what falls and started choosing where to aim, and lets <see cref="ShotPlacement"/> decide the rest.
         /// </para>
         /// </summary>
-        private static XZLevel? PickGroup(BallsMap map, Random random)
+        private static List<XZLevel> PickAimTargets(BallsMap map, BallType loaded, Random random)
         {
             StaticBall[,,] array = map.GetStaticBallsArray();
-            HashSet<XZLevel> seen = new();
-            List<XZLevel> inBand = new();
-            List<XZLevel> anywhere = new();
+            XZLevel size = map.GetStaticBallsArraySize();
+            List<XZLevel> matching = new();
+            List<XZLevel> anything = new();
 
             int reach = map.GetLowestOccupiedLevel() + AIM_BAND_LEVELS;
+
+            for (byte level = 0; level <= reach && level < map.Levels; level++)
+                for (byte x = 0; x < map.StageSizeX; x++)
+                    for (byte z = 0; z < map.StageSizeZ; z++)
+                    {
+                        if (array[x, z, level] == null) continue;
+
+                        XZLevel cell = new(x, z, level);
+                        anything.Add(cell);
+
+                        if (array[x, z, level].Type != loaded) continue;
+
+                        //A ball of the loaded colour that already touches one of its own: a ball landing
+                        //beside it makes MINIMUM_CLUSTER_SIZE. Asked of the neighbour rule rather than of the
+                        //whole group, because that is the shot a player can actually SEE is available.
+                        foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(cell, size))
+                            if (array[neighbour.X, neighbour.Z, neighbour.Level]?.Type == loaded)
+                            {
+                                matching.Add(cell);
+                                break;
+                            }
+                    }
+
+            //The colour's own balls first and everything else behind them, each half shuffled: the caller
+            //walks this in order and takes the first shot that is both VISIBLE and lands a match, so the
+            //order is the player's preference and the shuffle is what makes five runs five different games.
+            Shuffle(matching, random);
+            Shuffle(anything, random);
+            matching.AddRange(anything);
+
+            //Cost, and it is the one place this file trades fidelity for time: every candidate costs a sweep
+            //of the whole structure (ShotPlacement.TryFindFirstHit is O(cells)), and a level of a thousand
+            //balls offers hundreds of candidates. Forty is far past the handful a player considers and far
+            //short of what a full scan would cost - and the list is shuffled, so the forty are a fair sample
+            //rather than a corner of the map.
+            if (matching.Count > AIM_CANDIDATES) matching.RemoveRange(AIM_CANDIDATES, matching.Count - AIM_CANDIDATES);
+
+            return matching;
+        }
+
+        /// <inheritdoc cref="PickAimTargets"/>
+        private const int AIM_CANDIDATES = 40;
+
+        /// <summary>
+        /// Where the gun points when it is not aiming anywhere else, and the length its aim target is thrown
+        /// out to - see the note where the gun is built. The very vector both executables construct their
+        /// cannon with.
+        /// </summary>
+        private static readonly Vector3 CANNON_ORBIT_CENTRE = new(0f, 5f, 0f);
+
+        private static void Shuffle(List<XZLevel> cells, Random random)
+        {
+            for (int i = cells.Count - 1; i > 0; i--)
+            {
+                int j = random.Next(i + 1);
+                (cells[i], cells[j]) = (cells[j], cells[i]);
+            }
+        }
+
+        /// <summary>
+        /// Whether a ball of <paramref name="colour"/> landing in <paramref name="cell"/> would complete a
+        /// group — asked by putting it in the lattice, measuring, and taking it out again. The map is the
+        /// cheap copy of the truth here; doing it any other way means re-deriving
+        /// <see cref="BallsMap.GetConnectedSameTypeCells"/>'s own neighbour walk, which is the rule this has
+        /// to agree with exactly.
+        /// </summary>
+        private static bool WouldMatch(BallsMap map, XZLevel cell, BallType colour)
+        {
+            map.PutBallAt((byte)cell.X, (byte)cell.Z, (byte)cell.Level, colour);
+
+            int group = map.GetConnectedSameTypeCells(cell).Count;
+
+            map.RemoveBallAt((byte)cell.X, (byte)cell.Z, (byte)cell.Level);
+
+            return group >= BallsConstraintsBuilder.MINIMUM_CLUSTER_SIZE;
+        }
+
+        /// <summary>
+        /// What the barrel is loaded with — <b>uniform over the colours still standing</b>, which is
+        /// <c>GameplayScreen.RandomBallType</c>'s rule exactly, count-blind and all. The magazine's queue of
+        /// five only delays that draw, so a probe that draws per shot loads the same distribution.
+        /// </summary>
+        private static BallType? LoadedColour(BallsMap map, Random random)
+        {
+            StaticBall[,,] array = map.GetStaticBallsArray();
+            List<BallType> live = new();
 
             for (byte level = 0; level < map.Levels; level++)
                 for (byte x = 0; x < map.StageSizeX; x++)
                     for (byte z = 0; z < map.StageSizeZ; z++)
-                    {
-                        XZLevel cell = new(x, z, level);
-                        if (array[x, z, level] == null || seen.Contains(cell)) continue;
+                        if (array[x, z, level] != null && !live.Contains(array[x, z, level].Type))
+                            live.Add(array[x, z, level].Type);
 
-                        List<XZLevel> group = map.GetConnectedSameTypeCells(cell);
-                        foreach (XZLevel member in group) seen.Add(member);
+            return live.Count == 0 ? null : live[random.Next(live.Count)];
+        }
 
-                        if (group.Count < BallsConstraintsBuilder.MINIMUM_CLUSTER_SIZE) continue;
+        /// <summary>
+        /// <b>One shot, through the game's own path</b>: the gun stands to face the ball being aimed at, the
+        /// barrel is laid on it under its own elevation and traverse clamps, the shot's line is swept against
+        /// the live structure by <see cref="ShotPlacement.TryFindFirstHit"/>, and the cell it lands in is
+        /// <see cref="ShotPlacement"/>'s answer rather than this file's guess.
+        /// <para>
+        /// The landing then mirrors <c>BallContactEventHandler</c> step for step, and the order is load-bearing
+        /// in one place that handler had to learn the hard way (#265): <b>the body is PUT in the cell before
+        /// the constraints are made</b>. Letting the new sockets drag it in looks equivalent and is not — the
+        /// ceiling socket ties the ball's own north pole to a point under the plate, a pair with two solutions,
+        /// and a ball dragged in from one side settles into the inverted one and sleeps there.
+        /// </para>
+        /// </summary>
+        /// <returns>False when the shot found nowhere to stick — a bounce, which costs the shot and nothing else.</returns>
+        private static bool FireOneShot(PhysicsWorld world, Cannon cannon, BodyReference ceiling, float ceilingY,
+            BallsMap map, PhysicsBall[,,] balls, List<PhysicsBall> falling, Vector3 worldOffset, Random random,
+            out BallsReleased released)
+        {
+            released = default;
 
-                        anywhere.Add(cell);
+            BallType? loaded = LoadedColour(map, random);
+            if (loaded == null) return false;
 
-                        //A group is shootable if ANY of its cells is in the band: a shot that lands on the
-                        //underside releases the whole group however far up the rest of it reaches, which is
-                        //what makes a spiral dangerous in the first place.
-                        foreach (XZLevel member in group)
-                            if (member.Level <= reach) { inBand.Add(cell); break; }
-                    }
+            List<XZLevel> candidates = PickAimTargets(map, loaded.Value, random);
+            if (candidates.Count == 0) return false;
 
-            List<XZLevel> pool = inBand.Count > 0 ? inBand : anywhere;
+            bool found = false;
+            XZLevel cell = default;
+            Vector3 drift = default;
 
-            return pool.Count == 0 ? null : pool[random.Next(pool.Count)];
+            //⚠ A PLAYER AIMS AT WHAT THEY CAN SEE, and the first cut of this did not: it pointed the gun at a
+            //ball of the loaded colour wherever it was, and ShotPlacement then dutifully landed the shot beside
+            //whatever ball the LINE met first - an outer one, usually of another colour entirely. The result
+            //was a probe that matched almost nothing and grew the cluster it was supposed to be clearing (502
+            //balls to 513 over eighteen shots on Amphora). So a candidate is only taken if the sweep comes
+            //back holding THAT ball, which is the honest reading of "visible from the gun", and preferred if
+            //the cell it lands in completes a group. The first workable shot is kept as the fallback: a player
+            //with nothing to match still fires, and the ball that sticks is the point of firing at all.
+            foreach (XZLevel candidate in candidates)
+            {
+                //Aimed at the ball where it HANGS, not at the lattice cell it was drawn in: the cluster has
+                //been swinging and descending, and a player points the gun at what they can see.
+                Vector3 target = balls[candidate.X, candidate.Z, candidate.Level].BallReference.Pose.Position.ToXna();
+
+                //Stand facing the cell first, so the shot is the clean one over open ground rather than one
+                //fired across the whole cluster - the Testbed's aimshoot sweep makes the same move for the
+                //same reason.
+                cannon.OrbitToFace(target);
+                cannon.AimAt(target);
+
+                if (!ShotPlacement.TryFindFirstHit(balls, cannon.Position, cannon.AimDirection, SHOT_RADIUS_SUM,
+                        out PhysicsBall hit, out Vector3 contact)) continue;
+
+                if (hit.ArrayPosition.X != candidate.X || hit.ArrayPosition.Z != candidate.Z
+                    || hit.ArrayPosition.Level != candidate.Level) continue;   //occluded: not this player's shot
+
+                if (!ShotPlacement.TrySolveAgainstBall(map, hit, contact, worldOffset, out XZLevel solved,
+                        out Vector3 solvedDrift)) continue;                    //both rings full: it would bounce
+
+                if (!found) { cell = solved; drift = solvedDrift; found = true; }
+
+                if (!WouldMatch(map, solved, loaded.Value)) continue;
+
+                cell = solved;
+                drift = solvedDrift;
+                break;
+            }
+
+            if (!found) return false;
+
+            Vector3 rest = ShotPlacement.CellWorldPosition(map, cell, worldOffset, drift);
+
+            BodyHandle handle = world.Simulation.Bodies.Add(BodyDescription.CreateDynamic(
+                rest.ToNumerics(),
+                new Sphere(BallsConstraintsBuilder.BALL_RADIUS).ComputeInertia(BallsConstraintsBuilder.BALL_MASS),
+                new CollidableDescription(BallsConstraintsBuilder.GetSphereShapeIndex(world.Simulation),
+                    BallsConstraintsBuilder.SPECULATIVE_MARGIN),
+                new BodyActivityDescription(PhysicsWorld.SLEEP_THRESHOLD)));
+
+            PhysicsBall landed = new()
+            {
+                BallReference = new BodyReference(handle, world.Simulation.Bodies),
+                Type = loaded.Value,
+                ArrayPosition = cell,
+            };
+
+            map.PutBallAt((byte)cell.X, (byte)cell.Z, (byte)cell.Level, loaded.Value);
+            balls[cell.X, cell.Z, cell.Level] = landed;
+
+            BallsConstraintsBuilder.AttachBallToStructure(landed, balls, map, world.Simulation, ceiling);
+
+            //And the game rule: three or more of a colour touching each other let go, and so does anything
+            //that was only held up by them. A shot that completes nothing simply stays, which is the whole
+            //point of firing rather than picking - two throws in three add a ball to the underside.
+            released = BallsConstraintsBuilder.ReleaseSameTypeCluster(landed, balls, map, world.Simulation, falling);
+
+            return true;
         }
 
         /// <summary>

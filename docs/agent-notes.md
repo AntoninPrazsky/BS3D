@@ -2686,3 +2686,31 @@ Zisk je reálný a **nestačí**: Giza a Saturn spadly na 1 prohrávající poř
 **Devět layoutů jsem opět nesáhl** a je to totéž rozhodnutí: verdikt, kterému nevěřím, není důvod překreslit design. To by bylo #288 s lepším nářadím.
 
 **Nic dalšího si neberu.**
+
+**Dodatek 2 (týž den) — majitel zadal „dodělej model hráče, dokud si tu hru nemůžeš zahrát". Hotovo, a POPRVÉ TO ODDĚLUJE. Na mainu jako `301-302-shot-model`.**
+
+**Sonda teď doopravdy STŘÍLÍ.** Losuje barvu jako `RandomBallType` (rovnoměrně přes stojící barvy, slepě k počtům), postaví skutečné `Cannon`, `OrbitToFace` + `AimAt`, prožene linii hlavně `ShotPlacement.TryFindFirstHit` a buňku dopadu si nechá říct od `ShotPlacement` — tedy kódem hry. Přichycení kopíruje `BallContactEventHandler` krok za krokem včetně pořadí z #265 (**těleso se usadí dřív, než vzniknou omezení**). Fyzika byla správně celou dobu; balistika mezi hlavní a shlukem se přeskakuje a je to jediná aproximace.
+
+**Kalibrace proti majitelově sadě:**
+
+| dohratelné | | nedohratelné | |
+|---|---|---|---|
+| Saturn | 0/5 | Pylon, Pinecone, Pleat, Bolt, Totem | **5/5** |
+| Giza | 0/5 | Orrery, Globe | 3/5 |
+| Amphora | 2/5 | Ghost, Cabinet | 1/5 |
+
+**Práh 3 z 5 (`SAG_RUNS_TO_REPORT`) pojmenuje sedm z devíti a žádný ze tří dobrých.** Přes celý pack **13 z 90** proti dřívějším 38, a rozdělení má tvar: 52 levelů se nepropadne nikdy, 14× jednou, 11× dvakrát, 7× třikrát, 1× čtyřikrát, 5× pětkrát. **Všechny na čtyřech a pěti jsou z hlášené devítky.**
+
+**⚠ Tři vady, které jsem cestou našel, byly VŠECHNY v modelu hráče, ani jedna ve fyzice. Tohle si přečti, než budeš stavět něco podobného:**
+
+1. **Mazal skupiny místo střílení.** Uřízl váze pas a nechal nohu viset — řez, který dělo udělat nemůže. Dělo stojí pod shlukem; `TALL_AIM_HEADROOM_LEVELS` to má napsané.
+2. **Mířil na koule, které nevidí.** `ShotPlacement` pak poctivě položil kouli vedle toho, co paprsek trefil první — jiné barvy. Skoro nic se nezapálilo a shluk při „vyklízení" **rostl**, 502 → 513 za osmnáct výstřelů. Kandidát se bere, jen když se paprsek vrátí s TOU koulí.
+3. **Nulový orbit centre.** `Cannon.RecalculateRotation` staví cíl jako `Position + Transform(OrbitCenter, rotace)`, takže ten vektor nese i vzdálenost. Nula míří dělem do vlastních čepů, `AimDirection` normalizuje `(0,0,0)` na NaN — sonda nevystřelila vůbec a **všechny levely označila za v pořádku**. Oba exáče konstruují dělo s `(0, 5, 0)`.
+
+**Šest levelů, které sonda pojmenuje a nikdo je nehlásil, není náhodná šestice:** Belfry, Organ, Vortex, Sail, Garland, Trellis — všechny přesně na 3. Garland je místo, kde #182 našlo mez tloušťky pramene, Trellis kde #253 našlo mez stoupání, a společná vlastnost všech šesti jsou štíhlé pruty bez příčné výztuhy. Sonda se tu shoduje s poznámkami, které ty designy už nesou.
+
+**Pořád nic neodmítá** — práh nafitovaný na dvanáct levelů je práh nafitovaný na dvanáct levelů. Tiskne žebříček.
+
+**Layouty jsem nesáhl ani teď**, ale poprvé mám nástroj, kterému se dá věřit natolik, aby se opravou dalo měřit. To je další krok.
+
+**Nic dalšího si neberu.**
