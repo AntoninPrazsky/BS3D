@@ -108,6 +108,9 @@ namespace Prazsky.Core.Render
         private EffectParameter _bubbleFilmThicknessParam;
         private EffectParameter _bubbleTintStrengthParam;
         private EffectParameter _bubbleBodyOpacityParam;
+        private EffectParameter _marbleVeinFrequencyParam;
+        private EffectParameter _marbleVeinWarpParam;
+        private EffectParameter _marbleVeinContrastParam;
         private EffectTechnique _cityTechnique;
         private EffectParameter _cityWindowBrightnessParam;
 
@@ -403,6 +406,28 @@ namespace Prazsky.Core.Render
         /// for the balls and carries the arithmetic; this default only covers a caller that never says.
         /// </summary>
         public float BubbleBodyOpacity { get; set; } = 0.84f;
+
+        /// <summary>
+        /// Wave count of <see cref="BallShading.Marble"/>'s vein bands over the ball, before the turbulence
+        /// bends them — the coarse spacing of the figure. Under about 3 the ball reads as two-tone rather than
+        /// veined; far over it the bands crowd into a mottle that stops looking like stone.
+        /// </summary>
+        public float MarbleVeinFrequency { get; set; } = 5f;
+
+        /// <summary>
+        /// How far the turbulence bends those bands out of their parallel course, in the same units. The dial
+        /// that separates marble from a barber's pole: at zero the bands are perfect circles round one axis,
+        /// and it is the warp alone that makes them wander, split and rejoin the way a mineral seam does.
+        /// </summary>
+        public float MarbleVeinWarp { get; set; } = 6f;
+
+        /// <summary>
+        /// How far a vein carries the type colour towards white (0 = invisible, 1 = white). The figure the
+        /// thirteen colours are spent on: a vein is the tint lightened and never a fixed grey, so a magenta
+        /// ball gets pale magenta veins. <c>Prazsky.BS3D.BallRenderSet.MARBLE_VEIN_CONTRAST</c> states it for
+        /// the balls and carries the argument; this default only covers a caller that never says.
+        /// </summary>
+        public float MarbleVeinContrast { get; set; } = 0.55f;
 
         /// <summary>
         /// How much of its own color the surface radiates, independent of any light falling on it.
@@ -705,6 +730,9 @@ namespace Prazsky.Core.Render
             _bubbleFilmThicknessParam = _effect.Parameters["BubbleFilmThickness"];
             _bubbleTintStrengthParam = _effect.Parameters["BubbleTintStrength"];
             _bubbleBodyOpacityParam = _effect.Parameters["BubbleBodyOpacity"];
+            _marbleVeinFrequencyParam = _effect.Parameters["MarbleVeinFrequency"];
+            _marbleVeinWarpParam = _effect.Parameters["MarbleVeinWarp"];
+            _marbleVeinContrastParam = _effect.Parameters["MarbleVeinContrast"];
             _cityTechnique = _effect.Techniques["InstancedCity"];
             _cityWindowBrightnessParam = _effect.Parameters["CityWindowBrightness"];
             _cityWindowTimeParam = _effect.Parameters["CityWindowTime"];
@@ -763,6 +791,7 @@ namespace Prazsky.Core.Render
         {
             "InstancedModelPattern",  //BallShading.Vinyl
             "InstancedModelBubble",   //BallShading.Bubble
+            "InstancedModelMarble",   //BallShading.Marble
         };
 
         /// <summary>
@@ -1053,6 +1082,12 @@ namespace Prazsky.Core.Render
                         _bubbleFilmThicknessParam.SetValue(BubbleFilmThickness);
                         _bubbleTintStrengthParam.SetValue(BubbleTintStrength);
                         _bubbleBodyOpacityParam.SetValue(BubbleBodyOpacity);
+                        break;
+
+                    case BallShading.Marble:
+                        _marbleVeinFrequencyParam.SetValue(MarbleVeinFrequency);
+                        _marbleVeinWarpParam.SetValue(MarbleVeinWarp);
+                        _marbleVeinContrastParam.SetValue(MarbleVeinContrast);
                         break;
 
                     case BallShading.Vinyl:

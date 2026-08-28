@@ -28,7 +28,17 @@ namespace Prazsky.BS3D.GameStructure
         /// bright and iridescent along the rim. The look the game's own 3D wordmark is swept in, which is why it
         /// exists at all.
         /// </summary>
-        Bubble = 1
+        Bubble = 1,
+
+        /// <summary>
+        /// Polished marble (#305): a piece of cut stone in the type colour, veined through with that same
+        /// colour carried towards white, hard and smooth under a tight polish that picks up the sky.
+        /// <para>
+        /// The heavy one. Where the vinyl is an air-filled skin and the bubble a film around nothing, this has
+        /// mass — which is what it is for, and why it suits the blocks whose backdrops are stone.
+        /// </para>
+        /// </summary>
+        Marble = 2
     }
 
     /// <summary>
@@ -61,6 +71,11 @@ namespace Prazsky.BS3D.GameStructure
                 case "bubbles":
                 case "glass":
                     style = BallStyle.Bubble;
+                    return true;
+
+                case "marble":
+                case "stone":
+                    style = BallStyle.Marble;
                     return true;
 
                 default:
