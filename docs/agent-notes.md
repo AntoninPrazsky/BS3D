@@ -2764,3 +2764,23 @@ Co se změnilo: `bool GlassBubble` → `BallShading Shading` (nový enum v `Praz
 **⚠ Našel jsem cestou nesrovnalost, kterou jsem nesáhl** (jiná změna, jiná větev): `docs/rendering.md` i `docs/formats-and-tools.md` mluví o *„The campaign is nine blocks of five"*, ale `LevelGen.BLOCK_SIZE` je **10** a `BLOCK_NAMES` má devět jmen — tedy devadesát levelů v blocích po deseti. Ta věta je zastaralá na obou místech.
 
 **Nic dalšího si neberu** — osmička stylů je volná, doporučené pořadí je #305 nebo #311 jako první (obojí neprůhledné, obojí bezpečné na barvu, a prověří nový dispatch bez průhledné cesty).
+
+**Dodatek (téhož dne) — #305 mramor hotový, a je to první styl, který je LEVNĚJŠÍ než vinyl.**
+
+`InstancedModelMarble` vedle patternu a filmu. Leštění (široký sheen na 0.3, prostředí na 1.6, jeden těsný lalok jen od key světla), žilkování z turbulence v objektovém prostoru na téže sumě oktáv jako moulding, a **žádný reliéf a žádné švy** — v technice není jediné volání `PerturbNormalFromHeight`. Proto je levnější.
+
+**⚠ Co stálo tři pokusy a je to hlavní poučení: z čeho je žíla.** Pevná bílá nebo šedá je vyloučená konstrukcí (bílá koule s barvou mezi žilami — past, kterou gores nastražily Type4 a Type11, a u Type8 by to byla celá koule). Takže:
+1. **Tint posunutý zlomkem k bílé** — nádherná zlatá filigrán na černé a hnědé, a **neviditelná** na cyan, červené, magentě, zelené, žluté a oranžové. Foceno na `Kepler` (jeden ze tří levelů, co nesou všech třináct typů — s `Orrery` a `Garland`).
+2. **Zvednutí poměrem** (`primary / peak`, tedy normalizace, kterou používá ripple, a zjevná oprava na ACES) — pohnulo to tím skoro vůbec: sytý tint je už u svého peaku a normalizace nemá co dát.
+
+**Obojí padlo z jednoho důvodu a ten si zapamatuj: figura na jasné kouli nesoupeří s barvou těla, ale se STÍNOVÁNÍM.** Osvětlená koule jde od vypáleného highlightu po skoro černý spodek, a kresba, která mění barvu míň, než přes tutéž kouli mění světlo, prostě není vidět.
+
+**Funguje DRUHÝ MINERÁL**: bledá šeď sledující vlastní luminanci kamene, s podlahou, aby tmavé typy o figuru nepřišly. Čte se proto, že hýbe barvou po ose, po které stínování nehýbe — žíla je **odsycená** tam, kde highlight je jen jasný, a žádné množství světla neudělá z části cyanové koule šedou.
+
+**Ověřeno** na `Kepler` pod vesmírem s **vypnutými post efekty** (zrno i aberace kresbu shaderu maskují): všech třináct zůstává pojmenovatelných, figura je nejsilnější na černé, cyan, hnědé, olivové a zelené, nejslabší na červené, oranžové a žluté — tam je zbylý prostor.
+
+**Změřeno** (párové opakování, `Eleven` pod jeskyní, 959 koulí, 1600×900, ssaa 2×, quality high, vsync off): vinyl 638,0 / 638,0 proti mramoru 654,0 / 654,0 — **mramor je o 2,5 % rychlejší**, asi 0,038 ms na snímek, proti bublině, která 8–10 % stojí.
+
+**⚠ K #250:** stroj během těch měření jednou spadl a **byl to právě uncapped běh**, ne screenshoty. Log jednoho `nocap` běhu končí useknutý tři řádky po startu při ~700 FPS. **Čas v události 6008 (22:14:37) není okamžik pádu** — je to poslední periodický zápis „ještě žiju" a zpožďuje se; useknutý log má razítko 22:15:03. Majitel řekl měřit dál, další čtyři uncapped běhy prošly bez problému.
+
+**Nic dalšího si neberu.** Volné z osmičky: #306 eloxovaný kov, #307 mrazivý led, #308 broušený drahokam, #309 plazma, #310 roztavená kůra, #311 klubko vlny, #312 popraskaný porcelán.
