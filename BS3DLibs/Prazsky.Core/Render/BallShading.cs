@@ -50,6 +50,18 @@ namespace Prazsky.Core.Render
         /// than the vinyl it stands beside.
         /// </para>
         /// </summary>
-        Marble = 2
+        Marble = 2,
+
+        /// <summary>
+        /// Wound wool (#311): a ball of yarn in the type colour, wrapped in bands that lie at changing angles,
+        /// fibrous and soft with almost no highlight and a fuzzy halo at the silhouette. Drawn by
+        /// <c>InstancedModelWool</c>.
+        /// <para>
+        /// The only <b>soft</b> one. Its figure is a normal perturbation rather than a colour change, so unlike
+        /// the marble's veining it reads at every tint by construction — a strand <i>is</i> shading, and cannot
+        /// be swamped by it.
+        /// </para>
+        /// </summary>
+        Wool = 3
     }
 }

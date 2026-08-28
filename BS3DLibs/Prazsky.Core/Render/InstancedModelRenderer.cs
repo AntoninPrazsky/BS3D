@@ -111,6 +111,9 @@ namespace Prazsky.Core.Render
         private EffectParameter _marbleVeinFrequencyParam;
         private EffectParameter _marbleVeinWarpParam;
         private EffectParameter _marbleVeinContrastParam;
+        private EffectParameter _woolStrandFrequencyParam;
+        private EffectParameter _woolStrandDepthParam;
+        private EffectParameter _woolHaloParam;
         private EffectTechnique _cityTechnique;
         private EffectParameter _cityWindowBrightnessParam;
 
@@ -430,6 +433,26 @@ namespace Prazsky.Core.Render
         public float MarbleVeinContrast { get; set; } = 0.55f;
 
         /// <summary>
+        /// How many strands are wound across a <see cref="BallShading.Wool"/> ball, as a wave count over the
+        /// object-space direction — the diameter shows about a third of this many crossings. Under about 12 the
+        /// strands read as fat tubes; over about 40 they cross into a felt with no strand in it.
+        /// </summary>
+        public float WoolStrandFrequency { get; set; } = 24f;
+
+        /// <summary>
+        /// Peak height of a wool strand's ridge in world units, exactly as <see cref="PatternReliefStrength"/>
+        /// is for the vinyl's moulding. It only tilts the normal, so the silhouette stays the sphere's.
+        /// </summary>
+        public float WoolStrandDepth { get; set; } = 0.02f;
+
+        /// <summary>
+        /// How brightly the loose fibres at the silhouette catch the light, in the ball's own colour — the cue
+        /// that says <i>soft</i>. It is light added over every ball's rim at once, so a cluster is where it is
+        /// judged and never a single ball; <c>Prazsky.BS3D.BallRenderSet.WOOL_HALO</c> states it for the balls.
+        /// </summary>
+        public float WoolHalo { get; set; } = 0.25f;
+
+        /// <summary>
         /// How much of its own color the surface radiates, independent of any light falling on it.
         /// Deliberately not occluded: a light source buried inside a pile is the one that should still
         /// show, glowing out past its neighbors.
@@ -733,6 +756,9 @@ namespace Prazsky.Core.Render
             _marbleVeinFrequencyParam = _effect.Parameters["MarbleVeinFrequency"];
             _marbleVeinWarpParam = _effect.Parameters["MarbleVeinWarp"];
             _marbleVeinContrastParam = _effect.Parameters["MarbleVeinContrast"];
+            _woolStrandFrequencyParam = _effect.Parameters["WoolStrandFrequency"];
+            _woolStrandDepthParam = _effect.Parameters["WoolStrandDepth"];
+            _woolHaloParam = _effect.Parameters["WoolHalo"];
             _cityTechnique = _effect.Techniques["InstancedCity"];
             _cityWindowBrightnessParam = _effect.Parameters["CityWindowBrightness"];
             _cityWindowTimeParam = _effect.Parameters["CityWindowTime"];
@@ -792,6 +818,7 @@ namespace Prazsky.Core.Render
             "InstancedModelPattern",  //BallShading.Vinyl
             "InstancedModelBubble",   //BallShading.Bubble
             "InstancedModelMarble",   //BallShading.Marble
+            "InstancedModelWool",     //BallShading.Wool
         };
 
         /// <summary>
@@ -1082,6 +1109,12 @@ namespace Prazsky.Core.Render
                         _bubbleFilmThicknessParam.SetValue(BubbleFilmThickness);
                         _bubbleTintStrengthParam.SetValue(BubbleTintStrength);
                         _bubbleBodyOpacityParam.SetValue(BubbleBodyOpacity);
+                        break;
+
+                    case BallShading.Wool:
+                        _woolStrandFrequencyParam.SetValue(WoolStrandFrequency);
+                        _woolStrandDepthParam.SetValue(WoolStrandDepth);
+                        _woolHaloParam.SetValue(WoolHalo);
                         break;
 
                     case BallShading.Marble:

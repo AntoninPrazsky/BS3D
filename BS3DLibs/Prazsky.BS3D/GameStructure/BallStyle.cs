@@ -38,7 +38,19 @@ namespace Prazsky.BS3D.GameStructure
         /// mass — which is what it is for, and why it suits the blocks whose backdrops are stone.
         /// </para>
         /// </summary>
-        Marble = 2
+        Marble = 2,
+
+        /// <summary>
+        /// Wound wool (#311): a ball of yarn dyed the type colour, wrapped by hand in bands that lie at
+        /// changing angles, fibrous and matte with a fuzzy halo where the light comes through the loose fibres
+        /// at its edge.
+        /// <para>
+        /// The soft one, and the only one — every other style is a hard surface of some kind. It also takes dye
+        /// better than any of them: nothing reflects, transmits or radiates enough to dilute the tint, so it is
+        /// the safest style in the set on the thirteen colours.
+        /// </para>
+        /// </summary>
+        Wool = 3
     }
 
     /// <summary>
@@ -76,6 +88,11 @@ namespace Prazsky.BS3D.GameStructure
                 case "marble":
                 case "stone":
                     style = BallStyle.Marble;
+                    return true;
+
+                case "wool":
+                case "yarn":
+                    style = BallStyle.Wool;
                     return true;
 
                 default:

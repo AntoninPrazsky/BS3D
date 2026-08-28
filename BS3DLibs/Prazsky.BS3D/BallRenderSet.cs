@@ -368,6 +368,39 @@ namespace Prazsky.BS3D
         /// </summary>
         private const float MARBLE_EMISSION = 0.32f;
 
+        /// <summary>
+        /// How many strands are wound across a wool ball (#311), as a wave count over the object-space
+        /// direction — so the diameter shows about a third of this many crossings, seven or eight at this
+        /// figure. Chosen against the ball's size on screen rather than against a photograph of yarn: at the
+        /// stand-off a level is played from a ball is a few dozen pixels across, and a strand has to be several
+        /// of them wide or the winding averages into a flat wash and takes the rotation cue with it.
+        /// </summary>
+        private const float WOOL_STRAND_FREQUENCY = 24f;
+
+        /// <summary>
+        /// Peak height of a strand's ridge in world units, against the ball's <see cref="BALL_RADIUS"/> of 0.5
+        /// — so a strand stands about 4 % of the radius proud. It only tilts the normal; the silhouette stays
+        /// the sphere's, which is what keeps this style free of any geometry and lets it ride the same LOD
+        /// ladder as every other.
+        /// </summary>
+        private const float WOOL_STRAND_DEPTH = 0.02f;
+
+        /// <summary>
+        /// The fuzz at the silhouette: loose fibres lit from behind, in the ball's own colour. The one figure
+        /// of this style that has to be defended against a whole cluster rather than one ball — it adds light
+        /// to every rim at once, and rims are most of what is visible of a ball in a pile, so what reads as
+        /// softness on a single ball can read as a glow on four hundred.
+        /// </summary>
+        private const float WOOL_HALO = 0.15f;
+
+        /// <summary>
+        /// How much of its own colour a wool ball radiates. Between the vinyl's <see cref="EMISSION"/> and the
+        /// marble's: a fibre surface scatters its own light out through a soft edge rather than off a hard one,
+        /// so it carries a glow convincingly — but it has no polish to be bright with either, and at the
+        /// vinyl's figure the strand relief washes out under its own emission.
+        /// </summary>
+        private const float WOOL_EMISSION = 0.24f;
+
         #endregion
 
         #region Neighbour-based ambient occlusion (issue #40)
@@ -609,6 +642,13 @@ namespace Prazsky.BS3D
                         renderer.BubbleBodyOpacity = BUBBLE_BODY_OPACITY;
                         break;
 
+                    case BallStyle.Wool:
+                        renderer.EmissiveStrength = WOOL_EMISSION;
+                        renderer.WoolStrandFrequency = WOOL_STRAND_FREQUENCY;
+                        renderer.WoolStrandDepth = WOOL_STRAND_DEPTH;
+                        renderer.WoolHalo = WOOL_HALO;
+                        break;
+
                     case BallStyle.Marble:
                         renderer.EmissiveStrength = MARBLE_EMISSION;
                         renderer.MarbleVeinFrequency = MARBLE_VEIN_FREQUENCY;
@@ -635,6 +675,7 @@ namespace Prazsky.BS3D
         {
             BallStyle.Bubble => BallShading.Bubble,
             BallStyle.Marble => BallShading.Marble,
+            BallStyle.Wool => BallShading.Wool,
             _ => BallShading.Vinyl
         };
 
