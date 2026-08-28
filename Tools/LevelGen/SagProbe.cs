@@ -91,12 +91,16 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// How many differently-ordered runs each level gets. The order matters and that is the point: a
-        /// spiral cut from the top leaves a different remainder than the same spiral cut from the middle, and
-        /// one run says nothing about whether a level has a losing order in it. Three is what a run over the
-        /// pack showed to be worth paying for — the fourth and fifth seeds found nothing the first three had
-        /// not — and every seed is fixed, so two runs of this tool on the same pack print the same verdicts.
+        /// spiral cut from the top leaves a different remainder than the same spiral cut from the middle.
+        /// <para>
+        /// <b>Five, and it was three until the reading changed from "did any order lose" to "how many did".</b>
+        /// That change is the owner's playtest: asked the first question the probe lost 38 of the 90 shipped
+        /// levels, three of which were then confirmed finishable, so a single losing order says nothing on
+        /// its own and the useful figure is the fraction. Five gives that fraction somewhere to live. Every
+        /// seed is fixed, so two runs of this tool on the same pack print the same numbers.
+        /// </para>
         /// </summary>
-        private const int RUNS_PER_LEVEL = 3;
+        private const int RUNS_PER_LEVEL = 5;
 
         /// <summary>
         /// The ceiling's descent, mirrored off <c>GameplayScreen</c>'s pair — the glass drops this far every
@@ -456,15 +460,43 @@ namespace BS3D.Tools.LevelGen
         }
 
         /// <summary>
-        /// One standing group, picked at random from those big enough to match. Random and not clever on
-        /// purpose — see the class doc: the question is whether the level survives being taken apart, not
-        /// whether a good player would take it apart this way.
+        /// How far above the cluster's own underside a shot is taken to be able to reach, in lattice levels.
+        /// <b>This is the whole player model, and it is the game's rule rather than a guess:</b> the gun
+        /// stands under the hanging cluster and shoots up into it, so what a shot meets is the underside —
+        /// which is why <c>GameplayScreen.TALL_AIM_HEADROOM_LEVELS</c> holds a tall level's aim to a band
+        /// just above that underside and calls the reason out, <i>"the column has to be eaten from the
+        /// bottom"</i>. The figure is that constant's.
+        /// </summary>
+        private const int AIM_BAND_LEVELS = 5;
+
+        /// <summary>
+        /// One standing group, picked at random from those big enough to match <b>and low enough to shoot
+        /// at</b> — see <see cref="AIM_BAND_LEVELS"/>. Random within the band and not clever: the question is
+        /// whether the level survives being taken apart, not whether a good player would pick this order.
+        /// <para>
+        /// <b>⚠ It picked from the whole cluster at first, and the owner's playtest is what refuted that.</b>
+        /// Asked over every standing group, the probe lost 38 of the 90 shipped levels, <see cref="Amphora"/>
+        /// among them at five runs out of five — and Amphora, Giza and Saturn were then confirmed from play
+        /// to be perfectly finishable. The traces say exactly what the unbanded pick was doing: on Amphora it
+        /// took a 57-ball group out of the vase's <i>waist</i> on the first shot, with all twenty ceiling
+        /// anchors left intact and nothing orphaned, and left the foot — cells with two lattice neighbours
+        /// apiece — hanging on a thread five levels below. That is not a cut a player can make. The gun is
+        /// underneath; the foot is the first thing it can hit and the first thing that goes.
+        /// </para>
+        /// <para>
+        /// The band widens to the whole cluster when nothing inside it can be matched, because a player in
+        /// that position still has a shot to take — and because a probe that ended the run there would score
+        /// a level as survived on the grounds that it could not be played.
+        /// </para>
         /// </summary>
         private static XZLevel? PickGroup(BallsMap map, Random random)
         {
             StaticBall[,,] array = map.GetStaticBallsArray();
             HashSet<XZLevel> seen = new();
-            List<XZLevel> groups = new();
+            List<XZLevel> inBand = new();
+            List<XZLevel> anywhere = new();
+
+            int reach = map.GetLowestOccupiedLevel() + AIM_BAND_LEVELS;
 
             for (byte level = 0; level < map.Levels; level++)
                 for (byte x = 0; x < map.StageSizeX; x++)
@@ -476,10 +508,20 @@ namespace BS3D.Tools.LevelGen
                         List<XZLevel> group = map.GetConnectedSameTypeCells(cell);
                         foreach (XZLevel member in group) seen.Add(member);
 
-                        if (group.Count >= BallsConstraintsBuilder.MINIMUM_CLUSTER_SIZE) groups.Add(cell);
+                        if (group.Count < BallsConstraintsBuilder.MINIMUM_CLUSTER_SIZE) continue;
+
+                        anywhere.Add(cell);
+
+                        //A group is shootable if ANY of its cells is in the band: a shot that lands on the
+                        //underside releases the whole group however far up the rest of it reaches, which is
+                        //what makes a spiral dangerous in the first place.
+                        foreach (XZLevel member in group)
+                            if (member.Level <= reach) { inBand.Add(cell); break; }
                     }
 
-            return groups.Count == 0 ? null : groups[random.Next(groups.Count)];
+            List<XZLevel> pool = inBand.Count > 0 ? inBand : anywhere;
+
+            return pool.Count == 0 ? null : pool[random.Next(pool.Count)];
         }
 
         /// <summary>
