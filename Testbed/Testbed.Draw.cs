@@ -271,6 +271,7 @@ namespace Testbed
             //believed if the run says which half it was, and MSAA is invisible in a still (#298).
             Console.WriteLine($"[fps] {_fpsFrames / _fpsWindow:F1} — {_scene}, dome {_skyModelNumber}, ssaa {_supersampleFactor}x"
                 + $", msaa {_pipeline.SceneTarget?.MultiSampleCount ?? 0}x (asked {(_supersampleFactor > 1 ? 0 : _pipeline.MsaaSamples)})"
+                + $", target {_pipeline.SceneTarget?.Width ?? 0}x{_pipeline.SceneTarget?.Height ?? 0} (rscale {_pipeline.RenderScale:0.##})"
                 + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
                 + $", vsync {(_options.UncappedFps ? "off" : "on")}{(_options.FpsCap > 0 ? $" (cap {_options.FpsCap})" : "")}, arena {_island.Members}{(alternating || capProbe > 0 ? $", capprobe {capProbe}" : "")}, balls {_collectedBalls}");
 

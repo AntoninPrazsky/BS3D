@@ -638,6 +638,10 @@ namespace Testbed
             //own SupersampleFactor has just made — order, not preference. -1 leaves the pipeline's default.
             if (_options.MsaaSamples >= 0) _pipeline.MsaaSamples = _options.MsaaSamples;
 
+            //#298 PROBE: "rscale=" renders the scene below native and magnifies it back. After MsaaSamples,
+            //because both recreate the target and the last one to run is the one that sizes it.
+            if (_options.RenderScale > 0f) _pipeline.RenderScale = _options.RenderScale;
+
             _sceneLights = new SceneLights(_instancingEffect);
 
             //The launch smears' billboard quad and every parameter handle the draw needs, in one construction.

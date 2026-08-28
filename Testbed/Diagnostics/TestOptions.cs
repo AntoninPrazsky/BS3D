@@ -144,6 +144,18 @@ namespace Testbed.Diagnostics
         /// </summary>
         public int MsaaSamples { get; private set; } = -1;
 
+        /// <summary>
+        /// <c>rscale=&lt;f&gt;</c>: render the scene at this fraction of the back buffer and magnify it back
+        /// (0.25-1). Ignored above <c>ssaa</c> 1, the two dials being the same dimension. -1 leaves native.
+        /// <para>
+        /// The other half of #298, and the only lever that reaches the CAVERN and the DREAM: those two shade
+        /// a backdrop the size of the back buffer and scale it up (#155), which is why supersampling barely
+        /// moves them - but that path runs only above <c>ssaa</c> 1, so below native they draw into the
+        /// smaller target like everything else and the pass shrinks with it.
+        /// </para>
+        /// </summary>
+        public float RenderScale { get; private set; } = -1f;
+
         /// <summary><c>exposure=&lt;f&gt;</c>: the renderer's shutter speed. 0 = unset, so the default stands.</summary>
         public float Exposure { get; private set; }
 
@@ -214,6 +226,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("sky=", StringComparison.OrdinalIgnoreCase) && byte.TryParse(arg.Substring("sky=".Length), out byte parsedSky)) options.SkyNumber = parsedSky;
                 else if (arg.StartsWith("ssaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("ssaa=".Length), out int parsedSsaa)) options.SupersampleFactor = parsedSsaa;
                 else if (arg.StartsWith("msaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("msaa=".Length), out int parsedMsaa)) options.MsaaSamples = parsedMsaa;
+                else if (arg.StartsWith("rscale=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("rscale=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedRscale)) options.RenderScale = parsedRscale;
                 else if (arg.StartsWith("exposure=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("exposure=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedExposure)) options.Exposure = parsedExposure;
                 else if (arg.StartsWith("scene=", StringComparison.OrdinalIgnoreCase)) options.Scene = arg.Substring("scene=".Length);
                 else if (arg.StartsWith("weather=", StringComparison.OrdinalIgnoreCase)) options.Weather = arg.Substring("weather=".Length);

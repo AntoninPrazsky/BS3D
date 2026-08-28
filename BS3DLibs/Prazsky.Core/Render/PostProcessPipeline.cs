@@ -135,6 +135,7 @@ namespace Prazsky.Core.Render
         private readonly EffectParameter _tonemapGlareIntensityParam;
         private readonly EffectParameter _tonemapSceneTextureParam;
         private readonly EffectParameter _tonemapSourceTexelSizeParam;
+        private readonly EffectParameter _tonemapMagnifyParam;
         private readonly EffectParameter _tonemapSupersampleFactorParam;
         private readonly EffectParameter _tonemapExposureParam;
         private readonly EffectParameter _tonemapAberrationParam;
@@ -154,6 +155,9 @@ namespace Prazsky.Core.Render
         //EnsureTarget compares both, so a change of samples alone rebuilds it. See MsaaSamples.
         private int _msaaSamples = MSAA_SAMPLES;
         private int _sceneTargetMsaa = -1;
+
+        //#298 PROBE: the fraction of the back buffer the scene target is, below 1. See RenderScale.
+        private float _renderScale = 1f;
 
         //What the tonemap was last told the defocus mix is. Held so the uniform is written on the frames it
         //actually moves, per the caching discipline in BestPractices.md: a frame with no blur up — most of
@@ -203,6 +207,7 @@ namespace Prazsky.Core.Render
             _tonemapGlareIntensityParam = tonemapEffect.Parameters["GlareIntensity"];
             _tonemapSceneTextureParam = tonemapEffect.Parameters["SceneTexture"];
             _tonemapSourceTexelSizeParam = tonemapEffect.Parameters["SourceTexelSize"];
+            _tonemapMagnifyParam = tonemapEffect.Parameters["MagnifyScene"];
             _tonemapSupersampleFactorParam = tonemapEffect.Parameters["SupersampleFactor"];
             _tonemapExposureParam = tonemapEffect.Parameters["Exposure"];
             _tonemapAberrationParam = tonemapEffect.Parameters["ChromaticAberration"];
@@ -307,6 +312,43 @@ namespace Prazsky.Core.Render
         /// A/B lever and not a per-frame one.
         /// </para>
         /// </summary>
+        /// <summary>
+        /// The fraction of the back buffer the scene target is — <b>1 (native) unless a caller says
+        /// otherwise</b>, and only meaningful at <see cref="SupersampleFactor"/> 1: above it the two would be
+        /// fighting over the same dimension, so the factor wins and this is ignored.
+        /// <para>
+        /// It is the other half of #298's question, and the <b>only</b> lever that reaches the cavern and the
+        /// dream. Those two shade a backdrop the size of the <i>back buffer</i> and scale it up (#155), which
+        /// is why supersampling barely moves them — but that path only runs above <c>ssaa</c> 1, so below
+        /// native they draw straight into the smaller target like every other scene and the pass shrinks with
+        /// it. Everything else in the frame shrinks too: the whole scene, the arena, the cluster and the gun.
+        /// </para>
+        /// <para>
+        /// The resolve is then <b>magnifying rather than averaging</b>, so it takes one bilinear tap instead of
+        /// the box filter — see <c>MagnifyScene</c> in <c>Tonemap.fx</c>. The bloom chain is unaffected, being
+        /// sized off the back buffer already; so is the sharp foreground layer, deliberately — a cup drawn at
+        /// full size over a magnified scene is the one thing this must not soften, and the composite reads its
+        /// coverage at the output's own resolution either way.
+        /// </para>
+        /// <para>
+        /// A probe (#298), not a setting: nothing in a tier reads it, and the figure that would decide whether
+        /// it belongs in one has to come from the machine the ladder exists for. Setting it recreates the
+        /// target, so it is a load-time or A/B lever and not a per-frame one.
+        /// </para>
+        /// </summary>
+        public float RenderScale
+        {
+            get => _renderScale;
+            set
+            {
+                float wanted = Math.Clamp(value, 0.25f, 1f);
+                if (wanted == _renderScale) return;
+
+                _renderScale = wanted;
+                EnsureTarget();
+            }
+        }
+
         public int MsaaSamples
         {
             get => _msaaSamples;
@@ -371,12 +413,26 @@ namespace Prazsky.Core.Render
         /// </summary>
         public void EnsureTarget()
         {
-            int width = _device.PresentationParameters.BackBufferWidth * _supersampleFactor;
-            int height = _device.PresentationParameters.BackBufferHeight * _supersampleFactor;
-
             //A minimized window can report a zero back buffer; a zero-sized target is a device error, and
-            //the restore path calls back here anyway (the map editor's copy learned this first)
-            if (width <= 0 || height <= 0) return;
+            //the restore path calls back here anyway (the map editor's copy learned this first). Tested on
+            //the BUFFER rather than on the scaled size below, or the floor that keeps a fractional scale off
+            //zero would answer a minimized window with a 1x1 target instead of leaving it alone.
+            int bufferWidth = _device.PresentationParameters.BackBufferWidth;
+            int bufferHeight = _device.PresentationParameters.BackBufferHeight;
+
+            if (bufferWidth <= 0 || bufferHeight <= 0) return;
+
+            //#298 PROBE: below native the target is a FRACTION of the back buffer, and the two dials cannot
+            //both hold — a supersampled target is already larger than the buffer, so the factor wins and the
+            //scale is ignored above 1. Floored at one pixel, since a scale on a narrow window can round an
+            //axis to zero on its own.
+            int width = _supersampleFactor > 1
+                ? bufferWidth * _supersampleFactor
+                : Math.Max(1, (int)MathF.Round(bufferWidth * _renderScale));
+
+            int height = _supersampleFactor > 1
+                ? bufferHeight * _supersampleFactor
+                : Math.Max(1, (int)MathF.Round(bufferHeight * _renderScale));
 
             //The sample count is part of what the target IS, so it is compared beside the size — a change of
             //samples alone (MsaaSamples) has to rebuild a target whose dimensions have not moved.
@@ -455,6 +511,14 @@ namespace Prazsky.Core.Render
             _tonemapGlareTextureParam.SetValue(_bloomChain[0]);
             _tonemapSceneTextureParam.SetValue(_sceneTarget);
             _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
+
+            //#298 PROBE: whether the resolve is magnifying rather than averaging. Read off the TARGET against
+            //the buffer rather than off _renderScale, so it is true of what was actually built — a rounded
+            //scale on an odd window can leave the two the same size, and a box filter is right whenever they
+            //are. Written per resolve like the texel size above and for the same reason: both follow a target
+            //that any resize recreates.
+            _tonemapMagnifyParam.SetValue(
+                _sceneTarget.Width < _device.PresentationParameters.BackBufferWidth ? 1f : 0f);
 
             //The grain re-rolls every frame and lands one grain per OUTPUT pixel, so the seed and the
             //back-buffer size go out here
