@@ -2714,3 +2714,30 @@ Zisk je reálný a **nestačí**: Giza a Saturn spadly na 1 prohrávající poř
 **Layouty jsem nesáhl ani teď**, ale poprvé mám nástroj, kterému se dá věřit natolik, aby se opravou dalo měřit. To je další krok.
 
 **Nic dalšího si neberu.**
+
+**Dodatek 3 (týž den) — majitel řekl „pusť se do layoutů". Pustil jsem se, a layouty odhalily, že přístroj ještě není hotový. Teď už je: 9 z 9 bez falešného poplachu.**
+
+**Pylon první, protože nese vlastní vypnutou páku.** `PYLON_TWIN_RINGS` zapnuto → 5/5 na 1. výstřelu se posunulo na 4/5 na 3. Trasa pak řekla, kde to praská — buňka (3,13,10), severozápadní noha — a z toho vyšla druhá páka: **prstence tři hladiny místo dvou**, což je doslova nález Boltu (*„TŘI A NE DVĚ"*) dosažený z druhé strany. Dohromady to Pylon srazilo na 1 z 5.
+
+**⚠ Jenže to číslo bylo lež, a to je hlavní poučení téhle dávky: opravou layoutu jsem vytáhl na světlo dvě další vady MODELU.**
+
+1. **Odraz ukončil běh.** `FireOneShot` vracel jeden bool, takže výstřel, co nenašel volnou buňku v žádném prstenci (herní odraz, na husté příhradě běžný), se četl jako „tenhle level už nejde hrát" a běh skončil — jednou s **946 koulemi ve hře** a verdiktem „přežil". Táž podoba tichého falešného souhlasu jako tehdy ten NaN.
+2. **Mířil na kouli, ne do mezery.** Míření na střed koule nechá `ShotPlacement` vybrat buňku, do které kontakt náhodou padne — sonda trefila **29 %** výstřelů, zbylých 71 % nalepila na spodek a na Pylonu si postavila sloupec vlastních minel šest hladin pod podlahu layoutu, až do čáry smrti u 41. výstřelu. A pak nahlásila, že se propadl *level*. Kandidáti jsou teď **prázdné buňky**, zápalné napřed: **86 %**.
+
+Po obou opravách Pylon s mou „opravou" četl zase 5/5 — takže ta oprava layoutu nebyla ověřená a **vrátil jsem ji**. Přidat shipnutému levelu 400 koulí na základě čísla, kterému nevěřím, je přesně ta chyba, před kterou celou dobu varuju.
+
+**Zato se přístroj poprvé trefil úplně.** Kalibrace:
+
+| dohratelné | | nedohratelné | |
+|---|---|---|---|
+| Giza | 0/5 | Pylon, Orrery, Globe, Pinecone, Pleat, Bolt, Totem | **5/5** |
+| Saturn | 2/5 | Ghost, Cabinet | **4/5** |
+| Amphora | 3/5 | | |
+
+**Práh 4 z 5 dělí sadu beze zbytku: všech devět hlášených, ani jeden ze tří dobrých.** `SAG_RUNS_TO_REPORT` je 4.
+
+**⚠ A ten posun z 3 na 4 je poučný sám o sobě: separace je vlastnost KOMPETENTNÍHO HRÁČE, ne prahu.** Dokud sonda střílela špatně, levely padaly hlavně na její vlastní minely — což je šum — a dva nejtěžší hlášené (Ghost, Cabinet) seděly dole na 1. Mířením do mezery se všechny posunuly správným směrem najednou.
+
+**Celopacková čísla v `docs/formats-and-tools.md` (13 z 90) jsou z horšího hráče a nejsou přeměřená** — je to tam napsané. Přeměřit celý pack je první věc příště, hned před samotnými layouty, na které teď konečně je nástroj.
+
+**Nic dalšího si neberu.**
