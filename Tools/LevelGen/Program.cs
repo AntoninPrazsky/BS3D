@@ -419,15 +419,14 @@ namespace BS3D.Tools.LevelGen
         /// iterating on one, and turns on a shot-by-shot trace when it is given exactly one.
         /// </para>
         /// <para>
-        /// <b>⚠ The second reason is that its verdict is not yet calibrated, and the owner's playtest is what
-        /// established that.</b> It reproduces all nine levels of #301 and #302 — but it also condemned
-        /// <see cref="Amphora"/>, <see cref="Giza"/> and <see cref="Saturn"/>, which were then confirmed from
-        /// play to be perfectly finishable. Restricting the probe to shots a gun underneath can actually take
-        /// (<see cref="SagProbe.AIM_BAND_LEVELS"/>) moved Giza and Saturn to one losing order in five and
-        /// Ghost to two, which is the right direction and not far enough: Amphora still loses five of five.
-        /// So a run of this prints a <i>ranking</i> and nothing more, and no verdict of it is grounds for
-        /// redrawing a design — that would be #288's mistake with a better tool. What is still unmodelled is
-        /// named in <c>docs/formats-and-tools.md</c>.
+        /// <b>⚠ The second reason is that its threshold is fitted to twelve levels.</b> The owner's playtest
+        /// gives three levels known finishable (<see cref="Amphora"/>, <see cref="Giza"/>,
+        /// <see cref="Saturn"/>) against the nine known not to be, and
+        /// <see cref="SagProbe.SAG_RUNS_TO_REPORT"/> separates them cleanly on that set — seven of the nine
+        /// named, none of the three. That is a real calibration and it is still twelve levels, so a run of
+        /// this prints a <i>ranking</i> and refuses nothing: the levels it names are where to look first, not
+        /// a verdict to redraw a design on. Doing that off an uncalibrated number is #288's mistake with a
+        /// better tool, and the whole of this file exists because that mistake was made once.
         /// </para>
         /// </summary>
         /// <returns>
@@ -477,9 +476,10 @@ namespace BS3D.Tools.LevelGen
                 int sags = runs.Count(r => r.Outcome == SagProbe.Outcome.Sagged);
 
                 //HOW OFTEN, not whether - the fraction is the reading, because "some order loses this level"
-                //turned out to be true of levels that play perfectly well. It does NOT set `ok`: see
-                //RunSagGate for why this instrument does not yet refuse anything.
-                bool sagged = sags >= runs.Length;
+                //turned out to be true of levels that play perfectly well. The threshold is calibrated against
+                //the owner's playtest (SagProbe.SAG_RUNS_TO_REPORT); it does NOT set `ok`, because a threshold
+                //fitted to twelve levels is not yet entitled to refuse a design - see this method's doc.
+                bool sagged = sags >= SagProbe.SAG_RUNS_TO_REPORT;
 
                 Console.WriteLine($"  {i + 1,2}. {entry.Name,-12} sagged {sags} of {runs.Length}; worst: "
                     + $"{worst.Outcome,-11} after {worst.Shots,3} shot(s) of "
