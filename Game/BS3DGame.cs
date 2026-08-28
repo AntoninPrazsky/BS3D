@@ -177,11 +177,12 @@ namespace BS3D
         //host with the rest of the audio — the scene is the host's, and its sound runs pause included.
         private ProceduralAmbience _ambience;
 
-        //Testing only: the "celebrate" argument, fired once the display exists.
-        private readonly bool _startupCelebrate;
+        //Testing only: the "celebrate" argument. Consumed on the first Update, AFTER any startup level — see
+        //StartStartupCelebrations, which is the one place either of these is read.
+        private bool _startupCelebrate;
 
-        //Testing only: the "confetti" argument, fired once the field exists (#215).
-        private readonly bool _startupConfetti;
+        //Testing only: the "confetti" argument (#215), consumed the same way and for the same reason.
+        private bool _startupConfetti;
 
         //Testing only: the "stars=" argument, which sets the rating the test result page reports (#183) and so
         //which of the four trophy cups it presents. Null leaves the authored three.
@@ -989,14 +990,8 @@ namespace BS3D
             //And the campaign's confetti, whose one static buffer is built here for the same reason (#215).
             _confetti = new Confetti(GraphicsDevice, Content.Load<Effect>("Shaders/Confetti"));
 
-            //Testing only, and deliberately long: it has to outlast a scripted screenshot burst.
-            if (_startupCelebrate) _fireworks.Celebrate(90f);
-
-            //"confetti" asks for the campaign's ending on the front end. Clearing the last level of the set is
-            //the only thing that normally starts it, and that cannot be scripted at all — it is `celebrate`'s
-            //reasoning one step further along again, past even `blockdone`: a block milestone needs five levels
-            //played, where this needs the whole campaign.
-            if (_startupConfetti) _confetti.Celebrate(90f);
+            //Both display levers ("celebrate" and "confetti") are FIRED FROM Update, not from here — see
+            //StartStartupCelebrations, which also says why. The two displays are only built here.
 
             //The level theme. The constructor only starts the synthesis — two minutes of PCM is a couple of
             //seconds of arithmetic, and it runs on a background thread while the player is still looking at
@@ -1214,6 +1209,46 @@ namespace BS3D
         internal int? PinnedPreviewLevel =>
             _startupPreview == null ? null : ResolveStartupLevel(_startupPreview);
 
+        /// <summary>
+        /// Fires the two testing-only celebration levers — <c>celebrate</c> (the victory fireworks) and
+        /// <c>confetti</c> (the campaign's closing fall). Runs once, from <c>Update</c>, and both displays are
+        /// asked for deliberately long: they have to outlast a scripted screenshot burst.
+        /// </summary>
+        /// <remarks>
+        /// <b>This is called AFTER the <c>play</c>/<c>level=</c> level is built, and that order is the whole
+        /// point.</b> Both levers used to fire at the end of <c>LoadContent</c>, where they were silently
+        /// useless in combination with <c>play</c>: <c>BuildLevel</c> stops both displays on purpose (a
+        /// celebration left in the air would burst over the opening seconds of a level nobody has played yet),
+        /// so a run asking for a level AND a display got the level and an empty sky. Nothing reported the
+        /// conflict — the display was started and then correctly stopped a frame later — so the combination
+        /// read as "the fireworks are not visible from in-play", which is a finding rather than a broken lever,
+        /// and #299 spent a round of screenshots on it before the <c>Stop</c> was found.
+        /// <para>
+        /// That combination is the only way to photograph either display from the PLAY camera, low behind the
+        /// gun and looking up at the cluster through the ceiling's glass — which is the vantage a player is at
+        /// when a level actually clears, and the one #299's occlusion showed up from. From the front end the
+        /// camera orbits ABOVE the plate, so nothing of the glass is ever between the lens and a burst there.
+        /// </para>
+        /// </remarks>
+        private void StartStartupCelebrations()
+        {
+            if (_startupCelebrate)
+            {
+                _startupCelebrate = false;
+                _fireworks?.Celebrate(90f);
+            }
+
+            //"confetti" asks for the campaign's ending. Clearing the last level of the set is the only thing
+            //that normally starts it, and that cannot be scripted at all — it is `celebrate`'s reasoning one
+            //step further along again, past even `blockdone`: a block milestone needs five levels played,
+            //where this needs the whole campaign.
+            if (_startupConfetti)
+            {
+                _startupConfetti = false;
+                _confetti?.Celebrate(90f);
+            }
+        }
+
         private int ResolveStartupLevel(string level)
         {
             int count = LevelCount;
@@ -1386,6 +1421,9 @@ namespace BS3D
                 if (_startupLevel == null) StartGame(newGame: true);
                 else StartGameAt(ResolveStartupLevel(_startupLevel));
             }
+
+            //AFTER the startup level, and that order is the whole point — see the method.
+            StartStartupCelebrations();
 
             //The level picker, over the front end (#273). Held back until the title card has gone for the same
             //reason the result page below is: the splash hands over with a Replace, which pops whatever is on

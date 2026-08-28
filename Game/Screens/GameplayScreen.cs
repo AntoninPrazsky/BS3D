@@ -1373,12 +1373,15 @@ namespace BS3D.Screens
             _laserGrid.Draw(Camera, WallClock);
 
             //The glass the cluster hangs from, last of the session's objects: it is translucent, so everything
-            //it should be seen through has to be in the depth buffer and the frame already.
+            //it should be seen through has to be in the depth buffer and the frame already — and, since #299,
+            //so it must not WRITE depth itself, or the victory fireworks burst behind an invisible wall. That
+            //is why this goes through the host rather than touching CeilingRenderer directly; the state and the
+            //reasoning live in BS3DGame.DrawCeilingGlass, in one copy with the front end's preview plate.
             //Squared, so the glass is unmistakable on the frame it steps and has thinned well before the slide
             //ends — it marks the event rather than colouring the plate for the duration
             Game.CeilingRenderer.EmissiveTint = _ceilingFlashColor * (_ceilingFlash * _ceilingFlash);
 
-            Game.CeilingRenderer.Draw(Camera, _ceiling.World, Game.SceneEffectParams);
+            Game.DrawCeilingGlass(Game.CeilingRenderer, _ceiling.World);
 
             //And the gun's own glass after all of them, because it is far and away the nearest translucent
             //surface in the frame: the loaded queue it covers is in the depth buffer by now, and so are the

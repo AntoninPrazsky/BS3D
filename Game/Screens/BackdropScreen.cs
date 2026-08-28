@@ -769,7 +769,9 @@ namespace BS3D.Screens
 
             //Over the glass drain, as in play — and hung from the pose RollPreviewMap wrote, at rest above
             //the preview field's top level. Null only through the no-readable-level fallback above.
-            Game.MenuCeilingRenderer?.Draw(Game.Camera, _menuCeilingWorld, Game.SceneEffectParams);
+            //Through the host, so this plate and the session's are one decision about how glass draws (#299).
+            if (Game.MenuCeilingRenderer != null)
+                Game.DrawCeilingGlass(Game.MenuCeilingRenderer, _menuCeilingWorld);
 
             Game.FinishSceneDraw(sceneFrame);
         }

@@ -691,6 +691,49 @@ namespace BS3D
         internal void DrawSettingGlass() => _island.DrawGlass(_camera, _sceneEffectParams);
 
         /// <summary>
+        /// The ceiling's glass plate, drawn <b>without writing depth</b> — the session's plate from
+        /// <c>GameplayScreen</c> and the front end's preview plate from <c>BackdropScreen</c> both come through
+        /// here, so the state is stated once rather than in each of them.
+        /// </summary>
+        /// <remarks>
+        /// <b>#299: the plate is translucent, so it must not leave an opaque silhouette in the depth buffer.</b>
+        /// The whole scene pass runs under <see cref="DepthStencilState.Default"/> (stated in
+        /// <see cref="BeginSceneDraw"/>), and the plate simply inherited it — it blended correctly on the frame
+        /// and then wrote its depth like a wall. Everything drawn afterwards under
+        /// <see cref="DepthStencilState.DepthRead"/> was then tested against that wall, and the victory
+        /// fireworks are exactly that: they go in after the scene's own draws (see <see cref="FinishSceneDraw"/>)
+        /// under <c>DepthRead</c> and additive blending. So every shell that burst beyond the glass from the
+        /// camera's viewpoint was discarded, and from the play camera — low behind the gun, the plate filling
+        /// the top of the frame over the cluster — that is most of the sky the display uses. The bursts
+        /// appeared only once the released post-win camera had swung out to a vantage with no glass in the way,
+        /// which is precisely how the fault was reported.
+        /// <para>
+        /// Reading depth is kept: the plate must still go behind the island, the cluster and the gun, all of
+        /// which are opaque and in the buffer by the time this runs. Only the WRITE is dropped. The trophy's
+        /// crystal tier already draws on exactly this pair of states, for the same reason.
+        /// </para>
+        /// <para>
+        /// The state is restored to <see cref="DepthStencilState.Default"/> on the way out rather than left,
+        /// because the scene pass is not finished here — the gun's own glass is still to come, and the next
+        /// frame's opaque setting must not inherit a read-only buffer from this one.
+        /// </para>
+        /// <para>
+        /// <b>The drain's glass (<see cref="DrawSettingGlass"/>) and the gun's window pane still write depth</b>,
+        /// which is the same latent shape. Neither is between the lens and a burst — the funnel is below the
+        /// island and the pane is a hand's width of the frame at the muzzle — so neither was touched here; the
+        /// note is so that whoever meets the fault a third time can recognise it.
+        /// </para>
+        /// </remarks>
+        internal void DrawCeilingGlass(InstancedModelRenderer renderer, Matrix world)
+        {
+            GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+
+            renderer.Draw(_camera, world, _sceneEffectParams);
+
+            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+        }
+
+        /// <summary>
         /// The frame's close: the scene's foreground weather — the mountain's snow, the sea's spray, the
         /// savanna's flame — settles over everything, and the resolve takes the HDR target to the back
         /// buffer. Display space from here on.
