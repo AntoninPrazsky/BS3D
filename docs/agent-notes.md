@@ -2505,3 +2505,36 @@ Se starými čísly: `PoleZ` = breechZ 2,5 + kopule 0,74 = **3,24**, stoh pod č
 **⚠ Vlastní chyba, opravená: můj commit k #288 ubral jeden ze čtyřiceti úvodních BOMů v `Program.cs`** (soubor jich má hromadu z něčího editoru). Neviditelné a neškodné, ale byl to nesouvisející řádek v diffu; vrácen v #285. Poučení: `Program.cs` needitovat přes `ReadAllText`/`WriteAllText` — to BOM sežere. `sed` po řádcích je bezpečný.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-28 — Claude Code (devadesátý zápis)
+
+**Majitel se ptal, jaké možnosti se u #298 nabízejí, a vybral si „změřit A (MSAA)". Na mainu jako `010bfc9`; issue zůstává otevřené.** **Bral jsem kartu** (`Get-Process BS3D, Testbed, MapEditor` prázdné před sweepem).
+
+**⚠ Nález, který stojí za to i bez čísel: obě příčky pod `High` běží na `ssaa` 1, a na `ssaa` 1 se scene target i popředí staví s `MSAA_SAMPLES` = 8.** Takže `Medium` i `Low` odjakživa nesou osm vzorků přes celý snímek a nikdo je nikdy nezaúčtoval. Je to jediný kandidát na tu díru, který sáhne na všech šestnáct scén, aniž by změnil *co* se stínuje — na rozdíl od mraků (13 scén), scénových programů (2) a městských pák (2).
+
+**Sedím na REFERENČNÍM DESKTOPU** (Ryzen 9 5900X + RX 6900 XT, 3840×1600 @ 75 Hz), tedy na té mašině, o které #298 samo říká, že je na tuhle otázku špatná. Rozhodující číslo je notebookovo. Změřil jsem tedy směr a **tier jsem nechal na pokoji**.
+
+**Změřeno:** `Full.json`, pevná kamera (`campos=0,2,34 camtarget=0,2,0`), okno 3840×1600, `ssaa=1`, `fpscap=900`, 17 ponechaných čtení na buňku, medián; minima seděla prakticky na mediánech.
+
+| scéna | 8× | 4× | 2× | žádné | 8× → žádné |
+|---|---|---|---|---|---|
+| hora | 4,31 ms | 4,24 | 3,70 | 3,19 | **1,12 (26 %)** |
+| jeskyně | 4,13 | 4,09 | 3,99 | 3,83 | **0,30 (7 %)** |
+| neonové město | 3,50 | 3,45 | 3,24 | 2,92 | **0,58 (17 %)** |
+| louka | 2,69 | 2,62 | 2,44 | 2,08 | **0,61 (23 %)** |
+
+- **8× → 4× je zadarmo** (0,04–0,07 ms všude): úspora leží celá pod čtyřmi vzorky.
+- **Jeskyně je sedmina horské úspory** — táž signatura, jakou tam nechává `ssaa`, a týž důvod (#155). **MSAA jeskyni nespraví**, a to je ta scéna, co na slabém stroji sedí 27 % nad panelem na všech třech příčkách.
+- Největší úspora padá na **horu**, jedinou scénu, kterou #296 pořád drží jako marginální.
+
+**⚠ A past, do které jsem málem spadl a která teď má přístroj: `[fps]` řádek tiskne počet vzorků, se kterým byl target DOOPRAVDY vytvořen, vedle toho, o který se řeklo.** To, že 8× → 4× vyšlo zadarmo, vypadalo jako tiché oříznutí ovladačem — což by znamenalo, že obě půlky A/B jsou tajně tatáž věc (trap 8 v jiném kostýmu). **Není**: target hlásí 8, když se o 8 řekne. Ale zjistit se to dalo jen tím, že se to vypíše, tak to na tom řádku zůstává.
+
+**Nástroj:** `PostProcessPipeline.MsaaSamples`, Testbed bere `msaa=<0..8>`. `EnsureTarget` porovnává počet vzorků vedle velikosti, takže změna samotných vzorků target přestaví. **Nic v tieru to nečte a shipnuté chování se nehnulo** — default je `MSAA_SAMPLES`, Game ani editor to nenastavují; ověřeno během na `level=Ten quality=medium`.
+
+**Co tím NENÍ rozhodnuto: jestli má `Low` vzorky obětovat, a kolik.** To je pořád rozhodnutí o vzhledu a pořád majitelovo. Ostatní možnosti, které jsem mu vypsal, zůstávají otevřené: B render pod nativem (jediná páka, co dosáhne na jeskyni), C přesunout `SceneDetail`/`SurfaceDetail` až na Low, D vypnout mraky, E vlastní redukované programy drahým scénám, F přiznat dvě příčky.
+
+**Zapsáno do:** `docs/game-shell.md` (celá tabulka), `.claude/skills/benchmark/SKILL.md` (páka a čísla) a do issue.
+
+**Nic dalšího si neberu.**
