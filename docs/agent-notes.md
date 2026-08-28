@@ -2800,3 +2800,19 @@ Dvě čísla jsem ladil proti renderu, ne proti fotce příze:
 **Ověřeno** na `Kepler` (všech třináct) pod vesmírem a na levelu 1 na louce, obojí s vypnutými post efekty. Vlna je znatelně plošší než mramor — to je záměr, je to ten měkký styl —, ale na louce, kam patří, drží tvar koule dobře.
 
 **Nic dalšího si neberu.** Volné: #306 kov, #307 led, #308 drahokam, #309 plazma, #310 láva, #312 porcelán.
+
+**Dodatek (téhož dne) — #306 eloxovaný kov hotový. Nejlevnější styl ze všech a zároveň jediný, který má PSANOU MEZ.**
+
+Chrom z #272 je přeformulovaný, ne odmítnutý: námitka „zrcadlo si ředí tint" platí, ale **jen o bílém kovu**. Barva kovu je jeho odrazivost při kolmém dopadu (zlato odráží zlatě), takže tint je **F0** a **není tam vůbec žádný difuzní člen**. To je největší cue, že jde o kov, a první věc, co bude vypadat špatně, když to někdo „zjemní".
+
+Obloha se tím stává albedem — táž vada jako u filmu, jinou cestou —, takže **stejný odklon jako #258**: prostředí se bere jako **jas, ne barva** (Rec. 709 luminance × slitina). Co se neobětuje, je grazing rim: Fresnel tam stoupá k plnému zrcadlu, takže skutečná barva oblohy se vrací na siluetě, kde je fyzikálně správně a kde se nedá splést s barvou koule. Přechod mezi tím **je Schlickova křivka**, nic přilepeného. `MetalF0Floor` (0,16 po vlastním odstínu) drží Type8 jako gunmetal — zrcadlo odrážející 4,5 % tmavé oblohy není koule, je to díra.
+
+**⚠ Brus je cue rotace, ne dekorace, a jeho frekvence je daná POUZE tím, co přežije band-limit.** Zrcadlová koule při rotaci vypadá snímek od snímku **identicky** — odraz závisí na pohledu a světě, na povrchu se netočí nic. Při frekvenci 70 byl brus aritmeticky přítomný a **na herní vzdálenost naprosto neviditelný** (`1 - footprint*70/pi` se u koule pár desítek pixelů široké usekne na nulu). Až 26 s trochu hlubším hřbetem highlight opravdu rozpruhuje. Je to totéž poučení, co nese frekvence pramenů u vlny, jen dosažené z druhé strany.
+
+**⚠ MEZ, kterou má tenhle styl napsanou: na jasné bezrysé dómě jde do plochy.** `SkyRadiance` je dvoubarevný svislý gradient, takže zrcadlová koule nemá co odrážet než gradient. Na louce to čte jako barevné disky s jasným lemem; na vesmíru, kde formu nesou světla a scene lights, to čte přesvědčivě jako soustružený kov. **Styl je vázaný na scénu a má shipnout tam, kde je co zrcadlit** (Měsíc, neonové město) — což je legitimní vlastnost, level si styl pojmenuje sám.
+
+Používá `AddLight` i `AddSceneLights` přesně jako `ShadePixel`, takže oheň nebo neon svítí na kovovou kouli jako na všechno ostatní; bere se z toho jen **spekulární** polovina.
+
+**Změřeno:** vinyl 621,9 / 621,9 proti kovu 654,4 / 650,2 — **o 4,9 % levnější**, nejlevnější styl. **⚠ Vinylová kontrola četla 621,9 proti 638–640 ze dvou předchozích sérií, tedy 2,6 % drift dolů** — věř poměru, ne absolutním číslům. (V mramorové a vlněné sérii byl drift 0,3 %.)
+
+**Nic dalšího si neberu.** Volné: #307 led, #308 drahokam, #309 plazma, #310 láva, #312 porcelán.

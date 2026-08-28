@@ -114,6 +114,9 @@ namespace Prazsky.Core.Render
         private EffectParameter _woolStrandFrequencyParam;
         private EffectParameter _woolStrandDepthParam;
         private EffectParameter _woolHaloParam;
+        private EffectParameter _metalBrushFrequencyParam;
+        private EffectParameter _metalBrushDepthParam;
+        private EffectParameter _metalReflectanceParam;
         private EffectTechnique _cityTechnique;
         private EffectParameter _cityWindowBrightnessParam;
 
@@ -453,6 +456,25 @@ namespace Prazsky.Core.Render
         public float WoolHalo { get; set; } = 0.25f;
 
         /// <summary>
+        /// Wave count of the brush grain over a <see cref="BallShading.Metal"/> ball. It is this style's whole
+        /// rotation cue and not a detail: a perfect mirror sphere spinning looks identical frame to frame,
+        /// because the reflection is view- and world-dependent and nothing on the surface turns.
+        /// </summary>
+        public float MetalBrushFrequency { get; set; } = 70f;
+
+        /// <summary>
+        /// Peak height of a brush ridge in world units — a polish direction, not a corrugation. Anything deep
+        /// enough to read as ridges stops being brushed metal and becomes a screw thread.
+        /// </summary>
+        public float MetalBrushDepth { get; set; } = 0.006f;
+
+        /// <summary>
+        /// How much of the environment the metal mirrors. There is no diffuse term underneath to carry the ball
+        /// if it is set too low, which is the difference between this and every other style's reflection dial.
+        /// </summary>
+        public float MetalReflectance { get; set; } = 1.6f;
+
+        /// <summary>
         /// How much of its own color the surface radiates, independent of any light falling on it.
         /// Deliberately not occluded: a light source buried inside a pile is the one that should still
         /// show, glowing out past its neighbors.
@@ -759,6 +781,9 @@ namespace Prazsky.Core.Render
             _woolStrandFrequencyParam = _effect.Parameters["WoolStrandFrequency"];
             _woolStrandDepthParam = _effect.Parameters["WoolStrandDepth"];
             _woolHaloParam = _effect.Parameters["WoolHalo"];
+            _metalBrushFrequencyParam = _effect.Parameters["MetalBrushFrequency"];
+            _metalBrushDepthParam = _effect.Parameters["MetalBrushDepth"];
+            _metalReflectanceParam = _effect.Parameters["MetalReflectance"];
             _cityTechnique = _effect.Techniques["InstancedCity"];
             _cityWindowBrightnessParam = _effect.Parameters["CityWindowBrightness"];
             _cityWindowTimeParam = _effect.Parameters["CityWindowTime"];
@@ -819,6 +844,7 @@ namespace Prazsky.Core.Render
             "InstancedModelBubble",   //BallShading.Bubble
             "InstancedModelMarble",   //BallShading.Marble
             "InstancedModelWool",     //BallShading.Wool
+            "InstancedModelMetal",    //BallShading.Metal
         };
 
         /// <summary>
@@ -1109,6 +1135,12 @@ namespace Prazsky.Core.Render
                         _bubbleFilmThicknessParam.SetValue(BubbleFilmThickness);
                         _bubbleTintStrengthParam.SetValue(BubbleTintStrength);
                         _bubbleBodyOpacityParam.SetValue(BubbleBodyOpacity);
+                        break;
+
+                    case BallShading.Metal:
+                        _metalBrushFrequencyParam.SetValue(MetalBrushFrequency);
+                        _metalBrushDepthParam.SetValue(MetalBrushDepth);
+                        _metalReflectanceParam.SetValue(MetalReflectance);
                         break;
 
                     case BallShading.Wool:
