@@ -2570,3 +2570,13 @@ Se starými čísly: `PoleZ` = breechZ 2,5 + kopule 0,74 = **3,24**, stoh pod č
 **Rozhodnutí zůstává majitelovo** a je pořád o vzhledu. Můj zapsaný odhad: `Low` = `rscale` 0,85 a vzorky nechat na osmi. Ale desktopová čísla **řadí páky, nedimenzují je** — rozhodující sweep je notebookův a je to jeden příkaz.
 
 **Nic dalšího si neberu.**
+
+**Dodatek (týž den) — majitel rozhodl a je to pravidlo, ne preference. Na mainu jako `a197399`.**
+
+**HRA VŽDYCKY RENDERUJE V NATIVNÍM ROZLIŠENÍ DISPLEJE A ŽÁDNÝ TIER HO NIKDY NESMÍ SNÍŽIT.** Tier smí ubrat *to, co se kreslí* — odlesky, oktávu reliéfu, extra věci scény — nikdy počet pixelů, do kterých se to kreslí. Zvětšovaný obraz vypadá ošklivě a žádný frame rate to nevykoupí.
+
+**⚠ Zapsal jsem to na pět míst právě proto, že to jde PROTI číslům, která jsem den předtím naměřil.** 0,85× je nejlevnější páka, jakou ten snímek má, a jediná, co hne jeskyní — a je odmítnutá. Rozhodnutí, které jde proti měření, z kódu zmizí nejrychleji ze všech, a kdokoli by tu tabulku v `docs/game-shell.md` později našel, četl by ji jako argument pro to, čeho je ve skutečnosti záznamem rozhodnutí proti. Nese to teď: samotná property `PostProcessPipeline.RenderScale`, volba `rscale=` v `TestOptions`, **`Game/QualityLevel.cs`** (tam by budoucí příčku někdo doopravdy psal), `docs/game-shell.md` a benchmark skill.
+
+**Pozor na směr, ať to někdo nepřežene:** supersampling **nad** nativ je legitimní položka tieru a `High` ho nese. Zavřený je jen směr **pod** 1×. `RenderScale` zůstává jako měřicí přístroj — je to čistý způsob, jak se zeptat, jestli je pass pixel-bound, směrem dolů, kam se `ssaa` zeptat neumí, a na jeskyni/snu se `ssaa` neumí zeptat vůbec (#155).
+
+**⚠ Důsledek, který #298 zbývá vyřešit: s vyřazeným B nedosáhne na jeskyni žádná změřená páka.** Supersamplingu je imunní konstrukcí #155, MSAA s ní hne o 0,30 ms. Zbývá jí **vlastní redukovaný program** — ta cesta `SceneDetail`, kterou už les a sen prošly — což je zároveň přesně to, co majitel popsal („mohou zmizet odlesky a tak podobně"). Potkává se to s #296 (hora) i #172.
