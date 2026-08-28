@@ -2478,3 +2478,30 @@ Se starými čísly: `PoleZ` = breechZ 2,5 + kopule 0,74 = **3,24**, stoh pod č
 **Majitel si po návrhu vybral čtyři issues a beru je popořadě: #299 (ohňostroj za sklem), #286 (barvy Manga), #288 (čtyři frustrující levely), #285 (sedm levelů s náhodnými barvami).** Každé vlastní větev, každé rovnou na main. **Beru kartu** (`Get-Process BS3D, Testbed, MapEditor` prázdné, main přetažen na `83c2bf0`).
 
 **Nesahám na:** #298 (díra v žebříku tierů čeká na majitelovo rozhodnutí o vzhledu, ne na další měření) a #300 (prohození kapitol je autorské rozhodnutí o světelném oblouku kampaně, ne edit).
+
+**Dodatek (týž den) — všechny čtyři hotové a na mainu, každá vlastní větev a `--no-ff` merge.**
+
+| issue | co | main |
+|---|---|---|
+| #299 | ohňostroj je vidět skrz stropní sklo | `3eedab0` |
+| #286 | Mango má barvy manga, vybrané proti změřenému CIEDE2000 | `31e5fc8` |
+| #288 | čtyři levely prohrávají na vlastní rozpočet, ne na čáru | `868c4d2` |
+| #285 | sedm levelů dostalo paletu s námětem | `5f2efed` |
+
+**⚠ #299 — vada byla v hloubce, ne v ohňostroji, a rig se musel opravit dřív než ona.** Stropní deska je průhledná, ale dědila `DepthStencilState.Default` ze scény, takže **zapisovala hloubku jako zeď**; ohňostroj jde po scéně pod `DepthRead` + additive, takže se každá raketa za sklem odtestovala pryč. Z hrací kamery, kde deska vyplňuje horek snímku, je to většina oblohy, kterou show používá. Opraveno `BS3DGame.DrawCeilingGlass` — jedno místo pro sezení i pro náhled na front endu; zůstává **čtení** hloubky, jde pryč jen zápis (precedens: křišťálová trofej kreslí přesně na téhle dvojici stavů). **Odvodňovací sklo a okno děla hloubku pořád zapisují** — týž latentní tvar, nechal jsem je, protože ani jedno nikdy nestojí mezi objektivem a výbuchem; zapsáno v remarks.
+  - **Páka `celebrate` byla rozbitá a tiše:** střílela na konci `LoadContent`, kde ji `BuildLevel` (který obě show zastavuje schválně) o snímek později spolkl — takže `play celebrate` dal level a prázdné nebe, což čte jako *nález*, ne jako vadná páka. Teď se obě konzumují z `Update` **po** startovním levelu. Bez toho nešlo #299 vůbec vyfotit.
+  - Ověřeno **kontaktním archem**, 12 snímků z pevné hrací kamery na build: před opravou je silueta desky čistá ve všech dvanácti, zatímco kolem ní výbuchy zjevně jsou — a na několika snímcích je záře **useknutá podél diagonální hrany desky**, což je ta okluze viditelná, ne odvozená. Po opravě přes ni prochází paprsky, stopy raket i celé výbuchy v pěti z dvanácti.
+
+**#286 — bílá pecka nebyla jen ošklivá, byla to změřená záměna.** `white/yellow` je **14,5 / 15,5** dE (dóm 1 / dóm 13), druhý nejtěsnější pár palety, a stál mezi payoffem levelu a dužinou kolem něj. Teď slupka **červená + olivová** (49,0 / 51,3), dužina **zlatá + oranžová**, pecka **hnědá**. Jeden kontakt je vědomě těsný a je to cena za to, že plod je mango: `red/orange` 14,1 / 15,9, nejtěsnější pár vůbec, tam kde se slupka potkává s dužinou — nedá se to obejít, ale **plod začíná zapečetěný**, takže obě barvy nejsou naráz na očích, dokud ho hráč neotevře. Struktura nedotčená (530 koulí, kotevní vrstva 66 v pěti barvách, pecka 52 — přeměřeno z vygenerovaného souboru).
+
+**⚠ #288 — nejdřív jsem sáhl vedle, a stojí to za zápis.** Chtěl jsem si výkyv změřit sám sondou v Testbedu; vyšlo −7,669 na Pylonu, což je **uvolněná koule padající k ostrovu**, protože `_physicsBalls` uvolněné koule nedrží stranou. Na tom se stavět nedá a zahodil jsem to. **Výkyv už je přitom v repu změřený**, u `GameplayScreen.CLUSTER_SWING_ALLOWANCE`: 35 výkyvů za 67 s na Chestu, nejhlubší **0,82** pod trendem. Rezerva = `clearance − floor(shots/ceilingStep) × 0,60`; naměřeno **Pylon −1,04, Ghost +0,36, Orrery +0,37, Cube +1,18**. Pylon nebyl těsný okraj, ale **rozpor dvojích hodin** — nedotčená sestava je za čárou na jedenáctém sestupu, tj. na 66. ráně ze 74, takže posledních osm ran nešlo odehrát; to je přesně to, co majitel obcházel zahazováním ran (mine sestavu neroste dolů). `CeilingStep` byl jediná volná páka: Pylon už je na `FieldLevels` 32 s vyčerpaným zdvihem a Arcade blok má slíbeno, že je celý „framed whole" na 18.
+  - **⚠ A protijed proti tomu, aby se z toho udělala brána: nízké číslo samo o sobě vada není.** Horn i Turbine sedí na **−0,23** a nikdo si na ně nikdy nestěžoval, protože jejich nejnižší koule je **špička**, která padne v prvních ranách a skutečné dno pak vyskočí o několik jednotek. Součet je poctivý o sestavě *jak je napsaná*; co po kompetentní hře zbyde viset, je úsudek autora. Zapsáno takhle do hlavičky LevelGenu i do `docs/game-session.md`.
+  - **Co tenhle průchod NEUMĚL:** dohrát ty čtyři levely do kompetence. 0,82 je Chestovo měření, ne per-level.
+
+**#285 — příčina byla u všech sedmi jedna.** Barvily se **jen podle topologie skupin** — jeden volný inkoust na díl — takže jeřáb vyšel se zeleným stožárem, purpurovou vzpěrou, stříbrno-modrým výložníkem a hnědo-bílou protiváhou. Laťka (Horn) je „pravidlo, které nedělá nic než čte, co přichází"; u konstrukce se to nedá zakroužkovat podle poloměru, takže ekvivalent je **námět**. **Topologie se nehnula** — které díly mají vlastní inkoust, které dvojice jsou pruhované, aby uvolněná barva ztenčila nosník místo aby ho přeťala, a které diagonální — takže všechny figury v doc komentářích platí *konstrukcí*. Dvě změny jsou změřené vady, ne vkus: Pagodě stály okapy na `red/orange` (nejtěsnější pár palety) a tašky na `brown/black` (čtvrtý nejtěsnější).
+
+**Nástroj:** `palette.ps1` měl druhou tabulku zadrátovanou na olivovou (zbytek po #294) — bere teď `-Focus`, takže odpoví na jakoukoli paletu. Použito v #286 i #285.
+
+**⚠ Vlastní chyba, opravená: můj commit k #288 ubral jeden ze čtyřiceti úvodních BOMů v `Program.cs`** (soubor jich má hromadu z něčího editoru). Neviditelné a neškodné, ale byl to nesouvisející řádek v diffu; vrácen v #285. Poučení: `Program.cs` needitovat přes `ReadAllText`/`WriteAllText` — to BOM sežere. `sed` po řádcích je bezpečný.
+
+**Nic dalšího si neberu.**
