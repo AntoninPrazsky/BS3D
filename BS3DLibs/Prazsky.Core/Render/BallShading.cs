@@ -38,6 +38,18 @@ namespace Prazsky.Core.Render
         /// the same treatment without that method being edited again.
         /// </para>
         /// </summary>
-        Bubble = 1
+        Bubble = 1,
+
+        /// <summary>
+        /// Polished marble (#305): the type colour as the body of a piece of cut stone, veined through with
+        /// that same colour carried towards white, under a hard tight polish and a raised reflection of the
+        /// sky. Drawn by <c>InstancedModelMarble</c>.
+        /// <para>
+        /// Opaque, and it carries no relief at all — polished stone is smooth, and the moulding, the welds and
+        /// their self-shadow are the vinyl skin's signature. It is the one shading here that is <i>cheaper</i>
+        /// than the vinyl it stands beside.
+        /// </para>
+        /// </summary>
+        Marble = 2
     }
 }

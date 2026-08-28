@@ -332,6 +332,42 @@ namespace Prazsky.BS3D
 
         private const float BUBBLE_FAR_WALL = -1f;
 
+        /// <summary>
+        /// How many vein bands run over a marble ball before the turbulence bends them (#305). Five is close
+        /// to the beach ball's five gores on purpose: it is the spacing at which a figure on a sphere this
+        /// size reads as a figure and not as a stripe, and the vinyl's had already been settled at it.
+        /// </summary>
+        private const float MARBLE_VEIN_FREQUENCY = 3.5f;
+
+        /// <summary>
+        /// How far the turbulence bends those bands. Rather more than the frequency, deliberately — under
+        /// about the band spacing the veins still read as displaced <i>rings</i>, and it is only once the warp
+        /// can carry a vein across a whole band that they wander, split and rejoin the way a real seam does.
+        /// </summary>
+        private const float MARBLE_VEIN_WARP = 5f;
+
+        /// <summary>
+        /// How far a vein carries the type colour towards white, and the one figure of this style the thirteen
+        /// colours are spent on. It is a <b>lightening of the tint</b> and never a white overlay: white veins
+        /// are a white ball with colour between them, which is the trap the beach ball's gores set for Type4
+        /// and Type11 and would be the whole of Type8, whose tint is a 0.045 grey.
+        /// <para>
+        /// 0.55 leaves a vein plainly lighter than its body at every tint while keeping the hue in it. Well
+        /// over that the pale types run together; well under, the stone reads as unfigured and the style loses
+        /// its rotation cue, which lives entirely in the veins.
+        /// </para>
+        /// </summary>
+        private const float MARBLE_VEIN_CONTRAST = 0.6f;
+
+        /// <summary>
+        /// How much of its own colour a marble ball radiates, against the vinyl's <see cref="EMISSION"/>.
+        /// Lower, because a heavy opaque stone that glows as brightly as an inflatable reads as a lamp cut in
+        /// the shape of a ball — and the polish gives this style a brightness of its own that the vinyl has to
+        /// find in its emission. Not zero: the heartbeat is what the balls ARE, and a cluster that does not
+        /// breathe on a dark dome is a cluster of grey circles.
+        /// </summary>
+        private const float MARBLE_EMISSION = 0.32f;
+
         #endregion
 
         #region Neighbour-based ambient occlusion (issue #40)
@@ -573,6 +609,13 @@ namespace Prazsky.BS3D
                         renderer.BubbleBodyOpacity = BUBBLE_BODY_OPACITY;
                         break;
 
+                    case BallStyle.Marble:
+                        renderer.EmissiveStrength = MARBLE_EMISSION;
+                        renderer.MarbleVeinFrequency = MARBLE_VEIN_FREQUENCY;
+                        renderer.MarbleVeinWarp = MARBLE_VEIN_WARP;
+                        renderer.MarbleVeinContrast = MARBLE_VEIN_CONTRAST;
+                        break;
+
                     case BallStyle.Beach:
                         renderer.EmissiveStrength = EMISSION;
                         break;
@@ -591,6 +634,7 @@ namespace Prazsky.BS3D
         private static BallShading ShadingOf(BallStyle style) => style switch
         {
             BallStyle.Bubble => BallShading.Bubble,
+            BallStyle.Marble => BallShading.Marble,
             _ => BallShading.Vinyl
         };
 
