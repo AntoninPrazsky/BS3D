@@ -267,7 +267,10 @@ namespace Testbed
             bool alternating = _options.Alternation.Count > 0;
             int capProbe = _island.CapTriplanarProbe;
 
+            //The sample count is on the line for the same reason ssaa is: an A/B that varies it can only be
+            //believed if the run says which half it was, and MSAA is invisible in a still (#298).
             Console.WriteLine($"[fps] {_fpsFrames / _fpsWindow:F1} — {_scene}, dome {_skyModelNumber}, ssaa {_supersampleFactor}x"
+                + $", msaa {_pipeline.SceneTarget?.MultiSampleCount ?? 0}x (asked {(_supersampleFactor > 1 ? 0 : _pipeline.MsaaSamples)})"
                 + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
                 + $", vsync {(_options.UncappedFps ? "off" : "on")}{(_options.FpsCap > 0 ? $" (cap {_options.FpsCap})" : "")}, arena {_island.Members}{(alternating || capProbe > 0 ? $", capprobe {capProbe}" : "")}, balls {_collectedBalls}");
 

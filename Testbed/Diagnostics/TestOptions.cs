@@ -132,6 +132,18 @@ namespace Testbed.Diagnostics
         /// <summary><c>ssaa=&lt;n&gt;</c>: supersample factor, clamped to 1–4 by the game itself.</summary>
         public int SupersampleFactor { get; private set; } = 2;
 
+        /// <summary>
+        /// <c>msaa=&lt;n&gt;</c>: how many multisample samples the scene target carries when supersampling is
+        /// OFF (0-8; 8 is the default and what every build has always run). Above <c>ssaa</c> 1 it is
+        /// ignored - the supersample resolve already averages geometry edges.
+        /// <para>
+        /// It is here to be MEASURED (#298), not to be shipped as a setting: both rungs of the quality
+        /// ladder below <c>High</c> run at <c>ssaa</c> 1 and therefore carry all eight samples, and on a
+        /// weak GPU that is bandwidth nobody has priced. -1 leaves the pipeline's own default.
+        /// </para>
+        /// </summary>
+        public int MsaaSamples { get; private set; } = -1;
+
         /// <summary><c>exposure=&lt;f&gt;</c>: the renderer's shutter speed. 0 = unset, so the default stands.</summary>
         public float Exposure { get; private set; }
 
@@ -201,6 +213,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("switchmap=", StringComparison.OrdinalIgnoreCase)) options.SwitchMapPath = arg.Substring("switchmap=".Length);
                 else if (arg.StartsWith("sky=", StringComparison.OrdinalIgnoreCase) && byte.TryParse(arg.Substring("sky=".Length), out byte parsedSky)) options.SkyNumber = parsedSky;
                 else if (arg.StartsWith("ssaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("ssaa=".Length), out int parsedSsaa)) options.SupersampleFactor = parsedSsaa;
+                else if (arg.StartsWith("msaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("msaa=".Length), out int parsedMsaa)) options.MsaaSamples = parsedMsaa;
                 else if (arg.StartsWith("exposure=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("exposure=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedExposure)) options.Exposure = parsedExposure;
                 else if (arg.StartsWith("scene=", StringComparison.OrdinalIgnoreCase)) options.Scene = arg.Substring("scene=".Length);
                 else if (arg.StartsWith("weather=", StringComparison.OrdinalIgnoreCase)) options.Weather = arg.Substring("weather=".Length);
