@@ -32,7 +32,8 @@ param(
     [Parameter(Mandatory=$true)][string]$Png,
     [int]$RowY = 450,
     [int]$Radius = 20,
-    [int[]]$Xs = @(443,500,558,615,672,728,785,840,895,950,1005,1057,1110)
+    [int[]]$Xs = @(443,500,558,615,672,728,785,840,895,950,1005,1057,1110),
+    [string[]]$Focus = @()
 )
 
 Add-Type -AssemblyName System.Drawing
@@ -137,5 +138,13 @@ for ($i = 0; $i -lt 13; $i++) {
 }
 $pairs | Sort-Object dE | Select-Object -First 14 | Format-Table -AutoSize
 
-"`n--- every pair olive is in ---"
-$pairs | Where-Object { $_.pair -like '*olive*' } | Sort-Object dE | Format-Table -AutoSize
+# Every pair the colours under discussion are in. -Focus takes their names (the list above), so this answers
+# "is THIS palette confusable?" rather than only the one colour a past issue happened to be about: it was
+# hardcoded to olive, left behind by #294. Naming several prints one table per colour, in the order given.
+#
+# The finding that outlives any one issue: MOVING ONE COLOUR ALONE RELOCATES THE CONFUSION RATHER THAN ENDING
+# IT, so read the whole list after a change and not just the pair that was complained about.
+foreach ($f in $Focus) {
+    "`n--- every pair $f is in ---"
+    $pairs | Where-Object { $_.pair -like "*$f*" } | Sort-Object dE | Format-Table -AutoSize
+}
