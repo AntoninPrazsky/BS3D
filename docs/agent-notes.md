@@ -2741,3 +2741,26 @@ Po obou opravách Pylon s mou „opravou" četl zase 5/5 — takže ta oprava la
 **Celopacková čísla v `docs/formats-and-tools.md` (13 z 90) jsou z horšího hráče a nejsou přeměřená** — je to tam napsané. Přeměřit celý pack je první věc příště, hned před samotnými layouty, na které teď konečně je nástroj.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-28 — Claude Code
+
+**#272 rozštěpeno na implementační issues, a první z nich (#304) je hotové a na mainu.**
+
+Majitel chtěl osm nových stylů kuliček. Než šlo cokoliv stavět, vylezly z kódu dvě věci, které #272 tvrdí špatně, a obě jsou v novém **#304** (to je ten commit):
+
+1. **„Přidat hláskování do `TryParse` a case do dispatche" je poloviční pravda.** `InstancedModelRenderer.GlassBubble` byl **`bool`**, `ApplyStyle` větvil na `bool bubble` a `Draw` se ptal `_style == BallStyle.Bubble` tam, kde myslel *„je tenhle styl průhledný"*. Osm stylů za osmi booly je osm způsobů, jak si říct o dva materiály naráz — a druhý průhledný styl přidaný pod starým testem by se nakreslil jako jedna neprůhledná stěna, bez jediné chyby kdekoliv.
+2. **Nová technika není `PatternPS` s jiným světlem.** Znovu implementuje **kontrakt**, který s materiálem nemá nic společného: dissolve clip na *obou* znaménkách, heartbeat s fázovým posunem podle pozice, ripple ve *dvou* významech (přistání vs. alarm ceilingu, podle znaménka), `SurfaceOcclusion`, `ApplySeaSubmerge` + `ApplyKillPlaneFade`, a objektový cue rotace. Kdo vynechá bod 3, ztratí na svém stylu alarm a nikde se to neohlásí. **Sepsáno teď v hlavičce nad ball technikami v `InstancedModel.fx` a v `docs/rendering.md`** — ať to osm lidí nehledá osmkrát.
+
+Co se změnilo: `bool GlassBubble` → `BallShading Shading` (nový enum v `Prazsky.Core.Render`; dvě enum a mapování `BallRenderSet.ShadingOf`, protože `BallStyle` je formát levelu a Core na něj nevidí), tabulka technik indexovaná enumem místo ternárního operátoru + kontrola tabulky proti enumu při loadu (poučení #152: barva připíchnutá počtem existovala v logice i ve fyzice a **nikdy se nekreslila**), `switch` s jedním case na styl v `ApplyStyle` i v rendereru, a `BallStyles.IsTransparent`.
+
+**Ověřeno za běhu, ne jen buildem**: `BS3D.exe level=1 balls=bubble shot=7` a totéž s `balls=beach` — obě cesty kreslí správně (bublina průhledná s rimem a druhou stěnou, vinyl neprůhledný), 78 FPS obojí. Všechny čtyři solution buildy čisté, shader se přeložil ve všech třech exáčích.
+
+**Ostatních osm issues je založených a nikdo je nemá:** #305 mramor, #306 eloxovaný kov, #307 mrazivý led, #308 broušený drahokam, #309 plazma, #310 roztavená kůra, #311 klubko vlny, #312 popraskaný porcelán. Rozvaha u každého, plus souhrnná tabulka v komentáři na #272. **Tři odchylky od brainstormu**, každá obhájená: chrom → eloxovaný kov (zrcadlo si ředí tint, ale to platí jen o *bílém* kovu — `Metalness` už dnes dělá „zlato odráží zlatě"), led je **neprůhledný** (námraza *je* podpovrchový rozptyl; postavit ho jako druhý shell = dvouprůchodová mašinérie a znovuotevření všeho kolem `BUBBLE_BODY_OPACITY`), a dřevo → vlna (dřevo padá na třinácti barvách nejhůř ze všech — „teplé, málo syté" *je* ten materiál).
+
+**Opravena i nákladová věta.** „Každý styl je vlastní položka" platí o kompilaci a údržbě, **ne o snímku**: level pojmenuje jeden styl, takže snímek kreslí jednu techniku. 8–10 % bubliny platí *bublinový level*.
+
+**⚠ Našel jsem cestou nesrovnalost, kterou jsem nesáhl** (jiná změna, jiná větev): `docs/rendering.md` i `docs/formats-and-tools.md` mluví o *„The campaign is nine blocks of five"*, ale `LevelGen.BLOCK_SIZE` je **10** a `BLOCK_NAMES` má devět jmen — tedy devadesát levelů v blocích po deseti. Ta věta je zastaralá na obou místech.
+
+**Nic dalšího si neberu** — osmička stylů je volná, doporučené pořadí je #305 nebo #311 jako první (obojí neprůhledné, obojí bezpečné na barvu, a prověří nový dispatch bez průhledné cesty).

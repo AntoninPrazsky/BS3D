@@ -5,7 +5,7 @@ namespace Prazsky.BS3D.GameStructure
     /// <summary>
     /// What the balls of a map are MADE of (#258). Not what they are — that is <see cref="BallType"/>, the
     /// thirteen colours the lattice, the match rule and the score are all about — but what light does when it
-    /// arrives at one, which is the whole of the difference between the two entries below and the whole of what
+    /// arrives at one, which is the whole of the difference between the entries below and the whole of what
     /// this decides.
     /// <para>
     /// It is a property of the <b>map</b> and not of the player, the machine or the scene: a level is authored
@@ -74,6 +74,29 @@ namespace Prazsky.BS3D.GameStructure
         /// map editor without either side carrying a table of names.
         /// </summary>
         public static string ToName(BallStyle style) => style.ToString().ToLowerInvariant();
+
+        /// <summary>
+        /// Whether light gets THROUGH a ball of this style, and so whether it has to be drawn as a shell —
+        /// two passes with opposite cull modes and the right depth states between them, which is
+        /// <c>BallRenderSet.Draw</c>'s doing and not the shader's.
+        /// <para>
+        /// It exists so that method asks what it means (#304). It asked <c>_style == BallStyle.Bubble</c>,
+        /// which was the same answer by accident while the bubble was the only transparent style: the test is
+        /// about a PROPERTY of the material, and a second transparent style added under the old test would
+        /// have been drawn as a single opaque wall — a bubble missing everything that says it is hollow, and
+        /// no error anywhere.
+        /// </para>
+        /// <para>
+        /// Stated here beside the enum rather than on the render set because it is a fact about the material,
+        /// which is what this file is: the level format, the map editor and the render set all have to agree
+        /// about it, and only one of them draws anything.
+        /// </para>
+        /// </summary>
+        public static bool IsTransparent(BallStyle style) => style switch
+        {
+            BallStyle.Bubble => true,
+            _ => false
+        };
 
         /// <summary>The next style in the enum, wrapping — what a cycling key in an authoring tool wants.</summary>
         public static BallStyle Next(BallStyle style)

@@ -838,6 +838,52 @@ technique InstancedModelTextured
     }
 };
 
+//===================================================================================================
+//THE BALL TECHNIQUES, AND THE CONTRACT ALL OF THEM OWE (#304)
+//
+//Everything from here to the end of InstancedModelBubble draws A BALL. A map names what its balls are
+//made of and that picks one of these programs (Prazsky.BS3D.GameStructure.BallStyle ->
+//Prazsky.Core.Render.BallShading -> the technique table in InstancedModelRenderer); nothing about the
+//lattice, the physics, the match rule or the score reads it, so a bubble level plays move for move
+//like a vinyl one.
+//
+//Each is a TECHNIQUE and not a branch inside another one, for the reason measured on this project's
+//other big shaders: a runtime branch over a whole alternative shading model costs the union of both
+//register allocations in every wavefront, and these passes are occupancy-bound.
+//
+//THE COST OF THAT IS NOT WHAT IT LOOKS LIKE. A frame draws ONE ball technique, because a level names
+//one style - so the bubble's measured ~8-10% over vinyl is what a BUBBLE LEVEL pays, not a tax the
+//other levels carry, and N styles are not N times anything per frame. What N styles cost is N programs
+//to compile here and N looks to keep working across the eighteen domes.
+//
+//WHAT EVERY ONE OF THEM MUST CARRY. A ball technique is not "PatternPS with different lighting": most
+//of what it does has nothing to do with what the ball is MADE of, and a new one that drops a line of
+//the following fails silently - it looks right in a screenshot of a still cluster and is wrong in play.
+//
+//  1. THE DISSOLVE CLIP, on BOTH signs of input.Dissolve, over cells of DissolvePixelSize. It is the
+//     magazine re-colouring a loaded ball; the sign says which direction. Screen space, and the cell
+//     is a whole DISPLAY pixel or more - an object-space cell is a lumpy 3D mottling and a one-target-
+//     pixel cell is averaged straight back into a smooth cross-fade by the supersample resolve.
+//  2. THE HEARTBEAT, as Heartbeat(PulseTime * PulseSpeed - dot(worldPosition, PulseDirection) /
+//     PulseWavelength). The position term is what makes it a wave THROUGH the cluster; without it the
+//     cluster strobes in lockstep, which is a lamp and not something breathing.
+//  3. THE RIPPLE, IN BOTH OF ITS MEANINGS. RippleStrength gates it, and the SIGN of input.Ripple
+//     chooses: positive is the landing wave (the ball's own colour carried RippleWhiten towards white),
+//     negative is the ALARM (RippleAlarmColor, a flat colour the ball has no say in, because every ball
+//     in that wave has to say the same thing). A technique that implements only the positive branch
+//     loses the ceiling's alarm on that style alone and nothing anywhere reports it.
+//  4. SurfaceOcclusion FROM input.OcclusionData - what the neighbours take.
+//  5. ApplySeaSubmerge AND ApplyKillPlaneFade on the way out, in that order. The kill-plane fade is
+//     read by the ball techniques alone and is how a ball below the line stops being drawn.
+//  6. A CUE, IN OBJECT SPACE, THAT THE BALL IS ROLLING. The gores exist for this; the bubble replaces
+//     them with object-space film marbling (its gravity drainage is deliberately WORLD space, because
+//     gravity does not turn with the ball). A material whose whole figure is world- or view-space -
+//     a mirror is the obvious trap - draws a spinning ball as a still one.
+//
+//Points 1-5 are mechanical and every one of them is already written below twice; point 6 is a design
+//constraint on the LOOK and is the one that has to be answered before a style is worth building.
+//===================================================================================================
+
 //Procedural beach-ball pattern. Evaluated in the model's own object space, so it turns with the
 //object instead of sliding over it — which is the whole point: it makes a rolling ball's rotation
 //readable. Gores alternate between the two colors, with a disc of the secondary color at each pole.

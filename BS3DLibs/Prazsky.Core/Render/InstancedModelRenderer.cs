@@ -103,8 +103,7 @@ namespace Prazsky.Core.Render
         private EffectTechnique[] _triplanarProbeTechniques;
         private EffectTechnique _detailUVTechnique;
         private EffectTechnique _detailUVNormalTechnique;
-        private EffectTechnique _patternTechnique;
-        private EffectTechnique _bubbleTechnique;
+        private EffectTechnique[] _ballTechniques;
         private EffectParameter _bubbleShellParam;
         private EffectParameter _bubbleFilmThicknessParam;
         private EffectParameter _bubbleTintStrengthParam;
@@ -357,23 +356,27 @@ namespace Prazsky.Core.Render
         public float PatternSheenStrength { get; set; } = 0.12f;
 
         /// <summary>
-        /// Draws the patterned parts as a <b>hollow glass bubble</b> instead of a moulded vinyl skin (#258):
-        /// a soap film with the ball's colour dyed into it, transparent, iridescent and bright along its rim.
-        /// It replaces the beach-ball pattern rather than joining it — the gores, the polar discs, the welds
-        /// and the moulding are all skin, and a film has none of them — so it selects a technique of its own
-        /// wherever <see cref="PatternGoreCount"/> would otherwise have selected the pattern's.
+        /// <b>What the patterned parts are made of</b> — which of the shader's ball techniques shades them
+        /// (#258, #304). Every one of them replaces the beach-ball skin rather than joining it: the gores, the
+        /// polar discs, the welds and the moulding are all vinyl, and no other material has any of them, so
+        /// each is a technique of its own selected here wherever <see cref="PatternGoreCount"/> would
+        /// otherwise have selected the pattern's.
         /// <para>
-        /// <b>The drawing states are the caller's and they are not optional.</b> A bubble is transparent, so
-        /// the shell must be put out as two passes with opposite cull modes and no depth write between them,
-        /// and this property does not and cannot do that — it says how a pixel is shaded, not in what order
-        /// the pixels arrive. <c>Prazsky.BS3D.BallRenderSet.Draw</c> is the one caller that sets this, and it
-        /// carries the whole of that argument.
+        /// <b>A shading does not carry its drawing states, and for a transparent one they are not optional.</b>
+        /// A bubble's shell must be put out as two passes with opposite cull modes and the right depth states
+        /// between them, and this property does not and cannot do that — it says how a pixel is shaded, not in
+        /// what order the pixels arrive. <c>Prazsky.BS3D.BallRenderSet.Draw</c> is the one caller that sets
+        /// this, and it carries the whole of that argument.
+        /// </para>
+        /// <para>
+        /// This was a <c>bool GlassBubble</c> until #304. Two shadings fit in a flag; the styles split out of
+        /// #272 do not, and eight flags would be eight ways to ask for two materials at once.
         /// </para>
         /// </summary>
-        public bool GlassBubble { get; set; }
+        public BallShading Shading { get; set; }
 
         /// <summary>
-        /// Which wall of a <see cref="GlassBubble"/> shell the next draw puts out: <c>+1</c> the near one seen
+        /// Which wall of a <see cref="BallShading.Bubble"/> shell the next draw puts out: <c>+1</c> the near one seen
         /// from outside, <c>-1</c> the far one seen from inside. It pairs with the caller's cull mode and must
         /// agree with it — the shader turns the geometric normal by this sign so both walls go through one
         /// piece of arithmetic, and a sign that disagrees with the cull lights the shell inside out.
@@ -697,8 +700,7 @@ namespace Prazsky.Core.Render
             };
             _detailUVTechnique = _effect.Techniques["InstancedModelDetailUV"];
             _detailUVNormalTechnique = _effect.Techniques["InstancedModelDetailUVNormal"];
-            _patternTechnique = _effect.Techniques["InstancedModelPattern"];
-            _bubbleTechnique = _effect.Techniques["InstancedModelBubble"];
+            LoadBallTechniques();
             _bubbleShellParam = _effect.Parameters["BubbleShell"];
             _bubbleFilmThicknessParam = _effect.Parameters["BubbleFilmThickness"];
             _bubbleTintStrengthParam = _effect.Parameters["BubbleTintStrength"];
@@ -749,6 +751,49 @@ namespace Prazsky.Core.Render
             _effect.CurrentTechnique = _mainTechnique;
 
             SetLightTint(Vector3.One, Vector3.One);
+        }
+
+        /// <summary>
+        /// The technique each <see cref="BallShading"/> is drawn by, <b>in the enum's own order</b>, so
+        /// selecting one costs an array index and never a name scan — the by-name indexer is a linear scan over
+        /// this effect's techniques and <c>BestPractices.md</c> forbids one per frame. Same shape as
+        /// <see cref="_triplanarProbeTechniques"/> above.
+        /// </summary>
+        private static readonly string[] BallTechniqueNames =
+        {
+            "InstancedModelPattern",  //BallShading.Vinyl
+            "InstancedModelBubble",   //BallShading.Bubble
+        };
+
+        /// <summary>
+        /// Looks the ball techniques up once and checks the table against the enum, which is the whole point of
+        /// doing it here rather than inline: #152 found a ball colour hand-pinned as a count in the render set,
+        /// where a member added without repointing it existed in logic and physics and was silently never
+        /// drawn. A <see cref="BallShading"/> added without a technique beside it would fail the same way — a
+        /// style that selects nothing draws whatever the previous draw left bound — so it throws at load
+        /// instead, where the message can say what to do.
+        /// </summary>
+        private void LoadBallTechniques()
+        {
+            int count = Enum.GetValues<BallShading>().Length;
+
+            if (BallTechniqueNames.Length != count) throw new InvalidOperationException(
+                $"{nameof(BallShading)} has {count} members but {nameof(BallTechniqueNames)} names "
+                + $"{BallTechniqueNames.Length} techniques; add the new shading's technique to that table, in "
+                + "the enum's order, or it would draw whatever technique the previous draw left bound.");
+
+            _ballTechniques = new EffectTechnique[count];
+
+            for (int i = 0; i < count; i++)
+            {
+                //The by-name indexer answers null for a technique the effect does not carry, and a null here
+                //would surface as a NullReferenceException in the middle of a draw call rather than as the
+                //missing technique it is.
+                _ballTechniques[i] = _effect.Techniques[BallTechniqueNames[i]]
+                    ?? throw new InvalidOperationException(
+                        $"InstancedModel.fx declares no technique named \"{BallTechniqueNames[i]}\", "
+                        + $"which {nameof(BallShading)}.{(BallShading)i} is drawn by.");
+            }
         }
 
         /// <summary>
@@ -989,31 +1034,39 @@ namespace Prazsky.Core.Render
             }
             else if (usePattern)
             {
-                //Skin or film (#258). The two share everything a BALL is — its colour, its heartbeat, its
-                //ripple, its dissolve — and differ in what the surface does with light, which is why they are
-                //two techniques picked here rather than one shader with a mode in it.
-                _effect.CurrentTechnique = GlassBubble ? _bubbleTechnique : _patternTechnique;
+                //What the ball is made of (#258, #304). Every shading shares everything a BALL is — its colour,
+                //its heartbeat, its ripple, its dissolve — and they differ in what the surface does with light,
+                //which is why they are separate techniques indexed here rather than one shader with a mode in
+                //it: a runtime branch over an alternative shading model costs the union of both register
+                //allocations in every wavefront, and these passes are occupancy-bound.
+                _effect.CurrentTechnique = _ballTechniques[(int)Shading];
                 _patternPrimaryColorParam.SetValue(diffuseTint ?? Vector3.One);
 
-                if (GlassBubble)
+                //One case per shading, each setting what ITS technique reads and nothing else — a uniform the
+                //bound program never declares is a wasted SetValue, and one it does declare but the case
+                //forgot is whatever the last renderer left there. The shared tail below is the other half of
+                //that split: what every ball technique reads whatever it is made of.
+                switch (Shading)
                 {
-                    _bubbleShellParam.SetValue(BubbleShell);
-                    _bubbleFilmThicknessParam.SetValue(BubbleFilmThickness);
-                    _bubbleTintStrengthParam.SetValue(BubbleTintStrength);
-                    _bubbleBodyOpacityParam.SetValue(BubbleBodyOpacity);
-                }
-                else
-                {
-                    _patternSecondaryColorParam.SetValue(PatternSecondaryColor);
-                    _patternGoreCountParam.SetValue((float)PatternGoreCount);
+                    case BallShading.Bubble:
+                        _bubbleShellParam.SetValue(BubbleShell);
+                        _bubbleFilmThicknessParam.SetValue(BubbleFilmThickness);
+                        _bubbleTintStrengthParam.SetValue(BubbleTintStrength);
+                        _bubbleBodyOpacityParam.SetValue(BubbleBodyOpacity);
+                        break;
 
-                    //Thresholding sin(azimuth) at -cos(pi * width) hands the primary gore exactly that
-                    //fraction of each pair of segments; the even split lands on zero, as before
-                    _patternGoreThresholdParam.SetValue(-MathF.Cos(MathF.PI * PatternGoreWidth));
-                    _patternCapExtentParam.SetValue(PatternCapExtent);
-                    _patternReliefStrengthParam.SetValue(PatternReliefStrength);
-                    _patternSheenStrengthParam.SetValue(PatternSheenStrength);
-                    _translucencyStrengthParam.SetValue(TranslucencyStrength);
+                    case BallShading.Vinyl:
+                        _patternSecondaryColorParam.SetValue(PatternSecondaryColor);
+                        _patternGoreCountParam.SetValue((float)PatternGoreCount);
+
+                        //Thresholding sin(azimuth) at -cos(pi * width) hands the primary gore exactly that
+                        //fraction of each pair of segments; the even split lands on zero, as before
+                        _patternGoreThresholdParam.SetValue(-MathF.Cos(MathF.PI * PatternGoreWidth));
+                        _patternCapExtentParam.SetValue(PatternCapExtent);
+                        _patternReliefStrengthParam.SetValue(PatternReliefStrength);
+                        _patternSheenStrengthParam.SetValue(PatternSheenStrength);
+                        _translucencyStrengthParam.SetValue(TranslucencyStrength);
+                        break;
                 }
 
                 _emissiveStrengthParam.SetValue(EmissiveStrength);

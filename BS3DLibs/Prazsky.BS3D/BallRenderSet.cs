@@ -546,25 +546,53 @@ namespace Prazsky.BS3D
         }
 
         /// <summary>
-        /// The per-renderer figures that differ between the two styles. Everything a ball IS — its colour, its
-        /// heartbeat, its ripple, its dissolve, its occlusion — is the same in both and is set once in the
-        /// constructor; what is set here is only what the surface does with light.
+        /// The per-renderer figures that differ between the styles. Everything a ball IS — its colour, its
+        /// heartbeat, its ripple, its dissolve, its occlusion — is the same in all of them and is set once in
+        /// the constructor; what is set here is only what the surface does with light.
+        /// <para>
+        /// <b>One case per style, each setting what its own shading reads</b> (#304). It was two assignments
+        /// against a <c>bool</c>, which pushed the bubble's three film figures at a vinyl renderer that has no
+        /// use for them — harmless with two styles and the wrong shape for eight, where every style's dials
+        /// would be pushed at every other style's technique on every switch.
+        /// </para>
         /// </summary>
         private void ApplyStyle()
         {
             if (_renderers == null) return;
 
-            bool bubble = _style == BallStyle.Bubble;
-
             foreach (InstancedModelRenderer renderer in _renderers)
             {
-                renderer.GlassBubble = bubble;
-                renderer.EmissiveStrength = bubble ? BUBBLE_EMISSION : EMISSION;
-                renderer.BubbleFilmThickness = BUBBLE_FILM_THICKNESS;
-                renderer.BubbleTintStrength = BUBBLE_TINT;
-                renderer.BubbleBodyOpacity = BUBBLE_BODY_OPACITY;
+                renderer.Shading = ShadingOf(_style);
+
+                switch (_style)
+                {
+                    case BallStyle.Bubble:
+                        renderer.EmissiveStrength = BUBBLE_EMISSION;
+                        renderer.BubbleFilmThickness = BUBBLE_FILM_THICKNESS;
+                        renderer.BubbleTintStrength = BUBBLE_TINT;
+                        renderer.BubbleBodyOpacity = BUBBLE_BODY_OPACITY;
+                        break;
+
+                    case BallStyle.Beach:
+                        renderer.EmissiveStrength = EMISSION;
+                        break;
+                }
             }
         }
+
+        /// <summary>
+        /// Which of the shader's ball techniques a style is drawn by. Two enums and a mapping rather than one
+        /// enum, because they answer to different owners: <see cref="BallStyle"/> is what a level FILE names
+        /// and cannot change without a format decision, while <see cref="BallShading"/> is what
+        /// <c>InstancedModel.fx</c> was compiled with and lives in the game-agnostic library that cannot see
+        /// the level format at all. They match one for one today and are not required to — two styles differing
+        /// only in their dials would share one technique.
+        /// </summary>
+        private static BallShading ShadingOf(BallStyle style) => style switch
+        {
+            BallStyle.Bubble => BallShading.Bubble,
+            _ => BallShading.Vinyl
+        };
 
         /// <summary>
         /// How many pixels of the scene's render target make one pixel of the finished picture — the caller's
@@ -740,7 +768,9 @@ namespace Prazsky.BS3D
                 _renderers[lod].DissolvePixelSize = dissolvePixels;
             }
 
-            if (_style == BallStyle.Bubble) DrawShell(camera);
+            //Asked as the question it IS — does light get through this material — and not as "is this the
+            //bubble" (#304). The two were the same answer only while the bubble was the one transparent style.
+            if (BallStyles.IsTransparent(_style)) DrawShell(camera);
             else DrawBoth(camera);
         }
 
