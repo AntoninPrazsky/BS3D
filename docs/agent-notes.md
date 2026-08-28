@@ -2580,3 +2580,32 @@ Se starými čísly: `PoleZ` = breechZ 2,5 + kopule 0,74 = **3,24**, stoh pod č
 **Pozor na směr, ať to někdo nepřežene:** supersampling **nad** nativ je legitimní položka tieru a `High` ho nese. Zavřený je jen směr **pod** 1×. `RenderScale` zůstává jako měřicí přístroj — je to čistý způsob, jak se zeptat, jestli je pass pixel-bound, směrem dolů, kam se `ssaa` zeptat neumí, a na jeskyni/snu se `ssaa` neumí zeptat vůbec (#155).
 
 **⚠ Důsledek, který #298 zbývá vyřešit: s vyřazeným B nedosáhne na jeskyni žádná změřená páka.** Supersamplingu je imunní konstrukcí #155, MSAA s ní hne o 0,30 ms. Zbývá jí **vlastní redukovaný program** — ta cesta `SceneDetail`, kterou už les a sen prošly — což je zároveň přesně to, co majitel popsal („mohou zmizet odlesky a tak podobně"). Potkává se to s #296 (hora) i #172.
+
+---
+
+## 2026-08-28 — Claude Code (devadesátý druhý zápis)
+
+**Majitel zadal A, C a E; D výslovně vynechal (mraky chceme vidět vždycky). Na mainu jako `9a06386`.** Kartu jsem měl.
+
+**A — `Low` nese 2 vzorky místo 8.** První položka tieru, která sáhne na každou scénu, aniž změní *co* se stínuje. **⚠ Dva a ne nula, a je to úsudek, ne měření:** tenhle snímek je tisíc **koulí** a jejich siluety jsou většina hran v něm; bez supersamplingu i bez multisamplingu se při rozhoupané sestavě rozlezou. `Low` má vypadat prostěji, ne šumět. Zapsáno tak i do `QualityPreset.MsaaSamples`, včetně toho, že nula je jedna konstanta daleko.
+
+**C — `SceneDetail` a `SurfaceDetail` se utrácejí až na `Low`.** **⚠ Vrácení Mediu jsem ověřil, ne předpokládal**, protože Medium na slabém stroji už bylo přes rozpočet a tohle ho mohlo zdražit: `SurfaceDetail` tam měří 0,00–0,05 ms a `SceneDetail` sahal jen na les a sen — ani jedna z těch scén není mezi levely, které tam Medium neutáhne. Zdražení tedy nepadlo tam, kde to bolí. Kdyby někdo tuhle změnu dělal bez toho ověření, je to regrese.
+
+**E — hora a jeskyně dostaly vlastní redukované programy**, každá pár (occupancy!):
+
+| scéna | co jde pryč | plný | redukovaný | úspora |
+|---|---|---|---|---|
+| hora | #208 dvojice — sastrugi reliéf a třpyt | 4,25 ms | 3,85 | 0,40 |
+| jeskyně | gradient hrbolatosti stěny + síť prasklin | 4,08 | 3,07 | **1,01** |
+
+**⚠ Jeskynní nález, který stojí za zapamatování: gradient tříoktávového pole jsou ČTYŘI evaluace, tedy dvanáct oktáv 3D šumu na každý pixel stěny — polovina všeho, co stěna utratí.** Z pěti řádků shaderu to nejde přečíst; napsal jsem to tam. Je to 3,4× víc, než jeskyni dalo MSAA, a byla to jediná zbylá páka: supersamplingu je imunní konstrukcí #155, render pod nativem zakázaný.
+
+**⚠ A poctivost, kterou jsem si vynutil sám na sobě: horský řez jsem NEVYFOTIL.** Na dvou kamerách vypadá plný i redukovaný stejně — sastrugi i třpyt jsou jemné a `detailFade` je stejně sundává všude kromě blízkých svahů. Napsal jsem to tak do commitu, do issue i do `docs/scenes.md`, místo abych to prodal jako „zadarmo". Pro `Low` je to dobrý obchod a **špatný argument pro řezání kdekoli jinde**.
+
+**Dokumentace, která byla po téhle změně nepravdivá a je opravená ve stejném commitu:** `docs/scenes.md` na třech místech tvrdilo „reduced below `High` only" a „**There is no reduced program any more**" u jeskyně. To druhé bylo od #250 správně a teď už ne.
+
+**Přístroje pro notebook:** `[fps]` řádek ve hře nese tier, **počet vzorků, se kterým byl target doopravdy postaven**, a jestli jsou extra věci scény autorské — žádná z těch tří věcí se na screenshotu nepozná. Testbed bere `detail=<0|1>`.
+
+**Co zbývá:** změřit to na slabém stroji. Desktop tyhle věci neumí nadimenzovat, jen seřadit.
+
+**Nic dalšího si neberu.**
