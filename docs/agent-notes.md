@@ -2609,3 +2609,30 @@ Se starými čísly: `PoleZ` = breechZ 2,5 + kopule 0,74 = **3,24**, stoh pod č
 **Co zbývá:** změřit to na slabém stroji. Desktop tyhle věci neumí nadimenzovat, jen seřadit.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-28 — Claude Code (devadesátý třetí zápis)
+
+**Majitel se zeptal, co dál; vybral #283 a #296. Obojí na mainu (`0faf06f`, `344b38f`). #283 zavřené, #296 nechávám otevřené.**
+
+**#283 — květy na louce nosily stínování trávy.** Diagnóza v issue seděla do posledního řádku včetně toho, že komentář nad tím kódem tvrdí opak toho, co kód dělá. Tráva se teď pod růžicí vyfaduje: `relief * (1 - flowerCover)`.
+
+**⚠ A celá opatrnost té opravy je ve volbě váhy: `petalProfile`, NE `flowerMask`.** Maska je antialiasovaná přes `aa`, tedy pixel a půl — a ta váha jde do výškového pole, které `PerturbNormalFromHeight` **derivuje**. Falloff tvaru masky by vložil pixel široký schod do *derivace* a rozsvítil tvrdý prstenec kolem každé růžice; četlo by se to jako nová vada místo opravy staré. `petalProfile` je lineární v poloměru (derivace omezená `1/petalEdge`) a je to **týž profil, na kterém stojí kopule květu**, takže jsou ty dvě věci komplementární. Ověřeno párovým snímkem od země, kde má růžice desítky pixelů: před jsou lístky skoro jednolité s rozmazanými větrnými pruhy trávy, po má každý vlastní gradient. Bez prstence.
+
+**#296 — hora na `High`. Volný oběd neexistuje, a to je ten výsledek.**
+
+Rozdělení standardním testem (týž pin při dvou ssaa), 3840×1600, `Full.json`, pevná kamera: **ssaa 1 (bez MSAA) 3,19 ms, ssaa 2 10,99 ms** → **fixních 0,59 ms a 2,60 ms na jednotku pixelů**. Drtivě pixel-bound. **⚠ Vertexová strana tedy NENÍ cíl, jakkoli na papíře vypadá:** `TerrainHeight` jsou tři tapy pětioktávového ridged fbm *na vrchol*, patnáct oktáv, a celé to je uvnitř těch 0,59.
+
+**⚠ Dvě look-identické optimalizace, obě naměřené na nule — tohle si přečti, než to zkusíš znovu:**
+
+1. **Předčasné ukončení `Fbm2BandLimited`**, jakmile jeho fade dojde na nulu. Konstrukcí bit-identické a na vzdáleném hřebeni se většina oktáv vyhodnotí naplno jen proto, aby se vynásobila nulou. **11,10 ms proti 10,99 — hůř.** Vynucený `[loop]` stojí víc než přeskočené oktávy. Je to „runtime branch si nechá registry, které ho stojí" **potřetí** (po lesní podlaze a kamenné čepici).
+2. **Vytažení sdílených `ddx`/`ddy`** ze dvou volání `PerturbNormalFromHeight`. **11,03 a 11,07 — šum**, kompilátor si je sdílel sám.
+
+**Co zbývá, stojí vzhled**, a největší kus je oceněný: sněhový pár (#208) je **1,36 ms při ssaa 2, 12,4 % snímku** (0,40 při ssaa 1). Na `High` zůstává; #298 ho zapojilo do `MountainReduced` na `Low`. Druhý návrh #296 („tier, co na 4K shodí supersampling") je přesně to, čím `Medium` je.
+
+**Nic z toho nezměnilo kód** — commit je čistě záznam měření a těch dvou negativů. To je záměr: negativní výsledek, který není zapsaný, se platí znovu.
+
+**Poznámka k trackeru:** #287 a #219 jsou hotové a zmergované (`43b45e3`, `af32b23`), otevřené zůstaly kvůli zbytkům, co si kolega zapsal (variabilní zákluz děla, hrom). Nejsou zapomenuté.
+
+**Nic dalšího si neberu.**
