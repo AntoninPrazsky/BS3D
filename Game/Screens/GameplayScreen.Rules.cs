@@ -359,9 +359,11 @@ namespace BS3D.Screens
         /// poses — the warning is the cluster's own geometry, not part of the spectacle the cinematic holds —
         /// but neither ending may be declared until the collapse the player earned has been seen.
         /// </param>
-        //How long the cluster's lowest ball has been at or below the death line without once coming back up.
-        //Reset by the rule itself the moment it does, so it measures a HELD crossing rather than a total.
-        private float _belowLineSeconds;
+        //The grace's own state - ClusterLineWatch's since #301/#302, so the level generator's sag gate decides
+        //a simulated run by running THIS rule rather than a second copy of it that could drift lenient. It
+        //needs no reset when a level starts, exactly as the bare float it replaces did not: every level begins
+        //with its cluster far above the line, so the first frame zeroes it.
+        private ClusterLineWatch _lineWatch;
 
         private void CheckLevelLost(float elapsed, bool mayLose)
         {
@@ -396,27 +398,25 @@ namespace BS3D.Screens
             //poses, and both losses will be re-asked the moment the cinematic lets go.
             if (!mayLose) return;
 
-            //Deeper than any swing measured on the heaviest cluster in the pack reaches, so there is nothing to
-            //wait for: the descent has genuinely put a ball under, and holding the verdict for a second would
-            //only be a second of watching a lost level.
-            if (lowestBallY <= CEILING_DEATH_Y - CLUSTER_SWING_ALLOWANCE)
+            //The line's verdict, and the message is built only inside the branch that lost - the walk above
+            //runs every frame and formatting one there would allocate on the gameplay path.
+            switch (_lineWatch.Update(lowestBallY, elapsed))
             {
-                LoseLevel(LevelFailure.ClusterReachedLine,
-                    $"a ball at {lowestBallY:F2} <= {CEILING_DEATH_Y - CLUSTER_SWING_ALLOWANCE:F2}"
-                    + $" ({CLUSTER_SWING_ALLOWANCE:F2} past the line, deeper than a swing goes)");
-                return;
-            }
+                //Deeper than any swing measured on the heaviest cluster in the pack reaches, so there is
+                //nothing to wait for: the descent has genuinely put a ball under, and holding the verdict for
+                //a second would only be a second of watching a lost level.
+                case ClusterLineVerdict.PastAllowance:
+                    LoseLevel(LevelFailure.ClusterReachedLine,
+                        $"a ball at {lowestBallY:F2} <= {CEILING_DEATH_Y - CLUSTER_SWING_ALLOWANCE:F2}"
+                        + $" ({CLUSTER_SWING_ALLOWANCE:F2} past the line, deeper than a swing goes)");
+                    return;
 
-            //Otherwise the line has to be HELD rather than merely touched. No reset is needed when a level
-            //starts: every level begins with its cluster far above the line, so the first frame zeroes this.
-            _belowLineSeconds = lowestBallY <= CEILING_DEATH_Y ? _belowLineSeconds + elapsed : 0f;
-
-            if (_belowLineSeconds >= CLUSTER_BELOW_LINE_GRACE)
-            {
-                LoseLevel(LevelFailure.ClusterReachedLine,
-                    $"a ball at {lowestBallY:F2} <= {CEILING_DEATH_Y:F2} held for {_belowLineSeconds:F2} s"
-                    + $" (grace {CLUSTER_BELOW_LINE_GRACE:F2} s)");
-                return;
+                //Otherwise the line had to be HELD rather than merely touched.
+                case ClusterLineVerdict.HeldTooLong:
+                    LoseLevel(LevelFailure.ClusterReachedLine,
+                        $"a ball at {lowestBallY:F2} <= {CEILING_DEATH_Y:F2} held for"
+                        + $" {_lineWatch.BelowLineSeconds:F2} s (grace {CLUSTER_BELOW_LINE_GRACE:F2} s)");
+                    return;
             }
 
             //The budget spent with the field uncleared — but only once every shot has RESOLVED, so the last ball

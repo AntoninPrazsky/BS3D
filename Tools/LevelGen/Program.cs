@@ -23,8 +23,16 @@ namespace BS3D.Tools.LevelGen
     /// thing looks good, which is what the screenshot skill is for.
     /// </para>
     /// <para>
-    /// <c>dotnet run --project Tools\LevelGen\LevelGen.csproj [output directory]</c>. Rewrites
-    /// <c>Levels.json</c> too, One and Colossus included, so run it whole rather than for one level.
+    /// <b>Nor could any of them, until #301, check whether a level survives being taken apart</b> — every
+    /// check above reads the layout as authored, and all of them are true of a level that cannot be
+    /// finished, because none knows what the remainder <i>weighs</i>. <see cref="SagProbe"/> is the answer
+    /// and it hangs the level in the real simulation instead of reading it; <see cref="WorstAnchorLoad"/>
+    /// is the cheap figure that came out of building it. Read <see cref="RunSagGate"/> for why the first is
+    /// opt-in and <c>docs/formats-and-tools.md</c> for what it is not yet entitled to decide.
+    /// </para>
+    /// <para>
+    /// <c>dotnet run --project Tools\LevelGen\LevelGen.csproj [output directory] [--sag[=Name,Name]]</c>.
+    /// Rewrites <c>Levels.json</c> too, One and Colossus included, so run it whole rather than for one level.
     /// </para>
     /// </summary>
     internal static class Program
@@ -233,9 +241,18 @@ namespace BS3D.Tools.LevelGen
 
         private static int Main(string[] args)
         {
+            //The output directory is still the first PLAIN argument, exactly as it was; the flags are named so
+            //a path can never be mistaken for one. See RunSagGate for what --sag costs and why it is opt-in.
+            string dirArg = args.FirstOrDefault(a => !a.StartsWith("--", StringComparison.Ordinal));
+            bool sag = args.Any(a => a == "--sag" || a.StartsWith("--sag=", StringComparison.Ordinal));
+            string[] sagOnly = args
+                .Where(a => a.StartsWith("--sag=", StringComparison.Ordinal))
+                .SelectMany(a => a["--sag=".Length..].Split(',', StringSplitOptions.RemoveEmptyEntries))
+                .ToArray();
+
             try
             {
-                _outDir = args.Length > 0 ? args[0] : FindLevelsDirectory();
+                _outDir = dirArg ?? FindLevelsDirectory();
             }
             catch (DirectoryNotFoundException e)
             {
@@ -374,13 +391,91 @@ namespace BS3D.Tools.LevelGen
             foreach (Design design in arcade) ok &= Emit(design);
             foreach (Design design in spectrum) ok &= Emit(design);
 
-            WriteLevelSet(designs, nebula, arcade, spectrum);
+            LevelSet set = WriteLevelSet(designs, nebula, arcade, spectrum);
+
+            //The gate that hangs the levels instead of reading them (#301/#302). Off the WRITTEN SET rather
+            //than off the designs above, for two reasons: the set is where a level's budget and ceiling step
+            //actually live, and it is the only list that includes the hand-drawn Colossus - a shipped level
+            //this gate has as much business asking about as any generated one.
+            if (sag) ok &= RunSagGate(set, sagOnly);
 
             //A non-zero exit so this can be put in front of a commit: a level that fails the checks is a
             //level that plays wrong, and the whole point of generating them is that nobody has to notice
             if (!ok) Console.WriteLine("At least one level FAILED its checks - see above.");
 
             return ok ? 0 : 1;
+        }
+
+        /// <summary>
+        /// Hangs every level of the set in the real simulation and plays it, printing what the death line had
+        /// to say — see <see cref="SagProbe"/> for what it does and why nothing else in this tool could have
+        /// caught what it catches.
+        /// <para>
+        /// <b>It is opt-in (<c>--sag</c>) and that is a cost decision, not a confidence one.</b> The other
+        /// gates read a layout and cost milliseconds, so they run on every invocation and stand in front of a
+        /// commit; this one steps a nine-hundred-body simulation through a whole level three ways, which is
+        /// minutes for the pack. Run it when a design is being authored or changed, and when a report like
+        /// #301 lands. <c>--sag=Pylon,Orrery</c> narrows it to the levels named, which is the form to use
+        /// while iterating on one.
+        /// </para>
+        /// </summary>
+        /// <returns>Whether every level played survived — a sag is a refusal, an exhausted budget is not.</returns>
+        private static bool RunSagGate(LevelSet set, string[] only)
+        {
+            Console.WriteLine();
+            Console.WriteLine("=== sag gate: every level hung in the real simulation and played ===");
+            Console.WriteLine("    (clearance = how far the lowest ball stayed above the death line;"
+                              + " negative is under it and still inside the swing allowance)");
+
+            bool ok = true;
+
+            for (int i = 0; i < set.Count; i++)
+            {
+                LevelSetEntry entry = set.Levels[i];
+
+                if (only.Length > 0 && !only.Any(name =>
+                        entry.Name.Equals(name, StringComparison.OrdinalIgnoreCase))) continue;
+
+                string path = Path.Combine(_outDir, entry.File);
+
+                if (!File.Exists(path))
+                {
+                    Console.WriteLine($"  {i + 1,2}. {entry.Name,-12} MISSING - {entry.File} is not on disk");
+                    ok = false;
+                    continue;
+                }
+
+                //Both are optional in the format and both absences mean "no pressure": no budget, and a glass
+                //that holds still. A run with no budget still ends - the probe stops when nothing matchable is
+                //left standing - so the cap can honestly be the largest there is.
+                int shots = entry.Shots ?? int.MaxValue;
+                int ceilingStep = entry.CeilingStep ?? 0;
+
+                //Narrowed to one level, the shot-by-shot comes with it: a verdict says a level sags, and only
+                //the trace says at which cut, which is the form an author can act on.
+                SagProbe.Run[] runs = SagProbe.Play(path, shots, ceilingStep, trace: only.Length == 1);
+                SagProbe.Run worst = SagProbe.Worst(runs);
+                bool sagged = worst.Outcome == SagProbe.Outcome.Sagged;
+
+                if (sagged) ok = false;
+
+                Console.WriteLine($"  {i + 1,2}. {entry.Name,-12} worst of {runs.Length}: "
+                    + $"{worst.Outcome,-11} after {worst.Shots,3} shot(s) of "
+                    + $"{(entry.Shots.HasValue ? entry.Shots.Value.ToString() : "∞"),3}"
+                    + $", closest the line came {worst.WorstClearance,6:F2}"
+                    + (sagged
+                        //Which pressure ended it, because that is the distinction #288 got the wrong way
+                        //round: a level that sags with the glass still at rest is a LAYOUT fault, and no
+                        //value of ceilingStep can reach it.
+                        ? worst.CeilingHadMoved
+                            ? "  <-- SAGGED (the glass had stepped)"
+                            : "  <-- SAGGED WITH THE GLASS AT REST - a layout fault"
+                        : string.Empty));
+            }
+
+            if (!ok) Console.WriteLine("    At least one level sagged into the line. See docs/formats-and-tools.md.");
+
+            return ok;
         }
 
         /// <summary>
@@ -440,7 +535,7 @@ namespace BS3D.Tools.LevelGen
         /// have, and no gate anywhere refuses it.
         /// </para>
         /// </summary>
-        private static void WriteLevelSet(Design[] designs, params Design[][] blocksAfterColossus)
+        private static LevelSet WriteLevelSet(Design[] designs, params Design[][] blocksAfterColossus)
         {
             LevelSet set = new() { Name = "Bubble Shooter 3D" };
 
@@ -508,6 +603,11 @@ namespace BS3D.Tools.LevelGen
                 Console.WriteLine($"  {i + 1,2}. {loaded.DisplayName(i),-12} {loaded.DescribeRules(i)}"
                     + (gate > 0 ? $", unlocks at {gate} star(s)" : ", open from the start"));
             }
+
+            //The set as the game will read it, handed back for the sag gate — which is priced off each
+            //entry's own budget and ceiling step, and those live here rather than on any Design (Colossus has
+            //no Design at all).
+            return loaded;
         }
 
         /// <summary>
@@ -12475,6 +12575,14 @@ namespace BS3D.Tools.LevelGen
             Console.WriteLine($"    {groups} standing colour groups, i.e. {total / (float)groups:F1} balls a shot at par"
                               + $" — the budget is {design.Shots / (float)groups:F2} shots per group");
 
+            //What the glass carries, and the worst one shot can leave it carrying (#301/#302). Two figures on
+            //one line because neither means much alone: the anchor count is the level's own hanging width and
+            //the load is what a shot does to it.
+            var anchorLoad = WorstAnchorLoad(loaded.Map);
+            Console.WriteLine($"    {CountCeilingAnchors(map)} ceiling anchors carrying {total} balls"
+                              + $" ({total / (float)CountCeilingAnchors(map):F1} each); worst single shot leaves"
+                              + $" {anchorLoad.Standing} on {anchorLoad.Anchors} — anchor load {anchorLoad.Load:F1}");
+
             LonelyReport lonely = FindLonelyBalls(map);
             Console.WriteLine($"    reachable in one ball: {(lonely.Alone == 0 ? "all" : $"NO - {lonely.Alone} STAND ALONE")}"
                               + $" (in pairs {lonely.Paired}, primed {total - lonely.Alone - lonely.Paired})"
@@ -12680,6 +12788,114 @@ namespace BS3D.Tools.LevelGen
             }
 
             return worst;
+        }
+
+        /// <summary>
+        /// How many balls each of the level's ceiling anchors carries, <b>after the single shot that leaves
+        /// the worst such figure</b> — the load the layout puts on the glass, and the quantity #301 and #302
+        /// turned out to be about.
+        /// <para>
+        /// <b>Only the field's topmost level is bonded to the glass</b> (<c>BallsConstraintsBuilder</c>'s
+        /// build pass), so a level's entire mass hangs from however many cells its own top course happens to
+        /// occupy. <see cref="DropTest"/> already asks what a shot <i>orphans</i>, and that is a question
+        /// about the lattice: a cell still joined to the top level by any path passes it. This asks the other
+        /// half, which is a question about <i>weight</i> — a shot that takes six of a level's twenty anchors
+        /// orphans nothing at all and leaves 473 balls hanging on fourteen sockets.
+        /// </para>
+        /// <para>
+        /// <b>⚠ It was measured, not guessed, and the instrument was <see cref="SagProbe"/>.</b> Hanging
+        /// <see cref="Amphora"/> in the real simulation and shooting one group off it dropped the ceiling
+        /// links from 20 to 14 with <i>nothing</i> orphaned, and the vase then descended five and a half
+        /// units in a second — through a death line it had started four and a half above. Every gate this
+        /// tool had passed that level, and passes it still: nothing floats, nothing stands alone, the best
+        /// single shot takes 12 %.
+        /// </para>
+        /// <para>
+        /// It is a ratio rather than a count because both halves matter: twenty anchors are generous under a
+        /// 200-ball level and thin under a 900-ball one. The pack's own spread is what says where the line
+        /// falls — see the <c>anchor load</c> column the validator prints, and the table in
+        /// <c>docs/formats-and-tools.md</c>.
+        /// </para>
+        /// </summary>
+        /// <returns>Balls per surviving anchor at the worst single shot, and the anchor count it leaves.</returns>
+        private static (float Load, int Anchors, int Standing) WorstAnchorLoad(BallPositionTypes data)
+        {
+            BallsMap whole = new(data);
+            StaticBall[,,] array = whole.GetStaticBallsArray();
+
+            //Every distinct standing group of every colour, the walk DropTest makes - and for the same
+            //reason it makes it over all of them rather than the largest (#98): how much a shot costs is not
+            //monotonic in group size, and a small group can be the one holding the glass.
+            List<List<XZLevel>> groups = new();
+            HashSet<int> claimed = new();
+
+            int Key(XZLevel cell) => (cell.Level * whole.StageSizeX + cell.X) * whole.StageSizeZ + cell.Z;
+
+            for (byte l = 0; l < whole.Levels; l++)
+                for (byte x = 0; x < whole.StageSizeX; x++)
+                    for (byte z = 0; z < whole.StageSizeZ; z++)
+                    {
+                        if (array[x, z, l] == null) continue;
+
+                        XZLevel cell = new(x, z, l);
+                        if (claimed.Contains(Key(cell))) continue;
+
+                        List<XZLevel> group = whole.GetConnectedSameTypeCells(cell);
+                        foreach (XZLevel member in group) claimed.Add(Key(member));
+
+                        if (group.Count >= MIN_GROUP) groups.Add(group);
+                    }
+
+            float worst = 0f;
+            int worstAnchors = 0;
+            int worstStanding = 0;
+
+            foreach (List<XZLevel> group in groups)
+            {
+                BallsMap map = new(data);
+                foreach (XZLevel cell in group) map.RemoveBallAt((byte)cell.X, (byte)cell.Z, (byte)cell.Level);
+
+                //What falls, falls - the orphans go with the group and neither weighs on the glass afterwards
+                foreach (XZLevel cell in map.GetCellsDisconnectedFromCeiling())
+                    map.RemoveBallAt((byte)cell.X, (byte)cell.Z, (byte)cell.Level);
+
+                int anchors = CountCeilingAnchors(map);
+                int standing = map.GetBallsCount();
+
+                //A cleared field hangs nothing and is not a load; it is the drop test's business, not this one.
+                if (standing == 0) continue;
+
+                //No anchors under standing balls cannot happen - GetCellsDisconnectedFromCeiling has just
+                //emptied exactly that case - so the division is safe, and the guard is here to say so.
+                if (anchors == 0) continue;
+
+                float load = standing / (float)anchors;
+                if (load <= worst) continue;
+
+                worst = load;
+                worstAnchors = anchors;
+                worstStanding = standing;
+            }
+
+            return (worst, worstAnchors, worstStanding);
+        }
+
+        /// <summary>
+        /// How many cells of the field's topmost level are occupied — <b>every socket the whole cluster hangs
+        /// from</b>, because that is the only level <c>BallsConstraintsBuilder.BuildBallsStructure</c> bonds
+        /// to the glass.
+        /// </summary>
+        private static int CountCeilingAnchors(BallsMap map)
+        {
+            StaticBall[,,] array = map.GetStaticBallsArray();
+            byte top = (byte)(map.Levels - 1);
+            int anchors = 0;
+
+            for (byte x = 0; x < map.StageSizeX; x++)
+                for (byte z = 0; z < map.StageSizeZ; z++)
+                    if (array[x, z, top] != null) anchors++;
+
+            return anchors;
         }
 
         #endregion

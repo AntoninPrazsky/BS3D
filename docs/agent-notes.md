@@ -2646,3 +2646,29 @@ Nevybíral jsem, změřil jsem kandidáty zvlášť (3840×1600, ssaa 2, proti 1
 **⚠ Vedlejší důsledek, na který se nesmí zapomenout, když se něco povýší z tieru do scény: `MountainReduced` přišel o půlku svého páru**, takže by po tomhle řezu drop  ostal jen třpyt (0,20) a byl by to redukovaný program, co skoro nic nekoupí — což je přesně to, co lekce o occupancy zakazuje. Dostal nového partnera: čtvrtou oktávu skály. **Poctivě je to slabší než dřív: 0,18 ms při ssaa 1 a 0,58 při ssaa 2, proti 0,40 a 1,36** — přepsal jsem to v `docs/scenes.md` i `docs/game-shell.md` místo abych tam nechal stará čísla.
 
 Na co si #208 stěžovalo, přežívá a je to lehčí stav než ten, na který si stěžovalo: sněhu zůstal **třpyt** i jeho 40% podíl na reliéfu skály.
+
+---
+
+## 2026-08-28 — Claude Code (devadesátý čtvrtý zápis)
+
+**Majitel zadal #301 a #302. Beru obojí. Tenhle zápis je o PŘÍSTROJI — ani jeden level jsem nepřekreslil a níž je napsané proč.** Na větvi `301-302-hang-gate`.
+
+**Postavil jsem bránu, která level nečte, ale VĚŠÍ.** `Tools/LevelGen/SagProbe.cs` staví tutéž simulaci co hra — `PhysicsWorld`, kinematické sklo, trychtýř ostrova, `BuildBallsStructure` — pověsí level tam, kam ho věší hra, a pak ho **odehraje**: uvolní skupinu, nechá svět běžet, než zbytek doví­sí, a zeptá se čáry smrti hrou vlastní otázkou. Grafickou kartu k tomu nepotřebuje; simulace nikdy nebyla ta část, co kreslí.
+
+**Kvůli tomu musela z `GameplayScreen` ven aritmetika zavěšení a pravidlo prohry** (`Prazsky.BS3D.Levels.ClusterHang` a `ClusterLineWatch` vedle něj). Brána, která věší shluk jinam nebo odpouští průhyb jinak, odpovídá na otázku o jiné hře — a to je přesně vada, na které se zavřelo #288.
+
+**Výsledek, a je to 9 z 9:** všech devět hlášených levelů se propadne, sedm z nich **se sklem v klidu**. Pylon, Bolt a Ghost jdou dolů na **prvním výstřelu**. Majitelovo čtení („rychlost klesání stropu to není") je tím potvrzené proti stroji a `CeilingStep` je definitivně vyloučený.
+
+**⚠ Jenže brána označí i dalších 29 — 38 z 90 shipnutých levelů. Je citlivá, ne selektivní, a tím to pro dnešek končí.** Otevřená jsou dvě čtení a od stolu se mezi nimi vybrat nedá: buď je sonda tvrdší než hráč (bere skupiny náhodně, tedy i řezy, které by hráč neudělal, a nikdy nepřidá kouli jako skutečný výstřel), nebo je křehká většina packu a hra zatím potkala jen těch nejhorších devět. **Dokud to nerozhodne odehrání jednoho označeného-ale-nehlášeného levelu, není verdikt téhle brány důvod překreslit design.** To by bylo #288 s lepším nástrojem. Proto `--sag` neběží defaultně.
+
+**⚠ Past, do které jsem spadl a stála většinu sezení: první verdikty sondy byly VŠECHNY o chybě v sondě.** `ReleaseSameTypeCluster` řeže omezení a teprve pak budí koule, kterým je uřízl. Ve hře je to bezpečné konstrukcí — skupina se uvolňuje jen z kontakt handleru, tedy ve snímku, kdy do konstrukce právě ťukla střela, a ta ji probudila. Když se nestřílí, Bepu usadající shluk uspí **po částech** (aktivních omezení na 502 koulích padá 3836 → 2740 za čtyři vteřiny visení), takže probuzení jedné koule probudí jeden ostrov z několika — a řez do spícího ostrova nechal přeživší držet graf, který solver znovu neprošel. Zbytek se rozpadl a padal třemi čtvrtinami tíže. Hrou zapsané *„jedna koule stačí, konstrukce je jeden souvislý graf omezení"* platí o hře a neplatí o sondě, co nestřílí.
+
+**Vedlejší nález, který ta sonda vydolovala a který je nový: ZÁTĚŽ NA STROPNÍ KOTVU.** Ke sklu je připoutaná jen nejvyšší hladina pole, takže celá hmota levelu visí na tolika buňkách, kolik jich náhodou obsadí jeho vlastní horní kurz. Drop test se ptá, co výstřel **osiří** — to je otázka na mřížku. Tohle je druhá půlka a je to otázka na **váhu**: střela do Amphory shodila stropní spoje **z 20 na 14, aniž cokoli osiřelo**, a váza pak za vteřinu sjela o pět a půl jednotky — přes čáru, nad kterou startovala o čtyři a půl. Všechny brány tohohle nástroje ten level pouštěly a pouštějí dál.
+
+Rozpětí packu je **3,4 (Gantry) až 139,2 (Giza)**. **⚠ Ani tohle devítku neodděluje** — Giza a Ten (100,8) jsou horší než sedm z devíti a nikdo si na ně nestěžuje, Cabinet je hlášený při 13,1 — takže se to tiskne jako veličina k navrhování, ne jako brána, a žádný práh se nevynucuje.
+
+**Shipnuté chování se nehnulo:** každý vygenerovaný level je bajt za bajt totožný, čtyři solutiony čisté, hra nastartovaná do menu.
+
+**Co potřebuju od majitele, a je to na pět minut hraní:** zkusit dohrát **Gizu, Saturn nebo Amphoru** (označené, nehlášené). Když spadnou taky, je problém packu mnohem širší než devět levelů a fixovat se má mechanika, ne devět layoutů. Když se dohrají v pohodě, je moc tvrdý výběr skupin v sondě a doladím ho — a teprve pak má smysl sahat na designy.
+
+**Nic dalšího si neberu.**
