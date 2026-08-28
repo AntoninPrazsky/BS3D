@@ -411,21 +411,38 @@ namespace BS3D.Tools.LevelGen
         /// to say — see <see cref="SagProbe"/> for what it does and why nothing else in this tool could have
         /// caught what it catches.
         /// <para>
-        /// <b>It is opt-in (<c>--sag</c>) and that is a cost decision, not a confidence one.</b> The other
-        /// gates read a layout and cost milliseconds, so they run on every invocation and stand in front of a
-        /// commit; this one steps a nine-hundred-body simulation through a whole level three ways, which is
-        /// minutes for the pack. Run it when a design is being authored or changed, and when a report like
-        /// #301 lands. <c>--sag=Pylon,Orrery</c> narrows it to the levels named, which is the form to use
-        /// while iterating on one.
+        /// <b>It is opt-in (<c>--sag</c>), and unlike everything else here it REFUSES NOTHING.</b> Two
+        /// separate reasons, and only the first is about cost. The other gates read a layout and cost
+        /// milliseconds, so they run on every invocation and stand in front of a commit; this one steps a
+        /// nine-hundred-body simulation through whole levels several ways, which is minutes for the pack.
+        /// <c>--sag=Pylon,Orrery</c> narrows it to the levels named, which is the form to use while
+        /// iterating on one, and turns on a shot-by-shot trace when it is given exactly one.
+        /// </para>
+        /// <para>
+        /// <b>⚠ The second reason is that its verdict is not yet calibrated, and the owner's playtest is what
+        /// established that.</b> It reproduces all nine levels of #301 and #302 — but it also condemned
+        /// <see cref="Amphora"/>, <see cref="Giza"/> and <see cref="Saturn"/>, which were then confirmed from
+        /// play to be perfectly finishable. Restricting the probe to shots a gun underneath can actually take
+        /// (<see cref="SagProbe.AIM_BAND_LEVELS"/>) moved Giza and Saturn to one losing order in five and
+        /// Ghost to two, which is the right direction and not far enough: Amphora still loses five of five.
+        /// So a run of this prints a <i>ranking</i> and nothing more, and no verdict of it is grounds for
+        /// redrawing a design — that would be #288's mistake with a better tool. What is still unmodelled is
+        /// named in <c>docs/formats-and-tools.md</c>.
         /// </para>
         /// </summary>
-        /// <returns>Whether every level played survived — a sag is a refusal, an exhausted budget is not.</returns>
+        /// <returns>
+        /// Always true. The signature is kept so the day this is calibrated it can start refusing without the
+        /// call site moving — and it is written out rather than made void so that nobody has to guess whether
+        /// a silent exit code meant the levels passed.
+        /// </returns>
         private static bool RunSagGate(LevelSet set, string[] only)
         {
             Console.WriteLine();
-            Console.WriteLine("=== sag gate: every level hung in the real simulation and played ===");
+            Console.WriteLine("=== sag probe: every level hung in the real simulation and played ===");
             Console.WriteLine("    (clearance = how far the lowest ball stayed above the death line;"
                               + " negative is under it and still inside the swing allowance)");
+            Console.WriteLine("    ⚠ A RANKING, NOT A VERDICT - it refuses nothing and fails nothing."
+                              + " See RunSagGate's doc for what it is not yet entitled to decide.");
 
             bool ok = true;
 
@@ -438,6 +455,8 @@ namespace BS3D.Tools.LevelGen
 
                 string path = Path.Combine(_outDir, entry.File);
 
+                //A missing file IS reported as a failure, and it is the one thing here that can be: it is a
+                //fact about the disk rather than a verdict about a design.
                 if (!File.Exists(path))
                 {
                     Console.WriteLine($"  {i + 1,2}. {entry.Name,-12} MISSING - {entry.File} is not on disk");
@@ -455,11 +474,14 @@ namespace BS3D.Tools.LevelGen
                 //the trace says at which cut, which is the form an author can act on.
                 SagProbe.Run[] runs = SagProbe.Play(path, shots, ceilingStep, trace: only.Length == 1);
                 SagProbe.Run worst = SagProbe.Worst(runs);
-                bool sagged = worst.Outcome == SagProbe.Outcome.Sagged;
+                int sags = runs.Count(r => r.Outcome == SagProbe.Outcome.Sagged);
 
-                if (sagged) ok = false;
+                //HOW OFTEN, not whether - the fraction is the reading, because "some order loses this level"
+                //turned out to be true of levels that play perfectly well. It does NOT set `ok`: see
+                //RunSagGate for why this instrument does not yet refuse anything.
+                bool sagged = sags >= runs.Length;
 
-                Console.WriteLine($"  {i + 1,2}. {entry.Name,-12} worst of {runs.Length}: "
+                Console.WriteLine($"  {i + 1,2}. {entry.Name,-12} sagged {sags} of {runs.Length}; worst: "
                     + $"{worst.Outcome,-11} after {worst.Shots,3} shot(s) of "
                     + $"{(entry.Shots.HasValue ? entry.Shots.Value.ToString() : "∞"),3}"
                     + $", closest the line came {worst.WorstClearance,6:F2}"
@@ -472,8 +494,6 @@ namespace BS3D.Tools.LevelGen
                             : "  <-- SAGGED WITH THE GLASS AT REST - a layout fault"
                         : string.Empty));
             }
-
-            if (!ok) Console.WriteLine("    At least one level sagged into the line. See docs/formats-and-tools.md.");
 
             return ok;
         }

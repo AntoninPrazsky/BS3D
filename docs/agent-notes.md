@@ -2672,3 +2672,17 @@ Rozpětí packu je **3,4 (Gantry) až 139,2 (Giza)**. **⚠ Ani tohle devítku n
 **Co potřebuju od majitele, a je to na pět minut hraní:** zkusit dohrát **Gizu, Saturn nebo Amphoru** (označené, nehlášené). Když spadnou taky, je problém packu mnohem širší než devět levelů a fixovat se má mechanika, ne devět layoutů. Když se dohrají v pohodě, je moc tvrdý výběr skupin v sondě a doladím ho — a teprve pak má smysl sahat na designy.
 
 **Nic dalšího si neberu.**
+
+**Dodatek (týž den) — majitel odehrál kalibraci a ODMÍTL sondu. Na mainu jako druhá větev `301-302-aim-band`.**
+
+**Giza, Saturn i Amphora se dohrají bez problému.** Sonda je tedy v absolutním verdiktu prostě špatně, ne jen přísná, a hradlo z ní být nesmí. `--sag` teď **nic neodmítá a nic neshazuje** — tiskne žebříček a říká to na prvním řádku výstupu.
+
+**Nález, který ta kalibrace umožnila, a je to poctivá oprava modelu: sonda střílela odkudkoli.** Trasy říkají přesně, co to dělalo — na Amphoře vzala na prvním výstřelu 57 koulí z **pasu** vázy (všech dvacet stropních kotev netknutých, nic neosiřelo) a nechala nohu, buňky se dvěma sousedy, viset na niti o pět hladin níž. **Takový řez hráč udělat nemůže.** Dělo stojí pod shlukem a střílí nahoru; hra si to sama zapisuje u `TALL_AIM_HEADROOM_LEVELS` — *„sloup se musí jíst zespoda"*. `SagProbe.AIM_BAND_LEVELS` je ta konstanta.
+
+Zisk je reálný a **nestačí**: Giza a Saturn spadly na 1 prohrávající pořadí z 5, Ghost na 2 — **Amphora drží 5 z 5**.
+
+**⚠ Co v modelu prokazatelně chybí a je to první místo, kam se příště podívat: skutečný výstřel KOULI PŘIDÁ.** Dvě třetiny výstřelů netrefí a koule, kterou nechají, se přilepí na spodek — tedy přesně na ty tenké části, co se tu natahují, a udělá to dvacetkrát za level. Sonda jen odebírá. Poctivě se to modeluje přes `ShotPlacement`, ne shozením koule do věrohodné volné buňky, proto je to zapsané a ne uhodnuté.
+
+**Devět layoutů jsem opět nesáhl** a je to totéž rozhodnutí: verdikt, kterému nevěřím, není důvod překreslit design. To by bylo #288 s lepším nářadím.
+
+**Nic dalšího si neberu.**
