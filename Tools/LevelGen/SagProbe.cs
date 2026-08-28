@@ -162,6 +162,25 @@ namespace BS3D.Tools.LevelGen
         /// <inheritdoc cref="CEILING_DESCENT_PER_STEP"/>
         private const float CEILING_DESCENT_SPEED = 1.5f;
 
+        /// <summary>What one pull of the trigger did.</summary>
+        private enum Shot
+        {
+            /// <summary>A ball is in the structure that was not there before, and the match rule has been asked.</summary>
+            Landed,
+
+            /// <summary>
+            /// The shot found no free cell in either ring around what it hit, so it did not stick — the
+            /// game's own bounce. It costs the shot and nothing else.
+            /// </summary>
+            Bounced,
+
+            /// <summary>
+            /// There is nothing to load or nowhere to aim at all. The run genuinely cannot go on, which is
+            /// the only thing that may end one early.
+            /// </summary>
+            Nothing,
+        }
+
         /// <summary>How a run ended.</summary>
         internal enum Outcome
         {
@@ -326,16 +345,26 @@ namespace BS3D.Tools.LevelGen
                 //One shot, the game's way: aim, sweep the line, land in the cell ShotPlacement answers with,
                 //attach, and only then ask the match rule. A shot that completes nothing STAYS - which is
                 //two throws in three and is the whole reason this replaced picking a group to delete.
-                if (!FireOneShot(world, cannon, ceiling, ceilingY, map, balls, falling, worldOffsetXna, random,
-                        out BallsReleased released))
-                {
-                    //Nothing to load, nowhere to aim, or a shot that found no free cell in either ring. The
-                    //first two mean the level cannot be played on any further; a bounce merely costs a shot.
-                    outcome = Outcome.OutOfShots;
-                    break;
-                }
+                Shot shot = FireOneShot(world, cannon, ceiling, ceilingY, map, balls, falling, worldOffsetXna,
+                    random, out BallsReleased released);
+
+                //⚠ A BOUNCE COSTS A SHOT AND NOTHING ELSE, and treating it as the end of the run was a bug
+                //worth naming: on a dense truss every sampled candidate can come back with both its rings
+                //full, and the run then stopped with nine hundred balls still hanging and scored the level as
+                //survived. It is the same shape of silent false pass the NaN aim direction gave - a probe
+                //that stops playing reports no sag, so anything that can stop it early has to be deliberate.
+                if (shot == Shot.Nothing) { outcome = Outcome.OutOfShots; break; }
 
                 shotsFired++;
+
+                if (shot == Shot.Bounced)
+                {
+                    //The world still runs: the cluster is swinging from the last landing and the glass may be
+                    //mid-step, and a bounce does not pause either.
+                    outcome = Advance(world, ceiling, balls, falling, ref watch, ref worstClearance,
+                        ref ceilingY, ceilingTargetY, SHOT_SECONDS);
+                    continue;
+                }
 
                 //The glass steps on the same cadence the level file states, and the step is a slide rather than
                 //a write: see CEILING_DESCENT_PER_STEP. Clamped at the line so an overlong run cannot drive the
@@ -677,18 +706,17 @@ namespace BS3D.Tools.LevelGen
         /// and a ball dragged in from one side settles into the inverted one and sleeps there.
         /// </para>
         /// </summary>
-        /// <returns>False when the shot found nowhere to stick — a bounce, which costs the shot and nothing else.</returns>
-        private static bool FireOneShot(PhysicsWorld world, Cannon cannon, BodyReference ceiling, float ceilingY,
+        private static Shot FireOneShot(PhysicsWorld world, Cannon cannon, BodyReference ceiling, float ceilingY,
             BallsMap map, PhysicsBall[,,] balls, List<PhysicsBall> falling, Vector3 worldOffset, Random random,
             out BallsReleased released)
         {
             released = default;
 
             BallType? loaded = LoadedColour(map, random);
-            if (loaded == null) return false;
+            if (loaded == null) return Shot.Nothing;
 
             List<XZLevel> candidates = PickAimTargets(map, loaded.Value, random);
-            if (candidates.Count == 0) return false;
+            if (candidates.Count == 0) return Shot.Nothing;
 
             bool found = false;
             XZLevel cell = default;
@@ -732,7 +760,7 @@ namespace BS3D.Tools.LevelGen
                 break;
             }
 
-            if (!found) return false;
+            if (!found) return Shot.Bounced;
 
             Vector3 rest = ShotPlacement.CellWorldPosition(map, cell, worldOffset, drift);
 
@@ -760,7 +788,7 @@ namespace BS3D.Tools.LevelGen
             //point of firing rather than picking - two throws in three add a ball to the underside.
             released = BallsConstraintsBuilder.ReleaseSameTypeCluster(landed, balls, map, world.Simulation, falling);
 
-            return true;
+            return Shot.Landed;
         }
 
         /// <summary>
