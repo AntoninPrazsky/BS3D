@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using Prazsky.BS3D.GameStructure;
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Levels;
 using Prazsky.Core.Render;
@@ -80,6 +80,36 @@ namespace BS3D.Tools.LevelGen
         // an odd offset rather than drawing it shifted. If the air this buys is ever not enough, the next
         // lever is fewer bitmap rows, which means redrawing the pictures.
         private const byte PICTURE_FIELD_LEVELS = 18;
+
+        // THE CEILING BUDGET IS PART OF A DESIGN, NOT A KNOB TURNED AFTERWARDS (#288), and it is arithmetic no
+        // gate can do for you — Validate reads the layout as authored and knows nothing about how long the
+        // level lasts. Four shipped levels lost to "The cluster reached the line" rather than to their own
+        // budget before anyone did the sum. It is two numbers:
+        //
+        //     clearance      = the [field] line's "above the line", printed by the game on every level load
+        //     consumed       = floor(Shots / CeilingStep) * GameplayScreen.CEILING_DESCENT_PER_STEP (0.60)
+        //     final headroom = clearance - consumed
+        //
+        // FINAL HEADROOM MUST CLEAR A SWING, and how deep a swing goes is measured rather than guessed: the
+        // probe recorded beside GameplayScreen.CLUSTER_SWING_ALLOWANCE took 35 swings over 67 s on Chest, the
+        // second-heaviest cluster in the pack, and the deepest was 0.82 units below the trend. So a level
+        // ending with less than that has an ordinary swing UNDER the line however well it is played, and the
+        // hold rule then decides it; the allowance itself, 1.00, is the figure to design to. Measured before
+        // the fix: Pylon -1.04, Ghost +0.36, Orrery +0.37, Cube +1.18 — the first past the line with no swing
+        // at all, on an untouched cluster, at shot 66 of 74.
+        //
+        // A LOW FIGURE IS NOT BY ITSELF THE FAULT, and this is the part that stops the sum being used as a
+        // gate. Horn and Turbine both sit at -0.23 and neither has ever been complained about, because their
+        // lowest ball is a TIP — Horn opens upwards from HORN_TIP, so the few balls at the bottom go in the
+        // first shots and the true lowest point then jumps several units up. The sum is honest about the
+        // cluster AS AUTHORED; what a competent run leaves hanging is the designer's own judgement, and a
+        // shape whose lowest balls are structural (Pylon's legs, Ghost's foot) has to be read that way.
+        //
+        // THE LEVERS, in the order they are worth trying: CeilingStep (costs nothing but pace), then Shots,
+        // then FieldLevels — but the third is spent the moment FitFieldToMap has raised a field as far as the
+        // floor margin allows (Pylon, floor Y -7.00), and it is closed outright wherever a block has promised
+        // its levels are framed whole (the Arcade's 18, GameplayScreen.FRAMED_LEVELS). Changing the layout is
+        // the last resort, not the first.
 
         private const float HALF = 0.5f;
 
@@ -5028,7 +5058,16 @@ namespace BS3D.Tools.LevelGen
             Sky = 8,
             Music = MUSIC_TOWER,
             Shots = 74,
-            CeilingStep = 6,
+            //#288: 6 until the owner reported nearly every shot ending in "The cluster reached the line", and
+            //this one is not a tight margin - the two clocks disagreed outright, the fault LevelGen's own
+            //header records for the pictures. The lowest ball starts 6.16 over the line; six bought TWELVE
+            //descents at 0.60, i.e. 7.20, so an UNTOUCHED Pylon is past the line on its eleventh descent - at
+            //shot 66 of a 74-shot budget, with the last eight shots unusable however well they are aimed.
+            //That is what the owner was working around by throwing shots away: a miss does not grow the
+            //cluster downwards. Nine buys eight descents, 4.80, and leaves 1.36 over the line at the end.
+            //The field cannot help - Pylon is already at FieldLevels 32 and FitFieldToMap has raised it as
+            //far as the floor margin allows (floor Y -7.00), so CeilingStep is the only lever left.
+            CeilingStep = 9,
             OccupiedBlock = (x, z, i, depth) =>
                 PylonLeg(x, z, i) != 0 || PylonCap(x, z, i) || PylonRing(x, z, i, out _),
             BlockColour = PylonColour,
@@ -7366,7 +7405,12 @@ namespace BS3D.Tools.LevelGen
             Sky = NEBULA_SKY,
             Music = MUSIC_NEBULA,
             Shots = 72,
-            CeilingStep = 6,
+            //#288: 6 until the owner reported never clearing this level. Six bought twelve descents, 7.20 of
+            //the 7.57 this field starts with, ending the level 0.37 above the line - under the 0.82 the swing
+            //probe measured on Chest (see GameplayScreen.CLUSTER_SWING_ALLOWANCE), so an orrery whose ring has
+            //broken loose and is swinging is BELOW the line at the end however well it is played. Seven buys
+            //ten descents, 6.00, and leaves 1.57.
+            CeilingStep = 7,
             Occupied = OrreryOccupied,
             Colour = OrreryColour,
         };
@@ -7584,7 +7628,12 @@ namespace BS3D.Tools.LevelGen
             Sky = ARCADE_SKY,
             Music = MUSIC_ARCADE,
             Shots = 56,
-            CeilingStep = 8,
+            //#288: 8 until the owner reported this level among the four that lose to the line. Eight left 1.18
+            //over the line at the end (5.38 clearance, seven descents, 4.20), which clears the 0.82 the swing
+            //probe measured but not by much once a face breaks off and hangs. Nine buys six descents, 3.60,
+            //and leaves 1.78. The smallest notch there is - Cube is the least bad of the four on the
+            //arithmetic, and was moved because it was reported, not because the figure demanded it.
+            CeilingStep = 9,
             OccupiedBlock = (x, z, i, depth) => CubeFace(x, z, i) != 0,
             BlockColour = CubeColour,
         };
@@ -7912,7 +7961,15 @@ namespace BS3D.Tools.LevelGen
             Sky = ARCADE_SKY,
             Music = MUSIC_ARCADE,
             Shots = 56,
-            CeilingStep = 9,
+            //#288: 9 until the owner reported this level losing to the line rather than to the budget. Ghost
+            //has the block's SMALLEST clearance - GHOST_DEPTH 14 in ARCADE_FIELD 18 leaves four empty levels,
+            //measured 3.96 units over the line - and at 9 the budget bought six descents, 3.60 of that 3.96.
+            //It ended the level 0.36 above the line, where the swing PROBE ON CHEST measured dips of up to
+            //0.82 (see GameplayScreen.CLUSTER_SWING_ALLOWANCE): an ordinary swing was under the line, and the
+            //hold rule then decided the level. Fourteen buys four descents, 2.40, and leaves 1.56 - clear of
+            //the measured swing and of the allowance both. The field is NOT the lever here and that is
+            //deliberate: this block is framed whole at 18 on purpose (see the block's note).
+            CeilingStep = 14,
             Occupied = (r, ang, i, depth) => GhostShell(r, ang, i),
             Colour = GhostColour,
         };

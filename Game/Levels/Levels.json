@@ -312,7 +312,7 @@
       "block": "The Tower",
       "shots": 74,
       "minStars": 74,
-      "ceilingStep": 6
+      "ceilingStep": 9
     },
     {
       "file": "Lean.json",
@@ -552,7 +552,7 @@
       "block": "The Nebula",
       "shots": 72,
       "minStars": 134,
-      "ceilingStep": 6
+      "ceilingStep": 7
     },
     {
       "file": "Garland.json",
@@ -568,7 +568,7 @@
       "block": "The Arcade",
       "shots": 56,
       "minStars": 138,
-      "ceilingStep": 8
+      "ceilingStep": 9
     },
     {
       "file": "Ziggurat.json",
@@ -600,7 +600,7 @@
       "block": "The Arcade",
       "shots": 56,
       "minStars": 146,
-      "ceilingStep": 9
+      "ceilingStep": 14
     },
     {
       "file": "Cabinet.json",
