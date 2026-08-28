@@ -24,9 +24,28 @@ sampler2D SceneSampler = sampler_state
     AddressV = Clamp;
 };
 
+//#298 PROBE. The same scene texture read BILINEARLY, for the case the target is SMALLER than the back
+//buffer and the resolve is magnifying rather than averaging. Point sampling is right for the box filter
+//below and wrong here — magnified, it is nearest-neighbour, which measures the same and looks like
+//nothing anyone would ship. A second sampler rather than a second technique: the pair of techniques would
+//have to be duplicated whole for one filter state, and the branch that picks between them is on a uniform.
+sampler2D SceneSamplerLinear = sampler_state
+{
+    Texture = <SceneTexture>;
+    MinFilter = Linear;
+    MagFilter = Linear;
+    MipFilter = None;
+    AddressU = Clamp;
+    AddressV = Clamp;
+};
+
 //One texel of the HDR source, and how many source texels make up one output pixel along each axis
 float2 SourceTexelSize;
 int SupersampleFactor;
+
+//#298 PROBE: non-zero when the scene target is smaller than the back buffer, so the resolve magnifies.
+//A uniform, so the branch below is non-divergent, and there is no gradient op inside it.
+float MagnifyScene;
 
 //Linear scale applied before the tonemap curve - the renderer's "shutter speed"
 float Exposure;
@@ -212,6 +231,10 @@ float3 ApplyGrain(float3 mapped, float2 texCoord)
 //allowed even when the branch is on a uniform.
 float3 SampleScene(float2 uv)
 {
+    //#298 PROBE: magnifying, so one bilinear tap and no box filter — there is no block of source texels
+    //under an output pixel to average, there is less than one.
+    [branch] if (MagnifyScene > 0) return tex2Dlod(SceneSamplerLinear, float4(uv, 0, 0)).rgb;
+
     float3 color = 0;
 
     for (int y = 0; y < SupersampleFactor; y++)
