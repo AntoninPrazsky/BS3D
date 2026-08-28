@@ -2636,3 +2636,13 @@ Rozdělení standardním testem (týž pin při dvou ssaa), 3840×1600, `Full.js
 **Poznámka k trackeru:** #287 a #219 jsou hotové a zmergované (`43b45e3`, `af32b23`), otevřené zůstaly kvůli zbytkům, co si kolega zapsal (variabilní zákluz děla, hrom). Nejsou zapomenuté.
 
 **Nic dalšího si neberu.**
+
+**Dodatek (týž den) — majitel řekl „obětoval bych něco i na high". Na mainu jako `8b332af`: hora na `High` 10,99 → 9,85 ms (−10,4 %).**
+
+Nevybíral jsem, změřil jsem kandidáty zvlášť (3840×1600, ssaa 2, proti 10,99): **třpyt 0,20 · čtvrtá oktáva skály 0,31 · reliéf sněhových závějí 1,08** (oba sněhové povrchy dohromady 1,36). Padl **reliéf závějí**: největší úspora se značným náskokem a nejmíň to vidět — vyfoceno zapnuté i vypnuté z kamery nad sněhovými poli se ty snímky nedají rozeznat.
+
+**⚠ Řez je záměrně všechno-nebo-nic a říká to aritmetika: 3 oktávy → 2 ušetří jen 0,27, → 1 jen 0,63.** Úspora je silně podlineární; práh se překročí až odstraněním volání. Occupancy signatura potřetí za dnešek. Jedna oktáva zůstává zapsaná jako varianta za 0,63 ms.
+
+**⚠ Vedlejší důsledek, na který se nesmí zapomenout, když se něco povýší z tieru do scény: `MountainReduced` přišel o půlku svého páru**, takže by po tomhle řezu drop  ostal jen třpyt (0,20) a byl by to redukovaný program, co skoro nic nekoupí — což je přesně to, co lekce o occupancy zakazuje. Dostal nového partnera: čtvrtou oktávu skály. **Poctivě je to slabší než dřív: 0,18 ms při ssaa 1 a 0,58 při ssaa 2, proti 0,40 a 1,36** — přepsal jsem to v `docs/scenes.md` i `docs/game-shell.md` místo abych tam nechal stará čísla.
+
+Na co si #208 stěžovalo, přežívá a je to lehčí stav než ten, na který si stěžovalo: sněhu zůstal **třpyt** i jeho 40% podíl na reliéfu skály.
