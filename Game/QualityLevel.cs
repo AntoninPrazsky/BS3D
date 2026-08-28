@@ -1,3 +1,5 @@
+using Prazsky.Core.Render;
+
 namespace BS3D
 {
     /// <summary>
@@ -99,12 +101,36 @@ namespace BS3D
         /// </summary>
         public readonly int CityRadiusBlocks;
 
-        public QualityPreset(int supersampleFactor, float facadeGrainStrength, float windowFrameWidth, int cityRadiusBlocks)
+        /// <summary>
+        /// Multisample samples on the scene target, and the <b>first entry that reaches every scene without
+        /// touching a pixel count</b> (#298). It only bites below <c>High</c>: at <c>ssaa</c> 2 the supersample
+        /// resolve averages geometry edges itself and the pipeline builds the target with none, so the figure
+        /// here is ignored there and stated as the default for honesty rather than effect.
+        /// <para>
+        /// <b>Measured</b> on the reference desktop, 3840×1600, <c>ssaa</c> 1, a level's worth of balls: 8× →
+        /// none is 1.12 ms on the mountain, 0.61 meadow, 0.58 neon city, 0.30 cavern — and <b>8× → 4× is free
+        /// everywhere</b> (0.04–0.07), so the whole saving lives below four samples and there is no reason for
+        /// any rung to carry 4.
+        /// </para>
+        /// <para>
+        /// <b><c>Low</c> takes 2 rather than 0, and that is a judgement call worth knowing about.</b> This
+        /// game's frame is a thousand SPHERES: their silhouettes are most of the geometry edges in it, and with
+        /// no supersampling and no multisampling at all they crawl as the cluster swings — <c>Low</c> is meant
+        /// to look plainer, not to shimmer. Two samples keep the silhouettes stable and still collect a little
+        /// over half of what dropping them all would (mountain 0.61 of the 1.12). Zero is one constant away if
+        /// the owner ever wants the rest of it.
+        /// </para>
+        /// </summary>
+        public readonly int MsaaSamples;
+
+        public QualityPreset(int supersampleFactor, float facadeGrainStrength, float windowFrameWidth, int cityRadiusBlocks,
+            int msaaSamples)
         {
             SupersampleFactor = supersampleFactor;
             FacadeGrainStrength = facadeGrainStrength;
             WindowFrameWidth = windowFrameWidth;
             CityRadiusBlocks = cityRadiusBlocks;
+            MsaaSamples = msaaSamples;
         }
 
         /// <summary>
@@ -126,31 +152,40 @@ namespace BS3D
             //the city's two per-pixel luxuries off. The skyline is the authored 14 again: the reduced radius
             //existed to cut overdraw, and the sort cut it instead (see CityRadiusBlocks).
             //
-            //⚠ AGAINST MEDIUM, THIS RUNG IS THE CITY'S TWO DIALS AND LITERALLY NOTHING ELSE, and #298 measured
-            //what that is worth on the machine the ladder exists for: 0.90-0.93 ms in the two city scenes and
-            //nothing at all in the other thirteen (mountain +0.02 ms, cavern +0.04, meadow -0.02 — noise, to
-            //two decimal places, on 70 s medians). It reads as three rungs and is two for most of the game.
-            //It is not a tuning slip: ApplyQuality gives up SceneDetail and SurfaceDetail at MEDIUM already
-            //(`quality == High ? 1 : 0`), so there is nothing left between the two rungs but the city. A
-            //machine that cannot hold Medium therefore has nowhere to go, and on that machine two of five
-            //shipped levels measured are in exactly that position. See "The quality tier" in
-            //docs/game-shell.md before adding anything here — filling the hole is a look decision.
-            new(supersampleFactor: 1, facadeGrainStrength: 0f, windowFrameWidth: 0f, cityRadiusBlocks: 14),
+            //⚠ THIS RUNG USED TO BE THE CITY'S TWO DIALS AND LITERALLY NOTHING ELSE, which is the hole #298
+            //was opened on: measured on the machine the ladder exists for, it was worth 0.90-0.93 ms in the
+            //two city scenes and NOTHING at all in the other thirteen (mountain +0.02 ms, cavern +0.04,
+            //meadow -0.02 — noise, to two decimal places, on 70 s medians). It read as three rungs and was
+            //two for most of the game, so a machine that could not hold Medium had nowhere to go — and two of
+            //five shipped levels measured were in exactly that position.
+            //
+            //It is now a real rung, and everything in it reaches EVERY scene:
+            //  · 2 multisample samples instead of 8 (this array)
+            //  · the scene extras and the stone cap's fine relief, which ApplyQuality now gives up HERE
+            //    rather than at Medium — see the note on Medium below for what moved and why
+            //  · and the reduced programs the mountain and the cavern grew for it
+            //The city's two dials stay, being the only entries that were ever worth anything here.
+            new(supersampleFactor: 1, facadeGrainStrength: 0f, windowFrameWidth: 0f, cityRadiusBlocks: 14, msaaSamples: 2),
 
             //Medium — 30 FPS on the worst scene. Supersampling is what this STRUCT gives up, and it is the one
             //change that reaches all fifteen scenes: on the weak machine it is worth 46 to 58 % of the frame
             //(#298), which is the whole ladder.
             //
-            //⚠ "and every scene's full detail" stood here and was wrong, which #298 caught by reading
-            //ApplyQuality beside the struct. This table is not the whole tier: ApplyQuality also gives up
-            //SceneRenderer.SceneDetail (the forest's and the dream's reduced programs) and
-            //ArenaIsland.SurfaceDetail (the stone cap's coarse relief) at anything below High — so Medium
-            //already runs the reduced look everywhere those two reach. Whatever is added here later, read
-            //ApplyQuality first: half of what a tier does is not in this array.
-            new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14),
+            //⚠ THIS TABLE IS NOT THE WHOLE TIER, and that is the thing to read before adding anything to it:
+            //ApplyQuality also owns SceneRenderer.SceneDetail (the reduced scene programs) and
+            //ArenaIsland.SurfaceDetail (the stone cap's coarse relief). Both used to be spent at ANYTHING
+            //below High, which is what left nothing between Medium and Low; both are now spent at LOW ALONE,
+            //so Medium runs every scene's authored detail and the full stone cap.
+            //
+            //What that costs Medium is bounded and was checked before it was done, not after: SurfaceDetail
+            //measures 0.00-0.05 ms on the weak machine at this rung's own resolution and supersampling
+            //(#298's own figure), and SceneDetail reached only the forest and the dream, neither of which is
+            //among the levels that fail to hold Medium there. So the rung that was already over budget on
+            //that hardware did not get dearer where it was hurting.
+            new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES),
 
             //High — the look the game was authored at, unchanged.
-            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14),
+            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES),
         };
     }
 }

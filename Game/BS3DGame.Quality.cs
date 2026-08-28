@@ -347,14 +347,29 @@ namespace BS3D
             //experiment that was rejected and never existed in the code. See SceneRenderer.SceneDetail for
             //the measurement, and why it is one switch over both extras rather than a dial per feature.
             //Null until BuildScene has run, exactly like the city above.
-            if (_sceneRenderer != null) _sceneRenderer.SceneDetail = quality == QualityLevel.High ? 1f : 0f;
+            //⚠ LOW ALONE since #298, and it used to be everything below High. That was the hole: with the
+            //extras already gone at Medium there was nothing left between the two lower rungs but the city's
+            //two dials, worth nothing at all in thirteen of the sixteen scenes. Spent here instead, Medium
+            //keeps every scene's authored look and Low is where the detail goes — which is also the shape the
+            //owner asked for, a tier that drops effects.
+            if (_sceneRenderer != null) _sceneRenderer.SceneDetail = quality == QualityLevel.Low ? 0f : 1f;
 
             //And the arena's stone cap, which is the first thing the tier reaches that is NOT a scene — it is
             //in all fifteen of them and under the gun in every frame of every level, and #151 measured it at
             //88 % of the arena's cost. Reduced, its height field is three relief octaves instead of seven:
             //0.336 ms of a 10.971 ms frame on the reference desktop, the coursed slab joints untouched. See
             //ArenaIsland.SurfaceDetail. Null until BuildScene has run, exactly like the two above.
-            if (_island != null) _island.SurfaceDetail = quality == QualityLevel.High ? 1f : 0f;
+            //Low alone since #298, for the reason above. Safe to hand back to Medium, and that was checked
+            //rather than assumed: at Medium's own resolution and supersampling this measures 0.00-0.05 ms on
+            //the weak machine, so returning it costs that rung nothing it can feel.
+            if (_island != null) _island.SurfaceDetail = quality == QualityLevel.Low ? 0f : 1f;
+
+            //The samples the scene target carries below High (#298) — the first entry that reaches every scene
+            //without touching a pixel count, which is the one thing a tier may never do (see QualityLevel).
+            //BEFORE the factor below, because both size or rebuild the same target and the last writer wins:
+            //SetSupersampleFactor ends by asking the pipeline for a target, so the sample count has to be
+            //standing by then or the rebuild happens twice on every tier step.
+            _pipeline.MsaaSamples = preset.MsaaSamples;
 
             //The tier owns supersampling unless the command line pinned it, which is the one case the tier must
             //not write over — see _supersampleOverride. A tier step still changes everything else it owns, so a

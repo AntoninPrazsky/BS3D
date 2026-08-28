@@ -163,6 +163,20 @@ namespace Testbed.Diagnostics
         /// </summary>
         public float RenderScale { get; private set; } = -1f;
 
+        /// <summary>
+        /// <c>detail=&lt;0|1&gt;</c>: the scene shaders' expensive extras - <c>SceneRenderer.SceneDetail</c>.
+        /// 1 is the authored look, 0 the reduced program each such scene compiles as a second technique
+        /// (forest, dream, and since #298 the cavern and the mountain). -1 leaves the authored look, which is
+        /// what the Testbed and the editor want by default: they are where a scene is tuned and looked at.
+        /// <para>
+        /// Here so a reduced program can be MEASURED and PHOTOGRAPHED without going through the Game's tier,
+        /// which cannot pin a camera. The lesson these reductions are chosen against is that the passes are
+        /// occupancy-bound - a lone cut buys nothing and only a pair crosses back over the threshold - so a
+        /// new one has to be measured rather than assumed.
+        /// </para>
+        /// </summary>
+        public float SceneDetail { get; private set; } = -1f;
+
         /// <summary><c>exposure=&lt;f&gt;</c>: the renderer's shutter speed. 0 = unset, so the default stands.</summary>
         public float Exposure { get; private set; }
 
@@ -234,6 +248,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("ssaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("ssaa=".Length), out int parsedSsaa)) options.SupersampleFactor = parsedSsaa;
                 else if (arg.StartsWith("msaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("msaa=".Length), out int parsedMsaa)) options.MsaaSamples = parsedMsaa;
                 else if (arg.StartsWith("rscale=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("rscale=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedRscale)) options.RenderScale = parsedRscale;
+                else if (arg.StartsWith("detail=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("detail=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedDetail)) options.SceneDetail = parsedDetail;
                 else if (arg.StartsWith("exposure=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("exposure=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedExposure)) options.Exposure = parsedExposure;
                 else if (arg.StartsWith("scene=", StringComparison.OrdinalIgnoreCase)) options.Scene = arg.Substring("scene=".Length);
                 else if (arg.StartsWith("weather=", StringComparison.OrdinalIgnoreCase)) options.Weather = arg.Substring("weather=".Length);

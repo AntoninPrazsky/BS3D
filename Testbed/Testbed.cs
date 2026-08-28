@@ -685,6 +685,10 @@ namespace Testbed
             //has to be told what ssaa= settled on — sized in texels a star would be four times dimmer at 2x
             _sceneRenderer = new SceneRenderer(GraphicsDevice, Content) { SupersampleFactor = _supersampleFactor };
 
+            //#298 PROBE: "detail=" pins SceneRenderer.SceneDetail so a reduced program can be measured and
+            //photographed here, where the camera can be pinned. Left alone the Testbed draws the full look.
+            if (_options.SceneDetail >= 0f) _sceneRenderer.SceneDetail = _options.SceneDetail;
+
             //After the scene renderer, which the rig consults for the scenes that state their own lighting. The
             //cloud hook is captured ONCE here rather than per frame: a method group written at the call site
             //builds a fresh delegate every time it is evaluated, and this one used to be evaluated in Draw.
