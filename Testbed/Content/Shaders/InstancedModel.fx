@@ -2164,16 +2164,25 @@ static const float IceHighlight = 0.55;
 static const float IceEnvironment = 0.45;
 static const float IceSmoothness = 0.5;
 
-//One crack line: a narrow band either side of a wave's zero crossing, faded out on its own band-limit.
-//Written against the raw sine rather than through ReliefOctave DELIBERATELY - ReliefOctave fades its
+//ONE SEAM LINE: a narrow band either side of a wave's zero crossing, faded out on its own band-limit.
+//Shared by the ice's cracks (#307) and the lava's plate seams (#310), which want the same LINE and
+//opposite things from it - the ice brightens along it because a crack is an internal face catching the
+//light, the lava glows through it because there is molten rock behind it, and both cut a groove.
+//
+//Written against the RAW SINE rather than through ReliefOctave DELIBERATELY - ReliefOctave fades its
 //AMPLITUDE towards zero as the pixel grows, and a test on abs(v) < width would then read the whole ball
-//as one crack the moment the wave stopped being resolvable. Fading the LINE is what is wanted.
-float IceCrackLine(float3 direction, float3 waveDirection, float frequency, float footprint)
+//as one seam the moment the wave stopped being resolvable. Fading the LINE is what is wanted.
+float SeamLine(float3 direction, float3 waveDirection, float frequency, float width, float footprint)
 {
     float v = sin(dot(direction, waveDirection) * frequency);
     float fade = saturate(1 - footprint * frequency / 3.14159265);
 
-    return (1 - smoothstep(0, IceCrackWidth, abs(v))) * fade;
+    return (1 - smoothstep(0, width, abs(v))) * fade;
+}
+
+float IceCrackLine(float3 direction, float3 waveDirection, float frequency, float footprint)
+{
+    return SeamLine(direction, waveDirection, frequency, IceCrackWidth, footprint);
 }
 
 float4 IcePS(PatternVertexShaderOutput input) : COLOR
@@ -2603,6 +2612,173 @@ technique InstancedModelPlasma
     {
         VertexShader = compile VS_SHADERMODEL PatternVS();
         PixelShader = compile PS_SHADERMODEL PlasmaPS();
+    }
+};
+
+//===================================================================================================
+//MOLTEN CRUST (#310): a cooling lump of lava. A near-black basalt crust cracked into plates, with the
+//molten interior glowing through the seams in the type colour. The crust is matte and rough; the seams
+//are the only bright thing on the ball, and they breathe.
+//
+//IT IS THE INVERSE CONSTRUCTION OF THE PLASMA ORB, and the two should be kept that way: plasma is thin
+//bright lines over an EMPTY dark shell that WRITHE; lava is a solid heavy crust whose seams BREATHE.
+//One is electricity, the other is heat. They share the emissive-colour trick and nothing else - this
+//one keeps its relief, its lighting and its weight.
+//
+//ITS COLOUR LIVES IN THE EMISSION, which is the argument for building it and it is a strong one: an
+//emissive seam is read directly, not diluted by ambient, not filtered by a backdrop, not tinted by a
+//reflection and not transmitted through anything - the four ways every other style can lose its hue.
+//
+//THE 8-BALL AGAIN, AND THE PLASMA'S ANSWER AGAIN. A black glow in a black crust is nothing, and this
+//style is worse placed than most because the crust is ALREADY black. The seam colour is the tint
+//NORMALISED to its peak channel, so the 8-ball's grey glows WHITE-HOT - which for lava is not even a
+//departure: the hottest part of a real flow is the whitest.
+//
+//WHAT IT GIVES UP KNOWINGLY: value separation. The crust is the same darkness on all thirteen, so what
+//tells them apart is the seam colour alone. The crust carries a little of the tint (LavaCrustTint) so
+//they are not literally identical, but this style leans on hue harder than any other except the plasma.
+//===================================================================================================
+
+//How many plate seams run over the ball. Low: a cooling crust breaks into a handful of big plates, and
+//a dense net reads as gravel rather than as a cracked shell.
+float LavaSeamFrequency;
+
+//How wide a seam is. Wider than the ice's cracks, deliberately - a crack is a plane seen edge-on, and
+//this is a GAP with molten rock at the bottom of it.
+float LavaSeamWidth;
+
+//How brightly the molten interior glows through. The one figure the C# side states: it is the whole of
+//this style's colour, and over a black crust there is nothing else to see the ball by.
+float LavaGlow;
+
+//The three line fields' directions. Not aligned to the sphere's poles or to each other, so the plates
+//come out irregular rather than as a lattice.
+static const float3 LavaSeamA = float3(0.71, 0.48, -0.52);
+static const float3 LavaSeamB = float3(-0.39, 0.83, 0.40);
+static const float3 LavaSeamC = float3(0.55, -0.34, 0.76);
+static const float2 LavaSeamRatio = float2(1.29, 1.77);
+
+//How far the seams wander off the great circles three plain sine fields would cut, and at what scale.
+//See the note where it is used: without this the style is a wire cage, which is what it looked like when
+//it was first built.
+static const float LavaSeamWander = 0.30;
+static const float LavaSeamWanderFrequency = 2.1;
+
+//How dark the crust is, and how much of the ball's own tint it keeps. Basalt is nearly black; the tint
+//that survives is what stops thirteen crusts being literally the same object.
+static const float LavaCrustDark = 0.16;
+static const float LavaCrustTint = 0.45;
+
+//The crust's own roughness, on the same octave sum the vinyl skin uses for its moulding. This is one of
+//the few styles that WANTS that relief kept rather than removed: plates have to read as broken stone.
+static const float LavaCrustRelief = 0.024;
+
+//How deep a seam is cut into the crust, so the plates stand proud of the gaps between them.
+static const float LavaSeamDepth = 0.03;
+
+//What the hottest core of a seam is carried towards. Incandescence runs to white through yellow, so the
+//middle of a seam loses its hue while its edges keep it - which is what makes it read as HOT rather
+//than as a coloured line painted in a groove.
+static const float3 LavaIncandescent = float3(1.0, 0.86, 0.62);
+static const float LavaCorePower = 6.5;
+
+//The crust's specular: weak and broad. Basalt is matte, and a shine on it turns the whole thing into
+//painted plastic faster than any other error here.
+static const float LavaHighlight = 0.35;
+static const float LavaEnvironment = 0.2;
+static const float LavaSmoothness = 0.2;
+
+float4 LavaPS(PatternVertexShaderOutput input) : COLOR
+{
+    float radius = max(length(input.ObjectPosition), 1e-5);
+    float3 direction = input.ObjectPosition / radius;
+
+    //Contract point 1.
+    float dissolveNoise = DissolveNoise(floor(input.Position.xy / DissolvePixelSize));
+    clip(input.Dissolve >= 0 ? dissolveNoise - input.Dissolve : -input.Dissolve - dissolveNoise);
+
+    float footprint = (length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition))) / radius;
+
+    //THE SEAMS HAVE TO WANDER OR THEY ARE A CAGE. Three sine fields on a sphere cut great circles, and
+    //three great circles read as wire wrapped round a ball rather than as rock that has cracked - it was
+    //built that way first and that is exactly what it looked like. Displacing the coordinate they are
+    //read at is the fix, and it is the plasma's domain warp at a fraction of the strength: enough to make
+    //a seam wander and fork, not enough to make it writhe. Unlike the plasma's it does not move.
+    float3 wander = float3(
+        ReliefOctave(direction, LavaSeamB, LavaSeamWanderFrequency, footprint),
+        ReliefOctave(direction, LavaSeamC, LavaSeamWanderFrequency * 1.23, footprint),
+        ReliefOctave(direction, LavaSeamA, LavaSeamWanderFrequency * 0.79, footprint)) * LavaSeamWander;
+
+    //The plate seams, in OBJECT space (contract point 6). A heavy crusted ball turning is very readable,
+    //which makes this one of the better rotation cues in the set.
+    float3 seamPosition = direction + wander;
+
+    float seam = saturate(
+        SeamLine(seamPosition, LavaSeamA, LavaSeamFrequency, LavaSeamWidth, footprint)
+        + SeamLine(seamPosition, LavaSeamB, LavaSeamFrequency * LavaSeamRatio.x, LavaSeamWidth, footprint)
+        + SeamLine(seamPosition, LavaSeamC, LavaSeamFrequency * LavaSeamRatio.y, LavaSeamWidth, footprint));
+
+    //The crust's own broken-stone grain, plus the seams cut into it. Kept rather than removed - see the
+    //header; this is the one new style that wants the vinyl's moulding machinery.
+    float height = SurfaceRelief(direction, footprint) * LavaCrustRelief - seam * LavaSeamDepth;
+
+    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
+    float3 primary = SrgbToLinear(PatternPrimaryColor);
+
+    //Basalt: nearly black, keeping just enough of the tint that thirteen crusts are not one object.
+    float3 crust = primary * LavaCrustTint * LavaCrustDark + LavaCrustDark * (1 - LavaCrustTint);
+
+    SurfaceSpecular surface;
+    surface.Highlight = LavaHighlight;
+    surface.Environment = LavaEnvironment;
+    surface.Smoothness = LavaSmoothness;
+
+    //A seam sees almost no sky - it is a gap in a thick shell - so it takes the ambient down with it.
+    float cavity = 1 - 0.7 * seam;
+
+    float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(crust, 1), 1, cavity, surface);
+
+    //Contract point 2, ROUTED INTO THE SEAMS rather than added beside them. Lava has an obvious reason to
+    //pulse and the balls already share a wave through the cluster, so the beat IS the breath. The risk
+    //this replaces is double-applying it - a flat emission plus a breathing seam is a ball that pulses
+    //twice as hard as its neighbours, which is why EmissiveStrength is zero for this style.
+    float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
+
+    //The molten interior. Normalised to the tint's peak so the 8-ball glows white-hot rather than not at
+    //all (the plasma's answer, and for lava it is not even a departure), and carried towards incandescent
+    //white at the hottest core of each seam so the middle loses its hue while the edges keep it.
+    float peak = max(primary.r, max(primary.g, primary.b));
+    float3 hue = primary / max(peak, 1e-3);
+
+    float core = pow(seam, LavaCorePower);
+    float3 molten = lerp(hue, LavaIncandescent, core);
+
+    shaded.rgb += molten * seam * LavaGlow * lerp(1 - PulseDepth, 1, beat);
+
+    //Contract point 3, both meanings, PatternPS's arithmetic.
+    [branch]
+    if (RippleStrength > 0)
+    {
+        float amount = abs(input.Ripple);
+
+        float3 lit = shaded.rgb + lerp(hue, 1.0, RippleWhiten) * (RippleStrength * amount);
+        float3 alarmed = lerp(shaded.rgb, RippleAlarmColor * RippleAlarmBrightness, amount * RippleAlarmCoverage);
+
+        shaded.rgb = input.Ripple < 0 ? alarmed : lit;
+    }
+
+    //Contract point 5.
+    shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
+
+    return ApplyKillPlaneFade(shaded, input.WorldPosition);
+}
+
+technique InstancedModelLava
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL PatternVS();
+        PixelShader = compile PS_SHADERMODEL LavaPS();
     }
 };
 

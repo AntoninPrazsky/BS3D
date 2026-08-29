@@ -107,6 +107,19 @@ namespace Prazsky.Core.Render
         /// one, animated, so nothing about it is cacheable.
         /// </para>
         /// </summary>
-        Plasma = 7
+        Plasma = 7,
+
+        /// <summary>
+        /// Molten crust (#310): a near-black basalt shell cracked into plates, with the molten interior glowing
+        /// through the seams in the type colour and breathing on the heartbeat. Drawn by
+        /// <c>InstancedModelLava</c>.
+        /// <para>
+        /// The inverse construction of <see cref="Plasma"/> — that is thin bright lines over an empty dark
+        /// shell that writhe, this is a solid heavy crust whose seams breathe. One is electricity, the other
+        /// heat. It is also the one new shading that <i>keeps</i> the vinyl's relief machinery, because plates
+        /// have to read as broken stone.
+        /// </para>
+        /// </summary>
+        Lava = 8
     }
 }

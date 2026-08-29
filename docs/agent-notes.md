@@ -2868,3 +2868,19 @@ Ta předpověď počítala **přidanou** práci (druhé šumové pole) a ignorov
 **⚠ Vinylová kontrola četla 637,6 / 638,4 proti 621,4 v drahokamové sérii** — zase drift, věř poměrům.
 
 **Zbývá #310 láva a #312 porcelán.**
+
+**Dodatek (2026-08-29) — #310 roztavená kůra hotová. Nese past, na kterou narazí každý další styl stavěný ze `SeamLine`.**
+
+Inverze plazmy: ta jsou tenké jasné čáry nad **prázdnou** tmavou koulí, které se **svíjejí**; tohle je pevná těžká kůra, jejíž švy **dýchají**. Jedno je elektřina, druhé teplo. Sdílejí jen ten trik s emisní barvou. Je to zároveň jediný nový styl, který si **nechává** vinylovou `SurfaceRelief` mašinérii — desky musí číst jako lámaný kámen.
+
+Heartbeat je **zaveden do švů**, ne přičten vedle nich (`LAVA_EMISSION` je 0, jako u plazmy). Tím je vyřešená ta past, které byl tenhle styl nejvíc vystavený: plochá emise vedle dýchajícího švu = koule pulzující dvakrát silněji než sousedi.
+
+**⚠ ŠVY MUSÍ BLOUDIT, JINAK JE TO DRÁTĚNÁ KLEC — a přesně tak jsem to postavil napoprvé.** Tři sinusová pole na kouli vyřežou **hlavní kružnice**, a tři hlavní kružnice čtou jako drát omotaný kolem koule, ne jako kámen, co popraskal. Oprava je plazmový domain warp na zlomek síly a bez animace: posuň souřadnici, ve které se švy čtou — tak akorát, aby šev bloudil a větvil se, ne aby se svíjel.
+
+**Tohle platí pro každý budoucí styl stavěný ze `SeamLine`.** Tu funkci jsem při téhle práci vytáhl jako sdílenou (led ji používá taky) — obě chtějí **tutéž čáru a opačné věci od ní**: led se po ní rozsvěcí, protože prasklina je vnitřní plocha chytající světlo; láva skrz ni svítí, protože je za ní tavenina. Obě do ní řežou drážku.
+
+Type8 bere zase plazmovou odpověď — barva švu je tint znormalizovaný na peak, takže osmička svítí **doběla**, což u lávy není ani odklon: nejžhavější část skutečného proudu je nejbělejší. **Vědomě se obětuje separace v jasu**: kůra je na všech třinácti stejně tmavá, takže veškerou práci dělá odstín.
+
+**Změřeno:** vinyl 638,7 / 638,0 proti lávě 643,8 / 639,8 — **parita, ~0,5 %**. Je to nejdražší z šesti nových neprůhledných stylů přesně z toho důvodu, z jakého je plazma nejlevnější: jako jediný se ničeho nevzdává.
+
+**Zbývá #312 porcelán.**
