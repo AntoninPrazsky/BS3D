@@ -94,7 +94,19 @@ namespace Prazsky.BS3D.GameStructure
         /// so a cluster reads dark and a bright dome washes it out.
         /// </para>
         /// </summary>
-        Plasma = 7
+        Plasma = 7,
+
+        /// <summary>
+        /// Molten crust (#310): a cooling lump of lava — a near-black basalt crust broken into plates, with the
+        /// molten interior glowing through the seams in the type colour, hottest and whitest at their cores,
+        /// breathing on the cluster's own heartbeat.
+        /// <para>
+        /// Its colour lives entirely in the <b>emission</b>, which is the cleanest colour separation the game
+        /// can have — nothing dilutes an emissive seam. What it gives up knowingly is value separation: the
+        /// crust is the same darkness on all thirteen.
+        /// </para>
+        /// </summary>
+        Lava = 8
     }
 
     /// <summary>
@@ -160,6 +172,12 @@ namespace Prazsky.BS3D.GameStructure
                 case "plasma":
                 case "orb":
                     style = BallStyle.Plasma;
+                    return true;
+
+                case "lava":
+                case "molten":
+                case "magma":
+                    style = BallStyle.Lava;
                     return true;
 
                 default:

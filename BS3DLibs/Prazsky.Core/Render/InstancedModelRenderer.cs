@@ -126,6 +126,9 @@ namespace Prazsky.Core.Render
         private EffectParameter _plasmaWarpParam;
         private EffectParameter _plasmaGlowParam;
         private EffectParameter _plasmaSpeedParam;
+        private EffectParameter _lavaSeamFrequencyParam;
+        private EffectParameter _lavaSeamWidthParam;
+        private EffectParameter _lavaGlowParam;
         private EffectTechnique _cityTechnique;
         private EffectParameter _cityWindowBrightnessParam;
 
@@ -540,6 +543,24 @@ namespace Prazsky.Core.Render
         public float PlasmaSpeed { get; set; } = 0.5f;
 
         /// <summary>
+        /// How many plate seams run over a <see cref="BallShading.Lava"/> ball. Low: a cooling crust breaks
+        /// into a handful of big plates, and a dense net reads as gravel rather than a cracked shell.
+        /// </summary>
+        public float LavaSeamFrequency { get; set; } = 4.5f;
+
+        /// <summary>
+        /// How wide a lava seam is — wider than the ice's cracks, because a crack is a plane seen edge-on and
+        /// this is a gap with molten rock at the bottom of it.
+        /// </summary>
+        public float LavaSeamWidth { get; set; } = 0.22f;
+
+        /// <summary>
+        /// How brightly the molten interior glows through the seams. It is the whole of this style's colour:
+        /// over a black crust there is nothing else to see the ball by.
+        /// </summary>
+        public float LavaGlow { get; set; } = 2.6f;
+
+        /// <summary>
         /// How much of its own color the surface radiates, independent of any light falling on it.
         /// Deliberately not occluded: a light source buried inside a pile is the one that should still
         /// show, glowing out past its neighbors.
@@ -858,6 +879,9 @@ namespace Prazsky.Core.Render
             _plasmaWarpParam = _effect.Parameters["PlasmaWarp"];
             _plasmaGlowParam = _effect.Parameters["PlasmaGlow"];
             _plasmaSpeedParam = _effect.Parameters["PlasmaSpeed"];
+            _lavaSeamFrequencyParam = _effect.Parameters["LavaSeamFrequency"];
+            _lavaSeamWidthParam = _effect.Parameters["LavaSeamWidth"];
+            _lavaGlowParam = _effect.Parameters["LavaGlow"];
             _cityTechnique = _effect.Techniques["InstancedCity"];
             _cityWindowBrightnessParam = _effect.Parameters["CityWindowBrightness"];
             _cityWindowTimeParam = _effect.Parameters["CityWindowTime"];
@@ -922,6 +946,7 @@ namespace Prazsky.Core.Render
             "InstancedModelIce",      //BallShading.Ice
             "InstancedModelGem",      //BallShading.Gem
             "InstancedModelPlasma",   //BallShading.Plasma
+            "InstancedModelLava",     //BallShading.Lava
         };
 
         /// <summary>
@@ -1212,6 +1237,12 @@ namespace Prazsky.Core.Render
                         _bubbleFilmThicknessParam.SetValue(BubbleFilmThickness);
                         _bubbleTintStrengthParam.SetValue(BubbleTintStrength);
                         _bubbleBodyOpacityParam.SetValue(BubbleBodyOpacity);
+                        break;
+
+                    case BallShading.Lava:
+                        _lavaSeamFrequencyParam.SetValue(LavaSeamFrequency);
+                        _lavaSeamWidthParam.SetValue(LavaSeamWidth);
+                        _lavaGlowParam.SetValue(LavaGlow);
                         break;
 
                     case BallShading.Plasma:

@@ -525,6 +525,32 @@ namespace Prazsky.BS3D
         /// </summary>
         private const float PLASMA_EMISSION = 0f;
 
+        /// <summary>
+        /// How many plate seams run over a lava ball (#310). Low, and lower than the ice's cracks: a cooling
+        /// crust breaks into a handful of big plates, and a dense net reads as gravel rather than a shell.
+        /// </summary>
+        private const float LAVA_SEAM_FREQUENCY = 3.0f;
+
+        /// <summary>
+        /// How wide a seam is — twice the ice's crack and for a reason that is the whole difference between the
+        /// two: a crack is a plane seen edge-on, and this is a <b>gap</b> with molten rock at the bottom of it.
+        /// </summary>
+        private const float LAVA_SEAM_WIDTH = 0.35f;
+
+        /// <summary>
+        /// How brightly the molten interior glows through. The whole of this style's colour: over a near-black
+        /// crust there is nothing else to see the ball by, which is why it is well over 1.
+        /// </summary>
+        private const float LAVA_GLOW = 2.6f;
+
+        /// <summary>
+        /// Zero, and for the same reason the plasma's is (see <see cref="PLASMA_EMISSION"/>): this style
+        /// radiates through its seams and not as a whole, and the heartbeat is routed into those seams in the
+        /// shader. A flat emission beside a breathing seam is a ball that pulses twice as hard as its
+        /// neighbours — the double-application this style was most at risk of.
+        /// </summary>
+        private const float LAVA_EMISSION = 0f;
+
         #endregion
 
         #region Neighbour-based ambient occlusion (issue #40)
@@ -766,6 +792,13 @@ namespace Prazsky.BS3D
                         renderer.BubbleBodyOpacity = BUBBLE_BODY_OPACITY;
                         break;
 
+                    case BallStyle.Lava:
+                        renderer.EmissiveStrength = LAVA_EMISSION;
+                        renderer.LavaSeamFrequency = LAVA_SEAM_FREQUENCY;
+                        renderer.LavaSeamWidth = LAVA_SEAM_WIDTH;
+                        renderer.LavaGlow = LAVA_GLOW;
+                        break;
+
                     case BallStyle.Plasma:
                         renderer.EmissiveStrength = PLASMA_EMISSION;
                         renderer.PlasmaWarp = PLASMA_WARP;
@@ -841,6 +874,7 @@ namespace Prazsky.BS3D
             BallStyle.Ice => BallShading.Ice,
             BallStyle.Gem => BallShading.Gem,
             BallStyle.Plasma => BallShading.Plasma,
+            BallStyle.Lava => BallShading.Lava,
 
             //EXHAUSTIVE, AND IT THROWS RATHER THAN FALLING BACK, because the fallback here cost a whole
             //style once (#307): this read "_ => BallShading.Vinyl", the ice was added everywhere else and
