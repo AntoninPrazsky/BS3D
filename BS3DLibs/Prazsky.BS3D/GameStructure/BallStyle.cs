@@ -83,7 +83,18 @@ namespace Prazsky.BS3D.GameStructure
         /// enough mesh to show real facets shows a polygonal outline too, and no shading fixes that (#271).
         /// </para>
         /// </summary>
-        Gem = 6
+        Gem = 6,
+
+        /// <summary>
+        /// Plasma orb (#309): the desktop plasma-ball toy — a dark globe with thin bright arcs of ionised gas
+        /// crawling across the inside of it, tinted the type colour, reaching out of a bright core.
+        /// <para>
+        /// The one style that is <b>alive whether anything is happening or not</b>, and the one a screenshot
+        /// says almost nothing about. It belongs on the dark backdrops: its colour lives in thin bright lines,
+        /// so a cluster reads dark and a bright dome washes it out.
+        /// </para>
+        /// </summary>
+        Plasma = 7
     }
 
     /// <summary>
@@ -144,6 +155,11 @@ namespace Prazsky.BS3D.GameStructure
                 case "crystal":
                 case "diamond":
                     style = BallStyle.Gem;
+                    return true;
+
+                case "plasma":
+                case "orb":
+                    style = BallStyle.Plasma;
                     return true;
 
                 default:

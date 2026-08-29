@@ -497,6 +497,34 @@ namespace Prazsky.BS3D
         /// </summary>
         private const float GEM_EMISSION = 0.22f;
 
+        /// <summary>
+        /// How far the warp field displaces the filament field on a plasma ball (#309) — the whole character
+        /// of the arcs. At zero they are smooth rings; the warp is what makes them writhe, fork and rejoin,
+        /// which is the difference between a plasma globe and a marbled sphere.
+        /// </summary>
+        private const float PLASMA_WARP = 0.9f;
+
+        /// <summary>
+        /// How brightly a filament burns, and the figure this style cannot do without: its colour is entirely
+        /// emissive, so this is the only thing standing between a cluster and darkness. Well over 1 because a
+        /// filament covers a small fraction of the ball and has to carry the whole of its hue.
+        /// </summary>
+        private const float PLASMA_GLOW = 2.4f;
+
+        /// <summary>
+        /// How fast the arcs crawl. Deliberately slow — anything quick enough to be noticed as <i>animation</i>
+        /// stops reading as something alive and starts reading as a loop, which is the one way this style can
+        /// fail while every individual frame of it still looks right.
+        /// </summary>
+        private const float PLASMA_SPEED = 0.5f;
+
+        /// <summary>
+        /// A plasma ball radiates through its filaments and not as a whole, so the flat emission every other
+        /// style carries is <b>zero</b> here: the heartbeat is applied to the arcs instead (the shader does
+        /// it), which is what keeps the pulse from being a second brightness fighting the first.
+        /// </summary>
+        private const float PLASMA_EMISSION = 0f;
+
         #endregion
 
         #region Neighbour-based ambient occlusion (issue #40)
@@ -738,6 +766,13 @@ namespace Prazsky.BS3D
                         renderer.BubbleBodyOpacity = BUBBLE_BODY_OPACITY;
                         break;
 
+                    case BallStyle.Plasma:
+                        renderer.EmissiveStrength = PLASMA_EMISSION;
+                        renderer.PlasmaWarp = PLASMA_WARP;
+                        renderer.PlasmaGlow = PLASMA_GLOW;
+                        renderer.PlasmaSpeed = PLASMA_SPEED;
+                        break;
+
                     case BallStyle.Gem:
                         renderer.EmissiveStrength = GEM_EMISSION;
                         renderer.GemFacetCount = GEM_FACET_COUNT;
@@ -805,6 +840,7 @@ namespace Prazsky.BS3D
             BallStyle.Metal => BallShading.Metal,
             BallStyle.Ice => BallShading.Ice,
             BallStyle.Gem => BallShading.Gem,
+            BallStyle.Plasma => BallShading.Plasma,
 
             //EXHAUSTIVE, AND IT THROWS RATHER THAN FALLING BACK, because the fallback here cost a whole
             //style once (#307): this read "_ => BallShading.Vinyl", the ice was added everywhere else and
