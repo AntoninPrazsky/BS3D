@@ -6,6 +6,7 @@
   "sky": 16,
   "scene": "neon",
   "music": "pulse",
+  "balls": "gem",
   "map": {
     "sx": 15,
     "sz": 15,

@@ -6,6 +6,7 @@
   "sky": 6,
   "scene": "desert",
   "music": "ember",
+  "balls": "marble",
   "map": {
     "sx": 15,
     "sz": 15,

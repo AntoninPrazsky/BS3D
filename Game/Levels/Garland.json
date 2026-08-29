@@ -6,6 +6,7 @@
   "sky": 13,
   "scene": "space",
   "music": "nocturne",
+  "balls": "plasma",
   "map": {
     "sx": 12,
     "sz": 12,

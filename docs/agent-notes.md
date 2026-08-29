@@ -2919,3 +2919,27 @@ Praskliny navíc řežou mělkou drážku, takže síť je figura i v normále �
 **⚠ To pořadí nemá nic společného s tím, jak složitě styl vypadá — sleduje, kolik si který nechává z vinylového osvětlovacího modelu.** Láva si nechává všechno plus reliéf a je na paritě; plazma nevolá `ShadePixel` vůbec a je nejlevnější věc tady. Odhaduj cenu proti tomu, co styl **vypouští**, ne proti figuře, kterou přidáváš.
 
 **#272 je hotové: #304 + osm stylů. Nic si neberu.**
+
+**Dodatek (2026-08-29) — styly přiřazené kapitolám. Majitel řekl „který styl kam, nechávám na tobě".**
+
+Devět kapitol, deset materiálů. **Každá kapitola teď věší jiný** — materiál je stejně silný marker kapitoly jako scéna a skladba:
+
+| # | kapitola | scéna | styl | proč |
+|---|---|---|---|---|
+| 1 | The Meadow | meadow | **bublina** | beze změny (#258): hra se jmenuje Bubble Shooter, wordmark stojí ve skle |
+| 2 | The Gallery | savanna | **vlna** | jediný měkký materiál; obraz z příze čte jako ruční práce, což deset kreslených obrazů je |
+| 3 | The Coil | desert | **mramor** | blok visí na štíhlých článcích; mramor je materiál, co čte jako **hmota** — a ta štíhlost je pak znepokojivá, ne jen tenká |
+| 4 | The Tower | mountains | **led** | výška a chlad; nízké slunce za vysokým shlukem dává prosvitu víc než kterákoli jiná kapitola |
+| 5 | The Reveal | cavern | **láva** | tmavá kapitola, blok o věci schované uvnitř věci — emisivní materiál vnitřní tvar prosvítí |
+| 6 | The Quarry | moon | **kov** | lom = vytěžená ruda; **a scéna, ne jen téma**: kov jde na bezrysé dómě do plochy, měsíční osvětlený povrch mu dá co zrcadlit. Nejlevnější styl na nejhustším bloku |
+| 7 | The Nebula | space | **plazma** | dóm nepřispívá ničím, takže materiál, co si světlo dělá sám, tam jako jediný **získává**. **⚠ Kov sem NESMÍ** — zrcadlo v prázdnu odráží nic |
+| 8 | The Arcade | neon city | **drahokam** | jediná scéna s vlastními bodovými světly; každá faseta chytá jiný neon |
+| 9 | The Spectrum | city at dawn | **porcelán** | blok žene jednu barevnou rodinu celým levelem, a hluboká glazura je materiál, co odstín ukáže nejlíp |
+
+**⚠ Vinyl kampaň už nevěší.** To je vědomá cena za devět kapitol a deset materiálů. Zůstává tím, co kreslí všechno neautorované — editor, Testbed, náhled ve front endu, každá mapa, co nic neříká —, takže odešel z kampaně, ne ze hry. Vrácení je **jedna konstanta**: dej kapitole `BallStyle.Beach` a ta kapitola přijde o svůj jediný domov.
+
+**Implementace:** devět `BALLS_*` konstant nahoře v `LevelGen`, každá s vlastním odůvodněním, přiřazené vedle `Music = MUSIC_*` u každého designu (Gallery přes tovární metodu `Picture`, která je jen její). **Colossus je ručně dělaný level a generátor ho nepíše** — má `"balls": "metal"` doplněné přímo v JSONu a hned zastagované.
+
+**Ověřeno:** obě brány zelené (`LevelGen` exit 0, `ScoreSim` „All levels rate the right way round"), diff přes 79 levelů je **přesně jeden přidaný řádek na soubor**, žádný layout se nehnul. Vizuálně čtyři kapitoly v běžící hře: Tower/led ve sněhu, Reveal/láva v jeskyni, Quarry/kov na Měsíci, Arcade/drahokam v neonu — všechny sedí.
+
+**Nejslabší párování je láva v jeskyni** a je fér to říct: čte to jako svítící popraskané koule v tmavém prostoru, tedy dojmově blízko plazmě o dvě kapitoly dál. Drží je od sebe Quarry mezi nimi (jasné stříbro) a odlišná konstrukce (desky vs. vlákna). **Kdyby #295 přineslo sopečný blok, láva patří tam** a Reveal se uvolní.
