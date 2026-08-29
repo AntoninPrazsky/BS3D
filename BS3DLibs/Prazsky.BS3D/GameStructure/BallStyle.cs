@@ -106,7 +106,19 @@ namespace Prazsky.BS3D.GameStructure
         /// crust is the same darkness on all thirteen.
         /// </para>
         /// </summary>
-        Lava = 8
+        Lava = 8,
+
+        /// <summary>
+        /// Crackled porcelain (#312): a deep, wet-looking coloured glaze over a ceramic body, crazed all over
+        /// with the fine hairline network an old glaze develops. Hard, cool and expensive-looking.
+        /// <para>
+        /// The pattern is the tell — a crackle net reads as ceramic and as nothing else. What makes it
+        /// porcelain rather than a shiny ball is <b>glaze depth</b>: the colour sits slightly under the
+        /// surface, because a tight bright lobe for the glaze's own face is laid over a body that is already
+        /// shaded.
+        /// </para>
+        /// </summary>
+        Porcelain = 9
     }
 
     /// <summary>
@@ -178,6 +190,12 @@ namespace Prazsky.BS3D.GameStructure
                 case "molten":
                 case "magma":
                     style = BallStyle.Lava;
+                    return true;
+
+                case "porcelain":
+                case "ceramic":
+                case "china":
+                    style = BallStyle.Porcelain;
                     return true;
 
                 default:

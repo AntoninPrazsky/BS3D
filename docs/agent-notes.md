@@ -2884,3 +2884,38 @@ Type8 bere zase plazmovou odpověď — barva švu je tint znormalizovaný na pe
 **Změřeno:** vinyl 638,7 / 638,0 proti lávě 643,8 / 639,8 — **parita, ~0,5 %**. Je to nejdražší z šesti nových neprůhledných stylů přesně z toho důvodu, z jakého je plazma nejlevnější: jako jediný se ničeho nevzdává.
 
 **Zbývá #312 porcelán.**
+
+**Dodatek (2026-08-29) — #312 popraskaný porcelán hotový. TÍM JE OSMIČKA Z #272 KOMPLETNÍ.**
+
+Hluboká glazura nad keramickým tělem, krakelovaná jemnou sítí. Co z toho dělá porcelán a ne lesklou kouli, je **hloubka glazury** — barva sedí kousek **pod** povrchem, protože těsný jasný lalok glazurové plochy leží nad tělem, které už je nastínované. Ten lalok se bere ze **hladké** normály, ne z krakelované: glazura je přes vlásečnici spojitá, a highlight lámající se na každé prasklině by řekl *odštípnuté*, ne *krakelované*.
+
+**⚠ Odpověď na tmavé typy je tady INVERZE, ne podlaha — a je to třetí a poslední z odpovědí, které tahle sada potřebovala.** Tmavé praskliny na černé glazuře nejsou praskliny, a trik s normalizací na peak (plazma, láva) neplatí, protože prasklina není emise. Takže tón praskliny **sleduje luminanci glazury a překlápí se**: jasná glazura je krakelovaná **tmavšími** čarami, tmavá **světlejšími**. Jedno pravidlo místo třinácti konstant.
+
+Pro přehled, tři různé odpovědi na Type8 napříč sadou:
+1. **Podlaha po vlastním odstínu** — mramor (`MarbleVeinFloor`), kov (`MetalF0Floor`), drahokam (`GemBodyFloor`).
+2. **Normalizace na peak** — plazma a láva: osmička svítí doběla, a u lávy to není ani odklon.
+3. **Inverze podle luminance** — porcelán.
+
+Praskliny navíc řežou mělkou drážku, takže síť je figura i v normále — pojistka z #305/#311 pro odstíny, kde je tónový skok nejmenší. A dědí varování z lávy o hlavních kružnicích, takže má stejné bloudění.
+
+**Změřeno:** vinyl 637,0 / 637,5 proti porcelánu 645,6 / 644,4 — **o 1,2 % levnější**.
+
+---
+
+**CELÁ SADA, měřená proti téže vinylové kontrole na témže levelu:**
+
+| styl | proti vinylu |
+|---|---|
+| bublina | **+8 až 10 %** (jediná dražší — cena průhlednosti) |
+| láva | −0,5 % |
+| vlna | −0,9 % |
+| porcelán | −1,2 % |
+| led | −1,5 % |
+| drahokam | −2,0 % |
+| mramor | −2,5 % |
+| kov | −4,9 % |
+| plazma | −7,4 % |
+
+**⚠ To pořadí nemá nic společného s tím, jak složitě styl vypadá — sleduje, kolik si který nechává z vinylového osvětlovacího modelu.** Láva si nechává všechno plus reliéf a je na paritě; plazma nevolá `ShadePixel` vůbec a je nejlevnější věc tady. Odhaduj cenu proti tomu, co styl **vypouští**, ne proti figuře, kterou přidáváš.
+
+**#272 je hotové: #304 + osm stylů. Nic si neberu.**

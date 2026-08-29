@@ -120,6 +120,17 @@ namespace Prazsky.Core.Render
         /// have to read as broken stone.
         /// </para>
         /// </summary>
-        Lava = 8
+        Lava = 8,
+
+        /// <summary>
+        /// Crackled porcelain (#312): a deep coloured glaze over a ceramic body, crazed all over with the fine
+        /// hairline network an old glaze develops. Drawn by <c>InstancedModelPorcelain</c>.
+        /// <para>
+        /// Its crack tone <b>inverts</b> on the glaze's own luminance — a bright glaze is crazed with darker
+        /// lines and a dark one with lighter ones — which is how the darkest types keep a visible net without a
+        /// table of per-type constants.
+        /// </para>
+        /// </summary>
+        Porcelain = 9
     }
 }
