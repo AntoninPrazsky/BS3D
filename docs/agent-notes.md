@@ -2850,3 +2850,21 @@ Dvě další čísla: `GemBodyFloor` pod pohlcenou barvou, protože absorpce nal
 **Změřeno:** vinyl 621,4 / 621,4 proti drahokamu 635,3 / 632,0 — **o 2,0 % levnější**.
 
 **Nemapované styly:** `ShadingOf` jsem tentokrát nezapomněl (viz #307). Zbývá #309, #310, #312.
+
+**Dodatek (2026-08-29) — #309 plazma hotová. A moje vlastní odhad ceny v tom issue byl VEDLE, což je poučnější než ten styl.**
+
+Jediný styl, jehož read je **pohyb**. Filamenty jsou **domain warp** — jedno pole posouvá vzorkovací bod druhého, takže oblouk se **svíjí**, ne jen vlní —, animované posunem fáze. Proto mají vlastní `PlasmaWave` s parametrem fáze místo `ReliefOctave`, které fázi neumí. Heartbeat **jede na filamentech**, ne vedle nich (`PLASMA_EMISSION` je 0): druhý nezávislý jas nad už tak pohyblivým povrchem čte jako dva efekty, co se perou.
+
+**Ověřeno dvěma snímky pět sekund od sebe** — oblouky se přeskládaly. U tohohle stylu jeden screenshot neříká skoro nic, s tím se musí počítat při posuzování.
+
+**Type8 se tady vyřešil sám**, což je pozoruhodné, protože ve třech jiných stylech potřeboval výjimku: barva filamentu je tint **znormalizovaný na svůj peak** (trik ripplu), takže sytá červená dá červené oblouky a 0,045 šeď osmičky dá **bílé**. Bílý výboj v černé kouli není kompromis, tak ta hračka vypadá.
+
+**⚠ A teď to hlavní: #272 i #309 shodně předpovídaly, že tohle bude NEJDRAŽŠÍ z osmi. Naměřeno je to NEJLEVNĚJŠÍ.** Vinyl 637,6 / 638,4 proti plazmě 685,2 / 685,3 — **o 7,4 % rychlejší**.
+
+Ta předpověď počítala **přidanou** práci (druhé šumové pole) a ignorovala **odebranou**: tahle technika **nevolá `ShadePixel` vůbec** — žádný tříbodový rig, žádné scene lights, žádné hemisférické ambient, žádný specular, žádné reliéfní oktávy, žádné švy, žádná translucence. Ta nepřítomnost vydá mnohem víc, než co stojí druhý sinus.
+
+**Obecný tvar si zapamatuj: cenu stylu koulí určuje hlavně to, co NEDĚLÁ.** Odhaduj proti celému vinylovému osvětlovacímu modelu, ne proti figuře, kterou přidáváš. Všech šest nových stylů vyšlo levněji než vinyl; dražší je jen průhledná bublina.
+
+**⚠ Vinylová kontrola četla 637,6 / 638,4 proti 621,4 v drahokamové sérii** — zase drift, věř poměrům.
+
+**Zbývá #310 láva a #312 porcelán.**

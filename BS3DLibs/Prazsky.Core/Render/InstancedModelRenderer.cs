@@ -123,6 +123,9 @@ namespace Prazsky.Core.Render
         private EffectParameter _gemFacetCountParam;
         private EffectParameter _gemFacetDepthParam;
         private EffectParameter _gemAbsorptionParam;
+        private EffectParameter _plasmaWarpParam;
+        private EffectParameter _plasmaGlowParam;
+        private EffectParameter _plasmaSpeedParam;
         private EffectTechnique _cityTechnique;
         private EffectParameter _cityWindowBrightnessParam;
 
@@ -518,6 +521,25 @@ namespace Prazsky.Core.Render
         public float GemAbsorption { get; set; } = 1.1f;
 
         /// <summary>
+        /// How far the first noise field displaces the second's sample point on a
+        /// <see cref="BallShading.Plasma"/> ball — the whole character of the arcs. At zero they are smooth
+        /// rings; the warp is what makes them writhe, fork and rejoin.
+        /// </summary>
+        public float PlasmaWarp { get; set; } = 0.35f;
+
+        /// <summary>
+        /// How brightly a plasma filament burns. It is the whole of this style's colour and the only thing
+        /// standing between a cluster of them and darkness.
+        /// </summary>
+        public float PlasmaGlow { get; set; } = 2.4f;
+
+        /// <summary>
+        /// How fast the arcs crawl. Slow: anything quick enough to notice as <i>animation</i> stops reading as
+        /// something alive and starts reading as a loop.
+        /// </summary>
+        public float PlasmaSpeed { get; set; } = 0.5f;
+
+        /// <summary>
         /// How much of its own color the surface radiates, independent of any light falling on it.
         /// Deliberately not occluded: a light source buried inside a pile is the one that should still
         /// show, glowing out past its neighbors.
@@ -833,6 +855,9 @@ namespace Prazsky.Core.Render
             _gemFacetCountParam = _effect.Parameters["GemFacetCount"];
             _gemFacetDepthParam = _effect.Parameters["GemFacetDepth"];
             _gemAbsorptionParam = _effect.Parameters["GemAbsorption"];
+            _plasmaWarpParam = _effect.Parameters["PlasmaWarp"];
+            _plasmaGlowParam = _effect.Parameters["PlasmaGlow"];
+            _plasmaSpeedParam = _effect.Parameters["PlasmaSpeed"];
             _cityTechnique = _effect.Techniques["InstancedCity"];
             _cityWindowBrightnessParam = _effect.Parameters["CityWindowBrightness"];
             _cityWindowTimeParam = _effect.Parameters["CityWindowTime"];
@@ -896,6 +921,7 @@ namespace Prazsky.Core.Render
             "InstancedModelMetal",    //BallShading.Metal
             "InstancedModelIce",      //BallShading.Ice
             "InstancedModelGem",      //BallShading.Gem
+            "InstancedModelPlasma",   //BallShading.Plasma
         };
 
         /// <summary>
@@ -1186,6 +1212,12 @@ namespace Prazsky.Core.Render
                         _bubbleFilmThicknessParam.SetValue(BubbleFilmThickness);
                         _bubbleTintStrengthParam.SetValue(BubbleTintStrength);
                         _bubbleBodyOpacityParam.SetValue(BubbleBodyOpacity);
+                        break;
+
+                    case BallShading.Plasma:
+                        _plasmaWarpParam.SetValue(PlasmaWarp);
+                        _plasmaGlowParam.SetValue(PlasmaGlow);
+                        _plasmaSpeedParam.SetValue(PlasmaSpeed);
                         break;
 
                     case BallShading.Gem:

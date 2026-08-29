@@ -96,6 +96,17 @@ namespace Prazsky.Core.Render
         /// space, but a scalar handed to <c>PerturbNormalFromHeight</c> gets that mapping for free.
         /// </para>
         /// </summary>
-        Gem = 6
+        Gem = 6,
+
+        /// <summary>
+        /// Plasma orb (#309): a dark, nearly empty globe with thin bright filaments of ionised gas crawling
+        /// across the inside of it in the type colour. Drawn by <c>InstancedModelPlasma</c>.
+        /// <para>
+        /// The only shading here whose read is <b>motion</b> — every other is a still material seen under a
+        /// moving camera. It is also the dearest: a domain warp is two noise evaluations where the others have
+        /// one, animated, so nothing about it is cacheable.
+        /// </para>
+        /// </summary>
+        Plasma = 7
     }
 }
