@@ -6,6 +6,7 @@
   "sky": 8,
   "scene": "mountain",
   "music": "bohemia",
+  "balls": "ice",
   "map": {
     "sx": 15,
     "sz": 15,

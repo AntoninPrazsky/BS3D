@@ -6,6 +6,7 @@
   "sky": 13,
   "scene": "moon",
   "music": "pulse",
+  "balls": "metal",
   "map": {
     "sx": 13,
     "sz": 13,

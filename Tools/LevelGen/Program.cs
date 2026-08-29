@@ -216,25 +216,114 @@ namespace BS3D.Tools.LevelGen
         private const string MUSIC_SPECTRUM = "bohemia";
 
         /// <summary>
-        /// What the <b>opening block's</b> balls are made of (#258): glass bubbles rather than the moulded
-        /// vinyl every other block hangs. A property of the block exactly as the music is — the material
-        /// changes when the chapter does and not when the level does — and stated once here so the five
-        /// designs cannot drift apart.
+        /// WHAT EACH CHAPTER'S BALLS ARE MADE OF. A property of the <b>block</b> exactly as the music is — the
+        /// material changes when the chapter does and not when the level does — and stated once per block here
+        /// so a block's ten designs cannot drift apart.
         /// <para>
-        /// The Meadow is where it goes because it is where a player starts. The game is called Bubble Shooter
-        /// and its own 3D wordmark stands in the front end swept in glass; a first chapter of vinyl beach
-        /// balls promises a different game from the one the title card just showed. The blocks after it keep
-        /// the vinyl, which is what makes this a <i>choice</i> a chapter makes rather than a new default —
-        /// and the vinyl ball is still the one a level that says nothing gets.
+        /// Since #272's eight styles landed there are ten materials and nine chapters, so <b>every chapter now
+        /// hangs a different one</b> and the material is as strong a chapter marker as the scene and the piece
+        /// of music. Each is placed where it works rather than where it sounds good: two of the eight are
+        /// scene-bound for reasons measured in their own issues, and both are placed accordingly.
         /// </para>
         /// <para>
-        /// The Meadow is also the honest place to try it: the transparency costs about 10 % of a frame at
-        /// 4K-class fill (the figures are under "Ball rendering" in <c>docs/rendering.md</c>), and the opening
-        /// block hangs the smallest clusters in the campaign — 385 balls at the top of it, against the
-        /// Quarry's 959.
+        /// <b>The moulded vinyl beach ball is the one style the campaign no longer hangs</b>, and that is the
+        /// deliberate cost of nine chapters and ten materials. It remains what everything unauthored draws —
+        /// the map editor, the Testbed, the front end's own preview, and any level that says nothing — so it
+        /// has not left the game, only the campaign. Putting it back is one line: give a chapter
+        /// <c>BallStyle.Beach</c> and that chapter's own style loses its only home.
+        /// </para>
+        /// <para>
+        /// The costs are all measured against the same control and are under "Ball rendering" in
+        /// <c>docs/rendering.md</c>. Only the bubble is dearer than the vinyl it replaces (about 10 % of a
+        /// frame at 4K-class fill); every other style here is <i>cheaper</i>, so this table is close to free
+        /// and in places a saving — which is why the densest chapters can carry what they carry.
+        /// </para>
+        /// </summary>
+
+        /// <summary>
+        /// <b>The Meadow — glass bubbles</b> (#258), and the one entry that predates the rest. The Meadow is
+        /// where it goes because it is where a player starts: the game is called Bubble Shooter and its own 3D
+        /// wordmark stands in the front end swept in glass, so a first chapter of anything else promises a
+        /// different game from the one the title card just showed.
+        /// <para>
+        /// It is also the honest place for the one expensive style: the transparency costs about 10 % of a
+        /// frame at 4K-class fill, and the opening block hangs the smallest clusters in the campaign — 385
+        /// balls at the top of it, against the Quarry's 959.
         /// </para>
         /// </summary>
         private const BallStyle BALLS_MEADOW = BallStyle.Bubble;
+
+        /// <summary>
+        /// <b>The Gallery — wound wool</b> (#311). The savanna is warm and golden and the block is ten drawn
+        /// pictures; wool is the only soft material in the set, and a picture built out of yarn reads as
+        /// something made by hand, which is what a wall of drawn symbols already is. It is also the gentlest
+        /// step after the opening chapter's glass, which suits the second chapter's place on the ramp.
+        /// </summary>
+        private const BallStyle BALLS_GALLERY = BallStyle.Wool;
+
+        /// <summary>
+        /// <b>The Coil — polished marble</b> (#305). The desert's block hangs everything on slender links, and
+        /// marble is the material that reads as <i>mass</i>: a coiled column of polished stone standing in
+        /// sand is a monument, and the weight is what makes the slenderness alarming rather than merely thin.
+        /// </summary>
+        private const BallStyle BALLS_COIL = BallStyle.Marble;
+
+        /// <summary>
+        /// <b>The Tower — frosted ice</b> (#307). Mountains, violet dusk, and a block whose layouts are deeper
+        /// than the camera frames. Ice is the obvious material for the altitude, and the one whose read is
+        /// light carried <i>through</i> the ball — which the mountains' low sun behind a tall cluster gives it
+        /// more of than any other chapter.
+        /// </summary>
+        private const BallStyle BALLS_TOWER = BallStyle.Ice;
+
+        /// <summary>
+        /// <b>The Reveal — molten crust</b> (#310). The cavern is the campaign's dark chapter and the block is
+        /// built on a thing standing hidden inside another thing; lava is the material that <i>emits</i>, so
+        /// the inner shape glows through the outer one instead of being lost in the dark. It is the nearest
+        /// this campaign has to the volcano the style was designed for — #295's volcano block, if it lands,
+        /// has the better claim and this is the entry to move.
+        /// </summary>
+        private const BallStyle BALLS_REVEAL = BallStyle.Lava;
+
+        /// <summary>
+        /// <b>The Quarry — anodised metal</b> (#306). A quarry on the moon is a chapter about extracted ore,
+        /// and this is the style whose colour <i>is</i> its reflectance — thirteen alloys rather than thirteen
+        /// mirrors. The scene matters and not just the theme: metal goes flat on a bright featureless dome
+        /// because a mirror ball has nothing to reflect but a gradient, and the moon's lit surface and hard
+        /// shadow give it something. It is also the cheapest style in the set on the densest block in the
+        /// campaign, which is not a coincidence worth wasting.
+        /// </summary>
+        private const BallStyle BALLS_QUARRY = BallStyle.Metal;
+
+        /// <summary>
+        /// <b>The Nebula — plasma orbs</b> (#309). Deep space is where a style whose colour lives entirely in
+        /// emission belongs: the dome contributes nothing, so a material that makes its own light is the only
+        /// one that gains from being out there rather than merely surviving it. It is also the one style that
+        /// is <i>alive</i> without anything happening, which is the right note for the chapter the campaign
+        /// now ends on.
+        /// <para>
+        /// Note the inverse trap: the metal must NOT go here. A mirror in deep space reflects nothing and every
+        /// ball comes out a flat coloured circle, which is the same fault #258 measured on the film.
+        /// </para>
+        /// </summary>
+        private const BallStyle BALLS_NEBULA = BallStyle.Plasma;
+
+        /// <summary>
+        /// <b>The Arcade — cut gems</b> (#308). The neon city is the one scene that carries its own point
+        /// lights, and a faceted stone is the material with most to do with them: every facet catches a
+        /// different sign, so a cluster glitters in the colours of the street rather than of the sky. An
+        /// arcade full of jewels is also the block's own register — five hollow pixel-art solids, played for
+        /// spectacle.
+        /// </summary>
+        private const BallStyle BALLS_ARCADE = BallStyle.Gem;
+
+        /// <summary>
+        /// <b>The Spectrum — crackled porcelain</b> (#312). This block sweeps one hue family through a whole
+        /// level, so it wants the material that shows a hue best, and a deep glaze over a body is exactly
+        /// that: the colour sits under a coat rather than on a surface, which is what makes a single family
+        /// read as a range instead of as one flat note. The city at dawn is cool and hard, and so is this.
+        /// </summary>
+        private const BallStyle BALLS_SPECTRUM = BallStyle.Porcelain;
 
         /// <summary>Where the levels are written. Set once in <see cref="Main"/>, read by everything below.</summary>
         private static string _outDir;
@@ -1002,6 +1091,7 @@ namespace BS3D.Tools.LevelGen
                 Scene = scene,
                 Sky = sky,
                 Music = music,
+                Balls = BALLS_GALLERY,
                 Shots = shots,
                 CeilingStep = ceilingStep,
                 OccupiedBlock = (x, z, i, d) => OnWall(x, z, i, d, width, grid, out _, out _),
@@ -1603,6 +1693,7 @@ namespace BS3D.Tools.LevelGen
             Shots = 56,
             CeilingStep = 8,
             Music = MUSIC_QUARRY,
+                Balls = BALLS_QUARRY,
             Occupied = (r, ang, i, depth) => r <= 4.5f,
             //Blocked on the raw indices rather than on the centred position: the blocks are meant to be
             //lattice-aligned, and the half-cell stagger between levels is the packing showing through.
@@ -1750,6 +1841,7 @@ namespace BS3D.Tools.LevelGen
             //block's premise. See the play order for the whole of it.
             Sky = 8,
             Music = MUSIC_TOWER,
+                Balls = BALLS_TOWER,
             Shots = 44,
             CeilingStep = 9,
             Occupied = CrownOccupied,
@@ -2547,6 +2639,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Moon,
             Sky = 13,
             Music = MUSIC_QUARRY,
+                Balls = BALLS_QUARRY,
             Shots = 60,
             CeilingStep = 6,
             //Stepped, so the silhouette is not another cylinder and the lower steps are reachable early
@@ -2581,6 +2674,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Moon,
             Sky = 13,
             Music = MUSIC_QUARRY,
+                Balls = BALLS_QUARRY,
             Shots = 60,
             CeilingStep = 5,
             Occupied = (r, ang, i, depth) => r <= 5.5f,
@@ -2631,6 +2725,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Moon,
             Sky = 13,
             Music = MUSIC_QUARRY,
+                Balls = BALLS_QUARRY,
             //Prism's pair of numbers: ten steps of ceiling against the ten empty field levels under a six-deep
             //layout, so the budget and the descent run out together. 465 balls against Prism's 351 and six
             //colours against five is where the difficulty is — 7.8 balls a shot, between Static's 6.2 and
@@ -2712,6 +2807,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Moon,
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
+                Balls = BALLS_QUARRY,
             //About six shots buy a pillar; the spec prices the whole level at about 1.4 shots a group,
             //the friendliest in the block, which is what makes the smallest cluster its natural opener
             Shots = 42,
@@ -2824,6 +2920,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Moon,
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
+                Balls = BALLS_QUARRY,
             //Sixty-four and not the fifty-six this was priced at, which measured the level at exactly
             //1.00 shots a standing group - the tool's own stated floor, where "a design under 1 with no
             //cascade in it cannot be finished". This one HAS cascades and is built of nothing else (a
@@ -2976,6 +3073,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Moon,
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
+                Balls = BALLS_QUARRY,
             Shots = 58,
             CeilingStep = 6,
             OccupiedBlock = (x, z, i, depth) => FaultBody(x, z, i) != 0,
@@ -3096,6 +3194,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Moon,
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
+                Balls = BALLS_QUARRY,
             Shots = 60,
             CeilingStep = 6,
             OccupiedBlock = (x, z, i, depth) => CribCourse(x, z, i),
@@ -3193,6 +3292,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Moon,
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
+                Balls = BALLS_QUARRY,
             Shots = 60,
             CeilingStep = 7,
             OccupiedBlock = (x, z, i, depth) => HighwallBench(x, z, i),
@@ -3324,6 +3424,7 @@ namespace BS3D.Tools.LevelGen
             //measured pairing (see Crown) and a block is one place at one hour.
             Sky = 8,
             Music = MUSIC_TOWER,
+                Balls = BALLS_TOWER,
             Shots = 90,
             CeilingStep = 5,
             //Five cells across, against the pack's eleven. Twenty-four levels of a thirteen-wide disc would
@@ -3416,6 +3517,7 @@ namespace BS3D.Tools.LevelGen
             //what the settings row cycles from (SceneRenderer.ReplacesSky, #142).
             Sky = 13,
             Music = MUSIC_REVEAL,
+                Balls = BALLS_REVEAL,
             Shots = 48,
             CeilingStep = 8,
             Occupied = (r, ang, i, depth) => SphereDistance(r, i, depth) <= ONION_RADIUS,
@@ -3499,6 +3601,7 @@ namespace BS3D.Tools.LevelGen
             //Inert in the cavern (SceneRenderer.ReplacesSky, #142); the block's number, as Onion states it
             Sky = 13,
             Music = MUSIC_REVEAL,
+                Balls = BALLS_REVEAL,
             Shots = 56,
             //TWELVE since #239, where it was nine, and it is the block's difficulty CURVE rather than this
             //level's own taste. Measured on the running game - the cluster's lowest ball at the start against
@@ -3567,6 +3670,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Cavern,
             Sky = 13,
             Music = MUSIC_REVEAL,
+                Balls = BALLS_REVEAL,
             //The slowest ceiling in the block, because this is the one level whose payoff has to be LOOKED at to
             //be got: the picture is the reward and it arrives late. Fifteen stone groups and the frond, so 36
             //shots is a little over two a group.
@@ -3628,6 +3732,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Cavern,
             Sky = 13,
             Music = MUSIC_REVEAL,
+                Balls = BALLS_REVEAL,
             //Five colours is the hardest draw in the block and this is its last level. A clean clear is 18 to 22
             //shots, so 36 puts four stars at about 0.6 of the budget.
             Shots = 36,
@@ -3685,6 +3790,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Cavern,
             Sky = 13,
             Music = MUSIC_REVEAL,
+                Balls = BALLS_REVEAL,
             //The finest grain in the block - panes of a dozen rather than plates - so the longest budget of the
             //five, and it closes the block on it
             Shots = 58,
@@ -3760,6 +3866,7 @@ namespace BS3D.Tools.LevelGen
             //Inert in the cavern (SceneRenderer.ReplacesSky, #142); the block's number, as Onion states it
             Sky = 13,
             Music = MUSIC_REVEAL,
+                Balls = BALLS_REVEAL,
             Shots = 42,
             CeilingStep = 8,
             OccupiedBlock = (x, z, i, depth) => SparkPart(x, z, i) != 0,
@@ -3917,6 +4024,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Cavern,
             Sky = 13,
             Music = MUSIC_REVEAL,
+                Balls = BALLS_REVEAL,
             Shots = 52,
             CeilingStep = 10,
             OccupiedBlock = (x, z, i, depth) => GrottoPart(x, z, i, depth) != 0,
@@ -4095,6 +4203,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Cavern,
             Sky = 13,
             Music = MUSIC_REVEAL,
+                Balls = BALLS_REVEAL,
             Shots = 44,
             CeilingStep = 8,
             OccupiedBlock = (x, z, i, depth) => ScalesPart(x, z, i) != 0,
@@ -4212,6 +4321,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Cavern,
             Sky = 13,
             Music = MUSIC_REVEAL,
+                Balls = BALLS_REVEAL,
             Shots = 54,
             CeilingStep = 10,
             OccupiedBlock = (x, z, i, depth) => ShipPart(x, z, i, depth) != 0,
@@ -4334,6 +4444,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Cavern,
             Sky = 13,
             Music = MUSIC_REVEAL,
+                Balls = BALLS_REVEAL,
             Shots = 48,
             CeilingStep = 9,
             Occupied = (r, ang, i, depth) => SpringPart(r, ang, i, depth) != 0,
@@ -4474,6 +4585,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Mountain,
             Sky = 8,
             Music = MUSIC_TOWER,
+                Balls = BALLS_TOWER,
             Shots = 80,
             CeilingStep = 6,
             Occupied = (r, ang, i, depth) => r <= HornRim(i),
@@ -4526,6 +4638,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Mountain,
             Sky = 8,
             Music = MUSIC_TOWER,
+                Balls = BALLS_TOWER,
             Shots = 66,
             CeilingStep = 5,
             Occupied = (r, ang, i, depth) => HelixStrand(r, ang, i) != 0 || HelixRung(r, ang, i, depth),
@@ -4594,6 +4707,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Mountain,
             Sky = 8,
             Music = MUSIC_TOWER,
+                Balls = BALLS_TOWER,
             Shots = 78,
             CeilingStep = 6,
             OccupiedBlock = (x, z, i, depth) => LeanRadius(x, z, i, depth) <= LEAN_RADIUS,
@@ -4663,6 +4777,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Mountain,
             Sky = 8,
             Music = MUSIC_TOWER,
+                Balls = BALLS_TOWER,
             Shots = 78,
             CeilingStep = 5,
             //A course is a centred square, so the one span test serves both indices
@@ -4822,6 +4937,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Mountain,
             Sky = 8,
             Music = MUSIC_TOWER,
+                Balls = BALLS_TOWER,
             Shots = 72,
             CeilingStep = 6,
             Occupied = (r, ang, i, depth) => SpyglassOccupied(r, i),
@@ -4920,6 +5036,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Mountain,
             Sky = 8,
             Music = MUSIC_TOWER,
+                Balls = BALLS_TOWER,
             Shots = 84,
             CeilingStep = 5,
             OccupiedBlock = (x, z, i, depth) =>
@@ -5044,6 +5161,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Mountain,
             Sky = 8,
             Music = MUSIC_TOWER,
+                Balls = BALLS_TOWER,
             Shots = 86,
             CeilingStep = 5,
             OccupiedBlock = (x, z, i, depth) => OrganChest(x, z, i) || OrganPipe(x, z, i, out _, out _),
@@ -5182,6 +5300,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Mountain,
             Sky = 8,
             Music = MUSIC_TOWER,
+                Balls = BALLS_TOWER,
             Shots = 74,
             //#288: 6 until the owner reported nearly every shot ending in "The cluster reached the line", and
             //this one is not a tight margin - the two clocks disagreed outright, the fault LevelGen's own
@@ -5449,6 +5568,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Desert,
             Sky = DUNES_SKY,
             Music = MUSIC_COIL,
+                Balls = BALLS_COIL,
             Shots = 40,
             CeilingStep = 8,
             Occupied = (r, ang, i, depth) => RopeStrand(r, ang, i) != 0,
@@ -5505,6 +5625,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Desert,
             Sky = DUNES_SKY,
             Music = MUSIC_COIL,
+                Balls = BALLS_COIL,
             Shots = 44,
             CeilingStep = 8,
             Occupied = (r, ang, i, depth) => r <= MINARET_CORE || MinaretRamp(r, ang, i),
@@ -5552,6 +5673,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Desert,
             Sky = DUNES_SKY,
             Music = MUSIC_COIL,
+                Balls = BALLS_COIL,
             Shots = 48,
             CeilingStep = 7,
             Occupied = (r, ang, i, depth) =>
@@ -5606,6 +5728,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Desert,
             Sky = DUNES_SKY,
             Music = MUSIC_COIL,
+                Balls = BALLS_COIL,
             Shots = 52,
             CeilingStep = 7,
             OccupiedBlock = (x, z, i, depth) => PendulumRope(x, z, i) != 0 || PendulumBulb(x, z, i),
@@ -5666,6 +5789,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Desert,
             Sky = DUNES_SKY,
             Music = MUSIC_COIL,
+                Balls = BALLS_COIL,
             Shots = 50,
             CeilingStep = 6,
             Occupied = (r, ang, i, depth) => KnotDistance(r, ang, i, depth, out _) <= KNOT_TUBE,
@@ -5807,6 +5931,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Desert,
             Sky = DUNES_SKY,
             Music = MUSIC_COIL,
+                Balls = BALLS_COIL,
             Shots = 42,
             CeilingStep = 8,
             OccupiedBlock = (x, z, i, depth) =>
@@ -5977,6 +6102,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Desert,
             Sky = DUNES_SKY,
             Music = MUSIC_COIL,
+                Balls = BALLS_COIL,
             Shots = 46,
             CeilingStep = 7,
             Occupied = (r, ang, i, depth) =>
@@ -6159,6 +6285,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Desert,
             Sky = DUNES_SKY,
             Music = MUSIC_COIL,
+                Balls = BALLS_COIL,
             Shots = 46,
             CeilingStep = 7,
             OccupiedBlock = (x, z, i, depth) =>
@@ -6332,6 +6459,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Desert,
             Sky = DUNES_SKY,
             Music = MUSIC_COIL,
+                Balls = BALLS_COIL,
             Shots = 46,
             CeilingStep = 7,
             OccupiedBlock = (x, z, i, depth) =>
@@ -6507,6 +6635,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Desert,
             Sky = DUNES_SKY,
             Music = MUSIC_COIL,
+                Balls = BALLS_COIL,
             //The block's ceiling: the biggest grid, the most members and seven colours, so the budget is the
             //loosest here and still the one that has to be spent in the right order
             Shots = 48,
@@ -6684,6 +6813,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Space,
             Sky = NEBULA_SKY,
             Music = MUSIC_NEBULA,
+                Balls = BALLS_NEBULA,
             Shots = 56,
             CeilingStep = 6,
             Occupied = (r, ang, i, depth) =>
@@ -6721,6 +6851,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Space,
             Sky = NEBULA_SKY,
             Music = MUSIC_NEBULA,
+                Balls = BALLS_NEBULA,
             Shots = 64,
             CeilingStep = 6,
             Occupied = (r, ang, i, depth) => VortexWall(r, ang, i, depth),
@@ -6756,6 +6887,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Space,
             Sky = NEBULA_SKY,
             Music = MUSIC_NEBULA,
+                Balls = BALLS_NEBULA,
             Shots = 72,
             CeilingStep = 5,
             Occupied = (r, ang, i, depth) => CarouselRail(r, ang, i) != 0 || CarouselDeck(r, i, depth),
@@ -6798,6 +6930,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Space,
             Sky = NEBULA_SKY,
             Music = MUSIC_NEBULA,
+                Balls = BALLS_NEBULA,
             Shots = 54,
             CeilingStep = 5,
             Occupied = (r, ang, i, depth) =>
@@ -6850,6 +6983,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Space,
             Sky = NEBULA_SKY,
             Music = MUSIC_NEBULA,
+                Balls = BALLS_NEBULA,
             Shots = 54,
             CeilingStep = 4,
             Occupied = (r, ang, i, depth) => GarlandStrand(r, ang, i, depth) != 0,
@@ -6936,6 +7070,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Space,
             Sky = NEBULA_SKY,
             Music = MUSIC_NEBULA,
+                Balls = BALLS_NEBULA,
             Shots = 56,
             CeilingStep = 6,
             OccupiedBlock = SailOccupied,
@@ -7077,6 +7212,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Space,
             Sky = NEBULA_SKY,
             Music = MUSIC_NEBULA,
+                Balls = BALLS_NEBULA,
             Shots = 58,
             CeilingStep = 5,
             Occupied = AnalemmaOccupied,
@@ -7247,6 +7383,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Space,
             Sky = NEBULA_SKY,
             Music = MUSIC_NEBULA,
+                Balls = BALLS_NEBULA,
             Shots = 60,
             CeilingStep = 5,
             OccupiedBlock = BinaryOccupied,
@@ -7413,6 +7550,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Space,
             Sky = NEBULA_SKY,
             Music = MUSIC_NEBULA,
+                Balls = BALLS_NEBULA,
             Shots = 54,
             CeilingStep = 4,
             OccupiedBlock = KeplerOccupied,
@@ -7547,6 +7685,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Space,
             Sky = NEBULA_SKY,
             Music = MUSIC_NEBULA,
+                Balls = BALLS_NEBULA,
             Shots = 72,
             //#288: 6 until the owner reported never clearing this level. Six bought twelve descents, 7.20 of
             //the 7.57 this field starts with, ending the level 0.37 above the line - under the 0.82 the swing
@@ -7770,6 +7909,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.NeonCity,
             Sky = ARCADE_SKY,
             Music = MUSIC_ARCADE,
+                Balls = BALLS_ARCADE,
             Shots = 56,
             //#288: 8 until the owner reported this level among the four that lose to the line. Eight left 1.18
             //over the line at the end (5.38 clearance, seven descents, 4.20), which clears the 0.82 the swing
@@ -7820,6 +7960,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.NeonCity,
             Sky = ARCADE_SKY,
             Music = MUSIC_ARCADE,
+                Balls = BALLS_ARCADE,
             Shots = 52,
             CeilingStep = 7,
             OccupiedBlock = (x, z, i, depth) => ZigguratCourseWall(x, z, i),
@@ -7861,6 +8002,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.NeonCity,
             Sky = ARCADE_SKY,
             Music = MUSIC_ARCADE,
+                Balls = BALLS_ARCADE,
             Shots = 60,
             CeilingStep = 8,
             Occupied = (r, ang, i, depth) => ReelShell(r, i, depth),
@@ -7901,6 +8043,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.NeonCity,
             Sky = ARCADE_SKY,
             Music = MUSIC_ARCADE,
+                Balls = BALLS_ARCADE,
             Shots = 52,
             CeilingStep = 6,
             Occupied = (r, ang, i, depth) => DonutShell(r, i, depth),
@@ -7943,6 +8086,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.NeonCity,
             Sky = ARCADE_SKY,
             Music = MUSIC_ARCADE,
+                Balls = BALLS_ARCADE,
             Shots = 52,
             //14, not the 9 it shipped with (#260): the globe hangs deep, so the fit leaves its lowest ball
             //only ~3.96 above the death line, and at a step every 9 landings the 52-shot budget spends ~5.8
@@ -8103,6 +8247,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.NeonCity,
             Sky = ARCADE_SKY,
             Music = MUSIC_ARCADE,
+                Balls = BALLS_ARCADE,
             Shots = 56,
             //#288: 9 until the owner reported this level losing to the line rather than to the budget. Ghost
             //has the block's SMALLEST clearance - GHOST_DEPTH 14 in ARCADE_FIELD 18 leaves four empty levels,
@@ -8314,6 +8459,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.NeonCity,
             Sky = ARCADE_SKY,
             Music = MUSIC_ARCADE,
+                Balls = BALLS_ARCADE,
             Shots = 60,
             CeilingStep = 12,
             OccupiedBlock = (x, z, i, depth) => CabinetShell(x, z, i),
@@ -8454,6 +8600,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.NeonCity,
             Sky = ARCADE_SKY,
             Music = MUSIC_ARCADE,
+                Balls = BALLS_ARCADE,
             Shots = 58,
             CeilingStep = 10,
             OccupiedBlock = (x, z, i, depth) => TetraShell(x, z, i),
@@ -8661,6 +8808,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.NeonCity,
             Sky = ARCADE_SKY,
             Music = MUSIC_ARCADE,
+                Balls = BALLS_ARCADE,
             Shots = 56,
             CeilingStep = 8,
             OccupiedBlock = (x, z, i, depth) => GizaCourse(x, z, i),
@@ -8877,6 +9025,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.NeonCity,
             Sky = ARCADE_SKY,
             Music = MUSIC_ARCADE,
+                Balls = BALLS_ARCADE,
             Shots = 58,
             CeilingStep = 8,
             Occupied = (r, ang, i, depth) => TrophyShell(r, ang, i),
@@ -9030,6 +9179,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SPECTRUM_SCENE,
             Sky = SPECTRUM_SKY,
             Music = MUSIC_SPECTRUM,
+                Balls = BALLS_SPECTRUM,
             Shots = 40,
             CeilingStep = 6,
             Occupied = (r, ang, i, depth) => r <= IcicleRadius(i, depth),
@@ -9072,6 +9222,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SPECTRUM_SCENE,
             Sky = SPECTRUM_SKY,
             Music = MUSIC_SPECTRUM,
+                Balls = BALLS_SPECTRUM,
             Shots = 56,
             CeilingStep = 5,
             Occupied = (r, ang, i, depth) => r <= KilnRadius(i, depth),
@@ -9121,6 +9272,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SPECTRUM_SCENE,
             Sky = SPECTRUM_SKY,
             Music = MUSIC_SPECTRUM,
+                Balls = BALLS_SPECTRUM,
             Shots = 52,
             CeilingStep = 5,
             Occupied = (r, ang, i, depth) => TrellisRibbon(r, ang, i) != 0,
@@ -9163,6 +9315,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SPECTRUM_SCENE,
             Sky = SPECTRUM_SKY,
             Music = MUSIC_SPECTRUM,
+                Balls = BALLS_SPECTRUM,
             Shots = 48,
             CeilingStep = 6,
             Occupied = (r, ang, i, depth) => r <= HourglassRadius(i, depth),
@@ -9215,6 +9368,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SPECTRUM_SCENE,
             Sky = SPECTRUM_SKY,
             Music = MUSIC_SPECTRUM,
+                Balls = BALLS_SPECTRUM,
             Shots = 52,
             CeilingStep = 4,
             Occupied = (r, ang, i, depth) => TurbineCore(r) || TurbineBlade(r, ang, i) != 0,
@@ -9414,6 +9568,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SPECTRUM_SCENE,
             Sky = SPECTRUM_SKY,
             Music = MUSIC_SPECTRUM,
+                Balls = BALLS_SPECTRUM,
             Shots = 50,
             CeilingStep = 5,
             Occupied = TotemOccupied,
@@ -9573,6 +9728,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SPECTRUM_SCENE,
             Sky = SPECTRUM_SKY,
             Music = MUSIC_SPECTRUM,
+                Balls = BALLS_SPECTRUM,
             Shots = 52,
             CeilingStep = 4,
             Occupied = PineconeOccupied,
@@ -9723,6 +9879,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SPECTRUM_SCENE,
             Sky = SPECTRUM_SKY,
             Music = MUSIC_SPECTRUM,
+                Balls = BALLS_SPECTRUM,
             Shots = 44,
             CeilingStep = 6,
             OccupiedBlock = (x, z, i, depth) => BoltOccupied(x, z, LevelsBelowGlass(i, depth)),
@@ -9865,6 +10022,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SPECTRUM_SCENE,
             Sky = SPECTRUM_SKY,
             Music = MUSIC_SPECTRUM,
+                Balls = BALLS_SPECTRUM,
             Shots = 54,
             CeilingStep = 5,
             Occupied = GirandoleOccupied,
@@ -9997,6 +10155,7 @@ namespace BS3D.Tools.LevelGen
             Scene = SPECTRUM_SCENE,
             Sky = SPECTRUM_SKY,
             Music = MUSIC_SPECTRUM,
+                Balls = BALLS_SPECTRUM,
             Shots = 48,
             CeilingStep = 4,
             OccupiedBlock = (x, z, i, depth) => PleatOccupied(x, z, LevelsBelowGlass(i, depth)),
@@ -12964,14 +13123,20 @@ namespace BS3D.Tools.LevelGen
             /// <summary>
             /// What the level's balls are made of, written into <c>Level.Balls</c> (#258) — and a property of
             /// the <b>block</b> for <see cref="Music"/>'s reason: the material changes when the chapter does,
-            /// not when the level does. <see cref="DescribeBlock"/> reports it and says so when a block's five
+            /// not when the level does. <see cref="DescribeBlock"/> reports it and says so when a block's ten
             /// disagree.
             /// <para>
-            /// Left null — which is every block but the opening one — the level says nothing about its balls
-            /// and every consumer draws the moulded vinyl beach ball. Absent and "beach" mean the same thing to
-            /// a reader, so the writer omits the field rather than stating the default (<c>Level.Balls</c> is
-            /// nullable and <c>WhenWritingNull</c> drops it), and forty of the forty-five shipped files are
-            /// byte-for-byte what they were before this existed.
+            /// <b>Every block states one now</b>, and each states a different one — see the table of
+            /// <c>BALLS_*</c> constants at the top of this file for which chapter hangs what and why. It was
+            /// the opening block alone until #272's eight styles landed, and the campaign is where they are
+            /// spent: nine chapters, nine materials.
+            /// </para>
+            /// <para>
+            /// Left null the level says nothing about its balls and every consumer draws the moulded vinyl
+            /// beach ball — which no shipped level does any more, though it is still what the map editor, the
+            /// Testbed and any unauthored map get. Absent and "beach" mean the same thing to a reader, so the
+            /// writer omits the field rather than stating the default (<c>Level.Balls</c> is nullable and
+            /// <c>WhenWritingNull</c> drops it).
             /// </para>
             /// </summary>
             public BallStyle? Balls;

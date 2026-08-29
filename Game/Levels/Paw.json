@@ -6,6 +6,7 @@
   "sky": 14,
   "scene": "savanna",
   "music": "mural",
+  "balls": "wool",
   "map": {
     "sx": 15,
     "sz": 15,

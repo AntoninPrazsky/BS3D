@@ -6,6 +6,7 @@
   "sky": 13,
   "scene": "cavern",
   "music": "nocturne",
+  "balls": "lava",
   "map": {
     "sx": 15,
     "sz": 15,
