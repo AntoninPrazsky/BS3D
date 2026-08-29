@@ -72,7 +72,18 @@ namespace Prazsky.BS3D.GameStructure
         /// one, and costs it none of the film's transparency machinery.
         /// </para>
         /// </summary>
-        Ice = 5
+        Ice = 5,
+
+        /// <summary>
+        /// Cut gem (#308): a brilliant-cut stone in the type colour — flat faces each catching the light on
+        /// their own, deep absorbed colour in the body, and a bright girdle where a real stone's total internal
+        /// reflection piles light along the rim.
+        /// <para>
+        /// The faces are <b>shaded and never built</b>: the sphere keeps its exact silhouette, because a coarse
+        /// enough mesh to show real facets shows a polygonal outline too, and no shading fixes that (#271).
+        /// </para>
+        /// </summary>
+        Gem = 6
     }
 
     /// <summary>
@@ -127,6 +138,12 @@ namespace Prazsky.BS3D.GameStructure
                 case "frost":
                 case "frosted":
                     style = BallStyle.Ice;
+                    return true;
+
+                case "gem":
+                case "crystal":
+                case "diamond":
+                    style = BallStyle.Gem;
                     return true;
 
                 default:
