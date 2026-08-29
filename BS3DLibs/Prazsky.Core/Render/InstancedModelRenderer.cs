@@ -120,6 +120,9 @@ namespace Prazsky.Core.Render
         private EffectParameter _iceCrackFrequencyParam;
         private EffectParameter _iceCrackWidthParam;
         private EffectParameter _iceRimParam;
+        private EffectParameter _gemFacetCountParam;
+        private EffectParameter _gemFacetDepthParam;
+        private EffectParameter _gemAbsorptionParam;
         private EffectTechnique _cityTechnique;
         private EffectParameter _cityWindowBrightnessParam;
 
@@ -497,6 +500,24 @@ namespace Prazsky.Core.Render
         public float IceRim { get; set; } = 0.5f;
 
         /// <summary>
+        /// How finely a <see cref="BallShading.Gem"/>'s object-space direction is quantized, and so how many
+        /// faces the stone is cut into. Each step up adds a shell of lattice directions.
+        /// </summary>
+        public float GemFacetCount { get; set; } = 2f;
+
+        /// <summary>
+        /// How hard the facet height field drives the shading normal towards its own face. The mesh is never
+        /// touched — the silhouette stays a circle, which is #271's ruling.
+        /// </summary>
+        public float GemFacetDepth { get; set; } = 1.4f;
+
+        /// <summary>
+        /// How deeply a gem absorbs its own colour along the view, so the stone is darkest where it is
+        /// thickest. It decides whether the four dark types stay apart from one another.
+        /// </summary>
+        public float GemAbsorption { get; set; } = 1.1f;
+
+        /// <summary>
         /// How much of its own color the surface radiates, independent of any light falling on it.
         /// Deliberately not occluded: a light source buried inside a pile is the one that should still
         /// show, glowing out past its neighbors.
@@ -809,6 +830,9 @@ namespace Prazsky.Core.Render
             _iceCrackFrequencyParam = _effect.Parameters["IceCrackFrequency"];
             _iceCrackWidthParam = _effect.Parameters["IceCrackWidth"];
             _iceRimParam = _effect.Parameters["IceRim"];
+            _gemFacetCountParam = _effect.Parameters["GemFacetCount"];
+            _gemFacetDepthParam = _effect.Parameters["GemFacetDepth"];
+            _gemAbsorptionParam = _effect.Parameters["GemAbsorption"];
             _cityTechnique = _effect.Techniques["InstancedCity"];
             _cityWindowBrightnessParam = _effect.Parameters["CityWindowBrightness"];
             _cityWindowTimeParam = _effect.Parameters["CityWindowTime"];
@@ -871,6 +895,7 @@ namespace Prazsky.Core.Render
             "InstancedModelWool",     //BallShading.Wool
             "InstancedModelMetal",    //BallShading.Metal
             "InstancedModelIce",      //BallShading.Ice
+            "InstancedModelGem",      //BallShading.Gem
         };
 
         /// <summary>
@@ -1161,6 +1186,12 @@ namespace Prazsky.Core.Render
                         _bubbleFilmThicknessParam.SetValue(BubbleFilmThickness);
                         _bubbleTintStrengthParam.SetValue(BubbleTintStrength);
                         _bubbleBodyOpacityParam.SetValue(BubbleBodyOpacity);
+                        break;
+
+                    case BallShading.Gem:
+                        _gemFacetCountParam.SetValue(GemFacetCount);
+                        _gemFacetDepthParam.SetValue(GemFacetDepth);
+                        _gemAbsorptionParam.SetValue(GemAbsorption);
                         break;
 
                     case BallShading.Ice:

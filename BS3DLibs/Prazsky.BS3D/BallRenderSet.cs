@@ -466,6 +466,37 @@ namespace Prazsky.BS3D
         /// </summary>
         private const float ICE_EMISSION = 0.44f;
 
+        /// <summary>
+        /// How finely a gem's direction is quantized (#308), and so how many faces the stone is cut into. Two
+        /// is a chunky brilliant, which is what a ball a few dozen pixels across can actually show: at four the
+        /// faces are smaller than the band-limit can resolve and the stone smooths back into a sphere anyway,
+        /// so the extra faces cost arithmetic and buy nothing.
+        /// </summary>
+        private const float GEM_FACET_COUNT = 2f;
+
+        /// <summary>
+        /// How hard the height field drives the shading normal onto its own face. Under about 0.5 the faces
+        /// only bend the light and the stone reads as dimpled rather than cut; this is as flat as it can be
+        /// made without touching the mesh, which #271 forbids.
+        /// </summary>
+        private const float GEM_FACET_DEPTH = 1.4f;
+
+        /// <summary>
+        /// How deeply a gem absorbs its own colour along the view — the figure the thirteen colours are spent
+        /// on here. It is what makes the stone read as something with a <i>volume</i> rather than a painted
+        /// shell, and the reason it needs defending is the dark end: absorption tuned for the bright hues takes
+        /// Type8, Type10, Type12 and Type13 to the same near-black, four of thirteen lost at once. The answer
+        /// is <c>GemBodyFloor</c> in the shader, not a smaller figure here.
+        /// </summary>
+        private const float GEM_ABSORPTION = 1.1f;
+
+        /// <summary>
+        /// How much of its own colour a gem radiates. Low, like the metal's: a stone this bright already
+        /// carries its hue in the girdle and the absorbed body, and a strong self-glow fills the faces in and
+        /// takes the cut with it.
+        /// </summary>
+        private const float GEM_EMISSION = 0.22f;
+
         #endregion
 
         #region Neighbour-based ambient occlusion (issue #40)
@@ -707,6 +738,13 @@ namespace Prazsky.BS3D
                         renderer.BubbleBodyOpacity = BUBBLE_BODY_OPACITY;
                         break;
 
+                    case BallStyle.Gem:
+                        renderer.EmissiveStrength = GEM_EMISSION;
+                        renderer.GemFacetCount = GEM_FACET_COUNT;
+                        renderer.GemFacetDepth = GEM_FACET_DEPTH;
+                        renderer.GemAbsorption = GEM_ABSORPTION;
+                        break;
+
                     case BallStyle.Ice:
                         renderer.EmissiveStrength = ICE_EMISSION;
                         renderer.TranslucencyStrength = ICE_TRANSLUCENCY;
@@ -766,6 +804,7 @@ namespace Prazsky.BS3D
             BallStyle.Wool => BallShading.Wool,
             BallStyle.Metal => BallShading.Metal,
             BallStyle.Ice => BallShading.Ice,
+            BallStyle.Gem => BallShading.Gem,
 
             //EXHAUSTIVE, AND IT THROWS RATHER THAN FALLING BACK, because the fallback here cost a whole
             //style once (#307): this read "_ => BallShading.Vinyl", the ice was added everywhere else and

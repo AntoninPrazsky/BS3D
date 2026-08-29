@@ -2832,3 +2832,21 @@ Používá `AddLight` i `AddSceneLights` přesně jako `ShadePixel`, takže ohe�
 **Změřeno:** vinyl 622,2 / 621,3 proti ledu 633,0 / 628,8 — **o 1,5 % levnější**, proti bublině, která stojí 8–10 % navíc. To je ta neprůhlednost, jak se vyplácí.
 
 **Nic dalšího si neberu.** Volné: #308 drahokam, #309 plazma, #310 láva, #312 porcelán.
+
+**Dodatek (2026-08-29) — #308 broušený drahokam hotový. Nese ZÁSADNÍ technické omezení, které je potřeba znát před návrhem každého dalšího stylu.**
+
+Fasety jsou **stínované, nikdy stavěné** — to je ruling #271, ne preference. #231 nasekalo trofej na 24 segmentů s plochými normálami a majitel řekl, že pohár má být *plynulý bez ostrých hran*: „*the intent of 'crystal sharp' was never to see the sharp edges*". Při dost hrubém dělení jde do hranatosti **silueta**, a **žádné stínování hranatý obrys neopraví**. `SphereMesh` je nedotčený.
+
+**⚠⚠ A faseta MUSÍ být výškové pole, což je omezení, ne volba stylu. Tohle si přečti, než budeš navrhovat další styl:**
+
+> **Pixel shader tady NEUMÍ otočit vektor z objektového prostoru do světového.** Instance streamy nenesou tangenty a rotace objekt→svět se do téhle fáze nedostane — přesně proto existuje `PerturbNormalFromHeight`. Takže „přichytni objektovou normálu k nejbližší fasetě a stínuj s ní" **nejde napsat**: ten přichycený vektor se nemá jak dostat domů. Napsat jde **skalár** závislý na objektovém směru, jehož gradient si `PerturbNormalFromHeight` vezme ve **screen** space — a tím tu transformaci udělá zadarmo.
+
+Ten skalár je tady vzdálenost povrchu od roviny fasety, do které pixel patří: hladký uvnitř plochy, skokový mezi plochami, a jeho gradient míří po normále té plochy. **Tohle vylučuje celou rodinu jinak samozřejmých konstrukcí** — počítej s tím u #309/#310/#312.
+
+Na kouli to navíc vychází geometricky poctivě: broušená koule by opravdu ploché plochy v těch normálách měla. Problém trofeje byl, že její profil koule není.
+
+Dvě další čísla: `GemBodyFloor` pod pohlcenou barvou, protože absorpce naladěná na jasné odstíny stáhne Type8, 10, 12 a 13 do stejné skoro-černé (čtyři ze třinácti naráz), a **fade zpátky na hladkou kouli** s rostoucím footprintem — kvantované normály dělají tvrdé hrany ve **screen** space tam, kde žádná geometrická hrana není, a tvrdé stínovací hrany aliasují. `GEM_FACET_COUNT` je 2 ze stejného band-limit důvodu, jaký nesou brus kovu a prameny vlny: při 4 jsou plochy pod tím, co koule pár desítek pixelů široká rozliší, takže stojí aritmetiku a nekupují nic.
+
+**Změřeno:** vinyl 621,4 / 621,4 proti drahokamu 635,3 / 632,0 — **o 2,0 % levnější**.
+
+**Nemapované styly:** `ShadingOf` jsem tentokrát nezapomněl (viz #307). Zbývá #309, #310, #312.

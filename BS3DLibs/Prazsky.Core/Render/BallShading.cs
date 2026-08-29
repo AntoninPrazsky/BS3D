@@ -84,6 +84,18 @@ namespace Prazsky.Core.Render
         /// cannot see the level through, where the film is a hollow thing you can.
         /// </para>
         /// </summary>
-        Ice = 5
+        Ice = 5,
+
+        /// <summary>
+        /// Cut gem (#308): a brilliant-cut stone in the type colour, with flat faces that catch the light
+        /// separately and a bright girdle at the rim. Drawn by <c>InstancedModelGem</c>.
+        /// <para>
+        /// <b>The facets are shaded, never built</b> — #271's ruling, since no shading fixes a faceted
+        /// silhouette. The mesh is untouched and the faceting is a height field, which is also the only way it
+        /// <i>can</i> be written: a pixel shader here cannot rotate a vector from object space into world
+        /// space, but a scalar handed to <c>PerturbNormalFromHeight</c> gets that mapping for free.
+        /// </para>
+        /// </summary>
+        Gem = 6
     }
 }
