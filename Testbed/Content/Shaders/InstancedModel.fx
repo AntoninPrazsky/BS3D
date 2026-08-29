@@ -2782,6 +2782,180 @@ technique InstancedModelLava
     }
 };
 
+//===================================================================================================
+//CRACKLED PORCELAIN (#312): a glazed ceramic sphere - a deep, wet-looking coloured glaze over a white
+//ceramic body, crazed all over with the fine hairline network an old glaze develops. Hard, cool and
+//expensive-looking, and THE PATTERN IS THE TELL: a crackle net is instantly readable as ceramic and as
+//nothing else.
+//
+//WHAT MAKES IT PORCELAIN RATHER THAN A SHINY BALL is the GLAZE DEPTH - the colour appears to sit
+//slightly BELOW the surface, because the glaze is a clear layer over it. Two lobes do that: a very tight
+//bright one for the glaze's own face, and the diffuse body underneath it. It is one of the cheapest
+//convincing material tricks there is, and it is the whole difference between this and painted plastic.
+//There is NO RELIEF: a fired glaze is glass-smooth, so like the marble this style spends the vinyl's
+//moulding budget elsewhere.
+//
+//HOW IT STAYS APART FROM THE TWO STYLES IT NEIGHBOURS, which is a real risk with nine of them:
+//  - Against the MARBLE (also opaque, also hard, also polished, also object-space patterned): marble's
+//    figure is BROAD SOFT VEINS in a lighter tint; this is a FINE DARK HAIRLINE NET. Marble's specular
+//    is a hard surface highlight; this is a coat over a body.
+//  - Against the ICE (which uses the same SeamLine): ice cracks are BRIGHT, because they are internal
+//    faces catching light inside a translucent solid. These are gaps in an opaque glaze.
+//
+//THE 8-BALL, AND THIS TIME THE ANSWER IS AN INVERSION RATHER THAN A FLOOR. Dark cracks on a black glaze
+//are no cracks at all, and the normalise-to-peak trick the plasma and the lava use does not help here
+//because a crack is not an emission. So the crack's tone FOLLOWS THE GLAZE'S OWN LUMINANCE and crosses
+//over: a bright glaze is crazed with DARKER lines, a dark one with LIGHTER ones. That is not a fudge -
+//it is what contrast against a body means, stated once instead of thirteen times.
+//
+//AND THE CRACKS CUT A GROOVE AS WELL AS TAKING A TONE, because #305 and #311 established that a figure
+//in the colour alone can be swamped by the shading while one in the normal cannot. The groove is very
+//shallow - a crack in a glaze is a parting, not a channel - but it is what keeps the net readable on the
+//tints where the tone step is smallest.
+//===================================================================================================
+
+//Wave count of the crazing over the ball. The highest of any figure in this file, because craquelure IS
+//fine - but still bounded by what a ball a few dozen pixels across can resolve, which is the lesson the
+//metal's brush recorded at the cost of an invisible one.
+float PorcelainCrackFrequency;
+
+//How wide a hairline is. The thinnest in the file: a crack in a glaze has no area at all, and a wide one
+//reads as a broken egg rather than as an antique.
+float PorcelainCrackWidth;
+
+//How deep and wet the glaze looks - how much of the environment its face mirrors. The one figure the C#
+//side states, because it is what decides whether a dark glaze under a bright dome washes out to sky.
+float PorcelainGlaze;
+
+//The crazing's line directions and their ratios, and the wander that keeps the net off the great circles
+//three plain sine fields would cut. The lava paid for that lesson; craquelure is even less forgiving,
+//since a REGULAR crack net reads as a printed pattern instantly.
+static const float3 PorcelainCrackA = float3(0.74, 0.44, -0.51);
+static const float3 PorcelainCrackB = float3(-0.36, 0.85, 0.38);
+static const float3 PorcelainCrackC = float3(0.50, -0.40, 0.77);
+static const float2 PorcelainCrackRatio = float2(1.33, 1.87);
+static const float PorcelainWander = 0.22;
+static const float PorcelainWanderFrequency = 3.3;
+
+//What a crack does to the glaze's colour at the BRIGHT end and at the DARK end - see the header. The
+//crossover is on the glaze's own luminance, so it is one rule and not a table of thirteen.
+static const float PorcelainCrackDark = 0.30;
+static const float PorcelainCrackLight = 2.60;
+static const float PorcelainCrackCrossoverLow = 0.05;
+static const float PorcelainCrackCrossoverHigh = 0.35;
+
+//How deep a crack parts the glaze. Very shallow: it is there so the net survives on the tints where the
+//tone step is smallest, not to be seen as relief.
+static const float PorcelainCrackDepth = 0.007;
+
+//The glaze's own face: a tight bright lobe over the body, which is what puts the colour UNDER a surface
+//rather than on it.
+static const float PorcelainGloss = 210.0;
+static const float PorcelainGlossStrength = 1.1;
+
+//What the body under the glaze does with light: a normal diffuse ceramic, with the broad highlight cut
+//back because the glaze above it answers that instead.
+static const float PorcelainHighlight = 0.3;
+
+float4 PorcelainPS(PatternVertexShaderOutput input) : COLOR
+{
+    float radius = max(length(input.ObjectPosition), 1e-5);
+    float3 direction = input.ObjectPosition / radius;
+
+    //Contract point 1.
+    float dissolveNoise = DissolveNoise(floor(input.Position.xy / DissolvePixelSize));
+    clip(input.Dissolve >= 0 ? dissolveNoise - input.Dissolve : -input.Dissolve - dissolveNoise);
+
+    float footprint = (length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition))) / radius;
+
+    //The wander first, for the reason the lava's header gives at length: three sine fields on a sphere cut
+    //great circles, and a regular net reads as a printed pattern rather than as a glaze that has crazed.
+    float3 wander = float3(
+        ReliefOctave(direction, PorcelainCrackB, PorcelainWanderFrequency, footprint),
+        ReliefOctave(direction, PorcelainCrackC, PorcelainWanderFrequency * 1.19, footprint),
+        ReliefOctave(direction, PorcelainCrackA, PorcelainWanderFrequency * 0.81, footprint)) * PorcelainWander;
+
+    //The crazing itself, in OBJECT space (contract point 6): the net is IN the glaze and turns with it.
+    float3 crackPosition = direction + wander;
+
+    float craze = saturate(
+        SeamLine(crackPosition, PorcelainCrackA, PorcelainCrackFrequency, PorcelainCrackWidth, footprint)
+        + SeamLine(crackPosition, PorcelainCrackB, PorcelainCrackFrequency * PorcelainCrackRatio.x, PorcelainCrackWidth, footprint)
+        + SeamLine(crackPosition, PorcelainCrackC, PorcelainCrackFrequency * PorcelainCrackRatio.y, PorcelainCrackWidth, footprint));
+
+    float3 primary = SrgbToLinear(PatternPrimaryColor);
+
+    //THE INVERSION: a bright glaze is crazed with darker lines and a dark one with lighter ones, crossing
+    //over on the glaze's own luminance. One rule, not thirteen constants - see the header.
+    float glazeLuminance = dot(primary, float3(0.2126, 0.7152, 0.0722));
+    float crackTone = lerp(PorcelainCrackLight, PorcelainCrackDark,
+        smoothstep(PorcelainCrackCrossoverLow, PorcelainCrackCrossoverHigh, glazeLuminance));
+
+    float3 color = primary * lerp(1.0, crackTone, craze);
+
+    //...and the groove, so the net is a figure in the NORMAL as well as in the colour (#305, #311). Shallow
+    //on purpose: a crack in a glaze is a parting, not a channel.
+    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, -craze * PorcelainCrackDepth);
+
+    //The body under the glaze: an ordinary diffuse ceramic, its own broad highlight cut back because the
+    //glaze's face answers that instead. Smooth, because a fired glaze is glass.
+    SurfaceSpecular surface;
+    surface.Highlight = PorcelainHighlight;
+    surface.Environment = PorcelainGlaze;
+    surface.Smoothness = 1;
+
+    //A crack sees less sky than the face around it, which is what makes the net read even where the tone
+    //step is small.
+    float cavity = 1 - 0.35 * craze;
+
+    float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(color, 1), 1, cavity, surface);
+
+    float occlusion = SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
+
+    //THE GLAZE'S OWN FACE, and the whole of what puts the colour under a surface rather than on it: a
+    //tight bright lobe sitting ON TOP of a body that is already shaded. Taken off the SMOOTH normal and
+    //not the crazed one, deliberately - the glaze is continuous over a hairline crack, and a highlight
+    //that broke at every crack would say the surface was chipped rather than crazed.
+    float3 towardsKey = normalize(KeyLightPosition - input.WorldPosition);
+    float3 eyeVector = normalize(EyePosition - input.WorldPosition);
+    float3 halfway = normalize(towardsKey + eyeVector);
+
+    shaded.rgb += DirLight0SpecularColor * PorcelainGlossStrength
+        * pow(saturate(dot(normalize(input.WorldNormal), halfway)), PorcelainGloss) * occlusion;
+
+    //Contract point 2.
+    float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
+
+    shaded.rgb += primary * EmissiveStrength * lerp(1 - PulseDepth, 1, beat);
+
+    //Contract point 3, both meanings, PatternPS's arithmetic.
+    [branch]
+    if (RippleStrength > 0)
+    {
+        float amount = abs(input.Ripple);
+        float peak = max(primary.r, max(primary.g, primary.b));
+
+        float3 lit = shaded.rgb + lerp(primary / max(peak, 1e-3), 1.0, RippleWhiten) * (RippleStrength * amount);
+        float3 alarmed = lerp(shaded.rgb, RippleAlarmColor * RippleAlarmBrightness, amount * RippleAlarmCoverage);
+
+        shaded.rgb = input.Ripple < 0 ? alarmed : lit;
+    }
+
+    //Contract point 5.
+    shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
+
+    return ApplyKillPlaneFade(shaded, input.WorldPosition);
+}
+
+technique InstancedModelPorcelain
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL PatternVS();
+        PixelShader = compile PS_SHADERMODEL PorcelainPS();
+    }
+};
+
 //Detail texturing: a texture that only modulates the existing material colors
 //(DetailStrength 0 = untextured look), mapped either through the model's own UVs
 //(InstancedModelDetailUV — required for objects that move, or the texture would swim

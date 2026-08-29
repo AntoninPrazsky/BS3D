@@ -129,6 +129,9 @@ namespace Prazsky.Core.Render
         private EffectParameter _lavaSeamFrequencyParam;
         private EffectParameter _lavaSeamWidthParam;
         private EffectParameter _lavaGlowParam;
+        private EffectParameter _porcelainCrackFrequencyParam;
+        private EffectParameter _porcelainCrackWidthParam;
+        private EffectParameter _porcelainGlazeParam;
         private EffectTechnique _cityTechnique;
         private EffectParameter _cityWindowBrightnessParam;
 
@@ -561,6 +564,25 @@ namespace Prazsky.Core.Render
         public float LavaGlow { get; set; } = 2.6f;
 
         /// <summary>
+        /// Wave count of a <see cref="BallShading.Porcelain"/> ball's crazing — the finest figure in this
+        /// file, since craquelure <i>is</i> fine, but still bounded by what a ball a few dozen pixels across
+        /// can resolve.
+        /// </summary>
+        public float PorcelainCrackFrequency { get; set; } = 13f;
+
+        /// <summary>
+        /// How wide a hairline is. The thinnest in the file: a crack in a glaze has no area at all, and a wide
+        /// one reads as a broken egg rather than an antique.
+        /// </summary>
+        public float PorcelainCrackWidth { get; set; } = 0.045f;
+
+        /// <summary>
+        /// How deep and wet the glaze looks — how much of the environment its face mirrors. It decides whether
+        /// a dark glaze under a bright dome washes out to sky colour.
+        /// </summary>
+        public float PorcelainGlaze { get; set; } = 0.9f;
+
+        /// <summary>
         /// How much of its own color the surface radiates, independent of any light falling on it.
         /// Deliberately not occluded: a light source buried inside a pile is the one that should still
         /// show, glowing out past its neighbors.
@@ -882,6 +904,9 @@ namespace Prazsky.Core.Render
             _lavaSeamFrequencyParam = _effect.Parameters["LavaSeamFrequency"];
             _lavaSeamWidthParam = _effect.Parameters["LavaSeamWidth"];
             _lavaGlowParam = _effect.Parameters["LavaGlow"];
+            _porcelainCrackFrequencyParam = _effect.Parameters["PorcelainCrackFrequency"];
+            _porcelainCrackWidthParam = _effect.Parameters["PorcelainCrackWidth"];
+            _porcelainGlazeParam = _effect.Parameters["PorcelainGlaze"];
             _cityTechnique = _effect.Techniques["InstancedCity"];
             _cityWindowBrightnessParam = _effect.Parameters["CityWindowBrightness"];
             _cityWindowTimeParam = _effect.Parameters["CityWindowTime"];
@@ -947,6 +972,7 @@ namespace Prazsky.Core.Render
             "InstancedModelGem",      //BallShading.Gem
             "InstancedModelPlasma",   //BallShading.Plasma
             "InstancedModelLava",     //BallShading.Lava
+            "InstancedModelPorcelain",//BallShading.Porcelain
         };
 
         /// <summary>
@@ -1237,6 +1263,12 @@ namespace Prazsky.Core.Render
                         _bubbleFilmThicknessParam.SetValue(BubbleFilmThickness);
                         _bubbleTintStrengthParam.SetValue(BubbleTintStrength);
                         _bubbleBodyOpacityParam.SetValue(BubbleBodyOpacity);
+                        break;
+
+                    case BallShading.Porcelain:
+                        _porcelainCrackFrequencyParam.SetValue(PorcelainCrackFrequency);
+                        _porcelainCrackWidthParam.SetValue(PorcelainCrackWidth);
+                        _porcelainGlazeParam.SetValue(PorcelainGlaze);
                         break;
 
                     case BallShading.Lava:

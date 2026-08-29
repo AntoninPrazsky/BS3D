@@ -551,6 +551,34 @@ namespace Prazsky.BS3D
         /// </summary>
         private const float LAVA_EMISSION = 0f;
 
+        /// <summary>
+        /// Wave count of a porcelain ball's crazing (#312) — the finest figure of any style here, because
+        /// craquelure <i>is</i> fine. Still bounded by what a ball a few dozen pixels across can resolve, which
+        /// is the lesson <see cref="METAL_BRUSH_FREQUENCY"/> paid for with an invisible one.
+        /// </summary>
+        private const float PORCELAIN_CRACK_FREQUENCY = 10f;
+
+        /// <summary>
+        /// How wide a hairline is — the thinnest in the set, and a third of the lava's seam. A crack in a glaze
+        /// has no area at all; a wide one reads as a broken egg rather than as an antique.
+        /// </summary>
+        private const float PORCELAIN_CRACK_WIDTH = 0.13f;
+
+        /// <summary>
+        /// How deep and wet the glaze looks. It is the figure to watch on a bright dome: a glaze reflection is
+        /// a dielectric coat and not a mirror, so the metal's brightness-not-colour departure is probably not
+        /// needed here — but a dark glaze under a bright sky is where a strong coat can wash a whole ball to
+        /// sky colour, and that is the case to check before raising it.
+        /// </summary>
+        private const float PORCELAIN_GLAZE = 0.9f;
+
+        /// <summary>
+        /// How much of its own colour a porcelain ball radiates. Between the marble's and the vinyl's: a glaze
+        /// carries a glow better than bare stone because the coat scatters it, but it has a bright specular of
+        /// its own and does not need the emission to be seen.
+        /// </summary>
+        private const float PORCELAIN_EMISSION = 0.36f;
+
         #endregion
 
         #region Neighbour-based ambient occlusion (issue #40)
@@ -792,6 +820,13 @@ namespace Prazsky.BS3D
                         renderer.BubbleBodyOpacity = BUBBLE_BODY_OPACITY;
                         break;
 
+                    case BallStyle.Porcelain:
+                        renderer.EmissiveStrength = PORCELAIN_EMISSION;
+                        renderer.PorcelainCrackFrequency = PORCELAIN_CRACK_FREQUENCY;
+                        renderer.PorcelainCrackWidth = PORCELAIN_CRACK_WIDTH;
+                        renderer.PorcelainGlaze = PORCELAIN_GLAZE;
+                        break;
+
                     case BallStyle.Lava:
                         renderer.EmissiveStrength = LAVA_EMISSION;
                         renderer.LavaSeamFrequency = LAVA_SEAM_FREQUENCY;
@@ -875,6 +910,7 @@ namespace Prazsky.BS3D
             BallStyle.Gem => BallShading.Gem,
             BallStyle.Plasma => BallShading.Plasma,
             BallStyle.Lava => BallShading.Lava,
+            BallStyle.Porcelain => BallShading.Porcelain,
 
             //EXHAUSTIVE, AND IT THROWS RATHER THAN FALLING BACK, because the fallback here cost a whole
             //style once (#307): this read "_ => BallShading.Vinyl", the ice was added everywhere else and
