@@ -36,6 +36,7 @@ $KeyMap = @{
     'F10'= @(0x79,0x44,$false)  # switch game mode (low third-person camera)
     'F12'= @(0x7B,0x58,$false)  # hide/show the text overlay
     'End'= @(0x23,0x4F,$true)   # release all balls (extended key)
+    'L'  = @(0x4C,0x26,$false)  # cycle the ball material (#318); "balls=<name>" on the command line pins one
     'Space'=@(0x20,0x39,$false) # shoot a ball
     # The walk. These are only ever useful with -Hold: tapped, they move the gun by one frame's step, which
     # is nothing. W/S walk the carriage towards the field and back, A/D orbit it around the field.

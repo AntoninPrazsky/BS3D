@@ -1,4 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
+using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
 using System.Collections.Generic;
@@ -191,6 +192,19 @@ namespace Testbed.Diagnostics
         /// </summary>
         public string Weather { get; private set; }
 
+        /// <summary>
+        /// <c>balls=&lt;name&gt;</c>: what the balls are made of, pinned over a startup level's own (#318).
+        /// Null leaves whatever the level says, which for a bare map is the moulded vinyl.
+        /// <para>
+        /// Spelled through <see cref="BallStyles.TryParse"/>, which is the same call <c>Game/Program.cs</c>
+        /// makes for its own <c>balls=</c>, so the two executables cannot drift apart on what a style is
+        /// called. It is here because the fixed camera is in THIS executable: the screenshot and benchmark
+        /// skills frame their captures with <c>campos</c>/<c>camtarget</c>, and until this argument existed
+        /// nine of the ten materials could not be put in front of that camera at all.
+        /// </para>
+        /// </summary>
+        public BallStyle? Balls { get; private set; }
+
         /// <summary><c>campos=x,y,z</c>: place the free camera at startup, so a shot can be framed from anywhere.</summary>
         public Vector3? CamPos { get; private set; }
 
@@ -252,6 +266,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("exposure=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("exposure=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedExposure)) options.Exposure = parsedExposure;
                 else if (arg.StartsWith("scene=", StringComparison.OrdinalIgnoreCase)) options.Scene = arg.Substring("scene=".Length);
                 else if (arg.StartsWith("weather=", StringComparison.OrdinalIgnoreCase)) options.Weather = arg.Substring("weather=".Length);
+                else if (arg.StartsWith("balls=", StringComparison.OrdinalIgnoreCase) && BallStyles.TryParse(arg.Substring("balls=".Length), out BallStyle parsedBalls)) options.Balls = parsedBalls;
                 else if (arg.StartsWith("width=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("width=".Length), out int parsedWidth) && parsedWidth > 0) options.WindowWidth = parsedWidth;
                 else if (arg.StartsWith("height=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("height=".Length), out int parsedHeight) && parsedHeight > 0) options.WindowHeight = parsedHeight;
                 //"campos=x,y,z" / "camtarget=x,y,z" place and aim the free camera at startup, so a screenshot

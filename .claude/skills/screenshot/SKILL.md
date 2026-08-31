@@ -46,6 +46,11 @@ command line, not by pressing NumPad1/2:
 
 - `scene=<city|sea|savanna|desert|mountain|meadow|neon|forest|space|dream|cavern|moon|outback|tropical|volcano|mars|storm>` — starting environment. Everything past `neon` sits past the end of the NumPad2 cycle, so `scene=` is the only way to reach those in the Testbed.
 - `sky=<1..20>` — starting sky dome. `ssaa=<n>`, `exposure=<f>`, `nocap`, a map path — as in `verify`.
+- `balls=<beach|bubble|marble|wool|metal|ice|gem|plasma|lava|porcelain>` — what the balls are made of (#318),
+  pinned over a loaded level's own for the run. Without it a plain map draws the vinyl and a level draws what
+  it names. **This is the only way to photograph a material on a chosen cluster under a chosen dome**, and
+  `Testbed\Maps\Thirteen_Colors.json` is the map to do it on: two rows of thirteen, the bottom one in type
+  order 1..13, so every colour of a style is in one frame.
 - `nopost` — zero the film grain and the chromatic aberration. **Pass it for any A/B of a shader change.**
   Both sit on top of every pixel after the tonemap, and the grain re-rolls per output pixel every frame, so
   two captures of an *unchanged* scene differ in over 90 % of their pixels — a diff without it says nothing
@@ -157,6 +162,7 @@ sends the keys **by scan code** (SDL reads the scan code, not the virtual key), 
 | `F10` | Toggle game mode | The low third-person gameplay camera (overrides `campos`; the fit camera takes over) |
 | `F12` | Hide/show the text overlay | A clean shot with no HUD text over the left of the frame |
 | `F5`  | Stop/start the simulation | Freeze motion for a still |
+| `L` | Cycle the ball material | Step through the ten `BallStyle`s in enum order without relaunching; `balls=` is the way to *start* on one |
 | `D1`..`D6` | View presets | Forward/Back/Left/Right/**Up (top-down)**/Down, aimed at the map centre (the cluster) |
 | `Space` | Shoot a ball | — |
 

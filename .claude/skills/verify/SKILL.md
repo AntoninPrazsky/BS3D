@@ -31,6 +31,10 @@ The exe is `Testbed\bin\net10.0-windows\Testbed.exe`. CLI arguments (any order):
 - `sky=<n>` — starts with sky dome n (1–18) instead of 1; each dome logs `[sky] Dome n: zenith …, horizon …`
   on load. Use separate launches per dome for lighting comparisons — synthetic NumPad1 presses don't register
   (numpad VKs need NumLock; only extended keys like End/F10 work via keybd_event).
+- `balls=<name>` — what the balls are made of for the run: `beach` (the vinyl, and the default for a plain
+  map), `bubble`, `marble`, `wool`, `metal`, `ice`, `gem`, `plasma`, `lava`, `porcelain` (#318). It outranks a
+  loaded level's own material; without it, a level comes up in whatever it names. `L` cycles at runtime and
+  logs `[balls] <name>`, and unlike the numpad keys it is an ordinary key, so a synthetic press does reach it.
 - `switchmap=<path>` — loads a second map on top of the running one after 10 s (logs `[switchmap] Loading …`);
   exercises the map re-loading path used by F2 and drag-and-drop. Note `Dense20x10x15.json` is completely
   full — nothing can attach to it, so to verify attachment after a switch, switch **to** a map with free cells

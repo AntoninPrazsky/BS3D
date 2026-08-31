@@ -41,6 +41,16 @@ namespace Testbed
         //bellies still darken over the stone with nothing said about it here.
         private BallRenderSet _balls;
 
+        //What those balls are MADE of (#318). The Testbed drew the moulded vinyl and only ever it, because it
+        //never set BallRenderSet.Style at all — and the fixed camera every shading judgement in this project is
+        //made through lives HERE, in campos/camtarget, not in the Game. So nine of the ten materials could not
+        //be photographed or measured the one way the notes prescribe.
+        //The style itself is BallRenderSet.Style and is not mirrored in a field: it has a getter, so the cycle
+        //reads it back off the render set rather than keeping a second copy that could disagree with what is
+        //drawn. This is only the command line's answer, held because it OUTRANKS a loaded level's own style for
+        //the whole run — the same precedence the Game gives its BallStyleOverride.
+        private BallStyle? _ballStyleFromCommandLine;
+
         //The one walk over the simulated population — the hanging cluster, the shots in flight and the released
         //balls on their way down — read off their bodies' poses, shaded by what the grid says is packed around
         //them, and offset by whatever is left of an arrival glide. ClusterCollector's since #76, along with both
@@ -502,6 +512,7 @@ namespace Testbed
             _exposure = options.Exposure > 0f ? options.Exposure : DEFAULT_EXPOSURE;
             _supersampleFactor = Math.Clamp(options.SupersampleFactor, 1, 4); //"ssaa=<n>" trades sharpness against fill rate
             _weatherFromCommandLine = options.Weather;  //Testing: "weather=<name>" pins the sky (#221)
+            _ballStyleFromCommandLine = options.Balls;  //Testing: "balls=<name>" pins the ball material (#318)
             _skyFromCommandLine = options.SkyNumber >= 1 && options.SkyNumber <= SKY_DOME_COUNT;
             if (_skyFromCommandLine) _skyModelNumber = options.SkyNumber; //Testing: "sky=<n>" on the command line picks the starting sky dome
             else if (_scene == SceneKind.Sea) _skyModelNumber = SEA_DEFAULT_SKY_DOME; //The sea scene defaults to a darker dome (unless sky= overrode it above)
@@ -576,6 +587,7 @@ namespace Testbed
                 new(mgKeys.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right, true), "Right view"),
                 new(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up, true), "Up view"),
                 new(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
+                new(mgKeys.L, SwitchBallStyle, "Cycle ball material"),
                 new(mgKeys.R, () => { _cih.RestartCamera(); _cannon.Restart(); }, "Restart camera"),
                 new(mgKeys.Space, () => ShootBall(), "Shoot ball")
             };
@@ -612,7 +624,13 @@ namespace Testbed
             //SupersampleFactor, for the same reason the scene renderer is told it below: the dissolve's dither
             //cell is authored in output pixels, so unscaled it would be averaged away by the tonemap's box filter.
             //Set at construction rather than on a hook, the factor here being fixed for the run by the command line.
-            _balls = new BallRenderSet(GraphicsDevice, _instancingEffect) { SupersampleFactor = _supersampleFactor };
+            //Style: what "balls=" said, or the vinyl every unauthored map draws — a level loaded later states its
+            //own over this unless the command line pinned one (LoadLevel), the same order the dome takes.
+            _balls = new BallRenderSet(GraphicsDevice, _instancingEffect)
+            {
+                SupersampleFactor = _supersampleFactor,
+                Style = _ballStyleFromCommandLine ?? BallStyle.Beach
+            };
 
             //The pipeline caches its parameters and sets each look value exactly once through the required
             //initializer — fixed for the whole run here (the game alone has the Settings toggles). See #74.
@@ -949,6 +967,25 @@ namespace Testbed
             ApplySkyLighting();
         }
 
+        /// <summary>
+        /// Cycles what the balls are made of (#318). <c>L</c>, which is the map editor's key for the same thing.
+        /// <para>
+        /// The cycle is <see cref="BallStyles.Next"/>'s, off the enum itself, and the current style is read back
+        /// off <see cref="BallRenderSet.Style"/> rather than from a field here — so an eleventh material joins
+        /// for free and there is no second copy of the answer to fall out of step with what is drawn.
+        /// </para>
+        /// <para>
+        /// It outranks nothing: a level loaded after this states its own material again, exactly as it restates
+        /// its dome over a dome reached with <c>NumPad1</c>.
+        /// </para>
+        /// </summary>
+        private void SwitchBallStyle()
+        {
+            _balls.Style = BallStyles.Next(_balls.Style);
+
+            Console.WriteLine($"[balls] {BallStyles.ToName(_balls.Style)}");
+        }
+
         private void SwitchScene()
         {
             //The cycle is deliberately only SceneRenderer.CycleLength long — the seven scenes a map is authored
@@ -1179,7 +1216,15 @@ namespace Testbed
             if (!_skyFromCommandLine) SetSkyDome(Math.Clamp(level.SkyDome, (byte)1, SKY_DOME_COUNT));
             else ApplySkyLighting();
 
-            Console.WriteLine($"[level] Loaded '{level.Name ?? Path.GetFileName(filePath)}': scene={_scene}, sky={_skyModelNumber}, balls={_map.GetBallsCount()}");
+            //And the material the level hangs, on the same precedence as its dome: the file's own answer unless
+            //balls= pinned one for the run (L still cycles freely from here). Until #318 this field of the level
+            //format was read by the Game and the editor and silently dropped here, so a campaign level opened in
+            //the Testbed came up in vinyl whatever it said — which is the one executable where a level is put in
+            //front of a fixed camera to be judged.
+            if (_ballStyleFromCommandLine is null) _balls.Style = level.Balls ?? BallStyle.Beach;
+
+            Console.WriteLine($"[level] Loaded '{level.Name ?? Path.GetFileName(filePath)}': scene={_scene}, sky={_skyModelNumber}, "
+                + $"balls={_map.GetBallsCount()} {BallStyles.ToName(_balls.Style)}");
         }
 
         /// <summary>
