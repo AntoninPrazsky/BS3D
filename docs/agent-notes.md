@@ -3002,3 +3002,31 @@ Devět kapitol, deset materiálů. **Každá kapitola teď věší jiný** — m
 **Co zůstává:** merge na slovo majitele; vizuální odsouhlasení čtyř nových siluet; Donut/Cube/Giraffe z #301 pořád nad prahem a nehlášené.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-31 — Claude Code (třetí zápis dne)
+
+**#295: Erupce — desátý blok kampaně, pět levelů na sopce, vložený mezi Nebulu a Arcade.** Větev `295-the-eruption`. Návrh šel turnajem (pět nezávislých konceptů bloku z pěti úhlů, tříčlenná porota: vkus majitele / proveditelnost pod sondou / odlišnost a kompozice), syntéza schválená majitelem, implementace pěti paralelními worktree nad scaffoldem se zástupnými designy.
+
+**Věta bloku: ŽHNUTÍ JE NOSNOST** — roztavené švy, límce a kanály jsou to, za co všechno visí (vždy ≥2 prokládané žhavé inkousty), studený čedič to, co padá, když se přeříznou. **A každý level se stal nějakým směrem** (roztržený bok, klesající řeka, vývrh po větru, sloup nachýlený větrem) — první blok záměrně nesymetrický kolem osy orbit. Inženýrský zákon bloku (z návrhu A, přijala ho celá porota): **odstřelitelná hmota je vždy nejníž na vlastní nosné dráze, takže její uvolnění zvedá nejnižší bod.** Zamítnuté koncepty s důvody (D-trajektorie: křivkové konzoly = kořist sondy; B-Tube: jediné AimReachability riziko; kolize A/C s Organ/Orrery/Pinwheel/Bullseye) jsou v issue.
+
+| # | level | sonda | figury |
+|---|---|---|---|
+| 71 | **Breach** — dutý kužel kráterem vzhůru (černý rým s One), bok roztržený k +X, švy gilotinují | **1/5 dvakrát** | 564 koulí, 41 skupin, 1,71 (nejjemnější), zátěž 9,7; Shots 70 / step 16 (14 by nechalo 0,96 < 1,00 — zamítnuto s výpočtem) |
+| 72 | **Causeway** — Obrův chodník vzhůru nohama: 12 hex svazků (kanónové balení doslova) v odstupňovaných hloubkách podél +X, žhavé límce = oceněné dropy | **0/5 dvakrát, vše čistí** | 440, 60 skupin, ratio 0,87 pod podlahou nástroje — kaskádová výjimka (Gantry) zapsána u Shots |
+| 73 | **Meander** — žhavá řeka v půdorysu, S-kanál mezi hrázemi, jezy; **řeka JE kotva** (jen kanál a jezy u skla, hráze visí z boků — věta bloku doslova strukturálně) | **0/5, vše čistí, čára +3,12** | 356, 36 skupin, 1,44, zátěž 7,0; amplituda 2,2→1,8 (margin lekce u konstanty) |
+| 74 | **Volley** — popelový mrak od stěny ke stěně (kotva = mrak, 121 kotev, TŘI inkousty proti diagonálnímu svaru), devět kapkovitých bomb na žhavých krcích, po větru níž | **0/5 dvakrát, vše čistí, +7,57** | 531, 36 skupin, 1,44, zátěž 4,8, 0 párů 0 recoloured; parita krků vyřešená (r 1,2 × 3 patra) |
+| 75 | **Plume** (finále) — erupční sloup celý: popelový deštník (97 kotev), pásovaný kmen se dvěma obručemi, pět spádových oblouků jen po větru, bomby na koncích | **1,1,1,0 ze 4 běhů, nikdy v klidu** | 466, 48 skupin, zátěž 5,5 (nejjemnější závěs bloku); per-level dither zamítnut s čísly (70 skupin, ratio 0,69, FAIL) |
+
+**Zapojení:** `BLOCK_SIZE` → tabulka `BLOCKS (jméno, velikost)` (rovnost bloků přestala být konstrukční zárukou, souvislost zůstává; `BlockAt` chodí kumulativně), láva → sopka podle vlastní předávací věty #310, **Reveal → vinyl** (návrat klasiky do kampaně; zároveň odchází „nejslabší párování" z #313), `MUSIC_VOLCANO = ember` (repríza srovnává poměry: pulse 3×, nocturne/bohemia/ember 2×, mural 1×). Odemykací rampa poziční — všechno za Erupcí +10 hvězd samo, poslední brána 186/376 (49,5 %). Poslední slovo kampaně zůstává Turbine — blok je VLOŽEN, ne připojen, přesně proto.
+
+**⚠ NÁLEZ DNE, a stál celé ranní „vizuální ověření": `Game\bin\net10.0-windows\` je DEBUG output** (`OutputPath bin\` platí v csproj jen pro Debug; Release jde do `bin\Release\net10.0-windows\`). Session stavěla celý den `-c Release`, takže Debug `Levels\` zůstal pět dní starý — a ranní snímky #301/#302 ukazovaly STARÉ layouty, včetně mých racionalizací („olivová čte pod neonem žlutě" — ne, to byl starý Cabinet). **Všech 14 dotčených levelů přefoceno z Release**: opravy čtou správně (Cabinet navy/hnědá/olivová zřetelně, obruče Pinecone jako letokruhy, Ghost drží siluetu), pětka Erupce čte (schodiště svazků, S na minimapě, deštník s kmenem). Paměťová poznámka capture harness opravena. Jediná otevřená vizuální otázka pro majitele: lávový styl na teplých paletách žhne hodně doběla — bílá/stříbrná/žlutá se z dálky sbíhají.
+
+**Ověřeno:** LevelGen exit 0 (95 levelů, blok 8/10 'The Eruption' Volcano sky 9 ember lava), ScoreSim exit 0, čtyři solutiony čisté, **aimcheck PASS všech pět** (čtyři sdílejí pole 15×15×18 → identický řádek, to je geometrie, ne chyba; Plume 17×17×20 working band), snímky všech pěti z Release buildu.
+
+**Finální sólo sweep (95 levelů):** pětice Erupce čte **1, 0, 0, 0, 1 z 5** (Breach a Plume po jedné vláskové prohře −1,01/−1,02, nikdy se sklem v klidu; ostatní pořadí čistí). Nad prahem 4 zůstává jen známá sestava odjinud: Amphora 4 (kalibrovaný falešný pozitiv), Giraffe 4 v klidu (#316), Cube 4 / Donut 5 (#317), Cabinet 4 (hraniční kolísač, napříč běhy 3,3,4,4) — **a Globe tentokrát 4/5 se sklem sestoupeným** (napříč běhy 2,3,3,2,4 — sedí na hraně pásma šíř, než říká ±1; druhý kolísač k vedení v patrnosti, ne k akci). 36 z 95 levelů sáhne aspoň jednou.
+
+**Co zůstává:** merge na slovo majitele; hlasitost/čitelnost lávového stylu na dálku (majitelovo oko); zvuk erupce dál čeká na hrom z #219 (`VolcanoEruption` je pořád public a nezavěšený).
+
+**Nic dalšího si neberu.**

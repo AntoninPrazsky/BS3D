@@ -566,15 +566,15 @@
       "file": "Breach.json",
       "name": "Breach",
       "block": "The Eruption",
-      "shots": 30,
+      "shots": 70,
       "minStars": 138,
-      "ceilingStep": 8
+      "ceilingStep": 16
     },
     {
       "file": "Causeway.json",
       "name": "Causeway",
       "block": "The Eruption",
-      "shots": 30,
+      "shots": 52,
       "minStars": 140,
       "ceilingStep": 8
     },
@@ -582,7 +582,7 @@
       "file": "Meander.json",
       "name": "Meander",
       "block": "The Eruption",
-      "shots": 30,
+      "shots": 52,
       "minStars": 142,
       "ceilingStep": 8
     },
@@ -590,7 +590,7 @@
       "file": "Volley.json",
       "name": "Volley",
       "block": "The Eruption",
-      "shots": 30,
+      "shots": 52,
       "minStars": 144,
       "ceilingStep": 8
     },
@@ -598,9 +598,9 @@
       "file": "Plume.json",
       "name": "Plume",
       "block": "The Eruption",
-      "shots": 30,
+      "shots": 56,
       "minStars": 146,
-      "ceilingStep": 8
+      "ceilingStep": 12
     },
     {
       "file": "Cube.json",
