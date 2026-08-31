@@ -458,18 +458,24 @@ namespace BS3D.Tools.LevelGen
             //one, and the wheel entire on the finale. No new colour is involved anywhere - a family is a
             //subset and an ordering of the fixed thirteen - and no sweep is a stack of floors, because a
             //floor of one colour is the anchor of everything under it and would end the level on one ball.
+            //(#302 added BANDED TIERS to four of these without breaking that sentence - see the block's
+            //geometry region header for the rule a tier obeys.)
             //The light ramp turns once more, and onto the same skyline: the Arcade turned it back on
             //ARTIFICIALLY over the neon city, and the step left after that is light being RECEIVED again, so
             //the campaign ends in that city at morning with its neon off - where the arena has always stood.
             //
-            //THE ORDER IS THE BLOCK'S DIFFICULTY RAMP AND IT IS A MEASURED ONE: standing groups 6, 8, 9, 10,
-            //15, 14, 19, 22, 26 and 31, i.e. 6.67, 6.50, 5.33, 4.80, 3.47, 3.14, 2.63, 2.55, 2.08 and 1.68
-            //shots a group, from a level of six huge spirals to one of 31 pieces in seven colours. #255's
-            //five were slotted by that measure and by nothing else, which is why they interleave with the
-            //first five rather than following them - and the two ends survive it untouched: the Icicle
-            //still opens the chapter, being the plainest body in it, and the Turbine still closes the
-            //campaign. The families are not what ramps - a green level is no
-            //harder than a blue one - so the order is by how finely each design's sweep cuts its body up.
+            //THE ORDER IS THE SHIPPED PLAY ORDER, AND IT STOPPED BEING THE MEASURED DIFFICULTY RAMP WITH
+            //#302. It was slotted by standing-group count (6, 8, 9, 10, 15, 14, 19, 22, 26, 31 when #255's
+            //five were interleaved), and #302 is the record of why that figure ranks the wrong quantity
+            //twice over: it says nothing about whether the remainder HANGS (the sag probe's question - four
+            //of these ten lost to gravity before the ceiling moved), and on a design with tiers it prices
+            //shots that cascade (one cleared tier orphans everything below it, so Pleat's probe runs clear
+            //on a third of the budget). Re-measured after the tiers the counts run 6, 17, 9, 35, 15, 19,
+            //26, 22, 26 and 31 - Pleat's 35 at fourth position outranks the finale - so the order no longer
+            //tracks the count, deliberately: re-slotting the chapter is a design decision the owner has not
+            //taken (and #300 already has the chapter order open). The two ends still stand: the Icicle
+            //opens, being the plainest body in it, and the Turbine still closes the campaign. The families
+            //are not what ramps - a green level is no harder than a blue one.
             //Its designs live in their own array for the same reason the Nebula's and the Arcade's do - see
             //WriteLevelSet.
             Design[] spectrum = { Icicle(), Pinecone(), Hourglass(), Pleat(), Trellis(), Bolt(), Totem(), Kiln(), Girandole(), Turbine() };
@@ -9304,6 +9310,26 @@ namespace BS3D.Tools.LevelGen
         //whose pitch is one folded period a turn puts the whole family on the anchor level in wedges, and
         //what a cut leaves behind is a screw thread that still reaches the glass. The tilt is what makes the
         //gradient 3D; the PITCH is what makes it a level.
+        //
+        //THE BANDED TIERS (#302), and how they live with the two rules above rather than overriding them.
+        //Four of the block's designs - Pinecone, Pleat, Bolt, Totem - lost to gravity after a few shots:
+        //a wound sweep makes a colour group a RIBBON of a fifth to a third of the level, so every shot was
+        //a catastrophic release, and the sheared remainder stretched past the death line with the glass at
+        //rest (the sag probe of #301 measured all four at 5 of 5 losing orders; the owner's ask was
+        //"shootable tiers"). The resolution is that A TIER IS NOT A FLOOR: the forbidden thing was always a
+        //course of ONE colour - the anchor of everything under it, gone on one ball - and every tier here
+        //is at least TWO INTERLEAVED INKS of the level's own family (the Arcade cap rule, arrived at from
+        //the other end), so no single ball can take a course and severing one is a designed multi-shot cut
+        //whose cascade is earned. Each design wears its tier as its own architecture - quartered hoops on
+        //the pinecone, guarded belts across the pleat, striped elbow plates and a quadrant-banded hex head
+        //on the bolt, sector collars at the totem's junctions - and each also SEVERS the ribbons crossing
+        //it, which is the structural half of the job: releases fell from 133-334 balls to course-sized
+        //bites on all four. Where a tier's inks would touch their own colour in the sweep, the contact is
+        //designed away (Pleat's guard courses pull the family's ends one stop in beside each belt; Totem's
+        //collars are deliberately jewellery on the pole, outside the gradient), and every stop of every
+        //family still stands on the top level - the pitch rule holds untouched. Measured after: Pinecone
+        //and Pleat and Totem read 0 of 5 losing orders with every order clearing, Bolt 1 of 5 at a
+        //hairline -1.00; the four had read 5 of 5, Bolt on its first shot.
 
         /// <summary>
         /// The block's opener and the owner's own seed: a cone of ice hanging point-down off the glass,
@@ -9689,7 +9715,12 @@ namespace BS3D.Tools.LevelGen
         /// lattice confessing, since its taxicab faces are the true close-packing planes; the SPHERE at
         /// d 14..20 on <see cref="TOTEM_SPHERE"/>; the BOX at d 21..27, a plan square of
         /// <see cref="TOTEM_BOX"/>; and the two-level TENON at <see cref="TOTEM_TENON"/>. Every junction
-        /// overlaps in plan, so the stack is one connected spine and no bead hangs off a point.
+        /// overlaps in plan, so the stack is one connected spine and no bead hangs off a point — and since
+        /// #302 every junction course IS a painted COLLAR (<see cref="TOTEM_COLLAR_DS"/>): a full disc of
+        /// 3.0 in four sectors of a ramp-neighbour pair, the shootable tiers the owner asked for. A collar
+        /// severs the two ribbons its pair excludes (the sag fix — see the constant's own comment for the
+        /// trace), is a wider plate than the necks it replaced, and cleared whole it is a deliberate
+        /// guillotine that sheds every bead below it.
         /// </para>
         /// <para>
         /// <b>The eave is the packing made visible</b> and it is the one graft in the design: the skirt
@@ -9708,17 +9739,24 @@ namespace BS3D.Tools.LevelGen
         /// measured four standing groups; <see cref="TotemColour"/> carries that finding.
         /// </para>
         /// <para>
-        /// Gate watch (#255), in the spec's order: BOX-CORNER CONNECTIVITY at d 21 first - the box's top
-        /// course must hook the sphere's last course, and it is drawn in the centred frame rather than as a
-        /// raw index range precisely so that it does. d 21 is an unshifted level, so the square is inset to
-        /// half-integers and its corners stand at r 2.12 against the sphere's closing 2.4, every one of
-        /// them under an occupied cell; the pre-authorised remedy if the report still floats four columns
-        /// is widening TOTEM_SPHERE's last entry to 2.8 rather than shaving the box. Second: the two-level
-        /// tenon is 21 cells over two levels against four stops and is the one place here the repair pass
-        /// may churn - if it does, deepen it to three levels (TOTEM_DEPTH 31 with TOTEM_FIELD_LEVELS 33,
-        /// which keeps the offset even). Third: the grafted skirt takes the widest radius to 4.2, so
-        /// occupied columns should read 2..10 on the shifted levels and 3..10 on the unshifted ones - the
-        /// margin is the diamond's, not the drum's, and taxicab 5 puts that at exactly one clear column.
+        /// Gate watch (#255), updated by #302: BOX-CORNER CONNECTIVITY at d 21 is now the collar's - the
+        /// box's top course hooks the d 20 collar (a 3.0 disc against the corners' 2.12, wider than the
+        /// sphere's closing 2.4 ever was), so the pre-authorised sphere-widening remedy was never needed
+        /// and is retired. Second: the two-level tenon is 21 cells over two levels against four stops and
+        /// is the one place here the repair pass may churn - if it does, deepen it to three levels
+        /// (TOTEM_DEPTH 31 with TOTEM_FIELD_LEVELS 33, which keeps the offset even). Third: the grafted
+        /// skirt takes the widest radius to 4.2, so occupied columns should read 2..10 on the shifted
+        /// levels and 3..10 on the unshifted ones - the margin is the diamond's, not the drum's, and
+        /// taxicab 5 puts that at exactly one clear column.
+        /// </para>
+        /// <para>
+        /// Measured (#302, with the collars): 979 balls in 26 standing groups (1.92 shots a group against
+        /// the budget of 50), 37 ceiling anchors at 26.5 each (load 34.4), margin 1, nothing alone, 8 in
+        /// pairs, 6 recoloured; largest standing groups white 184 (18 %), orange 168 (17 %), cyan 95,
+        /// red 45 - the sweep alone had white at 308 and orange at 305, each ONE ribbon the length of the
+        /// stack, and the sag probe lost 5 orders of 5 on exactly those releases (worst at shot 2, glass at
+        /// rest). With the collars it reads <b>0 of 5, the worst order clearing the level whole at shot
+        /// 21</b>, closest approach -0.59 - a transient inside the game's own allowance.
         /// </para>
         /// </summary>
         private static Design Totem() => new()
@@ -9745,7 +9783,9 @@ namespace BS3D.Tools.LevelGen
         private const byte TOTEM_FIELD_LEVELS = 32;
 
         //Where one bead ends, counted in levels below the glass: drum 0..5, octahedron 6..13, sphere
-        //14..20, box 21..27, tenon 28..29.
+        //14..20, box 21..27, tenon 28..29. Courses 6, 13, 20 and 27 are the collars now
+        //(TOTEM_COLLAR_DS), so the shapes those four would have drawn - TOTEM_DIAMOND's two end entries,
+        //TOTEM_SPHERE's last and the box's bottom course - are stated but no longer drawn.
         private const int TOTEM_DRUM_LAST = 5;
         private const int TOTEM_DIAMOND_LAST = 13;
         private const int TOTEM_SPHERE_LAST = 20;
@@ -9788,9 +9828,46 @@ namespace BS3D.Tools.LevelGen
         private const float TOTEM_SPINE = 1.4f;
         private const float TOTEM_SPINE_STEP = 3f;
 
+        //THE COLLARS (#302): the four bead junctions redrawn as full discs of one radius, each painted as
+        //four sectors of a ramp-NEIGHBOUR ink pair - the shootable tiers the owner asked for, and the sag
+        //probe's own trace is why they are here. The sweep made each of REEF's two middle stops ONE ribbon
+        //winding all thirty levels - white measured 308 balls in a single standing group and orange 305, a
+        //third of the level apiece - and every losing probe order died on the shot that took one: 306 gone
+        //in a frame, nothing orphaned, and the sheared remainder stretched a metre past the line with the
+        //glass at rest (ends 131/131, and a 131-ball release read +2.0 of clearance where the 306 read
+        //-1.0). A collar whose pair does NOT contain a colour severs that colour's ribbon at that depth, so
+        //the pairs alternate - cyan/white at d 6 and 20, orange/red at d 13 and 27 - and each colour is cut
+        //at the two collars that exclude it: the largest group falls from 308 to ~140 by arithmetic, and the
+        //measured figures are in the design's doc. What a collar buys besides the cut: it is a full disc, so
+        //clearing its four sectors is a deliberate two-ink guillotine that drops every bead below it (the
+        //pressure valve the owner's "impossible to shoot the parts off fast enough" is asking for), and at
+        //3.0 it is a wider plate than the 13-cell necks it replaces, so every junction carries more links
+        //than it did. ⚠ The pair MUST be ramp neighbours (the collar's own two inks touch along its sector
+        //seams), and a collar ink does fuse with its own colour's ribbons where they meet it - that is the
+        //"fused" half of the arithmetic above, priced in, and the reason the pairs alternate rather than
+        //repeat.
+        private static readonly int[] TOTEM_COLLAR_DS = { 6, 13, 20, 27 };
+        private const float TOTEM_COLLAR = 3.0f;
+        private const int TOTEM_COLLAR_SECTORS = 4;
+        private static readonly BallType[][] TOTEM_COLLAR_INKS =
+        {
+            new[] { BallType.Type5, BallType.Type4 },   //cyan, white  - d 6, severs orange and red there
+            new[] { BallType.Type9, BallType.Type1 },   //orange, red  - d 13, severs cyan and white
+            new[] { BallType.Type5, BallType.Type4 },   //cyan, white  - d 20
+            new[] { BallType.Type9, BallType.Type1 },   //orange, red  - d 27
+        };
+
+        /// <summary>Which collar a level is, 0..3, or -1 for none - the index into the ink table.</summary>
+        private static int TotemCollar(int d) => Array.IndexOf(TOTEM_COLLAR_DS, d);
+
         private static bool TotemOccupied(float r, float ang, int i, int depth)
         {
             int d = LevelsBelowGlass(i, depth);
+
+            //The collars replace the junction courses outright - see TOTEM_COLLAR_DS. Each sits under a
+            //course that fully covers it (skirt 4.2, diamond 3.5, sphere 3.1, box 2.2-with-corners) and
+            //over one it fully covers, so every junction still overlaps in plan and now does it wider.
+            if (TotemCollar(d) >= 0) return r <= TOTEM_COLLAR;
 
             if (d <= TOTEM_DRUM_LAST)
                 return r <= (d < TOTEM_SHOULDER_D ? TOTEM_DRUM
@@ -9833,7 +9910,15 @@ namespace BS3D.Tools.LevelGen
         //reading of the object: a totem's beads are threaded on a post, and the post is painted too.
         private static BallType TotemColour(float r, float ang, int i, int depth)
         {
-            float stops = (LevelsBelowGlass(i, depth) + TOTEM_PITCH * (WrapAngle(ang) / MathF.Tau)) / TOTEM_PER_STOP;
+            int d = LevelsBelowGlass(i, depth);
+
+            //A collar wears its own pair in four sectors, not the sweep - severing the ribbons is its whole
+            //job (see TOTEM_COLLAR_DS) and a swept collar would sever nothing
+            int collar = TotemCollar(d);
+            if (collar >= 0)
+                return TOTEM_COLLAR_INKS[collar][SectorIndex(ang, 0f, TOTEM_COLLAR_SECTORS) % 2];
+
+            float stops = (d + TOTEM_PITCH * (WrapAngle(ang) / MathF.Tau)) / TOTEM_PER_STOP;
 
             return Sweep(r <= TOTEM_SPINE ? stops + TOTEM_SPINE_STEP : stops, REEF);
         }
@@ -9879,6 +9964,19 @@ namespace BS3D.Tools.LevelGen
         /// own stripe colours, so a stop is one connected body from crown to tip and the report will show
         /// very FEW standing groups - if it shows four, the level is four shots long whatever the budget
         /// says, and the fix is to break the core's stripe rather than to spend shots.
+        /// </para>
+        /// <para>
+        /// <b>The three tiers are #302's answer to that same warning arriving in the simulation.</b> Eight
+        /// groups passed the paper reading, but the fold hands the family's middles two stops a period, so
+        /// brown and olive each stood as ONE spiral network of ~310 balls — and the sag probe lost the
+        /// level five orders of five, every one two or three such releases followed by the remainder
+        /// stretching past the line with the glass at rest (the owner's "yellow and black drag the map
+        /// down", which the arithmetic corrects to the middles). <see cref="PINECONE_TIER_LEVELS"/> holds
+        /// the fix and the reasoning; measured after it: 917 balls in <b>17 standing groups</b> (3.06
+        /// shots a group), counts 200–257 against the shipped 145–312, worst single shot 19 % against 34,
+        /// anchor load 43.6, and the probe reads <b>0 of 5 — every order clears the level</b> (twice
+        /// independently, worst dips −0.91/−0.87 inside the 1.00 allowance). Clearing a whole tier drops
+        /// everything under it in one cascade, which is the shot the level never offered before.
         /// </para>
         /// </summary>
         private static Design Pinecone() => new()
@@ -9935,6 +10033,27 @@ namespace BS3D.Tools.LevelGen
         //rather than as a stripe - and neighbouring arms, offset a stop by their index, never agree.
         private const float PINECONE_PER_STOP = 4f;
 
+        //THE TIERS (#302): three one-level courses whose colour leaves the sweep entirely, each cut into
+        //four arcs alternating the family's two END inks. The owner's "shootable tiers", and what they buy
+        //is measured in the release size: the fold hands the family's middles two stops a period, so brown
+        //and olive each stood as ONE spiral network of ~310 balls - a third of the level apiece - and all
+        //five of the probe's losing orders were two or three such releases followed by the remainder
+        //stretching past the line with the glass at rest. A colour network cannot skip a level, so one
+        //recoloured course cuts every network that crosses it; three of them turn the middles' thirds into
+        //segments a tier apart. ONE level tall, deliberately: a two-level tier of a two-ink band can weld
+        //its own blocks through the cross-level diagonal (#301's fuse, three times over), and a single
+        //level has no inside to weld through. The ENDS take the tiers because the fold already makes them
+        //the scarce pair, so the tier cells walk their counts toward the middles' rather than away. FOUR
+        //arcs, not two: a semicircle of one ink is half the premise-trap this block's header names, and at
+        //four the largest tier group is a quadrant arc a shot takes without dropping anything - clearing a
+        //WHOLE tier is the designed cascade (everything under it goes), which is exactly the "not the
+        //spiral" way of removing mass the owner asked for. Seams roll half an arc a tier so no two tiers
+        //share a boundary bearing.
+        private static readonly int[] PINECONE_TIER_LEVELS = { 6, 12, 18 };
+        private const int PINECONE_TIER_ARCS = 4;
+
+        private static readonly BallType[] PINECONE_TIER_INKS = { BallType.Type7, BallType.Type8 };   //yellow, black
+
         private static float PineconeCore(int d) =>
             PINECONE_CORE + PINECONE_SWELL
             * MathF.Sin(MathF.PI * (d - PINECONE_BODY_FIRST) / PINECONE_BODY_SPAN);
@@ -9979,6 +10098,12 @@ namespace BS3D.Tools.LevelGen
         {
             int d = LevelsBelowGlass(i, depth);
 
+            //The tiers stand outside the sweep - see PINECONE_TIER_LEVELS for what that buys and why they
+            //are one level tall and four arcs round
+            int tier = Array.IndexOf(PINECONE_TIER_LEVELS, d);
+            if (tier >= 0)
+                return PINECONE_TIER_INKS[SectorIndex(ang, tier / (2f * PINECONE_TIER_ARCS), PINECONE_TIER_ARCS) % 2];
+
             return Sweep(d / PINECONE_PER_STOP + PineconeArmIndex(ang, d), BRONZE);
         }
 
@@ -9997,39 +10122,42 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// A lightning bolt frozen mid-strike: a chamfered square column that jogs sideways at gusseted
-        /// elbows and never hangs still. Everything else in the block is a solid of revolution or a woven
-        /// surface - this is a column that refuses its own axis, and the sweep corkscrews around each
-        /// broken segment separately.
+        /// elbows and never hangs still, under its own hex HEAD since #302. Everything else in the block
+        /// is a solid of revolution or a woven surface - this is a column that refuses its own axis, and
+        /// the sweep corkscrews around each broken segment separately.
         /// <para>
         /// <b>Five segments of <see cref="BOLT_SEGMENT"/> levels</b>, their centres jogging three columns
         /// at a time (<see cref="BOLT_CENTRES"/>), each a 5x5 with the four corner cells cut - 21 cells a
         /// level, the smallest cross-section in the block and the reason this is the tightest budget of the
-        /// five.
+        /// five - hanging from a two-level chamfered 7x7 head (<see cref="BOLT_HEAD_LEVELS"/>).
         /// </para>
         /// <para>
-        /// <b>The elbows are plates, not hinges, and they carry the grafted weld knot.</b> Each jog is
-        /// taken by the LOWER segment's top two levels spread across both footprints with the corners kept,
-        /// plus a row at z 4 and z 10 across the overlap (<see cref="BOLT_KNOT"/>) - 50 to 70 cells of
-        /// socket-rich junction where a naive zigzag would leave a one-column hinge. The remedy for a
-        /// marginal sag test is therefore already built in rather than held in reserve.
+        /// <b>The elbows are plates, not hinges, and since #302 they are also the SHOOTABLE TIERS</b> the
+        /// owner's report asked for. Each jog is taken by the LOWER segment's top three levels spread
+        /// across both footprints with the corners kept, plus a row at z 4 and z 10 across the overlap
+        /// (<see cref="BOLT_KNOT"/>) - 50 to 70 cells of socket-rich junction a level. Banded in two inks
+        /// striped ACROSS the jog (<see cref="BOLT_TIER_STRIPE"/>), a plate is clearable in course-shaped
+        /// bites, it cuts the corkscrew's ribbons at every joint, either ink alone still bridges the jog -
+        /// and clearing BOTH inks of one plate is the player's own lever to drop everything below it.
         /// </para>
         /// <para>
         /// The sweep is a helicoid about the COLUMN'S OWN axis: the angle is measured from that level's
         /// segment centre, so it steps sideways with the jog and the gradient starts again round each
-        /// broken piece. A plate is coloured about the lower segment's centre, which is the segment it
-        /// belongs to. <see cref="VOLT"/> runs hot filament to cold sky and the yellow start is the
-        /// family's identity.
+        /// broken piece. <see cref="VOLT"/> runs hot filament to cold sky and the yellow start is the
+        /// family's identity; the head carries all four stops in quadrants, so the family stands whole on
+        /// the anchor.
         /// </para>
         /// <para>
-        /// Gate watch (#255), in the spec's order: LONELY BALLS on the 21-cell cross-section first - four
-        /// stops on a 16-cell perimeter is a two-cell wedge and at <see cref="BOLT_PITCH"/> about two and a
-        /// half levels tall, which sits right on the floor; if the repair pass churns, drop the pitch to
-        /// 0.04 (it keeps the silhouette) and only then widen to an unchamfered 5x5. Second: the per-segment
-        /// centre must switch exactly at the plate levels or a colour tear appears at every elbow - it does
-        /// here because <see cref="BoltCentre"/> answers for the level rather than for the segment, and one
-        /// elbow's colour columns are what confirms it. Third: VOLT ends in blue where FROST's
-        /// <see cref="Icicle"/> ends in navy, so read the two against the dawn dome at distance; if the cold
-        /// tail muddles, reorder the family to yellow, green, blue, cyan rather than changing any hue.
+        /// Measured (#302, after the head, the tiers and the two extra field levels): 1050 balls in 19
+        /// standing groups (2.32 shots a group against 44), 45 ceiling anchors at 23.3 each (load 29.6,
+        /// from 21 at 47.7 and load 64.7), margin 2, nothing alone, 0 in pairs, 0 recoloured, best single
+        /// shots 7-16 %. The sag probe read the shipped shape <b>5 of 5 losing on its FIRST shot with the
+        /// glass at rest</b> - one 167-238-ball corkscrew ribbon and the remainder through a line the
+        /// column started ~1.9 above - and reads this one <b>1 of 5 across two independent sweeps</b>
+        /// (a single hairline at exactly -1.00), the other four orders clearing the level outright.
+        /// Third of the old gate watches, still standing: VOLT ends in blue where FROST's
+        /// <see cref="Icicle"/> ends in navy, so read the two against the dawn dome at distance; if the
+        /// cold tail muddles, reorder the family to yellow, green, blue, cyan rather than changing any hue.
         /// </para>
         /// </summary>
         private static Design Bolt() => new()
@@ -10053,11 +10181,15 @@ namespace BS3D.Tools.LevelGen
             BlockColour = (x, z, i) => BoltColour(x, z, LevelsBelowGlass(i, BOLT_DEPTH)),
         };
 
-        //THE BOLT'S OWN FIGURES. Thirty levels in a field of 32: the offset is 2 and even. The column is
+        //THE BOLT'S OWN FIGURES. Thirty levels in a field of 34: the offset is 4 and even. The column is
         //drawn in the RAW frame like the Quarry's blocks, because a jog is a statement about indices.
+        //The field grew from 32 with #302's tiers, and the two levels are the fix's other half: at 32 the
+        //column's lowest ball started ~1.9 over the line, and both of the probe's remaining losing orders
+        //were an early 50-70-ball release dipping the still-full column ~3 - dead before the tiers could
+        //matter. Thirty-four starts it ~3.3 over, which is what those same dips clear.
         private const byte BOLT_GRID = 15;
         private const byte BOLT_DEPTH = 30;
-        private const byte BOLT_FIELD_LEVELS = 32;
+        private const byte BOLT_FIELD_LEVELS = 34;
 
         //The cross-section: five wide about the segment centre, z 5..9 about z 7, corners cut.
         private const int BOLT_HALF = 2;
@@ -10096,6 +10228,50 @@ namespace BS3D.Tools.LevelGen
         //two-cell wedges come out under the lonely-ball floor.
         private const float BOLT_PITCH = 0.05f;
 
+        //THE HEAD (#302): two levels of chamfered 7x7 plate at the crown, the bolt's own hex head. It is
+        //the tier the sag asked for put where a tier buys the most - at the anchor. The shank's 21-cell
+        //section was the whole bond to the glass, 47.7 balls a cell with 1002 hanging, and the probe's
+        //baseline lost all five orders ON THE FIRST SHOT with the glass at rest: one wedge release of
+        //167-238 balls (see BOLT_TIER_STRIPE for why they were that size) and the remainder stretched
+        //24-38 balls under a line the whole column starts only ~1.9 above. The head more than doubles the
+        //anchor row and carries ALL FOUR stops, so the block's own rule - every stop of the family stands
+        //on the top level - holds on the head literally. In QUADRANTS, one stop each, and not in dither
+        //blocks, which were measured first: 2x2 blocks of four inks over a chamfered 7x7 came out as 41
+        //standing groups for the whole level (1.07 shots a group - unfinishable arithmetic) with three
+        //2-ball fragments on the chamfer for the repair pass to churn on; four quadrants are four clean
+        //course-bites of ~22, and the centre row and column fall to the low side the way Pylon's cap
+        //splits.
+        private const int BOLT_HEAD_LEVELS = 2;
+        private const int BOLT_HEAD_HALF = 3;
+
+        //THE TIERS (#302): the elbow plates, recoloured. They were swept with the corkscrew like the
+        //shank, and that is what made the baseline's releases enormous - a stop's wedge welded THROUGH
+        //every plate into one ribbon spanning segments, largest standing groups 110-237 of 1002. Banded
+        //as stripes this wide along z, two inks a plate, full plate height, the plates become
+        //the shootable tiers the owner asked for: a stripe is a course-shaped bite (~40-60 balls), the
+        //corkscrew is cut at every joint (a wedge is one segment's now), and the joint stays braced on
+        //the other ink when one is cleared. The pairs alternate per plate - odd plates carry the family's
+        //ends-of-halves {yellow, cyan}, even ones {green, blue} - so no colour can bridge two joints and
+        //the longest same-colour chain is wedge + stripe + wedge across ONE plate. Severing a joint
+        //outright means clearing BOTH its inks, which is never one shot, so the one-shot gate cannot see
+        //it; done deliberately it drops everything below the joint, which is the fast mass removal the
+        //report asked for, chosen rather than suffered.
+        //
+        //ALONG Z AND NOT ALONG X, and the drop test priced both mistakes before this stuck: a jog is an
+        //x-affair, so the two footprints overlap in exactly TWO x-columns - and an x-stripe therefore owns
+        //that whole overlap whatever its width (at x/4 the owning ink's best single shot read 82 %, at x/2
+        //it read 84 %: removing it left the plate's side chunks with no path across the jog but a single
+        //parity-dependent diagonal, and everything below orphaned). A z-stripe runs the plate's full x
+        //span, overlap included, so either ink alone still bridges the jog and severing is strictly a
+        //both-inks affair - never one shot, invisible to the one-shot gate, and the deliberate two-ink
+        //unscrewing the report asked for when the player wants a joint gone.
+        private const int BOLT_TIER_STRIPE = 2;
+
+        //The two tier pairs, stated once: interleaving the family's halves keeps a tier's two inks far
+        //apart in hue - a tier reads as hardware against the gradient, not as two more of its stops.
+        private static readonly BallType[] BOLT_TIER_ODD = { VOLT[0], VOLT[2] };    //yellow, cyan
+        private static readonly BallType[] BOLT_TIER_EVEN = { VOLT[1], VOLT[3] };   //green, blue
+
         /// <summary>Which column this level's segment stands on, plates included - they belong to the segment BELOW.</summary>
         private static int BoltCentre(int d) =>
             BOLT_CENTRES[Math.Min(d / BOLT_SEGMENT, BOLT_CENTRES.Length - 1)];
@@ -10104,8 +10280,14 @@ namespace BS3D.Tools.LevelGen
         {
             int xc = BoltCentre(d);
 
-            //An elbow plate: the lower segment's top two levels, spanning both footprints with the corners
-            //KEPT, plus the knot's two rows across the overlap
+            //The head: a chamfered plate about the top segment's centre, BOLT_HEAD_HALF each way with the
+            //four extreme corners cut the way the shank's are
+            if (d < BOLT_HEAD_LEVELS)
+                return Math.Abs(x - xc) <= BOLT_HEAD_HALF && Math.Abs(z - BOLT_Z_MID) <= BOLT_HEAD_HALF
+                       && !(Math.Abs(x - xc) == BOLT_HEAD_HALF && Math.Abs(z - BOLT_Z_MID) == BOLT_HEAD_HALF);
+
+            //An elbow plate: the lower segment's top BOLT_PLATE levels, spanning both footprints with the
+            //corners KEPT, plus the knot's two rows across the overlap
             if (d >= BOLT_SEGMENT && d % BOLT_SEGMENT < BOLT_PLATE)
             {
                 int up = BoltCentre(d - BOLT_SEGMENT);
@@ -10125,6 +10307,15 @@ namespace BS3D.Tools.LevelGen
 
         private static BallType BoltColour(int x, int z, int d)
         {
+            //The head: one stop a quadrant, all four on the anchor - see BOLT_HEAD_LEVELS for why not blocks
+            if (d < BOLT_HEAD_LEVELS)
+                return VOLT[(x > BOLT_CENTRES[0] ? 1 : 0) + (z > BOLT_Z_MID ? 2 : 0)];
+
+            //A tier: stripes of the plate's ink pair running ACROSS the jog - see BOLT_TIER_STRIPE for why z
+            if (d >= BOLT_SEGMENT && d % BOLT_SEGMENT < BOLT_PLATE)
+                return Band(z / BOLT_TIER_STRIPE,
+                    (d / BOLT_SEGMENT) % 2 == 1 ? BOLT_TIER_ODD : BOLT_TIER_EVEN);
+
             //Measured from the level's OWN segment centre, which is what makes the gradient corkscrew round
             //each broken piece rather than round a line the column left behind three jogs ago
             float ang = MathF.Atan2(z - BOLT_Z_MID, x - BoltCentre(d));
@@ -10290,22 +10481,30 @@ namespace BS3D.Tools.LevelGen
         /// </para>
         /// <para>
         /// <b>Everything else about the silhouette is a countermeasure to the curtain-sag death mode</b> -
-        /// 26 levels of two-thick free-hanging wall is what killed the first Ziggurat. The two creases are
-        /// full-height folded-plate stiffeners by construction; the header is widened to
-        /// <see cref="PLEAT_HEADER"/> (the grafted eave shoulder, 1.8 rather than the drawn 1.5, so the top
-        /// course welds to the glass on a genuinely wider foot and both crease columns inherit double-width
-        /// anchors); a hem stiffens the wall at mid-height; and the two end posts run the full height so no
-        /// panel is ever a free sheet edge.
+        /// a free-hanging two-thick wall is what killed the first Ziggurat, and this level is the block's
+        /// purest case of it. The two creases are full-height folded-plate stiffeners by construction; the
+        /// header is widened to <see cref="PLEAT_HEADER"/> (the grafted eave shoulder, 1.8 rather than the
+        /// drawn 1.5, so the top course welds to the glass on a genuinely wider foot and both crease columns
+        /// inherit double-width anchors); the two end posts run the full height so no panel is ever a free
+        /// sheet edge; and since #302 the wall is twenty levels rather than twenty-six (see
+        /// <see cref="PLEAT_DEPTH"/> for the probe traces) and carries <b>two shootable belts</b> - the
+        /// owner's asked-for tiers - banded navy/magenta over guard courses (<see cref="PLEAT_TIER_FIRST"/>,
+        /// <see cref="PleatGuardCourse"/>), so a fold strip ends at a belt by construction, a course can be
+        /// taken as a course, and severing a belt drops everything under it as a designed cut.
         /// </para>
         /// <para>
-        /// Gate watch (#255), in the spec's order: THE UNSHOT SAG TEST first and before any colouring work
-        /// at all - the remedies in order are a second hem at d 19..20, then thickening the wall to 2.5.
-        /// Second: t is the arclength along the WHOLE polyline and not per segment (see
-        /// <see cref="PleatWall"/>, which answers both questions in one pass) - a per-segment t puts a
-        /// colour tear at each crease, exactly where the design promises a fold. Third: the wall's own
-        /// occupancy per level, since a 1.0 predicate can pinch where the polyline runs diagonally through
-        /// cell centres; the drawing puts three cells on the even rows and two on the odd ones, which is
-        /// clear of a pinch, but the report is what says so - relax PLEAT_THICK to 1.2 where it thins.
+        /// Measured after #302 (sag probe, three independent sweeps): <b>0 of 5 losing orders, every order
+        /// clearing the level outright</b> at shots 10-18 of 48, worst transient dip -0.05 (inside the 1.00
+        /// allowance) - against the shipped curtain's 5 of 5 with deaths at shots 1-5, mostly glass at rest,
+        /// off single releases of 133-334 balls. Now 1172 balls in 35 standing groups; the naive ratio is
+        /// 1.37 shots a group, and it is not the figure to price this level by: the belts' designed cuts
+        /// cascade (orphan drops of 34-141 a shot in the probe's own clears), which is why the probe
+        /// finishes on a third of the budget. Best single shots 4-13 %, anchor load 17.1, margin 1, nothing
+        /// alone, 0 recoloured. t is the arclength along the WHOLE polyline and not per segment (see
+        /// <see cref="PleatWall"/>) - a per-segment t puts a colour tear at each crease, exactly where the
+        /// design promises a fold. The wall's occupancy per level still bears watching if the polyline
+        /// moves: a 1.0 predicate can pinch where it runs diagonally through cell centres; the drawing puts
+        /// three cells on the even rows and two on the odd ones, which is clear of a pinch.
         /// </para>
         /// </summary>
         private static Design Pleat() => new()
@@ -10328,10 +10527,21 @@ namespace BS3D.Tools.LevelGen
             BlockColour = (x, z, i) => PleatColour(x, z, LevelsBelowGlass(i, PLEAT_DEPTH)),
         };
 
-        //THE PLEAT'S OWN FIGURES. Twenty-six levels in a field of 30: the offset is 4 and even. Drawn in the
+        //THE PLEAT'S OWN FIGURES. Twenty levels in a field of 30: the offset is 10 and even. Drawn in the
         //RAW frame, because a wall is a plan drawing and not a solid of revolution.
+        //
+        //TWENTY AND NOT THE TWENTY-SIX IT SHIPPED WITH (#302). The sag probe's trace on the shipped curtain
+        //is unambiguous: single releases of 133-334 balls - a fold stop's strip winds the full height, so
+        //one colour is a diagonal ribbon of 10-23 % of the level - and after any one of them the gashed
+        //remainder stretched past the death line, mostly with the glass at rest (5 of 5 losing orders,
+        //deaths at shots 1-5). A curtain is the block's purest case of #301's one-cell-wall finding: the
+        //wall is a sheet of BallSocket chains and every link yields a little under sustained load, so its
+        //height IS its stretch. Six levels off the bottom shortens every strip by a quarter, sheds ~330
+        //balls of the mass doing the stretching, and starts the foot 4.24 higher over the line. The fold
+        //still reads: 1.5 periods run along the POLYLINE (the horizontal axis), and twenty levels of
+        //0.04-pitch shear still rake the diagonals across all three panels.
         private const byte PLEAT_GRID = 15;
-        private const byte PLEAT_DEPTH = 26;
+        private const byte PLEAT_DEPTH = 20;
         private const byte PLEAT_FIELD_LEVELS = 30;
 
         //The plan polyline, corner by corner: (2,4) to (5,10) to (8,4) to (11,10). Three EQUAL panels, which
@@ -10340,14 +10550,55 @@ namespace BS3D.Tools.LevelGen
         private static readonly float[] PLEAT_Z = { 4f, 10f, 4f, 10f };
 
         //The wall's own thickness, the header's (grafted from 1.5, so the top course welds wider), the
-        //mid-height hem's, and the end posts' - each a plan distance to the polyline.
+        //hem's, and the end posts' - each a plan distance to the polyline. The hem sits at 14..15 of the
+        //twenty-level wall - the lower third, where it always was proportionally (12..13 of 26) - and since
+        //#302 it is the SECOND BELT: same thickness it always had, banded like the tier above it, so it
+        //costs nothing it was not already paying.
         private const float PLEAT_THICK = 1.0f;
         private const float PLEAT_HEADER = 1.8f;
         private const int PLEAT_HEADER_LAST = 1;
         private const float PLEAT_HEM = 1.4f;
-        private const int PLEAT_HEM_FIRST = 12;
-        private const int PLEAT_HEM_LAST = 13;
+        private const int PLEAT_HEM_FIRST = 14;
+        private const int PLEAT_HEM_LAST = 15;
         private const float PLEAT_POST = 1.5f;
+
+        //THE SHOOTABLE TIER (#302, the owner's own ask): a two-level belt at upper-mid height, banded in
+        //blocks of the family's two END stops - horizontal courses a player can clear as courses, so a
+        //slanted strip is no longer the only way to take mass off the curtain. It is deliberately NOT a
+        //floor of flat colour (the block's stated trap): six blocks of two interleaved inks means no single
+        //ball takes the course, the Arcade cap rule arriving on a curtain. Structurally it is a second hem
+        //(PLEAT_HEM thick), so the belt braces the wall it interrupts.
+        //
+        //⚠ THE TIER ALSO CUTS EVERY STRIP, and the cut is guaranteed by PLEAT_TIER_SHIFT rather than hoped
+        //for: the sweep below the belt is phased half a wedge on - 1/(2*4) of a turn - so a stop's strip
+        //arriving at the belt from above never continues in its own ink below it, whatever block it lands
+        //on. Without the shift a strip bridges wherever its crossing happens to hit a same-ink block (the
+        //diagonal-fuse trap of #301, in one dimension). Measured on the shipped wall, the strips were the
+        //whole disease: 133-334 balls a release; cut at both belts they shrink to a band's height.
+        //
+        //Navy and magenta, the family's two ends, because the belt has to read as a BELT against the flow -
+        //the mid-family greens would read as more aurora. Inside the belt the two ends alternate as blocks,
+        //a contact the fold itself never makes, and the one place this level trades the family-neighbours
+        //law for architecture; the block header carries the resolution.
+        private const int PLEAT_TIER_FIRST = 8;
+        private const int PLEAT_TIER_LAST = 9;
+        private const int PLEAT_TIER_BLOCKS = 6;
+        private static readonly float PLEAT_TIER_SHIFT = 1f / (2f * AURORA.Length);
+        private static readonly BallType[] PLEAT_TIER_INKS = { BallType.Type12, BallType.Type6 };   //navy, magenta
+
+        //⚠ THE GUARD COURSES, and they are what makes the belts CUT rather than WELD - measured, not
+        //reasoned: without them the probe read 3 of 5 with releases of 104-211 balls, because a belt block
+        //spans a sixth of the polyline while a sweep wedge spans about a twelfth, so the course above a
+        //navy block crosses navy somewhere over the block's span every other time - and the block welded
+        //its strip above to its strip below into exactly the mega-release the belts exist to prevent. The
+        //one course each side of each belt therefore pulls the family's two ends one step in (navy reads
+        //green, magenta reads cyan): a belt ink has nothing of its own colour to touch vertically, so every
+        //strip ends AT a belt and every belt block is its own group, by construction rather than by luck.
+        //Visually the aurora narrows to its middle hues as it approaches a belt, which reads as the belt
+        //absorbing the poles. Every contact this leaves is ramp-adjacent except the braid inside the belts.
+        private static bool PleatGuardCourse(int d) =>
+            d == PLEAT_TIER_FIRST - 1 || d == PLEAT_TIER_LAST + 1
+            || d == PLEAT_HEM_FIRST - 1 || d == PLEAT_HEM_LAST + 1;
 
         //How far round each end of the polyline the post reaches. A post is the header's treatment run the
         //whole height, so the two free vertical edges of the curtain are the two stiffest things in it.
@@ -10416,6 +10667,7 @@ namespace BS3D.Tools.LevelGen
 
             float thickness =
                 d <= PLEAT_HEADER_LAST ? PLEAT_HEADER
+                : d >= PLEAT_TIER_FIRST && d <= PLEAT_TIER_LAST ? PLEAT_HEM
                 : d >= PLEAT_HEM_FIRST && d <= PLEAT_HEM_LAST ? PLEAT_HEM
                 : PLEAT_THICK;
 
@@ -10424,12 +10676,32 @@ namespace BS3D.Tools.LevelGen
 
         //The sweep rides the WALL'S own coordinate rather than an angle: 1.5 folds along it, sheared by the
         //pitch as it falls. The creases are at t = 1/3 and 2/3, where 1.5 * t is exactly half and one whole
-        //fold period - which is what makes the colour turn round where the wall does.
+        //fold period - which is what makes the colour turn round where the wall does. The two belts take
+        //their own banding - the lower one's blocks stepped one along, so no belt column wears the same ink
+        //twice - and the sweep is phased half a wedge on below EACH belt, so a strip is cut at both; see
+        //PLEAT_TIER_FIRST for why both halves of that sentence are load-bearing.
         private static BallType PleatColour(int x, int z, int d)
         {
             PleatWall(x, z, out float t);
 
-            return Fold(PLEAT_FOLDS * t + PLEAT_PITCH * d, AURORA);
+            if (d >= PLEAT_TIER_FIRST && d <= PLEAT_TIER_LAST)
+                return Band((int)MathF.Floor(t * PLEAT_TIER_BLOCKS), PLEAT_TIER_INKS);
+
+            if (d >= PLEAT_HEM_FIRST && d <= PLEAT_HEM_LAST)
+                return Band((int)MathF.Floor(t * PLEAT_TIER_BLOCKS) + 1, PLEAT_TIER_INKS);
+
+            float shift = PLEAT_TIER_SHIFT * ((d > PLEAT_TIER_LAST ? 1 : 0) + (d > PLEAT_HEM_LAST ? 1 : 0));
+
+            BallType ink = Fold(PLEAT_FOLDS * t + PLEAT_PITCH * d + shift, AURORA);
+
+            //The guard courses pull the family's ends one step in - see PleatGuardCourse for the measured
+            //reason this is load-bearing and not a colour preference
+            if (PleatGuardCourse(d))
+                ink = ink == BallType.Type12 ? BallType.Type2    //navy -> green
+                    : ink == BallType.Type6 ? BallType.Type5     //magenta -> cyan
+                    : ink;
+
+            return ink;
         }
 
         #endregion
