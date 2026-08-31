@@ -20,6 +20,35 @@ namespace BS3D.Screens
         /// <summary>The field was emptied — which is the whole of passing a level since #111 retired the score gate.</summary>
         public readonly bool Cleared;
 
+        /// <summary>
+        /// Which level this was (#313): what the set calls it, and its 1-based place in that set. The page had
+        /// neither, so a player who had just spent several minutes on a level was told only "CLEARED" — the one
+        /// screen in the game guaranteed to be read at a level's end never said which level it was about.
+        /// <para>
+        /// Both come from <c>LevelSet.DisplayName</c> and the entry's own index, which is where the picker and
+        /// the window title already take them from, so the three cannot disagree about what a level is called.
+        /// The number is 0 and the name the built-in level's when no set was read at all.
+        /// </para>
+        /// </summary>
+        public readonly string LevelName;
+        public readonly int LevelNumber;
+
+        /// <summary>
+        /// And which level is next (#313), so the button offering it can say so. Empty when there is no next
+        /// entry — which is also when the button is absent, so the two cannot contradict each other.
+        /// <para>
+        /// Filled whenever there IS a next entry, including one still behind its star gate: the player who is
+        /// told the road is shut is exactly the player with a reason to want its name. Whether it is <i>shown</i>
+        /// is <see cref="NextLevelUnlocked"/>'s business and the page's.
+        /// </para>
+        /// <para>
+        /// The name alone and no number beside it, unlike <see cref="LevelName"/>: this one goes on a BUTTON,
+        /// where "Next: Elephant" is a thing to press and "Next: Level 14 · Elephant" is a sentence. Where the
+        /// player is in the set is already stated by the identity line above it.
+        /// </para>
+        /// </summary>
+        public readonly string NextLevelName;
+
         /// <summary>Which limit ran out, already worded for a player — empty when the level was cleared.</summary>
         public readonly string FailureText;
 
@@ -80,7 +109,9 @@ namespace BS3D.Screens
         public readonly int UnusedShotsAwarded, CompletionBonusAwarded;
 
         public LevelResult(bool cleared, string failureText, int stars, bool newBest,
+            string levelName, int levelNumber,
             bool hasNextLevel, bool nextLevelUnlocked, int nextLevelMinStars, int totalStars,
+            string nextLevelName,
             bool campaignComplete,
             bool blockComplete, string blockName, int blockNumber, int blockCount,
             int score, int matchedBalls, int orphanedBalls, int streakBonus,
@@ -88,6 +119,9 @@ namespace BS3D.Screens
         {
             Cleared = cleared;
             FailureText = failureText ?? string.Empty;
+            LevelName = levelName ?? string.Empty;
+            LevelNumber = levelNumber;
+            NextLevelName = nextLevelName ?? string.Empty;
             Stars = stars;
             NewBest = newBest;
             HasNextLevel = hasNextLevel;
@@ -124,5 +158,28 @@ namespace BS3D.Screens
         /// and nothing about how they did.
         /// </summary>
         public bool ShowsBareScore => Failed;
+
+        /// <summary>
+        /// The level's identity as one line (#313): its place and its name, or the name alone off a set, where
+        /// a bare "0." would state a fact about nothing. Empty when there is no name to say, which is the only
+        /// case the page hides the line for — <b>a failed level names itself exactly as a cleared one does</b>,
+        /// the question "which one was that" being asked at least as often after a loss.
+        /// </summary>
+        public string LevelLine =>
+            string.IsNullOrWhiteSpace(LevelName) ? string.Empty
+            : LevelNumber > 0 ? $"Level {LevelNumber} · {LevelName}"
+            : LevelName;
+
+        /// <summary>
+        /// What the button offering the next level says (#313). It named no level at all — the player committed
+        /// to starting one with nothing to want about it — and the name is the whole of the fix: "Next: Ghost"
+        /// is a reason to press, where "Next Level" is a direction.
+        /// <para>
+        /// Falls back to the bare wording rather than to an empty button if the name is somehow missing, which
+        /// keeps the label's correctness independent of the caller's filling this in.
+        /// </para>
+        /// </summary>
+        public string NextLevelLabel =>
+            string.IsNullOrWhiteSpace(NextLevelName) ? "Next Level" : $"Next: {NextLevelName}";
     }
 }

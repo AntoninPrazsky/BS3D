@@ -600,10 +600,22 @@ namespace BS3D.Screens
                 failureText: cleared ? null : FailureText(_pendingFailure),
                 stars: stars,
                 newBest: newBest,
+
+                //Which level this was (#313). LevelName is the same helper the [level] line below prints
+                //through, so the screen and the log cannot disagree; the number is the entry's own 1-based
+                //place, which is what the picker's tiles and the window title both show. Zero off a set,
+                //where there is no entry to number and LevelResult prints the name alone.
+                levelName: LevelName(_levelIndex),
+                levelNumber: Game.LevelSet != null ? _levelIndex + 1 : 0,
+
                 hasNextLevel: !lastEntry,
                 nextLevelUnlocked: !lastEntry && Game.IsLevelUnlocked(_levelIndex + 1),
                 nextLevelMinStars: lastEntry ? 0 : Game.LevelMinStars(_levelIndex + 1),
                 totalStars: Game.TotalStars,
+
+                //And which one is next, for the button that offers it. Filled whenever there IS a next entry,
+                //gate or no gate — see LevelResult: a locked next level still has a name worth wanting.
+                nextLevelName: lastEntry ? null : LevelName(_levelIndex + 1),
 
                 //"Campaign complete", read off the decision CheckLevelCleared already took rather than derived
                 //again (#215) — the confetti has been falling on it for a beat by now, and the rule that only a

@@ -1468,13 +1468,24 @@ namespace BS3D
                 PresentResult(new LevelResult(cleared: !lost,
                     failureText: lost ? "The cluster reached the line." : null,
                     stars: lost ? 0 : testStars, newBest: !lost,
+
+                    //Real entries rather than placeholders (#313), for the reason the failure text above is the
+                    //real one: this page exists to be PHOTOGRAPHED, and a stand-in of a different length is a
+                    //different layout. Two of the longest names in the shipped set, so what is looked at is the
+                    //widest the identity line and the Next button can actually get. Falls back off a set.
+                    levelName: LevelCount > 12 ? LevelDisplayName(12) : "Trilithon", levelNumber: 13,
                     hasNextLevel: true, nextLevelUnlocked: true, nextLevelMinStars: 1, totalStars: testStars,
+                    nextLevelName: LevelCount > 13 ? LevelDisplayName(13) : "Girandole",
                     campaignComplete: false,
-                    //"blockdone" borrows the third block's own name, so the milestone is looked at with a real
-                    //chapter's title in it rather than a placeholder that would read as one
+                    //"blockdone" borrows a real chapter's own name and place, so the milestone is looked at with a
+                    //real title in it rather than a placeholder that would read as one. Both DERIVED from the
+                    //same entry now: the number was a hardcoded 3 against a name taken from index 12, which was
+                    //the third block while blocks were five entries long and has been the SECOND since they grew
+                    //to ten — so the photographed page said "THE GALLERY" over "Block 3 of 9 complete", a heading
+                    //and a subtitle contradicting each other on the one screen this flag exists to look at.
                     blockComplete: _startupBlockDone,
                     blockName: _startupBlockDone ? (LevelBlockName(12) ?? "The Tower") : null,
-                    blockNumber: 3, blockCount: Math.Max(3, BlockCount),
+                    blockNumber: BlockCount > 0 ? LevelBlockNumber(12) : 3, blockCount: Math.Max(3, BlockCount),
                     score: 4820, matchedBalls: 96, orphanedBalls: 24, streakBonus: 640,
                     hadBudget: true, unusedShotsAwarded: 7, completionBonusAwarded: 350));
             }
