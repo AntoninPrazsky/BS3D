@@ -20,7 +20,7 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class ResultPage : MenuPage
     {
-        private Label _heading, _milestone, _newBest, _reason, _bareScore;
+        private Label _heading, _milestone, _levelLine, _newBest, _reason, _bareScore;
 
         //One widget per slot rather than one string of glyphs: a Label's glyphs cannot be scaled, coloured or
         //timed apart from each other, and the reveal needs all three per star (#139).
@@ -33,6 +33,12 @@ namespace BS3D.Screens
         private Label _totalValue, _unlockNote;
         private Widget _breakdown;
         private Button _retryButton, _nextLevelButton;
+
+        //The Next button's own caption, so Refresh can put the level's name on it (#313). Held rather than
+        //walked to off the Button, for the reason every other label on this page is held: the tree is built
+        //once and written to many times, and a page that searched its own widgets for a label would be doing
+        //that work on every ending.
+        private Label _nextLevelLabel;
 
         //Frozen at the end of the level. Held rather than read from the session on every showing - see
         //LevelResult for why that arithmetic has to be a snapshot.
@@ -507,6 +513,28 @@ namespace BS3D.Screens
             };
             column.Widgets.Add(_milestone);
 
+            //WHICH LEVEL THIS WAS (#313), and it is on every ending rather than only on a clear: "CLEARED" over
+            //a lit arena told a player who had just spent several minutes on a level nothing about which one it
+            //had been, and after a FAIL the question is asked at least as often. Under the milestone rather than
+            //over it, because on the one ending that shows both, the heading is the CHAPTER's name and the
+            //milestone elaborates the heading — the level is the smaller unit and follows them.
+            //
+            //MENU_TEXT_BODY at body size, and the colour is #238's ruling rather than a preference. It was
+            //MENU_TEXT_DIM in the first cut and the capture settled it in one frame: the palette's own rule for
+            //that grey is "asides, ALWAYS on a dark plate", and this page has neither a plate nor a scrim under
+            //its heading — over a bright tropical sky the line came out the least legible thing on the screen,
+            //which is the identical fault the failure reason line was photographed committing. Body brightness
+            //keeps it subordinate to the verdict above without making it an aside nobody can read.
+            _levelLine = new Label
+            {
+                Text = string.Empty,
+                Font = FontBody,
+                TextColor = BS3DGame.MENU_TEXT_BODY,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = ScaledThickness(0, 0, 0, 26),
+            };
+            column.Widgets.Add(_levelLine);
+
             //The star rating, straight under the verdict — the headline a player reads at a glance where the
             //score below is the arithmetic (#111). Set in Inter (FontStars), not the display face: Anton has
             //no ★/☆ glyphs at all, and FontStashSharp would draw blanks. Opened up so four glyphs read as a
@@ -607,7 +635,11 @@ namespace BS3D.Screens
 
             //Absent rather than disabled when there is no next level to go to or the score did not clear the
             //gate. Retry stays: it is the one thing that always makes sense at a level's end.
-            column.Widgets.Add(_nextLevelButton = MenuButton("Next Level", Game.AdvanceLevel));
+            //
+            //Its caption is written in Refresh (#313), because it NAMES the level it leads to: the player used
+            //to commit to starting one with no idea what it was called until it was already loading. The text
+            //here is only what the button reads as before any result has been presented.
+            column.Widgets.Add(_nextLevelButton = MenuButton("Next Level", Game.AdvanceLevel, out _nextLevelLabel));
 
             column.Widgets.Add(MenuButton("Main Menu", Game.EndSessionAndReturnToMainMenu));
 
@@ -734,6 +766,11 @@ namespace BS3D.Screens
                 : string.Empty;
             _milestone.Visible = _result.BlockComplete;
 
+            //And which level it was (#313) — on a clear, on a fail and on a milestone alike. Hidden only when
+            //there is no name to say at all, which off a level set is the built-in pyramid.
+            _levelLine.Text = _result.LevelLine;
+            _levelLine.Visible = _levelLine.Text.Length > 0;
+
             //Stars only on a clear, and written from the reveal clock rather than set here — see ApplyStars
             ApplyStars();
 
@@ -781,6 +818,11 @@ namespace BS3D.Screens
             //frozen frame is a thing the player cannot do, which reads as the game being broken rather than
             //as the campaign asking for more stars (the note above says that in words).
             _nextLevelButton.Visible = _result.Cleared && _result.HasNextLevel && _result.NextLevelUnlocked;
+
+            //Named, not merely offered (#313). Written whether or not it is visible: the caption is a function
+            //of the result and nothing else, so there is no state in which the button is shown carrying the
+            //previous level's successor.
+            _nextLevelLabel.Text = _result.NextLevelLabel;
 
             //And PRIMARY on a clear (#263): the player's obvious next step after winning is the next level,
             //not replaying the one they just beat, so the most likely action belongs in the most prominent
