@@ -144,7 +144,7 @@
       "block": "The Gallery",
       "shots": 46,
       "minStars": 32,
-      "ceilingStep": 8
+      "ceilingStep": 12
     },
     {
       "file": "Balloon.json",

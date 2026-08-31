@@ -1492,37 +1492,66 @@ namespace BS3D.Tools.LevelGen
         /// level = exactly the half-shift, so from the +Z opening view the shifted rows fill in every
         /// half-step and the neck's edge renders as a geometrically STRAIGHT line no bitmap can draw.
         /// <para>
-        /// Three inks in the hard grid-17 format: yellow hide (about 74 balls, 18 %, whose release orphans
-        /// the six accent groups for a 23 % worst case), brown patches and black tuft-and-hooves - all six
-        /// accents exactly 4 balls, over the pair threshold. Every riser holds Dx = 0 vertical contact
-        /// (column 5 runs rows 3-8 unbroken; column 6 bridges rows 7-9), so the staircase never relies on
-        /// parity diagonals; the 1-cell yellow neck at rows 5-6 is a 4-ball column bridged top and bottom,
-        /// the <see cref="Zebra"/>-leg precedent. The neck ink is slender but the WALL is not - the check
-        /// around it is the structure and the drawing is only paint, the block's standing answer to the
-        /// Coil rule. Warm animal on the cool blue-and-cyan quiet sky is the <see cref="Elephant"/> rule;
-        /// yellow's confusable, white, is not in the level.
+        /// Three inks in the hard grid-17 format: yellow hide, brown patches and black tuft-and-hooves.
+        /// <b>⚠ The hide is deliberately SEVERED into three networks by its own patches (#316)</b> — a full
+        /// neck band at rows 5-6 and a saddle spanning rows 9-11 — because as one 74-ball group it was the
+        /// sag probe's kill on this level: four orders of five lost at shot 2-3 with the glass at rest, the
+        /// one release (75 matched, up to 64 orphaned — the between-legs check and the accents ride the
+        /// hide) holing the wall's middle so the check below stretched 5.8 units to −1.03. Severed, the
+        /// hide reads head 16 / forequarters 22 / hindquarters 24 balls, no release holes the wall wider
+        /// than the check's own 30-ball groups, and the patches are what a giraffe's coat is anyway. Both
+        /// severs are two full rows/columns of the member they cut, so no parity diagonal jumps them.
+        /// Every riser still holds Dx = 0 vertical contact, so the staircase never relies on parity
+        /// diagonals. The WALL is the structure and the drawing is only paint, the block's standing answer
+        /// to the Coil rule. Warm animal on the cool blue-and-cyan quiet sky is the <see cref="Elephant"/>
+        /// rule; yellow's confusable, white, is not in the level.
+        /// </para>
+        /// <para>
+        /// Measured after #316 (severs + the three-ink check + step 12): 420 balls in 34 standing groups
+        /// (1.35 shots a group of 46), 30 anchors (14.0 each), anchor load 15.8, margin 1, nothing alone,
+        /// 2 in pairs, 0 recoloured; best single shots 7/7/5 % (sky) and 5/2/0 % (hide/patches/accents).
+        /// Sag probe: <b>1 of 5 across two independent runs</b> (a hairline −1.02 on one seeded order; the
+        /// shipped level read 4 of 5 with the glass at rest, dying on the hide's 75-ball release at shot
+        /// 2-3). A savanna-rock sever of the bottom-left check was tried on top of this and measured
+        /// nothing (still 1 of 5, the losing order merely rearranged), so it was reverted rather than
+        /// shipped unmeasured — the residual order is the estimator's floor for a 14-course curtain, and
+        /// it reads better than Saturn's 2 of 5.
         /// </para>
         /// <para>
         /// Gate watch (#255), in the spec's own order because the first is cheap and it IS the concept:
         /// (1) the parity-mirror screenshot from +Z - which diagonal gets smoothed depends on which layout
         /// rows land shifted, and if the staircase shows instead of the line, mirror <see cref="GIRAFFE"/>
-        /// left-right (one transform, no redesign); (2) confirm none of the six 4-ball accents merges or
-        /// is recoloured (the neck patch touches only hide and check by construction); (3) if the 2-row
-        /// legs (1.4 visual) read dachshund, convert body row 9 into a third leg row - the neck and the
-        /// patches are untouched.
+        /// left-right (one transform, no redesign); (2) confirm the three black accents stay 4-ball groups
+        /// and nothing is recoloured (the brown is three groups of 8/12/4 since #316's severs — the sag
+        /// note above says why they must stay full-width, so a patch edit re-runs <c>--sag=Giraffe</c>);
+        /// (3) if the 2-row legs (1.4 visual) read dachshund, convert body row 9 into a third leg row -
+        /// the neck sever and the saddle are untouched by it.
         /// </para>
         /// </summary>
         private static Design Giraffe() => Picture("Giraffe.json", "Giraffe", SceneKind.Savanna, sky: 14,
-            MUSIC_GALLERY, shots: 46, ceilingStep: 8, GIRAFFE, grid: 17,
-            //'#' yellow hide, 'o' brown patches, '+' black tuft and hooves; ground blue + cyan
+            //Step 12, not the block's usual 8 (#316): with the hide severed and the check on three inks the
+            //probe's remaining late-game loss was a 9-ball release at shot 24 dropping a 165-ball remainder
+            //past the line with the glass THREE steps down (1.80 of the 4.82 clearance spent) — the tallest
+            //curtain in the block re-hangs deepest, and the step is the honest lever for a loss the glass
+            //helped cause. The #288 sum at 12: 46 shots buy 3 descents, 1.80, headroom 3.02. The at-rest
+            //fault this level was reported for is the hide sever's job, not this one's.
+            MUSIC_GALLERY, shots: 46, ceilingStep: 12, GIRAFFE, grid: 17,
+            //'#' yellow hide, 'o' brown patches, '+' black tuft and hooves; ground blue + cyan + navy —
+            //the third sky ink is #316's second lever (the param doc's own "three or four quarters every
+            //background group"): with two inks the check welded into 23-30-ball diagonal chains through the
+            //block-corner cross-level contact, and those bites were what the probe's remaining losses died
+            //on once the hide was severed. Navy and not white, because white is yellow's confusable and the
+            //design note below keeps it out of the level.
             symbol: new[] { BallType.Type7, BallType.Type10, BallType.Type8 },
-            background: new[] { BallType.Type3, BallType.Type5 });
+            background: new[] { BallType.Type3, BallType.Type5, BallType.Type12 });
 
         /// <summary>
         /// A giraffe, 15 by 14: a 4x2 head with a 2-cell <c>+</c> mane tuft over it (row 2 is legal; rows
-        /// 0-1 stay clear), a neck stepping +1 column every 2 rows with a 2-cell <c>o</c> patch riding it,
-        /// a tapering body across rows 9-11 with two <c>o</c> patch pairs, and two 2-wide legs with <c>+</c>
-        /// hooves under each. The step rate is the odd-level half-shift exactly - see <see cref="Giraffe"/>.
+        /// 0-1 stay clear), a neck stepping +1 column every 2 rows wearing a full-width <c>o</c> band at
+        /// rows 5-6, a tapering body across rows 9-11 with an <c>o</c> saddle down its middle and a patch
+        /// pair on the rump, and two 2-wide legs with <c>+</c> hooves under each. The band and the saddle
+        /// are load-bearing severs, not decoration — see the design doc (#316). The step rate is the
+        /// odd-level half-shift exactly - see <see cref="Giraffe"/>.
         /// </summary>
         private static readonly string[] GIRAFFE =
         {
@@ -1531,13 +1560,13 @@ namespace BS3D.Tools.LevelGen
             "...++..........",
             "..####.........",
             "..####.........",
-            "....o#.........",
-            "....o#.........",
+            "....oo.........",
+            "....oo.........",
             ".....##........",
             ".....##........",
-            "......########.",
+            "......##oo####.",
             "......##oo##oo.",
-            ".......#######.",
+            ".......#oo####.",
             ".......##...##.",
             ".......++...++.",
         };
