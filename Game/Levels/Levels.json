@@ -608,7 +608,7 @@
       "block": "The Arcade",
       "shots": 56,
       "minStars": 148,
-      "ceilingStep": 9
+      "ceilingStep": 16
     },
     {
       "file": "Ziggurat.json",
@@ -632,7 +632,7 @@
       "block": "The Arcade",
       "shots": 52,
       "minStars": 154,
-      "ceilingStep": 6
+      "ceilingStep": 10
     },
     {
       "file": "Ghost.json",
