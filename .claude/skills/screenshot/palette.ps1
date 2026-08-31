@@ -28,29 +28,66 @@
 # Sampling the whole disc would measure the pattern rather than the colour, so each ball is reduced to the
 # MEDIAN of its own coloured gores - pixels inside the disc with the brightest third dropped - which is the
 # tint as the eye reads it at a glance.
+#
+# THAT REDUCTION IS THE VINYL'S AND ONLY THE VINYL'S, and -Whole exists because on several of #272's styles
+# it measures the exact opposite of the signal (#315). Dropping the brightest third assumes the bright pixels
+# are white gores and a highlight - decoration over a body that carries the colour. On PLASMA and LAVA the
+# bright pixels ARE the colour: it lives entirely in thin filaments and glowing seams over a shell that is the
+# same near-black on all thirteen, so the default reduction throws the ball's whole hue away and reports
+# thirteen identical crusts. On METAL the colour is in what is reflected, which is the bright part too.
+#
+#   -Whole   average the ENTIRE disc, in LINEAR light, then encode back. This is what the eye integrates
+#            across a cluster at a glance, it makes no assumption about where a style keeps its colour, and
+#            it is the only mode in which two different styles can be compared with each other.
+#
+# Linear and not sRGB because averaging encoded values underweights the bright pixels, which on exactly the
+# emissive styles is the entire measurement. The default (gore median) stays the default: it is the right
+# instrument for the vinyl, which is what the thirteen tints were tuned against and what everything
+# unauthored still draws.
 param(
     [Parameter(Mandatory=$true)][string]$Png,
     [int]$RowY = 450,
     [int]$Radius = 20,
     [int[]]$Xs = @(443,500,558,615,672,728,785,840,895,950,1005,1057,1110),
-    [string[]]$Focus = @()
+    [string[]]$Focus = @(),
+    [switch]$Whole
 )
 
 Add-Type -AssemblyName System.Drawing
 $names = @('red','green','blue','white','cyan','magenta','yellow','black','orange','brown','silver','navy','olive')
 $bmp = [System.Drawing.Bitmap]::FromFile((Resolve-Path $Png))
 
-function Get-BallColor([System.Drawing.Bitmap]$b, [int]$cx, [int]$cy, [int]$r) {
+function ToLinear([double]$v) {
+    $v = $v / 255.0
+    if ($v -le 0.04045) { return $v / 12.92 }
+    return [Math]::Pow(($v + 0.055) / 1.055, 2.4)
+}
+
+function ToSrgb([double]$v) {
+    if ($v -le 0.0031308) { $e = $v * 12.92 } else { $e = 1.055 * [Math]::Pow($v, 1.0/2.4) - 0.055 }
+    return [Math]::Max(0.0, [Math]::Min(255.0, $e * 255.0))
+}
+
+function Get-BallColor([System.Drawing.Bitmap]$b, [int]$cx, [int]$cy, [int]$r, [bool]$whole) {
     $pix = New-Object System.Collections.ArrayList
+    $sumR = 0.0; $sumG = 0.0; $sumB = 0.0; $n = 0
     for ($dy = -$r; $dy -le $r; $dy++) {
         for ($dx = -$r; $dx -le $r; $dx++) {
             if ($dx*$dx + $dy*$dy -gt $r*$r) { continue }
             $x = $cx + $dx; $y = $cy + $dy
             if ($x -lt 0 -or $y -lt 0 -or $x -ge $b.Width -or $y -ge $b.Height) { continue }
             $c = $b.GetPixel($x, $y)
+            if ($whole) {
+                $sumR += ToLinear $c.R; $sumG += ToLinear $c.G; $sumB += ToLinear $c.B; $n++
+                continue
+            }
             $lum = 0.2126*$c.R + 0.7152*$c.G + 0.0722*$c.B
             [void]$pix.Add(@($lum, $c.R, $c.G, $c.B))
         }
+    }
+    if ($whole) {
+        if ($n -eq 0) { $out = @(0.0,0.0,0.0); return ,$out }
+        $out = @((ToSrgb ($sumR/$n)), (ToSrgb ($sumG/$n)), (ToSrgb ($sumB/$n))); return ,$out
     }
     $sorted = $pix | Sort-Object { $_[0] }
     $keep = [int]($sorted.Count * 2 / 3)          # drop the brightest third: white gores + highlight
@@ -121,7 +158,7 @@ function DE2000([double[]]$lab1, [double[]]$lab2) {
 
 $rgbs = @(); $labs = @()
 for ($i = 0; $i -lt 13; $i++) {
-    $rgb = Get-BallColor $bmp $Xs[$i] $RowY $Radius
+    $rgb = Get-BallColor $bmp $Xs[$i] $RowY $Radius ([bool]$Whole)
     $rgbs += ,$rgb
     $labs += ,(To-Lab $rgb)
     $lum = 0.2126*$rgb[0] + 0.7152*$rgb[1] + 0.0722*$rgb[2]

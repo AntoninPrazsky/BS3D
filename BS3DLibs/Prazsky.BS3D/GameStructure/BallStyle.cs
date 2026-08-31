@@ -102,8 +102,9 @@ namespace Prazsky.BS3D.GameStructure
         /// breathing on the cluster's own heartbeat.
         /// <para>
         /// Its colour lives entirely in the <b>emission</b>, which is the cleanest colour separation the game
-        /// can have — nothing dilutes an emissive seam. What it gives up knowingly is value separation: the
-        /// crust is the same darkness on all thirteen.
+        /// can have — nothing dilutes an emissive seam. The crust is the same darkness on all thirteen, so it
+        /// leans on the seams harder than any style but the plasma; since #315 how brightly a seam burns
+        /// follows the type's own luminance, which is what keeps orange and brown two balls rather than one.
         /// </para>
         /// </summary>
         Lava = 8,
