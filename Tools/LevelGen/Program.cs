@@ -8898,10 +8898,15 @@ namespace BS3D.Tools.LevelGen
         //slot reel, a donut, a globe - so the picture is read by walking the gun round the level and no
         //single vantage shows the whole of it. Nothing here is a wall.
         //
-        //EVERY SOLID IS HOLLOW: the layout is its SURFACE and nothing stands inside it. Two things follow. A
-        //body that fills the frame costs the ball count of an ordinary level rather than of a quarry (a solid
-        //ten-cell cube is 1200 balls; its shell is 560), and the first panel to come away opens a window into
-        //an empty room, which is what makes a level read as an object rather than as a mass.
+        //EVERY SOLID IS HOLLOW: the layout is its SURFACE, and what stands inside it is FURNITURE, not fill.
+        //Two things follow. A body that fills the frame costs the ball count of an ordinary level rather than
+        //of a quarry (a solid ten-cell cube is 1200 balls; its shell is 560), and the first panel to come away
+        //opens a window into an empty room, which is what makes a level read as an object rather than as a
+        //mass. The sentence said "nothing stands inside it" until the sag probe amended it twice over: a
+        //one-cell wall is a chain that yields under sustained load, and two of the five now carry a measured
+        //interior brace — Cabinet's CRT shelf (#301) and Cube's corner posts (#317) — each diegetic, each a
+        //few dozen balls, each there because the probe read the bare shell losing. The hollowness that
+        //matters (the window into the room, the shell's ball price) survives both.
         //
         //A HOLLOW BODY'S ANCHOR IS WHATEVER ITS OWN TOP HAPPENS TO BE, and that is the trap this block had to
         //answer five times. Only the field's topmost level is bonded to the glass, so the anchor is a 100-cell
@@ -8924,14 +8929,18 @@ namespace BS3D.Tools.LevelGen
         //file - so every ground here is dithered in blocks and every glyph hole is at least 2x2. How coarse
         //those blocks are is the block's real difficulty dial, because it sets the GROUP COUNT and the group
         //count sets the budget: see CUBE_GROUND_BLOCK, where the same cube measured 75, 44 and 34 groups at
-        //three block sizes. All five budgets are priced off the ratio Validate prints, and they ramp
-        //1.65 -> 1.58 -> 1.50 -> 1.44 -> 1.40 shots a group across the block, the finale tighter than any
-        //level in the game but Colossus (0.98). (The finale priced at 1.37 until #301: its two-cell wall
-        //merged the dither blocks through the thickness, 38 groups became 30, and the budget was re-priced
-        //to the new ratio - see Globe's own doc.)
+        //three block sizes. All five budgets are priced off the ratio Validate prints. THEY SHIPPED AS A
+        //RAMP - 1.65 -> 1.58 -> 1.50 -> 1.44 -> 1.37 - and the sag fixes have since bent it rather than
+        //retuned it: the opener reads 1.33 (Cube's corner posts bought eight groups, #317), the reel and
+        //ziggurat stand where they shipped, the donut reads 1.49 (#317 restriped its bands, 35 groups on the
+        //same 52 shots) and the finale 1.40 (#301's two-cell wall merged blocks through its thickness and
+        //the budget was re-priced - see Globe's own doc). Nothing was re-slotted on the number: the naive
+        //ratio undercounts every level whose fix added designed cascades (the Spectrum's ramp comment records
+        //why the count ranks the wrong quantity), and the play order is the owner's, not the arithmetic's.
         //
         //THE COLOURS, and what each level puts the #152 five next to:
-        //  Cube     silver and orange - the three ground pairs of its faces, warm against cool.
+        //  Cube     silver and orange - the three ground pairs of its faces, warm against cool,
+        //           with yellow/green corner trim on the posts (#317 - see CUBE_POST_RUN).
         //  Ziggurat brown and olive   - a sandstone temple, both against gold and white.
         //  Reel     silver and navy   - a white reel with red sevens, its heads in cold metal.
         //  Donut    brown and orange  - the dough under a magenta glaze, sprinkles over it.
@@ -8958,9 +8967,18 @@ namespace BS3D.Tools.LevelGen
         /// colours still standing rather than among the balls.
         /// </para>
         /// <para>
-        /// Measured: 560 balls in 34 groups (1.65 shots a group, the block's gentlest), margin 1, nothing
-        /// alone, 2 recoloured; colour counts 54–120 and every colour's best single shot 2–5 %, the black of
-        /// all five glyphs included. Hung unshot for 35 s in the running game without sagging.
+        /// <b>Four corner posts stand inside it since #317</b> — a second cell at each corner, plate to
+        /// plate, wearing their own yellow/green trim — because the one-cell walls are chains and the sag
+        /// probe watched one wall block take the line down five units in a single shot; see
+        /// <see cref="CUBE_POST_RUN"/> for both halves of that finding, the mezzanine that measured worse
+        /// included.
+        /// </para>
+        /// <para>
+        /// Measured (#317): 600 balls in 42 groups (1.33 shots a group, Cabinet's own ratio), margin 1,
+        /// nothing alone, 8 in pairs, 2 recoloured; colour counts 20–120 and every colour's best single
+        /// shot at most 6 % (the black of all five glyphs). Sag probe: <b>2 of 5, twice independently</b>,
+        /// neither loss with the glass at rest — Saturn's band, from the shipped shape's 4 of 5 with two
+        /// first-phase deaths on a resting glass.
         /// </para>
         /// </summary>
         private static Design Cube() => new()
@@ -8975,13 +8993,15 @@ namespace BS3D.Tools.LevelGen
             Music = MUSIC_ARCADE,
                 Balls = BALLS_ARCADE,
             Shots = 56,
-            //#288: 8 until the owner reported this level among the four that lose to the line. Eight left 1.18
-            //over the line at the end (5.38 clearance, seven descents, 4.20), which clears the 0.82 the swing
-            //probe measured but not by much once a face breaks off and hangs. Nine buys six descents, 3.60,
-            //and leaves 1.78. The smallest notch there is - Cube is the least bad of the four on the
-            //arithmetic, and was moved because it was reported, not because the figure demanded it.
-            CeilingStep = 9,
-            OccupiedBlock = (x, z, i, depth) => CubeFace(x, z, i) != 0,
+            //#288: 8 until the owner reported this level among the four that lose to the line (eight left
+            //1.18 of headroom; nine bought 1.78). #317 then moved it again, and in Cabinet's exact shape:
+            //with the corner posts in, the box's at-rest fault is cured structurally (settled line 5.45,
+            //was 4.94) and every remaining probe loss was a stepped hairline -1.02..-1.06 - within one
+            //step's 0.60 of surviving, all four of them. Sixteen is that step handed back: 56 shots buy
+            //three descents, 1.80, headroom 3.65 - and the probe reads 2 of 5, twice independently, where
+            //nine read 4 of 5 (Saturn's own band, and neither remaining loss is at rest).
+            CeilingStep = 16,
+            OccupiedBlock = (x, z, i, depth) => CubeFace(x, z, i) != 0 || CubePost(x, z, i) != 0,
             BlockColour = CubeColour,
         };
 
@@ -9082,19 +9102,32 @@ namespace BS3D.Tools.LevelGen
         /// <b>The glaze line is wavy on purpose and the waves are load-bearing twice.</b> A glaze cut at a
         /// level boundary would be a horizontal band round the whole ring, which is both the drop-test trap
         /// and, on a body whose top surface is its anchor, the one colouring that could take the level in a
-        /// single shot. Waved, glaze and dough interlock at six places round the ring, so each is anchored on
+        /// single shot. Waved, glaze and dough interlock at eight places round the ring (#317; six until the
+        /// probe asked for shorter free arcs), so each is anchored on
         /// its own and neither can drop the other — <see cref="OnionShell"/>'s staves, arrived at from a
         /// different direction.
         /// </para>
         /// <para>
         /// The sprinkles are hashed rather than drawn, one block of the glaze in four. They are the level's
-        /// scarce colours — 39 balls each against 111 to 144 of the other four — so the shots that spend them
+        /// scarce colours — 40 balls each against 66 to 100 of the other six — so the shots that spend them
         /// are the ones worth waiting for.
         /// </para>
         /// <para>
-        /// Measured: 588 balls in 36 groups (1.44 shots a group) — the biggest layout in the block — margin 1,
-        /// nothing alone, 9 recoloured (the tube's inner face, where a sector block holds a cell or two);
-        /// counts 39–144, best single shots 2–11 %. Hung unshot for 35 s in the running game.
+        /// <b>⚠ The body is coloured in stripes and three inks a band, and #317 is why</b>: as shipped (two
+        /// inks on 2×2 blocks) each body colour fused into one diagonal staircase winding round the ring —
+        /// 49 to 66 balls a network — and the sag probe read the level 4–5 of 5 losing orders: two such
+        /// releases sever the ring's path to the top annulus across several bearings, the arc between them
+        /// dangles (a body from level 15 measured eight units under its own seat), and the third descent
+        /// finishes it. Stripes make percolation impossible by construction, the eight-drip wave bridges a
+        /// dangling arc every three sectors, and the step went 6 → 10 for the endgame the sum cannot see —
+        /// the three constants carry the measured ladder, including the two block-grid attempts that failed.
+        /// </para>
+        /// <para>
+        /// Measured (#317): 588 balls in 35 groups (1.49 shots a group) — the biggest layout in the block —
+        /// margin 1, nothing alone, 4 in pairs, 1 recoloured (was 9; the stripes suit the inner face);
+        /// counts 39–100, best single shots 2–5 %; anchor load 13.4. Sag probe: a stable 2 of 5 across three
+        /// sweeps, every loss a stepped-glass hairline at −1.0 past shot 18 — Saturn's own reading, where the
+        /// shipped level read 4–5 of 5 with full-weight dangles from shot 12.
         /// </para>
         /// </summary>
         private static Design Donut() => new()
@@ -9109,7 +9142,19 @@ namespace BS3D.Tools.LevelGen
             Music = MUSIC_ARCADE,
                 Balls = BALLS_ARCADE,
             Shots = 52,
-            CeilingStep = 6,
+            //#317: 6 until the sag probe read the level 4-5 of 5 losing orders. The paper #288 sum passes at
+            //either step (clearance 9.0 at settle; eight descents of 0.60 consume 4.80), and that is exactly
+            //the sum's stated blind spot: a torus eaten to half its mass hangs its surviving arcs four to six
+            //units below their lattice seats, so the REAL late-game margin is a fraction of the authored one.
+            //With the stripe recolour in (see DONUT_DOUGH) every remaining loss was an endgame hairline: a
+            //ring eaten to 150-300 balls whips an arc to exactly -1.0 with the glass two or three steps down
+            //(-1.8 at six, -1.2 at eight; both read 2-3 of 5, losses at shots 17-19). Ten hands the death
+            //window a step back - 52 shots buy five descents, 3.00 of the 9.0 the level settles with - and
+            //with the eight-drip wave the probe reads a STABLE 2 of 5 across three sweeps, every loss a
+            //stepped-glass hairline at shots 18-23: Saturn's own reading, the calibrated finishable control.
+            //A cleared-down torus can always whip its last arcs; what #317 removed is the full-weight dangle.
+            //The pressure dial moves from the block's fastest to third (Reel 8, Ziggurat 9, Cube 9, Globe 14).
+            CeilingStep = 10,
             Occupied = (r, ang, i, depth) => DonutShell(r, i, depth),
             Colour = DonutColour,
         };
@@ -9123,7 +9168,8 @@ namespace BS3D.Tools.LevelGen
         /// Hard by <b>fineness</b> rather than by scarcity, which is <see cref="Garland"/>'s job five levels
         /// earlier and deliberately not repeated: eight colours over 30 groups, on a budget re-priced to the
         /// block's second-tightest ratio. There is no big payoff anywhere in it — the best single shot is 6 %,
-        /// where the reel offers 10 and the donut 11 — and the ceiling arrives on schedule while it is worked.
+        /// where the reel offers 10 (the donut offered 11 until #317 restriped it down to 5 — its staircases
+        /// were the sag fault, not a designed payoff) — and the ceiling arrives on schedule while it is worked.
         /// </para>
         /// <para>
         /// <b>The ice caps are broken, and that is the anchor rule rather than geography.</b> The top level is
@@ -9198,7 +9244,8 @@ namespace BS3D.Tools.LevelGen
         //taken past decoration: the shot that changes the silhouette is a shot the player can see coming.
         //
         //THE BUDGETS ARE PRICED OFF THE RATIO Validate PRINTS and they continue the first five's ramp
-        //(1.65 -> 1.58 -> 1.50 -> 1.44 -> 1.37) rather than restarting it, so the chapter reads as one clock:
+        //(1.65 -> 1.58 -> 1.50 -> 1.44 -> 1.37 as the first five shipped; the sag fixes have since bent
+        //that ramp - see the first hang's own comment) rather than restarting it, so the chapter reads as one clock:
         //Ghost is the gentlest of the second hang and Trophy the tightest. Every ratio below is a TARGET, and
         //the group-count dial for each is named in its own doc - GHOST_BLOCK_ARC, CABINET_BLOCK, TETRA_BLOCK,
         //GIZA_COLUMNS, TROPHY_BLOCK_ARC. The first run of the tool settles them; a design that lands outside
@@ -13264,6 +13311,56 @@ namespace BS3D.Tools.LevelGen
             new[] { BallType.Type5, BallType.Type6 },    //+Z:     cyan and magenta
         };
 
+        //THE CORNER POSTS (#317), and both halves of the finding are measured. The box's walls are one cell
+        //thick, so each is a sheet of BallSocket chains, and the wall dither's 5x5 quadrants let a single
+        //shot sever five columns' whole upper half from the anchor plate: the probe watched one 22-ball
+        //wall block take the line from +3.93 to -1.06 IN ONE SHOT with nothing orphaned, the bottom corner
+        //diving five units on the lateral chains that were left — and three more orders lost to the same
+        //stretch arriving cumulatively (4 of 5, twice on a resting glass). ⚠ The obvious remedy was
+        //Cabinet's mezzanine shelf and IT MEASURED WORSE (5 of 5): sixty-four interior balls at mid-height
+        //cured the one-shot dive but hung a third more dead weight off the very chains that were yielding —
+        //the line reached +1.5 by shot 5 where the shipped box still held +3.9. What the trace wanted was
+        //stiffness without load: a SECOND CELL inside each corner, top plate to bottom plate, cross-braced
+        //to both adjacent walls on every level — Pylon's 2x2 leg section standing at the box's own corners,
+        //forty balls, four direct load paths to the anchor that no wall-block release can cut (the dither
+        //never spans a corner and the glyphs are inset two columns). Diegetically it is the box's corner
+        //framing, seen edge-on once a face is opened — the hollow rule bends the way Cabinet's already
+        //did, by the smallest amount that carries.
+        //
+        //THE POSTS WEAR THEIR OWN PAIR (yellow and green, in runs of five, the top run alternating per
+        //corner), and the pair is forced rather than chosen: every ink already in the level fuses with a
+        //neighbour of the post — the wall pairs touch it through the walls it braces, the plate pair
+        //through both plates it spans — and a post fused into a wall block is a post one wall shot removes.
+        //Two fresh inks keep all eight post runs their own groups; five-ball runs clear MIN_GROUP, and
+        //gold-and-green corner trim on an arcade cabinet is period-correct.
+        private const int CUBE_POST_RUN = 5;
+
+        private static readonly BallType[] CUBE_POST_PAIR = { BallType.Type7, BallType.Type2 };   //yellow, green
+
+        /// <summary>
+        /// Which corner post a cell is in (1..4, or 0 for none): the interior cell diagonal to each of the
+        /// box's four corners, on every wall level — see <see cref="CUBE_POST_RUN"/> for what the posts
+        /// carry and the measured trace that asked for them.
+        /// </summary>
+        private static int CubePost(int x, int z, int i)
+        {
+            if (i == 0 || i >= CUBE_DEPTH - 1) return 0;   //the plates own their levels
+
+            int cx = x - CUBE_ORIGIN;
+            int cz = z - CUBE_ORIGIN;
+
+            bool xLow = cx == 1;
+            bool xHigh = cx == CUBE_SIDE - 2;
+            bool zLow = cz == 1;
+            bool zHigh = cz == CUBE_SIDE - 2;
+
+            if (xLow && zLow) return 1;
+            if (xHigh && zLow) return 2;
+            if (xLow && zHigh) return 3;
+            if (xHigh && zHigh) return 4;
+            return 0;
+        }
+
         /// <summary>
         /// Which face of the cube a cell is on: 0 for none (the hollow inside, and everything off the box),
         /// 1 the top plate, 2 the bottom plate, 3 −X, 4 +X, 5 −Z, 6 +Z.
@@ -13305,6 +13402,13 @@ namespace BS3D.Tools.LevelGen
             int face = CubeFace(x, z, i);
             int cx = x - CUBE_ORIGIN;
             int cz = z - CUBE_ORIGIN;
+
+            //The corner posts, before the faces: their cells are interior, so no face owns them. Runs of
+            //CUBE_POST_RUN levels alternate the pair, and diagonal corners start on the same ink so the
+            //trim reads as a scheme rather than a scatter.
+            int post = CubePost(x, z, i);
+            if (face == 0 && post != 0)
+                return Band((i - 1) / CUBE_POST_RUN + (post == 2 || post == 3 ? 1 : 0), CUBE_POST_PAIR);
 
             //A plate is read across the lattice; a wall is read along its own run and DOWN from under the top
             //plate, so every wall's row 0 is at the same height and the four glyphs line up round the cube
@@ -13502,13 +13606,31 @@ namespace BS3D.Tools.LevelGen
         //The glaze line, in world units above the tube's middle, and how far it runs down between its drips.
         //A straight line here is a horizontal band round the whole ring - the drop test's trap, and on a body
         //whose top surface is its anchor it is the one colouring that could take the level in a single shot.
-        //Waved, glaze and dough interlock at six places and each is anchored on its own.
+        //Waved, glaze and dough interlock at every drip and each is anchored on its own.
         private const float DONUT_GLAZE_LINE = -0.2f;
         private const float DONUT_DRIP = 0.9f;
-        private const int DONUT_DRIPS = 6;
+        //Eight drips, not the six it shipped with (#317): the drips are the glaze/dough interlocks, i.e. the
+        //bridges a dangling arc re-hangs across, and at six the probe's endgame traces still whipped a free
+        //arc to the instant-loss line by shot 17. Eight puts a bridge every three sectors instead of four:
+        //the deaths moved to shots 18-23 with a whole extra bite of the ring spent first, and — measured, not
+        //expected — the repair pass dropped from 6 rewrites to 1, because the shorter wave segments land on
+        //the stripe boundaries more evenly. Still reads as drips; slightly nicer drips, if anything.
+        private const int DONUT_DRIPS = 8;
 
-        private static readonly BallType[] DONUT_DOUGH = { BallType.Type10, BallType.Type9 };
-        private static readonly BallType[] DONUT_GLAZE = { BallType.Type6, BallType.Type4 };
+        //Three inks a band, not the two it shipped with, and the third entries are half of #317's fix: on
+        //two inks the 2x2 blocks fused along the band grid's diagonal into staircases winding round the ring
+        //— orange measured 66 balls in ONE standing group, white 61, brown 55, magenta 49 — and the sag
+        //probe's traces showed what such a release does to a torus: it severs the ring's local path to the
+        //top annulus across several bearings at once, a second one leaves the arc between them DANGLING, and
+        //a mid-run ball from level 15 ended up the cluster's lowest body, eight units under its own lattice
+        //seat, through the death line with the glass two steps down (4-5 of 5 losing orders, shots 12-16).
+        //⚠ Three inks on the BLOCK grid were measured and are not enough on this body: at 2x2 blocks the
+        //count exploded (66 groups, 0.79 a shot, 19 repair rewrites at the inner face) and at 3x2 the null
+        //diagonal refused brown back into a 59-ball net. The grid itself is the fault on a torus, so the
+        //colour is a STRIPE now — see DonutColour. Black is chocolate dough; navy is a berry glaze — and the
+        //anchor annulus is glaze, so the level's top interleaves three colours instead of two.
+        private static readonly BallType[] DONUT_DOUGH = { BallType.Type10, BallType.Type9, BallType.Type8 };
+        private static readonly BallType[] DONUT_GLAZE = { BallType.Type6, BallType.Type4, BallType.Type12 };
         private static readonly BallType[] DONUT_SPRINKLES = { BallType.Type7, BallType.Type5 };
 
         /// <summary>Distance from the tube's own core circle — the ring's radius in its cross-section.</summary>
@@ -13531,14 +13653,21 @@ namespace BS3D.Tools.LevelGen
         {
             int column = SectorIndex(ang, 0f, DONUT_SECTORS);
             int row = depth - 1 - i;
-            int block = column / 2 + row / 2;
 
+            //STRIPES, not blocks — the colour is a function of the sector alone, two sectors a stripe over
+            //three inks. Same-ink stripes stand six sectors apart with two other inks between them, so no
+            //colour can percolate anywhere BY CONSTRUCTION: there is no block grid left to carry #301's
+            //diagonal fuse, and the tube's inner face — where 24 sectors converge and a 2x2 block used to
+            //fragment into the pairs the repair pass rewrote — inherits its colour from the stripe above it
+            //instead of becoming an island. Both measured alternatives are recorded on DONUT_DOUGH's comment.
+            //Twelve stripes over three inks divide evenly, so the wrap seam is a stripe boundary like any
+            //other; the glaze rotation is offset one step so the two bands' inks never pair up per stripe.
             float line = DONUT_GLAZE_LINE - DONUT_DRIP * MathF.Cos(DONUT_DRIPS * ang);
-            if (OnionVertical(i, depth) <= line) return Band(block, DONUT_DOUGH);
+            if (OnionVertical(i, depth) <= line) return Band(column / 2, DONUT_DOUGH);
 
             return DonutSprinkle(column / 2, row / 2, out BallType sprinkle)
                 ? sprinkle
-                : Band(block, DONUT_GLAZE);
+                : Band(column / 2 + 1, DONUT_GLAZE);
         }
 
         /// <summary>
@@ -13546,8 +13675,9 @@ namespace BS3D.Tools.LevelGen
         /// drawn, for <see cref="Scatter"/>'s reason (a level has to be the same every time it is played, and
         /// a <c>Random</c> walked in the emitter's loop order is not). One block of the glaze in four, over
         /// two colours, which is <b>above</b> the density where a hashed dice percolates: measured, the
-        /// sprinkles come out as 39 balls a colour in groups of up to 27 rather than as islands of four. They
-        /// are the level's scarce colours either way — a fifth of what the dough and the glaze carry.
+        /// sprinkles come out as 39–40 balls a colour in groups of up to 27 rather than as islands of four.
+        /// They are the level's scarce colours either way — well under half of what a dough or glaze ink
+        /// carries since #317 split the bands three ways.
         /// </summary>
         /// <remarks>
         /// The presence and the colour are read off <b>different</b> bits of the same hash. Taken off the
