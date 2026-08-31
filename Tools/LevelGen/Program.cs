@@ -5267,27 +5267,27 @@ namespace BS3D.Tools.LevelGen
         /// stepping one cell out in x AND z every <see cref="PYLON_LEG_BAND"/>-level band with a
         /// one-column overlap at every step, so a leg is bonded vertically through every step and never
         /// hangs on diagonals alone - which is the gate's SECOND check, in the measured contact graph,
-        /// because a step landed on the wrong parity fails silently. Four closed girdle rings tie all four
-        /// legs: cut a leg band and the leg's lower run re-hangs from the ring below the cut, off the
-        /// other three legs - the structure argues back, every felled leg makes the survivor stance
-        /// springier, and the last leg takes the rings with it (~49 % finale). ~708 cells drawn.
+        /// because a step landed on the wrong parity fails silently. Three closed girdle rings and a cap
+        /// collar tie all four legs: cut a leg band and the leg's lower run re-hangs from the ring below
+        /// the cut, off the other three legs - the structure argues back, and every felled leg makes the
+        /// survivor stance springier. 580 balls drawn.
         /// <para>
-        /// <b>The gate's first check comes before any colouring work</b>: fell the NE and SE legs in a
-        /// scripted run and measure how far the two widest rings sag off-axis on the remaining two -
-        /// Trellis-style stretch, the design's stated nearest failure. The tune order if it dips:
-        /// (1) <see cref="PYLON_TWIN_RINGS"/>, the twin-loop graft; (2) a shallower splay; (3) a fifth
-        /// ring band.
+        /// <b>⚠ This is the level #301 was reported on, and its present figures are the sag probe's</b> -
+        /// the shipped truss (24 deep, feet at anchor 12, two-level rings) lost all five probe orders, three
+        /// of them on the FIRST shot, the glass at rest. What ships now reads <b>1 of 5, four orders
+        /// clearing the level outright</b> - see Depth and PYLON_RINGS for what moved and what was measured
+        /// out on the way (the twin-loop graft among the casualties).
         /// </para>
         /// <para>
         /// Third check: the opening frame must show spread feet plus two rings, so it reads as a truss and
         /// not as Carousel's rails-and-decks - the splay is the distinctness argument, protect it.
         /// </para>
         /// <para>
-        /// Legs alternate their primary with white down five four-level bands, primary at the top band -
-        /// and at the feet, five being odd, so the opening frame shows each leg's own colour. The cap's
-        /// four quadrant columns match the leg primaries, putting all four on the top level; the rings are
-        /// brown closed loops of their own. Worst paper release is a cap quadrant fused with its leg's top
-        /// band (~6 %) - the difficulty here is sequencing, not any one group.
+        /// Legs alternate their primary with white down four four-level bands, primary at the FEET - the
+        /// end the opening frame reads - and white at the top, where the cap's quadrant columns carry all
+        /// four primaries against the glass instead; the rings are brown closed loops of their own. Worst
+        /// single shot is the widest ring whole, 96 balls (16 %) - a designed release, the "re-hangs off
+        /// its own girdle rings" premise - and the difficulty is sequencing, not any one group.
         /// </para>
         /// </summary>
         private static Design Pylon() => new()
@@ -5295,7 +5295,18 @@ namespace BS3D.Tools.LevelGen
             File = "Pylon.json",
             Name = "Pylon",
             Grid = 15,
-            Depth = 24,
+            //24 until #301, and the four levels came off the BOTTOM - the probe's finding, after both of the
+            //recorded ring levers were measured and neither closed it, is that the fault was never one
+            //member: the shipped truss started its feet 5.78 over the line and every asymmetric cut near
+            //them - an opened ring corner, a severed band's foot cantilevered on a ring, a swinging bare
+            //leg - dipped 6 to 7 units, three distinct mechanisms against one 1-unit margin. No bracing
+            //scheme closed that gap (the readings are on the issue); height did. Shedding the lowest leg
+            //band starts the feet 8.90 over the line (measured at settle) and shortens every pendulum, and
+            //with the gentler splay (PYLON_FOOT_ANCHOR 11) and the taller rings it is what took the probe
+            //from 5 of 5 losing on the first shot to 1 of 5 (four orders clearing the level whole; the one
+            //loss lands near shot ten, its exact number wobbling with the solver's thread order). Ball
+            //count 612 -> 580: one band traded for the rings' third levels.
+            Depth = 20,
             FieldLevels = 32,
             Scene = SceneKind.Mountain,
             Sky = 8,
@@ -5304,16 +5315,17 @@ namespace BS3D.Tools.LevelGen
             Shots = 74,
             //#288: 6 until the owner reported nearly every shot ending in "The cluster reached the line", and
             //this one is not a tight margin - the two clocks disagreed outright, the fault LevelGen's own
-            //header records for the pictures. The lowest ball starts 6.16 over the line; six bought TWELVE
-            //descents at 0.60, i.e. 7.20, so an UNTOUCHED Pylon is past the line on its eleventh descent - at
-            //shot 66 of a 74-shot budget, with the last eight shots unusable however well they are aimed.
-            //That is what the owner was working around by throwing shots away: a miss does not grow the
-            //cluster downwards. Nine buys eight descents, 4.80, and leaves 1.36 over the line at the end.
-            //The field cannot help - Pylon is already at FieldLevels 32 and FitFieldToMap has raised it as
-            //far as the floor margin allows (floor Y -7.00), so CeilingStep is the only lever left.
+            //header records for the pictures. At the shipped depth of 24 the lowest ball started 6.16 over
+            //the line and six bought TWELVE descents at 0.60, i.e. 7.20 - an UNTOUCHED Pylon was past the
+            //line on its eleventh descent, at shot 66 of 74, the last eight shots unusable however well
+            //aimed. That is what the owner was working around by throwing shots away: a miss does not grow
+            //the cluster downwards. Nine buys eight descents, 4.80, against the 8.90 the depth-20 truss now
+            //starts with (#301) - about 4.1 left at budget's end, clear of any measured swing. Nine is kept
+            //rather than re-tightened: this level's swings are the deepest in the pack, and the headroom is
+            //what they land in.
             CeilingStep = 9,
             OccupiedBlock = (x, z, i, depth) =>
-                PylonLeg(x, z, i) != 0 || PylonCap(x, z, i) || PylonRing(x, z, i, out _),
+                PylonLeg(x, z, i) != 0 || PylonCap(x, z, i) || PylonRing(x, z, i),
             BlockColour = PylonColour,
         };
 
@@ -5323,22 +5335,33 @@ namespace BS3D.Tools.LevelGen
         //at the feet. The cap owns i >= PYLON_CAP_FLOOR.
         private const int PYLON_MIRROR = 13;
         private const int PYLON_LEG_BAND = 4;
-        private const int PYLON_FOOT_ANCHOR = 12;
-        private const int PYLON_CAP_FLOOR = 20;
+        private const int PYLON_FOOT_ANCHOR = 11;
+        private const int PYLON_CAP_FLOOR = 16;
 
-        //The girdle rings: (Bottom level, Min index) pairs, each two levels tall, each the 1-cell closed
-        //square perimeter of [Min .. 14-Min]. Ring corners coincide with the legs there, and those cells
-        //belong to the legs (PylonColour's test order). The widest ring [1..13] is the margin-1 extent.
-        private static readonly (int Bottom, int Min)[] PYLON_RINGS = { (14, 4), (10, 3), (6, 2), (2, 1) };
+        //The girdle rings: (Bottom level, Min index, Levels) triples, each the 1-cell closed square
+        //perimeter of [Min .. 14-Min]. Ring corners coincide with the legs on the two levels that share the
+        //leg's band, and those cells belong to the legs (PylonColour's test order). The widest ring [2..12]
+        //is the margin-2 extent.
+        //
+        //All three levels tall - the Bolt's "THREE AND NOT TWO", measured here too (#301), and in BOTH
+        //directions: at two levels a ring's corners fall inside one leg band, so a foot release opens the
+        //whole loop and the C unrolls past the line (the shipped level's first-shot death); at three, the
+        //third level crosses the band boundary and keeps a closed loop through any single release. Thinning
+        //just the bottom ring back to two was re-tried for its pendulum mass and read 5 of 5 - the stiffness
+        //is worth more than the weight costs. The first entry is the CAP COLLAR, new with #301: its two
+        //lower levels tie the leg tops the way the girdles do, and its top level rings the cap's own base
+        //course, so the hinge the bare legs swing about once the girdles release is braced against the
+        //anchor itself.
+        private static readonly (int Bottom, int Min, int Levels)[] PYLON_RINGS =
+            { (14, 5, 3), (10, 4, 3), (6, 3, 3), (2, 2, 3) };
 
-        //THE TWIN-LOOP GRAFT, off until the crippled-state sag measurement asks for it (the design's tune
-        //order). On, every girdle ring gains a second closed loop one cell inside the specced one: each
-        //lamina is an intact closed loop on its own - the rejected Chain's closed-loop-with-corners
-        //exemption - so cutting either colour leaves a full ring still tying the legs, the truss stays
-        //visually openwork, and the endgame gains shootable ring targets. The outer lamina then turns
-        //orange; verify at the flip that orange borders red only along the NE leg's primary bands, and
-        //recolour the rings further if the pair reads confusable in the running game.
-        private const bool PYLON_TWIN_RINGS = false;
+        //⚠ THE TWIN-LOOP GRAFT THAT USED TO SIT HERE IS MEASURED OUT (#301), not merely switched off. Its
+        //premise was that a second loop one cell inside the first keeps a closed ring when the outer is cut
+        //- but the probe read it 5 of 5 alone AND 5 of 5 combined with three-level rings (dying later, at
+        //shots 7-15, to 41-121-ball releases), because both laminae's corners sit inside the legs' 2x2
+        //footprints and one leg band therefore opens BOTH loops at once, while the doubled mass makes every
+        //ring a heavier one-ink target. What answered the sag instead was height off the line, the gentler
+        //splay, the taller rings and the cap collar - see Depth and PYLON_RINGS.
 
         //Leg primaries, indexed NE, SE, SW, NW - the order PylonLeg and the cap quadrants both speak
         private static readonly BallType[] PYLON_PRIMARIES =
@@ -5380,29 +5403,18 @@ namespace BS3D.Tools.LevelGen
         private static bool PylonCap(int x, int z, int i) =>
             i >= PYLON_CAP_FLOOR && x >= 5 && x <= 9 && z >= 5 && z <= 9;
 
-        /// <summary>
-        /// Whether a cell is on a girdle ring, and on which lamina: the outer one is the specced
-        /// perimeter, the inner one exists only with <see cref="PYLON_TWIN_RINGS"/> on.
-        /// </summary>
-        private static bool PylonRing(int x, int z, int i, out bool outerLamina)
+        /// <summary>Whether a cell is on a girdle ring: the 1-cell closed square perimeter of its entry in
+        /// <see cref="PYLON_RINGS"/>, that entry's own number of levels tall.</summary>
+        private static bool PylonRing(int x, int z, int i)
         {
-            outerLamina = false;
-
-            foreach ((int bottom, int min) in PYLON_RINGS)
+            foreach ((int bottom, int min, int levels) in PYLON_RINGS)
             {
-                if (i < bottom || i > bottom + 1) continue;
+                if (i < bottom || i >= bottom + levels) continue;
 
                 int max = PYLON_MIRROR + 1 - min;
                 if (x < min || x > max || z < min || z > max) return false;
 
-                if (x == min || x == max || z == min || z == max)
-                {
-                    outerLamina = true;
-                    return true;
-                }
-
-                //Inside the outer loop: the inner lamina is the same perimeter one cell in
-                return PYLON_TWIN_RINGS && (x == min + 1 || x == max - 1 || z == min + 1 || z == max - 1);
+                return x == min || x == max || z == min || z == max;
             }
 
             return false;
@@ -5410,9 +5422,10 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// Legs first - ring corners belong to them, so the test order IS that rule - then the cap's
-        /// quadrant columns, then the rings. A leg's five bands alternate primary/white from the top band
-        /// down; the cap's centre row and column (index 7) fall to the low side, so the quadrant columns
-        /// are 36/24/24/16 over its four levels, the smallest still far above <see cref="MIN_GROUP"/>.
+        /// quadrant columns, then the rings. A leg's four bands alternate primary/white from the FEET up
+        /// (primary at the feet, white at the top, the cap carrying the primaries against the glass); the
+        /// cap's centre row and column (index 7) fall to the low side, so the quadrant columns are
+        /// 36/24/24/16 over its four levels, the smallest still far above <see cref="MIN_GROUP"/>.
         /// </summary>
         private static BallType PylonColour(int x, int z, int i)
         {
@@ -5426,8 +5439,12 @@ namespace BS3D.Tools.LevelGen
                 return PYLON_PRIMARIES[quadrant];
             }
 
-            PylonRing(x, z, i, out bool outerLamina);
-            return PYLON_TWIN_RINGS && outerLamina ? BallType.Type9 : BallType.Type10;   //orange / brown
+            //Whole brown loops, deliberately, and it is a measured choice (#301): cut into two inks so that
+            //no shot could take a whole ring, the probe read 5 of 5 in every such configuration - an OPENED
+            //loop is worse than a missing one, because a C-ring swings 7-10 units where a closed loop cannot
+            //lengthen, and a released loop at least goes symmetrically. The loop being a one-shot 25-121 ball
+            //release is the design's own "re-hanging itself off its own girdle rings" premise.
+            return BallType.Type10;   //brown
         }
 
         #endregion
@@ -7631,17 +7648,17 @@ namespace BS3D.Tools.LevelGen
         }
 
         /// <summary>
-        /// Five free-floating rings widening as they descend, each hung from the one above by THREE
+        /// Five free-floating rings widening as they descend, each hung from the one above by FOUR
         /// staggered pins and by nothing else - the deliberate anti-<see cref="Carousel"/>, whose rails
-        /// never let go. Shear two of a gap's three pins and everything under it, up to four rings and
+        /// never let go. Shear three of a gap's four pins and everything under it, up to four rings and
         /// hundreds of balls, is left slewing on one pin; the higher the gap you dare, the heavier the swing
-        /// and the harder the third pin is to hit while it gyrates.
+        /// and the harder the last pin is to hit while it gyrates.
         /// <para>
-        /// <b>The pin trio is colour-disjoint by rule and that is the whole gate-2 argument</b>: within any
-        /// gap the three pins carry three different colours, each absent from both rings the gap joins, so
+        /// <b>The pin quartet is colour-disjoint by rule and that is the whole gate-2 argument</b>: within
+        /// any gap the four pins carry four different colours, each absent from both rings the gap joins, so
         /// no single release can take more than one pin from a floor and the stack never loses a storey to
         /// one ball. A ring arc's release leaves its pin hanging off the ring below, still glassed through
-        /// the others. The 60-degree stagger between consecutive gaps means no continuous rail exists
+        /// the others. The 45-degree stagger between consecutive gaps means no continuous rail exists
         /// anywhere - the eye reads five separate halos hovering under each other.
         /// </para>
         /// <para>
@@ -7656,23 +7673,25 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// The graft is Pillars' beams-not-plates discipline, applied to the collar: level d 0 is the glass
         /// pad and nothing else, and neither of its halves owns a single gap-A pin cell (the pins are a
-        /// level below it and carry gap A's own trio) - the same one-release-drops-everything trap Pillars
+        /// level below it and carry gap A's own quartet) - the same one-release-drops-everything trap Pillars
         /// had already designed out.
         /// </para>
         /// <para>
-        /// Gate watch (#255), in the gateNotes' order. UNSHOT SAG FIRST AND IT IS THE CLOSEST CALL IN THE
-        /// BLOCK: three pins carry up to four rings, about 600 balls below gap A. The gateNotes' first tune
-        /// is taken up front - <see cref="ORRERY_PIN"/> is <b>1.5, not the spec's 1.3</b> - because this
-        /// tool cannot make the measurement and the margin now has room for it. Measure it in the Testbed
-        /// anyway; if it still creeps the next tune is a FOURTH pin per gap, whose colour must be disjoint
-        /// from both rings AND from the existing trio, and not a sixth thickening. Second, the ratio: 32
-        /// standing groups against 72 shots is 2.25, harder than the block's usual 3, and if the simulator
-        /// rates it too hard the pre-authorised fix is merging each ring to two 180-degree arcs (about 22
-        /// groups) rather than spending shots. Third, lonely balls at the 120-degree sector seams - the
-        /// arithmetic here says the smallest standing group in the level is 6 balls, but re-check after any
-        /// repair pass. NAME COLLISION, from the gateNotes: the meadow judge has a 'Halo' candidate, which
-        /// is why this level is Orrery. Expected (computed, NOT yet measured): 760 balls - the biggest of
-        /// the block - 32 standing groups, every colour's best single shot 3-5 %, lateral margin 1.
+        /// Gate watch (#255), in the gateNotes' order. UNSHOT SAG FIRST AND IT WAS THE CLOSEST CALL IN THE
+        /// BLOCK - the gateNotes' first tune was taken up front (<see cref="ORRERY_PIN"/> at <b>1.5, not
+        /// the spec's 1.3</b>) because this tool could not then make the measurement. Now it can, and #301
+        /// spent the second tune (the fourth pin) and two levers the gateNotes never listed on what it
+        /// measured; the constants' own comments carry the traces. The shipped reading is <b>3 of 5 probe
+        /// orders lost to swing overshoots of 0.0-0.1 past the game's own allowance</b> - Amphora's exact
+        /// profile, and Amphora plays fine - where the drawn level read 5 of 5 gone on its first shots with
+        /// the glass at rest. Second, the ratio: 52 standing groups against 72 shots is <b>1.38</b>, far
+        /// under the block's usual 3 and at the hard edge of the game (Static 1.43, Colossus 0.98). That is
+        /// the price of 60-degree release quanta and it is a real difficulty statement - if play rates it
+        /// too hard, the honest easings are shots (72 to ~80 is ratio 1.54) or fewer rings, because arc size
+        /// buys structure now, not colour. Third, lonely balls at the sector seams - re-check the repair
+        /// pass count after any change. NAME COLLISION, from the gateNotes: the meadow judge has a 'Halo'
+        /// candidate, which is why this level is Orrery. Measured: 685 balls in 52 standing groups, best
+        /// single shots 2-6 %, lateral margin 1, 0 recoloured, anchor load 37.0.
         /// </para>
         /// </summary>
         private static Design Orrery() => new()
@@ -7688,42 +7707,68 @@ namespace BS3D.Tools.LevelGen
                 Balls = BALLS_NEBULA,
             Shots = 72,
             //#288: 6 until the owner reported never clearing this level. Six bought twelve descents, 7.20 of
-            //the 7.57 this field starts with, ending the level 0.37 above the line - under the 0.82 the swing
-            //probe measured on Chest (see GameplayScreen.CLUSTER_SWING_ALLOWANCE), so an orrery whose ring has
-            //broken loose and is swinging is BELOW the line at the end however well it is played. Seven buys
-            //ten descents, 6.00, and leaves 1.57.
-            CeilingStep = 7,
+            //the 7.57 the twenty-level layout started with, ending the level 0.37 above the line - under the
+            //0.82 the swing probe measured on Chest (see GameplayScreen.CLUSTER_SWING_ALLOWANCE), so an
+            //orrery whose ring has broken loose and is swinging was BELOW the line at the end however well
+            //it was played. Seven bought ten descents, 6.00. #301 then measured the authored sum too kind to
+            //this level in the simulation: a five-gap pin chain stretches and swings under play like nothing
+            //else in the pack, and the probe still lost it to a stepped glass a third of the way in at 7.
+            //Fourteen buys five descents, 3.00, and leaves 7.40 of the sixteen-level layout's 10.40 - Ghost's
+            //and Globe's own step, taken for their own reason: the pressure stays (five descents still come),
+            //and the level is decided by the shots rather than by the pendulum.
+            CeilingStep = 14,
             Occupied = OrreryOccupied,
             Colour = OrreryColour,
         };
 
-        //THE ORRERY'S OWN FIGURES. Twenty levels in a field of 30 - the offset is 10 and even.
+        //THE ORRERY'S OWN FIGURES. Sixteen levels in a field of 32 - the offset is 16 and even. It was
+        //twenty in a field of 30 until #301: see OrreryGap for why every gap is now a single level, and
+        //what four levels of hang bought back; the field then grew two because the floor margin still had
+        //room and this stack spends clearance on swing like nothing else in the pack.
         private const byte ORRERY_GRID = 15;
-        private const byte ORRERY_DEPTH = 20;
-        private const byte ORRERY_FIELD_LEVELS = 30;
+        private const byte ORRERY_DEPTH = 16;
+        private const byte ORRERY_FIELD_LEVELS = 32;
 
         //The collar: the glass pad, and a pad only - see the design's doc on the Pillars graft.
         private const float ORRERY_COLLAR = 3.2f;
 
         //The ring ladder. Each ring is an annulus WIDTH cells across, two courses tall, seated STEP further
         //out than the one above it: ring 1 is [2.4, 4.4] and ring 5 is [4.0, 6.0], which is the widest the
-        //field's clear column allows. STEP is 0.4 and not the spec's 0.6 - see the design's doc.
+        //field's clear column allows. STEP is 0.4 and not the spec's 0.6 - see the design's doc. ⚠ WIDTH
+        //stays 2.0, and #301 measured the tempting alternative so nobody tries it again: thinning to 1.5
+        //cut the mass a quarter and made the sag WORSE (losing orders at shot 7-11 against 12-17), because
+        //an annulus a cell wide is a slender hoop - its stiffness falls faster than its weight, and the
+        //stack went rope-like, standing cells three levels up hanging bodily under the death line.
         private const float ORRERY_RING_INNER = 2.4f;
         private const float ORRERY_RING_STEP = 0.4f;
         private const float ORRERY_RING_WIDTH = 2.0f;
 
-        //The pins. Three to a gap, staggered 60 degrees from the gap above, each seated in the middle of
-        //the radial overlap of the two rings it joins so it has cells under BOTH of them. 1.5 is the
-        //gateNotes' own sag tune taken up front.
-        private const int ORRERY_PINS = 3;
+        //The pins. FOUR to a gap - the gateNotes' second sag tune, spent on the probe's measurement
+        //(#301): a pin of a two-level gap was a ~16-ball group whose single release orphans nothing yet
+        //leaves everything below its gap on the two survivors, and one such shot whipped the bottom ring
+        //from a held 3.2 clearance to -1.0 with the glass at rest; three pins read 5 of 5 losing orders
+        //however the rest of the level was tuned. Each gap staggers 45 degrees from the one above, each
+        //pin seated in the middle of the radial overlap of the two rings it joins so it has cells under
+        //BOTH of them. 1.5 is the gateNotes' first sag tune, taken up front when the level was drawn.
+        private const int ORRERY_PINS = 4;
         private const float ORRERY_PIN = 1.5f;
 
         private static readonly float[] ORRERY_PIN_ORBIT = { 2.8f, 3.5f, 4.0f, 4.3f, 4.4f };
 
-        //Each ring in three 120-degree arcs, the seams rotated 60 degrees a ring - a slow colour corkscrew
-        //down the stack, which is what stops the five halos reading as one striped drum. ORRERY_ARCS is
-        //stated separately from ORRERY_PINS although both are three: an arc count is a colouring fact and a
-        //pin count is a load-bearing one, and merging them would tie a recolour to the structure.
+        //Each ring in SIX 60-degree arcs over a three-colour palette, the seams rotated half a sector a
+        //ring - a slow colour corkscrew down the stack, which is what stops the five halos reading as one
+        //striped drum. Opposite arcs share an ink and stand 180 degrees apart, so each is its own group.
+        //Six and not the three 120-degree arcs it shipped with, and the halving is #301's main finding on
+        //this level: a 120-degree release was ~40 balls gone in one frame, and the probe's trace shows
+        //what that does twice over - the freed arc falls onto the wider ring below it (nested annuli MUST
+        //overlap radially or no pin could join them, so the bombardment is built in), and the 240-degree
+        //C left behind slews on its pins - the bottom ring's rim whipped 6 to 10 units below its held
+        //line off a single such shot, with nothing orphaned and the glass at rest. At 60 degrees the
+        //impulse halves and a 300-degree C stays nearly balanced. The arc
+        //count is a colouring fact and the pin count a load-bearing one - merging them would tie a
+        //recolour to the structure - and the sector count is now a THIRD thing, the release quantum,
+        //tuned against the sag probe rather than against either.
+        private const int ORRERY_ARC_SECTORS = 6;
         private const int ORRERY_ARCS = 3;
         private static readonly BallType[][] ORRERY_RING_ARCS =
         {
@@ -7734,49 +7779,58 @@ namespace BS3D.Tools.LevelGen
             new[] { BallType.Type3, BallType.Type1, BallType.Type5 },      //blue, red, cyan
         };
 
-        //THE LOAD RULE, and the reason no colour can shear a floor: within a gap the three pins take three
-        //DIFFERENT colours, and every trio is disjoint from both of the rings it joins.
+        //THE LOAD RULE, and the reason no colour can shear a floor: within a gap the four pins take four
+        //DIFFERENT colours, and every quartet is disjoint from both of the rings it joins. The fourth
+        //entries also stay off the collar's two inks in gap A and are checked against nothing further:
+        //pins of different gaps never touch, two ring courses always standing between them.
         private static readonly BallType[][] ORRERY_PIN_COLOURS =
         {
-            new[] { BallType.Type13, BallType.Type8, BallType.Type10 },    //olive, black, brown
-            new[] { BallType.Type12, BallType.Type13, BallType.Type11 },   //navy, olive, silver
-            new[] { BallType.Type1, BallType.Type4, BallType.Type3 },      //red, white, blue
-            new[] { BallType.Type2, BallType.Type7, BallType.Type6 },      //green, yellow, magenta
-            new[] { BallType.Type11, BallType.Type4, BallType.Type9 },     //silver, white, orange
+            new[] { BallType.Type13, BallType.Type8, BallType.Type10, BallType.Type12 },   //olive, black, brown, navy
+            new[] { BallType.Type12, BallType.Type13, BallType.Type11, BallType.Type3 },   //navy, olive, silver, blue
+            new[] { BallType.Type1, BallType.Type4, BallType.Type3, BallType.Type8 },      //red, white, blue, black
+            new[] { BallType.Type2, BallType.Type7, BallType.Type6, BallType.Type4 },      //green, yellow, magenta, white
+            new[] { BallType.Type11, BallType.Type4, BallType.Type9, BallType.Type2 },     //silver, white, orange, green
         };
 
         /// <summary>Which ring's two courses this level is, 1..5, or 0 for the collar or a gap.</summary>
         private static int OrreryRing(int d) => d switch
         {
             2 or 3 => 1,
-            6 or 7 => 2,
-            10 or 11 => 3,
-            14 or 15 => 4,
-            18 or 19 => 5,
+            5 or 6 => 2,
+            8 or 9 => 3,
+            11 or 12 => 4,
+            14 or 15 => 5,
             _ => 0,
         };
 
         /// <summary>
-        /// Which gap this level is in, 1..5, or 0 for the collar or a ring. Gap A is a single level - the
-        /// collar is one course and the rings are two - and every other gap is two.
+        /// Which gap this level is in, 1..5, or 0 for the collar or a ring. <b>Every gap is a single
+        /// level</b> — B to E were two until #301, and the probe's trace is why they are not any more:
+        /// the stack is five gaps of BallSocket chain in series, and at two levels a gap that chain was
+        /// soft enough that releasing ONE pin bounced the bottom ring four units — from a held 3.2
+        /// clearance to −1.0, under the line for longer than the game forgives, with nothing orphaned
+        /// and the glass at rest. One level takes a constraint hop out of every gap (stiffer by a third),
+        /// halves the released pin's mass, and hands the four levels saved back to the hang: the bottom
+        /// ring starts 2.83 units higher in the same field. The halos still hover — a gap is still a
+        /// full level of air with nothing but the four pin discs in it.
         /// </summary>
         private static int OrreryGap(int d) => d switch
         {
             1 => 1,
-            4 or 5 => 2,
-            8 or 9 => 3,
-            12 or 13 => 4,
-            16 or 17 => 5,
+            4 => 2,
+            7 => 3,
+            10 => 4,
+            13 => 5,
             _ => 0,
         };
 
-        /// <summary>Which pin of its gap the cell is inside, 1..3, or 0 for none.</summary>
+        /// <summary>Which pin of its gap the cell is inside, 1..4, or 0 for none.</summary>
         private static int OrreryPin(float r, float ang, int gap)
         {
             float orbit = ORRERY_PIN_ORBIT[gap - 1];
 
-            //Gaps alternate 0/120/240 and 60/180/300, so no two consecutive gaps put a pin on the same
-            //bearing and there is no continuous rail down the stack anywhere
+            //Gaps alternate 0/90/180/270 and 45/135/225/315, so no two consecutive gaps put a pin on the
+            //same bearing and there is no continuous rail down the stack anywhere
             float stagger = gap % 2 == 0 ? HALF : 0f;
 
             for (int p = 0; p < ORRERY_PINS; p++)
@@ -7812,18 +7866,23 @@ namespace BS3D.Tools.LevelGen
             int d = LevelsBelowGlass(i, depth);
 
             //The collar in halves, which is the top-level rule: neither half owns a pin, so neither can
-            //take the stack with it
+            //take the stack with it. #301 tried dicing this into 2x2 blocks on the fear that a half is
+            //one shootable group bonding half the pad to the glass - and measured the fear idle: the aim
+            //is held to a band above the cluster's underside (the game's own tall-level rule), so no
+            //shot ever reaches the collar, and the dice bought nothing but ten groups of budget.
             if (d == 0) return SectorIndex(ang, 0f, 2) == 0 ? BallType.Type6 : BallType.Type9;   //magenta / orange
 
             int ring = OrreryRing(d);
 
-            //A sixth of a turn of seam roll a ring - two of the five land back on the first ring's seams,
-            //which is the point: consecutive floors never share one
-            if (ring != 0) return ORRERY_RING_ARCS[ring - 1][SectorIndex(ang, (ring - 1) / 6f, ORRERY_ARCS)];
+            //Half a sector of seam roll a ring, so consecutive floors never share a seam bearing; the
+            //six sectors index a three-colour palette, which is what puts opposite arcs in one ink
+            if (ring != 0)
+                return ORRERY_RING_ARCS[ring - 1][
+                    SectorIndex(ang, (ring - 1) / (2f * ORRERY_ARC_SECTORS), ORRERY_ARC_SECTORS) % ORRERY_ARCS];
 
             int gap = OrreryGap(d);
 
-            //Colour is only ever asked of an occupied cell, so a gap level's cell IS one of its three pins
+            //Colour is only ever asked of an occupied cell, so a gap level's cell IS one of its four pins
             return ORRERY_PIN_COLOURS[gap - 1][OrreryPin(r, ang, gap) - 1];
         }
 
@@ -7847,10 +7906,12 @@ namespace BS3D.Tools.LevelGen
         //A HOLLOW BODY'S ANCHOR IS WHATEVER ITS OWN TOP HAPPENS TO BE, and that is the trap this block had to
         //answer five times. Only the field's topmost level is bonded to the glass, so the anchor is a 100-cell
         //plate on the cube, a 49-cell plate on the temple, a disc on the reel's head, an annulus on the donut
-        //and about twenty cells at the globe's pole. Painted in ONE colour, any of them is a level that ends
-        //on the first lucky ball of it. Every cap here therefore carries at least two colours, interleaved -
-        //the globe's ice is broken into floes for exactly this reason and not for geography's - and the drop
-        //test is the check: the whole block's best single shot is 11 %.
+        //and the globe's arctic plateau - which the sphere's own geometry made NINE cells until #301's probe
+        //watched a single match leave 550 balls on four of them; GLOBE_POLE_CAP flattens the pole into 37
+        //(measured, 16.2 balls each). Painted in ONE colour, any of them is a level that ends on the first
+        //lucky ball of it. Every cap here therefore carries at least two colours, interleaved - the globe's
+        //ice is broken into floes for exactly this reason and not for geography's - and the drop test is the
+        //check: the whole block's best single shot is 11 %.
         //
         //EVERY LEVEL IS FRAMED WHOLE - field 18, the deepest the camera frames (GameplayScreen.FRAMED_LEVELS)
         //- and that is a deliberate answer to the two tall blocks before it. A tall level's premise is that
@@ -7864,15 +7925,18 @@ namespace BS3D.Tools.LevelGen
         //those blocks are is the block's real difficulty dial, because it sets the GROUP COUNT and the group
         //count sets the budget: see CUBE_GROUND_BLOCK, where the same cube measured 75, 44 and 34 groups at
         //three block sizes. All five budgets are priced off the ratio Validate prints, and they ramp
-        //1.65 -> 1.58 -> 1.50 -> 1.44 -> 1.37 shots a group across the block, the finale tighter than any
-        //level in the game but Colossus (0.98) and the Moon's Static (1.43).
+        //1.65 -> 1.58 -> 1.50 -> 1.44 -> 1.40 shots a group across the block, the finale tighter than any
+        //level in the game but Colossus (0.98). (The finale priced at 1.37 until #301: its two-cell wall
+        //merged the dither blocks through the thickness, 38 groups became 30, and the budget was re-priced
+        //to the new ratio - see Globe's own doc.)
         //
         //THE COLOURS, and what each level puts the #152 five next to:
         //  Cube     silver and orange - the three ground pairs of its faces, warm against cool.
         //  Ziggurat brown and olive   - a sandstone temple, both against gold and white.
         //  Reel     silver and navy   - a white reel with red sevens, its heads in cold metal.
         //  Donut    brown and orange  - the dough under a magenta glaze, sprinkles over it.
-        //  Globe    navy, olive, brown - the ocean, the forest and the dry land of a pixel Earth.
+        //  Globe    navy, olive, brown - the ocean, the forest and the dry land of a pixel Earth,
+        //           with black for the water between the polar floes (#301 - see GLOBE_POLAR).
 
         /// <summary>
         /// A hollow cube ten cells on a side with an arcade glyph on every face the player can see: an
@@ -8052,28 +8116,39 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// The finale: a pixel Earth. A hollow globe with a world drawn round it in sixteen columns of
-        /// longitude and fourteen rows of latitude, one row per level of the layout — ocean, forest, dry
-        /// inland and broken ice at both poles —
+        /// longitude and fourteen rows of latitude, one row per level of the layout — two pole-to-pole
+        /// continents mottled in three land inks, two narrow oceans, broken ice at both poles —
         /// and the last thing the campaign shows, after a chapter spent in the void, is the planet it left.
         /// <para>
         /// Hard by <b>fineness</b> rather than by scarcity, which is <see cref="Garland"/>'s job five levels
-        /// earlier and deliberately not repeated: seven colours over 38 groups of a dozen balls each, on the
-        /// tightest budget in the block. There is no big payoff anywhere in it — the best single shot is 8 %,
+        /// earlier and deliberately not repeated: eight colours over 30 groups, on a budget re-priced to the
+        /// block's second-tightest ratio. There is no big payoff anywhere in it — the best single shot is 6 %,
         /// where the reel offers 10 and the donut 11 — and the ceiling arrives on schedule while it is worked.
         /// </para>
         /// <para>
-        /// <b>The ice caps are broken, and that is the anchor rule rather than geography.</b> A true shell
-        /// narrows to a point at the pole, so the cells bonded to the glass are a disc of about twenty — paint
-        /// them one colour and the first lucky ball of it takes everything hanging underneath. Both caps are
-        /// therefore ice in floes with sea between them, which reads as pack ice and leaves most of the disc
-        /// standing whatever is shot: measured, the ice's own best shot is 4 % and drops nothing else.
+        /// <b>The ice caps are broken, and that is the anchor rule rather than geography.</b> The top level is
+        /// the arctic plateau (<see cref="GLOBE_POLE_CAP"/>, 37 cells measured) — paint it one colour and the
+        /// first lucky ball of it takes everything hanging underneath. Both caps are therefore ice in floes
+        /// with the polar water between them in its own ink (<see cref="GLOBE_POLAR"/>), which reads as pack
+        /// ice and leaves most of the plateau standing whatever is shot: measured, the worst single shot
+        /// leaves 562 balls on 16 anchors.
         /// </para>
         /// <para>
-        /// Measured: 482 balls in 38 groups (1.37 shots a group, the tightest in the block), margin 1, nothing
-        /// alone, 4 recoloured; counts 41–108, best single shots 2–8 %. Hung unshot for 35 s in the running
-        /// game. It is also the shallowest clearance in the block — 3.96 above the line, 6.6 descents against
-        /// a budget that buys 5.8 — so the ceiling is still on the campaign's last level's shoulder all the way
-        /// down, which is the pressure it is meant to end under, and it no longer arrives first.
+        /// <b>It is the level #301 rebuilt, and the record of why is on its constants</b>: the polar water's
+        /// own ink and the narrow oceans (<see cref="GLOBE_WORLD"/>'s last two rules), the two-cell wall
+        /// (<see cref="GLOBE_SHELL"/>), the flattened anchor (<see cref="GLOBE_POLE_CAP"/>) and the re-priced
+        /// budget. The sag probe read 5 of 5 losing orders on the shipped drawing, dying at shots 5–10 with
+        /// the glass at rest; after the rebuild it reads 2–3 of 5 across repeat runs (the multithreaded
+        /// solver is not bit-deterministic, so borderline orders flip) — the band <see cref="Saturn"/> (2)
+        /// and <see cref="Amphora"/> (3) sit in, and both are finishable from play — with the surviving
+        /// orders clearing the level outright at shot 28 of 42.
+        /// </para>
+        /// <para>
+        /// Measured: 599 balls in 30 groups (1.40 shots a group), margin 1, nothing alone, 0 recoloured;
+        /// counts 52–99, best single shots 3–6 %; 37 ceiling anchors carrying 16.2 balls each. Still the
+        /// shallowest clearance in the block — ~4 above the line, with the 42-shot budget buying three
+        /// descents (1.8) — so the ceiling is on the campaign's last level's shoulder all the way down,
+        /// which is the pressure it is meant to end under, and it no longer arrives first.
         /// </para>
         /// </summary>
         private static Design Globe() => new()
@@ -8087,15 +8162,19 @@ namespace BS3D.Tools.LevelGen
             Sky = ARCADE_SKY,
             Music = MUSIC_ARCADE,
                 Balls = BALLS_ARCADE,
-            Shots = 52,
+            //42, re-priced off the measured ratio after the #301 rebuild: the two-cell wall merged the dither
+            //blocks through its thickness and the standing groups went 38 to 30, so the shipped 52 read 1.73
+            //shots a group — outside the block's 1.3–1.7 band and gentler than the opener. 42 reads 1.40,
+            //back beside the finale's priced 1.37 and still tighter than Donut's 1.44.
+            Shots = 42,
             //14, not the 9 it shipped with (#260): the globe hangs deep, so the fit leaves its lowest ball
-            //only ~3.96 above the death line, and at a step every 9 landings the 52-shot budget spends ~5.8
-            //steps = 3.5 units of descent — the endgame cluster sits INSIDE the band a swing reaches (the 1.0
+            //only ~4 above the death line, and at a step every 9 landings a 52-shot budget spent ~5.8
+            //steps = 3.5 units of descent — the endgame cluster sat INSIDE the band a swing reaches (the 1.0
             //allowance and the 1 s grace), which is how every loss in the owner's dozens of attempts ended:
-            //not out of balls, but "the cluster reached the line" off a swing. At 14 the same budget spends
-            //3.7 steps = 2.2 units and the cluster stays ~1.7 above the line at budget's end — past the swing
-            //band, so a competent run is decided by the shots it lands and not by the pendulum, while the
-            //pressure itself stays (four descents still come).
+            //not out of balls, but "the cluster reached the line" off a swing. At 14 the 42-shot budget
+            //spends 3 steps = 1.8 units and the cluster stays ~2.2 above the line at budget's end — past the
+            //swing band, so a competent run is decided by the shots it lands and not by the pendulum, while
+            //the pressure itself stays (three descents still come).
             CeilingStep = 14,
             Occupied = (r, ang, i, depth) => GlobeShell(r, i, depth),
             Colour = GlobeColour,
@@ -8127,7 +8206,7 @@ namespace BS3D.Tools.LevelGen
         //
         //THE COLOURS, and what each level puts the #152 thirteen next to:
         //  Ghost    red and magenta  - the body check, with white eye rings and black pupils embedded in it.
-        //  Cabinet  brown and orange - woodgrain, under a yellow/magenta marquee and a five-ink screen.
+        //  Cabinet  navy, brown, olive - woodgrain, under a magenta/cyan marquee and a five-ink screen.
         //  Tetra    magenta and red  - a hot purple field between white and navy bevel lines.
         //  Giza     white and brown  - sandstone under a yellow/orange gold cap.
         //  Trophy   yellow and orange- gold, over a navy/silver marble foot on one brown stem.
@@ -8143,12 +8222,15 @@ namespace BS3D.Tools.LevelGen
 
         //The hem. Two levels of the tube present only in four arcs, so the skirt hangs in four separate
         //lumps and the gaps sit at the four CARDINALS - the notch at +Z is under the eyes, which is the
-        //ghost's own front. GHOST_FOOT_HALF is the half-width of an arc as a fraction of its quadrant, so
-        //1/3 is 60 degrees of 90. The gate is the unshot sag test: two levels of a two-cell wall hanging off
-        //the hem should hold (Ziggurat's one-cell curtain is what did not), and if a foot droops past the
-        //line the fix is 25f / 90f here - a 50-degree arc - rather than anything thinner.
+        //ghost's own front. GHOST_FOOT_HALF is the half-width of an arc as a fraction of its quadrant, and
+        //it is the 50-degree arc its own gate sentence held in reserve (25 of 90), taken by #301's sag
+        //probe rather than by the unshot test the sentence guessed at: the feet held fine untouched, but
+        //late-game releases near the anchor left the remainder dipping 0.06-0.07 past the swing allowance
+        //(three orders of five, glass at rest), and the hem is the chain's bottommost dead weight - the
+        //cheapest mass to shed. At 60 degrees (1/3) the same orders read 3 of 5 sagged; do not widen it
+        //back without re-measuring --sag=Ghost.
         private const int GHOST_FEET_LEVELS = 2;
-        private const float GHOST_FOOT_HALF = 1f / 3f;
+        private const float GHOST_FOOT_HALF = 25f / 90f;
 
         //The dome, level by level from GHOST_DOME_FROM up: the wall stays two cells thick and the outer
         //radius steps in about half a cell a level, which is what nests each ring into the pockets of the
@@ -8169,19 +8251,36 @@ namespace BS3D.Tools.LevelGen
         private const int GHOST_RING_FROM = 12;
 
         //The body check. Twenty-four sectors round a wall whose mid radius is about 4.5, i.e. a sector is
-        //about 1.2 cells wide, so GHOST_BLOCK_ARC of 4 is the spec's "four consecutive cells along the ring".
-        //SIX blocks go round, and six being EVEN is the whole reason for 24 rather than 28: an odd number of
-        //blocks round a closed loop puts the same colour on both sides of the seam and merges them.
+        //about 1.2 cells wide. GHOST_BLOCK_ARC was 4 - the spec's "four consecutive cells along the ring" -
+        //until the ratio was finally measured on an unfused body (#301), and the whole dial ladder was
+        //measured with it: 4 reads 25 standing groups against 56 shots (2.24 a group), 3 reads 29 (1.93),
+        //2 reads 34 (1.65) - the only rung inside the block's stated 1.3-1.7 band, and the block's own rule
+        //is that this dial moves rather than the budget. The sag probe read the same ladder 2, 2, 1 of 5:
+        //finer blocks mean smaller releases and gentler re-hangs, so the pricing rung and the safest rung
+        //are the same one. TWELVE blocks go round - even, so the seam does not put a colour against itself,
+        //and 12 mod 3 = 0 means the wrap diagonal still fuses exactly one same-colour pair a band, nothing
+        //more. The cost, printed by the tool: four balls in pairs and 3 cells recoloured where the dome's
+        //wedges converge (Donut ships with 9), against zero at the coarser rungs.
         private const int GHOST_SECTORS = 24;
-        private const int GHOST_BLOCK_ARC = 4;
+        private const int GHOST_BLOCK_ARC = 2;
         private const int GHOST_BLOCK_LEVELS = 2;
 
-        //Red and magenta, and the pair is the design's one measured risk: a strict two-colour check has its
-        //same-colour blocks on the DIAGONAL, and a cross-level neighbour IS a diagonal in (x, z), so the two
-        //networks can fuse. If a colour's best single shot comes back large, the tuned fallback is the
-        //spec's own three-colour cycle - add BallType.Type8 (black) as a third entry here, which needs no new
-        //colour in the level and stays separated from the pupils by the white eye rings.
-        private static readonly BallType[] GHOST_BODY = { BallType.Type1, BallType.Type6 };   //red, magenta
+        //Red, magenta AND black - the spec's three-colour cycle, taken because the two-colour check's risk
+        //note on this very line came true and the sag probe is what caught it (#301): a strict two-colour
+        //check has its same-colour blocks on the DIAGONAL, and a cross-level neighbour IS a diagonal in
+        //(x, z), so the two networks FUSED - single releases of 291 and 299 balls, 45 % of the level, and
+        //the remainder stretched past the death line on the first shot in two orders of five. Three colours
+        //against blocks stepping one per arc and one per band means no two same-colour blocks touch even
+        //diagonally (differences 1 and 2, never 0 mod 3), so a release is one block (GHOST_BLOCK_ARC sets
+        //its size) - plus at most its one seam partner, the single same-colour diagonal pair per band the
+        //wrap leaves whatever the block count is. Black needs no new colour in the level.
+        //⚠ One honest cost, measured on the bitmap rather than assumed away: the pupils are NOT fully ringed
+        //by white - each eye's pupil pair sits on its bitmap's +X edge - so one black body block borders the
+        //right eye's pupils at their i=8 course whatever the palette order does (every (block+band) residue
+        //occurs next to a pupil somewhere; this order makes it exactly one contact). That black block's
+        //release takes the pupils with it, which softens the eyes-orphaned-whole joke on that one side and
+        //changes nothing structural.
+        private static readonly BallType[] GHOST_BODY = { BallType.Type1, BallType.Type6, BallType.Type8 };   //red, magenta, black
         private const BallType GHOST_EYE_WHITE = BallType.Type4;                              //white
         private const BallType GHOST_EYE_PUPIL = BallType.Type8;                              //black
 
@@ -8228,13 +8327,21 @@ namespace BS3D.Tools.LevelGen
         /// </para>
         /// <para>
         /// <b>The eyes are colour, not geometry, and they are meant to be orphaned.</b> Each is an island of
-        /// white and black embedded in the red/magenta wall, so popping the wall around one drops the eye
+        /// white and black embedded in the body wall, so popping the wall around one drops the eye
         /// whole - about two dozen balls, nowhere near the drop test's line, and the level's best small joke.
+        /// (One asterisk since the body took its third colour: a single black body block borders the right
+        /// eye's pupils, so that one release takes the pupils along - see <see cref="GHOST_BODY"/>.)
         /// </para>
         /// <para>
-        /// Priced at 56 shots against a target near 40 standing groups (1.4 a group, the gentlest of the
-        /// second hang). <b>Check first</b>: the red/magenta percolation named on <see cref="GHOST_BODY"/>,
-        /// then the unshot sag test on the four feet arcs.
+        /// Measured (#301, after the three-colour body, the 50-degree hem and the two-sector check):
+        /// 661 balls in 34 standing groups, 1.65 shots a group against the budget of 56 - in the block's
+        /// 1.3-1.7 band - margin 2, nothing alone, 4 in pairs, 3 recoloured; best single shots 3-12 %.
+        /// Both of the checks this doc used to ask for have been made and both came back guilty: the
+        /// red/magenta percolation was real (single releases of 45 % of the level; the sag probe read
+        /// 4 of 5 orders lost, two on their first shot) and the hem's weight was the margin the late-game
+        /// re-hangs were missing. The probe reads the shipped shape 1 of 5 across repeated sweeps (the dip
+        /// depth wobbles run to run, the count does not) - better than Saturn's 2 of 5, a level the owner
+        /// finishes comfortably.
         /// </para>
         /// </summary>
         private static Design Ghost() => new()
@@ -8330,13 +8437,21 @@ namespace BS3D.Tools.LevelGen
             return -1;
         }
 
-        //THE CABINET. A closed box nine cells across, seven deep and the full fourteen levels tall, with a
-        //slab of control panel hanging off its front. The shell is one cell thick everywhere EXCEPT the front
+        //THE CABINET. A closed box nine cells across, seven deep and twelve levels tall, with a slab of
+        //control panel hanging off its front. The shell is one cell thick everywhere EXCEPT the front
         //wall, which is two: the front carries the picture, and PICTURE_THICKNESS's rule is the same here as
         //it is on the Gallery's flat walls - a wall one cell thick in the picture's own depth has half its
         //cross-level neighbours reaching to a cell that is not there.
+        //
+        //⚠ TWELVE LEVELS, NOT FOURTEEN, and it is #301's structural finding: the block's two reported-
+        //unfinishable members were exactly its two fourteen-deep layouts (this and Ghost), while Cube at ten
+        //and Giza at eleven read clean in the sag probe. A one-cell wall is a chain of BallSocket links from
+        //the glass to the plate, every link yields a little under sustained load, and fourteen links starting
+        //3.96 over the death line drooped past it mid-game once releases had opened the walls up - the probe's
+        //traces bottom out at the lower walls and plate. Two levels shorter is two links less yield, ~56
+        //balls less wall mass on the chains, and 5.37 of clearance instead of 3.96.
         private const byte CABINET_GRID = 13;
-        private const byte CABINET_DEPTH = 14;
+        private const byte CABINET_DEPTH = 12;
         private const int CABINET_X0 = 2;
         private const int CABINET_X1 = 10;
         private const int CABINET_BACK = 3;
@@ -8353,12 +8468,21 @@ namespace BS3D.Tools.LevelGen
         private const int CABINET_PANEL_X1 = 9;
         private const int CABINET_PANEL_Z0 = 10;
         private const int CABINET_PANEL_Z1 = 11;
-        private const int CABINET_PANEL_LOW = 5;
-        private const int CABINET_PANEL_HIGH = 6;
+        private const int CABINET_PANEL_LOW = 3;
+        private const int CABINET_PANEL_HIGH = 4;
 
         //The lit marquee band: the top two levels of all four walls AND the whole top face. The top face is
-        //the anchor, so this palette is the one that has to carry two colours interleaved.
-        private const int CABINET_MARQUEE_FROM = 12;
+        //the anchor, so this palette is the one that has to carry two colours interleaved. Stated off the
+        //top so the #301 depth change could not strand it.
+        private const int CABINET_MARQUEE_FROM = CABINET_TOP - 1;
+
+        //The CRT shelf (#301): an internal plate on the screen's own bottom course, tying all four walls at
+        //mid-height. The level sits where the bitmap puts the screen's bottom row (CABINET_SCREEN_TOP minus
+        //the bitmap's four lower rows), so the shelf reads as the thing the monitor stands on when a broken
+        //wall opens a window onto it. (A mid-bay spine partition - Tetra's bay-seam answer - was tried on
+        //top of it for the back wall's nine-cell span and measured NO gain on the probe for 36 balls of
+        //cost, so the shelf stands alone.)
+        private const int CABINET_SHELF_LEVEL = CABINET_SCREEN_TOP - 4;
 
         //How coarse the woodgrain and the marquee dither is, in cells, and the design's group-count dial.
         //Four rather than the spec's two, and the reason is CUBE_GROUND_BLOCK's finding measured on a
@@ -8368,7 +8492,18 @@ namespace BS3D.Tools.LevelGen
         //to turn if the first run's ratio lands outside the block's 1.3-1.7 band, in either direction.
         private const int CABINET_BLOCK = 4;
 
-        private static readonly BallType[] CABINET_WOOD = { BallType.Type12, BallType.Type8 };     //the cabinet body: navy over black, as an arcade cabinet is
+        //The cabinet body: navy, brown and olive woodgrain, and BOTH figures of that are #301's findings.
+        //⚠ NO WOOD ENTRY MAY BE BLACK (Type8) - a structural rule rather than a palette one: black is the
+        //bitmaps' ink (the screen bezel, the cherry art's outline), and a black wood block welds them and every
+        //other black block into ONE network. Shipped that way, black measured 239 balls in a single standing
+        //group - 46% of the level, the sag probe's own 240-ball release - and the 307-ball remainder
+        //stretched past the death line with the glass at rest. The set piece needs the bezel's ink to itself.
+        //⚠ AND THE BAND NEEDS THREE ENTRIES, NOT TWO: cross-level neighbours are diagonal in (x, z), so at a
+        //block corner the band index steps by 0 or ±2 - both the same colour out of a two-entry band - and
+        //the two-ink body welded itself into per-colour networks of 120-240 balls this way (a two-colour
+        //check's diagonal, CUBE's "no ground colour meets its own kind" finding arriving through the walls).
+        //Three entries leave only the rare Δ=0 corner, and the largest wood group measures 32.
+        private static readonly BallType[] CABINET_WOOD = { BallType.Type12, BallType.Type10, BallType.Type13 };
         private static readonly BallType[] CABINET_MARQUEE = { BallType.Type6, BallType.Type5 };   //the marquee, in neon: magenta and cyan
         private static readonly BallType[] CABINET_PANEL = { BallType.Type11, BallType.Type1 };     //the control panel: brushed silver with a red button run
 
@@ -8389,20 +8524,25 @@ namespace BS3D.Tools.LevelGen
         };
 
         private const int CABINET_SCREEN_COLUMN = 3;
-        private const int CABINET_SCREEN_TOP = 11;
+        private const int CABINET_SCREEN_TOP = 9;
 
         /// <summary>
-        /// Classic cabinet side art on the -X wall: two cherries on a stem, seven columns of z by six levels,
-        /// top row first. <b>The black outline is load-bearing twice.</b> It keeps the red off the orange
-        /// woodgrain, red and orange being a listed confusable pair and the level's own palette note claiming
-        /// they never meet; and it is what gives every ink a group, the wall here being one cell thick with
-        /// no second layer to double anything.
+        /// Classic cabinet art, two cherries on a stem: seven columns of x by six levels, top row first, on
+        /// the BACK wall. <b>The black outline is load-bearing twice.</b> It keeps the cherries' red fenced
+        /// off the woodgrain so the drawing stays its own groups, the wall here being one cell thick with no
+        /// second layer to double anything; and black is the bezel's ink, so the outline must never reach the
+        /// screen - see below.
         /// <para>
-        /// It stops at level <see cref="CABINET_ART_TOP"/> on purpose. One level higher and its border would
-        /// reach the screen bezel through the box's front corner - an unshifted cell's cross-level neighbours
-        /// run to <c>x-1..x</c> and a shifted one's to <c>x..x+1</c>, so a shifted art cell at x =
-        /// <see cref="CABINET_X0"/> touches the front wall's x = 3 on the level above - and the bezel would
-        /// stop being its own set piece. Placed here the black measures as three separate networks.
+        /// <b>The back wall, not the flank, and #301's depth change is why.</b> At fourteen levels the art
+        /// sat on the -X wall one level below the screen and their blacks stayed apart; at twelve the screen
+        /// came two levels down and the art's stem fence at (2, 7) reached the bezel's bottom corner at
+        /// (3, 8) through the odd field level's cross-level diagonal (<c>x..x+1, z..z+1</c>) - the two welded
+        /// into one 47-ball network, and a flank shot could smash the screen. Dropping the art to top out at
+        /// 5 dodges the weld by parity but lands its lone top pixel where the repair pass rewrites it
+        /// (measured: 1 recoloured - the drawing quietly rewritten, the exact thing the block's bitmap rule
+        /// exists to forbid). The back wall is nine cells wide, so the bitmap fits with a spare column each
+        /// side and sits a full box away from the bezel, 0 recoloured; the gun orbits the level, so the back
+        /// reads as well as the flank ever did. Black measures as two separate networks, the bezel and this.
         /// </para>
         /// </summary>
         private static readonly string[] CABINET_CHERRY =
@@ -8420,33 +8560,41 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// An arcade cabinet inside the arcade: a closed woodgrain box under a lit marquee, with a Breakout
-        /// game on its screen, a control panel hanging off its front and cherry side art on its flank. The
+        /// game on its screen, a control panel hanging off its front and cherry art on its back panel. The
         /// block's register made literal - the cabinet is the level, and the one game you can play on it is
         /// the shot that destroys it.
         /// <para>
-        /// <b>Structurally it is the dullest thing in the five, which is the point.</b> Six faces of a closed
-        /// box mutually brace, so even with the entire front wall gone the other five are a rigid open
-        /// carton. Nothing here is asked to hold anything up that a corner is not already holding.
+        /// <b>Structurally it believed itself the dullest thing in the five, and #301 is the bill for
+        /// that.</b> Six faces of a closed box do mutually brace - as a rigid body. What the sentence missed
+        /// is that a one-cell wall is not rigid: it is a sheet of BallSocket chains, every link yields a
+        /// little under sustained load, and fourteen levels of it starting 3.96 over the death line drooped
+        /// past the line mid-game once releases had opened the walls up. The box is twelve levels now (see
+        /// <see cref="CABINET_DEPTH"/>), braced by the CRT shelf (see <see cref="CabinetShell"/>), and paced
+        /// a step slower (see the CeilingStep note below) - the same shape, read honestly.
         /// </para>
         /// <para>
         /// <b>Smashing the screen is the set piece.</b> The bezel is one connected black loop round the
         /// sprites, and every sprite inside it hangs off that loop alone: one landed black ball releases the
         /// lot and the whole Breakout scene rains out of the cabinet in one shower, which is how a CRT dies.
-        /// It is about a sixth of the cluster, priced and deliberate, and far under the drop test's line.
+        /// Measured, it is the level's biggest single shot - 40 bezel balls plus the sprites they orphan,
+        /// about an eighth of the cluster - priced and deliberate, and far under the drop test's line. ⚠ It
+        /// was 46% when the woodgrain carried black too, which is #301's whole story: see
+        /// <see cref="CABINET_WOOD"/> before touching any ink here.
         /// </para>
         /// <para>
         /// <b>The marquee is the anchor and it carries two colours by construction.</b> The top face is the
-        /// only level bonded to the glass; yellow and magenta alternate across it in blocks of
+        /// only level bonded to the glass; magenta and cyan alternate across it in blocks of
         /// <see cref="CABINET_BLOCK"/>, so clearing either leaves the other still holding four full walls.
         /// </para>
         /// <para>
-        /// Priced at 60 shots against a target near 44 standing groups (1.4 a group), on the block's slowest
-        /// clock at a descent every twelfth landing - a mid-ramp level where the wit does the work.
-        /// <b>Check first</b>: brown/orange percolation over the body; if a body colour percolates, the
-        /// spec's fallback is silver(11) edge trim along the box's eight edges as a third
-        /// <see cref="CABINET_WOOD"/> entry, keeping the marquee seam on magenta so silver never meets white
-        /// or yellow. <b>Then</b>: AimReachability on the panel slab, and the black network's own drop test
-        /// with the side art's border counted in.
+        /// Measured: 532 balls in 45 standing groups (1.33 shots a group, inside the block's 1.3-1.7 band),
+        /// anchor load 12.0, margin 1, nothing alone, 0 recoloured; every colour's best single shot 7% or
+        /// less, the bezel's the biggest. Sag probe: 3 losing orders of 5 - Amphora's own reading, and the
+        /// three traces are late-game wall-flap dips of 1.0-1.1 at the back wall's lower courses, the same
+        /// kind the known-finishable levels show. <b>Check first</b>: the sag probe on any layout or ink
+        /// change (no wood entry may be black, and the wood band needs its three entries - both findings
+        /// carry their arithmetic on <see cref="CABINET_WOOD"/>). <b>Then</b>: AimReachability on the panel
+        /// slab, and the black network's own drop test with the art's border counted in.
         /// </para>
         /// </summary>
         private static Design Cabinet() => new()
@@ -8461,7 +8609,15 @@ namespace BS3D.Tools.LevelGen
             Music = MUSIC_ARCADE,
                 Balls = BALLS_ARCADE,
             Shots = 60,
-            CeilingStep = 12,
+            //#301: 12 until the sag probe's traces showed the remainder under the line late-game with the
+            //glass stepped - and 12 was under the block's own #288 arithmetic all along: clearance 3.96 less
+            //five descents (60/12) of 0.60 is 0.96 of final headroom, under the 1.00 swing allowance the
+            //header says every level must clear. Sixteen, not fourteen: at fourteen the probe's remaining
+            //losing orders all dipped -1.00 to -1.07 late-game with the glass two or three steps down -
+            //within one step's 0.60 of surviving, every one of them - and sixteen is that step handed back
+            //(three descents, 1.80 consumed, 3.57 of headroom against the 12-deep box's 5.37 clearance).
+            //It also keeps this the block's slowest clock, which its own summary promises.
+            CeilingStep = 16,
             OccupiedBlock = (x, z, i, depth) => CabinetShell(x, z, i),
             BlockColour = CabinetColour,
         };
@@ -8473,8 +8629,15 @@ namespace BS3D.Tools.LevelGen
             if (x < CABINET_X0 || x > CABINET_X1 || z < CABINET_BACK || z > CABINET_FRONT) return false;
 
             //Closed box: both plates, both sides, the back - and the front twice over, because the front is
-            //where the picture is
-            return i == 0 || i == CABINET_TOP
+            //where the picture is. Plus the CRT shelf, #301's one addition: a run of one-cell wall was the
+            //tallest unbraced span in the block, and the probe's traces showed the lower walls, the bottom
+            //plate and the panel slab drooping past the death line mid-game once releases had opened the
+            //walls up. The shelf ties all four walls at the screen's own bottom course - where a cabinet
+            //really keeps its monitor shelf - and is the same answer Tetra's bay partitions already gave:
+            //a long thin span is braced by a plate on its seam, not by hoping. (A two-course pedestal base
+            //was tried for the same traces and measured COUNTERPRODUCTIVE - 28 balls added at the bottom of
+            //the longest chains moved one losing order eight shots earlier - so the plate stays one course.)
+            return i == 0 || i == CABINET_TOP || i == CABINET_SHELF_LEVEL
                    || x == CABINET_X0 || x == CABINET_X1
                    || z == CABINET_BACK || z >= CABINET_FRONT_INNER;
         }
@@ -8498,9 +8661,9 @@ namespace BS3D.Tools.LevelGen
                 if (ink != '.') return CabinetInk(ink);
             }
 
-            if (x == CABINET_X0)
+            if (z == CABINET_BACK)
             {
-                char ink = PixelAt(CABINET_CHERRY, z - CABINET_ART_COLUMN, CABINET_ART_TOP - i);
+                char ink = PixelAt(CABINET_CHERRY, x - CABINET_ART_COLUMN, CABINET_ART_TOP - i);
                 if (ink != '.') return CabinetInk(ink);
             }
 
@@ -8516,7 +8679,7 @@ namespace BS3D.Tools.LevelGen
             'W' => BallType.Type4,   //white, the ball
             'G' => BallType.Type2,   //green, the paddle and the cherry stem
             'R' => BallType.Type1,   //red, the cherries
-            _ => BallType.Type8,     //black, the bezel and the side art's outline
+            _ => BallType.Type8,     //black, the bezel and the back art's outline
         };
 
         //THE TETROMINO. Two hollow boxes welded into one T: a bar fifteen cells across, five deep and seven
@@ -12137,30 +12300,51 @@ namespace BS3D.Tools.LevelGen
             return ((h >> 5) & 3) == 0;
         }
 
-        //THE GLOBE. A shell 1.5 thick on a radius of 4.6, twelve levels deep - which cuts both poles off a
-        //hair (the layout reaches 3.89 above and below its middle against a radius of 4.6), and that is
-        //wanted: it turns the pole from a point into a disc of about twenty cells, which is the anchor. The
-        //map is sixteen columns of longitude by fourteen rows of latitude - one row per LEVEL of the layout;
-        //at the equator a column is about two cells wide, and the ground dithers on 2x2 blocks of the map,
-        //which is the pixel.
+        //THE GLOBE. A shell two cells thick on a radius of 4.6, twelve levels deep - which cuts both poles
+        //off a hair (the layout reaches 3.89 above and below its middle against a radius of 4.6), and that
+        //is wanted: it turns the pole from a point into a disc. ⚠ The sphere's own disc measured NINE cells,
+        //not the twenty this comment used to claim, and nine is what #301 was about - the top level is now
+        //the flat arctic plateau of GLOBE_POLE_CAP, 37 cells measured. The map is sixteen columns of
+        //longitude by fourteen rows of latitude - one row per LEVEL of the layout; at the equator a column
+        //is about two cells wide, and the ground dithers on 2x2 blocks of the map, which is the pixel.
         private const byte GLOBE_GRID = 13;
         private const byte GLOBE_DEPTH = 14;
         private const float GLOBE_RADIUS = 5f;
-        private const float GLOBE_SHELL = 1.5f;
+
+        //Two cells of wall at either parity - GHOST_OUTER minus GHOST_INNER, the figure the ghost's tube
+        //already stands on - and not the 1.5 it shipped with, which read ONE cell at the mid-latitudes.
+        //A curved shell one cell thick has half its cross-level neighbours reaching to a cell that is not
+        //there (CABINET's PICTURE_THICKNESS rule; the flat-walled Cube gets away with one cell because a
+        //vertical plane keeps its column in diagonal reach at both parities, and a sphere does not), so
+        //every colour match tore a gash whose flanks hung on sparse links: the #301 probe watched strips
+        //of the picture peel and swing 3 units under their authored seat with the anchors intact. At two
+        //cells the wall carries Ghost's own second load path through its thickness.
+        private const float GLOBE_SHELL = 2f;
         private const int GLOBE_SECTORS = 16;
 
         private static readonly BallType[] GLOBE_SEA = { BallType.Type3, BallType.Type12, BallType.Type5 };
-        private static readonly BallType[] GLOBE_LAND = { BallType.Type2, BallType.Type13 };
-        private static readonly BallType[] GLOBE_DRY = { BallType.Type10 };
+
+        //Three land inks, not two, and the third is the old dry-interior brown promoted into the rotation:
+        //green, olive and brown mottle over the continents the way a satellite photograph reads. Three
+        //matters structurally - see the fifth rule on GLOBE_WORLD: a two-ink dither fuses on BOTH diagonals,
+        //so one release could take half a spine's cells; on three the fuse has one null diagonal only, and
+        //the spines are too narrow for it to run anywhere.
+        private static readonly BallType[] GLOBE_LAND = { BallType.Type2, BallType.Type13, BallType.Type10 };
         private static readonly BallType[] GLOBE_ICE = { BallType.Type4 };
+
+        //The water between the polar floes, and it is a DIFFERENT water from the ocean on purpose - black,
+        //the dark arctic sea between pack ice, an ink the rest of the level never uses. See GLOBE_WORLD's
+        //fourth rule for what it prevents; white-on-black is the block's own proven pairing (Ghost's eyes,
+        //Cabinet's bezel), where silver next to the floes' white is a listed confusable pair.
+        private static readonly BallType[] GLOBE_POLAR = { BallType.Type8 };
 
         /// <summary>
         /// The world, sixteen columns of longitude by <b>fourteen</b> rows of latitude — one row per level of
         /// the layout, which is the first thing to check if the depth is ever changed: drawn twelve rows deep
         /// against a fourteen-level globe, both polar rows fell off the end of the bitmap and the south cap
-        /// came out as open ocean. North first: <c>#</c> is forest, <c>+</c> the dry inland of it, <c>*</c>
-        /// ice and anything else is sea. Three rules drew it and all three are the lattice's rather than
-        /// geography's.
+        /// came out as open ocean. North first: <c>#</c> is land, <c>*</c> ice, <c>o</c> the polar water
+        /// between the floes and anything else is sea. Five rules drew it and all five are the lattice's
+        /// rather than geography's.
         /// <list type="bullet">
         /// <item><b>Nothing is narrower than two columns or shorter than two rows</b>, because the ground
         /// dithers on 2×2 blocks of the map: a one-column cape would be half a block, which near the poles is
@@ -12175,28 +12359,56 @@ namespace BS3D.Tools.LevelGen
         /// the repair pass: where the sectors converge a 2×2 block of the map holds one cell, so measured,
         /// white came out at <i>zero</i> balls and twelve cells were recoloured — the drawing rewritten
         /// between the source and the file, which is the thing that pass exists to make visible.</item>
+        /// <item><b>The water between the floes (<c>o</c>) is not the ocean (<c>.</c>), and the split is half
+        /// of the #301 sag fix.</b> The sea's three colours band on <c>block = column/2 + row/2</c>, so every
+        /// block on an anti-diagonal wears the same colour — and a cross-level lattice neighbour IS a diagonal
+        /// in (x, z) (the trap <see cref="GHOST_BODY"/> records), so the ocean fuses into diagonal ribbons.
+        /// While the polar water was ocean, those ribbons REACHED THE ANCHOR DISC: one underside ocean match
+        /// released the pole's sea cells remotely — anchors lost with nothing orphaned — and 480 balls slid
+        /// 4+ units through the line in one shot with the glass at rest. Polar water in its own ink means no
+        /// match landed anywhere below can release a cell of the anchor level.</item>
+        /// <item><b>The oceans are narrow and the land is wide, and that is the other half of the #301 fix —
+        /// a colour fuse cannot run far inside a narrow region.</b> The first drawing's south was two thirds
+        /// water, so its ocean ribbons ran 40 balls each; the probe still read 5 of 5 with the anchors held,
+        /// dying at shots 5–9 to gradual unrolling — two ribbon matches left the southern shreds hanging on
+        /// near-single-file chains, 3 units of stretch per shot, glass at rest. Redrawn, the two oceans are
+        /// two column-pairs wide for most of their run, so a same-colour diagonal chain exits into land after
+        /// two or three blocks and the biggest water match is a dozen balls; the two continents run pole to
+        /// pole, four to ten columns wide, so the south hangs on land webs in three inks of which no single
+        /// release can take the load path (the null diagonal of <c>column/2 + row</c> steps out of a narrow
+        /// spine as fast as the sea's does).</item>
         /// </list>
         /// </summary>
         private static readonly string[] GLOBE_WORLD =
         {
-            ".**..**..**..**.",
-            ".**..**..**..**.",
-            "..######....##..",
-            "..######....##..",
-            "..#++++#....####",
-            "..#++++#....####",
-            "..#++++#....##..",
-            "..#++++#....##..",
-            "....####..##....",
-            "....####..##....",
-            "..##....##......",
-            "..##....##......",
-            ".**..**..**..**.",
-            ".**..**..**..**.",
+            "o**oo**oo**oo**o",
+            "o**oo**oo**oo**o",
+            "..####..##..##..",
+            "..####..##..##..",
+            "..######..####..",
+            "..######..####..",
+            "..####....####..",
+            "..####....####..",
+            "..####....####..",
+            "..####....####..",
+            "..####..######..",
+            "..####..######..",
+            "o**oo**oo**oo**o",
+            "o**oo**oo**oo**o",
         };
+
+        //The arctic plateau: the top level is a flat cap of this radius rather than the sphere's own r 1.97
+        //disc, because THE TOP LEVEL IS THE ANCHOR and the sphere's honest figure is nine cells - the probe
+        //(#301) watched a single match leave 550 balls on four of them. At 3.2 the cap matches the width of
+        //the course under it (the sphere at level 12 reaches 3.14), so the silhouette gains one flat course
+        //at the very top and the glass holds ~2.5x the cells. The south pole is deliberately NOT widened:
+        //cells there are dead weight at the level's lowest point, where clearance is the scarce figure.
+        private const float GLOBE_POLE_CAP = 3.2f;
 
         private static bool GlobeShell(float r, int i, int depth)
         {
+            if (i == depth - 1) return r <= GLOBE_POLE_CAP;
+
             float d = SphereDistance(r, i, depth);
 
             return d <= GLOBE_RADIUS && d >= GLOBE_RADIUS - GLOBE_SHELL;
@@ -12210,9 +12422,13 @@ namespace BS3D.Tools.LevelGen
 
             return PixelAt(GLOBE_WORLD, column, row) switch
             {
-                '#' => Band(block, GLOBE_LAND),
-                '+' => Band(block, GLOBE_DRY),
+                //Land rotates on its own stride - block + row/2 is column/2 + row, whose null diagonal
+                //(down-right) exits a spine as fast as the sea's anti-diagonal does; on the shared block
+                //the three inks would fuse down-left instead, no better and no worse, but land and sea
+                //striding DIFFERENTLY keeps their nulls crossed, so no shot can ride both at once
+                '#' => Band(block + row / 2, GLOBE_LAND),
                 '*' => Band(block, GLOBE_ICE),
+                'o' => Band(block, GLOBE_POLAR),
                 _ => Band(block, GLOBE_SEA),
             };
         }

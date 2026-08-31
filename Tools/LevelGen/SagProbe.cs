@@ -146,7 +146,12 @@ namespace BS3D.Tools.LevelGen
         /// That change is the owner's playtest: asked the first question the probe lost 38 of the 90 shipped
         /// levels, three of which were then confirmed finishable, so a single losing order says nothing on
         /// its own and the useful figure is the fraction. Five gives that fraction somewhere to live. Every
-        /// seed is fixed, so two runs of this tool on the same pack print the same numbers.
+        /// seed is fixed, so the shot <i>sequences</i> are reproducible — but the count is not bit-stable,
+        /// and this sentence used to claim it was: Bepu's threaded solve is not deterministic across runs,
+        /// so an order whose deepest dip sits within a few hundredths of the allowance can flip, and #301
+        /// measured a borderline level reading 2, 3, 3, 3, 2 across five identical sweeps. A reading at the
+        /// threshold's edge is therefore worth repeating before anything is concluded from it; a 0 or a 5 is
+        /// not.
         /// </para>
         /// </summary>
         private const int RUNS_PER_LEVEL = 5;
