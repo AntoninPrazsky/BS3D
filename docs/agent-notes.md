@@ -3128,4 +3128,6 @@ Nesl `MENU_TEXT_DIM` od #199, které mu nastavilo **velikost** kvůli čitelnost
 
 **Co zůstává:** merge na slovo majitele (pořadí 316 → 317; Levels.json se srazí a vyřeší ho regen), pak sólo sweep 95 levelů. Nad prahem by pak měli zbýt jen kalibrovaný falešný pozitiv Amphora a hraniční kolísači (Cabinet, Globe).
 
+**Dodatek po merge (týž den):** obě větve na mainu (`72b2db0`, `60bfab0` — Levels.json se sloučil sám, hunky disjunktní), sólo sweep doběhl a předpověď sedí: **Giraffe 1/5, Cube 2/5, Donut 2/5**; nad prahem 4 zbývají jen **Amphora 4** (kalibrovaný falešný pozitiv, v klidu) a **Cabinet 4** (kolísač, sestoupené sklo na 30. výstřelu; Globe tentokrát pod 3). 36 z 95 sáhne aspoň jednou. **Pack je poprvé bez nevysvětleného jména nad prahem.**
+
 **Nic dalšího si neberu.**
