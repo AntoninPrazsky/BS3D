@@ -8869,10 +8869,15 @@ namespace BS3D.Tools.LevelGen
         //slot reel, a donut, a globe - so the picture is read by walking the gun round the level and no
         //single vantage shows the whole of it. Nothing here is a wall.
         //
-        //EVERY SOLID IS HOLLOW: the layout is its SURFACE and nothing stands inside it. Two things follow. A
-        //body that fills the frame costs the ball count of an ordinary level rather than of a quarry (a solid
-        //ten-cell cube is 1200 balls; its shell is 560), and the first panel to come away opens a window into
-        //an empty room, which is what makes a level read as an object rather than as a mass.
+        //EVERY SOLID IS HOLLOW: the layout is its SURFACE, and what stands inside it is FURNITURE, not fill.
+        //Two things follow. A body that fills the frame costs the ball count of an ordinary level rather than
+        //of a quarry (a solid ten-cell cube is 1200 balls; its shell is 560), and the first panel to come away
+        //opens a window into an empty room, which is what makes a level read as an object rather than as a
+        //mass. The sentence said "nothing stands inside it" until the sag probe amended it twice over: a
+        //one-cell wall is a chain that yields under sustained load, and two of the five now carry a measured
+        //interior brace — Cabinet's CRT shelf (#301) and Cube's corner posts (#317) — each diegetic, each a
+        //few dozen balls, each there because the probe read the bare shell losing. The hollowness that
+        //matters (the window into the room, the shell's ball price) survives both.
         //
         //A HOLLOW BODY'S ANCHOR IS WHATEVER ITS OWN TOP HAPPENS TO BE, and that is the trap this block had to
         //answer five times. Only the field's topmost level is bonded to the glass, so the anchor is a 100-cell
@@ -8902,7 +8907,8 @@ namespace BS3D.Tools.LevelGen
         //to the new ratio - see Globe's own doc.)
         //
         //THE COLOURS, and what each level puts the #152 five next to:
-        //  Cube     silver and orange - the three ground pairs of its faces, warm against cool.
+        //  Cube     silver and orange - the three ground pairs of its faces, warm against cool,
+        //           with yellow/green corner trim on the posts (#317 - see CUBE_POST_RUN).
         //  Ziggurat brown and olive   - a sandstone temple, both against gold and white.
         //  Reel     silver and navy   - a white reel with red sevens, its heads in cold metal.
         //  Donut    brown and orange  - the dough under a magenta glaze, sprinkles over it.
@@ -8929,9 +8935,18 @@ namespace BS3D.Tools.LevelGen
         /// colours still standing rather than among the balls.
         /// </para>
         /// <para>
-        /// Measured: 560 balls in 34 groups (1.65 shots a group, the block's gentlest), margin 1, nothing
-        /// alone, 2 recoloured; colour counts 54–120 and every colour's best single shot 2–5 %, the black of
-        /// all five glyphs included. Hung unshot for 35 s in the running game without sagging.
+        /// <b>Four corner posts stand inside it since #317</b> — a second cell at each corner, plate to
+        /// plate, wearing their own yellow/green trim — because the one-cell walls are chains and the sag
+        /// probe watched one wall block take the line down five units in a single shot; see
+        /// <see cref="CUBE_POST_RUN"/> for both halves of that finding, the mezzanine that measured worse
+        /// included.
+        /// </para>
+        /// <para>
+        /// Measured (#317): 600 balls in 42 groups (1.33 shots a group, Cabinet's own ratio), margin 1,
+        /// nothing alone, 8 in pairs, 2 recoloured; colour counts 20–120 and every colour's best single
+        /// shot at most 6 % (the black of all five glyphs). Sag probe: <b>2 of 5, twice independently</b>,
+        /// neither loss with the glass at rest — Saturn's band, from the shipped shape's 4 of 5 with two
+        /// first-phase deaths on a resting glass.
         /// </para>
         /// </summary>
         private static Design Cube() => new()
@@ -8946,13 +8961,15 @@ namespace BS3D.Tools.LevelGen
             Music = MUSIC_ARCADE,
                 Balls = BALLS_ARCADE,
             Shots = 56,
-            //#288: 8 until the owner reported this level among the four that lose to the line. Eight left 1.18
-            //over the line at the end (5.38 clearance, seven descents, 4.20), which clears the 0.82 the swing
-            //probe measured but not by much once a face breaks off and hangs. Nine buys six descents, 3.60,
-            //and leaves 1.78. The smallest notch there is - Cube is the least bad of the four on the
-            //arithmetic, and was moved because it was reported, not because the figure demanded it.
-            CeilingStep = 9,
-            OccupiedBlock = (x, z, i, depth) => CubeFace(x, z, i) != 0,
+            //#288: 8 until the owner reported this level among the four that lose to the line (eight left
+            //1.18 of headroom; nine bought 1.78). #317 then moved it again, and in Cabinet's exact shape:
+            //with the corner posts in, the box's at-rest fault is cured structurally (settled line 5.45,
+            //was 4.94) and every remaining probe loss was a stepped hairline -1.02..-1.06 - within one
+            //step's 0.60 of surviving, all four of them. Sixteen is that step handed back: 56 shots buy
+            //three descents, 1.80, headroom 3.65 - and the probe reads 2 of 5, twice independently, where
+            //nine read 4 of 5 (Saturn's own band, and neither remaining loss is at rest).
+            CeilingStep = 16,
+            OccupiedBlock = (x, z, i, depth) => CubeFace(x, z, i) != 0 || CubePost(x, z, i) != 0,
             BlockColour = CubeColour,
         };
 
@@ -13235,6 +13252,56 @@ namespace BS3D.Tools.LevelGen
             new[] { BallType.Type5, BallType.Type6 },    //+Z:     cyan and magenta
         };
 
+        //THE CORNER POSTS (#317), and both halves of the finding are measured. The box's walls are one cell
+        //thick, so each is a sheet of BallSocket chains, and the wall dither's 5x5 quadrants let a single
+        //shot sever five columns' whole upper half from the anchor plate: the probe watched one 22-ball
+        //wall block take the line from +3.93 to -1.06 IN ONE SHOT with nothing orphaned, the bottom corner
+        //diving five units on the lateral chains that were left — and three more orders lost to the same
+        //stretch arriving cumulatively (4 of 5, twice on a resting glass). ⚠ The obvious remedy was
+        //Cabinet's mezzanine shelf and IT MEASURED WORSE (5 of 5): sixty-four interior balls at mid-height
+        //cured the one-shot dive but hung a third more dead weight off the very chains that were yielding —
+        //the line reached +1.5 by shot 5 where the shipped box still held +3.9. What the trace wanted was
+        //stiffness without load: a SECOND CELL inside each corner, top plate to bottom plate, cross-braced
+        //to both adjacent walls on every level — Pylon's 2x2 leg section standing at the box's own corners,
+        //forty balls, four direct load paths to the anchor that no wall-block release can cut (the dither
+        //never spans a corner and the glyphs are inset two columns). Diegetically it is the box's corner
+        //framing, seen edge-on once a face is opened — the hollow rule bends the way Cabinet's already
+        //did, by the smallest amount that carries.
+        //
+        //THE POSTS WEAR THEIR OWN PAIR (yellow and green, in runs of five, the top run alternating per
+        //corner), and the pair is forced rather than chosen: every ink already in the level fuses with a
+        //neighbour of the post — the wall pairs touch it through the walls it braces, the plate pair
+        //through both plates it spans — and a post fused into a wall block is a post one wall shot removes.
+        //Two fresh inks keep all eight post runs their own groups; five-ball runs clear MIN_GROUP, and
+        //gold-and-green corner trim on an arcade cabinet is period-correct.
+        private const int CUBE_POST_RUN = 5;
+
+        private static readonly BallType[] CUBE_POST_PAIR = { BallType.Type7, BallType.Type2 };   //yellow, green
+
+        /// <summary>
+        /// Which corner post a cell is in (1..4, or 0 for none): the interior cell diagonal to each of the
+        /// box's four corners, on every wall level — see <see cref="CUBE_POST_RUN"/> for what the posts
+        /// carry and the measured trace that asked for them.
+        /// </summary>
+        private static int CubePost(int x, int z, int i)
+        {
+            if (i == 0 || i >= CUBE_DEPTH - 1) return 0;   //the plates own their levels
+
+            int cx = x - CUBE_ORIGIN;
+            int cz = z - CUBE_ORIGIN;
+
+            bool xLow = cx == 1;
+            bool xHigh = cx == CUBE_SIDE - 2;
+            bool zLow = cz == 1;
+            bool zHigh = cz == CUBE_SIDE - 2;
+
+            if (xLow && zLow) return 1;
+            if (xHigh && zLow) return 2;
+            if (xLow && zHigh) return 3;
+            if (xHigh && zHigh) return 4;
+            return 0;
+        }
+
         /// <summary>
         /// Which face of the cube a cell is on: 0 for none (the hollow inside, and everything off the box),
         /// 1 the top plate, 2 the bottom plate, 3 −X, 4 +X, 5 −Z, 6 +Z.
@@ -13276,6 +13343,13 @@ namespace BS3D.Tools.LevelGen
             int face = CubeFace(x, z, i);
             int cx = x - CUBE_ORIGIN;
             int cz = z - CUBE_ORIGIN;
+
+            //The corner posts, before the faces: their cells are interior, so no face owns them. Runs of
+            //CUBE_POST_RUN levels alternate the pair, and diagonal corners start on the same ink so the
+            //trim reads as a scheme rather than a scatter.
+            int post = CubePost(x, z, i);
+            if (face == 0 && post != 0)
+                return Band((i - 1) / CUBE_POST_RUN + (post == 2 || post == 3 ? 1 : 0), CUBE_POST_PAIR);
 
             //A plate is read across the lattice; a wall is read along its own run and DOWN from under the top
             //plate, so every wall's row 0 is at the same height and the four glyphs line up round the cube
