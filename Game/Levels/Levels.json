@@ -563,11 +563,51 @@
       "ceilingStep": 4
     },
     {
+      "file": "Breach.json",
+      "name": "Breach",
+      "block": "The Eruption",
+      "shots": 30,
+      "minStars": 138,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Causeway.json",
+      "name": "Causeway",
+      "block": "The Eruption",
+      "shots": 30,
+      "minStars": 140,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Meander.json",
+      "name": "Meander",
+      "block": "The Eruption",
+      "shots": 30,
+      "minStars": 142,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Volley.json",
+      "name": "Volley",
+      "block": "The Eruption",
+      "shots": 30,
+      "minStars": 144,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Plume.json",
+      "name": "Plume",
+      "block": "The Eruption",
+      "shots": 30,
+      "minStars": 146,
+      "ceilingStep": 8
+    },
+    {
       "file": "Cube.json",
       "name": "Cube",
       "block": "The Arcade",
       "shots": 56,
-      "minStars": 138,
+      "minStars": 148,
       "ceilingStep": 9
     },
     {
@@ -575,7 +615,7 @@
       "name": "Ziggurat",
       "block": "The Arcade",
       "shots": 52,
-      "minStars": 140,
+      "minStars": 150,
       "ceilingStep": 7
     },
     {
@@ -583,7 +623,7 @@
       "name": "Reel",
       "block": "The Arcade",
       "shots": 60,
-      "minStars": 142,
+      "minStars": 152,
       "ceilingStep": 8
     },
     {
@@ -591,7 +631,7 @@
       "name": "Donut",
       "block": "The Arcade",
       "shots": 52,
-      "minStars": 144,
+      "minStars": 154,
       "ceilingStep": 6
     },
     {
@@ -599,7 +639,7 @@
       "name": "Ghost",
       "block": "The Arcade",
       "shots": 56,
-      "minStars": 146,
+      "minStars": 156,
       "ceilingStep": 14
     },
     {
@@ -607,7 +647,7 @@
       "name": "Cabinet",
       "block": "The Arcade",
       "shots": 60,
-      "minStars": 148,
+      "minStars": 158,
       "ceilingStep": 16
     },
     {
@@ -615,7 +655,7 @@
       "name": "Tetra",
       "block": "The Arcade",
       "shots": 58,
-      "minStars": 150,
+      "minStars": 160,
       "ceilingStep": 10
     },
     {
@@ -623,7 +663,7 @@
       "name": "Giza",
       "block": "The Arcade",
       "shots": 56,
-      "minStars": 152,
+      "minStars": 162,
       "ceilingStep": 8
     },
     {
@@ -631,7 +671,7 @@
       "name": "Trophy",
       "block": "The Arcade",
       "shots": 58,
-      "minStars": 154,
+      "minStars": 164,
       "ceilingStep": 8
     },
     {
@@ -639,7 +679,7 @@
       "name": "Globe",
       "block": "The Arcade",
       "shots": 42,
-      "minStars": 156,
+      "minStars": 166,
       "ceilingStep": 14
     },
     {
@@ -647,7 +687,7 @@
       "name": "Icicle",
       "block": "The Spectrum",
       "shots": 40,
-      "minStars": 158,
+      "minStars": 168,
       "ceilingStep": 6
     },
     {
@@ -655,7 +695,7 @@
       "name": "Pinecone",
       "block": "The Spectrum",
       "shots": 52,
-      "minStars": 160,
+      "minStars": 170,
       "ceilingStep": 4
     },
     {
@@ -663,7 +703,7 @@
       "name": "Hourglass",
       "block": "The Spectrum",
       "shots": 48,
-      "minStars": 162,
+      "minStars": 172,
       "ceilingStep": 6
     },
     {
@@ -671,7 +711,7 @@
       "name": "Pleat",
       "block": "The Spectrum",
       "shots": 48,
-      "minStars": 164,
+      "minStars": 174,
       "ceilingStep": 4
     },
     {
@@ -679,7 +719,7 @@
       "name": "Trellis",
       "block": "The Spectrum",
       "shots": 52,
-      "minStars": 166,
+      "minStars": 176,
       "ceilingStep": 5
     },
     {
@@ -687,7 +727,7 @@
       "name": "Bolt",
       "block": "The Spectrum",
       "shots": 44,
-      "minStars": 168,
+      "minStars": 178,
       "ceilingStep": 6
     },
     {
@@ -695,7 +735,7 @@
       "name": "Totem",
       "block": "The Spectrum",
       "shots": 50,
-      "minStars": 170,
+      "minStars": 180,
       "ceilingStep": 5
     },
     {
@@ -703,7 +743,7 @@
       "name": "Kiln",
       "block": "The Spectrum",
       "shots": 56,
-      "minStars": 172,
+      "minStars": 182,
       "ceilingStep": 5
     },
     {
@@ -711,7 +751,7 @@
       "name": "Girandole",
       "block": "The Spectrum",
       "shots": 54,
-      "minStars": 174,
+      "minStars": 184,
       "ceilingStep": 5
     },
     {
@@ -719,7 +759,7 @@
       "name": "Turbine",
       "block": "The Spectrum",
       "shots": 52,
-      "minStars": 176,
+      "minStars": 186,
       "ceilingStep": 4
     }
   ]

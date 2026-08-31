@@ -163,15 +163,30 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private const int ONE_SHOT_PERCENT = 90;
 
-        /// <summary>How many levels are in one block. See <see cref="Main"/> for what a block is (#194).</summary>
-        private const int BLOCK_SIZE = 10;
+        /// <summary>
+        /// The campaign's blocks, in order: what each is <b>called</b> — written onto every entry of it as
+        /// <c>LevelSetEntry.Block</c> so the game can celebrate finishing one by name (#184) — and how many
+        /// levels it holds. The sizes were all <c>BLOCK_SIZE</c> (10) until #295 put the five-level Eruption
+        /// between two ten-level chapters, so equality stopped being a construction guarantee and became this
+        /// table; <b>contiguity still is one</b> — names and gates fall out of the entry's position, so a
+        /// block cannot reopen later in the set, which is the one thing <c>LevelSet.Load</c> refuses a file
+        /// for. Set from the entry's <b>position</b> where <see cref="Design.Music"/> is set on each design,
+        /// and the asymmetry is not an oversight: a theme is written into the level <i>file</i>, so it has to
+        /// be a property of the design, while a block is written into the <i>set</i>, which is built from
+        /// positions.
+        /// </summary>
+        private static readonly (string Name, int Size)[] BLOCKS =
+        {
+            ("The Meadow", 10), ("The Gallery", 10), ("The Coil", 10), ("The Tower", 10), ("The Reveal", 10),
+            ("The Quarry", 10), ("The Nebula", 10), ("The Eruption", 5), ("The Arcade", 10), ("The Spectrum", 10),
+        };
 
         //THE BLOCKS' THEMES (#194). A block's piece is named on every level of it, so the music changes
         //when the chapter does and not when the level does - see Design.Music for what naming it buys and what
         //leaving it null used to cost. Named after the block rather than after the piece because that is the
         //thing being decided: if a block's music is ever changed it is changed HERE, once, and not five times.
         //
-        //FIVE pieces against EIGHT blocks, so three are reprised, and every one of the three is a desk
+        //FIVE pieces against TEN blocks, so half the assignments are reprises, and every reprise is a desk
         //decision with one constant behind it. The first is the bookend #207 chose: the campaign opens on the
         //piece Level One has always played and the Quarry brings it back — that reprise was FORCED while four
         //pieces existed; it is a choice now, and it is kept because a reprise at the end of the original ramp
@@ -179,31 +194,18 @@ namespace BS3D.Tools.LevelGen
         //taking Nocturne: a seventh block against five pieces made a second reprise unavoidable short of
         //composing (#229's job, not this one's), and night jazz over the void is the register that fits. The
         //third is the Arcade taking Pulse, which is the only one of the five that sounds like the place it
-        //plays in — an electronic piece over a neon city — and it puts the campaign's LAST block on the piece
-        //its first one opened with, which is either a frame round the whole thing or one reprise too many
-        //depending on the ear. It is MUSIC_ARCADE and nothing else depends on it.
+        //plays in — an electronic piece over a neon city — and it puts a late block on the piece the first
+        //one opened with. The fourth is the Spectrum taking Bohemia, chosen rather than left over: it is the
+        //one piece whose form is a statement, a second subject and a coda that brings the statement back,
+        //which is what a final chapter is.
         //
         //The Coil takes Ember, and that is #163 and #207 answering each other. #163 landed the rock ballad with
         //no block using it; #207 wrote, when it still had to reprise Nocturne here, that this was the block with
         //the weaker claim on a reprise and the one to give the ballad to when it landed. Both are now true at
-        //once, so the desert gets the amplifier and Nocturne is left to the Reveal alone.
-        /// <summary>
-        /// What each block is <b>called</b>, written onto every entry of it as <c>LevelSetEntry.Block</c> so the
-        /// game can celebrate finishing one by name (#184). Indexed by block, so the order here IS the order of
-        /// the catalogue's own seven groups.
-        /// <para>
-        /// Set from the entry's <b>position</b> where <see cref="Design.Music"/> is set on each design, and the
-        /// asymmetry is not an oversight: a theme is written into the level <i>file</i>, so it has to be a
-        /// property of the design, while a block is written into the <i>set</i>, which is built from positions.
-        /// Deriving it from the position also makes the blocks contiguous and equal by construction, which is
-        /// the one thing <c>LevelSet.Load</c> refuses a file for getting wrong.
-        /// </para>
-        /// </summary>
-        private static readonly string[] BLOCK_NAMES =
-        {
-            "The Meadow", "The Gallery", "The Coil", "The Tower", "The Reveal", "The Quarry", "The Nebula",
-            "The Arcade", "The Spectrum",
-        };
+        //once, so the desert gets the amplifier and Nocturne is left to the Reveal alone. THE ERUPTION REPRISES
+        //EMBER (#295, the owner's pick over a new piece or a fourth Pulse): the rock ballad is the fire
+        //register and had the only single-block piece beside Mural, so the reprise evens the tally — and if
+        //the ear disagrees, a new piece is #292's line of work and one constant here.
 
         private const string MUSIC_RINGS = "pulse";
         private const string MUSIC_GALLERY = "mural";
@@ -212,6 +214,7 @@ namespace BS3D.Tools.LevelGen
         private const string MUSIC_REVEAL = "nocturne";
         private const string MUSIC_QUARRY = "pulse";
         private const string MUSIC_NEBULA = "nocturne";
+        private const string MUSIC_VOLCANO = "ember";
         private const string MUSIC_ARCADE = "pulse";
         private const string MUSIC_SPECTRUM = "bohemia";
 
@@ -220,17 +223,17 @@ namespace BS3D.Tools.LevelGen
         /// material changes when the chapter does and not when the level does — and stated once per block here
         /// so a block's ten designs cannot drift apart.
         /// <para>
-        /// Since #272's eight styles landed there are ten materials and nine chapters, so <b>every chapter now
-        /// hangs a different one</b> and the material is as strong a chapter marker as the scene and the piece
-        /// of music. Each is placed where it works rather than where it sounds good: two of the eight are
-        /// scene-bound for reasons measured in their own issues, and both are placed accordingly.
+        /// Since #272's eight styles landed there are ten materials, and since #295 made the Eruption the
+        /// tenth chapter <b>every chapter hangs a different one and every material has a home</b> — the
+        /// material is as strong a chapter marker as the scene and the piece of music. Each is placed where
+        /// it works rather than where it sounds good: two of the eight are scene-bound for reasons measured
+        /// in their own issues, and both are placed accordingly.
         /// </para>
         /// <para>
-        /// <b>The moulded vinyl beach ball is the one style the campaign no longer hangs</b>, and that is the
-        /// deliberate cost of nine chapters and ten materials. It remains what everything unauthored draws —
-        /// the map editor, the Testbed, the front end's own preview, and any level that says nothing — so it
-        /// has not left the game, only the campaign. Putting it back is one line: give a chapter
-        /// <c>BallStyle.Beach</c> and that chapter's own style loses its only home.
+        /// <b>The vinyl beach ball is back in the campaign since #295</b> — the Eruption took the lava its
+        /// entry always said the volcano had the better claim on, and the Reveal takes the vinyl home. It is
+        /// still also what everything unauthored draws — the map editor, the Testbed, the front end's own
+        /// preview, and any level that says nothing.
         /// </para>
         /// <para>
         /// The costs are all measured against the same control and are under "Ball rendering" in
@@ -277,13 +280,16 @@ namespace BS3D.Tools.LevelGen
         private const BallStyle BALLS_TOWER = BallStyle.Ice;
 
         /// <summary>
-        /// <b>The Reveal — molten crust</b> (#310). The cavern is the campaign's dark chapter and the block is
-        /// built on a thing standing hidden inside another thing; lava is the material that <i>emits</i>, so
-        /// the inner shape glows through the outer one instead of being lost in the dark. It is the nearest
-        /// this campaign has to the volcano the style was designed for — #295's volcano block, if it lands,
-        /// has the better claim and this is the entry to move.
+        /// <b>The Reveal — the vinyl beach ball</b>, since #295 moved the molten crust to the volcano its own
+        /// entry always said had the better claim (the sentence stood here from #310 and came true). The
+        /// vinyl is the right second choice for the cavern twice over: the block's statement is the
+        /// <i>payoff</i> — a thing hidden inside another thing — not the material, so the plainest style is
+        /// the one that does not compete with it; and the vinyl's emissive heartbeat was designed against
+        /// dark backdrops, so the campaign's dark chapter is where the classic ball still reads as alive.
+        /// (#313 recorded the lava/cavern pairing as the set's weakest — it read close to the plasma two
+        /// chapters on; this move retires that note.)
         /// </summary>
-        private const BallStyle BALLS_REVEAL = BallStyle.Lava;
+        private const BallStyle BALLS_REVEAL = BallStyle.Beach;
 
         /// <summary>
         /// <b>The Quarry — anodised metal</b> (#306). A quarry on the moon is a chapter about extracted ore,
@@ -307,6 +313,15 @@ namespace BS3D.Tools.LevelGen
         /// </para>
         /// </summary>
         private const BallStyle BALLS_NEBULA = BallStyle.Plasma;
+
+        /// <summary>
+        /// <b>The Eruption — molten crust</b> (#295, from #310's own hand-over sentence). The volcano is the
+        /// scene the style was designed for: dark crusted balls whose glowing seams read as cooling lava over
+        /// the one backdrop where the ground itself glows, under the darkest dome (9), where an emissive
+        /// material is the block's whole light. It also serves the block's statement literally — the glow is
+        /// the load, and on these balls the glow is drawn as seams in dark crust.
+        /// </summary>
+        private const BallStyle BALLS_VOLCANO = BallStyle.Lava;
 
         /// <summary>
         /// <b>The Arcade — cut gems</b> (#308). The neon city is the one scene that carries its own point
@@ -351,9 +366,10 @@ namespace BS3D.Tools.LevelGen
 
             Console.WriteLine($"Writing to {_outDir}");
 
-            //IN PLAY ORDER, AND IN BLOCKS OF FIVE (#194). A block is one scene, one dome, one music theme and
-            //one statable style, and it is contiguous — so a fixed chunk of BLOCK_SIZE by position IS a block,
-            //which is what #184's block-completion celebration needs and what a flat list could not give it.
+            //IN PLAY ORDER, AND IN BLOCKS (#194). A block is one scene, one dome, one music theme and one
+            //statable style, and it is contiguous — a chunk of the BLOCKS table by position IS a block, which
+            //is what #184's block-completion celebration needs and what a flat list could not give it. The
+            //chunks were all ten levels until #295's five-level Eruption; the table carries each block's size.
             //
             //The campaign's light drains out of it as it goes: green noon, gold afternoon, the desert's cool
             //late light, violet dusk, underground dark, airless black — and since #182, past the black, deep
@@ -444,7 +460,18 @@ namespace BS3D.Tools.LevelGen
             //the wrong level. Only DescribeBlock's non-gating MIXED print would show it.
             Design[] nebula = { Comet(), Vortex(), Carousel(), Wishbone(), Sail(), Analemma(), Binary(), Kepler(), Orrery(), Garland() };
 
-            //8. THE NEON CITY - "The Arcade". Five HOLLOW pixel-art solids: the Gallery's drawn symbols given
+            //8. THE VOLCANO - "The Eruption" (#295). THE GLOW IS THE LOAD: the molten seams are what
+            //everything hangs by, so reading where a level shines is reading where it will break - and every
+            //level here HAPPENED IN A DIRECTION, a bearing the shape carries (the torn flank, the downhill
+            //run, the downwind rake, the leaning column). The arc job is the light returning after the void,
+            //GEOLOGICALLY - the earth glowing by itself - one step before the Arcade turns on the light man
+            //makes. Five levels, not ten: the block ships at the size every block first shipped at, and the
+            //BLOCKS table carries the size. See the block's own region for the statement in full and for the
+            //engineering law every design here obeys (a designed breakaway is always the lowest thing on its
+            //own load path).
+            Design[] volcano = { Breach(), Causeway(), Meander(), Volley(), Plume() };
+
+            //9. THE NEON CITY - "The Arcade". Five HOLLOW pixel-art solids: the Gallery's drawn symbols given
             //a third dimension, wrapped onto a die, a stepped temple, a slot reel, a donut and a globe, so a
             //level's picture is read by walking the gun round it. Every one is framed whole, which is the
             //deliberate opposite of the two tall blocks before it - an object meant to be RECOGNISED has to
@@ -453,7 +480,7 @@ namespace BS3D.Tools.LevelGen
             //live in their own array for the same reason the Nebula's do - see WriteLevelSet.
             Design[] arcade = { Cube(), Ziggurat(), Reel(), Donut(), Ghost(), Cabinet(), Tetra(), Giza(), Trophy(), Globe() };
 
-            //9. THE CITY AT DAWN - "The Spectrum" (#253). One HUE FAMILY a level, swept through the whole
+            //10. THE CITY AT DAWN - "The Spectrum" (#253). One HUE FAMILY a level, swept through the whole
             //body as a gradient: white to cyan to blue to navy and back, a heat ramp, a green one, a twilight
             //one, and the wheel entire on the finale. No new colour is involved anywhere - a family is a
             //subset and an ordering of the fixed thirteen - and no sweep is a stack of floors, because a
@@ -483,10 +510,11 @@ namespace BS3D.Tools.LevelGen
             bool ok = true;
             foreach (Design design in designs) ok &= Emit(design);
             foreach (Design design in nebula) ok &= Emit(design);
+            foreach (Design design in volcano) ok &= Emit(design);
             foreach (Design design in arcade) ok &= Emit(design);
             foreach (Design design in spectrum) ok &= Emit(design);
 
-            LevelSet set = WriteLevelSet(designs, nebula, arcade, spectrum);
+            LevelSet set = WriteLevelSet(designs, nebula, volcano, arcade, spectrum);
 
             //The gate that hangs the levels instead of reading them (#301/#302). Off the WRITTEN SET rather
             //than off the designs above, for two reasons: the set is where a level's budget and ceiling step
@@ -612,9 +640,9 @@ namespace BS3D.Tools.LevelGen
         }
 
         /// <summary>
-        /// Rewrites the set that orders the levels — since #194 as <b>blocks of <see cref="BLOCK_SIZE"/></b>
-        /// rather than one flat ramp of fourteen, six of them since #207 added the desert and seven since #182
-        /// appended the Nebula. <b>One opens the campaign, Colossus closes the Quarry, and the Nebula's finale
+        /// Rewrites the set that orders the levels — since #194 as the <b>blocks of the <see cref="BLOCKS"/>
+        /// table</b> rather than one flat ramp of fourteen, six of them since #207 added the desert, seven
+        /// since #182 appended the Nebula, and ten since the Arcade, #253's Spectrum and #295's Eruption. <b>One opens the campaign, Colossus closes the Quarry, and the Nebula's finale
         /// closes the campaign</b> (#182 — the owner moved the last word deliberately; the campaign-complete
         /// celebration rides the set's last entry and moves with it). One is a
         /// design here now (the author asked for it regenerated, see <see cref="One"/>) and states its own rules
@@ -706,10 +734,10 @@ namespace BS3D.Tools.LevelGen
             LevelSet loaded = LevelSet.Load(path);
 
             Console.WriteLine();
-            Console.WriteLine($"=== {LevelSet.DefaultFileName}: {loaded.Count} levels in blocks of {BLOCK_SIZE} ===");
+            Console.WriteLine($"=== {LevelSet.DefaultFileName}: {loaded.Count} levels in {BLOCKS.Length} blocks ===");
             for (int i = 0; i < loaded.Count; i++)
             {
-                if (i % BLOCK_SIZE == 0)
+                if (BlockAt(i).Start == i)
                     Console.WriteLine($"  --- block {loaded.BlockNumber(i)}/{loaded.BlockCount}"
                                       + $" '{loaded.BlockName(i) ?? "unnamed"}' {DescribeBlock(loaded, i)}");
 
@@ -726,22 +754,29 @@ namespace BS3D.Tools.LevelGen
         }
 
         /// <summary>
-        /// Which block the entry at <paramref name="index"/> belongs to. A plain division, because the campaign's
-        /// blocks are equal and contiguous by construction here — see <see cref="BLOCK_NAMES"/>. It throws rather
-        /// than wrapping if the catalogue outgrows the names: a set whose last block silently reopened the first
-        /// one is a file <c>LevelSet.Load</c> refuses, and finding that out here is cheaper.
+        /// The block the entry at <paramref name="index"/> belongs to — its name, its first entry's index and
+        /// its size. A walk over <see cref="BLOCKS"/>' cumulative sizes rather than a division, since #295's
+        /// five-level Eruption ended the era of equal blocks; contiguity is still by construction. It throws
+        /// rather than wrapping if the catalogue outgrows the table: a set whose last block silently reopened
+        /// the first one is a file <c>LevelSet.Load</c> refuses, and finding that out here is cheaper.
         /// </summary>
-        private static string BlockNameAt(int index)
+        private static (string Name, int Start, int Size) BlockAt(int index)
         {
-            int block = index / BLOCK_SIZE;
+            int start = 0;
 
-            if (block >= BLOCK_NAMES.Length)
-                throw new InvalidOperationException(
-                    $"entry {index + 1} falls in block {block + 1} but only {BLOCK_NAMES.Length} block names are "
-                    + "stated; add one to BLOCK_NAMES for every group of BLOCK_SIZE the catalogue grows by");
+            foreach ((string name, int size) in BLOCKS)
+            {
+                if (index < start + size) return (name, start, size);
+                start += size;
+            }
 
-            return BLOCK_NAMES[block];
+            throw new InvalidOperationException(
+                $"entry {index + 1} falls past the {BLOCKS.Length} stated blocks ({start} entries); add an "
+                + "entry to BLOCKS for every group the catalogue grows by");
         }
+
+        /// <inheritdoc cref="BlockAt"/>
+        private static string BlockNameAt(int index) => BlockAt(index).Name;
 
         /// <summary>
         /// One block's scene, dome, theme and ball style, read off the <b>level files the game will actually load</b> rather
@@ -756,7 +791,7 @@ namespace BS3D.Tools.LevelGen
             int sky = -1;
             bool sameScene = true, sameSky = true, sameMusic = true, sameBalls = true;
 
-            for (int i = first; i < Math.Min(first + BLOCK_SIZE, set.Count); i++)
+            for (int i = first; i < Math.Min(first + BlockAt(first).Size, set.Count); i++)
             {
                 Level level = Level.Load(Path.Combine(_outDir, set.Levels[i].File));
 
@@ -7895,9 +7930,172 @@ namespace BS3D.Tools.LevelGen
         #endregion
 
 
+        #region The eruption levels (#295)
+
+        //THE TENTH BLOCK (in play order the eighth): five levels on the volcano, under the darkest dome (9),
+        //in molten-crust balls, on the rock ballad. THE GLOW IS THE LOAD: the molten seams, collars, channels
+        //and feeds are what everything hangs by — always at least two interleaved hot inks, never one — and
+        //the cold basalt mass is what falls when they are cut, so reading where a level shines is reading
+        //where it will break. That is a statement about the PALETTE MEANING MECHANICS, which no other block
+        //makes: the Spectrum sweeps hue as the level's subject, the Eruption wires it to the load paths.
+        //
+        //AND EVERY LEVEL HAPPENED IN A DIRECTION. A volcano is built by flow, and flow has a bearing: the
+        //flank is torn toward somewhere, the river runs downhill, the bombs rake downwind, the column leans
+        //where the wind took its ash. Every design here carries its event's bearing in the shape — the first
+        //block deliberately asymmetric about the axis the gun orbits — so part of reading a level is walking
+        //round it to find where the event went.
+        //
+        //THE BLOCK'S ENGINEERING LAW, stated once and obeyed by all five (#288's design-time rule made a
+        //block style): A DESIGNED BREAKAWAY IS ALWAYS THE LOWEST THING ON ITS OWN LOAD PATH, so releasing it
+        //moves the cluster's lowest point UP. The sag probe's enemy is a remainder that hangs lower after a
+        //cut; these five are shaped so the remainder cannot, which is what makes a block full of designed
+        //drops measurably safe — every design's doc carries its own #288 sum and its measured probe reading.
+        //
+        //THE HOT INKS are the ember register (red 1, orange 9, yellow 7, and white 4 for the white-hot);
+        //THE COLD ONES the basalt register (black 8, brown 10, olive 13, silver 11 for ash). A cold mass
+        //dithers on at least THREE inks (the diagonal fuse, measured three times in #301) and a hot member
+        //bands on at least TWO (no course of one colour — the anchor rule); where hot meets its own hue in a
+        //sweep, the contact is designed away, never left to luck (#302's guard-course lesson).
+        //
+        //The arc job (#194): after the Nebula's void, this is the light coming back GEOLOGICALLY — the earth
+        //glowing by itself — one step before the Arcade turns on the light man makes and two before the dawn
+        //hands back the light received. Ten blocks, and this one ships at five levels, the size every block
+        //first shipped at (the BLOCKS table carries the size; a #255-style second hang can double it later).
+
+        //#295 SCAFFOLD STUBS: each of the five designs below is a placeholder that compiles and passes the
+        //gates so the set wiring can be verified; each is replaced by its real design ON THIS BRANCH before
+        //merge. A stub is a plain banded box — nothing about it is the level it stands for.
+
+        #region Eruption level 1: Breach
+
+        //STUB — replaced by the real Breach: the black cone rhyming with One, its flank torn from rim to
+        //foot toward one bearing, the tear lined with glowing seams; the crater rim's top courses stay a
+        //complete two-ink annulus (the anchor), the breach mouth rimmed three courses thick (Bolt's rule).
+        private static Design Breach() => new()
+        {
+            File = "Breach.json",
+            Name = "Breach",
+            Grid = 9,
+            Depth = 4,
+            FieldLevels = 16,
+            Scene = SceneKind.Volcano,
+            Sky = 9,
+            Music = MUSIC_VOLCANO,
+            Balls = BALLS_VOLCANO,
+            Shots = 30,
+            CeilingStep = 8,
+            OccupiedBlock = (x, z, i, depth) => x >= 2 && x <= 6 && z >= 2 && z <= 6,
+            BlockColour = (x, z, i) => Band(x / 2 + z / 2 + i / 2, ERUPTION_STUB_INKS),
+        };
+
+        #endregion
+
+        #region Eruption level 2: Causeway
+
+        //STUB — replaced by the real Causeway: the Giant's Causeway inverted — hexagonal basalt bundles
+        //hanging at stepped depths (stepping along the block's bearing), each bundle seven ball-columns of
+        //cold basalt on a glowing two-ink collar at the glass; cut the collar and the bundle drops whole.
+        private static Design Causeway() => new()
+        {
+            File = "Causeway.json",
+            Name = "Causeway",
+            Grid = 9,
+            Depth = 4,
+            FieldLevels = 16,
+            Scene = SceneKind.Volcano,
+            Sky = 9,
+            Music = MUSIC_VOLCANO,
+            Balls = BALLS_VOLCANO,
+            Shots = 30,
+            CeilingStep = 8,
+            OccupiedBlock = (x, z, i, depth) => x >= 2 && x <= 6 && z >= 2 && z <= 6,
+            BlockColour = (x, z, i) => Band(x / 2 + z / 2 + i / 2, ERUPTION_STUB_INKS),
+        };
+
+        #endregion
+
+        #region Eruption level 3: Meander
+
+        //STUB — replaced by the real Meander: the glowing river in plan — an S-curve of banded hot channel
+        //between dark three-ink levee banks, stepping one course lower along its run (downhill IS the
+        //bearing), stone weir bars banding the channel into course-shaped bites.
+        private static Design Meander() => new()
+        {
+            File = "Meander.json",
+            Name = "Meander",
+            Grid = 9,
+            Depth = 4,
+            FieldLevels = 16,
+            Scene = SceneKind.Volcano,
+            Sky = 9,
+            Music = MUSIC_VOLCANO,
+            Balls = BALLS_VOLCANO,
+            Shots = 30,
+            CeilingStep = 8,
+            OccupiedBlock = (x, z, i, depth) => x >= 2 && x <= 6 && z >= 2 && z <= 6,
+            BlockColour = (x, z, i) => Band(x / 2 + z / 2 + i / 2, ERUPTION_STUB_INKS),
+        };
+
+        #endregion
+
+        #region Eruption level 4: Volley
+
+        //STUB — replaced by the real Volley: the sky mid-eruption — a three-ink ash sheet spanning the glass
+        //(the anchor is the cloud), under it a raked field of fat spindle bombs on short two-cell stalks,
+        //the downwind ones hanging lower; every stalk a priced ~20-ball drop under the block's law.
+        private static Design Volley() => new()
+        {
+            File = "Volley.json",
+            Name = "Volley",
+            Grid = 9,
+            Depth = 4,
+            FieldLevels = 16,
+            Scene = SceneKind.Volcano,
+            Sky = 9,
+            Music = MUSIC_VOLCANO,
+            Balls = BALLS_VOLCANO,
+            Shots = 30,
+            CeilingStep = 8,
+            OccupiedBlock = (x, z, i, depth) => x >= 2 && x <= 6 && z >= 2 && z <= 6,
+            BlockColour = (x, z, i) => Band(x / 2 + z / 2 + i / 2, ERUPTION_STUB_INKS),
+        };
+
+        #endregion
+
+        #region Eruption level 5: Plume
+
+        //STUB — replaced by the real Plume, the finale: the eruption column entire — a broad two-level
+        //banded ash umbrella at the glass (the block's best anchor), a banded trunk with two hoop tiers,
+        //and short Rampart-grade fallout arcs off the umbrella's rim, leaning downwind, their bomb tips the
+        //block's law made visible.
+        private static Design Plume() => new()
+        {
+            File = "Plume.json",
+            Name = "Plume",
+            Grid = 9,
+            Depth = 4,
+            FieldLevels = 16,
+            Scene = SceneKind.Volcano,
+            Sky = 9,
+            Music = MUSIC_VOLCANO,
+            Balls = BALLS_VOLCANO,
+            Shots = 30,
+            CeilingStep = 8,
+            OccupiedBlock = (x, z, i, depth) => x >= 2 && x <= 6 && z >= 2 && z <= 6,
+            BlockColour = (x, z, i) => Band(x / 2 + z / 2 + i / 2, ERUPTION_STUB_INKS),
+        };
+
+        #endregion
+
+        //STUB palette only — the real designs state their own inks per the block header's registers
+        private static readonly BallType[] ERUPTION_STUB_INKS = { BallType.Type1, BallType.Type8 };
+
+        #endregion
+
+
         #region The arcade levels
 
-        //THE EIGHTH BLOCK: five HOLLOW SOLIDS with pixel art wrapped onto them, hanging over a neon city.
+        //THE NINTH BLOCK in play order: five HOLLOW SOLIDS with pixel art wrapped onto them, hanging over a neon city.
         //It is THE GALLERY GIVEN A THIRD DIMENSION, and that is the whole statement of it. Block 2 draws a
         //symbol on a flat wall and the player reads all of it from where the gun starts; these levels draw
         //the same kind of picture onto a body that HAS sides - a cube of arcade glyphs, a stepped temple, a
@@ -9270,7 +9468,7 @@ namespace BS3D.Tools.LevelGen
 
         #region The spectrum levels (#253)
 
-        //THE NINTH BLOCK: one HUE FAMILY a level, swept through the whole body as a gradient. The owner's
+        //THE TENTH BLOCK in play order: one HUE FAMILY a level, swept through the whole body as a gradient. The owner's
         //brief is a chapter whose levels read as ONE colour rather than as a set of arbitrary matching ones -
         //a level sweeping white -> light blue -> blue -> dark blue and back to white as it climbs, and the
         //same principle on a warm ramp, a green one, and so on to the wheel entire.
