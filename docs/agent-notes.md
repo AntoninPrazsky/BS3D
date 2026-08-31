@@ -2943,3 +2943,35 @@ Devět kapitol, deset materiálů. **Každá kapitola teď věší jiný** — m
 **Ověřeno:** obě brány zelené (`LevelGen` exit 0, `ScoreSim` „All levels rate the right way round"), diff přes 79 levelů je **přesně jeden přidaný řádek na soubor**, žádný layout se nehnul. Vizuálně čtyři kapitoly v běžící hře: Tower/led ve sněhu, Reveal/láva v jeskyni, Quarry/kov na Měsíci, Arcade/drahokam v neonu — všechny sedí.
 
 **Nejslabší párování je láva v jeskyni** a je fér to říct: čte to jako svítící popraskané koule v tmavém prostoru, tedy dojmově blízko plazmě o dvě kapitoly dál. Drží je od sebe Quarry mezi nimi (jasné stříbro) a odlišná konstrukce (desky vs. vlákna). **Kdyby #295 přineslo sopečný blok, láva patří tam** a Reveal se uvolní.
+
+---
+
+## 2026-08-31 — Claude Code
+
+**#301: pět layoutů opraveno a ZMĚŘENO proti kalibrované sondě.** Větev `301-layouts-measured`. Práce šla v pěti paralelních worktree (jeden level = jeden agent), diffy se slily na jednu větev a pack se přegeneroval jednou. Všech pět oprav je strukturálních, žádná není barevná klička kolem seedů.
+
+| level | před | po | co se hnulo |
+|---|---|---|---|
+| Pylon | 5/5, 1. výstřel, sklo v klidu | **1/5** (4 pořadí čistě dohrají) | hloubka 24→20 (nohy startují 8,90 nad čárou místo 5,78), rozkročení 12→11, prstence **tři hladiny** (Boltovo „tři a ne dvě" změřené i tady), nový límec pod kápí; 612→580 koulí |
+| Orrery | 5/5, sklo v klidu, nic neosiřelo | **3/5** (profil Amphory: přestřely švihu 0,00–0,09 za tolerancí) | mezery B–E dvě hladiny → **jedna**, **4. pin** na mezeru (vlastní předautorizovaná páka), oblouky 120°→60°, pole 30→32, step 7→14; 761→685 |
+| Ghost | 4/5, dvakrát na 1. výstřelu | **1/5** | třetí barva těla (černá — vlastní fallback specu: perkolace byla skutečná, jedno uvolnění 291–299 koulí = 45 % levelu), nohy 60°→50°, bloky ARC 4→2 (změřený žebřík: zároveň jediná příčka v cenovém pásmu, 1,65); 670→661 |
+| Cabinet | 4/5, sklo v klidu | **3/5** (profil Amphory) | černá vykázána z těla (byla JEDNA skupina 239 koulí = 46 % levelu přes bezel + třešně + woodgrain), dřevo navy/brown/olive (tři vstupy ruší diagonální svar), hloubka 14→12, **CRT police**, třešně na zadní stěnu, step 12→16 (12 porušoval aritmetiku #288 od začátku: headroom 0,96 < 1,00); 574→532, ratio 2,50→**1,33** |
+| Globe | 5/5, sklo v klidu | **2–3/5** (přeživší pořadí čistě dohrají) | kotva pólu byla **DEVĚT buněk**, ne „~20" z dokumentace → arktické plato 37; polární voda oddělená od oceánu (černá — diagonální stuhy oceánu sahaly až do kotvy); svět překreslen (úzké oceány, kontinenty od pólu k pólu, tři zemské inkousty na vlastním kroku); skořepina 1,5→**2,0**; Shots 52→42 (38→30 skupin dalo 1,73 mimo pásmo bloku → 1,40); 482→599 |
+
+**⚠ Průřezový nález, nalezený třikrát nezávisle a stojí za zapamatování víc než jednotlivé opravy: cross-level soused JE diagonála v (x,z), takže dvoubarevný dither svařuje sítě napříč patry** — na rohu bloku se index pásma hne o 0 nebo ±2, obojí táž barva mod 2. Ghostovo tělo (45 % levelu v jedné síti), Cabinetovo dřevo (120–240 koulí na barvu) a Globův oceán (stuhy po antidiagonále až do stropní kotvy) jsou TÝŽ mechanismus. Lék je třetí vstup v pásmu (rozdíly 1 a 2, nikdy 0 mod 3) — zapsáno v komentářích u všech tří.
+
+**⚠ Druhý průřezový: jednobuněčná stěna není tuhá, je to plachta řetězů BallSocket a pod trvalou zátěží povoluje** — Cabinet (14 pater od 3,96 nad čárou prohnulo pod čáru), Globe (zakřivená skořepina 1,5 ztrácí navíc polovinu cross-level sousedů — Cube s rovnou stěnou jednu buňku unese, koule ne). Věta „brána, co říká, že spoje existují, neříká, že unesou váhu" — počtvrté, tentokrát změřená sondou místo ruky.
+
+**⚠ Sonda NENÍ bitově deterministická a její doc to tvrdil.** Změřeno na identických binárkách a levelu: 2, 3, 3, 3, 2 z 5 přes pět běhů. Seedy fixují POŘADÍ výstřELŮ, ne vlákna solveru — hraniční pořadí (dip do pár setin od tolerance) se překlápí ±1. Věta v `SagProbe.cs` opravena; čtení na hraně prahu se opakuje, 0 a 5 ne. (Padlo z toho i vodítko pro cíl oprav: 1/5 je pod Saturnem, 2–3/5 je pásmo Amphory — obojí majitel dohrává.)
+
+**Baseline sweep finálním modelem (před opravami, pod zátěží pěti agentů):** devítka z #301+#302 potvrzená ≥4/5; **nad prahem ale četly i Donut 5/5, Cube 4/5, Giraffe 4/5 — a Amphora 4/5**, level prokazatelně dohratelný, takže práh 4 má na packu známý falešný pozitiv. Sólová čísla níž.
+
+**Dvě rozhodnutí majitele, vlajkovaná a neudělaná:** Orrery ratio 1,38 (52 skupin / 72 výstřelů — rozpočtově na hraně nejtěžších; poctivé zjemnění je Shots 72→80 = 1,54, ne slití oblouků); a vizuální čtení — olivová čte pod neonovým dómem žlutě a hnědá oranžově (palety jsou aritmeticky navy/brown/olive), Orreryho haly z podhledu herní kamery splývají víc než dřív (mezera je poloviční), Globus je záměrně „víc pevniny než moře". Snímky všech pěti jsou v `Game\bin\net10.0-windows\Screenshots\`.
+
+**Finální sólo sweep celého packu (po opravách, nic jiného na stroji):** pětice čte **2, 3, 2, 3, 3** (Pylon, Orrery, Ghost, Cabinet, Globe) — všechna v pásmu dohratelných kontrol (Saturn 2, Amphora 3) a **žádné se sklem v klidu**. Rozdělení: 52 levelů nikdy, 10× jednou, 14× dvakrát, 7× třikrát, 2× čtyřikrát, 5× pětkrát. **Nad prahem 4 stojí sedm**: čtyři spirály #302 (Pinecone/Pleat/Totem 5/5, Bolt 5/5 na 1. výstřelu se sklem v klidu) a tři nehlášené — **Donut 5/5 a Cube 4/5, oba se sklem sestoupeným** kolem 13.–14. výstřelu (voní to stropní aritmetikou, ne mřížkou), a **Giraffe 4/5 se sklem v klidu** (layout). Šestice horšího hráče (Belfry, Organ, Vortex, Sail, Garland, Trellis) spadla kompetentnímu hráči na ≤2.
+
+**Ověřeno:** čtyři solutiony čisté; LevelGen exit 0 (všechny brány, 0 recoloured na všech pěti); ScoreSim exit 0 („All levels rate the right way round"); dva snímky každého z pěti levelů v běžící hře (level=<jméno> shot=8,14). Dokumentace srovnaná v témže commitu: `docs/formats-and-tools.md` (jednoprocentní pásmo, sag sekce), `docs/game-session.md` (dovětek k #288 aritmetice), `docs/rendering.md` (počty oceánu Globu u #246).
+
+**Co si NEBERU a zůstává otevřené:** merge (na slovo majitele), #302 (čtyři spirály Spectra, všechny 5/5 — další krok, nástroj i vzory oprav jsou teď na stole), a Donut/Cube/Giraffe — sonda je jmenuje, nikdo je nehlásil, sonda nic neodmítá.
+
+**Nic dalšího si neberu.**

@@ -552,7 +552,7 @@
       "block": "The Nebula",
       "shots": 72,
       "minStars": 134,
-      "ceilingStep": 7
+      "ceilingStep": 14
     },
     {
       "file": "Garland.json",
@@ -608,7 +608,7 @@
       "block": "The Arcade",
       "shots": 60,
       "minStars": 148,
-      "ceilingStep": 12
+      "ceilingStep": 16
     },
     {
       "file": "Tetra.json",
@@ -638,7 +638,7 @@
       "file": "Globe.json",
       "name": "Globe",
       "block": "The Arcade",
-      "shots": 52,
+      "shots": 42,
       "minStars": 156,
       "ceilingStep": 14
     },
