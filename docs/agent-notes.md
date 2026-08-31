@@ -2975,3 +2975,30 @@ Devět kapitol, deset materiálů. **Každá kapitola teď věší jiný** — m
 **Co si NEBERU a zůstává otevřené:** merge (na slovo majitele), #302 (čtyři spirály Spectra, všechny 5/5 — další krok, nástroj i vzory oprav jsou teď na stole), a Donut/Cube/Giraffe — sonda je jmenuje, nikdo je nehlásil, sonda nic neodmítá.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-31 — Claude Code (druhý zápis dne)
+
+**#302: čtyři spirály Spectra dostaly pásovaná patra a ZMĚŘENĚ přestaly padat.** Větev `302-shootable-tiers`, týž vzor jako ráno u #301 (čtyři paralelní worktree, diffy na jednu větev, jeden regen). Majitelovo omezení dodrženo doslova: **Shots ani CeilingStep se nehnuly nikde** — všechny čtyři opravy jsou layout a pásování barev.
+
+| level | před | po | patro, které to spravilo |
+|---|---|---|---|
+| Pinecone | 5/5, 2. výstřel, sklo v klidu | **0/5 — každé pořadí dohraje** (11–14 výstřelů z 52) | čistě barevné: tři jednopatrové obruče žlutá/černá ve čtyřech obloucích na d 6/12/18, švy rolují; geometrie netknutá. Diagnóza opravila hlášení: táhly prostředky rodiny (hnědá 307 a olivová 312 koulí, každá JEDNA spirálová síť), ne „žlutá a černá" |
+| Pleat | 5/5, výstřely 1–5 | **0/5 ve třech sweepech — vše dohráno** | hloubka 26→20 (−304 koulí natahované hmoty), dva opasky navy/magenta v šesti blocích, fázový skok pod opaskem a **strážní kurzy** (bez nich 3/5 — opasky se svařovaly s klíny sweepů do 104–211-koulových dávek) |
+| Bolt | 5/5 na **1. výstřelu**, sklo v klidu | **1/5** (vlásková −1,00 přesně na toleranci; 4 pořadí dohrají) | **šestihranná hlava** 7×7 na temeni ve čtyřech kvadrantech (kotva 21→45 buněk, zátěž 64,7→29,6), loketní desky pruhované **napříč přesahem** žlutá/cyan a zelená/modrá, pole 32→34. ⚠ Změřený protipříklad: pruhy PODÉL x = nejlepší výstřel **82–84 %** — přesahové dva sloupce patří jednomu pruhu, ať je široký jakkoli |
+| Totem | 5/5, 3. výstřel, sklo v klidu | **0/5 — nejhorší pořadí dohraje** | čtyři **límce** r 3,0 v místech spojů korálků (d 6/13/20/27), každý čtyři sektory dvojice sousedních odstínů, dvojice se střídají — širší deska než 13-buněčné krky, řeže stuhy (bílá 308→184) a je střílitelným patrem doslova. Zapsané páky: churn tenonu nenastal (stojí dál), rozšíření sféry **v důchodu** (límec ho pokrývá) |
+
+**Rezoluce premisy bloku („gradient nesmí být patra") je napsaná v hlavičce geometrického regionu**: zakázané bylo vždycky patro JEDNÉ barvy; patro tady je vždy ≥2 prokládané inkousty vlastní rodiny (pravidlo víka z Arcade), žádná koule nevezme kurz sama, přeříznutí patra je navržený vícevýstřelový řez — a každý design ho nese jako vlastní architekturu (letokruhy, opasky, hlava šroubu, vyřezávané pásy). Pravidlo stopů na horní hladině drží netknuté.
+
+**Rampa bloku přepsána poctivě:** skupinové počty teď běží 6, 17, 9, **35**, 15, 19, 26, 22, 26, 31 — Pleat na 4. pozici přeskočil finále, takže pořadí už počet nesleduje. Přeřazení kapitoly je majitelovo rozhodnutí (a #300 už má pořadí kapitol otevřené); komentář to říká místo předstírání, že rampa pořád měří.
+
+**⚠ Nálezy nad rámec oprav:** kaskádová cena — level s patry se hraje na zlomek naivního ratio (Pleatova sonda čistí na třetině rozpočtu; zapsáno u designu s výhradou, že 1,37 není cenovka). A Boltova hlava rozšiřuje pravidlo stoupání na desku: všechny čtyři stopy stojí na kotevní hladině v kvadrantech.
+
+**Finální sólo sweep:** čtveřice čte **0, 0, 1, 0 z 5** (Pinecone, Pleat, Bolt, Totem — Boltova jediná prohra je vlásková −1,00 přesně na toleranci) a **poprvé nic v packu nečte 5/5**: 57 z 90 nikdy, 11× jednou, 14× dvakrát, 3× třikrát, 5× čtyřikrát, 0× pětkrát. Nad prahem zbývá pět jmen: nehlášená trojice **Giraffe** (4/5 se sklem v klidu — layout), **Cube a Donut** (4/5, převážně se sestoupeným sklem — voní stropní aritmetikou), a dva kolísači na hraně prahu — **Amphora** (kalibrovaný falešný pozitiv, čte 3↔4 mezi běhy) a **Cabinet** (po opravě četl 3, 3, 4 — totéž ±1). Z pětice #301 v tomhle běhu: Pylon **0/5**, Ghost 1/5, Globe 2/5, Orrery 3/5.
+
+**Ověřeno:** LevelGen exit 0 (Levels.json bajt za bajtem netknutý — rozpočty a stropy se nehnuly), ScoreSim exit 0, snímky všech čtyř v běžící hře (City dóm, porcelán) — obruče čtou jako letokruhy, opasky jako opasky, hlava jako hlava, límce jako vyřezávané pásy.
+
+**Co zůstává:** merge na slovo majitele; vizuální odsouhlasení čtyř nových siluet; Donut/Cube/Giraffe z #301 pořád nad prahem a nehlášené.
+
+**Nic dalšího si neberu.**
