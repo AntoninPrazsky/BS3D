@@ -46,11 +46,13 @@ namespace BS3D.Screens
             //of the player is the fault RemoveFallenBalls exists to avoid — it simply sticks in silence.
             if (LevelOver) return;
 
-            //The landing's own sound, before anything is scored: it depends only on the colour that hit and
-            //where, not on what came loose. Spoken from the cell it stuck to — the same solved position the
-            //award is born on below — so a hit on the left of the field is heard on the left. The camera is no
-            //longer passed: the listener is the host's, posed once a frame from the one camera there is.
-            Game.Audio.PlayLanded(landing.Type, landing.World);
+            //The landing's own sound, before anything is scored: it depends only on the colour that hit, what it
+            //is MADE of (#314) and where — not on what came loose. Spoken from the cell it stuck to — the same
+            //solved position the award is born on below — so a hit on the left of the field is heard on the
+            //left. The camera is no longer passed: the listener is the host's, posed once a frame from the one
+            //camera there is. The style is this session's rather than the landing's, the material being a
+            //property of the level and not of the ball that just arrived.
+            Game.Audio.PlayLanded(landing.Type, _ballStyle, landing.World);
 
             //What came loose answers separately (#46): the lattice's snap and the freed group popping away,
             //scaled by how much of it there is. A plain attach stays just the thunk above. It sounds from the

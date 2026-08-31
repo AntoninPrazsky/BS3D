@@ -258,6 +258,12 @@ namespace BS3D.Screens
             _ballStyle = Game.BallStyleOverride ?? ballStyle;
             Game.Balls.Style = _ballStyle;
 
+            //And what it sounds like, which is the same question (#314): a glass bubble, a ball of wool and a
+            //cooling lump of lava landed with one identical clack per colour until this line. Stated here rather
+            //than at the landing because the thirteen buffers for a material are baked on first use, and the
+            //frame that answers a shot is the one frame in the game that must not stall for it.
+            Game.Audio?.PrepareLanded(_ballStyle);
+
             _map = map ?? BuildFallbackMap();
             _map.Center();
 

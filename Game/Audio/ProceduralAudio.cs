@@ -112,7 +112,11 @@ namespace BS3D.Audio
         private const float STAR_FINAL_LIFT = 1.15f;
 
         private readonly SoundEffect _shoot;
-        private readonly SoundEffect[] _landed;
+
+        //[style][type]: what a ball of that material in that colour sounds like landing (#314). A row is baked
+        //on demand by PrepareLanded and then kept for the life of the process — see that method for why this is
+        //not the whole 10 x 13 cross product built at startup, and why it is not built at play time either.
+        private readonly SoundEffect[][] _landed;
         private readonly SoundEffect _release;
         private readonly SoundEffect _fireworkLaunch;
         private readonly SoundEffect _fireworkBurst;
@@ -124,7 +128,7 @@ namespace BS3D.Audio
         //The voices the five positional sounds are spoken through — one ring per buffer, every instance built
         //here and reused for the life of the process. Sizes are in RING SIZES below.
         private readonly VoiceRing _shootRing;
-        private readonly VoiceRing[] _landedRings;
+        private readonly VoiceRing[][] _landedRings;
         private readonly VoiceRing _releaseRing;
         private readonly VoiceRing _launchRing;
         private readonly VoiceRing _burstRing;
@@ -195,8 +199,14 @@ namespace BS3D.Audio
             SoundEffect.DopplerScale = 0f;
 
             _shoot = BakeShoot();
-            _landed = new SoundEffect[BallTypes.Count + 1];   //indexed by BallType value; slot 0 unused
-            for (int type = 1; type <= BallTypes.Count; type++) _landed[type] = BakeLanded(type);
+
+            //The landings are the one family of sounds that is not baked here: they are (colour x material)
+            //since #314, and a LEVEL NAMES ONE MATERIAL, so the row that level needs is the only one worth
+            //having. PrepareLanded fills one; the vinyl's is filled now because it is what everything
+            //unauthored plays, and because a first level should not pay for its row.
+            _landed = new SoundEffect[BallStyleCount][];
+            _landedRings = new VoiceRing[BallStyleCount][];
+            PrepareLanded(BallStyle.Beach);
 
             _release = BakeRelease();
             _fireworkLaunch = BakeFireworkLaunch();
@@ -208,9 +218,6 @@ namespace BS3D.Audio
             //The voices, all of them, here — an XAudio2 source voice apiece and a few ms of load. The popper
             //and the UI need none: they never reach an emitter.
             _shootRing = new VoiceRing(_shoot, SHOOT_VOICES);
-            _landedRings = new VoiceRing[_landed.Length];
-            for (int type = 1; type <= BallTypes.Count; type++) _landedRings[type] = new VoiceRing(_landed[type], LANDED_VOICES);
-
             _releaseRing = new VoiceRing(_release, RELEASE_VOICES);
             _launchRing = new VoiceRing(_fireworkLaunch, LAUNCH_VOICES);
             _burstRing = new VoiceRing(_fireworkBurst, BURST_VOICES);
@@ -233,25 +240,73 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// A ball snapping into the lattice. The <paramref name="type"/> selects a tone (one per colour), and the
-        /// sound is spoken from the cell it stuck to, so a hit on the left of the field is heard on the left.
+        /// Bakes the thirteen landing sounds for one material and builds their voices (#314). Call it wherever a
+        /// level's <see cref="BallStyle"/> becomes known — a row already baked returns at once, so calling it per
+        /// level is free after the first time that material is played.
+        /// <para>
+        /// <b>Why a row at a time rather than the whole cross product.</b> Ten materials times thirteen colours
+        /// is 130 buffers and, at <see cref="LANDED_VOICES"/> apiece, 390 XAudio2 source voices — of which one
+        /// level can ever sound thirteen. Baked lazily, a session pays for the one or two materials it actually
+        /// plays and holds the 39 voices it always held.
+        /// </para>
+        /// <para>
+        /// <b>And why not lazily at play time.</b> Baking a row is ~13 x 0.2–0.8 s of synthesis plus its reverb;
+        /// doing it on the first landing of a level would spend that inside the frame that answers a shot, which
+        /// is the one frame in the game that must not stall. <see cref="PlayLanded"/> still falls back to baking
+        /// a row nobody prepared — once, ever, per material — because a silent landing is worse than a hitch,
+        /// but the caller is expected to have asked at load.
+        /// </para>
+        /// </summary>
+        public void PrepareLanded(BallStyle style)
+        {
+            int row = (int)style;
+            if (row < 0 || row >= BallStyleCount || _landed[row] != null) return;
+
+            LandedMaterial material = MaterialFor(style);
+
+            SoundEffect[] effects = new SoundEffect[BallTypes.Count + 1];      //indexed by BallType value; slot 0 unused
+            VoiceRing[] rings = new VoiceRing[effects.Length];
+
+            for (int type = 1; type <= BallTypes.Count; type++)
+            {
+                effects[type] = BakeLanded(type, material);
+                rings[type] = new VoiceRing(effects[type], LANDED_VOICES);
+            }
+
+            //Rings before effects, so a row is never visible half-built: PlayLanded reads _landed[row] as its
+            //own guard, and the two arrays are only ever published together.
+            _landedRings[row] = rings;
+            _landed[row] = effects;
+        }
+
+        /// <summary>
+        /// A ball snapping into the lattice. The <paramref name="type"/> selects a tone (one per colour) and the
+        /// <paramref name="style"/> selects what it is made of (#314), and the sound is spoken from the cell it
+        /// stuck to, so a hit on the left of the field is heard on the left.
         /// <para>
         /// It stays at the solved cell rather than following the ball's own settling glide, and the level still
         /// falls off with the <b>true</b> distance to a floor — the widening below moves the stereo image and
         /// never the loudness.
         /// </para>
         /// </summary>
-        public void PlayLanded(BallType type, Vector3 world)
+        public void PlayLanded(BallType type, BallStyle style, Vector3 world)
         {
+            int row = (int)style;
+            if (row < 0 || row >= BallStyleCount) return;
+
+            //The load-time bake missed this material. See PrepareLanded: a hitch once is the lesser fault.
+            if (_landed[row] == null) PrepareLanded(style);
+
             int index = (int)type;
-            if (index < 1 || index >= _landed.Length || _landedRings[index] == null) return;
+            if (index < 1 || index >= _landed[row].Length || _landedRings[row][index] == null) return;
 
             float volume = VolumeForDistance(DistanceTo(world)) * Level;
 
             //The jitter must stay under half the ladder's whole-tone step (1/12 octave) less a margin the ear
             //can still tell apart, or two neighbouring colours' notes could meet or swap: at the old 0.1 the
             //±1.2-semitone wobble overlapped the 2-semitone step and a low green could land under a high red.
-            Speak(_landedRings[index], world, NEAR_WIDEN, volume, NextPitch(0.06f));
+            //It is a fraction of the note and so survives PitchScale unchanged.
+            Speak(_landedRings[row][index], world, NEAR_WIDEN, volume, NextPitch(0.06f));
         }
 
         /// <summary>
@@ -693,13 +748,150 @@ namespace BS3D.Audio
         }
 
         /// <summary>
+        /// What a material does to a landing (#314). Every figure a <see cref="BakeLanded"/> has that is not the
+        /// colour's note or the arena's room, in one place, so a material is one line of a table rather than a
+        /// branch in the synthesis — and so an eleventh one is a row rather than an edit.
+        /// <para>
+        /// The three things the ear actually identifies a material by, in the order it uses them: <b>how long it
+        /// rings</b> (wool is dead on contact, metal sings), <b>where its partials sit</b> (a struck bar's are
+        /// inharmonic and beat, a wooden one's are harmonic and thicken), and <b>how bright and hard its contact
+        /// is</b> (glass ticks, wool answers with a "pff"). Weight — the sub — is the fourth and it decides
+        /// whether the thing has mass: a hollow shell has almost none, a lump of stone is mostly it.
+        /// </para>
+        /// </summary>
+        private readonly struct LandedMaterial
+        {
+            //Multiplies the whole colour ladder. Small hard things ring high, heavy ones low; the STEP between
+            //colours is untouched, which is what keeps the thirteen countable under every material.
+            public readonly float PitchScale;
+
+            //e^-t of this on the tone: the whole difference between a ring and a thud, and the figure the
+            //buffer's own length is solved from.
+            public readonly float RingDecay;
+
+            //The two partials over the fundamental: how loud, and WHERE. Ratios of 2 and 3 are harmonic and
+            //thicken the note into a body; anything irrational beats against the fundamental and reads as metal.
+            public readonly float Partial2;
+            public readonly float Partial3;
+            public readonly float Ratio2;
+            public readonly float Ratio3;
+
+            //The sub an octave down: its share of the mix against the tone, and how fast it goes. This is MASS.
+            public readonly float SubLevel;
+            public readonly float SubDecay;
+
+            //The contact itself: how long the noise burst lasts, how fast it dies, how loud it is, and what it
+            //is low-passed to. The cutoff is the one the ear reads as HARDNESS.
+            public readonly float ClickWindow;
+            public readonly float ClickDecay;
+            public readonly float ClickGain;
+            public readonly float ClickCutoff;
+
+            public LandedMaterial(float pitchScale, float ringDecay, float partial2, float partial3, float ratio2,
+                float ratio3, float subLevel, float subDecay, float clickWindow, float clickDecay, float clickGain,
+                float clickCutoff)
+            {
+                PitchScale = pitchScale;
+                RingDecay = ringDecay;
+                Partial2 = partial2;
+                Partial3 = partial3;
+                Ratio2 = ratio2;
+                Ratio3 = ratio3;
+                SubLevel = subLevel;
+                SubDecay = subDecay;
+                ClickWindow = clickWindow;
+                ClickDecay = clickDecay;
+                ClickGain = clickGain;
+                ClickCutoff = clickCutoff;
+            }
+        }
+
+        //How many materials there are. Off the enum itself, #152's lesson: a hand-pinned count is how a member
+        //ends up existing everywhere except in the one array that has to be indexed by it.
+        private static readonly int BallStyleCount = Enum.GetValues<BallStyle>().Length;
+
+        /// <summary>
+        /// What each material sounds like landing (#314). One row per <see cref="BallStyle"/>, each stated
+        /// against the vinyl — which is the row that was there before this existed, unchanged, and is still what
+        /// every unauthored map plays.
+        /// <para>
+        /// <b>Each is read off the material's own doc comment on <see cref="BallStyle"/> rather than invented
+        /// here</b>, because those were written to say what the thing IS: the wool is "the soft one, and the only
+        /// one", the bubble "a film around nothing", the marble "has mass", the metal "a turned, brushed alloy",
+        /// the lava "a cooling lump". A sound that disagrees with the look is worse than one that is merely
+        /// plain, and this is the whole of what keeps them agreeing.
+        /// </para>
+        /// </summary>
+        private static LandedMaterial MaterialFor(BallStyle style) => style switch
+        {
+            //An air-filled vinyl skin: a mid thunk with a wooden harmonic body and real weight behind it. These
+            //are the figures the sound shipped with and they are the reference every row below is stated from.
+            BallStyle.Beach => new LandedMaterial(1.00f, 26f, 0.50f, 0.20f, 2f, 3f, 0.55f, 30f, 0.015f, 90f, 0.90f, 4000f),
+
+            //A film around nothing: high, thin, and almost no sub, because there is no mass in a soap bubble to
+            //make one. It rings a little because it is glass, and briefly because the shell is a film.
+            BallStyle.Bubble => new LandedMaterial(1.90f, 15f, 0.35f, 0.45f, 2f, 3f, 0.14f, 46f, 0.008f, 130f, 0.95f, 9000f),
+
+            //Stone with mass, which is the whole reason it exists beside the vinyl: pitched well down, mostly
+            //sub, and its partials kept quiet - a dense solid answers with a dull thud and not a chord.
+            BallStyle.Marble => new LandedMaterial(0.72f, 21f, 0.28f, 0.10f, 2f, 3f, 0.80f, 26f, 0.018f, 80f, 0.75f, 2600f),
+
+            //THE SOFT ONE, and it must be the dullest and shortest thing in the set - a ball of yarn hitting
+            //another ball of yarn barely sounds at all. Everything is turned down: it dies in a twentieth of a
+            //second, has no partials worth the name, and its contact is a "pff" with the tick filtered out of it.
+            BallStyle.Wool => new LandedMaterial(0.80f, 58f, 0.14f, 0.00f, 2f, 3f, 0.50f, 62f, 0.020f, 60f, 0.42f, 850f),
+
+            //Anodised alloy, and the ONE row whose partials are inharmonic: 2.76 and 5.40 are a struck bar's
+            //first two, so they beat against the fundamental instead of thickening it - which is what a bell is
+            //and what no envelope alone can imitate. It sings far longer than anything else here.
+            BallStyle.Metal => new LandedMaterial(1.45f, 6f, 0.60f, 0.35f, 2.76f, 5.40f, 0.22f, 34f, 0.006f, 150f, 1.00f, 12000f),
+
+            //Frozen and brittle: bright and hard like glass, but opaque and solid rather than a film, so it
+            //keeps some weight the bubble has none of and stops ringing sooner than the gem.
+            BallStyle.Ice => new LandedMaterial(1.32f, 19f, 0.42f, 0.28f, 2f, 3f, 0.34f, 38f, 0.009f, 120f, 0.92f, 7000f),
+
+            //A cut stone: small, hard and dense, so the highest ring in the set after the metal's and the
+            //sharpest tick. Its partials sit harmonically - a gem is a lump of quartz, not a struck bar.
+            BallStyle.Gem => new LandedMaterial(1.70f, 12f, 0.50f, 0.34f, 2f, 3f, 0.20f, 42f, 0.006f, 145f, 1.00f, 11000f),
+
+            //A globe of ionised gas: the one material with no impact to speak of. Almost no sub, a soft short
+            //body, and a wide dull contact - what carries it is a slightly detuned upper partial (2.05) that
+            //beats a few times a second, which is the nearest a mono buffer gets to a crackle.
+            BallStyle.Plasma => new LandedMaterial(1.25f, 32f, 0.26f, 0.16f, 2.05f, 3f, 0.12f, 50f, 0.014f, 70f, 0.55f, 2000f),
+
+            //A cooling lump of rock, and the heaviest thing in the set: the lowest note, the most sub, and a
+            //contact filtered almost to a thump. Nothing about lava is bright.
+            BallStyle.Lava => new LandedMaterial(0.62f, 30f, 0.24f, 0.08f, 2f, 3f, 0.88f, 24f, 0.022f, 65f, 0.70f, 1500f),
+
+            //Glazed ceramic: hard and high and RINGING - the closest thing here to a struck teacup, which is
+            //what it is. Between the ice and the gem in pitch, and it holds its note longer than either.
+            BallStyle.Porcelain => new LandedMaterial(1.55f, 10f, 0.55f, 0.30f, 2f, 3f, 0.26f, 40f, 0.007f, 140f, 0.98f, 8500f),
+
+            //An unnamed material draws as vinyl (BallRenderSet's own default) and so sounds as vinyl. This arm
+            //exists only because the compiler asks for it: BallStyles.TryParse cannot produce a value outside
+            //the enum, and every member above is named.
+            _ => MaterialFor(BallStyle.Beach)
+        };
+
+        /// <summary>
         /// A landing: a low "thunk" with harmonic content — one base note per ball type, so each colour lands on
         /// its own pitch — fronted by a filtered click of contact and underpinned by a sub thump. Shorter and
         /// duller than the shot: a ball meeting a lattice of its own kind should sound solid, not explosive.
+        /// <para>
+        /// The <paramref name="material"/> is what it is MADE of (#314), and it moves every figure below except
+        /// the note and the room. The note stays the colour's alone, because it is the one thing the ear is
+        /// asked to count; the room stays the arena's, because a room is not a property of the ball.
+        /// </para>
         /// </summary>
-        private SoundEffect BakeLanded(int type)
+        private SoundEffect BakeLanded(int type, in LandedMaterial material)
         {
-            const float duration = 0.30f;
+            //Long enough that the ring has died into it rather than being cut off at the buffer's end, which is
+            //a click. Five time constants is 0.7 % of the peak, and the bounds do the rest: the ceiling stops a
+            //metal ball costing a megabyte a colour, and the FLOOR IS THE SHIPPED VINYL'S OWN 0.30 s - it is not
+            //the ring that needs it but the REVERB TAIL applied over the whole buffer afterwards, and a dead
+            //material solved from its ring alone (wool comes out at 0.086) would have its room cut off with it.
+            //That floor is also what keeps the vinyl's row arithmetically identical to the sound that shipped.
+            float duration = MathHelper.Clamp(5f / material.RingDecay, 0.30f, 0.80f);
             int samples = (int)(SAMPLE_RATE * duration);
             float[] signal = new float[samples];
 
@@ -709,30 +901,40 @@ namespace BS3D.Audio
             //type would simply extend the ladder. (The old ladder divided a fixed 1.5-octave span by the
             //type count in disguise - five more types would either have shrunk every step below audibility
             //or, with the divisor kept, pushed the top types out of the low register entirely.)
+            //
+            //PitchScale moves the WHOLE ladder and never its step, which is the one thing that must not change:
+            //a material is constant for a level, so transposing it costs the colours nothing, while compressing
+            //the step would cost the ear the count it is actually being asked for.
             const float root = 150f;
-            float freq = root * MathF.Pow(2f, (type - 1) / 6f);
+            float freq = root * material.PitchScale * MathF.Pow(2f, (type - 1) / 6f);
 
             for (int i = 0; i < samples; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
-                float env = MathF.Exp(-t * 26f);
+                float env = MathF.Exp(-t * material.RingDecay);
 
-                //Additive harmonics: the fundamental plus the 2nd and a little 3rd give the thunk a wooden,
-                //solid character a pure sine lacks.
+                //Additive partials: the fundamental plus two more. WHERE they sit is the material's, and it is
+                //most of what says metal rather than stone - a struck bar's partials are inharmonic, so they
+                //beat against the fundamental instead of thickening it, and no envelope makes a harmonic stack
+                //sound like a bell.
                 float tone = 0f;
                 tone += MathF.Sin(2f * MathF.PI * freq * t);
-                tone += 0.5f * MathF.Sin(2f * MathF.PI * freq * 2f * t);
-                tone += 0.2f * MathF.Sin(2f * MathF.PI * freq * 3f * t);
+                tone += material.Partial2 * MathF.Sin(2f * MathF.PI * freq * material.Ratio2 * t);
+                tone += material.Partial3 * MathF.Sin(2f * MathF.PI * freq * material.Ratio3 * t);
 
-                //A sub thump an octave below the fundamental adds the physical weight of contact.
-                float sub = MathF.Sin(2f * MathF.PI * freq * 0.5f * t) * MathF.Exp(-t * 30f);
+                //A sub thump an octave below the fundamental adds the physical weight of contact - which is
+                //exactly what a hollow shell has none of and a lump of stone is mostly made of.
+                float sub = MathF.Sin(2f * MathF.PI * freq * 0.5f * t) * MathF.Exp(-t * material.SubDecay);
 
-                signal[i] = (tone * 0.45f * env) + (sub * 0.55f);
+                signal[i] = (tone * (1f - material.SubLevel) * env) + (sub * material.SubLevel);
             }
 
-            //The click of contact: brighter, very short, low-passed so it reads as a knock rather than a tick.
-            AddNoiseBurst(signal, window: 0.015f, decay: 90f, gain: 0.9f, cutoff: 4000f);
+            //The click of contact, and the other half of what the ear identifies a material by: a hard surface
+            //ticks bright and short, a soft one answers with a dull "pff" and almost no tick at all.
+            AddNoiseBurst(signal, material.ClickWindow, material.ClickDecay, material.ClickGain, material.ClickCutoff);
 
+            //The room, and it is the ARENA's rather than the ball's: thirteen colours and ten materials all land
+            //in the same place, so this is the one figure here that no material may move.
             ApplyReverb(signal, roomScale: 0.4f, wet: 0.26f, decay: 0.22f);
 
             Normalize(signal, 0.9f);
@@ -1362,13 +1564,17 @@ namespace BS3D.Audio
         {
             //Voices first, buffers second: an instance holds a voice onto the buffer it was made from.
             _shootRing?.Dispose();
-            if (_landedRings != null) foreach (VoiceRing ring in _landedRings) ring?.Dispose();
+            if (_landedRings != null)
+                foreach (VoiceRing[] row in _landedRings)
+                    if (row != null) foreach (VoiceRing ring in row) ring?.Dispose();
             _releaseRing?.Dispose();
             _launchRing?.Dispose();
             _burstRing?.Dispose();
 
             _shoot?.Dispose();
-            if (_landed != null) foreach (SoundEffect effect in _landed) effect?.Dispose();
+            if (_landed != null)
+                foreach (SoundEffect[] row in _landed)
+                    if (row != null) foreach (SoundEffect effect in row) effect?.Dispose();
             _release?.Dispose();
             _fireworkLaunch?.Dispose();
             _fireworkBurst?.Dispose();
