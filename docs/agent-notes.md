@@ -3074,3 +3074,11 @@ Pečou se **po řádcích, když level materiál pojmenuje**, ne celý kříž 1
 **Ověřeno capture ve všech třech stavech** (clear, fail, block complete) nad světlým i tmavým pozadím.
 
 **Nic dalšího si neberu.**
+
+**Dodatek — majitel odklikl `New best`, opraveno stejně (`9eb2529`).**
+
+Nesl `MENU_TEXT_DIM` od #199, které mu nastavilo **velikost** kvůli čitelnosti („a size that carries at play distance") a barvu nechalo být — a špatně byla ta barva. Teď `MENU_TEXT_BODY`, tedy rank, na kterém už sedí milník i identifikační řádek nad ním. Sekundárnost nese **pozice a vzácnost** (jeden krátký řádek pod hodnocením, jen na bězích, co si ho zasloužily), ne jas, který funguje nad polovinou pozadí.
+
+**⚠ Tím je to na téhle stránce potřetí a naposled, a stojí to za pravidlo místo tří incidentů:** řádek s důvodem prohry (#238), identifikační řádek (#313), `New best` (#313). **Nad rozpisem už není žádné `MENU_TEXT_DIM`**; jediné, co na stránce zbylo — sloupec s detailem v rozpisu a poznámka o odemčení — je **uvnitř plotny**, což je přesně to, kde ta šeď podle palety patří.
+
+**Obecně: než dáš `MENU_TEXT_DIM` na cokoli, zeptej se, jestli to stojí na plotně.** Když ne, je to `MENU_TEXT_BODY`. A ověřuj to nad **světlým i tmavým** pozadím — tahle vada je na tmavém pozadí neviditelná, což je přesně důvod, proč se sem vešla třikrát.
