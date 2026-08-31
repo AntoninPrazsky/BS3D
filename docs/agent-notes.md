@@ -3002,3 +3002,55 @@ Devět kapitol, deset materiálů. **Každá kapitola teď věší jiný** — m
 **Co zůstává:** merge na slovo majitele; vizuální odsouhlasení čtyř nových siluet; Donut/Cube/Giraffe z #301 pořád nad prahem a nehlášené.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-31 — Claude Code
+
+**#318 → #315 → #314, všechno na mainu (`65523cb`, `3a31d8b`, `84314a4`). Řetěz, ne tři nezávislé věci.**
+
+**⚠ Nejdřív omluva a poučení: založil jsem #319 (Donut/Cube/Giraffe) v tutéž hodinu, kdy jsi ty založil #316 a #317 o tomtéž.** Tvoje jsou lepší (tři nezávislé sweepy, čísla per level, jmenovaní podezřelí), takže #319 jsem zavřel jako duplikát a jediný fakt navíc přenesl do komentáře u #317: **Cube už byl jednou jmenovaný v #288** (zavřeno 2026-08-28) a do rozsahu #301 se nedostal, takže si to čtení nese přes dva průchody. Já si deník přečetl **před** prací, ale issues jsem zakládal, aniž bych ho přečetl znovu — přesně tomu má tenhle soubor bránit. Před zakládáním issue si ho přečti znovu.
+
+**#318 — Testbed neuměl `BallStyle` vůbec.** `grep -r BallStyle Testbed/` nevrátil nic: nikde nenastavoval `BallRenderSet.Style`, takže kreslil vinyl ať dostal cokoli, a `LoadLevel` pole `balls` z formátu levelu tiše zahazoval.
+
+**⚠ To není chybějící pohodlí, to je slepý přístroj.** Pevná kamera, přes kterou se v tomhle projektu soudí každá změna stínování, je `campos`/`camtarget` — tedy **Testbedu**. Devět z deseti materiálů se před ni nedalo postavit. Přibylo `balls=<name>` (přes `BallStyles.TryParse`, tentýž call co `Game/Program.cs`, aby se pravopisy nerozešly), **L** cykluje přes `BallStyles.Next`, a level si nese vlastní materiál se stejnou precedencí jako svůj dóm. **`screenshot.ps1` na `L` psalo „unknown key" a přesto sejmulo snímek** — to je ten druh selhání, co se čte jako nález; klávesa je v jeho mapě.
+
+**#315 — a tady je obecné pravidlo, které si vezmi s sebou.**
+
+**⚠ MĚŘICÍ SKRIPT ČETL OPAČNOU VELIČINU.** `palette.ps1` redukuje kouli na medián barevných klínů s **zahozenou nejjasnější třetinou** — to je redukce **vinylu**. U plazmy a lávy je nejjasnější třetina *ta barva*. Přidal jsem `-Whole` (celý disk, průměr v **lineárním** světle — v sRGB by se jasné pixely podvážily, což je u emisivních stylů celé měření). Jen v tomhle režimu jdou dva různé styly srovnat mezi sebou.
+
+Naměřeno per styl pod **vlastní scénou a dómem kapitoly**, proti vinylové kontrole, jejíž nejtěsnější pár je **7,9** (černá/hnědá — a nikdo si na vinyl nikdy nestěžoval). To je ta laťka: **žádný styl nesmí držet dva ze třinácti blíž, než vinyl drží svůj nejhorší pár.**
+
+| | před | po |
+|---|---|---|
+| láva oranžová/hnědá | **2,6** (nejtěsnější pár ve hře) | 8,2 |
+| láva černá/stříbrná | 4,2 | >11 |
+| plazma černá/stříbrná | 4,6 | 13,1 |
+| drahokam černá/hnědá | 4,9 | 8,2 |
+| drahokam černá/stříbrná | 4,5 | 11,9 |
+
+**⚠ Vinou je normalizace na peak, a je to tentýž řádek v obou emisivních stylech.** Ty hlavičky mají pravdu, že je nutná (osmička bez ní nesvítí). Co ani jedna neviděla: **zahazuje osu jasu**, a třináctka je oddělená jasem stejně jako odstínem. Černá i stříbrná se namapují na tutéž skorobílou; oranžová i hnědá na tutéž oranžovou. `TintEmission` to vrací: normalizace rozhoduje **odstín**, vlastní luminance tintu rozhoduje **jas**.
+
+**⚠ A musí to být skalár přes CELOU emisi, ne činitel na odstínu.** Láva nese jádro švu k `LavaIncandescent`, což je pevná skorobílá — činitel na odstínu nechá ta jádra svítit na všech třinácti stejně, a úzké jasné jádro je velký podíl toho, co oko přes kouli integruje. Stálo mě to jedno kolo měření.
+
+**⚠ Druhá past téhož kola: škálování přehodilo černou pod stříbrnou přesně na ni** (152→126 vs 140→129, dE 4,2 → **2,0**, tedy hůř). Když děláš pár od sebe posunem jasu, ověř, že jsi ho neprohodil skrz.
+
+Drahokam je **jiná vina**: nic tam nenormalizuje, kámen se topí v **nebarevném** zrcadle (`GemEnvironment` 1,3 při plné hladkosti), takže tint s malou chromatičností se do pixelu skoro nedostane. `SaturateTint` zvedá **chromu při nezměněné luminanci** — na neutrálním tintu je to identita **konstrukčně**, a to je ta žádaná vlastnost: neutrály se odstínem oddělit nedají a nafouknout je znamená přitlačit je k sobě.
+
+**⚠ Rozbil jsem si kódování souboru PowerShellem — a TOHLE UŽ TADY JEDNOU ZAPSANÉ BYLO.** `(Get-Content -Raw) | Set-Content -Encoding utf8` přidal **BOM** a přepsal em-dashe na `â€"` napříč celým `InstancedModel.fx` (diff 151/35 místo 120/10). Vrátil jsem soubor a udělal úpravy znovu Edit toolem.
+
+Není to nový nález: stejná past je popsaná výš u `OutbackSceneConfig.cs` včetně věty **„Na zdrojáky repa nesahat PowerShellem, ani na jedno číslo."** Já přečetl konec deníku, ne celý — což je u tří tisíc řádků pochopitelné a přesně proto to opakuju sem dolů, kde další agent začíná číst. **Na soubory tohohle repa nepouštěj `Set-Content`/`Out-File`; `sed` je bajtově bezpečný, Edit tool taky.**
+
+**#314 — zvuk dopadu byl jeden na barvu, materiál ho neovlivňoval.** `LandedMaterial` řádek na styl hýbe vším kromě **noty barvy a dozvuku arény** (nota je jediné, co má ucho počítat; místnost není vlastnost koule). Čtyři osy: jak dlouho zvoní (vlna 58, kov 6), **kde sedí parciály** — u kovu **neharmonické 2,76 a 5,40**, vlastní dvojka udeřené tyče, které tlučou proti základnímu tónu místo aby ho zhušťovaly, a to žádná obálka nenapodobí —, kolik má subu (láva 0,88, bublina 0,14) a jak tvrdý je kontakt (kov 12 kHz proti vlně 850 Hz).
+
+**⚠ Materiál transponuje celý žebřík (láva 0,62, bublina 1,90), ale nikdy jeho KROK.** Třináctka musí zůstat spočitatelná pod každým materiálem.
+
+**⚠ Délka bufferu se řeší z útlumu, a podlaha na ní je kvůli DOZVUKU, ne kvůli zvonění.** Vlna vyjde na 0,086 s a uřízla by si místnost. Podlaha je vinylových 0,30 s — což zároveň drží **vinylový řádek aritmeticky identický s tím, co se posílalo.**
+
+Pečou se **po řádcích, když level materiál pojmenuje**, ne celý kříž 10×13 při startu: to je 130 bufferů a **390 XAudio2 voices, z nichž jeden level může znít třináct.** A ne líně při hraní — to by syntéza padla do snímku, který odpovídá na výstřel.
+
+**⚠ NEOVĚŘENO UCHEM, a je fér to říct.** V repu není nic, co by zvukový efekt vyrenderovalo na disk tak, jak `Tools/MusicBake` renderuje hudbu. Ověřeno jen, že Colossus (kov, nejdražší řádek), Giraffe (vlna) a Grotto (láva) naběhnou a drží vsync bez zaškobrtnutí. **Kdyby na to přišlo, ten nástroj je zjevná díra** — a chtělo by to vytáhnout syntézu zpod `SoundEffect`, aby šla zavolat bez grafického zařízení.
+
+**Zbývá:** `PlayRelease` styl pořád nebere (vědomě — dopad hraje na každý výstřel, release jen na shodu). Do #320 jsem dopsal dva další zastaralé řetězce (nápověda NumPad2 v Testbedu, doc komentář `BallRenderSet.Style`).
+
+**Nic dalšího si neberu.**
