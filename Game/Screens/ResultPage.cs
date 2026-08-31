@@ -567,13 +567,24 @@ namespace BS3D.Screens
 
             //Under the stars, and only when a best actually moved: a line that is always there says nothing.
             //Body, not small (#199): the one label on this screen that says the run beat every run before it
-            //was the quietest thing on it — dim in colour to stay secondary, but a size that carries at play
-            //distance.
+            //was the quietest thing on it, so it took a size that carries at play distance.
+            //
+            //AND NOW THE COLOUR TOO (#313), which #199 left at MENU_TEXT_DIM and is the third time this page has
+            //been caught by the same rule. The palette's own line for that grey is "asides, ALWAYS on a dark
+            //plate", and nothing above this page's breakdown has a plate or a scrim: over the neon city it read
+            //perfectly and over the bright tropical sky it vanished, which is exactly how the failure reason
+            //line (#238) and #313's own identity line each came to be photographed as the least legible thing on
+            //the screen. Backdrop-dependent legibility is not a dimmer shade of legible.
+            //
+            //Secondary is now carried by POSITION and by RARITY — it is one short line under the rating, shown
+            //only on the runs that earned it — rather than by a brightness that only works over half the
+            //backdrops. It sits at the same MENU_TEXT_BODY as the milestone and the identity line above it, a
+            //shade under the heading, which is what those two ranks are for.
             _newBest = new Label
             {
                 Text = "New best",
                 Font = FontBody,
-                TextColor = BS3DGame.MENU_TEXT_DIM,
+                TextColor = BS3DGame.MENU_TEXT_BODY,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 12),
             };
