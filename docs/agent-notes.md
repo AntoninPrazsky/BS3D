@@ -3054,3 +3054,23 @@ Pečou se **po řádcích, když level materiál pojmenuje**, ne celý kříž 1
 **Zbývá:** `PlayRelease` styl pořád nebere (vědomě — dopad hraje na každý výstřel, release jen na shodu). Do #320 jsem dopsal dva další zastaralé řetězce (nápověda NumPad2 v Testbedu, doc komentář `BallRenderSet.Style`).
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-08-31 — Claude Code (druhý zápis)
+
+**#313 konec levelu pojmenuje level — na mainu jako `36823fc`.**
+
+`LevelResult` nese jméno položky, její 1-based pořadí a jméno té následující. Všechno z `LevelSet.DisplayName` a indexu, tedy **z týchž dvou zdrojů, ze kterých staví dlaždice pickeru a titulek okna** — tři místa se tak nemůžou rozejít v tom, jak se level jmenuje.
+
+Řádek `Level 13 · Star` je **i na prohře**, ne jen na výhře: „který to byl" se po prohře ptá člověk minimálně stejně často a ta stránka je jediná, kam ústí oba konce. Sedí **pod** milníkem bloku, ne nad ním — na jediném konci, kde jsou vidět oba, je nadpisem jméno *kapitoly* a milník ho rozvádí; level je menší jednotka a jde až za nimi. Tlačítko říká `Next: Elephant`, jméno bez čísla: je to tlačítko, ne věta, a kde hráč v sadě stojí říká řádek nad ním.
+
+**⚠ Poučení, které stálo jedno kolo a je obecné: `MENU_TEXT_DIM` na téhle stránce nefunguje, protože nemá plotnu.** Dal jsem ten řádek nejdřív dim a screenshot to vyřídil v jednom snímku — paleta si u té šedi sama píše *„asides, **always** on a dark plate"*, a `ResultPage` nemá pod nadpisem ani plotnu, ani scrim. Nad tropickou oblohou z toho byla nejhůř čitelná věc na obrazovce. **Je to přesně ta chyba, kterou #238 na TÉTO stránce už jednou zaplatilo** u řádku s důvodem prohry. Teď je to `MENU_TEXT_BODY`.
+
+**Zůstává majiteli k rozhodnutí: `New best` má tutéž vadu** — je `MENU_TEXT_DIM` v témže nezaplotněném sloupci. Na neonovém městě se čte, nad tropickou oblohou zmizí stejně jako předtím ten můj řádek (vidět na obou capture). Jeho vlastní komentář ale říká, že ta tlumenost je záměr, tak jsem na to nesáhl. Je to jedna konstanta.
+
+**Nález z fotografování, opravený v řádcích, kterých jsem se stejně dotýkal:** testovací cesta `blockdone` měla natvrdo `blockNumber: 3` proti jménu odvozenému z indexu 12. To *byl* třetí blok, dokud měly bloky pět položek; od chvíle, co mají deset, je to **druhý**. Fotografovaná stránka tedy psala „THE GALLERY" nad „Block 3 of 9 complete" — nadpis a podtitulek si protiřečily na jediné obrazovce, kvůli které ten přepínač existuje. Teď se obojí odvozuje z téže položky.
+
+**Ověřeno capture ve všech třech stavech** (clear, fail, block complete) nad světlým i tmavým pozadím.
+
+**Nic dalšího si neberu.**
