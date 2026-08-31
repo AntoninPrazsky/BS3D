@@ -3110,3 +3110,22 @@ Nesl `MENU_TEXT_DIM` od #199, které mu nastavilo **velikost** kvůli čitelnost
 **Co zůstává:** merge na slovo majitele; hlasitost/čitelnost lávového stylu na dálku (majitelovo oko); zvuk erupce dál čeká na hrom z #219 (`VolcanoEruption` je pořád public a nezavěšený).
 
 **Nic dalšího si neberu.**
+---
+
+## 2026-08-31 — Claude Code (čtvrtý zápis dne)
+
+**#316 a #317: tři levely, které sonda jmenovala a nikdo je nehlásil — Giraffe, Cube a Donut — opraveny a změřeny.** Větve `316-giraffe-stands` a `317-arcade-first-hang`, týž vzor (worktree fork na level, trasa první, nejlehčí strukturální oprava, brány + ScoreSim zelené na obou větvích).
+
+| level | před | po | diagnóza a lék |
+|---|---|---|---|
+| Giraffe | 4/5, 2.–3. výstřel, sklo v klidu | **1/5 vlásková, dvakrát** | žlutá srst byla JEDNA síť 74 koulí — celá kresba; jeden výstřel vzal 75+64 osiřelých a záclona šachovnice pod dírou se natáhla 5,8 pod čáru. Lék diegetický: hnědý pás na krku a sedlo (kde žirafa skvrny nosí) rozřezaly srst na hlavu/předek/zadek, třetí inkoust oblohy (navy — poctivě zapsáno: ředí barvu, diagonální svar šachovnice přežívá), step 8→12 jen na sklem-asistovanou prohru. 0 recoloured, geometrie netknutá |
+| Cube | 4/5, dvakrát v klidu na 6. výstřelu | **2/5 dvakrát, nic v klidu** | jednobuněčné stěny jsou řetězy a 5×5 kvadranty moc velké sousto: jeden 22-koulový blok vzal čáru z +3,93 na −1,06, nic neosiřelo. ⚠ Cabinetova police ZMĚŘENĚ HORŠÍ (5/5 — třetina mrtvé váhy na tytéž povolující řetězy; zapsáno u sloupků). Lék: čtyři rohové sloupky deska-k-desce (Pylonův řez 2×2), settled čára stoupla i s +40 koulemi; step 9→16 na zbylé vláskové |
+| Donut | 4–5/5, výstřel 12–16, sklo sestoupené | **2/5 třikrát, nic v klidu** | každá barva těla JEDNA síť vinutá kolem prstence (2×2 bloky schodištěm po diagonále) → 50–67-koulové dávky, oblouk visel 8 jednotek pod sedly a druhý sestup ho dorazil — papírový #288 součet prochází, tohle je přesně jeho slepé místo. Lék: pruhy po sektorech ve 3 inkoustech na registr (perkolace nemožná konstrukcí; rewrites 9→1), 8 kapek glazury místo 6, step 6→10 |
+
+**⚠ Rohový nález k zapamatování: „EVERY SOLID IS HOLLOW — nothing stands inside it" mělo po sondě dvě změřené výjimky** (Cabinetova police #301, Cubeovy sloupky #317) — hlavička Arcade teď říká „what stands inside it is FURNITURE, not fill". A rampa prvního závěsu přestala předstírat: shipla jako 1,65→1,37, opravy ji ohnuly (Cube 1,33, Donut 1,49, Globe 1,40) a komentář to říká místo nošení zastaralých čísel po jednom.
+
+**Ověřeno:** obě větve LevelGen exit 0 + ScoreSim exit 0; snímky všech tří z Release buildu — žirafí skvrny čtou jako srst, Donutovy klíny jako glazura/těsto s borůvkovou (navy) novinkou, Cubeovy glyfy netknuté a sloupky zvenku neviditelné. Sondová čtení jsou agentská (2–3 nezávislé běhy na level); celopackový sólo sweep přijde po merge obou větví jako autoritativní záznam.
+
+**Co zůstává:** merge na slovo majitele (pořadí 316 → 317; Levels.json se srazí a vyřeší ho regen), pak sólo sweep 95 levelů. Nad prahem by pak měli zbýt jen kalibrovaný falešný pozitiv Amphora a hraniční kolísači (Cabinet, Globe).
+
+**Nic dalšího si neberu.**
