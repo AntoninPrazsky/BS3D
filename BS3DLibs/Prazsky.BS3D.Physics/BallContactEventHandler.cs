@@ -131,6 +131,13 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public event Action ShotSpent;
 
+        /// <summary>
+        /// Scratch for <see cref="BallsMap.ColourTransparentNeighbours"/>, reused by every shot of the level:
+        /// the walk fills it with at most the twelve cells that touch a landing, and this is a gameplay path
+        /// where a fresh list per shot is a per-landing allocation for nothing (BestPractices.md §5).
+        /// </summary>
+        private readonly List<XZLevel> _colouredCells = new(12);
+
         private readonly ConcurrentQueue<QueuedContact> _queuedContacts = new();
 
         private readonly struct QueuedContact
@@ -384,6 +391,30 @@ namespace Prazsky.BS3D.Physics
 
             if (_contactEvents.IsListener(contact.EventSource)) _contactEvents.Unregister(contact.EventSource);
 
+            //The glass takes the colour that just arrived (#325), BEFORE the group is counted and after the
+            //attach above — which is the whole of where this may go. Before, and the ball is not in the lattice
+            //yet so there is nothing to be a neighbour of; after the release, and a shot that completes a group
+            //THROUGH a transparent ball would have been counted without it, which is precisely the shot the
+            //kind exists to make worth aiming. So the colouring is a step of the landing rather than a
+            //consequence of it, and the group check that follows sees a cluster the colouring has already
+            //finished changing.
+            int coloured = _map.ColourTransparentNeighbours(cell, physicsBall.Type, _colouredCells);
+
+            for (int i = 0; i < coloured; i++)
+            {
+                XZLevel at = _colouredCells[i];
+                PhysicsBall glass = _physicsBalls[at.X, at.Z, at.Level];
+
+                //The map is the truth about what a ball IS and the physics array is its mirror (#323); both
+                //have to move together or the flood fill and the draw would disagree about the same cell for
+                //as long as the level lasts.
+                if (glass == null) continue;
+
+                glass.Type = physicsBall.Type;
+                glass.Kind = BallKind.Normal;
+                glass.ColourFadeRemaining = ClusterCollector.COLOUR_FADE_SECONDS;
+            }
+
             //And the game rule: three or more of a colour touching each other let go, and so does anything
             //that was only held up by them
             BallsReleased released = BallsConstraintsBuilder.ReleaseSameTypeCluster(physicsBall, _physicsBalls, _map, _simulation, _fallingBalls);
@@ -393,7 +424,14 @@ namespace Prazsky.BS3D.Physics
             //have moved anything, and in world frame — where the cell the ball landed in actually is, since
             //everything downstream of this position is heard or seen at it (the thunk's panning, the award's
             //flight) and none of it may be placed where the cluster merely used to hang.
-            BallLanded?.Invoke(new BallLanding(released, restPosition, physicsBall.Type, cell));
+            //One line for the whole landing, and only when there was glass in it (#325): a level whose
+            //transparent balls are not being coloured says so here instead of being diagnosed from
+            //screenshots, and printing the release beside the count is what says whether the colouring
+            //COMPLETED anything — which is the shot the kind exists to make worth aiming.
+            if (coloured > 0) Console.WriteLine($"[shot] coloured {coloured} transparent ball(s) {physicsBall.Type}"
+                + $"; released {released.Matched} matched, {released.Orphaned} orphaned");
+
+            BallLanded?.Invoke(new BallLanding(released, restPosition, physicsBall.Type, cell, coloured));
 
             return true;
         }

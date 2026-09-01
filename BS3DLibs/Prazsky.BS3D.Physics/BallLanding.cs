@@ -38,12 +38,28 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public readonly XZLevel Cell;
 
-        public BallLanding(BallsReleased released, Vector3 world, BallType type, XZLevel cell)
+        /// <summary>
+        /// How many <see cref="BallKind.Transparent"/> balls this landing coloured (#325) — zero on every
+        /// landing that touched no glass, which is nearly all of them.
+        /// <para>
+        /// It is here because the colouring is <b>part of what the shot did</b>, and everything downstream that
+        /// answers for a shot reads this struct. What reads it today is the record: the count goes on the
+        /// handler's own landing line, so a level whose glass is not being coloured says so in the log instead
+        /// of being diagnosed from screenshots. What may read it tomorrow is the score — a shot that turns
+        /// three balls into a colour and matches them is a better shot than one that only matches — but that is
+        /// a difficulty decision (<c>ScoreKeeper</c>'s constants are where such a thing is decided, and it is
+        /// the owner's), so nothing awards for it yet.
+        /// </para>
+        /// </summary>
+        public readonly int Coloured;
+
+        public BallLanding(BallsReleased released, Vector3 world, BallType type, XZLevel cell, int coloured = 0)
         {
             Released = released;
             World = world;
             Type = type;
             Cell = cell;
+            Coloured = coloured;
         }
     }
 }

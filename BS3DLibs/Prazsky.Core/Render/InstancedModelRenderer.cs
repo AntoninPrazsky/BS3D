@@ -133,6 +133,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _porcelainCrackFrequencyParam;
         private EffectParameter _porcelainCrackWidthParam;
         private EffectParameter _porcelainGlazeParam;
+        private EffectParameter _hollowSeamFrequencyParam;
         private EffectParameter _stoneGrainFrequencyParam;
         private EffectParameter _stoneGrainContrastParam;
         private EffectParameter _stoneRoughnessParam;
@@ -601,6 +602,23 @@ namespace Prazsky.Core.Render
         /// granite is cut. High, because a grain is what separates rock from a grey ball: at a low count the
         /// speckle turns into blotches and the thing reads as a mouldy marble.
         /// </summary>
+        /// <summary>
+        /// How many cast seams run over a <see cref="BallShading.Hollow"/> ball — the clear glass's whole
+        /// <b>rotation cue</b>, and the reason it has one at all (#325).
+        /// <para>
+        /// An undyed shell has no gores, no veining and no grain: everything that names it — the Fresnel rim,
+        /// the highlight, what shows through it — is a function of the eye and the sky, so a spinning glass ball
+        /// drawn without this is a still glass ball. The contract in <c>InstancedModel.fx</c>'s ball header
+        /// calls that out as the trap a mirror falls into, and a mould seam is what a cast glass marble
+        /// genuinely has: object-space, so it turns with the ball.
+        /// </para>
+        /// <para>
+        /// Two, because a mould has two halves. More would read as a faceted or grooved ball rather than as a
+        /// cast one, and the seam is meant to be the thing you notice only once it moves.
+        /// </para>
+        /// </summary>
+        public float HollowSeamFrequency { get; set; } = 2f;
+
         public float StoneGrainFrequency { get; set; } = 14f;
 
         /// <summary>
@@ -943,6 +961,7 @@ namespace Prazsky.Core.Render
             _porcelainCrackFrequencyParam = _effect.Parameters["PorcelainCrackFrequency"];
             _porcelainCrackWidthParam = _effect.Parameters["PorcelainCrackWidth"];
             _porcelainGlazeParam = _effect.Parameters["PorcelainGlaze"];
+            _hollowSeamFrequencyParam = _effect.Parameters["HollowSeamFrequency"];
             _stoneGrainFrequencyParam = _effect.Parameters["StoneGrainFrequency"];
             _stoneGrainContrastParam = _effect.Parameters["StoneGrainContrast"];
             _stoneRoughnessParam = _effect.Parameters["StoneRoughness"];
@@ -1013,6 +1032,7 @@ namespace Prazsky.Core.Render
             "InstancedModelLava",     //BallShading.Lava
             "InstancedModelPorcelain",//BallShading.Porcelain
             "InstancedModelStone",    //BallShading.Stone
+            "InstancedModelHollow",   //BallShading.Hollow
         };
 
         /// <summary>
@@ -1308,6 +1328,16 @@ namespace Prazsky.Core.Render
                         _bubbleFilmThicknessParam.SetValue(BubbleFilmThickness);
                         _bubbleTintStrengthParam.SetValue(BubbleTintStrength);
                         _bubbleBodyOpacityParam.SetValue(BubbleBodyOpacity);
+                        break;
+
+                    case BallShading.Hollow:
+                        //The shell sign and the body weight are the film's own uniforms, shared rather than
+                        //duplicated: which wall is being drawn is a fact about the two-pass draw and not about
+                        //what the glass is made of, and both transparent shadings are put out by the same pair
+                        //of passes. The seam is this shading's alone.
+                        _bubbleShellParam.SetValue(BubbleShell);
+                        _bubbleBodyOpacityParam.SetValue(BubbleBodyOpacity);
+                        _hollowSeamFrequencyParam.SetValue(HollowSeamFrequency);
                         break;
 
                     case BallShading.Porcelain:

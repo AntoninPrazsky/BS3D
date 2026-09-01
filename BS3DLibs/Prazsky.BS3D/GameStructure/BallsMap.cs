@@ -448,7 +448,7 @@ namespace Prazsky.BS3D.GameStructure
 
         /// <summary>
         /// How many balls are still there that a shot can do anything about (#323) — everything
-        /// <see cref="BallKinds.Matchable"/> says yes to. <b>This, and not
+        /// <see cref="BallKinds.Removable"/> says yes to. <b>This, and not
         /// <see cref="GetBallsCount"/>, is what the end of a level is decided on.</b>
         /// <para>
         /// The moment a ball can exist that no colour removes, both of the Game's end conditions read the wrong
@@ -461,17 +461,70 @@ namespace Prazsky.BS3D.GameStructure
         /// A rock still counts in <see cref="GetBallsCount"/>, deliberately: that is "what is hanging here",
         /// which is what the drawing, the physics and the cluster profile all want.
         /// </para>
+        /// <para>
+        /// ⚠ It asked <see cref="BallKinds.Matchable"/> until #325 and was named for it. A transparent ball is
+        /// not matchable and <i>is</i> removable — one shot beside it makes it ordinary — so the two questions
+        /// parted, and this one has always been the removable one: the doc sentence above was already written
+        /// in <see cref="BallKinds.Removable"/>'s words while the code asked the other predicate.
+        /// </para>
         /// </summary>
-        public int GetMatchableBallsCount()
+        public int GetRemovableBallsCount()
         {
             int count = 0;
 
             for (byte level = 0; level < Levels; level++)
                 for (byte x = 0; x < StageSizeX; x++)
                     for (byte z = 0; z < StageSizeZ; z++)
-                        if (_balls[x, z, level] != null && BallKinds.Matchable(_balls[x, z, level].Kind))
+                        if (_balls[x, z, level] != null && BallKinds.Removable(_balls[x, z, level].Kind))
                             count++;
             return count;
+        }
+
+        /// <summary>
+        /// Colours every <see cref="BallKind.Transparent"/> ball touching <paramref name="cell"/> in
+        /// <paramref name="type"/>, turning each into an ordinary ball of that colour, and reports the cells it
+        /// changed (#325). Nothing else in the map moves.
+        /// <para>
+        /// <b>The rule is "the shot ball's colour, and only to a neighbour of the cell it landed in"</b>, and
+        /// both halves are the same requirement: the player has to be able to see it happening. The colour of
+        /// the group that was removed, or of the nearest coloured ball, or of whatever the contact was
+        /// technically made against are all rules that fire somewhere the player was not looking. A landing is
+        /// a place, and this is what stands next to that place.
+        /// </para>
+        /// <para>
+        /// <b>Every transparent neighbour takes it, not one of them.</b> Choosing among several would be
+        /// invisible dice — two identical-looking landings would do different things — and the generous
+        /// reading is also the one that makes the shot worth aiming: a shot into a pocket of glass is a shot
+        /// that pays several times.
+        /// </para>
+        /// <para>
+        /// The ball is <b>replaced</b> rather than mutated, which is why this lives on the map: a
+        /// <see cref="StaticBall"/>'s colour and kind are read-only by construction, and
+        /// <see cref="PutBallAt"/> already builds one at the right world position for a cell. The caller
+        /// mirrors the change onto the physics side, which this library cannot see.
+        /// </para>
+        /// </summary>
+        /// <param name="cell">Where the shot came to rest.</param>
+        /// <param name="type">The shot ball's own colour.</param>
+        /// <param name="coloured">Filled with the cells that changed — empty when no glass was touching, which
+        /// is nearly every landing. Cleared first, so one list can serve every shot of a level.</param>
+        /// <returns>How many balls were coloured.</returns>
+        public int ColourTransparentNeighbours(XZLevel cell, BallType type, List<XZLevel> coloured)
+        {
+            coloured.Clear();
+
+            XZLevel size = new(StageSizeX, StageSizeZ, Levels);
+
+            foreach (XZLevel neighbor in GetNeighboringCells(cell, size))
+            {
+                StaticBall ball = _balls[neighbor.X, neighbor.Z, neighbor.Level];
+                if (ball == null || ball.Kind != BallKind.Transparent) continue;
+
+                PutBallAt((byte)neighbor.X, (byte)neighbor.Z, (byte)neighbor.Level, type);
+                coloured.Add(neighbor);
+            }
+
+            return coloured.Count;
         }
 
         public void SerializeAsJson(string fileName)

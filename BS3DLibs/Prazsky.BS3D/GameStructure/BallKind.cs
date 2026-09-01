@@ -40,7 +40,22 @@ namespace Prazsky.BS3D.GameStructure
         /// see <see cref="Matchable"/>.
         /// </para>
         /// </summary>
-        Rock = 1
+        Rock = 1,
+
+        /// <summary>
+        /// Colourless glass (#325). It hangs with no colour at all and takes one the moment a shot lands
+        /// beside it — the shot's own — and from that instant it is an ordinary ball of that colour: it
+        /// matches, it is counted, it scores. Nothing about the flood fill, the release or the removal path
+        /// changes for it, which is why it is the cheapest of #256's ten and why it comes early.
+        /// <para>
+        /// It is the kind that <b>stops being one</b>, and that is what makes it the first case where
+        /// <see cref="Matchable"/> and <see cref="Removable"/> have to give different answers — see the two of
+        /// them. It still carries a <see cref="BallType"/> like every cell, and like the rock's <b>nothing may
+        /// read it</b> until the colouring: what it is authored with is the colour it would have had, kept
+        /// only so that the field is not a special case for the serializer, and the colouring overwrites it.
+        /// </para>
+        /// </summary>
+        Transparent = 2
     }
 
     /// <summary>
@@ -51,18 +66,45 @@ namespace Prazsky.BS3D.GameStructure
     public static class BallKinds
     {
         /// <summary>
-        /// Whether this ball takes part in the colour match rule at all — the first of #323's three seams, and
-        /// the only one the Rock needs.
+        /// Whether this ball takes part in the colour match rule <b>as the colour it is wearing</b> — the first
+        /// of #323's three seams.
         /// <para>
-        /// It answers <b>three</b> questions at once and they have to stay one answer:
+        /// It answers <b>two</b> questions and they have to stay one answer:
         /// <c>BallsMap.GetConnectedSameTypeCells</c> asks it to decide whether a ball joins the group a shot
-        /// completed; <c>BallsMap.GetMatchableBallsCount</c> asks it to decide whether the level is finished;
-        /// and the Game's colour census asks it to decide whether this ball's colour is still worth loading
-        /// into the magazine. A ball that cannot be matched but whose colour is counted alive costs the player
-        /// shots on a colour nothing can clear — which is the exact cost <c>Transmute</c> exists to prevent.
+        /// completed, and the Game's colour census asks it to decide whether this ball's colour is still worth
+        /// loading into the magazine. A ball that cannot be matched but whose colour is counted alive costs the
+        /// player shots on a colour nothing can clear — which is the exact cost <c>Transmute</c> exists to
+        /// prevent. A <see cref="BallKind.Transparent"/> ball is out of both for the same reason from the other
+        /// side: the colour it carries is not one the player can see or aim at yet.
+        /// </para>
+        /// <para>
+        /// ⚠ It answered a <b>third</b> question until #325 — whether the level is finished — and that is now
+        /// <see cref="Removable"/>. They agreed on everything #323 had (a rock is neither matchable nor
+        /// removable) and the transparent ball is the first kind that splits them: it cannot be matched and it
+        /// most certainly does not hold the level open for ever. Merging them again would make a level with one
+        /// transparent ball in it permanently unfinished — the Rock's own bug, arriving through the opposite
+        /// door.
         /// </para>
         /// </summary>
         public static bool Matchable(BallKind kind) => kind == BallKind.Normal;
+
+        /// <summary>
+        /// Whether a shot can still do something about this ball — <b>the question the end of a level is
+        /// decided on</b> (#323's second seam, split out of <see cref="Matchable"/> by #325).
+        /// <para>
+        /// A <see cref="BallKind.Transparent"/> ball answers <b>yes</b> even though nothing matches it as it
+        /// stands, and that is the ruling rather than an oversight: the player always has a path to removing it
+        /// — land a shot beside it, and it becomes an ordinary ball of that colour which the very same landing
+        /// can match. A ball one shot away from being ordinary is not a ball that ends the level, and counting
+        /// it as one would hand every transparent level the Rock's two opposite failures at once (never
+        /// cleared, always lost).
+        /// </para>
+        /// <para>
+        /// A <see cref="BallKind.Rock"/> answers no: no shot the player can aim makes a rock removable, and it
+        /// leaves only as collateral.
+        /// </para>
+        /// </summary>
+        public static bool Removable(BallKind kind) => kind != BallKind.Rock;
 
         /// <summary>
         /// The spellings a kind answers to on a command line or in a hand-edited file. Lenient in the same way
@@ -86,6 +128,12 @@ namespace Prazsky.BS3D.GameStructure
                 case "rock":
                 case "stone":
                     kind = BallKind.Rock;
+                    return true;
+
+                case "transparent":
+                case "clear":
+                case "glass":
+                    kind = BallKind.Transparent;
                     return true;
 
                 default:

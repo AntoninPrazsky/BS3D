@@ -152,6 +152,27 @@ namespace Prazsky.Core.Render
         /// is the only way "that one is different" survives ten materials.
         /// </para>
         /// </summary>
-        Stone = 10
+        Stone = 10,
+
+        /// <summary>
+        /// Clear glass (#325): a hollow shell with <b>no dye in it at all</b> — a rim, a highlight, a cast seam
+        /// and as close to nothing as possible in between. Drawn by <c>InstancedModelHollow</c>.
+        /// <para>
+        /// It is <see cref="Stone"/>'s argument at the opposite end of the palette. Both are shadings a map
+        /// cannot name and both belong to a <c>BallKind</c> rather than to a <c>BallStyle</c>; the stone draws
+        /// the ball that can never be matched, and this draws the ball that has <i>no colour yet</i> — the
+        /// transparent kind, before a shot gives it one. Every other member of this enum takes the per-draw
+        /// tint and does something with it; these two ignore it, because a colour on either would be a lie the
+        /// player acts on.
+        /// </para>
+        /// <para>
+        /// <b>Transparent, so selecting it is not enough to draw one</b> — the same caveat <see cref="Bubble"/>
+        /// carries, and the same two-pass shell answers it (<c>BallRenderSet.DrawHollow</c>). Where it differs
+        /// from the film is what it is FOR: a bubble level dyes every ball, so on one of those this is the one
+        /// undyed shell in the frame, which is exactly the collision #325 had to solve and the reason the kind
+        /// opts out of the style rather than borrowing it.
+        /// </para>
+        /// </summary>
+        Hollow = 11
     }
 }
