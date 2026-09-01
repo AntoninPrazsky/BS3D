@@ -5,8 +5,8 @@
 # expect, from this folder:
 #
 #   .\screenshot.ps1 -Out palette.png -Keys @('F5','F12') -Wait 8 `
-#       -GameArgs @('C:\GitHub\Testbed\Maps\Thirteen_Colors.json','scene=meadow','sky=1','nopost','ssaa=2',
-#                   'campos=0,4.5,11','camtarget=0,4.5,0')
+#       -GameArgs @('C:\GitHub\Testbed\Maps\Thirteen_Colors.json','scene=meadow','sky=1','nopost','nooverc',
+#                   'ssaa=2','campos=0,4.5,11','camtarget=0,4.5,0')
 #   .\palette.ps1 -Png palette.png
 #
 # F5 stops the simulation so the row hangs still; the bottom row is the enum's own order, which is what -Xs
@@ -23,6 +23,13 @@
 #     (#246). Everything here is CIEDE2000.
 #   - THE BALLS PULSE. They are emissive on a heartbeat and the phase differs between runs, which is about
 #     +-0.4 dE of noise on any single capture. Shoot twice before believing a small delta.
+#   - PASS "nooverc" OR YOU ARE MEASURING WEATHER (#334). The Testbed is the only executable that steps the
+#     overcast lerp - the Game never does and the editor cannot - so without the flag this script reads the
+#     palette under an ambient the game does not ship, by an amount that drifts with the cloud deck. Measured
+#     at "weather=overcast": red/orange 13.9 stepped against 17.6 pinned, black/silver 22.8 against 29.1,
+#     and the TIGHTEST PAIR changes identity (red/orange stepped, white/yellow pinned). Under a scattered
+#     sky the same pair of runs came back inside 1/255, which is why it went unnoticed: the term is
+#     sometimes worth nothing and sometimes worth six dE, and never under the measurer's control.
 #
 # The balls are beach-ball patterned: coloured gores alternating with white ones, plus a specular highlight.
 # Sampling the whole disc would measure the pattern rather than the colour, so each ball is reduced to the

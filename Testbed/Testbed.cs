@@ -712,6 +712,15 @@ namespace Testbed
             //builds a fresh delegate every time it is evaluated, and this one used to be evaluated in Draw.
             _rig = new SkyLightRig(_sceneRenderer) { CloudHook = _clouds.ApplyTo };
 
+            //Which lighting regime this run is in, said ONCE and out loud (#334). It is here rather than folded
+            //into the [sky] line because that one is #if DEBUG and this has to reach a Release capture: a
+            //screenshot taken for a colour judgement is worthless if nobody can tell afterwards whether the
+            //overcast was being stepped, and the two regimes differ by more on a saturated ball than most of
+            //the changes such a capture is taken to measure.
+            Console.WriteLine(_options.NoOvercast
+                ? "[overcast] pinned to 0 (nooverc) - the ambient the Game always draws"
+                : "[overcast] stepped from the cloud deck - the Testbed's own, and NOT what the Game draws");
+
             //Cut the island's footprint out of the solid terrain scenes so nothing solid shows through the drain
             //and the funnel below the island reads as a drain into a pit, not a bowl in flat ground (the dark pit
             //cone that backs the glass then fills that hole - see ArenaIsland.TERRAIN_HOLE_RADIUS). The map editor
@@ -939,7 +948,14 @@ namespace Testbed
             //Straight up from the middle of the arena, so the sample is simply where the arena stands —
             //averaged over a patch about as wide as a cloud, since what lights the scene from above is how
             //much of the sky is covered, not what happens to sit over one point of it
-            _rig.StepOvercast(_clouds.CoverAround(Vector2.Zero, OVERCAST_SAMPLE_RADIUS), elapsedSeconds);
+            //
+            //Skipped entirely under "nooverc" (#334), which leaves SkyLightRig.Overcast at the 0 it starts on
+            //— and Lerp(a, b, 0) is bit-exactly a, so the ambient is then the dome's own, which is what the
+            //Game always draws. Everything else in this method still runs: the deck goes on drifting and goes
+            //on taking the sun away per pixel, because the Game has that half too and removing it would make
+            //this program LESS like the one it is used to judge.
+            if (!_options.NoOvercast)
+                _rig.StepOvercast(_clouds.CoverAround(Vector2.Zero, OVERCAST_SAMPLE_RADIUS), elapsedSeconds);
 
             //Refilled every frame into one reused list, and pushed by index, so the per-frame path allocates
             //nothing — this is the caller BestPractices.md §3 records the iterator incident for

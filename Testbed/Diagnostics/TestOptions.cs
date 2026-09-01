@@ -80,6 +80,29 @@ namespace Testbed.Diagnostics
         public bool NoPostEffects { get; private set; }
 
         /// <summary>
+        /// <c>nooverc</c>: stop stepping the overcast lerp, so <see cref="SkyLightRig.Overcast"/> stays 0 and
+        /// the ambient is the dome's own — <b>which is what the shipping game always draws</b>. It exists for
+        /// the same reason <see cref="NoPostEffects"/> does, one layer further in: an A/B has to be taken
+        /// through something that does not move between the two captures.
+        /// <para>
+        /// <b>The Testbed is the only one of the three executables that steps it</b> (#334). The Game
+        /// deliberately never does — that palette is authored for a daylight sky and is brighter than a dusk
+        /// dome's own, so lerping towards it would <i>lighten</i> a night city as the weather thickened — and
+        /// the map editor has no cloud deck to step it with. So the one program every colour judgement in this
+        /// project is framed in (<c>campos</c>/<c>camtarget</c> are the Testbed's) was the only one applying
+        /// it, by an amount that drifts with the deck from one run to the next.
+        /// </para>
+        /// <para>
+        /// <b>It takes away the ambient lerp and nothing else.</b> The deck still drifts, still draws and
+        /// still takes the sun away per pixel where it covers it — the Game has all of that, and removing it
+        /// would make the Testbed <i>less</i> like the game rather than more. Named for the term it pins
+        /// rather than "noweather", which would claim more than it does. Scenes that state a rig of their own
+        /// (space, the dream, the cavern) override the ambient outright, so this changes nothing there.
+        /// </para>
+        /// </summary>
+        public bool NoOvercast { get; private set; }
+
+        /// <summary>
         /// <c>arena=&lt;list&gt;</c>: which members of the arena are drawn (see <see cref="ArenaMembers"/>),
         /// so #151's isolation — take one member out of the frame and measure again — can be run at all.
         /// Everything, as the game draws it, unless the argument says otherwise.
@@ -254,6 +277,8 @@ namespace Testbed.Diagnostics
                 //try to load a map called "logfps".
                 else if (string.Equals(arg, "logfps", StringComparison.OrdinalIgnoreCase)) options.LogFrameRate = true;
                 else if (string.Equals(arg, "nopost", StringComparison.OrdinalIgnoreCase)) options.NoPostEffects = true;
+                else if (string.Equals(arg, "nooverc", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(arg, "noovercast", StringComparison.OrdinalIgnoreCase)) options.NoOvercast = true;
                 else if (arg.StartsWith("arena=", StringComparison.OrdinalIgnoreCase)) options.Arena = ParseArenaMembers(arg.Substring("arena=".Length));
                 else if (arg.StartsWith("capprobe=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("capprobe=".Length), out int parsedCapProbe) && parsedCapProbe >= 0 && parsedCapProbe <= 6) options.CapProbe = parsedCapProbe;
                 else if (arg.StartsWith("alt=", StringComparison.OrdinalIgnoreCase)) options.Alternation = ParseAlternation(arg.Substring("alt=".Length));
