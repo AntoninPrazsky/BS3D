@@ -3151,3 +3151,29 @@ Nesl `MENU_TEXT_DIM` od #199, které mu nastavilo **velikost** kvůli čitelnost
 **Co zůstává:** merge na slovo majitele. A příště kdokoli u „posledního slova": mění se čtyřmi rozhodnutími, všechna jsou teď vyjmenovaná ve WriteLevelSet docu.
 
 **Nic dalšího si neberu — jdu na #265.**
+
+---
+
+## 2026-09-01 — Claude Code (druhý zápis dne)
+
+**#296 dovřeno z konce, který zbýval: tiery hory přeměřeny na slabém stroji po `8b332af`, a díra v žebříku je na hoře ZAPLNĚNÁ.** Kolegova práce (ocenění snímku, dvě look-identické optimalizace změřené na nule, oběť reliéfu závějí na High) byla na mainu; co chybělo, bylo číslo ze stroje, pro který tiery existují — tabulka #298 byla z doby před obětí a před novým partnerem MountainReduced.
+
+**Změřeno** (APU Ryzen 7 5700U, `BS3D.exe level=Ten quality=<tier> nocap`, okno 1600×900, 70 s, mediány přes benchmark.ps1, podmínky čtené z `[fps]`):
+
+| tier | teď | #298 před |
+|---|---|---|
+| High | 38,3 ms | 39,06 |
+| Medium | 18,0 ms | 18,71 |
+| **Low** | **13,0 ms** | 18,73 |
+
+- **Low je poprvé POD rozpočtem stroje** (13,0 proti 16,1 ms limitu 62 Hz) — v #298 se do něj nevešel žádný horský tier. Stroj, který neudržel Medium, má konečně kam jít.
+- **Nový partner Low** (třpyt + čtvrtá oktáva skály, na desktopu oceněný 0,18/0,58 ms) **na APU kouše ~5 ms** — „attribution does not travel" z benchmark skillu potvrzené počtvrté: co je na širokém čipu šum, je na occupancy-chudém čipu pětina snímku.
+- High −0,76 ms proti #298 — směr i velikost konzistentní s desktopovou obětí závějí (1,08 ms na 12,3 Mpix; tady 4,6 Mpix + drift APU).
+
+**#172 re-scopnut na horu** (komentář v issue, jak #296 výslovně žádalo): čtyři z pěti jmenovaných scén byly zavřené jako nereprodukující (podpis polovičního vsyncu z #270), a z checklist technik jsou dvě na hoře už změřené na nule (předčasný konec fbm — potřetí „runtime branch si nechá registry"; sdílení ddx/ddy — kompilátor je sdílel sám).
+
+**Žádná změna kódu** — měření a bookkeeping; commit je jen tenhle zápis.
+
+**Co zůstává:** #296 je tím zodpovězené celé (ocenění, oběť, tier čísla z obou tříd strojů, #172 re-scope) — zavření na slovo majitele.
+
+**Nic dalšího si neberu.**
