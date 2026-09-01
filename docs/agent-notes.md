@@ -3177,3 +3177,26 @@ Nesl `MENU_TEXT_DIM` od #199, které mu nastavilo **velikost** kvůli čitelnost
 **Co zůstává:** #296 je tím zodpovězené celé (ocenění, oběť, tier čísla z obou tříd strojů, #172 re-scope) — zavření na slovo majitele.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-01 — Claude Code (třetí zápis dne)
+
+**#298 dovřeno: notebookový sweep zaplněné příčky, který vlastní záznam issue jmenoval jako chybějící.** Táž pětice levelů a tytéž podmínky jako původní matice (APU, `level=<jméno> quality=<tier> nocap`, 1600×900, 70 s, mediány, podmínky z `[fps]`), měřeno PO výplni příčky a po oběti hory z #296:
+
+| level | scéna | High | Medium | Low | před (H/M/L) |
+|---|---|---|---|---|---|
+| Ziggurat | neon | 37,7 | 15,6 | **12,4** | 37,9/16,0/15,0 |
+| Turbine | město | 32,7 | 13,4 | **10,6** | 32,3/13,7/12,8 |
+| One | louka | 27,2 | 15,8 | **10,8** | 26,0/14,0/14,0 |
+| Ten | hory | 38,3 | 18,0 | **13,0** | 39,1/18,7/18,7 |
+| Spring | jeskyně | 22,4 | 20,6 | **13,5** | 22,3/20,5/20,5 |
+
+- **Low se vejde do rozpočtu stroje (16,1 ms) na všech pěti levelech — před výplní se nevešel žádný tier nikde.** Díra „stroj, který neudrží Medium, nemá kam jít" je zaplněná a změřená: Low se odděluje od Medium o 3,2 (neon) až 7,1 ms (jeskyně).
+- **Jeskyně přestala být scénou, které žebřík nepomáhá** (20,5 napříč tiery → 13,5 na Low) — redukovaný program stěny na ni dosáhne tam, kam počet pixelů nemůže (#155).
+- **Desktopové ceny tyhle velikosti nepředpověděly a předpovědět nemohly**: řezy oceněné 0,2–1,0 ms na desktopu berou na APU 3–7 ms — „attribution does not travel" změřené najednou přes celou matici.
+- **⚠ Provozní past, která stála čtyři buňky: MEETING.** Čtyři běhy proběhly souběžně s Teams hovorem na tomtéž APU a přišly s divokými rozptyly (min–max 29–88 FPS) a inverzí Low>Medium; přeměřené po hovoru jsou těsné (72,8–75,9). Podpis pasti 14 v novém kostýmu — před věřením číslu se podívej, co jiného na stroji běží, a hovor na sdíleném package budgetu je zabiják měření.
+
+**Matice v `docs/game-shell.md` přepsána** (stará čísla vpletená do bulletu o díře jako historie), žádná změna kódu.
+
+**Nic dalšího si neberu.**
