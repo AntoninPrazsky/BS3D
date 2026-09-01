@@ -216,6 +216,13 @@ namespace BS3D.Screens
         private float _physicsAccumulator;
 
         /// <summary>
+        /// Where the drawn frame sits between the last physics step and the next one due — the accumulator as
+        /// a fraction of <see cref="PHYSICS_TIMESTEP"/>, written by <c>StepPhysics</c> and read by everything
+        /// that draws a ball (#293). 1 draws live poses; see <c>PhysicsBall.InterpolatedPose</c>.
+        /// </summary>
+        private float _renderAlpha = 1f;
+
+        /// <summary>
         /// Below this a ball has left the game: it has run down the drain and out of the bottom of the funnel,
         /// or fallen off the island's edge into the city. Well under <see cref="ArenaIsland.FUNNEL_BOTTOM_Y"/>, so
         /// a ball that goes down the hole falls a visible distance before it is culled rather than winking out
@@ -1285,7 +1292,7 @@ namespace BS3D.Screens
             //what the player is looking at IS the simulation. On the DRAW clock, since the ease, the glide and
             //the ripple are all purely about what is on screen.
             _clusterCollector.Collect(ballFrame, (float)gameTime.ElapsedGameTime.TotalSeconds,
-                _physicsBalls, _shotBalls, _fallingBalls);
+                _physicsBalls, _shotBalls, _fallingBalls, _renderAlpha);
 
             //And the loaded queue into the very same frame — this screen's own loop, because the barrel's bore
             //and the transmute cross-fade are its own business

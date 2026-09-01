@@ -104,10 +104,16 @@ namespace Prazsky.BS3D.Physics
         /// <param name="falling">Released balls on their way down, or null. They advance their ripple too: a
         /// group cut loose while the wave was passing through it keeps glowing on its way down rather than
         /// snapping dark the instant it stops being cluster.</param>
+        /// <param name="interpolationAlpha">How far the caller's physics accumulator has got towards its next
+        /// fixed step, 0..1 — the render interpolation factor of #293. The default 1 draws every ball on its
+        /// live body pose, which is the Testbed's whole behaviour (its one variable step per frame leaves no
+        /// gap to interpolate across); the Game passes its accumulator fraction, so a world stepping less than
+        /// once per rendered frame — the drop cinematic's slow motion above all — still moves every frame
+        /// instead of standing and jumping. Balls with no snapshot yet draw live whatever this says.</param>
         /// <returns>How many bodies were visited — the count the Testbed reports against the number of instances
         /// drawn, the two differing by the magazine preview and not by any cull.</returns>
         public int Collect(in BallDrawFrame frame, float elapsedSeconds, PhysicsBall[,,] cluster,
-            List<PhysicsBall> shot, List<PhysicsBall> falling)
+            List<PhysicsBall> shot, List<PhysicsBall> falling, float interpolationAlpha = 1f)
         {
             //How far towards its target each ball's occlusion moves this frame, and how much of a ball's arrival
             //offset SURVIVES it. Both exponential and framed in seconds, so neither changes with the frame rate
@@ -156,7 +162,7 @@ namespace Prazsky.BS3D.Physics
                             Collect(frame, ball,
                                 BallRenderSet.OcclusionTarget(occluders, occluderDirectionSum,
                                     _airDepth.DepthAt(x, z, level)),
-                                ease, glideRetained, elapsedSeconds);
+                                ease, glideRetained, elapsedSeconds, interpolationAlpha);
 
                             visited++;
                         }
@@ -166,31 +172,36 @@ namespace Prazsky.BS3D.Physics
             if (shot != null)
                 for (int i = 0; i < shot.Count; i++)
                 {
-                    Collect(frame, shot[i], BallRenderSet.UNOCCLUDED, ease, glideRetained, elapsedSeconds);
+                    Collect(frame, shot[i], BallRenderSet.UNOCCLUDED, ease, glideRetained, elapsedSeconds,
+                        interpolationAlpha);
                     visited++;
                 }
 
             if (falling != null)
                 for (int i = 0; i < falling.Count; i++)
                 {
-                    Collect(frame, falling[i], BallRenderSet.UNOCCLUDED, ease, glideRetained, elapsedSeconds);
+                    Collect(frame, falling[i], BallRenderSet.UNOCCLUDED, ease, glideRetained, elapsedSeconds,
+                        interpolationAlpha);
                     visited++;
                 }
 
             return visited;
         }
 
-        //One ball, drawn from its body: where the pose puts it plus whatever is left of its arrival glide, turned
-        //the way the pose turns it, shaded by the eased occlusion and lit by however far its flare has got.
+        //One ball, drawn from its body: where the pose puts it — read between the last step and the live one
+        //by the caller's accumulator fraction (#293) — plus whatever is left of its arrival glide, turned the
+        //way the pose turns it, shaded by the eased occlusion and lit by however far its flare has got.
         private void Collect(in BallDrawFrame frame, PhysicsBall ball, Vector4 occlusionTarget, float ease,
-            float glideRetained, float elapsedSeconds)
+            float glideRetained, float elapsedSeconds, float interpolationAlpha)
         {
-            RigidPose pose = ball.BallReference.Pose;
-            System.Numerics.Vector3 drawnAt = GlidePosition(ball, pose.Position, glideRetained);
+            ball.InterpolatedPose(interpolationAlpha, out System.Numerics.Vector3 position,
+                out System.Numerics.Quaternion orientation);
+
+            System.Numerics.Vector3 drawnAt = GlidePosition(ball, position, glideRetained);
 
             //Both crossings out of Bepu's vector types are the shared named ones (Prazsky.Core.Tools), which
             //this walk used to write out component by component
-            frame.AddOriented(ball.Type, drawnAt.ToXna(), pose.Orientation.ToXna(),
+            frame.AddOriented(ball.Type, drawnAt.ToXna(), orientation.ToXna(),
                 EaseOcclusion(ball, occlusionTarget, ease),
                 _advanceRipple == null ? 0f : _advanceRipple(ball, elapsedSeconds));
         }

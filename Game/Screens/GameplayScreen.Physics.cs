@@ -1,4 +1,5 @@
 using BepuPhysics;
+using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Physics;
 using Prazsky.Core.Render;
 using System.Collections.Generic;
@@ -64,6 +65,11 @@ namespace BS3D.Screens
 
             while (_physicsAccumulator >= PHYSICS_TIMESTEP && steps < PHYSICS_MAX_STEPS_PER_FRAME)
             {
+                //Every ball's pose as it stands going INTO the step, so the frame can be drawn between two
+                //step boundaries (#293). Per step and not per frame: when several steps run in one frame,
+                //the interpolation spans the last of them.
+                SnapshotBallPoses();
+
                 //Whole fixed steps out of the accumulator, which is this game's own policy and deliberately
                 //not the Testbed's one variable step per rendered frame — see PHYSICS_TIMESTEP. The mandatory
                 //Timestep → Flush → contacts order INSIDE each step is PhysicsWorld.Step's, which is why the
@@ -79,11 +85,44 @@ namespace BS3D.Screens
             //world run slow for that single frame instead.
             if (steps == PHYSICS_MAX_STEPS_PER_FRAME) _physicsAccumulator = 0f;
 
+            //Where this frame sits between the last step taken and the next one due — the factor every drawn
+            //ball is interpolated by (#293). It is what turns the fixed step's staircase into motion on every
+            //frame: under the drop cinematic's slow motion a 1/120 s step lands only every few rendered
+            //frames, and measured before this existed, HALF of all slow-motion frames drew the falling
+            //cluster exactly where the previous frame had it and then jumped it double. The price is that
+            //the drawn world runs up to one step (8.3 ms) behind the simulation, which nothing reads: the
+            //rules, the aim and the landing preview all ask the simulation itself.
+            _renderAlpha = _physicsAccumulator / PHYSICS_TIMESTEP;
+
             //Misses stop being scored once the level is over, for the reason OnShotSpent gives: this step runs
             //under the result page too (#241), and the figures on it were taken off the keeper when the level
             //ended. The culling itself carries on — that is exactly what empties the drain behind the numbers.
             RemoveFallenBalls(_shotBalls, scoreMisses: !LevelOver);
             RemoveFallenBalls(_fallingBalls, scoreMisses: false);
+        }
+
+        /// <summary>
+        /// Records every ball's pose as the trailing end of the render interpolation — the cluster, the shots
+        /// in flight and the released balls, i.e. exactly the population <c>ClusterCollector.Collect</c> walks.
+        /// A ball placed rather than solver-moved mid-step (the landing handler's #265 placement) resets its
+        /// own history there, so no interpolation ever straddles a teleport.
+        /// </summary>
+        private void SnapshotBallPoses()
+        {
+            if (_physicsBalls != null)
+            {
+                //The same hoist as the collector's walk: the array's dimensions do not change
+                XZLevel size = XZLevel.FromArray(_physicsBalls);
+
+                for (int level = 0; level < size.Level; level++)
+                    for (int x = 0; x < size.X; x++)
+                        for (int z = 0; z < size.Z; z++)
+                            _physicsBalls[x, z, level]?.SnapshotPose();
+            }
+
+            //Indexed rather than foreach: List<T> on a per-frame path
+            for (int i = 0; i < _shotBalls.Count; i++) _shotBalls[i].SnapshotPose();
+            for (int i = 0; i < _fallingBalls.Count; i++) _fallingBalls[i].SnapshotPose();
         }
 
         /// <summary>

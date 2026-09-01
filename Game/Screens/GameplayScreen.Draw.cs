@@ -458,9 +458,10 @@ namespace BS3D.Screens
                         PhysicsBall ball = _physicsBalls[x, z, level];
                         if (ball == null) continue;
 
-                        //The drawn position, render-offset included — the same position the instance collection
-                        //draws, so a ball gliding into its cell glides in the cut too.
-                        System.Numerics.Vector3 pose = ball.BallReference.Pose.Position + ball.RenderOffset;
+                        //The drawn position — interpolated (#293) and render-offset included, the same position
+                        //the instance collection draws, so a ball gliding into its cell glides in the cut too.
+                        ball.InterpolatedPose(_renderAlpha, out System.Numerics.Vector3 interpolated, out _);
+                        System.Numerics.Vector3 pose = interpolated + ball.RenderOffset;
 
                         _profileBalls[count++] = new PlayHud.BallMarker
                         {
@@ -502,7 +503,9 @@ namespace BS3D.Screens
                 PhysicsBall ball = balls[i];
                 if (ball == null) continue;
 
-                System.Numerics.Vector3 pose = ball.BallReference.Pose.Position + ball.RenderOffset;
+                //Interpolated for the same reason as the cluster walk above (#293)
+                ball.InterpolatedPose(_renderAlpha, out System.Numerics.Vector3 interpolated, out _);
+                System.Numerics.Vector3 pose = interpolated + ball.RenderOffset;
 
                 _profileBalls[count++] = new PlayHud.BallMarker
                 {

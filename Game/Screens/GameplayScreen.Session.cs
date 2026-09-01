@@ -151,6 +151,9 @@ namespace BS3D.Screens
             _smears.Clear();
 
             _physicsAccumulator = 0f;
+
+            //Live poses until the first step of the new session has given the interpolation two ends (#293)
+            _renderAlpha = 1f;
             _magazine.Settle();
             _preciseAim.Reset();
 
