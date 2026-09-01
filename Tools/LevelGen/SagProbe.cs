@@ -705,6 +705,12 @@ namespace BS3D.Tools.LevelGen
         /// </remarks>
         private static bool WouldMatch(BallsMap map, XZLevel cell, BallType colour)
         {
+            //A cell that arms a bomb is a shot worth taking whatever colour is loaded (#326) — the blast is
+            //not a colour question at all, so it is answered before the lattice is touched. Without this the
+            //probe would rank every bomb-adjacent gap as "sticks but does not match" and only ever land there
+            //by fallback, which underrates the one shot a bomb level is played on.
+            if (ArmedBombs(map, cell, _candidateBombs).Count > 0) return true;
+
             map.PutBallAt((byte)cell.X, (byte)cell.Z, (byte)cell.Level, colour);
             map.ColourTransparentNeighbours(cell, colour, _wouldMatchColoured);
 
@@ -747,6 +753,37 @@ namespace BS3D.Tools.LevelGen
 
         /// <inheritdoc cref="ColourTransparentNeighbours(BallsMap, PhysicsBall[,,], XZLevel, BallType)"/>
         private static readonly List<XZLevel> _landingColoured = new();
+
+        /// <summary>
+        /// The bombs standing beside a cell (#326) — <c>BallContactEventHandler.CollectArmedBombs</c>, repeated
+        /// here for the reason the colouring above is: the probe lands a ball straight into the lattice and
+        /// runs no contact handler, so every step of a landing has to be repeated or it is not the same game.
+        /// </summary>
+        /// <param name="into">Where to put them. Passed in rather than answered from a shared scratch list,
+        /// because the two callers overlap: the aim search asks this of every candidate cell and the landing
+        /// asks it of the one that was chosen, so a single buffer would have the search's last answer standing
+        /// where the landing's belongs.</param>
+        private static List<XZLevel> ArmedBombs(BallsMap map, XZLevel cell, List<XZLevel> into)
+        {
+            into.Clear();
+
+            StaticBall[,,] cells = map.GetStaticBallsArray();
+            XZLevel size = map.GetStaticBallsArraySize();
+
+            foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(cell, size))
+            {
+                StaticBall ball = cells[neighbour.X, neighbour.Z, neighbour.Level];
+                if (ball != null && ball.Kind == BallKind.Bomb) into.Add(neighbour);
+            }
+
+            return into;
+        }
+
+        /// <inheritdoc cref="ArmedBombs"/>
+        private static readonly List<XZLevel> _landingBombs = new();
+
+        /// <inheritdoc cref="ArmedBombs"/>
+        private static readonly List<XZLevel> _candidateBombs = new();
 
         /// <summary>
         /// What the barrel is loaded with — <b>uniform over the colours still standing</b>, which is
@@ -883,10 +920,23 @@ namespace BS3D.Tools.LevelGen
             //that clears in ten shots.
             ColourTransparentNeighbours(map, balls, cell, loaded.Value);
 
+            //Which bombs this landing armed (#326), read BEFORE the release for the handler's own reason: a
+            //bomb the release orphans has already fallen and must not go off in mid-air. Same shape as the
+            //colouring above and the same lesson - a step of a landing that lives in the contact handler has
+            //to be repeated here, or the probe measures a game the player is not playing.
+            List<XZLevel> armed = ArmedBombs(map, cell, _landingBombs);
+
             //And the game rule: three or more of a colour touching each other let go, and so does anything
             //that was only held up by them. A shot that completes nothing simply stays, which is the whole
             //point of firing rather than picking - two throws in three add a ball to the underside.
             released = BallsConstraintsBuilder.ReleaseSameTypeCluster(landed, balls, map, world.Simulation, falling);
+
+            //Then the blast, over what the match left standing - and it runs its own disconnection pass, which
+            //is the half of it a sag probe actually cares about: a hole opened under a third of the cluster is
+            //the largest single thing that can happen to a level's remaining load path.
+            if (armed.Count > 0)
+                released = released.Plus(BallsConstraintsBuilder.DetonateBombs(
+                    armed, balls, map, world.Simulation, falling));
 
             return Shot.Landed;
         }

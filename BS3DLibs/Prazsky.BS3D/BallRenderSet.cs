@@ -633,6 +633,32 @@ namespace Prazsky.BS3D
         private const float STONE_EMISSION = 0.45f;
 
         /// <summary>
+        /// <b>What a bomb is drawn with, and these three numbers ARE the "armed" read</b> (#326). The casing,
+        /// the grooves and the studs are what confirm a bomb once the player is close enough to aim; what
+        /// names one across a whole field is the beat, and the beat is these.
+        /// <para>
+        /// It is the stone's own finding used the other way round. A rock is legible at any distance and under
+        /// any dome because it is the one ball that does <b>not</b> breathe, motion being the first thing the
+        /// eye reads; so the bomb takes the other end of that same channel — the deepest and fastest heartbeat
+        /// in the game, against a cluster resting at <see cref="PULSE_DEPTH_RESTING"/>. Nothing about the
+        /// figure on the casing could have done that job, because at the stand-off a level is played from a
+        /// figure is a few pixels wide and a rhythm is not.
+        /// </para>
+        /// <para>
+        /// The emission is high because the shader multiplies it by the <i>seam mask</i> rather than by the
+        /// whole ball: what beats is the light coming out of the joins, so most of the surface is paying none
+        /// of this. A ball flashing this deep and this fast over its whole area would strobe.
+        /// </para>
+        /// </summary>
+        private const float BOMB_EMISSION = 1.25f;
+
+        /// <inheritdoc cref="BOMB_EMISSION"/>
+        private const float BOMB_PULSE_DEPTH = 1f;
+
+        /// <inheritdoc cref="BOMB_EMISSION"/>
+        private const float BOMB_PULSE_SPEED = 2.6f;
+
+        /// <summary>
         /// How much of the picture behind it a clear ball takes away face-on (#325), against the dyed film's
         /// <see cref="BUBBLE_BODY_OPACITY"/>. <b>Lower, and that is the whole read of this kind</b>: a bubble is
         /// a coloured thing you can see through and this is a thing that is not there — what names it is the
@@ -781,6 +807,17 @@ namespace Prazsky.BS3D
         //DrawHollow leaves DrawnCount alone the way a bubble's second wall does.
         private static readonly int HOLLOW_REGION_START = ROCK_REGION_START + LodCount;
 
+        //And a FIFTH, for the live bombs of #326, on the same argument a third time — and this one leans on
+        //it harder than either of the others. What says a bomb is ARMED is the BEAT: EmissiveStrength,
+        //PulseDepth and PulseSpeed are per-renderer uniforms, so "this ball breathes twice as deep and three
+        //times as fast as the cluster it is standing in" is not something that can travel on an instance at
+        //all. It is exactly the still plane's own argument (#252) with the dial turned the other way.
+        //
+        //Colourless like the other two, so LodCount buckets rather than TYPE_COUNT × LodCount, and opaque, so
+        //it goes out with the rocks rather than after the glass. A bomb is never loaded in the cannon, so it
+        //needs no still twin either.
+        private static readonly int BOMB_REGION_START = HOLLOW_REGION_START + LodCount;
+
         private readonly ModelInstance[][] _buckets;
         private readonly int[] _counts;
         private readonly int[] _lodTotals;
@@ -859,10 +896,12 @@ namespace Prazsky.BS3D
 
             _pulseDepth = ripples ? PULSE_DEPTH_RIPPLING : PULSE_DEPTH_RESTING;
 
-            //Two planes: the breathing balls, then the still ones (see STILL_PLANE_STRIDE), and the rocks'
-            //own region after both of them (see ROCK_REGION_START), and the clear glass one after that.
-            _buckets = new ModelInstance[HOLLOW_REGION_START + LodCount][];
-            _counts = new int[HOLLOW_REGION_START + LodCount];
+            //Two planes: the breathing balls, then the still ones (see STILL_PLANE_STRIDE), then a region
+            //each for the three kinds that opt out of the level's style — the rocks (ROCK_REGION_START), the
+            //clear glass and the bombs, in that order. Sized off the LAST of them so a region added without
+            //moving this line would index past the end on its first instance rather than draw wrong.
+            _buckets = new ModelInstance[BOMB_REGION_START + LodCount][];
+            _counts = new int[BOMB_REGION_START + LodCount];
             _lodTotals = new int[LodCount];
             _lodDistanceSquared = new float[LOD_MIN_PIXEL_RADIUS.Length];
         }
@@ -1236,6 +1275,11 @@ namespace Prazsky.BS3D
             //matter, so it is stated once here rather than made conditional.
             DrawRocks(camera);
 
+            //And the bombs with them (#326), on the same argument: opaque, so they belong on this side of the
+            //films. After the rocks and not before, for no reason beyond a stable order — neither reads the
+            //other's uniforms, both state their own.
+            DrawBombs(camera);
+
             //Asked as the question it IS — does light get through this material — and not as "is this the
             //bubble" (#304). The two were the same answer only while the bubble was the one transparent style.
             if (BallStyles.IsTransparent(_style)) DrawShell(camera);
@@ -1302,6 +1346,66 @@ namespace Prazsky.BS3D
                 //back on DefaultLighting's dim blue. See BasicEffectParamsProvider.Stone.
                 _renderers[lod].Draw(camera, _buckets[bucketIndex], count, BasicEffectParamsProvider.Stone, null);
             }
+
+            ApplyStyle();
+        }
+
+        /// <summary>
+        /// The live bombs (#326): one instanced call per LOD that has any, drawn as a dark ribbed casing with
+        /// a charge burning in its seams — whatever the level's balls are made of, on the rock's argument
+        /// exactly.
+        /// <para>
+        /// <b>The three uniforms it pushes ARE the effect.</b> A bomb has to read as armed at play distance on
+        /// all ten materials, and what carries that is the beat rather than the figure: the deepest and fastest
+        /// heartbeat in the game against a cluster resting at <see cref="PULSE_DEPTH_RESTING"/> — the stone's
+        /// own finding (motion is the first thing the eye reads, and a rock is named across a field by having
+        /// none) used at the other end of the same channel. That is also why this cannot travel on an instance
+        /// and has to be a draw: emission, depth and speed are per-renderer.
+        /// </para>
+        /// <para>
+        /// <b>⚠ It puts the pulse SPEED back by hand, and that is the one thing <see cref="ApplyStyle"/> cannot
+        /// do for it.</b> Depth is restored for free — <see cref="DrawPlane"/> states it on every ordinary
+        /// draw, which is the discipline this file keeps — but the speed is set once when the renderers are
+        /// built and nothing states it per frame, so a bomb left in it would put the whole cluster on the
+        /// bomb's heartbeat for the rest of the frame. Restored here rather than by teaching
+        /// <c>DrawPlane</c> to state it, because that method returns early when nothing is loaded and so
+        /// cannot be relied on to restore anything.
+        /// </para>
+        /// </summary>
+        private void DrawBombs(ICamera camera)
+        {
+            bool any = false;
+            for (int lod = 0; lod < LodCount && !any; lod++) any = _counts[BOMB_REGION_START + lod] > 0;
+
+            //A field with no bombs in it never touches a renderer for this at all, and pays one compare per LOD.
+            if (!any) return;
+
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                InstancedModelRenderer renderer = _renderers[lod];
+
+                renderer.Shading = BallShading.Bomb;
+                renderer.EmissiveStrength = BOMB_EMISSION;
+                renderer.PulseDepth = BOMB_PULSE_DEPTH;
+                renderer.PulseSpeed = BOMB_PULSE_SPEED;
+            }
+
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                int bucketIndex = BOMB_REGION_START + lod;
+                int count = _counts[bucketIndex];
+                if (count == 0) continue;
+
+                DrawnCount += count;
+                _lodTotals[lod] += count;
+
+                //No TINT, for the stone's reason: a bomb wearing one of the thirteen is a lie the player acts
+                //on. Its own material all the same — passing null for both is what left the first rock lit by
+                //DefaultLighting's dim blue. See BasicEffectParamsProvider.Bomb.
+                _renderers[lod].Draw(camera, _buckets[bucketIndex], count, BasicEffectParamsProvider.Bomb, null);
+            }
+
+            for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseSpeed = PULSE_BEATS_PER_SECOND;
 
             ApplyStyle();
         }
@@ -1573,6 +1677,9 @@ namespace Prazsky.BS3D
         /// <summary>Clear glass — the transparent kind, and the glass half of a crossing (#325).</summary>
         internal void StoreHollow(int lod, in ModelInstance instance) => StoreAt(HOLLOW_REGION_START + lod, instance);
 
+        /// <summary>A live bomb (#326) — colourless like the two above, and for the same reason.</summary>
+        internal void StoreBomb(int lod, in ModelInstance instance) => StoreAt(BOMB_REGION_START + lod, instance);
+
         private void StoreAt(int bucketIndex, in ModelInstance instance)
         {
             ModelInstance[] bucket = _buckets[bucketIndex];
@@ -1674,6 +1781,12 @@ namespace Prazsky.BS3D
                 case BallKind.Transparent:
                     //Clear glass, and no colour reaches it either — it has none yet, which is the kind (#325).
                     _set.StoreHollow(lod, instance);
+                    break;
+
+                case BallKind.Bomb:
+                    //Colourless a third time (#326), and never loaded in the cannon: what a bomb says it says
+                    //with its own beat, which is a set of renderer uniforms. See BallRenderSet.DrawBombs.
+                    _set.StoreBomb(lod, instance);
                     break;
 
                 default:

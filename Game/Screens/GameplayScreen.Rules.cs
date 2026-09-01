@@ -31,8 +31,8 @@ namespace BS3D.Screens
         #region The level's rules and its end
 
         /// <summary>
-        /// A shot has landed in the lattice, having cut <paramref name="released"/> loose. Zero of both means
-        /// it stuck without completing a group, which the scorer treats as a spent shot.
+        /// A shot has landed in the lattice, having cut <paramref name="landing"/>'s balls loose. Zero of all three means
+        /// it stuck without doing anything, which the scorer treats as a spent shot.
         /// </summary>
         private void OnBallLanded(BallLanding landing)
         {
@@ -57,10 +57,13 @@ namespace BS3D.Screens
             //What came loose answers separately (#46): the lattice's snap and the freed group popping away,
             //scaled by how much of it there is. A plain attach stays just the thunk above. It sounds from the
             //cell that broke and stays there rather than following the group down — see PlayRelease.
-            int released = landing.Released.Matched + landing.Released.Orphaned;
+            //Total rather than the two named counts since #326, so a blast's victims are heard: they are balls
+            //coming away from the cluster like any other, whichever rule took them.
+            int released = landing.Released.Total;
             if (released > 0) Game.Audio.PlayRelease(landing.World, released);
 
-            ScoreAward award = _score.Landed(landing.Released.Matched, landing.Released.Orphaned);
+            ScoreAward award = _score.Landed(landing.Released.Matched, landing.Released.Orphaned,
+                landing.Released.Destroyed);
 
             //What the shot was worth, born on the cell it landed in and flown into the corner from there. The
             //type is the colour of the group it completed — a match is by definition three of one colour
@@ -109,8 +112,8 @@ namespace BS3D.Screens
         /// <summary>
         /// Hands the camera to <see cref="DropCinematic"/> if this shot cut enough loose to be worth
         /// watching. The subject is the balls that were just released: <c>ReleaseSameTypeCluster</c> appends
-        /// them to <see cref="_fallingBalls"/>, so they are that list's last
-        /// <c>Matched + Orphaned</c> entries at this instant and nothing else has run in between.
+        /// them to <see cref="_fallingBalls"/> and so does the blast that may follow it, so they are that list's last
+        /// <c>Total</c> entries at this instant and nothing else has run in between.
         /// <para>
         /// They are held by <b>body handle</b> rather than by index, because the kill plane removes them from
         /// the list one by one as they go. Bepu recycles a handle once its body is gone, which would let a
@@ -121,7 +124,9 @@ namespace BS3D.Screens
         /// </summary>
         private void TryBeginDropCinematic(BallsReleased released)
         {
-            int total = released.Matched + released.Orphaned;
+            //Total since #326: a blast's victims fall like everything else and the cinematic is about what the
+            //player just watched come off the cluster, not about which rule took it.
+            int total = released.Total;
 
             //Big enough to be a spectacle at all, and bigger than anything this level has already shown the
             //player — see DropCinematic.MustBeatBestBy for why the second half cannot be a fixed count.
@@ -163,7 +168,7 @@ namespace BS3D.Screens
             //per-frame one, and the shot is rolled — so when one frames badly this is the only record of what
             //it actually chose. It carries the bar it beat as well, because "why did that one fire and not the
             //last one" is now a question about the level's history rather than about a constant.
-            Console.WriteLine($"[cinematic] {total} balls ({released.Matched} matched, {released.Orphaned} orphaned)"
+            Console.WriteLine($"[cinematic] {total} balls ({released})"
                 + $" beat a best of {previousBest}, from y={centre.Y:F1}, {_cinematic.Describe()}");
         }
 

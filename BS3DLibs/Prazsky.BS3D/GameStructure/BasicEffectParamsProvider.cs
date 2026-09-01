@@ -71,6 +71,20 @@ namespace Prazsky.BS3D.GameStructure
         public static BasicEffectParams Stone = new BasicEffectParams(new Vector3(0.26f, 0.245f, 0.215f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
 
         /// <summary>
+        /// The live bomb's material (#326), read by <c>BallRenderSet.DrawBombs</c> alone and indexed by
+        /// nothing — a bomb is a <see cref="BallKind"/> like the rock above, not a colour.
+        /// <para>
+        /// It is the stone's entry with the ambient turned <b>down</b> rather than up, and the reason is the
+        /// same argument from the other end. The stone's ambient is the strongest here because a rock
+        /// radiates nothing and its unlit side has to come from somewhere; a bomb's unlit side is the one
+        /// thing that must stay dark, because everything it says it says by the charge burning in its seams
+        /// and a lifted casing would wash that out. Warm and low: enough that the silhouette does not
+        /// disappear against the darkest dome, and no more.
+        /// </para>
+        /// </summary>
+        public static BasicEffectParams Bomb = new BasicEffectParams(new Vector3(0.085f, 0.072f, 0.066f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
+
+        /// <summary>
         /// Multiplier applied to the ball model's material diffuse colors to give the ball its type color.
         /// (Historically the type color came from a broad colored specular sheen; with a proper glossy
         /// highlight the type has to tint the diffuse patches instead.)

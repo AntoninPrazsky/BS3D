@@ -1033,6 +1033,7 @@ namespace Prazsky.Core.Render
             "InstancedModelPorcelain",//BallShading.Porcelain
             "InstancedModelStone",    //BallShading.Stone
             "InstancedModelHollow",   //BallShading.Hollow
+            "InstancedModelBomb",     //BallShading.Bomb
         };
 
         /// <summary>

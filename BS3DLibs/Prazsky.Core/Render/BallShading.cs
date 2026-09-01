@@ -173,6 +173,26 @@ namespace Prazsky.Core.Render
         /// opts out of the style rather than borrowing it.
         /// </para>
         /// </summary>
-        Hollow = 11
+        Hollow = 11,
+
+        /// <summary>
+        /// A live bomb (#326): a dark ridged casing with a hot charge burning inside it, breathing hard.
+        /// Drawn by <c>InstancedModelBomb</c>.
+        /// <para>
+        /// The third shading that belongs to a <c>BallKind</c> rather than to a <c>BallStyle</c>, and the
+        /// third with <b>no type colour</b> — a bomb is not a colour the player matches, so a bomb wearing one
+        /// of the thirteen would be a lie they act on, which is the rule <see cref="Stone"/> states first.
+        /// </para>
+        /// <para>
+        /// <b>It has to read as ARMED before it is hit, on all ten materials</b>, and what carries that is not
+        /// a figure drawn on the ball — it is the <i>motion</i>. The stone's own header records that a rock is
+        /// named across a whole field by being the one ball that does <b>not</b> breathe, because motion is
+        /// the first thing the eye reads and its absence is legible at any distance under any dome. This is
+        /// that argument used the other way: the bomb breathes <b>hardest</b>, deep and fast, so the two kinds
+        /// sit at the opposite ends of the one channel that reads without resolution. The casing and the glow
+        /// are what confirm it once the player is close enough to aim.
+        /// </para>
+        /// </summary>
+        Bomb = 12
     }
 }
