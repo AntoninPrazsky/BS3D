@@ -59,6 +59,63 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
+        /// The body's pose as it stood before the most recent physics step — the other end of the render
+        /// interpolation (#293). The simulation advances in whole fixed steps, so under the drop cinematic's
+        /// slow motion a step lands only every few rendered frames and a ball drawn straight off its body
+        /// stands still and then jumps; drawn between this pose and the live one by how far the accumulator
+        /// has got towards the next step, it moves every frame instead.
+        /// </summary>
+        public System.Numerics.Vector3 PreviousPosition;
+
+        /// <inheritdoc cref="PreviousPosition"/>
+        public System.Numerics.Quaternion PreviousOrientation;
+
+        /// <summary>
+        /// Whether <see cref="PreviousPosition"/> holds a pose it is valid to interpolate from. False until
+        /// the first snapshot, and reset by <see cref="ResetPoseHistory"/> whenever the body is
+        /// <i>placed</i> rather than moved by the solver — interpolating across a teleport would replay the
+        /// very drag-in #265 removed. While false the ball is drawn on its live pose exactly.
+        /// </summary>
+        public bool PoseHistoryValid;
+
+        /// <summary>
+        /// Records the body's current pose as the interpolation's trailing end. Called once per physics step
+        /// per ball, immediately before the step advances the world.
+        /// </summary>
+        public void SnapshotPose()
+        {
+            RigidPose pose = BallReference.Pose;
+            PreviousPosition = pose.Position;
+            PreviousOrientation = pose.Orientation;
+            PoseHistoryValid = true;
+        }
+
+        /// <summary>Forgets the pose history — see <see cref="PoseHistoryValid"/> for when that is required.</summary>
+        public void ResetPoseHistory() => PoseHistoryValid = false;
+
+        /// <summary>
+        /// The pose the ball is drawn at: the live body pose, or — when a history stands and the frame sits
+        /// between two steps — the blend between the previous step's pose and the live one. <paramref
+        /// name="alpha"/> is how far the physics accumulator has got towards the next step (0..1); at 1, or
+        /// with no valid history, this is the live pose bit for bit.
+        /// </summary>
+        public void InterpolatedPose(float alpha, out System.Numerics.Vector3 position,
+            out System.Numerics.Quaternion orientation)
+        {
+            RigidPose pose = BallReference.Pose;
+
+            if (!PoseHistoryValid || alpha >= 1f)
+            {
+                position = pose.Position;
+                orientation = pose.Orientation;
+                return;
+            }
+
+            position = System.Numerics.Vector3.Lerp(PreviousPosition, pose.Position, alpha);
+            orientation = System.Numerics.Quaternion.Slerp(PreviousOrientation, pose.Orientation, alpha);
+        }
+
+        /// <summary>
         /// Seconds into this ball's own flare as the ripple passes through it. It starts <b>negative</b> — a
         /// countdown to its turn, one step per ball between it and the impact — runs up through the flare, and
         /// is done once it passes the flare's length.

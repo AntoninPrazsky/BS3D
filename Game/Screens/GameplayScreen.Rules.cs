@@ -221,10 +221,15 @@ namespace BS3D.Screens
 
             for (int i = 0; i < _fallingBalls.Count; i++)
             {
-                BodyReference body = _fallingBalls[i].BallReference;
-                if (!_cinematicSubject.Contains(body.Handle.Value)) continue;
+                PhysicsBall ball = _fallingBalls[i];
+                if (!_cinematicSubject.Contains(ball.BallReference.Handle.Value)) continue;
 
-                centre += body.Pose.Position.ToXna();
+                //The pose the frame DRAWS, not the raw body: under slow motion the bodies advance only every
+                //few frames, and a camera fed the raw staircase inherits it — the balls' half of #293 fixed,
+                //the lens would still judder off this very read.
+                ball.InterpolatedPose(_renderAlpha, out System.Numerics.Vector3 position, out _);
+
+                centre += position.ToXna();
                 found++;
             }
 

@@ -372,6 +372,12 @@ namespace Prazsky.BS3D.Physics
             //needs no reset — while resetting it would snap the drawn ball's procedural pattern in place.
             physicsBall.BallReference.Pose.Position = restPosition.ToNumerics();
 
+            //The pose history must not straddle that placement: the snapshot taken before this step holds the
+            //flight pose, and interpolating between it and the cell (#293) would replay the very drag-in the
+            //placement above exists to remove. The glide armed above owns the visual journey instead; the
+            //history re-arms on the next step's snapshot.
+            physicsBall.ResetPoseHistory();
+
             //Anchors come from the ideal lattice and are rotated into each body's current local frame, so
             //they are right even after the simulation has been running for a while
             BallsConstraintsBuilder.AttachBallToStructure(physicsBall, _physicsBalls, _map, _simulation, _ceiling.BodyReference);
