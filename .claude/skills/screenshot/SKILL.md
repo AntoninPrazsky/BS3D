@@ -61,6 +61,19 @@ command line, not by pressing NumPad1/2:
   `none`; a leading `-` removes). For framing rather than measuring, `arena=none` is how to photograph a
   scene with nothing of the island in front of it.
 
+- `nooverc` — pin the **overcast lerp** to 0. **Pass it for any A/B of a COLOUR**, and pass it with `nopost`,
+  which is the same idea one layer further in. The Testbed is the only one of the three executables that
+  steps `SkyLightRig.StepOvercast`: the Game deliberately never does (that palette would *lighten* a dusk
+  city as the weather thickened) and the map editor has no deck to step it with — so the program every
+  colour judgement in this project is framed in was the only one applying the term, by an amount that drifts
+  with the cloud from one run to the next. Measured at its maximum (`weather=overcast`) it moves CIEDE2000
+  pairs by **+2 to +6 dE** against the light the game ships, and **changes which pair is the palette's
+  tightest** (stepped: red/orange 13.9; pinned: white/yellow 15.9). Under a scattered sky it can be worth
+  nothing at all — which is the problem, not the reassurance. It takes away that term and nothing else: the
+  deck still drifts and still occludes the sun per pixel, because the Game has both. #334.
+- **Every run prints one `[overcast]` line** saying which regime it was in, in Release as well as Debug.
+  Grep it out of a capture's log before believing a colour delta.
+
 Even with `nopost`, animated content still differs between two captures: the space scene's slow drift, the
 cloud deck and the shadow it casts on everything, and the magazine's pulsing balls. Diff a region that holds
 none of them, or choose a scene with no weather.
@@ -240,10 +253,15 @@ named in `-Focus` — every pair that colour is in:
 
 ```powershell
 .\screenshot.ps1 -Out palette.png -Keys @('F5','F12') -Wait 8 `
-    -GameArgs @('C:\GitHub\Testbed\Maps\Thirteen_Colors.json','scene=meadow','sky=1','nopost','ssaa=2',
+    -GameArgs @('C:\GitHub\Testbed\Maps\Thirteen_Colors.json','scene=meadow','sky=1','nopost','nooverc','ssaa=2',
                 'campos=0,4.5,11','camtarget=0,4.5,0')
 .\palette.ps1 -Png palette.png -Focus @('orange','yellow','brown')
 ```
+
+**`nooverc` is not optional in that line** (#334). Without it the palette is measured through an ambient the
+game never draws, by an amount that depends on what cloud happened to be over the arena — worth up to 6 dE
+on a pair, and enough to change which pair reads as the tightest. The figures in #246, #294 and #315 were
+all taken before the flag existed.
 
 `F5` stops the simulation so the row hangs still, and the bottom row of that map is the enum's own order,
 which is what the script's `-Xs` sample points index — move the camera and you must move `-Xs`/`-RowY` with
