@@ -304,6 +304,15 @@ float SpecularAmbientStrength;
 //reflects gold), which is what a bare-metal trim needs. Left at 0 unless a renderer sets it.
 float Metalness;
 
+//1 flips the shading normal on back faces (#291), for a mesh that is one OPEN single-sided wall drawn
+//CullNone with its only normal pointing at the concave side - the drain's glass funnel and its dark pit.
+//Without it the wall's outside is shaded with the inside's normal, and the grazing-angle sky sheen turned
+//the glass cone, seen from below, into an opaque milky sheet. Read by MainPS alone - the one technique
+//those two renderers draw through - and 0 for everything else. SV_IsFrontFace is constant across a
+//primitive, so a derivative quad never straddles the select and nothing downstream takes gradients of the
+//normal on this path.
+float TwoSidedNormals;
+
 //How far the two specular terms are attenuated by the material's own ALPHA. 1 - what every renderer sets
 //unless it says otherwise, and what every surface in this game did before there was a dial - scales both
 //by color.a. 0 leaves them at full strength, which is what a TRANSPARENT surface actually does: alpha is
@@ -503,10 +512,14 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
     return ShadePixel(worldPosition, rawWorldNormal, occlusionData, texColor, keyShadow, cavity, DefaultSurfaceSpecular());
 }
 
-float4 MainPS(VertexShaderOutput input) : COLOR
+float4 MainPS(VertexShaderOutput input, bool isFrontFace : SV_IsFrontFace) : COLOR
 {
+    //An open single-sided wall drawn CullNone shades its outside with the inside's normal unless told
+    //otherwise - see TwoSidedNormals. A branchless select: the uniform is 0 on every closed mesh.
+    float3 worldNormal = (TwoSidedNormals > 0 && !isFrontFace) ? -input.WorldNormal : input.WorldNormal;
+
     //Untextured, unrelieved parts: nothing to shadow itself and no pits to darken
-    float4 shaded = ShadePixel(input.WorldPosition, input.WorldNormal, input.OcclusionData, float4(1, 1, 1, 1), 1, 1);
+    float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(1, 1, 1, 1), 1, 1);
 
     //Submerge fade, the balls' #131 treatment for the plain-material surfaces: in the sea scene the drain's
     //glass cone and its bottom gold band continue below the pool standing in the drain (#132), draw AFTER

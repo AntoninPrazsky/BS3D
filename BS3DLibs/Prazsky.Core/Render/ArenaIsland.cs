@@ -276,15 +276,23 @@ namespace Prazsky.Core.Render
         //and without a dark backing the ~55 %-opaque glass would then show the bright sky haze straight
         //through the hole and read as a glass ring lying on the ground, not as a drain. It must HUG the glass
         //funnel — a wide cone would hide behind the disc's stone ring and leave the bright hole showing
-        //through the narrow (radius 14) aperture — so it shares the funnel's mouth and descends just outside
-        //it, a near-black twin dropping well past the caller's kill plane. A ball runs down the glass into
-        //darkness and is culled inside the pit, not against the bright sky. Near-matte (its specular ambient
-        //turned right down) so no dome bleaches the well; the gold rim bead hides the mouth it shares with
-        //the funnel. Visual only — the drain's own mesh is the floor. Not drawn in the sea (water fills it),
-        //in the two cities (their own canyon falls away below the island) or in the sky-replacing scenes
-        //(nothing down there to hide a ball against).
+        //through the narrow (radius 14) aperture — and since #291 the hug is LITERAL: the shaft is a
+        //two-band FunnelMesh polyline sharing the funnel's mouth, running PIT_SHEATH_CLEARANCE outside the
+        //glass down to just past its hole, then a narrow throat on down past the caller's kill plane. It
+        //was one straight cone from the mouth to PIT_BOTTOM_Y, which — being 18.5 units longer than the
+        //glass on the same mouth — sat WIDER than the glass at every depth and read from outside, wherever
+        //a vantage gets under a solid scene's terrain (the free camera, the editor, any terrain dip), as a
+        //long dark spike nothing inside the drain accounts for: the owner's "outer shell doesn't match the
+        //inside". Sheathed, the outside reads as the bowl's own underside with a drain pipe below it — the
+        //same object as the view down into it. A ball still runs down the glass into darkness and is culled
+        //inside the throat, not against the bright sky. Near-matte (its specular ambient turned right down)
+        //so no dome bleaches the well; the gold beads hide the mouth ring it shares with the funnel and the
+        //knee at the glass hole. Visual only — the drain's own mesh is the floor. Not drawn in the sea
+        //(water fills it), in the two cities (their own canyon falls away below the island) or in the
+        //sky-replacing scenes (nothing down there to hide a ball against).
         public const float PIT_BOTTOM_Y = -46f;                                  //below either caller's kill plane, so balls vanish inside the pit
         public const float PIT_HOLE_RADIUS = 1.2f;                               //nearly closed at the bottom: a dark receding throat
+        public const float PIT_SHEATH_CLEARANCE = 0.35f;                         //how far outside the glass hole the sheath's knee sits: outside at every depth (the gap grows 0 -> this, mouth to hole), never poking through
         public static readonly Vector3 PIT_COLOR = new(0.03f, 0.03f, 0.035f);    //near-black, a touch cool
 
         private readonly GraphicsDevice _device;
@@ -436,7 +444,16 @@ namespace Prazsky.Core.Render
             float funnelHeight = TOP_Y - DISH_DEPTH - FUNNEL_BOTTOM_Y;
 
             _funnelMesh = new FunnelMesh(device, FUNNEL_TOP_RADIUS, FUNNEL_HOLE_RADIUS, funnelHeight, FUNNEL_SEGMENTS, 0f);
-            _funnelRenderer = new InstancedModelRenderer(device, _funnelMesh, FUNNEL_GLASS_COLOR, instancingEffect, FUNNEL_GLASS_ALPHA);
+
+            //TwoSidedNormals because the cone is one open single-sided wall drawn CullNone: without it the
+            //outside — which the open-below scenes and the drop cinematic's dive film from underneath — is
+            //shaded with the inside's normal, and the grazing-angle sky sheen turns the glass into a bright
+            //milky sheet (#291). With it the back faces shade as the outside they are, and the glass reads
+            //as the same frosted cone from both sides.
+            _funnelRenderer = new InstancedModelRenderer(device, _funnelMesh, FUNNEL_GLASS_COLOR, instancingEffect, FUNNEL_GLASS_ALPHA)
+            {
+                TwoSidedNormals = 1f
+            };
 
             //Both gold bands in one mesh (built in the funnel's own local space), so one renderer draws them
             //and they share the one world matrix. Opaque, so they go down with the opaque scene before the
@@ -457,17 +474,24 @@ namespace Prazsky.Core.Render
                 FUNNEL_RIM_SPECULAR, FUNNEL_RIM_SPECULAR_POWER, Vector3.Zero);
 
             //The dark well behind the glass (solid-terrain scenes only — see the PIT_* remarks): a near-black
-            //cone sharing the glass funnel's mouth and descending just outside it, past the kill plane, so
-            //the drain reads as a deep dark well rather than as a glass ring over the bright hole cut in the
-            //terrain. It reuses FunnelMesh — its wall faces inward and up, so it reads looking down into it —
-            //and is drawn opaque and CullNone before the glass, which composites over it. Deliberately NOT
-            //enrolled in the caller's sky lighting, and near-matte, so no dome bleaches the inside of a hole
-            //in the ground; the gold rim bead hides the mouth it shares with the funnel.
-            _pitMesh = new FunnelMesh(device, FUNNEL_TOP_RADIUS, PIT_HOLE_RADIUS, TOP_Y - DISH_DEPTH - PIT_BOTTOM_Y,
-                FUNNEL_SEGMENTS, 0f);
+            //SHEATH of the glass funnel since #291 — one band from the shared mouth to PIT_SHEATH_CLEARANCE
+            //outside the glass hole, then the throat on down past the kill plane — so the drain reads as one
+            //object from outside and from above, rather than as a glass bowl over an unrelated spike. It
+            //reuses FunnelMesh's polyline form — its wall faces the concave side, so it reads looking down
+            //into it — and is drawn opaque and CullNone before the glass, which composites over it (the
+            //outside face shades right through TwoSidedNormals, like the glass). Deliberately NOT enrolled
+            //in the caller's sky lighting, and near-matte, so no dome bleaches the inside of a hole in the
+            //ground; the gold beads hide the mouth ring and the knee it shares with the funnel.
+            _pitMesh = new FunnelMesh(device, new (float Radius, float Y)[]
+            {
+                (FUNNEL_TOP_RADIUS, 0f),
+                (FUNNEL_HOLE_RADIUS + PIT_SHEATH_CLEARANCE, -funnelHeight),
+                (PIT_HOLE_RADIUS, -(TOP_Y - DISH_DEPTH - PIT_BOTTOM_Y)),
+            }, FUNNEL_SEGMENTS);
             _pitRenderer = new InstancedModelRenderer(device, _pitMesh, PIT_COLOR, instancingEffect)
             {
-                SpecularAmbientStrength = 0.03f
+                SpecularAmbientStrength = 0.03f,
+                TwoSidedNormals = 1f
             };
 
             _world = Matrix.CreateTranslation(0f, TOP_Y, 0f);
