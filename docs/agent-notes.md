@@ -3131,3 +3131,23 @@ Nesl `MENU_TEXT_DIM` od #199, které mu nastavilo **velikost** kvůli čitelnost
 **Dodatek po merge (týž den):** obě větve na mainu (`72b2db0`, `60bfab0` — Levels.json se sloučil sám, hunky disjunktní), sólo sweep doběhl a předpověď sedí: **Giraffe 1/5, Cube 2/5, Donut 2/5**; nad prahem 4 zbývají jen **Amphora 4** (kalibrovaný falešný pozitiv, v klidu) a **Cabinet 4** (kolísač, sestoupené sklo na 30. výstřelu; Globe tentokrát pod 3). 36 z 95 sáhne aspoň jednou. **Pack je poprvé bez nevysvětleného jména nad prahem.**
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-01 — Claude Code
+
+**#300: dvě městské kapitoly prohozeny do denního pořadí — Spectrum (svítání) devátá, Arcade (neon) zavírá kampaň.** Větev `300-neon-after-dawn`. Nebyl to mechanický swap, ale rozhodnutí, které issue výslovně žádalo: narativ světla se MUSEL přepsat, ne obejít.
+
+**Nové čtení oblouku, a je silnější než staré:** světlo se po prázdnu vrací geologicky (sopka #295) → přijaté (svítání nad městem) → vyrobené (neon po setmění). Závěr kampaně je teď JEDEN DEN V JEDNOM MĚSTĚ, od rána do noci — „normální město před neonovým" je doslova plynutí dne, přesně majitelovo dvakrát vznesené čtení. Kampaň končí tím, že si město rozsvítí vlastní světla; poslední slovo jede na posledním záznamu setu a stěhuje se z Turbine na **Globe**.
+
+**Obtížnostní půlka issue, přesouzená po #301/#302** (v době založení byla nesouditelná — polovina finále nehratelná): Arcade měří 1,33–1,65 výstřelu na skupinu proti Spectru 1,37–6,67, takže těsnější blok teď sedí poslední — kampaň vrcholí tam, kde končí. Obě půlky původního argumentu tedy ukazují stejným směrem.
+
+**Mechanika:** prohození dvou položek v tabulce BLOCKS + pořadí polí ve WriteLevelSet; odemykací rampa poziční (20 záznamů si přepočítalo brány samo, poslední zůstává 186), PlayerProgress klíčovaný jménem souboru — save přežije. Level soubory bajt za bajtem netknuté, změněny jen Levels.json a komentáře. Hudební komentář se prohozením ZLEPŠIL: „Arcade bere pulse — poslední blok na skladbě, kterou první otevřel" je teď doslova rám kolem celku, který ten komentář vždy chtěl být; bohemia Spectra poctivě přepsána (koda jako závěrečná figura dne, ne finále).
+
+**Přepsáno v témže commitu:** oba array komentáře v Main, hlavičky regionů Arcade (×2) a Spectrum (×2), Eruption (×2), WriteLevelSet doc (nesl zastaralé „the Nebula's finale closes the campaign" — historie posledního slova teď vyjmenovaná celá: Colossus → Garland → Globe → Turbine → Globe), hudební odstavec, `docs/formats-and-tools.md` (třístupňový návrat světla, tabulka, historie vkládání) a `docs/game-session.md`.
+
+**Ověřeno:** LevelGen exit 0 (blok 9/10 Spectrum, 10/10 Arcade, Globe na 95. s bránou 186), ScoreSim exit 0. Sondu netřeba — fyzika levelů se pořadím setu nemění.
+
+**Co zůstává:** merge na slovo majitele. A příště kdokoli u „posledního slova": mění se čtyřmi rozhodnutími, všechna jsou teď vyjmenovaná ve WriteLevelSet docu.
+
+**Nic dalšího si neberu — jdu na #265.**

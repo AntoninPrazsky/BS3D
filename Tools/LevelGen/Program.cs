@@ -178,7 +178,7 @@ namespace BS3D.Tools.LevelGen
         private static readonly (string Name, int Size)[] BLOCKS =
         {
             ("The Meadow", 10), ("The Gallery", 10), ("The Coil", 10), ("The Tower", 10), ("The Reveal", 10),
-            ("The Quarry", 10), ("The Nebula", 10), ("The Eruption", 5), ("The Arcade", 10), ("The Spectrum", 10),
+            ("The Quarry", 10), ("The Nebula", 10), ("The Eruption", 5), ("The Spectrum", 10), ("The Arcade", 10),
         };
 
         //THE BLOCKS' THEMES (#194). A block's piece is named on every level of it, so the music changes
@@ -194,10 +194,13 @@ namespace BS3D.Tools.LevelGen
         //taking Nocturne: a seventh block against five pieces made a second reprise unavoidable short of
         //composing (#229's job, not this one's), and night jazz over the void is the register that fits. The
         //third is the Arcade taking Pulse, which is the only one of the five that sounds like the place it
-        //plays in — an electronic piece over a neon city — and it puts a late block on the piece the first
-        //one opened with. The fourth is the Spectrum taking Bohemia, chosen rather than left over: it is the
-        //one piece whose form is a statement, a second subject and a coda that brings the statement back,
-        //which is what a final chapter is.
+        //plays in — an electronic piece over a neon city — and since #300 made the Arcade the campaign's
+        //last block, it puts the LAST block on the piece the first one opened with: the frame round the
+        //whole thing that comment always hoped it was. The fourth is the Spectrum taking Bohemia, chosen
+        //rather than left over: the one piece whose form is a statement, a second subject and a coda that
+        //brings the statement back — chosen when the Spectrum closed the campaign (#253), and kept at #300:
+        //the coda-form now reads as the day's own closing figure, the dawn chapter being the campaign's
+        //last daylight before the finale's night.
         //
         //The Coil takes Ember, and that is #163 and #207 answering each other. #163 landed the rock ballad with
         //no block using it; #207 wrote, when it still had to reprise Nocturne here, that this was the block with
@@ -464,57 +467,69 @@ namespace BS3D.Tools.LevelGen
             //everything hangs by, so reading where a level shines is reading where it will break - and every
             //level here HAPPENED IN A DIRECTION, a bearing the shape carries (the torn flank, the downhill
             //run, the downwind rake, the leaning column). The arc job is the light returning after the void,
-            //GEOLOGICALLY - the earth glowing by itself - one step before the Arcade turns on the light man
-            //makes. Five levels, not ten: the block ships at the size every block first shipped at, and the
+            //GEOLOGICALLY - the earth glowing by itself - one step before the dawn hands the light back
+            //received (and two before the finale's neon, since #300 put the cities in day order). Five
+            //levels, not ten: the block ships at the size every block first shipped at, and the
             //BLOCKS table carries the size. See the block's own region for the statement in full and for the
             //engineering law every design here obeys (a designed breakaway is always the lowest thing on its
             //own load path).
             Design[] volcano = { Breach(), Causeway(), Meander(), Volley(), Plume() };
 
-            //9. THE NEON CITY - "The Arcade". Five HOLLOW pixel-art solids: the Gallery's drawn symbols given
-            //a third dimension, wrapped onto a die, a stepped temple, a slot reel, a donut and a globe, so a
-            //level's picture is read by walking the gun round it. Every one is framed whole, which is the
-            //deliberate opposite of the two tall blocks before it - an object meant to be RECOGNISED has to
-            //be in shot. The light ramp turns here rather than ending: past the void there is no darker
-            //place to go, so the campaign comes back to a lit one and the light is ARTIFICIAL. Its designs
-            //live in their own array for the same reason the Nebula's do - see WriteLevelSet.
-            Design[] arcade = { Cube(), Ziggurat(), Reel(), Donut(), Ghost(), Cabinet(), Tetra(), Giza(), Trophy(), Globe() };
-
-            //10. THE CITY AT DAWN - "The Spectrum" (#253). One HUE FAMILY a level, swept through the whole
+            //9. THE CITY AT DAWN - "The Spectrum" (#253). One HUE FAMILY a level, swept through the whole
             //body as a gradient: white to cyan to blue to navy and back, a heat ramp, a green one, a twilight
             //one, and the wheel entire on the finale. No new colour is involved anywhere - a family is a
             //subset and an ordering of the fixed thirteen - and no sweep is a stack of floors, because a
             //floor of one colour is the anchor of everything under it and would end the level on one ball.
             //(#302 added BANDED TIERS to four of these without breaking that sentence - see the block's
             //geometry region header for the rule a tier obeys.)
-            //The light ramp turns once more, and onto the same skyline: the Arcade turned it back on
-            //ARTIFICIALLY over the neon city, and the step left after that is light being RECEIVED again, so
-            //the campaign ends in that city at morning with its neon off - where the arena has always stood.
+            //The light ramp's return COMPLETES here: after the volcano's geological glow, this is light
+            //RECEIVED again - dawn breaking over the city where the arena has always stood, its neon still
+            //off. It closed the campaign until #300 moved it ahead of the Arcade, on the owner's ruling that
+            //the neon city reads as coming AFTER the normal one - which it does, the way a day does: the
+            //campaign's last stretch is now ONE DAY IN THIS CITY, dawn to night.
             //
-            //THE ORDER IS THE SHIPPED PLAY ORDER, AND IT STOPPED BEING THE MEASURED DIFFICULTY RAMP WITH
-            //#302. It was slotted by standing-group count (6, 8, 9, 10, 15, 14, 19, 22, 26, 31 when #255's
-            //five were interleaved), and #302 is the record of why that figure ranks the wrong quantity
-            //twice over: it says nothing about whether the remainder HANGS (the sag probe's question - four
-            //of these ten lost to gravity before the ceiling moved), and on a design with tiers it prices
-            //shots that cascade (one cleared tier orphans everything below it, so Pleat's probe runs clear
-            //on a third of the budget). Re-measured after the tiers the counts run 6, 17, 9, 35, 15, 19,
-            //26, 22, 26 and 31 - Pleat's 35 at fourth position outranks the finale - so the order no longer
-            //tracks the count, deliberately: re-slotting the chapter is a design decision the owner has not
-            //taken (and #300 already has the chapter order open). The two ends still stand: the Icicle
-            //opens, being the plainest body in it, and the Turbine still closes the campaign. The families
-            //are not what ramps - a green level is no harder than a blue one.
+            //THE ORDER WITHIN THE BLOCK IS THE SHIPPED PLAY ORDER, AND IT STOPPED BEING THE MEASURED
+            //DIFFICULTY RAMP WITH #302. It was slotted by standing-group count (6, 8, 9, 10, 15, 14, 19, 22,
+            //26, 31 when #255's five were interleaved), and #302 is the record of why that figure ranks the
+            //wrong quantity twice over: it says nothing about whether the remainder HANGS (the sag probe's
+            //question - four of these ten lost to gravity before the ceiling moved), and on a design with
+            //tiers it prices shots that cascade (one cleared tier orphans everything below it, so Pleat's
+            //probe runs clear on a third of the budget). Re-measured after the tiers the counts run 6, 17,
+            //9, 35, 15, 19, 26, 22, 26 and 31 - Pleat's 35 at fourth position outranks the Turbine - so the
+            //order no longer tracks the count, deliberately. The two ends still stand: the Icicle opens,
+            //being the plainest body in it, and the Turbine still closes the BLOCK - the campaign it closed
+            //until #300 now ends a chapter later. The families are not what ramps - a green level is no
+            //harder than a blue one.
             //Its designs live in their own array for the same reason the Nebula's and the Arcade's do - see
             //WriteLevelSet.
             Design[] spectrum = { Icicle(), Pinecone(), Hourglass(), Pleat(), Trellis(), Bolt(), Totem(), Kiln(), Girandole(), Turbine() };
+
+            //10. THE NEON CITY - "The Arcade" - THE CAMPAIGN'S LAST BLOCK since #300. Five HOLLOW pixel-art
+            //solids: the Gallery's drawn symbols given a third dimension, wrapped onto a die, a stepped
+            //temple, a slot reel, a donut and a globe, so a level's picture is read by walking the gun round
+            //it. Every one is framed whole, which is the deliberate opposite of the tall blocks before it -
+            //an object meant to be RECOGNISED has to be in shot.
+            //The light ramp ends where the day does. It used to end on the Spectrum's dawn, with the neon
+            //city justified as the only lit place reachable straight after the void ("past the void there is
+            //no darker place to go"); #295's volcano then gave the return a geological first step and #300
+            //swapped the two cities on the owner's ruling. Read in play order the ending is now: dawn breaks
+            //over the city (the Spectrum), the day passes through ten hue families, and the campaign ends
+            //AFTER DARK with the city turning its own lights on - the made light as the finale's celebration,
+            //over the same skyline, where the arena has always stood. The last word rides the set's last
+            //entry, so it moves off Turbine onto Globe - and the block that measures tightest (1.33-1.65 a
+            //group against the Spectrum's 1.37-6.67) now sits last, which is #300's other half: the campaign
+            //climaxes where it ends.
+            //Its designs live in their own array for the same reason the Nebula's do - see WriteLevelSet.
+            Design[] arcade = { Cube(), Ziggurat(), Reel(), Donut(), Ghost(), Cabinet(), Tetra(), Giza(), Trophy(), Globe() };
 
             bool ok = true;
             foreach (Design design in designs) ok &= Emit(design);
             foreach (Design design in nebula) ok &= Emit(design);
             foreach (Design design in volcano) ok &= Emit(design);
-            foreach (Design design in arcade) ok &= Emit(design);
             foreach (Design design in spectrum) ok &= Emit(design);
+            foreach (Design design in arcade) ok &= Emit(design);
 
-            LevelSet set = WriteLevelSet(designs, nebula, volcano, arcade, spectrum);
+            LevelSet set = WriteLevelSet(designs, nebula, volcano, spectrum, arcade);
 
             //The gate that hangs the levels instead of reading them (#301/#302). Off the WRITTEN SET rather
             //than off the designs above, for two reasons: the set is where a level's budget and ceiling step
@@ -642,9 +657,11 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// Rewrites the set that orders the levels — since #194 as the <b>blocks of the <see cref="BLOCKS"/>
         /// table</b> rather than one flat ramp of fourteen, six of them since #207 added the desert, seven
-        /// since #182 appended the Nebula, and ten since the Arcade, #253's Spectrum and #295's Eruption. <b>One opens the campaign, Colossus closes the Quarry, and the Nebula's finale
-        /// closes the campaign</b> (#182 — the owner moved the last word deliberately; the campaign-complete
-        /// celebration rides the set's last entry and moves with it). One is a
+        /// since #182 appended the Nebula, and ten since the Arcade, #253's Spectrum and #295's Eruption.
+        /// <b>One opens the campaign, Colossus closes the Quarry, and the campaign closes on the last
+        /// block's finale</b> — the campaign-complete celebration rides the set's last entry and moves with
+        /// it: Colossus's until #182, Garland's then (the owner moved the last word deliberately), Globe's,
+        /// Turbine's at #253, and Globe's again since #300 put the two cities in day order. One is a
         /// design here now (the author asked for it regenerated, see <see cref="One"/>) and states its own rules
         /// with the rest, while Colossus is still hand-drawn and keeps its rules verbatim — it is authored
         /// content and this generator has no opinion about it beyond where it sits. The Nebula's designs arrive
@@ -7987,9 +8004,10 @@ namespace BS3D.Tools.LevelGen
         //sweep, the contact is designed away, never left to luck (#302's guard-course lesson).
         //
         //The arc job (#194): after the Nebula's void, this is the light coming back GEOLOGICALLY — the earth
-        //glowing by itself — one step before the Arcade turns on the light man makes and two before the dawn
-        //hands back the light received. Ten blocks, and this one ships at five levels, the size every block
-        //first shipped at (the BLOCKS table carries the size; a #255-style second hang can double it later).
+        //glowing by itself — one step before the dawn hands back the light received, and two before the
+        //Arcade's neon closes the campaign after dark (#300 put the two cities in day order). Ten blocks,
+        //and this one ships at five levels, the size every block first shipped at (the BLOCKS table carries
+        //the size; a #255-style second hang can double it later).
 
         #region Eruption level 1: Breach
 
@@ -8891,7 +8909,7 @@ namespace BS3D.Tools.LevelGen
 
         #region The arcade levels
 
-        //THE NINTH BLOCK in play order: five HOLLOW SOLIDS with pixel art wrapped onto them, hanging over a neon city.
+        //THE TENTH AND LAST BLOCK in play order (#300): five HOLLOW SOLIDS with pixel art wrapped onto them, hanging over a neon city.
         //It is THE GALLERY GIVEN A THIRD DIMENSION, and that is the whole statement of it. Block 2 draws a
         //symbol on a flat wall and the player reads all of it from where the gun starts; these levels draw
         //the same kind of picture onto a body that HAS sides - a cube of arcade glyphs, a stepped temple, a
@@ -8919,7 +8937,9 @@ namespace BS3D.Tools.LevelGen
         //check: the whole block's best single shot is 11 %.
         //
         //EVERY LEVEL IS FRAMED WHOLE - field 18, the deepest the camera frames (GameplayScreen.FRAMED_LEVELS)
-        //- and that is a deliberate answer to the two tall blocks before it. A tall level's premise is that
+        //- and that is a deliberate answer to the tall blocks before it (the Tower's, the Nebula's and,
+        //since #300 reordered the cities, the Spectrum's ten as the campaign's second-to-last word). A tall
+        //level's premise is that
         //you cannot see all of it; an object meant to be RECOGNISED has to be in shot, all of it, from the
         //first second. The 18 is also what buys the ceiling somewhere to descend into: the empty levels under
         //a layout are the level's clearance, and these five leave four, six or ten of them (ARCADE_FIELD).
@@ -10311,7 +10331,7 @@ namespace BS3D.Tools.LevelGen
 
         #region The spectrum levels (#253)
 
-        //THE TENTH BLOCK in play order: one HUE FAMILY a level, swept through the whole body as a gradient. The owner's
+        //THE NINTH BLOCK in play order (#300): one HUE FAMILY a level, swept through the whole body as a gradient. The owner's
         //brief is a chapter whose levels read as ONE colour rather than as a set of arbitrary matching ones -
         //a level sweeping white -> light blue -> blue -> dark blue and back to white as it climbs, and the
         //same principle on a warm ramp, a green one, and so on to the wheel entire.
@@ -13836,10 +13856,12 @@ namespace BS3D.Tools.LevelGen
 
         //THE BLOCK'S SETTING, stated once and named on all five designs so DescribeBlock has nothing to
         //report. THE CITY, under a morning dome - and it is deliberately the SAME city the Arcade plays in,
-        //which is the one scene pairing in the campaign that repeats a place on purpose. The light ramp ran
-        //out of dark at the void, so the Arcade turned the light back on and made it ARTIFICIAL; the one
-        //step left after that is light being RECEIVED again, and the strongest way to say so is the same
-        //skyline at dawn with its neon off. The campaign ends where the arena has always stood.
+        //which is the one scene pairing in the campaign that repeats a place on purpose. The light ramp's
+        //return completes here: after the volcano's geological glow (#295) this is light RECEIVED again,
+        //and the strongest way to say so is this skyline at dawn with its neon off. Since #300 the dawn
+        //comes BEFORE the neon - the pairing reads as one day in the city, morning here, the Arcade's made
+        //light after dark closing the campaign - where it used to close it itself as the morning after the
+        //Arcade's night. The arena has always stood here either way.
         //
         //IT IS ALSO THE BACKDROP THIS BLOCK NEEDS, and that was settled by looking rather than by argument.
         //A chapter whose whole subject is telling neighbouring hues apart cannot be played in front of a
