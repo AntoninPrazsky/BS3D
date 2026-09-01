@@ -290,7 +290,7 @@ namespace MapEditor
                 new(mgKeys.B, SwitchSkyDome, "Switch sky dome (backdrop)"),
                 new(mgKeys.V, SwitchScene, "Switch scene (city/sea/savanna/desert/mountain/meadow/neon)"),
                 new(mgKeys.L, SwitchBallStyle, "Switch ball look (beach vinyl / glass bubble)"),
-                new(mgKeys.K, CycleBallKind, "Switch ball kind (normal / rock)"),
+                new(mgKeys.K, CycleBallKind, "Switch ball kind (normal / rock / transparent)"),
                 new(mgKeys.G, ToggleSceneConfigPanel, "Show/hide scene-config editor"),
 
                 new(mgKeys.F1, SaveJson, "Save map to file (JSON)"),
@@ -353,9 +353,16 @@ namespace MapEditor
             BallKind kind = BallKinds.Next(_selector.ActiveBallKind);
             _selector.ChangeBallKind(kind);
 
-            Info.CustomText = kind == BallKind.Normal
-                ? "Ball kind: normal"
-                : $"Ball kind: {BallKinds.ToName(kind)} (matches with nothing, no colour removes it)";
+            //One line per kind rather than one line for "not normal": the hint is the only place the editor
+            //says what a kind DOES, and two kinds sharing the rock's sentence is exactly the way the ball-style
+            //hint fell behind its own enum (#320).
+            Info.CustomText = kind switch
+            {
+                BallKind.Rock => "Ball kind: rock (matches with nothing, no colour removes it)",
+                BallKind.Transparent => "Ball kind: transparent (colourless until a shot lands beside it, "
+                    + "then that shot's colour)",
+                _ => "Ball kind: normal",
+            };
         }
 
         protected override void LoadContent()

@@ -74,6 +74,19 @@ namespace Prazsky.BS3D.Physics
 
         private const float ATTACH_GLIDE_SETTLED_SQUARED = ATTACH_GLIDE_SETTLED * ATTACH_GLIDE_SETTLED;
 
+        /// <summary>
+        /// How long a transparent ball is drawn crossing from clear glass to its new colour (#325). Long enough
+        /// that the change is a thing the eye follows rather than a swap between two frames, and short enough
+        /// to be over before the group it may have completed has finished falling - a ball still visibly
+        /// becoming red while red balls rain past it reads as two events rather than one. The magazine's own
+        /// transmute cross-fade is the pattern and its neighbour in length.
+        /// <para>
+        /// Public because the crossing is <b>armed</b> where the colouring happens (the contact handler) and
+        /// <b>spent</b> here, and one figure in two places would be one figure until somebody tuned it.
+        /// </para>
+        /// </summary>
+        public const float COLOUR_FADE_SECONDS = 0.35f;
+
         private readonly Func<PhysicsBall, float, float> _advanceRipple;
 
         /// <param name="advanceRipple">Advances one ball's flare by the frame's elapsed seconds and answers how
@@ -204,7 +217,33 @@ namespace Prazsky.BS3D.Physics
             frame.AddOriented(ball.Type, drawnAt.ToXna(), orientation.ToXna(),
                 EaseOcclusion(ball, occlusionTarget, ease),
                 _advanceRipple == null ? 0f : _advanceRipple(ball, elapsedSeconds),
-                ball.Kind);
+                ball.Kind, AdvanceColourFade(ball, elapsedSeconds));
+        }
+
+        /// <summary>
+        /// Advances a freshly coloured transparent ball's crossing and answers how far through it is, 0 at rest
+        /// and 1 the instant it is done (#325) — the third piece of per-ball state this walk owns, and it is
+        /// here for the reason the other two are: visited once per frame, exactly.
+        /// <para>
+        /// It counts <b>down</b> in seconds on the ball and is reported as a fraction <i>up</i>, because those
+        /// are the two natural forms: the handler knows how long the crossing lasts and nothing else has to,
+        /// while the renderer wants "how much of the new colour is there" and nothing else.
+        /// </para>
+        /// </summary>
+        private static float AdvanceColourFade(PhysicsBall ball, float elapsedSeconds)
+        {
+            //The resting case, which is every ball of every level that has no glass in it: one compare.
+            if (ball.ColourFadeRemaining <= 0f) return 0f;
+
+            ball.ColourFadeRemaining -= elapsedSeconds;
+
+            if (ball.ColourFadeRemaining <= 0f)
+            {
+                ball.ColourFadeRemaining = 0f;
+                return 0f;
+            }
+
+            return 1f - ball.ColourFadeRemaining / COLOUR_FADE_SECONDS;
         }
 
         /// <summary>

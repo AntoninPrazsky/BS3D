@@ -632,6 +632,28 @@ namespace Prazsky.BS3D
         /// </summary>
         private const float STONE_EMISSION = 0.45f;
 
+        /// <summary>
+        /// How much of the picture behind it a clear ball takes away face-on (#325), against the dyed film's
+        /// <see cref="BUBBLE_BODY_OPACITY"/>. <b>Lower, and that is the whole read of this kind</b>: a bubble is
+        /// a coloured thing you can see through and this is a thing that is not there — what names it is the
+        /// rim, the highlight and the seam, with as close to nothing as possible in between.
+        /// <para>
+        /// Not zero, though, and the reason is the same one that gave the rock its emission: the player looks
+        /// <i>up</i> at the cluster, and a shell with no body at all against a bright dome is an invisible ball
+        /// the shot lands beside for no reason the player can see. This is the floor at which the sphere still
+        /// reads as an object from the island.
+        /// </para>
+        /// </summary>
+        private const float HOLLOW_BODY_OPACITY = 0.06f;
+
+        /// <summary>
+        /// What clear glass radiates: nearly nothing, and <b>white rather than a colour</b>, since it has none.
+        /// It is drawn at <c>PulseDepth</c> zero like the rock, so this is a steady floor and not a beat — but
+        /// where the rock's figure is that it does not breathe, this one's is that it barely is. A glass ball
+        /// that glowed would be announcing a colour it does not have yet.
+        /// </summary>
+        private const float HOLLOW_EMISSION = 0.05f;
+
         #endregion
 
         #region Neighbour-based ambient occlusion (issue #40)
@@ -747,6 +769,18 @@ namespace Prazsky.BS3D
         //draw calls instead of fifty-two. A rock is never loaded in the cannon, so it needs no still twin.
         private static readonly int ROCK_REGION_START = STILL_PLANE_STRIDE * 2;
 
+        //And a FOURTH region, on the same argument once more, for the clear glass of the transparent kind
+        //(#325): colourless like the rock, so LodCount buckets and no per-type split, and its own draw because
+        //what it is made of is a set of per-renderer uniforms. What it does NOT share with the rock is the
+        //order — glass is transparent, so it goes out last of the balls rather than first, and under the shell
+        //states rather than the caller's. See DrawHollow.
+        //
+        //A ball mid-crossing puts an instance in here AND one in its colour's bucket (BallDrawFrame.Route), so
+        //this region can hold more than the field's transparent balls for a third of a second at a time. It is
+        //sized like every other bucket — they grow on demand — and the census counts BALLS, which is why
+        //DrawHollow leaves DrawnCount alone the way a bubble's second wall does.
+        private static readonly int HOLLOW_REGION_START = ROCK_REGION_START + LodCount;
+
         private readonly ModelInstance[][] _buckets;
         private readonly int[] _counts;
         private readonly int[] _lodTotals;
@@ -826,9 +860,9 @@ namespace Prazsky.BS3D
             _pulseDepth = ripples ? PULSE_DEPTH_RIPPLING : PULSE_DEPTH_RESTING;
 
             //Two planes: the breathing balls, then the still ones (see STILL_PLANE_STRIDE), and the rocks'
-            //own region after both of them (see ROCK_REGION_START).
-            _buckets = new ModelInstance[ROCK_REGION_START + LodCount][];
-            _counts = new int[ROCK_REGION_START + LodCount];
+            //own region after both of them (see ROCK_REGION_START), and the clear glass one after that.
+            _buckets = new ModelInstance[HOLLOW_REGION_START + LodCount][];
+            _counts = new int[HOLLOW_REGION_START + LodCount];
             _lodTotals = new int[LodCount];
             _lodDistanceSquared = new float[LOD_MIN_PIXEL_RADIUS.Length];
         }
@@ -1206,6 +1240,13 @@ namespace Prazsky.BS3D
             //bubble" (#304). The two were the same answer only while the bubble was the one transparent style.
             if (BallStyles.IsTransparent(_style)) DrawShell(camera);
             else DrawBoth(camera);
+
+            //And the clear glass LAST (#325), which is the opposite end of the frame from the rocks and for the
+            //mirror-image reason: it is transparent, so everything it should show through it has to be in the
+            //target already — the opaque cluster above, the island and the gun under that. On a bubble level it
+            //composites over the films for the same reason, which is the honest approximation the shell draw
+            //already makes among the films themselves (see DrawShell on why nothing here is sorted).
+            DrawHollow(camera);
         }
 
         /// <summary>
@@ -1263,6 +1304,93 @@ namespace Prazsky.BS3D
             }
 
             ApplyStyle();
+        }
+
+        /// <summary>
+        /// The clear glass of the transparent kind (#325): the two walls of a hollow shell, exactly as
+        /// <see cref="DrawShell"/> puts a bubble out, but over one colourless region and whatever the level's
+        /// own balls are made of.
+        /// <para>
+        /// <b>It is the rock's argument (#324) with the answer turned round.</b> A kind opts out of the map's
+        /// <see cref="BallStyle"/> so that "that one is different" survives all ten materials — and the whole
+        /// point of THIS kind is that it has no colour to be different in, so what it opts out into is a
+        /// material with no dye at all. On a bubble level it is the one undyed shell among coloured films; on a
+        /// lava level it is the one thing in the frame that is not burning.
+        /// </para>
+        /// <para>
+        /// <b>Why the shell states are repeated here rather than shared with <see cref="DrawShell"/>.</b> They
+        /// are the same states and they are set twice on purpose: this draw happens on both kinds of level, and
+        /// on an opaque one there is no <c>DrawShell</c> to have set them. Inheriting them would make this
+        /// method correct only after a bubble draw — the exact "a uniform belongs to the renderer, not to
+        /// whoever set it" trap the shot trail's two callers paid for once.
+        /// </para>
+        /// </summary>
+        private void DrawHollow(ICamera camera)
+        {
+            bool any = false;
+            for (int lod = 0; lod < LodCount && !any; lod++) any = _counts[HOLLOW_REGION_START + lod] > 0;
+
+            //A field with no glass in it — every level shipped today — never touches a renderer or a device
+            //state for this, and pays one compare per LOD.
+            if (!any) return;
+
+            BlendState blend = _device.BlendState;
+            DepthStencilState depth = _device.DepthStencilState;
+            RasterizerState raster = _device.RasterizerState;
+
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                InstancedModelRenderer renderer = _renderers[lod];
+
+                renderer.Shading = BallShading.Hollow;
+                renderer.BubbleBodyOpacity = HOLLOW_BODY_OPACITY;
+                renderer.EmissiveStrength = HOLLOW_EMISSION;
+
+                //It does not breathe. The heartbeat is the cluster saying it is alive in its own colour, and
+                //this ball has none — a pulsing colourless shell would be a glass ball flashing WHITE, which is
+                //the loudest thing in the frame saying nothing at all.
+                renderer.PulseDepth = 0f;
+            }
+
+            _device.BlendState = BlendState.AlphaBlend;
+
+            //The far wall first, tested but not written; then the near one in the ordinary cull, writing depth.
+            //Same pair, same reasons, as the bubble's two walls.
+            _device.DepthStencilState = DepthStencilState.DepthRead;
+            _device.RasterizerState = RasterizerState.CullClockwise;
+            SetShell(BUBBLE_FAR_WALL);
+            DrawHollowPlane(camera);
+
+            _device.DepthStencilState = DepthStencilState.Default;
+            _device.RasterizerState = RasterizerState.CullCounterClockwise;
+            SetShell(BUBBLE_NEAR_WALL);
+            DrawHollowPlane(camera);
+
+            _device.BlendState = blend;
+            _device.DepthStencilState = depth;
+            _device.RasterizerState = raster;
+
+            ApplyStyle();
+        }
+
+        //One wall of the glass, over the one region it has. No tint: the technique reads none, for the reason
+        //the stone's draw states — handing a colour to a thing whose whole meaning is that it has none is what
+        //this kind exists not to do. The ambient still comes from the effect params, or the unlit side of every
+        //shell would fall back on DefaultLighting's dim blue (the rock's own first bug).
+        //
+        //DrawnCount is deliberately NOT advanced: the counts are a census of BALLS, and a crossing ball is
+        //already counted in its colour's bucket. Adding the glass ghost would report more balls drawn than the
+        //caller collected — the same reason DrawShell zeroes between its walls.
+        private void DrawHollowPlane(ICamera camera)
+        {
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                int bucketIndex = HOLLOW_REGION_START + lod;
+                int count = _counts[bucketIndex];
+                if (count == 0) continue;
+
+                _renderers[lod].Draw(camera, _buckets[bucketIndex], count, BasicEffectParamsProvider.Stone, null);
+            }
         }
 
         /// <summary>
@@ -1442,6 +1570,9 @@ namespace Prazsky.BS3D
         //invite somebody to believe it mattered.
         internal void StoreRock(int lod, in ModelInstance instance) => StoreAt(ROCK_REGION_START + lod, instance);
 
+        /// <summary>Clear glass — the transparent kind, and the glass half of a crossing (#325).</summary>
+        internal void StoreHollow(int lod, in ModelInstance instance) => StoreAt(HOLLOW_REGION_START + lod, instance);
+
         private void StoreAt(int bucketIndex, in ModelInstance instance)
         {
             ModelInstance[] bucket = _buckets[bucketIndex];
@@ -1517,7 +1648,7 @@ namespace Prazsky.BS3D
             if (typeIndex < 0 || typeIndex >= BallRenderSet.TYPE_COUNT) return;
 
             Route(kind, typeIndex, _set.LodFor(Vector3.DistanceSquared(position, _eye)),
-                new ModelInstance(world, occlusion, dissolve, ripple), still);
+                new ModelInstance(world, occlusion, dissolve, ripple), still, 0f);
         }
 
         /// <summary>
@@ -1529,7 +1660,8 @@ namespace Prazsky.BS3D
         /// Every special ball type of #256 that gets a look of its own arrives here as one more case.
         /// </para>
         /// </summary>
-        private void Route(BallKind kind, int typeIndex, int lod, in ModelInstance instance, bool still)
+        private void Route(BallKind kind, int typeIndex, int lod, in ModelInstance instance, bool still,
+            float colourFade)
         {
             switch (kind)
             {
@@ -1539,7 +1671,30 @@ namespace Prazsky.BS3D
                     _set.StoreRock(lod, instance);
                     break;
 
+                case BallKind.Transparent:
+                    //Clear glass, and no colour reaches it either — it has none yet, which is the kind (#325).
+                    _set.StoreHollow(lod, instance);
+                    break;
+
                 default:
+                    //An ordinary ball, and nearly always only that. Mid-crossing (#325) it is BOTH: the ball is
+                    //logically its new colour already, so it goes into that colour's bucket, and a ghost of the
+                    //glass it was goes into the hollow region — the two carrying OPPOSITE SIGNS of the dissolve,
+                    //which is what makes them one cross-fade rather than two half-drawn balls.
+                    //
+                    //The signs are the whole trick and they are already in the shader's contract: +d keeps the
+                    //pixels where the dither noise EXCEEDS d, -d keeps exactly the others, so at any d the two
+                    //draws partition the ball's pixels between them with no overlap, no gap and no transparency
+                    //sorting. It is the magazine's transmute cross-fade (the one thing the channel was built
+                    //for), pointed at a ball in the cluster instead of one in the bore — and a cluster ball's
+                    //dissolve is otherwise always zero, so the channel is free to carry it.
+                    if (colourFade > 0f)
+                    {
+                        _set.Store(typeIndex, lod, instance.WithDissolve(-colourFade), still);
+                        _set.StoreHollow(lod, instance.WithDissolve(colourFade));
+                        break;
+                    }
+
                     _set.Store(typeIndex, lod, instance, still);
                     break;
             }
@@ -1558,8 +1713,11 @@ namespace Prazsky.BS3D
         /// very loop). It is done here, once, so no caller has to know the trick or be trusted to remember it.
         /// </para>
         /// </summary>
+        /// <param name="colourFade">How far a freshly coloured transparent ball is through its crossing, 0 for
+        /// every other ball there has ever been (#325) — see <see cref="Route"/> for what the two ends of it
+        /// are drawn as.</param>
         public void AddOriented(BallType type, Vector3 position, in Quaternion orientation, Vector4 occlusion,
-            float ripple = 0f, BallKind kind = BallKind.Normal)
+            float ripple = 0f, BallKind kind = BallKind.Normal, float colourFade = 0f)
         {
             int typeIndex = (int)type - 1;
             if (typeIndex < 0 || typeIndex >= BallRenderSet.TYPE_COUNT) return;
@@ -1571,7 +1729,7 @@ namespace Prazsky.BS3D
             world.M43 = position.Z;
 
             Route(kind, typeIndex, _set.LodFor(Vector3.DistanceSquared(position, _eye)),
-                new ModelInstance(world, occlusion, 0f, ripple), still: false);
+                new ModelInstance(world, occlusion, 0f, ripple), still: false, colourFade);
         }
 
         /// <summary>

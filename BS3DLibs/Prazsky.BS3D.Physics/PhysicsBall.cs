@@ -141,6 +141,21 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public float RippleAmplitude;
 
+        /// <summary>
+        /// Seconds left of this ball's clear-to-colour crossing (#325), counting down to zero — nonzero only
+        /// on a <see cref="BallKind.Transparent"/> ball that a landing has just coloured, and only for
+        /// <c>ClusterCollector.COLOUR_FADE_SECONDS</c>.
+        /// <para>
+        /// Kept on the ball for the reason <see cref="RippleTime"/> is, and advanced by the same walk: the ball
+        /// may be released mid-crossing (the colouring can complete the very group that removes it), and a ball
+        /// that snapped to full colour the instant it stopped being cluster would flash on its way down. The
+        /// <b>logical</b> colour changed the moment the shot landed and this timer has no say in it — it is
+        /// cosmetic, exactly as the magazine's transmute dissolve is, and for the same reason: firing at a
+        /// half-faded ball must match the colour it already is.
+        /// </para>
+        /// </summary>
+        public float ColourFadeRemaining;
+
         public void SetEmptyConstraints()
         {
             HandlesTop.Handle1.Value = -1;

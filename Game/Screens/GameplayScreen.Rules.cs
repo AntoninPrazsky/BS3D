@@ -282,7 +282,7 @@ namespace BS3D.Screens
         /// </summary>
         private void CheckLevelCleared()
         {
-            if (LevelDecided || _map.GetMatchableBallsCount() > 0) return;
+            if (LevelDecided || _map.GetRemovableBallsCount() > 0) return;
 
             //Cut the rocks loose so the field actually empties. They fall, drain and are culled through the
             //path every released ball already takes, and they score nothing: the player did not clear them,
@@ -450,9 +450,11 @@ namespace BS3D.Screens
             //fired has had its chance to clear. A ball still in flight could be that chance, and a loss called
             //beneath it would steal the win. "Resolved" is the load-bearing word: see AnyShotUndecided.
             //
-            //"Uncleared" is the MATCHABLE count, the same one CheckLevelCleared reads and for the same reason
-            //(#323): rocks left hanging are not a level unfinished, they are a level with rocks in it.
-            if (_score.OutOfShots && !AnyShotUndecided() && _map.GetMatchableBallsCount() > 0)
+            //"Uncleared" is the REMOVABLE count, the same one CheckLevelCleared reads and for the same reason
+            //(#323): rocks left hanging are not a level unfinished, they are a level with rocks in it. A
+            //transparent ball is on the other side of that line and counts (#325) — one shot beside it makes
+            //it an ordinary ball, so a field of glass is a field with everything still to play for.
+            if (_score.OutOfShots && !AnyShotUndecided() && _map.GetRemovableBallsCount() > 0)
                 LoseLevel(LevelFailure.OutOfBalls,
                     $"budget {LevelShotBudget(_levelIndex)?.ToString() ?? "unlimited"}, fired {_score.ShotsFired}"
                     + $", {_shotBalls.Count} spent ball(s) not yet culled");
@@ -712,6 +714,14 @@ namespace BS3D.Screens
         /// every cell does, and counting it would keep that colour alive in the queue with nothing in the
         /// cluster able to complete it — the exact waste this whole census exists to prevent, arriving through
         /// the one ball that cannot be shot down.
+        /// </para>
+        /// <para>
+        /// A <b>transparent</b> ball is out of the census on the same rule and joins it the instant a shot
+        /// colours it (#325) — which needs no code here, because the colouring turns it into an ordinary ball
+        /// before this runs. The order is what makes that true and it is not an accident: the handler colours
+        /// during the landing, and <see cref="OnBallLanded"/> recounts after it. Counting the colour a
+        /// transparent ball is <i>carrying</i> would keep a colour alive that the player cannot see, aim at or
+        /// match — the rock's waste again, with the ball invisible instead of unmatchable.
         /// </para>
         /// </summary>
         private void RecountBallTypes()

@@ -77,5 +77,17 @@ namespace Prazsky.Core.Render
             Dissolve = dissolve;
             Ripple = ripple;
         }
+
+        /// <summary>
+        /// The same instance at a different point of its dissolve — the one place a caller needs to put a ball
+        /// out <b>twice</b> and have the two halves partition its pixels (#325's clear-to-colour crossing,
+        /// which draws the glass at <c>+d</c> and the new colour at <c>−d</c>).
+        /// <para>
+        /// A copy rather than a setter: this rides in a vertex buffer and is written once per ball per frame,
+        /// so a caller holding one and mutating it is a caller that can change an instance already stored.
+        /// </para>
+        /// </summary>
+        public readonly ModelInstance WithDissolve(float dissolve) =>
+            new(World, Custom, dissolve, Ripple);
     }
 }

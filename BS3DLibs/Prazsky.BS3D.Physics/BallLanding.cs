@@ -38,12 +38,37 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public readonly XZLevel Cell;
 
-        public BallLanding(BallsReleased released, Vector3 world, BallType type, XZLevel cell)
+        /// <summary>
+        /// How many <see cref="BallKind.Transparent"/> balls this landing coloured (#325) — zero on every
+        /// landing that touched no glass, which is nearly all of them.
+        /// <para>
+        /// It is here because the colouring is <b>part of what the shot did</b>, and everything downstream that
+        /// answers for a shot reads this struct. What reads it is the record: the count goes on the handler's
+        /// own landing line, so a level whose glass is not being coloured says so in the log instead of being
+        /// diagnosed from screenshots.
+        /// </para>
+        /// <para>
+        /// <b>⚠ THE SCORE DELIBERATELY DOES NOT READ IT, and that is a ruling rather than an omission</b> (the
+        /// owner's, 2026-09-01). A colouring is worth points exactly when it <i>releases</i> something: the
+        /// glass balls this landing coloured are ordinary balls of that colour by the time the group check runs,
+        /// so a group they complete arrives in <c>Released.Matched</c> and scores like any other — more, in
+        /// fact, since the group is bigger for having them in it. A colouring that completes nothing scores
+        /// <b>nothing</b>: one glass ball turned red beside no red is a shot that stuck, and
+        /// <c>ScoreKeeper.Landed</c> reads it as one through the <c>matched &lt;= 0</c> door — no award, and the
+        /// streak multiplier goes with it, exactly as for any other shot that sticks without completing a
+        /// group. So the rule is carried entirely by <b>where the colouring sits</b> (before the group check)
+        /// and needs no term of its own; adding one would pay a player twice for the same shot.
+        /// </para>
+        /// </summary>
+        public readonly int Coloured;
+
+        public BallLanding(BallsReleased released, Vector3 world, BallType type, XZLevel cell, int coloured = 0)
         {
             Released = released;
             World = world;
             Type = type;
             Cell = cell;
+            Coloured = coloured;
         }
     }
 }
