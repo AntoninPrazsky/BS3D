@@ -69,6 +69,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _parallaxScaleParam;
         private EffectParameter _specularAmbientStrengthParam;
         private EffectParameter _metalnessParam;
+        private EffectParameter _twoSidedNormalsParam;
         private EffectParameter _specularAlphaWeightParam;
         private EffectParameter _dirLightStrengthParam;
         private EffectParameter _emissiveStrengthParam;
@@ -315,6 +316,16 @@ namespace Prazsky.Core.Render
         /// surface reflects the sky in that tint (gold reflects gold). Used by the funnel's gold rims.
         /// </summary>
         public float Metalness { get; set; }
+
+        /// <summary>
+        /// 1 flips the shading normal on back faces, for a mesh that is one <b>open single-sided wall</b>
+        /// drawn with culling off — the drain's glass funnel and its dark pit shaft, whose only normal
+        /// points at the concave side the balls rest on. Without it the outside of such a wall is shaded
+        /// with the inside's normal, and under the grazing-angle sky sheen the glass cone read from below
+        /// as an opaque milky sheet (#291) — the very shot the drop cinematic's dive films. 0 (the default)
+        /// for everything else: a closed mesh never shows a back face worth shading.
+        /// </summary>
+        public float TwoSidedNormals { get; set; }
 
         /// <summary>
         /// How far this material's specular terms — the direct highlight and the reflected environment —
@@ -839,6 +850,7 @@ namespace Prazsky.Core.Render
             _parallaxScaleParam = _effect.Parameters["ParallaxScale"];
             _specularAmbientStrengthParam = _effect.Parameters["SpecularAmbientStrength"];
             _metalnessParam = _effect.Parameters["Metalness"];
+            _twoSidedNormalsParam = _effect.Parameters["TwoSidedNormals"];
             _specularAlphaWeightParam = _effect.Parameters["SpecularAlphaWeight"];
             _dirLightStrengthParam = _effect.Parameters["DirLightStrength"];
             _emissiveTintParam = _effect.Parameters["EmissiveTint"];
@@ -1132,6 +1144,11 @@ namespace Prazsky.Core.Render
             _parallaxScaleParam.SetValue(ParallaxScale);
             _specularAmbientStrengthParam.SetValue(SpecularAmbientStrength);
             _metalnessParam.SetValue(Metalness);
+
+            //Unconditionally, for Metalness's reason: the two renderers that turn this on are the drain's
+            //glass and its pit, and a 1 left standing would flip the back-face normals of whatever open
+            //surface draws next
+            _twoSidedNormalsParam.SetValue(TwoSidedNormals);
 
             //Unconditionally, for Metalness's own reason: the one renderer that turns this off is the crystal
             //cup, and a zero left standing on the shared effect would strip every following surface's
