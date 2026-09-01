@@ -761,6 +761,86 @@
       "shots": 42,
       "minStars": 186,
       "ceilingStep": 14
+    },
+    {
+      "file": "Facet.json",
+      "name": "Facet",
+      "block": "The Mirage",
+      "shots": 34,
+      "minStars": 188,
+      "ceilingStep": 7
+    },
+    {
+      "file": "Trefoil.json",
+      "name": "Trefoil",
+      "block": "The Mirage",
+      "shots": 46,
+      "minStars": 190,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Harlequin.json",
+      "name": "Harlequin",
+      "block": "The Mirage",
+      "shots": 60,
+      "minStars": 192,
+      "ceilingStep": 10
+    },
+    {
+      "file": "Diadem.json",
+      "name": "Diadem",
+      "block": "The Mirage",
+      "shots": 54,
+      "minStars": 194,
+      "ceilingStep": 13
+    },
+    {
+      "file": "Solitaire.json",
+      "name": "Solitaire",
+      "block": "The Mirage",
+      "shots": 68,
+      "minStars": 196,
+      "ceilingStep": 12
+    },
+    {
+      "file": "Anvil.json",
+      "name": "Anvil",
+      "block": "The Mirage",
+      "shots": 50,
+      "minStars": 198,
+      "ceilingStep": 9
+    },
+    {
+      "file": "Seam.json",
+      "name": "Seam",
+      "block": "The Mirage",
+      "shots": 54,
+      "minStars": 200,
+      "ceilingStep": 9
+    },
+    {
+      "file": "Keystone.json",
+      "name": "Keystone",
+      "block": "The Mirage",
+      "shots": 60,
+      "minStars": 202,
+      "ceilingStep": 10
+    },
+    {
+      "file": "Cairn.json",
+      "name": "Cairn",
+      "block": "The Mirage",
+      "shots": 72,
+      "minStars": 204,
+      "ceilingStep": 12
+    },
+    {
+      "file": "Obsidian.json",
+      "name": "Obsidian",
+      "block": "The Mirage",
+      "shots": 50,
+      "minStars": 206,
+      "ceilingStep": 9
     }
   ]
 }
