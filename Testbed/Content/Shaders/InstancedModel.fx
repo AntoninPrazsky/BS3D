@@ -3231,10 +3231,9 @@ static const float StoneMottle = 0.35;
 //⚠ The ENVIRONMENT is NOT cut with them, and the first build cut it to 0.20 as though "matte" meant "sees
 //no sky". It does not: at this smoothness the reflection is blurred all the way to the sky's average, so
 //what this term delivers is diffuse SKYLIGHT, which is most of what lights a real rock outdoors. Cutting
-//it made the rock the only ball in the game that ignored the dome - invisible in the map editor, whose
-//ball renderers carry a much stronger specular ambient than the Testbed's (measured: a yellow ball there
-//comes back with seven times the blue channel). A rock read black there while every colour around it was
-//washed with sky. Blurred, yes; blind, no.
+//it made the rock the only ball in the game that ignored the dome, and it read near-black in the map
+//editor while every colour around it was washed with sky. At 0.55 the editor and the Testbed agree on it
+//(117/100/81 against 106/94/79, same level file and the same D1 view). Blurred, yes; blind, no.
 static const float StoneBroadHighlight = 0.22;
 static const float StoneEnvironment = 0.55;
 static const float StoneSmoothness = 0.25;
