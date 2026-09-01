@@ -124,6 +124,7 @@ namespace Prazsky.BS3D.Physics
                             {
                                 BallReference = bodyReference,
                                 Type = staticBalls[x, z, level].Type,
+                                Kind = staticBalls[x, z, level].Kind,
                                 ArrayPosition = new(x, z, level)
                             };
 

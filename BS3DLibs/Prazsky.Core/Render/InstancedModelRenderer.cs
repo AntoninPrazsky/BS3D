@@ -133,6 +133,9 @@ namespace Prazsky.Core.Render
         private EffectParameter _porcelainCrackFrequencyParam;
         private EffectParameter _porcelainCrackWidthParam;
         private EffectParameter _porcelainGlazeParam;
+        private EffectParameter _stoneGrainFrequencyParam;
+        private EffectParameter _stoneGrainContrastParam;
+        private EffectParameter _stoneRoughnessParam;
         private EffectTechnique _cityTechnique;
         private EffectParameter _cityWindowBrightnessParam;
 
@@ -594,6 +597,27 @@ namespace Prazsky.Core.Render
         public float PorcelainGlaze { get; set; } = 0.9f;
 
         /// <summary>
+        /// Wave count of a <see cref="BallShading.Stone"/> ball's mineral grain over the ball — how coarse the
+        /// granite is cut. High, because a grain is what separates rock from a grey ball: at a low count the
+        /// speckle turns into blotches and the thing reads as a mouldy marble.
+        /// </summary>
+        public float StoneGrainFrequency { get; set; } = 14f;
+
+        /// <summary>
+        /// How far the grains carry from the stone's own grey, towards black one way and towards a pale quartz
+        /// the other. The one dial that decides whether a rock is a <i>rock</i> or a grey sphere, and the only
+        /// figure this shading spends anything on.
+        /// </summary>
+        public float StoneGrainContrast { get; set; } = 0.55f;
+
+        /// <summary>
+        /// Amplitude of the coarse lumpy relief, in world units — the surface's own roughness, tilting the
+        /// normal the way the vinyl's moulding does. Larger than any other ball's figure, because it is the
+        /// only unfinished surface in the set: everything else here was cast, blown, wound, ground or glazed.
+        /// </summary>
+        public float StoneRoughness { get; set; } = 0.06f;
+
+        /// <summary>
         /// How much of its own color the surface radiates, independent of any light falling on it.
         /// Deliberately not occluded: a light source buried inside a pile is the one that should still
         /// show, glowing out past its neighbors.
@@ -919,6 +943,9 @@ namespace Prazsky.Core.Render
             _porcelainCrackFrequencyParam = _effect.Parameters["PorcelainCrackFrequency"];
             _porcelainCrackWidthParam = _effect.Parameters["PorcelainCrackWidth"];
             _porcelainGlazeParam = _effect.Parameters["PorcelainGlaze"];
+            _stoneGrainFrequencyParam = _effect.Parameters["StoneGrainFrequency"];
+            _stoneGrainContrastParam = _effect.Parameters["StoneGrainContrast"];
+            _stoneRoughnessParam = _effect.Parameters["StoneRoughness"];
             _cityTechnique = _effect.Techniques["InstancedCity"];
             _cityWindowBrightnessParam = _effect.Parameters["CityWindowBrightness"];
             _cityWindowTimeParam = _effect.Parameters["CityWindowTime"];
@@ -985,6 +1012,7 @@ namespace Prazsky.Core.Render
             "InstancedModelPlasma",   //BallShading.Plasma
             "InstancedModelLava",     //BallShading.Lava
             "InstancedModelPorcelain",//BallShading.Porcelain
+            "InstancedModelStone",    //BallShading.Stone
         };
 
         /// <summary>
@@ -1286,6 +1314,12 @@ namespace Prazsky.Core.Render
                         _porcelainCrackFrequencyParam.SetValue(PorcelainCrackFrequency);
                         _porcelainCrackWidthParam.SetValue(PorcelainCrackWidth);
                         _porcelainGlazeParam.SetValue(PorcelainGlaze);
+                        break;
+
+                    case BallShading.Stone:
+                        _stoneGrainFrequencyParam.SetValue(StoneGrainFrequency);
+                        _stoneGrainContrastParam.SetValue(StoneGrainContrast);
+                        _stoneRoughnessParam.SetValue(StoneRoughness);
                         break;
 
                     case BallShading.Lava:

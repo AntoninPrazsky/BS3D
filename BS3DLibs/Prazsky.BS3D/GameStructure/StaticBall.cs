@@ -7,9 +7,16 @@ namespace Prazsky.BS3D.GameStructure
     {
         public BallType Type { get; }
 
-        public StaticBall(Vector3 position, BallType type)
+        /// <summary>
+        /// What this ball IS, beside what colour it is (#323) — <see cref="BallKind.Normal"/> for everything
+        /// authored before kinds existed, which is what an absent <c>"k"</c> in a map file means.
+        /// </summary>
+        public BallKind Kind { get; }
+
+        public StaticBall(Vector3 position, BallType type, BallKind kind = BallKind.Normal)
         {
             Type = type;
+            Kind = kind;
             Position = position;
             BasicEffectParams = BasicEffectParamsProvider.GetEffectByType(type);
 

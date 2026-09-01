@@ -253,7 +253,20 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Has the field just been emptied? That is the goal of a level: release every ball so it falls.
+        /// Has the field just been emptied of everything a shot can reach? That is the goal of a level.
+        /// <para>
+        /// <b>It asks for the matchable count and not for the ball count</b> (#323), and the difference is the
+        /// whole of what a ball that no colour removes costs. Against <c>GetBallsCount</c> a level holding one
+        /// rock is never cleared: the player runs out of things to shoot at, the field still has a ball in it,
+        /// and the level simply does not end. The out-of-shots test in <see cref="CheckLevelLost"/> reads the
+        /// same count for the same reason and would then declare that level lost instead — two conditions,
+        /// one wrong number, opposite failures.
+        /// </para>
+        /// <para>
+        /// What is left standing when the count reaches zero is dropped rather than left hanging over the
+        /// celebration. <see cref="BallsConstraintsBuilder.ReleaseAllBalls"/> is exactly the right call and not
+        /// a blunt one: by construction nothing matchable remains, so "everything" IS the rocks.
+        /// </para>
         /// <para>
         /// Tested only here, on a landing, which is the one thing that can empty the field — and testing it
         /// anywhere else would be worse than redundant. Polling it per frame would declare a level authored
@@ -269,7 +282,14 @@ namespace BS3D.Screens
         /// </summary>
         private void CheckLevelCleared()
         {
-            if (LevelDecided || _map.GetBallsCount() > 0) return;
+            if (LevelDecided || _map.GetMatchableBallsCount() > 0) return;
+
+            //Cut the rocks loose so the field actually empties. They fall, drain and are culled through the
+            //path every released ball already takes, and they score nothing: the player did not clear them,
+            //they merely stopped having anything to hang from. Costs nothing on a level with no rocks in it —
+            //the walk finds an empty map and releases zero.
+            if (_map.GetBallsCount() > 0)
+                BallsConstraintsBuilder.ReleaseAllBalls(_physicsBalls, _map, _world.Simulation, _fallingBalls);
 
             int bonus = _score.AwardCompletionBonus();
             _clearedCountdown = LEVEL_CLEARED_BEAT;
@@ -429,7 +449,10 @@ namespace BS3D.Screens
             //The budget spent with the field uncleared — but only once every shot has RESOLVED, so the last ball
             //fired has had its chance to clear. A ball still in flight could be that chance, and a loss called
             //beneath it would steal the win. "Resolved" is the load-bearing word: see AnyShotUndecided.
-            if (_score.OutOfShots && !AnyShotUndecided() && _map.GetBallsCount() > 0)
+            //
+            //"Uncleared" is the MATCHABLE count, the same one CheckLevelCleared reads and for the same reason
+            //(#323): rocks left hanging are not a level unfinished, they are a level with rocks in it.
+            if (_score.OutOfShots && !AnyShotUndecided() && _map.GetMatchableBallsCount() > 0)
                 LoseLevel(LevelFailure.OutOfBalls,
                     $"budget {LevelShotBudget(_levelIndex)?.ToString() ?? "unlimited"}, fired {_score.ShotsFired}"
                     + $", {_shotBalls.Count} spent ball(s) not yet culled");
@@ -684,6 +707,12 @@ namespace BS3D.Screens
         /// already dead weight and could be dropped from the queue early. It is deliberately <b>not</b>: that
         /// changes which levels are solvable at all, which makes it a difficulty decision rather than this fix.
         /// </para>
+        /// <para>
+        /// <b>A ball only counts here if its kind lets it be matched</b> (#323). A rock wears a colour because
+        /// every cell does, and counting it would keep that colour alive in the queue with nothing in the
+        /// cluster able to complete it — the exact waste this whole census exists to prevent, arriving through
+        /// the one ball that cannot be shot down.
+        /// </para>
         /// </summary>
         private void RecountBallTypes()
         {
@@ -697,7 +726,7 @@ namespace BS3D.Screens
                     for (int z = 0; z < size.Z; z++)
                     {
                         StaticBall ball = balls[x, z, level];
-                        if (ball == null) continue;
+                        if (ball == null || !BallKinds.Matchable(ball.Kind)) continue;
 
                         int index = (int)ball.Type - 1;
                         if (index >= 0 && index < _ballsOfType.Length) _ballsOfType[index]++;

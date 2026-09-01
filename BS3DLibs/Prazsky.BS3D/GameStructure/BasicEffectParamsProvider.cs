@@ -49,6 +49,28 @@ namespace Prazsky.BS3D.GameStructure
         public static BasicEffectParams ColorOlive = new BasicEffectParams(new Vector3(0.12f, 0.15f, 0.006f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
 
         /// <summary>
+        /// The rock's material (#324) — <b>not a fourteenth colour</b>. It is not returned by
+        /// <see cref="GetEffectByType"/> and nothing indexes it by <see cref="BallType"/>: a rock is a
+        /// <see cref="BallKind"/>, and <c>BallRenderSet.DrawRocks</c> is its one reader.
+        /// <para>
+        /// It is here rather than as constants beside the stone shading because this is where a ball's
+        /// <i>material</i> lives, and because leaving it out is what the first build of the rock did — the draw
+        /// passed <c>null</c> and the ball fell back on <c>DefaultLighting</c>'s ambient, which is a dim BLUE
+        /// (0.053, 0.099, 0.182) meant for the scene at large. Seen from the island the player looks UP at the
+        /// cluster, which is its unlit side, where the ambient is the only light there is — so the rocks came
+        /// out near-black and faintly blue, next to the 8-ball rather than next to the stone they are.
+        /// </para>
+        /// <para>
+        /// The ambient is warm and <b>the strongest in this file</b>, at roughly twice the silver's. That is
+        /// not a thumb on the scale: it is the floor of the one ball here that radiates almost none of its own
+        /// light, so its unlit side has to come from somewhere, and skylight on rock is where a real one gets
+        /// it. Warm for the same reason the body tint is — Type11 is a cool slate and is the one type a grey
+        /// ball can be taken for.
+        /// </para>
+        /// </summary>
+        public static BasicEffectParams Stone = new BasicEffectParams(new Vector3(0.26f, 0.245f, 0.215f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
+
+        /// <summary>
         /// Multiplier applied to the ball model's material diffuse colors to give the ball its type color.
         /// (Historically the type color came from a broad colored specular sheen; with a proper glossy
         /// highlight the type has to tint the diffuse patches instead.)

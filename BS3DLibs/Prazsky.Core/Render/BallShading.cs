@@ -131,6 +131,27 @@ namespace Prazsky.Core.Render
         /// table of per-type constants.
         /// </para>
         /// </summary>
-        Porcelain = 9
+        Porcelain = 9,
+
+        /// <summary>
+        /// Rough granite (#324): a speckled, unpolished stone — a grey body under a coarse lumpy surface, shot
+        /// through with the light and dark mineral grains a cut granite shows. Drawn by
+        /// <c>InstancedModelStone</c>.
+        /// <para>
+        /// <b>It is the one shading here that has no type colour at all</b>, and that is what it is for. Every
+        /// other member takes the ball's tint and does something with it, because every other member draws one
+        /// of the thirteen colours the player matches. This one draws the ball that <i>cannot</i> be matched
+        /// (<c>Prazsky.BS3D.GameStructure.BallKind.Rock</c>), and a rock wearing a colour would be a lie the
+        /// player acts on. So the stone's own grey is a constant of the shading and the per-draw tint is
+        /// ignored.
+        /// </para>
+        /// <para>
+        /// It is also the one shading a <b>map cannot name</b>: it is not in <c>BallStyle</c>, because the
+        /// style is what a level file says its balls are made of and this is what a single ball IS. A rock is
+        /// drawn as stone on a bubble level and on a lava level alike — the kind opts out of the style, which
+        /// is the only way "that one is different" survives ten materials.
+        /// </para>
+        /// </summary>
+        Stone = 10
     }
 }

@@ -19,6 +19,20 @@ namespace Prazsky.BS3D.GameStructure.DataBags
 
         [JsonPropertyName("t")]
         public BallType Type { get; set; }
+
+        /// <summary>
+        /// What the ball is, beside its colour (#323). <b>Written only when it is not
+        /// <see cref="BallKind.Normal"/></b>, and absent means normal — so every map and level authored before
+        /// kinds existed round-trips byte for byte, and an older build opens a new file and plays it with
+        /// ordinary balls rather than refusing it. That is the same decision #258 took for the ball style, and
+        /// it carries the same caveat: an older build playing a level whose rocks are ordinary balls has
+        /// changed the level, not only its look. The format is not versioned for it because a level that
+        /// <i>needs</i> the kind is a level whose own design says so, and the campaign's shipped files carry
+        /// none.
+        /// </summary>
+        [JsonPropertyName("k")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public BallKind Kind { get; set; }
     }
 
     public class BallPositionTypes

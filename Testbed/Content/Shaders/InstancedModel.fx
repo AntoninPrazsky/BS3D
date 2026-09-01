@@ -3121,6 +3121,254 @@ technique InstancedModelPorcelain
     }
 };
 
+//===================================================================================================
+//ROUGH GRANITE (#324) - the ball that is NOT one of the thirteen colours.
+//
+//Every other ball technique in this file takes PatternPrimaryColor and does something with it, because
+//every other one draws a ball the player matches. This one draws the ROCK (BallKind.Rock): a ball that
+//matches with nothing and that no colour removes. So it ignores the tint entirely and is the only
+//shading here whose colour is a constant - and that is a rule, not a saving. A rock wearing one of the
+//thirteen colours is a lie the player acts on: they would aim a colour at it and it would refuse.
+//
+//It is also the one shading a MAP cannot name. BallStyle says what a level's balls are MADE of; the rock
+//opts out of it and is stone on a bubble level and on a lava level alike, because "that one is
+//different" has to survive all ten materials or it is not a signal.
+//
+//What makes it read as stone, in the order the eye picks it up:
+//  1. It is ROUGH. Every other ball in this game was cast, blown, wound, ground or glazed, and all of
+//     them are smooth spheres with a figure drawn on them. This one carries the largest relief in the
+//     file, so its silhouette is still a perfect circle (nothing here builds geometry) but its shading
+//     is broken all over. That, not the colour, is what separates it from a grey marble at play
+//     distance.
+//  2. It is SPECKLED. Granite is an aggregate of grains large enough to see: pale quartz and feldspar,
+//     dark mica and hornblende. Three high-frequency waves MULTIPLIED give a field concentrated near
+//     zero with isolated peaks of both signs, which is a fleck field - a sum would give creases, which
+//     is what the marble's veining is made of and what this must not look like.
+//  3. It is MATTE. No polish, no pinpoint, almost no environment. The marble is what a stone looks like
+//     when it has been worked; this is what it looks like when it has not.
+//
+//And it does NOT BREATHE. BallRenderSet draws the rocks in their own bucket plane at PulseDepth zero, so
+//contract point 2 comes out as a STEADY floor: a rock stands dead still inside a cluster that pulses,
+//which is worth more than any figure drawn on it, because motion is the first thing the eye reads and its
+//absence names the odd one out across a whole field, at any distance and under any dome.
+//
+//⚠ It is NOT drawn without emission, and the reason is worth reading before anyone takes it back out. The
+//player looks UP at the cluster from the island - at its UNLIT side - and every other ball lights that
+//side by two routes this material has neither of: its own glow, and TranslucencyStrength, the key light
+//carried THROUGH a hollow shell from behind. Stone is solid and does not glow, so a physically honest rock
+//was the only genuinely dark ball in the frame and read as the 8-ball. Raising the body tint did not fix
+//it and neither did the strongest ambient in the palette; those two missing terms were worth about as much
+//as everything else together. The emission stands in for the translucency. What it must never buy back is
+//the beat.
+//===================================================================================================
+
+//Wave count of the mineral grain over the ball. High: a grain is what separates rock from a grey ball,
+//and at a low count the speckle turns into blotches and reads as a mouldy marble.
+float StoneGrainFrequency;
+
+//How far a grain carries from the body grey - towards black one way and a pale quartz the other. The one
+//figure this shading spends anything on, which is why the C# side states it.
+float StoneGrainContrast;
+
+//Amplitude of the coarse relief, in world units. The largest ball figure in this file; see point 1.
+float StoneRoughness;
+
+//The stone itself, in sRGB like every other colour written here.
+//
+//⚠ THE VALUE IS THE WHOLE READ AND IT HAS TO BE HIGH, and the first attempt at this style got it wrong by
+//being physically reasonable: a 0.42 grey is a fair granite albedo and it came out BLACK on screen, next to
+//the 8-ball rather than next to the silver. Two things take a rock down that no other ball here pays:
+//it is the only ball in the game with NO EMISSION (every other one adds 0.3-0.5 of its own colour on top of
+//its shading, so the whole cluster around this one is lifted), and it is the only one that barely mirrors
+//the sky (see StoneEnvironment). A neutral surface next to thirteen lit ones reads far darker than its
+//albedo says, and the tonemap then compresses what is left. So this is a LIGHT stone: measured against the
+//cluster, not against a rock.
+//
+//Warm, deliberately: Type11 (silver) is a COOL slate at (0.5, 0.53, 0.58) and is the one type a grey ball
+//can be confused with. Same value, opposite hue, and the two never meet.
+static const float3 StoneBody = float3(0.63, 0.595, 0.545);
+
+//What the grains are: the pale one is quartz catching the light, the dark one mica. Asymmetric on purpose -
+//a real granite's dark minerals sit further from the matrix than its light ones, and a symmetric pair reads
+//as noise rather than as an aggregate.
+static const float3 StoneGrainPale = float3(0.90, 0.89, 0.86);
+static const float3 StoneGrainDark = float3(0.17, 0.16, 0.155);
+
+//The three directions the grain waves run along, and the ratios between their frequencies. Irrational
+//ratios so the product never settles into a repeating lattice, and none of them near an axis of the
+//sphere so the grains do not agree with the mesh's own poles - the LOD ladder's coarsest spheres would
+//otherwise have something to line up with.
+static const float3 StoneGrainAxisA = float3(0.63, 0.49, -0.60);
+static const float3 StoneGrainAxisB = float3(-0.42, 0.77, 0.48);
+static const float3 StoneGrainAxisC = float3(0.51, -0.38, 0.77);
+static const float3 StoneGrainRatio = float3(1.0, 1.137, 0.874);
+
+//How hard the fleck field is squeezed before it counts as a grain. The product of three waves spends most
+//of its range near zero, so this is what turns "mostly nothing with occasional peaks" into discrete
+//grains with clean matrix between them rather than a continuous haze.
+static const float StoneGrainGate = 2.6;
+static const float StoneGrainSharpness = 1.7;
+
+//The coarse lumps, as a fraction of the relief: how much of the roughness is broad shaping (a chipped
+//boulder) against fine pitting (weathering). Both are needed - fine alone reads as sandpaper on a
+//perfect sphere, and that is a texture rather than a rock.
+static const float StoneLumpShare = 0.62;
+
+//How far the lump field displaces the phase the grain is read at, in radians. Enough to move a grain by
+//most of its own width, which is what it takes to destroy the lattice; much more and the grains smear
+//into streaks and the aggregate turns into a marble's veining.
+static const float StoneGrainWarp = 2.2;
+
+//How much the lumps darken the body between the grains. Small - it is there so a rock is not one flat
+//grey, and anything more competes with the grain itself. Free: the field is evaluated once for all three
+//of its jobs.
+static const float StoneMottle = 0.35;
+
+//Matte, and the three figures do not all say the same thing. The broad direct highlight is cut hard and
+//SMOOTHNESS is cut hardest: short of 1 it stops Fresnel raising a mirror rim along the silhouette, which
+//on a sphere is most of what can be seen of one and is exactly what the polished marble is FOR.
+//
+//⚠ The ENVIRONMENT is NOT cut with them, and the first build cut it to 0.20 as though "matte" meant "sees
+//no sky". It does not: at this smoothness the reflection is blurred all the way to the sky's average, so
+//what this term delivers is diffuse SKYLIGHT, which is most of what lights a real rock outdoors. Cutting
+//it made the rock the only ball in the game that ignored the dome - invisible in the map editor, whose
+//ball renderers carry a much stronger specular ambient than the Testbed's (measured: a yellow ball there
+//comes back with seven times the blue channel). A rock read black there while every colour around it was
+//washed with sky. Blurred, yes; blind, no.
+static const float StoneBroadHighlight = 0.22;
+static const float StoneEnvironment = 0.55;
+static const float StoneSmoothness = 0.25;
+
+//The coarse shaping field: rectified octaves, the marble's construction at a quarter of its frequency.
+//Amplitudes sum to one so StoneRoughness stays the peak height in world units.
+float StoneLumps(float3 direction, float footprint)
+{
+    return 0.44 * abs(ReliefOctave(direction, float3(0.71, 0.52, -0.47), 3.5, footprint))
+        + 0.28 * abs(ReliefOctave(direction, float3(-0.36, 0.83, 0.42), 6.0, footprint))
+        + 0.18 * abs(ReliefOctave(direction, float3(0.55, -0.44, 0.71), 11.0, footprint))
+        + 0.10 * abs(ReliefOctave(direction, float3(-0.82, -0.31, 0.48), 19.0, footprint));
+}
+
+float4 StonePS(PatternVertexShaderOutput input) : COLOR
+{
+    float radius = max(length(input.ObjectPosition), 1e-5);
+    float3 direction = input.ObjectPosition / radius;
+
+    //Contract point 1, first and branchless, for the reason PatternPS gives.
+    float dissolveNoise = DissolveNoise(floor(input.Position.xy / DissolvePixelSize));
+    clip(input.Dissolve >= 0 ? dissolveNoise - input.Dissolve : -input.Dissolve - dissolveNoise);
+
+    float footprint = (length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition))) / radius;
+
+    //The coarse shaping field, first, because the grain is warped by it below. It does triple duty: it
+    //shapes the surface, it mottles the body, and it breaks the grain's lattice - and it is evaluated once.
+    float lumps = StoneLumps(direction, footprint);
+
+    //Contract point 6: the grain is in OBJECT space, so it turns with the ball. It is a stronger rotation
+    //cue than the gores it replaces, because it is aperiodic - a rolling beach ball shows the same five
+    //stripes coming round again, and there is no such thing as coming round again on this one.
+    float3 grainFrequency = StoneGrainFrequency * StoneGrainRatio;
+
+    //⚠ WARPED BY THE LUMPS, and without this the ball is a GOLF BALL. Three pure waves multiplied give a
+    //regular three-dimensional lattice of blobs, and a lattice of identical dimples in even rows is exactly
+    //what a golf ball is - it was the first thing wrong with this style after the value. Displacing the
+    //phase each wave is read at, by a field an octave or two coarser, is the marble's own construction for
+    //its veins (warp the INPUT, not the output) and it costs nothing here because the field is already in
+    //hand. What comes out is granite's actual figure: patches of coarser and finer grain, none of them
+    //lining up with the next.
+    float warp = (lumps - 0.5) * StoneGrainWarp;
+
+    //⚠ BAND-LIMITED ONCE, ON THE PRODUCT, and ReliefOctave is deliberately NOT used to build it. Every other
+    //figure in this file is a SUM of octaves, where per-octave attenuation is the right and only construction
+    //(see ReliefOctave's own comment). A product is not a sum: three attenuated factors multiply their
+    //attenuations, so a field that should fade to 45 % at a given distance fades to 45³ = 9 % instead and the
+    //grain is simply gone one ball-width from the camera. Measured, not reasoned about - the first build of
+    //this style drew no grain at all at play distance and this was why.
+    //
+    //What the one factor is measured against is the SUM of the three frequencies, because that is where a
+    //product's finest content actually lies: sin(a)·sin(b) carries a+b as well as a-b.
+    float grainBandLimit = saturate(1 - footprint * (grainFrequency.x + grainFrequency.y + grainFrequency.z)
+        / 3.14159265);
+
+    float fleck = sin(dot(direction, StoneGrainAxisA) * grainFrequency.x + warp)
+        * sin(dot(direction, StoneGrainAxisB) * grainFrequency.y - warp * 1.31)
+        * sin(dot(direction, StoneGrainAxisC) * grainFrequency.z + warp * 0.77)
+        * grainBandLimit;
+
+    //Two sides of one field: the peaks above zero are the pale mineral, the troughs below it the dark
+    //one. Reading both off the SAME product is what keeps them interlocked the way an aggregate's
+    //grains are, instead of two speckle patterns laid over each other.
+    float pale = pow(saturate(fleck * StoneGrainGate), StoneGrainSharpness);
+    float dark = pow(saturate(-fleck * StoneGrainGate), StoneGrainSharpness);
+
+    float3 color = SrgbToLinear(StoneBody) * (1 - StoneMottle * lumps);
+
+    color = lerp(color, SrgbToLinear(StoneGrainPale), pale * StoneGrainContrast);
+    color = lerp(color, SrgbToLinear(StoneGrainDark), dark * StoneGrainContrast);
+
+    //The surface. Lumps for the shaping and the fleck field for the pitting, in one height field so a single
+    //perturbation covers both - the vinyl skin's construction, at several times its amplitude. The fleck is
+    //signed here rather than split into its two minerals: a pit and a raised grain are both real, and the
+    //colour above already decided which mineral is which.
+    //
+    //The LUMPS are what survives distance. They run at 3.5 to 19 waves where the grain runs at three times
+    //that, so at the stand-off a level is played from the grain has faded out and this has not - which is the
+    //whole reason the roughness is not left to the speckle. A rock has to still be a rock across the arena.
+    float height = (StoneLumpShare * lumps + (1 - StoneLumpShare) * fleck) * StoneRoughness;
+
+    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
+
+    //Matte, and every figure of it stated rather than inherited: this is the only ball in the set that
+    //must not pick the dome up, and a smoothness left at 1 would put a mirror rim round it.
+    SurfaceSpecular surface;
+    surface.Highlight = StoneBroadHighlight;
+    surface.Environment = StoneEnvironment;
+    surface.Smoothness = StoneSmoothness;
+
+    float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(color, 1), 1, 1, surface);
+
+    float occlusion = SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
+
+    //Contract point 2, answered with ZERO and this is the one technique that may. BallEmission is still
+    //called rather than dropped, and with the stone's own colour: EmissiveStrength is a renderer uniform,
+    //so a rock plane drawn with it left at some other style's figure would otherwise glow grey, and this
+    //way the answer is arithmetic instead of a promise about a caller. See the header.
+    shaded.rgb += BallEmission(SrgbToLinear(StoneBody), input.WorldPosition, occlusion);
+
+    //Contract point 3, in BOTH meanings, and PatternPS's arithmetic deliberately. A rock is part of the
+    //cluster the wave walks through, and it has to carry both: the landing wave, because a wave that
+    //stops at a rock tells the player the rock is not connected when it is, and the ceiling's ALARM,
+    //because every ball in that wave has to say the same thing - a field of rocks staying calm while the
+    //glass comes down would be the one place the alarm could be missed.
+    [branch]
+    if (RippleStrength > 0)
+    {
+        float amount = abs(input.Ripple);
+
+        //The flare is white here with none of the ball's hue carried into it, and RippleWhiten is not
+        //consulted: that term exists to lift the channels a COLOURED ball is missing, and a neutral grey
+        //has none missing. What it means for a rock is simply that it lights up.
+        float3 lit = shaded.rgb + RippleStrength * amount;
+        float3 alarmed = lerp(shaded.rgb, RippleAlarmColor * RippleAlarmBrightness, amount * RippleAlarmCoverage);
+
+        shaded.rgb = input.Ripple < 0 ? alarmed : lit;
+    }
+
+    //Contract point 5.
+    shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
+
+    return ApplyKillPlaneFade(shaded, input.WorldPosition);
+}
+
+technique InstancedModelStone
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL PatternVS();
+        PixelShader = compile PS_SHADERMODEL StonePS();
+    }
+};
+
 //Detail texturing: a texture that only modulates the existing material colors
 //(DetailStrength 0 = untextured look), mapped either through the model's own UVs
 //(InstancedModelDetailUV — required for objects that move, or the texture would swim

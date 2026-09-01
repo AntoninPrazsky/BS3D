@@ -203,7 +203,8 @@ namespace Prazsky.BS3D.Physics
             //this walk used to write out component by component
             frame.AddOriented(ball.Type, drawnAt.ToXna(), orientation.ToXna(),
                 EaseOcclusion(ball, occlusionTarget, ease),
-                _advanceRipple == null ? 0f : _advanceRipple(ball, elapsedSeconds));
+                _advanceRipple == null ? 0f : _advanceRipple(ball, elapsedSeconds),
+                ball.Kind);
         }
 
         /// <summary>
