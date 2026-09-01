@@ -581,6 +581,57 @@ namespace Prazsky.BS3D
         /// </summary>
         private const float PORCELAIN_EMISSION = 0.36f;
 
+        /// <summary>
+        /// Wave count of a rock's mineral grain (#324) — but the figure is a <b>fleck field</b>, a product of
+        /// three waves at about this count, so what it draws is roughly three times as fine as the number
+        /// suggests.
+        /// <para>
+        /// It was 30, on the argument that grains too small and too many to count are what says "aggregate".
+        /// True of a rock held in the hand and false of one seen across the arena: the band limit that keeps a
+        /// fine figure from crawling had taken the whole grain out at any distance a level is played from, and
+        /// the ball drew as a plain grey sphere. What identifies a rock at play distance is its value, the
+        /// absence of gores, the absence of a heartbeat and the <i>lumps</i> — the grain is for the close
+        /// range, where the drop cinematic, precise aim and the map editor look at one.
+        /// </para>
+        /// </summary>
+        private const float STONE_GRAIN_FREQUENCY = 14f;
+
+        /// <summary>
+        /// How far a grain carries from the body grey. Strong — over half — because it is doing on its own the
+        /// job the thirteen tints do for every other ball: this is the one ball in the game that has to be
+        /// recognised without a colour.
+        /// </summary>
+        private const float STONE_GRAIN_CONTRAST = 0.55f;
+
+        /// <summary>
+        /// Peak height of a rock's relief, in world units — six times the vinyl's moulding and the largest ball
+        /// figure in the set. A rock is the only <i>unfinished</i> surface here; everything else was cast,
+        /// blown, wound, ground or glazed, and reads as smooth on purpose.
+        /// </summary>
+        private const float STONE_ROUGHNESS = 0.06f;
+
+        /// <summary>
+        /// What a rock radiates in its own grey. <b>It is drawn at <c>PulseDepth</c> zero, so this is a steady
+        /// floor and never a beat</b> — the rock is the one ball in the game that does not breathe, and that,
+        /// not any figure drawn on a sphere, is what names it across a whole field: motion is the first thing
+        /// the eye reads and this is the only ball without it.
+        /// <para>
+        /// <b>It was zero, on the argument that a rock is dead and radiates nothing, and that was measured
+        /// wrong three times before the cause was found.</b> The player looks UP at the cluster from the
+        /// island, at its unlit side — and every other ball lights that side by two routes a rock has neither
+        /// of: its own emission, and <c>TranslucencyStrength</c>, the light carried THROUGH a hollow shell from
+        /// the key light behind it. A rock is solid and does not glow, so it was the only genuinely dark ball
+        /// in the frame and it read as the 8-ball. Raising the body tint did nothing, and neither did the
+        /// strongest ambient in the palette; the two missing terms were worth about as much as everything else
+        /// put together.
+        /// </para>
+        /// <para>
+        /// So it is set <i>above</i> the marble's 0.32 rather than below it, and the figure is standing in for
+        /// the translucency the material cannot have. What it must never buy back is the beat.
+        /// </para>
+        /// </summary>
+        private const float STONE_EMISSION = 0.45f;
+
         #endregion
 
         #region Neighbour-based ambient occlusion (issue #40)
@@ -685,6 +736,17 @@ namespace Prazsky.BS3D
         //(#152, so a colour added cannot be forgotten) and LodCount off the LOD table's own length.
         private static readonly int STILL_PLANE_STRIDE = TYPE_COUNT * LodCount;
 
+        //And a THIRD region after those two planes, for the rocks (#324), on exactly the argument the still
+        //plane's comment above makes: what a rock is drawn by — the technique, the emission, the pulse depth —
+        //is a per-RENDERER uniform, so "this ball is stone" cannot travel with the ball either. It has to be
+        //its own draw.
+        //
+        //It is a region and not a plane, and the difference is the point: a rock has no COLOUR, so there is
+        //nothing to bucket per type and this is LodCount buckets rather than TYPE_COUNT × LodCount. That is
+        //the same fact the shading rests on — the stone ignores the per-draw tint — arriving here as four
+        //draw calls instead of fifty-two. A rock is never loaded in the cannon, so it needs no still twin.
+        private static readonly int ROCK_REGION_START = STILL_PLANE_STRIDE * 2;
+
         private readonly ModelInstance[][] _buckets;
         private readonly int[] _counts;
         private readonly int[] _lodTotals;
@@ -763,9 +825,10 @@ namespace Prazsky.BS3D
 
             _pulseDepth = ripples ? PULSE_DEPTH_RIPPLING : PULSE_DEPTH_RESTING;
 
-            //Two planes: the breathing balls, then the still ones. See STILL_PLANE_STRIDE.
-            _buckets = new ModelInstance[STILL_PLANE_STRIDE * 2][];
-            _counts = new int[STILL_PLANE_STRIDE * 2];
+            //Two planes: the breathing balls, then the still ones (see STILL_PLANE_STRIDE), and the rocks'
+            //own region after both of them (see ROCK_REGION_START).
+            _buckets = new ModelInstance[ROCK_REGION_START + LodCount][];
+            _counts = new int[ROCK_REGION_START + LodCount];
             _lodTotals = new int[LodCount];
             _lodDistanceSquared = new float[LOD_MIN_PIXEL_RADIUS.Length];
         }
@@ -1133,10 +1196,73 @@ namespace Prazsky.BS3D
                 _renderers[lod].DissolvePixelSize = dissolvePixels;
             }
 
+            //The rocks first, and OPAQUE first is the reason (#324): on a transparent style the films below are
+            //blended over whatever is already in the target, so a rock drawn after them would be laid on top of
+            //the bubbles it stands behind. It costs nothing on the opaque styles, where the order does not
+            //matter, so it is stated once here rather than made conditional.
+            DrawRocks(camera);
+
             //Asked as the question it IS — does light get through this material — and not as "is this the
             //bubble" (#304). The two were the same answer only while the bubble was the one transparent style.
             if (BallStyles.IsTransparent(_style)) DrawShell(camera);
             else DrawBoth(camera);
+        }
+
+        /// <summary>
+        /// The rocks (#324): one instanced call per LOD that has any, drawn as stone whatever the level's balls
+        /// are made of.
+        /// <para>
+        /// <b>A rock opts out of the map's <see cref="BallStyle"/>, and that is the whole reason this is a draw
+        /// of its own.</b> The shading, the emission and the pulse depth are all per-renderer uniforms, so
+        /// "this one ball is stone and does not breathe" cannot travel on the instance — the same argument the
+        /// still plane rests on (#252), arriving a second time. What it buys is that the odd ball out reads as
+        /// odd on all ten materials: a rock among glass bubbles and a rock among molten crusts are the same
+        /// rock, which is what makes it a signal the player can learn once.
+        /// </para>
+        /// <para>
+        /// The renderers are put back to the level's style afterwards through <see cref="ApplyStyle"/> rather
+        /// than by restoring the fields this touched. Same discipline, one fewer thing to forget: what a style
+        /// is, is exactly what that method pushes.
+        /// </para>
+        /// </summary>
+        private void DrawRocks(ICamera camera)
+        {
+            bool any = false;
+            for (int lod = 0; lod < LodCount && !any; lod++) any = _counts[ROCK_REGION_START + lod] > 0;
+
+            //A field with no rocks in it — every level shipped today — never touches a renderer for this at
+            //all, so the style stays pushed exactly as it was and this costs one compare per LOD.
+            if (!any) return;
+
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                InstancedModelRenderer renderer = _renderers[lod];
+
+                renderer.Shading = BallShading.Stone;
+                renderer.StoneGrainFrequency = STONE_GRAIN_FREQUENCY;
+                renderer.StoneGrainContrast = STONE_GRAIN_CONTRAST;
+                renderer.StoneRoughness = STONE_ROUGHNESS;
+                renderer.EmissiveStrength = STONE_EMISSION;
+                renderer.PulseDepth = 0f;
+            }
+
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                int bucketIndex = ROCK_REGION_START + lod;
+                int count = _counts[bucketIndex];
+                if (count == 0) continue;
+
+                DrawnCount += count;
+                _lodTotals[lod] += count;
+
+                //No TINT — the stone technique reads none, and handing it a colour is what this kind exists not
+                //to do — but its own material all the same. Passing null for both was the first build's bug:
+                //the effect params carry the AMBIENT, which is the whole of a ball's unlit side, and null falls
+                //back on DefaultLighting's dim blue. See BasicEffectParamsProvider.Stone.
+                _renderers[lod].Draw(camera, _buckets[bucketIndex], count, BasicEffectParamsProvider.Stone, null);
+            }
+
+            ApplyStyle();
         }
 
         /// <summary>
@@ -1307,9 +1433,17 @@ namespace Prazsky.BS3D
         //The one write into the buckets, which stood four times over before #76. Lazy on first use and doubling
         //when full, so nothing is allocated per frame once a scene has settled.
         /// <param name="still">Into the still plane rather than the breathing one — the loaded rounds (#252).</param>
-        internal void Store(int typeIndex, int lod, in ModelInstance instance, bool still = false)
+        internal void Store(int typeIndex, int lod, in ModelInstance instance, bool still = false) =>
+            StoreAt((still ? STILL_PLANE_STRIDE : 0) + typeIndex * LodCount + lod, instance);
+
+        //A rock, into the region that has no colour in it (#324). Its own entry point rather than a flag on
+        //Store, because there is no typeIndex to pass one alongside: a caller that has decided this ball is
+        //stone has thereby decided its colour is not read, and a signature that still asked for one would
+        //invite somebody to believe it mattered.
+        internal void StoreRock(int lod, in ModelInstance instance) => StoreAt(ROCK_REGION_START + lod, instance);
+
+        private void StoreAt(int bucketIndex, in ModelInstance instance)
         {
-            int bucketIndex = (still ? STILL_PLANE_STRIDE : 0) + typeIndex * LodCount + lod;
             ModelInstance[] bucket = _buckets[bucketIndex];
             int count = _counts[bucketIndex];
 
@@ -1374,14 +1508,41 @@ namespace Prazsky.BS3D
         /// <param name="still">True for a ball that must <b>not breathe</b> — the rounds loaded in the cannon
         /// (#252). It cannot be a value on the instance: the pulse is a per-renderer uniform, so this routes the
         /// ball into its own bucket plane and a draw of its own. Everything else leaves it alone.</param>
+        /// <param name="kind">What the ball is beside its colour (#323). A <see cref="BallKind.Rock"/> goes into
+        /// the rock region and is drawn as stone; see <see cref="Route"/>.</param>
         public void Add(BallType type, Vector3 position, in Matrix world, Vector4 occlusion, float dissolve = 0f,
-            float ripple = 0f, bool still = false)
+            float ripple = 0f, bool still = false, BallKind kind = BallKind.Normal)
         {
             int typeIndex = (int)type - 1;
             if (typeIndex < 0 || typeIndex >= BallRenderSet.TYPE_COUNT) return;
 
-            _set.Store(typeIndex, _set.LodFor(Vector3.DistanceSquared(position, _eye)),
+            Route(kind, typeIndex, _set.LodFor(Vector3.DistanceSquared(position, _eye)),
                 new ModelInstance(world, occlusion, dissolve, ripple), still);
+        }
+
+        /// <summary>
+        /// Which bucket region a ball belongs in, by its kind — the one place that knows, so the two entry
+        /// points above cannot disagree about it.
+        /// <para>
+        /// It is a switch on the kind and not a property of it, deliberately: what a kind is <i>drawn</i> as is
+        /// a rendering decision and belongs on this side of the wall, next to the regions it selects between.
+        /// Every special ball type of #256 that gets a look of its own arrives here as one more case.
+        /// </para>
+        /// </summary>
+        private void Route(BallKind kind, int typeIndex, int lod, in ModelInstance instance, bool still)
+        {
+            switch (kind)
+            {
+                case BallKind.Rock:
+                    //Colourless and never loaded in the cannon, so neither the type nor the still plane
+                    //reaches it. See BallRenderSet.DrawRocks.
+                    _set.StoreRock(lod, instance);
+                    break;
+
+                default:
+                    _set.Store(typeIndex, lod, instance, still);
+                    break;
+            }
         }
 
         /// <summary>
@@ -1398,7 +1559,7 @@ namespace Prazsky.BS3D
         /// </para>
         /// </summary>
         public void AddOriented(BallType type, Vector3 position, in Quaternion orientation, Vector4 occlusion,
-            float ripple = 0f)
+            float ripple = 0f, BallKind kind = BallKind.Normal)
         {
             int typeIndex = (int)type - 1;
             if (typeIndex < 0 || typeIndex >= BallRenderSet.TYPE_COUNT) return;
@@ -1409,8 +1570,8 @@ namespace Prazsky.BS3D
             world.M42 = position.Y;
             world.M43 = position.Z;
 
-            _set.Store(typeIndex, _set.LodFor(Vector3.DistanceSquared(position, _eye)),
-                new ModelInstance(world, occlusion, 0f, ripple));
+            Route(kind, typeIndex, _set.LodFor(Vector3.DistanceSquared(position, _eye)),
+                new ModelInstance(world, occlusion, 0f, ripple), still: false);
         }
 
         /// <summary>
@@ -1469,7 +1630,7 @@ namespace Prazsky.BS3D
                         Vector3 position = ball.Position + worldOffset;
                         Add(ball.Type, position, Matrix.CreateTranslation(position),
                             BallRenderSet.OcclusionTarget(occluders, occluderDirectionSum,
-                                airDepth.DepthAt(x, z, level)));
+                                airDepth.DepthAt(x, z, level)), kind: ball.Kind);
 
                         added++;
                     }

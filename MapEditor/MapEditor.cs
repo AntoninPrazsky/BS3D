@@ -290,6 +290,7 @@ namespace MapEditor
                 new(mgKeys.B, SwitchSkyDome, "Switch sky dome (backdrop)"),
                 new(mgKeys.V, SwitchScene, "Switch scene (city/sea/savanna/desert/mountain/meadow/neon)"),
                 new(mgKeys.L, SwitchBallStyle, "Switch ball look (beach vinyl / glass bubble)"),
+                new(mgKeys.K, CycleBallKind, "Switch ball kind (normal / rock)"),
                 new(mgKeys.G, ToggleSceneConfigPanel, "Show/hide scene-config editor"),
 
                 new(mgKeys.F1, SaveJson, "Save map to file (JSON)"),
@@ -335,6 +336,26 @@ namespace MapEditor
             //The +Count keeps the modulo positive when stepping back off type 1
             int index = ((int)_selector.ActiveBallType - 1 + step + BallTypes.Count) % BallTypes.Count;
             SetBallType((BallType)(index + 1));
+        }
+
+        /// <summary>
+        /// Cycles what the next placed ball IS, beside its colour (#323) — normal, or a rock (#324).
+        /// <para>
+        /// A key of its own rather than more entries on the colour cycle, because the two are orthogonal: a
+        /// rock is not a fourteenth colour, and a picker that mixed them would say it was. The colour keys go
+        /// on working while a rock is armed — a rock carries a type like every other cell, nothing reads it,
+        /// and the moment a second kind exists that <i>does</i> (a frozen ball is a coloured ball in ice) the
+        /// two pickers already compose.
+        /// </para>
+        /// </summary>
+        private void CycleBallKind()
+        {
+            BallKind kind = BallKinds.Next(_selector.ActiveBallKind);
+            _selector.ChangeBallKind(kind);
+
+            Info.CustomText = kind == BallKind.Normal
+                ? "Ball kind: normal"
+                : $"Ball kind: {BallKinds.ToName(kind)} (matches with nothing, no colour removes it)";
         }
 
         protected override void LoadContent()

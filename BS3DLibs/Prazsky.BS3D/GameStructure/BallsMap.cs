@@ -65,15 +65,17 @@ namespace Prazsky.BS3D.GameStructure
         /// <param name="stageZ">The Z coordinate in the given level.</param>
         /// <param name="level">Level.</param>
         /// <param name="type">Ball type.</param>
+        /// <param name="kind">What the ball is beside its colour (#323). Normal unless a caller says otherwise.</param>
         /// <returns>Created static ball.</returns>
-        public StaticBall PutBallAt(byte stageX, byte stageZ, byte level, BallType type = BallType.Type4)
+        public StaticBall PutBallAt(byte stageX, byte stageZ, byte level, BallType type = BallType.Type4,
+            BallKind kind = BallKind.Normal)
         {
             if (stageX >= StageSizeX || stageZ >= StageSizeZ || level >= Levels) throw new ArgumentOutOfRangeException($"Invalid requested ball position, array size is: {StageSizeX} × {StageSizeZ} × {Levels}");
 
             Vector3 realPosition = GetRealPosition(stageX, stageZ, level);
             if (Centered) realPosition = ComputeCentered(realPosition);
 
-            var ball = new StaticBall(realPosition, type);
+            var ball = new StaticBall(realPosition, type, kind);
             _balls[stageX, stageZ, level] = ball;
 
             return ball;
@@ -306,13 +308,26 @@ namespace Prazsky.BS3D.GameStructure
         /// Finds the connected cluster of balls of the same <see cref="BallType"/> as the ball at <paramref name="start"/>,
         /// walking over touching cells (see <see cref="GetNeighboringCells"/>). The start cell itself is included.
         /// Returns an empty list when the start cell is empty.
+        /// <para>
+        /// <b>A ball only joins the group if its kind lets it</b> (#323's first seam,
+        /// <see cref="BallKinds.Matchable"/>). A rock is not a colour the wave can pass through: it stops the
+        /// walk exactly as an empty cell does, so a group is never counted <i>through</i> one and a rock is
+        /// never released by a match. That is the whole of the Rock's removal rule — everything else about it
+        /// falls out of code that was already here, because
+        /// <see cref="GetCellsDisconnectedFromCeiling"/> has never cared what kind a ball is.
+        /// </para>
+        /// <para>
+        /// The <b>start</b> is tested too, and not only for symmetry: this is asked of the cell a shot landed
+        /// in, and a shot is always an ordinary ball today — but an unmatchable start would otherwise report a
+        /// group of one and quietly make every future kind that lands in the lattice a special case here.
+        /// </para>
         /// </summary>
         public List<XZLevel> GetConnectedSameTypeCells(XZLevel start)
         {
             List<XZLevel> cluster = new();
 
             StaticBall startBall = _balls[start.X, start.Z, start.Level];
-            if (startBall == null) return cluster;
+            if (startBall == null || !BallKinds.Matchable(startBall.Kind)) return cluster;
 
             XZLevel size = new(StageSizeX, StageSizeZ, Levels);
 
@@ -333,7 +348,8 @@ namespace Prazsky.BS3D.GameStructure
                     visited[neighbor.X, neighbor.Z, neighbor.Level] = true;
 
                     StaticBall neighborBall = _balls[neighbor.X, neighbor.Z, neighbor.Level];
-                    if (neighborBall == null || neighborBall.Type != startBall.Type) continue;
+                    if (neighborBall == null || neighborBall.Type != startBall.Type
+                        || !BallKinds.Matchable(neighborBall.Kind)) continue;
 
                     toVisit.Enqueue(neighbor);
                 }
@@ -430,6 +446,34 @@ namespace Prazsky.BS3D.GameStructure
             return count;
         }
 
+        /// <summary>
+        /// How many balls are still there that a shot can do anything about (#323) — everything
+        /// <see cref="BallKinds.Matchable"/> says yes to. <b>This, and not
+        /// <see cref="GetBallsCount"/>, is what the end of a level is decided on.</b>
+        /// <para>
+        /// The moment a ball can exist that no colour removes, both of the Game's end conditions read the wrong
+        /// number: <c>CheckLevelCleared</c> returns early while any ball hangs, so a level with one rock in it
+        /// is <i>never</i> cleared, and the out-of-shots test beside it reads the same count, so the same level
+        /// is <i>always</i> lost. Two conditions, one count, opposite failures — which is exactly why this is
+        /// one method both of them call rather than a predicate each of them grew.
+        /// </para>
+        /// <para>
+        /// A rock still counts in <see cref="GetBallsCount"/>, deliberately: that is "what is hanging here",
+        /// which is what the drawing, the physics and the cluster profile all want.
+        /// </para>
+        /// </summary>
+        public int GetMatchableBallsCount()
+        {
+            int count = 0;
+
+            for (byte level = 0; level < Levels; level++)
+                for (byte x = 0; x < StageSizeX; x++)
+                    for (byte z = 0; z < StageSizeZ; z++)
+                        if (_balls[x, z, level] != null && BallKinds.Matchable(_balls[x, z, level].Kind))
+                            count++;
+            return count;
+        }
+
         public void SerializeAsJson(string fileName)
         {
             var ballPositionTypes = BuildBallPositionTypes();
@@ -517,7 +561,8 @@ namespace Prazsky.BS3D.GameStructure
                                 PositionX = _balls[x, z, level].Position.X,
                                 PositionY = _balls[x, z, level].Position.Y,
                                 PositionZ = _balls[x, z, level].Position.Z,
-                                Type = _balls[x, z, level].Type
+                                Type = _balls[x, z, level].Type,
+                                Kind = _balls[x, z, level].Kind
                             };
 
             return ballPositionTypes;
@@ -537,7 +582,8 @@ namespace Prazsky.BS3D.GameStructure
                 for (byte x = 0; x < layoutSize.X; x++)
                     for (byte z = 0; z < layoutSize.Z; z++)
                         if (ballPositionTypes.Balls[x, z, level] != null)
-                            PutBallAt(x, z, (byte)(level + levelOffset), ballPositionTypes.Balls[x, z, level].Type);
+                            PutBallAt(x, z, (byte)(level + levelOffset), ballPositionTypes.Balls[x, z, level].Type,
+                                ballPositionTypes.Balls[x, z, level].Kind);
         }
 
         private Vector3 ComputeUncentered(Vector3 position)

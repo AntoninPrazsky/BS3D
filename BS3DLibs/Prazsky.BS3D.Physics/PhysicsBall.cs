@@ -15,6 +15,13 @@ namespace Prazsky.BS3D.Physics
 
         public BallType Type;
 
+        /// <summary>
+        /// What the ball is beside its colour (#323), mirrored off its <see cref="StaticBall"/> when the
+        /// structure is built. It is here because <see cref="ClusterCollector"/> walks the physics array alone
+        /// and has no map to ask — and what it draws a rock as is decided per ball.
+        /// </summary>
+        public BallKind Kind;
+
         public XZLevel ArrayPosition;
 
         /// <summary>

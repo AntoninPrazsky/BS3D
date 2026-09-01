@@ -14,10 +14,17 @@ namespace MapEditor.GUI
         private byte _stageX = 0, _stageZ = 0, _level = 0;
         private BallsMap _ballsMap;
         private BallType _ActiveBallType = BallType.Type1;
+        private BallKind _ActiveBallKind = BallKind.Normal;
         private readonly ICamera _camera;
 
         /// <summary>The type the next placed ball gets — read by the host's cycle keys (#152).</summary>
         public BallType ActiveBallType => _ActiveBallType;
+
+        /// <summary>
+        /// What the next placed ball IS, beside its colour (#323) — read by the host's K key. Orthogonal to
+        /// <see cref="ActiveBallType"/>: a rock still carries a colour, and nothing reads it.
+        /// </summary>
+        public BallKind ActiveBallKind => _ActiveBallKind;
 
         public Selector(ContentManager contentManager, BallsMap ballsMap, ICamera camera)
         {
@@ -35,17 +42,22 @@ namespace MapEditor.GUI
 
         public void PutBall(BallType ballType)
         {
-            _ballsMap.PutBallAt(_stageX, _stageZ, _level, ballType);
+            _ballsMap.PutBallAt(_stageX, _stageZ, _level, ballType, _ActiveBallKind);
         }
 
         public void PutBall()
         {
-            _ballsMap.PutBallAt(_stageX, _stageZ, _level, _ActiveBallType);
+            _ballsMap.PutBallAt(_stageX, _stageZ, _level, _ActiveBallType, _ActiveBallKind);
         }
 
         public void ChangeBallType(BallType ballType)
         {
             _ActiveBallType = ballType;
+        }
+
+        public void ChangeBallKind(BallKind ballKind)
+        {
+            _ActiveBallKind = ballKind;
         }
 
         public void RemoveBall()
